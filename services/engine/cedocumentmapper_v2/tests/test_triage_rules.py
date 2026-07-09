@@ -76,6 +76,10 @@ _EXPECTED_COUNTS: dict[str, int] = {
     # Taxonomy v3 collections (collisionspike TKT-105/120 + TKT-084).
     "payment_phrases": 14,
     "pre_instruction_phrases": 17,
+    # Image-capture delivery service lane (collisionspike TKT-102: Tractable).
+    "image_service_sender_domains": 1,
+    "image_service_identity_phrases": 3,
+    "image_service_delivery_phrases": 2,
 }
 
 
@@ -158,8 +162,9 @@ def test_parity_snapshot_total():
     rules = load_triage_rules()
     total = sum(len(getattr(rules, name)) for name in _EXPECTED_COUNTS)
     # 255 -> 258 (auto_reply_markers reconciliation) -> 260 (TKT-097) -> 291
-    # (payment_phrases 14 + pre_instruction_phrases 17, taxonomy v3).
-    assert total == sum(_EXPECTED_COUNTS.values()) == 291
+    # (payment_phrases 14 + pre_instruction_phrases 17, taxonomy v3) -> 297
+    # (the three image_service_* collections, collisionspike TKT-102).
+    assert total == sum(_EXPECTED_COUNTS.values()) == 297
 
 
 # --- Golden phrase pins -------------------------------------------------------

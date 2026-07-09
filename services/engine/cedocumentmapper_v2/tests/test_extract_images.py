@@ -173,3 +173,30 @@ def test_real_photo_sizes_are_kept(tmp_path, width, height):
         _make_pdf_with_image(width, height), "photos.pdf", {}, tmp_path
     )
     assert result["count"] == 1, f"a genuine {width}x{height} photo must never be dropped"
+
+
+# --------------------------------------------------------------------------- #
+# Real Tractable summary PDF (collisionspike TKT-102)                          #
+# --------------------------------------------------------------------------- #
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+def test_tractable_submitted_vehicle_images_are_extracted(tmp_path):
+    """The real Tractable damage-capture summary PDF ('TRACTABLE 01.pdf', the
+    tests/fixtures corpus copy of the TKT-102 evidence sample): its final
+    'Submitted Vehicle Images' page carries 7 genuine 800x600 photos plus a
+    70x65 'Powered by' logo, and pages 1-2 carry two more 70x65 logos. All
+    three logos fall to the 200x200 area floor; every photo is kept.
+
+    HONEST LIMIT, pinned as-is: the 1016x565 CE letterhead graphic on page 1
+    is KEPT — its 1.8:1 aspect is a normal photo shape, so the TKT-089 banner
+    heuristic deliberately does not match it (recall guard: no real-photo
+    shape may ever be dropped). Distinguishing it by raster CONTENT is
+    collisionspike TKT-047, out of scope here.
+    """
+    pdf = Path(__file__).parent / "fixtures" / "instructions" / "TRACTABLE 01.pdf"
+    result = _service().extract_images(pdf, pdf.name, fields={}, out_dir=tmp_path)
+    names = sorted(Path(p).name for p in result["paths"])
+    assert result["count"] == 8, names
+    page3 = [n for n in names if n.startswith("img_3_")]
+    assert len(page3) == 7, names        # the Submitted Vehicle Images photos
+    assert all(n.endswith(".jpeg") for n in page3), names
+    assert names.count("img_1_1.png") == 1  # the kept letterhead graphic (see above)

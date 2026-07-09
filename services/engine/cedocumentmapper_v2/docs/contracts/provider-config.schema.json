@@ -33,6 +33,8 @@
               "vrm",
               "vehicle_model",
               "claimant_name",
+              "claimant_telephone",
+              "claimant_email",
               "reference",
               "incident_date",
               "instruction_date",

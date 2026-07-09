@@ -48,6 +48,17 @@ def normalize_date(value: str) -> str:
     cleaned = re.sub(r"(\d{1,2}/\d{2})(\d{4})\b", r"\1/\2", cleaned)
     cleaned = cleaned.replace(",", " ")
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    # A leading day-of-week word is calendar decoration, not date content —
+    # "Mon Jul 06 2026" (the Tractable PDF's ctime-style "Accident Date:",
+    # collisionspike TKT-102) must parse exactly like "Jul 06 2026". Weekday
+    # words only: month words ("May 06 2026") are untouched.
+    cleaned = re.sub(
+        r"^(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday"
+        r"|mon|tues?|wed|thur?s?|fri|sat|sun)[,.]?\s+",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
 
     formats = [
         "%d/%m/%Y",

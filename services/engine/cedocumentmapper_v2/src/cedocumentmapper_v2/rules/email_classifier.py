@@ -647,6 +647,41 @@ def _canonical_body_vrm(text: str) -> str:
 _AUTO_REPLY_MARKERS: tuple[str, ...] = _RULES.auto_reply_markers
 
 
+# --- Image-capture delivery service lane (collisionspike TKT-102) ------------ #
+# Tractable is an app CE ITSELF commissions to obtain vehicle images: the client
+# photographs the vehicle -> uploads to a portal -> the images + a summary PDF
+# are emailed to CE ("New completed lead: Book <name> in today"). That email is
+# an IMAGE DELIVERY onto a matter CE already knows about — never a work provider
+# instructing new work (its PDF's extension-derived kind is "instruction", so
+# without Rule 0f it would knock on Rule 1's door; pre-0f it abstained to
+# ``other`` as an uncorroborated doc). Detection keys on DURABLE identity
+# signals — the tractable.ai sender domain, or the "Powered by Tractable" footer
+# when the mail was forwarded — corroborated by the completed-capture delivery
+# wording ("completed lead", "damage capture"); deliberately NEVER the subject
+# emoji. Identity alone does not fire (a Tractable support/billing email must
+# not read as an image delivery). Routed to the EXISTING taxonomy lane
+# case_update · images_received (the photos ride in the attached summary PDF;
+# no taxonomy extension needed). Case-matching stays flow-side, exactly like
+# every other case_update proposal.
+_IMAGE_SERVICE_SENDER_DOMAINS: tuple[str, ...] = _RULES.image_service_sender_domains
+_IMAGE_SERVICE_IDENTITY_PHRASES: tuple[str, ...] = _RULES.image_service_identity_phrases
+_IMAGE_SERVICE_DELIVERY_PHRASES: tuple[str, ...] = _RULES.image_service_delivery_phrases
+
+
+def _sender_domain_matches(domain: str, service_domains: tuple[str, ...]) -> bool:
+    """True when ``domain`` equals one of ``service_domains`` or is a subdomain
+    of one (``mail.tractable.ai`` matches ``tractable.ai``; ``nottractable.ai``
+    does not)."""
+    d = (domain or "").strip().lower().rstrip(".")
+    if not d:
+        return False
+    return any(
+        d == s or d.endswith("." + s)
+        for s in (str(item).strip().lower() for item in service_domains)
+        if s
+    )
+
+
 def _normalise(value: Any) -> str:
     """Coerce a possibly-missing request field to a clean string."""
     if value is None:
@@ -845,6 +880,12 @@ def classify_email(
           <2 work phrases and no question -> pre_instruction ·
           pre_instruction_directions (TKT-084; no case minted — the orchestrator
           holds + correlates, gated TRIAGE_PRE_INSTRUCTION_ENABLED flow-side).
+      0f. (TKT-102) An image-capture service CE commissions (Tractable)
+          delivering a completed capture — an identity anchor (tractable.ai
+          sender domain / "powered by tractable") AND delivery wording
+          ("completed lead" / "damage capture") -> case_update ·
+          images_received. Before Rule 1 because the summary PDF's
+          extension-derived kind is "instruction"; never receiving_work.
       1. Instruction doc attached (necessary but NOT sufficient — the kind is
          extension-derived), UNLESS the email is about EXISTING work — query-phrased
          OR a reply (``is_reply``) — with no NEW work language (suppressed -> falls
@@ -960,6 +1001,18 @@ def classify_email(
     body_vrm = _canonical_body_vrm(haystack)
     body_caseref = _first_match(CASEREF_RE, haystack)
     body_jobref = _job_reference(haystack)
+    # Image-capture delivery service (TKT-102, Rule 0f) — full haystack, so a
+    # FORWARDED Tractable delivery (identity riding in the quoted footer) still
+    # registers. Identity (domain or footer phrase) AND delivery wording must
+    # BOTH be present.
+    image_service_identity = _sender_domain_matches(
+        domain_s, _IMAGE_SERVICE_SENDER_DOMAINS
+    ) or bool(_match_keywords(haystack, _IMAGE_SERVICE_IDENTITY_PHRASES))
+    image_service_delivery_phrases = (
+        _match_keywords(haystack, _IMAGE_SERVICE_DELIVERY_PHRASES)
+        if image_service_identity
+        else ()
+    )
     # A chase / query trigger (a question OR a send-me-the-report chase).
     query_or_chase = bool(query_phrases) or bool(chase_phrases)
 
@@ -994,6 +1047,8 @@ def classify_email(
         signals.append("payment_keywords:" + ",".join(payment_phrases))
     if pre_instruction_phrases:
         signals.append("pre_instruction_keywords:" + ",".join(pre_instruction_phrases))
+    if image_service_delivery_phrases:
+        signals.append("image_service_delivery:" + ",".join(image_service_delivery_phrases))
     if summary_markers:
         signals.append("summary_markers:" + ",".join(summary_markers))
     if audit_phrases:
@@ -1222,6 +1277,28 @@ def classify_email(
             SUBTYPE_PRE_INSTRUCTION_DIRECTIONS,
             _CONFIDENCE_GOOD,
             "pre_instruction_directions",
+        )
+
+    # --- Rule 0f: an image-capture service delivering a completed capture -------
+    # (collisionspike TKT-102 — the Tractable "New completed lead" email.) An
+    # IDENTITY anchor (the tractable.ai sender domain, or the "Powered by
+    # Tractable" footer on a forward) plus the completed-capture DELIVERY wording
+    # ("completed lead" / "damage capture") marks a service CE itself
+    # commissioned delivering the client's damage photos + summary PDF. It is an
+    # update to a matter CE already knows about — case_update · images_received —
+    # and must NEVER mint fresh work: its PDF's extension-derived kind is
+    # "instruction", so this rule sits BEFORE the Rule-1 instruction-doc
+    # promotion (exactly like Rule 0d's payment lane). Which case it belongs to
+    # stays a flow-side lookup (the classifier surfaces body_vrm/body_jobref as
+    # usual — for these emails typically empty: the identifiers live in the PDF,
+    # parsed later by /parse). KNOWN LIMIT (mirrors Rule 0d): a variant whose
+    # footer trips an auto-reply marker abstains at Rule 0 first.
+    if image_service_delivery_phrases:
+        return _result(
+            CATEGORY_CASE_UPDATE,
+            SUBTYPE_IMAGES_RECEIVED,
+            _CONFIDENCE_GOOD,
+            "image_service_delivery",
         )
 
     # --- Rule 1: an instruction document is necessary but NOT sufficient --------

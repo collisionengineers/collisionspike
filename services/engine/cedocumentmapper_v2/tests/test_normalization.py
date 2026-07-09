@@ -92,3 +92,13 @@ def test_validation():
     assert len(issues) == 1
     assert issues[0].severity == "warning"
     assert issues[0].field == FieldKey.INCIDENT_DATE
+
+
+def test_normalize_date_strips_leading_weekday():
+    """collisionspike TKT-102: the Tractable PDF's ctime-style 'Accident Date:
+    Mon Jul 06 2026' must parse like 'Jul 06 2026'; month words are untouched."""
+    assert normalize_date("Mon Jul 06 2026") == "06/07/2026"
+    assert normalize_date("Tuesday, 2 June 2026") == "02/06/2026"
+    assert normalize_date("wed 21 Apr 2026") == "21/04/2026"
+    # A MONTH word head must not be stripped ("May" is not a weekday here).
+    assert normalize_date("May 06 2026") == "06/05/2026"

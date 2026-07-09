@@ -719,3 +719,118 @@ def test_hold_request_with_ref_but_no_vrm_stays_out_of_receiving_work():
         has_attachments=False,
     )
     assert result["category"] != "receiving_work", result["signals"]
+
+
+# --- TKT-102: the Tractable image-delivery lane (Rule 0f) -------------------- #
+# Body condensed from the REAL "✅ New completed lead: Book Kobi in today" .eml
+# (collisionspike docs/tickets/now/TKT-102-tractable-received-handling/evidence/
+# tractableexamples/) — the durable signals, the money-shaped AI Quote figures
+# (the TKT-103 guard target), and the portal URL are all preserved verbatim.
+_TRACTABLE_LEAD_BODY = (
+    "Hi collisionengineers Team,\n\n"
+    "Kobi just completed their damage capture quote — now's the perfect time to "
+    "follow up and secure the booking.\n\n"
+    "Call Kobi on +447501726598 today to discuss the quote and book the repair.\n\n"
+    "View the job in the Tractable portal: "
+    "https://collisionengineers.auto.eu.tractable.io/auto-portal/case/"
+    "1d14eacc-9326-4a35-aca1-5a9ef865ec6e\n\n"
+    "Lead Summary:\n\n"
+    " * Name: Kobi Rayaan\n"
+    " * Phone: +447501726598\n"
+    " * Email: Desk@collisionengineers.co.uk\n"
+    " * Car: Hyundai i30 2016\n"
+    " * AI Quote: $3,168.12\n\n"
+    "We have attached the summary of their submission as well as the full line "
+    "level quote.\n\n"
+    "Need help managing leads or using the portal? Just reply to this email.\n\n"
+    "Tractable Support Team\n\n"
+    "Tractable logo Powered by Tractable\n"
+)
+
+
+def test_tractable_completed_lead_is_images_received():
+    """The real Tractable delivery email routes to case_update ·
+    images_received — never receiving_work (its PDF's extension-derived kind is
+    'instruction', which pre-0f left it abstaining as an uncorroborated doc)."""
+    result = classify_email(
+        subject="✅ New completed lead: Book  Kobi  in today",
+        body=_TRACTABLE_LEAD_BODY,
+        from_address="noreply@tractable.ai",
+        sender_domain="tractable.ai",
+        provider_match_state="none",
+        attachment_kinds=["instruction"],
+        attachment_filenames=["LINE_LEVEL_ESTIMATE.pdf"],
+        has_attachments=True,
+    )
+    assert result["category"] == "case_update", result["signals"]
+    assert result["subtype"] == "images_received"
+    assert any(s.startswith("image_service_delivery:") for s in result["signals"])
+    # TKT-103 money guard holds on this shape: the AI Quote figures
+    # ("$3,168.12") are never minted as a job reference — and no junk VRM is
+    # sniffed out of the body/portal-URL text ("i30", "use1", the UUID).
+    assert result["body_jobref"] == ""
+    assert result["body_vrm"] == ""
+    assert result["body_caseref"] == ""
+
+
+def test_tractable_domain_alone_with_delivery_wording_fires_without_footer():
+    """Durable-signal check: the tractable.ai sender domain + delivery wording
+    is enough — no 'Powered by Tractable' footer, no emoji."""
+    result = classify_email(
+        subject="New completed lead: Book Imran in today",
+        body="Imran just completed their damage capture quote. Summary attached.",
+        sender_domain="tractable.ai",
+        provider_match_state="none",
+        attachment_kinds=["instruction"],
+        has_attachments=True,
+    )
+    assert result["category"] == "case_update", result["signals"]
+    assert result["subtype"] == "images_received"
+
+
+def test_tractable_footer_identity_carries_a_forwarded_delivery():
+    """A FORWARD of the delivery (sender domain now CE's own) still registers:
+    the 'Powered by Tractable' footer is the identity anchor in the haystack."""
+    result = classify_email(
+        subject="FW: New completed lead: Book Imran in today",
+        body=(
+            "See below.\n\n"
+            "Imran just completed their damage capture quote.\n"
+            "Powered by Tractable\n"
+        ),
+        sender_domain="collisionengineers.co.uk",
+        provider_match_state="none",
+        attachment_kinds=["instruction"],
+        has_attachments=True,
+    )
+    assert result["category"] == "case_update", result["signals"]
+    assert result["subtype"] == "images_received"
+
+
+def test_tractable_support_email_is_not_an_image_delivery():
+    """Identity alone must NOT fire Rule 0f: a Tractable support/product email
+    (no completed-capture delivery wording) stays out of the case_update lane."""
+    result = classify_email(
+        subject="Your Tractable portal invoice for June",
+        body="Hi team, your monthly subscription invoice is attached. Powered by Tractable",
+        sender_domain="tractable.ai",
+        provider_match_state="none",
+        attachment_kinds=["instruction"],
+        has_attachments=True,
+    )
+    assert result["subtype"] != "images_received", result["signals"]
+    assert not any(s.startswith("image_service_delivery:") for s in result["signals"])
+
+
+def test_delivery_wording_without_identity_does_not_fire():
+    """'completed lead' wording from an unrelated sender is not a Tractable
+    delivery — the identity anchor (domain or footer) is required."""
+    result = classify_email(
+        subject="New completed lead",
+        body="A completed lead came through the website enquiry form today.",
+        sender_domain="randomleads.example.com",
+        provider_match_state="none",
+        has_attachments=False,
+    )
+    assert result["category"] != "case_update", result["signals"]
+    assert not any(s.startswith("image_service_delivery:") for s in result["signals"])
