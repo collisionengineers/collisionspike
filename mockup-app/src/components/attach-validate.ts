@@ -11,8 +11,9 @@
        the conversation text so the confirm card can pre-fill it. The MODEL resolves
        the case conversationally; this only pre-fills what the human then confirms.
      - `attachmentNote` / `fileCountLabel` — the plain-language strings the drawer
-       shows the human and describes to the model (file NAMES/COUNTS only — the file
-       bytes are NEVER sent to the model; the human uploads them via the staff route).
+       shows the human and describes to the model (file COUNT + KIND only — never the
+       filenames, which can carry claimant names / registrations / claim refs, and never
+       the bytes; the human uploads the files via the staff route).
 
    UI-LANGUAGE RULE (AGENTS.md): every returned string is handler-facing — no
    engineering terms ("MIME", "blob", "payload", status codes). Reasons mirror the
@@ -81,13 +82,27 @@ export function fileCountLabel(n: number): string {
 }
 
 /**
- * The plain-language note the drawer appends to a turn so the MODEL knows files are
- * attached (names + count ONLY — never the bytes). e.g. "Attached 2 files: photo.jpg,
- * scan.pdf". The model uses this as context to resolve the target case conversationally;
- * it has no upload tool and never touches the bytes.
+ * The plain-language note the drawer appends to a turn so the MODEL knows files are attached —
+ * COUNT + KIND only, NEVER the filenames. Filenames routinely carry claimant names, registrations,
+ * claim references or addresses, so sending them would leak PII to the external assistant model the
+ * moment a handler asks a question with files attached (the "bytes are never sent" safeguard does not
+ * cover the metadata). The model needs only to know files are present; the human resolves the target
+ * case conversationally (by registration / Case/PO they type), and the model has no upload tool.
+ * e.g. "Attached 2 files (2 photos)." / "Attached 3 files (2 photos, 1 PDF)."
  */
-export function attachmentNote(names: string[]): string {
-  return `Attached ${fileCountLabel(names.length)}: ${names.join(', ')}`;
+export function attachmentNote(files: AttachFileMeta[]): string {
+  let photos = 0;
+  let docs = 0;
+  for (const f of files) {
+    const c = classifyAttachment(f);
+    if (c.ok && c.kind === 'image') photos += 1;
+    else if (c.ok && c.kind === 'document') docs += 1;
+  }
+  const kinds: string[] = [];
+  if (photos) kinds.push(`${photos} photo${photos === 1 ? '' : 's'}`);
+  if (docs) kinds.push(`${docs} PDF${docs === 1 ? '' : 's'}`);
+  const kindStr = kinds.length ? ` (${kinds.join(', ')})` : '';
+  return `Attached ${fileCountLabel(files.length)}${kindStr}.`;
 }
 
 /** A target-case handle sniffed out of conversation text. */

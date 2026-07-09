@@ -70,6 +70,11 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
   const [attachments, setAttachments] = useState<File[]>([]);
   const [attachError, setAttachError] = useState('');
   const [showAttachCard, setShowAttachCard] = useState(false);
+  // The IMMUTABLE snapshot of the files that a specific attach-turn described to the model. The
+  // confirm card renders + uploads from THIS, never the live `attachments` tray — so editing the
+  // tray while a send is in flight (or before confirming) can never make the card upload a
+  // different set of files than the turn the human saw described.
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
   const threadRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -88,6 +93,7 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
     setTurns([]);
     setInput('');
     setAttachments([]);
+    setPendingAttachments([]);
     setAttachError('');
     setShowAttachCard(false);
   }, [sending]);
@@ -110,6 +116,7 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
 
   const clearAttachments = useCallback(() => {
     setAttachments([]);
+    setPendingAttachments([]);
     setAttachError('');
     setShowAttachCard(false);
   }, []);
@@ -117,16 +124,26 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
   const send = useCallback(
     async (text: string) => {
       const typed = text.trim();
+      // SNAPSHOT the attached files for THIS turn up front. Everything downstream — the note the
+      // model sees, and the files the confirm card uploads — is derived from this frozen `held`,
+      // never the live `attachments` state, so a mid-flight tray edit can't desync them.
       const held = attachments;
       const hasAttach = held.length > 0;
       if ((!typed && !hasAttach) || sending) return;
-      // Describe the attachments to the model as CONTEXT ONLY — names/counts, never bytes — so it
-      // can resolve the target case conversationally via its read-only lookup tool.
-      const note = hasAttach ? attachmentNote(held.map((f) => f.name)) : '';
+      // Describe the attachments to the model as CONTEXT ONLY — COUNT + KIND, never filenames or
+      // bytes — so it can help resolve the target case conversationally without any PII leaking.
+      const note = hasAttach ? attachmentNote(held) : '';
       const content = [typed, note].filter(Boolean).join('\n\n');
       const history: Turn[] = [...turns, { role: 'user', content }];
       setTurns(history);
       setInput('');
+      if (hasAttach) {
+        // Freeze the pending set and empty the working tray — the card now owns these files; the
+        // tray is clear for the next question. Hide any prior card until this turn resolves.
+        setPendingAttachments(held);
+        setAttachments([]);
+        setShowAttachCard(false);
+      }
       setSending(true);
       scrollToEnd();
       try {
@@ -137,7 +154,8 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
       } finally {
         setSending(false);
         // Once a turn carried attachments, surface the confirm card (it stays until the files are
-        // uploaded or cleared) — the human resolves + confirms the target case there.
+        // uploaded or cleared) — the human resolves + confirms the target case there, against the
+        // frozen snapshot in `pendingAttachments`.
         if (hasAttach) setShowAttachCard(true);
         scrollToEnd();
       }
@@ -204,13 +222,23 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
                 <Spinner size="tiny" label="Thinking…" labelPosition="after" />
               </div>
             )}
-            {attachments.length > 0 && showAttachCard && (
-              <AttachConfirmCard
-                files={attachments}
-                suggestedVrm={detectCaseRef(turns.slice(-4).map((t) => t.content).join('\n')).vrm}
-                onDone={clearAttachments}
-              />
-            )}
+            {pendingAttachments.length > 0 &&
+              showAttachCard &&
+              (() => {
+                // Resolve a target handle from the recent conversation (incl. the assistant's reply,
+                // which often names the case). Pass BOTH the registration AND the Case/PO — a handler
+                // who says "add these to CCPY26050" gives no registration, so the card must be able to
+                // resolve by Case/PO too, not force a manual registration lookup.
+                const ref = detectCaseRef(turns.slice(-4).map((t) => t.content).join('\n'));
+                return (
+                  <AttachConfirmCard
+                    files={pendingAttachments}
+                    suggestedVrm={ref.vrm}
+                    suggestedCasePo={ref.casePo}
+                    onDone={clearAttachments}
+                  />
+                );
+              })()}
           </div>
           <div className={styles.composerWrap}>
             {(attachments.length > 0 || attachError) && (
@@ -223,6 +251,7 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
                       size="small"
                       icon={<X size={12} />}
                       onClick={() => removeAttachment(i)}
+                      disabled={sending}
                       aria-label={`Remove ${f.name}`}
                     />
                   </span>
@@ -243,6 +272,7 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
                 appearance="subtle"
                 icon={<Paperclip size={18} />}
                 onClick={() => fileRef.current?.click()}
+                disabled={sending}
                 aria-label="Attach photos or PDFs"
               />
               <Textarea

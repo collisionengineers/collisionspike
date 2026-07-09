@@ -17,7 +17,7 @@
 
 import { gates } from './gates.js';
 import { mintCognitiveToken } from './aoai-chat.js';
-import { callPlateOcr, callLocationSuggest } from './functions-client.js';
+import { callPlateOcr, callLocationSuggest, FN_STAGE_TIMEOUT_MS } from './functions-client.js';
 import { resolveAssistImageBase64 } from './evidence-bytes.js';
 import {
   SCENE_SYSTEM_PROMPT,
@@ -190,7 +190,7 @@ export function makeImageAnalysisAdapters(): ImageAnalysisAdapters {
           ...(Object.keys(text_clues).length ? { text_clues } : {}),
           max_candidates: 5,
         };
-        const resp = (await callLocationSuggest(body)) as {
+        const resp = (await callLocationSuggest(body, { timeoutMs: FN_STAGE_TIMEOUT_MS })) as {
           candidates?: Array<{
             label?: string;
             addressLines?: string[];

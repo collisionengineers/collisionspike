@@ -57,7 +57,10 @@ const { AUDIT_ACTION } = await import('../lib/audit.js');
 await import('./ai-suggestions.js'); // registers the routes against the captured app.http
 const generate = registrations.get('generateAiSuggestions')!.handler;
 
-const CASE_ROW = { vrm: 'WN14XPZ', eva_accident_circumstances: 'Struck from behind at lights.', eva_claimant_address: 'redacted' };
+// eva_claimant_address is intentionally present on the raw row but is NEVER selected/sent by the
+// route (claimant-PII minimisation — test (e) pins that the model never receives it).
+const CLAIMANT_ADDRESS = '221B Baker Street, London NW1 6XE';
+const CASE_ROW = { vrm: 'WN14XPZ', eva_accident_circumstances: 'Struck from behind at lights.', eva_claimant_address: CLAIMANT_ADDRESS };
 
 function req(): HttpRequest {
   return { params: { id: 'case-1' }, json: async () => ({}) } as unknown as HttpRequest;
@@ -117,10 +120,13 @@ describe('generateAiSuggestions — (b) persists drafts as pending ai_suggestion
     expect(model.callSuggestionModel).toHaveBeenCalledTimes(1);
 
     // The persist INSERT carries the confidence + model_version, and does NOT set review_state
-    // (the DB DEFAULT 'pending' owns it — a draft can never arrive pre-accepted).
+    // (the DB DEFAULT 'pending' owns it — a draft can never arrive pre-accepted). The idempotency
+    // guard's NOT EXISTS clause MAY reference review_state, so assert only against the inserted
+    // COLUMN TUPLE (everything before the SELECT/VALUES), never the whole statement.
     const idx = sqls.findIndex((s) => /INSERT INTO ai_suggestion/i.test(s));
     expect(idx).toBeGreaterThanOrEqual(0);
-    expect(sqls[idx]).not.toMatch(/review_state/i);
+    const insertColumns = sqls[idx].slice(0, sqls[idx].search(/\b(SELECT|VALUES)\b/i));
+    expect(insertColumns).not.toMatch(/review_state/i);
     const p = params[idx];
     expect(p).toContain(0.8); // confidence
     expect(p).toContain('gpt-5:gpt-5-2025-08-07'); // model_version
@@ -155,5 +161,58 @@ describe('generateAiSuggestions — (d) NO silent mutation (promotion is human-r
     }
     // What it DID do: read the case + insert the two suggestions (nothing else that writes state).
     expect(insertSqls()).toHaveLength(2);
+  });
+});
+
+describe('generateAiSuggestions — (e) claimant PII minimisation (P1: address never leaves the tenant)', () => {
+  it('the model context carries the accident circumstances + VRM but NEVER the claimant address', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    model.callSuggestionModel.mockResolvedValue([]);
+    await generate(req(), ctx, {});
+    expect(model.callSuggestionModel).toHaveBeenCalledTimes(1);
+    const input = model.callSuggestionModel.mock.calls[0][0] as { vrm: string; scrubbedText: string };
+    // The claimant address is a dedicated PII field with no assessment value — it is not selected,
+    // so it can never reach the external model even though scrubPii would miss its unanchored form.
+    expect(input.scrubbedText).not.toContain('Baker Street');
+    expect(input.scrubbedText).not.toContain('NW1 6XE');
+    expect(input.scrubbedText).toContain('Struck from behind'); // the assessment text IS present
+    expect(input.vrm).toBe('WN14XPZ');
+    // And the SELECT never asks for the address column in the first place.
+    const caseSelect = sqls.find((s) => /FROM case_/i.test(s)) ?? '';
+    expect(caseSelect).not.toMatch(/eva_claimant_address/i);
+  });
+});
+
+describe('generateAiSuggestions — (f) idempotent generate (no duplicate pending rows on rerun)', () => {
+  it('calling generate twice with the same draft inserts ONE pending suggestion', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    model.callSuggestionModel.mockResolvedValue([
+      { suggestionType: 'accident_summary', suggestedValue: { summary: 'Rear-end shunt.' }, confidence: 0.8, modelVersion: 'gpt-5:x' },
+    ]);
+
+    // Stateful fake that emulates the SQL NOT EXISTS guard: an equivalent pending row is inserted
+    // once (keyed by case/evidence/type/value); a rerun's INSERT…WHERE NOT EXISTS returns no row.
+    const seen = new Set<string>();
+    rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
+      if (/FROM case_/i.test(sql)) return [CASE_ROW];
+      if (/INSERT INTO ai_suggestion/i.test(sql)) {
+        const key = JSON.stringify([p?.[0], p?.[1], p?.[2], p?.[3]]);
+        if (seen.has(key)) return []; // NOT EXISTS → no insert (idempotent)
+        seen.add(key);
+        return [{ id: 'sug-1' }];
+      }
+      return [];
+    });
+
+    const first = await generate(req(), ctx, {});
+    const second = await generate(req(), ctx, {});
+    expect(first.jsonBody).toEqual({ generated: 1 });
+    expect(second.jsonBody).toEqual({ generated: 0 });
+    // Exactly one ai_suggestion_created audit across both runs (the dedup skips the second).
+    expect(auditCalls.filter((a) => a.action === AUDIT_ACTION.ai_suggestion_created)).toHaveLength(1);
+    // Both runs run the guarded INSERT statement — the guard, not the caller, drops the duplicate.
+    expect(insertSqls()).toHaveLength(2);
+    // The insert is the NOT EXISTS form (idempotency lives in SQL, not a pre-SELECT).
+    expect(insertSqls()[0]).toMatch(/NOT EXISTS/i);
   });
 });

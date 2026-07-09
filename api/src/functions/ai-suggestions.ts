@@ -379,16 +379,23 @@ app.http('generateAiSuggestions', {
     const caseId = req.params.id;
     try {
       // Minimal case context for the model — never a full case dump (data-protection §6).
+      // Claimant address is DELIBERATELY NOT selected: it is a dedicated claimant-PII field that
+      // adds nothing to a damage/accident assessment, and the shared scrubPii is a
+      // precision-over-recall regex that explicitly does NOT catch unanchored/free-form addresses
+      // (packages/domain/src/domain/pii-scrub.ts — Known limitations). Relying on the scrubber to
+      // sanitise a known-PII structured field would leak claimant addresses to the external model
+      // once AI_ASSIST_ENABLED is on. So the model only ever sees the accident circumstances + VRM.
       const ctx = await query<Row>(
-        `SELECT vrm, eva_accident_circumstances, eva_claimant_address FROM case_ WHERE id = $1`,
+        `SELECT vrm, eva_accident_circumstances FROM case_ WHERE id = $1`,
         [caseId],
       );
       if (!ctx[0]) return { status: 404, jsonBody: { error: 'not found' } };
 
       // Assemble the free text the model would reason over, then PII-SCRUB it BEFORE the
-      // external call (VRM kept — it is the domain key the model must see; names/emails/
-      // phones/addresses/postcodes/NINOs redacted). The scrub summary is counts-only.
-      const rawText = [ctx[0].eva_accident_circumstances, ctx[0].eva_claimant_address]
+      // external call as a second line of defence (VRM kept — it is the domain key the model must
+      // see; names/emails/phones/addresses/postcodes/NINOs redacted). The scrub summary is
+      // counts-only.
+      const rawText = [ctx[0].eva_accident_circumstances]
         .filter((s) => typeof s === 'string' && s.trim().length > 0)
         .join('\n');
       const scrubbed = scrubPii(rawText, { redactVrm: false });
@@ -404,10 +411,25 @@ app.http('generateAiSuggestions', {
       let generated = 0;
       const actor = actorFromClaims(claims);
       for (const d of drafts) {
+        // IDEMPOTENT insert (mirrors the image-analysis producer's NOT EXISTS guard): skip when an
+        // equivalent PENDING suggestion for the same (case, evidence, type, value) already exists,
+        // so a double-click, a user retry, or a host retry after a late failure never stacks
+        // duplicate pending rows / audit events. Keying on suggested_value (not just type) still
+        // lets the model emit multiple DISTINCT observations of the same kind (e.g. two different
+        // damage_area values) — only an identical rerun is de-duplicated.
         const ins = await query<Row>(
           `INSERT INTO ai_suggestion
              (case_id, evidence_id, suggestion_type, suggested_value, rationale, confidence, model_version)
-           VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7) RETURNING id`,
+           SELECT $1, $2, $3, $4::jsonb, $5, $6, $7
+            WHERE NOT EXISTS (
+              SELECT 1 FROM ai_suggestion
+               WHERE suggestion_type = $3
+                 AND review_state = 'pending'
+                 AND case_id IS NOT DISTINCT FROM $1
+                 AND evidence_id IS NOT DISTINCT FROM $2
+                 AND suggested_value = $4::jsonb
+            )
+           RETURNING id`,
           [
             caseId,
             d.evidenceId ?? null,

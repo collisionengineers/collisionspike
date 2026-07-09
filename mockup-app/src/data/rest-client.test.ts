@@ -129,6 +129,30 @@ describe('rest-client — dashboard `now` threading (#4)', () => {
   });
 });
 
+describe('rest-client — openCasePoMatches (TKT-068 attach-by-Case/PO)', () => {
+  it('GETs /api/cases?case_po=<encoded> and returns the matches', async () => {
+    const rows = [{ id: 'c-9', casePo: 'CCPY26050', vrm: 'YT13UTV', status: 'needs_review' }];
+    const fetchMock = vi.fn().mockResolvedValue(okJson(rows));
+    const da = clientWith(fetchMock);
+    const out = await da.openCasePoMatches('CCPY26050');
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases?case_po=CCPY26050');
+    expect(out).toEqual(rows);
+  });
+
+  it('URL-encodes the Case/PO and threads exclude', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson([]));
+    const da = clientWith(fetchMock);
+    await da.openCasePoMatches('A.PCH26/1', 'c-1');
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases?case_po=A.PCH26%2F1&exclude=c-1');
+  });
+
+  it('safe()-empty on a transport error (the card prompts for a registration instead)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(500));
+    const da = clientWith(fetchMock);
+    await expect(da.openCasePoMatches('CCPY26050')).resolves.toEqual([]);
+  });
+});
+
 describe('rest-client — updateCase / editable VRM (issue #12)', () => {
   const caseId = 'c-123';
   const updated = { id: caseId, vrm: 'MX17PNL', status: 'needs_review' };

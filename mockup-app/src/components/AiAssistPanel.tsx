@@ -78,27 +78,104 @@ const useStyles = makeStyles({
   actions: { display: 'flex', gap: tokens.spacingHorizontalS, marginTop: '2px' },
 });
 
-/** Plain-language label per suggestion kind (no engineering terms). */
-const TYPE_LABEL: Record<string, string> = {
+/** Plain-language label per suggestion kind (no engineering terms). Covers the legacy kinds AND
+ *  the TKT-015 case-assessment + TKT-016 image-analysis kinds, so a live suggestion never renders a
+ *  raw enum name (AGENTS.md user-facing-language rule). */
+export const TYPE_LABEL: Record<string, string> = {
   image_role: 'Photo role',
   registration: 'Registration',
   inspection_address: 'Inspection address',
   triage_category: 'Email category',
+  // TKT-015 case/damage-assessment observations.
+  damage_area: 'Damage area',
+  damage_severity: 'Damage severity',
+  accident_summary: 'Accident summary',
+  // TKT-016 staged image-analysis observations.
+  vehicle_present: 'Vehicle check',
+  same_vehicle: 'Same vehicle',
+  background_text: 'Background detail',
+  location_hint: 'Location clue',
+  address_suggestion: 'Inspection address',
 };
 
-/** A short, human summary of a suggestion's proposed value (defensive over `unknown`). */
-function summariseValue(s: AiSuggestion): string {
+/** Join a small list of readable strings for a summary, capped so a long payload can't flood a row. */
+function joinCapped(parts: unknown[], max = 4): string {
+  const clean = parts.map((p) => (typeof p === 'string' ? p.trim() : '')).filter(Boolean);
+  const shown = clean.slice(0, max).join(', ');
+  return clean.length > max ? `${shown}…` : shown;
+}
+
+/** A short, human summary of a suggestion's proposed value (defensive over `unknown`). Every kind
+ *  the app can mint has an explicit branch here — the JSON.stringify fallback is a last resort for a
+ *  truly unknown shape, never the normal path for a known kind. */
+export function summariseValue(s: AiSuggestion): string {
   const v = s.suggestedValue as Record<string, unknown> | null;
   if (v && typeof v === 'object') {
     if (s.suggestionType === 'image_role' && typeof v.role === 'string') return `Role: ${v.role}`;
-    if (s.suggestionType === 'registration' && typeof v.visible === 'boolean') {
-      return v.visible ? 'Registration is visible' : 'Registration not visible';
+    if (s.suggestionType === 'registration') {
+      const detected = typeof v.detectedVrm === 'string' ? v.detectedVrm.trim() : '';
+      if (detected) {
+        return v.matchesCaseVrm === true
+          ? `Registration reads ${detected} — matches this case`
+          : `Registration reads ${detected}`;
+      }
+      if (v.visibility === 'visible_unreadable') return 'A registration plate is present but not readable';
+      if (typeof v.visible === 'boolean') return v.visible ? 'Registration is visible' : 'Registration not visible';
     }
     if (s.suggestionType === 'inspection_address' && Array.isArray(v.lines)) {
       return (v.lines as unknown[]).filter(Boolean).join(', ');
     }
     if (s.suggestionType === 'triage_category' && typeof v.category === 'string') {
       return `Category: ${v.category}`;
+    }
+    // ---- TKT-015 case/damage-assessment kinds ----
+    if (s.suggestionType === 'damage_area' && typeof v.area === 'string') return v.area;
+    if (s.suggestionType === 'damage_severity' && typeof v.severity === 'string') {
+      const sev = v.severity;
+      return `Damage looks ${sev === 'unknown' ? 'hard to judge from the notes' : sev}`;
+    }
+    if (s.suggestionType === 'accident_summary' && typeof v.summary === 'string') return v.summary;
+    // ---- TKT-016 image-analysis kinds ----
+    if (s.suggestionType === 'vehicle_present') {
+      const present = v.present === true;
+      const descriptor = typeof v.descriptor === 'string' ? v.descriptor.trim() : '';
+      const base = present
+        ? descriptor
+          ? `Shows a vehicle — ${descriptor}`
+          : 'This photo shows a vehicle'
+        : 'This photo does not show a vehicle';
+      return v.personReflection === true ? `${base} · a person’s reflection is visible` : base;
+    }
+    if (s.suggestionType === 'same_vehicle') {
+      return v.sameVehicle === true
+        ? 'The photos appear to show the same vehicle'
+        : 'The photos may show more than one vehicle — please check';
+    }
+    if (s.suggestionType === 'background_text' && Array.isArray(v.items)) {
+      const texts = (v.items as unknown[]).map((i) =>
+        i && typeof (i as { text?: unknown }).text === 'string' ? (i as { text: string }).text : '',
+      );
+      const summary = joinCapped(texts);
+      return summary ? `Readable background: ${summary}` : 'Readable background detail found';
+    }
+    if (s.suggestionType === 'location_hint' && Array.isArray(v.hints)) {
+      const details = (v.hints as unknown[]).map((h) =>
+        h && typeof (h as { detail?: unknown }).detail === 'string' ? (h as { detail: string }).detail : '',
+      );
+      const summary = joinCapped(details);
+      return summary ? `Possible location clues: ${summary}` : 'Possible location clues found';
+    }
+    if (s.suggestionType === 'address_suggestion') {
+      const best = v.best as { label?: unknown; lines?: unknown; postcode?: unknown } | undefined;
+      if (best && typeof best === 'object') {
+        if (typeof best.label === 'string' && best.label.trim()) return best.label.trim();
+        if (Array.isArray(best.lines)) {
+          const line = joinCapped(best.lines);
+          if (line) return line;
+        }
+        if (typeof best.postcode === 'string' && best.postcode.trim()) return best.postcode.trim();
+      }
+      return 'A likely inspection address from the photos and provider history';
     }
   }
   try {
