@@ -57,3 +57,9 @@ etc. all pass).
 PENDING (update). Ack re-probe still classifies non_actionable/acknowledgement live (200); eval pins 5/5; App Insights shows classify_email 8/8 -> 200 since 2026-07-06 and zero case-minting internal-route calls in the window. The two Postgres confirmations (voided case 160262e5 still Removed; zero new active blank cases since 2026-07-07) were firewall-blocked on the read-only dispatch — queued for the orchestrator transient-firewall data pass.
 
 Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.
+
+## Verdict update — 2026-07-09 (orchestrator transient-firewall data pass)
+
+VERIFIED-LIVE — both queued confirmations PASS. (a) Case 160262e5 remains voided: status_code 100000011 (Removed), name [removed], closed_at 2026-07-07 10:58:53Z. (b) ZERO cases minted by non_actionable emails since 2026-07-07: a first-cut linked-email join surfaced 9 rows, but drill-down proved every one is an ack LINKED to a case that was minted by a category-100000000 receiving_work email seconds before case creation (e.g. 4f2201fa: Connexus "569617 / Our ref: KC06NOV" receiving_work 14:20:23Z -> case 14:20:37Z; the RE: ack 14:36:56Z linked after) — exactly the designed attach behaviour, not a mint. Combined with the 2026-07-09 live classify re-probe (non_actionable/acknowledgement) and green pins, all acceptance evidence is now in place.
+
+Verified by: orchestrating session (direct Postgres reads, Entra digital@ -> SET ROLE csadmin; transient rule csdatapass added then removed; the ~17 stale cs*/tmp transient rules from prior sessions were ALSO deleted — only AllowAzureServices remains).

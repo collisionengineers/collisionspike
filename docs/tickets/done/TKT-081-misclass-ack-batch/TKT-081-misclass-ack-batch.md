@@ -1,11 +1,11 @@
 ---
 id: TKT-081
 title: Acknowledgement emails still misclassified — tagged as query/new case, one opened a blank case
-status: verify
+status: done
 priority: P1
 area: email
 tickets-it-relates-to: [TKT-038, TKT-006]
-research-link: docs/tickets/verify/TKT-081-misclass-ack-batch/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-081-misclass-ack-batch/evidence/operator-note.md
 ---
 
 # Acknowledgement emails still misclassified — tagged as query/new case, one opened a blank case
@@ -33,7 +33,7 @@ reference-bearing subject appears to outvote the acknowledgement body.
 - Live behaviour per the operator: tags as above; sample-2 additionally created a blank case
   (find and clean it as part of the data fix — search `case_` rows created from that email's
   intake around its received date).
-- Prior fix + eval pin: [TKT-038](../../done/TKT-038-misclass-query-ack/TKT-038-misclass-query-ack.md)
+- Prior fix + eval pin: [TKT-038](../TKT-038-misclass-query-ack/TKT-038-misclass-query-ack.md)
   (`non_actionable`/`acknowledgement`, verified live 2026-07-02).
 
 ## Proposed change
