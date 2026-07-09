@@ -23,7 +23,7 @@ collapsed into one.
   people and external (QDOS) reference numbers on email".
 - `evidence/46533_1 - Barry Pavlou..eml`, `46640_1 - Andy Smith.eml`, `46670_1 - Mohammed Jameel.eml`,
   `46671_1 - Michael McCarthy.eml` — the QDOS samples.
-- Possibly correlated with the false "AND2" VRM ([TKT-100](../../now/TKT-100-qdos-false-vrm-and2/TKT-100-qdos-false-vrm-and2.md)):
+- Possibly correlated with the false "AND2" VRM ([TKT-100](../../verify/TKT-100-qdos-false-vrm-and2/TKT-100-qdos-false-vrm-and2.md)):
   if every QDOS email resolves the same bogus VRM, a VRM-based dedup key would collapse them — so verify
   whether the linking vector is the shared false VRM.
 
@@ -44,7 +44,7 @@ PROPOSED (not built):
 
 Distilled 2026-07-07 from operator drop-note `to-distill/qdos-error/`; raw material in
 [evidence/](./evidence). The false-VRM half of the same note is
-[TKT-100](../../now/TKT-100-qdos-false-vrm-and2/TKT-100-qdos-false-vrm-and2.md).
+[TKT-100](../../verify/TKT-100-qdos-false-vrm-and2/TKT-100-qdos-false-vrm-and2.md).
 
 ## Artifacts
 

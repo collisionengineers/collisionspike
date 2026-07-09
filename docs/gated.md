@@ -411,6 +411,17 @@ Dataverse `cr1bd_knownemaildomains` column.)*
 > `pch-ltd.com`.) Send QDOS's real sending domain(s) and it gets seeded (idempotent `916`-style delta),
 > so direct QDOS audits resolve at intake like PCH does.
 
+> **YML domain — surfaced by the 2026-07-09 classifier wave ([TKT-071](./tickets/verify/TKT-071-vrm-false-positive-hd4110/TKT-071-vrm-false-positive-hd4110.md) devnote).**
+> A **YML** provider row exists but its `known_email_domains` is **empty** (candidate:
+> `networkhduk`/YM Law sending domain). Confirm the real business domain and it gets seeded
+> (idempotent `916`-style delta). Not applied without your confirmation.
+
+> **Pre-instruction retention — decision needed ([TKT-084](./tickets/verify/TKT-084-pre-instruction-handling/TKT-084-pre-instruction-handling.md)).**
+> The signed-off pre-instruction lane is **live** (holds directions + correlates onto the later
+> official instruction). Undecided: what happens when **no instruction ever arrives** — how long a
+> held pre-instruction email is retained and whether a chaser fires. Say the retention window /
+> chaser policy and it gets built.
+
 #### D4. Add extra reference info  ·  *you supply the data*
 
 **What:** a few reference lists would improve matching and inspection-location suggestions (provider-code
