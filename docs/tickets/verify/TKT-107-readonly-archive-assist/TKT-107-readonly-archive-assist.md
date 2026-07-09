@@ -5,7 +5,7 @@ status: verify
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-058, TKT-093, TKT-072]
-research-link: docs/tickets/verify/TKT-058-retro-case-creation/verification.md
+research-link: docs/tickets/done/TKT-058-retro-case-creation/verification.md
 plan: PLAN-001
 ---
 

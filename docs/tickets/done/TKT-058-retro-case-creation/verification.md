@@ -65,3 +65,9 @@
 FAILED (live) — operator-supplied evidence, 2026-07-08 workstream report: Retro case-create not working on ref PHA5007; acknowledgement emails still ending in new cases. Reopened verify->now; the fix is co-dispatched with TKT-119 (retro root-cause + ack-mint hardening + Unable to Locate).
 
 Verified by: operator report transcribed by the orchestrating session, 2026-07-08.
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch)
+
+VERIFIED-LIVE. Both operator failure reports resolved: the retro lever is field-proven twice live (PHA5007 -> 87e79f62 via Deleted Items; 46671/1 -> 6cd60114), and the ack-classified trigger produced a locate-and-reconstruct (Held, no PO minted) — never a mint. Provenance chip renders. Scope notes (not failures): the Box rung stays dark pending D11 sequence alignment; the rung-1 LINK outcome has no live occurrence yet (both drains ended in creates); the bulk backlog drain is TKT-140.
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.
