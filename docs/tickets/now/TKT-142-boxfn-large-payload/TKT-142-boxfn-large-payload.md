@@ -1,11 +1,11 @@
 ---
 id: TKT-142
 title: Box facade 502s on large base64 payloads — QDOS26029 archive stranded (17.6 MB .eml)
-status: backlog
+status: now
 priority: P1
 area: box
 tickets-it-relates-to: [TKT-087, TKT-003]
-research-link: docs/tickets/backlog/TKT-142-boxfn-large-payload/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-142-boxfn-large-payload/evidence/operator-note.md
 plan: PLAN-003
 ---
 
@@ -37,4 +37,4 @@ Filed 2026-07-09 from the lifecycle-wave report (PLAN-003 workflow finding).
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

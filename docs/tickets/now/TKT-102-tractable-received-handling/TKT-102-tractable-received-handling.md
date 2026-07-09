@@ -1,11 +1,11 @@
 ---
 id: TKT-102
 title: Tractable received-email handling — categorise, match to case, parse PDF, extract images
-status: backlog
+status: now
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-024, TKT-034, TKT-003, TKT-103, TKT-104]
-research-link: docs/tickets/backlog/TKT-102-tractable-received-handling/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-102-tractable-received-handling/evidence/operator-note.md
 ---
 
 # Tractable received-email handling — categorise, match to case, parse PDF, extract images

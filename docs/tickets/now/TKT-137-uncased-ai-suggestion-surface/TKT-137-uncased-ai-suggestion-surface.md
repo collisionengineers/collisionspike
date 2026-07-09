@@ -1,11 +1,11 @@
 ---
 id: TKT-137
 title: Surface triage_category AI suggestions on uncased emails — currently written but invisible
-status: backlog
+status: now
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-120, TKT-015, TKT-006]
-research-link: docs/tickets/backlog/TKT-137-uncased-ai-suggestion-surface/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-137-uncased-ai-suggestion-surface/evidence/operator-note.md
 plan: PLAN-003
 ---
 
@@ -38,4 +38,4 @@ Filed 2026-07-09 from the classifier-wave batch report (PLAN-003 workflow findin
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

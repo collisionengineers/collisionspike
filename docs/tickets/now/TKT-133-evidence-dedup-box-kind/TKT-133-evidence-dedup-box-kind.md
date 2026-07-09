@@ -1,11 +1,11 @@
 ---
 id: TKT-133
 title: Deduplicate evidence rows (email + Box mirror twins) + fix the box-webhook kind at source
-status: backlog
+status: now
 priority: P2
 area: evidence
 tickets-it-relates-to: [TKT-124, TKT-126, TKT-003]
-research-link: docs/tickets/backlog/TKT-133-evidence-dedup-box-kind/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-133-evidence-dedup-box-kind/evidence/operator-note.md
 plan: PLAN-003
 ---
 
@@ -44,4 +44,4 @@ Filed 2026-07-09 from the UI-wave batch report (workflow finding).
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

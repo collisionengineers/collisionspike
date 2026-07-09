@@ -135,6 +135,12 @@
 |---|---|---|
 | [TKT-088](./now/TKT-088-image-role-classification-check/TKT-088-image-role-classification-check.md) | Image role auto-classification — confirm whether it works and decide the path | Un-parked 2026-07-08: premise stale — TKT-064 shipped live auto-classification (gate on); confirm live behaviour + record the determination; reconcile via TKT-112. |
 | [TKT-112](./now/TKT-112-image-writer-reconcile/TKT-112-image-writer-reconcile.md) | Reconcile the two image-classification writers | Un-parked 2026-07-08: BOTH writers now live (orch auto-classify + api image-analysis suggestions) — reconcile ownership now. |
+| [TKT-102](./now/TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md) | Tractable received-email handling — categorise, match to case, parse PDF, extract images | P2 drop-note (2026-07-07): recognise the Tractable "New completed lead…" email, match it to its case, parse the PDF Vehicle Information + extract/match the submitted images. Holds the shared Tractable samples. |
+| [TKT-132](./now/TKT-132-generate-suggestions-inputs/TKT-132-generate-suggestions-inputs.md) | Widen the AI-suggestion generate inputs beyond accident circumstances | Workflow finding 2026-07-09 (D1): empty circumstances -> no_input on most cases. |
+| [TKT-133](./now/TKT-133-evidence-dedup-box-kind/TKT-133-evidence-dedup-box-kind.md) | Deduplicate evidence rows (email + Box mirror twins) + fix the box-webhook kind at source | Workflow finding 2026-07-09 (UI wave): sha256 dedup + honest kind at source. |
+| [TKT-136](./now/TKT-136-parse-fallback-ref-guard/TKT-136-parse-fallback-ref-guard.md) | Guard the /parse fallback reference against money values and text fragments (RIGERANT R1234YF) | Classifier-wave finding 2026-07-09: /parse path unguarded; live junk case_ref reproduced. |
+| [TKT-137](./now/TKT-137-uncased-ai-suggestion-surface/TKT-137-uncased-ai-suggestion-surface.md) | Surface triage_category AI suggestions on uncased emails — currently written but invisible | Classifier-wave finding 2026-07-09 (TKT-120): AI verdicts on uncased emails have no UI surface. |
+| [TKT-142](./now/TKT-142-boxfn-large-payload/TKT-142-boxfn-large-payload.md) | Box facade 502s on large base64 payloads — QDOS26029 archive stranded (17.6 MB .eml) | Lifecycle-wave finding 2026-07-09 (TKT-087): worker death on large payloads; chunked upload needed. |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
@@ -278,15 +284,9 @@
 
 | ID | Title | State |
 |---|---|---|
-| [TKT-142](./backlog/TKT-142-boxfn-large-payload/TKT-142-boxfn-large-payload.md) | Box facade 502s on large base64 payloads — QDOS26029 archive stranded (17.6 MB .eml) | Lifecycle-wave finding 2026-07-09 (TKT-087): worker death on large payloads; chunked upload needed. |
 | [TKT-140](./backlog/TKT-140-retro-backlog-drain/TKT-140-retro-backlog-drain.md) | Bulk retro backlog drain — reconstitute historical un-cased emails from Deleted Items | Intake-wave finding 2026-07-09: feasibility proven (no build needed); operator-paced drain proposed. |
-| [TKT-137](./backlog/TKT-137-uncased-ai-suggestion-surface/TKT-137-uncased-ai-suggestion-surface.md) | Surface triage_category AI suggestions on uncased emails — currently written but invisible | Classifier-wave finding 2026-07-09 (TKT-120): AI verdicts on uncased emails have no UI surface. |
-| [TKT-136](./backlog/TKT-136-parse-fallback-ref-guard/TKT-136-parse-fallback-ref-guard.md) | Guard the /parse fallback reference against money values and text fragments (RIGERANT R1234YF) | Classifier-wave finding 2026-07-09: /parse path unguarded; live junk case_ref reproduced. |
-| [TKT-133](./backlog/TKT-133-evidence-dedup-box-kind/TKT-133-evidence-dedup-box-kind.md) | Deduplicate evidence rows (email + Box mirror twins) + fix the box-webhook kind at source | Workflow finding 2026-07-09 (UI wave): sha256 dedup + honest kind at source. |
 | [TKT-131](./backlog/TKT-131-image-role-classify-retry/TKT-131-image-role-classify-retry.md) | Classify the role-unknown evidence images — retry the backfill residue so cases can reach Ready for EVA | Workflow finding 2026-07-09 (D1): role-unknown images starve the EVA image rule. |
-| [TKT-132](./backlog/TKT-132-generate-suggestions-inputs/TKT-132-generate-suggestions-inputs.md) | Widen the AI-suggestion generate inputs beyond accident circumstances | Workflow finding 2026-07-09 (D1): empty circumstances -> no_input on most cases. |
 | [TKT-018](./backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md) | AI total-loss vs repairable categorisation | Deferred until the pipeline is complete. |
-| [TKT-102](./backlog/TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md) | Tractable received-email handling — categorise, match to case, parse PDF, extract images | P2 drop-note (2026-07-07): recognise the Tractable "New completed lead…" email, match it to its case, parse the PDF Vehicle Information + extract/match the submitted images. Holds the shared Tractable samples. |
 
 ## Blocked — needs operator
 

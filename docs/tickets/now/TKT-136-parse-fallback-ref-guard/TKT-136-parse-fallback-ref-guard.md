@@ -1,11 +1,11 @@
 ---
 id: TKT-136
 title: Guard the /parse fallback reference against money values and text fragments (RIGERANT R1234YF)
-status: backlog
+status: now
 priority: P2
 area: parsing
 tickets-it-relates-to: [TKT-103, TKT-071]
-research-link: docs/tickets/backlog/TKT-136-parse-fallback-ref-guard/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-136-parse-fallback-ref-guard/evidence/operator-note.md
 plan: PLAN-003
 ---
 
@@ -38,7 +38,7 @@ Filed 2026-07-09 from the classifier-wave batch report (PLAN-003 workflow findin
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)
 
 ## Scope addendum — 2026-07-09 (intake wave)
 

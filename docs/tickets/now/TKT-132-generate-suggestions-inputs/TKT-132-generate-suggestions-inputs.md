@@ -1,11 +1,11 @@
 ---
 id: TKT-132
 title: Widen the AI-suggestion generate inputs beyond accident circumstances
-status: backlog
+status: now
 priority: P2
 area: ai
 tickets-it-relates-to: [TKT-127, TKT-015]
-research-link: docs/tickets/backlog/TKT-132-generate-suggestions-inputs/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-132-generate-suggestions-inputs/evidence/operator-note.md
 plan: PLAN-003
 ---
 
@@ -39,4 +39,4 @@ PLAN-003 workflow, added per the operator's standing instruction.
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

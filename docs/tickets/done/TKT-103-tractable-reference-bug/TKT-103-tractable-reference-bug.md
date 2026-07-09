@@ -21,7 +21,7 @@ monetary/estimate value, not a reference. This is a false-token capture in the s
 - `evidence/operator-note.md` — "E-mail classifier also incorrectly pulling 768.00 as the reference —
   this is not a reference number."
 - Shared samples live in the primary Tractable ticket:
-  [TKT-102/evidence/tractableexamples/](../../backlog/TKT-102-tractable-received-handling/evidence/tractableexamples)
+  [TKT-102/evidence/tractableexamples/](../../now/TKT-102-tractable-received-handling/evidence/tractableexamples)
   (`LINE_LEVEL_ESTIMATE.pdf`, `tractable.pdf`, `tractable2.pdf`, three "New completed lead…" `.eml`).
 
 ## Proposed change
@@ -40,7 +40,7 @@ PROPOSED (not built):
 ## Research
 
 Distilled 2026-07-07 from operator drop-note `to-distill/tractable-integration/`
-(`tractable-received.md`). Split from [TKT-102](../../backlog/TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md)
+(`tractable-received.md`). Split from [TKT-102](../../now/TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md)
 (email handling) and [TKT-104](../../blocked/TKT-104-tractable-api-integration/TKT-104-tractable-api-integration.md)
 (deferred API).
 
