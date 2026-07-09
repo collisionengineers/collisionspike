@@ -559,6 +559,17 @@ def test_dotted_sequence_refs_still_extract_past_a_money_value():
     assert _job_reference("your ref 45391_1") == "45391_1"
 
 
+# --- C4: the LABELLED tier must continue past a money value ------------------- #
+def test_labelled_ref_extractor_continues_past_a_money_value():
+    # A money value carried by an EARLIER labelled match ("Ref: 768.00") must not
+    # mask a genuine labelled ref later on ("Our Ref: 12345"): pre-fix the labelled
+    # tier used .search() (first match only), so the money guard dropped 768.00 and
+    # the plain numeric 12345 (no separator -> not a structured ref) was never seen.
+    assert _job_reference("Ref: 768.00 ... Our Ref: 12345") == "12345"
+    # The label makes a bare number safe; a money-only labelled ref stays empty.
+    assert _job_reference("Ref: 768.00 total due") == ""
+
+
 # --- TKT-097: "not wish to proceed" cancellations win over query/work -------- #
 def test_client_not_wishing_to_proceed_is_a_cancellation():
     # The live Oakwood miss: a reply with images + "engineers report" wording
@@ -680,6 +691,44 @@ def test_attached_instruction_doc_beats_the_pre_instruction_lane():
         has_attachments=True,
     )
     assert result["category"] == "receiving_work", result["signals"]
+
+
+# --- C2: a strong body-only instruction must win over the pre_instruction lane -- #
+def test_body_only_instruction_beats_the_pre_instruction_lane():
+    # A FRESH (non-reply) email with ONE work cue + a body VRM + an existing ref
+    # that also carries "instructions to follow" boilerplate is REAL work: Rule 3's
+    # second arm (strong_body_instruction) must win. Pre-fix Rule 0e fired first
+    # (len(work_phrases) < 2), wrongly returning pre_instruction so no case minted.
+    result = classify_email(
+        subject="New matter - AB12 CDE",
+        body=(
+            "Good morning,\n\nPlease inspect the vehicle AB12 CDE. Our ref 46203. "
+            "Further instructions to follow.\n\nThank you"
+        ),
+        provider_match_state="none",
+        has_attachments=False,
+    )
+    assert result["category"] == "receiving_work", result["signals"]
+    assert result["signals"][-1] == "rule:body_only_instruction"
+
+
+def test_pre_instruction_still_fires_for_directions_with_no_work_cue_and_a_ref():
+    # Guards the disqualifier's work-phrase term: a genuine pre-instruction
+    # heads-up (NO work cue) that happens to be a non-reply carrying a VRM AND an
+    # existing ref must STILL fire the pre_instruction lane — Rule 3's second arm
+    # never catches it (no work phrase), so a bare non-reply/VRM/ref disqualifier
+    # would wrongly drop it to abstain-to-other.
+    result = classify_email(
+        subject="Heads up - SA61 JXB",
+        body=(
+            "Good afternoon,\n\nWhen you receive an instruction from RJ on this one "
+            "please hold off from obtaining images. Our ref 46203.\n\nThank you"
+        ),
+        provider_match_state="none",
+        has_attachments=False,
+    )
+    assert result["category"] == "pre_instruction", result["signals"]
+    assert result["subtype"] == "pre_instruction_directions"
 
 
 # --- kinds-only requests keep the images_received subtype --------------------- #
