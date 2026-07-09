@@ -369,6 +369,42 @@ def test_create_evidence_engineer_report_class_is_sent_verbatim():
     c.close()
 
 
+@respx.mock
+def test_create_evidence_forwards_sha256_on_wire():
+    # TKT-133: the api internal route reads row.sha256 and keys its write-time
+    # (case_id, sha256) dedup/link on it — the client must forward it verbatim.
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"persisted": 1})
+
+    respx.post(f"{BASE}/api/internal/cases/CASE-1/evidence").mock(side_effect=handler)
+    c = _client()
+    digest = "ab" * 32
+    c.create_evidence(
+        case_id="CASE-1", filename="IMG_1.jpg", box_file_id="999", sha256=digest
+    )
+    assert captured["body"]["rows"][0]["sha256"] == digest
+    c.close()
+
+
+@respx.mock
+def test_create_evidence_omits_sha256_when_none():
+    # Over-cap / unfetchable bytes -> honest omission, never an empty string.
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"persisted": 1})
+
+    respx.post(f"{BASE}/api/internal/cases/CASE-1/evidence").mock(side_effect=handler)
+    c = _client()
+    c.create_evidence(case_id="CASE-1", filename="IMG_1.jpg", box_file_id="999", sha256=None)
+    assert "sha256" not in captured["body"]["rows"][0]
+    c.close()
+
+
 # ===========================================================================
 # audience normalisation
 # ===========================================================================

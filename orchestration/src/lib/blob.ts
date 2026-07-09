@@ -11,6 +11,7 @@
  * Legacy fallback: EVIDENCE_BLOB_CONNECTION (connection string) when no account is set.
  */
 
+import { createHash } from 'node:crypto';
 import { BlobServiceClient } from '@azure/storage-blob';
 import type { AccessToken, TokenCredential } from '@azure/core-auth';
 
@@ -65,6 +66,11 @@ export interface UploadedBlob {
   blobPath: string;
   /** Byte length written. */
   size: number;
+  /** Lower-case hex SHA-256 of the uploaded bytes (TKT-133) — carried onto the evidence
+   *  row so the Data API can dedup/link the email-attachment lane against its Box
+   *  FILE.UPLOADED mirror twin on (case_id, sha256). Hashed HERE because this is the one
+   *  seam where every evidence byte-stream passes through in-memory. */
+  sha256: string;
 }
 
 /**
@@ -82,7 +88,21 @@ export async function uploadEvidenceBytes(
   const blobPath = `${sanitize(messageId)}/${sanitize(filename)}`;
   const block = container.getBlockBlobClient(blobPath);
   await block.uploadData(bytes, { blobHTTPHeaders: { blobContentType: contentType } });
-  return { blobPath, size: bytes.length };
+  return { blobPath, size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
+}
+
+/**
+ * Byte size of one evidence blob WITHOUT downloading it (a getProperties HEAD). The
+ * TKT-142 archive branch decides inline-base64 vs facade-side blob fetch on this, so a
+ * large file never has to be pulled into the orchestration just to measure it. Throws if
+ * the blob is missing/unreadable (caller decides whether to skip — same contract as
+ * downloadEvidenceBytes).
+ */
+export async function getEvidenceBlobSize(blobPath: string): Promise<number> {
+  const container = client().getContainerClient(containerName());
+  const block = container.getBlockBlobClient(blobPath);
+  const props = await block.getProperties();
+  return props.contentLength ?? 0;
 }
 
 /**

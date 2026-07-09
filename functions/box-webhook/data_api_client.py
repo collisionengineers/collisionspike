@@ -267,12 +267,16 @@ class DataApiClient:
         mirror, accepted-for-EVA=true, and the human source label. storage_path is
         left blank by the API (bytes mirror to Blob on the finalize/parser path).
         ``kind`` is accepted for signature-compat; the API derives kind_code from
-        ``evidenceClass`` — default ``'image'`` (the File-Request photo path; the
-        API's TKT-124 guard re-derives non-photos), while TKT-095 detector (b)
+        ``evidenceClass`` — the receiver now derives the TRUE class at source
+        (TKT-133, extension-primary; the API's TKT-124 guard re-derives
+        'image'-claimed rows as belt-and-braces), while TKT-095 detector (b)
         passes ``'engineer_report'`` for a classified CE report (explicit
         non-image classes are honoured verbatim server-side). Box sends sha1,
-        recorded in the source label, not as sha256. Returns a truthy marker when
-        a row was persisted, '' when the row already existed (server-side dedup)."""
+        recorded in the source label; ``sha256`` (TKT-133) — when the receiver
+        computed it from the capped byte fetch — is forwarded on the wire row
+        (the API internal route reads ``row.sha256`` and keys its write-time
+        (case_id, sha256) dedup/link on it). Returns a truthy marker when a row
+        was persisted, '' when the row already existed (server-side dedup)."""
         row: dict[str, Any] = {
             "filename": filename,
             "evidenceClass": evidence_class or "image",
@@ -281,6 +285,8 @@ class DataApiClient:
             "acceptedForEva": True,
             "sourceLabel": source_label,
         }
+        if sha256:
+            row["sha256"] = sha256
         if box_file_url:
             row["boxFileUrl"] = box_file_url
         url = f"{self.base_url}/api/internal/cases/{quote(str(case_id), safe='')}/evidence"

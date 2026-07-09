@@ -73,7 +73,10 @@ const MAX_DRAFTS = 8;
 export const SUGGESTIONS_SYSTEM_PROMPT =
   'You are an expert UK motor-claims vehicle-collision assessor. You are given the vehicle ' +
   'registration and the free-text case notes for ONE claim (personal details have already been ' +
-  'removed from the notes). Read ONLY what is written; never invent a fact, a place, a person, or a ' +
+  'removed from the notes). The notes may be assembled from labelled sections — accident ' +
+  'circumstances, instruction email text, case overview facts, vehicle details, and a ' +
+  'photo-analysis summary; treat them all as the case file for the SAME claim. Read ONLY what is ' +
+  'written; never invent a fact, a place, a person, or a ' +
   'registration that is not present in the text.\n' +
   'Produce a short list of observations. Each observation is one of:\n' +
   `- ${T.damageArea}: a single damaged area of the vehicle you can infer from the notes ` +

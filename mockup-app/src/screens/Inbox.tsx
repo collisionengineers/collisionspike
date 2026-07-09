@@ -94,11 +94,16 @@ import {
 import { formatReceivedCompact } from '../components/date-format';
 import { Pager } from '../components/Pager';
 import { nextPeekId, parsePeek, withPeek, withoutPeek } from './peek';
+import { parseInboxItem, resolveInboxItem, withoutInboxItem } from './inbox-deep-link';
 import {
+  appliedEmailType,
   caseLinkHeadline,
   cancellationHeadline,
   pendingRefGateSuggestion,
+  pendingTriageCategorySuggestion,
   refGateValue,
+  triageCategoryHeadline,
+  triageCategoryLabel,
   CASE_LINK_SUGGESTION_TYPE,
   CANCELLATION_SUGGESTION_TYPE,
 } from './inbox-suggestions';
@@ -753,6 +758,19 @@ export function Inbox() {
   useEffect(() => {
     setPendingHidden((prev) => (prev.size === 0 ? prev : new Set()));
   }, [inbox.data]);
+
+  // `?item=<inbound email id>` deep link (TKT-072: a global-search EMAIL hit opens
+  // THAT email's preview). One-shot: wait for the list to load, open the row's
+  // preview if it exists, then consume the param either way — an unknown/stale id
+  // degrades honestly to the plain inbox (no error flash), and Back returns to the
+  // search results instead of re-opening the preview.
+  const inboxItemId = parseInboxItem(searchParams.toString());
+  useEffect(() => {
+    if (!inboxItemId || inbox.loading) return;
+    const target = resolveInboxItem(rows, inboxItemId);
+    if (target) setSelectedEmail(target);
+    setSearchParams((prev) => withoutInboxItem(prev.toString()), { replace: true });
+  }, [inboxItemId, inbox.loading, rows, setSearchParams]);
 
   // Every filter EXCEPT the mailbox facet — the base the mailbox chips' own
   // "live" counts are drawn from (so a chip's count reflects "how many would
@@ -1657,6 +1675,15 @@ export function Inbox() {
                 setSelectedEmail((prev) => (prev && prev.id === emailId ? { ...prev, caseId } : prev));
                 refresh();
               }}
+              // TKT-137 — an accepted type suggestion relabelled the email: patch the
+              // sidebar's row in place when the server applied it, refresh the grid
+              // either way (the E-mail type cell reads the refetched rows).
+              onEmailTypeChanged={(emailId, applied) => {
+                if (applied) {
+                  setSelectedEmail((prev) => (prev && prev.id === emailId ? { ...prev, ...applied } : prev));
+                }
+                refresh();
+              }}
               dispatchToast={dispatchToast}
             />
           )}
@@ -1736,6 +1763,7 @@ function EmailPreviewPanel({
   onTriage,
   onReclassify,
   onCaseLinkChanged,
+  onEmailTypeChanged,
   dispatchToast,
 }: {
   row: InboundEmail;
@@ -1748,6 +1776,13 @@ function EmailPreviewPanel({
    *  lets the sidebar (and the grid, via the parent's own refresh) show the new
    *  caseId without waiting on a full refetch. */
   onCaseLinkChanged: (emailId: string, caseId: string | undefined) => void;
+  /** An accepted type suggestion (TKT-137) may have relabelled this email — patch
+   *  the sidebar's row in place when the server applied the pair (`applied` set),
+   *  and refresh the grid either way so the E-mail type cell agrees. */
+  onEmailTypeChanged: (
+    emailId: string,
+    applied: { category: InboundCategory; subtype: InboundSubtype } | undefined,
+  ) => void;
   dispatchToast: ReturnType<typeof useToastController>['dispatchToast'];
 }) {
   const styles = useStyles();
@@ -1773,6 +1808,10 @@ function EmailPreviewPanel({
   const cancellationSuggestion = pendingRefGateSuggestion(suggestions, CANCELLATION_SUGGESTION_TYPE);
   const caseLinkTargetId = caseLinkSuggestion && refGateValue(caseLinkSuggestion).targetCaseId;
   const cancellationTargetId = cancellationSuggestion && refGateValue(cancellationSuggestion).targetCaseId;
+  // AI email-identification verdict (TKT-137) — a pending triage_category suggestion
+  // proposes a TYPE for this email. UNCASED rows only (the ticket's target): a linked
+  // row's type is anchored to its case and staff relabel it via Reclassify instead.
+  const triageCategorySuggestion = !row.caseId ? pendingTriageCategorySuggestion(suggestions) : undefined;
   const { review, saving: reviewSaving } = useReviewAiSuggestion();
   const [reviewingId, setReviewingId] = useState<string | undefined>(undefined);
   const { detach, detaching } = useDetachInbound();
@@ -1822,6 +1861,75 @@ function EmailPreviewPanel({
           <ToastTitle>Marked “Not a match”</ToastTitle>
         </Toast>,
         { intent: 'success' },
+      );
+    } catch (err) {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t save that. Please try again.</ToastTitle>
+          <ToastBody>{err instanceof Error ? err.message : 'Please try again.'}</ToastBody>
+        </Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setReviewingId(undefined);
+    }
+  };
+
+  /* ----- AI-suggested e-mail type (TKT-137) — accept applies via the audited
+     review seam (promoteAcceptedSuggestion's triage_category branch); ignore
+     dismisses. Suggest-only: nothing changes until a person clicks. ----- */
+  const onAcceptTriageCategory = async () => {
+    if (!triageCategorySuggestion) return;
+    const s = triageCategorySuggestion;
+    setReviewingId(s.id);
+    try {
+      const result = await review(s.id, { decision: 'accepted' });
+      suggestionsQuery.refetch();
+      // Patch the sidebar's row + refresh the grid — but only claim the new type
+      // when the server actually applied it (it never overwrites a decision a
+      // person already made by hand; `promoted` reports which happened).
+      onEmailTypeChanged(row.id, result.promoted ? appliedEmailType(s) : undefined);
+      if (result.promoted) {
+        dispatchToast(
+          <Toast>
+            <ToastTitle>Filed as “{triageCategoryLabel(s) ?? 'the suggested type'}”</ToastTitle>
+            <ToastBody>{row.subject}</ToastBody>
+          </Toast>,
+          { intent: 'success' },
+        );
+      } else {
+        dispatchToast(
+          <Toast>
+            <ToastTitle>Suggestion recorded</ToastTitle>
+            <ToastBody>This email keeps its current type — a choice made by a person stays.</ToastBody>
+          </Toast>,
+          { intent: 'info' },
+        );
+      }
+    } catch (err) {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t save that. Please try again.</ToastTitle>
+          <ToastBody>{err instanceof Error ? err.message : 'Please try again.'}</ToastBody>
+        </Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setReviewingId(undefined);
+    }
+  };
+
+  const onIgnoreTriageCategory = async () => {
+    if (!triageCategorySuggestion) return;
+    setReviewingId(triageCategorySuggestion.id);
+    try {
+      await review(triageCategorySuggestion.id, { decision: 'rejected' });
+      suggestionsQuery.refetch();
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Suggestion set aside</ToastTitle>
+        </Toast>,
+        { intent: 'info' },
       );
     } catch (err) {
       dispatchToast(
@@ -1954,6 +2062,44 @@ function EmailPreviewPanel({
                 onClick={() => onOpenCase(cancellationTargetId)}
               >
                 Open case
+              </Button>
+            </MessageBarActions>
+          </MessageBar>
+        )}
+
+        {/* AI email-identification verdict (TKT-137) — info, not warning: a
+            suggestion, nothing is wrong with the row. Plain handler English
+            only; suggest-only until a person clicks. */}
+        {triageCategorySuggestion && (
+          <MessageBar intent="info">
+            <MessageBarBody>
+              <MessageBarTitle>{triageCategoryHeadline(triageCategorySuggestion)}</MessageBarTitle>
+              {triageCategorySuggestion.rationale}
+            </MessageBarBody>
+            <MessageBarActions>
+              <Button
+                appearance="primary"
+                size="small"
+                icon={
+                  reviewingId === triageCategorySuggestion.id && reviewSaving ? (
+                    <Spinner size="tiny" />
+                  ) : (
+                    <CheckCircle2 size={14} />
+                  )
+                }
+                disabled={reviewingId === triageCategorySuggestion.id && reviewSaving}
+                onClick={() => void onAcceptTriageCategory()}
+              >
+                Accept
+              </Button>
+              <Button
+                appearance="secondary"
+                size="small"
+                icon={<X size={14} />}
+                disabled={reviewingId === triageCategorySuggestion.id && reviewSaving}
+                onClick={() => void onIgnoreTriageCategory()}
+              >
+                Ignore
               </Button>
             </MessageBarActions>
           </MessageBar>

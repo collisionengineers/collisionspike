@@ -16,7 +16,7 @@
  *  GET  /api/internal/work-provider/{id}/ai-allowed  → { aiAllowed: boolean | null } (per-provider AI opt-out, docs/gated.md D6)
  *  GET  /api/internal/dedup-context                  → DedupContext
  *  POST /api/internal/cases/resolve                  → { outcome, caseId }
- *  POST /api/internal/cases/{id}/evidence            → { persisted: number }
+ *  POST /api/internal/cases/{id}/evidence            → { persisted, updated, merged }
  *  GET  /api/internal/cases/{id}/archive-evidence    → blob-backed evidence rows for archive mirroring
  *  POST /api/internal/cases/{id}/archive-evidence/stamp → stamp archive file id/link
  *  POST /api/internal/cases/{id}/status-evaluate     → { value: string }
@@ -2284,7 +2284,23 @@ async function applyEvidenceMetadata(
    The two dedup keys never collide: an email row has no sourceMessageId/boxFileId
    and a Box row has no blobPath. Re-running either is idempotent (NOT EXISTS
    guard), so an at-least-once retry updates nothing rather than duplicating.
+
+   TKT-133 — sha256 write-time dedup/LINK (runs BEFORE either lane INSERT, when the
+   caller supplies a plausible sha256): the SAME photo arriving via the email lane
+   AND its Box FILE.UPLOADED mirror used to yield TWO rows (the per-lane keys never
+   collide by design). Now a same-case (case_id + sha256 — NEVER across cases)
+   content twin is LINKED instead of duplicated: the incoming arrival's missing
+   provenance (box_file_id/box_file_url for a Box arrival onto an email-first row;
+   storage_path for an email arrival onto a Box-first row) is filled onto the
+   EXISTING row (source_message_id is left alone — it is the existing lane's
+   identity) and the row counts under `merged` in the response. A retry of the SAME
+   identity (same box:file tag / same storage_path) deliberately falls through to
+   the unchanged lane logic (NOT EXISTS no-op + metadata update-in-place). Rows
+   without a sha256 behave exactly as before.
    ============================================================ */
+
+/** A plausible sha256 hex digest — the only shape the TKT-133 dedup pass keys on. */
+const SHA256_HEX_RE = /^[0-9a-f]{64}$/i;
 app.http('internalCasesEvidence', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -2320,6 +2336,7 @@ app.http('internalCasesEvidence', {
 
       let persisted = 0;
       let updated = 0;
+      let merged = 0; // TKT-133: sha256 content twins linked onto an existing row instead of inserted
       for (const row of body.rows ?? []) {
         // TKT-124 kind guard: the box-webhook historically hardcoded
         // evidenceClass='image' for EVERY FILE.UPLOADED row, so PDFs/.doc/.eml/
@@ -2373,6 +2390,84 @@ app.http('internalCasesEvidence', {
         const sourceMessageId = (row.sourceMessageId ?? '').trim() || null;
         const boxFileId = (row.boxFileId ?? '').trim() || null;
         const isBoxRow = sourceMessageId != null || boxFileId != null;
+
+        // ---- TKT-133: sha256 write-time dedup/link — an ADDITIONAL check BEFORE the
+        // lane INSERTs (all existing per-lane NOT EXISTS dedup below is unchanged).
+        // Keyed STRICTLY on (case_id, sha256): identical bytes on a DIFFERENT case are
+        // never deduped. Only runs when the caller supplied a plausible 64-hex sha256;
+        // rows without one take exactly the pre-TKT-133 path.
+        if (sha256 && SHA256_HEX_RE.test(sha256)) {
+          const twin = await query<{
+            id: string;
+            box_file_id: string | null;
+            box_file_url: string | null;
+            storage_path: string | null;
+            source_message_id: string | null;
+          }>(
+            `SELECT id, box_file_id, box_file_url, storage_path, source_message_id
+               FROM evidence WHERE case_id = $1 AND sha256 = $2 LIMIT 1`,
+            [caseId, sha256],
+          );
+          const ex = twin[0];
+          if (ex) {
+            // The SAME identity re-arriving (an at-least-once retry) falls through to the
+            // existing lane logic — its NOT EXISTS no-ops the insert and the metadata
+            // update-in-place still applies (the image-extraction re-enrichment seam).
+            const sameIdentity = isBoxRow
+              ? (boxFileId != null && ex.box_file_id === boxFileId) ||
+                (sourceMessageId != null && ex.source_message_id === sourceMessageId)
+              : row.blobPath != null && ex.storage_path === row.blobPath;
+            if (!sameIdentity) {
+              // A genuine content twin for the SAME case: LINK provenance onto the
+              // existing row, never insert a duplicate.
+              if (isBoxRow && ex.box_file_id == null && boxFileId != null) {
+                // Box mirror of an email-first row → fill the Box provenance. The existing
+                // row's source_message_id is ITS lane's identity — deliberately left alone.
+                await query(
+                  `UPDATE evidence
+                      SET box_file_id = $2,
+                          box_file_url = COALESCE($3, box_file_url),
+                          updated_at = now()
+                    WHERE id = $1 AND box_file_id IS NULL`,
+                  [ex.id, boxFileId, (row.boxFileUrl ?? '').trim() || null],
+                );
+              } else if (!isBoxRow && ex.storage_path == null && row.blobPath) {
+                // Email/blob arrival of a Box-first row → fill the blob provenance.
+                await query(
+                  `UPDATE evidence
+                      SET storage_path = $2::text, updated_at = now()
+                    WHERE id = $1 AND storage_path IS NULL`,
+                  [ex.id, row.blobPath],
+                );
+              }
+              // The arrival may carry image metadata the existing row lacks (e.g. the
+              // orchestration classified the email attachment) — absorb it in place, same
+              // overwrite semantics as the existing retry/enrichment path. Gated on
+              // metadata BEYOND the sha256 itself (the twin's sha256 already matches by
+              // definition — re-writing it alone would be a pointless UPDATE).
+              const hasMergeMetadata =
+                row.imageRoleCode != null ||
+                row.imageRole != null ||
+                typeof row.registrationVisible === 'boolean' ||
+                row.excluded != null ||
+                row.exclusionReason != null ||
+                row.personReflection != null ||
+                row.sequenceIndex != null;
+              if (hasMergeMetadata) {
+                await applyEvidenceMetadata(ctx, 'id = $1', [ex.id], row, {
+                  imageRoleCode,
+                  registrationVisible,
+                  excluded,
+                  exclusionReason,
+                  sha256,
+                  sequenceIndex,
+                });
+              }
+              merged++;
+              continue; // never insert a same-case content twin
+            }
+          }
+        }
 
         let inserted = false;
         if (isBoxRow) {
@@ -2469,7 +2564,7 @@ app.http('internalCasesEvidence', {
         if (inserted) persisted++;
       }
 
-      return { status: 200, jsonBody: { persisted, updated } };
+      return { status: 200, jsonBody: { persisted, updated, merged } };
     }),
 });
 

@@ -80,6 +80,28 @@ describe('runSearch (TKT-072)', () => {
     expect(res.cases[0].vrmCanonical).toBe('YT13UTV');
   });
 
+  it('case hits carry createdAt (ISO) so the SPA can render a plain age; absent → null', async () => {
+    rowsFor.mockImplementation((sql: string) =>
+      /FROM case_/i.test(sql)
+        ? [
+            {
+              id: 'c1',
+              case_po: 'CCPY26050',
+              vrm: 'YT13UTV',
+              status_code: 100000005,
+              created_at: '2026-06-27T10:43:00.000Z',
+            },
+            { id: 'c2', vrm: 'YT13UTV', status_code: 100000005 }, // no created_at → null, no throw
+          ]
+        : [],
+    );
+    const res = await runSearch('YT13UTV');
+    expect(res.cases[0].createdAt).toBe('2026-06-27T10:43:00.000Z');
+    expect(res.cases[1].createdAt).toBeNull();
+    const caseSql = sqls.find((s) => /FROM case_/i.test(s))!;
+    expect(caseSql).toContain('c.created_at');
+  });
+
   it('honest-empty on no match (never throws)', async () => {
     const res = await runSearch('zzzznomatch');
     expect(res.cases).toEqual([]);

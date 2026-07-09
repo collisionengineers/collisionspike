@@ -9643,7 +9643,36 @@ var zodToJsonSchema = (schema, options) => {
 function toJsonSchema(schema) {
   const json = zodToJsonSchema(schema, { target: "openApi3", $refStrategy: "none" });
   delete json.$schema;
+  normalizeExclusiveBounds(json);
   return json;
+}
+function normalizeExclusiveBounds(node) {
+  if (Array.isArray(node)) {
+    for (const item of node)
+      normalizeExclusiveBounds(item);
+    return;
+  }
+  if (node === null || typeof node !== "object")
+    return;
+  const obj = node;
+  if (typeof obj.exclusiveMinimum === "boolean") {
+    if (obj.exclusiveMinimum === true && typeof obj.minimum === "number") {
+      obj.exclusiveMinimum = obj.minimum;
+      delete obj.minimum;
+    } else {
+      delete obj.exclusiveMinimum;
+    }
+  }
+  if (typeof obj.exclusiveMaximum === "boolean") {
+    if (obj.exclusiveMaximum === true && typeof obj.maximum === "number") {
+      obj.exclusiveMaximum = obj.maximum;
+      delete obj.maximum;
+    } else {
+      delete obj.exclusiveMaximum;
+    }
+  }
+  for (const value of Object.values(obj))
+    normalizeExclusiveBounds(value);
 }
 var QueryParams = external_exports.object({
   query: external_exports.string().min(1).describe("a Case/PO, VRM, or claimant name (partial ok)")
@@ -9654,17 +9683,19 @@ var CaseRefParams = external_exports.object({
 }).strict();
 var CaseRefLimitParams = external_exports.object({
   case: external_exports.string().min(1).describe("a Case/PO, vehicle registration (VRM), or claimant name"),
-  limit: external_exports.number().int().positive().max(50).optional().describe("max rows (default 10)")
+  // .min(1), NOT .positive(): .positive() emits a boolean exclusiveMinimum under the
+  // OpenAPI-3 target, which AOAI rejects (2026-07-09 live incident — see toJsonSchema).
+  limit: external_exports.number().int().min(1).max(50).optional().describe("max rows (default 10)")
 }).strict();
 var VrmParams = external_exports.object({
   vrm: external_exports.string().min(1).describe("a vehicle registration (VRM); spaces are ignored")
 }).strict();
 var QueueParams = external_exports.object({
   queue: external_exports.string().min(1).describe('a queue name: "Not ready", "Review", or "Held" (case-insensitive)'),
-  limit: external_exports.number().int().positive().max(50).optional().describe("max rows (default 10)")
+  limit: external_exports.number().int().min(1).max(50).optional().describe("max rows (default 10)")
 }).strict();
 var LimitParams = external_exports.object({
-  limit: external_exports.number().int().positive().max(50).optional().describe("max rows (default 10)")
+  limit: external_exports.number().int().min(1).max(50).optional().describe("max rows (default 10)")
 }).strict();
 var SetOnHoldParams = external_exports.object({
   caseId: external_exports.string().min(1).describe("the case id (GUID)"),
@@ -10181,7 +10212,7 @@ import_functions8.app.storageQueue("outlook-move", {
 });
 
 // orchestration/src/functions/intakeOrchestrator.ts
-var df5 = __toESM(require("durable-functions"), 1);
+var df6 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/supplement-parse.ts
 var ACCIDENT_START_RE = /accident circumstances\s*:?/i;
@@ -10212,9 +10243,129 @@ function supplementAccidentCircumstancesFromBody(body2) {
   return value.length > 10 ? value : "";
 }
 
+// orchestration/src/functions/activities/imagesReceivedVrmMatch.ts
+var df4 = __toESM(require("durable-functions"), 1);
+var PDF_NAME_RE = /\.pdf$/i;
+var PDF_CTYPE_RE = /pdf/i;
+function shouldAttemptPdfVrmMatch(classification, triage, attachments) {
+  const imagesReceived = classification.subtype === "images_received" || triage.finalSubtype === "images_received";
+  if (!imagesReceived) return false;
+  if (triage.action === "suggest_attach" || triage.action === "attach_case") return false;
+  return (attachments ?? []).some(
+    (a) => PDF_NAME_RE.test(a.filename ?? "") || PDF_CTYPE_RE.test(a.contentType ?? "")
+  );
+}
+function planVrmMatch(input14) {
+  if (!input14.refGate && !input14.imagesRouting) return { step: "skip", reason: "gate_off" };
+  const flagOr = (reason) => input14.imagesRouting ? { step: "flag", reason } : { step: "skip", reason: "flag_gate_off" };
+  const vrm = canonicalizeVrm(input14.vrm ?? "");
+  if (!vrm) return flagOr("no_registration");
+  const tried = canonicalizeVrm(input14.triedVrm ?? "");
+  if (tried && vrm === tried) return flagOr("already_tried");
+  if (!input14.refGate) return flagOr("suggest_gate_off");
+  return { step: "lookup", vrm };
+}
+function resolveVrmMatches(matches) {
+  const distinct = /* @__PURE__ */ new Map();
+  for (const m of matches) {
+    if (!distinct.has(m.caseId)) distinct.set(m.caseId, { caseId: m.caseId, casePo: m.casePo });
+  }
+  if (distinct.size === 1) {
+    return { step: "suggest", target: [...distinct.values()][0] };
+  }
+  return {
+    step: "flag",
+    reason: distinct.size === 0 ? "no_open_case" : "multiple_open_cases"
+  };
+}
+df4.app.activity("imagesReceivedVrmMatch", {
+  handler: async (input14, ctx) => {
+    const internetMessageId = (input14.internetMessageId ?? "").trim();
+    if (!internetMessageId) {
+      return { outcome: "skipped:no_message_id" };
+    }
+    const plan = planVrmMatch({
+      vrm: input14.vrm ?? "",
+      triedVrm: input14.triedVrm ?? "",
+      refGate: gates.triageRefGate(),
+      imagesRouting: gates.triageImagesRouting()
+    });
+    if (plan.step === "skip") {
+      ctx.log(JSON.stringify({ evt: "imagesReceivedVrmMatch", outcome: "skipped", reason: plan.reason }));
+      return { outcome: `skipped:${plan.reason}` };
+    }
+    let flagReason = plan.step === "flag" ? plan.reason : "";
+    if (plan.step === "lookup") {
+      let matches = [];
+      try {
+        const context3 = await dataApi.triageContext({
+          caseref: "",
+          jobref: "",
+          vrm: plan.vrm,
+          internetMessageId: "",
+          conversationId: ""
+        });
+        matches = context3.openCaseMatches;
+      } catch (e) {
+        ctx.warn(
+          `[imagesReceivedVrmMatch] context lookup failed for ${internetMessageId} (degrading to the visible flag): ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+      const resolution = resolveVrmMatches(matches);
+      if (resolution.step === "suggest") {
+        const target = resolution.target;
+        try {
+          await dataApi.triageSuggestLink({
+            sourceMessageId: internetMessageId,
+            targetCaseId: target.caseId,
+            suggestionType: "case_link",
+            // HANDLER-LANGUAGE (rendered in the SPA's "Why this label?" — the
+            // triage-policy.ts rationale precedent; no engineering terms).
+            rationale: `The attached document shows registration ${plan.vrm}, which matches open case ${target.casePo} \u2014 suggested attaching this email to it.`,
+            decisionInputs: {
+              rung: "images_received_pdf_vrm",
+              vrm: plan.vrm,
+              triedVrm: input14.triedVrm ?? "",
+              matchCount: 1
+            }
+          });
+        } catch (e) {
+          ctx.warn(
+            `[imagesReceivedVrmMatch] suggestion write failed for ${internetMessageId} (best-effort, continuing): ${e instanceof Error ? e.message : String(e)}`
+          );
+          return { outcome: "suggest_failed", caseId: target.caseId };
+        }
+        ctx.log(
+          JSON.stringify({ evt: "imagesReceivedVrmMatch", outcome: "suggested", caseId: target.caseId, vrm: plan.vrm })
+        );
+        return { outcome: "suggested", caseId: target.caseId };
+      }
+      flagReason = resolution.reason;
+    }
+    if (!gates.triageImagesRouting()) {
+      ctx.log(JSON.stringify({ evt: "imagesReceivedVrmMatch", outcome: "skipped", reason: "flag_gate_off", flagReason }));
+      return { outcome: "skipped:flag_gate_off" };
+    }
+    let stamped = false;
+    try {
+      const res = await dataApi.markInboundAttention({
+        sourceMessageId: internetMessageId,
+        reason: "images_no_match"
+      });
+      stamped = res.stamped;
+    } catch (e) {
+      ctx.warn(
+        `[imagesReceivedVrmMatch] attention stamp failed for ${internetMessageId} (best-effort): ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+    ctx.log(JSON.stringify({ evt: "imagesReceivedVrmMatch", outcome: stamped ? "flagged" : "flag_failed", flagReason }));
+    return { outcome: stamped ? `flagged:${flagReason}` : "flag_failed" };
+  }
+});
+
 // orchestration/src/functions/gated/triage-classify.ts
 var import_functions9 = require("@azure/functions");
-var df4 = __toESM(require("durable-functions"), 1);
+var df5 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/aoai.ts
 var COGNITIVE_SERVICES_SCOPE = "https://cognitiveservices.azure.com/.default";
@@ -10511,22 +10662,22 @@ import_functions9.app.http("triage-classify-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "triage-classify",
-  extraInputs: [df4.input.durableClient()],
+  extraInputs: [df5.input.durableClient()],
   handler: async (req, ctx) => {
     const input14 = await req.json();
-    const client2 = df4.getClient(ctx);
+    const client2 = df5.getClient(ctx);
     const instanceId = await client2.startNew("triageClassifyOrchestrator", { input: input14 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry = new df4.RetryOptions(5e3, 3);
+var retry = new df5.RetryOptions(5e3, 3);
 retry.backoffCoefficient = 2;
-df4.app.orchestration("triageClassifyOrchestrator", function* (ctx) {
+df5.app.orchestration("triageClassifyOrchestrator", function* (ctx) {
   const input14 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("triageClassify", retry, input14);
   return result;
 });
-df4.app.activity("triageClassify", {
+df5.app.activity("triageClassify", {
   handler: async (input14, ctx) => {
     if (!gates.emailAi() || !gates.aiAssistConfigured()) {
       ctx.log("[triageClassify] skipped \u2014 EMAIL_AI_ENABLED off or model endpoint/deployment not configured");
@@ -10590,7 +10741,7 @@ df4.app.activity("triageClassify", {
 });
 
 // orchestration/src/functions/intakeOrchestrator.ts
-var retry2 = new df5.RetryOptions(
+var retry2 = new df6.RetryOptions(
   /*firstRetryIntervalInMilliseconds*/
   5e3,
   /*maxNumberOfAttempts*/
@@ -10598,7 +10749,7 @@ var retry2 = new df5.RetryOptions(
 );
 retry2.backoffCoefficient = 2;
 retry2.maxRetryIntervalInMilliseconds = 6e4;
-df5.app.orchestration("intakeOrchestrator", function* (ctx) {
+df6.app.orchestration("intakeOrchestrator", function* (ctx) {
   const input14 = ctx.df.getInput();
   const inbound = yield ctx.df.callActivityWithRetry("fetchMessage", retry2, input14);
   const provider = yield ctx.df.callActivityWithRetry("providerMatch", retry2, inbound);
@@ -10799,6 +10950,41 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
         ...retroReplyOutcome ? { retro: retroReplyOutcome } : {}
       };
     }
+    let pdfVrmMatch;
+    if (shouldAttemptPdfVrmMatch(
+      classification,
+      triage,
+      inbound.attachments
+    )) {
+      try {
+        let laneParse = {};
+        try {
+          laneParse = yield ctx.df.callActivityWithRetry("parse", retry2, {
+            messageId: inbound.messageId,
+            attachments: inbound.attachments,
+            providerHint: principalCode
+          });
+        } catch (e) {
+          if (!ctx.df.isReplaying) {
+            ctx.log(
+              `[intake] images-received PDF parse failed (additive, non-blocking): ${String(e)}`
+            );
+          }
+        }
+        const vrmMatch = yield ctx.df.callActivityWithRetry("imagesReceivedVrmMatch", retry2, {
+          internetMessageId: inbound.internetMessageId,
+          vrm: (laneParse.vrm?.value ?? "").trim(),
+          triedVrm: (inbound.candidateVrm || classification.bodyVrm || "").trim()
+        });
+        pdfVrmMatch = vrmMatch.outcome;
+      } catch (e) {
+        if (!ctx.df.isReplaying) {
+          ctx.log(
+            `[intake] images-received VRM match failed (additive, non-blocking): ${String(e)}`
+          );
+        }
+      }
+    }
     const inbNonReply = inbound;
     const retroNonReply = decideRetro({
       category: classification.category,
@@ -10837,6 +11023,7 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
     return {
       triaged: classification.category,
       subtype: classification.subtype,
+      ...pdfVrmMatch ? { pdfVrmMatch } : {},
       ...retroOutcome ? { retro: retroOutcome } : {}
     };
   }
@@ -10984,8 +11171,11 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
 });
 
 // orchestration/src/functions/activities/fetchMessage.ts
-var import_node_crypto5 = require("node:crypto");
-var df6 = __toESM(require("durable-functions"), 1);
+var import_node_crypto6 = require("node:crypto");
+var df7 = __toESM(require("durable-functions"), 1);
+
+// orchestration/src/lib/blob.ts
+var import_node_crypto4 = require("node:crypto");
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/abort-controller/AbortError.js
 var AbortError = class extends Error {
@@ -50345,7 +50535,13 @@ async function uploadEvidenceBytes(messageId, filename, bytes, contentType2) {
   const blobPath = `${sanitize(messageId)}/${sanitize(filename)}`;
   const block = container.getBlockBlobClient(blobPath);
   await block.uploadData(bytes, { blobHTTPHeaders: { blobContentType: contentType2 } });
-  return { blobPath, size: bytes.length };
+  return { blobPath, size: bytes.length, sha256: (0, import_node_crypto4.createHash)("sha256").update(bytes).digest("hex") };
+}
+async function getEvidenceBlobSize(blobPath) {
+  const container = client().getContainerClient(containerName());
+  const block = container.getBlockBlobClient(blobPath);
+  const props = await block.getProperties();
+  return props.contentLength ?? 0;
 }
 async function downloadEvidenceBytes(blobPath) {
   const container = client().getContainerClient(containerName());
@@ -50363,9 +50559,9 @@ function sanitize(seg) {
 }
 
 // orchestration/src/lib/evidence-names.ts
-var import_node_crypto4 = require("node:crypto");
+var import_node_crypto5 = require("node:crypto");
 function messageFileToken(id) {
-  return (0, import_node_crypto4.createHash)("sha256").update(String(id ?? ""), "utf8").digest("hex").slice(0, 8);
+  return (0, import_node_crypto5.createHash)("sha256").update(String(id ?? ""), "utf8").digest("hex").slice(0, 8);
 }
 function rawEmlFileName(messageIdOrInternetId) {
   return `message-${messageFileToken(messageIdOrInternetId)}.eml`;
@@ -50377,7 +50573,7 @@ function bodyInstructionFileName(messageIdOrInternetId) {
 // orchestration/src/functions/activities/fetchMessage.ts
 var BODY_CAP = 2e4;
 var BODY_PREVIEW_CAP = 3500;
-df6.app.activity("fetchMessage", {
+df7.app.activity("fetchMessage", {
   handler: async (input14, ctx) => {
     const parsedMailbox = mailboxOfResource(input14.resource ?? "");
     let mailbox = parsedMailbox;
@@ -50396,7 +50592,7 @@ df6.app.activity("fetchMessage", {
     for (const a of attachments) {
       const bytes = Buffer.from(a.contentBytes ?? "", "base64");
       const up = await uploadEvidenceBytes(input14.messageId, a.name, bytes, a.contentType);
-      landed.push({ filename: a.name, contentType: a.contentType, blobPath: up.blobPath, size: up.size });
+      landed.push({ filename: a.name, contentType: a.contentType, blobPath: up.blobPath, size: up.size, sha256: up.sha256 });
     }
     let rawEml;
     try {
@@ -50407,7 +50603,8 @@ df6.app.activity("fetchMessage", {
         filename: emlName,
         contentType: "message/rfc822",
         blobPath: emlUp.blobPath,
-        size: emlUp.size
+        size: emlUp.size,
+        sha256: emlUp.sha256
       };
     } catch (e) {
       ctx.warn(`[fetchMessage] raw .eml capture failed for ${input14.messageId}: ${e instanceof Error ? e.message : String(e)}`);
@@ -50444,12 +50641,12 @@ ${body2}`);
 });
 function hashPayload(subject, from, attachments) {
   const norm = subject.trim().toLowerCase() + "|" + from.trim().toLowerCase() + "|" + attachments.map((a) => `${a.filename.toLowerCase()}:${a.size}`).sort().join(",");
-  return (0, import_node_crypto5.createHash)("sha256").update(norm).digest("hex");
+  return (0, import_node_crypto6.createHash)("sha256").update(norm).digest("hex");
 }
 
 // orchestration/src/functions/activities/providerMatch.ts
-var df7 = __toESM(require("durable-functions"), 1);
-df7.app.activity("providerMatch", {
+var df8 = __toESM(require("durable-functions"), 1);
+df8.app.activity("providerMatch", {
   handler: async (inbound, ctx) => {
     const { providers, imageSources } = await dataApi.providerMatchRecords();
     const identity = matchSenderIdentity(inbound.senderAddress, providers, imageSources);
@@ -50496,7 +50693,7 @@ df7.app.activity("providerMatch", {
 });
 
 // orchestration/src/functions/activities/classifyInbound.ts
-var df8 = __toESM(require("durable-functions"), 1);
+var df9 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/functions-client.ts
 var PARSER = { urlEnv: "PARSER_FN_URL", keyEnv: "PARSER_FN_KEY" };
@@ -50586,6 +50783,25 @@ var box = {
       ...contentType2 ? { contentType: contentType2 } : {}
     });
   },
+  /**
+   * TKT-142 — archive one LARGE evidence file by BLOB REFERENCE instead of inline
+   * base64. Same facade route as `uploadFile`; `blobPath` and `contentBase64` are
+   * mutually exclusive. The facade downloads the blob ITSELF from the evidence storage
+   * account (its own managed identity; EVIDENCE_BLOB_ACCOUNT / EVIDENCE_BLOB_CONTAINER,
+   * default 'evidence') and streams it to Box — direct upload <20MB, Box chunked-upload
+   * session ≥20MB — so the base64-in-JSON body that killed the facade worker on a
+   * 17.6MB `.eml` (~23MB encoded → 502 + small-file recycle collateral) never exists.
+   * `blobPath` is the evidence row's container-relative storage_path (the exact path
+   * `blob.ts` downloadEvidenceBytes takes). Idempotency unchanged: a Box 409
+   * name-conflict is reused server-side.
+   */
+  uploadFileFromBlob(folderId, filename, blobPath, contentType2) {
+    return callFunction(BOX, "POST", `box/folders/${folderId}/files`, {
+      filename,
+      blobPath,
+      ...contentType2 ? { contentType: contentType2 } : {}
+    });
+  },
   copyFileRequest(fileRequestId, folderId) {
     return callFunction(BOX, "POST", `box/file-requests/${fileRequestId}/copy`, {
       folder: { id: folderId }
@@ -50665,7 +50881,7 @@ function buildClassifyRequest(inbound, matchState) {
     references: inbound.references
   };
 }
-df8.app.activity("classifyInbound", {
+df9.app.activity("classifyInbound", {
   handler: async (input14, ctx) => {
     const { inbound, workProviderId, matchState } = input14;
     const res = await callClassifyEmail(buildClassifyRequest(inbound, matchState));
@@ -50713,7 +50929,7 @@ df8.app.activity("classifyInbound", {
 });
 
 // orchestration/src/functions/activities/triagePolicy.ts
-var df9 = __toESM(require("durable-functions"), 1);
+var df10 = __toESM(require("durable-functions"), 1);
 var GATES_ALL_ON = {
   refGate: true,
   cancellation: true,
@@ -50788,7 +51004,7 @@ function toPolicyClassification(classification) {
     taxonomyVersion: classification.taxonomyVersion
   };
 }
-df9.app.activity("triagePolicy", {
+df10.app.activity("triagePolicy", {
   handler: async (input14, ctx) => {
     const { inbound, classification } = input14;
     let resolvedContext;
@@ -50862,12 +51078,12 @@ df9.app.activity("triagePolicy", {
 });
 
 // orchestration/src/functions/activities/correlatePreInstruction.ts
-var df10 = __toESM(require("durable-functions"), 1);
+var df11 = __toESM(require("durable-functions"), 1);
 function preInstructionRationale(casePo) {
   const target = casePo ? `case ${casePo}` : "this case";
   return `Directions received before the instruction arrived appear to relate to ${target} \u2014 review and attach so they are not missed.`;
 }
-df10.app.activity("correlatePreInstruction", {
+df11.app.activity("correlatePreInstruction", {
   handler: async (input14, ctx) => {
     if (!gates.triagePreInstruction()) {
       return { skipped: true, matches: 0, suggested: 0 };
@@ -50913,8 +51129,8 @@ df10.app.activity("correlatePreInstruction", {
 });
 
 // orchestration/src/functions/activities/linkReply.ts
-var df11 = __toESM(require("durable-functions"), 1);
-df11.app.activity("linkReply", {
+var df12 = __toESM(require("durable-functions"), 1);
+df12.app.activity("linkReply", {
   handler: async (input14, ctx) => {
     const result = await dataApi.linkReplyToOpenCase({
       inbound: input14.inbound,
@@ -50936,8 +51152,8 @@ df11.app.activity("linkReply", {
 });
 
 // orchestration/src/functions/activities/caseResolve.ts
-var df12 = __toESM(require("durable-functions"), 1);
-df12.app.activity("caseResolve", {
+var df13 = __toESM(require("durable-functions"), 1);
+df13.app.activity("caseResolve", {
   handler: async (input14, ctx) => {
     const { inbound, providerId, matchState } = input14;
     const bestVrm = ((input14.parserVrm || inbound.candidateVrm) ?? "").trim();
@@ -51008,8 +51224,8 @@ df12.app.activity("caseResolve", {
 });
 
 // orchestration/src/functions/activities/setIngested.ts
-var df13 = __toESM(require("durable-functions"), 1);
-df13.app.activity("setIngested", {
+var df14 = __toESM(require("durable-functions"), 1);
+df14.app.activity("setIngested", {
   handler: async (input14, ctx) => {
     const result = await dataApi.setIngested(input14.caseId);
     ctx.log(JSON.stringify({ evt: "setIngested", caseId: input14.caseId, updated: result.updated }));
@@ -51018,7 +51234,7 @@ df13.app.activity("setIngested", {
 });
 
 // orchestration/src/functions/activities/classifyPersist.ts
-var df14 = __toESM(require("durable-functions"), 1);
+var df15 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/image-classify.ts
 var REQUEST_TIMEOUT_MS2 = 3e4;
@@ -51145,14 +51361,27 @@ function classificationToEvidenceFields(c, caseVrm) {
 
 // orchestration/src/functions/activities/classifyPersist.ts
 var MIN_BODY_INSTRUCTION_CHARS = 40;
-df14.app.activity("classifyPersist", {
+function buildBaseEvidenceRows(inbound) {
+  const rows = inbound.attachments.map((a) => ({
+    ...describeEvidence(a.filename, a.contentType),
+    blobPath: a.blobPath,
+    size: a.size,
+    ...a.sha256 ? { sha256: a.sha256 } : {}
+  }));
+  if (inbound.rawEml) {
+    rows.push({
+      ...describeEvidence(inbound.rawEml.filename, inbound.rawEml.contentType),
+      blobPath: inbound.rawEml.blobPath,
+      size: inbound.rawEml.size,
+      ...inbound.rawEml.sha256 ? { sha256: inbound.rawEml.sha256 } : {}
+    });
+  }
+  return rows;
+}
+df15.app.activity("classifyPersist", {
   handler: async (input14, ctx) => {
     const { caseId, inbound } = input14;
-    const rows = inbound.attachments.map((a) => ({
-      ...describeEvidence(a.filename, a.contentType),
-      blobPath: a.blobPath,
-      size: a.size
-    }));
+    const rows = buildBaseEvidenceRows(inbound);
     let classifyAllowed = gates.imageRoleClassifyEnabled();
     if (classifyAllowed && input14.workProviderId) {
       try {
@@ -51216,13 +51445,6 @@ df14.app.activity("classifyPersist", {
         }
       }
     }
-    if (inbound.rawEml) {
-      rows.push({
-        ...describeEvidence(inbound.rawEml.filename, inbound.rawEml.contentType),
-        blobPath: inbound.rawEml.blobPath,
-        size: inbound.rawEml.size
-      });
-    }
     const hasInstructionAttachment = rows.some((r) => r.evidenceClass === "instruction");
     const bodyText = (inbound.body ?? "").trim();
     if (!hasInstructionAttachment && bodyText.length >= MIN_BODY_INSTRUCTION_CHARS) {
@@ -51241,7 +51463,8 @@ df14.app.activity("classifyPersist", {
         isImage: false,
         isInstruction: true,
         blobPath: up.blobPath,
-        size: up.size
+        size: up.size,
+        sha256: up.sha256
       });
       ctx.log(JSON.stringify({ evt: "classifyPersist.bodyInstruction", caseId, bytes: up.size }));
     }
@@ -51257,7 +51480,7 @@ df14.app.activity("classifyPersist", {
 });
 
 // orchestration/src/functions/activities/parse.ts
-var df15 = __toESM(require("durable-functions"), 1);
+var df16 = __toESM(require("durable-functions"), 1);
 var hasValue = (cell) => (cell?.value ?? "").trim() !== "";
 function shouldAttemptScannedPdfOcr(parsed, filename) {
   if (parsed.skipped) return false;
@@ -51322,7 +51545,7 @@ function resolveWorkProviderAcrossDocs(parsed) {
   }
   return "";
 }
-df15.app.activity("parse", {
+df16.app.activity("parse", {
   handler: async (input14, ctx) => {
     const corr = input14.caseId || input14.messageId || "(pre-resolve)";
     if (!gates.pdfMapper()) {
@@ -51459,8 +51682,8 @@ df15.app.activity("parse", {
 });
 
 // orchestration/src/functions/activities/statusEvaluate.ts
-var df16 = __toESM(require("durable-functions"), 1);
-df16.app.activity("statusEvaluate", {
+var df17 = __toESM(require("durable-functions"), 1);
+df17.app.activity("statusEvaluate", {
   handler: async (input14, ctx) => {
     const result = await dataApi.evaluateStatus(input14.caseId);
     ctx.log(JSON.stringify({ evt: "statusEvaluate", caseId: input14.caseId, status: result.value }));
@@ -51469,8 +51692,8 @@ df16.app.activity("statusEvaluate", {
 });
 
 // orchestration/src/functions/activities/enrich.ts
-var df17 = __toESM(require("durable-functions"), 1);
-df17.app.activity("enrich", {
+var df18 = __toESM(require("durable-functions"), 1);
+df18.app.activity("enrich", {
   handler: async (input14, ctx) => {
     if (!gates.enrichment()) {
       ctx.log("[enrich] skipped \u2014 ENRICHMENT_ENABLED=false");
@@ -51517,31 +51740,50 @@ df17.app.activity("enrich", {
 
 // orchestration/src/functions/activities/boxArchive.ts
 var import_functions10 = require("@azure/functions");
-var df18 = __toESM(require("durable-functions"), 1);
+var df19 = __toESM(require("durable-functions"), 1);
+var DEFAULT_INLINE_UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
+function boxInlineUploadMaxBytes() {
+  const raw = Number(process.env.BOX_INLINE_UPLOAD_MAX_BYTES ?? "");
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_INLINE_UPLOAD_MAX_BYTES;
+}
+var realUploadDeps = {
+  sizeOf: getEvidenceBlobSize,
+  download: downloadEvidenceBytes,
+  uploadInline: (folderId, filename, contentBase64, contentType2) => box.uploadFile(folderId, filename, contentBase64, contentType2),
+  uploadFromBlob: (folderId, filename, blobPath, contentType2) => box.uploadFileFromBlob(folderId, filename, blobPath, contentType2)
+};
+async function uploadArchiveItem(folderId, item, maxInlineBytes = boxInlineUploadMaxBytes(), deps = realUploadDeps) {
+  const size = await deps.sizeOf(item.blobPath);
+  if (size > maxInlineBytes) {
+    return deps.uploadFromBlob(folderId, item.filename, item.blobPath, item.contentType);
+  }
+  const bytes = await deps.download(item.blobPath);
+  return deps.uploadInline(folderId, item.filename, bytes.toString("base64"), item.contentType);
+}
 import_functions10.app.http("box-archive-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "box-archive",
-  extraInputs: [df18.input.durableClient()],
+  extraInputs: [df19.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       ctx.log("[box-archive] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const input14 = await req.json();
-    const client2 = df18.getClient(ctx);
+    const client2 = df19.getClient(ctx);
     const instanceId = await client2.startNew("boxArchiveEvidenceOrchestrator", { input: input14 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var manualRetry = new df18.RetryOptions(5e3, 3);
+var manualRetry = new df19.RetryOptions(5e3, 3);
 manualRetry.backoffCoefficient = 2;
-df18.app.orchestration("boxArchiveEvidenceOrchestrator", function* (ctx) {
+df19.app.orchestration("boxArchiveEvidenceOrchestrator", function* (ctx) {
   const input14 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("boxArchiveEvidence", manualRetry, input14);
   return result;
 });
-df18.app.activity("boxArchiveEvidence", {
+df19.app.activity("boxArchiveEvidence", {
   handler: async (input14, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       return { uploaded: 0, total: 0, skipped: "gated_off" };
@@ -51582,8 +51824,7 @@ df18.app.activity("boxArchiveEvidence", {
       total++;
       let res;
       try {
-        const bytes = await downloadEvidenceBytes(it.blobPath);
-        res = await box.uploadFile(folderId, it.filename, bytes.toString("base64"), it.contentType);
+        res = await uploadArchiveItem(folderId, it);
       } catch (e) {
         ctx.warn(
           `[boxArchive] upload failed for ${it.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`
@@ -51630,11 +51871,11 @@ df18.app.activity("boxArchiveEvidence", {
 });
 
 // orchestration/src/functions/activities/extractImages.ts
-var df19 = __toESM(require("durable-functions"), 1);
+var df20 = __toESM(require("durable-functions"), 1);
 var IMG_SOURCE_EXT = /\.(pdf|docx?)$/i;
 var IMG_SOURCE_CTYPE = /pdf|msword|officedocument/i;
 var OCR_OK_EXT = /\.(jpe?g|png|bmp|tiff?|webp|heic|heif)$/i;
-df19.app.activity("extractImages", {
+df20.app.activity("extractImages", {
   handler: async (input14, ctx) => {
     if (!gates.pdfMapper()) return { extracted: 0, registrationVisible: false, skipped: "gate_off" };
     const docs = (input14.attachments ?? []).filter(
@@ -51781,8 +52022,8 @@ function stripExt(name) {
 }
 
 // orchestration/src/functions/activities/imagesUnmatched.ts
-var df20 = __toESM(require("durable-functions"), 1);
-df20.app.activity("imagesUnmatched", {
+var df21 = __toESM(require("durable-functions"), 1);
+df21.app.activity("imagesUnmatched", {
   handler: async (input14, ctx) => {
     const internetMessageId = (input14.internetMessageId ?? "").trim();
     const vrm = (input14.vrm ?? "").trim().toUpperCase().replace(/\s+/g, "");
@@ -51824,33 +52065,33 @@ df20.app.activity("imagesUnmatched", {
 
 // orchestration/src/functions/gated/finalize-eva-box.ts
 var import_functions11 = require("@azure/functions");
-var df21 = __toESM(require("durable-functions"), 1);
+var df22 = __toESM(require("durable-functions"), 1);
 import_functions11.app.http("finalize-eva-box-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "finalize-eva-box",
-  extraInputs: [df21.input.durableClient()],
+  extraInputs: [df22.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.evaApi() || !gates.boxApi()) {
       ctx.log("[finalize-eva-box] skipped \u2014 EVA_API_ENABLED and/or BOX_API_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const { caseId } = await req.json();
-    const client2 = df21.getClient(ctx);
+    const client2 = df22.getClient(ctx);
     const instanceId = await client2.startNew("finalizeEvaBoxOrchestrator", { input: { caseId } });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry3 = new df21.RetryOptions(5e3, 3);
+var retry3 = new df22.RetryOptions(5e3, 3);
 retry3.backoffCoefficient = 2;
 retry3.maxRetryIntervalInMilliseconds = 6e4;
-df21.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
+df22.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
   const { caseId } = ctx.df.getInput();
   const eva = yield ctx.df.callActivityWithRetry("evaSubmit", retry3, { caseId });
   const boxResult = yield ctx.df.callActivityWithRetry("boxFolderAugment", retry3, { caseId });
   return { caseId, eva, box: boxResult };
 });
-df21.app.activity("evaSubmit", {
+df22.app.activity("evaSubmit", {
   handler: async (input14, ctx) => {
     if (!gates.evaApi()) return { skipped: true };
     const res = await callEvaSubmit(input14.caseId);
@@ -51859,7 +52100,7 @@ df21.app.activity("evaSubmit", {
     return res;
   }
 });
-df21.app.activity("boxFolderAugment", {
+df22.app.activity("boxFolderAugment", {
   handler: async (input14, ctx) => {
     if (!gates.boxApi()) return { skipped: true };
     const folder = await box.createFolder(input14.caseId, gates.boxFolderRootId());
@@ -51872,34 +52113,34 @@ df21.app.activity("boxFolderAugment", {
 
 // orchestration/src/functions/gated/chaser.ts
 var import_functions12 = require("@azure/functions");
-var df22 = __toESM(require("durable-functions"), 1);
+var df23 = __toESM(require("durable-functions"), 1);
 import_functions12.app.http("chaser-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "chaser",
-  extraInputs: [df22.input.durableClient()],
+  extraInputs: [df23.input.durableClient()],
   handler: async (req, ctx) => {
     const input14 = await req.json();
-    const client2 = df22.getClient(ctx);
+    const client2 = df23.getClient(ctx);
     const instanceId = await client2.startNew("chaserOrchestrator", { input: input14 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry4 = new df22.RetryOptions(5e3, 3);
+var retry4 = new df23.RetryOptions(5e3, 3);
 retry4.backoffCoefficient = 2;
-df22.app.orchestration("chaserOrchestrator", function* (ctx) {
+df23.app.orchestration("chaserOrchestrator", function* (ctx) {
   const input14 = ctx.df.getInput();
   const draft = yield ctx.df.callActivityWithRetry("chaserDraft", retry4, input14);
   const sent = yield ctx.df.callActivityWithRetry("chaserSend", retry4, { caseId: input14.caseId, draft });
   return { caseId: input14.caseId, draft, sent };
 });
-df22.app.activity("chaserDraft", {
+df23.app.activity("chaserDraft", {
   handler: async (input14, ctx) => {
     ctx.log(JSON.stringify({ evt: "chaserDraft", caseId: input14.caseId, targetType: input14.targetType }));
     return { drafted: true, targetType: input14.targetType };
   }
 });
-df22.app.activity("chaserSend", {
+df23.app.activity("chaserSend", {
   handler: async (input14, ctx) => {
     if (!gates.chaserSend()) {
       ctx.log("[chaserSend] skipped \u2014 CHASER_SEND_ENABLED=false (draft-only)");
@@ -51913,31 +52154,31 @@ df22.app.activity("chaserSend", {
 
 // orchestration/src/functions/gated/box-folder-create.ts
 var import_functions13 = require("@azure/functions");
-var df23 = __toESM(require("durable-functions"), 1);
+var df24 = __toESM(require("durable-functions"), 1);
 import_functions13.app.http("box-folder-create-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-folder-create",
-  extraInputs: [df23.input.durableClient()],
+  extraInputs: [df24.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       ctx.log("[box-folder-create] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const input14 = await req.json();
-    const client2 = df23.getClient(ctx);
+    const client2 = df24.getClient(ctx);
     const instanceId = await client2.startNew("boxFolderCreateOrchestrator", { input: input14 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry5 = new df23.RetryOptions(5e3, 3);
+var retry5 = new df24.RetryOptions(5e3, 3);
 retry5.backoffCoefficient = 2;
-df23.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
+df24.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
   const input14 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("boxFolderCreate", retry5, input14);
   return result;
 });
-df23.app.activity("boxFolderCreate", {
+df24.app.activity("boxFolderCreate", {
   handler: async (input14, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) return { skipped: true, reason: "gated off" };
     const existing = await dataApi.getCaseBoxFolder(input14.caseId);
@@ -51958,31 +52199,31 @@ df23.app.activity("boxFolderCreate", {
 
 // orchestration/src/functions/gated/box-file-request-copy.ts
 var import_functions14 = require("@azure/functions");
-var df24 = __toESM(require("durable-functions"), 1);
+var df25 = __toESM(require("durable-functions"), 1);
 import_functions14.app.http("box-file-request-copy-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-file-request-copy",
-  extraInputs: [df24.input.durableClient()],
+  extraInputs: [df25.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) {
       ctx.log("[box-file-request-copy] skipped \u2014 BOX_API_ENABLED and/or BOX_FILEREQUEST_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const input14 = await req.json();
-    const client2 = df24.getClient(ctx);
+    const client2 = df25.getClient(ctx);
     const instanceId = await client2.startNew("boxFileRequestCopyOrchestrator", { input: input14 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry6 = new df24.RetryOptions(5e3, 3);
+var retry6 = new df25.RetryOptions(5e3, 3);
 retry6.backoffCoefficient = 2;
-df24.app.orchestration("boxFileRequestCopyOrchestrator", function* (ctx) {
+df25.app.orchestration("boxFileRequestCopyOrchestrator", function* (ctx) {
   const input14 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("boxFileRequestCopy", retry6, input14);
   return result;
 });
-df24.app.activity("boxFileRequestCopy", {
+df25.app.activity("boxFileRequestCopy", {
   handler: async (input14, ctx) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) return { skipped: true };
     const templateId = gates.boxFileRequestTemplateId();
@@ -51999,35 +52240,35 @@ df24.app.activity("boxFileRequestCopy", {
 
 // orchestration/src/functions/gated/box-blob-purge.ts
 var import_functions15 = require("@azure/functions");
-var df25 = __toESM(require("durable-functions"), 1);
+var df26 = __toESM(require("durable-functions"), 1);
 import_functions15.app.timer("box-blob-purge-timer", {
   schedule: "0 0 3 * * *",
-  extraInputs: [df25.input.durableClient()],
+  extraInputs: [df26.input.durableClient()],
   handler: async (_t, ctx) => {
     if (!gates.boxApi()) {
       ctx.log("[box-blob-purge] skipped \u2014 BOX_API_ENABLED=false");
       return;
     }
-    const client2 = df25.getClient(ctx);
+    const client2 = df26.getClient(ctx);
     await client2.startNew("boxBlobPurgeOrchestrator", {});
     ctx.log("[box-blob-purge] started orchestration");
   }
 });
-var retry7 = new df25.RetryOptions(5e3, 3);
+var retry7 = new df26.RetryOptions(5e3, 3);
 retry7.backoffCoefficient = 2;
-df25.app.orchestration("boxBlobPurgeOrchestrator", function* (ctx) {
+df26.app.orchestration("boxBlobPurgeOrchestrator", function* (ctx) {
   const candidates = yield ctx.df.callActivityWithRetry("boxPurgeList", retry7, {});
   const tasks = candidates.map((c) => ctx.df.callActivityWithRetry("boxPurgeOne", retry7, c));
   const results = yield ctx.df.Task.all(tasks);
   return { purged: results.length };
 });
-df25.app.activity("boxPurgeList", {
+df26.app.activity("boxPurgeList", {
   handler: async () => {
     if (!gates.boxApi()) return [];
     return dataApi.blobsForPurge();
   }
 });
-df25.app.activity("boxPurgeOne", {
+df26.app.activity("boxPurgeOne", {
   handler: async (input14, ctx) => {
     if (!gates.boxApi()) return { purged: false };
     const purged = await deleteEvidenceBytes(input14.blobPath);
@@ -52039,35 +52280,35 @@ df25.app.activity("boxPurgeOne", {
 
 // orchestration/src/functions/gated/case-disposition.ts
 var import_functions16 = require("@azure/functions");
-var df26 = __toESM(require("durable-functions"), 1);
+var df27 = __toESM(require("durable-functions"), 1);
 import_functions16.app.timer("case-disposition-timer", {
   schedule: "0 0 2 * * *",
-  extraInputs: [df26.input.durableClient()],
+  extraInputs: [df27.input.durableClient()],
   handler: async (_t, ctx) => {
     if (!gates.caseDisposition()) {
       ctx.log("[case-disposition] skipped \u2014 CASE_DISPOSITION_ENABLED=false");
       return;
     }
-    const client2 = df26.getClient(ctx);
+    const client2 = df27.getClient(ctx);
     await client2.startNew("caseDispositionOrchestrator", {});
     ctx.log("[case-disposition] started orchestration");
   }
 });
-var retry8 = new df26.RetryOptions(5e3, 3);
+var retry8 = new df27.RetryOptions(5e3, 3);
 retry8.backoffCoefficient = 2;
-df26.app.orchestration("caseDispositionOrchestrator", function* (ctx) {
+df27.app.orchestration("caseDispositionOrchestrator", function* (ctx) {
   const due = yield ctx.df.callActivityWithRetry("dispositionList", retry8, {});
   const tasks = due.map((c) => ctx.df.callActivityWithRetry("dispositionOne", retry8, c));
   const results = yield ctx.df.Task.all(tasks);
   return { disposed: results.length };
 });
-df26.app.activity("dispositionList", {
+df27.app.activity("dispositionList", {
   handler: async () => {
     if (!gates.caseDisposition()) return [];
     return dataApi.casesForDisposition();
   }
 });
-df26.app.activity("dispositionOne", {
+df27.app.activity("dispositionOne", {
   handler: async (input14, ctx) => {
     if (!gates.caseDisposition()) return { disposed: false };
     await dataApi.disposeCase(input14.caseId);
@@ -52079,31 +52320,31 @@ df26.app.activity("dispositionOne", {
 
 // orchestration/src/functions/gated/jobsheet-import.ts
 var import_functions17 = require("@azure/functions");
-var df27 = __toESM(require("durable-functions"), 1);
+var df28 = __toESM(require("durable-functions"), 1);
 import_functions17.app.http("jobsheet-import-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "jobsheet-import",
-  extraInputs: [df27.input.durableClient()],
+  extraInputs: [df28.input.durableClient()],
   handler: async (req, ctx) => {
-    const client2 = df27.getClient(ctx);
+    const client2 = df28.getClient(ctx);
     const instanceId = await client2.startNew("jobsheetImportOrchestrator", {});
     ctx.log(`[jobsheet-import] started ${instanceId}`);
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry9 = new df27.RetryOptions(5e3, 3);
+var retry9 = new df28.RetryOptions(5e3, 3);
 retry9.backoffCoefficient = 2;
-df27.app.orchestration("jobsheetImportOrchestrator", function* (ctx) {
+df28.app.orchestration("jobsheetImportOrchestrator", function* (ctx) {
   const principals = yield ctx.df.callActivityWithRetry("jobsheetPrincipals", retry9, {});
   const tasks = principals.map((p) => ctx.df.callActivityWithRetry("jobsheetImportOne", retry9, p));
   const results = yield ctx.df.Task.all(tasks);
   return { principals: principals.length, results };
 });
-df27.app.activity("jobsheetPrincipals", {
+df28.app.activity("jobsheetPrincipals", {
   handler: async () => dataApi.principals()
 });
-df27.app.activity("jobsheetImportOne", {
+df28.app.activity("jobsheetImportOne", {
   handler: async (input14, ctx) => {
     await dataApi.recordAudit({ action: "jobsheet_imported", summary: `job-sheet import for ${input14.principalCode}` });
     ctx.log(JSON.stringify({ evt: "jobsheetImportOne", principalCode: input14.principalCode }));
@@ -52113,7 +52354,7 @@ df27.app.activity("jobsheetImportOne", {
 
 // orchestration/src/functions/gated/retro-case.ts
 var import_functions18 = require("@azure/functions");
-var df28 = __toESM(require("durable-functions"), 1);
+var df29 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/retro-envelope.ts
 function firstAddress(header) {
@@ -52267,14 +52508,14 @@ function mapRetroParse(parseResult, bodyText) {
 function normToken(v) {
   return v.trim().toUpperCase().replace(/\s+/g, "");
 }
-var retry10 = new df28.RetryOptions(5e3, 3);
+var retry10 = new df29.RetryOptions(5e3, 3);
 retry10.backoffCoefficient = 2;
 retry10.maxRetryIntervalInMilliseconds = 6e4;
 import_functions18.app.http("retro-case-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "retro-case",
-  extraInputs: [df28.input.durableClient()],
+  extraInputs: [df29.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.retroCase()) {
       ctx.log("[retro-case] skipped \u2014 RETRO_CASE_ENABLED off");
@@ -52284,7 +52525,7 @@ import_functions18.app.http("retro-case-start", {
     if (!input14.internetMessageId || !input14.mailbox) {
       return { status: 400, jsonBody: { error: "internetMessageId and mailbox required" } };
     }
-    const client2 = df28.getClient(ctx);
+    const client2 = df29.getClient(ctx);
     const safeId = String(input14.internetMessageId).replace(/[^A-Za-z0-9_-]/g, "");
     const instanceId = `retro-${safeId}`;
     let existing;
@@ -52302,7 +52543,7 @@ import_functions18.app.http("retro-case-start", {
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-df28.app.orchestration("retroCaseOrchestrator", function* (ctx) {
+df29.app.orchestration("retroCaseOrchestrator", function* (ctx) {
   const input14 = ctx.df.getInput();
   let trigger = input14.trigger;
   let category = input14.category;
@@ -52611,7 +52852,7 @@ ${original.body ?? ""}`);
   });
   return { outcome: "no_source", ...boxAmbiguity ? { ambiguousFolders: boxAmbiguity } : {} };
 });
-df28.app.activity("retroFindTrigger", {
+df29.app.activity("retroFindTrigger", {
   handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     const hit = await findMessageByInternetMessageId(input14.mailbox, input14.internetMessageId);
@@ -52626,7 +52867,7 @@ df28.app.activity("retroFindTrigger", {
     };
   }
 });
-df28.app.activity("retroResolveExisting", {
+df29.app.activity("retroResolveExisting", {
   handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     const result = await dataApi.retroResolveExisting({
@@ -52642,7 +52883,7 @@ df28.app.activity("retroResolveExisting", {
 function archiveRootIds() {
   return gates.retroBoxArchiveRootIds().split(",").map((s) => s.trim()).filter(Boolean);
 }
-df28.app.activity("retroBoxLocate", {
+df29.app.activity("retroBoxLocate", {
   handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     if (!gates.boxApi()) return { skipped: "box_gate_off" };
@@ -52707,7 +52948,7 @@ df28.app.activity("retroBoxLocate", {
     };
   }
 });
-df28.app.activity("retroBoxFetchInstruction", {
+df29.app.activity("retroBoxFetchInstruction", {
   handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     if (!gates.boxApi()) return { skipped: "box_gate_off" };
@@ -52818,7 +53059,7 @@ df28.app.activity("retroBoxFetchInstruction", {
     return { envelope, instructionSource, otherFiles, subfolderCount };
   }
 });
-df28.app.activity("retroCreatePersist", {
+df29.app.activity("retroCreatePersist", {
   handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     const result = await dataApi.retroCreate({
@@ -52866,7 +53107,7 @@ df28.app.activity("retroCreatePersist", {
     return result;
   }
 });
-df28.app.activity("retroOutlookLocate", {
+df29.app.activity("retroOutlookLocate", {
   handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     if (!gates.retroOutlookSearch()) return { skipped: "outlook_gate_off" };
@@ -52919,7 +53160,7 @@ df28.app.activity("retroOutlookLocate", {
     return { found: false };
   }
 });
-df28.app.activity("retroRecordFailure", {
+df29.app.activity("retroRecordFailure", {
   handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     const env = input14.trigger;
@@ -53012,7 +53253,7 @@ import_functions19.app.http("retro-deleted-probe", {
 
 // orchestration/src/functions/gated/eva-report-poll.ts
 var import_functions20 = require("@azure/functions");
-var df29 = __toESM(require("durable-functions"), 1);
+var df30 = __toESM(require("durable-functions"), 1);
 var EVA_REPORT_POLL_INSTANCE_ID = "eva-report-poll-singleton";
 var INTERVAL_MINUTES = Number(process.env.EVA_REPORT_POLL_INTERVAL_MINUTES ?? "60");
 var INTERVAL_MS2 = (Number.isFinite(INTERVAL_MINUTES) && INTERVAL_MINUTES > 0 ? INTERVAL_MINUTES : 60) * 6e4;
@@ -53020,13 +53261,13 @@ import_functions20.app.http("eva-report-poll-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "eva-report-poll",
-  extraInputs: [df29.input.durableClient()],
+  extraInputs: [df30.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.evaApi()) {
       ctx.log("[eva-report-poll] skipped \u2014 EVA_API_ENABLED off (Minotaur single-principal limitation; docs/gated.md)");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off (EVA_API_ENABLED)" } };
     }
-    const client2 = df29.getClient(ctx);
+    const client2 = df30.getClient(ctx);
     let existing;
     try {
       existing = await client2.getStatus(EVA_REPORT_POLL_INSTANCE_ID);
@@ -53042,7 +53283,7 @@ import_functions20.app.http("eva-report-poll-start", {
     return client2.createCheckStatusResponse(req, EVA_REPORT_POLL_INSTANCE_ID);
   }
 });
-df29.app.orchestration("evaReportPollOrchestrator", function* (ctx) {
+df30.app.orchestration("evaReportPollOrchestrator", function* (ctx) {
   const tick = yield ctx.df.callActivity("evaReportPollTick");
   if (tick.skipped) {
     if (!ctx.df.isReplaying) {
@@ -53054,7 +53295,7 @@ df29.app.orchestration("evaReportPollOrchestrator", function* (ctx) {
   yield ctx.df.createTimer(next);
   ctx.df.continueAsNew(void 0);
 });
-df29.app.activity("evaReportPollTick", {
+df30.app.activity("evaReportPollTick", {
   handler: async (_input, ctx) => {
     if (!gates.evaApi()) {
       ctx.log("[eva-report-poll] tick skipped \u2014 EVA_API_ENABLED off");

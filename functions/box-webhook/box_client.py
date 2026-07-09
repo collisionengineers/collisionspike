@@ -42,6 +42,7 @@ The minted bearer token is likewise never logged or returned to the caller.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
@@ -52,7 +53,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from email.utils import parsedate_to_datetime
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlsplit
 
 import httpx
@@ -102,6 +103,20 @@ def _assert_box_token_host(token_url: str) -> None:
 
 # Per-request timeout (seconds).
 _DEFAULT_TIMEOUT_S = 20.0
+
+# TKT-142: the streamed upload lane branches here. Box refuses an upload session
+# for a file below its documented 20MB chunked-upload floor, so files AT/ABOVE
+# this size go through an upload session (exact part_size chunks) and files
+# below it go direct multipart. 20 MiB satisfies Box's floor under either MB
+# reading, so a session is never refused for being too small; the 20,000,000–
+# 20,971,519-byte sliver rides the direct lane, well inside its limits.
+CHUNKED_UPLOAD_MIN_BYTES = 20 * 1024 * 1024
+
+# TKT-142: bounded retries when the upload-session commit answers 202 (Box is
+# still assembling the parts server-side).
+_COMMIT_RETRY_MAX = 3
+_COMMIT_RETRY_DEFAULT_S = 1.0
+_COMMIT_RETRY_CAP_S = 5.0
 
 # Refresh the cached token this many seconds BEFORE expiry so an in-flight call
 # never races the boundary.
@@ -480,16 +495,21 @@ class BoxClient:
         params: dict[str, Any] | None = None,
         base: str | None = None,
         files: dict[str, Any] | None = None,
+        files_factory: Callable[[], dict[str, Any]] | None = None,
     ) -> httpx.Response:
         """Issue an authenticated Box REST call. ``path`` is appended to
         ``base`` (default the api host; pass the upload host for ``files`` uploads).
         Refreshes the token once on a 401, then backs off on 429/5xx. ``files`` is a
         multipart map (httpx form) used by the file-upload op; when set, the body is
-        sent as multipart/form-data instead of JSON. Returns the raw httpx.Response so
-        callers can map Box-specific success/idempotent-conflict codes themselves
-        (e.g. the 409-on-CreateFolder/Upload idempotency)."""
+        sent as multipart/form-data instead of JSON. ``files_factory`` (TKT-142) is
+        the streamed variant: it is invoked ONCE PER ATTEMPT so a retried multipart
+        body built over a file object is re-seeked/rebuilt instead of re-sending an
+        exhausted stream. Returns the raw httpx.Response so callers can map
+        Box-specific success/idempotent-conflict codes themselves (e.g. the
+        409-on-CreateFolder/Upload idempotency)."""
         return self._request_with_retry(
-            method, path, json_body=json_body, params=params, base=base, files=files
+            method, path, json_body=json_body, params=params, base=base,
+            files=files, files_factory=files_factory,
         )
 
     def _request_with_retry(
@@ -503,6 +523,7 @@ class BoxClient:
         attempt: int = 0,
         refreshed: bool = False,
         files: dict[str, Any] | None = None,
+        files_factory: Callable[[], dict[str, Any]] | None = None,
     ) -> httpx.Response:
         cfg = self.config
         url = f"{(base or cfg.api_base).rstrip('/')}{path}"
@@ -510,9 +531,10 @@ class BoxClient:
             "Authorization": f"Bearer {self.get_token(force_refresh=refreshed)}",
             "Accept": "application/json",
         }
-        if files is not None:
+        send_files = files_factory() if files_factory is not None else files
+        if send_files is not None:
             # Multipart upload (upload.box.com): never send a JSON body alongside.
-            resp = self.http.request(method, url, headers=headers, files=files, params=params)
+            resp = self.http.request(method, url, headers=headers, files=send_files, params=params)
         else:
             resp = self.http.request(method, url, headers=headers, json=json_body, params=params)
 
@@ -522,7 +544,7 @@ class BoxClient:
                 self._token = None  # drop the stale token
             return self._request_with_retry(
                 method, path, json_body=json_body, params=params, base=base,
-                attempt=attempt, refreshed=True, files=files,
+                attempt=attempt, refreshed=True, files=files, files_factory=files_factory,
             )
         if resp.status_code == 401:
             raise BoxAuthError("Box returned 401 after one token refresh", status=401)
@@ -532,7 +554,7 @@ class BoxClient:
             self._backoff(attempt)
             return self._request_with_retry(
                 method, path, json_body=json_body, params=params, base=base,
-                attempt=attempt + 1, refreshed=refreshed, files=files,
+                attempt=attempt + 1, refreshed=refreshed, files=files, files_factory=files_factory,
             )
 
         return resp
@@ -656,8 +678,9 @@ class BoxClient:
         ADR-0012). Scope-locked to the parent folder (BOX_ALLOWED_ROOT_ID) BEFORE the
         bytes leave us.
 
-        409 item_name_in_use handling (TKT-087 hardened): a 409 is an IDEMPOTENT
-        success ONLY when the conflicting file holds the SAME bytes (Box sha1 ==
+        409 item_name_in_use handling (TKT-087 hardened, shared with the streamed
+        lanes via ``_resolve_upload_conflict``): a 409 is an IDEMPOTENT success
+        ONLY when the conflicting file holds the SAME bytes (Box sha1 ==
         sha1(content)) — the replayed-archive case. The old blind reuse mis-linked
         evidence when two DIFFERENT emails on one case archived under the same
         generic filename (message.eml / email-body.txt): the later email's evidence
@@ -683,43 +706,61 @@ class BoxClient:
             entry["outcome"] = "created"
             return entry
         if resp.status_code == 409:
-            conflict = _conflict_entry(resp)
-            conflict_id = str(conflict["id"]) if conflict and conflict.get("id") is not None else None
-            if conflict_id:
-                remote_sha1 = conflict.get("sha1") if conflict else None
-                if not remote_sha1:
-                    remote_sha1 = self._file_sha1(conflict_id)
-                local_sha1 = hashlib.sha1(content).hexdigest()
-                if remote_sha1 and str(remote_sha1).lower() != local_sha1:
-                    # Same NAME, DIFFERENT bytes — blind reuse would mis-link the
-                    # evidence row (TKT-087). Retry ONCE under a content-derived name;
-                    # a 409 on THAT name can only be the same bytes (sha1-slice in the
-                    # name), which the recursive call verifies and reuses.
-                    if _disambiguated:
-                        raise BoxError(
-                            "Box 409 name-conflict persisted after content disambiguation",
-                            status=409,
-                        )
-                    alt = _disambiguate_filename(filename, local_sha1[:8])
-                    logger.warning(
-                        "box 409 name-conflict with DIFFERENT content (sha1 mismatch); "
-                        "re-uploading under a content-disambiguated name"
-                    )
-                    return self.upload_file(
-                        folder_id, alt, content, content_type, _disambiguated=True
-                    )
-                if remote_sha1:
-                    logger.info(
-                        "box file already exists in folder (409) with matching content; reusing id"
-                    )
-                else:
-                    logger.warning(
-                        "box file already exists in folder (409); content match UNVERIFIABLE "
-                        "(no sha1) — reusing id (legacy behaviour)"
-                    )
-                return {"id": conflict_id, "type": "file", "name": filename, "outcome": "reused"}
-            raise BoxError("Box UploadFile returned 409 with no resolvable conflict id", status=409)
+            local_sha1 = hashlib.sha1(content).hexdigest()
+            action, payload = self._resolve_upload_conflict(
+                resp, filename, local_sha1, disambiguated=_disambiguated
+            )
+            if action == "retry":
+                return self.upload_file(
+                    folder_id, payload, content, content_type, _disambiguated=True
+                )
+            return payload
         raise BoxError(f"Box UploadFile returned HTTP {resp.status_code}", status=resp.status_code)
+
+    def _resolve_upload_conflict(
+        self, resp: httpx.Response, filename: str, local_sha1: str, *, disambiguated: bool
+    ) -> tuple[str, Any]:
+        """The shared TKT-087 409 policy for EVERY upload lane (bytes multipart,
+        streamed multipart, upload-session create, upload-session commit).
+
+        Returns ``("reused", entry)`` when the conflicting file provably holds the
+        SAME bytes (Box sha1 == local sha1) — or unverifiably (legacy warn-level
+        reuse; never block an archive on a missing hash) — and ``("retry",
+        alt_filename)`` when the bytes DIFFER and one content-disambiguated retry
+        is still allowed. Raises BoxError when the conflict id is unresolvable or
+        the disambiguated name ITSELF conflicted with different bytes."""
+        conflict = _conflict_entry(resp)
+        conflict_id = str(conflict["id"]) if conflict and conflict.get("id") is not None else None
+        if not conflict_id:
+            raise BoxError("Box returned 409 with no resolvable conflict id", status=409)
+        remote_sha1 = conflict.get("sha1") if conflict else None
+        if not remote_sha1:
+            remote_sha1 = self._file_sha1(conflict_id)
+        if remote_sha1 and str(remote_sha1).lower() != str(local_sha1).lower():
+            # Same NAME, DIFFERENT bytes — blind reuse would mis-link the evidence
+            # row (TKT-087). Retry ONCE under a content-derived name; a 409 on THAT
+            # name can only be the same bytes (sha1-slice in the name), which the
+            # retried call verifies and reuses.
+            if disambiguated:
+                raise BoxError(
+                    "Box 409 name-conflict persisted after content disambiguation",
+                    status=409,
+                )
+            logger.warning(
+                "box 409 name-conflict with DIFFERENT content (sha1 mismatch); "
+                "re-uploading under a content-disambiguated name"
+            )
+            return "retry", _disambiguate_filename(filename, str(local_sha1)[:8])
+        if remote_sha1:
+            logger.info(
+                "box file already exists in folder (409) with matching content; reusing id"
+            )
+        else:
+            logger.warning(
+                "box file already exists in folder (409); content match UNVERIFIABLE "
+                "(no sha1) — reusing id (legacy behaviour)"
+            )
+        return "reused", {"id": conflict_id, "type": "file", "name": filename, "outcome": "reused"}
 
     def _file_sha1(self, file_id: str) -> str | None:
         """Best-effort sha1 of an existing Box file (the 409 conflict target). A
@@ -734,6 +775,258 @@ class BoxClient:
         except Exception:  # noqa: BLE001 — advisory read; never propagate
             pass
         return None
+
+    # -- TKT-142: streamed upload lanes (direct multipart / chunked session) --
+
+    def upload_file_stream(
+        self,
+        folder_id: str,
+        filename: str,
+        fileobj: Any,
+        *,
+        size: int,
+        sha1_hex: str,
+        content_type: str | None = None,
+        _disambiguated: bool = False,
+    ) -> dict[str, Any]:
+        """Archive one evidence stream WITHOUT holding the bytes as one in-memory
+        blob (TKT-142 — the base64-in-JSON lane killed the worker at 17.6 MB).
+        ``fileobj`` is a local seekable file object (the facade's spooled blob
+        download); ``size``/``sha1_hex`` were computed by the caller while
+        spooling, so nothing here re-reads the stream to measure it.
+
+        Size-branched:
+        * ``size <  CHUNKED_UPLOAD_MIN_BYTES`` — direct multipart POST
+          /api/2.0/files/content STREAMING the file object (httpx multipart file
+          part; rebuilt + re-seeked per retry attempt via ``files_factory``).
+        * ``size >= CHUNKED_UPLOAD_MIN_BYTES`` — Box chunked-upload session
+          (create -> exact part_size parts with per-part sha digests -> commit
+          with the whole-file digest).
+
+        Both lanes share the TKT-087 409-idempotency via
+        ``_resolve_upload_conflict`` (reuse on same bytes, one content-
+        disambiguated retry on different bytes). Returns the file entry tagged
+        ``outcome`` (created/reused) + ``lane`` (direct/chunked)."""
+        self._assert_in_scope("folders", folder_id)
+        _validate_box_base(self.config.upload_base, "upload base")
+        local_sha1 = str(sha1_hex or "").lower()
+        if size >= CHUNKED_UPLOAD_MIN_BYTES:
+            return self._chunked_upload(
+                folder_id, filename, fileobj, size, local_sha1, _disambiguated=_disambiguated
+            )
+
+        attributes = json.dumps({"name": filename, "parent": {"id": folder_id}})
+
+        def _files() -> dict[str, Any]:
+            # Rebuilt per attempt: re-seek so a 401-refresh/backoff retry never
+            # re-sends an exhausted stream.
+            fileobj.seek(0)
+            return {
+                "attributes": (None, attributes, "application/json"),
+                "file": (filename, fileobj, content_type or "application/octet-stream"),
+            }
+
+        resp = self.request(
+            "POST", "/api/2.0/files/content", base=self.config.upload_base, files_factory=_files
+        )
+        if resp.status_code == 201:
+            body = resp.json()
+            entry = (body.get("entries") or [{}])[0] if isinstance(body, dict) else {}
+            entry["outcome"] = "created"
+            entry["lane"] = "direct"
+            return entry
+        if resp.status_code == 409:
+            action, payload = self._resolve_upload_conflict(
+                resp, filename, local_sha1, disambiguated=_disambiguated
+            )
+            if action == "retry":
+                return self.upload_file_stream(
+                    folder_id, payload, fileobj,
+                    size=size, sha1_hex=local_sha1, content_type=content_type,
+                    _disambiguated=True,
+                )
+            payload["lane"] = "direct"
+            return payload
+        raise BoxError(f"Box UploadFile returned HTTP {resp.status_code}", status=resp.status_code)
+
+    def _chunked_upload(
+        self,
+        folder_id: str,
+        filename: str,
+        fileobj: Any,
+        size: int,
+        local_sha1: str,
+        *,
+        _disambiguated: bool = False,
+    ) -> dict[str, Any]:
+        """Box chunked-upload session (files >= CHUNKED_UPLOAD_MIN_BYTES):
+        POST /api/2.0/files/upload_sessions {folder_id, file_size, file_name} ->
+        PUT each part in EXACTLY session.part_size chunks (last part smaller) with
+        ``digest: sha=<base64 part sha1>`` + ``content-range`` -> POST .../commit
+        with the parts list, the whole-file digest, and {name, parent} attributes.
+        A 409 on create OR commit routes through the shared TKT-087 conflict
+        policy; parts retry once on 5xx (inside ``_put_part``)."""
+        cfg = self.config
+        create = self.request(
+            "POST", "/api/2.0/files/upload_sessions", base=cfg.upload_base,
+            json_body={"folder_id": folder_id, "file_size": size, "file_name": filename},
+        )
+        if create.status_code == 409:
+            # Same name already in the folder — resolved BEFORE any part moves.
+            action, payload = self._resolve_upload_conflict(
+                create, filename, local_sha1, disambiguated=_disambiguated
+            )
+            if action == "retry":
+                return self._chunked_upload(
+                    folder_id, payload, fileobj, size, local_sha1, _disambiguated=True
+                )
+            payload["lane"] = "chunked"
+            return payload
+        if create.status_code not in (200, 201):
+            raise BoxError(
+                f"Box CreateUploadSession returned HTTP {create.status_code}",
+                status=create.status_code,
+            )
+        try:
+            session = create.json()
+        except ValueError:
+            session = {}
+        if not isinstance(session, dict):
+            session = {}
+        part_size = int(session.get("part_size") or 0)
+        if part_size <= 0:
+            raise BoxError("Box upload session did not include a part_size")
+        session_id = str(session.get("id") or "")
+        endpoints = session.get("session_endpoints") or {}
+        part_url = str(
+            endpoints.get("upload_part")
+            or f"{cfg.upload_base}/api/2.0/files/upload_sessions/{session_id}"
+        )
+        commit_url = str(
+            endpoints.get("commit")
+            or f"{cfg.upload_base}/api/2.0/files/upload_sessions/{session_id}/commit"
+        )
+        abort_url = str(
+            endpoints.get("abort")
+            or f"{cfg.upload_base}/api/2.0/files/upload_sessions/{session_id}"
+        )
+        # Session endpoints come from the response body — pin them to Box-owned
+        # https hosts before any byte or bearer goes to them.
+        _validate_box_base(part_url, "upload-session part endpoint")
+        _validate_box_base(commit_url, "upload-session commit endpoint")
+
+        fileobj.seek(0)
+        parts: list[dict[str, Any]] = []
+        offset = 0
+        while offset < size:
+            chunk = fileobj.read(min(part_size, size - offset))
+            if not chunk:
+                raise BoxError("file stream ended before the declared size (truncated read)")
+            parts.append(self._put_part(part_url, chunk, offset, offset + len(chunk) - 1, size))
+            offset += len(chunk)
+
+        resp = self._commit_upload_session(commit_url, parts, folder_id, filename, local_sha1)
+        if resp.status_code == 201:
+            body = resp.json()
+            entry = (body.get("entries") or [{}])[0] if isinstance(body, dict) else {}
+            entry["outcome"] = "created"
+            entry["lane"] = "chunked"
+            return entry
+        if resp.status_code == 409:
+            action, payload = self._resolve_upload_conflict(
+                resp, filename, local_sha1, disambiguated=_disambiguated
+            )
+            if action == "retry":
+                self._abort_upload_session(abort_url)
+                return self._chunked_upload(
+                    folder_id, payload, fileobj, size, local_sha1, _disambiguated=True
+                )
+            payload["lane"] = "chunked"
+            return payload
+        raise BoxError(
+            f"Box upload-session commit returned HTTP {resp.status_code}", status=resp.status_code
+        )
+
+    def _put_part(
+        self, part_url: str, chunk: bytes, start: int, end: int, total: int
+    ) -> dict[str, Any]:
+        """PUT one upload-session part. Headers per the Box contract:
+        ``digest: sha=<base64 sha1 of the part>`` + ``content-range: bytes
+        {start}-{end}/{total}``. One 401 forces a token refresh; one retry on a
+        5xx (bounded — a part storm must not multiply a 20+ MB transfer)."""
+        digest = "sha=" + base64.b64encode(hashlib.sha1(chunk).digest()).decode("ascii")
+        headers = {
+            "Authorization": f"Bearer {self.get_token()}",
+            "Digest": digest,
+            "Content-Range": f"bytes {start}-{end}/{total}",
+            "Content-Type": "application/octet-stream",
+            "Accept": "application/json",
+        }
+        resp = self.http.put(part_url, content=chunk, headers=headers)
+        if resp.status_code == 401:
+            headers["Authorization"] = f"Bearer {self.get_token(force_refresh=True)}"
+            resp = self.http.put(part_url, content=chunk, headers=headers)
+        if 500 <= resp.status_code < 600:
+            logger.warning(
+                "box upload part %s-%s got HTTP %s; retrying once", start, end, resp.status_code
+            )
+            resp = self.http.put(part_url, content=chunk, headers=headers)
+        if resp.status_code != 200:
+            raise BoxError(
+                f"Box UploadPart returned HTTP {resp.status_code}", status=resp.status_code
+            )
+        try:
+            part = resp.json().get("part")
+        except ValueError:
+            part = None
+        if not isinstance(part, dict):
+            raise BoxError("Box UploadPart response did not include a part record")
+        return part
+
+    def _commit_upload_session(
+        self,
+        commit_url: str,
+        parts: list[dict[str, Any]],
+        folder_id: str,
+        filename: str,
+        whole_sha1_hex: str,
+    ) -> httpx.Response:
+        """POST the session commit: parts list + {name, parent} attributes in the
+        body, ``digest: sha=<base64 sha1 of the WHOLE file>`` header. A 202 (Box
+        still assembling parts) is retried bounded, honouring Retry-After. The
+        raw response is returned so the caller maps 201/409 itself."""
+        body = {"parts": parts, "attributes": {"name": filename, "parent": {"id": folder_id}}}
+        digest = "sha=" + base64.b64encode(bytes.fromhex(whole_sha1_hex)).decode("ascii")
+        attempt = 0
+        while True:
+            headers = {
+                "Authorization": f"Bearer {self.get_token()}",
+                "Digest": digest,
+                "Accept": "application/json",
+            }
+            resp = self.http.post(commit_url, json=body, headers=headers)
+            if resp.status_code == 401:
+                headers["Authorization"] = f"Bearer {self.get_token(force_refresh=True)}"
+                resp = self.http.post(commit_url, json=body, headers=headers)
+            if resp.status_code == 202 and attempt < _COMMIT_RETRY_MAX:
+                try:
+                    delay = float(resp.headers.get("Retry-After") or _COMMIT_RETRY_DEFAULT_S)
+                except (TypeError, ValueError):
+                    delay = _COMMIT_RETRY_DEFAULT_S
+                time.sleep(max(0.0, min(delay, _COMMIT_RETRY_CAP_S)))
+                attempt += 1
+                continue
+            return resp
+
+    def _abort_upload_session(self, abort_url: str) -> None:
+        """Best-effort DELETE of an upload session whose commit conflicted — the
+        disambiguated retry opens a fresh session; a leaked one merely expires."""
+        try:
+            self.http.delete(
+                abort_url, headers={"Authorization": f"Bearer {self.get_token()}"}
+            )
+        except Exception:  # noqa: BLE001 — advisory cleanup; never propagate
+            logger.info("upload-session abort failed (ignored)")
 
     def copy_file_request(
         self, template_id: str, folder_id: str, *, status: str = "active",

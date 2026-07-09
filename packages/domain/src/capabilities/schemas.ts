@@ -17,6 +17,15 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
  * Derive an OpenAI/AOAI-compatible tool `parameters` JSON-schema from a zod object.
  * Inlines refs, targets OpenAPI-3 (so `additionalProperties:false` is emitted for a
  * `.strict()` object), and drops the `$schema` header the model does not want.
+ *
+ * LIVE INCIDENT (2026-07-09, ASSISTANT_TOOLSET_V2 flip): the OpenAPI-3.0 target emits
+ * `exclusiveMinimum: true` alongside `minimum: N` for zod `.positive()`/`.gt()` — a
+ * BOOLEAN, which AOAI (draft-2020-12) rejects with "True is not of type 'number'"
+ * (invalid_function_parameters), 400-ing EVERY assistant chat because the whole tools
+ * array is validated together. `normalizeExclusiveBounds` rewrites the OpenAPI-3.0
+ * boolean form into the draft-2020-12 numeric form recursively, so no zod refinement
+ * can ever re-emit the poison shape. (The `.positive()` uses themselves were also
+ * replaced with `.min(1)`, which emits a plain `minimum` — this is belt-and-braces.)
  */
 export function toJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
   const json = zodToJsonSchema(schema, { target: 'openApi3', $refStrategy: 'none' }) as Record<
@@ -24,7 +33,40 @@ export function toJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
     unknown
   >;
   delete json.$schema;
+  normalizeExclusiveBounds(json);
   return json;
+}
+
+/**
+ * Recursively convert OpenAPI-3.0 boolean exclusive bounds (`minimum: N,
+ * exclusiveMinimum: true`) into the draft-2020-12 numeric form (`exclusiveMinimum: N`)
+ * that AOAI tool schemas require. A boolean `false` is simply dropped (it is the
+ * default). Mutates in place; safe on any JSON-ish tree.
+ */
+function normalizeExclusiveBounds(node: unknown): void {
+  if (Array.isArray(node)) {
+    for (const item of node) normalizeExclusiveBounds(item);
+    return;
+  }
+  if (node === null || typeof node !== 'object') return;
+  const obj = node as Record<string, unknown>;
+  if (typeof obj.exclusiveMinimum === 'boolean') {
+    if (obj.exclusiveMinimum === true && typeof obj.minimum === 'number') {
+      obj.exclusiveMinimum = obj.minimum;
+      delete obj.minimum;
+    } else {
+      delete obj.exclusiveMinimum;
+    }
+  }
+  if (typeof obj.exclusiveMaximum === 'boolean') {
+    if (obj.exclusiveMaximum === true && typeof obj.maximum === 'number') {
+      obj.exclusiveMaximum = obj.maximum;
+      delete obj.maximum;
+    } else {
+      delete obj.exclusiveMaximum;
+    }
+  }
+  for (const value of Object.values(obj)) normalizeExclusiveBounds(value);
 }
 
 /* ---------- read-tool params (all strict → additionalProperties:false) ---------- */
@@ -50,7 +92,9 @@ export const CaseRefParams = z
 export const CaseRefLimitParams = z
   .object({
     case: z.string().min(1).describe('a Case/PO, vehicle registration (VRM), or claimant name'),
-    limit: z.number().int().positive().max(50).optional().describe('max rows (default 10)'),
+    // .min(1), NOT .positive(): .positive() emits a boolean exclusiveMinimum under the
+    // OpenAPI-3 target, which AOAI rejects (2026-07-09 live incident — see toJsonSchema).
+    limit: z.number().int().min(1).max(50).optional().describe('max rows (default 10)'),
   })
   .strict();
 
@@ -68,14 +112,14 @@ export const QueueParams = z
       .string()
       .min(1)
       .describe('a queue name: "Not ready", "Review", or "Held" (case-insensitive)'),
-    limit: z.number().int().positive().max(50).optional().describe('max rows (default 10)'),
+    limit: z.number().int().min(1).max(50).optional().describe('max rows (default 10)'),
   })
   .strict();
 
 /** An optional row cap only (aging exceptions). */
 export const LimitParams = z
   .object({
-    limit: z.number().int().positive().max(50).optional().describe('max rows (default 10)'),
+    limit: z.number().int().min(1).max(50).optional().describe('max rows (default 10)'),
   })
   .strict();
 

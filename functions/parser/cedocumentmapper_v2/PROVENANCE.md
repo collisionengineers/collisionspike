@@ -29,6 +29,49 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-09 (TKT-136 fallback-reference/VRM guards + TKT-102 Tractable lane):** re-cut from the
+sibling at **`engine-v2.12`** (branch `feat/tkt043-open-case-ref-context`, commit `ab5f8d2` —
+branch + tag PUSHED to origin), INCLUDING a **deliberate providers.json seed update** (the new
+**Tractable** image-capture layout provider — TKT-102). **TKT-136:** the /parse
+`_fallback_reference` tiers now share the classifier's TKT-103 MONEY guard (one canonical
+`reference_candidate_is_money` in `rules/engine.py`; `_job_reference` behaviour identical) plus a
+new FRAGMENT-plausibility guard (`reference_candidate_is_fragment` — unit-quantity tokens like
+`650g`, multi-word prose heads) that kills the live junk case_ref **"RIGERANT R1234YF"** (the fuzzy
+`ref` label had matched the head of a `REFRIGERANT R1234YF` parts line); tier-4 reference cues now
+match on WORD BOUNDARIES ("refrigerant" no longer reads as a `ref` cue). The scope addendum ports
+the classifier-only TKT-071 postcode-area TIGHT anchor + #7/F162 stop-word TRIGRAM guards to the
+/parse document path (`vrm_document_candidate_is_bad`; canonical definitions moved to `engine.py`,
+the classifier aliases them — no drift; on the labelled tier the fuzzy-matched VRM label line is the
+anchor scope). Sibling fixture `RIGERANT ESTIMATE 01.pdf` reproduces the live junk pre-fix and pins
+`reference`/`vrm` empty via a new `unknown_temp` (no-provider/fallback-only) regression-harness
+sentinel. **TKT-102:** classifier **Rule 0f** — a Tractable "New completed lead" delivery email
+(identity: `tractable.ai` sender domain or the "Powered by Tractable" footer; delivery wording:
+"completed lead"/"damage capture"; NEVER the subject emoji) classifies **case_update ·
+images_received** (existing taxonomy codes — NO new DDL dependency; pre-0f these abstained to
+`other` as uncorroborated instruction docs, so no wrong rows to backfill). Three new
+`triage-rules.json` collections (`image_service_sender_domains` / `_identity_phrases` /
+`_delivery_phrases`; schema + loader + snapshot 291→297). The **Tractable provider record** (v1
+seed shape) detects all three evidence PDFs at 1.0 with no fixture-corpus cross-detection either
+way; extracts vrm ← "Registration Number" (label-next-line, `Ou66vdc`→`OU66VDC`), vehicle_model ←
+"Model" (model only — the two-column layout interleaves Repair-Summary rows into plain text, so a
+`Producer || Type` between_labels capture is junk; make/Producer is a recorded remainder), mileage ←
+"Mileage" (comma-grouped), incident_date ← same-line "Accident Date:" (`normalize_date` now strips a
+leading WEEKDAY word: "Mon Jul 06 2026" → 06/07/2026); reference/work_provider/claimant_*/
+inspection_address are declared `none` + fallback-suppressed (the Tractable **Case ID** UUID and
+AI-quote money must never mint a case_ref; Tractable is never a work provider; the PDF header
+carries CE's OWN desk@ address). **VIN has no engine field slot** — recorded remainder, schema NOT
+extended. `extract_images` verified on the real PDF: the 7 "Submitted Vehicle Images" photos kept,
+the three 70×65 "Powered by" logos dropped; HONEST LIMIT — the 1016×565 CE letterhead graphic is
+kept (1.8:1 aspect is a photo shape; raster-content typing is TKT-047). The
+`provider-config.schema.json` `suppress_fallback_fields` enum gains the B2
+`claimant_telephone`/`claimant_email` (sibling schema copies only — that schema is deliberately NOT
+vendored). Sibling suite **436 passed / 4 skipped**; eval baseline deliberately regenerated, all
+movement UPWARD (overall 0.9348→0.9483, work_provider 0.7143→0.75, new `mileage: 1.0`;
+`reference`/`vrm` pins stay 1.0). Byte-mirror restored (drift guard green); this repo's parser suite
+281 passed / 11 skipped / 1 PRE-EXISTING environmental failure
+(`test_multiformat_extraction[ALS_doc]` — fails identically against the pre-re-cut tree on this
+Windows box).
+
 **2026-07-09 (PLAN-003 evidence wave — collisionspike TKT-089/TKT-090):** re-cut from the
 sibling at **`engine-v2.11`** (branch `feat/tkt043-open-case-ref-context`, commit `4cbf19a`).
 One file, `application/service.py`: (1) **TKT-090 naming fix** — `extract_images` stems no
@@ -263,12 +306,17 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.11`** on branch
-  `feat/tkt043-open-case-ref-context`, commit **`4cbf19a`** (2026-07-09) — the TKT-090
-  naming fix (no `RJS`/`UnknownVRM` defaults) + the TKT-089 large-banner decorative
-  heuristic (see History above). Only `application/service.py` changed vs `engine-v2.10`;
-  every other shared file is unchanged. (Sibling commit + tag are LOCAL — like the
-  `engine-v2.10` pin before it; push before relying on it in CI.) Prior pins:
+- **Cut from:** annotated tag **`engine-v2.12`** on branch
+  `feat/tkt043-open-case-ref-context`, commit **`ab5f8d2`** (2026-07-09) — the TKT-136
+  fallback-reference money/fragment guards + document-path VRM tight-anchor/trigram port
+  (sibling commit `a80246b`) and the TKT-102 Tractable image-delivery classifier lane +
+  Tractable layout provider, incl. a **deliberate providers.json seed update** (see History
+  above). Changed vs `engine-v2.11`: `rules/engine.py`, `rules/email_classifier.py`,
+  `rules/triage_rules.py`, `normalization/normalizers.py`, `resources/triage-rules.json`
+  + `.schema.json`, and the providers.json seed. **Branch + `engine-v2.12` tag are PUSHED
+  to origin** (`engine-v2.10`/`v2.11` were already on origin). Prior pins:
+  **`engine-v2.11`** (commit `4cbf19a`, 2026-07-09, TKT-090 naming fix — no
+  `RJS`/`UnknownVRM` defaults — + TKT-089 large-banner decorative heuristic),
   **`engine-v2.10`** (commit `8e7f2f7`, 2026-07-09, PLAN-003 classifier wave — taxonomy
   v3 + VRM/ref guards + CDQ claim form, incl. a deliberate providers.json seed update),
   **`engine-v2.9`** (commit `130e862`, 2026-07-08, signature-aware

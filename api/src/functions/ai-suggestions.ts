@@ -22,12 +22,15 @@
  * (DPIA + residency sign-off recorded) — the generate route is LIVE-ACTING. TKT-127 hardened the
  * generate contract: every zero-generated outcome carries an explicit reason
  * ('disabled' | 'no_input' | 'empty' | 'error') and is logged, so the SPA can explain an empty
- * result and telemetry can explain a failure (the prior catch was silent).
+ * result and telemetry can explain a failure (the prior catch was silent). TKT-132 WIDENED the
+ * generate inputs beyond circumstances + claimant address (empty on most intake cases) to the
+ * labelled sections lib/generate-inputs.ts assembles — instruction email text, case overview
+ * facts, vehicle data, photo-analysis stamps — scrubbed + size-capped; 'no_input' now honestly
+ * means NONE of the widened inputs is present.
  */
 
 import { app } from '@azure/functions';
 import {
-  scrubPii,
   type AiSuggestion,
   type AiSuggestionReviewResult,
   type GenerateAiSuggestionsResult,
@@ -35,11 +38,12 @@ import {
   type InboundCategory,
   type InboundSubtype,
 } from '@cs/domain';
-import { imageRoleCodec } from '@cs/domain/codecs';
+import { evidenceKindCodec, imageRoleCodec } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { gates } from '../lib/gates.js';
 import { query } from '../lib/db.js';
 import { callSuggestionModel, type DraftSuggestion } from '../lib/aoai-suggestions.js';
+import { buildGenerateInputs } from '../lib/generate-inputs.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import {
   inboundCategoryFromInt,
@@ -400,23 +404,62 @@ app.http('generateAiSuggestions', {
 
     try {
       // Minimal case context for the model — never a full case dump (data-protection §6).
+      // TKT-132 WIDENED the selection beyond circumstances + claimant address to the labelled
+      // input classes buildGenerateInputs assembles (instruction email text, overview facts,
+      // vehicle data, photo-analysis stamps) — most intake cases have empty circumstances, so
+      // the old two-column prompt made generate a permanent 'no_input' for the live corpus.
       const ctx = await query<Row>(
-        `SELECT vrm, eva_accident_circumstances, eva_claimant_address FROM case_ WHERE id = $1`,
+        `SELECT vrm, case_po, eva_accident_circumstances, eva_claimant_address,
+                eva_work_provider, eva_vehicle_model, eva_date_of_loss, eva_date_of_instruction,
+                eva_mileage, eva_mileage_unit, ov_claim_type, ov_insurer_name, ov_repairer_name
+           FROM case_ WHERE id = $1`,
         [caseId],
       );
       if (!ctx[0]) return { status: 404, jsonBody: { error: 'not found' } };
 
-      // Assemble the free text the model would reason over, then PII-SCRUB it BEFORE the
-      // external call (VRM kept — it is the domain key the model must see; names/emails/
-      // phones/addresses/postcodes/NINOs redacted). The scrub summary is counts-only.
-      const rawText = [ctx[0].eva_accident_circumstances, ctx[0].eva_claimant_address]
-        .filter((s) => typeof s === 'string' && s.trim().length > 0)
-        .join('\n');
-      const scrubbed = scrubPii(rawText, { redactVrm: false });
+      // The widened extras — each read is BEST-EFFORT (degrades to []): a missing/renamed
+      // table must reduce the prompt, never fail a generate that circumstances alone could
+      // still serve. instruction text = the case-linked inbound email(s), earliest first (the
+      // minting instruction email precedes replies); photo facts = the evidence image stamps.
+      const imageKindCode = evidenceKindCodec.toInt('image');
+      const [emailRows, imageRows] = await Promise.all([
+        query<Row>(
+          `SELECT subject, body_preview FROM inbound_email
+            WHERE case_id = $1 AND (body_preview IS NOT NULL OR subject IS NOT NULL)
+            ORDER BY received_on ASC NULLS LAST, created_at ASC
+            LIMIT 2`,
+          [caseId],
+        ).catch(() => [] as Row[]),
+        query<Row>(
+          `SELECT image_role_code, registration_visible, excluded, person_reflection
+             FROM evidence WHERE case_id = $1 AND kind_code = $2`,
+          [caseId, imageKindCode],
+        ).catch(() => [] as Row[]),
+      ]);
 
-      // No usable notes at all -> tell the caller so WITHOUT a model call (TKT-127
-      // 'no_input': the honest, explainable fast path — no cost, no fabricated output).
-      if (!scrubbed.text.trim()) {
+      // Assemble the labelled sections. Every free-text value is PII-SCRUBBED inside
+      // buildGenerateInputs BEFORE the external call (@cs/domain scrubPii, VRM kept — it is
+      // the domain key the model must see; emails/phones/addresses/postcodes/NINOs/titled
+      // names redacted), and per-section + total char caps bound the prompt size.
+      const inputs = buildGenerateInputs(ctx[0], {
+        instructionEmails: emailRows.map((r) => ({
+          subject: typeof r.subject === 'string' ? r.subject : null,
+          bodyPreview: typeof r.body_preview === 'string' ? r.body_preview : null,
+        })),
+        images: imageRows.map((r) => ({
+          role: imageRoleCodec.toName(r.image_role_code as number | null) ?? null,
+          registrationVisible:
+            typeof r.registration_visible === 'boolean' ? r.registration_visible : null,
+          excluded: r.excluded === true,
+          personReflection: r.person_reflection === true,
+        })),
+      });
+
+      // NONE of the widened inputs present -> tell the caller so WITHOUT a model call
+      // (TKT-127 'no_input': the honest, explainable fast path — no cost, no fabricated
+      // output). Post-TKT-132 this genuinely means "the case file holds nothing to reason
+      // over", not merely "circumstances are empty".
+      if (!inputs.hasInput) {
         invocationCtx.log(
           JSON.stringify({ evt: 'aiSuggestionsGenerate', caseId, outcome: 'no_input' }),
         );
@@ -429,7 +472,7 @@ app.http('generateAiSuggestions', {
       const drafts = await callModelForSuggestions({
         caseId,
         vrm: typeof ctx[0].vrm === 'string' ? ctx[0].vrm : '',
-        scrubbedText: scrubbed.text,
+        scrubbedText: inputs.text,
       });
 
       let generated = 0;
@@ -468,6 +511,9 @@ app.http('generateAiSuggestions', {
           outcome: generated > 0 ? 'generated' : 'empty',
           generated,
           drafts: drafts.length,
+          // TKT-132: which input sections fed the prompt (value-free names — safe to log);
+          // lets telemetry explain WHY prompts differ across cases (D1 finding: constant 381).
+          sections: inputs.sections,
         }),
       );
       // A clean model run with nothing to suggest is an EXPLICIT empty ('empty'),

@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
 import logging
 import os
@@ -42,6 +43,7 @@ from typing import Any, Callable
 
 import azure.functions as func
 
+import blob_source
 from box_client import (
     BoxAuthError,
     BoxClient,
@@ -50,6 +52,7 @@ from box_client import (
     BoxScopeError,
     resolve_case_folder,
 )
+from evidence_kind import classify_evidence_kind
 from data_api_client import (
     AUDIT_BOX_UPLOAD_RECEIVED,
     DataApiClient,
@@ -164,33 +167,118 @@ def create_folder(req: func.HttpRequest) -> func.HttpResponse:
     return _run_box_op(lambda c: c.create_folder(name, parent_id))
 
 
+# TKT-142: honest cap on the legacy base64-in-JSON upload lane. ~11 MiB of
+# base64 TEXT ≈ 8 MiB of raw bytes — the orchestration switches to the blobPath
+# variant above 8 MiB raw. Checked on the STRING length BEFORE any decode so an
+# oversized body can never reach b64decode and kill the worker (the 17.6 MB
+# QDOS26029 .eml became a ~23 MB base64 body -> 502 worker death).
+_BASE64_MAX_CHARS_DEFAULT = 11 * 1024 * 1024
+
+
+def _base64_max_chars() -> int:
+    raw = os.environ.get("BOX_UPLOAD_BASE64_MAX_CHARS", "").strip()
+    try:
+        value = int(raw) if raw else 0
+    except ValueError:
+        value = 0
+    return value if value > 0 else _BASE64_MAX_CHARS_DEFAULT
+
+
 @app.route(route="box/folders/{folderId}/files", methods=["POST"])
 def upload_file(req: func.HttpRequest) -> func.HttpResponse:
     """POST one evidence byte-stream into a case folder — the one-way Blob -> Box
-    archive mirror (ADR-0012; box-sync ticket). The orchestration archive activity
-    calls this server-to-server with the evidence bytes base64-encoded in a JSON
-    body (the connector/orchestration seam carries no multipart); this route decodes
-    and hands the raw bytes to ``BoxClient.upload_file`` which multipart-POSTs them to
-    upload.box.com. Scope-locked to BOX_ALLOWED_ROOT_ID inside the client. 409
-    name-conflict is an idempotent reuse, so a replayed archive never duplicates."""
+    archive mirror (ADR-0012; box-sync ticket; TKT-142 large-payload lanes).
+    TWO mutually exclusive body variants (400 if both/neither):
+
+    * ``{ filename, contentBase64, contentType? }`` — the legacy base64-in-JSON
+      lane, kept for compatibility but capped (~11 MiB of base64 ≈ 8 MiB raw;
+      length-checked BEFORE decoding) -> 413 naming the blobPath alternative.
+    * ``{ filename, blobPath, contentType? }`` — the facade downloads the blob
+      ITSELF from the evidence storage account (managed-identity bearer;
+      EVIDENCE_BLOB_ACCOUNT/EVIDENCE_BLOB_CONTAINER; strict relative-path guard)
+      into a spooled temp file and STREAMS it to Box: direct multipart under
+      20 MiB, Box chunked-upload session at/above it. The response carries the
+      usual file entry (id/name/type/outcome) plus ``bytes``, ``sha256`` and
+      ``lane`` for this variant.
+
+    Scope-locked to BOX_ALLOWED_ROOT_ID inside the client. 409 name-conflict is
+    an idempotent reuse on both lanes (TKT-087 sha1 policy shared), so a
+    replayed archive never duplicates."""
     if not _truthy(os.environ.get("BOX_API_ENABLED")):
         return _gated_off()
     folder_id = req.route_params.get("folderId", "")
     if not folder_id:
         return _json_response({"error": "folderId is required.", "status": 400}, status=400)
     body = _body(req)
-    if not body or not isinstance(body.get("filename"), str) or not isinstance(body.get("contentBase64"), str):
+    if not body or not isinstance(body.get("filename"), str):
         return _json_response(
-            {"error": "Body must be { filename, contentBase64, contentType? }.", "status": 400}, status=400
+            {"error": "Body must be { filename, contentBase64 | blobPath, contentType? }.", "status": 400},
+            status=400,
         )
-    try:
-        content = base64.b64decode(body["contentBase64"], validate=True)
-    except (binascii.Error, ValueError):
-        return _json_response({"error": "contentBase64 is not valid base64.", "status": 400}, status=400)
-    if not content:
-        return _json_response({"error": "Decoded content is empty.", "status": 400}, status=400)
+    has_base64 = isinstance(body.get("contentBase64"), str)
+    has_blob_path = isinstance(body.get("blobPath"), str)
+    if has_base64 == has_blob_path:  # both or neither
+        return _json_response(
+            {"error": "Provide exactly ONE of contentBase64 or blobPath.", "status": 400}, status=400
+        )
     content_type = body.get("contentType") if isinstance(body.get("contentType"), str) else None
-    return _run_box_op(lambda c: c.upload_file(folder_id, body["filename"], content, content_type))
+
+    if has_base64:
+        raw_b64 = body["contentBase64"]
+        cap = _base64_max_chars()
+        if len(raw_b64) > cap:
+            # Length check BEFORE decode — a giant base64 body must never reach
+            # b64decode (worker death). 413 + the honest alternative.
+            return _json_response(
+                {
+                    "error": (
+                        f"contentBase64 exceeds the facade cap ({cap} base64 chars). "
+                        "Upload large files via the blobPath body variant "
+                        "{ filename, blobPath, contentType? } instead."
+                    ),
+                    "status": 413,
+                },
+                status=413,
+            )
+        try:
+            content = base64.b64decode(raw_b64, validate=True)
+        except (binascii.Error, ValueError):
+            return _json_response({"error": "contentBase64 is not valid base64.", "status": 400}, status=400)
+        if not content:
+            return _json_response({"error": "Decoded content is empty.", "status": 400}, status=400)
+        return _run_box_op(lambda c: c.upload_file(folder_id, body["filename"], content, content_type))
+
+    # blobPath lane: the facade fetches the bytes itself (streamed, hashed) and
+    # streams them on to Box — no base64, no whole-payload bytes object.
+    try:
+        payload = blob_source.fetch_blob_to_spool(body["blobPath"])
+    except blob_source.BlobPathError as exc:
+        return _json_response({"error": str(exc), "status": 400}, status=400)
+    except blob_source.BlobConfigError:
+        logger.warning("blob upload lane blocked: BlobConfigError")
+        return _json_response(
+            {"error": "Evidence blob source is not configured.", "status": 0}, status=502
+        )
+    except blob_source.BlobSourceError as exc:
+        logger.warning("blob fetch failed: %s (status=%s)", type(exc).__name__, exc.status)
+        status = 404 if exc.status == 404 else 502
+        return _json_response(
+            {"error": "Could not read the evidence blob.", "status": exc.status or 0}, status=status
+        )
+
+    try:
+        def run(c: BoxClient) -> dict[str, Any]:
+            entry = c.upload_file_stream(
+                folder_id, body["filename"], payload.file,
+                size=payload.size, sha1_hex=payload.sha1, content_type=content_type,
+            )
+            # Additive, honest extras: the byte count moved and the sha256 the
+            # dedup/link key rides on (the entry keeps today's id/name/outcome).
+            return {**entry, "bytes": payload.size, "sha256": payload.sha256}
+
+        return _run_box_op(run)
+    finally:
+        payload.close()
 
 
 @app.route(route="box/file-requests/{fileRequestId}/copy", methods=["POST"])
@@ -506,6 +594,29 @@ def _process_delivery(body: dict[str, Any], trigger: str, result: dict[str, Any]
         return False
 
 
+def _fetch_box_sha256(box_file_id: str) -> str | None:
+    """Best-effort sha256 of a just-uploaded Box file (TKT-133 — the dedup/link
+    key the Data API's write-time (case_id, sha256) pass collapses email+Box
+    twins on). Downloads via the existing capped BoxClient path
+    (BOX_DOWNLOAD_MAX_BYTES, default 25 MiB): over-cap raises 413 inside the
+    client -> None here (honest — the row still writes, just without the key).
+    NEVER raises: a hash miss must not fail the load-bearing Evidence write."""
+    client = BoxClient()
+    try:
+        result = client.download_file(box_file_id)
+        return hashlib.sha256(result["content"]).hexdigest()
+    except BoxError as exc:
+        logger.info(
+            "box sha256 fetch skipped: %s (status=%s)", type(exc).__name__, exc.status
+        )
+        return None
+    except Exception as exc:  # pragma: no cover - safety net
+        logger.warning("box sha256 fetch failed: %s", type(exc).__name__)
+        return None
+    finally:
+        client.close()
+
+
 def _process_upload(body: dict[str, Any], result: dict[str, Any]) -> None:
     """Steps 6-7 of the receiver order. Separated so tests drive it with a mocked
     DataApiClient and assert the case-resolution + idempotent Evidence write."""
@@ -555,13 +666,23 @@ def _process_upload(body: dict[str, Any], result: dict[str, Any]) -> None:
             # A classified CE report persists as kind `engineer_report`
             # (choice_evidence_kind 100000007 — the API maps the evidenceClass NAME
             # to the code) instead of the generic image class (TKT-095 detector (b)).
+            # TKT-133 (kind at source): the generic class is now DERIVED from the
+            # filename (extension primary; the webhook event carries no MIME)
+            # instead of hard-coding 'image' — the API-side TKT-124 writer guard
+            # stays as belt-and-braces. The TKT-095 report override still wins.
+            # TKT-133 (sha256 at source): fetch the just-uploaded bytes (within
+            # the facade download cap) so the API's (case_id, sha256) write-time
+            # dedup can collapse the email-lane twin onto ONE row. Fetched ONLY
+            # here — after the case resolved and the write will actually happen;
+            # over-cap or any Box fault -> None (honest).
+            sha256_hex = _fetch_box_sha256(box_file_id)
             evidence_id = dv.create_evidence(
                 case_id=case_id,
                 filename=filename,
                 box_file_id=box_file_id,
-                sha256=None,  # Box sends sha1; we record it in the label, not as sha256
+                sha256=sha256_hex,
                 source_label=f"box_upload sha1={sha1}" if sha1 else "box_upload",
-                evidence_class="engineer_report" if is_report else "image",
+                evidence_class="engineer_report" if is_report else classify_evidence_kind(filename),
             )
             # Step 7: audit box_upload_received (only on a fresh Evidence write —
             # the append-only audit row is not re-emitted on a dedup retry).

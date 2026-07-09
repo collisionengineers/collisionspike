@@ -63,6 +63,10 @@ export interface InboundEnvelope {
     contentType: string;
     blobPath: string;
     size: number;
+    /** Lower-case hex SHA-256 of the attachment bytes, hashed at blob landing (TKT-133).
+     *  OPTIONAL for replay-compat: an envelope checkpointed before this field shipped
+     *  simply omits it — consumers must treat it as best-effort. */
+    sha256?: string;
   }>;
   /**
    * The original message captured as raw MIME (Graph `$value`), landed in Blob as
@@ -77,6 +81,8 @@ export interface InboundEnvelope {
     contentType: string;
     blobPath: string;
     size: number;
+    /** SHA-256 at blob landing (TKT-133) — optional, same replay-compat note as above. */
+    sha256?: string;
   };
 }
 
@@ -111,7 +117,7 @@ df.app.activity('fetchMessage', {
     for (const a of attachments) {
       const bytes = Buffer.from(a.contentBytes ?? '', 'base64');
       const up = await uploadEvidenceBytes(input.messageId, a.name, bytes, a.contentType);
-      landed.push({ filename: a.name, contentType: a.contentType, blobPath: up.blobPath, size: up.size });
+      landed.push({ filename: a.name, contentType: a.contentType, blobPath: up.blobPath, size: up.size, sha256: up.sha256 });
     }
 
     // Capture the ORIGINAL message as raw MIME (`.eml`) so the case archive holds
@@ -131,6 +137,7 @@ df.app.activity('fetchMessage', {
         contentType: 'message/rfc822',
         blobPath: emlUp.blobPath,
         size: emlUp.size,
+        sha256: emlUp.sha256,
       };
     } catch (e) {
       ctx.warn(`[fetchMessage] raw .eml capture failed for ${input.messageId}: ${e instanceof Error ? e.message : String(e)}`);

@@ -79,3 +79,33 @@ export function formatReceivedCompact(iso: string, now: Date = new Date()): stri
   if (dayDiff > 0 && dayDiff <= 6) return `${WEEKDAY_SHORT[d.getDay()]} ${hm}`;
   return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${String(d.getFullYear()).slice(-2)}`;
 }
+
+/* ----------  Case age from an ISO created timestamp (TKT-072 search rows)  ---------- */
+
+/**
+ * Whole CALENDAR days between `iso` and `now` (same local-day arithmetic as
+ * formatReceivedCompact; floored at 0 for a clock-skewed "future" timestamp),
+ * or null when the input is absent/unparseable. Queue rows get `ageDays`
+ * computed server-side (api mappers.ts ageDaysFrom); this is the client-side
+ * equivalent for payloads that carry a raw `createdAt` instead — the two agree
+ * on "days old" semantics.
+ */
+export function ageDaysFromIso(iso: string | null | undefined, now: Date = new Date()): number | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((startOfDay(now) - startOfDay(d)) / 86_400_000);
+  return diff < 0 ? 0 : diff;
+}
+
+/**
+ * The queue-row age idiom ("12d old", CaseDetail's meta strip; day 0 reads
+ * "today" like the peek drawer's compact form). '' when the timestamp is
+ * absent/unparseable — the caller renders nothing, never placeholder junk.
+ */
+export function caseAgeLabel(iso: string | null | undefined, now: Date = new Date()): string {
+  const days = ageDaysFromIso(iso, now);
+  if (days == null) return '';
+  return days === 0 ? 'today' : `${days}d old`;
+}

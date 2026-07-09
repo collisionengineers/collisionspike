@@ -1139,20 +1139,20 @@ var require_utils = __commonJS({
       }
       return config;
     }
-    var escapeIdentifier2 = function(str2) {
-      return '"' + str2.replace(/"/g, '""') + '"';
+    var escapeIdentifier2 = function(str3) {
+      return '"' + str3.replace(/"/g, '""') + '"';
     };
-    var escapeLiteral2 = function(str2) {
+    var escapeLiteral2 = function(str3) {
       let hasBackslash = false;
       let escaped = "'";
-      if (str2 == null) {
+      if (str3 == null) {
         return "''";
       }
-      if (typeof str2 !== "string") {
+      if (typeof str3 !== "string") {
         return "''";
       }
-      for (let i = 0; i < str2.length; i++) {
-        const c = str2[i];
+      for (let i = 0; i < str3.length; i++) {
+        const c = str3[i];
         if (c === "'") {
           escaped += c + c;
         } else if (c === "\\") {
@@ -1561,22 +1561,22 @@ var require_type_overrides = __commonJS({
 var require_pg_connection_string = __commonJS({
   "node_modules/pg-connection-string/index.js"(exports2, module2) {
     "use strict";
-    function parse3(str2, options = {}) {
-      if (str2.charAt(0) === "/") {
-        const config2 = str2.split(" ");
+    function parse3(str3, options = {}) {
+      if (str3.charAt(0) === "/") {
+        const config2 = str3.split(" ");
         return { host: config2[0], database: config2[1] };
       }
       const config = /* @__PURE__ */ Object.create(null);
       let result;
       let dummyHost = false;
-      if (/ |%[^a-f0-9]|%[a-f0-9][^a-f0-9]/i.test(str2)) {
-        str2 = encodeURI(str2).replace(/%25(\d\d)/g, "%$1");
+      if (/ |%[^a-f0-9]|%[a-f0-9][^a-f0-9]/i.test(str3)) {
+        str3 = encodeURI(str3).replace(/%25(\d\d)/g, "%$1");
       }
       try {
         try {
-          result = new URL(str2, "postgres://base");
+          result = new URL(str3, "postgres://base");
         } catch (e) {
-          result = new URL(str2.replace("@/", "@___DUMMY___/"), "postgres://base");
+          result = new URL(str3.replace("@/", "@___DUMMY___/"), "postgres://base");
           dummyHost = true;
         }
       } catch (err2) {
@@ -1722,8 +1722,8 @@ var require_pg_connection_string = __commonJS({
       }, /* @__PURE__ */ Object.create(null));
       return poolConfig;
     }
-    function parseIntoClientConfig(str2) {
-      return toClientConfig(parse3(str2));
+    function parseIntoClientConfig(str3) {
+      return toClientConfig(parse3(str3));
     }
     function deprecatedSslModeWarning(sslmode) {
       if (!deprecatedSslModeWarning.warned && typeof process !== "undefined" && process.emitWarning) {
@@ -4129,11 +4129,11 @@ var require_client = __commonJS({
       // escapeIdentifier and escapeLiteral moved to utility functions & exported
       // on PG
       // re-exported here for backwards compatibility
-      escapeIdentifier(str2) {
-        return utils.escapeIdentifier(str2);
+      escapeIdentifier(str3) {
+        return utils.escapeIdentifier(str3);
       }
-      escapeLiteral(str2) {
-        return utils.escapeLiteral(str2);
+      escapeLiteral(str3) {
+        return utils.escapeLiteral(str3);
       }
       _pulseQueryQueue() {
         if (this.readyForQuery === true) {
@@ -5195,13 +5195,13 @@ var require_ms = __commonJS({
         "val is not a non-empty string or a valid number. val=" + JSON.stringify(val)
       );
     };
-    function parse3(str2) {
-      str2 = String(str2);
-      if (str2.length > 100) {
+    function parse3(str3) {
+      str3 = String(str3);
+      if (str3.length > 100) {
         return;
       }
       var match = /^(-?(?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|years?|yrs?|y)?$/i.exec(
-        str2
+        str3
       );
       if (!match) {
         return;
@@ -5802,7 +5802,7 @@ var require_node = __commonJS({
     var { formatters } = module2.exports;
     formatters.o = function(v) {
       this.inspectOpts.colors = this.useColors;
-      return util6.inspect(v, this.inspectOpts).split("\n").map((str2) => str2.trim()).join(" ");
+      return util6.inspect(v, this.inspectOpts).split("\n").map((str3) => str3.trim()).join(" ");
     };
     formatters.O = function(v) {
       this.inspectOpts.colors = this.useColors;
@@ -5869,12 +5869,12 @@ var require_helpers = __commonJS({
     exports2.toBuffer = toBuffer;
     async function json(stream) {
       const buf = await toBuffer(stream);
-      const str2 = buf.toString("utf8");
+      const str3 = buf.toString("utf8");
       try {
-        return JSON.parse(str2);
+        return JSON.parse(str3);
       } catch (_err) {
         const err2 = _err;
-        err2.message += ` (input: ${str2})`;
+        err2.message += ` (input: ${str3})`;
         throw err2;
       }
     }
@@ -6315,13 +6315,13 @@ var require_ms2 = __commonJS({
         "val is not a non-empty string or a valid number. val=" + JSON.stringify(val)
       );
     };
-    function parse3(str2) {
-      str2 = String(str2);
-      if (str2.length > 100) {
+    function parse3(str3) {
+      str3 = String(str3);
+      if (str3.length > 100) {
         return;
       }
       var match = /^(-?(?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|years?|yrs?|y)?$/i.exec(
-        str2
+        str3
       );
       if (!match) {
         return;
@@ -6922,7 +6922,7 @@ var require_node2 = __commonJS({
     var { formatters } = module2.exports;
     formatters.o = function(v) {
       this.inspectOpts.colors = this.useColors;
-      return util6.inspect(v, this.inspectOpts).split("\n").map((str2) => str2.trim()).join(" ");
+      return util6.inspect(v, this.inspectOpts).split("\n").map((str3) => str3.trim()).join(" ");
     };
     formatters.O = function(v) {
       this.inspectOpts.colors = this.useColors;
@@ -13174,7 +13174,36 @@ var zodToJsonSchema = (schema, options) => {
 function toJsonSchema(schema) {
   const json = zodToJsonSchema(schema, { target: "openApi3", $refStrategy: "none" });
   delete json.$schema;
+  normalizeExclusiveBounds(json);
   return json;
+}
+function normalizeExclusiveBounds(node) {
+  if (Array.isArray(node)) {
+    for (const item of node)
+      normalizeExclusiveBounds(item);
+    return;
+  }
+  if (node === null || typeof node !== "object")
+    return;
+  const obj = node;
+  if (typeof obj.exclusiveMinimum === "boolean") {
+    if (obj.exclusiveMinimum === true && typeof obj.minimum === "number") {
+      obj.exclusiveMinimum = obj.minimum;
+      delete obj.minimum;
+    } else {
+      delete obj.exclusiveMinimum;
+    }
+  }
+  if (typeof obj.exclusiveMaximum === "boolean") {
+    if (obj.exclusiveMaximum === true && typeof obj.maximum === "number") {
+      obj.exclusiveMaximum = obj.maximum;
+      delete obj.maximum;
+    } else {
+      delete obj.exclusiveMaximum;
+    }
+  }
+  for (const value of Object.values(obj))
+    normalizeExclusiveBounds(value);
 }
 var QueryParams = external_exports.object({
   query: external_exports.string().min(1).describe("a Case/PO, VRM, or claimant name (partial ok)")
@@ -13185,17 +13214,19 @@ var CaseRefParams = external_exports.object({
 }).strict();
 var CaseRefLimitParams = external_exports.object({
   case: external_exports.string().min(1).describe("a Case/PO, vehicle registration (VRM), or claimant name"),
-  limit: external_exports.number().int().positive().max(50).optional().describe("max rows (default 10)")
+  // .min(1), NOT .positive(): .positive() emits a boolean exclusiveMinimum under the
+  // OpenAPI-3 target, which AOAI rejects (2026-07-09 live incident — see toJsonSchema).
+  limit: external_exports.number().int().min(1).max(50).optional().describe("max rows (default 10)")
 }).strict();
 var VrmParams = external_exports.object({
   vrm: external_exports.string().min(1).describe("a vehicle registration (VRM); spaces are ignored")
 }).strict();
 var QueueParams = external_exports.object({
   queue: external_exports.string().min(1).describe('a queue name: "Not ready", "Review", or "Held" (case-insensitive)'),
-  limit: external_exports.number().int().positive().max(50).optional().describe("max rows (default 10)")
+  limit: external_exports.number().int().min(1).max(50).optional().describe("max rows (default 10)")
 }).strict();
 var LimitParams = external_exports.object({
-  limit: external_exports.number().int().positive().max(50).optional().describe("max rows (default 10)")
+  limit: external_exports.number().int().min(1).max(50).optional().describe("max rows (default 10)")
 }).strict();
 var SetOnHoldParams = external_exports.object({
   caseId: external_exports.string().min(1).describe("the case id (GUID)"),
@@ -14830,8 +14861,8 @@ var day = hour * 24;
 var week = day * 7;
 var year = day * 365.25;
 var REGEX = /^(\+|\-)? ?(\d+|\d+\.\d+) ?(seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|years?|yrs?|y)(?: (ago|from now))?$/i;
-var secs_default = (str2) => {
-  const matched = REGEX.exec(str2);
+var secs_default = (str3) => {
+  const matched = REGEX.exec(str3);
   if (!matched || matched[4] && matched[1]) {
     throw new TypeError("Invalid time period format");
   }
@@ -18018,6 +18049,7 @@ async function applyEvidenceMetadata(ctx, whereClause, whereVals, row, computed)
     return 0;
   }
 }
+var SHA256_HEX_RE = /^[0-9a-f]{64}$/i;
 import_functions.app.http("internalCasesEvidence", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -18027,6 +18059,7 @@ import_functions.app.http("internalCasesEvidence", {
     const body2 = await req.json();
     let persisted = 0;
     let updated = 0;
+    let merged = 0;
     for (const row of body2.rows ?? []) {
       let suppliedClass = row.evidenceClass ?? "other";
       if (suppliedClass === "image") {
@@ -18046,6 +18079,49 @@ import_functions.app.http("internalCasesEvidence", {
       const sourceMessageId = (row.sourceMessageId ?? "").trim() || null;
       const boxFileId = (row.boxFileId ?? "").trim() || null;
       const isBoxRow = sourceMessageId != null || boxFileId != null;
+      if (sha256 && SHA256_HEX_RE.test(sha256)) {
+        const twin = await query(
+          `SELECT id, box_file_id, box_file_url, storage_path, source_message_id
+               FROM evidence WHERE case_id = $1 AND sha256 = $2 LIMIT 1`,
+          [caseId, sha256]
+        );
+        const ex = twin[0];
+        if (ex) {
+          const sameIdentity = isBoxRow ? boxFileId != null && ex.box_file_id === boxFileId || sourceMessageId != null && ex.source_message_id === sourceMessageId : row.blobPath != null && ex.storage_path === row.blobPath;
+          if (!sameIdentity) {
+            if (isBoxRow && ex.box_file_id == null && boxFileId != null) {
+              await query(
+                `UPDATE evidence
+                      SET box_file_id = $2,
+                          box_file_url = COALESCE($3, box_file_url),
+                          updated_at = now()
+                    WHERE id = $1 AND box_file_id IS NULL`,
+                [ex.id, boxFileId, (row.boxFileUrl ?? "").trim() || null]
+              );
+            } else if (!isBoxRow && ex.storage_path == null && row.blobPath) {
+              await query(
+                `UPDATE evidence
+                      SET storage_path = $2::text, updated_at = now()
+                    WHERE id = $1 AND storage_path IS NULL`,
+                [ex.id, row.blobPath]
+              );
+            }
+            const hasMergeMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || row.excluded != null || row.exclusionReason != null || row.personReflection != null || row.sequenceIndex != null;
+            if (hasMergeMetadata) {
+              await applyEvidenceMetadata(ctx, "id = $1", [ex.id], row, {
+                imageRoleCode,
+                registrationVisible,
+                excluded,
+                exclusionReason,
+                sha256,
+                sequenceIndex
+              });
+            }
+            merged++;
+            continue;
+          }
+        }
+      }
       let inserted = false;
       if (isBoxRow) {
         const dedupCol = sourceMessageId != null ? "source_message_id" : "box_file_id";
@@ -18133,7 +18209,7 @@ import_functions.app.http("internalCasesEvidence", {
       }
       if (inserted) persisted++;
     }
-    return { status: 200, jsonBody: { persisted, updated } };
+    return { status: 200, jsonBody: { persisted, updated, merged } };
   })
 });
 import_functions.app.http("internalCasesArchiveEvidence", {
@@ -23640,12 +23716,12 @@ var SerializerImpl = class {
 function createSerializer(modelMappers = {}, isXML = false) {
   return new SerializerImpl(modelMappers, isXML);
 }
-function trimEnd(str2, ch) {
-  let len = str2.length;
-  while (len - 1 >= 0 && str2[len - 1] === ch) {
+function trimEnd(str3, ch) {
+  let len = str3.length;
+  while (len - 1 >= 0 && str3[len - 1] === ch) {
     --len;
   }
-  return str2.substr(0, len);
+  return str3.substr(0, len);
 }
 function bufferToBase64Url(buffer2) {
   if (!buffer2) {
@@ -23654,18 +23730,18 @@ function bufferToBase64Url(buffer2) {
   if (!(buffer2 instanceof Uint8Array)) {
     throw new Error(`Please provide an input of type Uint8Array for converting to Base64Url.`);
   }
-  const str2 = encodeByteArray(buffer2);
-  return trimEnd(str2, "=").replace(/\+/g, "-").replace(/\//g, "_");
+  const str3 = encodeByteArray(buffer2);
+  return trimEnd(str3, "=").replace(/\+/g, "-").replace(/\//g, "_");
 }
-function base64UrlToByteArray(str2) {
-  if (!str2) {
+function base64UrlToByteArray(str3) {
+  if (!str3) {
     return void 0;
   }
-  if (str2 && typeof str2.valueOf() !== "string") {
+  if (str3 && typeof str3.valueOf() !== "string") {
     throw new Error("Please provide an input of type string for converting to Uint8Array");
   }
-  str2 = str2.replace(/-/g, "+").replace(/_/g, "/");
-  return decodeString(str2);
+  str3 = str3.replace(/-/g, "+").replace(/_/g, "/");
+  return decodeString(str3);
 }
 function splitSerializeName(prop) {
   const classes = [];
@@ -27110,29 +27186,29 @@ var EntityDecoder = class {
    * @param {string} str
    * @returns {string}
    */
-  decode(str2) {
-    if (typeof str2 !== "string" || str2.length === 0) return str2;
-    if (str2.indexOf("&") === -1) return str2;
-    const original = str2;
+  decode(str3) {
+    if (typeof str3 !== "string" || str3.length === 0) return str3;
+    if (str3.indexOf("&") === -1) return str3;
+    const original = str3;
     const chunks = [];
-    const len = str2.length;
+    const len = str3.length;
     let last = 0;
     let i = 0;
     const limitExpansions = this._maxTotalExpansions > 0;
     const limitLength = this._maxExpandedLength > 0;
     const checkLimits = limitExpansions || limitLength;
     while (i < len) {
-      if (str2.charCodeAt(i) !== 38) {
+      if (str3.charCodeAt(i) !== 38) {
         i++;
         continue;
       }
       let j = i + 1;
-      while (j < len && str2.charCodeAt(j) !== 59 && j - i <= 32) j++;
-      if (j >= len || str2.charCodeAt(j) !== 59) {
+      while (j < len && str3.charCodeAt(j) !== 59 && j - i <= 32) j++;
+      if (j >= len || str3.charCodeAt(j) !== 59) {
         i++;
         continue;
       }
-      const token = str2.slice(i + 1, j);
+      const token = str3.slice(i + 1, j);
       if (token.length === 0) {
         i++;
         continue;
@@ -27164,7 +27240,7 @@ var EntityDecoder = class {
         i++;
         continue;
       }
-      if (i > last) chunks.push(str2.slice(last, i));
+      if (i > last) chunks.push(str3.slice(last, i));
       chunks.push(replacement);
       last = j + 1;
       i = last;
@@ -27190,8 +27266,8 @@ var EntityDecoder = class {
         }
       }
     }
-    if (last < len) chunks.push(str2.slice(last));
-    const result = chunks.length === 0 ? str2 : chunks.join("");
+    if (last < len) chunks.push(str3.slice(last));
+    const result = chunks.length === 0 ? str3 : chunks.join("");
     return this._postCheck(result, original);
   }
   // -------------------------------------------------------------------------
@@ -27494,7 +27570,7 @@ var buildRegexes = (startChar, char, flags = "") => {
 var regexes10 = buildRegexes(nameStartChar10, nameChar10);
 var regexes11 = buildRegexes(nameStartChar11, nameChar11, "u");
 var getRegexes = (xmlVersion = "1.0") => xmlVersion === "1.1" ? regexes11 : regexes10;
-var qName = (str2, { xmlVersion = "1.0" } = {}) => getRegexes(xmlVersion).qName.test(str2);
+var qName = (str3, { xmlVersion = "1.0" } = {}) => getRegexes(xmlVersion).qName.test(str3);
 
 // node_modules/fast-xml-parser/src/xmlparser/DocTypeReader.js
 var DocTypeReader = class {
@@ -27931,13 +28007,13 @@ var CHAR_0 = 48;
 var CHAR_9 = 57;
 var CHAR_MINUS = 45;
 var MINUS_SET = /* @__PURE__ */ new Set([8722, 65293, 65123]);
-function anynum(str2) {
-  if (typeof str2 !== "string") return str2;
-  const len = str2.length;
-  if (len === 0) return str2;
+function anynum(str3) {
+  if (typeof str3 !== "string") return str3;
+  const len = str3.length;
+  if (len === 0) return str3;
   let firstHit = -1;
   for (let i = 0; i < len; i++) {
-    const cc = str2.charCodeAt(i);
+    const cc = str3.charCodeAt(i);
     if (cc >= CHAR_0 && cc <= CHAR_9 || cc === CHAR_MINUS) continue;
     if (cc < TABLE_OFFSET) {
       if (MINUS_SET.has(cc)) {
@@ -27948,7 +28024,7 @@ function anynum(str2) {
     }
     if (cc >= 55296 && cc <= 56319) {
       if (i + 1 < len) {
-        const low = str2.charCodeAt(i + 1);
+        const low = str3.charCodeAt(i + 1);
         if (low >= 56320 && low <= 57343) {
           const cp = 65536 + (cc - 55296 << 10) + (low - 56320);
           if (HIGH_MAP.has(cp)) {
@@ -27964,22 +28040,22 @@ function anynum(str2) {
       break;
     }
   }
-  if (firstHit === -1) return str2;
+  if (firstHit === -1) return str3;
   const chars = [];
-  if (firstHit > 0) chars.push(str2.slice(0, firstHit));
+  if (firstHit > 0) chars.push(str3.slice(0, firstHit));
   for (let i = firstHit; i < len; i++) {
-    const cc = str2.charCodeAt(i);
+    const cc = str3.charCodeAt(i);
     if (cc >= CHAR_0 && cc <= CHAR_9 || cc === CHAR_MINUS) {
-      chars.push(str2[i]);
+      chars.push(str3[i]);
       continue;
     }
     if (cc < TABLE_OFFSET) {
-      chars.push(MINUS_SET.has(cc) ? "-" : str2[i]);
+      chars.push(MINUS_SET.has(cc) ? "-" : str3[i]);
       continue;
     }
     if (cc >= 55296 && cc <= 56319) {
       if (i + 1 < len) {
-        const low = str2.charCodeAt(i + 1);
+        const low = str3.charCodeAt(i + 1);
         if (low >= 56320 && low <= 57343) {
           const cp = 65536 + (cc - 55296 << 10) + (low - 56320);
           const d2 = HIGH_MAP.get(cp);
@@ -27990,7 +28066,7 @@ function anynum(str2) {
           }
         }
       }
-      chars.push(str2[i]);
+      chars.push(str3[i]);
       continue;
     }
     if (MINUS_SET.has(cc)) {
@@ -27998,7 +28074,7 @@ function anynum(str2) {
       continue;
     }
     const d = TABLE[cc - TABLE_OFFSET];
-    chars.push(d !== NOT_DIGIT ? String.fromCharCode(d + 48) : str2[i]);
+    chars.push(d !== NOT_DIGIT ? String.fromCharCode(d + 48) : str3[i]);
   }
   return chars.join("");
 }
@@ -28021,12 +28097,12 @@ var consider = {
   // "null", "infinity" (Infinity type), "string" ("Infinity" (the string literal))
   unicode: false
 };
-function toNumber(str2, options = {}) {
+function toNumber(str3, options = {}) {
   options = Object.assign({}, consider, options);
-  if (!str2 || typeof str2 !== "string") return str2;
-  let trimmedStr = str2.trim();
-  if (trimmedStr.length === 0) return str2;
-  else if (options.skipLike !== void 0 && options.skipLike.test(trimmedStr)) return str2;
+  if (!str3 || typeof str3 !== "string") return str3;
+  let trimmedStr = str3.trim();
+  if (trimmedStr.length === 0) return str3;
+  else if (options.skipLike !== void 0 && options.skipLike.test(trimmedStr)) return str3;
   else if (trimmedStr === "0") return 0;
   if (options.unicode) {
     trimmedStr = anynum_default(trimmedStr);
@@ -28039,9 +28115,9 @@ function toNumber(str2, options = {}) {
   } else if (options.octal && octRegex.test(trimmedStr)) {
     return parse_int(trimmedStr, 8);
   } else if (!isFinite(trimmedStr)) {
-    return handleInfinity(str2, Number(trimmedStr), options);
+    return handleInfinity(str3, Number(trimmedStr), options);
   } else if (trimmedStr.includes("e") || trimmedStr.includes("E")) {
-    return resolveEnotation(str2, trimmedStr, options);
+    return resolveEnotation(str3, trimmedStr, options);
   } else {
     const match = numRegex.exec(trimmedStr);
     if (match) {
@@ -28050,38 +28126,38 @@ function toNumber(str2, options = {}) {
       let numTrimmedByZeros = trimZeros(match[3]);
       const decimalAdjacentToLeadingZeros = sign3 ? (
         // 0., -00., 000.
-        str2[leadingZeros.length + 1] === "."
-      ) : str2[leadingZeros.length] === ".";
+        str3[leadingZeros.length + 1] === "."
+      ) : str3[leadingZeros.length] === ".";
       if (!options.leadingZeros && (leadingZeros.length > 1 || leadingZeros.length === 1 && !decimalAdjacentToLeadingZeros)) {
-        return str2;
+        return str3;
       } else {
         const num = Number(trimmedStr);
         const parsedStr = String(num);
         if (num === 0) return num;
         if (parsedStr.search(/[eE]/) !== -1) {
           if (options.eNotation) return num;
-          else return str2;
+          else return str3;
         } else if (trimmedStr.indexOf(".") !== -1) {
           if (parsedStr === "0") return num;
           else if (parsedStr === numTrimmedByZeros) return num;
           else if (parsedStr === `${sign3}${numTrimmedByZeros}`) return num;
-          else return str2;
+          else return str3;
         }
         let n = leadingZeros ? numTrimmedByZeros : trimmedStr;
         if (leadingZeros) {
-          return n === parsedStr || sign3 + n === parsedStr ? num : str2;
+          return n === parsedStr || sign3 + n === parsedStr ? num : str3;
         } else {
-          return n === parsedStr || n === sign3 + parsedStr ? num : str2;
+          return n === parsedStr || n === sign3 + parsedStr ? num : str3;
         }
       }
     } else {
-      return str2;
+      return str3;
     }
   }
 }
 var eNotationRegx = /^([-+])?(0*)(\d*(\.\d*)?[eE][-\+]?\d+)$/;
-function resolveEnotation(str2, trimmedStr, options) {
-  if (!options.eNotation) return str2;
+function resolveEnotation(str3, trimmedStr, options) {
+  if (!options.eNotation) return str3;
   const notation = trimmedStr.match(eNotationRegx);
   if (notation) {
     let sign3 = notation[1] || "";
@@ -28089,21 +28165,21 @@ function resolveEnotation(str2, trimmedStr, options) {
     const leadingZeros = notation[2];
     const eAdjacentToLeadingZeros = sign3 ? (
       // 0E.
-      str2[leadingZeros.length + 1] === eChar
-    ) : str2[leadingZeros.length] === eChar;
-    if (leadingZeros.length > 1 && eAdjacentToLeadingZeros) return str2;
+      str3[leadingZeros.length + 1] === eChar
+    ) : str3[leadingZeros.length] === eChar;
+    if (leadingZeros.length > 1 && eAdjacentToLeadingZeros) return str3;
     else if (leadingZeros.length === 1 && (notation[3].startsWith(`.${eChar}`) || notation[3][0] === eChar)) {
       return Number(trimmedStr);
     } else if (leadingZeros.length > 0) {
       if (options.leadingZeros && !eAdjacentToLeadingZeros) {
         trimmedStr = (notation[1] || "") + notation[3];
         return Number(trimmedStr);
-      } else return str2;
+      } else return str3;
     } else {
       return Number(trimmedStr);
     }
   } else {
-    return str2;
+    return str3;
   }
 }
 function trimZeros(numStr) {
@@ -28117,14 +28193,14 @@ function trimZeros(numStr) {
   return numStr;
 }
 function parse_int(numStr, base) {
-  const str2 = numStr.trim();
-  if (base === 2 || base === 8) numStr = str2.substring(2);
+  const str3 = numStr.trim();
+  if (base === 2 || base === 8) numStr = str3.substring(2);
   if (parseInt) return parseInt(numStr, base);
   else if (Number.parseInt) return Number.parseInt(numStr, base);
   else if (window && window.parseInt) return window.parseInt(numStr, base);
   else throw new Error("parseInt, Number.parseInt, window.parseInt are not supported");
 }
-function handleInfinity(str2, num, options) {
+function handleInfinity(str3, num, options) {
   const isPositive = num === Infinity;
   switch (options.infinity.toLowerCase()) {
     case "null":
@@ -28135,7 +28211,7 @@ function handleInfinity(str2, num, options) {
       return isPositive ? "Infinity" : "-Infinity";
     case "original":
     default:
-      return str2;
+      return str3;
   }
 }
 
@@ -30200,12 +30276,12 @@ function tagExpWithClosingIndex(xmlData, i, closingChar = ">") {
     }
   }
 }
-function findClosingIndex(xmlData, str2, i, errMsg) {
-  const closingIndex = xmlData.indexOf(str2, i);
+function findClosingIndex(xmlData, str3, i, errMsg) {
+  const closingIndex = xmlData.indexOf(str3, i);
   if (closingIndex === -1) {
     throw new Error(errMsg);
   } else {
-    return closingIndex + str2.length - 1;
+    return closingIndex + str3.length - 1;
   }
 }
 function findClosingChar(xmlData, char, i, errMsg) {
@@ -31258,16 +31334,16 @@ function stringifyXML(obj, opts = {}) {
   const xmlData = j2x.build(node);
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${xmlData}`.replace(/\n/g, "");
 }
-async function parseXML(str2, opts = {}) {
-  if (!str2) {
+async function parseXML(str3, opts = {}) {
+  if (!str3) {
     throw new Error("Document is empty");
   }
-  const validation = XMLValidator.validate(str2);
+  const validation = XMLValidator.validate(str3);
   if (validation !== true) {
     throw validation;
   }
   const parser = new XMLParser(getParserOptions(opts));
-  const parsedXml = parser.parse(str2);
+  const parsedXml = parser.parse(str3);
   if (parsedXml["?xml"]) {
     delete parsedXml["?xml"];
   }
@@ -32041,16 +32117,16 @@ var NativeCRC64 = (() => {
       if (endPtr - idx > 16 && heapOrArray.buffer && UTF8Decoder) {
         return UTF8Decoder.decode(heapOrArray.subarray(idx, endPtr));
       }
-      var str2 = "";
+      var str3 = "";
       while (idx < endPtr) {
         var u0 = heapOrArray[idx++];
         if (!(u0 & 128)) {
-          str2 += String.fromCharCode(u0);
+          str3 += String.fromCharCode(u0);
           continue;
         }
         var u1 = heapOrArray[idx++] & 63;
         if ((u0 & 224) == 192) {
-          str2 += String.fromCharCode((u0 & 31) << 6 | u1);
+          str3 += String.fromCharCode((u0 & 31) << 6 | u1);
           continue;
         }
         var u2 = heapOrArray[idx++] & 63;
@@ -32061,26 +32137,26 @@ var NativeCRC64 = (() => {
           u0 = (u0 & 7) << 18 | u1 << 12 | u2 << 6 | heapOrArray[idx++] & 63;
         }
         if (u0 < 65536) {
-          str2 += String.fromCharCode(u0);
+          str3 += String.fromCharCode(u0);
         } else {
           var ch = u0 - 65536;
-          str2 += String.fromCharCode(55296 | ch >> 10, 56320 | ch & 1023);
+          str3 += String.fromCharCode(55296 | ch >> 10, 56320 | ch & 1023);
         }
       }
-      return str2;
+      return str3;
     }
     function UTF8ToString(ptr, maxBytesToRead) {
       return ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead) : "";
     }
-    function stringToUTF8Array(str2, heap, outIdx, maxBytesToWrite) {
+    function stringToUTF8Array(str3, heap, outIdx, maxBytesToWrite) {
       if (!(maxBytesToWrite > 0))
         return 0;
       var startIdx = outIdx;
       var endIdx = outIdx + maxBytesToWrite - 1;
-      for (var i = 0; i < str2.length; ++i) {
-        var u = str2.charCodeAt(i);
+      for (var i = 0; i < str3.length; ++i) {
+        var u = str3.charCodeAt(i);
         if (u >= 55296 && u <= 57343) {
-          var u1 = str2.charCodeAt(++i);
+          var u1 = str3.charCodeAt(++i);
           u = 65536 + ((u & 1023) << 10) | u1 & 1023;
         }
         if (u <= 127) {
@@ -32107,14 +32183,14 @@ var NativeCRC64 = (() => {
       heap[outIdx] = 0;
       return outIdx - startIdx;
     }
-    function stringToUTF8(str2, outPtr, maxBytesToWrite) {
+    function stringToUTF8(str3, outPtr, maxBytesToWrite) {
       assert(typeof maxBytesToWrite == "number", "stringToUTF8(str, outPtr, maxBytesToWrite) is missing the third parameter that specifies the length of the output buffer!");
-      return stringToUTF8Array(str2, HEAPU8, outPtr, maxBytesToWrite);
+      return stringToUTF8Array(str3, HEAPU8, outPtr, maxBytesToWrite);
     }
-    function lengthBytesUTF8(str2) {
+    function lengthBytesUTF8(str3) {
       var len = 0;
-      for (var i = 0; i < str2.length; ++i) {
-        var c = str2.charCodeAt(i);
+      for (var i = 0; i < str3.length; ++i) {
+        var c = str3.charCodeAt(i);
         if (c <= 127) {
           len++;
         } else if (c <= 2047) {
@@ -50175,8 +50251,8 @@ function padStart(currentString, targetLength, padString = " ") {
     return padString.slice(0, targetLength) + currentString;
   }
 }
-function iEqual(str1, str2) {
-  return str1.toLocaleLowerCase() === str2.toLocaleLowerCase();
+function iEqual(str1, str22) {
+  return str1.toLocaleLowerCase() === str22.toLocaleLowerCase();
 }
 function getAccountNameFromUrl(url2) {
   const parsedUrl = new URL(url2);
@@ -57040,8 +57116,8 @@ async function getBodyAsText(batchResponse) {
   buffer2 = buffer2.slice(0, responseLength);
   return buffer2.toString();
 }
-function utf8ByteLength(str2) {
-  return Buffer.byteLength(str2);
+function utf8ByteLength(str3) {
+  return Buffer.byteLength(str3);
 }
 
 // node_modules/@azure/storage-blob/dist/esm/BatchResponseParser.js
@@ -61195,7 +61271,7 @@ async function runSearch(qRaw) {
   const removedParam = caseParams.length;
   caseParams.push(CASE_CAP + 1);
   const caseRows = await query(
-    `SELECT c.id, c.case_po, c.vrm, c.case_ref, c.status_code, c.on_hold,
+    `SELECT c.id, c.case_po, c.vrm, c.case_ref, c.status_code, c.on_hold, c.created_at,
             c.eva_claimant_name AS claimant, wp.display_name AS provider
        FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
       WHERE (${casePreds.join(" OR ")})
@@ -61214,7 +61290,8 @@ async function runSearch(qRaw) {
     queue: queueLabel(r.status_code, r.on_hold),
     status: statusName2(r.status_code),
     claimant: r.claimant ?? null,
-    provider: r.provider ?? null
+    provider: r.provider ?? null,
+    createdAt: r.created_at ? new Date(String(r.created_at)).toISOString() : null
   }));
   const emailRows = await query(
     `SELECT id, subject, from_address, received_on, category_code, case_id
@@ -61514,7 +61591,7 @@ var SCHEMA_NAME = "case_assessment";
 var MAX_COMPLETION_TOKENS2 = 2e3;
 var REQUEST_TIMEOUT_MS2 = 3e4;
 var MAX_DRAFTS = 8;
-var SUGGESTIONS_SYSTEM_PROMPT = `You are an expert UK motor-claims vehicle-collision assessor. You are given the vehicle registration and the free-text case notes for ONE claim (personal details have already been removed from the notes). Read ONLY what is written; never invent a fact, a place, a person, or a registration that is not present in the text.
+var SUGGESTIONS_SYSTEM_PROMPT = `You are an expert UK motor-claims vehicle-collision assessor. You are given the vehicle registration and the free-text case notes for ONE claim (personal details have already been removed from the notes). The notes may be assembled from labelled sections \u2014 accident circumstances, instruction email text, case overview facts, vehicle details, and a photo-analysis summary; treat them all as the case file for the SAME claim. Read ONLY what is written; never invent a fact, a place, a person, or a registration that is not present in the text.
 Produce a short list of observations. Each observation is one of:
 - ${T.damageArea}: a single damaged area of the vehicle you can infer from the notes (e.g. "front nearside", "rear", "offside doors"). Emit one per distinct area; omit if the notes do not indicate any.
 - ${T.damageSeverity}: your overall read of the damage severity \u2014 value MUST be exactly one of "minor", "moderate", "severe", or "unknown". Emit at most one.
@@ -61649,6 +61726,79 @@ async function callSuggestionModel(input, deps = {}) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+// api/src/lib/generate-inputs.ts
+var SECTION_CHAR_CAP = 2e3;
+var TOTAL_INPUT_CHAR_CAP = 6e3;
+var TRUNCATION_MARKER = "\u2026";
+var str = (v) => typeof v === "string" ? v.trim() : "";
+var scrubbed = (v) => {
+  const s = str(v);
+  return s ? scrubPii(s, { redactVrm: false }).text.trim() : "";
+};
+function capText(s, max) {
+  if (s.length <= max) return s;
+  return s.slice(0, Math.max(0, max - TRUNCATION_MARKER.length)) + TRUNCATION_MARKER;
+}
+function buildGenerateInputs(caseRow, extras = {}) {
+  const sections = [];
+  const section = (name, label, body2) => {
+    if (body2) sections.push({ name, text: `${label}
+${capText(body2, SECTION_CHAR_CAP)}` });
+  };
+  section("circumstances", "Accident circumstances:", scrubbed(caseRow.eva_accident_circumstances));
+  section("claimant_address", "Claimant address (personal details removed):", scrubbed(caseRow.eva_claimant_address));
+  const emailBits = [];
+  for (const e of extras.instructionEmails ?? []) {
+    const subject = scrubbed(e.subject);
+    const body2 = scrubbed(e.bodyPreview);
+    if (!subject && !body2) continue;
+    emailBits.push([subject ? `Subject: ${subject}` : "", body2].filter(Boolean).join("\n"));
+  }
+  section("instruction_email", "Instruction email text (personal details removed):", emailBits.join("\n---\n"));
+  const facts = [];
+  const fact = (label, v) => {
+    const s = scrubbed(v);
+    if (s) facts.push(`- ${label}: ${s}`);
+  };
+  fact("Case reference", caseRow.case_po);
+  fact("Work provider", caseRow.eva_work_provider);
+  fact("Claim type", caseRow.ov_claim_type);
+  fact("Insurer", caseRow.ov_insurer_name);
+  fact("Repairer", caseRow.ov_repairer_name);
+  fact("Date of loss", caseRow.eva_date_of_loss);
+  fact("Date of instruction", caseRow.eva_date_of_instruction);
+  section("overview", "Case overview facts:", facts.join("\n"));
+  const veh = [];
+  const model = scrubbed(caseRow.eva_vehicle_model);
+  if (model) veh.push(`- Model: ${model}`);
+  const mileage = str(caseRow.eva_mileage);
+  if (mileage) {
+    const unit = str(caseRow.eva_mileage_unit);
+    veh.push(`- Mileage: ${mileage}${unit ? ` ${unit}` : ""}`);
+  }
+  section("vehicle", "Vehicle:", veh.join("\n"));
+  const images = extras.images ?? [];
+  if (images.length > 0) {
+    const overviews = images.filter((i) => i.role === "overview");
+    const overviewReg = overviews.filter((i) => i.registrationVisible === true).length;
+    const closeups = images.filter((i) => i.role === "damage_closeup").length;
+    const excluded = images.filter((i) => i.excluded === true).length;
+    const reflections = images.filter((i) => i.personReflection === true).length;
+    const plural = (n) => n === 1 ? "" : "s";
+    const parts = [
+      `${images.length} photo${plural(images.length)} on file`,
+      `${overviews.length} overview${plural(overviews.length)}${overviewReg > 0 ? ` (${overviewReg} with visible registration)` : ""}`,
+      `${closeups} damage close-up${plural(closeups)}`
+    ];
+    if (excluded > 0) parts.push(`${excluded} excluded`);
+    if (reflections > 0) parts.push(`${reflections} flagged for a person's reflection`);
+    section("images", "Photo analysis:", `${parts.join("; ")}.`);
+  }
+  let text = sections.map((s) => s.text).join("\n\n");
+  if (text.length > TOTAL_INPUT_CHAR_CAP) text = capText(text, TOTAL_INPUT_CHAR_CAP);
+  return { text, hasInput: sections.length > 0, sections: sections.map((s) => s.name) };
 }
 
 // api/src/functions/ai-suggestions.ts
@@ -61889,13 +62039,41 @@ import_functions16.app.http("generateAiSuggestions", {
     }
     try {
       const ctx = await query(
-        `SELECT vrm, eva_accident_circumstances, eva_claimant_address FROM case_ WHERE id = $1`,
+        `SELECT vrm, case_po, eva_accident_circumstances, eva_claimant_address,
+                eva_work_provider, eva_vehicle_model, eva_date_of_loss, eva_date_of_instruction,
+                eva_mileage, eva_mileage_unit, ov_claim_type, ov_insurer_name, ov_repairer_name
+           FROM case_ WHERE id = $1`,
         [caseId]
       );
       if (!ctx[0]) return { status: 404, jsonBody: { error: "not found" } };
-      const rawText = [ctx[0].eva_accident_circumstances, ctx[0].eva_claimant_address].filter((s) => typeof s === "string" && s.trim().length > 0).join("\n");
-      const scrubbed = scrubPii(rawText, { redactVrm: false });
-      if (!scrubbed.text.trim()) {
+      const imageKindCode = evidenceKindCodec.toInt("image");
+      const [emailRows, imageRows] = await Promise.all([
+        query(
+          `SELECT subject, body_preview FROM inbound_email
+            WHERE case_id = $1 AND (body_preview IS NOT NULL OR subject IS NOT NULL)
+            ORDER BY received_on ASC NULLS LAST, created_at ASC
+            LIMIT 2`,
+          [caseId]
+        ).catch(() => []),
+        query(
+          `SELECT image_role_code, registration_visible, excluded, person_reflection
+             FROM evidence WHERE case_id = $1 AND kind_code = $2`,
+          [caseId, imageKindCode]
+        ).catch(() => [])
+      ]);
+      const inputs = buildGenerateInputs(ctx[0], {
+        instructionEmails: emailRows.map((r) => ({
+          subject: typeof r.subject === "string" ? r.subject : null,
+          bodyPreview: typeof r.body_preview === "string" ? r.body_preview : null
+        })),
+        images: imageRows.map((r) => ({
+          role: imageRoleCodec.toName(r.image_role_code) ?? null,
+          registrationVisible: typeof r.registration_visible === "boolean" ? r.registration_visible : null,
+          excluded: r.excluded === true,
+          personReflection: r.person_reflection === true
+        }))
+      });
+      if (!inputs.hasInput) {
         invocationCtx.log(
           JSON.stringify({ evt: "aiSuggestionsGenerate", caseId, outcome: "no_input" })
         );
@@ -61905,7 +62083,7 @@ import_functions16.app.http("generateAiSuggestions", {
       const drafts = await callModelForSuggestions({
         caseId,
         vrm: typeof ctx[0].vrm === "string" ? ctx[0].vrm : "",
-        scrubbedText: scrubbed.text
+        scrubbedText: inputs.text
       });
       let generated = 0;
       const actor = actorFromClaims(claims);
@@ -61941,7 +62119,10 @@ import_functions16.app.http("generateAiSuggestions", {
           caseId,
           outcome: generated > 0 ? "generated" : "empty",
           generated,
-          drafts: drafts.length
+          drafts: drafts.length,
+          // TKT-132: which input sections fed the prompt (value-free names — safe to log);
+          // lets telemetry explain WHY prompts differ across cases (D1 finding: constant 381).
+          sections: inputs.sections
         })
       );
       const result = generated > 0 ? { generated } : { generated: 0, reason: "empty" };
@@ -62735,7 +62916,7 @@ var DMY = /^\d{2}\/\d{2}\/\d{4}$/;
 var VAT_VALUES2 = /* @__PURE__ */ new Set(["", "Yes", "No"]);
 var MILEAGE_UNITS2 = /* @__PURE__ */ new Set(["", "Miles", "Km"]);
 var IMAGE_ROLES = /* @__PURE__ */ new Set(["overview", "damage_closeup", "additional"]);
-var str = (v) => typeof v === "string" ? v : "";
+var str2 = (v) => typeof v === "string" ? v : "";
 var err = (code, message2) => ({
   ok: false,
   code,
@@ -62744,43 +62925,43 @@ var err = (code, message2) => ({
 function attachmentInvalid(a) {
   if (a == null || typeof a !== "object") return true;
   const o = a;
-  return !str(o.filename).trim() || !str(o.contentType).trim() || !str(o.base64Data).trim();
+  return !str2(o.filename).trim() || !str2(o.contentType).trim() || !str2(o.base64Data).trim();
 }
 function validateProviderApiSubmission(raw) {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
     return err("invalid_body", "Request body must be a JSON object.");
   }
   const b = raw;
-  const providerReference = str(b.providerReference).trim();
+  const providerReference = str2(b.providerReference).trim();
   if (!providerReference) return err("missing_provider_reference", "providerReference is required.");
-  const vrmRaw = str(b.vrm).trim();
+  const vrmRaw = str2(b.vrm).trim();
   if (!vrmRaw) return err("missing_vrm", "vrm is required.");
   const vrm = vrmRaw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
   if (!vrm) return err("missing_vrm", "vrm must contain at least one alphanumeric character.");
-  const claimantName = str(b.claimantName).trim().slice(0, 200);
+  const claimantName = str2(b.claimantName).trim().slice(0, 200);
   if (!claimantName) return err("missing_claimant_name", "claimantName is required.");
-  const dateOfLoss = str(b.dateOfLoss).trim();
+  const dateOfLoss = str2(b.dateOfLoss).trim();
   if (!DMY.test(dateOfLoss)) return err("invalid_date_of_loss", "dateOfLoss must be DD/MM/YYYY.");
-  const dateOfInstruction = str(b.dateOfInstruction).trim();
+  const dateOfInstruction = str2(b.dateOfInstruction).trim();
   if (!DMY.test(dateOfInstruction)) {
     return err("invalid_date_of_instruction", "dateOfInstruction must be DD/MM/YYYY.");
   }
-  const accidentCircumstances = str(b.accidentCircumstances).trim().slice(0, 4e3);
+  const accidentCircumstances = str2(b.accidentCircumstances).trim().slice(0, 4e3);
   if (!accidentCircumstances) {
     return err("missing_accident_circumstances", "accidentCircumstances is required.");
   }
-  const vatStatus = str(b.vatStatus).trim();
+  const vatStatus = str2(b.vatStatus).trim();
   if (!VAT_VALUES2.has(vatStatus)) {
     return err("invalid_vat_status", "vatStatus must be '', 'Yes' or 'No'.");
   }
-  const mileageUnit = str(b.mileageUnit).trim();
+  const mileageUnit = str2(b.mileageUnit).trim();
   if (!MILEAGE_UNITS2.has(mileageUnit)) {
     return err("invalid_mileage_unit", "mileageUnit must be '', 'Miles' or 'Km'.");
   }
   if (b.inspectionAddress !== void 0 && typeof b.inspectionAddress !== "string") {
     return err("invalid_inspection_address", "inspectionAddress must be a string when supplied.");
   }
-  const inspectionAddress = str(b.inspectionAddress).slice(0, 2e3);
+  const inspectionAddress = str2(b.inspectionAddress).slice(0, 2e3);
   if (b.instructions !== void 0 && !Array.isArray(b.instructions)) {
     return err("invalid_instructions", "instructions must be an array.");
   }
@@ -62810,12 +62991,12 @@ function validateProviderApiSubmission(raw) {
       return err("invalid_images", "Each image needs filename, contentType and base64Data.");
     }
     const o = a;
-    const roleRaw = str(o.imageRole).trim();
+    const roleRaw = str2(o.imageRole).trim();
     if (roleRaw && !IMAGE_ROLES.has(roleRaw)) {
       return err("invalid_image_role", "imageRole must be 'overview', 'damage_closeup' or 'additional'.");
     }
     const excluded = o.excluded === true;
-    const exclusionReason = str(o.exclusionReason).trim();
+    const exclusionReason = str2(o.exclusionReason).trim();
     if (excluded && !exclusionReason) {
       return err("missing_exclusion_reason", "exclusionReason is required when excluded is true.");
     }
@@ -62839,16 +63020,16 @@ function validateProviderApiSubmission(raw) {
     value: {
       providerReference: providerReference.slice(0, 100),
       vrm,
-      vehicleModel: str(b.vehicleModel).trim().slice(0, 200),
+      vehicleModel: str2(b.vehicleModel).trim().slice(0, 200),
       claimantName,
-      claimantTelephone: str(b.claimantTelephone).trim().slice(0, 60),
-      claimantEmail: str(b.claimantEmail).trim().slice(0, 320),
+      claimantTelephone: str2(b.claimantTelephone).trim().slice(0, 60),
+      claimantEmail: str2(b.claimantEmail).trim().slice(0, 320),
       dateOfLoss,
       dateOfInstruction,
       accidentCircumstances,
       inspectionAddress,
       vatStatus,
-      mileage: str(b.mileage).replace(/[^\d]/g, "").slice(0, 20),
+      mileage: str2(b.mileage).replace(/[^\d]/g, "").slice(0, 20),
       mileageUnit,
       instructions,
       images

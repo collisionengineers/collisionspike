@@ -124,6 +124,9 @@ export interface SearchCaseHit {
   status?: string;
   claimant: string | null;
   provider: string | null;
+  /** ISO created timestamp (TKT-072 age): result rows show "12d old". OPTIONAL —
+   *  absent on an older server payload, in which case no age is rendered. */
+  createdAt?: string | null;
 }
 export interface SearchEmailHit {
   id: string;

@@ -207,6 +207,121 @@ describe('generateAiSuggestions — (d) NO silent mutation (promotion is human-r
 });
 
 /* ============================================================
+   TKT-132 — the WIDENED generate inputs. Before: the prompt was built from
+   eva_accident_circumstances + eva_claimant_address only, so a case with parsed
+   instructions but empty circumstances was a permanent 'no_input'. Pins the
+   acceptance: such a case now reaches the model with the instruction email text
+   (and other real inputs) and generates; empty-everything stays an honest no_input.
+   ============================================================ */
+
+describe('generateAiSuggestions — TKT-132 widened inputs', () => {
+  it('a case with parsed instructions but EMPTY circumstances reaches the model and generates', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM case_/i.test(sql)) {
+        return [{ vrm: 'WN14XPZ', eva_accident_circumstances: '  ', eva_claimant_address: null }];
+      }
+      if (/FROM inbound_email/i.test(sql)) {
+        return [{ subject: 'New instruction WN14XPZ', body_preview: 'Rear-end collision at lights, please assess the vehicle.' }];
+      }
+      if (/INSERT INTO ai_suggestion/i.test(sql)) return [{ id: 'sug-1' }];
+      return [];
+    });
+    model.callSuggestionModel.mockResolvedValue([
+      { suggestionType: 'accident_summary', suggestedValue: { summary: 'Rear-end shunt.' }, confidence: 0.8, modelVersion: 'gpt-5:x' },
+    ]);
+
+    const res = await generate(req(), ctx, {});
+    expect(res.jsonBody).toEqual({ generated: 1 }); // NOT no_input any more
+    expect(model.callSuggestionModel).toHaveBeenCalledTimes(1);
+    // The model saw the instruction email text as a labelled section.
+    const input = model.callSuggestionModel.mock.calls[0][0] as { scrubbedText: string };
+    expect(input.scrubbedText).toContain('Instruction email text');
+    expect(input.scrubbedText).toContain('Rear-end collision at lights');
+  });
+
+  it('image stamps alone (no free text anywhere) still count as input — compact photo facts', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM case_/i.test(sql)) {
+        return [{ vrm: 'WN14XPZ', eva_accident_circumstances: null, eva_claimant_address: null }];
+      }
+      if (/FROM evidence/i.test(sql)) {
+        return [
+          { image_role_code: 100000000, registration_visible: true, excluded: false, person_reflection: false },
+          { image_role_code: 100000001, registration_visible: null, excluded: false, person_reflection: false },
+        ];
+      }
+      return [];
+    });
+    model.callSuggestionModel.mockResolvedValue([]);
+    const res = await generate(req(), ctx, {});
+    expect(res.jsonBody).toEqual({ generated: 0, reason: 'empty' }); // model WAS called
+    const input = model.callSuggestionModel.mock.calls[0][0] as { scrubbedText: string };
+    expect(input.scrubbedText).toContain('Photo analysis:');
+    expect(input.scrubbedText).toContain('2 photos on file');
+  });
+
+  it('free text is scrubbed BEFORE the model call (email/phone gone, VRM kept)', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM case_/i.test(sql)) {
+        return [{ vrm: 'WN14XPZ', eva_accident_circumstances: null, eva_claimant_address: null }];
+      }
+      if (/FROM inbound_email/i.test(sql)) {
+        return [{ subject: 'Instruction', body_preview: 'Contact john.smith@example.com or 07700 900123 re WN14 XPZ.' }];
+      }
+      return [];
+    });
+    model.callSuggestionModel.mockResolvedValue([]);
+    await generate(req(), ctx, {});
+    const input = model.callSuggestionModel.mock.calls[0][0] as { scrubbedText: string };
+    expect(input.scrubbedText).not.toContain('john.smith@example.com');
+    expect(input.scrubbedText).not.toContain('07700 900123');
+    expect(input.scrubbedText).toContain('[EMAIL]');
+    expect(input.scrubbedText).toContain('[PHONE]');
+    expect(input.scrubbedText).toContain('WN14 XPZ');
+  });
+
+  it('a failing EXTRAS read degrades to the narrower prompt, never an error (best-effort widening)', async () => {
+    process.env.AI_ASSIST_ENABLED = 'true';
+    const { query } = await import('../lib/db.js');
+    const queryMock = query as unknown as ReturnType<typeof vi.fn>;
+    /** The db-mock factory's own recording implementation — restored after this test so the
+     *  throw-on-extras override never leaks into later tests (beforeEach only resets rowsFor). */
+    const recordingImpl = async (sql: string, p?: unknown[]) => {
+      sqls.push(sql);
+      params.push(p ?? []);
+      return rowsFor(sql, p);
+    };
+    queryMock.mockImplementation(async (sql: string, p?: unknown[]) => {
+      sqls.push(sql);
+      params.push(p ?? []);
+      if (/FROM inbound_email/i.test(sql) || /FROM evidence/i.test(sql)) {
+        throw new Error('column does not exist'); // e.g. an older DB
+      }
+      return rowsFor(sql, p);
+    });
+    try {
+      rowsFor.mockImplementation((sql: string) => {
+        if (/FROM case_/i.test(sql)) return [CASE_ROW]; // circumstances present
+        if (/INSERT INTO ai_suggestion/i.test(sql)) return [{ id: 'sug-1' }];
+        return [];
+      });
+      model.callSuggestionModel.mockResolvedValue([
+        { suggestionType: 'accident_summary', suggestedValue: { summary: 'Shunt.' }, confidence: 0.9, modelVersion: 'gpt-5:x' },
+      ]);
+      const res = await generate(req(), ctx, {});
+      expect(res.jsonBody).toEqual({ generated: 1 }); // circumstances alone still generated
+      const input = model.callSuggestionModel.mock.calls[0][0] as { scrubbedText: string };
+      expect(input.scrubbedText).toContain('Struck from behind at lights.');
+    } finally {
+      queryMock.mockImplementation(recordingImpl);
+    }
+  });
+});
+
+/* ============================================================
    TKT-023 — the case_link ACCEPT seam satisfies outstanding chasers.
    The suggestion-review attach was the ONE attach seam that never called
    markOutstandingChasersResponded (auto-link reply / dedup attach / auto-attach

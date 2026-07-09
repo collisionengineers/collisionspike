@@ -37,6 +37,9 @@ export interface CaseHit {
   status: string;
   claimant: string | null;
   provider: string | null;
+  /** When the case was opened (ISO) — lets the SPA render a plain age ("12d old")
+   *  on result rows, matching the queue rows (TKT-072 verifier finding). */
+  createdAt: string | null;
 }
 export interface EmailHit {
   id: string;
@@ -119,7 +122,7 @@ export async function runSearch(qRaw: string): Promise<SearchResults> {
   const removedParam = caseParams.length;
   caseParams.push(CASE_CAP + 1);
   const caseRows = await query<Row>(
-    `SELECT c.id, c.case_po, c.vrm, c.case_ref, c.status_code, c.on_hold,
+    `SELECT c.id, c.case_po, c.vrm, c.case_ref, c.status_code, c.on_hold, c.created_at,
             c.eva_claimant_name AS claimant, wp.display_name AS provider
        FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
       WHERE (${casePreds.join(' OR ')})
@@ -139,6 +142,7 @@ export async function runSearch(qRaw: string): Promise<SearchResults> {
     status: statusName(r.status_code),
     claimant: r.claimant ?? null,
     provider: r.provider ?? null,
+    createdAt: r.created_at ? new Date(String(r.created_at)).toISOString() : null,
   }));
 
   // ---- inbound emails: subject, sender ----

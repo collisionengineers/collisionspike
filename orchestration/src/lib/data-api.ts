@@ -445,6 +445,12 @@ export const dataApi = {
         /** TKT-123: the vision classifier saw a person's reflection (advisory —
          *  drives the SPA's dismissible warning; separate from `excluded`). */
         personReflection?: boolean;
+        /** TKT-133 — lower-case hex SHA-256 of the attachment bytes (hashed at blob
+         *  landing, fetchMessage/blob.ts). The API's dedup extension links/skips the Box
+         *  FILE.UPLOADED mirror twin on (case_id, sha256). Optional + forward-compatible:
+         *  the route ignores it until the extension lands, and an envelope checkpointed
+         *  before the hash shipped simply omits it. */
+        sha256?: string;
       }
     >,
   ): Promise<{ persisted: number }> {

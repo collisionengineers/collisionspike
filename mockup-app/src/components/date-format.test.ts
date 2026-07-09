@@ -4,6 +4,8 @@ import {
   formatDdmmyyyy,
   isValidDdmmyyyy,
   formatReceivedCompact,
+  ageDaysFromIso,
+  caseAgeLabel,
 } from './date-format';
 
 /* ============================================================
@@ -106,5 +108,33 @@ describe('formatReceivedCompact', () => {
   it('empty input → em dash; unparseable input returned verbatim', () => {
     expect(formatReceivedCompact('', NOW)).toBe('—');
     expect(formatReceivedCompact('not-a-date', NOW)).toBe('not-a-date');
+  });
+});
+
+describe('ageDaysFromIso / caseAgeLabel (TKT-072 search-row age)', () => {
+  // Same fixed "now" idiom as formatReceivedCompact: local-time ISO strings.
+  const NOW = new Date(2026, 5, 17, 14, 0); // Wed 17 June 2026, 14:00
+
+  it('counts whole CALENDAR days (a late-yesterday timestamp is 1 day old)', () => {
+    expect(ageDaysFromIso('2026-06-17T09:00', NOW)).toBe(0);
+    expect(ageDaysFromIso('2026-06-16T23:59', NOW)).toBe(1);
+    expect(ageDaysFromIso('2026-06-05T10:00', NOW)).toBe(12);
+  });
+
+  it('floors a clock-skewed future timestamp at 0, and null on junk/absent input', () => {
+    expect(ageDaysFromIso('2026-06-20T10:00', NOW)).toBe(0);
+    expect(ageDaysFromIso('', NOW)).toBeNull();
+    expect(ageDaysFromIso(null, NOW)).toBeNull();
+    expect(ageDaysFromIso(undefined, NOW)).toBeNull();
+    expect(ageDaysFromIso('not-a-date', NOW)).toBeNull();
+  });
+
+  it('renders the queue-row idiom: "12d old", "today" on day 0, "" when unknown', () => {
+    expect(caseAgeLabel('2026-06-05T10:00', NOW)).toBe('12d old');
+    expect(caseAgeLabel('2026-06-16T23:59', NOW)).toBe('1d old');
+    expect(caseAgeLabel('2026-06-17T09:00', NOW)).toBe('today');
+    expect(caseAgeLabel('', NOW)).toBe('');
+    expect(caseAgeLabel(undefined, NOW)).toBe('');
+    expect(caseAgeLabel('junk', NOW)).toBe('');
   });
 });

@@ -2,7 +2,30 @@
 
 > **Canonical registry of what is actually deployed.** This file + [`LIVE_FACTS.json`](../../LIVE_FACTS.json)
 > (root) are the **single source for literal live numbers** — every other doc links here rather than
-> re-embedding a count. Last live change: **2026-07-09T08:20Z** — the **PLAN-003 final wave (D1)**:
+> re-embedding a count. Last live change: **2026-07-09T11:20Z** — the **PLAN-003 final wave (D2, the
+> last implementer batch)**: **all four Function Apps + the SPA republished** — **api 94 re-verified**
+> (TKT-133 sha256 evidence dedup-LINK on the internal route; TKT-132 widened suggestion-generate inputs
+> with prompt caps; TKT-072 search `createdAt`); **orch 71 → 72 verified** (+1: the TKT-102
+> `imagesReceivedVrmMatch` activity — Tractable image-delivery emails match by the PDF's registration,
+> suggest-first; plus TKT-133 email-lane sha256 and the TKT-142 large-payload blobPath branch);
+> **parser republished at NEW sibling engine tag `engine-v2.12`** (4 functions — TKT-136 fallback-reference
+> money/fragment guards + document-path VRM tight-anchor; TKT-102 Tractable classifier lane + layout
+> provider, vendored `providers.json` seed deliberately bumped); **box-webhook republished — still 12**
+> (TKT-142: the upload route gained mutually-exclusive `blobPath` (MI-streamed from `cespkevidstdev01`,
+> Storage Blob Data Reader granted to its MI) + Box chunked-upload (≥20 MiB) lanes and a 413-before-decode
+> base64 cap; TKT-133: true kind + sha256 at source); **SPA redeployed** (200 + strict CSP — the TKT-137
+> uncased triage-suggestion banner, TKT-072 result ages + email deep-links). **The D1 toolset-v2 incident
+> is CLOSED**: the flip had 400'd every assistant chat (a boolean `exclusiveMinimum` in the derived tool
+> JSON-schemas — AOAI rejects the whole tools array); fixed at the schema source (pinned by tests) and
+> **`ASSISTANT_TOOLSET_V2` re-flipped `true`** (readback + fail-closed 401 + a clean 6h KQL window).
+> **Live data ops (audited, backup-first)**: the TKT-131 image-role backfill classified **1,998/2,002**
+> role-unknown evidence images ($4.72 AOAI; 337 person-reflection exclusions; 4 content-safety residuals),
+> moving 4 cases `missing_images → ready_for_eva` (108 cases now pass the EVA image rule; A.QDOS26029
+> honestly stays `missing_images` — its photo set contains no overview shot); the TKT-133 dedup excluded
+> **58 mirror twins + 1,411 box-lane duplicate rows** across 111 cases (each photo now once in EVA order);
+> the TKT-136 delta cleared 4 junk `case_ref`s (incl. the `RIGERANT R1234YF` marker) and label-stripped 8
+> real ones. **TKT-142 proven live**: the stranded QDOS26029 archive completed **4/4** (was 0/4; 17.6 MB
+> `.eml` via the streamed lane). Prior change: **2026-07-09T08:20Z** — the **PLAN-003 final wave (D1)**:
 > **two operator-granted gate flips on `cespk-api-dev`, readback-proven** — **`ASSISTANT_TOOLSET_V2=true`**
 > (TKT-066 canonical-VRM assistant lookups + the TKT-069 six read-only tools; SELECT-only invariant pinned
 > by the assistant tests) and **`GLOBAL_SEARCH_ENABLED=true`** (TKT-072 global search with the TKT-096
@@ -425,9 +448,9 @@ az resource list -g rg-collisionspike-dev -o table
 # Static Web App (SPA) hostname + status
 az staticwebapp show -g rg-collisionspike-dev -n cespk-spa-dev --query "defaultHostname" -o tsv
 
-# Function Apps — which functions are actually deployed (verified 2026-07-09T06:05Z: api 94, orch 71, parser 4, box-webhook 12)
+# Function Apps — which functions are actually deployed (verified 2026-07-09T11:10Z: api 94, orch 72, parser 4, box-webhook 12)
 az functionapp function list -g rg-collisionspike-dev -n cespk-api-dev  -o table   # expect: 94 functions
-az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: 71 functions (live — 3 push subs)
+az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: 72 functions (live — 3 push subs)
 az functionapp function list -g rg-collisionspike-dev -n cespkbox-fn-v76a47 -o table               # expect: 12
 az functionapp function list -g rg-collisionspike-dev -n cespike-parser-dev-x7xt3d5ovhi7y -o table # expect: 4
 

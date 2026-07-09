@@ -36,15 +36,44 @@ interface ClassifyPersistInput {
 /** Minimum body length to treat as a genuine in-body instruction (skip one-liners/footers). */
 const MIN_BODY_INSTRUCTION_CHARS = 40;
 
+/**
+ * Pure assembly of the direct-attachment + raw-`.eml` evidence rows (no I/O; exported for
+ * unit tests). TKT-133: each row carries the attachment's `sha256` (hashed at blob-landing
+ * time — fetchMessage/blob.ts) so the Data API can dedup/link the email lane against its
+ * Box FILE.UPLOADED mirror twin on (case_id, sha256). The hash is OPTIONAL on the envelope
+ * (an orchestration checkpointed before the field shipped omits it — replay-safe), so the
+ * row omits it too rather than sending an empty string.
+ */
+export function buildBaseEvidenceRows(
+  inbound: Pick<InboundEnvelope, 'attachments' | 'rawEml'>,
+): Parameters<typeof dataApi.persistEvidence>[1] {
+  const rows: Parameters<typeof dataApi.persistEvidence>[1] = inbound.attachments.map((a) => ({
+    ...describeEvidence(a.filename, a.contentType),
+    blobPath: a.blobPath,
+    size: a.size,
+    ...(a.sha256 ? { sha256: a.sha256 } : {}),
+  }));
+
+  // The original message captured as raw `.eml` (box-sync ticket) becomes its own
+  // email-class evidence row so the archive holds the email itself. Idempotent on
+  // its deterministic blob path ({messageId}/message-<token>.eml). Omitted when the
+  // `$value` capture failed in fetchMessage (best-effort).
+  if (inbound.rawEml) {
+    rows.push({
+      ...describeEvidence(inbound.rawEml.filename, inbound.rawEml.contentType),
+      blobPath: inbound.rawEml.blobPath,
+      size: inbound.rawEml.size,
+      ...(inbound.rawEml.sha256 ? { sha256: inbound.rawEml.sha256 } : {}),
+    });
+  }
+  return rows;
+}
+
 df.app.activity('classifyPersist', {
   handler: async (input: ClassifyPersistInput, ctx): Promise<{ persisted: number }> => {
     const { caseId, inbound } = input;
 
-    const rows: Parameters<typeof dataApi.persistEvidence>[1] = inbound.attachments.map((a) => ({
-      ...describeEvidence(a.filename, a.contentType),
-      blobPath: a.blobPath,
-      size: a.size,
-    }));
+    const rows = buildBaseEvidenceRows(inbound);
 
     // TKT-064 live classifier: role/registration/person-reflection for genuine image
     // attachments (the direct-email path — extractImages covers PDF-embedded images). Runs
@@ -135,17 +164,9 @@ df.app.activity('classifyPersist', {
       }
     }
 
-    // The original message captured as raw `.eml` (box-sync ticket) becomes its own
-    // email-class evidence row so the archive holds the email itself. Idempotent on
-    // its deterministic blob path ({messageId}/message.eml). Omitted when the
-    // `$value` capture failed in fetchMessage (best-effort).
-    if (inbound.rawEml) {
-      rows.push({
-        ...describeEvidence(inbound.rawEml.filename, inbound.rawEml.contentType),
-        blobPath: inbound.rawEml.blobPath,
-        size: inbound.rawEml.size,
-      });
-    }
+    // (The raw `.eml` email-class row is assembled in buildBaseEvidenceRows above — it is
+    // never image- or instruction-class, so its earlier presence cannot affect the image
+    // classifier loop or the engineer-report override.)
 
     // Body-only instruction (ADR-0015): a RECEIVING-WORK email whose instructions are typed
     // in the body with NO instruction attachment must still yield instruction evidence, else
@@ -173,6 +194,7 @@ df.app.activity('classifyPersist', {
         isInstruction: true,
         blobPath: up.blobPath,
         size: up.size,
+        sha256: up.sha256,
       });
       ctx.log(JSON.stringify({ evt: 'classifyPersist.bodyInstruction', caseId, bytes: up.size }));
     }

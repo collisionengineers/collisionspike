@@ -38,7 +38,72 @@ import * as df from 'durable-functions';
 import { gates } from '@cs/domain/gates';
 import { box } from '../../lib/functions-client.js';
 import { dataApi } from '../../lib/data-api.js';
-import { downloadEvidenceBytes } from '../../lib/blob.js';
+import { downloadEvidenceBytes, getEvidenceBlobSize } from '../../lib/blob.js';
+
+/* ---- TKT-142: size-based upload transport --------------------------------------
+ * The facade dies (502, worker death) on a large base64-in-JSON body — a 17.6MB raw
+ * `.eml` is ~23MB encoded, which stranded the QDOS26029 archive 0/4 and took small
+ * files down as recycle collateral. Files ABOVE the inline cap are therefore sent as
+ * `{ filename, blobPath, contentType }` (the facade fetches the blob itself with its
+ * own managed identity and streams it to Box — direct <20MB, chunked-session ≥20MB);
+ * files at/below the cap keep today's inline base64 path byte-for-byte. The size probe
+ * is a HEAD (getProperties), so a large file never moves through the orchestration at
+ * all. Env knob: BOX_INLINE_UPLOAD_MAX_BYTES (bytes); default 8 MiB. */
+
+const DEFAULT_INLINE_UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
+
+/** Inline (base64) upload cap in bytes — BOX_INLINE_UPLOAD_MAX_BYTES, default 8 MiB.
+ *  A missing/garbage/non-positive value falls back to the default (never 0/NaN). */
+export function boxInlineUploadMaxBytes(): number {
+  const raw = Number(process.env.BOX_INLINE_UPLOAD_MAX_BYTES ?? '');
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_INLINE_UPLOAD_MAX_BYTES;
+}
+
+export interface BoxUploadResult {
+  id?: string;
+  name?: string;
+  sha1?: string;
+  outcome?: string;
+}
+
+/** Injectable seams for `uploadArchiveItem` (unit tests mock these; the activity passes
+ *  the real blob + facade clients). */
+export interface ArchiveUploadDeps {
+  sizeOf(blobPath: string): Promise<number>;
+  download(blobPath: string): Promise<Buffer>;
+  uploadInline(folderId: string, filename: string, contentBase64: string, contentType?: string): Promise<BoxUploadResult>;
+  uploadFromBlob(folderId: string, filename: string, blobPath: string, contentType?: string): Promise<BoxUploadResult>;
+}
+
+const realUploadDeps: ArchiveUploadDeps = {
+  sizeOf: getEvidenceBlobSize,
+  download: downloadEvidenceBytes,
+  uploadInline: (folderId, filename, contentBase64, contentType) =>
+    box.uploadFile(folderId, filename, contentBase64, contentType),
+  uploadFromBlob: (folderId, filename, blobPath, contentType) =>
+    box.uploadFileFromBlob(folderId, filename, blobPath, contentType),
+};
+
+/**
+ * Upload ONE evidence file into the case Box folder, choosing the transport by byte
+ * size: ≤ maxInlineBytes rides inline as base64 (today's path, unchanged); larger files
+ * go by blob reference so the facade fetches + streams them itself (TKT-142). Errors
+ * propagate — the caller's per-item try/catch keeps one file's failure from failing its
+ * siblings (the acceptance's "no small-file collateral failures").
+ */
+export async function uploadArchiveItem(
+  folderId: string,
+  item: { filename: string; blobPath: string; contentType: string },
+  maxInlineBytes: number = boxInlineUploadMaxBytes(),
+  deps: ArchiveUploadDeps = realUploadDeps,
+): Promise<BoxUploadResult> {
+  const size = await deps.sizeOf(item.blobPath);
+  if (size > maxInlineBytes) {
+    return deps.uploadFromBlob(folderId, item.filename, item.blobPath, item.contentType);
+  }
+  const bytes = await deps.download(item.blobPath);
+  return deps.uploadInline(folderId, item.filename, bytes.toString('base64'), item.contentType);
+}
 
 interface BoxArchiveInput {
   caseId: string;
@@ -128,10 +193,11 @@ df.app.activity('boxArchiveEvidence', {
       if (seen.has(it.blobPath)) continue;
       seen.add(it.blobPath);
       total++;
-      let res: { id?: string; name?: string; sha1?: string; outcome?: string };
+      let res: BoxUploadResult;
       try {
-        const bytes = await downloadEvidenceBytes(it.blobPath);
-        res = await box.uploadFile(folderId, it.filename, bytes.toString('base64'), it.contentType);
+        // TKT-142: size-branched transport — large files go by blob reference (the
+        // facade streams them itself); small files keep the inline base64 path.
+        res = await uploadArchiveItem(folderId, it);
       } catch (e) {
         // Best-effort per item: a single upload failure must not abort the others.
         ctx.warn(

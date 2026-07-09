@@ -39,6 +39,7 @@
 import * as df from 'durable-functions';
 import { supplementAccidentCircumstancesFromBody } from '../lib/supplement-parse.js';
 import type { InboundClassification } from './activities/classifyInbound.js';
+import { shouldAttemptPdfVrmMatch } from './activities/imagesReceivedVrmMatch.js';
 import { shouldAttemptTriageAssist } from './gated/triage-classify.js';
 import { decideCaseType, decideRetro, categoryMintsCase } from '@cs/domain';
 import type { TriagePolicyDecision } from '@cs/domain';
@@ -375,6 +376,57 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
       };
     }
 
+    // TKT-102 — image-delivery emails whose match key lives INSIDE the attached PDF (the
+    // Tractable "New completed lead…" shape: subject/body carry NO registration or
+    // reference — the PDF's Vehicle Information block does). Runs ONLY when the
+    // subject/body machinery found no case (pure predicate over CHECKPOINTED values —
+    // never env): re-use the EXISTING `parse` activity over the attachment(s) (gated
+    // PDF_MAPPER_ENABLED inside, exactly like step 4), then feed the PDF-extracted
+    // registration into the existing match machinery — an exact-single open-case VRM
+    // match becomes the same case_link SUGGESTION the ref-gate rung writes (VRM-only
+    // NEVER auto-attaches, ADR-0010); none/several becomes the existing TKT-034 visible
+    // flag. Additive + best-effort: no case is minted here and a failure never blocks
+    // the return below.
+    let pdfVrmMatch: string | undefined;
+    if (
+      shouldAttemptPdfVrmMatch(
+        classification,
+        triage,
+        (inbound as { attachments?: Array<{ filename?: string; contentType?: string }> })
+          .attachments,
+      )
+    ) {
+      try {
+        let laneParse: { vrm?: { value?: string }; skipped?: boolean } = {};
+        try {
+          laneParse = (yield ctx.df.callActivityWithRetry('parse', retry, {
+            messageId: (inbound as { messageId?: string }).messageId,
+            attachments: (inbound as { attachments?: unknown }).attachments,
+            providerHint: principalCode,
+          })) as { vrm?: { value?: string }; skipped?: boolean };
+        } catch (e) {
+          if (!ctx.df.isReplaying) {
+            ctx.log(
+              `[intake] images-received PDF parse failed (additive, non-blocking): ${String(e)}`,
+            );
+          }
+        }
+        const vrmMatch = (yield ctx.df.callActivityWithRetry('imagesReceivedVrmMatch', retry, {
+          internetMessageId: (inbound as { internetMessageId?: string }).internetMessageId,
+          vrm: (laneParse.vrm?.value ?? '').trim(),
+          triedVrm:
+            ((inbound as { candidateVrm?: string }).candidateVrm || classification.bodyVrm || '').trim(),
+        })) as { outcome: string };
+        pdfVrmMatch = vrmMatch.outcome;
+      } catch (e) {
+        if (!ctx.df.isReplaying) {
+          ctx.log(
+            `[intake] images-received VRM match failed (additive, non-blocking): ${String(e)}`,
+          );
+        }
+      }
+    }
+
     // Retro fallback (ADR-0022) for the NON-reply lane — today these return without any
     // linking attempt at all, which is exactly the billing-email gap. Same conventions as
     // the reply-lane block above (pure decideRetro, gated activities, additive, last).
@@ -417,6 +469,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     return {
       triaged: classification.category,
       subtype: classification.subtype,
+      ...(pdfVrmMatch ? { pdfVrmMatch } : {}),
       ...(retroOutcome ? { retro: retroOutcome } : {}),
     };
   }

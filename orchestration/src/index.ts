@@ -40,6 +40,7 @@ import './functions/activities/enrich.js';
 import './functions/activities/boxArchive.js'; // Blob -> Box archive mirror (box-sync)
 import './functions/activities/extractImages.js'; // embedded-image extraction (pdf-image-extraction)
 import './functions/activities/imagesUnmatched.js'; // TKT-034 unmatched-images fallback (visible flag + dark reg-keyed Box folder)
+import './functions/activities/imagesReceivedVrmMatch.js'; // TKT-102 image-delivery PDF-VRM match (Tractable shape; suggest-first)
 
 // The 9 gated orchestrations (plan 22 §C) — all wired off behind their gates, no-op when invoked
 import './functions/gated/finalize-eva-box.js';

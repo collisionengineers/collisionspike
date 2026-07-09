@@ -247,6 +247,18 @@
       "will instruct you shortly",
       "formal instruction is to follow"
     ],
+    "image_service_sender_domains": [
+      "tractable.ai"
+    ],
+    "image_service_identity_phrases": [
+      "powered by tractable",
+      "tractable portal",
+      "tractable support team"
+    ],
+    "image_service_delivery_phrases": [
+      "completed lead",
+      "damage capture"
+    ],
     "auto_reply_markers": [
       "out of office",
       "out-of-office",

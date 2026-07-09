@@ -171,6 +171,78 @@ def vrm_candidate_is_bad(candidate: str, context: str) -> bool:
     return False
 
 
+# --- Shared reference money guard (collisionspike TKT-103 / TKT-136) --------- #
+# A currency amount is exactly the structured-ref shape ("768.00" = digits + '.'
+# + digits), so the Tractable "AI Quote: £768.00" surfaced as a job reference on
+# the CLASSIFIER path (TKT-103) and money values could equally mint the /parse
+# fallback reference (TKT-136). ONE definition, shared by BOTH
+# ``rules/email_classifier._job_reference`` and ``RuleEngine._fallback_reference``,
+# so the two guards can never drift (the classifier aliases these). A token whose
+# dotted tail is exactly TWO decimal digits is a money value, never a ref (every
+# real dotted ref in the corpus carries a 1- or 3-4-digit sequence suffix —
+# "206848.001", "45391_1" — never .NN). Comma-grouped thousands included.
+MONEY_TOKEN_RE = re.compile(r"^\d{1,3}(?:,\d{3})*\.\d{2}$")
+# A currency marker immediately before the token ("£768.00", "GBP 768.00") also
+# disqualifies it, whatever the decimal shape.
+CURRENCY_BEFORE_RE = re.compile(r"(?:[£$€]|\bGBP|\bEUR|\bUSD)\s*$", re.IGNORECASE)
+
+
+def reference_candidate_is_money(token: str, preceding: str = "") -> bool:
+    """True when a reference-shaped ``token`` is actually a MONEY value.
+
+    ``preceding`` is the raw text immediately BEFORE the token (the classifier
+    passes an ~8-char window; the /parse tiers pass the line text up to the
+    match), so a currency marker just before the token ("£ 768.00", "GBP 487")
+    disqualifies it whatever its decimal shape. The /parse label tiers capture
+    free text, so a currency marker glued INTO the value itself ("£768.00") is
+    stripped before the shape test — a no-op for the classifier's regex-captured
+    tokens, which can never start with a currency mark.
+    """
+    compact = re.sub(r"\s+", "", token or "")
+    inner = re.sub(r"^(?:[£$€]|GBP|EUR|USD)", "", compact, flags=re.IGNORECASE)
+    if MONEY_TOKEN_RE.fullmatch(inner):
+        return True
+    # A currency CODE can be captured as the token's own alpha head
+    # ("GBP 487.32" -> "GBP487" via the classifier's spaced-principal arm).
+    if re.match(r"^(?:GBP|EUR|USD)\d", compact, re.IGNORECASE):
+        return True
+    return bool(CURRENCY_BEFORE_RE.search(preceding or ""))
+
+
+# --- Reference fragment-plausibility guard (collisionspike TKT-136) ---------- #
+# The live case_ref "RIGERANT R1234YF" was a refrigerant SPEC fragment: the
+# fuzzy "ref" label matched the head of "REFRIGERANT R1234YF 650g" and the tail
+# of the parts line was minted as the reference. A candidate reference VALUE
+# that reads as prose / a spec-list fragment is rejected:
+#   * any token shaped like a unit quantity ("650g", "2.5kg", "0.7hours") marks
+#     a parts/spec line;
+#   * a MULTI-word value whose first token carries no digit and is not a short
+#     ALL-CAPS principal/prefix code ("PHA 5013" passes; "RIGERANT R1234YF" and
+#     title-case prose heads do not) is narrative, not a reference.
+# Single-token values (the overwhelmingly common real-ref shape — "REB/46487/1",
+# "206848.001", "CCPY26050") are untouched apart from the unit-token test.
+SPEC_UNIT_TOKEN_RE = re.compile(
+    r"^\d+(?:\.\d+)?(?:g|kg|mg|ml|ltr|litres?|liters?|mm|cm|km|cc|kw|bhp|psi|bar|hrs?|hours?)$",
+    re.IGNORECASE,
+)
+REF_PREFIX_HEAD_RE = re.compile(r"^[A-Z]{1,6}[.:#-]?$")
+
+
+def reference_candidate_is_fragment(value: str) -> bool:
+    """True when a candidate reference VALUE reads as a prose/spec fragment."""
+    tokens = (value or "").split()
+    if not tokens:
+        return False
+    if any(SPEC_UNIT_TOKEN_RE.fullmatch(t) for t in tokens):
+        return True
+    if len(tokens) < 2:
+        return False
+    head = tokens[0]
+    if not re.search(r"\d", head) and not REF_PREFIX_HEAD_RE.fullmatch(head):
+        return True
+    return False
+
+
 # Canonical value emitted for the inspection address when the document states the
 # vehicle will be assessed from images / on a desktop basis rather than at a
 # physical location. Matches the EVA contract convention (see docs/testing
@@ -205,6 +277,104 @@ _IMAGE_BASED_PHRASES = (
 # nothing. Regexes, rule ordering, confidence bands and suppression logic are
 # all still Python, unchanged, below/around these constants.
 _RULES = load_triage_rules()
+
+
+# --- Shared VRM context/anchor guard data (collisionspike TKT-071/#7/TKT-136) - #
+# These previously lived ONLY in rules/email_classifier.py (the classifier's
+# canonical ``body_vrm`` sniff). TKT-136's scope addendum ports them to the
+# /parse DOCUMENT path too, so junk VRMs cannot re-enter via documents; the
+# canonical definitions now live HERE and the classifier imports/aliases them —
+# one source, no drift.
+#
+# Words that must sit near a loose/dateless candidate for it to count as a VRM.
+VRM_CONTEXT_WORDS: tuple[str, ...] = (
+    "reg",  # also covers "registration"
+    "registration",
+    "vrm",
+    "vehicle",
+    "plate",
+)
+# How far either side of a candidate to look for a context word / postcode.
+VRM_CONTEXT_WINDOW = 30
+# TIGHT anchor (collisionspike TKT-071): when a loose candidate's letters are a
+# UK postcode AREA (HD4110, LS8 — see POSTCODE_AREAS), an anchor word merely
+# NEARBY is not enough (a letter of instruction mentions "vehicle" everywhere
+# and quotes the provider's own job ref, which is exactly postcode-shaped:
+# HD4110). The anchor must IMMEDIATELY precede the candidate ("reg HD4110",
+# "registration: HD4110") — this many chars of lookbehind, enough for
+# "registration:  " plus separators.
+VRM_TIGHT_ANCHOR_WINDOW = 16
+VRM_TIGHT_ANCHOR_RE = re.compile(
+    r"(?:reg(?:istration)?|vrm|vehicle|plate)\s*(?:no|number|mark)?\s*[:.\-#]?\s*$",
+    re.IGNORECASE,
+)
+# Common English words a WELL-FORMED VRM's 3-letter alpha group can accidentally
+# spell out of natural-language / model text ("Model X5 now …" -> "X5 NOW").
+# Deliberately small + conservative so real plates are never dropped (#7/F162).
+_VRM_STOPWORD_TRIGRAMS: frozenset[str] = _RULES.vrm_stopword_trigrams
+
+
+def loose_alpha_head_is_postcode_area(candidate: str) -> bool:
+    """True when the loose candidate's letter head is a UK postcode AREA prefix
+    (HD, LS, G, ...) — the shape a postcode fragment or a provider job ref
+    (HD4110) shares, requiring the TIGHT anchor instead of the nearby one."""
+    m = re.match(r"^([A-Z]{1,3})", re.sub(r"\s+", "", candidate).upper())
+    return bool(m) and m.group(1) in POSTCODE_AREAS
+
+
+def wellformed_trigram_is_stopword(candidate: str) -> bool:
+    """True when a well-formed VRM candidate's 3-letter alpha group spells a common
+    English stop-word — a strong hint it is natural-language noise, not a plate
+    (collisionspike #7 / F162). The whitespace-stripped candidate is split into its
+    maximal letter runs; a run of exactly three letters that is a known stop-word
+    trips it (covers the trailing trigram of the current/prefix shapes AND the
+    leading trigram of the dateless-suffix shape)."""
+    compact = re.sub(r"\s+", "", candidate).upper()
+    return any(
+        len(run) == 3 and run in _VRM_STOPWORD_TRIGRAMS
+        for run in re.findall(r"[A-Z]+", compact)
+    )
+
+
+def vrm_document_candidate_is_bad(
+    candidate: str, text: str, start: int, end: int, anchor_text: str | None = None
+) -> bool:
+    """Document-path VRM guard (collisionspike TKT-136 scope addendum).
+
+    The shared :func:`vrm_candidate_is_bad` window checks PLUS the two guards
+    that previously protected only the classifier's ``body_vrm``:
+
+      * the TKT-071 TIGHT anchor — a loose/dateless candidate whose alpha head
+        is a UK postcode AREA (HD4110) is accepted only when a reg/vrm/vehicle/
+        plate anchor IMMEDIATELY precedes it in ``text``;
+      * the #7/F162 stop-word TRIGRAM — a well-formed candidate whose 3-letter
+        alpha group spells a common English word is rejected when no VRM context
+        word sits within ``VRM_CONTEXT_WINDOW`` of it.
+
+    ``start``/``end`` are the candidate's span within ``text`` (a line or the
+    whole document text), so the anchor check reads what actually precedes it.
+    ``anchor_text`` overrides the tight anchor's default 16-char lookbehind —
+    the LABELLED tier passes the fuzzy-matched VRM label line itself, because a
+    label like "Vehicle Registration Number" is the anchor by construction but
+    is longer than the flowing-text window.
+    """
+    window = text[max(0, start - VRM_CONTEXT_WINDOW):end + VRM_CONTEXT_WINDOW]
+    if vrm_candidate_is_bad(candidate, window):
+        return True
+    compact = re.sub(r"\s+", "", candidate or "").upper()
+    if re.fullmatch(r"[A-Z]{1,3}\d{1,4}", compact) and loose_alpha_head_is_postcode_area(candidate):
+        before = (
+            anchor_text
+            if anchor_text is not None
+            else text[max(0, start - VRM_TIGHT_ANCHOR_WINDOW):start]
+        )
+        if not VRM_TIGHT_ANCHOR_RE.search(before):
+            return True
+    if wellformed_trigram_is_stopword(candidate):
+        lowered_window = window.lower()
+        if not any(word in lowered_window for word in VRM_CONTEXT_WORDS):
+            return True
+    return False
 
 
 # Phrases (case-insensitive) that signal an AUDIT instruction — CE is asked to
@@ -1882,7 +2052,9 @@ class RuleEngine:
                 continue
             if any(word in lower for word in context_words):
                 match = VRM_RE.search(line.text)
-                if match and not self._vrm_candidate_is_bad(match.group(1), line.text):
+                if match and not vrm_document_candidate_is_bad(
+                    match.group(1), line.text, match.start(1), match.end(1)
+                ):
                     value = clean_val(match.group(1))
                     return FieldExtraction(
                         value=value,
@@ -1892,7 +2064,7 @@ class RuleEngine:
                         source_span=SourceSpan(page_index=line.page_index, line_index=line.line_index, bbox=line.bbox),
                     )
         match = VRM_RE.search(text)
-        if match and not self._vrm_candidate_is_bad(match.group(1), text[max(0, match.start() - 20):match.end() + 20]):
+        if match and not vrm_document_candidate_is_bad(match.group(1), text, match.start(1), match.end(1)):
             value = clean_val(match.group(1))
             return FieldExtraction(value=value, raw_value=value, rule_id="fallback_vrm_document", confidence=0.52)
         return FieldExtraction(value="", rule_id="fallback_vrm", confidence=0.0)
@@ -1909,7 +2081,28 @@ class RuleEngine:
                 if self._is_label_only_value(candidate_line.text):
                     continue
                 match = VRM_RE.search(candidate_line.text)
-                if match and not self._vrm_candidate_is_bad(match.group(1), candidate_line.text):
+                if not match:
+                    continue
+                # TKT-136 addendum: the fuzzy-matched VRM label is the TKT-071
+                # anchor by construction — pass the label line as the anchor
+                # scope (a label like "Vehicle Registration Number" overflows
+                # the flowing-text 16-char window). For a value on a FOLLOWING
+                # line the label also rides in the trigram context window via
+                # the joined prefix.
+                if candidate_line is line:
+                    ctx_text, offset = candidate_line.text, 0
+                    anchor_text = line.text[:match.start(1)]
+                else:
+                    prefix = line.text.rstrip() + " "
+                    ctx_text, offset = prefix + candidate_line.text, len(prefix)
+                    anchor_text = line.text
+                if not vrm_document_candidate_is_bad(
+                    match.group(1),
+                    ctx_text,
+                    match.start(1) + offset,
+                    match.end(1) + offset,
+                    anchor_text=anchor_text,
+                ):
                     value = clean_val(match.group(1))
                     return FieldExtraction(
                         value=value,
@@ -1923,6 +2116,11 @@ class RuleEngine:
     def _vrm_candidate_is_bad(self, candidate: str, context: str) -> bool:
         return vrm_candidate_is_bad(candidate, context)
 
+    def _reference_value_is_junk(self, value: str, preceding: str = "") -> bool:
+        """TKT-136: a fallback-reference candidate that is money-shaped or a
+        prose/spec fragment must never be minted, on ANY tier."""
+        return reference_candidate_is_money(value, preceding) or reference_candidate_is_fragment(value)
+
     def _fallback_reference(self, lines: list[DocumentLine]) -> FieldExtraction:
         labels = ("reference", "ref", "claim no", "claim number", "case number", "our ref", "your ref")
         exact_label_re = re.compile(r"^\s*(?:our|your)?\s*ref(?:erence)?\s*:\s*(.+?)\s*$", re.IGNORECASE)
@@ -1933,7 +2131,10 @@ class RuleEngine:
                 continue
             match = subject_ref_re.search(line.text) or slash_ref_re.search(line.text)
             if match:
-                value = clean_val(match.group(1) if match.lastindex else match.group(0))
+                group = 1 if match.lastindex else 0
+                value = clean_val(match.group(group))
+                if self._reference_value_is_junk(value, line.text[:match.start(group)]):
+                    continue
                 return FieldExtraction(
                     value=value,
                     raw_value=value,
@@ -1947,6 +2148,8 @@ class RuleEngine:
             if match:
                 value = clean_val(match.group(1))
                 if self._is_rejected_label_value(value, {"ref", "reference", "our ref", "your ref"}):
+                    continue
+                if self._reference_value_is_junk(value, line.text[:match.start(1)]):
                     continue
                 return FieldExtraction(
                     value=value,
@@ -1962,6 +2165,8 @@ class RuleEngine:
                         continue
                     if not (re.search(r"\d", value) and re.fullmatch(r"[A-Z0-9./ -]+", value, re.IGNORECASE)):
                         continue
+                    if self._reference_value_is_junk(value):
+                        continue
                     return FieldExtraction(
                         value=value,
                         raw_value=value,
@@ -1970,14 +2175,24 @@ class RuleEngine:
                         source_span=SourceSpan(page_index=next_line.page_index, line_index=next_line.line_index, bbox=next_line.bbox),
                     )
         by_label = self._fallback_label_value(lines, labels, FieldKey.REFERENCE)
-        if by_label.value:
+        # TKT-136: the fuzzy label tier is where the live "RIGERANT R1234YF" was
+        # minted — the substring "ref" label matched the head of "REFRIGERANT
+        # R1234YF 650g" and the rest of the parts line became the reference. A
+        # money/fragment value from this tier falls through to tier 4 instead.
+        if by_label.value and not self._reference_value_is_junk(by_label.value):
             return by_label
         ref_re = re.compile(r"\b(?:[A-Z]{2,6}[-/ ]?)?\d{4,}[A-Z0-9/-]*\b", re.IGNORECASE)
+        # TKT-136: cue words match on WORD BOUNDARIES — the old substring test
+        # made "refrigerant" contain "ref" and turned a parts line into a
+        # reference cue. Plural forms stay covered explicitly.
+        ref_cue_re = re.compile(r"\b(?:references?|claims?|refs?|cases?)\b", re.IGNORECASE)
         for line in lines[:25]:
-            if any(word in line.text.lower() for word in ("reference", "claim", "ref", "case")):
+            if ref_cue_re.search(line.text):
                 match = ref_re.search(line.text)
                 if match:
                     value = clean_val(match.group(0))
+                    if self._reference_value_is_junk(value, line.text[:match.start()]):
+                        continue
                     return FieldExtraction(
                         value=value,
                         raw_value=value,

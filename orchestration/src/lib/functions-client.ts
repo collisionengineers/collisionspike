@@ -301,6 +301,30 @@ export const box = {
       ...(contentType ? { contentType } : {}),
     });
   },
+  /**
+   * TKT-142 — archive one LARGE evidence file by BLOB REFERENCE instead of inline
+   * base64. Same facade route as `uploadFile`; `blobPath` and `contentBase64` are
+   * mutually exclusive. The facade downloads the blob ITSELF from the evidence storage
+   * account (its own managed identity; EVIDENCE_BLOB_ACCOUNT / EVIDENCE_BLOB_CONTAINER,
+   * default 'evidence') and streams it to Box — direct upload <20MB, Box chunked-upload
+   * session ≥20MB — so the base64-in-JSON body that killed the facade worker on a
+   * 17.6MB `.eml` (~23MB encoded → 502 + small-file recycle collateral) never exists.
+   * `blobPath` is the evidence row's container-relative storage_path (the exact path
+   * `blob.ts` downloadEvidenceBytes takes). Idempotency unchanged: a Box 409
+   * name-conflict is reused server-side.
+   */
+  uploadFileFromBlob(
+    folderId: string,
+    filename: string,
+    blobPath: string,
+    contentType?: string,
+  ): Promise<{ id: string; name?: string; sha1?: string; outcome?: string }> {
+    return callFunction(BOX, 'POST', `box/folders/${folderId}/files`, {
+      filename,
+      blobPath,
+      ...(contentType ? { contentType } : {}),
+    });
+  },
 	  copyFileRequest(fileRequestId: string, folderId: string): Promise<unknown> {
 	    return callFunction(BOX, 'POST', `box/file-requests/${fileRequestId}/copy`, {
 	      folder: { id: folderId },
