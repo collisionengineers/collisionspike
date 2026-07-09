@@ -164,22 +164,26 @@ describe('generateAiSuggestions — (d) NO silent mutation (promotion is human-r
   });
 });
 
-describe('generateAiSuggestions — (e) claimant PII minimisation (P1: address never leaves the tenant)', () => {
-  it('the model context carries the accident circumstances + VRM but NEVER the claimant address', async () => {
+describe('generateAiSuggestions — (e) claimant address IS a scrubbed geolocation clue (operator-adjudicated: keep it, accept DPIA)', () => {
+  it('the SELECT reads eva_claimant_address and its scrubbed form is part of the model context', async () => {
     process.env.AI_ASSIST_ENABLED = 'true';
     model.callSuggestionModel.mockResolvedValue([]);
     await generate(req(), ctx, {});
     expect(model.callSuggestionModel).toHaveBeenCalledTimes(1);
-    const input = model.callSuggestionModel.mock.calls[0][0] as { vrm: string; scrubbedText: string };
-    // The claimant address is a dedicated PII field with no assessment value — it is not selected,
-    // so it can never reach the external model even though scrubPii would miss its unanchored form.
-    expect(input.scrubbedText).not.toContain('Baker Street');
-    expect(input.scrubbedText).not.toContain('NW1 6XE');
-    expect(input.scrubbedText).toContain('Struck from behind'); // the assessment text IS present
-    expect(input.vrm).toBe('WN14XPZ');
-    // And the SELECT never asks for the address column in the first place.
+    // The address column IS selected — a deliberate geolocation clue (feat/final-wave TKT-132; the
+    // operator kept it at PR46 review). The Codex P1 (scrubPii misses free-form addresses) is
+    // ACCEPTED under the 2026-07-08 DPIA/GlobalStandard sign-off, not fixed by dropping the field.
     const caseSelect = sqls.find((s) => /FROM case_/i.test(s)) ?? '';
-    expect(caseSelect).not.toMatch(/eva_claimant_address/i);
+    expect(caseSelect).toMatch(/eva_claimant_address/i);
+    // Its scrubbed form reaches the model alongside the accident text: scrubPii redacts the
+    // house-number+street and the postcode; the residual free-form part (the town) survives — the
+    // accepted-under-DPIA residual the P1 flagged, pinned here honestly, NOT a bug.
+    const input = model.callSuggestionModel.mock.calls[0][0] as { vrm: string; scrubbedText: string };
+    expect(input.scrubbedText).toContain('Struck from behind'); // accident text present
+    expect(input.scrubbedText).toContain('[ADDRESS]'); // house-number+street WAS scrubbed
+    expect(input.scrubbedText).toContain('[POSTCODE]'); // postcode WAS scrubbed
+    expect(input.scrubbedText).toContain('London'); // the town survives (accepted residual)
+    expect(input.vrm).toBe('WN14XPZ');
   });
 });
 
