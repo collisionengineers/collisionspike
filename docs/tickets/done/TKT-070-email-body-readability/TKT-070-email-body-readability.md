@@ -1,11 +1,11 @@
 ---
 id: TKT-070
 title: Inbox email previews are one unreadable line — keep line breaks, cut noise
-status: verify
+status: done
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-005, TKT-054]
-research-link: docs/tickets/verify/TKT-070-email-body-readability/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-070-email-body-readability/evidence/operator-note.md
 plan: PLAN-003
 ---
 
