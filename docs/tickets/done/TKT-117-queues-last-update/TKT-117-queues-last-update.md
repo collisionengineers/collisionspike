@@ -1,11 +1,11 @@
 ---
 id: TKT-117
 title: Show a "Last update" line for each case in the queues view
-status: verify
+status: done
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-046, TKT-096]
-research-link: docs/tickets/verify/TKT-117-queues-last-update/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-117-queues-last-update/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-117 — Show a "Last update" line for each case in the queues view

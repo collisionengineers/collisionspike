@@ -1,4 +1,4 @@
-# Verification — TKT-117: Show a "Last update" line for each case in the queues view
+# Verification — TKT-134: Action-logs humanization
 
 ## Verdict
 PENDING

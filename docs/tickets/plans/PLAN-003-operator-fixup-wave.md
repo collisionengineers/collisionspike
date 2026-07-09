@@ -2,7 +2,7 @@
 id: PLAN-003
 title: Operator fix-up wave 2026-07-08 — queues, intake identity, previews, exports, readiness
 status: active
-tickets: [TKT-010, TKT-024, TKT-070, TKT-099, TKT-116, TKT-117, TKT-118, TKT-119, TKT-120, TKT-121, TKT-122, TKT-123, TKT-124, TKT-125, TKT-126, TKT-127, TKT-128, TKT-129, TKT-130, TKT-131, TKT-132, TKT-133]
+tickets: [TKT-010, TKT-024, TKT-070, TKT-099, TKT-116, TKT-117, TKT-118, TKT-119, TKT-120, TKT-121, TKT-122, TKT-123, TKT-124, TKT-125, TKT-126, TKT-127, TKT-128, TKT-129, TKT-130, TKT-131, TKT-132, TKT-133, TKT-134]
 ---
 
 # PLAN-003 — Operator fix-up wave 2026-07-08

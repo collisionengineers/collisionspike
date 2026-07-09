@@ -164,8 +164,6 @@
 | [TKT-124](./verify/TKT-124-photo-orderer-images-only/TKT-124-photo-orderer-images-only.md) | Photo orderer shows .eml files — it must list images only | Root cause: box-webhook hardcoded image kind; writer guard + 402-row re-kind delta + SPA filter. → verify. |
 | [TKT-123](./verify/TKT-123-exclude-label-reflection-warning/TKT-123-exclude-label-reflection-warning.md) | Rename "exclude (person reflection)" to "Exclude" + dismissible vision reflection warning on images | Exclude label + reflection warning shipped (delta live, PATCH evidence, dismiss persists E2E). → verify. |
 | [TKT-118](./verify/TKT-118-image-only-vrm-identity/TKT-118-image-only-vrm-identity.md) | Rename the "Image Based" case label + identify image-only cases by VRM (no Case/PO before instructions) | Label + VRM-first identity shipped; no-mint verified by construction. → verify. |
-| [TKT-117](./verify/TKT-117-queues-last-update/TKT-117-queues-last-update.md) | Show a "Last update" line for each case in the queues view | Last-update line shipped + live rows render. → verify. |
-| [TKT-116](./verify/TKT-116-queues-pagination/TKT-116-queues-pagination.md) | Paginate the case queues at 15 per page (same as the inbox) | Queue pagination shipped + live-proven (1–15 of 154). → verify. |
 | [TKT-024](./verify/TKT-024-image-based-new-case/TKT-024-image-based-new-case.md) | Image-only new-case form | Image-only form variant shipped + live E2E case created 2026-07-09. → verify. |
 | [TKT-010](./verify/TKT-010-delete-case/TKT-010-delete-case.md) | Close case (renamed from delete/remove) — confirm + audit, available to all users | Close-case shipped + live-proven 2026-07-09 (all users, non-destructive, TE57IMG closed/reopened intact). → verify. |
 | [TKT-001](./verify/TKT-001-document-parsing/TKT-001-document-parsing.md) | Multi-format extraction + field-drop fix | Follow-up deployed 2026-07-01 (parser live-proven on triage `.eml`; body supplement deployed). Pending: e2e re-intake Postgres proof on triage `.doc` path. See [changes-regression-01-07-26](./verify/TKT-001-document-parsing/changes-regression-01-07-26.md). |
@@ -198,6 +196,8 @@
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-117](./done/TKT-117-queues-last-update/TKT-117-queues-last-update.md) | Show a "Last update" line for each case in the queues view | VERIFIED-LIVE 2026-07-09 (verifier): 350-row sweep — plain-English descriptor + date on every row, zero jargon; Action-logs cross-check held. Side finding filed as TKT-134. → done. |
+| [TKT-116](./done/TKT-116-queues-pagination/TKT-116-queues-pagination.md) | Paginate the case queues at 15 per page (same as the inbox) | VERIFIED-LIVE 2026-07-09 (verifier): all 3 queues page at ≤15 with the inbox pager; totals reconstructed from pages match every counting surface. → done. |
 | [TKT-122](./done/TKT-122-dashboard-panel-alignment/TKT-122-dashboard-panel-alignment.md) | Align the dashboard containers — inbox and "Check the flagged details" do not line up | VERIFIED-LIVE 2026-07-09 (verifier): shared grid line 367.797/367.797 measured live; root-cause empty chip container not rendered. → done. |
 | [TKT-121](./done/TKT-121-email-type-dropdown-overflow/TKT-121-email-type-dropdown-overflow.md) | The "E-mail Type" dropdown fills the whole page — cap its height with a scrollbar | VERIFIED-LIVE 2026-07-09 (verifier): 320px = exactly 10 rows, internal scroll, mouse + keyboard reach all 18 options. → done. |
 | [TKT-015](./done/TKT-015-ai-assistant/TKT-015-ai-assistant.md) | AI suggestion layer (gated) | VERIFIED-LIVE 2026-07-09 (verifier): suggestions land model-stamped + confidence, never silent mutations; human-confirmed promotion live-exercised; gate controls it. → done. |
@@ -256,6 +256,7 @@
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-134](./backlog/TKT-134-action-logs-humanize/TKT-134-action-logs-humanize.md) | Action-logs page renders raw engineering strings — humanize the staff-visible log lines | Verifier side-finding 2026-07-09 (TKT-117 sweep): /logs bypasses the plain-English label map. |
 | [TKT-133](./backlog/TKT-133-evidence-dedup-box-kind/TKT-133-evidence-dedup-box-kind.md) | Deduplicate evidence rows (email + Box mirror twins) + fix the box-webhook kind at source | Workflow finding 2026-07-09 (UI wave): sha256 dedup + honest kind at source. |
 | [TKT-131](./backlog/TKT-131-image-role-classify-retry/TKT-131-image-role-classify-retry.md) | Classify the role-unknown evidence images — retry the backfill residue so cases can reach Ready for EVA | Workflow finding 2026-07-09 (D1): role-unknown images starve the EVA image rule. |
 | [TKT-132](./backlog/TKT-132-generate-suggestions-inputs/TKT-132-generate-suggestions-inputs.md) | Widen the AI-suggestion generate inputs beyond accident circumstances | Workflow finding 2026-07-09 (D1): empty circumstances -> no_input on most cases. |

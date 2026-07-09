@@ -1,11 +1,11 @@
 ---
 id: TKT-116
 title: Paginate the case queues at 15 per page (same as the inbox)
-status: verify
+status: done
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-098]
-research-link: docs/tickets/verify/TKT-116-queues-pagination/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-116-queues-pagination/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-116 — Paginate the case queues at 15 per page (same as the inbox)
