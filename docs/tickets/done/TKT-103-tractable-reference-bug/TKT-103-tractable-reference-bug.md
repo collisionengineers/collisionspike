@@ -1,11 +1,11 @@
 ---
 id: TKT-103
 title: Tractable "768.00" wrongly captured as the reference number
-status: verify
+status: done
 priority: P2
 area: parsing
 tickets-it-relates-to: [TKT-102, TKT-071, TKT-085]
-research-link: docs/tickets/verify/TKT-103-tractable-reference-bug/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-103-tractable-reference-bug/evidence/operator-note.md
 ---
 
 # Tractable "768.00" wrongly captured as the reference number

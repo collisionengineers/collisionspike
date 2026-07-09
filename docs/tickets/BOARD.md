@@ -154,8 +154,6 @@
 
 | ID | Title | State |
 |---|---|---|
-| [TKT-120](./verify/TKT-120-fairway-payment-misclass/TKT-120-fairway-payment-misclass.md) | FAIRWAY LEGAL payment transfer marked Unidentified — should classify as payments/billing | Deterministic payments lane grounds the Fairway shape; AI-rung telemetry answered (ran, wrong verdict, invisible suggestion → TKT-137). → verify. |
-| [TKT-103](./verify/TKT-103-tractable-reference-bug/TKT-103-tractable-reference-bug.md) | Tractable "768.00" wrongly captured as the reference number | Money guard on the classifier ref path; Tractable pins; /parse path residual → TKT-136. → verify. |
 | [TKT-084](./verify/TKT-084-pre-instruction-handling/TKT-084-pre-instruction-handling.md) | Pre-instruction directions email unidentified — define a handling lane | Built per sign-off + taxonomy-v3 DDL + gate FLIPPED live (pre_instruction lane acting; correlation machinery deployed). Remainders: natural-arrival e2e; retention decision → gated.md. → verify. |
 | [TKT-083](./verify/TKT-083-misclass-instructions-unidentified/TKT-083-misclass-instructions-unidentified.md) | Instructions email left "Unidentified" despite detected signals | Adjudicated 2026-07-09: OR-widening REJECTED by full-corpus A/B (acceptance amended); fairwaylegal seed reconciled; classify layer live-proven. → verify. |
 | [TKT-070](./verify/TKT-070-email-body-readability/TKT-070-email-body-readability.md) | Inbox email previews are one unreadable line — keep line breaks, cut noise | Cleaned multi-line preview live (email-body-clean; QDOS garbage pinned; sniff reads the full body; backfill deferred). → verify. |
@@ -189,6 +187,8 @@
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-120](./done/TKT-120-fairway-payment-misclass/TKT-120-fairway-payment-misclass.md) | FAIRWAY LEGAL payment transfer marked Unidentified — should classify as payments/billing | VERIFIED-LIVE 2026-07-09 (verifier): replica -> billing/payment_remittance live; AI-rung telemetry independently re-pulled (ran, wrong verdict); TKT-137 filed. → done. |
+| [TKT-103](./done/TKT-103-tractable-reference-bug/TKT-103-tractable-reference-bug.md) | Tractable "768.00" wrongly captured as the reference number | VERIFIED-LIVE 2026-07-09 (verifier): three Tractable samples live — money never captured as ref; guards + pins green. /parse residual = TKT-136. → done. |
 | [TKT-086](./done/TKT-086-circumstances-extraction-gaps/TKT-086-circumstances-extraction-gaps.md) | Accident circumstances still not being 100% extracted | VERIFIED-LIVE 2026-07-09 (verifier, as adjudicated): anchor pair EMPTY at source (pinned); coverage 51.1%/348 reported; residual ticketed (TKT-135). → done. |
 | [TKT-022](./done/TKT-022-docx-extraction-fail/TKT-022-docx-extraction-fail.md) | `.docx` claim-form extraction fails | VERIFIED-LIVE 2026-07-09 (verifier): live /parse of the actual Cheema .docx returns every corrected field; fixture byte-identical; 383 sibling tests pass. → done. |
 | [TKT-118](./done/TKT-118-image-only-vrm-identity/TKT-118-image-only-vrm-identity.md) | Rename the "Image Based" case label + identify image-only cases by VRM (no Case/PO before instructions) | VERIFIED-LIVE 2026-07-09 (verifier): old label gone at bundle level; TE57IMG VRM-first live; no casePo on the wire; mint-requires-provider pinned. → done. |

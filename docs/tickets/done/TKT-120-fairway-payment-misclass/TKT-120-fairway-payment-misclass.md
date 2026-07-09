@@ -1,11 +1,11 @@
 ---
 id: TKT-120
 title: FAIRWAY LEGAL payment transfer marked Unidentified — should classify as payments/billing
-status: verify
+status: done
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-105]
-research-link: docs/tickets/verify/TKT-120-fairway-payment-misclass/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-120-fairway-payment-misclass/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-120 — FAIRWAY LEGAL payment transfer marked Unidentified — should classify as payments/billing
