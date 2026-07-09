@@ -39,3 +39,7 @@ Filed 2026-07-09 from the classifier-wave batch report (PLAN-003 workflow findin
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
 - [evidence/](./evidence/)
+
+## Scope addendum — 2026-07-09 (intake wave)
+
+Fold in the parser-side junk-VRM hygiene the intake wave flagged (sibling-first): the /parse document path should reuse the classifier's month/day + function-word + tight-anchor guards so junk VRMs cannot re-enter via documents (the API-side varchar-guard now drops oversize VRMs, but plausible-shaped junk still passes).

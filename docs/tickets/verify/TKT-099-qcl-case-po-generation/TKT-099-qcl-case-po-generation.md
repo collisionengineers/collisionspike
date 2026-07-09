@@ -1,11 +1,11 @@
 ---
 id: TKT-099
 title: QCL cases not generating Case/PO correctly
-status: now
+status: verify
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-004, TKT-028]
-research-link: docs/tickets/now/TKT-099-qcl-case-po-generation/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-099-qcl-case-po-generation/evidence/operator-note.md
 plan: PLAN-003
 ---
 

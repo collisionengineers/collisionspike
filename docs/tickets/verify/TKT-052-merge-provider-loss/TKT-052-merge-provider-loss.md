@@ -1,11 +1,11 @@
 ---
 id: TKT-052
 title: Merged image-only case loses the provider (merge logic wrong)
-status: now
+status: verify
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-028, TKT-041]
-research-link: docs/tickets/now/TKT-052-merge-provider-loss/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-052-merge-provider-loss/evidence/operator-note.md
 ---
 
 # Merged image-only case loses the provider (merge logic wrong)

@@ -1,7 +1,7 @@
 ---
 id: TKT-058
 title: Retroactive case creation (reconstruction fallback for un-linked update/billing email)
-status: now
+status: verify
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-023, TKT-037, TKT-046, TKT-041]

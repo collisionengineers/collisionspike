@@ -41,7 +41,7 @@ PROPOSED (not built):
 
 Distilled 2026-07-07 from operator drop-note `to-distill/qdos-error/`; raw material in
 [evidence/](./evidence). The wrong-case-linking half of the same note is
-[TKT-101](../../now/TKT-101-qdos-cases-wrong-linking/TKT-101-qdos-cases-wrong-linking.md).
+[TKT-101](../../verify/TKT-101-qdos-cases-wrong-linking/TKT-101-qdos-cases-wrong-linking.md).
 
 ## Artifacts
 

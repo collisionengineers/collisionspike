@@ -114,7 +114,7 @@
 > re-verified). Trial + cutover procedure:
 > [docs/plans/case-po-sequence-cutover.md](../plans/case-po-sequence-cutover.md); operator inputs:
 > [gated.md D11](../gated.md). Prior change: **2026-07-04T17:55Z** — the **retro-reconstruction activation**
-> (ADR-0022 / [TKT-058](../tickets/now/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md);
+> (ADR-0022 / [TKT-058](../tickets/verify/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md);
 > user-instructed "apply this delta — deploy anything necessary"): the **`2026-07-04-retro-case` DDL
 > delta is APPLIED LIVE** (audit actions 100000046–48 `retro_case_created`/`retro_case_linked`/
 > `retro_reconstruction_failed` + `choice_intake_channel_kind` 100000003 `retro`; VERIFY selects

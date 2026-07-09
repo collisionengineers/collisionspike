@@ -422,6 +422,17 @@ Dataverse `cr1bd_knownemaildomains` column.)*
 > held pre-instruction email is retained and whether a chaser fires. Say the retention window /
 > chaser policy and it gets built.
 
+> **BOX_REG_FOLDER_ENABLED — new dark gate (2026-07-09, [TKT-034](./tickets/verify/TKT-034-images-received-routing/TKT-034-images-received-routing.md)).**
+> Unmatched image-bearing emails now flag visibly for manual handling; the OPTIONAL next rung — a
+> registration-keyed Box folder created for unmatched images — is built **dark** behind
+> `BOX_REG_FOLDER_ENABLED` (absent = off) because it creates new Box folder semantics. Say the word
+> and it flips (Box writes stay inside the archive root).
+
+> **QCL Held-case backlog — staff item (2026-07-09, [TKT-099](./tickets/verify/TKT-099-qcl-case-po-generation/TKT-099-qcl-case-po-generation.md)).**
+> The 11 pre-fix complexreports/QCL cases sit Held with no Case/PO **by design** (the fix never
+> back-mints). Staff confirm each is genuinely QCL work, then mint via the case page (Set Case/PO)
+> or ask for a scripted batch mint.
+
 #### D4. Add extra reference info  ·  *you supply the data*
 
 **What:** a few reference lists would improve matching and inspection-location suggestions (provider-code
@@ -689,7 +700,7 @@ an unmatched billing/case_update/cancellation/query email with a reference or re
 its case **whatever the case's status** (terminals included — the billing-email fix), ambiguity is
 flagged never guessed, and un-linkable attempts are audited `retro_reconstruction_failed`. The
 existing un-linked pile drains one email at a time via the keyed starter — see
-[TKT-058/verification.md](./tickets/now/TKT-058-retro-case-creation/verification.md) step 4.
+[TKT-058/verification.md](./tickets/verify/TKT-058-retro-case-creation/verification.md) step 4.
 
 **Remaining (the Box reconstruction rung — R2 stays dark until ALL of these):**
 

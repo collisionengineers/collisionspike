@@ -1,11 +1,11 @@
 ---
 id: TKT-091
 title: Outlook "File to …" move fails live with a 503 from the Data API
-status: now
+status: verify
 priority: P1
 area: email
 tickets-it-relates-to: [TKT-054, TKT-005]
-research-link: docs/tickets/now/TKT-091-outlook-move-fail/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-091-outlook-move-fail/evidence/operator-note.md
 ---
 
 # Outlook "File to …" move fails live with a 503 from the Data API

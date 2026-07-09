@@ -1,11 +1,11 @@
 ---
 id: TKT-076
 title: Inspection suggestions ignore the provider and distance — real scoping + nearest-first
-status: now
+status: verify
 priority: P1
 area: ui
 tickets-it-relates-to: [TKT-062, TKT-075, TKT-080]
-research-link: docs/tickets/now/TKT-076-inspection-provider-scope-proximity/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-076-inspection-provider-scope-proximity/evidence/operator-note.md
 ---
 
 # Inspection suggestions ignore the provider and distance — real scoping + nearest-first

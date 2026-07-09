@@ -1,11 +1,11 @@
 ---
 id: TKT-119
 title: Retro case-locate failed on ref PHA5007 — acks must never mint, add an "Unable to Locate" outcome, explore Graph deleted-items
-status: now
+status: verify
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-058, TKT-081, TKT-059, TKT-106]
-research-link: docs/tickets/now/TKT-119-retro-locate-ack-hardening/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-119-retro-locate-ack-hardening/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-119 — Retro case-locate failed on ref PHA5007 — acks must never mint, add an "Unable to Locate" outcome, explore Graph deleted-items

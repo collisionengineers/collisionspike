@@ -164,7 +164,7 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
 
 **Next:**
 - **Retroactive case reconstruction** ([ADR-0022](./docs/adr/0022-retroactive-case-reconstruction.md),
-  [TKT-058](./docs/tickets/now/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md)) — the gated
+  [TKT-058](./docs/tickets/verify/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md)) — the gated
   SECONDARY fallback for update/billing email citing a case the system has never seen: any-status
   link (incl. terminals — the billing-email fix) → Box-archive reconstruction (folder name = the
   Case/PO; the archived original `.eml` runs the normal parse/create pipeline) → Outlook `$search`.
