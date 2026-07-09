@@ -1,11 +1,11 @@
 ---
 id: TKT-067
 title: Assistant drawer needs a "New chat" button to clear the conversation
-status: verify
+status: done
 priority: P3
 area: ui
 tickets-it-relates-to: [TKT-060, TKT-066]
-research-link: docs/tickets/verify/TKT-067-assistant-new-chat/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-067-assistant-new-chat/evidence/operator-note.md
 plan: PLAN-001
 ---
 
