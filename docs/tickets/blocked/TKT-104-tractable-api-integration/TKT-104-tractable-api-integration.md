@@ -43,7 +43,7 @@ PROPOSED (deferred — not built):
 Distilled 2026-07-07 from operator drop-note `to-distill/tractable-integration/` (`tractable-deferred.md`);
 raw material in [evidence/](./evidence). Consider a one-line pointer in
 [docs/gated.md](../../../gated.md) for the vendor-docs dependency. The immediate received-email handling is
-[TKT-102](../../now/TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md).
+[TKT-102](../../verify/TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md).
 
 ## Artifacts
 
