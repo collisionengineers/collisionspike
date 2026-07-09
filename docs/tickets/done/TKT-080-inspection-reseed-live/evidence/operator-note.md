@@ -2,7 +2,7 @@
 
 > From `PLAN-inspection-address-repair.md` (investigation/planning session 2026-07-06). The full
 > plan is preserved at
-> [TKT-075 evidence](../../../done/TKT-075-inspection-corpus-pipeline/evidence/operator-note.md).
+> [TKT-075 evidence](../../TKT-075-inspection-corpus-pipeline/evidence/operator-note.md).
 
 - Backup live `inspection_address` → apply DDL delta → run replace seed → verify per-provider
   counts + confirmed rows preserved → deploy API + SPA + Function → smoke-test one case per

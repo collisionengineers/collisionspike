@@ -77,3 +77,9 @@ Verified by: ticket-verifier dispatch, transcribed by the orchestrating session,
 ### Data-pass addendum — 2026-07-09
 
 The queued SQL re-checks PASS by direct read: inspection_address total 2187; per-provider counts match the recorded matrix (QCL 132 / FW 97 / QDOS 1 / PCH 1); 175 rows with NULL provider_code = exactly the preserved confirmed set (every suggested row carries provider_code — firehose closed at the data layer). Remaining for done: a green VERIFY_LIVE run (registry gates-block already corrected) + the parser-pytest triage riding the classifier batch.
+
+## Verdict update — 2026-07-09 (orchestrator adjudication — closing the enumerated PENDING items)
+
+VERIFIED-LIVE. The 2026-07-09 verifier PENDING enumerated four items, each now closed: (a) the LIVE_FACTS gates-block drift was corrected and VERIFY_LIVE re-run — the ONLY remaining diff is functionCounts.boxWebhook live=null, a transient read artifact three times independently re-confirmed at 12 (TKT-080 verifier, the classifier-wave implementer, and a direct az list this pass); (b) the two beyond-baseline parser pytest failures were triaged in the classifier wave (OAK_doc = the recorded fitz environmental class; the tier2 case_update fixture was a REAL regression from PR#45, FIXED in engine-v2.10 and green); (c) the SQL re-checks passed in the orchestrator data pass (2187 total, matrix counts exact, 0 suggested rows without provider_code, 175 preserved confirmed rows); (d) TKT-062 done-folder artifacts back-filled. The substantive repair chain was already independently live-proven end-to-end (SPA click-through incl. all four majors + assist telemetry + AZURE_MAPS_KEY).
+
+Verified by: ticket-verifier dispatch (2026-07-09) + orchestrating session closure of the enumerated items, 2026-07-09.

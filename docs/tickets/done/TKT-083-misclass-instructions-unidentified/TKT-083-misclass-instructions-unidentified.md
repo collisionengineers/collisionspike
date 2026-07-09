@@ -1,11 +1,11 @@
 ---
 id: TKT-083
 title: Instructions email left "Unidentified" despite detected instruction signals
-status: verify
+status: done
 priority: P1
 area: email
 tickets-it-relates-to: [TKT-036, TKT-006]
-research-link: docs/tickets/verify/TKT-083-misclass-instructions-unidentified/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-083-misclass-instructions-unidentified/evidence/operator-note.md
 ---
 
 # Instructions email left "Unidentified" despite detected instruction signals
