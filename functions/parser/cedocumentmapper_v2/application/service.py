@@ -44,6 +44,42 @@ from cedocumentmapper_v2.ui.paths import (
 # below any real photo but above typical letterhead art.
 _MIN_EXTRACTED_IMAGE_AREA = 200 * 200
 
+# Large-banner shape heuristic (collisionspike TKT-089): letterhead/banner/logo
+# furniture can clear the area floor and still be page furniture -- e.g. a wide
+# banner logo (~900x180 = 162,000 px^2) or a tall sidebar strip. An above-floor
+# raster is still decorative only when BOTH hold: the aspect ratio is extreme
+# (long side >= 3.5x the short side) AND the short side is small (<= 240 px).
+# Recall guard: no real phone/camera photo can match -- photos are 4:3 / 3:2 /
+# 16:9 (aspect <= ~1.8), and even an aggressive panoramic crop that reached
+# 3.5:1 would carry a short side far above 240 px. A false positive here is
+# evidence loss, so both conditions are required, never either alone.
+_BANNER_ASPECT_RATIO = 3.5
+_BANNER_MAX_SHORT_SIDE = 240
+
+
+def is_decorative_raster(width: int | None, height: int | None) -> bool:
+    """True when an extracted embedded raster is page furniture, not evidence.
+
+    Two conservative rungs (collisionspike TKT-089; mirrored by the email-lane
+    filter in collisionspike ``orchestration/src/lib/image-sniff.ts`` -- keep the
+    two in lockstep):
+
+    1. Pixel-AREA floor (``_MIN_EXTRACTED_IMAGE_AREA``): rasters below 200x200
+       equivalent area are letterhead logos, signature stamps, or dividers.
+    2. Banner shape (``_BANNER_ASPECT_RATIO`` + ``_BANNER_MAX_SHORT_SIDE``): an
+       above-floor raster whose aspect ratio is extreme AND whose short side is
+       small is a letterhead banner / sidebar strip, a shape no genuine
+       phone/camera photo has.
+
+    Unknown dimensions are always kept rather than risk dropping a real photo.
+    """
+    if not width or not height:
+        return False
+    if width * height < _MIN_EXTRACTED_IMAGE_AREA:
+        return True
+    long_side, short_side = (width, height) if width >= height else (height, width)
+    return long_side >= short_side * _BANNER_ASPECT_RATIO and short_side <= _BANNER_MAX_SHORT_SIDE
+
 
 class DocumentMapperService:
     """Shared use-case layer for document reading, extraction, export, and image work."""
@@ -394,19 +430,36 @@ class DocumentMapperService:
         ext = Path(source_name).suffix.lower()
         output_dir = out_dir or self.create_output_subfolder_from_fields(fields)
         output_dir.mkdir(parents=True, exist_ok=True)
-        base_name = f"{safe_filename(fields.get('work_provider', 'RJS'))}_{safe_filename(fields.get('vrm', '') or 'UnknownVRM')}"
+        # Filename stem tokens (collisionspike TKT-090): only RESOLVED values ever
+        # appear -- an unresolved/empty work_provider or vrm is OMITTED entirely.
+        # (Previously an empty fields dict defaulted to the hardcoded
+        # "RJS_UnknownVRM" pair, which read as case identity in handler-facing
+        # evidence names and flowed into the Box archive.) The empty check runs
+        # BEFORE safe_filename, whose own empty-input fallback is "export".
+        name_tokens = [
+            safe_filename(token)
+            for token in (
+                (fields.get("work_provider") or "").strip(),
+                (fields.get("vrm") or "").strip(),
+            )
+            if token
+        ]
+        base_name = "_".join(name_tokens)
         saved: list[Path] = []
         notes: list[str] = []
 
+        def image_stem(*indices: int) -> str:
+            """``<provider>_<vrm>_img_<page>_<n>`` with unresolved tokens omitted;
+            never empty (the ``img_...`` tail always remains) and still unique per
+            page/index. Callers upstream prefix the source document name."""
+            tail = "img_" + "_".join(str(i) for i in indices)
+            return f"{base_name}_{tail}" if base_name else tail
+
         def is_decorative(width: int | None, height: int | None) -> bool:
-            """Embedded rasters below this pixel AREA are letterhead logos, signature
-            stamps, or dividers, not vehicle photos -- a real photo is reliably much
-            larger. Area (not a per-axis check) survives a wide-but-short banner logo
-            while still rejecting it; unknown dimensions are kept rather than risk
-            dropping a real photo."""
-            if not width or not height:
-                return False
-            return width * height < _MIN_EXTRACTED_IMAGE_AREA
+            """See module-level ``is_decorative_raster``: the 200x200 pixel-area
+            floor plus the TKT-089 large-banner shape heuristic; unknown
+            dimensions are kept rather than risk dropping a real photo."""
+            return is_decorative_raster(width, height)
 
         def save_bytes(stem: str, suffix: str, content: bytes) -> None:
             path = unique_output_path(output_dir, stem, suffix)
@@ -418,7 +471,7 @@ class DocumentMapperService:
                 media = [name for name in zf.namelist() if name.startswith("word/media/") and not name.endswith("/")]
                 for idx, member in enumerate(media, start=1):
                     suffix = Path(member).suffix or ".bin"
-                    save_bytes(f"{base_name}_img_{idx}", suffix, zf.read(member))
+                    save_bytes(image_stem(idx), suffix, zf.read(member))
 
         if ext == ".pdf":
             try:
@@ -431,7 +484,7 @@ class DocumentMapperService:
                         for img_info in page.get_images() or []:
                             base_image = doc.extract_image(img_info[0])
                             if base_image and not is_decorative(base_image.get("width"), base_image.get("height")):
-                                save_bytes(f"{base_name}_img_{page_num}_{idx}", "." + base_image["ext"], base_image["image"])
+                                save_bytes(image_stem(page_num, idx), "." + base_image["ext"], base_image["image"])
                                 idx += 1
                 finally:
                     doc.close()
@@ -453,7 +506,7 @@ class DocumentMapperService:
                             if is_decorative(width, height):
                                 continue
                             suffix = Path(getattr(image, "name", "")).suffix or ".bin"
-                            save_bytes(f"{base_name}_img_{page_num}_{idx}", suffix, image.data)
+                            save_bytes(image_stem(page_num, idx), suffix, image.data)
                             idx += 1
                 except Exception as pypdf_exc:
                     notes.append(f"PDF image extraction failed: {exc} / {pypdf_exc}")

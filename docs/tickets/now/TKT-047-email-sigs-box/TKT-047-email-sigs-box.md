@@ -50,3 +50,7 @@ Graph fetch time (`orchestration/src/lib/image-sniff.ts`), with unknown dimensio
 `GRAPH_IMAGE_FLOOR_DISABLED` kill switch. Unit-tested (`image-sniff.test.ts`). No live proof yet on a real
 signature-bearing email — the fix has not been exercised against an actual inbound message carrying a
 non-inline signature image since deploy.
+
+## Artifacts
+
+- [changes.md](./changes.md)

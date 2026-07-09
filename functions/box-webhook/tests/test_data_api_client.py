@@ -86,6 +86,34 @@ def test_resolve_case_by_folder_none_for_empty_id():
     c.close()
 
 
+@respx.mock
+def test_resolve_case_context_returns_id_and_po():
+    respx.get(f"{BASE}/api/internal/box/case-by-folder/777").mock(
+        return_value=httpx.Response(200, json={"caseId": "CASE-1", "casePo": "CCPY26050"})
+    )
+    c = _client()
+    assert c.resolve_case_context_by_folder("777") == ("CASE-1", "CCPY26050")
+    c.close()
+
+
+@respx.mock
+def test_resolve_case_context_tolerates_missing_case_po():
+    # Schema tolerance: an older API build returns only { caseId } -> casePo None
+    # (the report classifier then falls back to its token arm, never an error).
+    respx.get(f"{BASE}/api/internal/box/case-by-folder/777").mock(
+        return_value=httpx.Response(200, json={"caseId": "CASE-1"})
+    )
+    c = _client()
+    assert c.resolve_case_context_by_folder("777") == ("CASE-1", None)
+    c.close()
+
+
+def test_resolve_case_context_empty_id_short_circuits():
+    c = _client()
+    assert c.resolve_case_context_by_folder("") == (None, None)
+    c.close()
+
+
 # ===========================================================================
 # evidence_exists_for_box_file (interface-compat shim)
 # ===========================================================================
@@ -260,6 +288,84 @@ def test_reinvoke_status_evaluate_raises_on_transport_error():
     c = _client()
     with pytest.raises(DataApiError):
         c.reinvoke_status_evaluate("CASE-1")
+    c.close()
+
+
+# ===========================================================================
+# mark_case_done (TKT-095 detector (b) — best-effort, never raises)
+# ===========================================================================
+
+@respx.mock
+def test_mark_case_done_posts_signal_and_detail():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"updated": True})
+
+    respx.post(f"{BASE}/api/internal/cases/CASE-1/mark-done").mock(side_effect=handler)
+    c = _client()
+    assert c.mark_case_done("CASE-1", "box_pdf", "CCPY26050 Report.pdf") is True
+    assert captured["body"] == {"signal": "box_pdf", "detail": "CCPY26050 Report.pdf"}
+    c.close()
+
+
+@respx.mock
+def test_mark_case_done_guard_noop_returns_false():
+    # The API's WHERE status_code = eva_submitted guard reports updated:false —
+    # a webhook re-delivery / non-submitted case outcome, surfaced honestly.
+    respx.post(f"{BASE}/api/internal/cases/CASE-1/mark-done").mock(
+        return_value=httpx.Response(200, json={"updated": False})
+    )
+    c = _client()
+    assert c.mark_case_done("CASE-1", "box_pdf", "r.pdf") is False
+    c.close()
+
+
+@respx.mock
+def test_mark_case_done_is_best_effort_on_http_error():
+    # Persistent 5xx exhausts the retry budget and returns False — NEVER raises
+    # (a done-flip miss must not 503 the settled webhook; Box would re-deliver).
+    respx.post(f"{BASE}/api/internal/cases/CASE-1/mark-done").mock(
+        return_value=httpx.Response(503)
+    )
+    c = _client()
+    assert c.mark_case_done("CASE-1", "box_pdf", "r.pdf") is False
+    c.close()
+
+
+@respx.mock
+def test_mark_case_done_is_best_effort_on_transport_error():
+    respx.post(f"{BASE}/api/internal/cases/CASE-1/mark-done").mock(
+        side_effect=httpx.ConnectTimeout("timed out")
+    )
+    c = _client()
+    assert c.mark_case_done("CASE-1", "box_pdf", "r.pdf") is False
+    c.close()
+
+
+def test_mark_case_done_noop_when_url_unset(monkeypatch):
+    monkeypatch.delenv("DATA_API_URL", raising=False)
+    c = DataApiClient(base_url="", token_provider=lambda: "FAKE-MI-TOKEN")
+    assert c.mark_case_done("CASE-1", "box_pdf", "r.pdf") is False
+    c.close()
+
+
+@respx.mock
+def test_create_evidence_engineer_report_class_is_sent_verbatim():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"persisted": 1})
+
+    respx.post(f"{BASE}/api/internal/cases/CASE-1/evidence").mock(side_effect=handler)
+    c = _client()
+    c.create_evidence(
+        case_id="CASE-1", filename="CCPY26050 Report.pdf", box_file_id="555",
+        evidence_class="engineer_report",
+    )
+    assert captured["body"]["rows"][0]["evidenceClass"] == "engineer_report"
     c.close()
 
 

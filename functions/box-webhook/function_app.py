@@ -55,6 +55,7 @@ from data_api_client import (
     DataApiClient,
     DataApiError,
 )
+from report_classifier import is_ce_report
 from webhook_verify import (
     DeliveryDedup,
     HDR_DELIVERY_ID,
@@ -521,13 +522,21 @@ def _process_upload(body: dict[str, Any], result: dict[str, Any]) -> None:
     dv = DataApiClient()
     try:
         # Step 6: Box folder id -> case_.box_folder_id -> Case (via the Data API).
-        case_id = dv.resolve_case_by_folder(folder_id)
+        # The context variant also returns the Case/PO (same single GET) for the
+        # TKT-095 report classifier below; casePo is None on an older API build.
+        case_id, case_po = dv.resolve_case_context_by_folder(folder_id)
         if not case_id:
             # Unresolved folder -> Held/triage, never a guess (drop-box reg-merge
             # is Wave 3; here we record the miss and stop).
             logger.info("box webhook: folder id did not resolve to a case; Held/triage")
             result["skipped"] = "case_not_resolved"
             return
+
+        # TKT-095 detector (b) / ADR-0023: is this upload the CE engineer report
+        # being delivered back to the provider? Pure classification (see
+        # report_classifier.py for the discriminator rationale). Affects only the
+        # evidence kind below + a best-effort mark-done at the end.
+        is_report = is_ce_report(filename, case_po)
 
         # Step 7 (durable dedup): write Evidence only if this Box file is not
         # already recorded. The Evidence write is once-only, but the case-advance
@@ -543,12 +552,16 @@ def _process_upload(body: dict[str, Any], result: dict[str, Any]) -> None:
             result["deduped"] = True
         elif box_file_id:
             # Step 7: write Evidence (storagePath stays Blob; record the Box file id).
+            # A classified CE report persists as kind `engineer_report`
+            # (choice_evidence_kind 100000007 — the API maps the evidenceClass NAME
+            # to the code) instead of the generic image class (TKT-095 detector (b)).
             evidence_id = dv.create_evidence(
                 case_id=case_id,
                 filename=filename,
                 box_file_id=box_file_id,
                 sha256=None,  # Box sends sha1; we record it in the label, not as sha256
                 source_label=f"box_upload sha1={sha1}" if sha1 else "box_upload",
+                evidence_class="engineer_report" if is_report else "image",
             )
             # Step 7: audit box_upload_received (only on a fresh Evidence write —
             # the append-only audit row is not re-emitted on a dedup retry).
@@ -566,10 +579,31 @@ def _process_upload(body: dict[str, Any], result: dict[str, Any]) -> None:
         # to repeat; the Evidence dedup above keeps the write itself once-only.
         reinvoked = dv.reinvoke_status_evaluate(case_id)
 
+        # TKT-095 detector (b): a classified CE report flips eva_submitted -> done.
+        # LAST + BEST-EFFORT on purpose: everything up to here keeps its exact
+        # pre-TKT-095 failure semantics, and a mark-done miss must NEVER 5xx the
+        # webhook (Box would retry a delivery that is otherwise fully settled).
+        # Safety is server-side: the API's WHERE status_code = eva_submitted guard
+        # makes a re-delivery a no-op and leaves any other status untouched — so
+        # no extra state is kept here; we just log the {updated} outcome. Runs on
+        # the Evidence-dedup path too (a prior delivery may have written Evidence
+        # but died before this call).
+        marked_done = False
+        if is_report:
+            try:
+                marked_done = dv.mark_case_done(case_id, "box_pdf", filename)
+            except Exception as exc:  # pragma: no cover - client already swallows
+                logger.warning("mark-done call failed: %s", type(exc).__name__)
+            logger.info(
+                "box webhook: CE report detected (%s); mark-done updated=%s",
+                filename, marked_done,
+            )
+
         result.update({
             "caseId": case_id,
             "evidenceId": evidence_id,
             "statusEvaluateReinvoked": reinvoked,
+            **({"report": True, "markedDone": marked_done} if is_report else {}),
         })
     finally:
         dv.close()

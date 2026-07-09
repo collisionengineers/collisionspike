@@ -25,7 +25,9 @@
  *  GET  /api/internal/principals                     → [{ principalCode }]
  *  GET  /api/internal/disposition/due                → [{ caseId }]
  *  POST /api/internal/disposition/{id}               → 204
- *  GET  /api/internal/box/case-by-folder/{folderId}  → { caseId: string | null }
+ *  POST /api/internal/cases/{id}/mark-done           → { updated: boolean } (TKT-095/ADR-0023: eva_submitted → done, guarded)
+ *  POST /api/internal/cases/lookup                    → { cases: [...] } (TKT-095 detector (a): status-agnostic case lookup)
+ *  GET  /api/internal/box/case-by-folder/{folderId}  → { caseId: string | null, casePo: string | null }
  *  GET  /api/internal/box/purge-candidates           → [{ caseId, blobPath }]
  *  POST /api/internal/box/mark-purged                → 204
  *  GET  /api/internal/cases/{id}/box-folder          → { boxFolderId, boxFolderUrl, casePo }
@@ -2603,6 +2605,110 @@ app.http('internalCasesSetIngested', {
 });
 
 /* ============================================================
+   6c — POST /api/internal/cases/{id}/mark-done   (TKT-095 / ADR-0023)
+   Called by: the `done` detectors — the box-webhook Function (a CE report PDF
+   landed in the case's Box folder), the gated sent-email detector, and the
+   gated EVA poll. Body: { signal: 'sent_email'|'box_pdf'|'eva_poll'|'manual',
+   detail?: string }.
+   Transitions eva_submitted → done ONLY (the WHERE guard): safe under Durable
+   at-least-once, Box webhook re-delivery, and double-fires — a repeat is a
+   no-op with no duplicate audit row. Never moves any other status.
+   ============================================================ */
+app.http('internalCasesMarkDone', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/cases/{id}/mark-done',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const caseId = req.params.id;
+      const body = (await req.json().catch(() => ({}))) as {
+        signal?: string;
+        detail?: string;
+      };
+      const signal = ['sent_email', 'box_pdf', 'eva_poll', 'manual'].includes(body.signal ?? '')
+        ? (body.signal as string)
+        : 'unknown';
+      const updated = await query<{ id: string }>(
+        `UPDATE case_ SET status_code = $1, updated_at = now()
+         WHERE id = $2 AND status_code = $3
+         RETURNING id`,
+        [statusToInt('done'), caseId, statusToInt('eva_submitted')],
+      );
+      if (updated.length > 0) {
+        await writeAudit({
+          action: AUDIT_ACTION.report_delivered,
+          caseId,
+          summary: 'Report delivered to the work provider — case marked Done',
+          after: {
+            status: 'done',
+            signal,
+            ...(body.detail ? { detail: String(body.detail).slice(0, 500) } : {}),
+          },
+        });
+      }
+      return { status: 200, jsonBody: { updated: updated.length > 0 } };
+    }),
+});
+
+/* ============================================================
+   6d — POST /api/internal/cases/lookup   (TKT-095 detector (a) / ADR-0023)
+   Called by: the orchestration sent-items handler (gated dark behind
+   DONE_SENT_EMAIL_ENABLED). READ-ONLY, STATUS-AGNOSTIC case lookup —
+   deliberately unlike triage/context's openCaseMatches, which excludes
+   terminals: the sent-email detector targets cases sitting in the TERMINAL
+   `eva_submitted`, and it needs each candidate's work_provider_id to confirm
+   the recipient really is that case's provider before marking done.
+   Body: { caseIds?: string[], casePo?: string, vrm?: string } (any subset).
+   Returns: { cases: [{ caseId, casePo, status, workProviderId, vrm }] }.
+   ============================================================ */
+app.http('internalCasesLookup', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/cases/lookup',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const body = (await req.json().catch(() => ({}))) as {
+        caseIds?: string[];
+        casePo?: string;
+        vrm?: string;
+      };
+      const caseIds = (Array.isArray(body.caseIds) ? body.caseIds : [])
+        .map((s) => String(s).trim())
+        .filter(Boolean)
+        .slice(0, 20);
+      const casePo = (body.casePo ?? '').trim();
+      const vrm = (body.vrm ?? '').trim();
+      if (caseIds.length === 0 && !casePo && !vrm) {
+        return { status: 200, jsonBody: { cases: [] } };
+      }
+      // id compared as text so a malformed caller id can never throw a uuid-cast
+      // error; casePo matches case_po OR case_ref (the triage/context convention).
+      const rows = await query<Row>(
+        `SELECT id, case_po, status_code, work_provider_id, vrm
+           FROM case_
+          WHERE (cardinality($1::text[]) > 0 AND id::text = ANY($1::text[]))
+             OR ($2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)))
+             OR ($3 <> '' AND upper(vrm) = upper($3))
+          ORDER BY created_at DESC
+          LIMIT 25`,
+        [caseIds, casePo, vrm],
+      );
+      return {
+        status: 200,
+        jsonBody: {
+          cases: rows.map((r) => ({
+            caseId: r.id as string,
+            casePo: (r.case_po as string | null) ?? '',
+            status: caseStatusCodec.toName(r.status_code as number) ?? 'error',
+            workProviderId: (r.work_provider_id as string | null) ?? '',
+            vrm: (r.vrm as string | null) ?? '',
+          })),
+        },
+      };
+    }),
+});
+
+/* ============================================================
    6 — POST /api/internal/audit
    Called by: orchestration activities (providerMatch, classifyPersist,
    caseResolve, dispositionOne) after every significant event.
@@ -2747,13 +2853,17 @@ app.http('internalBoxCaseByFolder', {
   handler: (req, ctx) =>
     withServiceAuth(req, ctx, async () => {
       const folderId = (req.params.folderId ?? '').trim();
-      if (!folderId) return { status: 200, jsonBody: { caseId: null } };
+      if (!folderId) return { status: 200, jsonBody: { caseId: null, casePo: null } };
+      // casePo is ADDITIVE (TKT-095 detector (b)): the box-webhook report
+      // classifier matches the upload filename against the case's Case/PO.
+      // Pre-TKT-095 callers read caseId only and ignore the extra field.
       const rows = await query<Row>(
-        'SELECT id FROM case_ WHERE box_folder_id = $1 LIMIT 1',
+        'SELECT id, case_po FROM case_ WHERE box_folder_id = $1 LIMIT 1',
         [folderId],
       );
       const caseId = rows.length > 0 ? (rows[0].id as string) : null;
-      return { status: 200, jsonBody: { caseId } };
+      const casePo = rows.length > 0 ? ((rows[0].case_po as string | null) ?? null) : null;
+      return { status: 200, jsonBody: { caseId, casePo } };
     }),
 });
 

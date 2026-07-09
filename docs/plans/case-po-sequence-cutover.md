@@ -9,7 +9,7 @@ EVA-add = the business truth; the system at intake = placeholders), and they can
 so reconciliation is: **per-case stamping during the trial, one scripted sequence take-over at
 cutover.** Design record: [ADR-0022 §Consequences addendum](../adr/0022-retroactive-case-reconstruction.md);
 operator tracker: [gated.md D11](../gated.md);
-ticket: [TKT-058](../tickets/verify/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md).
+ticket: [TKT-058](../tickets/done/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md).
 
 ## The pieces (built 2026-07-04)
 

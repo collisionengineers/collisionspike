@@ -175,3 +175,47 @@ def test_large_embedded_image_is_kept():
     pdf_bytes = _make_pdf_with_image(400, 300)
     res = parser_adapter.run_image_extraction(pdf_bytes, "photos.pdf")
     assert res["count"] == 1, "a photo-sized embedded raster must still be extracted"
+
+
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+@pytest.mark.parametrize(
+    "width,height",
+    [
+        (900, 180),  # wide letterhead banner — ABOVE the 200x200 area floor
+        (150, 800),  # tall narrow sidebar strip
+    ],
+)
+def test_large_banner_furniture_is_filtered_out(width, height):
+    """TKT-089 (engine-v2.11): letterhead/banner furniture that clears the pixel-area
+    floor is still suppressed by the banner-shape heuristic (aspect >= 3.5:1 AND
+    short side <= 240 px) — the residual gap behind the 2026-07-08 live-failure
+    report. Mirrors the sibling's tests/test_extract_images.py."""
+    pdf_bytes = _make_pdf_with_image(width, height)
+    res = parser_adapter.run_image_extraction(pdf_bytes, "LtrtoEngineerIn.pdf")
+    assert res["count"] == 0, f"{width}x{height} banner furniture must be filtered, not stored as evidence"
+
+
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+def test_real_photo_shape_is_never_banner_filtered():
+    """Recall guard (TKT-089): a genuine camera-photo shape (1600x1200) sails past
+    both the area floor and the banner heuristic."""
+    pdf_bytes = _make_pdf_with_image(1600, 1200)
+    res = parser_adapter.run_image_extraction(pdf_bytes, "photos.pdf")
+    assert res["count"] == 1, "a genuine photo must never be dropped by the decorative filter"
+
+
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+def test_extracted_names_carry_no_placeholder_identity():
+    """TKT-090 (engine-v2.11): this wrapper calls the engine with ``fields={}``, which
+    used to brand every extraction ``RJS_UnknownVRM_img_<page>_<n>`` via the engine's
+    hardcoded defaults. Unresolved tokens are now OMITTED: the stem is just
+    ``img_<page>_<n>`` (the orchestration prepends the source-document name)."""
+    import re
+
+    pdf_bytes = _make_pdf_with_image(640, 480)
+    res = parser_adapter.run_image_extraction(pdf_bytes, "LtrtoEngineerIn.pdf")
+    assert res["count"] == 1
+    name = res["images"][0]["filename"]
+    assert "RJS" not in name, name
+    assert "UnknownVRM" not in name, name
+    assert re.fullmatch(r"img_\d+_\d+\.[A-Za-z0-9]+", name), name

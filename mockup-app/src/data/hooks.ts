@@ -112,6 +112,14 @@ export function useQueueQuery(name: QueueName): QueryState<Case[]> {
   return useAsync(run, [name]);
 }
 
+/** The Completed/Archive list (TKT-096): terminal cases — eva_submitted (awaiting
+ *  delivery), done (delivered), box_synced (historical). safe()-empty at the seam,
+ *  so a transport failure renders as an empty list, never a crash. */
+export function useCompletedCases(): QueryState<Case[]> {
+  const run = useCallback(() => getDataAccess().completedCases(), []);
+  return useAsync(run, []);
+}
+
 /**
  * The amalgamated dashboard summary (work-todo-spike: amalgamated-dashboard) — the
  * case pipeline (liveCounts, throughput, queueCounts, pipelineStages, reasonFacets,

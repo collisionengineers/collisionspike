@@ -14,7 +14,7 @@
 import { app, type HttpRequest, type InvocationContext } from '@azure/functions';
 import { gates } from '@cs/domain/gates';
 import { canonicalizeVrm, statusToQueue, type CaseStatus } from '@cs/domain';
-import { caseStatusCodec, inboundCategoryCodec } from '@cs/domain/codecs';
+import { caseStatusCodec, inboundCategoryCodec, statusToInt } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { query } from '../lib/db.js';
 import type { Row } from '../lib/mappers.js';
@@ -31,6 +31,10 @@ export interface CaseHit {
   vrmCanonical: string | null;
   ref: string | null;
   queue: string;
+  /** The raw status name (TKT-096 terminal-scope fold-in) — lets the SPA render a
+   *  real StatusBadge on result rows, since terminal cases ARE in scope (a delivered
+   *  case must be findable) while `removed` rows are excluded server-side. */
+  status: string;
   claimant: string | null;
   provider: string | null;
 }
@@ -107,12 +111,19 @@ export async function runSearch(qRaw: string): Promise<SearchResults> {
     casePreds.push("regexp_replace(upper(c.vrm), '[^A-Z0-9]', '', 'g') LIKE $2");
     casePreds.push("regexp_replace(upper(c.case_po), '[^A-Z0-9]', '', 'g') LIKE $2");
   }
+  // TKT-096 scope decision (ADR-0023): terminal cases (eva_submitted / done /
+  // box_synced) are IN scope — search is a primary way to reach a delivered case —
+  // but `removed` is excluded (PII anonymised on soft-remove; the row must never
+  // resurface through search).
+  caseParams.push(statusToInt('removed'));
+  const removedParam = caseParams.length;
   caseParams.push(CASE_CAP + 1);
   const caseRows = await query<Row>(
     `SELECT c.id, c.case_po, c.vrm, c.case_ref, c.status_code, c.on_hold,
             c.eva_claimant_name AS claimant, wp.display_name AS provider
        FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
-      WHERE ${casePreds.join(' OR ')}
+      WHERE (${casePreds.join(' OR ')})
+        AND c.status_code <> $${removedParam}
       ORDER BY regexp_replace(upper(c.vrm), '[^A-Z0-9]', '', 'g'), c.created_at DESC
       LIMIT $${caseParams.length}`,
     caseParams,
@@ -125,6 +136,7 @@ export async function runSearch(qRaw: string): Promise<SearchResults> {
     vrmCanonical: r.vrm ? canonicalizeVrm(String(r.vrm)) : null,
     ref: r.case_ref ?? null,
     queue: queueLabel(r.status_code, r.on_hold),
+    status: statusName(r.status_code),
     claimant: r.claimant ?? null,
     provider: r.provider ?? null,
   }));

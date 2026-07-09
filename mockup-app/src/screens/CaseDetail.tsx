@@ -1575,6 +1575,28 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       a.remove();
       URL.revokeObjectURL(url);
       toast('Exported for EVA — one zip with the EVA file and the photos in order');
+
+      /* TKT-094 Phase B: the export IS the EVA handoff, so record it — the server
+         flips ready_for_eva → eva_submitted (guarded idempotent: a second export
+         is a no-op) and writes submitted_at, which feeds the dashboard throughput
+         tiles. Own try/catch: the download above already succeeded, so a failure
+         here must say "exported, but not recorded" — never "couldn't export". */
+      try {
+        const { updated } = await (data as DataAccessExt).markEvaSubmitted(liveCase.id);
+        if (updated) {
+          const fresh = await data.caseById(liveCase.id);
+          if (fresh) setC(fresh);
+          toast('Case marked EVA Submitted');
+        }
+      } catch {
+        dispatchToast(
+          <Toast>
+            <ToastTitle>Exported, but the case couldn’t be marked EVA Submitted</ToastTitle>
+            <ToastBody>The zip downloaded fine. Refresh and export again to record it.</ToastBody>
+          </Toast>,
+          { intent: 'warning' },
+        );
+      }
     } catch {
       dispatchToast(
         <Toast>
@@ -1586,6 +1608,37 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       setExportingEva(false);
     }
   };
+  /* TKT-095 (thin slice): the manual "Mark report delivered" bridge — visible only
+     on an eva_submitted case. Server-guarded eva_submitted → done (idempotent), so
+     a double-click can never double-record. */
+  const [markingDone, setMarkingDone] = useState(false);
+  const onMarkReportDelivered = async () => {
+    if (markingDone) return;
+    setMarkingDone(true);
+    try {
+      const { updated } = await (data as DataAccessExt).markCaseDone(liveCase.id);
+      if (updated) {
+        const fresh = await data.caseById(liveCase.id);
+        if (fresh) setC(fresh);
+        toast('Report delivered — case marked Done');
+      } else {
+        // Benign: someone (or a detector) already recorded the delivery.
+        const fresh = await data.caseById(liveCase.id);
+        if (fresh) setC(fresh);
+        toast('Already recorded — this case is Done');
+      }
+    } catch {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn’t record the delivery — try again</ToastTitle>
+        </Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setMarkingDone(false);
+    }
+  };
+
   // TKT-002 (display-only): images are present but NONE (non-excluded) shows a
   // readable registration — the case can't be EVA-ready until a vehicle overview
   // with the full plate arrives. Derived from the per-image registrationVisible
@@ -1816,6 +1869,25 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                   Submit to EVA
                 </Button>
               </Tooltip>
+              {/* TKT-095 thin slice: the delivery bridge — only an EVA-submitted case
+                  can be marked delivered (Done). Primary action at this stage of the
+                  lifecycle; the auto-detectors (Box report PDF, sent email) record it
+                  without the click when they fire first. */}
+              {c.status === 'eva_submitted' && (
+                <Tooltip
+                  content="Record that the report went back to the work provider"
+                  relationship="label"
+                >
+                  <Button
+                    appearance="primary"
+                    icon={markingDone ? <Spinner size="tiny" /> : <CheckCircle2 size={16} />}
+                    disabled={markingDone}
+                    onClick={() => void onMarkReportDelivered()}
+                  >
+                    {markingDone ? 'Recording…' : 'Mark report delivered'}
+                  </Button>
+                </Tooltip>
+              )}
               {/* Close case (TKT-010) — all staff; tucked in the overflow menu so
                   it never crowds (or sits beside) the primary actions. */}
               {!isRemoved && (

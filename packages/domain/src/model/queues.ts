@@ -20,8 +20,11 @@ import type { ActionReason, Case, CaseStatus } from './types';
                      — VRM / claimant — or errored), a possible duplicate awaiting
                      a decision, or put on hold by a person.
 
-   "Done (today)" is not a queue PAGE: terminal cases appear in the dashboard
-   throughput strip + Action Logs, never as a backlog.
+   Terminal cases are not a queue PAGE: they appear in the dashboard throughput
+   strip + Action Logs, and (since TKT-096) in the separate Completed/Archive
+   view (/completed) — a browse/audit area, deliberately NOT a 4th work-queue
+   (ADR-0023 amends ADR-0008's "no home for terminals": they now have a home
+   that is explicitly not a work-queue).
 
    PURE LAYER ONLY. This module defines the IA (QUEUES, statusToQueue,
    queueByName, caseTypeOf), the dashboard aggregate result types
@@ -137,6 +140,7 @@ export function statusToStage(status: CaseStatus): PipelineStageKey | undefined 
       return 'review';
     case 'eva_submitted':
     case 'box_synced':
+    case 'done': // delivered (TKT-094): still a submitted-stage outcome for the funnel/throughput.
       return 'submitted';
     case 'error':
     case 'duplicate_risk':
@@ -213,6 +217,7 @@ export function caseTypeOf(
     case 'ready_for_eva':
     case 'eva_submitted':
     case 'box_synced':
+    case 'done': // a delivered case necessarily had instructions + images.
       return 'both';
     case 'duplicate_risk':
       // A possible-twin case held by dedup: its composition isn't knowable from

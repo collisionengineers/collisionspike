@@ -43,7 +43,26 @@
         { "value": 100000031, "name": "inbound_reclassified",         "label": "Inbound Reclassified" },
         { "value": 100000032, "name": "ai_suggestion_created",        "label": "AI Suggestion Created" },
         { "value": 100000033, "name": "ai_suggestion_accepted",       "label": "AI Suggestion Accepted" },
-        { "value": 100000034, "name": "ai_suggestion_rejected",       "label": "AI Suggestion Rejected" }
+        { "value": 100000034, "name": "ai_suggestion_rejected",       "label": "AI Suggestion Rejected" },
+        { "value": 100000035, "name": "inbound_link_suggested",       "label": "Inbound Link Suggested" },
+        { "value": 100000036, "name": "inbound_linked",               "label": "Inbound Linked" },
+        { "value": 100000037, "name": "inbound_detached",             "label": "Inbound Detached" },
+        { "value": 100000038, "name": "cancellation_proposed",        "label": "Cancellation Proposed" },
+        { "value": 100000039, "name": "outlook_move_requested",       "label": "Outlook Move Requested" },
+        { "value": 100000040, "name": "outlook_moved",                "label": "Outlook Moved" },
+        { "value": 100000041, "name": "outlook_move_failed",          "label": "Outlook Move Failed" },
+        { "value": 100000042, "name": "api_key_created",              "label": "API Key Created" },
+        { "value": 100000043, "name": "api_key_revoked",              "label": "API Key Revoked" },
+        { "value": 100000044, "name": "provider_api_case_created",    "label": "Provider API Case Created" },
+        { "value": 100000045, "name": "provider_api_case_rejected",   "label": "Provider API Case Rejected" },
+        { "value": 100000046, "name": "retro_case_created",           "label": "Retro Case Created" },
+        { "value": 100000047, "name": "retro_case_linked",            "label": "Retro Case Linked" },
+        { "value": 100000048, "name": "retro_reconstruction_failed",  "label": "Retro Reconstruction Failed" },
+        { "value": 100000049, "name": "evidence_added",               "label": "Evidence Added" },
+        { "value": 100000050, "name": "agent_read",                   "label": "Agent Read" },
+        { "value": 100000051, "name": "agent_write",                  "label": "Agent Write" },
+        { "value": 100000052, "name": "image_analysis_generated",     "label": "Image Analysis Generated" },
+        { "value": 100000053, "name": "report_delivered",             "label": "Report Delivered" }
       ]
     },
     {

@@ -2,7 +2,31 @@
 
 > **Canonical registry of what is actually deployed.** This file + [`LIVE_FACTS.json`](../../LIVE_FACTS.json)
 > (root) are the **single source for literal live numbers** — every other doc links here rather than
-> re-embedding a count. Last live change: **2026-07-09T04:45Z** — the **PLAN-003 intake-correctness wave**
+> re-embedding a count. Last live change: **2026-07-09T06:20Z** — the **PLAN-003 lifecycle wave**
+> (TKT-044/047/087/089/090/094/095/096/106): **api republished — 94 functions verified** (+5: the case
+> `done` lifecycle — `POST /api/cases/{id}/eva-submitted` fired by Export-for-EVA, the staff
+> `POST /api/cases/{id}/mark-done`, `GET /api/completed/cases`, and the service-auth
+> `POST /api/internal/cases/{id}/mark-done` + `POST /api/internal/cases/lookup` for the detectors);
+> **orch republished — 71 verified** (NET −5 `replay-backfill` registrations REMOVED with the non-viable
+> driver — TKT-106, gate + app-setting also deleted — and +6 DARK TKT-095 detector functions:
+> the SentItems webhook/lifecycle/queue processor behind new gate `DONE_SENT_EMAIL_ENABLED` (absent = off;
+> **no Graph subscription created**) and the `eva-report-poll` skeleton behind `EVA_API_ENABLED`);
+> **parser republished at sibling engine tag `engine-v2.11`** (4 functions — the TKT-089 banner-aspect
+> decorative heuristic + the TKT-090 naming fix: no more hardcoded `RJS` / literal `UnknownVRM` stems);
+> **box-webhook republished** (12 — TKT-087 sha1-verified 409 reuse with content-disambiguated re-upload;
+> TKT-095 report-PDF→done detector riding the live FILE.UPLOADED webhook); **SPA redeployed** (200 +
+> strict CSP re-verified: the **Completed** area at `/completed` + nav section, clickable throughput
+> tiles, the `done` badge, Export-for-EVA now records EVA Submitted, the "Mark report delivered" button).
+> **Status model moved 12 → 13** (`done` = 100000012, terminal; audit `report_delivered` = 100000053) via
+> DDL delta [`deltas/2026-07-09-case-done.sql`](../../migration/assets/schema/deltas/2026-07-09-case-done.sql)
+> (applied BEFORE the api deploy). Audited data fix
+> [`deltas/2026-07-09-tkt089-evidence-cleanup.sql`](../../migration/assets/schema/deltas/2026-07-09-tkt089-evidence-cleanup.sql)
+> applied (backup table `backup_20260709_tkt089_evidence`): **163 letterhead/signature image evidence rows
+> excluded** (audited per case; Box files untouched — one-way mirror). Orch evidence names are now
+> per-message (`message-<token>.eml` / `email-body-<token>.txt` — the TKT-087 root cause). Known open
+> item: case `ae1c0c84` (QDOS26029) re-archive still fails 0/4 — the box-fn upload route 502s on its
+> 17.6 MB base64 `.eml` payload (follow-up: chunked/streaming upload). Transient FW rules added+removed.
+> Prior change: **2026-07-09T04:45Z** — the **PLAN-003 intake-correctness wave**
 > (TKT-119/058/099/092/101/073/091/034/052/023/128/076/079): **api republished — 89 functions verified**
 > (+1: `internalInboundAttention`, `POST /api/internal/inbound/attention` — the "Unable to locate" /
 > "No matching case" stamp); **orch republished — 70 verified** (+2: `imagesUnmatched` — the TKT-034
@@ -114,7 +138,7 @@
 > re-verified). Trial + cutover procedure:
 > [docs/plans/case-po-sequence-cutover.md](../plans/case-po-sequence-cutover.md); operator inputs:
 > [gated.md D11](../gated.md). Prior change: **2026-07-04T17:55Z** — the **retro-reconstruction activation**
-> (ADR-0022 / [TKT-058](../tickets/verify/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md);
+> (ADR-0022 / [TKT-058](../tickets/done/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md);
 > user-instructed "apply this delta — deploy anything necessary"): the **`2026-07-04-retro-case` DDL
 > delta is APPLIED LIVE** (audit actions 100000046–48 `retro_case_created`/`retro_case_linked`/
 > `retro_reconstruction_failed` + `choice_intake_channel_kind` 100000003 `retro`; VERIFY selects
@@ -383,9 +407,9 @@ az resource list -g rg-collisionspike-dev -o table
 # Static Web App (SPA) hostname + status
 az staticwebapp show -g rg-collisionspike-dev -n cespk-spa-dev --query "defaultHostname" -o tsv
 
-# Function Apps — which functions are actually deployed (verified 2026-07-04T17:50Z: api 79, orch 62, parser 4, box-webhook 12)
-az functionapp function list -g rg-collisionspike-dev -n cespk-api-dev  -o table   # expect: 79 functions
-az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: 62 functions (live — 3 push subs)
+# Function Apps — which functions are actually deployed (verified 2026-07-09T06:05Z: api 94, orch 71, parser 4, box-webhook 12)
+az functionapp function list -g rg-collisionspike-dev -n cespk-api-dev  -o table   # expect: 94 functions
+az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: 71 functions (live — 3 push subs)
 az functionapp function list -g rg-collisionspike-dev -n cespkbox-fn-v76a47 -o table               # expect: 12
 az functionapp function list -g rg-collisionspike-dev -n cespike-parser-dev-x7xt3d5ovhi7y -o table # expect: 4
 

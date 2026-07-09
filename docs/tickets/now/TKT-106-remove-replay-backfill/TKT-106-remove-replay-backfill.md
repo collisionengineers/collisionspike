@@ -54,3 +54,8 @@ valuable and is already captured in **TKT-059 verification.md** + the memory
 Operator-requested 2026-07-07 while auditing the dark gates. This is a code change → a PR (not
 straight-to-main); the removal is mechanical but touches the orch bundle + a live app-setting, so it
 carries a deploy.
+
+## Artifacts
+
+- [changes.md](./changes.md)
+- [verification.md](./verification.md)

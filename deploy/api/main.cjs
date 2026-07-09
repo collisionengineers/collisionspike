@@ -7165,7 +7165,8 @@ var TERMINAL_STATUSES = [
   "eva_submitted",
   "box_synced",
   "error",
-  "removed"
+  "removed",
+  "done"
 ];
 var TERMINAL_SET = new Set(TERMINAL_STATUSES);
 function isTerminalStatus(status) {
@@ -7788,6 +7789,7 @@ function statusToStage(status) {
       return "review";
     case "eva_submitted":
     case "box_synced":
+    case "done":
       return "submitted";
     case "error":
     case "duplicate_risk":
@@ -13517,12 +13519,13 @@ var case_status_default = {
     { value: 100000008, name: "eva_submitted", label: "EVA Submitted" },
     { value: 100000009, name: "box_synced", label: "Archive Synced" },
     { value: 100000010, name: "error", label: "Error" },
-    { value: 100000011, name: "removed", label: "Removed" }
+    { value: 100000011, name: "removed", label: "Removed" },
+    { value: 100000012, name: "done", label: "Done" }
   ],
   stateMachine: {
-    linear: ["new_email", "ingested", "needs_review", "ready_for_eva", "eva_submitted", "box_synced"],
+    linear: ["new_email", "ingested", "needs_review", "ready_for_eva", "eva_submitted", "done"],
     branches: ["missing_required_fields", "missing_images", "duplicate_risk", "linked_to_instruction"],
-    terminals: ["eva_submitted", "box_synced", "error", "removed"]
+    terminals: ["eva_submitted", "box_synced", "error", "removed", "done"]
   }
 };
 
@@ -13747,7 +13750,26 @@ var audit_event_default = {
         { value: 100000031, name: "inbound_reclassified", label: "Inbound Reclassified" },
         { value: 100000032, name: "ai_suggestion_created", label: "AI Suggestion Created" },
         { value: 100000033, name: "ai_suggestion_accepted", label: "AI Suggestion Accepted" },
-        { value: 100000034, name: "ai_suggestion_rejected", label: "AI Suggestion Rejected" }
+        { value: 100000034, name: "ai_suggestion_rejected", label: "AI Suggestion Rejected" },
+        { value: 100000035, name: "inbound_link_suggested", label: "Inbound Link Suggested" },
+        { value: 100000036, name: "inbound_linked", label: "Inbound Linked" },
+        { value: 100000037, name: "inbound_detached", label: "Inbound Detached" },
+        { value: 100000038, name: "cancellation_proposed", label: "Cancellation Proposed" },
+        { value: 100000039, name: "outlook_move_requested", label: "Outlook Move Requested" },
+        { value: 100000040, name: "outlook_moved", label: "Outlook Moved" },
+        { value: 100000041, name: "outlook_move_failed", label: "Outlook Move Failed" },
+        { value: 100000042, name: "api_key_created", label: "API Key Created" },
+        { value: 100000043, name: "api_key_revoked", label: "API Key Revoked" },
+        { value: 100000044, name: "provider_api_case_created", label: "Provider API Case Created" },
+        { value: 100000045, name: "provider_api_case_rejected", label: "Provider API Case Rejected" },
+        { value: 100000046, name: "retro_case_created", label: "Retro Case Created" },
+        { value: 100000047, name: "retro_case_linked", label: "Retro Case Linked" },
+        { value: 100000048, name: "retro_reconstruction_failed", label: "Retro Reconstruction Failed" },
+        { value: 100000049, name: "evidence_added", label: "Evidence Added" },
+        { value: 100000050, name: "agent_read", label: "Agent Read" },
+        { value: 100000051, name: "agent_write", label: "Agent Write" },
+        { value: 100000052, name: "image_analysis_generated", label: "Image Analysis Generated" },
+        { value: 100000053, name: "report_delivered", label: "Report Delivered" }
       ]
     },
     {
@@ -15472,7 +15494,13 @@ var AUDIT_ACTION = {
   // ai_suggestion_created (100000032) each draft also writes. Minted in
   // deltas/2026-07-08-image-analysis-suggestion-types.sql — same pre-DDL degrade as the codes
   // above (writeAudit's catch-all swallows the choice_audit_action FK failure until the delta lands).
-  image_analysis_generated: 100000052
+  image_analysis_generated: 100000052,
+  // TKT-094/095 (ADR-0023) — the CE report was delivered back to the work provider
+  // (the case's eva_submitted → done transition; manual button or a detector).
+  // Minted in deltas/2026-07-09-case-done.sql — same pre-DDL degrade as the codes
+  // above. NOTE: the case-done plan draft reserved 100000049 for this, but
+  // 100000049–100000052 were taken by TKT-068/110/016 first — hence 100000053.
+  report_delivered: 100000053
 };
 var SEVERITY_CODE = {
   info: 1e8,
@@ -15685,6 +15713,15 @@ var gates = {
   // #23
   boxFileRequest: () => process.env.BOX_FILEREQUEST_ENABLED === "true",
   // #24
+  // TKT-095 detector (a) — sent-email-to-provider → case `done` (ADR-0023). Default OFF;
+  // ships DARK. Flipping it ON makes the orchestration's subscription maintenance CREATE a
+  // Graph `users/{mailbox}/mailFolders('SentItems')/messages` subscription per intake
+  // mailbox (notifications route to /api/graph-webhook-sent, NEVER the intake pipeline);
+  // flipping it back OFF makes the same maintenance pass PRUNE those SentItems
+  // subscriptions — a gate flip fully self-reconciles in both directions. While OFF the
+  // sent-items webhook/queue handlers drop everything with a trace, so behaviour is
+  // identical to pre-TKT-095. Read by the orchestration app only.
+  doneSentEmail: () => process.env.DONE_SENT_EMAIL_ENABLED === "true",
   // Outlook filing (TKT-054 / 020726 E6) — default off. Gates the SPA "Suggested action"
   // button, the Data API enqueue route, AND the orchestration mover. Operator-blocked:
   // requires the Mail.ReadWrite Exchange-RBAC re-consent before it may be flipped
@@ -15731,11 +15768,10 @@ var gates = {
   // docs/gated.md). While off, an unmatched images email is only FLAGGED for manual
   // handling (attention_reason 'images_no_match') — fallback step 3 — which needs no gate.
   boxRegFolder: () => process.env.BOX_REG_FOLDER_ENABLED === "true",
-  // Replay backfill driver (TKT-059 / GO_LIVE_SPRINT_PLAN P1/P3) — default off. Master switch
-  // for the POST /api/replay-backfill Durable driver on the orchestration app. Off by default
-  // so the (function-key-protected) endpoint additionally refuses unless deliberately enabled;
-  // dry-run (read-only) and the destructive live rebuild BOTH require it on.
-  replayBackfill: () => process.env.REPLAY_BACKFILL_ENABLED === "true",
+  // (The replay-backfill gate was REMOVED with its driver — TKT-106. The wipe-and-
+  // rebuild path is non-viable: TKT-059's dry-run proved the mailboxes retain only a
+  // fraction of the DB's source emails, so the DB is the system of record. Keep the
+  // finding — TKT-059 verification — not the dead switch.)
   // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
   enrichmentApiBase: () => process.env.ENRICHMENT_API_BASE ?? "",
   // #3
@@ -16554,7 +16590,9 @@ function actionableCases(all) {
 var TWIN_TERMINAL = /* @__PURE__ */ new Set([
   "eva_submitted",
   "box_synced",
-  "removed"
+  "removed",
+  "done"
+  // delivered (TKT-094): a delivered case is never an open twin/merge target.
 ]);
 
 // api/src/lib/schema-introspect.ts
@@ -18145,6 +18183,71 @@ import_functions.app.http("internalCasesSetIngested", {
     return { status: 200, jsonBody: { updated: updated.length > 0 } };
   })
 });
+import_functions.app.http("internalCasesMarkDone", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/mark-done",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const signal = ["sent_email", "box_pdf", "eva_poll", "manual"].includes(body2.signal ?? "") ? body2.signal : "unknown";
+    const updated = await query(
+      `UPDATE case_ SET status_code = $1, updated_at = now()
+         WHERE id = $2 AND status_code = $3
+         RETURNING id`,
+      [statusToInt("done"), caseId, statusToInt("eva_submitted")]
+    );
+    if (updated.length > 0) {
+      await writeAudit({
+        action: AUDIT_ACTION.report_delivered,
+        caseId,
+        summary: "Report delivered to the work provider \u2014 case marked Done",
+        after: {
+          status: "done",
+          signal,
+          ...body2.detail ? { detail: String(body2.detail).slice(0, 500) } : {}
+        }
+      });
+    }
+    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+  })
+});
+import_functions.app.http("internalCasesLookup", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/lookup",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json().catch(() => ({}));
+    const caseIds = (Array.isArray(body2.caseIds) ? body2.caseIds : []).map((s) => String(s).trim()).filter(Boolean).slice(0, 20);
+    const casePo = (body2.casePo ?? "").trim();
+    const vrm = (body2.vrm ?? "").trim();
+    if (caseIds.length === 0 && !casePo && !vrm) {
+      return { status: 200, jsonBody: { cases: [] } };
+    }
+    const rows = await query(
+      `SELECT id, case_po, status_code, work_provider_id, vrm
+           FROM case_
+          WHERE (cardinality($1::text[]) > 0 AND id::text = ANY($1::text[]))
+             OR ($2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)))
+             OR ($3 <> '' AND upper(vrm) = upper($3))
+          ORDER BY created_at DESC
+          LIMIT 25`,
+      [caseIds, casePo, vrm]
+    );
+    return {
+      status: 200,
+      jsonBody: {
+        cases: rows.map((r) => ({
+          caseId: r.id,
+          casePo: r.case_po ?? "",
+          status: caseStatusCodec.toName(r.status_code) ?? "error",
+          workProviderId: r.work_provider_id ?? "",
+          vrm: r.vrm ?? ""
+        }))
+      }
+    };
+  })
+});
 import_functions.app.http("internalAudit", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -18230,13 +18333,14 @@ import_functions.app.http("internalBoxCaseByFolder", {
   route: "internal/box/case-by-folder/{folderId}",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const folderId = (req.params.folderId ?? "").trim();
-    if (!folderId) return { status: 200, jsonBody: { caseId: null } };
+    if (!folderId) return { status: 200, jsonBody: { caseId: null, casePo: null } };
     const rows = await query(
-      "SELECT id FROM case_ WHERE box_folder_id = $1 LIMIT 1",
+      "SELECT id, case_po FROM case_ WHERE box_folder_id = $1 LIMIT 1",
       [folderId]
     );
     const caseId = rows.length > 0 ? rows[0].id : null;
-    return { status: 200, jsonBody: { caseId } };
+    const casePo = rows.length > 0 ? rows[0].case_po ?? null : null;
+    return { status: 200, jsonBody: { caseId, casePo } };
   })
 });
 import_functions.app.http("internalBoxPurgeCandidates", {
@@ -19318,6 +19422,81 @@ import_functions2.app.http("caseBoxFinalize", {
       status: 200,
       jsonBody: { status: "gated_off", message: 'Direct submit is not available yet. Use "Export for EVA".' }
     };
+  })
+});
+import_functions2.app.http("markEvaSubmitted", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/eva-submitted",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = (req.params.id ?? "").trim();
+    if (!id) return { status: 400, jsonBody: { message: "A case is required." } };
+    const updated = await query(
+      `UPDATE case_ SET status_code = $1, submitted_at = now(), updated_at = now()
+       WHERE id = $2 AND status_code = $3
+       RETURNING id`,
+      [statusToInt("eva_submitted"), id, statusToInt("ready_for_eva")]
+    );
+    if (updated.length > 0) {
+      await writeAudit({
+        action: AUDIT_ACTION.eva_submitted,
+        caseId: id,
+        summary: "Exported for EVA \u2014 case marked EVA Submitted",
+        after: { status: "eva_submitted" },
+        actor: actorFromClaims(claims)
+      });
+    }
+    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+  })
+});
+import_functions2.app.http("markCaseDone", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/mark-done",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = (req.params.id ?? "").trim();
+    if (!id) return { status: 400, jsonBody: { message: "A case is required." } };
+    const updated = await query(
+      `UPDATE case_ SET status_code = $1, updated_at = now()
+       WHERE id = $2 AND status_code = $3
+       RETURNING id`,
+      [statusToInt("done"), id, statusToInt("eva_submitted")]
+    );
+    if (updated.length > 0) {
+      await writeAudit({
+        action: AUDIT_ACTION.report_delivered,
+        caseId: id,
+        summary: "Report delivered to the work provider \u2014 case marked Done",
+        after: { status: "done", signal: "manual" },
+        actor: actorFromClaims(claims)
+      });
+    }
+    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+  })
+});
+var COMPLETED_STATUSES = ["eva_submitted", "done", "box_synced"];
+import_functions2.app.http("completedCases", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "completed/cases",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const statusFilter = (req.query.get("status") ?? "").trim();
+    const wanted = COMPLETED_STATUSES.filter(
+      (s) => !statusFilter || s === statusFilter
+    );
+    if (wanted.length === 0) return { status: 200, jsonBody: [] };
+    const codes = wanted.map((s) => statusToInt(s));
+    const limit = Math.min(Math.max(parseInt(req.query.get("limit") ?? "200", 10) || 200, 1), 500);
+    const offset = Math.max(parseInt(req.query.get("offset") ?? "0", 10) || 0, 0);
+    const rows = await query(
+      `${CASE_SELECT}
+       WHERE c.status_code = ANY($1::int[])
+       ORDER BY c.submitted_at DESC NULLS LAST, c.updated_at DESC
+       LIMIT $2 OFFSET $3`,
+      [codes, limit, offset]
+    );
+    const now = nowParam(req);
+    return { status: 200, jsonBody: rows.map((r) => rowToCase(r, { now })) };
   })
 });
 function nowParam(req) {
@@ -60971,12 +61150,15 @@ async function runSearch(qRaw) {
     casePreds.push("regexp_replace(upper(c.vrm), '[^A-Z0-9]', '', 'g') LIKE $2");
     casePreds.push("regexp_replace(upper(c.case_po), '[^A-Z0-9]', '', 'g') LIKE $2");
   }
+  caseParams.push(statusToInt("removed"));
+  const removedParam = caseParams.length;
   caseParams.push(CASE_CAP + 1);
   const caseRows = await query(
     `SELECT c.id, c.case_po, c.vrm, c.case_ref, c.status_code, c.on_hold,
             c.eva_claimant_name AS claimant, wp.display_name AS provider
        FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
-      WHERE ${casePreds.join(" OR ")}
+      WHERE (${casePreds.join(" OR ")})
+        AND c.status_code <> $${removedParam}
       ORDER BY regexp_replace(upper(c.vrm), '[^A-Z0-9]', '', 'g'), c.created_at DESC
       LIMIT $${caseParams.length}`,
     caseParams
@@ -60989,6 +61171,7 @@ async function runSearch(qRaw) {
     vrmCanonical: r.vrm ? canonicalizeVrm(String(r.vrm)) : null,
     ref: r.case_ref ?? null,
     queue: queueLabel(r.status_code, r.on_hold),
+    status: statusName2(r.status_code),
     claimant: r.claimant ?? null,
     provider: r.provider ?? null
   }));

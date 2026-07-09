@@ -347,7 +347,32 @@ export function EvaSubmitDialog() {
     setSeq(value.replace(/\D/g, '').slice(0, 3));
   };
 
-  const onDownloadJson = () => {
+  /* TKT-094 Phase B: the export IS the EVA handoff — record it server-side
+     (ready_for_eva → eva_submitted, guarded idempotent + writes submitted_at).
+     Own try/catch so a recording failure never masks a successful download. */
+  const recordEvaSubmitted = async () => {
+    try {
+      const { updated } = await (data as DataAccessExt).markEvaSubmitted(c.id);
+      if (updated) {
+        dispatchToast(
+          <Toast>
+            <ToastTitle>Case marked EVA Submitted</ToastTitle>
+          </Toast>,
+          { intent: 'success' },
+        );
+      }
+    } catch {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Exported, but the case couldn’t be marked EVA Submitted</ToastTitle>
+          <ToastBody>The file downloaded fine. Refresh and export again to record it.</ToastBody>
+        </Toast>,
+        { intent: 'warning' },
+      );
+    }
+  };
+
+  const onDownloadJson = async () => {
     try {
       const text = buildEvaJson({ evaFields: c.evaFields });
       const blob = new Blob([text], { type: 'application/json' });
@@ -366,6 +391,7 @@ export function EvaSubmitDialog() {
         </Toast>,
         { intent: 'success' },
       );
+      await recordEvaSubmitted();
     } catch {
       dispatchToast(
         <Toast>
@@ -376,8 +402,10 @@ export function EvaSubmitDialog() {
     }
   };
 
-  const onSubmit = () => {
-    // MOCK: no real Sentry call is ever made in M1.
+  const onSubmit = async () => {
+    // MOCK: no real Sentry call is ever made in M1 — but the handoff IS recorded
+    // (TKT-094): the case leaves Review and the throughput tiles count it.
+    await recordEvaSubmitted();
     dispatchToast(
       <Toast>
         <ToastTitle>Submitted to EVA</ToastTitle>
@@ -526,7 +554,7 @@ export function EvaSubmitDialog() {
               className={styles.dialogBtn}
               appearance="secondary"
               icon={<Download size={16} />}
-              onClick={onDownloadJson}
+              onClick={() => void onDownloadJson()}
               disabled={!ready}
               title={!ready ? `${blockedCount} readiness item(s) still blocking` : 'Save the case as an EVA file to drag into EVA'}
             >
@@ -544,7 +572,7 @@ export function EvaSubmitDialog() {
                     ? 'Enter the 3-digit Case/PO sequence'
                     : 'Submit to EVA'
               }
-              onClick={onSubmit}
+              onClick={() => void onSubmit()}
             >
               Submit to EVA
             </Button>

@@ -13,6 +13,7 @@ import {
   Clock,
   ClipboardCheck,
   AlertTriangle,
+  CheckCheck,
   ListChecks,
   ChevronDown,
   ChevronRight,
@@ -416,6 +417,12 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
 
           {!collapsed && <div className={styles.navSectionLabel}>Queues</div>}
           {renderQueuesGroup()}
+
+          {/* TKT-096 (ADR-0023): Completed sits OUTSIDE the Queues group — the
+              work-queues stay work-only; this is the browse/audit home for
+              terminal cases (exported/awaiting delivery + delivered). */}
+          {!collapsed && <div className={styles.navSectionLabel}>Completed</div>}
+          {renderLink('/completed', 'Completed cases', CheckCheck)}
 
           {!collapsed && <div className={styles.navSectionLabel}>Admin</div>}
           {renderLink('/admin', 'Provider settings', Building2)}

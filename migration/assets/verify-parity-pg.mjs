@@ -10,7 +10,7 @@
 //     §2  26 non-secret gate defaults: environment-variables.json vs plan 10 §1.1
 //     §3  2 secret env-vars: KV references with no literal defaultValue
 //     §4  Status-machine: stateMachine.terminals == TERMINAL_STATUSES in case-status.ts;
-//           CaseStatus union is 11 members 1:1 with choice-set names; linear path intact
+//           CaseStatus union is 13 members 1:1 with choice-set names; linear path intact
 //     §5  Inbound-email classifier: inbound-email-classification.json names ==
 //           email_classifier.py CATEGORY_*/SUBTYPE_* constants 1:1
 //     §6  Role invariants from role JSONs: audit_event Write=None for both roles;
@@ -243,9 +243,9 @@ const csSet = jsonSets.get("cr1bd_casestatus");
 ok(!!csSet, "cr1bd_casestatus choice set exists in JSON");
 
 if (csSet) {
-  // 4a. Count
-  ok(csSet.options.length === 11,
-    `cr1bd_casestatus has 11 options (got ${csSet.options.length})`);
+  // 4a. Count (13 since TKT-094 added `done`; was 11 pre-`removed`, 12 pre-`done`)
+  ok(csSet.options.length === 13,
+    `cr1bd_casestatus has 13 options (got ${csSet.options.length})`);
 
   // 4b. Unique integer values
   const vals = csSet.options.map((o) => o.value);
@@ -269,7 +269,7 @@ if (csSet) {
   const contractTerminals = [...termBody.matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
   const jsonTerminals = [...((csSet.stateMachine?.terminals) ?? [])].sort();
   ok(
-    contractTerminals.length === 3 &&
+    contractTerminals.length === 5 &&
     JSON.stringify(contractTerminals) === JSON.stringify(jsonTerminals),
     `TERMINAL_STATUSES == stateMachine.terminals ` +
     `(contract=${JSON.stringify(contractTerminals)}, json=${JSON.stringify(jsonTerminals)})`);

@@ -13,6 +13,12 @@ import './functions/graph-lifecycle.js';
 import './functions/graph-renew.js';
 import './functions/graph-renew-http.js';
 import './functions/subscriptionMonitor.js';
+// TKT-095 detector (a) — gated SentItems surface (DONE_SENT_EMAIL_ENABLED, default off/dark):
+// the sent-items webhook + lifecycle endpoints and the 'sent-messages' queue processor.
+// Deploying these registers the handlers only — no Graph subscription is created until the
+// gate is flipped and subscription maintenance bootstraps the SentItems subs.
+import './functions/graph-webhook-sent.js';
+import './functions/sent-items-processor.js';
 
 // Queue intake starter → Durable orchestrator + activities
 import './functions/intake-starter.js';
@@ -46,4 +52,6 @@ import './functions/gated/case-disposition.js';
 import './functions/gated/jobsheet-import.js';
 import './functions/gated/retro-case.js'; // retro case reconstruction (ADR-0022; RETRO_CASE_ENABLED)
 import './functions/gated/retro-deleted-probe.js'; // TKT-119d read-only Deleted-Items feasibility probe (keyed)
-import './functions/gated/replay-backfill.js'; // replay wipe&rebuild driver (TKT-059; REPLAY_BACKFILL_ENABLED)
+import './functions/gated/eva-report-poll.js'; // TKT-095 detector (c) dark skeleton (EVA_API_ENABLED; keyed starter)
+// (The replay-backfill wipe&rebuild driver was REMOVED — TKT-106; the wipe path is
+// non-viable per TKT-059's finding: the mailboxes retain only a fraction of the DB.)

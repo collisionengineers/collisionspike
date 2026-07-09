@@ -428,6 +428,14 @@ Dataverse `cr1bd_knownemaildomains` column.)*
 > `BOX_REG_FOLDER_ENABLED` (absent = off) because it creates new Box folder semantics. Say the word
 > and it flips (Box writes stay inside the archive root).
 
+> **DONE_SENT_EMAIL_ENABLED — new dark gate (2026-07-09, [TKT-095](./tickets/now/TKT-095-case-done-detectors/TKT-095-case-done-detectors.md)).**
+> The sent-email → case-`done` detector (a CE mailbox sends to the case's work provider → the case
+> flips EVA Submitted → Done) is built **dark**. Flipping it makes orch subscription maintenance
+> **create a SentItems Graph subscription per intake mailbox** (flipping back prunes them) —
+> mailbox-adjacent, so it needs your say-so, ideally first in a test slot. The manual
+> "Mark report delivered" button and the Box report-PDF detector are live without it. (The EVA-poll
+> detector skeleton stays behind `EVA_API_ENABLED` with the rest of EVA REST — D1.)
+
 > **QCL Held-case backlog — staff item (2026-07-09, [TKT-099](./tickets/verify/TKT-099-qcl-case-po-generation/TKT-099-qcl-case-po-generation.md)).**
 > The 11 pre-fix complexreports/QCL cases sit Held with no Case/PO **by design** (the fix never
 > back-mints). Staff confirm each is genuinely QCL work, then mint via the case page (Set Case/PO)
@@ -700,7 +708,7 @@ an unmatched billing/case_update/cancellation/query email with a reference or re
 its case **whatever the case's status** (terminals included — the billing-email fix), ambiguity is
 flagged never guessed, and un-linkable attempts are audited `retro_reconstruction_failed`. The
 existing un-linked pile drains one email at a time via the keyed starter — see
-[TKT-058/verification.md](./tickets/verify/TKT-058-retro-case-creation/verification.md) step 4.
+[TKT-058/verification.md](./tickets/done/TKT-058-retro-case-creation/verification.md) step 4.
 
 **Remaining (the Box reconstruction rung — R2 stays dark until ALL of these):**
 

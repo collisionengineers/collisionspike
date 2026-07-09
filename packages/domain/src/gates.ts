@@ -81,6 +81,16 @@ export const gates = {
   boxFolderAtIntake: (): boolean => process.env.BOX_FOLDER_AT_INTAKE_ENABLED === 'true',// #23
   boxFileRequest: (): boolean => process.env.BOX_FILEREQUEST_ENABLED === 'true',// #24
 
+  // TKT-095 detector (a) — sent-email-to-provider → case `done` (ADR-0023). Default OFF;
+  // ships DARK. Flipping it ON makes the orchestration's subscription maintenance CREATE a
+  // Graph `users/{mailbox}/mailFolders('SentItems')/messages` subscription per intake
+  // mailbox (notifications route to /api/graph-webhook-sent, NEVER the intake pipeline);
+  // flipping it back OFF makes the same maintenance pass PRUNE those SentItems
+  // subscriptions — a gate flip fully self-reconciles in both directions. While OFF the
+  // sent-items webhook/queue handlers drop everything with a trace, so behaviour is
+  // identical to pre-TKT-095. Read by the orchestration app only.
+  doneSentEmail: (): boolean => process.env.DONE_SENT_EMAIL_ENABLED === 'true',
+
   // Outlook filing (TKT-054 / 020726 E6) — default off. Gates the SPA "Suggested action"
   // button, the Data API enqueue route, AND the orchestration mover. Operator-blocked:
   // requires the Mail.ReadWrite Exchange-RBAC re-consent before it may be flipped
@@ -130,11 +140,10 @@ export const gates = {
   // handling (attention_reason 'images_no_match') — fallback step 3 — which needs no gate.
   boxRegFolder: (): boolean => process.env.BOX_REG_FOLDER_ENABLED === 'true',
 
-  // Replay backfill driver (TKT-059 / GO_LIVE_SPRINT_PLAN P1/P3) — default off. Master switch
-  // for the POST /api/replay-backfill Durable driver on the orchestration app. Off by default
-  // so the (function-key-protected) endpoint additionally refuses unless deliberately enabled;
-  // dry-run (read-only) and the destructive live rebuild BOTH require it on.
-  replayBackfill: (): boolean => process.env.REPLAY_BACKFILL_ENABLED === 'true',
+  // (The replay-backfill gate was REMOVED with its driver — TKT-106. The wipe-and-
+  // rebuild path is non-viable: TKT-059's dry-run proved the mailboxes retain only a
+  // fraction of the DB's source emails, so the DB is the system of record. Keep the
+  // finding — TKT-059 verification — not the dead switch.)
 
   // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
   enrichmentApiBase: (): string => process.env.ENRICHMENT_API_BASE ?? '',      // #3

@@ -936,6 +936,7 @@ export const TWIN_TERMINAL: ReadonlySet<CaseStatus> = new Set<CaseStatus>([
   'eva_submitted',
   'box_synced',
   'removed',
+  'done', // delivered (TKT-094): a delivered case is never an open twin/merge target.
 ]);
 
 /* QUEUES kept referenced for downstream filter-builders / parity readers. */

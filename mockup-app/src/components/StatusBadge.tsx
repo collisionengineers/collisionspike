@@ -61,6 +61,10 @@ const STATUS_STYLES: Record<CaseStatus, StatusStyle> = {
   // stays 'removed'; the person-facing word is "Closed". A muted chip — out of
   // the workflow, never a work item, never red/amber.
   removed: { label: 'Closed', severity: 'muted', icon: FolderClosed },
+  // Terminal DELIVERY (TKT-094 / ADR-0023): the CE report has been delivered
+  // back to the work provider — the true end of the lifecycle, after EVA
+  // Submitted. Success idiom, like the other windowed/terminal green chips.
+  done: { label: 'Done', severity: 'done', icon: CheckCircle2 },
 };
 
 /* StatusBadge severity → shared chip-recipe severity (severityStyles.ts). */

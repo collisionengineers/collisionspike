@@ -26,3 +26,8 @@ here only affects cases with no document mileage.
 
 A handful of real cases re-run through enrichment produce mileage estimates that match manual
 expectation (or the calculation bug is identified and fixed with a unit test).
+
+## Artifacts
+
+- [changes.md](./changes.md)
+- [verification.md](./verification.md)

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   AREA_FLOOR,
+  BANNER_ASPECT_RATIO,
+  BANNER_MAX_SHORT_SIDE,
   BYTE_FLOOR_FOR_UNKNOWN,
+  assessSignatureImage,
   isLikelySignatureImage,
   sniffImageDimensions,
 } from './image-sniff.js';
@@ -51,14 +54,49 @@ function makeJpegHeader(width: number, height: number): Buffer {
 }
 
 /**
- * A GIF is never dimension-sniffed (this module only decodes PNG/JPEG headers) — pad
- * the real `GIF89a` magic out to an arbitrary total length so the byte-floor fallback
- * in `isLikelySignatureImage` can be exercised on both sides of `BYTE_FLOOR_FOR_UNKNOWN`.
+ * A GIF signature padded with ZEROED logical-screen dimensions (a malformed header):
+ * `sniffGifDimensions` refuses zero dims, so this sniffs to `undefined` — which is
+ * exactly what lets the byte-floor fallback in `isLikelySignatureImage` be exercised
+ * on both sides of `BYTE_FLOOR_FOR_UNKNOWN`.
  */
 function makeGifOfSize(totalBytes: number): Buffer {
   const magic = Buffer.from('GIF89a', 'ascii');
   const buf = Buffer.alloc(Math.max(totalBytes, magic.length));
   magic.copy(buf, 0);
+  return buf;
+}
+
+/**
+ * A minimal but structurally real GIF header: the 6-byte version signature followed by
+ * the Logical Screen Descriptor's width/height (little-endian uint16 at bytes 6-9),
+ * optionally padded out to a total byte length (to prove dims WIN over the byte floor).
+ */
+function makeGifHeader(width: number, height: number, opts: { version?: '87a' | '89a'; totalBytes?: number } = {}): Buffer {
+  const header = Buffer.alloc(Math.max(opts.totalBytes ?? 13, 13)); // + packed/bg/ratio bytes
+  Buffer.from(`GIF${opts.version ?? '89a'}`, 'ascii').copy(header, 0);
+  header.writeUInt16LE(width, 6);
+  header.writeUInt16LE(height, 8);
+  return header;
+}
+
+/**
+ * A minimal but structurally real BMP header: the 14-byte file header ("BM" + sizes)
+ * followed by a BITMAPINFOHEADER (DIB size 40, int32 LE width at 18, int32 LE height
+ * at 22 — negative height = top-down DIB) or a BITMAPCOREHEADER (DIB size 12, uint16
+ * dims) when `core` is set.
+ */
+function makeBmpHeader(width: number, height: number, opts: { core?: boolean; dibSize?: number } = {}): Buffer {
+  const buf = Buffer.alloc(40);
+  buf.write('BM', 0, 'ascii');
+  if (opts.core) {
+    buf.writeUInt32LE(12, 14); // BITMAPCOREHEADER
+    buf.writeUInt16LE(width, 18);
+    buf.writeUInt16LE(height, 20);
+  } else {
+    buf.writeUInt32LE(opts.dibSize ?? 40, 14); // BITMAPINFOHEADER (or an override)
+    buf.writeInt32LE(width, 18);
+    buf.writeInt32LE(height, 22);
+  }
   return buf;
 }
 
@@ -73,6 +111,20 @@ describe('sniffImageDimensions', () => {
       bytes: makePngHeader(1, 1),
       expected: { width: 1, height: 1 },
     },
+    { label: '600x150 GIF89a', bytes: makeGifHeader(600, 150), expected: { width: 600, height: 150 } },
+    { label: '320x200 GIF87a', bytes: makeGifHeader(320, 200, { version: '87a' }), expected: { width: 320, height: 200 } },
+    { label: '640x480 BMP (BITMAPINFOHEADER)', bytes: makeBmpHeader(640, 480), expected: { width: 640, height: 480 } },
+    {
+      label: '640x480 top-down BMP (negative height — magnitude is the pixel height)',
+      bytes: makeBmpHeader(640, -480),
+      expected: { width: 640, height: 480 },
+    },
+    { label: '300x200 BMP (BITMAPCOREHEADER, uint16 dims)', bytes: makeBmpHeader(300, 200, { core: true }), expected: { width: 300, height: 200 } },
+    {
+      label: '108-byte DIB (BITMAPV4HEADER) BMP — the >=40 branch covers the extended headers',
+      bytes: makeBmpHeader(800, 600, { dibSize: 108 }),
+      expected: { width: 800, height: 600 },
+    },
   ];
   for (const { label, bytes, expected } of found) {
     it(`${label} → sniffed correctly`, () => {
@@ -86,7 +138,11 @@ describe('sniffImageDimensions', () => {
       label: 'random junk (no PNG/JPEG magic bytes)',
       bytes: Buffer.from([0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]),
     },
-    { label: 'GIF magic (unsupported format — never sniffed)', bytes: makeGifOfSize(100) },
+    { label: 'GIF header with zeroed logical-screen dims (malformed)', bytes: makeGifOfSize(100) },
+    { label: 'GIF signature truncated before the dimension fields', bytes: Buffer.from('GIF89a', 'ascii') },
+    { label: 'BMP truncated before the INFOHEADER height field', bytes: makeBmpHeader(640, 480).subarray(0, 20) },
+    { label: 'BMP with an unrecognised DIB header size', bytes: makeBmpHeader(640, 480, { dibSize: 16 }) },
+    { label: 'BMP with a non-positive INFOHEADER width', bytes: makeBmpHeader(-640, 480) },
     { label: 'PNG signature only, truncated before IHDR', bytes: Buffer.from(PNG_SIGNATURE_BYTES) },
     {
       label: 'PNG signature + non-IHDR first chunk (spec violation)',
@@ -140,6 +196,78 @@ describe('isLikelySignatureImage', () => {
       expect(isLikelySignatureImage('sig.gif', 'image/gif', makeGifOfSize(size))).toBe(expected);
     });
   }
+
+  /* ---- above-floor banner shapes (TKT-047 2026-07-08 live leak / TKT-089) ---- */
+
+  const bannerFlagged: Array<{ label: string; name: string; contentType: string; bytes: Buffer }> = [
+    { label: '600x150 PNG wide signature banner (area 90,000 — ABOVE the floor)', name: 'signature.png', contentType: 'image/png', bytes: makePngHeader(600, 150) },
+    { label: '600x150 JPEG wide signature banner', name: 'signature.jpg', contentType: 'image/jpeg', bytes: makeJpegHeader(600, 150) },
+    { label: '900x180 GIF letterhead banner', name: 'letterhead.gif', contentType: 'image/gif', bytes: makeGifHeader(900, 180) },
+    { label: '150x800 BMP tall sidebar strip', name: 'sidebar.bmp', contentType: 'image/bmp', bytes: makeBmpHeader(150, 800) },
+    { label: '840x240 PNG — both banner boundaries inclusive (aspect exactly 3.5, short side exactly 240)', name: 'strip.png', contentType: 'image/png', bytes: makePngHeader(840, 240) },
+  ];
+  for (const { label, name, contentType, bytes } of bannerFlagged) {
+    it(`flags ${label} via the banner-shape rung`, () => {
+      expect(assessSignatureImage(name, contentType, bytes)).toMatchObject({ flagged: true, reason: 'banner-shape' });
+    });
+  }
+
+  const photoShapesKept: Array<{ label: string; bytes: Buffer }> = [
+    { label: '4032x3024 JPEG (12MP phone photo)', bytes: makeJpegHeader(4032, 3024) },
+    { label: '1920x1080 PNG (16:9)', bytes: makePngHeader(1920, 1080) },
+    { label: '3000x1000 JPEG (3:1 pano crop — aspect below the 3.5 threshold)', bytes: makeJpegHeader(3000, 1000) },
+    { label: '845x241 PNG (extreme aspect but short side just over the 240px cap)', bytes: makePngHeader(845, 241) },
+    { label: '4000x1000 JPEG (4:1 but short side 1000 — a real panorama)', bytes: makeJpegHeader(4000, 1000) },
+  ];
+  for (const { label, bytes } of photoShapesKept) {
+    it(`recall guard: keeps ${label}`, () => {
+      expect(isLikelySignatureImage('photo.jpg', 'image/jpeg', bytes)).toBe(false);
+    });
+  }
+
+  it('exports the banner thresholds mirrored from the engine (3.5:1, 240px)', () => {
+    expect(BANNER_ASPECT_RATIO).toBe(3.5);
+    expect(BANNER_MAX_SHORT_SIDE).toBe(240);
+  });
+
+  /* ---- GIF/BMP now get a real dimension verdict instead of byte-floor-only ---- */
+
+  it('flags a small-dims GIF via the area floor even when its byte size is large', () => {
+    // Before the GIF sniff, a padded signature GIF above 8KB escaped entirely.
+    const bytes = makeGifHeader(200, 100, { totalBytes: BYTE_FLOOR_FOR_UNKNOWN * 4 });
+    expect(200 * 100).toBeLessThan(AREA_FLOOR);
+    expect(assessSignatureImage('sig.gif', 'image/gif', bytes)).toMatchObject({ flagged: true, reason: 'area-floor' });
+  });
+
+  it('keeps a photo-dims GIF even when its byte size is tiny — sniffed dims win over the byte floor', () => {
+    const bytes = makeGifHeader(1600, 1200); // 13 bytes total, far under the byte floor
+    expect(bytes.length).toBeLessThan(BYTE_FLOOR_FOR_UNKNOWN);
+    expect(isLikelySignatureImage('photo.gif', 'image/gif', bytes)).toBe(false);
+  });
+
+  /* ---- assessSignatureImage verdict envelope (feeds the graph.ts skip trace) ---- */
+
+  it('reports area-floor with dims for a sub-floor image', () => {
+    expect(assessSignatureImage('logo.png', 'image/png', makePngHeader(100, 100))).toEqual({
+      flagged: true,
+      reason: 'area-floor',
+      dims: { width: 100, height: 100 },
+    });
+  });
+
+  it('reports byte-floor (no dims) for a tiny unsniffable image', () => {
+    expect(assessSignatureImage('sig.gif', 'image/gif', makeGifOfSize(512))).toEqual({
+      flagged: true,
+      reason: 'byte-floor',
+    });
+  });
+
+  it('reports unflagged WITH dims for a kept photo (dims stay available to callers)', () => {
+    expect(assessSignatureImage('photo.jpg', 'image/jpeg', makeJpegHeader(2000, 1500))).toEqual({
+      flagged: false,
+      dims: { width: 2000, height: 1500 },
+    });
+  });
 
   it('keeps a large malformed/truncated PNG-ish buffer — unknown dimensions, but too big to be decorative', () => {
     // Starts with the PNG signature but never reaches a valid IHDR: dimensions sniff to

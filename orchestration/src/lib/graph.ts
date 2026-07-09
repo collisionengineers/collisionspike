@@ -18,7 +18,7 @@
 
 // Intra-package import only (still zero external npm deps, per "Dependency-free" above) —
 // TKT-047's signature/logo-image raster floor (rules-engine-v2 Phase 2 "Signature filter").
-import { isLikelySignatureImage, sniffImageDimensions } from './image-sniff.js';
+import { assessSignatureImage } from './image-sniff.js';
 
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 
@@ -188,12 +188,14 @@ function ensureEmlName(name: string | undefined): string {
  * TKT-047 / rules-engine-v2 Phase 2 "Signature filter": Outlook's `isInline` flag (checked
  * above) only catches the sender clients that flag embedded signature/logo images correctly —
  * many arrive as ordinary non-inline attachments and would otherwise be archived to Box as if
- * they were case evidence. Delegates the actual decision to `isLikelySignatureImage`
+ * they were case evidence. Delegates the actual decision to `assessSignatureImage`
  * (image-sniff.ts), which mirrors the vendored cedocumentmapper engine's decorative-raster
- * filter (`_MIN_EXTRACTED_IMAGE_AREA` / `is_decorative` in
- * functions/parser/cedocumentmapper_v2/application/service.py): a pixel-area floor, with a
- * conservative byte-size fallback for images Graph's bytes-only payload can't be dimension-
- * sniffed from (see that module for the full rationale).
+ * filter (`_MIN_EXTRACTED_IMAGE_AREA` / `is_decorative_raster` in
+ * functions/parser/cedocumentmapper_v2/application/service.py, engine-v2.11): a pixel-area
+ * floor, an above-floor banner-shape heuristic (extreme aspect + small short side —
+ * TKT-047's 2026-07-08 live leak / TKT-089), and a conservative byte-size fallback for
+ * images Graph's bytes-only payload can't be dimension-sniffed from (see that module for
+ * the full rationale and the recall guard on each rung).
  *
  * Logs the filename + why (dimensions vs byte-size) on every skip — a filtered attachment must
  * stay observable in App Insights traces, never a silent gap in the evidence set.
@@ -203,9 +205,18 @@ function ensureEmlName(name: string | undefined): string {
  */
 function skipAsSignatureImage(name: string, contentType: string | undefined, bytes: Buffer): boolean {
   if (process.env.GRAPH_IMAGE_FLOOR_DISABLED === 'true') return false;
-  if (!isLikelySignatureImage(name, contentType, bytes)) return false;
-  const dims = sniffImageDimensions(bytes);
-  const reason = dims ? `dimensions ${dims.width}x${dims.height}` : `byte-size ${bytes.length}b`;
+  const verdict = assessSignatureImage(name, contentType, bytes);
+  if (!verdict.flagged) return false;
+  // Trace text distinguishes the rung that acted: "dimensions WxH" (area floor —
+  // unchanged wording, existing App Insights queries keep matching), "banner shape
+  // WxH" (the above-floor aspect heuristic, TKT-047/089), "byte-size Nb" (unknown
+  // dimensions). Traces only — never surfaced to handlers.
+  const reason =
+    verdict.reason === 'banner-shape'
+      ? `banner shape ${verdict.dims!.width}x${verdict.dims!.height}`
+      : verdict.reason === 'area-floor'
+        ? `dimensions ${verdict.dims!.width}x${verdict.dims!.height}`
+        : `byte-size ${bytes.length}b`;
   console.log(`[graph] skipped attachment "${name}" — likely signature/logo image (${reason})`);
   return true;
 }
@@ -324,52 +335,9 @@ export async function resolveInboxSubtreeFolderIds(mailbox: string): Promise<Set
   return ids;
 }
 
-/** One replay-pager message projection (the `$select` set below). */
-export interface ReplayPageItem {
-  id: string;
-  internetMessageId?: string;
-  receivedDateTime: string;
-  parentFolderId?: string;
-  subject?: string;
-  from?: { emailAddress?: { name?: string; address?: string } };
-}
-
-/**
- * One page of the replay backfill pager: messages received in `[sinceIso, untilIso)`,
- * ordered oldest-first, plus the opaque `@odata.nextLink` to continue.
- *
- * Graph semantics VERIFIED against Microsoft Learn (user-list-messages, v1.0, 2026):
- *  - `@odata.nextLink` must be applied VERBATIM (never reconstruct `$skip`); default page
- *    size is 10, `$top` range 1–1000 — we use 50 with `$select` to stay under the 504
- *    gateway-timeout ceiling.
- *  - `$filter` + `$orderby` on messages requires every `$orderby` property to also appear
- *    in `$filter`, in the same order, before any non-ordered property — else
- *    `InefficientFilter`. We filter and order on `receivedDateTime` ALONE, so this holds;
- *    that is also why folder scoping is done CLIENT-side (parentFolderId), not in `$filter`.
- */
-export async function listMessagesSince(
-  mailbox: string,
-  sinceIso: string,
-  untilIso: string,
-  pageUrl?: string,
-): Promise<{ items: ReplayPageItem[]; nextLink?: string }> {
-  let path: string;
-  if (pageUrl) {
-    path = pageUrl; // opaque @odata.nextLink — apply verbatim
-  } else {
-    const filter = encodeURIComponent(
-      `receivedDateTime ge ${sinceIso} and receivedDateTime lt ${untilIso}`,
-    );
-    path =
-      `/users/${encodeURIComponent(mailbox)}/messages` +
-      `?$filter=${filter}` +
-      `&$orderby=receivedDateTime%20asc` +
-      `&$select=id,internetMessageId,receivedDateTime,parentFolderId,subject,from` +
-      `&$top=50`;
-  }
-  const res = await graphFetch<{ value?: ReplayPageItem[]; '@odata.nextLink'?: string }>(path);
-  return { items: res.value ?? [], nextLink: res['@odata.nextLink'] };
-}
+/* (The replay-backfill windowed pager `listMessagesSince` + its `ReplayPageItem`
+   projection were REMOVED with the non-viable replay driver — TKT-106. The finding
+   that motivated the removal is preserved in TKT-059's verification record.) */
 
 /* ---------- Retro reconstruction mailbox search (ADR-0022 R3) ---------- */
 

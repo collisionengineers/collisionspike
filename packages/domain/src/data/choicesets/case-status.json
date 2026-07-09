@@ -18,11 +18,12 @@
     { "value": 100000008, "name": "eva_submitted",            "label": "EVA Submitted" },
     { "value": 100000009, "name": "box_synced",               "label": "Archive Synced" },
     { "value": 100000010, "name": "error",                    "label": "Error" },
-    { "value": 100000011, "name": "removed",                  "label": "Removed" }
+    { "value": 100000011, "name": "removed",                  "label": "Removed" },
+    { "value": 100000012, "name": "done",                     "label": "Done" }
   ],
   "stateMachine": {
-    "linear": ["new_email", "ingested", "needs_review", "ready_for_eva", "eva_submitted", "box_synced"],
+    "linear": ["new_email", "ingested", "needs_review", "ready_for_eva", "eva_submitted", "done"],
     "branches": ["missing_required_fields", "missing_images", "duplicate_risk", "linked_to_instruction"],
-    "terminals": ["eva_submitted", "box_synced", "error", "removed"]
+    "terminals": ["eva_submitted", "box_synced", "error", "removed", "done"]
   }
 }

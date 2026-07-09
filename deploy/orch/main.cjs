@@ -2014,8 +2014,219 @@ import_functions.app.http("graph-webhook", {
 // orchestration/src/functions/graph-lifecycle.ts
 var import_functions2 = require("@azure/functions");
 
+// packages/domain/dist/gates.js
+var gates = {
+  // Core feature gates (plan 10 §1.1, #1–#21 boolean set)
+  pdfMapper: () => process.env.PDF_MAPPER_ENABLED === "true",
+  // #1
+  enrichment: () => process.env.ENRICHMENT_ENABLED === "true",
+  // #2
+  evaApi: () => process.env.EVA_API_ENABLED === "true",
+  // #4
+  azureMaps: () => process.env.AZURE_MAPS_ENABLED === "true",
+  // #8
+  valuation: () => process.env.VALUATION_ENABLED === "true",
+  // #9
+  azureVision: () => process.env.AZURE_VISION_ENABLED === "true",
+  // #11
+  ocrScannedPdf: () => process.env.OCR_SCANNED_PDF_ENABLED === "true",
+  // #12
+  plateOcr: () => process.env.PLATE_OCR_ENABLED === "true",
+  // #13
+  auditCases: () => process.env.AUDIT_CASES_ENABLED === "true",
+  // #15
+  locationAssist: () => process.env.LOCATION_ASSIST_ENABLED === "true",
+  // #17
+  // AI vision-reasoning ESCALATION for location assist (TKT-078) — default OFF, ships DARK.
+  // A deeper photo-based location suggestion via the keyless AOAI gpt-5 vision model, gated on
+  // TOP of locationAssist. Operator-blocked for live flip (production AI sign-off, gated.md E2).
+  locationAssistAi: () => process.env.LOCATION_ASSIST_AI_ENABLED === "true",
+  chaserSend: () => process.env.CHASER_SEND_ENABLED === "true",
+  // #19
+  caseDisposition: () => process.env.CASE_DISPOSITION_ENABLED === "true",
+  // #20
+  emailAi: () => process.env.EMAIL_AI_ENABLED === "true",
+  // #21
+  // AI assistant suggestion layer (TKT-015) — default OFF. Gates the embedded AI
+  // suggestion surface + the server-side model call path; honest no-op while off
+  // OR while no model endpoint/deployment is configured (see aiAssistConfigured).
+  aiAssist: () => process.env.AI_ASSIST_ENABLED === "true",
+  // AI chat helper (TKT-060) — default OFF. Gates the read-only assistant drawer + its
+  // POST /api/assistant/chat route. Distinct from aiAssist (the suggestion layer): this is
+  // a conversational Q&A surface with READ-ONLY tools only. Needs a model endpoint +
+  // deployment (see aiChatConfigured) in addition to this switch.
+  aiChat: () => process.env.AI_CHAT_ENABLED === "true",
+  // Live image role/registration classifier (TKT-064) — default OFF. Gates the gpt-5-vision
+  // classify call on the intake image paths (extractImages / classifyPersist). Needs a model
+  // endpoint + deployment (see imageRoleClassifyEnabled); off/unconfigured => images persist
+  // with role `unknown` exactly as before (the one-shot backfill handled existing evidence).
+  imageRoleClassify: () => process.env.IMAGE_ROLE_CLASSIFY_ENABLED === "true",
+  // Staged image-analysis suggestion producer (TKT-016) — default OFF, ships DARK. Gates the
+  // additive, observation-first pipeline (vehicle-present, same-vehicle, registration, background
+  // text, location hints, ranked inspection-address suggestion) behind POST /api/cases/{id}/
+  // image-analysis/generate. PURELY additive: every output is an ai_suggestion row (never writes
+  // evidence.image_role_code/registration_visible/excluded, case_.vrm, or any address column — the
+  // live TKT-064 classifier owns those; reconciliation is TKT-088/112). Needs a model endpoint +
+  // deployment (see imageAnalysisEnabled). Off/unconfigured => the route is an honest no-op. The
+  // scene-understanding stages carry image bytes off-region (GlobalStandard) — the live flip is
+  // DPIA-gated (docs/gated.md; PLAN-001 Phase 4).
+  imageAnalysis: () => process.env.IMAGE_ANALYSIS_ENABLED === "true",
+  // ---- PLAN-001 (AI hardening + MCP) gates — ALL default OFF, ship DARK ----
+  // TKT-066/069 — the registry-driven read adapter for the assistant. When OFF the assistant
+  // uses the original hand-written `execTool` (fast rollback); when ON it derives its tool set
+  // from the shared @cs/domain capability registry. Read-only either way (TKT-060 invariant).
+  assistantToolsetV2: () => process.env.ASSISTANT_TOOLSET_V2 === "true",
+  // TKT-072 — global search endpoint GET /api/search. Default OFF for a soak; the SPA search box
+  // falls back to its prior behaviour while off, and the route honestly 404-gates.
+  globalSearch: () => process.env.GLOBAL_SEARCH_ENABLED === "true",
+  // TKT-111 — the in-app assistant WRITE tier (propose→confirm→execute). Default OFF; ships DARK.
+  // Live flip is operator-blocked (per-gate E2/G5 sign-off + DPIA, docs/gated.md). The model NEVER
+  // issues a write directly — a human confirms a structured diff and the SPA calls an existing route.
+  assistantWriteTier: () => process.env.ASSISTANT_WRITE_TIER_ENABLED === "true",
+  // TKT-110 — the read-only MCP server (Streamable-HTTP) for external agents. Default OFF; ships
+  // DARK. Exposes ONLY registry read tools; needs its own Entra app-registration before a live flip
+  // (operator, docs/gated.md). Authorization is still enforced at the Data API, never the MCP layer.
+  mcpServer: () => process.env.MCP_SERVER_ENABLED === "true",
+  // Box gates (Phase 7, ADR-0012) — all default off
+  boxApi: () => process.env.BOX_API_ENABLED === "true",
+  // #22
+  boxFolderAtIntake: () => process.env.BOX_FOLDER_AT_INTAKE_ENABLED === "true",
+  // #23
+  boxFileRequest: () => process.env.BOX_FILEREQUEST_ENABLED === "true",
+  // #24
+  // TKT-095 detector (a) — sent-email-to-provider → case `done` (ADR-0023). Default OFF;
+  // ships DARK. Flipping it ON makes the orchestration's subscription maintenance CREATE a
+  // Graph `users/{mailbox}/mailFolders('SentItems')/messages` subscription per intake
+  // mailbox (notifications route to /api/graph-webhook-sent, NEVER the intake pipeline);
+  // flipping it back OFF makes the same maintenance pass PRUNE those SentItems
+  // subscriptions — a gate flip fully self-reconciles in both directions. While OFF the
+  // sent-items webhook/queue handlers drop everything with a trace, so behaviour is
+  // identical to pre-TKT-095. Read by the orchestration app only.
+  doneSentEmail: () => process.env.DONE_SENT_EMAIL_ENABLED === "true",
+  // Outlook filing (TKT-054 / 020726 E6) — default off. Gates the SPA "Suggested action"
+  // button, the Data API enqueue route, AND the orchestration mover. Operator-blocked:
+  // requires the Mail.ReadWrite Exchange-RBAC re-consent before it may be flipped
+  // (docs/gated.md).
+  outlookMove: () => process.env.OUTLOOK_MOVE_ENABLED === "true",
+  // Retroactive case reconstruction (ADR-0022 / TKT-058) — all default off. retroCase is
+  // the master switch (read by the orchestration retro activities AND the Data API's
+  // /api/internal/retro/* routes — set it on BOTH apps); retroOutlookSearch is the
+  // independent kill switch for the Outlook $search rung (Graph-search behaviour must be
+  // revocable without losing the Box rung). retroBoxArchiveRootIds is the comma-separated
+  // READ-ONLY Box archive root folder id(s) the reconstruction may search — empty means
+  // the Box rung honestly skips (the box-webhook app enforces the same roots via its own
+  // BOX_READONLY_ROOT_IDS scope lock).
+  retroCase: () => process.env.RETRO_CASE_ENABLED === "true",
+  retroOutlookSearch: () => process.env.RETRO_OUTLOOK_SEARCH_ENABLED === "true",
+  retroBoxArchiveRootIds: () => process.env.RETRO_BOX_ARCHIVE_ROOT_IDS ?? "",
+  // Triage-policy gates (Stage B, rules-engine-v2 Phase 2 / ADR-0019) — all default off.
+  // Each gates ONE rung of `decideTriage` (domain/triage-policy.ts); the function itself
+  // is pure and never reads process.env — the caller (an orchestration Durable activity)
+  // reads these accessors and passes the values in as a plain TriagePolicyGates object.
+  // With all four off, decideTriage always falls through to 'proceed_default' (the
+  // kill-switch invariant) — gates-off output is indistinguishable from today.
+  triageRefGate: () => process.env.TRIAGE_REF_GATE_ENABLED === "true",
+  triageCancellation: () => process.env.TRIAGE_CANCELLATION_ENABLED === "true",
+  triageImagesRouting: () => process.env.TRIAGE_IMAGES_ROUTING_ENABLED === "true",
+  triageCaseUpdate: () => process.env.TRIAGE_CASE_UPDATE_ENABLED === "true",
+  // TKT-093 — auto-attach promotion (ADR-0019 §4 promotion seam). Default off (ships DARK;
+  // live flip is operator-blocked, docs/gated.md). MODIFIES the ref-gate rung: an EXACT
+  // SINGLE open-case match on a strong signal (case_po/job_ref — NEVER vrm-only, per the
+  // inviolable VRM rule) is attached automatically instead of merely suggested. With this
+  // off, the ref-gate rung is exactly today's suggest_attach.
+  triageAutoAttach: () => process.env.TRIAGE_AUTO_ATTACH_ENABLED === "true",
+  // TKT-084 — the pre-instruction lane (taxonomy v3; operator sign-off recorded
+  // 2026-07-09 in the ticket's evidence). Default off in code. While OFF, classifyInbound
+  // DEMOTES a classifier 'pre_instruction' verdict to 'other' (today's behaviour — honest
+  // kill-switch) and no correlation runs. While ON: the lane is recorded as classified
+  // (held on the inbound_email row, no case minted — categoryMintsCase is false for it
+  // either way), and a later instruction's case-mint correlates held rows onto the new
+  // case, suggest-first (never auto-attach — the correlation key is typically VRM-only).
+  triagePreInstruction: () => process.env.TRIAGE_PRE_INSTRUCTION_ENABLED === "true",
+  // TKT-034 — the reg-keyed Box holding-folder rung for image-bearing emails that match
+  // no case (ADR-0015 §5 fallback step 2). Default off (ships DARK — creating non-Case/PO
+  // folders under the Box root is a NEW folder-naming semantic the operator must approve;
+  // docs/gated.md). While off, an unmatched images email is only FLAGGED for manual
+  // handling (attention_reason 'images_no_match') — fallback step 3 — which needs no gate.
+  boxRegFolder: () => process.env.BOX_REG_FOLDER_ENABLED === "true",
+  // (The replay-backfill gate was REMOVED with its driver — TKT-106. The wipe-and-
+  // rebuild path is non-viable: TKT-059's dry-run proved the mailboxes retain only a
+  // fraction of the DB's source emails, so the DB is the system of record. Keep the
+  // finding — TKT-059 verification — not the dead switch.)
+  // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
+  enrichmentApiBase: () => process.env.ENRICHMENT_API_BASE ?? "",
+  // #3
+  evaBaseUrl: () => process.env.EVA_BASE_URL ?? "",
+  // #5
+  valuationApiBase: () => process.env.VALUATION_API_BASE ?? "",
+  // #14
+  locationAssistApiBase: () => process.env.LOCATION_ASSIST_API_BASE ?? "",
+  // #18
+  boxFolderRootId: () => process.env.BOX_FOLDER_ROOT_ID ?? "",
+  // #27
+  boxFileRequestTemplateId: () => process.env.BOX_FILE_REQUEST_TEMPLATE_ID ?? "",
+  // #28
+  // AI model endpoint config (TKT-015). The server-side model call path is built but
+  // dormant: these settings are ABSENT in live app-settings, so the generate route stays
+  // an honest no-op until the wiring lands (model deployments now exist on the Foundry
+  // account — live state in LIVE_FACTS.json `foundry`; rules-engine-v2 Phase 4 wires
+  // them). Prefer managed-identity/keyless — no API key gate by design.
+  aiModelEndpoint: () => process.env.AI_MODEL_ENDPOINT ?? "",
+  aiModelDeployment: () => process.env.AI_MODEL_DEPLOYMENT ?? "",
+  // Outlook-move queue config (TKT-054): the orchestration app's queue-service endpoint,
+  // e.g. https://<orch-storage-account>.queue.core.windows.net — the Data API enqueues
+  // move jobs there with its managed identity (Storage Queue Data Message Sender).
+  outlookMoveQueueServiceUrl: () => process.env.OUTLOOK_MOVE_QUEUE_SERVICE_URL ?? "",
+  /**
+   * Derived: location assist is only enabled when all three conditions are met.
+   * Used by GET /api/gates/location-assist (plan 21 §21.2).
+   */
+  locationAssistEnabled: () => gates.locationAssist() && gates.azureMaps() && gates.locationAssistApiBase() !== "",
+  /**
+   * Derived: the AI vision-reasoning escalation is actionable — the base location assist is on,
+   * its own gate is on, AND a model endpoint + deployment are configured. Off => the deeper
+   * suggestion path is an honest no-op (TKT-078). Ships DARK; operator-gated live flip (gated.md E2).
+   */
+  locationAssistAiEnabled: () => gates.locationAssistEnabled() && gates.locationAssistAi() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: a model endpoint AND deployment are both configured. The AI generate
+   * route requires this in ADDITION to the aiAssist() switch — gate ON but model
+   * UNCONFIGURED is still an honest no-op (the live state today). Used by
+   * GET /api/gates/ai-assist + the generate route's disabled-reason.
+   */
+  aiAssistConfigured: () => gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the AI chat helper is actionable — the gate is ON and a model endpoint +
+   * deployment are configured. Used by GET /api/gates/ai-chat + the chat route's honest
+   * refusal (TKT-060).
+   */
+  aiChatEnabled: () => gates.aiChat() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the live image classifier is actionable — the gate is ON and a model endpoint +
+   * deployment are configured. The intake image paths call classifyImage only when this is
+   * true; otherwise they persist role `unknown` (pre-classifier behaviour). (TKT-064.)
+   */
+  imageRoleClassifyEnabled: () => gates.imageRoleClassify() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the staged image-analysis producer is actionable — the gate is ON and a model
+   * endpoint + deployment are configured. The POST /api/cases/{id}/image-analysis/generate route
+   * runs the pipeline only when this is true; otherwise it is an honest no-op (TKT-016). The
+   * reg-OCR stage additionally needs the OCR Function (OCR_FN_URL) and the address stage needs
+   * locationAssistEnabled — each degrades gracefully on its own when its dependency is absent.
+   */
+  imageAnalysisEnabled: () => gates.imageAnalysis() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the Outlook-move path is actionable — the gate is ON and the move queue
+   * endpoint is configured. Used by GET /api/gates/outlook-move + the enqueue route's
+   * honest refusal (TKT-054 / 020726 E6).
+   */
+  outlookMoveEnabled: () => gates.outlookMove() && gates.outlookMoveQueueServiceUrl() !== ""
+};
+
 // orchestration/src/lib/image-sniff.ts
 var AREA_FLOOR = 200 * 200;
+var BANNER_ASPECT_RATIO = 3.5;
+var BANNER_MAX_SHORT_SIDE = 240;
 var BYTE_FLOOR_FOR_UNKNOWN = 8 * 1024;
 var IMAGE_EXTENSION_RE = /\.(png|jpe?g|gif|bmp)$/i;
 var PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
@@ -2023,6 +2234,8 @@ function sniffImageDimensions(bytes) {
   if (!bytes || bytes.length === 0) return void 0;
   if (isPng(bytes)) return sniffPngDimensions(bytes);
   if (isJpeg(bytes)) return sniffJpegDimensions(bytes);
+  if (isGif(bytes)) return sniffGifDimensions(bytes);
+  if (isBmp(bytes)) return sniffBmpDimensions(bytes);
   return void 0;
 }
 function isPng(bytes) {
@@ -2071,19 +2284,58 @@ function sniffJpegDimensions(bytes) {
   }
   return void 0;
 }
+function isGif(bytes) {
+  if (bytes.length < 6) return false;
+  return bytes.toString("ascii", 0, 4) === "GIF8" && (bytes[4] === 55 || bytes[4] === 57) && // '7' | '9'
+  bytes[5] === 97;
+}
+function sniffGifDimensions(bytes) {
+  if (bytes.length < 10) return void 0;
+  const width = bytes.readUInt16LE(6);
+  const height = bytes.readUInt16LE(8);
+  if (!width || !height) return void 0;
+  return { width, height };
+}
+function isBmp(bytes) {
+  return bytes.length >= 2 && bytes[0] === 66 && bytes[1] === 77;
+}
+function sniffBmpDimensions(bytes) {
+  if (bytes.length < 26) return void 0;
+  const dibSize = bytes.readUInt32LE(14);
+  if (dibSize === 12) {
+    const width = bytes.readUInt16LE(18);
+    const height = bytes.readUInt16LE(20);
+    if (!width || !height) return void 0;
+    return { width, height };
+  }
+  if (dibSize >= 40) {
+    const width = bytes.readInt32LE(18);
+    const height = Math.abs(bytes.readInt32LE(22));
+    if (width <= 0 || height <= 0) return void 0;
+    return { width, height };
+  }
+  return void 0;
+}
 function isImageAttachment(filename, contentType2) {
   if (contentType2 && contentType2.toLowerCase().startsWith("image/")) return true;
   return IMAGE_EXTENSION_RE.test(filename ?? "");
 }
-function isLikelySignatureImage(filename, contentType2, bytes, opts = {}) {
-  if (!isImageAttachment(filename, contentType2)) return false;
+function assessSignatureImage(filename, contentType2, bytes, opts = {}) {
+  if (!isImageAttachment(filename, contentType2)) return { flagged: false };
   const areaFloor = opts.areaFloor ?? AREA_FLOOR;
   const byteFloor = opts.byteFloorForUnknown ?? BYTE_FLOOR_FOR_UNKNOWN;
   const dims = sniffImageDimensions(bytes);
   if (dims) {
-    return dims.width * dims.height < areaFloor;
+    if (dims.width * dims.height < areaFloor) return { flagged: true, reason: "area-floor", dims };
+    const longSide = Math.max(dims.width, dims.height);
+    const shortSide = Math.min(dims.width, dims.height);
+    if (longSide >= shortSide * BANNER_ASPECT_RATIO && shortSide <= BANNER_MAX_SHORT_SIDE) {
+      return { flagged: true, reason: "banner-shape", dims };
+    }
+    return { flagged: false, dims };
   }
-  return bytes.length < byteFloor;
+  if (bytes.length < byteFloor) return { flagged: true, reason: "byte-floor" };
+  return { flagged: false };
 }
 
 // orchestration/src/lib/graph.ts
@@ -2180,9 +2432,9 @@ function ensureEmlName(name) {
 }
 function skipAsSignatureImage(name, contentType2, bytes) {
   if (process.env.GRAPH_IMAGE_FLOOR_DISABLED === "true") return false;
-  if (!isLikelySignatureImage(name, contentType2, bytes)) return false;
-  const dims = sniffImageDimensions(bytes);
-  const reason = dims ? `dimensions ${dims.width}x${dims.height}` : `byte-size ${bytes.length}b`;
+  const verdict = assessSignatureImage(name, contentType2, bytes);
+  if (!verdict.flagged) return false;
+  const reason = verdict.reason === "banner-shape" ? `banner shape ${verdict.dims.width}x${verdict.dims.height}` : verdict.reason === "area-floor" ? `dimensions ${verdict.dims.width}x${verdict.dims.height}` : `byte-size ${bytes.length}b`;
   console.log(`[graph] skipped attachment "${name}" \u2014 likely signature/logo image (${reason})`);
   return true;
 }
@@ -2224,40 +2476,6 @@ async function listMessageIdsSince(mailbox, watermarkIso) {
   const rows = res.value ?? [];
   const newWatermark = rows.length ? rows[rows.length - 1].receivedDateTime : watermarkIso;
   return { ids: rows.map((r) => r.id), newWatermark };
-}
-async function resolveInboxSubtreeFolderIds(mailbox) {
-  const u = encodeURIComponent(mailbox);
-  const inbox = await graphFetch(`/users/${u}/mailFolders/Inbox?$select=id`);
-  const ids = /* @__PURE__ */ new Set([inbox.id]);
-  const queue = [inbox.id];
-  while (queue.length) {
-    const parent = queue.shift();
-    let path = `/users/${u}/mailFolders/${encodeURIComponent(parent)}/childFolders?$select=id&$top=100`;
-    while (path) {
-      const page = await graphFetch(path);
-      for (const f of page.value ?? []) {
-        if (!ids.has(f.id)) {
-          ids.add(f.id);
-          queue.push(f.id);
-        }
-      }
-      path = page["@odata.nextLink"] ?? null;
-    }
-  }
-  return ids;
-}
-async function listMessagesSince(mailbox, sinceIso, untilIso, pageUrl) {
-  let path;
-  if (pageUrl) {
-    path = pageUrl;
-  } else {
-    const filter = encodeURIComponent(
-      `receivedDateTime ge ${sinceIso} and receivedDateTime lt ${untilIso}`
-    );
-    path = `/users/${encodeURIComponent(mailbox)}/messages?$filter=${filter}&$orderby=receivedDateTime%20asc&$select=id,internetMessageId,receivedDateTime,parentFolderId,subject,from&$top=50`;
-  }
-  const res = await graphFetch(path);
-  return { items: res.value ?? [], nextLink: res["@odata.nextLink"] };
 }
 function kqlPhrase(value) {
   const cleaned = String(value ?? "").replace(/["\\]/g, " ").replace(/\s+/g, " ").trim();
@@ -2336,8 +2554,15 @@ function intakeMailboxes() {
     return [];
   }
 }
-function resourceFor(mailbox) {
-  return `users/${mailbox}/mailFolders('Inbox')/messages`;
+function resourceFor(mailbox, folder = "Inbox") {
+  return `users/${mailbox}/mailFolders('${folder}')/messages`;
+}
+function folderOfResource(resource) {
+  const m = /mailFolders\('([^']+)'\)/i.exec(resource ?? "");
+  return m ? m[1] : "";
+}
+function isSentItemsResource(resource) {
+  return folderOfResource(resource).toLowerCase() === "sentitems";
 }
 function nextExpiration() {
   return new Date(Date.now() + RENEWAL_MARGIN_MS).toISOString();
@@ -2349,15 +2574,16 @@ function baseUrl() {
   if (host) return `https://${host}`;
   throw new Error("missing ORCH_PUBLIC_BASE_URL / WEBSITE_HOSTNAME for notificationUrl");
 }
-async function createSubscription(mailbox) {
+async function createSubscription(mailbox, folder = "Inbox") {
   const url2 = baseUrl();
+  const sent = folder === "SentItems";
   return graphFetch(SUBSCRIPTIONS_PATH, {
     method: "POST",
     body: JSON.stringify({
       changeType: "created",
-      notificationUrl: `${url2}/api/graph-webhook`,
-      lifecycleNotificationUrl: `${url2}/api/graph-lifecycle`,
-      resource: resourceFor(mailbox),
+      notificationUrl: sent ? `${url2}/api/graph-webhook-sent` : `${url2}/api/graph-webhook`,
+      lifecycleNotificationUrl: sent ? `${url2}/api/graph-lifecycle-sent` : `${url2}/api/graph-lifecycle`,
+      resource: resourceFor(mailbox, folder),
       expirationDateTime: nextExpiration(),
       clientState: requireClientState(),
       includeResourceData: false
@@ -2383,9 +2609,15 @@ async function runSubscriptionMaintenance(logger7) {
   const subs = await listOurSubscriptions();
   const configured = intakeMailboxes();
   const configuredMailboxes = new Set(configured.map((c) => c.mailbox));
-  const subbed = new Set(subs.map((s) => mailboxOfResource(s.resource)).filter(Boolean));
+  const sentGateOn = gates.doneSentEmail();
+  const inboxSubbed = new Set(
+    subs.filter((s) => !isSentItemsResource(s.resource)).map((s) => mailboxOfResource(s.resource)).filter(Boolean)
+  );
+  const sentSubbed = new Set(
+    subs.filter((s) => isSentItemsResource(s.resource)).map((s) => mailboxOfResource(s.resource)).filter(Boolean)
+  );
   for (const cfg of configured) {
-    if (subbed.has(cfg.mailbox)) continue;
+    if (inboxSubbed.has(cfg.mailbox)) continue;
     try {
       const created = await createSubscription(cfg.mailbox);
       summary.created.push(cfg.mailbox);
@@ -2396,17 +2628,44 @@ async function runSubscriptionMaintenance(logger7) {
       logger7.error(`[subscription-maintenance] bootstrap ${cfg.mailbox} failed (is the mailbox Exchange-RBAC-scoped?): ${m}`);
     }
   }
+  if (sentGateOn) {
+    for (const cfg of configured) {
+      if (sentSubbed.has(cfg.mailbox)) continue;
+      try {
+        const created = await createSubscription(cfg.mailbox, "SentItems");
+        summary.created.push(`sentitems:${cfg.mailbox}`);
+        logger7.log(JSON.stringify({ evt: "graph-subscription-created", subId: created.id, mailbox: cfg.mailbox, folder: "SentItems", next: created.expirationDateTime }));
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e);
+        summary.errors.push(`create sentitems:${cfg.mailbox}: ${m}`);
+        logger7.error(`[subscription-maintenance] SentItems bootstrap ${cfg.mailbox} failed (is the mailbox Exchange-RBAC-scoped?): ${m}`);
+      }
+    }
+  }
   for (const sub of subs) {
     const mbx = mailboxOfResource(sub.resource);
+    const isSent = isSentItemsResource(sub.resource);
     if (configured.length > 0 && mbx && !configuredMailboxes.has(mbx)) {
       try {
         await deleteSubscription(sub.id);
-        summary.pruned.push(mbx);
-        logger7.log(JSON.stringify({ evt: "graph-subscription-pruned", subId: sub.id, mailbox: mbx }));
+        summary.pruned.push(isSent ? `sentitems:${mbx}` : mbx);
+        logger7.log(JSON.stringify({ evt: "graph-subscription-pruned", subId: sub.id, mailbox: mbx, ...isSent ? { folder: "SentItems" } : {} }));
       } catch (e) {
         const m = e instanceof Error ? e.message : String(e);
         summary.errors.push(`prune ${sub.id} (${mbx}): ${m}`);
         logger7.error(`[subscription-maintenance] prune ${sub.id} (${mbx}) failed: ${m}`);
+      }
+      continue;
+    }
+    if (isSent && !sentGateOn) {
+      try {
+        await deleteSubscription(sub.id);
+        summary.pruned.push(`sentitems:${mbx || sub.id}`);
+        logger7.log(JSON.stringify({ evt: "graph-subscription-pruned", subId: sub.id, mailbox: mbx, folder: "SentItems", reason: "gate_off" }));
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e);
+        summary.errors.push(`prune sentitems ${sub.id} (${mbx}): ${m}`);
+        logger7.error(`[subscription-maintenance] SentItems prune ${sub.id} (${mbx}) failed: ${m}`);
       }
       continue;
     }
@@ -2421,8 +2680,8 @@ async function runSubscriptionMaintenance(logger7) {
         logger7.warn(`[subscription-maintenance] subscription ${sub.id} gone \u2014 recreating for ${mailbox}`);
         if (mailbox) {
           try {
-            const rc = await createSubscription(mailbox);
-            summary.recreated.push(mailbox);
+            const rc = await createSubscription(mailbox, isSent ? "SentItems" : "Inbox");
+            summary.recreated.push(isSent ? `sentitems:${mailbox}` : mailbox);
             logger7.log(JSON.stringify({ evt: "graph-renewal-success", subId: rc.id, recreated: true, next: rc.expirationDateTime }));
           } catch (e2) {
             const m2 = e2 instanceof Error ? e2.message : String(e2);
@@ -2649,242 +2908,414 @@ import_functions4.app.http("graph-renew-http", {
   }
 });
 
-// orchestration/src/functions/intake-starter.ts
+// orchestration/src/functions/graph-webhook-sent.ts
 var import_functions5 = require("@azure/functions");
-var df3 = __toESM(require("durable-functions"), 1);
-import_functions5.app.storageQueue("intake-starter", {
-  queueName: "intake-messages",
-  connection: "AzureWebJobsStorage",
-  extraInputs: [df3.input.durableClient()],
-  handler: async (item, ctx) => {
-    const msg = typeof item === "string" ? JSON.parse(item) : item;
-    const client2 = df3.getClient(ctx);
+var sentQueue = import_functions5.output.storageQueue({
+  queueName: "sent-messages",
+  connection: "AzureWebJobsStorage"
+});
+import_functions5.app.http("graph-webhook-sent", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "graph-webhook-sent",
+  extraOutputs: [sentQueue],
+  handler: async (req, ctx) => {
+    const validationToken = req.query.get("validationToken");
+    if (validationToken) {
+      return { status: 200, headers: { "Content-Type": "text/plain" }, body: validationToken };
+    }
+    let raw = "";
     try {
-      await ensureSubscriptionMonitor(client2, (m) => ctx.log(m));
+      raw = await req.text();
     } catch (e) {
-      ctx.warn(`[intake-starter] ensureSubscriptionMonitor: ${e instanceof Error ? e.message : String(e)}`);
+      ctx.warn(`[graph-webhook-sent] request body read aborted (cold-start/timeout): ${e instanceof Error ? e.message : String(e)}`);
+      return { status: 503 };
     }
-    const safeMessageId = String(msg.messageId).replace(/[^A-Za-z0-9_-]/g, "");
-    const instanceId = `intake-${safeMessageId}`;
-    let existing;
+    let body2;
     try {
-      existing = await client2.getStatus(instanceId);
-    } catch (err) {
-      ctx.log(`[intake-starter] no existing instance for ${instanceId} (${err instanceof Error ? err.message : String(err)})`);
-      existing = void 0;
+      body2 = raw ? JSON.parse(raw) : {};
+    } catch {
+      ctx.warn("[graph-webhook-sent] unparseable notification body \u2014 5xx so Graph redelivers");
+      return { status: 503 };
     }
-    if (existing && existing.runtimeStatus !== "Failed" && existing.runtimeStatus !== "Terminated") {
-      ctx.log(`[intake-starter] skipping duplicate \u2014 instance ${instanceId} already ${existing.runtimeStatus}`);
-      return;
+    if (!gates.doneSentEmail()) {
+      ctx.log(`[graph-webhook-sent] DONE_SENT_EMAIL_ENABLED off \u2014 dropped ${body2.value?.length ?? 0} notification(s)`);
+      return { status: 202 };
     }
-    await client2.startNew("intakeOrchestrator", { instanceId, input: msg });
-    ctx.log(`[intake-starter] started orchestration ${instanceId}`);
+    const expected = process.env.GRAPH_CLIENT_STATE;
+    const msgs = [];
+    for (const n of body2.value ?? []) {
+      if (n.clientState !== expected) {
+        ctx.warn("[graph-webhook-sent] clientState mismatch \u2014 dropping notification");
+        continue;
+      }
+      const messageId = n.resourceData?.id ?? n.resource ?? "";
+      ctx.log(JSON.stringify({ evt: "graph-sent-notification-received", subscriptionId: n.subscriptionId, messageId }));
+      msgs.push(
+        JSON.stringify({
+          subscriptionId: n.subscriptionId,
+          messageId,
+          resource: n.resource,
+          tenantId: n.tenantId,
+          receivedAt: (/* @__PURE__ */ new Date()).toISOString()
+        })
+      );
+    }
+    ctx.extraOutputs.set(sentQueue, msgs);
+    return { status: 202 };
+  }
+});
+import_functions5.app.http("graph-lifecycle-sent", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "graph-lifecycle-sent",
+  handler: async (req, ctx) => {
+    const validationToken = req.query.get("validationToken");
+    if (validationToken) {
+      return { status: 200, headers: { "Content-Type": "text/plain" }, body: validationToken };
+    }
+    const body2 = await req.json().catch(() => ({}));
+    const expected = process.env.GRAPH_CLIENT_STATE;
+    for (const n of body2.value ?? []) {
+      if (n.clientState !== expected) {
+        ctx.warn("[graph-lifecycle-sent] clientState mismatch \u2014 dropping");
+        continue;
+      }
+      ctx.log(JSON.stringify({ evt: "graph-lifecycle-sent", lifecycleEvent: n.lifecycleEvent, subscriptionId: n.subscriptionId }));
+      try {
+        if (n.lifecycleEvent === "reauthorizationRequired" && n.subscriptionId && gates.doneSentEmail()) {
+          await renewSubscription(n.subscriptionId);
+        }
+      } catch (e) {
+        ctx.error(`[graph-lifecycle-sent] handler error: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    return { status: 202 };
   }
 });
 
-// orchestration/src/functions/outlook-move.ts
+// orchestration/src/functions/sent-items-processor.ts
 var import_functions6 = require("@azure/functions");
 
-// packages/domain/dist/gates.js
-var gates = {
-  // Core feature gates (plan 10 §1.1, #1–#21 boolean set)
-  pdfMapper: () => process.env.PDF_MAPPER_ENABLED === "true",
-  // #1
-  enrichment: () => process.env.ENRICHMENT_ENABLED === "true",
-  // #2
-  evaApi: () => process.env.EVA_API_ENABLED === "true",
-  // #4
-  azureMaps: () => process.env.AZURE_MAPS_ENABLED === "true",
-  // #8
-  valuation: () => process.env.VALUATION_ENABLED === "true",
-  // #9
-  azureVision: () => process.env.AZURE_VISION_ENABLED === "true",
-  // #11
-  ocrScannedPdf: () => process.env.OCR_SCANNED_PDF_ENABLED === "true",
-  // #12
-  plateOcr: () => process.env.PLATE_OCR_ENABLED === "true",
-  // #13
-  auditCases: () => process.env.AUDIT_CASES_ENABLED === "true",
-  // #15
-  locationAssist: () => process.env.LOCATION_ASSIST_ENABLED === "true",
-  // #17
-  // AI vision-reasoning ESCALATION for location assist (TKT-078) — default OFF, ships DARK.
-  // A deeper photo-based location suggestion via the keyless AOAI gpt-5 vision model, gated on
-  // TOP of locationAssist. Operator-blocked for live flip (production AI sign-off, gated.md E2).
-  locationAssistAi: () => process.env.LOCATION_ASSIST_AI_ENABLED === "true",
-  chaserSend: () => process.env.CHASER_SEND_ENABLED === "true",
-  // #19
-  caseDisposition: () => process.env.CASE_DISPOSITION_ENABLED === "true",
-  // #20
-  emailAi: () => process.env.EMAIL_AI_ENABLED === "true",
-  // #21
-  // AI assistant suggestion layer (TKT-015) — default OFF. Gates the embedded AI
-  // suggestion surface + the server-side model call path; honest no-op while off
-  // OR while no model endpoint/deployment is configured (see aiAssistConfigured).
-  aiAssist: () => process.env.AI_ASSIST_ENABLED === "true",
-  // AI chat helper (TKT-060) — default OFF. Gates the read-only assistant drawer + its
-  // POST /api/assistant/chat route. Distinct from aiAssist (the suggestion layer): this is
-  // a conversational Q&A surface with READ-ONLY tools only. Needs a model endpoint +
-  // deployment (see aiChatConfigured) in addition to this switch.
-  aiChat: () => process.env.AI_CHAT_ENABLED === "true",
-  // Live image role/registration classifier (TKT-064) — default OFF. Gates the gpt-5-vision
-  // classify call on the intake image paths (extractImages / classifyPersist). Needs a model
-  // endpoint + deployment (see imageRoleClassifyEnabled); off/unconfigured => images persist
-  // with role `unknown` exactly as before (the one-shot backfill handled existing evidence).
-  imageRoleClassify: () => process.env.IMAGE_ROLE_CLASSIFY_ENABLED === "true",
-  // Staged image-analysis suggestion producer (TKT-016) — default OFF, ships DARK. Gates the
-  // additive, observation-first pipeline (vehicle-present, same-vehicle, registration, background
-  // text, location hints, ranked inspection-address suggestion) behind POST /api/cases/{id}/
-  // image-analysis/generate. PURELY additive: every output is an ai_suggestion row (never writes
-  // evidence.image_role_code/registration_visible/excluded, case_.vrm, or any address column — the
-  // live TKT-064 classifier owns those; reconciliation is TKT-088/112). Needs a model endpoint +
-  // deployment (see imageAnalysisEnabled). Off/unconfigured => the route is an honest no-op. The
-  // scene-understanding stages carry image bytes off-region (GlobalStandard) — the live flip is
-  // DPIA-gated (docs/gated.md; PLAN-001 Phase 4).
-  imageAnalysis: () => process.env.IMAGE_ANALYSIS_ENABLED === "true",
-  // ---- PLAN-001 (AI hardening + MCP) gates — ALL default OFF, ship DARK ----
-  // TKT-066/069 — the registry-driven read adapter for the assistant. When OFF the assistant
-  // uses the original hand-written `execTool` (fast rollback); when ON it derives its tool set
-  // from the shared @cs/domain capability registry. Read-only either way (TKT-060 invariant).
-  assistantToolsetV2: () => process.env.ASSISTANT_TOOLSET_V2 === "true",
-  // TKT-072 — global search endpoint GET /api/search. Default OFF for a soak; the SPA search box
-  // falls back to its prior behaviour while off, and the route honestly 404-gates.
-  globalSearch: () => process.env.GLOBAL_SEARCH_ENABLED === "true",
-  // TKT-111 — the in-app assistant WRITE tier (propose→confirm→execute). Default OFF; ships DARK.
-  // Live flip is operator-blocked (per-gate E2/G5 sign-off + DPIA, docs/gated.md). The model NEVER
-  // issues a write directly — a human confirms a structured diff and the SPA calls an existing route.
-  assistantWriteTier: () => process.env.ASSISTANT_WRITE_TIER_ENABLED === "true",
-  // TKT-110 — the read-only MCP server (Streamable-HTTP) for external agents. Default OFF; ships
-  // DARK. Exposes ONLY registry read tools; needs its own Entra app-registration before a live flip
-  // (operator, docs/gated.md). Authorization is still enforced at the Data API, never the MCP layer.
-  mcpServer: () => process.env.MCP_SERVER_ENABLED === "true",
-  // Box gates (Phase 7, ADR-0012) — all default off
-  boxApi: () => process.env.BOX_API_ENABLED === "true",
-  // #22
-  boxFolderAtIntake: () => process.env.BOX_FOLDER_AT_INTAKE_ENABLED === "true",
-  // #23
-  boxFileRequest: () => process.env.BOX_FILEREQUEST_ENABLED === "true",
-  // #24
-  // Outlook filing (TKT-054 / 020726 E6) — default off. Gates the SPA "Suggested action"
-  // button, the Data API enqueue route, AND the orchestration mover. Operator-blocked:
-  // requires the Mail.ReadWrite Exchange-RBAC re-consent before it may be flipped
-  // (docs/gated.md).
-  outlookMove: () => process.env.OUTLOOK_MOVE_ENABLED === "true",
-  // Retroactive case reconstruction (ADR-0022 / TKT-058) — all default off. retroCase is
-  // the master switch (read by the orchestration retro activities AND the Data API's
-  // /api/internal/retro/* routes — set it on BOTH apps); retroOutlookSearch is the
-  // independent kill switch for the Outlook $search rung (Graph-search behaviour must be
-  // revocable without losing the Box rung). retroBoxArchiveRootIds is the comma-separated
-  // READ-ONLY Box archive root folder id(s) the reconstruction may search — empty means
-  // the Box rung honestly skips (the box-webhook app enforces the same roots via its own
-  // BOX_READONLY_ROOT_IDS scope lock).
-  retroCase: () => process.env.RETRO_CASE_ENABLED === "true",
-  retroOutlookSearch: () => process.env.RETRO_OUTLOOK_SEARCH_ENABLED === "true",
-  retroBoxArchiveRootIds: () => process.env.RETRO_BOX_ARCHIVE_ROOT_IDS ?? "",
-  // Triage-policy gates (Stage B, rules-engine-v2 Phase 2 / ADR-0019) — all default off.
-  // Each gates ONE rung of `decideTriage` (domain/triage-policy.ts); the function itself
-  // is pure and never reads process.env — the caller (an orchestration Durable activity)
-  // reads these accessors and passes the values in as a plain TriagePolicyGates object.
-  // With all four off, decideTriage always falls through to 'proceed_default' (the
-  // kill-switch invariant) — gates-off output is indistinguishable from today.
-  triageRefGate: () => process.env.TRIAGE_REF_GATE_ENABLED === "true",
-  triageCancellation: () => process.env.TRIAGE_CANCELLATION_ENABLED === "true",
-  triageImagesRouting: () => process.env.TRIAGE_IMAGES_ROUTING_ENABLED === "true",
-  triageCaseUpdate: () => process.env.TRIAGE_CASE_UPDATE_ENABLED === "true",
-  // TKT-093 — auto-attach promotion (ADR-0019 §4 promotion seam). Default off (ships DARK;
-  // live flip is operator-blocked, docs/gated.md). MODIFIES the ref-gate rung: an EXACT
-  // SINGLE open-case match on a strong signal (case_po/job_ref — NEVER vrm-only, per the
-  // inviolable VRM rule) is attached automatically instead of merely suggested. With this
-  // off, the ref-gate rung is exactly today's suggest_attach.
-  triageAutoAttach: () => process.env.TRIAGE_AUTO_ATTACH_ENABLED === "true",
-  // TKT-084 — the pre-instruction lane (taxonomy v3; operator sign-off recorded
-  // 2026-07-09 in the ticket's evidence). Default off in code. While OFF, classifyInbound
-  // DEMOTES a classifier 'pre_instruction' verdict to 'other' (today's behaviour — honest
-  // kill-switch) and no correlation runs. While ON: the lane is recorded as classified
-  // (held on the inbound_email row, no case minted — categoryMintsCase is false for it
-  // either way), and a later instruction's case-mint correlates held rows onto the new
-  // case, suggest-first (never auto-attach — the correlation key is typically VRM-only).
-  triagePreInstruction: () => process.env.TRIAGE_PRE_INSTRUCTION_ENABLED === "true",
-  // TKT-034 — the reg-keyed Box holding-folder rung for image-bearing emails that match
-  // no case (ADR-0015 §5 fallback step 2). Default off (ships DARK — creating non-Case/PO
-  // folders under the Box root is a NEW folder-naming semantic the operator must approve;
-  // docs/gated.md). While off, an unmatched images email is only FLAGGED for manual
-  // handling (attention_reason 'images_no_match') — fallback step 3 — which needs no gate.
-  boxRegFolder: () => process.env.BOX_REG_FOLDER_ENABLED === "true",
-  // Replay backfill driver (TKT-059 / GO_LIVE_SPRINT_PLAN P1/P3) — default off. Master switch
-  // for the POST /api/replay-backfill Durable driver on the orchestration app. Off by default
-  // so the (function-key-protected) endpoint additionally refuses unless deliberately enabled;
-  // dry-run (read-only) and the destructive live rebuild BOTH require it on.
-  replayBackfill: () => process.env.REPLAY_BACKFILL_ENABLED === "true",
-  // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
-  enrichmentApiBase: () => process.env.ENRICHMENT_API_BASE ?? "",
-  // #3
-  evaBaseUrl: () => process.env.EVA_BASE_URL ?? "",
-  // #5
-  valuationApiBase: () => process.env.VALUATION_API_BASE ?? "",
-  // #14
-  locationAssistApiBase: () => process.env.LOCATION_ASSIST_API_BASE ?? "",
-  // #18
-  boxFolderRootId: () => process.env.BOX_FOLDER_ROOT_ID ?? "",
-  // #27
-  boxFileRequestTemplateId: () => process.env.BOX_FILE_REQUEST_TEMPLATE_ID ?? "",
-  // #28
-  // AI model endpoint config (TKT-015). The server-side model call path is built but
-  // dormant: these settings are ABSENT in live app-settings, so the generate route stays
-  // an honest no-op until the wiring lands (model deployments now exist on the Foundry
-  // account — live state in LIVE_FACTS.json `foundry`; rules-engine-v2 Phase 4 wires
-  // them). Prefer managed-identity/keyless — no API key gate by design.
-  aiModelEndpoint: () => process.env.AI_MODEL_ENDPOINT ?? "",
-  aiModelDeployment: () => process.env.AI_MODEL_DEPLOYMENT ?? "",
-  // Outlook-move queue config (TKT-054): the orchestration app's queue-service endpoint,
-  // e.g. https://<orch-storage-account>.queue.core.windows.net — the Data API enqueues
-  // move jobs there with its managed identity (Storage Queue Data Message Sender).
-  outlookMoveQueueServiceUrl: () => process.env.OUTLOOK_MOVE_QUEUE_SERVICE_URL ?? "",
-  /**
-   * Derived: location assist is only enabled when all three conditions are met.
-   * Used by GET /api/gates/location-assist (plan 21 §21.2).
-   */
-  locationAssistEnabled: () => gates.locationAssist() && gates.azureMaps() && gates.locationAssistApiBase() !== "",
-  /**
-   * Derived: the AI vision-reasoning escalation is actionable — the base location assist is on,
-   * its own gate is on, AND a model endpoint + deployment are configured. Off => the deeper
-   * suggestion path is an honest no-op (TKT-078). Ships DARK; operator-gated live flip (gated.md E2).
-   */
-  locationAssistAiEnabled: () => gates.locationAssistEnabled() && gates.locationAssistAi() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
-  /**
-   * Derived: a model endpoint AND deployment are both configured. The AI generate
-   * route requires this in ADDITION to the aiAssist() switch — gate ON but model
-   * UNCONFIGURED is still an honest no-op (the live state today). Used by
-   * GET /api/gates/ai-assist + the generate route's disabled-reason.
-   */
-  aiAssistConfigured: () => gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
-  /**
-   * Derived: the AI chat helper is actionable — the gate is ON and a model endpoint +
-   * deployment are configured. Used by GET /api/gates/ai-chat + the chat route's honest
-   * refusal (TKT-060).
-   */
-  aiChatEnabled: () => gates.aiChat() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
-  /**
-   * Derived: the live image classifier is actionable — the gate is ON and a model endpoint +
-   * deployment are configured. The intake image paths call classifyImage only when this is
-   * true; otherwise they persist role `unknown` (pre-classifier behaviour). (TKT-064.)
-   */
-  imageRoleClassifyEnabled: () => gates.imageRoleClassify() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
-  /**
-   * Derived: the staged image-analysis producer is actionable — the gate is ON and a model
-   * endpoint + deployment are configured. The POST /api/cases/{id}/image-analysis/generate route
-   * runs the pipeline only when this is true; otherwise it is an honest no-op (TKT-016). The
-   * reg-OCR stage additionally needs the OCR Function (OCR_FN_URL) and the address stage needs
-   * locationAssistEnabled — each degrades gracefully on its own when its dependency is absent.
-   */
-  imageAnalysisEnabled: () => gates.imageAnalysis() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
-  /**
-   * Derived: the Outlook-move path is actionable — the gate is ON and the move queue
-   * endpoint is configured. Used by GET /api/gates/outlook-move + the enqueue route's
-   * honest refusal (TKT-054 / 020726 E6).
-   */
-  outlookMoveEnabled: () => gates.outlookMove() && gates.outlookMoveQueueServiceUrl() !== ""
+// orchestration/src/lib/data-api.ts
+var cachedToken2 = null;
+async function getDataApiToken() {
+  const local = process.env.DATA_API_TOKEN;
+  if (local) return local;
+  const now = Date.now();
+  if (cachedToken2 && cachedToken2.expiresAt > now + 6e4) return cachedToken2.value;
+  const audience = process.env.DATA_API_AUDIENCE;
+  const idEndpoint = process.env.IDENTITY_ENDPOINT;
+  const idHeader = process.env.IDENTITY_HEADER;
+  if (!audience || !idEndpoint || !idHeader) {
+    throw new Error("missing DATA_API_AUDIENCE / managed-identity endpoint for Data API auth");
+  }
+  const url2 = `${idEndpoint}?resource=${encodeURIComponent(audience)}&api-version=2019-08-01`;
+  const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
+  if (!res.ok) throw new Error(`MSI token ${res.status}`);
+  const json = await res.json();
+  cachedToken2 = {
+    value: json.access_token,
+    expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
+  };
+  return cachedToken2.value;
+}
+async function request(method, path, body2) {
+  const baseUrl2 = (process.env.DATA_API_URL ?? "").replace(/\/$/, "");
+  if (!baseUrl2) throw new Error("missing DATA_API_URL");
+  const token = await getDataApiToken();
+  const res = await fetch(`${baseUrl2}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      ...body2 !== void 0 ? { "Content-Type": "application/json" } : {}
+    },
+    body: body2 !== void 0 ? JSON.stringify(body2) : void 0
+  });
+  if (res.status === 409) {
+    throw new ConflictError(`${method} ${path} \u2192 409`);
+  }
+  if (!res.ok) {
+    throw new Error(`data-api ${method} ${path} \u2192 ${res.status}: ${await safeText2(res)}`);
+  }
+  if (res.status === 204) return void 0;
+  return await res.json();
+}
+var ConflictError = class extends Error {
 };
+var dataApi = {
+  /**
+   * Providers + Image-Source intermediaries for the in-activity `matchSenderIdentity`
+   * (internal route; rules-engine-v2 Phase 3, ADR-0011 — was providers-only before).
+   */
+  providerMatchRecords() {
+    return request("GET", "/api/internal/provider-match-records");
+  },
+  /**
+   * Read a work provider's per-provider AI opt-out flag (docs/gated.md D6; internal route).
+   * `aiAllowed` is NULLABLE: null/true = AI allowed, ONLY explicit `false` opts the provider
+   * out of the gated LLM triage second-opinion (triage-classify.ts). Schema-tolerant
+   * server-side — the `ai_allowed` column is modeled but may be pre-migration, in which case
+   * the API returns `{ aiAllowed: null }` (i.e. allowed).
+   */
+  workProviderAiAllowed(workProviderId) {
+    return request("GET", `/api/internal/work-provider/${encodeURIComponent(workProviderId)}/ai-allowed`);
+  },
+  /** Open same-provider cases + seen ids/hashes for `resolveCase` (internal route). */
+  dedupContext(params) {
+    const q = new URLSearchParams({
+      workProviderId: params.workProviderId,
+      vrm: params.vrm,
+      messageId: params.messageId
+    });
+    return request("GET", `/api/internal/dedup-context?${q.toString()}`);
+  },
+  /** Create a Case (frozen §21.1 #2). 409 → ConflictError (already ingested). */
+  createCase(input14) {
+    return request("POST", "/api/cases", input14);
+  },
+  /**
+   * Persist the result of the in-activity dedup decision (internal route). The orchestration
+   * owns the ADR-0010 *decision* (shared `resolveCase`); the API owns the *persist* — it
+   * constructs the Case row (default EvaFields, status machine) on create, reparents evidence
+   * on attach, stamps duplicate-risk / case-link flags, and maps a UNIQUE(sourcemessageid)
+   * collision to `already_ingested`. Keeps EvaFields construction + status machine in the API.
+   */
+  resolvePersist(payload) {
+    return request("POST", "/api/internal/cases/resolve", payload);
+  },
+  /**
+   * Record a classified inbound_email triage row with NO case (ADR-0015). Used for
+   * query/other AND as the always-on first write for receiving_work (caseResolve later
+   * stamps case_id onto the same row). Idempotent upsert on source_message_id.
+   *
+   * `inbound` is the FULL InboundEnvelope and already carries `conversationId` as-is (one
+   * of the rules-engine-v2 Phase 2 DDL's two new inbound_email columns —
+   * `inbound_email.conversation_id`); `classification.bodyJobref` is the other
+   * (`inbound_email.body_jobref`). Both are sent unconditionally — schema-tolerant
+   * server-side: the API persists them once its upsert is wired to the (already-landed)
+   * columns, and simply ignores the extra fields until then.
+   */
+  recordInboundEmail(payload) {
+    return request("POST", "/api/internal/inbound-email", payload);
+  },
+  /**
+   * ADR-0022 retro reconstruction — the ANY-STATUS existence check + link (internal route).
+   * Unlike linkReply this matches terminal cases too (a billing email about an
+   * eva_submitted case must link, not strand); 'gated_off' while RETRO_CASE_ENABLED is
+   * not 'true' on the API app (honest refusal — the gate lives on BOTH apps).
+   */
+  retroResolveExisting(payload) {
+    return request("POST", "/api/internal/retro/resolve-existing", payload);
+  },
+  /**
+   * ADR-0022 retro reconstruction — get-or-create persist of a reconstructed case.
+   * `casePo` is the DISCOVERED archive folder name (verbatim — the API never mints on
+   * this path); concurrent duplicates come back as 'already_exists_linked', never 409/500.
+   */
+  retroCreate(payload) {
+    return request("POST", "/api/internal/retro/create", payload);
+  },
+  /**
+   * TKT-119c / TKT-034 — stamp a VISIBLE attention reason on an email's triage row
+   * ('unable_to_locate' after a failed retro reconstruction; 'images_no_match' for an
+   * image-bearing email with no case match). Keyed on the Internet-Message-Id; the API
+   * is schema-tolerant (stamped:false until the attention_reason column lands).
+   */
+  markInboundAttention(payload) {
+    return request("POST", "/api/internal/inbound/attention", payload);
+  },
+  /**
+   * ADR-0022 R2 — register archive files as BYTE-LESS Box evidence rows (id + link
+   * only; the existing internal evidence route dedups them on box_file_id, storage_path
+   * stays NULL). `acceptedForEva: false` keeps a retro backfill out of the EVA image
+   * rules until staff review.
+   */
+  registerBoxEvidence(caseId, rows) {
+    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
+  },
+  /** Persist classified evidence rows for a case (internal route; upsert by blob path). */
+  persistEvidence(caseId, rows) {
+    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
+  },
+  /**
+   * Persist EXTRACTED-image evidence rows with image metadata (pdf-image-extraction
+   * ticket). Same internal evidence route (idempotent on storage_path), but carries
+   * the image fields the SEAM BACKEND-API wires: `imageRoleCode`, `registrationVisible`
+   * (tri-state — omit when OCR was not run), `sha256`, `sequenceIndex`, plus
+   * `acceptedForEva` (false for auto-extracted unknowns — staff tag role + accept).
+   * Until BACKEND-API wires the fields the route ignores the extras and still dedups
+   * idempotently on the child blob path, so this is forward-compatible.
+   */
+  persistImageEvidence(caseId, rows) {
+    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
+  },
+  /** Persisted blob-backed evidence rows ready for archive mirroring. */
+  archiveEvidenceRows(caseId) {
+    return request("GET", `/api/internal/cases/${caseId}/archive-evidence`);
+  },
+  /** Stamp one evidence row after its bytes were mirrored into the archive. */
+  stampArchivedEvidence(payload) {
+    return request("POST", `/api/internal/cases/${payload.caseId}/archive-evidence/stamp`, {
+      evidenceId: payload.evidenceId,
+      blobPath: payload.blobPath,
+      boxFileId: payload.boxFileId,
+      ...payload.boxFileUrl ? { boxFileUrl: payload.boxFileUrl } : {}
+    });
+  },
+  /** Recompute EVA-readiness + status machine and persist (internal route). */
+  evaluateStatus(caseId) {
+    return request("POST", `/api/internal/cases/${caseId}/status-evaluate`, {});
+  },
+  /** Set status to ingested (only if currently new_email). Internal route — idempotent. */
+  setIngested(caseId) {
+    return request("POST", `/api/internal/cases/${caseId}/set-ingested`, {});
+  },
+  /**
+   * TKT-095 / ADR-0023 — the shared `done` transition (internal route). Guarded
+   * server-side `WHERE status_code = eva_submitted`, so a Durable at-least-once
+   * retry / double-fire is `{ updated: false }` and any other status is never
+   * moved. `signal` names the detector; `detail` lands in the report_delivered
+   * audit snapshot (truncated server-side).
+   */
+  markDone(caseId, signal, detail) {
+    return request("POST", `/api/internal/cases/${encodeURIComponent(caseId)}/mark-done`, {
+      signal,
+      ...detail ? { detail } : {}
+    });
+  },
+  /**
+   * TKT-095 detector (a) — STATUS-AGNOSTIC case lookup (internal route; read-only).
+   * Unlike `triageContext`'s openCaseMatches (which excludes terminals by design),
+   * this returns cases in ANY status — the sent-email detector's targets sit in the
+   * terminal `eva_submitted` — together with each case's work_provider_id so the
+   * handler can confirm the recipient is that case's provider before marking done.
+   */
+  casesLookup(payload) {
+    return request("POST", "/api/internal/cases/lookup", payload);
+  },
+  /**
+   * Persist the advisory DVSA/DVLA enrichment result onto the case (internal route, #1).
+   * Fill-if-empty on the API side; returns the fields it actually filled.
+   */
+  persistEnrichment(caseId, result) {
+    return request("POST", `/api/internal/cases/${caseId}/enrichment`, result);
+  },
+  /**
+   * Resolve a REPLY about existing work against OPEN cases (Case-ref first, then VRM) and
+   * link the triage row to the single match — or, when ambiguous (>1), leave it for a human
+   * (ADR-0010: never auto-link). The DB lookup + ADR-0010 decision run server-side (#3).
+   */
+  linkReplyToOpenCase(payload) {
+    return request("POST", "/api/internal/inbound/link-reply", payload);
+  },
+  /**
+   * Resolve the LIVE context the pure `@cs/domain` `decideTriage` (Stage B, ADR-0019 /
+   * rules-engine-v2 Phase 2) needs: open-case Case/PO + job-ref + VRM matches,
+   * cross-mailbox duplicate delivery (the SAME Internet-Message-Id already ingested), and
+   * local conversation-thread siblings (internal route; a pure read, no mutation — safe
+   * to call on every Durable replay).
+   */
+  triageContext(payload) {
+    return request("POST", "/api/internal/triage/context", payload);
+  },
+  /**
+   * Write ONE `ai_suggestion` row for a triage-policy proposal (case-link or
+   * cancellation) — the ONLY call that persists a triage-policy decision. A `shadow`
+   * (all-gates-forced-on) decision NEVER calls this (ADR-0019 §5 / the Phase-2 plan: "no
+   * shadow rows in ai_suggestion while its gate is off"). Idempotent server-side: returns
+   * `created: false` (never a duplicate row) when an equivalent PENDING suggestion
+   * already exists, so an at-least-once Durable retry is safe.
+   */
+  triageSuggestLink(payload) {
+    return request("POST", "/api/internal/triage/suggest-link", payload);
+  },
+  /**
+   * FIND held pre-instruction rows matching a newly-minted case's identifiers
+   * (TKT-084, taxonomy v3) — read-only; the `correlatePreInstruction` activity pairs
+   * this with `triageSuggestLink` (case_link, suggest-first) per returned row.
+   */
+  heldPreInstruction(payload) {
+    return request("POST", "/api/internal/triage/held-pre-instruction", payload);
+  },
+  /**
+   * Write ONE `ai_suggestion` row for a Stage-C (gated LLM) triage-category proposal
+   * (rules-engine-v2 Phase 4, ADR-0019 §3) — the ONLY call `triage-classify.ts`'s
+   * activity makes on a non-abstain model result. Never a case mutation: a human accepts
+   * it via the existing `ai_suggestion` review lifecycle
+   * (`api/src/functions/ai-suggestions.ts`'s `promoteAcceptedSuggestion`), which applies
+   * category_code/subtype_code the same way a staff reclassify does. Idempotent
+   * server-side (same subject-key + suggestionType mechanism as `triageSuggestLink`).
+   */
+  triageSuggestClassification(payload) {
+    return request("POST", "/api/internal/triage/suggest-link", {
+      ...payload.sourceMessageId ? { sourceMessageId: payload.sourceMessageId } : {},
+      ...payload.inboundEmailId ? { inboundEmailId: payload.inboundEmailId } : {},
+      suggestionType: "triage_category",
+      category: payload.category,
+      subtype: payload.subtype,
+      rationale: payload.rationale,
+      confidence: payload.confidence,
+      modelVersion: payload.modelVersion
+    });
+  },
+  /**
+   * Report the terminal outcome of a gated Outlook filing (TKT-054 / 020726 E6) — the
+   * `outlook-move` queue function's write-back. `moved` also marks a still-new row
+   * actioned on the API side; `failed` leaves the row retryable.
+   */
+  reportOutlookMove(inboundEmailId, payload) {
+    return request("POST", `/api/internal/inbound/${inboundEmailId}/outlook-moved`, payload);
+  },
+  /** Append one audit_event row (internal route; the API enforces append-only). */
+  recordAudit(payload) {
+    return request("POST", "/api/internal/audit", payload);
+  },
+  /** Per-principal job rows for the jobsheet-import fan-out (internal route). */
+  principals() {
+    return request("GET", "/api/internal/principals");
+  },
+  /** Cases due for retention disposition (internal route; case-disposition job). */
+  casesForDisposition() {
+    return request("GET", "/api/internal/disposition/due");
+  },
+  /** Run the retention/erasure for one case (internal route; job identity only). */
+  disposeCase(caseId) {
+    return request("POST", `/api/internal/disposition/${caseId}`, {});
+  },
+  /** Evidence blob paths eligible for the post-mirror purge (internal route). */
+  blobsForPurge() {
+    return request("GET", "/api/internal/box/purge-candidates");
+  },
+  /** Mark an evidence blob purged after the one-way Box mirror confirmed it (internal route). */
+  markBlobPurged(payload) {
+    return request("POST", "/api/internal/box/mark-purged", payload);
+  },
+  /**
+   * Read a case's current Box folder linkage (internal route; idempotency source for
+   * box-folder-create). `boxFolderId` is null when the case has no folder yet.
+   */
+  getCaseBoxFolder(caseId) {
+    return request("GET", `/api/internal/cases/${caseId}/box-folder`);
+  },
+  /**
+   * First-wins stamp of the Box folder id/url onto a case (internal route). Idempotent:
+   * a re-run / concurrent create returns { applied: false } and the API audits
+   * box_folder_created ONLY on the stamping call. The activity reads back first, so this
+   * is the durable backstop, not the primary dedup.
+   */
+  stampCaseBoxFolder(caseId, payload) {
+    return request("POST", `/api/internal/cases/${caseId}/box-folder`, payload);
+  }
+};
+async function safeText2(res) {
+  try {
+    return (await res.text()).slice(0, 500);
+  } catch {
+    return "<no body>";
+  }
+}
 
 // packages/domain/dist/contracts/eva-export.js
 var EVA_FIELD_ORDER = [
@@ -2908,7 +3339,8 @@ var TERMINAL_STATUSES = [
   "eva_submitted",
   "box_synced",
   "error",
-  "removed"
+  "removed",
+  "done"
 ];
 var TERMINAL_SET = new Set(TERMINAL_STATUSES);
 function isTerminalStatus(status) {
@@ -9495,309 +9927,199 @@ var WRITE = [
 ];
 var CAPABILITIES = [...READ, ...OPTIONAL_READ, ...WRITE];
 
-// orchestration/src/lib/data-api.ts
-var cachedToken2 = null;
-async function getDataApiToken() {
-  const local = process.env.DATA_API_TOKEN;
-  if (local) return local;
-  const now = Date.now();
-  if (cachedToken2 && cachedToken2.expiresAt > now + 6e4) return cachedToken2.value;
-  const audience = process.env.DATA_API_AUDIENCE;
-  const idEndpoint = process.env.IDENTITY_ENDPOINT;
-  const idHeader = process.env.IDENTITY_HEADER;
-  if (!audience || !idEndpoint || !idHeader) {
-    throw new Error("missing DATA_API_AUDIENCE / managed-identity endpoint for Data API auth");
+// orchestration/src/lib/sent-items.ts
+function extractRecipientAddresses(msg) {
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const r of [...msg.toRecipients ?? [], ...msg.ccRecipients ?? []]) {
+    const addr = (r?.emailAddress?.address ?? "").trim().toLowerCase();
+    if (addr && !seen.has(addr)) {
+      seen.add(addr);
+      out.push(addr);
+    }
   }
-  const url2 = `${idEndpoint}?resource=${encodeURIComponent(audience)}&api-version=2019-08-01`;
-  const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
-  if (!res.ok) throw new Error(`MSI token ${res.status}`);
-  const json = await res.json();
-  cachedToken2 = {
-    value: json.access_token,
-    expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
+  return out;
+}
+function matchProviderRecipients(recipients, providers) {
+  const hits = [];
+  for (const recipient of recipients) {
+    const result = matchProviderByDomain(recipient, providers);
+    if (result.outcome === "matched" && result.workProviderId) {
+      hits.push({ workProviderId: result.workProviderId, recipient });
+    }
+  }
+  return hits;
+}
+function extractSubjectKeys(subject) {
+  let casePo = "";
+  for (const token of String(subject ?? "").split(/[\s,;:()[\]<>]+/)) {
+    const norm = normalizeCasePo(token);
+    if (norm && CASE_PO_SHAPE_RE.test(norm)) {
+      casePo = norm;
+      break;
+    }
+  }
+  return { casePo, vrm: extractVrm(subject ?? "") };
+}
+function decideSentItemsDone(cases, providerHits) {
+  if (providerHits.length === 0) {
+    return { kind: "no_op", reason: "no_provider_recipient", candidateCount: 0 };
+  }
+  const recipientByProvider = /* @__PURE__ */ new Map();
+  for (const h of providerHits) {
+    if (!recipientByProvider.has(h.workProviderId)) {
+      recipientByProvider.set(h.workProviderId, h.recipient);
+    }
+  }
+  const eligibleById = /* @__PURE__ */ new Map();
+  for (const c of cases) {
+    if (c.status === "eva_submitted" && c.workProviderId && recipientByProvider.has(c.workProviderId)) {
+      eligibleById.set(c.caseId, c);
+    }
+  }
+  if (eligibleById.size === 1) {
+    const [c] = eligibleById.values();
+    return {
+      kind: "mark_done",
+      caseId: c.caseId,
+      casePo: c.casePo,
+      recipient: recipientByProvider.get(c.workProviderId) ?? ""
+    };
+  }
+  return {
+    kind: "no_op",
+    reason: eligibleById.size === 0 ? "no_eligible_case" : "ambiguous",
+    candidateCount: eligibleById.size
   };
-  return cachedToken2.value;
 }
-async function request(method, path, body2) {
-  const baseUrl2 = (process.env.DATA_API_URL ?? "").replace(/\/$/, "");
-  if (!baseUrl2) throw new Error("missing DATA_API_URL");
-  const token = await getDataApiToken();
-  const res = await fetch(`${baseUrl2}${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-      ...body2 !== void 0 ? { "Content-Type": "application/json" } : {}
-    },
-    body: body2 !== void 0 ? JSON.stringify(body2) : void 0
-  });
-  if (res.status === 409) {
-    throw new ConflictError(`${method} ${path} \u2192 409`);
-  }
-  if (!res.ok) {
-    throw new Error(`data-api ${method} ${path} \u2192 ${res.status}: ${await safeText2(res)}`);
-  }
-  if (res.status === 204) return void 0;
-  return await res.json();
-}
-var ConflictError = class extends Error {
-};
-var dataApi = {
-  /**
-   * Providers + Image-Source intermediaries for the in-activity `matchSenderIdentity`
-   * (internal route; rules-engine-v2 Phase 3, ADR-0011 — was providers-only before).
-   */
-  providerMatchRecords() {
-    return request("GET", "/api/internal/provider-match-records");
-  },
-  /**
-   * Read a work provider's per-provider AI opt-out flag (docs/gated.md D6; internal route).
-   * `aiAllowed` is NULLABLE: null/true = AI allowed, ONLY explicit `false` opts the provider
-   * out of the gated LLM triage second-opinion (triage-classify.ts). Schema-tolerant
-   * server-side — the `ai_allowed` column is modeled but may be pre-migration, in which case
-   * the API returns `{ aiAllowed: null }` (i.e. allowed).
-   */
-  workProviderAiAllowed(workProviderId) {
-    return request("GET", `/api/internal/work-provider/${encodeURIComponent(workProviderId)}/ai-allowed`);
-  },
-  /** Open same-provider cases + seen ids/hashes for `resolveCase` (internal route). */
-  dedupContext(params) {
-    const q = new URLSearchParams({
-      workProviderId: params.workProviderId,
-      vrm: params.vrm,
-      messageId: params.messageId
-    });
-    return request("GET", `/api/internal/dedup-context?${q.toString()}`);
-  },
-  /** Create a Case (frozen §21.1 #2). 409 → ConflictError (already ingested). */
-  createCase(input14) {
-    return request("POST", "/api/cases", input14);
-  },
-  /**
-   * Persist the result of the in-activity dedup decision (internal route). The orchestration
-   * owns the ADR-0010 *decision* (shared `resolveCase`); the API owns the *persist* — it
-   * constructs the Case row (default EvaFields, status machine) on create, reparents evidence
-   * on attach, stamps duplicate-risk / case-link flags, and maps a UNIQUE(sourcemessageid)
-   * collision to `already_ingested`. Keeps EvaFields construction + status machine in the API.
-   */
-  resolvePersist(payload) {
-    return request("POST", "/api/internal/cases/resolve", payload);
-  },
-  /**
-   * Record a classified inbound_email triage row with NO case (ADR-0015). Used for
-   * query/other AND as the always-on first write for receiving_work (caseResolve later
-   * stamps case_id onto the same row). Idempotent upsert on source_message_id.
-   *
-   * `inbound` is the FULL InboundEnvelope and already carries `conversationId` as-is (one
-   * of the rules-engine-v2 Phase 2 DDL's two new inbound_email columns —
-   * `inbound_email.conversation_id`); `classification.bodyJobref` is the other
-   * (`inbound_email.body_jobref`). Both are sent unconditionally — schema-tolerant
-   * server-side: the API persists them once its upsert is wired to the (already-landed)
-   * columns, and simply ignores the extra fields until then.
-   */
-  recordInboundEmail(payload) {
-    return request("POST", "/api/internal/inbound-email", payload);
-  },
-  /**
-   * ADR-0022 retro reconstruction — the ANY-STATUS existence check + link (internal route).
-   * Unlike linkReply this matches terminal cases too (a billing email about an
-   * eva_submitted case must link, not strand); 'gated_off' while RETRO_CASE_ENABLED is
-   * not 'true' on the API app (honest refusal — the gate lives on BOTH apps).
-   */
-  retroResolveExisting(payload) {
-    return request("POST", "/api/internal/retro/resolve-existing", payload);
-  },
-  /**
-   * ADR-0022 retro reconstruction — get-or-create persist of a reconstructed case.
-   * `casePo` is the DISCOVERED archive folder name (verbatim — the API never mints on
-   * this path); concurrent duplicates come back as 'already_exists_linked', never 409/500.
-   */
-  retroCreate(payload) {
-    return request("POST", "/api/internal/retro/create", payload);
-  },
-  /**
-   * TKT-119c / TKT-034 — stamp a VISIBLE attention reason on an email's triage row
-   * ('unable_to_locate' after a failed retro reconstruction; 'images_no_match' for an
-   * image-bearing email with no case match). Keyed on the Internet-Message-Id; the API
-   * is schema-tolerant (stamped:false until the attention_reason column lands).
-   */
-  markInboundAttention(payload) {
-    return request("POST", "/api/internal/inbound/attention", payload);
-  },
-  /**
-   * ADR-0022 R2 — register archive files as BYTE-LESS Box evidence rows (id + link
-   * only; the existing internal evidence route dedups them on box_file_id, storage_path
-   * stays NULL). `acceptedForEva: false` keeps a retro backfill out of the EVA image
-   * rules until staff review.
-   */
-  registerBoxEvidence(caseId, rows) {
-    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
-  },
-  /** Persist classified evidence rows for a case (internal route; upsert by blob path). */
-  persistEvidence(caseId, rows) {
-    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
-  },
-  /**
-   * Persist EXTRACTED-image evidence rows with image metadata (pdf-image-extraction
-   * ticket). Same internal evidence route (idempotent on storage_path), but carries
-   * the image fields the SEAM BACKEND-API wires: `imageRoleCode`, `registrationVisible`
-   * (tri-state — omit when OCR was not run), `sha256`, `sequenceIndex`, plus
-   * `acceptedForEva` (false for auto-extracted unknowns — staff tag role + accept).
-   * Until BACKEND-API wires the fields the route ignores the extras and still dedups
-   * idempotently on the child blob path, so this is forward-compatible.
-   */
-  persistImageEvidence(caseId, rows) {
-    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
-  },
-  /** Persisted blob-backed evidence rows ready for archive mirroring. */
-  archiveEvidenceRows(caseId) {
-    return request("GET", `/api/internal/cases/${caseId}/archive-evidence`);
-  },
-  /** Stamp one evidence row after its bytes were mirrored into the archive. */
-  stampArchivedEvidence(payload) {
-    return request("POST", `/api/internal/cases/${payload.caseId}/archive-evidence/stamp`, {
-      evidenceId: payload.evidenceId,
-      blobPath: payload.blobPath,
-      boxFileId: payload.boxFileId,
-      ...payload.boxFileUrl ? { boxFileUrl: payload.boxFileUrl } : {}
-    });
-  },
-  /** Recompute EVA-readiness + status machine and persist (internal route). */
-  evaluateStatus(caseId) {
-    return request("POST", `/api/internal/cases/${caseId}/status-evaluate`, {});
-  },
-  /** Set status to ingested (only if currently new_email). Internal route — idempotent. */
-  setIngested(caseId) {
-    return request("POST", `/api/internal/cases/${caseId}/set-ingested`, {});
-  },
-  /**
-   * Persist the advisory DVSA/DVLA enrichment result onto the case (internal route, #1).
-   * Fill-if-empty on the API side; returns the fields it actually filled.
-   */
-  persistEnrichment(caseId, result) {
-    return request("POST", `/api/internal/cases/${caseId}/enrichment`, result);
-  },
-  /**
-   * Resolve a REPLY about existing work against OPEN cases (Case-ref first, then VRM) and
-   * link the triage row to the single match — or, when ambiguous (>1), leave it for a human
-   * (ADR-0010: never auto-link). The DB lookup + ADR-0010 decision run server-side (#3).
-   */
-  linkReplyToOpenCase(payload) {
-    return request("POST", "/api/internal/inbound/link-reply", payload);
-  },
-  /**
-   * Resolve the LIVE context the pure `@cs/domain` `decideTriage` (Stage B, ADR-0019 /
-   * rules-engine-v2 Phase 2) needs: open-case Case/PO + job-ref + VRM matches,
-   * cross-mailbox duplicate delivery (the SAME Internet-Message-Id already ingested), and
-   * local conversation-thread siblings (internal route; a pure read, no mutation — safe
-   * to call on every Durable replay).
-   */
-  triageContext(payload) {
-    return request("POST", "/api/internal/triage/context", payload);
-  },
-  /**
-   * Write ONE `ai_suggestion` row for a triage-policy proposal (case-link or
-   * cancellation) — the ONLY call that persists a triage-policy decision. A `shadow`
-   * (all-gates-forced-on) decision NEVER calls this (ADR-0019 §5 / the Phase-2 plan: "no
-   * shadow rows in ai_suggestion while its gate is off"). Idempotent server-side: returns
-   * `created: false` (never a duplicate row) when an equivalent PENDING suggestion
-   * already exists, so an at-least-once Durable retry is safe.
-   */
-  triageSuggestLink(payload) {
-    return request("POST", "/api/internal/triage/suggest-link", payload);
-  },
-  /**
-   * FIND held pre-instruction rows matching a newly-minted case's identifiers
-   * (TKT-084, taxonomy v3) — read-only; the `correlatePreInstruction` activity pairs
-   * this with `triageSuggestLink` (case_link, suggest-first) per returned row.
-   */
-  heldPreInstruction(payload) {
-    return request("POST", "/api/internal/triage/held-pre-instruction", payload);
-  },
-  /**
-   * Write ONE `ai_suggestion` row for a Stage-C (gated LLM) triage-category proposal
-   * (rules-engine-v2 Phase 4, ADR-0019 §3) — the ONLY call `triage-classify.ts`'s
-   * activity makes on a non-abstain model result. Never a case mutation: a human accepts
-   * it via the existing `ai_suggestion` review lifecycle
-   * (`api/src/functions/ai-suggestions.ts`'s `promoteAcceptedSuggestion`), which applies
-   * category_code/subtype_code the same way a staff reclassify does. Idempotent
-   * server-side (same subject-key + suggestionType mechanism as `triageSuggestLink`).
-   */
-  triageSuggestClassification(payload) {
-    return request("POST", "/api/internal/triage/suggest-link", {
-      ...payload.sourceMessageId ? { sourceMessageId: payload.sourceMessageId } : {},
-      ...payload.inboundEmailId ? { inboundEmailId: payload.inboundEmailId } : {},
-      suggestionType: "triage_category",
-      category: payload.category,
-      subtype: payload.subtype,
-      rationale: payload.rationale,
-      confidence: payload.confidence,
-      modelVersion: payload.modelVersion
-    });
-  },
-  /**
-   * Report the terminal outcome of a gated Outlook filing (TKT-054 / 020726 E6) — the
-   * `outlook-move` queue function's write-back. `moved` also marks a still-new row
-   * actioned on the API side; `failed` leaves the row retryable.
-   */
-  reportOutlookMove(inboundEmailId, payload) {
-    return request("POST", `/api/internal/inbound/${inboundEmailId}/outlook-moved`, payload);
-  },
-  /** Append one audit_event row (internal route; the API enforces append-only). */
-  recordAudit(payload) {
-    return request("POST", "/api/internal/audit", payload);
-  },
-  /** Per-principal job rows for the jobsheet-import fan-out (internal route). */
-  principals() {
-    return request("GET", "/api/internal/principals");
-  },
-  /** Cases due for retention disposition (internal route; case-disposition job). */
-  casesForDisposition() {
-    return request("GET", "/api/internal/disposition/due");
-  },
-  /** Run the retention/erasure for one case (internal route; job identity only). */
-  disposeCase(caseId) {
-    return request("POST", `/api/internal/disposition/${caseId}`, {});
-  },
-  /** Evidence blob paths eligible for the post-mirror purge (internal route). */
-  blobsForPurge() {
-    return request("GET", "/api/internal/box/purge-candidates");
-  },
-  /** Mark an evidence blob purged after the one-way Box mirror confirmed it (internal route). */
-  markBlobPurged(payload) {
-    return request("POST", "/api/internal/box/mark-purged", payload);
-  },
-  /**
-   * Read a case's current Box folder linkage (internal route; idempotency source for
-   * box-folder-create). `boxFolderId` is null when the case has no folder yet.
-   */
-  getCaseBoxFolder(caseId) {
-    return request("GET", `/api/internal/cases/${caseId}/box-folder`);
-  },
-  /**
-   * First-wins stamp of the Box folder id/url onto a case (internal route). Idempotent:
-   * a re-run / concurrent create returns { applied: false } and the API audits
-   * box_folder_created ONLY on the stamping call. The activity reads back first, so this
-   * is the durable backstop, not the primary dedup.
-   */
-  stampCaseBoxFolder(caseId, payload) {
-    return request("POST", `/api/internal/cases/${caseId}/box-folder`, payload);
-  }
-};
-async function safeText2(res) {
-  try {
-    return (await res.text()).slice(0, 500);
-  } catch {
-    return "<no body>";
-  }
+function buildSentEmailDetail(recipient, subject) {
+  const snip = String(subject ?? "").replace(/\s+/g, " ").trim().slice(0, 120);
+  return `to=${recipient}${snip ? `; subject=${snip}` : ""}`;
 }
 
+// orchestration/src/functions/sent-items-processor.ts
+import_functions6.app.storageQueue("sent-items-processor", {
+  queueName: "sent-messages",
+  connection: "AzureWebJobsStorage",
+  handler: async (item, ctx) => {
+    const msg = typeof item === "string" ? JSON.parse(item) : item;
+    if (!gates.doneSentEmail()) {
+      ctx.log("[sent-items] DONE_SENT_EMAIL_ENABLED off \u2014 dropped queued notification");
+      return;
+    }
+    if (!msg.messageId) {
+      ctx.warn("[sent-items] queue item without messageId \u2014 dropped");
+      return;
+    }
+    const parsed = mailboxOfResource(msg.resource ?? "");
+    let mailbox = parsed;
+    if (!looksLikeMailboxAddress(parsed) && msg.subscriptionId) {
+      const resolved = await resolveSubscriptionMailbox(msg.subscriptionId);
+      if (resolved) mailbox = resolved;
+    }
+    if (!mailbox) {
+      ctx.warn(`[sent-items] cannot derive mailbox from resource "${msg.resource}" \u2014 dropped`);
+      return;
+    }
+    let message;
+    try {
+      message = await graphFetch(
+        `/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(msg.messageId)}?$select=subject,from,toRecipients,ccRecipients,conversationId,internetMessageId,sentDateTime`
+      );
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      if (m.includes("\u2192 404")) {
+        ctx.log(`[sent-items] sent message ${msg.messageId} gone (404) \u2014 dropped`);
+        return;
+      }
+      throw e;
+    }
+    const recipients = extractRecipientAddresses(message);
+    if (recipients.length === 0) {
+      ctx.log("[sent-items] no recipients on sent message \u2014 no-op");
+      return;
+    }
+    const { providers } = await dataApi.providerMatchRecords();
+    const providerHits = matchProviderRecipients(recipients, providers);
+    if (providerHits.length === 0) {
+      ctx.log(JSON.stringify({ evt: "sent-items-no-op", reason: "no_provider_recipient", recipients: recipients.length }));
+      return;
+    }
+    const subjectKeys = extractSubjectKeys(message.subject);
+    let siblingCaseIds = [];
+    if (message.conversationId) {
+      const triage = await dataApi.triageContext({ conversationId: message.conversationId });
+      siblingCaseIds = triage.conversationSiblingCaseIds ?? [];
+    }
+    const lookup = await dataApi.casesLookup({
+      ...siblingCaseIds.length > 0 ? { caseIds: siblingCaseIds } : {},
+      ...subjectKeys.casePo ? { casePo: subjectKeys.casePo } : {},
+      ...subjectKeys.vrm ? { vrm: subjectKeys.vrm } : {}
+    });
+    const decision = decideSentItemsDone(lookup.cases ?? [], providerHits);
+    if (decision.kind !== "mark_done") {
+      ctx.log(JSON.stringify({
+        evt: "sent-items-no-op",
+        reason: decision.reason,
+        candidateCount: decision.candidateCount,
+        conversationSiblings: siblingCaseIds.length,
+        subjectCasePo: subjectKeys.casePo,
+        subjectVrm: subjectKeys.vrm ? "present" : ""
+      }));
+      return;
+    }
+    const detail = buildSentEmailDetail(decision.recipient, message.subject);
+    const result = await dataApi.markDone(decision.caseId, "sent_email", detail);
+    ctx.log(JSON.stringify({
+      evt: "sent-items-mark-done",
+      caseId: decision.caseId,
+      casePo: decision.casePo,
+      updated: result.updated
+      // false = the WHERE guard no-opped (already done / not eva_submitted)
+    }));
+  }
+});
+
+// orchestration/src/functions/intake-starter.ts
+var import_functions7 = require("@azure/functions");
+var df3 = __toESM(require("durable-functions"), 1);
+import_functions7.app.storageQueue("intake-starter", {
+  queueName: "intake-messages",
+  connection: "AzureWebJobsStorage",
+  extraInputs: [df3.input.durableClient()],
+  handler: async (item, ctx) => {
+    const msg = typeof item === "string" ? JSON.parse(item) : item;
+    const client2 = df3.getClient(ctx);
+    try {
+      await ensureSubscriptionMonitor(client2, (m) => ctx.log(m));
+    } catch (e) {
+      ctx.warn(`[intake-starter] ensureSubscriptionMonitor: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    const safeMessageId = String(msg.messageId).replace(/[^A-Za-z0-9_-]/g, "");
+    const instanceId = `intake-${safeMessageId}`;
+    let existing;
+    try {
+      existing = await client2.getStatus(instanceId);
+    } catch (err) {
+      ctx.log(`[intake-starter] no existing instance for ${instanceId} (${err instanceof Error ? err.message : String(err)})`);
+      existing = void 0;
+    }
+    if (existing && existing.runtimeStatus !== "Failed" && existing.runtimeStatus !== "Terminated") {
+      ctx.log(`[intake-starter] skipping duplicate \u2014 instance ${instanceId} already ${existing.runtimeStatus}`);
+      return;
+    }
+    await client2.startNew("intakeOrchestrator", { instanceId, input: msg });
+    ctx.log(`[intake-starter] started orchestration ${instanceId}`);
+  }
+});
+
 // orchestration/src/functions/outlook-move.ts
+var import_functions8 = require("@azure/functions");
 function isRetryableGraphError(message) {
   return /→ (429|5\d\d)\b/.test(message) || /fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN/i.test(message);
 }
 var MAX_DEQUEUE = 5;
-import_functions6.app.storageQueue("outlook-move", {
+import_functions8.app.storageQueue("outlook-move", {
   queueName: "outlook-move",
   connection: "AzureWebJobsStorage",
   handler: async (item, ctx) => {
@@ -9891,7 +10213,7 @@ function supplementAccidentCircumstancesFromBody(body2) {
 }
 
 // orchestration/src/functions/gated/triage-classify.ts
-var import_functions7 = require("@azure/functions");
+var import_functions9 = require("@azure/functions");
 var df4 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/aoai.ts
@@ -10185,7 +10507,7 @@ function domainOf2(address) {
 function providerAiOptedOut(aiAllowed) {
   return aiAllowed === false;
 }
-import_functions7.app.http("triage-classify-start", {
+import_functions9.app.http("triage-classify-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "triage-classify",
@@ -10656,7 +10978,7 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
 });
 
 // orchestration/src/functions/activities/fetchMessage.ts
-var import_node_crypto4 = require("node:crypto");
+var import_node_crypto5 = require("node:crypto");
 var df6 = __toESM(require("durable-functions"), 1);
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/abort-controller/AbortError.js
@@ -50034,6 +50356,18 @@ function sanitize(seg) {
   return seg.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 200) || "file";
 }
 
+// orchestration/src/lib/evidence-names.ts
+var import_node_crypto4 = require("node:crypto");
+function messageFileToken(id) {
+  return (0, import_node_crypto4.createHash)("sha256").update(String(id ?? ""), "utf8").digest("hex").slice(0, 8);
+}
+function rawEmlFileName(messageIdOrInternetId) {
+  return `message-${messageFileToken(messageIdOrInternetId)}.eml`;
+}
+function bodyInstructionFileName(messageIdOrInternetId) {
+  return `email-body-${messageFileToken(messageIdOrInternetId)}.txt`;
+}
+
 // orchestration/src/functions/activities/fetchMessage.ts
 var BODY_CAP = 2e4;
 var BODY_PREVIEW_CAP = 3500;
@@ -50061,9 +50395,10 @@ df6.app.activity("fetchMessage", {
     let rawEml;
     try {
       const mime = await getMessageRawMime(mailbox, input14.messageId);
-      const emlUp = await uploadEvidenceBytes(input14.messageId, "message.eml", mime, "message/rfc822");
+      const emlName = rawEmlFileName(message.internetMessageId ?? input14.messageId);
+      const emlUp = await uploadEvidenceBytes(input14.messageId, emlName, mime, "message/rfc822");
       rawEml = {
-        filename: "message.eml",
+        filename: emlName,
         contentType: "message/rfc822",
         blobPath: emlUp.blobPath,
         size: emlUp.size
@@ -50103,7 +50438,7 @@ ${body2}`);
 });
 function hashPayload(subject, from, attachments) {
   const norm = subject.trim().toLowerCase() + "|" + from.trim().toLowerCase() + "|" + attachments.map((a) => `${a.filename.toLowerCase()}:${a.size}`).sort().join(",");
-  return (0, import_node_crypto4.createHash)("sha256").update(norm).digest("hex");
+  return (0, import_node_crypto5.createHash)("sha256").update(norm).digest("hex");
 }
 
 // orchestration/src/functions/activities/providerMatch.ts
@@ -50883,14 +51218,15 @@ df14.app.activity("classifyPersist", {
     const hasInstructionAttachment = rows.some((r) => r.evidenceClass === "instruction");
     const bodyText = (inbound.body ?? "").trim();
     if (!hasInstructionAttachment && bodyText.length >= MIN_BODY_INSTRUCTION_CHARS) {
+      const bodyName = bodyInstructionFileName(inbound.internetMessageId ?? inbound.messageId);
       const up = await uploadEvidenceBytes(
         inbound.messageId,
-        "email-body.txt",
+        bodyName,
         Buffer.from(bodyText, "utf8"),
         "text/plain"
       );
       rows.push({
-        filename: "email-body.txt",
+        filename: bodyName,
         contentType: "text/plain",
         extension: "txt",
         evidenceClass: "instruction",
@@ -51172,9 +51508,9 @@ df17.app.activity("enrich", {
 });
 
 // orchestration/src/functions/activities/boxArchive.ts
-var import_functions8 = require("@azure/functions");
+var import_functions10 = require("@azure/functions");
 var df18 = __toESM(require("durable-functions"), 1);
-import_functions8.app.http("box-archive-start", {
+import_functions10.app.http("box-archive-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "box-archive",
@@ -51472,9 +51808,9 @@ df20.app.activity("imagesUnmatched", {
 });
 
 // orchestration/src/functions/gated/finalize-eva-box.ts
-var import_functions9 = require("@azure/functions");
+var import_functions11 = require("@azure/functions");
 var df21 = __toESM(require("durable-functions"), 1);
-import_functions9.app.http("finalize-eva-box-start", {
+import_functions11.app.http("finalize-eva-box-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "finalize-eva-box",
@@ -51520,9 +51856,9 @@ df21.app.activity("boxFolderAugment", {
 });
 
 // orchestration/src/functions/gated/chaser.ts
-var import_functions10 = require("@azure/functions");
+var import_functions12 = require("@azure/functions");
 var df22 = __toESM(require("durable-functions"), 1);
-import_functions10.app.http("chaser-start", {
+import_functions12.app.http("chaser-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "chaser",
@@ -51561,9 +51897,9 @@ df22.app.activity("chaserSend", {
 });
 
 // orchestration/src/functions/gated/box-folder-create.ts
-var import_functions11 = require("@azure/functions");
+var import_functions13 = require("@azure/functions");
 var df23 = __toESM(require("durable-functions"), 1);
-import_functions11.app.http("box-folder-create-start", {
+import_functions13.app.http("box-folder-create-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-folder-create",
@@ -51606,9 +51942,9 @@ df23.app.activity("boxFolderCreate", {
 });
 
 // orchestration/src/functions/gated/box-file-request-copy.ts
-var import_functions12 = require("@azure/functions");
+var import_functions14 = require("@azure/functions");
 var df24 = __toESM(require("durable-functions"), 1);
-import_functions12.app.http("box-file-request-copy-start", {
+import_functions14.app.http("box-file-request-copy-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-file-request-copy",
@@ -51647,9 +51983,9 @@ df24.app.activity("boxFileRequestCopy", {
 });
 
 // orchestration/src/functions/gated/box-blob-purge.ts
-var import_functions13 = require("@azure/functions");
+var import_functions15 = require("@azure/functions");
 var df25 = __toESM(require("durable-functions"), 1);
-import_functions13.app.timer("box-blob-purge-timer", {
+import_functions15.app.timer("box-blob-purge-timer", {
   schedule: "0 0 3 * * *",
   extraInputs: [df25.input.durableClient()],
   handler: async (_t, ctx) => {
@@ -51687,9 +52023,9 @@ df25.app.activity("boxPurgeOne", {
 });
 
 // orchestration/src/functions/gated/case-disposition.ts
-var import_functions14 = require("@azure/functions");
+var import_functions16 = require("@azure/functions");
 var df26 = __toESM(require("durable-functions"), 1);
-import_functions14.app.timer("case-disposition-timer", {
+import_functions16.app.timer("case-disposition-timer", {
   schedule: "0 0 2 * * *",
   extraInputs: [df26.input.durableClient()],
   handler: async (_t, ctx) => {
@@ -51727,9 +52063,9 @@ df26.app.activity("dispositionOne", {
 });
 
 // orchestration/src/functions/gated/jobsheet-import.ts
-var import_functions15 = require("@azure/functions");
+var import_functions17 = require("@azure/functions");
 var df27 = __toESM(require("durable-functions"), 1);
-import_functions15.app.http("jobsheet-import-start", {
+import_functions17.app.http("jobsheet-import-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "jobsheet-import",
@@ -51761,7 +52097,7 @@ df27.app.activity("jobsheetImportOne", {
 });
 
 // orchestration/src/functions/gated/retro-case.ts
-var import_functions16 = require("@azure/functions");
+var import_functions18 = require("@azure/functions");
 var df28 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/retro-envelope.ts
@@ -51908,7 +52244,7 @@ function normToken(v) {
 var retry10 = new df28.RetryOptions(5e3, 3);
 retry10.backoffCoefficient = 2;
 retry10.maxRetryIntervalInMilliseconds = 6e4;
-import_functions16.app.http("retro-case-start", {
+import_functions18.app.http("retro-case-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "retro-case",
@@ -52578,8 +52914,8 @@ df28.app.activity("retroRecordFailure", {
 });
 
 // orchestration/src/functions/gated/retro-deleted-probe.ts
-var import_functions17 = require("@azure/functions");
-import_functions17.app.http("retro-deleted-probe", {
+var import_functions19 = require("@azure/functions");
+import_functions19.app.http("retro-deleted-probe", {
   methods: ["POST"],
   authLevel: "function",
   route: "retro-deleted-probe",
@@ -52637,233 +52973,59 @@ import_functions17.app.http("retro-deleted-probe", {
   }
 });
 
-// orchestration/src/functions/gated/replay-backfill.ts
-var import_functions18 = require("@azure/functions");
-var import_node_crypto5 = require("node:crypto");
+// orchestration/src/functions/gated/eva-report-poll.ts
+var import_functions20 = require("@azure/functions");
 var df29 = __toESM(require("durable-functions"), 1);
-
-// orchestration/src/lib/replay-manifest.ts
-function compareByReceived(a, b) {
-  if (a.receivedDateTime < b.receivedDateTime) return -1;
-  if (a.receivedDateTime > b.receivedDateTime) return 1;
-  if (a.internetMessageId < b.internetMessageId) return -1;
-  if (a.internetMessageId > b.internetMessageId) return 1;
-  return 0;
-}
-function mergeChronological(lists) {
-  return lists.flat().sort(compareByReceived);
-}
-function tallyByCategory(rows) {
-  const out = {};
-  for (const r of rows) {
-    const key = `${r.category}/${r.subtype}`;
-    out[key] = (out[key] ?? 0) + 1;
-  }
-  return out;
-}
-
-// orchestration/src/functions/gated/replay-backfill.ts
-var retry11 = new df29.RetryOptions(5e3, 3);
-var PROCESS_BATCH = 25;
-var DRYRUN_CHUNK = 6;
-var BODY_CAP2 = 2e4;
-import_functions18.app.http("replay-backfill-start", {
+var EVA_REPORT_POLL_INSTANCE_ID = "eva-report-poll-singleton";
+var INTERVAL_MINUTES = Number(process.env.EVA_REPORT_POLL_INTERVAL_MINUTES ?? "60");
+var INTERVAL_MS2 = (Number.isFinite(INTERVAL_MINUTES) && INTERVAL_MINUTES > 0 ? INTERVAL_MINUTES : 60) * 6e4;
+import_functions20.app.http("eva-report-poll-start", {
   methods: ["POST"],
   authLevel: "function",
-  route: "replay-backfill",
+  route: "eva-report-poll",
   extraInputs: [df29.input.durableClient()],
   handler: async (req, ctx) => {
-    if (!gates.replayBackfill()) {
-      ctx.log("[replay-backfill] skipped \u2014 REPLAY_BACKFILL_ENABLED off");
-      return { status: 200, jsonBody: { skipped: true, reason: "REPLAY_BACKFILL_ENABLED off" } };
+    if (!gates.evaApi()) {
+      ctx.log("[eva-report-poll] skipped \u2014 EVA_API_ENABLED off (Minotaur single-principal limitation; docs/gated.md)");
+      return { status: 200, jsonBody: { skipped: true, reason: "gated off (EVA_API_ENABLED)" } };
     }
-    const body2 = await req.json().catch(() => ({}));
-    if (!body2.epoch || !/^[A-Za-z0-9_-]{1,40}$/.test(body2.epoch)) {
-      return { status: 400, jsonBody: { error: "epoch (slug [A-Za-z0-9_-]{1,40}) required" } };
-    }
-    const cfg = intakeMailboxes();
-    const chosen = body2.mailboxes && body2.mailboxes.length ? cfg.filter((m) => body2.mailboxes.includes(m.mailbox)) : cfg;
-    if (!chosen.length) {
-      return { status: 400, jsonBody: { error: "no matching intake mailboxes configured" } };
-    }
-    const untilIso = body2.until ?? (/* @__PURE__ */ new Date()).toISOString();
-    const resolved = chosen.map((m) => ({
-      mailbox: m.mailbox,
-      sinceIso: m.minIntakeDate
-    }));
     const client2 = df29.getClient(ctx);
-    const instanceId = `replay-drive-${body2.epoch}`;
     let existing;
     try {
-      existing = await client2.getStatus(instanceId);
+      existing = await client2.getStatus(EVA_REPORT_POLL_INSTANCE_ID);
     } catch {
       existing = void 0;
     }
     const runtimeStatus = existing?.runtimeStatus;
-    if (runtimeStatus && runtimeStatus !== "Failed" && runtimeStatus !== "Terminated") {
-      ctx.log(`[replay-backfill] instance ${instanceId} already ${runtimeStatus} \u2014 not restarted`);
-      return { status: 200, jsonBody: { instanceId, deduped: true, runtimeStatus } };
+    if (runtimeStatus && !["Failed", "Terminated", "Completed"].includes(runtimeStatus)) {
+      ctx.log(`[eva-report-poll] singleton already ${runtimeStatus} \u2014 not restarted`);
+      return { status: 200, jsonBody: { instanceId: EVA_REPORT_POLL_INSTANCE_ID, deduped: true, runtimeStatus } };
     }
-    const input14 = {
-      epoch: body2.epoch,
-      untilIso,
-      dryRun: body2.dryRun !== false,
-      // default TRUE (safe)
-      resolved,
-      idx: 0
-    };
-    await client2.startNew("replayBackfillOrchestrator", { instanceId, input: input14 });
-    ctx.log(
-      `[replay-backfill] started ${instanceId} (dryRun=${input14.dryRun}, mailboxes=${resolved.length}, until=${untilIso})`
-    );
-    return client2.createCheckStatusResponse(req, instanceId);
+    await client2.startNew("evaReportPollOrchestrator", { instanceId: EVA_REPORT_POLL_INSTANCE_ID });
+    return client2.createCheckStatusResponse(req, EVA_REPORT_POLL_INSTANCE_ID);
   }
 });
-df29.app.orchestration("replayBackfillOrchestrator", function* (ctx) {
-  const s = ctx.df.getInput();
-  if (!s.manifest) {
-    const lists = yield ctx.df.Task.all(
-      s.resolved.map(
-        (m) => ctx.df.callActivityWithRetry("replayCollectMailbox", retry11, {
-          mailbox: m.mailbox,
-          sinceIso: m.sinceIso,
-          untilIso: s.untilIso
-        })
-      )
-    );
-    const merged = mergeChronological(lists);
-    ctx.df.setCustomStatus({ phase: "collected", total: merged.length });
-    ctx.df.continueAsNew({ ...s, manifest: merged, idx: 0 });
-    return;
-  }
-  const total = s.manifest.length;
-  if (s.dryRun) {
-    const rows = [];
-    for (let i = 0; i < total; i += DRYRUN_CHUNK) {
-      const chunk = s.manifest.slice(i, i + DRYRUN_CHUNK);
-      const res = yield ctx.df.Task.all(
-        chunk.map((it) => ctx.df.callActivityWithRetry("replayClassifyOne", retry11, it))
-      );
-      rows.push(...res);
-      ctx.df.setCustomStatus({ phase: "dry-run", done: rows.length, total });
+df29.app.orchestration("evaReportPollOrchestrator", function* (ctx) {
+  const tick = yield ctx.df.callActivity("evaReportPollTick");
+  if (tick.skipped) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[eva-report-poll] stopped: ${tick.skipped}`);
     }
-    const manifestBlobPath = yield ctx.df.callActivityWithRetry("replayWriteManifest", retry11, {
-      epoch: s.epoch,
-      rows
-    });
-    return {
-      epoch: s.epoch,
-      mode: "dry-run",
-      total,
-      manifestBlobPath,
-      byCategory: tallyByCategory(rows)
-    };
+    return { outcome: "stopped", reason: tick.skipped };
   }
-  const failures = s.failures ?? [];
-  const end = Math.min(s.idx + PROCESS_BATCH, total);
-  for (let i = s.idx; i < end; i++) {
-    const it = s.manifest[i];
-    const safeId = (0, import_node_crypto5.createHash)("sha256").update(`${it.mailbox}\0${it.internetMessageId || it.messageId}`).digest("hex").slice(0, 32);
-    const childId = `replay-${s.epoch}-${safeId}`;
-    const resource = `users/${it.mailbox}/messages/${it.messageId}`;
-    try {
-      yield ctx.df.callSubOrchestratorWithRetry(
-        "intakeOrchestrator",
-        retry11,
-        { messageId: it.messageId, resource, receivedAt: it.receivedDateTime },
-        childId
-      );
-    } catch (e) {
-      failures.push(it.internetMessageId || it.messageId);
+  const next = new Date(ctx.df.currentUtcDateTime.getTime() + INTERVAL_MS2);
+  yield ctx.df.createTimer(next);
+  ctx.df.continueAsNew(void 0);
+});
+df29.app.activity("evaReportPollTick", {
+  handler: async (_input, ctx) => {
+    if (!gates.evaApi()) {
+      ctx.log("[eva-report-poll] tick skipped \u2014 EVA_API_ENABLED off");
+      return { skipped: "gate_off" };
     }
-  }
-  const nextIdx = end;
-  ctx.df.setCustomStatus({ phase: "live", done: nextIdx, total, failures: failures.length });
-  if (nextIdx < total) {
-    ctx.df.continueAsNew({ ...s, idx: nextIdx, failures });
-    return;
-  }
-  return { epoch: s.epoch, mode: "live", total, failures, done: true };
-});
-df29.app.activity("replayCollectMailbox", {
-  handler: async (input14, ctx) => {
-    const subtree = await resolveInboxSubtreeFolderIds(input14.mailbox);
-    const out = [];
-    let pageUrl;
-    let pages = 0;
-    do {
-      const { items, nextLink } = await listMessagesSince(
-        input14.mailbox,
-        input14.sinceIso,
-        input14.untilIso,
-        pageUrl
-      );
-      for (const m of items) {
-        if (m.parentFolderId && !subtree.has(m.parentFolderId)) continue;
-        out.push({
-          mailbox: input14.mailbox,
-          messageId: m.id,
-          internetMessageId: m.internetMessageId ?? m.id,
-          receivedDateTime: m.receivedDateTime
-        });
-      }
-      pageUrl = nextLink;
-      pages++;
-    } while (pageUrl);
-    out.sort(compareByReceived);
-    ctx.log(
-      JSON.stringify({ evt: "replayCollectMailbox", mailbox: input14.mailbox, pages, collected: out.length })
+    ctx.warn(
+      "[eva-report-poll] EVA_API_ENABLED is on but the GetAvailableReports poll body is not built (TKT-095 detector (c) skeleton \u2014 see the module doc + changes.md). No-op."
     );
-    return out;
-  }
-});
-df29.app.activity("replayClassifyOne", {
-  handler: async (it, _ctx) => {
-    const { message, attachments } = await getMessageWithAttachments(it.mailbox, it.messageId);
-    const headers = await getMessageHeaders(it.mailbox, it.messageId);
-    const from = message.from?.emailAddress?.address ?? "";
-    const senderDomain = from.includes("@") ? from.split("@")[1].toLowerCase() : "";
-    const attachmentKinds = attachments.map((a) => a.contentType);
-    const attachmentFilenames = attachments.map((a) => a.name);
-    const cls = await callClassifyEmail({
-      subject: message.subject ?? "",
-      body: (message.body?.content ?? message.bodyPreview ?? "").slice(0, BODY_CAP2),
-      from,
-      senderDomain,
-      attachmentKinds,
-      attachmentFilenames,
-      hasAttachments: attachments.length > 0,
-      inReplyTo: headers["in-reply-to"] ?? "",
-      references: headers["references"] ?? ""
-    });
-    return {
-      mailbox: it.mailbox,
-      internetMessageId: it.internetMessageId,
-      receivedDateTime: it.receivedDateTime,
-      subject: message.subject ?? "",
-      from,
-      category: cls.category,
-      subtype: cls.subtype,
-      confidence: cls.confidence,
-      signals: cls.signals,
-      bodyVrm: cls.body_vrm,
-      bodyCaseref: cls.body_caseref,
-      bodyJobref: cls.body_jobref,
-      isReply: cls.is_reply,
-      hasAttachments: attachments.length > 0,
-      attachmentKinds
-    };
-  }
-});
-df29.app.activity("replayWriteManifest", {
-  handler: async (input14, _ctx) => {
-    const ndjson = input14.rows.map((r) => JSON.stringify(r)).join("\n") + "\n";
-    const up = await uploadEvidenceBytes(
-      "replay-manifest",
-      `${input14.epoch}.ndjson`,
-      Buffer.from(ndjson, "utf8"),
-      "application/x-ndjson"
-    );
-    return up.blobPath;
+    return { skipped: "poll_not_built" };
   }
 });

@@ -521,6 +521,47 @@ export const dataApi = {
   },
 
   /**
+   * TKT-095 / ADR-0023 — the shared `done` transition (internal route). Guarded
+   * server-side `WHERE status_code = eva_submitted`, so a Durable at-least-once
+   * retry / double-fire is `{ updated: false }` and any other status is never
+   * moved. `signal` names the detector; `detail` lands in the report_delivered
+   * audit snapshot (truncated server-side).
+   */
+  markDone(
+    caseId: string,
+    signal: 'sent_email' | 'box_pdf' | 'eva_poll' | 'manual',
+    detail?: string,
+  ): Promise<{ updated: boolean }> {
+    return request('POST', `/api/internal/cases/${encodeURIComponent(caseId)}/mark-done`, {
+      signal,
+      ...(detail ? { detail } : {}),
+    });
+  },
+
+  /**
+   * TKT-095 detector (a) — STATUS-AGNOSTIC case lookup (internal route; read-only).
+   * Unlike `triageContext`'s openCaseMatches (which excludes terminals by design),
+   * this returns cases in ANY status — the sent-email detector's targets sit in the
+   * terminal `eva_submitted` — together with each case's work_provider_id so the
+   * handler can confirm the recipient is that case's provider before marking done.
+   */
+  casesLookup(payload: {
+    caseIds?: string[];
+    casePo?: string;
+    vrm?: string;
+  }): Promise<{
+    cases: Array<{
+      caseId: string;
+      casePo: string;
+      status: string;
+      workProviderId: string;
+      vrm: string;
+    }>;
+  }> {
+    return request('POST', '/api/internal/cases/lookup', payload);
+  },
+
+  /**
    * Persist the advisory DVSA/DVLA enrichment result onto the case (internal route, #1).
    * Fill-if-empty on the API side; returns the fields it actually filled.
    */

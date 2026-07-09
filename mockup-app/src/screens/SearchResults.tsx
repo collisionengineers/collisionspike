@@ -19,8 +19,15 @@ import {
   Badge,
 } from '@fluentui/react-components';
 import { Search, Car, Mail, Building2 } from 'lucide-react';
+import { CASE_STATUSES, type CaseStatus } from '@cs/domain';
+import { StatusBadge } from '../components';
 import { getDataAccess } from '../data';
 import type { GlobalSearchResults, SearchCaseHit } from '../data/rest-client';
+
+/** Narrow the server's status string to the CaseStatus union (TKT-096 badge). */
+function isCaseStatus(s: string | undefined): s is CaseStatus {
+  return !!s && (CASE_STATUSES as readonly string[]).includes(s);
+}
 
 const useStyles = makeStyles({
   page: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalL, padding: tokens.spacingVerticalL, maxWidth: '960px' },
@@ -122,9 +129,17 @@ export default function SearchResults() {
                       {[c.claimant, c.provider].filter(Boolean).join(' · ') || 'No claimant/provider'}
                     </Caption1>
                   </div>
-                  <Badge appearance="tint" color="informative">
-                    {c.queue}
-                  </Badge>
+                  {/* TKT-096: a real status badge on result rows — terminal cases
+                      (EVA Submitted / Done / Archived) are in scope and must read as
+                      such, not as a generic queue word. Falls back to the queue
+                      label when the server predates the status field. */}
+                  {isCaseStatus(c.status) ? (
+                    <StatusBadge status={c.status} size="small" />
+                  ) : (
+                    <Badge appearance="tint" color="informative">
+                      {c.queue}
+                    </Badge>
+                  )}
                 </button>
               ))}
             </div>

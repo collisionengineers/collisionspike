@@ -119,6 +119,9 @@ export interface SearchCaseHit {
   vrmCanonical: string | null;
   ref: string | null;
   queue: string;
+  /** Raw status name (TKT-096): terminal cases are in search scope, so result rows
+   *  carry a real status badge; `removed` never surfaces (excluded server-side). */
+  status?: string;
   claimant: string | null;
   provider: string | null;
 }
@@ -191,6 +194,23 @@ export interface DataAccessExt extends DataAccess {
    *  chaser row in the SAME shape the case-detail read returns. Throws on
    *  non-2xx — a chase that didn't persist must never look logged. */
   logChase(caseId: string, input: LogChaseInput): Promise<Chaser>;
+
+  /* ----- Case done lifecycle (TKT-094/095/096, ADR-0023) ----- */
+  /** Mark a case EVA Submitted after a successful Export-for-EVA download
+   *  (TKT-094 Phase B). Guarded server-side: only a ready_for_eva case advances,
+   *  so a repeat call is `{ updated:false }` — never an error. Throws on
+   *  non-2xx transport failures so the export handler can tell the operator the
+   *  status flip didn't record (the download itself already succeeded). */
+  markEvaSubmitted(caseId: string): Promise<{ updated: boolean }>;
+  /** Staff "Mark report delivered" (TKT-095 thin slice): eva_submitted → done.
+   *  Guarded idempotent server-side; throws on non-2xx — a delivery that didn't
+   *  record must never look recorded. */
+  markCaseDone(caseId: string): Promise<{ updated: boolean }>;
+  /** The Completed/Archive list (TKT-096): terminal cases the work-queues
+   *  deliberately exclude — eva_submitted (awaiting delivery), done (delivered),
+   *  box_synced (historical). Optional status filter. safe()-empty on failure
+   *  (a browse surface, never a blocker). */
+  completedCases(status?: 'eva_submitted' | 'done' | 'box_synced'): Promise<Case[]>;
 
   /* ----- AI suggestion layer (TKT-015) — observation-first, GATED ----- */
   /** Pending + recently-reviewed AI suggestions for a case. safe()-empty on failure
@@ -383,6 +403,18 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
     // Record a chase (M-E2) — 201 + the created chaser row. NOT safe()-wrapped:
     // a chase that failed to persist must surface (never a fake "logged").
     logChase: (caseId, input) => post<Chaser>(`/api/cases/${enc(caseId)}/chase`, input),
+    // Case done lifecycle (TKT-094/095/096). The two writes are NOT safe()-wrapped —
+    // a status flip that failed must reach the operator; the completed list is a
+    // browse read, safe()-empty on failure.
+    markEvaSubmitted: (caseId) =>
+      post<{ updated: boolean }>(`/api/cases/${enc(caseId)}/eva-submitted`),
+    markCaseDone: (caseId) =>
+      post<{ updated: boolean }>(`/api/cases/${enc(caseId)}/mark-done`),
+    completedCases: (status) =>
+      safe(
+        () => get<Case[]>(`/api/completed/cases${status ? `?status=${enc(status)}` : ''}`),
+        [],
+      ),
     mergeCandidates: (id) => get<Case[]>(`/api/cases/${enc(id)}/merge-candidates`),
     mergeCases: (src, tgt) =>
       post<MergeCasesResult>(`/api/cases/${enc(tgt)}/merge`, { sourceCaseId: src }),

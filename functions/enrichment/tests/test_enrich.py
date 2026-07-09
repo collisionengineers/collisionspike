@@ -498,6 +498,40 @@ def test_no_mot_history_estimate_unavailable():
     assert est["confidence"] == "VERY_LOW"
 
 
+def test_estimate_projects_forward_from_last_mot_by_design_tkt044():
+    """TKT-044 pin: the estimate is the last MOT odometer PLUS a projection to the
+    assessment date at the historical annual rate — NOT the last MOT reading.
+
+    This is exactly why an estimate reads "~10,000 over" someone's expectation when
+    the expectation is the last MOT odometer figure (the number MOT-history sites
+    show): a vehicle averaging ~8,000 mi/yr whose MOT is ~14 months old projects
+    ~9,300 miles on top of that reading. The projection is the DESIGN (a
+    current-mileage estimate for assessment); the arithmetic below pins it so any
+    accidental double-count would fail this test."""
+    v = {
+        "motTests": [
+            {"completedDate": "2023-06-01", "odometerValue": "24000", "odometerUnit": "mi", "odometerResultType": "READ", "testResult": "PASSED"},
+            {"completedDate": "2024-06-01", "odometerValue": "32000", "odometerUnit": "mi", "odometerResultType": "READ", "testResult": "PASSED"},
+            {"completedDate": "2025-06-01", "odometerValue": "40000", "odometerUnit": "mi", "odometerResultType": "READ", "testResult": "PASSED"},
+        ]
+    }
+    as_of = date(2026, 7, 9)  # ~13.2 months after the last MOT
+    est = analysis.current_mileage_estimate(v, as_of)
+    assert est["estimate_available"] is True
+    # Rate: 16,000 miles over 731 days -> 21.888 mi/day * 365.25 = round(7994.5) = 7995/yr.
+    assert est["annual_rate_used"] == 7995
+    days_since = (as_of - date(2025, 6, 1)).days  # 403
+    projected = 7995 * (days_since / 365.25)  # ~8821 miles ON TOP of the 40,000 reading
+    assert est["estimated_mileage"] == round((40000 + projected) / 100) * 100  # 48800
+    assert est["estimated_mileage"] == 48800
+    # The overshoot vs the last MOT reading is the projection term alone — the
+    # "~10k over" a reader anchored on the MOT figure perceives.
+    assert est["estimated_mileage"] - 40000 == 8800
+    # Basis fields make the anchor auditable.
+    assert est["basis"]["last_known_mileage"] == 40000
+    assert est["basis"]["last_known_date"] == "2025-06-01"
+
+
 # --------------------------------------------------------------------------
 # HTTP handler edges (built without func start)
 # --------------------------------------------------------------------------

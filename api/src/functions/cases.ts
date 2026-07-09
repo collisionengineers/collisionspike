@@ -1274,6 +1274,113 @@ app.http('caseBoxFinalize', {
   }),
 });
 
+/* ============================================================
+   TKT-094 Phase B — POST /api/cases/{id}/eva-submitted
+   Fired by the SPA's "Export for EVA" handler AFTER a successful zip download
+   (the export itself stays a pure client-side download — this is the status
+   write that was always missing). Guarded idempotent: only a ready_for_eva
+   case advances, so a double-click / stale retry is a no-op with no duplicate
+   audit row. Writes submitted_at (the dashboard throughput source) for the
+   first time in the product's life.
+   ============================================================ */
+app.http('markEvaSubmitted', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'cases/{id}/eva-submitted',
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+    const id = (req.params.id ?? '').trim();
+    if (!id) return { status: 400, jsonBody: { message: 'A case is required.' } };
+    const updated = await query<{ id: string }>(
+      `UPDATE case_ SET status_code = $1, submitted_at = now(), updated_at = now()
+       WHERE id = $2 AND status_code = $3
+       RETURNING id`,
+      [statusToInt('eva_submitted'), id, statusToInt('ready_for_eva')],
+    );
+    if (updated.length > 0) {
+      await writeAudit({
+        action: AUDIT_ACTION.eva_submitted,
+        caseId: id,
+        summary: 'Exported for EVA — case marked EVA Submitted',
+        after: { status: 'eva_submitted' },
+        actor: actorFromClaims(claims),
+      });
+    }
+    // updated:false covers both "already submitted" (benign idempotent no-op)
+    // and "not ready yet" — the caller re-reads the case either way.
+    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+  }),
+});
+
+/* ============================================================
+   TKT-095 (thin-slice bridge) — POST /api/cases/{id}/mark-done
+   The staff "Mark report delivered" action (CaseDetail button, visible only on
+   an eva_submitted case). Same guarded-idempotent shape as the internal
+   detector endpoint (internal.ts internalCasesMarkDone) — the WHERE guard makes
+   double-clicks, webhook re-delivery and Durable at-least-once all no-ops.
+   `done` (ADR-0023) = the CE report has been delivered back to the work provider.
+   ============================================================ */
+app.http('markCaseDone', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'cases/{id}/mark-done',
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+    const id = (req.params.id ?? '').trim();
+    if (!id) return { status: 400, jsonBody: { message: 'A case is required.' } };
+    const updated = await query<{ id: string }>(
+      `UPDATE case_ SET status_code = $1, updated_at = now()
+       WHERE id = $2 AND status_code = $3
+       RETURNING id`,
+      [statusToInt('done'), id, statusToInt('eva_submitted')],
+    );
+    if (updated.length > 0) {
+      await writeAudit({
+        action: AUDIT_ACTION.report_delivered,
+        caseId: id,
+        summary: 'Report delivered to the work provider — case marked Done',
+        after: { status: 'done', signal: 'manual' },
+        actor: actorFromClaims(claims),
+      });
+    }
+    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+  }),
+});
+
+/* ============================================================
+   TKT-096 Phase D — GET /api/completed/cases
+   The Completed/Archive area's data source: terminal cases the queue path
+   deliberately excludes (filterQueue/statusToQueue own no terminal — ADR-0008;
+   ADR-0023 gives them this separate browse/audit home, NOT a 4th work-queue).
+   Scope: eva_submitted (awaiting delivery), done (delivered), box_synced
+   (historical rows only). `removed` is deliberately excluded (PII anonymised on
+   soft-remove) and `error` stays in the Held queue. Optional ?status=<name>
+   filter + ?limit/?offset paging; newest submission first.
+   ============================================================ */
+const COMPLETED_STATUSES = ['eva_submitted', 'done', 'box_synced'] as const;
+app.http('completedCases', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'completed/cases',
+  handler: withRole('CollisionSpike.User', async (req) => {
+    const statusFilter = (req.query.get('status') ?? '').trim();
+    const wanted = COMPLETED_STATUSES.filter(
+      (s) => !statusFilter || s === statusFilter,
+    );
+    if (wanted.length === 0) return { status: 200, jsonBody: [] };
+    const codes = wanted.map((s) => statusToInt(s));
+    const limit = Math.min(Math.max(parseInt(req.query.get('limit') ?? '200', 10) || 200, 1), 500);
+    const offset = Math.max(parseInt(req.query.get('offset') ?? '0', 10) || 0, 0);
+    const rows = await query<Row>(
+      `${CASE_SELECT}
+       WHERE c.status_code = ANY($1::int[])
+       ORDER BY c.submitted_at DESC NULLS LAST, c.updated_at DESC
+       LIMIT $2 OFFSET $3`,
+      [codes, limit, offset],
+    );
+    const now = nowParam(req);
+    return { status: 200, jsonBody: rows.map((r) => rowToCase(r, { now })) };
+  }),
+});
+
 /* ----------  shared: the windowing clock query param  ---------- */
 function nowParam(req: HttpRequest): Date {
   const raw = req.query.get('now');

@@ -304,6 +304,7 @@ export { createRestDataAccess, serverMessageOf } from './rest-client';
 export {
   useCaseQuery,
   useQueueQuery,
+  useCompletedCases,
   useDashboard,
   useImages,
   useProviders,

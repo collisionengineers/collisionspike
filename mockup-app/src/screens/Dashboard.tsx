@@ -121,6 +121,9 @@ const STAGE_ROUTE: Partial<Record<PipelineStageKey, string>> = {
   new: '/queue/not-ready',
   not_ready: '/queue/not-ready',
   review: '/queue/review',
+  // TKT-096: submitted/terminal cases now have a browse home — the Completed
+  // area (NOT a work-queue; ADR-0023 amends ADR-0008's "no home for terminals").
+  submitted: '/completed',
 };
 
 /* ----------  styles  ---------- */
@@ -930,11 +933,29 @@ export function Dashboard() {
             <h2 className={mergeClasses('ce-overline', styles.regionHeading)} id="heading-throughput">
               Today / this week
             </h2>
+            {/* TKT-096: the submission tiles drill through to the Completed area —
+                the throughput numbers finally have a destination. "In today" stays
+                a plain stat (arrivals live in the queues, not Completed). */}
             <div className={styles.thruRow}>
               <ThruCell icon={Inbox} value={thru.inToday} label="In today" />
-              <ThruCell icon={Send} value={thru.submittedToday} label="Submitted today" />
-              <ThruCell icon={CalendarRange} value={thru.clearedThisWeek} label="Cleared this week" />
-              <div className={mergeClasses(styles.thruCell, styles.allTimeTile)}>
+              <ThruCell
+                icon={Send}
+                value={thru.submittedToday}
+                label="Submitted today"
+                onOpen={() => navigate('/completed')}
+              />
+              <ThruCell
+                icon={CalendarRange}
+                value={thru.clearedThisWeek}
+                label="Cleared this week"
+                onOpen={() => navigate('/completed')}
+              />
+              <button
+                type="button"
+                className={mergeClasses('ce-focusable', styles.thruCell, styles.allTimeTile)}
+                onClick={() => navigate('/completed')}
+                aria-label={`Sent to EVA, all time: ${sentToEvaTotal}. Open completed cases.`}
+              >
                 <span className={styles.thruIcon} aria-hidden>
                   <CheckCheck size={16} strokeWidth={1.75} />
                 </span>
@@ -943,7 +964,7 @@ export function Dashboard() {
                   <span className={styles.thruLabel}>Sent to EVA</span>
                   <span className={styles.allTimeHead}>All time</span>
                 </span>
-              </div>
+              </button>
             </div>
           </section>
 
@@ -996,10 +1017,21 @@ export function Dashboard() {
 
 /* ----------  Region B cell  ---------- */
 
-function ThruCell({ icon: Icon, value, label }: { icon: LucideIcon; value: number; label: string }) {
+function ThruCell({
+  icon: Icon,
+  value,
+  label,
+  onOpen,
+}: {
+  icon: LucideIcon;
+  value: number;
+  label: string;
+  /** TKT-096: when present the cell is a real button (drill-through to /completed). */
+  onOpen?: () => void;
+}) {
   const styles = useStyles();
-  return (
-    <div className={styles.thruCell}>
+  const body = (
+    <>
       <span className={styles.thruIcon} aria-hidden>
         <Icon size={16} strokeWidth={1.75} />
       </span>
@@ -1007,8 +1039,21 @@ function ThruCell({ icon: Icon, value, label }: { icon: LucideIcon; value: numbe
         <span className="ce-stat">{value}</span>
         <span className={styles.thruLabel}>{label}</span>
       </span>
-    </div>
+    </>
   );
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        className={mergeClasses('ce-focusable', styles.thruCell)}
+        onClick={onOpen}
+        aria-label={`${label}: ${value}. Open completed cases.`}
+      >
+        {body}
+      </button>
+    );
+  }
+  return <div className={styles.thruCell}>{body}</div>;
 }
 
 /* ----------  Section 2 inbox tile (clickable → /inbox)  ---------- */

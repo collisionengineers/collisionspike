@@ -29,6 +29,28 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-09 (PLAN-003 evidence wave — collisionspike TKT-089/TKT-090):** re-cut from the
+sibling at **`engine-v2.11`** (branch `feat/tkt043-open-case-ref-context`, commit `4cbf19a`).
+One file, `application/service.py`: (1) **TKT-090 naming fix** — `extract_images` stems no
+longer default an unresolved `work_provider` to the hardcoded **`'RJS'`** or an unresolved
+`vrm` to the literal **`'UnknownVRM'`**; unresolved tokens are **omitted** (empty/whitespace
+checked BEFORE `safe_filename`, whose own empty-input fallback is `"export"`), leaving
+`img_<page>_<n>` as the guaranteed-non-empty, unique tail (the orchestration's
+`extractImages` activity prepends `<source-doc-stem>__`). The cloud wrapper passes
+`fields={}`, so every live extraction had been branded `RJS_UnknownVRM_…`. (2) **TKT-089
+banner heuristic** — `is_decorative` lifted to module-level `is_decorative_raster` and
+extended past the 200×200 area floor: an above-floor raster is decorative when aspect
+≥ 3.5:1 AND short side ≤ 240 px (wide letterhead banners ~900×180, tall sidebar strips —
+shapes no real phone/camera photo has; unknown dimensions stay always-kept). Mirrored by
+the email-lane filter in `orchestration/src/lib/image-sniff.ts` (same thresholds — keep in
+lockstep). No taxonomy/DDL dependency; no providers.json change. Sibling suite 396
+passed / 4 skipped; new sibling tests `tests/test_extract_images.py` (13) ported to this
+repo's `functions/parser/tests/test_extract_images.py`. NOTE: downstream evidence rows key
+on `(case_id, storage_path)` and no code consumer parses the `_img_\d+_\d+` /
+`RJS_UnknownVRM` filename shape (grep-verified across api/orchestration/SPA), so the name
+change is deploy-safe; only ad-hoc KQL/SQL sweeps that grep for `RJS_UnknownVRM` need their
+patterns updating.
+
 **2026-07-09 (PLAN-003 classifier wave — collisionspike TKT-022/070/071/083/084/085/086/097/100/103/105/120):**
 re-cut from the sibling at **`engine-v2.10`** (branch `feat/tkt043-open-case-ref-context`, commit
 `8e7f2f7`), INCLUDING a **deliberate providers.json seed update** (the new **CDQ** claimant-questionnaire
@@ -241,12 +263,18 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.8`** on branch
-  `feat/tkt043-open-case-ref-context`, commit **`b30e382`** (2026-07-08) — the
-  `open_case_ref_match` context input + the `_delivered_images_only` filename tier
-  (collisionspike TKT-043; see History above). Only `rules/email_classifier.py` changed
-  vs `engine-v2.7`; every other shared file is unchanged. (Sibling branch/tag committed
-  locally — push before relying on it in CI.) Prior pins: **`engine-v2.7`** (commit
+- **Cut from:** annotated tag **`engine-v2.11`** on branch
+  `feat/tkt043-open-case-ref-context`, commit **`4cbf19a`** (2026-07-09) — the TKT-090
+  naming fix (no `RJS`/`UnknownVRM` defaults) + the TKT-089 large-banner decorative
+  heuristic (see History above). Only `application/service.py` changed vs `engine-v2.10`;
+  every other shared file is unchanged. (Sibling commit + tag are LOCAL — like the
+  `engine-v2.10` pin before it; push before relying on it in CI.) Prior pins:
+  **`engine-v2.10`** (commit `8e7f2f7`, 2026-07-09, PLAN-003 classifier wave — taxonomy
+  v3 + VRM/ref guards + CDQ claim form, incl. a deliberate providers.json seed update),
+  **`engine-v2.9`** (commit `130e862`, 2026-07-08, signature-aware
+  `_delivered_images_only`), **`engine-v2.8`** (commit `b30e382`, 2026-07-08 — the
+  `open_case_ref_match` context input + the `_delivered_images_only` filename tier,
+  collisionspike TKT-043), **`engine-v2.7`** (commit
   `ccfb473`, 2026-07-07, the acknowledgement/query/case_update batch — collisionspike
   TKT-081/082/083/093, upstreamed from this vendored copy). Earlier pins:
   `engine-v2.6` (commit `f474ea0`, ADR-0021 case-type marker taxonomy + TKT-051

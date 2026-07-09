@@ -21,6 +21,7 @@ import {
   resolveSubscriptionMailbox,
 } from '../../lib/subscriptions.js';
 import { uploadEvidenceBytes } from '../../lib/blob.js';
+import { rawEmlFileName } from '../../lib/evidence-names.js';
 import { cleanEmailBodyForPreview, extractVrm } from '@cs/domain';
 
 interface FetchMessageInput {
@@ -65,8 +66,10 @@ export interface InboundEnvelope {
   }>;
   /**
    * The original message captured as raw MIME (Graph `$value`), landed in Blob as
-   * `message.eml`. Persisted as email evidence + archived to the case Box folder
-   * (box-sync ticket). Undefined when the `$value` fetch failed (best-effort; never
+   * `message-<token>.eml` (per-message token — TKT-087; was the generic
+   * `message.eml`, which collided in the Box case folder on multi-email cases).
+   * Persisted as email evidence + archived to the case Box folder (box-sync
+   * ticket). Undefined when the `$value` fetch failed (best-effort; never
    * blocks intake).
    */
   rawEml?: {
@@ -114,12 +117,17 @@ df.app.activity('fetchMessage', {
     // Capture the ORIGINAL message as raw MIME (`.eml`) so the case archive holds
     // the email itself, not just its attachments (box-sync ticket). Best-effort: a
     // `$value` failure must never block intake — we just omit rawEml.
+    // TKT-087: the name carries a per-message token (was the generic `message.eml`,
+    // which collided in the Box case folder whenever a SECOND email attached to the
+    // case — the 409-reuse then mis-linked the later email's evidence row to the
+    // earlier email's Box file). Stable across replays (same message → same name).
     let rawEml: InboundEnvelope['rawEml'];
     try {
       const mime = await getMessageRawMime(mailbox, input.messageId);
-      const emlUp = await uploadEvidenceBytes(input.messageId, 'message.eml', mime, 'message/rfc822');
+      const emlName = rawEmlFileName(message.internetMessageId ?? input.messageId);
+      const emlUp = await uploadEvidenceBytes(input.messageId, emlName, mime, 'message/rfc822');
       rawEml = {
-        filename: 'message.eml',
+        filename: emlName,
         contentType: 'message/rfc822',
         blobPath: emlUp.blobPath,
         size: emlUp.size,

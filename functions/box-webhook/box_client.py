@@ -42,6 +42,7 @@ The minted bearer token is likewise never logged or returned to the caller.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -647,14 +648,24 @@ class BoxClient:
         filename: str,
         content: bytes,
         content_type: str | None = None,
+        *,
+        _disambiguated: bool = False,
     ) -> dict[str, Any]:
         """POST /api/2.0/files/content (multipart) to the UPLOAD host — archive one
         evidence byte-stream into a case folder (the one-way Blob -> Box mirror,
         ADR-0012). Scope-locked to the parent folder (BOX_ALLOWED_ROOT_ID) BEFORE the
-        bytes leave us. 409 item_name_in_use is an IDEMPOTENT success: the same
-        filename already lives in the folder (a replayed archive), so we read the
-        conflicting file id out of context_info.conflicts and return it tagged
-        outcome='reused' — never a duplicate upload."""
+        bytes leave us.
+
+        409 item_name_in_use handling (TKT-087 hardened): a 409 is an IDEMPOTENT
+        success ONLY when the conflicting file holds the SAME bytes (Box sha1 ==
+        sha1(content)) — the replayed-archive case. The old blind reuse mis-linked
+        evidence when two DIFFERENT emails on one case archived under the same
+        generic filename (message.eml / email-body.txt): the later email's evidence
+        row got the earlier email's Box file id and its bytes never reached Box.
+        Now: sha1 match -> outcome='reused'; sha1 MISMATCH -> re-upload once under a
+        content-disambiguated name (`<stem>-<sha1[:8]>.<ext>`), outcome='created'
+        under the new name; sha1 unverifiable -> legacy reuse at WARNING level (never
+        block an archive on a missing hash)."""
         self._assert_in_scope("folders", folder_id)
         _validate_box_base(self.config.upload_base, "upload base")
         attributes = json.dumps({"name": filename, "parent": {"id": folder_id}})
@@ -672,12 +683,57 @@ class BoxClient:
             entry["outcome"] = "created"
             return entry
         if resp.status_code == 409:
-            conflict_id = _conflict_id(resp)
+            conflict = _conflict_entry(resp)
+            conflict_id = str(conflict["id"]) if conflict and conflict.get("id") is not None else None
             if conflict_id:
-                logger.info("box file already exists in folder (409); reusing id")
+                remote_sha1 = conflict.get("sha1") if conflict else None
+                if not remote_sha1:
+                    remote_sha1 = self._file_sha1(conflict_id)
+                local_sha1 = hashlib.sha1(content).hexdigest()
+                if remote_sha1 and str(remote_sha1).lower() != local_sha1:
+                    # Same NAME, DIFFERENT bytes — blind reuse would mis-link the
+                    # evidence row (TKT-087). Retry ONCE under a content-derived name;
+                    # a 409 on THAT name can only be the same bytes (sha1-slice in the
+                    # name), which the recursive call verifies and reuses.
+                    if _disambiguated:
+                        raise BoxError(
+                            "Box 409 name-conflict persisted after content disambiguation",
+                            status=409,
+                        )
+                    alt = _disambiguate_filename(filename, local_sha1[:8])
+                    logger.warning(
+                        "box 409 name-conflict with DIFFERENT content (sha1 mismatch); "
+                        "re-uploading under a content-disambiguated name"
+                    )
+                    return self.upload_file(
+                        folder_id, alt, content, content_type, _disambiguated=True
+                    )
+                if remote_sha1:
+                    logger.info(
+                        "box file already exists in folder (409) with matching content; reusing id"
+                    )
+                else:
+                    logger.warning(
+                        "box file already exists in folder (409); content match UNVERIFIABLE "
+                        "(no sha1) — reusing id (legacy behaviour)"
+                    )
                 return {"id": conflict_id, "type": "file", "name": filename, "outcome": "reused"}
             raise BoxError("Box UploadFile returned 409 with no resolvable conflict id", status=409)
         raise BoxError(f"Box UploadFile returned HTTP {resp.status_code}", status=resp.status_code)
+
+    def _file_sha1(self, file_id: str) -> str | None:
+        """Best-effort sha1 of an existing Box file (the 409 conflict target). A
+        failure returns None — the caller degrades to the legacy warn-level reuse
+        rather than blocking an archive on a hash read."""
+        try:
+            self._assert_readable_scope("files", file_id)
+            resp = self.request("GET", f"/2.0/files/{file_id}", params={"fields": "sha1"})
+            if resp.status_code == 200:
+                sha1 = resp.json().get("sha1")
+                return str(sha1) if sha1 else None
+        except Exception:  # noqa: BLE001 — advisory read; never propagate
+            pass
+        return None
 
     def copy_file_request(
         self, template_id: str, folder_id: str, *, status: str = "active",
@@ -920,6 +976,17 @@ def _conflict_id(resp: httpx.Response) -> str | None:
     CreateFolder returns ``context_info.conflicts`` as a LIST; the file-upload
     (files/content) 409 returns it as a SINGLE object (the conflicting file mini).
     Handle both so the upload idempotency reads the existing file id back out."""
+    entry = _conflict_entry(resp)
+    if entry is None:
+        return None
+    cid = entry.get("id")
+    return str(cid) if cid is not None else None
+
+
+def _conflict_entry(resp: httpx.Response) -> dict[str, Any] | None:
+    """The full conflicting-item mini from a 409 body (id + name + sha1 when Box
+    includes it — the upload 409's file mini usually carries sha1, which is what
+    lets ``upload_file`` verify a reuse is genuinely the same bytes; TKT-087)."""
     try:
         body = resp.json()
     except ValueError:
@@ -929,10 +996,17 @@ def _conflict_id(resp: httpx.Response) -> str | None:
     conflicts = (body.get("context_info") or {}).get("conflicts")
     if isinstance(conflicts, list) and conflicts:
         first = conflicts[0]
-        if isinstance(first, dict):
-            cid = first.get("id")
-            return str(cid) if cid is not None else None
+        return first if isinstance(first, dict) else None
     if isinstance(conflicts, dict):
-        cid = conflicts.get("id")
-        return str(cid) if cid is not None else None
+        return conflicts
     return None
+
+
+def _disambiguate_filename(filename: str, token: str) -> str:
+    """`report.pdf` + `a1b2c3d4` -> `report-a1b2c3d4.pdf` (extension preserved so
+    downstream extension-keyed classification is unchanged; TKT-087)."""
+    name = str(filename or "").strip() or "file"
+    stem, dot, ext = name.rpartition(".")
+    if dot and stem:
+        return f"{stem}-{token}.{ext}"
+    return f"{name}-{token}"

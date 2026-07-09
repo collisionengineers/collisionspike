@@ -14,6 +14,7 @@ import { describeEvidence, isEngineerReportLayoutName } from '@cs/domain';
 import { gates } from '@cs/domain/gates';
 import { dataApi } from '../../lib/data-api.js';
 import { downloadEvidenceBytes, uploadEvidenceBytes } from '../../lib/blob.js';
+import { bodyInstructionFileName } from '../../lib/evidence-names.js';
 import { classifyImage, classificationToEvidenceFields } from '../../lib/image-classify.js';
 import type { InboundEnvelope } from './fetchMessage.js';
 import type { AttachmentTyping } from './parse.js';
@@ -152,14 +153,19 @@ df.app.activity('classifyPersist', {
     const hasInstructionAttachment = rows.some((r) => r.evidenceClass === 'instruction');
     const bodyText = (inbound.body ?? '').trim();
     if (!hasInstructionAttachment && bodyText.length >= MIN_BODY_INSTRUCTION_CHARS) {
+      // TKT-087: per-message token in the name (was the generic `email-body.txt`,
+      // which collided in the Box case folder on multi-email cases and mis-linked
+      // the later email's evidence row to the earlier email's Box file). Stable
+      // across replays — same message, same name.
+      const bodyName = bodyInstructionFileName(inbound.internetMessageId ?? inbound.messageId);
       const up = await uploadEvidenceBytes(
         inbound.messageId,
-        'email-body.txt',
+        bodyName,
         Buffer.from(bodyText, 'utf8'),
         'text/plain',
       );
       rows.push({
-        filename: 'email-body.txt',
+        filename: bodyName,
         contentType: 'text/plain',
         extension: 'txt',
         evidenceClass: 'instruction',

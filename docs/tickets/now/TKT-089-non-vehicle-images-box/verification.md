@@ -75,3 +75,16 @@ listings (allowlist is root-only). Real issue observed (out of scope, follow-up 
 FAILED (live) — operator report 2026-07-08: signatures still being picked up and filed to Box from many emails. Email-lane floor provably acting (221 skip traces), so the leak points at above-floor signature images and/or the PDF-extraction lane. Reopened verify->now for the coverage fix.
 
 Verified by: operator report transcribed by the orchestrating session, 2026-07-08.
+
+## Audit record — 2026-07-09 (PLAN-003 lifecycle wave; verdict stays PENDING pending live probe)
+
+- Lane-split + suspect queries and results: see changes.md §2026-07-09 (data captured via the
+  csadmin window; transient FW rule added + removed).
+- Cleanup verified live: `backup_20260709_tkt089_evidence` = 163 rows; excluded rows with
+  exclusion_reason 'Non-vehicle image … TKT-089 …' = 163; per-case audit rows = 107; residual
+  suspects (same heuristics) = **0**.
+- Box cross-check basis: 133/163 excluded rows carried `box_file_id` (already mirrored) — the Box
+  copies are deliberately left (ADR-0017; decision in changes.md).
+- Still pending before `done`: live probe (letterhead PDF re-parse → no logo evidence; signature
+  email → banner-shape skip) + recall guard (a genuine photo email/PDF still lands evidence+Box)
+  on the engine-v2.11 / new-orch deploys.
