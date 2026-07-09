@@ -8,7 +8,7 @@ Operator decision (ticket-orchestrate batch): **retire this ticket as superseded
 optional full-`.eml` reprocess of the case-linked subset. The wipe-&-rebuild path is abandoned
 (mailboxes retain only ~88/390; the deployed classifier is proven sound — see verification.md). No code
 change in this pass. Moved `now → blocked` pending the dead-driver removal in
-[TKT-106](../../backlog/TKT-106-remove-replay-backfill/TKT-106-remove-replay-backfill.md); the P1 driver
+[TKT-106](../../now/TKT-106-remove-replay-backfill/TKT-106-remove-replay-backfill.md); the P1 driver
 stays shipped dark (`REPLAY_BACKFILL_ENABLED=false`) until then. Findings preserved.
 
 ## 2026-07-04 — ticket authored

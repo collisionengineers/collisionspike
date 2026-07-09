@@ -1,7 +1,7 @@
 ---
 id: TKT-106
 title: "Remove the non-viable replay-backfill driver + gate"
-status: backlog
+status: now
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-059]

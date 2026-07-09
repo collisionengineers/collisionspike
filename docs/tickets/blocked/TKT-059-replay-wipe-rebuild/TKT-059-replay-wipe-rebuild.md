@@ -98,6 +98,6 @@ The operator was offered the one residual candidate — an **optional** full-`.e
 **The Acceptance section above is therefore moot** (it describes the abandoned wipe path) and is not
 being pursued. The P1 driver (`listMessagesSince` pager + keyed `POST /api/replay-backfill` +
 `replay-manifest.ts`) remains **built, deployed, and shipped dark** (`REPLAY_BACKFILL_ENABLED=false`);
-its **removal is tracked by [TKT-106](../../backlog/TKT-106-remove-replay-backfill/TKT-106-remove-replay-backfill.md)**.
+its **removal is tracked by [TKT-106](../../now/TKT-106-remove-replay-backfill/TKT-106-remove-replay-backfill.md)**.
 This ticket is `blocked` pending that removal — once TKT-106 lands, close both. The non-viability
 **finding is preserved** here and in TKT-106 (do not lose it with the code).

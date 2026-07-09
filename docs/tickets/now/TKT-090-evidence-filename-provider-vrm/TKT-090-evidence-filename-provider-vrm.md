@@ -1,11 +1,11 @@
 ---
 id: TKT-090
 title: Evidence filenames carry a wrong "RJS" provider token and "UnknownVRM"
-status: backlog
+status: now
 priority: P2
 area: evidence
 tickets-it-relates-to: [TKT-002, TKT-089]
-research-link: docs/tickets/backlog/TKT-090-evidence-filename-provider-vrm/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-090-evidence-filename-provider-vrm/evidence/operator-note.md
 ---
 
 # Evidence filenames carry a wrong "RJS" provider token and "UnknownVRM"
@@ -29,7 +29,7 @@ misleading (staff read them as case identity), and the names flow into the Box a
 
 - `evidence/operator-note.md` — verbatim drop-note ("Not an RJS case").
 - `evidence/evidence-filenames-screenshot.png` — the evidence cards showing the two filenames.
-- Same case as [TKT-089](../../now/TKT-089-non-vehicle-images-box/TKT-089-non-vehicle-images-box.md)'s
+- Same case as [TKT-089](../TKT-089-non-vehicle-images-box/TKT-089-non-vehicle-images-box.md)'s
   logo-image screenshot (shared source document) — coordinate the two fixes.
 - The naming likely originates in the PDF image-extraction path (TKT-002 lane: the vendored
   `cedocumentmapper_v2.0` engine or the parser Function's wrapper — locate exactly; ADR-0018

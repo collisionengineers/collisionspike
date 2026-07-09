@@ -1,11 +1,11 @@
 ---
 id: TKT-087
 title: Box report shows 409 upload conflicts — investigate duplicate archive attempts
-status: backlog
+status: now
 priority: P2
 area: box
 tickets-it-relates-to: [TKT-003, TKT-092]
-research-link: docs/tickets/backlog/TKT-087-box-upload-409-conflicts/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-087-box-upload-409-conflicts/evidence/operator-note.md
 ---
 
 # Box report shows 409 upload conflicts — investigate duplicate archive attempts

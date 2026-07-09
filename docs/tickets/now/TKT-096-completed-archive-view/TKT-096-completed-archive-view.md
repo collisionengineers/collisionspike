@@ -1,11 +1,11 @@
 ---
 id: TKT-096
 title: Completed/Archive view + dashboard drill-through + terminal-scope search fold-in
-status: backlog
+status: now
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-094, TKT-072]
-research-link: docs/tickets/backlog/TKT-096-completed-archive-view/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-096-completed-archive-view/evidence/operator-note.md
 plan: PLAN-002
 ---
 
