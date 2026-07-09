@@ -2,7 +2,7 @@
 
 > From `PLAN-inspection-address-repair.md` (investigation/planning session 2026-07-06). The full
 > plan is preserved at
-> [TKT-075 evidence](../../../done/TKT-075-inspection-corpus-pipeline/evidence/operator-note.md).
+> [TKT-075 evidence](../../TKT-075-inspection-corpus-pipeline/evidence/operator-note.md).
 
 Root cause 6 (minor, verified): the decision save upserts on `UNIQUE(label)`, so two cases
 confirming the same address share one row (per-case trace only via `source_note` + audit) —

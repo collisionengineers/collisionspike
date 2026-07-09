@@ -1,11 +1,11 @@
 ---
 id: TKT-079
 title: Address picker polish — provider default chip, distance hints, show-more
-status: verify
+status: done
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-062, TKT-076, TKT-011]
-research-link: docs/tickets/verify/TKT-079-inspection-ui-provider-policy/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-079-inspection-ui-provider-policy/evidence/operator-note.md
 ---
 
 # Address picker polish — provider default chip, distance hints, show-more

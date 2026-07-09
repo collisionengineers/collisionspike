@@ -33,3 +33,9 @@ forward-looking today. Full narrative: `LIVE_FACTS.json` `verifiedBy`.
 FAILED narrowly — the provider/common chip half of acceptance line 4: fallback rows render foreign provider chips with no common/global distinction (scopeFallback unconsumed; same root finding as TKT-076). PASS live: corrected policy note wording on QDOS/PCH (TKT-129 wording, expected), IBA override requires a reason (confirm disabled while empty), provider chips + frequency hints, 4-row cap with Show 4 more / Show fewer, full handler-language audit clean. Distance hint + required_address class unobservable for data reasons (no postcode-bearing case; no required_address provider case in the queues). DISPOSITION: reopened verify->now for the shared common-chip fix.
 
 Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch, re-check of the failed line)
+
+VERIFIED-LIVE. The failed common-chip half is closed (same fix, same live evidence as TKT-076); the two new strings pass the handler-language audit; cap/show-more re-confirmed live; the scoped "Provider XXX" branch survives in the deployed bundle conditional. Distance-hint + required_address branches remain conforming expected absences (data/config preconditions).
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.

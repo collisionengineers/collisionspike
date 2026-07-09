@@ -149,8 +149,6 @@
 
 | ID | Title | State |
 |---|---|---|
-| [TKT-079](./verify/TKT-079-inspection-ui-provider-policy/TKT-079-inspection-ui-provider-policy.md) | Address picker polish — provider default chip, distance hints, show-more | Common-location indication shipped with TKT-076 — closes the narrow FAILED line. → verify. |
-| [TKT-076](./verify/TKT-076-inspection-provider-scope-proximity/TKT-076-inspection-provider-scope-proximity.md) | Inspection suggestions ignore the provider and distance — real scoping + nearest-first | scopeFallback consumed 2026-07-09 — Common-location chip/banner closes the verifier FAILED line. → verify. |
 | [TKT-023](./verify/TKT-023-follow-up-docs/TKT-023-follow-up-docs.md) | Link follow-up docs/emails to the existing case + Box | Chaser-responded hook at all four attach seams (unit-tested); everything else already live-proven. → verify. |
 | [TKT-052](./verify/TKT-052-merge-provider-loss/TKT-052-merge-provider-loss.md) | Merged image-only case loses the provider (merge logic) | decideMergeProvider shipped (ADR-0010-tested; provider-carrying side wins; emails re-pointed). → verify. |
 | [TKT-034](./verify/TKT-034-images-received-routing/TKT-034-images-received-routing.md) | Inbound images: match to case / Box / flag | Unmatched-images visible flag shipped; reg-keyed Box folder rung built DARK (BOX_REG_FOLDER_ENABLED, gated.md). → verify. |
@@ -191,6 +189,8 @@
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-079](./done/TKT-079-inspection-ui-provider-policy/TKT-079-inspection-ui-provider-policy.md) | Address picker polish — provider default chip, distance hints, show-more | VERIFIED-LIVE 2026-07-09 (re-check): common-chip half closed with TKT-076; language audit clean. → done. |
+| [TKT-076](./done/TKT-076-inspection-provider-scope-proximity/TKT-076-inspection-provider-scope-proximity.md) | Inspection suggestions ignore the provider and distance — real scoping + nearest-first | VERIFIED-LIVE 2026-07-09 (re-check): common-location banner + 8 labelled fallback rows live, zero foreign chips; all other lines stood. → done. |
 | [TKT-083](./done/TKT-083-misclass-instructions-unidentified/TKT-083-misclass-instructions-unidentified.md) | Instructions email left "Unidentified" despite detected signals | VERIFIED-LIVE 2026-07-09 (as amended): receiving_work live-proven; AND-arm adjudicated + pinned; FW seed row-confirmed. → done. |
 | [TKT-080](./done/TKT-080-inspection-reseed-live/TKT-080-inspection-reseed-live.md) | Reseed the live address catalogue + deploy and prove the whole inspection repair | VERIFIED-LIVE 2026-07-09 (adjudicated): repair chain live-proven; gates-block drift fixed; parser triage + SQL re-checks + TKT-062 hygiene closed; boxWebhook null = transient (12 x3 confirmations). → done. |
 | [TKT-070](./done/TKT-070-email-body-readability/TKT-070-email-body-readability.md) | Inbox email previews are one unreadable line — keep line breaks, cut noise | VERIFIED-LIVE 2026-07-09 (verifier): post-deploy intake stores the multi-line cleaned preview (impossible under the old path); QDOS pin 28/28; sniff unaffected. → done. |

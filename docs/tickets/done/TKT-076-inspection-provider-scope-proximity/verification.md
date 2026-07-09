@@ -39,3 +39,9 @@ Full narrative: `LIVE_FACTS.json` `verifiedBy` (2026-07-06 inspection-address re
 FAILED on one acceptance line; 4 of 6 live-proven. PASS live: provider scoping (QDOS 1 row ML6 8TA / PCH 1 row / FW 8-of-8 own rows freq-ordered 168-first / QCL corpus row confirmed), capped mixed-provider fallback at the wire (8 rows all scopeFallback:true — never the firehose), clean degradation to frequency order (no case postcode extractable in 80 scanned), nothing auto-confirms. FAILED: the fallback is never LABELLED in the SPA — scopeFallback has zero consumers in mockup-app/src, and fallback rows actively mislead with foreign "Provider XXX" chips. distanceMiles unobserved live (no postcode-bearing case; expected-absence branch). Side observation for the loop: the live v2 token carries roles ["CollisionSpike.Admin"] while the registry narrative says the role was renamed Superuser 2026-06-27 — registry/roles look queued. DISPOSITION: reopened verify->now; the scopeFallback banner/chip fix (shared with TKT-079) goes to the UI-fixup dispatch.
 
 Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch, re-check of the failed line)
+
+VERIFIED-LIVE. The sole FAILED line is closed: the held QCL case's Address tab now renders the banner "Showing common locations — none saved for this provider yet." and ALL 8 fallback rows carry "Common location — not specific to this provider" with ZERO foreign provider chips (DOM assertion + served-bundle grep of the exact ternary). All other lines stand from the earlier same-day pass. Orchestrator correction to one aside: AZURE_MAPS_KEY IS wired on cespk-api-dev (versioned KV ref, az readback in the TKT-080 pass) — the proximity branch is data-blocked (no postcode-bearing case), not config-blocked.
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.
