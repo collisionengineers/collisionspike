@@ -678,7 +678,7 @@ an unmatched billing/case_update/cancellation/query email with a reference or re
 its case **whatever the case's status** (terminals included — the billing-email fix), ambiguity is
 flagged never guessed, and un-linkable attempts are audited `retro_reconstruction_failed`. The
 existing un-linked pile drains one email at a time via the keyed starter — see
-[TKT-058/verification.md](./tickets/verify/TKT-058-retro-case-creation/verification.md) step 4.
+[TKT-058/verification.md](./tickets/now/TKT-058-retro-case-creation/verification.md) step 4.
 
 **Remaining (the Box reconstruction rung — R2 stays dark until ALL of these):**
 
@@ -828,10 +828,13 @@ and gates; it does not flip a live gate or create an app-registration.
    3b) — not shipped.
 
 **✅ Vision family — FLIPPED LIVE 2026-07-08 (was "deliberately deferred"):** on your instruction and with
-your **DPIA + UK data-residency sign-off confirmed 2026-07-08** (recorded in
-[data-protection.md §6a](./architecture/data-protection.md#6a-per-gate-production-sign-off--log)),
+your **DPIA + `gpt-5` GlobalStandard processing/data-residency-posture sign-off confirmed 2026-07-08** (recorded in
+[data-protection.md §6a](./architecture/data-protection.md#6a-per-gate-production-sign-off--log); the model is
+GlobalStandard — inference may process outside the UK, at-rest stays uksouth — so this is an accepted posture,
+**not** a UK-processing guarantee; the earlier "UK data-residency" label was corrected in the PR46 review),
 **`AI_ASSIST_ENABLED`** (TKT-015 `callModelForSuggestions` case/damage consumer) and **`IMAGE_ANALYSIS_ENABLED`**
-(TKT-016 producer, item 7 below) are now **`true` on `cespk-api-dev`**; TKT-017 (reg-OCR benchmark) is **done**;
+(TKT-016 producer, item 7 below) are now **`true` on `cespk-api-dev`** (with `OCR_FN_URL`/`OCR_FN_KEY` added
+2026-07-09 so the reg-OCR stage runs); TKT-017 (reg-OCR benchmark) is **done**;
 **TKT-068** attach UX is **deployed live** (SPA; human-confirmed — the model still gets no upload tool). Both
 model gates are **suggestion-only** (no autonomous mutation). **Still open:** the **behavioral E2E proof** is
 one operator/SPA Generate/attach action away (`az` can't mint an API-audience staff token); **TKT-018** total-loss

@@ -204,7 +204,7 @@ az functionapp config appsettings set -g rg-collisionspike-dev -n cespk-orch-dev
 
 **Verify:** `az functionapp config appsettings list` readback shows the ids on both apps; a facade
 `box/search` under a configured root returns 200; a known un-linked archived case reconstructs. Tracker:
-[TKT-058/verification.md](../../tickets/verify/TKT-058-retro-case-creation/verification.md).
+[TKT-058/verification.md](../../tickets/now/TKT-058-retro-case-creation/verification.md).
 
 ---
 
