@@ -18,6 +18,7 @@ v1/v1.1 codes — no backfill on a taxonomy bump):
 
     category  : receiving_work | query | billing | non_actionable | other
                 | case_update | cancellation                        (v2, additive)
+                | pre_instruction                                    (v3, additive)
     subtype   : existing_provider_instruction   (RECEIVING WORK · base instruction)
                 existing_provider_audit          (RECEIVING WORK · audit re-inspection)
                 new_client_work                  (RECEIVING WORK · new client)
@@ -30,6 +31,8 @@ v1/v1.1 codes — no backfill on a taxonomy bump):
                 images_received                    (CASE_UPDATE · v2 · images-only new evidence)
                 update_general                      (CASE_UPDATE · v2 · other new evidence)
                 cancellation_notice                (CANCELLATION · v2 · claim/instruction called off)
+                payment_remittance                 (BILLING · v3 · inbound payment notification)
+                pre_instruction_directions          (PRE_INSTRUCTION · v3 · held directions)
 
 Guiding bias — **abstain to ``other``.** A forwarded chain, a signature, an
 out-of-office reply or a bounce can throw a stray keyword or registration-shaped
@@ -114,6 +117,7 @@ import re
 from typing import Any
 
 from cedocumentmapper_v2.rules.engine import (
+    POSTCODE_AREAS,
     detect_audit_signals,
     vrm_candidate_is_bad,
     _match_keywords,
@@ -124,6 +128,8 @@ from cedocumentmapper_v2.rules.engine import (
     _CHASE_PHRASES,
     _SUMMARY_MARKERS,
     _CANCELLATION_PHRASES,
+    _PAYMENT_PHRASES,
+    _PRE_INSTRUCTION_PHRASES,
 )
 from cedocumentmapper_v2.rules.triage_rules import load_triage_rules
 
@@ -171,6 +177,16 @@ CATEGORY_OTHER = "other"
 #                     receiving_work.
 CATEGORY_CASE_UPDATE = "case_update"
 CATEGORY_CANCELLATION = "cancellation"
+# Taxonomy v3 (collisionspike TKT-084) — one more ADDITIVE top-level category:
+#   * pre_instruction — the sender is giving us DIRECTIONS to follow when the
+#                       official instruction later arrives ("when you receive an
+#                       instruction from RJ please hold off obtaining images").
+#                       Not yet an instruction (NO case may be minted), not noise
+#                       (the directions must be held and surfaced on the case the
+#                       later instruction mints — the orchestrator's correlation
+#                       job, gated TRIAGE_PRE_INSTRUCTION_ENABLED). The classifier
+#                       only proposes the label; holding/correlating is flow-side.
+CATEGORY_PRE_INSTRUCTION = "pre_instruction"
 
 # Subtype constants.
 SUBTYPE_EXISTING_PROVIDER_INSTRUCTION = "existing_provider_instruction"
@@ -186,12 +202,17 @@ SUBTYPE_OTHER = "other"
 SUBTYPE_IMAGES_RECEIVED = "images_received"      # CASE_UPDATE · attachments are images-only
 SUBTYPE_UPDATE_GENERAL = "update_general"        # CASE_UPDATE · any other new evidence
 SUBTYPE_CANCELLATION_NOTICE = "cancellation_notice"  # CANCELLATION · the only subtype today
+# Taxonomy v3 subtypes (collisionspike TKT-105/TKT-084).
+SUBTYPE_PAYMENT_REMITTANCE = "payment_remittance"    # BILLING · inbound payment notification
+SUBTYPE_PRE_INSTRUCTION_DIRECTIONS = "pre_instruction_directions"  # PRE_INSTRUCTION · held directions
 
 # Response envelope taxonomy generation. Bumped only when a category/subtype is
 # ADDED (never on a wording/confidence tweak) so a consumer (SPA filters, the
 # eval-corpus scorer, the DDL choicesets) can tell which codes a row may carry.
 # Existing rows keep their old-generation codes — no backfill.
-TAXONOMY_VERSION = 2
+# v3 (TKT-084/105): + pre_instruction · pre_instruction_directions,
+# + billing · payment_remittance.
+TAXONOMY_VERSION = 3
 
 # Provider-match states the flow passes in (mirrors the intake flow's domain
 # match: a known provider domain matched exactly one / none / more than one row).
@@ -271,6 +292,16 @@ _STRUCTURED_REF_RE = re.compile(
     r"|(?-i:[A-Z]{2,5})\s\d{3,4})\b",
     re.IGNORECASE,
 )
+#  (3) Money guard (collisionspike TKT-103): a currency amount is exactly the
+#      structured shape above ("768.00" = digits + '.' + digits), so the Tractable
+#      "AI Quote: £768.00" surfaced as the job reference. A token whose dotted tail
+#      is exactly TWO decimal digits is a money value, never a ref (every real
+#      dotted ref in the corpus carries a 1- or 3-4-digit sequence suffix —
+#      "206848.001", "45391_1" — never .NN). Comma-grouped thousands included.
+_MONEY_TOKEN_RE = re.compile(r"^\d{1,3}(?:,\d{3})*\.\d{2}$")
+#      A currency marker immediately before the token ("£768.00", "GBP 768.00")
+#      also disqualifies it, whatever the decimal shape.
+_CURRENCY_BEFORE_RE = re.compile(r"(?:[£$€]|\bGBP|\bEUR|\bUSD)\s*$", re.IGNORECASE)
 
 
 def _job_reference(text: str) -> str:
@@ -278,15 +309,30 @@ def _job_reference(text: str) -> str:
     uppercased / whitespace-stripped, or "". Distinct from CASEREF_RE: an ABOUT-EXISTING
     signal + linkReply hint only — too loose to mint a new Case, so it never feeds the
     new-client promotion arms. A labelled token must contain a digit (so "ref: see below"
-    is not mistaken for a reference)."""
+    is not mistaken for a reference). A MONEY value ("£768.00", "1,234.56") is never a
+    reference — TKT-103's Tractable estimate figures matched the structured shape."""
     if not text:
         return ""
+
+    def _is_money(token: str, start: int) -> bool:
+        compact = re.sub(r"\s+", "", token)
+        if _MONEY_TOKEN_RE.fullmatch(compact):
+            return True
+        # A currency CODE can be captured as the token's own alpha head
+        # ("GBP 487.32" -> "GBP487" via the spaced-principal alternative).
+        if re.match(r"^(?:GBP|EUR|USD)\d", compact, re.IGNORECASE):
+            return True
+        return bool(_CURRENCY_BEFORE_RE.search(text[max(0, start - 8):start]))
+
+    # First labelled match only (unchanged behaviour) — plus the money guard.
     m = _LABELLED_REF_RE.search(text)
-    if m and re.search(r"\d", m.group(1)):
+    if m and re.search(r"\d", m.group(1)) and not _is_money(m.group(1), m.start(1)):
         return re.sub(r"\s+", "", m.group(1)).upper()
-    m = _STRUCTURED_REF_RE.search(text)
-    if m:
-        return re.sub(r"\s+", "", m.group(1)).upper()
+    # Structured tier ITERATES so a money token earlier in the body ("£768.00")
+    # cannot mask a genuine structured ref later on.
+    for m in _STRUCTURED_REF_RE.finditer(text):
+        if not _is_money(m.group(1), m.start(1)):
+            return re.sub(r"\s+", "", m.group(1)).upper()
     return ""
 
 
@@ -375,16 +421,20 @@ def _delivered_images_only(kinds: Any, filenames: Any) -> bool:
     # BEFORE the all-image KIND fast-path — a set made only of signature images (whose kind is
     # `image`) must not short-circuit to True (PR#45 / TKT-043 review; kept in lockstep with the
     # orchestrator's deriveAttachmentSignals.deliveredImagesOnly).
-    non_signature = [
-        str(fn).strip()
-        for fn in (filenames or [])
-        if str(fn).strip() and not _SIGNATURE_IMAGE_RE.match(str(fn).strip())
-    ]
+    kind_set = {str(k).strip().lower() for k in (kinds or []) if str(k).strip()}
+    provided = [str(fn).strip() for fn in (filenames or []) if str(fn).strip()]
+    if not provided:
+        # The caller passed NO filenames at all (kinds-only request — the live
+        # /classify-email contract allows this). The signature screen cannot run
+        # without names, so fall back to the kind fast-path alone rather than
+        # denying images_received outright (the PR#45 signature guard only
+        # applies when filenames exist to screen).
+        return bool(kind_set) and kind_set.issubset(_IMAGE_KINDS)
+    non_signature = [fn for fn in provided if not _SIGNATURE_IMAGE_RE.match(fn)]
     if not non_signature:
         return False
     if _has_report_attachment(non_signature):
         return False
-    kind_set = {str(k).strip().lower() for k in (kinds or []) if str(k).strip()}
     if kind_set and kind_set.issubset(_IMAGE_KINDS):
         return True
     return all(_is_image_evidence_file(fn) for fn in non_signature)
@@ -528,6 +578,26 @@ _VRM_CONTEXT_WORDS: tuple[str, ...] = (
 )
 # How far either side of a loose candidate to look for a context word / postcode.
 _VRM_CONTEXT_WINDOW = 30
+# TIGHT anchor (collisionspike TKT-071): when a loose candidate's letters are a UK
+# postcode AREA (HD4110, LS8 — see engine.POSTCODE_AREAS), an anchor word merely
+# NEARBY is not enough (a letter of instruction mentions "vehicle" everywhere and
+# quotes the provider's own job ref, which is exactly postcode-shaped: HD4110).
+# The anchor must IMMEDIATELY precede the candidate ("reg HD4110",
+# "registration: HD4110") — this many chars of lookbehind, enough for
+# "registration:  " plus separators.
+_VRM_TIGHT_ANCHOR_WINDOW = 16
+_VRM_TIGHT_ANCHOR_RE = re.compile(
+    r"(?:reg(?:istration)?|vrm|vehicle|plate)\s*(?:no|number|mark)?\s*[:.\-#]?\s*$",
+    re.IGNORECASE,
+)
+
+
+def _loose_alpha_head_is_postcode_area(candidate: str) -> bool:
+    """True when the loose candidate's letter head is a UK postcode AREA prefix
+    (HD, LS, G, ...) — the shape a postcode fragment or a provider job ref
+    (HD4110) shares, requiring the TIGHT anchor instead of the nearby one."""
+    m = re.match(r"^([A-Z]{1,3})", re.sub(r"\s+", "", candidate).upper())
+    return bool(m) and m.group(1) in POSTCODE_AREAS
 
 # Common English words a WELL-FORMED VRM's 3-letter alpha group can accidentally
 # spell out of natural-language / model text ("Model X5 now …" -> "X5 NOW";
@@ -596,7 +666,16 @@ def _canonical_body_vrm(text: str) -> str:
         window = text[start:end]
         if vrm_candidate_is_bad(candidate, window):
             continue  # too short / postcode-outward / label word (B8, G3, BOX2, ...)
-        if not any(word in lowered[start:end] for word in _VRM_CONTEXT_WORDS):
+        # TKT-071: a candidate whose letter head is a UK postcode AREA (HD4110)
+        # shares its shape with postcode fragments and provider job refs, so a
+        # context word merely NEARBY does not license it — the anchor must
+        # IMMEDIATELY precede it ("reg HD4110" accepted; "FW: HD4110 - LETTER OF
+        # INSTRUCTION" with "vehicle" elsewhere rejected).
+        if _loose_alpha_head_is_postcode_area(candidate):
+            before = text[max(0, m.start() - _VRM_TIGHT_ANCHOR_WINDOW):m.start()]
+            if not _VRM_TIGHT_ANCHOR_RE.search(before):
+                continue
+        elif not any(word in lowered[start:end] for word in _VRM_CONTEXT_WORDS):
             continue  # dateless shape with no "reg/registration/vrm/vehicle/plate"
         return re.sub(r"\s+", "", candidate).upper()
     return ""
@@ -798,6 +877,15 @@ def classify_email(
           confidence band, it is not a gate: a cancellation with no ref at all is
           still a cancellation (the context-aware triage-policy layer decides the
           action).
+      0d. (taxonomy v3) An inbound-payment phrase (remittance advice / transfer
+          notice, sender scope) -> billing · payment_remittance. Before Rule 1
+          because the payment PDF's extension-derived kind is "instruction"
+          (TKT-105/120).
+      0e. (taxonomy v3) A pre-instruction phrase (directions for WHEN the later
+          official instruction arrives) + an identifier, with NO instruction doc,
+          <2 work phrases and no question -> pre_instruction ·
+          pre_instruction_directions (TKT-084; no case minted — the orchestrator
+          holds + correlates, gated TRIAGE_PRE_INSTRUCTION_ENABLED flow-side).
       1. Instruction doc attached (necessary but NOT sufficient — the kind is
          extension-derived), UNLESS the email is about EXISTING work — query-phrased
          OR a reply (``is_reply``) — with no NEW work language (suppressed -> falls
@@ -895,6 +983,10 @@ def classify_email(
     billing_phrases = _match_keywords(work_scope, _BILLING_KEYWORDS)
     informal_phrases = _match_keywords(work_scope, _INFORMAL_WORK_KEYWORDS)
     chase_phrases = _match_keywords(work_scope, _CHASE_PHRASES)
+    # Taxonomy v3 (TKT-105/120, TKT-084): inbound-payment and pre-instruction
+    # wording — sender-scoped like every other promotion signal.
+    payment_phrases = _match_keywords(work_scope, _PAYMENT_PHRASES)
+    pre_instruction_phrases = _match_keywords(work_scope, _PRE_INSTRUCTION_PHRASES)
     # Taxonomy v2 (TKT-041): a cancellation phrase is ALSO sender-scoped — a
     # cancellation quoted out of an OLDER message in the thread must not cancel a
     # DIFFERENT, currently-live one. ``cancellation_negated`` is the cheap "not
@@ -939,6 +1031,10 @@ def classify_email(
         signals.append("cancellation_keywords:" + ",".join(cancellation_phrases))
         if cancellation_negated:
             signals.append("cancellation_negated")
+    if payment_phrases:
+        signals.append("payment_keywords:" + ",".join(payment_phrases))
+    if pre_instruction_phrases:
+        signals.append("pre_instruction_keywords:" + ",".join(pre_instruction_phrases))
     if summary_markers:
         signals.append("summary_markers:" + ",".join(summary_markers))
     if audit_phrases:
@@ -1116,6 +1212,59 @@ def classify_email(
             "cancellation_notice",
         )
 
+    # --- Rule 0d: an inbound payment notification (TKT-105/120, taxonomy v3) ----
+    # A remittance advice / payment-transfer notice for work we already did. It
+    # typically carries a payment PDF whose extension-derived kind is
+    # "instruction", so it MUST be caught before the Rule-1 instruction-doc
+    # promotion — the live TKT-105 failure minted receiving_work·
+    # existing_provider_instruction from an Express Solicitors remittance advice.
+    # The phrase alone fires (like cancellation): a payment notice with no ref is
+    # still a payment notice. A named ref bands the confidence up. Routed to the
+    # BILLING category (the money-lane umbrella) under the v3 payment_remittance
+    # subtype — the mirror-image of billing_request (them asking for our invoice).
+    # KNOWN LIMIT: an automated remittance whose footer trips an auto-reply
+    # marker ("do not reply") abstains at Rule 0 before reaching here — extend
+    # Rule 0's override if a real miss of that shape turns up.
+    if payment_phrases:
+        payment_confidence = (
+            _CONFIDENCE_GOOD if (body_caseref or body_jobref) else _CONFIDENCE_WEAK
+        )
+        return _result(
+            CATEGORY_BILLING,
+            SUBTYPE_PAYMENT_REMITTANCE,
+            payment_confidence,
+            "payment_remittance",
+        )
+
+    # --- Rule 0e: pre-instruction directions (TKT-084, taxonomy v3) -------------
+    # The sender is telling us what to do WHEN the official instruction later
+    # arrives ("when you receive an instruction from RJ on this one please hold
+    # off from obtaining images"). Not yet an instruction — NO case may be minted
+    # — but not noise: the orchestrator holds the row and correlates it onto the
+    # case the later instruction mints (gated TRIAGE_PRE_INSTRUCTION_ENABLED,
+    # flow-side; the pure classifier only proposes the label). Precision guards:
+    #   * every phrase is anchored to a FUTURE-instruction reference (see
+    #     _PRE_INSTRUCTION_PHRASES) — a bare "hold off" never fires;
+    #   * an attached instruction doc disqualifies (the instruction IS here);
+    #   * >=2 formal work phrases disqualify (a genuine instruction that happens
+    #     to add "further instructions to follow" stays receiving_work);
+    #   * an identifier is required (a VRM or any reference) so an unanchored
+    #     "instructions will follow" newsletter abstains;
+    #   * a question/chase defers to the query rules (asks > directs).
+    if (
+        pre_instruction_phrases
+        and not has_instruction_doc
+        and len(work_phrases) < 2
+        and (body_vrm or body_caseref or body_jobref)
+        and not query_or_chase
+    ):
+        return _result(
+            CATEGORY_PRE_INSTRUCTION,
+            SUBTYPE_PRE_INSTRUCTION_DIRECTIONS,
+            _CONFIDENCE_GOOD,
+            "pre_instruction_directions",
+        )
+
     # --- Rule 1: an instruction document is necessary but NOT sufficient --------
     # The attachment kind is derived from the file extension alone (.pdf/.doc/.docx
     # -> "instruction"), so a spam flyer, invoice, statement, newsletter or forwarded
@@ -1222,6 +1371,14 @@ def classify_email(
     # instruction that has a work phrase + a body VRM + an existing job/Case reference and
     # asks no question: the ref-plus-VRM corroboration substitutes for the second phrase.
     # Gated to non-reply + no-query + not-suppressed so a chase/ack reply cannot slip in.
+    #
+    # ADJUDICATED 2026-07-09 (PLAN-003): the ticket's original acceptance asked for
+    # "ref OR VRM" here. An A/B over the FULL 52-item eval corpus showed the OR
+    # widening fixes ZERO items and regresses ONE — the real hold-request email
+    # ("place this file on hold ... until further instructions", a work phrase + a
+    # ref, no VRM) would leave the abstain lane and promote to receiving_work,
+    # i.e. a hold request would MINT a case. The AND (ref + VRM both) therefore
+    # STANDS; see tkt041-06 and the vrm+ref pin below.
     strong_body_instruction = (
         (len(work_phrases) >= 2 and (body_caseref or body_vrm))
         or (

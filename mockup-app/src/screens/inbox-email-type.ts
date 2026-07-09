@@ -23,6 +23,8 @@ export const CATEGORY_ORDER: InboundCategory[] = [
   'receiving_work',
   'query',
   'case_update',
+  // Taxonomy v3 (TKT-084) — directions held for a later official instruction.
+  'pre_instruction',
   'cancellation',
   'billing',
   'non_actionable',
@@ -33,6 +35,7 @@ export const CATEGORY_LABEL: Record<InboundCategory, string> = {
   receiving_work: 'Receiving work',
   query: 'Queries',
   case_update: 'Case updates',
+  pre_instruction: 'Pre-instruction',
   cancellation: 'Cancellations',
   billing: 'Billing',
   non_actionable: 'No action',
@@ -52,6 +55,9 @@ export const SUBTYPE_LABEL: Record<InboundSubtype, string> = {
   images_received: 'Images received',
   cancellation_notice: 'Cancellation notice',
   update_general: 'Case update',
+  // Taxonomy v3 (TKT-105/120 + TKT-084).
+  payment_remittance: 'Payment received',
+  pre_instruction_directions: 'Pre-instruction directions',
   other: 'Unidentified',
 };
 
@@ -66,8 +72,11 @@ export const SUBTYPES_BY_CATEGORY: Record<InboundCategory, InboundSubtype[]> = {
   // The Enquiries-vs-Case-Queries split (TKT-034) lives here, as the two query subtypes.
   query: ['query_existing_work', 'query_new_enquiry'],
   case_update: ['images_received', 'update_general'],
+  pre_instruction: ['pre_instruction_directions'],
   cancellation: ['cancellation_notice'],
-  billing: ['billing_request'],
+  // payment_remittance (taxonomy v3, TKT-105/120): an inbound remittance advice /
+  // transfer notice — the mirror-image of the invoice request.
+  billing: ['billing_request', 'payment_remittance'],
   non_actionable: ['case_summary', 'acknowledgement'],
   other: ['other'],
 };

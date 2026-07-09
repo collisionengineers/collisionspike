@@ -347,6 +347,7 @@ function countInbound(rows: InboundEmail[]): InboundCounts {
     non_actionable: active.filter((r) => r.category === 'non_actionable').length,
     case_update: active.filter((r) => r.category === 'case_update').length,
     cancellation: active.filter((r) => r.category === 'cancellation').length,
+    pre_instruction: active.filter((r) => r.category === 'pre_instruction').length,
     other: active.filter((r) => r.category === 'other').length,
     untriaged: active.filter((r) => r.triageState === 'new').length,
   };

@@ -152,7 +152,7 @@ yourself — no automated live move will be run).
 
 **Verify:** the email moves in Outlook, the row reads "Filed to …" and flips to Handled, and `audit_event`
 carries `outlook_move_requested` → `outlook_moved`. Record the result in
-[TKT-054/verification.md](../../tickets/verify/TKT-054-ui-work/verification.md).
+[TKT-054/verification.md](../../tickets/done/TKT-054-ui-work/verification.md).
 
 ---
 

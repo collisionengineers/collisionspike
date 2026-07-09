@@ -134,6 +134,8 @@ const CATEGORY_DEFINITIONS: Partial<Record<InboundCategory, string>> = {
   non_actionable: 'A short receipt/acknowledgement/no-action-needed message (e.g. "thanks", an auto-reply).',
   case_update: 'New information — evidence, photographs, or an answer — for a case already open.',
   cancellation: 'A claim or case reported cancelled, closed, or withdrawn.',
+  pre_instruction:
+    'Directions to follow when a formal instruction arrives later — no instruction yet, so no case should be opened.',
 };
 
 const SUBTYPE_DEFINITIONS: Partial<Record<InboundSubtype, string>> = {
@@ -150,6 +152,9 @@ const SUBTYPE_DEFINITIONS: Partial<Record<InboundSubtype, string>> = {
   images_received: 'Photographs with no other new instruction content.',
   cancellation_notice: 'The usual subtype for a cancellation report.',
   update_general: 'New information on an existing case that is not photographs alone.',
+  payment_remittance:
+    'A payment made TO us — a remittance advice or transfer notice for work already done (not a request for our invoice).',
+  pre_instruction_directions: 'The usual subtype for pre-instruction directions.',
 };
 
 function categoryLine(name: InboundCategory): string {

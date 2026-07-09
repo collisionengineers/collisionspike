@@ -33,6 +33,7 @@
  *  POST /api/internal/triage/context                 → { openCaseMatches, duplicateInternetMessageId, conversationSiblingCaseIds } (rules-engine-v2 Phase 2)
  *  POST /api/internal/triage/suggest-link             → { suggestionId, created } (rules-engine-v2 Phase 2;
  *                                                         suggestionType 'triage_category' added Phase 4)
+ *  POST /api/internal/triage/held-pre-instruction     → { held: [{ inboundEmailId, sourceMessageId, matchedOn }] } (TKT-084, taxonomy v3)
  *  POST /api/internal/inbound/{id}/outlook-moved      → 204 (TKT-054 Outlook-filing outcome report)
  */
 
@@ -1861,6 +1862,69 @@ app.http('internalTriageSuggestLink', {
 
       ctx.log(JSON.stringify({ evt: 'triageSuggestLink', suggestionType, suggestionId, targetCaseId, autoAttached }));
       return { status: 200, jsonBody: { suggestionId, created: true, ...(autoAttached ? { autoAttached: true } : {}) } };
+    }),
+});
+
+/* ============================================================
+   POST /api/internal/triage/held-pre-instruction  (TKT-084, taxonomy v3)
+   Called by: the orchestration `correlatePreInstruction` activity after a case
+   mints, to FIND held pre-instruction rows that appear to belong to the new case
+   (the sender gave directions BEFORE the official instruction arrived). READ-ONLY:
+   the caller writes the actual suggestion via the existing
+   /api/internal/triage/suggest-link route (suggest-first — pre-instruction
+   correlation is typically VRM-anchored, and VRM-only never auto-attaches, per the
+   ADR-0019 promotion doctrine). A held row = category pre_instruction, no case
+   link yet, triage_state 'new'. Matching is exact (case-insensitive) on
+   body_vrm / body_caseref / body_jobref; at least one key is required (400
+   otherwise). Capped at 5 newest rows — a correlation sweep, not a search API.
+   ============================================================ */
+app.http('internalTriageHeldPreInstruction', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/triage/held-pre-instruction',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const body = (await req.json().catch(() => ({}))) as {
+        vrm?: string;
+        caseRef?: string;
+        jobRef?: string;
+      };
+      const vrm = (body.vrm ?? '').trim();
+      const caseRef = (body.caseRef ?? '').trim();
+      const jobRef = (body.jobRef ?? '').trim();
+      if (!vrm && !caseRef && !jobRef) {
+        return { status: 400, jsonBody: { error: 'at least one of vrm, caseRef, jobRef is required' } };
+      }
+
+      const rows = await query<Row>(
+        `SELECT ie.id, ie.source_message_id, ie.body_vrm, ie.body_caseref, ie.body_jobref
+           FROM inbound_email ie
+           JOIN choice_inbound_category c ON c.code = ie.category_code
+          WHERE c.name = 'pre_instruction'
+            AND ie.case_id IS NULL
+            AND ie.triage_state = 'new'
+            AND (
+                  ($1 <> '' AND upper(ie.body_vrm) = upper($1))
+               OR ($2 <> '' AND upper(ie.body_caseref) = upper($2))
+               OR ($3 <> '' AND upper(ie.body_jobref) = upper($3))
+            )
+          ORDER BY ie.created_at DESC
+          LIMIT 5`,
+        [vrm, caseRef, jobRef],
+      );
+
+      const held = rows.map((r) => ({
+        inboundEmailId: r.id as string,
+        sourceMessageId: (r.source_message_id as string | null) ?? null,
+        matchedOn:
+          vrm && (r.body_vrm as string | null)?.toUpperCase() === vrm.toUpperCase()
+            ? 'vrm'
+            : caseRef && (r.body_caseref as string | null)?.toUpperCase() === caseRef.toUpperCase()
+              ? 'case_ref'
+              : 'job_ref',
+      }));
+      ctx.log(JSON.stringify({ evt: 'heldPreInstruction', matches: held.length }));
+      return { status: 200, jsonBody: { held } };
     }),
 });
 

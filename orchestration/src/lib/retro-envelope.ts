@@ -13,7 +13,7 @@
  * Durable harness.
  */
 
-import { extractVrm } from '@cs/domain';
+import { cleanEmailBodyForPreview, extractVrm } from '@cs/domain';
 import type { InboundEnvelope } from '../functions/activities/fetchMessage.js';
 import { hashPayload } from '../functions/activities/fetchMessage.js';
 import type { ExplodedEml } from './functions-client.js';
@@ -59,7 +59,9 @@ export function buildRetroEnvelopeFromEml(
   const subject = (exploded.subject ?? '').trim();
   const senderAddress = firstAddress(exploded.from);
   const body = (exploded.body_text ?? '').slice(0, 20_000);
-  const bodyPreview = body.replace(/\s+/g, ' ').trim().slice(0, 3_500);
+  // TKT-070: same readable-preview recipe as the live fetchMessage path (preview only —
+  // the full `body` still feeds the VRM sniff below and the parser unchanged).
+  const bodyPreview = cleanEmailBodyForPreview(body).slice(0, 3_500);
   return {
     messageId: `retro-box-${meta.boxFileId}`,
     internetMessageId: (exploded.message_id ?? '').trim() || `retro:box:${meta.boxFileId}`,

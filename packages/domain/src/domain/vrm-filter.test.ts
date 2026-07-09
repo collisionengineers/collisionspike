@@ -82,3 +82,58 @@ describe('extractVrm — loose dateless only with an anchor', () => {
     expect(extractVrm(null)).toBe('');
   });
 });
+
+/* ----------  TKT-071 — proximity anchoring + the postcode-area tight anchor  ---------- */
+
+describe('extractVrm — proximity anchoring (TKT-071)', () => {
+  it('rejects the live HD4110 job-ref subject (no immediately-preceding anchor)', () => {
+    expect(extractVrm('***URGENT*** FW: HD4110 - LETTER OF INSTRUCTION')).toBe('');
+  });
+  it('rejects HD4110 even when an anchor word sits elsewhere in the document', () => {
+    // Before TKT-071 the anchor test was document-wide, so any "vehicle" anywhere
+    // in a letter of instruction licensed every loose token in it.
+    expect(
+      extractVrm('***URGENT*** FW: HD4110 - LETTER OF INSTRUCTION\nplease inspect the vehicle'),
+    ).toBe('');
+  });
+  it('accepts a postcode-area dateless plate with a TIGHT (immediately-preceding) anchor', () => {
+    expect(extractVrm('registration HD4110 as advised')).toBe('HD4110');
+    expect(extractVrm('reg: HD4110')).toBe('HD4110');
+  });
+  it('rejects a non-postcode-area loose token whose anchor is far away (>40 chars)', () => {
+    expect(
+      extractVrm('vehicle damage assessment for the client as discussed previously ....... KL1234'),
+    ).toBe('');
+  });
+  it('accepts a non-postcode-area loose token with a nearby anchor', () => {
+    expect(extractVrm('the vehicle plate KL1234 is unchanged')).toBe('KL1234');
+  });
+});
+
+/* ----------  TKT-100 — prose function-word heads are never a mark  ---------- */
+
+describe('extractVrm — function-word loose heads (TKT-100)', () => {
+  it('rejects the live QDOS footer AND2 shape even near an anchor word', () => {
+    expect(
+      extractVrm('Your vehicle claim. C/O Higsons, Offices 1 and 2, 1A King Street, Farnworth'),
+    ).toBe('');
+  });
+  for (const prose of ['vehicle and 2 keys', 'the 4 vehicles on site', 'vehicle for 2 weeks']) {
+    it(`rejects prose "${prose}"`, () => {
+      expect(extractVrm(prose)).toBe('');
+    });
+  }
+});
+
+/* ----------  TKT-085 — month / day words are never a mark  ---------- */
+
+describe('extractVrm — month/day words (TKT-085)', () => {
+  for (const word of ['OCTOBER', 'JANUARY', 'MONDAY', 'SUNDAY']) {
+    it(`rejects "registration ${word}"`, () => {
+      expect(extractVrm(`registration ${word}`)).toBe('');
+    });
+  }
+  it('still extracts the real mark next to a date word', () => {
+    expect(extractVrm('inspected on MONDAY, vehicle MX17 PNL')).toBe('MX17PNL');
+  });
+});

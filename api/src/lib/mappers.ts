@@ -525,6 +525,8 @@ const INBOUND_CATEGORY_BY_INT: Record<number, InboundCategory> = {
   100000004: 'non_actionable',
   100000005: 'case_update',
   100000006: 'cancellation',
+  // Taxonomy v3 (TKT-084) — see deltas/2026-07-09-taxonomy-v3-pre-instruction-payments.sql.
+  100000007: 'pre_instruction',
 };
 export const INBOUND_CATEGORY_TO_INT: Record<InboundCategory, number> = {
   receiving_work: 100000000,
@@ -534,6 +536,7 @@ export const INBOUND_CATEGORY_TO_INT: Record<InboundCategory, number> = {
   non_actionable: 100000004,
   case_update: 100000005,
   cancellation: 100000006,
+  pre_instruction: 100000007,
 };
 const INBOUND_SUBTYPE_BY_INT: Record<number, InboundSubtype> = {
   100000000: 'existing_provider_instruction',
@@ -549,6 +552,9 @@ const INBOUND_SUBTYPE_BY_INT: Record<number, InboundSubtype> = {
   100000010: 'images_received',
   100000011: 'cancellation_notice',
   100000012: 'update_general',
+  // Taxonomy v3 (TKT-105/120 + TKT-084).
+  100000013: 'payment_remittance',
+  100000014: 'pre_instruction_directions',
 };
 export const INBOUND_SUBTYPE_TO_INT: Record<InboundSubtype, number> = {
   existing_provider_instruction: 100000000,
@@ -564,6 +570,8 @@ export const INBOUND_SUBTYPE_TO_INT: Record<InboundSubtype, number> = {
   images_received: 100000010,
   cancellation_notice: 100000011,
   update_general: 100000012,
+  payment_remittance: 100000013,
+  pre_instruction_directions: 100000014,
 };
 export const TRIAGE_STATES: readonly TriageState[] = ['new', 'routed', 'actioned', 'dismissed'];
 const CLASSIFIER_MODES: readonly ClassifierMode[] = ['deterministic', 'llm', 'human'];
@@ -805,6 +813,7 @@ export function tallyActiveInboundCounts(
     non_actionable: 0,
     case_update: 0,
     cancellation: 0,
+    pre_instruction: 0,
     other: 0,
     untriaged: 0,
   };

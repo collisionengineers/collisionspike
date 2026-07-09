@@ -68,6 +68,7 @@ import {
   MailCheck,
   MailQuestion,
   MoreHorizontal,
+  Hourglass,
   Paperclip,
   PencilLine,
   Receipt,
@@ -168,6 +169,8 @@ const CATEGORY_ICON: Record<InboundCategory, typeof Briefcase> = {
   receiving_work: Briefcase,
   query: MailQuestion,
   case_update: RotateCcw,
+  // Taxonomy v3 (TKT-084) — directions held for a later instruction.
+  pre_instruction: Hourglass,
   cancellation: Ban,
   billing: Receipt,
   non_actionable: MailCheck,

@@ -16,6 +16,7 @@
 
 import * as df from 'durable-functions';
 import { describeEvidence, INBOUND_CATEGORIES, type InboundCategory } from '@cs/domain';
+import { gates } from '@cs/domain/gates';
 import { callClassifyEmail } from '../../lib/functions-client.js';
 import { dataApi } from '../../lib/data-api.js';
 import type { InboundEnvelope } from './fetchMessage.js';
@@ -65,6 +66,28 @@ const MATCH_STATE_TO_CLASSIFIER: Record<string, string> = {
  *  taxonomy-v2 engine tag ships. */
 const KNOWN_CATEGORIES = new Set<InboundCategory>(INBOUND_CATEGORIES);
 
+/**
+ * Pure narrowing + gating of the engine's raw category/subtype (exported for unit
+ * tests). Unknown category -> 'other' (defensive narrowing, unchanged). A
+ * 'pre_instruction' verdict while TRIAGE_PRE_INSTRUCTION_ENABLED is off is DEMOTED to
+ * 'other'/'other' (TKT-084 kill-switch: the taxonomy-v3 engine may deploy ahead of the
+ * lane going live; gate-off output must be indistinguishable from today's).
+ */
+export function resolveActingClassification(
+  rawCategory: string,
+  rawSubtype: string,
+  preInstructionGateOn: boolean,
+): { category: InboundCategory; subtype: string; demoted: boolean } {
+  const category: InboundCategory = KNOWN_CATEGORIES.has(rawCategory as InboundCategory)
+    ? (rawCategory as InboundCategory)
+    : 'other';
+  const subtype = rawSubtype || 'other';
+  if (category === 'pre_instruction' && !preInstructionGateOn) {
+    return { category: 'other', subtype: 'other', demoted: true };
+  }
+  return { category, subtype, demoted: false };
+}
+
 function domainOf(address: string): string {
   const at = address.lastIndexOf('@');
   return at >= 0 ? address.slice(at + 1).toLowerCase().trim() : '';
@@ -113,13 +136,27 @@ df.app.activity('classifyInbound', {
 
     const res = await callClassifyEmail(buildClassifyRequest(inbound, matchState));
 
-    const category: InboundCategory = KNOWN_CATEGORIES.has(res.category as InboundCategory)
-      ? (res.category as InboundCategory)
-      : 'other';
+    // TKT-084 kill-switch lives in the pure helper above; the demotion is logged so a
+    // gated-off period is auditable in App Insights.
+    const acting = resolveActingClassification(
+      res.category ?? '',
+      res.subtype ?? '',
+      gates.triagePreInstruction(),
+    );
+    if (acting.demoted) {
+      ctx.log(
+        JSON.stringify({
+          evt: 'classifyInbound',
+          messageId: inbound.messageId,
+          demoted: 'pre_instruction->other (TRIAGE_PRE_INSTRUCTION_ENABLED off)',
+        }),
+      );
+    }
+    const { category, subtype } = acting;
 
     const classification: InboundClassification = {
       category,
-      subtype: res.subtype || 'other',
+      subtype,
       confidence: res.confidence ?? 0,
       signals: res.signals ?? [],
       bodyVrm: res.body_vrm ?? '',

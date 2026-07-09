@@ -29,6 +29,30 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-09 (PLAN-003 classifier wave — collisionspike TKT-022/070/071/083/084/085/086/097/100/103/105/120):**
+re-cut from the sibling at **`engine-v2.10`** (branch `feat/tkt043-open-case-ref-context`, commit
+`8e7f2f7`), INCLUDING a **deliberate providers.json seed update** (the new **CDQ** claimant-questionnaire
+claim-form provider — TKT-022). **TAXONOMY v3** (bump 2→3): +`pre_instruction` ·
+`pre_instruction_directions` (TKT-084, operator-signed-off; Rule 0e, future-instruction-anchored
+`pre_instruction_phrases`) and +`billing` · `payment_remittance` (TKT-105/120; Rule 0d
+`payment_phrases` — an inbound remittance/transfer notice routes to the payments lane BEFORE the
+Rule-1 instruction-doc promotion). **Deploy-order:** the taxonomy-v3 DDL delta
+(`migration/assets/schema/deltas/2026-07-09-taxonomy-v3-pre-instruction-payments.sql`, codes
+100000007 / 100000013-100000014) was applied + verified live BEFORE this tree deployed. Other changes
+riding this cut: the VRM guards (month/day-word + function-word-head denylists, all-alpha rejection
+in `_is_suspicious_value`, the postcode-area TIGHT anchor in `_canonical_body_vrm` — TKT-085/100/071);
+the `_job_reference` MONEY guard (TKT-103 — "£768.00" is never a reference; structured tier iterates
+past money tokens); cancellation phrases +2 ("not wish to proceed" family — TKT-097);
+`_delivered_images_only` kinds-only fallback (fixes the PR#45-era images_received→update_general
+regression when a caller passes kinds but no filenames); the TKT-083 arm ADJUDICATION comment + pin
+(ref-AND-VRM stands — the OR widening regressed the abstain lane in a full-corpus A/B); the
+`cdq_claim_form` extraction method + `method: "none"` rule kind + `suppress_default_work_provider`
+(migration + engine + schema enums). Deployed to `cespike-parser-dev-x7xt3d5ovhi7y` 2026-07-09
+(`func publish --build remote`); live `/classify-email` probes verified payment_remittance /
+pre_instruction (taxonomy_version 3) / the new cancellation phrase / body_vrm='' on the HD4110 shape.
+Byte-mirror restored (drift guard green); sibling suite 381 passed.
+
+
 **2026-07-08 (signature-aware `_delivered_images_only` — collisionspike PR#45 review, Finding C):**
 this vendored copy is now re-cut from the sibling at **`engine-v2.9`** (branch
 `feat/tkt043-open-case-ref-context`, commit `130e862`). One file, `rules/email_classifier.py`:
@@ -364,3 +388,4 @@ shared file must now be byte-identical (`git -C $S diff --stat` against the
 ref should show nothing beyond what you intended to change). If it isn't,
 STOP and reconcile before committing — see "Reconciliations" above for the
 pattern to use if a genuine new divergence is unavoidable.
+

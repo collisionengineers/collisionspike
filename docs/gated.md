@@ -298,7 +298,7 @@ yourself — no automated live move test will be run.**
 4. ⏳ **PENDING — live-test yourself** once steps 1–2 land: click "File to …" on a test row in the
    inbox; the email should move in Outlook, the row should read "Filed to …" and flip to Handled,
    and `audit_event` should carry `outlook_move_requested` → `outlook_moved`. Record the result in
-   [tickets/TKT-054-ui-work/verification.md](./tickets/verify/TKT-054-ui-work/verification.md).
+   [tickets/TKT-054-ui-work/verification.md](./tickets/done/TKT-054-ui-work/verification.md).
 
 ---
 

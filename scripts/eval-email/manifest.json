@@ -838,7 +838,7 @@
     },
     {
       "id": "tkt081-ack-greeting-preceded",
-      "file": "docs/tickets/verify/TKT-081-misclass-ack-batch/evidence/sample-1/RE Mr Abu Zaid Rasool - PE19UDH - 06_10_2025.eml",
+      "file": "docs/tickets/done/TKT-081-misclass-ack-batch/evidence/sample-1/RE Mr Abu Zaid Rasool - PE19UDH - 06_10_2025.eml",
       "source": "ticket:TKT-081",
       "tracked": true,
       "context": {
@@ -853,7 +853,7 @@
     },
     {
       "id": "tkt081-ack-automated-blank-case",
-      "file": "docs/tickets/verify/TKT-081-misclass-ack-batch/evidence/sample-2/Thank you for your email.eml",
+      "file": "docs/tickets/done/TKT-081-misclass-ack-batch/evidence/sample-2/Thank you for your email.eml",
       "source": "ticket:TKT-081",
       "tracked": true,
       "context": {
@@ -868,7 +868,7 @@
     },
     {
       "id": "tkt081-ack-reaction-notice",
-      "file": "docs/tickets/verify/TKT-081-misclass-ack-batch/evidence/sample-3/RE RE Re RE RTA135600.001  -  Mr G Pashapour - WG19 SFU.eml",
+      "file": "docs/tickets/done/TKT-081-misclass-ack-batch/evidence/sample-3/RE RE Re RE RTA135600.001  -  Mr G Pashapour - WG19 SFU.eml",
       "source": "ticket:TKT-081",
       "tracked": true,
       "context": {
@@ -883,7 +883,7 @@
     },
     {
       "id": "tkt081-ack-greeting-thanks-clause",
-      "file": "docs/tickets/verify/TKT-081-misclass-ack-batch/evidence/sample-4/RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ.eml",
+      "file": "docs/tickets/done/TKT-081-misclass-ack-batch/evidence/sample-4/RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ.eml",
       "source": "ticket:TKT-081",
       "tracked": true,
       "context": {
@@ -950,14 +950,116 @@
       "source": "ticket:TKT-083",
       "tracked": true,
       "context": {
-        "provider_match_state": "none"
+        "provider_match_state": "one"
       },
       "expected_v1": {
         "category": "receiving_work",
-        "subtype": "new_client_work"
+        "subtype": "existing_provider_instruction"
       },
       "expected_v2": null,
-      "rationale": "TKT-083: a body-only 'New INSTRUCTIONS:' email with a full identifier set (job ref 30230-01 + VRM BV72YVB) but only ONE work phrase abstained to other under Rule 3's two-phrase floor. The relaxed floor (one work phrase + VRM + existing ref, fresh non-query mail) promotes it to receiving_work so a case is opened. new_client_work because fairwaylegal.co.uk is not yet live in the domain corpus (operator-reviewable add)."
+      "rationale": "TKT-083: a body-only 'New INSTRUCTIONS:' email with a full identifier set (a labelled job ref + a VRM) but only ONE work phrase abstained to other under Rule 3's two-phrase floor. The relaxed floor (one work phrase + VRM + existing ref, fresh non-query mail) promotes it. RECONCILED 2026-07-09 (PLAN-003): the sender's organisation (Fairway Legal, FW) IS an established provider — seed 916 Section A applied its domain 2026-07-03 and live providerMatch hits show from 2026-07-06 — so provider_match_state is one and the subtype upgrades to existing_provider_instruction (the earlier none/new_client_work labelling assumed the domain was unseeded). ALSO ADJUDICATED here: the ticket's ref-OR-VRM widening of the second Rule-3 arm was A/B'd over this full corpus — it fixed zero items and promoted the real hold-request email (tkt041-06) into receiving_work (a mint), so the ref-AND-VRM arm STANDS."
+    },
+    {
+      "id": "tkt097-oakwood-cancellation",
+      "file": "docs/tickets/now/TKT-097-cancellation-misclass-query/evidence/RE Oakwood Scotland Soliciutors- Instructions.eml",
+      "source": "ticket:TKT-097",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "other",
+        "subtype": "other"
+      },
+      "expected_v2": {
+        "category": "cancellation",
+        "subtype": "cancellation_notice"
+      },
+      "rationale": "TKT-097: the live cancellation miss TKT-041 was awaiting — a reply from an established provider (Oakwood) whose sender writes a does-not-wish-to-proceed line, with signature images attached and a report-word in the text. Pre-fix it promoted via the images+work-signal rule; the 'not wish to proceed' cancellation phrase (added this wave) wins at the highest-precedence cancellation rung. v1 pins other/other per the tkt041 convention (v1 had no cancellation concept)."
+    },
+    {
+      "id": "tkt105-remittance-advice",
+      "file": "docs/tickets/now/TKT-105-remittance-payments-category/evidence/Remittance advice.eml",
+      "source": "ticket:TKT-105",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "other",
+        "subtype": "other"
+      },
+      "expected_v2": {
+        "category": "billing",
+        "subtype": "payment_remittance"
+      },
+      "rationale": "TKT-105: a real remittance advice (a solicitor firm notifying payment, remittance PDF attached whose extension-derived kind is 'instruction'). Pre-fix it promoted to receiving_work at Rule 1 off the PDF kind + a provider-ish sender; the payments lane (Rule 0d, taxonomy v3) routes it to billing/payment_remittance. provider_match_state none — the sending firm is not an established work provider in the engine corpus."
+    },
+    {
+      "id": "tkt120-fairway-transfer-synthetic",
+      "file": "docs/tickets/now/TKT-120-fairway-payment-misclass/evidence/synthetic-fairway-transfer.eml",
+      "source": "ticket:TKT-120",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "other",
+        "subtype": "other"
+      },
+      "expected_v2": {
+        "category": "billing",
+        "subtype": "payment_remittance"
+      },
+      "rationale": "TKT-120: a SYNTHETIC replica of the FAIRWAY LEGAL payment-transfer email (the original's content is unavailable — PII-scrubbed telemetry only; shape reconstructed from the operator note: transfer/settlement wording from a matched provider sender). Pre-fix the rules left it other/other and the AI assist rung mislabelled it receiving_work; the payments lane (Rule 0d) routes the transfer wording to billing/payment_remittance."
+    },
+    {
+      "id": "tkt084-preinstruction-directions",
+      "file": "docs/tickets/now/TKT-084-pre-instruction-handling/evidence/New claim - Mrs Mihaela Ioana Rus - SA61 JXB.eml",
+      "source": "ticket:TKT-084",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "other",
+        "subtype": "other"
+      },
+      "expected_v2": {
+        "category": "pre_instruction",
+        "subtype": "pre_instruction_directions"
+      },
+      "rationale": "TKT-084 (operator-signed-off 2026-07-09): directions for WHEN the official instruction arrives ('when you receive an instruction from RJ on this one please hold off…'), identified by a VRM, no attachments — the pre_instruction lane (taxonomy v3). No case is minted; holding + correlation onto the later instruction's case is flow-side behind TRIAGE_PRE_INSTRUCTION_ENABLED. v1 pins other/other (the lane did not exist)."
+    },
+    {
+      "id": "tkt100-qdos-lead",
+      "file": "docs/tickets/now/TKT-100-qdos-false-vrm-and2/evidence/46533_1 - Barry Pavlou..eml",
+      "source": "ticket:TKT-100",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "one"
+      },
+      "expected_v1": {
+        "category": "receiving_work",
+        "subtype": "existing_provider_instruction"
+      },
+      "expected_v2": null,
+      "rationale": "TKT-100: a real QDOS lead (instruction doc attached, established provider). The false 'AND2' registration came from the TS intake sniff's document-wide anchor licensing a prose fragment in the sender's accountant-address footer — fixed by proximity anchoring + the function-word head guard, pinned in BOTH engines' unit suites (the eval scorer asserts labels, not extracted tokens). This item pins the label so the QDOS layout stays covered."
+    },
+    {
+      "id": "tkt103-tractable-lead",
+      "file": "docs/tickets/backlog/TKT-102-tractable-received-handling/evidence/tractableexamples/✅ New completed lead Book Jenosampaul  in today.eml",
+      "source": "ticket:TKT-103",
+      "tracked": true,
+      "context": {
+        "provider_match_state": "none"
+      },
+      "expected_v1": {
+        "category": "other",
+        "subtype": "other"
+      },
+      "expected_v2": null,
+      "rationale": "TKT-103: a Tractable automated lead (unseeded sender, PDF attached). The engine used to surface its estimate figure as the job reference — the money guard now keeps currency amounts out of body_jobref (pinned in both engines' unit suites; the scorer asserts labels, not tokens). The label stays the abstain until TKT-102 (backlog) defines the Tractable handling lane — re-label this item when that ships."
     },
     {
       "id": "tkt093-forward-audatex-caseupdate",

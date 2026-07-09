@@ -174,6 +174,24 @@ export interface TriageSuggestLinkResult {
   created: boolean;
 }
 
+/** POST /api/internal/triage/held-pre-instruction request/response (TKT-084, taxonomy
+ *  v3). FIND-only: held pre-instruction rows (category pre_instruction, no case link,
+ *  triage_state 'new') matching the newly-minted case's identifiers — the caller writes
+ *  the actual case_link suggestion via `triageSuggestLink` (suggest-first; the match is
+ *  typically VRM-only, which never auto-attaches per the ADR-0019 promotion doctrine). */
+export interface HeldPreInstructionRequest {
+  vrm?: string;
+  caseRef?: string;
+  jobRef?: string;
+}
+export interface HeldPreInstructionResult {
+  held: Array<{
+    inboundEmailId: string;
+    sourceMessageId: string | null;
+    matchedOn: 'vrm' | 'case_ref' | 'job_ref';
+  }>;
+}
+
 /**
  * POST /api/internal/triage/suggest-link request body, `suggestionType: 'triage_category'`
  * shape (rules-engine-v2 Phase 4, ADR-0019 Stage C) — a DIFFERENT `suggested_value` shape
@@ -543,6 +561,15 @@ export const dataApi = {
    */
   triageSuggestLink(payload: TriageSuggestLinkRequest): Promise<TriageSuggestLinkResult> {
     return request('POST', '/api/internal/triage/suggest-link', payload);
+  },
+
+  /**
+   * FIND held pre-instruction rows matching a newly-minted case's identifiers
+   * (TKT-084, taxonomy v3) — read-only; the `correlatePreInstruction` activity pairs
+   * this with `triageSuggestLink` (case_link, suggest-first) per returned row.
+   */
+  heldPreInstruction(payload: HeldPreInstructionRequest): Promise<HeldPreInstructionResult> {
+    return request('POST', '/api/internal/triage/held-pre-instruction', payload);
   },
 
   /**

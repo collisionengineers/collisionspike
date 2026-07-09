@@ -70,3 +70,46 @@ describe('buildClassifyRequest', () => {
     expect(req.references).toBe('<parent@example.com>');
   });
 });
+
+/* ----------  TKT-084 — resolveActingClassification (gate demotion)  ---------- */
+
+import { resolveActingClassification } from './classifyInbound.js';
+import { preInstructionRationale } from './correlatePreInstruction.js';
+
+describe('resolveActingClassification (TKT-084)', () => {
+  it('demotes pre_instruction to other/other while the gate is off', () => {
+    expect(resolveActingClassification('pre_instruction', 'pre_instruction_directions', false)).toEqual({
+      category: 'other',
+      subtype: 'other',
+      demoted: true,
+    });
+  });
+  it('keeps pre_instruction while the gate is on', () => {
+    expect(resolveActingClassification('pre_instruction', 'pre_instruction_directions', true)).toEqual({
+      category: 'pre_instruction',
+      subtype: 'pre_instruction_directions',
+      demoted: false,
+    });
+  });
+  it('narrows an unknown category to other regardless of the gate', () => {
+    expect(resolveActingClassification('mystery_lane', 'x', true).category).toBe('other');
+  });
+  it('does not touch the other categories', () => {
+    expect(resolveActingClassification('billing', 'payment_remittance', false)).toEqual({
+      category: 'billing',
+      subtype: 'payment_remittance',
+      demoted: false,
+    });
+  });
+});
+
+describe('preInstructionRationale (TKT-084)', () => {
+  it('names the case when a Case/PO is known — handler language, no engineering terms', () => {
+    const text = preInstructionRationale('CCPY26050');
+    expect(text).toContain('case CCPY26050');
+    expect(text).not.toMatch(/classif|signal|rule|category|subtype/i);
+  });
+  it('falls back to "this case" without a Case/PO', () => {
+    expect(preInstructionRationale(null)).toContain('this case');
+  });
+});

@@ -1,16 +1,16 @@
 {
   "schema": "collisionspike-eval-email-baseline-v1",
-  "generated_at": "2026-07-08T09:24:24.603185+00:00",
+  "generated_at": "2026-07-09T02:29:04.972693+00:00",
   "taxonomy": "v2",
   "aggregate": {
-    "total": 52,
+    "total": 58,
     "skipped": 9,
-    "category_accuracy": 0.8653846153846154,
-    "subtype_exact_accuracy": 0.8653846153846154,
+    "category_accuracy": 0.8793103448275862,
+    "subtype_exact_accuracy": 0.8793103448275862,
     "category_metrics": {
       "billing": {
-        "support": 1,
-        "tp": 1,
+        "support": 3,
+        "tp": 3,
         "fp": 0,
         "fn": 0,
         "precision": 1.0,
@@ -18,8 +18,8 @@
         "f1": 1.0
       },
       "cancellation": {
-        "support": 12,
-        "tp": 12,
+        "support": 13,
+        "tp": 13,
         "fp": 0,
         "fn": 0,
         "precision": 1.0,
@@ -45,13 +45,22 @@
         "f1": 1.0
       },
       "other": {
-        "support": 1,
-        "tp": 0,
+        "support": 2,
+        "tp": 1,
         "fp": 1,
         "fn": 1,
-        "precision": 0.0,
-        "recall": 0.0,
-        "f1": 0.0
+        "precision": 0.5,
+        "recall": 0.5,
+        "f1": 0.5
+      },
+      "pre_instruction": {
+        "support": 1,
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
       },
       "query": {
         "support": 11,
@@ -63,31 +72,33 @@
         "f1": 0.631578947368421
       },
       "receiving_work": {
-        "support": 18,
-        "tp": 17,
+        "support": 19,
+        "tp": 18,
         "fp": 2,
         "fn": 1,
-        "precision": 0.8947368421052632,
-        "recall": 0.9444444444444444,
-        "f1": 0.918918918918919
+        "precision": 0.9,
+        "recall": 0.9473684210526315,
+        "f1": 0.9230769230769231
       }
     },
     "confusion_matrix": {
       "billing": {
-        "billing": 1,
+        "billing": 3,
         "cancellation": 0,
         "case_update": 0,
         "non_actionable": 0,
         "other": 0,
+        "pre_instruction": 0,
         "query": 0,
         "receiving_work": 0
       },
       "cancellation": {
         "billing": 0,
-        "cancellation": 12,
+        "cancellation": 13,
         "case_update": 0,
         "non_actionable": 0,
         "other": 0,
+        "pre_instruction": 0,
         "query": 0,
         "receiving_work": 0
       },
@@ -97,6 +108,7 @@
         "case_update": 3,
         "non_actionable": 0,
         "other": 0,
+        "pre_instruction": 0,
         "query": 0,
         "receiving_work": 0
       },
@@ -106,6 +118,7 @@
         "case_update": 0,
         "non_actionable": 6,
         "other": 0,
+        "pre_instruction": 0,
         "query": 0,
         "receiving_work": 0
       },
@@ -114,8 +127,19 @@
         "cancellation": 0,
         "case_update": 0,
         "non_actionable": 0,
-        "other": 0,
+        "other": 1,
+        "pre_instruction": 0,
         "query": 1,
+        "receiving_work": 0
+      },
+      "pre_instruction": {
+        "billing": 0,
+        "cancellation": 0,
+        "case_update": 0,
+        "non_actionable": 0,
+        "other": 0,
+        "pre_instruction": 1,
+        "query": 0,
         "receiving_work": 0
       },
       "query": {
@@ -124,6 +148,7 @@
         "case_update": 2,
         "non_actionable": 0,
         "other": 1,
+        "pre_instruction": 0,
         "query": 6,
         "receiving_work": 2
       },
@@ -133,15 +158,16 @@
         "case_update": 0,
         "non_actionable": 0,
         "other": 0,
+        "pre_instruction": 0,
         "query": 1,
-        "receiving_work": 17
+        "receiving_work": 18
       }
     },
     "subtype_accuracy": {
       "receiving_work/existing_provider_instruction": {
-        "support": 13,
-        "correct": 12,
-        "accuracy": 0.9230769230769231
+        "support": 15,
+        "correct": 14,
+        "accuracy": 0.9333333333333333
       },
       "query/query_existing_work": {
         "support": 11,
@@ -149,9 +175,9 @@
         "accuracy": 0.5454545454545454
       },
       "other/other": {
-        "support": 1,
-        "correct": 0,
-        "accuracy": 0.0
+        "support": 2,
+        "correct": 1,
+        "accuracy": 0.5
       },
       "non_actionable/case_summary": {
         "support": 1,
@@ -159,8 +185,8 @@
         "accuracy": 1.0
       },
       "receiving_work/new_client_work": {
-        "support": 3,
-        "correct": 3,
+        "support": 2,
+        "correct": 2,
         "accuracy": 1.0
       },
       "billing/billing_request": {
@@ -174,8 +200,8 @@
         "accuracy": 1.0
       },
       "cancellation/cancellation_notice": {
-        "support": 12,
-        "correct": 12,
+        "support": 13,
+        "correct": 13,
         "accuracy": 1.0
       },
       "case_update/images_received": {
@@ -186,6 +212,16 @@
       "receiving_work/existing_provider_audit": {
         "support": 2,
         "correct": 2,
+        "accuracy": 1.0
+      },
+      "billing/payment_remittance": {
+        "support": 2,
+        "correct": 2,
+        "accuracy": 1.0
+      },
+      "pre_instruction/pre_instruction_directions": {
+        "support": 1,
+        "correct": 1,
         "accuracy": 1.0
       },
       "case_update/update_general": {
@@ -801,12 +837,84 @@
       "source": "ticket:TKT-083",
       "tracked": true,
       "expected_category": "receiving_work",
-      "expected_subtype": "new_client_work",
+      "expected_subtype": "existing_provider_instruction",
       "got_category": "receiving_work",
-      "got_subtype": "new_client_work",
+      "got_subtype": "existing_provider_instruction",
       "category_correct": true,
       "subtype_correct": true,
       "confidence": 0.6
+    },
+    {
+      "id": "tkt097-oakwood-cancellation",
+      "source": "ticket:TKT-097",
+      "tracked": true,
+      "expected_category": "cancellation",
+      "expected_subtype": "cancellation_notice",
+      "got_category": "cancellation",
+      "got_subtype": "cancellation_notice",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.8
+    },
+    {
+      "id": "tkt105-remittance-advice",
+      "source": "ticket:TKT-105",
+      "tracked": true,
+      "expected_category": "billing",
+      "expected_subtype": "payment_remittance",
+      "got_category": "billing",
+      "got_subtype": "payment_remittance",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "tkt120-fairway-transfer-synthetic",
+      "source": "ticket:TKT-120",
+      "tracked": true,
+      "expected_category": "billing",
+      "expected_subtype": "payment_remittance",
+      "got_category": "billing",
+      "got_subtype": "payment_remittance",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "tkt084-preinstruction-directions",
+      "source": "ticket:TKT-084",
+      "tracked": true,
+      "expected_category": "pre_instruction",
+      "expected_subtype": "pre_instruction_directions",
+      "got_category": "pre_instruction",
+      "got_subtype": "pre_instruction_directions",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.8
+    },
+    {
+      "id": "tkt100-qdos-lead",
+      "source": "ticket:TKT-100",
+      "tracked": true,
+      "expected_category": "receiving_work",
+      "expected_subtype": "existing_provider_instruction",
+      "got_category": "receiving_work",
+      "got_subtype": "existing_provider_instruction",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.95
+    },
+    {
+      "id": "tkt103-tractable-lead",
+      "source": "ticket:TKT-103",
+      "tracked": true,
+      "expected_category": "other",
+      "expected_subtype": "other",
+      "got_category": "other",
+      "got_subtype": "other",
+      "category_correct": true,
+      "subtype_correct": true,
+      "confidence": 0.3
     },
     {
       "id": "tkt093-forward-audatex-caseupdate",

@@ -115,6 +115,14 @@ export const gates = {
   // inviolable VRM rule) is attached automatically instead of merely suggested. With this
   // off, the ref-gate rung is exactly today's suggest_attach.
   triageAutoAttach: (): boolean => process.env.TRIAGE_AUTO_ATTACH_ENABLED === 'true',
+  // TKT-084 — the pre-instruction lane (taxonomy v3; operator sign-off recorded
+  // 2026-07-09 in the ticket's evidence). Default off in code. While OFF, classifyInbound
+  // DEMOTES a classifier 'pre_instruction' verdict to 'other' (today's behaviour — honest
+  // kill-switch) and no correlation runs. While ON: the lane is recorded as classified
+  // (held on the inbound_email row, no case minted — categoryMintsCase is false for it
+  // either way), and a later instruction's case-mint correlates held rows onto the new
+  // case, suggest-first (never auto-attach — the correlation key is typically VRM-only).
+  triagePreInstruction: (): boolean => process.env.TRIAGE_PRE_INSTRUCTION_ENABLED === 'true',
 
   // Replay backfill driver (TKT-059 / GO_LIVE_SPRINT_PLAN P1/P3) — default off. Master switch
   // for the POST /api/replay-backfill Durable driver on the orchestration app. Off by default

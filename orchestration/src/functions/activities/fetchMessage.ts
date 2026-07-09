@@ -21,7 +21,7 @@ import {
   resolveSubscriptionMailbox,
 } from '../../lib/subscriptions.js';
 import { uploadEvidenceBytes } from '../../lib/blob.js';
-import { extractVrm } from '@cs/domain';
+import { cleanEmailBodyForPreview, extractVrm } from '@cs/domain';
 
 interface FetchMessageInput {
   messageId: string;
@@ -134,7 +134,10 @@ df.app.activity('fetchMessage', {
     // Body: Graph returns the text representation (Prefer header in getMessageWithAttachments);
     // fall back to the 255-char bodyPreview. Capped to keep the durable envelope bounded.
     const body = (message.body?.content ?? message.bodyPreview ?? '').slice(0, BODY_CAP);
-    const bodyPreview = body.replace(/\s+/g, ' ').trim().slice(0, BODY_PREVIEW_CAP);
+    // TKT-070: a READABLE multi-line preview — line breaks preserved, signature/link/legal
+    // garbage stripped (was `replace(/\s+/g, ' ')`, one run-on line). PREVIEW ONLY: the
+    // full `body` below stays untouched for the VRM sniff + parser inputs.
+    const bodyPreview = cleanEmailBodyForPreview(body).slice(0, BODY_PREVIEW_CAP);
     // VRM sniff spans subject + body — a body-only instruction carries the reg in the text.
     // Canonical shared ruleset (@cs/domain) — postcode/junk-guarded (B8/LS8/BOX2 rejected).
     const candidateVrm = extractVrm(`${subject}\n${body}`);

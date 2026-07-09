@@ -526,6 +526,26 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // statusEvaluate (step 5) will compute the final review state.
   yield ctx.df.callActivityWithRetry('setIngested', retry, { caseId: resolved.caseId });
 
+  // 2.2 — pre-instruction correlation (TKT-084, taxonomy v3). Directions the sender gave
+  // BEFORE this instruction arrived are held as pre_instruction inbound rows (no case);
+  // now that the case exists, raise a suggest-first case_link per matching held row so
+  // the directions surface on this case. The TRIAGE_PRE_INSTRUCTION_ENABLED gate lives
+  // INSIDE the activity (orchestrator determinism); best-effort — a correlation failure
+  // must never block intake.
+  try {
+    yield ctx.df.callActivityWithRetry('correlatePreInstruction', retry, {
+      caseId: resolved.caseId,
+      casePo: resolved.casePo ?? null,
+      vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm || '',
+      caseRef: resolved.casePo ?? '',
+      jobRef: parserRef || classification.bodyJobref || '',
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[intake] pre-instruction correlation failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
+    }
+  }
+
   // Automation-mode branch (am ticket). RECONCILED (work-todo-spike "Both", 2026-06-30):
   // Box folder-create + evidence-archive + image-extraction are RECORD-KEEPING and now run
   // for ANY known-provider case (case_po present) REGARDLESS of mode — they were the cause of

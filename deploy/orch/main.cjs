@@ -2797,6 +2797,14 @@ var gates = {
   // inviolable VRM rule) is attached automatically instead of merely suggested. With this
   // off, the ref-gate rung is exactly today's suggest_attach.
   triageAutoAttach: () => process.env.TRIAGE_AUTO_ATTACH_ENABLED === "true",
+  // TKT-084 — the pre-instruction lane (taxonomy v3; operator sign-off recorded
+  // 2026-07-09 in the ticket's evidence). Default off in code. While OFF, classifyInbound
+  // DEMOTES a classifier 'pre_instruction' verdict to 'other' (today's behaviour — honest
+  // kill-switch) and no correlation runs. While ON: the lane is recorded as classified
+  // (held on the inbound_email row, no case minted — categoryMintsCase is false for it
+  // either way), and a later instruction's case-mint correlates held rows onto the new
+  // case, suggest-first (never auto-attach — the correlation key is typically VRM-only).
+  triagePreInstruction: () => process.env.TRIAGE_PRE_INSTRUCTION_ENABLED === "true",
   // Replay backfill driver (TKT-059 / GO_LIVE_SPRINT_PLAN P1/P3) — default off. Master switch
   // for the POST /api/replay-backfill Durable driver on the orchestration app. Off by default
   // so the (function-key-protected) endpoint additionally refuses unless deliberately enabled;
@@ -3148,6 +3156,59 @@ function canonicalizeVrm(s) {
 var STRICT = /\b(?:[A-Z]{2}[0-9]{2}\s?[A-Z]{3}|[A-Z][0-9]{1,3}\s?[A-Z]{3}|[A-Z]{3}\s?[0-9]{1,3}[A-Z])\b/g;
 var LOOSE = /\b[A-Z]{1,3}\s?[0-9]{1,4}\b/g;
 var ANCHOR = /\b(?:registration|reg|vrm|vehicle|plate|number\s?plate)\b/i;
+var ANCHOR_WINDOW = 40;
+var TIGHT_ANCHOR_WINDOW = 16;
+var TIGHT_ANCHOR = /(?:reg(?:istration)?|vrm|vehicle|plate)\s*(?:no|number|mark)?\s*[:.\-#]?\s*$/i;
+var MONTH_DAY_WORDS = /* @__PURE__ */ new Set([
+  "JANUARY",
+  "FEBRUARY",
+  "MARCH",
+  "APRIL",
+  "MAY",
+  "JUNE",
+  "JULY",
+  "AUGUST",
+  "SEPTEMBER",
+  "OCTOBER",
+  "NOVEMBER",
+  "DECEMBER",
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+  "SUNDAY",
+  "JAN",
+  "FEB",
+  "MAR",
+  "APR",
+  "JUN",
+  "JUL",
+  "AUG",
+  "SEP",
+  "SEPT",
+  "OCT",
+  "NOV",
+  "DEC"
+]);
+var LOOSE_ALPHA_STOPWORDS = /* @__PURE__ */ new Set([
+  "AND",
+  "THE",
+  "FOR",
+  "NOT",
+  "BUT",
+  "ARE",
+  "WAS",
+  "OUR",
+  "YOU",
+  "ALL",
+  "ANY",
+  "HAS",
+  "HAD",
+  "PER",
+  "VIA"
+]);
 var EXCLUDE_WORDS = /* @__PURE__ */ new Set([
   "VAT",
   "TEL",
@@ -3298,6 +3359,10 @@ function isPostcodeOutwardCode(compact) {
   const m = /^([A-Z]{1,2})[0-9]{1,2}$/.exec(compact);
   return m !== null && POSTCODE_AREAS.has(m[1]);
 }
+function isPostcodeAreaHead(compact) {
+  const m = /^([A-Z]{1,3})[0-9]/.exec(compact);
+  return m !== null && POSTCODE_AREAS.has(m[1]);
+}
 function precededByExcludeLabel(upper, idx) {
   const before = upper.slice(Math.max(0, idx - 16), idx);
   return EXCLUDE_LABEL.test(before);
@@ -3312,24 +3377,109 @@ function extractVrm(text) {
       continue;
     return canonicalizeVrm(cand);
   }
-  if (ANCHOR.test(text)) {
-    for (const m of upper.matchAll(LOOSE)) {
-      const cand = m[0];
-      const idx = m.index ?? 0;
-      const compact = cand.replace(/\s+/g, "");
-      if (isPostcodeOutward(upper, idx, cand))
+  for (const m of upper.matchAll(LOOSE)) {
+    const cand = m[0];
+    const idx = m.index ?? 0;
+    const compact = cand.replace(/\s+/g, "");
+    if (MONTH_DAY_WORDS.has(compact))
+      continue;
+    if (isPostcodeOutward(upper, idx, cand))
+      continue;
+    if (isPostcodeOutwardCode(compact))
+      continue;
+    const alpha = cand.match(/^[A-Z]+/)?.[0] ?? "";
+    if (EXCLUDE_WORDS.has(alpha))
+      continue;
+    if (LOOSE_ALPHA_STOPWORDS.has(alpha))
+      continue;
+    if (precededByExcludeLabel(upper, idx))
+      continue;
+    if (isPostcodeAreaHead(compact)) {
+      const before = upper.slice(Math.max(0, idx - TIGHT_ANCHOR_WINDOW), idx);
+      if (!TIGHT_ANCHOR.test(before))
         continue;
-      if (isPostcodeOutwardCode(compact))
+    } else {
+      const windowText = upper.slice(Math.max(0, idx - ANCHOR_WINDOW), idx + cand.length + ANCHOR_WINDOW);
+      if (!ANCHOR.test(windowText))
         continue;
-      const alpha = cand.match(/^[A-Z]+/)?.[0] ?? "";
-      if (EXCLUDE_WORDS.has(alpha))
-        continue;
-      if (precededByExcludeLabel(upper, idx))
-        continue;
-      return canonicalizeVrm(cand);
     }
+    return canonicalizeVrm(cand);
   }
   return "";
+}
+
+// packages/domain/dist/domain/email-body-clean.js
+var QUOTE_DIVIDERS = [
+  /^-{3,}\s*Original Message\s*-{3,}\s*$/im,
+  /^_{8,}\s*$/m,
+  // Outlook reply divider
+  /^\s*On\b[^\n]{0,160}\bwrote:\s*$/im,
+  // Gmail attribution
+  /^[ \t]*From:[ \t]*\S[^\n]*(?:\r?\n[ \t]*(?:Sent|To|Cc|Subject|Date):[ \t]*[^\n]*){1,5}/im
+  // Outlook header block
+];
+var SIGN_OFF_RE = /^(?:kind\s+regards|kindest\s+regards|best\s+regards|warm\s+regards|regards|many\s+thanks|thanks(?:\s+again)?|thank\s+you|best\s+wishes|yours\s+sincerely|yours\s+faithfully|cheers)\s*[,.!]?\s*$/i;
+var LEGAL_MARKERS = [
+  /\bregistered (?:office|in england|in scotland|number|no\b)/i,
+  /\bauthorised and regulated\b/i,
+  /\bthis (?:e-?mail|message) (?:carries a disclaimer|and any attachment|and its attachments?)/i,
+  /\bif you (?:are not|have received this .* in error)\b/i,
+  /\bintended (?:solely )?for the addressee\b/i,
+  /\bprivacy (?:notice|policy) (?:may be read|can be found|is available)\b/i,
+  /\breserves? copyright\b/i,
+  /\byou are dealing with\b/i,
+  /\bproud members? of\b/i,
+  /\bconfidentiality notice\b/i,
+  /\bplease consider the environment\b/i,
+  /\bscanned for the presence of computer viruses\b/i,
+  /\bcalls? (?:may|will) be recorded\b/i
+];
+var BRACKET_GARBAGE_RE = /\[(?:cid:|https?:\/\/)[^\]]*\]|<(?:tel:|mailto:|https?:\/\/)[^>\s]*>/gi;
+var BARE_URL_RE = /\bhttps?:\/\/([^\s/<>"')\]]+)[^\s<>"')\]]*/gi;
+var RESIDUE_LINE_RE = /^[\s[\]()|·•–—-]*$/;
+function cutAtEarliestQuote(text) {
+  let cut = text.length;
+  for (const re of QUOTE_DIVIDERS) {
+    const m = re.exec(text);
+    if (m && m.index < cut)
+      cut = m.index;
+  }
+  return text.slice(0, cut);
+}
+function cleanEmailBodyForPreview(body2) {
+  if (!body2)
+    return "";
+  let text = body2.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  text = cutAtEarliestQuote(text);
+  text = text.replace(BRACKET_GARBAGE_RE, " ");
+  text = text.replace(BARE_URL_RE, "$1");
+  const kept = [];
+  let signOffSeen = false;
+  let nameLinesAfterSignOff = 0;
+  for (const raw of text.split("\n")) {
+    const line = raw.replace(/[ \t]+$/g, "");
+    const trimmed = line.trim();
+    if (trimmed.startsWith(">"))
+      continue;
+    if (LEGAL_MARKERS.some((re) => re.test(trimmed)))
+      break;
+    if (signOffSeen && trimmed) {
+      if (nameLinesAfterSignOff >= 1 || trimmed.length > 40 || /[@\d]/.test(trimmed))
+        break;
+      nameLinesAfterSignOff += 1;
+      kept.push(line);
+      continue;
+    }
+    if (!signOffSeen && SIGN_OFF_RE.test(trimmed)) {
+      signOffSeen = true;
+      kept.push(line);
+      continue;
+    }
+    if (trimmed && RESIDUE_LINE_RE.test(trimmed))
+      continue;
+    kept.push(line);
+  }
+  return kept.join("\n").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 // packages/domain/dist/domain/case-type.js
@@ -3701,7 +3851,8 @@ var INBOUND_CATEGORIES = [
   "non_actionable",
   "other",
   "case_update",
-  "cancellation"
+  "cancellation",
+  "pre_instruction"
 ];
 var INBOUND_SUBTYPES = [
   "existing_provider_instruction",
@@ -3716,7 +3867,9 @@ var INBOUND_SUBTYPES = [
   "other",
   "images_received",
   "cancellation_notice",
-  "update_general"
+  "update_general",
+  "payment_remittance",
+  "pre_instruction_directions"
 ];
 
 // node_modules/zod/v3/external.js
@@ -9535,6 +9688,14 @@ var dataApi = {
     return request("POST", "/api/internal/triage/suggest-link", payload);
   },
   /**
+   * FIND held pre-instruction rows matching a newly-minted case's identifiers
+   * (TKT-084, taxonomy v3) — read-only; the `correlatePreInstruction` activity pairs
+   * this with `triageSuggestLink` (case_link, suggest-first) per returned row.
+   */
+  heldPreInstruction(payload) {
+    return request("POST", "/api/internal/triage/held-pre-instruction", payload);
+  },
+  /**
    * Write ONE `ai_suggestion` row for a Stage-C (gated LLM) triage-category proposal
    * (rules-engine-v2 Phase 4, ADR-0019 §3) — the ONLY call `triage-classify.ts`'s
    * activity makes on a non-abstain model result. Never a case mutation: a human accepts
@@ -9764,7 +9925,8 @@ var CATEGORY_DEFINITIONS = {
   billing: "An invoice, fee query, or payment matter about work already carried out.",
   non_actionable: 'A short receipt/acknowledgement/no-action-needed message (e.g. "thanks", an auto-reply).',
   case_update: "New information \u2014 evidence, photographs, or an answer \u2014 for a case already open.",
-  cancellation: "A claim or case reported cancelled, closed, or withdrawn."
+  cancellation: "A claim or case reported cancelled, closed, or withdrawn.",
+  pre_instruction: "Directions to follow when a formal instruction arrives later \u2014 no instruction yet, so no case should be opened."
 };
 var SUBTYPE_DEFINITIONS = {
   existing_provider_instruction: "An instruction from a sender who is a known work provider.",
@@ -9779,7 +9941,9 @@ var SUBTYPE_DEFINITIONS = {
   other: "None of the other subtypes apply.",
   images_received: "Photographs with no other new instruction content.",
   cancellation_notice: "The usual subtype for a cancellation report.",
-  update_general: "New information on an existing case that is not photographs alone."
+  update_general: "New information on an existing case that is not photographs alone.",
+  payment_remittance: "A payment made TO us \u2014 a remittance advice or transfer notice for work already done (not a request for our invoice).",
+  pre_instruction_directions: "The usual subtype for pre-instruction directions."
 };
 function categoryLine(name) {
   return `- ${name}: ${CATEGORY_DEFINITIONS[name] ?? "A taxonomy category (no further description on file)."}`;
@@ -10370,6 +10534,19 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
     return { skipped: true, caseId: resolved.caseId };
   }
   yield ctx.df.callActivityWithRetry("setIngested", retry2, { caseId: resolved.caseId });
+  try {
+    yield ctx.df.callActivityWithRetry("correlatePreInstruction", retry2, {
+      caseId: resolved.caseId,
+      casePo: resolved.casePo ?? null,
+      vrm: parserVrm || inbound.candidateVrm || "",
+      caseRef: resolved.casePo ?? "",
+      jobRef: parserRef || classification.bodyJobref || ""
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[intake] pre-instruction correlation failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
+    }
+  }
   const automationMode = resolved.providerAutomationMode ?? "review_auto";
   const autoEnrich = automationMode !== "manual";
   if (!autoEnrich && !ctx.df.isReplaying) {
@@ -49849,7 +50026,7 @@ df6.app.activity("fetchMessage", {
     const senderAddress = message.from?.emailAddress?.address ?? "";
     const payloadHash = hashPayload(subject, senderAddress, landed);
     const body2 = (message.body?.content ?? message.bodyPreview ?? "").slice(0, BODY_CAP);
-    const bodyPreview = body2.replace(/\s+/g, " ").trim().slice(0, BODY_PREVIEW_CAP);
+    const bodyPreview = cleanEmailBodyForPreview(body2).slice(0, BODY_PREVIEW_CAP);
     const candidateVrm = extractVrm(`${subject}
 ${body2}`);
     const envelope = {
@@ -50065,6 +50242,14 @@ var MATCH_STATE_TO_CLASSIFIER = {
   ambiguous: "ambiguous"
 };
 var KNOWN_CATEGORIES2 = new Set(INBOUND_CATEGORIES);
+function resolveActingClassification(rawCategory, rawSubtype, preInstructionGateOn) {
+  const category = KNOWN_CATEGORIES2.has(rawCategory) ? rawCategory : "other";
+  const subtype = rawSubtype || "other";
+  if (category === "pre_instruction" && !preInstructionGateOn) {
+    return { category: "other", subtype: "other", demoted: true };
+  }
+  return { category, subtype, demoted: false };
+}
 function domainOf3(address) {
   const at = address.lastIndexOf("@");
   return at >= 0 ? address.slice(at + 1).toLowerCase().trim() : "";
@@ -50092,10 +50277,24 @@ df8.app.activity("classifyInbound", {
   handler: async (input14, ctx) => {
     const { inbound, workProviderId, matchState } = input14;
     const res = await callClassifyEmail(buildClassifyRequest(inbound, matchState));
-    const category = KNOWN_CATEGORIES2.has(res.category) ? res.category : "other";
+    const acting = resolveActingClassification(
+      res.category ?? "",
+      res.subtype ?? "",
+      gates.triagePreInstruction()
+    );
+    if (acting.demoted) {
+      ctx.log(
+        JSON.stringify({
+          evt: "classifyInbound",
+          messageId: inbound.messageId,
+          demoted: "pre_instruction->other (TRIAGE_PRE_INSTRUCTION_ENABLED off)"
+        })
+      );
+    }
+    const { category, subtype } = acting;
     const classification = {
       category,
-      subtype: res.subtype || "other",
+      subtype,
       confidence: res.confidence ?? 0,
       signals: res.signals ?? [],
       bodyVrm: res.body_vrm ?? "",
@@ -50270,9 +50469,60 @@ df9.app.activity("triagePolicy", {
   }
 });
 
-// orchestration/src/functions/activities/linkReply.ts
+// orchestration/src/functions/activities/correlatePreInstruction.ts
 var df10 = __toESM(require("durable-functions"), 1);
-df10.app.activity("linkReply", {
+function preInstructionRationale(casePo) {
+  const target = casePo ? `case ${casePo}` : "this case";
+  return `Directions received before the instruction arrived appear to relate to ${target} \u2014 review and attach so they are not missed.`;
+}
+df10.app.activity("correlatePreInstruction", {
+  handler: async (input14, ctx) => {
+    if (!gates.triagePreInstruction()) {
+      return { skipped: true, matches: 0, suggested: 0 };
+    }
+    const vrm = (input14.vrm ?? "").trim();
+    const caseRef = (input14.caseRef ?? "").trim();
+    const jobRef = (input14.jobRef ?? "").trim();
+    if (!vrm && !caseRef && !jobRef) {
+      return { skipped: true, matches: 0, suggested: 0 };
+    }
+    const { held } = await dataApi.heldPreInstruction({
+      ...vrm ? { vrm } : {},
+      ...caseRef ? { caseRef } : {},
+      ...jobRef ? { jobRef } : {}
+    });
+    let suggested = 0;
+    for (const row of held) {
+      const res = await dataApi.triageSuggestLink({
+        inboundEmailId: row.inboundEmailId,
+        ...row.sourceMessageId ? { sourceMessageId: row.sourceMessageId } : {},
+        targetCaseId: input14.caseId,
+        suggestionType: "case_link",
+        rationale: preInstructionRationale(input14.casePo),
+        confidence: 0.6,
+        decisionInputs: {
+          lane: "pre_instruction",
+          matchedOn: row.matchedOn,
+          policy: "pre-instruction-correlate-v1"
+        }
+      });
+      if (res.created) suggested += 1;
+    }
+    ctx.log(
+      JSON.stringify({
+        evt: "correlatePreInstruction",
+        caseId: input14.caseId,
+        matches: held.length,
+        suggested
+      })
+    );
+    return { skipped: false, matches: held.length, suggested };
+  }
+});
+
+// orchestration/src/functions/activities/linkReply.ts
+var df11 = __toESM(require("durable-functions"), 1);
+df11.app.activity("linkReply", {
   handler: async (input14, ctx) => {
     const result = await dataApi.linkReplyToOpenCase({
       inbound: input14.inbound,
@@ -50294,8 +50544,8 @@ df10.app.activity("linkReply", {
 });
 
 // orchestration/src/functions/activities/caseResolve.ts
-var df11 = __toESM(require("durable-functions"), 1);
-df11.app.activity("caseResolve", {
+var df12 = __toESM(require("durable-functions"), 1);
+df12.app.activity("caseResolve", {
   handler: async (input14, ctx) => {
     const { inbound, providerId, matchState } = input14;
     const bestVrm = ((input14.parserVrm || inbound.candidateVrm) ?? "").trim();
@@ -50362,8 +50612,8 @@ df11.app.activity("caseResolve", {
 });
 
 // orchestration/src/functions/activities/setIngested.ts
-var df12 = __toESM(require("durable-functions"), 1);
-df12.app.activity("setIngested", {
+var df13 = __toESM(require("durable-functions"), 1);
+df13.app.activity("setIngested", {
   handler: async (input14, ctx) => {
     const result = await dataApi.setIngested(input14.caseId);
     ctx.log(JSON.stringify({ evt: "setIngested", caseId: input14.caseId, updated: result.updated }));
@@ -50372,7 +50622,7 @@ df12.app.activity("setIngested", {
 });
 
 // orchestration/src/functions/activities/classifyPersist.ts
-var df13 = __toESM(require("durable-functions"), 1);
+var df14 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/image-classify.ts
 var REQUEST_TIMEOUT_MS2 = 3e4;
@@ -50499,7 +50749,7 @@ function classificationToEvidenceFields(c, caseVrm) {
 
 // orchestration/src/functions/activities/classifyPersist.ts
 var MIN_BODY_INSTRUCTION_CHARS = 40;
-df13.app.activity("classifyPersist", {
+df14.app.activity("classifyPersist", {
   handler: async (input14, ctx) => {
     const { caseId, inbound } = input14;
     const rows = inbound.attachments.map((a) => ({
@@ -50610,7 +50860,7 @@ df13.app.activity("classifyPersist", {
 });
 
 // orchestration/src/functions/activities/parse.ts
-var df14 = __toESM(require("durable-functions"), 1);
+var df15 = __toESM(require("durable-functions"), 1);
 var hasValue = (cell) => (cell?.value ?? "").trim() !== "";
 function shouldAttemptScannedPdfOcr(parsed, filename) {
   if (parsed.skipped) return false;
@@ -50675,7 +50925,7 @@ function resolveWorkProviderAcrossDocs(parsed) {
   }
   return "";
 }
-df14.app.activity("parse", {
+df15.app.activity("parse", {
   handler: async (input14, ctx) => {
     const corr = input14.caseId || input14.messageId || "(pre-resolve)";
     if (!gates.pdfMapper()) {
@@ -50812,8 +51062,8 @@ df14.app.activity("parse", {
 });
 
 // orchestration/src/functions/activities/statusEvaluate.ts
-var df15 = __toESM(require("durable-functions"), 1);
-df15.app.activity("statusEvaluate", {
+var df16 = __toESM(require("durable-functions"), 1);
+df16.app.activity("statusEvaluate", {
   handler: async (input14, ctx) => {
     const result = await dataApi.evaluateStatus(input14.caseId);
     ctx.log(JSON.stringify({ evt: "statusEvaluate", caseId: input14.caseId, status: result.value }));
@@ -50822,8 +51072,8 @@ df15.app.activity("statusEvaluate", {
 });
 
 // orchestration/src/functions/activities/enrich.ts
-var df16 = __toESM(require("durable-functions"), 1);
-df16.app.activity("enrich", {
+var df17 = __toESM(require("durable-functions"), 1);
+df17.app.activity("enrich", {
   handler: async (input14, ctx) => {
     if (!gates.enrichment()) {
       ctx.log("[enrich] skipped \u2014 ENRICHMENT_ENABLED=false");
@@ -50870,31 +51120,31 @@ df16.app.activity("enrich", {
 
 // orchestration/src/functions/activities/boxArchive.ts
 var import_functions8 = require("@azure/functions");
-var df17 = __toESM(require("durable-functions"), 1);
+var df18 = __toESM(require("durable-functions"), 1);
 import_functions8.app.http("box-archive-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "box-archive",
-  extraInputs: [df17.input.durableClient()],
+  extraInputs: [df18.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       ctx.log("[box-archive] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const input14 = await req.json();
-    const client2 = df17.getClient(ctx);
+    const client2 = df18.getClient(ctx);
     const instanceId = await client2.startNew("boxArchiveEvidenceOrchestrator", { input: input14 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var manualRetry = new df17.RetryOptions(5e3, 3);
+var manualRetry = new df18.RetryOptions(5e3, 3);
 manualRetry.backoffCoefficient = 2;
-df17.app.orchestration("boxArchiveEvidenceOrchestrator", function* (ctx) {
+df18.app.orchestration("boxArchiveEvidenceOrchestrator", function* (ctx) {
   const input14 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("boxArchiveEvidence", manualRetry, input14);
   return result;
 });
-df17.app.activity("boxArchiveEvidence", {
+df18.app.activity("boxArchiveEvidence", {
   handler: async (input14, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       return { uploaded: 0, total: 0, skipped: "gated_off" };
@@ -50983,11 +51233,11 @@ df17.app.activity("boxArchiveEvidence", {
 });
 
 // orchestration/src/functions/activities/extractImages.ts
-var df18 = __toESM(require("durable-functions"), 1);
+var df19 = __toESM(require("durable-functions"), 1);
 var IMG_SOURCE_EXT = /\.(pdf|docx?)$/i;
 var IMG_SOURCE_CTYPE = /pdf|msword|officedocument/i;
 var OCR_OK_EXT = /\.(jpe?g|png|bmp|tiff?|webp|heic|heif)$/i;
-df18.app.activity("extractImages", {
+df19.app.activity("extractImages", {
   handler: async (input14, ctx) => {
     if (!gates.pdfMapper()) return { extracted: 0, registrationVisible: false, skipped: "gate_off" };
     const docs = (input14.attachments ?? []).filter(
@@ -51128,33 +51378,33 @@ function stripExt(name) {
 
 // orchestration/src/functions/gated/finalize-eva-box.ts
 var import_functions9 = require("@azure/functions");
-var df19 = __toESM(require("durable-functions"), 1);
+var df20 = __toESM(require("durable-functions"), 1);
 import_functions9.app.http("finalize-eva-box-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "finalize-eva-box",
-  extraInputs: [df19.input.durableClient()],
+  extraInputs: [df20.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.evaApi() || !gates.boxApi()) {
       ctx.log("[finalize-eva-box] skipped \u2014 EVA_API_ENABLED and/or BOX_API_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const { caseId } = await req.json();
-    const client2 = df19.getClient(ctx);
+    const client2 = df20.getClient(ctx);
     const instanceId = await client2.startNew("finalizeEvaBoxOrchestrator", { input: { caseId } });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry3 = new df19.RetryOptions(5e3, 3);
+var retry3 = new df20.RetryOptions(5e3, 3);
 retry3.backoffCoefficient = 2;
 retry3.maxRetryIntervalInMilliseconds = 6e4;
-df19.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
+df20.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
   const { caseId } = ctx.df.getInput();
   const eva = yield ctx.df.callActivityWithRetry("evaSubmit", retry3, { caseId });
   const boxResult = yield ctx.df.callActivityWithRetry("boxFolderAugment", retry3, { caseId });
   return { caseId, eva, box: boxResult };
 });
-df19.app.activity("evaSubmit", {
+df20.app.activity("evaSubmit", {
   handler: async (input14, ctx) => {
     if (!gates.evaApi()) return { skipped: true };
     const res = await callEvaSubmit(input14.caseId);
@@ -51163,7 +51413,7 @@ df19.app.activity("evaSubmit", {
     return res;
   }
 });
-df19.app.activity("boxFolderAugment", {
+df20.app.activity("boxFolderAugment", {
   handler: async (input14, ctx) => {
     if (!gates.boxApi()) return { skipped: true };
     const folder = await box.createFolder(input14.caseId, gates.boxFolderRootId());
@@ -51176,34 +51426,34 @@ df19.app.activity("boxFolderAugment", {
 
 // orchestration/src/functions/gated/chaser.ts
 var import_functions10 = require("@azure/functions");
-var df20 = __toESM(require("durable-functions"), 1);
+var df21 = __toESM(require("durable-functions"), 1);
 import_functions10.app.http("chaser-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "chaser",
-  extraInputs: [df20.input.durableClient()],
+  extraInputs: [df21.input.durableClient()],
   handler: async (req, ctx) => {
     const input14 = await req.json();
-    const client2 = df20.getClient(ctx);
+    const client2 = df21.getClient(ctx);
     const instanceId = await client2.startNew("chaserOrchestrator", { input: input14 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry4 = new df20.RetryOptions(5e3, 3);
+var retry4 = new df21.RetryOptions(5e3, 3);
 retry4.backoffCoefficient = 2;
-df20.app.orchestration("chaserOrchestrator", function* (ctx) {
+df21.app.orchestration("chaserOrchestrator", function* (ctx) {
   const input14 = ctx.df.getInput();
   const draft = yield ctx.df.callActivityWithRetry("chaserDraft", retry4, input14);
   const sent = yield ctx.df.callActivityWithRetry("chaserSend", retry4, { caseId: input14.caseId, draft });
   return { caseId: input14.caseId, draft, sent };
 });
-df20.app.activity("chaserDraft", {
+df21.app.activity("chaserDraft", {
   handler: async (input14, ctx) => {
     ctx.log(JSON.stringify({ evt: "chaserDraft", caseId: input14.caseId, targetType: input14.targetType }));
     return { drafted: true, targetType: input14.targetType };
   }
 });
-df20.app.activity("chaserSend", {
+df21.app.activity("chaserSend", {
   handler: async (input14, ctx) => {
     if (!gates.chaserSend()) {
       ctx.log("[chaserSend] skipped \u2014 CHASER_SEND_ENABLED=false (draft-only)");
@@ -51217,31 +51467,31 @@ df20.app.activity("chaserSend", {
 
 // orchestration/src/functions/gated/box-folder-create.ts
 var import_functions11 = require("@azure/functions");
-var df21 = __toESM(require("durable-functions"), 1);
+var df22 = __toESM(require("durable-functions"), 1);
 import_functions11.app.http("box-folder-create-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-folder-create",
-  extraInputs: [df21.input.durableClient()],
+  extraInputs: [df22.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       ctx.log("[box-folder-create] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const input14 = await req.json();
-    const client2 = df21.getClient(ctx);
+    const client2 = df22.getClient(ctx);
     const instanceId = await client2.startNew("boxFolderCreateOrchestrator", { input: input14 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry5 = new df21.RetryOptions(5e3, 3);
+var retry5 = new df22.RetryOptions(5e3, 3);
 retry5.backoffCoefficient = 2;
-df21.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
+df22.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
   const input14 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("boxFolderCreate", retry5, input14);
   return result;
 });
-df21.app.activity("boxFolderCreate", {
+df22.app.activity("boxFolderCreate", {
   handler: async (input14, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) return { skipped: true, reason: "gated off" };
     const existing = await dataApi.getCaseBoxFolder(input14.caseId);
@@ -51262,31 +51512,31 @@ df21.app.activity("boxFolderCreate", {
 
 // orchestration/src/functions/gated/box-file-request-copy.ts
 var import_functions12 = require("@azure/functions");
-var df22 = __toESM(require("durable-functions"), 1);
+var df23 = __toESM(require("durable-functions"), 1);
 import_functions12.app.http("box-file-request-copy-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-file-request-copy",
-  extraInputs: [df22.input.durableClient()],
+  extraInputs: [df23.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) {
       ctx.log("[box-file-request-copy] skipped \u2014 BOX_API_ENABLED and/or BOX_FILEREQUEST_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const input14 = await req.json();
-    const client2 = df22.getClient(ctx);
+    const client2 = df23.getClient(ctx);
     const instanceId = await client2.startNew("boxFileRequestCopyOrchestrator", { input: input14 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry6 = new df22.RetryOptions(5e3, 3);
+var retry6 = new df23.RetryOptions(5e3, 3);
 retry6.backoffCoefficient = 2;
-df22.app.orchestration("boxFileRequestCopyOrchestrator", function* (ctx) {
+df23.app.orchestration("boxFileRequestCopyOrchestrator", function* (ctx) {
   const input14 = ctx.df.getInput();
   const result = yield ctx.df.callActivityWithRetry("boxFileRequestCopy", retry6, input14);
   return result;
 });
-df22.app.activity("boxFileRequestCopy", {
+df23.app.activity("boxFileRequestCopy", {
   handler: async (input14, ctx) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) return { skipped: true };
     const templateId = gates.boxFileRequestTemplateId();
@@ -51303,35 +51553,35 @@ df22.app.activity("boxFileRequestCopy", {
 
 // orchestration/src/functions/gated/box-blob-purge.ts
 var import_functions13 = require("@azure/functions");
-var df23 = __toESM(require("durable-functions"), 1);
+var df24 = __toESM(require("durable-functions"), 1);
 import_functions13.app.timer("box-blob-purge-timer", {
   schedule: "0 0 3 * * *",
-  extraInputs: [df23.input.durableClient()],
+  extraInputs: [df24.input.durableClient()],
   handler: async (_t, ctx) => {
     if (!gates.boxApi()) {
       ctx.log("[box-blob-purge] skipped \u2014 BOX_API_ENABLED=false");
       return;
     }
-    const client2 = df23.getClient(ctx);
+    const client2 = df24.getClient(ctx);
     await client2.startNew("boxBlobPurgeOrchestrator", {});
     ctx.log("[box-blob-purge] started orchestration");
   }
 });
-var retry7 = new df23.RetryOptions(5e3, 3);
+var retry7 = new df24.RetryOptions(5e3, 3);
 retry7.backoffCoefficient = 2;
-df23.app.orchestration("boxBlobPurgeOrchestrator", function* (ctx) {
+df24.app.orchestration("boxBlobPurgeOrchestrator", function* (ctx) {
   const candidates = yield ctx.df.callActivityWithRetry("boxPurgeList", retry7, {});
   const tasks = candidates.map((c) => ctx.df.callActivityWithRetry("boxPurgeOne", retry7, c));
   const results = yield ctx.df.Task.all(tasks);
   return { purged: results.length };
 });
-df23.app.activity("boxPurgeList", {
+df24.app.activity("boxPurgeList", {
   handler: async () => {
     if (!gates.boxApi()) return [];
     return dataApi.blobsForPurge();
   }
 });
-df23.app.activity("boxPurgeOne", {
+df24.app.activity("boxPurgeOne", {
   handler: async (input14, ctx) => {
     if (!gates.boxApi()) return { purged: false };
     const purged = await deleteEvidenceBytes(input14.blobPath);
@@ -51343,35 +51593,35 @@ df23.app.activity("boxPurgeOne", {
 
 // orchestration/src/functions/gated/case-disposition.ts
 var import_functions14 = require("@azure/functions");
-var df24 = __toESM(require("durable-functions"), 1);
+var df25 = __toESM(require("durable-functions"), 1);
 import_functions14.app.timer("case-disposition-timer", {
   schedule: "0 0 2 * * *",
-  extraInputs: [df24.input.durableClient()],
+  extraInputs: [df25.input.durableClient()],
   handler: async (_t, ctx) => {
     if (!gates.caseDisposition()) {
       ctx.log("[case-disposition] skipped \u2014 CASE_DISPOSITION_ENABLED=false");
       return;
     }
-    const client2 = df24.getClient(ctx);
+    const client2 = df25.getClient(ctx);
     await client2.startNew("caseDispositionOrchestrator", {});
     ctx.log("[case-disposition] started orchestration");
   }
 });
-var retry8 = new df24.RetryOptions(5e3, 3);
+var retry8 = new df25.RetryOptions(5e3, 3);
 retry8.backoffCoefficient = 2;
-df24.app.orchestration("caseDispositionOrchestrator", function* (ctx) {
+df25.app.orchestration("caseDispositionOrchestrator", function* (ctx) {
   const due = yield ctx.df.callActivityWithRetry("dispositionList", retry8, {});
   const tasks = due.map((c) => ctx.df.callActivityWithRetry("dispositionOne", retry8, c));
   const results = yield ctx.df.Task.all(tasks);
   return { disposed: results.length };
 });
-df24.app.activity("dispositionList", {
+df25.app.activity("dispositionList", {
   handler: async () => {
     if (!gates.caseDisposition()) return [];
     return dataApi.casesForDisposition();
   }
 });
-df24.app.activity("dispositionOne", {
+df25.app.activity("dispositionOne", {
   handler: async (input14, ctx) => {
     if (!gates.caseDisposition()) return { disposed: false };
     await dataApi.disposeCase(input14.caseId);
@@ -51383,31 +51633,31 @@ df24.app.activity("dispositionOne", {
 
 // orchestration/src/functions/gated/jobsheet-import.ts
 var import_functions15 = require("@azure/functions");
-var df25 = __toESM(require("durable-functions"), 1);
+var df26 = __toESM(require("durable-functions"), 1);
 import_functions15.app.http("jobsheet-import-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "jobsheet-import",
-  extraInputs: [df25.input.durableClient()],
+  extraInputs: [df26.input.durableClient()],
   handler: async (req, ctx) => {
-    const client2 = df25.getClient(ctx);
+    const client2 = df26.getClient(ctx);
     const instanceId = await client2.startNew("jobsheetImportOrchestrator", {});
     ctx.log(`[jobsheet-import] started ${instanceId}`);
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry9 = new df25.RetryOptions(5e3, 3);
+var retry9 = new df26.RetryOptions(5e3, 3);
 retry9.backoffCoefficient = 2;
-df25.app.orchestration("jobsheetImportOrchestrator", function* (ctx) {
+df26.app.orchestration("jobsheetImportOrchestrator", function* (ctx) {
   const principals = yield ctx.df.callActivityWithRetry("jobsheetPrincipals", retry9, {});
   const tasks = principals.map((p) => ctx.df.callActivityWithRetry("jobsheetImportOne", retry9, p));
   const results = yield ctx.df.Task.all(tasks);
   return { principals: principals.length, results };
 });
-df25.app.activity("jobsheetPrincipals", {
+df26.app.activity("jobsheetPrincipals", {
   handler: async () => dataApi.principals()
 });
-df25.app.activity("jobsheetImportOne", {
+df26.app.activity("jobsheetImportOne", {
   handler: async (input14, ctx) => {
     await dataApi.recordAudit({ action: "jobsheet_imported", summary: `job-sheet import for ${input14.principalCode}` });
     ctx.log(JSON.stringify({ evt: "jobsheetImportOne", principalCode: input14.principalCode }));
@@ -51417,7 +51667,7 @@ df25.app.activity("jobsheetImportOne", {
 
 // orchestration/src/functions/gated/retro-case.ts
 var import_functions16 = require("@azure/functions");
-var df26 = __toESM(require("durable-functions"), 1);
+var df27 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/retro-envelope.ts
 function firstAddress(header) {
@@ -51428,7 +51678,7 @@ function buildRetroEnvelopeFromEml(exploded, landed, rawEml, meta) {
   const subject = (exploded.subject ?? "").trim();
   const senderAddress = firstAddress(exploded.from);
   const body2 = (exploded.body_text ?? "").slice(0, 2e4);
-  const bodyPreview = body2.replace(/\s+/g, " ").trim().slice(0, 3500);
+  const bodyPreview = cleanEmailBodyForPreview(body2).slice(0, 3500);
   return {
     messageId: `retro-box-${meta.boxFileId}`,
     internetMessageId: (exploded.message_id ?? "").trim() || `retro:box:${meta.boxFileId}`,
@@ -51560,14 +51810,14 @@ function mapRetroParse(parseResult, bodyText) {
 function normToken(v) {
   return v.trim().toUpperCase().replace(/\s+/g, "");
 }
-var retry10 = new df26.RetryOptions(5e3, 3);
+var retry10 = new df27.RetryOptions(5e3, 3);
 retry10.backoffCoefficient = 2;
 retry10.maxRetryIntervalInMilliseconds = 6e4;
 import_functions16.app.http("retro-case-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "retro-case",
-  extraInputs: [df26.input.durableClient()],
+  extraInputs: [df27.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.retroCase()) {
       ctx.log("[retro-case] skipped \u2014 RETRO_CASE_ENABLED off");
@@ -51577,7 +51827,7 @@ import_functions16.app.http("retro-case-start", {
     if (!input14.internetMessageId || !input14.mailbox) {
       return { status: 400, jsonBody: { error: "internetMessageId and mailbox required" } };
     }
-    const client2 = df26.getClient(ctx);
+    const client2 = df27.getClient(ctx);
     const safeId = String(input14.internetMessageId).replace(/[^A-Za-z0-9_-]/g, "");
     const instanceId = `retro-${safeId}`;
     let existing;
@@ -51595,7 +51845,7 @@ import_functions16.app.http("retro-case-start", {
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-df26.app.orchestration("retroCaseOrchestrator", function* (ctx) {
+df27.app.orchestration("retroCaseOrchestrator", function* (ctx) {
   const input14 = ctx.df.getInput();
   let trigger = input14.trigger;
   let category = input14.category;
@@ -51895,7 +52145,7 @@ ${original.body ?? ""}`);
   });
   return { outcome: "no_source", ...boxAmbiguity ? { ambiguousFolders: boxAmbiguity } : {} };
 });
-df26.app.activity("retroFindTrigger", {
+df27.app.activity("retroFindTrigger", {
   handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     const hit = await findMessageByInternetMessageId(input14.mailbox, input14.internetMessageId);
@@ -51910,7 +52160,7 @@ df26.app.activity("retroFindTrigger", {
     };
   }
 });
-df26.app.activity("retroResolveExisting", {
+df27.app.activity("retroResolveExisting", {
   handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     const result = await dataApi.retroResolveExisting({
@@ -51926,7 +52176,7 @@ df26.app.activity("retroResolveExisting", {
 function archiveRootIds() {
   return gates.retroBoxArchiveRootIds().split(",").map((s) => s.trim()).filter(Boolean);
 }
-df26.app.activity("retroBoxLocate", {
+df27.app.activity("retroBoxLocate", {
   handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     if (!gates.boxApi()) return { skipped: "box_gate_off" };
@@ -51991,7 +52241,7 @@ df26.app.activity("retroBoxLocate", {
     };
   }
 });
-df26.app.activity("retroBoxFetchInstruction", {
+df27.app.activity("retroBoxFetchInstruction", {
   handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     if (!gates.boxApi()) return { skipped: "box_gate_off" };
@@ -52102,7 +52352,7 @@ df26.app.activity("retroBoxFetchInstruction", {
     return { envelope, instructionSource, otherFiles, subfolderCount };
   }
 });
-df26.app.activity("retroCreatePersist", {
+df27.app.activity("retroCreatePersist", {
   handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     const result = await dataApi.retroCreate({
@@ -52150,7 +52400,7 @@ df26.app.activity("retroCreatePersist", {
     return result;
   }
 });
-df26.app.activity("retroOutlookLocate", {
+df27.app.activity("retroOutlookLocate", {
   handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     if (!gates.retroOutlookSearch()) return { skipped: "outlook_gate_off" };
@@ -52192,7 +52442,7 @@ df26.app.activity("retroOutlookLocate", {
     return { found: false };
   }
 });
-df26.app.activity("retroRecordFailure", {
+df27.app.activity("retroRecordFailure", {
   handler: async (input14, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     const env = input14.trigger;
@@ -52216,7 +52466,7 @@ df26.app.activity("retroRecordFailure", {
 // orchestration/src/functions/gated/replay-backfill.ts
 var import_functions17 = require("@azure/functions");
 var import_node_crypto5 = require("node:crypto");
-var df27 = __toESM(require("durable-functions"), 1);
+var df28 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/replay-manifest.ts
 function compareByReceived(a, b) {
@@ -52239,7 +52489,7 @@ function tallyByCategory(rows) {
 }
 
 // orchestration/src/functions/gated/replay-backfill.ts
-var retry11 = new df27.RetryOptions(5e3, 3);
+var retry11 = new df28.RetryOptions(5e3, 3);
 var PROCESS_BATCH = 25;
 var DRYRUN_CHUNK = 6;
 var BODY_CAP2 = 2e4;
@@ -52247,7 +52497,7 @@ import_functions17.app.http("replay-backfill-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "replay-backfill",
-  extraInputs: [df27.input.durableClient()],
+  extraInputs: [df28.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.replayBackfill()) {
       ctx.log("[replay-backfill] skipped \u2014 REPLAY_BACKFILL_ENABLED off");
@@ -52267,7 +52517,7 @@ import_functions17.app.http("replay-backfill-start", {
       mailbox: m.mailbox,
       sinceIso: m.minIntakeDate
     }));
-    const client2 = df27.getClient(ctx);
+    const client2 = df28.getClient(ctx);
     const instanceId = `replay-drive-${body2.epoch}`;
     let existing;
     try {
@@ -52295,7 +52545,7 @@ import_functions17.app.http("replay-backfill-start", {
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-df27.app.orchestration("replayBackfillOrchestrator", function* (ctx) {
+df28.app.orchestration("replayBackfillOrchestrator", function* (ctx) {
   const s = ctx.df.getInput();
   if (!s.manifest) {
     const lists = yield ctx.df.Task.all(
@@ -52361,7 +52611,7 @@ df27.app.orchestration("replayBackfillOrchestrator", function* (ctx) {
   }
   return { epoch: s.epoch, mode: "live", total, failures, done: true };
 });
-df27.app.activity("replayCollectMailbox", {
+df28.app.activity("replayCollectMailbox", {
   handler: async (input14, ctx) => {
     const subtree = await resolveInboxSubtreeFolderIds(input14.mailbox);
     const out = [];
@@ -52393,7 +52643,7 @@ df27.app.activity("replayCollectMailbox", {
     return out;
   }
 });
-df27.app.activity("replayClassifyOne", {
+df28.app.activity("replayClassifyOne", {
   handler: async (it, _ctx) => {
     const { message, attachments } = await getMessageWithAttachments(it.mailbox, it.messageId);
     const headers = await getMessageHeaders(it.mailbox, it.messageId);
@@ -52431,7 +52681,7 @@ df27.app.activity("replayClassifyOne", {
     };
   }
 });
-df27.app.activity("replayWriteManifest", {
+df28.app.activity("replayWriteManifest", {
   handler: async (input14, _ctx) => {
     const ndjson = input14.rows.map((r) => JSON.stringify(r)).join("\n") + "\n";
     const up = await uploadEvidenceBytes(

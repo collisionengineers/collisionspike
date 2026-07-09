@@ -480,7 +480,12 @@ export const OUTLOOK_MOVE_GATE_ALL_OFF: OutlookMoveGate = {
  *  CONTEXT.md "Case Update"); `cancellation` is a claim/case reported cancelled or closed
  *  (a staff-confirmed close/hold proposal, never automatic — CONTEXT.md "Cancellation").
  *  Per the Phase-2 deploy order, the DDL/choicesets land before the engine tag that emits
- *  these live — existing rows keep their v1 codes (no backfill). */
+ *  these live — existing rows keep their v1 codes (no backfill).
+ *
+ *  `pre_instruction` (append-only, taxonomy v3 — TKT-084, operator-signed-off 2026-07-09)
+ *  is directions sent BEFORE the official instruction ("when you receive an instruction
+ *  from X please…"): no case is minted; the row is held and correlated onto the case the
+ *  later instruction mints (suggest-first, gated TRIAGE_PRE_INSTRUCTION_ENABLED). */
 export type InboundCategory =
   | 'receiving_work'
   | 'query'
@@ -488,7 +493,8 @@ export type InboundCategory =
   | 'non_actionable'
   | 'other'
   | 'case_update'
-  | 'cancellation';
+  | 'cancellation'
+  | 'pre_instruction';
 
 /** Every {@link InboundCategory} name, in declaration/choice-set order — the runtime
  *  companion to the type union (mirrors `CASE_STATUSES` in contracts/case-status.ts),
@@ -501,6 +507,7 @@ export const INBOUND_CATEGORIES: readonly InboundCategory[] = [
   'other',
   'case_update',
   'cancellation',
+  'pre_instruction',
 ];
 
 /** cr1bd_inboundsubtype option names. `existing_provider_diminution` (append-only,
@@ -515,7 +522,13 @@ export const INBOUND_CATEGORIES: readonly InboundCategory[] = [
  *  `images_received` is photos with no other new information (paired with `case_update`
  *  when matched, or standalone under the unmatched-images routing lane — ADR-0015 §5);
  *  `cancellation_notice` and `update_general` are `cancellation`'s and `case_update`'s
- *  default subtypes respectively. */
+ *  default subtypes respectively.
+ *
+ *  `payment_remittance` and `pre_instruction_directions` (append-only, taxonomy v3 —
+ *  TKT-105/120 + TKT-084): `payment_remittance` is an INBOUND payment notification
+ *  (a remittance advice / transfer notice — the mirror-image of `billing_request`,
+ *  filed under `billing`); `pre_instruction_directions` is `pre_instruction`'s only
+ *  subtype (directions held for the later official instruction). */
 export type InboundSubtype =
   | 'existing_provider_instruction'
   | 'existing_provider_audit'
@@ -529,7 +542,9 @@ export type InboundSubtype =
   | 'other'
   | 'images_received'
   | 'cancellation_notice'
-  | 'update_general';
+  | 'update_general'
+  | 'payment_remittance'
+  | 'pre_instruction_directions';
 
 /** Every {@link InboundSubtype} name, in declaration/choice-set order — see
  *  {@link INBOUND_CATEGORIES}. */
@@ -547,6 +562,8 @@ export const INBOUND_SUBTYPES: readonly InboundSubtype[] = [
   'images_received',
   'cancellation_notice',
   'update_general',
+  'payment_remittance',
+  'pre_instruction_directions',
 ];
 
 /** cr1bd_triagestate: the row's lifecycle in the triage queue. */
@@ -655,6 +672,8 @@ export interface InboundCounts {
   other: number;
   case_update: number;
   cancellation: number;
+  /** Taxonomy v3 (TKT-084) — pre-instruction directions held for a later instruction. */
+  pre_instruction: number;
   untriaged: number;
 }
 
@@ -667,6 +686,7 @@ export const INBOUND_COUNTS_ZERO: InboundCounts = {
   other: 0,
   case_update: 0,
   cancellation: 0,
+  pre_instruction: 0,
   untriaged: 0,
 };
 

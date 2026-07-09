@@ -7287,6 +7287,59 @@ function canonicalizeVrm(s) {
 var STRICT = /\b(?:[A-Z]{2}[0-9]{2}\s?[A-Z]{3}|[A-Z][0-9]{1,3}\s?[A-Z]{3}|[A-Z]{3}\s?[0-9]{1,3}[A-Z])\b/g;
 var LOOSE = /\b[A-Z]{1,3}\s?[0-9]{1,4}\b/g;
 var ANCHOR = /\b(?:registration|reg|vrm|vehicle|plate|number\s?plate)\b/i;
+var ANCHOR_WINDOW = 40;
+var TIGHT_ANCHOR_WINDOW = 16;
+var TIGHT_ANCHOR = /(?:reg(?:istration)?|vrm|vehicle|plate)\s*(?:no|number|mark)?\s*[:.\-#]?\s*$/i;
+var MONTH_DAY_WORDS = /* @__PURE__ */ new Set([
+  "JANUARY",
+  "FEBRUARY",
+  "MARCH",
+  "APRIL",
+  "MAY",
+  "JUNE",
+  "JULY",
+  "AUGUST",
+  "SEPTEMBER",
+  "OCTOBER",
+  "NOVEMBER",
+  "DECEMBER",
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+  "SUNDAY",
+  "JAN",
+  "FEB",
+  "MAR",
+  "APR",
+  "JUN",
+  "JUL",
+  "AUG",
+  "SEP",
+  "SEPT",
+  "OCT",
+  "NOV",
+  "DEC"
+]);
+var LOOSE_ALPHA_STOPWORDS = /* @__PURE__ */ new Set([
+  "AND",
+  "THE",
+  "FOR",
+  "NOT",
+  "BUT",
+  "ARE",
+  "WAS",
+  "OUR",
+  "YOU",
+  "ALL",
+  "ANY",
+  "HAS",
+  "HAD",
+  "PER",
+  "VIA"
+]);
 var EXCLUDE_WORDS = /* @__PURE__ */ new Set([
   "VAT",
   "TEL",
@@ -7437,6 +7490,10 @@ function isPostcodeOutwardCode(compact) {
   const m = /^([A-Z]{1,2})[0-9]{1,2}$/.exec(compact);
   return m !== null && POSTCODE_AREAS.has(m[1]);
 }
+function isPostcodeAreaHead(compact) {
+  const m = /^([A-Z]{1,3})[0-9]/.exec(compact);
+  return m !== null && POSTCODE_AREAS.has(m[1]);
+}
 function precededByExcludeLabel(upper, idx) {
   const before = upper.slice(Math.max(0, idx - 16), idx);
   return EXCLUDE_LABEL.test(before);
@@ -7451,22 +7508,33 @@ function extractVrm(text) {
       continue;
     return canonicalizeVrm(cand);
   }
-  if (ANCHOR.test(text)) {
-    for (const m of upper.matchAll(LOOSE)) {
-      const cand = m[0];
-      const idx = m.index ?? 0;
-      const compact = cand.replace(/\s+/g, "");
-      if (isPostcodeOutward(upper, idx, cand))
+  for (const m of upper.matchAll(LOOSE)) {
+    const cand = m[0];
+    const idx = m.index ?? 0;
+    const compact = cand.replace(/\s+/g, "");
+    if (MONTH_DAY_WORDS.has(compact))
+      continue;
+    if (isPostcodeOutward(upper, idx, cand))
+      continue;
+    if (isPostcodeOutwardCode(compact))
+      continue;
+    const alpha = cand.match(/^[A-Z]+/)?.[0] ?? "";
+    if (EXCLUDE_WORDS.has(alpha))
+      continue;
+    if (LOOSE_ALPHA_STOPWORDS.has(alpha))
+      continue;
+    if (precededByExcludeLabel(upper, idx))
+      continue;
+    if (isPostcodeAreaHead(compact)) {
+      const before = upper.slice(Math.max(0, idx - TIGHT_ANCHOR_WINDOW), idx);
+      if (!TIGHT_ANCHOR.test(before))
         continue;
-      if (isPostcodeOutwardCode(compact))
+    } else {
+      const windowText = upper.slice(Math.max(0, idx - ANCHOR_WINDOW), idx + cand.length + ANCHOR_WINDOW);
+      if (!ANCHOR.test(windowText))
         continue;
-      const alpha = cand.match(/^[A-Z]+/)?.[0] ?? "";
-      if (EXCLUDE_WORDS.has(alpha))
-        continue;
-      if (precededByExcludeLabel(upper, idx))
-        continue;
-      return canonicalizeVrm(cand);
     }
+    return canonicalizeVrm(cand);
   }
   return "";
 }
@@ -7745,6 +7813,7 @@ var INBOUND_COUNTS_ZERO = {
   other: 0,
   case_update: 0,
   cancellation: 0,
+  pre_instruction: 0,
   untriaged: 0
 };
 
@@ -13691,7 +13760,8 @@ var inbound_email_classification_default = {
         { value: 100000003, name: "billing", label: "Billing" },
         { value: 100000004, name: "non_actionable", label: "Non-actionable" },
         { value: 100000005, name: "case_update", label: "Case Update" },
-        { value: 100000006, name: "cancellation", label: "Cancellation" }
+        { value: 100000006, name: "cancellation", label: "Cancellation" },
+        { value: 100000007, name: "pre_instruction", label: "Pre-instruction" }
       ]
     },
     {
@@ -13713,7 +13783,9 @@ var inbound_email_classification_default = {
         { value: 100000009, name: "acknowledgement", label: "Acknowledgement" },
         { value: 100000010, name: "images_received", label: "Images Received" },
         { value: 100000011, name: "cancellation_notice", label: "Cancellation Notice" },
-        { value: 100000012, name: "update_general", label: "General Update" }
+        { value: 100000012, name: "update_general", label: "General Update" },
+        { value: 100000013, name: "payment_remittance", label: "Payment Received" },
+        { value: 100000014, name: "pre_instruction_directions", label: "Pre-instruction Directions" }
       ]
     }
   ]
@@ -15622,6 +15694,14 @@ var gates = {
   // inviolable VRM rule) is attached automatically instead of merely suggested. With this
   // off, the ref-gate rung is exactly today's suggest_attach.
   triageAutoAttach: () => process.env.TRIAGE_AUTO_ATTACH_ENABLED === "true",
+  // TKT-084 — the pre-instruction lane (taxonomy v3; operator sign-off recorded
+  // 2026-07-09 in the ticket's evidence). Default off in code. While OFF, classifyInbound
+  // DEMOTES a classifier 'pre_instruction' verdict to 'other' (today's behaviour — honest
+  // kill-switch) and no correlation runs. While ON: the lane is recorded as classified
+  // (held on the inbound_email row, no case minted — categoryMintsCase is false for it
+  // either way), and a later instruction's case-mint correlates held rows onto the new
+  // case, suggest-first (never auto-attach — the correlation key is typically VRM-only).
+  triagePreInstruction: () => process.env.TRIAGE_PRE_INSTRUCTION_ENABLED === "true",
   // Replay backfill driver (TKT-059 / GO_LIVE_SPRINT_PLAN P1/P3) — default off. Master switch
   // for the POST /api/replay-backfill Durable driver on the orchestration app. Off by default
   // so the (function-key-protected) endpoint additionally refuses unless deliberately enabled;
@@ -16166,7 +16246,9 @@ var INBOUND_CATEGORY_BY_INT = {
   100000003: "billing",
   100000004: "non_actionable",
   100000005: "case_update",
-  100000006: "cancellation"
+  100000006: "cancellation",
+  // Taxonomy v3 (TKT-084) — see deltas/2026-07-09-taxonomy-v3-pre-instruction-payments.sql.
+  100000007: "pre_instruction"
 };
 var INBOUND_CATEGORY_TO_INT = {
   receiving_work: 1e8,
@@ -16175,7 +16257,8 @@ var INBOUND_CATEGORY_TO_INT = {
   billing: 100000003,
   non_actionable: 100000004,
   case_update: 100000005,
-  cancellation: 100000006
+  cancellation: 100000006,
+  pre_instruction: 100000007
 };
 var INBOUND_SUBTYPE_BY_INT = {
   1e8: "existing_provider_instruction",
@@ -16190,7 +16273,10 @@ var INBOUND_SUBTYPE_BY_INT = {
   100000009: "acknowledgement",
   100000010: "images_received",
   100000011: "cancellation_notice",
-  100000012: "update_general"
+  100000012: "update_general",
+  // Taxonomy v3 (TKT-105/120 + TKT-084).
+  100000013: "payment_remittance",
+  100000014: "pre_instruction_directions"
 };
 var INBOUND_SUBTYPE_TO_INT = {
   existing_provider_instruction: 1e8,
@@ -16205,7 +16291,9 @@ var INBOUND_SUBTYPE_TO_INT = {
   acknowledgement: 100000009,
   images_received: 100000010,
   cancellation_notice: 100000011,
-  update_general: 100000012
+  update_general: 100000012,
+  payment_remittance: 100000013,
+  pre_instruction_directions: 100000014
 };
 var TRIAGE_STATES = ["new", "routed", "actioned", "dismissed"];
 var CLASSIFIER_MODES = ["deterministic", "llm", "human"];
@@ -16355,6 +16443,7 @@ function tallyActiveInboundCounts(rows) {
     non_actionable: 0,
     case_update: 0,
     cancellation: 0,
+    pre_instruction: 0,
     other: 0,
     untriaged: 0
   };
@@ -17545,6 +17634,43 @@ import_functions.app.http("internalTriageSuggestLink", {
     }
     ctx.log(JSON.stringify({ evt: "triageSuggestLink", suggestionType, suggestionId, targetCaseId, autoAttached }));
     return { status: 200, jsonBody: { suggestionId, created: true, ...autoAttached ? { autoAttached: true } : {} } };
+  })
+});
+import_functions.app.http("internalTriageHeldPreInstruction", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/triage/held-pre-instruction",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json().catch(() => ({}));
+    const vrm = (body2.vrm ?? "").trim();
+    const caseRef = (body2.caseRef ?? "").trim();
+    const jobRef = (body2.jobRef ?? "").trim();
+    if (!vrm && !caseRef && !jobRef) {
+      return { status: 400, jsonBody: { error: "at least one of vrm, caseRef, jobRef is required" } };
+    }
+    const rows = await query(
+      `SELECT ie.id, ie.source_message_id, ie.body_vrm, ie.body_caseref, ie.body_jobref
+           FROM inbound_email ie
+           JOIN choice_inbound_category c ON c.code = ie.category_code
+          WHERE c.name = 'pre_instruction'
+            AND ie.case_id IS NULL
+            AND ie.triage_state = 'new'
+            AND (
+                  ($1 <> '' AND upper(ie.body_vrm) = upper($1))
+               OR ($2 <> '' AND upper(ie.body_caseref) = upper($2))
+               OR ($3 <> '' AND upper(ie.body_jobref) = upper($3))
+            )
+          ORDER BY ie.created_at DESC
+          LIMIT 5`,
+      [vrm, caseRef, jobRef]
+    );
+    const held = rows.map((r) => ({
+      inboundEmailId: r.id,
+      sourceMessageId: r.source_message_id ?? null,
+      matchedOn: vrm && r.body_vrm?.toUpperCase() === vrm.toUpperCase() ? "vrm" : caseRef && r.body_caseref?.toUpperCase() === caseRef.toUpperCase() ? "case_ref" : "job_ref"
+    }));
+    ctx.log(JSON.stringify({ evt: "heldPreInstruction", matches: held.length }));
+    return { status: 200, jsonBody: { held } };
   })
 });
 import_functions.app.http("internalInboundOutlookMoved", {

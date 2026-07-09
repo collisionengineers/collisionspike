@@ -373,7 +373,13 @@ INSERT INTO choice_inbound_category (code, name, label) VALUES
   -- with new evidence, vs a bare query) and cancellation (cancellation phrases) join the
   -- set. Emitted only once the taxonomy-v2 engine tag ships (Phase-0's tag emits v1 only).
   (100000005, 'case_update',  'Case update'),
-  (100000006, 'cancellation', 'Cancellation');
+  (100000006, 'cancellation', 'Cancellation'),
+  -- append-only (PLAN-003 classifier wave, 2026-07-09 delta -- see
+  -- deltas/2026-07-09-taxonomy-v3-pre-instruction-payments.sql, TKT-084): directions
+  -- sent BEFORE the official instruction; no case minted -- the row is held and
+  -- correlated onto the later instruction's case (suggest-first, gated
+  -- TRIAGE_PRE_INSTRUCTION_ENABLED).
+  (100000007, 'pre_instruction', 'Pre-instruction');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_inboundsubtype  (inbound-email-classification.json bundle)
@@ -406,7 +412,14 @@ INSERT INTO choice_inbound_subtype (code, name, label) VALUES
   -- real subtype set.
   (100000010, 'images_received',     'Images received'),
   (100000011, 'cancellation_notice', 'Cancellation notice'),
-  (100000012, 'update_general',      'Case update — general');
+  (100000012, 'update_general',      'Case update — general'),
+  -- append-only (PLAN-003 classifier wave, 2026-07-09 delta -- see
+  -- deltas/2026-07-09-taxonomy-v3-pre-instruction-payments.sql): payment_remittance
+  -- (TKT-105/120 -- an inbound remittance advice / transfer notice, the mirror-image of
+  -- billing_request, filed under billing) and pre_instruction_directions (TKT-084 --
+  -- pre_instruction's only subtype).
+  (100000013, 'payment_remittance',         'Payment received'),
+  (100000014, 'pre_instruction_directions', 'Pre-instruction directions');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_inspectiondecisionmode  (inspection-decision-mode.json)
