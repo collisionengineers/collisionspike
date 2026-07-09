@@ -158,7 +158,6 @@ node scripts/check-skills-sync.mjs
 | [TKT-110](./verify/TKT-110-mcp-readonly-server/TKT-110-mcp-readonly-server.md) | Read-only MCP server for external agents | P2 | ai | PLAN-001 |
 | [TKT-111](./verify/TKT-111-assistant-write-tier/TKT-111-assistant-write-tier.md) | Assistant write tier with human confirmation | P2 | ai | PLAN-001 |
 | [TKT-113](./verify/TKT-113-ai-usage-ledger/TKT-113-ai-usage-ledger.md) | AI usage ledger for model capacity controls | P3 | ai | PLAN-001 |
-| [TKT-118](./verify/TKT-118-image-only-vrm-identity/TKT-118-image-only-vrm-identity.md) | Rename the "Image Based" case label + identify image-only cases by VRM (no Case/PO before instructions) | P2 | intake | PLAN-003 |
 | [TKT-120](./verify/TKT-120-fairway-payment-misclass/TKT-120-fairway-payment-misclass.md) | FAIRWAY LEGAL payment transfer marked Unidentified — should classify as payments/billing | P2 | email | PLAN-003 |
 | [TKT-128](./verify/TKT-128-imported-details-blank/TKT-128-imported-details-blank.md) | "Imported details — from the instruction document or email" renders blank | P2 | ui | PLAN-003 |
 
@@ -219,6 +218,7 @@ node scripts/check-skills-sync.mjs
 | [TKT-115](./done/TKT-115-orch-ocr-fn-url-host-mismatch/TKT-115-orch-ocr-fn-url-host-mismatch.md) | Fix orch OCR_FN_URL host — it points at azurewebsites.net but the OCR app is Functions-on-ACA (azurecontainerapps.io) | P1 | platform | — |
 | [TKT-116](./done/TKT-116-queues-pagination/TKT-116-queues-pagination.md) | Paginate the case queues at 15 per page (same as the inbox) | P2 | ui | PLAN-003 |
 | [TKT-117](./done/TKT-117-queues-last-update/TKT-117-queues-last-update.md) | Show a "Last update" line for each case in the queues view | P2 | ui | PLAN-003 |
+| [TKT-118](./done/TKT-118-image-only-vrm-identity/TKT-118-image-only-vrm-identity.md) | Rename the "Image Based" case label + identify image-only cases by VRM (no Case/PO before instructions) | P2 | intake | PLAN-003 |
 | [TKT-121](./done/TKT-121-email-type-dropdown-overflow/TKT-121-email-type-dropdown-overflow.md) | The "E-mail Type" dropdown fills the whole page — cap its height with a scrollbar | P3 | ui | PLAN-003 |
 | [TKT-122](./done/TKT-122-dashboard-panel-alignment/TKT-122-dashboard-panel-alignment.md) | Align the dashboard containers — inbox and "Check the flagged details" do not line up | P3 | ui | PLAN-003 |
 | [TKT-123](./done/TKT-123-exclude-label-reflection-warning/TKT-123-exclude-label-reflection-warning.md) | Rename "exclude (person reflection)" to "Exclude" + dismissible vision reflection warning on images | P2 | ui | PLAN-003 |

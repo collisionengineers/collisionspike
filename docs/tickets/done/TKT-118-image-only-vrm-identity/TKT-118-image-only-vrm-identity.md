@@ -1,11 +1,11 @@
 ---
 id: TKT-118
 title: Rename the "Image Based" case label + identify image-only cases by VRM (no Case/PO before instructions)
-status: verify
+status: done
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-024, TKT-034, TKT-084]
-research-link: docs/tickets/verify/TKT-118-image-only-vrm-identity/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-118-image-only-vrm-identity/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-118 — Rename the "Image Based" case label + identify image-only cases by VRM (no Case/PO before instructions)
