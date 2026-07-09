@@ -32,7 +32,7 @@ A `cancellation` triage category (taxonomy v2): match the email to its open case
 
 Phase 2 of the [Rules Engine v2 plan](../../../plans/rules_engine_v2_plan_9ba034c4.plan.md) (taxonomy v2
 + triage policy). The old `TKT-041-merge-fix` note that shared this id was split out to
-[TKT-052](../../backlog/TKT-052-merge-provider-loss/TKT-052-merge-provider-loss.md).
+[TKT-052](../../now/TKT-052-merge-provider-loss/TKT-052-merge-provider-loss.md).
 
 ## Status update — 2026-07-02 (next — built + eval-proven; needs D7 + the parser deploy)
 

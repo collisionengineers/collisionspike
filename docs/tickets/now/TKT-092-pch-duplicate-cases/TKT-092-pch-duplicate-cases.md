@@ -1,11 +1,11 @@
 ---
 id: TKT-092
 title: PCH cases duplicating for no reason
-status: backlog
+status: now
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-051, TKT-021, TKT-087]
-research-link: docs/tickets/backlog/TKT-092-pch-duplicate-cases/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-092-pch-duplicate-cases/evidence/operator-note.md
 ---
 
 # PCH cases duplicating for no reason

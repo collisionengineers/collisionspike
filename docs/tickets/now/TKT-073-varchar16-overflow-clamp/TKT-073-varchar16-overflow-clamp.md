@@ -1,11 +1,11 @@
 ---
 id: TKT-073
 title: Intake write fails with "value too long" — clamp over-length field before insert
-status: backlog
+status: now
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-071, TKT-001]
-research-link: docs/tickets/backlog/TKT-073-varchar16-overflow-clamp/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-073-varchar16-overflow-clamp/evidence/operator-note.md
 ---
 
 # Intake write fails with "value too long" — clamp over-length field before insert

@@ -1,11 +1,11 @@
 ---
 id: TKT-101
 title: QDOS — two distinct refs (46671/1, 46533/1) wrongly linked as one case
-status: backlog
+status: now
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-092, TKT-051, TKT-065, TKT-100]
-research-link: docs/tickets/backlog/TKT-101-qdos-cases-wrong-linking/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-101-qdos-cases-wrong-linking/evidence/operator-note.md
 ---
 
 # QDOS — two distinct refs (46671/1, 46533/1) wrongly linked as one case
