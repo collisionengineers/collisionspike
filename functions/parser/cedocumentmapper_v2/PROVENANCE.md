@@ -29,6 +29,28 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-09 (classifier bug-fixes C2 body-only-instruction + C4 labelled-ref money — collisionspike):**
+re-cut from the sibling at **`engine-v2.13`** (branch `feat/tkt043-open-case-ref-context`; **commit +
+`engine-v2.13` tag PENDING** — this re-cut was applied to the sibling working tree only; the operator
+commits + tags + pushes it per ADR-0018 BEFORE deploying the parser Function from this tree; do NOT
+deploy from an uncommitted re-cut). One file, `rules/email_classifier.py`; two additive
+classifier-logic fixes with **NO new taxonomy codes / NO DDL dependency** (`TAXONOMY_VERSION` stays 3,
+so — unlike the taxonomy cuts above — the deploy-order warning does NOT apply). **(C2)** a genuine
+body-only instruction now wins over the `pre_instruction` lane: Rule 0e (`pre_instruction_directions`)
+gains a disqualifier mirroring Rule 3's second arm (`strong_body_instruction`) EXACTLY — `not is_reply
+and work_phrases and body_vrm and has_existing_ref and not query_phrases` — so a FRESH (non-reply)
+1-work-cue + body-VRM + existing-ref email carrying "instructions to follow" boilerplate classifies
+`receiving_work` (rule `body_only_instruction`) instead of returning `pre_instruction` and minting no
+case. The `work_phrases` term is load-bearing: it keeps the lane firing for the genuine "directions
+with NO work cue" case (which Rule 3's arm never catches). **(C4)** the `_job_reference` LABELLED tier
+now `finditer`s (was first-match `.search()`) so a money value in an EARLIER labelled match
+(`Ref: 768.00`) can no longer mask a genuine labelled ref later on (`Our Ref: 12345`) — mirrors the
+structured tier's existing iterate-past-money guard (TKT-103). Three new sibling unit tests
+(`tests/test_email_classifier.py`): `test_body_only_instruction_beats_the_pre_instruction_lane`,
+`test_pre_instruction_still_fires_for_directions_with_no_work_cue_and_a_ref`, and
+`test_labelled_ref_extractor_continues_past_a_money_value`. Sibling suite **439 passed / 4 skipped**
+(436 → 439, +3 new). Byte-mirror restored (drift guard green).
+
 **2026-07-09 (TKT-136 fallback-reference/VRM guards + TKT-102 Tractable lane):** re-cut from the
 sibling at **`engine-v2.12`** (branch `feat/tkt043-open-case-ref-context`, commit `ab5f8d2` —
 branch + tag PUSHED to origin), INCLUDING a **deliberate providers.json seed update** (the new
@@ -306,12 +328,17 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.12`** on branch
-  `feat/tkt043-open-case-ref-context`, commit **`ab5f8d2`** (2026-07-09) — the TKT-136
-  fallback-reference money/fragment guards + document-path VRM tight-anchor/trigram port
-  (sibling commit `a80246b`) and the TKT-102 Tractable image-delivery classifier lane +
-  Tractable layout provider, incl. a **deliberate providers.json seed update** (see History
-  above). Changed vs `engine-v2.11`: `rules/engine.py`, `rules/email_classifier.py`,
+- **Cut from:** intended tag **`engine-v2.13`** on branch
+  `feat/tkt043-open-case-ref-context` — **commit + `engine-v2.13` tag PENDING** (the classifier
+  C2/C4 bug-fix re-cut was applied to the sibling working tree; the operator commits + tags + pushes
+  it per ADR-0018 BEFORE deploying the parser Function — do NOT deploy from an uncommitted re-cut).
+  Changed vs `engine-v2.12`: **`rules/email_classifier.py` ONLY** (C2 `pre_instruction` Rule-0e
+  disqualifier + C4 labelled-ref `finditer`; no new taxonomy codes, no DDL dependency).
+  Prior committed pin: annotated tag **`engine-v2.12`** on the same branch, commit **`ab5f8d2`**
+  (2026-07-09) — the TKT-136 fallback-reference money/fragment guards + document-path VRM
+  tight-anchor/trigram port (sibling commit `a80246b`) and the TKT-102 Tractable image-delivery
+  classifier lane + Tractable layout provider, incl. a **deliberate providers.json seed update** (see
+  History above). Changed vs `engine-v2.11`: `rules/engine.py`, `rules/email_classifier.py`,
   `rules/triage_rules.py`, `normalization/normalizers.py`, `resources/triage-rules.json`
   + `.schema.json`, and the providers.json seed. **Branch + `engine-v2.12` tag are PUSHED
   to origin** (`engine-v2.10`/`v2.11` were already on origin). Prior pins:

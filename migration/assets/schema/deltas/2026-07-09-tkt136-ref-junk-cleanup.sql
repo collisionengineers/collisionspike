@@ -29,6 +29,20 @@
 -- matches zero rows. Case_ref is NOT one of the 7 required EVA fields, so no
 -- status re-evaluation is needed for the NULLs.
 --
+-- -----------------------------------------------------------------------------
+-- !! RE-RUN GUARD (the `clear` rows) !! This delta ALREADY RAN LIVE 2026-07-09.
+-- The backup/clear guard for the four `clear` targets keys on the BROAD shape
+-- `case_ref NOT LIKE 'Our Reference:%'` (encoded as
+-- `(t.action='strip-label') = (c.case_ref LIKE 'Our Reference:%')`), NOT on the
+-- exact junk strings. That was safe on the ONE audited snapshot it ran against,
+-- but a blind re-run would back up + NULL whatever those four ids hold NOW --
+-- INCLUDING a legitimate manual correction someone may have applied in the
+-- meantime. Before ANY re-run, tighten the `clear` match to the EXACT expected
+-- junk values enumerated above:
+--   'RIGERANT R1234YF' / '77 - 79 Hoylake Road' / 'Excess waived' / 'Repairs Authorised?'
+-- so a `clear` row that no longer holds its original junk is left untouched.
+-- -----------------------------------------------------------------------------
+--
 -- APPLY RUNBOOK: docs/azure/postgres.md (transient firewall rule -> Entra token
 -- -> psql as csadmin -> delete rule). BACKUP-FIRST via the backup table below.
 -- =============================================================================
@@ -61,6 +75,10 @@ INSERT INTO backup_20260709_tkt136_ref_junk (id, case_po, old_ref, action)
 SELECT c.id, c.case_po, c.case_ref, t.action
   FROM case_ c JOIN targets t ON t.id = c.id
  WHERE c.case_ref IS NOT NULL
+   -- !! RE-RUN (see header): for `clear` rows this is a BROAD "not a label-prefixed
+   -- value" test, NOT the exact junk strings -- a manual correction applied before
+   -- this delta would still be captured here and then cleared below. On any re-run,
+   -- AND this with an explicit list of the four expected junk values (see header).
    AND (t.action = 'strip-label') = (c.case_ref LIKE 'Our Reference:%')
 ON CONFLICT (id) DO NOTHING;
 

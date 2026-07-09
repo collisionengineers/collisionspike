@@ -16,6 +16,19 @@
 --      document-wide-anchor sniff. A STRICT DVLA shape (current/prefix/suffix)
 --      is NEVER touched (defensive re-check below), so no genuine mark can match.
 --
+-- -----------------------------------------------------------------------------
+-- !! UNSAFE TO RE-RUN (family C) !! This delta ALREADY RAN LIVE 2026-07-09 as a
+-- ONE-TIME cleanup (idempotent against the exact rows it cleared). Do NOT re-run
+-- it against any other -- or future -- dataset that may hold GENUINE DATELESS
+-- marks. Family C's broad "postcode-area + 1-4 digits" shape (HD4110, LS8, B8)
+-- ALSO matches valid dateless registrations, so a blind re-run WOULD NULL real
+-- marks. It was safe HERE only because the exact target rows were audited first
+-- (the PRE-CHECK output below was saved into the TKT-071 evidence folder). Any
+-- future re-run MUST be constrained to an explicitly audited ALLOW-LIST of row
+-- ids -- never the family-C shape predicate alone. Families A (date words) and
+-- B (function-word heads) remain safe by shape; only family C is the hazard.
+-- -----------------------------------------------------------------------------
+--
 -- Targets BOTH persisted homes: case_.vrm and inbound_email.body_vrm.
 --
 -- BACKUP-FIRST + AUDITED + IDEMPOTENT + TRANSACTIONAL:
@@ -98,6 +111,10 @@ WITH junk AS (
                           'SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER','MONDAY','TUESDAY',
                           'WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY')
         OR upper(vrm) ~ '^(AND|THE|FOR|NOT|BUT|ARE|WAS|OUR|YOU|ALL|ANY|HAS|HAD|PER|VIA)[0-9]{1,4}$'
+        -- !! family C (see header warning): this shape ALSO matches genuine
+        -- DATELESS marks. Safe here only because these exact rows were audited
+        -- pre-apply; NEVER re-run this branch by shape alone -- a re-run must be
+        -- constrained to an explicitly audited allow-list of row ids.
         OR ( upper(vrm) ~ '^[A-Z]{1,2}[0-9]{1,4}$'
              AND substring(upper(vrm) from '^[A-Z]{1,2}') IN (
                'AB','AL','B','BA','BB','BD','BH','BL','BN','BR','BS','BT','CA','CB','CF','CH',
@@ -143,6 +160,10 @@ WITH junk AS (
                           'SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER','MONDAY','TUESDAY',
                           'WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY')
         OR upper(body_vrm) ~ '^(AND|THE|FOR|NOT|BUT|ARE|WAS|OUR|YOU|ALL|ANY|HAS|HAD|PER|VIA)[0-9]{1,4}$'
+        -- !! family C (see header warning): this shape ALSO matches genuine
+        -- DATELESS marks. Safe here only because these exact rows were audited
+        -- pre-apply; NEVER re-run this branch by shape alone -- a re-run must be
+        -- constrained to an explicitly audited allow-list of row ids.
         OR ( upper(body_vrm) ~ '^[A-Z]{1,2}[0-9]{1,4}$'
              AND substring(upper(body_vrm) from '^[A-Z]{1,2}') IN (
                'AB','AL','B','BA','BB','BD','BH','BL','BN','BR','BS','BT','CA','CB','CF','CH',

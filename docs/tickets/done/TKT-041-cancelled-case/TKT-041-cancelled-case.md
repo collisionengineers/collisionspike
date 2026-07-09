@@ -25,8 +25,10 @@ A `cancellation` triage category (taxonomy v2): match the email to its open case
 
 ## Evidence
 
-- `source-emails/` — 13 real `.eml` samples (a mix of cancellation, closure, instruction and
-  estimate mails — useful as both positives and near-miss negatives for the eval corpus).
+- `source-emails/cancelled-cases/` — 13 real `.eml` samples (a mix of cancellation, closure, instruction
+  and estimate mails — useful as both positives and near-miss negatives for the eval corpus). They stay at
+  this path because the eval harness references them by exact path in `scripts/eval-email/manifest.json`;
+  the `evidence/` pointer to them is [evidence/README.md](./evidence/README.md).
 
 ## Delivery
 
@@ -52,10 +54,18 @@ v1 and v2, not as a taxonomy miss) — see the manifest's own rationale for `tkt
 [scripts/eval-email/manifest.json](../../../../scripts/eval-email/manifest.json). This is a genuine gap for
 the operator to decide, not something built or guessed at in this pass.
 
-**Not yet active:** the `cancellation` category and the engine that emits it are both gated — 🔒 D7 (DDL
-delta apply) must land before the taxonomy-v2 parser deploy, and no live probe has run yet against a real
-inbound cancellation email on the deployed (v1-only) engine.
+**Now active (updated 2026-07-09):** D7 (the taxonomy-v2 DDL delta) landed, the taxonomy-v2 parser is
+deployed, and `TRIAGE_CANCELLATION_ENABLED=true` on `cespk-orch-dev`. A live probe has run: the real sample
+`Claim Cancelled - SBL-B0649696` classified 200 `cancellation`/`cancellation_notice` at taxonomy_version 2.
+The propose-close/hold action remains staff-confirmed (never an automatic close). See
+[changes.md](./changes.md) and [verification.md](./verification.md).
 
-## Verification
+> **Prior state (superseded 2026-07-09):** Not yet active — the `cancellation` category and the engine that
+> emits it are both gated — 🔒 D7 (DDL delta apply) must land before the taxonomy-v2 parser deploy, and no
+> live probe has run yet against a real inbound cancellation email on the deployed (v1-only) engine.
 
-- [verification.md](./verification.md) — VERIFIED-LIVE 2026-07-09 (ticket-verifier dispatch, classify layer).
+## Artifacts
+
+- [Changes made](./changes.md)
+- [Verification](./verification.md) — VERIFIED-LIVE 2026-07-09 (ticket-verifier dispatch, classify layer).
+- [Evidence](./evidence/README.md) — the 13 `.eml` samples (kept under `source-emails/cancelled-cases/`).

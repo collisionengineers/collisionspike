@@ -115,8 +115,10 @@ describe('prefillImageBasedInspection — (b) guarded fill + provenance + audite
     expect(filled).toBe(true);
 
     // The guarded UPDATE: fill-if-empty AND undecided, sets the literal + the decision code.
+    // The empty-check is btrim'd (PR47-A1) so a whitespace-only address counts as empty,
+    // matching the trimmed eligibility/status predicates.
     const upd = sqls.find((s) => /UPDATE case_/i.test(s))!;
-    expect(upd).toMatch(/COALESCE\(eva_inspection_address, ''\) = ''/);
+    expect(upd).toMatch(/COALESCE\(btrim\(eva_inspection_address\), ''\) = ''/);
     expect(upd).toMatch(/inspection_decision_code IS NULL OR inspection_decision_code = \$4/);
     const updParams = params[sqls.indexOf(upd)];
     expect(updParams).toContain('Image Based Assessment');

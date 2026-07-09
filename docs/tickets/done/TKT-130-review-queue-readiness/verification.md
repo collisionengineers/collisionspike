@@ -10,7 +10,7 @@ PENDING
   (+ tab counts Not ready 154 / Review 135 / Held 59:
   [evidence/review-queue-live-2026-07-08.png](./evidence/review-queue-live-2026-07-08.png))
 - Live re-evaluation movement (needs_review→missing_images 109; missing_required_fields→
-  ready_for_eva 23; ready_for_eva 0→23) — changes.md + 
+  ready_for_eva 23; ready_for_eva 0→23) — changes.md +
   [evidence/post-reeval-state-2026-07-08.txt](./evidence/post-reeval-state-2026-07-08.txt)
 - A.QDOS26029 image-rule detail (why it evaluates missing_images honestly) —
   [evidence/aqdos26029-image-rule-detail-2026-07-08.txt](./evidence/aqdos26029-image-rule-detail-2026-07-08.txt)

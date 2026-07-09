@@ -413,11 +413,26 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       post<{ updated: boolean }>(`/api/cases/${enc(caseId)}/eva-submitted`),
     markCaseDone: (caseId) =>
       post<{ updated: boolean }>(`/api/cases/${enc(caseId)}/mark-done`),
+    // E4: the server caps each page (default 200, max 500) and returns a bare
+    // Case[] with no total — a single fetch under-counts and hides rows past the
+    // first page, so the Completed tab counts (derived from this list) were wrong.
+    // Page through with limit=500 until a short page ends the list, concatenating.
+    // Still safe()-wrapped to [] — a browse surface, never a blocker.
     completedCases: (status) =>
-      safe(
-        () => get<Case[]>(`/api/completed/cases${status ? `?status=${enc(status)}` : ''}`),
-        [],
-      ),
+      safe(async () => {
+        const PAGE = 500;
+        const all: Case[] = [];
+        for (let offset = 0; ; offset += PAGE) {
+          const page = await get<Case[]>(
+            `/api/completed/cases?limit=${PAGE}&offset=${offset}${
+              status ? `&status=${enc(status)}` : ''
+            }`,
+          );
+          all.push(...page);
+          if (page.length < PAGE) break;
+        }
+        return all;
+      }, []),
     mergeCandidates: (id) => get<Case[]>(`/api/cases/${enc(id)}/merge-candidates`),
     mergeCases: (src, tgt) =>
       post<MergeCasesResult>(`/api/cases/${enc(tgt)}/merge`, { sourceCaseId: src }),

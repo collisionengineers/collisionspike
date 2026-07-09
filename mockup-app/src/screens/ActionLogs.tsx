@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Badge,
@@ -7,7 +6,7 @@ import {
   mergeClasses,
   tokens,
 } from '@fluentui/react-components';
-import { ScrollText, ChevronRight, ChevronDown } from 'lucide-react';
+import { ScrollText, ChevronRight } from 'lucide-react';
 import {
   SectionHeading,
   VrmPlate,
@@ -59,31 +58,6 @@ const useStyles = makeStyles({
   meta: { color: tokens.colorNeutralForeground3 },
   when: { color: tokens.colorNeutralForeground3, whiteSpace: 'nowrap', flexShrink: 0 },
   chev: { color: tokens.colorNeutralForeground4, flexShrink: 0 },
-  techToggle: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '4px',
-    alignSelf: 'flex-start',
-    margin: `0 ${tokens.spacingHorizontalL} ${tokens.spacingVerticalS}`,
-    padding: '2px 6px',
-    border: 'none',
-    backgroundColor: 'transparent',
-    color: tokens.colorNeutralForeground3,
-    fontSize: tokens.fontSizeBase200,
-    cursor: 'pointer',
-    borderRadius: tokens.borderRadiusSmall,
-    ':hover': { color: tokens.colorNeutralForeground2 },
-  },
-  techBody: {
-    margin: `0 ${tokens.spacingHorizontalL} ${tokens.spacingVerticalM}`,
-    padding: `${tokens.spacingVerticalS} ${tokens.spacingHorizontalM}`,
-    borderRadius: tokens.borderRadiusSmall,
-    backgroundColor: tokens.colorNeutralBackground3,
-    color: tokens.colorNeutralForeground3,
-    fontFamily: tokens.fontFamilyMonospace,
-    fontSize: tokens.fontSizeBase200,
-    overflowWrap: 'anywhere',
-  },
 });
 
 const KIND_LABELS: Record<ActivityKind, string> = {
@@ -102,7 +76,6 @@ const KIND_LABELS: Record<ActivityKind, string> = {
 
 function ActionLogRow({ event, onOpen }: { event: ActivityEvent; onOpen: () => void }) {
   const styles = useStyles();
-  const [showTech, setShowTech] = useState(false);
   return (
     <div className={styles.row}>
       <button
@@ -124,22 +97,10 @@ function ActionLogRow({ event, onOpen }: { event: ActivityEvent; onOpen: () => v
         <span className={styles.when}>{event.timestamp}</span>
         {event.caseId && <ChevronRight size={18} className={styles.chev} aria-hidden />}
       </button>
-      {event.technical && (
-        <button
-          type="button"
-          className={mergeClasses('ce-focusable', styles.techToggle)}
-          aria-expanded={showTech}
-          onClick={() => setShowTech((v) => !v)}
-        >
-          {showTech ? (
-            <ChevronDown size={12} aria-hidden />
-          ) : (
-            <ChevronRight size={12} aria-hidden />
-          )}
-          Technical details
-        </button>
-      )}
-      {event.technical && showTech && <div className={styles.techBody}>{event.technical}</div>}
+      {/* The server's withheld `event.technical` (raw event names / GUIDs / key=value tokens)
+          is intentionally NOT rendered here: the AGENTS.md hard rule bans engineering/meta
+          language from any staff-facing rendered string, and a click-to-reveal body is still
+          rendered. Diagnostics belong in App Insights / a superuser-only surface. (PR52-F5) */}
     </div>
   );
 }

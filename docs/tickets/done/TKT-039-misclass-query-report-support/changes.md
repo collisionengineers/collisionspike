@@ -1,6 +1,11 @@
 # Changes — TKT-039: Report-support request misclassified as new case
 ## Status
-now — passes in the committed eval corpus (2026-07-02); not yet confirmed via a live occurrence/probe.
+done — VERIFIED-LIVE 2026-07-09: the sample .eml (with the EngineersReport-V1.pdf attachment context) POSTed
+to the deployed classify route returned 200 `query`/`query_existing_work` (`rule:query_with_reference`),
+closing the live-probe gap the prior state flagged. See [verification.md](./verification.md) § Verdict update — 2026-07-09.
+
+> **Prior state (superseded 2026-07-09):** now — passes in the committed eval corpus (2026-07-02); not yet
+> confirmed via a live occurrence/probe.
 ## Commits
 - No code change required — the deterministic classifier's existing-report/support-request rule already
   routes this sample to `query`/`query_existing_work`, not a new case.

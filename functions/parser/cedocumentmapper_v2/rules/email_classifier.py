@@ -325,10 +325,12 @@ def _job_reference(text: str) -> str:
         # the ~8-char lookbehind window is unchanged TKT-103 behaviour.
         return reference_candidate_is_money(token, text[max(0, start - 8):start])
 
-    # First labelled match only (unchanged behaviour) — plus the money guard.
-    m = _LABELLED_REF_RE.search(text)
-    if m and re.search(r"\d", m.group(1)) and not _is_money(m.group(1), m.start(1)):
-        return re.sub(r"\s+", "", m.group(1)).upper()
+    # Labelled tier ITERATES (collisionspike C4) so a money value in an earlier
+    # labelled match ("Ref: 768.00") cannot mask a genuine labelled ref later on
+    # ("Our Ref: 12345") — mirrors the structured tier's finditer just below.
+    for m in _LABELLED_REF_RE.finditer(text):
+        if re.search(r"\d", m.group(1)) and not _is_money(m.group(1), m.start(1)):
+            return re.sub(r"\s+", "", m.group(1)).upper()
     # Structured tier ITERATES so a money token earlier in the body ("£768.00")
     # cannot mask a genuine structured ref later on.
     for m in _STRUCTURED_REF_RE.finditer(text):
@@ -1271,6 +1273,22 @@ def classify_email(
         and len(work_phrases) < 2
         and (body_vrm or body_caseref or body_jobref)
         and not query_or_chase
+        # C2 (collisionspike): a genuine body-only instruction must win over the
+        # pre_instruction lane. When Rule 3's second arm (``strong_body_instruction``)
+        # would promote this to receiving_work — a FRESH (non-reply) email carrying a
+        # work phrase + a body VRM + an existing ref and asking no question — it is
+        # real work, not a pre-instruction heads-up (boilerplate like "instructions to
+        # follow" must not demote it). Disqualify here, mirroring that arm EXACTLY
+        # (incl. the work-phrase term) so the pre_instruction lane still fires for the
+        # genuine "directions with NO work cue" case, which that arm never catches.
+        # Kept in lockstep with the Rule-3 second arm below.
+        and not (
+            not is_reply
+            and bool(work_phrases)
+            and body_vrm
+            and has_existing_ref
+            and not query_phrases
+        )
     ):
         return _result(
             CATEGORY_PRE_INSTRUCTION,

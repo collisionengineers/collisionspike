@@ -70,3 +70,29 @@ COMMIT;
 --      AND NOT (lower(file_name) ~ '\.(jpe?g|png)$' OR coalesce(content_type,'') LIKE 'image/%');
 --   -- expect 0
 --   SELECT kind_code, count(*) FROM evidence GROUP BY kind_code ORDER BY kind_code;
+--
+-- =============================================================================
+-- POST-APPLY (REQUIRED -- status is NOT recomputed here). Re-kinding evidence
+-- image -> instruction/email/other changes each owning case's image set, but this
+-- delta deliberately does NOT touch the denormalized case_.status_code. Until the
+-- next write to each case recomputes it, the review/readiness queues can show
+-- STALE readiness (e.g. a case that just lost its only "image" still counted as
+-- image-complete). After applying, enumerate the affected NON-TERMINAL cases and
+-- drive each through the API status-recompute seam so the denormalized status is
+-- refreshed:
+--
+--   -- 1. Capture the re-kinded id set: re-run the UPDATE above with an added
+--   --    `RETURNING e.id` (or recompute it from the same `derived` CTE where
+--   --    new_kind <> 100000000) and hold it as <re-kinded id set>.
+--   -- 2. Affected non-terminal cases (exclude the terminal statuses -- resolve
+--   --    the exact status_code values from the case-status choiceset /
+--   --    api/src/lib/case-status.ts; terminal = eva_submitted / removed / error):
+--   SELECT DISTINCT e.case_id
+--     FROM evidence e
+--     JOIN case_ c ON c.id = e.case_id
+--    WHERE e.id IN (<re-kinded id set>)
+--      AND c.status_code NOT IN (<terminal status_codes: eva_submitted, removed, error>);
+--   -- 3. Drive each returned case_id through the API status-recompute seam
+--   --    (recomputeStatus / the internal status-evaluate route) so denormalized
+--   --    case_.status_code is re-derived. Terminal cases are intentionally skipped.
+-- =============================================================================

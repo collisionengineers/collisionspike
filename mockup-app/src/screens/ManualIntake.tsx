@@ -608,6 +608,9 @@ export function ManualIntake() {
       if (!receivedOn.trim()) missing.push('Received on');
       if (!fields.vehicleModel.value.trim()) missing.push('Vehicle Model');
       if (!fields.inspectionAddress.value.trim()) missing.push('Location');
+      // B1: an images-only case exists BECAUSE photos arrived — require at least one,
+      // and the create handler now uploads them (previously they were silently dropped).
+      if (!hasImages) missing.push('At least one photo');
       return missing;
     }
     if (!vrm.trim()) missing.push('Vehicle Registration');
@@ -625,7 +628,7 @@ export function ManualIntake() {
       if (CONTRACT_REQUIRED.has(d.key) && !fields[d.key].value.trim()) missing.push(d.label);
     }
     return missing;
-  }, [fields, mode, vrm, provider, providerCode, insuredName, providerReference, inspectOn, receivedFrom, receivedOn]);
+  }, [fields, mode, vrm, provider, providerCode, insuredName, providerReference, inspectOn, receivedFrom, receivedOn, hasImages]);
 
   const canCreate = phase === 'review' && missingRequired.length === 0;
 
@@ -642,7 +645,8 @@ export function ManualIntake() {
     setPhase('creating');
     setError(undefined);
     try {
-      const evidenceCount = files.filter((f) => f !== instructionFile).length;
+      const evidenceFiles = files.filter((f) => f !== instructionFile);
+      const evidenceCount = evidenceFiles.length;
       const isImagesOnly = mode === 'images';
       const { id } = await getDataAccess().createCase({
         evaFields: evaForCreate,
@@ -670,6 +674,22 @@ export function ManualIntake() {
         ...(onHold ? { onHold: true } : {}),
         writeProvenance,
       });
+      // B1: an images-only case's photos must actually be PERSISTED — createCase
+      // records only metadata. Upload the selected files through the evidence seam
+      // and AWAIT it, so a failed upload surfaces and we never claim photos were
+      // attached when they weren't. The case already exists, so we navigate to it
+      // either way (its evidence tab lets the operator retry the attach).
+      if (isImagesOnly && evidenceFiles.length > 0) {
+        const result = await getDataAccess().uploadEvidence(id, evidenceFiles);
+        const uploaded = result.status >= 200 && result.status < 300 && result.added.length > 0;
+        if (uploaded) {
+          toast(`Case created — ${result.added.length} photo${result.added.length === 1 ? '' : 's'} attached`);
+        } else {
+          toast('Case created, but the photos could not be attached — open the case to add them', 'error');
+        }
+        navigate(`/case/${id}`);
+        return;
+      }
       if (evidenceCount > 0) {
         // Persisting the evidence bytes is the operator-gated storage step; the
         // case link is the point. Surface that the files travel with the case.

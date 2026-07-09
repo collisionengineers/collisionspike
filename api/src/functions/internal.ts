@@ -90,6 +90,7 @@ import {
   INBOUND_CATEGORY_TO_INT,
   INBOUND_SUBTYPE_TO_INT,
   deriveSuggestionIdempotencyKey,
+  mergedIntoFrom,
   rowToCase,
   rowToEvidence,
   type Row,
@@ -1566,18 +1567,23 @@ app.http('internalInboundLinkReply', {
         // two different matters shared a junk VRM; refs differed → must never auto-link
         // (ADR-0010 rung-3 semantics applied to the link seam). Held for a human instead.
         let conflict = false;
-        if (vrmArm && rows.length === 1 && jobref) {
+        if (vrmArm && rows.length === 1 && (jobref || ref)) {
           const hit = rows[0];
           const sibs = await q<Row>(
             `SELECT DISTINCT body_jobref FROM inbound_email
               WHERE case_id = $1 AND body_jobref IS NOT NULL AND body_jobref <> ''`,
             [hit.id],
           );
-          conflict = vrmLinkRefConflict(jobref, [
+          const known = [
             hit.case_ref as string | null,
             hit.case_po as string | null,
             ...sibs.map((s) => s.body_jobref as string | null),
-          ]);
+          ];
+          // Veto if EITHER the loose job-ref OR the strict cited reference contradicts the
+          // candidate's known refs. Previously only `jobref` was checked, so a reply citing
+          // a Case/PO-shaped `ref` (but no loose jobref) could still auto-link to a DIFFERENT
+          // case that merely shares the VRM. (TKT-101 / PR50-D4)
+          conflict = vrmLinkRefConflict(jobref, known) || vrmLinkRefConflict(ref, known);
         }
         return { candidates: conflict ? [] : rows, refConflict: conflict };
       });
@@ -1588,8 +1594,8 @@ app.http('internalInboundLinkReply', {
         await writeAudit({
           action: AUDIT_ACTION.duplicate_flagged,
           severity: 'warning',
-          summary: `Reply matched a case by registration only (vrm ${vrm}) but cites a different reference (${jobref}); held for manual linking`,
-          after: { vrm, jobref, messageId: inbound.internetMessageId },
+          summary: `Reply matched a case by registration only (vrm ${vrm}) but cites a different reference (${jobref || ref}); held for manual linking`,
+          after: { vrm, jobref: jobref || ref, messageId: inbound.internetMessageId },
         });
         ctx.log(JSON.stringify({ evt: 'linkReply', outcome: 'no_match', reason: 'vrm_ref_conflict', jobref }));
         return { status: 200, jsonBody: { outcome: 'no_match', candidateCount: 0 } };
@@ -1704,7 +1710,7 @@ app.http('internalTriageContext', {
         }> = [];
         if (caseref || jobref || vrm) {
           const rows = await q<Row>(
-            `SELECT id, case_po, status_code,
+            `SELECT id, case_po, status_code, duplicate_keys,
                     CASE
                       WHEN $1 <> '' AND (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)) THEN 'case_po'
                       WHEN $2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)) THEN 'job_ref'
@@ -1720,12 +1726,23 @@ app.http('internalTriageContext', {
               ORDER BY created_at`,
             [caseref, jobref, vrm],
           );
-          openCaseMatches = rows.map((r) => ({
-            caseId: r.id as string,
-            casePo: (r.case_po as string | null) ?? '',
-            matchedOn: r.matched_on as 'case_po' | 'job_ref' | 'vrm',
-            status: caseStatusCodec.toName(r.status_code as number) ?? 'error',
-          }));
+          openCaseMatches = rows
+            // Drop merge-retired duplicates: a case merged INTO a survivor (status
+            // linked_to_instruction carrying a mergedInto marker in duplicate_keys) is not a
+            // valid link target, but linked_to_instruction is NON-terminal so the status
+            // filter above keeps it. Leaving it in makes a survivor+retired pair look like
+            // `multiple_open_cases`, wrongly flagging the email instead of suggesting the
+            // single survivor — the exact PK20FWT-style failure. (TKT-102 / PR52-F3)
+            .filter((r) => {
+              const status = caseStatusCodec.toName(r.status_code as number) ?? 'error';
+              return !(status === 'linked_to_instruction' && mergedIntoFrom(r.duplicate_keys));
+            })
+            .map((r) => ({
+              caseId: r.id as string,
+              casePo: (r.case_po as string | null) ?? '',
+              matchedOn: r.matched_on as 'case_po' | 'job_ref' | 'vrm',
+              status: caseStatusCodec.toName(r.status_code as number) ?? 'error',
+            }));
         }
 
         let duplicateInternetMessageId = false;
@@ -2410,15 +2427,31 @@ app.http('internalCasesEvidence', {
           );
           const ex = twin[0];
           if (ex) {
-            // The SAME identity re-arriving (an at-least-once retry) falls through to the
-            // existing lane logic — its NOT EXISTS no-ops the insert and the metadata
-            // update-in-place still applies (the image-extraction re-enrichment seam).
             const sameIdentity = isBoxRow
               ? (boxFileId != null && ex.box_file_id === boxFileId) ||
                 (sourceMessageId != null && ex.source_message_id === sourceMessageId)
               : row.blobPath != null && ex.storage_path === row.blobPath;
+            // A content twin on the SAME case (same sha256) must NEVER produce a second row —
+            // whether it's a cross-lane mirror (!sameIdentity) or an exact at-least-once retry
+            // (sameIdentity, e.g. a Box FILE.UPLOADED redelivery landing on a row already merged
+            // by box_file_id whose source_message_id was deliberately left NULL). BOTH branches
+            // absorb any new image metadata in place against the twin's real id and `continue`.
+            // Previously a sameIdentity twin fell through to the lane INSERT, trusting its
+            // single-column NOT EXISTS to no-op — but a redelivery keyed on the column the merge
+            // left NULL slipped through and duplicated the row for the same Box file/hash. (PR52-F1)
+            //
+            // Metadata absorb is gated on fields BEYOND sha256 itself (the twin's sha256 already
+            // matches by definition — re-writing it alone would be a pointless UPDATE).
+            const hasMergeMetadata =
+              row.imageRoleCode != null ||
+              row.imageRole != null ||
+              typeof row.registrationVisible === 'boolean' ||
+              row.excluded != null ||
+              row.exclusionReason != null ||
+              row.personReflection != null ||
+              row.sequenceIndex != null;
             if (!sameIdentity) {
-              // A genuine content twin for the SAME case: LINK provenance onto the
+              // A genuine cross-lane content twin for the SAME case: LINK provenance onto the
               // existing row, never insert a duplicate.
               if (isBoxRow && ex.box_file_id == null && boxFileId != null) {
                 // Box mirror of an email-first row → fill the Box provenance. The existing
@@ -2440,19 +2473,6 @@ app.http('internalCasesEvidence', {
                   [ex.id, row.blobPath],
                 );
               }
-              // The arrival may carry image metadata the existing row lacks (e.g. the
-              // orchestration classified the email attachment) — absorb it in place, same
-              // overwrite semantics as the existing retry/enrichment path. Gated on
-              // metadata BEYOND the sha256 itself (the twin's sha256 already matches by
-              // definition — re-writing it alone would be a pointless UPDATE).
-              const hasMergeMetadata =
-                row.imageRoleCode != null ||
-                row.imageRole != null ||
-                typeof row.registrationVisible === 'boolean' ||
-                row.excluded != null ||
-                row.exclusionReason != null ||
-                row.personReflection != null ||
-                row.sequenceIndex != null;
               if (hasMergeMetadata) {
                 await applyEvidenceMetadata(ctx, 'id = $1', [ex.id], row, {
                   imageRoleCode,
@@ -2464,8 +2484,22 @@ app.http('internalCasesEvidence', {
                 });
               }
               merged++;
-              continue; // never insert a same-case content twin
+              continue; // never insert a same-case content twin (cross-lane mirror)
             }
+            // sameIdentity: an exact at-least-once retry / Box redelivery of a row that already
+            // exists on this case. Absorb any new metadata in place and stop — do NOT fall
+            // through to the lane INSERT (whose single-column NOT EXISTS can miss a merged row).
+            if (hasMergeMetadata) {
+              updated += await applyEvidenceMetadata(ctx, 'id = $1', [ex.id], row, {
+                imageRoleCode,
+                registrationVisible,
+                excluded,
+                exclusionReason,
+                sha256,
+                sequenceIndex,
+              });
+            }
+            continue; // idempotent: the identical row already exists on this case
           }
         }
 
@@ -2724,7 +2758,9 @@ app.http('internalCasesMarkDone', {
         ? (body.signal as string)
         : 'unknown';
       const updated = await query<{ id: string }>(
-        `UPDATE case_ SET status_code = $1, updated_at = now()
+        // Clear on_hold on the terminal transition (parity with the SPA mark-done route in
+        // cases.ts): a delivered case must not linger in the Held/work queues. (PR51-E3)
+        `UPDATE case_ SET status_code = $1, on_hold = false, updated_at = now()
          WHERE id = $2 AND status_code = $3
          RETURNING id`,
         [statusToInt('done'), caseId, statusToInt('eva_submitted')],
@@ -2779,11 +2815,15 @@ app.http('internalCasesLookup', {
       // id compared as text so a malformed caller id can never throw a uuid-cast
       // error; casePo matches case_po OR case_ref (the triage/context convention).
       const rows = await query<Row>(
+        // The VRM arm canonicalises BOTH sides (strip spaces/punctuation): the caller passes a
+        // compacted subject VRM (extractVrm -> "MX17PNL") but a stored registration may hold
+        // spaces ("MX17 PNL"), so a verbatim upper() compare would miss it — the same fix the
+        // search/assistant routes already use. (PR51-E2)
         `SELECT id, case_po, status_code, work_provider_id, vrm
            FROM case_
           WHERE (cardinality($1::text[]) > 0 AND id::text = ANY($1::text[]))
              OR ($2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)))
-             OR ($3 <> '' AND upper(vrm) = upper($3))
+             OR ($3 <> '' AND regexp_replace(upper(vrm), '[^A-Z0-9]', '', 'g') = regexp_replace(upper($3), '[^A-Z0-9]', '', 'g'))
           ORDER BY created_at DESC
           LIMIT 25`,
         [caseIds, casePo, vrm],

@@ -1,5 +1,5 @@
 SET
- principal_code |             display_name             | active 
+ principal_code |             display_name             | active
 ----------------+--------------------------------------+--------
  AA             | AA Motor Claims                      | t
  AATAXIS        | AA Taxis                             | t
@@ -175,12 +175,12 @@ SET
  ZADA           | Hiwa Zada                            | f
 (172 rows)
 
- residual 
+ residual
 ----------
         0
 (1 row)
 
-          name           | count 
+          name           | count
 -------------------------+-------
  needs_review            |   139
  missing_images          |   109
@@ -190,13 +190,13 @@ SET
  removed                 |     1
 (6 rows)
 
-                  id                  |   case_po   |   vrm   |     status     | eva_inspection_address | inspection_decision_code 
+                  id                  |   case_po   |   vrm   |     status     | eva_inspection_address | inspection_decision_code
 --------------------------------------+-------------+---------+----------------+------------------------+--------------------------
  ae1c0c84-ba0c-4049-be73-c149b46c2ffa | QDOS26029   | YT13UTV | needs_review   | Image Based Assessment |                100000002
  ac34fae6-1b6f-4af6-b296-660d53631577 | A.QDOS26029 | SB09XZS | missing_images | Image Based Assessment |                100000002
 (2 rows)
 
-   case_po   |   vrm   | eva_inspection_address 
+   case_po   |   vrm   | eva_inspection_address
 -------------+---------+------------------------
  A.PCH26001  | HF26OMK | Image Based Assessment
  A.PCH26010  | NC23DXW | Image Based Assessment
@@ -223,7 +223,7 @@ SET
  QDOS26050   | WA20LNO | Image Based Assessment
 (23 rows)
 
-                  id                  |  case_po  |   vrm   | circ_len |         status          
+                  id                  |  case_po  |   vrm   | circ_len |         status
 --------------------------------------+-----------+---------+----------+-------------------------
  40cd98e1-1d6b-4511-a6c6-a81f5cbe4eef | QDOS26032 | DN14VKZ |      855 | missing_required_fields
  d55a539e-ee82-4816-8489-52b01f24c772 | QDOS26017 | RJ08LDE |      814 | needs_review
@@ -234,4 +234,3 @@ SET
  4bbb6aeb-9dd3-4023-aa4e-ffc5fe5cd932 | QDOS26011 | DY60ZGO |      565 | missing_images
  2efdb925-e844-442b-b649-ce6360c78a56 | QDOS26057 | BT08YAE |      560 | needs_review
 (8 rows)
-

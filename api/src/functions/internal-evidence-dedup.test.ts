@@ -15,8 +15,11 @@
  *   (c) NEGATIVE: the same sha256 on a DIFFERENT case never dedups (the lookup keys strictly on
  *       case_id + sha256) — the row inserts normally;
  *   (d) NO sha256 (or an implausible one) → exactly the pre-TKT-133 behaviour (no sha lookup);
- *   (e) an at-least-once RETRY of the SAME identity falls through to the existing lane logic
- *       (NOT EXISTS no-op + metadata update-in-place), not the merge path.
+ *   (e) an at-least-once RETRY of the SAME identity is handled idempotently IN the sha256 twin
+ *       pass — metadata is absorbed in place against the twin's row id and the pass returns
+ *       (it never falls through to the lane INSERT), so a Box redelivery onto a row already
+ *       merged by box_file_id (whose source_message_id is NULL) can no longer slip past the
+ *       lane's single-column NOT EXISTS and duplicate the row (PR52-F1).
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -230,8 +233,8 @@ describe('TKT-133 (d) — no/implausible sha256 → exactly the pre-existing beh
   });
 });
 
-describe('TKT-133 (e) — a retry of the SAME identity falls through (metadata update preserved)', () => {
-  it('re-sending the same Box row with NEW metadata → no merge; NOT EXISTS no-op + update-in-place', async () => {
+describe('TKT-133 (e) — a retry of the SAME identity is absorbed in the sha256 pass (PR52-F1)', () => {
+  it('re-sending the same Box row with NEW metadata → no merge, no insert; metadata update keyed on the twin id', async () => {
     rowsFor.mockImplementation((sql: string) => {
       if (/FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(sql)) {
         // The sha twin IS this very Box row (same box_file_id + source_message_id).
@@ -245,7 +248,6 @@ describe('TKT-133 (e) — a retry of the SAME identity falls through (metadata u
           },
         ];
       }
-      if (/INSERT INTO evidence/i.test(sql)) return []; // NOT EXISTS blocks the re-insert
       if (/UPDATE evidence/i.test(sql)) return [{ id: 'ev-1' }];
       return [];
     });
@@ -253,11 +255,42 @@ describe('TKT-133 (e) — a retry of the SAME identity falls through (metadata u
       req('case-1', [{ ...BOX_ROW, imageRole: 'overview', registrationVisible: true }]),
       ctx,
     );
-    // Counted as an UPDATE (the pre-existing enrichment seam), NOT a merge.
+    // Counted as an UPDATE (metadata enrichment), NOT a merge, NOT an insert.
     expect(res.jsonBody).toEqual({ persisted: 0, updated: 1, merged: 0 });
-    // The metadata landed via the existing dedup-key path (case_id + source_message_id).
+    // The sha256 pass now `continue`s — the lane INSERT is never even issued.
+    expect(sqls.some((s) => /INSERT INTO evidence/i.test(s))).toBe(false);
+    // The metadata landed against the twin's REAL id (not the lane's source_message_id key),
+    // which is what makes redeliveries idempotent regardless of which identity column is set.
     const updIdx = sqls.findIndex((s) => /UPDATE evidence/i.test(s) && /image_role_code/.test(s));
     expect(updIdx).toBeGreaterThanOrEqual(0);
-    expect(sqls[updIdx]).toContain('source_message_id');
+    expect(sqls[updIdx]).toContain('id = $1');
+  });
+
+  it('PR52-F1: a Box redelivery onto a row already MERGED by box_file_id (source_message_id NULL) does NOT duplicate', async () => {
+    // The merged row: box_file_id filled by an earlier Box mirror, source_message_id left NULL
+    // (its own lane's identity was the email). A redelivery of the same Box FILE.UPLOADED carries
+    // both the box:file tag (source_message_id) AND the matching box_file_id + sha256.
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(sql)) {
+        return [
+          {
+            id: 'ev-merged',
+            box_file_id: '9900', // filled during the prior merge → matches the redelivery
+            box_file_url: 'https://app.box.com/file/9900',
+            storage_path: 'cases/case-1/photo.jpg',
+            source_message_id: null, // deliberately left NULL by the merge — the F1 trap
+          },
+        ];
+      }
+      if (/UPDATE evidence/i.test(sql)) return [{ id: 'ev-merged' }];
+      return [];
+    });
+    const res = await evidenceRoute(
+      req('case-1', [{ ...BOX_ROW, imageRole: 'overview', registrationVisible: true }]),
+      ctx,
+    );
+    // Idempotent: no duplicate insert (the old bug), no merge; at most a metadata update.
+    expect(res.jsonBody).toEqual({ persisted: 0, updated: 1, merged: 0 });
+    expect(sqls.some((s) => /INSERT INTO evidence/i.test(s))).toBe(false);
   });
 });

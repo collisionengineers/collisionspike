@@ -237,7 +237,7 @@ async function promoteAcceptedSuggestion(
         // row shows 'Linked to case' yet keeps inflating the 'needs sorting' badge.
         const upd = await query<Row>(
           `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
-             WHERE id = $1 AND case_id IS NULL RETURNING id`,
+             WHERE id = $1 AND case_id IS NULL RETURNING id, has_attachments`,
           [inboundEmailId, targetCaseId],
         );
         if (upd[0]) {
@@ -258,6 +258,28 @@ async function promoteAcceptedSuggestion(
           // Best-effort inside markOutstandingChasersResponded itself: a chaser
           // bookkeeping failure never unwinds the attach.
           await markOutstandingChasersResponded(targetCaseId, 'suggestion accepted');
+          // PR52-F4 SAFETY: a suggest-first link (images-received PDF-VRM / ref-gate rung)
+          // attaches the EMAIL but NOT its attachments — the intake persist chain
+          // (classifyPersist + extractImages) only runs on the minting/auto-attach lanes, and
+          // the landed attachments are not re-driven on accept (there is no Data-API →
+          // orchestration re-fetch path today). Until the full persist-on-accept feature lands
+          // (TKT-149), leave a durable, handler-safe case note so the photos/PDF are added BY
+          // HAND instead of being silently dropped from evidence/EVA-readiness.
+          if (upd[0].has_attachments === true) {
+            try {
+              await query(
+                'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
+                [
+                  'Attachments to add',
+                  targetCaseId,
+                  actor ?? 'System',
+                  'The linked email arrived with attachments (e.g. photos or a PDF) that are not yet on this case. Please add them by hand from the email.',
+                ],
+              );
+            } catch {
+              /* best-effort — a note failure must never unwind the link */
+            }
+          }
           return { promoted: true, promotedField: 'inbound_email.case_id' };
         }
       }

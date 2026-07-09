@@ -1,7 +1,12 @@
 # Changes — TKT-031: Client report-chaser misrouted to 'Other'
 
 ## Status
-now — passes in the committed eval corpus (2026-07-02); not yet confirmed via a live occurrence/probe.
+done — VERIFIED-LIVE 2026-07-09: the ticket's own sample .eml POSTed to the deployed parser
+`POST /api/classify-email` returned 200 `query`/`query_existing_work` at 0.8 (`rule:query_with_reference`),
+closing the live-probe gap the prior state flagged. See [verification.md](./verification.md) § Verdict update — 2026-07-09.
+
+> **Prior state (superseded 2026-07-09):** now — passes in the committed eval corpus (2026-07-02); not yet
+> confirmed via a live occurrence/probe.
 
 ## Commits
 - No code change required — the deterministic classifier's existing-job chase rule already routes this

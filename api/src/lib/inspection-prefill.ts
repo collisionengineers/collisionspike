@@ -75,7 +75,7 @@ export async function prefillImageBasedInspection(
             inspection_decision_code = $3,
             updated_at = now()
       WHERE id = $1
-        AND COALESCE(eva_inspection_address, '') = ''
+        AND COALESCE(btrim(eva_inspection_address), '') = ''
         AND (inspection_decision_code IS NULL OR inspection_decision_code = $4)
       RETURNING id`,
     [caseId, IMAGE_BASED_LITERAL, IMAGE_BASED_CODE, UNKNOWN_DECISION_CODE],

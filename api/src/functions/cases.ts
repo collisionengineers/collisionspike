@@ -89,6 +89,16 @@ function chaserTargetType(code: number | null | undefined): Case['chasers'][numb
   return 'work_provider';
 }
 
+/** cr1bd_chaserstatus code → domain status. A chase set 'responded' by the reply /
+ *  dedup-attach / auto-attach path (internal.ts markOutstandingChasersResponded) must
+ *  surface as satisfied on the next case read, not always as 'drafted' (TKT-023/050). */
+function chaserStatusName(code: number | null | undefined): Chaser['status'] {
+  if (code === 100000001) return 'sent';
+  if (code === 100000002) return 'responded';
+  if (code === 100000003) return 'overdue';
+  return 'drafted'; // 100000000 or null (DB default)
+}
+
 /** Map one chaser row to the domain Chaser — the EXACT shape the case-detail read
  *  (loadCaseFull) returns, and therefore the shape POST /cases/{id}/chase echoes back
  *  (M-E2) so the SPA can append the created row to its in-memory list verbatim. */
@@ -99,7 +109,7 @@ export function rowToChaser(ch: Row): Chaser {
     targetName: ch.target_name ?? '',
     channel: ch.channel_code === 100000001 ? 'whatsapp' : 'email',
     templateUsed: ch.template_used ?? '',
-    status: 'drafted',
+    status: chaserStatusName(ch.status_code as number | null | undefined),
     summary: ch.name ?? '',
     createdAt: fmtTimestamp(ch.drafted_at ?? ch.created_at),
     ...(ch.sent_by ? { sentBy: ch.sent_by } : {}),
@@ -344,6 +354,7 @@ app.http('patchCase', {
     }
 
     // --- editable EVA fields (durable case-page edits) ---
+    let inspectionAddressChanged = false;
     if (body.evaFields && typeof body.evaFields === 'object') {
       for (const [k, rawVal] of Object.entries(body.evaFields)) {
         if (rawVal === undefined || !(k in EVA_COLUMN_BY_KEY)) continue; // ignore unknown keys
@@ -357,7 +368,18 @@ app.http('patchCase', {
         before[key] = oldVal;
         after[key] = norm.value;
         changedEvaFields.push({ key, value: norm.value });
+        if (key === 'inspectionAddress') inspectionAddressChanged = true;
       }
+    }
+
+    // A staff inspection-address edit must not leave an earlier auto-prefilled
+    // image_based decision code shadowing it: rowToCase/deriveInspectionDecision prefer the
+    // explicit code over the address text, so an image-based-provider case would reload as
+    // 'image_based' even after a physical address is chosen. Clear the explicit code so the
+    // decision re-derives from the new address text (IBA literal -> image_based; a physical
+    // address -> unknown, symmetric with a never-prefilled case). (TKT-129/PR47-A2)
+    if (inspectionAddressChanged) {
+      sets.push('inspection_decision_code = NULL');
     }
 
     // --- casePo (ADR-0022 transition seam: stamp the REAL number; '' clears) ---
@@ -972,7 +994,13 @@ app.http('imagesForCase', {
   handler: withRole('CollisionSpike.User', async (req) => {
     const id = req.params.id;
     const rows = await query<Row>(
-      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND excluded <> true ORDER BY sequence_index NULLS LAST, created_at",
+      // Person-reflection photos are auto-excluded from EVA (domain rule: a visible reflection
+      // makes the photo unusable — acceptedForEva stays false), but they MUST still surface in
+      // the case-detail REVIEW list so the TKT-123 dismissible warning + Exclude control are
+      // reachable and staff can override a false-positive detection. They carry acceptedForEva
+      // = false, so EVA export / photo-ordering / readiness (all keyed on acceptedForEva) are
+      // unaffected. Non-reflection excluded rows stay hidden as before. (PR48-B2)
+      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded <> true OR person_reflection = true) ORDER BY sequence_index NULLS LAST, created_at",
       [id],
     );
     return { status: 200, jsonBody: rows.map(rowToEvidence) };
@@ -1294,7 +1322,10 @@ app.http('markEvaSubmitted', {
     const id = (req.params.id ?? '').trim();
     if (!id) return { status: 400, jsonBody: { message: 'A case is required.' } };
     const updated = await query<{ id: string }>(
-      `UPDATE case_ SET status_code = $1, submitted_at = now(), updated_at = now()
+      // Clear on_hold on the terminal handoff: filterQueue gives onHold precedence over
+      // status (mappers.ts), so a still-held case would otherwise linger in the Held/work
+      // queues while ALSO showing in Completed. A submitted case is no longer actionable.
+      `UPDATE case_ SET status_code = $1, submitted_at = now(), on_hold = false, updated_at = now()
        WHERE id = $2 AND status_code = $3
        RETURNING id`,
       [statusToInt('eva_submitted'), id, statusToInt('ready_for_eva')],
@@ -1330,7 +1361,9 @@ app.http('markCaseDone', {
     const id = (req.params.id ?? '').trim();
     if (!id) return { status: 400, jsonBody: { message: 'A case is required.' } };
     const updated = await query<{ id: string }>(
-      `UPDATE case_ SET status_code = $1, updated_at = now()
+      // Clear on_hold on the terminal transition (same reason as eva-submitted above):
+      // a delivered/done case must not remain in the Held/work queues.
+      `UPDATE case_ SET status_code = $1, on_hold = false, updated_at = now()
        WHERE id = $2 AND status_code = $3
        RETURNING id`,
       [statusToInt('done'), id, statusToInt('eva_submitted')],

@@ -1525,6 +1525,20 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
      authenticated seam; fflate packs client-side (bundled — no CDN, CSP-safe).
      The separate JSON-only download is REPLACED — the JSON travels in the zip. */
   const [evaOrderKeys, setEvaOrderKeys] = useState<string[] | null>(null);
+  // B4: the saved drag order is keyed by accepted-image identity + role (the entry
+  // keys encode the two preview slots + each photo's id). If a reviewer drags the
+  // order and THEN changes a role to Overview/Damage-closeup or (un)excludes a photo,
+  // orderEntriesByKeys would append the newly-seeded preview-* entry AFTER the stale
+  // order — landing EVA's required previews LAST in the zip. Reset the saved order
+  // when that identity/role signature changes so the export falls back to the
+  // correctly-seeded (previews-first) EVA order.
+  const orderSig = useMemo(
+    () => buildEvaImageOrder(acceptedImages).map((e) => e.key).join('|'),
+    [acceptedImages],
+  );
+  useEffect(() => {
+    setEvaOrderKeys(null);
+  }, [orderSig]);
   const [exportingEva, setExportingEva] = useState(false);
   const onExportForEva = async () => {
     if (exportingEva) return;

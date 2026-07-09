@@ -1,7 +1,9 @@
 # Verification — TKT-039: Report-support request misclassified as new case
 
 ## Verdict
-EVAL-PASSING (2026-07-02) — NOT yet confirmed live
+VERIFIED-LIVE (2026-07-09) — the deployed-parser live probe (see § Verdict update — 2026-07-09 below) closed the gap.
+
+> **Prior state (superseded 2026-07-09):** EVAL-PASSING (2026-07-02) — NOT yet confirmed live.
 
 ## Evidence
 Manifest item `tkt039-report-support` in the committed real-email eval harness scores
@@ -14,9 +16,14 @@ this sample is **not** named in the rules-engine-v2 plan's live-probe list
 a corpus pass, not a live-endpoint probe or a fresh real-world occurrence.
 
 ## Pending / gaps
-Per BOARD's truth standard, `done` needs a test **or** live probe with no known gap. This ticket has the
-eval-corpus test but not yet a live probe/occurrence — stays `now` until one of those lands (a direct
-`/classify-email` POST against the deployed parser, or a genuine new inbound email of this shape).
+None — closed 2026-07-09. The eval-corpus test is now joined by the live probe (a direct `/classify-email`
+POST against the deployed parser — see § Verdict update — 2026-07-09 below), which was the sole outstanding
+condition, so the ticket is `done` with no known gap.
+
+> **Prior state (superseded 2026-07-09):** Per BOARD's truth standard, `done` needs a test **or** live probe
+> with no known gap. This ticket has the eval-corpus test but not yet a live probe/occurrence — stays `now`
+> until one of those lands (a direct `/classify-email` POST against the deployed parser, or a genuine new
+> inbound email of this shape).
 
 ## How to re-verify
 `functions/parser/.venv/bin/python scripts/eval-email/run_eval.py --check scripts/eval-email/baseline-v2.json`

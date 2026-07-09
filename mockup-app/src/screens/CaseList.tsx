@@ -341,8 +341,23 @@ export function CaseList() {
 
   // Per-tab counts for the TabList badges (one aggregate fetch via the seam).
   const [queueTabCounts, setQueueTabCounts] = useState<Record<QueueName, number> | undefined>();
-  // Needs-action reason facet chips (seam fetch; only on the needs-action tab).
-  const [facets, setFacets] = useState<ReasonFacet[]>([]);
+  // Not-ready reason facet chips — derived CLIENT-SIDE from the loaded Not-ready rows
+  // (A3). The chips render only on this queue AND the reason filter runs over the SAME
+  // queueCases, so counting the global data.reasonCounts() route (which tallies Review +
+  // Held cases too) put chips like "Needs review (139)" here that filtered to zero rows.
+  // Tallying c.actionReason over queueCases makes each chip count EXACTLY equal what
+  // selecting that reason yields. REASON_LABELS key order is preserved for stable chips.
+  const facets = useMemo<ReasonFacet[]>(() => {
+    if (!showFacets) return [];
+    const counts = new Map<ActionReason, number>();
+    for (const c of queueCases) {
+      if (!c.actionReason) continue;
+      counts.set(c.actionReason, (counts.get(c.actionReason) ?? 0) + 1);
+    }
+    return (Object.keys(REASON_LABELS) as ActionReason[])
+      .filter((reason) => (counts.get(reason) ?? 0) > 0)
+      .map((reason) => ({ reason, label: REASON_LABELS[reason], count: counts.get(reason)! }));
+  }, [showFacets, queueCases]);
 
   useEffect(() => {
     let cancelled = false;
@@ -387,20 +402,6 @@ export function CaseList() {
     setSelected(new Set());
     setPendingHidden(new Set());
   }, [activeName]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!showFacets) {
-      setFacets([]);
-      return;
-    }
-    void data.reasonCounts().then((f) => {
-      if (!cancelled) setFacets(f);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [showFacets, activeName]);
 
   // Held "Why held" twin counts — NOT on the row itself; fetched live via the
   // seam (the enrichment outstandingText was designed for). Fetched for ALL

@@ -68,6 +68,6 @@ export function inboxStatusText(m: InboxStatusModel): string {
 /** The fuller one-liner for the attention states (preview pane / tooltips). */
 export function attentionDetailText(reason: InboundAttentionReason): string {
   return reason === 'unable_to_locate'
-    ? 'We could not find or rebuild a matching case from the mailbox or Box history. Please review this email and create or link the case by hand.'
+    ? 'We could not find or rebuild a matching case from the mailbox or archive history. Please review this email and create or link the case by hand.'
     : 'These images did not match any case. Please review this email and link or file them by hand.';
 }

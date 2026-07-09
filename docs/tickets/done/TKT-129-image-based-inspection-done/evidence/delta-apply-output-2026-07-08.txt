@@ -3,17 +3,17 @@ BEGIN
 SELECT 4
 SELECT 218
 SELECT 346
- providers_flagged_always_image_based 
+ providers_flagged_always_image_based
 --------------------------------------
                                     0
 (1 row)
 
- cases_prefilled | provenance_rows_written 
+ cases_prefilled | provenance_rows_written
 -----------------+-------------------------
              224 |                     224
 (1 row)
 
-       from_status       |   to_status    | moved 
+       from_status       |   to_status    | moved
 -------------------------+----------------+-------
  needs_review            | missing_images |   109
  missing_required_fields | ready_for_eva  |    23
