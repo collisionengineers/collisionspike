@@ -49,3 +49,8 @@ Nothing auto-selects — staff still pick/edit, or record Image Based Assessment
 - [ ] The SPA shows the shortlist by default and offers a "Search all locations…" typeahead that reaches the full corpus.
 - [ ] No runtime address matcher / geocode is introduced (ADR-0013): ranking is pure string comparison over existing columns.
 - [ ] Honest-empty behaviour preserved — any failure still resolves `200` with `[]`.
+
+## Artifacts
+
+- [changes.md](./changes.md)
+- [verification.md](./verification.md)

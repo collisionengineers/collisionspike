@@ -24,7 +24,7 @@
     },
     {
       "id": "tkt023-original-reply",
-      "file": "docs/tickets/verify/TKT-023-follow-up-docs/evidence/original/Our ref 576299.eml",
+      "file": "docs/tickets/now/TKT-023-follow-up-docs/evidence/original/Our ref 576299.eml",
       "source": "ticket:TKT-023",
       "tracked": true,
       "context": {
@@ -39,7 +39,7 @@
     },
     {
       "id": "tkt023-outbound-request",
-      "file": "docs/tickets/verify/TKT-023-follow-up-docs/evidence/sent/RE Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)   575985.eml",
+      "file": "docs/tickets/now/TKT-023-follow-up-docs/evidence/sent/RE Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)   575985.eml",
       "source": "ticket:TKT-023",
       "tracked": true,
       "context": {

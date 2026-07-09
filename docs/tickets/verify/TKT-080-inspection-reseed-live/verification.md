@@ -67,3 +67,9 @@ degrades honestly to frequency ordering when a case has no parseable accident/cl
 ## Pending (operator)
 `VERIFY_LIVE=1 node verify-all.mjs` (needs an az login in the gate's environment); the per-provider live
 SPA click-through.
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch)
+
+PENDING (update). The inspection-repair chain is now independently live-proven end-to-end INCLUDING the previously-missing SPA click-through (FW shortlist Somstar 168-first; QCL Cariocca 412; QDOS Asher + image-based prefill; PCH Countess; locationAssistSuggest 3x200 in App Insights; AZURE_MAPS_KEY confirmed as a versioned KV ref). Blocks on acceptance line 5 as written: (a) VERIFY_LIVE diffed on a REAL registry drift — gates.value missed RETRO_OUTLOOK_SEARCH_ENABLED=true and carried an annotation inside REPLAY_BACKFILL_ENABLED — CORRECTED by the orchestrator 2026-07-09, re-run queued; (b) two parser-pytest failures beyond the recorded environmental baseline (OAK_doc; tier2-case_update/jobref-images-received.eml corpus fixture) queued for the classifier-batch triage; (c) SQL-level re-checks queued for the transient-firewall data pass; (d) TKT-062 done-folder lacked changes/verification artifacts — back-filled 2026-07-09.
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.

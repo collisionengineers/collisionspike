@@ -44,7 +44,7 @@ PROPOSED (not built):
 
 Distilled 2026-07-07 from operator drop-note `to-distill/tractable-integration/` (`tractable-received.md`);
 raw material in [evidence/](./evidence). The wrong-reference bug is
-[TKT-103](../TKT-103-tractable-reference-bug/TKT-103-tractable-reference-bug.md); the deferred API
+[TKT-103](../../now/TKT-103-tractable-reference-bug/TKT-103-tractable-reference-bug.md); the deferred API
 integration is [TKT-104](../../blocked/TKT-104-tractable-api-integration/TKT-104-tractable-api-integration.md).
 
 ## Artifacts

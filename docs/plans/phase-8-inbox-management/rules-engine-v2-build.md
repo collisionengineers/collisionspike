@@ -347,7 +347,7 @@ gpt-5-mini) is recorded; `EMAIL_AI_ENABLED` production stays off until the G5 si
       demoted to a tooltip) — the "why" affordance must fit inside D16's existing cell shape, not add
       a new one. **Done, deployed live 2026-07-02** — banned-word fixes included.
   - [x] The **source-mailbox chip + filter** (TKT-025). **Done, deployed live 2026-07-02** — see
-    [TKT-025](../../tickets/verify/TKT-025-inbox-source-filter/TKT-025-inbox-source-filter.md).
+    [TKT-025](../../tickets/done/TKT-025-inbox-source-filter/TKT-025-inbox-source-filter.md).
   - [ ] Finish the **actionable-inbox verification** (TKT-005). **Not finished** — an operator
     click-through runbook was written this pass
     ([verification.md](../../tickets/verify/TKT-005-email-actions/verification.md)), but TKT-005 itself stays
