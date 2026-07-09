@@ -8,8 +8,22 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { QUEUES, queueByName, statusToQueue, statusToStage } from './queues';
+import { QUEUES, isRetiredMerged, queueByName, statusToQueue, statusToStage } from './queues';
 import type { CaseStatus } from './types';
+
+describe('isRetiredMerged — the TKT-141 retired-duplicate predicate (one source)', () => {
+  it('true ONLY for linked_to_instruction WITH a mergedInto survivor marker', () => {
+    expect(isRetiredMerged({ status: 'linked_to_instruction', mergedInto: 'surv-1' })).toBe(true);
+  });
+  it('a plain linked_to_instruction case (no marker) keeps its historical meaning', () => {
+    expect(isRetiredMerged({ status: 'linked_to_instruction' })).toBe(false);
+    expect(isRetiredMerged({ status: 'linked_to_instruction', mergedInto: undefined })).toBe(false);
+  });
+  it('the marker alone never retires a non-merged status', () => {
+    expect(isRetiredMerged({ status: 'needs_review', mergedInto: 'surv-1' })).toBe(false);
+    expect(isRetiredMerged({ status: 'duplicate_risk', mergedInto: 'surv-1' })).toBe(false);
+  });
+});
 
 describe('statusToQueue — TKT-130 queue routing', () => {
   it('needs_review lands in the Review queue (operator direction 2026-07-08)', () => {

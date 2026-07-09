@@ -53,9 +53,17 @@ vi.mock('../lib/audit.js', async (importOriginal) => {
   return { ...actual, writeAudit: vi.fn(async (a: { action: number }) => { auditCalls.push(a); }) };
 });
 
+/* ---- internal.js: mock the TKT-023 chaser hook (avoid loading the whole internal
+        route module; the hook's own behaviour is pinned in internal-guards.test.ts) ---- */
+const chaserHook = vi.hoisted(() => ({ markOutstandingChasersResponded: vi.fn(async () => 1) }));
+vi.mock('./internal.js', () => ({
+  markOutstandingChasersResponded: chaserHook.markOutstandingChasersResponded,
+}));
+
 const { AUDIT_ACTION } = await import('../lib/audit.js');
 await import('./ai-suggestions.js'); // registers the routes against the captured app.http
 const generate = registrations.get('generateAiSuggestions')!.handler;
+const review = registrations.get('reviewAiSuggestion')!.handler;
 
 const CASE_ROW = { vrm: 'WN14XPZ', eva_accident_circumstances: 'Struck from behind at lights.', eva_claimant_address: 'redacted' };
 
@@ -71,6 +79,7 @@ beforeEach(() => {
   sqls.length = 0;
   params.length = 0;
   auditCalls.length = 0;
+  chaserHook.markOutstandingChasersResponded.mockClear();
   model.callSuggestionModel.mockReset();
   (ctx.log as unknown as ReturnType<typeof vi.fn>).mockReset();
   (ctx.error as unknown as ReturnType<typeof vi.fn>).mockReset();
@@ -194,5 +203,68 @@ describe('generateAiSuggestions — (d) NO silent mutation (promotion is human-r
     }
     // What it DID do: read the case + insert the two suggestions (nothing else that writes state).
     expect(insertSqls()).toHaveLength(2);
+  });
+});
+
+/* ============================================================
+   TKT-023 — the case_link ACCEPT seam satisfies outstanding chasers.
+   The suggestion-review attach was the ONE attach seam that never called
+   markOutstandingChasersResponded (auto-link reply / dedup attach / auto-attach
+   all do — internal.ts). Pins: a successful case_link promotion calls the hook
+   with the target case; a no-op promotion (email already linked) does not.
+   ============================================================ */
+
+function reviewReq(decision = 'accepted'): HttpRequest {
+  return { params: { id: 'sug-1' }, json: async () => ({ decision }) } as unknown as HttpRequest;
+}
+
+const CASE_LINK_ROW = {
+  id: 'sug-1',
+  case_id: null,
+  evidence_id: null,
+  inbound_email_id: 'ie-1',
+  suggestion_type: 'case_link',
+  suggested_value: { targetCaseId: 'case-target' },
+  review_state: 'pending',
+};
+
+describe('reviewAiSuggestion — TKT-023 case_link accept marks outstanding chasers responded', () => {
+  it('a successful case_link promotion calls markOutstandingChasersResponded(targetCaseId, "suggestion accepted")', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM ai_suggestion WHERE id/i.test(sql)) return [CASE_LINK_ROW];
+      if (/UPDATE ai_suggestion/i.test(sql)) return [{ id: 'sug-1', review_state: 'accepted' }];
+      if (/UPDATE inbound_email/i.test(sql)) return [{ id: 'ie-1' }]; // FILL-IF-EMPTY hit
+      return [];
+    });
+    const res = await review(reviewReq(), ctx, {});
+    expect(res.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: true });
+    expect(chaserHook.markOutstandingChasersResponded).toHaveBeenCalledTimes(1);
+    expect(chaserHook.markOutstandingChasersResponded).toHaveBeenCalledWith(
+      'case-target',
+      'suggestion accepted',
+    );
+  });
+
+  it('a no-op promotion (email already linked — FILL-IF-EMPTY miss) does NOT touch chasers', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM ai_suggestion WHERE id/i.test(sql)) return [CASE_LINK_ROW];
+      if (/UPDATE ai_suggestion/i.test(sql)) return [{ id: 'sug-1', review_state: 'accepted' }];
+      if (/UPDATE inbound_email/i.test(sql)) return []; // case_id already set — no attach
+      return [];
+    });
+    const res = await review(reviewReq(), ctx, {});
+    expect(res.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: false });
+    expect(chaserHook.markOutstandingChasersResponded).not.toHaveBeenCalled();
+  });
+
+  it('a rejection never touches chasers', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM ai_suggestion WHERE id/i.test(sql)) return [CASE_LINK_ROW];
+      if (/UPDATE ai_suggestion/i.test(sql)) return [{ id: 'sug-1', review_state: 'rejected' }];
+      return [];
+    });
+    const res = await review(reviewReq('rejected'), ctx, {});
+    expect(res.jsonBody).toMatchObject({ reviewState: 'rejected', promoted: false });
+    expect(chaserHook.markOutstandingChasersResponded).not.toHaveBeenCalled();
   });
 });

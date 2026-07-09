@@ -38,3 +38,17 @@ No-op when the case has no outstanding chaser; best-effort (a chaser bookkeeping
 block the attach). Unit tests: `api/src/functions/internal-guards.test.ts` (flip set + params,
 no-op, failure tolerance). Deployed 2026-07-09 (api 89 fns). Live state: exactly 1 drafted chaser
 exists — the flip fires on that case's next attached reply (verifier item).
+
+### 2026-07-09 correction — the suggestion-accept seam was MISSED (PLAN-003 final wave D1)
+
+The list above claimed `promoteAcceptedSuggestion`'s case_link accept called the hook — **it did
+not** (the intake-wave build wired the three internal.ts seams only; `ai-suggestions.ts` never
+imported it). Fixed this wave: the `case_link` accept branch in
+`api/src/functions/ai-suggestions.ts` now calls `markOutstandingChasersResponded(targetCaseId,
+'suggestion accepted')` immediately after the successful FILL-IF-EMPTY attach + `inbound_linked`
+audit (imported from `./internal.js` — reused, not duplicated; still best-effort inside the hook,
+and NOT called when the attach was a no-op or the suggestion was rejected). Unit tests added in
+`api/src/functions/ai-suggestions.test.ts` (hook called with the target case on a successful
+promotion; not called on a FILL-IF-EMPTY miss; not called on rejection — `./internal.js` mocked so
+the route module stays isolated). api suite 352 green; redeployed 2026-07-09 (api 94 fns,
+final wave D1). All four attach seams now call the ONE hook.

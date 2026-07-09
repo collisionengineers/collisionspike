@@ -1,8 +1,13 @@
 # Changes — TKT-072: The search box doesn't search — global search across cases, emails, providers
 
 ## Status
-verify — built DARK behind `GLOBAL_SEARCH_ENABLED` (default off); code-complete + tested offline, not yet
-deployed. Under [PLAN-001](../../plans/PLAN-001-ai-mcp-hardening.md) Phase 1.
+verify — **GATE FLIPPED LIVE 2026-07-09** (PLAN-003 final wave D1, operator-granted):
+`GLOBAL_SEARCH_ENABLED=true` on `cespk-api-dev`, readback-proven; unauthenticated
+`GET /api/search?q=…` → **401 fail-closed** proven live (an API-audience token can't be
+minted headlessly — AADSTS65001). Remaining proof: an authenticated `/search` render from
+an operator/verifier SPA session. Registry:
+[live-environment.md](../../../architecture/live-environment.md).
+Under [PLAN-001](../../plans/PLAN-001-ai-mcp-hardening.md) Phase 1.
 
 ## Commits
 - `7bdcb94` — ai: PLAN-001 Phase 1 (global search endpoint + SPA results view).

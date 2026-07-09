@@ -43,6 +43,15 @@ export type AppRole = 'CollisionSpike.User' | 'CollisionSpike.Superuser';
 
 // Back-compat: a token minted before the rename still carries the legacy 'CollisionSpike.Admin'
 // value. Treat either as superuser so renaming the app-role can never lock out an assigned user.
+//
+// TKT-138 root-cause record (2026-07-09, read-only directory enumeration): the app registration
+// (fa2fb28c…) AND its service principal (f5cf0eba…) both read appRoles Engineer/User/Superuser
+// (Superuser keeping role-id 5b356d4c per the 2026-06-27 rename), and the operator's ONLY API
+// appRoleAssignment targets 5b356d4c — so a FRESH v2 token can only mint
+// roles:["CollisionSpike.Superuser"]. The observed ["CollisionSpike.Admin"] claims are stale
+// pre-rename token artifacts (MSAL cache / recorded evidence), not directory drift: NO directory
+// fix exists to run. This legacy-accept stays DELIBERATELY (belt-and-braces for any cached
+// pre-rename token; also recorded in the live registry).
 const SUPERUSER_VALUES = ['CollisionSpike.Superuser', 'CollisionSpike.Admin'];
 function hasSuperuser(roles: string[]): boolean {
   return roles.some((r) => SUPERUSER_VALUES.includes(r));

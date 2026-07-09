@@ -134,3 +134,52 @@ describe('computeAgingExceptions — past-due + reason tallies, oldest-first', (
     expect(ex.conflictCount).toBe(1);
   });
 });
+
+/* ============================================================
+   TKT-141 — retired merged duplicates (linked_to_instruction + mergedInto marker)
+   are RESOLVED work: excluded from every count/list derivation while a plain
+   linked_to_instruction case (no marker) keeps counting as Not-ready.
+   ============================================================ */
+describe('TKT-141 — retired merged duplicates excluded from counts/lists', () => {
+  const survivor = mkCase({ id: 'surv', vrm: 'PK20FWT', status: 'needs_review' });
+  const retiredA = mkCase({
+    id: 'retA',
+    vrm: 'PK20FWT',
+    status: 'linked_to_instruction',
+    mergedInto: 'surv',
+    dateDue: '10/06/2026',
+  });
+  const retiredB = mkCase({
+    id: 'retB',
+    vrm: 'PK20FWT',
+    status: 'linked_to_instruction',
+    mergedInto: 'surv',
+  });
+  // A merged-partial WITHOUT the marker (the historical linked_to_instruction meaning)
+  // must keep counting as Not-ready.
+  const plainLinked = mkCase({ id: 'plain', vrm: 'YH13ZSN', status: 'linked_to_instruction' });
+  const all = [survivor, retiredA, retiredB, plainLinked];
+
+  it('queue lists / live counts drop the retired pair but keep the un-marked linked case', () => {
+    expect(filterQueue(all, 'not-ready').map((c) => c.id)).toEqual(['plain']);
+    expect(computeLiveCounts(all)).toEqual({ notReady: 1, review: 1, held: 0 });
+    expect(computeQueueCounts(all)).toEqual({ 'not-ready': 1, review: 1, held: 0 });
+  });
+
+  it('needs-action/aging rows exclude the retired pair (the PK20FWT badge derives from these rows)', () => {
+    const ex = computeAgingExceptions(all, NOW);
+    const ids = ex.rows.map((r) => r.case.id);
+    expect(ids).not.toContain('retA');
+    expect(ids).not.toContain('retB');
+    expect(ids).toContain('surv');
+    expect(ids).toContain('plain');
+    // The dashboard twin badge counts same-VRM rows in THIS set: PK20FWT now = 1 (genuinely open).
+    const pkRows = ex.rows.filter((r) => (r.case.vrm ?? '').toUpperCase() === 'PK20FWT');
+    expect(pkRows).toHaveLength(1);
+  });
+
+  it('pipeline-stage counts skip the retired pair but count the un-marked linked case', () => {
+    const byKey = Object.fromEntries(computePipelineStages(all).map((s) => [s.key, s.count]));
+    expect(byKey).toEqual({ not_ready: 1, review: 1, submitted: 0 });
+  });
+});

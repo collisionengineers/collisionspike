@@ -31,6 +31,7 @@ import {
   decideMergeProvider,
   extractVrm,
   formatCasePo,
+  isRetiredMerged,
   normalizeCasePo,
   statusForReviewCase,
   type Case,
@@ -674,7 +675,9 @@ app.http('openVrmTwins', {
     );
     const twins = rows
       .map((r) => rowToCase(r))
-      .filter((c) => !TWIN_TERMINAL.has(c.status) && c.id !== exclude);
+      // TKT-141: a retired merged duplicate (linked_to_instruction + mergedInto) is
+      // resolved work — never an open twin, exactly like the terminal set.
+      .filter((c) => !TWIN_TERMINAL.has(c.status) && !isRetiredMerged(c) && c.id !== exclude);
     return { status: 200, jsonBody: twins };
   }),
 });

@@ -835,15 +835,20 @@ sign-off**); the MCP path also needs a new **Entra app-registration** only you c
 and gates; it does not flip a live gate or create an app-registration.
 
 **Steps (in dependency order; each is independent and safe to leave off):**
-1. **Merge + deploy the branch** (`cespk-api-dev` + the SPA `cespk-spa-dev`). Until deployed, all of the
-   below are inert regardless of gate state. TKT-067 (New-chat) ships with the SPA deploy — no gate.
-2. **`ASSISTANT_TOOLSET_V2`** (TKT-066/069) — turns on the canonical-VRM read adapter + six read tools.
-   Flip after a short soak; verify a spaced-VRM lookup (`YT13 UTV`) resolves.
-3. **`GLOBAL_SEARCH_ENABLED`** (TKT-072) — the header search box. Flip after step 2 soaks.
-4. **`ASSISTANT_WRITE_TIER_ENABLED`** (TKT-111) — the propose→confirm→execute write tier. Needs a
-   **per-capability DPIA + E2/G5 sign-off** first (the `scrubPii` output is a precision-over-recall
-   pre-scrub, not "de-identified" — the DPIA must say so). The model never writes; a human confirms every
-   action.
+1. **Merge + deploy the branch** (`cespk-api-dev` + the SPA `cespk-spa-dev`) — ✅ **DONE** (the PLAN-001
+   builds shipped with the 2026-07-08/09 waves; TKT-067 New-chat shipped with the SPA deploy — no gate).
+2. **`ASSISTANT_TOOLSET_V2`** (TKT-066/069) — ✅ **FLIPPED LIVE 2026-07-09** (operator-granted,
+   PLAN-003 final wave): the canonical-VRM read adapter + six read tools are active on `cespk-api-dev`
+   (readback-proven `true`; SELECT-only invariant pinned by the assistant tests). Behavioral proof of a
+   spaced-VRM lookup (`YT13 UTV`) from the operator session is the remaining verify item.
+3. **`GLOBAL_SEARCH_ENABLED`** (TKT-072) — ✅ **FLIPPED LIVE 2026-07-09** (operator-granted, with the
+   TKT-096 terminal-scope fold): `/api/search` is live (unauthenticated probe → 401 fail-closed;
+   an authenticated render check from the operator session is the remaining verify item).
+4. **`ASSISTANT_WRITE_TIER_ENABLED`** (TKT-111) — ⛔ **STAYS OFF — OPERATOR-ONLY.** The
+   propose→confirm→execute write tier needs a **per-capability DPIA + E2/G5 sign-off** first (the
+   `scrubPii` output is a precision-over-recall pre-scrub, not "de-identified" — the DPIA must say so).
+   The model never writes; a human confirms every action. **Not flipped in the 2026-07-09 wave by
+   explicit instruction** — only you flip this, after the sign-off is recorded.
 5. **Apply `185_ai_usage_ledger.sql`** (TKT-113) — ✅ **DDL APPLIED LIVE (2026-07-08)** via
    [`deltas/2026-07-08-ai-usage-ledger.sql`](../migration/assets/schema/deltas/2026-07-08-ai-usage-ledger.sql)
    (`SET ROLE csadmin` runbook): the `ai_usage_ledger` table + RLS (`p_ai_usage_ledger_rw` /
@@ -852,10 +857,11 @@ and gates; it does not flip a live gate or create an app-registration.
    Insights showed 0 `[ai-usage] ledger write failed` over the prior 72h — the live api build predates the
    writer). **Remaining = the redeploy** (folds into step 1's `main`→`cespk-api-dev` publish); once the
    writer ships, the capacity ledger starts accruing.
-6. **MCP read-only server** (TKT-110): create the **MCP Entra app-registration** (delegated scopes for the
-   near-term Flow A; app-roles for the later Flow B), then set **`MCP_SERVER_ENABLED`**. Record it in the
-   registry (bump `lastVerified`). Autonomous agent **writes** are a separate, later rung (ADR-0023 Phase
-   3b) — not shipped.
+6. **MCP read-only server** (TKT-110): ⛔ **OPERATOR-ONLY — still open.** Create the **MCP Entra
+   app-registration** (a directory change only you make; delegated scopes for the near-term Flow A;
+   app-roles for the later Flow B), then set **`MCP_SERVER_ENABLED`**. Record it in the registry (bump
+   `lastVerified`). **Not created in the 2026-07-09 wave by explicit instruction.** Autonomous agent
+   **writes** are a separate, later rung (ADR-0023 Phase 3b) — not shipped.
 
 **✅ Vision family — FLIPPED LIVE 2026-07-08 (was "deliberately deferred"):** on your instruction and with
 your **DPIA + UK data-residency sign-off confirmed 2026-07-08** (recorded in

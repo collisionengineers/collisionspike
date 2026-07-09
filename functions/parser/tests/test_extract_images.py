@@ -103,6 +103,34 @@ def test_route_zero_images_is_200(monkeypatch):
     assert json.loads(resp.get_body())["count"] == 0
 
 
+def test_route_threads_provider_and_vrm_to_engine(monkeypatch):
+    """TKT-143: optional resolved-identity body fields reach run_image_extraction as
+    provider=/vrm= kwargs; blank/non-string values degrade to None (never a 400)."""
+    seen = {}
+
+    def _capture(document_bytes, filename, provider=None, vrm=None):
+        seen.update(provider=provider, vrm=vrm)
+        return {"count": 0, "images": [], "message": ""}
+
+    monkeypatch.setattr(parser_adapter, "run_image_extraction", _capture)
+
+    body = _valid_body() | {"provider": "QDOS", "vrm": "AB12CDE"}
+    resp = function_app.extract_images_route(_make_request(body))
+    assert resp.status_code == 200
+    assert seen == {"provider": "QDOS", "vrm": "AB12CDE"}
+
+    seen.clear()
+    body = _valid_body() | {"provider": "   ", "vrm": 123}  # blank / non-string -> ignored
+    resp = function_app.extract_images_route(_make_request(body))
+    assert resp.status_code == 200
+    assert seen == {"provider": None, "vrm": None}
+
+    seen.clear()
+    resp = function_app.extract_images_route(_make_request(_valid_body()))  # absent -> None
+    assert resp.status_code == 200
+    assert seen == {"provider": None, "vrm": None}
+
+
 # --------------------------------------------------------------------------- #
 # Real engine over the CVD sample                                             #
 # --------------------------------------------------------------------------- #
@@ -219,3 +247,31 @@ def test_extracted_names_carry_no_placeholder_identity():
     assert "RJS" not in name, name
     assert "UnknownVRM" not in name, name
     assert re.fullmatch(r"img_\d+_\d+\.[A-Za-z0-9]+", name), name
+
+
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+def test_resolved_identity_reaches_the_stems():
+    """TKT-143: when the caller RESOLVED the provider principal + VRM, the stems carry
+    them (``QDOS_AB12CDE_img_<page>_<n>``) — real identity, never a placeholder."""
+    import re
+
+    pdf_bytes = _make_pdf_with_image(640, 480)
+    res = parser_adapter.run_image_extraction(
+        pdf_bytes, "instruction.pdf", provider="QDOS", vrm="AB12CDE"
+    )
+    assert res["count"] == 1
+    name = res["images"][0]["filename"]
+    assert re.fullmatch(r"QDOS_AB12CDE_img_\d+_\d+\.[A-Za-z0-9]+", name), name
+
+
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+def test_partial_identity_omits_only_the_unknown_token():
+    """TKT-143 + TKT-090: a resolved VRM with an unresolved provider yields
+    ``AB12CDE_img_<page>_<n>`` — known tokens kept, unknown tokens omitted."""
+    import re
+
+    pdf_bytes = _make_pdf_with_image(640, 480)
+    res = parser_adapter.run_image_extraction(pdf_bytes, "instruction.pdf", vrm="AB12CDE")
+    assert res["count"] == 1
+    name = res["images"][0]["filename"]
+    assert re.fullmatch(r"AB12CDE_img_\d+_\d+\.[A-Za-z0-9]+", name), name

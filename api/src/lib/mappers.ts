@@ -19,6 +19,7 @@ import {
   INBOUND_ATTENTION_REASONS,
   OUTLOOK_MOVE_STATES,
   QUEUES,
+  isRetiredMerged,
   queueByName,
   statusToQueue,
   type ActivityEvent,
@@ -61,7 +62,7 @@ import {
   reviewStateCodec,
   sourceTypeCodec,
 } from '@cs/domain/codecs';
-import { lastActivityLabel } from './last-activity.js';
+import { auditActionLabel, humanActorName, lastActivityLabel, plainDetail } from './last-activity.js';
 
 /** A raw pg row. Columns come back snake-cased; values are string|number|boolean|Date|null. */
 export type Row = Record<string, any>;
@@ -232,6 +233,22 @@ export interface CaseAssembly {
   now?: Date;
 }
 
+/**
+ * The `mergedInto` survivor id out of the case's `duplicate_keys` dedup-staging JSON
+ * (a text column: the merge route writes `{"mergedInto": <survivor>, ...}` — TKT-092).
+ * Tolerates a non-JSON / legacy candidate-list value (returns undefined). Never throws.
+ */
+export function mergedIntoFrom(raw: unknown): string | undefined {
+  if (raw == null) return undefined;
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const v = (parsed as { mergedInto?: unknown } | null)?.mergedInto;
+    return typeof v === 'string' && v.trim() ? v.trim() : undefined;
+  } catch {
+    return undefined; // legacy/free-form duplicate_keys — not a merge marker
+  }
+}
+
 /** A case_ row (+ optional expanded children) -> the domain Case. */
 export function rowToCase(rec: Row, opts: CaseAssembly = {}): Case {
   const now = opts.now ?? new Date();
@@ -284,6 +301,10 @@ export function rowToCase(rec: Row, opts: CaseAssembly = {}): Case {
     ...(submittedAt ? { submittedAt } : {}),
     ...(rec.box_folder_id ? { boxFolderId: rec.box_folder_id } : {}),
     ...(rec.box_folder_url ? { boxFolderUrl: rec.box_folder_url } : {}),
+    // TKT-141 — surface the merge-retirement marker (TKT-092 writes it into the
+    // duplicate_keys dedup staging JSON) so the ONE isRetiredMerged predicate can
+    // exclude retired duplicates from twin counts / attention lists / stage counts.
+    ...(mergedIntoFrom(rec.duplicate_keys) ? { mergedInto: mergedIntoFrom(rec.duplicate_keys)! } : {}),
     ...(caseType && caseType !== 'standard' ? { caseType } : {}),
     ...(lastActivityDate
       ? {
@@ -503,14 +524,29 @@ export function rowToActivityEvent(rec: Row): ActivityEvent {
   const action = auditActionCodec.toName(
     rec.action_code == null ? undefined : Number(rec.action_code),
   );
+  // TKT-134 — the PRIMARY line is ALWAYS the plain-English label from the ONE
+  // last-activity map (never the raw summary/enum/payload — the old
+  // `rec.name ?? rec.after ?? action` fallback leaked "box_upload_received: …"
+  // and raw JSON onto the Action-logs page). Specifics stay on a secondary
+  // `detail` line ONLY when the summary is human-safe (plainDetail); otherwise
+  // the raw text moves behind the expandable `technical` affordance.
+  const rawSummary = typeof rec.name === 'string' ? rec.name : '';
+  const detail = plainDetail(rawSummary);
+  const technicalParts = [action ?? null, detail ? null : rawSummary || null].filter(
+    (s): s is string => Boolean(s && s.trim()),
+  );
+  const technical = technicalParts.join(' — ');
   return {
     id: rec.id ?? '',
     caseId: rec.case_id ?? '',
     vrm: '',
     kind: auditActionToActivityKind(action),
-    actor: rec.actor ?? 'System',
+    // GUID/system actors never render (humanActorName) — degrade to 'System'.
+    actor: humanActorName(rec.actor) ?? 'System',
     timestamp: formatOccurredAt(rec.occurred_at),
-    description: rec.name ?? rec.after ?? action ?? '',
+    description: auditActionLabel(rec.action_code == null ? undefined : Number(rec.action_code)),
+    ...(detail ? { detail } : {}),
+    ...(technical ? { technical } : {}),
   };
 }
 
@@ -912,10 +948,15 @@ export function startOfWeek(d: Date): Date {
   return s;
 }
 
-/** Filter an already-fetched Case[] for a queue (status membership; on-hold -> Held). */
+/** Filter an already-fetched Case[] for a queue (status membership; on-hold -> Held).
+ *  TKT-141: a RETIRED merged duplicate (linked_to_instruction + mergedInto marker) is
+ *  resolved work — excluded from every queue list/count via the ONE domain predicate
+ *  (it stays openable directly; the single-case read does not go through here). */
 export function filterQueue(all: Case[], name: QueueName): Case[] {
   if (!queueByName(name)) return [];
-  return all.filter((c) => (c.onHold ? 'held' : statusToQueue(c.status)) === name);
+  return all.filter(
+    (c) => !isRetiredMerged(c) && (c.onHold ? 'held' : statusToQueue(c.status)) === name,
+  );
 }
 
 /** The cases that need a human — all three queues, Held INCLUDED (an overdue held

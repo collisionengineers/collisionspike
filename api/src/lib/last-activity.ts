@@ -108,6 +108,37 @@ export function auditActionLabel(actionCode: number | null | undefined): string 
   return AUDIT_ACTION_CODE_LABELS[code] ?? DEFAULT_LABEL;
 }
 
+/* ============================================================
+   TKT-134 — Action-logs detail-line safety filter.
+   ============================================================ */
+
+/** Engineering-shaped tokens that must never render on a staff-visible line:
+ *  anything underscored (box_upload_received, missing_required_fields, img_1_1
+ *  filename stems), enum-transition arrows (duplicate_risk -> missing_images),
+ *  GUIDs anywhere in the text, and code-y key=value pairs (category=case_update). */
+const GUID_ANYWHERE_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+const ARROW_RE = /->|→/;
+const KEY_VALUE_RE = /\b\w+=[^\s]/;
+
+/**
+ * A human-safe rendering of a raw audit summary, or undefined when it must not
+ * render on a staff-visible line (TKT-134). Conservative by design: a summary
+ * carrying ANY engineering-shaped token (an underscore, an enum arrow, a GUID,
+ * a key=value pair) is withheld entirely — the caller keeps the raw text behind
+ * a technical-details affordance instead. Plain summaries ("Case created
+ * (CCPY26050)", "Chaser marked responded — the requested item arrived") pass
+ * through untouched.
+ */
+export function plainDetail(raw: string | null | undefined): string | undefined {
+  const s = (raw ?? '').trim();
+  if (!s) return undefined;
+  if (s.includes('_')) return undefined;
+  if (GUID_ANYWHERE_RE.test(s)) return undefined;
+  if (ARROW_RE.test(s)) return undefined;
+  if (KEY_VALUE_RE.test(s)) return undefined;
+  return s;
+}
+
 /**
  * The "Last update" descriptor for the newest activity row of a case.
  *   audit  → the controlled-action mapping above;

@@ -6,7 +6,7 @@
  * GUID/oid guard (internal ids never render — CONTEXT.md), chaser rows → "Chased".
  */
 import { describe, expect, it } from 'vitest';
-import { auditActionLabel, humanActorName, lastActivityLabel } from './last-activity';
+import { auditActionLabel, humanActorName, lastActivityLabel, plainDetail } from './last-activity';
 
 describe('auditActionLabel', () => {
   it('maps the seeded controlled codes to plain English', () => {
@@ -56,6 +56,39 @@ describe('humanActorName — the internal-id guard', () => {
     expect(humanActorName('Alex')).toBe('Alex');
     expect(humanActorName('J. Mercer')).toBe('J. Mercer');
     expect(humanActorName('alex@collisionengineers.co.uk')).toBe('alex');
+  });
+});
+
+describe('plainDetail — the TKT-134 detail-line safety filter', () => {
+  it('passes plain summaries through untouched', () => {
+    expect(plainDetail('Case created (CCPY26050)')).toBe('Case created (CCPY26050)');
+    expect(plainDetail('Chaser marked responded — the requested item arrived')).toBe(
+      'Chaser marked responded — the requested item arrived',
+    );
+    expect(plainDetail('  Inbound email linked to case (suggestion accepted)  ')).toBe(
+      'Inbound email linked to case (suggestion accepted)',
+    );
+  });
+
+  it('withholds engineering-shaped summaries entirely (they go behind technical details)', () => {
+    // The live sightings that motivated the ticket:
+    expect(plainDetail('box_upload_received: 3 files landed')).toBeUndefined();
+    expect(
+      plainDetail('Status duplicate_risk -> missing_required_fields (internal recompute)'),
+    ).toBeUndefined();
+    expect(plainDetail('Case propose_attach: PK20FWT')).toBeUndefined();
+    // The general shapes:
+    expect(plainDetail('anything with a snake_case token')).toBeUndefined();
+    expect(plainDetail('linked a1b2c3d4-e5f6-7890-abcd-ef0123456789')).toBeUndefined(); // GUID
+    expect(plainDetail('reclassified (category=case_update subtype=update_general)')).toBeUndefined();
+    expect(plainDetail('new → old')).toBeUndefined(); // unicode arrow
+  });
+
+  it('empty/blank input yields undefined (no empty detail line)', () => {
+    expect(plainDetail('')).toBeUndefined();
+    expect(plainDetail('   ')).toBeUndefined();
+    expect(plainDetail(null)).toBeUndefined();
+    expect(plainDetail(undefined)).toBeUndefined();
   });
 });
 

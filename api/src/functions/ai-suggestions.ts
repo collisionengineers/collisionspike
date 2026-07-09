@@ -53,6 +53,10 @@ import {
 // rules-engine-v2 Phase 4 (ADR-0019 Stage C) — reused, not duplicated: writeImprovementSignal
 // is the SAME feedback-provenance writer a staff reclassify uses (inbound.ts).
 import { writeImprovementSignal } from './inbound.js';
+// TKT-023 — reused, not duplicated: the SAME chaser-satisfaction hook every other attach
+// seam calls (auto-link reply, dedup attach, auto-attach — internal.ts). Accepting a
+// case_link suggestion IS an attach, so it must satisfy the case's outstanding chasers too.
+import { markOutstandingChasersResponded } from './internal.js';
 
 /** image_role 'unknown' code — the FILL-IF-EMPTY sentinel for evidence.image_role_code. */
 const IMAGE_ROLE_UNKNOWN = 100000003;
@@ -245,6 +249,11 @@ async function promoteAcceptedSuggestion(
             after: { caseId: targetCaseId, inboundEmailId },
             ...(actor ? { actor } : {}),
           });
+          // TKT-023 — the arrival satisfies any outstanding chaser on the case
+          // (drafted/sent/overdue → responded), same as every other attach seam.
+          // Best-effort inside markOutstandingChasersResponded itself: a chaser
+          // bookkeeping failure never unwinds the attach.
+          await markOutstandingChasersResponded(targetCaseId, 'suggestion accepted');
           return { promoted: true, promotedField: 'inbound_email.case_id' };
         }
       }

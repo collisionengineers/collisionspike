@@ -49,7 +49,7 @@ Invoke explicitly — for a single ticket you'll work yourself, use `ticket-impl
    Fix failures before handing off. Commit only when the user asks.
 9. **Report.** Per-ticket outcome table: id, dispatched-to, verdict, transition made, gaps.
 
-## Transition guard (encodes the README lifecycle — `ticket-move.mjs` does NOT enforce it)
+## Transition guard (encodes the README lifecycle — `ticket-move.mjs` ENFORCES it since TKT-114)
 
 ```
 backlog → now | next          next    → now
@@ -58,6 +58,12 @@ verify  → done | blocked      blocked → now
 done    → now                 (regression reopen only; needs a dated follow-up doc per ticket-implement)
 anything else → forbidden — stop and ask the user
 ```
+
+`scripts/ticket-move.mjs` enforces this graph deterministically (TKT-114): an illegal move exits
+non-zero naming the transition + the allowed targets; `--migrate` is exempt; `--dry-run` reports the
+same verdict without touching files. `--force` bypasses with a loud warning — **`verify → now` (the
+verify-sweep's reopen path when live proof fails) is deliberately `--force`-only**; use it exactly
+then, never to skip the evidence gate.
 
 **`verify → done` additionally requires** a `VERIFIED-LIVE` verdict in `verification.md` sourced from a
 ticket-verifier dispatch or operator-supplied evidence — never from the implementing dispatch's own

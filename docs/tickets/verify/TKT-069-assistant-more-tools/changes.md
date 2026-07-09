@@ -1,8 +1,12 @@
 # Changes — TKT-069: Assistant answers more questions — case detail, activity, twins, queues, emails, overdue
 
 ## Status
-verify — built DARK behind `ASSISTANT_TOOLSET_V2` (default off); code-complete + tested offline, not yet
-deployed. Under [PLAN-001](../../plans/PLAN-001-ai-mcp-hardening.md) Phase 1.
+verify — **GATE FLIPPED LIVE 2026-07-09** (PLAN-003 final wave D1, operator-granted):
+`ASSISTANT_TOOLSET_V2=true` on `cespk-api-dev`, readback-proven — the six read tools are
+active (SELECT-only dispatch; invariant pinned by `assistant.test.ts`). Remaining proof:
+operator-session assistant answers over the new tools. Registry:
+[live-environment.md](../../../architecture/live-environment.md).
+Under [PLAN-001](../../plans/PLAN-001-ai-mcp-hardening.md) Phase 1.
 
 ## Commits
 - `7bdcb94` — ai: PLAN-001 Phase 1 (shared capability registry + six read tools).

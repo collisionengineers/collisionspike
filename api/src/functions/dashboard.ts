@@ -23,6 +23,7 @@ import { app, type HttpRequest } from '@azure/functions';
 import {
   INBOUND_COUNTS_ZERO,
   REASON_LABELS,
+  isRetiredMerged,
   statusToStage,
   type ActionReason,
   type AgingExceptions,
@@ -153,6 +154,7 @@ export function computePipelineStages(all: Case[]): PipelineStage[] {
   const counts = new Map<PipelineStageKey, number>(defs.map((d) => [d.key, 0]));
   for (const c of all) {
     if (c.onHold) continue; // parked in Held, never a workflow-stage count
+    if (isRetiredMerged(c)) continue; // TKT-141: a retired merged duplicate is resolved work, never a stage count
     const stage = statusToStage(c.status);
     if (stage === undefined) continue; // error/duplicate_risk/removed -> Held/none, never a funnel count
     const k = stage === 'new' ? 'not_ready' : stage; // fold just-arrived into Not ready

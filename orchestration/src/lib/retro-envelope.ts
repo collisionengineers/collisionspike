@@ -143,6 +143,35 @@ export function buildMinimalAnchorEnvelope(
   };
 }
 
+/* ----------  Outlook $search key variants (TKT-139)  ---------- */
+
+/**
+ * The `$search` phrase VARIANTS for one retro key (TKT-139). Graph `$search`
+ * tokenizes on whitespace, so a ref searched as one token (`PHA5007`) does NOT
+ * match messages carrying the spaced form (`PHA 5007`) and vice versa — the
+ * TKT-119 Deleted-Items feasibility memo measured exactly this miss. The retro
+ * rung therefore issues EVERY variant and unions the results:
+ *   1. the key as given (trimmed, whitespace collapsed);
+ *   2. the COMPACT form (all whitespace removed);
+ *   3. the SPACED form (a space at every alpha<->digit boundary of the compact
+ *      form — 'PHA5007' -> 'PHA 5007', 'YT13UTV' -> 'YT 13 UTV').
+ * Deduplicated, order-stable, never empty for a non-blank key. Pure —
+ * unit-tested without Graph.
+ */
+export function refSearchVariants(key: string): string[] {
+  const given = String(key ?? '').replace(/\s+/g, ' ').trim();
+  if (!given) return [];
+  const compact = given.replace(/\s+/g, '');
+  const spaced = compact
+    .replace(/([A-Za-z])(\d)/g, '$1 $2')
+    .replace(/(\d)([A-Za-z])/g, '$1 $2');
+  const out: string[] = [];
+  for (const v of [given, compact, spaced]) {
+    if (v && !out.includes(v)) out.push(v);
+  }
+  return out;
+}
+
 /* ----------  Outlook original-instruction pick (R3)  ---------- */
 
 export interface OutlookSearchCandidate {

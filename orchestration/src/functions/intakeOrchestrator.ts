@@ -143,6 +143,8 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
         attachments: (inbound as { attachments?: unknown }).attachments,
         ...(caseVrm ? { caseVrm } : {}),
         ...(workProviderId ? { workProviderId } : {}),
+        // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
+        ...(principalCode ? { providerPrincipal: principalCode } : {}),
       });
     } catch (e) {
       if (!ctx.df.isReplaying) {
@@ -291,6 +293,8 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
             attachments: (inbound as { attachments?: unknown }).attachments,
             caseVrm: vrm || (inbound as { candidateVrm?: string }).candidateVrm,
             ...(workProviderId ? { workProviderId } : {}),
+            // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
+            ...(principalCode ? { providerPrincipal: principalCode } : {}),
           });
         } catch (e) {
           if (!ctx.df.isReplaying) {
@@ -654,6 +658,8 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
       attachments: (inbound as { attachments?: unknown }).attachments,
       caseVrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
       ...(workProviderId ? { workProviderId } : {}),
+      // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
+      ...(principalCode ? { providerPrincipal: principalCode } : {}),
     });
   } catch (e) {
     if (!ctx.df.isReplaying) {

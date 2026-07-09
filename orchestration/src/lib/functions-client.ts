@@ -128,14 +128,23 @@ export interface ExtractedImage {
  * orchestration can persist each as image evidence. A document with no embedded images
  * returns `{ count: 0 }`; a non-2xx (422 unreadable / 502 dep) throws so the caller can
  * skip-or-retry.
+ *
+ * TKT-143 — `provider` (the resolved work-provider PRINCIPAL code, e.g. QDOS) and `vrm`
+ * are threaded through when KNOWN so the engine's filename stems carry real identity
+ * (`QDOS_AB12CDE_img_1_1.png`); both are OMITTED when unknown and the engine keeps its
+ * neutral `img_<page>_<n>` stems (the TKT-090 omit-when-unknown rule, unchanged).
  */
 export function callExtractImages(input: {
   documentBase64: string;
   filename: string;
+  provider?: string;
+  vrm?: string;
 }): Promise<{ count: number; images: ExtractedImage[]; message?: string }> {
   return callFunction(PARSER, 'POST', 'extract-images', {
     document: input.documentBase64,
     filename: input.filename,
+    ...(input.provider ? { provider: input.provider } : {}),
+    ...(input.vrm ? { vrm: input.vrm } : {}),
   });
 }
 

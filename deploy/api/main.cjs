@@ -7772,6 +7772,9 @@ var QUEUES = [
 function statusToQueue(status) {
   return QUEUES.find((qq) => qq.statuses.includes(status))?.name;
 }
+function isRetiredMerged(c) {
+  return c.status === "linked_to_instruction" && Boolean(c.mergedInto);
+}
 function queueByName(name) {
   return QUEUES.find((q) => q.name === name);
 }
@@ -16007,6 +16010,18 @@ function auditActionLabel(actionCode) {
   if (name && AUDIT_ACTION_LABELS[name]) return AUDIT_ACTION_LABELS[name];
   return AUDIT_ACTION_CODE_LABELS[code] ?? DEFAULT_LABEL;
 }
+var GUID_ANYWHERE_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+var ARROW_RE = /->|→/;
+var KEY_VALUE_RE = /\b\w+=[^\s]/;
+function plainDetail(raw) {
+  const s = (raw ?? "").trim();
+  if (!s) return void 0;
+  if (s.includes("_")) return void 0;
+  if (GUID_ANYWHERE_RE.test(s)) return void 0;
+  if (ARROW_RE.test(s)) return void 0;
+  if (KEY_VALUE_RE.test(s)) return void 0;
+  return s;
+}
 function lastActivityLabel(row) {
   switch (row.kind) {
     case "audit":
@@ -16120,6 +16135,16 @@ function deriveInspectionDecision(rec) {
   }
   return "unknown";
 }
+function mergedIntoFrom(raw) {
+  if (raw == null) return void 0;
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const v = parsed?.mergedInto;
+    return typeof v === "string" && v.trim() ? v.trim() : void 0;
+  } catch {
+    return void 0;
+  }
+}
 function rowToCase(rec, opts = {}) {
   const now = opts.now ?? /* @__PURE__ */ new Date();
   const createdAt = toDmy(rec.created_at) ?? "";
@@ -16161,6 +16186,10 @@ function rowToCase(rec, opts = {}) {
     ...submittedAt ? { submittedAt } : {},
     ...rec.box_folder_id ? { boxFolderId: rec.box_folder_id } : {},
     ...rec.box_folder_url ? { boxFolderUrl: rec.box_folder_url } : {},
+    // TKT-141 — surface the merge-retirement marker (TKT-092 writes it into the
+    // duplicate_keys dedup staging JSON) so the ONE isRetiredMerged predicate can
+    // exclude retired duplicates from twin counts / attention lists / stage counts.
+    ...mergedIntoFrom(rec.duplicate_keys) ? { mergedInto: mergedIntoFrom(rec.duplicate_keys) } : {},
     ...caseType && caseType !== "standard" ? { caseType } : {},
     ...lastActivityDate ? {
       lastActivity: {
@@ -16294,14 +16323,23 @@ function rowToActivityEvent(rec) {
   const action5 = auditActionCodec.toName(
     rec.action_code == null ? void 0 : Number(rec.action_code)
   );
+  const rawSummary = typeof rec.name === "string" ? rec.name : "";
+  const detail = plainDetail(rawSummary);
+  const technicalParts = [action5 ?? null, detail ? null : rawSummary || null].filter(
+    (s) => Boolean(s && s.trim())
+  );
+  const technical = technicalParts.join(" \u2014 ");
   return {
     id: rec.id ?? "",
     caseId: rec.case_id ?? "",
     vrm: "",
     kind: auditActionToActivityKind(action5),
-    actor: rec.actor ?? "System",
+    // GUID/system actors never render (humanActorName) — degrade to 'System'.
+    actor: humanActorName(rec.actor) ?? "System",
     timestamp: formatOccurredAt(rec.occurred_at),
-    description: rec.name ?? rec.after ?? action5 ?? ""
+    description: auditActionLabel(rec.action_code == null ? void 0 : Number(rec.action_code)),
+    ...detail ? { detail } : {},
+    ...technical ? { technical } : {}
   };
 }
 var INBOUND_CATEGORY_BY_INT = {
@@ -16578,7 +16616,9 @@ function startOfWeek(d) {
 }
 function filterQueue(all, name) {
   if (!queueByName(name)) return [];
-  return all.filter((c) => (c.onHold ? "held" : statusToQueue(c.status)) === name);
+  return all.filter(
+    (c) => !isRetiredMerged(c) && (c.onHold ? "held" : statusToQueue(c.status)) === name
+  );
 }
 function actionableCases(all) {
   return [
@@ -18997,7 +19037,7 @@ import_functions2.app.http("openVrmTwins", {
       `${CASE_SELECT} WHERE regexp_replace(upper(c.vrm), '[^A-Z0-9]', '', 'g') = $1`,
       [vrm]
     );
-    const twins = rows.map((r) => rowToCase(r)).filter((c) => !TWIN_TERMINAL.has(c.status) && c.id !== exclude);
+    const twins = rows.map((r) => rowToCase(r)).filter((c) => !TWIN_TERMINAL.has(c.status) && !isRetiredMerged(c) && c.id !== exclude);
     return { status: 200, jsonBody: twins };
   })
 });
@@ -19886,6 +19926,7 @@ function computePipelineStages(all) {
   const counts = new Map(defs.map((d) => [d.key, 0]));
   for (const c of all) {
     if (c.onHold) continue;
+    if (isRetiredMerged(c)) continue;
     const stage = statusToStage(c.status);
     if (stage === void 0) continue;
     const k = stage === "new" ? "not_ready" : stage;
@@ -60949,7 +60990,7 @@ async function execTool(name, args) {
         `${CASE_SELECT} WHERE regexp_replace(upper(c.vrm), '[^A-Z0-9]', '', 'g') = $1`,
         [canon]
       );
-      const open = rows.map((r) => rowToCase(r)).filter((c) => !TWIN_TERMINAL.has(c.status));
+      const open = rows.map((r) => rowToCase(r)).filter((c) => !TWIN_TERMINAL.has(c.status) && !isRetiredMerged(c));
       return { vrm: canon, count: open.length, cases: open.map(caseCard) };
     }
     case "list_queue_cases": {
@@ -61743,6 +61784,7 @@ async function promoteAcceptedSuggestion(row, actor) {
             after: { caseId: targetCaseId, inboundEmailId },
             ...actor ? { actor } : {}
           });
+          await markOutstandingChasersResponded(targetCaseId, "suggestion accepted");
           return { promoted: true, promotedField: "inbound_email.case_id" };
         }
       }

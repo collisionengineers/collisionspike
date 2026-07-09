@@ -243,7 +243,16 @@ export interface ActivityEvent {
   kind: ActivityKind;
   actor: string;
   timestamp: string; // DD/MM/YYYY HH:mm
+  /** PRIMARY line — always plain English (the ONE audit-action label map,
+   *  api/src/lib/last-activity.ts). Never a raw enum/snake_case/GUID (TKT-134). */
   description: string;
+  /** Optional plain-language specifics (rendered as a secondary line). Only present
+   *  when the underlying audit summary is human-safe — an engineering-shaped summary
+   *  moves to `technical` instead (TKT-134). */
+  detail?: string;
+  /** Raw audit summary/payload for support — rendered ONLY behind an expandable
+   *  "technical details" affordance, never on a primary line (TKT-134). */
+  technical?: string;
 }
 
 /* ----------  Missing-item (the readiness "Missing" list)  ---------- */
@@ -351,4 +360,11 @@ export interface Case {
   boxFolderId?: string;
   /** Box folder shared-link URL — the "Open in Box" case-archive deep link. */
   boxFolderUrl?: string;
+
+  /** Survivor case id when THIS case was retired by a staff merge (TKT-092: the
+   *  source case is set `linked_to_instruction` with a `mergedInto` marker in its
+   *  dedup staging). Present => the case is resolved work, not an open twin — it
+   *  is excluded from twin counts, needs-action lists, and stage counts (TKT-141)
+   *  while staying openable directly. */
+  mergedInto?: string;
 }

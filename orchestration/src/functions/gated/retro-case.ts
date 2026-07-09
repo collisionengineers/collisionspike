@@ -67,6 +67,7 @@ import {
   buildRetroEnvelopeFromEml,
   classifyArchiveFile,
   pickCaseFolder,
+  refSearchVariants,
   selectOutlookOriginal,
   type LandedAttachment,
   type OutlookSearchCandidate,
@@ -966,13 +967,28 @@ df.app.activity('retroOutlookLocate', {
     if (input.keys.vrm) ladder.push({ key: input.keys.vrm, matchedKey: 'vrm' });
 
     for (const rung of ladder) {
+      // TKT-139 — Graph $search tokenization: a compact ref (PHA5007) does not match
+      // the spaced form (PHA 5007) and vice versa. Issue EVERY variant (compact +
+      // spaced at the alpha/digit boundaries) per mailbox and UNION the hits,
+      // deduped by (mailbox, message id), before the single ranked pick.
+      const variants = refSearchVariants(rung.key);
       const candidates: OutlookSearchCandidate[] = [];
+      const seen = new Set<string>();
       for (const mailbox of mailboxes) {
-        try {
-          const hits = await searchMessages(mailbox, kqlPhrase(rung.key), 25);
-          candidates.push(...hits.map((h) => ({ ...h, mailbox })));
-        } catch (e) {
-          ctx.warn(`[retroOutlookLocate] $search failed on ${mailbox} (continuing): ${String(e)}`);
+        for (const variant of variants) {
+          try {
+            const hits = await searchMessages(mailbox, kqlPhrase(variant), 25);
+            for (const h of hits) {
+              const k = `${mailbox} ${h.id}`;
+              if (seen.has(k)) continue;
+              seen.add(k);
+              candidates.push({ ...h, mailbox });
+            }
+          } catch (e) {
+            ctx.warn(
+              `[retroOutlookLocate] $search failed on ${mailbox} (variant ${JSON.stringify(variant)}; continuing): ${String(e)}`,
+            );
+          }
         }
       }
       const pick = selectOutlookOriginal(candidates, { intakeMailboxes: mailboxes });

@@ -105,6 +105,21 @@ export function statusToQueue(status: CaseStatus): QueueName | undefined {
   return QUEUES.find((qq) => qq.statuses.includes(status))?.name;
 }
 
+/**
+ * TKT-141 — a RETIRED merged duplicate: a case a staff merge parked in the
+ * non-terminal `linked_to_instruction` state WITH a `mergedInto` survivor marker.
+ * Such a case is resolved work, not an open item: it must not count in same-VRM
+ * twin badges, the needs-action/attention lists, or the queue/stage counts —
+ * while remaining openable directly (case page, search). The ONE predicate every
+ * count/list derivation consumes (count contract stays single-sourced, TKT-012).
+ *
+ * A `linked_to_instruction` case WITHOUT the marker keeps its historical meaning
+ * (a partial joined to its other half) and still counts as Not-ready.
+ */
+export function isRetiredMerged(c: Pick<Case, 'status' | 'mergedInto'>): boolean {
+  return c.status === 'linked_to_instruction' && Boolean(c.mergedInto);
+}
+
 export function queueByName(name: string): QueueDef | undefined {
   return QUEUES.find((q) => q.name === name);
 }

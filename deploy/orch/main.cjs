@@ -10641,7 +10641,9 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
         messageId: inbound.messageId,
         attachments: inbound.attachments,
         ...caseVrm ? { caseVrm } : {},
-        ...workProviderId ? { workProviderId } : {}
+        ...workProviderId ? { workProviderId } : {},
+        // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
+        ...principalCode ? { providerPrincipal: principalCode } : {}
       });
     } catch (e) {
       if (!ctx.df.isReplaying) {
@@ -10725,7 +10727,9 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
             messageId: inbound.messageId,
             attachments: inbound.attachments,
             caseVrm: vrm || inbound.candidateVrm,
-            ...workProviderId ? { workProviderId } : {}
+            ...workProviderId ? { workProviderId } : {},
+            // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
+            ...principalCode ? { providerPrincipal: principalCode } : {}
           });
         } catch (e) {
           if (!ctx.df.isReplaying) {
@@ -10948,7 +10952,9 @@ df5.app.orchestration("intakeOrchestrator", function* (ctx) {
       messageId: inbound.messageId,
       attachments: inbound.attachments,
       caseVrm: parserVrm || inbound.candidateVrm,
-      ...workProviderId ? { workProviderId } : {}
+      ...workProviderId ? { workProviderId } : {},
+      // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
+      ...principalCode ? { providerPrincipal: principalCode } : {}
     });
   } catch (e) {
     if (!ctx.df.isReplaying) {
@@ -50533,7 +50539,9 @@ function callClassifyEmail(input14) {
 function callExtractImages(input14) {
   return callFunction(PARSER, "POST", "extract-images", {
     document: input14.documentBase64,
-    filename: input14.filename
+    filename: input14.filename,
+    ...input14.provider ? { provider: input14.provider } : {},
+    ...input14.vrm ? { vrm: input14.vrm } : {}
   });
 }
 function callPlateOcr(input14) {
@@ -51656,9 +51664,16 @@ df19.app.activity("extractImages", {
         ctx.warn(`[extractImages] could not read ${doc.blobPath}: ${e instanceof Error ? e.message : String(e)}`);
         continue;
       }
+      const stemProvider = (input14.providerPrincipal ?? "").trim().toUpperCase();
+      const stemVrm = canonicalizeVrm(input14.caseVrm ?? "");
       let extracted;
       try {
-        extracted = await callExtractImages({ documentBase64: bytes.toString("base64"), filename: doc.filename });
+        extracted = await callExtractImages({
+          documentBase64: bytes.toString("base64"),
+          filename: doc.filename,
+          ...stemProvider ? { provider: stemProvider } : {},
+          ...stemVrm ? { vrm: stemVrm } : {}
+        });
       } catch (e) {
         ctx.warn(`[extractImages] extract failed for ${doc.filename}: ${e instanceof Error ? e.message : String(e)}`);
         continue;
@@ -52169,6 +52184,17 @@ function buildMinimalAnchorEnvelope(trigger, discoveredPo, folderId) {
     references: "",
     attachments: []
   };
+}
+function refSearchVariants(key) {
+  const given = String(key ?? "").replace(/\s+/g, " ").trim();
+  if (!given) return [];
+  const compact = given.replace(/\s+/g, "");
+  const spaced = compact.replace(/([A-Za-z])(\d)/g, "$1 $2").replace(/(\d)([A-Za-z])/g, "$1 $2");
+  const out = [];
+  for (const v of [given, compact, spaced]) {
+    if (v && !out.includes(v)) out.push(v);
+  }
+  return out;
 }
 var REPLY_PREFIX_RE = /^\s*(re|fw|fwd)\s*:/i;
 function selectOutlookOriginal(candidates, opts) {
@@ -52851,13 +52877,24 @@ df28.app.activity("retroOutlookLocate", {
     if (input14.keys.casePo) ladder.push({ key: input14.keys.casePo, matchedKey: "case_po" });
     if (input14.keys.vrm) ladder.push({ key: input14.keys.vrm, matchedKey: "vrm" });
     for (const rung of ladder) {
+      const variants = refSearchVariants(rung.key);
       const candidates = [];
+      const seen = /* @__PURE__ */ new Set();
       for (const mailbox of mailboxes) {
-        try {
-          const hits = await searchMessages(mailbox, kqlPhrase(rung.key), 25);
-          candidates.push(...hits.map((h) => ({ ...h, mailbox })));
-        } catch (e) {
-          ctx.warn(`[retroOutlookLocate] $search failed on ${mailbox} (continuing): ${String(e)}`);
+        for (const variant of variants) {
+          try {
+            const hits = await searchMessages(mailbox, kqlPhrase(variant), 25);
+            for (const h of hits) {
+              const k = `${mailbox}\0${h.id}`;
+              if (seen.has(k)) continue;
+              seen.add(k);
+              candidates.push({ ...h, mailbox });
+            }
+          } catch (e) {
+            ctx.warn(
+              `[retroOutlookLocate] $search failed on ${mailbox} (variant ${JSON.stringify(variant)}; continuing): ${String(e)}`
+            );
+          }
         }
       }
       const pick = selectOutlookOriginal(candidates, { intakeMailboxes: mailboxes });

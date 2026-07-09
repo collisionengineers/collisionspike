@@ -1,8 +1,11 @@
 # Changes — TKT-066: Assistant can't find a case by spaced registration + tool failures are invisible
 
 ## Status
-verify — built DARK behind `ASSISTANT_TOOLSET_V2` (default off); code-complete + tested offline, not yet
-deployed. Under [PLAN-001](../../plans/PLAN-001-ai-mcp-hardening.md) Phase 1.
+verify — **GATE FLIPPED LIVE 2026-07-09** (PLAN-003 final wave D1, operator-granted):
+`ASSISTANT_TOOLSET_V2=true` on `cespk-api-dev`, readback-proven (registry:
+[live-environment.md](../../../architecture/live-environment.md)). Code deployed. Remaining
+proof: an operator-session spaced-VRM lookup (`YT13 UTV`) through the assistant.
+Under [PLAN-001](../../plans/PLAN-001-ai-mcp-hardening.md) Phase 1.
 
 ## Commits
 - `7bdcb94` — ai: PLAN-001 Phase 1 — VRM canonicaliser, assistant tool observability, registry read adapter.

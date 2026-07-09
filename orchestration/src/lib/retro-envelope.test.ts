@@ -7,6 +7,7 @@ import {
   buildRetroEnvelopeFromEml,
   firstAddress,
   pickCaseFolder,
+  refSearchVariants,
   selectOutlookOriginal,
   type OutlookSearchCandidate,
   type RetroSearchHit,
@@ -134,6 +135,37 @@ describe('kqlPhrase (Graph messages $search clause)', () => {
     expect(kqlPhrase('575689')).toBe('"575689"');
     expect(kqlPhrase(' Our "Ref" \\ 575689 ')).toBe('"Our Ref 575689"');
     expect(kqlPhrase('')).toBe('""');
+  });
+});
+
+describe('refSearchVariants (TKT-139 — Graph $search tokenization miss)', () => {
+  it('a compact ref also searches the spaced form (the measured PHA5007 / PHA 5007 miss)', () => {
+    expect(refSearchVariants('PHA5007')).toEqual(['PHA5007', 'PHA 5007']);
+  });
+
+  it('a spaced ref also searches the compact form (the reverse direction)', () => {
+    expect(refSearchVariants('PHA 5007')).toEqual(['PHA 5007', 'PHA5007']);
+  });
+
+  it('spaces at EVERY alpha<->digit boundary (VRM shape)', () => {
+    expect(refSearchVariants('YT13UTV')).toEqual(['YT13UTV', 'YT 13 UTV']);
+    // The display-spaced VRM keeps itself, plus compact + fully-spaced.
+    expect(refSearchVariants('YT13 UTV')).toEqual(['YT13 UTV', 'YT13UTV', 'YT 13 UTV']);
+  });
+
+  it('keys with no alpha/digit boundary collapse to a single variant (no duplicate queries)', () => {
+    expect(refSearchVariants('575689')).toEqual(['575689']);
+    expect(refSearchVariants('CCPY')).toEqual(['CCPY']);
+  });
+
+  it('trims + collapses whitespace; blank input yields no variants', () => {
+    expect(refSearchVariants('  PHA   5007  ')).toEqual(['PHA 5007', 'PHA5007']);
+    expect(refSearchVariants('')).toEqual([]);
+    expect(refSearchVariants('   ')).toEqual([]);
+  });
+
+  it('a Case/PO shape (leading-alpha + year + sequence) gets its spaced twin', () => {
+    expect(refSearchVariants('CCPY26050')).toEqual(['CCPY26050', 'CCPY 26050']);
   });
 });
 
