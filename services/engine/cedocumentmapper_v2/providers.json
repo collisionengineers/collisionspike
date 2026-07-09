@@ -1724,6 +1724,105 @@
       ],
       "force_postcode_for_inspection_address": true,
       "engineer_report": false
+    },
+    {
+      "name": "CDQ",
+      "priority": 10,
+      "detect_phrases": [
+        "Is client happy to be contacted by email"
+      ],
+      "detect": {
+        "required_phrases": [
+          "Is client happy to be contacted by email",
+          "Accident Circumstances"
+        ],
+        "optional_phrases": [
+          "Defendant",
+          "Claimant",
+          "Heads of Loss",
+          "Further Accident Details",
+          "How were details obtained"
+        ],
+        "negative_phrases": [
+          "Owner Details",
+          "Driver Details"
+        ],
+        "minimum_confidence": 0.9
+      },
+      "field_rules": {
+        "work_provider": {
+          "method": "none",
+          "config": ""
+        },
+        "vrm": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "vehicle_model": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "claimant_name": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "claimant_telephone": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "claimant_email": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "reference": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "incident_date": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "instruction_date": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "inspection_date": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "inspection_address": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "accident_circumstances": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "vat_status": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "mileage": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "mileage_unit": {
+          "method": "cdq_claim_form",
+          "config": ""
+        }
+      },
+      "suppress_fallback_fields": [
+        "work_provider",
+        "reference",
+        "instruction_date",
+        "inspection_date",
+        "vat_status",
+        "mileage",
+        "mileage_unit"
+      ],
+      "suppress_default_work_provider": true,
+      "force_postcode_for_inspection_address": true,
+      "engineer_report": false
     }
   ]
 }

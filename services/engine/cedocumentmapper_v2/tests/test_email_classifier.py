@@ -123,9 +123,12 @@ def test_v1_lane_regression_pins(name, kwargs, expected_category, expected_subty
     assert result["subtype"] == expected_subtype, (name, result["signals"])
 
 
-def test_every_response_carries_taxonomy_version_2_and_unchanged_contract_version():
+def test_every_response_carries_taxonomy_version_3_and_unchanged_contract_version():
+    # v2 -> v3 (collisionspike TKT-084/105): + pre_instruction ·
+    # pre_instruction_directions, + billing · payment_remittance. The contract
+    # tag is unchanged by a taxonomy bump.
     result = classify_email(subject="hello", body="hello", has_attachments=False)
-    assert result["taxonomy_version"] == TAXONOMY_VERSION == 2
+    assert result["taxonomy_version"] == TAXONOMY_VERSION == 3
     assert result["contract_version"] == CONTRACT_VERSION == "cedocumentmapper_v2.0_email_triage"
 
 
@@ -475,3 +478,244 @@ def test_tkt043_open_case_ref_match_ambiguous_also_suppresses_fresh_work():
     existing case, not fresh work" — suppressed into the case_update lane; the ACTION
     (which case) is the triage-policy layer's call, never the classifier's."""
     assert _tkt043_chaser(open_case_ref_match="ambiguous")["category"] == "case_update"
+
+
+# --------------------------------------------------------------------------- #
+# Taxonomy v3 + VRM/ref false-positive family                                  #
+# (collisionspike PLAN-003: TKT-071/085/100/103/097/105/120/084)               #
+# --------------------------------------------------------------------------- #
+from cedocumentmapper_v2.rules.email_classifier import (  # noqa: E402
+    _canonical_body_vrm,
+    _delivered_images_only,
+    _job_reference,
+)
+from cedocumentmapper_v2.rules.engine import vrm_candidate_is_bad  # noqa: E402
+
+
+# --- TKT-085: month / day-of-week words are never a registration mark ------- #
+@pytest.mark.parametrize(
+    "word",
+    [
+        "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY",
+        "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
+        "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY",
+    ],
+)
+def test_month_and_day_words_are_bad_vrm_candidates(word):
+    # The live audit case A.PCH26003 logged its registration as "OCTOBER".
+    assert vrm_candidate_is_bad(word, f"registration {word}") is True
+
+
+def test_genuine_marks_still_clear_the_candidate_guard():
+    for mark in ("MX17 PNL", "AP70 WAA", "A123 BCD", "ABC 123D"):
+        assert vrm_candidate_is_bad(mark, f"registration {mark}") is False
+
+
+# --- TKT-100: the QDOS "AND2" prose token is never a mark -------------------- #
+def test_loose_candidate_with_function_word_head_is_bad():
+    # "Offices 1 and 2, 1A King Street" surfaced AND2 as a live VRM (QDOS).
+    assert vrm_candidate_is_bad("AND 2", "vehicle and 2, 1A King Street") is True
+    assert vrm_candidate_is_bad("THE 4", "the 4 vehicles") is True
+
+
+def test_qdos_footer_address_yields_no_vrm_even_near_an_anchor():
+    text = "Your vehicle claim. C/O Higsons, Offices 1 and 2, 1A King Street, Farnworth"
+    assert _canonical_body_vrm(text) == ""
+
+
+# --- TKT-071: postcode-area loose shapes need a TIGHT anchor ------------------ #
+def test_job_ref_shaped_subject_extracts_no_vrm_despite_anchor_in_window():
+    # The live failure shape: a subject job ref (HD = postcode area) with
+    # instruction/vehicle wording nearby must NOT read as a registration.
+    assert _canonical_body_vrm("***URGENT*** vehicle FW: HD4110 - LETTER OF INSTRUCTION") == ""
+
+
+def test_tight_anchored_postcode_area_dateless_plate_still_extracts():
+    assert _canonical_body_vrm("registration HD4110 as advised") == "HD4110"
+    # A bare postcode OUTWARD shape (LS8) stays rejected even tight-anchored —
+    # the shared length guard has always treated it as junk (B8/G3/BOX2 family).
+    assert _canonical_body_vrm("reg: LS8") == ""
+
+
+def test_non_postcode_area_dateless_plate_keeps_the_window_anchor():
+    # "KL" is not a postcode area, so the nearby-window anchor still suffices
+    # (short candidates like "A1" are rejected by the length guard in the
+    # Python sniff — that acceptance is a TS-filter-only property).
+    assert _canonical_body_vrm("the vehicle plate KL1234 is unchanged") == "KL1234"
+
+
+# --- TKT-103: a money value is never a job reference -------------------------- #
+def test_money_values_are_not_job_references():
+    # The live Tractable failure: "AI Quote: £768.00" surfaced as the reference.
+    assert _job_reference("Car: Volkswagen Touran 2014. AI Quote: £768.00") == ""
+    assert _job_reference("Total estimate 1,234.56 for the repair") == ""
+    assert _job_reference("GBP 487.32 authorised") == ""
+
+
+def test_dotted_sequence_refs_still_extract_past_a_money_value():
+    assert _job_reference("our ref 206848.001") == "206848.001"
+    # A money token earlier in the body must not mask a later structured ref.
+    assert _job_reference("Quote: £768.00 for claim SAB/46286/1") == "SAB/46286/1"
+    assert _job_reference("your ref 45391_1") == "45391_1"
+
+
+# --- TKT-097: "not wish to proceed" cancellations win over query/work -------- #
+def test_client_not_wishing_to_proceed_is_a_cancellation():
+    # The live Oakwood miss: a reply with images + "engineers report" wording
+    # previously promoted to receiving_work; the cancellation phrase must win.
+    result = classify_email(
+        subject="RE: Oakwood - Instructions",
+        body=(
+            "Good afternoon\n"
+            "The client does not wish to proceed with the engineers report\n"
+            "Thanks very much, sorry about that\nkind regards"
+        ),
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        attachment_filenames=["image001.png"],
+        has_attachments=True,
+        in_reply_to="<orig@mail>",
+    )
+    assert result["category"] == "cancellation", result["signals"]
+    assert result["subtype"] == "cancellation_notice"
+
+
+def test_no_longer_wishes_to_proceed_is_a_cancellation():
+    result = classify_email(
+        subject="Claim update",
+        body="Our client no longer wishes to proceed with this claim.",
+        provider_match_state="one",
+    )
+    assert result["category"] == "cancellation", result["signals"]
+
+
+# --- TKT-105/120: inbound payment notifications route to payment_remittance -- #
+def test_remittance_advice_with_payment_pdf_is_payment_remittance():
+    # The live TKT-105 failure: the payment PDF's extension-derived kind is
+    # "instruction", so Rule 1 minted receiving_work from a remittance advice.
+    result = classify_email(
+        subject="Remittance advice",
+        body=(
+            "Good morning,\n\nPlease see attached remittance advice, the funds "
+            "will be in your nominated account on Monday.\n\nThanks"
+        ),
+        provider_match_state="one",
+        attachment_kinds=["instruction"],
+        attachment_filenames=["P00000 - Collision.pdf"],
+        has_attachments=True,
+    )
+    assert result["category"] == "billing", result["signals"]
+    assert result["subtype"] == "payment_remittance"
+
+
+def test_provider_payment_transfer_is_payment_remittance():
+    # TKT-120 (FAIRWAY LEGAL): a transfer notice from a matched provider sender
+    # was left other/other by rules and mislabelled by the AI assist rung.
+    result = classify_email(
+        subject="Payment transfer",
+        body=(
+            "Good afternoon,\n\nWe have made a payment of 350.00 in settlement "
+            "of your fee note; funds have been transferred to your account.\n"
+        ),
+        sender_domain="fairwaylegal.co.uk",
+        provider_match_state="one",
+        has_attachments=False,
+    )
+    assert result["category"] == "billing", result["signals"]
+    assert result["subtype"] == "payment_remittance"
+
+
+def test_invoice_request_still_routes_to_billing_request():
+    # The payments lane must not swallow the request direction (TKT-037).
+    result = classify_email(
+        subject="Fees",
+        body="Please provide the invoice for the attached report.",
+        provider_match_state="one",
+    )
+    assert result["category"] == "billing"
+    assert result["subtype"] == "billing_request"
+
+
+# --- TKT-084: pre-instruction directions lane --------------------------------- #
+def test_pre_instruction_directions_classify_into_the_new_lane():
+    # The live sample shape: directions for when the official instruction
+    # arrives, identified by a VRM, no attachments — was other/other.
+    result = classify_email(
+        subject="New claim - Mrs M R - SA61 JXB",
+        body=(
+            "Good afternoon,\n\nWhen you receive an instruction from RJ on this "
+            "one please hold off from obtaining images from client as her "
+            "vehicle will be going into storage with ourselves.\n\nThank you"
+        ),
+        provider_match_state="none",
+        has_attachments=False,
+    )
+    assert result["category"] == "pre_instruction", result["signals"]
+    assert result["subtype"] == "pre_instruction_directions"
+
+
+def test_pre_instruction_needs_an_identifier():
+    # An unanchored "instructions will follow" (no VRM, no ref) must abstain.
+    result = classify_email(
+        subject="Heads up",
+        body="Instructions will follow for a new matter shortly.",
+        provider_match_state="none",
+        has_attachments=False,
+    )
+    assert result["category"] == "other", result["signals"]
+
+
+def test_attached_instruction_doc_beats_the_pre_instruction_lane():
+    # "Further instructions to follow" inside a REAL instruction email must not
+    # demote the instruction: the attached doc means the instruction IS here.
+    result = classify_email(
+        subject="New eng ins - AB12 CDE",
+        body=(
+            "Please inspect the vehicle AB12 CDE. We instruct you to prepare a "
+            "report. Further instructions to follow if needed."
+        ),
+        provider_match_state="one",
+        attachment_kinds=["instruction"],
+        attachment_filenames=["To Engineer with instructions.pdf"],
+        has_attachments=True,
+    )
+    assert result["category"] == "receiving_work", result["signals"]
+
+
+# --- kinds-only requests keep the images_received subtype --------------------- #
+def test_kinds_only_image_delivery_is_images_received():
+    # Regression (PR#45 follow-up): a caller that passes attachment_kinds but NO
+    # filenames (the live /classify-email contract allows it) must not be
+    # demoted to update_general by the signature screen.
+    result = classify_email(
+        subject="Our ref 45391/1",
+        body="Further photos attached for our ref 45391/1.",
+        provider_match_state="none",
+        attachment_kinds=["image"],
+        has_attachments=True,
+    )
+    assert result["category"] == "case_update", result["signals"]
+    assert result["subtype"] == "images_received"
+    # And the helper directly: no filenames -> kind fast-path.
+    assert _delivered_images_only(["image"], None) is True
+    assert _delivered_images_only(["image"], ["image001.png"]) is False
+
+
+
+# --- TKT-083 adjudication pin: the Rule-3 second arm keeps its AND ------------ #
+def test_hold_request_with_ref_but_no_vrm_stays_out_of_receiving_work():
+    """ADJUDICATED (PLAN-003, 2026-07-09): widening the second Rule-3 arm to
+    ref-OR-VRM was A/B'd over the full eval corpus — it fixed nothing and
+    promoted the real hold-request email (work phrase + ref, NO VRM) into
+    receiving_work, i.e. a hold request would mint a case. The AND stands; this
+    pin guards it."""
+    result = classify_email(
+        subject="Ref: 45391_1 - hold",
+        body=(
+            "Please place this file on hold and do not inspect until you "
+            "receive further instructions from us. Our ref 45391_1."
+        ),
+        provider_match_state="one",
+        has_attachments=False,
+    )
+    assert result["category"] != "receiving_work", result["signals"]

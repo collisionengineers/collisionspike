@@ -25,6 +25,8 @@
         "chase_phrases",
         "summary_markers",
         "cancellation_phrases",
+        "payment_phrases",
+        "pre_instruction_phrases",
         "auto_reply_markers",
         "vrm_stopword_trigrams",
         "report_title_phrases",
@@ -71,6 +73,14 @@
         "cancellation_phrases": {
           "$ref": "#/$defs/phrase_list",
           "description": "Signal the sender is cancelling/withdrawing an existing instruction, claim or inspection."
+        },
+        "payment_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Signal an INBOUND payment notification -- a remittance advice or payment-transfer notice for work we did (collisionspike TKT-105/TKT-120). The mirror-image of billing_keywords (which is a REQUEST for our invoice): these say money has been / is being sent, so the email routes to billing/payment_remittance, never receiving_work."
+        },
+        "pre_instruction_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Signal PRE-INSTRUCTION directions -- the sender is telling us what to do WHEN the official instruction later arrives (collisionspike TKT-084). Anchored to a future-instruction reference ('when you receive an instruction'), never bare direction verbs, so a live instruction email cannot trip it."
         },
         "auto_reply_markers": {
           "$ref": "#/$defs/phrase_list",

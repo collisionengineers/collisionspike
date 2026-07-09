@@ -97,6 +97,49 @@ VRM_RE = re.compile(
 )
 
 
+# Month / day-of-week words (collisionspike TKT-085): a date word must never be
+# accepted as a registration mark. The live audit case A.PCH26003 logged its VRM
+# as "OCTOBER" — a month word captured near a "registration" label. Every VRM
+# regex in this module requires digits, so the guard is defence-in-depth for the
+# labelled-field / normalization paths (and any future shape loosening). Includes
+# the common 3-4 letter abbreviations; "MAY"/"JAN" style abbreviations are
+# accepted as the FULL candidate only (a real dateless plate is letters+digits,
+# so a bare month word is never a plate).
+_VRM_MONTH_DAY_WORDS = frozenset({
+    "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST",
+    "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
+    "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY",
+    "JAN", "FEB", "MAR", "APR", "JUN", "JUL", "AUG", "SEP", "SEPT", "OCT", "NOV", "DEC",
+})
+
+# Common English FUNCTION words that the loose dateless shape's 1-3 letter alpha
+# head can accidentally spell out of running prose (collisionspike TKT-100: the
+# QDOS footer's "Offices 1 and 2, 1A King Street" surfaced "AND2" as a live VRM).
+# A loose candidate whose alpha head is one of these is prose, not a plate.
+# Deliberately restricted to function words nobody buys as a personalised-plate
+# head — real dateless heads like "VAN"/"JET"/"SAM" are NOT listed.
+_VRM_LOOSE_ALPHA_STOPWORDS = frozenset({
+    "AND", "THE", "FOR", "NOT", "BUT", "ARE", "WAS", "OUR", "YOU", "ALL",
+    "ANY", "HAS", "HAD", "PER", "VIA",
+})
+
+# The current UK postcode AREA prefixes (the alphabetic head of a postcode).
+# Mirrors the TS filter's POSTCODE_AREAS (packages/domain vrm-filter.ts). Used by
+# the email sniff's tight-anchor rule (collisionspike TKT-071): a loose dateless
+# candidate whose letters are a postcode area (HD4110, LS8) reads as a postcode
+# fragment / provider job ref unless a VRM anchor word IMMEDIATELY precedes it.
+POSTCODE_AREAS = frozenset({
+    "AB", "AL", "B", "BA", "BB", "BD", "BH", "BL", "BN", "BR", "BS", "BT", "CA", "CB", "CF", "CH",
+    "CM", "CO", "CR", "CT", "CV", "CW", "DA", "DD", "DE", "DG", "DH", "DL", "DN", "DT", "DY", "E",
+    "EC", "EH", "EN", "EX", "FK", "FY", "G", "GL", "GU", "GY", "HA", "HD", "HG", "HP", "HR", "HS",
+    "HU", "HX", "IG", "IM", "IP", "IV", "JE", "KA", "KT", "KW", "KY", "L", "LA", "LD", "LE", "LL",
+    "LN", "LS", "LU", "M", "ME", "MK", "ML", "N", "NE", "NG", "NN", "NP", "NR", "NW", "OL", "OX",
+    "PA", "PE", "PH", "PL", "PO", "PR", "RG", "RH", "RM", "S", "SA", "SE", "SG", "SK", "SL", "SM",
+    "SN", "SO", "SP", "SR", "SS", "ST", "SW", "SY", "TA", "TD", "TF", "TN", "TQ", "TR", "TS", "TW",
+    "UB", "W", "WA", "WC", "WD", "WF", "WN", "WR", "WS", "WV", "YO", "ZE",
+})
+
+
 def vrm_candidate_is_bad(candidate: str, context: str) -> bool:
     """True when a VRM-shaped ``candidate`` should be REJECTED.
 
@@ -105,8 +148,10 @@ def vrm_candidate_is_bad(candidate: str, context: str) -> bool:
     so the two never drift. Rejects: a too-short compact that is not a full
     letter-digit-letter plate; a candidate that is actually the OUTWARD half of a
     UK postcode (immediately followed by an inward ``\\d[A-Z]{2}`` code, e.g.
-    ``LS8 2AB``); and bare label words. ``RuleEngine._vrm_candidate_is_bad``
-    delegates here.
+    ``LS8 2AB``); bare label words; a month / day-of-week word (TKT-085 — the
+    live "OCTOBER" registration); and a loose dateless candidate whose alpha head
+    is a common English function word (TKT-100 — the QDOS "AND2").
+    ``RuleEngine._vrm_candidate_is_bad`` delegates here.
     """
     compact = normalize_vrm(candidate)
     if len(compact) < 5 and not re.fullmatch(r"[A-Z]{1,3}\d{1,3}[A-Z]{1,3}", compact):
@@ -114,6 +159,14 @@ def vrm_candidate_is_bad(candidate: str, context: str) -> bool:
     if re.search(rf"\b{re.escape(candidate)}\s*\d[ABD-HJLNP-UW-Z]{{2}}\b", context, re.IGNORECASE):
         return True
     if compact in {"CLIENT", "VEHICLE", "REG", "MODEL"}:
+        return True
+    # TKT-085: a month or day-of-week word is a date fragment, never a mark.
+    if compact in _VRM_MONTH_DAY_WORDS:
+        return True
+    # TKT-100: a LOOSE dateless candidate (letters+digits) whose alpha head is a
+    # common English function word ("and 2" -> AND2) is running prose, not a plate.
+    loose = re.fullmatch(r"([A-Z]{1,3})\d{1,4}", compact)
+    if loose and loose.group(1) in _VRM_LOOSE_ALPHA_STOPWORDS:
         return True
     return False
 
@@ -292,6 +345,31 @@ _SUMMARY_MARKERS: tuple[str, ...] = _RULES.summary_markers
 # words (e.g. a bare "please stop work") will still abstain; extend this tuple as real
 # misses turn up.
 _CANCELLATION_PHRASES: tuple[str, ...] = _RULES.cancellation_phrases
+
+
+# Phrases (case-insensitive) that signal an INBOUND payment notification — a
+# remittance advice or payment-transfer notice for work we already did
+# (collisionspike TKT-105 / TKT-120). The MIRROR-IMAGE of _BILLING_KEYWORDS: those
+# are a REQUEST for our invoice; these say money has been / is being sent. A
+# remittance advice typically arrives with a payment PDF whose extension-derived
+# attachment kind is "instruction", so without this signal it would promote to
+# receiving_work at Rule 1 and mint a Case (the live TKT-105 failure). Grounded on
+# the real Express Solicitors remittance ("Please see attached remittance advice,
+# the funds will be in your nominated account") and the FAIRWAY LEGAL transfer
+# (TKT-120). Anchored payment-statement wording, never the bare word "payment".
+_PAYMENT_PHRASES: tuple[str, ...] = _RULES.payment_phrases
+
+
+# Phrases (case-insensitive) that signal PRE-INSTRUCTION directions — the sender is
+# telling us what to do WHEN the official instruction later arrives (collisionspike
+# TKT-084): not yet an instruction (no case may be minted), not noise. Grounded on
+# the real Accident Specialists email ("When you receive an instruction from RJ on
+# this one please hold off from obtaining images..."). Every phrase is anchored to
+# a FUTURE-instruction reference — never a bare direction verb like "hold off" —
+# so a chase/hold request about live work (TKT-041's hold example) and a genuine
+# instruction email cannot trip it. The classifier additionally requires an
+# identifier (VRM or reference) and the ABSENCE of an attached instruction doc.
+_PRE_INSTRUCTION_PHRASES: tuple[str, ...] = _RULES.pre_instruction_phrases
 
 
 def _match_keywords(text: str, phrases: tuple[str, ...]) -> tuple[str, ...]:
@@ -507,7 +585,12 @@ class RuleEngine:
                 # TKT-051). Left empty, the caller's UNKNOWN/blank path applies
                 # and the real provider comes from the instruction document /
                 # sender identity instead.
-                if not provider.get("engineer_report"):
+                # A layout may also DECLARE it carries no work provider
+                # (suppress_default_work_provider, e.g. the CDQ claimant
+                # questionnaire, collisionspike TKT-022) — the field stays
+                # empty for the intake sender-context to fill, instead of the
+                # template's name masquerading as a work provider.
+                if not provider.get("engineer_report") and not provider.get("suppress_default_work_provider"):
                     norm_val = provider.get("work_provider", "").strip() or provider.get("name", "").strip()
             
             if field_key == FieldKey.INSPECTION_DATE and use_current_date:
@@ -605,6 +688,11 @@ class RuleEngine:
                 return self._extract_email_date(flat_lines, rule_config, rule_id)
             elif kind == "acsp_claim_form":
                 return self._extract_acsp_claim_form(document, field_key, rule_id)
+            elif kind == "cdq_claim_form":
+                return self._extract_cdq_claim_form(document, field_key, rule_id)
+            elif kind == "none":
+                # Explicit no-op: the layout declares this field absent.
+                return FieldExtraction(value="", rule_id=rule_id, confidence=0.0)
             else:
                 return FieldExtraction(
                     value="",
@@ -958,6 +1046,141 @@ class RuleEngine:
             return FieldExtraction(value=value, raw_value=value, rule_id=rule_id, confidence=0.85 if value else 0.0)
 
         return FieldExtraction(value="", rule_id=rule_id, confidence=0.0)
+
+    # --- CDQ: claimant/defendant questionnaire claim form (collisionspike TKT-022)
+    # A textbox-drawn solicitor/CMC claim-intake questionnaire with DEFENDANT and
+    # CLAIMANT sections carrying the SAME labels ("Name", "Vehicle Registration",
+    # "Vehicle make/model", "Email", ...). The generic label fallbacks read the
+    # first (defendant) occurrence — the live Cheema failure: defendant colour
+    # fragment as the vehicle model, a questionnaire prompt as the claimant name,
+    # a "-" value prefix leaking into the email. Every value here is read from
+    # the CLAIMANT section only, with the questionnaire's leading-dash value
+    # convention stripped. The layout names NO work provider (see
+    # suppress_default_work_provider in providers.json).
+
+    _CDQ_SECTION_STOPS = (
+        "accident details",
+        "defendant",
+        "further accident details",
+        "police details",
+        "ambulance details",
+        "heads of loss",
+        "vehicle damage",
+        "injury and medical details",
+    )
+
+    def _extract_cdq_claim_form(self, document: DocumentModel, field_key: FieldKey, rule_id: str) -> FieldExtraction:
+        lines = [line for page in document.pages for line in page.lines]
+
+        def _found(value: str, confidence: float = 0.9) -> FieldExtraction:
+            return FieldExtraction(
+                value=value, raw_value=value, rule_id=rule_id,
+                confidence=confidence if value else 0.0,
+            )
+
+        if field_key == FieldKey.VRM:
+            value = self._cdq_claimant_value(lines, ("vehicle registration",))
+            match = VRM_RE.search(value) if value else None
+            return _found(clean_val(match.group(1)) if match else "", 0.92)
+        if field_key == FieldKey.VEHICLE_MODEL:
+            return _found(self._cdq_claimant_value(lines, ("vehicle make/model",)))
+        if field_key == FieldKey.CLAIMANT_NAME:
+            return _found(self._cdq_claimant_value(lines, ("name",)))
+        if field_key == FieldKey.CLAIMANT_TELEPHONE:
+            return _found(self._cdq_claimant_value(lines, ("telephone number", "telephone")))
+        if field_key == FieldKey.CLAIMANT_EMAIL:
+            return _found(self._cdq_claimant_value(lines, ("email",)))
+        if field_key == FieldKey.INSPECTION_ADDRESS:
+            street = self._cdq_claimant_value(lines, ("address",))
+            postcode = self._cdq_claimant_value(lines, ("post code", "postcode"))
+            value = clean_val("\n".join(p for p in (street, postcode) if p))
+            return _found(value, 0.85)
+        if field_key == FieldKey.INCIDENT_DATE:
+            return _found(self._cdq_accident_details_value(lines, "date"), 0.92)
+        if field_key == FieldKey.ACCIDENT_CIRCUMSTANCES:
+            return _found(self._cdq_accident_circumstances(lines), 0.85)
+
+        return FieldExtraction(value="", rule_id=rule_id, confidence=0.0)
+
+    def _cdq_section_bounds(self, lines: list[DocumentLine], section: str) -> tuple[int, int] | None:
+        """(start, end) line indexes of a CDQ section body ("claimant", ...)."""
+        start = next(
+            (idx for idx, line in enumerate(lines) if self._normalized_label_text(line.text) == section),
+            None,
+        )
+        if start is None:
+            return None
+        end = len(lines)
+        for idx in range(start + 1, len(lines)):
+            if self._normalized_label_text(lines[idx].text) in self._CDQ_SECTION_STOPS:
+                end = idx
+                break
+        return start + 1, end
+
+    @staticmethod
+    def _cdq_clean_value(value: str) -> str:
+        """Strip the questionnaire's value decorations: leading '-'/':' markers
+        ("-SN67 USB", "-AJMAL.CHEEMA@YAHOO.COM") and dotted answer-leader runs
+        (an ellipsis char is ALWAYS a leader; ASCII dots only in runs of 2+ so
+        a genuine full stop survives)."""
+        value = re.sub(r"…+|\.{2,}", " ", value)
+        value = re.sub(r"^[\s:\-–—.…]+", "", value)
+        return clean_val(value)
+
+    def _cdq_claimant_value(self, lines: list[DocumentLine], labels: tuple[str, ...]) -> str:
+        bounds = self._cdq_section_bounds(lines, "claimant")
+        if bounds is None:
+            return ""
+        start, end = bounds
+        for line in lines[start:end]:
+            text = line.text.strip()
+            lower = text.lower()
+            if "?" in text:
+                continue  # a questionnaire prompt, never a value line
+            for label in labels:
+                if lower.startswith(label):
+                    value = self._cdq_clean_value(text[len(label):])
+                    if value:
+                        return value
+        return ""
+
+    def _cdq_accident_details_value(self, lines: list[DocumentLine], label: str) -> str:
+        bounds = self._cdq_section_bounds(lines, "accident details")
+        if bounds is None:
+            return ""
+        start, end = bounds
+        for line in lines[start:min(end, start + 8)]:
+            lower = line.text.strip().lower()
+            if lower.startswith(label):
+                value = self._cdq_clean_value(line.text.strip()[len(label):])
+                if value:
+                    return value
+        return ""
+
+    def _cdq_accident_circumstances(self, lines: list[DocumentLine]) -> str:
+        """The narrative under the "Accident Circumstances" heading, bounded at
+        the next questionnaire prompt (a "?" line) or section heading, with the
+        dotted answer-leader runs stripped."""
+        start = next(
+            (idx for idx, line in enumerate(lines)
+             if self._normalized_label_text(line.text) == "accident circumstances"),
+            None,
+        )
+        if start is None:
+            return ""
+        collected: list[str] = []
+        for line in lines[start + 1:start + 12]:
+            text = line.text.strip()
+            if "?" in text:
+                break  # the next questionnaire prompt ends the narrative
+            if self._normalized_label_text(text) in self._CDQ_SECTION_STOPS:
+                break
+            value = self._cdq_clean_value(text)
+            if value:
+                collected.append(value)
+        joined = clean_val(" ".join(collected))
+        # A leader run at the answer's tail can leave a lone orphaned dot.
+        return re.sub(r"(?:\s+\.)+$", "", joined)
 
     def _acsp_vehicle_value(
         self,
@@ -1333,6 +1556,17 @@ class RuleEngine:
             compact = normalize_vrm(cleaned)
             if not compact:
                 return False
+            # Every real UK registration mark carries at least one digit (current /
+            # prefix / suffix / dateless alike) — an all-alphabetic value is a word,
+            # never a mark. Catches the live TKT-085 failure where the audit case
+            # A.PCH26003 logged its registration as the month word "OCTOBER".
+            if compact.isalpha():
+                return True
+            # TKT-100: a loose dateless shape whose alpha head is a common English
+            # function word ("and 2" -> AND2) is running prose, not a plate.
+            loose = re.fullmatch(r"([A-Z]{1,3})\d{1,4}", compact)
+            if loose and loose.group(1) in _VRM_LOOSE_ALPHA_STOPWORDS:
+                return True
             if len(compact) < 5 and not re.fullmatch(r"[A-Z]{1,3}\d{1,3}[A-Z]{1,3}", compact):
                 return True
             postcode_context = re.search(rf"\b{re.escape(cleaned)}\s*\d[A-Z]{{2}}\b", document.plain_text, re.IGNORECASE)
