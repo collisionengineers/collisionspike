@@ -15,25 +15,47 @@
  * HTTP contract once those Function signatures are confirmed.
  */
 
+/** Default bound for the latency-sensitive image-analysis stage calls (OCR / location-suggest) —
+ *  matches the AOAI adapter timeout so every image-analysis stage degrades on a slow/stuck host
+ *  instead of holding the HTTP invocation open until the Functions host timeout. */
+export const FN_STAGE_TIMEOUT_MS = 30_000;
+
 async function callFn(
   baseUrl: string,
   fnKey: string,
   method: string,
   path: string,
   body?: unknown,
+  opts?: { timeoutMs?: number },
 ): Promise<unknown> {
-  const res = await fetch(`${baseUrl}${path}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'x-functions-key': fnKey,
-    },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-  });
-  if (!res.ok) {
-    throw new Error(`[functions-client] ${method} ${path} → ${res.status} ${await res.text().catch(() => '')}`);
+  // Opt-in timeout: undefined => no AbortController (unchanged behaviour for the parser/enrichment/
+  // Box callers whose work can legitimately run long). A bounded caller (OCR/location) aborts the
+  // fetch on the deadline so a stuck upstream can't pin the request open.
+  const timeoutMs = opts?.timeoutMs;
+  const controller = timeoutMs != null ? new AbortController() : undefined;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
+  try {
+    const res = await fetch(`${baseUrl}${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-functions-key': fnKey,
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(controller ? { signal: controller.signal } : {}),
+    });
+    if (!res.ok) {
+      throw new Error(`[functions-client] ${method} ${path} → ${res.status} ${await res.text().catch(() => '')}`);
+    }
+    return res.json();
+  } catch (e) {
+    if (controller?.signal.aborted) {
+      throw new Error(`[functions-client] ${method} ${path} → timed out after ${timeoutMs}ms`);
+    }
+    throw e;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
-  return res.json();
 }
 
 // --- Parser Function ---
@@ -59,14 +81,61 @@ export async function callEnrichment(body: unknown): Promise<unknown> {
 }
 
 // --- Location-suggest Function ---
-export async function callLocationSuggest(body: unknown): Promise<unknown> {
+// `opts.timeoutMs` is opt-in: the image-analysis adapter bounds it (a stuck location host must
+// degrade the address stage, not hang the run); the interactive proxy route omits it so the
+// operator-invoked deep photo-reasoning path keeps its longer natural budget.
+export async function callLocationSuggest(
+  body: unknown,
+  opts?: { timeoutMs?: number },
+): Promise<unknown> {
   return callFn(
     process.env.LOCATION_SUGGEST_FN_URL!,
     process.env.LOCATION_SUGGEST_FN_KEY!,
     'POST',
     '/api/location-suggest',
     body,
+    opts,
   );
+}
+
+// --- OCR Function: fast-alpr plate read (TKT-016 stage 4 / TKT-017) ---
+// The registration read of record is the LOCAL fast-alpr `/api/plate-ocr` route on the retained
+// OCR Function (`cespkocr-fn-dev`) — UK-resident, zero-egress; the plate detector localises the
+// plate (avoids the whole-photo-OCR false positive, TKT-017 finding F1). The orchestration app
+// already speaks this contract (orchestration/src/lib/functions-client.ts::callPlateOcr); this is
+// the Data-API-side twin so the image-analysis producer can read a plate without routing the crop
+// through the GlobalStandard VLM. Configured via OCR_FN_URL / OCR_FN_KEY (same names orch uses);
+// absent => the caller degrades to "reg-OCR not run".
+export interface PlateOcrResult {
+  plate_text: string;
+  confidence?: number | null;
+  /** True when a plate was read (and, when case_vrm was supplied, it matched). */
+  registration_visible: boolean;
+  vrm_match?: string | null;
+}
+
+export async function callPlateOcr(input: {
+  imageBase64: string;
+  filename: string;
+  caseVrm?: string;
+}): Promise<PlateOcrResult> {
+  const base = process.env.OCR_FN_URL;
+  const key = process.env.OCR_FN_KEY;
+  if (!base || !key) throw new Error('[functions-client] OCR_FN_URL/OCR_FN_KEY not configured');
+  // Bounded — the image-analysis route calls this sequentially across up to 8 images; a slow OCR
+  // host must degrade the reg stage (adapter catches → null), never hold the invocation open.
+  return callFn(
+    base,
+    key,
+    'POST',
+    '/api/plate-ocr',
+    {
+      image: input.imageBase64,
+      filename: input.filename,
+      ...(input.caseVrm ? { case_vrm: input.caseVrm } : {}),
+    },
+    { timeoutMs: FN_STAGE_TIMEOUT_MS },
+  ) as Promise<PlateOcrResult>;
 }
 
 // --- Box-webhook Function: folder listing (Case/PO allocator Box fallback) ---

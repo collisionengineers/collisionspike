@@ -99,6 +99,13 @@ export const AUDIT_ACTION = {
   // + autonomous:true into the actor/after (never a silent managed-identity fallback).
   agent_read: 100000050,
   agent_write: 100000051,
+  // TKT-016 — a run of the staged image-analysis suggestion producer (POST /api/cases/{id}/
+  // image-analysis/generate; gated IMAGE_ANALYSIS_ENABLED). Records the RUN (how many observation
+  // suggestions were minted + which stages degraded) distinct from the per-suggestion
+  // ai_suggestion_created (100000032) each draft also writes. Minted in
+  // deltas/2026-07-08-image-analysis-suggestion-types.sql — same pre-DDL degrade as the codes
+  // above (writeAudit's catch-all swallows the choice_audit_action FK failure until the delta lands).
+  image_analysis_generated: 100000052,
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

@@ -2732,6 +2732,16 @@ var gates = {
   // endpoint + deployment (see imageRoleClassifyEnabled); off/unconfigured => images persist
   // with role `unknown` exactly as before (the one-shot backfill handled existing evidence).
   imageRoleClassify: () => process.env.IMAGE_ROLE_CLASSIFY_ENABLED === "true",
+  // Staged image-analysis suggestion producer (TKT-016) — default OFF, ships DARK. Gates the
+  // additive, observation-first pipeline (vehicle-present, same-vehicle, registration, background
+  // text, location hints, ranked inspection-address suggestion) behind POST /api/cases/{id}/
+  // image-analysis/generate. PURELY additive: every output is an ai_suggestion row (never writes
+  // evidence.image_role_code/registration_visible/excluded, case_.vrm, or any address column — the
+  // live TKT-064 classifier owns those; reconciliation is TKT-088/112). Needs a model endpoint +
+  // deployment (see imageAnalysisEnabled). Off/unconfigured => the route is an honest no-op. The
+  // scene-understanding stages carry image bytes off-region (GlobalStandard) — the live flip is
+  // DPIA-gated (docs/gated.md; PLAN-001 Phase 4).
+  imageAnalysis: () => process.env.IMAGE_ANALYSIS_ENABLED === "true",
   // ---- PLAN-001 (AI hardening + MCP) gates — ALL default OFF, ship DARK ----
   // TKT-066/069 — the registry-driven read adapter for the assistant. When OFF the assistant
   // uses the original hand-written `execTool` (fast rollback); when ON it derives its tool set
@@ -2846,6 +2856,14 @@ var gates = {
    * true; otherwise they persist role `unknown` (pre-classifier behaviour). (TKT-064.)
    */
   imageRoleClassifyEnabled: () => gates.imageRoleClassify() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the staged image-analysis producer is actionable — the gate is ON and a model
+   * endpoint + deployment are configured. The POST /api/cases/{id}/image-analysis/generate route
+   * runs the pipeline only when this is true; otherwise it is an honest no-op (TKT-016). The
+   * reg-OCR stage additionally needs the OCR Function (OCR_FN_URL) and the address stage needs
+   * locationAssistEnabled — each degrades gracefully on its own when its dependency is absent.
+   */
+  imageAnalysisEnabled: () => gates.imageAnalysis() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
   /**
    * Derived: the Outlook-move path is actionable — the gate is ON and the move queue
    * endpoint is configured. Used by GET /api/gates/outlook-move + the enqueue route's

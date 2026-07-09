@@ -1,0 +1,29 @@
+=== HAPPY PATH — sample set of 4 photos (ev-4 carries the plate) ===
+stageOutcomes: {"vehicle_present":"ok","registration":"ok","background_text":"ok","location_hint":"ok","same_vehicle":"ok","address_suggestion":"ok"}
+drafts (all persist as ai_suggestion, review_state DEFAULT pending): 9
+  - vehicle_present [ev-1] conf=0.8 model=gpt-5
+      value={"present":true,"descriptor":"silver Toyota hatchback","personReflection":false}
+  - vehicle_present [ev-2] conf=0.8 model=gpt-5
+      value={"present":true,"descriptor":"silver Toyota hatchback","personReflection":false}
+  - vehicle_present [ev-3] conf=0.8 model=gpt-5
+      value={"present":true,"descriptor":"silver Toyota hatchback","personReflection":false}
+  - vehicle_present [ev-4] conf=0.8 model=gpt-5
+      value={"present":true,"descriptor":"silver Toyota hatchback","personReflection":false}
+  - same_vehicle conf=0.9 model=gpt-5
+      value={"sameVehicle":true,"outliers":[],"comparedEvidenceIds":["ev-1","ev-2","ev-3","ev-4"]}
+  - registration [ev-4] conf=0.87 model=fast-alpr
+      value={"visible":true,"visibility":"visible_readable","detectedVrm":"WN14XPZ","normalisedVrm":"WN14XPZ","vlmPlateGuess":"WN14 XPZ","matchesCaseVrm":true,"reader":"fast-alpr","crossCheck":"gpt-5"}
+  - background_text [ev-1] conf=0.8 model=gpt-5
+      value={"items":[{"text":"SMITH RECOVERY","kind":"business"}]}
+  - location_hint conf=0.8 model=gpt-5
+      value={"hints":[{"detail":"sign reads Smith Recovery, Acton","kind":"business","sourcePhotoRef":"ev-1"}]}
+  - address_suggestion conf=0.72 model=gpt-5
+      value={"best":{"label":"Smith Recovery, Acton","lines":["Unit 4","Acton"],"postcode":"W3 7QE","evidence":[{"kind":"photo_sign","detail":"sign reads Smith Recovery"}],"sourcePhotoRef":null},"candidates":[{"label":"Smith Recovery, Acton","lines":["Unit 4","Acton"],"postcode":"W3 7QE","confidence":0.72},{"label":"Depot 2","lines":["Depot 2"],"postcode":"W3 0AA","confidence":0.4}],"autoApplied":false}
+
+=== GRACEFUL DEGRADATION ===
+  VLM scene down (analyzeScene -> null): 1 drafts | outcomes {"vehicle_present":"degraded","registration":"empty","background_text":"skipped","location_hint":"skipped","same_vehicle":"skipped","address_suggestion":"ok"}
+  fast-alpr down (readPlate throws): 9 drafts | outcomes {"vehicle_present":"ok","registration":"degraded","background_text":"ok","location_hint":"ok","same_vehicle":"ok","address_suggestion":"ok"}
+  location-assist off (suggestAddress -> null): 8 drafts | outcomes {"vehicle_present":"ok","registration":"ok","background_text":"ok","location_hint":"ok","same_vehicle":"ok","address_suggestion":"degraded"}
+  no images: 0 drafts | outcomes {"vehicle_present":"skipped","same_vehicle":"skipped","registration":"skipped","background_text":"skipped","location_hint":"skipped","address_suggestion":"skipped"}
+
+No scenario threw; no draft is anything but a pending ai_suggestion; no evidence/case column written.

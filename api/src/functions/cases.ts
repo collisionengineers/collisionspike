@@ -608,14 +608,32 @@ app.http('casesForQueue', {
 
 /* ============================================================
    4 — GET /api/cases?vrm=&open=true&exclude=   (openVrmTwins)
+       GET /api/cases?case_po=                  (openCasePoMatches — TKT-068 attach-by-Case/PO)
    ============================================================ */
 app.http('openVrmTwins', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'cases',
   handler: withRole('CollisionSpike.User', async (req) => {
-    const vrm = canonicalizeVrm(req.query.get('vrm') ?? '');
     const exclude = req.query.get('exclude') ?? undefined;
+
+    // Case/PO branch: an EXACT, unique handle (uq_case_case_po). The assistant attach flow uses
+    // this when a handler names the case by its Case/PO ("add these to CCPY26050") and no
+    // registration is present — so the confirm card can resolve the target without a manual
+    // registration lookup. Same non-terminal filter as the VRM path (never a removed/finalised
+    // case). Case-insensitive match on the stored code.
+    const casePo = (req.query.get('case_po') ?? '').trim();
+    if (casePo) {
+      const rows = await query<Row>(`${CASE_SELECT} WHERE upper(c.case_po) = $1`, [
+        casePo.toUpperCase(),
+      ]);
+      const matches = rows
+        .map((r) => rowToCase(r))
+        .filter((c) => !TWIN_TERMINAL.has(c.status) && c.id !== exclude);
+      return { status: 200, jsonBody: matches };
+    }
+
+    const vrm = canonicalizeVrm(req.query.get('vrm') ?? '');
     if (!vrm) return { status: 200, jsonBody: [] };
     // Canonicalise BOTH sides (upper, alnum-only) so a spaced/lower-case query ("YT13 UTV")
     // matches the compacted stored mark ("YT13UTV") — the shared canonicalizeVrm rule, mirrored

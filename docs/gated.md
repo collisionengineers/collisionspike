@@ -678,7 +678,7 @@ an unmatched billing/case_update/cancellation/query email with a reference or re
 its case **whatever the case's status** (terminals included — the billing-email fix), ambiguity is
 flagged never guessed, and un-linkable attempts are audited `retro_reconstruction_failed`. The
 existing un-linked pile drains one email at a time via the keyed starter — see
-[TKT-058/verification.md](./tickets/verify/TKT-058-retro-case-creation/verification.md) step 4.
+[TKT-058/verification.md](./tickets/now/TKT-058-retro-case-creation/verification.md) step 4.
 
 **Remaining (the Box reconstruction rung — R2 stays dark until ALL of these):**
 
@@ -827,11 +827,39 @@ and gates; it does not flip a live gate or create an app-registration.
    registry (bump `lastVerified`). Autonomous agent **writes** are a separate, later rung (ADR-0023 Phase
    3b) — not shipped.
 
-**Deliberately deferred (do not flip / not built):** the vision family (TKT-016/017/018) + the real
-`callModelForSuggestions` model call (TKT-015) — each gated behind capacity + **image-egress data
-residency** + DPIA; and the **image-writer reconcile** (TKT-112) which is blocked on your TKT-088 decision
-(keep the live auto-classifier writing, or suggestion-gate it — never both). AI-driven byte upload is not
-built by design (TKT-068: bytes come only from a human file-picker).
+**✅ Vision family — FLIPPED LIVE 2026-07-08 (was "deliberately deferred"):** on your instruction and with
+your **DPIA + `gpt-5` GlobalStandard processing/data-residency-posture sign-off confirmed 2026-07-08** (recorded in
+[data-protection.md §6a](./architecture/data-protection.md#6a-per-gate-production-sign-off--log); the model is
+GlobalStandard — inference may process outside the UK, at-rest stays uksouth — so this is an accepted posture,
+**not** a UK-processing guarantee; the earlier "UK data-residency" label was corrected in the PR46 review),
+**`AI_ASSIST_ENABLED`** (TKT-015 `callModelForSuggestions` case/damage consumer) and **`IMAGE_ANALYSIS_ENABLED`**
+(TKT-016 producer, item 7 below) are now **`true` on `cespk-api-dev`** (with `OCR_FN_URL`/`OCR_FN_KEY` added
+2026-07-09 so the reg-OCR stage runs); TKT-017 (reg-OCR benchmark) is **done**;
+**TKT-068** attach UX is **deployed live** (SPA; human-confirmed — the model still gets no upload tool). Both
+model gates are **suggestion-only** (no autonomous mutation). **Still open:** the **behavioral E2E proof** is
+one operator/SPA Generate/attach action away (`az` can't mint an API-audience staff token); **TKT-018** total-loss
+(P3) is backlog; the **image-writer reconcile (TKT-112)** stays **blocked on your TKT-088 decision** (keep the
+live auto-classifier writing, or suggestion-gate it — never both — TKT-016 is additive so it does not force
+this yet); and **PAYG (A1)** is still outstanding, so the live state is **provisional**. AI-driven byte upload
+into the assistant remains **not built by design** (TKT-068: bytes come only from a human file-picker).
+
+7. **`IMAGE_ANALYSIS_ENABLED`** (TKT-016 — the staged image-analysis suggestion producer) — ✅ **APPLIED +
+   FLIPPED LIVE 2026-07-08** (DDL delta applied via `SET ROLE csadmin`; gate `true` on `cespk-api-dev`,
+   readback-proven; deploy healthy). The item below is retained as the rationale/record.
+   Was **built dark**
+   (`POST /api/cases/{id}/image-analysis/generate`), default-off, additive & observation-only (every output
+   is a pending `ai_suggestion`; it never writes an evidence/case column — reconciliation with the live
+   TKT-064 classifier is the TKT-088/112 decision above). **Image-egress data-residency line-item (the DPIA
+   precondition for THIS flip):** the scene-understanding stages (vehicle-present / same-vehicle /
+   background-text / location) send **image bytes to the GlobalStandard `gpt-5` deployment on
+   `digital-3339-resource`** — inference **may leave uksouth** and the bytes **bypass `scrubPii`** (a photo
+   is not text-redactable). This is the same egress class the DPIA must cover for TKT-064/078. **Not** in
+   that egress class: the registration read routes to the **local fast-alpr `/api/plate-ocr`** (UK-resident,
+   zero-egress — TKT-017), and the address stage rides the **existing** location-assist boundary
+   (uksouth Maps). So the DPIA scope for this gate is narrowly the **scene VLM image bytes**. Before the
+   flip: apply [`deltas/2026-07-08-image-analysis-suggestion-types.sql`](../migration/assets/schema/deltas/2026-07-08-image-analysis-suggestion-types.sql)
+   (adds the run-level `image_analysis_generated` audit code; the new `suggestion_type` values need no DDL —
+   the column is an open vocabulary), then set the gate. Reversible: gate off → the route is an honest no-op.
 
 ---
 

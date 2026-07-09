@@ -242,13 +242,31 @@ pytest fails). The operator flips for every new gate are registered in
 | TKT-072 global search | `verify` | `GLOBAL_SEARCH_ENABLED` |
 | TKT-107 read-only archive assist | `verify` | (Box read already live) |
 | TKT-111 assistant write tier | `verify` | `ASSISTANT_WRITE_TIER_ENABLED` (+ DPIA) |
-| TKT-068 attach evidence | `next` | server path only; assistant UX pending; no model upload |
+| TKT-068 attach evidence | `verify` (LIVE-DEPLOYED 2026-07-08) | SPA attach UX built (`3f011fb`) + deployed; no model upload tool (TKT-060 intact); live 401 probe captured; upload E2E + render pending one operator/SPA action |
 | TKT-110 read-only MCP server | `verify` | `MCP_SERVER_ENABLED` (+ MCP Entra app-reg) |
 | TKT-113 AI usage ledger | `verify` | (schema apply + deploy) |
 | TKT-064 image classifier | `done` (pre-existing, live) | — |
 | TKT-060 read-only assistant | `done` (pre-existing, live) | — |
 | TKT-088 image-role check · TKT-112 image-writer reconcile | `blocked` | operator decision |
-| TKT-016/017/018 vision · TKT-015 model call | `next`/`backlog` | deferred: DPIA + capacity + residency |
+| TKT-017 reg-OCR benchmark | `done` (2026-07-08) | research/bench deliverable; recommendation = local fast-alpr / DI Read, no VLM egress for reg |
+| TKT-016 image-analysis producer | `verify` (LIVE 2026-07-08) | **`IMAGE_ANALYSIS_ENABLED=true`** on `cespk-api-dev` (DDL applied + flipped, readback-proven); additive/suggestion-only, offline-proven + live fail-closed (401); behavioral `{generated:N}` proof pending an authenticated call |
+| TKT-015 generic model call | `verify` (LIVE 2026-07-08) | **`AI_ASSIST_ENABLED=true`** on `cespk-api-dev` (flipped, readback-proven); `callModelForSuggestions` live, offline-proven + live fail-closed; behavioral proof pending an operator/SPA Generate |
+| TKT-018 total-loss (P3) | `backlog` | deferred |
 
-The plan stays `active` until the vision family (P4 consumers) and the deferred `blocked` items land.
+**Vision-family GO-LIVE (2026-07-08, merged to `main a06d2dc`):** the Phase-4 vision family was built dark
+(commits `ab06ee2` TKT-017 · `0dbe31f` TKT-016 · `4fc8580` TKT-015 · `3f011fb` TKT-068), then **taken LIVE on
+operator instruction** with the operator's **DPIA + UK data-residency sign-off confirmed 2026-07-08**
+([data-protection.md §6a](../../architecture/data-protection.md#6a-per-gate-production-sign-off--log)). Merged
+to `main`; **DDL delta applied** (`SET ROLE csadmin`; audit code `100000052`); **api+orch+SPA redeployed**
+(api 86 / orch 67 fns; SPA 200); **`AI_ASSIST_ENABLED` + `IMAGE_ANALYSIS_ENABLED` flipped `true`** on
+`cespk-api-dev` (readback-proven). Live routes fail-closed (401 without a staff token). **What remains before
+`done`:** the behavioral E2E (`{generated:N}` + pending rows; TKT-068 upload render) is one operator/SPA
+Generate/attach action away (`az` can't mint an API-audience staff token) — so these stay `verify`. TKT-016 is
+additive/suggestion-only — it does **not** touch the live TKT-064 auto-writer, so the `TKT-088`/`TKT-112`
+image-writer reconciliation is still the (blocked) operator decision but is **not** forced by this go-live.
+**Provisional:** PAYG (A1) still outstanding — the stack can disable at the trial boundary; gpt-5 is the shared
+50K-TPM deployment (capacity watch-item).
+
+The plan stays `active` until the vision family behavioral E2E is proven live (operator/SPA action) and the
+deferred `blocked` items land.
 

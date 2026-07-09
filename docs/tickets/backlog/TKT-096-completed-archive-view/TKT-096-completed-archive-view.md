@@ -23,6 +23,7 @@ search box is decorative, and global search (TKT-072) doesn't say whether comple
 
 ## Evidence
 
+- [evidence/operator-note-2026-07-08.md](./evidence/operator-note-2026-07-08.md) — 2026-07-08 operator re-request (workstream item 2): display of completed cases re-affirmed.
 - `evidence/operator-note.md` — Phase D of the plan (Completed area, not a 4th work-queue) + the
   search-scope decision.
 

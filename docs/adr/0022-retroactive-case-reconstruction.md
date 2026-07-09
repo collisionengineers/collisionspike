@@ -4,7 +4,7 @@
 `RETRO_CASE_ENABLED=true` on both apps, rung-1 any-status linking ACTING. The Box rung stays dark
 pending the archive roots **and the Case/PO sequence alignment** — see the Consequences addendum
 and [gated.md D11](../gated.md)).
-Realised by ticket [TKT-058](../tickets/verify/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md).
+Realised by ticket [TKT-058](../tickets/now/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md).
 Gates: `RETRO_CASE_ENABLED` (master, BOTH apps), `RETRO_OUTLOOK_SEARCH_ENABLED` (the R3 rung's
 own kill switch), `RETRO_BOX_ARCHIVE_ROOT_IDS` / `BOX_READONLY_ROOT_IDS` (the R2 rung's
 read-only archive scope). All default off; live values belong to the registry

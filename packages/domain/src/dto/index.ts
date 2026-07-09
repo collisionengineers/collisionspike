@@ -319,6 +319,20 @@ export type AiSuggestionType =
   | 'registration'
   | 'inspection_address'
   | 'triage_category'
+  // TKT-016 staged image-analysis observations (all observation-only; only 'registration' and
+  // 'inspection_address' have a fill-if-empty promote target — the rest are informational and
+  // are accepted WITHOUT auto-promotion). See api/src/lib/image-analysis.ts.
+  | 'vehicle_present'
+  | 'same_vehicle'
+  | 'background_text'
+  | 'location_hint'
+  | 'address_suggestion'
+  // TKT-015 case/damage-assessment consumer (the generic generate route). All observation-only —
+  // NONE has a fill-if-empty promote branch, so a human accept records/audits but never auto-writes
+  // a case/evidence column. See api/src/lib/aoai-suggestions.ts.
+  | 'damage_area'
+  | 'damage_severity'
+  | 'accident_summary'
   | (string & {});
 
 /** Review lifecycle of a suggestion. `superseded` = a newer suggestion replaced it. */
@@ -663,6 +677,10 @@ export interface DataAccess {
   updateCase(id: string, patch: CaseUpdateInput): Promise<Case>;
   casesForQueue(name: QueueName, now?: Date): Promise<Case[]>;
   openVrmTwins(vrm: string, excludeCaseId?: string): Promise<Case[]>;
+  /** Resolve a case by its EXACT Case/PO (unique handle) — non-terminal matches only.
+   *  Used by the assistant attach flow when a handler names the case by Case/PO
+   *  ("add these to CCPY26050") and no registration is present. safe()-empty on failure. */
+  openCasePoMatches(casePo: string, excludeCaseId?: string): Promise<Case[]>;
   setOnHold(caseId: string, onHold: boolean): Promise<void>;
   mergeCandidates(caseId: string): Promise<Case[]>;
   mergeCases(sourceCaseId: string, targetCaseId: string): Promise<MergeCasesResult>;

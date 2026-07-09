@@ -6,6 +6,7 @@ priority: P2
 area: ui
 tickets-it-relates-to: [TKT-002]
 research-link: docs/tickets/backlog/TKT-024-image-based-new-case/evidence/operator-note.md
+plan: PLAN-003
 ---
 
 # Image-only new-case form (drop instruction-only fields)
