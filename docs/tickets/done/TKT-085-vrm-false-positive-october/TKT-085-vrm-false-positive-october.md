@@ -1,11 +1,11 @@
 ---
 id: TKT-085
 title: Registration on case A.PCH26003 logged as "OCTOBER" (VRM false positive)
-status: verify
+status: done
 priority: P1
 area: parsing
 tickets-it-relates-to: [TKT-071, TKT-065, TKT-056]
-research-link: docs/tickets/verify/TKT-085-vrm-false-positive-october/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-085-vrm-false-positive-october/evidence/operator-note.md
 ---
 
 # Registration on case A.PCH26003 logged as "OCTOBER" (VRM false positive)

@@ -1,11 +1,11 @@
 ---
 id: TKT-071
 title: Job references like HD4110 wrongly captured as a vehicle registration
-status: verify
+status: done
 priority: P1
 area: parsing
 tickets-it-relates-to: [TKT-001, TKT-072]
-research-link: docs/tickets/verify/TKT-071-vrm-false-positive-hd4110/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-071-vrm-false-positive-hd4110/evidence/operator-note.md
 ---
 
 # Job references like HD4110 wrongly captured as a vehicle registration

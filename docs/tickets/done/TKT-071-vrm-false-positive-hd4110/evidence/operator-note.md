@@ -2,7 +2,7 @@
 
 > From `PLAN-assistant-intake-search-fixes.md` (planning session 2026-07-06). The full plan is
 > preserved at
-> [TKT-066 evidence](../../TKT-066-assistant-lookup-observability/evidence/operator-note.md).
+> [TKT-066 evidence](../../../verify/TKT-066-assistant-lookup-observability/evidence/operator-note.md).
 
 Diagnostic (verified 06/07): `packages/domain/src/domain/vrm-filter.ts` — the LOOSE dateless
 rule accepts `HD4110` because the ANCHOR check is document-wide (any "vehicle"/"registration"

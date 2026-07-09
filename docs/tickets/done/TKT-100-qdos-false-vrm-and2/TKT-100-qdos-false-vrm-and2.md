@@ -1,11 +1,11 @@
 ---
 id: TKT-100
 title: QDOS false VRM "AND2" invented on emails that don't contain it
-status: verify
+status: done
 priority: P1
 area: parsing
 tickets-it-relates-to: [TKT-085, TKT-071, TKT-101]
-research-link: docs/tickets/verify/TKT-100-qdos-false-vrm-and2/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-100-qdos-false-vrm-and2/evidence/operator-note.md
 ---
 
 # QDOS false VRM "AND2" invented on emails that don't contain it
