@@ -1,11 +1,11 @@
 ---
 id: TKT-047
 title: Email signature images archived to Box in error
-status: now
+status: verify
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-003, TKT-002]
-research-link: docs/tickets/now/TKT-047-email-sigs-box/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-047-email-sigs-box/evidence/operator-note.md
 ---
 
 # Email signature images archived to Box in error

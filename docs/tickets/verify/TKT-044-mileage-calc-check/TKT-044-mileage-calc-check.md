@@ -1,11 +1,11 @@
 ---
 id: TKT-044
 title: Mileage calculations look ~10,000 over expected values
-status: now
+status: verify
 priority: P2
 area: enrichment
 tickets-it-relates-to: []
-research-link: docs/tickets/now/TKT-044-mileage-calc-check/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-044-mileage-calc-check/evidence/operator-note.md
 ---
 
 # Mileage calculations look ~10,000 over expected values

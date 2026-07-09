@@ -1,11 +1,11 @@
 ---
 id: TKT-095
 title: Case `done` detectors — manual → Box report-PDF → sent-email → EVA poll
-status: now
+status: verify
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-094, TKT-061, TKT-058]
-research-link: docs/tickets/now/TKT-095-case-done-detectors/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-095-case-done-detectors/evidence/operator-note.md
 plan: PLAN-002
 ---
 

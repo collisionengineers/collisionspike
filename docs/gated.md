@@ -428,7 +428,7 @@ Dataverse `cr1bd_knownemaildomains` column.)*
 > `BOX_REG_FOLDER_ENABLED` (absent = off) because it creates new Box folder semantics. Say the word
 > and it flips (Box writes stay inside the archive root).
 
-> **DONE_SENT_EMAIL_ENABLED — new dark gate (2026-07-09, [TKT-095](./tickets/now/TKT-095-case-done-detectors/TKT-095-case-done-detectors.md)).**
+> **DONE_SENT_EMAIL_ENABLED — new dark gate (2026-07-09, [TKT-095](./tickets/verify/TKT-095-case-done-detectors/TKT-095-case-done-detectors.md)).**
 > The sent-email → case-`done` detector (a CE mailbox sends to the case's work provider → the case
 > flips EVA Submitted → Done) is built **dark**. Flipping it makes orch subscription maintenance
 > **create a SentItems Graph subscription per intake mailbox** (flipping back prunes them) —

@@ -60,3 +60,9 @@ Connected `SET ROLE csadmin` (RLS bypass — non-admin reads return false zeros,
 - [ ] DB consistency vs baseline (category/status distributions, no orphan evidence, no `box_folder_id` under `_pre-replay-*`, twins flagged not duplicated, queue counts == memberships).
 - [ ] Per-ticket closures asserted (TKT-021/023/027/028/031/039/041/046/047/051/056/058).
 - [ ] Relink sweep + re-stamp of exported human work.
+
+## Verdict update — 2026-07-09 (orchestrator closure)
+
+DONE (superseded — closure condition met). The ticket was retired 2026-07-05 as superseded (the dry-run proved the mailboxes retain only ~88/390 emails; wipe-and-rebuild non-viable; the operator declined the low-value reprocess), held open only for the dark driver's removal. TKT-106 landed 2026-07-09: the replay-backfill driver, gate plumbing, manifest lib, and the live REPLAY_BACKFILL_ENABLED app-setting are all removed (orch -5 registrations, redeployed); the non-viability finding is preserved here and in TKT-106. Note: the operator's 2026-07-08 instinct about Deleted Items was RIGHT — the recoverable history lives there (7.1k/9.5k/7.2k messages), reachable by the live $search with no build (TKT-119 memo); the constructive successor is the read-only reconstruction path (TKT-107/119/140), not a wipe.
+
+Verified by: orchestrating session (TKT-106 landing + registry), 2026-07-09.
