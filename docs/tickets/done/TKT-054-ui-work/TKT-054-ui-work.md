@@ -1,11 +1,11 @@
 ---
 id: TKT-054
 title: Inbox simplification + VRM/Ref split + dashboard inbox-panel regressions
-status: verify
+status: done
 priority: P1
 area: ui
 tickets-it-relates-to: [TKT-025, TKT-005]
-research-link: docs/tickets/verify/TKT-054-ui-work/inbox-simplification/ticket.md
+research-link: docs/tickets/done/TKT-054-ui-work/inbox-simplification/ticket.md
 ---
 
 # Inbox simplification + VRM/Ref split + dashboard inbox-panel regressions

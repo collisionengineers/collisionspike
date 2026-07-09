@@ -99,3 +99,9 @@ Registry updated: `LIVE_FACTS.json` (gate + `lastVerified`) + [live-environment.
 FAILED (live) — operator-supplied evidence, 2026-07-08 workstream report: AI Assistant Generate Suggestions does not generate; devtools shows a 204/no-content response. Reopened verify->now; the fix is co-dispatched with TKT-127.
 
 Verified by: operator report transcribed by the orchestrating session, 2026-07-08.
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch)
+
+VERIFIED-LIVE — the composite acceptance holds end-to-end on the deployed stack: real gpt-5 outputs land as pending ai_suggestion rows stamped model version + confidence and render as suggestions; generation writes ONLY suggestion+audit rows (invariant pinned offline, corroborated live); promotion is human-confirmed (staff reviewAiSuggestion 200s observed live 2026-07-07); the gate controls it (AI_ASSIST_ENABLED=true readback + fail-closed 401s in KQL). The 2026-07-08 FAILED verdict is disproven at root — the "204" was the CORS preflight; the lying presentation was fixed by TKT-127. Residuals tracked elsewhere: email-lane live-occurrence probe (its own re-verify step), TKT-016/017/018 consumers, empty-variant toasts (with TKT-127), TKT-132 input widening.
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.

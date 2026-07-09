@@ -1,11 +1,11 @@
 ---
 id: TKT-127
 title: AI Assistant "Generate Suggestions" does not generate — devtools shows 204 no content
-status: verify
+status: done
 priority: P1
 area: ai
 tickets-it-relates-to: [TKT-015]
-research-link: docs/tickets/verify/TKT-127-ai-suggestions-generate-204/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-127-ai-suggestions-generate-204/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-127 — AI Assistant "Generate Suggestions" does not generate — devtools shows 204 no content

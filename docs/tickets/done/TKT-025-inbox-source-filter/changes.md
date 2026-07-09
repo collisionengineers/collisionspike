@@ -21,5 +21,5 @@ The chip filter is deployed, but the operator's inbox-simplification review
 intake currently stores the subscribed mailbox's object-id GUID in `source_mailbox`
 rather than the address, so every chip renders the "Other source" fallback. The
 intake-side UPN fix + historical backfill are being handled under
-[TKT-054](../../verify/TKT-054-ui-work/TKT-054-ui-work.md); re-run this ticket's verification
+[TKT-054](../TKT-054-ui-work/TKT-054-ui-work.md); re-run this ticket's verification
 runbook after that lands — the chips should then name info@/engineers@/desk@.

@@ -27,3 +27,9 @@ PENDING
    assessment".
 4. Override: pick a physical address on a prefilled case → value replaced, decision `manual`, and the
    prefill does not re-fire.
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch)
+
+VERIFIED-LIVE. Independent live SPA pass: QDOS26068 + fresh-intake QDOS26070 show the inspection field populated Image Based Assessment with the readiness item green-checked and claimant fields untouched (no manual entry); corrected note wording rendered verbatim (no inverted logic); staff override path visible (Use this address rows + search); counts recorded (seed verified no-op — 172 providers already flagged; 224 cases prefilled; status moves 109 needs_review->missing_images, 23 ->ready_for_eva) and corroborated by the registry mirror + live queue rows (Inspection decision recorded 08/07/2026 on QDOS/PCH rows, absent on FW). No engineering language on the surface. Postgres row-level checks covered by the delta output + orchestrator data pass.
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.

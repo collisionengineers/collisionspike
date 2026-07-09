@@ -25,3 +25,9 @@ PENDING
    `{generated:0, reason:"no_input"}` (no AOAI dependency fired — check App Insights
    `aiSuggestionsGenerate` log on the `cespk-api-dev` component).
 3. `SELECT … FROM ai_suggestion WHERE case_id=… AND review_state='pending'` shows the minted rows.
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch)
+
+VERIFIED-LIVE. Independent corroboration: App Insights on the api component shows the operator's original 5 clicks were ALL 200 (zero 204s — the "204" was the platform-answered CORS preflight, as root-caused); the post-fix generate on A.QDOS26029 returned 200 in 6.4s with the NEW outcome trace {generated:5,drafts:5}; the deployed SPA renders all 5 pending suggestions with Accept/Reject in plain language and survives reload via live caseAiSuggestions 200 reads; AI_ASSIST_ENABLED=true read back; evidence artifacts internally consistent (network capture / PG row dump / screenshot timestamps interleave exactly). Expected absences: the no_input/empty/error toast variants have no live occurrence yet (unit-pinned); PG review_state re-read queued to the data pass.
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.

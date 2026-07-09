@@ -23,3 +23,9 @@ PENDING
    "Provider policy: image-based assessment".
 2. Change it to a physical address as staff → sticks; the prefill never re-fires.
 3. A `prefer_address` provider's case still starts blank (manual flow preserved).
+
+## Verdict update — 2026-07-09 (ticket-verifier dispatch)
+
+VERIFIED-LIVE. The runtime seam fired on a FRESH live intake: QDOS26070 (Email auto, created 09/07/2026 01:04, post-delta) arrived with the System audit entry "Inspection recorded as Image Based Assessment (provider policy)" and readiness satisfied — closing the implementer's own "not yet observed on a fresh intake" gap. Auditable (Action-logs entry + lastActivity lines) + staff-changeable (full picker renders). Non-policy provider FW26008 keeps the manual flow (field empty, Decision: Undecided, no policy note; none of 6 FW review-queue cases prefilled). Registry cross-checked, no contradiction.
+
+Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.
