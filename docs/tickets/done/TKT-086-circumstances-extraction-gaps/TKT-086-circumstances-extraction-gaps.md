@@ -1,11 +1,11 @@
 ---
 id: TKT-086
 title: Accident circumstances still not being 100% extracted
-status: verify
+status: done
 priority: P1
 area: parsing
 tickets-it-relates-to: [TKT-001, TKT-050]
-research-link: docs/tickets/verify/TKT-086-circumstances-extraction-gaps/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-086-circumstances-extraction-gaps/evidence/operator-note.md
 ---
 
 # Accident circumstances still not being 100% extracted
@@ -31,8 +31,8 @@ known, instead of whack-a-mole.
 - `evidence/Instructions.DOC` + `evidence/message.eml` — the failing sample pair (binary
   `.DOC` — the format lane TKT-001 flagged as needing an e2e Postgres proof on the triage `.doc`
   path).
-- Prior fixes: [TKT-050](../../done/TKT-050-ax-pdf-extract/TKT-050-ax-pdf-extract.md) (AX circumstances
-  boundary), [TKT-001](../TKT-001-document-parsing/TKT-001-document-parsing.md) (multi-format
+- Prior fixes: [TKT-050](../TKT-050-ax-pdf-extract/TKT-050-ax-pdf-extract.md) (AX circumstances
+  boundary), [TKT-001](../../verify/TKT-001-document-parsing/TKT-001-document-parsing.md) (multi-format
   extraction + field-drop).
 - Extraction engine is dual-home (ADR-0018): edit the `cedocumentmapper_v2.0` sibling first,
   then re-vendor into the parser Function.

@@ -1,11 +1,11 @@
 ---
 id: TKT-022
 title: .docx claim-form extraction fails
-status: verify
+status: done
 priority: P1
 area: parsing
 tickets-it-relates-to: [TKT-001]
-research-link: docs/tickets/verify/TKT-022-docx-extraction-fail/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md
 ---
 
 # .docx claim-form extraction fails
