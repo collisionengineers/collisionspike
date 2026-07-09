@@ -7669,7 +7669,10 @@ function suggestedOutlookFolder(subtype) {
     case "query_new_enquiry":
       return "Inbox/Queries/Enquiries";
     case "billing_request":
+    case "payment_remittance":
       return "Inbox/Billing";
+    case "pre_instruction_directions":
+      return "Inbox/Pre-instructions";
     case "case_summary":
     case "acknowledgement":
       return "Inbox/No action";
@@ -15581,7 +15584,7 @@ async function prefillImageBasedInspection(caseId, actor) {
             inspection_decision_code = $3,
             updated_at = now()
       WHERE id = $1
-        AND COALESCE(eva_inspection_address, '') = ''
+        AND COALESCE(btrim(eva_inspection_address), '') = ''
         AND (inspection_decision_code IS NULL OR inspection_decision_code = $4)
       RETURNING id`,
     [caseId, IMAGE_BASED_LITERAL, IMAGE_BASED_CODE, UNKNOWN_DECISION_CODE]
@@ -17629,18 +17632,19 @@ import_functions.app.http("internalInboundLinkReply", {
         );
       }
       let conflict = false;
-      if (vrmArm && rows.length === 1 && jobref) {
+      if (vrmArm && rows.length === 1 && (jobref || ref)) {
         const hit = rows[0];
         const sibs = await q(
           `SELECT DISTINCT body_jobref FROM inbound_email
               WHERE case_id = $1 AND body_jobref IS NOT NULL AND body_jobref <> ''`,
           [hit.id]
         );
-        conflict = vrmLinkRefConflict(jobref, [
+        const known = [
           hit.case_ref,
           hit.case_po,
           ...sibs.map((s) => s.body_jobref)
-        ]);
+        ];
+        conflict = vrmLinkRefConflict(jobref, known) || vrmLinkRefConflict(ref, known);
       }
       return { candidates: conflict ? [] : rows, refConflict: conflict };
     });
@@ -17649,8 +17653,8 @@ import_functions.app.http("internalInboundLinkReply", {
       await writeAudit({
         action: AUDIT_ACTION.duplicate_flagged,
         severity: "warning",
-        summary: `Reply matched a case by registration only (vrm ${vrm}) but cites a different reference (${jobref}); held for manual linking`,
-        after: { vrm, jobref, messageId: inbound.internetMessageId }
+        summary: `Reply matched a case by registration only (vrm ${vrm}) but cites a different reference (${jobref || ref}); held for manual linking`,
+        after: { vrm, jobref: jobref || ref, messageId: inbound.internetMessageId }
       });
       ctx.log(JSON.stringify({ evt: "linkReply", outcome: "no_match", reason: "vrm_ref_conflict", jobref }));
       return { status: 200, jsonBody: { outcome: "no_match", candidateCount: 0 } };
@@ -17706,7 +17710,7 @@ import_functions.app.http("internalTriageContext", {
       let openCaseMatches = [];
       if (caseref || jobref || vrm) {
         const rows = await q(
-          `SELECT id, case_po, status_code,
+          `SELECT id, case_po, status_code, duplicate_keys,
                     CASE
                       WHEN $1 <> '' AND (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)) THEN 'case_po'
                       WHEN $2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)) THEN 'job_ref'
@@ -17722,7 +17726,10 @@ import_functions.app.http("internalTriageContext", {
               ORDER BY created_at`,
           [caseref, jobref, vrm]
         );
-        openCaseMatches = rows.map((r) => ({
+        openCaseMatches = rows.filter((r) => {
+          const status = caseStatusCodec.toName(r.status_code) ?? "error";
+          return !(status === "linked_to_instruction" && mergedIntoFrom(r.duplicate_keys));
+        }).map((r) => ({
           caseId: r.id,
           casePo: r.case_po ?? "",
           matchedOn: r.matched_on,
@@ -18088,6 +18095,7 @@ import_functions.app.http("internalCasesEvidence", {
         const ex = twin[0];
         if (ex) {
           const sameIdentity = isBoxRow ? boxFileId != null && ex.box_file_id === boxFileId || sourceMessageId != null && ex.source_message_id === sourceMessageId : row.blobPath != null && ex.storage_path === row.blobPath;
+          const hasMergeMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || row.excluded != null || row.exclusionReason != null || row.personReflection != null || row.sequenceIndex != null;
           if (!sameIdentity) {
             if (isBoxRow && ex.box_file_id == null && boxFileId != null) {
               await query(
@@ -18106,7 +18114,6 @@ import_functions.app.http("internalCasesEvidence", {
                 [ex.id, row.blobPath]
               );
             }
-            const hasMergeMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || row.excluded != null || row.exclusionReason != null || row.personReflection != null || row.sequenceIndex != null;
             if (hasMergeMetadata) {
               await applyEvidenceMetadata(ctx, "id = $1", [ex.id], row, {
                 imageRoleCode,
@@ -18120,6 +18127,17 @@ import_functions.app.http("internalCasesEvidence", {
             merged++;
             continue;
           }
+          if (hasMergeMetadata) {
+            updated += await applyEvidenceMetadata(ctx, "id = $1", [ex.id], row, {
+              imageRoleCode,
+              registrationVisible,
+              excluded,
+              exclusionReason,
+              sha256,
+              sequenceIndex
+            });
+          }
+          continue;
         }
       }
       let inserted = false;
@@ -18308,7 +18326,9 @@ import_functions.app.http("internalCasesMarkDone", {
     const body2 = await req.json().catch(() => ({}));
     const signal = ["sent_email", "box_pdf", "eva_poll", "manual"].includes(body2.signal ?? "") ? body2.signal : "unknown";
     const updated = await query(
-      `UPDATE case_ SET status_code = $1, updated_at = now()
+      // Clear on_hold on the terminal transition (parity with the SPA mark-done route in
+      // cases.ts): a delivered case must not linger in the Held/work queues. (PR51-E3)
+      `UPDATE case_ SET status_code = $1, on_hold = false, updated_at = now()
          WHERE id = $2 AND status_code = $3
          RETURNING id`,
       [statusToInt("done"), caseId, statusToInt("eva_submitted")]
@@ -18341,11 +18361,15 @@ import_functions.app.http("internalCasesLookup", {
       return { status: 200, jsonBody: { cases: [] } };
     }
     const rows = await query(
+      // The VRM arm canonicalises BOTH sides (strip spaces/punctuation): the caller passes a
+      // compacted subject VRM (extractVrm -> "MX17PNL") but a stored registration may hold
+      // spaces ("MX17 PNL"), so a verbatim upper() compare would miss it — the same fix the
+      // search/assistant routes already use. (PR51-E2)
       `SELECT id, case_po, status_code, work_provider_id, vrm
            FROM case_
           WHERE (cardinality($1::text[]) > 0 AND id::text = ANY($1::text[]))
              OR ($2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)))
-             OR ($3 <> '' AND upper(vrm) = upper($3))
+             OR ($3 <> '' AND regexp_replace(upper(vrm), '[^A-Z0-9]', '', 'g') = regexp_replace(upper($3), '[^A-Z0-9]', '', 'g'))
           ORDER BY created_at DESC
           LIMIT 25`,
       [caseIds, casePo, vrm]
@@ -18571,19 +18595,33 @@ function staleVersion(req, currentUpdatedAt) {
 }
 
 // api/src/lib/functions-client.ts
-async function callFn(baseUrl, fnKey, method, path, body2) {
-  const res = await fetch(`${baseUrl}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      "x-functions-key": fnKey
-    },
-    ...body2 !== void 0 ? { body: JSON.stringify(body2) } : {}
-  });
-  if (!res.ok) {
-    throw new Error(`[functions-client] ${method} ${path} \u2192 ${res.status} ${await res.text().catch(() => "")}`);
+var FN_STAGE_TIMEOUT_MS = 3e4;
+async function callFn(baseUrl, fnKey, method, path, body2, opts) {
+  const timeoutMs = opts?.timeoutMs;
+  const controller = timeoutMs != null ? new AbortController() : void 0;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : void 0;
+  try {
+    const res = await fetch(`${baseUrl}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        "x-functions-key": fnKey
+      },
+      ...body2 !== void 0 ? { body: JSON.stringify(body2) } : {},
+      ...controller ? { signal: controller.signal } : {}
+    });
+    if (!res.ok) {
+      throw new Error(`[functions-client] ${method} ${path} \u2192 ${res.status} ${await res.text().catch(() => "")}`);
+    }
+    return res.json();
+  } catch (e) {
+    if (controller?.signal.aborted) {
+      throw new Error(`[functions-client] ${method} ${path} \u2192 timed out after ${timeoutMs}ms`);
+    }
+    throw e;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
-  return res.json();
 }
 async function callParser(body2) {
   return callFn(
@@ -18594,24 +18632,32 @@ async function callParser(body2) {
     body2
   );
 }
-async function callLocationSuggest(body2) {
+async function callLocationSuggest(body2, opts) {
   return callFn(
     process.env.LOCATION_SUGGEST_FN_URL,
     process.env.LOCATION_SUGGEST_FN_KEY,
     "POST",
     "/api/location-suggest",
-    body2
+    body2,
+    opts
   );
 }
 async function callPlateOcr(input) {
   const base = process.env.OCR_FN_URL;
   const key = process.env.OCR_FN_KEY;
   if (!base || !key) throw new Error("[functions-client] OCR_FN_URL/OCR_FN_KEY not configured");
-  return callFn(base, key, "POST", "/api/plate-ocr", {
-    image: input.imageBase64,
-    filename: input.filename,
-    ...input.caseVrm ? { case_vrm: input.caseVrm } : {}
-  });
+  return callFn(
+    base,
+    key,
+    "POST",
+    "/api/plate-ocr",
+    {
+      image: input.imageBase64,
+      filename: input.filename,
+      ...input.caseVrm ? { case_vrm: input.caseVrm } : {}
+    },
+    { timeoutMs: FN_STAGE_TIMEOUT_MS }
+  );
 }
 async function callBoxListFolder(folderId, limit = 1e3, offset = 0) {
   const base = process.env.BOX_FN_URL;
@@ -18683,6 +18729,12 @@ function chaserTargetType(code) {
   if (code === 100000001) return "repairer";
   return "work_provider";
 }
+function chaserStatusName(code) {
+  if (code === 100000001) return "sent";
+  if (code === 100000002) return "responded";
+  if (code === 100000003) return "overdue";
+  return "drafted";
+}
 function rowToChaser(ch) {
   return {
     id: ch.id ?? "",
@@ -18690,7 +18742,7 @@ function rowToChaser(ch) {
     targetName: ch.target_name ?? "",
     channel: ch.channel_code === 100000001 ? "whatsapp" : "email",
     templateUsed: ch.template_used ?? "",
-    status: "drafted",
+    status: chaserStatusName(ch.status_code),
     summary: ch.name ?? "",
     createdAt: fmtTimestamp(ch.drafted_at ?? ch.created_at),
     ...ch.sent_by ? { sentBy: ch.sent_by } : {},
@@ -18858,6 +18910,7 @@ import_functions2.app.http("patchCase", {
         after.vrm = newVrm;
       }
     }
+    let inspectionAddressChanged = false;
     if (body2.evaFields && typeof body2.evaFields === "object") {
       for (const [k, rawVal] of Object.entries(body2.evaFields)) {
         if (rawVal === void 0 || !(k in EVA_COLUMN_BY_KEY)) continue;
@@ -18871,7 +18924,11 @@ import_functions2.app.http("patchCase", {
         before[key] = oldVal;
         after[key] = norm.value;
         changedEvaFields.push({ key, value: norm.value });
+        if (key === "inspectionAddress") inspectionAddressChanged = true;
       }
+    }
+    if (inspectionAddressChanged) {
+      sets.push("inspection_decision_code = NULL");
     }
     if (body2.casePo !== void 0) {
       const raw = String(body2.casePo ?? "").trim();
@@ -19106,8 +19163,16 @@ import_functions2.app.http("openVrmTwins", {
   authLevel: "anonymous",
   route: "cases",
   handler: withRole("CollisionSpike.User", async (req) => {
-    const vrm = canonicalizeVrm(req.query.get("vrm") ?? "");
     const exclude = req.query.get("exclude") ?? void 0;
+    const casePo = (req.query.get("case_po") ?? "").trim();
+    if (casePo) {
+      const rows2 = await query(`${CASE_SELECT} WHERE upper(c.case_po) = $1`, [
+        casePo.toUpperCase()
+      ]);
+      const matches = rows2.map((r) => rowToCase(r)).filter((c) => !TWIN_TERMINAL.has(c.status) && c.id !== exclude);
+      return { status: 200, jsonBody: matches };
+    }
+    const vrm = canonicalizeVrm(req.query.get("vrm") ?? "");
     if (!vrm) return { status: 200, jsonBody: [] };
     const rows = await query(
       `${CASE_SELECT} WHERE regexp_replace(upper(c.vrm), '[^A-Z0-9]', '', 'g') = $1`,
@@ -19334,7 +19399,13 @@ import_functions2.app.http("imagesForCase", {
   handler: withRole("CollisionSpike.User", async (req) => {
     const id = req.params.id;
     const rows = await query(
-      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND excluded <> true ORDER BY sequence_index NULLS LAST, created_at",
+      // Person-reflection photos are auto-excluded from EVA (domain rule: a visible reflection
+      // makes the photo unusable — acceptedForEva stays false), but they MUST still surface in
+      // the case-detail REVIEW list so the TKT-123 dismissible warning + Exclude control are
+      // reachable and staff can override a false-positive detection. They carry acceptedForEva
+      // = false, so EVA export / photo-ordering / readiness (all keyed on acceptedForEva) are
+      // unaffected. Non-reflection excluded rows stay hidden as before. (PR48-B2)
+      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded <> true OR person_reflection = true) ORDER BY sequence_index NULLS LAST, created_at",
       [id]
     );
     return { status: 200, jsonBody: rows.map(rowToEvidence) };
@@ -19548,7 +19619,10 @@ import_functions2.app.http("markEvaSubmitted", {
     const id = (req.params.id ?? "").trim();
     if (!id) return { status: 400, jsonBody: { message: "A case is required." } };
     const updated = await query(
-      `UPDATE case_ SET status_code = $1, submitted_at = now(), updated_at = now()
+      // Clear on_hold on the terminal handoff: filterQueue gives onHold precedence over
+      // status (mappers.ts), so a still-held case would otherwise linger in the Held/work
+      // queues while ALSO showing in Completed. A submitted case is no longer actionable.
+      `UPDATE case_ SET status_code = $1, submitted_at = now(), on_hold = false, updated_at = now()
        WHERE id = $2 AND status_code = $3
        RETURNING id`,
       [statusToInt("eva_submitted"), id, statusToInt("ready_for_eva")]
@@ -19573,7 +19647,9 @@ import_functions2.app.http("markCaseDone", {
     const id = (req.params.id ?? "").trim();
     if (!id) return { status: 400, jsonBody: { message: "A case is required." } };
     const updated = await query(
-      `UPDATE case_ SET status_code = $1, updated_at = now()
+      // Clear on_hold on the terminal transition (same reason as eva-submitted above):
+      // a delivered/done case must not remain in the Held/work queues.
+      `UPDATE case_ SET status_code = $1, on_hold = false, updated_at = now()
        WHERE id = $2 AND status_code = $3
        RETURNING id`,
       [statusToInt("done"), id, statusToInt("eva_submitted")]
@@ -61922,7 +61998,7 @@ async function promoteAcceptedSuggestion(row, actor) {
       if (targetCaseId) {
         const upd = await query(
           `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
-             WHERE id = $1 AND case_id IS NULL RETURNING id`,
+             WHERE id = $1 AND case_id IS NULL RETURNING id, has_attachments`,
           [inboundEmailId, targetCaseId]
         );
         if (upd[0]) {
@@ -61935,6 +62011,20 @@ async function promoteAcceptedSuggestion(row, actor) {
             ...actor ? { actor } : {}
           });
           await markOutstandingChasersResponded(targetCaseId, "suggestion accepted");
+          if (upd[0].has_attachments === true) {
+            try {
+              await query(
+                "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
+                [
+                  "Attachments to add",
+                  targetCaseId,
+                  actor ?? "System",
+                  "The linked email arrived with attachments (e.g. photos or a PDF) that are not yet on this case. Please add them by hand from the email."
+                ]
+              );
+            } catch {
+            }
+          }
           return { promoted: true, promotedField: "inbound_email.case_id" };
         }
       }
@@ -62091,7 +62181,16 @@ import_functions16.app.http("generateAiSuggestions", {
         const ins = await query(
           `INSERT INTO ai_suggestion
              (case_id, evidence_id, suggestion_type, suggested_value, rationale, confidence, model_version)
-           VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7) RETURNING id`,
+           SELECT $1, $2, $3, $4::jsonb, $5, $6, $7
+            WHERE NOT EXISTS (
+              SELECT 1 FROM ai_suggestion
+               WHERE suggestion_type = $3
+                 AND review_state = 'pending'
+                 AND case_id IS NOT DISTINCT FROM $1
+                 AND evidence_id IS NOT DISTINCT FROM $2
+                 AND suggested_value = $4::jsonb
+            )
+           RETURNING id`,
           [
             caseId,
             d.evidenceId ?? null,
@@ -62600,7 +62699,7 @@ function makeImageAnalysisAdapters() {
           ...Object.keys(text_clues).length ? { text_clues } : {},
           max_candidates: 5
         };
-        const resp = await callLocationSuggest(body2);
+        const resp = await callLocationSuggest(body2, { timeoutMs: FN_STAGE_TIMEOUT_MS });
         const candidates = resp?.candidates ?? [];
         return candidates.map((c) => ({
           label: c.label,
@@ -62664,9 +62763,17 @@ import_functions17.app.http("generateImageAnalysis", {
         [caseId]
       );
       const images = [];
+      let oversizeSkipped = 0;
       for (const row of evRows) {
         const resolved = await resolveBytesForRow(row);
         if (!resolved) continue;
+        if (resolved.bytes.length > ASSIST_MAX_BYTES_PER_PHOTO) {
+          oversizeSkipped += 1;
+          ctx.warn(
+            `[image-analysis] skipped oversized image evidence=${resolved.id} bytes=${resolved.bytes.length} (cap ${ASSIST_MAX_BYTES_PER_PHOTO})`
+          );
+          continue;
+        }
         images.push({
           evidenceId: resolved.id,
           filename: rasterFilename(resolved.fileName, resolved.contentType),
@@ -62702,7 +62809,12 @@ import_functions17.app.http("generateImageAnalysis", {
         action: AUDIT_ACTION.image_analysis_generated,
         caseId,
         summary: `Image-analysis run: ${generated} suggestion(s) from ${images.length} image(s)`,
-        after: { generated, imagesAnalyzed: images.length, stageOutcomes },
+        after: {
+          generated,
+          imagesAnalyzed: images.length,
+          ...oversizeSkipped ? { oversizeSkipped } : {},
+          stageOutcomes
+        },
         ...actor ? { actor } : {}
       });
       ctx.log(`[image-analysis] case=${caseId} images=${images.length} generated=${generated}`);
