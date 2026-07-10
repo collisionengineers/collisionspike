@@ -263,7 +263,7 @@
 > `case_type_code`; standalone PCH/QDOS audits mint from the marker's own sequence (`A.PCH26xxx`…); QDOS
 > dual "report + audit report" letters keep the standard number with case-type `audit`; report-typed
 > attachments persist as `engineer_report` evidence. Remaining: a live probe on the next real audit
-> email ([TKT-056](../tickets/verify/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md)
+> email ([TKT-056](../tickets/done/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md)
 > step 6). Prior change **2026-07-03T16:20Z** — the **second wave (rules-engine-v2
 > activation)**: the **D7 taxonomy delta**, the **Phase-4 `ai_suggestion.embedding` delta**, and the **D8
 > identification delta** are **ALL APPLIED LIVE** (via Entra `digital@` → `SET ROLE csadmin`; verified:

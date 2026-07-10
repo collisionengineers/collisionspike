@@ -1,11 +1,11 @@
 ---
 id: TKT-093
 title: Auto-attach matched emails to their case instead of a hidden suggest dialog
-status: verify
+status: done
 priority: P1
 area: email
 tickets-it-relates-to: [TKT-046, TKT-023, TKT-056, TKT-009]
-research-link: docs/tickets/verify/TKT-093-auto-attach-matched-emails/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-093-auto-attach-matched-emails/evidence/operator-note.md
 ---
 
 # Auto-attach matched emails to their case instead of a hidden suggest dialog

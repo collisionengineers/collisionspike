@@ -7,8 +7,8 @@ metadata:
   originSessionId: 692afc4f-251c-4d6a-8993-9e691e167550
 ---
 
-The vehicle-valuation product spans 3 disjointed-ish repos joined by the **contracts** package (JSON Schema `valuation/v1`: advert, search_result, evidence_pack_payload), all under `connectors/valuation-adverts-connector/contracts`:
-- **skill** `connectors/valuation-adverts-connector/vehicle-valuation/` (also duplicated at `collision-agent-skills/vehicle-valuation/` + `archive/*` — DIVERGED copies) — assembles the snake_case evidence_pack_payload, validates vs contracts, renders primarily via `collisionrenderer:render_valuation_outputs` (fallback = local Python `_pdf_common.py` WeasyPrint/Chromium/ReportLab).
+The vehicle-valuation product spans 3 disjointed-ish repos joined by the **contracts** package (JSON Schema `valuation/v1`: advert, search_result, evidence_pack_payload), all under `active/connectors/valuation-adverts-connector/contracts`:
+- **skill** `active/connectors/valuation-adverts-connector/vehicle-valuation/` (also duplicated at `active/collision-agent-skills/vehicle-valuation/` + `archive/*` — DIVERGED copies) — assembles the snake_case evidence_pack_payload, validates vs contracts, renders primarily via `collisionrenderer:render_valuation_outputs` (fallback = local Python `_pdf_common.py` WeasyPrint/Chromium/ReportLab).
 - **connector** `…/server-ts` (valuationbot-mcp) — search→adverts, `capture_advert_pages`→PDFs as `{url,status,filename,pdf_base64}`. Render proxy/tool REMOVED (convergence landed; `render-proxy.ts` now just health-envelope env constants). Hand-mirrors the contract zod (does NOT import contracts).
 - **renderer** `active/collisionrenderer/` (.NET 8; "Document Renderer" mcpb) — `render_valuation_outputs(payload snake_case, captures[])` → `ValuationPayloadMapper` snake→camel + `subject_vehicle`→`subject` → C# DTOs (`Models/Documents.cs`) → Scriban → PDF + appends advert PDFs (matched by EXACT url string).
 

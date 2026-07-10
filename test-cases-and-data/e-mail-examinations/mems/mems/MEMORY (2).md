@@ -1,7 +1,7 @@
 # Memory Index
 
 - [collisionsuite repo structure & renamed repos](project-collisionsuite-structure.md) — monorepo layout, key renames (dvla-dvsa-connector, valuation-adverts-connector), dissolved collisionplugin
-- [claude-desktop-debug skill](project-claude-desktop-debug-skill.md) — skill for diagnosing Claude Desktop chat-side issues on Windows; lives in collision-agent-skills/claude-desktop-debug/
+- [claude-desktop-debug skill](project-claude-desktop-debug-skill.md) — skill for diagnosing Claude Desktop chat-side issues on Windows; lives in active/collision-agent-skills/claude-desktop-debug/
 - [base44 website push guard](base44-website-push-guard.md) — collision-engineers-website is the LIVE base44 site; never push/modify autonomously, always user-requested + double-checked
 - [Grand Architecture Overview](project-grand-architecture-overview.md) — where the suite-wide overview lives (collision-engineers-context/ARCHITECTURE-OVERVIEW.{md,json}) + headline findings: two-worlds-joined-by-VRM, remote-removal sprint kills mcp-gateway/report-renderer, unreconciled .NET vs Python renderer
 - [Renderer convergence](project-renderer-convergence.md) — dedup 3 PDF renderers onto .NET collisionrenderer; ALL waves done (skill→collisionrenderer, report-renderer deleted); only manual step left = install the .mcpb; plan at ~/.claude/plans/we-are-working-on-cryptic-nova.md

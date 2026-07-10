@@ -1,6 +1,77 @@
 # Verification — TKT-043: Images-received / report-chaser email misrouted (images-on-existing-case)
 
 ## Verdict
+**PENDING** (2026-07-10, ticket-verifier dispatch) — deployed, firing live, every component of the
+seam live-proven; the one missing artifact is a single real arrival combining the full sample shape
+(work-shaped + single open-case **job-ref** match + images-only). Nothing FAILED.
+
+## Sweep verdict (transcribed verbatim, 2026-07-10)
+
+All KQL against orch App Insights `7c7ea68a…`, 7d window (2026-07-03→10).
+
+- **AC1 (sample routes `case_update`/`images_received` via open-case-ref context — offline): MET.**
+  `baseline-v2.json` row `tkt043-images-existing-case` correct on category + subtype, driven by the
+  fed `open_case_ref_match: "one"` context signal (kill-switch documented); deterministic domain
+  tests at `triage-policy.test.ts:521,545,578`. **Live corroboration of the mechanism:** 131
+  `ref_gate` triage_decisions in 7d; **39 had Stage-A `receiving_work/*` and were relabelled
+  `case_update`** (`caseUpdateApplied=true`), incl. one to **`images_received`** (2026-07-10
+  10:57:03Z, desk@, imagesOnly=true, vrm tier ×2 matches → suggest_attach, correctly
+  suggestion-only per the ADR-0010 VRM invariant).
+- **AC2 (suggest-first/auto attach via TKT-093 machinery; no new case minted): LIVE-PROVEN at the
+  orchestration layer.** Exact per-instance join (`intake-<messageId>` trace prefix): **55
+  `attach_case` decisions in 7d (44 post-fix-deploy) → 0 ran `caseResolve` in the same intake
+  instance**, against 282 caseResolve mints in other instances (control). **9 post-deploy instances
+  are the work-shaped arm specifically** — Stage-A `receiving_work` + single job_ref open-case match
+  → `attach_case` + `case_update/update_general`, no mint (07-08 12:50:51Z/13:13:13Z; 07-09
+  07:25:14Z/08:25:40Z/09:03:44Z/10:35:34Z/11:20:38Z/12:55:50Z/13:15:43Z). TKT-093's attach machinery
+  separately VERIFIED-LIVE today.
+- **AC3 (no regression): offline-consistent** — baseline matches the claimed flip; `--check` clean;
+  `receiving_work` recall ~94% held; `intake-routing.test.ts:11` pins
+  `CASE_MINTING_CATEGORIES === ['receiving_work']`.
+- **AC4 (deployed live under existing gates + live proof on a real open-case-ref chaser):** all four
+  TRIAGE_* gates `true` (LIVE_FACTS); new-shape telemetry emitting; **`images_received` fires live**
+  (10 rows/7d) incl. one `attach_case` on a single job_ref match (2026-07-09 14:17:59Z, engineers@ →
+  case `571ea8bb…`, no mint in-instance) — but that arrival's Stage-A was already
+  `case_update/images_received`, so it does not prove the *relabel-from-work* seam. **The precise
+  conjunction has not recurred.**
+- **AC5 (changes.md + evidence recorded): MET.**
+
+### Pending / gaps
+**Expected absence (the only real pending item — an arrival shape, not a bug):** no single live
+arrival yet combining Stage-A `receiving_work` + exactly ONE open-case job/case-ref match +
+images-only evidence → `attach_case` + `case_update/images_received` + attach-no-mint. Each pairwise
+combination is live-proven (work+job_ref+attach+no-mint ×9 all `update_general`; work+images_received
+×1 vrm/ambiguous → suggestion; images_received+job_ref+attach ×1 Stage-A already case_update).
+
+Notes (not bugs): the FILENAME-tier imagesOnly (photos-in-a-PDF) has no distinguishable live specimen
+(telemetry carries no filename dims; offline pins cover it). The 07-10 10:57Z ambiguous-vrm arrival
+**did mint** via the documented suggest-first fall-through (`intakeOrchestrator.ts:226-230`) — out of
+this ticket's shape; the non-minting belt protects the attach_case arm, exactly as changes.md Finding
+A/B state. DB legs unqueried (firewall) — queued SQL below.
+
+### Queued SQL (next data pass; corroborative, not decisive)
+```sql
+-- attach arm on the 2026-07-09T14:17:59Z images_received attach (case 571ea8bb-…):
+SELECT ae.action_code, ae.case_id, left(ae.name,80), ae.occurred_at FROM audit_event ae
+WHERE ae.case_id = '571ea8bb-5ebe-44fb-a25d-c9e12a703803'
+  AND ae.occurred_at BETWEEN '2026-07-09T14:17:00Z' AND '2026-07-09T14:25:00Z' ORDER BY ae.occurred_at;
+SELECT c.id, c.case_po, c.created_at FROM case_ c
+WHERE c.created_at BETWEEN '2026-07-09T14:17:30Z' AND '2026-07-09T14:20:00Z';
+SELECT s.suggestion_type, s.review_state, s.case_id, s.created_at FROM ai_suggestion s
+WHERE s.created_at BETWEEN '2026-07-10T10:57:00Z' AND '2026-07-10T10:58:00Z';
+```
+
+### Fastest close (operator smoke)
+Send a chaser to info@/engineers@/desk@ naming an OPEN case's job ref with a photos-PDF attached →
+expect `triage_decision`: `attach_case`, `case_update`/`images_received`, `matchTier=job_ref`,
+`caseUpdateApplied=true`, `imagesOnly=true`; no `caseResolve` in `intake-<messageId>`.
+
+Doc nit (for the playbook, not this ticket): `logs-kql.md`'s "`operation_Id == "intake-<message-id>"`"
+is stale for the current SDK — the instance id appears as a message prefix instead.
+
+Verified by: ticket-verifier dispatch, 2026-07-10.
+
+## Prior verdict (2026-07-08, superseded)
 PENDING (implementer cannot self-certify — offline proof is green; live proof to be gathered
 by the ticket-verifier).
 

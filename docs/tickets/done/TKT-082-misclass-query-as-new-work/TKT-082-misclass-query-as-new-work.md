@@ -1,11 +1,11 @@
 ---
 id: TKT-082
 title: Existing-case query misclassified as new client work
-status: verify
+status: done
 priority: P1
 area: email
 tickets-it-relates-to: [TKT-030, TKT-033, TKT-046, TKT-023]
-research-link: docs/tickets/verify/TKT-082-misclass-query-as-new-work/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/operator-note.md
 ---
 
 # Existing-case query misclassified as new client work
@@ -30,7 +30,7 @@ chaser-as-new-work problem) and hides the query from the existing case's activit
 - `evidence/sample-1/` — Cauchie `.eml` + `GM23KPZ.pdf` + original `info.md`.
 - `evidence/sample-2/` — the two Tasker thread `.eml`s + original `info.md`.
 - The generalised ref-gate (`TRIAGE_REF_GATE_ENABLED`) has been ACTING live since 2026-07-03
-  ([TKT-023](../../done/TKT-023-follow-up-docs/TKT-023-follow-up-docs.md)) — these samples show threads
+  ([TKT-023](../TKT-023-follow-up-docs/TKT-023-follow-up-docs.md)) — these samples show threads
   it does not catch (Re/EREF prefixes, VRM matching an open case). Verify current gate state
   against the registry before acting.
 

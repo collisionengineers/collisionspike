@@ -36,7 +36,7 @@ same double-processing — correlate the two.
 - `evidence/operator-note.md` — verbatim drop-note (no case ids supplied — enumerate them from
   the DB as step one).
 - Live data: duplicate PCH cases exist in Postgres (same VRM/client/ref under distinct case ids).
-- Prior PCH identification work: [TKT-051](../TKT-051-pch-connexus/TKT-051-pch-connexus.md),
+- Prior PCH identification work: [TKT-051](../../done/TKT-051-pch-connexus/TKT-051-pch-connexus.md),
   [TKT-021](../TKT-021-connexus-intermediary/TKT-021-connexus-intermediary.md).
 
 ## Proposed change

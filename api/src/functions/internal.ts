@@ -843,6 +843,78 @@ app.http('internalDedupContext', {
     }),
 });
 
+/** Staff-facing wording for the Held routing note + audit written when a case is created
+ *  with no matched work provider (the `newClient` create branch below). */
+export interface HeldReason {
+  noteName: string;
+  noteText: string;
+  auditSummary: string;
+}
+
+/**
+ * Build the Held reason for a no-provider case create (TKT-021 reopen fix, 2026-07-10).
+ *
+ * Two distinct situations were previously collapsed into one "New client" note:
+ *  - TRUE UNKNOWN sender (no corpus match at all) → the existing New-client wording,
+ *    kept verbatim.
+ *  - KNOWN INTERMEDIARY sender (the provider-match step resolved an Image-Source
+ *    intermediary — e.g. a claims manager that routes work for several providers) → must
+ *    NOT be branded "New client"; the note names the intermediary and its candidate
+ *    providers explicitly ("intermediary — principal unresolved", per the ticket's
+ *    acceptance). When the instruction content already resolved the provider
+ *    (applyParserFields ran before this note is written), the note must not claim
+ *    "unresolved" either — it names the identified provider and asks for confirmation.
+ *
+ * PURE — display names in, strings out (callers resolve ids → names). All strings are
+ * handler-plain: no matchState/FK/corpus vocabulary. Empty-tolerant: a missing
+ * intermediary name or an empty candidate list degrades the wording, never throws.
+ */
+export function buildHeldReason(input: {
+  senderDomain: string;
+  /** null → true unknown sender (New-client wording). */
+  intermediary: {
+    /** Intermediary display name (image_source.name); '' tolerated. */
+    name: string;
+    /** Candidate providers' display names; may be empty (intermediary with no links yet). */
+    candidateNames: readonly string[];
+    /** Display name of the provider already resolved onto the case (instruction content),
+     *  '' when the principal is still unresolved. */
+    resolvedProviderName: string;
+  } | null;
+}): HeldReason {
+  const { senderDomain: domain, intermediary } = input;
+  if (!intermediary) {
+    return {
+      noteName: 'New client',
+      noteText:
+        `New client — no work provider matched for sender${domain ? ` @${domain}` : ''}. ` +
+        `No Case/PO minted; set up the work provider and confirm before EVA.`,
+      auditSummary: 'New client routed to Held (no work provider matched)',
+    };
+  }
+  const who = intermediary.name.trim()
+    ? `Intermediary sender (${intermediary.name.trim()})`
+    : 'Intermediary sender';
+  if (intermediary.resolvedProviderName.trim()) {
+    return {
+      noteName: 'Held — intermediary sender',
+      noteText:
+        `${who}: the instructions identify ${intermediary.resolvedProviderName.trim()} as the provider. ` +
+        `No Case/PO minted; confirm the provider before EVA.`,
+      auditSummary: 'Intermediary sender routed to Held (provider identified from the instructions)',
+    };
+  }
+  const candidates = intermediary.candidateNames.map((n) => n.trim()).filter(Boolean);
+  return {
+    noteName: 'Held — intermediary sender',
+    noteText:
+      `${who}: the instructing provider could not be determined from the instruction.` +
+      (candidates.length ? ` Candidates: ${candidates.join(', ')}.` : '') +
+      ` No Case/PO minted; pick the provider and confirm before EVA.`,
+    auditSummary: 'Intermediary sender routed to Held (principal unresolved)',
+  };
+}
+
 /* ============================================================
    3 — POST /api/internal/cases/resolve
    Called by: orchestration caseResolve activity (plan 22 §B §A2).
@@ -1196,23 +1268,67 @@ app.http('internalCasesResolve', {
 
       if (created.newClient) {
         const domain = senderDomain(inbound.senderAddress ?? '');
-        // Best-effort note (human-readable new-client tag) — must not block intake.
+        // TKT-021 reopen fix: a sender the provider-match step identified as a KNOWN
+        // INTERMEDIARY must not be branded "New client" — its Held reason names the
+        // intermediary + candidates explicitly (buildHeldReason above). The wire payload
+        // carries ids only, so the display names are looked up here; best-effort — a
+        // lookup failure degrades to name-less wording and must not block intake.
+        let heldIntermediary: {
+          name: string;
+          candidateNames: string[];
+          resolvedProviderName: string;
+        } | null = null;
+        if (intermediary) {
+          heldIntermediary = { name: '', candidateNames: [], resolvedProviderName: '' };
+          try {
+            const src = await query<Row>(
+              'SELECT name FROM image_source WHERE id = $1',
+              [intermediary.imageSourceId],
+            );
+            heldIntermediary.name = String(src[0]?.name ?? '').trim();
+            if (intermediary.candidateProviderIds.length > 0) {
+              const wps = await query<Row>(
+                'SELECT display_name FROM work_provider WHERE id = ANY($1::uuid[]) ORDER BY display_name',
+                [intermediary.candidateProviderIds],
+              );
+              heldIntermediary.candidateNames = wps
+                .map((r) => String(r.display_name ?? '').trim())
+                .filter(Boolean);
+            }
+            // applyParserFields (above) may already have resolved the provider from the
+            // instruction content — the note must not claim "unresolved" in that case.
+            const resolved = await query<Row>(
+              `SELECT wp.display_name FROM case_ c
+                 JOIN work_provider wp ON wp.id = c.work_provider_id
+                WHERE c.id = $1`,
+              [newCaseId],
+            );
+            heldIntermediary.resolvedProviderName = String(resolved[0]?.display_name ?? '').trim();
+          } catch { /* names are cosmetic — the Held note still lands without them */ }
+        }
+        const reason = buildHeldReason({ senderDomain: domain, intermediary: heldIntermediary });
+        // Best-effort note (human-readable Held reason) — must not block intake.
         await query(
           `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
-          [
-            'New client',
-            newCaseId,
-            'Email intake (auto)',
-            `New client — no work provider matched for sender${domain ? ` @${domain}` : ''}. ` +
-              `No Case/PO minted; set up the work provider and confirm before EVA.`,
-          ],
+          [reason.noteName, newCaseId, 'Email intake (auto)', reason.noteText],
         ).catch(() => { /* note is supplementary */ });
         await writeAudit({
           action: AUDIT_ACTION.inbound_routed,
           caseId: newCaseId,
           severity: 'warning',
-          summary: 'New client routed to Held (no work provider matched)',
-          after: { newClient: true, onHold: true, senderDomain: domain },
+          summary: reason.auditSummary,
+          after: intermediary
+            ? {
+                intermediary: true,
+                onHold: true,
+                senderDomain: domain,
+                imageSourceId: intermediary.imageSourceId,
+                candidateProviderIds: intermediary.candidateProviderIds,
+                ...(heldIntermediary?.resolvedProviderName
+                  ? { resolvedProvider: heldIntermediary.resolvedProviderName }
+                  : {}),
+              }
+            : { newClient: true, onHold: true, senderDomain: domain },
         });
       }
 

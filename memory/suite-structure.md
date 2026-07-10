@@ -13,7 +13,7 @@ Windows at `C:\Users\Alex\Documents\GitHub\collisionsuite\`; this repo relocated
 - **Category folder** — sibling repos of one kind + shared skills/MCPs + workspace config
   (e.g. `connectors/` with its `.claude/`, `.agents/`, `skills-lock.json`).
 - **Repos** — lifecycle containers: `active/`, `archive/`, `on-hold-projects/`; plus the standalone
-  top-level `collision-agent-skills/` repo.
+  top-level `active/collision-agent-skills/` repo.
 - **Documentation** — cross-project docs: `research/`, `collision-engineers-context/`.
 
 **Nested repos.** Most projects are their **own private GitHub repos** under `collisionengineers/`,
@@ -25,7 +25,7 @@ it then follow `SETUP.md`). `active/web-dev/` is a planning repo that wraps the 
 
 **Renames to remember:** `dvla-dvsa-connector` (was `dvlaclaudeconnector` / the `dvladvsa` folder),
 `valuation-adverts-connector` (was `valuation-tool`; runtime name still `valuationbot`). `collisionplugin`
-was **dissolved 2026-06-23** — its skills → `collision-agent-skills/`, its connectors → `connectors/`,
+was **dissolved 2026-06-23** — its skills → `active/collision-agent-skills/`, its connectors → `connectors/`,
 its dev-docs → `collision-engineers-context/collisionplugin-dev-docs/`.
 
 **How to apply:** reference siblings by suite-relative path; this is cross-project context for orienting

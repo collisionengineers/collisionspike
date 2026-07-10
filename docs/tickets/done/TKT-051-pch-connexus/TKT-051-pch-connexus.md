@@ -1,14 +1,19 @@
 ---
 id: TKT-051
 title: PCH not identified — doc-content name + @pch-ltd.com senders both missed
-status: verify
+status: done
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-021, TKT-028]
-research-link: docs/tickets/verify/TKT-051-pch-connexus/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-051-pch-connexus/evidence/operator-note.md
 ---
 
 # PCH not identified — doc-content name + @pch-ltd.com senders both missed
+
+> **VERIFIED-LIVE 2026-07-10** — both arms proven live at volume (54 PCH-resolved cases since the
+> 2026-07-02 deploy: 53 sender-domain + 1 doc-content, plus 84 content-arm firings across 10+
+> providers and 4 never-override disagreement audits); see [verification.md](./verification.md).
+> The 2026-07-02 "D8 not yet applied" note below is historical — D8 was applied 2026-07-03.
 
 ## Problem (operator drop-note, verbatim in [evidence/operator-note.md](./evidence/operator-note.md))
 
@@ -42,7 +47,7 @@ email it parsed the attached third-party **EVA report** instead of the `.DOC` in
 layout-name fallback then emitted `"EVA (Engineers)"` as `work_provider`, which filled the case's
 free-text `eva_work_provider`. Fixed in code (engine-v2.6 fallback guard + multi-doc content-typed
 parse pick + a Data-API denylist) plus an operator delta deactivating any stale EVA corpus row —
-all under **[TKT-056](../../done/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md)**
+all under **[TKT-056](../TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md)**
 / [ADR-0021](../../../adr/0021-case-po-marker-taxonomy.md) / [gated.md §D9](../../../gated.md).
 
 ## Status update — 2026-07-02 (now — code deployed, activation pending D8 seeds)

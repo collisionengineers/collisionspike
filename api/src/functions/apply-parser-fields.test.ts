@@ -8,6 +8,11 @@
  * two candidates ({PCH,SBL}) stay Held (never guessed); an already-set FK is never overwritten;
  * a content-match still wins over the fallback.
  *
+ * Also pins buildHeldReason (TKT-021 reopen fix, 2026-07-10) — the Held-routing note/audit
+ * wording seam: a KNOWN INTERMEDIARY sender (Connexus-class) gets an explicit
+ * "intermediary — principal unresolved" reason, never the "New client" branding; a TRUE
+ * UNKNOWN sender keeps the original New-client wording verbatim.
+ *
  * DB (lib/db) fully mocked — no live Postgres; the case read returns a configurable current row.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -33,7 +38,7 @@ vi.mock('../lib/db.js', () => ({
   },
 }));
 
-import { applyParserFields } from './internal.js';
+import { applyParserFields, buildHeldReason } from './internal.js';
 
 /** The current case_ row returned by the fill-if-empty read; overridable per test. */
 let caseRow: Record<string, unknown>;
@@ -208,5 +213,92 @@ describe('applyParserFields — parserRef mirrors into the Imported-details fact
   it('no parserRef → neither column is written', async () => {
     await applyParserFields('case-1', '');
     expect(updateCall()).toBeUndefined();
+  });
+});
+
+describe('buildHeldReason — Held routing wording (TKT-021 reopen fix)', () => {
+  it('TRUE UNKNOWN sender keeps the New-client wording VERBATIM', () => {
+    const r = buildHeldReason({ senderDomain: 'unknown-co.example', intermediary: null });
+    expect(r.noteName).toBe('New client');
+    expect(r.noteText).toBe(
+      'New client — no work provider matched for sender @unknown-co.example. ' +
+        'No Case/PO minted; set up the work provider and confirm before EVA.',
+    );
+    expect(r.auditSummary).toBe('New client routed to Held (no work provider matched)');
+  });
+
+  it('TRUE UNKNOWN sender with an unparseable address drops the @domain suffix', () => {
+    const r = buildHeldReason({ senderDomain: '', intermediary: null });
+    expect(r.noteText).toBe(
+      'New client — no work provider matched for sender. ' +
+        'No Case/PO minted; set up the work provider and confirm before EVA.',
+    );
+  });
+
+  it('KNOWN INTERMEDIARY, principal unresolved → explicit intermediary reason, never "New client"', () => {
+    const r = buildHeldReason({
+      senderDomain: 'connexus.co.uk',
+      intermediary: {
+        name: 'Connexus',
+        candidateNames: ['Performance Car Hire', 'SBL'],
+        resolvedProviderName: '',
+      },
+    });
+    expect(r.noteName).toBe('Held — intermediary sender');
+    expect(r.noteText).toBe(
+      'Intermediary sender (Connexus): the instructing provider could not be determined ' +
+        'from the instruction. Candidates: Performance Car Hire, SBL. ' +
+        'No Case/PO minted; pick the provider and confirm before EVA.',
+    );
+    expect(r.auditSummary).toBe('Intermediary sender routed to Held (principal unresolved)');
+    // The misframing this ticket removes must not reappear anywhere in the strings.
+    expect(r.noteText).not.toContain('New client');
+    expect(r.auditSummary).not.toContain('New client');
+  });
+
+  it('KNOWN INTERMEDIARY whose provider WAS resolved from the instructions does not claim "unresolved"', () => {
+    const r = buildHeldReason({
+      senderDomain: 'connexus.co.uk',
+      intermediary: {
+        name: 'Connexus',
+        candidateNames: ['Performance Car Hire', 'SBL'],
+        resolvedProviderName: 'Performance Car Hire',
+      },
+    });
+    expect(r.noteName).toBe('Held — intermediary sender');
+    expect(r.noteText).toBe(
+      'Intermediary sender (Connexus): the instructions identify Performance Car Hire as ' +
+        'the provider. No Case/PO minted; confirm the provider before EVA.',
+    );
+    expect(r.auditSummary).toBe(
+      'Intermediary sender routed to Held (provider identified from the instructions)',
+    );
+    expect(r.noteText).not.toContain('unresolved');
+    expect(r.noteText).not.toContain('New client');
+  });
+
+  it('intermediary with NO linked candidates yet omits the Candidates sentence (empty-N:N tolerant)', () => {
+    const r = buildHeldReason({
+      senderDomain: 'connexus.co.uk',
+      intermediary: { name: 'Connexus', candidateNames: [], resolvedProviderName: '' },
+    });
+    expect(r.noteText).toBe(
+      'Intermediary sender (Connexus): the instructing provider could not be determined ' +
+        'from the instruction. No Case/PO minted; pick the provider and confirm before EVA.',
+    );
+    expect(r.noteText).not.toContain('Candidates:');
+  });
+
+  it('a failed display-name lookup degrades to name-less wording (never throws, never New-client)', () => {
+    const r = buildHeldReason({
+      senderDomain: 'connexus.co.uk',
+      intermediary: { name: '', candidateNames: ['', '  '], resolvedProviderName: '' },
+    });
+    expect(r.noteName).toBe('Held — intermediary sender');
+    expect(r.noteText).toBe(
+      'Intermediary sender: the instructing provider could not be determined ' +
+        'from the instruction. No Case/PO minted; pick the provider and confirm before EVA.',
+    );
+    expect(r.auditSummary).toBe('Intermediary sender routed to Held (principal unresolved)');
   });
 });

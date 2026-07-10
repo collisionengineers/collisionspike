@@ -17,7 +17,7 @@ These are **reference-only for collisionspike** — each repo carries its own de
   renderer** for the suite's valuation reports + advert evidence packs (it de-duplicates three former
   renderers; Chromium does the rendering, host language is glue). WinUI GUI + headless engine-core.
 - **Valuation suite** — the `vehicle-valuation` skill + the **valuationbot** connector
-  (`connectors/valuation-adverts-connector`, search→adverts→`capture_advert_pages` PDFs) + the renderer,
+  (`active/connectors/valuation-adverts-connector`, search→adverts→`capture_advert_pages` PDFs) + the renderer,
   all joined by the `valuation/v1` JSON-Schema **contracts** package.
 - **dvla-dvsa-connector** + **mileagetool / RegLookup** — DVLA (VES) + DVSA (MOT history) lookups
   (OAuth2 client-credentials + X-API-Key). RegLookup is a standalone WinUI 3 tool; the mileage

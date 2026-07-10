@@ -24,7 +24,7 @@
     },
     {
       "id": "tkt023-original-reply",
-      "file": "docs/tickets/verify/TKT-023-follow-up-docs/evidence/original/Our ref 576299.eml",
+      "file": "docs/tickets/done/TKT-023-follow-up-docs/evidence/original/Our ref 576299.eml",
       "source": "ticket:TKT-023",
       "tracked": true,
       "context": {
@@ -39,7 +39,7 @@
     },
     {
       "id": "tkt023-outbound-request",
-      "file": "docs/tickets/verify/TKT-023-follow-up-docs/evidence/sent/RE Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)   575985.eml",
+      "file": "docs/tickets/done/TKT-023-follow-up-docs/evidence/sent/RE Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)   575985.eml",
       "source": "ticket:TKT-023",
       "tracked": true,
       "context": {
@@ -499,7 +499,7 @@
     },
     {
       "id": "tkt051-pch-connexus",
-      "file": "docs/tickets/verify/TKT-051-pch-connexus/Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)  577349.eml",
+      "file": "docs/tickets/done/TKT-051-pch-connexus/Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)  577349.eml",
       "source": "ticket:TKT-051",
       "tracked": true,
       "context": {
@@ -898,7 +898,7 @@
     },
     {
       "id": "tkt082-query-your-report",
-      "file": "docs/tickets/verify/TKT-082-misclass-query-as-new-work/evidence/sample-1/Client Mr Anthony Mohammed Cauchie __ Engineer Instruction - VRN GM23 KPZ.eml",
+      "file": "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-1/Client Mr Anthony Mohammed Cauchie __ Engineer Instruction - VRN GM23 KPZ.eml",
       "source": "ticket:TKT-082",
       "tracked": true,
       "context": {
@@ -913,7 +913,7 @@
     },
     {
       "id": "tkt082-query-reply-eref1",
-      "file": "docs/tickets/verify/TKT-082-misclass-query-as-new-work/evidence/sample-2/Re (EREF1) Mr Paul Tasker  accident date tba (Our Ref __46587_1, Registration NA68 FMU).eml",
+      "file": "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/Re (EREF1) Mr Paul Tasker  accident date tba (Our Ref __46587_1, Registration NA68 FMU).eml",
       "source": "ticket:TKT-082",
       "tracked": true,
       "context": {
@@ -928,7 +928,7 @@
     },
     {
       "id": "tkt082-caseupdate-reply-images",
-      "file": "docs/tickets/verify/TKT-082-misclass-query-as-new-work/evidence/sample-2/Re FW (EREF1) Mr Paul Tasker  accident date tba (Our Ref __46587_1, Registration NA68 FMU).eml",
+      "file": "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/Re FW (EREF1) Mr Paul Tasker  accident date tba (Our Ref __46587_1, Registration NA68 FMU).eml",
       "source": "ticket:TKT-082",
       "tracked": true,
       "context": {
@@ -1063,7 +1063,7 @@
     },
     {
       "id": "tkt093-forward-audatex-caseupdate",
-      "file": "docs/tickets/verify/TKT-093-auto-attach-matched-emails/evidence/FW RE Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)   577298.eml",
+      "file": "docs/tickets/done/TKT-093-auto-attach-matched-emails/evidence/FW RE Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)   577298.eml",
       "source": "ticket:TKT-093",
       "tracked": true,
       "context": {

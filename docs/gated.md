@@ -405,7 +405,7 @@ confirm there isn't one) and it gets added to the provider's domain field in Pos
 **PHA/Parkhouse principal code** so its insert can land too. *(In the decommissioned stack this was the
 Dataverse `cr1bd_knownemaildomains` column.)*
 
-> **QDOS domain — needed for audit-case resolution ([TKT-065](./tickets/verify/TKT-065-audit-provider-resolution/TKT-065-audit-provider-resolution.md)).**
+> **QDOS domain — needed for audit-case resolution ([TKT-065](./tickets/done/TKT-065-audit-provider-resolution/TKT-065-audit-provider-resolution.md)).**
 > **QDOS** has **no `known_email_domains`**, so a **direct QDOS audit email cannot domain-resolve** —
 > it only resolves when the instruction document content names QDOS. (PCH is already covered: D8 seeded
 > `pch-ltd.com`.) Send QDOS's real sending domain(s) and it gets seeded (idempotent `916`-style delta),
@@ -436,7 +436,7 @@ Dataverse `cr1bd_knownemaildomains` column.)*
 > "Mark report delivered" button and the Box report-PDF detector are live without it. (The EVA-poll
 > detector skeleton stays behind `EVA_API_ENABLED` with the rest of EVA REST — D1.)
 
-> **QCL Held-case backlog — staff item (2026-07-09, [TKT-099](./tickets/verify/TKT-099-qcl-case-po-generation/TKT-099-qcl-case-po-generation.md)).**
+> **QCL Held-case backlog — staff item (2026-07-09, [TKT-099](./tickets/done/TKT-099-qcl-case-po-generation/TKT-099-qcl-case-po-generation.md)).**
 > The 11 pre-fix complexreports/QCL cases sit Held with no Case/PO **by design** (the fix never
 > back-mints). Staff confirm each is genuinely QCL work, then mint via the case page (Set Case/PO)
 > or ask for a scripted batch mint.
@@ -667,7 +667,7 @@ immediate flip. The case-type pipeline is **acting**: detected audits write `cas
 standalone PCH/QDOS audits mint from the marker's own sequence (`A.PCH26xxx`…), QDOS dual
 "report + audit report" letters keep the standard number with case-type `audit`, and report-typed
 attachments persist as `engineer_report` evidence. **Remaining:** the
-[TKT-056](./tickets/verify/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md) step-6
+[TKT-056](./tickets/done/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md) step-6
 **live probe** — watch the next real pch-ltd.com / QDOS audit email land correctly (work provider =
 PCH/QDOS, marker Case/PO, `engineer_report` evidence). _(Original two-step item retained below for
 reference.)_

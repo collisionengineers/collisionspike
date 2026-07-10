@@ -17254,6 +17254,30 @@ import_functions.app.http("internalDedupContext", {
     };
   })
 });
+function buildHeldReason(input) {
+  const { senderDomain: domain, intermediary } = input;
+  if (!intermediary) {
+    return {
+      noteName: "New client",
+      noteText: `New client \u2014 no work provider matched for sender${domain ? ` @${domain}` : ""}. No Case/PO minted; set up the work provider and confirm before EVA.`,
+      auditSummary: "New client routed to Held (no work provider matched)"
+    };
+  }
+  const who = intermediary.name.trim() ? `Intermediary sender (${intermediary.name.trim()})` : "Intermediary sender";
+  if (intermediary.resolvedProviderName.trim()) {
+    return {
+      noteName: "Held \u2014 intermediary sender",
+      noteText: `${who}: the instructions identify ${intermediary.resolvedProviderName.trim()} as the provider. No Case/PO minted; confirm the provider before EVA.`,
+      auditSummary: "Intermediary sender routed to Held (provider identified from the instructions)"
+    };
+  }
+  const candidates = intermediary.candidateNames.map((n) => n.trim()).filter(Boolean);
+  return {
+    noteName: "Held \u2014 intermediary sender",
+    noteText: `${who}: the instructing provider could not be determined from the instruction.` + (candidates.length ? ` Candidates: ${candidates.join(", ")}.` : "") + ` No Case/PO minted; pick the provider and confirm before EVA.`,
+    auditSummary: "Intermediary sender routed to Held (principal unresolved)"
+  };
+}
 import_functions.app.http("internalCasesResolve", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -17473,22 +17497,51 @@ import_functions.app.http("internalCasesResolve", {
     }
     if (created.newClient) {
       const domain = senderDomain(inbound.senderAddress ?? "");
+      let heldIntermediary = null;
+      if (intermediary) {
+        heldIntermediary = { name: "", candidateNames: [], resolvedProviderName: "" };
+        try {
+          const src = await query(
+            "SELECT name FROM image_source WHERE id = $1",
+            [intermediary.imageSourceId]
+          );
+          heldIntermediary.name = String(src[0]?.name ?? "").trim();
+          if (intermediary.candidateProviderIds.length > 0) {
+            const wps = await query(
+              "SELECT display_name FROM work_provider WHERE id = ANY($1::uuid[]) ORDER BY display_name",
+              [intermediary.candidateProviderIds]
+            );
+            heldIntermediary.candidateNames = wps.map((r) => String(r.display_name ?? "").trim()).filter(Boolean);
+          }
+          const resolved = await query(
+            `SELECT wp.display_name FROM case_ c
+                 JOIN work_provider wp ON wp.id = c.work_provider_id
+                WHERE c.id = $1`,
+            [newCaseId]
+          );
+          heldIntermediary.resolvedProviderName = String(resolved[0]?.display_name ?? "").trim();
+        } catch {
+        }
+      }
+      const reason = buildHeldReason({ senderDomain: domain, intermediary: heldIntermediary });
       await query(
         `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
-        [
-          "New client",
-          newCaseId,
-          "Email intake (auto)",
-          `New client \u2014 no work provider matched for sender${domain ? ` @${domain}` : ""}. No Case/PO minted; set up the work provider and confirm before EVA.`
-        ]
+        [reason.noteName, newCaseId, "Email intake (auto)", reason.noteText]
       ).catch(() => {
       });
       await writeAudit({
         action: AUDIT_ACTION.inbound_routed,
         caseId: newCaseId,
         severity: "warning",
-        summary: "New client routed to Held (no work provider matched)",
-        after: { newClient: true, onHold: true, senderDomain: domain }
+        summary: reason.auditSummary,
+        after: intermediary ? {
+          intermediary: true,
+          onHold: true,
+          senderDomain: domain,
+          imageSourceId: intermediary.imageSourceId,
+          candidateProviderIds: intermediary.candidateProviderIds,
+          ...heldIntermediary?.resolvedProviderName ? { resolvedProvider: heldIntermediary.resolvedProviderName } : {}
+        } : { newClient: true, onHold: true, senderDomain: domain }
       });
     }
     return {

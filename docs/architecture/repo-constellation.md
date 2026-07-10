@@ -31,7 +31,7 @@ live registry is [live-environment.md](./live-environment.md)).
 | **collisionplugin** _(dissolved 2026-06-23 → `connectors/` + `skills/`)_ | Was a Claude plugin + **MCP enrichment connectors** on Cloud Run, behind an OAuth gateway *(prior art — M1 uses direct Entra auth to DVSA/DVLA, no gateway hop)* | Node/TS + Python (FastMCP), Cloud Run `europe-west2` | **Prior-art / fallback** (M1 enrichment goes direct; valuation wrapper may revisit later) |
 | **cedocumentmapper** | Legacy v1 document parser — 4,244-line Tkinter monolith, no tests/VCS | Python + Tkinter + Tesseract | Behaviour reference only |
 | **cedocumentmapper_v2.0** | Contract-first parser engine; **authoring source of truth** for the engine that is **vendored + live** in this repo | Python library + CLI | **Engine authoring repo** — edit here, then re-vendor into `functions/parser/` |
-| collisionpdf, collisionautomation, archive/dvlaclaudeconnector, archive/valuationbot(*) | Parser-first FastAPI service; React/Vite UI prototype; DVLA connector (now `connectors/dvla-dvsa-connector`); valuation prototypes (now `connectors/valuation-adverts-connector`) | mixed | Secondary references |
+| collisionpdf, collisionautomation, archive/dvlaclaudeconnector, archive/valuationbot(*) | Parser-first FastAPI service; React/Vite UI prototype; DVLA connector (now `active/connectors/dvla-dvsa-connector`); valuation prototypes (now `active/connectors/valuation-adverts-connector`) | mixed | Secondary references |
 
 ## Reusable ideas / prior art (adapt — not authoritative)
 
