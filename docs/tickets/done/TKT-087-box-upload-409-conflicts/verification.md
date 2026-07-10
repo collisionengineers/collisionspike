@@ -1,9 +1,29 @@
 # Verification — TKT-087: Box report 409 upload conflicts - investigate duplicate archive attempts
 
 ## Verdict
-PENDING — the forensic verdict is REACHED (see below) and the fix is built + offline-tested;
-awaiting deploy, the `ae1c0c84` re-archive, the Postgres evidence-row linkage proof, and the
-post-fix live window.
+VERIFIED-LIVE
+
+Verified by: ticket-verifier dispatch, 10-07-26. Key findings of the certification pass:
+- **Line 1 (18/18 attribution):** independently corroborated in App Insights retention — the
+  2026-07-03 window shows exactly 17 Box 409s + 17 old blind-reuse traces; the 18th is the ae1c0c84
+  worker-death anomaly exactly as the table states.
+- **Line 2 (409-as-already-exists + tests):** 30 box-webhook tests + 7 evidence-names tests re-run
+  green; the old blind-reuse trace string is EXTINCT from 2026-07-09; post-fix lanes observed live
+  (07-09: 4 content-match reuses + 4 sha1-mismatch disambiguated re-uploads; 07-10: 1+1), all 10
+  joined facade requests resultCode 200 (no 409 ever surfaced to a caller); 409 rate collapsed
+  8→2/day vs 15–48/day pre-fix. Box-side product verified by keyed read-only listing: per-message
+  `message-<8hex>.eml`/`email-body-<8hex>.txt` names and the `-<sha1:8>` disambiguated .DOC trio.
+- **Line 3 (written verdict):** stands below verbatim; the large-payload 502 casualty spun off to
+  TKT-142 (now done, VERIFIED-LIVE — ae1c0c84 archive repaired 4/4, linkage proven by its W2 SQL).
+- **Queued for the next data pass (formality, with reopen conditions):** Q-087-1 mis-link census
+  (re-derives the BOARD's "191" figure, which has no repo source artifact); Q-087-2 fix-holding
+  check (reopen if post-07-09 shared box_file_ids appear beyond deliberate TKT-133 merge links);
+  Q-087-3 per-message rows distinctness; Q-087-4 attribution-case listing → drives the
+  **historical-mis-link backfill decision, still to record** (the pre-fix mis-link class is
+  historical data debt; a re-archive self-heals a case when it re-runs — observed live on
+  QDOS26029).
+- Watch-item (outside this ticket, already logged under TKT-142): sporadic per-file upload 502s
+  (1 on 07-09, 5 on 07-10), warn-level per-file skips, no archive stranded 0/N.
 
 ## Investigation record (2026-07-09, read-only — azure-diagnostician dispatch)
 

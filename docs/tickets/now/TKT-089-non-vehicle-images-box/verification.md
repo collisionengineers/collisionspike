@@ -1,8 +1,39 @@
 # Verification — TKT-089: Confirm non-vehicle images (signatures/logos) are no longer stored on Box
 
 ## Verdict
-PARTIAL — the PDF-lane suppression is BUILT + DEPLOYED (offline-proven); the live audit + backfill + proof
-remain. Moved to `verify`.
+FAILED (live, acceptance line 3) — reopened to `now` 2026-07-10 with a dated follow-up
+([evidence/reopen-followup-100726.md](./evidence/reopen-followup-100726.md)).
+
+Verified by: ticket-verifier dispatch, 10-07-26. Lines 1, 2 and 4 individually PASS; line 3 (the
+PDF-lane sample re-parse) FAILS a direct live probe:
+
+- **The decisive probe:** compute-only POST of two real retained `LtrtoEngineerIn.pdf` samples to the
+  live /extract-images (engine-v2.13) → HTTP 200, **count=2 both times — the QDOS Assistance logo
+  (575×174, 10,720 B) and the MGAA badge (204×204, ~29 KB) still extract**, visually identical to
+  the ticket's own screenshot and byte-matched to the audit's ~40-case recurring-suspect class. Both
+  evade the deployed heuristics by tiny margins (aspect 3.305 < 3.5; area 41,616 vs the 40,000 floor,
+  +4% and square so the banner rung can't apply). Fixtures pass only because they test shapes the
+  thresholds catch (900×180, 80×40). Recall half is fine (synthetic 1600×1200 photo kept; W2 Q5:
+  744 kept / 671 mirrored).
+- **Compounding storage gap:** extractImages persists every parser-returned image, and the Box mirror
+  selection (internal.ts:2727-2736) has NO excluded/role filter — classifier-stamped non-vehicle
+  crops still mirror into the Box case folder. The classifier lanes mitigate the evidence view + EVA
+  flow, not Box storage.
+- **What passed:** line 1 — the written audit + lane split (881 email / 4,129 PDF rows; 165 suspects)
+  and the executed cleanup (163/163, 107 audits, residual 0, live-checked 07-09); line 2 — the email
+  lane forward window (0 name-suspects in Box across 1,160 new rows; floor acting, 62 skips today);
+  line 4 — the backfill decision recorded + executed (evidence-row-only; Box copies retained per
+  ADR-0012/0017).
+- **Queued SQL** (quantifies the forward-window PDF-lane leak; run at the next data pass): the
+  forward-window extraction-crop query in the verifier block — expect QDOS-logo (~10.7KB png) /
+  MGAA-badge (~29KB jpeg) rows present, most with in_box=true.
+- **How to re-verify after the fix:** re-run the probe script
+  (scratchpad tkt089-real-sample-probe.py pattern, function key via az functionapp keys list) on the
+  two named samples — fixed state = count 0 or excluded-and-not-mirrored; then the queued SQL.
+
+## Prior verdict (2026-07-09)
+PARTIAL — the PDF-lane suppression BUILT + DEPLOYED (offline-proven); the live audit + backfill +
+proof remained. Superseded by the FAILED probe above.
 
 ## Evidence (what is proven)
 - **Offline test green:** `functions/parser/tests/test_extract_images.py:161`

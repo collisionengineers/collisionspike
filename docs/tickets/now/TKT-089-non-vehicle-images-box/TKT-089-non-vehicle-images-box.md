@@ -1,11 +1,11 @@
 ---
 id: TKT-089
 title: Confirm non-vehicle images (signatures/logos) are no longer captured or stored on Box
-status: verify
+status: now
 priority: P2
 area: evidence
 tickets-it-relates-to: [TKT-047, TKT-002, TKT-090]
-research-link: docs/tickets/verify/TKT-089-non-vehicle-images-box/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-089-non-vehicle-images-box/evidence/operator-note.md
 ---
 
 # Confirm non-vehicle images (signatures/logos) are no longer captured or stored on Box
@@ -27,7 +27,7 @@ photo-selection flow.
 - `evidence/operator-note.md` — verbatim drop-note.
 - `evidence/letterhead-logos-as-evidence.png` — PDF-extracted letterhead/logo images shown as
   case evidence (same case as TKT-090's filename bug — the two share a source document).
-- [TKT-047](../TKT-047-email-sigs-box/TKT-047-email-sigs-box.md) — the email-attachment raster
+- [TKT-047](../../verify/TKT-047-email-sigs-box/TKT-047-email-sigs-box.md) — the email-attachment raster
   floor, deployed but awaiting live proof.
 - PDF image extraction: TKT-002 lane (parser/vendored engine, ADR-0018 dual-home).
 

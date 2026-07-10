@@ -1,14 +1,41 @@
 # Verification — TKT-141: merged twins exclusion
 
 ## Verdict
-PENDING — reopen fix landed 2026-07-10 (retired-lock deployed to `cespk-api-dev` +
-audited re-retire applied; see [changes.md](./changes.md) §2026-07-10 and the W2 outputs
-below). A fresh verifier run certifies; re-check steps in "How to re-verify" below —
-post-fix expectations: PK20FWT twin badge 1 (not 3), the three retired rows render
-"Linked to instruction", absent from needs-action/Not-ready, still openable directly.
+VERIFIED-LIVE
 
-### Prior verdict (2026-07-10 sweep): FAILED (live) — reopened to `now` with a dated follow-up
-([evidence/reopen-followup-100726.md](./evidence/reopen-followup-100726.md)).
+Verified by: fresh ticket-verifier dispatch, 10-07-26, after the same-day reopen fix (retired-lock +
+audited re-retire). Transcribed findings:
+
+- **Acceptance 1 (badge=1): VERIFIED-LIVE.** Dashboard "Check the flagged details — 145" fully
+  expanded contains exactly ONE PK20FWT row with NO same-VRM chip; click-through lands on survivor
+  PCH26009; Not-ready filtered PK20FWT → "1 of 201". Mirror YH13ZSN: one flagged row, survivor only.
+  **No over-suppression:** genuine open twins still chip (YG26OSF "3 · same VRM", YH21HZL "2").
+  Screenshots (in-session ids): ss_2953xd55h, ss_3954em7py, ss_10661hs10, ss_7880lv19a.
+- **Acceptance 2 (retired absent from counts, openable): VERIFIED-LIVE.** None of the three retirees
+  appears in flagged/Not-ready (YH13ZSN filter → "0 of 201"); stage count 201 == queue header ==
+  sidebar badge; /case/cd9092ce… and /case/d1d862bd… open directly rendering "Linked to
+  instruction"; search shows the retirees as Linked-to-instruction beside the survivors.
+  Handler-plain strings throughout.
+- **Acceptance 3 (single-sourced count contract): VERIFIED** — the reopen fix adds no second count
+  source: the retired-lock lives in the domain guard (case-status.ts:239, after the terminal-lock
+  at :230) and both API recompute seams only pass the marker (cases.ts:193, internal.ts:263).
+- **Acceptance 4 (verified live): YES** — observed on the deployed SPA against live data ~20 min
+  after the 16:20:15Z re-retire with intake churn live.
+- **Lock deployment + durability:** bundle carries the rung order (terminal → retired-lock) + both
+  seam wirings; api 96 fns matches registry; domain suite 40/40 incl. the 7-test merge-retired-lock
+  suite; the three delta:2026-07-10-tkt141-re-retire-merged audits are the NEWEST status events in
+  the system — nothing touched the cases through ~20 min of churn. Durability caveat (not a
+  failure): no read-only path can trigger a recompute, so the lock's true live exercise is the next
+  organic write touch; queued SQL re-checks cheaply (Q3 strict-jsonb re-run expect 0; the 3
+  casualties at 100000006; 0 status audits after 16:20:15Z).
+- Notes: search "N cases share registration" counts all findable rows incl. retired — by design
+  (prior adjudication stands); the w2c140b firewall rule flagged in changes.md is gone (only
+  AllowAzureServices remains); az functionapp show state returns null on this CLI (use function
+  list / ARM).
+
+### Prior verdict (2026-07-10 morning sweep): FAILED (live) — reopened with a dated follow-up
+([evidence/reopen-followup-100726.md](./evidence/reopen-followup-100726.md)). Root cause: TKT-131's
+re-evaluate un-retired the TKT-092 merge casualties (no retired-lock existed). Fixed same day.
 
 Verified by: ticket-verifier dispatch, 10-07-26 (verdict block transcribed 1:1 below). The exclusion
 CODE is correct, deployed, and offline-proven; the live DATA regressed — the status recompute

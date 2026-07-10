@@ -9,4 +9,4 @@ with a status badge on result rows. This makes global search the primary way (be
 to reach a delivered case.
 
 > This is Phase D of the case-done plan. The full A–E plan (with code references) is preserved in the
-> anchor ticket [TKT-094/evidence/PLAN-case-done-lifecycle.md](../../TKT-094-case-done-status-model/evidence/PLAN-case-done-lifecycle.md).
+> anchor ticket [TKT-094/evidence/PLAN-case-done-lifecycle.md](../../../verify/TKT-094-case-done-status-model/evidence/PLAN-case-done-lifecycle.md).
