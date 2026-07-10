@@ -5,6 +5,7 @@ from cedocumentmapper_v2.domain.models import (
     ProviderMatch,
     FieldKey,
     FieldExtraction,
+    EVA_EXPORT_FIELD_ORDER,
     FIELD_ORDER,
     FIELD_LABELS,
 )
@@ -52,16 +53,21 @@ def test_eva_json_exporter():
     # after Claimant Name), so pin it relative to length rather than a bare
     # literal.
     assert keys[-1] == "Mileage Unit"
-    assert len(keys) == len(FIELD_ORDER)
+    # The export enumerates EVA_EXPORT_FIELD_ORDER — NOT FIELD_ORDER, which
+    # since TKT-147 also carries the envelope-only ``vin`` that must never
+    # reach the EVA payload.
+    assert len(keys) == len(EVA_EXPORT_FIELD_ORDER)
 
 
 def test_eva_json_exporter_accepts_every_field_in_field_order():
-    """``export()`` ALWAYS validates the FIELD_ORDER-built dict against the bundled
-    ``resources/eva-json.schema.json`` (``additionalProperties: false``). If a key
-    is ever added to ``FIELD_ORDER`` without a matching schema property, the bundled
-    schema rejects it and ``export()`` raises a ValidationError on every call. This
-    test populates EVERY FIELD_ORDER key and asserts ``export()`` round-trips, so the
-    schema can never silently fall out of sync with the field set again.
+    """``export()`` ALWAYS validates the EVA_EXPORT_FIELD_ORDER-built dict against
+    the bundled ``resources/eva-json.schema.json`` (``additionalProperties: false``).
+    If a key is ever added to ``EVA_EXPORT_FIELD_ORDER`` without a matching schema
+    property, the bundled schema rejects it and ``export()`` raises a
+    ValidationError on every call. This test populates EVERY FieldKey (including
+    envelope-only ones like ``vin`` — TKT-147) and asserts ``export()``
+    round-trips to exactly the EVA label set, so the schema can never silently
+    fall out of sync with the exported field set again.
 
     (Recovered from the stranded ``feat/audit-case-type-detection`` branch
     (504c3a3) as part of upstreaming ROADMAP-B2 claimant-contact extraction --
@@ -82,9 +88,33 @@ def test_eva_json_exporter_accepts_every_field_in_field_order():
     exported = EVAJsonExporter().export(record)  # must not raise
     data = json.loads(exported)
 
-    # Every FIELD_ORDER label appears, in order, and nothing extra leaks in.
-    expected_labels = [FIELD_LABELS[key] for key in FIELD_ORDER]
+    # Every EVA-contract label appears, in order, and nothing extra leaks in —
+    # even though the record populates EVERY FieldKey, including the
+    # envelope-only ``vin`` (TKT-147), which must stay out of the export.
+    expected_labels = [FIELD_LABELS[key] for key in EVA_EXPORT_FIELD_ORDER]
     assert list(data.keys()) == expected_labels
+    assert "VIN" not in data
+
+
+def test_eva_json_export_never_carries_the_vin_envelope_field():
+    """collisionspike TKT-147: ``vin`` is an ENVELOPE-ONLY field — extracted
+    (Tractable) and surfaced on the record/parse envelope, but the settled EVA
+    JSON contract has no VIN slot (``additionalProperties: false``), so the
+    export must omit it entirely even when a real VIN was extracted."""
+    fields = {
+        key: FieldExtraction(
+            value="SBL" if key is FieldKey.WORK_PROVIDER else _sample_value(key)
+        )
+        for key in EVA_EXPORT_FIELD_ORDER
+    }
+    fields[FieldKey.VIN] = FieldExtraction(value="WVGZZZ1TZFW030347")
+    record = ExtractedRecord(
+        provider=ProviderMatch(provider_id="sbl", provider_name="SBL", confidence=1.0),
+        fields=fields,
+    )
+    data = json.loads(EVAJsonExporter().export(record))
+    assert "VIN" not in data
+    assert list(data.keys()) == [FIELD_LABELS[key] for key in EVA_EXPORT_FIELD_ORDER]
 
 
 def _sample_value(key: FieldKey) -> str:

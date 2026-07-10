@@ -5,7 +5,8 @@
   "expected_values": {
     "work_provider": "",
     "vrm": "YP64YRW",
-    "vehicle_model": "Touran",
+    "vehicle_model": "Volkswagen Touran",
+    "vin": "WVGZZZ1TZFW030347",
     "incident_date": "06/07/2026",
     "mileage": "143875",
     "reference": "",
@@ -15,5 +16,5 @@
     "inspection_address": ""
   },
   "allowed_blank_fields": [],
-  "notes": "collisionspike TKT-102: the real Tractable damage-capture summary PDF (Vehicle Information block, label-on-one-line / value-on-the-next). Pins: vrm from 'Registration Number' (normalized uppercase); vehicle_model from 'Model' (model only - the two-column layout interleaves Repair Summary rows into the plain text, so a Producer||Type between_labels capture is junk; Producer/make is a recorded remainder); incident_date from the same-line 'Accident Date:' (ctime-style 'Mon Jul 06 2026' -> weekday-stripped by normalize_date); mileage comma-grouped. CRITICAL empties: reference stays EMPTY (the Tractable 'Case ID' UUID and the AI-quote money figures must never mint a case_ref - fallback suppressed), work_provider stays EMPTY (Tractable is an image-capture service CE commissions, never a work provider), claimant_* and inspection_address stay EMPTY (the PDF header carries CE's OWN desk@ address - the claimant_email fallback would mint it). VIN has no engine field slot (recorded remainder, schema NOT extended)."
+  "notes": "collisionspike TKT-102 + TKT-147: the real Tractable damage-capture summary PDF (Vehicle Information block, label-on-one-line / value-on-the-next). Pins: vrm from 'Registration Number' (normalized uppercase); vehicle_model from the TKT-147 two_label_join 'Producer'+'Model' capture ('Volkswagen'+'Touran' -> 'Volkswagen Touran' - the two-column layout interleaves Repair Summary rows into the plain text, so no single-label capture sees both halves and a between_labels capture reads the interleaved junk; pre-TKT-147 this pinned model-only 'Touran'); vin from the 'VIN' label (the TKT-147 envelope-only field slot - PRESENT on this sample; TRACTABLE_02 pins the absent case); incident_date from the same-line 'Accident Date:' (ctime-style 'Mon Jul 06 2026' -> weekday-stripped by normalize_date); mileage comma-grouped. CRITICAL empties: reference stays EMPTY (the Tractable 'Case ID' UUID and the AI-quote money figures must never mint a case_ref - fallback suppressed), work_provider stays EMPTY (Tractable is an image-capture service CE commissions, never a work provider), claimant_* and inspection_address stay EMPTY (the PDF header carries CE's OWN desk@ address - the claimant_email fallback would mint it)."
 }

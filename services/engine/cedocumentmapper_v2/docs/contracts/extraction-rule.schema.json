@@ -16,6 +16,7 @@
         "fixed_line",
         "fixed_line_label",
         "label_same_or_next_line",
+        "two_label_join",
         "line_offset",
         "regex",
         "presence",
@@ -29,6 +30,20 @@
     "labels": { "type": "array", "items": { "type": "string" } },
     "start_label": { "type": "string" },
     "end_label": { "type": "string" },
+    "label_pairs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "start_label": { "type": "string" },
+          "end_label": { "type": "string" }
+        }
+      }
+    },
+    "first_labels": { "type": "array", "items": { "type": "string" } },
+    "second_labels": { "type": "array", "items": { "type": "string" } },
+    "separator": { "type": "string", "default": " " },
     "line_number": { "type": "integer", "minimum": 1 },
     "line_start": { "type": "integer", "minimum": 1 },
     "line_end": { "type": "integer", "minimum": 1 },

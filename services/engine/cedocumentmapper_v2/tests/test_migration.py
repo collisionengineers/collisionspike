@@ -109,3 +109,57 @@ def test_migration_report_shape_and_unknown_preservation():
     # Unknown rule kind is migrated best-effort and keeps the original method.
     assert prov["field_rules"]["vehicle_model"]["kind"] == "label_same_line"
     assert prov["field_rules"]["vehicle_model"]["v1_method"] == "magic_lookup"
+
+
+def test_migration_two_label_join_method():
+    """collisionspike TKT-147: the v1 ``two_label_join`` method (join the VALUES
+    of two separately-labelled fields -- the Tractable "Producer"+"Model" make
+    +model capture) migrates to the ``two_label_join`` kind with first/second
+    label lists. Distinct from the v1 ``two_labels`` method, which captures the
+    text BETWEEN a start and an end label."""
+    v1 = {
+        "providers": [
+            {
+                "name": "Two Label Join Co",
+                "field_rules": {
+                    "vehicle_model": {
+                        "method": "two_label_join",
+                        "config": "Producer||Model",
+                    },
+                    "vin": {"method": "single_label", "config": "VIN"},
+                },
+            }
+        ]
+    }
+    v2 = migrate_providers_config(v1)
+    rules = v2["providers"][0]["field_rules"]
+    model_rule = rules["vehicle_model"]
+    assert model_rule["kind"] == "two_label_join"
+    assert model_rule["first_labels"] == ["Producer"]
+    assert model_rule["second_labels"] == ["Model"]
+    # vin is a first-class FieldKey (TKT-147), so its rule migrates normally
+    # (not preserved-as-unknown).
+    assert rules["vin"]["kind"] == "label_same_or_next_line"
+    assert rules["vin"]["labels"] == ["VIN"]
+
+
+def test_migration_two_label_join_comma_alternates():
+    """Each side of the ``First||Second`` config may carry comma-separated
+    alternate labels."""
+    v1 = {
+        "providers": [
+            {
+                "name": "Alternates Co",
+                "field_rules": {
+                    "vehicle_model": {
+                        "method": "two_label_join",
+                        "config": "Producer, Manufacturer||Model, Type",
+                    }
+                },
+            }
+        ]
+    }
+    v2 = migrate_providers_config(v1)
+    rule = v2["providers"][0]["field_rules"]["vehicle_model"]
+    assert rule["first_labels"] == ["Producer", "Manufacturer"]
+    assert rule["second_labels"] == ["Model", "Type"]

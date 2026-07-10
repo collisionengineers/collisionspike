@@ -18,6 +18,7 @@ from cedocumentmapper_v2.domain.models import (
 )
 from cedocumentmapper_v2.normalization import (
     normalize_vrm,
+    normalize_vin,
     normalize_mileage,
     normalize_date,
     normalize_vat_status,
@@ -679,6 +680,15 @@ class RuleEngine:
             norm_val = ext.value
             if field_key == FieldKey.VRM:
                 norm_val = normalize_vrm(norm_val)
+            elif field_key == FieldKey.VIN:
+                # A labelled placeholder cell ("-" — the Tractable empty-cell
+                # convention) normalizes to EMPTY: a VIN the document does not
+                # carry is absent, not a value (collisionspike TKT-147). The
+                # fallback normalization sites above/below deliberately carry NO
+                # VIN branch — _fallback_field returns empty for VIN by design
+                # (no document-wide sniff), so this is the only site the field
+                # can reach with a value.
+                norm_val = normalize_vin(norm_val)
             elif field_key == FieldKey.MILEAGE:
                 norm_val = normalize_mileage(norm_val)
             elif field_key in {FieldKey.INCIDENT_DATE, FieldKey.INSTRUCTION_DATE, FieldKey.INSPECTION_DATE}:
@@ -840,6 +850,8 @@ class RuleEngine:
                 return self._extract_label_next_line(flat_lines, rule_config, rule_id)
             elif kind == "label_same_or_next_line":
                 return self._extract_label_same_or_next_line(flat_lines, rule_config, rule_id)
+            elif kind == "two_label_join":
+                return self._extract_two_label_join(flat_lines, rule_config, rule_id)
             elif kind == "between_labels":
                 return self._extract_between_labels(flat_lines, document.plain_text, rule_config, rule_id)
             elif kind == "fixed_line":
@@ -975,6 +987,61 @@ class RuleEngine:
         if same_line.value:
             return same_line
         return self._extract_label_next_line(lines, cfg, rule_id)
+
+    # Bare placeholder tokens a labelled table cell prints instead of a value
+    # (the Tractable Vehicle Information rows use a lone "-" — collisionspike
+    # TKT-147). A two_label_join part carrying only a placeholder is ABSENT, so
+    # it can never pollute the joined value ("- Touran").
+    _JOIN_PART_PLACEHOLDERS = frozenset({"-", "–", "—"})
+
+    def _extract_two_label_join(self, lines: list[DocumentLine], cfg: dict[str, Any], rule_id: str) -> FieldExtraction:
+        """Join the values of TWO separately-labelled fields into one value.
+
+        Collisionspike TKT-147: the Tractable damage-capture PDF labels the
+        vehicle make ("Producer") and model ("Model") as two SEPARATE
+        label/value pairs, and its two-column layout interleaves Repair Summary
+        rows between them in the extracted line stream — a single-label capture
+        sees only one half, and a between_labels capture reads the interleaved
+        junk. Each part is captured independently with the existing
+        label_same_or_next_line machinery (``first_labels`` / ``second_labels``
+        are each an ordered list of alternate labels), a part whose value is a
+        bare placeholder dash reads as absent, and the non-empty parts are
+        joined with ``separator`` (default single space):
+        "Producer"→"Volkswagen" + "Model"→"Touran" ⇒ "Volkswagen Touran".
+        One absent part degrades to the other alone; both absent ⇒ a clean
+        empty miss. Confidence is the MINIMUM of the joined parts' confidences
+        (conservative); the source span is the first joined part's.
+        """
+        separator = str(cfg.get("separator", " "))
+        parts: list[str] = []
+        confidences: list[float] = []
+        span: SourceSpan | None = None
+        for labels_key in ("first_labels", "second_labels"):
+            labels = cfg.get(labels_key, [])
+            if not labels:
+                continue
+            part = self._extract_label_same_or_next_line(
+                lines, {"labels": labels}, rule_id
+            )
+            value = part.value.strip()
+            if value in self._JOIN_PART_PLACEHOLDERS:
+                value = ""
+            if not value:
+                continue
+            parts.append(value)
+            confidences.append(part.confidence if part.confidence is not None else 0.0)
+            if span is None:
+                span = part.source_span
+        val = clean_val(separator.join(parts))
+        if not val:
+            return FieldExtraction(value="", rule_id=rule_id)
+        return FieldExtraction(
+            value=val,
+            raw_value=val,
+            rule_id=rule_id,
+            confidence=min(confidences) if confidences else 0.0,
+            source_span=span,
+        )
 
     def _extract_between_labels(self, lines: list[DocumentLine], plain_text: str, cfg: dict[str, Any], rule_id: str) -> FieldExtraction:
         label_pairs: list[tuple[str, str]] = []

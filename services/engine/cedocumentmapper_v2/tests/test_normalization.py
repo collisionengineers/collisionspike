@@ -1,6 +1,7 @@
 from cedocumentmapper_v2.domain.models import FieldKey
 from cedocumentmapper_v2.normalization import (
     normalize_vrm,
+    normalize_vin,
     normalize_mileage,
     normalize_date,
     normalize_vat_status,
@@ -102,3 +103,22 @@ def test_normalize_date_strips_leading_weekday():
     assert normalize_date("wed 21 Apr 2026") == "21/04/2026"
     # A MONTH word head must not be stripped ("May" is not a weekday here).
     assert normalize_date("May 06 2026") == "06/05/2026"
+
+
+def test_normalize_vin():
+    """collisionspike TKT-147: a VIN strips whitespace and uppercases; a bare
+    placeholder cell ("-" -- the Tractable Vehicle Information empty-cell
+    convention) normalizes to EMPTY (absence is not an error, never a junk
+    value); no 17-char hard rule (older vehicles carry shorter chassis
+    numbers)."""
+    assert normalize_vin("WVGZZZ1TZFW030347") == "WVGZZZ1TZFW030347"
+    assert normalize_vin("  wvgzzz1tzfw030347 ") == "WVGZZZ1TZFW030347"
+    assert normalize_vin("WVG ZZZ1T ZFW030347") == "WVGZZZ1TZFW030347"
+    # Placeholder tokens read as ABSENT.
+    assert normalize_vin("-") == ""
+    assert normalize_vin("–") == ""
+    assert normalize_vin("N/A") == ""
+    assert normalize_vin("na") == ""
+    assert normalize_vin("") == ""
+    # A shorter (pre-1981) chassis number survives untouched.
+    assert normalize_vin("A123456") == "A123456"

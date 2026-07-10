@@ -1855,8 +1855,12 @@
           "config": "Registration Number"
         },
         "vehicle_model": {
+          "method": "two_label_join",
+          "config": "Producer||Model"
+        },
+        "vin": {
           "method": "single_label",
-          "config": "Model"
+          "config": "VIN"
         },
         "claimant_name": {
           "method": "none",
@@ -1909,6 +1913,7 @@
       },
       "suppress_fallback_fields": [
         "work_provider",
+        "vin",
         "claimant_name",
         "claimant_telephone",
         "claimant_email",

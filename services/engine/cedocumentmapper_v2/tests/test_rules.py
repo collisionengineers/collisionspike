@@ -646,3 +646,137 @@ def test_inspection_address_canonical_value_passes_eva_schema():
     # export() validates against the EVA JSON schema and raises on failure.
     exported = json.loads(EVAJsonExporter().export(record))
     assert exported["Inspection Address"] == CANONICAL_IMAGE_BASED
+
+
+# --------------------------------------------------------------------------- #
+# two_label_join (collisionspike TKT-147 -- the Tractable make+model capture)
+# --------------------------------------------------------------------------- #
+
+
+def _tractable_vehicle_info_lines(
+    producer: str = "Volkswagen", model: str = "Touran"
+) -> list[DocumentLine]:
+    """The real Tractable Vehicle Information line shape: label on one line,
+    value on the next, with Repair Summary rows INTERLEAVED between the pairs
+    (the two-column layout flattens this way in the extracted line stream)."""
+    texts = [
+        "Vehicle Information",
+        "Repair Summary",
+        "Producer",
+        producer,
+        "Remove & Install",
+        "0.7 hours @ £65.00/hour",
+        "Model",
+        model,
+        "Panel Repair Hours",
+        "1.0 hours @ £65.00/hour",
+    ]
+    return [
+        DocumentLine(text=t, page_index=0, line_index=i) for i, t in enumerate(texts)
+    ]
+
+
+_TWO_LABEL_JOIN_RULE = {
+    "id": "tractable_vehicle_model",
+    "kind": "two_label_join",
+    "first_labels": ["Producer"],
+    "second_labels": ["Model"],
+}
+
+
+def test_rule_two_label_join_joins_make_and_model_across_interleaved_rows():
+    doc = _doc(_tractable_vehicle_info_lines())
+    extracted = RuleEngine().extract_field(doc, FieldKey.VEHICLE_MODEL, _TWO_LABEL_JOIN_RULE)
+    assert extracted.value == "Volkswagen Touran"
+    assert extracted.confidence == 1.0
+    # Source span anchors on the FIRST joined part's value line (the make).
+    assert extracted.source_span is not None
+    assert extracted.source_span.line_index == 3
+
+
+def test_rule_two_label_join_placeholder_part_reads_as_absent():
+    """A part whose captured value is the bare Tractable placeholder dash is
+    ABSENT: the join degrades to the other part alone, never '- Touran'."""
+    doc = _doc(_tractable_vehicle_info_lines(producer="-"))
+    extracted = RuleEngine().extract_field(doc, FieldKey.VEHICLE_MODEL, _TWO_LABEL_JOIN_RULE)
+    assert extracted.value == "Touran"
+
+
+def test_rule_two_label_join_missing_first_part_degrades_to_second():
+    lines = [
+        DocumentLine(text="Model", page_index=0, line_index=0),
+        DocumentLine(text="Touran", page_index=0, line_index=1),
+    ]
+    extracted = RuleEngine().extract_field(_doc(lines), FieldKey.VEHICLE_MODEL, _TWO_LABEL_JOIN_RULE)
+    assert extracted.value == "Touran"
+
+
+def test_rule_two_label_join_both_absent_is_clean_empty_miss():
+    lines = [DocumentLine(text="nothing relevant here", page_index=0, line_index=0)]
+    extracted = RuleEngine().extract_field(_doc(lines), FieldKey.VEHICLE_MODEL, _TWO_LABEL_JOIN_RULE)
+    assert extracted.value == ""
+    assert extracted.issues == ()
+
+
+def test_rule_two_label_join_same_line_values_and_custom_separator():
+    """Each part reuses the label_same_or_next_line machinery, so same-line
+    'Label: value' shapes work too; the join separator is configurable."""
+    lines = [
+        DocumentLine(text="Producer: Hyundai", page_index=0, line_index=0),
+        DocumentLine(text="Model: i30", page_index=0, line_index=1),
+    ]
+    rule = dict(_TWO_LABEL_JOIN_RULE, separator=" / ")
+    extracted = RuleEngine().extract_field(_doc(lines), FieldKey.VEHICLE_MODEL, rule)
+    assert extracted.value == "Hyundai / i30"
+
+
+# --------------------------------------------------------------------------- #
+# vin field slot (collisionspike TKT-147 -- envelope-only, label-driven)
+# --------------------------------------------------------------------------- #
+
+
+def _tractable_like_provider(field_rules: dict) -> dict:
+    return {
+        "id": "p",
+        "name": "Provider",
+        "work_provider": "P",
+        "field_rules": field_rules,
+    }
+
+
+def test_record_vin_extracts_from_label_and_normalizes():
+    lines = [
+        DocumentLine(text="VIN", page_index=0, line_index=0),
+        DocumentLine(text="wvgzzz1tzfw030347", page_index=0, line_index=1),
+    ]
+    provider = _tractable_like_provider(
+        {"vin": {"id": "vin", "kind": "label_same_or_next_line", "labels": ["VIN"]}}
+    )
+    record = RuleEngine().extract_record(_doc(lines), provider)
+    assert record.fields[FieldKey.VIN].value == "WVGZZZ1TZFW030347"
+
+
+def test_record_vin_labelled_placeholder_normalizes_to_absent():
+    """The Tractable no-VIN samples print a lone '-' under the VIN label --
+    that placeholder must normalize to EMPTY (absence is not an error)."""
+    lines = [
+        DocumentLine(text="VIN", page_index=0, line_index=0),
+        DocumentLine(text="-", page_index=0, line_index=1),
+    ]
+    provider = _tractable_like_provider(
+        {"vin": {"id": "vin", "kind": "label_same_or_next_line", "labels": ["VIN"]}}
+    )
+    record = RuleEngine().extract_record(_doc(lines), provider)
+    assert record.fields[FieldKey.VIN].value == ""
+
+
+def test_record_vin_without_a_rule_stays_empty_no_fallback_sniff():
+    """A layout with NO vin rule never invents one: there is deliberately no
+    document-wide VIN fallback (a bare 17-char alphanumeric heuristic would be
+    all false-positive surface), so a VIN-looking token in free text must NOT
+    surface."""
+    lines = [
+        DocumentLine(text="Chassis WVGZZZ1TZFW030347 mentioned in passing", page_index=0, line_index=0),
+    ]
+    record = RuleEngine().extract_record(_doc(lines), _tractable_like_provider({}))
+    assert record.fields[FieldKey.VIN].value == ""
