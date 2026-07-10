@@ -2,7 +2,18 @@
 
 > **Canonical registry of what is actually deployed.** This file + [`LIVE_FACTS.json`](../../LIVE_FACTS.json)
 > (root) are the **single source for literal live numbers** — every other doc links here rather than
-> re-embedding a count. Last live change: **2026-07-09T11:20Z** — the **PLAN-003 final wave (D2, the
+> re-embedding a count. Last live change: **2026-07-10T10:25Z** — **TKT-145 case_link evidence backfill
+> (PLAN-003 backlog-drain D2)**: **orch 72 → 73 verified** (+1: the `evidence-backfill` storage-queue
+> consumer — on a case_link accept of a previously-uncased attachment-bearing email it re-fetches the
+> message from Graph ($filter by Internet-Message-Id, `$search`-fallback corroborated on the exact id,
+> gated `RETRO_OUTLOOK_SEARCH_ENABLED`), lands bytes + sha256, drives the existing persist chain into the
+> internal evidence route (TKT-133 dedup makes replays safe) and re-evaluates status); **api 94 → 95
+> verified** (+1: `internalInboundEvidenceBackfill` — the consumer's report-back: `completed` writes the
+> case-scoped audit, `failed` writes the durable "Attachments to add" note, which is now the
+> terminal/enqueue-failure fallback ONLY, no longer written on every accept); the **`evidence-backfill`
+> queue was PROVISIONED** on `cespkorchstdev01` (rides `OUTLOOK_MOVE_QUEUE_SERVICE_URL` + the api MI's
+> existing account-scoped Storage Queue Data Message Sender — no new RBAC/app-setting); both apps
+> Running, no App-Insights error burst in the post-deploy window. Prior change: **2026-07-09T11:20Z** — the **PLAN-003 final wave (D2, the
 > last implementer batch)**: **all four Function Apps + the SPA republished** — **api 94 re-verified**
 > (TKT-133 sha256 evidence dedup-LINK on the internal route; TKT-132 widened suggestion-generate inputs
 > with prompt caps; TKT-072 search `createdAt`); **orch 71 → 72 verified** (+1: the TKT-102
@@ -448,9 +459,9 @@ az resource list -g rg-collisionspike-dev -o table
 # Static Web App (SPA) hostname + status
 az staticwebapp show -g rg-collisionspike-dev -n cespk-spa-dev --query "defaultHostname" -o tsv
 
-# Function Apps — which functions are actually deployed (verified 2026-07-09T11:10Z: api 94, orch 72, parser 4, box-webhook 12)
-az functionapp function list -g rg-collisionspike-dev -n cespk-api-dev  -o table   # expect: 94 functions
-az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: 72 functions (live — 3 push subs)
+# Function Apps — which functions are actually deployed (verified 2026-07-10T10:20Z: api 95, orch 73, parser 4, box-webhook 12)
+az functionapp function list -g rg-collisionspike-dev -n cespk-api-dev  -o table   # expect: 95 functions
+az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: 73 functions (live — 3 push subs)
 az functionapp function list -g rg-collisionspike-dev -n cespkbox-fn-v76a47 -o table               # expect: 12
 az functionapp function list -g rg-collisionspike-dev -n cespike-parser-dev-x7xt3d5ovhi7y -o table # expect: 4
 

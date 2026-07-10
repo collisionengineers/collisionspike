@@ -15833,6 +15833,12 @@ var gates = {
   // e.g. https://<orch-storage-account>.queue.core.windows.net — the Data API enqueues
   // move jobs there with its managed identity (Storage Queue Data Message Sender).
   outlookMoveQueueServiceUrl: () => process.env.OUTLOOK_MOVE_QUEUE_SERVICE_URL ?? "",
+  // Evidence-backfill queue config (TKT-145): the `evidence-backfill` queue lives on the
+  // SAME orchestration storage account as `outlook-move` (cespkorchstdev01), so it
+  // deliberately FALLS BACK to OUTLOOK_MOVE_QUEUE_SERVICE_URL — no new app-setting is
+  // required live. The dedicated variable exists only as an escape hatch should the two
+  // queues ever need to diverge.
+  evidenceBackfillQueueServiceUrl: () => process.env.EVIDENCE_BACKFILL_QUEUE_SERVICE_URL || process.env.OUTLOOK_MOVE_QUEUE_SERVICE_URL || "",
   /**
    * Derived: location assist is only enabled when all three conditions are met.
    * Used by GET /api/gates/location-assist (plan 21 §21.2).
@@ -17994,6 +18000,66 @@ import_functions.app.http("internalInboundOutlookMoved", {
       actor: "orchestration"
     });
     ctx.log(JSON.stringify({ evt: "outlookMoved", inboundEmailId: id, outcome, folder }));
+    return { status: 204 };
+  })
+});
+import_functions.app.http("internalInboundEvidenceBackfill", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/inbound/{id}/evidence-backfill",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const id = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const outcome = body2.outcome;
+    if (outcome !== "completed" && outcome !== "failed") {
+      return { status: 400, jsonBody: { error: "outcome must be 'completed' or 'failed'" } };
+    }
+    const existing = await query(
+      "SELECT id, case_id FROM inbound_email WHERE id = $1",
+      [id]
+    );
+    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const targetCaseId = typeof body2.targetCaseId === "string" && body2.targetCaseId.trim() || (existing[0].case_id ?? "");
+    if (!targetCaseId) {
+      return { status: 400, jsonBody: { error: "no target case to report against" } };
+    }
+    const detail = typeof body2.detail === "string" ? body2.detail.slice(0, 300) : null;
+    const persisted = typeof body2.persisted === "number" ? body2.persisted : null;
+    const merged = typeof body2.merged === "number" ? body2.merged : null;
+    if (outcome === "completed") {
+      await writeAudit({
+        action: AUDIT_ACTION.attachment_classified,
+        caseId: targetCaseId,
+        summary: `Evidence backfilled from the linked email (${persisted ?? "?"} new${merged ? `, ${merged} matched` : ""})`,
+        after: { inboundEmailId: id, persisted, merged },
+        actor: "orchestration"
+      });
+    } else {
+      await query(
+        `INSERT INTO note (name, case_id, author, text, occurred_at)
+           SELECT $1, $2, $3, $4, now()
+            WHERE NOT EXISTS (
+              SELECT 1 FROM note WHERE case_id = $2 AND name = $1 AND text = $4
+            )`,
+        [
+          "Attachments to add",
+          targetCaseId,
+          "System",
+          "The linked email arrived with attachments (e.g. photos or a PDF) that are not yet on this case. Please add them by hand from the email."
+        ]
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.graph_message_ingest_failed,
+        caseId: targetCaseId,
+        summary: "Evidence backfill from the linked email failed \u2014 staff must attach by hand",
+        severity: "warning",
+        after: { inboundEmailId: id, ...detail ? { detail } : {} },
+        actor: "orchestration"
+      });
+    }
+    ctx.log(
+      JSON.stringify({ evt: "evidenceBackfillReport", inboundEmailId: id, outcome, targetCaseId, persisted, merged })
+    );
     return { status: 204 };
   })
 });
@@ -20328,12 +20394,12 @@ async function getStorageToken() {
 function xmlEscape(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-async function enqueueOutlookMove(job) {
-  const serviceUrl = gates.outlookMoveQueueServiceUrl().replace(/\/$/, "");
-  if (!serviceUrl) throw new Error("OUTLOOK_MOVE_QUEUE_SERVICE_URL not configured");
+async function enqueueQueueMessage(serviceUrlRaw, queueName, payload) {
+  const serviceUrl = serviceUrlRaw.replace(/\/$/, "");
+  if (!serviceUrl) throw new Error("queue service URL not configured");
   const token = await getStorageToken();
-  const messageText = Buffer.from(JSON.stringify(job), "utf8").toString("base64");
-  const res = await fetch(`${serviceUrl}/${OUTLOOK_MOVE_QUEUE_NAME}/messages`, {
+  const messageText = Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
+  const res = await fetch(`${serviceUrl}/${queueName}/messages`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -20344,8 +20410,13 @@ async function enqueueOutlookMove(job) {
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new Error(`outlook-move enqueue \u2192 ${res.status}: ${detail.slice(0, 300)}`);
+    throw new Error(`${queueName} enqueue \u2192 ${res.status}: ${detail.slice(0, 300)}`);
   }
+}
+async function enqueueOutlookMove(job) {
+  const serviceUrl = gates.outlookMoveQueueServiceUrl();
+  if (!serviceUrl) throw new Error("OUTLOOK_MOVE_QUEUE_SERVICE_URL not configured");
+  await enqueueQueueMessage(serviceUrl, OUTLOOK_MOVE_QUEUE_NAME, job);
 }
 function classifyEnqueueFailure(e) {
   const text = e instanceof Error ? e.message : String(e ?? "");
@@ -61877,6 +61948,14 @@ ${capText(body2, SECTION_CHAR_CAP)}` });
   return { text, hasInput: sections.length > 0, sections: sections.map((s) => s.name) };
 }
 
+// api/src/lib/evidence-backfill-queue.ts
+var EVIDENCE_BACKFILL_QUEUE_NAME = "evidence-backfill";
+async function enqueueEvidenceBackfill(job) {
+  const serviceUrl = gates.evidenceBackfillQueueServiceUrl();
+  if (!serviceUrl) throw new Error("evidence-backfill queue service URL not configured");
+  await enqueueQueueMessage(serviceUrl, EVIDENCE_BACKFILL_QUEUE_NAME, job);
+}
+
 // api/src/functions/ai-suggestions.ts
 var IMAGE_ROLE_UNKNOWN = 100000003;
 import_functions16.app.http("caseAiSuggestions", {
@@ -61998,7 +62077,8 @@ async function promoteAcceptedSuggestion(row, actor) {
       if (targetCaseId) {
         const upd = await query(
           `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
-             WHERE id = $1 AND case_id IS NULL RETURNING id, has_attachments`,
+             WHERE id = $1 AND case_id IS NULL
+           RETURNING id, has_attachments, source_mailbox, source_message_id, subject`,
           [inboundEmailId, targetCaseId]
         );
         if (upd[0]) {
@@ -62013,15 +62093,36 @@ async function promoteAcceptedSuggestion(row, actor) {
           await markOutstandingChasersResponded(targetCaseId, "suggestion accepted");
           if (upd[0].has_attachments === true) {
             try {
-              await query(
-                "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
-                [
-                  "Attachments to add",
-                  targetCaseId,
-                  actor ?? "System",
-                  "The linked email arrived with attachments (e.g. photos or a PDF) that are not yet on this case. Please add them by hand from the email."
-                ]
-              );
+              const sourceMailbox = typeof upd[0].source_mailbox === "string" ? upd[0].source_mailbox.trim() : "";
+              const sourceMessageId = typeof upd[0].source_message_id === "string" ? upd[0].source_message_id.trim() : "";
+              let backfillQueued = false;
+              if (sourceMailbox && sourceMessageId) {
+                try {
+                  await enqueueEvidenceBackfill({
+                    inboundEmailId,
+                    sourceMailbox,
+                    sourceMessageId,
+                    targetCaseId,
+                    subject: typeof upd[0].subject === "string" ? upd[0].subject : ""
+                  });
+                  backfillQueued = true;
+                } catch (e) {
+                  console.error(
+                    `[ai-suggestions] evidence-backfill enqueue failed for inbound ${inboundEmailId} -> case ${targetCaseId} (degrading to the manual note): ${e instanceof Error ? e.message : String(e)}`
+                  );
+                }
+              }
+              if (!backfillQueued) {
+                await query(
+                  "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
+                  [
+                    "Attachments to add",
+                    targetCaseId,
+                    actor ?? "System",
+                    "The linked email arrived with attachments (e.g. photos or a PDF) that are not yet on this case. Please add them by hand from the email."
+                  ]
+                );
+              }
             } catch {
             }
           }

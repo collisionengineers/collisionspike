@@ -1,11 +1,11 @@
 ---
 id: TKT-145
 title: Accepted case_link on a previously-uncased email must backfill its evidence to the case
-status: backlog
+status: now
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-102, TKT-093]
-research-link: docs/tickets/backlog/TKT-145-caselink-evidence-backfill/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-145-caselink-evidence-backfill/evidence/operator-note.md
 plan: PLAN-003
 ---
 
@@ -42,4 +42,4 @@ Filed 2026-07-09 from the final-wave D2 report (PLAN-003 workflow finding).
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

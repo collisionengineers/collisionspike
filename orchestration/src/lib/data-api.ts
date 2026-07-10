@@ -669,6 +669,29 @@ export const dataApi = {
     return request('POST', `/api/internal/inbound/${inboundEmailId}/outlook-moved`, payload);
   },
 
+  /**
+   * Report the terminal outcome of a case_link evidence backfill (TKT-145) — the
+   * `evidence-backfill` queue consumer's write-back (the reportOutlookMove pattern).
+   * `completed` writes the case-scoped attachment_classified audit; `failed` writes the
+   * durable "Attachments to add" staff note + a warning audit (the inverted mitigation).
+   */
+  reportEvidenceBackfill(
+    inboundEmailId: string,
+    payload: {
+      outcome: 'completed' | 'failed';
+      targetCaseId: string;
+      persisted?: number;
+      merged?: number;
+      detail?: string;
+    },
+  ): Promise<void> {
+    return request(
+      'POST',
+      `/api/internal/inbound/${encodeURIComponent(inboundEmailId)}/evidence-backfill`,
+      payload,
+    );
+  },
+
   /** Append one audit_event row (internal route; the API enforces append-only). */
   recordAudit(payload: {
     action: string;

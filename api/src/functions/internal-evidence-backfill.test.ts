@@ -1,0 +1,162 @@
+/**
+ * api/src/functions/internal-evidence-backfill.test.ts — TKT-145 OFFLINE acceptance proof
+ * for the backfill outcome report route (POST /api/internal/inbound/{id}/evidence-backfill).
+ *
+ * No Functions host, no Postgres: the internal-evidence-dedup.test.ts harness — captured
+ * `@azure/functions` registrations, passthrough service auth, recording db mock.
+ *
+ * Pins the TKT-145 inversion + report semantics:
+ *   (a) outcome 'failed' → the durable "Attachments to add" staff note is written on the
+ *       TARGET case (note-on-terminal-failure) + a warning audit; the note INSERT is
+ *       duplicate-guarded (NOT EXISTS) so a poison-path re-report never stacks copies;
+ *   (b) outcome 'completed' → the case-scoped attachment_classified audit, NO note;
+ *   (c) contract edges: unknown outcome → 400; unknown inbound row → 404; no target case
+ *       resolvable → 400.
+ */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
+
+vi.hoisted(() => {
+  process.env.ENTRA_TENANT_ID = '858cf5b3-1111-2222-3333-444455556666';
+  process.env.API_AUDIENCE = 'fa2fb28c-fef6-40a4-8d3b-ae6725891d72';
+});
+
+/* ---- @azure/functions: capture registrations (no Functions host) ---- */
+interface Reg {
+  handler: (req: HttpRequest, ctx: InvocationContext) => Promise<HttpResponseInit>;
+}
+const registrations = vi.hoisted(() => new Map<string, Reg>());
+vi.mock('@azure/functions', () => ({
+  app: {
+    http: (name: string, opts: Reg) => {
+      registrations.set(name, opts);
+    },
+    timer: () => {},
+  },
+}));
+
+/* ---- auth: passthrough service auth ---- */
+vi.mock('../lib/auth.js', () => ({
+  authenticate: vi.fn(async () => ({})),
+  toErrorResponse: vi.fn(() => ({ status: 401, jsonBody: { error: 'unauthorized' } })),
+}));
+
+/* ---- db: record every SQL + params; canned rows per statement ---- */
+const sqls: string[] = [];
+const params: unknown[][] = [];
+const rowsFor = vi.hoisted(() =>
+  vi.fn<(sql: string, p?: unknown[]) => Record<string, unknown>[]>(() => []),
+);
+vi.mock('../lib/db.js', () => ({
+  query: vi.fn(async (sql: string, p?: unknown[]) => {
+    sqls.push(sql);
+    params.push(p ?? []);
+    return rowsFor(sql, p);
+  }),
+  tx: vi.fn(),
+  getPool: () => {
+    throw new Error('no pool in tests');
+  },
+}));
+
+const { AUDIT_ACTION } = await import('../lib/audit.js');
+await import('./internal.js'); // registers the routes against the captured app.http
+const report = registrations.get('internalInboundEvidenceBackfill')!.handler;
+
+const ctx = { log: vi.fn(), error: vi.fn() } as unknown as InvocationContext;
+
+function req(id: string, body: unknown): HttpRequest {
+  return { params: { id }, json: async () => body } as unknown as HttpRequest;
+}
+
+const noteSqls = () => sqls.filter((s) => /INSERT INTO note/i.test(s));
+const auditSqls = () => sqls.filter((s) => /INSERT INTO audit_event/i.test(s));
+
+beforeEach(() => {
+  sqls.length = 0;
+  params.length = 0;
+  rowsFor.mockReset();
+  rowsFor.mockImplementation((sql: string) => {
+    if (/FROM inbound_email/i.test(sql)) return [{ id: 'ie-1', case_id: 'case-target' }];
+    return [];
+  });
+});
+
+describe('internalInboundEvidenceBackfill — (a) note-on-terminal-failure', () => {
+  it("outcome 'failed' → the duplicate-guarded 'Attachments to add' note on the target case + a warning audit", async () => {
+    const res = await report(
+      req('ie-1', { outcome: 'failed', targetCaseId: 'case-target', detail: 'message not found in the mailbox' }),
+      ctx,
+    );
+    expect(res.status).toBe(204);
+
+    // The note lands on the case, with the NOT EXISTS duplicate guard.
+    expect(noteSqls()).toHaveLength(1);
+    const noteIdx = sqls.findIndex((s) => /INSERT INTO note/i.test(s));
+    expect(sqls[noteIdx]).toMatch(/NOT EXISTS/i);
+    expect(params[noteIdx]).toContain('Attachments to add');
+    expect(params[noteIdx]).toContain('case-target');
+
+    // The warning audit carries the failure detail.
+    expect(auditSqls()).toHaveLength(1);
+    const auditIdx = sqls.findIndex((s) => /INSERT INTO audit_event/i.test(s));
+    expect(params[auditIdx]).toContain(AUDIT_ACTION.graph_message_ingest_failed);
+    expect(params[auditIdx]).toContain('case-target');
+  });
+
+  it('a re-reported failure re-issues the SAME guarded INSERT (SQL-level dedup, no second copy)', async () => {
+    await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-target' }), ctx);
+    await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-target' }), ctx);
+    // Both runs execute the guarded statement; the NOT EXISTS clause (asserted above)
+    // is what suppresses the duplicate row live — the guard lives in SQL, not the caller.
+    for (const s of noteSqls()) expect(s).toMatch(/NOT EXISTS/i);
+    expect(noteSqls()).toHaveLength(2);
+  });
+});
+
+describe('internalInboundEvidenceBackfill — (b) completion report', () => {
+  it("outcome 'completed' → the case-scoped attachment_classified audit; NO note", async () => {
+    const res = await report(
+      req('ie-1', { outcome: 'completed', targetCaseId: 'case-target', persisted: 4, merged: 1 }),
+      ctx,
+    );
+    expect(res.status).toBe(204);
+    expect(noteSqls()).toHaveLength(0);
+    expect(auditSqls()).toHaveLength(1);
+    const auditIdx = sqls.findIndex((s) => /INSERT INTO audit_event/i.test(s));
+    expect(params[auditIdx]).toContain(AUDIT_ACTION.attachment_classified);
+    expect(params[auditIdx]).toContain('case-target');
+  });
+
+  it('falls back to the row\'s own case link when the body omits targetCaseId', async () => {
+    const res = await report(req('ie-1', { outcome: 'completed', persisted: 2 }), ctx);
+    expect(res.status).toBe(204);
+    const auditIdx = sqls.findIndex((s) => /INSERT INTO audit_event/i.test(s));
+    expect(params[auditIdx]).toContain('case-target');
+  });
+});
+
+describe('internalInboundEvidenceBackfill — (c) contract edges', () => {
+  it('unknown outcome → 400', async () => {
+    const res = await report(req('ie-1', { outcome: 'sideways' }), ctx);
+    expect(res.status).toBe(400);
+  });
+
+  it('unknown inbound row → 404', async () => {
+    rowsFor.mockImplementation(() => []);
+    const res = await report(req('nope', { outcome: 'failed', targetCaseId: 'case-target' }), ctx);
+    expect(res.status).toBe(404);
+  });
+
+  it('no target case resolvable (body empty + row unlinked) → 400, nothing written', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM inbound_email/i.test(sql)) return [{ id: 'ie-1', case_id: null }];
+      return [];
+    });
+    const res = await report(req('ie-1', { outcome: 'failed' }), ctx);
+    expect(res.status).toBe(400);
+    expect(noteSqls()).toHaveLength(0);
+    expect(auditSqls()).toHaveLength(0);
+  });
+});

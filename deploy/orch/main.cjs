@@ -2177,6 +2177,12 @@ var gates = {
   // e.g. https://<orch-storage-account>.queue.core.windows.net — the Data API enqueues
   // move jobs there with its managed identity (Storage Queue Data Message Sender).
   outlookMoveQueueServiceUrl: () => process.env.OUTLOOK_MOVE_QUEUE_SERVICE_URL ?? "",
+  // Evidence-backfill queue config (TKT-145): the `evidence-backfill` queue lives on the
+  // SAME orchestration storage account as `outlook-move` (cespkorchstdev01), so it
+  // deliberately FALLS BACK to OUTLOOK_MOVE_QUEUE_SERVICE_URL — no new app-setting is
+  // required live. The dedicated variable exists only as an escape hatch should the two
+  // queues ever need to diverge.
+  evidenceBackfillQueueServiceUrl: () => process.env.EVIDENCE_BACKFILL_QUEUE_SERVICE_URL || process.env.OUTLOOK_MOVE_QUEUE_SERVICE_URL || "",
   /**
    * Derived: location assist is only enabled when all three conditions are met.
    * Used by GET /api/gates/location-assist (plan 21 §21.2).
@@ -3267,6 +3273,19 @@ var dataApi = {
    */
   reportOutlookMove(inboundEmailId, payload) {
     return request("POST", `/api/internal/inbound/${inboundEmailId}/outlook-moved`, payload);
+  },
+  /**
+   * Report the terminal outcome of a case_link evidence backfill (TKT-145) — the
+   * `evidence-backfill` queue consumer's write-back (the reportOutlookMove pattern).
+   * `completed` writes the case-scoped attachment_classified audit; `failed` writes the
+   * durable "Attachments to add" staff note + a warning audit (the inverted mitigation).
+   */
+  reportEvidenceBackfill(inboundEmailId, payload) {
+    return request(
+      "POST",
+      `/api/internal/inbound/${encodeURIComponent(inboundEmailId)}/evidence-backfill`,
+      payload
+    );
   },
   /** Append one audit_event row (internal route; the API enforces append-only). */
   recordAudit(payload) {
@@ -10211,968 +10230,8 @@ import_functions8.app.storageQueue("outlook-move", {
   }
 });
 
-// orchestration/src/functions/intakeOrchestrator.ts
-var df6 = __toESM(require("durable-functions"), 1);
-
-// orchestration/src/lib/supplement-parse.ts
-var ACCIDENT_START_RE = /accident circumstances\s*:?/i;
-var ACCIDENT_END_RES = [
-  /\bdamage description\s*:?/i,
-  /\bdriveable\s*:?/i,
-  /\byours faithfully\b/i
-];
-function supplementAccidentCircumstancesFromBody(body2) {
-  const text = (body2 ?? "").replace(/\r\n/g, "\n").trim();
-  if (!text || !ACCIDENT_START_RE.test(text)) {
-    return "";
-  }
-  const startMatch = ACCIDENT_START_RE.exec(text);
-  if (!startMatch) {
-    return "";
-  }
-  let remainder = text.slice(startMatch.index + startMatch[0].length).trim();
-  remainder = remainder.replace(/^[|:\s]+/, "");
-  let endIdx = remainder.length;
-  for (const endRe of ACCIDENT_END_RES) {
-    const match = endRe.exec(remainder);
-    if (match && match.index < endIdx) {
-      endIdx = match.index;
-    }
-  }
-  const value = remainder.slice(0, endIdx).replace(/\s+/g, " ").trim();
-  return value.length > 10 ? value : "";
-}
-
-// orchestration/src/functions/activities/imagesReceivedVrmMatch.ts
-var df4 = __toESM(require("durable-functions"), 1);
-var PDF_NAME_RE = /\.pdf$/i;
-var PDF_CTYPE_RE = /pdf/i;
-function shouldAttemptPdfVrmMatch(classification, triage, attachments) {
-  const imagesReceived = classification.subtype === "images_received" || triage.finalSubtype === "images_received";
-  if (!imagesReceived) return false;
-  if (triage.action === "suggest_attach" || triage.action === "attach_case") return false;
-  return (attachments ?? []).some(
-    (a) => PDF_NAME_RE.test(a.filename ?? "") || PDF_CTYPE_RE.test(a.contentType ?? "")
-  );
-}
-function planVrmMatch(input14) {
-  if (!input14.refGate && !input14.imagesRouting) return { step: "skip", reason: "gate_off" };
-  const flagOr = (reason) => input14.imagesRouting ? { step: "flag", reason } : { step: "skip", reason: "flag_gate_off" };
-  const vrm = canonicalizeVrm(input14.vrm ?? "");
-  if (!vrm) return flagOr("no_registration");
-  const tried = canonicalizeVrm(input14.triedVrm ?? "");
-  if (tried && vrm === tried) return flagOr("already_tried");
-  if (!input14.refGate) return flagOr("suggest_gate_off");
-  return { step: "lookup", vrm };
-}
-function resolveVrmMatches(matches) {
-  const distinct = /* @__PURE__ */ new Map();
-  for (const m of matches) {
-    if (!distinct.has(m.caseId)) distinct.set(m.caseId, { caseId: m.caseId, casePo: m.casePo });
-  }
-  if (distinct.size === 1) {
-    return { step: "suggest", target: [...distinct.values()][0] };
-  }
-  return {
-    step: "flag",
-    reason: distinct.size === 0 ? "no_open_case" : "multiple_open_cases"
-  };
-}
-df4.app.activity("imagesReceivedVrmMatch", {
-  handler: async (input14, ctx) => {
-    const internetMessageId = (input14.internetMessageId ?? "").trim();
-    if (!internetMessageId) {
-      return { outcome: "skipped:no_message_id" };
-    }
-    const plan = planVrmMatch({
-      vrm: input14.vrm ?? "",
-      triedVrm: input14.triedVrm ?? "",
-      refGate: gates.triageRefGate(),
-      imagesRouting: gates.triageImagesRouting()
-    });
-    if (plan.step === "skip") {
-      ctx.log(JSON.stringify({ evt: "imagesReceivedVrmMatch", outcome: "skipped", reason: plan.reason }));
-      return { outcome: `skipped:${plan.reason}` };
-    }
-    let flagReason = plan.step === "flag" ? plan.reason : "";
-    if (plan.step === "lookup") {
-      let matches = [];
-      try {
-        const context3 = await dataApi.triageContext({
-          caseref: "",
-          jobref: "",
-          vrm: plan.vrm,
-          internetMessageId: "",
-          conversationId: ""
-        });
-        matches = context3.openCaseMatches;
-      } catch (e) {
-        ctx.warn(
-          `[imagesReceivedVrmMatch] context lookup failed for ${internetMessageId} (degrading to the visible flag): ${e instanceof Error ? e.message : String(e)}`
-        );
-      }
-      const resolution = resolveVrmMatches(matches);
-      if (resolution.step === "suggest") {
-        const target = resolution.target;
-        try {
-          await dataApi.triageSuggestLink({
-            sourceMessageId: internetMessageId,
-            targetCaseId: target.caseId,
-            suggestionType: "case_link",
-            // HANDLER-LANGUAGE (rendered in the SPA's "Why this label?" — the
-            // triage-policy.ts rationale precedent; no engineering terms).
-            rationale: `The attached document shows registration ${plan.vrm}, which matches open case ${target.casePo} \u2014 suggested attaching this email to it.`,
-            decisionInputs: {
-              rung: "images_received_pdf_vrm",
-              vrm: plan.vrm,
-              triedVrm: input14.triedVrm ?? "",
-              matchCount: 1
-            }
-          });
-        } catch (e) {
-          ctx.warn(
-            `[imagesReceivedVrmMatch] suggestion write failed for ${internetMessageId} (best-effort, continuing): ${e instanceof Error ? e.message : String(e)}`
-          );
-          return { outcome: "suggest_failed", caseId: target.caseId };
-        }
-        ctx.log(
-          JSON.stringify({ evt: "imagesReceivedVrmMatch", outcome: "suggested", caseId: target.caseId, vrm: plan.vrm })
-        );
-        return { outcome: "suggested", caseId: target.caseId };
-      }
-      flagReason = resolution.reason;
-    }
-    if (!gates.triageImagesRouting()) {
-      ctx.log(JSON.stringify({ evt: "imagesReceivedVrmMatch", outcome: "skipped", reason: "flag_gate_off", flagReason }));
-      return { outcome: "skipped:flag_gate_off" };
-    }
-    let stamped = false;
-    try {
-      const res = await dataApi.markInboundAttention({
-        sourceMessageId: internetMessageId,
-        reason: "images_no_match"
-      });
-      stamped = res.stamped;
-    } catch (e) {
-      ctx.warn(
-        `[imagesReceivedVrmMatch] attention stamp failed for ${internetMessageId} (best-effort): ${e instanceof Error ? e.message : String(e)}`
-      );
-    }
-    ctx.log(JSON.stringify({ evt: "imagesReceivedVrmMatch", outcome: stamped ? "flagged" : "flag_failed", flagReason }));
-    return { outcome: stamped ? `flagged:${flagReason}` : "flag_failed" };
-  }
-});
-
-// orchestration/src/functions/gated/triage-classify.ts
+// orchestration/src/functions/evidence-backfill.ts
 var import_functions9 = require("@azure/functions");
-var df5 = __toESM(require("durable-functions"), 1);
-
-// orchestration/src/lib/aoai.ts
-var COGNITIVE_SERVICES_SCOPE = "https://cognitiveservices.azure.com/.default";
-var cachedToken3 = null;
-function resourceFromScope(scope) {
-  return scope.endsWith("/.default") ? scope.slice(0, -"/.default".length) : scope;
-}
-async function mintCognitiveToken() {
-  const now = Date.now();
-  if (cachedToken3 && cachedToken3.expiresAt > now + 6e4) return cachedToken3.value;
-  const idEndpoint = process.env.IDENTITY_ENDPOINT;
-  const idHeader = process.env.IDENTITY_HEADER;
-  if (idEndpoint && idHeader) {
-    const resource = resourceFromScope(COGNITIVE_SERVICES_SCOPE);
-    const url2 = `${idEndpoint}?resource=${encodeURIComponent(resource)}&api-version=2019-08-01`;
-    const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
-    if (!res.ok) throw new Error(`MSI token (cognitiveservices) ${res.status}`);
-    const json = await res.json();
-    cachedToken3 = {
-      value: json.access_token,
-      expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
-    };
-    return cachedToken3.value;
-  }
-  if (process.env.AOAI_DEV_TOKEN === "1") {
-    const { execFile } = await import("node:child_process");
-    const token = await new Promise((resolve, reject) => {
-      execFile(
-        "az",
-        ["account", "get-access-token", "--resource", "https://cognitiveservices.azure.com", "--query", "accessToken", "-o", "tsv"],
-        (err, stdout) => {
-          if (err) reject(err);
-          else resolve(stdout.trim());
-        }
-      );
-    });
-    if (!token) throw new Error("az account get-access-token returned no token");
-    cachedToken3 = { value: token, expiresAt: now + 3e6 };
-    return token;
-  }
-  throw new Error(
-    "missing IDENTITY_ENDPOINT/IDENTITY_HEADER for Cognitive Services auth (set AOAI_DEV_TOKEN=1 to use the operator az-cli session for local dev)"
-  );
-}
-var CATEGORY_DEFINITIONS = {
-  receiving_work: "An instruction or audit request that should become a case, for a new or an existing client.",
-  query: "A question about work already in progress, or a new enquiry \u2014 no new work to log yet.",
-  other: "Anything that is not a work item, a query, billing, or a cancellation report \u2014 the catch-all.",
-  billing: "An invoice, fee query, or payment matter about work already carried out.",
-  non_actionable: 'A short receipt/acknowledgement/no-action-needed message (e.g. "thanks", an auto-reply).',
-  case_update: "New information \u2014 evidence, photographs, or an answer \u2014 for a case already open.",
-  cancellation: "A claim or case reported cancelled, closed, or withdrawn.",
-  pre_instruction: "Directions to follow when a formal instruction arrives later \u2014 no instruction yet, so no case should be opened."
-};
-var SUBTYPE_DEFINITIONS = {
-  existing_provider_instruction: "An instruction from a sender who is a known work provider.",
-  existing_provider_audit: "An audit / re-inspection instruction from a known work provider.",
-  existing_provider_diminution: "A diminution-in-value instruction from a known work provider.",
-  new_client_work: "An instruction from a sender who is not a known work provider.",
-  query_existing_work: "A question referring to a case already in progress.",
-  query_new_enquiry: "A question from someone with no case in progress yet.",
-  billing_request: "An invoice or payment request tied to work already carried out.",
-  case_summary: "A status digest or summary covering one or more cases.",
-  acknowledgement: 'A short "received / thanks / noted" reply that needs no action.',
-  other: "None of the other subtypes apply.",
-  images_received: "Photographs with no other new instruction content.",
-  cancellation_notice: "The usual subtype for a cancellation report.",
-  update_general: "New information on an existing case that is not photographs alone.",
-  payment_remittance: "A payment made TO us \u2014 a remittance advice or transfer notice for work already done (not a request for our invoice).",
-  pre_instruction_directions: "The usual subtype for pre-instruction directions."
-};
-function categoryLine(name) {
-  return `- ${name}: ${CATEGORY_DEFINITIONS[name] ?? "A taxonomy category (no further description on file)."}`;
-}
-function subtypeLine(name) {
-  return `- ${name}: ${SUBTYPE_DEFINITIONS[name] ?? "A taxonomy subtype (no further description on file)."}`;
-}
-function buildSystemPrompt() {
-  return [
-    "You triage inbound emails for a vehicle-collision engineering business. A fast, deterministic rule pass already ran on this message and could not confidently place it \u2014 you are a second opinion for that one message, not a first pass and not a replacement for the rules.",
-    'Choose the single best category and subtype from the lists below. Give a confidence from 0 to 1 (your honest belief the label is right, not a fixed value). Write a rationale of one plain sentence, in everyday English, for a non-technical case handler: describe what the message is about, never how you decided. Never use the words "classifier", "signals", "model", "confidence", "rule", "category", "subtype", "JSON", or any similar technical term in the rationale. Never invent a case number, reference, or vehicle registration that is not present in the message text you were given.',
-    `Categories:
-${INBOUND_CATEGORIES.map(categoryLine).join("\n")}`,
-    `Subtypes:
-${INBOUND_SUBTYPES.map(subtypeLine).join("\n")}`,
-    `Pick the subtype that belongs with your chosen category; if none fits well, use that category's "other" or general subtype.`
-  ].join("\n\n");
-}
-function buildUserPrompt(input14) {
-  const attachments = input14.attachmentFilenames.length ? input14.attachmentFilenames.join(", ") : "(none)";
-  const signals = input14.deterministicSignals.length ? input14.deterministicSignals.join(", ") : "(none)";
-  return [
-    `Sender domain: ${input14.senderDomain || "(unknown)"}`,
-    `Attachment filenames: ${attachments}`,
-    `Subject: ${input14.subjectScrubbed || "(none)"}`,
-    `Body:
-${input14.bodyScrubbed || "(none)"}`,
-    "---",
-    "The deterministic rule pass proposed (but did not confidently commit to):",
-    `category=${input14.deterministicCategory || "(none)"} subtype=${input14.deterministicSubtype || "(none)"} signals=${signals}`
-  ].join("\n");
-}
-var MAX_COMPLETION_TOKENS = 2e3;
-var REQUEST_TIMEOUT_MS = 15e3;
-var SCHEMA_NAME = "triage_classification";
-function buildTriageResponseSchema() {
-  return {
-    type: "object",
-    properties: {
-      category: { type: "string", enum: [...INBOUND_CATEGORIES] },
-      subtype: { type: "string", enum: [...INBOUND_SUBTYPES] },
-      confidence: { type: "number", minimum: 0, maximum: 1 },
-      rationale: { type: "string" }
-    },
-    required: ["category", "subtype", "confidence", "rationale"],
-    additionalProperties: false
-  };
-}
-function buildTriageRequestBody(input14, deployment) {
-  return {
-    model: deployment,
-    messages: [
-      { role: "system", content: buildSystemPrompt() },
-      { role: "user", content: buildUserPrompt(input14) }
-    ],
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: SCHEMA_NAME,
-        strict: true,
-        schema: buildTriageResponseSchema()
-      }
-    },
-    max_completion_tokens: MAX_COMPLETION_TOKENS,
-    reasoning_effort: "low"
-  };
-}
-var KNOWN_CATEGORIES = new Set(INBOUND_CATEGORIES);
-var KNOWN_SUBTYPES = new Set(INBOUND_SUBTYPES);
-function abstainForErrorResponse(status, body2) {
-  const code = body2?.error?.code;
-  if (code === "content_filter") return { abstain: true, reason: "content_filter" };
-  return { abstain: true, reason: code ? `http_${status}_${code}` : `http_${status}` };
-}
-function parseTriageModelResponse(json) {
-  const body2 = json;
-  const choice = body2?.choices?.[0];
-  if (!choice) return { abstain: true, reason: "empty_response" };
-  if (choice.finish_reason === "content_filter") {
-    return { abstain: true, reason: "content_filter" };
-  }
-  const content = choice.message?.content;
-  if (typeof content !== "string" || content.trim() === "") {
-    return { abstain: true, reason: "empty_response" };
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    return { abstain: true, reason: "parse_error" };
-  }
-  if (typeof parsed !== "object" || parsed === null) {
-    return { abstain: true, reason: "parse_error" };
-  }
-  const candidate = parsed;
-  const category = typeof candidate.category === "string" ? candidate.category : "";
-  const subtype = typeof candidate.subtype === "string" ? candidate.subtype : "";
-  if (!KNOWN_CATEGORIES.has(category) || !KNOWN_SUBTYPES.has(subtype)) {
-    return { abstain: true, reason: "invalid_taxonomy" };
-  }
-  const rationale = typeof candidate.rationale === "string" ? candidate.rationale.trim() : "";
-  if (!rationale) return { abstain: true, reason: "empty_rationale" };
-  const rawConfidence = typeof candidate.confidence === "number" ? candidate.confidence : 0;
-  const confidence = Math.min(1, Math.max(0, rawConfidence));
-  return {
-    category,
-    subtype,
-    confidence,
-    rationale,
-    ...typeof body2?.model === "string" ? { responseModel: body2.model } : {},
-    ...typeof body2?.system_fingerprint === "string" ? { systemFingerprint: body2.system_fingerprint } : {}
-  };
-}
-async function callTriageModel(input14) {
-  const endpoint = gates.aiModelEndpoint();
-  const deployment = gates.aiModelDeployment();
-  if (!endpoint || !deployment) {
-    return { abstain: true, reason: "model_not_configured" };
-  }
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const token = await mintCognitiveToken();
-    const url2 = `${endpoint.replace(/\/$/, "")}/openai/v1/chat/completions`;
-    const res = await fetch(url2, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(buildTriageRequestBody(input14, deployment)),
-      signal: controller.signal
-    });
-    const json = await res.json().catch(() => void 0);
-    if (!res.ok) {
-      return abstainForErrorResponse(res.status, json);
-    }
-    return parseTriageModelResponse(json);
-  } catch (e) {
-    const isAbort = e instanceof Error && e.name === "AbortError";
-    return { abstain: true, reason: isAbort ? "timeout" : "request_failed" };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-// orchestration/src/lib/telemetry.ts
-var DEFAULT_INGESTION_ENDPOINT = "https://dc.services.visualstudio.com";
-var TRACK_TIMEOUT_MS = 2e3;
-function parseConnectionString(raw) {
-  const value = (raw ?? "").trim();
-  if (!value) return void 0;
-  const parts = {};
-  for (const segment of value.split(";")) {
-    const eq = segment.indexOf("=");
-    if (eq <= 0) continue;
-    const key = segment.slice(0, eq).trim().toLowerCase();
-    const val = segment.slice(eq + 1).trim();
-    if (key && val) parts[key] = val;
-  }
-  const instrumentationKey = parts["instrumentationkey"];
-  if (!instrumentationKey) return void 0;
-  const ingestionEndpoint = (parts["ingestionendpoint"] || DEFAULT_INGESTION_ENDPOINT).replace(/\/+$/, "");
-  return { instrumentationKey, ingestionEndpoint };
-}
-function stringifyProperties(properties) {
-  const out = {};
-  for (const [key, value] of Object.entries(properties)) {
-    if (value === void 0) continue;
-    out[key] = typeof value === "string" ? value : JSON.stringify(value);
-  }
-  return out;
-}
-async function trackEvent(name, properties) {
-  try {
-    const parsed = parseConnectionString(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING);
-    if (!parsed) return;
-    const envelope = [
-      {
-        name: "Microsoft.ApplicationInsights.Event",
-        time: (/* @__PURE__ */ new Date()).toISOString(),
-        iKey: parsed.instrumentationKey,
-        data: {
-          baseType: "EventData",
-          baseData: {
-            ver: 2,
-            name,
-            properties: stringifyProperties(properties)
-          }
-        }
-      }
-    ];
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TRACK_TIMEOUT_MS);
-    try {
-      await fetch(`${parsed.ingestionEndpoint}/v2/track`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(envelope),
-        signal: controller.signal
-      });
-    } finally {
-      clearTimeout(timer);
-    }
-  } catch {
-  }
-}
-
-// orchestration/src/functions/gated/triage-classify.ts
-function shouldAttemptTriageAssist(classification) {
-  const ABSTAIN_CONFIDENCE_CEILING = 0.35;
-  const isAbstain = classification.category === "other" && (classification.confidence ?? 1) <= ABSTAIN_CONFIDENCE_CEILING;
-  const isUncorroborated = (classification.signals ?? []).some((s) => s.startsWith("uncorroborated_"));
-  return isAbstain || isUncorroborated;
-}
-function domainOf2(address) {
-  const at = address.lastIndexOf("@");
-  return at >= 0 ? address.slice(at + 1).toLowerCase().trim() : "";
-}
-function providerAiOptedOut(aiAllowed) {
-  return aiAllowed === false;
-}
-import_functions9.app.http("triage-classify-start", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "triage-classify",
-  extraInputs: [df5.input.durableClient()],
-  handler: async (req, ctx) => {
-    const input14 = await req.json();
-    const client2 = df5.getClient(ctx);
-    const instanceId = await client2.startNew("triageClassifyOrchestrator", { input: input14 });
-    return client2.createCheckStatusResponse(req, instanceId);
-  }
-});
-var retry = new df5.RetryOptions(5e3, 3);
-retry.backoffCoefficient = 2;
-df5.app.orchestration("triageClassifyOrchestrator", function* (ctx) {
-  const input14 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("triageClassify", retry, input14);
-  return result;
-});
-df5.app.activity("triageClassify", {
-  handler: async (input14, ctx) => {
-    if (!gates.emailAi() || !gates.aiAssistConfigured()) {
-      ctx.log("[triageClassify] skipped \u2014 EMAIL_AI_ENABLED off or model endpoint/deployment not configured");
-      return { skipped: true };
-    }
-    if (input14.workProviderId) {
-      try {
-        const { aiAllowed } = await dataApi.workProviderAiAllowed(input14.workProviderId);
-        if (providerAiOptedOut(aiAllowed)) {
-          ctx.log("[triageClassify] skipped \u2014 work provider opted out of AI (ai_allowed=false)");
-          return { skipped: true, reason: "provider_ai_opt_out" };
-        }
-      } catch (e) {
-        ctx.warn(
-          `[triageClassify] ai_allowed lookup failed (proceeding, fail-open): ${e instanceof Error ? e.message : String(e)}`
-        );
-      }
-    }
-    const subjectScrub = scrubPii(input14.subject ?? "");
-    const bodyScrub = scrubPii(input14.body ?? "");
-    const result = await callTriageModel({
-      subjectScrubbed: subjectScrub.text,
-      bodyScrubbed: bodyScrub.text,
-      senderDomain: input14.senderDomain || domainOf2(input14.senderAddress ?? ""),
-      attachmentFilenames: input14.attachmentFilenames ?? [],
-      deterministicCategory: input14.deterministicCategory ?? "",
-      deterministicSubtype: input14.deterministicSubtype ?? "",
-      deterministicSignals: input14.deterministicSignals ?? []
-    });
-    await trackEvent("triage_llm_assist", {
-      abstain: "abstain" in result,
-      reason: "abstain" in result ? result.reason : void 0,
-      subjectRedactions: subjectScrub.totalRedactions,
-      bodyRedactions: bodyScrub.totalRedactions,
-      deterministicCategory: input14.deterministicCategory,
-      deterministicSubtype: input14.deterministicSubtype
-    });
-    if ("abstain" in result) {
-      ctx.log(JSON.stringify({ evt: "triageClassify", abstain: true, reason: result.reason }));
-      return { skipped: false, abstained: true };
-    }
-    const modelVersion = `${gates.aiModelDeployment()}:${result.responseModel ?? result.systemFingerprint ?? "unknown"}`;
-    try {
-      await dataApi.triageSuggestClassification({
-        ...input14.sourceMessageId ? { sourceMessageId: input14.sourceMessageId } : {},
-        ...input14.inboundEmailId ? { inboundEmailId: input14.inboundEmailId } : {},
-        category: result.category,
-        subtype: result.subtype,
-        rationale: result.rationale,
-        confidence: result.confidence,
-        modelVersion
-      });
-    } catch (e) {
-      ctx.warn(
-        `[triageClassify] suggestion write failed (best-effort, continuing): ${e instanceof Error ? e.message : String(e)}`
-      );
-    }
-    ctx.log(JSON.stringify({ evt: "triageClassify", category: result.category, subtype: result.subtype }));
-    return { skipped: false, abstained: false, category: result.category, subtype: result.subtype };
-  }
-});
-
-// orchestration/src/functions/intakeOrchestrator.ts
-var retry2 = new df6.RetryOptions(
-  /*firstRetryIntervalInMilliseconds*/
-  5e3,
-  /*maxNumberOfAttempts*/
-  3
-);
-retry2.backoffCoefficient = 2;
-retry2.maxRetryIntervalInMilliseconds = 6e4;
-df6.app.orchestration("intakeOrchestrator", function* (ctx) {
-  const input14 = ctx.df.getInput();
-  const inbound = yield ctx.df.callActivityWithRetry("fetchMessage", retry2, input14);
-  const provider = yield ctx.df.callActivityWithRetry("providerMatch", retry2, inbound);
-  const workProviderId = provider.workProviderId;
-  const matchState = provider.matchState;
-  const principalCode = provider.principalCode;
-  const intermediaryImageSourceId = provider.imageSourceId;
-  const intermediaryCandidateProviderIds = provider.candidateProviderIds;
-  const classification = yield ctx.df.callActivityWithRetry("classifyInbound", retry2, {
-    inbound,
-    workProviderId,
-    matchState
-  });
-  const triage = yield ctx.df.callActivityWithRetry("triagePolicy", retry2, {
-    inbound,
-    classification,
-    matchState,
-    ...intermediaryImageSourceId ? { intermediaryImageSourceId, intermediaryCandidateProviderIds } : {}
-  });
-  if (triage.action !== "proceed_default" && !ctx.df.isReplaying) {
-    ctx.log(
-      `[intake] triage policy: ${triage.action} on ${classification.category}/${classification.subtype}` + (triage.targetCaseId ? ` -> case ${triage.targetCaseId}` : "")
-    );
-  }
-  if (triage.action === "drop_duplicate") {
-    return { triaged: classification.category, subtype: classification.subtype, triage: triage.action };
-  }
-  if (triage.action === "attach_case" && triage.targetCaseId) {
-    const caseId = triage.targetCaseId;
-    const caseVrm = (inbound.candidateVrm || classification.bodyVrm || "").trim();
-    yield ctx.df.callActivityWithRetry("classifyPersist", retry2, {
-      caseId,
-      inbound,
-      ...caseVrm ? { caseVrm } : {},
-      ...workProviderId ? { workProviderId } : {}
-    });
-    try {
-      yield ctx.df.callActivityWithRetry("extractImages", retry2, {
-        caseId,
-        messageId: inbound.messageId,
-        attachments: inbound.attachments,
-        ...caseVrm ? { caseVrm } : {},
-        ...workProviderId ? { workProviderId } : {},
-        // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
-        ...principalCode ? { providerPrincipal: principalCode } : {}
-      });
-    } catch (e) {
-      if (!ctx.df.isReplaying) {
-        ctx.log(`[intake] image extraction failed for attach_case ${caseId} (additive, non-blocking): ${String(e)}`);
-      }
-    }
-    try {
-      yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry2, { caseId });
-    } catch (e) {
-      if (!ctx.df.isReplaying) {
-        ctx.log(`[intake] archive failed for attach_case ${caseId} (additive, non-blocking): ${String(e)}`);
-      }
-    }
-    const status2 = yield ctx.df.callActivityWithRetry("statusEvaluate", retry2, { caseId });
-    return {
-      triaged: triage.finalCategory,
-      subtype: triage.finalSubtype,
-      attach: triage.action,
-      caseId,
-      status: status2.value
-    };
-  }
-  if (shouldAttemptTriageAssist(classification)) {
-    try {
-      const env = inbound;
-      yield ctx.df.callActivityWithRetry("triageClassify", retry2, {
-        sourceMessageId: env.internetMessageId,
-        subject: env.subject,
-        body: env.body,
-        senderAddress: env.senderAddress,
-        // The provider matched in step 1 — lets the activity honour a per-provider AI opt-out
-        // (work_provider.ai_allowed, docs/gated.md D6) without re-resolving. Undefined when the
-        // sender matched no provider (nothing to opt out of).
-        ...workProviderId ? { workProviderId } : {},
-        attachmentFilenames: (env.attachments ?? []).map((a) => a.filename),
-        deterministicCategory: classification.category,
-        deterministicSubtype: classification.subtype,
-        deterministicSignals: classification.signals
-      });
-    } catch (e) {
-      if (!ctx.df.isReplaying) {
-        ctx.log(`[intake] triage LLM assist failed (additive, suggestion-only, non-blocking): ${String(e)}`);
-      }
-    }
-  }
-  if (triage.action === "route_images_unmatched") {
-    try {
-      yield ctx.df.callActivityWithRetry("imagesUnmatched", retry2, {
-        internetMessageId: inbound.internetMessageId,
-        vrm: (inbound.candidateVrm || classification.bodyVrm || "").trim()
-      });
-    } catch (e) {
-      if (!ctx.df.isReplaying) {
-        ctx.log(`[intake] images-unmatched flag failed (additive, non-blocking): ${String(e)}`);
-      }
-    }
-  }
-  if (!categoryMintsCase(classification.category)) {
-    if (classification.isReply) {
-      const inb = inbound;
-      const ref = ((inb.candidateRef || classification.bodyCaseref) ?? "").trim();
-      const vrm = ((inb.candidateVrm || classification.bodyVrm) ?? "").trim();
-      const jobref = (classification.bodyJobref ?? "").trim();
-      const link = yield ctx.df.callActivityWithRetry("linkReply", retry2, {
-        inbound,
-        providerId: workProviderId,
-        ref,
-        vrm,
-        jobref
-      });
-      if (link.outcome === "linked" && link.caseId) {
-        yield ctx.df.callActivityWithRetry("classifyPersist", retry2, {
-          caseId: link.caseId,
-          inbound,
-          caseVrm: vrm || inbound.candidateVrm,
-          ...workProviderId ? { workProviderId } : {}
-        });
-        try {
-          yield ctx.df.callActivityWithRetry("extractImages", retry2, {
-            caseId: link.caseId,
-            messageId: inbound.messageId,
-            attachments: inbound.attachments,
-            caseVrm: vrm || inbound.candidateVrm,
-            ...workProviderId ? { workProviderId } : {},
-            // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
-            ...principalCode ? { providerPrincipal: principalCode } : {}
-          });
-        } catch (e) {
-          if (!ctx.df.isReplaying) {
-            ctx.log(`[intake] image extraction failed for linked reply case ${link.caseId} (additive, non-blocking): ${String(e)}`);
-          }
-        }
-        try {
-          yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry2, {
-            caseId: link.caseId
-          });
-        } catch (e) {
-          if (!ctx.df.isReplaying) {
-            ctx.log(`[intake] archive failed for linked reply case ${link.caseId} (additive, non-blocking): ${String(e)}`);
-          }
-        }
-        const status2 = yield ctx.df.callActivityWithRetry("statusEvaluate", retry2, {
-          caseId: link.caseId
-        });
-        return {
-          triaged: classification.category,
-          subtype: classification.subtype,
-          replyLink: link.outcome,
-          caseId: link.caseId,
-          status: status2.value
-        };
-      }
-      const retroReply = decideRetro({
-        category: classification.category,
-        subtype: classification.subtype,
-        bodyCaseref: classification.bodyCaseref,
-        bodyJobref: classification.bodyJobref,
-        bodyVrm: classification.bodyVrm,
-        candidateRef: inb.candidateRef,
-        candidateVrm: inb.candidateVrm,
-        isReply: true,
-        linkReplyOutcome: link.outcome
-      });
-      if (!retroReply.attempt && !ctx.df.isReplaying) {
-        ctx.log(
-          JSON.stringify({ evt: "retroDecision", attempt: false, lane: "reply", reasons: retroReply.reasons })
-        );
-      }
-      let retroReplyOutcome;
-      if (retroReply.attempt) {
-        try {
-          const retro = yield ctx.df.callSubOrchestratorWithRetry("retroCaseOrchestrator", retry2, {
-            trigger: inbound,
-            category: classification.category,
-            subtype: classification.subtype,
-            keys: retroReply.keys,
-            providerId: workProviderId,
-            providerPrincipal: principalCode
-          });
-          retroReplyOutcome = retro?.outcome;
-        } catch (e) {
-          retroReplyOutcome = "error";
-          if (!ctx.df.isReplaying) {
-            ctx.log(`[intake] retro fallback failed (additive, non-blocking): ${String(e)}`);
-          }
-        }
-      }
-      return {
-        triaged: classification.category,
-        subtype: classification.subtype,
-        replyLink: link.outcome,
-        ...link.caseId ? { caseId: link.caseId } : {},
-        ...retroReplyOutcome ? { retro: retroReplyOutcome } : {}
-      };
-    }
-    let pdfVrmMatch;
-    if (shouldAttemptPdfVrmMatch(
-      classification,
-      triage,
-      inbound.attachments
-    )) {
-      try {
-        let laneParse = {};
-        try {
-          laneParse = yield ctx.df.callActivityWithRetry("parse", retry2, {
-            messageId: inbound.messageId,
-            attachments: inbound.attachments,
-            providerHint: principalCode
-          });
-        } catch (e) {
-          if (!ctx.df.isReplaying) {
-            ctx.log(
-              `[intake] images-received PDF parse failed (additive, non-blocking): ${String(e)}`
-            );
-          }
-        }
-        const vrmMatch = yield ctx.df.callActivityWithRetry("imagesReceivedVrmMatch", retry2, {
-          internetMessageId: inbound.internetMessageId,
-          vrm: (laneParse.vrm?.value ?? "").trim(),
-          triedVrm: (inbound.candidateVrm || classification.bodyVrm || "").trim()
-        });
-        pdfVrmMatch = vrmMatch.outcome;
-      } catch (e) {
-        if (!ctx.df.isReplaying) {
-          ctx.log(
-            `[intake] images-received VRM match failed (additive, non-blocking): ${String(e)}`
-          );
-        }
-      }
-    }
-    const inbNonReply = inbound;
-    const retroNonReply = decideRetro({
-      category: classification.category,
-      subtype: classification.subtype,
-      bodyCaseref: classification.bodyCaseref,
-      bodyJobref: classification.bodyJobref,
-      bodyVrm: classification.bodyVrm,
-      candidateRef: inbNonReply.candidateRef,
-      candidateVrm: inbNonReply.candidateVrm,
-      isReply: false
-    });
-    if (!retroNonReply.attempt && !ctx.df.isReplaying) {
-      ctx.log(
-        JSON.stringify({ evt: "retroDecision", attempt: false, lane: "non_reply", reasons: retroNonReply.reasons })
-      );
-    }
-    let retroOutcome;
-    if (retroNonReply.attempt) {
-      try {
-        const retro = yield ctx.df.callSubOrchestratorWithRetry("retroCaseOrchestrator", retry2, {
-          trigger: inbound,
-          category: classification.category,
-          subtype: classification.subtype,
-          keys: retroNonReply.keys,
-          providerId: workProviderId,
-          providerPrincipal: principalCode
-        });
-        retroOutcome = retro?.outcome;
-      } catch (e) {
-        retroOutcome = "error";
-        if (!ctx.df.isReplaying) {
-          ctx.log(`[intake] retro fallback failed (additive, non-blocking): ${String(e)}`);
-        }
-      }
-    }
-    return {
-      triaged: classification.category,
-      subtype: classification.subtype,
-      ...pdfVrmMatch ? { pdfVrmMatch } : {},
-      ...retroOutcome ? { retro: retroOutcome } : {}
-    };
-  }
-  const inboundForCase = {
-    ...inbound,
-    candidateRef: (inbound.candidateRef || classification.bodyCaseref) ?? ""
-  };
-  let parseResult = {};
-  try {
-    parseResult = yield ctx.df.callActivityWithRetry("parse", retry2, {
-      messageId: inbound.messageId,
-      attachments: inbound.attachments,
-      providerHint: principalCode
-    });
-  } catch (e) {
-    if (!ctx.df.isReplaying) {
-      ctx.log(
-        `[intake] parse failed after retries (parser outage) \u2014 proceeding with empty parse result so case-create still runs: ${String(e)}`
-      );
-    }
-  }
-  const parserVrm = (parseResult.vrm?.value ?? "").trim();
-  const documentHasMileage = Boolean(parseResult.extraction?.mileage?.value);
-  const parserRef = (parseResult.reference?.value ?? "").trim();
-  const parserMileage = (parseResult.extraction?.mileage?.value ?? "").trim();
-  const parserMileageUnit = (parseResult.extraction?.mileage_unit?.value ?? "").trim();
-  const ex = parseResult.extraction ?? {};
-  const exVal = (k) => (ex[k]?.value ?? "").trim();
-  const resolvedWorkProvider = (parseResult.resolvedWorkProvider ?? "").trim();
-  const exWorkProvider = resolvedWorkProvider || exVal("work_provider");
-  const parserEvaFields = {
-    work_provider: exWorkProvider.toUpperCase() === "UNKNOWN" ? "" : exWorkProvider,
-    vehicle_model: exVal("vehicle_model"),
-    claimant_name: exVal("claimant_name"),
-    claimant_telephone: exVal("claimant_telephone"),
-    claimant_email: exVal("claimant_email"),
-    date_of_loss: exVal("date_of_loss"),
-    date_of_instruction: exVal("date_of_instruction"),
-    accident_circumstances: exVal("accident_circumstances") || supplementAccidentCircumstancesFromBody(String(inbound.body ?? "")),
-    vat_status: exVal("vat_status")
-  };
-  const caseTypeDecision = decideCaseType({
-    parserCaseType: parseResult.case_type,
-    parserAudit: parseResult.audit,
-    classifierSubtype: classification.subtype
-  });
-  const resolved = yield ctx.df.callActivityWithRetry("caseResolve", retry2, {
-    inbound: inboundForCase,
-    providerId: workProviderId,
-    matchState,
-    parserVrm,
-    parserRef,
-    parserMileage,
-    parserMileageUnit,
-    parserEvaFields,
-    caseType: caseTypeDecision.caseType,
-    caseTypeDual: caseTypeDecision.dual,
-    caseTypeSignals: [...caseTypeDecision.signals],
-    // rules-engine-v2 Phase 3 (ADR-0011) — forwarded so the API's applyParserFields can
-    // corroborate a content-detected provider against the intermediary's N:N candidates.
-    ...intermediaryImageSourceId ? { intermediaryImageSourceId, intermediaryCandidateProviderIds } : {}
-  });
-  if (resolved.outcome === "already_ingested") {
-    return { skipped: true, caseId: resolved.caseId };
-  }
-  if (resolved.outcome === "refused_category") {
-    if (!ctx.df.isReplaying) {
-      ctx.log(`[intake] case create refused by the category mint guard (${classification.category}/${classification.subtype})`);
-    }
-    return { triaged: classification.category, subtype: classification.subtype, refused: "category_mint_guard" };
-  }
-  yield ctx.df.callActivityWithRetry("setIngested", retry2, { caseId: resolved.caseId });
-  try {
-    yield ctx.df.callActivityWithRetry("correlatePreInstruction", retry2, {
-      caseId: resolved.caseId,
-      casePo: resolved.casePo ?? null,
-      vrm: parserVrm || inbound.candidateVrm || "",
-      caseRef: resolved.casePo ?? "",
-      jobRef: parserRef || classification.bodyJobref || ""
-    });
-  } catch (e) {
-    if (!ctx.df.isReplaying) {
-      ctx.log(`[intake] pre-instruction correlation failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
-    }
-  }
-  const automationMode = resolved.providerAutomationMode ?? "review_auto";
-  const autoEnrich = automationMode !== "manual";
-  if (!autoEnrich && !ctx.df.isReplaying) {
-    ctx.log(`[intake] provider automation mode = manual for case ${resolved.caseId}; record-keeping (Box folder/archive/images) runs, enrichment deferred to staff`);
-  }
-  if (resolved.casePo) {
-    try {
-      yield ctx.df.callSubOrchestratorWithRetry("boxFolderCreateOrchestrator", retry2, {
-        caseId: resolved.caseId,
-        folderName: resolved.casePo.toUpperCase()
-      });
-    } catch (e) {
-      if (!ctx.df.isReplaying) {
-        ctx.log(`[intake] box folder create failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
-      }
-    }
-  }
-  yield ctx.df.callActivityWithRetry("classifyPersist", retry2, {
-    caseId: resolved.caseId,
-    inbound,
-    typings: parseResult.attachmentTypings,
-    caseVrm: parserVrm || inbound.candidateVrm,
-    ...workProviderId ? { workProviderId } : {}
-  });
-  try {
-    yield ctx.df.callActivityWithRetry("extractImages", retry2, {
-      caseId: resolved.caseId,
-      messageId: inbound.messageId,
-      attachments: inbound.attachments,
-      caseVrm: parserVrm || inbound.candidateVrm,
-      ...workProviderId ? { workProviderId } : {},
-      // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
-      ...principalCode ? { providerPrincipal: principalCode } : {}
-    });
-  } catch (e) {
-    if (!ctx.df.isReplaying) {
-      ctx.log(`[intake] image extraction failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
-    }
-  }
-  try {
-    yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry2, {
-      caseId: resolved.caseId
-    });
-  } catch (e) {
-    if (!ctx.df.isReplaying) {
-      ctx.log(`[intake] box archive failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
-    }
-  }
-  const status = yield ctx.df.callActivityWithRetry("statusEvaluate", retry2, {
-    caseId: resolved.caseId
-  });
-  if (autoEnrich) {
-    yield ctx.df.callActivityWithRetry("enrich", retry2, {
-      caseId: resolved.caseId,
-      vrm: parserVrm || inbound.candidateVrm,
-      documentHasMileage
-    });
-  }
-  return { caseId: resolved.caseId, status: status.value, mode: automationMode };
-});
-
-// orchestration/src/functions/activities/fetchMessage.ts
-var import_node_crypto6 = require("node:crypto");
-var df7 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/blob.ts
 var import_node_crypto4 = require("node:crypto");
@@ -50570,10 +49629,1407 @@ function bodyInstructionFileName(messageIdOrInternetId) {
   return `email-body-${messageFileToken(messageIdOrInternetId)}.txt`;
 }
 
+// orchestration/src/lib/aoai.ts
+var COGNITIVE_SERVICES_SCOPE = "https://cognitiveservices.azure.com/.default";
+var cachedToken3 = null;
+function resourceFromScope(scope) {
+  return scope.endsWith("/.default") ? scope.slice(0, -"/.default".length) : scope;
+}
+async function mintCognitiveToken() {
+  const now = Date.now();
+  if (cachedToken3 && cachedToken3.expiresAt > now + 6e4) return cachedToken3.value;
+  const idEndpoint = process.env.IDENTITY_ENDPOINT;
+  const idHeader = process.env.IDENTITY_HEADER;
+  if (idEndpoint && idHeader) {
+    const resource = resourceFromScope(COGNITIVE_SERVICES_SCOPE);
+    const url2 = `${idEndpoint}?resource=${encodeURIComponent(resource)}&api-version=2019-08-01`;
+    const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
+    if (!res.ok) throw new Error(`MSI token (cognitiveservices) ${res.status}`);
+    const json = await res.json();
+    cachedToken3 = {
+      value: json.access_token,
+      expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
+    };
+    return cachedToken3.value;
+  }
+  if (process.env.AOAI_DEV_TOKEN === "1") {
+    const { execFile } = await import("node:child_process");
+    const token = await new Promise((resolve, reject) => {
+      execFile(
+        "az",
+        ["account", "get-access-token", "--resource", "https://cognitiveservices.azure.com", "--query", "accessToken", "-o", "tsv"],
+        (err, stdout) => {
+          if (err) reject(err);
+          else resolve(stdout.trim());
+        }
+      );
+    });
+    if (!token) throw new Error("az account get-access-token returned no token");
+    cachedToken3 = { value: token, expiresAt: now + 3e6 };
+    return token;
+  }
+  throw new Error(
+    "missing IDENTITY_ENDPOINT/IDENTITY_HEADER for Cognitive Services auth (set AOAI_DEV_TOKEN=1 to use the operator az-cli session for local dev)"
+  );
+}
+var CATEGORY_DEFINITIONS = {
+  receiving_work: "An instruction or audit request that should become a case, for a new or an existing client.",
+  query: "A question about work already in progress, or a new enquiry \u2014 no new work to log yet.",
+  other: "Anything that is not a work item, a query, billing, or a cancellation report \u2014 the catch-all.",
+  billing: "An invoice, fee query, or payment matter about work already carried out.",
+  non_actionable: 'A short receipt/acknowledgement/no-action-needed message (e.g. "thanks", an auto-reply).',
+  case_update: "New information \u2014 evidence, photographs, or an answer \u2014 for a case already open.",
+  cancellation: "A claim or case reported cancelled, closed, or withdrawn.",
+  pre_instruction: "Directions to follow when a formal instruction arrives later \u2014 no instruction yet, so no case should be opened."
+};
+var SUBTYPE_DEFINITIONS = {
+  existing_provider_instruction: "An instruction from a sender who is a known work provider.",
+  existing_provider_audit: "An audit / re-inspection instruction from a known work provider.",
+  existing_provider_diminution: "A diminution-in-value instruction from a known work provider.",
+  new_client_work: "An instruction from a sender who is not a known work provider.",
+  query_existing_work: "A question referring to a case already in progress.",
+  query_new_enquiry: "A question from someone with no case in progress yet.",
+  billing_request: "An invoice or payment request tied to work already carried out.",
+  case_summary: "A status digest or summary covering one or more cases.",
+  acknowledgement: 'A short "received / thanks / noted" reply that needs no action.',
+  other: "None of the other subtypes apply.",
+  images_received: "Photographs with no other new instruction content.",
+  cancellation_notice: "The usual subtype for a cancellation report.",
+  update_general: "New information on an existing case that is not photographs alone.",
+  payment_remittance: "A payment made TO us \u2014 a remittance advice or transfer notice for work already done (not a request for our invoice).",
+  pre_instruction_directions: "The usual subtype for pre-instruction directions."
+};
+function categoryLine(name) {
+  return `- ${name}: ${CATEGORY_DEFINITIONS[name] ?? "A taxonomy category (no further description on file)."}`;
+}
+function subtypeLine(name) {
+  return `- ${name}: ${SUBTYPE_DEFINITIONS[name] ?? "A taxonomy subtype (no further description on file)."}`;
+}
+function buildSystemPrompt() {
+  return [
+    "You triage inbound emails for a vehicle-collision engineering business. A fast, deterministic rule pass already ran on this message and could not confidently place it \u2014 you are a second opinion for that one message, not a first pass and not a replacement for the rules.",
+    'Choose the single best category and subtype from the lists below. Give a confidence from 0 to 1 (your honest belief the label is right, not a fixed value). Write a rationale of one plain sentence, in everyday English, for a non-technical case handler: describe what the message is about, never how you decided. Never use the words "classifier", "signals", "model", "confidence", "rule", "category", "subtype", "JSON", or any similar technical term in the rationale. Never invent a case number, reference, or vehicle registration that is not present in the message text you were given.',
+    `Categories:
+${INBOUND_CATEGORIES.map(categoryLine).join("\n")}`,
+    `Subtypes:
+${INBOUND_SUBTYPES.map(subtypeLine).join("\n")}`,
+    `Pick the subtype that belongs with your chosen category; if none fits well, use that category's "other" or general subtype.`
+  ].join("\n\n");
+}
+function buildUserPrompt(input14) {
+  const attachments = input14.attachmentFilenames.length ? input14.attachmentFilenames.join(", ") : "(none)";
+  const signals = input14.deterministicSignals.length ? input14.deterministicSignals.join(", ") : "(none)";
+  return [
+    `Sender domain: ${input14.senderDomain || "(unknown)"}`,
+    `Attachment filenames: ${attachments}`,
+    `Subject: ${input14.subjectScrubbed || "(none)"}`,
+    `Body:
+${input14.bodyScrubbed || "(none)"}`,
+    "---",
+    "The deterministic rule pass proposed (but did not confidently commit to):",
+    `category=${input14.deterministicCategory || "(none)"} subtype=${input14.deterministicSubtype || "(none)"} signals=${signals}`
+  ].join("\n");
+}
+var MAX_COMPLETION_TOKENS = 2e3;
+var REQUEST_TIMEOUT_MS = 15e3;
+var SCHEMA_NAME = "triage_classification";
+function buildTriageResponseSchema() {
+  return {
+    type: "object",
+    properties: {
+      category: { type: "string", enum: [...INBOUND_CATEGORIES] },
+      subtype: { type: "string", enum: [...INBOUND_SUBTYPES] },
+      confidence: { type: "number", minimum: 0, maximum: 1 },
+      rationale: { type: "string" }
+    },
+    required: ["category", "subtype", "confidence", "rationale"],
+    additionalProperties: false
+  };
+}
+function buildTriageRequestBody(input14, deployment) {
+  return {
+    model: deployment,
+    messages: [
+      { role: "system", content: buildSystemPrompt() },
+      { role: "user", content: buildUserPrompt(input14) }
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: SCHEMA_NAME,
+        strict: true,
+        schema: buildTriageResponseSchema()
+      }
+    },
+    max_completion_tokens: MAX_COMPLETION_TOKENS,
+    reasoning_effort: "low"
+  };
+}
+var KNOWN_CATEGORIES = new Set(INBOUND_CATEGORIES);
+var KNOWN_SUBTYPES = new Set(INBOUND_SUBTYPES);
+function abstainForErrorResponse(status, body2) {
+  const code = body2?.error?.code;
+  if (code === "content_filter") return { abstain: true, reason: "content_filter" };
+  return { abstain: true, reason: code ? `http_${status}_${code}` : `http_${status}` };
+}
+function parseTriageModelResponse(json) {
+  const body2 = json;
+  const choice = body2?.choices?.[0];
+  if (!choice) return { abstain: true, reason: "empty_response" };
+  if (choice.finish_reason === "content_filter") {
+    return { abstain: true, reason: "content_filter" };
+  }
+  const content = choice.message?.content;
+  if (typeof content !== "string" || content.trim() === "") {
+    return { abstain: true, reason: "empty_response" };
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return { abstain: true, reason: "parse_error" };
+  }
+  if (typeof parsed !== "object" || parsed === null) {
+    return { abstain: true, reason: "parse_error" };
+  }
+  const candidate = parsed;
+  const category = typeof candidate.category === "string" ? candidate.category : "";
+  const subtype = typeof candidate.subtype === "string" ? candidate.subtype : "";
+  if (!KNOWN_CATEGORIES.has(category) || !KNOWN_SUBTYPES.has(subtype)) {
+    return { abstain: true, reason: "invalid_taxonomy" };
+  }
+  const rationale = typeof candidate.rationale === "string" ? candidate.rationale.trim() : "";
+  if (!rationale) return { abstain: true, reason: "empty_rationale" };
+  const rawConfidence = typeof candidate.confidence === "number" ? candidate.confidence : 0;
+  const confidence = Math.min(1, Math.max(0, rawConfidence));
+  return {
+    category,
+    subtype,
+    confidence,
+    rationale,
+    ...typeof body2?.model === "string" ? { responseModel: body2.model } : {},
+    ...typeof body2?.system_fingerprint === "string" ? { systemFingerprint: body2.system_fingerprint } : {}
+  };
+}
+async function callTriageModel(input14) {
+  const endpoint = gates.aiModelEndpoint();
+  const deployment = gates.aiModelDeployment();
+  if (!endpoint || !deployment) {
+    return { abstain: true, reason: "model_not_configured" };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const token = await mintCognitiveToken();
+    const url2 = `${endpoint.replace(/\/$/, "")}/openai/v1/chat/completions`;
+    const res = await fetch(url2, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(buildTriageRequestBody(input14, deployment)),
+      signal: controller.signal
+    });
+    const json = await res.json().catch(() => void 0);
+    if (!res.ok) {
+      return abstainForErrorResponse(res.status, json);
+    }
+    return parseTriageModelResponse(json);
+  } catch (e) {
+    const isAbort = e instanceof Error && e.name === "AbortError";
+    return { abstain: true, reason: isAbort ? "timeout" : "request_failed" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// orchestration/src/lib/image-classify.ts
+var REQUEST_TIMEOUT_MS2 = 3e4;
+var MAX_COMPLETION_TOKENS2 = 3e3;
+var SCHEMA_NAME2 = "vehicle_image_classification";
+var SYSTEM_PROMPT = 'You are an expert UK motor-claims vehicle-inspection image classifier. You are shown ONE photo from a case\u2019s evidence set. Classify it precisely.\nrole: "overview" = a WIDE shot showing most/all of the whole vehicle (used to identify the car); prefer this when the full vehicle and ideally its number plate are visible. "damage_closeup" = a close-up focused on damage (dent, scratch, crack, broken panel/light/bumper). "additional" = any other genuine vehicle photo (interior, dashboard/odometer, VIN plate, tyre, engine bay, a plate-only close-up with no damage, a partial panel with no clear damage). "other" = NOT a vehicle photo (document/letter scan, screenshot, form, logo, email, blank/corrupt).\nregistration_visible: true ONLY if a UK number plate is present AND its characters are legibly readable in THIS image; else false. plate_text: the registration (UPPERCASE, no spaces) or "" if none/illegible. person_reflection: true if a person\u2019s face or human reflection is visible (e.g. the photographer reflected in paintwork/glass/window). Judge only what is visible.';
+function buildResponseSchema() {
+  return {
+    type: "object",
+    properties: {
+      role: { type: "string", enum: ["overview", "damage_closeup", "additional", "other"] },
+      registration_visible: { type: "boolean" },
+      plate_text: { type: "string" },
+      person_reflection: { type: "boolean" },
+      confidence: { type: "number", minimum: 0, maximum: 1 }
+    },
+    required: ["role", "registration_visible", "plate_text", "person_reflection", "confidence"],
+    additionalProperties: false
+  };
+}
+function buildImageRequestBody(imageBase64, contentType2, deployment, caseVrm) {
+  const ctype = contentType2 && contentType2.startsWith("image/") ? contentType2 : "image/jpeg";
+  const dataUrl = `data:${ctype};base64,${imageBase64}`;
+  const hint = caseVrm ? ` The case vehicle registration is '${caseVrm}'.` : "";
+  return {
+    model: deployment,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Classify this vehicle inspection photo." + hint },
+          { type: "image_url", image_url: { url: dataUrl } }
+        ]
+      }
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: { name: SCHEMA_NAME2, strict: true, schema: buildResponseSchema() }
+    },
+    max_completion_tokens: MAX_COMPLETION_TOKENS2,
+    reasoning_effort: "low"
+  };
+}
+var ROLE_NAMES = /* @__PURE__ */ new Set(["overview", "damage_closeup", "additional", "other"]);
+function parseImageResponse(json) {
+  const body2 = json;
+  const choice = body2?.choices?.[0];
+  if (!choice || choice.finish_reason === "content_filter") return null;
+  const content = choice.message?.content;
+  if (typeof content !== "string" || content.trim() === "") return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const c = parsed;
+  const role = typeof c.role === "string" && ROLE_NAMES.has(c.role) ? c.role : null;
+  if (!role) return null;
+  return {
+    role,
+    registrationVisible: c.registration_visible === true,
+    plateText: typeof c.plate_text === "string" ? c.plate_text.trim().slice(0, 16) : "",
+    personReflection: c.person_reflection === true,
+    confidence: typeof c.confidence === "number" ? Math.min(1, Math.max(0, c.confidence)) : 0
+  };
+}
+async function classifyImage(input14) {
+  const endpoint = gates.aiModelEndpoint();
+  const deployment = gates.aiModelDeployment();
+  if (!endpoint || !deployment) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS2);
+  try {
+    const token = await mintCognitiveToken();
+    const url2 = `${endpoint.replace(/\/$/, "")}/openai/v1/chat/completions`;
+    const res = await fetch(url2, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(
+        buildImageRequestBody(input14.imageBase64, input14.contentType ?? "image/jpeg", deployment, input14.caseVrm)
+      ),
+      signal: controller.signal
+    });
+    if (!res.ok) return null;
+    const json = await res.json().catch(() => void 0);
+    return parseImageResponse(json);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+function caseRegistrationVisible(c, caseVrm) {
+  if (!c.registrationVisible) return false;
+  const vrm = caseVrm ? canonicalizeVrm(caseVrm) : "";
+  if (!vrm) return true;
+  const plate = canonicalizeVrm(c.plateText);
+  return plate.length > 0 && plate === vrm;
+}
+function classificationToEvidenceFields(c, caseVrm) {
+  const registrationVisible = caseRegistrationVisible(c, caseVrm);
+  if (c.personReflection) {
+    return {
+      imageRole: c.role,
+      registrationVisible,
+      acceptedForEva: false,
+      excluded: true,
+      exclusionReason: "person reflection detected (auto-classified)",
+      personReflection: true
+    };
+  }
+  const accepted = c.role !== "other";
+  return {
+    imageRole: c.role,
+    registrationVisible,
+    acceptedForEva: accepted,
+    excluded: false,
+    personReflection: false
+  };
+}
+
+// orchestration/src/functions/activities/classifyPersist.ts
+var df4 = __toESM(require("durable-functions"), 1);
+var MIN_BODY_INSTRUCTION_CHARS = 40;
+function buildBaseEvidenceRows(inbound) {
+  const rows = inbound.attachments.map((a) => ({
+    ...describeEvidence(a.filename, a.contentType),
+    blobPath: a.blobPath,
+    size: a.size,
+    ...a.sha256 ? { sha256: a.sha256 } : {}
+  }));
+  if (inbound.rawEml) {
+    rows.push({
+      ...describeEvidence(inbound.rawEml.filename, inbound.rawEml.contentType),
+      blobPath: inbound.rawEml.blobPath,
+      size: inbound.rawEml.size,
+      ...inbound.rawEml.sha256 ? { sha256: inbound.rawEml.sha256 } : {}
+    });
+  }
+  return rows;
+}
+df4.app.activity("classifyPersist", {
+  handler: async (input14, ctx) => {
+    const { caseId, inbound } = input14;
+    const rows = buildBaseEvidenceRows(inbound);
+    let classifyAllowed = gates.imageRoleClassifyEnabled();
+    if (classifyAllowed && input14.workProviderId) {
+      try {
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input14.workProviderId);
+        if (aiAllowed === false) {
+          classifyAllowed = false;
+          ctx.log("[classifyPersist] image classify skipped \u2014 work provider opted out of AI (ai_allowed=false)");
+        }
+      } catch (e) {
+        ctx.log(JSON.stringify({ evt: "classifyPersist.aiAllowedLookupFailed", caseId, err: e instanceof Error ? e.message : String(e) }));
+      }
+    }
+    if (classifyAllowed) {
+      for (const r of rows) {
+        if (!r.isImage) continue;
+        try {
+          const bytes = await downloadEvidenceBytes(r.blobPath);
+          const cls = await classifyImage({ imageBase64: bytes.toString("base64"), contentType: r.contentType, caseVrm: input14.caseVrm });
+          if (cls) {
+            const f = classificationToEvidenceFields(cls, input14.caseVrm);
+            r.imageRole = f.imageRole;
+            r.registrationVisible = f.registrationVisible;
+            r.acceptedForEva = f.acceptedForEva;
+            r.personReflection = f.personReflection;
+            if (f.excluded) {
+              r.excluded = true;
+              r.exclusionReason = f.exclusionReason;
+            }
+          }
+        } catch (e) {
+          ctx.log(JSON.stringify({ evt: "classifyPersist.imageClassifyFailed", caseId, file: r.filename, err: e instanceof Error ? e.message : String(e) }));
+        }
+      }
+    }
+    if (gates.auditCases() && (input14.typings?.length ?? 0) > 0) {
+      const reportBlobPaths = new Set(
+        (input14.typings ?? []).filter((t) => isEngineerReportLayoutName(t.providerName)).map((t) => t.blobPath)
+      );
+      if (reportBlobPaths.size > 0) {
+        const wouldRemain = rows.some(
+          (r) => r.evidenceClass === "instruction" && !reportBlobPaths.has(r.blobPath)
+        );
+        if (wouldRemain) {
+          let overridden = 0;
+          for (const r of rows) {
+            if (r.evidenceClass === "instruction" && reportBlobPaths.has(r.blobPath)) {
+              r.evidenceClass = "engineer_report";
+              r.isInstruction = false;
+              overridden += 1;
+            }
+          }
+          if (overridden > 0) {
+            ctx.log(
+              JSON.stringify({ evt: "classifyPersist.engineerReportOverride", caseId, overridden })
+            );
+          }
+        } else {
+          ctx.log(
+            JSON.stringify({ evt: "classifyPersist.engineerReportOverrideSkipped", caseId, reason: "would_strip_only_instruction" })
+          );
+        }
+      }
+    }
+    const hasInstructionAttachment = rows.some((r) => r.evidenceClass === "instruction");
+    const bodyText = (inbound.body ?? "").trim();
+    if (!hasInstructionAttachment && bodyText.length >= MIN_BODY_INSTRUCTION_CHARS) {
+      const bodyName = bodyInstructionFileName(inbound.internetMessageId ?? inbound.messageId);
+      const up = await uploadEvidenceBytes(
+        inbound.messageId,
+        bodyName,
+        Buffer.from(bodyText, "utf8"),
+        "text/plain"
+      );
+      rows.push({
+        filename: bodyName,
+        contentType: "text/plain",
+        extension: "txt",
+        evidenceClass: "instruction",
+        isImage: false,
+        isInstruction: true,
+        blobPath: up.blobPath,
+        size: up.size,
+        sha256: up.sha256
+      });
+      ctx.log(JSON.stringify({ evt: "classifyPersist.bodyInstruction", caseId, bytes: up.size }));
+    }
+    const result = await dataApi.persistEvidence(caseId, rows);
+    await dataApi.recordAudit({
+      action: "attachment_classified",
+      caseId,
+      summary: `classified + persisted ${result.persisted} evidence row(s)`
+    });
+    ctx.log(JSON.stringify({ evt: "classifyPersist", caseId, persisted: result.persisted }));
+    return result;
+  }
+});
+
+// orchestration/src/functions/evidence-backfill.ts
+var MAX_DEQUEUE2 = 5;
+var SEARCH_CANDIDATE_CAP = 25;
+async function locateBySubjectSearch(mailbox, subject, internetMessageId) {
+  const phrase = (subject ?? "").trim();
+  if (!phrase) return null;
+  const hits = await searchMessages(mailbox, kqlPhrase(phrase), SEARCH_CANDIDATE_CAP);
+  for (const h of hits) {
+    try {
+      const msg = await graphFetch(
+        `/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(h.id)}?$select=internetMessageId`
+      );
+      if ((msg.internetMessageId ?? "") === internetMessageId) return h.id;
+    } catch {
+    }
+  }
+  return null;
+}
+import_functions9.app.storageQueue("evidence-backfill", {
+  queueName: "evidence-backfill",
+  connection: "AzureWebJobsStorage",
+  handler: async (item, ctx) => {
+    const job = typeof item === "string" ? JSON.parse(item) : item;
+    const dequeueCount = Number(ctx.triggerMetadata?.dequeueCount ?? 1);
+    const lastAttempt = dequeueCount >= MAX_DEQUEUE2;
+    const fail = async (detail) => {
+      ctx.warn(`[evidence-backfill] ${job.inboundEmailId}: ${detail}`);
+      await dataApi.reportEvidenceBackfill(job.inboundEmailId, {
+        outcome: "failed",
+        targetCaseId: job.targetCaseId,
+        detail
+      });
+    };
+    try {
+      if (!job.inboundEmailId || !job.targetCaseId) {
+        ctx.error(`[evidence-backfill] malformed job dropped: ${JSON.stringify(job).slice(0, 300)}`);
+        return;
+      }
+      if (!job.sourceMailbox || !job.sourceMessageId) {
+        await fail("no mailbox provenance on the job (sourceMailbox/sourceMessageId missing)");
+        return;
+      }
+      const found = await findMessageByInternetMessageId(job.sourceMailbox, job.sourceMessageId);
+      let graphId = found?.id ?? null;
+      if (!graphId && gates.retroOutlookSearch() && (job.subject ?? "").trim()) {
+        try {
+          graphId = await locateBySubjectSearch(
+            job.sourceMailbox,
+            String(job.subject),
+            job.sourceMessageId
+          );
+        } catch (e) {
+          const detail = e instanceof Error ? e.message : String(e);
+          if (!lastAttempt && isRetryableGraphError(detail)) throw e;
+          ctx.warn(`[evidence-backfill] $search fallback failed (treating as not found): ${detail}`);
+        }
+      }
+      if (!graphId) {
+        await fail("message not found in the mailbox (deleted beyond search, or moved out?)");
+        return;
+      }
+      const { message, attachments } = await getMessageWithAttachments(job.sourceMailbox, graphId);
+      const landed = [];
+      const bytesByPath = /* @__PURE__ */ new Map();
+      for (const a of attachments) {
+        const bytes = Buffer.from(a.contentBytes ?? "", "base64");
+        const up = await uploadEvidenceBytes(graphId, a.name, bytes, a.contentType);
+        landed.push({
+          filename: a.name,
+          contentType: a.contentType,
+          blobPath: up.blobPath,
+          size: up.size,
+          sha256: up.sha256
+        });
+        bytesByPath.set(up.blobPath, bytes);
+      }
+      let rawEml;
+      try {
+        const mime = await getMessageRawMime(job.sourceMailbox, graphId);
+        const emlName = rawEmlFileName(message.internetMessageId ?? job.sourceMessageId);
+        const emlUp = await uploadEvidenceBytes(graphId, emlName, mime, "message/rfc822");
+        rawEml = {
+          filename: emlName,
+          contentType: "message/rfc822",
+          blobPath: emlUp.blobPath,
+          size: emlUp.size,
+          sha256: emlUp.sha256
+        };
+      } catch (e) {
+        ctx.warn(
+          `[evidence-backfill] raw .eml capture failed for ${job.inboundEmailId} (best-effort): ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+      const rows = buildBaseEvidenceRows({ attachments: landed, ...rawEml ? { rawEml } : {} });
+      let classifyAllowed = gates.imageRoleClassifyEnabled();
+      let caseVrm;
+      if (classifyAllowed && rows.some((r) => r.isImage)) {
+        try {
+          const lookup = await dataApi.casesLookup({ caseIds: [job.targetCaseId] });
+          const target = lookup.cases[0];
+          caseVrm = target?.vrm || void 0;
+          if (target?.workProviderId) {
+            const { aiAllowed } = await dataApi.workProviderAiAllowed(target.workProviderId);
+            if (aiAllowed === false) {
+              classifyAllowed = false;
+              ctx.log("[evidence-backfill] image classify skipped \u2014 work provider opted out of AI (ai_allowed=false)");
+            }
+          }
+        } catch (e) {
+          ctx.log(
+            JSON.stringify({
+              evt: "evidenceBackfill.caseLookupFailed",
+              caseId: job.targetCaseId,
+              err: e instanceof Error ? e.message : String(e)
+            })
+          );
+        }
+      }
+      if (classifyAllowed) {
+        for (const r of rows) {
+          if (!r.isImage) continue;
+          try {
+            const bytes = bytesByPath.get(r.blobPath);
+            if (!bytes) continue;
+            const cls = await classifyImage({
+              imageBase64: bytes.toString("base64"),
+              contentType: r.contentType,
+              caseVrm
+            });
+            if (cls) {
+              const f = classificationToEvidenceFields(cls, caseVrm);
+              r.imageRole = f.imageRole;
+              r.registrationVisible = f.registrationVisible;
+              r.acceptedForEva = f.acceptedForEva;
+              r.personReflection = f.personReflection;
+              if (f.excluded) {
+                r.excluded = true;
+                r.exclusionReason = f.exclusionReason;
+              }
+            }
+          } catch (e) {
+            ctx.log(
+              JSON.stringify({
+                evt: "evidenceBackfill.imageClassifyFailed",
+                caseId: job.targetCaseId,
+                file: r.filename,
+                err: e instanceof Error ? e.message : String(e)
+              })
+            );
+          }
+        }
+      }
+      const result = await dataApi.persistEvidence(job.targetCaseId, rows);
+      const merged = result.merged;
+      const status = await dataApi.evaluateStatus(job.targetCaseId);
+      await dataApi.reportEvidenceBackfill(job.inboundEmailId, {
+        outcome: "completed",
+        targetCaseId: job.targetCaseId,
+        persisted: result.persisted,
+        ...typeof merged === "number" ? { merged } : {}
+      });
+      ctx.log(
+        JSON.stringify({
+          evt: "evidence-backfill",
+          inboundEmailId: job.inboundEmailId,
+          caseId: job.targetCaseId,
+          attachments: landed.length,
+          eml: Boolean(rawEml),
+          persisted: result.persisted,
+          ...typeof merged === "number" ? { merged } : {},
+          status: status.value
+        })
+      );
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e);
+      if (!lastAttempt && isRetryableGraphError(detail)) {
+        ctx.warn(
+          `[evidence-backfill] transient failure (attempt ${dequeueCount}/${MAX_DEQUEUE2}) \u2014 retrying: ${detail}`
+        );
+        throw e;
+      }
+      try {
+        await fail(detail.slice(0, 300));
+      } catch (reportErr) {
+        ctx.error(
+          `[evidence-backfill] terminal failure AND outcome report failed for ${job.inboundEmailId}: ${reportErr instanceof Error ? reportErr.message : String(reportErr)}`
+        );
+      }
+    }
+  }
+});
+
+// orchestration/src/functions/intakeOrchestrator.ts
+var df7 = __toESM(require("durable-functions"), 1);
+
+// orchestration/src/lib/supplement-parse.ts
+var ACCIDENT_START_RE = /accident circumstances\s*:?/i;
+var ACCIDENT_END_RES = [
+  /\bdamage description\s*:?/i,
+  /\bdriveable\s*:?/i,
+  /\byours faithfully\b/i
+];
+function supplementAccidentCircumstancesFromBody(body2) {
+  const text = (body2 ?? "").replace(/\r\n/g, "\n").trim();
+  if (!text || !ACCIDENT_START_RE.test(text)) {
+    return "";
+  }
+  const startMatch = ACCIDENT_START_RE.exec(text);
+  if (!startMatch) {
+    return "";
+  }
+  let remainder = text.slice(startMatch.index + startMatch[0].length).trim();
+  remainder = remainder.replace(/^[|:\s]+/, "");
+  let endIdx = remainder.length;
+  for (const endRe of ACCIDENT_END_RES) {
+    const match = endRe.exec(remainder);
+    if (match && match.index < endIdx) {
+      endIdx = match.index;
+    }
+  }
+  const value = remainder.slice(0, endIdx).replace(/\s+/g, " ").trim();
+  return value.length > 10 ? value : "";
+}
+
+// orchestration/src/functions/activities/imagesReceivedVrmMatch.ts
+var df5 = __toESM(require("durable-functions"), 1);
+var PDF_NAME_RE = /\.pdf$/i;
+var PDF_CTYPE_RE = /pdf/i;
+function shouldAttemptPdfVrmMatch(classification, triage, attachments) {
+  const imagesReceived = classification.subtype === "images_received" || triage.finalSubtype === "images_received";
+  if (!imagesReceived) return false;
+  if (triage.action === "suggest_attach" || triage.action === "attach_case") return false;
+  return (attachments ?? []).some(
+    (a) => PDF_NAME_RE.test(a.filename ?? "") || PDF_CTYPE_RE.test(a.contentType ?? "")
+  );
+}
+function planVrmMatch(input14) {
+  if (!input14.refGate && !input14.imagesRouting) return { step: "skip", reason: "gate_off" };
+  const flagOr = (reason) => input14.imagesRouting ? { step: "flag", reason } : { step: "skip", reason: "flag_gate_off" };
+  const vrm = canonicalizeVrm(input14.vrm ?? "");
+  if (!vrm) return flagOr("no_registration");
+  const tried = canonicalizeVrm(input14.triedVrm ?? "");
+  if (tried && vrm === tried) return flagOr("already_tried");
+  if (!input14.refGate) return flagOr("suggest_gate_off");
+  return { step: "lookup", vrm };
+}
+function resolveVrmMatches(matches) {
+  const distinct = /* @__PURE__ */ new Map();
+  for (const m of matches) {
+    if (!distinct.has(m.caseId)) distinct.set(m.caseId, { caseId: m.caseId, casePo: m.casePo });
+  }
+  if (distinct.size === 1) {
+    return { step: "suggest", target: [...distinct.values()][0] };
+  }
+  return {
+    step: "flag",
+    reason: distinct.size === 0 ? "no_open_case" : "multiple_open_cases"
+  };
+}
+df5.app.activity("imagesReceivedVrmMatch", {
+  handler: async (input14, ctx) => {
+    const internetMessageId = (input14.internetMessageId ?? "").trim();
+    if (!internetMessageId) {
+      return { outcome: "skipped:no_message_id" };
+    }
+    const plan = planVrmMatch({
+      vrm: input14.vrm ?? "",
+      triedVrm: input14.triedVrm ?? "",
+      refGate: gates.triageRefGate(),
+      imagesRouting: gates.triageImagesRouting()
+    });
+    if (plan.step === "skip") {
+      ctx.log(JSON.stringify({ evt: "imagesReceivedVrmMatch", outcome: "skipped", reason: plan.reason }));
+      return { outcome: `skipped:${plan.reason}` };
+    }
+    let flagReason = plan.step === "flag" ? plan.reason : "";
+    if (plan.step === "lookup") {
+      let matches = [];
+      try {
+        const context3 = await dataApi.triageContext({
+          caseref: "",
+          jobref: "",
+          vrm: plan.vrm,
+          internetMessageId: "",
+          conversationId: ""
+        });
+        matches = context3.openCaseMatches;
+      } catch (e) {
+        ctx.warn(
+          `[imagesReceivedVrmMatch] context lookup failed for ${internetMessageId} (degrading to the visible flag): ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+      const resolution = resolveVrmMatches(matches);
+      if (resolution.step === "suggest") {
+        const target = resolution.target;
+        try {
+          await dataApi.triageSuggestLink({
+            sourceMessageId: internetMessageId,
+            targetCaseId: target.caseId,
+            suggestionType: "case_link",
+            // HANDLER-LANGUAGE (rendered in the SPA's "Why this label?" — the
+            // triage-policy.ts rationale precedent; no engineering terms).
+            rationale: `The attached document shows registration ${plan.vrm}, which matches open case ${target.casePo} \u2014 suggested attaching this email to it.`,
+            decisionInputs: {
+              rung: "images_received_pdf_vrm",
+              vrm: plan.vrm,
+              triedVrm: input14.triedVrm ?? "",
+              matchCount: 1
+            }
+          });
+        } catch (e) {
+          ctx.warn(
+            `[imagesReceivedVrmMatch] suggestion write failed for ${internetMessageId} (best-effort, continuing): ${e instanceof Error ? e.message : String(e)}`
+          );
+          return { outcome: "suggest_failed", caseId: target.caseId };
+        }
+        ctx.log(
+          JSON.stringify({ evt: "imagesReceivedVrmMatch", outcome: "suggested", caseId: target.caseId, vrm: plan.vrm })
+        );
+        return { outcome: "suggested", caseId: target.caseId };
+      }
+      flagReason = resolution.reason;
+    }
+    if (!gates.triageImagesRouting()) {
+      ctx.log(JSON.stringify({ evt: "imagesReceivedVrmMatch", outcome: "skipped", reason: "flag_gate_off", flagReason }));
+      return { outcome: "skipped:flag_gate_off" };
+    }
+    let stamped = false;
+    try {
+      const res = await dataApi.markInboundAttention({
+        sourceMessageId: internetMessageId,
+        reason: "images_no_match"
+      });
+      stamped = res.stamped;
+    } catch (e) {
+      ctx.warn(
+        `[imagesReceivedVrmMatch] attention stamp failed for ${internetMessageId} (best-effort): ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+    ctx.log(JSON.stringify({ evt: "imagesReceivedVrmMatch", outcome: stamped ? "flagged" : "flag_failed", flagReason }));
+    return { outcome: stamped ? `flagged:${flagReason}` : "flag_failed" };
+  }
+});
+
+// orchestration/src/functions/gated/triage-classify.ts
+var import_functions10 = require("@azure/functions");
+var df6 = __toESM(require("durable-functions"), 1);
+
+// orchestration/src/lib/telemetry.ts
+var DEFAULT_INGESTION_ENDPOINT = "https://dc.services.visualstudio.com";
+var TRACK_TIMEOUT_MS = 2e3;
+function parseConnectionString(raw) {
+  const value = (raw ?? "").trim();
+  if (!value) return void 0;
+  const parts = {};
+  for (const segment of value.split(";")) {
+    const eq = segment.indexOf("=");
+    if (eq <= 0) continue;
+    const key = segment.slice(0, eq).trim().toLowerCase();
+    const val = segment.slice(eq + 1).trim();
+    if (key && val) parts[key] = val;
+  }
+  const instrumentationKey = parts["instrumentationkey"];
+  if (!instrumentationKey) return void 0;
+  const ingestionEndpoint = (parts["ingestionendpoint"] || DEFAULT_INGESTION_ENDPOINT).replace(/\/+$/, "");
+  return { instrumentationKey, ingestionEndpoint };
+}
+function stringifyProperties(properties) {
+  const out = {};
+  for (const [key, value] of Object.entries(properties)) {
+    if (value === void 0) continue;
+    out[key] = typeof value === "string" ? value : JSON.stringify(value);
+  }
+  return out;
+}
+async function trackEvent(name, properties) {
+  try {
+    const parsed = parseConnectionString(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING);
+    if (!parsed) return;
+    const envelope = [
+      {
+        name: "Microsoft.ApplicationInsights.Event",
+        time: (/* @__PURE__ */ new Date()).toISOString(),
+        iKey: parsed.instrumentationKey,
+        data: {
+          baseType: "EventData",
+          baseData: {
+            ver: 2,
+            name,
+            properties: stringifyProperties(properties)
+          }
+        }
+      }
+    ];
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TRACK_TIMEOUT_MS);
+    try {
+      await fetch(`${parsed.ingestionEndpoint}/v2/track`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(envelope),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch {
+  }
+}
+
+// orchestration/src/functions/gated/triage-classify.ts
+function shouldAttemptTriageAssist(classification) {
+  const ABSTAIN_CONFIDENCE_CEILING = 0.35;
+  const isAbstain = classification.category === "other" && (classification.confidence ?? 1) <= ABSTAIN_CONFIDENCE_CEILING;
+  const isUncorroborated = (classification.signals ?? []).some((s) => s.startsWith("uncorroborated_"));
+  return isAbstain || isUncorroborated;
+}
+function domainOf2(address) {
+  const at = address.lastIndexOf("@");
+  return at >= 0 ? address.slice(at + 1).toLowerCase().trim() : "";
+}
+function providerAiOptedOut(aiAllowed) {
+  return aiAllowed === false;
+}
+import_functions10.app.http("triage-classify-start", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "triage-classify",
+  extraInputs: [df6.input.durableClient()],
+  handler: async (req, ctx) => {
+    const input14 = await req.json();
+    const client2 = df6.getClient(ctx);
+    const instanceId = await client2.startNew("triageClassifyOrchestrator", { input: input14 });
+    return client2.createCheckStatusResponse(req, instanceId);
+  }
+});
+var retry = new df6.RetryOptions(5e3, 3);
+retry.backoffCoefficient = 2;
+df6.app.orchestration("triageClassifyOrchestrator", function* (ctx) {
+  const input14 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("triageClassify", retry, input14);
+  return result;
+});
+df6.app.activity("triageClassify", {
+  handler: async (input14, ctx) => {
+    if (!gates.emailAi() || !gates.aiAssistConfigured()) {
+      ctx.log("[triageClassify] skipped \u2014 EMAIL_AI_ENABLED off or model endpoint/deployment not configured");
+      return { skipped: true };
+    }
+    if (input14.workProviderId) {
+      try {
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input14.workProviderId);
+        if (providerAiOptedOut(aiAllowed)) {
+          ctx.log("[triageClassify] skipped \u2014 work provider opted out of AI (ai_allowed=false)");
+          return { skipped: true, reason: "provider_ai_opt_out" };
+        }
+      } catch (e) {
+        ctx.warn(
+          `[triageClassify] ai_allowed lookup failed (proceeding, fail-open): ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+    }
+    const subjectScrub = scrubPii(input14.subject ?? "");
+    const bodyScrub = scrubPii(input14.body ?? "");
+    const result = await callTriageModel({
+      subjectScrubbed: subjectScrub.text,
+      bodyScrubbed: bodyScrub.text,
+      senderDomain: input14.senderDomain || domainOf2(input14.senderAddress ?? ""),
+      attachmentFilenames: input14.attachmentFilenames ?? [],
+      deterministicCategory: input14.deterministicCategory ?? "",
+      deterministicSubtype: input14.deterministicSubtype ?? "",
+      deterministicSignals: input14.deterministicSignals ?? []
+    });
+    await trackEvent("triage_llm_assist", {
+      abstain: "abstain" in result,
+      reason: "abstain" in result ? result.reason : void 0,
+      subjectRedactions: subjectScrub.totalRedactions,
+      bodyRedactions: bodyScrub.totalRedactions,
+      deterministicCategory: input14.deterministicCategory,
+      deterministicSubtype: input14.deterministicSubtype
+    });
+    if ("abstain" in result) {
+      ctx.log(JSON.stringify({ evt: "triageClassify", abstain: true, reason: result.reason }));
+      return { skipped: false, abstained: true };
+    }
+    const modelVersion = `${gates.aiModelDeployment()}:${result.responseModel ?? result.systemFingerprint ?? "unknown"}`;
+    try {
+      await dataApi.triageSuggestClassification({
+        ...input14.sourceMessageId ? { sourceMessageId: input14.sourceMessageId } : {},
+        ...input14.inboundEmailId ? { inboundEmailId: input14.inboundEmailId } : {},
+        category: result.category,
+        subtype: result.subtype,
+        rationale: result.rationale,
+        confidence: result.confidence,
+        modelVersion
+      });
+    } catch (e) {
+      ctx.warn(
+        `[triageClassify] suggestion write failed (best-effort, continuing): ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+    ctx.log(JSON.stringify({ evt: "triageClassify", category: result.category, subtype: result.subtype }));
+    return { skipped: false, abstained: false, category: result.category, subtype: result.subtype };
+  }
+});
+
+// orchestration/src/functions/intakeOrchestrator.ts
+var retry2 = new df7.RetryOptions(
+  /*firstRetryIntervalInMilliseconds*/
+  5e3,
+  /*maxNumberOfAttempts*/
+  3
+);
+retry2.backoffCoefficient = 2;
+retry2.maxRetryIntervalInMilliseconds = 6e4;
+df7.app.orchestration("intakeOrchestrator", function* (ctx) {
+  const input14 = ctx.df.getInput();
+  const inbound = yield ctx.df.callActivityWithRetry("fetchMessage", retry2, input14);
+  const provider = yield ctx.df.callActivityWithRetry("providerMatch", retry2, inbound);
+  const workProviderId = provider.workProviderId;
+  const matchState = provider.matchState;
+  const principalCode = provider.principalCode;
+  const intermediaryImageSourceId = provider.imageSourceId;
+  const intermediaryCandidateProviderIds = provider.candidateProviderIds;
+  const classification = yield ctx.df.callActivityWithRetry("classifyInbound", retry2, {
+    inbound,
+    workProviderId,
+    matchState
+  });
+  const triage = yield ctx.df.callActivityWithRetry("triagePolicy", retry2, {
+    inbound,
+    classification,
+    matchState,
+    ...intermediaryImageSourceId ? { intermediaryImageSourceId, intermediaryCandidateProviderIds } : {}
+  });
+  if (triage.action !== "proceed_default" && !ctx.df.isReplaying) {
+    ctx.log(
+      `[intake] triage policy: ${triage.action} on ${classification.category}/${classification.subtype}` + (triage.targetCaseId ? ` -> case ${triage.targetCaseId}` : "")
+    );
+  }
+  if (triage.action === "drop_duplicate") {
+    return { triaged: classification.category, subtype: classification.subtype, triage: triage.action };
+  }
+  if (triage.action === "attach_case" && triage.targetCaseId) {
+    const caseId = triage.targetCaseId;
+    const caseVrm = (inbound.candidateVrm || classification.bodyVrm || "").trim();
+    yield ctx.df.callActivityWithRetry("classifyPersist", retry2, {
+      caseId,
+      inbound,
+      ...caseVrm ? { caseVrm } : {},
+      ...workProviderId ? { workProviderId } : {}
+    });
+    try {
+      yield ctx.df.callActivityWithRetry("extractImages", retry2, {
+        caseId,
+        messageId: inbound.messageId,
+        attachments: inbound.attachments,
+        ...caseVrm ? { caseVrm } : {},
+        ...workProviderId ? { workProviderId } : {},
+        // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
+        ...principalCode ? { providerPrincipal: principalCode } : {}
+      });
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] image extraction failed for attach_case ${caseId} (additive, non-blocking): ${String(e)}`);
+      }
+    }
+    try {
+      yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry2, { caseId });
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] archive failed for attach_case ${caseId} (additive, non-blocking): ${String(e)}`);
+      }
+    }
+    const status2 = yield ctx.df.callActivityWithRetry("statusEvaluate", retry2, { caseId });
+    return {
+      triaged: triage.finalCategory,
+      subtype: triage.finalSubtype,
+      attach: triage.action,
+      caseId,
+      status: status2.value
+    };
+  }
+  if (shouldAttemptTriageAssist(classification)) {
+    try {
+      const env = inbound;
+      yield ctx.df.callActivityWithRetry("triageClassify", retry2, {
+        sourceMessageId: env.internetMessageId,
+        subject: env.subject,
+        body: env.body,
+        senderAddress: env.senderAddress,
+        // The provider matched in step 1 — lets the activity honour a per-provider AI opt-out
+        // (work_provider.ai_allowed, docs/gated.md D6) without re-resolving. Undefined when the
+        // sender matched no provider (nothing to opt out of).
+        ...workProviderId ? { workProviderId } : {},
+        attachmentFilenames: (env.attachments ?? []).map((a) => a.filename),
+        deterministicCategory: classification.category,
+        deterministicSubtype: classification.subtype,
+        deterministicSignals: classification.signals
+      });
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] triage LLM assist failed (additive, suggestion-only, non-blocking): ${String(e)}`);
+      }
+    }
+  }
+  if (triage.action === "route_images_unmatched") {
+    try {
+      yield ctx.df.callActivityWithRetry("imagesUnmatched", retry2, {
+        internetMessageId: inbound.internetMessageId,
+        vrm: (inbound.candidateVrm || classification.bodyVrm || "").trim()
+      });
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] images-unmatched flag failed (additive, non-blocking): ${String(e)}`);
+      }
+    }
+  }
+  if (!categoryMintsCase(classification.category)) {
+    if (classification.isReply) {
+      const inb = inbound;
+      const ref = ((inb.candidateRef || classification.bodyCaseref) ?? "").trim();
+      const vrm = ((inb.candidateVrm || classification.bodyVrm) ?? "").trim();
+      const jobref = (classification.bodyJobref ?? "").trim();
+      const link = yield ctx.df.callActivityWithRetry("linkReply", retry2, {
+        inbound,
+        providerId: workProviderId,
+        ref,
+        vrm,
+        jobref
+      });
+      if (link.outcome === "linked" && link.caseId) {
+        yield ctx.df.callActivityWithRetry("classifyPersist", retry2, {
+          caseId: link.caseId,
+          inbound,
+          caseVrm: vrm || inbound.candidateVrm,
+          ...workProviderId ? { workProviderId } : {}
+        });
+        try {
+          yield ctx.df.callActivityWithRetry("extractImages", retry2, {
+            caseId: link.caseId,
+            messageId: inbound.messageId,
+            attachments: inbound.attachments,
+            caseVrm: vrm || inbound.candidateVrm,
+            ...workProviderId ? { workProviderId } : {},
+            // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
+            ...principalCode ? { providerPrincipal: principalCode } : {}
+          });
+        } catch (e) {
+          if (!ctx.df.isReplaying) {
+            ctx.log(`[intake] image extraction failed for linked reply case ${link.caseId} (additive, non-blocking): ${String(e)}`);
+          }
+        }
+        try {
+          yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry2, {
+            caseId: link.caseId
+          });
+        } catch (e) {
+          if (!ctx.df.isReplaying) {
+            ctx.log(`[intake] archive failed for linked reply case ${link.caseId} (additive, non-blocking): ${String(e)}`);
+          }
+        }
+        const status2 = yield ctx.df.callActivityWithRetry("statusEvaluate", retry2, {
+          caseId: link.caseId
+        });
+        return {
+          triaged: classification.category,
+          subtype: classification.subtype,
+          replyLink: link.outcome,
+          caseId: link.caseId,
+          status: status2.value
+        };
+      }
+      const retroReply = decideRetro({
+        category: classification.category,
+        subtype: classification.subtype,
+        bodyCaseref: classification.bodyCaseref,
+        bodyJobref: classification.bodyJobref,
+        bodyVrm: classification.bodyVrm,
+        candidateRef: inb.candidateRef,
+        candidateVrm: inb.candidateVrm,
+        isReply: true,
+        linkReplyOutcome: link.outcome
+      });
+      if (!retroReply.attempt && !ctx.df.isReplaying) {
+        ctx.log(
+          JSON.stringify({ evt: "retroDecision", attempt: false, lane: "reply", reasons: retroReply.reasons })
+        );
+      }
+      let retroReplyOutcome;
+      if (retroReply.attempt) {
+        try {
+          const retro = yield ctx.df.callSubOrchestratorWithRetry("retroCaseOrchestrator", retry2, {
+            trigger: inbound,
+            category: classification.category,
+            subtype: classification.subtype,
+            keys: retroReply.keys,
+            providerId: workProviderId,
+            providerPrincipal: principalCode
+          });
+          retroReplyOutcome = retro?.outcome;
+        } catch (e) {
+          retroReplyOutcome = "error";
+          if (!ctx.df.isReplaying) {
+            ctx.log(`[intake] retro fallback failed (additive, non-blocking): ${String(e)}`);
+          }
+        }
+      }
+      return {
+        triaged: classification.category,
+        subtype: classification.subtype,
+        replyLink: link.outcome,
+        ...link.caseId ? { caseId: link.caseId } : {},
+        ...retroReplyOutcome ? { retro: retroReplyOutcome } : {}
+      };
+    }
+    let pdfVrmMatch;
+    if (shouldAttemptPdfVrmMatch(
+      classification,
+      triage,
+      inbound.attachments
+    )) {
+      try {
+        let laneParse = {};
+        try {
+          laneParse = yield ctx.df.callActivityWithRetry("parse", retry2, {
+            messageId: inbound.messageId,
+            attachments: inbound.attachments,
+            providerHint: principalCode
+          });
+        } catch (e) {
+          if (!ctx.df.isReplaying) {
+            ctx.log(
+              `[intake] images-received PDF parse failed (additive, non-blocking): ${String(e)}`
+            );
+          }
+        }
+        const vrmMatch = yield ctx.df.callActivityWithRetry("imagesReceivedVrmMatch", retry2, {
+          internetMessageId: inbound.internetMessageId,
+          vrm: (laneParse.vrm?.value ?? "").trim(),
+          triedVrm: (inbound.candidateVrm || classification.bodyVrm || "").trim()
+        });
+        pdfVrmMatch = vrmMatch.outcome;
+      } catch (e) {
+        if (!ctx.df.isReplaying) {
+          ctx.log(
+            `[intake] images-received VRM match failed (additive, non-blocking): ${String(e)}`
+          );
+        }
+      }
+    }
+    const inbNonReply = inbound;
+    const retroNonReply = decideRetro({
+      category: classification.category,
+      subtype: classification.subtype,
+      bodyCaseref: classification.bodyCaseref,
+      bodyJobref: classification.bodyJobref,
+      bodyVrm: classification.bodyVrm,
+      candidateRef: inbNonReply.candidateRef,
+      candidateVrm: inbNonReply.candidateVrm,
+      isReply: false
+    });
+    if (!retroNonReply.attempt && !ctx.df.isReplaying) {
+      ctx.log(
+        JSON.stringify({ evt: "retroDecision", attempt: false, lane: "non_reply", reasons: retroNonReply.reasons })
+      );
+    }
+    let retroOutcome;
+    if (retroNonReply.attempt) {
+      try {
+        const retro = yield ctx.df.callSubOrchestratorWithRetry("retroCaseOrchestrator", retry2, {
+          trigger: inbound,
+          category: classification.category,
+          subtype: classification.subtype,
+          keys: retroNonReply.keys,
+          providerId: workProviderId,
+          providerPrincipal: principalCode
+        });
+        retroOutcome = retro?.outcome;
+      } catch (e) {
+        retroOutcome = "error";
+        if (!ctx.df.isReplaying) {
+          ctx.log(`[intake] retro fallback failed (additive, non-blocking): ${String(e)}`);
+        }
+      }
+    }
+    return {
+      triaged: classification.category,
+      subtype: classification.subtype,
+      ...pdfVrmMatch ? { pdfVrmMatch } : {},
+      ...retroOutcome ? { retro: retroOutcome } : {}
+    };
+  }
+  const inboundForCase = {
+    ...inbound,
+    candidateRef: (inbound.candidateRef || classification.bodyCaseref) ?? ""
+  };
+  let parseResult = {};
+  try {
+    parseResult = yield ctx.df.callActivityWithRetry("parse", retry2, {
+      messageId: inbound.messageId,
+      attachments: inbound.attachments,
+      providerHint: principalCode
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(
+        `[intake] parse failed after retries (parser outage) \u2014 proceeding with empty parse result so case-create still runs: ${String(e)}`
+      );
+    }
+  }
+  const parserVrm = (parseResult.vrm?.value ?? "").trim();
+  const documentHasMileage = Boolean(parseResult.extraction?.mileage?.value);
+  const parserRef = (parseResult.reference?.value ?? "").trim();
+  const parserMileage = (parseResult.extraction?.mileage?.value ?? "").trim();
+  const parserMileageUnit = (parseResult.extraction?.mileage_unit?.value ?? "").trim();
+  const ex = parseResult.extraction ?? {};
+  const exVal = (k) => (ex[k]?.value ?? "").trim();
+  const resolvedWorkProvider = (parseResult.resolvedWorkProvider ?? "").trim();
+  const exWorkProvider = resolvedWorkProvider || exVal("work_provider");
+  const parserEvaFields = {
+    work_provider: exWorkProvider.toUpperCase() === "UNKNOWN" ? "" : exWorkProvider,
+    vehicle_model: exVal("vehicle_model"),
+    claimant_name: exVal("claimant_name"),
+    claimant_telephone: exVal("claimant_telephone"),
+    claimant_email: exVal("claimant_email"),
+    date_of_loss: exVal("date_of_loss"),
+    date_of_instruction: exVal("date_of_instruction"),
+    accident_circumstances: exVal("accident_circumstances") || supplementAccidentCircumstancesFromBody(String(inbound.body ?? "")),
+    vat_status: exVal("vat_status")
+  };
+  const caseTypeDecision = decideCaseType({
+    parserCaseType: parseResult.case_type,
+    parserAudit: parseResult.audit,
+    classifierSubtype: classification.subtype
+  });
+  const resolved = yield ctx.df.callActivityWithRetry("caseResolve", retry2, {
+    inbound: inboundForCase,
+    providerId: workProviderId,
+    matchState,
+    parserVrm,
+    parserRef,
+    parserMileage,
+    parserMileageUnit,
+    parserEvaFields,
+    caseType: caseTypeDecision.caseType,
+    caseTypeDual: caseTypeDecision.dual,
+    caseTypeSignals: [...caseTypeDecision.signals],
+    // rules-engine-v2 Phase 3 (ADR-0011) — forwarded so the API's applyParserFields can
+    // corroborate a content-detected provider against the intermediary's N:N candidates.
+    ...intermediaryImageSourceId ? { intermediaryImageSourceId, intermediaryCandidateProviderIds } : {}
+  });
+  if (resolved.outcome === "already_ingested") {
+    return { skipped: true, caseId: resolved.caseId };
+  }
+  if (resolved.outcome === "refused_category") {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[intake] case create refused by the category mint guard (${classification.category}/${classification.subtype})`);
+    }
+    return { triaged: classification.category, subtype: classification.subtype, refused: "category_mint_guard" };
+  }
+  yield ctx.df.callActivityWithRetry("setIngested", retry2, { caseId: resolved.caseId });
+  try {
+    yield ctx.df.callActivityWithRetry("correlatePreInstruction", retry2, {
+      caseId: resolved.caseId,
+      casePo: resolved.casePo ?? null,
+      vrm: parserVrm || inbound.candidateVrm || "",
+      caseRef: resolved.casePo ?? "",
+      jobRef: parserRef || classification.bodyJobref || ""
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[intake] pre-instruction correlation failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
+    }
+  }
+  const automationMode = resolved.providerAutomationMode ?? "review_auto";
+  const autoEnrich = automationMode !== "manual";
+  if (!autoEnrich && !ctx.df.isReplaying) {
+    ctx.log(`[intake] provider automation mode = manual for case ${resolved.caseId}; record-keeping (Box folder/archive/images) runs, enrichment deferred to staff`);
+  }
+  if (resolved.casePo) {
+    try {
+      yield ctx.df.callSubOrchestratorWithRetry("boxFolderCreateOrchestrator", retry2, {
+        caseId: resolved.caseId,
+        folderName: resolved.casePo.toUpperCase()
+      });
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] box folder create failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
+      }
+    }
+  }
+  yield ctx.df.callActivityWithRetry("classifyPersist", retry2, {
+    caseId: resolved.caseId,
+    inbound,
+    typings: parseResult.attachmentTypings,
+    caseVrm: parserVrm || inbound.candidateVrm,
+    ...workProviderId ? { workProviderId } : {}
+  });
+  try {
+    yield ctx.df.callActivityWithRetry("extractImages", retry2, {
+      caseId: resolved.caseId,
+      messageId: inbound.messageId,
+      attachments: inbound.attachments,
+      caseVrm: parserVrm || inbound.candidateVrm,
+      ...workProviderId ? { workProviderId } : {},
+      // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
+      ...principalCode ? { providerPrincipal: principalCode } : {}
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[intake] image extraction failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
+    }
+  }
+  try {
+    yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry2, {
+      caseId: resolved.caseId
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[intake] box archive failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
+    }
+  }
+  const status = yield ctx.df.callActivityWithRetry("statusEvaluate", retry2, {
+    caseId: resolved.caseId
+  });
+  if (autoEnrich) {
+    yield ctx.df.callActivityWithRetry("enrich", retry2, {
+      caseId: resolved.caseId,
+      vrm: parserVrm || inbound.candidateVrm,
+      documentHasMileage
+    });
+  }
+  return { caseId: resolved.caseId, status: status.value, mode: automationMode };
+});
+
 // orchestration/src/functions/activities/fetchMessage.ts
+var import_node_crypto6 = require("node:crypto");
+var df8 = __toESM(require("durable-functions"), 1);
 var BODY_CAP = 2e4;
 var BODY_PREVIEW_CAP = 3500;
-df7.app.activity("fetchMessage", {
+df8.app.activity("fetchMessage", {
   handler: async (input14, ctx) => {
     const parsedMailbox = mailboxOfResource(input14.resource ?? "");
     let mailbox = parsedMailbox;
@@ -50645,8 +51101,8 @@ function hashPayload(subject, from, attachments) {
 }
 
 // orchestration/src/functions/activities/providerMatch.ts
-var df8 = __toESM(require("durable-functions"), 1);
-df8.app.activity("providerMatch", {
+var df9 = __toESM(require("durable-functions"), 1);
+df9.app.activity("providerMatch", {
   handler: async (inbound, ctx) => {
     const { providers, imageSources } = await dataApi.providerMatchRecords();
     const identity = matchSenderIdentity(inbound.senderAddress, providers, imageSources);
@@ -50693,7 +51149,7 @@ df8.app.activity("providerMatch", {
 });
 
 // orchestration/src/functions/activities/classifyInbound.ts
-var df9 = __toESM(require("durable-functions"), 1);
+var df10 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/functions-client.ts
 var PARSER = { urlEnv: "PARSER_FN_URL", keyEnv: "PARSER_FN_KEY" };
@@ -50881,7 +51337,7 @@ function buildClassifyRequest(inbound, matchState) {
     references: inbound.references
   };
 }
-df9.app.activity("classifyInbound", {
+df10.app.activity("classifyInbound", {
   handler: async (input14, ctx) => {
     const { inbound, workProviderId, matchState } = input14;
     const res = await callClassifyEmail(buildClassifyRequest(inbound, matchState));
@@ -50929,7 +51385,7 @@ df9.app.activity("classifyInbound", {
 });
 
 // orchestration/src/functions/activities/triagePolicy.ts
-var df10 = __toESM(require("durable-functions"), 1);
+var df11 = __toESM(require("durable-functions"), 1);
 var GATES_ALL_ON = {
   refGate: true,
   cancellation: true,
@@ -51004,7 +51460,7 @@ function toPolicyClassification(classification) {
     taxonomyVersion: classification.taxonomyVersion
   };
 }
-df10.app.activity("triagePolicy", {
+df11.app.activity("triagePolicy", {
   handler: async (input14, ctx) => {
     const { inbound, classification } = input14;
     let resolvedContext;
@@ -51078,12 +51534,12 @@ df10.app.activity("triagePolicy", {
 });
 
 // orchestration/src/functions/activities/correlatePreInstruction.ts
-var df11 = __toESM(require("durable-functions"), 1);
+var df12 = __toESM(require("durable-functions"), 1);
 function preInstructionRationale(casePo) {
   const target = casePo ? `case ${casePo}` : "this case";
   return `Directions received before the instruction arrived appear to relate to ${target} \u2014 review and attach so they are not missed.`;
 }
-df11.app.activity("correlatePreInstruction", {
+df12.app.activity("correlatePreInstruction", {
   handler: async (input14, ctx) => {
     if (!gates.triagePreInstruction()) {
       return { skipped: true, matches: 0, suggested: 0 };
@@ -51129,8 +51585,8 @@ df11.app.activity("correlatePreInstruction", {
 });
 
 // orchestration/src/functions/activities/linkReply.ts
-var df12 = __toESM(require("durable-functions"), 1);
-df12.app.activity("linkReply", {
+var df13 = __toESM(require("durable-functions"), 1);
+df13.app.activity("linkReply", {
   handler: async (input14, ctx) => {
     const result = await dataApi.linkReplyToOpenCase({
       inbound: input14.inbound,
@@ -51152,8 +51608,8 @@ df12.app.activity("linkReply", {
 });
 
 // orchestration/src/functions/activities/caseResolve.ts
-var df13 = __toESM(require("durable-functions"), 1);
-df13.app.activity("caseResolve", {
+var df14 = __toESM(require("durable-functions"), 1);
+df14.app.activity("caseResolve", {
   handler: async (input14, ctx) => {
     const { inbound, providerId, matchState } = input14;
     const bestVrm = ((input14.parserVrm || inbound.candidateVrm) ?? "").trim();
@@ -51224,257 +51680,11 @@ df13.app.activity("caseResolve", {
 });
 
 // orchestration/src/functions/activities/setIngested.ts
-var df14 = __toESM(require("durable-functions"), 1);
-df14.app.activity("setIngested", {
+var df15 = __toESM(require("durable-functions"), 1);
+df15.app.activity("setIngested", {
   handler: async (input14, ctx) => {
     const result = await dataApi.setIngested(input14.caseId);
     ctx.log(JSON.stringify({ evt: "setIngested", caseId: input14.caseId, updated: result.updated }));
-    return result;
-  }
-});
-
-// orchestration/src/functions/activities/classifyPersist.ts
-var df15 = __toESM(require("durable-functions"), 1);
-
-// orchestration/src/lib/image-classify.ts
-var REQUEST_TIMEOUT_MS2 = 3e4;
-var MAX_COMPLETION_TOKENS2 = 3e3;
-var SCHEMA_NAME2 = "vehicle_image_classification";
-var SYSTEM_PROMPT = 'You are an expert UK motor-claims vehicle-inspection image classifier. You are shown ONE photo from a case\u2019s evidence set. Classify it precisely.\nrole: "overview" = a WIDE shot showing most/all of the whole vehicle (used to identify the car); prefer this when the full vehicle and ideally its number plate are visible. "damage_closeup" = a close-up focused on damage (dent, scratch, crack, broken panel/light/bumper). "additional" = any other genuine vehicle photo (interior, dashboard/odometer, VIN plate, tyre, engine bay, a plate-only close-up with no damage, a partial panel with no clear damage). "other" = NOT a vehicle photo (document/letter scan, screenshot, form, logo, email, blank/corrupt).\nregistration_visible: true ONLY if a UK number plate is present AND its characters are legibly readable in THIS image; else false. plate_text: the registration (UPPERCASE, no spaces) or "" if none/illegible. person_reflection: true if a person\u2019s face or human reflection is visible (e.g. the photographer reflected in paintwork/glass/window). Judge only what is visible.';
-function buildResponseSchema() {
-  return {
-    type: "object",
-    properties: {
-      role: { type: "string", enum: ["overview", "damage_closeup", "additional", "other"] },
-      registration_visible: { type: "boolean" },
-      plate_text: { type: "string" },
-      person_reflection: { type: "boolean" },
-      confidence: { type: "number", minimum: 0, maximum: 1 }
-    },
-    required: ["role", "registration_visible", "plate_text", "person_reflection", "confidence"],
-    additionalProperties: false
-  };
-}
-function buildImageRequestBody(imageBase64, contentType2, deployment, caseVrm) {
-  const ctype = contentType2 && contentType2.startsWith("image/") ? contentType2 : "image/jpeg";
-  const dataUrl = `data:${ctype};base64,${imageBase64}`;
-  const hint = caseVrm ? ` The case vehicle registration is '${caseVrm}'.` : "";
-  return {
-    model: deployment,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: "Classify this vehicle inspection photo." + hint },
-          { type: "image_url", image_url: { url: dataUrl } }
-        ]
-      }
-    ],
-    response_format: {
-      type: "json_schema",
-      json_schema: { name: SCHEMA_NAME2, strict: true, schema: buildResponseSchema() }
-    },
-    max_completion_tokens: MAX_COMPLETION_TOKENS2,
-    reasoning_effort: "low"
-  };
-}
-var ROLE_NAMES = /* @__PURE__ */ new Set(["overview", "damage_closeup", "additional", "other"]);
-function parseImageResponse(json) {
-  const body2 = json;
-  const choice = body2?.choices?.[0];
-  if (!choice || choice.finish_reason === "content_filter") return null;
-  const content = choice.message?.content;
-  if (typeof content !== "string" || content.trim() === "") return null;
-  let parsed;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    return null;
-  }
-  if (typeof parsed !== "object" || parsed === null) return null;
-  const c = parsed;
-  const role = typeof c.role === "string" && ROLE_NAMES.has(c.role) ? c.role : null;
-  if (!role) return null;
-  return {
-    role,
-    registrationVisible: c.registration_visible === true,
-    plateText: typeof c.plate_text === "string" ? c.plate_text.trim().slice(0, 16) : "",
-    personReflection: c.person_reflection === true,
-    confidence: typeof c.confidence === "number" ? Math.min(1, Math.max(0, c.confidence)) : 0
-  };
-}
-async function classifyImage(input14) {
-  const endpoint = gates.aiModelEndpoint();
-  const deployment = gates.aiModelDeployment();
-  if (!endpoint || !deployment) return null;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS2);
-  try {
-    const token = await mintCognitiveToken();
-    const url2 = `${endpoint.replace(/\/$/, "")}/openai/v1/chat/completions`;
-    const res = await fetch(url2, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(
-        buildImageRequestBody(input14.imageBase64, input14.contentType ?? "image/jpeg", deployment, input14.caseVrm)
-      ),
-      signal: controller.signal
-    });
-    if (!res.ok) return null;
-    const json = await res.json().catch(() => void 0);
-    return parseImageResponse(json);
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-function caseRegistrationVisible(c, caseVrm) {
-  if (!c.registrationVisible) return false;
-  const vrm = caseVrm ? canonicalizeVrm(caseVrm) : "";
-  if (!vrm) return true;
-  const plate = canonicalizeVrm(c.plateText);
-  return plate.length > 0 && plate === vrm;
-}
-function classificationToEvidenceFields(c, caseVrm) {
-  const registrationVisible = caseRegistrationVisible(c, caseVrm);
-  if (c.personReflection) {
-    return {
-      imageRole: c.role,
-      registrationVisible,
-      acceptedForEva: false,
-      excluded: true,
-      exclusionReason: "person reflection detected (auto-classified)",
-      personReflection: true
-    };
-  }
-  const accepted = c.role !== "other";
-  return {
-    imageRole: c.role,
-    registrationVisible,
-    acceptedForEva: accepted,
-    excluded: false,
-    personReflection: false
-  };
-}
-
-// orchestration/src/functions/activities/classifyPersist.ts
-var MIN_BODY_INSTRUCTION_CHARS = 40;
-function buildBaseEvidenceRows(inbound) {
-  const rows = inbound.attachments.map((a) => ({
-    ...describeEvidence(a.filename, a.contentType),
-    blobPath: a.blobPath,
-    size: a.size,
-    ...a.sha256 ? { sha256: a.sha256 } : {}
-  }));
-  if (inbound.rawEml) {
-    rows.push({
-      ...describeEvidence(inbound.rawEml.filename, inbound.rawEml.contentType),
-      blobPath: inbound.rawEml.blobPath,
-      size: inbound.rawEml.size,
-      ...inbound.rawEml.sha256 ? { sha256: inbound.rawEml.sha256 } : {}
-    });
-  }
-  return rows;
-}
-df15.app.activity("classifyPersist", {
-  handler: async (input14, ctx) => {
-    const { caseId, inbound } = input14;
-    const rows = buildBaseEvidenceRows(inbound);
-    let classifyAllowed = gates.imageRoleClassifyEnabled();
-    if (classifyAllowed && input14.workProviderId) {
-      try {
-        const { aiAllowed } = await dataApi.workProviderAiAllowed(input14.workProviderId);
-        if (aiAllowed === false) {
-          classifyAllowed = false;
-          ctx.log("[classifyPersist] image classify skipped \u2014 work provider opted out of AI (ai_allowed=false)");
-        }
-      } catch (e) {
-        ctx.log(JSON.stringify({ evt: "classifyPersist.aiAllowedLookupFailed", caseId, err: e instanceof Error ? e.message : String(e) }));
-      }
-    }
-    if (classifyAllowed) {
-      for (const r of rows) {
-        if (!r.isImage) continue;
-        try {
-          const bytes = await downloadEvidenceBytes(r.blobPath);
-          const cls = await classifyImage({ imageBase64: bytes.toString("base64"), contentType: r.contentType, caseVrm: input14.caseVrm });
-          if (cls) {
-            const f = classificationToEvidenceFields(cls, input14.caseVrm);
-            r.imageRole = f.imageRole;
-            r.registrationVisible = f.registrationVisible;
-            r.acceptedForEva = f.acceptedForEva;
-            r.personReflection = f.personReflection;
-            if (f.excluded) {
-              r.excluded = true;
-              r.exclusionReason = f.exclusionReason;
-            }
-          }
-        } catch (e) {
-          ctx.log(JSON.stringify({ evt: "classifyPersist.imageClassifyFailed", caseId, file: r.filename, err: e instanceof Error ? e.message : String(e) }));
-        }
-      }
-    }
-    if (gates.auditCases() && (input14.typings?.length ?? 0) > 0) {
-      const reportBlobPaths = new Set(
-        (input14.typings ?? []).filter((t) => isEngineerReportLayoutName(t.providerName)).map((t) => t.blobPath)
-      );
-      if (reportBlobPaths.size > 0) {
-        const wouldRemain = rows.some(
-          (r) => r.evidenceClass === "instruction" && !reportBlobPaths.has(r.blobPath)
-        );
-        if (wouldRemain) {
-          let overridden = 0;
-          for (const r of rows) {
-            if (r.evidenceClass === "instruction" && reportBlobPaths.has(r.blobPath)) {
-              r.evidenceClass = "engineer_report";
-              r.isInstruction = false;
-              overridden += 1;
-            }
-          }
-          if (overridden > 0) {
-            ctx.log(
-              JSON.stringify({ evt: "classifyPersist.engineerReportOverride", caseId, overridden })
-            );
-          }
-        } else {
-          ctx.log(
-            JSON.stringify({ evt: "classifyPersist.engineerReportOverrideSkipped", caseId, reason: "would_strip_only_instruction" })
-          );
-        }
-      }
-    }
-    const hasInstructionAttachment = rows.some((r) => r.evidenceClass === "instruction");
-    const bodyText = (inbound.body ?? "").trim();
-    if (!hasInstructionAttachment && bodyText.length >= MIN_BODY_INSTRUCTION_CHARS) {
-      const bodyName = bodyInstructionFileName(inbound.internetMessageId ?? inbound.messageId);
-      const up = await uploadEvidenceBytes(
-        inbound.messageId,
-        bodyName,
-        Buffer.from(bodyText, "utf8"),
-        "text/plain"
-      );
-      rows.push({
-        filename: bodyName,
-        contentType: "text/plain",
-        extension: "txt",
-        evidenceClass: "instruction",
-        isImage: false,
-        isInstruction: true,
-        blobPath: up.blobPath,
-        size: up.size,
-        sha256: up.sha256
-      });
-      ctx.log(JSON.stringify({ evt: "classifyPersist.bodyInstruction", caseId, bytes: up.size }));
-    }
-    const result = await dataApi.persistEvidence(caseId, rows);
-    await dataApi.recordAudit({
-      action: "attachment_classified",
-      caseId,
-      summary: `classified + persisted ${result.persisted} evidence row(s)`
-    });
-    ctx.log(JSON.stringify({ evt: "classifyPersist", caseId, persisted: result.persisted }));
     return result;
   }
 });
@@ -51739,7 +51949,7 @@ df18.app.activity("enrich", {
 });
 
 // orchestration/src/functions/activities/boxArchive.ts
-var import_functions10 = require("@azure/functions");
+var import_functions11 = require("@azure/functions");
 var df19 = __toESM(require("durable-functions"), 1);
 var DEFAULT_INLINE_UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
 function boxInlineUploadMaxBytes() {
@@ -51760,7 +51970,7 @@ async function uploadArchiveItem(folderId, item, maxInlineBytes = boxInlineUploa
   const bytes = await deps.download(item.blobPath);
   return deps.uploadInline(folderId, item.filename, bytes.toString("base64"), item.contentType);
 }
-import_functions10.app.http("box-archive-start", {
+import_functions11.app.http("box-archive-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "box-archive",
@@ -52064,9 +52274,9 @@ df21.app.activity("imagesUnmatched", {
 });
 
 // orchestration/src/functions/gated/finalize-eva-box.ts
-var import_functions11 = require("@azure/functions");
+var import_functions12 = require("@azure/functions");
 var df22 = __toESM(require("durable-functions"), 1);
-import_functions11.app.http("finalize-eva-box-start", {
+import_functions12.app.http("finalize-eva-box-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "finalize-eva-box",
@@ -52112,9 +52322,9 @@ df22.app.activity("boxFolderAugment", {
 });
 
 // orchestration/src/functions/gated/chaser.ts
-var import_functions12 = require("@azure/functions");
+var import_functions13 = require("@azure/functions");
 var df23 = __toESM(require("durable-functions"), 1);
-import_functions12.app.http("chaser-start", {
+import_functions13.app.http("chaser-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "chaser",
@@ -52153,9 +52363,9 @@ df23.app.activity("chaserSend", {
 });
 
 // orchestration/src/functions/gated/box-folder-create.ts
-var import_functions13 = require("@azure/functions");
+var import_functions14 = require("@azure/functions");
 var df24 = __toESM(require("durable-functions"), 1);
-import_functions13.app.http("box-folder-create-start", {
+import_functions14.app.http("box-folder-create-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-folder-create",
@@ -52198,9 +52408,9 @@ df24.app.activity("boxFolderCreate", {
 });
 
 // orchestration/src/functions/gated/box-file-request-copy.ts
-var import_functions14 = require("@azure/functions");
+var import_functions15 = require("@azure/functions");
 var df25 = __toESM(require("durable-functions"), 1);
-import_functions14.app.http("box-file-request-copy-start", {
+import_functions15.app.http("box-file-request-copy-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-file-request-copy",
@@ -52239,9 +52449,9 @@ df25.app.activity("boxFileRequestCopy", {
 });
 
 // orchestration/src/functions/gated/box-blob-purge.ts
-var import_functions15 = require("@azure/functions");
+var import_functions16 = require("@azure/functions");
 var df26 = __toESM(require("durable-functions"), 1);
-import_functions15.app.timer("box-blob-purge-timer", {
+import_functions16.app.timer("box-blob-purge-timer", {
   schedule: "0 0 3 * * *",
   extraInputs: [df26.input.durableClient()],
   handler: async (_t, ctx) => {
@@ -52279,9 +52489,9 @@ df26.app.activity("boxPurgeOne", {
 });
 
 // orchestration/src/functions/gated/case-disposition.ts
-var import_functions16 = require("@azure/functions");
+var import_functions17 = require("@azure/functions");
 var df27 = __toESM(require("durable-functions"), 1);
-import_functions16.app.timer("case-disposition-timer", {
+import_functions17.app.timer("case-disposition-timer", {
   schedule: "0 0 2 * * *",
   extraInputs: [df27.input.durableClient()],
   handler: async (_t, ctx) => {
@@ -52319,9 +52529,9 @@ df27.app.activity("dispositionOne", {
 });
 
 // orchestration/src/functions/gated/jobsheet-import.ts
-var import_functions17 = require("@azure/functions");
+var import_functions18 = require("@azure/functions");
 var df28 = __toESM(require("durable-functions"), 1);
-import_functions17.app.http("jobsheet-import-start", {
+import_functions18.app.http("jobsheet-import-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "jobsheet-import",
@@ -52353,7 +52563,7 @@ df28.app.activity("jobsheetImportOne", {
 });
 
 // orchestration/src/functions/gated/retro-case.ts
-var import_functions18 = require("@azure/functions");
+var import_functions19 = require("@azure/functions");
 var df29 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/retro-envelope.ts
@@ -52511,7 +52721,7 @@ function normToken(v) {
 var retry10 = new df29.RetryOptions(5e3, 3);
 retry10.backoffCoefficient = 2;
 retry10.maxRetryIntervalInMilliseconds = 6e4;
-import_functions18.app.http("retro-case-start", {
+import_functions19.app.http("retro-case-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "retro-case",
@@ -53192,8 +53402,8 @@ df29.app.activity("retroRecordFailure", {
 });
 
 // orchestration/src/functions/gated/retro-deleted-probe.ts
-var import_functions19 = require("@azure/functions");
-import_functions19.app.http("retro-deleted-probe", {
+var import_functions20 = require("@azure/functions");
+import_functions20.app.http("retro-deleted-probe", {
   methods: ["POST"],
   authLevel: "function",
   route: "retro-deleted-probe",
@@ -53252,12 +53462,12 @@ import_functions19.app.http("retro-deleted-probe", {
 });
 
 // orchestration/src/functions/gated/eva-report-poll.ts
-var import_functions20 = require("@azure/functions");
+var import_functions21 = require("@azure/functions");
 var df30 = __toESM(require("durable-functions"), 1);
 var EVA_REPORT_POLL_INSTANCE_ID = "eva-report-poll-singleton";
 var INTERVAL_MINUTES = Number(process.env.EVA_REPORT_POLL_INTERVAL_MINUTES ?? "60");
 var INTERVAL_MS2 = (Number.isFinite(INTERVAL_MINUTES) && INTERVAL_MINUTES > 0 ? INTERVAL_MINUTES : 60) * 6e4;
-import_functions20.app.http("eva-report-poll-start", {
+import_functions21.app.http("eva-report-poll-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "eva-report-poll",

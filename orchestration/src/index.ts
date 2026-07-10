@@ -24,6 +24,8 @@ import './functions/sent-items-processor.js';
 import './functions/intake-starter.js';
 // Gated Outlook filing mover (TKT-054 / 020726 E6; OUTLOOK_MOVE_ENABLED)
 import './functions/outlook-move.js';
+// case_link evidence backfill consumer (TKT-145; enqueued by the Data API accept seam)
+import './functions/evidence-backfill.js';
 import './functions/intakeOrchestrator.js';
 import './functions/activities/fetchMessage.js';
 import './functions/activities/providerMatch.js';

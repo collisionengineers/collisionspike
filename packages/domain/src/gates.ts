@@ -165,6 +165,13 @@ export const gates = {
   // e.g. https://<orch-storage-account>.queue.core.windows.net — the Data API enqueues
   // move jobs there with its managed identity (Storage Queue Data Message Sender).
   outlookMoveQueueServiceUrl: (): string => process.env.OUTLOOK_MOVE_QUEUE_SERVICE_URL ?? '',
+  // Evidence-backfill queue config (TKT-145): the `evidence-backfill` queue lives on the
+  // SAME orchestration storage account as `outlook-move` (cespkorchstdev01), so it
+  // deliberately FALLS BACK to OUTLOOK_MOVE_QUEUE_SERVICE_URL — no new app-setting is
+  // required live. The dedicated variable exists only as an escape hatch should the two
+  // queues ever need to diverge.
+  evidenceBackfillQueueServiceUrl: (): string =>
+    process.env.EVIDENCE_BACKFILL_QUEUE_SERVICE_URL || process.env.OUTLOOK_MOVE_QUEUE_SERVICE_URL || '',
 
   /**
    * Derived: location assist is only enabled when all three conditions are met.

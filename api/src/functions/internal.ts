@@ -37,6 +37,7 @@
  *                                                         suggestionType 'triage_category' added Phase 4)
  *  POST /api/internal/triage/held-pre-instruction     → { held: [{ inboundEmailId, sourceMessageId, matchedOn }] } (TKT-084, taxonomy v3)
  *  POST /api/internal/inbound/{id}/outlook-moved      → 204 (TKT-054 Outlook-filing outcome report)
+ *  POST /api/internal/inbound/{id}/evidence-backfill  → 204 (TKT-145 case_link evidence-backfill outcome report)
  */
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
@@ -2170,6 +2171,95 @@ app.http('internalInboundOutlookMoved', {
         actor: 'orchestration',
       });
       ctx.log(JSON.stringify({ evt: 'outlookMoved', inboundEmailId: id, outcome, folder }));
+      return { status: 204 };
+    }),
+});
+
+/* ============================================================
+   POST /api/internal/inbound/{id}/evidence-backfill  (TKT-145)
+   Called by: the orchestration `evidence-backfill` queue consumer reporting the
+   terminal outcome of a case_link evidence backfill (the outlook-moved pattern).
+   `completed` → the case-scoped attachment_classified audit (the same action the
+   normal classifyPersist lane writes). `failed` → the durable "Attachments to
+   add" case note (the TKT-145 INVERSION of the always-note interim mitigation:
+   staff are told to attach by hand ONLY when the backfill terminally failed) +
+   a warning audit. The note insert is duplicate-guarded so a poison-path
+   re-report never stacks identical notes.
+   ============================================================ */
+app.http('internalInboundEvidenceBackfill', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/inbound/{id}/evidence-backfill',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const id = req.params.id;
+      const body = (await req.json().catch(() => ({}))) as {
+        outcome?: unknown;
+        targetCaseId?: unknown;
+        persisted?: unknown;
+        merged?: unknown;
+        detail?: unknown;
+      };
+      const outcome = body.outcome;
+      if (outcome !== 'completed' && outcome !== 'failed') {
+        return { status: 400, jsonBody: { error: "outcome must be 'completed' or 'failed'" } };
+      }
+      const existing = await query<Row>(
+        'SELECT id, case_id FROM inbound_email WHERE id = $1',
+        [id],
+      );
+      if (!existing[0]) return { status: 404, jsonBody: { error: 'not found' } };
+      // The case the accept attached the email to; fall back to the row's own link (they
+      // are the same unless the email was detached between accept and report).
+      const targetCaseId =
+        (typeof body.targetCaseId === 'string' && body.targetCaseId.trim()) ||
+        ((existing[0].case_id as string | null) ?? '');
+      if (!targetCaseId) {
+        return { status: 400, jsonBody: { error: 'no target case to report against' } };
+      }
+      const detail = typeof body.detail === 'string' ? body.detail.slice(0, 300) : null;
+      const persisted = typeof body.persisted === 'number' ? body.persisted : null;
+      const merged = typeof body.merged === 'number' ? body.merged : null;
+
+      if (outcome === 'completed') {
+        await writeAudit({
+          action: AUDIT_ACTION.attachment_classified,
+          caseId: targetCaseId,
+          summary: `Evidence backfilled from the linked email (${persisted ?? '?'} new${
+            merged ? `, ${merged} matched` : ''
+          })`,
+          after: { inboundEmailId: id, persisted, merged },
+          actor: 'orchestration',
+        });
+      } else {
+        // Terminal backfill failure → the durable staff note (same name/text as the
+        // pre-TKT-145 mitigation so staff see one consistent instruction), duplicate-
+        // guarded on (case, name, text) against poison-path re-reports.
+        await query(
+          `INSERT INTO note (name, case_id, author, text, occurred_at)
+           SELECT $1, $2, $3, $4, now()
+            WHERE NOT EXISTS (
+              SELECT 1 FROM note WHERE case_id = $2 AND name = $1 AND text = $4
+            )`,
+          [
+            'Attachments to add',
+            targetCaseId,
+            'System',
+            'The linked email arrived with attachments (e.g. photos or a PDF) that are not yet on this case. Please add them by hand from the email.',
+          ],
+        );
+        await writeAudit({
+          action: AUDIT_ACTION.graph_message_ingest_failed,
+          caseId: targetCaseId,
+          summary: 'Evidence backfill from the linked email failed — staff must attach by hand',
+          severity: 'warning',
+          after: { inboundEmailId: id, ...(detail ? { detail } : {}) },
+          actor: 'orchestration',
+        });
+      }
+      ctx.log(
+        JSON.stringify({ evt: 'evidenceBackfillReport', inboundEmailId: id, outcome, targetCaseId, persisted, merged }),
+      );
       return { status: 204 };
     }),
 });

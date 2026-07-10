@@ -61,6 +61,11 @@ import { writeImprovementSignal } from './inbound.js';
 // seam calls (auto-link reply, dedup attach, auto-attach — internal.ts). Accepting a
 // case_link suggestion IS an attach, so it must satisfy the case's outstanding chasers too.
 import { markOutstandingChasersResponded } from './internal.js';
+// TKT-145 — on a case_link accept of an attachment-bearing, previously-uncased email,
+// enqueue the orchestration evidence backfill (re-fetch from Graph + persist + status
+// recompute). The manual "attach by hand" note survives only as the enqueue-failure /
+// terminal-failure fallback.
+import { enqueueEvidenceBackfill } from '../lib/evidence-backfill-queue.js';
 
 /** image_role 'unknown' code — the FILL-IF-EMPTY sentinel for evidence.image_role_code. */
 const IMAGE_ROLE_UNKNOWN = 100000003;
@@ -237,7 +242,8 @@ async function promoteAcceptedSuggestion(
         // row shows 'Linked to case' yet keeps inflating the 'needs sorting' badge.
         const upd = await query<Row>(
           `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
-             WHERE id = $1 AND case_id IS NULL RETURNING id, has_attachments`,
+             WHERE id = $1 AND case_id IS NULL
+           RETURNING id, has_attachments, source_mailbox, source_message_id, subject`,
           [inboundEmailId, targetCaseId],
         );
         if (upd[0]) {
@@ -258,26 +264,57 @@ async function promoteAcceptedSuggestion(
           // Best-effort inside markOutstandingChasersResponded itself: a chaser
           // bookkeeping failure never unwinds the attach.
           await markOutstandingChasersResponded(targetCaseId, 'suggestion accepted');
-          // PR52-F4 SAFETY: a suggest-first link (images-received PDF-VRM / ref-gate rung)
-          // attaches the EMAIL but NOT its attachments — the intake persist chain
-          // (classifyPersist + extractImages) only runs on the minting/auto-attach lanes, and
-          // the landed attachments are not re-driven on accept (there is no Data-API →
-          // orchestration re-fetch path today). Until the full persist-on-accept feature lands
-          // (TKT-145), leave a durable, handler-safe case note so the photos/PDF are added BY
-          // HAND instead of being silently dropped from evidence/EVA-readiness.
+          // TKT-145 (PR52-F4): a suggest-first link (images-received PDF-VRM / ref-gate
+          // rung) attaches the EMAIL but NOT its attachments — the intake persist chain
+          // (classifyPersist + extractImages) only ran on the minting/auto-attach lanes.
+          // ENQUEUE the evidence backfill STRICTLY AFTER the link commit (the UPDATE above
+          // returned, and each query() is its own auto-commit statement): the orchestration
+          // consumer re-fetches the message from Graph and drives the existing persist
+          // chain + status recompute onto the target case. The interim "attach by hand"
+          // note is INVERTED — written only when the backfill cannot even be queued here
+          // (the consumer writes it on terminal failure via the report-back route). BEST
+          // EFFORT throughout: a backfill/enqueue/note failure never unwinds the accept.
           if (upd[0].has_attachments === true) {
             try {
-              await query(
-                'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
-                [
-                  'Attachments to add',
-                  targetCaseId,
-                  actor ?? 'System',
-                  'The linked email arrived with attachments (e.g. photos or a PDF) that are not yet on this case. Please add them by hand from the email.',
-                ],
-              );
+              const sourceMailbox =
+                typeof upd[0].source_mailbox === 'string' ? upd[0].source_mailbox.trim() : '';
+              const sourceMessageId =
+                typeof upd[0].source_message_id === 'string' ? upd[0].source_message_id.trim() : '';
+              let backfillQueued = false;
+              if (sourceMailbox && sourceMessageId) {
+                try {
+                  await enqueueEvidenceBackfill({
+                    inboundEmailId,
+                    sourceMailbox,
+                    sourceMessageId,
+                    targetCaseId,
+                    subject: typeof upd[0].subject === 'string' ? upd[0].subject : '',
+                  });
+                  backfillQueued = true;
+                } catch (e) {
+                  console.error(
+                    `[ai-suggestions] evidence-backfill enqueue failed for inbound ${inboundEmailId} -> case ${targetCaseId} (degrading to the manual note): ${
+                      e instanceof Error ? e.message : String(e)
+                    }`,
+                  );
+                }
+              }
+              if (!backfillQueued) {
+                // No mailbox provenance to re-fetch from, or the enqueue itself failed —
+                // fall back to the durable, handler-safe note so the photos/PDF are added
+                // BY HAND instead of being silently dropped from evidence/EVA-readiness.
+                await query(
+                  'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
+                  [
+                    'Attachments to add',
+                    targetCaseId,
+                    actor ?? 'System',
+                    'The linked email arrived with attachments (e.g. photos or a PDF) that are not yet on this case. Please add them by hand from the email.',
+                  ],
+                );
+              }
             } catch {
-              /* best-effort — a note failure must never unwind the link */
+              /* best-effort — a backfill/note failure must never unwind the link */
             }
           }
           return { promoted: true, promotedField: 'inbound_email.case_id' };

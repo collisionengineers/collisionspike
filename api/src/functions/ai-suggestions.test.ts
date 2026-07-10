@@ -60,6 +60,14 @@ vi.mock('./internal.js', () => ({
   markOutstandingChasersResponded: chaserHook.markOutstandingChasersResponded,
 }));
 
+/* ---- evidence-backfill queue (TKT-145): a controllable double — the real module needs a
+        managed identity; its enqueue mechanics are outlook-queue.ts's, pinned there ---- */
+const backfill = vi.hoisted(() => ({ enqueueEvidenceBackfill: vi.fn(async () => {}) }));
+vi.mock('../lib/evidence-backfill-queue.js', () => ({
+  enqueueEvidenceBackfill: backfill.enqueueEvidenceBackfill,
+  EVIDENCE_BACKFILL_QUEUE_NAME: 'evidence-backfill',
+}));
+
 const { AUDIT_ACTION } = await import('../lib/audit.js');
 await import('./ai-suggestions.js'); // registers the routes against the captured app.http
 const generate = registrations.get('generateAiSuggestions')!.handler;
@@ -80,6 +88,8 @@ beforeEach(() => {
   params.length = 0;
   auditCalls.length = 0;
   chaserHook.markOutstandingChasersResponded.mockClear();
+  backfill.enqueueEvidenceBackfill.mockReset();
+  backfill.enqueueEvidenceBackfill.mockResolvedValue(undefined);
   model.callSuggestionModel.mockReset();
   (ctx.log as unknown as ReturnType<typeof vi.fn>).mockReset();
   (ctx.error as unknown as ReturnType<typeof vi.fn>).mockReset();
@@ -440,5 +450,117 @@ describe('generateAiSuggestions — (f) idempotent generate (no duplicate pendin
     expect(insertSqls()).toHaveLength(2);
     // The insert is the NOT EXISTS form (idempotency lives in SQL, not a pre-SELECT).
     expect(insertSqls()[0]).toMatch(/NOT EXISTS/i);
+  });
+});
+
+/* ============================================================
+   TKT-145 — accepted case_link on an attachment-bearing, previously-uncased
+   email ENQUEUES the evidence backfill (strictly after the link commit) and
+   the "attach by hand" note INVERTS to the enqueue-failure fallback only.
+   Double-accept safety: a re-review is idempotent (no re-promote), so the
+   backfill is enqueued at most once per suggestion; the evidence-route side
+   of double-delivery is TKT-133's (case_id, sha256) dedup
+   (internal-evidence-dedup.test.ts), deliberately not rebuilt here.
+   ============================================================ */
+
+const noteSqls = (): string[] => sqls.filter((s) => /INSERT INTO note/i.test(s));
+
+/** The case_link row whose inbound email carries attachments + mailbox provenance. */
+const ATTACHED_LINK_UPDATE_ROW = {
+  id: 'ie-1',
+  has_attachments: true,
+  source_mailbox: 'info@collisionengineers.co.uk',
+  source_message_id: '<lead-123@tractable.ai>',
+  subject: 'New completed lead for Collision Engineers',
+};
+
+function linkRows(updRow: Record<string, unknown> | null, reviewState = 'pending') {
+  return (sql: string): Record<string, unknown>[] => {
+    if (/FROM ai_suggestion WHERE id/i.test(sql)) return [{ ...CASE_LINK_ROW, review_state: reviewState }];
+    if (/UPDATE ai_suggestion/i.test(sql)) return [{ id: 'sug-1', review_state: 'accepted' }];
+    if (/UPDATE inbound_email/i.test(sql)) return updRow ? [updRow] : [];
+    return [];
+  };
+}
+
+describe('reviewAiSuggestion — TKT-145 case_link accept enqueues the evidence backfill', () => {
+  it('accept → ONE enqueue with the exact job (after the link commit); NO manual note', async () => {
+    rowsFor.mockImplementation(linkRows(ATTACHED_LINK_UPDATE_ROW));
+    // Enqueue-after-commit ordering: when the enqueue fires, the inbound_email UPDATE
+    // must already have been issued (the link is committed — each query auto-commits).
+    let updateCommittedFirst = false;
+    backfill.enqueueEvidenceBackfill.mockImplementation(async () => {
+      updateCommittedFirst = sqls.some((s) => /UPDATE inbound_email/i.test(s));
+    });
+
+    const res = await review(reviewReq(), ctx, {});
+    expect(res.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: true });
+    expect(backfill.enqueueEvidenceBackfill).toHaveBeenCalledTimes(1);
+    expect(backfill.enqueueEvidenceBackfill).toHaveBeenCalledWith({
+      inboundEmailId: 'ie-1',
+      sourceMailbox: 'info@collisionengineers.co.uk',
+      sourceMessageId: '<lead-123@tractable.ai>',
+      targetCaseId: 'case-target',
+      subject: 'New completed lead for Collision Engineers',
+    });
+    expect(updateCommittedFirst).toBe(true);
+    // The inversion: a QUEUED backfill writes no "attach by hand" note.
+    expect(noteSqls()).toHaveLength(0);
+  });
+
+  it('enqueue FAILURE → the manual note is written (the inverted mitigation) and the accept still succeeds', async () => {
+    rowsFor.mockImplementation(linkRows(ATTACHED_LINK_UPDATE_ROW));
+    backfill.enqueueEvidenceBackfill.mockRejectedValue(new Error('evidence-backfill enqueue → 404: QueueNotFound'));
+
+    const res = await review(reviewReq(), ctx, {});
+    // A backfill failure must NEVER unwind or fail the accept itself.
+    expect(res.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: true });
+    expect(noteSqls()).toHaveLength(1);
+    const noteParams = params[sqls.findIndex((s) => /INSERT INTO note/i.test(s))];
+    expect(noteParams).toContain('Attachments to add');
+    expect(noteParams).toContain('case-target');
+  });
+
+  it('NO mailbox provenance (retro/synthetic row) → no enqueue; the note degrades in directly', async () => {
+    rowsFor.mockImplementation(
+      linkRows({ id: 'ie-1', has_attachments: true, source_mailbox: null, source_message_id: null, subject: null }),
+    );
+    const res = await review(reviewReq(), ctx, {});
+    expect(res.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: true });
+    expect(backfill.enqueueEvidenceBackfill).not.toHaveBeenCalled();
+    expect(noteSqls()).toHaveLength(1);
+  });
+
+  it('has_attachments FALSE → neither enqueue nor note (nothing to backfill)', async () => {
+    rowsFor.mockImplementation(
+      linkRows({ id: 'ie-1', has_attachments: false, source_mailbox: 'info@collisionengineers.co.uk', source_message_id: '<x@y>', subject: 's' }),
+    );
+    const res = await review(reviewReq(), ctx, {});
+    expect(res.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: true });
+    expect(backfill.enqueueEvidenceBackfill).not.toHaveBeenCalled();
+    expect(noteSqls()).toHaveLength(0);
+  });
+
+  it('DOUBLE ACCEPT → the second review is idempotent (no re-promote) so no second enqueue', async () => {
+    rowsFor.mockImplementation(linkRows(ATTACHED_LINK_UPDATE_ROW));
+    const first = await review(reviewReq(), ctx, {});
+    expect(first.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: true });
+
+    // Second accept: the row is no longer pending — the route returns idempotently
+    // WITHOUT re-promoting, so the backfill cannot be enqueued twice (and therefore no
+    // duplicate evidence rows can even be requested; the queue-replay side is TKT-133).
+    rowsFor.mockImplementation(linkRows(ATTACHED_LINK_UPDATE_ROW, 'accepted'));
+    const second = await review(reviewReq(), ctx, {});
+    expect(second.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: false });
+    expect(backfill.enqueueEvidenceBackfill).toHaveBeenCalledTimes(1);
+    expect(noteSqls()).toHaveLength(0);
+  });
+
+  it('FILL-IF-EMPTY miss (email already linked) → no enqueue, no note', async () => {
+    rowsFor.mockImplementation(linkRows(null));
+    const res = await review(reviewReq(), ctx, {});
+    expect(res.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: false });
+    expect(backfill.enqueueEvidenceBackfill).not.toHaveBeenCalled();
+    expect(noteSqls()).toHaveLength(0);
   });
 });

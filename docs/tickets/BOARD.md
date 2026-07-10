@@ -129,10 +129,14 @@
 > TKT-049/050 **VERIFIED-LIVE** (AX claimant-email blank + circumstances boundary fix, parser
 > redeployed); TKT-003 **VERIFIED-LIVE** (operator re-test post-regression fix).
 
+
+
 ## Now — in flight / not yet confirmed live
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-140](./now/TKT-140-retro-backlog-drain/TKT-140-retro-backlog-drain.md) | Bulk retro backlog drain — reconstitute historical un-cased emails from Deleted Items | IN FLIGHT 2026-07-10: dry-run EXECUTED (107 keys, 88 probed, 0.0% errors, 75 locatable, mint guards evidenced) — GO criteria met; drain queued for end-of-batch with the 13 high-noise junk keys excluded (99 drainable rows, 10-per-batch). |
+| [TKT-145](./now/TKT-145-caselink-evidence-backfill/TKT-145-caselink-evidence-backfill.md) | Accepted case_link on a previously-uncased email must backfill its evidence | IN FLIGHT 2026-07-10: shape B build dispatched — evidence-backfill storage queue + orch re-fetch consumer (outlook-move pattern), enqueue on both accept seams; supersedes the live manual-note mitigation (which becomes failure-only). |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
@@ -286,12 +290,11 @@
 | ID | Title | State |
 |---|---|---|
 | [TKT-144](./backlog/TKT-144-blob-sha256-backfill-dedup/TKT-144-blob-sha256-backfill-dedup.md) | Resolve the 214 blob-lane same-name duplicate evidence rows via a sha256 backfill | D2 finding 2026-07-09 (TKT-133 residual). |
-| [TKT-145](./backlog/TKT-145-caselink-evidence-backfill/TKT-145-caselink-evidence-backfill.md) | Accepted case_link on a previously-uncased email must backfill its evidence | D2 finding 2026-07-09 (TKT-102 gap). |
 | [TKT-146](./backlog/TKT-146-box-upload-event-classify/TKT-146-box-upload-event-classify.md) | Classify images at Box-upload event time | D2 finding 2026-07-09 (TKT-112 ownership follow-on). |
 | [TKT-147](./backlog/TKT-147-tractable-make-vin/TKT-147-tractable-make-vin.md) | Tractable layout: vehicle make (two-label rule) + VIN slot | D2 finding 2026-07-09 (TKT-102 follow-on). |
 | [TKT-148](./backlog/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for overview-less photo sets | D2 finding 2026-07-09 (A.QDOS26029-class; data now exists). |
-| [TKT-140](./backlog/TKT-140-retro-backlog-drain/TKT-140-retro-backlog-drain.md) | Bulk retro backlog drain — reconstitute historical un-cased emails from Deleted Items | Intake-wave finding 2026-07-09: feasibility proven (no build needed); operator-paced drain proposed. |
 | [TKT-018](./backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md) | AI total-loss vs repairable categorisation | Assessment recorded 2026-07-09: dependencies now live; build shape + fresh-DPIA need documented; deferral stays the operator's to lift. Stays backlog. |
+
 ## Blocked — needs operator
 
 | ID | Title | State |
