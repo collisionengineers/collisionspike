@@ -131,17 +131,22 @@
 
 
 
+
+
+
 ## Now — in flight / not yet confirmed live
 
 | ID | Title | State |
 |---|---|---|
 | [TKT-140](./now/TKT-140-retro-backlog-drain/TKT-140-retro-backlog-drain.md) | Bulk retro backlog drain — reconstitute historical un-cased emails from Deleted Items | IN FLIGHT 2026-07-10: dry-run EXECUTED (107 keys, 88 probed, 0.0% errors, 75 locatable, mint guards evidenced) — GO criteria met; drain queued for end-of-batch with the 13 high-noise junk keys excluded (99 drainable rows, 10-per-batch). |
-| [TKT-145](./now/TKT-145-caselink-evidence-backfill/TKT-145-caselink-evidence-backfill.md) | Accepted case_link on a previously-uncased email must backfill its evidence | IN FLIGHT 2026-07-10: shape B build dispatched — evidence-backfill storage queue + orch re-fetch consumer (outlook-move pattern), enqueue on both accept seams; supersedes the live manual-note mitigation (which becomes failure-only). |
+| [TKT-148](./now/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for overview-less photo sets | IN FLIGHT 2026-07-10: detector build dispatched — status-evaluate seam predicate (accepted≥N, zero overview, zero unclassified) minting an idempotent drafted chase; one-shot pass for existing cases; A.QDOS26029 must surface one. |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-146](./verify/TKT-146-box-upload-event-classify/TKT-146-box-upload-event-classify.md) | Classify images at Box-upload event time | Shipped + DEPLOYED + implementer-live-proven 2026-07-10 (box-classify-sweep timer, orch 74/api 96 fns; test upload stamped overview + registration_visible=true in 1m50s; 242-row backlog draining, gate = IMAGE_ROLE_CLASSIFY_ENABLED). → verify. |
+| [TKT-145](./verify/TKT-145-caselink-evidence-backfill/TKT-145-caselink-evidence-backfill.md) | Accepted case_link on a previously-uncased email must backfill its evidence | Shipped + DEPLOYED 2026-07-10 (evidence-backfill queue + orch consumer, orch 73/api 95 fns; manual-note mitigation now failure-only; auto-attach seam N/A by construction). Live proof staged: operator accepts suggestion e1301dc9 (EREF9 desk@ email → QDOS26023). → verify. |
 | [TKT-142](./verify/TKT-142-boxfn-large-payload/TKT-142-boxfn-large-payload.md) | Box facade 502s on large base64 payloads — QDOS26029 archive stranded (17.6 MB .eml) | Shipped + LIVE-PROVEN 2026-07-09 (QDOS26029 archive 4/4 incl. the 17.6MB .eml; blobPath + chunked lanes); >=20MiB lane offline-only. → verify. |
 | [TKT-132](./verify/TKT-132-generate-suggestions-inputs/TKT-132-generate-suggestions-inputs.md) | Widen the AI-suggestion generate inputs beyond accident circumstances | Shipped 2026-07-09 (widened inputs, caps, scrub; DPIA within the 2026-07-08 attestation, scope-noted). → verify. |
 | [TKT-137](./verify/TKT-137-uncased-ai-suggestion-surface/TKT-137-uncased-ai-suggestion-surface.md) | Surface triage_category AI suggestions on uncased emails — currently written but invisible | Shipped 2026-07-09 (uncased suggestion banner via the audited seam); live proof = next pending suggestion. → verify. |
@@ -290,9 +295,7 @@
 | ID | Title | State |
 |---|---|---|
 | [TKT-144](./backlog/TKT-144-blob-sha256-backfill-dedup/TKT-144-blob-sha256-backfill-dedup.md) | Resolve the 214 blob-lane same-name duplicate evidence rows via a sha256 backfill | D2 finding 2026-07-09 (TKT-133 residual). |
-| [TKT-146](./backlog/TKT-146-box-upload-event-classify/TKT-146-box-upload-event-classify.md) | Classify images at Box-upload event time | D2 finding 2026-07-09 (TKT-112 ownership follow-on). |
 | [TKT-147](./backlog/TKT-147-tractable-make-vin/TKT-147-tractable-make-vin.md) | Tractable layout: vehicle make (two-label rule) + VIN slot | D2 finding 2026-07-09 (TKT-102 follow-on). |
-| [TKT-148](./backlog/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for overview-less photo sets | D2 finding 2026-07-09 (A.QDOS26029-class; data now exists). |
 | [TKT-018](./backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md) | AI total-loss vs repairable categorisation | Assessment recorded 2026-07-09: dependencies now live; build shape + fresh-DPIA need documented; deferral stays the operator's to lift. Stays backlog. |
 
 ## Blocked — needs operator

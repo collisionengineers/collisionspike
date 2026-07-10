@@ -1,0 +1,179 @@
+/**
+ * api/src/lib/overview-chase.ts — targeted overview-photo chase suggestion (TKT-148).
+ *
+ * Post-classification, a case can hold a healthy photo set that GENUINELY lacks a
+ * vehicle overview (e.g. A.QDOS26029: every accepted photo is a damage close-up) —
+ * honestly stuck at missing_images, and the fix is a real photo from the customer,
+ * not reclassification. This detector runs inside BOTH status-recompute seams
+ * (cases.ts recomputeStatus — staff edits/merges; internal.ts recomputeStatus — the
+ * orchestration status-evaluate route the classify sweep re-invokes per stamped
+ * case), so a case is re-examined exactly when its photo set or fields change.
+ *
+ * PREDICATE (all three, over the case's image-kind evidence):
+ *   - accepted photos >= OVERVIEW_CHASE_MIN_ACCEPTED_IMAGES (accepted_for_eva AND
+ *     NOT excluded — the image-rules "accepted" definition);
+ *   - ZERO overview-role candidates among the accepted photos (role = overview,
+ *     regardless of registration_visible: a photo classified overview is a
+ *     candidate for the role even before OCR confirms the plate — chasing then
+ *     would be premature);
+ *   - ZERO still-unclassified photos (role unknown AND registration_visible IS
+ *     NULL, not excluded — the TKT-131 predicate). This guard prevents false
+ *     chases while the TKT-146 classify sweep is still draining a case's backlog:
+ *     an unclassified photo MIGHT be the overview.
+ *
+ * MINT SEMANTICS (idempotent, deliberately conservative):
+ *   - at most ONE system suggestion per case, EVER — the guarded INSERT's
+ *     NOT-EXISTS blocks when any chaser row with this template already exists
+ *     (any status) OR any OPEN chaser (drafted/sent/overdue) of any template
+ *     exists (staff are already chasing; don't pile on).
+ *   - NO automatic re-mint after a responded/satisfied chase: an email attach
+ *     marks ALL outstanding chasers responded (markOutstandingChasersResponded),
+ *     so predicate-true + auto-re-mint would mint a new row on every unrelated
+ *     attach. Repeat chases are a human call via the existing chaser panel.
+ *   - DRAFT-ONLY (ADR-0003): status_code keeps the DB default 'drafted'; the
+ *     suggestion is copy staff send by hand — nothing here sends anything.
+ *
+ * Advisory by design: every failure path returns false and never throws, so a
+ * suggestion hiccup can never sink the status recompute that hosts it.
+ */
+
+import { isTerminalStatus, type CaseStatus } from '@cs/domain';
+import { evidenceKindCodec, imageRoleCodec } from '@cs/domain/codecs';
+import { query } from './db.js';
+import { AUDIT_ACTION, writeAudit } from './audit.js';
+
+/** N — minimum accepted photos before an overview-less set is worth a chase (TKT-148). */
+export const OVERVIEW_CHASE_MIN_ACCEPTED_IMAGES = 5;
+
+/** The system template label — ALSO the once-per-case idempotency key (template_used). */
+export const OVERVIEW_CHASE_TEMPLATE_LABEL = 'Overview photo request';
+
+/** chaser.name — the staff-visible summary; handler-plain, marks it system-suggested. */
+export const OVERVIEW_CHASE_SUMMARY =
+  'Suggested chase — ask for a photo of the whole vehicle showing the registration plate clearly.';
+
+const IMAGE_KIND_CODE = evidenceKindCodec.toInt('image') ?? 100000000;
+const OVERVIEW_ROLE_CODE = imageRoleCodec.toInt('overview') ?? 100000000;
+const UNKNOWN_ROLE_CODE = imageRoleCodec.toInt('unknown') ?? 100000003;
+
+/** choice_chaser_target_type work_provider / choice_chaser_channel email — the same
+ *  frozen codes the staff logChase write uses (cases.ts). */
+const TARGET_TYPE_WORK_PROVIDER = 100000002;
+const CHANNEL_EMAIL = 100000000;
+
+/** Open chaser statuses (drafted, sent, overdue) — mirrors internal.ts
+ *  CHASER_OUTSTANDING_CODES; 'responded' (100000002) is deliberately NOT open. */
+const OPEN_CHASER_STATUS_CODES = '100000000, 100000001, 100000003';
+
+export interface OverviewChaseCounts {
+  /** Accepted photos: image kind, accepted_for_eva, NOT excluded. */
+  acceptedCount: number;
+  /** Accepted photos already classified overview (any registration_visible). */
+  overviewCount: number;
+  /** Still-unclassified photos: role unknown AND registration_visible IS NULL, not excluded. */
+  unclassifiedCount: number;
+}
+
+/**
+ * PURE eligibility check — exported for unit tests and so the one-shot SQL-parity
+ * pass and both recompute seams share ONE definition of "genuinely lacks an
+ * overview": an active (non-terminal, non-retired) case whose classified photo set
+ * is big enough to chase over, has no overview candidate, and has nothing left in
+ * the classify queue that might still turn out to be one.
+ */
+export function isOverviewChaseEligible(status: CaseStatus, counts: OverviewChaseCounts): boolean {
+  return (
+    !isTerminalStatus(status) &&
+    status !== 'linked_to_instruction' &&
+    counts.acceptedCount >= OVERVIEW_CHASE_MIN_ACCEPTED_IMAGES &&
+    counts.overviewCount === 0 &&
+    counts.unclassifiedCount === 0
+  );
+}
+
+/**
+ * Evaluate the predicate for one case and mint the suggested chase when it holds.
+ * Returns true only when THIS call minted the row (the single-statement NOT-EXISTS
+ * INSERT makes concurrent evaluators safe: exactly one wins, the rest no-op).
+ * Never throws — advisory, best-effort (the audit write is itself never-throws).
+ */
+export async function maybeSuggestOverviewChase(
+  caseId: string,
+  status: CaseStatus,
+  actor?: string,
+): Promise<boolean> {
+  try {
+    // Terminal / retired-merged cases are never chased — skip before any DB work.
+    if (isTerminalStatus(status) || status === 'linked_to_instruction') return false;
+
+    const agg = await query<{
+      provider_display: string | null;
+      accepted_count: number | string;
+      overview_count: number | string;
+      unclassified_count: number | string;
+    }>(
+      `SELECT COALESCE(wp.display_name, '') AS provider_display,
+              COUNT(e.id) FILTER (WHERE e.accepted_for_eva AND NOT e.excluded)::int AS accepted_count,
+              COUNT(e.id) FILTER (WHERE e.accepted_for_eva AND NOT e.excluded AND e.image_role_code = $3)::int AS overview_count,
+              COUNT(e.id) FILTER (WHERE NOT e.excluded AND e.image_role_code = $4 AND e.registration_visible IS NULL)::int AS unclassified_count
+         FROM case_ c
+         LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+         LEFT JOIN evidence e ON e.case_id = c.id AND e.kind_code = $2
+        WHERE c.id = $1
+        GROUP BY wp.display_name`,
+      [caseId, IMAGE_KIND_CODE, OVERVIEW_ROLE_CODE, UNKNOWN_ROLE_CODE],
+    );
+    const row = agg[0];
+    if (!row) return false; // unknown case
+    const counts: OverviewChaseCounts = {
+      acceptedCount: Number(row.accepted_count ?? 0),
+      overviewCount: Number(row.overview_count ?? 0),
+      unclassifiedCount: Number(row.unclassified_count ?? 0),
+    };
+    if (!isOverviewChaseEligible(status, counts)) return false;
+
+    const targetName = String(row.provider_display ?? '').slice(0, 200);
+
+    // Guard + mint in ONE statement (concurrent recomputes can't double-mint):
+    // blocked when the system suggestion already exists (any status — once per
+    // case, ever) OR any open chase exists (staff are already chasing).
+    const inserted = await query<{ id: string }>(
+      `INSERT INTO chaser
+         (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at)
+       SELECT $1, $2, $3, $4, $5, $6, now()
+        WHERE NOT EXISTS (
+          SELECT 1 FROM chaser ch
+           WHERE ch.case_id = $2
+             AND (ch.template_used = $6 OR ch.status_code IN (${OPEN_CHASER_STATUS_CODES})))
+       RETURNING id`,
+      [
+        OVERVIEW_CHASE_SUMMARY,
+        caseId,
+        TARGET_TYPE_WORK_PROVIDER,
+        targetName,
+        CHANNEL_EMAIL,
+        OVERVIEW_CHASE_TEMPLATE_LABEL,
+      ],
+    );
+    if (!inserted[0]) return false; // already suggested / staff already chasing
+
+    // chaser_sent is the controlled chaser-family audit action (the same reuse
+    // logChase and markOutstandingChasersResponded make); the summary keeps the
+    // wording honest — SUGGESTED, drafted, not sent.
+    await writeAudit({
+      action: AUDIT_ACTION.chaser_sent,
+      caseId,
+      summary: `Chase suggested (${OVERVIEW_CHASE_TEMPLATE_LABEL}) — drafted for staff to send`,
+      after: {
+        chaserId: inserted[0].id,
+        templateLabel: OVERVIEW_CHASE_TEMPLATE_LABEL,
+        suggested: true,
+        acceptedImages: counts.acceptedCount,
+      },
+      ...(actor ? { actor } : {}),
+    });
+    return true;
+  } catch {
+    return false; // advisory — a suggestion failure must never sink the recompute
+  }
+}

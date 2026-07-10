@@ -15630,6 +15630,80 @@ async function prefillImageBasedInspection(caseId, actor) {
   return true;
 }
 
+// api/src/lib/overview-chase.ts
+var OVERVIEW_CHASE_MIN_ACCEPTED_IMAGES = 5;
+var OVERVIEW_CHASE_TEMPLATE_LABEL = "Overview photo request";
+var OVERVIEW_CHASE_SUMMARY = "Suggested chase \u2014 ask for a photo of the whole vehicle showing the registration plate clearly.";
+var IMAGE_KIND_CODE = evidenceKindCodec.toInt("image") ?? 1e8;
+var OVERVIEW_ROLE_CODE = imageRoleCodec.toInt("overview") ?? 1e8;
+var UNKNOWN_ROLE_CODE = imageRoleCodec.toInt("unknown") ?? 100000003;
+var TARGET_TYPE_WORK_PROVIDER = 100000002;
+var CHANNEL_EMAIL = 1e8;
+var OPEN_CHASER_STATUS_CODES = "100000000, 100000001, 100000003";
+function isOverviewChaseEligible(status, counts) {
+  return !isTerminalStatus(status) && status !== "linked_to_instruction" && counts.acceptedCount >= OVERVIEW_CHASE_MIN_ACCEPTED_IMAGES && counts.overviewCount === 0 && counts.unclassifiedCount === 0;
+}
+async function maybeSuggestOverviewChase(caseId, status, actor) {
+  try {
+    if (isTerminalStatus(status) || status === "linked_to_instruction") return false;
+    const agg = await query(
+      `SELECT COALESCE(wp.display_name, '') AS provider_display,
+              COUNT(e.id) FILTER (WHERE e.accepted_for_eva AND NOT e.excluded)::int AS accepted_count,
+              COUNT(e.id) FILTER (WHERE e.accepted_for_eva AND NOT e.excluded AND e.image_role_code = $3)::int AS overview_count,
+              COUNT(e.id) FILTER (WHERE NOT e.excluded AND e.image_role_code = $4 AND e.registration_visible IS NULL)::int AS unclassified_count
+         FROM case_ c
+         LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+         LEFT JOIN evidence e ON e.case_id = c.id AND e.kind_code = $2
+        WHERE c.id = $1
+        GROUP BY wp.display_name`,
+      [caseId, IMAGE_KIND_CODE, OVERVIEW_ROLE_CODE, UNKNOWN_ROLE_CODE]
+    );
+    const row = agg[0];
+    if (!row) return false;
+    const counts = {
+      acceptedCount: Number(row.accepted_count ?? 0),
+      overviewCount: Number(row.overview_count ?? 0),
+      unclassifiedCount: Number(row.unclassified_count ?? 0)
+    };
+    if (!isOverviewChaseEligible(status, counts)) return false;
+    const targetName = String(row.provider_display ?? "").slice(0, 200);
+    const inserted = await query(
+      `INSERT INTO chaser
+         (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at)
+       SELECT $1, $2, $3, $4, $5, $6, now()
+        WHERE NOT EXISTS (
+          SELECT 1 FROM chaser ch
+           WHERE ch.case_id = $2
+             AND (ch.template_used = $6 OR ch.status_code IN (${OPEN_CHASER_STATUS_CODES})))
+       RETURNING id`,
+      [
+        OVERVIEW_CHASE_SUMMARY,
+        caseId,
+        TARGET_TYPE_WORK_PROVIDER,
+        targetName,
+        CHANNEL_EMAIL,
+        OVERVIEW_CHASE_TEMPLATE_LABEL
+      ]
+    );
+    if (!inserted[0]) return false;
+    await writeAudit({
+      action: AUDIT_ACTION.chaser_sent,
+      caseId,
+      summary: `Chase suggested (${OVERVIEW_CHASE_TEMPLATE_LABEL}) \u2014 drafted for staff to send`,
+      after: {
+        chaserId: inserted[0].id,
+        templateLabel: OVERVIEW_CHASE_TEMPLATE_LABEL,
+        suggested: true,
+        acceptedImages: counts.acceptedCount
+      },
+      ...actor ? { actor } : {}
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // api/src/lib/case-po.ts
 var floorTableKnown = null;
 async function casePoFloor(run, prefix2) {
@@ -16863,6 +16937,7 @@ async function recomputeStatus(caseId) {
       after: { status: next }
     });
   }
+  await maybeSuggestOverviewChase(caseId, next);
   return next;
 }
 async function applyParserFields(caseId, parserRef, parserMileage, parserMileageUnit, parserEva, workProviderId, intermediary) {
@@ -18906,19 +18981,21 @@ async function recomputeStatus2(caseId, actor) {
     hasIdentity: full.vrm.trim().length > 0 || full.providerCode.trim().length > 0 || full.evaFields.claimantName.value.trim().length > 0
   };
   const next = statusForReviewCase(input);
-  if (next === full.status) return;
-  await query("UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1", [
-    caseId,
-    statusToInt(next)
-  ]);
-  await writeAudit({
-    action: AUDIT_ACTION.status_changed,
-    caseId,
-    summary: `Status ${full.status} -> ${next}`,
-    before: { status: full.status },
-    after: { status: next },
-    ...actor ? { actor } : {}
-  });
+  if (next !== full.status) {
+    await query("UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1", [
+      caseId,
+      statusToInt(next)
+    ]);
+    await writeAudit({
+      action: AUDIT_ACTION.status_changed,
+      caseId,
+      summary: `Status ${full.status} -> ${next}`,
+      before: { status: full.status },
+      after: { status: next },
+      ...actor ? { actor } : {}
+    });
+  }
+  await maybeSuggestOverviewChase(caseId, next, actor);
 }
 var EVA_MAXLEN = {
   workProvider: 200,
@@ -61707,7 +61784,7 @@ function classifyUpload(contentType2, size) {
 }
 
 // api/src/functions/evidence-upload.ts
-var IMAGE_KIND_CODE = 1e8;
+var IMAGE_KIND_CODE2 = 1e8;
 var DOCUMENT_KIND_CODE = 100000002;
 import_functions15.app.http("uploadCaseEvidence", {
   methods: ["POST"],
@@ -61737,7 +61814,7 @@ import_functions15.app.http("uploadCaseEvidence", {
         const bytes = Buffer.from(await file.arrayBuffer());
         const sha256 = (0, import_node_crypto9.createHash)("sha256").update(bytes).digest("hex");
         const { blobPath, size } = await uploadEvidenceBytes(caseId, file.name, bytes, file.type);
-        const kindCode = check.kind === "image" ? IMAGE_KIND_CODE : DOCUMENT_KIND_CODE;
+        const kindCode = check.kind === "image" ? IMAGE_KIND_CODE2 : DOCUMENT_KIND_CODE;
         await query(
           `INSERT INTO evidence
              (file_name, case_id, kind_code, sha256, content_type, size_bytes, storage_path, source_label)

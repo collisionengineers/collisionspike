@@ -55,6 +55,7 @@ import {
 import { withRole } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
 import { isPrefillApplicable, prefillImageBasedInspection } from '../lib/inspection-prefill.js';
+import { maybeSuggestOverviewChase } from '../lib/overview-chase.js';
 import { casePoFloor, mintCasePo } from '../lib/case-po.js';
 import { isUniqueViolation } from './internal.js';
 import { ifMatch, staleVersion, versionToken } from '../lib/concurrency.js';
@@ -189,19 +190,23 @@ async function recomputeStatus(caseId: string, actor?: string): Promise<void> {
       full.evaFields.claimantName.value.trim().length > 0,
   };
   const next = statusForReviewCase(input);
-  if (next === full.status) return;
-  await query('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [
-    caseId,
-    statusToInt(next),
-  ]);
-  await writeAudit({
-    action: AUDIT_ACTION.status_changed,
-    caseId,
-    summary: `Status ${full.status} -> ${next}`,
-    before: { status: full.status },
-    after: { status: next },
-    ...(actor ? { actor } : {}),
-  });
+  if (next !== full.status) {
+    await query('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [
+      caseId,
+      statusToInt(next),
+    ]);
+    await writeAudit({
+      action: AUDIT_ACTION.status_changed,
+      caseId,
+      summary: `Status ${full.status} -> ${next}`,
+      before: { status: full.status },
+      after: { status: next },
+      ...(actor ? { actor } : {}),
+    });
+  }
+  // TKT-148: runs on EVERY evaluation (changed or not — a merge can add photos while
+  // the status stays missing_images). Advisory + idempotent; never throws.
+  await maybeSuggestOverviewChase(caseId, next, actor);
 }
 
 /* ----------  Durable case-page EVA-field edits (work-todo-spike: casepage)  ---------- */

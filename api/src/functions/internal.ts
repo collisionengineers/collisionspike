@@ -75,6 +75,7 @@ import { gates } from '../lib/gates.js';
 import { authenticate, toErrorResponse } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
 import { isPrefillApplicable, prefillImageBasedInspection } from '../lib/inspection-prefill.js';
+import { maybeSuggestOverviewChase } from '../lib/overview-chase.js';
 import { mintCasePo } from '../lib/case-po.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
 import { combineMakeModel } from '../lib/enrichment-map.js';
@@ -273,6 +274,11 @@ async function recomputeStatus(caseId: string): Promise<CaseStatus> {
       after: { status: next },
     });
   }
+  // TKT-148: the overview-photo chase detector rides every internal evaluation too
+  // (this is the seam the TKT-146 classify sweep re-invokes per stamped case, so a
+  // freshly classified overview-less photo set is examined at event time).
+  // Advisory + idempotent; never throws.
+  await maybeSuggestOverviewChase(caseId, next);
   return next;
 }
 
