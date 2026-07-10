@@ -1,7 +1,36 @@
 # Verification — TKT-027: Intermediate intake status beyond 'new'
 
 ## Verdict
-DEPLOYED — route + activity live; intake `ingested` transition proof pending next email.
+VERIFIED-LIVE
+
+Verified by: ticket-verifier dispatch, 10-07-26.
+
+## Ticket-verifier verdict (transcribed, dispatch of 2026-07-10)
+
+- **Line 1 (distinct status once added to intake):** KQL last-24h — **60 setIngested activity
+  logs: 55 updated:true (real new_email → ingested UPDATEs) + 5 updated:false (idempotent no-ops on
+  already-progressed cases, the designed guard)**; last stamp minutes before the query. Sample live
+  case ids stamped today: d142e09e @16:47:03Z, f5c9a2c8 @16:13:26Z, +6 more. Each applied UPDATE
+  writes the status_changed audit ("Status set to ingested (intake pipeline picked up)").
+- **Line 2 (automatic, no manual step):** internalCasesSetIngested = **60 requests, all 200, 1:1
+  with the orch activity count** — every call originates from intakeOrchestrator step 2.1
+  (line 627, immediately after caseResolve), service-auth only, unattended across the day.
+- **Line 3 (board/queues reflect it):** the live deployed SPA bundle contains
+  `ingested:{label:"Logged"…}` (StatusBadge), the not-ready queue membership, and the funnel
+  bucket — handler-plain "Logged".
+- **Volume cross-check (not a failure):** ~121 intakes vs 60 stamps is expected — setIngested fires
+  only on intakes reaching caseResolve; non-minting lanes (linkReply, images-received, case_update,
+  cancellation, pre-instruction) never mint.
+- Minor cosmetic note (pre-existing, outside this ticket): the ManualIntake dropdown option renders
+  raw "Ingested" (ManualIntake.tsx:1001-1005) vs the badge's "Logged" — terminology follow-up
+  candidate.
+
+Queued SQL (corroborative): 24h ingested-stamp audits (≈55); sample transition rows; two observed
+case ids now PAST ingested; zero cases stranded at new_email >10 min.
+
+## How to re-verify
+The two KQL queries in the verdict (AppTraces setIngested split; AppRequests
+internalCasesSetIngested by ResultCode) + the bundle grep for `ingested:{label:"Logged"`.
 
 ## Evidence
 - **Deploy (2026-07-01):** config-zip to `cespk-api-dev` + `cespk-orch-dev` (WSL `func` unavailable). API **64** functions (+`internalCasesSetIngested`); orch **51** (+`setIngested`). Anon probe `POST …/set-ingested` → **401** (route exists, not 404).

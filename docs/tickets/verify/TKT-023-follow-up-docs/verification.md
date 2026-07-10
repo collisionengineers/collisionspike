@@ -1,6 +1,40 @@
 # Verification — TKT-023: Link follow-up documents/emails to the existing case + Box
 ## Verdict
-DEPLOYED GATED-OFF (2026-07-02) — NOT yet active; needs D7 + `TRIAGE_REF_GATE_ENABLED`
+PENDING — one residual, narrower than every prior verdict: a single live chaser-flip observation
+(DB-only, queued SQL).
+
+Verified by: ticket-verifier dispatch, 10-07-26. Findings:
+- **Line 1 (reply attaches, no duplicate case):** live-proven 2026-07-09 (30 attach_case + 51
+  suggest_attach over 7d; one case per attached Case/PO across 6 POs); corroborated today by the
+  drain's 37 rung-1 links (TKT-140 VERIFIED-LIVE, W2c 71/71 pairs) + a live dedup-lane attach in the
+  current window.
+- **Line 2 (documents in evidence + Box):** live-proven 2026-07-09 (AX26034 follow-up PDF in Box 12s
+  after the attach; 7 evidence-add audits). Adjacent-lane parity gaps (drain-linked emails not
+  backfilled; Box parity on the backfill path) are TKT-145's filed follow-ups, not this acceptance.
+- **Line 3 (outstanding chaser marked satisfied — the 2026-07-09 missed seam): CLOSED in deployed
+  code, cited:** ai-suggestions.ts:63 imports + :266 calls markOutstandingChasersResponded
+  ('suggestion accepted') inside promoteAcceptedSuggestion's case_link branch — after the
+  FILL-IF-EMPTY attach + inbound_linked audit, BEFORE TKT-145's enqueue (which did not regress the
+  hook). All FOUR seams call it (internal.ts:961 dedup, :1637 reply-linked, :2028 auto-attach,
+  ai-suggestions.ts:266 accept). Bundle carries 5 occurrences (def + 4 calls); git provenance: the
+  call entered at 2509853 (2026-07-09 D1, deployed) and survived 70f6d11. Offline pins: hook called
+  on successful promotion / not on miss / not on rejection. NOT yet observed firing live (zero
+  reviewAiSuggestion requests in-window; the flip emits no telemetry) → queued SQL decides.
+- **Line 4 (low-confidence → review, never auto-merged):** live-proven 2026-07-09 (rung-3 invariant
+  held on every sampled event); nothing today contradicts.
+- **No new one-liner ticket needed for the seam — it is closed.**
+- **Operator watch-item (environment):** the App Insights queryable window on BOTH components now
+  begins ~16:57Z today (free-tier retention/cap) — live-firing proofs are perishable; run KQL probes
+  promptly after events.
+
+Queued SQL (decides line 3): L3a chasers flipped to responded; L3b the hook's audit rows (the
+"(via)" tail names the seam); L3c outstanding chasers that will flip on their case's next attach;
+L1-refresh today's attached-emails-per-case sanity. Live probe shared with TKT-145: after the
+operator accepts 025c8ce2 (→ A.QDOS26034), re-run L3b — a "(suggestion accepted)" row appears iff
+that case has an outstanding chaser (check L3c first).
+
+## Prior verdict (2026-07-02, superseded)
+DEPLOYED GATED-OFF — needed D7 + TRIAGE_REF_GATE_ENABLED (both since flipped live).
 ## Evidence
 - Repro material in evidence/ (operator-note.md; sent/ outgoing request 575985.eml;
   original/ incoming reply Our ref 576299.eml + 16DL.pdf + 16DL diminution PDF).

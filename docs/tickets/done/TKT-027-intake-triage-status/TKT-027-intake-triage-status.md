@@ -1,11 +1,11 @@
 ---
 id: TKT-027
 title: Intermediate intake status beyond 'new'
-status: verify
+status: done
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-012]
-research-link: docs/tickets/verify/TKT-027-intake-triage-status/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-027-intake-triage-status/evidence/operator-note.md
 ---
 
 # Intermediate intake status beyond 'new'
