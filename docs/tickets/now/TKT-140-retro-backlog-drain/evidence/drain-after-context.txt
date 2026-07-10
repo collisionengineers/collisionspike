@@ -1,0 +1,90 @@
+Timing is on.
+SET
+Time: 20.284 ms
+=== AFTER: inbound_email totals ===
+ inbound_total | inbound_uncased 
+---------------+-----------------
+           988 |             218
+(1 row)
+
+Time: 24.217 ms
+=== AFTER: the 118 enumerated dry-run rows — linkage + attention state ===
+ enumerated_rows | now_linked_to_case | still_uncased | stamped_unable_to_locate | uncased_unstamped 
+-----------------+--------------------+---------------+--------------------------+-------------------
+             118 |                 71 |            47 |                        7 |                41
+(1 row)
+
+Time: 27.533 ms
+=== AFTER: retro-channel cases (intake_channel_kind_code=100000003) — Held invariant check ===
+ retro_cases | status_needs_review | on_hold_true | with_case_po | created_last_12h 
+-------------+---------------------+--------------+--------------+------------------
+          88 |                  58 |           88 |            0 |               50
+(1 row)
+
+Time: 22.103 ms
+=== AFTER: retro-channel cases created in the drain window (detail, newest 40) ===
+                  id                  |      case_ref      |   vrm   |     status     | on_hold | case_po |          created_at           
+--------------------------------------+--------------------+---------+----------------+---------+---------+-------------------------------
+ 7e8cea7d-a653-4fba-8d98-74e72ff905c2 |                    | YG26OSF | needs_review   | t       |         | 2026-07-10 15:50:05.608206+00
+ 2b53e628-9db4-404c-aba6-a3b81a4182a1 | CWA/39900/1        | LT62ERU | needs_review   | t       |         | 2026-07-10 15:48:44.06521+00
+ 8ef5c430-9763-4584-b192-5c53e7c95293 | A.QDOS251286       | BL68MJE | needs_review   | t       |         | 2026-07-10 15:47:59.708915+00
+ c0819f78-b07e-42f9-8aae-ead94ff2faef | TG/43917/1         | BE11MUJ | needs_review   | t       |         | 2026-07-10 15:47:21.609102+00
+ 49da4eb6-4812-4879-bf08-95b39547e7b0 | NV.8541.VD         | KW20VEH | needs_review   | t       |         | 2026-07-10 15:47:07.879077+00
+ 16598ef6-9fd6-4fbd-bab9-a270cac6f191 | 575888             | AO25ULG | needs_review   | t       |         | 2026-07-10 15:46:31.337594+00
+ 444866b4-d2ba-4425-b1e6-2fcd48251bfd | A.PCH25537         | LD72ZPM | needs_review   | t       |         | 2026-07-10 15:46:03.222576+00
+ 6f1a0865-b7c9-4f7b-9d03-731da8c13625 | 567840             | M26GSS  | needs_review   | t       |         | 2026-07-10 15:45:45.06397+00
+ 1c420fa6-a2c4-406c-9266-74bb492f1ea6 | TG/45106/1         | GK64TEO | needs_review   | t       |         | 2026-07-10 15:44:43.465001+00
+ e82663a0-3375-4d43-82a8-6d04c888973d | 572238             | DS23NVE | needs_review   | t       |         | 2026-07-10 15:42:57.725822+00
+ 81211559-efcd-4a85-bcba-f2f7996442b3 | TG/ND/45430/1      |         | needs_review   | t       |         | 2026-07-10 15:41:18.324272+00
+ fd44df9f-b0d6-463b-863d-36242b7b1f43 | KAD/41981/1        | M238JPE | needs_review   | t       |         | 2026-07-10 15:40:25.47918+00
+ 357d16bf-2839-4265-81c9-77c9038ae883 | ax26387.           | HW20VOO | needs_review   | t       |         | 2026-07-10 15:39:08.72304+00
+ 67bc1ee1-4c86-4ee2-8af8-a3c3a55c8adb | 00035371           | DE26NHJ | needs_review   | t       |         | 2026-07-10 15:38:52.117962+00
+ 8f267c3f-9ec1-473e-a753-3781749f6a33 | 46640/1            |         | needs_review   | t       |         | 2026-07-10 15:38:17.796992+00
+ b543f24c-3b2c-47c8-98b1-6618f01272af | 46670/1            |         | needs_review   | t       |         | 2026-07-10 15:37:49.381024+00
+ 658d9f37-6599-42d3-a652-982ddced84cc | qcl26239           | YG22FZZ | needs_review   | t       |         | 2026-07-10 15:37:39.591702+00
+ 9630cedf-3397-4534-8271-572e30a9aeed | 001-01-084464      | PX22ZHA | needs_review   | t       |         | 2026-07-10 15:36:19.34133+00
+ d947218e-a26f-4630-9c1b-aa76346d517a | 46633/1            |         | needs_review   | t       |         | 2026-07-10 15:36:10.425305+00
+ 11a5a1f4-a02d-4900-8cd5-dccb4660cb99 | REFERENCE-46626/1- |         | needs_review   | t       |         | 2026-07-10 15:36:01.175885+00
+ c6dcd829-bb3e-41a9-916c-26914798be3d | FC/901615693       |         | needs_review   | t       |         | 2026-07-10 15:35:48.27638+00
+ 40992215-4415-48ad-82f8-da7d47631eb6 | ENQ495023          | JUL2026 | needs_review   | t       |         | 2026-07-10 15:35:14.98294+00
+ a66724d8-c3f6-441e-952e-a9ae0b89a719 | KAD/44642/1        | NY51YCU | needs_review   | t       |         | 2026-07-10 15:34:23.920888+00
+ 180d4e3c-2146-4a4c-be1f-511e057fdf2b | 30212-01           | BA69UXT | needs_review   | t       |         | 2026-07-10 15:33:47.930003+00
+ 668af160-0a2f-4fbc-ba80-8b94eb97d620 | 45304              |         | needs_review   | t       |         | 2026-07-10 15:33:17.160933+00
+ bd7f6fe4-b299-4ed8-baee-dabfacc92552 | 29775              | WD25TWX | needs_review   | t       |         | 2026-07-10 15:31:49.216322+00
+ 4c5cd6c9-b609-4c95-8959-3291f301616c | 30161              | AP70WAA | needs_review   | t       |         | 2026-07-10 15:31:34.916328+00
+ 25b071f8-d281-452c-a83d-3d2390941daf | 29969-02           | YX15USS | needs_review   | t       |         | 2026-07-10 15:31:12.747025+00
+ b20aa801-a508-482a-a6db-ef6a10b6f3c9 | 30144-01           | EY12SSU | needs_review   | t       |         | 2026-07-10 15:29:53.132042+00
+ be2f641a-90d9-487f-8a8b-1db0e030c29c | ax26374            | SL24YOE | needs_review   | t       |         | 2026-07-10 15:29:22.06244+00
+ 56bd159e-56e1-4160-b52d-89e83752b66a | sbl26161           | SM21ZKW | needs_review   | t       |         | 2026-07-10 15:29:11.145353+00
+ a9ccfd27-b8a2-4c23-8129-35e0ecfc63d0 | 1072948            | SG75WZD | missing_images | t       |         | 2026-07-10 15:28:48.596034+00
+ 9e1d72dd-41c4-45e1-aa73-e1312d29d92a | ax26371            | YY70RVC | needs_review   | t       |         | 2026-07-10 15:28:36.773535+00
+ eca2f519-ecb3-4b43-97d0-51b6492dcd8b | ap.qdos261420      |         | needs_review   | t       |         | 2026-07-10 15:28:21.914758+00
+ c17390cd-c36f-41f3-bb1b-189a307e1fa3 | KAD/ND/46269/1     | DP14XPE | missing_images | t       |         | 2026-07-10 14:26:24.871371+00
+ 9ba7fcb1-365d-4137-929f-e8cf37b86ba0 | DIK/ND/44744/1     | GV13AGX | missing_images | t       |         | 2026-07-10 14:22:59.929852+00
+ 53be8597-fa16-4795-92ac-0f7a50b8278d | 46207/1            | LB71BKF | needs_review   | t       |         | 2026-07-10 14:19:20.202951+00
+ 4fecc064-d214-4d72-b0d2-225c893a7696 | SCL/JMO/46424/1    |         | needs_review   | t       |         | 2026-07-10 13:06:24.534773+00
+ ff11fb84-013e-4993-8fe9-339d53fb8176 | LEB/ND/46505/1     | MJ09DAN | missing_images | t       |         | 2026-07-10 12:45:45.404978+00
+ e3c34e4d-8b17-4642-ae0d-e945a2c93331 | ND/46707/1         | EK69YOF | missing_images | t       |         | 2026-07-10 12:40:51.300851+00
+(40 rows)
+
+Time: 24.088 ms
+=== AFTER: retro audit action totals (compare enum-retro-audit-history.csv) ===
+           action            | events | last_12h 
+-----------------------------+--------+----------
+ retro_case_created          |    125 |       67
+ retro_case_linked           |     65 |       45
+ retro_reconstruction_failed |     54 |        9
+(3 rows)
+
+Time: 27.249 ms
+=== AFTER: mint-guard refusals (any new since the dry-run?) ===
+          occurred_at          |                                         summary                                          
+-------------------------------+------------------------------------------------------------------------------------------
+ 2026-07-09 11:00:32.864107+00 | Retro create refused — the located original is a 'other' email, which never opens a case
+ 2026-07-10 15:33:36.979264+00 | Retro create refused — the located original is a 'other' email, which never opens a case
+ 2026-07-10 15:40:34.450636+00 | Retro create refused — the located original is a 'other' email, which never opens a case
+(3 rows)
+
+Time: 21.572 ms
+RESET
+Time: 19.644 ms
