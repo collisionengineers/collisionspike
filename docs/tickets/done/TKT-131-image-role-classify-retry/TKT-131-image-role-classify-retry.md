@@ -1,11 +1,11 @@
 ---
 id: TKT-131
 title: Classify the role-unknown evidence images — retry the backfill residue so cases can reach Ready for EVA
-status: verify
+status: done
 priority: P1
 area: evidence
 tickets-it-relates-to: [TKT-064, TKT-088, TKT-112, TKT-130]
-research-link: docs/tickets/verify/TKT-131-image-role-classify-retry/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-131-image-role-classify-retry/evidence/operator-note.md
 plan: PLAN-003
 ---
 
