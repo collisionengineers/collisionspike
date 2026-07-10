@@ -1,7 +1,13 @@
 # Verification — TKT-141: merged twins exclusion
 
 ## Verdict
-FAILED (live) — reopened to `now` 2026-07-10 with a dated follow-up
+PENDING — reopen fix landed 2026-07-10 (retired-lock deployed to `cespk-api-dev` +
+audited re-retire applied; see [changes.md](./changes.md) §2026-07-10 and the W2 outputs
+below). A fresh verifier run certifies; re-check steps in "How to re-verify" below —
+post-fix expectations: PK20FWT twin badge 1 (not 3), the three retired rows render
+"Linked to instruction", absent from needs-action/Not-ready, still openable directly.
+
+### Prior verdict (2026-07-10 sweep): FAILED (live) — reopened to `now` with a dated follow-up
 ([evidence/reopen-followup-100726.md](./evidence/reopen-followup-100726.md)).
 
 Verified by: ticket-verifier dispatch, 10-07-26 (verdict block transcribed 1:1 below). The exclusion
@@ -81,6 +87,28 @@ High confidence in the FAILED live state (three independent SPA surfaces agree).
 `GET /api/cases?vrm=PK20FWT&open=true` response (no standalone token); screenshots not persisted to
 disk (extension disconnected at save; in-session ids recorded; re-capture is 3 clicks).
 
-## Orchestrator data-pass W2 — pending
+## Orchestrator data-pass W2 — RUN 2026-07-10 (~16:20 UTC, inside the re-fix window)
 
-Q1–Q3 run in the W2 batched window (before the re-fix dispatch); results appended here.
+Q1–Q3 ran in the re-fix's single transient-FW window (WSL Entra-admin + `SET ROLE
+csadmin`), BEFORE the re-retire delta, outputs saved to
+[evidence/reretire-run-100726/](./evidence/reretire-run-100726/)
+(`pre-output-100726.txt` = Q1/Q2/Q3; `post-output-100726.txt` = post-state + parity;
+`backup-prestate-100726.csv` = the pre-mutation backup; `pre.sql`/`post.sql` = the exact
+queries; `delta-apply-100726.txt` = the apply transcript):
+
+- **Q1 (five merge-party rows, pre-fix):** the three retired rows all sat at
+  `needs_review` 100000002 with their `mergedInto` markers intact (updated_at
+  2026-07-09 09:22:00); survivors: PCH26009 `68442a2a…` 100000003
+  (missing_required_fields), YH13ZSN `be1a0a11…` 100000002 + on_hold.
+- **Q2 (what re-opened them — the answer):** ONE audit row per case, all at
+  **2026-07-09 09:22:00**, actor **`tkt131-image-role-backfill`** — "Status
+  linked_to_instruction -> needs_review (TKT-131 image-role re-evaluate)". The TKT-131
+  backfill's per-case re-evaluate un-retired them via the pre-lock recompute minutes
+  after the merge delta; NOT organic intake churn.
+- **Q3 (un-retired marker population):** exactly the 3 rows above — strict
+  `mergedIntoFrom` semantics (valid-jsonb, non-blank marker) and the loose
+  `LIKE '%mergedInto%'` count agree (3); no additional hybrids; no terminal-status
+  marker-bearers.
+- **Post (after the delta):** Q3 re-run = 0 rows; all three back at 100000006 with
+  audits (actor `delta:2026-07-10-tkt141-re-retire-merged`, status_changed, one per
+  case); openVrmTwins SQL parity **PK20FWT = 1, YH13ZSN = 1** (expected badge = 1).

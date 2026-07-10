@@ -7194,6 +7194,8 @@ function hasIdentityOf(input) {
 function statusForReviewCase(input) {
   if (isTerminalStatus(input.status))
     return input.status;
+  if ((input.mergedInto ?? "").trim().length > 0)
+    return "linked_to_instruction";
   const fieldsValid = missingRequiredFieldKeys(input.evaFields).length === 0;
   const imagesValid = validateEvaImageRules(input.evidence).length === 0;
   if (fieldsValid && imagesValid)
@@ -16921,7 +16923,10 @@ async function recomputeStatus(caseId) {
     evaFields: full.evaFields,
     evidence: full.evidence,
     instructionCount: full.evidence.filter((e) => e.kind === "instruction").length,
-    hasIdentity: full.vrm.trim().length > 0 || full.providerCode.trim().length > 0 || full.evaFields.claimantName.value.trim().length > 0
+    hasIdentity: full.vrm.trim().length > 0 || full.providerCode.trim().length > 0 || full.evaFields.claimantName.value.trim().length > 0,
+    // TKT-141 retired-lock: pass the merge-retirement marker (rowToCase surfaces
+    // duplicate_keys.mergedInto) so a recompute can never un-retire a merged case.
+    mergedInto: full.mergedInto
   };
   const next = statusForReviewCase(input);
   if (next !== full.status) {
@@ -18978,7 +18983,10 @@ async function recomputeStatus2(caseId, actor) {
     evaFields: full.evaFields,
     evidence: full.evidence,
     instructionCount: full.evidence.filter((e) => e.kind === "instruction").length,
-    hasIdentity: full.vrm.trim().length > 0 || full.providerCode.trim().length > 0 || full.evaFields.claimantName.value.trim().length > 0
+    hasIdentity: full.vrm.trim().length > 0 || full.providerCode.trim().length > 0 || full.evaFields.claimantName.value.trim().length > 0,
+    // TKT-141 retired-lock: pass the merge-retirement marker (rowToCase surfaces
+    // duplicate_keys.mergedInto) so a recompute can never un-retire a merged case.
+    mergedInto: full.mergedInto
   };
   const next = statusForReviewCase(input);
   if (next !== full.status) {

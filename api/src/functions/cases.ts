@@ -188,6 +188,9 @@ async function recomputeStatus(caseId: string, actor?: string): Promise<void> {
       full.vrm.trim().length > 0 ||
       full.providerCode.trim().length > 0 ||
       full.evaFields.claimantName.value.trim().length > 0,
+    // TKT-141 retired-lock: pass the merge-retirement marker (rowToCase surfaces
+    // duplicate_keys.mergedInto) so a recompute can never un-retire a merged case.
+    mergedInto: full.mergedInto,
   };
   const next = statusForReviewCase(input);
   if (next !== full.status) {

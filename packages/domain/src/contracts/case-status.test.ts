@@ -130,6 +130,64 @@ describe('statusForReviewCase — terminal lock', () => {
   );
 });
 
+describe('statusForReviewCase — merge-retired lock (TKT-141)', () => {
+  const SURVIVOR = '68442a2a-998c-4a16-89ba-8fe226303734';
+
+  it('preserves linked_to_instruction for a merge-retired case even when fields+images would pass', () => {
+    // Pre-lock this recomputed to ready_for_eva — the exact un-retire regression
+    // (the merged case keeps its fields; only its evidence moved to the survivor).
+    const input = caseInput({ status: 'linked_to_instruction', mergedInto: SURVIVOR });
+    expect(statusForReviewCase(input)).toBe('linked_to_instruction');
+  });
+
+  it('preserves linked_to_instruction for a merge-retired case on the evidence-less shape too', () => {
+    // Post-merge reality: evidence reparented onto the survivor, fields incomplete
+    // -> pre-lock this recomputed to needs_review (the live 2026-07-10 regression).
+    const input = caseInput({
+      status: 'linked_to_instruction',
+      mergedInto: SURVIVOR,
+      evaFields: fullFields({ vehicleModel: field('') }),
+      evidence: [],
+    });
+    expect(statusForReviewCase(input)).toBe('linked_to_instruction');
+  });
+
+  it('converges a wrongly un-retired marker-bearing case back to linked_to_instruction (self-heal)', () => {
+    // The regression population: marker present but status already flipped to
+    // needs_review. The next recompute re-retires it rather than perpetuating it.
+    const input = caseInput({ status: 'needs_review', mergedInto: SURVIVOR });
+    expect(statusForReviewCase(input)).toBe('linked_to_instruction');
+  });
+
+  it('a blank/whitespace marker is NO marker (mirrors mergedIntoFrom)', () => {
+    expect(statusForReviewCase(caseInput({ mergedInto: '   ' }))).toBe('ready_for_eva');
+    expect(statusForReviewCase(caseInput({ mergedInto: '' }))).toBe('ready_for_eva');
+  });
+
+  it('a NON-merged linked_to_instruction case still recomputes once its fields/images resolve (no over-lock)', () => {
+    // The historical branch semantics: a partial joined to its other half is
+    // released by the guard when complete — unchanged by the retired-lock.
+    const input = caseInput({ status: 'linked_to_instruction' });
+    expect(statusForReviewCase(input)).toBe('ready_for_eva');
+  });
+
+  it('a NON-merged linked_to_instruction case with incomplete fields recomputes to its pending branch', () => {
+    const input = caseInput({
+      status: 'linked_to_instruction',
+      evaFields: fullFields({ vehicleModel: field('') }),
+      evidence: [instrEv()],
+    });
+    expect(statusForReviewCase(input)).toBe('needs_review');
+  });
+
+  it('the terminal lock still wins over the marker (removed/done never rewritten)', () => {
+    for (const status of ['removed', 'done'] as CaseStatus[]) {
+      const input = caseInput({ status, mergedInto: SURVIVOR, evidence: [] });
+      expect(statusForReviewCase(input)).toBe(status);
+    }
+  });
+});
+
 describe('statusForReviewCase — missing_required_fields branch (FIX-3: reserved for image-bearing cases)', () => {
   // FIX-3: missing_required_fields fires ONLY when the case holds accepted image
   // evidence (imagesValid) but a required field is empty — "Images only".

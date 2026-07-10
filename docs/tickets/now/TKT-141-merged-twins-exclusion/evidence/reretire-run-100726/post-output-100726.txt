@@ -1,0 +1,45 @@
+SET
+Pager usage is off.
+===== POST Q3 re-run: un-retired marker population (expected 0 rows) =====
+ id | case_po | vrm | status_code 
+----+---------+-----+-------------
+(0 rows)
+
+===== POST Q1 re-run: the five merge-party rows =====
+                  id                  | case_po  |    case_ref    |   vrm   | status_code | on_hold |     updated_at      
+--------------------------------------+----------+----------------+---------+-------------+---------+---------------------
+ 68442a2a-998c-4a16-89ba-8fe226303734 | PCH26009 | 00035591/JEFFP | PK20FWT |   100000003 | f       | 2026-07-09 09:22:00
+ cd9092ce-1956-4df3-80d3-6cc77ee31d9f | PCH26018 | 00035591/JEFFP | PK20FWT |   100000006 | f       | 2026-07-10 16:20:15
+ 19b96214-4770-4ea7-ac56-c63741a4f430 | PCH26020 | 00035591/JEFFP | PK20FWT |   100000006 | f       | 2026-07-10 16:20:15
+ be1a0a11-8a22-4fef-a0e6-878090360f0c |          | 226070.TA      | YH13ZSN |   100000002 | t       | 2026-07-06 15:29:28
+ d1d862bd-1ae4-4028-b81e-392ff6a75029 |          | 226070.TA      | YH13ZSN |   100000006 | f       | 2026-07-10 16:20:15
+(5 rows)
+
+===== openVrmTwins SQL parity: PK20FWT open twins (expected 1 = survivor PCH26009) =====
+ pk20fwt_open_twins 
+--------------------
+                  1
+(1 row)
+
+===== openVrmTwins SQL parity: YH13ZSN open twins (expected 1 = survivor be1a0a11) =====
+ yh13zsn_open_twins 
+--------------------
+                  1
+(1 row)
+
+===== audit rows written by this delta (expected = re-retired row count) =====
+     occurred_at     |               case_id                |                                                                    name                                                                     |           before           |                                                           after                                                            
+---------------------+--------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+----------------------------+----------------------------------------------------------------------------------------------------------------------------
+ 2026-07-10 16:20:15 | d1d862bd-1ae4-4028-b81e-392ff6a75029 | Re-retired merge-retired duplicate: status restored to linked_to_instruction (TKT-141 -- un-retired by a pre-retired-lock status recompute) | {"statusCode" : 100000002} | {"statusCode" : 100000006, "reason" : "tkt141_re_retire", "lock" : "statusForReviewCase retired-lock deployed 2026-07-10"}
+ 2026-07-10 16:20:15 | 19b96214-4770-4ea7-ac56-c63741a4f430 | Re-retired merge-retired duplicate: status restored to linked_to_instruction (TKT-141 -- un-retired by a pre-retired-lock status recompute) | {"statusCode" : 100000002} | {"statusCode" : 100000006, "reason" : "tkt141_re_retire", "lock" : "statusForReviewCase retired-lock deployed 2026-07-10"}
+ 2026-07-10 16:20:15 | cd9092ce-1956-4df3-80d3-6cc77ee31d9f | Re-retired merge-retired duplicate: status restored to linked_to_instruction (TKT-141 -- un-retired by a pre-retired-lock status recompute) | {"statusCode" : 100000002} | {"statusCode" : 100000006, "reason" : "tkt141_re_retire", "lock" : "statusForReviewCase retired-lock deployed 2026-07-10"}
+(3 rows)
+
+===== backup table contents =====
+ source |                row_id                |           backed_at           
+--------+--------------------------------------+-------------------------------
+ case_  | 19b96214-4770-4ea7-ac56-c63741a4f430 | 2026-07-10 16:20:15.177349+00
+ case_  | cd9092ce-1956-4df3-80d3-6cc77ee31d9f | 2026-07-10 16:20:15.177349+00
+ case_  | d1d862bd-1ae4-4028-b81e-392ff6a75029 | 2026-07-10 16:20:15.177349+00
+(3 rows)
+
