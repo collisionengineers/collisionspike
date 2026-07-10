@@ -1,11 +1,11 @@
 ---
 id: TKT-113
 title: AI usage ledger for model capacity controls
-status: verify
+status: done
 priority: P3
 area: ai
 tickets-it-relates-to: [TKT-015, TKT-016, TKT-017, TKT-018, TKT-060]
-research-link: docs/tickets/verify/TKT-113-ai-usage-ledger/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-113-ai-usage-ledger/evidence/operator-note.md
 plan: PLAN-001
 ---
 

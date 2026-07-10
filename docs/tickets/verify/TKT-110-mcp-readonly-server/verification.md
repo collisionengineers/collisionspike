@@ -23,3 +23,7 @@ TESTED (offline)
 Offline: `npm --prefix api test`. Live (after app-reg + flip): connect an MCP client (Flow A delegated
 staff), `tools/list`, call `lookup_case`; probe a foreign-audience token (expect 401) and an agent-role
 token against a write route (expect refusal).
+
+## Verdict update — 2026-07-10 (final sweep, ticket-verifier dispatch; transcribed verbatim)
+
+**PENDING — record update: deployed DARK (the standing "not deployed" is stale), one acceptance half newly live-proven.** `mcpServer` is registered in the live `cespk-api-dev` fn list; `MCP_SERVER_ENABLED` + `route:"mcp"` in the deployed bundle; the gate ABSENT from live app-settings (matching LIVE_FACTS). Fresh probe: unauthenticated `POST /api/mcp` → **401** — live-proves the fail-closed half of acceptance line 2. Nuance (not a bug): changes.md says the route "404s dark", but `mcp.ts:120` wraps the gate in `withRole`, so auth runs first — unauthenticated callers get 401; the gate-404 only shows post-auth. Fail-closed either way. Remaining, operator-gated (gated.md §F6): the MCP Entra app-registration + gate flip; then live Flow A (client lists + calls `lookup_case`), wrong-audience 401, agent-token write-refusal. Verified by: ticket-verifier dispatch, 2026-07-10.

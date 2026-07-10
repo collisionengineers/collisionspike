@@ -108,3 +108,11 @@ requirements:
   attaching a file in the deployed SPA assistant, confirming the card, and capturing the API response + the
   `evidence`/`evidence_added` rows + the Evidence-tab render.
 - **Provisional:** subscription still FreeTrial (PAYG/A1 outstanding).
+
+## Verdict update — 2026-07-10 (final sweep, ticket-verifier dispatch; transcribed verbatim)
+
+**PENDING — standing gap re-confirmed; deployment surface healthy, fresh negative probe captured.** `uploadCaseEvidence` + `evidenceContent` in the live fn list; unauthenticated upload → **401** re-captured today; the served bundle carries the attach UX strings ("I can only add photos and PDFs to a case.", "the limit is 15 MB", the confirm-card "files to"). Remaining (classes 1–3, operator-shaped): the live attach→confirm→upload chain (API response, `evidence` row + `evidence_added` 100000049 audit, Evidence-tab render) — needs a signed-in session driving a real file. Queued SQL: `count(*) FROM audit_event WHERE action_code=100000049` — non-zero means an operator already ran the chain. Verified by: ticket-verifier dispatch, 2026-07-10.
+
+### W7 data-pass result (orchestrator-run, 2026-07-10)
+Confirmed unexercised: **0** `evidence_added` (100000049) audits — the attach→confirm→upload chain
+has never run live. The signed-in file-drive remains the sole gap.

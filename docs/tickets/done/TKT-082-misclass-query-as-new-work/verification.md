@@ -141,3 +141,8 @@ Classifier pytest + the live `POST /api/classify-email` probe above.
 PENDING (update). Both sample threads live-classify to non-minting lanes (query/query_existing_work rule:reply_with_reference; the images-bearing reply to case_update/images_received); eval pins green; recall probe still promotes genuine instructions. Outstanding: the class-3 live-occurrence Postgres proof (a real matching thread -> linked, no new case row) — cannot be manufactured read-only.
 
 Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.
+
+### W7 confirmation (orchestrator-run, 2026-07-10)
+The corrected breach query returned **0 rows** and the identity check returned
+**joined_nonwork=40 = channel_retro=40 = held=40 = no_po=40** — the adjudication's expected
+equality holds exactly; every non-work-sourced case is a retro-lane reconstruction. Closed.

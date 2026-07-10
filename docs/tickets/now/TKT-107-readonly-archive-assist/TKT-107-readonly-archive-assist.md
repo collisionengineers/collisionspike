@@ -1,7 +1,7 @@
 ---
 id: TKT-107
 title: "Read-only Box archive assist (suggest-only) — decouple from the sequence-blocked reconstruction"
-status: verify
+status: now
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-058, TKT-093, TKT-072]

@@ -23,3 +23,7 @@ TESTED (offline)
 Offline: `npm --prefix api test`, `npm --prefix mockup-app test`. Live (after flip + DPIA): from the
 assistant, propose a `set_on_hold`; confirm the card diff matches a fresh DB read; execute; then repeat with
 a concurrent edit in another tab and confirm the second execute 409s.
+
+## Verdict update — 2026-07-10 (final sweep, ticket-verifier dispatch; transcribed verbatim)
+
+**PENDING — record update: deployed DARK (the standing "not deployed" is stale); acceptance line 1 is now live fact.** `propose_action`, `ASSISTANT_WRITE_TIER_ENABLED`, and the `staleVersion`/If-Match concurrency code are in the deployed api bundle (07-09/07-10 publishes; gated.md §F step 1 DONE), and the gate is ABSENT from live app-settings — "assistant writes gated off by default" is live-proven, not just test-asserted. `assistantChat` live; the toolset excludes `propose_action` while off (offline-pinned). Remaining, operator-gated (gated.md §F4 STAYS OFF): per-capability DPIA + E2/G5 sign-off (must state `scrubPii` is precision-over-recall, not de-identification) → flip → live propose→confirm→execute + concurrent-edit 409. Destructive-exclusion (`merge_cases` never proposable) stays offline-proven. Verified by: ticket-verifier dispatch, 2026-07-10.

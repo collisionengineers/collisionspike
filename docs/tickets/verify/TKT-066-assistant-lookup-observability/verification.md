@@ -26,3 +26,12 @@ error appears as a warn trace in App Insights.
 FAILED live on first flip — a REAL defect the verifier root-caused to the source line: with ASSISTANT_TOOLSET_V2=true every assistant chat 400s at AOAI (schemas.ts zodToJsonSchema openApi3 target emits boolean exclusiveMinimum for the .positive() limit fields; AOAI requires draft-2020-12 and rejects the whole tools array — the surface was down, including legacy questions). The canonicaliser ITSELF is deployed and working (the global-search route resolves spaced YT13 UTV to QDOS26053/26029). MITIGATION: the orchestrator flipped the gate back OFF (readback false — legacy assistant restored); the schema fix + re-flip is folded into the in-flight final-wave batch. Acceptance lines 2/4/5 hold (source/offline); lines 1/3 re-probe after the fix.
 
 Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.
+
+## Verdict update — 2026-07-10 (final sweep, ticket-verifier dispatch; transcribed verbatim)
+
+**PENDING — the 07-09 FAILED is cleared:** the zod `exclusiveMinimum` root-cause fix (`normalizeExclusiveBounds` ×4) is in the deployed build lineage and `ASSISTANT_TOOLSET_V2=true` re-flipped (az readback today; registry records the 07-09 re-flip with 0 "Invalid schema" traces/6h). `assistantChat` live + 401 fail-closed today. Lines 2/4/5 held per the 07-09 verdict. Remaining tail (operator-shaped): a live authenticated chat resolving `YT13 UTV` + a forced tool failure showing the warn trace + `toolErrors ≥ 1`. Queued SQL (shared with 069): `ai_usage_ledger` rows surface=assistant since 07-09 — rows would prove authenticated chats complete post-re-flip. Verified by: ticket-verifier dispatch, 2026-07-10.
+
+### W7 data-pass note (orchestrator-run, 2026-07-10)
+The ai_usage_ledger shows **4 authenticated assistant calls completed 2026-07-09** (one staff
+actor, gpt-5) — post-re-flip chats ARE completing (the precondition your queued ledger SQL was
+checking). The YT13 UTV probe + forced-tool-failure observability remain.

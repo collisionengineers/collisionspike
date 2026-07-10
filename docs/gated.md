@@ -854,9 +854,11 @@ and gates; it does not flip a live gate or create an app-registration.
    (`SET ROLE csadmin` runbook): the `ai_usage_ledger` table + RLS (`p_ai_usage_ledger_rw` /
    `p_ai_usage_ledger_no_delete`) + `cespk_app` GRANT are live (0 rows; base tables 45→46). Applied **ahead
    of** the ungated `recordAiUsage()` writer, so the deploy-ordering gap is closed pre-emptively (App
-   Insights showed 0 `[ai-usage] ledger write failed` over the prior 72h — the live api build predates the
-   writer). **Remaining = the redeploy** (folds into step 1's `main`→`cespk-api-dev` publish); once the
-   writer ships, the capacity ledger starts accruing.
+   Insights showed 0 `[ai-usage] ledger write failed` over the prior 72h — the live api build predated the
+   writer). ✅ **The writer SHIPPED with the 2026-07-09/07-10 api publishes** (`recordAiUsage` verified in
+   the live-lineage bundle, 2026-07-10 sweep) — sole call-site today is the **assistant** surface
+   (`assistant.ts`); the orch email-AI/classify lanes are future call sites by design. The ledger accrues
+   from the first authenticated staff chat; rows-check queued on the TKT-113 record.
 6. **MCP read-only server** (TKT-110): ⛔ **OPERATOR-ONLY — still open.** Create the **MCP Entra
    app-registration** (a directory change only you make; delegated scopes for the near-term Flow A;
    app-roles for the later Flow B), then set **`MCP_SERVER_ENABLED`**. Record it in the registry (bump

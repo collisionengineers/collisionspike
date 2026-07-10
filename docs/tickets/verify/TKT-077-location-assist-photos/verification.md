@@ -36,3 +36,13 @@ read real bytes (Vision OCR ran) + a candidate returned; a Postgres check that n
 `corpus_match` (cross-referencing an AI/POI hit against the provider's corpus sites) needs the provider's
 sites passed into the request — a larger contract change; the `corpus_match` evidence kind already exists
 for forward-compat. Full narrative: `LIVE_FACTS.json` `verifiedBy`.
+
+## Verdict update — 2026-07-10 (final sweep, ticket-verifier dispatch; transcribed verbatim)
+
+**PENDING.** Deployment intact through the 07-09/07-10 api redeploys: `resolveAssistImageBase64` + `image_base64` in the deployed api bundle; `locationAssistSuggest`/`getLocationAssistGate` in the live 96-fn list; `LOCATION_ASSIST_ENABLED=true` + `AZURE_MAPS_ENABLED=true` + `LOCATION_SUGGEST_FN_URL` on `cespk-api-dev`; `cespkloc-fn-a7tzj2` Running with Vision (`cespkvision-dev`) + Maps (GB) wired. Loc-fn `BOX_API_ENABLED=False` is correct by design (the Box fallback lives in the api-side `evidence-bytes.ts` resolver). Gaps unchanged, operator/auth-bound: live E2E photo-path probe; box-only-evidence case; signage POI probe; auto-run-once SPA observation; the no-auto-apply Postgres check (queued: audit actors on inspection writes — expect all human). Note: TKT-078's flip means the same fn now carries a live `deep=true` branch — no effect on these lines. Verified by: ticket-verifier dispatch, 2026-07-10.
+
+### W7 data-pass result (orchestrator-run, 2026-07-10)
+The no-auto-apply check PASSED: inspection-write audit actors are system-blank (326), the 07-08
+image-based prefill delta (224), and one staff principal (2) — **no assist actor exists**; all
+inspection decisions are human. Remaining: the operator/auth-bound probes (photo-path E2E, box-only
+case, signage POI, auto-run-once).

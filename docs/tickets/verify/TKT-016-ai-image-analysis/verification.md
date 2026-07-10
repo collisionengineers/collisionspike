@@ -75,3 +75,11 @@ Executed (azure-integration-engineer dispatch):
 - **Provisional:** subscription still FreeTrial (PAYG/A1 outstanding). Capacity: gpt-5 shared 50K-TPM (watch 429).
 
 Registry updated: `LIVE_FACTS.json` (gate + `lastVerified`) + [live-environment.md](../../../architecture/live-environment.md).
+
+## Verdict update — 2026-07-10 (final sweep, ticket-verifier dispatch; transcribed verbatim)
+
+**PENDING — standing gap re-confirmed unchanged; nothing regressed, nothing closed it.** Gate `IMAGE_ANALYSIS_ENABLED=true` re-read via az today; `generateImageAnalysis` in the live 96-fn list; unauthenticated generate → **401** re-proven (fail-closed intact). The served SPA bundle contains zero `image-analysis` hits — still no SPA trigger, so the behavioral `{generated:N}` call remains reachable only with a staff-audience token (AADSTS65001 unchanged). Queued SQL: staged-kind `ai_suggestion` census + `action_code=100000052` count — non-zero would mean someone already exercised it. Verified by: ticket-verifier dispatch, 2026-07-10.
+
+### W7 data-pass result (orchestrator-run, 2026-07-10)
+Confirmed unexercised: **0** staged-kind `ai_suggestion` rows, **0** `image_analysis_generated`
+(100000052) audits. The authenticated `{generated:N}` call remains the sole gap.
