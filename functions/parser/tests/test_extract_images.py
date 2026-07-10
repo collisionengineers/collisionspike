@@ -211,13 +211,15 @@ def test_large_embedded_image_is_kept():
     [
         (900, 180),  # wide letterhead banner — ABOVE the 200x200 area floor
         (150, 800),  # tall narrow sidebar strip
+        (575, 174),  # the TKT-089 reopen QDOS Assistance letterhead logo (aspect 3.305)
     ],
 )
 def test_large_banner_furniture_is_filtered_out(width, height):
-    """TKT-089 (engine-v2.11): letterhead/banner furniture that clears the pixel-area
-    floor is still suppressed by the banner-shape heuristic (aspect >= 3.5:1 AND
-    short side <= 240 px) — the residual gap behind the 2026-07-08 live-failure
-    report. Mirrors the sibling's tests/test_extract_images.py."""
+    """TKT-089 (engine-v2.15): letterhead/banner furniture that clears the pixel-area
+    floor is still suppressed by the banner-shape heuristic (aspect >= 3.2:1 AND
+    short side <= 240 px; 3.2 was 3.5 until the TKT-089 reopen — the real QDOS
+    logo, 575x174 = 3.305, evaded 3.5 by a hair on the live parser). Mirrors the
+    sibling's tests/test_extract_images.py."""
     pdf_bytes = _make_pdf_with_image(width, height)
     res = parser_adapter.run_image_extraction(pdf_bytes, "LtrtoEngineerIn.pdf")
     assert res["count"] == 0, f"{width}x{height} banner furniture must be filtered, not stored as evidence"
@@ -230,6 +232,18 @@ def test_real_photo_shape_is_never_banner_filtered():
     pdf_bytes = _make_pdf_with_image(1600, 1200)
     res = parser_adapter.run_image_extraction(pdf_bytes, "photos.pdf")
     assert res["count"] == 1, "a genuine photo must never be dropped by the decorative filter"
+
+
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+def test_square_badge_stays_engine_kept_for_the_classifier():
+    """TKT-089 reopen: the 204x204 MGAA square badge is DELIBERATELY engine-kept
+    (shape-indistinguishable from a small genuine photo). The orchestration's
+    vision classifier excludes it at persist (extraction-lane `nonVehicleExcluded`,
+    orchestration/src/lib/image-classify.ts) — this pin documents the division of
+    labour. Mirrors the sibling's tests/test_extract_images.py."""
+    pdf_bytes = _make_pdf_with_image(204, 204)
+    res = parser_adapter.run_image_extraction(pdf_bytes, "LtrtoEngineerIn.pdf")
+    assert res["count"] == 1, "the square badge shape is classifier-owned, not engine-dropped"
 
 
 @pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")

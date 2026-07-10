@@ -11,7 +11,7 @@
  *
  * Mirrors the vendored cedocumentmapper engine's decorative-raster filter
  * (`_MIN_EXTRACTED_IMAGE_AREA` + the banner-shape rung in `is_decorative_raster`,
- * functions/parser/cedocumentmapper_v2/application/service.py, engine-v2.11): a
+ * functions/parser/cedocumentmapper_v2/application/service.py, engine-v2.15): a
  * pixel-**area** floor below which a raster is letterhead art, not a vehicle photo,
  * plus a conservative large-banner shape heuristic for above-floor letterhead
  * furniture (TKT-047's 2026-07-08 live leak / TKT-089) — and dimensions that cannot
@@ -37,17 +37,22 @@ export const AREA_FLOOR = 200 * 200;
  * Large-banner shape heuristic (TKT-047 above-floor leak / TKT-089) — mirrors the
  * engine's `_BANNER_ASPECT_RATIO` / `_BANNER_MAX_SHORT_SIDE`
  * (functions/parser/cedocumentmapper_v2/application/service.py `is_decorative_raster`,
- * engine-v2.11 — keep the two in lockstep). The 2026-07-08 operator report showed
+ * engine-v2.15 — keep the two in lockstep). The 2026-07-08 operator report showed
  * signature images STILL reaching Box with the area floor provably acting: wide banner
  * signatures (e.g. 600x150 = 90,000 px² > the 40,000 floor) clear a pure area check.
  * An image above the floor is still decorative only when BOTH hold: the aspect ratio
- * is extreme (long side >= 3.5x the short side) AND the short side is small
- * (<= 240 px). Recall guard: no real phone/camera photo can match — photos are
- * 4:3 / 3:2 / 16:9 (aspect <= ~1.8), and even an aggressive panoramic crop that
- * reached 3.5:1 would carry a short side far above 240 px. A false positive here is
- * evidence loss, so both conditions are required, never either alone.
+ * is extreme (long side >= 3.2x the short side) AND the short side is small
+ * (<= 240 px). 3.2 (was 3.5 — engine-v2.11) after the TKT-089 reopen: the recurring
+ * QDOS Assistance letterhead logo (575x174, aspect 3.305) evaded 3.5 by a hair while
+ * staying nowhere near photo territory. Recall guard: no real phone/camera photo can
+ * match — photos are 4:3 / 3:2 / 16:9 (aspect <= ~1.8, even a 21:9 crop is ~2.33),
+ * and a panoramic crop that reached 3.2:1 would carry a short side far above 240 px.
+ * A false positive here is evidence loss, so both conditions are required, never
+ * either alone. Square-ish badges (e.g. 204x204) are deliberately NOT shape-caught —
+ * indistinguishable from a small genuine photo; the classifier lane owns those
+ * (image-classify.ts `nonVehicleExcluded`).
  */
-export const BANNER_ASPECT_RATIO = 3.5;
+export const BANNER_ASPECT_RATIO = 3.2;
 export const BANNER_MAX_SHORT_SIDE = 240;
 
 /**

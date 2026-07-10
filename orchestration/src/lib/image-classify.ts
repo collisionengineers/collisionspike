@@ -192,8 +192,24 @@ export function caseRegistrationVisible(c: ImageClassification, caseVrm?: string
  * non-vehicle "other" -> not accepted; overview/damage/additional -> accepted for EVA.
  * `caseVrm` (when known) constrains `registrationVisible` to the case vehicle's plate —
  * see `caseRegistrationVisible`.
+ *
+ * `opts.nonVehicleExcluded` (TKT-089 reopen) — the EXTRACTION-lane policy: a crop pulled
+ * from INSIDE a document (`extractImages`) that classifies non-vehicle "other" (letterhead
+ * logo / badge / signature art the engine's shape heuristics could not catch, e.g. a
+ * 204x204 square provider badge) lands `excluded: true` with a domain exclusion reason,
+ * so it never shows as live evidence and never mirrors to Box (the archive-evidence
+ * selection filters `excluded`). Scoped to that lane deliberately: a DIRECT email/Box
+ * image attachment classified "other" (e.g. a photographed V5C or letter) may be genuine
+ * correspondence staff should still see, so those lanes keep today's visible-but-not-
+ * accepted semantics. Person-reflection takes precedence (its own reason). A classify
+ * FAILURE never reaches this mapper (classifyImage returns null) — the row persists
+ * role-unknown and NOT excluded, exactly as before the classifier existed.
  */
-export function classificationToEvidenceFields(c: ImageClassification, caseVrm?: string): {
+export function classificationToEvidenceFields(
+  c: ImageClassification,
+  caseVrm?: string,
+  opts?: { nonVehicleExcluded?: boolean },
+): {
   imageRole: ImageRoleName;
   registrationVisible: boolean;
   acceptedForEva: boolean;
@@ -213,6 +229,16 @@ export function classificationToEvidenceFields(c: ImageClassification, caseVrm?:
       excluded: true,
       exclusionReason: 'person reflection detected (auto-classified)',
       personReflection: true,
+    };
+  }
+  if (c.role === 'other' && opts?.nonVehicleExcluded) {
+    return {
+      imageRole: c.role,
+      registrationVisible,
+      acceptedForEva: false,
+      excluded: true,
+      exclusionReason: 'non-vehicle image detected (auto-classified)',
+      personReflection: false,
     };
   }
   const accepted = c.role !== 'other';

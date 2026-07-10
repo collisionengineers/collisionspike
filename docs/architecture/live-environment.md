@@ -2,7 +2,31 @@
 
 > **Canonical registry of what is actually deployed.** This file + [`LIVE_FACTS.json`](../../LIVE_FACTS.json)
 > (root) are the **single source for literal live numbers** — every other doc links here rather than
-> re-embedding a count. Last live change: **2026-07-10T11:35Z** — **TKT-146 Box-upload event-time classify
+> re-embedding a count. Last live change: **2026-07-10T17:55Z** — **TKT-089 REOPEN fix (non-vehicle
+> extraction crops out of evidence + Box)**: **api + orch + parser all republished, counts UNCHANGED**
+> (api 96 / orch 74 / parser 4 — modifications only, re-verified; all three Running). (1) **api** — the
+> Box-mirror selection (`GET internal/cases/{id}/archive-evidence`) now filters **`excluded = false`**:
+> a classifier-stamped non-vehicle crop, a person-reflection exclusion, or a staff/cleanup exclusion can
+> never mirror into the Box case folder (race-free by intake ordering — both persist lanes stamp
+> `excluded` in-memory *before* persist and `boxArchiveEvidence` runs after both; classify-failure rows
+> deliberately stay mirror-eligible = fail-open recall protection; deliberately NOT role-aware, since
+> classified-'other' stores as role `unknown`). (2) **orch** — extraction-lane crops (`extractImages`)
+> the live TKT-064 classifier reads as non-vehicle **'other' now persist `excluded=true`** with reason
+> `non-vehicle image detected (auto-classified)` — extraction lane ONLY (direct email/Box 'other'
+> attachments keep today's visible-not-accepted semantics); a new `excludedNonVehicle` counter rides the
+> `extractImages` summary event; the email-lane `image-sniff` banner threshold moved 3.5 → **3.2** in
+> lockstep. Zero new AOAI volume (extraction crops already classify). (3) **parser @ NEW sibling engine
+> tag `engine-v2.15`** (sibling `79efe22`, tag pushed): `_BANNER_ASPECT_RATIO` 3.5 → **3.2** engine-suppresses
+> the recurring QDOS letterhead logo (575×174, aspect 3.305 — it evaded 3.5 by a hair); the 204×204 MGAA
+> square badge is **deliberately engine-kept and classifier-owned**; rides the already-vendored
+> `engine-v2.14` (additive, EVA export byte-stable, no DDL). **Live-proven:** both retained
+> `LtrtoEngineerIn.pdf` samples re-probed on live `/extract-images` → **count 2 → 1 each** (the 10.7 KB
+> logo GONE); the `box-archive` lever on A.QDOS26009 completed **`{uploaded:1, total:1}`** — the excluded
+> QDOS-logo row was NOT selected (`box_file_id` still NULL) while the legit 19.1 MB `.eml` mirrored via
+> the TKT-142 streamed lane (mirror-filter + recall proof in one); the forward-window SQL baselined the
+> pre-fix leak at **40 suspect-class crops since 2026-07-09, 38 already in Box, 0 excluded**. Queued
+> forward check: the next QDOS letter intake shows no `img_1_1` logo row and the badge persisted
+> excluded-and-unmirrored (`excludedNonVehicle ≥ 1`). Prior change: **2026-07-10T11:35Z** — **TKT-146 Box-upload event-time classify
 > (PLAN-003 backlog-drain D3)**: **orch 73 → 74 verified** (+1: the `box-classify-sweep` timer — every
 > 5 min, cap 25/sweep, it enumerates still-unclassified FILE.UPLOADED-lane image evidence via the NEW api
 > read route, fetches bytes through the **Box facade only** (`box.downloadFile`), classifies with the
@@ -474,7 +498,7 @@ az resource list -g rg-collisionspike-dev -o table
 # Static Web App (SPA) hostname + status
 az staticwebapp show -g rg-collisionspike-dev -n cespk-spa-dev --query "defaultHostname" -o tsv
 
-# Function Apps — which functions are actually deployed (verified 2026-07-10T11:35Z: api 96, orch 74, parser 4, box-webhook 12)
+# Function Apps — which functions are actually deployed (verified 2026-07-10T17:55Z: api 96, orch 74, parser 4, box-webhook 12)
 az functionapp function list -g rg-collisionspike-dev -n cespk-api-dev  -o table   # expect: 96 functions
 az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: 74 functions (live — 3 push subs)
 az functionapp function list -g rg-collisionspike-dev -n cespkbox-fn-v76a47 -o table               # expect: 12

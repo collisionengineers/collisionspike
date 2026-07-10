@@ -84,8 +84,32 @@ describe('classificationToEvidenceFields', () => {
     expect(classificationToEvidenceFields(base)).toMatchObject({ personReflection: false });
   });
 
-  it('non-vehicle "other" -> not accepted, not excluded', () => {
+  it('non-vehicle "other" -> not accepted, not excluded (direct-attachment lanes keep today\'s semantics)', () => {
     expect(classificationToEvidenceFields({ ...base, role: 'other' })).toMatchObject({ acceptedForEva: false, excluded: false });
+  });
+
+  it('TKT-089 extraction lane: "other" + nonVehicleExcluded -> excluded with a domain reason', () => {
+    const f = classificationToEvidenceFields({ ...base, role: 'other' }, undefined, { nonVehicleExcluded: true });
+    expect(f).toMatchObject({ imageRole: 'other', acceptedForEva: false, excluded: true, personReflection: false });
+    expect(f.exclusionReason).toBe('non-vehicle image detected (auto-classified)');
+  });
+
+  it('TKT-089 extraction lane: person reflection still takes precedence (its own reason)', () => {
+    const f = classificationToEvidenceFields(
+      { ...base, role: 'other', personReflection: true },
+      undefined,
+      { nonVehicleExcluded: true },
+    );
+    expect(f).toMatchObject({ excluded: true, personReflection: true });
+    expect(f.exclusionReason).toBe('person reflection detected (auto-classified)');
+  });
+
+  it('TKT-089 recall guard: genuine vehicle roles are NEVER excluded by the extraction-lane option', () => {
+    for (const role of ['overview', 'damage_closeup', 'additional'] as const) {
+      expect(
+        classificationToEvidenceFields({ ...base, role }, undefined, { nonVehicleExcluded: true }),
+      ).toMatchObject({ imageRole: role, acceptedForEva: true, excluded: false });
+    }
   });
 
   it('a genuine vehicle photo -> accepted for EVA', () => {

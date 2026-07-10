@@ -2231,7 +2231,7 @@ var gates = {
 
 // orchestration/src/lib/image-sniff.ts
 var AREA_FLOOR = 200 * 200;
-var BANNER_ASPECT_RATIO = 3.5;
+var BANNER_ASPECT_RATIO = 3.2;
 var BANNER_MAX_SHORT_SIDE = 240;
 var BYTE_FLOOR_FOR_UNKNOWN = 8 * 1024;
 var IMAGE_EXTENSION_RE = /\.(png|jpe?g|gif|bmp)$/i;
@@ -49973,7 +49973,7 @@ function caseRegistrationVisible(c, caseVrm) {
   const plate = canonicalizeVrm(c.plateText);
   return plate.length > 0 && plate === vrm;
 }
-function classificationToEvidenceFields(c, caseVrm) {
+function classificationToEvidenceFields(c, caseVrm, opts) {
   const registrationVisible = caseRegistrationVisible(c, caseVrm);
   if (c.personReflection) {
     return {
@@ -49983,6 +49983,16 @@ function classificationToEvidenceFields(c, caseVrm) {
       excluded: true,
       exclusionReason: "person reflection detected (auto-classified)",
       personReflection: true
+    };
+  }
+  if (c.role === "other" && opts?.nonVehicleExcluded) {
+    return {
+      imageRole: c.role,
+      registrationVisible,
+      acceptedForEva: false,
+      excluded: true,
+      exclusionReason: "non-vehicle image detected (auto-classified)",
+      personReflection: false
     };
   }
   const accepted = c.role !== "other";
@@ -52257,6 +52267,7 @@ df20.app.activity("extractImages", {
     const messageId = input14.messageId || input14.caseId;
     let totalExtracted = 0;
     let anyRegVisible = false;
+    let excludedNonVehicle = 0;
     let classifyAllowed = gates.imageRoleClassifyEnabled();
     if (classifyAllowed && input14.workProviderId) {
       try {
@@ -52324,13 +52335,14 @@ df20.app.activity("extractImages", {
             caseVrm: input14.caseVrm
           });
           if (cls) {
-            const f = classificationToEvidenceFields(cls, input14.caseVrm);
+            const f = classificationToEvidenceFields(cls, input14.caseVrm, { nonVehicleExcluded: true });
             imageRole = f.imageRole;
             registrationVisible = f.registrationVisible;
             acceptedForEva = f.acceptedForEva;
             excluded = f.excluded;
             exclusionReason = f.exclusionReason;
             personReflection = f.personReflection;
+            if (f.excluded && !f.personReflection) excludedNonVehicle++;
             if (f.registrationVisible) anyRegVisible = true;
             classified = true;
           }
@@ -52385,7 +52397,7 @@ df20.app.activity("extractImages", {
       } catch {
       }
     }
-    ctx.log(JSON.stringify({ evt: "extractImages", caseId: input14.caseId, extracted: totalExtracted, registrationVisible: anyRegVisible }));
+    ctx.log(JSON.stringify({ evt: "extractImages", caseId: input14.caseId, extracted: totalExtracted, registrationVisible: anyRegVisible, excludedNonVehicle }));
     return { extracted: totalExtracted, registrationVisible: anyRegVisible };
   }
 });

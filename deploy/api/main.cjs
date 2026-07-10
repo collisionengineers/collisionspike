@@ -18393,6 +18393,7 @@ import_functions.app.http("internalCasesArchiveEvidence", {
          WHERE case_id = $1
            AND storage_path IS NOT NULL
            AND box_file_id IS NULL
+           AND excluded = false
          ORDER BY created_at ASC, file_name ASC`,
       [caseId]
     );

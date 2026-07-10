@@ -1,6 +1,29 @@
 # Verification — TKT-089: Confirm non-vehicle images (signatures/logos) are no longer stored on Box
 
 ## Verdict
+PENDING — the reopen fix is **deployed live 2026-07-10 ~17:35Z with the implementer's re-probe
+passing** (see [changes.md §2026-07-10 REOPEN fix](./changes.md) for the design + the full re-proof:
+both named samples now return count=1 on live `/extract-images` — the QDOS logo engine-suppressed at
+engine-v2.15; the archive-evidence selection filters `excluded = false`, live-proven by the
+box-archive lever on A.QDOS26009 completing `{uploaded:1, total:1}` with the excluded logo row left
+`box_file_id NULL` while a legit 19.1 MB `.eml` mirrored). A FRESH verifier pass certifies; suggested
+checks below.
+
+**For the fresh verifier:**
+1. Re-run the two-sample `/extract-images` probe (scratchpad `tkt089-reprobe.py` pattern; parser
+   function key via `az functionapp keys list`) — expect count = 1 per sample, only the ~29 KB badge
+   jpeg (the 10.7 KB logo png gone).
+2. The badge's excluded-and-not-mirrored path: on the next post-17:35Z QDOS letter intake, the case
+   should show NO `img_1_1` logo evidence row, the badge row `excluded=true` with reason
+   `non-vehicle image detected (auto-classified)` and `box_file_id NULL`, and the orch
+   `extractImages` App Insights event carrying `excludedNonVehicle >= 1`
+   (`traces | where message contains '"evt":"extractImages"' | where timestamp > datetime(2026-07-10T17:35:00Z)`).
+3. Forward-window SQL (the recon query in changes.md): suspect-class rows created AFTER
+   2026-07-10T17:35Z should be zero-or-excluded, never `excluded=false AND in_box=true`.
+4. Mirror filter regression-free: a genuine post-deploy intake still mirrors its photos/docs
+   (boxArchiveEvidence `uploaded > 0`; W2 Q5 recall baseline 744 kept / 671 mirrored for reference).
+
+## Prior verdict (2026-07-10, superseded by the deployed reopen fix above)
 FAILED (live, acceptance line 3) — reopened to `now` 2026-07-10 with a dated follow-up
 ([evidence/reopen-followup-100726.md](./evidence/reopen-followup-100726.md)).
 

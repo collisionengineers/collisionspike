@@ -29,6 +29,24 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-10 (TKT-089 reopen — banner-aspect 3.2):** re-cut from the sibling at
+**`engine-v2.15`** (branch `feat/tkt043-open-case-ref-context`, commit `79efe22` — **branch +
+annotated tag PUSHED to origin**). One file, `application/service.py`: `_BANNER_ASPECT_RATIO`
+lowered **3.5 → 3.2** (short-side cap unchanged at 240 px) — the verify-sweep's live probe showed
+the recurring QDOS Assistance letterhead logo (575×174, aspect **3.305**) evading the v2.11 rung
+by a hair on the live parser. Recall guard unchanged in kind: photos are ≤ ~1.8:1 (21:9 ≈ 2.33),
+and a genuine 3.2:1 pano carries a short side far above 240 px. The **204×204 MGAA square badge**
+from the same letterhead is **deliberately engine-KEPT** (shape-indistinguishable from a small
+genuine photo — the verifier's judgement); the collisionspike pipeline's vision classifier
+excludes it at persist instead (extraction-lane `nonVehicleExcluded`,
+`orchestration/src/lib/image-classify.ts`) — a sibling pin documents that division of labour so a
+future threshold tune cannot claim it blind. Sibling fixtures: 575×174 suppressed (unit matrix +
+PDF param), 768×240 / 767×240 inclusive-boundary pair, 204×204 kept. Sibling suite **452 passed /
+5 skipped** (all skips environmental: Tesseract ×2, LibreOffice, DOC deps, v1 placeholder).
+Kept in lockstep with the email-lane mirror `orchestration/src/lib/image-sniff.ts`
+(`BANNER_ASPECT_RATIO` 3.2, same commit set). No taxonomy/DDL dependency; providers.json
+untouched. Byte-mirror restored (drift guard green).
+
 **2026-07-10 (TKT-147 Tractable make two-label capture + vin envelope field):** re-cut from the
 sibling at **`engine-v2.14`** (branch `feat/tkt043-open-case-ref-context`, commit `2609b1a` —
 **branch + annotated tag PUSHED to origin**), INCLUDING a **deliberate providers.json seed update**
@@ -362,9 +380,13 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.14`** on branch
-  `feat/tkt043-open-case-ref-context`, commit **`2609b1a`** (2026-07-10) — **branch + tag PUSHED to
-  origin**. The TKT-147 `two_label_join` rule kind (Tractable `Producer`+`Model` make+model capture)
+- **Cut from:** annotated tag **`engine-v2.15`** on branch
+  `feat/tkt043-open-case-ref-context`, commit **`79efe22`** (2026-07-10) — **branch + tag PUSHED to
+  origin**. The TKT-089-reopen banner-aspect retune (3.5 → 3.2; the 204×204 square-badge shape
+  deliberately stays engine-kept — classifier-owned). Changed vs `engine-v2.14`:
+  `application/service.py` ONLY (no taxonomy/DDL dependency; providers.json untouched).
+  Prior pin: annotated tag **`engine-v2.14`**, commit **`2609b1a`** (2026-07-10) — the TKT-147
+  `two_label_join` rule kind (Tractable `Producer`+`Model` make+model capture)
   + `FieldKey.VIN` envelope-only field slot (`EVA_EXPORT_FIELD_ORDER` keeps the EVA export
   byte-stable), incl. a **deliberate providers.json seed update** (see History above). Changed vs
   `engine-v2.13`: `domain/models.py`, `rules/engine.py`, `config/migration.py`,

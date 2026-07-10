@@ -2708,6 +2708,23 @@ app.http('internalCasesEvidence', {
    Called by: orchestration boxArchiveEvidence activity.
    Returns persisted blob-backed evidence rows only, so archive mirroring follows
    the Data API's evidence truth instead of a stale in-memory intake envelope.
+
+   TKT-089 (reopen): `excluded` rows are NEVER selected — a classifier-stamped
+   non-vehicle crop, a person-reflection exclusion, or a staff/cleanup exclusion
+   must not mirror into the Box case folder (ADR-0012 one-way mirror: copies
+   already in Box stay, but no NEW excluded row goes over). Race-free by intake
+   ordering: both persist lanes (classifyPersist + extractImages) stamp
+   `excluded` in-memory BEFORE their persist call, and boxArchiveEvidence runs
+   strictly after both in every orchestrator lane. A row whose classify FAILED
+   persists un-excluded and stays mirror-eligible (deliberate fail-open — recall
+   protection; there is no guaranteed later archive run per case, so skipping
+   "still-unclassified" rows would strand genuine photos out of the archive).
+   Deliberately NOT role-aware: a non-vehicle "other" classification is stored
+   as role `unknown` (no choice-set row), which is indistinguishable from
+   not-yet-classified — filtering on it would strand real photos after any
+   transient classify failure. `excluded` is the one deliberate, auditable,
+   staff-reversible discriminator (un-excluding a row makes the next archive
+   run pick it up).
    ============================================================ */
 app.http('internalCasesArchiveEvidence', {
   methods: ['GET'],
@@ -2733,6 +2750,7 @@ app.http('internalCasesArchiveEvidence', {
          WHERE case_id = $1
            AND storage_path IS NOT NULL
            AND box_file_id IS NULL
+           AND excluded = false
          ORDER BY created_at ASC, file_name ASC`,
         [caseId],
       );
