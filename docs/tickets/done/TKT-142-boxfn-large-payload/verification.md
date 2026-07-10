@@ -74,6 +74,13 @@ principal = box fn MI, role Storage Blob Data Reader — all match changes.md. B
 High. Unread: Postgres (queued); the durable output string is redacted in host traces (corroborated by
 the 24-char redaction length + 4 observed 200s); the ≥20 MiB chunked lane has never run live anywhere.
 
-## Orchestrator data-pass W2 — pending
+## Orchestrator data-pass W2 (run 2026-07-10, transient window trap-deleted)
 
-The queued case-stamp SQL runs in the W2 batched window; result appended here.
+Case-stamp SQL confirmed: case QDOS26029 (`ae1c0c84…`) carries `box_folder_id=396125774315` and its
+evidence includes **message.eml size_bytes=17,684,171 box_file_id=2323068184378** — exactly the
+expected values — alongside the archive set (mp4 + 8 damage JPGs + eml + body). ✓ (Observation for
+the loop, outside this ticket: a few later rows share box_file_ids under variant names with NULL
+size — the known rename-duplicate/box-registration class already logged under TKT-144's
+discoveries.)
+
+Verdict stands: VERIFIED-LIVE.

@@ -64,7 +64,7 @@ internal route), so only the API needed deploying.
 Delta: [`migration/assets/schema/deltas/2026-07-10-tkt141-re-retire-merged.sql`](../../../../migration/assets/schema/deltas/2026-07-10-tkt141-re-retire-merged.sql)
 (backup-first, audited, idempotent, terminal-respecting; applied as `SET ROLE csadmin`
 AFTER the lock deployed). Run record in
-[evidence/reretire-run-100726/](./evidence/reretire-run-100726/) (pre/post SQL + outputs
+[evidence/reretire-run-100726/](./evidence/reretire-run-100726) (pre/post SQL + outputs
 + pre-state CSV):
 - **Q1/Q2/Q3 (the verifier's queued W2 pass) run first and saved.** Q3 population =
   exactly the 3 known rows (strict jsonb semantics == loose LIKE == 3; no other hybrids;

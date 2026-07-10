@@ -1,11 +1,34 @@
 # Verification — TKT-144: Resolve the 214 blob-lane same-name duplicate evidence rows via a sha256 backfill
 
 ## Verdict
-PENDING
+VERIFIED-LIVE
 
-## Evidence
-Run executed live 2026-07-10 (see [changes.md](./changes.md)); implementer-side artifacts
-awaiting independent verification: [evidence/backup-before.csv](./evidence/backup-before.csv),
+Verified by: ticket-verifier dispatch, 10-07-26, in two stages: (1) a full offline evidence-pack
+audit — every count independently recomputed from the CSVs (691 backup rows = 477 null-sha ∪
+288 pair-class; 477/477 hash outcomes with the 5 clock-skew reruns; 106 groups all
+collapsed_same_hash, twins sum 108; scripts read line-by-line: one guarded transaction, abort
+guards, never-overwrite stamp, backup-first); acceptance line 2's empty distinct bucket judged
+SATISFIED as written (the mechanism genuinely distinguished — an explicit distinct_different_hash
+outcome existed and reported none — and the vacuity itself is evidenced by the byte spot-check);
+commit 729940a confirmed all-ticket-folder (no code delta, no deploy). Then (2) the orchestrator W2
+data pass returned every queued value exactly, and the verifier issued the final verdict:
+
+> **VERIFIED-LIVE** — all six W2 results match the expected column exactly; acceptance line 1
+> (null_sha 0 across the whole blob lane, now 3,434 rows with intake stamping sha at write) and
+> line 2 (0 active same-name same-hash groups; 3 audits with before 70/36/2 at
+> T=2026-07-10 14:08:32.593907+00; 108/108 twins soft-merged; 0 status moves; 586 rows at T exact)
+> are both proven live, with the empty distinct bucket evidenced rather than assumed.
+> Caveat: closing TKT-144 should not drop the disclosed out-of-scope discovery — the 132 active
+> same-case same-hash **different-name** blob buckets (rename-duplicate class) still need their own
+> follow-up ticket.
+
+## Orchestrator data-pass W2 (run 2026-07-10, transient window trap-deleted)
+1. null_sha **0** / blob_total **3,434** ✓ · 2. dup groups **0** ✓ · 3. **3 audits**, before
+duplicate_rows **2/36/70**, occurred_at 2026-07-10 14:08:32.593907+00 ✓ · 4. twins **108** /
+soft_merged **108** ✓ · 5. status_changed audits **0** ✓ · 6. rows at run timestamp **586** ✓
+
+## Evidence (implementer artifacts, audited)
+[evidence/backup-before.csv](./evidence/backup-before.csv),
 [evidence/hash-run-log.csv](./evidence/hash-run-log.csv),
 [evidence/pair-outcomes.csv](./evidence/pair-outcomes.csv),
 [evidence/status-moves.md](./evidence/status-moves.md) (+ status-moves.csv, header-only),

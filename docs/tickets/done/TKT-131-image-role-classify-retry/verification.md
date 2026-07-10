@@ -79,6 +79,17 @@ High. Unread this pass: live Postgres itself (Q1–Q5 queued, confirmatory not l
 AOAI-side call records and the JSONL ledger (spend/split on the implementer's + registry's word); the
 blob-lane byte fetches (no telemetry surface exists for SAS reads).
 
-## Orchestrator data-pass W2 — pending
+## Orchestrator data-pass W2 (run 2026-07-10, transient window trap-deleted)
 
-Q1–Q5 run in the W2 batched window; results appended here.
+- **Q1 (role-unknown IMAGES now, kind=image):** 4, all box lane — exactly the residual class. (The
+  un-filtered variant also counts non-image rows carrying the default role code — kind filter
+  matters.)
+- **Q2 (the 4 content-safety residuals):** aeebd5ce + 1945c9bd still active role-unknown
+  (auto-intake lane, awaiting human roles as changes.md predicted); 76672ecf + 02c490f4 now
+  excluded=t (box_upload lane). Benign dispositions. ✓
+- **Q3 (case-status distribution, after today's drain):** needs_review 237 / missing_images 150 /
+  missing_required_fields 94 / **ready_for_eva 32** / error 3 / removed 2 — ≥27 as expected. ✓
+- **Q4 (2026-07-09 attachment_classified audits):** 359 events / 242 distinct cases (≥142). ✓
+- **Q5 (person_reflection count):** 517 (≥337; grown via the TKT-146 sweep). ✓
+
+Verdict stands: VERIFIED-LIVE.

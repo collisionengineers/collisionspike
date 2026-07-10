@@ -86,7 +86,18 @@ queued); the deployed box-webhook Python bytes (registry + live KQL call-signatu
 the SPA EVA-order screen (covered by ticket artifacts + Q-D). KQL retention on the free SKU is short
 (~24–48h) — 2026-07-09 deploy-day traces may already be partial.
 
-## Orchestrator data-pass W2 — pending
+## Orchestrator data-pass W2 (run 2026-07-10, transient window trap-deleted)
 
-The queued watch-item SQL (Q-A, Q-B1, Q-B2, Q-C, Q-C2, Q-D) runs in the W2 batched window; results
-appended here. Reopen trigger: Q-A or Q-B1 non-zero (modulo the documented boundary-window artifact).
+- **Q-A (cross-lane mirror twins now): 2** — both the DOCUMENTED boundary-window artifact, not
+  reforming twins: created 2026-07-02 and 2026-07-08 (cases 3ae1a4be…, df9a2069…), i.e. BEFORE the
+  2026-07-09 dedup deploy; they only became visible as twins when TKT-144's backfill armed their
+  blob rows' sha256 today. Mini-cleanup follow-up candidate; not a reopen trigger.
+- **Q-B1 (byte-less box rows since 07-10 duplicating an active same-case sha): 0** — the write-time
+  dedup is holding under live intake + Box archiving. ✓
+- **Q-B2 (absorb candidates since 07-09): 744** (informational).
+- **Q-C (box_upload kinds + sha since 07-09):** image 266 (252 sha) / email 57 (46) / instruction
+  51 (43) / other 18 (15) / engineer_report 2 (2) — honest kinds flowing, sha coverage high. ✓
+- **Q-C2 (non-image stored as image since 07-10): 0.** ✓
+- **Q-D (marker case A.QDOS26035 EVA dupes): 0 rows.** ✓
+
+Verdict stands: VERIFIED-LIVE.

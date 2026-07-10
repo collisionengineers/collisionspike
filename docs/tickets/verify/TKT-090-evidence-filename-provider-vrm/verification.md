@@ -62,9 +62,22 @@ High confidence the generator is fixed live. Unread: live Postgres (queued); Box
 (root-only allowlist); Kudu logs that would pin which 07-09 deploy first carried engine-v2.11
 (bounded with banded windows instead).
 
-## Orchestrator data-pass W2 — pending
+## Orchestrator data-pass W2 (run 2026-07-10, transient window trap-deleted)
 
-Q1 (banded bad-pattern counts), Q2 (forward-window offender detail with provider join), Q3 (healthy
-sample, newest 30 extraction-lane rows) run in the W2 batched window; results appended here. Per the
-verifier: strict_window_bad=0 + clean Q3 ⇒ the sweep requirement is met (Box spot-check remains the
-only other artifact).
+- **Q1 (banded UnknownVRM counts):** strict_window_bad (created > 2026-07-09T15:52:47Z) = **0** ✓;
+  advisory_window_bad = 67; all_time = 5,760 (the LEAVE backlog, grown from 5,693 by the 67).
+- **Q2 (forward-window offenders):** exactly those **67 rows**, ALL created 2026-07-09
+  12:12–12:14Z on case A.PCH26021 (`…__RJS_UnknownVRM_…`, provider PCH) — squarely inside the
+  verifier's banded window (after the 08:50Z deploy, before the 15:51Z one), confirming the fix
+  landed with the LATER 07-09 deploy. Zero offenders post-cutoff. These 67 join the historical
+  LEAVE class.
+- **Q3 (healthy sample post-cutoff): 0 rows returned** — a predicate artifact, not a failure: no
+  evidence rows with `source_label LIKE 'extracted from %'` were CREATED after 15:52:47Z (the KQL
+  shows extraction batches running today, so the persist lane either stamps a different
+  source_label shape now or extraction rows dedup-absorbed as updates). The identity-stem positive
+  proof therefore still rests on the verifier's live compute-probe (QDOS_AB12CDE shape).
+
+Verdict stands: PENDING, but materially narrowed — the forward window is CLEAN for the bad patterns
+(the decisive negative). Remaining before done: one persisted-row positive (an extraction-lane row
+created post-cutoff carrying a clean/identity stem — re-check with the corrected source_label
+predicate next sweep) + the Box case-folder spot-check.

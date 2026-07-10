@@ -1,11 +1,11 @@
 ---
 id: TKT-140
 title: Bulk retro backlog drain — reconstitute historical un-cased emails from Deleted Items
-status: verify
+status: done
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-119, TKT-058, TKT-107]
-research-link: docs/tickets/verify/TKT-140-retro-backlog-drain/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-140-retro-backlog-drain/evidence/operator-note.md
 plan: PLAN-003
 ---
 

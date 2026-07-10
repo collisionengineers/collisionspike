@@ -91,7 +91,7 @@ disk (extension disconnected at save; in-session ids recorded; re-capture is 3 c
 
 Q1–Q3 ran in the re-fix's single transient-FW window (WSL Entra-admin + `SET ROLE
 csadmin`), BEFORE the re-retire delta, outputs saved to
-[evidence/reretire-run-100726/](./evidence/reretire-run-100726/)
+[evidence/reretire-run-100726/](./evidence/reretire-run-100726)
 (`pre-output-100726.txt` = Q1/Q2/Q3; `post-output-100726.txt` = post-state + parity;
 `backup-prestate-100726.csv` = the pre-mutation backup; `pre.sql`/`post.sql` = the exact
 queries; `delta-apply-100726.txt` = the apply transcript):

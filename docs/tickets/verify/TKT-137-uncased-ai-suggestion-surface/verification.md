@@ -83,7 +83,17 @@ Unread: the suggestions GET response body (only the CORS preflight visible; no a
 calls made); the DB rows behind the banner + its flip (queued); which actor flipped the suggestion;
 App Insights for the EMAIL_AI producer (out of this ticket's acceptance).
 
-## Orchestrator data-pass W2 — pending
+## Orchestrator data-pass W2 (run 2026-07-10, transient window trap-deleted)
 
-Queued SQL (1) suggestions on the EREF9 email, (2) the email's linkage, (3) pending triage_category
-suggestions on uncased emails. Results appended here when run.
+- **(1) suggestions on the EREF9 email:** query errored on a jsonb cast (suggested_value is jsonb —
+  informational only, not re-run).
+- **(2) the email's linkage — THE FLIP EXPLAINED:** inbound_email 84c72717… now carries
+  `case_id = 0476fa7c… (QDOS26023)`, updated **2026-07-10 15:45:12Z** — the **TKT-140 drain's
+  rung-1 link** cased the email mid-verification. Once cased, the uncased-email banner correctly
+  disappears (`!row.caseId` guard). The suggestion was NOT consumed (145's check shows e1301dc9
+  still pending); the EMAIL stopped being uncased. Selector behaved exactly as designed.
+- **(3) pending triage_category suggestions on UNCASED emails: 63** — ample render/accept targets
+  remain for the operator click that closes lines 2/3.
+
+Verdict stands: PENDING — solely on one operator Accept/Ignore click (any of the 63 rows) + the
+post-click audit SQL (query 4 in the verdict block).

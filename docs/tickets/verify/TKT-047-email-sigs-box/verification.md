@@ -59,9 +59,20 @@ not re-run (known environmental ALS_doc failure on this box).
 
 ## Orchestrator data-pass W2 — pending
 
-Q1 (leak detector — PASS = 0 unexcluded suspect rows, any in_box=true row is a live leak), Q2 (window
-summary — PASS = suspects_live_in_box 0), Q3 (PDF-lane residual), Q4 (forward exclusions being
-stamped), Q5 (recall guard — kept_images > 0) run in the W2 batched window; results appended here.
+Results (run 2026-07-10, transient window trap-deleted):
+
+- **Q2 (window summary — the NAME-based signal): name_suspects 0, suspects_live_in_box 0** of 1,160
+  new image rows since the deploy. ✓ The classic signature-name class has NOT leaked to Box at all.
+- **Q1 (name-OR-size detector):** 50 suspect rows / 47 in Box — with name_suspects=0 (Q2), all 50
+  are SIZE-only catches (1–25KB images from any lane). Ambiguous predicate, not proven leaks (small
+  bytes ≠ signature; the floor is dimension-based and email-lane-only). Eyeball next sweep.
+- **Q3 (PDF-lane residual, size-based): 208** — same ambiguity (compressed extractions land <60KB);
+  includes the 67 pre-fix TKT-090 rows from 12:12Z 07-09. Same disposition as Q1.
+- **Q4 (forward exclusions):** 6 stamped on 2026-07-10 — classifier lanes still catching. ✓
+- **Q5 (recall guard):** 744 kept images (>100KB), 671 mirrored — the floor is not over-firing. ✓
+
+Verdict stands: PENDING — the name-class leak signal is clean (Q2 = 0) and recall healthy; remaining
+= the banner rung's first live firing, or an eyeball pass over the 50 size-only Q1 rows.
 
 ## Prior verdict history
 
