@@ -134,17 +134,18 @@
 
 
 
+
 ## Now — in flight / not yet confirmed live
 
 | ID | Title | State |
 |---|---|---|
 | [TKT-140](./now/TKT-140-retro-backlog-drain/TKT-140-retro-backlog-drain.md) | Bulk retro backlog drain — reconstitute historical un-cased emails from Deleted Items | IN FLIGHT 2026-07-10: dry-run EXECUTED (107 keys, 88 probed, 0.0% errors, 75 locatable, mint guards evidenced) — GO criteria met; drain queued for end-of-batch with the 13 high-noise junk keys excluded (99 drainable rows, 10-per-batch). |
-| [TKT-148](./now/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for overview-less photo sets | IN FLIGHT 2026-07-10: detector build dispatched — status-evaluate seam predicate (accepted≥N, zero overview, zero unclassified) minting an idempotent drafted chase; one-shot pass for existing cases; A.QDOS26029 must surface one. |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-148](./verify/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for overview-less photo sets | Shipped + DEPLOYED 2026-07-10 (detector in both status-recompute seams, N=5, one-per-case; one-shot minted 31 drafted chases incl. A.QDOS26029, negative control clean); SPA render check = verifier. → verify. |
 | [TKT-146](./verify/TKT-146-box-upload-event-classify/TKT-146-box-upload-event-classify.md) | Classify images at Box-upload event time | Shipped + DEPLOYED + implementer-live-proven 2026-07-10 (box-classify-sweep timer, orch 74/api 96 fns; test upload stamped overview + registration_visible=true in 1m50s; 242-row backlog draining, gate = IMAGE_ROLE_CLASSIFY_ENABLED). → verify. |
 | [TKT-145](./verify/TKT-145-caselink-evidence-backfill/TKT-145-caselink-evidence-backfill.md) | Accepted case_link on a previously-uncased email must backfill its evidence | Shipped + DEPLOYED 2026-07-10 (evidence-backfill queue + orch consumer, orch 73/api 95 fns; manual-note mitigation now failure-only; auto-attach seam N/A by construction). Live proof staged: operator accepts suggestion e1301dc9 (EREF9 desk@ email → QDOS26023). → verify. |
 | [TKT-142](./verify/TKT-142-boxfn-large-payload/TKT-142-boxfn-large-payload.md) | Box facade 502s on large base64 payloads — QDOS26029 archive stranded (17.6 MB .eml) | Shipped + LIVE-PROVEN 2026-07-09 (QDOS26029 archive 4/4 incl. the 17.6MB .eml; blobPath + chunked lanes); >=20MiB lane offline-only. → verify. |
