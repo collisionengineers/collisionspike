@@ -1,5 +1,53 @@
 # Verification — TKT-001: Fix multi-format document extraction regression
 
+## Verdict
+**VERIFIED-LIVE** (2026-07-10, ticket-verifier dispatch — final sweep verdict; the original pass
+below stands corroborated)
+
+## Final sweep verdict (transcribed verbatim, 2026-07-10)
+
+- **Live deployed engine, per-format probes (this pass, engine-v2.15):** `POST /api/parse` on
+  `cespike-parser-dev-x7xt3d5ovhi7y` — every format returns a rich multi-field extraction, not just
+  the registration: **PDF** (KBS, 7 fields incl. work_provider) · **DOCX** (ACSP, 8 fields incl.
+  accident_circumstances) · **legacy .DOC** (OAK, 7 fields — extracts live on the FC1 host when its
+  text scrape is clean) · **EML** (the ticket's own follow-up regression sample, 7 fields incl. the
+  Redbridge Flyover accident_circumstances — the exact field the 2026-07-01 follow-up regressed on)
+  · **MSG** (ALS26066, 7 fields incl. vehicle_model from the NESTED attachment — first recorded live
+  .msg proof).
+- **Live intake at volume (KQL 7d):** parse-ok by extension pdf 411 / doc 42 / docx 25 / eml 23
+  (msg 0 — none arrived); parser requests 200 ×508, 422 ×40 (all `.doc`), 400 ×1; caseResolve 268
+  created + 13 attached — the parse→persist chain running at volume.
+- **Provenance + re-intake:** the recorded 2026-06-30 DB proof stands (8 EVA columns + 7 provenance
+  rows / 6 + 5); the persist path (`api/src/lib/parser-eva-fields.ts`) unchanged since; `.msg` is
+  intake-eligible by code (`parse.ts:126` DOC_EXT).
+- **Offline suite state (drifted-venv bypassed via `C:\Python314\python`):** sibling
+  `cedocumentmapper_v2.0` full suite at HEAD = tag **engine-v2.15 (the live tag): 453 passed / 4
+  skipped / 0 failed**; vendored `test_multiformat_extraction.py` 4 passed / 1 failed — exactly the
+  recorded pre-existing environmental `[ALS_doc]` baseline, not a regression; drift guard
+  `test_engine_vendored_in_sync.py` **7/7** — vendored == sibling v2.15 == deployed.
+
+### Expected absences / documented limitation (not regressions)
+- No `.msg` arrived through live intake in the retention window — capability proven by live probe;
+  arrival is a matter of time.
+- Not all 12 EVA fields fill when absent from the source document (original gap note stands).
+- The table-heavy/scrape-polluted legacy `.doc` subset 422s on the FC1 host (40/82 .doc attempts
+  this window, QDOS-triage-letter class) — the in-ticket documented FC1 constraint
+  (`changes-regression-01-07-26.md`; ROADMAP Later "Parser custom container"). The email-body
+  supplement mitigation is deployed; its Postgres re-intake proof on a QDOS26010-class case remains
+  the recorded pending item from the follow-up pass.
+
+### Queued SQL (corroborative, next data pass)
+V1 per-format re-intake census (evidence ext × cases × with-provenance, 7d); V2 newest-10 spot check
+of populated `eva_*` columns.
+
+### How to re-verify
+Live per-format probe via the parser function key + `probe_parse.py` (fixtures listed in the sweep
+record); KQL q1–q6 (banked in the session scratchpad); sibling + vendored suites via
+`C:\Python314\python` (judge `[ALS_doc]` against the environmental baseline, do NOT use the drifted
+`.venv`).
+
+Verified by: ticket-verifier dispatch, 2026-07-10.
+
 ## Verdict (original pass)
 VERIFIED-LIVE
 

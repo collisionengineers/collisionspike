@@ -189,7 +189,7 @@ touches. The detailed Power-Platform-era checklist is **banded below** for domai
 - **Parser custom container (LibreOffice for legacy `.doc`)** — Flex Consumption (`cespike-parser-dev`) cannot
   install system packages (`libreoffice-writer-nogui`, `antiword`) without a **custom container** migration;
   table-heavy legacy `.doc` files lose table-cell text on the binary-scrape path. Triage QDOS is bridged by the
-  orchestration email-body supplement ([TKT-001 follow-up](./docs/tickets/verify/TKT-001-document-parsing/changes-regression-01-07-26.md));
+  orchestration email-body supplement ([TKT-001 follow-up](./docs/tickets/done/TKT-001-document-parsing/changes-regression-01-07-26.md));
   full `.doc` fidelity needs a container image with LibreOffice baked in
   ([Microsoft Q&A — FC1 system packages](https://learn.microsoft.com/en-ca/answers/questions/5911523/unable-to-use-linux-packages-in-flexi-function-app)).
 - **Box business-account live-test** — CCG + File Request + the `FILE.UPLOADED` live-test against the

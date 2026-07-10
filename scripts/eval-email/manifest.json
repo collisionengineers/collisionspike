@@ -9,7 +9,7 @@
   "items": [
     {
       "id": "tkt001-followup-triage",
-      "file": "docs/tickets/verify/TKT-001-document-parsing/followup/(EREF12) RTA on 30_06_2026  Miss Nicola Granger (Our Ref REB_46487_1, Vehicle VN64WNG).eml",
+      "file": "docs/tickets/done/TKT-001-document-parsing/followup/(EREF12) RTA on 30_06_2026  Miss Nicola Granger (Our Ref REB_46487_1, Vehicle VN64WNG).eml",
       "source": "ticket:TKT-001",
       "tracked": true,
       "context": {
@@ -1058,8 +1058,11 @@
         "category": "other",
         "subtype": "other"
       },
-      "expected_v2": null,
-      "rationale": "TKT-103: a Tractable automated lead (unseeded sender, PDF attached). The engine used to surface its estimate figure as the job reference — the money guard now keeps currency amounts out of body_jobref (pinned in both engines' unit suites; the scorer asserts labels, not tokens). The label stays the abstain until TKT-102 (backlog) defines the Tractable handling lane — re-label this item when that ships."
+      "expected_v2": {
+        "category": "case_update",
+        "subtype": "images_received"
+      },
+      "rationale": "TKT-103: a Tractable automated lead (unseeded sender, PDF attached). The engine used to surface its estimate figure as the job reference — the money guard now keeps currency amounts out of body_jobref (pinned in both engines' unit suites; the scorer asserts labels, not tokens). Re-labelled 2026-07-10: TKT-102 shipped the Tractable handling lane (engine Rule 0f `image_service_delivery`), so the v2 expectation is now case_update/images_received — the non-minting images lane (the manifest's own pre-scheduled re-label). expected_v1 keeps the historical abstain for the v1-era baseline."
     },
     {
       "id": "tkt093-forward-audatex-caseupdate",

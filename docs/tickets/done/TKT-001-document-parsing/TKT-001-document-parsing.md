@@ -1,7 +1,7 @@
 ---
 id: TKT-001
 title: Fix multi-format document extraction regression
-status: verify
+status: done
 priority: P1
 area: parsing
 tickets-it-relates-to: [TKT-002, TKT-017]

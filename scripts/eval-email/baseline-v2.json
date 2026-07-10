@@ -1,6 +1,6 @@
 {
   "schema": "collisionspike-eval-email-baseline-v1",
-  "generated_at": "2026-07-09T02:29:04.972693+00:00",
+  "generated_at": "2026-07-10T19:49:26.970637+00:00",
   "taxonomy": "v2",
   "aggregate": {
     "total": 58,
@@ -27,13 +27,13 @@
         "f1": 1.0
       },
       "case_update": {
-        "support": 3,
-        "tp": 3,
+        "support": 4,
+        "tp": 4,
         "fp": 2,
         "fn": 0,
-        "precision": 0.6,
+        "precision": 0.6666666666666666,
         "recall": 1.0,
-        "f1": 0.7499999999999999
+        "f1": 0.8
       },
       "non_actionable": {
         "support": 6,
@@ -45,13 +45,13 @@
         "f1": 1.0
       },
       "other": {
-        "support": 2,
-        "tp": 1,
+        "support": 1,
+        "tp": 0,
         "fp": 1,
         "fn": 1,
-        "precision": 0.5,
-        "recall": 0.5,
-        "f1": 0.5
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
       },
       "pre_instruction": {
         "support": 1,
@@ -105,7 +105,7 @@
       "case_update": {
         "billing": 0,
         "cancellation": 0,
-        "case_update": 3,
+        "case_update": 4,
         "non_actionable": 0,
         "other": 0,
         "pre_instruction": 0,
@@ -127,7 +127,7 @@
         "cancellation": 0,
         "case_update": 0,
         "non_actionable": 0,
-        "other": 1,
+        "other": 0,
         "pre_instruction": 0,
         "query": 1,
         "receiving_work": 0
@@ -175,9 +175,9 @@
         "accuracy": 0.5454545454545454
       },
       "other/other": {
-        "support": 2,
-        "correct": 1,
-        "accuracy": 0.5
+        "support": 1,
+        "correct": 0,
+        "accuracy": 0.0
       },
       "non_actionable/case_summary": {
         "support": 1,
@@ -205,8 +205,8 @@
         "accuracy": 1.0
       },
       "case_update/images_received": {
-        "support": 2,
-        "correct": 2,
+        "support": 3,
+        "correct": 3,
         "accuracy": 1.0
       },
       "receiving_work/existing_provider_audit": {
@@ -422,7 +422,7 @@
       "got_subtype": "cancellation_notice",
       "category_correct": true,
       "subtype_correct": true,
-      "confidence": 0.6
+      "confidence": 0.8
     },
     {
       "id": "tkt041-02-cancel-notice-sbl",
@@ -434,7 +434,7 @@
       "got_subtype": "cancellation_notice",
       "category_correct": true,
       "subtype_correct": true,
-      "confidence": 0.6
+      "confidence": 0.8
     },
     {
       "id": "tkt041-03-closure-notice-ax",
@@ -446,7 +446,7 @@
       "got_subtype": "cancellation_notice",
       "category_correct": true,
       "subtype_correct": true,
-      "confidence": 0.6
+      "confidence": 0.8
     },
     {
       "id": "tkt041-04-closure-notice-ax",
@@ -458,7 +458,7 @@
       "got_subtype": "cancellation_notice",
       "category_correct": true,
       "subtype_correct": true,
-      "confidence": 0.6
+      "confidence": 0.8
     },
     {
       "id": "tkt041-05-closure-notice-ax",
@@ -470,7 +470,7 @@
       "got_subtype": "cancellation_notice",
       "category_correct": true,
       "subtype_correct": true,
-      "confidence": 0.6
+      "confidence": 0.8
     },
     {
       "id": "tkt041-06-hold-request",
@@ -908,13 +908,13 @@
       "id": "tkt103-tractable-lead",
       "source": "ticket:TKT-103",
       "tracked": true,
-      "expected_category": "other",
-      "expected_subtype": "other",
-      "got_category": "other",
-      "got_subtype": "other",
+      "expected_category": "case_update",
+      "expected_subtype": "images_received",
+      "got_category": "case_update",
+      "got_subtype": "images_received",
       "category_correct": true,
       "subtype_correct": true,
-      "confidence": 0.3
+      "confidence": 0.8
     },
     {
       "id": "tkt093-forward-audatex-caseupdate",

@@ -60,7 +60,7 @@ These domain capabilities are **deployed and functioning** on the Azure stack:
   real PDFs/DOCX/EML/MSG. **OCR** for scanned images is the separate `ocr` Function.
   **Platform limit (FC1):** legacy table-heavy `.doc` files may miss table-cell narrative on the binary-scrape
   path because LibreOffice cannot be installed on Flex Consumption without a **custom container** migration
-  ([ROADMAP Later](../ROADMAP.md) — parser container item; [TKT-001 follow-up](./tickets/verify/TKT-001-document-parsing/changes-regression-01-07-26.md)).
+  ([ROADMAP Later](../ROADMAP.md) — parser container item; [TKT-001 follow-up](./tickets/done/TKT-001-document-parsing/changes-regression-01-07-26.md)).
   Triage QDOS intake is bridged by the orchestration email-body supplement when the attachment parse returns
   empty `accident_circumstances`.
 - **Vehicle look-ups (DVSA/DVLA enrichment).** The enrichment Function is deployed and calls **DVSA + DVLA
