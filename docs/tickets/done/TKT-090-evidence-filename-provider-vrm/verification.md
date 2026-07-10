@@ -1,12 +1,26 @@
 # Verification — TKT-090: Evidence filenames carry a wrong RJS provider prefix and UnknownVRM
 
 ## Verdict
-PENDING
+VERIFIED-LIVE
 
-Verified by: ticket-verifier dispatch, 10-07-26 (verdict block transcribed 1:1 below). The generator
-is proven fixed LIVE (behavioral probe of the active parser deployment, both shapes); the decisive
-remaining artifact is the forward-clean Postgres sweep (Q1–Q3, queued for the W2 data pass) plus a
-Box case-folder spot-check (outside the verifier's root-only Box allowlist).
+Verified by: ticket-verifier dispatch, 10-07-26, finalized after the W2b + W3 data passes and the
+orchestrator's Box spot-check. **Final verdict: VERIFIED-LIVE** — "the 67 advisory-band
+RJS_UnknownVRM rows (A.PCH26021, 2026-07-09T12:12–12:14Z) predate the fix-serving deploy and simply
+join the historical LEAVE backlog (all-time now 5,760) — forward-clean holds unbroken from the
+active deploy (2026-07-09T15:52:47Z), with identity/neutral stems and the Box mirror all correct."
+
+Closure artifacts:
+- **W2b Q1:** strict_window_bad = 0 (advisory 67, all pre-15:51Z deploy; all-time 5,760 = LEAVE).
+- **W2b Q2:** all 67 offenders on A.PCH26021 in the 12:12–12:14Z band — deploy-timing banded, not a
+  forward failure.
+- **W3 healthy-sample positive (corrected predicate — source_label is always 'auto-intake'; match
+  on `file_name ~ '__([A-Za-z0-9]+_)*img_'`):** 535 identity + 93 single-token + 2 neutral rows
+  since the final deploy; 20/20 strict-window cases identity-stemmed
+  (e.g. 577376__PCH_HG24TNO_img_12_69.jpeg).
+- **Box half of line 3:** keyed facade listing of A.PCH26036's folder — 12 identity-stem files,
+  0 non-identity img_ files. Correct names in evidence AND Box.
+
+(The original verifier verdict block + W2 record follow below.)
 
 ## Ticket-verifier verdict (transcribed 1:1, dispatch of 2026-07-10)
 

@@ -1,9 +1,36 @@
 # Verification — TKT-095: Case `done` detectors
 
 ## Verdict
-PENDING — all four rungs code-complete + offline-tested and DEPLOYED (2026-07-09, PLAN-003
-lifecycle wave); no rung has live proof yet (nothing can flip until a case reaches
-`eva_submitted`, which the TKT-094 export flow only started producing this deploy).
+PENDING — deployment fully certified; every acceptance line awaits its trigger event.
+
+Verified by: ticket-verifier dispatch, 10-07-26. Findings:
+- **Deployed surface certified live (az reads):** all six TKT-095 detector functions registered on
+  cespk-orch-dev (graph-webhook-sent, graph-lifecycle-sent, sent-items-processor,
+  eva-report-poll-start, evaReportPollOrchestrator, evaReportPollTick); markCaseDone /
+  internalCasesMarkDone / internalCasesLookup / completedCases / markEvaSubmitted on cespk-api-dev;
+  detector (b) rides the existing box-webhook (12 fns, no new registration). Gates dark by design:
+  DONE_SENT_EMAIL_ENABLED absent, EVA_API_ENABLED absent (live appsettings read).
+- **Line 1 (manual bridge):** route + SPA button live in the deployed bundle (renders only under
+  status eva_submitted; handler-plain copy "Mark report delivered"). Not exercisable — zero
+  eva_submitted/done cases exist (corroborated by TKT-096's verifier: all-time Sent-to-EVA = 0);
+  KQL 3d: zero mark-done requests.
+- **Line 2 (detector b, Box report-PDF):** wiring confirmed in the deployed box-webhook
+  (is_ce_report → engineer_report → best-effort mark_case_done); the FILE.UPLOADED lane is alive
+  (62 webhook requests/3d) but 0 "CE report detected" — no report-named PDF has landed. Expected
+  absence. Re-delivery no-op guard offline-proven (150 pytest incl. the redelivery case).
+- **Line 3 (detector a, sent-email):** requires the operator-approved DONE_SENT_EMAIL_ENABLED
+  test-slot flip (creates per-mailbox SentItems Graph subscriptions — gated.md D3). Zero detector
+  invocations in 3d KQL; only the 3 Inbox Graph subs exist. An operator wait, not implementer debt.
+- Detector (c) EVA poll: no acceptance line; skeleton correctly dark pending EVA REST.
+- **Real bugs found: none.**
+
+Queued SQL (next data pass): status distribution (expect no 100000008/100000012 rows);
+report_delivered audits (expect 0); the per-case proof query for after the first flip.
+
+**Re-verify recipe:** drive a ready_for_eva case (27 exist) through Export-for-EVA → the button
+renders → mark done → report_delivered audit; drop `<CasePO> report.pdf` into that case's Box folder
+→ "CE report detected" + mark-done updated=True; operator test-slot flip for line 3
+(create-then-prune both observed). KQL files reusable: scratchpad a-orch-dark/b-boxfn/c-api-markdone.
 
 ## Evidence (offline + deploy, 2026-07-09)
 - Shared transition: `POST /api/internal/cases/{id}/mark-done` live on `cespk-api-dev`

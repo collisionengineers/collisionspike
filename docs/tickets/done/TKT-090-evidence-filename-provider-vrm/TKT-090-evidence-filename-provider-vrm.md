@@ -1,11 +1,11 @@
 ---
 id: TKT-090
 title: Evidence filenames carry a wrong "RJS" provider token and "UnknownVRM"
-status: verify
+status: done
 priority: P2
 area: evidence
 tickets-it-relates-to: [TKT-002, TKT-089]
-research-link: docs/tickets/verify/TKT-090-evidence-filename-provider-vrm/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-090-evidence-filename-provider-vrm/evidence/operator-note.md
 ---
 
 # Evidence filenames carry a wrong "RJS" provider token and "UnknownVRM"
