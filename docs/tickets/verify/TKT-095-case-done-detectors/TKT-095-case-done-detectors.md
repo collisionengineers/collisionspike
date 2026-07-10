@@ -12,7 +12,7 @@ plan: PLAN-002
 # Case `done` detectors — manual → Box report-PDF → sent-email → EVA poll
 
 > Phase C of the case-done-lifecycle cluster. Depends on **TKT-094** (the `done` status model). The full
-> plan lives in [TKT-094/evidence/PLAN-case-done-lifecycle.md](../TKT-094-case-done-status-model/evidence/PLAN-case-done-lifecycle.md).
+> plan lives in [TKT-094/evidence/PLAN-case-done-lifecycle.md](../../now/TKT-094-case-done-status-model/evidence/PLAN-case-done-lifecycle.md).
 
 ## Problem
 
@@ -56,7 +56,7 @@ PROPOSED (not built) — **Phase C**:
 ## Research
 
 Distilled 2026-07-07 from `PLAN-case-done-lifecycle.md` (Phase C); full plan in the anchor
-[TKT-094](../TKT-094-case-done-status-model/TKT-094-case-done-status-model.md).
+[TKT-094](../../now/TKT-094-case-done-status-model/TKT-094-case-done-status-model.md).
 
 ## Artifacts
 

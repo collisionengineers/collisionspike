@@ -13,7 +13,7 @@ plan: PLAN-002
 
 > Phase D of the case-done-lifecycle cluster. Depends on **TKT-094** (`done` status) + **TKT-095**
 > (detectors) for cases to reach `eva_submitted`/`done`. The full plan lives in
-> [TKT-094/evidence/PLAN-case-done-lifecycle.md](../../verify/TKT-094-case-done-status-model/evidence/PLAN-case-done-lifecycle.md).
+> [TKT-094/evidence/PLAN-case-done-lifecycle.md](../../now/TKT-094-case-done-status-model/evidence/PLAN-case-done-lifecycle.md).
 
 ## Problem
 
@@ -49,7 +49,7 @@ PROPOSED (not built) — **Phase D**:
 ## Research
 
 Distilled 2026-07-07 from `PLAN-case-done-lifecycle.md` (Phase D); full plan in the anchor
-[TKT-094](../../verify/TKT-094-case-done-status-model/TKT-094-case-done-status-model.md). Adds a terminal-scope
+[TKT-094](../../now/TKT-094-case-done-status-model/TKT-094-case-done-status-model.md). Adds a terminal-scope
 acceptance criterion to TKT-072.
 
 ## Artifacts

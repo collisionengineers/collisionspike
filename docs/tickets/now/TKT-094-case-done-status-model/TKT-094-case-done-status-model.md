@@ -1,11 +1,11 @@
 ---
 id: TKT-094
 title: Case `done` terminal state — status model + auto-`eva_submitted` on export
-status: verify
+status: now
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-095, TKT-096, TKT-058, TKT-072]
-research-link: docs/tickets/verify/TKT-094-case-done-status-model/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-094-case-done-status-model/evidence/operator-note.md
 plan: PLAN-002
 ---
 
