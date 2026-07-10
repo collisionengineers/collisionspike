@@ -42,7 +42,7 @@ email it parsed the attached third-party **EVA report** instead of the `.DOC` in
 layout-name fallback then emitted `"EVA (Engineers)"` as `work_provider`, which filled the case's
 free-text `eva_work_provider`. Fixed in code (engine-v2.6 fallback guard + multi-doc content-typed
 parse pick + a Data-API denylist) plus an operator delta deactivating any stale EVA corpus row —
-all under **[TKT-056](../TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md)**
+all under **[TKT-056](../../done/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md)**
 / [ADR-0021](../../../adr/0021-case-po-marker-taxonomy.md) / [gated.md §D9](../../../gated.md).
 
 ## Status update — 2026-07-02 (now — code deployed, activation pending D8 seeds)

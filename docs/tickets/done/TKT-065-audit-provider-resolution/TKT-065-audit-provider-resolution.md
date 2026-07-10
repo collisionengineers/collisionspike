@@ -1,7 +1,7 @@
 ---
 id: TKT-065
 title: Audit cases resolve NO work provider (leaked "EVA (Engineers)" masked a real bug)
-status: verify
+status: done
 priority: P1
 area: pipeline
 tickets-it-relates-to: [TKT-051, TKT-056, TKT-021, TKT-028]
@@ -11,9 +11,9 @@ research-link: docs/adr/0011-work-provider-intermediary-garage-roles.md
 # Audit cases resolve NO work provider (leaked "EVA (Engineers)" masked a real bug)
 
 > **DEPLOYED + BACKFILLED 2026-07-06** — forward fix live on `cespk-orch-dev` + `cespk-api-dev`;
-> the 20 already-mislabelled cases are re-resolved/cleaned live. Awaiting a **live-occurrence probe**
-> (next real PCH/QDOS audit email resolving its provider at intake) to close — ties to
-> [[TKT-056]] step-6. One operator data item open: QDOS `known_email_domains` (see below).
+> the 20 already-mislabelled cases are re-resolved/cleaned live. **VERIFIED-LIVE 2026-07-10** — the
+> live-occurrence probe met at volume (see [verification.md](./verification.md)); the QDOS
+> `known_email_domains` item re-homed to gated.md D3.
 
 ## Problem
 

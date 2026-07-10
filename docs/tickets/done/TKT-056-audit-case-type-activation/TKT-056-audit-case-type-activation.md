@@ -1,7 +1,7 @@
 ---
 id: TKT-056
 title: Audit case-type end-to-end — activation (delta + shadow review + gate flip + live probe)
-status: verify
+status: done
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-051, TKT-021]

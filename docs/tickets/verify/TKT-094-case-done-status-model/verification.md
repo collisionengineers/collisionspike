@@ -1,8 +1,23 @@
 # Verification — TKT-094: Case `done` terminal state — status model + auto-`eva_submitted`
 
 ## Verdict
-FAILED (acceptance clause 1b) — reopened to `now` 2026-07-10 with a dated follow-up
-([evidence/reopen-followup-100726.md](./evidence/reopen-followup-100726.md)).
+PENDING — the FAILED is CLEARED (updated ticket-verifier verdict, 10-07-26 evening); deployment
+fully certified and acceptance line 1 fully green; lines 2/3 legitimately await the first real
+Export-for-EVA (the TKT-095 shape).
+
+Updated certification after the reopen fix (commit 9adca52):
+- **1b re-proven by the verifier's OWN run:** `node migration/assets/verify-parity-pg.mjs` at HEAD →
+  §1 3/3 PASS + §4 6/6 PASS; §2/§3/§6 print explicit SKIP lines citing the 44268b7 purge. Output:
+  [evidence/parity-pg-run-100726.txt](./evidence/parity-pg-run-100726.txt).
+- **DDL delta confirmed live (W4):**
+  [evidence/w4-ddl-confirmation-100726.txt](./evidence/w4-ddl-confirmation-100726.txt) —
+  100000012 done ✓, 100000053 report_delivered ✓, 13 statuses ✓.
+- **Caveat / follow-up candidate:** the parity script still exits 1 overall from PRE-EXISTING §5
+  classifier drift (existing_provider_diminution absent from email_classifier.py's SUBTYPE_*
+  constants; stale hardcoded category count) — outside this ticket's §1/§4 clause; the script cannot
+  be wired into CI as-is.
+
+### Prior verdict (2026-07-10 afternoon sweep): FAILED (clause 1b) — details below, fixed same day.
 
 Verified by: ticket-verifier dispatch, 10-07-26. Summary of the certification pass:
 - **1a (13/5 parity): PASS** — verifier's own run, 94 tests green; choiceset has 13 options incl.

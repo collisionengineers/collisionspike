@@ -1,13 +1,43 @@
 # Verification — TKT-089: Confirm non-vehicle images (signatures/logos) are no longer stored on Box
 
 ## Verdict
-PENDING — the reopen fix is **deployed live 2026-07-10 ~17:35Z with the implementer's re-probe
-passing** (see [changes.md §2026-07-10 REOPEN fix](./changes.md) for the design + the full re-proof:
-both named samples now return count=1 on live `/extract-images` — the QDOS logo engine-suppressed at
-engine-v2.15; the archive-evidence selection filters `excluded = false`, live-proven by the
-box-archive lever on A.QDOS26009 completing `{uploaded:1, total:1}` with the excluded logo row left
-`box_file_id NULL` while a legit 19.1 MB `.eml` mirrored). A FRESH verifier pass certifies; suggested
-checks below.
+VERIFIED-LIVE
+
+Verified by: fresh ticket-verifier dispatch, 10-07-26, after the same-day reopen fix. Transcribed
+findings:
+
+- **Line 3 (the re-fixed line) — the verifier's OWN independent re-probe PASSES:** both named
+  samples POSTed to the live /extract-images → HTTP 200, **count = 1 each** (only the ~29KB MGAA
+  badge jpeg); the 10,720B QDOS-logo png that failed the morning verdict is GONE (engine-v2.15
+  3.2-aspect retune live: 575×174 = 3.305 ≥ 3.2).
+- **Mirror filter observed live in independent telemetry:** the 17:49:34–45Z archive run on
+  A.QDOS26009 — box-archive-start 202 → archive-evidence GET 200 → summary
+  `{uploaded:1, total:1}` where the case held TWO unmirrored blob rows: the excluded logo was not
+  offered, the legit 19.1MB .eml mirrored. Pre-fix total would have been 2. Filter + recall in one
+  run.
+- **Bundles + ordering verified:** deploy/api/main.cjs:18396 `AND excluded = false` in the
+  archive-evidence selection; deploy/orch/main.cjs 49988–52400 (role other + nonVehicleExcluded →
+  excluded + auto-classified reason; extractImages passes the flag; excludedNonVehicle on the
+  summary event); all three orchestrator lanes sequence classifyPersist → extractImages →
+  boxArchiveEvidence (intakeOrchestrator.ts:134→141→156 / 283→291→307 / 694→708→728); both persist
+  lanes stamp excluded in-memory BEFORE persist; person-reflection precedence + classify-null
+  fail-open confirmed.
+- **Fixtures + provenance:** vendored test_extract_images 18/18; drift guard 7/7 (vendored
+  byte-identical to sibling); sibling tag engine-v2.15 = 79efe22 pushed (ls-remote verified); the
+  204×204 badge deliberately classifier-owned (documented in-code) — and its live classification is
+  not speculative: the 07-09 audit found the badge class already classified `other` across ~40
+  cases.
+- **Lines 1/2/4 held** from the prior verdicts (audit + cleanup 163/163 residual-0; email lane
+  0 name-suspects across 1,160 forward rows + the 3.2 lockstep retune in the deployed orch bundle;
+  backfill decision executed per ADR-0012/0017).
+- **Post-deploy health:** 0 failed / 0 exceptions on all four apps since 17:20Z.
+- **Documented residual (deliberate design):** classify-failure fail-open — a persistent AOAI
+  outage could leak badge-class crops to Box (chosen to protect archive recall; the
+  engine-suppressed logo class cannot leak regardless).
+- **Queued confirmatory SQL (QA–QD, next data pass):** forward-window suspect crops
+  unexcluded-and-mirrored (expect 0); badge class landing excluded-not-mirrored; recall counts;
+  the A.QDOS26009 lever spot-check rows. Watch: the next natural letterhead intake should show
+  excludedNonVehicle ≥ 1 on its extractImages event.
 
 **For the fresh verifier:**
 1. Re-run the two-sample `/extract-images` probe (scratchpad `tkt089-reprobe.py` pattern; parser

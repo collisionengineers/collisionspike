@@ -1,11 +1,11 @@
 ---
 id: TKT-023
 title: Link follow-up documents/emails to the existing case + Box
-status: verify
+status: done
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-003, TKT-004, TKT-009]
-research-link: docs/tickets/verify/TKT-023-follow-up-docs/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-023-follow-up-docs/evidence/operator-note.md
 ---
 
 # Link follow-up documents/emails to the existing case + Box

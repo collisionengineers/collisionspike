@@ -1,0 +1,22 @@
+W4 orchestrator data pass — 2026-07-10 (transient firewall window, trap-deleted)
+Queued DDL-delta confirmation for TKT-094:
+
+SELECT code, name FROM choice_case_status WHERE code = 100000012;
+   code    | name
+-----------+------
+ 100000012 | done
+(1 row)
+
+SELECT code, name FROM choice_audit_action WHERE code = 100000053;
+   code    |       name
+-----------+------------------
+ 100000053 | report_delivered
+(1 row)
+
+SELECT count(*) AS statuses FROM choice_case_status;
+ statuses
+----------
+       13
+(1 row)
+
+All three expected values confirmed live (operator-side read, SET ROLE csadmin).

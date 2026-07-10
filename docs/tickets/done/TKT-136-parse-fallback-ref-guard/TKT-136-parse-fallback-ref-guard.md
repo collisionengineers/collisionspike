@@ -1,11 +1,11 @@
 ---
 id: TKT-136
 title: Guard the /parse fallback reference against money values and text fragments (RIGERANT R1234YF)
-status: verify
+status: done
 priority: P2
 area: parsing
 tickets-it-relates-to: [TKT-103, TKT-071]
-research-link: docs/tickets/verify/TKT-136-parse-fallback-ref-guard/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-136-parse-fallback-ref-guard/evidence/operator-note.md
 plan: PLAN-003
 ---
 

@@ -1,8 +1,49 @@
 # TKT-056 — verification
 
-> `done` means **live and proven**. **ACTIVATED 2026-07-04** (user-instructed go-live): deltas
-> applied, all four surfaces deployed, `AUDIT_CASES_ENABLED=true` on both apps — see "Activation
-> record" below. Only the step-6 live probe (a real inbound audit email) remains before `done`.
+## Verdict
+VERIFIED-LIVE
+
+Final certification (ticket-verifier, 10-07-26, after the W4 data pass):
+- **Steps 1–5:** gate re-read true on both apps; D10 rows re-confirmed (4 case types +
+  engineer_report kind).
+- **Step 6 / PCH lane — all four sub-expectations proven live:** A.PCH sequence at volume; **112
+  A.-marked rows since the flip, ALL case_type=audit, zero mistyped**; 8/8 sampled A.PCH rows
+  principal PCH (leak dead, corroborated by the identity stems + Box listing); engineer_report
+  evidence **71 rows / 67 cases**.
+- **Step 6 / QDOS dual lane:** letters mint standard QDOS26xxx numbers at intake; 12/12 sampled
+  A.QDOS rows are review-derived audit IDs sharing the parent number (all created after the
+  parent) — the corpus/operator-note outcome. **Honest deviation named, not buried:** the parent
+  standard row does NOT itself carry case_type=audit (Q4=0) — the audit typing rides the derived
+  A. row, which matches the operator's nested-deliverable note but not ADR-0021 D3's mint-time
+  wording as literally written.
+- Pipeline health: mint path 110×200/0-failed, no case-type exceptions.
+- 37 unmarked audit-typed rows are non-QDOS prefixes — the allowlist/no-marker design, not a defect.
+
+**Follow-up for the loop (one caveat):** reconcile ADR-0021 D3 / spec wording with the live
+review-derived pairing model + the operator's nested-deliverable note, and confirm intake-time
+dual-detection behavior. Non-blocking: Q5 re-run with display_name; channel attribution stays
+sampling-limited.
+
+Verified by: ticket-verifier dispatch, 10-07-26. Findings:
+- **Step 5 re-verified live:** AUDIT_CASES_ENABLED=true on BOTH apps (fresh az read).
+- **Step 6 marker-mint half PROVEN persisted-live:** per-marker sequences running exactly per
+  ADR-0021 D2 — A.PCH26001…26038(+) independent of standard PCH26001–26021; A.QDOS26001…26068
+  independent of QDOS26001–26078 (same-day live-DB artifact). No AP./D. rows yet — expected
+  (review-time-only / review-first by design).
+- **Provider on A.-cases (leak dead):** A.PCH stems carry the resolved principal (TKT-143
+  VERIFIED-LIVE); Box folders minted under marker names; no "EVA (Engineers)" anywhere in today's
+  data (corroborated by TKT-065's certification).
+- **Gate-on mint path firing clean (KQL, 48h):** internalCasesResolve 110×200/0 failed; the whole
+  intake ladder 0-failed; only known residuals in exceptions.
+- **Why KQL can't finish:** case-type outcomes are DB audit_event rows, not log lines — the
+  remaining sub-lines (case_type_code=audit on marked rows; engineer_report evidence rows persisted;
+  the QDOS-dual rule incl. the systematic QDOS/A.QDOS pairing question) are Postgres-only → queued
+  Q1–Q7 for the W4 pass.
+- Interesting observation for the operator: the CSV shows systematic QDOS26NNN/A.QDOS26NNN PAIRS
+  (…44, …55, …56, …57, …68) — consistent with review-derived audit IDs sharing the parent number
+  (the D3 dual rule + the nested-folder note in docs/tickets/to-distill/audits/) — Q4b decides.
+
+> Activation record (2026-07-04) follows below.
 
 ## Activation record (2026-07-04)
 

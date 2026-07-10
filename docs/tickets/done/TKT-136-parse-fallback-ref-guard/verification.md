@@ -1,11 +1,26 @@
 # Verification — TKT-136: Guard the /parse fallback reference against money values and text fragments (RIGERANT R1234YF)
 
 ## Verdict
-TESTED (offline)
+VERIFIED-LIVE
 
-Verified by: ticket-verifier dispatch, 10-07-26. Per the verifier: "Running the queued SQL with the
-expected results is sufficient to upgrade to VERIFIED-LIVE; no code gap found." Q1–Q6 ride the next
-(W4) data pass.
+Final certification (ticket-verifier, 10-07-26, after the W4 data pass). Rationale: "Every
+acceptance class now carries live proof — Q1/Q3/Q4 exact (RIGERANT NULL, 4 clears + 8 label-free
+strips, 12 audits), the forward window shows **0 money / 0 fragment / 0 RIGERANT-class refs and 0
+document-lane junk VRMs** across ~36h of guarded production traffic (249+ /parse runs, 0
+exceptions — stronger than the single synthetic probe the remainder envisaged), and the sibling
+suite is green (451/4)."
+
+**Ruling on the W4 anomaly (6 rows, RJS26010–26015):** OUT-OF-LANE — real, recoverable references
+with a glued "Our Reference:" label prefix; the delta itself classified that shape as a distinct
+strip-label repair class; the Acceptance never mentions label-stripping. **→ File as its own
+follow-up ticket** (strip leading label prefixes on the RJS lane), carrying two research notes:
+(a) lane attribution open — a title-case capture would be REJECTED by the deployed fragment guard
+(head "Our" fails REF_PREFIX_HEAD_RE), so fresh glued mints likely arrive via the RJS layout's
+labelled rule / classifier sniff / an uppercase capture — probably not the fallback path this ticket
+guards; (b) the delta header's "the engine fix stops NEW junk" sentence oversold by this one class.
+Q6's JUL2026×2 + JUN2026 are the Held sniff-lane month+year composites already routed via TKT-140's
+follow-up. Timestamp nuance for the follow-up: RJS26010 (07-09 10:27Z) may predate the D2 publish;
+the 07-10 rows are unambiguously post-deploy.
 
 ## Ticket-verifier verdict (transcribed, dispatch of 2026-07-10)
 

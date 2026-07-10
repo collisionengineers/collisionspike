@@ -1,7 +1,16 @@
 # Verification — TKT-023: Link follow-up documents/emails to the existing case + Box
 ## Verdict
-PENDING — one residual, narrower than every prior verdict: a single live chaser-flip observation
-(DB-only, queued SQL).
+VERIFIED-LIVE
+
+Final certification (ticket-verifier, 10-07-26, after the W4 data pass): **line 3's chaser flip was
+observed live** — audit row "Chaser marked responded — the requested item arrived (auto-attach)" on
+case 2e252fcd… at 2026-07-10 15:57:16Z (action 100000023), with 1 chaser row at responded. The
+shared hook is wired at all four attach seams and present in every deploy since 2509853. Lines
+1/2/4 held from the prior live proofs (30 attaches + 51 suggests, one case per PO; Box follow-up PDF
+12s after attach; VRM-tier never auto-attached). One-line caveat (not blocking): the live firing came
+via the auto-attach seam; the suggestion-accept variant calls the identical function with a different
+via-string, is unit-pinned, and will be incidentally re-proven at the TKT-145 staged accept (31
+chasers now outstanding). No new ticket needed.
 
 Verified by: ticket-verifier dispatch, 10-07-26. Findings:
 - **Line 1 (reply attaches, no duplicate case):** live-proven 2026-07-09 (30 attach_case + 51
