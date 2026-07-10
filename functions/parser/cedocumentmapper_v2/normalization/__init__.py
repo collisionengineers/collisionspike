@@ -1,5 +1,6 @@
 from .normalizers import (
     normalize_vrm,
+    normalize_vin,
     normalize_mileage,
     normalize_date,
     normalize_vat_status,
@@ -12,6 +13,7 @@ from .normalizers import (
 
 __all__ = [
     "normalize_vrm",
+    "normalize_vin",
     "normalize_mileage",
     "normalize_date",
     "normalize_vat_status",

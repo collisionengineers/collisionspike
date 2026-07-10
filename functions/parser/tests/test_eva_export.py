@@ -34,6 +34,7 @@ from cedocumentmapper_v2.domain.models import (
     ProviderMatch,
     FieldKey,
     FieldExtraction,
+    EVA_EXPORT_FIELD_ORDER,
     FIELD_ORDER,
     FIELD_LABELS,
 )
@@ -81,12 +82,20 @@ def test_export_full_record_does_not_raise_schema_validation_error():
     including the vendored ROADMAP-B2 Claimant Telephone / Claimant Email — must
     pass ``export()``'s bundled-schema validation. Pre-fix this raised a
     ValidationError because the schema's ``additionalProperties: false`` rejected
-    the two claimant-contact keys the FIELD_ORDER emits."""
+    the two claimant-contact keys the FIELD_ORDER emits.
+
+    Since engine-v2.14 (collisionspike TKT-147) the export enumerates
+    ``EVA_EXPORT_FIELD_ORDER`` — the settled EVA contract key set — never
+    ``FIELD_ORDER``, which now also carries the ENVELOPE-ONLY ``vin`` key that
+    must never reach the EVA payload. The record here still populates every
+    FIELD_ORDER key (vin included) to prove the envelope field cannot leak."""
     exported = EVAJsonExporter().export(_full_record())  # must NOT raise
     data = json.loads(exported)
 
-    # Every FIELD_ORDER label appears in order; nothing extra leaks in.
-    assert list(data.keys()) == [FIELD_LABELS[key] for key in FIELD_ORDER]
+    # Every EVA-contract label appears in order; nothing extra leaks in — the
+    # populated envelope-only vin stays OUT of the payload.
+    assert list(data.keys()) == [FIELD_LABELS[key] for key in EVA_EXPORT_FIELD_ORDER]
+    assert "VIN" not in data
 
 
 def test_export_round_trips_claimant_contact_keys():

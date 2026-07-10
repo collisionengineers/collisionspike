@@ -29,6 +29,40 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-10 (TKT-147 Tractable make two-label capture + vin envelope field):** re-cut from the
+sibling at **`engine-v2.14`** (branch `feat/tkt043-open-case-ref-context`, commit `2609b1a` —
+**branch + annotated tag PUSHED to origin**), INCLUDING a **deliberate providers.json seed update**
+(the Tractable layout's `vehicle_model` rule moves to the NEW `two_label_join` kind with config
+`Producer||Model`, and gains a `vin` single-label rule + `vin` fallback-suppression). **Two-label
+join:** new rule kind `two_label_join` (`rules/engine.py` dispatch + `_extract_two_label_join`;
+v1-method mapping in `config/migration.py`; schema enum + `first_labels`/`second_labels`/`separator`
+in the sibling's schema copies — NOT vendored, see Omitted modules) — captures each of two separately
+labelled parts with the existing label_same_or_next_line machinery and joins the non-empty parts, so
+the Tractable interleaved two-column layout now yields make+model (`Producer`→"Volkswagen" +
+`Model`→"Touran" ⇒ **"Volkswagen Touran"**; the TKT-102 make/Producer remainder is closed). A bare
+placeholder-dash part reads as absent. **vin:** new `FieldKey.VIN` — OPTIONAL, envelope-only,
+label-driven per layout with deliberately NO document-wide fallback sniff (absence stays absence);
+`normalize_vin` (`normalization/normalizers.py` + `__init__.py` export) uppercases/strips whitespace
+and blanks bare placeholder tokens (`-`, `N/A` — the Tractable no-VIN samples print `-`). **The EVA
+export is UNCHANGED:** `domain/models.py` adds `EVA_EXPORT_FIELD_ORDER` (= the settled EVA key set)
+and `exporters/eva_json.py` iterates IT, never `FIELD_ORDER`, so `vin` rides the record/`/parse`
+`fields` envelope (via `record_to_dict` — no adapter change needed) but can never reach the EVA JSON
+payload (`eva-json.schema.json` untouched, `additionalProperties: false` still enforced; sibling test
+pins a VIN-carrying record exports without one). Sibling fixtures: `TRACTABLE_01` re-pinned
+(vehicle_model "Volkswagen Touran" + vin present), NEW `TRACTABLE 02.pdf` (the TKT-102 evidence
+`tractable2.pdf`) pins the NO-VIN sample (vin `""` from the `-` placeholder). Sibling suite **451
+passed / 4 skipped** (439 → 451, +12 new); eval baseline deliberately regenerated via an ISOLATED
+seeded engine (all movement upward: overall 0.9483→0.9571, new `vin: 1.0`, work_provider
+0.75→0.7778, vehicle_model stays 1.0); mypy/ruff pre-existing findings unchanged (35/27), none in
+the changed files' additions. Byte-mirror restored (drift guard green). This repo's parser suite:
+281 passed / 11 skipped / 1 PRE-EXISTING environmental failure — identical counts to the
+pre-re-cut baseline captured this pass (`test_multiformat_extraction[ALS_doc]` fails identically
+against the pre-re-cut tree on this Windows box); `tests/test_eva_export.py`'s full-record test was
+updated to the `EVA_EXPORT_FIELD_ORDER` contract (+ a VIN-cannot-leak assertion). NOTE: this
+entry also TRUES UP the prior entry's "commit + `engine-v2.13` tag PENDING" caveat — the C2/C4 cut
+was subsequently committed as sibling `05494a9` and the `engine-v2.13` tag (lightweight) pushed to
+origin, so the v2.13 pin this cut supersedes was reproducible after all.
+
 **2026-07-09 (classifier bug-fixes C2 body-only-instruction + C4 labelled-ref money — collisionspike):**
 re-cut from the sibling at **`engine-v2.13`** (branch `feat/tkt043-open-case-ref-context`; **commit +
 `engine-v2.13` tag PENDING** — this re-cut was applied to the sibling working tree only; the operator
@@ -328,11 +362,18 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** intended tag **`engine-v2.13`** on branch
-  `feat/tkt043-open-case-ref-context` — **commit + `engine-v2.13` tag PENDING** (the classifier
-  C2/C4 bug-fix re-cut was applied to the sibling working tree; the operator commits + tags + pushes
-  it per ADR-0018 BEFORE deploying the parser Function — do NOT deploy from an uncommitted re-cut).
-  Changed vs `engine-v2.12`: **`rules/email_classifier.py` ONLY** (C2 `pre_instruction` Rule-0e
+- **Cut from:** annotated tag **`engine-v2.14`** on branch
+  `feat/tkt043-open-case-ref-context`, commit **`2609b1a`** (2026-07-10) — **branch + tag PUSHED to
+  origin**. The TKT-147 `two_label_join` rule kind (Tractable `Producer`+`Model` make+model capture)
+  + `FieldKey.VIN` envelope-only field slot (`EVA_EXPORT_FIELD_ORDER` keeps the EVA export
+  byte-stable), incl. a **deliberate providers.json seed update** (see History above). Changed vs
+  `engine-v2.13`: `domain/models.py`, `rules/engine.py`, `config/migration.py`,
+  `exporters/eva_json.py`, `normalization/normalizers.py`, `normalization/__init__.py`, and the
+  providers.json seed.
+  Prior pin: **`engine-v2.13`** on the same branch, commit **`05494a9`** (2026-07-09; tag pushed as
+  lightweight — this file briefly recorded it "commit + tag PENDING" while the re-cut preceded the
+  sibling commit; it has since been committed + pushed, restoring a reproducible pin). Changed vs
+  `engine-v2.12`: **`rules/email_classifier.py` ONLY** (C2 `pre_instruction` Rule-0e
   disqualifier + C4 labelled-ref `finditer`; no new taxonomy codes, no DDL dependency).
   Prior committed pin: annotated tag **`engine-v2.12`** on the same branch, commit **`ab5f8d2`**
   (2026-07-09) — the TKT-136 fallback-reference money/fragment guards + document-path VRM

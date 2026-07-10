@@ -1,0 +1,46 @@
+== TRACTABLE 01.pdf -- fixture tractable_01 (= TKT-102 evidence tractable.pdf; VIN PRESENT)
+   provider=tractable confidence=1.0
+   vrm                = 'YP64YRW'
+   vehicle_model      = 'Volkswagen Touran'
+   vin                = 'WVGZZZ1TZFW030347'
+   mileage            = '143875'
+   incident_date      = '06/07/2026'
+   reference          = ''
+   work_provider      = ''
+   claimant_name      = ''
+   claimant_email     = ''
+   inspection_address = ''
+
+== TRACTABLE 02.pdf -- fixture tractable_02 (= TKT-102 evidence tractable2.pdf; VIN row is the '-' placeholder = ABSENT)
+   provider=tractable confidence=1.0
+   vrm                = 'OU66VDC'
+   vehicle_model      = 'Hyundai i30'
+   vin                = ''
+   mileage            = '188982'
+   incident_date      = '02/06/2026'
+   reference          = ''
+   work_provider      = ''
+   claimant_name      = ''
+   claimant_email     = ''
+   inspection_address = ''
+
+== LINE_LEVEL_ESTIMATE.pdf -- third real sample (not a fixture; VIN '-' = ABSENT)
+   provider=tractable confidence=1.0
+   vrm                = 'HG17ZTM'
+   vehicle_model      = 'Toyota Auris'
+   vin                = ''
+   mileage            = '69444'
+   incident_date      = '02/06/2026'
+   reference          = ''
+   work_provider      = ''
+   claimant_name      = ''
+   claimant_email     = ''
+   inspection_address = ''
+
+vehicle_model = the NEW two_label_join 'Producer'+'Model' capture (TKT-147);
+vin = the NEW envelope-only FieldKey.VIN slot ('-' placeholder normalizes to absent).
+record fields carry vin: True -> WVGZZZ1TZFW030347
+record vehicle_model    : Volkswagen Touran
+EVA extraction keys     : ['work_provider', 'vehicle_model', 'claimant_name', 'claimant_telephone', 'claimant_email', 'date_of_loss', 'date_of_instruction', 'accident_circumstances', 'inspection_address', 'vat_status', 'mileage', 'mileage_unit']
+vin in EVA extraction   : False
+EVA vehicle_model value : Volkswagen Touran
