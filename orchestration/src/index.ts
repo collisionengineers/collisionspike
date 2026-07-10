@@ -26,6 +26,8 @@ import './functions/intake-starter.js';
 import './functions/outlook-move.js';
 // case_link evidence backfill consumer (TKT-145; enqueued by the Data API accept seam)
 import './functions/evidence-backfill.js';
+// Box FILE.UPLOADED-lane image classify sweep (TKT-146; timer, IMAGE_ROLE_CLASSIFY + BOX_API gated)
+import './functions/box-classify-sweep.js';
 import './functions/intakeOrchestrator.js';
 import './functions/activities/fetchMessage.js';
 import './functions/activities/providerMatch.js';

@@ -30,6 +30,8 @@
  *  GET  /api/internal/box/case-by-folder/{folderId}  → { caseId: string | null, casePo: string | null }
  *  GET  /api/internal/box/purge-candidates           → [{ caseId, blobPath }]
  *  POST /api/internal/box/mark-purged                → 204
+ *  GET  /api/internal/evidence/unclassified-box      → { rows: [...] } (TKT-146: still-unclassified
+ *                                                        FILE.UPLOADED-lane image rows for the orch classify sweep)
  *  GET  /api/internal/cases/{id}/box-folder          → { boxFolderId, boxFolderUrl, casePo }
  *  POST /api/internal/cases/{id}/box-folder          → { applied, boxFolderId } (first-wins stamp)
  *  POST /api/internal/triage/context                 → { openCaseMatches, duplicateInternetMessageId, conversationSiblingCaseIds } (rules-engine-v2 Phase 2)
@@ -3145,6 +3147,72 @@ app.http('internalBoxMarkPurged', {
         [body.caseId, body.blobPath],
       );
       return { status: 204 };
+    }),
+});
+
+/* ============================================================
+   11b — GET /api/internal/evidence/unclassified-box   (TKT-146)
+   Called by: the orchestration `box-classify-sweep` timer. Enumerates the
+   still-unclassified FILE.UPLOADED-lane image evidence rows (box_file_id
+   present, source_label 'box_upload…' — the box-webhook writes plain
+   'box_upload' or 'box_upload sha1=<sha1>'; the retro register's archive
+   rows use a different label and stay out of the sweep) together with each
+   row's case VRM + work-provider id, so the sweep can vision-classify them
+   shortly after upload (TKT-064 policy) and honour the per-provider
+   ai_allowed opt-out.
+
+   "Still unclassified" is the TKT-131 predicate: image_role_code = unknown
+   AND registration_visible IS NULL. A successful classification ALWAYS
+   stamps a boolean registration_visible — including the non-vehicle 'other'
+   verdict, which keeps role `unknown` (no 'other' option in the choice set)
+   but is stamped not-accepted — so a classified row is never re-enumerated
+   and re-sweeps are idempotent. Excluded rows are never candidates. The
+   14-day created_at window bounds eternal retry of permanently-failing rows
+   (e.g. AOAI content-safety refusals — TKT-131 left 4 such residuals);
+   newest-first + LIMIT gives fresh uploads event-time priority under the
+   sweep cap.
+   ============================================================ */
+app.http('internalEvidenceUnclassifiedBox', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'internal/evidence/unclassified-box',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const limitRaw = Number(req.query.get('limit') ?? '25');
+      const limit = Math.min(100, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25));
+      const imageKind = evidenceKindCodec.toInt('image') ?? 100000000;
+      const unknownRole = imageRoleCodec.toInt('unknown' as ImageRole) ?? 100000003;
+      const rows = await query<Row>(
+        `SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id,
+                e.source_message_id, c.vrm, c.work_provider_id
+           FROM evidence e
+           JOIN case_ c ON c.id = e.case_id
+          WHERE e.box_file_id IS NOT NULL
+            AND e.source_label LIKE 'box_upload%'
+            AND e.kind_code = $1
+            AND e.image_role_code = $2
+            AND e.registration_visible IS NULL
+            AND e.excluded = false
+            AND e.created_at > now() - interval '14 days'
+          ORDER BY e.created_at DESC
+          LIMIT $3`,
+        [imageKind, unknownRole, limit],
+      );
+      return {
+        status: 200,
+        jsonBody: {
+          rows: rows.map((r) => ({
+            evidenceId: r.id as string,
+            caseId: r.case_id as string,
+            filename: (r.file_name as string | null) ?? '',
+            contentType: (r.content_type as string | null) ?? null,
+            boxFileId: r.box_file_id as string,
+            sourceMessageId: (r.source_message_id as string | null) ?? null,
+            caseVrm: (r.vrm as string | null) ?? '',
+            workProviderId: (r.work_provider_id as string | null) ?? '',
+          })),
+        },
+      };
     }),
 });
 

@@ -211,6 +211,25 @@ export interface TriageSuggestClassificationRequest {
   modelVersion: string;
 }
 
+/**
+ * One still-unclassified FILE.UPLOADED-lane image evidence row
+ * (GET /api/internal/evidence/unclassified-box — TKT-146). `sourceMessageId` is the
+ * row's durable `box:file:<id>` dedup tag when the registration wrote one; the sweep
+ * mirrors the row's OWN identity verbatim on the stamp re-POST (see
+ * box-classify-sweep.ts's buildStampRow — sending a tag the row does not have would
+ * make the evidence route's NOT-EXISTS dedup miss and INSERT a duplicate).
+ */
+export interface UnclassifiedBoxEvidenceRow {
+  evidenceId: string;
+  caseId: string;
+  filename: string;
+  contentType: string | null;
+  boxFileId: string;
+  sourceMessageId: string | null;
+  caseVrm: string;
+  workProviderId: string;
+}
+
 export const dataApi = {
   /**
    * Providers + Image-Source intermediaries for the in-activity `matchSenderIdentity`
@@ -727,6 +746,50 @@ export const dataApi = {
   /** Mark an evidence blob purged after the one-way Box mirror confirmed it (internal route). */
   markBlobPurged(payload: { caseId: string; blobPath: string }): Promise<void> {
     return request('POST', '/api/internal/box/mark-purged', payload);
+  },
+
+  /**
+   * TKT-146 — still-unclassified FILE.UPLOADED-lane image evidence rows (internal route;
+   * read-only). The box-classify-sweep timer's enumeration: rows with box_file_id whose
+   * image_role_code is `unknown` AND registration_visible IS NULL (the TKT-131
+   * "still-unclassified" predicate — a classified non-vehicle row keeps role unknown but
+   * gains a boolean registration_visible, so re-sweeps are idempotent), newest first,
+   * capped server-side at `limit` (clamped 1..100) inside a 14-day created_at window.
+   */
+  unclassifiedBoxEvidence(limit: number): Promise<{ rows: UnclassifiedBoxEvidenceRow[] }> {
+    return request(
+      'GET',
+      `/api/internal/evidence/unclassified-box?limit=${encodeURIComponent(String(limit))}`,
+    );
+  },
+
+  /**
+   * TKT-146 — stamp one Box-lane evidence row's vision classification via the EXISTING
+   * internal evidence route: a re-POST of the row's own identity (its `box:file:<id>`
+   * source_message_id when present, else its box_file_id) with the image metadata; the
+   * route's box-lane NOT-EXISTS dedup no-ops the insert and `applyEvidenceMetadata`
+   * updates the row in place. DELIBERATELY no sha256 on this call: supplying one would
+   * engage the TKT-133 (case_id, sha256) twin pass, which can redirect the stamp onto a
+   * cross-lane twin row and leave the target row unclassified (a sweep loop).
+   */
+  stampBoxEvidenceClassification(
+    caseId: string,
+    row: {
+      filename: string;
+      evidenceClass: 'image';
+      sourceMessageId?: string;
+      boxFileId: string;
+      imageRole: string;
+      registrationVisible: boolean;
+      acceptedForEva: boolean;
+      excluded?: boolean;
+      exclusionReason?: string;
+      personReflection: boolean;
+    },
+  ): Promise<{ persisted: number; updated: number; merged: number }> {
+    return request('POST', `/api/internal/cases/${encodeURIComponent(caseId)}/evidence`, {
+      rows: [row],
+    });
   },
 
   /**

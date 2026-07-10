@@ -3312,6 +3312,34 @@ var dataApi = {
     return request("POST", "/api/internal/box/mark-purged", payload);
   },
   /**
+   * TKT-146 — still-unclassified FILE.UPLOADED-lane image evidence rows (internal route;
+   * read-only). The box-classify-sweep timer's enumeration: rows with box_file_id whose
+   * image_role_code is `unknown` AND registration_visible IS NULL (the TKT-131
+   * "still-unclassified" predicate — a classified non-vehicle row keeps role unknown but
+   * gains a boolean registration_visible, so re-sweeps are idempotent), newest first,
+   * capped server-side at `limit` (clamped 1..100) inside a 14-day created_at window.
+   */
+  unclassifiedBoxEvidence(limit) {
+    return request(
+      "GET",
+      `/api/internal/evidence/unclassified-box?limit=${encodeURIComponent(String(limit))}`
+    );
+  },
+  /**
+   * TKT-146 — stamp one Box-lane evidence row's vision classification via the EXISTING
+   * internal evidence route: a re-POST of the row's own identity (its `box:file:<id>`
+   * source_message_id when present, else its box_file_id) with the image metadata; the
+   * route's box-lane NOT-EXISTS dedup no-ops the insert and `applyEvidenceMetadata`
+   * updates the row in place. DELIBERATELY no sha256 on this call: supplying one would
+   * engage the TKT-133 (case_id, sha256) twin pass, which can redirect the stamp onto a
+   * cross-lane twin row and leave the target row unclassified (a sweep loop).
+   */
+  stampBoxEvidenceClassification(caseId, row) {
+    return request("POST", `/api/internal/cases/${encodeURIComponent(caseId)}/evidence`, {
+      rows: [row]
+    });
+  },
+  /**
    * Read a case's current Box folder linkage (internal route; idempotency source for
    * box-folder-create). `boxFolderId` is null when the case has no folder yet.
    */
@@ -50280,6 +50308,290 @@ import_functions9.app.storageQueue("evidence-backfill", {
   }
 });
 
+// orchestration/src/functions/box-classify-sweep.ts
+var import_functions10 = require("@azure/functions");
+
+// orchestration/src/lib/functions-client.ts
+var PARSER = { urlEnv: "PARSER_FN_URL", keyEnv: "PARSER_FN_KEY" };
+var BOX = { urlEnv: "BOXWEBHOOK_FN_URL", keyEnv: "BOXWEBHOOK_FN_KEY" };
+var EVA = { urlEnv: "EVASENTRY_FN_URL", keyEnv: "EVASENTRY_FN_KEY" };
+var OCR = { urlEnv: "OCR_FN_URL", keyEnv: "OCR_FN_KEY" };
+async function callFunction(target, method, route, body2) {
+  const base = process.env[target.urlEnv];
+  const key = process.env[target.keyEnv];
+  if (!base) throw new Error(`missing app-setting ${target.urlEnv}`);
+  const url2 = `${base.replace(/\/$/, "")}/api/${route.replace(/^\//, "")}`;
+  const res = await fetch(url2, {
+    method,
+    headers: {
+      ...body2 !== void 0 ? { "Content-Type": "application/json" } : {},
+      ...key ? { "x-functions-key": key } : {}
+    },
+    body: body2 !== void 0 ? JSON.stringify(body2) : void 0
+  });
+  if (!res.ok) {
+    throw new Error(`fn ${method} ${route} \u2192 ${res.status}: ${await safeText3(res)}`);
+  }
+  if (res.status === 204) return void 0;
+  return await res.json();
+}
+function callClassifyEmail(input14) {
+  return callFunction(PARSER, "POST", "classify-email", {
+    subject: input14.subject ?? "",
+    body: input14.body ?? "",
+    from: input14.from ?? "",
+    sender_domain: input14.senderDomain ?? "",
+    provider_match_state: input14.providerMatchState ?? "",
+    attachment_kinds: input14.attachmentKinds ?? [],
+    attachment_filenames: input14.attachmentFilenames ?? [],
+    has_attachments: input14.hasAttachments ?? false,
+    in_reply_to: input14.inReplyTo ?? "",
+    references: input14.references ?? ""
+  });
+}
+function callExtractImages(input14) {
+  return callFunction(PARSER, "POST", "extract-images", {
+    document: input14.documentBase64,
+    filename: input14.filename,
+    ...input14.provider ? { provider: input14.provider } : {},
+    ...input14.vrm ? { vrm: input14.vrm } : {}
+  });
+}
+function callPlateOcr(input14) {
+  return callFunction(OCR, "POST", "plate-ocr", {
+    image: input14.imageBase64,
+    filename: input14.filename,
+    ...input14.caseVrm ? { case_vrm: input14.caseVrm } : {}
+  });
+}
+function callOcrPdf(input14) {
+  return callFunction(OCR, "POST", "ocr-pdf", {
+    document: input14.documentBase64,
+    filename: input14.filename,
+    ...input14.providerHint ? { provider_hint: input14.providerHint } : {}
+  });
+}
+function callExplodeEml(input14) {
+  return callFunction(PARSER, "POST", "explode-eml", {
+    document: input14.documentBase64,
+    ...input14.filename ? { filename: input14.filename } : {}
+  });
+}
+function callEvaSubmit(caseId) {
+  return callFunction(EVA, "POST", "submit", { caseId });
+}
+var box = {
+  createFolder(name, parentId) {
+    return callFunction(BOX, "POST", "box/folders", { name, parent: { id: parentId } });
+  },
+  /**
+   * Archive one evidence byte-stream into a case Box folder — the one-way
+   * Blob -> Box mirror (ADR-0012; box-sync ticket). The bytes ride as base64 in a
+   * JSON body (the facade carries no multipart); the box-webhook Function decodes
+   * and multipart-POSTs them to upload.box.com, scope-locked to BOX_ALLOWED_ROOT_ID.
+   * 409 name-conflict is an idempotent reuse server-side, so a replayed archive
+   * never duplicates a file.
+   */
+  uploadFile(folderId, filename, contentBase64, contentType2) {
+    return callFunction(BOX, "POST", `box/folders/${folderId}/files`, {
+      filename,
+      contentBase64,
+      ...contentType2 ? { contentType: contentType2 } : {}
+    });
+  },
+  /**
+   * TKT-142 — archive one LARGE evidence file by BLOB REFERENCE instead of inline
+   * base64. Same facade route as `uploadFile`; `blobPath` and `contentBase64` are
+   * mutually exclusive. The facade downloads the blob ITSELF from the evidence storage
+   * account (its own managed identity; EVIDENCE_BLOB_ACCOUNT / EVIDENCE_BLOB_CONTAINER,
+   * default 'evidence') and streams it to Box — direct upload <20MB, Box chunked-upload
+   * session ≥20MB — so the base64-in-JSON body that killed the facade worker on a
+   * 17.6MB `.eml` (~23MB encoded → 502 + small-file recycle collateral) never exists.
+   * `blobPath` is the evidence row's container-relative storage_path (the exact path
+   * `blob.ts` downloadEvidenceBytes takes). Idempotency unchanged: a Box 409
+   * name-conflict is reused server-side.
+   */
+  uploadFileFromBlob(folderId, filename, blobPath, contentType2) {
+    return callFunction(BOX, "POST", `box/folders/${folderId}/files`, {
+      filename,
+      blobPath,
+      ...contentType2 ? { contentType: contentType2 } : {}
+    });
+  },
+  copyFileRequest(fileRequestId, folderId) {
+    return callFunction(BOX, "POST", `box/file-requests/${fileRequestId}/copy`, {
+      folder: { id: folderId }
+    });
+  },
+  listFolderItems(folderId) {
+    return callFunction(BOX, "GET", `box/folders/${folderId}/items`);
+  },
+  /**
+   * READ-ONLY content/name search under the configured archive roots (ADR-0022 R2 —
+   * the retro reconstruction's find-the-case-folder primitive). The facade validates
+   * the roots server-side (RW root + BOX_READONLY_ROOT_IDS only) and post-filters
+   * every hit to provable root ancestry; each hit carries its resolved caseFolder
+   * (the ancestor directly under the matched root).
+   */
+  searchContent(input14) {
+    return callFunction(BOX, "POST", "box/search", {
+      query: input14.query,
+      ...input14.rootIds && input14.rootIds.length ? { rootIds: input14.rootIds } : {},
+      ...input14.type ? { type: input14.type } : {},
+      ...input14.contentTypes ? { contentTypes: input14.contentTypes } : {},
+      ...input14.limit != null ? { limit: input14.limit } : {}
+    });
+  },
+  /**
+   * READ-ONLY byte fetch of one archive file (ADR-0022 R2 — the original instruction
+   * `.eml`/document). Size-capped server-side (base64-in-JSON transport); RO archive
+   * files are allowed, writes into them never are.
+   */
+  downloadFile(fileId) {
+    return callFunction(BOX, "GET", `box/files/${fileId}/content`);
+  }
+};
+async function safeText3(res) {
+  try {
+    return (await res.text()).slice(0, 500);
+  } catch {
+    return "<no body>";
+  }
+}
+
+// orchestration/src/functions/box-classify-sweep.ts
+var SWEEP_SCHEDULE = "0 */5 * * * *";
+var SWEEP_CAP = 25;
+var EXT_MIME = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  bmp: "image/bmp",
+  webp: "image/webp",
+  tif: "image/tiff",
+  tiff: "image/tiff",
+  heic: "image/heic"
+};
+function mimeForClassify(filename, contentType2) {
+  const ct = (contentType2 ?? "").trim().toLowerCase();
+  if (ct.startsWith("image/")) return ct;
+  const m = /\.([a-z0-9]+)$/i.exec(filename ?? "");
+  const mapped = m ? EXT_MIME[m[1].toLowerCase()] : void 0;
+  return mapped ?? "image/jpeg";
+}
+function buildStampRow(row, fields) {
+  return {
+    filename: row.filename,
+    evidenceClass: "image",
+    ...row.sourceMessageId ? { sourceMessageId: row.sourceMessageId } : {},
+    boxFileId: row.boxFileId,
+    imageRole: fields.imageRole,
+    registrationVisible: fields.registrationVisible,
+    acceptedForEva: fields.acceptedForEva,
+    personReflection: fields.personReflection,
+    ...fields.excluded ? { excluded: true, exclusionReason: fields.exclusionReason ?? "Excluded" } : {}
+  };
+}
+import_functions10.app.timer("box-classify-sweep", {
+  schedule: SWEEP_SCHEDULE,
+  handler: async (_timer, ctx) => {
+    if (!gates.imageRoleClassifyEnabled() || !gates.boxApi()) return;
+    const started = Date.now();
+    let rows;
+    try {
+      rows = (await dataApi.unclassifiedBoxEvidence(SWEEP_CAP)).rows ?? [];
+    } catch (e) {
+      ctx.warn(
+        `[box-classify-sweep] enumeration failed (will retry next sweep): ${e instanceof Error ? e.message : String(e)}`
+      );
+      return;
+    }
+    if (rows.length === 0) return;
+    const aiAllowedByProvider = /* @__PURE__ */ new Map();
+    const stampedCases = /* @__PURE__ */ new Set();
+    let classified = 0;
+    let stamped = 0;
+    let failed = 0;
+    let skippedOptOut = 0;
+    for (const row of rows) {
+      try {
+        const providerId = row.workProviderId || "";
+        if (providerId) {
+          let allowed = aiAllowedByProvider.get(providerId);
+          if (allowed === void 0) {
+            try {
+              allowed = (await dataApi.workProviderAiAllowed(providerId)).aiAllowed;
+            } catch {
+              allowed = null;
+            }
+            aiAllowedByProvider.set(providerId, allowed);
+          }
+          if (allowed === false) {
+            skippedOptOut++;
+            continue;
+          }
+        }
+        const dl = await box.downloadFile(row.boxFileId);
+        const cls = await classifyImage({
+          imageBase64: dl.contentBase64,
+          contentType: mimeForClassify(row.filename, row.contentType),
+          caseVrm: row.caseVrm || void 0
+        });
+        if (!cls) {
+          failed++;
+          ctx.log(
+            JSON.stringify({ evt: "boxClassifySweep.classifyNull", evidenceId: row.evidenceId })
+          );
+          continue;
+        }
+        classified++;
+        const fields = classificationToEvidenceFields(cls, row.caseVrm || void 0);
+        await dataApi.stampBoxEvidenceClassification(row.caseId, buildStampRow(row, fields));
+        stamped++;
+        stampedCases.add(row.caseId);
+        ctx.log(
+          JSON.stringify({
+            evt: "boxClassifySweep.stamped",
+            evidenceId: row.evidenceId,
+            caseId: row.caseId,
+            boxFileId: row.boxFileId,
+            role: fields.imageRole,
+            registrationVisible: fields.registrationVisible,
+            excluded: fields.excluded === true
+          })
+        );
+      } catch (e) {
+        failed++;
+        ctx.warn(
+          `[box-classify-sweep] ${row.evidenceId} left role-unknown: ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+    }
+    for (const caseId of stampedCases) {
+      try {
+        await dataApi.evaluateStatus(caseId);
+      } catch (e) {
+        ctx.warn(
+          `[box-classify-sweep] status re-evaluate failed for ${caseId}: ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+    }
+    ctx.log(
+      JSON.stringify({
+        evt: "boxClassifySweep",
+        enumerated: rows.length,
+        classified,
+        stamped,
+        failed,
+        skippedOptOut,
+        casesReEvaluated: stampedCases.size,
+        ms: Date.now() - started
+      })
+    );
+  }
+});
+
 // orchestration/src/functions/intakeOrchestrator.ts
 var df7 = __toESM(require("durable-functions"), 1);
 
@@ -50433,7 +50745,7 @@ df5.app.activity("imagesReceivedVrmMatch", {
 });
 
 // orchestration/src/functions/gated/triage-classify.ts
-var import_functions10 = require("@azure/functions");
+var import_functions11 = require("@azure/functions");
 var df6 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/telemetry.ts
@@ -50512,7 +50824,7 @@ function domainOf2(address) {
 function providerAiOptedOut(aiAllowed) {
   return aiAllowed === false;
 }
-import_functions10.app.http("triage-classify-start", {
+import_functions11.app.http("triage-classify-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "triage-classify",
@@ -51150,156 +51462,6 @@ df9.app.activity("providerMatch", {
 
 // orchestration/src/functions/activities/classifyInbound.ts
 var df10 = __toESM(require("durable-functions"), 1);
-
-// orchestration/src/lib/functions-client.ts
-var PARSER = { urlEnv: "PARSER_FN_URL", keyEnv: "PARSER_FN_KEY" };
-var BOX = { urlEnv: "BOXWEBHOOK_FN_URL", keyEnv: "BOXWEBHOOK_FN_KEY" };
-var EVA = { urlEnv: "EVASENTRY_FN_URL", keyEnv: "EVASENTRY_FN_KEY" };
-var OCR = { urlEnv: "OCR_FN_URL", keyEnv: "OCR_FN_KEY" };
-async function callFunction(target, method, route, body2) {
-  const base = process.env[target.urlEnv];
-  const key = process.env[target.keyEnv];
-  if (!base) throw new Error(`missing app-setting ${target.urlEnv}`);
-  const url2 = `${base.replace(/\/$/, "")}/api/${route.replace(/^\//, "")}`;
-  const res = await fetch(url2, {
-    method,
-    headers: {
-      ...body2 !== void 0 ? { "Content-Type": "application/json" } : {},
-      ...key ? { "x-functions-key": key } : {}
-    },
-    body: body2 !== void 0 ? JSON.stringify(body2) : void 0
-  });
-  if (!res.ok) {
-    throw new Error(`fn ${method} ${route} \u2192 ${res.status}: ${await safeText3(res)}`);
-  }
-  if (res.status === 204) return void 0;
-  return await res.json();
-}
-function callClassifyEmail(input14) {
-  return callFunction(PARSER, "POST", "classify-email", {
-    subject: input14.subject ?? "",
-    body: input14.body ?? "",
-    from: input14.from ?? "",
-    sender_domain: input14.senderDomain ?? "",
-    provider_match_state: input14.providerMatchState ?? "",
-    attachment_kinds: input14.attachmentKinds ?? [],
-    attachment_filenames: input14.attachmentFilenames ?? [],
-    has_attachments: input14.hasAttachments ?? false,
-    in_reply_to: input14.inReplyTo ?? "",
-    references: input14.references ?? ""
-  });
-}
-function callExtractImages(input14) {
-  return callFunction(PARSER, "POST", "extract-images", {
-    document: input14.documentBase64,
-    filename: input14.filename,
-    ...input14.provider ? { provider: input14.provider } : {},
-    ...input14.vrm ? { vrm: input14.vrm } : {}
-  });
-}
-function callPlateOcr(input14) {
-  return callFunction(OCR, "POST", "plate-ocr", {
-    image: input14.imageBase64,
-    filename: input14.filename,
-    ...input14.caseVrm ? { case_vrm: input14.caseVrm } : {}
-  });
-}
-function callOcrPdf(input14) {
-  return callFunction(OCR, "POST", "ocr-pdf", {
-    document: input14.documentBase64,
-    filename: input14.filename,
-    ...input14.providerHint ? { provider_hint: input14.providerHint } : {}
-  });
-}
-function callExplodeEml(input14) {
-  return callFunction(PARSER, "POST", "explode-eml", {
-    document: input14.documentBase64,
-    ...input14.filename ? { filename: input14.filename } : {}
-  });
-}
-function callEvaSubmit(caseId) {
-  return callFunction(EVA, "POST", "submit", { caseId });
-}
-var box = {
-  createFolder(name, parentId) {
-    return callFunction(BOX, "POST", "box/folders", { name, parent: { id: parentId } });
-  },
-  /**
-   * Archive one evidence byte-stream into a case Box folder — the one-way
-   * Blob -> Box mirror (ADR-0012; box-sync ticket). The bytes ride as base64 in a
-   * JSON body (the facade carries no multipart); the box-webhook Function decodes
-   * and multipart-POSTs them to upload.box.com, scope-locked to BOX_ALLOWED_ROOT_ID.
-   * 409 name-conflict is an idempotent reuse server-side, so a replayed archive
-   * never duplicates a file.
-   */
-  uploadFile(folderId, filename, contentBase64, contentType2) {
-    return callFunction(BOX, "POST", `box/folders/${folderId}/files`, {
-      filename,
-      contentBase64,
-      ...contentType2 ? { contentType: contentType2 } : {}
-    });
-  },
-  /**
-   * TKT-142 — archive one LARGE evidence file by BLOB REFERENCE instead of inline
-   * base64. Same facade route as `uploadFile`; `blobPath` and `contentBase64` are
-   * mutually exclusive. The facade downloads the blob ITSELF from the evidence storage
-   * account (its own managed identity; EVIDENCE_BLOB_ACCOUNT / EVIDENCE_BLOB_CONTAINER,
-   * default 'evidence') and streams it to Box — direct upload <20MB, Box chunked-upload
-   * session ≥20MB — so the base64-in-JSON body that killed the facade worker on a
-   * 17.6MB `.eml` (~23MB encoded → 502 + small-file recycle collateral) never exists.
-   * `blobPath` is the evidence row's container-relative storage_path (the exact path
-   * `blob.ts` downloadEvidenceBytes takes). Idempotency unchanged: a Box 409
-   * name-conflict is reused server-side.
-   */
-  uploadFileFromBlob(folderId, filename, blobPath, contentType2) {
-    return callFunction(BOX, "POST", `box/folders/${folderId}/files`, {
-      filename,
-      blobPath,
-      ...contentType2 ? { contentType: contentType2 } : {}
-    });
-  },
-  copyFileRequest(fileRequestId, folderId) {
-    return callFunction(BOX, "POST", `box/file-requests/${fileRequestId}/copy`, {
-      folder: { id: folderId }
-    });
-  },
-  listFolderItems(folderId) {
-    return callFunction(BOX, "GET", `box/folders/${folderId}/items`);
-  },
-  /**
-   * READ-ONLY content/name search under the configured archive roots (ADR-0022 R2 —
-   * the retro reconstruction's find-the-case-folder primitive). The facade validates
-   * the roots server-side (RW root + BOX_READONLY_ROOT_IDS only) and post-filters
-   * every hit to provable root ancestry; each hit carries its resolved caseFolder
-   * (the ancestor directly under the matched root).
-   */
-  searchContent(input14) {
-    return callFunction(BOX, "POST", "box/search", {
-      query: input14.query,
-      ...input14.rootIds && input14.rootIds.length ? { rootIds: input14.rootIds } : {},
-      ...input14.type ? { type: input14.type } : {},
-      ...input14.contentTypes ? { contentTypes: input14.contentTypes } : {},
-      ...input14.limit != null ? { limit: input14.limit } : {}
-    });
-  },
-  /**
-   * READ-ONLY byte fetch of one archive file (ADR-0022 R2 — the original instruction
-   * `.eml`/document). Size-capped server-side (base64-in-JSON transport); RO archive
-   * files are allowed, writes into them never are.
-   */
-  downloadFile(fileId) {
-    return callFunction(BOX, "GET", `box/files/${fileId}/content`);
-  }
-};
-async function safeText3(res) {
-  try {
-    return (await res.text()).slice(0, 500);
-  } catch {
-    return "<no body>";
-  }
-}
-
-// orchestration/src/functions/activities/classifyInbound.ts
 var MATCH_STATE_TO_CLASSIFIER = {
   matched: "one",
   unmatched: "none",
@@ -51949,7 +52111,7 @@ df18.app.activity("enrich", {
 });
 
 // orchestration/src/functions/activities/boxArchive.ts
-var import_functions11 = require("@azure/functions");
+var import_functions12 = require("@azure/functions");
 var df19 = __toESM(require("durable-functions"), 1);
 var DEFAULT_INLINE_UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
 function boxInlineUploadMaxBytes() {
@@ -51970,7 +52132,7 @@ async function uploadArchiveItem(folderId, item, maxInlineBytes = boxInlineUploa
   const bytes = await deps.download(item.blobPath);
   return deps.uploadInline(folderId, item.filename, bytes.toString("base64"), item.contentType);
 }
-import_functions11.app.http("box-archive-start", {
+import_functions12.app.http("box-archive-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "box-archive",
@@ -52274,9 +52436,9 @@ df21.app.activity("imagesUnmatched", {
 });
 
 // orchestration/src/functions/gated/finalize-eva-box.ts
-var import_functions12 = require("@azure/functions");
+var import_functions13 = require("@azure/functions");
 var df22 = __toESM(require("durable-functions"), 1);
-import_functions12.app.http("finalize-eva-box-start", {
+import_functions13.app.http("finalize-eva-box-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "finalize-eva-box",
@@ -52322,9 +52484,9 @@ df22.app.activity("boxFolderAugment", {
 });
 
 // orchestration/src/functions/gated/chaser.ts
-var import_functions13 = require("@azure/functions");
+var import_functions14 = require("@azure/functions");
 var df23 = __toESM(require("durable-functions"), 1);
-import_functions13.app.http("chaser-start", {
+import_functions14.app.http("chaser-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "chaser",
@@ -52363,9 +52525,9 @@ df23.app.activity("chaserSend", {
 });
 
 // orchestration/src/functions/gated/box-folder-create.ts
-var import_functions14 = require("@azure/functions");
+var import_functions15 = require("@azure/functions");
 var df24 = __toESM(require("durable-functions"), 1);
-import_functions14.app.http("box-folder-create-start", {
+import_functions15.app.http("box-folder-create-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-folder-create",
@@ -52408,9 +52570,9 @@ df24.app.activity("boxFolderCreate", {
 });
 
 // orchestration/src/functions/gated/box-file-request-copy.ts
-var import_functions15 = require("@azure/functions");
+var import_functions16 = require("@azure/functions");
 var df25 = __toESM(require("durable-functions"), 1);
-import_functions15.app.http("box-file-request-copy-start", {
+import_functions16.app.http("box-file-request-copy-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-file-request-copy",
@@ -52449,9 +52611,9 @@ df25.app.activity("boxFileRequestCopy", {
 });
 
 // orchestration/src/functions/gated/box-blob-purge.ts
-var import_functions16 = require("@azure/functions");
+var import_functions17 = require("@azure/functions");
 var df26 = __toESM(require("durable-functions"), 1);
-import_functions16.app.timer("box-blob-purge-timer", {
+import_functions17.app.timer("box-blob-purge-timer", {
   schedule: "0 0 3 * * *",
   extraInputs: [df26.input.durableClient()],
   handler: async (_t, ctx) => {
@@ -52489,9 +52651,9 @@ df26.app.activity("boxPurgeOne", {
 });
 
 // orchestration/src/functions/gated/case-disposition.ts
-var import_functions17 = require("@azure/functions");
+var import_functions18 = require("@azure/functions");
 var df27 = __toESM(require("durable-functions"), 1);
-import_functions17.app.timer("case-disposition-timer", {
+import_functions18.app.timer("case-disposition-timer", {
   schedule: "0 0 2 * * *",
   extraInputs: [df27.input.durableClient()],
   handler: async (_t, ctx) => {
@@ -52529,9 +52691,9 @@ df27.app.activity("dispositionOne", {
 });
 
 // orchestration/src/functions/gated/jobsheet-import.ts
-var import_functions18 = require("@azure/functions");
+var import_functions19 = require("@azure/functions");
 var df28 = __toESM(require("durable-functions"), 1);
-import_functions18.app.http("jobsheet-import-start", {
+import_functions19.app.http("jobsheet-import-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "jobsheet-import",
@@ -52563,7 +52725,7 @@ df28.app.activity("jobsheetImportOne", {
 });
 
 // orchestration/src/functions/gated/retro-case.ts
-var import_functions19 = require("@azure/functions");
+var import_functions20 = require("@azure/functions");
 var df29 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/retro-envelope.ts
@@ -52721,7 +52883,7 @@ function normToken(v) {
 var retry10 = new df29.RetryOptions(5e3, 3);
 retry10.backoffCoefficient = 2;
 retry10.maxRetryIntervalInMilliseconds = 6e4;
-import_functions19.app.http("retro-case-start", {
+import_functions20.app.http("retro-case-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "retro-case",
@@ -53402,8 +53564,8 @@ df29.app.activity("retroRecordFailure", {
 });
 
 // orchestration/src/functions/gated/retro-deleted-probe.ts
-var import_functions20 = require("@azure/functions");
-import_functions20.app.http("retro-deleted-probe", {
+var import_functions21 = require("@azure/functions");
+import_functions21.app.http("retro-deleted-probe", {
   methods: ["POST"],
   authLevel: "function",
   route: "retro-deleted-probe",
@@ -53462,12 +53624,12 @@ import_functions20.app.http("retro-deleted-probe", {
 });
 
 // orchestration/src/functions/gated/eva-report-poll.ts
-var import_functions21 = require("@azure/functions");
+var import_functions22 = require("@azure/functions");
 var df30 = __toESM(require("durable-functions"), 1);
 var EVA_REPORT_POLL_INSTANCE_ID = "eva-report-poll-singleton";
 var INTERVAL_MINUTES = Number(process.env.EVA_REPORT_POLL_INTERVAL_MINUTES ?? "60");
 var INTERVAL_MS2 = (Number.isFinite(INTERVAL_MINUTES) && INTERVAL_MINUTES > 0 ? INTERVAL_MINUTES : 60) * 6e4;
-import_functions21.app.http("eva-report-poll-start", {
+import_functions22.app.http("eva-report-poll-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "eva-report-poll",

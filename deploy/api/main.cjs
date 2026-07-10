@@ -18586,6 +18586,48 @@ import_functions.app.http("internalBoxMarkPurged", {
     return { status: 204 };
   })
 });
+import_functions.app.http("internalEvidenceUnclassifiedBox", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/evidence/unclassified-box",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const limitRaw = Number(req.query.get("limit") ?? "25");
+    const limit = Math.min(100, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25));
+    const imageKind = evidenceKindCodec.toInt("image") ?? 1e8;
+    const unknownRole = imageRoleCodec.toInt("unknown") ?? 100000003;
+    const rows = await query(
+      `SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id,
+                e.source_message_id, c.vrm, c.work_provider_id
+           FROM evidence e
+           JOIN case_ c ON c.id = e.case_id
+          WHERE e.box_file_id IS NOT NULL
+            AND e.source_label LIKE 'box_upload%'
+            AND e.kind_code = $1
+            AND e.image_role_code = $2
+            AND e.registration_visible IS NULL
+            AND e.excluded = false
+            AND e.created_at > now() - interval '14 days'
+          ORDER BY e.created_at DESC
+          LIMIT $3`,
+      [imageKind, unknownRole, limit]
+    );
+    return {
+      status: 200,
+      jsonBody: {
+        rows: rows.map((r) => ({
+          evidenceId: r.id,
+          caseId: r.case_id,
+          filename: r.file_name ?? "",
+          contentType: r.content_type ?? null,
+          boxFileId: r.box_file_id,
+          sourceMessageId: r.source_message_id ?? null,
+          caseVrm: r.vrm ?? "",
+          workProviderId: r.work_provider_id ?? ""
+        }))
+      }
+    };
+  })
+});
 import_functions.app.http("internalCaseBoxFolderGet", {
   methods: ["GET"],
   authLevel: "anonymous",

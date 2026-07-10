@@ -1,0 +1,84 @@
+{
+  "ticket": "TKT-146 live proof",
+  "uploadedAtUtc": "2026-07-10T11:28:19Z",
+  "casePo": "A.PCH26036",
+  "caseId": "8a23dd38-7a29-4aba-972e-63fb166fdf28",
+  "boxFolderId": "398564730902",
+  "clonedFromBoxFileId": "2338884169413 (the case's own classified overview; 16 tail bytes appended so sha256 differs)",
+  "uploadedFilename": "TKT146-liveproof-112816.jpg",
+  "facadeResponse": {
+    "type": "file",
+    "id": "2338959990817",
+    "file_version": {
+      "type": "file_version",
+      "id": "2590977381217",
+      "sha1": "229e3aca0378b7a19edbb38faf15b47d273a324f"
+    },
+    "sequence_id": "0",
+    "etag": "0",
+    "sha1": "229e3aca0378b7a19edbb38faf15b47d273a324f",
+    "name": "TKT146-liveproof-112816.jpg",
+    "description": "",
+    "size": 157564,
+    "path_collection": {
+      "total_count": 3,
+      "entries": [
+        {
+          "type": "folder",
+          "id": "0",
+          "sequence_id": null,
+          "etag": null,
+          "name": "All Files"
+        },
+        {
+          "type": "folder",
+          "id": "392761581105",
+          "sequence_id": "1",
+          "etag": "1",
+          "name": "test folder"
+        },
+        {
+          "type": "folder",
+          "id": "398564730902",
+          "sequence_id": "0",
+          "etag": "0",
+          "name": "A.PCH26036"
+        }
+      ]
+    },
+    "created_at": "2026-07-10T04:28:16-07:00",
+    "modified_at": "2026-07-10T04:28:16-07:00",
+    "trashed_at": null,
+    "purged_at": null,
+    "content_created_at": "2026-07-10T04:28:16-07:00",
+    "content_modified_at": "2026-07-10T04:28:16-07:00",
+    "created_by": {
+      "type": "user",
+      "id": "51697466320",
+      "name": "collisionspike",
+      "login": "AutomationUser_2600067_2iVu7x1fXA@boxdevedition.com"
+    },
+    "modified_by": {
+      "type": "user",
+      "id": "51697466320",
+      "name": "collisionspike",
+      "login": "AutomationUser_2600067_2iVu7x1fXA@boxdevedition.com"
+    },
+    "owned_by": {
+      "type": "user",
+      "id": "44111121009",
+      "name": "Alex Mercer",
+      "login": "digital@collisionengineers.co.uk"
+    },
+    "shared_link": null,
+    "parent": {
+      "type": "folder",
+      "id": "398564730902",
+      "sequence_id": "0",
+      "etag": "0",
+      "name": "A.PCH26036"
+    },
+    "item_status": "active",
+    "outcome": "created"
+  }
+}

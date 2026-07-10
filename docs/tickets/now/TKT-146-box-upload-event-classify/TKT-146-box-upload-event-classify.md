@@ -1,11 +1,11 @@
 ---
 id: TKT-146
 title: Classify images at Box-upload event time (the FILE.UPLOADED lane has no classify path)
-status: backlog
+status: now
 priority: P2
 area: evidence
 tickets-it-relates-to: [TKT-112, TKT-131, TKT-064]
-research-link: docs/tickets/backlog/TKT-146-box-upload-event-classify/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-146-box-upload-event-classify/evidence/operator-note.md
 plan: PLAN-003
 ---
 
@@ -36,4 +36,4 @@ Filed 2026-07-09 from the final-wave D2 report (PLAN-003 workflow finding).
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)

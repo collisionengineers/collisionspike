@@ -2,7 +2,22 @@
 
 > **Canonical registry of what is actually deployed.** This file + [`LIVE_FACTS.json`](../../LIVE_FACTS.json)
 > (root) are the **single source for literal live numbers** — every other doc links here rather than
-> re-embedding a count. Last live change: **2026-07-10T10:25Z** — **TKT-145 case_link evidence backfill
+> re-embedding a count. Last live change: **2026-07-10T11:35Z** — **TKT-146 Box-upload event-time classify
+> (PLAN-003 backlog-drain D3)**: **orch 73 → 74 verified** (+1: the `box-classify-sweep` timer — every
+> 5 min, cap 25/sweep, it enumerates still-unclassified FILE.UPLOADED-lane image evidence via the NEW api
+> read route, fetches bytes through the **Box facade only** (`box.downloadFile`), classifies with the
+> TKT-064 policy verbatim (case-VRM-constrained `registration_visible`, per-provider `ai_allowed` opt-out,
+> person-reflection exclusion), stamps by re-POSTing the row's own `box:file:<id>` identity to the internal
+> evidence route — deliberately **without** a sha256, so the TKT-133 twin pass can't redirect the stamp —
+> then re-evaluates each stamped case; gated on the **already-live** `IMAGE_ROLE_CLASSIFY_ENABLED` +
+> `BOX_API_ENABLED`, **no new app-setting**); **api 95 → 96 verified** (+1:
+> `internalEvidenceUnclassifiedBox`, `GET /api/internal/evidence/unclassified-box` — the TKT-131
+> "still-unclassified" predicate `image_role_code=unknown AND registration_visible IS NULL`, box-lane
+> `source_label LIKE 'box_upload%'`, 14-day window, newest-first). **Live-proven end-to-end**: a facade
+> upload into the A.PCH26036 case folder registered at 11:28:19Z and was stamped `overview` +
+> `registration_visible=true` at 11:30:09Z (**1 min 50 s**); the first sweeps also began draining the
+> ~242-row unclassified box-lane backlog at 25/sweep with 0 failures (evidence in TKT-146). Prior change:
+> **2026-07-10T10:25Z** — **TKT-145 case_link evidence backfill
 > (PLAN-003 backlog-drain D2)**: **orch 72 → 73 verified** (+1: the `evidence-backfill` storage-queue
 > consumer — on a case_link accept of a previously-uncased attachment-bearing email it re-fetches the
 > message from Graph ($filter by Internet-Message-Id, `$search`-fallback corroborated on the exact id,
@@ -459,9 +474,9 @@ az resource list -g rg-collisionspike-dev -o table
 # Static Web App (SPA) hostname + status
 az staticwebapp show -g rg-collisionspike-dev -n cespk-spa-dev --query "defaultHostname" -o tsv
 
-# Function Apps — which functions are actually deployed (verified 2026-07-10T10:20Z: api 95, orch 73, parser 4, box-webhook 12)
-az functionapp function list -g rg-collisionspike-dev -n cespk-api-dev  -o table   # expect: 95 functions
-az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: 73 functions (live — 3 push subs)
+# Function Apps — which functions are actually deployed (verified 2026-07-10T11:35Z: api 96, orch 74, parser 4, box-webhook 12)
+az functionapp function list -g rg-collisionspike-dev -n cespk-api-dev  -o table   # expect: 96 functions
+az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: 74 functions (live — 3 push subs)
 az functionapp function list -g rg-collisionspike-dev -n cespkbox-fn-v76a47 -o table               # expect: 12
 az functionapp function list -g rg-collisionspike-dev -n cespike-parser-dev-x7xt3d5ovhi7y -o table # expect: 4
 
