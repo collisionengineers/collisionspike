@@ -63,6 +63,45 @@ trace stream). DB: S1–S3.
 
 Verified by: ticket-verifier dispatch, 2026-07-10.
 
+### S1 adjudication (post-W6, same verifier — the 40-row result explained; VERIFIED-LIVE stands)
+W6's S1 returned 40 rows against an "expect 0". Adjudicated **hypothesis (b), confirmed with code +
+telemetry**: the rows are the **ADR-0022 retro reconstruction lane** (`RETRO_CASE_ENABLED`, live
+since ~07-07) — `retroCreate` (`api/src/functions/internal-retro.ts:385-419`) deliberately inserts
+`case_.source_message_id = original.internetMessageId`, and "a stranded update email IS the
+reconstruction target when no instruction survives, and it lands Held needs_review (never terminal,
+never a PO)" (`internal-retro.ts:323-329`). Empty `case_po` on all 40 is the confirming NEVER-MINT
+fingerprint; telemetry brackets the span exactly (90 `retroCreate outcome:created`, 07-07 12:06:56Z
+→ 07-10 16:11:50Z). Hypothesis (a) refuted at the write site (`internal.ts:1505` —
+`COALESCE(suggested_category_code, $2)`, strict fill-if-null, never overwritten); hypothesis (c)
+refuted — the 472/472 stitch measured the `caseResolve` primary mint lane; retro creates never pass
+through it, and retro's rung 1 (`retroResolveExisting`) links to ANY existing case before
+reconstruction (S3's GM23KPZ=1 / NA68FMU=1 consistent). Edge recorded: the single 'other'-suggested
+hit predates the TKT-119 `mintBlockedByCategory` belt (`internal-retro.ts:330-345`), which now
+refuses other/non_actionable/pre_instruction originals (live `refused_category` events 07-09→07-10)
+— closed going forward.
+
+**Record wording:** S1's 40 rows = retro-lane (ADR-0022) reconstruction-source associations — Held,
+PO-less, get-or-create + link-first, gated — not mint-guard breaches. Corrected breach query for
+future passes (expect 0 rows; and the identity check should show all four counts equal):
+```sql
+SELECT c.id, c.case_po, c.created_at, sc.name AS suggested_category
+FROM case_ c
+JOIN inbound_email ie ON ie.source_message_id = c.source_message_id
+JOIN choice_inbound_category sc ON sc.code = ie.suggested_category_code
+WHERE sc.name <> 'receiving_work'
+  AND coalesce(c.intake_channel_kind_code, -1) <> 100000003;  -- 100000003 = 'retro'
+SELECT count(*) AS joined_nonwork,
+       count(*) FILTER (WHERE c.intake_channel_kind_code = 100000003) AS channel_retro,
+       count(*) FILTER (WHERE c.on_hold) AS held,
+       count(*) FILTER (WHERE c.case_po IS NULL OR c.case_po = '') AS no_po
+FROM case_ c
+JOIN inbound_email ie ON ie.source_message_id = c.source_message_id
+JOIN choice_inbound_category sc ON sc.code = ie.suggested_category_code
+WHERE sc.name <> 'receiving_work';
+```
+If `channel_retro < joined_nonwork` when run, the remainder needs a fresh look; on the code +
+telemetry above, equality is expected.
+
 ## Interim verdict (2026-07-07, superseded)
 CLASSIFIER FIX LIVE + PROVEN (2026-07-07). Live-occurrence probe on a real matching thread +
 the SPA suggest-link click-through remain (bearer-gated for the agent).

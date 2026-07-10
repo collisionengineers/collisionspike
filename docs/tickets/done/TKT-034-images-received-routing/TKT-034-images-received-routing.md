@@ -1,11 +1,11 @@
 ---
 id: TKT-034
 title: 'Inbound images: match to case / create Box folder by reg / flag'
-status: verify
+status: done
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-003, TKT-004, TKT-006]
-research-link: docs/tickets/verify/TKT-034-images-received-routing/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-034-images-received-routing/evidence/operator-note.md
 ---
 
 # Inbound images: match to case / create Box folder by reg / flag

@@ -86,3 +86,15 @@ classified with a suggested/accepted link + attached images or a visible `images
 or on a supervised synthetic send.
 
 Verified by: ticket-verifier dispatch, 2026-07-10.
+
+### W6 data-pass results (orchestrator-run, 2026-07-10 — the queued SQL)
+- **T1: FOUR real Tractable arrivals exist** (2026-07-06 18:06 + 2026-07-08 08:32/09:03/09:09 — the
+  original "New completed lead" + RE:/FW: thread variants), stored categories
+  `case_update/update_general` ×3 + `query/query_existing_work` ×1, none linked. These arrivals
+  **predate the 07-09 lane deploy** (engine Rule 0f + the VRM-match rung), so their stored labels
+  reflect the pre-lane classifier — consistent with the lane's 0 executions.
+- **T2: 0 cases minted from Tractable arrivals** — acceptance line 2's no-spurious-work held even
+  before the lane shipped.
+- **T3: 0 PDF-VRM rung suggestions** — the rung awaits its first post-deploy arrival.
+Verdict stands PENDING: live Tractable traffic is real and non-minting; the next arrival exercises
+the new lane end-to-end (or a supervised synthetic send closes it sooner).

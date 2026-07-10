@@ -57,3 +57,13 @@ KQL `mergeCases`/`mergeCandidates` over 90d (`--offset 90d`); dedup.test.ts 22/2
 suspected merge, Q1/Q3.
 
 Verified by: ticket-verifier dispatch, 2026-07-10.
+
+### W6 data-pass results (orchestrator-run, 2026-07-10 — the queued SQL)
+- Q1: 3 merges, all delta-stamped (`delta:2026-07-09-intake-wave-data-fixes`), **every survivor
+  has_wp=true and every retired side has_wp=true** — no provider was lost in the data-fix merges.
+- Q2: the 3 matching `Merged …` audits (PCH26020/PCH26018 → PCH26009; the QCL 226070.TA pair).
+- Q3: 0 fill-branch provenance rows — as expected (the route fill has never executed).
+- Q4: both survivors carry providers — PCH26009 → "Performance Car Hire"; be1a0a11 → QCL. The
+  changes.md `providerPreserved` claim is now closed by direct column read.
+The verdict stands PENDING on the route-level live merge (UI-unreachable for the fill scenario —
+see the dialog-filter follow-up).

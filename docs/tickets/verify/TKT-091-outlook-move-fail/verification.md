@@ -57,3 +57,10 @@ deliberately operator-reserved.
 4. Offline gate: `npm --prefix api run test -- src/lib/outlook-queue.test.ts` (6 tests).
 
 Verified by: ticket-verifier dispatch, 2026-07-10.
+
+### W6 data-pass results (orchestrator-run, 2026-07-10 — the queued SQL)
+- The latched row `a137d98f…` reads `outlook_move_state='failed'`, target folder
+  `Inbox/Instructions`, stamped 2026-07-06 12:39:41Z — exactly the one recorded 503.
+- Move-state census: **1 failed / 998 null** — zero `moved` rows, corroborating the four KQL
+  signals: no staff "File to …" click has ever occurred post-fix. The operator click remains the
+  sole blocker.

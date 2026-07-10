@@ -422,7 +422,7 @@ Dataverse `cr1bd_knownemaildomains` column.)*
 > held pre-instruction email is retained and whether a chaser fires. Say the retention window /
 > chaser policy and it gets built.
 
-> **BOX_REG_FOLDER_ENABLED — new dark gate (2026-07-09, [TKT-034](./tickets/verify/TKT-034-images-received-routing/TKT-034-images-received-routing.md)).**
+> **BOX_REG_FOLDER_ENABLED — new dark gate (2026-07-09, [TKT-034](./tickets/done/TKT-034-images-received-routing/TKT-034-images-received-routing.md)).**
 > Unmatched image-bearing emails now flag visibly for manual handling; the OPTIONAL next rung — a
 > registration-keyed Box folder created for unmatched images — is built **dark** behind
 > `BOX_REG_FOLDER_ENABLED` (absent = off) because it creates new Box folder semantics. Say the word

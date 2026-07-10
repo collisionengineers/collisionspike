@@ -69,6 +69,18 @@ expect `triage_decision`: `attach_case`, `case_update`/`images_received`, `match
 Doc nit (for the playbook, not this ticket): `logs-kql.md`'s "`operation_Id == "intake-<message-id>"`"
 is stale for the current SDK — the instance id appears as a message prefix instead.
 
+### W6 data-pass results (orchestrator-run, 2026-07-10 — the queued SQL)
+- The 2026-07-09 14:17:59Z images_received attach on case `571ea8bb…` is fully audited in the DB:
+  "A message was suggested for linking" + "Inbound email linked to case (auto-attach)" same-second,
+  then "classified + persisted 6 evidence row(s)", 4 box_upload_received rows, and
+  "archived 6/6 evidence file(s)" — the attach→evidence→archive chain complete.
+- The only case created in the ±2.5-min window is A.PCH26030 (14:18:48) — an unrelated PCH
+  instruction arriving coincidentally (it is TKT-092-Q2's legitimate mint), NOT a mint from the
+  attach; the no-mint conclusion stands.
+- The 10:57Z ambiguous-vrm arrival produced two case_link suggestion rows at 10:57:03 (one pending,
+  one accepted 0.15s later) — the documented suggest-first fall-through shape.
+Verdict stands PENDING on the exact three-way conjunction.
+
 Verified by: ticket-verifier dispatch, 2026-07-10.
 
 ## Prior verdict (2026-07-08, superseded)
