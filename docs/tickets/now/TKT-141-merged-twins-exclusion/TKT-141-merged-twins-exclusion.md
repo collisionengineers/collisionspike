@@ -1,11 +1,11 @@
 ---
 id: TKT-141
 title: Exclude merged/retired duplicate cases from twin counts and attention lists
-status: verify
+status: now
 priority: P2
 area: dashboard
 tickets-it-relates-to: [TKT-092, TKT-012]
-research-link: docs/tickets/verify/TKT-141-merged-twins-exclusion/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-141-merged-twins-exclusion/evidence/operator-note.md
 plan: PLAN-003
 ---
 

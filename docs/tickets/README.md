@@ -107,7 +107,7 @@ node scripts/check-skills-sync.mjs
 
 | Ticket | Title | Priority | Area | Plan |
 |---|---|---|---|---|
-| [TKT-140](./now/TKT-140-retro-backlog-drain/TKT-140-retro-backlog-drain.md) | Bulk retro backlog drain — reconstitute historical un-cased emails from Deleted Items | P2 | intake | PLAN-003 |
+| [TKT-141](./now/TKT-141-merged-twins-exclusion/TKT-141-merged-twins-exclusion.md) | Exclude merged/retired duplicate cases from twin counts and attention lists | P2 | dashboard | PLAN-003 |
 
 
 ### verify
@@ -149,7 +149,6 @@ node scripts/check-skills-sync.mjs
 | [TKT-096](./verify/TKT-096-completed-archive-view/TKT-096-completed-archive-view.md) | Completed/Archive view + dashboard drill-through + terminal-scope search fold-in | P2 | ui | PLAN-002 |
 | [TKT-099](./verify/TKT-099-qcl-case-po-generation/TKT-099-qcl-case-po-generation.md) | QCL cases not generating Case/PO correctly | P1 | intake | PLAN-003 |
 | [TKT-102](./verify/TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md) | Tractable received-email handling — categorise, match to case, parse PDF, extract images | P2 | intake | — |
-| [TKT-106](./verify/TKT-106-remove-replay-backfill/TKT-106-remove-replay-backfill.md) | "Remove the non-viable replay-backfill driver + gate" | P2 | intake | — |
 | [TKT-107](./verify/TKT-107-readonly-archive-assist/TKT-107-readonly-archive-assist.md) | "Read-only Box archive assist (suggest-only) — decouple from the sequence-blocked reconstruction" | P2 | intake | PLAN-001 |
 | [TKT-110](./verify/TKT-110-mcp-readonly-server/TKT-110-mcp-readonly-server.md) | Read-only MCP server for external agents | P2 | ai | PLAN-001 |
 | [TKT-111](./verify/TKT-111-assistant-write-tier/TKT-111-assistant-write-tier.md) | Assistant write tier with human confirmation | P2 | ai | PLAN-001 |
@@ -159,7 +158,7 @@ node scripts/check-skills-sync.mjs
 | [TKT-134](./verify/TKT-134-action-logs-humanize/TKT-134-action-logs-humanize.md) | Action-logs page renders raw engineering strings — humanize the staff-visible log lines | P3 | ui | PLAN-003 |
 | [TKT-136](./verify/TKT-136-parse-fallback-ref-guard/TKT-136-parse-fallback-ref-guard.md) | Guard the /parse fallback reference against money values and text fragments (RIGERANT R1234YF) | P2 | parsing | PLAN-003 |
 | [TKT-137](./verify/TKT-137-uncased-ai-suggestion-surface/TKT-137-uncased-ai-suggestion-surface.md) | Surface triage_category AI suggestions on uncased emails — currently written but invisible | P2 | ui | PLAN-003 |
-| [TKT-141](./verify/TKT-141-merged-twins-exclusion/TKT-141-merged-twins-exclusion.md) | Exclude merged/retired duplicate cases from twin counts and attention lists | P2 | dashboard | PLAN-003 |
+| [TKT-140](./verify/TKT-140-retro-backlog-drain/TKT-140-retro-backlog-drain.md) | Bulk retro backlog drain — reconstitute historical un-cased emails from Deleted Items | P2 | intake | PLAN-003 |
 | [TKT-143](./verify/TKT-143-extraction-stems-identity/TKT-143-extraction-stems-identity.md) | Pass the resolved provider/VRM into /extract-images so extraction filenames carry real identity | P3 | evidence | PLAN-003 |
 | [TKT-144](./verify/TKT-144-blob-sha256-backfill-dedup/TKT-144-blob-sha256-backfill-dedup.md) | Resolve the 214 blob-lane same-name duplicate evidence rows via a sha256 backfill | P3 | evidence | PLAN-003 |
 | [TKT-145](./verify/TKT-145-caselink-evidence-backfill/TKT-145-caselink-evidence-backfill.md) | Accepted case_link on a previously-uncased email must backfill its evidence to the case | P2 | intake | PLAN-003 |
@@ -229,6 +228,7 @@ node scripts/check-skills-sync.mjs
 | [TKT-101](./done/TKT-101-qdos-cases-wrong-linking/TKT-101-qdos-cases-wrong-linking.md) | QDOS — two distinct refs (46671/1, 46533/1) wrongly linked as one case | P1 | intake | — |
 | [TKT-103](./done/TKT-103-tractable-reference-bug/TKT-103-tractable-reference-bug.md) | Tractable "768.00" wrongly captured as the reference number | P2 | parsing | — |
 | [TKT-105](./done/TKT-105-remittance-payments-category/TKT-105-remittance-payments-category.md) | Remittance advice classified under payments/billing | P2 | email | — |
+| [TKT-106](./done/TKT-106-remove-replay-backfill/TKT-106-remove-replay-backfill.md) | "Remove the non-viable replay-backfill driver + gate" | P2 | intake | — |
 | [TKT-108](./done/TKT-108-completed-tickets-done-folder/TKT-108-completed-tickets-done-folder.md) | "Completed tickets → a done/ folder for easier management" | P3 | docs | — |
 | [TKT-109](./done/TKT-109-image-based-provider-prefill/TKT-109-image-based-provider-prefill.md) | Pre-fill image-based inspections for image-led providers | P2 | intake | — |
 | [TKT-112](./done/TKT-112-image-writer-reconcile/TKT-112-image-writer-reconcile.md) | Reconcile the two image-classification writers | P2 | ai | PLAN-001 |
