@@ -1,11 +1,11 @@
 ---
 id: TKT-128
 title: "Imported details — from the instruction document or email" renders blank
-status: verify
+status: done
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-054, TKT-028]
-research-link: docs/tickets/verify/TKT-128-imported-details-blank/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-128-imported-details-blank/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-128 — "Imported details — from the instruction document or email" renders blank

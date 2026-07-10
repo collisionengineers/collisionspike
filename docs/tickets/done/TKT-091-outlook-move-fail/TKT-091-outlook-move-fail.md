@@ -1,11 +1,11 @@
 ---
 id: TKT-091
 title: Outlook "File to …" move fails live with a 503 from the Data API
-status: verify
+status: done
 priority: P1
 area: email
 tickets-it-relates-to: [TKT-054, TKT-005]
-research-link: docs/tickets/verify/TKT-091-outlook-move-fail/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-091-outlook-move-fail/evidence/operator-note.md
 ---
 
 # Outlook "File to …" move fails live with a 503 from the Data API
@@ -21,7 +21,7 @@ POST cespk-api-dev.azurewebsites.net/api/inbound/a137d98f-bda5-4e09-bdac-c306a2f
 ```
 
 This is a **503 from the Data API app**, not the Graph **403** that
-[TKT-054](../../done/TKT-054-ui-work/TKT-054-ui-work.md) was expecting while the operator's Exchange
+[TKT-054](../TKT-054-ui-work/TKT-054-ui-work.md) was expecting while the operator's Exchange
 `Mail.ReadWrite` grant ([docs/gated.md B4](../../../gated.md)) is outstanding. Candidate causes to
 verify (not conclusions):
 

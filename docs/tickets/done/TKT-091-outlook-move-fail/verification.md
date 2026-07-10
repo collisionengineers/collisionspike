@@ -1,9 +1,39 @@
 # Verification — TKT-091: Outlook File-to move failing live
 
 ## Verdict
-**PENDING** (2026-07-10, ticket-verifier dispatch) — three of four acceptance arms met with live
-artifacts; the fourth (a real staff "File to …" click post-fix) has **never occurred** and is
-deliberately operator-reserved.
+**VERIFIED-LIVE** (2026-07-10, ticket-verifier final ruling — acceptance 4's live move landed at
+~21:03Z and was independently corroborated in both App Insights components)
+
+## Final ruling (transcribed verbatim, 2026-07-10, ~21:07Z)
+
+- **Acceptance 1 — 503 root cause named with App Insights evidence: MET** (the sole pre-fix 503 was
+  handler-returned on enqueue 404 QueueNotFound — the queue was never provisioned; queue EXISTS
+  today + the api MI holds Storage Queue Data Message Sender).
+- **Acceptance 2 — meaningful status codes + unit tests: MET** (`classifyEnqueueFailure` mapping;
+  6/6 tests re-run by the verifier; deployed bundle carries it; letter nuance recorded — Graph
+  denial reports back asynchronously as row-state `failed`, by design).
+- **Acceptance 3 — SPA readable error: MET** (toast strings in the served bundle; the failure path
+  has never fired post-fix — expected absence).
+- **Acceptance 4 — post-B4-grant live move succeeds, email moves, audited: MET 2026-07-10 ~21:03Z**,
+  operator-authorized click driven in the operator's signed-in SPA session, corroborated end-to-end
+  by the verifier's OWN KQL: api 21:03:19.01Z `moveInboundToOutlook` → **202** (296ms, inbound
+  `bd859d3b…`) → orch 21:03:26.28Z `outlook-move` consumer success → 21:03:29.55Z
+  `{"evt":"outlook-move"…}` trace (emits only AFTER Graph move succeeded + report-back returned) →
+  api 21:03:29.51Z `internalInboundOutlookMoved` → **204**. Click→moved chain **10.5s**, zero 503s.
+  DB (W9): census 1 `moved` / 1 `failed` / 997 null; audits `100000039` requested 21:03:19.30Z +
+  `100000040` completed 21:03:29.53Z.
+- **Caveat judged:** the moved email (`bd859d3b…`) is not the 07-06 latched-failed `a137d98f…` —
+  the original 503 was infrastructure (missing queue), not row-specific, so any real email proves
+  the fix; the latched row is by-design residue, re-clickable by staff. Acceptance satisfied;
+  retrying that row is optional hygiene.
+
+Verified by: ticket-verifier dispatch (final ruling), 2026-07-10.
+
+---
+
+## Initial sweep verdict (2026-07-10, pre-click — superseded by the final ruling above)
+**PENDING** — three of four acceptance arms met with live artifacts; the fourth (a real staff
+"File to …" click post-fix) had never occurred and was deliberately operator-reserved.
 
 ## Sweep verdict (transcribed verbatim, 2026-07-10)
 

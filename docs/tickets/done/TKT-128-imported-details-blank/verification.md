@@ -1,6 +1,32 @@
 # Verification — TKT-128: "Imported details — from the instruction document or email" renders blank
 
 ## Verdict
+**VERIFIED-LIVE** (2026-07-10, ticket-verifier final ruling — the positive-path render landed)
+
+## Final ruling (transcribed verbatim, 2026-07-10)
+
+- **Acceptance 1 — a case with parsed instructions shows the imported fields:** positive-path render
+  LIVE — operator-authorized signed-in SPA session opened `/case/d142e09e…` (QCL26008): the
+  "Imported details" panel renders "From the instruction document or email." with
+  **"Claim no. 226095.TA"** (screenshot captured, beneath a correctly-rendering Readiness panel).
+  Data at volume (W7): **20 cases** with `ov_claim_number` filled since 2026-07-09. Mechanism: both
+  fills deployed (`internal.ts:395-398` parserRef + `:1146` create-seam candidateRef →
+  `ov_claim_number`); mapper `mappers.ts:208` → `CaseDetail.tsx:2539`; api chain through
+  2026-07-10T17:55Z; apply-parser-fields **16/16**.
+- **Acceptance 2 — no parsed source → explicit plain-English empty state:** live-proven 2026-07-09
+  on three no-parsed-source cases; the served bundle still carries "Nothing was imported from the
+  instruction document or email yet." (hash-matches repo dist).
+- **Acceptance 3 — verified live on a real parsed case:** QCL26008 — DB row (W7) + the rendered
+  panel showing that value in the operator's signed-in session; both fix paths exercised live.
+
+No blocking gaps. Expected absences (per changes.md Remainders): pre-fix cases keep the honest empty
+panel (no backfill in scope); the wider fact set (insured/insurer/repairer/policy) is a new-ticket
+candidate. Provenance split recorded: the W7 rows + the render screenshot are operator-authorized
+artifacts supplied via the coordinating session (the verify-gate accepts operator-supplied proof).
+
+Verified by: ticket-verifier dispatch (final ruling), 2026-07-10.
+
+## Prior verdict (superseded)
 PENDING
 
 ## Evidence

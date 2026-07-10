@@ -80,8 +80,10 @@ identity (previously **un-granted**) now holds its KV/Storage/Queue/Table roles.
 remain in app-settings (only the App Insights connection string, which Microsoft does not class as a
 secret). (3) **Free-Trial → Pay-As-You-Go
 deadline:** the whole stack disables at the ~30-day mark unless upgraded to PAYG (the 12-month free
-Postgres allowance survives the upgrade). (4) **Staff app-role assignment is incomplete** — only ONE
-staff principal is app-role-assigned so far; others 403 until assigned. (5) **Durable auth
+Postgres allowance survives the upgrade; operator resolving w/c 2026-07-13 per gated.md A1). (4)
+**Staff app-role assignment — interim set live (2026-07-10):** digital@ (Superuser) plus desk@ /
+info@ / engineers@ (`CollisionSpike.User`, operator-directed); any other staff still 403 until
+assigned (registry + gated.md C1 are canonical). (5) **Durable auth
 error-handling + token-audience-form hardening** are in progress.
 
 > **Prior platform (decommissioned, banded historical).** Before the migration the spike ran as a

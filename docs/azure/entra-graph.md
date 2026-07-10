@@ -19,7 +19,9 @@ subscription CRUD smoke calls) runs from **WSL**, where az is installed and logg
 ## The identities (this project)
 - SPA MSAL client `30ff23e0…`; API app `fa2fb28c-fef6-40a4-8d3b-ae6725891d72`; **intake app**
   `CollisionSpike Graph Intake` appId `5d37a155-2af8-4878-b96a-6faad5207137` (SP oid
-  `e25ca6f2-…`); tenant `858cf5b3-aa0a-47a6-9b40-4851fd0afa94`. Source: [`live-environment.md`](../architecture/live-environment.md).
+  `e25ca6f2-…`); **MCP Flow A client** `CollisionSpike MCP Client` appId `88589edc-527a-4d84-83da-a2ddb8664f08`
+  (public client PKCE, delegated `access_as_user` on the API — TKT-110/ADR-0023);
+  tenant `858cf5b3-aa0a-47a6-9b40-4851fd0afa94`. Source: [`live-environment.md`](../architecture/live-environment.md).
 
 ## ⚠️ Poll vs push — a known doc conflict; verify against the deployed app
 - [`live-environment.md`](../architecture/live-environment.md) + memory [exchange-rbac-unblocks-graph-intake](../../memory/exchange-rbac-unblocks-graph-intake.md)
