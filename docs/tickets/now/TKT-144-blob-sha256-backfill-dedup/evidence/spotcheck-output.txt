@@ -1,0 +1,29 @@
+TKT-144 byte-level spot-check of collapsed groups — 2026-07-10, run/spotcheck.py
+(read-only SAS downloads; every member of 6 collapsed groups — 2 per affected case —
+re-downloaded and re-hashed; survivor and twin live in DIFFERENT message folders)
+
+spot-checking 6 collapsed groups (every member, byte-level)
+PCH26009 | 575617__RJS_UnknownVRM_img_10_50.jpeg | 6fc56ba7 (survivor) | bytes=46ed0cf41fc4fa47.. | stored_match=True
+PCH26009 | 575617__RJS_UnknownVRM_img_10_50.jpeg | 9c1e5887 (twin) | bytes=46ed0cf41fc4fa47.. | stored_match=True
+  -> group byte-identical: True
+PCH26009 | 575617__RJS_UnknownVRM_img_10_51.jpeg | d8757d5b (survivor) | bytes=aa0d1f7329aec84e.. | stored_match=True
+PCH26009 | 575617__RJS_UnknownVRM_img_10_51.jpeg | d8a331c2 (twin) | bytes=aa0d1f7329aec84e.. | stored_match=True
+  -> group byte-identical: True
+PCH26013 | 577405__RJS_UnknownVRM_img_1_1.jpeg | a8e099e6 (survivor) | bytes=51ec1ea01e55ad92.. | stored_match=True
+PCH26013 | 577405__RJS_UnknownVRM_img_1_1.jpeg | 49431a98 (twin) | bytes=51ec1ea01e55ad92.. | stored_match=True
+  -> group byte-identical: True
+PCH26013 | 577405__RJS_UnknownVRM_img_1_2.jpeg | 350179d4 (survivor) | bytes=b14e84b8784e9ee2.. | stored_match=True
+PCH26013 | 577405__RJS_UnknownVRM_img_1_2.jpeg | 4376a997 (twin) | bytes=b14e84b8784e9ee2.. | stored_match=True
+  -> group byte-identical: True
+be1a0a11 | Atique Ur_Rehman_01 QC LAW - ENG- with instruction to inspect claimants vehicle1__RJS_UnknownVRM_img_1.jpeg | 3714c478 (survivor) | bytes=d404591b000bf24d.. | stored_match=True
+be1a0a11 | Atique Ur_Rehman_01 QC LAW - ENG- with instruction to inspect claimants vehicle1__RJS_UnknownVRM_img_1.jpeg | f0ce60f3 (twin) | bytes=d404591b000bf24d.. | stored_match=True
+  -> group byte-identical: True
+be1a0a11 | Atique Ur_Rehman_01 QC LAW - ENG- with instruction to inspect claimants vehicle1__RJS_UnknownVRM_img_2.jpeg | 75f95282 (survivor) | bytes=817c3e8038a1ebc3.. | stored_match=True
+be1a0a11 | Atique Ur_Rehman_01 QC LAW - ENG- with instruction to inspect claimants vehicle1__RJS_UnknownVRM_img_2.jpeg | 6ae18408 (twin) | bytes=817c3e8038a1ebc3.. | stored_match=True
+  -> group byte-identical: True
+SPOT-CHECK PASS
+
+Hasher self-test (pre-run): 3 rows that ALREADY carried sha256 (2 images + 1 .eml)
+were downloaded and re-hashed — all 3 computed hashes matched the stored values and
+byte counts matched size_bytes exactly (d6acfcac…, d376e713…, 3eb3c1ec…), proving the
+SAS lane, URL-encoding, and hashing before any write depended on them.

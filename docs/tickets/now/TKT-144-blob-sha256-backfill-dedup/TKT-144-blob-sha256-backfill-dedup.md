@@ -1,11 +1,11 @@
 ---
 id: TKT-144
 title: Resolve the 214 blob-lane same-name duplicate evidence rows via a sha256 backfill
-status: backlog
+status: now
 priority: P3
 area: evidence
 tickets-it-relates-to: [TKT-133]
-research-link: docs/tickets/backlog/TKT-144-blob-sha256-backfill-dedup/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-144-blob-sha256-backfill-dedup/evidence/operator-note.md
 plan: PLAN-003
 ---
 
@@ -36,4 +36,4 @@ Filed 2026-07-09 from the final-wave D2 report (PLAN-003 workflow finding).
 
 - [changes.md](./changes.md)
 - [verification.md](./verification.md)
-- [evidence/](./evidence/)
+- [evidence/](./evidence)
