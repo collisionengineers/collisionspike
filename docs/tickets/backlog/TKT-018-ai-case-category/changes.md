@@ -12,6 +12,14 @@ No code changes — see Summary
 ## Summary
 Explicitly deferred. This is the most downstream AI capability — a VLM that assesses damage and categorises total-loss vs repairable — and depends on the suggestion layer (TKT-015) and image analysis (TKT-016) being in place first. The operator marked it deferred until the pipeline is complete; it stays in `backlog` with no work started.
 
+## Determination — 2026-07-10 (backlog-drain batch, operator re-affirmation)
+
+Asked directly during the 2026-07-10 backlog-drain planning (AskUserQuestion), the operator chose
+**"Keep deferred"** over building dark behind a `DAMAGE_CATEGORY_ENABLED` gate or moving to
+`blocked`. The ticket stays in `backlog`; the deferral remains the operator's to lift. No build, no
+DPIA work. The 2026-07-09 assessment below (dependencies live, build shape, fresh-DPIA requirement)
+remains the current picture.
+
 ## Determination — 2026-07-09 (PLAN-003 final wave D2, assessment only — no build)
 
 **The dependencies this ticket was deferred behind are now live.** Per the registry

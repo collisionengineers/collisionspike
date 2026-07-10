@@ -10,7 +10,7 @@ soft-merged across 3 cases, audited), 0 status moves. Verification transcription
 Three transient Postgres windows (WSL Entra-admin `digital@` + `SET ROLE csadmin`,
 per-window firewall rule trap-deleted — only `AllowAzureServices` remained after each;
 verified in every window's output) plus a read-only blob-hashing phase between them.
-Exact artifacts: [evidence/run/](./evidence/run/) — `read-window.sql`,
+Exact artifacts: [evidence/run/](./evidence/run) — `read-window.sql`,
 `write-window.sql` (one transaction), `confirm-window.sql`, `window-runner.sh`,
 `hash.py`, `spotcheck.py`.
 

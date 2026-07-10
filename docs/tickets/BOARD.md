@@ -136,6 +136,9 @@
 
 
 
+
+
+
 ## Now — in flight / not yet confirmed live
 
 | ID | Title | State |
@@ -146,6 +149,7 @@
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-144](./verify/TKT-144-blob-sha256-backfill-dedup/TKT-144-blob-sha256-backfill-dedup.md) | Resolve the 214 blob-lane same-name duplicate evidence rows via a sha256 backfill | EXECUTED LIVE 2026-07-10 (backup-first): 477 historic blob rows hashed (0 skips, blob lane now 0 null-sha); all 106 same-name groups byte-identical → 108 twins collapsed across 3 cases, audited; distinct bucket honestly empty; 0 status regressions. Rename-dup class (132 buckets) → follow-up candidate. → verify. |
 | [TKT-145](./verify/TKT-145-caselink-evidence-backfill/TKT-145-caselink-evidence-backfill.md) | Accepted case_link on a previously-uncased email must backfill its evidence | Shipped + DEPLOYED 2026-07-10 (evidence-backfill queue + orch consumer, orch 73/api 95 fns; manual-note mitigation now failure-only; auto-attach seam N/A by construction). Live proof staged: operator accepts suggestion e1301dc9 (EREF9 desk@ email → QDOS26023). → verify. |
 | [TKT-142](./verify/TKT-142-boxfn-large-payload/TKT-142-boxfn-large-payload.md) | Box facade 502s on large base64 payloads — QDOS26029 archive stranded (17.6 MB .eml) | Shipped + LIVE-PROVEN 2026-07-09 (QDOS26029 archive 4/4 incl. the 17.6MB .eml; blobPath + chunked lanes); >=20MiB lane offline-only. → verify. |
 | [TKT-132](./verify/TKT-132-generate-suggestions-inputs/TKT-132-generate-suggestions-inputs.md) | Widen the AI-suggestion generate inputs beyond accident circumstances | Shipped 2026-07-09 (widened inputs, caps, scrub; DPIA within the 2026-07-08 attestation, scope-noted). → verify. |
@@ -202,6 +206,7 @@
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-147](./done/TKT-147-tractable-make-vin/TKT-147-tractable-make-vin.md) | Tractable layout: vehicle make (two-label rule) + VIN slot | TESTED-offline → done 2026-07-10 (offline-only acceptance): sibling engine-v2.14 (two_label_join + vin slot; 439→451 tests, tag pushed), fixtures pin Touran+VIN / i30 no-VIN / Auris; re-vendored, rides the next parser deploy (live /parse stays v2.13 until then). |
 | [TKT-139](./done/TKT-139-retro-search-tokenization/TKT-139-retro-search-tokenization.md) | Retro Outlook $search misses spaced-ref variants (Graph tokenization) | VERIFIED-LIVE 2026-07-10 (ticket-verifier): recorded Graph pair from the TKT-140 dry-run — compact PHA5007=0 hits vs spaced=2 hits; call shape matched to the live rung, bundle grep, live retroOutlookLocate execution, 20/20 tests; PHA5007 Held case corroborated in the W1 data-pass. → done. |
 | [TKT-148](./done/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for overview-less photo sets | VERIFIED-LIVE 2026-07-10 (ticket-verifier): A.QDOS26029 renders "Chased" in the live SPA (drafted chaser 93dfcb3a, screenshots); W1 data-pass confirmed 31/31 mints+audits, negative control 0, no dupes, draft-only (no sendMail path exists). → done. |
 | [TKT-146](./done/TKT-146-box-upload-event-classify/TKT-146-box-upload-event-classify.md) | Classify images at Box-upload event time | VERIFIED-LIVE 2026-07-10 (ticket-verifier): 119 live stamps in 25 min (KQL), backlog 242→1, never-throws proven on a live content-safety refusal; W1 data-pass confirmed the test row (overview + registration_visible=t, 1m50s) and idempotency lockout (2,116 stamped rows non-re-enumerable). → done. |
@@ -296,9 +301,7 @@
 
 | ID | Title | State |
 |---|---|---|
-| [TKT-144](./backlog/TKT-144-blob-sha256-backfill-dedup/TKT-144-blob-sha256-backfill-dedup.md) | Resolve the 214 blob-lane same-name duplicate evidence rows via a sha256 backfill | D2 finding 2026-07-09 (TKT-133 residual). |
-| [TKT-147](./backlog/TKT-147-tractable-make-vin/TKT-147-tractable-make-vin.md) | Tractable layout: vehicle make (two-label rule) + VIN slot | D2 finding 2026-07-09 (TKT-102 follow-on). |
-| [TKT-018](./backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md) | AI total-loss vs repairable categorisation | Assessment recorded 2026-07-09: dependencies now live; build shape + fresh-DPIA need documented; deferral stays the operator's to lift. Stays backlog. |
+| [TKT-018](./backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md) | AI total-loss vs repairable categorisation | Deferral RE-AFFIRMED by the operator 2026-07-10 (backlog-drain batch AskUserQuestion: "Keep deferred" over build-dark/blocked). Stays backlog; the 2026-07-09 assessment (deps live, build shape, fresh-DPIA need) remains current. |
 
 ## Blocked — needs operator
 

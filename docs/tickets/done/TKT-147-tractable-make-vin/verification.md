@@ -1,12 +1,26 @@
 # Verification — TKT-147: Tractable layout: capture vehicle make (two-label rule) + a VIN field slot
 
 ## Verdict
-PENDING
+TESTED (offline)
+
+Certified by the orchestrating loop, 10-07-26. The Acceptance is explicitly offline-only
+("with fixtures" + "no regression in the sibling suite"), so `now → done` on offline proof is the
+agreed lifecycle path (docs/tickets/README.md §Lifecycle); no live claim is made — the vendored
+Function rides the next parser deploy and the live /parse stays engine-v2.13 until then.
 
 ## Evidence
-(not yet verified — implementer-recorded offline evidence lives in
-[evidence/fixture-extractions.txt](./evidence/fixture-extractions.txt) and the
-sibling suite numbers in [changes.md](./changes.md); the verifier certifies.)
+- **Acceptance line 1 (make + model + VIN with fixtures):**
+  [evidence/fixture-extractions.txt](./evidence/fixture-extractions.txt) — TRACTABLE 01 →
+  `vehicle_model="Volkswagen Touran"` + `vin="WVGZZZ1TZFW030347"`; TRACTABLE 02 (new fixture) →
+  `"Hyundai i30"` + `vin=""` (the `-` placeholder; absence is not an error); LINE_LEVEL_ESTIMATE →
+  `"Toyota Auris"`, vin absent. All three detect the `tractable` layout at 1.0; the 12-key EVA
+  extraction block is byte-shape-identical (no vin key leaks into the EVA contract).
+- **Acceptance line 2 (no sibling regression):** sibling suite baseline 439 passed / 4 skipped →
+  after 451 passed / 4 skipped (+12 new, zero regressions), on sibling commit `2609b1a`, annotated
+  tag `engine-v2.14` pushed to origin (ls-remote verified). Eval baseline moved only upward
+  (overall 0.9483 → 0.9571; new `vin: 1.0`). Vendored-copy suite identical before/after
+  (1 pre-existing environmental failure `test_multiformat_extraction[ALS_doc]` on this box,
+  281 passed, drift guard green).
 
 ## Pending / gaps
 - Engine work is sibling-first code-complete and re-vendored; the vendored parser

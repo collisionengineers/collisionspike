@@ -11,7 +11,7 @@ awaiting independent verification: [evidence/backup-before.csv](./evidence/backu
 [evidence/status-moves.md](./evidence/status-moves.md) (+ status-moves.csv, header-only),
 [evidence/tkt148-observations.csv](./evidence/tkt148-observations.csv),
 [evidence/spotcheck-output.txt](./evidence/spotcheck-output.txt),
-[evidence/run/](./evidence/run/) (the exact SQL + scripts).
+[evidence/run/](./evidence/run) (the exact SQL + scripts).
 
 ## Pending / gaps
 Independent verifier pass (read-only SQL below) not yet run — the implementer must not
