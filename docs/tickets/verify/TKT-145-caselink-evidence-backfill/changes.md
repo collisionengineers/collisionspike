@@ -4,8 +4,9 @@
 code-complete + DEPLOYED (2026-07-10, feat/backlog-drain) — orch 72→73 (`evidence-backfill` queue
 consumer), api 94→95 (`internalInboundEvidenceBackfill` report-back), the `evidence-backfill` queue
 provisioned on `cespkorchstdev01`. Offline-proven (regression tests green). Live proof PENDING the
-operator accept of the real pending suggestion recorded in
-[evidence/live-proof-staging.md](./evidence/live-proof-staging.md).
+operator accept of staged suggestion **`025c8ce2-a4bf-4ed7-a57d-2c1a25231975`** (RE-STAGED
+2026-07-10 16:39Z after the TKT-140 drain mooted the first, natural stage — see
+[evidence/live-proof-staging.md](./evidence/live-proof-staging.md)).
 
 ## What was built (Shape B, queue-refined — as decided)
 
@@ -114,42 +115,52 @@ is **inverted**: the note is now written only on **enqueue failure / missing mai
   `docs/architecture/live-environment.md` mirror updated.
 
 ## Staged live proof (operator step — NOT performed by the implementer)
-A **real** pending case_link suggestion already existed (written by the live ref-gate rung
-2026-07-03), so **no synthetic row was inserted**. The operator accepts, in the SPA inbox:
-- suggestion **`e1301dc9-5936-4507-b5ef-df8adb410aa3`** — on the uncased **desk@** email
-  "(EREF9) RTA on 19/06/2026 : Mr Kandasamy Naguleswaran…" (inbound_email
-  `84c72717-21b4-44d9-a7ad-a34c8048cf93`, has_attachments=true) → target case
-  **QDOS26023** (`0476fa7c-76e7-4890-b071-f4bbdb736275`, baseline: 4 evidence rows, 0 notes,
-  status `missing_images`). Details + baseline snapshot:
-  [evidence/live-proof-staging.md](./evidence/live-proof-staging.md).
+
+> **RE-STAGED 2026-07-10 16:39Z.** The first stage (the natural suggestion
+> `e1301dc9-5936-4507-b5ef-df8adb410aa3` on the EREF9 email → QDOS26023) was **MOOTED by the
+> TKT-140 drain**: at 15:45:12Z the drain's rung-1 link cased that email, so its accept would hit
+> the FILL-IF-EMPTY guard and do nothing (see Findings (c) below). Fresh discovery found NO other
+> natural pending case_link on a still-uncased attachment-bearing email, so one was SQL-staged in
+> the live rung's exact vrm-tier shape (+ the route's `inbound_link_suggested` audit), per the
+> original brief's allowance. Full staging SQL, shape notes, readbacks + the drain-race caveat and
+> backup pair: [evidence/live-proof-staging.md](./evidence/live-proof-staging.md).
+
+The operator accepts, in the SPA inbox:
+- suggestion **`025c8ce2-a4bf-4ed7-a57d-2c1a25231975`** (staged; audit twin `da5d3067-ee5d-4f89-b655-627d413373c6`)
+  — on the uncased **desk@** email "Engineer Riage-Our claim REF: 46573/1- Vehicle registration:
+  SW18EAY" (inbound_email `b958a35b-b32f-41c2-b49c-a1290e36bf00`, has_attachments=true,
+  received 2026-07-02) → target case **A.QDOS26034**
+  (`0b07b3d3-ecd6-49ed-9e35-a95e841aabf0`, VRM SW18EAY — the only open case with that
+  registration; baseline: **24 evidence rows, 0 "Attachments to add" notes**, status `missing_images`).
 
 ### Post-accept verifier checks (run as Entra-admin + SET ROLE csadmin)
 ```sql
 -- 1. the accept recorded
 SELECT review_state, reviewed_by, reviewed_at FROM ai_suggestion
- WHERE id = 'e1301dc9-5936-4507-b5ef-df8adb410aa3';            -- expect accepted
+ WHERE id = '025c8ce2-a4bf-4ed7-a57d-2c1a25231975';            -- expect accepted
 -- 2. the link
 SELECT case_id, triage_state FROM inbound_email
- WHERE id = '84c72717-21b4-44d9-a7ad-a34c8048cf93';            -- expect 0476fa7c…, routed
--- 3. the backfilled evidence (baseline was 4 rows, all created 2026-07-02)
+ WHERE id = 'b958a35b-b32f-41c2-b49c-a1290e36bf00';            -- expect 0b07b3d3…, routed
+-- 3. the backfilled evidence (baseline was 24 rows at staging time)
 SELECT id, file_name, kind_code, sha256 IS NOT NULL AS has_sha, storage_path, created_at
-  FROM evidence WHERE case_id = '0476fa7c-76e7-4890-b071-f4bbdb736275'
- ORDER BY created_at;                                          -- expect NEW rows (> 4), sha256 set
+  FROM evidence WHERE case_id = '0b07b3d3-ecd6-49ed-9e35-a95e841aabf0'
+ ORDER BY created_at;                                 -- expect NEW rows created post-accept, sha256 set
 -- 4. the audits (case feed)
 SELECT name, action_code, actor, occurred_at FROM audit_event
- WHERE case_id = '0476fa7c-76e7-4890-b071-f4bbdb736275'
+ WHERE case_id = '0b07b3d3-ecd6-49ed-9e35-a95e841aabf0'
    AND action_code IN (100000036, 100000002, 100000013, 100000001)
  ORDER BY occurred_at DESC LIMIT 10;
 -- expect inbound_linked (100000036, the accept) + 'Evidence backfilled from the linked email…'
 -- (100000002, actor orchestration); 100000013 iff the recompute moved the status;
 -- 100000001 ONLY on the failure path
 -- 5. the inverted note semantics: NO new 'Attachments to add' note on success
-SELECT count(*) FROM note WHERE case_id = '0476fa7c-76e7-4890-b071-f4bbdb736275'
+SELECT count(*) FROM note WHERE case_id = '0b07b3d3-ecd6-49ed-9e35-a95e841aabf0'
    AND name = 'Attachments to add';                            -- expect 0 (baseline 0)
 ```
 App Insights (cespike-parser-ai-dev): `traces | where message has "evidence-backfill"` — the
 consumer's completion event carries `persisted` + `status`. Double-accept safety can be re-proven by
-re-POSTing the review (idempotent `promoted:false`, no second enqueue).
+re-POSTing the review (idempotent `promoted:false`, no second enqueue). (The mooted `e1301dc9`
+accept, if clicked anyway, is a harmless no-op — see Findings (c).)
 
 ## Findings the brief asked for
 - **Auto-attach seam (TKT-093): NOT wired for backfill — not applicable by construction.** The
@@ -167,8 +178,28 @@ re-POSTing the review (idempotent `promoted:false`, no second enqueue).
   the non-minting lanes skip classifyPersist entirely (no rows are ever created uncased), and an
   email already on a Held/placeholder case cannot re-link through this seam (the accept's
   FILL-IF-EMPTY `WHERE case_id IS NULL` guard). Re-pointing logic was therefore deliberately not built.
+- **(c) Accepting a suggestion whose email is ALREADY linked (even to the SAME case) does NOT
+  backfill.** The case_link branch's UPDATE is guarded `WHERE id = $1 AND case_id IS NULL`
+  (ai-suggestions.ts); when the email is already linked it returns no row, so the entire block —
+  attach audit, chaser hook, **backfill enqueue**, note — is skipped and the review returns
+  `promoted:false` (the accept is still recorded on the suggestion). A drain-mooted accept is
+  therefore a harmless no-op — which is exactly why the e1301dc9 stage had to be re-staged rather
+  than left for the operator.
 
 ## Out-of-scope discoveries (recorded, not acted on)
+- **Cousin gap — the DRAIN-LINK lane attaches previously-uncased emails WITHOUT evidence backfill
+  (new-ticket candidate).** TKT-140's retro ladder rung-1 (`retroResolveExisting` →
+  `/api/internal/retro/resolve-existing`) linked **37** previously-uncased emails to existing
+  cases on 2026-07-10 alone — the same gap class this ticket fixed for the ACCEPT seam: the
+  rung-1 link stamps `inbound_email.case_id` but never re-drives the landed attachments into
+  evidence (it even mooted this ticket's first staged live proof by casing the EREF9 email at
+  15:45:12Z, whose attachments are now linked-but-not-backfilled on QDOS26023). The
+  **already-deployed `evidence-backfill` queue + consumer can serve this lane directly** — a
+  small driver enqueueing `{inboundEmailId, sourceMailbox, sourceMessageId, targetCaseId,
+  subject}` for retro-linked attachment-bearing emails (either inside the API's
+  retro/resolve-existing link path, mirroring the accept seam's enqueue-after-commit, or as a
+  one-shot sweep over `triage_state='routed'` rows linked by the drain). Not built now — scope
+  discipline; flagged for a follow-up ticket.
 - **PDF-embedded photos**: the decided TKT-145 chain ends at persist + status recompute — it does
   NOT run `extractImages`, so photos embedded INSIDE a backfilled PDF (the common Tractable shape)
   are not exploded into image evidence rows on this path (the PDF itself IS persisted). Parity seam
