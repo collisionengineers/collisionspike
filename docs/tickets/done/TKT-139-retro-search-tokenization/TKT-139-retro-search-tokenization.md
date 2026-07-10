@@ -1,11 +1,11 @@
 ---
 id: TKT-139
 title: Retro Outlook $search misses spaced-ref variants (Graph tokenization: PHA5007 vs PHA 5007)
-status: verify
+status: done
 priority: P3
 area: intake
 tickets-it-relates-to: [TKT-119, TKT-058]
-research-link: docs/tickets/verify/TKT-139-retro-search-tokenization/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-139-retro-search-tokenization/evidence/operator-note.md
 plan: PLAN-003
 ---
 

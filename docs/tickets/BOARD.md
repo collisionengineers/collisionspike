@@ -135,6 +135,7 @@
 
 
 
+
 ## Now — in flight / not yet confirmed live
 
 | ID | Title | State |
@@ -145,8 +146,6 @@
 
 | ID | Title | State |
 |---|---|---|
-| [TKT-148](./verify/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for overview-less photo sets | Shipped + DEPLOYED 2026-07-10 (detector in both status-recompute seams, N=5, one-per-case; one-shot minted 31 drafted chases incl. A.QDOS26029, negative control clean); SPA render check = verifier. → verify. |
-| [TKT-146](./verify/TKT-146-box-upload-event-classify/TKT-146-box-upload-event-classify.md) | Classify images at Box-upload event time | Shipped + DEPLOYED + implementer-live-proven 2026-07-10 (box-classify-sweep timer, orch 74/api 96 fns; test upload stamped overview + registration_visible=true in 1m50s; 242-row backlog draining, gate = IMAGE_ROLE_CLASSIFY_ENABLED). → verify. |
 | [TKT-145](./verify/TKT-145-caselink-evidence-backfill/TKT-145-caselink-evidence-backfill.md) | Accepted case_link on a previously-uncased email must backfill its evidence | Shipped + DEPLOYED 2026-07-10 (evidence-backfill queue + orch consumer, orch 73/api 95 fns; manual-note mitigation now failure-only; auto-attach seam N/A by construction). Live proof staged: operator accepts suggestion e1301dc9 (EREF9 desk@ email → QDOS26023). → verify. |
 | [TKT-142](./verify/TKT-142-boxfn-large-payload/TKT-142-boxfn-large-payload.md) | Box facade 502s on large base64 payloads — QDOS26029 archive stranded (17.6 MB .eml) | Shipped + LIVE-PROVEN 2026-07-09 (QDOS26029 archive 4/4 incl. the 17.6MB .eml; blobPath + chunked lanes); >=20MiB lane offline-only. → verify. |
 | [TKT-132](./verify/TKT-132-generate-suggestions-inputs/TKT-132-generate-suggestions-inputs.md) | Widen the AI-suggestion generate inputs beyond accident circumstances | Shipped 2026-07-09 (widened inputs, caps, scrub; DPIA within the 2026-07-08 attestation, scope-noted). → verify. |
@@ -157,7 +156,6 @@
 | [TKT-131](./verify/TKT-131-image-role-classify-retry/TKT-131-image-role-classify-retry.md) | Classify the role-unknown evidence images — retry the backfill residue so cases can reach Ready for EVA | EXECUTED LIVE 2026-07-09: 1,998/2,002 classified + stamped ($4.72); 108 cases pass the image rule; ready_for_eva 23->27; 4 content-safety residuals; A.QDOS26029 honestly lacks an overview (-> TKT-148). → verify. |
 | [TKT-143](./verify/TKT-143-extraction-stems-identity/TKT-143-extraction-stems-identity.md) | Pass the resolved provider/VRM into /extract-images so extraction filenames carry real identity | Shipped 2026-07-09: resolved principal+VRM threaded to extraction stems (real-engine tests); next qualifying intake = live proof. → verify. |
 | [TKT-141](./verify/TKT-141-merged-twins-exclusion/TKT-141-merged-twins-exclusion.md) | Exclude merged/retired duplicate cases from twin counts and attention lists | Shipped 2026-07-09: isRetiredMerged excluded from twins/attention/stages (PK20FWT 3->1 pinned); live badge check = verifier. → verify. |
-| [TKT-139](./verify/TKT-139-retro-search-tokenization/TKT-139-retro-search-tokenization.md) | Retro Outlook $search misses spaced-ref variants (Graph tokenization) | Shipped 2026-07-09: refSearchVariants union in the retro rung (+6 tests); live locate rides the next drain. → verify. |
 | [TKT-134](./verify/TKT-134-action-logs-humanize/TKT-134-action-logs-humanize.md) | Action-logs page renders raw engineering strings — humanize the staff-visible log lines | Shipped 2026-07-09: primary lines via the ONE label map + technical-details disclosure; live render scan = verifier. → verify. |
 | [TKT-044](./verify/TKT-044-mileage-calc-check/TKT-044-mileage-calc-check.md) | Mileage calculations look ~10,000 over expected values | INVESTIGATED 2026-07-09: no calculation bug — MOT-anchored projection; pinned test; live probes plausible. → verify (assessment confirmation). |
 | [TKT-090](./verify/TKT-090-evidence-filename-provider-vrm/TKT-090-evidence-filename-provider-vrm.md) | Evidence filenames carry a wrong "RJS" provider token and "UnknownVRM" | Root cause fixed sibling-first (tokens omitted when unresolved); 5,693 historical LEAVE (mirror sync); forward-clean sweep = verify. → verify. |
@@ -204,6 +202,9 @@
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-139](./done/TKT-139-retro-search-tokenization/TKT-139-retro-search-tokenization.md) | Retro Outlook $search misses spaced-ref variants (Graph tokenization) | VERIFIED-LIVE 2026-07-10 (ticket-verifier): recorded Graph pair from the TKT-140 dry-run — compact PHA5007=0 hits vs spaced=2 hits; call shape matched to the live rung, bundle grep, live retroOutlookLocate execution, 20/20 tests; PHA5007 Held case corroborated in the W1 data-pass. → done. |
+| [TKT-148](./done/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for overview-less photo sets | VERIFIED-LIVE 2026-07-10 (ticket-verifier): A.QDOS26029 renders "Chased" in the live SPA (drafted chaser 93dfcb3a, screenshots); W1 data-pass confirmed 31/31 mints+audits, negative control 0, no dupes, draft-only (no sendMail path exists). → done. |
+| [TKT-146](./done/TKT-146-box-upload-event-classify/TKT-146-box-upload-event-classify.md) | Classify images at Box-upload event time | VERIFIED-LIVE 2026-07-10 (ticket-verifier): 119 live stamps in 25 min (KQL), backlog 242→1, never-throws proven on a live content-safety refusal; W1 data-pass confirmed the test row (overview + registration_visible=t, 1m50s) and idempotency lockout (2,116 stamped rows non-re-enumerable). → done. |
 | [TKT-112](./done/TKT-112-image-writer-reconcile/TKT-112-image-writer-reconcile.md) | Reconcile the two image-classification writers | DONE 2026-07-09 (adjudicated): ownership documented + invariant source-verified (orch stamps, api suggestions); no conflict. → done. |
 | [TKT-088](./done/TKT-088-image-role-classification-check/TKT-088-image-role-classification-check.md) | Image role auto-classification — confirm whether it works and decide the path | DONE 2026-07-09 (adjudicated): the fork resolved by events — auto-classification shipped + live; determination recorded. → done. |
 | [TKT-067](./done/TKT-067-assistant-new-chat/TKT-067-assistant-new-chat.md) | Assistant drawer needs a "New chat" button to clear the conversation | VERIFIED-LIVE 2026-07-09 (verifier): control live, disabled-during-send captured, post-clear POST carries one message. → done. |
