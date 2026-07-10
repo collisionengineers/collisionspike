@@ -135,19 +135,29 @@ def test_is_decorative_raster_unit_matrix():
     assert is_decorative_raster(199, 199) is True
     assert is_decorative_raster(200, 200) is False  # exactly at the floor: kept
 
-    # Large-banner shape: extreme aspect (>= 3.5:1) AND small short side (<= 240 px).
+    # Large-banner shape: extreme aspect (>= 3.2:1) AND small short side (<= 240 px).
     assert is_decorative_raster(900, 180) is True  # wide letterhead banner
     assert is_decorative_raster(600, 150) is True  # email-signature-sized banner
     assert is_decorative_raster(150, 800) is True  # tall sidebar strip
-    assert is_decorative_raster(840, 240) is True  # both boundaries inclusive
+    assert is_decorative_raster(840, 240) is True  # aspect 3.5 -- comfortably over 3.2
+    assert is_decorative_raster(768, 240) is True  # both boundaries inclusive (3.2 exactly, 240)
+    # The TKT-089 reopen sample: the QDOS Assistance letterhead logo (575x174,
+    # aspect 3.305) evaded the old 3.5 threshold by a hair.
+    assert is_decorative_raster(575, 174) is True
 
     # Recall guard: real photo shapes NEVER match.
     assert is_decorative_raster(1600, 1200) is False  # 4:3 camera photo
     assert is_decorative_raster(4032, 3024) is False  # 12MP phone photo
     assert is_decorative_raster(1920, 1080) is False  # 16:9
-    assert is_decorative_raster(3000, 1000) is False  # 3:1 pano crop: aspect below 3.5
+    assert is_decorative_raster(3000, 1000) is False  # 3:1 pano crop: aspect below 3.2
+    assert is_decorative_raster(767, 240) is False  # aspect 3.196 -- just under the threshold
     assert is_decorative_raster(845, 241) is False  # extreme aspect but short side too big
     assert is_decorative_raster(4000, 1000) is False  # 4:1 but short side 1000 -- a real pano
+    # The TKT-089 reopen's OTHER sample -- the 204x204 MGAA square badge -- is
+    # DELIBERATELY kept by the engine (a square that small is shape-indistinguishable
+    # from a small genuine photo); the collisionspike vision classifier owns it
+    # (extraction-lane `nonVehicleExcluded`).
+    assert is_decorative_raster(204, 204) is False
 
 
 @pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
@@ -157,6 +167,7 @@ def test_is_decorative_raster_unit_matrix():
         (900, 180),  # wide banner logo (above the area floor -- the TKT-089 gap)
         (150, 800),  # tall narrow sidebar strip
         (80, 40),    # classic letterhead logo (under the area floor)
+        (575, 174),  # the TKT-089 reopen QDOS Assistance letterhead logo (aspect 3.305)
     ],
 )
 def test_decorative_shapes_are_suppressed(tmp_path, width, height):
@@ -173,6 +184,20 @@ def test_real_photo_sizes_are_kept(tmp_path, width, height):
         _make_pdf_with_image(width, height), "photos.pdf", {}, tmp_path
     )
     assert result["count"] == 1, f"a genuine {width}x{height} photo must never be dropped"
+
+
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+def test_square_badge_stays_engine_kept_for_the_classifier(tmp_path):
+    """The TKT-089 reopen's second sample -- the 204x204 MGAA square badge -- is
+    DELIBERATELY kept by the engine's shape heuristics (a small square is
+    indistinguishable from a small genuine photo, so shape-catching it risks
+    recall). The collisionspike pipeline's vision classifier excludes it at
+    persist instead (extraction-lane `nonVehicleExcluded`); this pin documents
+    the division of labour so a future threshold tune does not silently claim it."""
+    result = _service().extract_images(
+        _make_pdf_with_image(204, 204), "LtrtoEngineerIn.pdf", {}, tmp_path
+    )
+    assert result["count"] == 1, "the square badge shape is classifier-owned, not engine-dropped"
 
 
 # --------------------------------------------------------------------------- #

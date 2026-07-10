@@ -48,12 +48,19 @@ _MIN_EXTRACTED_IMAGE_AREA = 200 * 200
 # furniture can clear the area floor and still be page furniture -- e.g. a wide
 # banner logo (~900x180 = 162,000 px^2) or a tall sidebar strip. An above-floor
 # raster is still decorative only when BOTH hold: the aspect ratio is extreme
-# (long side >= 3.5x the short side) AND the short side is small (<= 240 px).
-# Recall guard: no real phone/camera photo can match -- photos are 4:3 / 3:2 /
-# 16:9 (aspect <= ~1.8), and even an aggressive panoramic crop that reached
-# 3.5:1 would carry a short side far above 240 px. A false positive here is
-# evidence loss, so both conditions are required, never either alone.
-_BANNER_ASPECT_RATIO = 3.5
+# (long side >= 3.2x the short side) AND the short side is small (<= 240 px).
+# 3.2 (was 3.5 -- engine-v2.11..v2.14) after the TKT-089 reopen: the recurring
+# QDOS Assistance letterhead logo (575x174, aspect 3.305) evaded 3.5 by a hair
+# while staying nowhere near photo territory. Recall guard: no real phone/camera
+# photo can match -- photos are 4:3 / 3:2 / 16:9 (aspect <= ~1.8, even a 21:9
+# crop is ~2.33), and an aggressive panoramic crop that reached 3.2:1 would
+# carry a short side far above 240 px. A false positive here is evidence loss,
+# so both conditions are required, never either alone. Square-ish badges (e.g.
+# the 204x204 MGAA badge from the same letterhead) are DELIBERATELY not
+# shape-caught -- indistinguishable from a small genuine photo; the
+# collisionspike pipeline's vision classifier owns those (extraction-lane
+# `nonVehicleExcluded`, orchestration/src/lib/image-classify.ts).
+_BANNER_ASPECT_RATIO = 3.2
 _BANNER_MAX_SHORT_SIDE = 240
 
 
