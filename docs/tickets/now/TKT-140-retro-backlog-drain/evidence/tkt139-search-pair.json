@@ -1,0 +1,52 @@
+{
+  "capturedAt": "2026-07-10T09:26:34.017658+00:00",
+  "purpose": "TKT-139 live proof - Graph $search KQL tokenization: the SAME ref searched compact vs spaced over the SAME whole mailbox, call shape identical to the live retroOutlookLocate rung (graph.ts searchMessages: GET /users/{mbx}/messages?$search=\"<phrase>\"&$select=id,subject,receivedDateTime,from,hasAttachments&$top=25). Captured with the intake app's client-credentials token (read-only).",
+  "mailbox": "engineers@collisionengineers.co.uk",
+  "pair": [
+    {
+      "variant": "compact",
+      "searchPhrase": "\"PHA5007\"",
+      "hitCount": 0,
+      "rawGraphResponse": {
+        "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#users('engineers%40collisionengineers.co.uk')/messages(id,subject,receivedDateTime,from,hasAttachments)",
+        "value": []
+      }
+    },
+    {
+      "variant": "spaced",
+      "searchPhrase": "\"PHA 5007\"",
+      "hitCount": 2,
+      "rawGraphResponse": {
+        "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#users('engineers%40collisionengineers.co.uk')/messages(id,subject,receivedDateTime,from,hasAttachments)",
+        "value": [
+          {
+            "@odata.etag": "W/\"CQAAAA==\"",
+            "id": "AAMkADA2ZDk3OWIwLTBmYzItNGZmZS04ZDg1LWI2MTkyNGU2YTU0MABGAAAAAAAMkWLYDoO4TZJNg5kN5lZNBwDui8m4J_0AR7UG5LtWTQ4wAAAAAAEJAADui8m4J_0AR7UG5LtWTQ4wAAK-H0tYAAA=",
+            "receivedDateTime": "2026-07-08T11:03:00Z",
+            "hasAttachments": true,
+            "subject": "RE: Our ref: PHA 5007 - Reg: MT25 FXW",
+            "from": {
+              "emailAddress": {
+                "name": "Engineers",
+                "address": "/O=EXCHANGELABS/OU=EXCHANGE ADMINISTRATIVE GROUP (FYDIBOHF23SPDLT)/CN=RECIPIENTS/CN=D461DA241FD748DF82AF16BC3AD269D8-016AA11F-C2"
+              }
+            }
+          },
+          {
+            "@odata.etag": "W/\"CQAAAA==\"",
+            "id": "AAMkADA2ZDk3OWIwLTBmYzItNGZmZS04ZDg1LWI2MTkyNGU2YTU0MABGAAAAAAAMkWLYDoO4TZJNg5kN5lZNBwDui8m4J_0AR7UG5LtWTQ4wAAAAAAEJAADui8m4J_0AR7UG5LtWTQ4wAAK-H0o7AAA=",
+            "receivedDateTime": "2026-05-20T10:18:00Z",
+            "hasAttachments": true,
+            "subject": "RE: Our ref: PHA 5007 - Reg: MT25 FXW",
+            "from": {
+              "emailAddress": {
+                "name": "Engineers",
+                "address": "/O=EXCHANGELABS/OU=EXCHANGE ADMINISTRATIVE GROUP (FYDIBOHF23SPDLT)/CN=RECIPIENTS/CN=D461DA241FD748DF82AF16BC3AD269D8-016AA11F-C2"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
