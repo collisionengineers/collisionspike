@@ -56,3 +56,20 @@ Verified by: ticket-verifier dispatch, 10-07-26. Summary of the certification pa
 - DDL: `SELECT code,name FROM choice_case_status WHERE code=100000012;` → done;
   `SELECT code,name FROM choice_audit_action WHERE code=100000053;` → report_delivered.
 - Live flow: drive Export for EVA on a seeded `ready_for_eva` case per the ticket's Acceptance.
+
+## Regression verification — 2026-07-11
+
+**Verdict: TESTED (offline) — deployment pending.**
+
+This block supersedes the earlier live/deployed verdicts for the PR 55 atomic-audit repair. Prior
+parity and lifecycle evidence describes the older deployed implementation only.
+
+- The 13-status/5-terminal domain and database parity contract remains intact. The repaired staff
+  `ready_for_eva → eva_submitted` transition now commits the guarded status update and required audit
+  in one transaction through the shared terminal-transition helper.
+- `api/src/lib/terminal-transition.test.ts` injects a strict-audit failure, proves the status rolls
+  back, retries successfully and proves exactly one final audit. The successful replay is a no-op.
+- The same helper is used by staff report delivery and the service-authenticated detector, removing
+  the former split between status and audit ownership.
+- Deployment proof still required: deploy the API, export one eligible case, verify the badge/queue/
+  throughput change and one `eva_submitted` audit, then replay without a second audit.

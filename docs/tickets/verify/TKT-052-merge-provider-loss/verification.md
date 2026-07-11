@@ -67,3 +67,23 @@ Verified by: ticket-verifier dispatch, 2026-07-10.
   changes.md `providerPreserved` claim is now closed by direct column read.
 The verdict stands PENDING on the route-level live merge (UI-unreachable for the fill scenario —
 see the dialog-filter follow-up).
+
+## Regression verification — 2026-07-11
+
+**Verdict: TESTED (offline) — deployment pending.**
+
+This block supersedes the earlier live/deployed verdicts for the PR 55 regression repair, including
+the old statement that the provider-fill path was UI-unreachable.
+
+- Merge-candidate eligibility now allows a pair when either side is providerless and still excludes
+  two known, different providers. The staff dialog can therefore reach the safe provider-fill path.
+- Both UUIDs are validated and canonicalised before self-checks, row/advisory locks, provider choice
+  and response construction. The provider and its provenance are carried inside the merge
+  transaction; the survivor's status generation is requested there as well, while immediate
+  recomputation is an optional fast path.
+- `api/src/functions/cases-merge.test.ts` covers providerless candidate reachability, exclusion of a
+  different known provider, mixed-case UUID carry-over, case-insensitive self-merge refusal, ordered
+  locking and a post-commit fast-path failure that leaves the durable generation pending without
+  reporting a false merge failure.
+- Live proof still required: deploy the repaired API/SPA and perform one provider-bearing →
+  providerless merge from the dialog, then verify the survivor provider/provenance and status drain.

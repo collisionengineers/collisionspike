@@ -1,0 +1,29 @@
+import { describe, expect, it } from 'vitest';
+import {
+  EVA_EDIT_MAX_LENGTH,
+  normaliseEvaEdit,
+} from './eva-edit';
+
+describe('shared EVA edit normalisation', () => {
+  it('normalises the two dates and their empty form exactly like the case PATCH', () => {
+    expect(normaliseEvaEdit('dateOfLoss', ' 11/07/2026 ')).toEqual({ value: '11/07/2026' });
+    expect(normaliseEvaEdit('dateOfInstruction', '   ')).toEqual({ value: '' });
+    expect(normaliseEvaEdit('dateOfLoss', '2026-07-11')).toEqual({
+      error: 'dateOfLoss must be DD/MM/YYYY or empty',
+    });
+  });
+
+  it('normalises only the supported VAT and mileage-unit values', () => {
+    expect(normaliseEvaEdit('vatStatus', ' Yes ')).toEqual({ value: 'Yes' });
+    expect(normaliseEvaEdit('vatStatus', 'Exempt')).toHaveProperty('error');
+    expect(normaliseEvaEdit('mileageUnit', ' Km ')).toEqual({ value: 'Km' });
+    expect(normaliseEvaEdit('mileageUnit', 'Kilometres')).toHaveProperty('error');
+  });
+
+  it('retains the established clip-at-column-width behavior for ordinary case-page text', () => {
+    const over = 'x'.repeat(EVA_EDIT_MAX_LENGTH.claimantName + 1);
+    expect(normaliseEvaEdit('claimantName', over)).toEqual({
+      value: 'x'.repeat(EVA_EDIT_MAX_LENGTH.claimantName),
+    });
+  });
+});

@@ -46,6 +46,7 @@ vi.mock('../lib/db.js', () => ({
 await import('./cases.js');
 
 const merge = registrations.get('mergeCases')!.handler;
+const mergeCandidates = registrations.get('mergeCandidates')!.handler;
 const txSql: string[] = [];
 const txParams: unknown[][] = [];
 const poolSql: string[] = [];
@@ -54,6 +55,7 @@ const evidenceRows: Rec[] = [];
 const fileRequestIntents: Rec[] = [];
 const CASE_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const CASE_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const CASE_C = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const EV_ONE = '11111111-1111-4111-8111-111111111111';
 const EV_TARGET = '22222222-2222-4222-8222-222222222222';
 const EV_SOURCE_COPY = '33333333-3333-4333-8333-333333333333';
@@ -66,6 +68,7 @@ function caseRow(id: string, overrides: Rec = {}): Rec {
     status_code: statusToInt('ingested'),
     duplicate_keys: null,
     provider_display: '',
+    provider_principal: 'P1',
     work_provider_id: 'wp-shared',
     ...overrides,
   };
@@ -105,6 +108,9 @@ beforeEach(() => {
     if (/FROM case_ c/i.test(sql) && /WHERE c.id = \$1/i.test(sql)) {
       const row = cases.get(params[0] as string);
       return row ? [row] : [];
+    }
+    if (/FROM case_ c/i.test(sql) && /ORDER BY c\.created_at DESC/i.test(sql)) {
+      return [...cases.values()];
     }
     if (/status_recompute_completed_generation = GREATEST/i.test(sql)) {
       return [{
@@ -208,6 +214,18 @@ beforeEach(() => {
 });
 
 describe('mergeCases atomic lock protocol', () => {
+  it('offers a providerless twin but excludes a case with a different known provider', async () => {
+    cases.set(CASE_A, caseRow(CASE_A, { provider_principal: 'P1' }));
+    cases.set(CASE_B, caseRow(CASE_B, { provider_principal: '', work_provider_id: null }));
+    cases.set(CASE_C, caseRow(CASE_C, { provider_principal: 'P2', work_provider_id: 'wp-other' }));
+
+    const response = await mergeCandidates({ params: { id: CASE_A } } as unknown as HttpRequest, ctx);
+    const ids = (response.jsonBody as Array<{ id: string }>).map((candidate) => candidate.id);
+
+    expect(ids).toContain(CASE_B);
+    expect(ids).not.toContain(CASE_C);
+  });
+
   it('transfers a never-attempted pending image-upload intent to the survivor', async () => {
     fileRequestIntents.push({
       case_id: CASE_A,

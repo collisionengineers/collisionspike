@@ -141,6 +141,14 @@ export class EvidenceBackfillReclassificationRequiredError extends ConflictError
   }
 }
 
+export interface EvidenceBackfillCommittedResult {
+  outcome: 'completed' | 'partial';
+  persisted: number;
+  merged?: number;
+  failedAttachments?: number;
+  detail?: string;
+}
+
 /* ---------- typed surface ---------- */
 
 /** Intake-time dedup context for a provider+VRM (internal route). */
@@ -514,17 +522,38 @@ export const dataApi = {
         sha256?: string;
       }
     >,
-    options?: { expectedInboundEmailId?: string },
+    options?: {
+      expectedInboundEmailId?: string;
+      evidenceBackfillGeneration?: number;
+      evidenceBackfillResult?: Omit<EvidenceBackfillCommittedResult, 'persisted' | 'merged'>;
+    },
   ): Promise<{
     persisted: number;
     updated: number;
     merged: number;
     targetCaseId?: string;
     statusGeneration?: number;
+    backfillGeneration?: number;
+    alreadyCompleted?: boolean;
+    completedResult?: EvidenceBackfillCommittedResult;
   }> {
     return request('POST', `/api/internal/cases/${caseId}/evidence`, {
       rows,
       ...(options?.expectedInboundEmailId ? { expectedInboundEmailId: options.expectedInboundEmailId } : {}),
+      ...(options?.evidenceBackfillGeneration != null
+        ? { evidenceBackfillGeneration: options.evidenceBackfillGeneration }
+        : {}),
+      ...(options?.evidenceBackfillResult
+        ? {
+            evidenceBackfillOutcome: options.evidenceBackfillResult.outcome,
+            ...(options.evidenceBackfillResult.failedAttachments == null
+              ? {}
+              : { evidenceBackfillFailedAttachments: options.evidenceBackfillResult.failedAttachments }),
+            ...(options.evidenceBackfillResult.detail
+              ? { evidenceBackfillDetail: options.evidenceBackfillResult.detail }
+              : {}),
+          }
+        : {}),
     });
   },
 
@@ -791,6 +820,7 @@ export const dataApi = {
       merged?: number;
       failedAttachments?: number;
       detail?: string;
+      generation: number;
     },
   ): Promise<void> {
     return request(
@@ -807,11 +837,18 @@ export const dataApi = {
   validateEvidenceBackfillTarget(
     inboundEmailId: string,
     targetCaseId: string,
-  ): Promise<{ targetCaseId: string }> {
+    generation?: number,
+  ): Promise<{
+    targetCaseId: string;
+    generation: number;
+    completed: boolean;
+    superseded?: boolean;
+    committedResult?: EvidenceBackfillCommittedResult;
+  }> {
     return request(
       'POST',
       `/api/internal/inbound/${encodeURIComponent(inboundEmailId)}/evidence-backfill/validate`,
-      { targetCaseId },
+      { targetCaseId, ...(generation == null ? {} : { generation }) },
     );
   },
 
@@ -908,6 +945,11 @@ export const dataApi = {
         ...(claimToken ? { claimToken } : {}),
       },
     );
+  },
+
+  /** Wake-safe publisher backstop: the API owns the generation outbox and queue write. */
+  drainEvidenceBackfillRequests(): Promise<{ published: number; failed: number }> {
+    return request('POST', '/api/internal/evidence-backfill-requests/drain', {});
   },
 
   /**

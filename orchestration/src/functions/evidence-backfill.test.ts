@@ -82,6 +82,19 @@ vi.mock('../lib/image-classify.js', () => imageClassify);
 
 /* ---- data API: recording doubles + a call-order journal ---- */
 const order = vi.hoisted(() => [] as string[]);
+interface BackfillValidationResult {
+  targetCaseId: string;
+  generation: number;
+  completed: boolean;
+  superseded?: boolean;
+  committedResult?: {
+    outcome: 'completed' | 'partial';
+    persisted: number;
+    merged?: number;
+    failedAttachments?: number;
+    detail?: string;
+  };
+}
 const dataApiMock = vi.hoisted(() => ({
   persistEvidence: vi.fn(async (_caseId: string, _rows: unknown[], _options?: { expectedInboundEmailId?: string }) => {
     order.push('persist');
@@ -94,7 +107,13 @@ const dataApiMock = vi.hoisted(() => ({
   reportEvidenceBackfill: vi.fn(async (_id: string, p: { outcome: string }) => {
     order.push(`report:${p.outcome}`);
   }),
-  validateEvidenceBackfillTarget: vi.fn(async (_inboundEmailId: string, targetCaseId: string) => ({ targetCaseId })),
+  validateEvidenceBackfillTarget: vi.fn(async (
+    _inboundEmailId: string,
+    targetCaseId: string,
+    generation?: number,
+  ): Promise<BackfillValidationResult> => ({
+    targetCaseId, generation: generation ?? 1, completed: false,
+  })),
   casesLookup: vi.fn(async (_payload: { caseIds?: string[] }) => ({
     cases: [] as Array<{ caseId: string; casePo: string; status: string; workProviderId: string; vrm: string }>,
   })),
@@ -126,6 +145,7 @@ function ctxAt(dequeueCount: number): InvocationContext {
 
 const JOB = {
   inboundEmailId: 'ie-1',
+  generation: 1,
   sourceMailbox: 'info@collisionengineers.co.uk',
   sourceMessageId: '<lead-123@tractable.ai>',
   targetCaseId: 'case-target',
@@ -157,8 +177,14 @@ beforeEach(() => {
   dataApiMock.reportEvidenceBackfill.mockImplementation(async (_id: string, p: { outcome: string }) => {
     order.push(`report:${p.outcome}`);
   });
-  dataApiMock.validateEvidenceBackfillTarget.mockImplementation(async (_id: string, targetCaseId: string) => ({
+  dataApiMock.validateEvidenceBackfillTarget.mockImplementation(async (
+    _id: string,
+    targetCaseId: string,
+    generation?: number,
+  ) => ({
     targetCaseId,
+    generation: generation ?? 1,
+    completed: false,
   }));
   dataApiMock.casesLookup.mockResolvedValue({ cases: [] });
   dataApiMock.workProviderAiAllowed.mockResolvedValue({ aiAllowed: null });
@@ -208,6 +234,7 @@ describe('evidence-backfill — (a) happy path drives the existing persist chain
       targetCaseId: 'case-target',
       persisted: 2,
       merged: 0,
+      generation: 1,
     });
   });
 });
@@ -509,7 +536,9 @@ describe('evidence-backfill — target, attachment and policy safety', () => {
 
   it('merge-first: uses the API-verified survivor for persistence, status and reporting', async () => {
     arrangeFetch();
-    dataApiMock.validateEvidenceBackfillTarget.mockResolvedValue({ targetCaseId: 'case-survivor' });
+    dataApiMock.validateEvidenceBackfillTarget.mockResolvedValue({
+      targetCaseId: 'case-survivor', generation: 1, completed: false,
+    });
     dataApiMock.persistEvidence.mockImplementation(async () => {
       order.push('persist');
       return { persisted: 2, merged: 0, targetCaseId: 'case-survivor', statusGeneration: 7 };
@@ -520,7 +549,11 @@ describe('evidence-backfill — target, attachment and policy safety', () => {
     expect(dataApiMock.persistEvidence).toHaveBeenCalledWith(
       'case-survivor',
       expect.any(Array),
-      { expectedInboundEmailId: 'ie-1' },
+      {
+        expectedInboundEmailId: 'ie-1',
+        evidenceBackfillGeneration: 1,
+        evidenceBackfillResult: { outcome: 'completed' },
+      },
     );
     expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-survivor', 7);
     expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledWith(
@@ -545,8 +578,8 @@ describe('evidence-backfill — target, attachment and policy safety', () => {
     process.env.AI_MODEL_DEPLOYMENT = 'vision';
     arrangeFetch();
     dataApiMock.validateEvidenceBackfillTarget
-      .mockResolvedValueOnce({ targetCaseId: 'case-old' })
-      .mockResolvedValueOnce({ targetCaseId: 'case-survivor' });
+      .mockResolvedValueOnce({ targetCaseId: 'case-old', generation: 1, completed: false })
+      .mockResolvedValueOnce({ targetCaseId: 'case-survivor', generation: 1, completed: false });
     dataApiMock.casesLookup.mockImplementation(async (payload: { caseIds?: string[] }) => {
       const id = payload.caseIds?.[0] ?? '';
       return {
@@ -614,7 +647,11 @@ describe('evidence-backfill — target, attachment and policy safety', () => {
     const photos = (rows as Array<{ filename: string; blobPath: string }>).filter((r) => r.filename === 'photo.jpg');
     expect(photos).toHaveLength(2);
     expect(new Set(photos.map((r) => r.blobPath)).size).toBe(2);
-    expect(options).toEqual({ expectedInboundEmailId: 'ie-1' });
+    expect(options).toEqual({
+      expectedInboundEmailId: 'ie-1',
+      evidenceBackfillGeneration: 1,
+      evidenceBackfillResult: { outcome: 'completed' },
+    });
   });
 
   it('fails closed for model calls when case policy lookup fails but still persists', async () => {
@@ -750,6 +787,42 @@ describe('evidence-backfill — target, attachment and policy safety', () => {
 });
 
 describe('evidence-backfill — committed phase and terminal reporting', () => {
+  it('commit + lost report + retry fetch failure replays the exact durable partial result', async () => {
+    dataApiMock.validateEvidenceBackfillTarget.mockResolvedValue({
+      targetCaseId: 'case-target',
+      generation: 1,
+      completed: true,
+      committedResult: {
+        outcome: 'partial',
+        persisted: 1,
+        merged: 0,
+        failedAttachments: 1,
+        detail: '1 recovery item could not be retrieved',
+      },
+    });
+    graph.findMessageByInternetMessageId.mockRejectedValue(
+      new Error('Graph lookup exhausted after the original commit'),
+    );
+
+    await backfill.handler(JSON.stringify(JOB), ctxAt(5));
+
+    expect(graph.findMessageByInternetMessageId).not.toHaveBeenCalled();
+    expect(dataApiMock.persistEvidence).not.toHaveBeenCalled();
+    expect(dataApiMock.evaluateStatus).not.toHaveBeenCalled();
+    expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledWith('ie-1', {
+      outcome: 'partial',
+      targetCaseId: 'case-target',
+      generation: 1,
+      persisted: 1,
+      merged: 0,
+      failedAttachments: 1,
+      detail: '1 recovery item could not be retrieved',
+    });
+    expect(
+      dataApiMock.reportEvidenceBackfill.mock.calls.some(([, payload]) => payload.outcome !== 'partial'),
+    ).toBe(false);
+  });
+
   it('requires the atomic evaluate response to acknowledge the returned generation', async () => {
     arrangeFetch();
     dataApiMock.evaluateStatus.mockImplementation(async () => {

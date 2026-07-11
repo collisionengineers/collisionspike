@@ -25,8 +25,12 @@ vi.hoisted(() => {
 /* ---- @azure/functions: capture registrations (no Functions host) ---- */
 interface Reg { handler: (req: HttpRequest, ctx: InvocationContext, claims: unknown) => Promise<HttpResponseInit> }
 const registrations = vi.hoisted(() => new Map<string, Reg>());
+const timerRegistrations = vi.hoisted(() => new Set<string>());
 vi.mock('@azure/functions', () => ({
-  app: { http: (name: string, opts: Reg) => { registrations.set(name, opts); }, timer: () => {} },
+  app: {
+    http: (name: string, opts: Reg) => { registrations.set(name, opts); },
+    timer: (name: string) => timerRegistrations.add(name),
+  },
 }));
 
 /* ---- auth: withRole passthrough (the bearer gate is exercised by auth.test.ts) ---- */
@@ -76,9 +80,10 @@ vi.mock('../lib/evidence-backfill-queue.js', () => ({
 }));
 
 const { AUDIT_ACTION } = await import('../lib/audit.js');
-await import('./ai-suggestions.js'); // registers the routes against the captured app.http
+const aiSuggestions = await import('./ai-suggestions.js'); // registers routes against captured app.http
 const generate = registrations.get('generateAiSuggestions')!.handler;
 const review = registrations.get('reviewAiSuggestion')!.handler;
+const { drainEvidenceBackfillRequests } = aiSuggestions;
 
 const CASE_ROW = { vrm: 'WN14XPZ', eva_accident_circumstances: 'Struck from behind at lights.', eva_claimant_address: 'redacted' };
 
@@ -87,6 +92,10 @@ function req(): HttpRequest {
 }
 // The route logs every outcome (TKT-127 telemetry) — give it real log/error spies.
 const ctx = { log: vi.fn(), error: vi.fn() } as unknown as InvocationContext;
+
+it('does not rely on a plain FC1 timer to recover pending evidence-backfill publications', () => {
+  expect(timerRegistrations.has('evidence-backfill-request-drain')).toBe(false);
+});
 
 const insertSqls = (): string[] => sqls.filter((s) => /INSERT INTO ai_suggestion/i.test(s));
 
@@ -622,17 +631,22 @@ function linkRows(updRow: Record<string, unknown> | null, reviewState = 'pending
       linked = Boolean(updRow);
       return updRow ? [{ ...updRow, evidence_backfill_requested_generation: 1 }] : [];
     }
-    if (/SELECT id, case_id, source_mailbox, source_message_id, subject/i.test(sql)) {
+    if (/SELECT NULLIF\(btrim\(s\.suggested_value/i.test(sql)) {
+      return [{ target_case_id: 'case-target' }];
+    }
+    if (/SELECT ie\.id, ie\.case_id/i.test(sql)) {
       const sourceMailbox = updRow?.source_mailbox;
       const sourceMessageId = updRow?.source_message_id;
       return linked && updRow?.has_attachments === true && sourceMailbox && sourceMessageId
         ? [{
             id: 'ie-1',
             case_id: 'case-target',
+            target_case_id: 'case-target',
             source_mailbox: sourceMailbox,
             source_message_id: sourceMessageId,
             subject: updRow.subject ?? null,
             evidence_backfill_requested_generation: 1,
+            evidence_backfill_enqueued_generation: 0,
           }]
         : [];
     }
@@ -641,6 +655,172 @@ function linkRows(updRow: Record<string, unknown> | null, reviewState = 'pending
 }
 
 describe('reviewAiSuggestion — TKT-145 case_link accept enqueues the evidence backfill', () => {
+  it('reconciles the valid accepted target when a newer unrelated no-op acceptance also exists', async () => {
+    let legacyPromoted = false;
+    let enqueued = false;
+    rowsFor.mockImplementation((sql: string, queryParams?: unknown[]) => {
+      if (/evidence_backfill_requested_generation = 0/i.test(sql) && /FROM inbound_email ie/i.test(sql) && !legacyPromoted) {
+        return [{
+          id: 'ie-legacy',
+          case_id: 'case-b',
+          source_mailbox: 'info@collisionengineers.co.uk',
+          source_message_id: '<legacy@message>',
+          subject: 'Legacy accepted link',
+          evidence_backfill_requested_generation: 0,
+          evidence_backfill_enqueued_generation: 0,
+        }];
+      }
+      if (/SELECT NULLIF\(btrim\(s\.suggested_value/i.test(sql)) {
+        // Newer A was accepted as a no-op after the row was already linked. Older B
+        // is the valid acceptance that actually owns the inbound row.
+        return [{ target_case_id: 'case-a' }, { target_case_id: 'case-b' }];
+      }
+      if (/SELECT id, duplicate_keys FROM case_/i.test(sql)) {
+        const id = String(queryParams?.[0] ?? '');
+        return [{ id, duplicate_keys: null }];
+      }
+      if (/SET evidence_backfill_requested_generation = 1/i.test(sql)) {
+        legacyPromoted = true;
+        return [];
+      }
+      if (/SELECT ie\.id, ie\.case_id/i.test(sql) && !enqueued && legacyPromoted) {
+        return [{
+          id: 'ie-legacy',
+          case_id: 'case-b',
+          source_mailbox: 'info@collisionengineers.co.uk',
+          source_message_id: '<legacy@message>',
+          subject: 'Legacy accepted link',
+          evidence_backfill_requested_generation: 1,
+          evidence_backfill_enqueued_generation: 0,
+        }];
+      }
+      if (/evidence_backfill_enqueued_generation = GREATEST/i.test(sql)) enqueued = true;
+      return [];
+    });
+
+    expect(await drainEvidenceBackfillRequests('ie-legacy', 1)).toEqual({ published: 1, failed: 0 });
+    expect(backfill.enqueueEvidenceBackfill).toHaveBeenCalledTimes(1);
+    expect(backfill.enqueueEvidenceBackfill).toHaveBeenCalledWith(expect.objectContaining({
+      inboundEmailId: 'ie-legacy',
+      generation: 1,
+      targetCaseId: 'case-b',
+    }));
+    // The enqueue acknowledgement is guarded against the CURRENT merged owner B.
+    expect(params.some((p) => p[0] === 'ie-legacy' && p[1] === 1 && p[2] === 'case-b')).toBe(true);
+
+    expect(await drainEvidenceBackfillRequests('ie-legacy', 1)).toEqual({ published: 0, failed: 0 });
+    expect(backfill.enqueueEvidenceBackfill).toHaveBeenCalledTimes(1);
+  });
+
+  it('pages past a full poison page of lineage-ineligible legacy rows', async () => {
+    let legacyPage = 0;
+    let promoted = false;
+    let enqueued = false;
+    const invalidRows = Array.from({ length: 50 }, (_, index) => ({
+      id: `invalid-${String(index).padStart(2, '0')}`,
+      case_id: 'case-current',
+      source_mailbox: 'info@collisionengineers.co.uk',
+      source_message_id: `<invalid-${index}@message>`,
+      subject: 'Invalid old link',
+      evidence_backfill_requested_generation: 0,
+      evidence_backfill_enqueued_generation: 0,
+      scan_updated_at: new Date(2026, 0, 1, 0, index).toISOString(),
+    }));
+    const validRow = {
+      id: 'valid-after-poison-page',
+      case_id: 'case-current',
+      source_mailbox: 'info@collisionengineers.co.uk',
+      source_message_id: '<valid@message>',
+      subject: 'Valid old link',
+      evidence_backfill_requested_generation: 0,
+      evidence_backfill_enqueued_generation: 0,
+      scan_updated_at: new Date(2026, 0, 2).toISOString(),
+    };
+    rowsFor.mockImplementation((sql: string, queryParams?: unknown[]) => {
+      if (/evidence_backfill_requested_generation = 0/i.test(sql) && /FROM inbound_email ie/i.test(sql)) {
+        legacyPage++;
+        if (legacyPage === 1) return invalidRows;
+        if (legacyPage === 2 && !promoted) return [validRow];
+        return [];
+      }
+      if (/SELECT NULLIF\(btrim\(s\.suggested_value/i.test(sql)) {
+        return [{
+          target_case_id: queryParams?.[0] === validRow.id ? 'case-current' : 'case-unrelated',
+        }];
+      }
+      if (/SELECT id, duplicate_keys FROM case_/i.test(sql)) {
+        const id = String(queryParams?.[0] ?? '');
+        return [{ id, duplicate_keys: null }];
+      }
+      if (/SET evidence_backfill_requested_generation = 1/i.test(sql)) {
+        promoted = true;
+        return [{ id: validRow.id }];
+      }
+      if (/evidence_backfill_requested_generation > ie\.evidence_backfill_enqueued_generation/i.test(sql)) {
+        return promoted && !enqueued
+          ? [{ ...validRow, evidence_backfill_requested_generation: 1 }]
+          : [];
+      }
+      if (/evidence_backfill_enqueued_generation = GREATEST/i.test(sql)) enqueued = true;
+      return [];
+    });
+
+    expect(await drainEvidenceBackfillRequests(undefined, 1)).toEqual({ published: 1, failed: 0 });
+    expect(legacyPage).toBe(2);
+    expect(backfill.enqueueEvidenceBackfill).toHaveBeenCalledOnce();
+    expect(backfill.enqueueEvidenceBackfill).toHaveBeenCalledWith(expect.objectContaining({
+      inboundEmailId: validRow.id,
+      targetCaseId: 'case-current',
+    }));
+  });
+
+  it('binds later generations to an accepted target and follows only its real merge lineage', async () => {
+    let merged = false;
+    let enqueued = false;
+    rowsFor.mockImplementation((sql: string, queryParams?: unknown[]) => {
+      if (/evidence_backfill_requested_generation = 0/i.test(sql) && /FROM inbound_email ie/i.test(sql)) {
+        return [];
+      }
+      if (/evidence_backfill_requested_generation > ie\.evidence_backfill_enqueued_generation/i.test(sql)) {
+        return enqueued ? [] : [{
+          id: 'ie-generation-2',
+          case_id: 'case-c',
+          source_mailbox: 'info@collisionengineers.co.uk',
+          source_message_id: '<generation-2@message>',
+          subject: 'Later accepted link',
+          evidence_backfill_requested_generation: 2,
+          evidence_backfill_enqueued_generation: 1,
+        }];
+      }
+      if (/SELECT NULLIF\(btrim\(s\.suggested_value/i.test(sql)) {
+        return [{ target_case_id: 'case-b' }];
+      }
+      if (/SELECT id, duplicate_keys FROM case_/i.test(sql)) {
+        const id = String(queryParams?.[0] ?? '');
+        return [{
+          id,
+          duplicate_keys: merged && id === 'case-b' ? { mergedInto: 'case-c' } : null,
+        }];
+      }
+      if (/evidence_backfill_enqueued_generation = GREATEST/i.test(sql)) enqueued = true;
+      return [];
+    });
+
+    // Manual B→unrelated-C relink: do not publish or permanently acknowledge gen 2.
+    expect(await drainEvidenceBackfillRequests('ie-generation-2', 1)).toEqual({ published: 0, failed: 0 });
+    expect(backfill.enqueueEvidenceBackfill).not.toHaveBeenCalled();
+    expect(enqueued).toBe(false);
+
+    // A real B→merged-C lineage preserves the accepted target; the consumer resolves C.
+    merged = true;
+    expect(await drainEvidenceBackfillRequests('ie-generation-2', 1)).toEqual({ published: 1, failed: 0 });
+    expect(backfill.enqueueEvidenceBackfill).toHaveBeenCalledWith(expect.objectContaining({
+      generation: 2,
+      targetCaseId: 'case-b',
+    }));
+    expect(params.some((p) => p[0] === 'ie-generation-2' && p[1] === 2 && p[2] === 'case-c')).toBe(true);
+  });
+
   it('accept → ONE enqueue with the exact job (after the link commit); NO manual note', async () => {
     rowsFor.mockImplementation(linkRows(ATTACHED_LINK_UPDATE_ROW));
     // Enqueue-after-commit ordering: when the enqueue fires, the inbound_email UPDATE
@@ -655,6 +835,7 @@ describe('reviewAiSuggestion — TKT-145 case_link accept enqueues the evidence 
     expect(backfill.enqueueEvidenceBackfill).toHaveBeenCalledTimes(1);
     expect(backfill.enqueueEvidenceBackfill).toHaveBeenCalledWith({
       inboundEmailId: 'ie-1',
+      generation: 1,
       sourceMailbox: 'info@collisionengineers.co.uk',
       sourceMessageId: '<lead-123@tractable.ai>',
       targetCaseId: 'case-target',
@@ -749,14 +930,19 @@ describe('reviewAiSuggestion — TKT-145 case_link accept enqueues the evidence 
         linked = true;
         return [{ ...ATTACHED_LINK_UPDATE_ROW, evidence_backfill_requested_generation: 1 }];
       }
-      if (/SELECT id, case_id, source_mailbox, source_message_id, subject/i.test(sql)) {
+      if (/SELECT NULLIF\(btrim\(s\.suggested_value/i.test(sql)) {
+        return [{ target_case_id: 'case-target' }];
+      }
+      if (/SELECT ie\.id, ie\.case_id/i.test(sql)) {
         return linked && !enqueued ? [{
           id: 'ie-1',
           case_id: 'case-target',
+          target_case_id: 'case-target',
           source_mailbox: ATTACHED_LINK_UPDATE_ROW.source_mailbox,
           source_message_id: ATTACHED_LINK_UPDATE_ROW.source_message_id,
           subject: ATTACHED_LINK_UPDATE_ROW.subject,
           evidence_backfill_requested_generation: 1,
+          evidence_backfill_enqueued_generation: 0,
         }] : [];
       }
       if (/evidence_backfill_enqueued_generation = GREATEST/i.test(sql)) enqueued = true;

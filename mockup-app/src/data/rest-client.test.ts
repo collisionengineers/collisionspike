@@ -296,6 +296,30 @@ describe('rest-client — assistant confirmation snapshots (TKT-111 repair)', ()
     expect((lastInit(fetchMock).headers as Record<string, string>)['If-Match']).toBe('json-v7');
   });
 
+  it('returns the created resource id so a confirmed case remains openable', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      headers: { get: () => null },
+      json: () => Promise.resolve({ id: 'case-created-1' }),
+    });
+    const da = clientWith(fetchMock);
+    const createAction = {
+      capability: 'create_case',
+      title: 'Create a case',
+      method: 'POST',
+      path: 'cases',
+      body: { vrm: 'AB12CDE' },
+      params: { vrm: 'AB12CDE' },
+    };
+
+    await expect(da.executeProposal(createAction)).resolves.toEqual({
+      ok: true,
+      status: 201,
+      resourceId: 'case-created-1',
+    });
+  });
+
   it('never silently omits If-Match for an existing target', async () => {
     const fetchMock = vi.fn();
     const da = clientWith(fetchMock);

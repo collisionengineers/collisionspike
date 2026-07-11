@@ -146,6 +146,21 @@ describe('unclassified Box enumeration', () => {
       expect(sql.indexOf(predicate)).toBeLessThan(limit);
     }
   });
+
+  it('keeps a day-13.5 transient retry eligible after its backoff crosses day 14', async () => {
+    // First attempts stay bounded to recent event-time work. A row that already failed
+    // transiently at day 13.5 has attempt_count > 0, so it must remain claimable when
+    // next_attempt_at becomes due at day 14.5 instead of disappearing forever.
+    await enumerate(req({ method: 'POST', query: { limit: '25' } }), ctx);
+    const sql = String(db.query.mock.calls[0][0]).replace(/\s+/g, ' ');
+
+    expect(sql).toContain(
+      "( COALESCE(e.box_classify_attempt_count, 0) > 0 OR e.created_at > now() - interval '14 days' )",
+    );
+    expect(sql.indexOf('COALESCE(e.box_classify_attempt_count, 0) > 0'))
+      .toBeLessThan(sql.indexOf('LIMIT $3'));
+    expect(sql).toContain('e.box_classify_next_attempt_at <= now()');
+  });
 });
 
 describe('Box classification failure scheduling', () => {

@@ -2,7 +2,7 @@
  * api/src/functions/assistant.ts — AI chat helper (TKT-060 / TKT-066 / TKT-069).
  *
  *   POST /api/assistant/chat   a read-only conversational Q&A over the live case data
- *   GET  /api/gates/ai-chat    { enabled } for the SPA to show/hide the drawer
+ *   GET  /api/gates/ai-chat    { enabled, writeEnabled } for the SPA to describe its live abilities
  *
  * READ-ONLY by construction: the model may only call the SELECT-only lookup tools below, and
  * the route performs no mutations (TKT-060 invariant). Gated `AI_CHAT_ENABLED` (+ a configured
@@ -387,6 +387,7 @@ export async function execTool(name: string, args: Record<string, unknown>): Pro
       );
       return {
         found: true,
+        caseId: row.id,
         casePo: row.case_po ?? null,
         entries: rows.map(rowToActivityEvent).map((e) => ({
           when: e.timestamp,
@@ -438,6 +439,7 @@ export async function execTool(name: string, args: Record<string, unknown>): Pro
       );
       return {
         found: true,
+        caseId: row.id,
         casePo: row.case_po ?? null,
         emails: rows.map((r) => ({
           inboundId: r.id,
@@ -575,6 +577,9 @@ app.http('aiChatGate', {
   route: 'gates/ai-chat',
   handler: withRole('CollisionSpike.User', async () => ({
     status: 200,
-    jsonBody: { enabled: gates.aiChatEnabled() },
+    jsonBody: {
+      enabled: gates.aiChatEnabled(),
+      writeEnabled: gates.assistantWriteTier(),
+    },
   })),
 });

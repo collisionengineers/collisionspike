@@ -12,6 +12,12 @@
 
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
+import {
+  EVA_EDIT_DATE_RE,
+  EVA_EDIT_MAX_LENGTH,
+  EVA_EDIT_MILEAGE_UNITS,
+  EVA_EDIT_VAT_VALUES,
+} from '../contracts/eva-edit.js';
 
 const UUID = z.string().uuid().describe('the stable row id (GUID) returned by an assistant read tool');
 const PROVIDER_CODE = z
@@ -72,18 +78,33 @@ const EvaFieldsParam = z
 
 const EditableEvaFieldsParam = z
   .object({
-    workProvider: z.string().optional(),
-    vehicleModel: z.string().optional(),
-    claimantName: z.string().optional(),
-    claimantTelephone: z.string().optional(),
-    claimantEmail: z.string().optional(),
-    dateOfLoss: z.string().optional(),
-    dateOfInstruction: z.string().optional(),
-    accidentCircumstances: z.string().optional(),
-    inspectionAddress: z.string().optional(),
-    vatStatus: z.string().optional(),
-    mileage: z.string().optional(),
-    mileageUnit: z.string().optional(),
+    // Provider identity is deliberately NOT editable here. It spans case_.work_provider_id
+    // plus the EVA display projection; the generic case PATCH only updates EVA text and
+    // would otherwise split those two sources of truth.
+    vehicleModel: z.string().max(EVA_EDIT_MAX_LENGTH.vehicleModel).optional(),
+    claimantName: z.string().max(EVA_EDIT_MAX_LENGTH.claimantName).optional(),
+    claimantTelephone: z.string().max(EVA_EDIT_MAX_LENGTH.claimantTelephone).optional(),
+    claimantEmail: z.string().max(EVA_EDIT_MAX_LENGTH.claimantEmail).optional(),
+    dateOfLoss: z
+      .string()
+      .trim()
+      .max(EVA_EDIT_MAX_LENGTH.dateOfLoss)
+      .regex(EVA_EDIT_DATE_RE, 'dateOfLoss must be DD/MM/YYYY or empty')
+      .optional(),
+    dateOfInstruction: z
+      .string()
+      .trim()
+      .max(EVA_EDIT_MAX_LENGTH.dateOfInstruction)
+      .regex(EVA_EDIT_DATE_RE, 'dateOfInstruction must be DD/MM/YYYY or empty')
+      .optional(),
+    accidentCircumstances: z
+      .string()
+      .max(EVA_EDIT_MAX_LENGTH.accidentCircumstances)
+      .optional(),
+    inspectionAddress: z.string().max(EVA_EDIT_MAX_LENGTH.inspectionAddress).optional(),
+    vatStatus: z.enum(EVA_EDIT_VAT_VALUES).optional(),
+    mileage: z.string().max(EVA_EDIT_MAX_LENGTH.mileage).optional(),
+    mileageUnit: z.enum(EVA_EDIT_MILEAGE_UNITS).optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, 'at least one EVA field is required');
@@ -269,7 +290,7 @@ export const EditCaseFieldsParams = z
     caseId: UUID,
     vrm: z.string().max(16).optional().describe('corrected registration'),
     caseType: z.enum(['standard', 'audit', 'audit_total_loss', 'diminution']).optional(),
-    evaFields: EditableEvaFieldsParam.optional().describe('editable EVA field key → new value'),
+    evaFields: EditableEvaFieldsParam.optional().describe('editable non-provider EVA field key → new value'),
   })
   .strict()
   .refine(

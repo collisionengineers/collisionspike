@@ -64,3 +64,23 @@ renders → mark done → report_delivered audit; drop `<CasePO> report.pdf` int
 - (a): flip `DONE_SENT_EMAIL_ENABLED=true` on `cespk-orch-dev` (operator), wait one maintenance
   tick, confirm SentItems subs exist; send a threaded reply to the provider; case flips; flip the
   gate back off and confirm the subs are pruned.
+
+## Regression verification — 2026-07-11
+
+**Verdict: TESTED (offline) — deployment pending.**
+
+This block supersedes the earlier live/deployed verdicts for the PR 55 detector-reliability repair.
+No repaired webhook or terminal transition has been live-proven yet.
+
+- Manual, Box report-PDF and sent-email detectors retain the shared guarded `eva_submitted → done`
+  path. Its status and required `report_delivered` audit are now atomic and rollback-tested in
+  `api/src/lib/terminal-transition.test.ts`.
+- `mark_case_done` settles only on a successful response; transport/non-success/configuration faults
+  raise a retry signal, while a successful `{updated:false}` remains an idempotent no-op.
+  `functions/box-webhook/tests/test_data_api_client.py` pins those response classes.
+- The webhook delivery cache distinguishes in-flight from settled. `tests/test_webhook.py` covers a
+  fresh evidence write followed by mark-done failure, redelivery that reuses the durable evidence row,
+  and a same-id duplicate that receives 503 while the first request is still in flight and then fails.
+- Deployment proof still required: deploy API and Box webhook, redeliver a report-PDF event through
+  one forced terminal-call failure, and verify one evidence row, one done transition and one audit.
+  SentItems gate activation/subscription proof is also still pending this release.

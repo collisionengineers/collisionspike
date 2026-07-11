@@ -26,6 +26,7 @@ import {
   CreateCaseParams,
   FullCreateCaseParams,
   EVA_FIELD_ORDER,
+  normaliseEvaEdit,
   canonicalizeVrm,
   casePoSequenceRegex,
   casePoYear,
@@ -72,6 +73,7 @@ import { casePoFloor, mintCasePo } from '../lib/case-po.js';
 import { isUniqueViolation } from './internal.js';
 import { ifMatch, versionToken } from '../lib/concurrency.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
+import { markCaseDoneUsing, markEvaSubmittedUsing } from '../lib/terminal-transition.js';
 import { gates } from '../lib/gates.js';
 import { listBoxFolderNames } from '../lib/functions-client.js';
 import {
@@ -271,49 +273,6 @@ export async function recomputeStatus(caseId: string, actor?: string): Promise<b
 
 /* ----------  Durable case-page EVA-field edits (work-todo-spike: casepage)  ---------- */
 
-/** Per-key max length (mirrors the case_.eva_* column widths) so an edit never 500s on a
- *  length overflow — over-long free text is clipped, validated fields are rejected (400). */
-const EVA_MAXLEN: Record<EvaFieldKey, number> = {
-  workProvider: 200,
-  vehicleModel: 200,
-  claimantName: 200,
-  claimantTelephone: 60,
-  claimantEmail: 320,
-  dateOfLoss: 10,
-  dateOfInstruction: 10,
-  accidentCircumstances: 4000,
-  inspectionAddress: 2000,
-  vatStatus: 3,
-  mileage: 20,
-  mileageUnit: 6,
-};
-const isDmyOrEmpty = (v: string): boolean => v === '' || /^\d{2}\/\d{2}\/\d{4}$/.test(v);
-const VAT_VALUES = new Set(['', 'Yes', 'No']);
-const MILEAGE_UNITS = new Set(['', 'Miles', 'Km']);
-
-/**
- * Validate + normalise a single editable EVA field value. Returns the normalised string to
- * persist, or an `{ error }` when the value violates the EVA format invariants (the same
- * CHECKs the DB enforces) — surfaced as a 400 so a bad edit never reaches the DB as a 500.
- */
-function normaliseEvaEdit(key: EvaFieldKey, raw: string): { value: string } | { error: string } {
-  const trimmed = raw.trim();
-  if (key === 'dateOfLoss' || key === 'dateOfInstruction') {
-    if (!isDmyOrEmpty(trimmed)) return { error: `${key} must be DD/MM/YYYY or empty` };
-    return { value: trimmed };
-  }
-  if (key === 'vatStatus') {
-    if (!VAT_VALUES.has(trimmed)) return { error: "vatStatus must be '', 'Yes' or 'No'" };
-    return { value: trimmed };
-  }
-  if (key === 'mileageUnit') {
-    if (!MILEAGE_UNITS.has(trimmed)) return { error: "mileageUnit must be '', 'Miles' or 'Km'" };
-    return { value: trimmed };
-  }
-  // Free-text fields: keep as-is but clip to the column width (no hard 4xx on length).
-  return { value: raw.slice(0, EVA_MAXLEN[key]) };
-}
-
 /** Upsert a 'staff' (manual edit) field_level_provenance row for one EVA field. One row per
  *  (case_id, field_name): UPDATE if present, else INSERT. Best-effort — provenance is
  *  supplementary and must never sink a durable case edit. */
@@ -422,7 +381,7 @@ app.http('patchCase', {
           const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
           const newVrm = raw ? extractVrm(raw) || cleaned : '';
           if (newVrm !== existing.vrm) {
-            sets.push(`vrm = $${sets.length + 1}`);
+            sets.push(`vrm = $${vals.length + 1}`);
             vals.push(newVrm);
             before.vrm = existing.vrm;
             after.vrm = newVrm;
@@ -440,7 +399,7 @@ app.http('patchCase', {
             }
             const oldVal = existing.evaFields[key]?.value ?? '';
             if (norm.value === oldVal) continue;
-            sets.push(`${EVA_COLUMN_BY_KEY[key]} = $${sets.length + 1}`);
+            sets.push(`${EVA_COLUMN_BY_KEY[key]} = $${vals.length + 1}`);
             vals.push(norm.value);
             before[key] = oldVal;
             after[key] = norm.value;
@@ -462,7 +421,7 @@ app.http('patchCase', {
           const oldPo = (existing.casePo ?? '').toUpperCase();
           if (normalized !== oldPo) {
             attemptedCasePo = normalized || undefined;
-            sets.push(`case_po = $${sets.length + 1}`);
+            sets.push(`case_po = $${vals.length + 1}`);
             vals.push(normalized || null);
             before.casePo = oldPo || '(none)';
             after.casePo = normalized || '(cleared)';
@@ -486,7 +445,7 @@ app.http('patchCase', {
             : caseTypeCodec.toInt(rawType as never)!;
           const oldCode = caseTypeCodec.toInt(existing.caseType as never) ?? null;
           if (newCode !== oldCode) {
-            sets.push(`case_type_code = $${sets.length + 1}`);
+            sets.push(`case_type_code = $${vals.length + 1}`);
             vals.push(newCode);
             before.caseType = existing.caseType ?? 'standard';
             after.caseType = rawType || 'standard';
@@ -1034,6 +993,18 @@ app.http('logChase', {
 /* ============================================================
    6 — GET /api/cases/{id}/merge-candidates
    ============================================================ */
+export function mergeProvidersCompatible(
+  leftProviderCode: string | undefined,
+  rightProviderCode: string | undefined,
+): boolean {
+  const left = (leftProviderCode ?? '').trim().toUpperCase();
+  const right = (rightProviderCode ?? '').trim().toUpperCase();
+  // Match the merge transaction's ADR-0010 guard exactly: only two known,
+  // different providers are incompatible. A providerless image-led case must
+  // remain reachable so the merge can preserve the resolved provider from its twin.
+  return !left || !right || left === right;
+}
+
 app.http('mergeCandidates', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -1050,7 +1021,7 @@ app.http('mergeCandidates', {
           cc.id !== id &&
           !TWIN_TERMINAL.has(cc.status) &&
           cc.status !== 'linked_to_instruction' &&
-          cc.providerCode === self.providerCode,
+          mergeProvidersCompatible(cc.providerCode, self.providerCode),
       );
     return { status: 200, jsonBody: candidates };
   }),
@@ -1983,27 +1954,10 @@ app.http('markEvaSubmitted', {
   handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
     const id = (req.params.id ?? '').trim();
     if (!id) return { status: 400, jsonBody: { message: 'A case is required.' } };
-    const updated = await query<{ id: string }>(
-      // Clear on_hold on the terminal handoff: filterQueue gives onHold precedence over
-      // status (mappers.ts), so a still-held case would otherwise linger in the Held/work
-      // queues while ALSO showing in Completed. A submitted case is no longer actionable.
-      `UPDATE case_ SET status_code = $1, submitted_at = now(), on_hold = false, updated_at = now()
-       WHERE id = $2 AND status_code = $3
-       RETURNING id`,
-      [statusToInt('eva_submitted'), id, statusToInt('ready_for_eva')],
-    );
-    if (updated.length > 0) {
-      await writeAudit({
-        action: AUDIT_ACTION.eva_submitted,
-        caseId: id,
-        summary: 'Exported for EVA — case marked EVA Submitted',
-        after: { status: 'eva_submitted' },
-        actor: actorFromClaims(claims),
-      });
-    }
+    const updated = await tx((q) => markEvaSubmittedUsing(q, id, actorFromClaims(claims)));
     // updated:false covers both "already submitted" (benign idempotent no-op)
     // and "not ready yet" — the caller re-reads the case either way.
-    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+    return { status: 200, jsonBody: { updated } };
   }),
 });
 
@@ -2022,24 +1976,12 @@ app.http('markCaseDone', {
   handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
     const id = (req.params.id ?? '').trim();
     if (!id) return { status: 400, jsonBody: { message: 'A case is required.' } };
-    const updated = await query<{ id: string }>(
-      // Clear on_hold on the terminal transition (same reason as eva-submitted above):
-      // a delivered/done case must not remain in the Held/work queues.
-      `UPDATE case_ SET status_code = $1, on_hold = false, updated_at = now()
-       WHERE id = $2 AND status_code = $3
-       RETURNING id`,
-      [statusToInt('done'), id, statusToInt('eva_submitted')],
-    );
-    if (updated.length > 0) {
-      await writeAudit({
-        action: AUDIT_ACTION.report_delivered,
-        caseId: id,
-        summary: 'Report delivered to the work provider — case marked Done',
-        after: { status: 'done', signal: 'manual' },
-        actor: actorFromClaims(claims),
-      });
-    }
-    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+    const updated = await tx((q) => markCaseDoneUsing(q, {
+      caseId: id,
+      signal: 'manual',
+      actor: actorFromClaims(claims),
+    }));
+    return { status: 200, jsonBody: { updated } };
   }),
 });
 

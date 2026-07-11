@@ -292,7 +292,7 @@ def test_reinvoke_status_evaluate_raises_on_transport_error():
 
 
 # ===========================================================================
-# mark_case_done (TKT-095 detector (b) — best-effort, never raises)
+# mark_case_done (TKT-095 detector (b) — required, retry-signalling)
 # ===========================================================================
 
 @respx.mock
@@ -323,31 +323,33 @@ def test_mark_case_done_guard_noop_returns_false():
 
 
 @respx.mock
-def test_mark_case_done_is_best_effort_on_http_error():
-    # Persistent 5xx exhausts the retry budget and returns False — NEVER raises
-    # (a done-flip miss must not 503 the settled webhook; Box would re-deliver).
+def test_mark_case_done_raises_on_http_error():
     respx.post(f"{BASE}/api/internal/cases/CASE-1/mark-done").mock(
         return_value=httpx.Response(503)
     )
     c = _client()
-    assert c.mark_case_done("CASE-1", "box_pdf", "r.pdf") is False
+    with pytest.raises(DataApiError) as ei:
+        c.mark_case_done("CASE-1", "box_pdf", "r.pdf")
+    assert ei.value.status == 503
     c.close()
 
 
 @respx.mock
-def test_mark_case_done_is_best_effort_on_transport_error():
+def test_mark_case_done_raises_on_transport_error():
     respx.post(f"{BASE}/api/internal/cases/CASE-1/mark-done").mock(
         side_effect=httpx.ConnectTimeout("timed out")
     )
     c = _client()
-    assert c.mark_case_done("CASE-1", "box_pdf", "r.pdf") is False
+    with pytest.raises(DataApiError):
+        c.mark_case_done("CASE-1", "box_pdf", "r.pdf")
     c.close()
 
 
 def test_mark_case_done_noop_when_url_unset(monkeypatch):
     monkeypatch.delenv("DATA_API_URL", raising=False)
     c = DataApiClient(base_url="", token_provider=lambda: "FAKE-MI-TOKEN")
-    assert c.mark_case_done("CASE-1", "box_pdf", "r.pdf") is False
+    with pytest.raises(DataApiError):
+        c.mark_case_done("CASE-1", "box_pdf", "r.pdf")
     c.close()
 
 

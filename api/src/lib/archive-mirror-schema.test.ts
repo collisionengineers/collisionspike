@@ -20,6 +20,24 @@ describe('TKT-089 rolling schema and archive-outbox parity', () => {
     expect(delta).not.toMatch(/ADD CONSTRAINT ck_evidence_exclusion_source\b/);
   });
 
+  it('recovers historic staff evidence ownership from safely parsed audits before inference', () => {
+    const delta = schema('deltas/2026-07-11-tkt089-evidence-decision-sources.sql');
+    const auditRecovery = delta.indexOf('WITH parsed_staff_audit AS');
+    const classifierInference = delta.indexOf('Existing orchestration/Box rows with classification stamps');
+
+    expect(delta).toContain('pg_temp.try_parse_jsonb');
+    expect(delta).toContain('EXCEPTION WHEN others THEN');
+    expect(delta).toContain('ae.action_code = 100000002');
+    expect(delta).toContain("after_json->>'evidenceId'");
+    expect(delta).toContain("before_json->'registrationVisible' IS DISTINCT FROM after_json->'registrationVisible'");
+    expect(delta).toContain("before_json->'reflectionDismissed' IS NOT DISTINCT FROM after_json->'reflectionDismissed'");
+    expect(delta).toContain('changed_exclusion OR changed_exclusion_reason_only');
+    expect(delta).toContain("THEN 'staff' ELSE e.image_role_source");
+    expect(delta).toContain("THEN 'staff' ELSE e.exclusion_decision_source");
+    expect(auditRecovery).toBeGreaterThan(-1);
+    expect(classifierInference).toBeGreaterThan(auditRecovery);
+  });
+
   it('keeps the canonical and live-delta outbox contracts aligned', () => {
     const canonical = schema('190_archive_mirror_outbox.sql');
     const delta = schema('deltas/2026-07-11-tkt089-archive-mirror-outbox.sql');
@@ -46,16 +64,23 @@ describe('TKT-089 rolling schema and archive-outbox parity', () => {
     const evidence = schema('060_evidence.sql');
     const claims = schema('deltas/2026-07-11-tkt089-archive-mirror-claims.sql');
     const inbound = schema('120_inbound_email.sql');
-    const backfill = schema('deltas/2026-07-11-tkt145-backfill-report-idempotency.sql');
+    const backfillReport = schema('deltas/2026-07-11-tkt145-backfill-report-idempotency.sql');
+    const backfillProgress = schema('deltas/2026-07-11-tkt145-backfill-generations.sql');
 
     for (const contract of [evidence, claims]) {
       expect(contract).toContain('archive_mirror_claim_token');
       expect(contract).toContain('archive_mirror_decision_generation');
     }
-    for (const contract of [inbound, backfill]) {
+    for (const contract of [inbound, backfillReport]) {
       expect(contract).toContain('evidence_backfill_requested_generation');
       expect(contract).toContain('evidence_backfill_enqueued_generation');
       expect(contract).toContain('evidence_backfill_report_outcome');
+    }
+    for (const contract of [inbound, backfillProgress]) {
+      expect(contract).toContain('evidence_backfill_completed_generation');
+      expect(contract).toContain('evidence_backfill_completed_result');
+      expect(contract).toContain('evidence_backfill_reported_generation');
+      expect(contract).toContain("'completed','partial'");
     }
   });
 });

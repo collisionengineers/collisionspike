@@ -536,10 +536,16 @@ def box_webhook(req: func.HttpRequest) -> func.HttpResponse:
     # A same-worker, same-delivery-id rapid retry is caught here synchronously.
     # This is NOT the durable dedup (that is the Evidence-existence check inside
     # _process_upload, which survives worker recycles and a changed delivery id).
-    if _DEDUP.seen(delivery_id):
+    dedup_state = _DEDUP.begin(delivery_id)
+    if dedup_state == "settled":
         logger.info("box webhook duplicate delivery; no-op")
         result["deduped"] = True
         return _json_response(result, status=200)
+    if dedup_state == "in_flight":
+        # The owning request has not settled yet. Returning 200 here could lose
+        # the event if that request subsequently fails, so ask Box to retry.
+        logger.info("box webhook duplicate delivery still in flight; 503 for retry")
+        return _json_response({**result, "error": "delivery still processing; retry"}, status=503)
 
     # --- 4-7. Process ON the request path; respond by outcome -----------
     # The in-process dedup mark above is PROVISIONAL: on a TRANSIENT failure we
@@ -549,6 +555,7 @@ def box_webhook(req: func.HttpRequest) -> func.HttpResponse:
     # Data API fault. On a SETTLED outcome we keep the mark and return 200. The
     # durable (server-side) evidence dedup keeps any Box retry idempotent.
     if _process_delivery(body, trigger, result):
+        _DEDUP.settle(delivery_id)
         return _json_response(result, status=200)
     _DEDUP.forget(delivery_id)
     logger.warning("box webhook: transient processing failure; 503 for Box retry")
@@ -645,8 +652,8 @@ def _process_upload(body: dict[str, Any], result: dict[str, Any]) -> None:
 
         # TKT-095 detector (b) / ADR-0023: is this upload the CE engineer report
         # being delivered back to the provider? Pure classification (see
-        # report_classifier.py for the discriminator rationale). Affects only the
-        # evidence kind below + a best-effort mark-done at the end.
+        # report_classifier.py for the discriminator rationale). Affects the
+        # evidence kind below + the required, retry-safe mark-done call at the end.
         is_report = is_ce_report(filename, case_po)
 
         # Step 7 (durable dedup): write Evidence only if this Box file is not
@@ -701,20 +708,13 @@ def _process_upload(body: dict[str, Any], result: dict[str, Any]) -> None:
         reinvoked = dv.reinvoke_status_evaluate(case_id)
 
         # TKT-095 detector (b): a classified CE report flips eva_submitted -> done.
-        # LAST + BEST-EFFORT on purpose: everything up to here keeps its exact
-        # pre-TKT-095 failure semantics, and a mark-done miss must NEVER 5xx the
-        # webhook (Box would retry a delivery that is otherwise fully settled).
-        # Safety is server-side: the API's WHERE status_code = eva_submitted guard
-        # makes a re-delivery a no-op and leaves any other status untouched — so
-        # no extra state is kept here; we just log the {updated} outcome. Runs on
-        # the Evidence-dedup path too (a prior delivery may have written Evidence
-        # but died before this call).
+        # This is part of the delivery contract, not best-effort. A transport or
+        # non-2xx failure raises DataApiError, causing a 503 and Box redelivery.
+        # Evidence existence and the server's guarded transition make that retry
+        # idempotent; a 2xx {updated:false} is the only settled no-op.
         marked_done = False
         if is_report:
-            try:
-                marked_done = dv.mark_case_done(case_id, "box_pdf", filename)
-            except Exception as exc:  # pragma: no cover - client already swallows
-                logger.warning("mark-done call failed: %s", type(exc).__name__)
+            marked_done = dv.mark_case_done(case_id, "box_pdf", filename)
             logger.info(
                 "box webhook: CE report detected (%s); mark-done updated=%s",
                 filename, marked_done,

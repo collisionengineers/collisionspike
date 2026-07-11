@@ -94,3 +94,19 @@ CODE DEPLOYED (2026-07-02) — activation pending the D8 seed delta
 After D8 is applied: re-intake a real Connexus email and confirm it is no longer flagged as a new
 enquiry/customer — it resolves to PCH when the email/attachment indicates PCH, to SBL when it indicates
 SBL, and holds for review with an explicit unresolved-principal reason when neither can be determined.
+
+## Regression verification — 2026-07-11
+
+**Verdict: TESTED (offline) — deployment pending.**
+
+This block supersedes the earlier live/deployed verdicts for the PR 55 regression repair. Those
+records remain historical evidence for the older build; they do not prove the repaired build live.
+
+- The provider resolver now carries `instruction_content` versus `single_intermediary` into the Held
+  explanation. Explicit document evidence retains the direct-provider wording; the single-provider
+  intermediary fallback uses neutral routing wording and records its source in audit detail.
+- `api/src/functions/apply-parser-fields.test.ts` covers both resolution sources, the display-lookup
+  fallback and the unresolved intermediary path. The existing sender-identity tests continue to pin
+  Connexus as an intermediary rather than a new customer.
+- Live proof still required: deploy the repaired API, then observe a new Connexus PCH, SBL and
+  unresolved-principal arrival and confirm the case note/audit wording on each branch.

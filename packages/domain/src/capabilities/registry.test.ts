@@ -10,6 +10,7 @@ import {
   validateProposal,
   writeCapabilities,
 } from './registry';
+import { EVA_EDIT_DATE_RE, EVA_EDIT_MAX_LENGTH } from '../contracts/eva-edit';
 
 describe('capability registry invariants (ADR-0025)', () => {
   const CASE_ID = '11111111-1111-4111-8111-111111111111';
@@ -100,6 +101,49 @@ describe('capability registry invariants (ADR-0025)', () => {
       inboundId: INBOUND_ID,
       tag: 'Inspection',
     })).toEqual({ tag: 'Inspection' });
+  });
+
+  it('excludes work provider from generic case edits so provider identity cannot split', () => {
+    const cap = capabilityByName('edit_case_fields')!;
+    const properties = cap.parameters.properties as Record<string, Record<string, unknown>>;
+    const evaProperties = properties.evaFields.properties as Record<string, unknown>;
+
+    expect(evaProperties).not.toHaveProperty('workProvider');
+    expect(evaProperties).toHaveProperty('claimantName');
+    expect(validateProposal('edit_case_fields', {
+      caseId: CASE_ID,
+      evaFields: { claimantName: 'Updated name' },
+    }).ok).toBe(true);
+    expect(validateProposal('edit_case_fields', {
+      caseId: CASE_ID,
+      evaFields: { workProvider: 'QDOS' },
+    }).ok).toBe(false);
+  });
+
+  it('pins assistant EVA edits to the case PATCH formats and column widths', () => {
+    const edit = (evaFields: Record<string, string>) => validateProposal('edit_case_fields', {
+      caseId: CASE_ID,
+      evaFields,
+    }).ok;
+
+    expect(edit({ dateOfLoss: '11/07/2026', dateOfInstruction: '' })).toBe(true);
+    expect(edit({ dateOfLoss: '2026-07-11' })).toBe(false);
+    expect(edit({ vatStatus: 'Yes', mileageUnit: 'Km' })).toBe(true);
+    expect(edit({ vatStatus: 'Exempt' })).toBe(false);
+    expect(edit({ mileageUnit: 'Kilometres' })).toBe(false);
+    expect(edit({ claimantName: 'x'.repeat(EVA_EDIT_MAX_LENGTH.claimantName) })).toBe(true);
+    expect(edit({ claimantName: 'x'.repeat(EVA_EDIT_MAX_LENGTH.claimantName + 1) })).toBe(false);
+
+    const cap = capabilityByName('edit_case_fields')!;
+    const props = cap.parameters.properties as Record<string, Record<string, unknown>>;
+    const fields = props.evaFields.properties as Record<string, Record<string, unknown>>;
+    for (const [key, maxLength] of Object.entries(EVA_EDIT_MAX_LENGTH)) {
+      if (key === 'workProvider' || key === 'vatStatus' || key === 'mileageUnit') continue;
+      expect(fields[key].maxLength, key).toBe(maxLength);
+    }
+    expect(fields.dateOfLoss.pattern).toBe(EVA_EDIT_DATE_RE.source);
+    expect(fields.vatStatus.enum).toEqual(['', 'Yes', 'No']);
+    expect(fields.mileageUnit.enum).toEqual(['', 'Miles', 'Km']);
   });
 
   it('every proposable write capability names params covering its route path placeholders', () => {

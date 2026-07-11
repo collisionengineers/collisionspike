@@ -183,7 +183,14 @@ export interface ProposalExecutionResult {
   ok: boolean;
   status: number;
   version?: string;
+  /** Identifier returned by a successful create-style route. */
+  resourceId?: string;
   error?: string;
+}
+
+export interface AiChatGate {
+  enabled: boolean;
+  writeEnabled: boolean;
 }
 
 /** Partial, durable staff review of one image. Omitted fields are preserved. */
@@ -268,7 +275,7 @@ export interface DataAccessExt extends DataAccess {
   /** AI chat helper (TKT-060): send the turn history, get the assistant's reply. */
   assistantChat(messages: AssistantChatTurn[]): Promise<AssistantReply>;
   /** The AI-chat feature gate (honest { enabled:false } on failure). */
-  getAiChatGate(): Promise<{ enabled: boolean }>;
+  getAiChatGate(): Promise<AiChatGate>;
   /** Global search (TKT-072): one normalised query across cases / inbound email / providers.
    *  safe()-empty on failure; the server returns disabled+empty while GLOBAL_SEARCH_ENABLED is off. */
   globalSearch(q: string): Promise<GlobalSearchResults>;
@@ -756,7 +763,10 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       safe(() => get<AiAssistGate>('/api/gates/ai-assist'), { ...AI_ASSIST_GATE_ALL_OFF }),
     assistantChat: (messages) =>
       call<AssistantReply>('POST', '/api/assistant/chat', { messages }),
-    getAiChatGate: () => safe(() => get<{ enabled: boolean }>('/api/gates/ai-chat'), { enabled: false }),
+    getAiChatGate: () => safe(
+      () => get<AiChatGate>('/api/gates/ai-chat'),
+      { enabled: false, writeEnabled: false },
+    ),
     globalSearch: (q) =>
       safe(() => get<GlobalSearchResults>(`/api/search?q=${encodeURIComponent(q)}`), { ...EMPTY_SEARCH, query: q }),
     caseWithVersion: (id) =>
@@ -790,10 +800,19 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
           });
           const nextVersion = cleanEtag(responseHeader(res, 'etag'));
           if (res.ok) {
+            let resourceId: string | undefined;
+            if (res.status !== 204) {
+              const payload = await res.json().catch(() => undefined) as unknown;
+              if (payload && typeof payload === 'object' &&
+                  typeof (payload as Record<string, unknown>).id === 'string') {
+                resourceId = ((payload as Record<string, unknown>).id as string).trim() || undefined;
+              }
+            }
             return {
               ok: true,
               status: res.status,
               ...(nextVersion ? { version: nextVersion } : {}),
+              ...(resourceId ? { resourceId } : {}),
             };
           }
           return {

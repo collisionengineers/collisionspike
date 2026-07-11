@@ -1,6 +1,6 @@
 /**
  * AssistantDrawer — the AI chat helper surface (TKT-060). An overlay drawer off the
- * AppShell header; read-only Q&A backed by POST /api/assistant/chat. Rendered only when the
+ * AppShell header; Q&A plus optional staff-confirmed changes backed by POST /api/assistant/chat. Rendered only when the
  * AI_CHAT_ENABLED gate is on (AppShell hides the trigger otherwise). No streaming yet — the
  * reply arrives in one turn; the drawer shows a "thinking…" state while it waits.
  */
@@ -25,7 +25,13 @@ import { getDataAccess } from '../data';
 import type { AssistantChatTurn, ProposedAction } from '../data';
 import { ConfirmActionCard } from './ConfirmActionCard';
 import { AttachConfirmCard } from './AttachConfirmCard';
-import { attachmentNote, detectCaseRef, partitionAttachments } from './attach-validate';
+import {
+  attachmentNote,
+  capturePendingAttachmentTarget,
+  partitionAttachments,
+  startPendingAttachmentBatch,
+  type PendingAttachmentBatch,
+} from './attach-validate';
 
 const useStyles = makeStyles({
   body: { display: 'flex', flexDirection: 'column', height: '100%', gap: tokens.spacingVerticalS },
@@ -59,7 +65,15 @@ interface Turn extends AssistantChatTurn {
   proposals?: ProposedAction[];
 }
 
-export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function AssistantDrawer({
+  open,
+  onOpenChange,
+  writeEnabled = false,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  writeEnabled?: boolean;
+}) {
   const styles = useStyles();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState('');
@@ -70,11 +84,11 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
   const [attachments, setAttachments] = useState<File[]>([]);
   const [attachError, setAttachError] = useState('');
   const [showAttachCard, setShowAttachCard] = useState(false);
-  // The IMMUTABLE snapshot of the files that a specific attach-turn described to the model. The
-  // confirm card renders + uploads from THIS, never the live `attachments` tray — so editing the
-  // tray while a send is in flight (or before confirming) can never make the card upload a
-  // different set of files than the turn the human saw described.
-  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
+  // One immutable attachment turn. Its bytes and suggested target are captured together,
+  // and another batch is blocked until this one is completed or cancelled.
+  const [pendingAttachmentBatch, setPendingAttachmentBatch] =
+    useState<PendingAttachmentBatch<File> | null>(null);
+  const attachmentBatchSequence = useRef(0);
   const threadRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -89,14 +103,14 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
   // is disabled while sending. Clears both the thread and any half-typed question; the next
   // send starts from an empty history (POST /api/assistant/chat is stateless per request).
   const newChat = useCallback(() => {
-    if (sending) return;
+    if (sending || pendingAttachmentBatch) return;
     setTurns([]);
     setInput('');
     setAttachments([]);
-    setPendingAttachments([]);
+    setPendingAttachmentBatch(null);
     setAttachError('');
     setShowAttachCard(false);
-  }, [sending]);
+  }, [pendingAttachmentBatch, sending]);
 
   // Add freshly-picked files to the held set, mirroring the server's size/type gate client-side
   // for a fast, plain-language "no" (the server stays the enforcer). Reset the input so the same
@@ -105,10 +119,14 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
     const picked = Array.from(e.target.files ?? []);
     e.target.value = '';
     if (!picked.length) return;
+    if (pendingAttachmentBatch) {
+      setAttachError('Finish adding or cancel the pending files before choosing another batch.');
+      return;
+    }
     const { accepted, rejected } = partitionAttachments(picked);
     if (accepted.length) setAttachments((a) => [...a, ...accepted]);
     setAttachError(rejected.length ? rejected.map((r) => `${r.name} — ${r.reason}`).join('; ') : '');
-  }, []);
+  }, [pendingAttachmentBatch]);
 
   const removeAttachment = useCallback((idx: number) => {
     setAttachments((a) => a.filter((_, i) => i !== idx));
@@ -116,7 +134,7 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
 
   const clearAttachments = useCallback(() => {
     setAttachments([]);
-    setPendingAttachments([]);
+    setPendingAttachmentBatch(null);
     setAttachError('');
     setShowAttachCard(false);
   }, []);
@@ -130,6 +148,10 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
       const held = attachments;
       const hasAttach = held.length > 0;
       if ((!typed && !hasAttach) || sending) return;
+      if (hasAttach && pendingAttachmentBatch) {
+        setAttachError('Finish adding or cancel the pending files before sending another batch.');
+        return;
+      }
       // Describe the attachments to the model as CONTEXT ONLY — COUNT + KIND, never filenames or
       // bytes — so it can help resolve the target case conversationally without any PII leaking.
       const note = hasAttach ? attachmentNote(held) : '';
@@ -137,10 +159,11 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
       const history: Turn[] = [...turns, { role: 'user', content }];
       setTurns(history);
       setInput('');
+      let batchId: string | undefined;
       if (hasAttach) {
-        // Freeze the pending set and empty the working tray — the card now owns these files; the
-        // tray is clear for the next question. Hide any prior card until this turn resolves.
-        setPendingAttachments(held);
+        batchId = `attachment-turn-${++attachmentBatchSequence.current}`;
+        const started = startPendingAttachmentBatch<File>(null, held, batchId);
+        setPendingAttachmentBatch(started.batch);
         setAttachments([]);
         setShowAttachCard(false);
       }
@@ -148,19 +171,43 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
       scrollToEnd();
       try {
         const res = await getDataAccess().assistantChat(history.map((t) => ({ role: t.role, content: t.content })));
-        setTurns([...history, { role: 'assistant', content: res.reply, toolsUsed: res.toolsUsed, proposals: res.proposals }]);
+        const nextTurns: Turn[] = [
+          ...history,
+          { role: 'assistant', content: res.reply, toolsUsed: res.toolsUsed, proposals: res.proposals },
+        ];
+        setTurns(nextTurns);
+        if (batchId) {
+          const targetText = nextTurns.slice(-5).map((turn) => turn.content).join('\n');
+          setPendingAttachmentBatch((current) =>
+            current?.id === batchId
+              ? capturePendingAttachmentTarget(current, targetText)
+              : current,
+          );
+        }
       } catch {
-        setTurns([...history, { role: 'assistant', content: 'Sorry — I could not answer that right now. Please try again.' }]);
+        const nextTurns: Turn[] = [
+          ...history,
+          { role: 'assistant', content: 'Sorry — I could not answer that right now. Please try again.' },
+        ];
+        setTurns(nextTurns);
+        if (batchId) {
+          const targetText = nextTurns.slice(-5).map((turn) => turn.content).join('\n');
+          setPendingAttachmentBatch((current) =>
+            current?.id === batchId
+              ? capturePendingAttachmentTarget(current, targetText)
+              : current,
+          );
+        }
       } finally {
         setSending(false);
         // Once a turn carried attachments, surface the confirm card (it stays until the files are
         // uploaded or cleared) — the human resolves + confirms the target case there, against the
-        // frozen snapshot in `pendingAttachments`.
+        // immutable attachment-turn snapshot.
         if (hasAttach) setShowAttachCard(true);
         scrollToEnd();
       }
     },
-    [turns, sending, scrollToEnd, attachments],
+    [turns, sending, scrollToEnd, attachments, pendingAttachmentBatch],
   );
 
   return (
@@ -174,7 +221,7 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
                 size="small"
                 icon={<Plus size={16} />}
                 onClick={newChat}
-                disabled={sending || turns.length === 0}
+                disabled={sending || turns.length === 0 || Boolean(pendingAttachmentBatch)}
                 aria-label="Start a new chat"
               >
                 New chat
@@ -195,7 +242,11 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
               <div className={styles.empty}>
                 <Sparkles size={28} />
                 <Body1>Ask about cases, queues, or inbound emails.</Body1>
-                <Caption1>I can look things up — I can't make changes.</Caption1>
+                <Caption1>
+                  {writeEnabled
+                    ? 'I can look things up and prepare supported changes for you to confirm.'
+                    : 'I can look things up — I cannot make changes.'}
+                </Caption1>
                 <div className={styles.suggestions}>
                   {SUGGESTIONS.map((s) => (
                     <Button key={s} size="small" appearance="outline" onClick={() => (s.endsWith(' ') ? setInput(s) : void send(s))}>
@@ -222,23 +273,15 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
                 <Spinner size="tiny" label="Thinking…" labelPosition="after" />
               </div>
             )}
-            {pendingAttachments.length > 0 &&
-              showAttachCard &&
-              (() => {
-                // Resolve a target handle from the recent conversation (incl. the assistant's reply,
-                // which often names the case). Pass BOTH the registration AND the Case/PO — a handler
-                // who says "add these to CCPY26050" gives no registration, so the card must be able to
-                // resolve by Case/PO too, not force a manual registration lookup.
-                const ref = detectCaseRef(turns.slice(-4).map((t) => t.content).join('\n'));
-                return (
-                  <AttachConfirmCard
-                    files={pendingAttachments}
-                    suggestedVrm={ref.vrm}
-                    suggestedCasePo={ref.casePo}
-                    onDone={clearAttachments}
-                  />
-                );
-              })()}
+            {pendingAttachmentBatch && showAttachCard && (
+              <AttachConfirmCard
+                key={pendingAttachmentBatch.id}
+                files={[...pendingAttachmentBatch.files]}
+                suggestedVrm={pendingAttachmentBatch.suggestedVrm}
+                suggestedCasePo={pendingAttachmentBatch.suggestedCasePo}
+                onDone={clearAttachments}
+              />
+            )}
           </div>
           <div className={styles.composerWrap}>
             {(attachments.length > 0 || attachError) && (
@@ -267,12 +310,13 @@ export function AssistantDrawer({ open, onOpenChange }: { open: boolean; onOpenC
                 multiple
                 className={styles.hiddenInput}
                 onChange={onPickFiles}
+                disabled={sending || Boolean(pendingAttachmentBatch)}
               />
               <Button
                 appearance="subtle"
                 icon={<Paperclip size={18} />}
                 onClick={() => fileRef.current?.click()}
-                disabled={sending}
+                disabled={sending || Boolean(pendingAttachmentBatch)}
                 aria-label="Attach photos or PDFs"
               />
               <Textarea

@@ -2231,8 +2231,6 @@ var gates = {
 
 // orchestration/src/lib/image-sniff.ts
 var AREA_FLOOR = 200 * 200;
-var BANNER_ASPECT_RATIO = 3.2;
-var BANNER_MAX_SHORT_SIDE = 240;
 var BYTE_FLOOR_FOR_UNKNOWN = 8 * 1024;
 var IMAGE_EXTENSION_RE = /\.(png|jpe?g|gif|bmp)$/i;
 var PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
@@ -2333,11 +2331,6 @@ function assessSignatureImage(filename, contentType2, bytes, opts = {}) {
   const dims = sniffImageDimensions(bytes);
   if (dims) {
     if (dims.width * dims.height < areaFloor) return { flagged: true, reason: "area-floor", dims };
-    const longSide = Math.max(dims.width, dims.height);
-    const shortSide = Math.min(dims.width, dims.height);
-    if (longSide >= shortSide * BANNER_ASPECT_RATIO && shortSide <= BANNER_MAX_SHORT_SIDE) {
-      return { flagged: true, reason: "banner-shape", dims };
-    }
     return { flagged: false, dims };
   }
   if (bytes.length < byteFloor) return { flagged: true, reason: "byte-floor" };
@@ -2346,6 +2339,10 @@ function assessSignatureImage(filename, contentType2, bytes, opts = {}) {
 
 // orchestration/src/lib/graph.ts
 var GRAPH_BASE = "https://graph.microsoft.com/v1.0";
+var MAX_ATTACHMENT_PAGES = 100;
+var MAX_MESSAGE_SEARCH_PAGES = 100;
+var MAX_MESSAGE_SEARCH_RESULTS = 1e3;
+var MESSAGE_SEARCH_PAGE_SIZE = 25;
 var cachedToken = null;
 async function getGraphToken() {
   const now = Date.now();
@@ -2399,38 +2396,75 @@ async function getMessageWithAttachments(mailbox, messageId) {
   const message = await graphFetch(base, {
     headers: { Prefer: 'outlook.body-content-type="text"' }
   });
+  if (!message || typeof message !== "object") {
+    throw new Error("graph message response was null");
+  }
   const attachments = [];
+  const attachmentFailures = [];
   if (message.hasAttachments) {
-    const list = await graphFetch(`${base}/attachments`);
-    for (const a of list.value ?? []) {
-      if (a.isInline === true) continue;
-      const otype = (a["@odata.type"] ?? "").toLowerCase();
-      if (a.contentBytes !== void 0) {
-        if (skipAsSignatureImage(a.name, a.contentType, Buffer.from(a.contentBytes, "base64"))) {
+    let pagePath = `${base}/attachments`;
+    const seenPages = /* @__PURE__ */ new Set();
+    let pageCount = 0;
+    while (pagePath) {
+      const pageKey = pagePath.startsWith("http") ? pagePath : `${GRAPH_BASE}${pagePath}`;
+      if (seenPages.has(pageKey)) {
+        throw new Error(`graph attachment pagination cycle at ${pagePath}`);
+      }
+      if (pageCount >= MAX_ATTACHMENT_PAGES) {
+        throw new Error(`graph attachment pagination exceeded ${MAX_ATTACHMENT_PAGES} pages`);
+      }
+      seenPages.add(pageKey);
+      pageCount++;
+      const list = await graphFetch(pagePath);
+      if (!list || !Array.isArray(list.value)) {
+        throw new Error(`graph attachment pagination response was null at ${pagePath}`);
+      }
+      for (const a of list.value) {
+        if (a.isInline === true) continue;
+        if (!(a.id ?? "").trim()) {
+          attachmentFailures.push({
+            id: "",
+            name: a.name ?? "",
+            contentType: a.contentType ?? "application/octet-stream",
+            reason: "attachment identity missing"
+          });
           continue;
         }
-        attachments.push(a);
-        continue;
-      }
-      try {
-        const raw = await getAttachmentRawValue(mailbox, messageId, a.id);
-        if (otype.includes("itemattachment")) {
-          attachments.push({
-            ...a,
-            name: ensureEmlName(a.name),
-            contentType: "message/rfc822",
-            size: raw.length,
-            contentBytes: raw.toString("base64")
-          });
-        } else {
-          if (skipAsSignatureImage(a.name, a.contentType, raw)) continue;
-          attachments.push({ ...a, size: raw.length, contentBytes: raw.toString("base64") });
+        const otype = (a["@odata.type"] ?? "").toLowerCase();
+        if (typeof a.contentBytes === "string") {
+          if (skipAsSignatureImage(a.name, a.contentType, Buffer.from(a.contentBytes, "base64"))) {
+            continue;
+          }
+          attachments.push(a);
+          continue;
         }
-      } catch {
+        try {
+          const raw = await getAttachmentRawValue(mailbox, messageId, a.id);
+          if (otype.includes("itemattachment")) {
+            attachments.push({
+              ...a,
+              name: ensureEmlName(a.name),
+              contentType: "message/rfc822",
+              size: raw.length,
+              contentBytes: raw.toString("base64")
+            });
+          } else {
+            if (skipAsSignatureImage(a.name, a.contentType, raw)) continue;
+            attachments.push({ ...a, size: raw.length, contentBytes: raw.toString("base64") });
+          }
+        } catch (e) {
+          attachmentFailures.push({
+            id: a.id,
+            name: a.name ?? "",
+            contentType: a.contentType ?? "application/octet-stream",
+            reason: (e instanceof Error ? e.message : String(e)).slice(0, 300)
+          });
+        }
       }
+      pagePath = list["@odata.nextLink"]?.trim() || null;
     }
   }
-  return { message, attachments };
+  return { message, attachments, attachmentFailures };
 }
 function ensureEmlName(name) {
   const n = (name ?? "").trim() || "forwarded-message";
@@ -2440,7 +2474,7 @@ function skipAsSignatureImage(name, contentType2, bytes) {
   if (process.env.GRAPH_IMAGE_FLOOR_DISABLED === "true") return false;
   const verdict = assessSignatureImage(name, contentType2, bytes);
   if (!verdict.flagged) return false;
-  const reason = verdict.reason === "banner-shape" ? `banner shape ${verdict.dims.width}x${verdict.dims.height}` : verdict.reason === "area-floor" ? `dimensions ${verdict.dims.width}x${verdict.dims.height}` : `byte-size ${bytes.length}b`;
+  const reason = verdict.dims ? `dimensions ${verdict.dims.width}x${verdict.dims.height}` : `byte-size ${bytes.length}b`;
   console.log(`[graph] skipped attachment "${name}" \u2014 likely signature/logo image (${reason})`);
   return true;
 }
@@ -2488,15 +2522,41 @@ function kqlPhrase(value) {
   return `"${cleaned}"`;
 }
 async function searchMessages(mailbox, phrase, top = 25) {
-  const path = `/users/${encodeURIComponent(mailbox)}/messages?$search=${encodeURIComponent(phrase)}&$select=id,subject,receivedDateTime,from,hasAttachments&$top=${top}`;
-  const res = await graphFetch(path);
-  return (res.value ?? []).map((m) => ({
-    id: m.id,
-    subject: m.subject ?? "",
-    receivedDateTime: m.receivedDateTime ?? "",
-    from: (m.from?.emailAddress?.address ?? "").toLowerCase(),
-    hasAttachments: m.hasAttachments === true
-  }));
+  const totalLimit = Math.min(
+    MAX_MESSAGE_SEARCH_RESULTS,
+    Math.max(1, Number.isFinite(top) ? Math.trunc(top) : MESSAGE_SEARCH_PAGE_SIZE)
+  );
+  let path = `/users/${encodeURIComponent(mailbox)}/messages?$search=${encodeURIComponent(phrase)}&$select=id,subject,receivedDateTime,from,hasAttachments&$top=${Math.min(MESSAGE_SEARCH_PAGE_SIZE, totalLimit)}`;
+  const seenPages = /* @__PURE__ */ new Set();
+  const found = [];
+  let pageCount = 0;
+  while (path && found.length < totalLimit) {
+    const pageKey = path.startsWith("http") ? path : `${GRAPH_BASE}${path}`;
+    if (seenPages.has(pageKey)) {
+      throw new Error(`graph message search pagination cycle at ${path}`);
+    }
+    if (pageCount >= MAX_MESSAGE_SEARCH_PAGES) {
+      throw new Error(`graph message search pagination exceeded ${MAX_MESSAGE_SEARCH_PAGES} pages`);
+    }
+    seenPages.add(pageKey);
+    pageCount++;
+    const page = await graphFetch(path);
+    if (!page || !Array.isArray(page.value)) {
+      throw new Error(`graph message search pagination response was null at ${path}`);
+    }
+    for (const m of page.value) {
+      if (found.length >= totalLimit) break;
+      found.push({
+        id: m.id,
+        subject: m.subject ?? "",
+        receivedDateTime: m.receivedDateTime ?? "",
+        from: (m.from?.emailAddress?.address ?? "").toLowerCase(),
+        hasAttachments: m.hasAttachments === true
+      });
+    }
+    path = page["@odata.nextLink"]?.trim() || null;
+  }
+  return found;
 }
 function odataQuote(value) {
   return `'${value.replace(/'/g, "''")}'`;
@@ -2914,13 +2974,834 @@ import_functions4.app.http("graph-renew-http", {
   }
 });
 
-// orchestration/src/functions/graph-webhook-sent.ts
+// orchestration/src/functions/archive-mirror-monitor.ts
 var import_functions5 = require("@azure/functions");
-var sentQueue = import_functions5.output.storageQueue({
+var df3 = __toESM(require("durable-functions"), 1);
+
+// orchestration/src/lib/archive-mirror-api.ts
+var cachedToken2 = null;
+async function serviceToken() {
+  if (process.env.DATA_API_TOKEN) return process.env.DATA_API_TOKEN;
+  const now = Date.now();
+  if (cachedToken2 && cachedToken2.expiresAt > now + 6e4) return cachedToken2.value;
+  const audience = process.env.DATA_API_AUDIENCE;
+  const endpoint = process.env.IDENTITY_ENDPOINT;
+  const header = process.env.IDENTITY_HEADER;
+  if (!audience || !endpoint || !header) {
+    throw new Error("missing DATA_API_AUDIENCE / managed-identity endpoint for Data API auth");
+  }
+  const response = await fetch(
+    `${endpoint}?resource=${encodeURIComponent(audience)}&api-version=2019-08-01`,
+    { headers: { "X-IDENTITY-HEADER": header } }
+  );
+  if (!response.ok) throw new Error(`MSI token ${response.status}`);
+  const json = await response.json();
+  cachedToken2 = {
+    value: json.access_token,
+    expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
+  };
+  return cachedToken2.value;
+}
+async function request(method, path, body2) {
+  const baseUrl2 = (process.env.DATA_API_URL ?? "").replace(/\/$/, "");
+  if (!baseUrl2) throw new Error("missing DATA_API_URL");
+  const response = await fetch(`${baseUrl2}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${await serviceToken()}`,
+      Accept: "application/json",
+      ...body2 === void 0 ? {} : { "Content-Type": "application/json" }
+    },
+    body: body2 === void 0 ? void 0 : JSON.stringify(body2)
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`data-api ${method} ${path} -> ${response.status}: ${detail.slice(0, 500)}`);
+  }
+  return await response.json();
+}
+var archiveMirrorApi = {
+  pending(limit = 100) {
+    return request("GET", `/api/internal/archive-mirror-outbox/pending?limit=${limit}`);
+  },
+  complete(evidenceId, generation) {
+    return request(
+      "POST",
+      `/api/internal/archive-mirror-outbox/${encodeURIComponent(evidenceId)}/complete`,
+      { generation }
+    );
+  },
+  defer(evidenceId, generation, reason) {
+    return request(
+      "POST",
+      `/api/internal/archive-mirror-outbox/${encodeURIComponent(evidenceId)}/defer`,
+      { generation, reason }
+    );
+  }
+};
+
+// orchestration/src/functions/archive-mirror-monitor.ts
+var ARCHIVE_MIRROR_MONITOR_INSTANCE_ID = "archive-mirror-monitor-singleton";
+var INTERVAL_MINUTES = Number(process.env.ARCHIVE_MIRROR_MONITOR_INTERVAL_MINUTES ?? "10");
+var INTERVAL_MS2 = (Number.isFinite(INTERVAL_MINUTES) && INTERVAL_MINUTES > 0 ? INTERVAL_MINUTES : 10) * 6e4;
+var retry = new df3.RetryOptions(15e3, 4);
+retry.backoffCoefficient = 2;
+retry.maxRetryIntervalInMilliseconds = 12e4;
+function groupPendingArchiveMirrors(rows) {
+  const grouped = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const group = grouped.get(row.caseId);
+    if (group) group.push(row);
+    else grouped.set(row.caseId, [row]);
+  }
+  return grouped;
+}
+function canVerifyArchivePass(result) {
+  return !result.skipped && result.uploaded === result.total;
+}
+df3.app.activity("archiveMirrorOutboxList", {
+  handler: async () => archiveMirrorApi.pending(250)
+});
+df3.app.activity("archiveMirrorOutboxComplete", {
+  handler: async (input16) => archiveMirrorApi.complete(input16.evidenceId, input16.generation)
+});
+df3.app.activity("archiveMirrorOutboxDefer", {
+  handler: async (input16) => archiveMirrorApi.defer(input16.evidenceId, input16.generation, input16.reason)
+});
+df3.app.orchestration("archiveMirrorMonitorOrchestrator", function* (ctx) {
+  try {
+    const listed = yield ctx.df.callActivityWithRetry(
+      "archiveMirrorOutboxList",
+      retry
+    );
+    const rows = Array.isArray(listed?.rows) ? listed.rows : [];
+    for (const row of rows.filter((candidate) => !candidate.mirrorEligible)) {
+      try {
+        yield ctx.df.callActivityWithRetry("archiveMirrorOutboxComplete", retry, {
+          evidenceId: row.evidenceId,
+          generation: row.generation
+        });
+      } catch (e) {
+        if (!ctx.df.isReplaying) {
+          ctx.log(`[archiveMirrorMonitor] completion failed for ${row.evidenceId}: ${String(e)}`);
+        }
+        try {
+          yield ctx.df.callActivityWithRetry("archiveMirrorOutboxDefer", retry, {
+            evidenceId: row.evidenceId,
+            generation: row.generation,
+            reason: "completion verification failed"
+          });
+        } catch {
+        }
+      }
+    }
+    const eligible = rows.filter((row) => row.mirrorEligible);
+    for (const [caseId, pendingRows] of groupPendingArchiveMirrors(eligible)) {
+      let result;
+      try {
+        result = yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry, {
+          caseId
+        });
+      } catch (e) {
+        if (!ctx.df.isReplaying) {
+          ctx.log(`[archiveMirrorMonitor] archive pass failed for ${caseId}: ${String(e)}`);
+        }
+        for (const row of pendingRows) {
+          try {
+            yield ctx.df.callActivityWithRetry("archiveMirrorOutboxDefer", retry, {
+              evidenceId: row.evidenceId,
+              generation: row.generation,
+              reason: "archive activity failed"
+            });
+          } catch (deferError) {
+            if (!ctx.df.isReplaying) {
+              ctx.log(`[archiveMirrorMonitor] defer failed for ${row.evidenceId}: ${String(deferError)}`);
+            }
+          }
+        }
+        continue;
+      }
+      if (!canVerifyArchivePass(result)) {
+        for (const row of pendingRows) {
+          try {
+            yield ctx.df.callActivityWithRetry("archiveMirrorOutboxDefer", retry, {
+              evidenceId: row.evidenceId,
+              generation: row.generation,
+              reason: result.skipped ?? "archive pass incomplete"
+            });
+          } catch (deferError) {
+            if (!ctx.df.isReplaying) {
+              ctx.log(`[archiveMirrorMonitor] defer failed for ${row.evidenceId}: ${String(deferError)}`);
+            }
+          }
+        }
+        continue;
+      }
+      for (const row of pendingRows) {
+        try {
+          yield ctx.df.callActivityWithRetry("archiveMirrorOutboxComplete", retry, {
+            evidenceId: row.evidenceId,
+            generation: row.generation
+          });
+        } catch (e) {
+          if (!ctx.df.isReplaying) {
+            ctx.log(`[archiveMirrorMonitor] completion failed for ${row.evidenceId}: ${String(e)}`);
+          }
+          try {
+            yield ctx.df.callActivityWithRetry("archiveMirrorOutboxDefer", retry, {
+              evidenceId: row.evidenceId,
+              generation: row.generation,
+              reason: "completion verification failed"
+            });
+          } catch {
+          }
+        }
+      }
+    }
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[archiveMirrorMonitor] outbox list failed; rescheduling: ${String(e)}`);
+    }
+  }
+  const next = new Date(ctx.df.currentUtcDateTime.getTime() + INTERVAL_MS2);
+  yield ctx.df.createTimer(next);
+  ctx.df.continueAsNew(void 0);
+});
+async function ensureArchiveMirrorMonitor(client2, log2) {
+  try {
+    const status = await client2.getStatus(ARCHIVE_MIRROR_MONITOR_INSTANCE_ID);
+    if (status && ["Running", "Pending", "ContinuedAsNew"].includes(String(status.runtimeStatus))) {
+      return { started: false, status: String(status.runtimeStatus) };
+    }
+  } catch {
+  }
+  await client2.startNew("archiveMirrorMonitorOrchestrator", {
+    instanceId: ARCHIVE_MIRROR_MONITOR_INSTANCE_ID
+  });
+  log2?.(`[archiveMirrorMonitor] started singleton ${ARCHIVE_MIRROR_MONITOR_INSTANCE_ID}`);
+  return { started: true };
+}
+import_functions5.app.timer("archive-mirror-monitor-bootstrap", {
+  schedule: "0 0 * * * *",
+  runOnStartup: true,
+  extraInputs: [df3.input.durableClient()],
+  handler: async (_timer, ctx) => {
+    try {
+      await ensureArchiveMirrorMonitor(df3.getClient(ctx), (message) => ctx.log(message));
+    } catch (e) {
+      ctx.warn(
+        `[archiveMirrorMonitor] bootstrap failed: ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+  }
+});
+
+// orchestration/src/functions/evidence-backfill-publisher-monitor.ts
+var import_functions6 = require("@azure/functions");
+var df4 = __toESM(require("durable-functions"), 1);
+
+// orchestration/src/lib/data-api.ts
+var cachedToken3 = null;
+async function getDataApiToken() {
+  const local = process.env.DATA_API_TOKEN;
+  if (local) return local;
+  const now = Date.now();
+  if (cachedToken3 && cachedToken3.expiresAt > now + 6e4) return cachedToken3.value;
+  const audience = process.env.DATA_API_AUDIENCE;
+  const idEndpoint = process.env.IDENTITY_ENDPOINT;
+  const idHeader = process.env.IDENTITY_HEADER;
+  if (!audience || !idEndpoint || !idHeader) {
+    throw new Error("missing DATA_API_AUDIENCE / managed-identity endpoint for Data API auth");
+  }
+  const url2 = `${idEndpoint}?resource=${encodeURIComponent(audience)}&api-version=2019-08-01`;
+  const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
+  if (!res.ok) throw new Error(`MSI token ${res.status}`);
+  const json = await res.json();
+  cachedToken3 = {
+    value: json.access_token,
+    expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
+  };
+  return cachedToken3.value;
+}
+async function request2(method, path, body2) {
+  const baseUrl2 = (process.env.DATA_API_URL ?? "").replace(/\/$/, "");
+  if (!baseUrl2) throw new Error("missing DATA_API_URL");
+  const token = await getDataApiToken();
+  const res = await fetch(`${baseUrl2}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      ...body2 !== void 0 ? { "Content-Type": "application/json" } : {}
+    },
+    body: body2 !== void 0 ? JSON.stringify(body2) : void 0
+  });
+  if (res.status === 409) {
+    const detail = await safeText2(res);
+    if (detail.includes("evidence_backfill_reclassification_required")) {
+      let targetCaseId;
+      try {
+        const parsed = JSON.parse(detail);
+        if (typeof parsed.targetCaseId === "string" && parsed.targetCaseId.trim()) {
+          targetCaseId = parsed.targetCaseId.trim();
+        }
+      } catch {
+      }
+      throw new EvidenceBackfillReclassificationRequiredError(
+        `${method} ${path} \u2192 409: ${detail}`,
+        targetCaseId
+      );
+    }
+    if (detail.includes("evidence_backfill_target_changed")) {
+      throw new EvidenceBackfillTargetChangedError(`${method} ${path} \u2192 409: ${detail}`);
+    }
+    throw new ConflictError(`${method} ${path} \u2192 409: ${detail}`);
+  }
+  if (!res.ok) {
+    throw new Error(`data-api ${method} ${path} \u2192 ${res.status}: ${await safeText2(res)}`);
+  }
+  if (res.status === 204) return void 0;
+  return await res.json();
+}
+var ConflictError = class extends Error {
+};
+var EvidenceBackfillTargetChangedError = class extends ConflictError {
+};
+var EvidenceBackfillReclassificationRequiredError = class extends ConflictError {
+  constructor(message, targetCaseId) {
+    super(message);
+    this.targetCaseId = targetCaseId;
+  }
+};
+var dataApi = {
+  /**
+   * Providers + Image-Source intermediaries for the in-activity `matchSenderIdentity`
+   * (internal route; rules-engine-v2 Phase 3, ADR-0011 — was providers-only before).
+   */
+  providerMatchRecords() {
+    return request2("GET", "/api/internal/provider-match-records");
+  },
+  /**
+   * Read a work provider's per-provider AI opt-out flag (docs/gated.md D6; internal route).
+   * `aiAllowed` is NULLABLE: null/true = AI allowed, ONLY explicit `false` opts the provider
+   * out of the gated LLM triage second-opinion (triage-classify.ts). Schema-tolerant
+   * server-side — the `ai_allowed` column is modeled but may be pre-migration, in which case
+   * the API returns `{ aiAllowed: null }` (i.e. allowed).
+   */
+  workProviderAiAllowed(workProviderId) {
+    return request2("GET", `/api/internal/work-provider/${encodeURIComponent(workProviderId)}/ai-allowed`);
+  },
+  /** Open same-provider cases + seen ids/hashes for `resolveCase` (internal route). */
+  dedupContext(params) {
+    const q = new URLSearchParams({
+      workProviderId: params.workProviderId,
+      vrm: params.vrm,
+      messageId: params.messageId
+    });
+    return request2("GET", `/api/internal/dedup-context?${q.toString()}`);
+  },
+  /** Create a Case (frozen §21.1 #2). 409 → ConflictError (already ingested). */
+  createCase(input16) {
+    return request2("POST", "/api/cases", input16);
+  },
+  /**
+   * Persist the result of the in-activity dedup decision (internal route). The orchestration
+   * owns the ADR-0010 *decision* (shared `resolveCase`); the API owns the *persist* — it
+   * constructs the Case row (default EvaFields, status machine) on create, reparents evidence
+   * on attach, stamps duplicate-risk / case-link flags, and maps a UNIQUE(sourcemessageid)
+   * collision to `already_ingested`. Keeps EvaFields construction + status machine in the API.
+   */
+  resolvePersist(payload) {
+    return request2("POST", "/api/internal/cases/resolve", payload);
+  },
+  /**
+   * Record a classified inbound_email triage row with NO case (ADR-0015). Used for
+   * query/other AND as the always-on first write for receiving_work (caseResolve later
+   * stamps case_id onto the same row). Idempotent upsert on source_message_id.
+   *
+   * `inbound` is the FULL InboundEnvelope and already carries `conversationId` as-is (one
+   * of the rules-engine-v2 Phase 2 DDL's two new inbound_email columns —
+   * `inbound_email.conversation_id`); `classification.bodyJobref` is the other
+   * (`inbound_email.body_jobref`). Both are sent unconditionally — schema-tolerant
+   * server-side: the API persists them once its upsert is wired to the (already-landed)
+   * columns, and simply ignores the extra fields until then.
+   */
+  recordInboundEmail(payload) {
+    return request2("POST", "/api/internal/inbound-email", payload);
+  },
+  /**
+   * ADR-0022 retro reconstruction — the ANY-STATUS existence check + link (internal route).
+   * Unlike linkReply this matches terminal cases too (a billing email about an
+   * eva_submitted case must link, not strand); 'gated_off' while RETRO_CASE_ENABLED is
+   * not 'true' on the API app (honest refusal — the gate lives on BOTH apps).
+   */
+  retroResolveExisting(payload) {
+    return request2("POST", "/api/internal/retro/resolve-existing", payload);
+  },
+  /**
+   * ADR-0022 retro reconstruction — get-or-create persist of a reconstructed case.
+   * `casePo` is the DISCOVERED archive folder name (verbatim — the API never mints on
+   * this path); concurrent duplicates come back as 'already_exists_linked', never 409/500.
+   */
+  retroCreate(payload) {
+    return request2("POST", "/api/internal/retro/create", payload);
+  },
+  /**
+   * TKT-119c / TKT-034 — stamp a VISIBLE attention reason on an email's triage row
+   * ('unable_to_locate' after a failed retro reconstruction; 'images_no_match' for an
+   * image-bearing email with no case match). Keyed on the Internet-Message-Id; the API
+   * is schema-tolerant (stamped:false until the attention_reason column lands).
+   */
+  markInboundAttention(payload) {
+    return request2("POST", "/api/internal/inbound/attention", payload);
+  },
+  /**
+   * ADR-0022 R2 — register archive files as BYTE-LESS Box evidence rows (id + link
+   * only; the existing internal evidence route dedups them on box_file_id, storage_path
+   * stays NULL). `acceptedForEva: false` keeps a retro backfill out of the EVA image
+   * rules until staff review.
+   */
+  registerBoxEvidence(caseId, rows) {
+    return request2("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
+  },
+  /** Persist classified evidence rows for a case (internal route; upsert by blob path). */
+  persistEvidence(caseId, rows, options) {
+    return request2("POST", `/api/internal/cases/${caseId}/evidence`, {
+      rows,
+      ...options?.expectedInboundEmailId ? { expectedInboundEmailId: options.expectedInboundEmailId } : {},
+      ...options?.evidenceBackfillGeneration != null ? { evidenceBackfillGeneration: options.evidenceBackfillGeneration } : {},
+      ...options?.evidenceBackfillResult ? {
+        evidenceBackfillOutcome: options.evidenceBackfillResult.outcome,
+        ...options.evidenceBackfillResult.failedAttachments == null ? {} : { evidenceBackfillFailedAttachments: options.evidenceBackfillResult.failedAttachments },
+        ...options.evidenceBackfillResult.detail ? { evidenceBackfillDetail: options.evidenceBackfillResult.detail } : {}
+      } : {}
+    });
+  },
+  /**
+   * Persist EXTRACTED-image evidence rows with image metadata (pdf-image-extraction
+   * ticket). Same internal evidence route (idempotent on storage_path), but carries
+   * the image fields the SEAM BACKEND-API wires: `imageRoleCode`, `registrationVisible`
+   * (tri-state — omit when OCR was not run), `sha256`, `sequenceIndex`, plus
+   * `acceptedForEva` (false for auto-extracted unknowns — staff tag role + accept).
+   * Until BACKEND-API wires the fields the route ignores the extras and still dedups
+   * idempotently on the child blob path, so this is forward-compatible.
+   */
+  persistImageEvidence(caseId, rows) {
+    return request2("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
+  },
+  /** Persisted blob-backed evidence rows ready for archive mirroring. */
+  archiveEvidenceRows(caseId) {
+    return request2("GET", `/api/internal/cases/${caseId}/archive-evidence`);
+  },
+  /** Stamp one evidence row after its bytes were mirrored into the archive. */
+  stampArchivedEvidence(payload) {
+    return request2("POST", `/api/internal/cases/${payload.caseId}/archive-evidence/stamp`, {
+      evidenceId: payload.evidenceId,
+      blobPath: payload.blobPath,
+      boxFileId: payload.boxFileId,
+      claimToken: payload.claimToken,
+      decisionGeneration: payload.decisionGeneration,
+      ...payload.boxFileUrl ? { boxFileUrl: payload.boxFileUrl } : {}
+    });
+  },
+  /**
+   * Recompute EVA-readiness from a row-locked snapshot. Supplying the generation
+   * atomically acknowledges it only after that stable evaluation succeeds.
+   */
+  evaluateStatus(caseId, generation) {
+    return request2("POST", `/api/internal/cases/${caseId}/status-evaluate`, {
+      ...generation == null ? {} : { generation }
+    });
+  },
+  releaseArchiveEvidenceClaim(payload) {
+    return request2("POST", `/api/internal/cases/${payload.caseId}/archive-evidence/release`, {
+      evidenceId: payload.evidenceId,
+      claimToken: payload.claimToken
+    });
+  },
+  /** Set status to ingested (only if currently new_email). Internal route — idempotent. */
+  setIngested(caseId) {
+    return request2("POST", `/api/internal/cases/${caseId}/set-ingested`, {});
+  },
+  /**
+   * TKT-095 / ADR-0023 — the shared `done` transition (internal route). Guarded
+   * server-side `WHERE status_code = eva_submitted`, so a Durable at-least-once
+   * retry / double-fire is `{ updated: false }` and any other status is never
+   * moved. `signal` names the detector; `detail` lands in the report_delivered
+   * audit snapshot (truncated server-side).
+   */
+  markDone(caseId, signal, detail) {
+    return request2("POST", `/api/internal/cases/${encodeURIComponent(caseId)}/mark-done`, {
+      signal,
+      ...detail ? { detail } : {}
+    });
+  },
+  /**
+   * TKT-095 detector (a) — STATUS-AGNOSTIC case lookup (internal route; read-only).
+   * Unlike `triageContext`'s openCaseMatches (which excludes terminals by design),
+   * this returns cases in ANY status — the sent-email detector's targets sit in the
+   * terminal `eva_submitted` — together with each case's work_provider_id so the
+   * handler can confirm the recipient is that case's provider before marking done.
+   */
+  casesLookup(payload) {
+    return request2("POST", "/api/internal/cases/lookup", payload);
+  },
+  /**
+   * Persist the advisory DVSA/DVLA enrichment result onto the case (internal route, #1).
+   * Fill-if-empty on the API side; returns the fields it actually filled.
+   */
+  persistEnrichment(caseId, result) {
+    return request2("POST", `/api/internal/cases/${caseId}/enrichment`, result);
+  },
+  /**
+   * Resolve a REPLY about existing work against OPEN cases (Case-ref first, then VRM) and
+   * link the triage row to the single match — or, when ambiguous (>1), leave it for a human
+   * (ADR-0010: never auto-link). The DB lookup + ADR-0010 decision run server-side (#3).
+   */
+  linkReplyToOpenCase(payload) {
+    return request2("POST", "/api/internal/inbound/link-reply", payload);
+  },
+  /**
+   * Resolve the LIVE context the pure `@cs/domain` `decideTriage` (Stage B, ADR-0019 /
+   * rules-engine-v2 Phase 2) needs: open-case Case/PO + job-ref + VRM matches,
+   * cross-mailbox duplicate delivery (the SAME Internet-Message-Id already ingested), and
+   * local conversation-thread siblings (internal route; a pure read, no mutation — safe
+   * to call on every Durable replay).
+   */
+  triageContext(payload) {
+    return request2("POST", "/api/internal/triage/context", payload);
+  },
+  /**
+   * Write ONE `ai_suggestion` row for a triage-policy proposal (case-link or
+   * cancellation) — the ONLY call that persists a triage-policy decision. A `shadow`
+   * (all-gates-forced-on) decision NEVER calls this (ADR-0019 §5 / the Phase-2 plan: "no
+   * shadow rows in ai_suggestion while its gate is off"). Idempotent server-side: returns
+   * `created: false` (never a duplicate row) when an equivalent PENDING suggestion
+   * already exists, so an at-least-once Durable retry is safe.
+   */
+  triageSuggestLink(payload) {
+    return request2("POST", "/api/internal/triage/suggest-link", payload);
+  },
+  /**
+   * FIND held pre-instruction rows matching a newly-minted case's identifiers
+   * (TKT-084, taxonomy v3) — read-only; the `correlatePreInstruction` activity pairs
+   * this with `triageSuggestLink` (case_link, suggest-first) per returned row.
+   */
+  heldPreInstruction(payload) {
+    return request2("POST", "/api/internal/triage/held-pre-instruction", payload);
+  },
+  /**
+   * Write ONE `ai_suggestion` row for a Stage-C (gated LLM) triage-category proposal
+   * (rules-engine-v2 Phase 4, ADR-0019 §3) — the ONLY call `triage-classify.ts`'s
+   * activity makes on a non-abstain model result. Never a case mutation: a human accepts
+   * it via the existing `ai_suggestion` review lifecycle
+   * (`api/src/functions/ai-suggestions.ts`'s `promoteAcceptedSuggestion`), which applies
+   * category_code/subtype_code the same way a staff reclassify does. Idempotent
+   * server-side (same subject-key + suggestionType mechanism as `triageSuggestLink`).
+   */
+  triageSuggestClassification(payload) {
+    return request2("POST", "/api/internal/triage/suggest-link", {
+      ...payload.sourceMessageId ? { sourceMessageId: payload.sourceMessageId } : {},
+      ...payload.inboundEmailId ? { inboundEmailId: payload.inboundEmailId } : {},
+      suggestionType: "triage_category",
+      category: payload.category,
+      subtype: payload.subtype,
+      rationale: payload.rationale,
+      confidence: payload.confidence,
+      modelVersion: payload.modelVersion
+    });
+  },
+  /**
+   * Report the terminal outcome of a gated Outlook filing (TKT-054 / 020726 E6) — the
+   * `outlook-move` queue function's write-back. `moved` also marks a still-new row
+   * actioned on the API side; `failed` leaves the row retryable.
+   */
+  reportOutlookMove(inboundEmailId, payload) {
+    return request2("POST", `/api/internal/inbound/${inboundEmailId}/outlook-moved`, payload);
+  },
+  /**
+   * Report the terminal outcome of a case_link evidence backfill (TKT-145) — the
+   * `evidence-backfill` queue consumer's write-back (the reportOutlookMove pattern).
+   * `completed` writes the case-scoped attachment_classified audit; `failed` writes the
+   * durable "Attachments to add" staff note + a warning audit (the inverted mitigation).
+   */
+  reportEvidenceBackfill(inboundEmailId, payload) {
+    return request2(
+      "POST",
+      `/api/internal/inbound/${encodeURIComponent(inboundEmailId)}/evidence-backfill`,
+      payload
+    );
+  },
+  /**
+   * Resolve the current owner of a queued backfill. The API follows only a
+   * verified merge-retirement lineage; an unrelated relink still returns 409.
+   */
+  validateEvidenceBackfillTarget(inboundEmailId, targetCaseId, generation) {
+    return request2(
+      "POST",
+      `/api/internal/inbound/${encodeURIComponent(inboundEmailId)}/evidence-backfill/validate`,
+      { targetCaseId, ...generation == null ? {} : { generation } }
+    );
+  },
+  /** Append one audit_event row (internal route; the API enforces append-only). */
+  recordAudit(payload) {
+    return request2("POST", "/api/internal/audit", payload);
+  },
+  /** Per-principal job rows for the jobsheet-import fan-out (internal route). */
+  principals() {
+    return request2("GET", "/api/internal/principals");
+  },
+  /** Cases due for retention disposition (internal route; case-disposition job). */
+  casesForDisposition() {
+    return request2("GET", "/api/internal/disposition/due");
+  },
+  /** Run the retention/erasure for one case (internal route; job identity only). */
+  disposeCase(caseId) {
+    return request2("POST", `/api/internal/disposition/${caseId}`, {});
+  },
+  /** Evidence blob paths eligible for the post-mirror purge (internal route). */
+  blobsForPurge() {
+    return request2("GET", "/api/internal/box/purge-candidates");
+  },
+  /** Mark an evidence blob purged after the one-way Box mirror confirmed it (internal route). */
+  markBlobPurged(payload) {
+    return request2("POST", "/api/internal/box/mark-purged", payload);
+  },
+  /**
+   * TKT-146 — atomically claim still-unclassified FILE.UPLOADED-lane image evidence rows.
+   * Rows with box_file_id whose
+   * image_role_code is `unknown` AND registration_visible IS NULL (the TKT-131
+   * "still-unclassified" predicate — a classified non-vehicle row keeps role unknown but
+   * gains a boolean registration_visible, so re-sweeps are idempotent), newest first,
+   * capped server-side at `limit` (clamped 1..100) inside a 14-day created_at window.
+   */
+  claimUnclassifiedBoxEvidence(limit) {
+    return request2(
+      "POST",
+      `/api/internal/evidence/unclassified-box?limit=${encodeURIComponent(String(limit))}`,
+      {}
+    );
+  },
+  /** Rolling-deploy compatibility/read-only diagnostic; the sweep uses the claim method. */
+  unclassifiedBoxEvidence(limit) {
+    return request2(
+      "GET",
+      `/api/internal/evidence/unclassified-box?limit=${encodeURIComponent(String(limit))}`
+    );
+  },
+  /**
+   * TKT-146 — stamp one exact Box-lane evidence row and atomically increment the
+   * case's durable status-recompute generation. The evidence id comes from the server-side
+   * enumeration, so this never re-enters the general evidence dedup/link path.
+   */
+  stampBoxEvidenceClassification(evidenceId, caseId, row, claimToken) {
+    return request2(
+      "POST",
+      `/api/internal/evidence/${encodeURIComponent(evidenceId)}/box-classification`,
+      {
+        ...row,
+        caseId,
+        ...claimToken ? { claimToken } : {}
+      }
+    );
+  },
+  /** Wake-safe publisher backstop: the API owns the generation outbox and queue write. */
+  drainEvidenceBackfillRequests() {
+    return request2("POST", "/api/internal/evidence-backfill-requests/drain", {});
+  },
+  /**
+   * Release a classification claim after a failed attempt. Transient failures are
+   * rescheduled with server-owned backoff; terminal row-specific failures are
+   * dead-lettered without deleting or excluding the evidence.
+   */
+  reportBoxEvidenceClassificationFailure(evidenceId, claimToken, failure) {
+    return request2(
+      "POST",
+      `/api/internal/evidence/${encodeURIComponent(evidenceId)}/box-classification`,
+      { claimToken, failure }
+    );
+  },
+  /** Pending durable status generations, oldest request first. */
+  pendingStatusRecomputes(limit) {
+    return request2(
+      "GET",
+      `/api/internal/status-recompute/pending?limit=${encodeURIComponent(String(limit))}`
+    );
+  },
+  /** Acknowledge only the generation whose status evaluation completed successfully. */
+  completeStatusRecompute(caseId, generation) {
+    return request2(
+      "POST",
+      `/api/internal/status-recompute/${encodeURIComponent(caseId)}/complete`,
+      { generation }
+    );
+  },
+  /**
+   * Read a case's current Box folder linkage (internal route; idempotency source for
+   * box-folder-create). `boxFolderId` is null when the case has no folder yet.
+   */
+  getCaseBoxFolder(caseId) {
+    return request2("GET", `/api/internal/cases/${caseId}/box-folder`);
+  },
+  /**
+   * First-wins stamp of the Box folder id/url onto a case (internal route). Idempotent:
+   * a re-run / concurrent create returns { applied: false } and the API audits
+   * box_folder_created ONLY on the stamping call. The activity reads back first, so this
+   * is the durable backstop, not the primary dedup.
+   */
+  stampCaseBoxFolder(caseId, payload) {
+    return request2("POST", `/api/internal/cases/${caseId}/box-folder`, payload);
+  }
+};
+async function safeText2(res) {
+  try {
+    return (await res.text()).slice(0, 500);
+  } catch {
+    return "<no body>";
+  }
+}
+
+// orchestration/src/functions/evidence-backfill-publisher-monitor.ts
+var EVIDENCE_BACKFILL_PUBLISHER_MONITOR_INSTANCE_ID = "evidence-backfill-publisher-monitor-singleton";
+var INTERVAL_MINUTES2 = Number(
+  process.env.EVIDENCE_BACKFILL_PUBLISHER_MONITOR_INTERVAL_MINUTES ?? "5"
+);
+var INTERVAL_MS3 = (Number.isFinite(INTERVAL_MINUTES2) && INTERVAL_MINUTES2 > 0 ? INTERVAL_MINUTES2 : 5) * 6e4;
+var retry2 = new df4.RetryOptions(15e3, 4);
+retry2.backoffCoefficient = 2;
+retry2.maxRetryIntervalInMilliseconds = 12e4;
+df4.app.activity("evidenceBackfillPublisherDrain", {
+  handler: async (_input, ctx) => {
+    const result = await dataApi.drainEvidenceBackfillRequests();
+    ctx.log(JSON.stringify({ evt: "evidenceBackfillPublisherDrain", ...result }));
+    return result;
+  }
+});
+df4.app.orchestration("evidenceBackfillPublisherMonitorOrchestrator", function* (ctx) {
+  try {
+    yield ctx.df.callActivityWithRetry("evidenceBackfillPublisherDrain", retry2);
+  } catch (error) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(
+        `[evidenceBackfillPublisherMonitor] drain failed after retries; rescheduling: ${String(error)}`
+      );
+    }
+  }
+  const next = new Date(ctx.df.currentUtcDateTime.getTime() + INTERVAL_MS3);
+  yield ctx.df.createTimer(next);
+  ctx.df.continueAsNew(void 0);
+});
+async function ensureEvidenceBackfillPublisherMonitor(client2, log2) {
+  try {
+    const status = await client2.getStatus(EVIDENCE_BACKFILL_PUBLISHER_MONITOR_INSTANCE_ID);
+    if (status && ["Running", "Pending", "ContinuedAsNew"].includes(String(status.runtimeStatus))) {
+      return { started: false, status: String(status.runtimeStatus) };
+    }
+  } catch {
+  }
+  try {
+    await client2.startNew("evidenceBackfillPublisherMonitorOrchestrator", {
+      instanceId: EVIDENCE_BACKFILL_PUBLISHER_MONITOR_INSTANCE_ID
+    });
+  } catch (error) {
+    const raced = await readEvidenceBackfillPublisherMonitor(client2).catch(() => void 0);
+    if (raced?.running) return { started: false, status: raced.runtimeStatus };
+    throw error;
+  }
+  log2?.(
+    `[evidenceBackfillPublisherMonitor] started singleton ${EVIDENCE_BACKFILL_PUBLISHER_MONITOR_INSTANCE_ID}`
+  );
+  return { started: true };
+}
+async function readEvidenceBackfillPublisherMonitor(client2) {
+  try {
+    const status = await client2.getStatus(EVIDENCE_BACKFILL_PUBLISHER_MONITOR_INSTANCE_ID);
+    const runtimeStatus = String(status?.runtimeStatus ?? "Unknown");
+    return {
+      instanceId: EVIDENCE_BACKFILL_PUBLISHER_MONITOR_INSTANCE_ID,
+      runtimeStatus,
+      running: ["Running", "Pending", "ContinuedAsNew"].includes(runtimeStatus)
+    };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    if (!/\b404\b|not found|could not find any data/i.test(detail)) throw error;
+    return {
+      instanceId: EVIDENCE_BACKFILL_PUBLISHER_MONITOR_INSTANCE_ID,
+      runtimeStatus: "NotFound",
+      running: false
+    };
+  }
+}
+import_functions6.app.http("evidence-backfill-publisher-monitor", {
+  methods: ["GET", "POST"],
+  authLevel: "function",
+  route: "maintenance/evidence-backfill-publisher-monitor",
+  extraInputs: [df4.input.durableClient()],
+  handler: async (req, ctx) => {
+    const client2 = df4.getClient(ctx);
+    try {
+      if (req.method.toUpperCase() === "POST") {
+        const ensured = await ensureEvidenceBackfillPublisherMonitor(
+          client2,
+          (message) => ctx.log(message)
+        );
+        if (ensured.started) {
+          return {
+            status: 200,
+            jsonBody: {
+              ok: true,
+              action: "ensure",
+              monitor: {
+                instanceId: EVIDENCE_BACKFILL_PUBLISHER_MONITOR_INSTANCE_ID,
+                runtimeStatus: "Pending",
+                running: true,
+                started: true
+              }
+            }
+          };
+        }
+      }
+      const monitor = await readEvidenceBackfillPublisherMonitor(client2);
+      return {
+        status: monitor.running ? 200 : 503,
+        jsonBody: {
+          ok: monitor.running,
+          action: req.method.toUpperCase() === "POST" ? "ensure" : "read",
+          monitor
+        }
+      };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      ctx.error(`[evidenceBackfillPublisherMonitor] readback failed: ${detail}`);
+      return { status: 503, jsonBody: { ok: false, error: detail } };
+    }
+  }
+});
+import_functions6.app.timer("evidence-backfill-publisher-monitor-bootstrap", {
+  schedule: "0 0 * * * *",
+  runOnStartup: true,
+  extraInputs: [df4.input.durableClient()],
+  handler: async (_timer, ctx) => {
+    try {
+      await ensureEvidenceBackfillPublisherMonitor(
+        df4.getClient(ctx),
+        (message) => ctx.log(message)
+      );
+    } catch (error) {
+      ctx.warn(
+        `[evidenceBackfillPublisherMonitor] bootstrap failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+});
+
+// orchestration/src/functions/graph-webhook-sent.ts
+var import_functions7 = require("@azure/functions");
+var sentQueue = import_functions7.output.storageQueue({
   queueName: "sent-messages",
   connection: "AzureWebJobsStorage"
 });
-import_functions5.app.http("graph-webhook-sent", {
+import_functions7.app.http("graph-webhook-sent", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "graph-webhook-sent",
@@ -2971,7 +3852,7 @@ import_functions5.app.http("graph-webhook-sent", {
     return { status: 202 };
   }
 });
-import_functions5.app.http("graph-lifecycle-sent", {
+import_functions7.app.http("graph-lifecycle-sent", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "graph-lifecycle-sent",
@@ -3001,368 +3882,7 @@ import_functions5.app.http("graph-lifecycle-sent", {
 });
 
 // orchestration/src/functions/sent-items-processor.ts
-var import_functions6 = require("@azure/functions");
-
-// orchestration/src/lib/data-api.ts
-var cachedToken2 = null;
-async function getDataApiToken() {
-  const local = process.env.DATA_API_TOKEN;
-  if (local) return local;
-  const now = Date.now();
-  if (cachedToken2 && cachedToken2.expiresAt > now + 6e4) return cachedToken2.value;
-  const audience = process.env.DATA_API_AUDIENCE;
-  const idEndpoint = process.env.IDENTITY_ENDPOINT;
-  const idHeader = process.env.IDENTITY_HEADER;
-  if (!audience || !idEndpoint || !idHeader) {
-    throw new Error("missing DATA_API_AUDIENCE / managed-identity endpoint for Data API auth");
-  }
-  const url2 = `${idEndpoint}?resource=${encodeURIComponent(audience)}&api-version=2019-08-01`;
-  const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
-  if (!res.ok) throw new Error(`MSI token ${res.status}`);
-  const json = await res.json();
-  cachedToken2 = {
-    value: json.access_token,
-    expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
-  };
-  return cachedToken2.value;
-}
-async function request(method, path, body2) {
-  const baseUrl2 = (process.env.DATA_API_URL ?? "").replace(/\/$/, "");
-  if (!baseUrl2) throw new Error("missing DATA_API_URL");
-  const token = await getDataApiToken();
-  const res = await fetch(`${baseUrl2}${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-      ...body2 !== void 0 ? { "Content-Type": "application/json" } : {}
-    },
-    body: body2 !== void 0 ? JSON.stringify(body2) : void 0
-  });
-  if (res.status === 409) {
-    throw new ConflictError(`${method} ${path} \u2192 409`);
-  }
-  if (!res.ok) {
-    throw new Error(`data-api ${method} ${path} \u2192 ${res.status}: ${await safeText2(res)}`);
-  }
-  if (res.status === 204) return void 0;
-  return await res.json();
-}
-var ConflictError = class extends Error {
-};
-var dataApi = {
-  /**
-   * Providers + Image-Source intermediaries for the in-activity `matchSenderIdentity`
-   * (internal route; rules-engine-v2 Phase 3, ADR-0011 — was providers-only before).
-   */
-  providerMatchRecords() {
-    return request("GET", "/api/internal/provider-match-records");
-  },
-  /**
-   * Read a work provider's per-provider AI opt-out flag (docs/gated.md D6; internal route).
-   * `aiAllowed` is NULLABLE: null/true = AI allowed, ONLY explicit `false` opts the provider
-   * out of the gated LLM triage second-opinion (triage-classify.ts). Schema-tolerant
-   * server-side — the `ai_allowed` column is modeled but may be pre-migration, in which case
-   * the API returns `{ aiAllowed: null }` (i.e. allowed).
-   */
-  workProviderAiAllowed(workProviderId) {
-    return request("GET", `/api/internal/work-provider/${encodeURIComponent(workProviderId)}/ai-allowed`);
-  },
-  /** Open same-provider cases + seen ids/hashes for `resolveCase` (internal route). */
-  dedupContext(params) {
-    const q = new URLSearchParams({
-      workProviderId: params.workProviderId,
-      vrm: params.vrm,
-      messageId: params.messageId
-    });
-    return request("GET", `/api/internal/dedup-context?${q.toString()}`);
-  },
-  /** Create a Case (frozen §21.1 #2). 409 → ConflictError (already ingested). */
-  createCase(input14) {
-    return request("POST", "/api/cases", input14);
-  },
-  /**
-   * Persist the result of the in-activity dedup decision (internal route). The orchestration
-   * owns the ADR-0010 *decision* (shared `resolveCase`); the API owns the *persist* — it
-   * constructs the Case row (default EvaFields, status machine) on create, reparents evidence
-   * on attach, stamps duplicate-risk / case-link flags, and maps a UNIQUE(sourcemessageid)
-   * collision to `already_ingested`. Keeps EvaFields construction + status machine in the API.
-   */
-  resolvePersist(payload) {
-    return request("POST", "/api/internal/cases/resolve", payload);
-  },
-  /**
-   * Record a classified inbound_email triage row with NO case (ADR-0015). Used for
-   * query/other AND as the always-on first write for receiving_work (caseResolve later
-   * stamps case_id onto the same row). Idempotent upsert on source_message_id.
-   *
-   * `inbound` is the FULL InboundEnvelope and already carries `conversationId` as-is (one
-   * of the rules-engine-v2 Phase 2 DDL's two new inbound_email columns —
-   * `inbound_email.conversation_id`); `classification.bodyJobref` is the other
-   * (`inbound_email.body_jobref`). Both are sent unconditionally — schema-tolerant
-   * server-side: the API persists them once its upsert is wired to the (already-landed)
-   * columns, and simply ignores the extra fields until then.
-   */
-  recordInboundEmail(payload) {
-    return request("POST", "/api/internal/inbound-email", payload);
-  },
-  /**
-   * ADR-0022 retro reconstruction — the ANY-STATUS existence check + link (internal route).
-   * Unlike linkReply this matches terminal cases too (a billing email about an
-   * eva_submitted case must link, not strand); 'gated_off' while RETRO_CASE_ENABLED is
-   * not 'true' on the API app (honest refusal — the gate lives on BOTH apps).
-   */
-  retroResolveExisting(payload) {
-    return request("POST", "/api/internal/retro/resolve-existing", payload);
-  },
-  /**
-   * ADR-0022 retro reconstruction — get-or-create persist of a reconstructed case.
-   * `casePo` is the DISCOVERED archive folder name (verbatim — the API never mints on
-   * this path); concurrent duplicates come back as 'already_exists_linked', never 409/500.
-   */
-  retroCreate(payload) {
-    return request("POST", "/api/internal/retro/create", payload);
-  },
-  /**
-   * TKT-119c / TKT-034 — stamp a VISIBLE attention reason on an email's triage row
-   * ('unable_to_locate' after a failed retro reconstruction; 'images_no_match' for an
-   * image-bearing email with no case match). Keyed on the Internet-Message-Id; the API
-   * is schema-tolerant (stamped:false until the attention_reason column lands).
-   */
-  markInboundAttention(payload) {
-    return request("POST", "/api/internal/inbound/attention", payload);
-  },
-  /**
-   * ADR-0022 R2 — register archive files as BYTE-LESS Box evidence rows (id + link
-   * only; the existing internal evidence route dedups them on box_file_id, storage_path
-   * stays NULL). `acceptedForEva: false` keeps a retro backfill out of the EVA image
-   * rules until staff review.
-   */
-  registerBoxEvidence(caseId, rows) {
-    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
-  },
-  /** Persist classified evidence rows for a case (internal route; upsert by blob path). */
-  persistEvidence(caseId, rows) {
-    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
-  },
-  /**
-   * Persist EXTRACTED-image evidence rows with image metadata (pdf-image-extraction
-   * ticket). Same internal evidence route (idempotent on storage_path), but carries
-   * the image fields the SEAM BACKEND-API wires: `imageRoleCode`, `registrationVisible`
-   * (tri-state — omit when OCR was not run), `sha256`, `sequenceIndex`, plus
-   * `acceptedForEva` (false for auto-extracted unknowns — staff tag role + accept).
-   * Until BACKEND-API wires the fields the route ignores the extras and still dedups
-   * idempotently on the child blob path, so this is forward-compatible.
-   */
-  persistImageEvidence(caseId, rows) {
-    return request("POST", `/api/internal/cases/${caseId}/evidence`, { rows });
-  },
-  /** Persisted blob-backed evidence rows ready for archive mirroring. */
-  archiveEvidenceRows(caseId) {
-    return request("GET", `/api/internal/cases/${caseId}/archive-evidence`);
-  },
-  /** Stamp one evidence row after its bytes were mirrored into the archive. */
-  stampArchivedEvidence(payload) {
-    return request("POST", `/api/internal/cases/${payload.caseId}/archive-evidence/stamp`, {
-      evidenceId: payload.evidenceId,
-      blobPath: payload.blobPath,
-      boxFileId: payload.boxFileId,
-      ...payload.boxFileUrl ? { boxFileUrl: payload.boxFileUrl } : {}
-    });
-  },
-  /** Recompute EVA-readiness + status machine and persist (internal route). */
-  evaluateStatus(caseId) {
-    return request("POST", `/api/internal/cases/${caseId}/status-evaluate`, {});
-  },
-  /** Set status to ingested (only if currently new_email). Internal route — idempotent. */
-  setIngested(caseId) {
-    return request("POST", `/api/internal/cases/${caseId}/set-ingested`, {});
-  },
-  /**
-   * TKT-095 / ADR-0023 — the shared `done` transition (internal route). Guarded
-   * server-side `WHERE status_code = eva_submitted`, so a Durable at-least-once
-   * retry / double-fire is `{ updated: false }` and any other status is never
-   * moved. `signal` names the detector; `detail` lands in the report_delivered
-   * audit snapshot (truncated server-side).
-   */
-  markDone(caseId, signal, detail) {
-    return request("POST", `/api/internal/cases/${encodeURIComponent(caseId)}/mark-done`, {
-      signal,
-      ...detail ? { detail } : {}
-    });
-  },
-  /**
-   * TKT-095 detector (a) — STATUS-AGNOSTIC case lookup (internal route; read-only).
-   * Unlike `triageContext`'s openCaseMatches (which excludes terminals by design),
-   * this returns cases in ANY status — the sent-email detector's targets sit in the
-   * terminal `eva_submitted` — together with each case's work_provider_id so the
-   * handler can confirm the recipient is that case's provider before marking done.
-   */
-  casesLookup(payload) {
-    return request("POST", "/api/internal/cases/lookup", payload);
-  },
-  /**
-   * Persist the advisory DVSA/DVLA enrichment result onto the case (internal route, #1).
-   * Fill-if-empty on the API side; returns the fields it actually filled.
-   */
-  persistEnrichment(caseId, result) {
-    return request("POST", `/api/internal/cases/${caseId}/enrichment`, result);
-  },
-  /**
-   * Resolve a REPLY about existing work against OPEN cases (Case-ref first, then VRM) and
-   * link the triage row to the single match — or, when ambiguous (>1), leave it for a human
-   * (ADR-0010: never auto-link). The DB lookup + ADR-0010 decision run server-side (#3).
-   */
-  linkReplyToOpenCase(payload) {
-    return request("POST", "/api/internal/inbound/link-reply", payload);
-  },
-  /**
-   * Resolve the LIVE context the pure `@cs/domain` `decideTriage` (Stage B, ADR-0019 /
-   * rules-engine-v2 Phase 2) needs: open-case Case/PO + job-ref + VRM matches,
-   * cross-mailbox duplicate delivery (the SAME Internet-Message-Id already ingested), and
-   * local conversation-thread siblings (internal route; a pure read, no mutation — safe
-   * to call on every Durable replay).
-   */
-  triageContext(payload) {
-    return request("POST", "/api/internal/triage/context", payload);
-  },
-  /**
-   * Write ONE `ai_suggestion` row for a triage-policy proposal (case-link or
-   * cancellation) — the ONLY call that persists a triage-policy decision. A `shadow`
-   * (all-gates-forced-on) decision NEVER calls this (ADR-0019 §5 / the Phase-2 plan: "no
-   * shadow rows in ai_suggestion while its gate is off"). Idempotent server-side: returns
-   * `created: false` (never a duplicate row) when an equivalent PENDING suggestion
-   * already exists, so an at-least-once Durable retry is safe.
-   */
-  triageSuggestLink(payload) {
-    return request("POST", "/api/internal/triage/suggest-link", payload);
-  },
-  /**
-   * FIND held pre-instruction rows matching a newly-minted case's identifiers
-   * (TKT-084, taxonomy v3) — read-only; the `correlatePreInstruction` activity pairs
-   * this with `triageSuggestLink` (case_link, suggest-first) per returned row.
-   */
-  heldPreInstruction(payload) {
-    return request("POST", "/api/internal/triage/held-pre-instruction", payload);
-  },
-  /**
-   * Write ONE `ai_suggestion` row for a Stage-C (gated LLM) triage-category proposal
-   * (rules-engine-v2 Phase 4, ADR-0019 §3) — the ONLY call `triage-classify.ts`'s
-   * activity makes on a non-abstain model result. Never a case mutation: a human accepts
-   * it via the existing `ai_suggestion` review lifecycle
-   * (`api/src/functions/ai-suggestions.ts`'s `promoteAcceptedSuggestion`), which applies
-   * category_code/subtype_code the same way a staff reclassify does. Idempotent
-   * server-side (same subject-key + suggestionType mechanism as `triageSuggestLink`).
-   */
-  triageSuggestClassification(payload) {
-    return request("POST", "/api/internal/triage/suggest-link", {
-      ...payload.sourceMessageId ? { sourceMessageId: payload.sourceMessageId } : {},
-      ...payload.inboundEmailId ? { inboundEmailId: payload.inboundEmailId } : {},
-      suggestionType: "triage_category",
-      category: payload.category,
-      subtype: payload.subtype,
-      rationale: payload.rationale,
-      confidence: payload.confidence,
-      modelVersion: payload.modelVersion
-    });
-  },
-  /**
-   * Report the terminal outcome of a gated Outlook filing (TKT-054 / 020726 E6) — the
-   * `outlook-move` queue function's write-back. `moved` also marks a still-new row
-   * actioned on the API side; `failed` leaves the row retryable.
-   */
-  reportOutlookMove(inboundEmailId, payload) {
-    return request("POST", `/api/internal/inbound/${inboundEmailId}/outlook-moved`, payload);
-  },
-  /**
-   * Report the terminal outcome of a case_link evidence backfill (TKT-145) — the
-   * `evidence-backfill` queue consumer's write-back (the reportOutlookMove pattern).
-   * `completed` writes the case-scoped attachment_classified audit; `failed` writes the
-   * durable "Attachments to add" staff note + a warning audit (the inverted mitigation).
-   */
-  reportEvidenceBackfill(inboundEmailId, payload) {
-    return request(
-      "POST",
-      `/api/internal/inbound/${encodeURIComponent(inboundEmailId)}/evidence-backfill`,
-      payload
-    );
-  },
-  /** Append one audit_event row (internal route; the API enforces append-only). */
-  recordAudit(payload) {
-    return request("POST", "/api/internal/audit", payload);
-  },
-  /** Per-principal job rows for the jobsheet-import fan-out (internal route). */
-  principals() {
-    return request("GET", "/api/internal/principals");
-  },
-  /** Cases due for retention disposition (internal route; case-disposition job). */
-  casesForDisposition() {
-    return request("GET", "/api/internal/disposition/due");
-  },
-  /** Run the retention/erasure for one case (internal route; job identity only). */
-  disposeCase(caseId) {
-    return request("POST", `/api/internal/disposition/${caseId}`, {});
-  },
-  /** Evidence blob paths eligible for the post-mirror purge (internal route). */
-  blobsForPurge() {
-    return request("GET", "/api/internal/box/purge-candidates");
-  },
-  /** Mark an evidence blob purged after the one-way Box mirror confirmed it (internal route). */
-  markBlobPurged(payload) {
-    return request("POST", "/api/internal/box/mark-purged", payload);
-  },
-  /**
-   * TKT-146 — still-unclassified FILE.UPLOADED-lane image evidence rows (internal route;
-   * read-only). The box-classify-sweep timer's enumeration: rows with box_file_id whose
-   * image_role_code is `unknown` AND registration_visible IS NULL (the TKT-131
-   * "still-unclassified" predicate — a classified non-vehicle row keeps role unknown but
-   * gains a boolean registration_visible, so re-sweeps are idempotent), newest first,
-   * capped server-side at `limit` (clamped 1..100) inside a 14-day created_at window.
-   */
-  unclassifiedBoxEvidence(limit) {
-    return request(
-      "GET",
-      `/api/internal/evidence/unclassified-box?limit=${encodeURIComponent(String(limit))}`
-    );
-  },
-  /**
-   * TKT-146 — stamp one Box-lane evidence row's vision classification via the EXISTING
-   * internal evidence route: a re-POST of the row's own identity (its `box:file:<id>`
-   * source_message_id when present, else its box_file_id) with the image metadata; the
-   * route's box-lane NOT-EXISTS dedup no-ops the insert and `applyEvidenceMetadata`
-   * updates the row in place. DELIBERATELY no sha256 on this call: supplying one would
-   * engage the TKT-133 (case_id, sha256) twin pass, which can redirect the stamp onto a
-   * cross-lane twin row and leave the target row unclassified (a sweep loop).
-   */
-  stampBoxEvidenceClassification(caseId, row) {
-    return request("POST", `/api/internal/cases/${encodeURIComponent(caseId)}/evidence`, {
-      rows: [row]
-    });
-  },
-  /**
-   * Read a case's current Box folder linkage (internal route; idempotency source for
-   * box-folder-create). `boxFolderId` is null when the case has no folder yet.
-   */
-  getCaseBoxFolder(caseId) {
-    return request("GET", `/api/internal/cases/${caseId}/box-folder`);
-  },
-  /**
-   * First-wins stamp of the Box folder id/url onto a case (internal route). Idempotent:
-   * a re-run / concurrent create returns { applied: false } and the API audits
-   * box_folder_created ONLY on the stamping call. The activity reads back first, so this
-   * is the durable backstop, not the primary dedup.
-   */
-  stampCaseBoxFolder(caseId, payload) {
-    return request("POST", `/api/internal/cases/${caseId}/box-folder`, payload);
-  }
-};
-async function safeText2(res) {
-  try {
-    return (await res.text()).slice(0, 500);
-  } catch {
-    return "<no body>";
-  }
-}
+var import_functions8 = require("@azure/functions");
 
 // packages/domain/dist/contracts/eva-export.js
 var EVA_FIELD_ORDER = [
@@ -3394,6 +3914,25 @@ function isTerminalStatus(status) {
   return TERMINAL_SET.has(status);
 }
 var REQUIRED_FIELD_KEYS = EVA_FIELD_ORDER.filter((d) => d.required).map((d) => d.key);
+
+// packages/domain/dist/contracts/eva-edit.js
+var EVA_EDIT_MAX_LENGTH = {
+  workProvider: 200,
+  vehicleModel: 200,
+  claimantName: 200,
+  claimantTelephone: 60,
+  claimantEmail: 320,
+  dateOfLoss: 10,
+  dateOfInstruction: 10,
+  accidentCircumstances: 4e3,
+  inspectionAddress: 2e3,
+  vatStatus: 3,
+  mileage: 20,
+  mileageUnit: 6
+};
+var EVA_EDIT_DATE_RE = /^(?:|\d{2}\/\d{2}\/\d{4})$/;
+var EVA_EDIT_VAT_VALUES = ["", "Yes", "No"];
+var EVA_EDIT_MILEAGE_UNITS = ["", "Miles", "Km"];
 
 // packages/domain/dist/domain/classification.js
 var EXTENSION_TABLE = {
@@ -3472,9 +4011,9 @@ function refEquals(a, b) {
     return false;
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
-function eligibleCases(input14) {
-  return input14.openProviderCases.filter((c) => {
-    if (c.workProviderId !== void 0 && c.workProviderId !== input14.workProviderId) {
+function eligibleCases(input16) {
+  return input16.openProviderCases.filter((c) => {
+    if (c.workProviderId !== void 0 && c.workProviderId !== input16.workProviderId) {
       return false;
     }
     if (isTerminalStatus(c.status))
@@ -3482,8 +4021,8 @@ function eligibleCases(input14) {
     return true;
   });
 }
-function resolveCase(input14) {
-  if (input14.seenMessageIds.includes(input14.messageId) || input14.seenPayloadHashes.includes(input14.payloadHash)) {
+function resolveCase(input16) {
+  if (input16.seenMessageIds.includes(input16.messageId) || input16.seenPayloadHashes.includes(input16.payloadHash)) {
     return {
       resolution: "drop",
       setDuplicateRisk: false,
@@ -3491,9 +4030,9 @@ function resolveCase(input14) {
       auditAction: "duplicate_dropped"
     };
   }
-  const candidates = eligibleCases(input14);
-  if (hasRef(input14.candidateRef)) {
-    const matched = candidates.find((c) => refEquals(c.caseRef, input14.candidateRef));
+  const candidates = eligibleCases(input16);
+  if (hasRef(input16.candidateRef)) {
+    const matched = candidates.find((c) => refEquals(c.caseRef, input16.candidateRef));
     if (matched) {
       return {
         resolution: "attach",
@@ -3514,7 +4053,7 @@ function resolveCase(input14) {
       };
     }
   }
-  if (!hasRef(input14.candidateRef) && candidates.length > 0) {
+  if (!hasRef(input16.candidateRef) && candidates.length > 0) {
     return {
       resolution: "propose_attach",
       targetCaseId: candidates[0].caseId,
@@ -4021,16 +4560,16 @@ var RULES = [
   { kind: "name", re: NAME_RE, enabled: (o) => o.redactNames },
   { kind: "vrm", re: VRM_RE, enabled: (o) => o.redactVrm }
 ];
-function scrubPii(input14, opts = {}) {
+function scrubPii(input16, opts = {}) {
   const cfg = {
     redactVrm: opts.redactVrm ?? false,
     redactNames: opts.redactNames ?? true
   };
   const placeholderFor = (kind) => opts.placeholders?.[kind] ?? DEFAULT_PLACEHOLDERS[kind];
-  if (typeof input14 !== "string" || input14.length === 0) {
-    return { text: typeof input14 === "string" ? input14 : "", redactions: [], totalRedactions: 0 };
+  if (typeof input16 !== "string" || input16.length === 0) {
+    return { text: typeof input16 === "string" ? input16 : "", redactions: [], totalRedactions: 0 };
   }
-  let text = input14;
+  let text = input16;
   const redactions = [];
   for (const rule of RULES) {
     if (!rule.enabled(cfg))
@@ -4201,16 +4740,16 @@ var CASE_PO_SHAPE_RE = /^(?:(?:AP|A|D)\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{
 function normalizeCasePo(raw) {
   return (raw ?? "").trim().toUpperCase().replace(/^((?:AP|A|D)\.)\s+/, "$1");
 }
-function decideRetro(input14) {
+function decideRetro(input16) {
   const reasons = [];
   const keys = {};
-  const ackEligible = input14.category === "non_actionable" && (input14.subtype ?? "").trim() === RETRO_TRIGGER_ACK_SUBTYPE;
-  if (!RETRO_TRIGGER_CATEGORIES.includes(input14.category) && !ackEligible) {
-    return { attempt: false, keys, reasons: [`category_not_eligible:${input14.category}`] };
+  const ackEligible = input16.category === "non_actionable" && (input16.subtype ?? "").trim() === RETRO_TRIGGER_ACK_SUBTYPE;
+  if (!RETRO_TRIGGER_CATEGORIES.includes(input16.category) && !ackEligible) {
+    return { attempt: false, keys, reasons: [`category_not_eligible:${input16.category}`] };
   }
   if (ackEligible)
     reasons.push("ack_subtype_eligible");
-  const refCandidates = [input14.bodyCaseref, input14.candidateRef];
+  const refCandidates = [input16.bodyCaseref, input16.candidateRef];
   for (const raw of refCandidates) {
     const token = normalizeCasePo(raw);
     if (!token)
@@ -4223,12 +4762,12 @@ function decideRetro(input14) {
       reasons.push("key:external_ref_from_subject");
     }
   }
-  const jobref = (input14.bodyJobref ?? "").trim().toUpperCase();
+  const jobref = (input16.bodyJobref ?? "").trim().toUpperCase();
   if (jobref && !keys.externalRef) {
     keys.externalRef = jobref;
     reasons.push("key:external_ref");
   }
-  const vrm = ((input14.bodyVrm || input14.candidateVrm) ?? "").trim().toUpperCase().replace(/\s+/g, "");
+  const vrm = ((input16.bodyVrm || input16.candidateVrm) ?? "").trim().toUpperCase().replace(/\s+/g, "");
   if (vrm) {
     keys.vrm = vrm;
     reasons.push("key:vrm");
@@ -4236,39 +4775,39 @@ function decideRetro(input14) {
   if (!keys.casePo && !keys.externalRef && !keys.vrm) {
     return { attempt: false, keys, reasons: [...reasons, "no_usable_key"] };
   }
-  if (input14.isReply && input14.linkReplyOutcome !== void 0 && input14.linkReplyOutcome !== "no_match") {
+  if (input16.isReply && input16.linkReplyOutcome !== void 0 && input16.linkReplyOutcome !== "no_match") {
     return {
       attempt: false,
       keys,
-      reasons: [...reasons, `reply_outcome_not_no_match:${input14.linkReplyOutcome}`]
+      reasons: [...reasons, `reply_outcome_not_no_match:${input16.linkReplyOutcome}`]
     };
   }
   return { attempt: true, keys, reasons };
 }
-function decideRetroStatus(input14) {
-  if (!input14.principalResolved || !input14.casePoKnown) {
+function decideRetroStatus(input16) {
+  if (!input16.principalResolved || !input16.casePoKnown) {
     return {
       status: "needs_review",
       onHold: true,
       actionReason: "needs_review",
       signals: [
-        input14.casePoKnown ? "retro_principal_unresolved" : "retro_case_po_unknown",
-        `retro_source:${input14.reconstruction}`
+        input16.casePoKnown ? "retro_principal_unresolved" : "retro_case_po_unknown",
+        `retro_source:${input16.reconstruction}`
       ]
     };
   }
-  if (input14.triggerCategory === "billing" && input14.reconstruction !== "minimal") {
+  if (input16.triggerCategory === "billing" && input16.reconstruction !== "minimal") {
     return {
       status: "eva_submitted",
       onHold: false,
-      signals: ["retro_billing_implies_submitted", `retro_source:${input14.reconstruction}`]
+      signals: ["retro_billing_implies_submitted", `retro_source:${input16.reconstruction}`]
     };
   }
   return {
     status: "needs_review",
     onHold: true,
     actionReason: "needs_review",
-    signals: [`retro_trigger:${input14.triggerCategory}`, `retro_source:${input14.reconstruction}`]
+    signals: [`retro_trigger:${input16.triggerCategory}`, `retro_source:${input16.reconstruction}`]
   };
 }
 function parseCasePoMarker(po) {
@@ -5020,41 +5559,41 @@ var ZodType = class {
   get description() {
     return this._def.description;
   }
-  _getType(input14) {
-    return getParsedType(input14.data);
+  _getType(input16) {
+    return getParsedType(input16.data);
   }
-  _getOrReturnCtx(input14, ctx) {
+  _getOrReturnCtx(input16, ctx) {
     return ctx || {
-      common: input14.parent.common,
-      data: input14.data,
-      parsedType: getParsedType(input14.data),
+      common: input16.parent.common,
+      data: input16.data,
+      parsedType: getParsedType(input16.data),
       schemaErrorMap: this._def.errorMap,
-      path: input14.path,
-      parent: input14.parent
+      path: input16.path,
+      parent: input16.parent
     };
   }
-  _processInputParams(input14) {
+  _processInputParams(input16) {
     return {
       status: new ParseStatus(),
       ctx: {
-        common: input14.parent.common,
-        data: input14.data,
-        parsedType: getParsedType(input14.data),
+        common: input16.parent.common,
+        data: input16.data,
+        parsedType: getParsedType(input16.data),
         schemaErrorMap: this._def.errorMap,
-        path: input14.path,
-        parent: input14.parent
+        path: input16.path,
+        parent: input16.parent
       }
     };
   }
-  _parseSync(input14) {
-    const result = this._parse(input14);
+  _parseSync(input16) {
+    const result = this._parse(input16);
     if (isAsync(result)) {
       throw new Error("Synchronous parse encountered promise.");
     }
     return result;
   }
-  _parseAsync(input14) {
-    const result = this._parse(input14);
+  _parseAsync(input16) {
+    const result = this._parse(input16);
     return Promise.resolve(result);
   }
   parse(data, params) {
@@ -5380,13 +5919,13 @@ function isValidCidr(ip, version2) {
   return false;
 }
 var ZodString = class _ZodString extends ZodType {
-  _parse(input14) {
+  _parse(input16) {
     if (this._def.coerce) {
-      input14.data = String(input14.data);
+      input16.data = String(input16.data);
     }
-    const parsedType = this._getType(input14);
+    const parsedType = this._getType(input16);
     if (parsedType !== ZodParsedType.string) {
-      const ctx2 = this._getOrReturnCtx(input14);
+      const ctx2 = this._getOrReturnCtx(input16);
       addIssueToContext(ctx2, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.string,
@@ -5398,8 +5937,8 @@ var ZodString = class _ZodString extends ZodType {
     let ctx = void 0;
     for (const check of this._def.checks) {
       if (check.kind === "min") {
-        if (input14.data.length < check.value) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (input16.data.length < check.value) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_small,
             minimum: check.value,
@@ -5411,8 +5950,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "max") {
-        if (input14.data.length > check.value) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (input16.data.length > check.value) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_big,
             maximum: check.value,
@@ -5424,10 +5963,10 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "length") {
-        const tooBig = input14.data.length > check.value;
-        const tooSmall = input14.data.length < check.value;
+        const tooBig = input16.data.length > check.value;
+        const tooSmall = input16.data.length < check.value;
         if (tooBig || tooSmall) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+          ctx = this._getOrReturnCtx(input16, ctx);
           if (tooBig) {
             addIssueToContext(ctx, {
               code: ZodIssueCode.too_big,
@@ -5450,8 +5989,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "email") {
-        if (!emailRegex.test(input14.data)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!emailRegex.test(input16.data)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             validation: "email",
             code: ZodIssueCode.invalid_string,
@@ -5463,8 +6002,8 @@ var ZodString = class _ZodString extends ZodType {
         if (!emojiRegex) {
           emojiRegex = new RegExp(_emojiRegex, "u");
         }
-        if (!emojiRegex.test(input14.data)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!emojiRegex.test(input16.data)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             validation: "emoji",
             code: ZodIssueCode.invalid_string,
@@ -5473,8 +6012,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "uuid") {
-        if (!uuidRegex.test(input14.data)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!uuidRegex.test(input16.data)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             validation: "uuid",
             code: ZodIssueCode.invalid_string,
@@ -5483,8 +6022,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "nanoid") {
-        if (!nanoidRegex.test(input14.data)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!nanoidRegex.test(input16.data)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             validation: "nanoid",
             code: ZodIssueCode.invalid_string,
@@ -5493,8 +6032,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "cuid") {
-        if (!cuidRegex.test(input14.data)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!cuidRegex.test(input16.data)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             validation: "cuid",
             code: ZodIssueCode.invalid_string,
@@ -5503,8 +6042,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "cuid2") {
-        if (!cuid2Regex.test(input14.data)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!cuid2Regex.test(input16.data)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             validation: "cuid2",
             code: ZodIssueCode.invalid_string,
@@ -5513,8 +6052,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "ulid") {
-        if (!ulidRegex.test(input14.data)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!ulidRegex.test(input16.data)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             validation: "ulid",
             code: ZodIssueCode.invalid_string,
@@ -5524,9 +6063,9 @@ var ZodString = class _ZodString extends ZodType {
         }
       } else if (check.kind === "url") {
         try {
-          new URL(input14.data);
+          new URL(input16.data);
         } catch {
-          ctx = this._getOrReturnCtx(input14, ctx);
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             validation: "url",
             code: ZodIssueCode.invalid_string,
@@ -5536,9 +6075,9 @@ var ZodString = class _ZodString extends ZodType {
         }
       } else if (check.kind === "regex") {
         check.regex.lastIndex = 0;
-        const testResult = check.regex.test(input14.data);
+        const testResult = check.regex.test(input16.data);
         if (!testResult) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             validation: "regex",
             code: ZodIssueCode.invalid_string,
@@ -5547,10 +6086,10 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "trim") {
-        input14.data = input14.data.trim();
+        input16.data = input16.data.trim();
       } else if (check.kind === "includes") {
-        if (!input14.data.includes(check.value, check.position)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!input16.data.includes(check.value, check.position)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
             validation: { includes: check.value, position: check.position },
@@ -5559,12 +6098,12 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "toLowerCase") {
-        input14.data = input14.data.toLowerCase();
+        input16.data = input16.data.toLowerCase();
       } else if (check.kind === "toUpperCase") {
-        input14.data = input14.data.toUpperCase();
+        input16.data = input16.data.toUpperCase();
       } else if (check.kind === "startsWith") {
-        if (!input14.data.startsWith(check.value)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!input16.data.startsWith(check.value)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
             validation: { startsWith: check.value },
@@ -5573,8 +6112,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "endsWith") {
-        if (!input14.data.endsWith(check.value)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!input16.data.endsWith(check.value)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
             validation: { endsWith: check.value },
@@ -5584,8 +6123,8 @@ var ZodString = class _ZodString extends ZodType {
         }
       } else if (check.kind === "datetime") {
         const regex = datetimeRegex(check);
-        if (!regex.test(input14.data)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!regex.test(input16.data)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
             validation: "datetime",
@@ -5595,8 +6134,8 @@ var ZodString = class _ZodString extends ZodType {
         }
       } else if (check.kind === "date") {
         const regex = dateRegex;
-        if (!regex.test(input14.data)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!regex.test(input16.data)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
             validation: "date",
@@ -5606,8 +6145,8 @@ var ZodString = class _ZodString extends ZodType {
         }
       } else if (check.kind === "time") {
         const regex = timeRegex(check);
-        if (!regex.test(input14.data)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!regex.test(input16.data)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
             validation: "time",
@@ -5616,8 +6155,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "duration") {
-        if (!durationRegex.test(input14.data)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!durationRegex.test(input16.data)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             validation: "duration",
             code: ZodIssueCode.invalid_string,
@@ -5626,8 +6165,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "ip") {
-        if (!isValidIP(input14.data, check.version)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!isValidIP(input16.data, check.version)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             validation: "ip",
             code: ZodIssueCode.invalid_string,
@@ -5636,8 +6175,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "jwt") {
-        if (!isValidJWT(input14.data, check.alg)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!isValidJWT(input16.data, check.alg)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             validation: "jwt",
             code: ZodIssueCode.invalid_string,
@@ -5646,8 +6185,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "cidr") {
-        if (!isValidCidr(input14.data, check.version)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!isValidCidr(input16.data, check.version)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             validation: "cidr",
             code: ZodIssueCode.invalid_string,
@@ -5656,8 +6195,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "base64") {
-        if (!base64Regex.test(input14.data)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!base64Regex.test(input16.data)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             validation: "base64",
             code: ZodIssueCode.invalid_string,
@@ -5666,8 +6205,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "base64url") {
-        if (!base64urlRegex.test(input14.data)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!base64urlRegex.test(input16.data)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             validation: "base64url",
             code: ZodIssueCode.invalid_string,
@@ -5679,7 +6218,7 @@ var ZodString = class _ZodString extends ZodType {
         util.assertNever(check);
       }
     }
-    return { status: status.value, value: input14.data };
+    return { status: status.value, value: input16.data };
   }
   _regex(regex, validation, message) {
     return this.refinement((data) => regex.test(data), {
@@ -5940,13 +6479,13 @@ var ZodNumber = class _ZodNumber extends ZodType {
     this.max = this.lte;
     this.step = this.multipleOf;
   }
-  _parse(input14) {
+  _parse(input16) {
     if (this._def.coerce) {
-      input14.data = Number(input14.data);
+      input16.data = Number(input16.data);
     }
-    const parsedType = this._getType(input14);
+    const parsedType = this._getType(input16);
     if (parsedType !== ZodParsedType.number) {
-      const ctx2 = this._getOrReturnCtx(input14);
+      const ctx2 = this._getOrReturnCtx(input16);
       addIssueToContext(ctx2, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.number,
@@ -5958,8 +6497,8 @@ var ZodNumber = class _ZodNumber extends ZodType {
     const status = new ParseStatus();
     for (const check of this._def.checks) {
       if (check.kind === "int") {
-        if (!util.isInteger(input14.data)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!util.isInteger(input16.data)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_type,
             expected: "integer",
@@ -5969,9 +6508,9 @@ var ZodNumber = class _ZodNumber extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "min") {
-        const tooSmall = check.inclusive ? input14.data < check.value : input14.data <= check.value;
+        const tooSmall = check.inclusive ? input16.data < check.value : input16.data <= check.value;
         if (tooSmall) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_small,
             minimum: check.value,
@@ -5983,9 +6522,9 @@ var ZodNumber = class _ZodNumber extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "max") {
-        const tooBig = check.inclusive ? input14.data > check.value : input14.data >= check.value;
+        const tooBig = check.inclusive ? input16.data > check.value : input16.data >= check.value;
         if (tooBig) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_big,
             maximum: check.value,
@@ -5997,8 +6536,8 @@ var ZodNumber = class _ZodNumber extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "multipleOf") {
-        if (floatSafeRemainder(input14.data, check.value) !== 0) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (floatSafeRemainder(input16.data, check.value) !== 0) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.not_multiple_of,
             multipleOf: check.value,
@@ -6007,8 +6546,8 @@ var ZodNumber = class _ZodNumber extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "finite") {
-        if (!Number.isFinite(input14.data)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (!Number.isFinite(input16.data)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.not_finite,
             message: check.message
@@ -6019,7 +6558,7 @@ var ZodNumber = class _ZodNumber extends ZodType {
         util.assertNever(check);
       }
     }
-    return { status: status.value, value: input14.data };
+    return { status: status.value, value: input16.data };
   }
   gte(value, message) {
     return this.setLimit("min", value, true, errorUtil.toString(message));
@@ -6171,25 +6710,25 @@ var ZodBigInt = class _ZodBigInt extends ZodType {
     this.min = this.gte;
     this.max = this.lte;
   }
-  _parse(input14) {
+  _parse(input16) {
     if (this._def.coerce) {
       try {
-        input14.data = BigInt(input14.data);
+        input16.data = BigInt(input16.data);
       } catch {
-        return this._getInvalidInput(input14);
+        return this._getInvalidInput(input16);
       }
     }
-    const parsedType = this._getType(input14);
+    const parsedType = this._getType(input16);
     if (parsedType !== ZodParsedType.bigint) {
-      return this._getInvalidInput(input14);
+      return this._getInvalidInput(input16);
     }
     let ctx = void 0;
     const status = new ParseStatus();
     for (const check of this._def.checks) {
       if (check.kind === "min") {
-        const tooSmall = check.inclusive ? input14.data < check.value : input14.data <= check.value;
+        const tooSmall = check.inclusive ? input16.data < check.value : input16.data <= check.value;
         if (tooSmall) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_small,
             type: "bigint",
@@ -6200,9 +6739,9 @@ var ZodBigInt = class _ZodBigInt extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "max") {
-        const tooBig = check.inclusive ? input14.data > check.value : input14.data >= check.value;
+        const tooBig = check.inclusive ? input16.data > check.value : input16.data >= check.value;
         if (tooBig) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_big,
             type: "bigint",
@@ -6213,8 +6752,8 @@ var ZodBigInt = class _ZodBigInt extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "multipleOf") {
-        if (input14.data % check.value !== BigInt(0)) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (input16.data % check.value !== BigInt(0)) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.not_multiple_of,
             multipleOf: check.value,
@@ -6226,10 +6765,10 @@ var ZodBigInt = class _ZodBigInt extends ZodType {
         util.assertNever(check);
       }
     }
-    return { status: status.value, value: input14.data };
+    return { status: status.value, value: input16.data };
   }
-  _getInvalidInput(input14) {
-    const ctx = this._getOrReturnCtx(input14);
+  _getInvalidInput(input16) {
+    const ctx = this._getOrReturnCtx(input16);
     addIssueToContext(ctx, {
       code: ZodIssueCode.invalid_type,
       expected: ZodParsedType.bigint,
@@ -6338,13 +6877,13 @@ ZodBigInt.create = (params) => {
   });
 };
 var ZodBoolean = class extends ZodType {
-  _parse(input14) {
+  _parse(input16) {
     if (this._def.coerce) {
-      input14.data = Boolean(input14.data);
+      input16.data = Boolean(input16.data);
     }
-    const parsedType = this._getType(input14);
+    const parsedType = this._getType(input16);
     if (parsedType !== ZodParsedType.boolean) {
-      const ctx = this._getOrReturnCtx(input14);
+      const ctx = this._getOrReturnCtx(input16);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.boolean,
@@ -6352,7 +6891,7 @@ var ZodBoolean = class extends ZodType {
       });
       return INVALID;
     }
-    return OK(input14.data);
+    return OK(input16.data);
   }
 };
 ZodBoolean.create = (params) => {
@@ -6363,13 +6902,13 @@ ZodBoolean.create = (params) => {
   });
 };
 var ZodDate = class _ZodDate extends ZodType {
-  _parse(input14) {
+  _parse(input16) {
     if (this._def.coerce) {
-      input14.data = new Date(input14.data);
+      input16.data = new Date(input16.data);
     }
-    const parsedType = this._getType(input14);
+    const parsedType = this._getType(input16);
     if (parsedType !== ZodParsedType.date) {
-      const ctx2 = this._getOrReturnCtx(input14);
+      const ctx2 = this._getOrReturnCtx(input16);
       addIssueToContext(ctx2, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.date,
@@ -6377,8 +6916,8 @@ var ZodDate = class _ZodDate extends ZodType {
       });
       return INVALID;
     }
-    if (Number.isNaN(input14.data.getTime())) {
-      const ctx2 = this._getOrReturnCtx(input14);
+    if (Number.isNaN(input16.data.getTime())) {
+      const ctx2 = this._getOrReturnCtx(input16);
       addIssueToContext(ctx2, {
         code: ZodIssueCode.invalid_date
       });
@@ -6388,8 +6927,8 @@ var ZodDate = class _ZodDate extends ZodType {
     let ctx = void 0;
     for (const check of this._def.checks) {
       if (check.kind === "min") {
-        if (input14.data.getTime() < check.value) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (input16.data.getTime() < check.value) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_small,
             message: check.message,
@@ -6401,8 +6940,8 @@ var ZodDate = class _ZodDate extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "max") {
-        if (input14.data.getTime() > check.value) {
-          ctx = this._getOrReturnCtx(input14, ctx);
+        if (input16.data.getTime() > check.value) {
+          ctx = this._getOrReturnCtx(input16, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_big,
             message: check.message,
@@ -6419,7 +6958,7 @@ var ZodDate = class _ZodDate extends ZodType {
     }
     return {
       status: status.value,
-      value: new Date(input14.data.getTime())
+      value: new Date(input16.data.getTime())
     };
   }
   _addCheck(check) {
@@ -6472,10 +7011,10 @@ ZodDate.create = (params) => {
   });
 };
 var ZodSymbol = class extends ZodType {
-  _parse(input14) {
-    const parsedType = this._getType(input14);
+  _parse(input16) {
+    const parsedType = this._getType(input16);
     if (parsedType !== ZodParsedType.symbol) {
-      const ctx = this._getOrReturnCtx(input14);
+      const ctx = this._getOrReturnCtx(input16);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.symbol,
@@ -6483,7 +7022,7 @@ var ZodSymbol = class extends ZodType {
       });
       return INVALID;
     }
-    return OK(input14.data);
+    return OK(input16.data);
   }
 };
 ZodSymbol.create = (params) => {
@@ -6493,10 +7032,10 @@ ZodSymbol.create = (params) => {
   });
 };
 var ZodUndefined = class extends ZodType {
-  _parse(input14) {
-    const parsedType = this._getType(input14);
+  _parse(input16) {
+    const parsedType = this._getType(input16);
     if (parsedType !== ZodParsedType.undefined) {
-      const ctx = this._getOrReturnCtx(input14);
+      const ctx = this._getOrReturnCtx(input16);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.undefined,
@@ -6504,7 +7043,7 @@ var ZodUndefined = class extends ZodType {
       });
       return INVALID;
     }
-    return OK(input14.data);
+    return OK(input16.data);
   }
 };
 ZodUndefined.create = (params) => {
@@ -6514,10 +7053,10 @@ ZodUndefined.create = (params) => {
   });
 };
 var ZodNull = class extends ZodType {
-  _parse(input14) {
-    const parsedType = this._getType(input14);
+  _parse(input16) {
+    const parsedType = this._getType(input16);
     if (parsedType !== ZodParsedType.null) {
-      const ctx = this._getOrReturnCtx(input14);
+      const ctx = this._getOrReturnCtx(input16);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.null,
@@ -6525,7 +7064,7 @@ var ZodNull = class extends ZodType {
       });
       return INVALID;
     }
-    return OK(input14.data);
+    return OK(input16.data);
   }
 };
 ZodNull.create = (params) => {
@@ -6539,8 +7078,8 @@ var ZodAny = class extends ZodType {
     super(...arguments);
     this._any = true;
   }
-  _parse(input14) {
-    return OK(input14.data);
+  _parse(input16) {
+    return OK(input16.data);
   }
 };
 ZodAny.create = (params) => {
@@ -6554,8 +7093,8 @@ var ZodUnknown = class extends ZodType {
     super(...arguments);
     this._unknown = true;
   }
-  _parse(input14) {
-    return OK(input14.data);
+  _parse(input16) {
+    return OK(input16.data);
   }
 };
 ZodUnknown.create = (params) => {
@@ -6565,8 +7104,8 @@ ZodUnknown.create = (params) => {
   });
 };
 var ZodNever = class extends ZodType {
-  _parse(input14) {
-    const ctx = this._getOrReturnCtx(input14);
+  _parse(input16) {
+    const ctx = this._getOrReturnCtx(input16);
     addIssueToContext(ctx, {
       code: ZodIssueCode.invalid_type,
       expected: ZodParsedType.never,
@@ -6582,10 +7121,10 @@ ZodNever.create = (params) => {
   });
 };
 var ZodVoid = class extends ZodType {
-  _parse(input14) {
-    const parsedType = this._getType(input14);
+  _parse(input16) {
+    const parsedType = this._getType(input16);
     if (parsedType !== ZodParsedType.undefined) {
-      const ctx = this._getOrReturnCtx(input14);
+      const ctx = this._getOrReturnCtx(input16);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.void,
@@ -6593,7 +7132,7 @@ var ZodVoid = class extends ZodType {
       });
       return INVALID;
     }
-    return OK(input14.data);
+    return OK(input16.data);
   }
 };
 ZodVoid.create = (params) => {
@@ -6603,8 +7142,8 @@ ZodVoid.create = (params) => {
   });
 };
 var ZodArray = class _ZodArray extends ZodType {
-  _parse(input14) {
-    const { ctx, status } = this._processInputParams(input14);
+  _parse(input16) {
+    const { ctx, status } = this._processInputParams(input16);
     const def = this._def;
     if (ctx.parsedType !== ZodParsedType.array) {
       addIssueToContext(ctx, {
@@ -6744,10 +7283,10 @@ var ZodObject = class _ZodObject extends ZodType {
     this._cached = { shape, keys };
     return this._cached;
   }
-  _parse(input14) {
-    const parsedType = this._getType(input14);
+  _parse(input16) {
+    const parsedType = this._getType(input16);
     if (parsedType !== ZodParsedType.object) {
-      const ctx2 = this._getOrReturnCtx(input14);
+      const ctx2 = this._getOrReturnCtx(input16);
       addIssueToContext(ctx2, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.object,
@@ -6755,7 +7294,7 @@ var ZodObject = class _ZodObject extends ZodType {
       });
       return INVALID;
     }
-    const { status, ctx } = this._processInputParams(input14);
+    const { status, ctx } = this._processInputParams(input16);
     const { shape, keys: shapeKeys } = this._getCached();
     const extraKeys = [];
     if (!(this._def.catchall instanceof ZodNever && this._def.unknownKeys === "strip")) {
@@ -7068,8 +7607,8 @@ ZodObject.lazycreate = (shape, params) => {
   });
 };
 var ZodUnion = class extends ZodType {
-  _parse(input14) {
-    const { ctx } = this._processInputParams(input14);
+  _parse(input16) {
+    const { ctx } = this._processInputParams(input16);
     const options = this._def.options;
     function handleResults(results) {
       for (const result of results) {
@@ -7190,8 +7729,8 @@ var getDiscriminator = (type) => {
   }
 };
 var ZodDiscriminatedUnion = class _ZodDiscriminatedUnion extends ZodType {
-  _parse(input14) {
-    const { ctx } = this._processInputParams(input14);
+  _parse(input16) {
+    const { ctx } = this._processInputParams(input16);
     if (ctx.parsedType !== ZodParsedType.object) {
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -7304,8 +7843,8 @@ function mergeValues(a, b) {
   }
 }
 var ZodIntersection = class extends ZodType {
-  _parse(input14) {
-    const { status, ctx } = this._processInputParams(input14);
+  _parse(input16) {
+    const { status, ctx } = this._processInputParams(input16);
     const handleParsed = (parsedLeft, parsedRight) => {
       if (isAborted(parsedLeft) || isAborted(parsedRight)) {
         return INVALID;
@@ -7357,8 +7896,8 @@ ZodIntersection.create = (left, right, params) => {
   });
 };
 var ZodTuple = class _ZodTuple extends ZodType {
-  _parse(input14) {
-    const { status, ctx } = this._processInputParams(input14);
+  _parse(input16) {
+    const { status, ctx } = this._processInputParams(input16);
     if (ctx.parsedType !== ZodParsedType.array) {
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -7430,8 +7969,8 @@ var ZodRecord = class _ZodRecord extends ZodType {
   get valueSchema() {
     return this._def.valueType;
   }
-  _parse(input14) {
-    const { status, ctx } = this._processInputParams(input14);
+  _parse(input16) {
+    const { status, ctx } = this._processInputParams(input16);
     if (ctx.parsedType !== ZodParsedType.object) {
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -7483,8 +8022,8 @@ var ZodMap = class extends ZodType {
   get valueSchema() {
     return this._def.valueType;
   }
-  _parse(input14) {
-    const { status, ctx } = this._processInputParams(input14);
+  _parse(input16) {
+    const { status, ctx } = this._processInputParams(input16);
     if (ctx.parsedType !== ZodParsedType.map) {
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -7543,8 +8082,8 @@ ZodMap.create = (keyType, valueType, params) => {
   });
 };
 var ZodSet = class _ZodSet extends ZodType {
-  _parse(input14) {
-    const { status, ctx } = this._processInputParams(input14);
+  _parse(input16) {
+    const { status, ctx } = this._processInputParams(input16);
     if (ctx.parsedType !== ZodParsedType.set) {
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -7632,8 +8171,8 @@ var ZodFunction = class _ZodFunction extends ZodType {
     super(...arguments);
     this.validate = this.implement;
   }
-  _parse(input14) {
-    const { ctx } = this._processInputParams(input14);
+  _parse(input16) {
+    const { ctx } = this._processInputParams(input16);
     if (ctx.parsedType !== ZodParsedType.function) {
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -7736,8 +8275,8 @@ var ZodLazy = class extends ZodType {
   get schema() {
     return this._def.getter();
   }
-  _parse(input14) {
-    const { ctx } = this._processInputParams(input14);
+  _parse(input16) {
+    const { ctx } = this._processInputParams(input16);
     const lazySchema = this._def.getter();
     return lazySchema._parse({ data: ctx.data, path: ctx.path, parent: ctx });
   }
@@ -7750,9 +8289,9 @@ ZodLazy.create = (getter, params) => {
   });
 };
 var ZodLiteral = class extends ZodType {
-  _parse(input14) {
-    if (input14.data !== this._def.value) {
-      const ctx = this._getOrReturnCtx(input14);
+  _parse(input16) {
+    if (input16.data !== this._def.value) {
+      const ctx = this._getOrReturnCtx(input16);
       addIssueToContext(ctx, {
         received: ctx.data,
         code: ZodIssueCode.invalid_literal,
@@ -7760,7 +8299,7 @@ var ZodLiteral = class extends ZodType {
       });
       return INVALID;
     }
-    return { status: "valid", value: input14.data };
+    return { status: "valid", value: input16.data };
   }
   get value() {
     return this._def.value;
@@ -7781,9 +8320,9 @@ function createZodEnum(values, params) {
   });
 }
 var ZodEnum = class _ZodEnum extends ZodType {
-  _parse(input14) {
-    if (typeof input14.data !== "string") {
-      const ctx = this._getOrReturnCtx(input14);
+  _parse(input16) {
+    if (typeof input16.data !== "string") {
+      const ctx = this._getOrReturnCtx(input16);
       const expectedValues = this._def.values;
       addIssueToContext(ctx, {
         expected: util.joinValues(expectedValues),
@@ -7795,8 +8334,8 @@ var ZodEnum = class _ZodEnum extends ZodType {
     if (!this._cache) {
       this._cache = new Set(this._def.values);
     }
-    if (!this._cache.has(input14.data)) {
-      const ctx = this._getOrReturnCtx(input14);
+    if (!this._cache.has(input16.data)) {
+      const ctx = this._getOrReturnCtx(input16);
       const expectedValues = this._def.values;
       addIssueToContext(ctx, {
         received: ctx.data,
@@ -7805,7 +8344,7 @@ var ZodEnum = class _ZodEnum extends ZodType {
       });
       return INVALID;
     }
-    return OK(input14.data);
+    return OK(input16.data);
   }
   get options() {
     return this._def.values;
@@ -7846,9 +8385,9 @@ var ZodEnum = class _ZodEnum extends ZodType {
 };
 ZodEnum.create = createZodEnum;
 var ZodNativeEnum = class extends ZodType {
-  _parse(input14) {
+  _parse(input16) {
     const nativeEnumValues = util.getValidEnumValues(this._def.values);
-    const ctx = this._getOrReturnCtx(input14);
+    const ctx = this._getOrReturnCtx(input16);
     if (ctx.parsedType !== ZodParsedType.string && ctx.parsedType !== ZodParsedType.number) {
       const expectedValues = util.objectValues(nativeEnumValues);
       addIssueToContext(ctx, {
@@ -7861,7 +8400,7 @@ var ZodNativeEnum = class extends ZodType {
     if (!this._cache) {
       this._cache = new Set(util.getValidEnumValues(this._def.values));
     }
-    if (!this._cache.has(input14.data)) {
+    if (!this._cache.has(input16.data)) {
       const expectedValues = util.objectValues(nativeEnumValues);
       addIssueToContext(ctx, {
         received: ctx.data,
@@ -7870,7 +8409,7 @@ var ZodNativeEnum = class extends ZodType {
       });
       return INVALID;
     }
-    return OK(input14.data);
+    return OK(input16.data);
   }
   get enum() {
     return this._def.values;
@@ -7887,8 +8426,8 @@ var ZodPromise = class extends ZodType {
   unwrap() {
     return this._def.type;
   }
-  _parse(input14) {
-    const { ctx } = this._processInputParams(input14);
+  _parse(input16) {
+    const { ctx } = this._processInputParams(input16);
     if (ctx.parsedType !== ZodParsedType.promise && ctx.common.async === false) {
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -7920,8 +8459,8 @@ var ZodEffects = class extends ZodType {
   sourceType() {
     return this._def.schema._def.typeName === ZodFirstPartyTypeKind.ZodEffects ? this._def.schema.sourceType() : this._def.schema;
   }
-  _parse(input14) {
-    const { status, ctx } = this._processInputParams(input14);
+  _parse(input16) {
+    const { status, ctx } = this._processInputParams(input16);
     const effect = this._def.effect || null;
     const checkCtx = {
       addIssue: (arg) => {
@@ -8053,12 +8592,12 @@ ZodEffects.createWithPreprocess = (preprocess, schema, params) => {
   });
 };
 var ZodOptional = class extends ZodType {
-  _parse(input14) {
-    const parsedType = this._getType(input14);
+  _parse(input16) {
+    const parsedType = this._getType(input16);
     if (parsedType === ZodParsedType.undefined) {
       return OK(void 0);
     }
-    return this._def.innerType._parse(input14);
+    return this._def.innerType._parse(input16);
   }
   unwrap() {
     return this._def.innerType;
@@ -8072,12 +8611,12 @@ ZodOptional.create = (type, params) => {
   });
 };
 var ZodNullable = class extends ZodType {
-  _parse(input14) {
-    const parsedType = this._getType(input14);
+  _parse(input16) {
+    const parsedType = this._getType(input16);
     if (parsedType === ZodParsedType.null) {
       return OK(null);
     }
-    return this._def.innerType._parse(input14);
+    return this._def.innerType._parse(input16);
   }
   unwrap() {
     return this._def.innerType;
@@ -8091,8 +8630,8 @@ ZodNullable.create = (type, params) => {
   });
 };
 var ZodDefault = class extends ZodType {
-  _parse(input14) {
-    const { ctx } = this._processInputParams(input14);
+  _parse(input16) {
+    const { ctx } = this._processInputParams(input16);
     let data = ctx.data;
     if (ctx.parsedType === ZodParsedType.undefined) {
       data = this._def.defaultValue();
@@ -8116,8 +8655,8 @@ ZodDefault.create = (type, params) => {
   });
 };
 var ZodCatch = class extends ZodType {
-  _parse(input14) {
-    const { ctx } = this._processInputParams(input14);
+  _parse(input16) {
+    const { ctx } = this._processInputParams(input16);
     const newCtx = {
       ...ctx,
       common: {
@@ -8169,10 +8708,10 @@ ZodCatch.create = (type, params) => {
   });
 };
 var ZodNaN = class extends ZodType {
-  _parse(input14) {
-    const parsedType = this._getType(input14);
+  _parse(input16) {
+    const parsedType = this._getType(input16);
     if (parsedType !== ZodParsedType.nan) {
-      const ctx = this._getOrReturnCtx(input14);
+      const ctx = this._getOrReturnCtx(input16);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.nan,
@@ -8180,7 +8719,7 @@ var ZodNaN = class extends ZodType {
       });
       return INVALID;
     }
-    return { status: "valid", value: input14.data };
+    return { status: "valid", value: input16.data };
   }
 };
 ZodNaN.create = (params) => {
@@ -8191,8 +8730,8 @@ ZodNaN.create = (params) => {
 };
 var BRAND = Symbol("zod_brand");
 var ZodBranded = class extends ZodType {
-  _parse(input14) {
-    const { ctx } = this._processInputParams(input14);
+  _parse(input16) {
+    const { ctx } = this._processInputParams(input16);
     const data = ctx.data;
     return this._def.type._parse({
       data,
@@ -8205,8 +8744,8 @@ var ZodBranded = class extends ZodType {
   }
 };
 var ZodPipeline = class _ZodPipeline extends ZodType {
-  _parse(input14) {
-    const { status, ctx } = this._processInputParams(input14);
+  _parse(input16) {
+    const { status, ctx } = this._processInputParams(input16);
     if (ctx.common.async) {
       const handleAsync = async () => {
         const inResult = await this._def.in._parseAsync({
@@ -8260,8 +8799,8 @@ var ZodPipeline = class _ZodPipeline extends ZodType {
   }
 };
 var ZodReadonly = class extends ZodType {
-  _parse(input14) {
-    const result = this._def.innerType._parse(input14);
+  _parse(input16) {
+    const result = this._def.innerType._parse(input16);
     const freeze = (data) => {
       if (isValid(data)) {
         data.value = Object.freeze(data.value);
@@ -9687,6 +10226,62 @@ var zodToJsonSchema = (schema, options) => {
 };
 
 // packages/domain/dist/capabilities/schemas.js
+var UUID = external_exports.string().uuid().describe("the stable row id (GUID) returned by an assistant read tool");
+var PROVIDER_CODE = external_exports.string().min(1).max(8).regex(/^[A-Za-z][A-Za-z0-9]{0,7}$/).describe("provider principal code");
+var PROVENANCE_SOURCE_TYPES = [
+  "staff",
+  "pdf_extraction",
+  "email_text",
+  "corpus",
+  "ai",
+  "dvla_dvsa",
+  "document_ai",
+  "azure_vision",
+  "web_lookup",
+  "whatsapp",
+  "manual_upload"
+];
+var REVIEW_STATES = ["not_required", "needs_review", "reviewed", "conflict"];
+var EVA_FIELD_KEYS = [
+  "workProvider",
+  "vehicleModel",
+  "claimantName",
+  "claimantTelephone",
+  "claimantEmail",
+  "dateOfLoss",
+  "dateOfInstruction",
+  "accidentCircumstances",
+  "inspectionAddress",
+  "vatStatus",
+  "mileage",
+  "mileageUnit"
+];
+var EvaFieldParam = external_exports.object({
+  value: external_exports.string(),
+  provenance: external_exports.object({
+    sourceType: external_exports.enum(PROVENANCE_SOURCE_TYPES),
+    sourceLabel: external_exports.string().min(1).max(400),
+    confidence: external_exports.number().min(0).max(1).optional()
+  }).strict(),
+  reviewState: external_exports.enum(REVIEW_STATES)
+}).strict();
+var EvaFieldsParam = external_exports.object(Object.fromEntries(EVA_FIELD_KEYS.map((key) => [key, EvaFieldParam]))).strict();
+var EditableEvaFieldsParam = external_exports.object({
+  // Provider identity is deliberately NOT editable here. It spans case_.work_provider_id
+  // plus the EVA display projection; the generic case PATCH only updates EVA text and
+  // would otherwise split those two sources of truth.
+  vehicleModel: external_exports.string().max(EVA_EDIT_MAX_LENGTH.vehicleModel).optional(),
+  claimantName: external_exports.string().max(EVA_EDIT_MAX_LENGTH.claimantName).optional(),
+  claimantTelephone: external_exports.string().max(EVA_EDIT_MAX_LENGTH.claimantTelephone).optional(),
+  claimantEmail: external_exports.string().max(EVA_EDIT_MAX_LENGTH.claimantEmail).optional(),
+  dateOfLoss: external_exports.string().trim().max(EVA_EDIT_MAX_LENGTH.dateOfLoss).regex(EVA_EDIT_DATE_RE, "dateOfLoss must be DD/MM/YYYY or empty").optional(),
+  dateOfInstruction: external_exports.string().trim().max(EVA_EDIT_MAX_LENGTH.dateOfInstruction).regex(EVA_EDIT_DATE_RE, "dateOfInstruction must be DD/MM/YYYY or empty").optional(),
+  accidentCircumstances: external_exports.string().max(EVA_EDIT_MAX_LENGTH.accidentCircumstances).optional(),
+  inspectionAddress: external_exports.string().max(EVA_EDIT_MAX_LENGTH.inspectionAddress).optional(),
+  vatStatus: external_exports.enum(EVA_EDIT_VAT_VALUES).optional(),
+  mileage: external_exports.string().max(EVA_EDIT_MAX_LENGTH.mileage).optional(),
+  mileageUnit: external_exports.enum(EVA_EDIT_MILEAGE_UNITS).optional()
+}).strict().refine((value) => Object.keys(value).length > 0, "at least one EVA field is required");
 function toJsonSchema(schema) {
   const json = zodToJsonSchema(schema, { target: "openApi3", $refStrategy: "none" });
   delete json.$schema;
@@ -9745,45 +10340,70 @@ var LimitParams = external_exports.object({
   limit: external_exports.number().int().min(1).max(50).optional().describe("max rows (default 10)")
 }).strict();
 var SetOnHoldParams = external_exports.object({
-  caseId: external_exports.string().min(1).describe("the case id (GUID)"),
+  caseId: UUID,
   onHold: external_exports.boolean().describe("true to hold, false to release")
 }).strict();
 var LogChaseParams = external_exports.object({
-  caseId: external_exports.string().min(1).describe("the case id (GUID)"),
+  caseId: UUID,
   channel: external_exports.enum(["email", "whatsapp"]).describe("how the chase was sent"),
   templateLabel: external_exports.string().min(1).max(200).describe("the chaser template used"),
   note: external_exports.string().max(2e3).optional().describe("optional free-text note")
 }).strict();
 var SetTriageStateParams = external_exports.object({
-  inboundId: external_exports.string().min(1).describe("the inbound email id (GUID)"),
+  inboundId: UUID,
   state: external_exports.enum(["new", "routed", "actioned", "dismissed"]).describe("the triage state to set")
 }).strict();
 var ReclassifyInboundParams = external_exports.object({
-  inboundId: external_exports.string().min(1).describe("the inbound email id (GUID)"),
-  category: external_exports.string().min(1).describe("the corrected category token"),
-  subtype: external_exports.string().optional().describe("the corrected subtype token")
+  inboundId: UUID,
+  tag: external_exports.enum(["Inspection", "New client work", "Audit", "Diminution", "Query"]).describe("the corrected e-mail type"),
+  reason: external_exports.string().max(500).optional().describe("optional reason for the correction")
 }).strict();
 var SaveInspectionDecisionParams = external_exports.object({
-  caseId: external_exports.string().min(1).describe("the case id (GUID)"),
-  decisionMode: external_exports.string().min(1).describe("'image_based', 'address', or 'unknown'"),
-  addressLines: external_exports.array(external_exports.string()).max(6).optional().describe("up to 6 address lines"),
-  postcode: external_exports.string().max(12).optional(),
-  sourceNote: external_exports.string().max(500).describe("why this address / image-based reason")
-}).strict();
+  caseId: UUID,
+  decisionMode: external_exports.enum(["manual", "confirmed_physical", "image_based"]).describe("manual/confirmed physical address, or image-based assessment"),
+  addressLines: external_exports.array(external_exports.string().min(1).max(200)).min(1).max(6).optional(),
+  postcode: external_exports.string().max(16).optional(),
+  sourceLabel: external_exports.enum(["manual", "confirmed:assist", "confirmed:corpus", "image_based"]).optional(),
+  sourceNote: external_exports.string().trim().min(1).max(500).describe("why this decision was made")
+}).strict().superRefine((value, ctx) => {
+  if (value.decisionMode === "image_based" && value.addressLines !== void 0) {
+    ctx.addIssue({ code: external_exports.ZodIssueCode.custom, path: ["addressLines"], message: "omit addressLines for image_based" });
+  }
+  if (value.decisionMode !== "image_based" && !value.addressLines?.length) {
+    ctx.addIssue({ code: external_exports.ZodIssueCode.custom, path: ["addressLines"], message: "addressLines are required for a physical decision" });
+  }
+});
 var EditCaseFieldsParams = external_exports.object({
-  caseId: external_exports.string().min(1).describe("the case id (GUID)"),
+  caseId: UUID,
   vrm: external_exports.string().max(16).optional().describe("corrected registration"),
-  caseType: external_exports.string().max(40).optional(),
-  evaFields: external_exports.record(external_exports.string(), external_exports.string()).optional().describe("EVA field key \u2192 new value")
-}).strict();
+  caseType: external_exports.enum(["standard", "audit", "audit_total_loss", "diminution"]).optional(),
+  evaFields: EditableEvaFieldsParam.optional().describe("editable non-provider EVA field key \u2192 new value")
+}).strict().refine((value) => value.vrm !== void 0 || value.caseType !== void 0 || value.evaFields !== void 0, "at least one case field is required");
 var CreateCaseParams = external_exports.object({
   vrm: external_exports.string().min(1).max(16).describe("vehicle registration"),
-  providerCode: external_exports.string().optional().describe("provider principal code"),
-  claimantName: external_exports.string().optional()
+  providerCode: PROVIDER_CODE.optional(),
+  claimantName: external_exports.string().max(200).optional()
+}).strict();
+var FullCreateCaseParams = external_exports.object({
+  evaFields: EvaFieldsParam,
+  vrm: external_exports.string().min(1).max(16),
+  casePo: external_exports.string().max(32).optional(),
+  provider: external_exports.string().max(200).optional(),
+  providerCode: PROVIDER_CODE.optional(),
+  insuredName: external_exports.string().max(200).optional(),
+  providerReference: external_exports.string().max(100).optional(),
+  status: external_exports.enum(["new_email", "ingested"]),
+  sourceLabel: external_exports.string().max(256).optional(),
+  writeProvenance: external_exports.boolean().optional(),
+  inspectionDecision: external_exports.enum(["confirmed_physical", "manual", "image_based", "unknown"]).optional(),
+  inspectionDecisionReason: external_exports.string().max(2e3).optional(),
+  onHold: external_exports.boolean().optional(),
+  receivedFrom: external_exports.string().max(200).optional(),
+  receivedOn: external_exports.string().max(10).optional()
 }).strict();
 var MergeCasesParams = external_exports.object({
-  targetCaseId: external_exports.string().min(1).describe("the survivor case id"),
-  sourceCaseId: external_exports.string().min(1).describe("the case merged away")
+  targetCaseId: UUID.describe("the survivor case id"),
+  sourceCaseId: UUID.describe("the case merged away")
 }).strict();
 
 // packages/domain/dist/capabilities/registry.js
@@ -9946,13 +10566,13 @@ var WRITE = [
     name: "reclassify_inbound",
     kind: "write",
     title: "Reclassify an email",
-    description: "Correct an inbound email\u2019s category / subtype.",
+    description: "Correct an inbound email using one of the known staff e-mail types.",
     destructive: false,
     humanOnly: false,
     gateLabel: WRITE_TIER_GATE_LABEL,
     minRole: "CollisionSpike.User",
     inputSchema: ReclassifyInboundParams,
-    route: { method: "POST", path: "inbound/{inboundId}/classification" }
+    route: { method: "PATCH", path: "inbound/{inboundId}/classification" }
   }),
   cap({
     name: "save_inspection_decision",
@@ -9970,7 +10590,7 @@ var WRITE = [
     name: "edit_case_fields",
     kind: "write",
     title: "Edit case fields",
-    description: "Correct a case\u2019s registration or its editable EVA fields.",
+    description: "Correct a case\u2019s registration, case type, or editable case details. Work provider cannot be changed with this capability.",
     destructive: false,
     humanOnly: false,
     gateLabel: WRITE_TIER_GATE_LABEL,
@@ -10076,7 +10696,7 @@ function buildSentEmailDetail(recipient, subject) {
 }
 
 // orchestration/src/functions/sent-items-processor.ts
-import_functions6.app.storageQueue("sent-items-processor", {
+import_functions8.app.storageQueue("sent-items-processor", {
   queueName: "sent-messages",
   connection: "AzureWebJobsStorage",
   handler: async (item, ctx) => {
@@ -10159,19 +10779,24 @@ import_functions6.app.storageQueue("sent-items-processor", {
 });
 
 // orchestration/src/functions/intake-starter.ts
-var import_functions7 = require("@azure/functions");
-var df3 = __toESM(require("durable-functions"), 1);
-import_functions7.app.storageQueue("intake-starter", {
+var import_functions9 = require("@azure/functions");
+var df5 = __toESM(require("durable-functions"), 1);
+import_functions9.app.storageQueue("intake-starter", {
   queueName: "intake-messages",
   connection: "AzureWebJobsStorage",
-  extraInputs: [df3.input.durableClient()],
+  extraInputs: [df5.input.durableClient()],
   handler: async (item, ctx) => {
     const msg = typeof item === "string" ? JSON.parse(item) : item;
-    const client2 = df3.getClient(ctx);
+    const client2 = df5.getClient(ctx);
     try {
       await ensureSubscriptionMonitor(client2, (m) => ctx.log(m));
     } catch (e) {
       ctx.warn(`[intake-starter] ensureSubscriptionMonitor: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    try {
+      await ensureArchiveMirrorMonitor(client2, (m) => ctx.log(m));
+    } catch (e) {
+      ctx.warn(`[intake-starter] ensureArchiveMirrorMonitor: ${e instanceof Error ? e.message : String(e)}`);
     }
     const safeMessageId = String(msg.messageId).replace(/[^A-Za-z0-9_-]/g, "");
     const instanceId = `intake-${safeMessageId}`;
@@ -10192,12 +10817,12 @@ import_functions7.app.storageQueue("intake-starter", {
 });
 
 // orchestration/src/functions/outlook-move.ts
-var import_functions8 = require("@azure/functions");
+var import_functions10 = require("@azure/functions");
 function isRetryableGraphError(message) {
   return /→ (429|5\d\d)\b/.test(message) || /fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN/i.test(message);
 }
 var MAX_DEQUEUE = 5;
-import_functions8.app.storageQueue("outlook-move", {
+import_functions10.app.storageQueue("outlook-move", {
   queueName: "outlook-move",
   connection: "AzureWebJobsStorage",
   handler: async (item, ctx) => {
@@ -10259,7 +10884,7 @@ import_functions8.app.storageQueue("outlook-move", {
 });
 
 // orchestration/src/functions/evidence-backfill.ts
-var import_functions9 = require("@azure/functions");
+var import_functions11 = require("@azure/functions");
 
 // orchestration/src/lib/blob.ts
 var import_node_crypto4 = require("node:crypto");
@@ -10711,14 +11336,14 @@ var HttpPipeline = class _HttpPipeline {
     this._orderedPolicies = void 0;
     return removedPolicies;
   }
-  sendRequest(httpClient, request2) {
+  sendRequest(httpClient, request3) {
     const policies = this.getOrderedPolicies();
     const pipeline = policies.reduceRight((next, policy) => {
       return (req) => {
         return policy.sendRequest(req, next);
       };
     }, (req) => httpClient.sendRequest(req));
-    return pipeline(request2);
+    return pipeline(request3);
   }
   getOrderedPolicies() {
     if (!this._orderedPolicies) {
@@ -10855,8 +11480,8 @@ function createEmptyPipeline() {
 }
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/util/object.js
-function isObject(input14) {
-  return typeof input14 === "object" && input14 !== null && !Array.isArray(input14) && !(input14 instanceof RegExp) && !(input14 instanceof Date);
+function isObject(input16) {
+  return typeof input16 === "object" && input16 !== null && !Array.isArray(input16) && !(input16 instanceof RegExp) && !(input16 instanceof Date);
 }
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/util/error.js
@@ -11144,11 +11769,11 @@ var NodeHttpClient = class {
    * Makes a request over an underlying transport layer and returns the response.
    * @param request - The request to be made.
    */
-  async sendRequest(request2) {
+  async sendRequest(request3) {
     const abortController = new AbortController();
     let abortListener;
-    if (request2.abortSignal) {
-      if (request2.abortSignal.aborted) {
+    if (request3.abortSignal) {
+      if (request3.abortSignal.aborted) {
         throw new AbortError("The operation was aborted. Request has already been canceled.");
       }
       abortListener = (event) => {
@@ -11156,29 +11781,29 @@ var NodeHttpClient = class {
           abortController.abort();
         }
       };
-      request2.abortSignal.addEventListener("abort", abortListener);
+      request3.abortSignal.addEventListener("abort", abortListener);
     }
     let timeoutId;
-    if (request2.timeout > 0) {
+    if (request3.timeout > 0) {
       timeoutId = setTimeout(() => {
         const sanitizer = new Sanitizer();
-        logger.info(`request to '${sanitizer.sanitizeUrl(request2.url)}' timed out. canceling...`);
+        logger.info(`request to '${sanitizer.sanitizeUrl(request3.url)}' timed out. canceling...`);
         abortController.abort();
-      }, request2.timeout);
+      }, request3.timeout);
     }
-    const acceptEncoding = request2.headers.get("Accept-Encoding");
+    const acceptEncoding = request3.headers.get("Accept-Encoding");
     const shouldDecompress = acceptEncoding?.includes("gzip") || acceptEncoding?.includes("deflate");
-    let body2 = typeof request2.body === "function" ? request2.body() : request2.body;
-    if (body2 && !request2.headers.has("Content-Length")) {
+    let body2 = typeof request3.body === "function" ? request3.body() : request3.body;
+    if (body2 && !request3.headers.has("Content-Length")) {
       const bodyLength = getBodyLength(body2);
       if (bodyLength !== null) {
-        request2.headers.set("Content-Length", bodyLength);
+        request3.headers.set("Content-Length", bodyLength);
       }
     }
     let responseStream;
     try {
-      if (body2 && request2.onUploadProgress) {
-        const onUploadProgress = request2.onUploadProgress;
+      if (body2 && request3.onUploadProgress) {
+        const onUploadProgress = request3.onUploadProgress;
         const uploadReportStream = new ReportTransform(onUploadProgress);
         uploadReportStream.on("error", (e) => {
           logger.error("Error in upload progress", e);
@@ -11190,7 +11815,7 @@ var NodeHttpClient = class {
         }
         body2 = uploadReportStream;
       }
-      const res = await this.makeRequest(request2, abortController, body2);
+      const res = await this.makeRequest(request3, abortController, body2);
       if (timeoutId !== void 0) {
         clearTimeout(timeoutId);
       }
@@ -11199,14 +11824,14 @@ var NodeHttpClient = class {
       const response = {
         status,
         headers,
-        request: request2
+        request: request3
       };
-      if (request2.method === "HEAD") {
+      if (request3.method === "HEAD") {
         res.resume();
         return response;
       }
       responseStream = shouldDecompress ? getDecodedResponseStream(res, headers) : res;
-      const onDownloadProgress = request2.onDownloadProgress;
+      const onDownloadProgress = request3.onDownloadProgress;
       if (onDownloadProgress) {
         const downloadReportStream = new ReportTransform(onDownloadProgress);
         downloadReportStream.on("error", (e) => {
@@ -11217,7 +11842,7 @@ var NodeHttpClient = class {
       }
       if (
         // Value of POSITIVE_INFINITY in streamResponseStatusCodes is considered as any status code
-        request2.streamResponseStatusCodes?.has(Number.POSITIVE_INFINITY) || request2.streamResponseStatusCodes?.has(response.status)
+        request3.streamResponseStatusCodes?.has(Number.POSITIVE_INFINITY) || request3.streamResponseStatusCodes?.has(response.status)
       ) {
         response.readableStreamBody = responseStream;
       } else {
@@ -11225,7 +11850,7 @@ var NodeHttpClient = class {
       }
       return response;
     } finally {
-      if (request2.abortSignal && abortListener) {
+      if (request3.abortSignal && abortListener) {
         let uploadStreamDone = Promise.resolve();
         if (isReadableStream(body2)) {
           uploadStreamDone = isStreamComplete(body2);
@@ -11236,7 +11861,7 @@ var NodeHttpClient = class {
         }
         Promise.all([uploadStreamDone, downloadStreamDone]).then(() => {
           if (abortListener) {
-            request2.abortSignal?.removeEventListener("abort", abortListener);
+            request3.abortSignal?.removeEventListener("abort", abortListener);
           }
         }).catch((e) => {
           logger.warning("Error when cleaning up abortListener on httpRequest", e);
@@ -11244,26 +11869,26 @@ var NodeHttpClient = class {
       }
     }
   }
-  makeRequest(request2, abortController, body2) {
-    const url2 = new URL(request2.url);
+  makeRequest(request3, abortController, body2) {
+    const url2 = new URL(request3.url);
     const isInsecure = url2.protocol !== "https:";
-    if (isInsecure && !request2.allowInsecureConnection) {
-      throw new Error(`Cannot connect to ${request2.url} while allowInsecureConnection is false.`);
+    if (isInsecure && !request3.allowInsecureConnection) {
+      throw new Error(`Cannot connect to ${request3.url} while allowInsecureConnection is false.`);
     }
-    const agent = request2.agent ?? this.getOrCreateAgent(request2, isInsecure);
+    const agent = request3.agent ?? this.getOrCreateAgent(request3, isInsecure);
     const options = {
       agent,
       hostname: url2.hostname,
       path: `${url2.pathname}${url2.search}`,
       port: url2.port,
-      method: request2.method,
-      headers: request2.headers.toJSON({ preserveCase: true }),
-      ...request2.requestOverrides
+      method: request3.method,
+      headers: request3.headers.toJSON({ preserveCase: true }),
+      ...request3.requestOverrides
     };
     return new Promise((resolve, reject) => {
       const req = isInsecure ? import_node_http.default.request(options, resolve) : import_node_https.default.request(options, resolve);
       req.once("error", (err) => {
-        reject(new RestError(err.message, { code: err.code ?? RestError.REQUEST_SEND_ERROR, request: request2 }));
+        reject(new RestError(err.message, { code: err.code ?? RestError.REQUEST_SEND_ERROR, request: request3 }));
       });
       abortController.signal.addEventListener("abort", () => {
         const abortError = new AbortError("The operation was aborted. Rejecting from abort signal callback while making request.");
@@ -11286,8 +11911,8 @@ var NodeHttpClient = class {
       }
     });
   }
-  getOrCreateAgent(request2, isInsecure) {
-    const disableKeepAlive = request2.disableKeepAlive;
+  getOrCreateAgent(request3, isInsecure) {
+    const disableKeepAlive = request3.disableKeepAlive;
     if (isInsecure) {
       if (disableKeepAlive) {
         return import_node_http.default.globalAgent;
@@ -11297,10 +11922,10 @@ var NodeHttpClient = class {
       }
       return this.cachedHttpAgent;
     } else {
-      if (disableKeepAlive && !request2.tlsSettings) {
+      if (disableKeepAlive && !request3.tlsSettings) {
         return import_node_https.default.globalAgent;
       }
-      const tlsSettings = request2.tlsSettings ?? DEFAULT_TLS_SETTINGS;
+      const tlsSettings = request3.tlsSettings ?? DEFAULT_TLS_SETTINGS;
       let agent = this.cachedHttpsAgents.get(tlsSettings);
       if (agent && agent.options.keepAlive === !disableKeepAlive) {
         return agent;
@@ -11402,12 +12027,12 @@ function logPolicy(options = {}) {
   });
   return {
     name: logPolicyName,
-    async sendRequest(request2, next) {
+    async sendRequest(request3, next) {
       if (!logger7.enabled) {
-        return next(request2);
+        return next(request3);
       }
-      logger7(`Request: ${sanitizer.sanitize(request2)}`);
-      const response = await next(request2);
+      logger7(`Request: ${sanitizer.sanitize(request3)}`);
+      const response = await next(request3);
       logger7(`Response status code: ${response.status}`);
       logger7(`Headers: ${sanitizer.sanitize(response.headers)}`);
       return response;
@@ -11576,7 +12201,7 @@ function retryPolicy(strategies, options = { maxRetries: DEFAULT_RETRY_POLICY_CO
   const logger7 = options.logger || retryPolicyLogger;
   return {
     name: retryPolicyName,
-    async sendRequest(request2, next) {
+    async sendRequest(request3, next) {
       let response;
       let responseError;
       let retryCount = -1;
@@ -11585,18 +12210,18 @@ function retryPolicy(strategies, options = { maxRetries: DEFAULT_RETRY_POLICY_CO
         response = void 0;
         responseError = void 0;
         try {
-          logger7.info(`Retry ${retryCount}: Attempting to send request`, request2.requestId);
-          response = await next(request2);
-          logger7.info(`Retry ${retryCount}: Received a response from request`, request2.requestId);
+          logger7.info(`Retry ${retryCount}: Attempting to send request`, request3.requestId);
+          response = await next(request3);
+          logger7.info(`Retry ${retryCount}: Received a response from request`, request3.requestId);
         } catch (e) {
-          logger7.error(`Retry ${retryCount}: Received an error from request`, request2.requestId);
+          logger7.error(`Retry ${retryCount}: Received an error from request`, request3.requestId);
           if (!isRestError(e)) {
             throw e;
           }
           responseError = e;
           response = e.response;
         }
-        if (request2.abortSignal?.aborted) {
+        if (request3.abortSignal?.aborted) {
           logger7.error(`Retry ${retryCount}: Request aborted.`);
           const abortError = new AbortError();
           throw abortError;
@@ -11631,12 +12256,12 @@ function retryPolicy(strategies, options = { maxRetries: DEFAULT_RETRY_POLICY_CO
           }
           if (retryAfterInMs || retryAfterInMs === 0) {
             strategyLogger.info(`Retry ${retryCount}: Retry strategy ${strategy.name} retries after ${retryAfterInMs}`);
-            await delay(retryAfterInMs, void 0, { abortSignal: request2.abortSignal });
+            await delay(retryAfterInMs, void 0, { abortSignal: request3.abortSignal });
             continue retryRequest;
           }
           if (redirectTo) {
             strategyLogger.info(`Retry ${retryCount}: Retry strategy ${strategy.name} redirects to ${redirectTo}`);
-            request2.url = redirectTo;
+            request3.url = redirectTo;
             continue retryRequest;
           }
         }
@@ -11686,22 +12311,22 @@ var formDataPolicyName = "formDataPolicy";
 function formDataPolicy() {
   return {
     name: formDataPolicyName,
-    async sendRequest(request2, next) {
-      const converted = convertBodyToFormDataMap(request2.body);
+    async sendRequest(request3, next) {
+      const converted = convertBodyToFormDataMap(request3.body);
       if (converted) {
-        request2.formData = converted;
-        request2.body = void 0;
+        request3.formData = converted;
+        request3.body = void 0;
       }
-      if (request2.formData) {
-        const contentType2 = request2.headers.get("Content-Type");
+      if (request3.formData) {
+        const contentType2 = request3.headers.get("Content-Type");
         if (contentType2 && contentType2.indexOf("application/x-www-form-urlencoded") !== -1) {
-          request2.body = wwwFormUrlEncode(request2.formData);
+          request3.body = wwwFormUrlEncode(request3.formData);
         } else {
-          await prepareFormData(request2.formData, request2);
+          await prepareFormData(request3.formData, request3);
         }
-        request2.formData = void 0;
+        request3.formData = void 0;
       }
-      return next(request2);
+      return next(request3);
     }
   };
 }
@@ -11718,12 +12343,12 @@ function wwwFormUrlEncode(formData) {
   }
   return urlSearchParams.toString();
 }
-async function prepareFormData(formData, request2) {
-  const contentType2 = request2.headers.get("Content-Type");
+async function prepareFormData(formData, request3) {
+  const contentType2 = request3.headers.get("Content-Type");
   if (contentType2 && !contentType2.startsWith("multipart/form-data")) {
     return;
   }
-  request2.headers.set("Content-Type", contentType2 ?? "multipart/form-data");
+  request3.headers.set("Content-Type", contentType2 ?? "multipart/form-data");
   const parts = [];
   for (const [fieldName, values] of Object.entries(formData)) {
     for (const value of Array.isArray(values) ? values : [values]) {
@@ -11748,7 +12373,7 @@ async function prepareFormData(formData, request2) {
       }
     }
   }
-  request2.multipartBody = { parts };
+  request3.multipartBody = { parts };
 }
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/policies/agentPolicy.js
@@ -11878,25 +12503,25 @@ function getUrlFromProxySettings(settings) {
   }
   return parsedProxyUrl;
 }
-function setProxyAgentOnRequest(request2, cachedAgents, proxyUrl) {
-  if (request2.agent) {
+function setProxyAgentOnRequest(request3, cachedAgents, proxyUrl) {
+  if (request3.agent) {
     return;
   }
-  const url2 = new URL(request2.url);
+  const url2 = new URL(request3.url);
   const isInsecure = url2.protocol !== "https:";
-  if (request2.tlsSettings) {
+  if (request3.tlsSettings) {
     logger.warning("TLS settings are not supported in combination with custom Proxy, certificates provided to the client will be ignored.");
   }
   if (isInsecure) {
     if (!cachedAgents.httpProxyAgent) {
       cachedAgents.httpProxyAgent = new import_http_proxy_agent.HttpProxyAgent(proxyUrl);
     }
-    request2.agent = cachedAgents.httpProxyAgent;
+    request3.agent = cachedAgents.httpProxyAgent;
   } else {
     if (!cachedAgents.httpsProxyAgent) {
       cachedAgents.httpsProxyAgent = new import_https_proxy_agent.HttpsProxyAgent(proxyUrl);
     }
-    request2.agent = cachedAgents.httpsProxyAgent;
+    request3.agent = cachedAgents.httpsProxyAgent;
   }
 }
 function proxyPolicy(proxySettings, options) {
@@ -11907,13 +12532,13 @@ function proxyPolicy(proxySettings, options) {
   const cachedAgents = {};
   return {
     name: proxyPolicyName,
-    async sendRequest(request2, next) {
-      if (!request2.proxySettings && defaultProxy && !isBypassed(request2.url, options?.customNoProxyList ?? globalNoProxyList, options?.customNoProxyList ? void 0 : globalBypassedMap)) {
-        setProxyAgentOnRequest(request2, cachedAgents, defaultProxy);
-      } else if (request2.proxySettings) {
-        setProxyAgentOnRequest(request2, cachedAgents, getUrlFromProxySettings(request2.proxySettings));
+    async sendRequest(request3, next) {
+      if (!request3.proxySettings && defaultProxy && !isBypassed(request3.url, options?.customNoProxyList ?? globalNoProxyList, options?.customNoProxyList ? void 0 : globalBypassedMap)) {
+        setProxyAgentOnRequest(request3, cachedAgents, defaultProxy);
+      } else if (request3.proxySettings) {
+        setProxyAgentOnRequest(request3, cachedAgents, getUrlFromProxySettings(request3.proxySettings));
       }
-      return next(request2);
+      return next(request3);
     }
   };
 }
@@ -11923,11 +12548,11 @@ var decompressResponsePolicyName = "decompressResponsePolicy";
 function decompressResponsePolicy() {
   return {
     name: decompressResponsePolicyName,
-    async sendRequest(request2, next) {
-      if (request2.method !== "HEAD") {
-        request2.headers.set("Accept-Encoding", "gzip,deflate");
+    async sendRequest(request3, next) {
+      if (request3.method !== "HEAD") {
+        request3.headers.set("Accept-Encoding", "gzip,deflate");
       }
-      return next(request2);
+      return next(request3);
     }
   };
 }
@@ -11939,32 +12564,32 @@ function redirectPolicy(options = {}) {
   const { maxRetries = 20, allowCrossOriginRedirects = false } = options;
   return {
     name: redirectPolicyName,
-    async sendRequest(request2, next) {
-      const response = await next(request2);
+    async sendRequest(request3, next) {
+      const response = await next(request3);
       return handleRedirect(next, response, maxRetries, allowCrossOriginRedirects);
     }
   };
 }
 async function handleRedirect(next, response, maxRetries, allowCrossOriginRedirects, currentRetries = 0) {
-  const { request: request2, status, headers } = response;
+  const { request: request3, status, headers } = response;
   const locationHeader = headers.get("location");
-  if (locationHeader && (status === 300 || status === 301 && allowedRedirect.includes(request2.method) || status === 302 && allowedRedirect.includes(request2.method) || status === 303 && request2.method === "POST" || status === 307) && currentRetries < maxRetries) {
-    const url2 = new URL(locationHeader, request2.url);
+  if (locationHeader && (status === 300 || status === 301 && allowedRedirect.includes(request3.method) || status === 302 && allowedRedirect.includes(request3.method) || status === 303 && request3.method === "POST" || status === 307) && currentRetries < maxRetries) {
+    const url2 = new URL(locationHeader, request3.url);
     if (!allowCrossOriginRedirects) {
-      const originalUrl = new URL(request2.url);
+      const originalUrl = new URL(request3.url);
       if (url2.origin !== originalUrl.origin) {
         logger.verbose(`Skipping cross-origin redirect from ${originalUrl.origin} to ${url2.origin}.`);
         return response;
       }
     }
-    request2.url = url2.toString();
+    request3.url = url2.toString();
     if (status === 303) {
-      request2.method = "GET";
-      request2.headers.delete("Content-Length");
-      delete request2.body;
+      request3.method = "GET";
+      request3.headers.delete("Content-Length");
+      delete request3.body;
     }
-    request2.headers.delete("Authorization");
-    const res = await next(request2);
+    request3.headers.delete("Authorization");
+    const res = await next(request3);
     return handleRedirect(next, res, maxRetries, allowCrossOriginRedirects, currentRetries + 1);
   }
   return response;
@@ -12062,7 +12687,7 @@ function getTotalLength(sources) {
   }
   return total;
 }
-async function buildRequestBody(request2, parts, boundary) {
+async function buildRequestBody(request3, parts, boundary) {
   const sources = [
     stringToUint8Array(`--${boundary}`, "utf-8"),
     ...parts.flatMap((part) => [
@@ -12077,9 +12702,9 @@ async function buildRequestBody(request2, parts, boundary) {
   ];
   const contentLength2 = getTotalLength(sources);
   if (contentLength2) {
-    request2.headers.set("Content-Length", contentLength2);
+    request3.headers.set("Content-Length", contentLength2);
   }
-  request2.body = await concat(sources);
+  request3.body = await concat(sources);
 }
 var multipartPolicyName = "multipartPolicy";
 var maxBoundaryLength = 70;
@@ -12095,15 +12720,15 @@ function assertValidBoundary(boundary) {
 function multipartPolicy() {
   return {
     name: multipartPolicyName,
-    async sendRequest(request2, next) {
-      if (!request2.multipartBody) {
-        return next(request2);
+    async sendRequest(request3, next) {
+      if (!request3.multipartBody) {
+        return next(request3);
       }
-      if (request2.body) {
+      if (request3.body) {
         throw new Error("multipartBody and regular body cannot be set at the same time");
       }
-      let boundary = request2.multipartBody.boundary;
-      const contentTypeHeader = request2.headers.get("Content-Type") ?? "multipart/mixed";
+      let boundary = request3.multipartBody.boundary;
+      const contentTypeHeader = request3.headers.get("Content-Type") ?? "multipart/mixed";
       const parsedHeader = contentTypeHeader.match(/^(multipart\/[^ ;]+)(?:; *boundary=(.+))?$/);
       if (!parsedHeader) {
         throw new Error(`Got multipart request body, but content-type header was not multipart: ${contentTypeHeader}`);
@@ -12118,10 +12743,10 @@ function multipartPolicy() {
       } else {
         boundary = generateBoundary();
       }
-      request2.headers.set("Content-Type", `${contentType2}; boundary=${boundary}`);
-      await buildRequestBody(request2, request2.multipartBody.parts, boundary);
-      request2.multipartBody = void 0;
-      return next(request2);
+      request3.headers.set("Content-Type", `${contentType2}; boundary=${boundary}`);
+      await buildRequestBody(request3, request3.multipartBody.parts, boundary);
+      request3.multipartBody = void 0;
+      return next(request3);
     }
   };
 }
@@ -12208,11 +12833,11 @@ function userAgentPolicy2(options = {}) {
   const userAgentValue = getUserAgentValue2(options.userAgentPrefix);
   return {
     name: userAgentPolicyName2,
-    async sendRequest(request2, next) {
-      if (!request2.headers.has(UserAgentHeaderName2)) {
-        request2.headers.set(UserAgentHeaderName2, await userAgentValue);
+    async sendRequest(request3, next) {
+      if (!request3.headers.has(UserAgentHeaderName2)) {
+        request3.headers.set(UserAgentHeaderName2, await userAgentValue);
       }
-      return next(request2);
+      return next(request3);
     }
   };
 }
@@ -12236,15 +12861,15 @@ function multipartPolicy2() {
   const tspPolicy = multipartPolicy();
   return {
     name: multipartPolicyName2,
-    sendRequest: async (request2, next) => {
-      if (request2.multipartBody) {
-        for (const part of request2.multipartBody.parts) {
+    sendRequest: async (request3, next) => {
+      if (request3.multipartBody) {
+        for (const part of request3.multipartBody.parts) {
           if (hasRawContent(part.body)) {
             part.body = getRawContent(part.body);
           }
         }
       }
-      return tspPolicy.sendRequest(request2, next);
+      return tspPolicy.sendRequest(request3, next);
     }
   };
 }
@@ -12367,11 +12992,11 @@ var setClientRequestIdPolicyName = "setClientRequestIdPolicy";
 function setClientRequestIdPolicy(requestIdHeaderName = "x-ms-client-request-id") {
   return {
     name: setClientRequestIdPolicyName,
-    async sendRequest(request2, next) {
-      if (!request2.headers.has(requestIdHeaderName)) {
-        request2.headers.set(requestIdHeaderName, request2.requestId);
+    async sendRequest(request3, next) {
+      if (!request3.headers.has(requestIdHeaderName)) {
+        request3.headers.set(requestIdHeaderName, request3.requestId);
       }
-      return next(request2);
+      return next(request3);
     }
   };
 }
@@ -12538,26 +13163,26 @@ function tracingPolicy(options = {}) {
   const tracingClient2 = tryCreateTracingClient();
   return {
     name: tracingPolicyName,
-    async sendRequest(request2, next) {
+    async sendRequest(request3, next) {
       if (!tracingClient2) {
-        return next(request2);
+        return next(request3);
       }
       const userAgent = await userAgentPromise;
       const spanAttributes = {
-        "http.url": sanitizer.sanitizeUrl(request2.url),
-        "http.method": request2.method,
+        "http.url": sanitizer.sanitizeUrl(request3.url),
+        "http.method": request3.method,
         "http.user_agent": userAgent,
-        requestId: request2.requestId
+        requestId: request3.requestId
       };
       if (userAgent) {
         spanAttributes["http.user_agent"] = userAgent;
       }
-      const { span, tracingContext } = tryCreateSpan(tracingClient2, request2, spanAttributes) ?? {};
+      const { span, tracingContext } = tryCreateSpan(tracingClient2, request3, spanAttributes) ?? {};
       if (!span || !tracingContext) {
-        return next(request2);
+        return next(request3);
       }
       try {
-        const response = await tracingClient2.withContext(tracingContext, next, request2);
+        const response = await tracingClient2.withContext(tracingContext, next, request3);
         tryProcessResponse(span, response);
         return response;
       } catch (err) {
@@ -12579,9 +13204,9 @@ function tryCreateTracingClient() {
     return void 0;
   }
 }
-function tryCreateSpan(tracingClient2, request2, spanAttributes) {
+function tryCreateSpan(tracingClient2, request3, spanAttributes) {
   try {
-    const { span, updatedOptions } = tracingClient2.startSpan(`HTTP ${request2.method}`, { tracingOptions: request2.tracingOptions }, {
+    const { span, updatedOptions } = tracingClient2.startSpan(`HTTP ${request3.method}`, { tracingOptions: request3.tracingOptions }, {
       spanKind: "client",
       spanAttributes
     });
@@ -12591,7 +13216,7 @@ function tryCreateSpan(tracingClient2, request2, spanAttributes) {
     }
     const headers = tracingClient2.createRequestHeaders(updatedOptions.tracingOptions.tracingContext);
     for (const [key, value] of Object.entries(headers)) {
-      request2.headers.set(key, value);
+      request3.headers.set(key, value);
     }
     return { span, tracingContext: updatedOptions.tracingOptions.tracingContext };
   } catch (e) {
@@ -12662,14 +13287,14 @@ var wrapAbortSignalLikePolicyName = "wrapAbortSignalLikePolicy";
 function wrapAbortSignalLikePolicy() {
   return {
     name: wrapAbortSignalLikePolicyName,
-    sendRequest: async (request2, next) => {
-      if (!request2.abortSignal) {
-        return next(request2);
+    sendRequest: async (request3, next) => {
+      if (!request3.abortSignal) {
+        return next(request3);
       }
-      const { abortSignal, cleanup } = wrapAbortSignalLike(request2.abortSignal);
-      request2.abortSignal = abortSignal;
+      const { abortSignal, cleanup } = wrapAbortSignalLike(request3.abortSignal);
+      request3.abortSignal = abortSignal;
       try {
-        return await next(request2);
+        return await next(request3);
       } finally {
         cleanup?.();
       }
@@ -12710,11 +13335,11 @@ function createPipelineFromOptions2(options) {
 function createDefaultHttpClient2() {
   const client2 = createDefaultHttpClient();
   return {
-    async sendRequest(request2) {
-      const { abortSignal, cleanup } = request2.abortSignal ? wrapAbortSignalLike(request2.abortSignal) : {};
+    async sendRequest(request3) {
+      const { abortSignal, cleanup } = request3.abortSignal ? wrapAbortSignalLike(request3.abortSignal) : {};
       try {
-        request2.abortSignal = abortSignal;
-        return await client2.sendRequest(request2);
+        request3.abortSignal = abortSignal;
+        return await client2.sendRequest(request3);
       } finally {
         cleanup?.();
       }
@@ -12847,9 +13472,9 @@ function createTokenCycler(credential, tokenCyclerOptions) {
 
 // node_modules/@azure/core-rest-pipeline/dist/esm/policies/bearerTokenAuthenticationPolicy.js
 var bearerTokenAuthenticationPolicyName = "bearerTokenAuthenticationPolicy";
-async function trySendRequest(request2, next) {
+async function trySendRequest(request3, next) {
   try {
-    return [await next(request2), void 0];
+    return [await next(request3), void 0];
   } catch (e) {
     if (isRestError2(e) && e.response) {
       return [e.response, e];
@@ -12859,10 +13484,10 @@ async function trySendRequest(request2, next) {
   }
 }
 async function defaultAuthorizeRequest(options) {
-  const { scopes, getAccessToken, request: request2 } = options;
+  const { scopes, getAccessToken, request: request3 } = options;
   const getTokenOptions = {
-    abortSignal: request2.abortSignal,
-    tracingOptions: request2.tracingOptions,
+    abortSignal: request3.abortSignal,
+    tracingOptions: request3.tracingOptions,
     enableCae: true
   };
   const accessToken = await getAccessToken(scopes, getTokenOptions);
@@ -12911,20 +13536,20 @@ function bearerTokenAuthenticationPolicy(options) {
      * - Process a challenge if the response contains it.
      * - Retrieve a token with the challenge information, then re-send the request.
      */
-    async sendRequest(request2, next) {
-      if (!request2.url.toLowerCase().startsWith("https://")) {
+    async sendRequest(request3, next) {
+      if (!request3.url.toLowerCase().startsWith("https://")) {
         throw new Error("Bearer token authentication is not permitted for non-TLS protected (non-https) URLs.");
       }
       await callbacks.authorizeRequest({
         scopes: Array.isArray(scopes) ? scopes : [scopes],
-        request: request2,
+        request: request3,
         getAccessToken,
         logger: logger7
       });
       let response;
       let error;
       let shouldSendRequest;
-      [response, error] = await trySendRequest(request2, next);
+      [response, error] = await trySendRequest(request3, next);
       if (isChallengeResponse(response)) {
         let claims = getCaeChallengeClaims(response.headers.get("WWW-Authenticate"));
         if (claims) {
@@ -12938,23 +13563,23 @@ function bearerTokenAuthenticationPolicy(options) {
           shouldSendRequest = await authorizeRequestOnCaeChallenge({
             scopes: Array.isArray(scopes) ? scopes : [scopes],
             response,
-            request: request2,
+            request: request3,
             getAccessToken,
             logger: logger7
           }, parsedClaim);
           if (shouldSendRequest) {
-            [response, error] = await trySendRequest(request2, next);
+            [response, error] = await trySendRequest(request3, next);
           }
         } else if (callbacks.authorizeRequestOnChallenge) {
           shouldSendRequest = await callbacks.authorizeRequestOnChallenge({
             scopes: Array.isArray(scopes) ? scopes : [scopes],
-            request: request2,
+            request: request3,
             response,
             getAccessToken,
             logger: logger7
           });
           if (shouldSendRequest) {
-            [response, error] = await trySendRequest(request2, next);
+            [response, error] = await trySendRequest(request3, next);
           }
           if (isChallengeResponse(response)) {
             claims = getCaeChallengeClaims(response.headers.get("WWW-Authenticate") ?? "");
@@ -12969,12 +13594,12 @@ function bearerTokenAuthenticationPolicy(options) {
               shouldSendRequest = await authorizeRequestOnCaeChallenge({
                 scopes: Array.isArray(scopes) ? scopes : [scopes],
                 response,
-                request: request2,
+                request: request3,
                 getAccessToken,
                 logger: logger7
               }, parsedClaim);
               if (shouldSendRequest) {
-                [response, error] = await trySendRequest(request2, next);
+                [response, error] = await trySendRequest(request3, next);
               }
             }
           }
@@ -13024,9 +13649,9 @@ var disableKeepAlivePolicyName = "DisableKeepAlivePolicy";
 function createDisableKeepAlivePolicy() {
   return {
     name: disableKeepAlivePolicyName,
-    async sendRequest(request2, next) {
-      request2.disableKeepAlive = true;
-      return next(request2);
+    async sendRequest(request3, next) {
+      request3.disableKeepAlive = true;
+      return next(request3);
     }
   };
 }
@@ -13944,17 +14569,17 @@ function getPropertyFromParameterPath(parent, parameterPath) {
   return result;
 }
 var originalRequestSymbol = Symbol.for("@azure/core-client original request");
-function hasOriginalRequest(request2) {
-  return originalRequestSymbol in request2;
+function hasOriginalRequest(request3) {
+  return originalRequestSymbol in request3;
 }
-function getOperationRequestInfo(request2) {
-  if (hasOriginalRequest(request2)) {
-    return getOperationRequestInfo(request2[originalRequestSymbol]);
+function getOperationRequestInfo(request3) {
+  if (hasOriginalRequest(request3)) {
+    return getOperationRequestInfo(request3[originalRequestSymbol]);
   }
-  let info = state2.operationRequestMap.get(request2);
+  let info = state2.operationRequestMap.get(request3);
   if (!info) {
     info = {};
-    state2.operationRequestMap.set(request2, info);
+    state2.operationRequestMap.set(request3, info);
   }
   return info;
 }
@@ -13977,16 +14602,16 @@ function deserializationPolicy(options = {}) {
   };
   return {
     name: deserializationPolicyName,
-    async sendRequest(request2, next) {
-      const response = await next(request2);
+    async sendRequest(request3, next) {
+      const response = await next(request3);
       return deserializeResponseBody(jsonContentTypes, xmlContentTypes, response, updatedOptions, parseXML2);
     }
   };
 }
 function getOperationResponseMap(parsedResponse) {
   let result;
-  const request2 = parsedResponse.request;
-  const operationInfo = getOperationRequestInfo(request2);
+  const request3 = parsedResponse.request;
+  const operationInfo = getOperationRequestInfo(request3);
   const operationSpec = operationInfo?.operationSpec;
   if (operationSpec) {
     if (!operationInfo?.operationResponseGetter) {
@@ -13998,8 +14623,8 @@ function getOperationResponseMap(parsedResponse) {
   return result;
 }
 function shouldDeserializeResponse(parsedResponse) {
-  const request2 = parsedResponse.request;
-  const operationInfo = getOperationRequestInfo(request2);
+  const request3 = parsedResponse.request;
+  const operationInfo = getOperationRequestInfo(request3);
   const shouldDeserialize = operationInfo?.shouldDeserialize;
   let result;
   if (shouldDeserialize === void 0) {
@@ -14174,19 +14799,19 @@ function serializationPolicy(options = {}) {
   const stringifyXML2 = options.stringifyXML;
   return {
     name: serializationPolicyName,
-    sendRequest(request2, next) {
-      const operationInfo = getOperationRequestInfo(request2);
+    sendRequest(request3, next) {
+      const operationInfo = getOperationRequestInfo(request3);
       const operationSpec = operationInfo?.operationSpec;
       const operationArguments = operationInfo?.operationArguments;
       if (operationSpec && operationArguments) {
-        serializeHeaders(request2, operationArguments, operationSpec);
-        serializeRequestBody(request2, operationArguments, operationSpec, stringifyXML2);
+        serializeHeaders(request3, operationArguments, operationSpec);
+        serializeRequestBody(request3, operationArguments, operationSpec, stringifyXML2);
       }
-      return next(request2);
+      return next(request3);
     }
   };
 }
-function serializeHeaders(request2, operationArguments, operationSpec) {
+function serializeHeaders(request3, operationArguments, operationSpec) {
   if (operationSpec.headerParameters) {
     for (const headerParameter of operationSpec.headerParameters) {
       let headerValue = getOperationArgumentValueFromParameter(operationArguments, headerParameter);
@@ -14195,10 +14820,10 @@ function serializeHeaders(request2, operationArguments, operationSpec) {
         const headerCollectionPrefix = headerParameter.mapper.headerCollectionPrefix;
         if (headerCollectionPrefix) {
           for (const key of Object.keys(headerValue)) {
-            request2.headers.set(headerCollectionPrefix + key, headerValue[key]);
+            request3.headers.set(headerCollectionPrefix + key, headerValue[key]);
           }
         } else {
-          request2.headers.set(headerParameter.mapper.serializedName || getPathStringFromParameter(headerParameter), headerValue);
+          request3.headers.set(headerParameter.mapper.serializedName || getPathStringFromParameter(headerParameter), headerValue);
         }
       }
     }
@@ -14206,11 +14831,11 @@ function serializeHeaders(request2, operationArguments, operationSpec) {
   const customHeaders = operationArguments.options?.requestOptions?.customHeaders;
   if (customHeaders) {
     for (const customHeaderName of Object.keys(customHeaders)) {
-      request2.headers.set(customHeaderName, customHeaders[customHeaderName]);
+      request3.headers.set(customHeaderName, customHeaders[customHeaderName]);
     }
   }
 }
-function serializeRequestBody(request2, operationArguments, operationSpec, stringifyXML2 = function() {
+function serializeRequestBody(request3, operationArguments, operationSpec, stringifyXML2 = function() {
   throw new Error("XML serialization unsupported!");
 }) {
   const serializerOptions = operationArguments.options?.serializerOptions;
@@ -14223,22 +14848,22 @@ function serializeRequestBody(request2, operationArguments, operationSpec, strin
   };
   const xmlCharKey = updatedOptions.xml.xmlCharKey;
   if (operationSpec.requestBody && operationSpec.requestBody.mapper) {
-    request2.body = getOperationArgumentValueFromParameter(operationArguments, operationSpec.requestBody);
+    request3.body = getOperationArgumentValueFromParameter(operationArguments, operationSpec.requestBody);
     const bodyMapper = operationSpec.requestBody.mapper;
     const { required, serializedName, xmlName, xmlElementName, xmlNamespace, xmlNamespacePrefix, nullable } = bodyMapper;
     const typeName = bodyMapper.type.name;
     try {
-      if (request2.body !== void 0 && request2.body !== null || nullable && request2.body === null || required) {
+      if (request3.body !== void 0 && request3.body !== null || nullable && request3.body === null || required) {
         const requestBodyParameterPathString = getPathStringFromParameter(operationSpec.requestBody);
-        request2.body = operationSpec.serializer.serialize(bodyMapper, request2.body, requestBodyParameterPathString, updatedOptions);
+        request3.body = operationSpec.serializer.serialize(bodyMapper, request3.body, requestBodyParameterPathString, updatedOptions);
         const isStream = typeName === MapperTypeNames.Stream;
         if (operationSpec.isXML) {
           const xmlnsKey = xmlNamespacePrefix ? `xmlns:${xmlNamespacePrefix}` : "xmlns";
-          const value = getXmlValueWithNamespace(xmlNamespace, xmlnsKey, typeName, request2.body, updatedOptions);
+          const value = getXmlValueWithNamespace(xmlNamespace, xmlnsKey, typeName, request3.body, updatedOptions);
           if (typeName === MapperTypeNames.Sequence) {
-            request2.body = stringifyXML2(prepareXMLRootList(value, xmlElementName || xmlName || serializedName, xmlnsKey, xmlNamespace), { rootName: xmlName || serializedName, xmlCharKey });
+            request3.body = stringifyXML2(prepareXMLRootList(value, xmlElementName || xmlName || serializedName, xmlnsKey, xmlNamespace), { rootName: xmlName || serializedName, xmlCharKey });
           } else if (!isStream) {
-            request2.body = stringifyXML2(value, {
+            request3.body = stringifyXML2(value, {
               rootName: xmlName || serializedName,
               xmlCharKey
             });
@@ -14246,19 +14871,19 @@ function serializeRequestBody(request2, operationArguments, operationSpec, strin
         } else if (typeName === MapperTypeNames.String && (operationSpec.contentType?.match("text/plain") || operationSpec.mediaType === "text")) {
           return;
         } else if (!isStream) {
-          request2.body = JSON.stringify(request2.body);
+          request3.body = JSON.stringify(request3.body);
         }
       }
     } catch (error) {
       throw new Error(`Error "${error.message}" occurred in serializing the payload - ${JSON.stringify(serializedName, void 0, "  ")}.`);
     }
   } else if (operationSpec.formDataParameters && operationSpec.formDataParameters.length > 0) {
-    request2.formData = {};
+    request3.formData = {};
     for (const formDataParameter of operationSpec.formDataParameters) {
       const formDataParameterValue = getOperationArgumentValueFromParameter(operationArguments, formDataParameter);
       if (formDataParameterValue !== void 0 && formDataParameterValue !== null) {
         const formDataParameterPropertyName = formDataParameter.mapper.serializedName || getPathStringFromParameter(formDataParameter);
-        request2.formData[formDataParameterPropertyName] = operationSpec.serializer.serialize(formDataParameter.mapper, formDataParameterValue, getPathStringFromParameter(formDataParameter), updatedOptions);
+        request3.formData[formDataParameterPropertyName] = operationSpec.serializer.serialize(formDataParameter.mapper, formDataParameterValue, getPathStringFromParameter(formDataParameter), updatedOptions);
       }
     }
   }
@@ -14337,8 +14962,8 @@ function getRequestUrl(baseUri, operationSpec, operationArguments, fallbackObjec
   requestUrl = appendQueryParams(requestUrl, queryParams, sequenceParams, isAbsolutePath);
   return requestUrl;
 }
-function replaceAll(input14, replacements) {
-  let result = input14;
+function replaceAll(input16, replacements) {
+  let result = input16;
   for (const [searchValue, replaceValue] of replacements) {
     result = result.split(searchValue).join(replaceValue);
   }
@@ -14553,8 +15178,8 @@ var ServiceClient = class {
   /**
    * Send the provided httpRequest.
    */
-  sendRequest(request2) {
-    return this.pipeline.sendRequest(this._httpClient, request2);
+  sendRequest(request3) {
+    return this.pipeline.sendRequest(this._httpClient, request3);
   }
   /**
    * Send an HTTP request that is populated using the provided OperationSpec.
@@ -14568,52 +15193,52 @@ var ServiceClient = class {
       throw new Error("If operationSpec.baseUrl is not specified, then the ServiceClient must have a endpoint string property that contains the base URL to use.");
     }
     const url2 = getRequestUrl(endpoint, operationSpec, operationArguments, this);
-    const request2 = createPipelineRequest2({
+    const request3 = createPipelineRequest2({
       url: url2
     });
-    request2.method = operationSpec.httpMethod;
-    const operationInfo = getOperationRequestInfo(request2);
+    request3.method = operationSpec.httpMethod;
+    const operationInfo = getOperationRequestInfo(request3);
     operationInfo.operationSpec = operationSpec;
     operationInfo.operationArguments = operationArguments;
     const contentType2 = operationSpec.contentType || this._requestContentType;
     if (contentType2 && operationSpec.requestBody) {
-      request2.headers.set("Content-Type", contentType2);
+      request3.headers.set("Content-Type", contentType2);
     }
     const options = operationArguments.options;
     if (options) {
       const requestOptions = options.requestOptions;
       if (requestOptions) {
         if (requestOptions.timeout) {
-          request2.timeout = requestOptions.timeout;
+          request3.timeout = requestOptions.timeout;
         }
         if (requestOptions.onUploadProgress) {
-          request2.onUploadProgress = requestOptions.onUploadProgress;
+          request3.onUploadProgress = requestOptions.onUploadProgress;
         }
         if (requestOptions.onDownloadProgress) {
-          request2.onDownloadProgress = requestOptions.onDownloadProgress;
+          request3.onDownloadProgress = requestOptions.onDownloadProgress;
         }
         if (requestOptions.shouldDeserialize !== void 0) {
           operationInfo.shouldDeserialize = requestOptions.shouldDeserialize;
         }
         if (requestOptions.allowInsecureConnection) {
-          request2.allowInsecureConnection = true;
+          request3.allowInsecureConnection = true;
         }
       }
       if (options.abortSignal) {
-        request2.abortSignal = options.abortSignal;
+        request3.abortSignal = options.abortSignal;
       }
       if (options.tracingOptions) {
-        request2.tracingOptions = options.tracingOptions;
+        request3.tracingOptions = options.tracingOptions;
       }
     }
     if (this._allowInsecureConnection) {
-      request2.allowInsecureConnection = true;
+      request3.allowInsecureConnection = true;
     }
-    if (request2.streamResponseStatusCodes === void 0) {
-      request2.streamResponseStatusCodes = getStreamingResponseStatusCodes(operationSpec);
+    if (request3.streamResponseStatusCodes === void 0) {
+      request3.streamResponseStatusCodes = getStreamingResponseStatusCodes(operationSpec);
     }
     try {
-      const rawResponse = await this.sendRequest(request2);
+      const rawResponse = await this.sendRequest(request3);
       const flatResponse = flattenResponse(rawResponse, operationSpec.responses[rawResponse.status]);
       if (options?.onResponse) {
         options.onResponse(rawResponse, flatResponse);
@@ -14727,13 +15352,13 @@ function parseChallenge(challenge) {
   const keyValuePairs = challengeParts.map((keyValue) => (([key, value]) => ({ [key]: value }))(keyValue.trim().split("=")));
   return keyValuePairs.reduce((a, b) => ({ ...a, ...b }), {});
 }
-function requestToOptions(request2) {
+function requestToOptions(request3) {
   return {
-    abortSignal: request2.abortSignal,
+    abortSignal: request3.abortSignal,
     requestOptions: {
-      timeout: request2.timeout
+      timeout: request3.timeout
     },
-    tracingOptions: request2.tracingOptions
+    tracingOptions: request3.tracingOptions
   };
 }
 
@@ -14742,11 +15367,11 @@ var originalRequestSymbol2 = Symbol("Original PipelineRequest");
 var originalClientRequestSymbol = Symbol.for("@azure/core-client original request");
 function toPipelineRequest(webResource, options = {}) {
   const compatWebResource = webResource;
-  const request2 = compatWebResource[originalRequestSymbol2];
+  const request3 = compatWebResource[originalRequestSymbol2];
   const headers = createHttpHeaders2(webResource.headers.toJson({ preserveCase: true }));
-  if (request2) {
-    request2.headers = headers;
-    return request2;
+  if (request3) {
+    request3.headers = headers;
+    return request3;
   } else {
     const newRequest = createPipelineRequest2({
       url: webResource.url,
@@ -14772,25 +15397,25 @@ function toPipelineRequest(webResource, options = {}) {
     return newRequest;
   }
 }
-function toWebResourceLike(request2, options) {
-  const originalRequest = options?.originalRequest ?? request2;
+function toWebResourceLike(request3, options) {
+  const originalRequest = options?.originalRequest ?? request3;
   const webResource = {
-    url: request2.url,
-    method: request2.method,
-    headers: toHttpHeadersLike(request2.headers),
-    withCredentials: request2.withCredentials,
-    timeout: request2.timeout,
-    requestId: request2.headers.get("x-ms-client-request-id") || request2.requestId,
-    abortSignal: request2.abortSignal,
-    body: request2.body,
-    formData: request2.formData,
-    keepAlive: !!request2.disableKeepAlive,
-    onDownloadProgress: request2.onDownloadProgress,
-    onUploadProgress: request2.onUploadProgress,
-    proxySettings: request2.proxySettings,
-    streamResponseStatusCodes: request2.streamResponseStatusCodes,
-    agent: request2.agent,
-    requestOverrides: request2.requestOverrides,
+    url: request3.url,
+    method: request3.method,
+    headers: toHttpHeadersLike(request3.headers),
+    withCredentials: request3.withCredentials,
+    timeout: request3.timeout,
+    requestId: request3.headers.get("x-ms-client-request-id") || request3.requestId,
+    abortSignal: request3.abortSignal,
+    body: request3.body,
+    formData: request3.formData,
+    keepAlive: !!request3.disableKeepAlive,
+    onDownloadProgress: request3.onDownloadProgress,
+    onUploadProgress: request3.onUploadProgress,
+    proxySettings: request3.proxySettings,
+    streamResponseStatusCodes: request3.streamResponseStatusCodes,
+    agent: request3.agent,
+    requestOverrides: request3.requestOverrides,
     clone() {
       throw new Error("Cannot clone a non-proxied WebResourceLike");
     },
@@ -14804,7 +15429,7 @@ function toWebResourceLike(request2, options) {
     return new Proxy(webResource, {
       get(target, prop, receiver) {
         if (prop === originalRequestSymbol2) {
-          return request2;
+          return request3;
         } else if (prop === "clone") {
           return () => {
             return toWebResourceLike(toPipelineRequest(webResource, { originalRequest }), {
@@ -14817,7 +15442,7 @@ function toWebResourceLike(request2, options) {
       },
       set(target, prop, value, receiver) {
         if (prop === "keepAlive") {
-          request2.disableKeepAlive = !value;
+          request3.disableKeepAlive = !value;
         }
         const passThroughProps = [
           "url",
@@ -14836,7 +15461,7 @@ function toWebResourceLike(request2, options) {
           "requestOverrides"
         ];
         if (typeof prop === "string" && passThroughProps.includes(prop)) {
-          request2[prop] = value;
+          request3[prop] = value;
         }
         return Reflect.set(target, prop, value, receiver);
       }
@@ -14976,7 +15601,7 @@ var HttpHeaders = class _HttpHeaders {
 // node_modules/@azure/core-http-compat/dist/esm/response.js
 var originalResponse = Symbol("Original FullOperationResponse");
 function toCompatResponse(response, options) {
-  let request2 = toWebResourceLike(response.request);
+  let request3 = toWebResourceLike(response.request);
   let headers = toHttpHeadersLike(response.headers);
   if (options?.createProxy) {
     return new Proxy(response, {
@@ -14984,7 +15609,7 @@ function toCompatResponse(response, options) {
         if (prop === "headers") {
           return headers;
         } else if (prop === "request") {
-          return request2;
+          return request3;
         } else if (prop === originalResponse) {
           return response;
         }
@@ -14994,7 +15619,7 @@ function toCompatResponse(response, options) {
         if (prop === "headers") {
           headers = value;
         } else if (prop === "request") {
-          request2 = value;
+          request3 = value;
         }
         return Reflect.set(target, prop, value, receiver);
       }
@@ -15002,7 +15627,7 @@ function toCompatResponse(response, options) {
   } else {
     return {
       ...response,
-      request: request2,
+      request: request3,
       headers
     };
   }
@@ -15086,7 +15711,7 @@ function createRequestPolicyFactoryPolicy(factories) {
   const orderedFactories = factories.slice().reverse();
   return {
     name: requestPolicyFactoryPolicyName,
-    async sendRequest(request2, next) {
+    async sendRequest(request3, next) {
       let httpPipeline = {
         async sendRequest(httpRequest) {
           const response2 = await next(toPipelineRequest(httpRequest));
@@ -15096,7 +15721,7 @@ function createRequestPolicyFactoryPolicy(factories) {
       for (const factory of orderedFactories) {
         httpPipeline = factory.create(httpPipeline, mockRequestPolicyOptions);
       }
-      const webResourceLike = toWebResourceLike(request2, { createProxy: true });
+      const webResourceLike = toWebResourceLike(request3, { createProxy: true });
       const response = await httpPipeline.sendRequest(webResourceLike);
       return toPipelineResponse(response);
     }
@@ -15106,8 +15731,8 @@ function createRequestPolicyFactoryPolicy(factories) {
 // node_modules/@azure/core-http-compat/dist/esm/httpClientAdapter.js
 function convertHttpClient(requestPolicyClient) {
   return {
-    sendRequest: async (request2) => {
-      const response = await requestPolicyClient.sendRequest(toWebResourceLike(request2, { createProxy: true }));
+    sendRequest: async (request3) => {
+      const response = await requestPolicyClient.sendRequest(toWebResourceLike(request3, { createProxy: true }));
       return toPipelineResponse(response);
     }
   };
@@ -23810,19 +24435,19 @@ var StructuredMessageEncoding = class {
     signalStreamEnd(this.pushData);
     this.state = SMRegion.Completed;
   }
-  fillInt64(buffer2, offset, input14) {
+  fillInt64(buffer2, offset, input16) {
     if (buffer2.length < offset + 8) {
       throw new Error("Uint8Array length is not expected.");
     }
     const view = new DataView(buffer2.buffer, buffer2.byteOffset + offset, 8);
-    view.setBigUint64(0, BigInt(input14), true);
+    view.setBigUint64(0, BigInt(input16), true);
   }
-  fillInt16(buffer2, offset, input14) {
+  fillInt16(buffer2, offset, input16) {
     if (buffer2.length < offset + 2) {
       throw new Error("Uint8Array length is not expected.");
     }
     const view = new DataView(buffer2.buffer, buffer2.byteOffset + offset, 2);
-    view.setUint16(0, input14, true);
+    view.setUint16(0, input16, true);
   }
 };
 
@@ -24137,18 +24762,18 @@ var StructuredMessageDecoding = class {
       this.pushData(null);
     }
   }
-  toInt64(input14, offset) {
-    if (input14.length < offset + 8) {
+  toInt64(input16, offset) {
+    if (input16.length < offset + 8) {
       throw new Error("CRC64 buffer error, something wrong with crc64 calculator");
     }
-    const view = new DataView(input14.buffer, input14.byteOffset + offset, 8);
+    const view = new DataView(input16.buffer, input16.byteOffset + offset, 8);
     return Number(view.getBigUint64(0, true));
   }
-  toInt16(input14) {
-    if (input14.length !== 2) {
+  toInt16(input16) {
+    if (input16.length !== 2) {
       throw new Error("CRC64 buffer error, something wrong with crc64 calculator");
     }
-    return input14[0] + input14[1] * 256;
+    return input16[0] + input16[1] * 256;
   }
   checkCrc64CheckSum(first, second) {
     if (first.length !== 8 || second.length !== 8) {
@@ -24280,8 +24905,8 @@ var StorageBrowserPolicy = class extends BaseRequestPolicy {
    *
    * @param request -
    */
-  async sendRequest(request2) {
-    return this._nextPolicy.sendRequest(request2);
+  async sendRequest(request3) {
+    return this._nextPolicy.sendRequest(request3);
   }
 };
 
@@ -24305,8 +24930,8 @@ var CredentialPolicy = class extends BaseRequestPolicy {
    *
    * @param request -
    */
-  sendRequest(request2) {
-    return this._nextPolicy.sendRequest(this.signRequest(request2));
+  sendRequest(request3) {
+    return this._nextPolicy.sendRequest(this.signRequest(request3));
   }
   /**
    * Child classes must implement this method with request signing. This method
@@ -24314,8 +24939,8 @@ var CredentialPolicy = class extends BaseRequestPolicy {
    *
    * @param request -
    */
-  signRequest(request2) {
-    return request2;
+  signRequest(request3) {
+    return request3;
   }
 };
 
@@ -24923,28 +25548,28 @@ var StorageSharedKeyCredentialPolicy = class extends CredentialPolicy {
    *
    * @param request -
    */
-  signRequest(request2) {
-    request2.headers.set(HeaderConstants.X_MS_DATE, (/* @__PURE__ */ new Date()).toUTCString());
-    if (request2.body && (typeof request2.body === "string" || request2.body !== void 0) && request2.body.length > 0) {
-      request2.headers.set(HeaderConstants.CONTENT_LENGTH, Buffer.byteLength(request2.body));
+  signRequest(request3) {
+    request3.headers.set(HeaderConstants.X_MS_DATE, (/* @__PURE__ */ new Date()).toUTCString());
+    if (request3.body && (typeof request3.body === "string" || request3.body !== void 0) && request3.body.length > 0) {
+      request3.headers.set(HeaderConstants.CONTENT_LENGTH, Buffer.byteLength(request3.body));
     }
     const stringToSign = [
-      request2.method.toUpperCase(),
-      this.getHeaderValueToSign(request2, HeaderConstants.CONTENT_LANGUAGE),
-      this.getHeaderValueToSign(request2, HeaderConstants.CONTENT_ENCODING),
-      this.getHeaderValueToSign(request2, HeaderConstants.CONTENT_LENGTH),
-      this.getHeaderValueToSign(request2, HeaderConstants.CONTENT_MD5),
-      this.getHeaderValueToSign(request2, HeaderConstants.CONTENT_TYPE),
-      this.getHeaderValueToSign(request2, HeaderConstants.DATE),
-      this.getHeaderValueToSign(request2, HeaderConstants.IF_MODIFIED_SINCE),
-      this.getHeaderValueToSign(request2, HeaderConstants.IF_MATCH),
-      this.getHeaderValueToSign(request2, HeaderConstants.IF_NONE_MATCH),
-      this.getHeaderValueToSign(request2, HeaderConstants.IF_UNMODIFIED_SINCE),
-      this.getHeaderValueToSign(request2, HeaderConstants.RANGE)
-    ].join("\n") + "\n" + this.getCanonicalizedHeadersString(request2) + this.getCanonicalizedResourceString(request2);
+      request3.method.toUpperCase(),
+      this.getHeaderValueToSign(request3, HeaderConstants.CONTENT_LANGUAGE),
+      this.getHeaderValueToSign(request3, HeaderConstants.CONTENT_ENCODING),
+      this.getHeaderValueToSign(request3, HeaderConstants.CONTENT_LENGTH),
+      this.getHeaderValueToSign(request3, HeaderConstants.CONTENT_MD5),
+      this.getHeaderValueToSign(request3, HeaderConstants.CONTENT_TYPE),
+      this.getHeaderValueToSign(request3, HeaderConstants.DATE),
+      this.getHeaderValueToSign(request3, HeaderConstants.IF_MODIFIED_SINCE),
+      this.getHeaderValueToSign(request3, HeaderConstants.IF_MATCH),
+      this.getHeaderValueToSign(request3, HeaderConstants.IF_NONE_MATCH),
+      this.getHeaderValueToSign(request3, HeaderConstants.IF_UNMODIFIED_SINCE),
+      this.getHeaderValueToSign(request3, HeaderConstants.RANGE)
+    ].join("\n") + "\n" + this.getCanonicalizedHeadersString(request3) + this.getCanonicalizedResourceString(request3);
     const signature = this.factory.computeHMACSHA256(stringToSign);
-    request2.headers.set(HeaderConstants.AUTHORIZATION, `SharedKey ${this.factory.accountName}:${signature}`);
-    return request2;
+    request3.headers.set(HeaderConstants.AUTHORIZATION, `SharedKey ${this.factory.accountName}:${signature}`);
+    return request3;
   }
   /**
    * Retrieve header value according to shared key sign rules.
@@ -24953,8 +25578,8 @@ var StorageSharedKeyCredentialPolicy = class extends CredentialPolicy {
    * @param request -
    * @param headerName -
    */
-  getHeaderValueToSign(request2, headerName) {
-    const value = request2.headers.get(headerName);
+  getHeaderValueToSign(request3, headerName) {
+    const value = request3.headers.get(headerName);
     if (!value) {
       return "";
     }
@@ -24976,8 +25601,8 @@ var StorageSharedKeyCredentialPolicy = class extends CredentialPolicy {
    *
    * @param request -
    */
-  getCanonicalizedHeadersString(request2) {
-    let headersArray = request2.headers.headersArray().filter((value) => {
+  getCanonicalizedHeadersString(request3) {
+    let headersArray = request3.headers.headersArray().filter((value) => {
       return value.name.toLowerCase().startsWith(HeaderConstants.PREFIX_FOR_STORAGE);
     });
     headersArray.sort((a, b) => {
@@ -25001,11 +25626,11 @@ var StorageSharedKeyCredentialPolicy = class extends CredentialPolicy {
    *
    * @param request -
    */
-  getCanonicalizedResourceString(request2) {
-    const path = getURLPath(request2.url) || "/";
+  getCanonicalizedResourceString(request3) {
+    const path = getURLPath(request3.url) || "/";
     let canonicalizedResourceString = "";
     canonicalizedResourceString += `/${this.factory.accountName}${path}`;
-    const queries = getURLQueries(request2.url);
+    const queries = getURLQueries(request3.url);
     const lowercaseQueries = {};
     if (queries) {
       const queryKeys = [];
@@ -25114,8 +25739,8 @@ var StorageRetryPolicy = class extends BaseRequestPolicy {
    *
    * @param request -
    */
-  async sendRequest(request2) {
-    return this.attemptSendRequest(request2, false, 1);
+  async sendRequest(request3) {
+    return this.attemptSendRequest(request3, false, 1);
   }
   /**
    * Decide and perform next retry. Won't mutate request parameter.
@@ -25127,9 +25752,9 @@ var StorageRetryPolicy = class extends BaseRequestPolicy {
    * @param attempt -           How many retries has been attempted to performed, starting from 1, which includes
    *                                   the attempt will be performed by this method call.
    */
-  async attemptSendRequest(request2, secondaryHas404, attempt) {
-    const newRequest = request2.clone();
-    const isPrimaryRetry = secondaryHas404 || !this.retryOptions.secondaryHost || !(request2.method === "GET" || request2.method === "HEAD" || request2.method === "OPTIONS") || attempt % 2 === 1;
+  async attemptSendRequest(request3, secondaryHas404, attempt) {
+    const newRequest = request3.clone();
+    const isPrimaryRetry = secondaryHas404 || !this.retryOptions.secondaryHost || !(request3.method === "GET" || request3.method === "HEAD" || request3.method === "OPTIONS") || attempt % 2 === 1;
     if (!isPrimaryRetry) {
       newRequest.url = setURLHost(newRequest.url, this.retryOptions.secondaryHost);
     }
@@ -25150,8 +25775,8 @@ var StorageRetryPolicy = class extends BaseRequestPolicy {
         throw err;
       }
     }
-    await this.delay(isPrimaryRetry, attempt, request2.abortSignal);
-    return this.attemptSendRequest(request2, secondaryHas404, ++attempt);
+    await this.delay(isPrimaryRetry, attempt, request3.abortSignal);
+    return this.attemptSendRequest(request3, secondaryHas404, ++attempt);
   }
   /**
    * Decide whether to retry according to last HTTP response and retry counters.
@@ -25268,8 +25893,8 @@ var storageBrowserPolicyName = "storageBrowserPolicy";
 function storageBrowserPolicy() {
   return {
     name: storageBrowserPolicyName,
-    async sendRequest(request2, next) {
-      return next(request2);
+    async sendRequest(request3, next) {
+      return next(request3);
     }
   };
 }
@@ -25277,16 +25902,16 @@ function storageBrowserPolicy() {
 // node_modules/@azure/storage-common/dist/esm/policies/StorageCorrectContentLengthPolicy.js
 var storageCorrectContentLengthPolicyName = "StorageCorrectContentLengthPolicy";
 function storageCorrectContentLengthPolicy() {
-  function correctContentLength(request2) {
-    if (request2.body && (typeof request2.body === "string" || Buffer.isBuffer(request2.body)) && request2.body.length > 0) {
-      request2.headers.set(HeaderConstants.CONTENT_LENGTH, Buffer.byteLength(request2.body));
+  function correctContentLength(request3) {
+    if (request3.body && (typeof request3.body === "string" || Buffer.isBuffer(request3.body)) && request3.body.length > 0) {
+      request3.headers.set(HeaderConstants.CONTENT_LENGTH, Buffer.byteLength(request3.body));
     }
   }
   return {
     name: storageCorrectContentLengthPolicyName,
-    async sendRequest(request2, next) {
-      correctContentLength(request2);
-      return next(request2);
+    async sendRequest(request3, next) {
+      correctContentLength(request3);
+      return next(request3);
     }
   };
 }
@@ -25383,25 +26008,25 @@ function storageRetryPolicy(options = {}) {
   }
   return {
     name: storageRetryPolicyName,
-    async sendRequest(request2, next) {
+    async sendRequest(request3, next) {
       if (tryTimeoutInMs) {
-        request2.url = setURLParameter(request2.url, URLConstants.Parameters.TIMEOUT, String(Math.floor(tryTimeoutInMs / 1e3)));
+        request3.url = setURLParameter(request3.url, URLConstants.Parameters.TIMEOUT, String(Math.floor(tryTimeoutInMs / 1e3)));
       }
-      const primaryUrl = request2.url;
-      const secondaryUrl = secondaryHost ? setURLHost(request2.url, secondaryHost) : void 0;
+      const primaryUrl = request3.url;
+      const secondaryUrl = secondaryHost ? setURLHost(request3.url, secondaryHost) : void 0;
       let secondaryHas404 = false;
       let attempt = 1;
       let retryAgain = true;
       let response;
       let error;
       while (retryAgain) {
-        const isPrimaryRetry = secondaryHas404 || !secondaryUrl || !["GET", "HEAD", "OPTIONS"].includes(request2.method) || attempt % 2 === 1;
-        request2.url = isPrimaryRetry ? primaryUrl : secondaryUrl;
+        const isPrimaryRetry = secondaryHas404 || !secondaryUrl || !["GET", "HEAD", "OPTIONS"].includes(request3.method) || attempt % 2 === 1;
+        request3.url = isPrimaryRetry ? primaryUrl : secondaryUrl;
         response = void 0;
         error = void 0;
         try {
           logger5.info(`RetryPolicy: =====> Try=${attempt} ${isPrimaryRetry ? "Primary" : "Secondary"}`);
-          response = await next(request2);
+          response = await next(request3);
           secondaryHas404 = secondaryHas404 || !isPrimaryRetry && response.status === 404;
         } catch (e) {
           if (isRestError2(e)) {
@@ -25414,7 +26039,7 @@ function storageRetryPolicy(options = {}) {
         }
         retryAgain = shouldRetry({ isPrimaryRetry, attempt, response, error });
         if (retryAgain) {
-          await delay3(calculateDelay(isPrimaryRetry, attempt), request2.abortSignal, RETRY_ABORT_ERROR2);
+          await delay3(calculateDelay(isPrimaryRetry, attempt), request3.abortSignal, RETRY_ABORT_ERROR2);
         }
         attempt++;
       }
@@ -25430,30 +26055,30 @@ function storageRetryPolicy(options = {}) {
 var import_node_crypto2 = require("node:crypto");
 var storageSharedKeyCredentialPolicyName = "storageSharedKeyCredentialPolicy";
 function storageSharedKeyCredentialPolicy(options) {
-  function signRequest(request2) {
-    request2.headers.set(HeaderConstants.X_MS_DATE, (/* @__PURE__ */ new Date()).toUTCString());
-    if (request2.body && (typeof request2.body === "string" || Buffer.isBuffer(request2.body)) && request2.body.length > 0) {
-      request2.headers.set(HeaderConstants.CONTENT_LENGTH, Buffer.byteLength(request2.body));
+  function signRequest(request3) {
+    request3.headers.set(HeaderConstants.X_MS_DATE, (/* @__PURE__ */ new Date()).toUTCString());
+    if (request3.body && (typeof request3.body === "string" || Buffer.isBuffer(request3.body)) && request3.body.length > 0) {
+      request3.headers.set(HeaderConstants.CONTENT_LENGTH, Buffer.byteLength(request3.body));
     }
     const stringToSign = [
-      request2.method.toUpperCase(),
-      getHeaderValueToSign(request2, HeaderConstants.CONTENT_LANGUAGE),
-      getHeaderValueToSign(request2, HeaderConstants.CONTENT_ENCODING),
-      getHeaderValueToSign(request2, HeaderConstants.CONTENT_LENGTH),
-      getHeaderValueToSign(request2, HeaderConstants.CONTENT_MD5),
-      getHeaderValueToSign(request2, HeaderConstants.CONTENT_TYPE),
-      getHeaderValueToSign(request2, HeaderConstants.DATE),
-      getHeaderValueToSign(request2, HeaderConstants.IF_MODIFIED_SINCE),
-      getHeaderValueToSign(request2, HeaderConstants.IF_MATCH),
-      getHeaderValueToSign(request2, HeaderConstants.IF_NONE_MATCH),
-      getHeaderValueToSign(request2, HeaderConstants.IF_UNMODIFIED_SINCE),
-      getHeaderValueToSign(request2, HeaderConstants.RANGE)
-    ].join("\n") + "\n" + getCanonicalizedHeadersString(request2) + getCanonicalizedResourceString(request2);
+      request3.method.toUpperCase(),
+      getHeaderValueToSign(request3, HeaderConstants.CONTENT_LANGUAGE),
+      getHeaderValueToSign(request3, HeaderConstants.CONTENT_ENCODING),
+      getHeaderValueToSign(request3, HeaderConstants.CONTENT_LENGTH),
+      getHeaderValueToSign(request3, HeaderConstants.CONTENT_MD5),
+      getHeaderValueToSign(request3, HeaderConstants.CONTENT_TYPE),
+      getHeaderValueToSign(request3, HeaderConstants.DATE),
+      getHeaderValueToSign(request3, HeaderConstants.IF_MODIFIED_SINCE),
+      getHeaderValueToSign(request3, HeaderConstants.IF_MATCH),
+      getHeaderValueToSign(request3, HeaderConstants.IF_NONE_MATCH),
+      getHeaderValueToSign(request3, HeaderConstants.IF_UNMODIFIED_SINCE),
+      getHeaderValueToSign(request3, HeaderConstants.RANGE)
+    ].join("\n") + "\n" + getCanonicalizedHeadersString(request3) + getCanonicalizedResourceString(request3);
     const signature = (0, import_node_crypto2.createHmac)("sha256", options.accountKey).update(stringToSign, "utf8").digest("base64");
-    request2.headers.set(HeaderConstants.AUTHORIZATION, `SharedKey ${options.accountName}:${signature}`);
+    request3.headers.set(HeaderConstants.AUTHORIZATION, `SharedKey ${options.accountName}:${signature}`);
   }
-  function getHeaderValueToSign(request2, headerName) {
-    const value = request2.headers.get(headerName);
+  function getHeaderValueToSign(request3, headerName) {
+    const value = request3.headers.get(headerName);
     if (!value) {
       return "";
     }
@@ -25462,9 +26087,9 @@ function storageSharedKeyCredentialPolicy(options) {
     }
     return value;
   }
-  function getCanonicalizedHeadersString(request2) {
+  function getCanonicalizedHeadersString(request3) {
     let headersArray = [];
-    for (const [name, value] of request2.headers) {
+    for (const [name, value] of request3.headers) {
       if (name.toLowerCase().startsWith(HeaderConstants.PREFIX_FOR_STORAGE)) {
         headersArray.push({ name, value });
       }
@@ -25485,11 +26110,11 @@ function storageSharedKeyCredentialPolicy(options) {
     });
     return canonicalizedHeadersStringToSign;
   }
-  function getCanonicalizedResourceString(request2) {
-    const path = getURLPath(request2.url) || "/";
+  function getCanonicalizedResourceString(request3) {
+    const path = getURLPath(request3.url) || "/";
     let canonicalizedResourceString = "";
     canonicalizedResourceString += `/${options.accountName}${path}`;
-    const queries = getURLQueries(request2.url);
+    const queries = getURLQueries(request3.url);
     const lowercaseQueries = {};
     if (queries) {
       const queryKeys = [];
@@ -25510,9 +26135,9 @@ ${key}:${decodeURIComponent(lowercaseQueries[key])}`;
   }
   return {
     name: storageSharedKeyCredentialPolicyName,
-    async sendRequest(request2, next) {
-      signRequest(request2);
-      return next(request2);
+    async sendRequest(request3, next) {
+      signRequest(request3);
+      return next(request3);
     }
   };
 }
@@ -25522,9 +26147,9 @@ var storageRequestFailureDetailsParserPolicyName = "storageRequestFailureDetails
 function storageRequestFailureDetailsParserPolicy() {
   return {
     name: storageRequestFailureDetailsParserPolicyName,
-    async sendRequest(request2, next) {
+    async sendRequest(request3, next) {
       try {
-        const response = await next(request2);
+        const response = await next(request3);
         return response;
       } catch (err) {
         if (typeof err === "object" && err !== null && err.response && err.response.parsedBody) {
@@ -25997,10 +26622,10 @@ function isCoreHttpPolicyFactory(factory) {
     "DeserializationPolicy"
   ];
   const mockHttpClient = {
-    sendRequest: async (request2) => {
+    sendRequest: async (request3) => {
       return {
-        request: request2,
-        headers: request2.headers.clone(),
+        request: request3,
+        headers: request3.headers.clone(),
         status: 500
       };
     }
@@ -47041,7 +47666,7 @@ var InnerBatchRequest = class {
     pipeline._corePipeline = corePipeline;
     return pipeline;
   }
-  appendSubRequestToBody(request2) {
+  appendSubRequestToBody(request3) {
     this.body += [
       this.subRequestPrefix,
       // sub request constant prefix
@@ -47049,10 +47674,10 @@ var InnerBatchRequest = class {
       // sub request's content ID
       "",
       // empty line after sub request's content ID
-      `${request2.method.toString()} ${getURLPathAndQuery(request2.url)} ${HTTP_VERSION_1_1}${HTTP_LINE_ENDING}`
+      `${request3.method.toString()} ${getURLPathAndQuery(request3.url)} ${HTTP_VERSION_1_1}${HTTP_LINE_ENDING}`
       // sub request start line with method
     ].join(HTTP_LINE_ENDING);
-    for (const [name, value] of request2.headers) {
+    for (const [name, value] of request3.headers) {
       this.body += `${name}: ${value}${HTTP_LINE_ENDING}`;
     }
     this.body += HTTP_LINE_ENDING;
@@ -47084,10 +47709,10 @@ var InnerBatchRequest = class {
 function batchRequestAssemblePolicy(batchRequest) {
   return {
     name: "batchRequestAssemblePolicy",
-    async sendRequest(request2) {
-      batchRequest.appendSubRequestToBody(request2);
+    async sendRequest(request3) {
+      batchRequest.appendSubRequestToBody(request3);
       return {
-        request: request2,
+        request: request3,
         status: 200,
         headers: createHttpHeaders2()
       };
@@ -47097,17 +47722,17 @@ function batchRequestAssemblePolicy(batchRequest) {
 function batchHeaderFilterPolicy() {
   return {
     name: "batchHeaderFilterPolicy",
-    async sendRequest(request2, next) {
+    async sendRequest(request3, next) {
       let xMsHeaderName = "";
-      for (const [name] of request2.headers) {
+      for (const [name] of request3.headers) {
         if (iEqual(name, HeaderConstants2.X_MS_VERSION)) {
           xMsHeaderName = name;
         }
       }
       if (xMsHeaderName !== "") {
-        request2.headers.delete(xMsHeaderName);
+        request3.headers.delete(xMsHeaderName);
       }
-      return next(request2);
+      return next(request3);
     }
   };
 }
@@ -49594,7 +50219,12 @@ async function storageMiToken() {
   const resource = "https://storage.azure.com/";
   const url2 = `${idEndpoint}?resource=${encodeURIComponent(resource)}&api-version=2019-08-01`;
   const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
-  if (!res.ok) throw new Error(`MSI storage token ${res.status}`);
+  if (!res.ok) {
+    throw Object.assign(new Error(`MSI storage token ${res.status}`), {
+      statusCode: res.status,
+      code: "ManagedIdentityTokenError"
+    });
+  }
   const json = await res.json();
   const expiresAt = json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5;
   cachedStorageToken = { token: json.access_token, expiresAt };
@@ -49656,16 +50286,20 @@ function rawEmlFileName(messageIdOrInternetId) {
 function bodyInstructionFileName(messageIdOrInternetId) {
   return `email-body-${messageFileToken(messageIdOrInternetId)}.txt`;
 }
+function attachmentBlobFileName(attachmentId, displayName) {
+  const token = (0, import_node_crypto5.createHash)("sha256").update(attachmentId, "utf8").digest("hex");
+  return `attachment-${token}-${displayName}`;
+}
 
 // orchestration/src/lib/aoai.ts
 var COGNITIVE_SERVICES_SCOPE = "https://cognitiveservices.azure.com/.default";
-var cachedToken3 = null;
+var cachedToken4 = null;
 function resourceFromScope(scope) {
   return scope.endsWith("/.default") ? scope.slice(0, -"/.default".length) : scope;
 }
 async function mintCognitiveToken() {
   const now = Date.now();
-  if (cachedToken3 && cachedToken3.expiresAt > now + 6e4) return cachedToken3.value;
+  if (cachedToken4 && cachedToken4.expiresAt > now + 6e4) return cachedToken4.value;
   const idEndpoint = process.env.IDENTITY_ENDPOINT;
   const idHeader = process.env.IDENTITY_HEADER;
   if (idEndpoint && idHeader) {
@@ -49674,11 +50308,11 @@ async function mintCognitiveToken() {
     const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
     if (!res.ok) throw new Error(`MSI token (cognitiveservices) ${res.status}`);
     const json = await res.json();
-    cachedToken3 = {
+    cachedToken4 = {
       value: json.access_token,
       expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
     };
-    return cachedToken3.value;
+    return cachedToken4.value;
   }
   if (process.env.AOAI_DEV_TOKEN === "1") {
     const { execFile } = await import("node:child_process");
@@ -49693,7 +50327,7 @@ async function mintCognitiveToken() {
       );
     });
     if (!token) throw new Error("az account get-access-token returned no token");
-    cachedToken3 = { value: token, expiresAt: now + 3e6 };
+    cachedToken4 = { value: token, expiresAt: now + 3e6 };
     return token;
   }
   throw new Error(
@@ -49744,18 +50378,18 @@ ${INBOUND_SUBTYPES.map(subtypeLine).join("\n")}`,
     `Pick the subtype that belongs with your chosen category; if none fits well, use that category's "other" or general subtype.`
   ].join("\n\n");
 }
-function buildUserPrompt(input14) {
-  const attachments = input14.attachmentFilenames.length ? input14.attachmentFilenames.join(", ") : "(none)";
-  const signals = input14.deterministicSignals.length ? input14.deterministicSignals.join(", ") : "(none)";
+function buildUserPrompt(input16) {
+  const attachments = input16.attachmentFilenames.length ? input16.attachmentFilenames.join(", ") : "(none)";
+  const signals = input16.deterministicSignals.length ? input16.deterministicSignals.join(", ") : "(none)";
   return [
-    `Sender domain: ${input14.senderDomain || "(unknown)"}`,
+    `Sender domain: ${input16.senderDomain || "(unknown)"}`,
     `Attachment filenames: ${attachments}`,
-    `Subject: ${input14.subjectScrubbed || "(none)"}`,
+    `Subject: ${input16.subjectScrubbed || "(none)"}`,
     `Body:
-${input14.bodyScrubbed || "(none)"}`,
+${input16.bodyScrubbed || "(none)"}`,
     "---",
     "The deterministic rule pass proposed (but did not confidently commit to):",
-    `category=${input14.deterministicCategory || "(none)"} subtype=${input14.deterministicSubtype || "(none)"} signals=${signals}`
+    `category=${input16.deterministicCategory || "(none)"} subtype=${input16.deterministicSubtype || "(none)"} signals=${signals}`
   ].join("\n");
 }
 var MAX_COMPLETION_TOKENS = 2e3;
@@ -49774,12 +50408,12 @@ function buildTriageResponseSchema() {
     additionalProperties: false
   };
 }
-function buildTriageRequestBody(input14, deployment) {
+function buildTriageRequestBody(input16, deployment) {
   return {
     model: deployment,
     messages: [
       { role: "system", content: buildSystemPrompt() },
-      { role: "user", content: buildUserPrompt(input14) }
+      { role: "user", content: buildUserPrompt(input16) }
     ],
     response_format: {
       type: "json_schema",
@@ -49839,7 +50473,7 @@ function parseTriageModelResponse(json) {
     ...typeof body2?.system_fingerprint === "string" ? { systemFingerprint: body2.system_fingerprint } : {}
   };
 }
-async function callTriageModel(input14) {
+async function callTriageModel(input16) {
   const endpoint = gates.aiModelEndpoint();
   const deployment = gates.aiModelDeployment();
   if (!endpoint || !deployment) {
@@ -49856,7 +50490,7 @@ async function callTriageModel(input14) {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(buildTriageRequestBody(input14, deployment)),
+      body: JSON.stringify(buildTriageRequestBody(input16, deployment)),
       signal: controller.signal
     });
     const json = await res.json().catch(() => void 0);
@@ -49876,6 +50510,7 @@ async function callTriageModel(input14) {
 var REQUEST_TIMEOUT_MS2 = 3e4;
 var MAX_COMPLETION_TOKENS2 = 3e3;
 var SCHEMA_NAME2 = "vehicle_image_classification";
+var NON_VEHICLE_AUTO_EXCLUDE_MIN_CONFIDENCE = 0.9;
 var SYSTEM_PROMPT = 'You are an expert UK motor-claims vehicle-inspection image classifier. You are shown ONE photo from a case\u2019s evidence set. Classify it precisely.\nrole: "overview" = a WIDE shot showing most/all of the whole vehicle (used to identify the car); prefer this when the full vehicle and ideally its number plate are visible. "damage_closeup" = a close-up focused on damage (dent, scratch, crack, broken panel/light/bumper). "additional" = any other genuine vehicle photo (interior, dashboard/odometer, VIN plate, tyre, engine bay, a plate-only close-up with no damage, a partial panel with no clear damage). "other" = NOT a vehicle photo (document/letter scan, screenshot, form, logo, email, blank/corrupt).\nregistration_visible: true ONLY if a UK number plate is present AND its characters are legibly readable in THIS image; else false. plate_text: the registration (UPPERCASE, no spaces) or "" if none/illegible. person_reflection: true if a person\u2019s face or human reflection is visible (e.g. the photographer reflected in paintwork/glass/window). Judge only what is visible.';
 function buildResponseSchema() {
   return {
@@ -49940,10 +50575,50 @@ function parseImageResponse(json) {
     confidence: typeof c.confidence === "number" ? Math.min(1, Math.max(0, c.confidence)) : 0
   };
 }
-async function classifyImage(input14) {
+function hasExplicitContentFilter(result) {
+  if (!result || typeof result !== "object") return false;
+  const first = result.choices?.[0];
+  if (first?.finish_reason === "content_filter") return true;
+  try {
+    return /content[_ -]?filter|responsibleaipolicyviolation/i.test(JSON.stringify(result));
+  } catch {
+    return false;
+  }
+}
+function imageClassificationOutcomeFromResponse(status, result) {
+  if (hasExplicitContentFilter(result)) {
+    return {
+      ok: false,
+      failure: { disposition: "terminal", code: "model_content_filter" }
+    };
+  }
+  if (status === 413) {
+    return {
+      ok: false,
+      failure: { disposition: "terminal", code: "model_payload_too_large" }
+    };
+  }
+  if (status < 200 || status >= 300) {
+    return {
+      ok: false,
+      failure: { disposition: "transient", code: `model_http_${status}` }
+    };
+  }
+  const classification = parseImageResponse(result);
+  return classification ? { ok: true, classification } : {
+    ok: false,
+    failure: { disposition: "transient", code: "model_malformed_response" }
+  };
+}
+async function classifyImageWithOutcome(input16) {
   const endpoint = gates.aiModelEndpoint();
   const deployment = gates.aiModelDeployment();
-  if (!endpoint || !deployment) return null;
+  if (!endpoint || !deployment) {
+    return {
+      ok: false,
+      failure: { disposition: "transient", code: "model_not_configured" }
+    };
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS2);
   try {
@@ -49953,18 +50628,28 @@ async function classifyImage(input14) {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify(
-        buildImageRequestBody(input14.imageBase64, input14.contentType ?? "image/jpeg", deployment, input14.caseVrm)
+        buildImageRequestBody(input16.imageBase64, input16.contentType ?? "image/jpeg", deployment, input16.caseVrm)
       ),
       signal: controller.signal
     });
-    if (!res.ok) return null;
     const json = await res.json().catch(() => void 0);
-    return parseImageResponse(json);
-  } catch {
-    return null;
+    return imageClassificationOutcomeFromResponse(res.status, json);
+  } catch (error) {
+    const timeout = error instanceof Error && error.name === "AbortError";
+    return {
+      ok: false,
+      failure: {
+        disposition: "transient",
+        code: timeout ? "model_timeout" : "model_unavailable"
+      }
+    };
   } finally {
     clearTimeout(timer);
   }
+}
+async function classifyImage(input16) {
+  const outcome = await classifyImageWithOutcome(input16);
+  return outcome.ok ? outcome.classification : null;
 }
 function caseRegistrationVisible(c, caseVrm) {
   if (!c.registrationVisible) return false;
@@ -49973,7 +50658,7 @@ function caseRegistrationVisible(c, caseVrm) {
   const plate = canonicalizeVrm(c.plateText);
   return plate.length > 0 && plate === vrm;
 }
-function classificationToEvidenceFields(c, caseVrm, opts) {
+function classificationToEvidenceFields(c, caseVrm) {
   const registrationVisible = caseRegistrationVisible(c, caseVrm);
   if (c.personReflection) {
     return {
@@ -49981,17 +50666,18 @@ function classificationToEvidenceFields(c, caseVrm, opts) {
       registrationVisible,
       acceptedForEva: false,
       excluded: true,
-      exclusionReason: "person reflection detected (auto-classified)",
+      exclusionReason: "A person\u2019s reflection may be visible",
       personReflection: true
     };
   }
-  if (c.role === "other" && opts?.nonVehicleExcluded) {
+  const readableRegistrationSignal = c.registrationVisible || canonicalizeVrm(c.plateText).length > 0;
+  if (c.role === "other" && c.confidence >= NON_VEHICLE_AUTO_EXCLUDE_MIN_CONFIDENCE && !readableRegistrationSignal) {
     return {
       imageRole: c.role,
       registrationVisible,
       acceptedForEva: false,
       excluded: true,
-      exclusionReason: "non-vehicle image detected (auto-classified)",
+      exclusionReason: "This image may not show the vehicle",
       personReflection: false
     };
   }
@@ -50006,7 +50692,24 @@ function classificationToEvidenceFields(c, caseVrm, opts) {
 }
 
 // orchestration/src/functions/activities/classifyPersist.ts
-var df4 = __toESM(require("durable-functions"), 1);
+var df6 = __toESM(require("durable-functions"), 1);
+
+// orchestration/src/lib/status-generation.ts
+async function settlePersistedStatusGeneration(caseId, result, ctx) {
+  const generation = result.statusGeneration;
+  if (!Number.isSafeInteger(generation) || (generation ?? 0) < 1) return false;
+  try {
+    const completion = await dataApi.evaluateStatus(caseId, generation);
+    return completion.completed === true;
+  } catch (e) {
+    ctx.warn(
+      `[status-generation] case ${caseId} generation ${generation} remains pending: ${e instanceof Error ? e.message : String(e)}`
+    );
+    return false;
+  }
+}
+
+// orchestration/src/functions/activities/classifyPersist.ts
 var MIN_BODY_INSTRUCTION_CHARS = 40;
 function buildBaseEvidenceRows(inbound) {
   const rows = inbound.attachments.map((a) => ({
@@ -50025,14 +50728,14 @@ function buildBaseEvidenceRows(inbound) {
   }
   return rows;
 }
-df4.app.activity("classifyPersist", {
-  handler: async (input14, ctx) => {
-    const { caseId, inbound } = input14;
+df6.app.activity("classifyPersist", {
+  handler: async (input16, ctx) => {
+    const { caseId, inbound } = input16;
     const rows = buildBaseEvidenceRows(inbound);
     let classifyAllowed = gates.imageRoleClassifyEnabled();
-    if (classifyAllowed && input14.workProviderId) {
+    if (classifyAllowed && input16.workProviderId) {
       try {
-        const { aiAllowed } = await dataApi.workProviderAiAllowed(input14.workProviderId);
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input16.workProviderId);
         if (aiAllowed === false) {
           classifyAllowed = false;
           ctx.log("[classifyPersist] image classify skipped \u2014 work provider opted out of AI (ai_allowed=false)");
@@ -50046,26 +50749,25 @@ df4.app.activity("classifyPersist", {
         if (!r.isImage) continue;
         try {
           const bytes = await downloadEvidenceBytes(r.blobPath);
-          const cls = await classifyImage({ imageBase64: bytes.toString("base64"), contentType: r.contentType, caseVrm: input14.caseVrm });
+          const cls = await classifyImage({ imageBase64: bytes.toString("base64"), contentType: r.contentType, caseVrm: input16.caseVrm });
           if (cls) {
-            const f = classificationToEvidenceFields(cls, input14.caseVrm);
+            const f = classificationToEvidenceFields(cls, input16.caseVrm);
             r.imageRole = f.imageRole;
             r.registrationVisible = f.registrationVisible;
             r.acceptedForEva = f.acceptedForEva;
+            r.excluded = f.excluded;
+            r.exclusionReason = f.exclusionReason ?? null;
+            r.decisionSource = "classifier";
             r.personReflection = f.personReflection;
-            if (f.excluded) {
-              r.excluded = true;
-              r.exclusionReason = f.exclusionReason;
-            }
           }
         } catch (e) {
           ctx.log(JSON.stringify({ evt: "classifyPersist.imageClassifyFailed", caseId, file: r.filename, err: e instanceof Error ? e.message : String(e) }));
         }
       }
     }
-    if (gates.auditCases() && (input14.typings?.length ?? 0) > 0) {
+    if (gates.auditCases() && (input16.typings?.length ?? 0) > 0) {
       const reportBlobPaths = new Set(
-        (input14.typings ?? []).filter((t) => isEngineerReportLayoutName(t.providerName)).map((t) => t.blobPath)
+        (input16.typings ?? []).filter((t) => isEngineerReportLayoutName(t.providerName)).map((t) => t.blobPath)
       );
       if (reportBlobPaths.size > 0) {
         const wouldRemain = rows.some(
@@ -50116,6 +50818,7 @@ df4.app.activity("classifyPersist", {
       ctx.log(JSON.stringify({ evt: "classifyPersist.bodyInstruction", caseId, bytes: up.size }));
     }
     const result = await dataApi.persistEvidence(caseId, rows);
+    await settlePersistedStatusGeneration(caseId, result, ctx);
     await dataApi.recordAudit({
       action: "attachment_classified",
       caseId,
@@ -50128,40 +50831,118 @@ df4.app.activity("classifyPersist", {
 
 // orchestration/src/functions/evidence-backfill.ts
 var MAX_DEQUEUE2 = 5;
-var SEARCH_CANDIDATE_CAP = 25;
+var SEARCH_CANDIDATE_CAP = 100;
+var RetryableBackfillFetchError = class extends Error {
+};
+function errorDetail(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+function isRetryableBackfillFetchError(error) {
+  if (error instanceof RetryableBackfillFetchError) return true;
+  const detail = errorDetail(error);
+  return isRetryableGraphError(detail) || /graph\b[^\n]*→ 404\b/i.test(detail) || /graph\b[^\n]*pagination\b/i.test(detail) || /graph\b[^\n]*(?:null|empty|missing|incomplete)\b/i.test(detail) || /attachment (?:identity|response) missing/i.test(detail);
+}
+function isRetryableStorageInfrastructureError(error) {
+  let cursor = error;
+  const seen = /* @__PURE__ */ new Set();
+  for (let depth = 0; cursor != null && depth < 5 && !seen.has(cursor); depth++) {
+    seen.add(cursor);
+    const candidate = typeof cursor === "object" ? cursor : {};
+    const status = Number(candidate.statusCode ?? candidate.status);
+    if (Number.isFinite(status) && (status === 429 || status >= 500)) return true;
+    const code = String(candidate.code ?? candidate.name ?? "");
+    if (/^(?:ServerBusy|InternalError|OperationTimedOut|ServiceUnavailable|TooManyRequests|ManagedIdentityTokenError|ECONNRESET|ETIMEDOUT|ESOCKETTIMEDOUT|EAI_AGAIN)$/i.test(code)) {
+      if (!/^ManagedIdentityTokenError$/i.test(code) || /MSI storage token (?:429|5\d\d)\b/i.test(errorDetail(cursor)) || status === 429 || status >= 500) return true;
+    }
+    if (/\b(?:MSI storage token (?:429|5\d\d)|ServerBusy|ServiceUnavailable|TooManyRequests|ECONNRESET|ETIMEDOUT|ESOCKETTIMEDOUT|EAI_AGAIN)\b/i.test(errorDetail(cursor))) return true;
+    cursor = candidate.cause;
+  }
+  return false;
+}
+function isRetryableBackfillInfrastructureError(error) {
+  return isRetryableBackfillFetchError(error) || isRetryableStorageInfrastructureError(error);
+}
 async function locateBySubjectSearch(mailbox, subject, internetMessageId) {
   const phrase = (subject ?? "").trim();
   if (!phrase) return null;
   const hits = await searchMessages(mailbox, kqlPhrase(phrase), SEARCH_CANDIDATE_CAP);
+  let retryableFailure;
   for (const h of hits) {
     try {
       const msg = await graphFetch(
         `/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(h.id)}?$select=internetMessageId`
       );
       if ((msg.internetMessageId ?? "") === internetMessageId) return h.id;
-    } catch {
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e);
+      if (retryableFailure === void 0 && isRetryableGraphError(detail)) {
+        retryableFailure = e;
+      }
     }
   }
+  if (retryableFailure !== void 0) throw retryableFailure;
   return null;
 }
-import_functions9.app.storageQueue("evidence-backfill", {
+import_functions11.app.storageQueue("evidence-backfill", {
   queueName: "evidence-backfill",
   connection: "AzureWebJobsStorage",
   handler: async (item, ctx) => {
     const job = typeof item === "string" ? JSON.parse(item) : item;
     const dequeueCount = Number(ctx.triggerMetadata?.dequeueCount ?? 1);
     const lastAttempt = dequeueCount >= MAX_DEQUEUE2;
+    let targetValidated = false;
+    let persistenceCommitted = false;
+    let reportAttempted = false;
+    let targetCaseId = job.targetCaseId;
+    let generation = Number.isSafeInteger(Number(job.generation)) && Number(job.generation) > 0 ? Number(job.generation) : void 0;
+    const report = async (payload) => {
+      if (generation == null) throw new Error("evidence backfill generation was not validated");
+      reportAttempted = true;
+      await dataApi.reportEvidenceBackfill(job.inboundEmailId, { ...payload, generation });
+    };
     const fail = async (detail) => {
       ctx.warn(`[evidence-backfill] ${job.inboundEmailId}: ${detail}`);
-      await dataApi.reportEvidenceBackfill(job.inboundEmailId, {
+      await report({
         outcome: "failed",
-        targetCaseId: job.targetCaseId,
+        targetCaseId,
         detail
       });
     };
     try {
       if (!job.inboundEmailId || !job.targetCaseId) {
         ctx.error(`[evidence-backfill] malformed job dropped: ${JSON.stringify(job).slice(0, 300)}`);
+        return;
+      }
+      const validated = await dataApi.validateEvidenceBackfillTarget(
+        job.inboundEmailId,
+        targetCaseId,
+        generation
+      );
+      targetCaseId = validated.targetCaseId;
+      generation = validated.generation ?? generation;
+      targetValidated = true;
+      if (validated.superseded) {
+        ctx.log(JSON.stringify({
+          evt: "evidence-backfill",
+          inboundEmailId: job.inboundEmailId,
+          caseId: targetCaseId,
+          generation,
+          replay: "superseded_generation"
+        }));
+        return;
+      }
+      if (validated.completed) {
+        if (!validated.committedResult) {
+          throw new Error("completed evidence backfill has no durable result to replay");
+        }
+        await report({ ...validated.committedResult, targetCaseId });
+        ctx.log(JSON.stringify({
+          evt: "evidence-backfill",
+          inboundEmailId: job.inboundEmailId,
+          caseId: targetCaseId,
+          generation,
+          replay: "already_committed"
+        }));
         return;
       }
       if (!job.sourceMailbox || !job.sourceMessageId) {
@@ -50178,21 +50959,59 @@ import_functions9.app.storageQueue("evidence-backfill", {
             job.sourceMessageId
           );
         } catch (e) {
-          const detail = e instanceof Error ? e.message : String(e);
-          if (!lastAttempt && isRetryableGraphError(detail)) throw e;
+          const detail = errorDetail(e);
+          if (!lastAttempt && isRetryableBackfillFetchError(e)) throw e;
           ctx.warn(`[evidence-backfill] $search fallback failed (treating as not found): ${detail}`);
         }
       }
       if (!graphId) {
+        if (!lastAttempt) {
+          throw new RetryableBackfillFetchError(
+            "graph message lookup returned no exact match; retry after mailbox convergence"
+          );
+        }
         await fail("message not found in the mailbox (deleted beyond search, or moved out?)");
         return;
       }
-      const { message, attachments } = await getMessageWithAttachments(job.sourceMailbox, graphId);
+      const fetched = await getMessageWithAttachments(job.sourceMailbox, graphId);
+      if (!fetched?.message || !Array.isArray(fetched.attachments)) {
+        throw new RetryableBackfillFetchError(
+          "graph message/attachment response was incomplete; retry after mailbox convergence"
+        );
+      }
+      const { message } = fetched;
+      const attachmentFailures = [...fetched.attachmentFailures ?? []];
+      const attachments = fetched.attachments.filter((a) => {
+        if (!a) {
+          attachmentFailures.push({
+            id: "",
+            name: "",
+            contentType: "application/octet-stream",
+            reason: "attachment response missing"
+          });
+          return false;
+        }
+        if ((a.id ?? "").trim()) return true;
+        attachmentFailures.push({
+          id: "",
+          name: a.name ?? "",
+          contentType: a.contentType ?? "application/octet-stream",
+          reason: "attachment identity missing"
+        });
+        return false;
+      });
+      const retryableAttachmentFailure = attachmentFailures.find((f) => isRetryableBackfillFetchError(f.reason));
+      if (retryableAttachmentFailure && !lastAttempt) throw new Error(retryableAttachmentFailure.reason);
       const landed = [];
       const bytesByPath = /* @__PURE__ */ new Map();
       for (const a of attachments) {
         const bytes = Buffer.from(a.contentBytes ?? "", "base64");
-        const up = await uploadEvidenceBytes(graphId, a.name, bytes, a.contentType);
+        const up = await uploadEvidenceBytes(
+          graphId,
+          attachmentBlobFileName(a.id, a.name),
+          bytes,
+          a.contentType
+        );
         landed.push({
           filename: a.name,
           contentType: a.contentType,
@@ -50203,8 +51022,14 @@ import_functions9.app.storageQueue("evidence-backfill", {
         bytesByPath.set(up.blobPath, bytes);
       }
       let rawEml;
+      let rawMimeFailure = null;
       try {
         const mime = await getMessageRawMime(job.sourceMailbox, graphId);
+        if (!Buffer.isBuffer(mime) || mime.length === 0) {
+          throw new RetryableBackfillFetchError(
+            "graph raw MIME response was empty; retry after mailbox convergence"
+          );
+        }
         const emlName = rawEmlFileName(message.internetMessageId ?? job.sourceMessageId);
         const emlUp = await uploadEvidenceBytes(graphId, emlName, mime, "message/rfc822");
         rawEml = {
@@ -50215,30 +51040,37 @@ import_functions9.app.storageQueue("evidence-backfill", {
           sha256: emlUp.sha256
         };
       } catch (e) {
+        if (!lastAttempt && isRetryableBackfillInfrastructureError(e)) throw e;
+        rawMimeFailure = errorDetail(e).slice(0, 300);
         ctx.warn(
-          `[evidence-backfill] raw .eml capture failed for ${job.inboundEmailId} (best-effort): ${e instanceof Error ? e.message : String(e)}`
+          `[evidence-backfill] raw .eml capture failed for ${job.inboundEmailId} (best-effort): ${errorDetail(e)}`
         );
       }
       const rows = buildBaseEvidenceRows({ attachments: landed, ...rawEml ? { rawEml } : {} });
-      let classifyAllowed = gates.imageRoleClassifyEnabled();
+      const classificationRequested = gates.imageRoleClassifyEnabled() && rows.some((r) => r.isImage);
+      let classifyAllowed = false;
       let caseVrm;
-      if (classifyAllowed && rows.some((r) => r.isImage)) {
+      if (classificationRequested) {
         try {
-          const lookup = await dataApi.casesLookup({ caseIds: [job.targetCaseId] });
+          const lookup = await dataApi.casesLookup({ caseIds: [targetCaseId] });
           const target = lookup.cases[0];
+          if (!target) throw new Error("target case unavailable for classification policy");
           caseVrm = target?.vrm || void 0;
           if (target?.workProviderId) {
             const { aiAllowed } = await dataApi.workProviderAiAllowed(target.workProviderId);
-            if (aiAllowed === false) {
-              classifyAllowed = false;
+            classifyAllowed = aiAllowed !== false;
+            if (!classifyAllowed) {
               ctx.log("[evidence-backfill] image classify skipped \u2014 work provider opted out of AI (ai_allowed=false)");
             }
+          } else {
+            classifyAllowed = true;
           }
         } catch (e) {
+          classifyAllowed = false;
           ctx.log(
             JSON.stringify({
               evt: "evidenceBackfill.caseLookupFailed",
-              caseId: job.targetCaseId,
+              caseId: targetCaseId,
               err: e instanceof Error ? e.message : String(e)
             })
           );
@@ -50260,17 +51092,16 @@ import_functions9.app.storageQueue("evidence-backfill", {
               r.imageRole = f.imageRole;
               r.registrationVisible = f.registrationVisible;
               r.acceptedForEva = f.acceptedForEva;
+              r.excluded = f.excluded;
+              r.exclusionReason = f.exclusionReason ?? null;
+              r.decisionSource = "classifier";
               r.personReflection = f.personReflection;
-              if (f.excluded) {
-                r.excluded = true;
-                r.exclusionReason = f.exclusionReason;
-              }
             }
           } catch (e) {
             ctx.log(
               JSON.stringify({
                 evt: "evidenceBackfill.imageClassifyFailed",
-                caseId: job.targetCaseId,
+                caseId: targetCaseId,
                 file: r.filename,
                 err: e instanceof Error ? e.message : String(e)
               })
@@ -50278,48 +51109,88 @@ import_functions9.app.storageQueue("evidence-backfill", {
           }
         }
       }
-      const result = await dataApi.persistEvidence(job.targetCaseId, rows);
-      const merged = result.merged;
-      const status = await dataApi.evaluateStatus(job.targetCaseId);
-      await dataApi.reportEvidenceBackfill(job.inboundEmailId, {
-        outcome: "completed",
-        targetCaseId: job.targetCaseId,
+      const recoveryFailures = attachmentFailures.length + (rawMimeFailure ? 1 : 0);
+      const recoveryResult = {
+        outcome: recoveryFailures > 0 ? "partial" : "completed",
+        ...recoveryFailures > 0 ? {
+          failedAttachments: recoveryFailures,
+          detail: `${recoveryFailures} recovery item${recoveryFailures === 1 ? "" : "s"} could not be retrieved`
+        } : {}
+      };
+      const result = await dataApi.persistEvidence(targetCaseId, rows, {
+        expectedInboundEmailId: job.inboundEmailId,
+        evidenceBackfillGeneration: generation,
+        evidenceBackfillResult: recoveryResult
+      });
+      persistenceCommitted = true;
+      targetCaseId = result.targetCaseId ?? targetCaseId;
+      const committedResult = result.completedResult ?? {
+        ...recoveryResult,
         persisted: result.persisted,
-        ...typeof merged === "number" ? { merged } : {}
+        ...typeof result.merged === "number" ? { merged: result.merged } : {}
+      };
+      const merged = committedResult.merged;
+      let statusValue = "recompute_pending";
+      try {
+        const status = await dataApi.evaluateStatus(targetCaseId, result.statusGeneration);
+        if (result.statusGeneration != null && status.completed !== true) {
+          throw new Error(
+            `status generation ${result.statusGeneration} was evaluated but not acknowledged`
+          );
+        }
+        statusValue = status.value;
+      } catch (e) {
+        ctx.warn(
+          `[evidence-backfill] evidence committed; immediate status evaluation remains pending for ${targetCaseId}: ${errorDetail(e)}`
+        );
+      }
+      await report({
+        ...committedResult,
+        targetCaseId
       });
       ctx.log(
         JSON.stringify({
           evt: "evidence-backfill",
           inboundEmailId: job.inboundEmailId,
-          caseId: job.targetCaseId,
+          caseId: targetCaseId,
           attachments: landed.length,
           eml: Boolean(rawEml),
           persisted: result.persisted,
           ...typeof merged === "number" ? { merged } : {},
-          status: status.value
+          status: statusValue
         })
       );
     } catch (e) {
-      const detail = e instanceof Error ? e.message : String(e);
-      if (!lastAttempt && isRetryableGraphError(detail)) {
+      const detail = errorDetail(e);
+      if (e instanceof EvidenceBackfillReclassificationRequiredError && !persistenceCommitted && !reportAttempted) {
+        targetCaseId = e.targetCaseId ?? targetCaseId;
+        if (!lastAttempt) {
+          ctx.warn(
+            `[evidence-backfill] case ownership changed during classification; retrying against ${targetCaseId} (attempt ${dequeueCount}/${MAX_DEQUEUE2})`
+          );
+          throw e;
+        }
+        await fail("case ownership changed during attachment classification; staff must add any missing attachments");
+        return;
+      }
+      if (e instanceof EvidenceBackfillTargetChangedError && !persistenceCommitted && !reportAttempted) {
+        ctx.warn(`[evidence-backfill] stale target dropped for ${job.inboundEmailId}`);
+        return;
+      }
+      if (reportAttempted || persistenceCommitted || !targetValidated) throw e;
+      if (!lastAttempt && isRetryableBackfillInfrastructureError(e)) {
         ctx.warn(
           `[evidence-backfill] transient failure (attempt ${dequeueCount}/${MAX_DEQUEUE2}) \u2014 retrying: ${detail}`
         );
         throw e;
       }
-      try {
-        await fail(detail.slice(0, 300));
-      } catch (reportErr) {
-        ctx.error(
-          `[evidence-backfill] terminal failure AND outcome report failed for ${job.inboundEmailId}: ${reportErr instanceof Error ? reportErr.message : String(reportErr)}`
-        );
-      }
+      await fail(detail.slice(0, 300));
     }
   }
 });
 
 // orchestration/src/functions/box-classify-sweep.ts
-var import_functions10 = require("@azure/functions");
+var import_functions12 = require("@azure/functions");
 
 // orchestration/src/lib/functions-client.ts
 var PARSER = { urlEnv: "PARSER_FN_URL", keyEnv: "PARSER_FN_KEY" };
@@ -50345,46 +51216,46 @@ async function callFunction(target, method, route, body2) {
   if (res.status === 204) return void 0;
   return await res.json();
 }
-function callClassifyEmail(input14) {
+function callClassifyEmail(input16) {
   return callFunction(PARSER, "POST", "classify-email", {
-    subject: input14.subject ?? "",
-    body: input14.body ?? "",
-    from: input14.from ?? "",
-    sender_domain: input14.senderDomain ?? "",
-    provider_match_state: input14.providerMatchState ?? "",
-    attachment_kinds: input14.attachmentKinds ?? [],
-    attachment_filenames: input14.attachmentFilenames ?? [],
-    has_attachments: input14.hasAttachments ?? false,
-    in_reply_to: input14.inReplyTo ?? "",
-    references: input14.references ?? ""
+    subject: input16.subject ?? "",
+    body: input16.body ?? "",
+    from: input16.from ?? "",
+    sender_domain: input16.senderDomain ?? "",
+    provider_match_state: input16.providerMatchState ?? "",
+    attachment_kinds: input16.attachmentKinds ?? [],
+    attachment_filenames: input16.attachmentFilenames ?? [],
+    has_attachments: input16.hasAttachments ?? false,
+    in_reply_to: input16.inReplyTo ?? "",
+    references: input16.references ?? ""
   });
 }
-function callExtractImages(input14) {
+function callExtractImages(input16) {
   return callFunction(PARSER, "POST", "extract-images", {
-    document: input14.documentBase64,
-    filename: input14.filename,
-    ...input14.provider ? { provider: input14.provider } : {},
-    ...input14.vrm ? { vrm: input14.vrm } : {}
+    document: input16.documentBase64,
+    filename: input16.filename,
+    ...input16.provider ? { provider: input16.provider } : {},
+    ...input16.vrm ? { vrm: input16.vrm } : {}
   });
 }
-function callPlateOcr(input14) {
+function callPlateOcr(input16) {
   return callFunction(OCR, "POST", "plate-ocr", {
-    image: input14.imageBase64,
-    filename: input14.filename,
-    ...input14.caseVrm ? { case_vrm: input14.caseVrm } : {}
+    image: input16.imageBase64,
+    filename: input16.filename,
+    ...input16.caseVrm ? { case_vrm: input16.caseVrm } : {}
   });
 }
-function callOcrPdf(input14) {
+function callOcrPdf(input16) {
   return callFunction(OCR, "POST", "ocr-pdf", {
-    document: input14.documentBase64,
-    filename: input14.filename,
-    ...input14.providerHint ? { provider_hint: input14.providerHint } : {}
+    document: input16.documentBase64,
+    filename: input16.filename,
+    ...input16.providerHint ? { provider_hint: input16.providerHint } : {}
   });
 }
-function callExplodeEml(input14) {
+function callExplodeEml(input16) {
   return callFunction(PARSER, "POST", "explode-eml", {
-    document: input14.documentBase64,
-    ...input14.filename ? { filename: input14.filename } : {}
+    document: input16.documentBase64,
+    ...input16.filename ? { filename: input16.filename } : {}
   });
 }
 function callEvaSubmit(caseId) {
@@ -50428,11 +51299,6 @@ var box = {
       ...contentType2 ? { contentType: contentType2 } : {}
     });
   },
-  copyFileRequest(fileRequestId, folderId) {
-    return callFunction(BOX, "POST", `box/file-requests/${fileRequestId}/copy`, {
-      folder: { id: folderId }
-    });
-  },
   listFolderItems(folderId) {
     return callFunction(BOX, "GET", `box/folders/${folderId}/items`);
   },
@@ -50443,13 +51309,13 @@ var box = {
    * every hit to provable root ancestry; each hit carries its resolved caseFolder
    * (the ancestor directly under the matched root).
    */
-  searchContent(input14) {
+  searchContent(input16) {
     return callFunction(BOX, "POST", "box/search", {
-      query: input14.query,
-      ...input14.rootIds && input14.rootIds.length ? { rootIds: input14.rootIds } : {},
-      ...input14.type ? { type: input14.type } : {},
-      ...input14.contentTypes ? { contentTypes: input14.contentTypes } : {},
-      ...input14.limit != null ? { limit: input14.limit } : {}
+      query: input16.query,
+      ...input16.rootIds && input16.rootIds.length ? { rootIds: input16.rootIds } : {},
+      ...input16.type ? { type: input16.type } : {},
+      ...input16.contentTypes ? { contentTypes: input16.contentTypes } : {},
+      ...input16.limit != null ? { limit: input16.limit } : {}
     });
   },
   /**
@@ -50499,111 +51365,480 @@ function buildStampRow(row, fields) {
     imageRole: fields.imageRole,
     registrationVisible: fields.registrationVisible,
     acceptedForEva: fields.acceptedForEva,
-    personReflection: fields.personReflection,
-    ...fields.excluded ? { excluded: true, exclusionReason: fields.exclusionReason ?? "Excluded" } : {}
+    excluded: fields.excluded,
+    exclusionReason: fields.exclusionReason ?? null,
+    decisionSource: "classifier",
+    personReflection: fields.personReflection
   };
 }
-import_functions10.app.timer("box-classify-sweep", {
-  schedule: SWEEP_SCHEDULE,
-  handler: async (_timer, ctx) => {
-    if (!gates.imageRoleClassifyEnabled() || !gates.boxApi()) return;
-    const started = Date.now();
-    let rows;
+function boxDownloadFailure(error) {
+  const text = error instanceof Error ? error.message : String(error ?? "");
+  if (/→\s*(404|410)\b/.test(text)) {
+    return { disposition: "terminal", code: "box_file_missing" };
+  }
+  if (/→\s*413\b/.test(text)) {
+    return { disposition: "terminal", code: "box_file_too_large" };
+  }
+  return { disposition: "transient", code: "box_download_unavailable" };
+}
+async function settleStatusRequests(requests, ctx) {
+  let completed = 0;
+  for (const request3 of requests) {
     try {
-      rows = (await dataApi.unclassifiedBoxEvidence(SWEEP_CAP)).rows ?? [];
+      const ack = await dataApi.evaluateStatus(request3.caseId, request3.generation);
+      if (ack.completed) completed++;
     } catch (e) {
       ctx.warn(
-        `[box-classify-sweep] enumeration failed (will retry next sweep): ${e instanceof Error ? e.message : String(e)}`
+        `[box-classify-sweep] status re-evaluate remains pending for ${request3.caseId} (generation ${request3.generation}): ${e instanceof Error ? e.message : String(e)}`
       );
+    }
+  }
+  return completed;
+}
+async function runBoxClassifySweep(ctx) {
+  const started = Date.now();
+  let recoveredStatusRequests = [];
+  try {
+    recoveredStatusRequests = (await dataApi.pendingStatusRecomputes(SWEEP_CAP)).rows ?? [];
+  } catch (e) {
+    ctx.warn(
+      `[box-classify-sweep] pending status enumeration failed (will retry next sweep): ${e instanceof Error ? e.message : String(e)}`
+    );
+  }
+  const recoveredStatuses = await settleStatusRequests(recoveredStatusRequests, ctx);
+  if (!gates.imageRoleClassifyEnabled() || !gates.boxApi()) return;
+  let rows;
+  try {
+    rows = (await dataApi.claimUnclassifiedBoxEvidence(SWEEP_CAP)).rows ?? [];
+  } catch (e) {
+    ctx.warn(
+      `[box-classify-sweep] enumeration failed (will retry next sweep): ${e instanceof Error ? e.message : String(e)}`
+    );
+    return;
+  }
+  if (rows.length === 0) return;
+  const policyByProvider = /* @__PURE__ */ new Map();
+  const stampedGenerations = /* @__PURE__ */ new Map();
+  let classified = 0;
+  let stamped = 0;
+  let failed = 0;
+  let skippedOptOut = 0;
+  let skippedPolicyLookup = 0;
+  let backedOff = 0;
+  let deadLettered = 0;
+  let failureReportFailed = 0;
+  const reportFailure = async (row, failure) => {
+    if (!row.claimToken) {
+      failureReportFailed++;
+      ctx.warn(`[box-classify-sweep] claimed row ${row.evidenceId} had no claim token`);
       return;
     }
-    if (rows.length === 0) return;
-    const aiAllowedByProvider = /* @__PURE__ */ new Map();
-    const stampedCases = /* @__PURE__ */ new Set();
-    let classified = 0;
-    let stamped = 0;
-    let failed = 0;
-    let skippedOptOut = 0;
-    for (const row of rows) {
-      try {
-        const providerId = row.workProviderId || "";
-        if (providerId) {
-          let allowed = aiAllowedByProvider.get(providerId);
-          if (allowed === void 0) {
-            try {
-              allowed = (await dataApi.workProviderAiAllowed(providerId)).aiAllowed;
-            } catch {
-              allowed = null;
-            }
-            aiAllowedByProvider.set(providerId, allowed);
-          }
-          if (allowed === false) {
-            skippedOptOut++;
-            continue;
-          }
-        }
-        const dl = await box.downloadFile(row.boxFileId);
-        const cls = await classifyImage({
-          imageBase64: dl.contentBase64,
-          contentType: mimeForClassify(row.filename, row.contentType),
-          caseVrm: row.caseVrm || void 0
-        });
-        if (!cls) {
-          failed++;
-          ctx.log(
-            JSON.stringify({ evt: "boxClassifySweep.classifyNull", evidenceId: row.evidenceId })
+    try {
+      const result = await dataApi.reportBoxEvidenceClassificationFailure(
+        row.evidenceId,
+        row.claimToken,
+        failure
+      );
+      if (!result.updated) return;
+      if (failure.disposition === "terminal") deadLettered++;
+      else backedOff++;
+    } catch (e) {
+      failureReportFailed++;
+      ctx.warn(
+        `[box-classify-sweep] failure outcome for ${row.evidenceId} was not recorded: ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+  };
+  for (const row of rows) {
+    const providerId = row.workProviderId || "";
+    if (providerId) {
+      let decision = policyByProvider.get(providerId);
+      if (decision === void 0) {
+        try {
+          const { aiAllowed } = await dataApi.workProviderAiAllowed(providerId);
+          decision = aiAllowed === false ? "opted_out" : "allowed";
+        } catch (e) {
+          decision = "lookup_failed";
+          ctx.warn(
+            `[box-classify-sweep] provider AI preference unavailable for ${providerId}; classification skipped for this sweep: ${e instanceof Error ? e.message : String(e)}`
           );
-          continue;
         }
-        classified++;
-        const fields = classificationToEvidenceFields(cls, row.caseVrm || void 0);
-        await dataApi.stampBoxEvidenceClassification(row.caseId, buildStampRow(row, fields));
-        stamped++;
-        stampedCases.add(row.caseId);
-        ctx.log(
-          JSON.stringify({
-            evt: "boxClassifySweep.stamped",
-            evidenceId: row.evidenceId,
-            caseId: row.caseId,
-            boxFileId: row.boxFileId,
-            role: fields.imageRole,
-            registrationVisible: fields.registrationVisible,
-            excluded: fields.excluded === true
-          })
-        );
-      } catch (e) {
+        policyByProvider.set(providerId, decision);
+      }
+      if (decision === "opted_out") {
+        skippedOptOut++;
         failed++;
-        ctx.warn(
-          `[box-classify-sweep] ${row.evidenceId} left role-unknown: ${e instanceof Error ? e.message : String(e)}`
-        );
+        await reportFailure(row, { disposition: "transient", code: "provider_ai_opted_out" });
+        continue;
+      }
+      if (decision === "lookup_failed") {
+        skippedPolicyLookup++;
+        failed++;
+        await reportFailure(row, { disposition: "transient", code: "provider_policy_unavailable" });
+        continue;
       }
     }
-    for (const caseId of stampedCases) {
-      try {
-        await dataApi.evaluateStatus(caseId);
-      } catch (e) {
-        ctx.warn(
-          `[box-classify-sweep] status re-evaluate failed for ${caseId}: ${e instanceof Error ? e.message : String(e)}`
-        );
-      }
+    let dl;
+    try {
+      dl = await box.downloadFile(row.boxFileId);
+    } catch (e) {
+      failed++;
+      await reportFailure(row, boxDownloadFailure(e));
+      continue;
+    }
+    let outcome;
+    try {
+      const rawOutcome = await classifyImageWithOutcome({
+        imageBase64: dl.contentBase64,
+        contentType: mimeForClassify(row.filename, row.contentType),
+        caseVrm: row.caseVrm || void 0
+      });
+      outcome = rawOutcome && typeof rawOutcome === "object" && "ok" in rawOutcome ? rawOutcome : rawOutcome ? { ok: true, classification: rawOutcome } : {
+        ok: false,
+        failure: { disposition: "transient", code: "model_unavailable" }
+      };
+    } catch {
+      outcome = {
+        ok: false,
+        failure: { disposition: "transient", code: "model_unavailable" }
+      };
+    }
+    if (!outcome.ok) {
+      failed++;
+      await reportFailure(row, outcome.failure);
+      ctx.log(
+        JSON.stringify({
+          evt: "boxClassifySweep.classifyFailed",
+          evidenceId: row.evidenceId,
+          code: outcome.failure.code,
+          disposition: outcome.failure.disposition
+        })
+      );
+      continue;
+    }
+    classified++;
+    const fields = classificationToEvidenceFields(
+      outcome.classification,
+      row.caseVrm || void 0
+    );
+    let stamp;
+    try {
+      stamp = await dataApi.stampBoxEvidenceClassification(
+        row.evidenceId,
+        row.caseId,
+        buildStampRow(row, fields),
+        row.claimToken ?? void 0
+      );
+    } catch (e) {
+      failed++;
+      await reportFailure(row, { disposition: "transient", code: "classification_stamp_unavailable" });
+      ctx.warn(
+        `[box-classify-sweep] ${row.evidenceId} classification stamp failed: ${e instanceof Error ? e.message : String(e)}`
+      );
+      continue;
+    }
+    if (!stamp.updated) {
+      failed++;
+      await reportFailure(row, {
+        disposition: "terminal",
+        code: "classification_not_applicable"
+      });
+      ctx.log(
+        JSON.stringify({
+          evt: "boxClassifySweep.stale",
+          evidenceId: row.evidenceId,
+          caseId: row.caseId
+        })
+      );
+      continue;
+    }
+    stamped++;
+    if (stamp.statusGeneration != null) {
+      stampedGenerations.set(
+        row.caseId,
+        Math.max(stampedGenerations.get(row.caseId) ?? 0, stamp.statusGeneration)
+      );
     }
     ctx.log(
       JSON.stringify({
-        evt: "boxClassifySweep",
-        enumerated: rows.length,
-        classified,
-        stamped,
-        failed,
-        skippedOptOut,
-        casesReEvaluated: stampedCases.size,
-        ms: Date.now() - started
+        evt: "boxClassifySweep.stamped",
+        evidenceId: row.evidenceId,
+        caseId: row.caseId,
+        boxFileId: row.boxFileId,
+        role: fields.imageRole,
+        registrationVisible: fields.registrationVisible,
+        excluded: fields.excluded === true
       })
     );
+  }
+  const currentStatusRequests = [...stampedGenerations].map(([caseId, generation]) => ({
+    caseId,
+    generation
+  }));
+  const currentStatuses = await settleStatusRequests(currentStatusRequests, ctx);
+  ctx.log(
+    JSON.stringify({
+      evt: "boxClassifySweep",
+      enumerated: rows.length,
+      classified,
+      stamped,
+      failed,
+      skippedOptOut,
+      skippedPolicyLookup,
+      backedOff,
+      deadLettered,
+      failureReportFailed,
+      recoveredStatusRequests: recoveredStatusRequests.length,
+      casesReEvaluated: recoveredStatuses + currentStatuses,
+      ms: Date.now() - started
+    })
+  );
+}
+import_functions12.app.timer("box-classify-sweep", {
+  schedule: SWEEP_SCHEDULE,
+  handler: async (_timer, ctx) => runBoxClassifySweep(ctx)
+});
+
+// orchestration/src/functions/box-maintenance-monitor.ts
+var import_functions13 = require("@azure/functions");
+var df7 = __toESM(require("durable-functions"), 1);
+
+// orchestration/src/lib/box-maintenance-api.ts
+var cachedToken5 = null;
+async function serviceToken2(signal) {
+  if (process.env.DATA_API_TOKEN) return process.env.DATA_API_TOKEN;
+  const now = Date.now();
+  if (cachedToken5 && cachedToken5.expiresAt > now + 6e4) return cachedToken5.value;
+  const audience = process.env.DATA_API_AUDIENCE;
+  const endpoint = process.env.IDENTITY_ENDPOINT;
+  const header = process.env.IDENTITY_HEADER;
+  if (!audience || !endpoint || !header) {
+    throw new Error("missing DATA_API_AUDIENCE / managed-identity endpoint for Data API auth");
+  }
+  const response = await fetch(
+    `${endpoint}?resource=${encodeURIComponent(audience)}&api-version=2019-08-01`,
+    { headers: { "X-IDENTITY-HEADER": header }, signal }
+  );
+  if (!response.ok) throw new Error(`MSI token ${response.status}`);
+  const json = await response.json();
+  cachedToken5 = {
+    value: json.access_token,
+    expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
+  };
+  return cachedToken5.value;
+}
+async function post(path) {
+  const baseUrl2 = (process.env.DATA_API_URL ?? "").replace(/\/$/, "");
+  if (!baseUrl2) throw new Error("missing DATA_API_URL");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6e4);
+  try {
+    const response = await fetch(`${baseUrl2}${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${await serviceToken2(controller.signal)}`,
+        Accept: "application/json"
+      },
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(`data-api POST ${path} -> ${response.status}: ${detail.slice(0, 500)}`);
+    }
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+var boxMaintenanceApi = {
+  drainFileRequests() {
+    return post("/api/internal/box-file-request-outbox/drain");
+  }
+};
+
+// orchestration/src/functions/box-maintenance-monitor.ts
+var BOX_FILE_REQUEST_MONITOR_INSTANCE_ID = "box-file-request-outbox-monitor-singleton";
+var BOX_CLASSIFY_MONITOR_INSTANCE_ID = "box-classification-monitor-singleton";
+var fileRequestMinutes = Number(process.env.BOX_FILE_REQUEST_MONITOR_INTERVAL_MINUTES ?? "1");
+var classifyMinutes = Number(process.env.BOX_CLASSIFY_MONITOR_INTERVAL_MINUTES ?? "5");
+var FILE_REQUEST_INTERVAL_MS = (Number.isFinite(fileRequestMinutes) && fileRequestMinutes > 0 ? fileRequestMinutes : 1) * 6e4;
+var CLASSIFY_INTERVAL_MS = (Number.isFinite(classifyMinutes) && classifyMinutes > 0 ? classifyMinutes : 5) * 6e4;
+var activityRetry = new df7.RetryOptions(15e3, 4);
+activityRetry.backoffCoefficient = 2;
+activityRetry.maxRetryIntervalInMilliseconds = 12e4;
+var ALIVE_STATUSES = /* @__PURE__ */ new Set(["Running", "Pending", "ContinuedAsNew"]);
+var FILE_REQUEST_MONITOR = {
+  instanceId: BOX_FILE_REQUEST_MONITOR_INSTANCE_ID,
+  orchestratorName: "boxFileRequestOutboxMonitorOrchestrator",
+  label: "boxFileRequestMonitor"
+};
+var CLASSIFY_MONITOR = {
+  instanceId: BOX_CLASSIFY_MONITOR_INSTANCE_ID,
+  orchestratorName: "boxClassificationMonitorOrchestrator",
+  label: "boxClassificationMonitor"
+};
+function isAlive(status) {
+  return ALIVE_STATUSES.has(String(status ?? ""));
+}
+function isNotFound(error) {
+  const rec = error;
+  if (rec?.statusCode === 404 || rec?.status === 404) return true;
+  return /\b404\b|not found|could not find any data/i.test(
+    error instanceof Error ? error.message : String(error ?? "")
+  );
+}
+async function readMonitor(client2, definition) {
+  try {
+    const status = await client2.getStatus(definition.instanceId);
+    const runtimeStatus = String(status?.runtimeStatus ?? "Unknown");
+    return {
+      instanceId: definition.instanceId,
+      runtimeStatus,
+      running: isAlive(runtimeStatus)
+    };
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+    return {
+      instanceId: definition.instanceId,
+      runtimeStatus: "NotFound",
+      running: false
+    };
+  }
+}
+async function ensureMonitor(client2, definition, log2) {
+  const current = await readMonitor(client2, definition);
+  if (current.running) return { ...current, started: false };
+  try {
+    await client2.startNew(definition.orchestratorName, {
+      instanceId: definition.instanceId
+    });
+    log2?.(`[${definition.label}] started singleton ${definition.instanceId}`);
+    return {
+      instanceId: definition.instanceId,
+      runtimeStatus: "Pending",
+      running: true,
+      started: true
+    };
+  } catch (error) {
+    const raced = await readMonitor(client2, definition).catch(() => void 0);
+    if (raced?.running) return { ...raced, started: false };
+    throw error;
+  }
+}
+function ensureBoxFileRequestMonitor(client2, log2) {
+  return ensureMonitor(client2, FILE_REQUEST_MONITOR, log2);
+}
+function ensureBoxClassificationMonitor(client2, log2) {
+  return ensureMonitor(client2, CLASSIFY_MONITOR, log2);
+}
+async function readBoxMaintenanceMonitors(client2) {
+  const [fileRequest, classification] = await Promise.all([
+    readMonitor(client2, FILE_REQUEST_MONITOR),
+    readMonitor(client2, CLASSIFY_MONITOR)
+  ]);
+  return { fileRequest, classification };
+}
+df7.app.activity("boxFileRequestOutboxDrainActivity", {
+  handler: async (_input, ctx) => {
+    const summary = await boxMaintenanceApi.drainFileRequests();
+    ctx.log(JSON.stringify({ evt: "boxFileRequestOutboxDrain", ...summary }));
+    return summary;
+  }
+});
+df7.app.activity("boxClassificationSweepActivity", {
+  handler: async (_input, ctx) => {
+    await runBoxClassifySweep(ctx);
+    return { completed: true };
+  }
+});
+df7.app.orchestration("boxFileRequestOutboxMonitorOrchestrator", function* (ctx) {
+  try {
+    yield ctx.df.callActivityWithRetry("boxFileRequestOutboxDrainActivity", activityRetry);
+  } catch (error) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[boxFileRequestMonitor] drain failed; rescheduling: ${String(error)}`);
+    }
+  }
+  const next = new Date(ctx.df.currentUtcDateTime.getTime() + FILE_REQUEST_INTERVAL_MS);
+  yield ctx.df.createTimer(next);
+  ctx.df.continueAsNew(void 0);
+});
+df7.app.orchestration("boxClassificationMonitorOrchestrator", function* (ctx) {
+  try {
+    yield ctx.df.callActivityWithRetry("boxClassificationSweepActivity", activityRetry);
+  } catch (error) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`[boxClassificationMonitor] sweep failed; rescheduling: ${String(error)}`);
+    }
+  }
+  const next = new Date(ctx.df.currentUtcDateTime.getTime() + CLASSIFY_INTERVAL_MS);
+  yield ctx.df.createTimer(next);
+  ctx.df.continueAsNew(void 0);
+});
+async function ensureAll(client2, ctx) {
+  const settle = async (ensure, instanceId) => {
+    try {
+      return await ensure();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      ctx.error(`[boxMaintenanceMonitor] ${instanceId}: ${message}`);
+      return {
+        instanceId,
+        runtimeStatus: "Unknown",
+        running: false,
+        started: false,
+        error: message
+      };
+    }
+  };
+  const [fileRequest, classification] = await Promise.all([
+    settle(
+      () => ensureBoxFileRequestMonitor(client2, (message) => ctx.log(message)),
+      BOX_FILE_REQUEST_MONITOR_INSTANCE_ID
+    ),
+    settle(
+      () => ensureBoxClassificationMonitor(client2, (message) => ctx.log(message)),
+      BOX_CLASSIFY_MONITOR_INSTANCE_ID
+    )
+  ]);
+  return { fileRequest, classification };
+}
+import_functions13.app.http("box-maintenance-monitors", {
+  methods: ["GET", "POST"],
+  authLevel: "function",
+  route: "maintenance/box-monitors",
+  extraInputs: [df7.input.durableClient()],
+  handler: async (req, ctx) => {
+    const client2 = df7.getClient(ctx);
+    try {
+      const monitors = req.method.toUpperCase() === "POST" ? await ensureAll(client2, ctx) : await readBoxMaintenanceMonitors(client2);
+      const ok = monitors.fileRequest.running && monitors.classification.running;
+      return {
+        status: ok ? 200 : 503,
+        jsonBody: {
+          ok,
+          action: req.method.toUpperCase() === "POST" ? "ensure" : "read",
+          monitors
+        }
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      ctx.error(`[boxMaintenanceMonitor] readback failed: ${message}`);
+      return { status: 503, jsonBody: { ok: false, error: message } };
+    }
+  }
+});
+import_functions13.app.timer("box-maintenance-monitor-bootstrap", {
+  schedule: "0 0 * * * *",
+  runOnStartup: true,
+  extraInputs: [df7.input.durableClient()],
+  handler: async (_timer, ctx) => {
+    await ensureAll(df7.getClient(ctx), ctx);
   }
 });
 
 // orchestration/src/functions/intakeOrchestrator.ts
-var df7 = __toESM(require("durable-functions"), 1);
+var df10 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/supplement-parse.ts
 var ACCIDENT_START_RE = /accident circumstances\s*:?/i;
@@ -50635,7 +51870,7 @@ function supplementAccidentCircumstancesFromBody(body2) {
 }
 
 // orchestration/src/functions/activities/imagesReceivedVrmMatch.ts
-var df5 = __toESM(require("durable-functions"), 1);
+var df8 = __toESM(require("durable-functions"), 1);
 var PDF_NAME_RE = /\.pdf$/i;
 var PDF_CTYPE_RE = /pdf/i;
 function shouldAttemptPdfVrmMatch(classification, triage, attachments) {
@@ -50646,14 +51881,14 @@ function shouldAttemptPdfVrmMatch(classification, triage, attachments) {
     (a) => PDF_NAME_RE.test(a.filename ?? "") || PDF_CTYPE_RE.test(a.contentType ?? "")
   );
 }
-function planVrmMatch(input14) {
-  if (!input14.refGate && !input14.imagesRouting) return { step: "skip", reason: "gate_off" };
-  const flagOr = (reason) => input14.imagesRouting ? { step: "flag", reason } : { step: "skip", reason: "flag_gate_off" };
-  const vrm = canonicalizeVrm(input14.vrm ?? "");
+function planVrmMatch(input16) {
+  if (!input16.refGate && !input16.imagesRouting) return { step: "skip", reason: "gate_off" };
+  const flagOr = (reason) => input16.imagesRouting ? { step: "flag", reason } : { step: "skip", reason: "flag_gate_off" };
+  const vrm = canonicalizeVrm(input16.vrm ?? "");
   if (!vrm) return flagOr("no_registration");
-  const tried = canonicalizeVrm(input14.triedVrm ?? "");
+  const tried = canonicalizeVrm(input16.triedVrm ?? "");
   if (tried && vrm === tried) return flagOr("already_tried");
-  if (!input14.refGate) return flagOr("suggest_gate_off");
+  if (!input16.refGate) return flagOr("suggest_gate_off");
   return { step: "lookup", vrm };
 }
 function resolveVrmMatches(matches) {
@@ -50669,15 +51904,15 @@ function resolveVrmMatches(matches) {
     reason: distinct.size === 0 ? "no_open_case" : "multiple_open_cases"
   };
 }
-df5.app.activity("imagesReceivedVrmMatch", {
-  handler: async (input14, ctx) => {
-    const internetMessageId = (input14.internetMessageId ?? "").trim();
+df8.app.activity("imagesReceivedVrmMatch", {
+  handler: async (input16, ctx) => {
+    const internetMessageId = (input16.internetMessageId ?? "").trim();
     if (!internetMessageId) {
       return { outcome: "skipped:no_message_id" };
     }
     const plan = planVrmMatch({
-      vrm: input14.vrm ?? "",
-      triedVrm: input14.triedVrm ?? "",
+      vrm: input16.vrm ?? "",
+      triedVrm: input16.triedVrm ?? "",
       refGate: gates.triageRefGate(),
       imagesRouting: gates.triageImagesRouting()
     });
@@ -50716,7 +51951,7 @@ df5.app.activity("imagesReceivedVrmMatch", {
             decisionInputs: {
               rung: "images_received_pdf_vrm",
               vrm: plan.vrm,
-              triedVrm: input14.triedVrm ?? "",
+              triedVrm: input16.triedVrm ?? "",
               matchCount: 1
             }
           });
@@ -50755,8 +51990,8 @@ df5.app.activity("imagesReceivedVrmMatch", {
 });
 
 // orchestration/src/functions/gated/triage-classify.ts
-var import_functions11 = require("@azure/functions");
-var df6 = __toESM(require("durable-functions"), 1);
+var import_functions14 = require("@azure/functions");
+var df9 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/telemetry.ts
 var DEFAULT_INGESTION_ENDPOINT = "https://dc.services.visualstudio.com";
@@ -50834,34 +52069,34 @@ function domainOf2(address) {
 function providerAiOptedOut(aiAllowed) {
   return aiAllowed === false;
 }
-import_functions11.app.http("triage-classify-start", {
+import_functions14.app.http("triage-classify-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "triage-classify",
-  extraInputs: [df6.input.durableClient()],
+  extraInputs: [df9.input.durableClient()],
   handler: async (req, ctx) => {
-    const input14 = await req.json();
-    const client2 = df6.getClient(ctx);
-    const instanceId = await client2.startNew("triageClassifyOrchestrator", { input: input14 });
+    const input16 = await req.json();
+    const client2 = df9.getClient(ctx);
+    const instanceId = await client2.startNew("triageClassifyOrchestrator", { input: input16 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry = new df6.RetryOptions(5e3, 3);
-retry.backoffCoefficient = 2;
-df6.app.orchestration("triageClassifyOrchestrator", function* (ctx) {
-  const input14 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("triageClassify", retry, input14);
+var retry3 = new df9.RetryOptions(5e3, 3);
+retry3.backoffCoefficient = 2;
+df9.app.orchestration("triageClassifyOrchestrator", function* (ctx) {
+  const input16 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("triageClassify", retry3, input16);
   return result;
 });
-df6.app.activity("triageClassify", {
-  handler: async (input14, ctx) => {
+df9.app.activity("triageClassify", {
+  handler: async (input16, ctx) => {
     if (!gates.emailAi() || !gates.aiAssistConfigured()) {
       ctx.log("[triageClassify] skipped \u2014 EMAIL_AI_ENABLED off or model endpoint/deployment not configured");
       return { skipped: true };
     }
-    if (input14.workProviderId) {
+    if (input16.workProviderId) {
       try {
-        const { aiAllowed } = await dataApi.workProviderAiAllowed(input14.workProviderId);
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input16.workProviderId);
         if (providerAiOptedOut(aiAllowed)) {
           ctx.log("[triageClassify] skipped \u2014 work provider opted out of AI (ai_allowed=false)");
           return { skipped: true, reason: "provider_ai_opt_out" };
@@ -50872,24 +52107,24 @@ df6.app.activity("triageClassify", {
         );
       }
     }
-    const subjectScrub = scrubPii(input14.subject ?? "");
-    const bodyScrub = scrubPii(input14.body ?? "");
+    const subjectScrub = scrubPii(input16.subject ?? "");
+    const bodyScrub = scrubPii(input16.body ?? "");
     const result = await callTriageModel({
       subjectScrubbed: subjectScrub.text,
       bodyScrubbed: bodyScrub.text,
-      senderDomain: input14.senderDomain || domainOf2(input14.senderAddress ?? ""),
-      attachmentFilenames: input14.attachmentFilenames ?? [],
-      deterministicCategory: input14.deterministicCategory ?? "",
-      deterministicSubtype: input14.deterministicSubtype ?? "",
-      deterministicSignals: input14.deterministicSignals ?? []
+      senderDomain: input16.senderDomain || domainOf2(input16.senderAddress ?? ""),
+      attachmentFilenames: input16.attachmentFilenames ?? [],
+      deterministicCategory: input16.deterministicCategory ?? "",
+      deterministicSubtype: input16.deterministicSubtype ?? "",
+      deterministicSignals: input16.deterministicSignals ?? []
     });
     await trackEvent("triage_llm_assist", {
       abstain: "abstain" in result,
       reason: "abstain" in result ? result.reason : void 0,
       subjectRedactions: subjectScrub.totalRedactions,
       bodyRedactions: bodyScrub.totalRedactions,
-      deterministicCategory: input14.deterministicCategory,
-      deterministicSubtype: input14.deterministicSubtype
+      deterministicCategory: input16.deterministicCategory,
+      deterministicSubtype: input16.deterministicSubtype
     });
     if ("abstain" in result) {
       ctx.log(JSON.stringify({ evt: "triageClassify", abstain: true, reason: result.reason }));
@@ -50898,8 +52133,8 @@ df6.app.activity("triageClassify", {
     const modelVersion = `${gates.aiModelDeployment()}:${result.responseModel ?? result.systemFingerprint ?? "unknown"}`;
     try {
       await dataApi.triageSuggestClassification({
-        ...input14.sourceMessageId ? { sourceMessageId: input14.sourceMessageId } : {},
-        ...input14.inboundEmailId ? { inboundEmailId: input14.inboundEmailId } : {},
+        ...input16.sourceMessageId ? { sourceMessageId: input16.sourceMessageId } : {},
+        ...input16.inboundEmailId ? { inboundEmailId: input16.inboundEmailId } : {},
         category: result.category,
         subtype: result.subtype,
         rationale: result.rationale,
@@ -50917,29 +52152,29 @@ df6.app.activity("triageClassify", {
 });
 
 // orchestration/src/functions/intakeOrchestrator.ts
-var retry2 = new df7.RetryOptions(
+var retry4 = new df10.RetryOptions(
   /*firstRetryIntervalInMilliseconds*/
   5e3,
   /*maxNumberOfAttempts*/
   3
 );
-retry2.backoffCoefficient = 2;
-retry2.maxRetryIntervalInMilliseconds = 6e4;
-df7.app.orchestration("intakeOrchestrator", function* (ctx) {
-  const input14 = ctx.df.getInput();
-  const inbound = yield ctx.df.callActivityWithRetry("fetchMessage", retry2, input14);
-  const provider = yield ctx.df.callActivityWithRetry("providerMatch", retry2, inbound);
+retry4.backoffCoefficient = 2;
+retry4.maxRetryIntervalInMilliseconds = 6e4;
+df10.app.orchestration("intakeOrchestrator", function* (ctx) {
+  const input16 = ctx.df.getInput();
+  const inbound = yield ctx.df.callActivityWithRetry("fetchMessage", retry4, input16);
+  const provider = yield ctx.df.callActivityWithRetry("providerMatch", retry4, inbound);
   const workProviderId = provider.workProviderId;
   const matchState = provider.matchState;
   const principalCode = provider.principalCode;
   const intermediaryImageSourceId = provider.imageSourceId;
   const intermediaryCandidateProviderIds = provider.candidateProviderIds;
-  const classification = yield ctx.df.callActivityWithRetry("classifyInbound", retry2, {
+  const classification = yield ctx.df.callActivityWithRetry("classifyInbound", retry4, {
     inbound,
     workProviderId,
     matchState
   });
-  const triage = yield ctx.df.callActivityWithRetry("triagePolicy", retry2, {
+  const triage = yield ctx.df.callActivityWithRetry("triagePolicy", retry4, {
     inbound,
     classification,
     matchState,
@@ -50956,14 +52191,14 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
   if (triage.action === "attach_case" && triage.targetCaseId) {
     const caseId = triage.targetCaseId;
     const caseVrm = (inbound.candidateVrm || classification.bodyVrm || "").trim();
-    yield ctx.df.callActivityWithRetry("classifyPersist", retry2, {
+    yield ctx.df.callActivityWithRetry("classifyPersist", retry4, {
       caseId,
       inbound,
       ...caseVrm ? { caseVrm } : {},
       ...workProviderId ? { workProviderId } : {}
     });
     try {
-      yield ctx.df.callActivityWithRetry("extractImages", retry2, {
+      yield ctx.df.callActivityWithRetry("extractImages", retry4, {
         caseId,
         messageId: inbound.messageId,
         attachments: inbound.attachments,
@@ -50978,13 +52213,13 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
       }
     }
     try {
-      yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry2, { caseId });
+      yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry4, { caseId });
     } catch (e) {
       if (!ctx.df.isReplaying) {
         ctx.log(`[intake] archive failed for attach_case ${caseId} (additive, non-blocking): ${String(e)}`);
       }
     }
-    const status2 = yield ctx.df.callActivityWithRetry("statusEvaluate", retry2, { caseId });
+    const status2 = yield ctx.df.callActivityWithRetry("statusEvaluate", retry4, { caseId });
     return {
       triaged: triage.finalCategory,
       subtype: triage.finalSubtype,
@@ -50996,7 +52231,7 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
   if (shouldAttemptTriageAssist(classification)) {
     try {
       const env = inbound;
-      yield ctx.df.callActivityWithRetry("triageClassify", retry2, {
+      yield ctx.df.callActivityWithRetry("triageClassify", retry4, {
         sourceMessageId: env.internetMessageId,
         subject: env.subject,
         body: env.body,
@@ -51018,7 +52253,7 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
   }
   if (triage.action === "route_images_unmatched") {
     try {
-      yield ctx.df.callActivityWithRetry("imagesUnmatched", retry2, {
+      yield ctx.df.callActivityWithRetry("imagesUnmatched", retry4, {
         internetMessageId: inbound.internetMessageId,
         vrm: (inbound.candidateVrm || classification.bodyVrm || "").trim()
       });
@@ -51034,7 +52269,7 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
       const ref = ((inb.candidateRef || classification.bodyCaseref) ?? "").trim();
       const vrm = ((inb.candidateVrm || classification.bodyVrm) ?? "").trim();
       const jobref = (classification.bodyJobref ?? "").trim();
-      const link = yield ctx.df.callActivityWithRetry("linkReply", retry2, {
+      const link = yield ctx.df.callActivityWithRetry("linkReply", retry4, {
         inbound,
         providerId: workProviderId,
         ref,
@@ -51042,14 +52277,14 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
         jobref
       });
       if (link.outcome === "linked" && link.caseId) {
-        yield ctx.df.callActivityWithRetry("classifyPersist", retry2, {
+        yield ctx.df.callActivityWithRetry("classifyPersist", retry4, {
           caseId: link.caseId,
           inbound,
           caseVrm: vrm || inbound.candidateVrm,
           ...workProviderId ? { workProviderId } : {}
         });
         try {
-          yield ctx.df.callActivityWithRetry("extractImages", retry2, {
+          yield ctx.df.callActivityWithRetry("extractImages", retry4, {
             caseId: link.caseId,
             messageId: inbound.messageId,
             attachments: inbound.attachments,
@@ -51064,7 +52299,7 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
           }
         }
         try {
-          yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry2, {
+          yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry4, {
             caseId: link.caseId
           });
         } catch (e) {
@@ -51072,7 +52307,7 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
             ctx.log(`[intake] archive failed for linked reply case ${link.caseId} (additive, non-blocking): ${String(e)}`);
           }
         }
-        const status2 = yield ctx.df.callActivityWithRetry("statusEvaluate", retry2, {
+        const status2 = yield ctx.df.callActivityWithRetry("statusEvaluate", retry4, {
           caseId: link.caseId
         });
         return {
@@ -51102,7 +52337,7 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
       let retroReplyOutcome;
       if (retroReply.attempt) {
         try {
-          const retro = yield ctx.df.callSubOrchestratorWithRetry("retroCaseOrchestrator", retry2, {
+          const retro = yield ctx.df.callSubOrchestratorWithRetry("retroCaseOrchestrator", retry4, {
             trigger: inbound,
             category: classification.category,
             subtype: classification.subtype,
@@ -51135,7 +52370,7 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
       try {
         let laneParse = {};
         try {
-          laneParse = yield ctx.df.callActivityWithRetry("parse", retry2, {
+          laneParse = yield ctx.df.callActivityWithRetry("parse", retry4, {
             messageId: inbound.messageId,
             attachments: inbound.attachments,
             providerHint: principalCode
@@ -51147,7 +52382,7 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
             );
           }
         }
-        const vrmMatch = yield ctx.df.callActivityWithRetry("imagesReceivedVrmMatch", retry2, {
+        const vrmMatch = yield ctx.df.callActivityWithRetry("imagesReceivedVrmMatch", retry4, {
           internetMessageId: inbound.internetMessageId,
           vrm: (laneParse.vrm?.value ?? "").trim(),
           triedVrm: (inbound.candidateVrm || classification.bodyVrm || "").trim()
@@ -51180,7 +52415,7 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
     let retroOutcome;
     if (retroNonReply.attempt) {
       try {
-        const retro = yield ctx.df.callSubOrchestratorWithRetry("retroCaseOrchestrator", retry2, {
+        const retro = yield ctx.df.callSubOrchestratorWithRetry("retroCaseOrchestrator", retry4, {
           trigger: inbound,
           category: classification.category,
           subtype: classification.subtype,
@@ -51209,7 +52444,7 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
   };
   let parseResult = {};
   try {
-    parseResult = yield ctx.df.callActivityWithRetry("parse", retry2, {
+    parseResult = yield ctx.df.callActivityWithRetry("parse", retry4, {
       messageId: inbound.messageId,
       attachments: inbound.attachments,
       providerHint: principalCode
@@ -51246,7 +52481,7 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
     parserAudit: parseResult.audit,
     classifierSubtype: classification.subtype
   });
-  const resolved = yield ctx.df.callActivityWithRetry("caseResolve", retry2, {
+  const resolved = yield ctx.df.callActivityWithRetry("caseResolve", retry4, {
     inbound: inboundForCase,
     providerId: workProviderId,
     matchState,
@@ -51271,9 +52506,9 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
     }
     return { triaged: classification.category, subtype: classification.subtype, refused: "category_mint_guard" };
   }
-  yield ctx.df.callActivityWithRetry("setIngested", retry2, { caseId: resolved.caseId });
+  yield ctx.df.callActivityWithRetry("setIngested", retry4, { caseId: resolved.caseId });
   try {
-    yield ctx.df.callActivityWithRetry("correlatePreInstruction", retry2, {
+    yield ctx.df.callActivityWithRetry("correlatePreInstruction", retry4, {
       caseId: resolved.caseId,
       casePo: resolved.casePo ?? null,
       vrm: parserVrm || inbound.candidateVrm || "",
@@ -51292,7 +52527,7 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
   }
   if (resolved.casePo) {
     try {
-      yield ctx.df.callSubOrchestratorWithRetry("boxFolderCreateOrchestrator", retry2, {
+      yield ctx.df.callSubOrchestratorWithRetry("boxFolderCreateOrchestrator", retry4, {
         caseId: resolved.caseId,
         folderName: resolved.casePo.toUpperCase()
       });
@@ -51302,7 +52537,7 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
       }
     }
   }
-  yield ctx.df.callActivityWithRetry("classifyPersist", retry2, {
+  yield ctx.df.callActivityWithRetry("classifyPersist", retry4, {
     caseId: resolved.caseId,
     inbound,
     typings: parseResult.attachmentTypings,
@@ -51310,7 +52545,7 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
     ...workProviderId ? { workProviderId } : {}
   });
   try {
-    yield ctx.df.callActivityWithRetry("extractImages", retry2, {
+    yield ctx.df.callActivityWithRetry("extractImages", retry4, {
       caseId: resolved.caseId,
       messageId: inbound.messageId,
       attachments: inbound.attachments,
@@ -51325,7 +52560,7 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
     }
   }
   try {
-    yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry2, {
+    yield ctx.df.callActivityWithRetry("boxArchiveEvidence", retry4, {
       caseId: resolved.caseId
     });
   } catch (e) {
@@ -51333,11 +52568,11 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
       ctx.log(`[intake] box archive failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
     }
   }
-  const status = yield ctx.df.callActivityWithRetry("statusEvaluate", retry2, {
+  const status = yield ctx.df.callActivityWithRetry("statusEvaluate", retry4, {
     caseId: resolved.caseId
   });
   if (autoEnrich) {
-    yield ctx.df.callActivityWithRetry("enrich", retry2, {
+    yield ctx.df.callActivityWithRetry("enrich", retry4, {
       caseId: resolved.caseId,
       vrm: parserVrm || inbound.candidateVrm,
       documentHasMileage
@@ -51348,35 +52583,35 @@ df7.app.orchestration("intakeOrchestrator", function* (ctx) {
 
 // orchestration/src/functions/activities/fetchMessage.ts
 var import_node_crypto6 = require("node:crypto");
-var df8 = __toESM(require("durable-functions"), 1);
+var df11 = __toESM(require("durable-functions"), 1);
 var BODY_CAP = 2e4;
 var BODY_PREVIEW_CAP = 3500;
-df8.app.activity("fetchMessage", {
-  handler: async (input14, ctx) => {
-    const parsedMailbox = mailboxOfResource(input14.resource ?? "");
+df11.app.activity("fetchMessage", {
+  handler: async (input16, ctx) => {
+    const parsedMailbox = mailboxOfResource(input16.resource ?? "");
     let mailbox = parsedMailbox;
     let mailboxVia = "resource";
-    if (!looksLikeMailboxAddress(parsedMailbox) && input14.subscriptionId) {
-      const resolved = await resolveSubscriptionMailbox(input14.subscriptionId);
+    if (!looksLikeMailboxAddress(parsedMailbox) && input16.subscriptionId) {
+      const resolved = await resolveSubscriptionMailbox(input16.subscriptionId);
       if (resolved) {
         mailbox = resolved;
         mailboxVia = "subscription";
       }
     }
-    if (!mailbox) throw new Error(`fetchMessage: cannot derive mailbox from resource "${input14.resource}"`);
-    const { message, attachments } = await getMessageWithAttachments(mailbox, input14.messageId);
-    const headers = await getMessageHeaders(mailbox, input14.messageId);
+    if (!mailbox) throw new Error(`fetchMessage: cannot derive mailbox from resource "${input16.resource}"`);
+    const { message, attachments } = await getMessageWithAttachments(mailbox, input16.messageId);
+    const headers = await getMessageHeaders(mailbox, input16.messageId);
     const landed = [];
     for (const a of attachments) {
       const bytes = Buffer.from(a.contentBytes ?? "", "base64");
-      const up = await uploadEvidenceBytes(input14.messageId, a.name, bytes, a.contentType);
+      const up = await uploadEvidenceBytes(input16.messageId, a.name, bytes, a.contentType);
       landed.push({ filename: a.name, contentType: a.contentType, blobPath: up.blobPath, size: up.size, sha256: up.sha256 });
     }
     let rawEml;
     try {
-      const mime = await getMessageRawMime(mailbox, input14.messageId);
-      const emlName = rawEmlFileName(message.internetMessageId ?? input14.messageId);
-      const emlUp = await uploadEvidenceBytes(input14.messageId, emlName, mime, "message/rfc822");
+      const mime = await getMessageRawMime(mailbox, input16.messageId);
+      const emlName = rawEmlFileName(message.internetMessageId ?? input16.messageId);
+      const emlUp = await uploadEvidenceBytes(input16.messageId, emlName, mime, "message/rfc822");
       rawEml = {
         filename: emlName,
         contentType: "message/rfc822",
@@ -51385,7 +52620,7 @@ df8.app.activity("fetchMessage", {
         sha256: emlUp.sha256
       };
     } catch (e) {
-      ctx.warn(`[fetchMessage] raw .eml capture failed for ${input14.messageId}: ${e instanceof Error ? e.message : String(e)}`);
+      ctx.warn(`[fetchMessage] raw .eml capture failed for ${input16.messageId}: ${e instanceof Error ? e.message : String(e)}`);
     }
     const subject = message.subject ?? "";
     const senderAddress = message.from?.emailAddress?.address ?? "";
@@ -51395,12 +52630,12 @@ df8.app.activity("fetchMessage", {
     const candidateVrm = extractVrm(`${subject}
 ${body2}`);
     const envelope = {
-      messageId: input14.messageId,
-      internetMessageId: message.internetMessageId ?? input14.messageId,
+      messageId: input16.messageId,
+      internetMessageId: message.internetMessageId ?? input16.messageId,
       conversationId: message.conversationId ?? "",
       subject,
       senderAddress,
-      receivedAt: message.receivedDateTime ?? input14.receivedAt ?? (/* @__PURE__ */ new Date()).toISOString(),
+      receivedAt: message.receivedDateTime ?? input16.receivedAt ?? (/* @__PURE__ */ new Date()).toISOString(),
       sourceMailbox: mailbox,
       payloadHash,
       candidateVrm,
@@ -51413,7 +52648,7 @@ ${body2}`);
       attachments: landed,
       ...rawEml ? { rawEml } : {}
     };
-    ctx.log(JSON.stringify({ evt: "fetchMessage", messageId: input14.messageId, mailbox, mailboxVia, attachments: landed.length, eml: Boolean(rawEml) }));
+    ctx.log(JSON.stringify({ evt: "fetchMessage", messageId: input16.messageId, mailbox, mailboxVia, attachments: landed.length, eml: Boolean(rawEml) }));
     return envelope;
   }
 });
@@ -51423,8 +52658,8 @@ function hashPayload(subject, from, attachments) {
 }
 
 // orchestration/src/functions/activities/providerMatch.ts
-var df9 = __toESM(require("durable-functions"), 1);
-df9.app.activity("providerMatch", {
+var df12 = __toESM(require("durable-functions"), 1);
+df12.app.activity("providerMatch", {
   handler: async (inbound, ctx) => {
     const { providers, imageSources } = await dataApi.providerMatchRecords();
     const identity = matchSenderIdentity(inbound.senderAddress, providers, imageSources);
@@ -51471,7 +52706,7 @@ df9.app.activity("providerMatch", {
 });
 
 // orchestration/src/functions/activities/classifyInbound.ts
-var df10 = __toESM(require("durable-functions"), 1);
+var df13 = __toESM(require("durable-functions"), 1);
 var MATCH_STATE_TO_CLASSIFIER = {
   matched: "one",
   unmatched: "none",
@@ -51509,9 +52744,9 @@ function buildClassifyRequest(inbound, matchState) {
     references: inbound.references
   };
 }
-df10.app.activity("classifyInbound", {
-  handler: async (input14, ctx) => {
-    const { inbound, workProviderId, matchState } = input14;
+df13.app.activity("classifyInbound", {
+  handler: async (input16, ctx) => {
+    const { inbound, workProviderId, matchState } = input16;
     const res = await callClassifyEmail(buildClassifyRequest(inbound, matchState));
     const acting = resolveActingClassification(
       res.category ?? "",
@@ -51557,7 +52792,7 @@ df10.app.activity("classifyInbound", {
 });
 
 // orchestration/src/functions/activities/triagePolicy.ts
-var df11 = __toESM(require("durable-functions"), 1);
+var df14 = __toESM(require("durable-functions"), 1);
 var GATES_ALL_ON = {
   refGate: true,
   cancellation: true,
@@ -51632,9 +52867,9 @@ function toPolicyClassification(classification) {
     taxonomyVersion: classification.taxonomyVersion
   };
 }
-df11.app.activity("triagePolicy", {
-  handler: async (input14, ctx) => {
-    const { inbound, classification } = input14;
+df14.app.activity("triagePolicy", {
+  handler: async (input16, ctx) => {
+    const { inbound, classification } = input16;
     let resolvedContext;
     try {
       resolvedContext = await dataApi.triageContext(buildTriageContextRequest(inbound, classification));
@@ -51650,7 +52885,7 @@ df11.app.activity("triagePolicy", {
       openCaseMatches: resolvedContext.openCaseMatches,
       duplicateInternetMessageId: resolvedContext.duplicateInternetMessageId,
       conversationSiblingCaseIds: resolvedContext.conversationSiblingCaseIds,
-      providerMatchState: normaliseMatchState(input14.matchState),
+      providerMatchState: normaliseMatchState(input16.matchState),
       hasAttachments,
       attachmentKinds,
       imagesOnly
@@ -51658,9 +52893,9 @@ df11.app.activity("triagePolicy", {
     const actingGateValues = actingGates();
     const shadow = decideTriage(policyClassification, policyContext, GATES_ALL_ON);
     const acting = decideTriage(policyClassification, policyContext, actingGateValues);
-    const intermediaryDecisionInputs = input14.intermediaryImageSourceId ? {
-      intermediaryImageSourceId: input14.intermediaryImageSourceId,
-      intermediaryCandidateProviderIds: input14.intermediaryCandidateProviderIds ?? []
+    const intermediaryDecisionInputs = input16.intermediaryImageSourceId ? {
+      intermediaryImageSourceId: input16.intermediaryImageSourceId,
+      intermediaryCandidateProviderIds: input16.intermediaryCandidateProviderIds ?? []
     } : {};
     await trackEvent("triage_decision", {
       actingAction: acting.action,
@@ -51706,19 +52941,19 @@ df11.app.activity("triagePolicy", {
 });
 
 // orchestration/src/functions/activities/correlatePreInstruction.ts
-var df12 = __toESM(require("durable-functions"), 1);
+var df15 = __toESM(require("durable-functions"), 1);
 function preInstructionRationale(casePo) {
   const target = casePo ? `case ${casePo}` : "this case";
   return `Directions received before the instruction arrived appear to relate to ${target} \u2014 review and attach so they are not missed.`;
 }
-df12.app.activity("correlatePreInstruction", {
-  handler: async (input14, ctx) => {
+df15.app.activity("correlatePreInstruction", {
+  handler: async (input16, ctx) => {
     if (!gates.triagePreInstruction()) {
       return { skipped: true, matches: 0, suggested: 0 };
     }
-    const vrm = (input14.vrm ?? "").trim();
-    const caseRef = (input14.caseRef ?? "").trim();
-    const jobRef = (input14.jobRef ?? "").trim();
+    const vrm = (input16.vrm ?? "").trim();
+    const caseRef = (input16.caseRef ?? "").trim();
+    const jobRef = (input16.jobRef ?? "").trim();
     if (!vrm && !caseRef && !jobRef) {
       return { skipped: true, matches: 0, suggested: 0 };
     }
@@ -51732,9 +52967,9 @@ df12.app.activity("correlatePreInstruction", {
       const res = await dataApi.triageSuggestLink({
         inboundEmailId: row.inboundEmailId,
         ...row.sourceMessageId ? { sourceMessageId: row.sourceMessageId } : {},
-        targetCaseId: input14.caseId,
+        targetCaseId: input16.caseId,
         suggestionType: "case_link",
-        rationale: preInstructionRationale(input14.casePo),
+        rationale: preInstructionRationale(input16.casePo),
         confidence: 0.6,
         decisionInputs: {
           lane: "pre_instruction",
@@ -51747,7 +52982,7 @@ df12.app.activity("correlatePreInstruction", {
     ctx.log(
       JSON.stringify({
         evt: "correlatePreInstruction",
-        caseId: input14.caseId,
+        caseId: input16.caseId,
         matches: held.length,
         suggested
       })
@@ -51757,20 +52992,20 @@ df12.app.activity("correlatePreInstruction", {
 });
 
 // orchestration/src/functions/activities/linkReply.ts
-var df13 = __toESM(require("durable-functions"), 1);
-df13.app.activity("linkReply", {
-  handler: async (input14, ctx) => {
+var df16 = __toESM(require("durable-functions"), 1);
+df16.app.activity("linkReply", {
+  handler: async (input16, ctx) => {
     const result = await dataApi.linkReplyToOpenCase({
-      inbound: input14.inbound,
-      providerId: input14.providerId,
-      ref: input14.ref,
-      vrm: input14.vrm,
-      jobref: input14.jobref
+      inbound: input16.inbound,
+      providerId: input16.providerId,
+      ref: input16.ref,
+      vrm: input16.vrm,
+      jobref: input16.jobref
     });
     ctx.log(
       JSON.stringify({
         evt: "linkReply",
-        messageId: input14.inbound.messageId,
+        messageId: input16.inbound.messageId,
         outcome: result.outcome,
         candidateCount: result.candidateCount
       })
@@ -51780,11 +53015,11 @@ df13.app.activity("linkReply", {
 });
 
 // orchestration/src/functions/activities/caseResolve.ts
-var df14 = __toESM(require("durable-functions"), 1);
-df14.app.activity("caseResolve", {
-  handler: async (input14, ctx) => {
-    const { inbound, providerId, matchState } = input14;
-    const bestVrm = ((input14.parserVrm || inbound.candidateVrm) ?? "").trim();
+var df17 = __toESM(require("durable-functions"), 1);
+df17.app.activity("caseResolve", {
+  handler: async (input16, ctx) => {
+    const { inbound, providerId, matchState } = input16;
+    const bestVrm = ((input16.parserVrm || inbound.candidateVrm) ?? "").trim();
     try {
       const context3 = await dataApi.dedupContext({
         workProviderId: providerId ?? "",
@@ -51801,7 +53036,7 @@ df14.app.activity("caseResolve", {
         candidateVrm: bestVrm,
         // #100 — fall back to the parser-confirmed reference for dedup when the email
         // subject/body did not yield a Case/PO (a ref that lives only in the PDF).
-        candidateRef: inbound.candidateRef || input14.parserRef || "",
+        candidateRef: inbound.candidateRef || input16.parserRef || "",
         workProviderId: providerId ?? "",
         openProviderCases: context3.openProviderCases,
         seenMessageIds: context3.seenMessageIds,
@@ -51815,16 +53050,16 @@ df14.app.activity("caseResolve", {
         inbound,
         providerId,
         matchState,
-        parserVrm: input14.parserVrm,
-        parserRef: input14.parserRef,
-        parserMileage: input14.parserMileage,
-        parserMileageUnit: input14.parserMileageUnit,
-        parserEva: input14.parserEvaFields,
-        intermediaryImageSourceId: input14.intermediaryImageSourceId,
-        intermediaryCandidateProviderIds: input14.intermediaryCandidateProviderIds,
-        caseType: input14.caseType,
-        caseTypeDual: input14.caseTypeDual,
-        caseTypeSignals: input14.caseTypeSignals,
+        parserVrm: input16.parserVrm,
+        parserRef: input16.parserRef,
+        parserMileage: input16.parserMileage,
+        parserMileageUnit: input16.parserMileageUnit,
+        parserEva: input16.parserEvaFields,
+        intermediaryImageSourceId: input16.intermediaryImageSourceId,
+        intermediaryCandidateProviderIds: input16.intermediaryCandidateProviderIds,
+        caseType: input16.caseType,
+        caseTypeDual: input16.caseTypeDual,
+        caseTypeSignals: input16.caseTypeSignals,
         decision: {
           resolution: decision.resolution,
           targetCaseId: decision.targetCaseId,
@@ -51852,17 +53087,17 @@ df14.app.activity("caseResolve", {
 });
 
 // orchestration/src/functions/activities/setIngested.ts
-var df15 = __toESM(require("durable-functions"), 1);
-df15.app.activity("setIngested", {
-  handler: async (input14, ctx) => {
-    const result = await dataApi.setIngested(input14.caseId);
-    ctx.log(JSON.stringify({ evt: "setIngested", caseId: input14.caseId, updated: result.updated }));
+var df18 = __toESM(require("durable-functions"), 1);
+df18.app.activity("setIngested", {
+  handler: async (input16, ctx) => {
+    const result = await dataApi.setIngested(input16.caseId);
+    ctx.log(JSON.stringify({ evt: "setIngested", caseId: input16.caseId, updated: result.updated }));
     return result;
   }
 });
 
 // orchestration/src/functions/activities/parse.ts
-var df16 = __toESM(require("durable-functions"), 1);
+var df19 = __toESM(require("durable-functions"), 1);
 var hasValue = (cell) => (cell?.value ?? "").trim() !== "";
 function shouldAttemptScannedPdfOcr(parsed, filename) {
   if (parsed.skipped) return false;
@@ -51927,14 +53162,14 @@ function resolveWorkProviderAcrossDocs(parsed) {
   }
   return "";
 }
-df16.app.activity("parse", {
-  handler: async (input14, ctx) => {
-    const corr = input14.caseId || input14.messageId || "(pre-resolve)";
+df19.app.activity("parse", {
+  handler: async (input16, ctx) => {
+    const corr = input16.caseId || input16.messageId || "(pre-resolve)";
     if (!gates.pdfMapper()) {
       ctx.log("[parse] skipped \u2014 PDF_MAPPER_ENABLED=false");
       return { skipped: true, reason: "gate_off" };
     }
-    const candidates = orderParseCandidates(input14.attachments ?? []);
+    const candidates = orderParseCandidates(input16.attachments ?? []);
     if (!candidates.length) {
       ctx.log(`[parse] no instruction document attachment for ${corr}; skipping`);
       return { skipped: true, reason: "no_document" };
@@ -51969,7 +53204,7 @@ df16.app.activity("parse", {
         body: JSON.stringify({
           document: documentB642,
           filename: att.filename,
-          ...input14.providerHint ? { provider_hint: input14.providerHint } : {}
+          ...input16.providerHint ? { provider_hint: input16.providerHint } : {}
         })
       });
       if (!res.ok) {
@@ -52036,7 +53271,7 @@ df16.app.activity("parse", {
         const ocr = await callOcrPdf({
           documentBase64: documentB64,
           filename: doc.filename,
-          ...input14.providerHint ? { providerHint: input14.providerHint } : {}
+          ...input16.providerHint ? { providerHint: input16.providerHint } : {}
         });
         const merged = coalesceOcrIntoParse(parsed, ocr);
         const filled = Object.keys(merged.extraction ?? {}).filter(
@@ -52064,26 +53299,26 @@ df16.app.activity("parse", {
 });
 
 // orchestration/src/functions/activities/statusEvaluate.ts
-var df17 = __toESM(require("durable-functions"), 1);
-df17.app.activity("statusEvaluate", {
-  handler: async (input14, ctx) => {
-    const result = await dataApi.evaluateStatus(input14.caseId);
-    ctx.log(JSON.stringify({ evt: "statusEvaluate", caseId: input14.caseId, status: result.value }));
+var df20 = __toESM(require("durable-functions"), 1);
+df20.app.activity("statusEvaluate", {
+  handler: async (input16, ctx) => {
+    const result = await dataApi.evaluateStatus(input16.caseId);
+    ctx.log(JSON.stringify({ evt: "statusEvaluate", caseId: input16.caseId, status: result.value }));
     return result;
   }
 });
 
 // orchestration/src/functions/activities/enrich.ts
-var df18 = __toESM(require("durable-functions"), 1);
-df18.app.activity("enrich", {
-  handler: async (input14, ctx) => {
+var df21 = __toESM(require("durable-functions"), 1);
+df21.app.activity("enrich", {
+  handler: async (input16, ctx) => {
     if (!gates.enrichment()) {
       ctx.log("[enrich] skipped \u2014 ENRICHMENT_ENABLED=false");
       return { skipped: true, reason: "gate_off" };
     }
-    const vrm = (input14.vrm ?? "").trim();
+    const vrm = (input16.vrm ?? "").trim();
     if (!vrm) {
-      ctx.log(`[enrich] no VRM resolved for case ${input14.caseId}; nothing to enrich \u2014 skipping`);
+      ctx.log(`[enrich] no VRM resolved for case ${input16.caseId}; nothing to enrich \u2014 skipping`);
       return { skipped: true, reason: "no_vrm" };
     }
     const res = await fetch(`${process.env.ENRICH_FN_URL}/api/dvsa-mot/enrich`, {
@@ -52092,16 +53327,16 @@ df18.app.activity("enrich", {
         "Content-Type": "application/json",
         "x-functions-key": process.env.ENRICH_FN_KEY
       },
-      body: JSON.stringify({ vrm, document_has_mileage: input14.documentHasMileage ?? true })
+      body: JSON.stringify({ vrm, document_has_mileage: input16.documentHasMileage ?? true })
     });
     if (!res.ok) {
       if (res.status === 401 || res.status === 403) {
         ctx.error(
-          `[enrich] auth/config error ${res.status} calling enrichment for case ${input14.caseId} \u2014 check ENRICH_FN_KEY`
+          `[enrich] auth/config error ${res.status} calling enrichment for case ${input16.caseId} \u2014 check ENRICH_FN_KEY`
         );
         await dataApi.recordAudit({
           action: "enrichment_failed",
-          caseId: input14.caseId,
+          caseId: input16.caseId,
           severity: "error",
           summary: `enrichment auth/config error ${res.status}`
         });
@@ -52110,19 +53345,19 @@ df18.app.activity("enrich", {
       if (res.status >= 500) {
         throw new Error(`[enrich] enrichment Function responded ${res.status}`);
       }
-      ctx.log(`[enrich] enrichment returned ${res.status} for case ${input14.caseId}; skipping`);
+      ctx.log(`[enrich] enrichment returned ${res.status} for case ${input16.caseId}; skipping`);
       return { skipped: true, status: res.status };
     }
     const result = await res.json();
-    const persisted = await dataApi.persistEnrichment(input14.caseId, result);
-    ctx.log(JSON.stringify({ evt: "enrich", caseId: input14.caseId, applied: persisted.applied }));
+    const persisted = await dataApi.persistEnrichment(input16.caseId, result);
+    ctx.log(JSON.stringify({ evt: "enrich", caseId: input16.caseId, applied: persisted.applied }));
     return { enriched: true, applied: persisted.applied, warnings: result.warnings ?? [] };
   }
 });
 
 // orchestration/src/functions/activities/boxArchive.ts
-var import_functions12 = require("@azure/functions");
-var df19 = __toESM(require("durable-functions"), 1);
+var import_functions15 = require("@azure/functions");
+var df22 = __toESM(require("durable-functions"), 1);
 var DEFAULT_INLINE_UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
 function boxInlineUploadMaxBytes() {
   const raw = Number(process.env.BOX_INLINE_UPLOAD_MAX_BYTES ?? "");
@@ -52142,35 +53377,98 @@ async function uploadArchiveItem(folderId, item, maxInlineBytes = boxInlineUploa
   const bytes = await deps.download(item.blobPath);
   return deps.uploadInline(folderId, item.filename, bytes.toString("base64"), item.contentType);
 }
-import_functions12.app.http("box-archive-start", {
+import_functions15.app.http("box-archive-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "box-archive",
-  extraInputs: [df19.input.durableClient()],
+  extraInputs: [df22.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       ctx.log("[box-archive] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
-    const input14 = await req.json();
-    const client2 = df19.getClient(ctx);
-    const instanceId = await client2.startNew("boxArchiveEvidenceOrchestrator", { input: input14 });
+    const input16 = await req.json();
+    const client2 = df22.getClient(ctx);
+    const instanceId = await client2.startNew("boxArchiveEvidenceOrchestrator", { input: input16 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var manualRetry = new df19.RetryOptions(5e3, 3);
+var manualRetry = new df22.RetryOptions(5e3, 3);
 manualRetry.backoffCoefficient = 2;
-df19.app.orchestration("boxArchiveEvidenceOrchestrator", function* (ctx) {
-  const input14 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("boxArchiveEvidence", manualRetry, input14);
+df22.app.orchestration("boxArchiveEvidenceOrchestrator", function* (ctx) {
+  const input16 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("boxArchiveEvidence", manualRetry, input16);
   return result;
 });
-df19.app.activity("boxArchiveEvidence", {
-  handler: async (input14, ctx) => {
+var realMirrorItemDeps = {
+  upload: (folderId, item) => uploadArchiveItem(folderId, item),
+  stamp: (payload) => dataApi.stampArchivedEvidence(payload),
+  release: (payload) => dataApi.releaseArchiveEvidenceClaim(payload)
+};
+async function mirrorArchiveItems(caseId, folderId, items, ctx, deps = realMirrorItemDeps) {
+  const uploadByBlobPath = /* @__PURE__ */ new Map();
+  let uploaded = 0;
+  const fileIds = [];
+  for (const item of items) {
+    let result = uploadByBlobPath.get(item.blobPath);
+    if (!result) {
+      try {
+        result = await deps.upload(folderId, item);
+      } catch (e) {
+        ctx.warn(
+          `[boxArchive] upload failed for ${item.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`
+        );
+        await deps.release?.({
+          caseId,
+          evidenceId: item.id,
+          claimToken: item.claimToken
+        }).catch(() => void 0);
+        continue;
+      }
+      if (!result.id) {
+        ctx.warn(`[boxArchive] upload returned no file id for ${item.filename} (case ${caseId})`);
+        await deps.release?.({
+          caseId,
+          evidenceId: item.id,
+          claimToken: item.claimToken
+        }).catch(() => void 0);
+        continue;
+      }
+      uploadByBlobPath.set(item.blobPath, result);
+    }
+    if (!result.id) continue;
+    const boxFileUrl = `https://app.box.com/file/${encodeURIComponent(result.id)}`;
+    try {
+      const stamped = await deps.stamp({
+        caseId,
+        evidenceId: item.id,
+        blobPath: item.blobPath,
+        boxFileId: result.id,
+        boxFileUrl,
+        claimToken: item.claimToken,
+        decisionGeneration: item.decisionGeneration
+      });
+      if (!stamped.updated) {
+        ctx.warn(`[boxArchive] evidence row was not stamped for ${item.filename} (case ${caseId})`);
+        continue;
+      }
+    } catch (e) {
+      ctx.warn(
+        `[boxArchive] upload succeeded but evidence stamp failed for ${item.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`
+      );
+      throw e;
+    }
+    uploaded++;
+    fileIds.push(result.id);
+  }
+  return { uploaded, total: items.length, fileIds };
+}
+df22.app.activity("boxArchiveEvidence", {
+  handler: async (input16, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       return { uploaded: 0, total: 0, skipped: "gated_off" };
     }
-    const { caseId } = input14;
+    const { caseId } = input16;
     let folderId = null;
     try {
       const cf = await dataApi.getCaseBoxFolder(caseId);
@@ -52190,54 +53488,20 @@ df19.app.activity("boxArchiveEvidence", {
         id: row.id,
         filename: row.filename,
         blobPath: row.blobPath,
-        contentType: row.contentType || "application/octet-stream"
+        contentType: row.contentType || "application/octet-stream",
+        claimToken: row.claimToken,
+        decisionGeneration: Number(row.decisionGeneration)
       }));
     } catch (e) {
       ctx.warn(`[boxArchive] could not read evidence rows for ${caseId}: ${String(e)}`);
       return { uploaded: 0, total: 0, skipped: "evidence_unreadable" };
     }
-    const seen = /* @__PURE__ */ new Set();
-    let uploaded = 0;
-    const fileIds = [];
-    let total = 0;
-    for (const it of items) {
-      if (seen.has(it.blobPath)) continue;
-      seen.add(it.blobPath);
-      total++;
-      let res;
-      try {
-        res = await uploadArchiveItem(folderId, it);
-      } catch (e) {
-        ctx.warn(
-          `[boxArchive] upload failed for ${it.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`
-        );
-        continue;
-      }
-      if (!res.id) {
-        ctx.warn(`[boxArchive] upload returned no file id for ${it.filename} (case ${caseId})`);
-        continue;
-      }
-      const boxFileUrl = `https://app.box.com/file/${encodeURIComponent(res.id)}`;
-      try {
-        const stamped = await dataApi.stampArchivedEvidence({
-          caseId,
-          evidenceId: it.id,
-          blobPath: it.blobPath,
-          boxFileId: res.id,
-          boxFileUrl
-        });
-        if (!stamped.updated) {
-          ctx.warn(`[boxArchive] evidence row was not stamped for ${it.filename} (case ${caseId})`);
-        }
-      } catch (e) {
-        ctx.warn(
-          `[boxArchive] upload succeeded but evidence stamp failed for ${it.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`
-        );
-        throw e;
-      }
-      uploaded++;
-      fileIds.push(res.id);
-    }
+    const { uploaded, total, fileIds } = await mirrorArchiveItems(
+      caseId,
+      folderId,
+      items,
+      ctx
+    );
     try {
       await dataApi.recordAudit({
         action: "box_synced",
@@ -52253,25 +53517,25 @@ df19.app.activity("boxArchiveEvidence", {
 });
 
 // orchestration/src/functions/activities/extractImages.ts
-var df20 = __toESM(require("durable-functions"), 1);
+var df23 = __toESM(require("durable-functions"), 1);
 var IMG_SOURCE_EXT = /\.(pdf|docx?)$/i;
 var IMG_SOURCE_CTYPE = /pdf|msword|officedocument/i;
 var OCR_OK_EXT = /\.(jpe?g|png|bmp|tiff?|webp|heic|heif)$/i;
-df20.app.activity("extractImages", {
-  handler: async (input14, ctx) => {
+df23.app.activity("extractImages", {
+  handler: async (input16, ctx) => {
     if (!gates.pdfMapper()) return { extracted: 0, registrationVisible: false, skipped: "gate_off" };
-    const docs = (input14.attachments ?? []).filter(
+    const docs = (input16.attachments ?? []).filter(
       (a) => IMG_SOURCE_EXT.test(a.filename ?? "") || IMG_SOURCE_CTYPE.test(a.contentType ?? "")
     );
     if (!docs.length) return { extracted: 0, registrationVisible: false, skipped: "no_source" };
-    const messageId = input14.messageId || input14.caseId;
+    const messageId = input16.messageId || input16.caseId;
     let totalExtracted = 0;
     let anyRegVisible = false;
     let excludedNonVehicle = 0;
     let classifyAllowed = gates.imageRoleClassifyEnabled();
-    if (classifyAllowed && input14.workProviderId) {
+    if (classifyAllowed && input16.workProviderId) {
       try {
-        const { aiAllowed } = await dataApi.workProviderAiAllowed(input14.workProviderId);
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input16.workProviderId);
         if (aiAllowed === false) {
           classifyAllowed = false;
           ctx.log("[extractImages] image classify skipped \u2014 work provider opted out of AI (ai_allowed=false)");
@@ -52288,8 +53552,8 @@ df20.app.activity("extractImages", {
         ctx.warn(`[extractImages] could not read ${doc.blobPath}: ${e instanceof Error ? e.message : String(e)}`);
         continue;
       }
-      const stemProvider = (input14.providerPrincipal ?? "").trim().toUpperCase();
-      const stemVrm = canonicalizeVrm(input14.caseVrm ?? "");
+      const stemProvider = (input16.providerPrincipal ?? "").trim().toUpperCase();
+      const stemVrm = canonicalizeVrm(input16.caseVrm ?? "");
       let extracted;
       try {
         extracted = await callExtractImages({
@@ -52332,10 +53596,10 @@ df20.app.activity("extractImages", {
           const cls = await classifyImage({
             imageBase64: img.content_base64,
             contentType: img.content_type,
-            caseVrm: input14.caseVrm
+            caseVrm: input16.caseVrm
           });
           if (cls) {
-            const f = classificationToEvidenceFields(cls, input14.caseVrm, { nonVehicleExcluded: true });
+            const f = classificationToEvidenceFields(cls, input16.caseVrm);
             imageRole = f.imageRole;
             registrationVisible = f.registrationVisible;
             acceptedForEva = f.acceptedForEva;
@@ -52352,7 +53616,7 @@ df20.app.activity("extractImages", {
             const ocr = await callPlateOcr({
               imageBase64: img.content_base64,
               filename: img.filename,
-              caseVrm: input14.caseVrm
+              caseVrm: input16.caseVrm
             });
             registrationVisible = Boolean(ocr.registration_visible);
             if (registrationVisible) anyRegVisible = true;
@@ -52370,7 +53634,8 @@ df20.app.activity("extractImages", {
           ...imageRole ? { imageRole } : { imageRoleCode: "unknown" },
           acceptedForEva,
           ...registrationVisible !== void 0 ? { registrationVisible } : {},
-          ...excluded ? { excluded: true, exclusionReason } : {},
+          ...classified ? { excluded, exclusionReason: exclusionReason ?? null } : {},
+          ...classified ? { decisionSource: "classifier" } : {},
           ...personReflection !== void 0 ? { personReflection } : {},
           sha256: img.sha256,
           sequenceIndex: img.sequence_index,
@@ -52379,8 +53644,9 @@ df20.app.activity("extractImages", {
       }
       if (rows.length) {
         try {
-          const res = await dataApi.persistImageEvidence(input14.caseId, rows);
+          const res = await dataApi.persistImageEvidence(input16.caseId, rows);
           totalExtracted += res.persisted;
+          await settlePersistedStatusGeneration(input16.caseId, res, ctx);
         } catch (e) {
           ctx.warn(`[extractImages] persist failed for ${doc.filename}: ${e instanceof Error ? e.message : String(e)}`);
         }
@@ -52390,14 +53656,14 @@ df20.app.activity("extractImages", {
       try {
         await dataApi.recordAudit({
           action: "attachment_classified",
-          caseId: input14.caseId,
+          caseId: input16.caseId,
           severity: anyRegVisible ? "info" : "warning",
           summary: anyRegVisible ? `extracted ${totalExtracted} image(s) from instruction docs; at least one shows the registration` : `extracted ${totalExtracted} image(s) from instruction docs, but a photo showing the registration is still needed`
         });
       } catch {
       }
     }
-    ctx.log(JSON.stringify({ evt: "extractImages", caseId: input14.caseId, extracted: totalExtracted, registrationVisible: anyRegVisible, excludedNonVehicle }));
+    ctx.log(JSON.stringify({ evt: "extractImages", caseId: input16.caseId, extracted: totalExtracted, registrationVisible: anyRegVisible, excludedNonVehicle }));
     return { extracted: totalExtracted, registrationVisible: anyRegVisible };
   }
 });
@@ -52406,11 +53672,11 @@ function stripExt(name) {
 }
 
 // orchestration/src/functions/activities/imagesUnmatched.ts
-var df21 = __toESM(require("durable-functions"), 1);
-df21.app.activity("imagesUnmatched", {
-  handler: async (input14, ctx) => {
-    const internetMessageId = (input14.internetMessageId ?? "").trim();
-    const vrm = (input14.vrm ?? "").trim().toUpperCase().replace(/\s+/g, "");
+var df24 = __toESM(require("durable-functions"), 1);
+df24.app.activity("imagesUnmatched", {
+  handler: async (input16, ctx) => {
+    const internetMessageId = (input16.internetMessageId ?? "").trim();
+    const vrm = (input16.vrm ?? "").trim().toUpperCase().replace(/\s+/g, "");
     let stamped = false;
     if (internetMessageId) {
       try {
@@ -52448,297 +53714,287 @@ df21.app.activity("imagesUnmatched", {
 });
 
 // orchestration/src/functions/gated/finalize-eva-box.ts
-var import_functions13 = require("@azure/functions");
-var df22 = __toESM(require("durable-functions"), 1);
-import_functions13.app.http("finalize-eva-box-start", {
+var import_functions16 = require("@azure/functions");
+var df25 = __toESM(require("durable-functions"), 1);
+import_functions16.app.http("finalize-eva-box-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "finalize-eva-box",
-  extraInputs: [df22.input.durableClient()],
+  extraInputs: [df25.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.evaApi() || !gates.boxApi()) {
       ctx.log("[finalize-eva-box] skipped \u2014 EVA_API_ENABLED and/or BOX_API_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const { caseId } = await req.json();
-    const client2 = df22.getClient(ctx);
+    const client2 = df25.getClient(ctx);
     const instanceId = await client2.startNew("finalizeEvaBoxOrchestrator", { input: { caseId } });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry3 = new df22.RetryOptions(5e3, 3);
-retry3.backoffCoefficient = 2;
-retry3.maxRetryIntervalInMilliseconds = 6e4;
-df22.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
+var retry5 = new df25.RetryOptions(5e3, 3);
+retry5.backoffCoefficient = 2;
+retry5.maxRetryIntervalInMilliseconds = 6e4;
+df25.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
   const { caseId } = ctx.df.getInput();
-  const eva = yield ctx.df.callActivityWithRetry("evaSubmit", retry3, { caseId });
-  const boxResult = yield ctx.df.callActivityWithRetry("boxFolderAugment", retry3, { caseId });
+  const eva = yield ctx.df.callActivityWithRetry("evaSubmit", retry5, { caseId });
+  const boxResult = yield ctx.df.callActivityWithRetry("boxFolderAugment", retry5, { caseId });
   return { caseId, eva, box: boxResult };
 });
-df22.app.activity("evaSubmit", {
-  handler: async (input14, ctx) => {
+df25.app.activity("evaSubmit", {
+  handler: async (input16, ctx) => {
     if (!gates.evaApi()) return { skipped: true };
-    const res = await callEvaSubmit(input14.caseId);
-    await dataApi.recordAudit({ action: "eva_submitted", caseId: input14.caseId, summary: "EVA Sentry submit" });
-    ctx.log(JSON.stringify({ evt: "evaSubmit", caseId: input14.caseId }));
+    const res = await callEvaSubmit(input16.caseId);
+    await dataApi.recordAudit({ action: "eva_submitted", caseId: input16.caseId, summary: "EVA Sentry submit" });
+    ctx.log(JSON.stringify({ evt: "evaSubmit", caseId: input16.caseId }));
     return res;
   }
 });
-df22.app.activity("boxFolderAugment", {
-  handler: async (input14, ctx) => {
+df25.app.activity("boxFolderAugment", {
+  handler: async (input16, ctx) => {
     if (!gates.boxApi()) return { skipped: true };
-    const folder = await box.createFolder(input14.caseId, gates.boxFolderRootId());
+    const folder = await box.createFolder(input16.caseId, gates.boxFolderRootId());
     const folderUrl = `https://app.box.com/folder/${encodeURIComponent(folder.id)}`;
-    await dataApi.recordAudit({ action: "box_synced", caseId: input14.caseId, summary: `Archive folder ${folder.id} augmented` });
-    ctx.log(JSON.stringify({ evt: "boxFolderAugment", caseId: input14.caseId, folderId: folder.id }));
+    await dataApi.recordAudit({ action: "box_synced", caseId: input16.caseId, summary: `Archive folder ${folder.id} augmented` });
+    ctx.log(JSON.stringify({ evt: "boxFolderAugment", caseId: input16.caseId, folderId: folder.id }));
     return { folderId: folder.id, folderUrl };
   }
 });
 
 // orchestration/src/functions/gated/chaser.ts
-var import_functions14 = require("@azure/functions");
-var df23 = __toESM(require("durable-functions"), 1);
-import_functions14.app.http("chaser-start", {
+var import_functions17 = require("@azure/functions");
+var df26 = __toESM(require("durable-functions"), 1);
+import_functions17.app.http("chaser-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "chaser",
-  extraInputs: [df23.input.durableClient()],
+  extraInputs: [df26.input.durableClient()],
   handler: async (req, ctx) => {
-    const input14 = await req.json();
-    const client2 = df23.getClient(ctx);
-    const instanceId = await client2.startNew("chaserOrchestrator", { input: input14 });
+    const input16 = await req.json();
+    const client2 = df26.getClient(ctx);
+    const instanceId = await client2.startNew("chaserOrchestrator", { input: input16 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry4 = new df23.RetryOptions(5e3, 3);
-retry4.backoffCoefficient = 2;
-df23.app.orchestration("chaserOrchestrator", function* (ctx) {
-  const input14 = ctx.df.getInput();
-  const draft = yield ctx.df.callActivityWithRetry("chaserDraft", retry4, input14);
-  const sent = yield ctx.df.callActivityWithRetry("chaserSend", retry4, { caseId: input14.caseId, draft });
-  return { caseId: input14.caseId, draft, sent };
+var retry6 = new df26.RetryOptions(5e3, 3);
+retry6.backoffCoefficient = 2;
+df26.app.orchestration("chaserOrchestrator", function* (ctx) {
+  const input16 = ctx.df.getInput();
+  const draft = yield ctx.df.callActivityWithRetry("chaserDraft", retry6, input16);
+  const sent = yield ctx.df.callActivityWithRetry("chaserSend", retry6, { caseId: input16.caseId, draft });
+  return { caseId: input16.caseId, draft, sent };
 });
-df23.app.activity("chaserDraft", {
-  handler: async (input14, ctx) => {
-    ctx.log(JSON.stringify({ evt: "chaserDraft", caseId: input14.caseId, targetType: input14.targetType }));
-    return { drafted: true, targetType: input14.targetType };
+df26.app.activity("chaserDraft", {
+  handler: async (input16, ctx) => {
+    ctx.log(JSON.stringify({ evt: "chaserDraft", caseId: input16.caseId, targetType: input16.targetType }));
+    return { drafted: true, targetType: input16.targetType };
   }
 });
-df23.app.activity("chaserSend", {
-  handler: async (input14, ctx) => {
+df26.app.activity("chaserSend", {
+  handler: async (input16, ctx) => {
     if (!gates.chaserSend()) {
       ctx.log("[chaserSend] skipped \u2014 CHASER_SEND_ENABLED=false (draft-only)");
       return { sent: false };
     }
-    await dataApi.recordAudit({ action: "chaser_sent", caseId: input14.caseId, summary: "chaser sent" });
-    ctx.log(JSON.stringify({ evt: "chaserSend", caseId: input14.caseId }));
+    await dataApi.recordAudit({ action: "chaser_sent", caseId: input16.caseId, summary: "chaser sent" });
+    ctx.log(JSON.stringify({ evt: "chaserSend", caseId: input16.caseId }));
     return { sent: true };
   }
 });
 
 // orchestration/src/functions/gated/box-folder-create.ts
-var import_functions15 = require("@azure/functions");
-var df24 = __toESM(require("durable-functions"), 1);
-import_functions15.app.http("box-folder-create-start", {
+var import_functions18 = require("@azure/functions");
+var df27 = __toESM(require("durable-functions"), 1);
+import_functions18.app.http("box-folder-create-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-folder-create",
-  extraInputs: [df24.input.durableClient()],
+  extraInputs: [df27.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       ctx.log("[box-folder-create] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
-    const input14 = await req.json();
-    const client2 = df24.getClient(ctx);
-    const instanceId = await client2.startNew("boxFolderCreateOrchestrator", { input: input14 });
+    const input16 = await req.json();
+    const client2 = df27.getClient(ctx);
+    const instanceId = await client2.startNew("boxFolderCreateOrchestrator", { input: input16 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry5 = new df24.RetryOptions(5e3, 3);
-retry5.backoffCoefficient = 2;
-df24.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
-  const input14 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("boxFolderCreate", retry5, input14);
+var retry7 = new df27.RetryOptions(5e3, 3);
+retry7.backoffCoefficient = 2;
+df27.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
+  const input16 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("boxFolderCreate", retry7, input16);
   return result;
 });
-df24.app.activity("boxFolderCreate", {
-  handler: async (input14, ctx) => {
+df27.app.activity("boxFolderCreate", {
+  handler: async (input16, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) return { skipped: true, reason: "gated off" };
-    const existing = await dataApi.getCaseBoxFolder(input14.caseId);
+    const existing = await dataApi.getCaseBoxFolder(input16.caseId);
     if (existing.boxFolderId) {
-      ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input14.caseId, skipped: "already_linked", folderId: existing.boxFolderId }));
+      ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input16.caseId, skipped: "already_linked", folderId: existing.boxFolderId }));
       return { skipped: true, reason: "already_linked", folderId: existing.boxFolderId, folderUrl: existing.boxFolderUrl ?? void 0 };
     }
-    const folder = await box.createFolder(input14.folderName, gates.boxFolderRootId());
+    const folder = await box.createFolder(input16.folderName, gates.boxFolderRootId());
     const folderUrl = `https://app.box.com/folder/${encodeURIComponent(folder.id)}`;
-    const stamp = await dataApi.stampCaseBoxFolder(input14.caseId, {
+    const stamp = await dataApi.stampCaseBoxFolder(input16.caseId, {
       boxFolderId: folder.id,
       boxFolderUrl: folderUrl
     });
-    ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input14.caseId, folderId: folder.id, applied: stamp.applied }));
+    ctx.log(JSON.stringify({ evt: "boxFolderCreate", caseId: input16.caseId, folderId: folder.id, applied: stamp.applied }));
     return { folderId: folder.id, folderUrl, applied: stamp.applied };
   }
 });
 
 // orchestration/src/functions/gated/box-file-request-copy.ts
-var import_functions16 = require("@azure/functions");
-var df25 = __toESM(require("durable-functions"), 1);
-import_functions16.app.http("box-file-request-copy-start", {
+var import_functions19 = require("@azure/functions");
+var CASE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+import_functions19.app.http("box-file-request-copy-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-file-request-copy",
-  extraInputs: [df25.input.durableClient()],
   handler: async (req, ctx) => {
-    if (!gates.boxApi() || !gates.boxFileRequest()) {
-      ctx.log("[box-file-request-copy] skipped \u2014 BOX_API_ENABLED and/or BOX_FILEREQUEST_ENABLED off");
-      return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
+    const body2 = await req.json().catch(() => ({}));
+    const caseId = typeof body2.caseId === "string" ? body2.caseId.trim() : "";
+    if (!CASE_ID_RE.test(caseId)) {
+      return {
+        status: 400,
+        jsonBody: { error: "caseId must be a valid case identifier" }
+      };
     }
-    const input14 = await req.json();
-    const client2 = df25.getClient(ctx);
-    const instanceId = await client2.startNew("boxFileRequestCopyOrchestrator", { input: input14 });
-    return client2.createCheckStatusResponse(req, instanceId);
-  }
-});
-var retry6 = new df25.RetryOptions(5e3, 3);
-retry6.backoffCoefficient = 2;
-df25.app.orchestration("boxFileRequestCopyOrchestrator", function* (ctx) {
-  const input14 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("boxFileRequestCopy", retry6, input14);
-  return result;
-});
-df25.app.activity("boxFileRequestCopy", {
-  handler: async (input14, ctx) => {
-    if (!gates.boxApi() || !gates.boxFileRequest()) return { skipped: true };
-    const templateId = gates.boxFileRequestTemplateId();
-    if (!templateId) {
-      ctx.warn("[boxFileRequestCopy] BOX_FILE_REQUEST_TEMPLATE_ID empty \u2014 nothing to copy");
-      return { skipped: true, reason: "no template" };
-    }
-    const res = await box.copyFileRequest(templateId, input14.folderId);
-    await dataApi.recordAudit({ action: "box_file_request_copied", caseId: input14.caseId, summary: `File-Request copied to folder ${input14.folderId}` });
-    ctx.log(JSON.stringify({ evt: "boxFileRequestCopy", caseId: input14.caseId, folderId: input14.folderId }));
-    return res;
+    const replacementPath = `/api/cases/${encodeURIComponent(caseId)}/box/copy-file-request`;
+    ctx.warn(
+      `[box-file-request-copy] retired starter called for ${caseId}; no remote work started (replacement ${replacementPath})`
+    );
+    return {
+      status: 410,
+      jsonBody: {
+        error: "retired_starter",
+        message: "Create the image-upload link from the case page.",
+        replacement: { method: "POST", path: replacementPath }
+      }
+    };
   }
 });
 
 // orchestration/src/functions/gated/box-blob-purge.ts
-var import_functions17 = require("@azure/functions");
-var df26 = __toESM(require("durable-functions"), 1);
-import_functions17.app.timer("box-blob-purge-timer", {
+var import_functions20 = require("@azure/functions");
+var df28 = __toESM(require("durable-functions"), 1);
+import_functions20.app.timer("box-blob-purge-timer", {
   schedule: "0 0 3 * * *",
-  extraInputs: [df26.input.durableClient()],
+  extraInputs: [df28.input.durableClient()],
   handler: async (_t, ctx) => {
     if (!gates.boxApi()) {
       ctx.log("[box-blob-purge] skipped \u2014 BOX_API_ENABLED=false");
       return;
     }
-    const client2 = df26.getClient(ctx);
+    const client2 = df28.getClient(ctx);
     await client2.startNew("boxBlobPurgeOrchestrator", {});
     ctx.log("[box-blob-purge] started orchestration");
   }
 });
-var retry7 = new df26.RetryOptions(5e3, 3);
-retry7.backoffCoefficient = 2;
-df26.app.orchestration("boxBlobPurgeOrchestrator", function* (ctx) {
-  const candidates = yield ctx.df.callActivityWithRetry("boxPurgeList", retry7, {});
-  const tasks = candidates.map((c) => ctx.df.callActivityWithRetry("boxPurgeOne", retry7, c));
+var retry8 = new df28.RetryOptions(5e3, 3);
+retry8.backoffCoefficient = 2;
+df28.app.orchestration("boxBlobPurgeOrchestrator", function* (ctx) {
+  const candidates = yield ctx.df.callActivityWithRetry("boxPurgeList", retry8, {});
+  const tasks = candidates.map((c) => ctx.df.callActivityWithRetry("boxPurgeOne", retry8, c));
   const results = yield ctx.df.Task.all(tasks);
   return { purged: results.length };
 });
-df26.app.activity("boxPurgeList", {
+df28.app.activity("boxPurgeList", {
   handler: async () => {
     if (!gates.boxApi()) return [];
     return dataApi.blobsForPurge();
   }
 });
-df26.app.activity("boxPurgeOne", {
-  handler: async (input14, ctx) => {
+df28.app.activity("boxPurgeOne", {
+  handler: async (input16, ctx) => {
     if (!gates.boxApi()) return { purged: false };
-    const purged = await deleteEvidenceBytes(input14.blobPath);
-    await dataApi.markBlobPurged({ caseId: input14.caseId, blobPath: input14.blobPath });
-    ctx.log(JSON.stringify({ evt: "boxPurgeOne", caseId: input14.caseId, blobPath: input14.blobPath, purged }));
+    const purged = await deleteEvidenceBytes(input16.blobPath);
+    await dataApi.markBlobPurged({ caseId: input16.caseId, blobPath: input16.blobPath });
+    ctx.log(JSON.stringify({ evt: "boxPurgeOne", caseId: input16.caseId, blobPath: input16.blobPath, purged }));
     return { purged };
   }
 });
 
 // orchestration/src/functions/gated/case-disposition.ts
-var import_functions18 = require("@azure/functions");
-var df27 = __toESM(require("durable-functions"), 1);
-import_functions18.app.timer("case-disposition-timer", {
+var import_functions21 = require("@azure/functions");
+var df29 = __toESM(require("durable-functions"), 1);
+import_functions21.app.timer("case-disposition-timer", {
   schedule: "0 0 2 * * *",
-  extraInputs: [df27.input.durableClient()],
+  extraInputs: [df29.input.durableClient()],
   handler: async (_t, ctx) => {
     if (!gates.caseDisposition()) {
       ctx.log("[case-disposition] skipped \u2014 CASE_DISPOSITION_ENABLED=false");
       return;
     }
-    const client2 = df27.getClient(ctx);
+    const client2 = df29.getClient(ctx);
     await client2.startNew("caseDispositionOrchestrator", {});
     ctx.log("[case-disposition] started orchestration");
   }
 });
-var retry8 = new df27.RetryOptions(5e3, 3);
-retry8.backoffCoefficient = 2;
-df27.app.orchestration("caseDispositionOrchestrator", function* (ctx) {
-  const due = yield ctx.df.callActivityWithRetry("dispositionList", retry8, {});
-  const tasks = due.map((c) => ctx.df.callActivityWithRetry("dispositionOne", retry8, c));
+var retry9 = new df29.RetryOptions(5e3, 3);
+retry9.backoffCoefficient = 2;
+df29.app.orchestration("caseDispositionOrchestrator", function* (ctx) {
+  const due = yield ctx.df.callActivityWithRetry("dispositionList", retry9, {});
+  const tasks = due.map((c) => ctx.df.callActivityWithRetry("dispositionOne", retry9, c));
   const results = yield ctx.df.Task.all(tasks);
   return { disposed: results.length };
 });
-df27.app.activity("dispositionList", {
+df29.app.activity("dispositionList", {
   handler: async () => {
     if (!gates.caseDisposition()) return [];
     return dataApi.casesForDisposition();
   }
 });
-df27.app.activity("dispositionOne", {
-  handler: async (input14, ctx) => {
+df29.app.activity("dispositionOne", {
+  handler: async (input16, ctx) => {
     if (!gates.caseDisposition()) return { disposed: false };
-    await dataApi.disposeCase(input14.caseId);
-    await dataApi.recordAudit({ action: "case_disposed", caseId: input14.caseId, summary: "retention disposition", severity: "warning" });
-    ctx.log(JSON.stringify({ evt: "dispositionOne", caseId: input14.caseId }));
+    await dataApi.disposeCase(input16.caseId);
+    await dataApi.recordAudit({ action: "case_disposed", caseId: input16.caseId, summary: "retention disposition", severity: "warning" });
+    ctx.log(JSON.stringify({ evt: "dispositionOne", caseId: input16.caseId }));
     return { disposed: true };
   }
 });
 
 // orchestration/src/functions/gated/jobsheet-import.ts
-var import_functions19 = require("@azure/functions");
-var df28 = __toESM(require("durable-functions"), 1);
-import_functions19.app.http("jobsheet-import-start", {
+var import_functions22 = require("@azure/functions");
+var df30 = __toESM(require("durable-functions"), 1);
+import_functions22.app.http("jobsheet-import-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "jobsheet-import",
-  extraInputs: [df28.input.durableClient()],
+  extraInputs: [df30.input.durableClient()],
   handler: async (req, ctx) => {
-    const client2 = df28.getClient(ctx);
+    const client2 = df30.getClient(ctx);
     const instanceId = await client2.startNew("jobsheetImportOrchestrator", {});
     ctx.log(`[jobsheet-import] started ${instanceId}`);
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry9 = new df28.RetryOptions(5e3, 3);
-retry9.backoffCoefficient = 2;
-df28.app.orchestration("jobsheetImportOrchestrator", function* (ctx) {
-  const principals = yield ctx.df.callActivityWithRetry("jobsheetPrincipals", retry9, {});
-  const tasks = principals.map((p) => ctx.df.callActivityWithRetry("jobsheetImportOne", retry9, p));
+var retry10 = new df30.RetryOptions(5e3, 3);
+retry10.backoffCoefficient = 2;
+df30.app.orchestration("jobsheetImportOrchestrator", function* (ctx) {
+  const principals = yield ctx.df.callActivityWithRetry("jobsheetPrincipals", retry10, {});
+  const tasks = principals.map((p) => ctx.df.callActivityWithRetry("jobsheetImportOne", retry10, p));
   const results = yield ctx.df.Task.all(tasks);
   return { principals: principals.length, results };
 });
-df28.app.activity("jobsheetPrincipals", {
+df30.app.activity("jobsheetPrincipals", {
   handler: async () => dataApi.principals()
 });
-df28.app.activity("jobsheetImportOne", {
-  handler: async (input14, ctx) => {
-    await dataApi.recordAudit({ action: "jobsheet_imported", summary: `job-sheet import for ${input14.principalCode}` });
-    ctx.log(JSON.stringify({ evt: "jobsheetImportOne", principalCode: input14.principalCode }));
-    return { principalCode: input14.principalCode, imported: true };
+df30.app.activity("jobsheetImportOne", {
+  handler: async (input16, ctx) => {
+    await dataApi.recordAudit({ action: "jobsheet_imported", summary: `job-sheet import for ${input16.principalCode}` });
+    ctx.log(JSON.stringify({ evt: "jobsheetImportOne", principalCode: input16.principalCode }));
+    return { principalCode: input16.principalCode, imported: true };
   }
 });
 
 // orchestration/src/functions/gated/retro-case.ts
-var import_functions20 = require("@azure/functions");
-var df29 = __toESM(require("durable-functions"), 1);
+var import_functions23 = require("@azure/functions");
+var df31 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/retro-envelope.ts
 function firstAddress(header) {
@@ -52892,25 +54148,25 @@ function mapRetroParse(parseResult, bodyText) {
 function normToken(v) {
   return v.trim().toUpperCase().replace(/\s+/g, "");
 }
-var retry10 = new df29.RetryOptions(5e3, 3);
-retry10.backoffCoefficient = 2;
-retry10.maxRetryIntervalInMilliseconds = 6e4;
-import_functions20.app.http("retro-case-start", {
+var retry11 = new df31.RetryOptions(5e3, 3);
+retry11.backoffCoefficient = 2;
+retry11.maxRetryIntervalInMilliseconds = 6e4;
+import_functions23.app.http("retro-case-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "retro-case",
-  extraInputs: [df29.input.durableClient()],
+  extraInputs: [df31.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.retroCase()) {
       ctx.log("[retro-case] skipped \u2014 RETRO_CASE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
-    const input14 = await req.json();
-    if (!input14.internetMessageId || !input14.mailbox) {
+    const input16 = await req.json();
+    if (!input16.internetMessageId || !input16.mailbox) {
       return { status: 400, jsonBody: { error: "internetMessageId and mailbox required" } };
     }
-    const client2 = df29.getClient(ctx);
-    const safeId = String(input14.internetMessageId).replace(/[^A-Za-z0-9_-]/g, "");
+    const client2 = df31.getClient(ctx);
+    const safeId = String(input16.internetMessageId).replace(/[^A-Za-z0-9_-]/g, "");
     const instanceId = `retro-${safeId}`;
     let existing;
     try {
@@ -52923,35 +54179,35 @@ import_functions20.app.http("retro-case-start", {
       ctx.log(`[retro-case] instance ${instanceId} already ${runtimeStatus} \u2014 not restarted`);
       return { status: 200, jsonBody: { instanceId, deduped: true, runtimeStatus } };
     }
-    await client2.startNew("retroCaseOrchestrator", { instanceId, input: input14 });
+    await client2.startNew("retroCaseOrchestrator", { instanceId, input: input16 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-df29.app.orchestration("retroCaseOrchestrator", function* (ctx) {
-  const input14 = ctx.df.getInput();
-  let trigger = input14.trigger;
-  let category = input14.category;
-  let keys = input14.keys;
-  let providerId = input14.providerId;
-  let providerPrincipal = input14.providerPrincipal;
+df31.app.orchestration("retroCaseOrchestrator", function* (ctx) {
+  const input16 = ctx.df.getInput();
+  let trigger = input16.trigger;
+  let category = input16.category;
+  let keys = input16.keys;
+  let providerId = input16.providerId;
+  let providerPrincipal = input16.providerPrincipal;
   if (!trigger) {
-    if (!input14.internetMessageId || !input14.mailbox) {
+    if (!input16.internetMessageId || !input16.mailbox) {
       return { outcome: "bad_input", reason: "trigger envelope or internetMessageId+mailbox required" };
     }
-    const located = yield ctx.df.callActivityWithRetry("retroFindTrigger", retry10, {
-      internetMessageId: input14.internetMessageId,
-      mailbox: input14.mailbox
+    const located = yield ctx.df.callActivityWithRetry("retroFindTrigger", retry11, {
+      internetMessageId: input16.internetMessageId,
+      mailbox: input16.mailbox
     });
     if (located.skipped) return { outcome: "skipped", reason: located.skipped };
     if (!located.found) return { outcome: "trigger_not_found" };
-    trigger = yield ctx.df.callActivityWithRetry("fetchMessage", retry10, {
+    trigger = yield ctx.df.callActivityWithRetry("fetchMessage", retry11, {
       messageId: located.messageId,
       resource: located.resource
     });
-    const provider = yield ctx.df.callActivityWithRetry("providerMatch", retry10, trigger);
+    const provider = yield ctx.df.callActivityWithRetry("providerMatch", retry11, trigger);
     providerId = provider.workProviderId;
     providerPrincipal = provider.principalCode;
-    const classification = yield ctx.df.callActivityWithRetry("classifyInbound", retry10, {
+    const classification = yield ctx.df.callActivityWithRetry("classifyInbound", retry11, {
       inbound: trigger,
       workProviderId: providerId,
       matchState: provider.matchState
@@ -52976,7 +54232,7 @@ df29.app.orchestration("retroCaseOrchestrator", function* (ctx) {
   if (!keys || !keys.casePo && !keys.externalRef && !keys.vrm) {
     return { outcome: "not_eligible", reasons: ["no_usable_key"] };
   }
-  const resolved = yield ctx.df.callActivityWithRetry("retroResolveExisting", retry10, {
+  const resolved = yield ctx.df.callActivityWithRetry("retroResolveExisting", retry11, {
     trigger,
     keys,
     providerId,
@@ -52991,14 +54247,14 @@ df29.app.orchestration("retroCaseOrchestrator", function* (ctx) {
   const rungsTried = ["resolve_existing"];
   let boxAmbiguity;
   try {
-    const located = yield ctx.df.callActivityWithRetry("retroBoxLocate", retry10, {
+    const located = yield ctx.df.callActivityWithRetry("retroBoxLocate", retry11, {
       keys,
       providerPrincipal
     });
     if (!located.skipped) rungsTried.push("box_archive");
     boxAmbiguity = located.candidateCount && located.candidateCount > 1 ? located.candidateCount : void 0;
     if (!located.skipped && located.found && located.folder && located.discoveredPo) {
-      const fetched = yield ctx.df.callActivityWithRetry("retroBoxFetchInstruction", retry10, {
+      const fetched = yield ctx.df.callActivityWithRetry("retroBoxFetchInstruction", retry11, {
         folderId: located.folder.id,
         folderName: located.folder.name,
         discoveredPo: located.discoveredPo,
@@ -53011,7 +54267,7 @@ df29.app.orchestration("retroCaseOrchestrator", function* (ctx) {
         if (reconstructionSource !== "minimal") {
           try {
             const parseAttachments = original.attachments.length > 0 ? original.attachments : original.rawEml ? [original.rawEml] : [];
-            parseResult = yield ctx.df.callActivityWithRetry("parse", retry10, {
+            parseResult = yield ctx.df.callActivityWithRetry("parse", retry11, {
               messageId: original.messageId,
               attachments: parseAttachments,
               providerHint: located.principalCode
@@ -53040,7 +54296,7 @@ df29.app.orchestration("retroCaseOrchestrator", function* (ctx) {
         const contentType2 = decideCaseType({
           parserCaseType: parseResult.case_type,
           parserAudit: parseResult.audit,
-          classifierSubtype: input14.subtype
+          classifierSubtype: input16.subtype
         });
         const caseType = located.marker ? markerToCaseType(located.marker) : contentType2.caseType;
         const caseTypeSignals = located.marker ? [`archive_marker:${located.marker}`, ...contentType2.signals] : [...contentType2.signals];
@@ -53050,7 +54306,7 @@ df29.app.orchestration("retroCaseOrchestrator", function* (ctx) {
           principalResolved: Boolean(located.principalCode),
           casePoKnown: true
         });
-        const persisted = yield ctx.df.callActivityWithRetry("retroCreatePersist", retry10, {
+        const persisted = yield ctx.df.callActivityWithRetry("retroCreatePersist", retry11, {
           original,
           trigger,
           keys,
@@ -53080,7 +54336,7 @@ df29.app.orchestration("retroCaseOrchestrator", function* (ctx) {
           if (persisted.outcome === "created" && persisted.caseId) {
             if (effectiveSource !== "minimal") {
               try {
-                yield ctx.df.callActivityWithRetry("classifyPersist", retry10, {
+                yield ctx.df.callActivityWithRetry("classifyPersist", retry11, {
                   caseId: persisted.caseId,
                   inbound: original,
                   typings: parseResult.attachmentTypings
@@ -53092,7 +54348,7 @@ df29.app.orchestration("retroCaseOrchestrator", function* (ctx) {
               }
             }
             try {
-              yield ctx.df.callActivityWithRetry("statusEvaluate", retry10, { caseId: persisted.caseId });
+              yield ctx.df.callActivityWithRetry("statusEvaluate", retry11, { caseId: persisted.caseId });
             } catch (e) {
               if (!ctx.df.isReplaying) {
                 ctx.log(`[retro] statusEvaluate failed (additive, non-blocking): ${String(e)}`);
@@ -53115,19 +54371,19 @@ df29.app.orchestration("retroCaseOrchestrator", function* (ctx) {
     }
   }
   try {
-    const outlook = yield ctx.df.callActivityWithRetry("retroOutlookLocate", retry10, {
+    const outlook = yield ctx.df.callActivityWithRetry("retroOutlookLocate", retry11, {
       keys
     });
     if (!outlook.skipped) rungsTried.push("outlook_search");
     if (!outlook.skipped && outlook.found && outlook.messageId && outlook.resource) {
-      const original = yield ctx.df.callActivityWithRetry("fetchMessage", retry10, {
+      const original = yield ctx.df.callActivityWithRetry("fetchMessage", retry11, {
         messageId: outlook.messageId,
         resource: outlook.resource
       });
       let parseResult = {};
       try {
         const parseAttachments = original.attachments.length > 0 ? original.attachments : original.rawEml ? [original.rawEml] : [];
-        parseResult = yield ctx.df.callActivityWithRetry("parse", retry10, {
+        parseResult = yield ctx.df.callActivityWithRetry("parse", retry11, {
           messageId: original.messageId,
           attachments: parseAttachments,
           providerHint: providerPrincipal
@@ -53152,7 +54408,7 @@ ${original.body ?? ""}`);
         const contentType2 = decideCaseType({
           parserCaseType: parseResult.case_type,
           parserAudit: parseResult.audit,
-          classifierSubtype: input14.subtype
+          classifierSubtype: input16.subtype
         });
         const statusDecision = decideRetroStatus({
           triggerCategory: category ?? "other",
@@ -53160,7 +54416,7 @@ ${original.body ?? ""}`);
           principalResolved: false,
           casePoKnown: false
         });
-        const persisted = yield ctx.df.callActivityWithRetry("retroCreatePersist", retry10, {
+        const persisted = yield ctx.df.callActivityWithRetry("retroCreatePersist", retry11, {
           original,
           trigger,
           keys,
@@ -53191,7 +54447,7 @@ ${original.body ?? ""}`);
         } else {
           if (persisted.outcome === "created" && persisted.caseId) {
             try {
-              yield ctx.df.callActivityWithRetry("classifyPersist", retry10, {
+              yield ctx.df.callActivityWithRetry("classifyPersist", retry11, {
                 caseId: persisted.caseId,
                 inbound: original,
                 typings: parseResult.attachmentTypings
@@ -53202,7 +54458,7 @@ ${original.body ?? ""}`);
               }
             }
             try {
-              yield ctx.df.callActivityWithRetry("statusEvaluate", retry10, { caseId: persisted.caseId });
+              yield ctx.df.callActivityWithRetry("statusEvaluate", retry11, { caseId: persisted.caseId });
             } catch (e) {
               if (!ctx.df.isReplaying) {
                 ctx.log(`[retro] statusEvaluate failed (additive, non-blocking): ${String(e)}`);
@@ -53227,7 +54483,7 @@ ${original.body ?? ""}`);
       ctx.log(`[retro] Outlook rung failed (best-effort, falling through): ${String(e)}`);
     }
   }
-  yield ctx.df.callActivityWithRetry("retroRecordFailure", retry10, {
+  yield ctx.df.callActivityWithRetry("retroRecordFailure", retry11, {
     trigger,
     keys,
     triggerCategory: category,
@@ -53236,29 +54492,29 @@ ${original.body ?? ""}`);
   });
   return { outcome: "no_source", ...boxAmbiguity ? { ambiguousFolders: boxAmbiguity } : {} };
 });
-df29.app.activity("retroFindTrigger", {
-  handler: async (input14, ctx) => {
+df31.app.activity("retroFindTrigger", {
+  handler: async (input16, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
-    const hit = await findMessageByInternetMessageId(input14.mailbox, input14.internetMessageId);
+    const hit = await findMessageByInternetMessageId(input16.mailbox, input16.internetMessageId);
     if (!hit) {
-      ctx.log(JSON.stringify({ evt: "retroFindTrigger", found: false, mailbox: input14.mailbox }));
+      ctx.log(JSON.stringify({ evt: "retroFindTrigger", found: false, mailbox: input16.mailbox }));
       return { found: false };
     }
     return {
       found: true,
       messageId: hit.id,
-      resource: `users/${input14.mailbox}/messages/${hit.id}`
+      resource: `users/${input16.mailbox}/messages/${hit.id}`
     };
   }
 });
-df29.app.activity("retroResolveExisting", {
-  handler: async (input14, ctx) => {
+df31.app.activity("retroResolveExisting", {
+  handler: async (input16, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     const result = await dataApi.retroResolveExisting({
-      trigger: input14.trigger,
-      keys: input14.keys,
-      providerId: input14.providerId,
-      triggerCategory: input14.triggerCategory
+      trigger: input16.trigger,
+      keys: input16.keys,
+      providerId: input16.providerId,
+      triggerCategory: input16.triggerCategory
     });
     ctx.log(JSON.stringify({ evt: "retroResolveExisting", outcome: result.outcome, caseId: result.caseId }));
     return result;
@@ -53267,26 +54523,26 @@ df29.app.activity("retroResolveExisting", {
 function archiveRootIds() {
   return gates.retroBoxArchiveRootIds().split(",").map((s) => s.trim()).filter(Boolean);
 }
-df29.app.activity("retroBoxLocate", {
-  handler: async (input14, ctx) => {
+df31.app.activity("retroBoxLocate", {
+  handler: async (input16, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     if (!gates.boxApi()) return { skipped: "box_gate_off" };
     const rootIds = archiveRootIds();
     if (rootIds.length === 0) return { skipped: "no_archive_roots" };
     const refHits = [];
     const vrmHits = [];
-    if (input14.keys.casePo) {
-      const r = await box.searchContent({ query: input14.keys.casePo, rootIds, type: "folder" });
+    if (input16.keys.casePo) {
+      const r = await box.searchContent({ query: input16.keys.casePo, rootIds, type: "folder" });
       refHits.push(...r.entries);
     }
-    if (input14.keys.externalRef) {
-      const r = await box.searchContent({ query: input14.keys.externalRef, rootIds });
+    if (input16.keys.externalRef) {
+      const r = await box.searchContent({ query: input16.keys.externalRef, rootIds });
       refHits.push(...r.entries);
     }
-    let needVrm = Boolean(input14.keys.vrm);
+    let needVrm = Boolean(input16.keys.vrm);
     if (needVrm && refHits.length > 0 && pickCaseFolder(refHits, []).folder) needVrm = false;
-    if (needVrm && input14.keys.vrm) {
-      const r = await box.searchContent({ query: input14.keys.vrm, rootIds });
+    if (needVrm && input16.keys.vrm) {
+      const r = await box.searchContent({ query: input16.keys.vrm, rootIds });
       vrmHits.push(...r.entries);
     }
     const pick = pickCaseFolder(refHits, vrmHits);
@@ -53304,9 +54560,9 @@ df29.app.activity("retroBoxLocate", {
       discoveredPo,
       principals.map((p) => p.principalCode)
     );
-    const vrmOnly = !input14.keys.casePo && !input14.keys.externalRef;
+    const vrmOnly = !input16.keys.casePo && !input16.keys.externalRef;
     if (vrmOnly) {
-      const sender = (input14.providerPrincipal ?? "").trim().toUpperCase();
+      const sender = (input16.providerPrincipal ?? "").trim().toUpperCase();
       if (!match || !sender || match.principal !== sender) {
         ctx.log(JSON.stringify({ evt: "retroBoxLocate", found: false, reason: "vrm_only_uncorroborated" }));
         return { found: false, reason: "vrm_only_uncorroborated", candidateCount: pick.candidateCount };
@@ -53332,11 +54588,11 @@ df29.app.activity("retroBoxLocate", {
     };
   }
 });
-df29.app.activity("retroBoxFetchInstruction", {
-  handler: async (input14, ctx) => {
+df31.app.activity("retroBoxFetchInstruction", {
+  handler: async (input16, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     if (!gates.boxApi()) return { skipped: "box_gate_off" };
-    const listing = await box.listFolderItems(input14.folderId);
+    const listing = await box.listFolderItems(input16.folderId);
     const entries = (listing.entries ?? []).map((e) => ({
       id: e.id,
       name: e.name,
@@ -53346,7 +54602,7 @@ df29.app.activity("retroBoxFetchInstruction", {
     }));
     const files = entries.filter((e) => (e.type ?? "file") === "file");
     const subfolderCount = entries.length - files.length;
-    const fallbackReceivedAt = input14.triggerReceivedAt ?? (/* @__PURE__ */ new Date()).toISOString();
+    const fallbackReceivedAt = input16.triggerReceivedAt ?? (/* @__PURE__ */ new Date()).toISOString();
     let envelope;
     let instructionSource = "minimal";
     const consumed = /* @__PURE__ */ new Set();
@@ -53379,15 +54635,15 @@ df29.app.activity("retroBoxFetchInstruction", {
           }
           envelope = buildRetroEnvelopeFromEml(exploded, landed, rawEmlRef, {
             boxFileId: candidate.entry.id,
-            discoveredPo: input14.discoveredPo,
+            discoveredPo: input16.discoveredPo,
             fallbackReceivedAt
           });
         } else {
           envelope = buildRetroEnvelopeFromDoc(rawEmlRef, {
             boxFileId: candidate.entry.id,
-            discoveredPo: input14.discoveredPo,
+            discoveredPo: input16.discoveredPo,
             fallbackReceivedAt,
-            folderName: input14.folderName
+            folderName: input16.folderName
           });
         }
         instructionSource = "box_eml";
@@ -53411,9 +54667,9 @@ df29.app.activity("retroBoxFetchInstruction", {
             { filename: docName, contentType: "application/octet-stream", blobPath: up.blobPath, size: up.size },
             {
               boxFileId: docCandidate.entry.id,
-              discoveredPo: input14.discoveredPo,
+              discoveredPo: input16.discoveredPo,
               fallbackReceivedAt,
-              folderName: input14.folderName
+              folderName: input16.folderName
             }
           );
           instructionSource = "box_doc";
@@ -53425,16 +54681,16 @@ df29.app.activity("retroBoxFetchInstruction", {
     }
     if (!envelope) {
       envelope = buildMinimalAnchorEnvelope(
-        { receivedAt: input14.triggerReceivedAt },
-        input14.discoveredPo,
-        input14.folderId
+        { receivedAt: input16.triggerReceivedAt },
+        input16.discoveredPo,
+        input16.folderId
       );
       instructionSource = "minimal";
     }
     const otherFiles = files.filter((f) => !consumed.has(f.id)).map((f) => ({ boxFileId: f.id, filename: f.name, size: f.size }));
     ctx.log(JSON.stringify({
       evt: "retroBoxFetchInstruction",
-      folderId: input14.folderId,
+      folderId: input16.folderId,
       source: instructionSource,
       attachments: envelope.attachments.length,
       otherFiles: otherFiles.length,
@@ -53443,33 +54699,33 @@ df29.app.activity("retroBoxFetchInstruction", {
     return { envelope, instructionSource, otherFiles, subfolderCount };
   }
 });
-df29.app.activity("retroCreatePersist", {
-  handler: async (input14, ctx) => {
+df31.app.activity("retroCreatePersist", {
+  handler: async (input16, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     const result = await dataApi.retroCreate({
-      original: input14.original,
-      trigger: input14.trigger,
-      keys: input14.keys,
-      casePo: input14.casePo,
-      vrm: input14.vrm,
-      statusName: input14.statusName,
-      onHold: input14.onHold,
-      actionReason: input14.actionReason,
-      reconstructionSource: input14.reconstructionSource,
-      providerId: input14.providerId,
-      parserVrm: input14.parserVrm,
-      parserRef: input14.parserRef,
-      parserMileage: input14.parserMileage,
-      parserMileageUnit: input14.parserMileageUnit,
-      parserEva: input14.parserEva,
-      caseType: input14.caseType,
-      caseTypeSignals: input14.caseTypeSignals,
-      boxFolder: input14.boxFolder,
-      triggerCategory: input14.triggerCategory
+      original: input16.original,
+      trigger: input16.trigger,
+      keys: input16.keys,
+      casePo: input16.casePo,
+      vrm: input16.vrm,
+      statusName: input16.statusName,
+      onHold: input16.onHold,
+      actionReason: input16.actionReason,
+      reconstructionSource: input16.reconstructionSource,
+      providerId: input16.providerId,
+      parserVrm: input16.parserVrm,
+      parserRef: input16.parserRef,
+      parserMileage: input16.parserMileage,
+      parserMileageUnit: input16.parserMileageUnit,
+      parserEva: input16.parserEva,
+      caseType: input16.caseType,
+      caseTypeSignals: input16.caseTypeSignals,
+      boxFolder: input16.boxFolder,
+      triggerCategory: input16.triggerCategory
     });
     const caseId = result.caseId;
     if (caseId && (result.outcome === "created" || result.outcome === "already_exists_linked")) {
-      const rows = (input14.otherFiles ?? []).map((f) => ({
+      const rows = (input16.otherFiles ?? []).map((f) => ({
         filename: f.filename,
         boxFileId: f.boxFileId,
         boxFileUrl: `https://app.box.com/file/${encodeURIComponent(f.boxFileId)}`,
@@ -53491,16 +54747,16 @@ df29.app.activity("retroCreatePersist", {
     return result;
   }
 });
-df29.app.activity("retroOutlookLocate", {
-  handler: async (input14, ctx) => {
+df31.app.activity("retroOutlookLocate", {
+  handler: async (input16, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     if (!gates.retroOutlookSearch()) return { skipped: "outlook_gate_off" };
     const mailboxes = intakeMailboxes().map((m) => m.mailbox);
     if (mailboxes.length === 0) return { skipped: "no_intake_mailboxes" };
     const ladder = [];
-    if (input14.keys.externalRef) ladder.push({ key: input14.keys.externalRef, matchedKey: "external_ref" });
-    if (input14.keys.casePo) ladder.push({ key: input14.keys.casePo, matchedKey: "case_po" });
-    if (input14.keys.vrm) ladder.push({ key: input14.keys.vrm, matchedKey: "vrm" });
+    if (input16.keys.externalRef) ladder.push({ key: input16.keys.externalRef, matchedKey: "external_ref" });
+    if (input16.keys.casePo) ladder.push({ key: input16.keys.casePo, matchedKey: "case_po" });
+    if (input16.keys.vrm) ladder.push({ key: input16.keys.vrm, matchedKey: "vrm" });
     for (const rung of ladder) {
       const variants = refSearchVariants(rung.key);
       const candidates = [];
@@ -53544,18 +54800,18 @@ df29.app.activity("retroOutlookLocate", {
     return { found: false };
   }
 });
-df29.app.activity("retroRecordFailure", {
-  handler: async (input14, ctx) => {
+df31.app.activity("retroRecordFailure", {
+  handler: async (input16, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
-    const env = input14.trigger;
+    const env = input16.trigger;
     await dataApi.recordAudit({
       action: "retro_reconstruction_failed",
       severity: "warning",
-      summary: `Retro: no case found or reconstructable for ${input14.triggerCategory ?? "update"} email (${input14.keys.casePo ?? input14.keys.externalRef ?? input14.keys.vrm ?? "no key"})`,
+      summary: `Retro: no case found or reconstructable for ${input16.triggerCategory ?? "update"} email (${input16.keys.casePo ?? input16.keys.externalRef ?? input16.keys.vrm ?? "no key"})`,
       after: {
-        keys: input14.keys,
-        rungsTried: input14.rungsTried,
-        ...input14.ambiguousFolders ? { ambiguousFolders: input14.ambiguousFolders } : {},
+        keys: input16.keys,
+        rungsTried: input16.rungsTried,
+        ...input16.ambiguousFolders ? { ambiguousFolders: input16.ambiguousFolders } : {},
         messageId: env.internetMessageId,
         subject: env.subject
       }
@@ -53570,14 +54826,14 @@ df29.app.activity("retroRecordFailure", {
         ctx.warn(`[retroRecordFailure] attention stamp failed (best-effort): ${String(e)}`);
       }
     }
-    ctx.log(JSON.stringify({ evt: "retroRecordFailure", keys: input14.keys, rungsTried: input14.rungsTried }));
+    ctx.log(JSON.stringify({ evt: "retroRecordFailure", keys: input16.keys, rungsTried: input16.rungsTried }));
     return { recorded: true };
   }
 });
 
 // orchestration/src/functions/gated/retro-deleted-probe.ts
-var import_functions21 = require("@azure/functions");
-import_functions21.app.http("retro-deleted-probe", {
+var import_functions24 = require("@azure/functions");
+import_functions24.app.http("retro-deleted-probe", {
   methods: ["POST"],
   authLevel: "function",
   route: "retro-deleted-probe",
@@ -53636,22 +54892,22 @@ import_functions21.app.http("retro-deleted-probe", {
 });
 
 // orchestration/src/functions/gated/eva-report-poll.ts
-var import_functions22 = require("@azure/functions");
-var df30 = __toESM(require("durable-functions"), 1);
+var import_functions25 = require("@azure/functions");
+var df32 = __toESM(require("durable-functions"), 1);
 var EVA_REPORT_POLL_INSTANCE_ID = "eva-report-poll-singleton";
-var INTERVAL_MINUTES = Number(process.env.EVA_REPORT_POLL_INTERVAL_MINUTES ?? "60");
-var INTERVAL_MS2 = (Number.isFinite(INTERVAL_MINUTES) && INTERVAL_MINUTES > 0 ? INTERVAL_MINUTES : 60) * 6e4;
-import_functions22.app.http("eva-report-poll-start", {
+var INTERVAL_MINUTES3 = Number(process.env.EVA_REPORT_POLL_INTERVAL_MINUTES ?? "60");
+var INTERVAL_MS4 = (Number.isFinite(INTERVAL_MINUTES3) && INTERVAL_MINUTES3 > 0 ? INTERVAL_MINUTES3 : 60) * 6e4;
+import_functions25.app.http("eva-report-poll-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "eva-report-poll",
-  extraInputs: [df30.input.durableClient()],
+  extraInputs: [df32.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.evaApi()) {
       ctx.log("[eva-report-poll] skipped \u2014 EVA_API_ENABLED off (Minotaur single-principal limitation; docs/gated.md)");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off (EVA_API_ENABLED)" } };
     }
-    const client2 = df30.getClient(ctx);
+    const client2 = df32.getClient(ctx);
     let existing;
     try {
       existing = await client2.getStatus(EVA_REPORT_POLL_INSTANCE_ID);
@@ -53667,7 +54923,7 @@ import_functions22.app.http("eva-report-poll-start", {
     return client2.createCheckStatusResponse(req, EVA_REPORT_POLL_INSTANCE_ID);
   }
 });
-df30.app.orchestration("evaReportPollOrchestrator", function* (ctx) {
+df32.app.orchestration("evaReportPollOrchestrator", function* (ctx) {
   const tick = yield ctx.df.callActivity("evaReportPollTick");
   if (tick.skipped) {
     if (!ctx.df.isReplaying) {
@@ -53675,11 +54931,11 @@ df30.app.orchestration("evaReportPollOrchestrator", function* (ctx) {
     }
     return { outcome: "stopped", reason: tick.skipped };
   }
-  const next = new Date(ctx.df.currentUtcDateTime.getTime() + INTERVAL_MS2);
+  const next = new Date(ctx.df.currentUtcDateTime.getTime() + INTERVAL_MS4);
   yield ctx.df.createTimer(next);
   ctx.df.continueAsNew(void 0);
 });
-df30.app.activity("evaReportPollTick", {
+df32.app.activity("evaReportPollTick", {
   handler: async (_input, ctx) => {
     if (!gates.evaApi()) {
       ctx.log("[eva-report-poll] tick skipped \u2014 EVA_API_ENABLED off");

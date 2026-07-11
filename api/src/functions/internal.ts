@@ -82,6 +82,7 @@ import { writeEvidenceBackfillNote } from '../lib/evidence-backfill-note.js';
 import { withResolvedEvidenceBackfillTarget } from '../lib/evidence-backfill-target.js';
 import { mintCasePo } from '../lib/case-po.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
+import { markCaseDoneUsing } from '../lib/terminal-transition.js';
 import { combineMakeModel } from '../lib/enrichment-map.js';
 import {
   corpusWorkProviderCandidate,
@@ -2403,6 +2404,41 @@ app.http('internalInboundOutlookMoved', {
     }),
 });
 
+type EvidenceBackfillCommittedOutcome = 'completed' | 'partial';
+
+interface EvidenceBackfillCommittedResult {
+  outcome: EvidenceBackfillCommittedOutcome;
+  persisted: number;
+  merged?: number;
+  failedAttachments?: number;
+  detail?: string;
+}
+
+function parseEvidenceBackfillCommittedResult(value: unknown): EvidenceBackfillCommittedResult | null {
+  let candidate = value;
+  if (typeof candidate === 'string') {
+    try {
+      candidate = JSON.parse(candidate);
+    } catch {
+      return null;
+    }
+  }
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return null;
+  const row = candidate as Record<string, unknown>;
+  if (row.outcome !== 'completed' && row.outcome !== 'partial') return null;
+  const persisted = Number(row.persisted);
+  if (!Number.isSafeInteger(persisted) || persisted < 0) return null;
+  const result: EvidenceBackfillCommittedResult = { outcome: row.outcome, persisted };
+  const merged = Number(row.merged);
+  if (Number.isSafeInteger(merged) && merged >= 0) result.merged = merged;
+  const failedAttachments = Number(row.failedAttachments);
+  if (Number.isSafeInteger(failedAttachments) && failedAttachments >= 0) {
+    result.failedAttachments = failedAttachments;
+  }
+  if (typeof row.detail === 'string' && row.detail.trim()) result.detail = row.detail.slice(0, 300);
+  return result;
+}
+
 /* Validate the queued TKT-145 target before orchestration reads Graph or lands bytes.
    A merge-retired target resolves only through its verified mergedInto lineage. */
 app.http('internalInboundEvidenceBackfillValidate', {
@@ -2411,13 +2447,57 @@ app.http('internalInboundEvidenceBackfillValidate', {
   route: 'internal/inbound/{id}/evidence-backfill/validate',
   handler: (req, ctx) =>
     withServiceAuth(req, ctx, async () => {
-      const body = (await req.json().catch(() => ({}))) as { targetCaseId?: unknown };
+      const body = (await req.json().catch(() => ({}))) as {
+        targetCaseId?: unknown;
+        generation?: unknown;
+      };
       const targetCaseId = typeof body.targetCaseId === 'string' ? body.targetCaseId.trim() : '';
       if (!targetCaseId) return { status: 400, jsonBody: { error: 'targetCaseId is required' } };
+      const suppliedGeneration = body.generation == null ? null : Number(body.generation);
+      if (
+        suppliedGeneration != null &&
+        (!Number.isSafeInteger(suppliedGeneration) || suppliedGeneration < 1)
+      ) {
+        return { status: 400, jsonBody: { error: 'generation must be a positive integer' } };
+      }
       const resolved = await withResolvedEvidenceBackfillTarget(
         req.params.id,
         targetCaseId,
-        async () => undefined,
+        async (q) => {
+          const rows = await q<{
+            evidence_backfill_requested_generation: string | number;
+            evidence_backfill_completed_generation: string | number;
+            evidence_backfill_completed_result: unknown;
+          }>(
+            `SELECT evidence_backfill_requested_generation,
+                    evidence_backfill_completed_generation,
+                    evidence_backfill_completed_result
+               FROM inbound_email
+              WHERE id = $1`,
+            [req.params.id],
+          );
+          const requested = Number(
+            rows[0]?.evidence_backfill_requested_generation ?? suppliedGeneration ?? 1,
+          );
+          const completed = Number(rows[0]?.evidence_backfill_completed_generation ?? 0);
+          const generation = suppliedGeneration ?? requested; // rolling compatibility for old queued jobs
+          if (generation < 1 || generation > requested) {
+            return { kind: 'generation_mismatch' as const, requested };
+          }
+          if (suppliedGeneration != null && generation < requested && completed < generation) {
+            return { kind: 'superseded' as const, generation };
+          }
+          const committedGeneration = completed >= generation ? completed : generation;
+          const committedResult = completed >= generation
+            ? parseEvidenceBackfillCommittedResult(rows[0]?.evidence_backfill_completed_result)
+            : null;
+          return {
+            kind: 'validated' as const,
+            generation: committedGeneration,
+            completed: completed >= generation,
+            ...(committedResult ? { committedResult } : {}),
+          };
+        },
       );
       if (resolved.kind === 'stale') {
         return {
@@ -2425,7 +2505,38 @@ app.http('internalInboundEvidenceBackfillValidate', {
           jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
         };
       }
-      return { status: 200, jsonBody: { targetCaseId: resolved.targetCaseId } };
+      if (resolved.value.kind === 'generation_mismatch') {
+        return {
+          status: 409,
+          jsonBody: {
+            error: 'evidence backfill generation changed',
+            code: 'evidence_backfill_generation_changed',
+            requestedGeneration: resolved.value.requested,
+          },
+        };
+      }
+      if (resolved.value.kind === 'superseded') {
+        return {
+          status: 200,
+          jsonBody: {
+            targetCaseId: resolved.targetCaseId,
+            generation: resolved.value.generation,
+            completed: false,
+            superseded: true,
+          },
+        };
+      }
+      return {
+        status: 200,
+        jsonBody: {
+          targetCaseId: resolved.targetCaseId,
+          generation: resolved.value.generation,
+          completed: resolved.value.completed,
+          ...(resolved.value.committedResult
+            ? { committedResult: resolved.value.committedResult }
+            : {}),
+        },
+      };
     }),
 });
 
@@ -2454,6 +2565,7 @@ app.http('internalInboundEvidenceBackfill', {
         merged?: unknown;
         failedAttachments?: unknown;
         detail?: unknown;
+        generation?: unknown;
       };
       const outcome = body.outcome;
       if (outcome !== 'completed' && outcome !== 'partial' && outcome !== 'failed') {
@@ -2461,10 +2573,17 @@ app.http('internalInboundEvidenceBackfill', {
       }
       const targetCaseId = typeof body.targetCaseId === 'string' ? body.targetCaseId.trim() : '';
       if (!targetCaseId) return { status: 400, jsonBody: { error: 'targetCaseId is required' } };
-      const detail = typeof body.detail === 'string' ? body.detail.slice(0, 300) : null;
-      const persisted = typeof body.persisted === 'number' ? body.persisted : null;
-      const merged = typeof body.merged === 'number' ? body.merged : null;
-      const failedAttachments = typeof body.failedAttachments === 'number'
+      const suppliedGeneration = body.generation == null ? null : Number(body.generation);
+      if (
+        suppliedGeneration != null &&
+        (!Number.isSafeInteger(suppliedGeneration) || suppliedGeneration < 1)
+      ) {
+        return { status: 400, jsonBody: { error: 'generation must be a positive integer' } };
+      }
+      const requestedDetail = typeof body.detail === 'string' ? body.detail.slice(0, 300) : null;
+      const requestedPersisted = typeof body.persisted === 'number' ? body.persisted : null;
+      const requestedMerged = typeof body.merged === 'number' ? body.merged : null;
+      const requestedFailedAttachments = typeof body.failedAttachments === 'number'
         ? Math.max(0, Math.trunc(body.failedAttachments))
         : null;
 
@@ -2476,8 +2595,16 @@ app.http('internalInboundEvidenceBackfill', {
         const locked = await q<{
           case_id: string | null;
           evidence_backfill_report_outcome: string | null;
+          evidence_backfill_requested_generation: string | number;
+          evidence_backfill_completed_generation: string | number;
+          evidence_backfill_completed_result: unknown;
+          evidence_backfill_reported_generation: string | number;
         }>(
-          `SELECT case_id, evidence_backfill_report_outcome
+          `SELECT case_id, evidence_backfill_report_outcome,
+                  evidence_backfill_requested_generation,
+                  evidence_backfill_completed_generation,
+                  evidence_backfill_completed_result,
+                  evidence_backfill_reported_generation
              FROM inbound_email
             WHERE id = $1
             FOR UPDATE`,
@@ -2485,50 +2612,131 @@ app.http('internalInboundEvidenceBackfill', {
         );
         if (!locked[0]) return { kind: 'missing' as const };
         if ((locked[0].case_id ?? null) !== targetCaseId) return { kind: 'stale' as const };
-        await writeEvidenceBackfillNote(
-          { caseId: targetCaseId, inboundEmailId: id, kind: outcome },
-          q,
+        const requestedGeneration = Number(
+          locked[0].evidence_backfill_requested_generation ?? suppliedGeneration ?? 1,
         );
-        if (locked[0].evidence_backfill_report_outcome === outcome) {
-          return { kind: 'replay' as const };
+        const completedGeneration = Number(locked[0].evidence_backfill_completed_generation ?? 0);
+        const reportedGeneration = Number(locked[0].evidence_backfill_reported_generation ?? 0);
+        const generation = suppliedGeneration ?? requestedGeneration; // legacy reporter compatibility
+        if (generation < 1 || generation > requestedGeneration) {
+          return { kind: 'generation_mismatch' as const, requestedGeneration };
         }
 
-        await q(
-          `UPDATE inbound_email
-              SET evidence_backfill_report_outcome = $2,
-                  evidence_backfill_reported_at = now(),
-                  updated_at = now()
-            WHERE id = $1`,
-          [id, outcome],
+        // A newer committed generation supersedes this delivery. Its own delivery (or
+        // another replay) reports that generation; this older one must not reinterpret it.
+        if (completedGeneration > generation) {
+          return {
+            kind: 'replay' as const,
+            generation,
+            effectiveOutcome: outcome,
+            protectedCompletion: true,
+          };
+        }
+
+        // Persistence truth outranks the reporter for this generation. The exact
+        // completed/partial result and recovered rows commit together, so a lost report
+        // replays this snapshot instead of guessing that any commit was fully completed.
+        const committedResult = completedGeneration === generation
+          ? parseEvidenceBackfillCommittedResult(locked[0].evidence_backfill_completed_result)
+          : null;
+        if (suppliedGeneration != null && completedGeneration === generation && !committedResult) {
+          return { kind: 'missing_committed_result' as const, completedGeneration };
+        }
+        const protectedCompletion = committedResult != null && outcome !== committedResult.outcome;
+        const effectiveOutcome = committedResult?.outcome ?? outcome;
+        const persisted = committedResult?.persisted ?? requestedPersisted;
+        const merged = committedResult?.merged ?? requestedMerged;
+        const failedAttachments = committedResult?.failedAttachments ?? requestedFailedAttachments;
+        const detail = committedResult?.detail ?? requestedDetail;
+        if (
+          suppliedGeneration != null &&
+          (effectiveOutcome === 'completed' || effectiveOutcome === 'partial') &&
+          completedGeneration < generation
+        ) {
+          return { kind: 'not_committed' as const, completedGeneration };
+        }
+
+        const rank: Record<'failed' | 'partial' | 'completed', number> = {
+          failed: 0,
+          partial: 1,
+          completed: 2,
+        };
+        const currentOutcome = locked[0].evidence_backfill_report_outcome as
+          | 'failed'
+          | 'partial'
+          | 'completed'
+          | null;
+        if (
+          generation < reportedGeneration ||
+          (generation === reportedGeneration && currentOutcome != null &&
+            rank[currentOutcome] >= rank[effectiveOutcome])
+        ) {
+          return {
+            kind: 'replay' as const,
+            generation,
+            effectiveOutcome,
+            protectedCompletion,
+          };
+        }
+        await writeEvidenceBackfillNote(
+          { caseId: targetCaseId, inboundEmailId: id, kind: effectiveOutcome },
+          q,
         );
 
-        if (outcome === 'completed') {
+        const updated = await q<{ id: string }>(
+          `UPDATE inbound_email
+              SET evidence_backfill_report_outcome = $2,
+                  evidence_backfill_reported_generation = $3,
+                  evidence_backfill_reported_at = now(),
+                  updated_at = now()
+            WHERE id = $1
+              AND evidence_backfill_reported_generation <= $3
+          RETURNING id`,
+          [id, effectiveOutcome, generation],
+        );
+        if (!updated[0] && suppliedGeneration != null) {
+          return { kind: 'replay' as const, generation, effectiveOutcome, protectedCompletion };
+        }
+
+        if (effectiveOutcome === 'completed') {
           await writeAudit({
             action: AUDIT_ACTION.attachment_classified,
             caseId: targetCaseId,
             summary: `Attachments added from the linked email (${persisted ?? '?'} new${
               merged ? `, ${merged} matched` : ''
             })`,
-            after: { inboundEmailId: id, persisted, merged },
+            after: {
+              inboundEmailId: id,
+              generation,
+              persisted,
+              merged,
+              ...(protectedCompletion ? { protectedFromOutcome: outcome } : {}),
+            },
             actor: 'orchestration',
           }, q);
         } else {
           await writeAudit({
             action: AUDIT_ACTION.graph_message_ingest_failed,
             caseId: targetCaseId,
-            summary: outcome === 'partial'
+            summary: effectiveOutcome === 'partial'
               ? 'Some attachments from the linked email could not be added'
               : 'Attachments from the linked email could not be added — staff must add them',
             severity: 'warning',
             after: {
               inboundEmailId: id,
+              generation,
               ...(failedAttachments != null ? { failedAttachments } : {}),
               ...(detail ? { detail } : {}),
             },
             actor: 'orchestration',
           }, q);
         }
-        return { kind: 'transition' as const };
+        return {
+          kind: 'transition' as const,
+          generation,
+          effectiveOutcome,
+          protectedCompletion,
+        };
       });
       if (report.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
       if (report.kind === 'stale') {
@@ -2537,15 +2745,46 @@ app.http('internalInboundEvidenceBackfill', {
           jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
         };
       }
+      if (report.kind === 'generation_mismatch') {
+        return {
+          status: 409,
+          jsonBody: {
+            error: 'evidence backfill generation changed',
+            code: 'evidence_backfill_generation_changed',
+            requestedGeneration: report.requestedGeneration,
+          },
+        };
+      }
+      if (report.kind === 'not_committed') {
+        return {
+          status: 409,
+          jsonBody: {
+            error: 'evidence backfill persistence is not committed',
+            code: 'evidence_backfill_not_committed',
+            completedGeneration: report.completedGeneration,
+          },
+        };
+      }
+      if (report.kind === 'missing_committed_result') {
+        return {
+          status: 409,
+          jsonBody: {
+            error: 'evidence backfill committed result is unavailable',
+            code: 'evidence_backfill_committed_result_missing',
+            completedGeneration: report.completedGeneration,
+          },
+        };
+      }
       ctx.log(
         JSON.stringify({
           evt: 'evidenceBackfillReport',
           inboundEmailId: id,
-          outcome,
+          outcome: report.effectiveOutcome,
+          requestedOutcome: outcome,
+          generation: report.generation,
           targetCaseId,
-          persisted,
-          merged,
           replay: report.kind === 'replay',
+          protectedCompletion: report.protectedCompletion,
         }),
       );
       return { status: 204 };
@@ -2778,6 +3017,10 @@ app.http('internalCasesEvidence', {
       const caseId = req.params.id;
       const body = (await req.json()) as {
         expectedInboundEmailId?: unknown;
+        evidenceBackfillGeneration?: unknown;
+        evidenceBackfillOutcome?: unknown;
+        evidenceBackfillFailedAttachments?: unknown;
+        evidenceBackfillDetail?: unknown;
         rows: Array<
           Partial<EvidenceDescriptor> & {
             filename: string;
@@ -3133,6 +3376,35 @@ app.http('internalCasesEvidence', {
         ? body.expectedInboundEmailId.trim()
         : '';
       if (expectedInboundEmailId) {
+        const suppliedBackfillGeneration = body.evidenceBackfillGeneration == null
+          ? null
+          : Number(body.evidenceBackfillGeneration);
+        if (
+          suppliedBackfillGeneration != null &&
+          (!Number.isSafeInteger(suppliedBackfillGeneration) || suppliedBackfillGeneration < 1)
+        ) {
+          return { status: 400, jsonBody: { error: 'evidenceBackfillGeneration must be a positive integer' } };
+        }
+        const suppliedBackfillOutcome = body.evidenceBackfillOutcome;
+        if (
+          suppliedBackfillGeneration != null &&
+          suppliedBackfillOutcome !== 'completed' &&
+          suppliedBackfillOutcome !== 'partial'
+        ) {
+          return {
+            status: 400,
+            jsonBody: { error: "evidenceBackfillOutcome must be 'completed' or 'partial'" },
+          };
+        }
+        const backfillOutcome: EvidenceBackfillCommittedOutcome = suppliedBackfillOutcome === 'partial'
+          ? 'partial'
+          : 'completed';
+        const backfillFailedAttachments = typeof body.evidenceBackfillFailedAttachments === 'number'
+          ? Math.max(0, Math.trunc(body.evidenceBackfillFailedAttachments))
+          : undefined;
+        const backfillDetail = typeof body.evidenceBackfillDetail === 'string' && body.evidenceBackfillDetail.trim()
+          ? body.evidenceBackfillDetail.slice(0, 300)
+          : undefined;
         const guarded = await withResolvedEvidenceBackfillTarget(
           expectedInboundEmailId,
           caseId,
@@ -3144,9 +3416,103 @@ app.http('internalCasesEvidence', {
             if (resolvedCaseId.trim().toLowerCase() !== caseId.trim().toLowerCase()) {
               return { kind: 'reclassification_required' as const };
             }
+            // Rolling deployment compatibility: the old orchestration writer did not
+            // know generations or the intended terminal outcome. Persist its rows using
+            // the legacy guarded path, but do NOT guess "completed" or stamp a marker;
+            // its subsequent legacy partial/completed report remains authoritative.
+            if (suppliedBackfillGeneration == null) {
+              return {
+                kind: 'persisted' as const,
+                value: await persistRows(q, resolvedCaseId),
+              };
+            }
+            const progress = await q<{
+              evidence_backfill_requested_generation: string | number;
+              evidence_backfill_completed_generation: string | number;
+              evidence_backfill_completed_result: unknown;
+            }>(
+              `SELECT evidence_backfill_requested_generation,
+                      evidence_backfill_completed_generation,
+                      evidence_backfill_completed_result
+                 FROM inbound_email
+                WHERE id = $1`,
+              [expectedInboundEmailId],
+            );
+            const requestedGeneration = Number(
+              progress[0]?.evidence_backfill_requested_generation ?? suppliedBackfillGeneration ?? 1,
+            );
+            const completedGeneration = Number(
+              progress[0]?.evidence_backfill_completed_generation ?? 0,
+            );
+            const backfillGeneration = suppliedBackfillGeneration ?? requestedGeneration;
+            if (backfillGeneration < 1 || backfillGeneration > requestedGeneration) {
+              return {
+                kind: 'generation_mismatch' as const,
+                requestedGeneration,
+              };
+            }
+            if (completedGeneration >= backfillGeneration) {
+              const completedResult = parseEvidenceBackfillCommittedResult(
+                progress[0]?.evidence_backfill_completed_result,
+              );
+              if (suppliedBackfillGeneration != null && !completedResult) {
+                throw new Error('evidence backfill completion marker has no durable result');
+              }
+              return {
+                kind: 'persisted' as const,
+                value: {
+                  persisted: completedResult?.persisted ?? 0,
+                  updated: 0,
+                  merged: completedResult?.merged ?? 0,
+                  backfillGeneration,
+                  alreadyCompleted: true,
+                  ...(completedResult ? { completedResult } : {}),
+                },
+              };
+            }
+            const value = await persistRows(q, resolvedCaseId);
+            const completedResult: EvidenceBackfillCommittedResult = {
+              outcome: backfillOutcome,
+              persisted: value.persisted,
+              merged: value.merged,
+              ...(backfillFailedAttachments == null
+                ? {}
+                : { failedAttachments: backfillFailedAttachments }),
+              ...(backfillDetail ? { detail: backfillDetail } : {}),
+            };
+            const marked = await q<{
+              evidence_backfill_completed_generation: string | number;
+              evidence_backfill_completed_result: unknown;
+            }>(
+              `UPDATE inbound_email
+                  SET evidence_backfill_completed_generation = $2,
+                      evidence_backfill_completed_result = $4::jsonb,
+                      evidence_backfill_completed_at = now(),
+                      updated_at = now()
+                WHERE id = $1
+                  AND case_id = $3
+                  AND evidence_backfill_requested_generation = $2
+                  AND evidence_backfill_completed_generation < $2
+              RETURNING evidence_backfill_completed_generation,
+                        evidence_backfill_completed_result`,
+              [
+                expectedInboundEmailId,
+                backfillGeneration,
+                resolvedCaseId,
+                JSON.stringify(completedResult),
+              ],
+            );
+            if (!marked[0]) {
+              throw new Error('evidence backfill completion marker target disappeared');
+            }
             return {
               kind: 'persisted' as const,
-              value: await persistRows(q, resolvedCaseId),
+              value: {
+                ...value,
+                backfillGeneration,
+                alreadyCompleted: false,
+                completedResult,
+              },
             };
           },
         );
@@ -3163,6 +3529,16 @@ app.http('internalCasesEvidence', {
               error: 'evidence backfill must be reclassified for the merged case',
               code: 'evidence_backfill_reclassification_required',
               targetCaseId: guarded.targetCaseId,
+            },
+          };
+        }
+        if (guarded.value.kind === 'generation_mismatch') {
+          return {
+            status: 409,
+            jsonBody: {
+              error: 'evidence backfill generation changed',
+              code: 'evidence_backfill_generation_changed',
+              requestedGeneration: guarded.value.requestedGeneration,
             },
           };
         }
@@ -3466,27 +3842,12 @@ app.http('internalCasesMarkDone', {
       const signal = ['sent_email', 'box_pdf', 'eva_poll', 'manual'].includes(body.signal ?? '')
         ? (body.signal as string)
         : 'unknown';
-      const updated = await query<{ id: string }>(
-        // Clear on_hold on the terminal transition (parity with the SPA mark-done route in
-        // cases.ts): a delivered case must not linger in the Held/work queues. (PR51-E3)
-        `UPDATE case_ SET status_code = $1, on_hold = false, updated_at = now()
-         WHERE id = $2 AND status_code = $3
-         RETURNING id`,
-        [statusToInt('done'), caseId, statusToInt('eva_submitted')],
-      );
-      if (updated.length > 0) {
-        await writeAudit({
-          action: AUDIT_ACTION.report_delivered,
-          caseId,
-          summary: 'Report delivered to the work provider — case marked Done',
-          after: {
-            status: 'done',
-            signal,
-            ...(body.detail ? { detail: String(body.detail).slice(0, 500) } : {}),
-          },
-        });
-      }
-      return { status: 200, jsonBody: { updated: updated.length > 0 } };
+      const updated = await tx((q) => markCaseDoneUsing(q, {
+        caseId,
+        signal,
+        ...(body.detail ? { detail: String(body.detail) } : {}),
+      }));
+      return { status: 200, jsonBody: { updated } };
     }),
 });
 
@@ -3792,7 +4153,9 @@ app.http('internalBoxMarkPurged', {
    verdict, which keeps role `unknown` (no 'other' option in the choice set)
    but is stamped not-accepted — so a classified row is never re-enumerated
    and re-sweeps are idempotent. Excluded rows are never candidates. The
-   14-day created_at window bounds the event-time scope. Persisted claim,
+   14-day created_at window bounds FIRST attempts only. Once a row has an
+   attempt_count > 0, its persisted retry remains eligible after day 14 so a
+   day-13 transient backoff cannot silently strand it. Persisted claim,
    due-time and dead-letter fields keep terminal/persistent failures OUT of
    the next capped page; a crash leaves a 30-minute lease, after which the row
    is safely retryable. Newest-first still prioritises fresh uploads, while
@@ -3814,7 +4177,10 @@ app.http('internalEvidenceUnclassifiedBox', {
             AND e.image_role_code = $2
             AND e.registration_visible IS NULL
             AND e.excluded = false
-            AND e.created_at > now() - interval '14 days'
+            AND (
+              COALESCE(e.box_classify_attempt_count, 0) > 0
+              OR e.created_at > now() - interval '14 days'
+            )
             AND e.box_classify_dead_lettered_at IS NULL
             AND (e.box_classify_next_attempt_at IS NULL OR e.box_classify_next_attempt_at <= now())
             AND (e.box_classify_claim_expires_at IS NULL OR e.box_classify_claim_expires_at <= now())

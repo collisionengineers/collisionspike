@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
+  capturePendingAttachmentTarget,
   MAX_ATTACH_BYTES,
   classifyAttachment,
   partitionAttachments,
+  startPendingAttachmentBatch,
   fileCountLabel,
   attachmentNote,
   detectCaseRef,
@@ -136,5 +138,45 @@ describe('detectCaseRef — sniffs a target-case handle from conversation text',
   });
   it('returns nothing for plain text with no handle', () => {
     expect(detectCaseRef('how many cases are in review?')).toEqual({});
+  });
+});
+
+describe('pending attachment batches stay immutable until resolved', () => {
+  it('does not let a second batch replace the first batch or inherit its target', () => {
+    const firstFile = meta('first.jpg', 'image/jpeg', 100);
+    const secondFile = meta('second.pdf', 'application/pdf', 100);
+    const first = startPendingAttachmentBatch(null, [firstFile], 'turn-1');
+    const targetedFirst = capturePendingAttachmentTarget(
+      first.batch,
+      'I found CCPY26050 for registration YT13 UTV.',
+    );
+    const blockedSecond = startPendingAttachmentBatch(targetedFirst, [secondFile], 'turn-2');
+
+    expect(first.accepted).toBe(true);
+    expect(blockedSecond.accepted).toBe(false);
+    expect(blockedSecond.batch).toBe(targetedFirst);
+    expect(blockedSecond.batch.files.map((file) => file.name)).toEqual(['first.jpg']);
+    expect(blockedSecond.batch.suggestedCasePo).toBe('CCPY26050');
+
+    const freshSecond = startPendingAttachmentBatch(null, [secondFile], 'turn-2');
+    expect(freshSecond.accepted).toBe(true);
+    expect(freshSecond.batch.files.map((file) => file.name)).toEqual(['second.pdf']);
+    expect(freshSecond.batch.suggestedCasePo).toBeUndefined();
+  });
+
+  it('captures a target once so later conversation cannot retarget frozen files', () => {
+    const started = startPendingAttachmentBatch(
+      null,
+      [meta('first.jpg', 'image/jpeg', 100)],
+      'turn-1',
+    );
+    const captured = capturePendingAttachmentTarget(started.batch, 'Add these to CCPY26050.');
+    const afterFollowUp = capturePendingAttachmentTarget(
+      captured,
+      'Now tell me about QDOS26077 instead.',
+    );
+
+    expect(afterFollowUp).toBe(captured);
+    expect(afterFollowUp.suggestedCasePo).toBe('CCPY26050');
   });
 });

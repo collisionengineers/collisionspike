@@ -47,6 +47,85 @@ describe('backfill persistence conflict typing', () => {
   });
 });
 
+describe('generation-aware evidence backfill contract', () => {
+  it('asks the API-owned outbox publisher to drain pending generations', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ published: 2, failed: 0 }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+
+    await expect(dataApi.drainEvidenceBackfillRequests()).resolves.toEqual({
+      published: 2, failed: 0,
+    });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe(
+      'https://api.example.test/api/internal/evidence-backfill-requests/drain',
+    );
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(String(init?.body))).toEqual({});
+  });
+
+  it('carries the intended partial outcome into the atomic evidence persistence request', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      persisted: 1,
+      updated: 0,
+      merged: 0,
+      backfillGeneration: 4,
+      completedResult: {
+        outcome: 'partial',
+        persisted: 1,
+        merged: 0,
+        failedAttachments: 2,
+        detail: '2 recovery items could not be retrieved',
+      },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    await dataApi.persistEvidence('case-1', [], {
+      expectedInboundEmailId: 'ie-1',
+      evidenceBackfillGeneration: 4,
+      evidenceBackfillResult: {
+        outcome: 'partial',
+        failedAttachments: 2,
+        detail: '2 recovery items could not be retrieved',
+      },
+    });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe('https://api.example.test/api/internal/cases/case-1/evidence');
+    expect(JSON.parse(String(init?.body))).toEqual({
+      rows: [],
+      expectedInboundEmailId: 'ie-1',
+      evidenceBackfillGeneration: 4,
+      evidenceBackfillOutcome: 'partial',
+      evidenceBackfillFailedAttachments: 2,
+      evidenceBackfillDetail: '2 recovery items could not be retrieved',
+    });
+  });
+
+  it('carries generation through validation and returns the durable replay snapshot', async () => {
+    const committedResult = {
+      outcome: 'partial' as const,
+      persisted: 1,
+      merged: 0,
+      failedAttachments: 1,
+      detail: 'one item missing',
+    };
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      targetCaseId: 'case-1',
+      generation: 4,
+      completed: true,
+      committedResult,
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    await expect(dataApi.validateEvidenceBackfillTarget('ie-1', 'case-1', 4)).resolves.toEqual({
+      targetCaseId: 'case-1', generation: 4, completed: true, committedResult,
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      targetCaseId: 'case-1', generation: 4,
+    });
+  });
+});
+
 describe('generation-aware status evaluation contract', () => {
   it('sends the requested generation to the row-locked evaluate route', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({

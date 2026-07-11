@@ -69,6 +69,8 @@ import { isRetryableGraphError } from './outlook-move.js';
 /** Keep in sync with api/src/lib/evidence-backfill-queue.ts (the producer). */
 interface EvidenceBackfillJob {
   inboundEmailId: string;
+  /** Optional only for rolling compatibility with jobs published before generation carriage. */
+  generation?: number;
   sourceMailbox: string;
   sourceMessageId: string;
   targetCaseId: string;
@@ -192,10 +194,16 @@ app.storageQueue('evidence-backfill', {
     let persistenceCommitted = false;
     let reportAttempted = false;
     let targetCaseId = job.targetCaseId;
+    let generation = Number.isSafeInteger(Number(job.generation)) && Number(job.generation) > 0
+      ? Number(job.generation)
+      : undefined;
 
-    const report = async (payload: Parameters<typeof dataApi.reportEvidenceBackfill>[1]): Promise<void> => {
+    const report = async (
+      payload: Omit<Parameters<typeof dataApi.reportEvidenceBackfill>[1], 'generation'>,
+    ): Promise<void> => {
+      if (generation == null) throw new Error('evidence backfill generation was not validated');
       reportAttempted = true;
-      await dataApi.reportEvidenceBackfill(job.inboundEmailId, payload);
+      await dataApi.reportEvidenceBackfill(job.inboundEmailId, { ...payload, generation });
     };
 
     const fail = async (detail: string): Promise<void> => {
@@ -213,9 +221,40 @@ app.storageQueue('evidence-backfill', {
         ctx.error(`[evidence-backfill] malformed job dropped: ${JSON.stringify(job).slice(0, 300)}`);
         return;
       }
-      const validated = await dataApi.validateEvidenceBackfillTarget(job.inboundEmailId, targetCaseId);
+      const validated = await dataApi.validateEvidenceBackfillTarget(
+        job.inboundEmailId,
+        targetCaseId,
+        generation,
+      );
       targetCaseId = validated.targetCaseId;
+      generation = validated.generation ?? generation;
       targetValidated = true;
+      if (validated.superseded) {
+        ctx.log(JSON.stringify({
+          evt: 'evidence-backfill',
+          inboundEmailId: job.inboundEmailId,
+          caseId: targetCaseId,
+          generation,
+          replay: 'superseded_generation',
+        }));
+        return;
+      }
+      if (validated.completed) {
+        // A prior attempt committed evidence + the exact terminal result atomically but
+        // lost its report response. Reconcile that durable result without touching Graph.
+        if (!validated.committedResult) {
+          throw new Error('completed evidence backfill has no durable result to replay');
+        }
+        await report({ ...validated.committedResult, targetCaseId });
+        ctx.log(JSON.stringify({
+          evt: 'evidence-backfill',
+          inboundEmailId: job.inboundEmailId,
+          caseId: targetCaseId,
+          generation,
+          replay: 'already_committed',
+        }));
+        return;
+      }
       if (!job.sourceMailbox || !job.sourceMessageId) {
         // No mailbox provenance to re-fetch from (the producer guards this, but a
         // hand-placed message might not) — terminal: the note tells staff to attach by hand.
@@ -408,12 +447,29 @@ app.storageQueue('evidence-backfill', {
         }
       }
 
+      const recoveryFailures = attachmentFailures.length + (rawMimeFailure ? 1 : 0);
+      const recoveryResult = {
+        outcome: recoveryFailures > 0 ? 'partial' as const : 'completed' as const,
+        ...(recoveryFailures > 0
+          ? {
+              failedAttachments: recoveryFailures,
+              detail: `${recoveryFailures} recovery item${recoveryFailures === 1 ? '' : 's'} could not be retrieved`,
+            }
+          : {}),
+      };
       const result = await dataApi.persistEvidence(targetCaseId, rows, {
         expectedInboundEmailId: job.inboundEmailId,
+        evidenceBackfillGeneration: generation,
+        evidenceBackfillResult: recoveryResult,
       });
       persistenceCommitted = true;
       targetCaseId = result.targetCaseId ?? targetCaseId;
-      const merged = (result as { merged?: number }).merged;
+      const committedResult = result.completedResult ?? {
+        ...recoveryResult,
+        persisted: result.persisted,
+        ...(typeof result.merged === 'number' ? { merged: result.merged } : {}),
+      };
+      const merged = committedResult.merged;
 
       // 6 — opportunistic status fast-path AFTER the committed backfill. When the
       // evidence transaction returned a generation, the API evaluates + acknowledges
@@ -437,18 +493,9 @@ app.storageQueue('evidence-backfill', {
       }
 
       // 7 — report completion (the Data API writes the case-scoped audit).
-      const recoveryFailures = attachmentFailures.length + (rawMimeFailure ? 1 : 0);
       await report({
-        outcome: recoveryFailures > 0 ? 'partial' : 'completed',
+        ...committedResult,
         targetCaseId,
-        persisted: result.persisted,
-        ...(typeof merged === 'number' ? { merged } : {}),
-        ...(recoveryFailures > 0
-          ? {
-              failedAttachments: recoveryFailures,
-              detail: `${recoveryFailures} recovery item${recoveryFailures === 1 ? '' : 's'} could not be retrieved`,
-            }
-          : {}),
       });
       ctx.log(
         JSON.stringify({

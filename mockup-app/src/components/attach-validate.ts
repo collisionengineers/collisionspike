@@ -113,6 +113,43 @@ export interface DetectedCaseRef {
   casePo?: string;
 }
 
+/** One immutable attachment turn waiting for staff confirmation. */
+export interface PendingAttachmentBatch<T extends AttachFileMeta = File> {
+  id: string;
+  files: readonly T[];
+  suggestedVrm?: string;
+  suggestedCasePo?: string;
+  targetCaptured: boolean;
+}
+
+/** Start a batch only when none is pending. A second picker/send cannot replace it. */
+export function startPendingAttachmentBatch<T extends AttachFileMeta>(
+  current: PendingAttachmentBatch<T> | null,
+  files: readonly T[],
+  id: string,
+): { batch: PendingAttachmentBatch<T>; accepted: boolean } {
+  if (current) return { batch: current, accepted: false };
+  return {
+    batch: { id, files: [...files], targetCaptured: false },
+    accepted: true,
+  };
+}
+
+/** Capture the attachment turn's target once; later conversation cannot retarget it. */
+export function capturePendingAttachmentTarget<T extends AttachFileMeta>(
+  batch: PendingAttachmentBatch<T>,
+  conversationAtTurn: string,
+): PendingAttachmentBatch<T> {
+  if (batch.targetCaptured) return batch;
+  const ref = detectCaseRef(conversationAtTurn);
+  return {
+    ...batch,
+    targetCaptured: true,
+    ...(ref.vrm ? { suggestedVrm: ref.vrm } : {}),
+    ...(ref.casePo ? { suggestedCasePo: ref.casePo } : {}),
+  };
+}
+
 /**
  * Sniff a target-case handle (registration and/or Case/PO) out of the recent conversation
  * so the confirm card can PRE-FILL what the human then confirms. The model does the real

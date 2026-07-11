@@ -416,7 +416,7 @@ export const mockDataAccess: DataAccessExt = {
   inspectionAddressSuggestions: (_caseId, _q) => Promise.resolve([]),
   assistantChat: (_messages) =>
     Promise.resolve({ reply: 'The assistant is not available in this preview.', disabled: true }),
-  getAiChatGate: () => Promise.resolve({ enabled: false }),
+  getAiChatGate: () => Promise.resolve({ enabled: false, writeEnabled: false }),
   globalSearch: (q) => Promise.resolve({ ...EMPTY_SEARCH, query: q }),
   caseWithVersion: (_id) =>
     Promise.resolve({

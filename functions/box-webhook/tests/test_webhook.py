@@ -16,6 +16,7 @@ import hashlib
 import hmac
 import json
 import sys
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -177,6 +178,14 @@ def test_dedup_first_seen_is_false_then_true():
     d = DeliveryDedup()
     assert d.seen("delivery-1") is False
     assert d.seen("delivery-1") is True  # repeat -> deduped
+
+
+def test_dedup_distinguishes_in_flight_from_settled():
+    d = DeliveryDedup()
+    assert d.begin("delivery-1") == "new"
+    assert d.begin("delivery-1") == "in_flight"
+    d.settle("delivery-1")
+    assert d.begin("delivery-1") == "settled"
 
 
 def test_dedup_distinct_ids_independent():
@@ -475,6 +484,56 @@ def test_receiver_transient_failure_then_box_retry_is_reprocessed(monkeypatch):
     assert fake.reinvoked == ["CASE-RETRY"]
 
 
+def test_concurrent_duplicate_never_settles_before_first_failure(monkeypatch):
+    """A same-id duplicate arriving while the owning request is blocked gets 503,
+    never a false settled 200. Once the first fails and releases its claim, the
+    next retry is processed normally."""
+    from data_api_client import DataApiError
+
+    class _BlockedFirstFailure(_FakeDataApi):
+        def __init__(self):
+            super().__init__(case_id="CASE-CONCURRENT")
+            self.entered = threading.Event()
+            self.release = threading.Event()
+            self.calls = 0
+
+        def resolve_case_by_folder(self, folder_id):
+            self.calls += 1
+            if self.calls == 1:
+                self.entered.set()
+                assert self.release.wait(timeout=5)
+                raise DataApiError("first request failed", status=503)
+            return self._case_id
+
+    fake = _BlockedFirstFailure()
+    _patch_dv(monkeypatch, fake)
+    first_result = []
+    first = threading.Thread(
+        target=lambda: first_result.append(
+            function_app.box_webhook(_signed_request(_UPLOAD_BODY, delivery_id="d-concurrent"))
+        )
+    )
+    first.start()
+    assert fake.entered.wait(timeout=5)
+
+    duplicate = function_app.box_webhook(
+        _signed_request(_UPLOAD_BODY, delivery_id="d-concurrent")
+    )
+    assert duplicate.status_code == 503
+    assert json.loads(duplicate.get_body()).get("deduped") is not True
+
+    fake.release.set()
+    first.join(timeout=5)
+    assert not first.is_alive()
+    assert first_result[0].status_code == 503
+
+    retry = function_app.box_webhook(
+        _signed_request(_UPLOAD_BODY, delivery_id="d-concurrent")
+    )
+    assert retry.status_code == 200
+    assert len(fake.created) == 1
+
+
 def test_receiver_status_evaluate_failure_then_retry_advances(monkeypatch):
     """When Evidence is written but the (idempotent) status-evaluate re-invoke
     FAILS, the receiver returns 503 so Box retries; on the retry the Evidence
@@ -595,22 +654,56 @@ def test_receiver_image_upload_behaviour_unchanged_by_detector(monkeypatch):
     assert "report" not in json.loads(resp.get_body())
 
 
-def test_receiver_mark_done_failure_still_settles_200(monkeypatch):
-    """LIVE-SAFETY: a mark-done fault must never 5xx the webhook — Box gets its
-    200 for the fully-settled upload (evidence + audit + re-evaluate all done)."""
+def test_receiver_mark_done_failure_returns_503_after_fresh_evidence(monkeypatch):
+    """A report is not settled while its required done transition is unknown."""
+    from data_api_client import DataApiError
 
     class _MarkDoneBoom(_FakeDataApi):
         def mark_case_done(self, case_id, signal, detail=""):
-            raise RuntimeError("mark-done exploded")
+            raise DataApiError("mark-done unavailable", status=503)
 
     fake = _MarkDoneBoom(case_id="CASE-7", case_po="CCPY26050")
     _patch_dv(monkeypatch, fake)
     resp = function_app.box_webhook(_signed_request(_report_body("CCPY26050 Report.pdf")))
-    assert resp.status_code == 200
-    out = json.loads(resp.get_body())
-    assert out.get("markedDone") is False  # honest outcome, settled response
+    assert resp.status_code == 503
     assert len(fake.created) == 1
     assert fake.reinvoked == ["CASE-7"]
+
+
+def test_receiver_report_mark_done_failure_redelivers_without_duplicate_evidence(monkeypatch):
+    """Fresh evidence + failed done call returns 503; same-id redelivery uses the
+    durable evidence check and retries only the idempotent advance/done work."""
+    from data_api_client import DataApiError
+
+    class _RetryDone(_FakeDataApi):
+        def __init__(self):
+            super().__init__(case_id="CASE-7", case_po="CCPY26050")
+            self.done_calls = 0
+
+        def evidence_exists_for_box_file(self, case_id, box_file_id):
+            return len(self.created) > 0
+
+        def mark_case_done(self, case_id, signal, detail=""):
+            self.done_calls += 1
+            if self.done_calls == 1:
+                raise DataApiError("mark-done 503", status=503)
+            return super().mark_case_done(case_id, signal, detail)
+
+    fake = _RetryDone()
+    _patch_dv(monkeypatch, fake)
+    first = function_app.box_webhook(
+        _signed_request(_report_body("CCPY26050 Report.pdf"), delivery_id="d-report-retry")
+    )
+    assert first.status_code == 503
+    assert len(fake.created) == 1
+
+    second = function_app.box_webhook(
+        _signed_request(_report_body("CCPY26050 Report.pdf"), delivery_id="d-report-retry")
+    )
+    assert second.status_code == 200
+    assert len(fake.created) == 1
+    assert fake.done_calls == 2
+    assert fake.marked_done == [("CASE-7", "box_pdf", "CCPY26050 Report.pdf")]
 
 
 def test_receiver_report_redelivery_dedups_write_but_still_attempts_mark_done(monkeypatch):

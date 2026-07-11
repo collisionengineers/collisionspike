@@ -89,8 +89,21 @@ beforeEach(() => {
   params.length = 0;
   rowsFor.mockReset();
   rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
+    if (/SET evidence_backfill_completed_generation =/i.test(sql)) {
+      return [{
+        evidence_backfill_completed_generation: p?.[1] as number,
+        evidence_backfill_completed_result: JSON.parse(String(p?.[3])),
+      }];
+    }
     if (/FROM inbound_email/i.test(sql)) {
-      return [{ id: 'ie-1', case_id: 'case-target', evidence_backfill_report_outcome: null }];
+      return [{
+        id: 'ie-1',
+        case_id: 'case-target',
+        evidence_backfill_report_outcome: null,
+        evidence_backfill_requested_generation: 1,
+        evidence_backfill_completed_generation: 0,
+        evidence_backfill_reported_generation: 0,
+      }];
     }
     if (/SELECT id, duplicate_keys FROM case_/i.test(sql)) {
       return [{ id: p?.[0] as string, duplicate_keys: null }];
@@ -127,39 +140,53 @@ describe('internalInboundEvidenceBackfill — (a) note-on-terminal-failure', () 
     expect(params[auditIdx]).toContain('case-target');
   });
 
-  it('a re-reported failure re-issues the SAME idempotent UPSERT (no second copy)', async () => {
+  it('a same-generation failure replay writes no second note or audit', async () => {
     let storedOutcome: string | null = null;
+    let storedGeneration = 0;
     rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
       if (/FROM inbound_email/i.test(sql)) {
         return [{
           id: 'ie-1',
           case_id: 'case-target',
           evidence_backfill_report_outcome: storedOutcome,
+          evidence_backfill_requested_generation: 1,
+          evidence_backfill_completed_generation: 0,
+          evidence_backfill_reported_generation: storedGeneration,
         }];
       }
-      if (/UPDATE inbound_email/i.test(sql)) storedOutcome = String(p?.[1]);
+      if (/evidence_backfill_reported_generation =/i.test(sql)) {
+        storedOutcome = String(p?.[1]);
+        storedGeneration = Number(p?.[2]);
+        return [{ id: 'ie-1' }];
+      }
       return [];
     });
-    await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-target' }), ctx);
-    await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-target' }), ctx);
-    // Both runs execute the source-keyed statement; exact content leaves timestamps
-    // untouched through the IS DISTINCT FROM guard.
-    for (const s of noteSqls()) expect(s).toMatch(/ON CONFLICT/i);
-    expect(noteSqls()).toHaveLength(2);
+    await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-target', generation: 1 }), ctx);
+    await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-target', generation: 1 }), ctx);
+    expect(noteSqls()).toHaveLength(1);
+    expect(noteSqls()[0]).toMatch(/ON CONFLICT/i);
     expect(auditSqls()).toHaveLength(1);
   });
 
   it('audits a genuine failed to completed outcome transition exactly once per state', async () => {
     let storedOutcome: string | null = null;
+    let storedGeneration = 0;
     rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
       if (/FROM inbound_email/i.test(sql)) {
         return [{
           id: 'ie-1',
           case_id: 'case-target',
           evidence_backfill_report_outcome: storedOutcome,
+          evidence_backfill_requested_generation: 1,
+          evidence_backfill_completed_generation: 0,
+          evidence_backfill_reported_generation: storedGeneration,
         }];
       }
-      if (/UPDATE inbound_email/i.test(sql)) storedOutcome = String(p?.[1]);
+      if (/evidence_backfill_reported_generation =/i.test(sql)) {
+        storedOutcome = String(p?.[1]);
+        storedGeneration = Number(p?.[2]);
+        return [{ id: 'ie-1' }];
+      }
       return [];
     });
 
@@ -269,7 +296,7 @@ describe('internalInboundEvidenceBackfill partial + validation', () => {
   it('validates the current exact link and returns its resolved target', async () => {
     const current = await validate(req('ie-1', { targetCaseId: 'case-target' }), ctx);
     expect(current.status).toBe(200);
-    expect(current.jsonBody).toEqual({ targetCaseId: 'case-target' });
+    expect(current.jsonBody).toEqual({ targetCaseId: 'case-target', generation: 1, completed: false });
     rowsFor.mockImplementation(() => []);
     const stale = await validate(req('ie-1', { targetCaseId: 'case-target' }), ctx);
     expect(stale.status).toBe(409);
@@ -291,7 +318,7 @@ describe('internalInboundEvidenceBackfill partial + validation', () => {
 
     const res = await validate(req('ie-1', { targetCaseId: 'case-old' }), ctx);
     expect(res.status).toBe(200);
-    expect(res.jsonBody).toEqual({ targetCaseId: 'case-new' });
+    expect(res.jsonBody).toEqual({ targetCaseId: 'case-new', generation: 1, completed: false });
     const advisoryParams = params
       .filter((_, i) => /pg_advisory_xact_lock/i.test(sqls[i]))
       .map((p) => p[0]);
@@ -334,6 +361,152 @@ describe('internalCasesEvidence guarded persistence', () => {
     expect(inboundRowLock).toBeLessThan(evidenceWrite);
   });
 
+  it('atomically commits a partial terminal snapshot and a lost-report retry cannot downgrade it', async () => {
+    let completedGeneration = 0;
+    let completedResult: Record<string, unknown> | null = null;
+    let reportedGeneration = 0;
+    let reportedOutcome: string | null = null;
+    rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
+      if (/SET evidence_backfill_completed_generation =/i.test(sql)) {
+        completedGeneration = Number(p?.[1]);
+        completedResult = JSON.parse(String(p?.[3])) as Record<string, unknown>;
+        return [{
+          evidence_backfill_completed_generation: completedGeneration,
+          evidence_backfill_completed_result: completedResult,
+        }];
+      }
+      if (/evidence_backfill_reported_generation =/i.test(sql)) {
+        reportedOutcome = String(p?.[1]);
+        reportedGeneration = Number(p?.[2]);
+        return [{ id: 'ie-1' }];
+      }
+      if (/FROM inbound_email/i.test(sql)) {
+        return [{
+          id: 'ie-1',
+          case_id: 'case-target',
+          evidence_backfill_report_outcome: reportedOutcome,
+          evidence_backfill_requested_generation: 1,
+          evidence_backfill_completed_generation: completedGeneration,
+          evidence_backfill_completed_result: completedResult,
+          evidence_backfill_reported_generation: reportedGeneration,
+        }];
+      }
+      if (/SELECT id, duplicate_keys FROM case_/i.test(sql)) {
+        return [{ id: p?.[0] as string, duplicate_keys: null }];
+      }
+      if (/SELECT id FROM case_/i.test(sql) && /FOR UPDATE/i.test(sql)) {
+        return ((p?.[0] as string[] | undefined) ?? []).map((id) => ({ id }));
+      }
+      if (/INSERT INTO evidence/i.test(sql)) return [{ id: 'ev-new' }];
+      if (/status_recompute_requested_generation = status_recompute_requested_generation \+ 1/i.test(sql)) {
+        return [{ status_recompute_requested_generation: '1' }];
+      }
+      return [];
+    });
+
+    const committed = await persist(req('case-target', {
+      expectedInboundEmailId: 'ie-1',
+      evidenceBackfillGeneration: 1,
+      evidenceBackfillOutcome: 'partial',
+      evidenceBackfillFailedAttachments: 1,
+      evidenceBackfillDetail: '1 recovery item could not be retrieved',
+      rows: [{
+        filename: 'photo.jpg', evidenceClass: 'image', contentType: 'image/jpeg',
+        blobPath: 'g/photo.jpg', size: 3,
+      }],
+    }), ctx);
+
+    expect(committed.status, JSON.stringify(committed)).toBe(200);
+    expect(committed.jsonBody).toMatchObject({
+      backfillGeneration: 1,
+      completedResult: {
+        outcome: 'partial',
+        persisted: 1,
+        merged: 0,
+        failedAttachments: 1,
+        detail: '1 recovery item could not be retrieved',
+      },
+    });
+    const evidenceWrite = sqls.findIndex((s) => /INSERT INTO evidence/i.test(s));
+    const completionWrite = sqls.findIndex((s) => /SET evidence_backfill_completed_generation =/i.test(s));
+    expect(evidenceWrite).toBeGreaterThanOrEqual(0);
+    expect(completionWrite).toBeGreaterThan(evidenceWrite);
+
+    // Simulate: DB commit succeeded, the partial report response was lost, then a
+    // redelivery's Graph fetch exhausted and attempted to report failed.
+    const retried = await report(req('ie-1', {
+      outcome: 'failed',
+      targetCaseId: 'case-target',
+      generation: 1,
+      detail: 'message not found on retry',
+    }), ctx);
+    expect(retried.status).toBe(204);
+    expect(reportedOutcome).toBe('partial');
+    const partialNote = params.find((_, index) => /INSERT INTO note/i.test(sqls[index]));
+    expect(partialNote).toContain(
+      'Some attachments from the linked email could not be added. Please add the missing attachments from the email.',
+    );
+    const audit = params.find((_, index) => /INSERT INTO audit_event/i.test(sqls[index]));
+    expect(audit).toContain(AUDIT_ACTION.graph_message_ingest_failed);
+  });
+
+  it('keeps old-orchestration persistence unmarked so its later partial report remains authoritative', async () => {
+    let reportedOutcome: string | null = null;
+    rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
+      if (/FROM inbound_email/i.test(sql)) {
+        return [{
+          id: 'ie-1',
+          case_id: 'case-target',
+          evidence_backfill_report_outcome: reportedOutcome,
+          evidence_backfill_requested_generation: 1,
+          evidence_backfill_completed_generation: 0,
+          evidence_backfill_completed_result: null,
+          evidence_backfill_reported_generation: 0,
+        }];
+      }
+      if (/SELECT id, duplicate_keys FROM case_/i.test(sql)) {
+        return [{ id: p?.[0] as string, duplicate_keys: null }];
+      }
+      if (/SELECT id FROM case_/i.test(sql) && /FOR UPDATE/i.test(sql)) {
+        return ((p?.[0] as string[] | undefined) ?? []).map((id) => ({ id }));
+      }
+      if (/INSERT INTO evidence/i.test(sql)) return [{ id: 'ev-legacy' }];
+      if (/status_recompute_requested_generation = status_recompute_requested_generation \+ 1/i.test(sql)) {
+        return [{ status_recompute_requested_generation: '2' }];
+      }
+      if (/evidence_backfill_reported_generation =/i.test(sql)) {
+        reportedOutcome = String(p?.[1]);
+        return [{ id: 'ie-1' }];
+      }
+      return [];
+    });
+
+    const persisted = await persist(req('case-target', {
+      expectedInboundEmailId: 'ie-1',
+      rows: [{
+        filename: 'photo.jpg', evidenceClass: 'image', contentType: 'image/jpeg',
+        blobPath: 'g/photo.jpg', size: 3,
+      }],
+    }), ctx);
+    expect(persisted.status).toBe(200);
+    expect(persisted.jsonBody).not.toHaveProperty('completedResult');
+    expect(sqls.some((s) => /SET evidence_backfill_completed_generation =/i.test(s))).toBe(false);
+
+    const reported = await report(req('ie-1', {
+      outcome: 'partial',
+      targetCaseId: 'case-target',
+      persisted: 1,
+      failedAttachments: 1,
+      detail: 'one attachment was unavailable',
+    }), ctx);
+    expect(reported.status).toBe(204);
+    expect(reportedOutcome).toBe('partial');
+    const note = params.find((_, index) => /INSERT INTO note/i.test(sqls[index]));
+    expect(note).toContain(
+      'Some attachments from the linked email could not be added. Please add the missing attachments from the email.',
+    );
+  });
+
   it('merge-first persistence rejects before mutation so the queue reclassifies against the survivor', async () => {
     rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
       if (/FROM inbound_email/i.test(sql)) return [{ id: 'ie-1', case_id: 'case-new' }];
@@ -361,6 +534,12 @@ describe('internalCasesEvidence guarded persistence', () => {
 
   it('requests and returns a status generation in the same transaction as a new evidence row', async () => {
     rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
+      if (/SET evidence_backfill_completed_generation =/i.test(sql)) {
+        return [{
+          evidence_backfill_completed_generation: p?.[1] as number,
+          evidence_backfill_completed_result: JSON.parse(String(p?.[3])),
+        }];
+      }
       if (/FROM inbound_email/i.test(sql)) return [{ id: 'ie-1', case_id: 'case-target' }];
       if (/SELECT id, duplicate_keys FROM case_/i.test(sql)) {
         return [{ id: p?.[0] as string, duplicate_keys: null }];

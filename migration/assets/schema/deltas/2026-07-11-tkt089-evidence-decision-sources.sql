@@ -31,6 +31,80 @@ SELECT e.id, e.file_name, e.source_label, e.image_role_code, e.registration_visi
  WHERE e.kind_code = 100000000
 ON CONFLICT (id) DO NOTHING;
 
+-- Historic staff PATCHes predate the ownership columns, but every successful
+-- review wrote an append-only attachment_classified audit carrying after.evidenceId
+-- plus before/after decision fields. Parse each text snapshot defensively: one
+-- malformed legacy audit must not abort the migration. This is the authoritative
+-- ownership signal and intentionally replaces a prior inferred 'classifier' value.
+--
+-- Rolling deploy: rerun this idempotent delta after the new API is live so a staff
+-- review written by the old API during the schema->code window is also recovered.
+CREATE OR REPLACE FUNCTION pg_temp.try_parse_jsonb(input text)
+RETURNS jsonb
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+BEGIN
+  RETURN input::jsonb;
+EXCEPTION WHEN others THEN
+  RETURN NULL;
+END;
+$$;
+
+WITH parsed_staff_audit AS (
+  SELECT
+    pg_temp.try_parse_jsonb(ae.before) AS before_json,
+    pg_temp.try_parse_jsonb(ae.after) AS after_json
+  FROM audit_event ae
+  WHERE ae.action_code = 100000002
+), valid_staff_audit AS (
+  SELECT before_json, after_json, (after_json->>'evidenceId')::uuid AS evidence_id
+  FROM parsed_staff_audit
+  WHERE jsonb_typeof(before_json) = 'object'
+    AND jsonb_typeof(after_json) = 'object'
+    AND after_json->>'evidenceId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+), staff_change_flags AS (
+  SELECT
+    evidence_id,
+    before_json ? 'imageRole' AND after_json ? 'imageRole'
+      AND before_json->'imageRole' IS DISTINCT FROM after_json->'imageRole' AS changed_image_role,
+    before_json ? 'registrationVisible' AND after_json ? 'registrationVisible'
+      AND before_json->'registrationVisible' IS DISTINCT FROM after_json->'registrationVisible' AS changed_registration,
+    before_json ? 'acceptedForEva' AND after_json ? 'acceptedForEva'
+      AND before_json->'acceptedForEva' IS DISTINCT FROM after_json->'acceptedForEva' AS changed_acceptance,
+    before_json ? 'excluded' AND after_json ? 'excluded'
+      AND before_json->'excluded' IS DISTINCT FROM after_json->'excluded' AS changed_exclusion,
+    -- The historic audit omitted exclusionReason. A successful PATCH with no
+    -- decision-value change and no reflection change can therefore only be an
+    -- exclusion-reason edit; protect the exclusion decision in that case.
+    before_json ?& ARRAY['imageRole','registrationVisible','acceptedForEva','excluded','reflectionDismissed']
+      AND after_json ?& ARRAY['imageRole','registrationVisible','acceptedForEva','excluded','reflectionDismissed']
+      AND before_json->'imageRole' IS NOT DISTINCT FROM after_json->'imageRole'
+      AND before_json->'registrationVisible' IS NOT DISTINCT FROM after_json->'registrationVisible'
+      AND before_json->'acceptedForEva' IS NOT DISTINCT FROM after_json->'acceptedForEva'
+      AND before_json->'excluded' IS NOT DISTINCT FROM after_json->'excluded'
+      AND before_json->'reflectionDismissed' IS NOT DISTINCT FROM after_json->'reflectionDismissed'
+      AS changed_exclusion_reason_only
+  FROM valid_staff_audit
+), staff_ownership AS (
+  SELECT
+    evidence_id,
+    bool_or(changed_image_role) AS owns_image_role,
+    bool_or(changed_registration) AS owns_registration,
+    bool_or(changed_acceptance) AS owns_acceptance,
+    bool_or(changed_exclusion OR changed_exclusion_reason_only) AS owns_exclusion
+  FROM staff_change_flags
+  GROUP BY evidence_id
+)
+UPDATE evidence e
+SET image_role_source = CASE WHEN s.owns_image_role THEN 'staff' ELSE e.image_role_source END,
+    registration_visible_source = CASE WHEN s.owns_registration THEN 'staff' ELSE e.registration_visible_source END,
+    accepted_for_eva_source = CASE WHEN s.owns_acceptance THEN 'staff' ELSE e.accepted_for_eva_source END,
+    exclusion_decision_source = CASE WHEN s.owns_exclusion THEN 'staff' ELSE e.exclusion_decision_source END
+FROM staff_ownership s
+WHERE e.id = s.evidence_id
+  AND (s.owns_image_role OR s.owns_registration OR s.owns_acceptance OR s.owns_exclusion);
+
 -- A human-accepted suggestion is the strongest recoverable pre-column ownership signal.
 UPDATE evidence e
    SET image_role_source = 'staff',

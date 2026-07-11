@@ -325,11 +325,6 @@ export const box = {
       ...(contentType ? { contentType } : {}),
     });
   },
-	  copyFileRequest(fileRequestId: string, folderId: string): Promise<unknown> {
-	    return callFunction(BOX, 'POST', `box/file-requests/${fileRequestId}/copy`, {
-	      folder: { id: folderId },
-	    });
-	  },
   listFolderItems(
     folderId: string,
   ): Promise<{

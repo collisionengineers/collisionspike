@@ -138,6 +138,31 @@ export interface AuditEventOptions {
   actor?: string;
 }
 
+const INSERT_AUDIT_SQL = `INSERT INTO audit_event
+         (name, case_id, actor, action_code, severity_code, before, after, occurred_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, now())`;
+
+function auditParams(opts: AuditEventOptions): unknown[] {
+  return [
+    opts.summary,
+    opts.caseId ?? null,
+    opts.actor ?? null,
+    opts.action,
+    SEVERITY_CODE[opts.severity ?? 'info'],
+    opts.before !== undefined ? JSON.stringify(opts.before) : null,
+    opts.after !== undefined ? JSON.stringify(opts.after) : null,
+  ];
+}
+
+/**
+ * Required audit write for a state transition whose business contract includes
+ * the audit event. This deliberately throws and must be called inside the same
+ * transaction as the guarded state change, so neither half can commit alone.
+ */
+export async function writeAuditStrict(opts: AuditEventOptions, q: TxQuery): Promise<void> {
+  await q(INSERT_AUDIT_SQL, auditParams(opts));
+}
+
 /**
  * Write one append-only audit row. Never throws — audit failures are logged and
  * swallowed so the primary operation still succeeds. When a transaction query is
@@ -149,20 +174,7 @@ export async function writeAudit(opts: AuditEventOptions, transactionQuery?: TxQ
   const savepoint = transactionQuery ? 'audit_event_write' : null;
   try {
     if (savepoint) await q(`SAVEPOINT ${savepoint}`);
-    await q(
-      `INSERT INTO audit_event
-         (name, case_id, actor, action_code, severity_code, before, after, occurred_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
-      [
-        opts.summary,
-        opts.caseId ?? null,
-        opts.actor ?? null,
-        opts.action,
-        SEVERITY_CODE[opts.severity ?? 'info'],
-        opts.before !== undefined ? JSON.stringify(opts.before) : null,
-        opts.after !== undefined ? JSON.stringify(opts.after) : null,
-      ],
-    );
+    await q(INSERT_AUDIT_SQL, auditParams(opts));
     if (savepoint) await q(`RELEASE SAVEPOINT ${savepoint}`);
   } catch (err) {
     if (savepoint) {

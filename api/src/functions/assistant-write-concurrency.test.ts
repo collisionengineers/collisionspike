@@ -134,6 +134,32 @@ describe('assistant write concurrency contracts', () => {
     expect(ctx.warn).toHaveBeenCalledWith(expect.stringContaining('remains pending'));
   });
 
+  it('keeps SQL placeholders aligned when an inspection edit is combined with later fields', async () => {
+    await registrations.get('patchCase')!.handler(
+      request(
+        { id: CASE_ID },
+        {
+          evaFields: { inspectionAddress: '10 Example Road' },
+          casePo: 'ABC26001',
+          caseType: 'audit',
+        },
+        VERSION,
+      ),
+      ctx,
+    );
+    const call = db.query.mock.calls.find(([sql]) =>
+      /UPDATE case_ SET[\s\S]*eva_inspection_address/i.test(String(sql)),
+    );
+    expect(call).toBeDefined();
+    const [sql, params] = call! as [string, unknown[]];
+    expect(sql).toContain('eva_inspection_address = $1');
+    expect(sql).toContain('inspection_decision_code = NULL');
+    expect(sql).toContain('case_po = $2');
+    expect(sql).toContain('case_type_code = $3');
+    expect(sql).toContain('WHERE id = $4');
+    expect(params).toEqual(['10 Example Road', 'ABC26001', expect.any(Number), CASE_ID]);
+  });
+
   it('returns an inbound entity and version from one row snapshot', async () => {
     const res = await registrations.get('inboundEmailById')!.handler(
       request({ id: INBOUND_ID }, {}),

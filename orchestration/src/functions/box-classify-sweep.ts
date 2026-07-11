@@ -30,11 +30,9 @@
  * back off. Neither can monopolise the capped newest-first page. A crash leaves a lease
  * that excludes the row while later work drains, then safely expires for retry.
  *
- * "Event time" here means within one sweep period of upload — with the FC1 caveat that
- * a plain NCRONTAB timer does not WAKE a scaled-to-zero Flex app (LIVE_FACTS
- * subscriptionRenewalRisk): the tick fires while the app is awake (intake push traffic,
- * queue work, the durable monitor's ~6h wake) and past-due catch-up runs it on the next
- * wake otherwise.
+ * "Event time" here means within one sweep period of upload. The primary wake path is
+ * boxClassificationMonitorOrchestrator: its Durable timer wakes a scaled-to-zero FC1 app.
+ * The NCRONTAB registration below remains only an already-awake catch-up fallback.
  */
 
 import { app, type InvocationContext, type Timer } from '@azure/functions';
@@ -141,9 +139,9 @@ async function settleStatusRequests(
   return completed;
 }
 
-app.timer('box-classify-sweep', {
-  schedule: SWEEP_SCHEDULE,
-  handler: async (_timer: Timer, ctx: InvocationContext): Promise<void> => {
+/** One complete idempotent sweep. Shared by the Durable activity (primary wake path)
+ *  and the existing plain timer (fallback while the FC1 host is already awake). */
+export async function runBoxClassifySweep(ctx: InvocationContext): Promise<void> {
     const started = Date.now();
 
     // Drain durable work BEFORE checking classification gates. Turning off Box/model
@@ -391,5 +389,10 @@ app.timer('box-classify-sweep', {
         ms: Date.now() - started,
       }),
     );
-  },
+}
+
+app.timer('box-classify-sweep', {
+  schedule: SWEEP_SCHEDULE,
+  handler: async (_timer: Timer, ctx: InvocationContext): Promise<void> =>
+    runBoxClassifySweep(ctx),
 });

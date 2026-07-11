@@ -1,8 +1,13 @@
 # Changes — TKT-111: Assistant write tier with human confirmation
 
 ## Status
-verify — built DARK behind `ASSISTANT_WRITE_TIER_ENABLED` (default off); code-complete + tested offline,
-not yet deployed. Under [PLAN-001](../../plans/PLAN-001-ai-mcp-hardening.md) Phase 2; ADR-0024.
+now — reopened by the PR 55 activation audit for method/body contract repair. The gate remains dark
+until the regression acceptance is rebuilt and verified. Under
+[PLAN-001](../../plans/PLAN-001-ai-mcp-hardening.md) Phase 2; ADR-0024.
+
+## Regression follow-up
+
+- [2026-07-11 confirmation-route contract repair](./changes-regression-11-07-26.md)
 
 ## Commits
 - `754c38a` — ai: PLAN-001 Phase 2 — propose→confirm→execute write tier + optimistic concurrency.

@@ -70,6 +70,7 @@ import { writeEvidenceBackfillNote } from '../lib/evidence-backfill-note.js';
 import { requestStatusRecompute } from '../lib/status-recompute.js';
 import { requestArchiveMirrorIfEligible } from '../lib/archive-mirror-outbox.js';
 import { lockCaseForMutation } from '../lib/case-mutation-locks.js';
+import { verifiedMergeLineage } from '../lib/evidence-backfill-target.js';
 
 const IMAGE_KIND = 100000000;
 
@@ -80,6 +81,40 @@ interface PendingEvidenceBackfillRequest extends Record<string, unknown> {
   source_message_id: string;
   subject: string | null;
   evidence_backfill_requested_generation: string | number;
+  evidence_backfill_enqueued_generation: string | number;
+}
+
+interface LegacyEvidenceBackfillCandidate extends PendingEvidenceBackfillRequest {
+  scan_updated_at: string | Date;
+}
+
+/**
+ * Pick only an accepted target that still owns the inbound row, directly or through
+ * its durable mergedInto lineage. A later accepted no-op suggestion for an unrelated
+ * case must never displace the older accepted link that actually attached the email.
+ */
+async function acceptedEvidenceBackfillTarget(
+  inboundEmailId: string,
+  currentOwner: string,
+): Promise<string | undefined> {
+  const accepted = await query<{ target_case_id: string }>(
+    `SELECT NULLIF(btrim(s.suggested_value ->> 'targetCaseId'), '') AS target_case_id
+       FROM ai_suggestion s
+      WHERE s.inbound_email_id = $1
+        AND s.suggestion_type = 'case_link'
+        AND s.review_state = 'accepted'
+        AND NULLIF(btrim(s.suggested_value ->> 'targetCaseId'), '') IS NOT NULL
+      ORDER BY s.reviewed_at DESC NULLS LAST, s.created_at DESC, s.id DESC`,
+    [inboundEmailId],
+  );
+  const canonicalOwner = currentOwner.trim().toLowerCase();
+  for (const candidate of accepted) {
+    const target = candidate.target_case_id?.trim();
+    if (!target) continue;
+    if (target.toLowerCase() === canonicalOwner) return target;
+    if (await verifiedMergeLineage(query, target, currentOwner)) return target;
+  }
+  return undefined;
 }
 
 /**
@@ -92,54 +127,105 @@ export async function drainEvidenceBackfillRequests(
   inboundEmailId?: string,
   limit = 50,
 ): Promise<{ published: number; failed: number }> {
+  const effectiveLimit = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 250) : 50;
   // Reconcile accepts written by the pre-outbox implementation. This is a one-time,
   // idempotent promotion from generation 0 and makes an old accepted/link state
   // recoverable without guessing whether its attachments were already copied (the
-  // consumer's byte-hash dedup makes the conservative retry safe).
-  await query(
-    `UPDATE inbound_email AS ie
-        SET evidence_backfill_requested_generation = 1,
-            evidence_backfill_requested_at = now(),
-            updated_at = now()
-      WHERE ie.evidence_backfill_requested_generation = 0
+  // consumer's byte-hash dedup makes the conservative retry safe). Keyset pagination
+  // is deliberate: lineage-ineligible legacy rows are left untouched, so a LIMIT-only
+  // oldest-first page would otherwise starve every valid recovery behind them forever.
+  const scanPageSize = inboundEmailId ? 1 : Math.max(50, effectiveLimit);
+  let cursorUpdatedAt: string | Date | null = null;
+  let cursorId: string | null = null;
+  let promotedLegacy = 0;
+  while (promotedLegacy < effectiveLimit) {
+    const legacy: LegacyEvidenceBackfillCandidate[] = await query<LegacyEvidenceBackfillCandidate>(
+      `SELECT ie.id, ie.case_id, ie.source_mailbox, ie.source_message_id, ie.subject,
+              ie.evidence_backfill_requested_generation,
+              ie.evidence_backfill_enqueued_generation,
+              ie.updated_at AS scan_updated_at
+         FROM inbound_email ie
+        WHERE ie.evidence_backfill_requested_generation = 0
+          AND ie.case_id IS NOT NULL
+          AND ie.has_attachments = true
+          AND NULLIF(btrim(ie.source_mailbox), '') IS NOT NULL
+          AND NULLIF(btrim(ie.source_message_id), '') IS NOT NULL
+          ${inboundEmailId
+            ? 'AND ie.id = $1'
+            : 'AND ($1::timestamptz IS NULL OR (ie.updated_at, ie.id) > ($1::timestamptz, $2::uuid))'}
+          AND EXISTS (
+            SELECT 1
+              FROM ai_suggestion s
+             WHERE s.inbound_email_id = ie.id
+               AND s.suggestion_type = 'case_link'
+               AND s.review_state = 'accepted'
+               AND NULLIF(btrim(s.suggested_value ->> 'targetCaseId'), '') IS NOT NULL
+          )
+        ORDER BY ie.updated_at, ie.id
+        LIMIT $${inboundEmailId ? 2 : 3}`,
+      inboundEmailId
+        ? [inboundEmailId, scanPageSize]
+        : [cursorUpdatedAt, cursorId, scanPageSize],
+    );
+    if (legacy.length === 0) break;
+    for (const candidate of legacy) {
+      if (promotedLegacy >= effectiveLimit) break;
+      const acceptedTarget = await acceptedEvidenceBackfillTarget(candidate.id, candidate.case_id);
+      if (!acceptedTarget) continue;
+      const promoted = await query<{ id: string }>(
+        `UPDATE inbound_email
+            SET evidence_backfill_requested_generation = 1,
+                evidence_backfill_requested_at = now(),
+                updated_at = now()
+          WHERE id = $1
+            AND case_id = $2
+            AND evidence_backfill_requested_generation = 0
+        RETURNING id`,
+        [candidate.id, candidate.case_id],
+      );
+      if (promoted[0]) promotedLegacy++;
+    }
+    if (inboundEmailId || legacy.length < scanPageSize) break;
+    const last: LegacyEvidenceBackfillCandidate = legacy[legacy.length - 1]!;
+    cursorUpdatedAt = last.scan_updated_at;
+    cursorId = last.id;
+  }
+  const rows = await query<PendingEvidenceBackfillRequest>(
+    `SELECT ie.id, ie.case_id, ie.source_mailbox, ie.source_message_id, ie.subject,
+            ie.evidence_backfill_requested_generation,
+            ie.evidence_backfill_enqueued_generation
+       FROM inbound_email ie
+      WHERE ie.evidence_backfill_requested_generation > ie.evidence_backfill_enqueued_generation
         AND ie.case_id IS NOT NULL
-        AND ie.has_attachments = true
         AND NULLIF(btrim(ie.source_mailbox), '') IS NOT NULL
         AND NULLIF(btrim(ie.source_message_id), '') IS NOT NULL
         ${inboundEmailId ? 'AND ie.id = $1' : ''}
-        AND EXISTS (
-          SELECT 1
-            FROM ai_suggestion s
-           WHERE s.inbound_email_id = ie.id
-             AND s.suggestion_type = 'case_link'
-             AND s.review_state = 'accepted'
-             AND lower(btrim(s.suggested_value ->> 'targetCaseId')) = ie.case_id::text
-        )`,
-    inboundEmailId ? [inboundEmailId] : [],
-  );
-  const rows = await query<PendingEvidenceBackfillRequest>(
-    `SELECT id, case_id, source_mailbox, source_message_id, subject,
-            evidence_backfill_requested_generation
-       FROM inbound_email
-      WHERE evidence_backfill_requested_generation > evidence_backfill_enqueued_generation
-        AND case_id IS NOT NULL
-        AND NULLIF(btrim(source_mailbox), '') IS NOT NULL
-        AND NULLIF(btrim(source_message_id), '') IS NOT NULL
-        ${inboundEmailId ? 'AND id = $1' : ''}
-      ORDER BY evidence_backfill_requested_at, id
+      ORDER BY ie.evidence_backfill_requested_at, ie.id
       LIMIT $${inboundEmailId ? 2 : 1}`,
-    inboundEmailId ? [inboundEmailId, limit] : [limit],
+    inboundEmailId ? [inboundEmailId, effectiveLimit] : [effectiveLimit],
   );
   let published = 0;
   let failed = 0;
   for (const row of rows) {
     const generation = Number(row.evidence_backfill_requested_generation);
+    // Every generation is bound back to a staff-accepted target. A failed gen-2
+    // publish followed by a manual relink must not let the next drain reinterpret the
+    // current owner as the accepted target. A real merge still verifies and redirects.
+    const targetCaseId = await acceptedEvidenceBackfillTarget(row.id, row.case_id);
+    // Keep the durable generation pending when none of the accepted targets owns
+    // this row. A later unrelated manual relink must not be acknowledged as queued.
+    if (!targetCaseId) continue;
     try {
       await enqueueEvidenceBackfill({
         inboundEmailId: row.id,
+        generation,
         sourceMailbox: row.source_mailbox.trim(),
         sourceMessageId: row.source_message_id.trim(),
-        targetCaseId: row.case_id,
+        // For the first durable generation, preserve the case that staff actually
+        // accepted. The consumer validates/follows its mergedInto lineage to the
+        // row's current owner; a manual unrelated relink therefore settles stale
+        // instead of copying attachments onto the wrong case.
+        targetCaseId,
         subject: row.subject ?? '',
       });
       await query(
@@ -167,13 +253,6 @@ export async function drainEvidenceBackfillRequests(
   }
   return { published, failed };
 }
-
-app.timer('evidence-backfill-request-drain', {
-  schedule: '0 */5 * * * *',
-  handler: async () => {
-    await drainEvidenceBackfillRequests();
-  },
-});
 
 // GET /api/cases/{id}/ai-suggestions — pending first, then recent. Honest-empty on any
 // read failure (the ai_suggestion table may be unwired on an older DB), so the SPA panel
@@ -641,9 +720,27 @@ async function promoteAcceptedSuggestion(
         // /api/inbound/counts. Accepting the suggestion IS a routing decision; without this the
         // row shows 'Linked to case' yet keeps inflating the 'needs sorting' badge.
         const upd = await query<Row>(
-          `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
+          `UPDATE inbound_email
+              SET case_id = $2,
+                  triage_state = 'routed',
+                  evidence_backfill_requested_generation = CASE
+                    WHEN has_attachments = true
+                     AND NULLIF(btrim(source_mailbox), '') IS NOT NULL
+                     AND NULLIF(btrim(source_message_id), '') IS NOT NULL
+                      THEN evidence_backfill_requested_generation + 1
+                    ELSE evidence_backfill_requested_generation
+                  END,
+                  evidence_backfill_requested_at = CASE
+                    WHEN has_attachments = true
+                     AND NULLIF(btrim(source_mailbox), '') IS NOT NULL
+                     AND NULLIF(btrim(source_message_id), '') IS NOT NULL
+                      THEN now()
+                    ELSE evidence_backfill_requested_at
+                  END,
+                  updated_at = now()
              WHERE id = $1 AND case_id IS NULL
-           RETURNING id, has_attachments, source_mailbox, source_message_id, subject`,
+           RETURNING id, has_attachments, source_mailbox, source_message_id, subject,
+                     evidence_backfill_requested_generation`,
           [inboundEmailId, targetCaseId],
         );
         if (upd[0]) {
@@ -683,14 +780,8 @@ async function promoteAcceptedSuggestion(
               let backfillQueued = false;
               if (sourceMailbox && sourceMessageId) {
                 try {
-                  await enqueueEvidenceBackfill({
-                    inboundEmailId,
-                    sourceMailbox,
-                    sourceMessageId,
-                    targetCaseId,
-                    subject: typeof upd[0].subject === 'string' ? upd[0].subject : '',
-                  });
-                  backfillQueued = true;
+                  const drained = await drainEvidenceBackfillRequests(inboundEmailId, 1);
+                  backfillQueued = drained.published === 1;
                 } catch (e) {
                   console.error(
                     `[ai-suggestions] evidence-backfill enqueue failed for inbound ${inboundEmailId} -> case ${targetCaseId} (degrading to the manual note): ${

@@ -1,7 +1,9 @@
 # Changes — TKT-052: Merged image-only case loses the provider (merge logic wrong)
 
+> Regression follow-up (2026-07-11): [changes-regression-11-07-26.md](./changes-regression-11-07-26.md)
+
 ## Status
-Built + deployed (2026-07-09, PLAN-003 intake wave).
+Reopened to `now` on 2026-07-11 after PR 55 review found merge concurrency and UUID-canonicalisation gaps. The 2026-07-09 deployment record below remains historical evidence.
 
 ## What shipped
 

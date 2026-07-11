@@ -14,6 +14,7 @@ import './functions/graph-renew.js';
 import './functions/graph-renew-http.js';
 import './functions/subscriptionMonitor.js';
 import './functions/archive-mirror-monitor.js';
+import './functions/evidence-backfill-publisher-monitor.js';
 // TKT-095 detector (a) — gated SentItems surface (DONE_SENT_EMAIL_ENABLED, default off/dark):
 // the sent-items webhook + lifecycle endpoints and the 'sent-messages' queue processor.
 // Deploying these registers the handlers only — no Graph subscription is created until the
@@ -29,6 +30,7 @@ import './functions/outlook-move.js';
 import './functions/evidence-backfill.js';
 // Box FILE.UPLOADED-lane image classify sweep (TKT-146; timer, IMAGE_ROLE_CLASSIFY + BOX_API gated)
 import './functions/box-classify-sweep.js';
+import './functions/box-maintenance-monitor.js'; // durable FC1 wake path for File Request + classification retries
 import './functions/intakeOrchestrator.js';
 import './functions/activities/fetchMessage.js';
 import './functions/activities/providerMatch.js';
@@ -52,7 +54,7 @@ import './functions/gated/finalize-eva-box.js';
 import './functions/gated/chaser.js';
 import './functions/gated/triage-classify.js';
 import './functions/gated/box-folder-create.js';
-import './functions/gated/box-file-request-copy.js';
+import './functions/gated/box-file-request-copy.js'; // explicit 410 tombstone; API/outbox owns creation
 import './functions/gated/box-blob-purge.js';
 import './functions/gated/case-disposition.js';
 import './functions/gated/jobsheet-import.js';

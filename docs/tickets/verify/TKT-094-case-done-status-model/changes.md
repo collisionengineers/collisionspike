@@ -104,3 +104,8 @@ the 13/5 constants untouched.
    constant in the vendored `email_classifier.py` (only the ADR-0021 "D." doc-marker comment).
    Candidate follow-up ticket — needs a taxonomy-ownership decision, then sibling-first
    classifier work (ADR-0018) if the subtype is to be emitted.
+
+## PR 55 regression repair — 2026-07-11
+
+The atomic terminal-transition correction and current offline evidence are recorded in
+[changes-regression-11-07-26.md](./changes-regression-11-07-26.md).

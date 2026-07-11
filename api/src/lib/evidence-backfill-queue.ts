@@ -29,6 +29,8 @@ export const EVIDENCE_BACKFILL_QUEUE_NAME = 'evidence-backfill';
  *  orchestration/src/functions/evidence-backfill.ts. */
 export interface EvidenceBackfillJob {
   inboundEmailId: string;
+  /** Durable request generation this queue delivery is allowed to complete/report. */
+  generation: number;
   /** Which shared inbox the email arrived on (inbound_email.source_mailbox). */
   sourceMailbox: string;
   /** RFC Internet-Message-Id (inbound_email.source_message_id) — the consumer resolves

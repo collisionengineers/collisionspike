@@ -282,7 +282,8 @@ const WRITE: CapabilityDescriptor[] = [
     name: 'edit_case_fields',
     kind: 'write',
     title: 'Edit case fields',
-    description: 'Correct a case’s registration or its editable EVA fields.',
+    description:
+      'Correct a case’s registration, case type, or editable case details. Work provider cannot be changed with this capability.',
     destructive: false,
     humanOnly: false,
     gateLabel: WRITE_TIER_GATE_LABEL,

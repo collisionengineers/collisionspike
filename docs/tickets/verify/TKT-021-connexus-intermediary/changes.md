@@ -77,3 +77,7 @@ Captures the operator's ask to treat Connexus as an intermediary and resolve the
 underlying principal (PCH or SBL) from the email/attachment. Related to TKT-001
 (provider matching at intake) and to TKT-028 (work_provider not populating). The resolution code is
 deployed; the Connexus intermediary row + PCH/SBL join is data (D8), not yet live.
+
+## Regression follow-up
+
+- [2026-07-11 source-accurate Held explanation](./changes-regression-11-07-26.md)
