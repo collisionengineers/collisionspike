@@ -31,7 +31,8 @@ import {
   type TriageState,
 } from '@cs/domain';
 import { withRole } from '../lib/auth.js';
-import { query } from '../lib/db.js';
+import { query, tx } from '../lib/db.js';
+import { ifMatch, versionToken } from '../lib/concurrency.js';
 import { gates } from '../lib/gates.js';
 import { classifyEnqueueFailure, enqueueOutlookMove } from '../lib/outlook-queue.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit, type AuditAction } from '../lib/audit.js';
@@ -55,6 +56,35 @@ const TRIAGE_AUDIT_ACTION: Record<TriageState, AuditAction> = {
   actioned: AUDIT_ACTION.inbound_actioned,
   new: AUDIT_ACTION.inbound_reopened,
   routed: AUDIT_ACTION.inbound_routed,
+};
+
+const CATEGORY_FOR_SUBTYPE: Record<InboundSubtype, InboundCategory> = {
+  existing_provider_instruction: 'receiving_work',
+  existing_provider_audit: 'receiving_work',
+  existing_provider_diminution: 'receiving_work',
+  new_client_work: 'receiving_work',
+  query_existing_work: 'query',
+  query_new_enquiry: 'query',
+  billing_request: 'billing',
+  payment_remittance: 'billing',
+  case_summary: 'non_actionable',
+  acknowledgement: 'non_actionable',
+  other: 'other',
+  images_received: 'case_update',
+  update_general: 'case_update',
+  cancellation_notice: 'cancellation',
+  pre_instruction_directions: 'pre_instruction',
+};
+
+const DEFAULT_SUBTYPE_FOR_CATEGORY: Record<InboundCategory, InboundSubtype> = {
+  receiving_work: 'existing_provider_instruction',
+  query: 'query_existing_work',
+  other: 'other',
+  billing: 'billing_request',
+  non_actionable: 'case_summary',
+  case_update: 'update_general',
+  cancellation: 'cancellation_notice',
+  pre_instruction: 'pre_instruction_directions',
 };
 
 // 27 — GET /api/inbound?category=&subtype=&view=active|handled|all   (ACTIVE-FIRST; honest [])
@@ -126,6 +156,30 @@ app.http('inboundEmailCounts', {
   }),
 });
 
+// GET /api/inbound/{id} — one consistent row snapshot plus its write precondition.
+app.http('inboundEmailById', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'inbound/{id}',
+  handler: withRole('CollisionSpike.User', async (req) => {
+    const rows = await query<Row>(
+      `SELECT inbound_email.*, c.case_po AS case_po
+         FROM inbound_email
+         LEFT JOIN case_ c ON c.id = inbound_email.case_id
+        WHERE inbound_email.id = $1`,
+      [req.params.id],
+    );
+    const row = rows[0];
+    if (!row) return { status: 404, jsonBody: { error: 'not found' } };
+    const version = versionToken(row.updated_at);
+    return {
+      status: 200,
+      jsonBody: { ...rowToInboundEmail(row), version },
+      headers: { ETag: `"${version}"`, 'Access-Control-Expose-Headers': 'ETag' },
+    };
+  }),
+});
+
 // 29 — POST /api/inbound/{id}/triage   (validated; 404 unknown id; 400 bad state; 500 on error; audited)
 app.http('setTriageState', {
   methods: ['POST'],
@@ -140,37 +194,48 @@ app.http('setTriageState', {
       return { status: 400, jsonBody: { error: 'invalid triage state' } };
     }
 
-    // Read the current row first so the audit carries the before-state + case linkage,
-    // and so an unknown id is a clean 404 (not a swallowed no-op).
-    const existing = await query<Row>(
-      'SELECT id, triage_state, case_id, source_message_id FROM inbound_email WHERE id = $1',
-      [id],
-    );
-    if (!existing[0]) return { status: 404, jsonBody: { error: 'not found' } };
-    const before = (existing[0].triage_state as string | null) ?? 'new';
-
-    // Real error handling: NO try/catch swallow — a DB failure surfaces as a 500 via withRole.
-    const updated = await query<Row>(
-      'UPDATE inbound_email SET triage_state = $2, updated_at = now() WHERE id = $1 RETURNING id',
-      [id, state],
-    );
-    if (!updated[0]) return { status: 404, jsonBody: { error: 'not found' } };
-
     const actor = actorFromClaims(claims);
-    await writeAudit({
-      action: TRIAGE_AUDIT_ACTION[state],
-      ...(existing[0].case_id ? { caseId: existing[0].case_id as string } : {}),
-      summary: `Inbound email ${before} -> ${state}`,
-      before: { triageState: before },
-      after: {
-        triageState: state,
-        inboundEmailId: id,
-        sourceMessageId: existing[0].source_message_id ?? null,
-      },
-      ...(actor ? { actor } : {}),
+    const outcome = await tx(async (q) => {
+      const existing = await q<Row>(
+        `SELECT id, triage_state, case_id, source_message_id, updated_at
+           FROM inbound_email WHERE id = $1 FOR UPDATE`,
+        [id],
+      );
+      const row = existing[0];
+      if (!row) return { kind: 'missing' as const };
+      const currentVersion = versionToken(row.updated_at);
+      const expected = ifMatch(req);
+      if (expected != null && expected !== '' && expected !== currentVersion) {
+        return { kind: 'stale' as const, currentVersion };
+      }
+      const before = (row.triage_state as string | null) ?? 'new';
+      const updated = await q<Row>(
+        `UPDATE inbound_email SET triage_state = $2, updated_at = now()
+          WHERE id = $1 RETURNING updated_at`,
+        [id, state],
+      );
+      await writeAudit({
+        action: TRIAGE_AUDIT_ACTION[state],
+        ...(row.case_id ? { caseId: row.case_id as string } : {}),
+        summary: `Inbound email ${before} -> ${state}`,
+        before: { triageState: before },
+        after: {
+          triageState: state,
+          inboundEmailId: id,
+          sourceMessageId: row.source_message_id ?? null,
+        },
+        ...(actor ? { actor } : {}),
+      }, q);
+      return { kind: 'updated' as const, version: versionToken(updated[0]?.updated_at) };
     });
-
-    return { status: 204 };
+    if (outcome.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
+    if (outcome.kind === 'stale') {
+      return { status: 409, jsonBody: { error: 'stale', currentVersion: outcome.currentVersion } };
+    }
+    return {
+      status: 204,
+      headers: { ETag: `"${outcome.version}"`, 'Access-Control-Expose-Headers': 'ETag' },
+    };
   }),
 });
 
@@ -313,71 +378,105 @@ app.http('reclassifyInbound', {
     if (!category && !subtype) {
       return { status: 400, jsonBody: { error: 'category, subtype or tag required' } };
     }
-
-    const existing = await query<Row>(
-      `SELECT id, category_code, subtype_code, suggested_category_code, suggested_subtype_code,
-              case_id, work_provider_id, source_message_id
-         FROM inbound_email WHERE id = $1`,
-      [id],
-    );
-    if (!existing[0]) return { status: 404, jsonBody: { error: 'not found' } };
-    const cur = existing[0];
-
-    // Persist the CHOSEN values + mark the row human-settled. category/subtype are the
-    // chosen/current values; suggested_* (set at classify time) stay untouched here.
-    const sets: string[] = ["classifier_mode = 'human'"];
-    const vals: unknown[] = [];
-    if (category) {
-      vals.push(INBOUND_CATEGORY_TO_INT[category]);
-      sets.push(`category_code = $${vals.length}`);
-    }
-    if (subtype) {
-      vals.push(INBOUND_SUBTYPE_TO_INT[subtype]);
-      sets.push(`subtype_code = $${vals.length}`);
-    }
-    vals.push(id);
-    const updated = await query<Row>(
-      `UPDATE inbound_email SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}
-       RETURNING *`,
-      vals,
-    );
-    if (!updated[0]) return { status: 404, jsonBody: { error: 'not found' } };
-
     const actor = actorFromClaims(claims);
-    // Override capture: compare the chosen value to the SUGGESTION (suggested_* if present,
-    // else the prior current value) BY NAME. A genuine override -> an improvement_signal row
-    // (best-effort) so the classifier can be tuned; the audit always records the change.
-    const suggestedCat = inboundCategoryFromInt(
-      (cur.suggested_category_code ?? cur.category_code) as number | null | undefined,
-    );
-    const suggestedSub = inboundSubtypeFromInt(
-      (cur.suggested_subtype_code ?? cur.subtype_code) as number | null | undefined,
-    );
     const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+    const outcome = await tx(async (q) => {
+      const existing = await q<Row>(
+        `SELECT *, updated_at FROM inbound_email WHERE id = $1 FOR UPDATE`,
+        [id],
+      );
+      const cur = existing[0];
+      if (!cur) return { kind: 'missing' as const };
+      const currentVersion = versionToken(cur.updated_at);
+      const expected = ifMatch(req);
+      if (expected != null && expected !== '' && expected !== currentVersion) {
+        return { kind: 'stale' as const, currentVersion };
+      }
 
-    if (category && category !== suggestedCat) {
-      await writeImprovementSignal(cur, 'category', suggestedCat ?? '(none)', category, actor, reason);
-    }
-    if (subtype && subtype !== suggestedSub) {
-      await writeImprovementSignal(cur, 'subtype', suggestedSub ?? '(none)', subtype, actor, reason);
-    }
+      let chosenCategory = category;
+      let chosenSubtype = subtype;
+      if (chosenSubtype && !chosenCategory) chosenCategory = CATEGORY_FOR_SUBTYPE[chosenSubtype];
+      if (chosenCategory && !chosenSubtype) {
+        const currentSubtype = inboundSubtypeFromInt(cur.subtype_code as number | null | undefined);
+        chosenSubtype =
+          currentSubtype && CATEGORY_FOR_SUBTYPE[currentSubtype] === chosenCategory
+            ? currentSubtype
+            : DEFAULT_SUBTYPE_FOR_CATEGORY[chosenCategory];
+      }
+      if (!chosenCategory || !chosenSubtype || CATEGORY_FOR_SUBTYPE[chosenSubtype] !== chosenCategory) {
+        return { kind: 'invalid_pair' as const };
+      }
 
-    await writeAudit({
-      action: AUDIT_ACTION.inbound_reclassified,
-      ...(cur.case_id ? { caseId: cur.case_id as string } : {}),
-      summary: `Inbound reclassified${category ? ` category=${category}` : ''}${subtype ? ` subtype=${subtype}` : ''}`,
-      before: { category: suggestedCat ?? null, subtype: suggestedSub ?? null },
-      after: {
-        category: category ?? null,
-        subtype: subtype ?? null,
-        inboundEmailId: id,
-        sourceMessageId: cur.source_message_id ?? null,
-        ...(reason ? { reason } : {}),
-      },
-      ...(actor ? { actor } : {}),
+      const suggestedCat = inboundCategoryFromInt(
+        (cur.suggested_category_code ?? cur.category_code) as number | null | undefined,
+      );
+      const suggestedSub = inboundSubtypeFromInt(
+        (cur.suggested_subtype_code ?? cur.subtype_code) as number | null | undefined,
+      );
+      const updated = await q<Row>(
+        `UPDATE inbound_email
+            SET classifier_mode = 'human', category_code = $2, subtype_code = $3, updated_at = now()
+          WHERE id = $1
+          RETURNING *`,
+        [id, INBOUND_CATEGORY_TO_INT[chosenCategory], INBOUND_SUBTYPE_TO_INT[chosenSubtype]],
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.inbound_reclassified,
+        ...(cur.case_id ? { caseId: cur.case_id as string } : {}),
+        summary: `Inbound reclassified category=${chosenCategory} subtype=${chosenSubtype}`,
+        before: { category: suggestedCat ?? null, subtype: suggestedSub ?? null },
+        after: {
+          category: chosenCategory,
+          subtype: chosenSubtype,
+          inboundEmailId: id,
+          sourceMessageId: cur.source_message_id ?? null,
+          ...(reason ? { reason } : {}),
+        },
+        ...(actor ? { actor } : {}),
+      }, q);
+      return {
+        kind: 'updated' as const,
+        cur,
+        value: rowToInboundEmail(updated[0]),
+        chosenCategory,
+        chosenSubtype,
+        suggestedCat,
+        suggestedSub,
+        version: versionToken(updated[0].updated_at),
+      };
     });
-
-    return { status: 200, jsonBody: rowToInboundEmail(updated[0]) };
+    if (outcome.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
+    if (outcome.kind === 'invalid_pair') {
+      return { status: 400, jsonBody: { error: 'category and subtype do not match' } };
+    }
+    if (outcome.kind === 'stale') {
+      return { status: 409, jsonBody: { error: 'stale', currentVersion: outcome.currentVersion } };
+    }
+    if (outcome.chosenCategory !== outcome.suggestedCat) {
+      await writeImprovementSignal(
+        outcome.cur,
+        'category',
+        outcome.suggestedCat ?? '(none)',
+        outcome.chosenCategory,
+        actor,
+        reason,
+      );
+    }
+    if (outcome.chosenSubtype !== outcome.suggestedSub) {
+      await writeImprovementSignal(
+        outcome.cur,
+        'subtype',
+        outcome.suggestedSub ?? '(none)',
+        outcome.chosenSubtype,
+        actor,
+        reason,
+      );
+    }
+    return {
+      status: 200,
+      jsonBody: { ...outcome.value, version: outcome.version },
+      headers: { ETag: `"${outcome.version}"`, 'Access-Control-Expose-Headers': 'ETag' },
+    };
   }),
 });
 

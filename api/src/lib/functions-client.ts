@@ -229,16 +229,22 @@ export interface BoxFileRequestCopyResponse {
 export async function callBoxCopyFileRequest(
   templateId: string,
   folderId: string,
+  opts?: { timeoutMs?: number },
 ): Promise<BoxFileRequestCopyResponse> {
   const base = process.env.BOX_FN_URL;
   const key = process.env.BOX_FN_KEY;
   if (!base || !key) throw new Error('[functions-client] BOX_FN_URL/BOX_FN_KEY not configured');
+  const configured = Number(process.env.BOX_FILE_REQUEST_COPY_TIMEOUT_MS ?? FN_STAGE_TIMEOUT_MS);
+  const timeoutMs = opts?.timeoutMs ?? (
+    Number.isFinite(configured) ? Math.min(60_000, Math.max(5_000, configured)) : FN_STAGE_TIMEOUT_MS
+  );
   return callFn(
     base,
     key,
     'POST',
     `/api/box/file-requests/${encodeURIComponent(templateId)}/copy`,
     { folder: { id: folderId }, status: 'active' },
+    { timeoutMs },
   ) as Promise<BoxFileRequestCopyResponse>;
 }
 

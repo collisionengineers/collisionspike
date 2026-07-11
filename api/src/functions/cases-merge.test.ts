@@ -51,6 +51,7 @@ const txParams: unknown[][] = [];
 const poolSql: string[] = [];
 const cases = new Map<string, Rec>();
 const evidenceRows: Rec[] = [];
+const fileRequestIntents: Rec[] = [];
 const CASE_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const CASE_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const EV_ONE = '11111111-1111-4111-8111-111111111111';
@@ -85,6 +86,7 @@ beforeEach(() => {
   poolSql.length = 0;
   cases.clear();
   evidenceRows.length = 0;
+  fileRequestIntents.length = 0;
   cases.set(CASE_A, caseRow(CASE_A));
   cases.set(CASE_B, caseRow(CASE_B));
   evidenceRows.push({
@@ -117,6 +119,26 @@ beforeEach(() => {
     txParams.push(params);
     if (/SELECT id FROM case_ WHERE id = ANY/i.test(sql) && /FOR UPDATE/i.test(sql)) {
       return ((params[0] as string[]) ?? []).filter((id) => cases.has(id)).map((id) => ({ id }));
+    }
+    if (/SELECT id, box_folder_id, box_file_request_id, box_file_request_url/i.test(sql)) {
+      return ((params[0] as string[]) ?? []).filter((id) => cases.has(id)).map((id) => ({
+        id,
+        box_folder_id: cases.get(id)?.box_folder_id ?? `folder-${id}`,
+        box_file_request_id: cases.get(id)?.box_file_request_id ?? null,
+        box_file_request_url: cases.get(id)?.box_file_request_url ?? null,
+      }));
+    }
+    if (/SELECT case_id, requested_generation, completed_generation, attempt_count, claim_token/i.test(sql)) {
+      const ids = (params[0] as string[]) ?? [];
+      return fileRequestIntents.filter((row) => ids.includes(row.case_id as string));
+    }
+    if (/UPDATE box_file_request_outbox[\s\S]*SET case_id = \$2/i.test(sql)) {
+      const row = fileRequestIntents.find((intent) => intent.case_id === params[0]);
+      if (row) {
+        row.case_id = params[1];
+        row.folder_id = params[2];
+      }
+      return [];
     }
     if (/FROM case_ c/i.test(sql) && /WHERE c.id = \$1/i.test(sql)) {
       const row = cases.get(params[0] as string);
@@ -186,6 +208,36 @@ beforeEach(() => {
 });
 
 describe('mergeCases atomic lock protocol', () => {
+  it('transfers a never-attempted pending image-upload intent to the survivor', async () => {
+    fileRequestIntents.push({
+      case_id: CASE_A,
+      requested_generation: 1,
+      completed_generation: 0,
+      attempt_count: 0,
+      claim_token: null,
+    });
+    const res = await merge(request(CASE_B, CASE_A), ctx);
+    expect(res.status).toBe(200);
+    expect(fileRequestIntents[0].case_id).toBe(CASE_B);
+    expect(txSql.some((sql) => /UPDATE box_file_request_outbox[\s\S]*SET case_id = \$2/i.test(sql))).toBe(true);
+  });
+
+  it('blocks merge when source image-upload link creation may already have run remotely', async () => {
+    fileRequestIntents.push({
+      case_id: CASE_A,
+      requested_generation: 1,
+      completed_generation: 0,
+      attempt_count: 1,
+      claim_token: null,
+    });
+    const res = await merge(request(CASE_B, CASE_A), ctx);
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toMatchObject({
+      error: expect.stringContaining('may already have started'),
+    });
+    expect(txSql.some((sql) => /UPDATE evidence\s+SET case_id/i.test(sql))).toBe(false);
+  });
+
   it('backfill-first-compatible order: advisory locks, case rows, inbound rows, then all writes in one tx', async () => {
     const res = await merge(request(CASE_B, CASE_A), ctx);
     expect(res.status).toBe(200);

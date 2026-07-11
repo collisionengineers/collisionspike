@@ -13,6 +13,81 @@
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
+const UUID = z.string().uuid().describe('the stable row id (GUID) returned by an assistant read tool');
+const PROVIDER_CODE = z
+  .string()
+  .min(1)
+  .max(8)
+  .regex(/^[A-Za-z][A-Za-z0-9]{0,7}$/)
+  .describe('provider principal code');
+
+const PROVENANCE_SOURCE_TYPES = [
+  'staff',
+  'pdf_extraction',
+  'email_text',
+  'corpus',
+  'ai',
+  'dvla_dvsa',
+  'document_ai',
+  'azure_vision',
+  'web_lookup',
+  'whatsapp',
+  'manual_upload',
+] as const;
+const REVIEW_STATES = ['not_required', 'needs_review', 'reviewed', 'conflict'] as const;
+const EVA_FIELD_KEYS = [
+  'workProvider',
+  'vehicleModel',
+  'claimantName',
+  'claimantTelephone',
+  'claimantEmail',
+  'dateOfLoss',
+  'dateOfInstruction',
+  'accidentCircumstances',
+  'inspectionAddress',
+  'vatStatus',
+  'mileage',
+  'mileageUnit',
+] as const;
+
+const EvaFieldParam = z
+  .object({
+    value: z.string(),
+    provenance: z
+      .object({
+        sourceType: z.enum(PROVENANCE_SOURCE_TYPES),
+        sourceLabel: z.string().min(1).max(400),
+        confidence: z.number().min(0).max(1).optional(),
+      })
+      .strict(),
+    reviewState: z.enum(REVIEW_STATES),
+  })
+  .strict();
+
+const EvaFieldsParam = z
+  .object(Object.fromEntries(EVA_FIELD_KEYS.map((key) => [key, EvaFieldParam])) as {
+    [K in (typeof EVA_FIELD_KEYS)[number]]: typeof EvaFieldParam;
+  })
+  .strict();
+
+const EditableEvaFieldsParam = z
+  .object({
+    workProvider: z.string().optional(),
+    vehicleModel: z.string().optional(),
+    claimantName: z.string().optional(),
+    claimantTelephone: z.string().optional(),
+    claimantEmail: z.string().optional(),
+    dateOfLoss: z.string().optional(),
+    dateOfInstruction: z.string().optional(),
+    accidentCircumstances: z.string().optional(),
+    inspectionAddress: z.string().optional(),
+    vatStatus: z.string().optional(),
+    mileage: z.string().optional(),
+    mileageUnit: z.string().optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, 'at least one EVA field is required');
+
 /**
  * Derive an OpenAI/AOAI-compatible tool `parameters` JSON-schema from a zod object.
  * Inlines refs, targets OpenAPI-3 (so `additionalProperties:false` is emitted for a
@@ -130,7 +205,7 @@ export const LimitParams = z
 /** Put a case on / off hold — POST cases/{caseId}/hold. */
 export const SetOnHoldParams = z
   .object({
-    caseId: z.string().min(1).describe('the case id (GUID)'),
+    caseId: UUID,
     onHold: z.boolean().describe('true to hold, false to release'),
   })
   .strict();
@@ -138,7 +213,7 @@ export const SetOnHoldParams = z
 /** Record a chase against a case (drafted, never sent) — POST cases/{caseId}/chase. */
 export const LogChaseParams = z
   .object({
-    caseId: z.string().min(1).describe('the case id (GUID)'),
+    caseId: UUID,
     channel: z.enum(['email', 'whatsapp']).describe('how the chase was sent'),
     templateLabel: z.string().min(1).max(200).describe('the chaser template used'),
     note: z.string().max(2000).optional().describe('optional free-text note'),
@@ -148,60 +223,96 @@ export const LogChaseParams = z
 /** Set an inbound email's triage state — POST inbound/{inboundId}/triage. */
 export const SetTriageStateParams = z
   .object({
-    inboundId: z.string().min(1).describe('the inbound email id (GUID)'),
+    inboundId: UUID,
     state: z.enum(['new', 'routed', 'actioned', 'dismissed']).describe('the triage state to set'),
   })
   .strict();
 
-/** Reclassify an inbound email's category/subtype — PATCH inbound/{inboundId}/classification. */
+/** Reclassify through the server's known tag -> category/subtype mapping. */
 export const ReclassifyInboundParams = z
   .object({
-    inboundId: z.string().min(1).describe('the inbound email id (GUID)'),
-    category: z.string().min(1).describe('the corrected category token'),
-    subtype: z.string().optional().describe('the corrected subtype token'),
+    inboundId: UUID,
+    tag: z
+      .enum(['Inspection', 'New client work', 'Audit', 'Diminution', 'Query'])
+      .describe('the corrected e-mail type'),
+    reason: z.string().max(500).optional().describe('optional reason for the correction'),
   })
   .strict();
 
 /** Save a case's inspection decision — POST cases/{caseId}/inspection-decision. */
 export const SaveInspectionDecisionParams = z
   .object({
-    caseId: z.string().min(1).describe('the case id (GUID)'),
-    decisionMode: z.string().min(1).describe("'image_based', 'address', or 'unknown'"),
-    addressLines: z.array(z.string()).max(6).optional().describe('up to 6 address lines'),
-    postcode: z.string().max(12).optional(),
-    sourceNote: z.string().max(500).describe('why this address / image-based reason'),
+    caseId: UUID,
+    decisionMode: z
+      .enum(['manual', 'confirmed_physical', 'image_based'])
+      .describe('manual/confirmed physical address, or image-based assessment'),
+    addressLines: z.array(z.string().min(1).max(200)).min(1).max(6).optional(),
+    postcode: z.string().max(16).optional(),
+    sourceLabel: z
+      .enum(['manual', 'confirmed:assist', 'confirmed:corpus', 'image_based'])
+      .optional(),
+    sourceNote: z.string().trim().min(1).max(500).describe('why this decision was made'),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.decisionMode === 'image_based' && value.addressLines !== undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['addressLines'], message: 'omit addressLines for image_based' });
+    }
+    if (value.decisionMode !== 'image_based' && !value.addressLines?.length) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['addressLines'], message: 'addressLines are required for a physical decision' });
+    }
+  });
 
 /** Edit a case's registration / editable EVA fields — PATCH cases/{caseId}. */
 export const EditCaseFieldsParams = z
   .object({
-    caseId: z.string().min(1).describe('the case id (GUID)'),
+    caseId: UUID,
     vrm: z.string().max(16).optional().describe('corrected registration'),
-    caseType: z.string().max(40).optional(),
-    evaFields: z.record(z.string(), z.string()).optional().describe('EVA field key → new value'),
+    caseType: z.enum(['standard', 'audit', 'audit_total_loss', 'diminution']).optional(),
+    evaFields: EditableEvaFieldsParam.optional().describe('editable EVA field key → new value'),
   })
-  .strict();
+  .strict()
+  .refine(
+    (value) => value.vrm !== undefined || value.caseType !== undefined || value.evaFields !== undefined,
+    'at least one case field is required',
+  );
 
 /** Create a new case — POST cases. */
 export const CreateCaseParams = z
   .object({
     vrm: z.string().min(1).max(16).describe('vehicle registration'),
-    providerCode: z
-      .string()
-      .min(1)
-      .max(8)
-      .regex(/^[A-Za-z][A-Za-z0-9]{0,7}$/)
-      .optional()
-      .describe('provider principal code'),
+    providerCode: PROVIDER_CODE.optional(),
     claimantName: z.string().max(200).optional(),
+  })
+  .strict();
+
+/** Complete existing Manual Intake request; kept separate from the compact assistant DTO. */
+export const FullCreateCaseParams = z
+  .object({
+    evaFields: EvaFieldsParam,
+    vrm: z.string().min(1).max(16),
+    casePo: z.string().max(32).optional(),
+    provider: z.string().max(200).optional(),
+    providerCode: PROVIDER_CODE.optional(),
+    insuredName: z.string().max(200).optional(),
+    providerReference: z.string().max(100).optional(),
+    status: z.enum(['new_email', 'ingested']),
+    sourceLabel: z.string().max(256).optional(),
+    writeProvenance: z.boolean().optional(),
+    inspectionDecision: z
+      .enum(['confirmed_physical', 'manual', 'image_based', 'unknown'])
+      .optional(),
+    inspectionDecisionReason: z.string().max(2000).optional(),
+    onHold: z.boolean().optional(),
+    receivedFrom: z.string().max(200).optional(),
+    receivedOn: z.string().max(10).optional(),
   })
   .strict();
 
 /** Merge one case into another (DESTRUCTIVE, human-only) — POST cases/{targetCaseId}/merge. */
 export const MergeCasesParams = z
   .object({
-    targetCaseId: z.string().min(1).describe('the survivor case id'),
-    sourceCaseId: z.string().min(1).describe('the case merged away'),
+    targetCaseId: UUID.describe('the survivor case id'),
+    sourceCaseId: UUID.describe('the case merged away'),
   })
   .strict();

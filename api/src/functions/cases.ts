@@ -24,6 +24,7 @@ import { app, type HttpRequest } from '@azure/functions';
 import {
   CASE_PO_SHAPE_RE,
   CreateCaseParams,
+  FullCreateCaseParams,
   EVA_FIELD_ORDER,
   canonicalizeVrm,
   casePoSequenceRegex,
@@ -56,7 +57,11 @@ import {
 } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { query, tx, type TxQuery } from '../lib/db.js';
-import { acquireCaseMutationLocks, orderedCaseMutationIds } from '../lib/case-mutation-locks.js';
+import {
+  acquireCaseMutationLocks,
+  lockCaseForMutation,
+  orderedCaseMutationIds,
+} from '../lib/case-mutation-locks.js';
 import { isPrefillApplicable, prefillImageBasedInspection } from '../lib/inspection-prefill.js';
 import { maybeSuggestOverviewChase } from '../lib/overview-chase.js';
 import {
@@ -65,10 +70,14 @@ import {
 } from '../lib/status-recompute.js';
 import { casePoFloor, mintCasePo } from '../lib/case-po.js';
 import { isUniqueViolation } from './internal.js';
-import { ifMatch, staleVersion, versionToken } from '../lib/concurrency.js';
+import { ifMatch, versionToken } from '../lib/concurrency.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import { gates } from '../lib/gates.js';
-import { callBoxCopyFileRequest, listBoxFolderNames } from '../lib/functions-client.js';
+import { listBoxFolderNames } from '../lib/functions-client.js';
+import {
+  processBoxFileRequestIntent,
+  requestBoxFileRequestIntent,
+} from '../lib/box-file-request-outbox.js';
 import {
   requestArchiveMirrorIfEligible,
   type ArchiveMirrorCandidate,
@@ -138,12 +147,17 @@ async function loadAllCases(now: Date): Promise<Case[]> {
 }
 
 /** Load a single case_ row + its expanded children through one query surface. */
-async function loadCaseFullUsing(
+interface VersionedCaseSnapshot {
+  value: Case;
+  version: string;
+}
+
+async function loadCaseFullSnapshotUsing(
   q: TxQuery,
   id: string,
   now: Date,
   lockCase = false,
-): Promise<Case | undefined> {
+): Promise<VersionedCaseSnapshot | undefined> {
   const rows = await q<Row>(
     `${CASE_SELECT} WHERE c.id = $1${lockCase ? ' FOR UPDATE OF c' : ''}`,
     [id],
@@ -157,7 +171,7 @@ async function loadCaseFullUsing(
   );
   const notes = await q<Row>('SELECT * FROM note WHERE case_id = $1 ORDER BY occurred_at', [id]);
   const chasers = await q<Row>('SELECT * FROM chaser WHERE case_id = $1 ORDER BY created_at', [id]);
-  return rowToCase(rec, {
+  const value = rowToCase(rec, {
     now,
     provenanceRows: prov,
     evidence: ev.map(rowToEvidence),
@@ -169,6 +183,16 @@ async function loadCaseFullUsing(
     })),
     chasers: chasers.map(rowToChaser),
   });
+  return { value, version: versionToken(rec.updated_at) };
+}
+
+async function loadCaseFullUsing(
+  q: TxQuery,
+  id: string,
+  now: Date,
+  lockCase = false,
+): Promise<Case | undefined> {
+  return (await loadCaseFullSnapshotUsing(q, id, now, lockCase))?.value;
 }
 
 /** Load a full case outside an existing transaction. */
@@ -327,15 +351,12 @@ app.http('caseById', {
   route: 'cases/{id}',
   handler: withRole('CollisionSpike.User', async (req) => {
     const id = req.params.id;
-    const c = await loadCaseFull(id, new Date());
-    if (!c) return { status: 404, jsonBody: { error: 'not found' } };
-    // Expose the case version as an ETag (TKT-111) so the assistant write tier can re-fetch,
-    // capture it, and send it back as If-Match on a confirmed write (optimistic concurrency).
-    const ver = await query<Row>('SELECT updated_at FROM case_ WHERE id = $1', [id]);
+    const snapshot = await loadCaseFullSnapshotUsing(query, id, new Date());
+    if (!snapshot) return { status: 404, jsonBody: { error: 'not found' } };
     return {
       status: 200,
-      jsonBody: c,
-      ...(ver[0] ? { headers: { ETag: versionToken(ver[0].updated_at) } } : {}),
+      jsonBody: { ...snapshot.value, version: snapshot.version },
+      headers: { ETag: `"${snapshot.version}"`, 'Access-Control-Expose-Headers': 'ETag' },
     };
   }),
 });
@@ -352,7 +373,7 @@ app.http('patchCase', {
   methods: ['PATCH'],
   authLevel: 'anonymous',
   route: 'cases/{id}',
-  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+  handler: withRole('CollisionSpike.User', async (req, ctx, claims) => {
     const id = req.params.id;
     const body = (await req.json().catch(() => ({}))) as {
       vrm?: string;
@@ -367,137 +388,136 @@ app.http('patchCase', {
       casePo?: string;
     };
     const actor = actorFromClaims(claims);
-
-    const existing = await loadCaseLite(id);
-    if (!existing) return { status: 404, jsonBody: { error: 'not found' } };
-
-    const sets: string[] = [];
-    const vals: unknown[] = [];
-    const before: Record<string, unknown> = {};
-    const after: Record<string, unknown> = {};
-    const changedEvaFields: Array<{ key: EvaFieldKey; value: string }> = [];
-
-    // --- vrm ---
-    if (body.vrm !== undefined) {
-      const raw = String(body.vrm ?? '').trim();
-      // Lenient by design: normalise via the shared canonical sniff (which strips embedded
-      // postcodes/junk), but if the sniff rejects it, accept the operator's input verbatim
-      // (uppercased, alphanumerics only, ≤16) — deliberate corrections of foreign/trade/
-      // personal plates must land. '' clears the VRM. Never hard-4xx a non-standard mark.
-      const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
-      const newVrm = raw ? extractVrm(raw) || cleaned : '';
-      if (newVrm !== existing.vrm) {
-        sets.push(`vrm = $${sets.length + 1}`);
-        vals.push(newVrm);
-        before.vrm = existing.vrm;
-        after.vrm = newVrm;
-      }
-    }
-
-    // --- editable EVA fields (durable case-page edits) ---
-    let inspectionAddressChanged = false;
-    if (body.evaFields && typeof body.evaFields === 'object') {
-      for (const [k, rawVal] of Object.entries(body.evaFields)) {
-        if (rawVal === undefined || !(k in EVA_COLUMN_BY_KEY)) continue; // ignore unknown keys
-        const key = k as EvaFieldKey;
-        const norm = normaliseEvaEdit(key, String(rawVal ?? ''));
-        if ('error' in norm) return { status: 400, jsonBody: { error: norm.error } };
-        const oldVal = existing.evaFields[key]?.value ?? '';
-        if (norm.value === oldVal) continue; // unchanged
-        sets.push(`${EVA_COLUMN_BY_KEY[key]} = $${sets.length + 1}`);
-        vals.push(norm.value);
-        before[key] = oldVal;
-        after[key] = norm.value;
-        changedEvaFields.push({ key, value: norm.value });
-        if (key === 'inspectionAddress') inspectionAddressChanged = true;
-      }
-    }
-
-    // A staff inspection-address edit must not leave an earlier auto-prefilled
-    // image_based decision code shadowing it: rowToCase/deriveInspectionDecision prefer the
-    // explicit code over the address text, so an image-based-provider case would reload as
-    // 'image_based' even after a physical address is chosen. Clear the explicit code so the
-    // decision re-derives from the new address text (IBA literal -> image_based; a physical
-    // address -> unknown, symmetric with a never-prefilled case). (TKT-129/PR47-A2)
-    if (inspectionAddressChanged) {
-      sets.push('inspection_decision_code = NULL');
-    }
-
-    // --- casePo (ADR-0022 transition seam: stamp the REAL number; '' clears) ---
-    if (body.casePo !== undefined) {
-      const raw = String(body.casePo ?? '').trim();
-      const normalized = raw ? normalizeCasePo(raw) : '';
-      if (normalized && !CASE_PO_SHAPE_RE.test(normalized)) {
-        return {
-          status: 400,
-          jsonBody: {
-            error: `casePo '${raw}' is not Case/PO-shaped (marker? + principal + YY + sequence, e.g. CCPY26050 or A.PCH261269)`,
-          },
+    let attemptedCasePo: string | undefined;
+    let outcome:
+      | { kind: 'response'; response: { status: number; jsonBody: unknown } }
+      | { kind: 'unchanged'; snapshot: VersionedCaseSnapshot }
+      | {
+          kind: 'changed';
+          changedEvaFields: Array<{ key: EvaFieldKey; value: string }>;
+          statusGeneration: number;
         };
-      }
-      const oldPo = (existing.casePo ?? '').toUpperCase();
-      if (normalized !== oldPo) {
-        sets.push(`case_po = $${sets.length + 1}`);
-        vals.push(normalized || null);
-        before.casePo = oldPo || '(none)';
-        after.casePo = normalized || '(cleared)';
-      }
-    }
-
-    // --- case type (ADR-0021 review-time correction) ---
-    if (body.caseType !== undefined) {
-      const rawType = String(body.caseType ?? '').trim();
-      const validName = rawType === '' || caseTypeCodec.toInt(rawType as never) != null;
-      if (!validName) {
-        return {
-          status: 400,
-          jsonBody: {
-            error: `caseType must be one of ${caseTypeCodec.names().map((n) => `'${n}'`).join(', ')} (or '' to clear)`,
-          },
-        };
-      }
-      // 'standard' is stored as NULL (the column default semantics: null = standard), so
-      // clearing and setting-standard are the same write.
-      const newCode =
-        rawType === '' || rawType === 'standard' ? null : caseTypeCodec.toInt(rawType as never)!;
-      const curRows = await query<{ case_type_code: number | null }>(
-        'SELECT case_type_code FROM case_ WHERE id = $1',
-        [id],
-      );
-      const oldCode = curRows[0]?.case_type_code ?? null;
-      if (newCode !== oldCode) {
-        sets.push(`case_type_code = $${sets.length + 1}`);
-        vals.push(newCode);
-        before.caseType = caseTypeCodec.toName(oldCode) ?? 'standard';
-        after.caseType = rawType || 'standard';
-      }
-    }
-
-    // No supplied change → return the current full Case unchanged (idempotent PATCH).
-    if (sets.length === 0) {
-      const cur = await loadCaseFull(id, new Date());
-      return { status: 200, jsonBody: cur };
-    }
-
-    vals.push(id);
     try {
-      await query(
-        `UPDATE case_ SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}`,
-        vals,
-      );
+      outcome = await tx(async (q) => {
+        const snapshot = await loadCaseFullSnapshotUsing(q, id, new Date(), true);
+        if (!snapshot) {
+          return { kind: 'response' as const, response: { status: 404, jsonBody: { error: 'not found' } } };
+        }
+        const expected = ifMatch(req);
+        if (expected && expected !== snapshot.version) {
+          return {
+            kind: 'response' as const,
+            response: { status: 409, jsonBody: { error: 'stale', currentVersion: snapshot.version } },
+          };
+        }
+        const existing = snapshot.value;
+        const sets: string[] = [];
+        const vals: unknown[] = [];
+        const before: Record<string, unknown> = {};
+        const after: Record<string, unknown> = {};
+        const changedEvaFields: Array<{ key: EvaFieldKey; value: string }> = [];
+
+        if (body.vrm !== undefined) {
+          const raw = String(body.vrm ?? '').trim();
+          const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
+          const newVrm = raw ? extractVrm(raw) || cleaned : '';
+          if (newVrm !== existing.vrm) {
+            sets.push(`vrm = $${sets.length + 1}`);
+            vals.push(newVrm);
+            before.vrm = existing.vrm;
+            after.vrm = newVrm;
+          }
+        }
+
+        let inspectionAddressChanged = false;
+        if (body.evaFields && typeof body.evaFields === 'object') {
+          for (const [k, rawVal] of Object.entries(body.evaFields)) {
+            if (rawVal === undefined || !(k in EVA_COLUMN_BY_KEY)) continue;
+            const key = k as EvaFieldKey;
+            const norm = normaliseEvaEdit(key, String(rawVal ?? ''));
+            if ('error' in norm) {
+              return { kind: 'response' as const, response: { status: 400, jsonBody: { error: norm.error } } };
+            }
+            const oldVal = existing.evaFields[key]?.value ?? '';
+            if (norm.value === oldVal) continue;
+            sets.push(`${EVA_COLUMN_BY_KEY[key]} = $${sets.length + 1}`);
+            vals.push(norm.value);
+            before[key] = oldVal;
+            after[key] = norm.value;
+            changedEvaFields.push({ key, value: norm.value });
+            if (key === 'inspectionAddress') inspectionAddressChanged = true;
+          }
+        }
+        if (inspectionAddressChanged) sets.push('inspection_decision_code = NULL');
+
+        if (body.casePo !== undefined) {
+          const raw = String(body.casePo ?? '').trim();
+          const normalized = raw ? normalizeCasePo(raw) : '';
+          if (normalized && !CASE_PO_SHAPE_RE.test(normalized)) {
+            return {
+              kind: 'response' as const,
+              response: { status: 400, jsonBody: { error: `casePo '${raw}' is not Case/PO-shaped` } },
+            };
+          }
+          const oldPo = (existing.casePo ?? '').toUpperCase();
+          if (normalized !== oldPo) {
+            attemptedCasePo = normalized || undefined;
+            sets.push(`case_po = $${sets.length + 1}`);
+            vals.push(normalized || null);
+            before.casePo = oldPo || '(none)';
+            after.casePo = normalized || '(cleared)';
+          }
+        }
+
+        if (body.caseType !== undefined) {
+          const rawType = String(body.caseType ?? '').trim();
+          const validName = rawType === '' || caseTypeCodec.toInt(rawType as never) != null;
+          if (!validName) {
+            return {
+              kind: 'response' as const,
+              response: {
+                status: 400,
+                jsonBody: { error: `caseType must be one of ${caseTypeCodec.names().join(', ')}` },
+              },
+            };
+          }
+          const newCode = rawType === '' || rawType === 'standard'
+            ? null
+            : caseTypeCodec.toInt(rawType as never)!;
+          const oldCode = caseTypeCodec.toInt(existing.caseType as never) ?? null;
+          if (newCode !== oldCode) {
+            sets.push(`case_type_code = $${sets.length + 1}`);
+            vals.push(newCode);
+            before.caseType = existing.caseType ?? 'standard';
+            after.caseType = rawType || 'standard';
+          }
+        }
+
+        if (sets.length === 0) return { kind: 'unchanged' as const, snapshot };
+        vals.push(id);
+        await q(`UPDATE case_ SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}`, vals);
+        await writeAudit({
+          action: AUDIT_ACTION.status_changed,
+          caseId: id,
+          summary: `Case edited: ${Object.keys(after).join(', ')}`,
+          before,
+          after,
+          ...(actor ? { actor } : {}),
+        }, q);
+        const statusGeneration = await requestStatusRecompute(q, id);
+        return { kind: 'changed' as const, changedEvaFields, statusGeneration };
+      });
     } catch (e) {
-      // uq_case_case_po: the stamped number is already held by another case — a REAL
-      // conflict the staff member must see (which case owns it), never a bare 500.
-      if (isUniqueViolation(e) && after.casePo) {
+      if (isUniqueViolation(e) && attemptedCasePo) {
         const holder = await query<{ id: string; vrm: string | null }>(
           'SELECT id, vrm FROM case_ WHERE upper(case_po) = $1 AND id <> $2',
-          [String(after.casePo).toUpperCase(), id],
+          [attemptedCasePo.toUpperCase(), id],
         );
         return {
           status: 409,
           jsonBody: {
             error: 'case_po_in_use',
-            message: `Case/PO ${after.casePo} is already assigned to another case.`,
+            message: `Case/PO ${attemptedCasePo} is already assigned to another case.`,
             conflictCaseId: holder[0]?.id ?? null,
             conflictVrm: holder[0]?.vrm ?? null,
           },
@@ -506,24 +526,30 @@ app.http('patchCase', {
       throw e;
     }
 
-    // One 'staff' (manual edit) provenance row per changed EVA field (best-effort upsert).
-    for (const f of changedEvaFields) await upsertManualProvenance(id, f.key, f.value);
-
-    await writeAudit({
-      action: AUDIT_ACTION.status_changed,
-      caseId: id,
-      summary: `Case edited: ${Object.keys(after).join(', ')}`,
-      before,
-      after,
-      ...(actor ? { actor } : {}),
-    });
-
-    // A VRM or required-EVA-field change can alter identity/readiness → recompute the workflow
-    // status (terminal-locked by the shared guard); writes its own status_changed audit if it moves.
-    await recomputeStatus(id, actor);
-
-    const updated = await loadCaseFull(id, new Date());
-    return { status: 200, jsonBody: updated };
+    if (outcome.kind === 'response') return outcome.response;
+    if (outcome.kind === 'unchanged') {
+      return {
+        status: 200,
+        jsonBody: { ...outcome.snapshot.value, version: outcome.snapshot.version },
+      };
+    }
+    for (const field of outcome.changedEvaFields) {
+      await upsertManualProvenance(id, field.key, field.value);
+    }
+    try {
+      const evaluated = await recomputeStatus(id, actor);
+      if (!evaluated) throw new Error('case was not available for readiness evaluation');
+      await acknowledgeStatusRecompute(query, id, outcome.statusGeneration);
+    } catch (error) {
+      ctx.warn(
+        `[patch-case] readiness recompute remains pending for ${id} ` +
+          `(generation ${outcome.statusGeneration}): ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    const updated = await loadCaseFullSnapshotUsing(query, id, new Date());
+    return updated
+      ? { status: 200, jsonBody: { ...updated.value, version: updated.version } }
+      : { status: 404, jsonBody: { error: 'not found' } };
   }),
 });
 
@@ -531,67 +557,8 @@ app.http('patchCase', {
    2 — POST /api/cases   (manual-intake write path)
    ============================================================ */
 
-const REVIEW_STATES = new Set(['not_required', 'needs_review', 'reviewed', 'conflict']);
-const PROVENANCE_SOURCE_TYPES = new Set([
-  'staff',
-  'pdf_extraction',
-  'email_text',
-  'corpus',
-  'ai',
-  'dvla_dvsa',
-  'document_ai',
-  'azure_vision',
-  'web_lookup',
-  'whatsapp',
-  'manual_upload',
-]);
-
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/**
- * Preserve the complete Manual Intake contract while making every field safe to
- * dereference. A valid existing EvaFields object passes through value-for-value;
- * defensive defaults only fill omitted provenance/review metadata.
- */
-function normalizeManualEvaFields(
-  value: unknown,
-  sourceLabel: string,
-): EvaFields | undefined {
-  if (!isObjectRecord(value)) return undefined;
-  const out = {} as Record<EvaFieldKey, EvaField>;
-  for (const desc of EVA_FIELD_ORDER) {
-    const raw = value[desc.key];
-    if (!isObjectRecord(raw) || typeof raw.value !== 'string') return undefined;
-    const rawProvenance = isObjectRecord(raw.provenance) ? raw.provenance : {};
-    const rawSourceType = rawProvenance.sourceType;
-    const sourceType =
-      typeof rawSourceType === 'string' && PROVENANCE_SOURCE_TYPES.has(rawSourceType)
-        ? rawSourceType
-        : 'staff';
-    const fieldSourceLabel =
-      typeof rawProvenance.sourceLabel === 'string' && rawProvenance.sourceLabel.trim()
-        ? rawProvenance.sourceLabel
-        : sourceLabel;
-    const rawReviewState = raw.reviewState;
-    const reviewState =
-      typeof rawReviewState === 'string' && REVIEW_STATES.has(rawReviewState)
-        ? rawReviewState
-        : 'needs_review';
-    out[desc.key] = {
-      value: raw.value,
-      provenance: {
-        sourceType: sourceType as EvaField['provenance']['sourceType'],
-        sourceLabel: fieldSourceLabel,
-        ...(typeof rawProvenance.confidence === 'number'
-          ? { confidence: rawProvenance.confidence }
-          : {}),
-      },
-      reviewState: reviewState as EvaField['reviewState'],
-    };
-  }
-  return out as unknown as EvaFields;
 }
 
 /**
@@ -605,19 +572,12 @@ export function normalizeCreateCaseInput(raw: unknown): CreateCaseInput | undefi
   // A body claiming either full-contract discriminator must satisfy the full contract;
   // do not reinterpret a malformed Manual Intake body as an assistant proposal.
   if ('evaFields' in raw || 'status' in raw) {
-    if (typeof raw.vrm !== 'string' || typeof raw.status !== 'string') return undefined;
-    if (statusToInt(raw.status as CreateCaseInput['status']) == null) return undefined;
-    const sourceLabel =
-      typeof raw.sourceLabel === 'string' && raw.sourceLabel.trim()
-        ? raw.sourceLabel
-        : 'Manual intake';
-    const evaFields = normalizeManualEvaFields(raw.evaFields, sourceLabel);
-    if (!evaFields) return undefined;
+    const full = FullCreateCaseParams.safeParse(raw);
+    if (!full.success) return undefined;
     return {
-      ...(raw as unknown as CreateCaseInput),
-      evaFields,
-      sourceLabel,
-    };
+      ...full.data,
+      sourceLabel: full.data.sourceLabel?.trim() || 'Manual intake',
+    } as CreateCaseInput;
   }
 
   const parsed = CreateCaseParams.safeParse(raw);
@@ -655,9 +615,42 @@ app.http('createCase', {
   route: 'cases',
   handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
     const raw = await req.json().catch(() => undefined);
-    const input = normalizeCreateCaseInput(raw);
+    let input = normalizeCreateCaseInput(raw);
     if (!input) return { status: 400, jsonBody: { error: 'invalid case create payload' } };
     const actor = actorFromClaims(claims);
+
+    // Resolve a supplied principal before readiness evaluation or Case/PO minting.
+    // A syntactically valid typo is not a provider and must never open a numbering series.
+    const pcode = (input.providerCode ?? '').trim().toUpperCase();
+    let providerRow: { id: string; display_name: string } | undefined;
+    if (pcode) {
+      const providers = await query<{ id: string; display_name: string }>(
+        `SELECT id, display_name
+           FROM work_provider
+          WHERE upper(principal_code) = $1
+          LIMIT 1`,
+        [pcode],
+      );
+      providerRow = providers[0];
+      if (!providerRow) {
+        return { status: 400, jsonBody: { error: 'unknown provider principal code' } };
+      }
+      if (!input.evaFields.workProvider.value.trim()) {
+        input = {
+          ...input,
+          provider: input.provider?.trim() || providerRow.display_name,
+          providerCode: pcode,
+          evaFields: {
+            ...input.evaFields,
+            workProvider: {
+              value: providerRow.display_name,
+              provenance: { sourceType: 'corpus', sourceLabel: 'Matched provider principal' },
+              reviewState: 'reviewed',
+            },
+          },
+        };
+      }
+    }
 
     // Status state machine — compute the persisted status from the reviewed fields
     // (no evidence yet at manual intake), terminal-locked by the guard itself.
@@ -691,21 +684,12 @@ app.http('createCase', {
       cols.push(col);
       vals.push(value);
     };
-    // Resolve the work_provider FK from the supplied principal code so merge-scoping and the
-    // ADR-0010 cross-provider guard work for manual cases (sweep #24); leave null if unmatched.
-    const pcode = (input.providerCode ?? '').trim();
-    if (pcode) {
-      const wp = await query<Row>('SELECT id FROM work_provider WHERE principal_code = $1 LIMIT 1', [pcode]);
-      if (wp[0]?.id) add('work_provider_id', wp[0].id);
-    }
+    if (providerRow) add('work_provider_id', providerRow.id);
     // Normalise explicit references to canonical UPPER (+ trim). If the client omits
     // casePo but supplies a valid principal, the API allocates under the same
     // per-(principal,year) advisory lock used by automated intake.
     const suppliedCasePo = (input.casePo ?? '').trim().toUpperCase();
     const principalForAutoMint = !suppliedCasePo ? pcode.toUpperCase() : '';
-    if (principalForAutoMint && !/^[A-Z][A-Z0-9]{0,7}$/.test(principalForAutoMint)) {
-      return { status: 400, jsonBody: { error: 'invalid principal code' } };
-    }
     if (input.onHold) add('on_hold', true);
     if (input.insuredName) add('ov_insured_name', input.insuredName);
     if (input.providerReference) add('ov_claim_number', input.providerReference);
@@ -894,28 +878,42 @@ app.http('setOnHold', {
   handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
     const id = req.params.id;
     const body = (await req.json()) as { onHold: boolean };
-    // Optimistic concurrency (TKT-111): a confirmed assistant write carries If-Match; reject a
-    // stale precondition with 409. No If-Match (the normal SPA) → skip the check (back-compat).
-    if (ifMatch(req) != null) {
-      const cur = await query<Row>('SELECT updated_at FROM case_ WHERE id = $1', [id]);
-      if (!cur[0]) return { status: 404, jsonBody: { error: 'not found' } };
-      if (staleVersion(req, cur[0].updated_at)) {
-        return { status: 409, jsonBody: { error: 'stale', currentVersion: versionToken(cur[0].updated_at) } };
-      }
+    if (typeof body.onHold !== 'boolean') {
+      return { status: 400, jsonBody: { error: 'onHold must be a boolean' } };
     }
-    const updated = await query<Row>(
-      'UPDATE case_ SET on_hold = $2, updated_at = now() WHERE id = $1 RETURNING updated_at',
-      [id, body.onHold],
-    );
-    if (!updated[0]) return { status: 404, jsonBody: { error: 'not found' } };
-    await writeAudit({
-      action: AUDIT_ACTION.status_changed,
-      caseId: id,
-      summary: body.onHold ? 'Case put on hold' : 'Case taken off hold',
-      after: { onHold: body.onHold },
-      ...(actorFromClaims(claims) ? { actor: actorFromClaims(claims) } : {}),
+    const actor = actorFromClaims(claims);
+    const outcome = await tx(async (q) => {
+      const current = await q<Row>(
+        'SELECT updated_at FROM case_ WHERE id = $1 FOR UPDATE',
+        [id],
+      );
+      if (!current[0]) return { kind: 'missing' as const };
+      const currentVersion = versionToken(current[0].updated_at);
+      const expected = ifMatch(req);
+      if (expected != null && expected !== '' && expected !== currentVersion) {
+        return { kind: 'stale' as const, currentVersion };
+      }
+      const updated = await q<Row>(
+        'UPDATE case_ SET on_hold = $2, updated_at = now() WHERE id = $1 RETURNING updated_at',
+        [id, body.onHold],
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.status_changed,
+        caseId: id,
+        summary: body.onHold ? 'Case put on hold' : 'Case taken off hold',
+        after: { onHold: body.onHold },
+        ...(actor ? { actor } : {}),
+      }, q);
+      return { kind: 'updated' as const, version: versionToken(updated[0]?.updated_at) };
     });
-    return { status: 204, headers: { ETag: versionToken(updated[0].updated_at) } };
+    if (outcome.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
+    if (outcome.kind === 'stale') {
+      return { status: 409, jsonBody: { error: 'stale', currentVersion: outcome.currentVersion } };
+    }
+    return {
+      status: 204,
+      headers: { ETag: `"${outcome.version}"`, 'Access-Control-Expose-Headers': 'ETag' },
+    };
   }),
 });
 
@@ -961,9 +959,6 @@ app.http('logChase', {
     }
     const note = typeof body.note === 'string' ? body.note.trim() : '';
 
-    const existing = await loadCaseLite(id);
-    if (!existing) return { status: 404, jsonBody: { error: 'not found' } };
-
     const actor = actorFromClaims(claims);
     const channelLabel = channel === 'whatsapp' ? 'WhatsApp' : 'email';
     // chaser.name = the queue summary (varchar(400)); mirrors the SPA's "Chased via …"
@@ -971,54 +966,68 @@ app.http('logChase', {
     const summary = `Chased via ${channelLabel} — ${templateLabel}.`.slice(0, 400);
     // The chase target: the work provider (the party chased for missing items) — the
     // read's default targetType. target_name = the provider display name (varchar(200)).
-    const targetName = existing.provider.slice(0, 200);
-
-    const rows = await query<Row>(
-      `INSERT INTO chaser
-         (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at)
-       VALUES ($1, $2, $3, $4, $5, $6, now())
-       RETURNING *`,
-      [
-        summary,
-        id,
-        100000002, // choice_chaser_target_type: work_provider
-        targetName,
-        channel === 'whatsapp' ? 100000001 : 100000000, // choice_chaser_channel
-        templateLabel,
-      ],
-    );
-    const created = rows[0];
-    if (!created) return { status: 500, jsonBody: { error: 'chaser insert returned no row' } };
-
-    // Optional free-text note -> a durable case note (best-effort, same pattern as
-    // createCase's inspection-decision note; a note failure must not sink the chase log).
-    if (note) {
-      try {
-        await query(
+    const outcome = await tx(async (q) => {
+      const locked = await q<Row>(
+        `${CASE_SELECT} WHERE c.id = $1 FOR UPDATE OF c`,
+        [id],
+      );
+      if (!locked[0]) return { kind: 'missing' as const };
+      const existing = rowToCase(locked[0]);
+      if (isRetiredMerged(existing)) return { kind: 'retired' as const };
+      const currentVersion = versionToken(locked[0].updated_at);
+      const expected = ifMatch(req);
+      if (expected != null && expected !== '' && expected !== currentVersion) {
+        return { kind: 'stale' as const, currentVersion };
+      }
+      const rows = await q<Row>(
+        `INSERT INTO chaser
+           (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at)
+         VALUES ($1, $2, $3, $4, $5, $6, now())
+         RETURNING *`,
+        [
+          summary,
+          id,
+          100000002,
+          existing.provider.slice(0, 200),
+          channel === 'whatsapp' ? 100000001 : 100000000,
+          templateLabel,
+        ],
+      );
+      const created = rows[0];
+      if (!created) throw new Error('chaser insert returned no row');
+      if (note) {
+        await q(
           'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
           ['Chase note', id, actor ?? 'Staff', note],
         );
-      } catch {
-        /* best-effort */
       }
-    }
-
-    // chaser_sent (100000023) is the controlled chaser-family audit action (one of the
-    // original seeded codes); the summary keeps the wording honest — LOGGED, not sent.
-    await writeAudit({
-      action: AUDIT_ACTION.chaser_sent,
-      caseId: id,
-      summary: `Chase logged (${channel} · ${templateLabel})`,
-      after: {
-        chaserId: created.id,
-        channel,
-        templateLabel,
-        ...(note ? { note } : {}),
-      },
-      ...(actor ? { actor } : {}),
+      const updated = await q<Row>(
+        'UPDATE case_ SET updated_at = now() WHERE id = $1 RETURNING updated_at',
+        [id],
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.chaser_sent,
+        caseId: id,
+        summary: `Chase logged (${channel} · ${templateLabel})`,
+        after: { chaserId: created.id, channel, templateLabel, ...(note ? { note } : {}) },
+        ...(actor ? { actor } : {}),
+      }, q);
+      return {
+        kind: 'created' as const,
+        value: rowToChaser(created),
+        version: versionToken(updated[0]?.updated_at),
+      };
     });
-
-    return { status: 201, jsonBody: rowToChaser(created) };
+    if (outcome.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
+    if (outcome.kind === 'retired') return { status: 409, jsonBody: { error: 'case has been merged' } };
+    if (outcome.kind === 'stale') {
+      return { status: 409, jsonBody: { error: 'stale', currentVersion: outcome.currentVersion } };
+    }
+    return {
+      status: 201,
+      jsonBody: outcome.value,
+      headers: { ETag: `"${outcome.version}"`, 'Access-Control-Expose-Headers': 'ETag' },
+    };
   }),
 });
 
@@ -1243,6 +1252,100 @@ async function mergeEvidenceRows(
   return { movedEvidence: moved.length, collidingEvidence: collisionSourceIds.length };
 }
 
+/**
+ * A File Request is bound to one Box folder, so an already-created or possibly-created
+ * source link cannot be silently carried to a different survivor folder. A never-attempted
+ * durable intent is safe to transfer; any attempted/ambiguous source blocks the merge.
+ */
+async function reconcileMergeFileRequestIntent(
+  q: TxQuery,
+  sourceCaseId: string,
+  targetCaseId: string,
+): Promise<string | undefined> {
+  const cases = await q<{
+    id: string;
+    box_folder_id: string | null;
+    box_file_request_id: string | null;
+    box_file_request_url: string | null;
+  }>(
+    `SELECT id, box_folder_id, box_file_request_id, box_file_request_url
+       FROM case_ WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]],
+  );
+  const source = cases.find((row) => row.id.toLowerCase() === sourceCaseId);
+  const target = cases.find((row) => row.id.toLowerCase() === targetCaseId);
+  if (!source || !target) return 'Source or target case not found.';
+  if ((source.box_file_request_id ?? '').trim() || (source.box_file_request_url ?? '').trim()) {
+    return 'The source case already has an image-upload link. Move or close that link before merging.';
+  }
+  const intents = await q<{
+    case_id: string;
+    requested_generation: string | number;
+    completed_generation: string | number;
+    attempt_count: number;
+    claim_token: string | null;
+  }>(
+    `SELECT case_id, requested_generation, completed_generation, attempt_count, claim_token
+       FROM box_file_request_outbox
+      WHERE case_id = ANY($1::uuid[])
+      ORDER BY case_id
+      FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]],
+  );
+  const sourceIntent = intents.find((row) => row.case_id.toLowerCase() === sourceCaseId);
+  if (!sourceIntent) return undefined;
+  const sourcePending = Number(sourceIntent.requested_generation) > Number(sourceIntent.completed_generation);
+  if (!sourcePending) {
+    return 'The source case has completed image-upload-link work that cannot be transferred safely.';
+  }
+  if (sourceIntent.attempt_count > 0 || sourceIntent.claim_token) {
+    return 'Image-upload link creation may already have started for the source case. Try the merge after it finishes.';
+  }
+  const targetIntent = intents.find((row) => row.case_id.toLowerCase() === targetCaseId);
+  const targetHasPartialLink =
+    !!(target.box_file_request_id ?? '').trim() !== !!(target.box_file_request_url ?? '').trim();
+  if (targetHasPartialLink) {
+    return 'The survivor has an incomplete image-upload-link record. Resolve it before merging.';
+  }
+  const targetHasLink =
+    !!(target.box_file_request_id ?? '').trim() && !!(target.box_file_request_url ?? '').trim();
+  if (
+    targetIntent &&
+    Number(targetIntent.completed_generation) >= Number(targetIntent.requested_generation) &&
+    !targetHasLink
+  ) {
+    return 'The survivor has completed image-upload-link work with no saved link. Resolve it before merging.';
+  }
+  if (targetIntent || targetHasLink) {
+    // The survivor already owns equivalent work. Cancel the never-attempted source
+    // generation without deleting history.
+    await q(
+      `UPDATE box_file_request_outbox
+          SET completed_generation = requested_generation,
+              completed_at = now(),
+              last_error = 'superseded by merge target',
+              updated_at = now()
+        WHERE case_id = $1`,
+      [sourceCaseId],
+    );
+    return undefined;
+  }
+  const targetFolder = (target.box_folder_id ?? '').trim();
+  if (!targetFolder) {
+    return 'The survivor has no archive folder for the pending image-upload link.';
+  }
+  await q(
+    `UPDATE box_file_request_outbox
+        SET case_id = $2,
+            folder_id = $3,
+            next_attempt_at = now(),
+            updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId, targetFolder],
+  );
+  return undefined;
+}
+
 /* ============================================================
    7 — POST /api/cases/{tgt}/merge   ({tgt} = target/survivor)
    ============================================================ */
@@ -1306,6 +1409,15 @@ app.http('mergeCases', {
           status: 400,
           error: 'Cannot merge into a finalised case.',
         };
+      }
+
+      const fileRequestConflict = await reconcileMergeFileRequestIntent(
+        q,
+        sourceCaseId,
+        targetCaseId,
+      );
+      if (fileRequestConflict) {
+        return { kind: 'error' as const, status: 409, error: fileRequestConflict };
       }
 
       // Lock every source inbound row before touching evidence. Guarded backfill takes
@@ -1684,28 +1796,6 @@ async function readCaseBoxFolder(
   };
 }
 
-interface CaseBoxFileRequestRow extends Record<string, unknown> {
-  box_folder_id: string | null;
-  box_file_request_id: string | null;
-  box_file_request_url: string | null;
-}
-
-function validBoxFileRequestCopy(
-  value: unknown,
-): { id: string; url: string } | undefined {
-  if (!isObjectRecord(value)) return undefined;
-  if (typeof value.id !== 'string' || typeof value.url !== 'string') return undefined;
-  const id = value.id.trim();
-  const url = value.url.trim();
-  if (!id || id.length > 40 || !url || url.length > 400) return undefined;
-  try {
-    if (new URL(url).protocol !== 'https:') return undefined;
-  } catch {
-    return undefined;
-  }
-  return { id, url };
-}
-
 /* GET /api/cases/{id}/box/shared-link → BoxResult<SharedFolderLink>
    The "Open in Box" deep link for evidence viewing. DB-only + privacy-safe: returns
    the folder's stamped URL, else constructs the AUTHENTICATED app deep link from the
@@ -1736,10 +1826,8 @@ app.http('caseBoxSharedLink', {
 });
 
 /* POST /api/cases/{id}/box/copy-file-request → BoxResult<FileRequestLink>
-   Copies the per-case File Request (account-free upload page) from the operator's
-   template through the existing Box Function facade. The case row is locked across
-   read→copy→stamp so concurrent staff clicks cannot copy twice; a previously stamped
-   link returns immediately without another Box call. */
+   Persists intent before the bounded remote call. A timer replays any crash/timeout,
+   while repeated staff clicks reuse the same pending generation. */
 app.http('caseBoxCopyFileRequest', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -1759,13 +1847,22 @@ app.http('caseBoxCopyFileRequest', {
     }
     const actor = actorFromClaims(claims);
     try {
-      const result = await tx(async (q) => {
-        const rows = await q<CaseBoxFileRequestRow>(
+      const prepared = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, caseId);
+        if (lockedCase.kind === 'missing') return { kind: 'missing' as const };
+        if (lockedCase.kind === 'retired') {
+          return { kind: 'retired' as const, mergedInto: lockedCase.mergedInto };
+        }
+        const rows = await q<{
+          box_folder_id: string | null;
+          box_file_request_id: string | null;
+          box_file_request_url: string | null;
+        }>(
           `SELECT box_folder_id, box_file_request_id, box_file_request_url
              FROM case_
             WHERE id = $1
             FOR UPDATE`,
-          [caseId],
+          [lockedCase.caseId],
         );
         const row = rows[0];
         const folderId = row?.box_folder_id?.trim() ?? '';
@@ -1773,52 +1870,72 @@ app.http('caseBoxCopyFileRequest', {
         const stampedUrl = row?.box_file_request_url?.trim() ?? '';
         if (!row || !folderId) {
           return {
-            status: 'folder_not_ready' as const,
-            message: 'This case has no archive folder yet.',
+            kind: 'folder_not_ready' as const,
           };
         }
         if (stampedId && stampedUrl) {
-          return {
-            status: 'ok' as const,
-            data: { fileRequestUrl: stampedUrl },
-          };
+          return { kind: 'ready' as const, fileRequestUrl: stampedUrl };
         }
-        // A half-stamped row could represent a successful remote copy followed by an
-        // interrupted historical write. Never risk a duplicate copy from ambiguous state.
         if (stampedId || stampedUrl) {
-          throw new Error('case has an incomplete Box File Request stamp');
+          return { kind: 'invalid_stamp' as const };
         }
-
-        const copied = validBoxFileRequestCopy(
-          await callBoxCopyFileRequest(templateId, folderId),
+        const intent = await requestBoxFileRequestIntent(
+          q,
+          lockedCase.caseId,
+          folderId,
+          templateId,
         );
-        if (!copied) throw new Error('Box CopyFileRequest returned an invalid response');
-
-        await q(
-          `UPDATE case_
-              SET box_file_request_id = $2,
-                  box_file_request_url = $3,
-                  updated_at = now()
-            WHERE id = $1`,
-          [caseId, copied.id, copied.url],
-        );
-        await writeAudit({
-          action: AUDIT_ACTION.box_file_request_copied,
-          caseId,
-          summary: 'Image-upload link created',
-          after: {
-            boxFileRequestId: copied.id,
-            fileRequestUrl: copied.url,
-            boxFolderId: folderId,
-          },
-          ...(actor ? { actor } : {}),
-        }, q);
-        return {
-          status: 'ok' as const,
-          data: { fileRequestUrl: copied.url },
-        };
+        if (intent.alreadyCompleted) return { kind: 'invalid_stamp' as const };
+        return { kind: 'pending' as const, caseId: lockedCase.caseId };
       });
-      return { status: 200, jsonBody: result };
+      if (prepared.kind === 'missing') {
+        return { status: 404, jsonBody: { status: 'error', message: 'Case not found.' } };
+      }
+      if (prepared.kind === 'retired') {
+        return {
+          status: 409,
+          jsonBody: {
+            status: 'error',
+            message: 'This case has been merged. Open the current case and try again.',
+            mergedInto: prepared.mergedInto,
+          },
+        };
+      }
+      if (prepared.kind === 'folder_not_ready') {
+        return {
+          status: 200,
+          jsonBody: { status: 'folder_not_ready', message: 'This case has no archive folder yet.' },
+        };
+      }
+      if (prepared.kind === 'ready') {
+        return { status: 200, jsonBody: { status: 'ok', data: { fileRequestUrl: prepared.fileRequestUrl } } };
+      }
+      if (prepared.kind === 'invalid_stamp') throw new Error('case has an incomplete Box File Request stamp');
+
+      const processed = await processBoxFileRequestIntent(prepared.caseId, actor);
+      if (processed.kind === 'ok') {
+        return {
+          status: 200,
+          jsonBody: { status: 'ok', data: { fileRequestUrl: processed.fileRequestUrl } },
+        };
+      }
+      if (processed.kind === 'retired') {
+        return {
+          status: 409,
+          jsonBody: {
+            status: 'error',
+            message: 'This case has been merged. Open the current case and try again.',
+            mergedInto: processed.mergedInto,
+          },
+        };
+      }
+      return {
+        status: 200,
+        jsonBody: {
+          status: 'error',
+          message: 'The image-upload link is still being created. Please try again shortly.',
+        },
+      };
     } catch (error) {
       ctx.error('[caseBoxCopyFileRequest] failed', error);
       return {

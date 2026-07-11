@@ -258,7 +258,7 @@ const WRITE: CapabilityDescriptor[] = [
     name: 'reclassify_inbound',
     kind: 'write',
     title: 'Reclassify an email',
-    description: 'Correct an inbound email’s category / subtype.',
+    description: 'Correct an inbound email using one of the known staff e-mail types.',
     destructive: false,
     humanOnly: false,
     gateLabel: WRITE_TIER_GATE_LABEL,

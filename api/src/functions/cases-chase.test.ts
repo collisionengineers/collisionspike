@@ -118,6 +118,8 @@ let caseRows: Array<Record<string, unknown>>;
 
 beforeEach(() => {
   db.query.mockReset();
+  db.tx.mockReset();
+  db.tx.mockImplementation(async (fn: (q: typeof db.query) => unknown) => fn(db.query));
   caseRows = [CASE_ROW];
   db.query.mockImplementation(async (sql: string, params?: unknown[]) => {
     if (sql.includes('FROM case_') && sql.includes('WHERE c.id')) return caseRows;
@@ -141,6 +143,7 @@ beforeEach(() => {
         },
       ];
     }
+    if (sql.includes('UPDATE case_ SET updated_at')) return [{ updated_at: new Date() }];
     return [];
   });
 });

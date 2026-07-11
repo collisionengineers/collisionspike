@@ -32,14 +32,15 @@ describe('callBoxCopyFileRequest', () => {
     });
     expect(fetchMock).toHaveBeenCalledWith(
       'https://box-facade.example/api/box/file-requests/template%2Fa/copy',
-      {
+      expect.objectContaining({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-functions-key': 'test-function-key',
         },
         body: JSON.stringify({ folder: { id: 'folder-1' }, status: 'active' }),
-      },
+        signal: expect.any(AbortSignal),
+      }),
     );
   });
 

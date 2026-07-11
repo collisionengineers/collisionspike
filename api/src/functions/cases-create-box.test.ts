@@ -66,6 +66,7 @@ const callsContaining = (needle: string): unknown[][] =>
   db.query.mock.calls.filter(([sql]) => String(sql).includes(needle));
 
 let boxRows: Array<Record<string, unknown>>;
+let outboxRow: Record<string, unknown> | undefined;
 
 beforeEach(() => {
   vi.unstubAllEnvs();
@@ -74,13 +75,55 @@ beforeEach(() => {
   box.copyFileRequest.mockReset();
   box.listFolderNames.mockReset();
   boxRows = [];
+  outboxRow = undefined;
 
   db.tx.mockImplementation(async (fn: (q: typeof db.query) => unknown) => fn(db.query));
-  db.query.mockImplementation(async (sql: string) => {
+  db.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
+    if (sql.includes('SELECT id, duplicate_keys FROM case_')) {
+      return boxRows.length ? [{ id: params[0], duplicate_keys: null }] : [];
+    }
     if (sql.includes('box_file_request_id') && sql.includes('FOR UPDATE')) return boxRows;
+    if (sql.includes('SELECT * FROM box_file_request_outbox')) return outboxRow ? [outboxRow] : [];
+    if (sql.includes('INSERT INTO box_file_request_outbox')) {
+      outboxRow = {
+        case_id: params[0],
+        folder_id: params[1],
+        template_id: params[2],
+        requested_generation: 1,
+        completed_generation: 0,
+        attempt_count: 0,
+        next_attempt_at: new Date(0),
+        claim_token: null,
+        claim_expires_at: null,
+      };
+      return [];
+    }
+    if (sql.includes('SET claim_token = $2') && outboxRow) {
+      outboxRow = {
+        ...outboxRow,
+        claim_token: params[1],
+        attempt_count: Number(outboxRow.attempt_count) + 1,
+      };
+      return [outboxRow];
+    }
+    if (sql.includes('SET completed_generation = $2') && outboxRow) {
+      outboxRow = { ...outboxRow, completed_generation: params[1], claim_token: null };
+      return [];
+    }
+    if (sql.includes('SET box_file_request_id')) {
+      if (boxRows[0]) {
+        boxRows[0].box_file_request_id = params[1];
+        boxRows[0].box_file_request_url = params[2];
+      }
+      return [];
+    }
     if (sql.includes('INSERT INTO case_')) return [{ id: 'case-new' }];
     // Recompute after create sees no row in this focused harness and exits cleanly.
     if (sql.includes('FROM case_ c') && sql.includes('WHERE c.id')) return [];
+    if (sql.includes('upper(principal_code)')) {
+      if (params[0] === 'MISSING') return [];
+      return [{ id: 'provider-1', principal_code: 'QDOS', display_name: 'QDOS' }];
+    }
     if (sql.includes('SELECT id FROM work_provider')) return [{ id: 'provider-1' }];
     return [];
   });
@@ -116,6 +159,7 @@ describe('POST /api/cases — assistant create_case normalization', () => {
     expect(persisted.source_mailbox).toBe('Staff-confirmed case creation');
     expect(persisted.status_code).toBe(100000002); // needs_review: no evidence / incomplete fields
     expect(persisted.work_provider_id).toBe('provider-1');
+    expect(persisted.eva_work_provider).toBe('QDOS');
     expect(persisted.eva_claimant_name).toBe('Jane Driver');
     for (const desc of EVA_FIELD_ORDER) {
       expect(columns).toContain(EVA_COLUMN_BY_KEY[desc.key]);
@@ -197,6 +241,16 @@ describe('POST /api/cases — assistant create_case normalization', () => {
     expect(res.status).toBe(400);
     expect(db.query).not.toHaveBeenCalled();
   });
+
+  it('rejects a syntactically valid but unknown provider code before case creation', async () => {
+    const res = await registration('createCase').handler(
+      request({ vrm: 'AB12CDE', providerCode: 'MISSING', claimantName: 'Jane Driver' }),
+      context(),
+    );
+    expect(res.status).toBe(400);
+    expect(res.jsonBody).toEqual({ error: 'unknown provider principal code' });
+    expect(callsContaining('INSERT INTO case_')).toHaveLength(0);
+  });
 });
 
 describe('POST /api/cases/{id}/box/copy-file-request', () => {
@@ -221,8 +275,8 @@ describe('POST /api/cases/{id}/box/copy-file-request', () => {
 
   it('copies through the facade, stamps id/url, returns fileRequestUrl, and audits', async () => {
     box.copyFileRequest.mockResolvedValue({
-      id: 'file-request-1',
-      url: 'https://upload.box.com/request/abc',
+      id: '9001',
+      url: '/f/abc',
       status: 'active',
     });
     const ctx = context();
@@ -234,7 +288,7 @@ describe('POST /api/cases/{id}/box/copy-file-request', () => {
     expect(res.status).toBe(200);
     expect(res.jsonBody).toEqual({
       status: 'ok',
-      data: { fileRequestUrl: 'https://upload.box.com/request/abc' },
+      data: { fileRequestUrl: 'https://app.box.com/f/abc' },
     });
     expect(box.copyFileRequest).toHaveBeenCalledOnce();
     expect(box.copyFileRequest).toHaveBeenCalledWith('template-1', 'folder-1');
@@ -242,8 +296,8 @@ describe('POST /api/cases/{id}/box/copy-file-request', () => {
     const update = callsContaining('SET box_file_request_id')[0];
     expect(update?.[1]).toEqual([
       'case-1',
-      'file-request-1',
-      'https://upload.box.com/request/abc',
+      '9001',
+      'https://app.box.com/f/abc',
     ]);
     const audit = callsContaining('INSERT INTO audit_event')[0];
     expect((audit?.[1] as unknown[])[3]).toBe(100000020); // box_file_request_copied
@@ -255,8 +309,8 @@ describe('POST /api/cases/{id}/box/copy-file-request', () => {
     boxRows = [
       {
         box_folder_id: 'folder-1',
-        box_file_request_id: 'file-request-existing',
-        box_file_request_url: 'https://upload.box.com/request/existing',
+        box_file_request_id: '9002',
+        box_file_request_url: 'https://app.box.com/f/existing',
       },
     ];
     const res = await registration('caseBoxCopyFileRequest').handler(
@@ -265,7 +319,7 @@ describe('POST /api/cases/{id}/box/copy-file-request', () => {
     );
     expect(res.jsonBody).toEqual({
       status: 'ok',
-      data: { fileRequestUrl: 'https://upload.box.com/request/existing' },
+      data: { fileRequestUrl: 'https://app.box.com/f/existing' },
     });
     expect(box.copyFileRequest).not.toHaveBeenCalled();
     expect(callsContaining('SET box_file_request_id')).toHaveLength(0);
@@ -273,7 +327,7 @@ describe('POST /api/cases/{id}/box/copy-file-request', () => {
   });
 
   it.each([
-    ['malformed response', async () => ({ id: 'file-request-1' })],
+    ['malformed response', async () => ({ id: '9001' })],
     ['transport failure', async () => { throw new Error('facade unavailable'); }],
   ])('fails honestly on %s and stamps nothing', async (_label, implementation) => {
     box.copyFileRequest.mockImplementation(implementation);
@@ -284,11 +338,12 @@ describe('POST /api/cases/{id}/box/copy-file-request', () => {
     );
     expect(res.jsonBody).toEqual({
       status: 'error',
-      message: 'The image-upload link could not be created. Please try again.',
+      message: 'The image-upload link is still being created. Please try again shortly.',
     });
     expect(callsContaining('SET box_file_request_id')).toHaveLength(0);
     expect(callsContaining('INSERT INTO audit_event')).toHaveLength(0);
-    expect(ctx.error).toHaveBeenCalledOnce();
+    expect(outboxRow).toMatchObject({ requested_generation: 1, completed_generation: 0 });
+    expect(ctx.error).not.toHaveBeenCalled();
   });
 
   it('reports folder_not_ready without calling the facade', async () => {

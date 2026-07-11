@@ -1039,7 +1039,23 @@ class BoxClient:
         if title:
             body["title"] = title
         resp = self.request("POST", f"/2.0/file_requests/{template_id}/copy", json_body=body)
-        return _json_or_raise(resp, "CopyFileRequest")
+        if 200 <= resp.status_code < 300:
+            copied = _json_or_raise(resp, "CopyFileRequest")
+            copied["outcome"] = "created"
+            return copied
+        if resp.status_code == 409:
+            # A timeout/crash can occur after Box created the destination request but
+            # before the API stamped it. Box reports that replay as a conflict; recover
+            # the existing request and return it as an idempotent success.
+            conflict_id = _conflict_id(resp)
+            if conflict_id:
+                existing = self.get_file_request(conflict_id)
+                existing["outcome"] = "reused"
+                return existing
+            raise BoxError("Box CopyFileRequest returned 409 with no resolvable conflict id", status=409)
+        raise BoxError(
+            f"Box CopyFileRequest returned HTTP {resp.status_code}", status=resp.status_code
+        )
 
     def get_shared_link(self, item_type: str, item_id: str, body: dict[str, Any]) -> dict[str, Any]:
         """item_type ∈ {files, folders}. PUT /2.0/{item_type}/{id}?fields=shared_link."""
