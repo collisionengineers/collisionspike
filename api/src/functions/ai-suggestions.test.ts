@@ -519,6 +519,8 @@ describe('reviewAiSuggestion — TKT-145 case_link accept enqueues the evidence 
     const noteParams = params[sqls.findIndex((s) => /INSERT INTO note/i.test(s))];
     expect(noteParams).toContain('Attachments to add');
     expect(noteParams).toContain('case-target');
+    expect(noteParams).toContain('evidence-backfill:ie-1');
+    expect(noteSqls()[0]).toMatch(/ON CONFLICT \(case_id, source_key\)/i);
   });
 
   it('NO mailbox provenance (retro/synthetic row) → no enqueue; the note degrades in directly', async () => {
@@ -529,6 +531,17 @@ describe('reviewAiSuggestion — TKT-145 case_link accept enqueues the evidence 
     expect(res.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: true });
     expect(backfill.enqueueEvidenceBackfill).not.toHaveBeenCalled();
     expect(noteSqls()).toHaveLength(1);
+  });
+
+  it('enqueue and fallback-note failure never unwind the accepted link', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/INSERT INTO note/i.test(sql)) throw new Error('note write unavailable');
+      return linkRows(ATTACHED_LINK_UPDATE_ROW)(sql);
+    });
+    backfill.enqueueEvidenceBackfill.mockRejectedValue(new Error('queue unavailable'));
+    const res = await review(reviewReq(), ctx, {});
+    expect(res.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: true });
+    expect(sqls.some((s) => /UPDATE inbound_email/i.test(s))).toBe(true);
   });
 
   it('has_attachments FALSE → neither enqueue nor note (nothing to backfill)', async () => {

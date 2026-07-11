@@ -73,16 +73,17 @@ const blob = vi.hoisted(() => ({
 }));
 vi.mock('../lib/blob.js', () => blob);
 
-/* ---- image classifier: inert double (the gate is off in this harness) ---- */
-vi.mock('../lib/image-classify.js', () => ({
+/* ---- image classifier: controllable double ---- */
+const imageClassify = vi.hoisted(() => ({
   classifyImage: vi.fn(async () => null),
   classificationToEvidenceFields: vi.fn(),
 }));
+vi.mock('../lib/image-classify.js', () => imageClassify);
 
 /* ---- data API: recording doubles + a call-order journal ---- */
 const order = vi.hoisted(() => [] as string[]);
 const dataApiMock = vi.hoisted(() => ({
-  persistEvidence: vi.fn(async () => {
+  persistEvidence: vi.fn(async (_caseId: string, _rows: unknown[], _options?: { expectedInboundEmailId?: string }) => {
     order.push('persist');
     return { persisted: 2, merged: 0 };
   }),
@@ -93,15 +94,22 @@ const dataApiMock = vi.hoisted(() => ({
   reportEvidenceBackfill: vi.fn(async (_id: string, p: { outcome: string }) => {
     order.push(`report:${p.outcome}`);
   }),
-  casesLookup: vi.fn(async () => ({ cases: [] })),
-  workProviderAiAllowed: vi.fn(async () => ({ aiAllowed: null })),
+  validateEvidenceBackfillTarget: vi.fn(async (_inboundEmailId: string, _targetCaseId: string) => {}),
+  casesLookup: vi.fn(async (_payload: { caseIds?: string[] }) => ({
+    cases: [] as Array<{ caseId: string; casePo: string; status: string; workProviderId: string; vrm: string }>,
+  })),
+  workProviderAiAllowed: vi.fn(async (_providerId: string): Promise<{ aiAllowed: boolean | null }> => ({ aiAllowed: null })),
   recordAudit: vi.fn(async () => {}),
   reportOutlookMove: vi.fn(async () => {}),
 }));
-vi.mock('../lib/data-api.js', () => ({ dataApi: dataApiMock }));
+vi.mock('../lib/data-api.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/data-api.js')>();
+  return { ...actual, dataApi: dataApiMock };
+});
 
 await import('./evidence-backfill.js'); // registers 'evidence-backfill' against the captured app
 const backfill = queueRegs.get('evidence-backfill')!;
+const { EvidenceBackfillTargetChangedError } = await import('../lib/data-api.js');
 
 function ctxAt(dequeueCount: number): InvocationContext {
   return {
@@ -131,7 +139,8 @@ const A_PHOTO = {
 beforeEach(() => {
   order.length = 0;
   for (const fn of Object.values(graph)) fn.mockReset();
-  for (const fn of Object.values(dataApiMock)) fn.mockClear();
+  for (const fn of Object.values(dataApiMock)) fn.mockReset();
+  for (const fn of Object.values(imageClassify)) fn.mockReset();
   blob.uploadEvidenceBytes.mockClear();
   dataApiMock.persistEvidence.mockImplementation(async () => {
     order.push('persist');
@@ -144,9 +153,16 @@ beforeEach(() => {
   dataApiMock.reportEvidenceBackfill.mockImplementation(async (_id: string, p: { outcome: string }) => {
     order.push(`report:${p.outcome}`);
   });
+  dataApiMock.validateEvidenceBackfillTarget.mockResolvedValue(undefined);
+  dataApiMock.casesLookup.mockResolvedValue({ cases: [] });
+  dataApiMock.workProviderAiAllowed.mockResolvedValue({ aiAllowed: null });
+  imageClassify.classifyImage.mockResolvedValue(null);
 });
 afterEach(() => {
   delete process.env.RETRO_OUTLOOK_SEARCH_ENABLED;
+  delete process.env.IMAGE_ROLE_CLASSIFY_ENABLED;
+  delete process.env.AI_MODEL_ENDPOINT;
+  delete process.env.AI_MODEL_DEPLOYMENT;
 });
 
 describe('evidence-backfill — (a) happy path drives the existing persist chain', () => {
@@ -155,6 +171,7 @@ describe('evidence-backfill — (a) happy path drives the existing persist chain
     graph.getMessageWithAttachments.mockResolvedValue({
       message: { id: 'g-current', internetMessageId: JOB.sourceMessageId },
       attachments: [A_PHOTO],
+      attachmentFailures: [],
     });
     graph.getMessageRawMime.mockResolvedValue(Buffer.from('raw-mime'));
 
@@ -253,6 +270,7 @@ describe('evidence-backfill — (d) the $search fallback corroborates on the exa
     graph.getMessageWithAttachments.mockResolvedValue({
       message: { id: 'match-1', internetMessageId: JOB.sourceMessageId },
       attachments: [A_PHOTO],
+      attachmentFailures: [],
     });
     graph.getMessageRawMime.mockResolvedValue(Buffer.from('raw'));
 
@@ -278,5 +296,145 @@ describe('evidence-backfill — (e) malformed jobs are dropped, never poison-loo
     await backfill.handler(JSON.stringify({ sourceMailbox: 'x@y' }), ctx);
     expect(ctx.error).toHaveBeenCalled();
     expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+  });
+});
+
+function arrangeFetch(
+  attachments = [A_PHOTO],
+  attachmentFailures: Array<{ id: string; name: string; contentType: string; reason: string }> = [],
+): void {
+  graph.findMessageByInternetMessageId.mockResolvedValue({ id: 'g1', parentFolderId: 'f' });
+  graph.getMessageWithAttachments.mockResolvedValue({
+    message: { id: 'g1', internetMessageId: JOB.sourceMessageId },
+    attachments,
+    attachmentFailures,
+  });
+  graph.getMessageRawMime.mockResolvedValue(Buffer.from('raw'));
+}
+
+describe('evidence-backfill — target, attachment and policy safety', () => {
+  it('drops a stale target before Graph, persistence or reporting', async () => {
+    dataApiMock.validateEvidenceBackfillTarget.mockRejectedValue(
+      new EvidenceBackfillTargetChangedError('target changed'),
+    );
+    await backfill.handler(JSON.stringify(JOB), ctxAt(1));
+    expect(graph.findMessageByInternetMessageId).not.toHaveBeenCalled();
+    expect(dataApiMock.persistEvidence).not.toHaveBeenCalled();
+    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+  });
+
+  it('drops a detach/relink race rejected by guarded persistence without status or reporting', async () => {
+    arrangeFetch();
+    dataApiMock.persistEvidence.mockRejectedValue(
+      new EvidenceBackfillTargetChangedError('target changed under lock'),
+    );
+    await backfill.handler(JSON.stringify(JOB), ctxAt(1));
+    expect(dataApiMock.evaluateStatus).not.toHaveBeenCalled();
+    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+  });
+
+  it('uses attachment identity in Blob keys while retaining equal display filenames', async () => {
+    arrangeFetch([
+      A_PHOTO,
+      { ...A_PHOTO, id: 'att-2', contentBytes: Buffer.from('xyz').toString('base64') },
+    ]);
+    await backfill.handler(JSON.stringify(JOB), ctxAt(1));
+    const uploads = blob.uploadEvidenceBytes.mock.calls.slice(0, 2);
+    expect(uploads[0][1]).not.toBe(uploads[1][1]);
+    expect(uploads[0][1]).toMatch(/^attachment-[0-9a-f]{64}-photo\.jpg$/);
+    const [, rows, options] = dataApiMock.persistEvidence.mock.calls[0];
+    const photos = (rows as Array<{ filename: string; blobPath: string }>).filter((r) => r.filename === 'photo.jpg');
+    expect(photos).toHaveLength(2);
+    expect(new Set(photos.map((r) => r.blobPath)).size).toBe(2);
+    expect(options).toEqual({ expectedInboundEmailId: 'ie-1' });
+  });
+
+  it('fails closed for model calls when case policy lookup fails but still persists', async () => {
+    process.env.IMAGE_ROLE_CLASSIFY_ENABLED = 'true';
+    process.env.AI_MODEL_ENDPOINT = 'https://model.example';
+    process.env.AI_MODEL_DEPLOYMENT = 'vision';
+    arrangeFetch();
+    dataApiMock.casesLookup.mockRejectedValue(new Error('policy unavailable'));
+    await backfill.handler(JSON.stringify(JOB), ctxAt(1));
+    expect(imageClassify.classifyImage).not.toHaveBeenCalled();
+    expect(dataApiMock.persistEvidence).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed when the provider policy lookup fails but still persists', async () => {
+    process.env.IMAGE_ROLE_CLASSIFY_ENABLED = 'true';
+    process.env.AI_MODEL_ENDPOINT = 'https://model.example';
+    process.env.AI_MODEL_DEPLOYMENT = 'vision';
+    arrangeFetch();
+    dataApiMock.casesLookup.mockResolvedValue({
+      cases: [{ caseId: 'case-target', casePo: 'A.TEST', status: 'needs_review', workProviderId: 'wp-1', vrm: '' }],
+    });
+    dataApiMock.workProviderAiAllowed.mockRejectedValue(new Error('policy unavailable'));
+    await backfill.handler(JSON.stringify(JOB), ctxAt(1));
+    expect(imageClassify.classifyImage).not.toHaveBeenCalled();
+    expect(dataApiMock.persistEvidence).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { aiAllowed: false, calls: 0 },
+    { aiAllowed: true, calls: 1 },
+    { aiAllowed: null, calls: 1 },
+  ])('honours a successful provider policy lookup ($aiAllowed)', async ({ aiAllowed, calls }) => {
+    process.env.IMAGE_ROLE_CLASSIFY_ENABLED = 'true';
+    process.env.AI_MODEL_ENDPOINT = 'https://model.example';
+    process.env.AI_MODEL_DEPLOYMENT = 'vision';
+    arrangeFetch();
+    dataApiMock.casesLookup.mockResolvedValue({
+      cases: [{ caseId: 'case-target', casePo: 'A.TEST', status: 'needs_review', workProviderId: 'wp-1', vrm: '' }],
+    });
+    dataApiMock.workProviderAiAllowed.mockResolvedValue({ aiAllowed });
+    await backfill.handler(JSON.stringify(JOB), ctxAt(1));
+    expect(imageClassify.classifyImage).toHaveBeenCalledTimes(calls);
+    expect(dataApiMock.persistEvidence).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a transient attachment fetch gap before landing siblings', async () => {
+    arrangeFetch([A_PHOTO], [
+      { id: 'att-2', name: 'other.jpg', contentType: 'image/jpeg', reason: 'graph GET attachment $value → 503: unavailable' },
+    ]);
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(1))).rejects.toThrow(/503/);
+    expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
+    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+  });
+
+  it('persists landed siblings and reports partial, never completed, for a terminal gap', async () => {
+    arrangeFetch([A_PHOTO], [
+      { id: 'att-2', name: 'other.jpg', contentType: 'image/jpeg', reason: 'graph GET attachment $value → 403: denied' },
+    ]);
+    await backfill.handler(JSON.stringify(JOB), ctxAt(1));
+    expect(order).toEqual(['persist', 'status', 'report:partial']);
+    expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledWith(
+      'ie-1',
+      expect.objectContaining({ outcome: 'partial', failedAttachments: 1 }),
+    );
+  });
+});
+
+describe('evidence-backfill — committed phase and terminal reporting', () => {
+  it('rethrows status failure after persistence on the final attempt without reporting failed', async () => {
+    arrangeFetch();
+    dataApiMock.evaluateStatus.mockRejectedValue(new Error('data-api POST status → 400'));
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(5))).rejects.toThrow(/400/);
+    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+  });
+
+  it('rethrows completion-report failure without a contradictory failed report', async () => {
+    arrangeFetch();
+    dataApiMock.reportEvidenceBackfill.mockRejectedValue(new Error('data-api POST report → 503'));
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(5))).rejects.toThrow(/503/);
+    expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledTimes(1);
+    expect(dataApiMock.reportEvidenceBackfill.mock.calls[0][1]).toMatchObject({ outcome: 'completed' });
+  });
+
+  it('rethrows when the terminal failed-outcome report fails', async () => {
+    graph.findMessageByInternetMessageId.mockResolvedValue(null);
+    dataApiMock.reportEvidenceBackfill.mockRejectedValue(new Error('data-api POST report → 503'));
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(5))).rejects.toThrow(/503/);
+    expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledTimes(1);
+    expect(dataApiMock.reportEvidenceBackfill.mock.calls[0][1]).toMatchObject({ outcome: 'failed' });
   });
 });

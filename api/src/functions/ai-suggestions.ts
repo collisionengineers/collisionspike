@@ -66,6 +66,7 @@ import { markOutstandingChasersResponded } from './internal.js';
 // recompute). The manual "attach by hand" note survives only as the enqueue-failure /
 // terminal-failure fallback.
 import { enqueueEvidenceBackfill } from '../lib/evidence-backfill-queue.js';
+import { writeEvidenceBackfillNote } from '../lib/evidence-backfill-note.js';
 
 /** image_role 'unknown' code — the FILL-IF-EMPTY sentinel for evidence.image_role_code. */
 const IMAGE_ROLE_UNKNOWN = 100000003;
@@ -303,15 +304,12 @@ async function promoteAcceptedSuggestion(
                 // No mailbox provenance to re-fetch from, or the enqueue itself failed —
                 // fall back to the durable, handler-safe note so the photos/PDF are added
                 // BY HAND instead of being silently dropped from evidence/EVA-readiness.
-                await query(
-                  'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
-                  [
-                    'Attachments to add',
-                    targetCaseId,
-                    actor ?? 'System',
-                    'The linked email arrived with attachments (e.g. photos or a PDF) that are not yet on this case. Please add them by hand from the email.',
-                  ],
-                );
+                await writeEvidenceBackfillNote({
+                  caseId: targetCaseId,
+                  inboundEmailId,
+                  author: actor ?? 'System',
+                  kind: 'failed',
+                });
               }
             } catch {
               /* best-effort — a backfill/note failure must never unwind the link */

@@ -73,9 +73,10 @@ import {
 } from '@cs/domain/codecs';
 import { gates } from '../lib/gates.js';
 import { authenticate, toErrorResponse } from '../lib/auth.js';
-import { query, tx } from '../lib/db.js';
+import { query, tx, type TxQuery } from '../lib/db.js';
 import { isPrefillApplicable, prefillImageBasedInspection } from '../lib/inspection-prefill.js';
 import { maybeSuggestOverviewChase } from '../lib/overview-chase.js';
+import { writeEvidenceBackfillNote } from '../lib/evidence-backfill-note.js';
 import { mintCasePo } from '../lib/case-po.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
 import { combineMakeModel } from '../lib/enrichment-map.js';
@@ -2302,6 +2303,27 @@ app.http('internalInboundOutlookMoved', {
     }),
 });
 
+/* Validate the queued TKT-145 target before orchestration reads Graph or lands bytes. */
+app.http('internalInboundEvidenceBackfillValidate', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/inbound/{id}/evidence-backfill/validate',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const body = (await req.json().catch(() => ({}))) as { targetCaseId?: unknown };
+      const targetCaseId = typeof body.targetCaseId === 'string' ? body.targetCaseId.trim() : '';
+      if (!targetCaseId) return { status: 400, jsonBody: { error: 'targetCaseId is required' } };
+      const rows = await query<Row>('SELECT case_id FROM inbound_email WHERE id = $1', [req.params.id]);
+      if (((rows[0]?.case_id as string | null | undefined) ?? null) !== targetCaseId) {
+        return {
+          status: 409,
+          jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
+        };
+      }
+      return { status: 204 };
+    }),
+});
+
 /* ============================================================
    POST /api/internal/inbound/{id}/evidence-backfill  (TKT-145)
    Called by: the orchestration `evidence-backfill` queue consumer reporting the
@@ -2325,62 +2347,74 @@ app.http('internalInboundEvidenceBackfill', {
         targetCaseId?: unknown;
         persisted?: unknown;
         merged?: unknown;
+        failedAttachments?: unknown;
         detail?: unknown;
       };
       const outcome = body.outcome;
-      if (outcome !== 'completed' && outcome !== 'failed') {
-        return { status: 400, jsonBody: { error: "outcome must be 'completed' or 'failed'" } };
+      if (outcome !== 'completed' && outcome !== 'partial' && outcome !== 'failed') {
+        return { status: 400, jsonBody: { error: "outcome must be 'completed', 'partial' or 'failed'" } };
       }
       const existing = await query<Row>(
         'SELECT id, case_id FROM inbound_email WHERE id = $1',
         [id],
       );
       if (!existing[0]) return { status: 404, jsonBody: { error: 'not found' } };
-      // The case the accept attached the email to; fall back to the row's own link (they
-      // are the same unless the email was detached between accept and report).
-      const targetCaseId =
-        (typeof body.targetCaseId === 'string' && body.targetCaseId.trim()) ||
-        ((existing[0].case_id as string | null) ?? '');
-      if (!targetCaseId) {
-        return { status: 400, jsonBody: { error: 'no target case to report against' } };
+      const targetCaseId = typeof body.targetCaseId === 'string' ? body.targetCaseId.trim() : '';
+      if (!targetCaseId) return { status: 400, jsonBody: { error: 'targetCaseId is required' } };
+      if (((existing[0].case_id as string | null) ?? null) !== targetCaseId) {
+        return {
+          status: 409,
+          jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
+        };
       }
       const detail = typeof body.detail === 'string' ? body.detail.slice(0, 300) : null;
       const persisted = typeof body.persisted === 'number' ? body.persisted : null;
       const merged = typeof body.merged === 'number' ? body.merged : null;
+      const failedAttachments = typeof body.failedAttachments === 'number'
+        ? Math.max(0, Math.trunc(body.failedAttachments))
+        : null;
 
       if (outcome === 'completed') {
         await writeAudit({
           action: AUDIT_ACTION.attachment_classified,
           caseId: targetCaseId,
-          summary: `Evidence backfilled from the linked email (${persisted ?? '?'} new${
+          summary: `Attachments added from the linked email (${persisted ?? '?'} new${
             merged ? `, ${merged} matched` : ''
           })`,
           after: { inboundEmailId: id, persisted, merged },
           actor: 'orchestration',
         });
       } else {
-        // Terminal backfill failure → the durable staff note (same name/text as the
-        // pre-TKT-145 mitigation so staff see one consistent instruction), duplicate-
-        // guarded on (case, name, text) against poison-path re-reports.
-        await query(
-          `INSERT INTO note (name, case_id, author, text, occurred_at)
-           SELECT $1, $2, $3, $4, now()
-            WHERE NOT EXISTS (
-              SELECT 1 FROM note WHERE case_id = $2 AND name = $1 AND text = $4
-            )`,
-          [
-            'Attachments to add',
-            targetCaseId,
-            'System',
-            'The linked email arrived with attachments (e.g. photos or a PDF) that are not yet on this case. Please add them by hand from the email.',
-          ],
-        );
+        const noteTargetCurrent = await tx(async (q) => {
+          const locked = await q<{ case_id: string | null }>(
+            'SELECT case_id FROM inbound_email WHERE id = $1 FOR UPDATE',
+            [id],
+          );
+          if ((locked[0]?.case_id ?? null) !== targetCaseId) return false;
+          await writeEvidenceBackfillNote(
+            { caseId: targetCaseId, inboundEmailId: id, kind: outcome },
+            q,
+          );
+          return true;
+        });
+        if (!noteTargetCurrent) {
+          return {
+            status: 409,
+            jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
+          };
+        }
         await writeAudit({
           action: AUDIT_ACTION.graph_message_ingest_failed,
           caseId: targetCaseId,
-          summary: 'Evidence backfill from the linked email failed — staff must attach by hand',
+          summary: outcome === 'partial'
+            ? 'Some attachments from the linked email could not be added'
+            : 'Attachments from the linked email could not be added — staff must add them',
           severity: 'warning',
-          after: { inboundEmailId: id, ...(detail ? { detail } : {}) },
+          after: {
+            inboundEmailId: id,
+            ...(failedAttachments != null ? { failedAttachments } : {}),
+            ...(detail ? { detail } : {}),
+          },
           actor: 'orchestration',
         });
       }
@@ -2469,6 +2503,7 @@ async function applyEvidenceMetadata(
     sha256: string | null;
     sequenceIndex: number | null;
   },
+  q: TxQuery = query,
 ): Promise<number> {
   const sets: string[] = [];
   const vals: unknown[] = [...whereVals];
@@ -2492,7 +2527,7 @@ async function applyEvidenceMetadata(
 
   if (sets.length === 0) return 0;
   try {
-    const res = await query<{ id: string }>(
+    const res = await q<{ id: string }>(
       `UPDATE evidence SET ${sets.join(', ')}, updated_at = now() WHERE ${whereClause} RETURNING id`,
       vals,
     );
@@ -2543,6 +2578,7 @@ app.http('internalCasesEvidence', {
     withServiceAuth(req, ctx, async () => {
       const caseId = req.params.id;
       const body = (await req.json()) as {
+        expectedInboundEmailId?: unknown;
         rows: Array<
           Partial<EvidenceDescriptor> & {
             filename: string;
@@ -2568,6 +2604,7 @@ app.http('internalCasesEvidence', {
         >;
       };
 
+      const persistRows = async (q: TxQuery): Promise<{ persisted: number; updated: number; merged: number }> => {
       let persisted = 0;
       let updated = 0;
       let merged = 0; // TKT-133: sha256 content twins linked onto an existing row instead of inserted
@@ -2631,7 +2668,7 @@ app.http('internalCasesEvidence', {
         // never deduped. Only runs when the caller supplied a plausible 64-hex sha256;
         // rows without one take exactly the pre-TKT-133 path.
         if (sha256 && SHA256_HEX_RE.test(sha256)) {
-          const twin = await query<{
+          const twin = await q<{
             id: string;
             box_file_id: string | null;
             box_file_url: string | null;
@@ -2673,7 +2710,7 @@ app.http('internalCasesEvidence', {
               if (isBoxRow && ex.box_file_id == null && boxFileId != null) {
                 // Box mirror of an email-first row → fill the Box provenance. The existing
                 // row's source_message_id is ITS lane's identity — deliberately left alone.
-                await query(
+                await q(
                   `UPDATE evidence
                       SET box_file_id = $2,
                           box_file_url = COALESCE($3, box_file_url),
@@ -2683,7 +2720,7 @@ app.http('internalCasesEvidence', {
                 );
               } else if (!isBoxRow && ex.storage_path == null && row.blobPath) {
                 // Email/blob arrival of a Box-first row → fill the blob provenance.
-                await query(
+                await q(
                   `UPDATE evidence
                       SET storage_path = $2::text, updated_at = now()
                     WHERE id = $1 AND storage_path IS NULL`,
@@ -2698,7 +2735,7 @@ app.http('internalCasesEvidence', {
                   exclusionReason,
                   sha256,
                   sequenceIndex,
-                });
+                }, q);
               }
               merged++;
               continue; // never insert a same-case content twin (cross-lane mirror)
@@ -2714,7 +2751,7 @@ app.http('internalCasesEvidence', {
                 exclusionReason,
                 sha256,
                 sequenceIndex,
-              });
+              }, q);
             }
             continue; // idempotent: the identical row already exists on this case
           }
@@ -2727,7 +2764,7 @@ app.http('internalCasesEvidence', {
           // box_file_id only if the tag is absent).
           const dedupCol = sourceMessageId != null ? 'source_message_id' : 'box_file_id';
           const dedupVal = sourceMessageId ?? boxFileId;
-          const result = await query<{ id: string }>(
+          const result = await q<{ id: string }>(
             `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes,
                 source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label,
@@ -2767,12 +2804,13 @@ app.http('internalCasesEvidence', {
               [caseId, dedupVal],
               row,
               { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
+              q,
             );
           }
         } else {
           // Email/orchestration: idempotent on (case_id, storage_path).
           const acceptedForEva = row.acceptedForEva ?? true;
-          const result = await query<{ id: string }>(
+          const result = await q<{ id: string }>(
             `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label,
                 accepted_for_eva,
@@ -2809,13 +2847,37 @@ app.http('internalCasesEvidence', {
               [caseId, row.blobPath],
               row,
               { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
+              q,
             );
           }
         }
         if (inserted) persisted++;
       }
 
-      return { status: 200, jsonBody: { persisted, updated, merged } };
+      return { persisted, updated, merged };
+      };
+
+      const expectedInboundEmailId = typeof body.expectedInboundEmailId === 'string'
+        ? body.expectedInboundEmailId.trim()
+        : '';
+      if (expectedInboundEmailId) {
+        const guarded = await tx(async (q) => {
+          const linked = await q<{ case_id: string | null }>(
+            'SELECT case_id FROM inbound_email WHERE id = $1 FOR UPDATE',
+            [expectedInboundEmailId],
+          );
+          if ((linked[0]?.case_id ?? null) !== caseId) return { stale: true as const };
+          return { stale: false as const, result: await persistRows(q) };
+        });
+        if (guarded.stale) {
+          return {
+            status: 409,
+            jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
+          };
+        }
+        return { status: 200, jsonBody: guarded.result };
+      }
+      return { status: 200, jsonBody: await persistRows(query) };
     }),
 });
 

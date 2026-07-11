@@ -104,7 +104,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (res.status === 409) {
     // Surfaced verbatim so caseResolve can map a UNIQUE(sourcemessageid) collision
     // to `already_ingested` (idempotent intake).
-    throw new ConflictError(`${method} ${path} → 409`);
+    const detail = await safeText(res);
+    if (detail.includes('evidence_backfill_target_changed')) {
+      throw new EvidenceBackfillTargetChangedError(`${method} ${path} → 409: ${detail}`);
+    }
+    throw new ConflictError(`${method} ${path} → 409: ${detail}`);
   }
   if (!res.ok) {
     throw new Error(`data-api ${method} ${path} → ${res.status}: ${await safeText(res)}`);
@@ -114,6 +118,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 }
 
 export class ConflictError extends Error {}
+export class EvidenceBackfillTargetChangedError extends ConflictError {}
 
 /* ---------- typed surface ---------- */
 
@@ -472,8 +477,12 @@ export const dataApi = {
         sha256?: string;
       }
     >,
-  ): Promise<{ persisted: number }> {
-    return request('POST', `/api/internal/cases/${caseId}/evidence`, { rows });
+    options?: { expectedInboundEmailId?: string },
+  ): Promise<{ persisted: number; updated: number; merged: number }> {
+    return request('POST', `/api/internal/cases/${caseId}/evidence`, {
+      rows,
+      ...(options?.expectedInboundEmailId ? { expectedInboundEmailId: options.expectedInboundEmailId } : {}),
+    });
   },
 
   /**
@@ -697,10 +706,11 @@ export const dataApi = {
   reportEvidenceBackfill(
     inboundEmailId: string,
     payload: {
-      outcome: 'completed' | 'failed';
+      outcome: 'completed' | 'partial' | 'failed';
       targetCaseId: string;
       persisted?: number;
       merged?: number;
+      failedAttachments?: number;
       detail?: string;
     },
   ): Promise<void> {
@@ -708,6 +718,15 @@ export const dataApi = {
       'POST',
       `/api/internal/inbound/${encodeURIComponent(inboundEmailId)}/evidence-backfill`,
       payload,
+    );
+  },
+
+  /** Reject a queued backfill target that is no longer the inbound email's case. */
+  validateEvidenceBackfillTarget(inboundEmailId: string, targetCaseId: string): Promise<void> {
+    return request(
+      'POST',
+      `/api/internal/inbound/${encodeURIComponent(inboundEmailId)}/evidence-backfill/validate`,
+      { targetCaseId },
     );
   },
 

@@ -37,3 +37,9 @@ export function rawEmlFileName(messageIdOrInternetId: string): string {
 export function bodyInstructionFileName(messageIdOrInternetId: string): string {
   return `email-body-${messageFileToken(messageIdOrInternetId)}.txt`;
 }
+
+/** Blob-only identity: display filenames remain unchanged on evidence rows. */
+export function attachmentBlobFileName(attachmentId: string, displayName: string): string {
+  const token = createHash('sha256').update(attachmentId, 'utf8').digest('hex');
+  return `attachment-${token}-${displayName}`;
+}

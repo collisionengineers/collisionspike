@@ -115,6 +115,12 @@ export interface GraphMessage {
 export interface FetchedMessage {
   message: GraphMessage;
   attachments: GraphAttachment[];
+  attachmentFailures: Array<{
+    id: string;
+    name: string;
+    contentType: string;
+    reason: string;
+  }>;
 }
 
 /**
@@ -133,10 +139,20 @@ export async function getMessageWithAttachments(
     headers: { Prefer: 'outlook.body-content-type="text"' },
   });
   const attachments: GraphAttachment[] = [];
+  const attachmentFailures: FetchedMessage['attachmentFailures'] = [];
   if (message.hasAttachments) {
     const list = await graphFetch<{ value: GraphAttachment[] }>(`${base}/attachments`);
     for (const a of list.value ?? []) {
       if (a.isInline === true) continue;
+      if (!(a.id ?? '').trim()) {
+        attachmentFailures.push({
+          id: '',
+          name: a.name ?? '',
+          contentType: a.contentType ?? 'application/octet-stream',
+          reason: 'attachment identity missing',
+        });
+        continue;
+      }
       const otype = (a['@odata.type'] ?? '').toLowerCase();
       if (a.contentBytes !== undefined) {
         // A normal fileAttachment with inline base64 bytes — the common case.
@@ -170,12 +186,17 @@ export async function getMessageWithAttachments(
           if (skipAsSignatureImage(a.name, a.contentType, raw)) continue;
           attachments.push({ ...a, size: raw.length, contentBytes: raw.toString('base64') });
         }
-      } catch {
-        /* best-effort — a forwarded/large attachment we cannot fetch is skipped */
+      } catch (e) {
+        attachmentFailures.push({
+          id: a.id,
+          name: a.name ?? '',
+          contentType: a.contentType ?? 'application/octet-stream',
+          reason: (e instanceof Error ? e.message : String(e)).slice(0, 300),
+        });
       }
     }
   }
-  return { message, attachments };
+  return { message, attachments, attachmentFailures };
 }
 
 /** Append `.eml` to an item-attachment name (forwarded items often have no extension). */

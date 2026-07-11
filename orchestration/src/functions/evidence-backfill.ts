@@ -52,11 +52,11 @@ import {
   searchMessages,
 } from '../lib/graph.js';
 import { uploadEvidenceBytes } from '../lib/blob.js';
-import { rawEmlFileName } from '../lib/evidence-names.js';
+import { attachmentBlobFileName, rawEmlFileName } from '../lib/evidence-names.js';
 import { classifyImage, classificationToEvidenceFields } from '../lib/image-classify.js';
 import { buildBaseEvidenceRows } from './activities/classifyPersist.js';
 import type { InboundEnvelope } from './activities/fetchMessage.js';
-import { dataApi } from '../lib/data-api.js';
+import { dataApi, EvidenceBackfillTargetChangedError } from '../lib/data-api.js';
 import { isRetryableGraphError } from './outlook-move.js';
 
 /** Keep in sync with api/src/lib/evidence-backfill-queue.ts (the producer). */
@@ -109,10 +109,18 @@ app.storageQueue('evidence-backfill', {
     const job = (typeof item === 'string' ? JSON.parse(item) : item) as EvidenceBackfillJob;
     const dequeueCount = Number(ctx.triggerMetadata?.dequeueCount ?? 1);
     const lastAttempt = dequeueCount >= MAX_DEQUEUE;
+    let targetValidated = false;
+    let persistenceCommitted = false;
+    let reportAttempted = false;
+
+    const report = async (payload: Parameters<typeof dataApi.reportEvidenceBackfill>[1]): Promise<void> => {
+      reportAttempted = true;
+      await dataApi.reportEvidenceBackfill(job.inboundEmailId, payload);
+    };
 
     const fail = async (detail: string): Promise<void> => {
       ctx.warn(`[evidence-backfill] ${job.inboundEmailId}: ${detail}`);
-      await dataApi.reportEvidenceBackfill(job.inboundEmailId, {
+      await report({
         outcome: 'failed',
         targetCaseId: job.targetCaseId,
         detail,
@@ -125,6 +133,8 @@ app.storageQueue('evidence-backfill', {
         ctx.error(`[evidence-backfill] malformed job dropped: ${JSON.stringify(job).slice(0, 300)}`);
         return;
       }
+      await dataApi.validateEvidenceBackfillTarget(job.inboundEmailId, job.targetCaseId);
+      targetValidated = true;
       if (!job.sourceMailbox || !job.sourceMessageId) {
         // No mailbox provenance to re-fetch from (the producer guards this, but a
         // hand-placed message might not) — terminal: the note tells staff to attach by hand.
@@ -162,7 +172,21 @@ app.storageQueue('evidence-backfill', {
 
       // 3 — fetch the message + attachments (TKT-047 signature/logo floor applies) and
       //     capture the original as raw `.eml` (best-effort — parity with fetchMessage A0).
-      const { message, attachments } = await getMessageWithAttachments(job.sourceMailbox, graphId);
+      const fetched = await getMessageWithAttachments(job.sourceMailbox, graphId);
+      const { message } = fetched;
+      const attachmentFailures = [...(fetched.attachmentFailures ?? [])];
+      const attachments = fetched.attachments.filter((a) => {
+        if ((a.id ?? '').trim()) return true;
+        attachmentFailures.push({
+          id: '',
+          name: a.name ?? '',
+          contentType: a.contentType ?? 'application/octet-stream',
+          reason: 'attachment identity missing',
+        });
+        return false;
+      });
+      const retryableAttachmentFailure = attachmentFailures.find((f) => isRetryableGraphError(f.reason));
+      if (retryableAttachmentFailure && !lastAttempt) throw new Error(retryableAttachmentFailure.reason);
 
       // 4 — land the bytes in Blob under the CURRENT Graph id (deterministic per attempt;
       //     an id change between attempts is absorbed by the evidence route's TKT-133
@@ -171,7 +195,12 @@ app.storageQueue('evidence-backfill', {
       const bytesByPath = new Map<string, Buffer>();
       for (const a of attachments) {
         const bytes = Buffer.from(a.contentBytes ?? '', 'base64');
-        const up = await uploadEvidenceBytes(graphId, a.name, bytes, a.contentType);
+        const up = await uploadEvidenceBytes(
+          graphId,
+          attachmentBlobFileName(a.id, a.name),
+          bytes,
+          a.contentType,
+        );
         landed.push({
           filename: a.name,
           contentType: a.contentType,
@@ -207,21 +236,26 @@ app.storageQueue('evidence-backfill', {
       //     like classifyPersist), then ONE persist through the internal evidence route.
       const rows = buildBaseEvidenceRows({ attachments: landed, ...(rawEml ? { rawEml } : {}) });
 
-      let classifyAllowed = gates.imageRoleClassifyEnabled();
+      const classificationRequested = gates.imageRoleClassifyEnabled() && rows.some((r) => r.isImage);
+      let classifyAllowed = false;
       let caseVrm: string | undefined;
-      if (classifyAllowed && rows.some((r) => r.isImage)) {
+      if (classificationRequested) {
         try {
           const lookup = await dataApi.casesLookup({ caseIds: [job.targetCaseId] });
           const target = lookup.cases[0];
+          if (!target) throw new Error('target case unavailable for classification policy');
           caseVrm = target?.vrm || undefined;
           if (target?.workProviderId) {
             const { aiAllowed } = await dataApi.workProviderAiAllowed(target.workProviderId);
-            if (aiAllowed === false) {
-              classifyAllowed = false;
+            classifyAllowed = aiAllowed !== false;
+            if (!classifyAllowed) {
               ctx.log('[evidence-backfill] image classify skipped — work provider opted out of AI (ai_allowed=false)');
             }
+          } else {
+            classifyAllowed = true;
           }
         } catch (e) {
+          classifyAllowed = false;
           ctx.log(
             JSON.stringify({
               evt: 'evidenceBackfill.caseLookupFailed',
@@ -266,18 +300,27 @@ app.storageQueue('evidence-backfill', {
         }
       }
 
-      const result = await dataApi.persistEvidence(job.targetCaseId, rows);
+      const result = await dataApi.persistEvidence(job.targetCaseId, rows, {
+        expectedInboundEmailId: job.inboundEmailId,
+      });
+      persistenceCommitted = true;
       const merged = (result as { merged?: number }).merged;
 
       // 6 — status recompute AFTER the backfill (the TKT-145 acceptance's second line).
       const status = await dataApi.evaluateStatus(job.targetCaseId);
 
       // 7 — report completion (the Data API writes the case-scoped audit).
-      await dataApi.reportEvidenceBackfill(job.inboundEmailId, {
-        outcome: 'completed',
+      await report({
+        outcome: attachmentFailures.length > 0 ? 'partial' : 'completed',
         targetCaseId: job.targetCaseId,
         persisted: result.persisted,
         ...(typeof merged === 'number' ? { merged } : {}),
+        ...(attachmentFailures.length > 0
+          ? {
+              failedAttachments: attachmentFailures.length,
+              detail: `${attachmentFailures.length} attachment${attachmentFailures.length === 1 ? '' : 's'} could not be retrieved`,
+            }
+          : {}),
       });
       ctx.log(
         JSON.stringify({
@@ -293,23 +336,18 @@ app.storageQueue('evidence-backfill', {
       );
     } catch (e) {
       const detail = e instanceof Error ? e.message : String(e);
+      if (e instanceof EvidenceBackfillTargetChangedError && !persistenceCommitted && !reportAttempted) {
+        ctx.warn(`[evidence-backfill] stale target dropped for ${job.inboundEmailId}`);
+        return;
+      }
+      if (reportAttempted || persistenceCommitted || !targetValidated) throw e;
       if (!lastAttempt && isRetryableGraphError(detail)) {
         ctx.warn(
           `[evidence-backfill] transient failure (attempt ${dequeueCount}/${MAX_DEQUEUE}) — retrying: ${detail}`,
         );
         throw e; // redeliver
       }
-      try {
-        await fail(detail.slice(0, 300));
-      } catch (reportErr) {
-        // Last resort: the report failed too — log; the message poisons and the failure
-        // stays visible in App Insights (the accept itself already committed).
-        ctx.error(
-          `[evidence-backfill] terminal failure AND outcome report failed for ${job.inboundEmailId}: ${
-            reportErr instanceof Error ? reportErr.message : String(reportErr)
-          }`,
-        );
-      }
+      await fail(detail.slice(0, 300));
     }
   },
 });

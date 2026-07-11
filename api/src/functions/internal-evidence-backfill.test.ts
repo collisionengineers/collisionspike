@@ -54,7 +54,13 @@ vi.mock('../lib/db.js', () => ({
     params.push(p ?? []);
     return rowsFor(sql, p);
   }),
-  tx: vi.fn(),
+  tx: vi.fn(async (fn: (q: (sql: string, p?: unknown[]) => Promise<Record<string, unknown>[]>) => Promise<unknown>) =>
+    fn(async (sql: string, p?: unknown[]) => {
+      sqls.push(sql);
+      params.push(p ?? []);
+      return rowsFor(sql, p);
+    }),
+  ),
   getPool: () => {
     throw new Error('no pool in tests');
   },
@@ -63,6 +69,8 @@ vi.mock('../lib/db.js', () => ({
 const { AUDIT_ACTION } = await import('../lib/audit.js');
 await import('./internal.js'); // registers the routes against the captured app.http
 const report = registrations.get('internalInboundEvidenceBackfill')!.handler;
+const validate = registrations.get('internalInboundEvidenceBackfillValidate')!.handler;
+const persist = registrations.get('internalCasesEvidence')!.handler;
 
 const ctx = { log: vi.fn(), error: vi.fn() } as unknown as InvocationContext;
 
@@ -94,9 +102,10 @@ describe('internalInboundEvidenceBackfill — (a) note-on-terminal-failure', () 
     // The note lands on the case, with the NOT EXISTS duplicate guard.
     expect(noteSqls()).toHaveLength(1);
     const noteIdx = sqls.findIndex((s) => /INSERT INTO note/i.test(s));
-    expect(sqls[noteIdx]).toMatch(/NOT EXISTS/i);
+    expect(sqls[noteIdx]).toMatch(/ON CONFLICT \(case_id, source_key\)/i);
     expect(params[noteIdx]).toContain('Attachments to add');
     expect(params[noteIdx]).toContain('case-target');
+    expect(params[noteIdx]).toContain('evidence-backfill:ie-1');
 
     // The warning audit carries the failure detail.
     expect(auditSqls()).toHaveLength(1);
@@ -110,7 +119,7 @@ describe('internalInboundEvidenceBackfill — (a) note-on-terminal-failure', () 
     await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-target' }), ctx);
     // Both runs execute the guarded statement; the NOT EXISTS clause (asserted above)
     // is what suppresses the duplicate row live — the guard lives in SQL, not the caller.
-    for (const s of noteSqls()) expect(s).toMatch(/NOT EXISTS/i);
+    for (const s of noteSqls()) expect(s).toMatch(/ON CONFLICT/i);
     expect(noteSqls()).toHaveLength(2);
   });
 });
@@ -129,11 +138,10 @@ describe('internalInboundEvidenceBackfill — (b) completion report', () => {
     expect(params[auditIdx]).toContain('case-target');
   });
 
-  it('falls back to the row\'s own case link when the body omits targetCaseId', async () => {
+  it('requires an explicit target case', async () => {
     const res = await report(req('ie-1', { outcome: 'completed', persisted: 2 }), ctx);
-    expect(res.status).toBe(204);
-    const auditIdx = sqls.findIndex((s) => /INSERT INTO audit_event/i.test(s));
-    expect(params[auditIdx]).toContain('case-target');
+    expect(res.status).toBe(400);
+    expect(auditSqls()).toHaveLength(0);
   });
 });
 
@@ -158,5 +166,82 @@ describe('internalInboundEvidenceBackfill — (c) contract edges', () => {
     expect(res.status).toBe(400);
     expect(noteSqls()).toHaveLength(0);
     expect(auditSqls()).toHaveLength(0);
+  });
+
+  it('detached/relinked inbound + queued target → typed 409 with no note or audit', async () => {
+    rowsFor.mockImplementation((sql: string) => /FROM inbound_email/i.test(sql)
+      ? [{ id: 'ie-1', case_id: 'case-new' }]
+      : []);
+    const res = await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-old' }), ctx);
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toMatchObject({ code: 'evidence_backfill_target_changed' });
+    expect(noteSqls()).toHaveLength(0);
+    expect(auditSqls()).toHaveLength(0);
+  });
+
+  it('rechecks under a row lock so a relink between report validation and note insertion writes nothing', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM inbound_email/i.test(sql) && /FOR UPDATE/i.test(sql)) return [{ case_id: 'case-new' }];
+      if (/FROM inbound_email/i.test(sql)) return [{ id: 'ie-1', case_id: 'case-target' }];
+      return [];
+    });
+    const res = await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-target' }), ctx);
+    expect(res.status).toBe(409);
+    expect(noteSqls()).toHaveLength(0);
+    expect(auditSqls()).toHaveLength(0);
+  });
+});
+
+describe('internalInboundEvidenceBackfill partial + validation', () => {
+  it('writes a missing-only note for a partial recovery', async () => {
+    const res = await report(req('ie-1', {
+      outcome: 'partial', targetCaseId: 'case-target', persisted: 1, failedAttachments: 2,
+    }), ctx);
+    expect(res.status).toBe(204);
+    const noteIdx = sqls.findIndex((s) => /INSERT INTO note/i.test(s));
+    expect(params[noteIdx]).toContain(
+      'Some attachments from the linked email could not be added. Please add the missing attachments from the email.',
+    );
+  });
+
+  it('keys notes by inbound email, not case-wide text', async () => {
+    await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-target' }), ctx);
+    await report(req('ie-2', { outcome: 'failed', targetCaseId: 'case-target' }), ctx);
+    const noteParams = params.filter((_, i) => /INSERT INTO note/i.test(sqls[i]));
+    expect(noteParams[0]).toContain('evidence-backfill:ie-1');
+    expect(noteParams[1]).toContain('evidence-backfill:ie-2');
+  });
+
+  it('validates only the current exact link', async () => {
+    expect((await validate(req('ie-1', { targetCaseId: 'case-target' }), ctx)).status).toBe(204);
+    rowsFor.mockImplementation(() => []);
+    const stale = await validate(req('ie-1', { targetCaseId: 'case-target' }), ctx);
+    expect(stale.status).toBe(409);
+    expect(stale.jsonBody).toMatchObject({ code: 'evidence_backfill_target_changed' });
+  });
+});
+
+describe('internalCasesEvidence guarded persistence', () => {
+  it('takes a row lock and persists only while the inbound link matches', async () => {
+    const res = await persist(req('case-target', {
+      expectedInboundEmailId: 'ie-1',
+      rows: [{ filename: 'photo.jpg', evidenceClass: 'image', contentType: 'image/jpeg', blobPath: 'g/photo.jpg', size: 3 }],
+    }), ctx);
+    expect(res.status).toBe(200);
+    expect(sqls.some((s) => /FROM inbound_email/i.test(s) && /FOR UPDATE/i.test(s))).toBe(true);
+    expect(sqls.some((s) => /INSERT INTO evidence/i.test(s))).toBe(true);
+  });
+
+  it('returns typed 409 before evidence mutation after detach/relink', async () => {
+    rowsFor.mockImplementation((sql: string) => /FROM inbound_email/i.test(sql) && /FOR UPDATE/i.test(sql)
+      ? [{ case_id: 'case-other' }]
+      : []);
+    const res = await persist(req('case-target', {
+      expectedInboundEmailId: 'ie-1',
+      rows: [{ filename: 'photo.jpg', evidenceClass: 'image', blobPath: 'g/photo.jpg', size: 3 }],
+    }), ctx);
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toMatchObject({ code: 'evidence_backfill_target_changed' });
+    expect(sqls.some((s) => /INSERT INTO evidence|UPDATE evidence/i.test(s))).toBe(false);
   });
 });
