@@ -1,6 +1,6 @@
 # Azure deployment plan — PR 55 functional remediation
 
-> **Status:** Validated
+> **Status:** Deployed
 
 Generated: 2026-07-11 (Europe/London)
 
@@ -145,10 +145,10 @@ unchanged on `main` when optional conversion tools are absent.
 
 ### Deployment
 
-- [ ] Invoke `azure-deploy` and apply the documented order.
-- [ ] Enable eligible feature settings with pre/post readback.
-- [ ] Verify endpoints, function counts, Graph subscriptions, telemetry and SPA CSP.
-- [ ] Set status to `Deployed`.
+- [x] Invoke `azure-deploy` and apply the documented order.
+- [x] Enable eligible feature settings with pre/post readback.
+- [x] Verify endpoints, function counts, Graph subscriptions, telemetry and SPA CSP.
+- [x] Set status to `Deployed`.
 
 ## 8. Validation steps
 
@@ -216,7 +216,17 @@ is planned.
 | Existing deploy bundles/config | Rebuilt from candidate source | Complete |
 | New infrastructure/IaC | None | Not applicable |
 
-## 12. Next step
+## 12. Deployment proof
 
-Push the validated repaired PR, merge it, rebuild from the exact merged `main` SHA, and invoke
-`azure-deploy`.
+| Check | Result | Timestamp |
+|---|---|---|
+| GitHub release | PR 55 merged as `c7e78cc49e4c5f626bb3ade2b4b653ddecd45241`. The telemetry-found API correction was merged in PR 57; final runtime code SHA is `3cc4705041766afdeb70b07c1e097b76f5ec8097`. | 2026-07-11 23:46 BST |
+| Database | All ten additive PR deltas applied in the documented order; TKT-089 ownership replayed after the API publish. Postcheck returned `pr55_schema_ready`; both new outboxes began empty. TKT-141/TKT-144 one-off repairs were not rerun. Only `AllowAzureServices` remains in the firewall. | 2026-07-11 23:46 BST |
+| Published areas | Data API 108 functions, orchestration 87, Archive facade 12, parser 4, and the production SPA were published successfully. Archive root read and parser 12-field/VIN smoke both returned 200. | 2026-07-11 23:46 BST |
+| Durable recovery | Evidence publisher, File Request, classification, archive mirror, and subscription-renewal singletons all read `Running`; repeated bootstrap calls did not duplicate instances. | 2026-07-11 23:46 BST |
+| Graph and queue | `sent-messages` exists. Subscription maintenance returned zero errors; Graph readback shows three Inbox plus three Sent Items subscriptions, with earliest expiry 2026-07-18. | 2026-07-11 23:46 BST |
+| Feature settings | `ASSISTANT_WRITE_TIER_ENABLED`, Data-API `LOCATION_ASSIST_AI_ENABLED`, and orchestration `DONE_SENT_EMAIL_ENABLED` are true. Existing Archive/folder/File Request gates remain true. Incomplete EVA poll, chaser send, valuation, orchestration retrospective Archive roots, and case disposition remain off. | 2026-07-11 23:46 BST |
+| Edge and auth | SPA and current JS asset return 200; CSP contains the intended API/sign-in origins. API CORS preflight returns 204 for the SWA origin and missing auth returns 401. | 2026-07-11 23:46 BST |
+| Telemetry repair | The deployment gate caught PostgreSQL `42P08` in Box failure reporting. PR 57 pinned the shared parameter type; 578 API tests, bundle load, and a PostgreSQL 16 `PREPARE` passed. After redeploy, a reclaimed classification returned 200 and API/orchestration/parser each recorded zero new exceptions, error traces, and 5xx responses; no new `42P08`. | 2026-07-11 23:46 BST |
+
+**Deployed by:** `azure-deploy`, 2026-07-11
