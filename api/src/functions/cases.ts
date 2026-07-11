@@ -23,6 +23,7 @@
 import { app, type HttpRequest } from '@azure/functions';
 import {
   CASE_PO_SHAPE_RE,
+  CreateCaseParams,
   EVA_FIELD_ORDER,
   canonicalizeVrm,
   casePoSequenceRegex,
@@ -36,6 +37,8 @@ import {
   type Case,
   type Chaser,
   type CreateCaseInput,
+  type EvaField,
+  type EvaFields,
   type EvaFieldKey,
   type MergeCasesResult,
   type NextCasePoResult,
@@ -65,7 +68,7 @@ import { isUniqueViolation } from './internal.js';
 import { ifMatch, staleVersion, versionToken } from '../lib/concurrency.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import { gates } from '../lib/gates.js';
-import { listBoxFolderNames } from '../lib/functions-client.js';
+import { callBoxCopyFileRequest, listBoxFolderNames } from '../lib/functions-client.js';
 import {
   CASE_SELECT,
   CASE_SELECT_WITH_ACTIVITY,
@@ -523,12 +526,133 @@ app.http('patchCase', {
 /* ============================================================
    2 — POST /api/cases   (manual-intake write path)
    ============================================================ */
+
+const REVIEW_STATES = new Set(['not_required', 'needs_review', 'reviewed', 'conflict']);
+const PROVENANCE_SOURCE_TYPES = new Set([
+  'staff',
+  'pdf_extraction',
+  'email_text',
+  'corpus',
+  'ai',
+  'dvla_dvsa',
+  'document_ai',
+  'azure_vision',
+  'web_lookup',
+  'whatsapp',
+  'manual_upload',
+]);
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Preserve the complete Manual Intake contract while making every field safe to
+ * dereference. A valid existing EvaFields object passes through value-for-value;
+ * defensive defaults only fill omitted provenance/review metadata.
+ */
+function normalizeManualEvaFields(
+  value: unknown,
+  sourceLabel: string,
+): EvaFields | undefined {
+  if (!isObjectRecord(value)) return undefined;
+  const out = {} as Record<EvaFieldKey, EvaField>;
+  for (const desc of EVA_FIELD_ORDER) {
+    const raw = value[desc.key];
+    if (!isObjectRecord(raw) || typeof raw.value !== 'string') return undefined;
+    const rawProvenance = isObjectRecord(raw.provenance) ? raw.provenance : {};
+    const rawSourceType = rawProvenance.sourceType;
+    const sourceType =
+      typeof rawSourceType === 'string' && PROVENANCE_SOURCE_TYPES.has(rawSourceType)
+        ? rawSourceType
+        : 'staff';
+    const fieldSourceLabel =
+      typeof rawProvenance.sourceLabel === 'string' && rawProvenance.sourceLabel.trim()
+        ? rawProvenance.sourceLabel
+        : sourceLabel;
+    const rawReviewState = raw.reviewState;
+    const reviewState =
+      typeof rawReviewState === 'string' && REVIEW_STATES.has(rawReviewState)
+        ? rawReviewState
+        : 'needs_review';
+    out[desc.key] = {
+      value: raw.value,
+      provenance: {
+        sourceType: sourceType as EvaField['provenance']['sourceType'],
+        sourceLabel: fieldSourceLabel,
+        ...(typeof rawProvenance.confidence === 'number'
+          ? { confidence: rawProvenance.confidence }
+          : {}),
+      },
+      reviewState: reviewState as EvaField['reviewState'],
+    };
+  }
+  return out as unknown as EvaFields;
+}
+
+/**
+ * Accept either the established, complete Manual Intake DTO or the strict minimal
+ * assistant create_case proposal. The minimal form is expanded into the same DTO
+ * before any status evaluation or persistence touches evaFields.
+ */
+export function normalizeCreateCaseInput(raw: unknown): CreateCaseInput | undefined {
+  if (!isObjectRecord(raw)) return undefined;
+
+  // A body claiming either full-contract discriminator must satisfy the full contract;
+  // do not reinterpret a malformed Manual Intake body as an assistant proposal.
+  if ('evaFields' in raw || 'status' in raw) {
+    if (typeof raw.vrm !== 'string' || typeof raw.status !== 'string') return undefined;
+    if (statusToInt(raw.status as CreateCaseInput['status']) == null) return undefined;
+    const sourceLabel =
+      typeof raw.sourceLabel === 'string' && raw.sourceLabel.trim()
+        ? raw.sourceLabel
+        : 'Manual intake';
+    const evaFields = normalizeManualEvaFields(raw.evaFields, sourceLabel);
+    if (!evaFields) return undefined;
+    return {
+      ...(raw as unknown as CreateCaseInput),
+      evaFields,
+      sourceLabel,
+    };
+  }
+
+  const parsed = CreateCaseParams.safeParse(raw);
+  if (!parsed.success) return undefined;
+  const vrm = canonicalizeVrm(parsed.data.vrm);
+  if (!vrm) return undefined;
+  const claimantName = parsed.data.claimantName?.trim() ?? '';
+  const evaFieldsRecord = {} as Record<EvaFieldKey, EvaField>;
+  for (const desc of EVA_FIELD_ORDER) {
+    const fieldValue = desc.key === 'claimantName' ? claimantName : '';
+    const supplied = fieldValue.length > 0;
+    evaFieldsRecord[desc.key] = {
+      value: fieldValue,
+      provenance: supplied
+        ? { sourceType: 'staff', sourceLabel: 'Confirmed by staff' }
+        : { sourceType: 'manual_upload', sourceLabel: 'Not supplied' },
+      reviewState: supplied ? 'reviewed' : 'needs_review',
+    };
+  }
+  const evaFields = evaFieldsRecord as unknown as EvaFields;
+  const providerCode = parsed.data.providerCode?.trim().toUpperCase();
+  return {
+    evaFields,
+    vrm,
+    ...(providerCode ? { providerCode } : {}),
+    status: 'ingested',
+    sourceLabel: 'Staff-confirmed case creation',
+    writeProvenance: true,
+  };
+}
+
 app.http('createCase', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'cases',
   handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
-    const input = (await req.json()) as CreateCaseInput;
+    const raw = await req.json().catch(() => undefined);
+    const input = normalizeCreateCaseInput(raw);
+    if (!input) return { status: 400, jsonBody: { error: 'invalid case create payload' } };
     const actor = actorFromClaims(claims);
 
     // Status state machine — compute the persisted status from the reviewed fields
@@ -1497,6 +1621,28 @@ async function readCaseBoxFolder(
   };
 }
 
+interface CaseBoxFileRequestRow extends Record<string, unknown> {
+  box_folder_id: string | null;
+  box_file_request_id: string | null;
+  box_file_request_url: string | null;
+}
+
+function validBoxFileRequestCopy(
+  value: unknown,
+): { id: string; url: string } | undefined {
+  if (!isObjectRecord(value)) return undefined;
+  if (typeof value.id !== 'string' || typeof value.url !== 'string') return undefined;
+  const id = value.id.trim();
+  const url = value.url.trim();
+  if (!id || id.length > 40 || !url || url.length > 400) return undefined;
+  try {
+    if (new URL(url).protocol !== 'https:') return undefined;
+  } catch {
+    return undefined;
+  }
+  return { id, url };
+}
+
 /* GET /api/cases/{id}/box/shared-link → BoxResult<SharedFolderLink>
    The "Open in Box" deep link for evidence viewing. DB-only + privacy-safe: returns
    the folder's stamped URL, else constructs the AUTHENTICATED app deep link from the
@@ -1527,37 +1673,99 @@ app.http('caseBoxSharedLink', {
 });
 
 /* POST /api/cases/{id}/box/copy-file-request → BoxResult<FileRequestLink>
-   Copies the per-case File Request (account-free upload page) from the template.
-   Requires the operator-provisioned BOX_FILE_REQUEST_TEMPLATE_ID (an outstanding
-   Box-side item). Until that is set, an honest gated_off — NOT a 404 — so the chaser
-   action degrades cleanly. (Wiring the box-fn copy op is a follow-up once the template
-   id exists; it cannot be exercised before then, so it is not shipped half-built.) */
+   Copies the per-case File Request (account-free upload page) from the operator's
+   template through the existing Box Function facade. The case row is locked across
+   read→copy→stamp so concurrent staff clicks cannot copy twice; a previously stamped
+   link returns immediately without another Box call. */
 app.http('caseBoxCopyFileRequest', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'cases/{id}/box/copy-file-request',
-  handler: withRole('CollisionSpike.User', async (req) => {
+  handler: withRole('CollisionSpike.User', async (req, ctx, claims) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) {
       return { status: 200, jsonBody: { status: 'gated_off', message: "Image-upload links aren't available yet." } };
     }
     const caseId = (req.params.id ?? '').trim();
     if (!caseId) return { status: 400, jsonBody: { status: 'error', message: 'caseId is required' } };
-    if (!gates.boxFileRequestTemplateId()) {
+    const templateId = gates.boxFileRequestTemplateId().trim();
+    if (!templateId) {
       return {
         status: 200,
         jsonBody: { status: 'gated_off', message: "Image-upload links aren't available yet." },
       };
     }
-    const { boxFolderId } = await readCaseBoxFolder(caseId);
-    if (!boxFolderId) {
-      return { status: 200, jsonBody: { status: 'folder_not_ready', message: 'This case has no archive folder yet.' } };
+    const actor = actorFromClaims(claims);
+    try {
+      const result = await tx(async (q) => {
+        const rows = await q<CaseBoxFileRequestRow>(
+          `SELECT box_folder_id, box_file_request_id, box_file_request_url
+             FROM case_
+            WHERE id = $1
+            FOR UPDATE`,
+          [caseId],
+        );
+        const row = rows[0];
+        const folderId = row?.box_folder_id?.trim() ?? '';
+        const stampedId = row?.box_file_request_id?.trim() ?? '';
+        const stampedUrl = row?.box_file_request_url?.trim() ?? '';
+        if (!row || !folderId) {
+          return {
+            status: 'folder_not_ready' as const,
+            message: 'This case has no archive folder yet.',
+          };
+        }
+        if (stampedId && stampedUrl) {
+          return {
+            status: 'ok' as const,
+            data: { fileRequestUrl: stampedUrl },
+          };
+        }
+        // A half-stamped row could represent a successful remote copy followed by an
+        // interrupted historical write. Never risk a duplicate copy from ambiguous state.
+        if (stampedId || stampedUrl) {
+          throw new Error('case has an incomplete Box File Request stamp');
+        }
+
+        const copied = validBoxFileRequestCopy(
+          await callBoxCopyFileRequest(templateId, folderId),
+        );
+        if (!copied) throw new Error('Box CopyFileRequest returned an invalid response');
+
+        await q(
+          `UPDATE case_
+              SET box_file_request_id = $2,
+                  box_file_request_url = $3,
+                  updated_at = now()
+            WHERE id = $1`,
+          [caseId, copied.id, copied.url],
+        );
+        await writeAudit({
+          action: AUDIT_ACTION.box_file_request_copied,
+          caseId,
+          summary: 'Image-upload link created',
+          after: {
+            boxFileRequestId: copied.id,
+            fileRequestUrl: copied.url,
+            boxFolderId: folderId,
+          },
+          ...(actor ? { actor } : {}),
+        }, q);
+        return {
+          status: 'ok' as const,
+          data: { fileRequestUrl: copied.url },
+        };
+      });
+      return { status: 200, jsonBody: result };
+    } catch (error) {
+      ctx.error('[caseBoxCopyFileRequest] failed', error);
+      return {
+        status: 200,
+        jsonBody: {
+          status: 'error',
+          message: 'The image-upload link could not be created. Please try again.',
+        },
+      };
     }
-    // Template id present (operator provisioned it) but the box-fn copy bridge is not
-    // yet wired — honest gated_off rather than a fabricated link. Follow-up ticket.
-    return {
-      status: 200,
-      jsonBody: { status: 'gated_off', message: "Image-upload links aren't available yet." },
-    };
   }),
 });
 

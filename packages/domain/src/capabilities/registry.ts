@@ -264,7 +264,7 @@ const WRITE: CapabilityDescriptor[] = [
     gateLabel: WRITE_TIER_GATE_LABEL,
     minRole: 'CollisionSpike.User',
     inputSchema: ReclassifyInboundParams,
-    route: { method: 'POST', path: 'inbound/{inboundId}/classification' },
+    route: { method: 'PATCH', path: 'inbound/{inboundId}/classification' },
   }),
   cap({
     name: 'save_inspection_decision',

@@ -84,6 +84,22 @@ describe('capability registry invariants (ADR-0025)', () => {
     expect(routeBody(cap, params)).toEqual({ onHold: true });
   });
 
+  it('keeps the reclassify proposal on the PATCH route implemented by the Data API', () => {
+    const cap = capabilityByName('reclassify_inbound')!;
+    expect(cap.route).toEqual({
+      method: 'PATCH',
+      path: 'inbound/{inboundId}/classification',
+    });
+    expect(resolveRoutePath(cap, {
+      inboundId: 'mail-123',
+      category: 'instruction',
+    })).toBe('inbound/mail-123/classification');
+    expect(routeBody(cap, {
+      inboundId: 'mail-123',
+      category: 'instruction',
+    })).toEqual({ category: 'instruction' });
+  });
+
   it('every proposable write capability names params covering its route path placeholders', () => {
     for (const c of proposableCapabilities()) {
       const props = (c.parameters.properties ?? {}) as Record<string, unknown>;

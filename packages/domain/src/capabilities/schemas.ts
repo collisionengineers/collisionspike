@@ -153,7 +153,7 @@ export const SetTriageStateParams = z
   })
   .strict();
 
-/** Reclassify an inbound email's category/subtype — POST inbound/{inboundId}/classification. */
+/** Reclassify an inbound email's category/subtype — PATCH inbound/{inboundId}/classification. */
 export const ReclassifyInboundParams = z
   .object({
     inboundId: z.string().min(1).describe('the inbound email id (GUID)'),
@@ -187,8 +187,14 @@ export const EditCaseFieldsParams = z
 export const CreateCaseParams = z
   .object({
     vrm: z.string().min(1).max(16).describe('vehicle registration'),
-    providerCode: z.string().optional().describe('provider principal code'),
-    claimantName: z.string().optional(),
+    providerCode: z
+      .string()
+      .min(1)
+      .max(8)
+      .regex(/^[A-Za-z][A-Za-z0-9]{0,7}$/)
+      .optional()
+      .describe('provider principal code'),
+    claimantName: z.string().max(200).optional(),
   })
   .strict();
 

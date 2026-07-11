@@ -214,6 +214,34 @@ export async function listBoxFolderEntries(
   return out;
 }
 
+/** Raw success contract returned by the Box facade's CopyFileRequest operation. */
+export interface BoxFileRequestCopyResponse {
+  id?: unknown;
+  url?: unknown;
+  folder?: unknown;
+  status?: unknown;
+}
+
+/**
+ * Copy the operator-provisioned Box File Request template onto one case folder.
+ * The caller validates the facade response before stamping it onto the case.
+ */
+export async function callBoxCopyFileRequest(
+  templateId: string,
+  folderId: string,
+): Promise<BoxFileRequestCopyResponse> {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error('[functions-client] BOX_FN_URL/BOX_FN_KEY not configured');
+  return callFn(
+    base,
+    key,
+    'POST',
+    `/api/box/file-requests/${encodeURIComponent(templateId)}/copy`,
+    { folder: { id: folderId }, status: 'active' },
+  ) as Promise<BoxFileRequestCopyResponse>;
+}
+
 interface BoxFileContentResponse {
   id?: string;
   filename?: string;
