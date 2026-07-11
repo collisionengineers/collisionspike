@@ -28,6 +28,13 @@ const errStatus = (status: number, text = 'upstream boom') => ({
   json: () => Promise.reject(new Error('not json')),
   text: () => Promise.resolve(text),
 });
+const versionedJson = (body: Record<string, unknown>, etag?: string) => ({
+  ok: true,
+  status: 200,
+  json: () => Promise.resolve(body),
+  text: () => Promise.resolve(JSON.stringify(body)),
+  headers: { get: (name: string) => (name.toLowerCase() === 'etag' ? etag ?? null : null) },
+});
 
 function clientWith(fetchMock: ReturnType<typeof vi.fn>) {
   vi.stubGlobal('fetch', fetchMock);
@@ -192,6 +199,133 @@ describe('rest-client — updateCase / editable VRM (issue #12)', () => {
     const init = lastInit(fetchMock);
     expect(init.method).toBe('PATCH');
     expect(init.body).toBe(JSON.stringify(patch));
+  });
+});
+
+describe('rest-client — assistant confirmation snapshots (TKT-111 repair)', () => {
+  const caseAction = {
+    capability: 'set_on_hold',
+    title: 'Hold a case',
+    method: 'POST',
+    path: 'cases/c-1/hold',
+    body: { onHold: true },
+    params: { caseId: 'c-1', onHold: true },
+  };
+
+  it('uses the case JSON version ahead of the rolling ETag fallback', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      versionedJson({ id: 'c-1', vrm: 'AB12CDE', version: 'json-v7' }, 'etag-v6'),
+    );
+    const da = clientWith(fetchMock);
+
+    await expect(da.caseWithVersion('c-1')).resolves.toEqual({
+      state: 'available',
+      value: { id: 'c-1', vrm: 'AB12CDE' },
+      version: 'json-v7',
+      versionSource: 'body',
+    });
+  });
+
+  it('reads an inbound target independently and accepts ETag only as a rolling fallback', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      versionedJson(
+        { id: 'mail/1', subject: 'Instruction', triageState: 'new' },
+        '"inbound-v3"',
+      ),
+    );
+    const da = clientWith(fetchMock);
+
+    await expect(da.inboundWithVersion('mail/1')).resolves.toEqual({
+      state: 'available',
+      value: { id: 'mail/1', subject: 'Instruction', triageState: 'new' },
+      version: 'inbound-v3',
+      versionSource: 'etag',
+    });
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/inbound/mail%2F1');
+  });
+
+  it('returns explicit unavailable states for network, malformed JSON, and a missing version', async () => {
+    const network = clientWith(vi.fn().mockRejectedValue(new Error('offline')));
+    await expect(network.caseWithVersion('c-1')).resolves.toMatchObject({
+      state: 'unavailable',
+      reason: 'request_failed',
+      status: 0,
+    });
+    vi.unstubAllGlobals();
+
+    const malformed = clientWith(
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.reject(new Error('bad json')),
+        headers: { get: () => null },
+      }),
+    );
+    await expect(malformed.caseWithVersion('c-1')).resolves.toMatchObject({
+      state: 'unavailable',
+      reason: 'invalid_response',
+    });
+    vi.unstubAllGlobals();
+
+    const unversioned = clientWith(vi.fn().mockResolvedValue(versionedJson({ id: 'c-1' })));
+    await expect(unversioned.caseWithVersion('c-1')).resolves.toMatchObject({
+      state: 'unavailable',
+      reason: 'version_missing',
+    });
+  });
+
+  it('sends the JSON snapshot version as If-Match and reports success without throwing', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(versionedJson({ id: 'c-1', vrm: 'AB12CDE', version: 'json-v7' }))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        headers: { get: () => 'json-v8' },
+      });
+    const da = clientWith(fetchMock);
+    const snapshot = await da.caseWithVersion('c-1');
+    expect(snapshot.state).toBe('available');
+    if (snapshot.state !== 'available') throw new Error('expected available snapshot');
+
+    await expect(da.executeProposal(caseAction, snapshot.version)).resolves.toEqual({
+      ok: true,
+      status: 204,
+      version: 'json-v8',
+    });
+    expect((lastInit(fetchMock).headers as Record<string, string>)['If-Match']).toBe('json-v7');
+  });
+
+  it('never silently omits If-Match for an existing target', async () => {
+    const fetchMock = vi.fn();
+    const da = clientWith(fetchMock);
+
+    await expect(da.executeProposal(caseAction)).resolves.toMatchObject({
+      ok: false,
+      status: 428,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('returns stale and network failures as results instead of throwing', async () => {
+    const staleMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 409,
+      headers: { get: () => null },
+    });
+    const stale = clientWith(staleMock);
+    await expect(stale.executeProposal(caseAction, 'v1')).resolves.toMatchObject({
+      ok: false,
+      status: 409,
+    });
+    vi.unstubAllGlobals();
+
+    const network = clientWith(vi.fn().mockRejectedValue(new Error('offline')));
+    await expect(network.executeProposal(caseAction, 'v1')).resolves.toMatchObject({
+      ok: false,
+      status: 0,
+      error: expect.any(String),
+    });
   });
 });
 

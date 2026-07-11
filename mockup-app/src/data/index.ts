@@ -146,7 +146,14 @@ export type {
 } from '@cs/domain';
 // The seam's EXTENDED DataAccess (frozen @cs/domain DataAccess + the work-todo-spike
 // methods). `getDataAccess()` returns this; screens that type-annotate use it.
-export type { DataAccessExt, LogChaseInput, DetachInboundResult, OutlookMoveResult } from './rest-client';
+export type {
+  DataAccessExt,
+  LogChaseInput,
+  DetachInboundResult,
+  OutlookMoveResult,
+  VersionedRead,
+  ProposalExecutionResult,
+} from './rest-client';
 // The all-false Box-gate baseline + the all-off location-assist baseline (values).
 export {
   BOX_GATES_ALL_FALSE,

@@ -158,6 +158,34 @@ export interface EvidenceUploadResult {
   status: number;
 }
 
+/** A fresh entity snapshot used by the assistant confirmation gate. Existing-target
+ *  writes are disabled unless the read succeeds AND carries a stable version token.
+ *  This is deliberately discriminated: a transport/JSON/version failure can never be
+ *  mistaken for a missing row or an unversioned success. */
+export type VersionedRead<T> =
+  | {
+      state: 'available';
+      value: T;
+      version: string;
+      /** `body` is the steady-state contract; `etag` only bridges a rolling deploy. */
+      versionSource: 'body' | 'etag';
+    }
+  | {
+      state: 'unavailable';
+      reason: 'not_found' | 'request_failed' | 'invalid_response' | 'version_missing';
+      status: number;
+      error: string;
+    };
+
+/** Non-throwing result from a confirmed proposal write. `status:0` means the client
+ *  could not obtain a response (network/auth/timeout); callers must not show success. */
+export interface ProposalExecutionResult {
+  ok: boolean;
+  status: number;
+  version?: string;
+  error?: string;
+}
+
 /** Partial, durable staff review of one image. Omitted fields are preserved. */
 export interface EvidenceReviewInput {
   imageRole?: Evidence['imageRole'];
@@ -244,13 +272,16 @@ export interface DataAccessExt extends DataAccess {
   /** Global search (TKT-072): one normalised query across cases / inbound email / providers.
    *  safe()-empty on failure; the server returns disabled+empty while GLOBAL_SEARCH_ENABLED is off. */
   globalSearch(q: string): Promise<GlobalSearchResults>;
-  /** Re-fetch a case plus its version ETag — the assistant write tier's independent state check
-   *  (TKT-111) before rendering a confirmation diff. {} when the case is gone. */
-  caseWithVersion(id: string): Promise<{ case?: Case; etag?: string }>;
+  /** Independently re-fetch a case plus the version from the JSON snapshot. The ETag is
+   *  accepted only as a rolling-deploy fallback. Never throws; failure is explicit. */
+  caseWithVersion(id: string): Promise<VersionedRead<Case>>;
+  /** Independently re-fetch an inbound email plus its version before a triage/classification
+   *  confirmation. Same non-throwing contract as caseWithVersion. */
+  inboundWithVersion(id: string): Promise<VersionedRead<InboundEmail>>;
   /** Execute a CONFIRMED assistant proposal against its existing staff-authorized route
-   *  (TKT-111). Sends the re-fetched version as If-Match so a stale write returns 409. Returns the
-   *  HTTP status + the new ETag; never throws (the card interprets the status). */
-  executeProposal(action: ProposedAction, ifMatchToken?: string): Promise<{ ok: boolean; status: number; etag?: string }>;
+   *  (TKT-111). Sends the re-fetched version as If-Match so a stale write returns 409.
+   *  Refuses an existing-target write when the token is absent. Never throws. */
+  executeProposal(action: ProposedAction, ifMatchToken?: string): Promise<ProposalExecutionResult>;
   /** Upload staff-attached evidence files to a case (TKT-068) — multipart POST. The model never
    *  uploads; these bytes come from the user's file picker. Returns which files landed / were
    *  rejected (with plain-language reasons) plus the HTTP status. Never throws. */
@@ -317,6 +348,43 @@ export function serverMessageOf(err: unknown): string | undefined {
     if (typeof m === 'string' && m) return m;
   }
   return undefined;
+}
+
+const ASSISTANT_REQUEST_TIMEOUT_MS = 20_000;
+
+/** Bound the two assistant-confirmation network hops. A hung token/fetch promise must
+ *  become an explicit retry state instead of leaving the card spinning forever. */
+async function settleWithin<T>(work: Promise<T>, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(fallback), ASSISTANT_REQUEST_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+function responseHeader(res: Response, name: string): string | undefined {
+  try {
+    return res.headers?.get(name) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function cleanEtag(value: string | undefined): string | undefined {
+  const cleaned = value?.trim().replace(/^W\//i, '').replace(/^"|"$/g, '').trim();
+  return cleaned || undefined;
+}
+
+function requiresProposalVersion(action: ProposedAction): boolean {
+  // Every registered write mutates an existing row except create_case. Keeping this
+  // deny-by-default means a future capability cannot silently bypass If-Match.
+  return action.capability !== 'create_case';
 }
 
 export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
@@ -392,6 +460,77 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
   // dropped — the `now` arg never reached the URL, so client/server windows could
   // disagree across timezones / clock skew.
   const nowQ = (now?: Date) => (now ? `?now=${enc(now.toISOString())}` : '');
+
+  const versionedRead = async <T>(
+    path: string,
+    unavailableLabel: string,
+  ): Promise<VersionedRead<T>> => {
+    const fallback: VersionedRead<T> = {
+      state: 'unavailable',
+      reason: 'request_failed',
+      status: 0,
+      error: `The latest ${unavailableLabel} could not be loaded.`,
+    };
+    const work = (async (): Promise<VersionedRead<T>> => {
+      try {
+        const token = await opts.getToken();
+        const res = await fetch(`${base}${path}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.status === 404) {
+          return {
+            state: 'unavailable',
+            reason: 'not_found',
+            status: 404,
+            error: `That ${unavailableLabel} could not be found.`,
+          };
+        }
+        if (!res.ok) {
+          return {
+            state: 'unavailable',
+            reason: 'request_failed',
+            status: res.status,
+            error: `The latest ${unavailableLabel} could not be loaded.`,
+          };
+        }
+        const raw = await res.json().catch(() => undefined);
+        if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+          return {
+            state: 'unavailable',
+            reason: 'invalid_response',
+            status: res.status,
+            error: `The latest ${unavailableLabel} could not be checked.`,
+          };
+        }
+        const record = raw as Record<string, unknown>;
+        const bodyVersion =
+          typeof record.version === 'string' && record.version.trim()
+            ? record.version.trim()
+            : undefined;
+        const etagVersion = cleanEtag(responseHeader(res, 'etag'));
+        const version = bodyVersion ?? etagVersion;
+        if (!version) {
+          return {
+            state: 'unavailable',
+            reason: 'version_missing',
+            status: res.status,
+            error: `The latest ${unavailableLabel} could not be safely confirmed.`,
+          };
+        }
+        // `version` is response metadata, not part of the Case/InboundEmail domain row.
+        const { version: _version, ...value } = record;
+        return {
+          state: 'available',
+          value: value as T,
+          version,
+          versionSource: bodyVersion ? 'body' : 'etag',
+        };
+      } catch {
+        return fallback;
+      }
+    })();
+    return settleWithin(work, fallback);
+  };
 
   return {
     /* ----- Cases ----- */
@@ -620,25 +759,57 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
     getAiChatGate: () => safe(() => get<{ enabled: boolean }>('/api/gates/ai-chat'), { enabled: false }),
     globalSearch: (q) =>
       safe(() => get<GlobalSearchResults>(`/api/search?q=${encodeURIComponent(q)}`), { ...EMPTY_SEARCH, query: q }),
-    caseWithVersion: async (id) => {
-      const token = await opts.getToken();
-      const res = await fetch(`${base}/api/cases/${enc(id)}`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) return {};
-      const c = (await res.json()) as Case;
-      return { case: c, etag: res.headers.get('etag') ?? undefined };
-    },
+    caseWithVersion: (id) =>
+      versionedRead<Case>(`/api/cases/${enc(id)}`, 'case'),
+    inboundWithVersion: (id) =>
+      versionedRead<InboundEmail>(`/api/inbound/${enc(id)}`, 'email'),
     executeProposal: async (action, ifMatchToken) => {
-      const token = await opts.getToken();
-      const res = await fetch(`${base}/api/${action.path}`, {
-        method: action.method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          ...(ifMatchToken ? { 'If-Match': ifMatchToken } : {}),
-        },
-        body: JSON.stringify(action.body),
-      });
-      return { ok: res.ok, status: res.status, etag: res.headers.get('etag') ?? undefined };
+      if (requiresProposalVersion(action) && !ifMatchToken?.trim()) {
+        return {
+          ok: false,
+          status: 428,
+          error: 'Review the latest information before confirming this change.',
+        };
+      }
+      const fallback: ProposalExecutionResult = {
+        ok: false,
+        status: 0,
+        error: 'We could not confirm whether that change was saved. Review the latest information and try again.',
+      };
+      const work = (async (): Promise<ProposalExecutionResult> => {
+        try {
+          const token = await opts.getToken();
+          const res = await fetch(`${base}/api/${action.path}`, {
+            method: action.method,
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              ...(ifMatchToken?.trim() ? { 'If-Match': ifMatchToken.trim() } : {}),
+            },
+            body: JSON.stringify(action.body),
+          });
+          const nextVersion = cleanEtag(responseHeader(res, 'etag'));
+          if (res.ok) {
+            return {
+              ok: true,
+              status: res.status,
+              ...(nextVersion ? { version: nextVersion } : {}),
+            };
+          }
+          return {
+            ok: false,
+            status: res.status,
+            ...(nextVersion ? { version: nextVersion } : {}),
+            error:
+              res.status === 409
+                ? 'This information changed before the update was confirmed.'
+                : 'That change was not saved. Please try again.',
+          };
+        } catch {
+          return fallback;
+        }
+      })();
+      return settleWithin(work, fallback);
     },
     uploadEvidence: async (caseId, files) => {
       try {

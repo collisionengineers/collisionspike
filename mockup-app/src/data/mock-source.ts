@@ -418,8 +418,22 @@ export const mockDataAccess: DataAccessExt = {
     Promise.resolve({ reply: 'The assistant is not available in this preview.', disabled: true }),
   getAiChatGate: () => Promise.resolve({ enabled: false }),
   globalSearch: (q) => Promise.resolve({ ...EMPTY_SEARCH, query: q }),
-  caseWithVersion: (_id) => Promise.resolve({}),
-  executeProposal: (_action, _ifMatch) => Promise.resolve({ ok: false, status: 501 }),
+  caseWithVersion: (_id) =>
+    Promise.resolve({
+      state: 'unavailable' as const,
+      reason: 'request_failed' as const,
+      status: 0,
+      error: 'The latest case could not be loaded.',
+    }),
+  inboundWithVersion: (_id) =>
+    Promise.resolve({
+      state: 'unavailable' as const,
+      reason: 'request_failed' as const,
+      status: 0,
+      error: 'The latest email could not be loaded.',
+    }),
+  executeProposal: (_action, _ifMatch) =>
+    Promise.resolve({ ok: false, status: 501, error: 'That change is not available.' }),
   uploadEvidence: (_caseId, _files) => Promise.resolve({ added: [], rejected: [], status: 501 }),
   evidenceContentUrl: (_id) => Promise.resolve(undefined),
   evidenceContentBlob: (_id) => Promise.resolve(undefined),
