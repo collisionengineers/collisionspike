@@ -342,14 +342,22 @@ if (catSet && subSet) {
   const catNames = catSet.options.map((o) => o.name).slice().sort();
   const subNames = subSet.options.map((o) => o.name).slice().sort();
 
+  // The persisted choice set is intentionally a superset of the deterministic
+  // classifier: staff can apply the append-only diminution subtype manually, but
+  // email_classifier.py does not emit it. Keep that one explicit exception visible
+  // instead of weakening parity to a loose subset check.
+  const staffOnlySubtypes = new Set(["existing_provider_diminution"]);
+  const classifierSubNames = subNames.filter((name) => !staffOnlySubtypes.has(name));
+
   ok(
-    pyCategories.length === 3 && JSON.stringify(catNames) === JSON.stringify(pyCategories),
+    pyCategories.length === 8 && JSON.stringify(catNames) === JSON.stringify(pyCategories),
     `cr1bd_inboundcategory names == CATEGORY_* 1:1 ` +
     `(json=${JSON.stringify(catNames)}, py=${JSON.stringify(pyCategories)})`);
   ok(
-    pySubtypes.length === 6 && JSON.stringify(subNames) === JSON.stringify(pySubtypes),
-    `cr1bd_inboundsubtype names == SUBTYPE_* 1:1 ` +
-    `(json=${JSON.stringify(subNames)}, py=${JSON.stringify(pySubtypes)})`);
+    pySubtypes.length === 14 && JSON.stringify(classifierSubNames) === JSON.stringify(pySubtypes),
+    `classifier-emittable cr1bd_inboundsubtype names == SUBTYPE_* 1:1 ` +
+    `(json-minus-staff-only=${JSON.stringify(classifierSubNames)}, ` +
+    `staff-only=${JSON.stringify([...staffOnlySubtypes])}, py=${JSON.stringify(pySubtypes)})`);
 
   // Integer codes unique + labels present for both sets
   for (const s of [catSet, subSet]) {
