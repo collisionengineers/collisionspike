@@ -471,7 +471,8 @@ export const dataApi = {
         registrationVisible?: boolean;
         acceptedForEva?: boolean;
         excluded?: boolean;
-        exclusionReason?: string;
+        exclusionReason?: string | null;
+        decisionSource?: 'classifier';
         /** TKT-123: the vision classifier saw a person's reflection (advisory —
          *  drives the SPA's dismissible warning; separate from `excluded`). */
         personReflection?: boolean;
@@ -484,7 +485,13 @@ export const dataApi = {
       }
     >,
     options?: { expectedInboundEmailId?: string },
-  ): Promise<{ persisted: number; updated: number; merged: number; targetCaseId?: string }> {
+  ): Promise<{
+    persisted: number;
+    updated: number;
+    merged: number;
+    targetCaseId?: string;
+    statusGeneration?: number;
+  }> {
     return request('POST', `/api/internal/cases/${caseId}/evidence`, {
       rows,
       ...(options?.expectedInboundEmailId ? { expectedInboundEmailId: options.expectedInboundEmailId } : {}),
@@ -516,14 +523,20 @@ export const dataApi = {
       acceptedForEva?: boolean;
       /** EVA exclusion (e.g. person reflection) — reason required by the schema when true. */
       excluded?: boolean;
-      exclusionReason?: string;
+      exclusionReason?: string | null;
+      decisionSource?: 'classifier';
       /** TKT-123 advisory reflection flag (dismissible SPA warning). */
       personReflection?: boolean;
       sha256?: string;
       sequenceIndex?: number;
       sourceLabel?: string;
     }>,
-  ): Promise<{ persisted: number }> {
+  ): Promise<{
+    persisted: number;
+    updated: number;
+    merged: number;
+    statusGeneration?: number;
+  }> {
     return request('POST', `/api/internal/cases/${caseId}/evidence`, { rows });
   },
 
@@ -810,8 +823,9 @@ export const dataApi = {
       imageRole: string;
       registrationVisible: boolean;
       acceptedForEva: boolean;
-      excluded?: boolean;
-      exclusionReason?: string;
+      excluded: boolean;
+      exclusionReason?: string | null;
+      decisionSource: 'classifier';
       personReflection: boolean;
     },
   ): Promise<{ updated: boolean; statusGeneration?: number; stale?: boolean }> {

@@ -341,6 +341,9 @@ export function rowToEvidence(rec: Row): Evidence {
     acceptedForEva: rec.accepted_for_eva ?? false,
     ...(rec.excluded != null ? { excluded: rec.excluded } : {}),
     ...(rec.exclusion_reason ? { exclusionReason: rec.exclusion_reason } : {}),
+    ...(rec.excluded === true && rec.exclusion_decision_source === 'classifier'
+      ? { reviewRequired: true }
+      : {}),
     // Vision reflection flag + its reviewer dismissal (TKT-123). Columns land via
     // the 2026-07-09 evidence-reflection delta; conditional spreads tolerate a
     // pre-delta row/query shape.

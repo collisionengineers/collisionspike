@@ -20,9 +20,28 @@ import {
   rowToActivityEvent,
   rowToAiSuggestion,
   rowToCase,
+  rowToEvidence,
   rowToInboundEmail,
   tallyActiveInboundCounts,
 } from './mappers';
+
+describe('rowToEvidence — automatic exclusion review visibility', () => {
+  const base = {
+    id: 'ev-1',
+    file_name: 'photo.jpg',
+    kind_code: 100000000,
+    image_role_code: 100000003,
+    accepted_for_eva: false,
+    excluded: true,
+    exclusion_reason: 'This image may not show the vehicle',
+  };
+
+  it('marks only classifier-owned exclusions for review', () => {
+    expect(rowToEvidence({ ...base, exclusion_decision_source: 'classifier' }).reviewRequired).toBe(true);
+    expect(rowToEvidence({ ...base, exclusion_decision_source: 'staff' }).reviewRequired).toBeUndefined();
+    expect(rowToEvidence({ ...base, exclusion_decision_source: 'cleanup' }).reviewRequired).toBeUndefined();
+  });
+});
 
 describe('mergedIntoFrom — the TKT-141 merge-retirement marker parse', () => {
   it('reads the survivor id out of the duplicate_keys merge JSON (string or parsed)', () => {

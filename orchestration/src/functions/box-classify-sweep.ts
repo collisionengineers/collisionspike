@@ -96,10 +96,10 @@ export function buildStampRow(
     imageRole: fields.imageRole,
     registrationVisible: fields.registrationVisible,
     acceptedForEva: fields.acceptedForEva,
+    excluded: fields.excluded,
+    exclusionReason: fields.exclusionReason ?? null,
+    decisionSource: 'classifier',
     personReflection: fields.personReflection,
-    ...(fields.excluded
-      ? { excluded: true, exclusionReason: fields.exclusionReason ?? 'Excluded' }
-      : {}),
   };
 }
 

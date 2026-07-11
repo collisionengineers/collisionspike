@@ -40,10 +40,11 @@ vi.mock('../lib/aoai-suggestions.js', () => ({ callSuggestionModel: model.callSu
 const sqls: string[] = [];
 const params: unknown[][] = [];
 const rowsFor = vi.fn<(sql: string, p?: unknown[]) => Record<string, unknown>[]>(() => []);
+const txMock = vi.hoisted(() => vi.fn());
 vi.mock('../lib/db.js', () => ({
   query: vi.fn(async (sql: string, p?: unknown[]) => { sqls.push(sql); params.push(p ?? []); return rowsFor(sql, p); }),
   getPool: vi.fn(),
-  tx: vi.fn(),
+  tx: txMock,
 }));
 
 /* ---- audit: keep AUDIT_ACTION + actorFromClaims real; spy writeAudit ---- */
@@ -345,6 +346,82 @@ function reviewReq(decision = 'accepted'): HttpRequest {
   return { params: { id: 'sug-1' }, json: async () => ({ decision }) } as unknown as HttpRequest;
 }
 
+const IMAGE_ROLE_ROW = {
+  id: 'sug-1',
+  case_id: 'case-1',
+  evidence_id: 'ev-1',
+  inbound_email_id: null,
+  suggestion_type: 'image_role',
+  suggested_value: { role: 'overview' },
+  review_state: 'pending',
+};
+
+const REGISTRATION_ROW = {
+  ...IMAGE_ROLE_ROW,
+  suggestion_type: 'registration',
+  suggested_value: { visible: true },
+};
+
+describe('reviewAiSuggestion — atomic readiness promotion', () => {
+  it('accepts an image-role suggestion with staff ownership and durable status work in one transaction', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM ai_suggestion[\s\S]*WHERE id/i.test(sql)) return [IMAGE_ROLE_ROW];
+      if (/UPDATE evidence/i.test(sql)) return [{ id: 'ev-1', case_id: 'case-1' }];
+      if (/UPDATE case_/i.test(sql)) return [{ status_recompute_requested_generation: '8' }];
+      if (/UPDATE ai_suggestion/i.test(sql)) return [{ id: 'sug-1', review_state: 'accepted' }];
+      return [];
+    });
+
+    const response = await review(reviewReq(), ctx, {});
+
+    expect(response.jsonBody).toMatchObject({
+      reviewState: 'accepted',
+      promoted: true,
+      promotedField: 'evidence.image_role_code',
+    });
+    expect(txMock).toHaveBeenCalledTimes(1);
+    const evidenceSql = sqls.find((sql) => /UPDATE evidence/i.test(sql))!;
+    expect(evidenceSql).toContain("image_role_source = 'staff'");
+    expect(evidenceSql).toContain("accepted_for_eva_source = 'staff'");
+    expect(evidenceSql).toContain("exclusion_decision_source = 'classifier'");
+    expect(sqls.some((sql) => /UPDATE case_[\s\S]*status_recompute_requested_generation/.test(sql))).toBe(true);
+    expect(sqls.findIndex((sql) => /UPDATE evidence/i.test(sql))).toBeLessThan(
+      sqls.findIndex((sql) => /UPDATE ai_suggestion/i.test(sql)),
+    );
+  });
+
+  it('accepts a registration suggestion with staff ownership and status work in the same transaction', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM ai_suggestion[\s\S]*WHERE id/i.test(sql)) return [REGISTRATION_ROW];
+      if (/UPDATE evidence/i.test(sql)) return [{ id: 'ev-1', case_id: 'case-1' }];
+      if (/UPDATE case_/i.test(sql)) return [{ status_recompute_requested_generation: 9 }];
+      if (/UPDATE ai_suggestion/i.test(sql)) return [{ id: 'sug-1', review_state: 'accepted' }];
+      return [];
+    });
+
+    const response = await review(reviewReq(), ctx, {});
+    expect(response.jsonBody).toMatchObject({
+      promoted: true,
+      promotedField: 'evidence.registration_visible',
+    });
+    expect(sqls.find((sql) => /UPDATE evidence/i.test(sql))).toContain(
+      "registration_visible_source = 'staff'",
+    );
+  });
+
+  it('leaves the suggestion pending/retryable when evidence promotion fails', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM ai_suggestion[\s\S]*WHERE id/i.test(sql)) return [IMAGE_ROLE_ROW];
+      if (/UPDATE evidence/i.test(sql)) throw new Error('evidence write failed');
+      return [];
+    });
+
+    await expect(review(reviewReq(), ctx, {})).rejects.toThrow('evidence write failed');
+    expect(sqls.some((sql) => /UPDATE ai_suggestion/i.test(sql))).toBe(false);
+    expect(auditCalls).toHaveLength(0);
+  });
+});
+
 const CASE_LINK_ROW = {
   id: 'sug-1',
   case_id: null,
@@ -532,6 +609,19 @@ describe('reviewAiSuggestion — TKT-145 case_link accept enqueues the evidence 
     expect(backfill.enqueueEvidenceBackfill).not.toHaveBeenCalled();
     expect(noteSqls()).toHaveLength(1);
   });
+  txMock.mockReset();
+  txMock.mockImplementation(
+    async (
+      fn: (
+        q: (sql: string, p?: unknown[]) => Promise<Record<string, unknown>[]>,
+      ) => Promise<unknown>,
+    ) =>
+      fn(async (sql: string, p?: unknown[]) => {
+        sqls.push(sql);
+        params.push(p ?? []);
+        return rowsFor(sql, p);
+      }),
+  );
 
   it('enqueue and fallback-note failure never unwind the accepted link', async () => {
     rowsFor.mockImplementation((sql: string) => {

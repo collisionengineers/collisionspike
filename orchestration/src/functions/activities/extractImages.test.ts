@@ -144,7 +144,8 @@ describe('extractImages — TKT-089 classifier-gated suppression of non-vehicle 
       imageRole: 'other',
       acceptedForEva: false,
       excluded: true,
-      exclusionReason: 'non-vehicle image detected (auto-classified)',
+      exclusionReason: 'This image may not show the vehicle',
+      decisionSource: 'classifier',
     });
   });
 
@@ -157,8 +158,14 @@ describe('extractImages — TKT-089 classifier-gated suppression of non-vehicle 
     const rows = persistedRows();
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({ excluded: true });
-    expect(rows[1]).toMatchObject({ imageRole: 'overview', acceptedForEva: true, registrationVisible: true });
-    expect('excluded' in rows[1]).toBe(false); // spread-guarded: only excluded rows carry the flag
+    expect(rows[1]).toMatchObject({
+      imageRole: 'overview',
+      acceptedForEva: true,
+      registrationVisible: true,
+      excluded: false,
+      exclusionReason: null,
+      decisionSource: 'classifier',
+    });
   });
 
   it('(c) fail-open — classify null persists the row role-unknown and NOT excluded (recall protection)', async () => {
@@ -170,6 +177,7 @@ describe('extractImages — TKT-089 classifier-gated suppression of non-vehicle 
     const rows = persistedRows();
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ imageRoleCode: 'unknown', acceptedForEva: false });
+    expect('decisionSource' in rows[0]).toBe(false);
     expect('excluded' in rows[0]).toBe(false);
   });
 
@@ -183,6 +191,7 @@ describe('extractImages — TKT-089 classifier-gated suppression of non-vehicle 
     const rows = persistedRows();
     expect(rows[0]).toMatchObject({ imageRoleCode: 'unknown' });
     expect('excluded' in rows[0]).toBe(false);
+    expect('decisionSource' in rows[0]).toBe(false);
   });
 
   it('logs the excludedNonVehicle counter in the summary event', async () => {

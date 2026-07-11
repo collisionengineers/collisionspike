@@ -38,6 +38,8 @@ export interface ImageClassification {
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_COMPLETION_TOKENS = 3000;
 const SCHEMA_NAME = 'vehicle_image_classification';
+/** A non-vehicle verdict may withhold an image only at this confidence or above. */
+export const NON_VEHICLE_AUTO_EXCLUDE_MIN_CONFIDENCE = 0.9;
 
 const SYSTEM_PROMPT =
   'You are an expert UK motor-claims vehicle-inspection image classifier. You are shown ONE ' +
@@ -193,22 +195,15 @@ export function caseRegistrationVisible(c: ImageClassification, caseVrm?: string
  * `caseVrm` (when known) constrains `registrationVisible` to the case vehicle's plate —
  * see `caseRegistrationVisible`.
  *
- * `opts.nonVehicleExcluded` (TKT-089 reopen) — the EXTRACTION-lane policy: a crop pulled
- * from INSIDE a document (`extractImages`) that classifies non-vehicle "other" (letterhead
- * logo / badge / signature art the engine's shape heuristics could not catch, e.g. a
- * 204x204 square provider badge) lands `excluded: true` with a domain exclusion reason,
- * so it never shows as live evidence and never mirrors to Box (the archive-evidence
- * selection filters `excluded`). Scoped to that lane deliberately: a DIRECT email/Box
- * image attachment classified "other" (e.g. a photographed V5C or letter) may be genuine
- * correspondence staff should still see, so those lanes keep today's visible-but-not-
- * accepted semantics. Person-reflection takes precedence (its own reason). A classify
- * FAILURE never reaches this mapper (classifyImage returns null) — the row persists
- * role-unknown and NOT excluded, exactly as before the classifier existed.
+ * TKT-089 regression policy: a non-vehicle result is automatically excluded only when
+ * confidence is >= 0.90 AND the result carries no readable registration signal. This is
+ * shared by every autonomous writer. A low-confidence `other`, or any result that reports
+ * a readable plate/plate text, remains reviewable and not accepted for EVA. Person reflection
+ * takes precedence with its own reason. A classify FAILURE never reaches this mapper.
  */
 export function classificationToEvidenceFields(
   c: ImageClassification,
   caseVrm?: string,
-  opts?: { nonVehicleExcluded?: boolean },
 ): {
   imageRole: ImageRoleName;
   registrationVisible: boolean;
@@ -227,17 +222,26 @@ export function classificationToEvidenceFields(
       registrationVisible,
       acceptedForEva: false,
       excluded: true,
-      exclusionReason: 'person reflection detected (auto-classified)',
+      exclusionReason: 'A person’s reflection may be visible',
       personReflection: true,
     };
   }
-  if (c.role === 'other' && opts?.nonVehicleExcluded) {
+  // Use the classifier's raw plate signal for the exclusion safety guard. A readable
+  // third-party plate may not satisfy the CASE registration rule above, but it still proves
+  // this is not safe to discard as obvious letterhead/signature furniture.
+  const readableRegistrationSignal =
+    c.registrationVisible || canonicalizeVrm(c.plateText).length > 0;
+  if (
+    c.role === 'other' &&
+    c.confidence >= NON_VEHICLE_AUTO_EXCLUDE_MIN_CONFIDENCE &&
+    !readableRegistrationSignal
+  ) {
     return {
       imageRole: c.role,
       registrationVisible,
       acceptedForEva: false,
       excluded: true,
-      exclusionReason: 'non-vehicle image detected (auto-classified)',
+      exclusionReason: 'This image may not show the vehicle',
       personReflection: false,
     };
   }

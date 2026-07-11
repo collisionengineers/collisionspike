@@ -57,13 +57,14 @@ const params: unknown[][] = [];
 const rowsFor = vi.hoisted(() =>
   vi.fn<(sql: string, p?: unknown[]) => Record<string, unknown>[]>(() => []),
 );
+const txMock = vi.hoisted(() => vi.fn());
 vi.mock('../lib/db.js', () => ({
   query: vi.fn(async (sql: string, p?: unknown[]) => {
     sqls.push(sql);
     params.push(p ?? []);
     return rowsFor(sql, p);
   }),
-  tx: vi.fn(),
+  tx: txMock,
   getPool: () => {
     throw new Error('no pool in tests');
   },
@@ -110,6 +111,22 @@ beforeEach(() => {
   params.length = 0;
   rowsFor.mockReset();
   rowsFor.mockImplementation(() => []);
+  txMock.mockReset();
+  txMock.mockImplementation(
+    async (
+      fn: (
+        q: (sql: string, p?: unknown[]) => Promise<Record<string, unknown>[]>,
+      ) => Promise<unknown>,
+    ) =>
+      fn(async (sql: string, p?: unknown[]) => {
+        sqls.push(sql);
+        params.push(p ?? []);
+        if (/UPDATE case_[\s\S]*status_recompute_requested_generation/.test(sql)) {
+          return [{ status_recompute_requested_generation: '1' }];
+        }
+        return rowsFor(sql, p);
+      }),
+  );
 });
 
 describe('TKT-133 (a) — email arrival then Box mirror = ONE row (the acceptance regression)', () => {
@@ -233,6 +250,60 @@ describe('TKT-133 (d) — no/implausible sha256 → exactly the pre-existing beh
   });
 });
 
+describe('TKT-089 ownership compatibility', () => {
+  it('does not invent classifier ownership for an inserted row that omitted decisionSource', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(sql)) return [];
+      if (/INSERT INTO evidence/i.test(sql)) return [{ id: 'ev-1' }];
+      return [];
+    });
+
+    const res = await evidenceRoute(
+      req('case-1', [{ ...EMAIL_ROW, acceptedForEva: false, imageRoleCode: 'unknown' }]),
+      ctx,
+    );
+
+    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0 });
+    const insertIdx = sqls.findIndex((sql) => /INSERT INTO evidence/i.test(sql));
+    // Email INSERT params 16..19 are the four decision-source columns.
+    expect(params[insertIdx].slice(15, 19)).toEqual([null, null, null, null]);
+  });
+
+  it('does not overwrite readiness fields on an existing row when decisionSource is omitted', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(sql)) {
+        return [{
+          id: 'ev-1',
+          box_file_id: '9900',
+          box_file_url: null,
+          storage_path: null,
+          source_message_id: 'box:file:9900',
+        }];
+      }
+      return [];
+    });
+
+    const res = await evidenceRoute(
+      req('case-1', [{
+        ...BOX_ROW,
+        imageRole: 'overview',
+        registrationVisible: true,
+        acceptedForEva: true,
+        excluded: false,
+      }]),
+      ctx,
+    );
+
+    expect(res.jsonBody).toEqual({ persisted: 0, updated: 0, merged: 0 });
+    expect(
+      sqls.some(
+        (sql) => /UPDATE evidence/i.test(sql) && /image_role_source|accepted_for_eva_source/.test(sql),
+      ),
+    ).toBe(false);
+    expect(sqls.some((sql) => /status_recompute_requested_generation/.test(sql))).toBe(false);
+  });
+});
+
 describe('TKT-133 (e) — a retry of the SAME identity is absorbed in the sha256 pass (PR52-F1)', () => {
   it('re-sending the same Box row with NEW metadata → no merge, no insert; metadata update keyed on the twin id', async () => {
     rowsFor.mockImplementation((sql: string) => {
@@ -252,11 +323,23 @@ describe('TKT-133 (e) — a retry of the SAME identity is absorbed in the sha256
       return [];
     });
     const res = await evidenceRoute(
-      req('case-1', [{ ...BOX_ROW, imageRole: 'overview', registrationVisible: true }]),
+      req('case-1', [{
+        ...BOX_ROW,
+        imageRole: 'overview',
+        registrationVisible: true,
+        acceptedForEva: true,
+        excluded: false,
+        decisionSource: 'classifier',
+      }]),
       ctx,
     );
     // Counted as an UPDATE (metadata enrichment), NOT a merge, NOT an insert.
-    expect(res.jsonBody).toEqual({ persisted: 0, updated: 1, merged: 0 });
+    expect(res.jsonBody).toEqual({
+      persisted: 0,
+      updated: 1,
+      merged: 0,
+      statusGeneration: 1,
+    });
     // The sha256 pass now `continue`s — the lane INSERT is never even issued.
     expect(sqls.some((s) => /INSERT INTO evidence/i.test(s))).toBe(false);
     // The metadata landed against the twin's REAL id (not the lane's source_message_id key),
@@ -286,11 +369,23 @@ describe('TKT-133 (e) — a retry of the SAME identity is absorbed in the sha256
       return [];
     });
     const res = await evidenceRoute(
-      req('case-1', [{ ...BOX_ROW, imageRole: 'overview', registrationVisible: true }]),
+      req('case-1', [{
+        ...BOX_ROW,
+        imageRole: 'overview',
+        registrationVisible: true,
+        acceptedForEva: true,
+        excluded: false,
+        decisionSource: 'classifier',
+      }]),
       ctx,
     );
     // Idempotent: no duplicate insert (the old bug), no merge; at most a metadata update.
-    expect(res.jsonBody).toEqual({ persisted: 0, updated: 1, merged: 0 });
+    expect(res.jsonBody).toEqual({
+      persisted: 0,
+      updated: 1,
+      merged: 0,
+      statusGeneration: 1,
+    });
     expect(sqls.some((s) => /INSERT INTO evidence/i.test(s))).toBe(false);
   });
 });

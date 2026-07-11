@@ -59,6 +59,8 @@ const classification = {
   imageRole: 'overview',
   registrationVisible: true,
   acceptedForEva: true,
+  excluded: false,
+  decisionSource: 'classifier',
   personReflection: false,
 };
 
@@ -69,6 +71,7 @@ beforeEach(() => {
   db.query.mockResolvedValue([]);
   db.tx.mockImplementation(async (fn: (q: typeof db.txQuery) => Promise<unknown>) => fn(db.txQuery));
   db.txQuery.mockImplementation(async (sql: string) => {
+    if (sql.startsWith('SELECT id FROM evidence')) return [{ id: 'ev-1' }];
     if (sql.startsWith('UPDATE evidence')) return [{ id: 'ev-1' }];
     if (sql.startsWith('UPDATE case_')) {
       return [{ status_recompute_requested_generation: '7' }];
@@ -93,20 +96,24 @@ describe('exact Box classification stamp', () => {
     expect(response.status).toBe(200);
     expect(response.jsonBody).toEqual({ updated: true, statusGeneration: 7 });
     expect(db.tx).toHaveBeenCalledTimes(1);
-    expect(db.txQuery).toHaveBeenCalledTimes(2);
+    expect(db.txQuery).toHaveBeenCalledTimes(4);
 
-    const updateSql = String(db.txQuery.mock.calls[0][0]);
-    expect(updateSql).toContain('image_role_code = $11');
-    expect(updateSql).toContain('registration_visible IS NULL');
-    expect(updateSql).toContain('excluded = false');
-    const requestSql = String(db.txQuery.mock.calls[1][0]);
+    const lockSql = String(db.txQuery.mock.calls[0][0]);
+    expect(lockSql).toContain('FOR UPDATE');
+    const updateSql = String(db.txQuery.mock.calls[1][0]);
+    expect(updateSql).toContain('image_role_source');
+    expect(updateSql).toContain("image_role_source = 'classifier'");
+    expect(updateSql).toContain('exclusion_decision_source');
+    const reflectionSql = String(db.txQuery.mock.calls[2][0]);
+    expect(reflectionSql).toContain('person_reflection');
+    const requestSql = String(db.txQuery.mock.calls[3][0]);
     expect(requestSql).toContain('status_recompute_requested_generation + 1');
   });
 
   it('treats a newer manual/classifier stamp as a benign stale no-op', async () => {
     db.txQuery.mockImplementation(async (sql: string) => {
-      if (sql.startsWith('UPDATE evidence')) return [];
       if (sql.startsWith('SELECT id FROM evidence')) return [{ id: 'ev-1' }];
+      if (sql.startsWith('UPDATE evidence')) return [];
       throw new Error(`unexpected SQL: ${sql}`);
     });
 
@@ -120,12 +127,11 @@ describe('exact Box classification stamp', () => {
     ).toBe(false);
   });
 
-  it('does not use the event-time route to clear an already-excluded row', async () => {
+  it('does not clear a staff-owned exclusion while allowing classifier-owned retries', async () => {
     db.txQuery.mockImplementation(async (sql: string) => {
-      // The compare-and-set finds no row because the live row has excluded=true;
-      // the identity probe still finds it and returns the benign stale outcome.
-      if (sql.startsWith('UPDATE evidence')) return [];
       if (sql.startsWith('SELECT id FROM evidence')) return [{ id: 'ev-excluded' }];
+      // Simulate the source-aware UPDATE changing nothing because staff owns the field.
+      if (sql.startsWith('UPDATE evidence')) return [];
       throw new Error(`unexpected SQL: ${sql}`);
     });
 
@@ -135,6 +141,10 @@ describe('exact Box classification stamp', () => {
     );
 
     expect(response.jsonBody).toEqual({ updated: false, stale: true });
+    const updateSql = String(db.txQuery.mock.calls[1][0]);
+    expect(updateSql).toContain(
+      "exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier'",
+    );
     expect(
       db.txQuery.mock.calls.some(([sql]) =>
         String(sql).includes('status_recompute_requested_generation + 1'),
@@ -165,8 +175,22 @@ describe('exact Box classification stamp', () => {
       }),
       ctx,
     );
-    const params = db.txQuery.mock.calls[0][1] as unknown[];
-    expect(params[4]).toBe(100000003);
+    const params = db.txQuery.mock.calls[1][1] as unknown[];
+    expect(params[3]).toBe(100000003);
+  });
+
+  it('requires an explicit include/exclude decision and classifier ownership', async () => {
+    const withoutExcluded = await stamp(
+      req({ id: 'ev-1', body: { ...classification, excluded: undefined } }),
+      ctx,
+    );
+    expect(withoutExcluded.status).toBe(400);
+    const withoutSource = await stamp(
+      req({ id: 'ev-1', body: { ...classification, decisionSource: undefined } }),
+      ctx,
+    );
+    expect(withoutSource.status).toBe(400);
+    expect(db.tx).not.toHaveBeenCalled();
   });
 });
 

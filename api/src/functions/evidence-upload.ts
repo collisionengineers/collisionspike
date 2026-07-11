@@ -13,10 +13,11 @@
 import { app, type HttpRequest, type InvocationContext } from '@azure/functions';
 import { createHash } from 'node:crypto';
 import { withRole } from '../lib/auth.js';
-import { query } from '../lib/db.js';
+import { query, tx } from '../lib/db.js';
 import { uploadEvidenceBytes } from '../lib/blob.js';
 import { classifyUpload } from '../lib/upload-validate.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
+import { requestStatusRecompute } from '../lib/status-recompute.js';
 
 const IMAGE_KIND_CODE = 100000000;
 const DOCUMENT_KIND_CODE = 100000002;
@@ -53,12 +54,19 @@ app.http('uploadCaseEvidence', {
         const sha256 = createHash('sha256').update(bytes).digest('hex');
         const { blobPath, size } = await uploadEvidenceBytes(caseId, file.name, bytes, file.type);
         const kindCode = check.kind === 'image' ? IMAGE_KIND_CODE : DOCUMENT_KIND_CODE;
-        await query(
-          `INSERT INTO evidence
-             (file_name, case_id, kind_code, sha256, content_type, size_bytes, storage_path, source_label)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 'assistant_upload')`,
-          [file.name, caseId, kindCode, sha256, file.type, size, blobPath],
-        );
+        await tx(async (q) => {
+          await q(
+            `INSERT INTO evidence
+               (file_name, case_id, kind_code, sha256, content_type, size_bytes, storage_path,
+                accepted_for_eva_source, exclusion_decision_source, source_label)
+             VALUES ($1, $2, $3, $4, $5, $6, $7,
+                     CASE WHEN $3 = $8 THEN 'staff' ELSE NULL END,
+                     CASE WHEN $3 = $8 THEN 'staff' ELSE NULL END,
+                     'assistant_upload')`,
+            [file.name, caseId, kindCode, sha256, file.type, size, blobPath, IMAGE_KIND_CODE],
+          );
+          if (kindCode === IMAGE_KIND_CODE) await requestStatusRecompute(q, caseId);
+        });
         added.push({ fileName: file.name });
       } catch (e) {
         ctx.error(`[evidence-upload] ${file.name}: ${e instanceof Error ? e.message : String(e)}`);

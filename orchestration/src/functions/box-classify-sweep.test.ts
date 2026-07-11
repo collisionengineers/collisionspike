@@ -182,10 +182,12 @@ describe('box-classify-sweep — (a) happy path', () => {
       imageRole: 'overview',
       registrationVisible: true,
       acceptedForEva: true,
+      excluded: false,
+      exclusionReason: null,
+      decisionSource: 'classifier',
       personReflection: false,
     });
     expect('sha256' in row).toBe(false);
-    expect('excluded' in row).toBe(false); // not-excluded stamps OMIT the column pair
 
     // Status re-evaluated once for the stamped case.
     expect(dataApiMock.evaluateStatus).toHaveBeenCalledTimes(1);
@@ -308,7 +310,7 @@ describe('box-classify-sweep — (e) per-provider ai_allowed opt-out', () => {
 });
 
 describe('box-classify-sweep — (f) TKT-064 policy rides verbatim', () => {
-  it("non-vehicle 'other' stamps role 'other' (API-coalesced to unknown) + not accepted", async () => {
+  it("high-confidence non-vehicle 'other' stamps a recoverable automatic exclusion", async () => {
     dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
     classifyImageMock.mockResolvedValue({
       role: 'other',
@@ -325,8 +327,14 @@ describe('box-classify-sweep — (f) TKT-064 policy rides verbatim', () => {
       string,
       Record<string, unknown>,
     ];
-    expect(row).toMatchObject({ imageRole: 'other', acceptedForEva: false, registrationVisible: false });
-    expect('excluded' in row).toBe(false);
+    expect(row).toMatchObject({
+      imageRole: 'other',
+      acceptedForEva: false,
+      registrationVisible: false,
+      excluded: true,
+      exclusionReason: 'This image may not show the vehicle',
+      decisionSource: 'classifier',
+    });
   });
 
   it('a person reflection stamps excluded + reason (the domain exclusion rule)', async () => {
@@ -350,7 +358,8 @@ describe('box-classify-sweep — (f) TKT-064 policy rides verbatim', () => {
       imageRole: 'damage_closeup',
       acceptedForEva: false,
       excluded: true,
-      exclusionReason: 'person reflection detected (auto-classified)',
+      exclusionReason: 'A person’s reflection may be visible',
+      decisionSource: 'classifier',
       personReflection: true,
     });
   });

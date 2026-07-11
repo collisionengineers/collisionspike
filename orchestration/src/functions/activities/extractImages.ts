@@ -145,10 +145,8 @@ df.app.activity('extractImages', {
         // registration flag (role stays `unknown` = pre-classifier behaviour). Both are
         // best-effort on a raster image — never block intake.
         //
-        // TKT-089 (reopen): this is the EXTRACTION lane, so the mapping runs with
-        // `nonVehicleExcluded` — a crop the classifier reads as non-vehicle "other"
-        // (letterhead logo / provider badge the engine's shape floor let through)
-        // persists `excluded: true` (+ domain reason) BEFORE the persist call, so the
+        // TKT-089: a high-confidence non-vehicle result with no readable registration
+        // persists `excluded: true` (+ a plain-language reason) BEFORE the persist call, so the
         // boxArchiveEvidence step that follows this activity in every orchestrator lane
         // never sees it mirror-eligible (the archive-evidence route also filters
         // `excluded`). A classify failure (null) keeps today's fail-open path: the row
@@ -168,7 +166,7 @@ df.app.activity('extractImages', {
             caseVrm: input.caseVrm,
           });
           if (cls) {
-            const f = classificationToEvidenceFields(cls, input.caseVrm, { nonVehicleExcluded: true });
+            const f = classificationToEvidenceFields(cls, input.caseVrm);
             imageRole = f.imageRole;
             registrationVisible = f.registrationVisible;
             acceptedForEva = f.acceptedForEva;
@@ -208,7 +206,8 @@ df.app.activity('extractImages', {
           ...(imageRole ? { imageRole } : { imageRoleCode: 'unknown' }),
           acceptedForEva,
           ...(registrationVisible !== undefined ? { registrationVisible } : {}),
-          ...(excluded ? { excluded: true, exclusionReason } : {}),
+          ...(classified ? { excluded, exclusionReason: exclusionReason ?? null } : {}),
+          ...(classified ? { decisionSource: 'classifier' as const } : {}),
           ...(personReflection !== undefined ? { personReflection } : {}),
           sha256: img.sha256,
           sequenceIndex: img.sequence_index,

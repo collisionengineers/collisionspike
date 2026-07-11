@@ -13,11 +13,14 @@
  */
 
 import { app, type HttpRequest, type InvocationContext } from '@azure/functions';
+import type { ImageRole } from '@cs/domain';
+import { evidenceKindCodec, imageRoleCodec } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
-import { query } from '../lib/db.js';
+import { query, tx } from '../lib/db.js';
 import { resolveBytesForRow, type EvidenceByteRow } from '../lib/evidence-bytes.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import { rowToEvidence, type Row } from '../lib/mappers.js';
+import { requestStatusRecompute } from '../lib/status-recompute.js';
 
 // GET /api/evidence/{id}/content
 app.http('evidenceContent', {
@@ -57,15 +60,12 @@ app.http('evidenceContent', {
 });
 
 /* ============================================================
-   PATCH /api/evidence/{id}  — reviewer dismisses the reflection warning (TKT-123).
+   PATCH /api/evidence/{id} — durable staff review of one image.
 
-   The vision classifier stamps `person_reflection` on an image at intake; the SPA
-   shows a plain-English warning badge and the reviewer may dismiss it. The
-   dismissal must PERSIST across reloads, so it lands here as a small durable
-   PATCH: body { reflectionDismissed: boolean } (true dismisses, false restores).
-   Returns the updated Evidence row in the imagesForCase read shape. The flag is
-   ADVISORY only — it never touches excluded/accepted (exclusion stays a separate
-   staff decision).
+   Every supplied field is a human decision and receives staff ownership. Fields
+   omitted from the request are preserved. A vehicle-role accept may recover a
+   classifier-owned non-vehicle false positive, but never a reflection/provider/
+   cleanup/legacy exclusion. The existing reflection-dismiss body remains compatible.
    ============================================================ */
 app.http('patchEvidence', {
   methods: ['PATCH'],
@@ -74,33 +74,192 @@ app.http('patchEvidence', {
   handler: withRole('CollisionSpike.User', async (req: HttpRequest, _ctx: InvocationContext, claims) => {
     const id = req.params.id;
     if (!id) return { status: 400, jsonBody: { error: 'evidence id required' } };
-    const body = (await req.json().catch(() => ({}))) as { reflectionDismissed?: unknown };
-    if (typeof body.reflectionDismissed !== 'boolean') {
-      return { status: 400, jsonBody: { error: 'reflectionDismissed (boolean) is required' } };
+    const body = (await req.json().catch(() => ({}))) as {
+      imageRole?: unknown;
+      registrationVisible?: unknown;
+      acceptedForEva?: unknown;
+      excluded?: unknown;
+      exclusionReason?: unknown;
+      reflectionDismissed?: unknown;
+    };
+    const supplied = (key: keyof typeof body): boolean =>
+      Object.prototype.hasOwnProperty.call(body, key);
+    const supported = [
+      'imageRole',
+      'registrationVisible',
+      'acceptedForEva',
+      'excluded',
+      'reflectionDismissed',
+    ] as const;
+    if (!supported.some(supplied)) {
+      return { status: 400, jsonBody: { error: 'at least one review field is required' } };
+    }
+    if (supplied('imageRole') && typeof body.imageRole !== 'string') {
+      return { status: 400, jsonBody: { error: 'imageRole is not recognised' } };
+    }
+    const roleCode = supplied('imageRole')
+      ? imageRoleCodec.toInt(body.imageRole as ImageRole)
+      : undefined;
+    if (supplied('imageRole') && roleCode == null) {
+      return { status: 400, jsonBody: { error: 'imageRole is not recognised' } };
+    }
+    for (const key of ['registrationVisible', 'acceptedForEva', 'excluded', 'reflectionDismissed'] as const) {
+      if (supplied(key) && typeof body[key] !== 'boolean') {
+        return { status: 400, jsonBody: { error: `${key} must be boolean` } };
+      }
+    }
+    if (supplied('exclusionReason') && !supplied('excluded')) {
+      return { status: 400, jsonBody: { error: 'exclusionReason requires excluded' } };
+    }
+    if (
+      supplied('exclusionReason') &&
+      body.exclusionReason !== null &&
+      typeof body.exclusionReason !== 'string'
+    ) {
+      return { status: 400, jsonBody: { error: 'exclusionReason must be text or null' } };
+    }
+    if (typeof body.exclusionReason === 'string' && body.exclusionReason.trim().length > 400) {
+      return { status: 400, jsonBody: { error: 'exclusionReason must be 400 characters or fewer' } };
     }
 
-    const rows = await query<Row>(
-      `UPDATE evidence
-          SET reflection_dismissed = $2, updated_at = now()
-        WHERE id = $1
-        RETURNING *`,
-      [id, body.reflectionDismissed],
-    );
-    const updated = rows[0];
-    if (!updated) return { status: 404, jsonBody: { error: 'not found' } };
+    const imageKind = evidenceKindCodec.toInt('image') ?? 100000000;
+    const result = await tx(async (q) => {
+      const currentRows = await q<Row>(
+        'SELECT * FROM evidence WHERE id = $1 AND kind_code = $2 FOR UPDATE',
+        [id, imageKind],
+      );
+      const current = currentRows[0];
+      if (!current) return undefined;
 
-    // Classification-family audit: a human overrode/acknowledged a classifier flag.
+      let nextRole = current.image_role_code as number;
+      let nextRoleSource = current.image_role_source as string | null;
+      let nextRegistration = current.registration_visible as boolean | null;
+      let nextRegistrationSource = current.registration_visible_source as string | null;
+      let nextAccepted = current.accepted_for_eva as boolean;
+      let nextAcceptedSource = current.accepted_for_eva_source as string | null;
+      let nextExcluded = current.excluded === true;
+      let nextReason = (current.exclusion_reason as string | null) ?? null;
+      let nextExclusionSource = current.exclusion_decision_source as string | null;
+      let nextReflectionDismissed = current.reflection_dismissed === true;
+
+      if (roleCode != null) {
+        nextRole = roleCode;
+        nextRoleSource = 'staff';
+      }
+      if (typeof body.registrationVisible === 'boolean') {
+        nextRegistration = body.registrationVisible;
+        nextRegistrationSource = 'staff';
+      }
+      if (typeof body.acceptedForEva === 'boolean') {
+        nextAccepted = body.acceptedForEva;
+        nextAcceptedSource = 'staff';
+      }
+
+      // Choosing a usable vehicle role is an explicit staff recovery decision. It may
+      // clear only an automatic non-vehicle exclusion; reflection/protected decisions stand.
+      const usableRole =
+        body.imageRole === 'overview' ||
+        body.imageRole === 'damage_closeup' ||
+        body.imageRole === 'additional';
+      if (
+        usableRole &&
+        body.acceptedForEva === true &&
+        current.person_reflection !== true &&
+        (nextExclusionSource == null || nextExclusionSource === 'classifier')
+      ) {
+        nextExcluded = false;
+        nextReason = null;
+        nextExclusionSource = 'staff';
+      }
+
+      if (typeof body.excluded === 'boolean') {
+        nextExcluded = body.excluded;
+        nextReason = body.excluded
+          ? (typeof body.exclusionReason === 'string' ? body.exclusionReason.trim() : '') ||
+            'Excluded by reviewer'
+          : null;
+        nextExclusionSource = 'staff';
+      }
+      if (typeof body.reflectionDismissed === 'boolean') {
+        nextReflectionDismissed = body.reflectionDismissed;
+      }
+
+      const readinessChanged =
+        nextRole !== current.image_role_code ||
+        nextRegistration !== current.registration_visible ||
+        nextAccepted !== current.accepted_for_eva ||
+        nextExcluded !== current.excluded;
+      const changed =
+        readinessChanged ||
+        nextReason !== current.exclusion_reason ||
+        nextRoleSource !== current.image_role_source ||
+        nextRegistrationSource !== current.registration_visible_source ||
+        nextAcceptedSource !== current.accepted_for_eva_source ||
+        nextExclusionSource !== current.exclusion_decision_source ||
+        nextReflectionDismissed !== current.reflection_dismissed;
+
+      if (!changed) return { current, updated: current, readinessChanged: false, changed: false };
+      const rows = await q<Row>(
+        `UPDATE evidence
+            SET image_role_code = $2,
+                image_role_source = $3,
+                registration_visible = $4,
+                registration_visible_source = $5,
+                accepted_for_eva = $6,
+                accepted_for_eva_source = $7,
+                excluded = $8,
+                exclusion_reason = $9,
+                exclusion_decision_source = $10,
+                reflection_dismissed = $11,
+                updated_at = now()
+          WHERE id = $1 AND kind_code = $12
+          RETURNING *`,
+        [
+          id,
+          nextRole,
+          nextRoleSource,
+          nextRegistration,
+          nextRegistrationSource,
+          nextAccepted,
+          nextAcceptedSource,
+          nextExcluded,
+          nextReason,
+          nextExclusionSource,
+          nextReflectionDismissed,
+          imageKind,
+        ],
+      );
+      if (!rows[0]) return undefined;
+      if (readinessChanged) await requestStatusRecompute(q, String(current.case_id));
+      return { current, updated: rows[0], readinessChanged, changed: true };
+    });
+    if (!result) return { status: 404, jsonBody: { error: 'not found' } };
+    if (!result.changed) return { status: 200, jsonBody: rowToEvidence(result.updated) };
+
+    // Classification-family audit: a human overrode/acknowledged an image decision.
     const actor = actorFromClaims(claims);
     await writeAudit({
       action: AUDIT_ACTION.attachment_classified,
-      ...(updated.case_id ? { caseId: updated.case_id } : {}),
-      summary: body.reflectionDismissed
-        ? `Reflection warning dismissed on ${updated.file_name ?? id}`
-        : `Reflection warning restored on ${updated.file_name ?? id}`,
-      after: { evidenceId: id, reflectionDismissed: body.reflectionDismissed },
+      ...(result.updated.case_id ? { caseId: result.updated.case_id } : {}),
+      summary: `Photo review updated for ${result.updated.file_name ?? id}`,
+      before: {
+        imageRole: result.current.image_role_code,
+        registrationVisible: result.current.registration_visible,
+        acceptedForEva: result.current.accepted_for_eva,
+        excluded: result.current.excluded,
+        reflectionDismissed: result.current.reflection_dismissed,
+      },
+      after: {
+        evidenceId: id,
+        imageRole: result.updated.image_role_code,
+        registrationVisible: result.updated.registration_visible,
+        acceptedForEva: result.updated.accepted_for_eva,
+        excluded: result.updated.excluded,
+        reflectionDismissed: result.updated.reflection_dismissed,
+      },
       ...(actor ? { actor } : {}),
     });
 
-    return { status: 200, jsonBody: rowToEvidence(updated) };
+    return { status: 200, jsonBody: rowToEvidence(result.updated) };
   }),
 });

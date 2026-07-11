@@ -41,7 +41,7 @@ import {
 import { evidenceKindCodec, imageRoleCodec } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { gates } from '../lib/gates.js';
-import { query } from '../lib/db.js';
+import { query, tx, type TxQuery } from '../lib/db.js';
 import { callSuggestionModel, type DraftSuggestion } from '../lib/aoai-suggestions.js';
 import { buildGenerateInputs } from '../lib/generate-inputs.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
@@ -67,9 +67,11 @@ import { markOutstandingChasersResponded } from './internal.js';
 // terminal-failure fallback.
 import { enqueueEvidenceBackfill } from '../lib/evidence-backfill-queue.js';
 import { writeEvidenceBackfillNote } from '../lib/evidence-backfill-note.js';
+import { requestStatusRecompute } from '../lib/status-recompute.js';
 
 /** image_role 'unknown' code — the FILL-IF-EMPTY sentinel for evidence.image_role_code. */
 const IMAGE_ROLE_UNKNOWN = 100000003;
+const IMAGE_KIND = 100000000;
 
 // GET /api/cases/{id}/ai-suggestions — pending first, then recent. Honest-empty on any
 // read failure (the ai_suggestion table may be unwired on an older DB), so the SPA panel
@@ -136,6 +138,79 @@ app.http('reviewAiSuggestion', {
       return { status: 200, jsonBody: result };
     }
 
+    // Readiness-affecting photo decisions are atomic: pending->accepted, evidence
+    // promotion/ownership, and durable status work either all commit or all roll back.
+    // A transient evidence write can therefore be retried; it can never leave a permanently
+    // accepted suggestion whose promotion did not happen.
+    if (
+      decision === 'accepted' &&
+      (row.suggestion_type === 'image_role' || row.suggestion_type === 'registration')
+    ) {
+      const atomic = await tx(async (q) => {
+        const locked = await q<Row>(
+          `SELECT id, case_id, evidence_id, inbound_email_id, suggestion_type,
+                  suggested_value, review_state
+             FROM ai_suggestion
+            WHERE id = $1
+            FOR UPDATE`,
+          [id],
+        );
+        const current = locked[0];
+        if (!current) return { kind: 'missing' as const };
+        if (current.review_state !== 'pending') {
+          return { kind: 'reviewed' as const, row: current };
+        }
+        const promotion = await promoteAcceptedSuggestion(current, actor, q);
+        const reviewed = await q<Row>(
+          `UPDATE ai_suggestion
+              SET review_state = 'accepted', reviewed_by = $2, reviewed_at = now()
+            WHERE id = $1 AND review_state = 'pending'
+          RETURNING id, review_state`,
+          [id, actor ?? null],
+        );
+        if (!reviewed[0]) throw new Error('suggestion review race after row lock');
+        return { kind: 'accepted' as const, row: current, promotion };
+      });
+
+      if (atomic.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
+      if (atomic.kind === 'reviewed') {
+        const result: AiSuggestionReviewResult = {
+          id,
+          reviewState: atomic.row.review_state,
+          promoted: false,
+        };
+        return { status: 200, jsonBody: result };
+      }
+
+      await writeAudit({
+        action: AUDIT_ACTION.ai_suggestion_accepted,
+        ...(atomic.row.case_id ? { caseId: atomic.row.case_id as string } : {}),
+        summary: `AI suggestion ${atomic.row.suggestion_type} accepted${
+          atomic.promotion.promoted ? ` (promoted -> ${atomic.promotion.promotedField})` : ''
+        }`,
+        before: { reviewState: 'pending' },
+        after: {
+          reviewState: 'accepted',
+          suggestionId: id,
+          suggestionType: atomic.row.suggestion_type,
+          ...(atomic.promotion.promoted
+            ? { promotedField: atomic.promotion.promotedField }
+            : {}),
+        },
+        ...(actor ? { actor } : {}),
+      });
+
+      const result: AiSuggestionReviewResult = {
+        id,
+        reviewState: 'accepted',
+        promoted: atomic.promotion.promoted,
+        ...(atomic.promotion.promotedField
+          ? { promotedField: atomic.promotion.promotedField }
+          : {}),
+      };
+      return { status: 200, jsonBody: result };
+    }
+
     // Write the decision — guarded on review_state='pending' so concurrent reviews don't race.
     const updated = await query<Row>(
       `UPDATE ai_suggestion
@@ -193,7 +268,9 @@ app.http('reviewAiSuggestion', {
  * guarded so it NEVER overwrites a value already set (by a human OR another path). Kinds
  * without a promotion branch here (inspection_address) are accepted WITHOUT
  * auto-promotion — a follow-up reviewer applies them (kept deliberately conservative for
- * the MVP). Best-effort: a promote failure must not undo the recorded acceptance. `actor`
+ * the MVP). Image role/registration accepts pass a transaction query and MUST throw on
+ * promotion failure so the pending review remains retryable; the older non-readiness
+ * branches retain their best-effort behaviour. `actor`
  * (Entra oid/upn) is threaded through so the DEDICATED audit rows this function writes
  * (rules-engine-v2 Phase 2's 'case_link' branch; Phase 4's 'triage_category' branch) carry
  * the same identity as the outer ai_suggestion_accepted/rejected audit in
@@ -202,6 +279,7 @@ app.http('reviewAiSuggestion', {
 async function promoteAcceptedSuggestion(
   row: Row,
   actor?: string,
+  q: TxQuery = query,
 ): Promise<{ promoted: boolean; promotedField?: string }> {
   const evidenceId = row.evidence_id as string | null;
   const inboundEmailId = row.inbound_email_id as string | null;
@@ -210,25 +288,63 @@ async function promoteAcceptedSuggestion(
     if (row.suggestion_type === 'image_role' && evidenceId) {
       const role = (value as { role?: string } | null)?.role;
       const code = role ? imageRoleCodec.toInt(role as ImageRole) : undefined;
-      if (code != null) {
+      if (code != null && role !== 'unknown') {
         // FILL-IF-EMPTY: only set the role when it is still 'unknown'.
-        const upd = await query<Row>(
-          `UPDATE evidence SET image_role_code = $2, updated_at = now()
-             WHERE id = $1 AND image_role_code = $3 RETURNING id`,
-          [evidenceId, code, IMAGE_ROLE_UNKNOWN],
+        const upd = await q<Row>(
+          `UPDATE evidence
+              SET image_role_code = $2,
+                  image_role_source = 'staff',
+                  accepted_for_eva = true,
+                  accepted_for_eva_source = 'staff',
+                  excluded = CASE
+                    WHEN (exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')
+                         AND NOT person_reflection
+                      THEN false
+                    ELSE excluded
+                  END,
+                  exclusion_reason = CASE
+                    WHEN (exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')
+                         AND NOT person_reflection
+                      THEN NULL
+                    ELSE exclusion_reason
+                  END,
+                  exclusion_decision_source = CASE
+                    WHEN (exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')
+                         AND NOT person_reflection
+                      THEN 'staff'
+                    ELSE exclusion_decision_source
+                  END,
+                  updated_at = now()
+            WHERE id = $1
+              AND kind_code = $4
+              AND image_role_code = $3
+          RETURNING id, case_id`,
+          [evidenceId, code, IMAGE_ROLE_UNKNOWN, IMAGE_KIND],
         );
-        if (upd[0]) return { promoted: true, promotedField: 'evidence.image_role_code' };
+        if (upd[0]) {
+          await requestStatusRecompute(q, String(upd[0].case_id));
+          return { promoted: true, promotedField: 'evidence.image_role_code' };
+        }
       }
     } else if (row.suggestion_type === 'registration' && evidenceId) {
       const visible = (value as { visible?: boolean } | null)?.visible;
       if (typeof visible === 'boolean') {
         // FILL-IF-EMPTY: registration_visible is tri-state; only set it when still NULL.
-        const upd = await query<Row>(
-          `UPDATE evidence SET registration_visible = $2, updated_at = now()
-             WHERE id = $1 AND registration_visible IS NULL RETURNING id`,
-          [evidenceId, visible],
+        const upd = await q<Row>(
+          `UPDATE evidence
+              SET registration_visible = $2,
+                  registration_visible_source = 'staff',
+                  updated_at = now()
+            WHERE id = $1
+              AND kind_code = $3
+              AND registration_visible IS NULL
+          RETURNING id, case_id`,
+          [evidenceId, visible, IMAGE_KIND],
         );
-        if (upd[0]) return { promoted: true, promotedField: 'evidence.registration_visible' };
+        if (upd[0]) {
+          await requestStatusRecompute(q, String(upd[0].case_id));
+          return { promoted: true, promotedField: 'evidence.registration_visible' };
+        }
       }
     } else if (row.suggestion_type === 'case_link' && inboundEmailId) {
       // rules-engine-v2 Phase 2 (ADR-0019 suggest-first ladder): accept is the ONLY moment a
@@ -412,8 +528,14 @@ async function promoteAcceptedSuggestion(
       // already validated them at write time), the row vanished, or classifier_mode is
       // already 'human' — never overwrite a human decision. promoted stays false either way.
     }
-  } catch {
-    /* promotion is supplementary — the acceptance already stands */
+  } catch (e) {
+    if (
+      q !== query &&
+      (row.suggestion_type === 'image_role' || row.suggestion_type === 'registration')
+    ) {
+      throw e;
+    }
+    /* non-readiness promotion is supplementary — the acceptance already stands */
   }
   return { promoted: false };
 }

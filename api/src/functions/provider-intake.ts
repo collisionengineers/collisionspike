@@ -93,9 +93,10 @@ async function persistEvidence(
       await query(
         `INSERT INTO evidence
            (file_name, case_id, kind_code, image_role_code, registration_visible,
-            accepted_for_eva, excluded, exclusion_reason, sequence_index, sha256,
+            image_role_source, accepted_for_eva, accepted_for_eva_source,
+            excluded, exclusion_reason, exclusion_decision_source, sequence_index, sha256,
             content_type, size_bytes, storage_path, source_label)
-         VALUES ($1,$2,$3,$4,NULL,$5,$6,$7,$8,$9,$10,$11,$12,'provider_api')`,
+         VALUES ($1,$2,$3,$4,NULL,'provider',$5,'provider',$6,$7,'provider',$8,$9,$10,$11,$12,'provider_api')`,
         [
           img.filename,
           caseId,

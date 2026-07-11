@@ -105,13 +105,12 @@ df.app.activity('classifyPersist', {
             r.imageRole = f.imageRole;
             r.registrationVisible = f.registrationVisible;
             r.acceptedForEva = f.acceptedForEva;
+            r.excluded = f.excluded;
+            r.exclusionReason = f.exclusionReason ?? null;
+            r.decisionSource = 'classifier';
             // TKT-123: stamp the advisory reflection flag (dismissible SPA warning);
             // exclusion behaviour below is unchanged.
             r.personReflection = f.personReflection;
-            if (f.excluded) {
-              r.excluded = true;
-              r.exclusionReason = f.exclusionReason;
-            }
           }
         } catch (e) {
           ctx.log(JSON.stringify({ evt: 'classifyPersist.imageClassifyFailed', caseId, file: r.filename, err: e instanceof Error ? e.message : String(e) }));

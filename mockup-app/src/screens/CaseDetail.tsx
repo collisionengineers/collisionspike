@@ -143,6 +143,7 @@ import { AiAssistPanel } from '../components/AiAssistPanel';
 // DataAccessExt: the SPA-side seam with the work-todo-spike additive methods
 // (removeCase). The base DataAccess in '@cs/domain' stays the frozen server contract.
 import type { DataAccessExt } from '../data/rest-client';
+import { persistEvidenceReview } from './evidence-review';
 
 /* ============================================================
    CaseDetail — the core review screen.
@@ -552,14 +553,30 @@ function checklistTarget(item: ChecklistItem, c: Case): { tab: TabName; fieldKey
 interface EvidenceCardProps {
   ev: Evidence;
   onRole: (id: string, role: ImageRole) => void;
+  onRegistrationVisible: (id: string, visible: boolean) => void;
+  onAcceptedForEva: (id: string, accepted: boolean) => void;
   onExclude: (id: string, excluded: boolean) => void;
   /** TKT-123: dismiss the person-reflection warning (persists via the seam). */
   onDismissReflection: (id: string) => void;
   /** True while this card's dismissal is being saved. */
   dismissingReflection?: boolean;
+  /** True while a role/registration/EVA-use/include decision is being saved. */
+  saving?: boolean;
+  /** Plain-language failure for this card's last save attempt. */
+  saveError?: string;
 }
 
-function EvidenceCard({ ev, onRole, onExclude, onDismissReflection, dismissingReflection }: EvidenceCardProps) {
+function EvidenceCard({
+  ev,
+  onRole,
+  onRegistrationVisible,
+  onAcceptedForEva,
+  onExclude,
+  onDismissReflection,
+  dismissingReflection,
+  saving,
+  saveError,
+}: EvidenceCardProps) {
   const styles = useStyles();
   // Real inline preview (TKT-048): fetch the bytes WITH the bearer -> blob: URL for <img>
   // (an <img src> can't carry the token, and CSP allows blob:). Falls back to the coloured
@@ -595,7 +612,7 @@ function EvidenceCard({ ev, onRole, onExclude, onDismissReflection, dismissingRe
             onError={() => setImgUrl(undefined)}
           />
         ) : ev.excluded ? (
-          'EXCLUDED'
+          'Excluded'
         ) : ev.imageRole === 'overview' ? (
           'OVERVIEW'
         ) : (
@@ -607,6 +624,7 @@ function EvidenceCard({ ev, onRole, onExclude, onDismissReflection, dismissingRe
         <Field label="Role" size="small">
           <Dropdown
             size="small"
+            disabled={saving}
             value={ROLE_OPTIONS.find((r) => r.value === ev.imageRole)?.label ?? 'Unclassified'}
             selectedOptions={[ev.imageRole]}
             onOptionSelect={(_, d) => d.optionValue && onRole(ev.id, d.optionValue as ImageRole)}
@@ -618,21 +636,14 @@ function EvidenceCard({ ev, onRole, onExclude, onDismissReflection, dismissingRe
             ))}
           </Dropdown>
         </Field>
-        <div className={styles.thumbRowBetween}>
-          <Tooltip
-            content={ev.registrationVisible ? 'Registration is visible' : 'Registration not visible'}
-            relationship="label"
-          >
-            <Badge
-              appearance={ev.registrationVisible ? 'filled' : 'outline'}
-              color={ev.registrationVisible ? 'success' : 'subtle'}
-              size="small"
-              shape="rounded"
-            >
-              {ev.registrationVisible ? 'Reg ✓' : 'No reg'}
-            </Badge>
-          </Tooltip>
-        </div>
+        {ev.reviewRequired && !ev.personReflection && (
+          <div className={styles.reflectionWarning} role="status">
+            <AlertTriangle size={14} strokeWidth={2} aria-hidden />
+            <span className={styles.reflectionWarningText}>
+              Check this photo. It was left out because it may not show the vehicle.
+            </span>
+          </div>
+        )}
         {/* TKT-123: the classifier's reflection observation renders as a
             DISMISSIBLE plain-English warning — advisory only; excluding the
             photo stays the reviewer's decision via the switch below. */}
@@ -653,10 +664,29 @@ function EvidenceCard({ ev, onRole, onExclude, onDismissReflection, dismissingRe
           </div>
         )}
         <Switch
+          checked={ev.registrationVisible}
+          disabled={saving}
+          label="Registration visible"
+          onChange={(_, d) => onRegistrationVisible(ev.id, d.checked)}
+        />
+        <Switch
+          checked={ev.acceptedForEva}
+          disabled={saving || !!ev.excluded}
+          label="Use for EVA"
+          onChange={(_, d) => onAcceptedForEva(ev.id, d.checked)}
+        />
+        <Switch
           checked={!!ev.excluded}
+          disabled={saving}
           label="Exclude"
           onChange={(_, d) => onExclude(ev.id, d.checked)}
         />
+        {saving && <Spinner size="tiny" label="Saving…" labelPosition="after" />}
+        {saveError && (
+          <Caption1 className={styles.reflectionWarningText} role="alert">
+            {saveError}
+          </Caption1>
+        )}
         {ev.boxFileUrl && (
           // `inline` = rest-state underline: with links demoted to ink, a
           // text-adjacent link needs the underline to read as a link at rest.
@@ -956,11 +986,11 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   // legacy row (.eml/PDF marked image-adjacent) must never reach the photo grid or
   // the EVA photo orderer — non-image artifacts belong to the Documents list.
   const imageEvidence = useMemo(() => images.filter((e) => e.kind === 'image'), [images]);
-  // Mirror image edits into the working copy's evidence so readiness recomputes.
+  // Mirror server-confirmed image edits into the working copy so readiness recomputes.
   const [imgState, setImgState] = useState<Evidence[]>(imageEvidence);
   // Adopt fresh server truth whenever the fetched image set changes (first load can
-  // land AFTER mount; onRefreshImages refetches after an AI promotion). Local
-  // role/exclude toggles are working-copy only, so server truth wins on refresh.
+  // land after mount; onRefreshImages refetches after an AI promotion). Server truth
+  // also wins on refresh after any outside change.
   useEffect(() => {
     setImgState(imageEvidence);
   }, [imageEvidence]);
@@ -1448,28 +1478,63 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     imgState,
   ]);
 
-  const onRole = (id: string, role: ImageRole) =>
-    setImgState((prev) => prev.map((e) => (e.id === id ? { ...e, imageRole: role } : e)));
+  // TKT-089: role/registration/EVA-use/include changes are durable server mutations.
+  // The working copy changes only after the server confirms; failures keep the prior row.
+  const [savingEvidence, setSavingEvidence] = useState<ReadonlySet<string>>(new Set());
+  const savingEvidenceRef = useRef<Set<string>>(new Set());
+  const [evidenceSaveErrors, setEvidenceSaveErrors] = useState<Readonly<Record<string, string>>>({});
 
-  // TKT-123: the exclusion reason is no longer hard-coded to person-reflection —
-  // a manual exclude is neutral ("Excluded by reviewer") unless the vision flag
-  // is present on the image (then the reflection IS the stated reason).
-  const onExclude = (id: string, excluded: boolean) =>
-    setImgState((prev) =>
-      prev.map((e) =>
-        e.id === id
-          ? {
-              ...e,
-              excluded,
-              exclusionReason: excluded
-                ? e.personReflection
-                  ? 'Person reflection visible'
-                  : 'Excluded by reviewer'
-                : undefined,
-            }
-          : e,
-      ),
-    );
+  const saveEvidenceReview = async (
+    id: string,
+    input: Parameters<DataAccessExt['updateEvidenceReview']>[1],
+  ) => {
+    if (savingEvidenceRef.current.has(id)) return;
+    savingEvidenceRef.current.add(id);
+    setSavingEvidence(new Set(savingEvidenceRef.current));
+    setEvidenceSaveErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    const outcome = await persistEvidenceReview(id, input, data.updateEvidenceReview);
+    if (outcome.updated) {
+      setImgState((prev) => prev.map((e) => (e.id === id ? outcome.updated! : e)));
+    } else {
+      setEvidenceSaveErrors((prev) => ({
+        ...prev,
+        [id]: outcome.error ?? 'Couldn’t save this photo. Try again.',
+      }));
+    }
+    savingEvidenceRef.current.delete(id);
+    setSavingEvidence(new Set(savingEvidenceRef.current));
+  };
+
+  const imageById = (id: string): Evidence | undefined => imgState.find((e) => e.id === id);
+  const onRole = (id: string, role: ImageRole) => {
+    const image = imageById(id);
+    void saveEvidenceReview(id, {
+      imageRole: role,
+      acceptedForEva: role !== 'unknown' && !image?.personReflection,
+    });
+  };
+  const onRegistrationVisible = (id: string, visible: boolean) =>
+    void saveEvidenceReview(id, { registrationVisible: visible });
+  const onAcceptedForEva = (id: string, accepted: boolean) =>
+    void saveEvidenceReview(id, { acceptedForEva: accepted });
+  const onExclude = (id: string, excluded: boolean) => {
+    const image = imageById(id);
+    void saveEvidenceReview(id, {
+      excluded,
+      acceptedForEva: excluded ? false : image?.imageRole !== 'unknown',
+      ...(excluded
+        ? {
+            exclusionReason: image?.personReflection
+              ? 'Person reflection visible'
+              : 'Excluded by reviewer',
+          }
+        : {}),
+    });
+  };
 
   /* TKT-123: dismiss the reflection warning — persists via the seam (PATCH), so
      the dismissal survives a reload. The card's flag flips only after the server
@@ -2165,9 +2230,13 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                             key={ev.id}
                             ev={ev}
                             onRole={onRole}
+                            onRegistrationVisible={onRegistrationVisible}
+                            onAcceptedForEva={onAcceptedForEva}
                             onExclude={onExclude}
                             onDismissReflection={(id) => void onDismissReflection(id)}
                             dismissingReflection={dismissingReflection.has(ev.id)}
+                            saving={savingEvidence.has(ev.id)}
+                            saveError={evidenceSaveErrors[ev.id]}
                           />
                         ))}
                       </div>

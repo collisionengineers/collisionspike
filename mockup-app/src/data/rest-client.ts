@@ -158,6 +158,16 @@ export interface EvidenceUploadResult {
   status: number;
 }
 
+/** Partial, durable staff review of one image. Omitted fields are preserved. */
+export interface EvidenceReviewInput {
+  imageRole?: Evidence['imageRole'];
+  registrationVisible?: boolean;
+  acceptedForEva?: boolean;
+  excluded?: boolean;
+  exclusionReason?: string | null;
+  reflectionDismissed?: boolean;
+}
+
 export const EMPTY_SEARCH: GlobalSearchResults = {
   query: '',
   tooShort: false,
@@ -258,6 +268,8 @@ export interface DataAccessExt extends DataAccess {
    *  the updated Evidence row. Throws on non-2xx — a dismissal that didn't persist
    *  must never look dismissed. */
   setReflectionDismissed(evidenceId: string, dismissed: boolean): Promise<Evidence>;
+  /** Persist role, registration, EVA-use, and include/exclude decisions. */
+  updateEvidenceReview(evidenceId: string, input: EvidenceReviewInput): Promise<Evidence>;
 
   /* ----- Inbound suggestion affordance — ref-gate (rules-engine-v2 Phase 2) -----
      Distinct from `aiSuggestions` above (case-scoped): keyed by the INBOUND EMAIL
@@ -656,6 +668,8 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       call<Evidence>('PATCH', `/api/evidence/${enc(evidenceId)}`, {
         reflectionDismissed: dismissed,
       }),
+    updateEvidenceReview: (evidenceId, input) =>
+      call<Evidence>('PATCH', `/api/evidence/${enc(evidenceId)}`, input),
 
     /* ----- Inbound suggestions — ref-gate affordance (rules-engine-v2 Phase 2) ----- */
     inboundSuggestions: (id) =>

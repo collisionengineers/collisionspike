@@ -108,6 +108,7 @@ import { hasColumn, planOptionalColumns, tableColumns } from '../lib/schema-intr
 import { acquireTriageLocks } from '../lib/triage-locks.js';
 import { clampVarchar, vrmOrEmpty } from '../lib/varchar-guard.js';
 import { vrmLinkRefConflict } from '../lib/link-guards.js';
+import { requestStatusRecompute } from '../lib/status-recompute.js';
 
 /* ============================================================
    Service auth — validate the JWT (sig + iss + aud + exp) without
@@ -2527,11 +2528,12 @@ app.http('internalInboundAttention', {
  * image-extraction worker enrich an attachment that intake created without it). Only the
  * fields the caller actually supplied are written (so an intake row's defaults are never
  * clobbered). excluded + exclusion_reason move together (the schema CHECK requires a reason
- * when excluded). Best-effort: a failure is logged + swallowed so one bad row never sinks the
- * batch. Returns the number of rows updated. `whereClause` keys on $1..$N from `whereVals`.
+ * when excluded). A database failure escapes so the surrounding evidence/status transaction
+ * rolls back and the durable caller can retry. Returns the number of rows updated.
+ * `whereClause` keys on $1..$N from `whereVals`.
  */
 async function applyEvidenceMetadata(
-  ctx: InvocationContext,
+  _ctx: InvocationContext,
   whereClause: string,
   whereVals: unknown[],
   row: {
@@ -2540,7 +2542,8 @@ async function applyEvidenceMetadata(
     registrationVisible?: boolean;
     acceptedForEva?: boolean;
     excluded?: boolean;
-    exclusionReason?: string;
+    exclusionReason?: string | null;
+    decisionSource?: 'classifier';
     personReflection?: boolean;
     sha256?: string;
     sequenceIndex?: number;
@@ -2554,38 +2557,95 @@ async function applyEvidenceMetadata(
     sequenceIndex: number | null;
   },
   q: TxQuery = query,
-): Promise<number> {
-  const sets: string[] = [];
-  const vals: unknown[] = [...whereVals];
-  const push = (col: string, v: unknown): void => {
-    vals.push(v);
-    sets.push(`${col} = $${vals.length}`);
+): Promise<{ updated: number; readinessChanged: boolean }> {
+  const changedIds = new Set<string>();
+  let readinessChanged = false;
+
+  // Autonomous image decisions are compare-and-set per field. A classifier may fill
+  // an unowned field or revise its own result, but never overwrite staff/provider/
+  // cleanup/legacy ownership. An omitted decisionSource is deliberately NOT granted
+  // classifier authority during a rolling deployment.
+  const ownedSets: string[] = [];
+  const ownedChanges: string[] = [];
+  const ownedVals: unknown[] = [...whereVals];
+  const pushOwned = (column: string, sourceColumn: string, value: unknown): void => {
+    ownedVals.push(value);
+    const p = `$${ownedVals.length}`;
+    const allowed = `(${sourceColumn} IS NULL OR ${sourceColumn} = 'classifier')`;
+    ownedSets.push(
+      `${column} = CASE WHEN ${allowed} THEN ${p} ELSE ${column} END`,
+      `${sourceColumn} = CASE WHEN ${allowed} THEN 'classifier' ELSE ${sourceColumn} END`,
+    );
+    ownedChanges.push(
+      `(${allowed} AND (${column} IS DISTINCT FROM ${p} OR ${sourceColumn} IS DISTINCT FROM 'classifier'))`,
+    );
   };
 
-  if (row.imageRoleCode != null || row.imageRole != null) push('image_role_code', computed.imageRoleCode);
-  if (typeof row.registrationVisible === 'boolean') push('registration_visible', computed.registrationVisible);
-  if (typeof row.acceptedForEva === 'boolean') push('accepted_for_eva', row.acceptedForEva);
-  if (typeof row.personReflection === 'boolean') push('person_reflection', row.personReflection);
-  if (row.excluded != null) {
-    push('excluded', computed.excluded);
-    push('exclusion_reason', computed.exclusionReason); // CHECK-safe: non-empty when excluded
-  } else if (typeof row.exclusionReason === 'string' && row.exclusionReason.trim()) {
-    push('exclusion_reason', row.exclusionReason.trim());
+  if (row.decisionSource === 'classifier' && (row.imageRoleCode != null || row.imageRole != null)) {
+    pushOwned('image_role_code', 'image_role_source', computed.imageRoleCode);
   }
-  if (row.sha256 != null) push('sha256', computed.sha256);
-  if (row.sequenceIndex != null) push('sequence_index', computed.sequenceIndex);
-
-  if (sets.length === 0) return 0;
-  try {
-    const res = await q<{ id: string }>(
-      `UPDATE evidence SET ${sets.join(', ')}, updated_at = now() WHERE ${whereClause} RETURNING id`,
-      vals,
+  if (row.decisionSource === 'classifier' && typeof row.registrationVisible === 'boolean') {
+    pushOwned('registration_visible', 'registration_visible_source', computed.registrationVisible);
+  }
+  if (row.decisionSource === 'classifier' && typeof row.acceptedForEva === 'boolean') {
+    pushOwned('accepted_for_eva', 'accepted_for_eva_source', row.acceptedForEva);
+  }
+  if (row.decisionSource === 'classifier' && row.excluded != null) {
+    ownedVals.push(computed.excluded, computed.exclusionReason);
+    const excludedP = `$${ownedVals.length - 1}`;
+    const reasonP = `$${ownedVals.length}`;
+    const allowed = `(exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')`;
+    ownedSets.push(
+      `excluded = CASE WHEN ${allowed} THEN ${excludedP} ELSE excluded END`,
+      `exclusion_reason = CASE WHEN ${allowed} THEN ${reasonP} ELSE exclusion_reason END`,
+      `exclusion_decision_source = CASE WHEN ${allowed} THEN 'classifier' ELSE exclusion_decision_source END`,
     );
-    return res.length;
-  } catch (e) {
-    ctx.error(e);
-    return 0;
+    ownedChanges.push(
+      `(${allowed} AND (excluded IS DISTINCT FROM ${excludedP} OR exclusion_reason IS DISTINCT FROM ${reasonP} OR exclusion_decision_source IS DISTINCT FROM 'classifier'))`,
+    );
   }
+
+  if (ownedSets.length > 0) {
+    const res = await q<{ id: string }>(
+      `UPDATE evidence
+            SET ${ownedSets.join(', ')}, updated_at = now()
+          WHERE ${whereClause}
+            AND (${ownedChanges.join(' OR ')})
+          RETURNING id`,
+      ownedVals,
+    );
+    for (const item of res) changedIds.add(item.id);
+    readinessChanged = res.length > 0;
+  }
+
+  const simpleSets: string[] = [];
+  const simpleChanges: string[] = [];
+  const simpleVals: unknown[] = [...whereVals];
+  const pushSimple = (column: string, value: unknown): void => {
+    simpleVals.push(value);
+    const p = `$${simpleVals.length}`;
+    simpleSets.push(`${column} = ${p}`);
+    simpleChanges.push(`${column} IS DISTINCT FROM ${p}`);
+  };
+  if (typeof row.personReflection === 'boolean') pushSimple('person_reflection', row.personReflection);
+  if (row.excluded == null && typeof row.exclusionReason === 'string' && row.exclusionReason.trim()) {
+    pushSimple('exclusion_reason', row.exclusionReason.trim());
+  }
+  if (row.sha256 != null) pushSimple('sha256', computed.sha256);
+  if (row.sequenceIndex != null) pushSimple('sequence_index', computed.sequenceIndex);
+
+  if (simpleSets.length > 0) {
+    const res = await q<{ id: string }>(
+      `UPDATE evidence
+            SET ${simpleSets.join(', ')}, updated_at = now()
+          WHERE ${whereClause}
+            AND (${simpleChanges.join(' OR ')})
+          RETURNING id`,
+      simpleVals,
+    );
+    for (const item of res) changedIds.add(item.id);
+  }
+  return { updated: changedIds.size, readinessChanged };
 }
 
 /* ============================================================
@@ -2645,7 +2705,10 @@ app.http('internalCasesEvidence', {
             imageRoleCode?: number;
             registrationVisible?: boolean;
             excluded?: boolean;
-            exclusionReason?: string;
+            exclusionReason?: string | null;
+            /** Autonomous evidence decisions are owned by the classifier. Omitted is
+             *  accepted temporarily so orchestration and API can roll independently. */
+            decisionSource?: 'classifier';
             /** TKT-123: the vision classifier saw a person's reflection (advisory flag). */
             personReflection?: boolean;
             sha256?: string;
@@ -2653,14 +2716,23 @@ app.http('internalCasesEvidence', {
           }
         >;
       };
+      if (
+        !Array.isArray(body.rows) ||
+        body.rows.some(
+          (row) => row.decisionSource != null && row.decisionSource !== 'classifier',
+        )
+      ) {
+        return { status: 400, jsonBody: { error: 'unsupported evidence decision source' } };
+      }
 
       const persistRows = async (
         q: TxQuery,
         persistCaseId: string,
-      ): Promise<{ persisted: number; updated: number; merged: number }> => {
+      ): Promise<{ persisted: number; updated: number; merged: number; statusGeneration?: number }> => {
       let persisted = 0;
       let updated = 0;
       let merged = 0; // TKT-133: sha256 content twins linked onto an existing row instead of inserted
+      let readinessChanged = false;
       for (const row of body.rows ?? []) {
         // TKT-124 kind guard: the box-webhook historically hardcoded
         // evidenceClass='image' for EVERY FILE.UPLOADED row, so PDFs/.doc/.eml/
@@ -2705,11 +2777,19 @@ app.http('internalCasesEvidence', {
           row.imageRoleCode != null ||
           row.imageRole != null ||
           typeof row.registrationVisible === 'boolean' ||
+          typeof row.acceptedForEva === 'boolean' ||
           row.excluded != null ||
           row.exclusionReason != null ||
           row.personReflection != null ||
           row.sha256 != null ||
           row.sequenceIndex != null;
+        const hasReadinessMetadata =
+          row.imageRoleCode != null ||
+          row.imageRole != null ||
+          typeof row.registrationVisible === 'boolean' ||
+          typeof row.acceptedForEva === 'boolean' ||
+          typeof row.excluded === 'boolean';
+        const decisionSource = row.decisionSource === 'classifier' ? 'classifier' : null;
 
         const sourceMessageId = (row.sourceMessageId ?? '').trim() || null;
         const boxFileId = (row.boxFileId ?? '').trim() || null;
@@ -2753,6 +2833,7 @@ app.http('internalCasesEvidence', {
               row.imageRoleCode != null ||
               row.imageRole != null ||
               typeof row.registrationVisible === 'boolean' ||
+              typeof row.acceptedForEva === 'boolean' ||
               row.excluded != null ||
               row.exclusionReason != null ||
               row.personReflection != null ||
@@ -2781,7 +2862,7 @@ app.http('internalCasesEvidence', {
                 );
               }
               if (hasMergeMetadata) {
-                await applyEvidenceMetadata(ctx, 'id = $1', [ex.id], row, {
+                const applied = await applyEvidenceMetadata(ctx, 'id = $1', [ex.id], row, {
                   imageRoleCode,
                   registrationVisible,
                   excluded,
@@ -2789,6 +2870,8 @@ app.http('internalCasesEvidence', {
                   sha256,
                   sequenceIndex,
                 }, q);
+                updated += applied.updated;
+                readinessChanged ||= applied.readinessChanged;
               }
               merged++;
               continue; // never insert a same-case content twin (cross-lane mirror)
@@ -2797,7 +2880,7 @@ app.http('internalCasesEvidence', {
             // exists on this case. Absorb any new metadata in place and stop — do NOT fall
             // through to the lane INSERT (whose single-column NOT EXISTS can miss a merged row).
             if (hasMergeMetadata) {
-              updated += await applyEvidenceMetadata(ctx, 'id = $1', [ex.id], row, {
+              const applied = await applyEvidenceMetadata(ctx, 'id = $1', [ex.id], row, {
                 imageRoleCode,
                 registrationVisible,
                 excluded,
@@ -2805,6 +2888,8 @@ app.http('internalCasesEvidence', {
                 sha256,
                 sequenceIndex,
               }, q);
+              updated += applied.updated;
+              readinessChanged ||= applied.readinessChanged;
             }
             continue; // idempotent: the identical row already exists on this case
           }
@@ -2821,10 +2906,12 @@ app.http('internalCasesEvidence', {
             `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes,
                 source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label,
-                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index)
-             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index,
+                image_role_source, registration_visible_source, accepted_for_eva_source, exclusion_decision_source)
+             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+                    $18, $19, $20, $21
              WHERE NOT EXISTS (
-               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $18
+               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $22
              )
              RETURNING id`,
             [
@@ -2845,13 +2932,17 @@ app.http('internalCasesEvidence', {
               personReflection,
               sha256,
               sequenceIndex,
+              row.imageRoleCode != null || row.imageRole != null ? decisionSource : null,
+              typeof row.registrationVisible === 'boolean' ? decisionSource : null,
+              typeof row.acceptedForEva === 'boolean' ? decisionSource : null,
+              typeof row.excluded === 'boolean' ? decisionSource : null,
               dedupVal,
             ],
           );
           inserted = result.length > 0;
           // Existing Box row + new metadata (e.g. OCR ran after the upload) -> update in place.
           if (!inserted && hasMetadata) {
-            updated += await applyEvidenceMetadata(
+            const applied = await applyEvidenceMetadata(
               ctx,
               `case_id = $1 AND ${dedupCol} = $2`,
               [persistCaseId, dedupVal],
@@ -2859,6 +2950,8 @@ app.http('internalCasesEvidence', {
               { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
               q,
             );
+            updated += applied.updated;
+            readinessChanged ||= applied.readinessChanged;
           }
         } else {
           // Email/orchestration: idempotent on (case_id, storage_path).
@@ -2867,8 +2960,10 @@ app.http('internalCasesEvidence', {
             `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label,
                 accepted_for_eva,
-                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index)
-             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake', $7, $8, $9, $10, $11, $12, $13, $14
+                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index,
+                image_role_source, registration_visible_source, accepted_for_eva_source, exclusion_decision_source)
+             SELECT $1, $2, $3, $4, $5, $6::text, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+                    $16, $17, $18, $19
              WHERE NOT EXISTS (
                SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6::text
              )
@@ -2880,6 +2975,7 @@ app.http('internalCasesEvidence', {
               row.contentType || null,
               row.size ?? null,
               row.blobPath ?? null,
+              (row.sourceLabel ?? '').trim() || 'auto-intake',
               acceptedForEva,
               imageRoleCode,
               registrationVisible,
@@ -2888,13 +2984,17 @@ app.http('internalCasesEvidence', {
               personReflection,
               sha256,
               sequenceIndex,
+              row.imageRoleCode != null || row.imageRole != null ? decisionSource : null,
+              typeof row.registrationVisible === 'boolean' ? decisionSource : null,
+              typeof row.acceptedForEva === 'boolean' ? decisionSource : null,
+              typeof row.excluded === 'boolean' ? decisionSource : null,
             ],
           );
           inserted = result.length > 0;
           // Existing intake row + new image metadata -> update it in place (the seam that
           // lets the image-extraction worker enrich an already-persisted attachment).
           if (!inserted && hasMetadata && row.blobPath) {
-            updated += await applyEvidenceMetadata(
+            const applied = await applyEvidenceMetadata(
               ctx,
               'case_id = $1 AND storage_path = $2::text',
               [persistCaseId, row.blobPath],
@@ -2902,12 +3002,30 @@ app.http('internalCasesEvidence', {
               { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
               q,
             );
+            updated += applied.updated;
+            readinessChanged ||= applied.readinessChanged;
           }
         }
-        if (inserted) persisted++;
+        if (inserted) {
+          persisted++;
+          if (
+            suppliedClass === 'image' &&
+            hasReadinessMetadata &&
+            row.decisionSource === 'classifier'
+          ) readinessChanged = true;
+        }
       }
 
-      return { persisted, updated, merged };
+      const statusGeneration = readinessChanged
+        ? await requestStatusRecompute(q, persistCaseId)
+        : undefined;
+
+      return {
+        persisted,
+        updated,
+        merged,
+        ...(statusGeneration == null ? {} : { statusGeneration }),
+      };
       };
 
       const expectedInboundEmailId = typeof body.expectedInboundEmailId === 'string'
@@ -2930,7 +3048,7 @@ app.http('internalCasesEvidence', {
           jsonBody: { ...guarded.value, targetCaseId: guarded.targetCaseId },
         };
       }
-      return { status: 200, jsonBody: await persistRows(query, caseId) };
+      return { status: 200, jsonBody: await tx((q) => persistRows(q, caseId)) };
     }),
 });
 
@@ -3500,7 +3618,8 @@ app.http('internalEvidenceBoxClassification', {
         registrationVisible?: boolean;
         acceptedForEva?: boolean;
         excluded?: boolean;
-        exclusionReason?: string;
+        exclusionReason?: string | null;
+        decisionSource?: 'classifier';
         personReflection?: boolean;
       };
       const caseId = (body.caseId ?? '').trim();
@@ -3514,7 +3633,9 @@ app.http('internalEvidenceBoxClassification', {
       if (
         typeof body.registrationVisible !== 'boolean' ||
         typeof body.acceptedForEva !== 'boolean' ||
-        typeof body.personReflection !== 'boolean'
+        typeof body.excluded !== 'boolean' ||
+        typeof body.personReflection !== 'boolean' ||
+        body.decisionSource !== 'classifier'
       ) {
         return { status: 400, jsonBody: { error: 'classification booleans are required' } };
       }
@@ -3537,64 +3658,50 @@ app.http('internalEvidenceBoxClassification', {
         : null;
 
       const result = await tx(async (q) => {
-        const stamped = await q<{ id: string }>(
-          `UPDATE evidence
-              SET image_role_code = $5,
-                  registration_visible = $6,
-                  accepted_for_eva = $7,
-                  excluded = $8,
-                  exclusion_reason = $9,
-                  person_reflection = $10,
-                  updated_at = now()
+        // Lock the identity first. The source-aware metadata helper may revise an
+        // autonomous result (including excluded -> included) but independently
+        // preserves every staff/provider/cleanup/legacy-owned field.
+        const current = await q<{ id: string }>(
+          `SELECT id FROM evidence
             WHERE id = $1
               AND case_id = $2
               AND box_file_id = $3
               AND kind_code = $4
               AND source_label LIKE 'box_upload%'
-              AND image_role_code = $11
-              AND registration_visible IS NULL
-              AND excluded = false
-            RETURNING id`,
-          [
-            evidenceId,
-            caseId,
-            boxFileId,
-            imageKind,
+            FOR UPDATE`,
+          [evidenceId, caseId, boxFileId, imageKind],
+        );
+        if (!current[0]) return { kind: 'missing' as const };
+
+        const applied = await applyEvidenceMetadata(
+          ctx,
+          'id = $1 AND case_id = $2 AND box_file_id = $3',
+          [evidenceId, caseId, boxFileId],
+          {
+            imageRole: body.imageRole,
+            registrationVisible: body.registrationVisible!,
+            acceptedForEva: body.acceptedForEva!,
+            excluded: body.excluded!,
+            exclusionReason,
+            decisionSource: 'classifier',
+            personReflection: body.personReflection!,
+          },
+          {
             imageRoleCode,
-            body.registrationVisible,
-            body.acceptedForEva,
+            registrationVisible: body.registrationVisible!,
             excluded,
             exclusionReason,
-            body.personReflection,
-            unknownRole,
-          ],
+            sha256: null,
+            sequenceIndex: null,
+          },
+          q,
         );
-        if (!stamped[0]) {
-          // A delayed sweep must not overwrite a newer manual/classifier stamp or
-          // re-open an excluded row. Distinguish that benign race from a bad identity.
-          const current = await q<{ id: string }>(
-            `SELECT id FROM evidence
-              WHERE id = $1
-                AND case_id = $2
-                AND box_file_id = $3`,
-            [evidenceId, caseId, boxFileId],
-          );
-          return current[0] ? { kind: 'stale' as const } : { kind: 'missing' as const };
-        }
+        if (applied.updated === 0) return { kind: 'stale' as const };
 
-        const requested = await q<{ status_recompute_requested_generation: string | number }>(
-          `UPDATE case_
-              SET status_recompute_requested_generation = status_recompute_requested_generation + 1,
-                  status_recompute_requested_at = now()
-            WHERE id = $1
-            RETURNING status_recompute_requested_generation`,
-          [caseId],
-        );
-        if (!requested[0]) throw new Error('classification target case disappeared');
-        return {
-          kind: 'updated' as const,
-          generation: Number(requested[0].status_recompute_requested_generation),
-        };
+        const generation = applied.readinessChanged
+          ? await requestStatusRecompute(q, caseId)
+          : null;
+        return { kind: 'updated' as const, generation };
       });
 
       if (result.kind === 'missing') {
@@ -3605,7 +3712,10 @@ app.http('internalEvidenceBoxClassification', {
       }
       return {
         status: 200,
-        jsonBody: { updated: true, statusGeneration: result.generation },
+        jsonBody: {
+          updated: true,
+          ...(result.generation == null ? {} : { statusGeneration: result.generation }),
+        },
       };
     }),
 });

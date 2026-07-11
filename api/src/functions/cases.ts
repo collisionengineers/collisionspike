@@ -1073,13 +1073,10 @@ app.http('imagesForCase', {
   handler: withRole('CollisionSpike.User', async (req) => {
     const id = req.params.id;
     const rows = await query<Row>(
-      // Person-reflection photos are auto-excluded from EVA (domain rule: a visible reflection
-      // makes the photo unusable — acceptedForEva stays false), but they MUST still surface in
-      // the case-detail REVIEW list so the TKT-123 dismissible warning + Exclude control are
-      // reachable and staff can override a false-positive detection. They carry acceptedForEva
-      // = false, so EVA export / photo-ordering / readiness (all keyed on acceptedForEva) are
-      // unaffected. Non-reflection excluded rows stay hidden as before. (PR48-B2)
-      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded <> true OR person_reflection = true) ORDER BY sequence_index NULLS LAST, created_at",
+      // Automatic exclusions stay visible in the REVIEW list so staff can recover a false
+      // positive. Staff/provider/cleanup/legacy exclusions stay hidden. Every returned excluded
+      // row remains acceptedForEva=false and therefore cannot affect readiness/order/export.
+      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded = false OR exclusion_decision_source = 'classifier' OR person_reflection = true) ORDER BY sequence_index NULLS LAST, created_at",
       [id],
     );
     return { status: 200, jsonBody: rows.map(rowToEvidence) };

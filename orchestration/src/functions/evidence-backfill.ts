@@ -293,11 +293,10 @@ app.storageQueue('evidence-backfill', {
               r.imageRole = f.imageRole;
               r.registrationVisible = f.registrationVisible;
               r.acceptedForEva = f.acceptedForEva;
+              r.excluded = f.excluded;
+              r.exclusionReason = f.exclusionReason ?? null;
+              r.decisionSource = 'classifier';
               r.personReflection = f.personReflection;
-              if (f.excluded) {
-                r.excluded = true;
-                r.exclusionReason = f.exclusionReason;
-              }
             }
           } catch (e) {
             ctx.log(

@@ -195,6 +195,40 @@ describe('rest-client — updateCase / editable VRM (issue #12)', () => {
   });
 });
 
+describe('rest-client — durable evidence review', () => {
+  it('PATCHes the exact partial review body and returns server truth', async () => {
+    const updated = {
+      id: 'ev-1',
+      fileName: 'photo.jpg',
+      kind: 'image',
+      imageRole: 'overview',
+      registrationVisible: true,
+      acceptedForEva: true,
+      excluded: false,
+      sourceLabel: 'auto-intake',
+    };
+    const fetchMock = vi.fn().mockResolvedValue(okJson(updated));
+    const da = clientWith(fetchMock);
+    const input = {
+      imageRole: 'overview' as const,
+      acceptedForEva: true,
+      excluded: false,
+      exclusionReason: null,
+    };
+
+    await expect(da.updateEvidenceReview('ev/1', input)).resolves.toEqual(updated);
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/evidence/ev%2F1');
+    expect(lastInit(fetchMock).method).toBe('PATCH');
+    expect(lastInit(fetchMock).body).toBe(JSON.stringify(input));
+  });
+
+  it('rejects a failed PATCH so the screen cannot display an unpersisted decision', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(503));
+    const da = clientWith(fetchMock);
+    await expect(da.updateEvidenceReview('ev-1', { excluded: true })).rejects.toThrow(/503/);
+  });
+});
+
 describe('rest-client — amalgamated dashboard + inbound view (work-todo-spike)', () => {
   const now = new Date('2026-06-29T10:00:00.000Z');
   const encoded = encodeURIComponent(now.toISOString());
