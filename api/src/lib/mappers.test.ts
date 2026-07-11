@@ -37,6 +37,13 @@ describe('mergedIntoFrom — the TKT-141 merge-retirement marker parse', () => {
     expect(mergedIntoFrom('{"candidates":["a","b"]}')).toBeUndefined();
     expect(mergedIntoFrom('{"mergedInto":"  "}')).toBeUndefined();
   });
+  it('accepts only a nonblank string marker (matching the guarded SQL migrations)', () => {
+    expect(mergedIntoFrom('{"mergedInto":123}')).toBeUndefined();
+    expect(mergedIntoFrom('{"mergedInto":true}')).toBeUndefined();
+    expect(mergedIntoFrom('{"mergedInto":null}')).toBeUndefined();
+    expect(mergedIntoFrom('{"mergedInto":{"id":"surv"}}')).toBeUndefined();
+    expect(mergedIntoFrom('{"mergedInto":["surv"]}')).toBeUndefined();
+  });
 });
 
 describe('rowToCase — mergedInto surfaced from duplicate_keys (TKT-141)', () => {

@@ -385,6 +385,7 @@ def to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:
                               warnings?}, ... },
           "vrm":            {value, confidence, source, warnings?} | None,
           "reference":      {value, confidence, source, warnings?} | None,
+          "vin":            {value, confidence, source, warnings?} | None,
           "audit":          {value: bool, signals: [...], source} (audit case-type),
           "case_type":      {value: str|None, dual: bool, signals, source}
                              (ADR-0021 — audit/audit_total_loss/diminution;
@@ -413,6 +414,9 @@ def to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:
 
     vrm = _to_field_cell(fields["vrm"]) if "vrm" in fields else None
     reference = _to_field_cell(fields["reference"]) if "reference" in fields else None
+    # VIN is an optional envelope-only identity field (TKT-147). Keep it beside
+    # vrm/reference and outside the settled 12-field EVA extraction.
+    vin = _to_field_cell(fields["vin"]) if "vin" in fields else None
 
     # Audit case-type signal — surfaced SEPARATELY (like vrm/reference), NEVER in
     # the 12-field EVA payload. Content-derived by the engine
@@ -456,6 +460,7 @@ def to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:
         "extraction": extraction,
         "vrm": vrm,
         "reference": reference,
+        "vin": vin,
         "audit": audit,
         "case_type": case_type,
         "content_typing": content_typing,

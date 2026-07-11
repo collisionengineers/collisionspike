@@ -29,6 +29,22 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-11 (TKT-089 recall — classifier-owned banner shapes):** re-cut from the sibling at
+**`engine-v2.16`** (branch `codex/tkt089-banner-recall`, commit `8dd4ba8` — **branch + annotated
+tag PUSHED to origin**). One file, `application/service.py`: removed the aspect-ratio/short-side
+decorative-image rule introduced at `engine-v2.11`. Raster geometry cannot distinguish a
+banner-shaped crop of a vehicle from letterhead furniture, so every raster at or above the existing
+40,000-pixel area floor is retained for downstream semantic classification; only genuinely tiny
+rasters remain parser-suppressed, and unknown dimensions remain retained. The email-lane filter in
+`orchestration/src/lib/image-sniff.ts` likewise removes its banner-shape rung while retaining its
+existing conservative fallback for formats whose dimensions cannot be read. Sibling focused suite:
+**19 passed**. Sibling full suite: **450 passed / 5 skipped / 5
+environmental legacy-DOC/eval failures** on this Windows runner (LibreOffice/antiword unavailable),
+with no image-extraction failures. The wrapper's focused parse/EML/image/EVA suite is **50 passed**;
+its full suite is **270 passed / 28 skipped / 1 pre-existing environmental legacy-DOC failure**
+(`ALS INSTRUCT 01.DOC` cannot recover its VRM on this runner). No taxonomy/DDL dependency;
+providers.json untouched. Byte-mirror restored and verified against all 35 tagged sibling blobs.
+
 **2026-07-10 (TKT-089 reopen — banner-aspect 3.2):** re-cut from the sibling at
 **`engine-v2.15`** (branch `feat/tkt043-open-case-ref-context`, commit `79efe22` — **branch +
 annotated tag PUSHED to origin**). One file, `application/service.py`: `_BANNER_ASPECT_RATIO`
@@ -63,10 +79,11 @@ label-driven per layout with deliberately NO document-wide fallback sniff (absen
 `normalize_vin` (`normalization/normalizers.py` + `__init__.py` export) uppercases/strips whitespace
 and blanks bare placeholder tokens (`-`, `N/A` — the Tractable no-VIN samples print `-`). **The EVA
 export is UNCHANGED:** `domain/models.py` adds `EVA_EXPORT_FIELD_ORDER` (= the settled EVA key set)
-and `exporters/eva_json.py` iterates IT, never `FIELD_ORDER`, so `vin` rides the record/`/parse`
-`fields` envelope (via `record_to_dict` — no adapter change needed) but can never reach the EVA JSON
-payload (`eva-json.schema.json` untouched, `additionalProperties: false` still enforced; sibling test
-pins a VIN-carrying record exports without one). Sibling fixtures: `TRACTABLE_01` re-pinned
+and `exporters/eva_json.py` iterates IT, never `FIELD_ORDER`, so `vin` rides the engine record's
+`fields` map and the Function wrapper surfaces it as a top-level `/parse` field cell, separate from
+the settled EVA extraction. It can never reach the EVA JSON payload (`eva-json.schema.json`
+untouched, `additionalProperties: false` still enforced; sibling and wrapper tests pin a VIN-carrying
+record exporting without one). Sibling fixtures: `TRACTABLE_01` re-pinned
 (vehicle_model "Volkswagen Touran" + vin present), NEW `TRACTABLE 02.pdf` (the TKT-102 evidence
 `tractable2.pdf`) pins the NO-VIN sample (vin `""` from the `-` placeholder). Sibling suite **451
 passed / 4 skipped** (439 → 451, +12 new); eval baseline deliberately regenerated via an ISOLATED
@@ -156,11 +173,11 @@ checked BEFORE `safe_filename`, whose own empty-input fallback is `"export"`), l
 `extractImages` activity prepends `<source-doc-stem>__`). The cloud wrapper passes
 `fields={}`, so every live extraction had been branded `RJS_UnknownVRM_…`. (2) **TKT-089
 banner heuristic** — `is_decorative` lifted to module-level `is_decorative_raster` and
-extended past the 200×200 area floor: an above-floor raster is decorative when aspect
-≥ 3.5:1 AND short side ≤ 240 px (wide letterhead banners ~900×180, tall sidebar strips —
-shapes no real phone/camera photo has; unknown dimensions stay always-kept). Mirrored by
-the email-lane filter in `orchestration/src/lib/image-sniff.ts` (same thresholds — keep in
-lockstep). No taxonomy/DDL dependency; no providers.json change. Sibling suite 396
+extended past the 200×200 area floor: an above-floor raster was treated as decorative when aspect
+≥ 3.5:1 AND short side ≤ 240 px (wide letterhead banners ~900×180, tall sidebar strips; unknown
+dimensions stayed kept). The email-lane filter in `orchestration/src/lib/image-sniff.ts` mirrored
+those thresholds. **Superseded by `engine-v2.16`:** banner-shaped candidates are now retained for
+semantic classification in both lanes. No taxonomy/DDL dependency; no providers.json change. Sibling suite 396
 passed / 4 skipped; new sibling tests `tests/test_extract_images.py` (13) ported to this
 repo's `functions/parser/tests/test_extract_images.py`. NOTE: downstream evidence rows key
 on `(case_id, storage_path)` and no code consumer parses the `_img_\d+_\d+` /
@@ -380,12 +397,14 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.15`** on branch
-  `feat/tkt043-open-case-ref-context`, commit **`79efe22`** (2026-07-10) — **branch + tag PUSHED to
-  origin**. The TKT-089-reopen banner-aspect retune (3.5 → 3.2; the 204×204 square-badge shape
-  deliberately stays engine-kept — classifier-owned). Changed vs `engine-v2.14`:
+- **Cut from:** annotated tag **`engine-v2.16`** on branch
+  `codex/tkt089-banner-recall`, commit **`8dd4ba8`** (2026-07-11) — **branch + tag PUSHED to
+  origin**. The TKT-089 recall removes the banner-aspect/short-side hard drop so every candidate at
+  or above the 40,000-pixel area floor reaches semantic classification. Changed vs `engine-v2.15`:
   `application/service.py` ONLY (no taxonomy/DDL dependency; providers.json untouched).
-  Prior pin: annotated tag **`engine-v2.14`**, commit **`2609b1a`** (2026-07-10) — the TKT-147
+  Prior pin: annotated tag **`engine-v2.15`**, commit **`79efe22`** (2026-07-10) — the now-superseded
+  banner-aspect retune (3.5 → 3.2). Prior pin: annotated tag **`engine-v2.14`**, commit **`2609b1a`**
+  (2026-07-10) — the TKT-147
   `two_label_join` rule kind (Tractable `Producer`+`Model` make+model capture)
   + `FieldKey.VIN` envelope-only field slot (`EVA_EXPORT_FIELD_ORDER` keeps the EVA export
   byte-stable), incl. a **deliberate providers.json seed update** (see History above). Changed vs
@@ -509,7 +528,7 @@ must stay off the cloud path (see "Omitted modules" above).
 Run from the repo root (`collisionspike/`), Git Bash / bash:
 
 ```bash
-REF=engine-v2.5   # the committed, tagged sibling ref you are cutting from
+REF=engine-v2.16  # the committed, tagged sibling ref you are cutting from
 S=../cedocumentmapper_v2.0   # sibling repo
 V=functions/parser/cedocumentmapper_v2
 

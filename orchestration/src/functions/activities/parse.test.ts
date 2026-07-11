@@ -110,10 +110,16 @@ describe('coalesceOcrIntoParse', () => {
   });
 
   it('preserves pass-through envelope fields untouched', () => {
-    const parsed = { ...emptyParse(), contract_version: 'cedocumentparser_v2.0_eva_json', issues: [{ code: 'x' }] };
+    const parsed = {
+      ...emptyParse(),
+      vin: { value: 'WVGZZZ1TZFW030347' },
+      contract_version: 'cedocumentparser_v2.0_eva_json',
+      issues: [{ code: 'x' }],
+    };
     const merged = coalesceOcrIntoParse(parsed, ocrResult({ extraction: { work_provider: { value: 'Y' } } }));
     expect(merged.contract_version).toBe('cedocumentparser_v2.0_eva_json');
     expect(merged.issues).toEqual([{ code: 'x' }]);
+    expect(merged.vin?.value).toBe('WVGZZZ1TZFW030347');
     expect(merged.extraction?.work_provider?.value).toBe('Y');
   });
 });

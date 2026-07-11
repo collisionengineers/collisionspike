@@ -10,9 +10,9 @@ import {
 } from './parser-client';
 import { EVA_FIELD_ORDER } from '@cs/domain';
 
-/* A CANNED live response captured from the cespike-parser-dev Function
-   (contract_version cedocumentparser_v2.0_eva_json) — keeps this test offline
-   while exercising the real wire shape (12 keys, vrm, reference, issues). */
+/* A representative parser response (contract_version
+   cedocumentparser_v2.0_eva_json) — keeps this test offline while exercising
+   the wire shape (12 keys plus separate identity fields). */
 const LIVE_SUCCESS: ParserResponse = {
   extraction: {
     work_provider: { value: 'UNKNOWN', confidence: null, source: 'pdf_extraction' },
@@ -30,6 +30,7 @@ const LIVE_SUCCESS: ParserResponse = {
   },
   vrm: { value: 'AB12CDE', confidence: 0.72, source: 'fallback_vrm_label' },
   reference: { value: '', confidence: null, source: 'pdf_extraction' },
+  vin: { value: 'WVGZZZ1TZFW030347', confidence: 0.99, source: 'tractable_vin' },
   issues: [],
   contract_version: 'cedocumentparser_v2.0_eva_json',
 };
@@ -38,6 +39,7 @@ const LIVE_FAILURE: ParserResponse = {
   extraction: null,
   vrm: null,
   reference: null,
+  vin: null,
   issues: [
     {
       field: '(request)',
@@ -95,6 +97,12 @@ describe('adaptParserResponse', () => {
     const r = adaptParserResponse(LIVE_SUCCESS);
     expect(r.vrm).toBe('AB12CDE');
     expect(r.reference).toBe('');
+  });
+  it('preserves VIN outside the 12 EVA fields', () => {
+    const r = adaptParserResponse(LIVE_SUCCESS);
+    expect(r.vin).toBe('WVGZZZ1TZFW030347');
+    expect(r.vinField?.source).toBe('tractable_vin');
+    expect('vin' in r.evaFields).toBe(false);
   });
   it('narrows the vat/mileage-unit enum-valued fields', () => {
     const r = adaptParserResponse(LIVE_SUCCESS);

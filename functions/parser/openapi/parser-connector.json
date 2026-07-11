@@ -131,7 +131,7 @@
     },
     "FieldCell": {
       "type": "object",
-      "description": "One EVA field value with provenance.",
+      "description": "One extracted field value with source details.",
       "properties": {
         "value": {
           "type": "string"
@@ -248,6 +248,10 @@
         "reference": {
           "$ref": "#/definitions/FieldCell",
           "description": "Case-identity (correlation/dedup). NOT part of the EVA payload."
+        },
+        "vin": {
+          "$ref": "#/definitions/FieldCell",
+          "description": "Vehicle identification number extracted from the document. Envelope-only; NOT part of the 12-field EVA payload."
         },
         "audit": {
           "$ref": "#/definitions/Audit",

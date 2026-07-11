@@ -72,8 +72,9 @@ ORDER BY s.created_at DESC;
   **no field-level writes into the case record** (deliberate suggest-first). If the operator
   intended automatic field population (e.g. mileage), that is unbuilt — explicit scope adjudication
   for the loop/operator.
-- VIN captured engine-side since v2.14 but not surfaced by `/parse` (no slot in the 12-field EVA
-  mapping) — TKT-147-family surface question, declared remainder.
+- VIN is captured engine-side since v2.14 and the repair build surfaces it as a top-level `/parse`
+  field cell, deliberately outside the 12-field EVA mapping. Live proof remains pending the parser
+  redeploy; no deployed-state claim is made here.
 - changes.md says flag detail `unmatched_images`; the code/DDL token is `images_no_match` — wording
   drift in changes.md only.
 

@@ -37,6 +37,7 @@ Response:
   },
   "vrm":       { "value": "AB12CDE", "confidence": 0.9, "source": "vrm_regex" },
   "reference": { "value": "DEMO-0001", "confidence": 0.88, "source": "ref_regex" },
+  "vin":       { "value": "WVGZZZ1TZFW030347", "confidence": 0.9, "source": "vin_label" },
   "audit":     { "value": false, "signals": [], "source": "instruction_text" },
   "issues":    [],
   "contract_version": "cedocumentparser_v2.0_eva_json"
@@ -46,9 +47,9 @@ Response:
 - The 12 `extraction` keys are always present, **in EVA contract order**, each a
   `{ value, confidence, source, warnings? }` cell. Fields the parser does not
   supply are present-but-empty with `source: "absent"`.
-- **`vrm` and `reference` are Case-identity** (for case-resolve/dedup, plan §5.3)
-  and are surfaced **separately** — they are intentionally **NOT** in the EVA
-  payload.
+- **`vrm`, `reference`, and optional `vin` are Case-identity fields** surfaced
+  **separately** — they are intentionally **NOT** in the EVA payload. VIN remains
+  absent/empty when the detected layout does not supply a labelled VIN.
 - **`audit`** is the audit case-type signal (`{ value: bool, signals: [...],
   source }`) — `true` when the instruction text marks a second, independent CE
   inspection auditing a third-party engineer's original report (content-derived;

@@ -51,8 +51,14 @@ CREATE TABLE IF NOT EXISTS backup_20260710_tkt141_reretire (
 INSERT INTO backup_20260710_tkt141_reretire (source, row_id, snapshot)
 SELECT 'case_', c.id, to_jsonb(c)
   FROM case_ c
- WHERE pg_input_is_valid(c.duplicate_keys, 'jsonb')
-   AND COALESCE(trim(c.duplicate_keys::jsonb ->> 'mergedInto'), '') <> ''
+ CROSS JOIN LATERAL (
+   SELECT CASE
+            WHEN pg_input_is_valid(c.duplicate_keys, 'jsonb')
+              THEN c.duplicate_keys::jsonb
+          END AS duplicate_json
+ ) parsed
+ WHERE jsonb_typeof(parsed.duplicate_json -> 'mergedInto') = 'string'
+   AND NULLIF(btrim(parsed.duplicate_json ->> 'mergedInto'), '') IS NOT NULL
    AND c.status_code <> 100000006
 ON CONFLICT (source, row_id) DO NOTHING;
 
@@ -62,8 +68,14 @@ ON CONFLICT (source, row_id) DO NOTHING;
 WITH pop AS (
   SELECT c.id, c.status_code AS before_code
     FROM case_ c
-   WHERE pg_input_is_valid(c.duplicate_keys, 'jsonb')
-     AND COALESCE(trim(c.duplicate_keys::jsonb ->> 'mergedInto'), '') <> ''
+   CROSS JOIN LATERAL (
+     SELECT CASE
+              WHEN pg_input_is_valid(c.duplicate_keys, 'jsonb')
+                THEN c.duplicate_keys::jsonb
+            END AS duplicate_json
+   ) parsed
+   WHERE jsonb_typeof(parsed.duplicate_json -> 'mergedInto') = 'string'
+     AND NULLIF(btrim(parsed.duplicate_json ->> 'mergedInto'), '') IS NOT NULL
      AND c.status_code <> 100000006
      AND c.status_code NOT IN (100000008, 100000009, 100000010, 100000011, 100000012)  -- terminals
 ),
@@ -92,18 +104,28 @@ COMMIT;
 
 -- POST-CHECK (expected):
 --   * un-retired population empty:
---       SELECT count(*) FROM case_
---        WHERE pg_input_is_valid(duplicate_keys,'jsonb')
---          AND COALESCE(trim(duplicate_keys::jsonb->>'mergedInto'),'') <> ''
+--       WITH parsed AS (
+--         SELECT c.*,
+--                CASE WHEN pg_input_is_valid(c.duplicate_keys,'jsonb')
+--                     THEN c.duplicate_keys::jsonb END AS duplicate_json
+--           FROM case_ c)
+--       SELECT count(*) FROM parsed
+--        WHERE jsonb_typeof(duplicate_json->'mergedInto') = 'string'
+--          AND NULLIF(btrim(duplicate_json->>'mergedInto'),'') IS NOT NULL
 --          AND status_code <> 100000006;                                   -- 0
 --   * openVrmTwins parity (TWIN_TERMINAL = 100000008/9/11/12; retired-merged
 --     excluded like the terminal set):
---       SELECT count(*) FROM case_
+--       WITH parsed AS (
+--         SELECT c.*,
+--                CASE WHEN pg_input_is_valid(c.duplicate_keys,'jsonb')
+--                     THEN c.duplicate_keys::jsonb END AS duplicate_json
+--           FROM case_ c)
+--       SELECT count(*) FROM parsed
 --        WHERE regexp_replace(upper(vrm),'[^A-Z0-9]','','g') = 'PK20FWT'
 --          AND status_code NOT IN (100000008,100000009,100000011,100000012)
 --          AND NOT (status_code = 100000006
---                   AND pg_input_is_valid(duplicate_keys,'jsonb')
---                   AND COALESCE(trim(duplicate_keys::jsonb->>'mergedInto'),'') <> '');  -- 1
+--                   AND jsonb_typeof(duplicate_json->'mergedInto') = 'string'
+--                   AND NULLIF(btrim(duplicate_json->>'mergedInto'),'') IS NOT NULL);  -- 1
 --     (repeat for YH13ZSN -- 1)
 --   * audits: SELECT count(*) FROM audit_event
 --       WHERE actor = 'delta:2026-07-10-tkt141-re-retire-merged';          -- = rows re-retired

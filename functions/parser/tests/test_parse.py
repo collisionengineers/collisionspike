@@ -152,6 +152,35 @@ def test_vrm_and_reference_are_surfaced_but_not_in_payload(monkeypatch):
     assert "inspection_date" not in data["extraction"]
 
 
+def test_vin_is_surfaced_separately_without_entering_eva_payload(monkeypatch):
+    record = _load_fixture("parser_record_complete.json")
+    record = {
+        **record,
+        "fields": {
+            **record["fields"],
+            "vin": {
+                "value": "WVGZZZ1TZFW030347",
+                "confidence": 0.99,
+                "rule_id": "tractable_vin",
+            },
+        },
+    }
+    monkeypatch.setattr(parser_adapter, "run_parser", lambda *a, **k: record)
+
+    resp = function_app.parse(_make_request(_valid_request_body()))
+    assert resp.status_code == 200
+    data = json.loads(resp.get_body())
+
+    assert data["vin"] == {
+        "value": "WVGZZZ1TZFW030347",
+        "confidence": 0.99,
+        "source": "tractable_vin",
+    }
+    assert list(data["extraction"].keys()) == list(EVA_FIELD_ORDER)
+    assert len(data["extraction"]) == 12
+    assert "vin" not in data["extraction"]
+
+
 # --------------------------------------------------------------------------- #
 # Bad input -> 400                                                            #
 # --------------------------------------------------------------------------- #
@@ -437,3 +466,4 @@ def test_error_envelope_carries_null_content_typing():
     assert resp.status_code == 400
     data = json.loads(resp.get_body())
     assert data["content_typing"] is None
+    assert data["vin"] is None
