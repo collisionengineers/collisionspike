@@ -4307,7 +4307,7 @@ app.http('internalEvidenceBoxClassification', {
           `UPDATE evidence
               SET box_classify_claim_token = NULL,
                   box_classify_claim_expires_at = NULL,
-                  box_classify_last_failure_code = $3,
+                  box_classify_last_failure_code = $3::text,
                   box_classify_next_attempt_at = CASE
                     WHEN $4::boolean THEN NULL
                     WHEN box_classify_attempt_count <= 1 THEN now() + interval '15 minutes'
