@@ -108,7 +108,10 @@ describe('rowToCase — truthful chase suggestion activity (TKT-148)', () => {
   });
 
   it('the queue query carries both legacy audit metadata and the schema marker', () => {
-    expect(CASE_SELECT_WITH_ACTIVITY).toContain(`ae.after @> '{"suggested": true}'::jsonb`);
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain(`pg_input_is_valid(ae.after, 'jsonb')`);
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain(
+      `THEN ae.after::jsonb @> '{"suggested": true}'::jsonb ELSE false END`,
+    );
     expect(CASE_SELECT_WITH_ACTIVITY).toContain('ch.suggested');
     expect(CASE_SELECT_WITH_ACTIVITY).toContain('last_activity_suggested');
   });

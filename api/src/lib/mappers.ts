@@ -101,7 +101,10 @@ export const CASE_SELECT_WITH_ACTIVITY =
   'ev.actor AS last_activity_actor, ev.action_code AS last_activity_action_code, ' +
   'ev.suggested AS last_activity_suggested FROM (' +
   "SELECT 'audit'::text AS kind, ae.occurred_at, ae.actor, ae.action_code, " +
-  "COALESCE(ae.after @> '{\"suggested\": true}'::jsonb, false) AS suggested " +
+  // audit_event.after is a legacy text memo, not jsonb. Guard the cast inside
+  // CASE so one arbitrary/non-JSON historical value cannot sink every queue read.
+  "COALESCE(CASE WHEN pg_input_is_valid(ae.after, 'jsonb') " +
+  "THEN ae.after::jsonb @> '{\"suggested\": true}'::jsonb ELSE false END, false) AS suggested " +
   'FROM audit_event ae WHERE ae.case_id = c.id ' +
   'UNION ALL ' +
   "SELECT 'note', COALESCE(n.occurred_at, n.created_at), n.author, NULL::integer, false FROM note n WHERE n.case_id = c.id " +
