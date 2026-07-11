@@ -217,6 +217,9 @@ describe('Box classification failure scheduling', () => {
       deadLettered: false,
     });
     const sql = String(db.query.mock.calls[0][0]);
+    // `$3` is also the text fallback inside COALESCE below. Pinning it to text at
+    // the varchar-column assignment prevents PostgreSQL 42P08 during parse.
+    expect(sql).toContain('box_classify_last_failure_code = $3::text');
     expect(sql).toContain("interval '15 minutes'");
     expect(sql).toContain("interval '1 hour'");
     expect(sql).toContain("interval '6 hours'");
