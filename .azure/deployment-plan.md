@@ -1,6 +1,6 @@
 # Azure deployment plan — PR 55 functional remediation
 
-> **Status:** Ready for Validation
+> **Status:** Validated
 
 Generated: 2026-07-11 (Europe/London)
 
@@ -139,9 +139,9 @@ unchanged on `main` when optional conversion tools are absent.
 
 ### Validation
 
-- [ ] Invoke `azure-validate` and run every check below.
-- [ ] Record commands/results in Validation proof.
-- [ ] Set plan status to `Validated` only after all checks pass.
+- [x] Invoke `azure-validate` and run every check below.
+- [x] Record commands/results in Validation proof.
+- [x] Set plan status to `Validated` only after all checks pass.
 
 ### Deployment
 
@@ -196,18 +196,27 @@ is planned.
 
 | Check | Command run | Result | Timestamp |
 |---|---|---|---|
+| Offline release gates | `node verify-all.mjs`; package test/build commands; parser and Archive-facade `pytest`; ticket/doc/skill checks | 8/8 aggregate gates; domain 1,102, API 578, SPA 410, orchestration 394, Archive facade 244; builds green. The sole legacy `.DOC` parser failure reproduces on `main`. | 2026-07-11 22:46 BST |
+| Deploy artifacts and database deltas | `node build-api.cjs`; `node build-orch.cjs`; bundle load/registration assertions; PostgreSQL 16 canonical-schema + ten-delta apply/replay | Both bundles load with required drains/monitors; production dependencies resolve; all deltas apply twice and the TKT-089 fixture passes. | 2026-07-11 22:46 BST |
+| Azure target and toolchain | `az account show`; Function/SWA/PostgreSQL resource reads; `az functionapp function list`; `func --version`; `psql --version`; SWA CLI `--version` | Correct enabled subscription and resource group; all target apps and PostgreSQL are healthy; WSL Azure CLI 2.87.0, Functions Core Tools 4.12.0, PostgreSQL client 16.14, SWA CLI 2.0.9. | 2026-07-11 22:46 BST |
+| Live database preconditions | Guarded transient-firewall connection with `psql -f .azure/validate-pr55.sql` | PostgreSQL 16 and canonical tables confirmed; all PR objects are absent as expected before migration; `case_po_floor` has zero rows; no reopened merged case; temporary firewall rule removed. | 2026-07-11 22:46 BST |
+| Identity, settings and external dependencies | App-setting/identity/RBAC reads; Key Vault secret inventories; live DB and Graph token calls; keyed read of Archive root | 14 Key Vault references configured; both vaults contain their required named objects; dependent DB and Graph calls succeed; Archive root read returns HTTP 200. Storage data roles and location-model managed-identity role are present. | 2026-07-11 22:46 BST |
+| Graph and orchestration prerequisites | Graph subscription read; queue existence read; orchestration function inventory | Three active, non-expired Inbox subscriptions cover all configured mailboxes. `sent-items-processor` and renewal functions are registered. `sent-messages` is intentionally absent and must be created/read back before orchestration publish. | 2026-07-11 22:46 BST |
+| SPA/API boundary | API unauthenticated request; CORS preflight; deployed SPA/config reads | API rejects missing auth with 401; SWA-origin preflight returns 204; SPA returns 200 and CSP allows only the intended API and sign-in origins. | 2026-07-11 22:46 BST |
+| Feature activation prerequisites | Selected API/orchestration/location setting reads; model and role reads; `case_po_floor` query | Deep location suggestions and assistant writes are eligible after deployment. Sent-email completion is eligible only after queue creation and six-subscription readback. EVA sending, chaser sending, valuation, vision, retrospective archive roots, and case disposition remain off. | 2026-07-11 22:46 BST |
 
-**Validated by:** pending `azure-validate`
+**Validated by:** `azure-validate`, 2026-07-11
 
 ## 11. Generated artifacts
 
 | File | Purpose | Status |
 |---|---|---|
 | `.azure/deployment-plan.md` | Deployment source of truth | Complete |
+| `.azure/validate-pr55.sql` | Guarded live-database precondition query | Complete |
 | Existing deploy bundles/config | Rebuilt from candidate source | Complete |
 | New infrastructure/IaC | None | Not applicable |
 
 ## 12. Next step
 
-Invoke `azure-validate`; after proof is recorded and status becomes `Validated`, push the repaired PR,
-merge it, rebuild from the exact merged `main` SHA, and invoke `azure-deploy`.
+Push the validated repaired PR, merge it, rebuild from the exact merged `main` SHA, and invoke
+`azure-deploy`.
