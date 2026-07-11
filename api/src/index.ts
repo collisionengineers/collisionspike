@@ -22,8 +22,11 @@ import './functions/assistant.js'; // AI chat helper (TKT-060; AI_CHAT_ENABLED)
 import './functions/search.js'; // global search (TKT-072; GLOBAL_SEARCH_ENABLED)
 import './functions/mcp.js'; // read-only MCP server for external agents (TKT-110; MCP_SERVER_ENABLED)
 import './functions/evidence.js'; // evidence byte preview (TKT-048)
+import './functions/archive-mirror-outbox.js'; // durable staff un-exclusion archive mirror
+import './functions/box-file-request-outbox.js'; // durable case image-upload links
 import './functions/evidence-upload.js'; // staff evidence upload via assistant (TKT-068)
 import './functions/ai-suggestions.js';
+import './functions/evidence-backfill-drain.js'; // durable monitor seam for pending case-link recovery jobs
 import './functions/image-analysis.js'; // staged image-analysis suggestion producer (TKT-016; IMAGE_ANALYSIS_ENABLED)
 import './functions/provider-keys.js';
 import './functions/provider-intake.js';

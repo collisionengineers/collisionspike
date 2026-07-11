@@ -16,6 +16,7 @@ import { dataApi } from '../../lib/data-api.js';
 import { downloadEvidenceBytes, uploadEvidenceBytes } from '../../lib/blob.js';
 import { bodyInstructionFileName } from '../../lib/evidence-names.js';
 import { classifyImage, classificationToEvidenceFields } from '../../lib/image-classify.js';
+import { settlePersistedStatusGeneration } from '../../lib/status-generation.js';
 import type { InboundEnvelope } from './fetchMessage.js';
 import type { AttachmentTyping } from './parse.js';
 
@@ -105,13 +106,12 @@ df.app.activity('classifyPersist', {
             r.imageRole = f.imageRole;
             r.registrationVisible = f.registrationVisible;
             r.acceptedForEva = f.acceptedForEva;
+            r.excluded = f.excluded;
+            r.exclusionReason = f.exclusionReason ?? null;
+            r.decisionSource = 'classifier';
             // TKT-123: stamp the advisory reflection flag (dismissible SPA warning);
             // exclusion behaviour below is unchanged.
             r.personReflection = f.personReflection;
-            if (f.excluded) {
-              r.excluded = true;
-              r.exclusionReason = f.exclusionReason;
-            }
           }
         } catch (e) {
           ctx.log(JSON.stringify({ evt: 'classifyPersist.imageClassifyFailed', caseId, file: r.filename, err: e instanceof Error ? e.message : String(e) }));
@@ -200,6 +200,7 @@ df.app.activity('classifyPersist', {
     }
 
     const result = await dataApi.persistEvidence(caseId, rows);
+    await settlePersistedStatusGeneration(caseId, result, ctx);
 
     // attachment_classified (auditaction 2) — one branch per persist, matching the flow.
     await dataApi.recordAudit({

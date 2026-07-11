@@ -28,8 +28,9 @@ Data API; or you're assigning an Entra app role.
   Ref [azure-orch-deploy](../../memory/azure-orch-deploy.md).
 - **Vaults must be RBAC-authorized** (`--enable-rbac-authorization true`) for the role to apply.
 - **Entra app roles** on the API: `CollisionSpike.User` / `CollisionSpike.Superuser` (full; was `Admin`,
-  same role-id) / `CollisionSpike.Engineer` (placeholder, not enforced). **Only one staff principal is
-  assigned** — others reach the API and **403** until assigned. The orch MI also needs an app-role on the
+  same role-id) / `CollisionSpike.Engineer` (placeholder, not enforced). **Interim staff set assigned
+  2026-07-10** — digital@ (Superuser) + desk@/info@/engineers@ (`User`); anyone else reaches the API and
+  **403s** until assigned (state: the registry + gated.md C1). The orch MI also needs an app-role on the
   Data API at go-live. Ref [azure-api-deploy-and-auth](../../memory/azure-api-deploy-and-auth.md) · [`live-environment.md`](../architecture/live-environment.md).
 - Use **PowerShell, not Git Bash**, for `az role`/scope args (MSYS mangles the leading-slash resource id).
 

@@ -27,7 +27,7 @@ roles defaulting `unknown`, staff classifying by hand). That premise no longer h
    4,698 already carried a classifier-stamped role/registration before this batch. The 2,002
    still-unclassified rows are the HISTORIC residue (box-mirror lane + the ~82 TKT-064 backfill
    errors + pre-classifier intake) — exactly the TKT-131 target set, whose reclassification run
-   is recorded in [TKT-131's changes.md](../../verify/TKT-131-image-role-classify-retry/changes.md).
+   is recorded in [TKT-131's changes.md](../TKT-131-image-role-classify-retry/changes.md).
    The screenshots in evidence/ (all-Unclassified dropdowns) show pre-TKT-064 state.
 
 ## The operator decision this ticket was blocked on — resolved by events

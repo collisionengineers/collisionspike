@@ -205,9 +205,10 @@ prior two Dataverse security roles** unchanged — only the enforcement mechanis
 [`migration/20-data-and-schema-migration.md` §2](HISTORICAL/migration/20-data-and-schema-migration.md) (RLS).
 
 > **Activation state.** App roles are assigned under **Enterprise Applications → `cespk-api` → Users and
-> groups**. **Only one staff principal is app-role-assigned so far** — unassigned staff get a token with
-> **no `roles` claim** → the API treats them as **no-access (default-deny)** and they 403 until assigned.
-> Assigning the remaining staff is the operator's activation step (`[RESERVED-FOR-USER]`).
+> groups**. **Interim staff set assigned 2026-07-10 (operator-directed):** digital@ (Superuser) plus
+> desk@ / info@ / engineers@ (`CollisionSpike.User`) — 4 assignments; accounts must sign out/in for the
+> token to carry the role. Unassigned staff still get a token with **no `roles` claim** → the API treats
+> them as **no-access (default-deny)** and they 403 until assigned (state: the registry + gated.md C1).
 >
 > **RLS now enforced (2026-06-26).** The Data API connects as the **non-owner** login **`cespk_app`**
 > (`rolsuper=false`, `rolbypassrls=false`; password a **Key Vault reference**, no cleartext), so the authored

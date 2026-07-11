@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   AREA_FLOOR,
-  BANNER_ASPECT_RATIO,
-  BANNER_MAX_SHORT_SIDE,
   BYTE_FLOOR_FOR_UNKNOWN,
   assessSignatureImage,
   isLikelySignatureImage,
@@ -197,38 +195,37 @@ describe('isLikelySignatureImage', () => {
     });
   }
 
-  /* ---- above-floor banner shapes (TKT-047 2026-07-08 live leak / TKT-089) ---- */
+  /* ---- above-floor panoramic shapes: classification owns the decision ---- */
 
-  const bannerFlagged: Array<{ label: string; name: string; contentType: string; bytes: Buffer }> = [
+  const panoramicShapesKept: Array<{ label: string; name: string; contentType: string; bytes: Buffer }> = [
     { label: '600x150 PNG wide signature banner (area 90,000 — ABOVE the floor)', name: 'signature.png', contentType: 'image/png', bytes: makePngHeader(600, 150) },
     { label: '600x150 JPEG wide signature banner', name: 'signature.jpg', contentType: 'image/jpeg', bytes: makeJpegHeader(600, 150) },
     { label: '900x180 GIF letterhead banner', name: 'letterhead.gif', contentType: 'image/gif', bytes: makeGifHeader(900, 180) },
     { label: '150x800 BMP tall sidebar strip', name: 'sidebar.bmp', contentType: 'image/bmp', bytes: makeBmpHeader(150, 800) },
-    { label: '840x240 PNG — both banner boundaries inclusive (aspect exactly 3.5, short side exactly 240)', name: 'strip.png', contentType: 'image/png', bytes: makePngHeader(840, 240) },
+    { label: '840x240 PNG (aspect 3.5 — still comfortably over the 3.2 threshold)', name: 'strip.png', contentType: 'image/png', bytes: makePngHeader(840, 240) },
+    { label: '768x240 PNG — both banner boundaries inclusive (aspect exactly 3.2, short side exactly 240)', name: 'strip32.png', contentType: 'image/png', bytes: makePngHeader(768, 240) },
+    { label: '575x174 PNG — the TKT-089 reopen QDOS Assistance letterhead logo (aspect 3.305, evaded the old 3.5)', name: 'qdos-logo.png', contentType: 'image/png', bytes: makePngHeader(575, 174) },
   ];
-  for (const { label, name, contentType, bytes } of bannerFlagged) {
-    it(`flags ${label} via the banner-shape rung`, () => {
-      expect(assessSignatureImage(name, contentType, bytes)).toMatchObject({ flagged: true, reason: 'banner-shape' });
+  for (const { label, name, contentType, bytes } of panoramicShapesKept) {
+    it(`recall guard: keeps ${label} for classification`, () => {
+      expect(assessSignatureImage(name, contentType, bytes)).toMatchObject({ flagged: false });
     });
   }
 
   const photoShapesKept: Array<{ label: string; bytes: Buffer }> = [
     { label: '4032x3024 JPEG (12MP phone photo)', bytes: makeJpegHeader(4032, 3024) },
     { label: '1920x1080 PNG (16:9)', bytes: makePngHeader(1920, 1080) },
-    { label: '3000x1000 JPEG (3:1 pano crop — aspect below the 3.5 threshold)', bytes: makeJpegHeader(3000, 1000) },
+    { label: '3000x1000 JPEG (3:1 pano crop — aspect below the 3.2 threshold)', bytes: makeJpegHeader(3000, 1000) },
     { label: '845x241 PNG (extreme aspect but short side just over the 240px cap)', bytes: makePngHeader(845, 241) },
     { label: '4000x1000 JPEG (4:1 but short side 1000 — a real panorama)', bytes: makeJpegHeader(4000, 1000) },
+    { label: '767x240 PNG (aspect 3.196 — just under the 3.2 threshold)', bytes: makePngHeader(767, 240) },
+    { label: '204x204 JPEG (the TKT-089 MGAA square badge shape — deliberately classifier-owned, never shape-caught)', bytes: makeJpegHeader(204, 204) },
   ];
   for (const { label, bytes } of photoShapesKept) {
     it(`recall guard: keeps ${label}`, () => {
       expect(isLikelySignatureImage('photo.jpg', 'image/jpeg', bytes)).toBe(false);
     });
   }
-
-  it('exports the banner thresholds mirrored from the engine (3.5:1, 240px)', () => {
-    expect(BANNER_ASPECT_RATIO).toBe(3.5);
-    expect(BANNER_MAX_SHORT_SIDE).toBe(240);
-  });
 
   /* ---- GIF/BMP now get a real dimension verdict instead of byte-floor-only ---- */
 

@@ -16,6 +16,14 @@
 //     §6  Role invariants from role JSONs: audit_event Write=None for both roles;
 //           four corpus tables Delete=None for both roles
 //
+//   NOTE (2026-07-10, TKT-094 reopen): §2/§3/§6 read dataverse-era artefacts
+//   (dataverse/environment-variables.json, dataverse/roles/*.json) that were purged from
+//   the tree in the Power Platform teardown (commit 44268b7, 2026-06-27 — the solution was
+//   cold-exported off-repo first, so the files are gone from the tree permanently). Those
+//   sections now gate on file existence and SKIP with an explicit line (verify-all.mjs
+//   retired-gate style) so the script stays runnable on the post-purge tree; §1/§4/§5 stay
+//   enforced. A reversible rebuild that restores dataverse/ re-arms §2/§3/§6 automatically.
+//
 //   Live (opt-in — needs DATABASE_URL or PGCONNECTIONSTRING + pg npm package):
 //     §7  Every choice_* table: live-DB rows match JSON option codes + names exactly
 //     §8  app_setting seed row: hold_new_cases_by_default = 'false'
@@ -37,9 +45,16 @@ const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(repo, rel), "utf8
 const readText = (rel) => fs.readFileSync(path.join(repo, rel), "utf8");
 
 let fail = 0;
+let skipped = 0;
 const ok = (cond, msg) => {
   console.log((cond ? "PASS" : "FAIL") + " " + msg);
   if (!cond) fail++;
+};
+// Retired-input skip (verify-all.mjs style): the section's source files were purged from
+// the tree, so it can neither pass nor fail — announce it explicitly, never throw.
+const skip = (msg) => {
+  console.log("SKIP — " + msg);
+  skipped++;
 };
 
 // ===========================================================================
@@ -93,9 +108,18 @@ for (const raw of sqlLines) {
 }
 
 // Parse INSERT VALUES using a global regex over the full SQL text (cleaner than line-by-line).
-const insertRe = /INSERT INTO (choice_\w+) \(code, name, label\) VALUES([\s\S]*?);/g;
+//
+// FIX (2026-07-10, TKT-094 reopen): the original non-greedy `[\s\S]*?;` terminator stopped
+// at the FIRST `;` — including semicolons inside `--` comments embedded mid-VALUES-list
+// (e.g. the terminal-status doc comment above `removed`/`done` in choice_case_status),
+// silently truncating four sets and failing §1 against a DDL that is actually complete.
+// Strip line comments first (no label in this DDL contains `--` or `;` — grep-verified
+// 2026-07-10; if one ever must, upgrade to a quote-aware tokenizer), then scan with a
+// quote-aware terminator so a `;` inside a quoted label can never truncate either.
+const sqlNoComments = sqlText.replace(/--[^\n]*/g, "");
+const insertRe = /INSERT INTO (choice_\w+) \(code, name, label\) VALUES((?:'[^']*'|[^';])*);/g;
 let im;
-while ((im = insertRe.exec(sqlText)) !== null) {
+while ((im = insertRe.exec(sqlNoComments)) !== null) {
   const tname = im[1];
   if (!tableRows.has(tname)) tableRows.set(tname, []);
   const tupleRe = /\((\d+),\s*'([^']*)'\s*,\s*'([^']*)'\s*\)/g;
@@ -105,9 +129,10 @@ while ((im = insertRe.exec(sqlText)) !== null) {
   }
 }
 
-// --- Env-var manifest -------------------------------------------------------
-const env    = readJson("dataverse/environment-variables.json");
-const byName = Object.fromEntries(env.variables.map((v) => [v.schemaName, v]));
+// --- Env-var manifest (dataverse-era — purged at 44268b7; §2/§3 SKIP when absent) ------
+const ENV_MANIFEST = "dataverse/environment-variables.json";
+const env = fs.existsSync(path.join(repo, ENV_MANIFEST)) ? readJson(ENV_MANIFEST) : null;
+const byName = env ? Object.fromEntries(env.variables.map((v) => [v.schemaName, v])) : {};
 
 // --- Contracts (case-status.ts) --------------------------------------------
 const csTsText  = readText("packages/domain/src/contracts/case-status.ts");
@@ -116,9 +141,11 @@ const csTsText  = readText("packages/domain/src/contracts/case-status.ts");
 const classifierSrc = readText(
   "functions/parser/cedocumentmapper_v2/rules/email_classifier.py");
 
-// --- Role JSONs ------------------------------------------------------------
-const adminRole = readJson("dataverse/roles/admin-role.json");
-const userRole  = readJson("dataverse/roles/user-role.json");
+// --- Role JSONs (dataverse-era — purged at 44268b7; §6 SKIPs when absent) ---
+const ADMIN_ROLE_JSON = "dataverse/roles/admin-role.json";
+const USER_ROLE_JSON  = "dataverse/roles/user-role.json";
+const adminRole = fs.existsSync(path.join(repo, ADMIN_ROLE_JSON)) ? readJson(ADMIN_ROLE_JSON) : null;
+const userRole  = fs.existsSync(path.join(repo, USER_ROLE_JSON))  ? readJson(USER_ROLE_JSON)  : null;
 
 // ===========================================================================
 // §1  CHOICE-SET INTEGER-CODE + NAME PARITY (JSON vs SQL DDL)
@@ -209,30 +236,40 @@ const expectedDefaults = {
   "cr1bd_BOX_FILE_REQUEST_TEMPLATE_ID":  "",
 };
 
-let defaultsOk = true;
-for (const [key, want] of Object.entries(expectedDefaults)) {
-  const v = byName[key];
-  if (!v) {
-    console.log(`  ${key} missing from environment-variables.json`);
-    defaultsOk = false;
-  } else if (v.defaultValue !== want) {
-    console.log(`  ${key} default expected "${want}", got "${v.defaultValue}"`);
-    defaultsOk = false;
+if (!env) {
+  skip(`§2 unverifiable — ${ENV_MANIFEST} purged from the tree ` +
+       "(Power Platform teardown, 44268b7 2026-06-27); retained for a reversible rebuild");
+} else {
+  let defaultsOk = true;
+  for (const [key, want] of Object.entries(expectedDefaults)) {
+    const v = byName[key];
+    if (!v) {
+      console.log(`  ${key} missing from environment-variables.json`);
+      defaultsOk = false;
+    } else if (v.defaultValue !== want) {
+      console.log(`  ${key} default expected "${want}", got "${v.defaultValue}"`);
+      defaultsOk = false;
+    }
   }
+  ok(defaultsOk, "all 26 non-secret env-var defaultValues match plan 10 §1.1");
 }
-ok(defaultsOk, "all 26 non-secret env-var defaultValues match plan 10 §1.1");
 
 // ===========================================================================
 // §3  SECRET ENV-VARS: KV REFERENCES, NO LITERAL VALUE
 // ===========================================================================
 console.log("\n--- §3  Secret env-vars: KV references only ---");
 
-const secrets = env.variables.filter((v) => v.type === "Secret");
-ok(secrets.length === 2, `exactly 2 Secret env-vars (got ${secrets.length})`);
-ok(
-  secrets.length > 0 &&
-  secrets.every((v) => v.keyVault && v.keyVault.reference === true && !("defaultValue" in v)),
-  `all ${secrets.length} secret vars are KV references with no literal defaultValue`);
+if (!env) {
+  skip(`§3 unverifiable — ${ENV_MANIFEST} purged from the tree ` +
+       "(Power Platform teardown, 44268b7 2026-06-27); retained for a reversible rebuild");
+} else {
+  const secrets = env.variables.filter((v) => v.type === "Secret");
+  ok(secrets.length === 2, `exactly 2 Secret env-vars (got ${secrets.length})`);
+  ok(
+    secrets.length > 0 &&
+    secrets.every((v) => v.keyVault && v.keyVault.reference === true && !("defaultValue" in v)),
+    `all ${secrets.length} secret vars are KV references with no literal defaultValue`);
+}
 
 // ===========================================================================
 // §4  STATUS-MACHINE PARITY (JSON <-> contracts/case-status.ts)
@@ -305,14 +342,22 @@ if (catSet && subSet) {
   const catNames = catSet.options.map((o) => o.name).slice().sort();
   const subNames = subSet.options.map((o) => o.name).slice().sort();
 
+  // The persisted choice set is intentionally a superset of the deterministic
+  // classifier: staff can apply the append-only diminution subtype manually, but
+  // email_classifier.py does not emit it. Keep that one explicit exception visible
+  // instead of weakening parity to a loose subset check.
+  const staffOnlySubtypes = new Set(["existing_provider_diminution"]);
+  const classifierSubNames = subNames.filter((name) => !staffOnlySubtypes.has(name));
+
   ok(
-    pyCategories.length === 3 && JSON.stringify(catNames) === JSON.stringify(pyCategories),
+    pyCategories.length === 8 && JSON.stringify(catNames) === JSON.stringify(pyCategories),
     `cr1bd_inboundcategory names == CATEGORY_* 1:1 ` +
     `(json=${JSON.stringify(catNames)}, py=${JSON.stringify(pyCategories)})`);
   ok(
-    pySubtypes.length === 6 && JSON.stringify(subNames) === JSON.stringify(pySubtypes),
-    `cr1bd_inboundsubtype names == SUBTYPE_* 1:1 ` +
-    `(json=${JSON.stringify(subNames)}, py=${JSON.stringify(pySubtypes)})`);
+    pySubtypes.length === 14 && JSON.stringify(classifierSubNames) === JSON.stringify(pySubtypes),
+    `classifier-emittable cr1bd_inboundsubtype names == SUBTYPE_* 1:1 ` +
+    `(json-minus-staff-only=${JSON.stringify(classifierSubNames)}, ` +
+    `staff-only=${JSON.stringify([...staffOnlySubtypes])}, py=${JSON.stringify(pySubtypes)})`);
 
   // Integer codes unique + labels present for both sets
   for (const s of [catSet, subSet]) {
@@ -327,42 +372,47 @@ if (catSet && subSet) {
 // ===========================================================================
 console.log("\n--- §6  Role invariants ---");
 
-const tablePrivByName = (role) =>
-  Object.fromEntries((role.tablePrivileges ?? []).map((tp) => [tp.table, tp.privileges]));
+if (!adminRole || !userRole) {
+  skip("§6 unverifiable — dataverse/roles/*.json purged from the tree " +
+       "(Power Platform teardown, 44268b7 2026-06-27); retained for a reversible rebuild");
+} else {
+  const tablePrivByName = (role) =>
+    Object.fromEntries((role.tablePrivileges ?? []).map((tp) => [tp.table, tp.privileges]));
 
-const adminPriv = tablePrivByName(adminRole);
-const userPriv  = tablePrivByName(userRole);
+  const adminPriv = tablePrivByName(adminRole);
+  const userPriv  = tablePrivByName(userRole);
 
-// 6a. audit_event Write=None for BOTH roles (tamper-evidence; the strongest invariant)
-ok(
-  adminPriv["cr1bd_auditevent"]?.Write === "None" &&
-  userPriv["cr1bd_auditevent"]?.Write  === "None",
-  "cr1bd_auditevent Write=None for both Admin and User (audit is append-only, never updatable)");
+  // 6a. audit_event Write=None for BOTH roles (tamper-evidence; the strongest invariant)
+  ok(
+    adminPriv["cr1bd_auditevent"]?.Write === "None" &&
+    userPriv["cr1bd_auditevent"]?.Write  === "None",
+    "cr1bd_auditevent Write=None for both Admin and User (audit is append-only, never updatable)");
 
-// 6b. audit_event Delete=None for User, Organization for Admin (governed cascade only)
-ok(
-  userPriv["cr1bd_auditevent"]?.Delete === "None",
-  "cr1bd_auditevent Delete=None for User (Admin has Delete for retention cascade only — not checked here)");
+  // 6b. audit_event Delete=None for User, Organization for Admin (governed cascade only)
+  ok(
+    userPriv["cr1bd_auditevent"]?.Delete === "None",
+    "cr1bd_auditevent Delete=None for User (Admin has Delete for retention cascade only — not checked here)");
 
-// 6c. Four corpus tables Delete=None for BOTH roles (archive-not-delete invariant)
-const corpusTables = ["cr1bd_workprovider", "cr1bd_repairer", "cr1bd_inspectionaddress", "cr1bd_imagesource"];
-let corpusDeleteOk = true;
-for (const t of corpusTables) {
-  const aD = adminPriv[t]?.Delete;
-  const uD = userPriv[t]?.Delete;
-  if (aD !== "None" || uD !== "None") {
-    console.log(`  ${t}: Admin.Delete="${aD}", User.Delete="${uD}" — both must be "None"`);
-    corpusDeleteOk = false;
+  // 6c. Four corpus tables Delete=None for BOTH roles (archive-not-delete invariant)
+  const corpusTables = ["cr1bd_workprovider", "cr1bd_repairer", "cr1bd_inspectionaddress", "cr1bd_imagesource"];
+  let corpusDeleteOk = true;
+  for (const t of corpusTables) {
+    const aD = adminPriv[t]?.Delete;
+    const uD = userPriv[t]?.Delete;
+    if (aD !== "None" || uD !== "None") {
+      console.log(`  ${t}: Admin.Delete="${aD}", User.Delete="${uD}" — both must be "None"`);
+      corpusDeleteOk = false;
+    }
   }
-}
-ok(corpusDeleteOk,
-  "four corpus tables (workprovider, repairer, inspectionaddress, imagesource) Delete=None for both roles");
+  ok(corpusDeleteOk,
+    "four corpus tables (workprovider, repairer, inspectionaddress, imagesource) Delete=None for both roles");
 
-// 6d. case_.Delete=None for both roles (disposition runs as job identity, not interactive)
-ok(
-  adminPriv["cr1bd_case"]?.Delete === "None" &&
-  userPriv["cr1bd_case"]?.Delete  === "None",
-  "cr1bd_case Delete=None for both roles (disposition gate, ADR-0017)");
+  // 6d. case_.Delete=None for both roles (disposition runs as job identity, not interactive)
+  ok(
+    adminPriv["cr1bd_case"]?.Delete === "None" &&
+    userPriv["cr1bd_case"]?.Delete  === "None",
+    "cr1bd_case Delete=None for both roles (disposition gate, ADR-0017)");
+}
 
 // ===========================================================================
 // §7-10  LIVE DB CHECKS (opt-in: DATABASE_URL or PGCONNECTIONSTRING)
@@ -493,9 +543,12 @@ if (!connStr) {
 // ===========================================================================
 // RESULT
 // ===========================================================================
+const skipNote = skipped
+  ? ` (${skipped} dataverse-era section(s) SKIPPED — inputs purged at 44268b7)`
+  : "";
 console.log(
   fail === 0
-    ? "\nALL CHECKS PASSED"
-    : `\n${fail} CHECK(S) FAILED`
+    ? `\nALL CHECKS PASSED${skipNote}`
+    : `\n${fail} CHECK(S) FAILED${skipNote}`
 );
 process.exit(fail === 0 ? 0 : 1);

@@ -71,3 +71,41 @@ DDL delta applied live BEFORE the api deploy (choice_case_status 13 rows; 100000
 `markEvaSubmitted`); SPA deployed (200 + strict CSP). Route smoke: `POST /api/cases/{id}/eva-submitted`
 returns 401 unauthenticated (auth wired). Live export-flow proof (badge flip, tiles, idempotent
 second click) awaits a staff session on a `ready_for_eva` case.
+
+## Reopen fix — 2026-07-10 (acceptance clause 1b: verify-parity-pg.mjs runnable, §1/§4 green)
+Scope per [evidence/reopen-followup-100726.md](./evidence/reopen-followup-100726.md). Offline-only;
+one script touched (`migration/assets/verify-parity-pg.mjs`); no deploys, no live-stack changes;
+the 13/5 constants untouched.
+
+1. **Runnability (the ENOENT crash):** the script unconditionally read
+   `dataverse/environment-variables.json` + `dataverse/roles/*.json` at module load — files purged
+   at 44268b7 (Power Platform teardown, 2026-06-27) — so it crashed before §1. The dataverse-era
+   sections (§2/§3/§6) now gate on file existence and print an explicit `SKIP — …` line
+   (verify-all.mjs retired-gate style) instead of being deleted: `migration/` is the
+   reversible-build home, so a rebuild that restores `dataverse/` re-arms them automatically.
+   The summary line counts the skips.
+2. **§1 tokenizer fix (found once the script could run at all):** the INSERT-block scan
+   terminated at the FIRST `;` — including semicolons inside `--` comments embedded
+   mid-VALUES-list (e.g. the terminal-status doc comment above `removed`/`done`) — truncating
+   four sets (case_status 11-of-13, audit_action 32-of-54, inbound_category 7-of-8,
+   inbound_subtype 10-of-15) and failing §1 against a DDL that is actually complete
+   (grep-verified: every "missing" row exists in `000_enums_lookups.sql`). Fix: strip `--` line
+   comments before the scan plus a quote-aware terminator (`(?:'[^']*'|[^';])*;`). No label in
+   this DDL contains `--` or `;` (grep-verified; constraint noted in-file). The DDL itself was
+   not touched.
+3. **Run recorded:** `node migration/assets/verify-parity-pg.mjs` from the repo root —
+   [evidence/parity-pg-run-100726.txt](./evidence/parity-pg-run-100726.txt). **§1 PASS (3/3
+   lines), §4 PASS (6/6 lines — 13 options / 5 terminals)**; §2/§3/§6 SKIP explicitly; §7–10
+   skip (no DATABASE_URL set).
+4. **Pre-existing §5 drift surfaced, NOT fixed (outside the reopen scope):** the
+   classifier-parity checks fail on (a) stale hardcoded counts in the check itself (`3`
+   categories / `6` subtypes — the taxonomy is now 8 / 14-in-py), and (b) one real drift:
+   `existing_provider_diminution` exists in the choiceset JSON + SQL DDL but has no `SUBTYPE_*`
+   constant in the vendored `email_classifier.py` (only the ADR-0021 "D." doc-marker comment).
+   Candidate follow-up ticket — needs a taxonomy-ownership decision, then sibling-first
+   classifier work (ADR-0018) if the subtype is to be emitted.
+
+## PR 55 regression repair — 2026-07-11
+
+The atomic terminal-transition correction and current offline evidence are recorded in
+[changes-regression-11-07-26.md](./changes-regression-11-07-26.md).

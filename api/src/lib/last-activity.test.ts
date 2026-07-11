@@ -3,7 +3,8 @@
  *
  * Pins the ONE descriptor mapping: controlled audit action codes → handler-plain
  * labels (never a raw enum), note rows → "Note added by <author>" with the
- * GUID/oid guard (internal ids never render — CONTEXT.md), chaser rows → "Chased".
+ * GUID/oid guard (internal ids never render — CONTEXT.md), chase suggestions →
+ * "Chase suggested", and staff/manual chaser rows → "Chased".
  */
 import { describe, expect, it } from 'vitest';
 import { auditActionLabel, humanActorName, lastActivityLabel, plainDetail } from './last-activity';
@@ -24,6 +25,7 @@ describe('auditActionLabel', () => {
     expect(auditActionLabel(100000049)).toBe('Files added'); // evidence_added
     expect(auditActionLabel(100000046)).toBe('Case reconstructed'); // retro_case_created
     expect(auditActionLabel(100000052)).toBe('Photos analysed'); // image_analysis_generated
+    expect(auditActionLabel(100000054)).toBe('Chase suggested'); // chaser_suggested
   });
 
   it('never leaks a raw enum — unknown/missing codes fall back to a plain default', () => {
@@ -95,6 +97,15 @@ describe('plainDetail — the TKT-134 detail-line safety filter', () => {
 describe('lastActivityLabel — the three row kinds', () => {
   it('audit rows use the controlled-action mapping', () => {
     expect(lastActivityLabel({ kind: 'audit', actionCode: 100000023 })).toBe('Chased');
+    expect(lastActivityLabel({ kind: 'audit', actionCode: 100000054 })).toBe(
+      'Chase suggested',
+    );
+  });
+
+  it('legacy chaser_sent audit metadata still renders as a suggestion', () => {
+    expect(
+      lastActivityLabel({ kind: 'audit', actionCode: 100000023, suggested: true }),
+    ).toBe('Chase suggested');
   });
 
   it('note rows name the author only when human-safe', () => {
@@ -106,7 +117,8 @@ describe('lastActivityLabel — the three row kinds', () => {
   });
 
   it('chaser rows read "Chased"', () => {
-    expect(lastActivityLabel({ kind: 'chaser' })).toBe('Chased');
+    expect(lastActivityLabel({ kind: 'chaser', suggested: false })).toBe('Chased');
+    expect(lastActivityLabel({ kind: 'chaser', suggested: true })).toBe('Chase suggested');
   });
 
   it('unknown kinds degrade to the plain default', () => {

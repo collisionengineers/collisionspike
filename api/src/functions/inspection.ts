@@ -15,15 +15,21 @@
 
 import { app } from '@azure/functions';
 import {
+  SaveInspectionDecisionParams,
   type InspectionAddressCounts,
-  type InspectionDecisionInput,
   type SaveInspectionDecisionResult,
   type SuggestedAddress,
 } from '@cs/domain';
 import { inspectionDecisionCodec } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
-import { query } from '../lib/db.js';
+import { query, tx } from '../lib/db.js';
+import { ifMatch, versionToken } from '../lib/concurrency.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
+import {
+  acknowledgeStatusRecompute,
+  requestStatusRecompute,
+} from '../lib/status-recompute.js';
+import { recomputeStatus } from './cases.js';
 import {
   isSuggestedAddressRow,
   principalFromCasePo,
@@ -35,7 +41,6 @@ import {
 import { extractPostcode, geocodePostcode, haversineMiles } from '../lib/maps.js';
 
 const CONFIRMED_PHYSICAL = inspectionDecisionCodec.toInt('confirmed_physical'); // 100000000
-const IMAGE_BASED = inspectionDecisionCodec.toInt('image_based'); // 100000002
 
 /** Default shortlist size — the corpus is ~2,200 rows, so returning the whole set
  *  buried the picker (TKT-062). Staff see a ranked shortlist; "?q=" searches the rest. */
@@ -139,52 +144,58 @@ app.http('inspectionAddressCounts', {
   }),
 });
 
-// 13 — POST /api/cases/{id}/inspection-decision   (honest no-op on failure)
+// 13 — POST /api/cases/{id}/inspection-decision
 app.http('saveInspectionDecision', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'cases/{id}/inspection-decision',
-  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+  handler: withRole('CollisionSpike.User', async (req, ctx, claims) => {
     const caseId = req.params.id;
-    const decision = (await req.json()) as InspectionDecisionInput;
-    try {
-      const lines = (decision.addressLines ?? []).map((l) => (l ?? '').trim()).filter(Boolean);
-      const isImageBased = decision.decisionMode === 'image_based';
-      const label = (
-        isImageBased
-          ? 'Image Based Assessment'
-          : [lines[0], decision.postcode?.trim()].filter(Boolean).join(', ') || 'Inspection address'
-      ).slice(0, 200);
-
-      // Trace the provider PRINCIPAL (Case/PO leading-alpha) in the source note —
-      // the corpus carries no case lookup (ADR-0013), so case + provider live in the note.
-      let providerCode = '';
-      try {
-        const caseRows = await query<Row>('SELECT case_po FROM case_ WHERE id = $1', [caseId]);
-        providerCode = principalFromCasePo(caseRows[0]?.case_po as string | null);
-      } catch {
-        /* leave providerCode empty — the row still writes without the token */
+    const parsed = SaveInspectionDecisionParams.safeParse({
+      ...((await req.json().catch(() => ({}))) as Record<string, unknown>),
+      caseId,
+    });
+    if (!parsed.success) {
+      return { status: 400, jsonBody: { error: 'invalid inspection decision', issues: parsed.error.issues } };
+    }
+    const decision = parsed.data;
+    const lines = (decision.addressLines ?? []).map((line) => line.trim()).filter(Boolean);
+    const postcode = decision.postcode?.trim() ?? '';
+    const isImageBased = decision.decisionMode === 'image_based';
+    const label = (
+      isImageBased
+        ? `Image Based Assessment (${caseId})`
+        : [lines[0], postcode].filter(Boolean).join(', ') || 'Inspection address'
+    ).slice(0, 200);
+    const evaAddress = isImageBased
+      ? 'Image Based Assessment'
+      : [...lines, ...(postcode ? [postcode] : [])].join('\n').slice(0, 2000);
+    const decisionModeCode = inspectionDecisionCodec.toInt(decision.decisionMode);
+    if (decisionModeCode == null) {
+      return { status: 400, jsonBody: { error: 'invalid inspection decision mode' } };
+    }
+    const actor = actorFromClaims(claims);
+    const outcome = await tx(async (q) => {
+      const caseRows = await q<Row>(
+        `SELECT case_po, eva_inspection_address, inspection_decision_code, updated_at
+           FROM case_ WHERE id = $1 FOR UPDATE`,
+        [caseId],
+      );
+      const caseRow = caseRows[0];
+      if (!caseRow) return { kind: 'missing' as const };
+      const currentVersion = versionToken(caseRow.updated_at);
+      const expected = ifMatch(req);
+      if (expected != null && expected !== '' && expected !== currentVersion) {
+        return { kind: 'stale' as const, currentVersion };
       }
+      const providerCode = principalFromCasePo(caseRow.case_po as string | null);
       const sourceNote = [
         `case=${caseId}`,
         ...(providerCode ? [`provider=${providerCode}`] : []),
         decision.sourceNote,
-      ]
-        .join(' ')
-        .trim();
-
-      const decisionModeCode =
-        decision.decisionMode && decision.decisionMode !== 'unknown'
-          ? inspectionDecisionCodec.toInt(decision.decisionMode)
-          : undefined;
-      // The CHECK constraint requires a non-empty reason for an image-based decision.
-      const decisionReason =
-        decisionModeCode === IMAGE_BASED ? decision.sourceNote.trim() || 'Image based assessment' : null;
-
-      // UPSERT on the UNIQUE(label) key: the image-based label is a constant string, so a bare
-      // INSERT silently collided after the first IBA save (sweep #10). DO UPDATE keeps the latest
-      // decision/provenance for that label and still RETURNs an id (persisted:true).
-      const rows = await query<Row>(
+      ].join(' ').trim();
+      const decisionReason = isImageBased ? decision.sourceNote : null;
+      const rows = await q<Row>(
         `INSERT INTO inspection_address
            (label, decision_mode_code, decision_reason, source_label, source_note,
             address_line1, address_line2, address_line3, address_line4, address_line5, address_line6, postcode)
@@ -218,21 +229,59 @@ app.http('saveInspectionDecision', {
         ],
       );
       const id = rows[0]?.id as string | undefined;
-
+      const updated = await q<Row>(
+        `UPDATE case_
+            SET eva_inspection_address = $2,
+                inspection_decision_code = $3,
+                updated_at = now()
+          WHERE id = $1
+          RETURNING updated_at`,
+        [caseId, evaAddress, decisionModeCode],
+      );
+      const statusGeneration = await requestStatusRecompute(q, caseId);
       await writeAudit({
         action: AUDIT_ACTION.inspection_override,
         caseId,
         summary: `Inspection decision confirmed (${decision.decisionMode})`,
-        after: { decisionMode: decision.decisionMode, label },
-        ...(actorFromClaims(claims) ? { actor: actorFromClaims(claims) } : {}),
-      });
-
-      const result: SaveInspectionDecisionResult = { persisted: true, ...(id ? { id } : {}) };
-      return { status: 200, jsonBody: result };
-    } catch {
-      // Honest no-op — the local working-copy capture already happened; the durable
-      // write is deferred (table not wired / write rejected). Mirrors the mock seam.
-      return { status: 200, jsonBody: { persisted: false } };
+        before: {
+          inspectionAddress: caseRow.eva_inspection_address ?? null,
+          decisionModeCode: caseRow.inspection_decision_code ?? null,
+        },
+        after: { decisionMode: decision.decisionMode, label, inspectionAddress: evaAddress },
+        ...(actor ? { actor } : {}),
+      }, q);
+      return {
+        kind: 'saved' as const,
+        id,
+        version: versionToken(updated[0]?.updated_at),
+        statusGeneration,
+      };
+    });
+    if (outcome.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
+    if (outcome.kind === 'stale') {
+      return { status: 409, jsonBody: { error: 'stale', currentVersion: outcome.currentVersion } };
     }
+    try {
+      const evaluated = await recomputeStatus(caseId, actor);
+      if (!evaluated) throw new Error('case was not available for readiness evaluation');
+      await acknowledgeStatusRecompute(query, caseId, outcome.statusGeneration);
+    } catch (error) {
+      ctx.warn(
+        `[inspection-decision] readiness recompute remains pending for ${caseId} ` +
+          `(generation ${outcome.statusGeneration}): ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    const current = await query<Row>('SELECT updated_at FROM case_ WHERE id = $1', [caseId]);
+    const currentVersion = current[0] ? versionToken(current[0].updated_at) : outcome.version;
+    const result: SaveInspectionDecisionResult & { version: string } = {
+      persisted: true,
+      ...(outcome.id ? { id: outcome.id } : {}),
+      version: currentVersion,
+    };
+    return {
+      status: 200,
+      jsonBody: result,
+      headers: { ETag: `"${currentVersion}"`, 'Access-Control-Expose-Headers': 'ETag' },
+    };
   }),
 });

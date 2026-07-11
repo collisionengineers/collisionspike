@@ -1,0 +1,127 @@
+[2026-07-10T15:28:03.219Z] rows: eligible=118 drainable=99 withheld=19 pilot-band=54 (PILOT_ONLY: first batch then stop)
+[2026-07-10T15:28:03.224Z] === batch 1/10 (10 rows) ===
+[2026-07-10T15:28:07.227Z] durable mgmt URL template captured (scratchpad only)
+[2026-07-10T15:28:28.162Z] row 1 Completed outcome=created case=eca2f519-ecb3-4b43-97d0-51b6492dcd8b (25s)
+[2026-07-10T15:28:43.865Z] row 2 Completed outcome=created case=9e1d72dd-41c4-45e1-aa73-e1312d29d92a (11s)
+[2026-07-10T15:28:54.320Z] row 3 Completed outcome=created case=a9ccfd27-b8a2-4c23-8129-35e0ecfc63d0 (5s)
+[2026-07-10T15:29:04.885Z] row 4 Completed outcome=linked case=a9ccfd27-b8a2-4c23-8129-35e0ecfc63d0 (6s)
+[2026-07-10T15:29:15.391Z] row 5 Completed outcome=created case=56bd159e-56e1-4160-b52d-89e83752b66a (5s)
+[2026-07-10T15:29:25.831Z] row 6 Completed outcome=created case=be2f641a-90d9-487f-8a8b-1db0e030c29c (5s)
+[2026-07-10T15:29:36.262Z] row 7 Completed outcome=trigger_not_found (5s)
+[2026-07-10T15:29:46.669Z] row 8 Completed outcome=linked case=56bd159e-56e1-4160-b52d-89e83752b66a (5s)
+[2026-07-10T15:29:57.144Z] row 9 Completed outcome=created case=b20aa801-a508-482a-a6db-ef6a10b6f3c9 (5s)
+[2026-07-10T15:30:07.641Z] row 10 Completed outcome=linked case=be2f641a-90d9-487f-8a8b-1db0e030c29c (5s)
+[2026-07-10T15:30:12.653Z] batch 1 done: errors 0/10; cumulative {"created":6,"linked":3,"already_exists_linked":0,"no_source":0,"not_eligible":0,"ambiguous":0,"trigger_not_found":1,"other":0,"errors":0,"skippedResume":0}
+[2026-07-10T15:30:12.654Z] PILOT_DONE — stopping for outcome review (re-run without PILOT_ONLY to continue)
+[2026-07-10T15:31:00.383Z] rows: eligible=118 drainable=99 withheld=19 pilot-band=54 
+[2026-07-10T15:31:00.387Z] resume: 10 rows already terminal in ledger
+[2026-07-10T15:31:00.390Z] === batch 1/10 (10 rows) ===
+[2026-07-10T15:31:00.391Z] batch 1 done: errors 0/0; cumulative {"created":0,"linked":0,"already_exists_linked":0,"no_source":0,"not_eligible":0,"ambiguous":0,"trigger_not_found":0,"other":0,"errors":0,"skippedResume":10}
+[2026-07-10T15:31:00.392Z] === batch 2/10 (10 rows) ===
+[2026-07-10T15:31:05.984Z] row 11 Completed outcome=trigger_not_found (6s)
+[2026-07-10T15:31:16.543Z] row 12 Completed outcome=created case=25b071f8-d281-452c-a83d-3d2390941daf (6s)
+[2026-07-10T15:31:27.040Z] row 13 Completed outcome=linked case=b20aa801-a508-482a-a6db-ef6a10b6f3c9 (5s)
+[2026-07-10T15:31:42.735Z] row 14 Completed outcome=created case=4c5cd6c9-b609-4c95-8959-3291f301616c (11s)
+[2026-07-10T15:31:53.213Z] row 15 Completed outcome=created case=bd7f6fe4-b299-4ed8-baee-dabfacc92552 (5s)
+[2026-07-10T15:32:14.013Z] row 16 Completed outcome=linked case=4c5cd6c9-b609-4c95-8959-3291f301616c (16s)
+[2026-07-10T15:32:24.581Z] row 17 Completed outcome=linked case=4c5cd6c9-b609-4c95-8959-3291f301616c (6s)
+[2026-07-10T15:32:40.207Z] row 18 Completed outcome=already_exists_linked case=d2e17148-a391-473d-be28-35ac36c7a8bb (11s)
+[2026-07-10T15:32:50.819Z] row 19 Completed outcome=already_exists_linked case=d2e17148-a391-473d-be28-35ac36c7a8bb (6s)
+[2026-07-10T15:33:01.324Z] row 20 Completed outcome=not_eligible reasons=["category_not_eligible:other"] (5s)
+[2026-07-10T15:33:06.329Z] batch 2 done: errors 0/10; cumulative {"created":3,"linked":3,"already_exists_linked":2,"no_source":0,"not_eligible":1,"ambiguous":0,"trigger_not_found":1,"other":0,"errors":0,"skippedResume":10}
+[2026-07-10T15:33:06.330Z] === batch 3/10 (10 rows) ===
+[2026-07-10T15:33:11.783Z] row 21 Completed outcome=not_eligible reasons=["category_not_eligible:other"] (5s)
+[2026-07-10T15:33:22.217Z] row 22 Completed outcome=created case=668af160-0a2f-4fbc-ba80-8b94eb97d620 (5s)
+[2026-07-10T15:33:32.681Z] row 23 Completed outcome=trigger_not_found (5s)
+[2026-07-10T15:33:43.110Z] row 24 Completed outcome=no_source (5s)
+[2026-07-10T15:33:53.707Z] row 25 Completed outcome=created case=180d4e3c-2146-4a4c-be1f-511e057fdf2b (6s)
+[2026-07-10T15:34:04.261Z] row 26 Completed outcome=linked case=180d4e3c-2146-4a4c-be1f-511e057fdf2b (6s)
+[2026-07-10T15:34:14.778Z] row 27 Completed outcome=linked case=668af160-0a2f-4fbc-ba80-8b94eb97d620 (6s)
+[2026-07-10T15:34:30.462Z] row 28 Completed outcome=created case=a66724d8-c3f6-441e-952e-a9ae0b89a719 (11s)
+[2026-07-10T15:34:56.370Z] row 29 Completed outcome=no_source (21s)
+[2026-07-10T15:35:06.790Z] row 30 Completed outcome=linked case=a66724d8-c3f6-441e-952e-a9ae0b89a719 (5s)
+[2026-07-10T15:35:11.799Z] batch 3 done: errors 0/10; cumulative {"created":6,"linked":6,"already_exists_linked":2,"no_source":2,"not_eligible":2,"ambiguous":0,"trigger_not_found":2,"other":0,"errors":0,"skippedResume":10}
+[2026-07-10T15:35:11.800Z] === batch 4/10 (10 rows) ===
+[2026-07-10T15:35:22.530Z] row 31 Completed outcome=created case=40992215-4415-48ad-82f8-da7d47631eb6 (11s)
+[2026-07-10T15:35:32.963Z] row 32 Completed outcome=linked case=40992215-4415-48ad-82f8-da7d47631eb6 (5s)
+[2026-07-10T15:35:43.421Z] row 33 Completed outcome=linked case=a66724d8-c3f6-441e-952e-a9ae0b89a719 (5s)
+[2026-07-10T15:35:53.889Z] row 34 Completed outcome=created case=c6dcd829-bb3e-41a9-916c-26914798be3d (5s)
+[2026-07-10T15:36:04.347Z] row 35 Completed outcome=created case=11a5a1f4-a02d-4900-8cd5-dccb4660cb99 (5s)
+[2026-07-10T15:36:14.760Z] row 36 Completed outcome=created case=d947218e-a26f-4630-9c1b-aa76346d517a (5s)
+[2026-07-10T15:36:45.754Z] row 37 Completed outcome=created case=9630cedf-3397-4534-8271-572e30a9aeed (26s)
+[2026-07-10T15:36:56.207Z] row 38 Completed outcome=linked case=9630cedf-3397-4534-8271-572e30a9aeed (5s)
+[2026-07-10T15:37:06.658Z] row 39 Completed outcome=already_exists_linked case=b37dd650-3c0c-4b7c-b9c7-8bac0d4e911d (5s)
+[2026-07-10T15:37:32.756Z] row 40 Completed outcome=no_source (21s)
+[2026-07-10T15:37:37.767Z] batch 4 done: errors 0/10; cumulative {"created":11,"linked":9,"already_exists_linked":3,"no_source":3,"not_eligible":2,"ambiguous":0,"trigger_not_found":2,"other":0,"errors":0,"skippedResume":10}
+[2026-07-10T15:37:37.767Z] === batch 5/10 (10 rows) ===
+[2026-07-10T15:37:43.218Z] row 41 Completed outcome=created case=658d9f37-6599-42d3-a652-982ddced84cc (5s)
+[2026-07-10T15:37:53.644Z] row 42 Completed outcome=created case=b543f24c-3b2c-47c8-98b1-6618f01272af (5s)
+[2026-07-10T15:38:24.697Z] row 43 Completed outcome=created case=8f267c3f-9ec1-473e-a753-3781749f6a33 (26s)
+[2026-07-10T15:38:35.151Z] row 44 Completed outcome=trigger_not_found (5s)
+[2026-07-10T15:38:55.943Z] row 45 Completed outcome=created case=67bc1ee1-4c86-4ee2-8af8-a3c3a55c8adb (16s)
+[2026-07-10T15:39:16.637Z] row 46 Completed outcome=created case=357d16bf-2839-4265-81c9-77c9038ae883 (16s)
+[2026-07-10T15:39:37.445Z] row 47 Completed outcome=already_exists_linked case=67bc1ee1-4c86-4ee2-8af8-a3c3a55c8adb (16s)
+[2026-07-10T15:39:47.978Z] row 48 Completed outcome=linked case=357d16bf-2839-4265-81c9-77c9038ae883 (6s)
+[2026-07-10T15:40:08.782Z] row 49 Completed outcome=already_exists_linked case=67bc1ee1-4c86-4ee2-8af8-a3c3a55c8adb (16s)
+[2026-07-10T15:40:19.218Z] row 50 Completed outcome=trigger_not_found (5s)
+[2026-07-10T15:40:24.222Z] batch 5 done: errors 0/10; cumulative {"created":16,"linked":10,"already_exists_linked":5,"no_source":3,"not_eligible":2,"ambiguous":0,"trigger_not_found":4,"other":0,"errors":0,"skippedResume":10}
+[2026-07-10T15:40:24.223Z] === batch 6/10 (10 rows) ===
+[2026-07-10T15:40:29.644Z] row 51 Completed outcome=created case=fd44df9f-b0d6-463b-863d-36242b7b1f43 (5s)
+[2026-07-10T15:40:40.116Z] row 52 Completed outcome=no_source (5s)
+[2026-07-10T15:41:05.992Z] row 53 Completed outcome=no_source (21s)
+[2026-07-10T15:41:21.566Z] row 54 Completed outcome=created case=81211559-efcd-4a85-bcba-f2f7996442b3 (11s)
+[2026-07-10T15:41:32.043Z] row 55 Completed outcome=linked case=1d74e0da-667b-49d2-8b84-ab9d0d47fcba (5s)
+[2026-07-10T15:41:57.970Z] row 56 Completed outcome=no_source (21s)
+[2026-07-10T15:42:08.519Z] row 57 Completed outcome=linked case=9d85a360-1798-4629-80e4-8212cebe2a92 (6s)
+[2026-07-10T15:42:18.943Z] row 58 Completed outcome=trigger_not_found (5s)
+[2026-07-10T15:42:29.394Z] row 59 Completed outcome=linked case=1d74e0da-667b-49d2-8b84-ab9d0d47fcba (5s)
+[2026-07-10T15:42:39.835Z] row 60 Completed outcome=trigger_not_found (5s)
+[2026-07-10T15:42:44.837Z] batch 6 done: errors 0/10; cumulative {"created":18,"linked":13,"already_exists_linked":5,"no_source":6,"not_eligible":2,"ambiguous":0,"trigger_not_found":6,"other":0,"errors":0,"skippedResume":10}
+[2026-07-10T15:42:44.838Z] === batch 7/10 (10 rows) ===
+[2026-07-10T15:42:50.355Z] row 61 Completed outcome=not_eligible reasons=["no_usable_key"] (6s)
+[2026-07-10T15:43:00.803Z] row 62 Completed outcome=created case=e82663a0-3375-4d43-82a8-6d04c888973d (5s)
+[2026-07-10T15:43:11.344Z] row 63 Completed outcome=trigger_not_found (6s)
+[2026-07-10T15:43:21.841Z] row 64 Completed outcome=linked case=dc4b2059-cbc4-4f13-b997-cd070095eaf7 (5s)
+[2026-07-10T15:43:32.293Z] row 65 Completed outcome=trigger_not_found (5s)
+[2026-07-10T15:43:42.880Z] row 66 Completed outcome=linked case=1d74e0da-667b-49d2-8b84-ab9d0d47fcba (6s)
+[2026-07-10T15:43:53.548Z] row 67 Completed outcome=trigger_not_found (6s)
+[2026-07-10T15:44:04.102Z] row 68 Completed outcome=trigger_not_found (6s)
+[2026-07-10T15:44:14.623Z] row 69 Completed outcome=trigger_not_found (6s)
+[2026-07-10T15:44:25.018Z] row 70 Completed outcome=trigger_not_found (5s)
+[2026-07-10T15:44:30.025Z] batch 7 done: errors 0/10; cumulative {"created":19,"linked":15,"already_exists_linked":5,"no_source":6,"not_eligible":3,"ambiguous":0,"trigger_not_found":12,"other":0,"errors":0,"skippedResume":10}
+[2026-07-10T15:44:30.025Z] === batch 8/10 (10 rows) ===
+[2026-07-10T15:44:36.536Z] row 71 Completed outcome=linked case=0b07b3d3-ecd6-49ed-9e35-a95e841aabf0 (7s)
+[2026-07-10T15:44:47.003Z] row 72 Completed outcome=created case=1c420fa6-a2c4-406c-9266-74bb492f1ea6 (5s)
+[2026-07-10T15:44:57.430Z] row 73 Completed outcome=trigger_not_found (5s)
+[2026-07-10T15:45:07.893Z] row 74 Completed outcome=linked case=dc693f76-2936-471e-bca0-a382fa610fe0 (5s)
+[2026-07-10T15:45:18.392Z] row 75 Completed outcome=linked case=0476fa7c-76e7-4890-b071-f4bbdb736275 (5s)
+[2026-07-10T15:45:34.123Z] row 76 Completed outcome=linked case=df9a2069-58fb-4faa-8878-b5c79387890f (11s)
+[2026-07-10T15:45:49.823Z] row 77 Completed outcome=created case=6f1a0865-b7c9-4f7b-9d03-731da8c13625 (11s)
+[2026-07-10T15:46:10.520Z] row 78 Completed outcome=created case=444866b4-d2ba-4425-b1e6-2fcd48251bfd (16s)
+[2026-07-10T15:46:21.020Z] row 79 Completed outcome=already_exists_linked case=40992215-4415-48ad-82f8-da7d47631eb6 (5s)
+[2026-07-10T15:46:36.662Z] row 80 Completed outcome=created case=16598ef6-9fd6-4fbd-bab9-a270cac6f191 (11s)
+[2026-07-10T15:46:41.668Z] batch 8 done: errors 0/10; cumulative {"created":23,"linked":19,"already_exists_linked":6,"no_source":6,"not_eligible":3,"ambiguous":0,"trigger_not_found":13,"other":0,"errors":0,"skippedResume":10}
+[2026-07-10T15:46:41.669Z] === batch 9/10 (10 rows) ===
+[2026-07-10T15:46:47.203Z] row 81 Completed outcome=trigger_not_found (6s)
+[2026-07-10T15:46:57.672Z] row 82 Completed outcome=linked case=16598ef6-9fd6-4fbd-bab9-a270cac6f191 (5s)
+[2026-07-10T15:47:13.291Z] row 83 Completed outcome=created case=49da4eb6-4812-4879-bf08-95b39547e7b0 (11s)
+[2026-07-10T15:47:28.873Z] row 84 Completed outcome=created case=c0819f78-b07e-42f9-8aae-ead94ff2faef (11s)
+[2026-07-10T15:47:39.304Z] row 85 Completed outcome=linked case=ec468d1e-cdc5-4223-bfd4-93f4fdb4bc1d (5s)
+[2026-07-10T15:47:49.740Z] row 86 Completed outcome=linked case=ec468d1e-cdc5-4223-bfd4-93f4fdb4bc1d (5s)
+[2026-07-10T15:48:05.301Z] row 87 Completed outcome=created case=8ef5c430-9763-4584-b192-5c53e7c95293 (11s)
+[2026-07-10T15:48:15.706Z] row 88 Completed outcome=linked case=beb0a8a8-f6bb-4805-afe6-d03e64343032 (5s)
+[2026-07-10T15:48:26.451Z] row 89 Completed outcome=trigger_not_found (6s)
+[2026-07-10T15:48:36.885Z] row 90 Completed outcome=already_exists_linked case=40992215-4415-48ad-82f8-da7d47631eb6 (5s)
+[2026-07-10T15:48:41.892Z] batch 9 done: errors 0/10; cumulative {"created":26,"linked":23,"already_exists_linked":7,"no_source":6,"not_eligible":3,"ambiguous":0,"trigger_not_found":15,"other":0,"errors":0,"skippedResume":10}
+[2026-07-10T15:48:41.892Z] === batch 10/10 (9 rows) ===
+[2026-07-10T15:48:47.351Z] row 91 Completed outcome=created case=2b53e628-9db4-404c-aba6-a3b81a4182a1 (5s)
+[2026-07-10T15:48:57.872Z] row 92 Completed outcome=trigger_not_found (6s)
+[2026-07-10T15:49:08.311Z] row 93 Completed outcome=linked case=da6821ae-a006-4568-aaec-2d079415f270 (5s)
+[2026-07-10T15:49:18.693Z] row 94 Completed outcome=trigger_not_found (5s)
+[2026-07-10T15:49:29.148Z] row 95 Completed outcome=linked case=ec468d1e-cdc5-4223-bfd4-93f4fdb4bc1d (5s)
+[2026-07-10T15:49:39.636Z] row 96 Completed outcome=trigger_not_found (5s)
+[2026-07-10T15:49:50.111Z] row 97 Completed outcome=linked case=540108ca-0bb2-40f1-9f45-2de4463e7900 (5s)
+[2026-07-10T15:50:00.592Z] row 98 Completed outcome=linked case=beb0a8a8-f6bb-4805-afe6-d03e64343032 (5s)
+[2026-07-10T15:50:11.111Z] row 99 Completed outcome=created case=7e8cea7d-a653-4fba-8d98-74e72ff905c2 (6s)
+[2026-07-10T15:50:16.120Z] batch 10 done: errors 0/9; cumulative {"created":28,"linked":27,"already_exists_linked":7,"no_source":6,"not_eligible":3,"ambiguous":0,"trigger_not_found":18,"other":0,"errors":0,"skippedResume":10}
+[2026-07-10T15:50:16.120Z] DRAIN COMPLETE: {"created":28,"linked":27,"already_exists_linked":7,"no_source":6,"not_eligible":3,"ambiguous":0,"trigger_not_found":18,"other":0,"errors":0,"skippedResume":10}

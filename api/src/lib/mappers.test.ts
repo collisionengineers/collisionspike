@@ -5,6 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  CASE_SELECT_WITH_ACTIVITY,
   casePoSeqOfName,
   deriveSuggestionIdempotencyKey,
   inboundCategoryFromInt,
@@ -19,9 +20,28 @@ import {
   rowToActivityEvent,
   rowToAiSuggestion,
   rowToCase,
+  rowToEvidence,
   rowToInboundEmail,
   tallyActiveInboundCounts,
 } from './mappers';
+
+describe('rowToEvidence — automatic exclusion review visibility', () => {
+  const base = {
+    id: 'ev-1',
+    file_name: 'photo.jpg',
+    kind_code: 100000000,
+    image_role_code: 100000003,
+    accepted_for_eva: false,
+    excluded: true,
+    exclusion_reason: 'This image may not show the vehicle',
+  };
+
+  it('marks only classifier-owned exclusions for review', () => {
+    expect(rowToEvidence({ ...base, exclusion_decision_source: 'classifier' }).reviewRequired).toBe(true);
+    expect(rowToEvidence({ ...base, exclusion_decision_source: 'staff' }).reviewRequired).toBeUndefined();
+    expect(rowToEvidence({ ...base, exclusion_decision_source: 'cleanup' }).reviewRequired).toBeUndefined();
+  });
+});
 
 describe('mergedIntoFrom — the TKT-141 merge-retirement marker parse', () => {
   it('reads the survivor id out of the duplicate_keys merge JSON (string or parsed)', () => {
@@ -35,6 +55,13 @@ describe('mergedIntoFrom — the TKT-141 merge-retirement marker parse', () => {
     expect(mergedIntoFrom('PK20FWT,PK20FWT')).toBeUndefined(); // legacy candidate list, not JSON
     expect(mergedIntoFrom('{"candidates":["a","b"]}')).toBeUndefined();
     expect(mergedIntoFrom('{"mergedInto":"  "}')).toBeUndefined();
+  });
+  it('accepts only a nonblank string marker (matching the guarded SQL migrations)', () => {
+    expect(mergedIntoFrom('{"mergedInto":123}')).toBeUndefined();
+    expect(mergedIntoFrom('{"mergedInto":true}')).toBeUndefined();
+    expect(mergedIntoFrom('{"mergedInto":null}')).toBeUndefined();
+    expect(mergedIntoFrom('{"mergedInto":{"id":"surv"}}')).toBeUndefined();
+    expect(mergedIntoFrom('{"mergedInto":["surv"]}')).toBeUndefined();
   });
 });
 
@@ -56,6 +83,37 @@ describe('rowToCase — mergedInto surfaced from duplicate_keys (TKT-141)', () =
   it('a plain linked_to_instruction row (no marker) has no mergedInto', () => {
     const c = rowToCase({ ...base, duplicate_keys: null });
     expect(c.mergedInto).toBeUndefined();
+  });
+});
+
+describe('rowToCase — truthful chase suggestion activity (TKT-148)', () => {
+  const base = {
+    id: 'c-chase',
+    vrm: 'PK20FWT',
+    status_code: 100000004,
+    created_at: new Date(2026, 6, 1),
+    last_activity_at: new Date(2026, 6, 11),
+    last_activity_kind: 'audit',
+    last_activity_action_code: 100000023,
+  };
+
+  it('legacy suggested=true metadata corrects the former chaser_sent label', () => {
+    const c = rowToCase({ ...base, last_activity_suggested: true });
+    expect(c.lastActivity?.label).toBe('Chase suggested');
+  });
+
+  it('manual/staff chasers remain labelled Chased', () => {
+    const c = rowToCase({ ...base, last_activity_suggested: false });
+    expect(c.lastActivity?.label).toBe('Chased');
+  });
+
+  it('the queue query carries both legacy audit metadata and the schema marker', () => {
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain(`pg_input_is_valid(ae.after, 'jsonb')`);
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain(
+      `THEN ae.after::jsonb @> '{"suggested": true}'::jsonb ELSE false END`,
+    );
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain('ch.suggested');
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain('last_activity_suggested');
   });
 });
 

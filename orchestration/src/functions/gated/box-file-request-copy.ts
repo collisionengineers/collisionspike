@@ -1,63 +1,46 @@
 /**
- * orchestration/src/functions/gated/box-file-request-copy.ts
+ * Retired compatibility route for the former orchestration-owned Box File Request copy.
  *
- * Gated orchestration (plan 22 §C): copy the Box File-Request template onto the case folder
- * (the File-Request chaser + webhook-intake path) via the box-webhook Function facade.
- *
- * Gates: BOX_FILEREQUEST_ENABLED **and** BOX_API_ENABLED — both off by default → no-op.
- *
- * Trigger today: manual → preserved as an HTTP starter.
+ * File Request creation now belongs exclusively to the Data API's durable case outbox.
+ * Keeping this route as an explicit 410 prevents an old operator bookmark or caller from
+ * receiving a successful-looking response while creating an unstamped remote request.
+ * No Durable orchestration/activity is registered here and this module never calls Box.
  */
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
-import * as df from 'durable-functions';
-import { gates } from '@cs/domain/gates';
-import { box } from '../../lib/functions-client.js';
-import { dataApi } from '../../lib/data-api.js';
 
-interface BoxFileRequestInput {
-  caseId: string;
-  /** Target case folder id (from box-folder-create). */
-  folderId: string;
+interface LegacyBoxFileRequestInput {
+  caseId?: unknown;
 }
+
+const CASE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 app.http('box-file-request-copy-start', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'box-file-request-copy',
-  extraInputs: [df.input.durableClient()],
   handler: async (req: HttpRequest, ctx: InvocationContext): Promise<HttpResponseInit> => {
-    if (!gates.boxApi() || !gates.boxFileRequest()) {
-      ctx.log('[box-file-request-copy] skipped — BOX_API_ENABLED and/or BOX_FILEREQUEST_ENABLED off');
-      return { status: 200, jsonBody: { skipped: true, reason: 'gated off' } };
+    const body = (await req.json().catch(() => ({}))) as LegacyBoxFileRequestInput;
+    const caseId = typeof body.caseId === 'string' ? body.caseId.trim() : '';
+    if (!CASE_ID_RE.test(caseId)) {
+      return {
+        status: 400,
+        jsonBody: { error: 'caseId must be a valid case identifier' },
+      };
     }
-    const input = (await req.json()) as BoxFileRequestInput;
-    const client = df.getClient(ctx);
-    const instanceId = await client.startNew('boxFileRequestCopyOrchestrator', { input });
-    return client.createCheckStatusResponse(req, instanceId);
-  },
-});
 
-const retry = new df.RetryOptions(5_000, 3);
-retry.backoffCoefficient = 2;
-
-df.app.orchestration('boxFileRequestCopyOrchestrator', function* (ctx) {
-  const input = ctx.df.getInput() as BoxFileRequestInput;
-  const result = yield ctx.df.callActivityWithRetry('boxFileRequestCopy', retry, input);
-  return result;
-});
-
-df.app.activity('boxFileRequestCopy', {
-  handler: async (input: BoxFileRequestInput, ctx): Promise<unknown> => {
-    if (!gates.boxApi() || !gates.boxFileRequest()) return { skipped: true };
-    const templateId = gates.boxFileRequestTemplateId();
-    if (!templateId) {
-      ctx.warn('[boxFileRequestCopy] BOX_FILE_REQUEST_TEMPLATE_ID empty — nothing to copy');
-      return { skipped: true, reason: 'no template' };
-    }
-    const res = await box.copyFileRequest(templateId, input.folderId);
-    await dataApi.recordAudit({ action: 'box_file_request_copied', caseId: input.caseId, summary: `File-Request copied to folder ${input.folderId}` });
-    ctx.log(JSON.stringify({ evt: 'boxFileRequestCopy', caseId: input.caseId, folderId: input.folderId }));
-    return res;
+    const replacementPath = `/api/cases/${encodeURIComponent(caseId)}/box/copy-file-request`;
+    ctx.warn(
+      `[box-file-request-copy] retired starter called for ${caseId}; ` +
+        `no remote work started (replacement ${replacementPath})`,
+    );
+    return {
+      status: 410,
+      jsonBody: {
+        error: 'retired_starter',
+        message: 'Create the image-upload link from the case page.',
+        replacement: { method: 'POST', path: replacementPath },
+      },
+    };
   },
 });

@@ -54,7 +54,8 @@ def _instruction_eml() -> bytes:
         subtype="pdf",
         filename="instruction letter.pdf",
     )
-    # A footer logo well under the signature floor — must be SKIPPED, not evidence.
+    # A small image attachment. The explode seam must retain it for semantic
+    # classification rather than making an irreversible byte-size guess.
     msg.add_attachment(
         b"\x89PNG tiny logo",
         maintype="image",
@@ -72,14 +73,16 @@ def test_explodes_headers_body_and_attachments():
     assert out["message_id"] == "<orig-123@pch-ltd.com>"
     assert out["date_iso"].startswith("2026-03-02T09:15:00")
     assert "Our Ref 575689" in out["body_text"]
-    assert [a["filename"] for a in out["attachments"]] == ["instruction letter.pdf"]
+    assert [a["filename"] for a in out["attachments"]] == ["instruction letter.pdf", "image001.png"]
     pdf = out["attachments"][0]
     assert pdf["content_type"] == "application/pdf"
     assert base64.b64decode(pdf["content_base64"]).startswith(b"%PDF-1.7")
     assert pdf["size"] == len(base64.b64decode(pdf["content_base64"]))
     assert len(pdf["sha256"]) == 64
-    # The signature-sized raster is skipped with a named reason (TKT-047 doctrine).
-    assert {"filename": "image001.png", "reason": "signature_image"} in out["skipped"]
+    image = out["attachments"][1]
+    assert image["content_type"] == "image/png"
+    assert base64.b64decode(image["content_base64"]) == b"\x89PNG tiny logo"
+    assert not any(item["filename"] == "image001.png" for item in out["skipped"])
     assert out["contract_version"] == "explode_eml_v1"
 
 

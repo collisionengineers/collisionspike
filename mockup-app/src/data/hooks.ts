@@ -16,6 +16,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { getDataAccess } from './index';
+import {
+  matchesCommittedWriteSubscription,
+  subscribeCommittedWrites,
+  type CommittedWriteSubscription,
+} from './mutation-events';
 import type { LogChaseInput, DetachInboundResult, OutlookMoveResult } from './rest-client';
 import type { ActivityEvent, Case, CaseUpdateInput, Chaser, Evidence, Provider } from '@cs/domain';
 import type {
@@ -60,13 +65,30 @@ export interface QueryState<T> {
  * pass (closed over `deps`), so it must be provided as a stable callback by the
  * caller (we wrap each public hook's fetcher in useCallback over its primitives).
  */
-function useAsync<T>(run: () => Promise<T>, deps: readonly unknown[]): QueryState<T> {
+function useAsync<T>(
+  run: () => Promise<T>,
+  deps: readonly unknown[],
+  committedWriteSubscription?: CommittedWriteSubscription,
+): QueryState<T> {
   const [data, setData] = useState<T | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | undefined>(undefined);
   const [nonce, setNonce] = useState(0);
+  const subscriptionKind = committedWriteSubscription?.kind;
+  const subscriptionId = committedWriteSubscription?.id;
 
   const refetch = useCallback(() => setNonce((n) => n + 1), []);
+
+  useEffect(() => {
+    if (!subscriptionKind) return undefined;
+    const subscription: CommittedWriteSubscription = {
+      kind: subscriptionKind,
+      ...(subscriptionId === undefined ? {} : { id: subscriptionId }),
+    };
+    return subscribeCommittedWrites((target) => {
+      if (matchesCommittedWriteSubscription(subscription, target)) refetch();
+    });
+  }, [refetch, subscriptionId, subscriptionKind]);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,13 +125,13 @@ export function useCaseQuery(id: string | undefined): QueryState<Case | undefine
     () => (id ? getDataAccess().caseById(id) : Promise.resolve(undefined)),
     [id],
   );
-  return useAsync(run, [id]);
+  return useAsync(run, [id], { kind: 'case', id });
 }
 
 /** The cases in a queue (windowed for `done`). Re-runs on queue name change. */
 export function useQueueQuery(name: QueueName): QueryState<Case[]> {
   const run = useCallback(() => getDataAccess().casesForQueue(name), [name]);
-  return useAsync(run, [name]);
+  return useAsync(run, [name], { kind: 'case' });
 }
 
 /** The Completed/Archive list (TKT-096): terminal cases — eva_submitted (awaiting
@@ -117,7 +139,7 @@ export function useQueueQuery(name: QueueName): QueryState<Case[]> {
  *  so a transport failure renders as an empty list, never a crash. */
 export function useCompletedCases(): QueryState<Case[]> {
   const run = useCallback(() => getDataAccess().completedCases(), []);
-  return useAsync(run, []);
+  return useAsync(run, [], { kind: 'case' });
 }
 
 /**
@@ -130,7 +152,7 @@ export function useCompletedCases(): QueryState<Case[]> {
  */
 export function useDashboard(): QueryState<DashboardSummary> {
   const run = useCallback(() => getDataAccess().dashboardSummary(new Date()), []);
-  return useAsync(run, []);
+  return useAsync(run, [], { kind: 'any' });
 }
 
 /** The EVA-relevant image set for a case. */
@@ -205,7 +227,7 @@ export function useAiAssistGate(): QueryState<AiAssistGate> {
 
 /** The AI-chat gate (TKT-060). `{ enabled:false }` on failure/loading, so the assistant
  *  drawer stays hidden unless the server confirms it is on. */
-export function useAiChatGate(): QueryState<{ enabled: boolean }> {
+export function useAiChatGate(): QueryState<{ enabled: boolean; writeEnabled: boolean }> {
   const run = useCallback(() => getDataAccess().getAiChatGate(), []);
   return useAsync(run, []);
 }
@@ -243,7 +265,7 @@ export function useHoldNewCasesDefault(): QueryState<boolean> {
 /** Recent pipeline activity (audit events), newest first. */
 export function useActivity(): QueryState<ActivityEvent[]> {
   const run = useCallback(() => getDataAccess().recentActivity(), []);
-  return useAsync(run, []);
+  return useAsync(run, [], { kind: 'any' });
 }
 
 /**
@@ -261,14 +283,14 @@ export function useInbox(facet?: InboundFacet): QueryState<InboundEmail[]> {
     () => getDataAccess().inboundEmails({ category, subtype, view }),
     [category, subtype, view],
   );
-  return useAsync(run, [category, subtype, view]);
+  return useAsync(run, [category, subtype, view], { kind: 'inbound' });
 }
 
 /** Per-category ACTIVE-first triage counts (+ untriaged backlog) — TabList badges +
  *  nav pill. safe()-degrades to the zero baseline (the badge must never crash the nav). */
 export function useInboundCounts(): QueryState<InboundCounts> {
   const run = useCallback(() => getDataAccess().inboundEmailCounts(), []);
-  return useAsync(run, []);
+  return useAsync(run, [], { kind: 'inbound' });
 }
 
 /**

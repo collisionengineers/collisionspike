@@ -13,6 +13,7 @@
 import { app, type InvocationContext } from '@azure/functions';
 import * as df from 'durable-functions';
 import { ensureSubscriptionMonitor } from './subscriptionMonitor.js';
+import { ensureArchiveMirrorMonitor } from './archive-mirror-monitor.js';
 
 app.storageQueue('intake-starter', {
   queueName: 'intake-messages',
@@ -38,6 +39,11 @@ app.storageQueue('intake-starter', {
       await ensureSubscriptionMonitor(client, (m) => ctx.log(m));
     } catch (e) {
       ctx.warn(`[intake-starter] ensureSubscriptionMonitor: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    try {
+      await ensureArchiveMirrorMonitor(client, (m) => ctx.log(m));
+    } catch (e) {
+      ctx.warn(`[intake-starter] ensureArchiveMirrorMonitor: ${e instanceof Error ? e.message : String(e)}`);
     }
 
     // The Graph messageId is base64url WITH '=' padding (and other non-alphanumerics);

@@ -168,6 +168,17 @@ def migrate_provider(
                     start, end = parse_two_label_config(config)
                     rule_data["start_label"] = start
                     rule_data["end_label"] = end
+            elif method == "two_label_join":
+                # Join the VALUES of two separately-labelled fields
+                # (collisionspike TKT-147 — the Tractable "Producer" make +
+                # "Model" model pair). NOT the v1 "two_labels" method above,
+                # which captures the text BETWEEN a start and an end label.
+                # Config: "First||Second", each side optionally comma-separated
+                # alternate labels ("Producer,Manufacturer||Model").
+                kind = "two_label_join"
+                first, second = parse_two_label_config(config)
+                rule_data["first_labels"] = split_tokens(first)
+                rule_data["second_labels"] = split_tokens(second)
             elif method == "fixed_position":
                 kind = "fixed_line"
                 raw_pos = config.strip()

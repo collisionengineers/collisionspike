@@ -41,7 +41,7 @@ import {
 import { evidenceKindCodec, imageRoleCodec } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { gates } from '../lib/gates.js';
-import { query } from '../lib/db.js';
+import { query, tx, type TxQuery } from '../lib/db.js';
 import { callSuggestionModel, type DraftSuggestion } from '../lib/aoai-suggestions.js';
 import { buildGenerateInputs } from '../lib/generate-inputs.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
@@ -61,9 +61,198 @@ import { writeImprovementSignal } from './inbound.js';
 // seam calls (auto-link reply, dedup attach, auto-attach — internal.ts). Accepting a
 // case_link suggestion IS an attach, so it must satisfy the case's outstanding chasers too.
 import { markOutstandingChasersResponded } from './internal.js';
+// TKT-145 — on a case_link accept of an attachment-bearing, previously-uncased email,
+// enqueue the orchestration evidence backfill (re-fetch from Graph + persist + status
+// recompute). The manual "attach by hand" note survives only as the enqueue-failure /
+// terminal-failure fallback.
+import { enqueueEvidenceBackfill } from '../lib/evidence-backfill-queue.js';
+import { writeEvidenceBackfillNote } from '../lib/evidence-backfill-note.js';
+import { requestStatusRecompute } from '../lib/status-recompute.js';
+import { requestArchiveMirrorIfEligible } from '../lib/archive-mirror-outbox.js';
+import { lockCaseForMutation } from '../lib/case-mutation-locks.js';
+import { verifiedMergeLineage } from '../lib/evidence-backfill-target.js';
 
-/** image_role 'unknown' code — the FILL-IF-EMPTY sentinel for evidence.image_role_code. */
-const IMAGE_ROLE_UNKNOWN = 100000003;
+const IMAGE_KIND = 100000000;
+
+interface PendingEvidenceBackfillRequest extends Record<string, unknown> {
+  id: string;
+  case_id: string;
+  source_mailbox: string;
+  source_message_id: string;
+  subject: string | null;
+  evidence_backfill_requested_generation: string | number;
+  evidence_backfill_enqueued_generation: string | number;
+}
+
+interface LegacyEvidenceBackfillCandidate extends PendingEvidenceBackfillRequest {
+  scan_updated_at: string | Date;
+}
+
+/**
+ * Pick only an accepted target that still owns the inbound row, directly or through
+ * its durable mergedInto lineage. A later accepted no-op suggestion for an unrelated
+ * case must never displace the older accepted link that actually attached the email.
+ */
+async function acceptedEvidenceBackfillTarget(
+  inboundEmailId: string,
+  currentOwner: string,
+): Promise<string | undefined> {
+  const accepted = await query<{ target_case_id: string }>(
+    `SELECT NULLIF(btrim(s.suggested_value ->> 'targetCaseId'), '') AS target_case_id
+       FROM ai_suggestion s
+      WHERE s.inbound_email_id = $1
+        AND s.suggestion_type = 'case_link'
+        AND s.review_state = 'accepted'
+        AND NULLIF(btrim(s.suggested_value ->> 'targetCaseId'), '') IS NOT NULL
+      ORDER BY s.reviewed_at DESC NULLS LAST, s.created_at DESC, s.id DESC`,
+    [inboundEmailId],
+  );
+  const canonicalOwner = currentOwner.trim().toLowerCase();
+  for (const candidate of accepted) {
+    const target = candidate.target_case_id?.trim();
+    if (!target) continue;
+    if (target.toLowerCase() === canonicalOwner) return target;
+    if (await verifiedMergeLineage(query, target, currentOwner)) return target;
+  }
+  return undefined;
+}
+
+/**
+ * Publish durable case-link recovery requests. Queue publication is intentionally
+ * at-least-once: the consumer's guarded target resolution and evidence hash dedup make a
+ * duplicate harmless, while marking a generation only after publish prevents a crash
+ * from losing the request.
+ */
+export async function drainEvidenceBackfillRequests(
+  inboundEmailId?: string,
+  limit = 50,
+): Promise<{ published: number; failed: number }> {
+  const effectiveLimit = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 250) : 50;
+  // Reconcile accepts written by the pre-outbox implementation. This is a one-time,
+  // idempotent promotion from generation 0 and makes an old accepted/link state
+  // recoverable without guessing whether its attachments were already copied (the
+  // consumer's byte-hash dedup makes the conservative retry safe). Keyset pagination
+  // is deliberate: lineage-ineligible legacy rows are left untouched, so a LIMIT-only
+  // oldest-first page would otherwise starve every valid recovery behind them forever.
+  const scanPageSize = inboundEmailId ? 1 : Math.max(50, effectiveLimit);
+  let cursorUpdatedAt: string | Date | null = null;
+  let cursorId: string | null = null;
+  let promotedLegacy = 0;
+  while (promotedLegacy < effectiveLimit) {
+    const legacy: LegacyEvidenceBackfillCandidate[] = await query<LegacyEvidenceBackfillCandidate>(
+      `SELECT ie.id, ie.case_id, ie.source_mailbox, ie.source_message_id, ie.subject,
+              ie.evidence_backfill_requested_generation,
+              ie.evidence_backfill_enqueued_generation,
+              ie.updated_at AS scan_updated_at
+         FROM inbound_email ie
+        WHERE ie.evidence_backfill_requested_generation = 0
+          AND ie.case_id IS NOT NULL
+          AND ie.has_attachments = true
+          AND NULLIF(btrim(ie.source_mailbox), '') IS NOT NULL
+          AND NULLIF(btrim(ie.source_message_id), '') IS NOT NULL
+          ${inboundEmailId
+            ? 'AND ie.id = $1'
+            : 'AND ($1::timestamptz IS NULL OR (ie.updated_at, ie.id) > ($1::timestamptz, $2::uuid))'}
+          AND EXISTS (
+            SELECT 1
+              FROM ai_suggestion s
+             WHERE s.inbound_email_id = ie.id
+               AND s.suggestion_type = 'case_link'
+               AND s.review_state = 'accepted'
+               AND NULLIF(btrim(s.suggested_value ->> 'targetCaseId'), '') IS NOT NULL
+          )
+        ORDER BY ie.updated_at, ie.id
+        LIMIT $${inboundEmailId ? 2 : 3}`,
+      inboundEmailId
+        ? [inboundEmailId, scanPageSize]
+        : [cursorUpdatedAt, cursorId, scanPageSize],
+    );
+    if (legacy.length === 0) break;
+    for (const candidate of legacy) {
+      if (promotedLegacy >= effectiveLimit) break;
+      const acceptedTarget = await acceptedEvidenceBackfillTarget(candidate.id, candidate.case_id);
+      if (!acceptedTarget) continue;
+      const promoted = await query<{ id: string }>(
+        `UPDATE inbound_email
+            SET evidence_backfill_requested_generation = 1,
+                evidence_backfill_requested_at = now(),
+                updated_at = now()
+          WHERE id = $1
+            AND case_id = $2
+            AND evidence_backfill_requested_generation = 0
+        RETURNING id`,
+        [candidate.id, candidate.case_id],
+      );
+      if (promoted[0]) promotedLegacy++;
+    }
+    if (inboundEmailId || legacy.length < scanPageSize) break;
+    const last: LegacyEvidenceBackfillCandidate = legacy[legacy.length - 1]!;
+    cursorUpdatedAt = last.scan_updated_at;
+    cursorId = last.id;
+  }
+  const rows = await query<PendingEvidenceBackfillRequest>(
+    `SELECT ie.id, ie.case_id, ie.source_mailbox, ie.source_message_id, ie.subject,
+            ie.evidence_backfill_requested_generation,
+            ie.evidence_backfill_enqueued_generation
+       FROM inbound_email ie
+      WHERE ie.evidence_backfill_requested_generation > ie.evidence_backfill_enqueued_generation
+        AND ie.case_id IS NOT NULL
+        AND NULLIF(btrim(ie.source_mailbox), '') IS NOT NULL
+        AND NULLIF(btrim(ie.source_message_id), '') IS NOT NULL
+        ${inboundEmailId ? 'AND ie.id = $1' : ''}
+      ORDER BY ie.evidence_backfill_requested_at, ie.id
+      LIMIT $${inboundEmailId ? 2 : 1}`,
+    inboundEmailId ? [inboundEmailId, effectiveLimit] : [effectiveLimit],
+  );
+  let published = 0;
+  let failed = 0;
+  for (const row of rows) {
+    const generation = Number(row.evidence_backfill_requested_generation);
+    // Every generation is bound back to a staff-accepted target. A failed gen-2
+    // publish followed by a manual relink must not let the next drain reinterpret the
+    // current owner as the accepted target. A real merge still verifies and redirects.
+    const targetCaseId = await acceptedEvidenceBackfillTarget(row.id, row.case_id);
+    // Keep the durable generation pending when none of the accepted targets owns
+    // this row. A later unrelated manual relink must not be acknowledged as queued.
+    if (!targetCaseId) continue;
+    try {
+      await enqueueEvidenceBackfill({
+        inboundEmailId: row.id,
+        generation,
+        sourceMailbox: row.source_mailbox.trim(),
+        sourceMessageId: row.source_message_id.trim(),
+        // For the first durable generation, preserve the case that staff actually
+        // accepted. The consumer validates/follows its mergedInto lineage to the
+        // row's current owner; a manual unrelated relink therefore settles stale
+        // instead of copying attachments onto the wrong case.
+        targetCaseId,
+        subject: row.subject ?? '',
+      });
+      await query(
+        `UPDATE inbound_email
+            SET evidence_backfill_enqueued_generation = GREATEST(
+                  evidence_backfill_enqueued_generation,
+                  $2
+                ),
+                evidence_backfill_enqueued_at = now(),
+                updated_at = now()
+          WHERE id = $1
+            AND case_id = $3
+            AND evidence_backfill_requested_generation >= $2`,
+        [row.id, generation, row.case_id],
+      );
+      published++;
+    } catch (error) {
+      failed++;
+      console.error(
+        `[ai-suggestions] evidence-backfill publish failed for inbound ${row.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+  return { published, failed };
+}
 
 // GET /api/cases/{id}/ai-suggestions — pending first, then recent. Honest-empty on any
 // read failure (the ai_suggestion table may be unwired on an older DB), so the SPA panel
@@ -122,12 +311,246 @@ app.http('reviewAiSuggestion', {
     // Idempotent: if it was already reviewed, return the current state WITHOUT re-promoting
     // (a second accept must never re-fill a field a human has since changed).
     if (row.review_state !== 'pending') {
+      if (row.suggestion_type === 'case_link' && typeof row.inbound_email_id === 'string') {
+        // A retry of the already-accepted review is also an on-demand drain. This is
+        // useful after a publish crash and remains idempotent by generation.
+        await drainEvidenceBackfillRequests(row.inbound_email_id, 1);
+      }
       const result: AiSuggestionReviewResult = {
         id,
         reviewState: row.review_state,
         promoted: false,
       };
       return { status: 200, jsonBody: result };
+    }
+
+    // Readiness-affecting photo decisions are atomic: pending->accepted, evidence
+    // promotion/ownership, and durable status work either all commit or all roll back.
+    // A transient evidence write can therefore be retried; it can never leave a permanently
+    // accepted suggestion whose promotion did not happen.
+    if (
+      decision === 'accepted' &&
+      (row.suggestion_type === 'image_role' || row.suggestion_type === 'registration')
+    ) {
+      const atomic = await tx(async (q) => {
+        const locked = await q<Row>(
+          `SELECT id, case_id, evidence_id, inbound_email_id, suggestion_type,
+                  suggested_value, review_state
+             FROM ai_suggestion WHERE id = $1
+            FOR UPDATE`,
+          [id],
+        );
+        const current = locked[0];
+        if (!current) return { kind: 'missing' as const };
+        if (current.review_state !== 'pending') {
+          return { kind: 'reviewed' as const, row: current };
+        }
+        const evidenceId = typeof current.evidence_id === 'string' ? current.evidence_id : '';
+        const owner = evidenceId
+          ? await q<{ case_id: string }>('SELECT case_id FROM evidence WHERE id = $1', [evidenceId])
+          : [];
+        if (!owner[0]) return { kind: 'conflict' as const, row: current };
+        const caseLock = await lockCaseForMutation(q, owner[0].case_id);
+        if (caseLock.kind !== 'active') return { kind: 'conflict' as const, row: current };
+        const evidenceLock = await q<{ id: string }>(
+          'SELECT id FROM evidence WHERE id = $1 AND case_id = $2 FOR UPDATE',
+          [evidenceId, caseLock.caseId],
+        );
+        if (!evidenceLock[0]) return { kind: 'conflict' as const, row: current };
+
+        const promotion = await promoteAcceptedSuggestion(current, actor, q, caseLock.caseId);
+        if (!promotion.promoted) {
+          // The target was replaced or is now owned by staff/provider/cleanup/legacy.
+          // Keep the suggestion pending and tell the reviewer their accept did not apply.
+          return { kind: 'conflict' as const, row: current };
+        }
+        const reviewed = await q<Row>(
+          `UPDATE ai_suggestion
+              SET review_state = 'accepted', reviewed_by = $2, reviewed_at = now()
+            WHERE id = $1 AND review_state = 'pending'
+          RETURNING id, review_state`,
+          [id, actor ?? null],
+        );
+        if (!reviewed[0]) throw new Error('suggestion review race after row lock');
+        return { kind: 'accepted' as const, row: current, promotion };
+      });
+
+      if (atomic.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
+      if (atomic.kind === 'conflict') {
+        return {
+          status: 409,
+          jsonBody: { error: 'suggestion target changed; refresh and review again' },
+        };
+      }
+      if (atomic.kind === 'reviewed') {
+        const result: AiSuggestionReviewResult = {
+          id,
+          reviewState: atomic.row.review_state,
+          promoted: false,
+        };
+        return { status: 200, jsonBody: result };
+      }
+
+      await writeAudit({
+        action: AUDIT_ACTION.ai_suggestion_accepted,
+        ...(atomic.row.case_id ? { caseId: atomic.row.case_id as string } : {}),
+        summary: `AI suggestion ${atomic.row.suggestion_type} accepted${
+          atomic.promotion.promoted ? ` (promoted -> ${atomic.promotion.promotedField})` : ''
+        }`,
+        before: { reviewState: 'pending' },
+        after: {
+          reviewState: 'accepted',
+          suggestionId: id,
+          suggestionType: atomic.row.suggestion_type,
+          ...(atomic.promotion.promoted
+            ? { promotedField: atomic.promotion.promotedField }
+            : {}),
+        },
+        ...(actor ? { actor } : {}),
+      });
+
+      const result: AiSuggestionReviewResult = {
+        id,
+        reviewState: 'accepted',
+        promoted: atomic.promotion.promoted,
+        ...(atomic.promotion.promotedField
+          ? { promotedField: atomic.promotion.promotedField }
+          : {}),
+      };
+      return { status: 200, jsonBody: result };
+    }
+
+    if (decision === 'accepted' && row.suggestion_type === 'case_link') {
+      const atomic = await tx(async (q) => {
+        const locked = await q<Row>(
+          `SELECT id, case_id, evidence_id, inbound_email_id, suggestion_type,
+                  suggested_value, review_state
+             FROM ai_suggestion WHERE id = $1
+            FOR UPDATE`,
+          [id],
+        );
+        const current = locked[0];
+        if (!current) return { kind: 'missing' as const };
+        if (current.review_state !== 'pending') {
+          return { kind: 'reviewed' as const, row: current };
+        }
+        const inboundEmailId = typeof current.inbound_email_id === 'string'
+          ? current.inbound_email_id
+          : '';
+        const value = coerceJsonValue(current.suggested_value);
+        const requestedTarget = (value as { targetCaseId?: string } | null)?.targetCaseId?.trim();
+        let promoted = false;
+        if (inboundEmailId && requestedTarget) {
+          const caseLock = await lockCaseForMutation(q, requestedTarget);
+          if (caseLock.kind !== 'active') return { kind: 'conflict' as const };
+          const linked = await q<Row>(
+            `UPDATE inbound_email
+                SET case_id = $2,
+                    triage_state = 'routed',
+                    evidence_backfill_requested_generation = CASE
+                      WHEN has_attachments = true
+                       AND NULLIF(btrim(source_mailbox), '') IS NOT NULL
+                       AND NULLIF(btrim(source_message_id), '') IS NOT NULL
+                        THEN evidence_backfill_requested_generation + 1
+                      ELSE evidence_backfill_requested_generation
+                    END,
+                    evidence_backfill_requested_at = CASE
+                      WHEN has_attachments = true
+                       AND NULLIF(btrim(source_mailbox), '') IS NOT NULL
+                       AND NULLIF(btrim(source_message_id), '') IS NOT NULL
+                        THEN now()
+                      ELSE evidence_backfill_requested_at
+                    END,
+                    updated_at = now()
+              WHERE id = $1 AND case_id IS NULL
+            RETURNING id, has_attachments, source_mailbox, source_message_id, subject,
+                      evidence_backfill_requested_generation`,
+            [inboundEmailId, caseLock.caseId],
+          );
+          if (linked[0]) {
+            promoted = true;
+            const hasAttachments = linked[0].has_attachments === true;
+            const hasProvenance =
+              typeof linked[0].source_mailbox === 'string' && linked[0].source_mailbox.trim() !== '' &&
+              typeof linked[0].source_message_id === 'string' && linked[0].source_message_id.trim() !== '';
+            if (hasAttachments && !hasProvenance) {
+              await writeEvidenceBackfillNote({
+                caseId: caseLock.caseId,
+                inboundEmailId,
+                author: actor ?? 'System',
+                kind: 'failed',
+              }, q);
+            }
+            await writeAudit({
+              action: AUDIT_ACTION.inbound_linked,
+              caseId: caseLock.caseId,
+              summary: 'Inbound email linked to case (suggestion accepted)',
+              before: { caseId: null },
+              after: { caseId: caseLock.caseId, inboundEmailId },
+              ...(actor ? { actor } : {}),
+            }, q);
+          }
+        }
+        const reviewed = await q<Row>(
+          `UPDATE ai_suggestion
+              SET review_state = 'accepted', reviewed_by = $2, reviewed_at = now()
+            WHERE id = $1 AND review_state = 'pending'
+          RETURNING id, review_state`,
+          [id, actor ?? null],
+        );
+        if (!reviewed[0]) throw new Error('suggestion review race after row lock');
+        return {
+          kind: 'accepted' as const,
+          row: current,
+          inboundEmailId,
+          requestedTarget,
+          promoted,
+        };
+      });
+
+      if (atomic.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
+      if (atomic.kind === 'conflict') {
+        return { status: 409, jsonBody: { error: 'suggestion target changed; refresh and review again' } };
+      }
+      if (atomic.kind === 'reviewed') {
+        if (typeof atomic.row.inbound_email_id === 'string') {
+          await drainEvidenceBackfillRequests(atomic.row.inbound_email_id, 1);
+        }
+        return {
+          status: 200,
+          jsonBody: { id, reviewState: atomic.row.review_state, promoted: false },
+        };
+      }
+
+      if (atomic.promoted && atomic.requestedTarget) {
+        await markOutstandingChasersResponded(atomic.requestedTarget, 'suggestion accepted');
+      }
+      if (atomic.inboundEmailId) {
+        await drainEvidenceBackfillRequests(atomic.inboundEmailId, 1);
+      }
+      await writeAudit({
+        action: AUDIT_ACTION.ai_suggestion_accepted,
+        summary: `AI suggestion ${row.suggestion_type} accepted${
+          atomic.promoted ? ' (promoted -> inbound_email.case_id)' : ''
+        }`,
+        before: { reviewState: 'pending' },
+        after: {
+          reviewState: 'accepted',
+          suggestionId: id,
+          suggestionType: row.suggestion_type,
+          ...(atomic.promoted ? { promotedField: 'inbound_email.case_id' } : {}),
+        },
+        ...(actor ? { actor } : {}),
+      });
+      return {
+        status: 200,
+        jsonBody: {
+          id,
+          reviewState: 'accepted',
+          promoted: atomic.promoted,
+          ...(atomic.promoted ? { promotedField: 'inbound_email.case_id' } : {}),
+        },
+      };
     }
 
     // Write the decision — guarded on review_state='pending' so concurrent reviews don't race.
@@ -187,7 +610,9 @@ app.http('reviewAiSuggestion', {
  * guarded so it NEVER overwrites a value already set (by a human OR another path). Kinds
  * without a promotion branch here (inspection_address) are accepted WITHOUT
  * auto-promotion — a follow-up reviewer applies them (kept deliberately conservative for
- * the MVP). Best-effort: a promote failure must not undo the recorded acceptance. `actor`
+ * the MVP). Image role/registration accepts pass a transaction query and MUST throw on
+ * promotion failure so the pending review remains retryable; the older non-readiness
+ * branches retain their best-effort behaviour. `actor`
  * (Entra oid/upn) is threaded through so the DEDICATED audit rows this function writes
  * (rules-engine-v2 Phase 2's 'case_link' branch; Phase 4's 'triage_category' branch) carry
  * the same identity as the outer ai_suggestion_accepted/rejected audit in
@@ -196,6 +621,8 @@ app.http('reviewAiSuggestion', {
 async function promoteAcceptedSuggestion(
   row: Row,
   actor?: string,
+  q: TxQuery = query,
+  lockedEvidenceCaseId?: string,
 ): Promise<{ promoted: boolean; promotedField?: string }> {
   const evidenceId = row.evidence_id as string | null;
   const inboundEmailId = row.inbound_email_id as string | null;
@@ -204,25 +631,82 @@ async function promoteAcceptedSuggestion(
     if (row.suggestion_type === 'image_role' && evidenceId) {
       const role = (value as { role?: string } | null)?.role;
       const code = role ? imageRoleCodec.toInt(role as ImageRole) : undefined;
-      if (code != null) {
-        // FILL-IF-EMPTY: only set the role when it is still 'unknown'.
-        const upd = await query<Row>(
-          `UPDATE evidence SET image_role_code = $2, updated_at = now()
-             WHERE id = $1 AND image_role_code = $3 RETURNING id`,
-          [evidenceId, code, IMAGE_ROLE_UNKNOWN],
+      if (code != null && role !== 'unknown') {
+        // Source-aware CAS: a human acceptance may replace an autonomous/unowned
+        // decision even when the classifier raced ahead or produced the same value.
+        // Human/provider/cleanup/legacy decisions remain immutable from this seam.
+        const upd = await q<Row>(
+          `UPDATE evidence
+              SET image_role_code = $2,
+                  image_role_source = 'staff',
+                  accepted_for_eva = true,
+                  accepted_for_eva_source = 'staff',
+                  excluded = CASE
+                    WHEN (exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')
+                         AND NOT person_reflection
+                      THEN false
+                    ELSE excluded
+                  END,
+                  exclusion_reason = CASE
+                    WHEN (exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')
+                         AND NOT person_reflection
+                      THEN NULL
+                    ELSE exclusion_reason
+                  END,
+                  exclusion_decision_source = CASE
+                    WHEN (exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')
+                         AND NOT person_reflection
+                      THEN 'staff'
+                    ELSE exclusion_decision_source
+                  END,
+                  updated_at = now()
+            WHERE id = $1
+              AND kind_code = $3
+              AND case_id = $4
+              AND (image_role_source IS NULL OR image_role_source = 'classifier')
+              AND (accepted_for_eva_source IS NULL OR accepted_for_eva_source = 'classifier')
+              AND (
+                NOT excluded
+                OR exclusion_decision_source IS NULL
+                OR exclusion_decision_source = 'classifier'
+              )
+          RETURNING id, case_id, excluded, storage_path, box_file_id`,
+          [evidenceId, code, IMAGE_KIND, lockedEvidenceCaseId],
         );
-        if (upd[0]) return { promoted: true, promotedField: 'evidence.image_role_code' };
+        if (upd[0]) {
+          // Accepting an image-role suggestion can recover a classifier exclusion
+          // after intake's one-shot archive pass. Schedule the mirror in this same
+          // transaction; the helper no-ops for byte-less/already-archived/still-
+          // excluded rows and generation-upserts safely if it was already included.
+          await requestArchiveMirrorIfEligible(q, upd[0]);
+          await requestStatusRecompute(q, String(upd[0].case_id));
+          return { promoted: true, promotedField: 'evidence.image_role_code' };
+        }
       }
     } else if (row.suggestion_type === 'registration' && evidenceId) {
       const visible = (value as { visible?: boolean } | null)?.visible;
       if (typeof visible === 'boolean') {
-        // FILL-IF-EMPTY: registration_visible is tri-state; only set it when still NULL.
-        const upd = await query<Row>(
-          `UPDATE evidence SET registration_visible = $2, updated_at = now()
-             WHERE id = $1 AND registration_visible IS NULL RETURNING id`,
-          [evidenceId, visible],
+        // Source-aware CAS: replace NULL or classifier-owned values (including a
+        // same-value race) and convert ownership to staff in this transaction.
+        const upd = await q<Row>(
+          `UPDATE evidence
+              SET registration_visible = $2,
+                  registration_visible_source = 'staff',
+                  updated_at = now()
+            WHERE id = $1
+              AND kind_code = $3
+              AND case_id = $4
+              AND (
+                registration_visible_source IS NULL
+                OR registration_visible_source = 'classifier'
+              )
+          RETURNING id, case_id`,
+          [evidenceId, visible, IMAGE_KIND, lockedEvidenceCaseId],
         );
-        if (upd[0]) return { promoted: true, promotedField: 'evidence.registration_visible' };
+        if (upd[0]) {
+          await requestStatusRecompute(q, String(upd[0].case_id));
+          return { promoted: true, promotedField: 'evidence.registration_visible' };
+        }
       }
     } else if (row.suggestion_type === 'case_link' && inboundEmailId) {
       // rules-engine-v2 Phase 2 (ADR-0019 suggest-first ladder): accept is the ONLY moment a
@@ -236,8 +720,27 @@ async function promoteAcceptedSuggestion(
         // /api/inbound/counts. Accepting the suggestion IS a routing decision; without this the
         // row shows 'Linked to case' yet keeps inflating the 'needs sorting' badge.
         const upd = await query<Row>(
-          `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
-             WHERE id = $1 AND case_id IS NULL RETURNING id, has_attachments`,
+          `UPDATE inbound_email
+              SET case_id = $2,
+                  triage_state = 'routed',
+                  evidence_backfill_requested_generation = CASE
+                    WHEN has_attachments = true
+                     AND NULLIF(btrim(source_mailbox), '') IS NOT NULL
+                     AND NULLIF(btrim(source_message_id), '') IS NOT NULL
+                      THEN evidence_backfill_requested_generation + 1
+                    ELSE evidence_backfill_requested_generation
+                  END,
+                  evidence_backfill_requested_at = CASE
+                    WHEN has_attachments = true
+                     AND NULLIF(btrim(source_mailbox), '') IS NOT NULL
+                     AND NULLIF(btrim(source_message_id), '') IS NOT NULL
+                      THEN now()
+                    ELSE evidence_backfill_requested_at
+                  END,
+                  updated_at = now()
+             WHERE id = $1 AND case_id IS NULL
+           RETURNING id, has_attachments, source_mailbox, source_message_id, subject,
+                     evidence_backfill_requested_generation`,
           [inboundEmailId, targetCaseId],
         );
         if (upd[0]) {
@@ -258,26 +761,48 @@ async function promoteAcceptedSuggestion(
           // Best-effort inside markOutstandingChasersResponded itself: a chaser
           // bookkeeping failure never unwinds the attach.
           await markOutstandingChasersResponded(targetCaseId, 'suggestion accepted');
-          // PR52-F4 SAFETY: a suggest-first link (images-received PDF-VRM / ref-gate rung)
-          // attaches the EMAIL but NOT its attachments — the intake persist chain
-          // (classifyPersist + extractImages) only runs on the minting/auto-attach lanes, and
-          // the landed attachments are not re-driven on accept (there is no Data-API →
-          // orchestration re-fetch path today). Until the full persist-on-accept feature lands
-          // (TKT-145), leave a durable, handler-safe case note so the photos/PDF are added BY
-          // HAND instead of being silently dropped from evidence/EVA-readiness.
+          // TKT-145 (PR52-F4): a suggest-first link (images-received PDF-VRM / ref-gate
+          // rung) attaches the EMAIL but NOT its attachments — the intake persist chain
+          // (classifyPersist + extractImages) only ran on the minting/auto-attach lanes.
+          // ENQUEUE the evidence backfill STRICTLY AFTER the link commit (the UPDATE above
+          // returned, and each query() is its own auto-commit statement): the orchestration
+          // consumer re-fetches the message from Graph and drives the existing persist
+          // chain + status recompute onto the target case. The interim "attach by hand"
+          // note is INVERTED — written only when the backfill cannot even be queued here
+          // (the consumer writes it on terminal failure via the report-back route). BEST
+          // EFFORT throughout: a backfill/enqueue/note failure never unwinds the accept.
           if (upd[0].has_attachments === true) {
             try {
-              await query(
-                'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
-                [
-                  'Attachments to add',
-                  targetCaseId,
-                  actor ?? 'System',
-                  'The linked email arrived with attachments (e.g. photos or a PDF) that are not yet on this case. Please add them by hand from the email.',
-                ],
-              );
+              const sourceMailbox =
+                typeof upd[0].source_mailbox === 'string' ? upd[0].source_mailbox.trim() : '';
+              const sourceMessageId =
+                typeof upd[0].source_message_id === 'string' ? upd[0].source_message_id.trim() : '';
+              let backfillQueued = false;
+              if (sourceMailbox && sourceMessageId) {
+                try {
+                  const drained = await drainEvidenceBackfillRequests(inboundEmailId, 1);
+                  backfillQueued = drained.published === 1;
+                } catch (e) {
+                  console.error(
+                    `[ai-suggestions] evidence-backfill enqueue failed for inbound ${inboundEmailId} -> case ${targetCaseId} (degrading to the manual note): ${
+                      e instanceof Error ? e.message : String(e)
+                    }`,
+                  );
+                }
+              }
+              if (!backfillQueued) {
+                // No mailbox provenance to re-fetch from, or the enqueue itself failed —
+                // fall back to the durable, handler-safe note so the photos/PDF are added
+                // BY HAND instead of being silently dropped from evidence/EVA-readiness.
+                await writeEvidenceBackfillNote({
+                  caseId: targetCaseId,
+                  inboundEmailId,
+                  author: actor ?? 'System',
+                  kind: 'failed',
+                });
+              }
             } catch {
-              /* best-effort — a note failure must never unwind the link */
+              /* best-effort — a backfill/note failure must never unwind the link */
             }
           }
           return { promoted: true, promotedField: 'inbound_email.case_id' };
@@ -377,8 +902,14 @@ async function promoteAcceptedSuggestion(
       // already validated them at write time), the row vanished, or classifier_mode is
       // already 'human' — never overwrite a human decision. promoted stays false either way.
     }
-  } catch {
-    /* promotion is supplementary — the acceptance already stands */
+  } catch (e) {
+    if (
+      q !== query &&
+      (row.suggestion_type === 'image_role' || row.suggestion_type === 'registration')
+    ) {
+      throw e;
+    }
+    /* non-readiness promotion is supplementary — the acceptance already stands */
   }
   return { promoted: false };
 }

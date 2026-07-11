@@ -75,8 +75,8 @@ Update both artifacts linked from the ticket's **Artifacts** footer.
 - Honest gaps (expected absences vs real bugs)
 - How to re-verify
 
-Gold-standard examples: [TKT-001/changes.md](../../../docs/tickets/verify/TKT-001-document-parsing/changes.md),
-[TKT-001/verification.md](../../../docs/tickets/verify/TKT-001-document-parsing/verification.md).
+Gold-standard examples: [TKT-001/changes.md](../../../docs/tickets/done/TKT-001-document-parsing/changes.md),
+[TKT-001/verification.md](../../../docs/tickets/done/TKT-001-document-parsing/verification.md).
 
 ### Status rules (BOARD truth standard)
 

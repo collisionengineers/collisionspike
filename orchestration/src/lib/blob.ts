@@ -35,7 +35,14 @@ async function storageMiToken(): Promise<AccessToken> {
   const resource = 'https://storage.azure.com/';
   const url = `${idEndpoint}?resource=${encodeURIComponent(resource)}&api-version=2019-08-01`;
   const res = await fetch(url, { headers: { 'X-IDENTITY-HEADER': idHeader } });
-  if (!res.ok) throw new Error(`MSI storage token ${res.status}`);
+  if (!res.ok) {
+    // Preserve the HTTP status so queue consumers can distinguish a retryable
+    // managed-identity/metadata-service outage from a terminal configuration fault.
+    throw Object.assign(new Error(`MSI storage token ${res.status}`), {
+      statusCode: res.status,
+      code: 'ManagedIdentityTokenError',
+    });
+  }
   const json = (await res.json()) as { access_token: string; expires_on?: string };
   const expiresAt = json.expires_on ? Number(json.expires_on) * 1000 : now + 3_300_000;
   cachedStorageToken = { token: json.access_token, expiresAt };

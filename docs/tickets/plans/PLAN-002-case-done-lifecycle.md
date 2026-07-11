@@ -13,4 +13,4 @@ Retro-registers the case-done lifecycle cluster. The verbatim operator plan rema
 
 - [TKT-094](../verify/TKT-094-case-done-status-model/TKT-094-case-done-status-model.md) — status model and export transition.
 - [TKT-095](../verify/TKT-095-case-done-detectors/TKT-095-case-done-detectors.md) — done detectors.
-- [TKT-096](../verify/TKT-096-completed-archive-view/TKT-096-completed-archive-view.md) — Completed view and search fold-in.
+- [TKT-096](../done/TKT-096-completed-archive-view/TKT-096-completed-archive-view.md) — Completed view and search fold-in.

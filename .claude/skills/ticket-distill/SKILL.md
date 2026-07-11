@@ -90,7 +90,7 @@ Body sections:
 - **Research** — link stub/pack; note distill date
 - **Artifacts** — links to `./changes.md`, `./verification.md`, `./evidence/`
 
-Gold-standard example: [TKT-023](../../../docs/tickets/verify/TKT-023-follow-up-docs/TKT-023-follow-up-docs.md).
+Gold-standard example: [TKT-023](../../../docs/tickets/done/TKT-023-follow-up-docs/TKT-023-follow-up-docs.md).
 
 ### Cohort A exception
 

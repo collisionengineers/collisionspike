@@ -6,8 +6,8 @@
    transport is a straight POST carrying the same Bearer token as all
    other REST calls.
 
-   The API proxies the Python parser Function over HTTP and returns the
-   same `ParserResponse` shape — no shape change from the old connector.
+   The API proxies the Python parser Function over HTTP and returns its
+   `ParserResponse` shape without remapping it.
    The injectable `ParserTransport` contract (parser-client.ts) is
    unchanged, so `parseDocument(req, makeRestParserTransport(call))`
    in ManualIntake is a drop-in replacement.

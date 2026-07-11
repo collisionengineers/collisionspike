@@ -1,0 +1,43 @@
+SET
+Pager usage is off.
+===== Q1: the five merge-party rows (current state) =====
+                  id                  | case_po  |    case_ref    |   vrm   | status_code | on_hold |     updated_at      |                                                 duplicate_keys                                                  
+--------------------------------------+----------+----------------+---------+-------------+---------+---------------------+-----------------------------------------------------------------------------------------------------------------
+ 68442a2a-998c-4a16-89ba-8fe226303734 | PCH26009 | 00035591/JEFFP | PK20FWT |   100000003 | f       | 2026-07-09 09:22:00 | 
+ cd9092ce-1956-4df3-80d3-6cc77ee31d9f | PCH26018 | 00035591/JEFFP | PK20FWT |   100000002 | f       | 2026-07-09 09:22:00 | {"mergedInto" : "68442a2a-998c-4a16-89ba-8fe226303734", "mergedBy" : "delta:2026-07-09-intake-wave-data-fixes"}
+ 19b96214-4770-4ea7-ac56-c63741a4f430 | PCH26020 | 00035591/JEFFP | PK20FWT |   100000002 | f       | 2026-07-09 09:22:00 | {"mergedInto" : "68442a2a-998c-4a16-89ba-8fe226303734", "mergedBy" : "delta:2026-07-09-intake-wave-data-fixes"}
+ be1a0a11-8a22-4fef-a0e6-878090360f0c |          | 226070.TA      | YH13ZSN |   100000002 | t       | 2026-07-06 15:29:28 | 
+ d1d862bd-1ae4-4028-b81e-392ff6a75029 |          | 226070.TA      | YH13ZSN |   100000002 | f       | 2026-07-09 09:22:00 | {"mergedInto" : "be1a0a11-8a22-4fef-a0e6-878090360f0c", "mergedBy" : "delta:2026-07-09-intake-wave-data-fixes"}
+(5 rows)
+
+===== Q2: append-only audit trail since 2026-07-09 for the three retired rows (what re-opened them) =====
+     occurred_at     |               case_id                |           actor            | action_code |                                     name                                      |                before                |            after            
+---------------------+--------------------------------------+----------------------------+-------------+-------------------------------------------------------------------------------+--------------------------------------+-----------------------------
+ 2026-07-09 09:22:00 | d1d862bd-1ae4-4028-b81e-392ff6a75029 | tkt131-image-role-backfill |   100000013 | Status linked_to_instruction -> needs_review (TKT-131 image-role re-evaluate) | {"status" : "linked_to_instruction"} | {"status" : "needs_review"}
+ 2026-07-09 09:22:00 | 19b96214-4770-4ea7-ac56-c63741a4f430 | tkt131-image-role-backfill |   100000013 | Status linked_to_instruction -> needs_review (TKT-131 image-role re-evaluate) | {"status" : "linked_to_instruction"} | {"status" : "needs_review"}
+ 2026-07-09 09:22:00 | cd9092ce-1956-4df3-80d3-6cc77ee31d9f | tkt131-image-role-backfill |   100000013 | Status linked_to_instruction -> needs_review (TKT-131 image-role re-evaluate) | {"status" : "linked_to_instruction"} | {"status" : "needs_review"}
+(3 rows)
+
+===== Q3 (strict, = mergedIntoFrom semantics): ALL rows carrying a mergedInto marker with status <> 100000006 =====
+                  id                  | case_po  |    case_ref    |   vrm   | status_code | on_hold |     updated_at      |                                                 duplicate_keys                                                  
+--------------------------------------+----------+----------------+---------+-------------+---------+---------------------+-----------------------------------------------------------------------------------------------------------------
+ d1d862bd-1ae4-4028-b81e-392ff6a75029 |          | 226070.TA      | YH13ZSN |   100000002 | f       | 2026-07-09 09:22:00 | {"mergedInto" : "be1a0a11-8a22-4fef-a0e6-878090360f0c", "mergedBy" : "delta:2026-07-09-intake-wave-data-fixes"}
+ 19b96214-4770-4ea7-ac56-c63741a4f430 | PCH26020 | 00035591/JEFFP | PK20FWT |   100000002 | f       | 2026-07-09 09:22:00 | {"mergedInto" : "68442a2a-998c-4a16-89ba-8fe226303734", "mergedBy" : "delta:2026-07-09-intake-wave-data-fixes"}
+ cd9092ce-1956-4df3-80d3-6cc77ee31d9f | PCH26018 | 00035591/JEFFP | PK20FWT |   100000002 | f       | 2026-07-09 09:22:00 | {"mergedInto" : "68442a2a-998c-4a16-89ba-8fe226303734", "mergedBy" : "delta:2026-07-09-intake-wave-data-fixes"}
+(3 rows)
+
+===== Q3 (loose LIKE variant, drift check vs strict) =====
+ loose_count 
+-------------
+           3
+(1 row)
+
+===== Whole marker population (any status) for the record =====
+ status_code | count 
+-------------+-------
+   100000002 |     3
+(1 row)
+
+===== Backup CSV (pre-state of every column the delta mutates, whole marker population) =====
+COPY 3
+backup CSV written

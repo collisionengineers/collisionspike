@@ -6,7 +6,7 @@
 
      - the 12 EVA fields  -> `EvaFields` ({ value, provenance, reviewState }),
        reusing the SAME ProvenanceBadge the live review screen shows;
-     - vrm + reference    -> Case-identity values (vrm / Case-PO);
+     - vrm + reference + vin -> identity values outside the EVA field set;
      - issues[]           -> surfaced to the user as request/parse errors.
 
    PURE OF SDK: this module imports NO '@microsoft/power-apps' — only the response
@@ -74,6 +74,8 @@ export interface ParserResponse {
   extraction: Record<ParserExtractionKey, ParserField> | null;
   vrm: ParserField | null;
   reference: ParserField | null;
+  /** Envelope-only VIN; never part of the 12 EVA extraction fields. */
+  vin: ParserField | null;
   issues: ParserIssue[];
   contract_version: string;
 }
@@ -175,9 +177,12 @@ export interface ParsedIntake {
   vrm: string;
   /** Provider reference / Case-PO extracted (Case identity), or ''. */
   reference: string;
+  /** VIN extracted from the document, retained outside the EVA review fields. */
+  vin: string;
   /** Per-field confidence/source kept alongside for the intake review badges. */
   vrmField?: ParserField;
   referenceField?: ParserField;
+  vinField?: ParserField;
   /** Any parser issues to surface (errors block; warnings inform). */
   issues: ParserIssue[];
 }
@@ -201,8 +206,10 @@ export function adaptParserResponse(resp: ParserResponse): ParsedIntake {
     evaFields,
     vrm: resp.vrm?.value ?? '',
     reference: resp.reference?.value ?? '',
+    vin: resp.vin?.value ?? '',
     ...(resp.vrm ? { vrmField: resp.vrm } : {}),
     ...(resp.reference ? { referenceField: resp.reference } : {}),
+    ...(resp.vin ? { vinField: resp.vin } : {}),
     issues: resp.issues ?? [],
   };
 }

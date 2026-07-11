@@ -135,11 +135,113 @@ df.app.orchestration('boxArchiveEvidenceOrchestrator', function* (ctx) {
   return result;
 });
 
-interface ArchiveItem {
+export interface ArchiveItem {
   id: string;
   filename: string;
   blobPath: string;
   contentType: string;
+  claimToken: string;
+  decisionGeneration: number;
+}
+
+export interface ArchiveMirrorItemDeps {
+  upload(folderId: string, item: ArchiveItem): Promise<BoxUploadResult>;
+  stamp(payload: {
+    caseId: string;
+    evidenceId: string;
+    blobPath: string;
+    boxFileId: string;
+    boxFileUrl: string;
+    claimToken: string;
+    decisionGeneration: number;
+  }): Promise<{ updated: boolean }>;
+  release?(payload: {
+    caseId: string;
+    evidenceId: string;
+    claimToken: string;
+  }): Promise<unknown>;
+}
+
+const realMirrorItemDeps: ArchiveMirrorItemDeps = {
+  upload: (folderId, item) => uploadArchiveItem(folderId, item),
+  stamp: (payload) => dataApi.stampArchivedEvidence(payload),
+  release: (payload) => dataApi.releaseArchiveEvidenceClaim(payload),
+};
+
+/**
+ * Mirror every evidence ROW. Identical blob paths share one idempotent Box upload, but
+ * each sibling row is stamped separately. A row counts as uploaded only after its own
+ * stamp reports updated=true; this prevents an aggregate 100% result from hiding a
+ * failed/stale stamp.
+ */
+export async function mirrorArchiveItems(
+  caseId: string,
+  folderId: string,
+  items: ArchiveItem[],
+  ctx: Pick<InvocationContext, 'warn'>,
+  deps: ArchiveMirrorItemDeps = realMirrorItemDeps,
+): Promise<{ uploaded: number; total: number; fileIds: string[] }> {
+  const uploadByBlobPath = new Map<string, BoxUploadResult>();
+  let uploaded = 0;
+  const fileIds: string[] = [];
+
+  for (const item of items) {
+    let result = uploadByBlobPath.get(item.blobPath);
+    if (!result) {
+      try {
+        result = await deps.upload(folderId, item);
+      } catch (e) {
+        ctx.warn(
+          `[boxArchive] upload failed for ${item.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`,
+        );
+        await deps.release?.({
+          caseId,
+          evidenceId: item.id,
+          claimToken: item.claimToken,
+        }).catch(() => undefined);
+        continue;
+      }
+      if (!result.id) {
+        ctx.warn(`[boxArchive] upload returned no file id for ${item.filename} (case ${caseId})`);
+        await deps.release?.({
+          caseId,
+          evidenceId: item.id,
+          claimToken: item.claimToken,
+        }).catch(() => undefined);
+        continue;
+      }
+      // Cache only a usable upload. A failed/no-id first sibling must not poison a
+      // later row's chance to retry the same blob in this pass.
+      uploadByBlobPath.set(item.blobPath, result);
+    }
+
+    if (!result.id) continue;
+    const boxFileUrl = `https://app.box.com/file/${encodeURIComponent(result.id)}`;
+    try {
+      const stamped = await deps.stamp({
+        caseId,
+        evidenceId: item.id,
+        blobPath: item.blobPath,
+        boxFileId: result.id,
+        boxFileUrl,
+        claimToken: item.claimToken,
+        decisionGeneration: item.decisionGeneration,
+      });
+      if (!stamped.updated) {
+        ctx.warn(`[boxArchive] evidence row was not stamped for ${item.filename} (case ${caseId})`);
+        continue;
+      }
+    } catch (e) {
+      ctx.warn(
+        `[boxArchive] upload succeeded but evidence stamp failed for ${item.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`,
+      );
+      throw e;
+    }
+    uploaded++;
+    fileIds.push(result.id);
+  }
+
+  return { uploaded, total: items.length, fileIds };
 }
 
 df.app.activity('boxArchiveEvidence', {
@@ -177,60 +279,20 @@ df.app.activity('boxArchiveEvidence', {
         filename: row.filename,
         blobPath: row.blobPath,
         contentType: row.contentType || 'application/octet-stream',
+        claimToken: row.claimToken,
+        decisionGeneration: Number(row.decisionGeneration),
       }));
     } catch (e) {
       ctx.warn(`[boxArchive] could not read evidence rows for ${caseId}: ${String(e)}`);
       return { uploaded: 0, total: 0, skipped: 'evidence_unreadable' };
     }
 
-    // De-dupe by blobPath so a file referenced twice is uploaded once.
-    const seen = new Set<string>();
-
-    let uploaded = 0;
-    const fileIds: string[] = [];
-    let total = 0;
-    for (const it of items) {
-      if (seen.has(it.blobPath)) continue;
-      seen.add(it.blobPath);
-      total++;
-      let res: BoxUploadResult;
-      try {
-        // TKT-142: size-branched transport — large files go by blob reference (the
-        // facade streams them itself); small files keep the inline base64 path.
-        res = await uploadArchiveItem(folderId, it);
-      } catch (e) {
-        // Best-effort per item: a single upload failure must not abort the others.
-        ctx.warn(
-          `[boxArchive] upload failed for ${it.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`,
-        );
-        continue;
-      }
-      if (!res.id) {
-        ctx.warn(`[boxArchive] upload returned no file id for ${it.filename} (case ${caseId})`);
-        continue;
-      }
-
-      const boxFileUrl = `https://app.box.com/file/${encodeURIComponent(res.id)}`;
-      try {
-        const stamped = await dataApi.stampArchivedEvidence({
-          caseId,
-          evidenceId: it.id,
-          blobPath: it.blobPath,
-          boxFileId: res.id,
-          boxFileUrl,
-        });
-        if (!stamped.updated) {
-          ctx.warn(`[boxArchive] evidence row was not stamped for ${it.filename} (case ${caseId})`);
-        }
-      } catch (e) {
-        ctx.warn(
-          `[boxArchive] upload succeeded but evidence stamp failed for ${it.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`,
-        );
-        throw e;
-      }
-      uploaded++;
-      fileIds.push(res.id);
-    }
+    const { uploaded, total, fileIds } = await mirrorArchiveItems(
+      caseId,
+      folderId,
+      items,
+      ctx,
+    );
 
     // Audit the archive (best-effort; box_synced action code). Records what was mirrored.
     try {

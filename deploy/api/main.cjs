@@ -7194,6 +7194,8 @@ function hasIdentityOf(input) {
 function statusForReviewCase(input) {
   if (isTerminalStatus(input.status))
     return input.status;
+  if ((input.mergedInto ?? "").trim().length > 0)
+    return "linked_to_instruction";
   const fieldsValid = missingRequiredFieldKeys(input.evaFields).length === 0;
   const imagesValid = validateEvaImageRules(input.evidence).length === 0;
   if (fieldsValid && imagesValid)
@@ -7207,6 +7209,47 @@ function statusForReviewCase(input) {
   if (acceptedImages === 0 && instructionCount === 0)
     return "needs_review";
   return hasIdentityOf(input) ? "needs_review" : "error";
+}
+
+// packages/domain/dist/contracts/eva-edit.js
+var EVA_EDIT_MAX_LENGTH = {
+  workProvider: 200,
+  vehicleModel: 200,
+  claimantName: 200,
+  claimantTelephone: 60,
+  claimantEmail: 320,
+  dateOfLoss: 10,
+  dateOfInstruction: 10,
+  accidentCircumstances: 4e3,
+  inspectionAddress: 2e3,
+  vatStatus: 3,
+  mileage: 20,
+  mileageUnit: 6
+};
+var EVA_EDIT_DATE_RE = /^(?:|\d{2}\/\d{2}\/\d{4})$/;
+var EVA_EDIT_VAT_VALUES = ["", "Yes", "No"];
+var EVA_EDIT_MILEAGE_UNITS = ["", "Miles", "Km"];
+function normaliseEvaEdit(key, raw) {
+  const trimmed = raw.trim();
+  if (key === "dateOfLoss" || key === "dateOfInstruction") {
+    if (!EVA_EDIT_DATE_RE.test(trimmed)) {
+      return { error: `${key} must be DD/MM/YYYY or empty` };
+    }
+    return { value: trimmed };
+  }
+  if (key === "vatStatus") {
+    if (!EVA_EDIT_VAT_VALUES.includes(trimmed)) {
+      return { error: "vatStatus must be '', 'Yes' or 'No'" };
+    }
+    return { value: trimmed };
+  }
+  if (key === "mileageUnit") {
+    if (!EVA_EDIT_MILEAGE_UNITS.includes(trimmed)) {
+      return { error: "mileageUnit must be '', 'Miles' or 'Km'" };
+    }
+    return { value: trimmed };
+  }
+  return { value: raw.slice(0, EVA_EDIT_MAX_LENGTH[key]) };
 }
 
 // packages/domain/dist/domain/classification.js
@@ -13174,6 +13217,62 @@ var zodToJsonSchema = (schema, options) => {
 };
 
 // packages/domain/dist/capabilities/schemas.js
+var UUID = external_exports.string().uuid().describe("the stable row id (GUID) returned by an assistant read tool");
+var PROVIDER_CODE = external_exports.string().min(1).max(8).regex(/^[A-Za-z][A-Za-z0-9]{0,7}$/).describe("provider principal code");
+var PROVENANCE_SOURCE_TYPES = [
+  "staff",
+  "pdf_extraction",
+  "email_text",
+  "corpus",
+  "ai",
+  "dvla_dvsa",
+  "document_ai",
+  "azure_vision",
+  "web_lookup",
+  "whatsapp",
+  "manual_upload"
+];
+var REVIEW_STATES = ["not_required", "needs_review", "reviewed", "conflict"];
+var EVA_FIELD_KEYS = [
+  "workProvider",
+  "vehicleModel",
+  "claimantName",
+  "claimantTelephone",
+  "claimantEmail",
+  "dateOfLoss",
+  "dateOfInstruction",
+  "accidentCircumstances",
+  "inspectionAddress",
+  "vatStatus",
+  "mileage",
+  "mileageUnit"
+];
+var EvaFieldParam = external_exports.object({
+  value: external_exports.string(),
+  provenance: external_exports.object({
+    sourceType: external_exports.enum(PROVENANCE_SOURCE_TYPES),
+    sourceLabel: external_exports.string().min(1).max(400),
+    confidence: external_exports.number().min(0).max(1).optional()
+  }).strict(),
+  reviewState: external_exports.enum(REVIEW_STATES)
+}).strict();
+var EvaFieldsParam = external_exports.object(Object.fromEntries(EVA_FIELD_KEYS.map((key) => [key, EvaFieldParam]))).strict();
+var EditableEvaFieldsParam = external_exports.object({
+  // Provider identity is deliberately NOT editable here. It spans case_.work_provider_id
+  // plus the EVA display projection; the generic case PATCH only updates EVA text and
+  // would otherwise split those two sources of truth.
+  vehicleModel: external_exports.string().max(EVA_EDIT_MAX_LENGTH.vehicleModel).optional(),
+  claimantName: external_exports.string().max(EVA_EDIT_MAX_LENGTH.claimantName).optional(),
+  claimantTelephone: external_exports.string().max(EVA_EDIT_MAX_LENGTH.claimantTelephone).optional(),
+  claimantEmail: external_exports.string().max(EVA_EDIT_MAX_LENGTH.claimantEmail).optional(),
+  dateOfLoss: external_exports.string().trim().max(EVA_EDIT_MAX_LENGTH.dateOfLoss).regex(EVA_EDIT_DATE_RE, "dateOfLoss must be DD/MM/YYYY or empty").optional(),
+  dateOfInstruction: external_exports.string().trim().max(EVA_EDIT_MAX_LENGTH.dateOfInstruction).regex(EVA_EDIT_DATE_RE, "dateOfInstruction must be DD/MM/YYYY or empty").optional(),
+  accidentCircumstances: external_exports.string().max(EVA_EDIT_MAX_LENGTH.accidentCircumstances).optional(),
+  inspectionAddress: external_exports.string().max(EVA_EDIT_MAX_LENGTH.inspectionAddress).optional(),
+  vatStatus: external_exports.enum(EVA_EDIT_VAT_VALUES).optional(),
+  mileage: external_exports.string().max(EVA_EDIT_MAX_LENGTH.mileage).optional(),
+  mileageUnit: external_exports.enum(EVA_EDIT_MILEAGE_UNITS).optional()
+}).strict().refine((value) => Object.keys(value).length > 0, "at least one EVA field is required");
 function toJsonSchema(schema) {
   const json = zodToJsonSchema(schema, { target: "openApi3", $refStrategy: "none" });
   delete json.$schema;
@@ -13232,45 +13331,70 @@ var LimitParams = external_exports.object({
   limit: external_exports.number().int().min(1).max(50).optional().describe("max rows (default 10)")
 }).strict();
 var SetOnHoldParams = external_exports.object({
-  caseId: external_exports.string().min(1).describe("the case id (GUID)"),
+  caseId: UUID,
   onHold: external_exports.boolean().describe("true to hold, false to release")
 }).strict();
 var LogChaseParams = external_exports.object({
-  caseId: external_exports.string().min(1).describe("the case id (GUID)"),
+  caseId: UUID,
   channel: external_exports.enum(["email", "whatsapp"]).describe("how the chase was sent"),
   templateLabel: external_exports.string().min(1).max(200).describe("the chaser template used"),
   note: external_exports.string().max(2e3).optional().describe("optional free-text note")
 }).strict();
 var SetTriageStateParams = external_exports.object({
-  inboundId: external_exports.string().min(1).describe("the inbound email id (GUID)"),
+  inboundId: UUID,
   state: external_exports.enum(["new", "routed", "actioned", "dismissed"]).describe("the triage state to set")
 }).strict();
 var ReclassifyInboundParams = external_exports.object({
-  inboundId: external_exports.string().min(1).describe("the inbound email id (GUID)"),
-  category: external_exports.string().min(1).describe("the corrected category token"),
-  subtype: external_exports.string().optional().describe("the corrected subtype token")
+  inboundId: UUID,
+  tag: external_exports.enum(["Inspection", "New client work", "Audit", "Diminution", "Query"]).describe("the corrected e-mail type"),
+  reason: external_exports.string().max(500).optional().describe("optional reason for the correction")
 }).strict();
 var SaveInspectionDecisionParams = external_exports.object({
-  caseId: external_exports.string().min(1).describe("the case id (GUID)"),
-  decisionMode: external_exports.string().min(1).describe("'image_based', 'address', or 'unknown'"),
-  addressLines: external_exports.array(external_exports.string()).max(6).optional().describe("up to 6 address lines"),
-  postcode: external_exports.string().max(12).optional(),
-  sourceNote: external_exports.string().max(500).describe("why this address / image-based reason")
-}).strict();
+  caseId: UUID,
+  decisionMode: external_exports.enum(["manual", "confirmed_physical", "image_based"]).describe("manual/confirmed physical address, or image-based assessment"),
+  addressLines: external_exports.array(external_exports.string().min(1).max(200)).min(1).max(6).optional(),
+  postcode: external_exports.string().max(16).optional(),
+  sourceLabel: external_exports.enum(["manual", "confirmed:assist", "confirmed:corpus", "image_based"]).optional(),
+  sourceNote: external_exports.string().trim().min(1).max(500).describe("why this decision was made")
+}).strict().superRefine((value, ctx) => {
+  if (value.decisionMode === "image_based" && value.addressLines !== void 0) {
+    ctx.addIssue({ code: external_exports.ZodIssueCode.custom, path: ["addressLines"], message: "omit addressLines for image_based" });
+  }
+  if (value.decisionMode !== "image_based" && !value.addressLines?.length) {
+    ctx.addIssue({ code: external_exports.ZodIssueCode.custom, path: ["addressLines"], message: "addressLines are required for a physical decision" });
+  }
+});
 var EditCaseFieldsParams = external_exports.object({
-  caseId: external_exports.string().min(1).describe("the case id (GUID)"),
+  caseId: UUID,
   vrm: external_exports.string().max(16).optional().describe("corrected registration"),
-  caseType: external_exports.string().max(40).optional(),
-  evaFields: external_exports.record(external_exports.string(), external_exports.string()).optional().describe("EVA field key \u2192 new value")
-}).strict();
+  caseType: external_exports.enum(["standard", "audit", "audit_total_loss", "diminution"]).optional(),
+  evaFields: EditableEvaFieldsParam.optional().describe("editable non-provider EVA field key \u2192 new value")
+}).strict().refine((value) => value.vrm !== void 0 || value.caseType !== void 0 || value.evaFields !== void 0, "at least one case field is required");
 var CreateCaseParams = external_exports.object({
   vrm: external_exports.string().min(1).max(16).describe("vehicle registration"),
-  providerCode: external_exports.string().optional().describe("provider principal code"),
-  claimantName: external_exports.string().optional()
+  providerCode: PROVIDER_CODE.optional(),
+  claimantName: external_exports.string().max(200).optional()
+}).strict();
+var FullCreateCaseParams = external_exports.object({
+  evaFields: EvaFieldsParam,
+  vrm: external_exports.string().min(1).max(16),
+  casePo: external_exports.string().max(32).optional(),
+  provider: external_exports.string().max(200).optional(),
+  providerCode: PROVIDER_CODE.optional(),
+  insuredName: external_exports.string().max(200).optional(),
+  providerReference: external_exports.string().max(100).optional(),
+  status: external_exports.enum(["new_email", "ingested"]),
+  sourceLabel: external_exports.string().max(256).optional(),
+  writeProvenance: external_exports.boolean().optional(),
+  inspectionDecision: external_exports.enum(["confirmed_physical", "manual", "image_based", "unknown"]).optional(),
+  inspectionDecisionReason: external_exports.string().max(2e3).optional(),
+  onHold: external_exports.boolean().optional(),
+  receivedFrom: external_exports.string().max(200).optional(),
+  receivedOn: external_exports.string().max(10).optional()
 }).strict();
 var MergeCasesParams = external_exports.object({
-  targetCaseId: external_exports.string().min(1).describe("the survivor case id"),
-  sourceCaseId: external_exports.string().min(1).describe("the case merged away")
+  targetCaseId: UUID.describe("the survivor case id"),
+  sourceCaseId: UUID.describe("the case merged away")
 }).strict();
 
 // packages/domain/dist/capabilities/registry.js
@@ -13433,13 +13557,13 @@ var WRITE = [
     name: "reclassify_inbound",
     kind: "write",
     title: "Reclassify an email",
-    description: "Correct an inbound email\u2019s category / subtype.",
+    description: "Correct an inbound email using one of the known staff e-mail types.",
     destructive: false,
     humanOnly: false,
     gateLabel: WRITE_TIER_GATE_LABEL,
     minRole: "CollisionSpike.User",
     inputSchema: ReclassifyInboundParams,
-    route: { method: "POST", path: "inbound/{inboundId}/classification" }
+    route: { method: "PATCH", path: "inbound/{inboundId}/classification" }
   }),
   cap({
     name: "save_inspection_decision",
@@ -13457,7 +13581,7 @@ var WRITE = [
     name: "edit_case_fields",
     kind: "write",
     title: "Edit case fields",
-    description: "Correct a case\u2019s registration or its editable EVA fields.",
+    description: "Correct a case\u2019s registration, case type, or editable case details. Work provider cannot be changed with this capability.",
     destructive: false,
     humanOnly: false,
     gateLabel: WRITE_TIER_GATE_LABEL,
@@ -13806,7 +13930,8 @@ var audit_event_default = {
         { value: 100000050, name: "agent_read", label: "Agent Read" },
         { value: 100000051, name: "agent_write", label: "Agent Write" },
         { value: 100000052, name: "image_analysis_generated", label: "Image Analysis Generated" },
-        { value: 100000053, name: "report_delivered", label: "Report Delivered" }
+        { value: 100000053, name: "report_delivered", label: "Report Delivered" },
+        { value: 100000054, name: "chaser_suggested", label: "Chase suggested" }
       ]
     },
     {
@@ -15445,523 +15570,6 @@ async function tx(fn) {
   }
 }
 
-// api/src/lib/audit.ts
-var AUDIT_ACTION = {
-  graph_message_ingested: 1e8,
-  graph_message_ingest_failed: 100000001,
-  attachment_classified: 100000002,
-  case_created: 100000003,
-  case_attached: 100000004,
-  duplicate_dropped: 100000005,
-  duplicate_flagged: 100000006,
-  provider_matched: 100000007,
-  provider_unmatched: 100000008,
-  parser_called: 100000009,
-  parser_failed: 100000010,
-  enrichment_called: 100000011,
-  enrichment_failed: 100000012,
-  status_changed: 100000013,
-  jobsheet_imported: 100000014,
-  eva_submitted: 100000015,
-  box_synced: 100000016,
-  corpus_record_changed: 100000017,
-  inspection_override: 100000018,
-  box_folder_created: 100000019,
-  box_file_request_copied: 100000020,
-  box_upload_received: 100000021,
-  location_assist_confirmed: 100000022,
-  chaser_sent: 100000023,
-  inbound_classified: 100000024,
-  inbound_routed: 100000025,
-  case_disposed: 100000026,
-  // Phase-8 staff triage state-change actions (work-todo-spike: email-management).
-  inbound_dismissed: 100000027,
-  inbound_actioned: 100000028,
-  inbound_reopened: 100000029,
-  // Superuser soft-remove of a case (work-todo-spike: ui-changes/delete-case).
-  case_removed: 100000030,
-  // Staff override of a classifier suggestion (work-todo-spike: suggested-tags-and-folders).
-  inbound_reclassified: 100000031,
-  // AI suggestion lifecycle (TKT-015 AI suggestion layer; gated by AI_ASSIST_ENABLED).
-  // created = a model produced a suggestion; accepted/rejected = a human reviewed it.
-  ai_suggestion_created: 100000032,
-  ai_suggestion_accepted: 100000033,
-  ai_suggestion_rejected: 100000034,
-  // rules-engine-v2 Phase 2 (ADR-0019) — the ref-gate suggest/link/detach lifecycle +
-  // the cancellation-propose action. Minted in the DDL delta
-  // migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql, NOT YET applied
-  // live: writing one of these four codes before that delta lands will FK-fail on
-  // choice_audit_action — writeAudit's catch-all below swallows that (never throws), so a
-  // pre-DDL write degrades to "no audit row", never a blocked caller.
-  inbound_link_suggested: 100000035,
-  inbound_linked: 100000036,
-  inbound_detached: 100000037,
-  cancellation_proposed: 100000038,
-  // Outlook filing lifecycle (TKT-054 / 020726 E6; gated by OUTLOOK_MOVE_ENABLED).
-  // Minted in deltas/2026-07-02-tkt054-outlook-move.sql — same pre-DDL degrade as above.
-  outlook_move_requested: 100000039,
-  outlook_moved: 100000040,
-  outlook_move_failed: 100000041,
-  // Provider API intake channel (TKT-055 / ADR-0020; gated by the presence of at least one
-  // minted key). Minted in deltas/2026-07-03-provider-api-intake.sql — same pre-DDL degrade
-  // as the codes above (writeAudit's catch-all swallows an FK failure before the delta lands).
-  // api_key_* audit the Superuser key lifecycle; provider_api_case_* audit the intake outcome.
-  api_key_created: 100000042,
-  api_key_revoked: 100000043,
-  provider_api_case_created: 100000044,
-  provider_api_case_rejected: 100000045,
-  // Retroactive case reconstruction (TKT-058 / ADR-0022; gated by RETRO_CASE_ENABLED).
-  // Minted in deltas/2026-07-04-retro-case.sql — same pre-DDL degrade as the codes above.
-  // created = a case was reconstructed; linked = the trigger email matched an EXISTING
-  // case (any status, incl. terminal); failed = the ladder found no source to rebuild from.
-  retro_case_created: 100000046,
-  retro_case_linked: 100000047,
-  retro_reconstruction_failed: 100000048,
-  // TKT-068 — staff added evidence via the assistant's attach affordance (bytes uploaded to Blob
-  // + an evidence row created). Records the actor from the validated JWT (never the model).
-  evidence_added: 100000049,
-  // PLAN-001 Phase 3 (TKT-110/3b) — autonomous MCP-agent actions. Reserved now so the codes are
-  // stable; only WRITTEN once agent writes ship (3b). An agent action stamps the agent SP identity
-  // + autonomous:true into the actor/after (never a silent managed-identity fallback).
-  agent_read: 100000050,
-  agent_write: 100000051,
-  // TKT-016 — a run of the staged image-analysis suggestion producer (POST /api/cases/{id}/
-  // image-analysis/generate; gated IMAGE_ANALYSIS_ENABLED). Records the RUN (how many observation
-  // suggestions were minted + which stages degraded) distinct from the per-suggestion
-  // ai_suggestion_created (100000032) each draft also writes. Minted in
-  // deltas/2026-07-08-image-analysis-suggestion-types.sql — same pre-DDL degrade as the codes
-  // above (writeAudit's catch-all swallows the choice_audit_action FK failure until the delta lands).
-  image_analysis_generated: 100000052,
-  // TKT-094/095 (ADR-0023) — the CE report was delivered back to the work provider
-  // (the case's eva_submitted → done transition; manual button or a detector).
-  // Minted in deltas/2026-07-09-case-done.sql — same pre-DDL degrade as the codes
-  // above. NOTE: the case-done plan draft reserved 100000049 for this, but
-  // 100000049–100000052 were taken by TKT-068/110/016 first — hence 100000053.
-  report_delivered: 100000053
-};
-var SEVERITY_CODE = {
-  info: 1e8,
-  warning: 100000001,
-  error: 100000002
-};
-async function writeAudit(opts) {
-  try {
-    await query(
-      `INSERT INTO audit_event
-         (name, case_id, actor, action_code, severity_code, before, after, occurred_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
-      [
-        opts.summary,
-        opts.caseId ?? null,
-        opts.actor ?? null,
-        opts.action,
-        SEVERITY_CODE[opts.severity ?? "info"],
-        opts.before !== void 0 ? JSON.stringify(opts.before) : null,
-        opts.after !== void 0 ? JSON.stringify(opts.after) : null
-      ]
-    );
-  } catch (err2) {
-    console.error("[audit] write failed", err2);
-  }
-}
-function actorFromClaims(claims) {
-  const pick = (v) => typeof v === "string" && v.length > 0 ? v : void 0;
-  return pick(claims.oid) ?? pick(claims.preferred_username) ?? pick(claims.name) ?? pick(claims.sub);
-}
-
-// api/src/lib/inspection-prefill.ts
-var PREFILL_REASON = "Provider policy: image-based assessment";
-var PREFILL_SOURCE_LABEL = "Provider policy (image-based)";
-var IMAGE_BASED_CODE = inspectionDecisionCodec.toInt("image_based");
-var UNKNOWN_DECISION_CODE = inspectionDecisionCodec.toInt("unknown");
-function isPrefillApplicable(c) {
-  return c.providerInspectionPolicy === "always_image_based" && !isTerminalStatus(c.status) && c.inspectionDecision === "unknown" && c.evaFields.inspectionAddress.value.trim().length === 0;
-}
-async function prefillImageBasedInspection(caseId, actor) {
-  const updated = await query(
-    `UPDATE case_
-        SET eva_inspection_address = $2,
-            inspection_decision_code = $3,
-            updated_at = now()
-      WHERE id = $1
-        AND COALESCE(btrim(eva_inspection_address), '') = ''
-        AND (inspection_decision_code IS NULL OR inspection_decision_code = $4)
-      RETURNING id`,
-    [caseId, IMAGE_BASED_LITERAL, IMAGE_BASED_CODE, UNKNOWN_DECISION_CODE]
-  );
-  if (!updated[0]) return false;
-  try {
-    const corpus = sourceTypeCodec.toInt("corpus") ?? 100000003;
-    const reviewed = reviewStateCodec.toInt("reviewed") ?? 100000002;
-    const existing = await query(
-      `SELECT id FROM field_level_provenance WHERE case_id = $1 AND field_name = $2`,
-      [caseId, "inspectionAddress"]
-    );
-    if (existing.length === 0) {
-      await query(
-        `INSERT INTO field_level_provenance
-           (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
-         VALUES ($1, $2, 'inspectionAddress', $3, $4, $5, $6)`,
-        [
-          `${caseId}:inspectionAddress`,
-          caseId,
-          IMAGE_BASED_LITERAL,
-          corpus,
-          PREFILL_SOURCE_LABEL,
-          reviewed
-        ]
-      );
-    }
-  } catch {
-  }
-  await writeAudit({
-    action: AUDIT_ACTION.inspection_override,
-    caseId,
-    summary: "Inspection recorded as Image Based Assessment (provider policy)",
-    before: { inspectionAddress: "", decisionMode: "unknown" },
-    after: {
-      inspectionAddress: IMAGE_BASED_LITERAL,
-      decisionMode: "image_based",
-      reason: PREFILL_REASON,
-      source: "provider_policy"
-    },
-    ...actor ? { actor } : {}
-  });
-  return true;
-}
-
-// api/src/lib/case-po.ts
-var floorTableKnown = null;
-async function casePoFloor(run, prefix2) {
-  if (floorTableKnown === false) return 0;
-  try {
-    if (floorTableKnown === null) {
-      const reg = await run(
-        `SELECT to_regclass('public.case_po_floor')::text AS ok`
-      );
-      floorTableKnown = Boolean(reg[0]?.ok);
-      if (!floorTableKnown) return 0;
-    }
-    const rows = await run(
-      "SELECT floor_seq FROM case_po_floor WHERE prefix = $1",
-      [prefix2]
-    );
-    return Number(rows[0]?.floor_seq ?? 0) || 0;
-  } catch {
-    floorTableKnown = null;
-    return 0;
-  }
-}
-async function mintCasePo(q, principal, yy = casePoYear(), marker2 = "") {
-  const p = principal.toUpperCase();
-  const prefix2 = `${marker2.toUpperCase()}${p}${yy}`;
-  await q("SELECT pg_advisory_xact_lock(hashtext($1)::bigint)", [`casepo:${prefix2}`]);
-  const seqRows = await q(
-    `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) AS max_seq
-       FROM case_
-      WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
-    [`${prefix2}%`, casePoSequenceRegex(p, yy, marker2), prefix2]
-  );
-  const dbMax = Number(seqRows[0]?.max_seq ?? 0);
-  const floor = await casePoFloor(q, prefix2);
-  return formatCasePo(p, yy, Math.max(dbMax, floor) + 1, marker2);
-}
-
-// api/src/functions/internal.ts
-var import_functions = require("@azure/functions");
-
-// packages/domain/dist/gates.js
-var gates = {
-  // Core feature gates (plan 10 §1.1, #1–#21 boolean set)
-  pdfMapper: () => process.env.PDF_MAPPER_ENABLED === "true",
-  // #1
-  enrichment: () => process.env.ENRICHMENT_ENABLED === "true",
-  // #2
-  evaApi: () => process.env.EVA_API_ENABLED === "true",
-  // #4
-  azureMaps: () => process.env.AZURE_MAPS_ENABLED === "true",
-  // #8
-  valuation: () => process.env.VALUATION_ENABLED === "true",
-  // #9
-  azureVision: () => process.env.AZURE_VISION_ENABLED === "true",
-  // #11
-  ocrScannedPdf: () => process.env.OCR_SCANNED_PDF_ENABLED === "true",
-  // #12
-  plateOcr: () => process.env.PLATE_OCR_ENABLED === "true",
-  // #13
-  auditCases: () => process.env.AUDIT_CASES_ENABLED === "true",
-  // #15
-  locationAssist: () => process.env.LOCATION_ASSIST_ENABLED === "true",
-  // #17
-  // AI vision-reasoning ESCALATION for location assist (TKT-078) — default OFF, ships DARK.
-  // A deeper photo-based location suggestion via the keyless AOAI gpt-5 vision model, gated on
-  // TOP of locationAssist. Operator-blocked for live flip (production AI sign-off, gated.md E2).
-  locationAssistAi: () => process.env.LOCATION_ASSIST_AI_ENABLED === "true",
-  chaserSend: () => process.env.CHASER_SEND_ENABLED === "true",
-  // #19
-  caseDisposition: () => process.env.CASE_DISPOSITION_ENABLED === "true",
-  // #20
-  emailAi: () => process.env.EMAIL_AI_ENABLED === "true",
-  // #21
-  // AI assistant suggestion layer (TKT-015) — default OFF. Gates the embedded AI
-  // suggestion surface + the server-side model call path; honest no-op while off
-  // OR while no model endpoint/deployment is configured (see aiAssistConfigured).
-  aiAssist: () => process.env.AI_ASSIST_ENABLED === "true",
-  // AI chat helper (TKT-060) — default OFF. Gates the read-only assistant drawer + its
-  // POST /api/assistant/chat route. Distinct from aiAssist (the suggestion layer): this is
-  // a conversational Q&A surface with READ-ONLY tools only. Needs a model endpoint +
-  // deployment (see aiChatConfigured) in addition to this switch.
-  aiChat: () => process.env.AI_CHAT_ENABLED === "true",
-  // Live image role/registration classifier (TKT-064) — default OFF. Gates the gpt-5-vision
-  // classify call on the intake image paths (extractImages / classifyPersist). Needs a model
-  // endpoint + deployment (see imageRoleClassifyEnabled); off/unconfigured => images persist
-  // with role `unknown` exactly as before (the one-shot backfill handled existing evidence).
-  imageRoleClassify: () => process.env.IMAGE_ROLE_CLASSIFY_ENABLED === "true",
-  // Staged image-analysis suggestion producer (TKT-016) — default OFF, ships DARK. Gates the
-  // additive, observation-first pipeline (vehicle-present, same-vehicle, registration, background
-  // text, location hints, ranked inspection-address suggestion) behind POST /api/cases/{id}/
-  // image-analysis/generate. PURELY additive: every output is an ai_suggestion row (never writes
-  // evidence.image_role_code/registration_visible/excluded, case_.vrm, or any address column — the
-  // live TKT-064 classifier owns those; reconciliation is TKT-088/112). Needs a model endpoint +
-  // deployment (see imageAnalysisEnabled). Off/unconfigured => the route is an honest no-op. The
-  // scene-understanding stages carry image bytes off-region (GlobalStandard) — the live flip is
-  // DPIA-gated (docs/gated.md; PLAN-001 Phase 4).
-  imageAnalysis: () => process.env.IMAGE_ANALYSIS_ENABLED === "true",
-  // ---- PLAN-001 (AI hardening + MCP) gates — ALL default OFF, ship DARK ----
-  // TKT-066/069 — the registry-driven read adapter for the assistant. When OFF the assistant
-  // uses the original hand-written `execTool` (fast rollback); when ON it derives its tool set
-  // from the shared @cs/domain capability registry. Read-only either way (TKT-060 invariant).
-  assistantToolsetV2: () => process.env.ASSISTANT_TOOLSET_V2 === "true",
-  // TKT-072 — global search endpoint GET /api/search. Default OFF for a soak; the SPA search box
-  // falls back to its prior behaviour while off, and the route honestly 404-gates.
-  globalSearch: () => process.env.GLOBAL_SEARCH_ENABLED === "true",
-  // TKT-111 — the in-app assistant WRITE tier (propose→confirm→execute). Default OFF; ships DARK.
-  // Live flip is operator-blocked (per-gate E2/G5 sign-off + DPIA, docs/gated.md). The model NEVER
-  // issues a write directly — a human confirms a structured diff and the SPA calls an existing route.
-  assistantWriteTier: () => process.env.ASSISTANT_WRITE_TIER_ENABLED === "true",
-  // TKT-110 — the read-only MCP server (Streamable-HTTP) for external agents. Default OFF; ships
-  // DARK. Exposes ONLY registry read tools; needs its own Entra app-registration before a live flip
-  // (operator, docs/gated.md). Authorization is still enforced at the Data API, never the MCP layer.
-  mcpServer: () => process.env.MCP_SERVER_ENABLED === "true",
-  // Box gates (Phase 7, ADR-0012) — all default off
-  boxApi: () => process.env.BOX_API_ENABLED === "true",
-  // #22
-  boxFolderAtIntake: () => process.env.BOX_FOLDER_AT_INTAKE_ENABLED === "true",
-  // #23
-  boxFileRequest: () => process.env.BOX_FILEREQUEST_ENABLED === "true",
-  // #24
-  // TKT-095 detector (a) — sent-email-to-provider → case `done` (ADR-0023). Default OFF;
-  // ships DARK. Flipping it ON makes the orchestration's subscription maintenance CREATE a
-  // Graph `users/{mailbox}/mailFolders('SentItems')/messages` subscription per intake
-  // mailbox (notifications route to /api/graph-webhook-sent, NEVER the intake pipeline);
-  // flipping it back OFF makes the same maintenance pass PRUNE those SentItems
-  // subscriptions — a gate flip fully self-reconciles in both directions. While OFF the
-  // sent-items webhook/queue handlers drop everything with a trace, so behaviour is
-  // identical to pre-TKT-095. Read by the orchestration app only.
-  doneSentEmail: () => process.env.DONE_SENT_EMAIL_ENABLED === "true",
-  // Outlook filing (TKT-054 / 020726 E6) — default off. Gates the SPA "Suggested action"
-  // button, the Data API enqueue route, AND the orchestration mover. Operator-blocked:
-  // requires the Mail.ReadWrite Exchange-RBAC re-consent before it may be flipped
-  // (docs/gated.md).
-  outlookMove: () => process.env.OUTLOOK_MOVE_ENABLED === "true",
-  // Retroactive case reconstruction (ADR-0022 / TKT-058) — all default off. retroCase is
-  // the master switch (read by the orchestration retro activities AND the Data API's
-  // /api/internal/retro/* routes — set it on BOTH apps); retroOutlookSearch is the
-  // independent kill switch for the Outlook $search rung (Graph-search behaviour must be
-  // revocable without losing the Box rung). retroBoxArchiveRootIds is the comma-separated
-  // READ-ONLY Box archive root folder id(s) the reconstruction may search — empty means
-  // the Box rung honestly skips (the box-webhook app enforces the same roots via its own
-  // BOX_READONLY_ROOT_IDS scope lock).
-  retroCase: () => process.env.RETRO_CASE_ENABLED === "true",
-  retroOutlookSearch: () => process.env.RETRO_OUTLOOK_SEARCH_ENABLED === "true",
-  retroBoxArchiveRootIds: () => process.env.RETRO_BOX_ARCHIVE_ROOT_IDS ?? "",
-  // Triage-policy gates (Stage B, rules-engine-v2 Phase 2 / ADR-0019) — all default off.
-  // Each gates ONE rung of `decideTriage` (domain/triage-policy.ts); the function itself
-  // is pure and never reads process.env — the caller (an orchestration Durable activity)
-  // reads these accessors and passes the values in as a plain TriagePolicyGates object.
-  // With all four off, decideTriage always falls through to 'proceed_default' (the
-  // kill-switch invariant) — gates-off output is indistinguishable from today.
-  triageRefGate: () => process.env.TRIAGE_REF_GATE_ENABLED === "true",
-  triageCancellation: () => process.env.TRIAGE_CANCELLATION_ENABLED === "true",
-  triageImagesRouting: () => process.env.TRIAGE_IMAGES_ROUTING_ENABLED === "true",
-  triageCaseUpdate: () => process.env.TRIAGE_CASE_UPDATE_ENABLED === "true",
-  // TKT-093 — auto-attach promotion (ADR-0019 §4 promotion seam). Default off (ships DARK;
-  // live flip is operator-blocked, docs/gated.md). MODIFIES the ref-gate rung: an EXACT
-  // SINGLE open-case match on a strong signal (case_po/job_ref — NEVER vrm-only, per the
-  // inviolable VRM rule) is attached automatically instead of merely suggested. With this
-  // off, the ref-gate rung is exactly today's suggest_attach.
-  triageAutoAttach: () => process.env.TRIAGE_AUTO_ATTACH_ENABLED === "true",
-  // TKT-084 — the pre-instruction lane (taxonomy v3; operator sign-off recorded
-  // 2026-07-09 in the ticket's evidence). Default off in code. While OFF, classifyInbound
-  // DEMOTES a classifier 'pre_instruction' verdict to 'other' (today's behaviour — honest
-  // kill-switch) and no correlation runs. While ON: the lane is recorded as classified
-  // (held on the inbound_email row, no case minted — categoryMintsCase is false for it
-  // either way), and a later instruction's case-mint correlates held rows onto the new
-  // case, suggest-first (never auto-attach — the correlation key is typically VRM-only).
-  triagePreInstruction: () => process.env.TRIAGE_PRE_INSTRUCTION_ENABLED === "true",
-  // TKT-034 — the reg-keyed Box holding-folder rung for image-bearing emails that match
-  // no case (ADR-0015 §5 fallback step 2). Default off (ships DARK — creating non-Case/PO
-  // folders under the Box root is a NEW folder-naming semantic the operator must approve;
-  // docs/gated.md). While off, an unmatched images email is only FLAGGED for manual
-  // handling (attention_reason 'images_no_match') — fallback step 3 — which needs no gate.
-  boxRegFolder: () => process.env.BOX_REG_FOLDER_ENABLED === "true",
-  // (The replay-backfill gate was REMOVED with its driver — TKT-106. The wipe-and-
-  // rebuild path is non-viable: TKT-059's dry-run proved the mailboxes retain only a
-  // fraction of the DB's source emails, so the DB is the system of record. Keep the
-  // finding — TKT-059 verification — not the dead switch.)
-  // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
-  enrichmentApiBase: () => process.env.ENRICHMENT_API_BASE ?? "",
-  // #3
-  evaBaseUrl: () => process.env.EVA_BASE_URL ?? "",
-  // #5
-  valuationApiBase: () => process.env.VALUATION_API_BASE ?? "",
-  // #14
-  locationAssistApiBase: () => process.env.LOCATION_ASSIST_API_BASE ?? "",
-  // #18
-  boxFolderRootId: () => process.env.BOX_FOLDER_ROOT_ID ?? "",
-  // #27
-  boxFileRequestTemplateId: () => process.env.BOX_FILE_REQUEST_TEMPLATE_ID ?? "",
-  // #28
-  // AI model endpoint config (TKT-015). The server-side model call path is built but
-  // dormant: these settings are ABSENT in live app-settings, so the generate route stays
-  // an honest no-op until the wiring lands (model deployments now exist on the Foundry
-  // account — live state in LIVE_FACTS.json `foundry`; rules-engine-v2 Phase 4 wires
-  // them). Prefer managed-identity/keyless — no API key gate by design.
-  aiModelEndpoint: () => process.env.AI_MODEL_ENDPOINT ?? "",
-  aiModelDeployment: () => process.env.AI_MODEL_DEPLOYMENT ?? "",
-  // Outlook-move queue config (TKT-054): the orchestration app's queue-service endpoint,
-  // e.g. https://<orch-storage-account>.queue.core.windows.net — the Data API enqueues
-  // move jobs there with its managed identity (Storage Queue Data Message Sender).
-  outlookMoveQueueServiceUrl: () => process.env.OUTLOOK_MOVE_QUEUE_SERVICE_URL ?? "",
-  /**
-   * Derived: location assist is only enabled when all three conditions are met.
-   * Used by GET /api/gates/location-assist (plan 21 §21.2).
-   */
-  locationAssistEnabled: () => gates.locationAssist() && gates.azureMaps() && gates.locationAssistApiBase() !== "",
-  /**
-   * Derived: the AI vision-reasoning escalation is actionable — the base location assist is on,
-   * its own gate is on, AND a model endpoint + deployment are configured. Off => the deeper
-   * suggestion path is an honest no-op (TKT-078). Ships DARK; operator-gated live flip (gated.md E2).
-   */
-  locationAssistAiEnabled: () => gates.locationAssistEnabled() && gates.locationAssistAi() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
-  /**
-   * Derived: a model endpoint AND deployment are both configured. The AI generate
-   * route requires this in ADDITION to the aiAssist() switch — gate ON but model
-   * UNCONFIGURED is still an honest no-op (the live state today). Used by
-   * GET /api/gates/ai-assist + the generate route's disabled-reason.
-   */
-  aiAssistConfigured: () => gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
-  /**
-   * Derived: the AI chat helper is actionable — the gate is ON and a model endpoint +
-   * deployment are configured. Used by GET /api/gates/ai-chat + the chat route's honest
-   * refusal (TKT-060).
-   */
-  aiChatEnabled: () => gates.aiChat() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
-  /**
-   * Derived: the live image classifier is actionable — the gate is ON and a model endpoint +
-   * deployment are configured. The intake image paths call classifyImage only when this is
-   * true; otherwise they persist role `unknown` (pre-classifier behaviour). (TKT-064.)
-   */
-  imageRoleClassifyEnabled: () => gates.imageRoleClassify() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
-  /**
-   * Derived: the staged image-analysis producer is actionable — the gate is ON and a model
-   * endpoint + deployment are configured. The POST /api/cases/{id}/image-analysis/generate route
-   * runs the pipeline only when this is true; otherwise it is an honest no-op (TKT-016). The
-   * reg-OCR stage additionally needs the OCR Function (OCR_FN_URL) and the address stage needs
-   * locationAssistEnabled — each degrades gracefully on its own when its dependency is absent.
-   */
-  imageAnalysisEnabled: () => gates.imageAnalysis() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
-  /**
-   * Derived: the Outlook-move path is actionable — the gate is ON and the move queue
-   * endpoint is configured. Used by GET /api/gates/outlook-move + the enqueue route's
-   * honest refusal (TKT-054 / 020726 E6).
-   */
-  outlookMoveEnabled: () => gates.outlookMove() && gates.outlookMoveQueueServiceUrl() !== ""
-};
-
-// api/src/lib/enrichment-map.ts
-function combineMakeModel(make, model) {
-  const mk = (make ?? "").trim();
-  const md = (model ?? "").trim();
-  if (mk && md) {
-    return md.toUpperCase().startsWith(mk.toUpperCase()) ? md : `${mk} ${md}`;
-  }
-  return md || mk || "";
-}
-
-// api/src/lib/parser-eva-fields.ts
-var DDMMYYYY = /^\d{2}\/\d{2}\/\d{4}$/;
-function isUnknownWorkProviderSentinel(raw) {
-  return raw.trim().toUpperCase() === "UNKNOWN";
-}
-function isEngineerReportLayoutSentinel(raw) {
-  return isEngineerReportLayoutName(raw);
-}
-var SPEC = {
-  work_provider: { column: "eva_work_provider", provenanceField: "workProvider", normalize: (v) => isUnknownWorkProviderSentinel(v) || isEngineerReportLayoutSentinel(v) ? "" : v.slice(0, 200) },
-  vehicle_model: { column: "eva_vehicle_model", provenanceField: "vehicleModel", normalize: (v) => v.slice(0, 200) },
-  claimant_name: { column: "eva_claimant_name", provenanceField: "claimantName", normalize: (v) => v.slice(0, 200) },
-  claimant_telephone: { column: "eva_claimant_telephone", provenanceField: "claimantTelephone", normalize: (v) => v.slice(0, 60) },
-  claimant_email: { column: "eva_claimant_email", provenanceField: "claimantEmail", normalize: (v) => v.slice(0, 320) },
-  // CHECK ck_case_eva_date_of_loss / _instruction: must match DD/MM/YYYY (or empty) — skip junk.
-  date_of_loss: { column: "eva_date_of_loss", provenanceField: "dateOfLoss", normalize: (v) => DDMMYYYY.test(v) ? v : "" },
-  date_of_instruction: { column: "eva_date_of_instruction", provenanceField: "dateOfInstruction", normalize: (v) => DDMMYYYY.test(v) ? v : "" },
-  accident_circumstances: { column: "eva_accident_circumstances", provenanceField: "accidentCircumstances", normalize: (v) => v.slice(0, 4e3) },
-  // CHECK ck_case_eva_vat_status: IN ('', 'Yes', 'No') — the parser normalizes to Yes/No; skip anything else.
-  vat_status: { column: "eva_vat_status", provenanceField: "vatStatus", normalize: (v) => v === "Yes" || v === "No" ? v : "" }
-};
-var PARSER_EVA_FIELD_ORDER = [
-  "work_provider",
-  "vehicle_model",
-  "claimant_name",
-  "claimant_telephone",
-  "claimant_email",
-  "date_of_loss",
-  "date_of_instruction",
-  "accident_circumstances",
-  "vat_status"
-];
-function corpusWorkProviderCandidate(displayName) {
-  const value = (displayName ?? "").trim().slice(0, 200);
-  if (!value) return null;
-  return { column: "eva_work_provider", provenanceField: "workProvider", value };
-}
-function selectParserEvaCandidates(parserEva) {
-  if (!parserEva) return [];
-  const out = [];
-  for (const key of PARSER_EVA_FIELD_ORDER) {
-    const raw = (parserEva[key] ?? "").toString().trim();
-    if (!raw) continue;
-    const spec = SPEC[key];
-    const value = spec.normalize(raw);
-    if (!value) continue;
-    out.push({ column: spec.column, provenanceField: spec.provenanceField, value });
-  }
-  return out;
-}
-function normalizeProviderMatchKey(raw) {
-  return raw.trim().toUpperCase().replace(/[.,'&]/g, "").replace(/\s+/g, " ").trim();
-}
-function matchWorkProviderByContentString(raw, providers) {
-  const trimmed = (raw ?? "").toString().trim();
-  if (!trimmed || isUnknownWorkProviderSentinel(trimmed)) return { outcome: "unmatched" };
-  if (isEngineerReportLayoutSentinel(trimmed)) return { outcome: "unmatched" };
-  const key = normalizeProviderMatchKey(trimmed);
-  if (!key) return { outcome: "unmatched" };
-  const hits = /* @__PURE__ */ new Set();
-  for (const p of providers) {
-    if (p.principalCode && normalizeProviderMatchKey(p.principalCode) === key || p.displayName && normalizeProviderMatchKey(p.displayName) === key) {
-      hits.add(p.workProviderId);
-    }
-  }
-  if (hits.size === 1) {
-    const [workProviderId] = hits;
-    return { outcome: "matched", workProviderId };
-  }
-  if (hits.size > 1) return { outcome: "ambiguous" };
-  return { outcome: "unmatched" };
-}
-
 // api/src/lib/last-activity.ts
 var AUDIT_ACTION_LABELS = {
   graph_message_ingested: "Email received",
@@ -15988,6 +15596,7 @@ var AUDIT_ACTION_LABELS = {
   box_upload_received: "Images received",
   location_assist_confirmed: "Inspection address set",
   chaser_sent: "Chased",
+  chaser_suggested: "Chase suggested",
   inbound_classified: "Email sorted",
   inbound_routed: "Email filed",
   case_disposed: "Case closed",
@@ -16023,8 +15632,10 @@ var AUDIT_ACTION_CODE_LABELS = {
   // retro_case_linked
   100000049: "Files added",
   // evidence_added
-  100000052: "Photos analysed"
+  100000052: "Photos analysed",
   // image_analysis_generated
+  100000054: "Chase suggested"
+  // chaser_suggested
 };
 var DEFAULT_LABEL = "Updated";
 var GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -16057,6 +15668,7 @@ function plainDetail(raw) {
   return s;
 }
 function lastActivityLabel(row) {
+  if (row.suggested === true) return "Chase suggested";
   switch (row.kind) {
     case "audit":
       return auditActionLabel(row.actionCode);
@@ -16075,7 +15687,7 @@ function lastActivityLabel(row) {
 var CASE_SELECT_COLUMNS = "c.*, wp.display_name AS provider_display, wp.principal_code AS provider_principal, wp.inspection_location_policy_code AS provider_inspection_policy";
 var CASE_SELECT_FROM = "FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id";
 var CASE_SELECT = `SELECT ${CASE_SELECT_COLUMNS} ${CASE_SELECT_FROM}`;
-var CASE_SELECT_WITH_ACTIVITY = `SELECT ${CASE_SELECT_COLUMNS}, la.last_activity_kind, la.last_activity_at, la.last_activity_actor, la.last_activity_action_code ${CASE_SELECT_FROM} LEFT JOIN LATERAL (SELECT ev.kind AS last_activity_kind, ev.occurred_at AS last_activity_at, ev.actor AS last_activity_actor, ev.action_code AS last_activity_action_code FROM (SELECT 'audit'::text AS kind, ae.occurred_at, ae.actor, ae.action_code FROM audit_event ae WHERE ae.case_id = c.id UNION ALL SELECT 'note', COALESCE(n.occurred_at, n.created_at), n.author, NULL::integer FROM note n WHERE n.case_id = c.id UNION ALL SELECT 'chaser', COALESCE(ch.sent_at, ch.drafted_at, ch.created_at), NULL, NULL::integer FROM chaser ch WHERE ch.case_id = c.id) ev WHERE ev.occurred_at IS NOT NULL ORDER BY ev.occurred_at DESC LIMIT 1) la ON true`;
+var CASE_SELECT_WITH_ACTIVITY = `SELECT ${CASE_SELECT_COLUMNS}, la.last_activity_kind, la.last_activity_at, la.last_activity_actor, la.last_activity_action_code, la.last_activity_suggested ${CASE_SELECT_FROM} LEFT JOIN LATERAL (SELECT ev.kind AS last_activity_kind, ev.occurred_at AS last_activity_at, ev.actor AS last_activity_actor, ev.action_code AS last_activity_action_code, ev.suggested AS last_activity_suggested FROM (SELECT 'audit'::text AS kind, ae.occurred_at, ae.actor, ae.action_code, COALESCE(CASE WHEN pg_input_is_valid(ae.after, 'jsonb') THEN ae.after::jsonb @> '{"suggested": true}'::jsonb ELSE false END, false) AS suggested FROM audit_event ae WHERE ae.case_id = c.id UNION ALL SELECT 'note', COALESCE(n.occurred_at, n.created_at), n.author, NULL::integer, false FROM note n WHERE n.case_id = c.id UNION ALL SELECT 'chaser', COALESCE(ch.sent_at, ch.drafted_at, ch.created_at), NULL, NULL::integer, ch.suggested FROM chaser ch WHERE ch.case_id = c.id) ev WHERE ev.occurred_at IS NOT NULL ORDER BY ev.occurred_at DESC LIMIT 1) la ON true`;
 var pad = (n) => String(n).padStart(2, "0");
 function toDmy(v) {
   if (v == null || v === "") return void 0;
@@ -16230,7 +15842,8 @@ function rowToCase(rec, opts = {}) {
         label: lastActivityLabel({
           kind: rec.last_activity_kind,
           actionCode: rec.last_activity_action_code ?? null,
-          actor: rec.last_activity_actor ?? null
+          actor: rec.last_activity_actor ?? null,
+          suggested: rec.last_activity_suggested === true
         }),
         date: lastActivityDate
       }
@@ -16247,6 +15860,7 @@ function rowToEvidence(rec) {
     acceptedForEva: rec.accepted_for_eva ?? false,
     ...rec.excluded != null ? { excluded: rec.excluded } : {},
     ...rec.exclusion_reason ? { exclusionReason: rec.exclusion_reason } : {},
+    ...rec.excluded === true && rec.exclusion_decision_source === "classifier" ? { reviewRequired: true } : {},
     // Vision reflection flag + its reviewer dismissal (TKT-123). Columns land via
     // the 2026-07-09 evidence-reflection delta; conditional spreads tolerate a
     // pre-delta row/query shape.
@@ -16669,6 +16283,872 @@ var TWIN_TERMINAL = /* @__PURE__ */ new Set([
   // delivered (TKT-094): a delivered case is never an open twin/merge target.
 ]);
 
+// api/src/lib/case-mutation-locks.ts
+var CASE_MUTATION_LOCK_NAMESPACE = "case-merge-backfill:";
+function orderedCaseMutationIds(caseIds) {
+  return [...new Set(caseIds.map((id) => id.trim().toLowerCase()).filter(Boolean))].sort();
+}
+function deriveCaseMutationLockKeys(caseIds) {
+  return orderedCaseMutationIds(caseIds).map((id) => `${CASE_MUTATION_LOCK_NAMESPACE}${id}`);
+}
+async function acquireCaseMutationLocks(q, caseIds) {
+  for (const key of deriveCaseMutationLockKeys(caseIds)) {
+    await q("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [key]);
+  }
+}
+async function lockCaseForMutation(q, requestedCaseId) {
+  const caseId = requestedCaseId.trim().toLowerCase();
+  if (!caseId) return { kind: "missing", caseId };
+  await acquireCaseMutationLocks(q, [caseId]);
+  const rows = await q(
+    "SELECT id, duplicate_keys FROM case_ WHERE id = $1 FOR UPDATE",
+    [caseId]
+  );
+  const row = rows[0];
+  if (!row) return { kind: "missing", caseId };
+  const canonicalId = row.id.trim().toLowerCase();
+  const mergedInto = mergedIntoFrom(row.duplicate_keys)?.trim().toLowerCase();
+  if (mergedInto) return { kind: "retired", caseId: canonicalId, mergedInto };
+  return { kind: "active", caseId: canonicalId };
+}
+
+// api/src/lib/audit.ts
+var AUDIT_ACTION = {
+  graph_message_ingested: 1e8,
+  graph_message_ingest_failed: 100000001,
+  attachment_classified: 100000002,
+  case_created: 100000003,
+  case_attached: 100000004,
+  duplicate_dropped: 100000005,
+  duplicate_flagged: 100000006,
+  provider_matched: 100000007,
+  provider_unmatched: 100000008,
+  parser_called: 100000009,
+  parser_failed: 100000010,
+  enrichment_called: 100000011,
+  enrichment_failed: 100000012,
+  status_changed: 100000013,
+  jobsheet_imported: 100000014,
+  eva_submitted: 100000015,
+  box_synced: 100000016,
+  corpus_record_changed: 100000017,
+  inspection_override: 100000018,
+  box_folder_created: 100000019,
+  box_file_request_copied: 100000020,
+  box_upload_received: 100000021,
+  location_assist_confirmed: 100000022,
+  chaser_sent: 100000023,
+  inbound_classified: 100000024,
+  inbound_routed: 100000025,
+  case_disposed: 100000026,
+  // Phase-8 staff triage state-change actions (work-todo-spike: email-management).
+  inbound_dismissed: 100000027,
+  inbound_actioned: 100000028,
+  inbound_reopened: 100000029,
+  // Superuser soft-remove of a case (work-todo-spike: ui-changes/delete-case).
+  case_removed: 100000030,
+  // Staff override of a classifier suggestion (work-todo-spike: suggested-tags-and-folders).
+  inbound_reclassified: 100000031,
+  // AI suggestion lifecycle (TKT-015 AI suggestion layer; gated by AI_ASSIST_ENABLED).
+  // created = a model produced a suggestion; accepted/rejected = a human reviewed it.
+  ai_suggestion_created: 100000032,
+  ai_suggestion_accepted: 100000033,
+  ai_suggestion_rejected: 100000034,
+  // rules-engine-v2 Phase 2 (ADR-0019) — the ref-gate suggest/link/detach lifecycle +
+  // the cancellation-propose action. Minted in the DDL delta
+  // migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql, NOT YET applied
+  // live: writing one of these four codes before that delta lands will FK-fail on
+  // choice_audit_action — writeAudit's catch-all below swallows that (never throws), so a
+  // pre-DDL write degrades to "no audit row", never a blocked caller.
+  inbound_link_suggested: 100000035,
+  inbound_linked: 100000036,
+  inbound_detached: 100000037,
+  cancellation_proposed: 100000038,
+  // Outlook filing lifecycle (TKT-054 / 020726 E6; gated by OUTLOOK_MOVE_ENABLED).
+  // Minted in deltas/2026-07-02-tkt054-outlook-move.sql — same pre-DDL degrade as above.
+  outlook_move_requested: 100000039,
+  outlook_moved: 100000040,
+  outlook_move_failed: 100000041,
+  // Provider API intake channel (TKT-055 / ADR-0020; gated by the presence of at least one
+  // minted key). Minted in deltas/2026-07-03-provider-api-intake.sql — same pre-DDL degrade
+  // as the codes above (writeAudit's catch-all swallows an FK failure before the delta lands).
+  // api_key_* audit the Superuser key lifecycle; provider_api_case_* audit the intake outcome.
+  api_key_created: 100000042,
+  api_key_revoked: 100000043,
+  provider_api_case_created: 100000044,
+  provider_api_case_rejected: 100000045,
+  // Retroactive case reconstruction (TKT-058 / ADR-0022; gated by RETRO_CASE_ENABLED).
+  // Minted in deltas/2026-07-04-retro-case.sql — same pre-DDL degrade as the codes above.
+  // created = a case was reconstructed; linked = the trigger email matched an EXISTING
+  // case (any status, incl. terminal); failed = the ladder found no source to rebuild from.
+  retro_case_created: 100000046,
+  retro_case_linked: 100000047,
+  retro_reconstruction_failed: 100000048,
+  // TKT-068 — staff added evidence via the assistant's attach affordance (bytes uploaded to Blob
+  // + an evidence row created). Records the actor from the validated JWT (never the model).
+  evidence_added: 100000049,
+  // PLAN-001 Phase 3 (TKT-110/3b) — autonomous MCP-agent actions. Reserved now so the codes are
+  // stable; only WRITTEN once agent writes ship (3b). An agent action stamps the agent SP identity
+  // + autonomous:true into the actor/after (never a silent managed-identity fallback).
+  agent_read: 100000050,
+  agent_write: 100000051,
+  // TKT-016 — a run of the staged image-analysis suggestion producer (POST /api/cases/{id}/
+  // image-analysis/generate; gated IMAGE_ANALYSIS_ENABLED). Records the RUN (how many observation
+  // suggestions were minted + which stages degraded) distinct from the per-suggestion
+  // ai_suggestion_created (100000032) each draft also writes. Minted in
+  // deltas/2026-07-08-image-analysis-suggestion-types.sql — same pre-DDL degrade as the codes
+  // above (writeAudit's catch-all swallows the choice_audit_action FK failure until the delta lands).
+  image_analysis_generated: 100000052,
+  // TKT-094/095 (ADR-0023) — the CE report was delivered back to the work provider
+  // (the case's eva_submitted → done transition; manual button or a detector).
+  // Minted in deltas/2026-07-09-case-done.sql — same pre-DDL degrade as the codes
+  // above. NOTE: the case-done plan draft reserved 100000049 for this, but
+  // 100000049–100000052 were taken by TKT-068/110/016 first — hence 100000053.
+  report_delivered: 100000053,
+  // TKT-148 — a deterministic draft chase suggestion. Distinct from chaser_sent:
+  // no email or message has been sent and staff still decide whether to use the draft.
+  chaser_suggested: 100000054
+};
+var SEVERITY_CODE = {
+  info: 1e8,
+  warning: 100000001,
+  error: 100000002
+};
+var INSERT_AUDIT_SQL = `INSERT INTO audit_event
+         (name, case_id, actor, action_code, severity_code, before, after, occurred_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, now())`;
+function auditParams(opts) {
+  return [
+    opts.summary,
+    opts.caseId ?? null,
+    opts.actor ?? null,
+    opts.action,
+    SEVERITY_CODE[opts.severity ?? "info"],
+    opts.before !== void 0 ? JSON.stringify(opts.before) : null,
+    opts.after !== void 0 ? JSON.stringify(opts.after) : null
+  ];
+}
+async function writeAuditStrict(opts, q) {
+  await q(INSERT_AUDIT_SQL, auditParams(opts));
+}
+async function writeAudit(opts, transactionQuery) {
+  const q = transactionQuery ?? query;
+  const savepoint = transactionQuery ? "audit_event_write" : null;
+  try {
+    if (savepoint) await q(`SAVEPOINT ${savepoint}`);
+    await q(INSERT_AUDIT_SQL, auditParams(opts));
+    if (savepoint) await q(`RELEASE SAVEPOINT ${savepoint}`);
+  } catch (err2) {
+    if (savepoint) {
+      try {
+        await q(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+        await q(`RELEASE SAVEPOINT ${savepoint}`);
+      } catch {
+      }
+    }
+    console.error("[audit] write failed", err2);
+  }
+}
+function actorFromClaims(claims) {
+  const pick = (v) => typeof v === "string" && v.length > 0 ? v : void 0;
+  return pick(claims.oid) ?? pick(claims.preferred_username) ?? pick(claims.name) ?? pick(claims.sub);
+}
+
+// api/src/lib/inspection-prefill.ts
+var PREFILL_REASON = "Provider policy: image-based assessment";
+var PREFILL_SOURCE_LABEL = "Provider policy (image-based)";
+var IMAGE_BASED_CODE = inspectionDecisionCodec.toInt("image_based");
+var UNKNOWN_DECISION_CODE = inspectionDecisionCodec.toInt("unknown");
+function isPrefillApplicable(c) {
+  return c.providerInspectionPolicy === "always_image_based" && !isTerminalStatus(c.status) && c.inspectionDecision === "unknown" && c.evaFields.inspectionAddress.value.trim().length === 0;
+}
+async function prefillImageBasedInspection(caseId, actor) {
+  const updated = await query(
+    `UPDATE case_
+        SET eva_inspection_address = $2,
+            inspection_decision_code = $3,
+            updated_at = now()
+      WHERE id = $1
+        AND COALESCE(btrim(eva_inspection_address), '') = ''
+        AND (inspection_decision_code IS NULL OR inspection_decision_code = $4)
+      RETURNING id`,
+    [caseId, IMAGE_BASED_LITERAL, IMAGE_BASED_CODE, UNKNOWN_DECISION_CODE]
+  );
+  if (!updated[0]) return false;
+  try {
+    const corpus = sourceTypeCodec.toInt("corpus") ?? 100000003;
+    const reviewed = reviewStateCodec.toInt("reviewed") ?? 100000002;
+    const existing = await query(
+      `SELECT id FROM field_level_provenance WHERE case_id = $1 AND field_name = $2`,
+      [caseId, "inspectionAddress"]
+    );
+    if (existing.length === 0) {
+      await query(
+        `INSERT INTO field_level_provenance
+           (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
+         VALUES ($1, $2, 'inspectionAddress', $3, $4, $5, $6)`,
+        [
+          `${caseId}:inspectionAddress`,
+          caseId,
+          IMAGE_BASED_LITERAL,
+          corpus,
+          PREFILL_SOURCE_LABEL,
+          reviewed
+        ]
+      );
+    }
+  } catch {
+  }
+  await writeAudit({
+    action: AUDIT_ACTION.inspection_override,
+    caseId,
+    summary: "Inspection recorded as Image Based Assessment (provider policy)",
+    before: { inspectionAddress: "", decisionMode: "unknown" },
+    after: {
+      inspectionAddress: IMAGE_BASED_LITERAL,
+      decisionMode: "image_based",
+      reason: PREFILL_REASON,
+      source: "provider_policy"
+    },
+    ...actor ? { actor } : {}
+  });
+  return true;
+}
+
+// api/src/lib/overview-chase.ts
+var OVERVIEW_CHASE_MIN_ACCEPTED_IMAGES = 5;
+var OVERVIEW_CHASE_TEMPLATE_LABEL = "Overview photo request";
+var OVERVIEW_CHASE_SUMMARY = "Suggested chase \u2014 ask for a photo of the whole vehicle showing the registration plate clearly.";
+var IMAGE_KIND_CODE = evidenceKindCodec.toInt("image") ?? 1e8;
+var OVERVIEW_ROLE_CODE = imageRoleCodec.toInt("overview") ?? 1e8;
+var UNKNOWN_ROLE_CODE = imageRoleCodec.toInt("unknown") ?? 100000003;
+var TARGET_TYPE_WORK_PROVIDER = 100000002;
+var CHANNEL_EMAIL = 1e8;
+var OPEN_CHASER_STATUS_CODES = "100000000, 100000001, 100000003";
+async function loadOverviewChaseAggregate(q, caseId) {
+  const rows = await q(
+    `SELECT COALESCE(wp.display_name, '') AS provider_display,
+            COUNT(e.id) FILTER (WHERE e.accepted_for_eva AND NOT e.excluded)::int AS accepted_count,
+            COUNT(e.id) FILTER (WHERE e.accepted_for_eva AND NOT e.excluded AND e.image_role_code = $3)::int AS overview_count,
+            COUNT(e.id) FILTER (WHERE NOT e.excluded AND e.image_role_code = $4 AND e.registration_visible IS NULL)::int AS unclassified_count
+       FROM case_ c
+       LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+       LEFT JOIN evidence e ON e.case_id = c.id AND e.kind_code = $2
+      WHERE c.id = $1
+      GROUP BY wp.display_name`,
+    [caseId, IMAGE_KIND_CODE, OVERVIEW_ROLE_CODE, UNKNOWN_ROLE_CODE]
+  );
+  return rows[0];
+}
+function countsFrom(row) {
+  return {
+    acceptedCount: Number(row.accepted_count ?? 0),
+    overviewCount: Number(row.overview_count ?? 0),
+    unclassifiedCount: Number(row.unclassified_count ?? 0)
+  };
+}
+function isOverviewChaseEligible(status, counts) {
+  return !isTerminalStatus(status) && status !== "linked_to_instruction" && counts.acceptedCount >= OVERVIEW_CHASE_MIN_ACCEPTED_IMAGES && counts.overviewCount === 0 && counts.unclassifiedCount === 0;
+}
+async function maybeSuggestOverviewChase(caseId, status, actor) {
+  try {
+    if (isTerminalStatus(status) || status === "linked_to_instruction") return false;
+    const row = await loadOverviewChaseAggregate(query, caseId);
+    if (!row) return false;
+    const counts = countsFrom(row);
+    if (!isOverviewChaseEligible(status, counts)) return false;
+    const minted = await tx(async (q) => {
+      const current = await q(
+        `SELECT status_code, duplicate_keys
+           FROM case_
+          WHERE id = $1
+          FOR UPDATE`,
+        [caseId]
+      );
+      const currentStatus = caseStatusCodec.toName(current[0]?.status_code);
+      if (!currentStatus || mergedIntoFrom(current[0]?.duplicate_keys) || isTerminalStatus(currentStatus) || currentStatus === "linked_to_instruction") {
+        return null;
+      }
+      const freshRow = await loadOverviewChaseAggregate(q, caseId);
+      if (!freshRow) return null;
+      const freshCounts = countsFrom(freshRow);
+      if (!isOverviewChaseEligible(currentStatus, freshCounts)) return null;
+      const targetName = String(freshRow.provider_display ?? "").slice(0, 200);
+      const rows = await q(
+        `INSERT INTO chaser
+           (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at, suggested)
+         SELECT $1, $2, $3, $4, $5, $6, now(), true
+          WHERE NOT EXISTS (
+            SELECT 1 FROM chaser ch
+             WHERE ch.case_id = $2
+                AND (ch.template_used = $6 OR ch.status_code IN (${OPEN_CHASER_STATUS_CODES})))
+         ON CONFLICT DO NOTHING
+         RETURNING id`,
+        [
+          OVERVIEW_CHASE_SUMMARY,
+          caseId,
+          TARGET_TYPE_WORK_PROVIDER,
+          targetName,
+          CHANNEL_EMAIL,
+          OVERVIEW_CHASE_TEMPLATE_LABEL
+        ]
+      );
+      return rows[0] ? { inserted: rows[0], counts: freshCounts } : null;
+    });
+    if (!minted) return false;
+    await writeAudit({
+      action: AUDIT_ACTION.chaser_suggested,
+      caseId,
+      summary: `Chase suggested (${OVERVIEW_CHASE_TEMPLATE_LABEL}) \u2014 drafted for staff to send`,
+      after: {
+        chaserId: minted.inserted.id,
+        templateLabel: OVERVIEW_CHASE_TEMPLATE_LABEL,
+        suggested: true,
+        acceptedImages: minted.counts.acceptedCount
+      },
+      ...actor ? { actor } : {}
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// api/src/lib/status-recompute.ts
+async function requestStatusRecompute(q, caseId) {
+  const rows = await q(
+    `UPDATE case_
+        SET status_recompute_requested_generation = status_recompute_requested_generation + 1,
+            status_recompute_requested_at = now()
+      WHERE id = $1
+      RETURNING status_recompute_requested_generation`,
+    [caseId]
+  );
+  if (!rows[0]) throw new Error("status recompute target case disappeared");
+  return Number(rows[0].status_recompute_requested_generation);
+}
+async function acknowledgeStatusRecompute(q, caseId, generation) {
+  const rows = await q(
+    `UPDATE case_
+        SET status_recompute_completed_generation = GREATEST(
+              status_recompute_completed_generation,
+              LEAST($2::bigint, status_recompute_requested_generation)
+            )
+      WHERE id = $1
+      RETURNING status_recompute_requested_generation,
+                status_recompute_completed_generation`,
+    [caseId, generation]
+  );
+  if (!rows[0]) throw new Error("status recompute target case disappeared");
+  const requested = Number(rows[0].status_recompute_requested_generation);
+  const completed = Number(rows[0].status_recompute_completed_generation);
+  return { completed: completed >= generation, pending: completed < requested };
+}
+
+// api/src/lib/case-po.ts
+var floorTableKnown = null;
+async function casePoFloor(run, prefix2) {
+  if (floorTableKnown === false) return 0;
+  try {
+    if (floorTableKnown === null) {
+      const reg = await run(
+        `SELECT to_regclass('public.case_po_floor')::text AS ok`
+      );
+      floorTableKnown = Boolean(reg[0]?.ok);
+      if (!floorTableKnown) return 0;
+    }
+    const rows = await run(
+      "SELECT floor_seq FROM case_po_floor WHERE prefix = $1",
+      [prefix2]
+    );
+    return Number(rows[0]?.floor_seq ?? 0) || 0;
+  } catch {
+    floorTableKnown = null;
+    return 0;
+  }
+}
+async function mintCasePo(q, principal, yy = casePoYear(), marker2 = "") {
+  const p = principal.toUpperCase();
+  const prefix2 = `${marker2.toUpperCase()}${p}${yy}`;
+  await q("SELECT pg_advisory_xact_lock(hashtext($1)::bigint)", [`casepo:${prefix2}`]);
+  const seqRows = await q(
+    `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) AS max_seq
+       FROM case_
+      WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
+    [`${prefix2}%`, casePoSequenceRegex(p, yy, marker2), prefix2]
+  );
+  const dbMax = Number(seqRows[0]?.max_seq ?? 0);
+  const floor = await casePoFloor(q, prefix2);
+  return formatCasePo(p, yy, Math.max(dbMax, floor) + 1, marker2);
+}
+
+// api/src/functions/internal.ts
+var import_functions = require("@azure/functions");
+
+// packages/domain/dist/gates.js
+var gates = {
+  // Core feature gates (plan 10 §1.1, #1–#21 boolean set)
+  pdfMapper: () => process.env.PDF_MAPPER_ENABLED === "true",
+  // #1
+  enrichment: () => process.env.ENRICHMENT_ENABLED === "true",
+  // #2
+  evaApi: () => process.env.EVA_API_ENABLED === "true",
+  // #4
+  azureMaps: () => process.env.AZURE_MAPS_ENABLED === "true",
+  // #8
+  valuation: () => process.env.VALUATION_ENABLED === "true",
+  // #9
+  azureVision: () => process.env.AZURE_VISION_ENABLED === "true",
+  // #11
+  ocrScannedPdf: () => process.env.OCR_SCANNED_PDF_ENABLED === "true",
+  // #12
+  plateOcr: () => process.env.PLATE_OCR_ENABLED === "true",
+  // #13
+  auditCases: () => process.env.AUDIT_CASES_ENABLED === "true",
+  // #15
+  locationAssist: () => process.env.LOCATION_ASSIST_ENABLED === "true",
+  // #17
+  // AI vision-reasoning ESCALATION for location assist (TKT-078) — default OFF, ships DARK.
+  // A deeper photo-based location suggestion via the keyless AOAI gpt-5 vision model, gated on
+  // TOP of locationAssist. Operator-blocked for live flip (production AI sign-off, gated.md E2).
+  locationAssistAi: () => process.env.LOCATION_ASSIST_AI_ENABLED === "true",
+  chaserSend: () => process.env.CHASER_SEND_ENABLED === "true",
+  // #19
+  caseDisposition: () => process.env.CASE_DISPOSITION_ENABLED === "true",
+  // #20
+  emailAi: () => process.env.EMAIL_AI_ENABLED === "true",
+  // #21
+  // AI assistant suggestion layer (TKT-015) — default OFF. Gates the embedded AI
+  // suggestion surface + the server-side model call path; honest no-op while off
+  // OR while no model endpoint/deployment is configured (see aiAssistConfigured).
+  aiAssist: () => process.env.AI_ASSIST_ENABLED === "true",
+  // AI chat helper (TKT-060) — default OFF. Gates the read-only assistant drawer + its
+  // POST /api/assistant/chat route. Distinct from aiAssist (the suggestion layer): this is
+  // a conversational Q&A surface with READ-ONLY tools only. Needs a model endpoint +
+  // deployment (see aiChatConfigured) in addition to this switch.
+  aiChat: () => process.env.AI_CHAT_ENABLED === "true",
+  // Live image role/registration classifier (TKT-064) — default OFF. Gates the gpt-5-vision
+  // classify call on the intake image paths (extractImages / classifyPersist). Needs a model
+  // endpoint + deployment (see imageRoleClassifyEnabled); off/unconfigured => images persist
+  // with role `unknown` exactly as before (the one-shot backfill handled existing evidence).
+  imageRoleClassify: () => process.env.IMAGE_ROLE_CLASSIFY_ENABLED === "true",
+  // Staged image-analysis suggestion producer (TKT-016) — default OFF, ships DARK. Gates the
+  // additive, observation-first pipeline (vehicle-present, same-vehicle, registration, background
+  // text, location hints, ranked inspection-address suggestion) behind POST /api/cases/{id}/
+  // image-analysis/generate. PURELY additive: every output is an ai_suggestion row (never writes
+  // evidence.image_role_code/registration_visible/excluded, case_.vrm, or any address column — the
+  // live TKT-064 classifier owns those; reconciliation is TKT-088/112). Needs a model endpoint +
+  // deployment (see imageAnalysisEnabled). Off/unconfigured => the route is an honest no-op. The
+  // scene-understanding stages carry image bytes off-region (GlobalStandard) — the live flip is
+  // DPIA-gated (docs/gated.md; PLAN-001 Phase 4).
+  imageAnalysis: () => process.env.IMAGE_ANALYSIS_ENABLED === "true",
+  // ---- PLAN-001 (AI hardening + MCP) gates — ALL default OFF, ship DARK ----
+  // TKT-066/069 — the registry-driven read adapter for the assistant. When OFF the assistant
+  // uses the original hand-written `execTool` (fast rollback); when ON it derives its tool set
+  // from the shared @cs/domain capability registry. Read-only either way (TKT-060 invariant).
+  assistantToolsetV2: () => process.env.ASSISTANT_TOOLSET_V2 === "true",
+  // TKT-072 — global search endpoint GET /api/search. Default OFF for a soak; the SPA search box
+  // falls back to its prior behaviour while off, and the route honestly 404-gates.
+  globalSearch: () => process.env.GLOBAL_SEARCH_ENABLED === "true",
+  // TKT-111 — the in-app assistant WRITE tier (propose→confirm→execute). Default OFF; ships DARK.
+  // Live flip is operator-blocked (per-gate E2/G5 sign-off + DPIA, docs/gated.md). The model NEVER
+  // issues a write directly — a human confirms a structured diff and the SPA calls an existing route.
+  assistantWriteTier: () => process.env.ASSISTANT_WRITE_TIER_ENABLED === "true",
+  // TKT-110 — the read-only MCP server (Streamable-HTTP) for external agents. Default OFF; ships
+  // DARK. Exposes ONLY registry read tools; needs its own Entra app-registration before a live flip
+  // (operator, docs/gated.md). Authorization is still enforced at the Data API, never the MCP layer.
+  mcpServer: () => process.env.MCP_SERVER_ENABLED === "true",
+  // Box gates (Phase 7, ADR-0012) — all default off
+  boxApi: () => process.env.BOX_API_ENABLED === "true",
+  // #22
+  boxFolderAtIntake: () => process.env.BOX_FOLDER_AT_INTAKE_ENABLED === "true",
+  // #23
+  boxFileRequest: () => process.env.BOX_FILEREQUEST_ENABLED === "true",
+  // #24
+  // TKT-095 detector (a) — sent-email-to-provider → case `done` (ADR-0023). Default OFF;
+  // ships DARK. Flipping it ON makes the orchestration's subscription maintenance CREATE a
+  // Graph `users/{mailbox}/mailFolders('SentItems')/messages` subscription per intake
+  // mailbox (notifications route to /api/graph-webhook-sent, NEVER the intake pipeline);
+  // flipping it back OFF makes the same maintenance pass PRUNE those SentItems
+  // subscriptions — a gate flip fully self-reconciles in both directions. While OFF the
+  // sent-items webhook/queue handlers drop everything with a trace, so behaviour is
+  // identical to pre-TKT-095. Read by the orchestration app only.
+  doneSentEmail: () => process.env.DONE_SENT_EMAIL_ENABLED === "true",
+  // Outlook filing (TKT-054 / 020726 E6) — default off. Gates the SPA "Suggested action"
+  // button, the Data API enqueue route, AND the orchestration mover. Operator-blocked:
+  // requires the Mail.ReadWrite Exchange-RBAC re-consent before it may be flipped
+  // (docs/gated.md).
+  outlookMove: () => process.env.OUTLOOK_MOVE_ENABLED === "true",
+  // Retroactive case reconstruction (ADR-0022 / TKT-058) — all default off. retroCase is
+  // the master switch (read by the orchestration retro activities AND the Data API's
+  // /api/internal/retro/* routes — set it on BOTH apps); retroOutlookSearch is the
+  // independent kill switch for the Outlook $search rung (Graph-search behaviour must be
+  // revocable without losing the Box rung). retroBoxArchiveRootIds is the comma-separated
+  // READ-ONLY Box archive root folder id(s) the reconstruction may search — empty means
+  // the Box rung honestly skips (the box-webhook app enforces the same roots via its own
+  // BOX_READONLY_ROOT_IDS scope lock).
+  retroCase: () => process.env.RETRO_CASE_ENABLED === "true",
+  retroOutlookSearch: () => process.env.RETRO_OUTLOOK_SEARCH_ENABLED === "true",
+  retroBoxArchiveRootIds: () => process.env.RETRO_BOX_ARCHIVE_ROOT_IDS ?? "",
+  // Triage-policy gates (Stage B, rules-engine-v2 Phase 2 / ADR-0019) — all default off.
+  // Each gates ONE rung of `decideTriage` (domain/triage-policy.ts); the function itself
+  // is pure and never reads process.env — the caller (an orchestration Durable activity)
+  // reads these accessors and passes the values in as a plain TriagePolicyGates object.
+  // With all four off, decideTriage always falls through to 'proceed_default' (the
+  // kill-switch invariant) — gates-off output is indistinguishable from today.
+  triageRefGate: () => process.env.TRIAGE_REF_GATE_ENABLED === "true",
+  triageCancellation: () => process.env.TRIAGE_CANCELLATION_ENABLED === "true",
+  triageImagesRouting: () => process.env.TRIAGE_IMAGES_ROUTING_ENABLED === "true",
+  triageCaseUpdate: () => process.env.TRIAGE_CASE_UPDATE_ENABLED === "true",
+  // TKT-093 — auto-attach promotion (ADR-0019 §4 promotion seam). Default off (ships DARK;
+  // live flip is operator-blocked, docs/gated.md). MODIFIES the ref-gate rung: an EXACT
+  // SINGLE open-case match on a strong signal (case_po/job_ref — NEVER vrm-only, per the
+  // inviolable VRM rule) is attached automatically instead of merely suggested. With this
+  // off, the ref-gate rung is exactly today's suggest_attach.
+  triageAutoAttach: () => process.env.TRIAGE_AUTO_ATTACH_ENABLED === "true",
+  // TKT-084 — the pre-instruction lane (taxonomy v3; operator sign-off recorded
+  // 2026-07-09 in the ticket's evidence). Default off in code. While OFF, classifyInbound
+  // DEMOTES a classifier 'pre_instruction' verdict to 'other' (today's behaviour — honest
+  // kill-switch) and no correlation runs. While ON: the lane is recorded as classified
+  // (held on the inbound_email row, no case minted — categoryMintsCase is false for it
+  // either way), and a later instruction's case-mint correlates held rows onto the new
+  // case, suggest-first (never auto-attach — the correlation key is typically VRM-only).
+  triagePreInstruction: () => process.env.TRIAGE_PRE_INSTRUCTION_ENABLED === "true",
+  // TKT-034 — the reg-keyed Box holding-folder rung for image-bearing emails that match
+  // no case (ADR-0015 §5 fallback step 2). Default off (ships DARK — creating non-Case/PO
+  // folders under the Box root is a NEW folder-naming semantic the operator must approve;
+  // docs/gated.md). While off, an unmatched images email is only FLAGGED for manual
+  // handling (attention_reason 'images_no_match') — fallback step 3 — which needs no gate.
+  boxRegFolder: () => process.env.BOX_REG_FOLDER_ENABLED === "true",
+  // (The replay-backfill gate was REMOVED with its driver — TKT-106. The wipe-and-
+  // rebuild path is non-viable: TKT-059's dry-run proved the mailboxes retain only a
+  // fraction of the DB's source emails, so the DB is the system of record. Keep the
+  // finding — TKT-059 verification — not the dead switch.)
+  // String config vars (plan 10 §1.1, #3, #5, #14, #18, #27, #28)
+  enrichmentApiBase: () => process.env.ENRICHMENT_API_BASE ?? "",
+  // #3
+  evaBaseUrl: () => process.env.EVA_BASE_URL ?? "",
+  // #5
+  valuationApiBase: () => process.env.VALUATION_API_BASE ?? "",
+  // #14
+  locationAssistApiBase: () => process.env.LOCATION_ASSIST_API_BASE ?? "",
+  // #18
+  boxFolderRootId: () => process.env.BOX_FOLDER_ROOT_ID ?? "",
+  // #27
+  boxFileRequestTemplateId: () => process.env.BOX_FILE_REQUEST_TEMPLATE_ID ?? "",
+  // #28
+  // AI model endpoint config (TKT-015). The server-side model call path is built but
+  // dormant: these settings are ABSENT in live app-settings, so the generate route stays
+  // an honest no-op until the wiring lands (model deployments now exist on the Foundry
+  // account — live state in LIVE_FACTS.json `foundry`; rules-engine-v2 Phase 4 wires
+  // them). Prefer managed-identity/keyless — no API key gate by design.
+  aiModelEndpoint: () => process.env.AI_MODEL_ENDPOINT ?? "",
+  aiModelDeployment: () => process.env.AI_MODEL_DEPLOYMENT ?? "",
+  // Outlook-move queue config (TKT-054): the orchestration app's queue-service endpoint,
+  // e.g. https://<orch-storage-account>.queue.core.windows.net — the Data API enqueues
+  // move jobs there with its managed identity (Storage Queue Data Message Sender).
+  outlookMoveQueueServiceUrl: () => process.env.OUTLOOK_MOVE_QUEUE_SERVICE_URL ?? "",
+  // Evidence-backfill queue config (TKT-145): the `evidence-backfill` queue lives on the
+  // SAME orchestration storage account as `outlook-move` (cespkorchstdev01), so it
+  // deliberately FALLS BACK to OUTLOOK_MOVE_QUEUE_SERVICE_URL — no new app-setting is
+  // required live. The dedicated variable exists only as an escape hatch should the two
+  // queues ever need to diverge.
+  evidenceBackfillQueueServiceUrl: () => process.env.EVIDENCE_BACKFILL_QUEUE_SERVICE_URL || process.env.OUTLOOK_MOVE_QUEUE_SERVICE_URL || "",
+  /**
+   * Derived: location assist is only enabled when all three conditions are met.
+   * Used by GET /api/gates/location-assist (plan 21 §21.2).
+   */
+  locationAssistEnabled: () => gates.locationAssist() && gates.azureMaps() && gates.locationAssistApiBase() !== "",
+  /**
+   * Derived: the AI vision-reasoning escalation is actionable — the base location assist is on,
+   * its own gate is on, AND a model endpoint + deployment are configured. Off => the deeper
+   * suggestion path is an honest no-op (TKT-078). Ships DARK; operator-gated live flip (gated.md E2).
+   */
+  locationAssistAiEnabled: () => gates.locationAssistEnabled() && gates.locationAssistAi() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: a model endpoint AND deployment are both configured. The AI generate
+   * route requires this in ADDITION to the aiAssist() switch — gate ON but model
+   * UNCONFIGURED is still an honest no-op (the live state today). Used by
+   * GET /api/gates/ai-assist + the generate route's disabled-reason.
+   */
+  aiAssistConfigured: () => gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the AI chat helper is actionable — the gate is ON and a model endpoint +
+   * deployment are configured. Used by GET /api/gates/ai-chat + the chat route's honest
+   * refusal (TKT-060).
+   */
+  aiChatEnabled: () => gates.aiChat() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the live image classifier is actionable — the gate is ON and a model endpoint +
+   * deployment are configured. The intake image paths call classifyImage only when this is
+   * true; otherwise they persist role `unknown` (pre-classifier behaviour). (TKT-064.)
+   */
+  imageRoleClassifyEnabled: () => gates.imageRoleClassify() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the staged image-analysis producer is actionable — the gate is ON and a model
+   * endpoint + deployment are configured. The POST /api/cases/{id}/image-analysis/generate route
+   * runs the pipeline only when this is true; otherwise it is an honest no-op (TKT-016). The
+   * reg-OCR stage additionally needs the OCR Function (OCR_FN_URL) and the address stage needs
+   * locationAssistEnabled — each degrades gracefully on its own when its dependency is absent.
+   */
+  imageAnalysisEnabled: () => gates.imageAnalysis() && gates.aiModelEndpoint() !== "" && gates.aiModelDeployment() !== "",
+  /**
+   * Derived: the Outlook-move path is actionable — the gate is ON and the move queue
+   * endpoint is configured. Used by GET /api/gates/outlook-move + the enqueue route's
+   * honest refusal (TKT-054 / 020726 E6).
+   */
+  outlookMoveEnabled: () => gates.outlookMove() && gates.outlookMoveQueueServiceUrl() !== ""
+};
+
+// api/src/lib/evidence-backfill-note.ts
+var NOTE_CONTENT = {
+  failed: {
+    name: "Attachments to add",
+    text: "The linked email arrived with attachments (e.g. photos or a PDF) that are not yet on this case. Please add them by hand from the email."
+  },
+  partial: {
+    name: "Attachments to add",
+    text: "Some attachments from the linked email could not be added. Please add the missing attachments from the email."
+  },
+  completed: {
+    name: "Attachments added",
+    text: "The attachments from the linked email have now been added. No manual action is needed."
+  }
+};
+async function writeEvidenceBackfillNote(input, q = query) {
+  const sourceKey = `evidence-backfill:${input.inboundEmailId}`;
+  const content = NOTE_CONTENT[input.kind];
+  const author = input.author ?? "System";
+  if (input.kind === "completed") {
+    await q(
+      `UPDATE note
+          SET name = $3,
+              author = $4,
+              text = $5,
+              occurred_at = now(),
+              updated_at = now()
+        WHERE case_id = $1
+          AND source_key = $2
+          AND (name, author, text) IS DISTINCT FROM ($3, $4, $5)`,
+      [input.caseId, sourceKey, content.name, author, content.text]
+    );
+    return;
+  }
+  await q(
+    `INSERT INTO note (name, case_id, author, text, source_key, occurred_at)
+     VALUES ($1, $2, $3, $4, $5, now())
+     ON CONFLICT (case_id, source_key) WHERE source_key IS NOT NULL DO UPDATE
+       SET name = EXCLUDED.name,
+           author = EXCLUDED.author,
+           text = EXCLUDED.text,
+           occurred_at = now(),
+           updated_at = now()
+     WHERE (note.name, note.author, note.text)
+           IS DISTINCT FROM (EXCLUDED.name, EXCLUDED.author, EXCLUDED.text)`,
+    [content.name, input.caseId, author, content.text, sourceKey]
+  );
+}
+
+// api/src/lib/evidence-backfill-target.ts
+var MAX_MERGE_LINEAGE_HOPS = 16;
+var MAX_LOCK_RETRIES = 4;
+async function inboundOwner(q, inboundEmailId, forUpdate = false) {
+  const rows = await q(
+    `SELECT case_id FROM inbound_email WHERE id = $1${forUpdate ? " FOR UPDATE" : ""}`,
+    [inboundEmailId]
+  );
+  return rows[0]?.case_id ?? null;
+}
+async function verifiedMergeLineage(q, requestedCaseId, currentOwner) {
+  const lineage = [];
+  const seen = /* @__PURE__ */ new Set();
+  let cursor = requestedCaseId;
+  for (let hop = 0; hop <= MAX_MERGE_LINEAGE_HOPS; hop++) {
+    const canonical = cursor.trim().toLowerCase();
+    if (!canonical || seen.has(canonical)) return null;
+    seen.add(canonical);
+    const rows = await q(
+      "SELECT id, duplicate_keys FROM case_ WHERE id = $1",
+      [cursor]
+    );
+    const row = rows[0];
+    if (!row) return null;
+    lineage.push(row.id);
+    const next = mergedIntoFrom(row.duplicate_keys);
+    if (!next) {
+      return row.id.toLowerCase() === currentOwner.trim().toLowerCase() ? lineage : null;
+    }
+    cursor = next;
+  }
+  return null;
+}
+async function stableOptimisticTargetProbe(inboundEmailId, requestedCaseId) {
+  const ownerBefore = await inboundOwner(query, inboundEmailId);
+  const lineage = ownerBefore ? await verifiedMergeLineage(query, requestedCaseId, ownerBefore) : null;
+  const ownerAfter = await inboundOwner(query, inboundEmailId);
+  if ((ownerBefore ?? "").trim().toLowerCase() !== (ownerAfter ?? "").trim().toLowerCase()) {
+    return { kind: "retry" };
+  }
+  if (!ownerBefore || !lineage) return { kind: "stale" };
+  return { kind: "resolved", owner: ownerBefore, lineage };
+}
+async function withResolvedEvidenceBackfillTarget(inboundEmailId, requestedCaseId, work) {
+  for (let attempt = 0; attempt < MAX_LOCK_RETRIES; attempt++) {
+    const probe = await stableOptimisticTargetProbe(inboundEmailId, requestedCaseId);
+    if (probe.kind === "retry") continue;
+    if (probe.kind === "stale") return probe;
+    const probedLineage = probe.lineage;
+    const outcome = await tx(async (q) => {
+      await acquireCaseMutationLocks(q, probedLineage);
+      const orderedIds = orderedCaseMutationIds(probedLineage);
+      const lockedCases = await q(
+        "SELECT id FROM case_ WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE",
+        [orderedIds]
+      );
+      if (lockedCases.length !== orderedIds.length) return { kind: "stale" };
+      const lockedOwner = await inboundOwner(q, inboundEmailId, true);
+      if (!lockedOwner) return { kind: "stale" };
+      const lockedLineage = await verifiedMergeLineage(q, requestedCaseId, lockedOwner);
+      if (!lockedLineage) return { kind: "stale" };
+      const held = new Set(orderedIds);
+      if (lockedLineage.some((id) => !held.has(id.trim().toLowerCase()))) {
+        return { kind: "retry" };
+      }
+      return {
+        kind: "resolved",
+        targetCaseId: lockedOwner,
+        value: await work(q, lockedOwner)
+      };
+    });
+    if (outcome.kind === "retry") continue;
+    return outcome;
+  }
+  throw new Error("evidence backfill target kept changing while locks were acquired");
+}
+
+// api/src/lib/terminal-transition.ts
+async function markEvaSubmittedUsing(q, caseId, actor) {
+  const updated = await q(
+    `UPDATE case_ SET status_code = $1, submitted_at = now(), on_hold = false, updated_at = now()
+     WHERE id = $2 AND status_code = $3
+     RETURNING id`,
+    [statusToInt("eva_submitted"), caseId, statusToInt("ready_for_eva")]
+  );
+  if (updated.length === 0) return false;
+  await writeAuditStrict({
+    action: AUDIT_ACTION.eva_submitted,
+    caseId,
+    summary: "Exported for EVA \u2014 case marked EVA Submitted",
+    after: { status: "eva_submitted" },
+    ...actor ? { actor } : {}
+  }, q);
+  return true;
+}
+async function markCaseDoneUsing(q, input) {
+  const updated = await q(
+    `UPDATE case_ SET status_code = $1, on_hold = false, updated_at = now()
+     WHERE id = $2 AND status_code = $3
+     RETURNING id`,
+    [statusToInt("done"), input.caseId, statusToInt("eva_submitted")]
+  );
+  if (updated.length === 0) return false;
+  await writeAuditStrict({
+    action: AUDIT_ACTION.report_delivered,
+    caseId: input.caseId,
+    summary: "Report delivered to the work provider \u2014 case marked Done",
+    after: {
+      status: "done",
+      signal: input.signal,
+      ...input.detail ? { detail: input.detail.slice(0, 500) } : {}
+    },
+    ...input.actor ? { actor: input.actor } : {}
+  }, q);
+  return true;
+}
+
+// api/src/lib/enrichment-map.ts
+function combineMakeModel(make, model) {
+  const mk = (make ?? "").trim();
+  const md = (model ?? "").trim();
+  if (mk && md) {
+    return md.toUpperCase().startsWith(mk.toUpperCase()) ? md : `${mk} ${md}`;
+  }
+  return md || mk || "";
+}
+
+// api/src/lib/parser-eva-fields.ts
+var DDMMYYYY = /^\d{2}\/\d{2}\/\d{4}$/;
+function isUnknownWorkProviderSentinel(raw) {
+  return raw.trim().toUpperCase() === "UNKNOWN";
+}
+function isEngineerReportLayoutSentinel(raw) {
+  return isEngineerReportLayoutName(raw);
+}
+var SPEC = {
+  work_provider: { column: "eva_work_provider", provenanceField: "workProvider", normalize: (v) => isUnknownWorkProviderSentinel(v) || isEngineerReportLayoutSentinel(v) ? "" : v.slice(0, 200) },
+  vehicle_model: { column: "eva_vehicle_model", provenanceField: "vehicleModel", normalize: (v) => v.slice(0, 200) },
+  claimant_name: { column: "eva_claimant_name", provenanceField: "claimantName", normalize: (v) => v.slice(0, 200) },
+  claimant_telephone: { column: "eva_claimant_telephone", provenanceField: "claimantTelephone", normalize: (v) => v.slice(0, 60) },
+  claimant_email: { column: "eva_claimant_email", provenanceField: "claimantEmail", normalize: (v) => v.slice(0, 320) },
+  // CHECK ck_case_eva_date_of_loss / _instruction: must match DD/MM/YYYY (or empty) — skip junk.
+  date_of_loss: { column: "eva_date_of_loss", provenanceField: "dateOfLoss", normalize: (v) => DDMMYYYY.test(v) ? v : "" },
+  date_of_instruction: { column: "eva_date_of_instruction", provenanceField: "dateOfInstruction", normalize: (v) => DDMMYYYY.test(v) ? v : "" },
+  accident_circumstances: { column: "eva_accident_circumstances", provenanceField: "accidentCircumstances", normalize: (v) => v.slice(0, 4e3) },
+  // CHECK ck_case_eva_vat_status: IN ('', 'Yes', 'No') — the parser normalizes to Yes/No; skip anything else.
+  vat_status: { column: "eva_vat_status", provenanceField: "vatStatus", normalize: (v) => v === "Yes" || v === "No" ? v : "" }
+};
+var PARSER_EVA_FIELD_ORDER = [
+  "work_provider",
+  "vehicle_model",
+  "claimant_name",
+  "claimant_telephone",
+  "claimant_email",
+  "date_of_loss",
+  "date_of_instruction",
+  "accident_circumstances",
+  "vat_status"
+];
+function corpusWorkProviderCandidate(displayName) {
+  const value = (displayName ?? "").trim().slice(0, 200);
+  if (!value) return null;
+  return { column: "eva_work_provider", provenanceField: "workProvider", value };
+}
+function selectParserEvaCandidates(parserEva) {
+  if (!parserEva) return [];
+  const out = [];
+  for (const key of PARSER_EVA_FIELD_ORDER) {
+    const raw = (parserEva[key] ?? "").toString().trim();
+    if (!raw) continue;
+    const spec = SPEC[key];
+    const value = spec.normalize(raw);
+    if (!value) continue;
+    out.push({ column: spec.column, provenanceField: spec.provenanceField, value });
+  }
+  return out;
+}
+function normalizeProviderMatchKey(raw) {
+  return raw.trim().toUpperCase().replace(/[.,'&]/g, "").replace(/\s+/g, " ").trim();
+}
+function matchWorkProviderByContentString(raw, providers) {
+  const trimmed = (raw ?? "").toString().trim();
+  if (!trimmed || isUnknownWorkProviderSentinel(trimmed)) return { outcome: "unmatched" };
+  if (isEngineerReportLayoutSentinel(trimmed)) return { outcome: "unmatched" };
+  const key = normalizeProviderMatchKey(trimmed);
+  if (!key) return { outcome: "unmatched" };
+  const hits = /* @__PURE__ */ new Set();
+  for (const p of providers) {
+    if (p.principalCode && normalizeProviderMatchKey(p.principalCode) === key || p.displayName && normalizeProviderMatchKey(p.displayName) === key) {
+      hits.add(p.workProviderId);
+    }
+  }
+  if (hits.size === 1) {
+    const [workProviderId] = hits;
+    return { outcome: "matched", workProviderId };
+  }
+  if (hits.size > 1) return { outcome: "ambiguous" };
+  return { outcome: "unmatched" };
+}
+
 // api/src/lib/schema-introspect.ts
 var columnCache = /* @__PURE__ */ new Map();
 async function loadColumns(table) {
@@ -16758,6 +17238,33 @@ function vrmLinkRefConflict(incomingJobref, caseKnownRefs) {
   return !known.includes(incoming);
 }
 
+// api/src/lib/archive-mirror-outbox.ts
+async function requestArchiveMirrorIfEligible(q, row) {
+  const storagePath = typeof row.storage_path === "string" ? row.storage_path.trim() : "";
+  const boxFileId = typeof row.box_file_id === "string" ? row.box_file_id.trim() : "";
+  if (row.excluded !== false || !row.id || !row.case_id || !storagePath || boxFileId) {
+    return void 0;
+  }
+  const requested = await q(
+    `INSERT INTO archive_mirror_outbox
+       (evidence_id, case_id, requested_generation, completed_generation,
+        requested_at, updated_at)
+     VALUES ($1, $2, 1, 0, now(), now())
+     ON CONFLICT (evidence_id) DO UPDATE
+       SET case_id = EXCLUDED.case_id,
+           requested_generation = archive_mirror_outbox.requested_generation + 1,
+           requested_at = now(),
+           attempt_count = 0,
+           next_attempt_at = now(),
+           last_attempt_at = NULL,
+           last_error = NULL,
+           updated_at = now()
+     RETURNING requested_generation`,
+    [row.id, row.case_id]
+  );
+  return requested[0] ? Number(requested[0].requested_generation) : void 0;
+}
+
 // api/src/functions/internal.ts
 async function withServiceAuth(req, ctx, fn) {
   try {
@@ -16822,44 +17329,81 @@ async function markOutstandingChasersResponded(caseId, via) {
     return 0;
   }
 }
-async function recomputeStatus(caseId) {
-  const rows = await query(`${CASE_SELECT} WHERE c.id = $1`, [caseId]);
-  const rec = rows[0];
-  if (!rec) return "error";
-  const evidenceRows = await query("SELECT * FROM evidence WHERE case_id = $1", [caseId]);
-  const evidence = evidenceRows.map(rowToEvidence);
-  const full = rowToCase(rec, { evidence });
-  if (isPrefillApplicable(full)) {
-    const filled = await prefillImageBasedInspection(caseId);
-    if (filled) {
-      full.evaFields.inspectionAddress.value = IMAGE_BASED_LITERAL;
-      full.inspectionDecision = "image_based";
+async function recomputeStatus(caseId, acknowledgeGeneration) {
+  const previewRows = await query(`${CASE_SELECT} WHERE c.id = $1`, [caseId]);
+  const preview = previewRows[0];
+  if (preview && isPrefillApplicable(rowToCase(preview))) {
+    await prefillImageBasedInspection(caseId);
+  }
+  const result = await tx(async (q) => {
+    const rows = await q(
+      `${CASE_SELECT} WHERE c.id = $1 FOR UPDATE OF c`,
+      [caseId]
+    );
+    const rec = rows[0];
+    if (!rec) return { found: false, value: "error" };
+    const evidenceRows = await q("SELECT * FROM evidence WHERE case_id = $1", [caseId]);
+    const evidence = evidenceRows.map(rowToEvidence);
+    const full = rowToCase(rec, { evidence });
+    const input = {
+      status: full.status,
+      evaFields: full.evaFields,
+      evidence: full.evidence,
+      instructionCount: full.evidence.filter((e) => e.kind === "instruction").length,
+      hasIdentity: full.vrm.trim().length > 0 || full.providerCode.trim().length > 0 || full.evaFields.claimantName.value.trim().length > 0,
+      // TKT-141 retired-lock: the marker is read while the case row is locked.
+      // A merge that won first is preserved; one that starts later waits.
+      mergedInto: full.mergedInto
+    };
+    const next = statusForReviewCase(input);
+    if (next !== full.status) {
+      await q("UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1", [
+        caseId,
+        statusToInt(next)
+      ]);
+      await writeAudit({
+        action: AUDIT_ACTION.status_changed,
+        caseId,
+        summary: `Status ${full.status} -> ${next} (internal recompute)`,
+        before: { status: full.status },
+        after: { status: next }
+      }, q);
     }
+    if (acknowledgeGeneration != null) {
+      const ack = await q(
+        `UPDATE case_
+            SET status_recompute_completed_generation = GREATEST(
+                  status_recompute_completed_generation,
+                  LEAST($2::bigint, status_recompute_requested_generation)
+                )
+          WHERE id = $1
+          RETURNING status_recompute_requested_generation,
+                    status_recompute_completed_generation`,
+        [caseId, acknowledgeGeneration]
+      );
+      const requested = Number(ack[0].status_recompute_requested_generation);
+      const completedGeneration = Number(ack[0].status_recompute_completed_generation);
+      return {
+        found: true,
+        value: next,
+        completed: completedGeneration >= acknowledgeGeneration,
+        pending: completedGeneration < requested
+      };
+    }
+    return { found: true, value: next };
+  });
+  if (result.found) {
+    await maybeSuggestOverviewChase(caseId, result.value);
   }
-  const input = {
-    status: full.status,
-    evaFields: full.evaFields,
-    evidence: full.evidence,
-    instructionCount: full.evidence.filter((e) => e.kind === "instruction").length,
-    hasIdentity: full.vrm.trim().length > 0 || full.providerCode.trim().length > 0 || full.evaFields.claimantName.value.trim().length > 0
-  };
-  const next = statusForReviewCase(input);
-  if (next !== full.status) {
-    await query("UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1", [
-      caseId,
-      statusToInt(next)
-    ]);
-    await writeAudit({
-      action: AUDIT_ACTION.status_changed,
-      caseId,
-      summary: `Status ${full.status} -> ${next} (internal recompute)`,
-      before: { status: full.status },
-      after: { status: next }
-    });
-  }
-  return next;
+  return result;
 }
 async function applyParserFields(caseId, parserRef, parserMileage, parserMileageUnit, parserEva, workProviderId, intermediary) {
+  let providerResolutionSource = "none";
+  let resolvedProviderId;
+  const result = () => ({
+    providerResolutionSource,
+    ...resolvedProviderId ? { resolvedProviderId } : {}
+  });
   const ref = (parserRef ?? "").trim();
   const mileage = parserMileage != null ? String(parserMileage).replace(/[^\d]/g, "") : "";
   const unitRaw = (parserMileageUnit ?? "").trim();
@@ -16873,7 +17417,7 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
   !isEngineerReportLayoutSentinel(rawContentProvider);
   const singleIntermediaryCandidate = intermediary && intermediary.candidateProviderIds.length === 1 ? intermediary.candidateProviderIds[0] : null;
   if (!ref && !mileage && evaCandidates.length === 0 && !mightFillWorkProviderFromCorpus && !mightMatchWorkProviderIdFromContent && !singleIntermediaryCandidate) {
-    return;
+    return result();
   }
   const readCols = [
     "case_ref",
@@ -16884,7 +17428,7 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
     ...evaCandidates.map((c) => c.column)
   ];
   const cur = await query(`SELECT ${readCols.join(", ")} FROM case_ WHERE id = $1`, [caseId]);
-  if (!cur[0]) return;
+  if (!cur[0]) return result();
   const isEmpty = (v) => !String(v ?? "").trim();
   const sets = [];
   const vals = [];
@@ -16937,6 +17481,8 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
       if (isEmpty(existingWorkProviderId)) {
         sets.push(`work_provider_id = $${sets.length + 1}`);
         vals.push(contentMatch.workProviderId);
+        providerResolutionSource = "instruction_content";
+        resolvedProviderId = contentMatch.workProviderId;
         provenance.push({
           field: "workProviderId",
           value: contentMatch.workProviderId,
@@ -16975,6 +17521,8 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
     if (wpRows[0]) {
       sets.push(`work_provider_id = $${sets.length + 1}`);
       vals.push(singleIntermediaryCandidate);
+      providerResolutionSource = "single_intermediary";
+      resolvedProviderId = singleIntermediaryCandidate;
       provenance.push({
         field: "workProviderId",
         value: singleIntermediaryCandidate,
@@ -17022,7 +17570,7 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
       });
     }
   }
-  if (sets.length === 0) return;
+  if (sets.length === 0) return result();
   vals.push(caseId);
   await query(
     `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
@@ -17048,6 +17596,7 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
     ).catch(() => {
     });
   }
+  return result();
 }
 import_functions.app.http("internalProviderMatchRecords", {
   methods: ["GET"],
@@ -17168,6 +17717,38 @@ import_functions.app.http("internalDedupContext", {
     };
   })
 });
+function buildHeldReason(input) {
+  const { senderDomain: domain, intermediary } = input;
+  if (!intermediary) {
+    return {
+      noteName: "New client",
+      noteText: `New client \u2014 no work provider matched for sender${domain ? ` @${domain}` : ""}. No Case/PO has been created. Set up the work provider and confirm before EVA.`,
+      auditSummary: "New client routed to Held (no work provider matched)"
+    };
+  }
+  const who = intermediary.name.trim() ? `Intermediary sender (${intermediary.name.trim()})` : "Intermediary sender";
+  const resolvedName = intermediary.resolvedProviderName.trim();
+  if (intermediary.resolutionSource === "instruction_content") {
+    return {
+      noteName: "Held \u2014 intermediary sender",
+      noteText: `${who}: ${resolvedName ? `the instructions identify ${resolvedName} as the provider` : "the instructions identify the provider"}. No Case/PO has been created. Confirm the provider before EVA.`,
+      auditSummary: "Intermediary sender routed to Held (provider found in the instructions)"
+    };
+  }
+  if (intermediary.resolutionSource === "single_intermediary") {
+    return {
+      noteName: "Held \u2014 intermediary sender",
+      noteText: `${who}: This intermediary routes work to one provider` + (resolvedName ? `, ${resolvedName},` : ",") + ` which has been selected. No Case/PO has been created. Confirm the provider before EVA.`,
+      auditSummary: "Intermediary sender routed to Held (single provider selected)"
+    };
+  }
+  const candidates = intermediary.candidateNames.map((n) => n.trim()).filter(Boolean);
+  return {
+    noteName: "Held \u2014 intermediary sender",
+    noteText: `${who}: the instructing provider could not be determined from the instruction.` + (candidates.length ? ` Possible providers: ${candidates.join(", ")}.` : "") + ` No Case/PO has been created. Pick the provider and confirm before EVA.`,
+    auditSummary: "Intermediary sender routed to Held (provider not yet confirmed)"
+  };
+}
 import_functions.app.http("internalCasesResolve", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -17326,7 +17907,7 @@ import_functions.app.http("internalCasesResolve", {
     }
     const newCaseId = created.caseId;
     await upsertInboundEmail(inbound, workProviderId, newCaseId, void 0, body2.parserVrm);
-    await applyParserFields(
+    const parserFieldsResult = await applyParserFields(
       newCaseId,
       body2.parserRef,
       body2.parserMileage,
@@ -17387,22 +17968,59 @@ import_functions.app.http("internalCasesResolve", {
     }
     if (created.newClient) {
       const domain = senderDomain(inbound.senderAddress ?? "");
+      let heldIntermediary = null;
+      if (intermediary) {
+        heldIntermediary = {
+          name: "",
+          candidateNames: [],
+          resolvedProviderName: "",
+          resolutionSource: parserFieldsResult.providerResolutionSource
+        };
+        try {
+          const src = await query(
+            "SELECT name FROM image_source WHERE id = $1",
+            [intermediary.imageSourceId]
+          );
+          heldIntermediary.name = String(src[0]?.name ?? "").trim();
+          if (intermediary.candidateProviderIds.length > 0) {
+            const wps = await query(
+              "SELECT display_name FROM work_provider WHERE id = ANY($1::uuid[]) ORDER BY display_name",
+              [intermediary.candidateProviderIds]
+            );
+            heldIntermediary.candidateNames = wps.map((r) => String(r.display_name ?? "").trim()).filter(Boolean);
+          }
+          if (parserFieldsResult.resolvedProviderId) {
+            const resolved = await query(
+              "SELECT display_name FROM work_provider WHERE id = $1",
+              [parserFieldsResult.resolvedProviderId]
+            );
+            heldIntermediary.resolvedProviderName = String(
+              resolved[0]?.display_name ?? ""
+            ).trim();
+          }
+        } catch {
+        }
+      }
+      const reason = buildHeldReason({ senderDomain: domain, intermediary: heldIntermediary });
       await query(
         `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
-        [
-          "New client",
-          newCaseId,
-          "Email intake (auto)",
-          `New client \u2014 no work provider matched for sender${domain ? ` @${domain}` : ""}. No Case/PO minted; set up the work provider and confirm before EVA.`
-        ]
+        [reason.noteName, newCaseId, "Email intake (auto)", reason.noteText]
       ).catch(() => {
       });
       await writeAudit({
         action: AUDIT_ACTION.inbound_routed,
         caseId: newCaseId,
         severity: "warning",
-        summary: "New client routed to Held (no work provider matched)",
-        after: { newClient: true, onHold: true, senderDomain: domain }
+        summary: reason.auditSummary,
+        after: intermediary ? {
+          intermediary: true,
+          onHold: true,
+          senderDomain: domain,
+          imageSourceId: intermediary.imageSourceId,
+          candidateProviderIds: intermediary.candidateProviderIds,
+          ...heldIntermediary?.resolvedProviderName ? { resolvedProvider: heldIntermediary.resolvedProviderName } : {},
+          providerResolutionSource: heldIntermediary?.resolutionSource ?? "none"
+        } : { newClient: true, onHold: true, senderDomain: domain }
       });
     }
     return {
@@ -17997,6 +18615,298 @@ import_functions.app.http("internalInboundOutlookMoved", {
     return { status: 204 };
   })
 });
+function parseEvidenceBackfillCommittedResult(value) {
+  let candidate = value;
+  if (typeof candidate === "string") {
+    try {
+      candidate = JSON.parse(candidate);
+    } catch {
+      return null;
+    }
+  }
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return null;
+  const row = candidate;
+  if (row.outcome !== "completed" && row.outcome !== "partial") return null;
+  const persisted = Number(row.persisted);
+  if (!Number.isSafeInteger(persisted) || persisted < 0) return null;
+  const result = { outcome: row.outcome, persisted };
+  const merged = Number(row.merged);
+  if (Number.isSafeInteger(merged) && merged >= 0) result.merged = merged;
+  const failedAttachments = Number(row.failedAttachments);
+  if (Number.isSafeInteger(failedAttachments) && failedAttachments >= 0) {
+    result.failedAttachments = failedAttachments;
+  }
+  if (typeof row.detail === "string" && row.detail.trim()) result.detail = row.detail.slice(0, 300);
+  return result;
+}
+import_functions.app.http("internalInboundEvidenceBackfillValidate", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/inbound/{id}/evidence-backfill/validate",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json().catch(() => ({}));
+    const targetCaseId = typeof body2.targetCaseId === "string" ? body2.targetCaseId.trim() : "";
+    if (!targetCaseId) return { status: 400, jsonBody: { error: "targetCaseId is required" } };
+    const suppliedGeneration = body2.generation == null ? null : Number(body2.generation);
+    if (suppliedGeneration != null && (!Number.isSafeInteger(suppliedGeneration) || suppliedGeneration < 1)) {
+      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
+    }
+    const resolved = await withResolvedEvidenceBackfillTarget(
+      req.params.id,
+      targetCaseId,
+      async (q) => {
+        const rows = await q(
+          `SELECT evidence_backfill_requested_generation,
+                    evidence_backfill_completed_generation,
+                    evidence_backfill_completed_result
+               FROM inbound_email
+              WHERE id = $1`,
+          [req.params.id]
+        );
+        const requested = Number(
+          rows[0]?.evidence_backfill_requested_generation ?? suppliedGeneration ?? 1
+        );
+        const completed = Number(rows[0]?.evidence_backfill_completed_generation ?? 0);
+        const generation = suppliedGeneration ?? requested;
+        if (generation < 1 || generation > requested) {
+          return { kind: "generation_mismatch", requested };
+        }
+        if (suppliedGeneration != null && generation < requested && completed < generation) {
+          return { kind: "superseded", generation };
+        }
+        const committedGeneration = completed >= generation ? completed : generation;
+        const committedResult = completed >= generation ? parseEvidenceBackfillCommittedResult(rows[0]?.evidence_backfill_completed_result) : null;
+        return {
+          kind: "validated",
+          generation: committedGeneration,
+          completed: completed >= generation,
+          ...committedResult ? { committedResult } : {}
+        };
+      }
+    );
+    if (resolved.kind === "stale") {
+      return {
+        status: 409,
+        jsonBody: { error: "evidence backfill target changed", code: "evidence_backfill_target_changed" }
+      };
+    }
+    if (resolved.value.kind === "generation_mismatch") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "evidence backfill generation changed",
+          code: "evidence_backfill_generation_changed",
+          requestedGeneration: resolved.value.requested
+        }
+      };
+    }
+    if (resolved.value.kind === "superseded") {
+      return {
+        status: 200,
+        jsonBody: {
+          targetCaseId: resolved.targetCaseId,
+          generation: resolved.value.generation,
+          completed: false,
+          superseded: true
+        }
+      };
+    }
+    return {
+      status: 200,
+      jsonBody: {
+        targetCaseId: resolved.targetCaseId,
+        generation: resolved.value.generation,
+        completed: resolved.value.completed,
+        ...resolved.value.committedResult ? { committedResult: resolved.value.committedResult } : {}
+      }
+    };
+  })
+});
+import_functions.app.http("internalInboundEvidenceBackfill", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/inbound/{id}/evidence-backfill",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const id = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const outcome = body2.outcome;
+    if (outcome !== "completed" && outcome !== "partial" && outcome !== "failed") {
+      return { status: 400, jsonBody: { error: "outcome must be 'completed', 'partial' or 'failed'" } };
+    }
+    const targetCaseId = typeof body2.targetCaseId === "string" ? body2.targetCaseId.trim() : "";
+    if (!targetCaseId) return { status: 400, jsonBody: { error: "targetCaseId is required" } };
+    const suppliedGeneration = body2.generation == null ? null : Number(body2.generation);
+    if (suppliedGeneration != null && (!Number.isSafeInteger(suppliedGeneration) || suppliedGeneration < 1)) {
+      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
+    }
+    const requestedDetail = typeof body2.detail === "string" ? body2.detail.slice(0, 300) : null;
+    const requestedPersisted = typeof body2.persisted === "number" ? body2.persisted : null;
+    const requestedMerged = typeof body2.merged === "number" ? body2.merged : null;
+    const requestedFailedAttachments = typeof body2.failedAttachments === "number" ? Math.max(0, Math.trunc(body2.failedAttachments)) : null;
+    const report = await tx(async (q) => {
+      const locked = await q(
+        `SELECT case_id, evidence_backfill_report_outcome,
+                  evidence_backfill_requested_generation,
+                  evidence_backfill_completed_generation,
+                  evidence_backfill_completed_result,
+                  evidence_backfill_reported_generation
+             FROM inbound_email
+            WHERE id = $1
+            FOR UPDATE`,
+        [id]
+      );
+      if (!locked[0]) return { kind: "missing" };
+      if ((locked[0].case_id ?? null) !== targetCaseId) return { kind: "stale" };
+      const requestedGeneration = Number(
+        locked[0].evidence_backfill_requested_generation ?? suppliedGeneration ?? 1
+      );
+      const completedGeneration = Number(locked[0].evidence_backfill_completed_generation ?? 0);
+      const reportedGeneration = Number(locked[0].evidence_backfill_reported_generation ?? 0);
+      const generation = suppliedGeneration ?? requestedGeneration;
+      if (generation < 1 || generation > requestedGeneration) {
+        return { kind: "generation_mismatch", requestedGeneration };
+      }
+      if (completedGeneration > generation) {
+        return {
+          kind: "replay",
+          generation,
+          effectiveOutcome: outcome,
+          protectedCompletion: true
+        };
+      }
+      const committedResult = completedGeneration === generation ? parseEvidenceBackfillCommittedResult(locked[0].evidence_backfill_completed_result) : null;
+      if (suppliedGeneration != null && completedGeneration === generation && !committedResult) {
+        return { kind: "missing_committed_result", completedGeneration };
+      }
+      const protectedCompletion = committedResult != null && outcome !== committedResult.outcome;
+      const effectiveOutcome = committedResult?.outcome ?? outcome;
+      const persisted = committedResult?.persisted ?? requestedPersisted;
+      const merged = committedResult?.merged ?? requestedMerged;
+      const failedAttachments = committedResult?.failedAttachments ?? requestedFailedAttachments;
+      const detail = committedResult?.detail ?? requestedDetail;
+      if (suppliedGeneration != null && (effectiveOutcome === "completed" || effectiveOutcome === "partial") && completedGeneration < generation) {
+        return { kind: "not_committed", completedGeneration };
+      }
+      const rank = {
+        failed: 0,
+        partial: 1,
+        completed: 2
+      };
+      const currentOutcome = locked[0].evidence_backfill_report_outcome;
+      if (generation < reportedGeneration || generation === reportedGeneration && currentOutcome != null && rank[currentOutcome] >= rank[effectiveOutcome]) {
+        return {
+          kind: "replay",
+          generation,
+          effectiveOutcome,
+          protectedCompletion
+        };
+      }
+      await writeEvidenceBackfillNote(
+        { caseId: targetCaseId, inboundEmailId: id, kind: effectiveOutcome },
+        q
+      );
+      const updated = await q(
+        `UPDATE inbound_email
+              SET evidence_backfill_report_outcome = $2,
+                  evidence_backfill_reported_generation = $3,
+                  evidence_backfill_reported_at = now(),
+                  updated_at = now()
+            WHERE id = $1
+              AND evidence_backfill_reported_generation <= $3
+          RETURNING id`,
+        [id, effectiveOutcome, generation]
+      );
+      if (!updated[0] && suppliedGeneration != null) {
+        return { kind: "replay", generation, effectiveOutcome, protectedCompletion };
+      }
+      if (effectiveOutcome === "completed") {
+        await writeAudit({
+          action: AUDIT_ACTION.attachment_classified,
+          caseId: targetCaseId,
+          summary: `Attachments added from the linked email (${persisted ?? "?"} new${merged ? `, ${merged} matched` : ""})`,
+          after: {
+            inboundEmailId: id,
+            generation,
+            persisted,
+            merged,
+            ...protectedCompletion ? { protectedFromOutcome: outcome } : {}
+          },
+          actor: "orchestration"
+        }, q);
+      } else {
+        await writeAudit({
+          action: AUDIT_ACTION.graph_message_ingest_failed,
+          caseId: targetCaseId,
+          summary: effectiveOutcome === "partial" ? "Some attachments from the linked email could not be added" : "Attachments from the linked email could not be added \u2014 staff must add them",
+          severity: "warning",
+          after: {
+            inboundEmailId: id,
+            generation,
+            ...failedAttachments != null ? { failedAttachments } : {},
+            ...detail ? { detail } : {}
+          },
+          actor: "orchestration"
+        }, q);
+      }
+      return {
+        kind: "transition",
+        generation,
+        effectiveOutcome,
+        protectedCompletion
+      };
+    });
+    if (report.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+    if (report.kind === "stale") {
+      return {
+        status: 409,
+        jsonBody: { error: "evidence backfill target changed", code: "evidence_backfill_target_changed" }
+      };
+    }
+    if (report.kind === "generation_mismatch") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "evidence backfill generation changed",
+          code: "evidence_backfill_generation_changed",
+          requestedGeneration: report.requestedGeneration
+        }
+      };
+    }
+    if (report.kind === "not_committed") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "evidence backfill persistence is not committed",
+          code: "evidence_backfill_not_committed",
+          completedGeneration: report.completedGeneration
+        }
+      };
+    }
+    if (report.kind === "missing_committed_result") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "evidence backfill committed result is unavailable",
+          code: "evidence_backfill_committed_result_missing",
+          completedGeneration: report.completedGeneration
+        }
+      };
+    }
+    ctx.log(
+      JSON.stringify({
+        evt: "evidenceBackfillReport",
+        inboundEmailId: id,
+        outcome: report.effectiveOutcome,
+        requestedOutcome: outcome,
+        generation: report.generation,
+        targetCaseId,
+        replay: report.kind === "replay",
+        protectedCompletion: report.protectedCompletion
+      })
+    );
+    return { status: 204 };
+  })
+});
 var ATTENTION_REASONS = /* @__PURE__ */ new Set(["unable_to_locate", "images_no_match"]);
 import_functions.app.http("internalInboundAttention", {
   methods: ["POST"],
@@ -18025,36 +18935,99 @@ import_functions.app.http("internalInboundAttention", {
     return { status: 200, jsonBody: { stamped: Boolean(rows[0]) } };
   })
 });
-async function applyEvidenceMetadata(ctx, whereClause, whereVals, row, computed) {
-  const sets = [];
-  const vals = [...whereVals];
-  const push = (col, v) => {
-    vals.push(v);
-    sets.push(`${col} = $${vals.length}`);
-  };
-  if (row.imageRoleCode != null || row.imageRole != null) push("image_role_code", computed.imageRoleCode);
-  if (typeof row.registrationVisible === "boolean") push("registration_visible", computed.registrationVisible);
-  if (typeof row.acceptedForEva === "boolean") push("accepted_for_eva", row.acceptedForEva);
-  if (typeof row.personReflection === "boolean") push("person_reflection", row.personReflection);
-  if (row.excluded != null) {
-    push("excluded", computed.excluded);
-    push("exclusion_reason", computed.exclusionReason);
-  } else if (typeof row.exclusionReason === "string" && row.exclusionReason.trim()) {
-    push("exclusion_reason", row.exclusionReason.trim());
-  }
-  if (row.sha256 != null) push("sha256", computed.sha256);
-  if (row.sequenceIndex != null) push("sequence_index", computed.sequenceIndex);
-  if (sets.length === 0) return 0;
-  try {
-    const res = await query(
-      `UPDATE evidence SET ${sets.join(", ")}, updated_at = now() WHERE ${whereClause} RETURNING id`,
-      vals
+async function applyEvidenceMetadata(_ctx, whereClause, whereVals, row, computed, q = query) {
+  const changedIds = /* @__PURE__ */ new Set();
+  let readinessChanged = false;
+  const ownedSets = [];
+  const ownedChanges = [];
+  const ownedVals = [...whereVals];
+  const pushOwned = (column, sourceColumn, value) => {
+    ownedVals.push(value);
+    const p = `$${ownedVals.length}`;
+    const allowed = `(${sourceColumn} IS NULL OR ${sourceColumn} = 'classifier')`;
+    ownedSets.push(
+      `${column} = CASE WHEN ${allowed} THEN ${p} ELSE ${column} END`,
+      `${sourceColumn} = CASE WHEN ${allowed} THEN 'classifier' ELSE ${sourceColumn} END`
     );
-    return res.length;
-  } catch (e) {
-    ctx.error(e);
-    return 0;
+    ownedChanges.push(
+      `(${allowed} AND (${column} IS DISTINCT FROM ${p} OR ${sourceColumn} IS DISTINCT FROM 'classifier'))`
+    );
+  };
+  if (row.decisionSource === "classifier" && (row.imageRoleCode != null || row.imageRole != null)) {
+    pushOwned("image_role_code", "image_role_source", computed.imageRoleCode);
   }
+  if (row.decisionSource === "classifier" && typeof row.registrationVisible === "boolean") {
+    pushOwned("registration_visible", "registration_visible_source", computed.registrationVisible);
+  }
+  if (row.decisionSource === "classifier" && typeof row.acceptedForEva === "boolean") {
+    pushOwned("accepted_for_eva", "accepted_for_eva_source", row.acceptedForEva);
+  }
+  const legacyExplicitExclusion = row.decisionSource == null && row.excluded === true;
+  if ((row.decisionSource === "classifier" || legacyExplicitExclusion) && row.excluded != null) {
+    ownedVals.push(computed.excluded, computed.exclusionReason);
+    const excludedP = `$${ownedVals.length - 1}`;
+    const reasonP = `$${ownedVals.length}`;
+    const allowed = `(
+      (exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')
+      AND (
+        NOT ${excludedP}
+        OR archive_mirror_claim_token IS NULL
+        OR archive_mirror_claim_expires_at <= now()
+      )
+    )`;
+    ownedSets.push(
+      `excluded = CASE WHEN ${allowed} THEN ${excludedP} ELSE excluded END`,
+      `exclusion_reason = CASE WHEN ${allowed} THEN ${reasonP} ELSE exclusion_reason END`,
+      `exclusion_decision_source = CASE WHEN ${allowed} THEN 'classifier' ELSE exclusion_decision_source END`,
+      `archive_mirror_decision_generation = archive_mirror_decision_generation +
+        CASE WHEN ${allowed} AND excluded IS DISTINCT FROM ${excludedP} THEN 1 ELSE 0 END`
+    );
+    ownedChanges.push(
+      `(${allowed} AND (excluded IS DISTINCT FROM ${excludedP} OR exclusion_reason IS DISTINCT FROM ${reasonP} OR exclusion_decision_source IS DISTINCT FROM 'classifier'))`
+    );
+  }
+  if (ownedSets.length > 0) {
+    const res = await q(
+      `UPDATE evidence
+            SET ${ownedSets.join(", ")}, updated_at = now()
+          WHERE ${whereClause}
+            AND (${ownedChanges.join(" OR ")})
+          RETURNING id, case_id, excluded, storage_path, box_file_id`,
+      ownedVals
+    );
+    for (const item of res) changedIds.add(item.id);
+    if (row.decisionSource === "classifier" && row.excluded === false) {
+      for (const item of res) await requestArchiveMirrorIfEligible(q, item);
+    }
+    readinessChanged = res.length > 0;
+  }
+  const simpleSets = [];
+  const simpleChanges = [];
+  const simpleVals = [...whereVals];
+  const pushSimple = (column, value) => {
+    simpleVals.push(value);
+    const p = `$${simpleVals.length}`;
+    simpleSets.push(`${column} = ${p}`);
+    simpleChanges.push(`${column} IS DISTINCT FROM ${p}`);
+  };
+  if (typeof row.personReflection === "boolean") pushSimple("person_reflection", row.personReflection);
+  if (row.excluded == null && typeof row.exclusionReason === "string" && row.exclusionReason.trim()) {
+    pushSimple("exclusion_reason", row.exclusionReason.trim());
+  }
+  if (row.sha256 != null) pushSimple("sha256", computed.sha256);
+  if (row.sequenceIndex != null) pushSimple("sequence_index", computed.sequenceIndex);
+  if (simpleSets.length > 0) {
+    const res = await q(
+      `UPDATE evidence
+            SET ${simpleSets.join(", ")}, updated_at = now()
+          WHERE ${whereClause}
+            AND (${simpleChanges.join(" OR ")})
+          RETURNING id`,
+      simpleVals
+    );
+    for (const item of res) changedIds.add(item.id);
+  }
+  return { updated: changedIds.size, readinessChanged };
 }
 var SHA256_HEX_RE = /^[0-9a-f]{64}$/i;
 import_functions.app.http("internalCasesEvidence", {
@@ -18064,170 +19037,374 @@ import_functions.app.http("internalCasesEvidence", {
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const caseId = req.params.id;
     const body2 = await req.json();
-    let persisted = 0;
-    let updated = 0;
-    let merged = 0;
-    for (const row of body2.rows ?? []) {
-      let suppliedClass = row.evidenceClass ?? "other";
-      if (suppliedClass === "image") {
-        const derived = describeEvidence(row.filename, row.contentType).evidenceClass;
-        const mimeIsImage = (row.contentType ?? "").toLowerCase().startsWith("image/");
-        suppliedClass = derived === "image" || mimeIsImage ? "image" : derived;
-      }
-      const kindCode = evidenceKindCodec.toInt(suppliedClass) ?? null;
-      const imageRoleCode = (typeof row.imageRoleCode === "number" ? row.imageRoleCode : void 0) ?? imageRoleCodec.toInt(row.imageRole) ?? 100000003;
-      const registrationVisible = typeof row.registrationVisible === "boolean" ? row.registrationVisible : null;
-      const excluded = row.excluded === true;
-      const exclusionReason = excluded ? (row.exclusionReason ?? "").trim() || "Excluded" : (row.exclusionReason ?? "").trim() || null;
-      const personReflection = row.personReflection === true;
-      const sha256 = (row.sha256 ?? "").trim() || null;
-      const sequenceIndex = Number.isInteger(row.sequenceIndex) ? row.sequenceIndex : null;
-      const hasMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || row.excluded != null || row.exclusionReason != null || row.personReflection != null || row.sha256 != null || row.sequenceIndex != null;
-      const sourceMessageId = (row.sourceMessageId ?? "").trim() || null;
-      const boxFileId = (row.boxFileId ?? "").trim() || null;
-      const isBoxRow = sourceMessageId != null || boxFileId != null;
-      if (sha256 && SHA256_HEX_RE.test(sha256)) {
-        const twin = await query(
-          `SELECT id, box_file_id, box_file_url, storage_path, source_message_id
+    if (!Array.isArray(body2.rows) || body2.rows.some(
+      (row) => row.decisionSource != null && row.decisionSource !== "classifier"
+    )) {
+      return { status: 400, jsonBody: { error: "unsupported evidence decision source" } };
+    }
+    const persistRows = async (q, persistCaseId) => {
+      let persisted = 0;
+      let updated = 0;
+      let merged = 0;
+      let readinessChanged = false;
+      for (const row of body2.rows ?? []) {
+        let suppliedClass = row.evidenceClass ?? "other";
+        if (suppliedClass === "image") {
+          const derived = describeEvidence(row.filename, row.contentType).evidenceClass;
+          const mimeIsImage = (row.contentType ?? "").toLowerCase().startsWith("image/");
+          suppliedClass = derived === "image" || mimeIsImage ? "image" : derived;
+        }
+        const kindCode = evidenceKindCodec.toInt(suppliedClass) ?? null;
+        const imageRoleCode = (typeof row.imageRoleCode === "number" ? row.imageRoleCode : void 0) ?? imageRoleCodec.toInt(row.imageRole) ?? 100000003;
+        const registrationVisible = typeof row.registrationVisible === "boolean" ? row.registrationVisible : null;
+        const excluded = row.excluded === true;
+        const exclusionReason = excluded ? (row.exclusionReason ?? "").trim() || "Excluded" : (row.exclusionReason ?? "").trim() || null;
+        const personReflection = row.personReflection === true;
+        const sha256 = (row.sha256 ?? "").trim() || null;
+        const sequenceIndex = Number.isInteger(row.sequenceIndex) ? row.sequenceIndex : null;
+        const hasMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || typeof row.acceptedForEva === "boolean" || row.excluded != null || row.exclusionReason != null || row.personReflection != null || row.sha256 != null || row.sequenceIndex != null;
+        const hasReadinessMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || typeof row.acceptedForEva === "boolean" || typeof row.excluded === "boolean";
+        const decisionSource = row.decisionSource === "classifier" ? "classifier" : null;
+        const insertionExclusionDecisionSource = typeof row.excluded === "boolean" && row.excluded ? decisionSource ?? "classifier" : decisionSource;
+        const sourceMessageId = (row.sourceMessageId ?? "").trim() || null;
+        const boxFileId = (row.boxFileId ?? "").trim() || null;
+        const isBoxRow = sourceMessageId != null || boxFileId != null;
+        if (sha256 && SHA256_HEX_RE.test(sha256)) {
+          const twin = await q(
+            `SELECT id, box_file_id, box_file_url, storage_path, source_message_id
                FROM evidence WHERE case_id = $1 AND sha256 = $2 LIMIT 1`,
-          [caseId, sha256]
-        );
-        const ex = twin[0];
-        if (ex) {
-          const sameIdentity = isBoxRow ? boxFileId != null && ex.box_file_id === boxFileId || sourceMessageId != null && ex.source_message_id === sourceMessageId : row.blobPath != null && ex.storage_path === row.blobPath;
-          const hasMergeMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || row.excluded != null || row.exclusionReason != null || row.personReflection != null || row.sequenceIndex != null;
-          if (!sameIdentity) {
-            if (isBoxRow && ex.box_file_id == null && boxFileId != null) {
-              await query(
-                `UPDATE evidence
+            [persistCaseId, sha256]
+          );
+          const ex = twin[0];
+          if (ex) {
+            const sameIdentity = isBoxRow ? boxFileId != null && ex.box_file_id === boxFileId || sourceMessageId != null && ex.source_message_id === sourceMessageId : row.blobPath != null && ex.storage_path === row.blobPath;
+            const hasMergeMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || typeof row.acceptedForEva === "boolean" || row.excluded != null || row.exclusionReason != null || row.personReflection != null || row.sequenceIndex != null;
+            if (!sameIdentity) {
+              if (isBoxRow && ex.box_file_id == null && boxFileId != null) {
+                await q(
+                  `UPDATE evidence
                       SET box_file_id = $2,
                           box_file_url = COALESCE($3, box_file_url),
                           updated_at = now()
                     WHERE id = $1 AND box_file_id IS NULL`,
-                [ex.id, boxFileId, (row.boxFileUrl ?? "").trim() || null]
-              );
-            } else if (!isBoxRow && ex.storage_path == null && row.blobPath) {
-              await query(
-                `UPDATE evidence
+                  [ex.id, boxFileId, (row.boxFileUrl ?? "").trim() || null]
+                );
+              } else if (!isBoxRow && ex.storage_path == null && row.blobPath) {
+                await q(
+                  `UPDATE evidence
                       SET storage_path = $2::text, updated_at = now()
                     WHERE id = $1 AND storage_path IS NULL`,
-                [ex.id, row.blobPath]
-              );
+                  [ex.id, row.blobPath]
+                );
+              }
+              if (hasMergeMetadata) {
+                const applied = await applyEvidenceMetadata(ctx, "id = $1", [ex.id], row, {
+                  imageRoleCode,
+                  registrationVisible,
+                  excluded,
+                  exclusionReason,
+                  sha256,
+                  sequenceIndex
+                }, q);
+                updated += applied.updated;
+                readinessChanged ||= applied.readinessChanged;
+              }
+              merged++;
+              continue;
             }
             if (hasMergeMetadata) {
-              await applyEvidenceMetadata(ctx, "id = $1", [ex.id], row, {
+              const applied = await applyEvidenceMetadata(ctx, "id = $1", [ex.id], row, {
                 imageRoleCode,
                 registrationVisible,
                 excluded,
                 exclusionReason,
                 sha256,
                 sequenceIndex
-              });
+              }, q);
+              updated += applied.updated;
+              readinessChanged ||= applied.readinessChanged;
             }
-            merged++;
             continue;
           }
-          if (hasMergeMetadata) {
-            updated += await applyEvidenceMetadata(ctx, "id = $1", [ex.id], row, {
+        }
+        let inserted = false;
+        if (isBoxRow) {
+          const dedupCol = sourceMessageId != null ? "source_message_id" : "box_file_id";
+          const dedupVal = sourceMessageId ?? boxFileId;
+          const result2 = await q(
+            `INSERT INTO evidence
+               (file_name, case_id, kind_code, content_type, size_bytes,
+                source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label,
+                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index,
+                image_role_source, registration_visible_source, accepted_for_eva_source, exclusion_decision_source)
+             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+                    $18, $19, $20, $21
+             WHERE NOT EXISTS (
+               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $22
+             )
+             RETURNING id`,
+            [
+              row.filename,
+              persistCaseId,
+              kindCode,
+              row.contentType || null,
+              row.size ?? null,
+              sourceMessageId,
+              boxFileId,
+              (row.boxFileUrl ?? "").trim() || null,
+              row.acceptedForEva ?? true,
+              (row.sourceLabel ?? "").trim() || "box_upload",
               imageRoleCode,
               registrationVisible,
               excluded,
               exclusionReason,
+              personReflection,
               sha256,
-              sequenceIndex
-            });
-          }
-          continue;
-        }
-      }
-      let inserted = false;
-      if (isBoxRow) {
-        const dedupCol = sourceMessageId != null ? "source_message_id" : "box_file_id";
-        const dedupVal = sourceMessageId ?? boxFileId;
-        const result = await query(
-          `INSERT INTO evidence
-               (file_name, case_id, kind_code, content_type, size_bytes,
-                source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label,
-                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index)
-             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
-             WHERE NOT EXISTS (
-               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $18
-             )
-             RETURNING id`,
-          [
-            row.filename,
-            caseId,
-            kindCode,
-            row.contentType || null,
-            row.size ?? null,
-            sourceMessageId,
-            boxFileId,
-            (row.boxFileUrl ?? "").trim() || null,
-            row.acceptedForEva ?? true,
-            (row.sourceLabel ?? "").trim() || "box_upload",
-            imageRoleCode,
-            registrationVisible,
-            excluded,
-            exclusionReason,
-            personReflection,
-            sha256,
-            sequenceIndex,
-            dedupVal
-          ]
-        );
-        inserted = result.length > 0;
-        if (!inserted && hasMetadata) {
-          updated += await applyEvidenceMetadata(
-            ctx,
-            `case_id = $1 AND ${dedupCol} = $2`,
-            [caseId, dedupVal],
-            row,
-            { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex }
+              sequenceIndex,
+              row.imageRoleCode != null || row.imageRole != null ? decisionSource : null,
+              typeof row.registrationVisible === "boolean" ? decisionSource : null,
+              typeof row.acceptedForEva === "boolean" ? decisionSource : null,
+              typeof row.excluded === "boolean" ? insertionExclusionDecisionSource : null,
+              dedupVal
+            ]
           );
-        }
-      } else {
-        const acceptedForEva = row.acceptedForEva ?? true;
-        const result = await query(
-          `INSERT INTO evidence
+          inserted = result2.length > 0;
+          if (!inserted && hasMetadata) {
+            const applied = await applyEvidenceMetadata(
+              ctx,
+              `case_id = $1 AND ${dedupCol} = $2`,
+              [persistCaseId, dedupVal],
+              row,
+              { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
+              q
+            );
+            updated += applied.updated;
+            readinessChanged ||= applied.readinessChanged;
+          }
+        } else {
+          const acceptedForEva = row.acceptedForEva ?? true;
+          const result2 = await q(
+            `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label,
                 accepted_for_eva,
-                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index)
-             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake', $7, $8, $9, $10, $11, $12, $13, $14
+                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index,
+                image_role_source, registration_visible_source, accepted_for_eva_source, exclusion_decision_source)
+             SELECT $1, $2, $3, $4, $5, $6::text, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+                    $16, $17, $18, $19
              WHERE NOT EXISTS (
                SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6::text
              )
              RETURNING id`,
-          [
-            row.filename,
-            caseId,
-            kindCode,
-            row.contentType || null,
-            row.size ?? null,
-            row.blobPath ?? null,
-            acceptedForEva,
-            imageRoleCode,
-            registrationVisible,
-            excluded,
-            exclusionReason,
-            personReflection,
-            sha256,
-            sequenceIndex
-          ]
-        );
-        inserted = result.length > 0;
-        if (!inserted && hasMetadata && row.blobPath) {
-          updated += await applyEvidenceMetadata(
-            ctx,
-            "case_id = $1 AND storage_path = $2::text",
-            [caseId, row.blobPath],
-            row,
-            { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex }
+            [
+              row.filename,
+              persistCaseId,
+              kindCode,
+              row.contentType || null,
+              row.size ?? null,
+              row.blobPath ?? null,
+              (row.sourceLabel ?? "").trim() || "auto-intake",
+              acceptedForEva,
+              imageRoleCode,
+              registrationVisible,
+              excluded,
+              exclusionReason,
+              personReflection,
+              sha256,
+              sequenceIndex,
+              row.imageRoleCode != null || row.imageRole != null ? decisionSource : null,
+              typeof row.registrationVisible === "boolean" ? decisionSource : null,
+              typeof row.acceptedForEva === "boolean" ? decisionSource : null,
+              typeof row.excluded === "boolean" ? insertionExclusionDecisionSource : null
+            ]
           );
+          inserted = result2.length > 0;
+          if (!inserted && hasMetadata && row.blobPath) {
+            const applied = await applyEvidenceMetadata(
+              ctx,
+              "case_id = $1 AND storage_path = $2::text",
+              [persistCaseId, row.blobPath],
+              row,
+              { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
+              q
+            );
+            updated += applied.updated;
+            readinessChanged ||= applied.readinessChanged;
+          }
+        }
+        if (inserted) {
+          persisted++;
+          readinessChanged = true;
+          if (suppliedClass === "image" && hasReadinessMetadata && row.decisionSource === "classifier") readinessChanged = true;
         }
       }
-      if (inserted) persisted++;
+      const statusGeneration = readinessChanged ? await requestStatusRecompute(q, persistCaseId) : void 0;
+      return {
+        persisted,
+        updated,
+        merged,
+        ...statusGeneration == null ? {} : { statusGeneration }
+      };
+    };
+    const expectedInboundEmailId = typeof body2.expectedInboundEmailId === "string" ? body2.expectedInboundEmailId.trim() : "";
+    if (expectedInboundEmailId) {
+      const suppliedBackfillGeneration = body2.evidenceBackfillGeneration == null ? null : Number(body2.evidenceBackfillGeneration);
+      if (suppliedBackfillGeneration != null && (!Number.isSafeInteger(suppliedBackfillGeneration) || suppliedBackfillGeneration < 1)) {
+        return { status: 400, jsonBody: { error: "evidenceBackfillGeneration must be a positive integer" } };
+      }
+      const suppliedBackfillOutcome = body2.evidenceBackfillOutcome;
+      if (suppliedBackfillGeneration != null && suppliedBackfillOutcome !== "completed" && suppliedBackfillOutcome !== "partial") {
+        return {
+          status: 400,
+          jsonBody: { error: "evidenceBackfillOutcome must be 'completed' or 'partial'" }
+        };
+      }
+      const backfillOutcome = suppliedBackfillOutcome === "partial" ? "partial" : "completed";
+      const backfillFailedAttachments = typeof body2.evidenceBackfillFailedAttachments === "number" ? Math.max(0, Math.trunc(body2.evidenceBackfillFailedAttachments)) : void 0;
+      const backfillDetail = typeof body2.evidenceBackfillDetail === "string" && body2.evidenceBackfillDetail.trim() ? body2.evidenceBackfillDetail.slice(0, 300) : void 0;
+      const guarded = await withResolvedEvidenceBackfillTarget(
+        expectedInboundEmailId,
+        caseId,
+        async (q, resolvedCaseId) => {
+          if (resolvedCaseId.trim().toLowerCase() !== caseId.trim().toLowerCase()) {
+            return { kind: "reclassification_required" };
+          }
+          if (suppliedBackfillGeneration == null) {
+            return {
+              kind: "persisted",
+              value: await persistRows(q, resolvedCaseId)
+            };
+          }
+          const progress = await q(
+            `SELECT evidence_backfill_requested_generation,
+                      evidence_backfill_completed_generation,
+                      evidence_backfill_completed_result
+                 FROM inbound_email
+                WHERE id = $1`,
+            [expectedInboundEmailId]
+          );
+          const requestedGeneration = Number(
+            progress[0]?.evidence_backfill_requested_generation ?? suppliedBackfillGeneration ?? 1
+          );
+          const completedGeneration = Number(
+            progress[0]?.evidence_backfill_completed_generation ?? 0
+          );
+          const backfillGeneration = suppliedBackfillGeneration ?? requestedGeneration;
+          if (backfillGeneration < 1 || backfillGeneration > requestedGeneration) {
+            return {
+              kind: "generation_mismatch",
+              requestedGeneration
+            };
+          }
+          if (completedGeneration >= backfillGeneration) {
+            const completedResult2 = parseEvidenceBackfillCommittedResult(
+              progress[0]?.evidence_backfill_completed_result
+            );
+            if (suppliedBackfillGeneration != null && !completedResult2) {
+              throw new Error("evidence backfill completion marker has no durable result");
+            }
+            return {
+              kind: "persisted",
+              value: {
+                persisted: completedResult2?.persisted ?? 0,
+                updated: 0,
+                merged: completedResult2?.merged ?? 0,
+                backfillGeneration,
+                alreadyCompleted: true,
+                ...completedResult2 ? { completedResult: completedResult2 } : {}
+              }
+            };
+          }
+          const value = await persistRows(q, resolvedCaseId);
+          const completedResult = {
+            outcome: backfillOutcome,
+            persisted: value.persisted,
+            merged: value.merged,
+            ...backfillFailedAttachments == null ? {} : { failedAttachments: backfillFailedAttachments },
+            ...backfillDetail ? { detail: backfillDetail } : {}
+          };
+          const marked = await q(
+            `UPDATE inbound_email
+                  SET evidence_backfill_completed_generation = $2,
+                      evidence_backfill_completed_result = $4::jsonb,
+                      evidence_backfill_completed_at = now(),
+                      updated_at = now()
+                WHERE id = $1
+                  AND case_id = $3
+                  AND evidence_backfill_requested_generation = $2
+                  AND evidence_backfill_completed_generation < $2
+              RETURNING evidence_backfill_completed_generation,
+                        evidence_backfill_completed_result`,
+            [
+              expectedInboundEmailId,
+              backfillGeneration,
+              resolvedCaseId,
+              JSON.stringify(completedResult)
+            ]
+          );
+          if (!marked[0]) {
+            throw new Error("evidence backfill completion marker target disappeared");
+          }
+          return {
+            kind: "persisted",
+            value: {
+              ...value,
+              backfillGeneration,
+              alreadyCompleted: false,
+              completedResult
+            }
+          };
+        }
+      );
+      if (guarded.kind === "stale") {
+        return {
+          status: 409,
+          jsonBody: { error: "evidence backfill target changed", code: "evidence_backfill_target_changed" }
+        };
+      }
+      if (guarded.value.kind === "reclassification_required") {
+        return {
+          status: 409,
+          jsonBody: {
+            error: "evidence backfill must be reclassified for the merged case",
+            code: "evidence_backfill_reclassification_required",
+            targetCaseId: guarded.targetCaseId
+          }
+        };
+      }
+      if (guarded.value.kind === "generation_mismatch") {
+        return {
+          status: 409,
+          jsonBody: {
+            error: "evidence backfill generation changed",
+            code: "evidence_backfill_generation_changed",
+            requestedGeneration: guarded.value.requestedGeneration
+          }
+        };
+      }
+      return {
+        status: 200,
+        jsonBody: { ...guarded.value.value, targetCaseId: guarded.targetCaseId }
+      };
     }
-    return { status: 200, jsonBody: { persisted, updated, merged } };
+    const result = await tx(async (q) => {
+      const lockedCase = await lockCaseForMutation(q, caseId);
+      if (lockedCase.kind !== "active") return lockedCase;
+      return { kind: "persisted", value: await persistRows(q, lockedCase.caseId) };
+    });
+    if (result.kind === "missing") {
+      return { status: 404, jsonBody: { error: "case not found" } };
+    }
+    if (result.kind === "retired") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "case has been merged",
+          code: "case_merged",
+          targetCaseId: result.mergedInto
+        }
+      };
+    }
+    return { status: 200, jsonBody: result.value };
   })
 });
 import_functions.app.http("internalCasesArchiveEvidence", {
@@ -18237,20 +19414,35 @@ import_functions.app.http("internalCasesArchiveEvidence", {
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const caseId = req.params.id;
     if (!caseId) return { status: 400, jsonBody: { error: "caseId required" } };
-    const rows = await query(
-      `SELECT
-           id,
-           file_name AS filename,
-           content_type AS "contentType",
-           storage_path AS "blobPath"
-         FROM evidence
-         WHERE case_id = $1
-           AND storage_path IS NOT NULL
-           AND box_file_id IS NULL
-         ORDER BY created_at ASC, file_name ASC`,
-      [caseId]
-    );
-    return { status: 200, jsonBody: { rows } };
+    const result = await tx(async (q) => {
+      const lockedCase = await lockCaseForMutation(q, caseId);
+      if (lockedCase.kind !== "active") return { kind: lockedCase.kind };
+      const rows = await q(
+        `UPDATE evidence
+              SET archive_mirror_claim_token = gen_random_uuid(),
+                  archive_mirror_claimed_at = now(),
+                  archive_mirror_claim_expires_at = now() + interval '30 minutes',
+                  updated_at = now()
+            WHERE case_id = $1
+              AND storage_path IS NOT NULL
+              AND box_file_id IS NULL
+              AND excluded = false
+              AND (
+                archive_mirror_claim_token IS NULL
+                OR archive_mirror_claim_expires_at <= now()
+              )
+          RETURNING id,
+                    file_name AS filename,
+                    content_type AS "contentType",
+                    storage_path AS "blobPath",
+                    archive_mirror_claim_token::text AS "claimToken",
+                    archive_mirror_decision_generation AS "decisionGeneration"`,
+        [lockedCase.caseId]
+      );
+      rows.sort((a, b) => a.filename.localeCompare(b.filename));
+      return { kind: "claimed", rows };
+    });
+    return { status: 200, jsonBody: { rows: result.kind === "claimed" ? result.rows : [] } };
   })
 });
 import_functions.app.http("internalCasesArchiveEvidenceStamp", {
@@ -18265,21 +19457,48 @@ import_functions.app.http("internalCasesArchiveEvidenceStamp", {
     const blobPath = typeof body2.blobPath === "string" ? body2.blobPath.trim() : "";
     const boxFileId = typeof body2.boxFileId === "string" ? body2.boxFileId.trim() : "";
     const boxFileUrl = typeof body2.boxFileUrl === "string" ? body2.boxFileUrl.trim() : "";
-    if (!evidenceId || !blobPath || !boxFileId) {
-      return { status: 400, jsonBody: { error: "evidenceId, blobPath and boxFileId required" } };
+    const claimToken = typeof body2.claimToken === "string" ? body2.claimToken.trim() : "";
+    const decisionGeneration = Number(body2.decisionGeneration);
+    if (!evidenceId || !blobPath || !boxFileId || !claimToken || !Number.isSafeInteger(decisionGeneration) || decisionGeneration < 0) {
+      return {
+        status: 400,
+        jsonBody: {
+          error: "evidenceId, blobPath, boxFileId, claimToken and decisionGeneration required"
+        }
+      };
     }
-    const updated = await query(
-      `UPDATE evidence
-            SET box_file_id = $4,
-                box_file_url = COALESCE($5, box_file_url),
-                updated_at = now()
-          WHERE case_id = $1
-            AND id = $2
-            AND storage_path = $3
-          RETURNING id`,
-      [caseId, evidenceId, blobPath, boxFileId, boxFileUrl || null]
-    );
-    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+    const result = await tx(async (q) => {
+      const lockedCase = await lockCaseForMutation(q, caseId);
+      if (lockedCase.kind !== "active") return { kind: lockedCase.kind };
+      const updated = await q(
+        `UPDATE evidence
+              SET box_file_id = $4,
+                  box_file_url = COALESCE($5, box_file_url),
+                  archive_mirror_claim_token = NULL,
+                  archive_mirror_claimed_at = NULL,
+                  archive_mirror_claim_expires_at = NULL,
+                  updated_at = now()
+            WHERE case_id = $1
+              AND id = $2
+              AND storage_path = $3
+              AND excluded = false
+              AND archive_mirror_claim_token = $6::uuid
+              AND archive_mirror_claim_expires_at > now()
+              AND archive_mirror_decision_generation = $7
+            RETURNING id`,
+        [
+          lockedCase.caseId,
+          evidenceId,
+          blobPath,
+          boxFileId,
+          boxFileUrl || null,
+          claimToken,
+          decisionGeneration
+        ]
+      );
+      return { kind: "updated", updated: updated.length > 0 };
+    });
+    return { status: 200, jsonBody: { updated: result.kind === "updated" && result.updated } };
   })
 });
 import_functions.app.http("internalCasesStatusEvaluate", {
@@ -18288,8 +19507,52 @@ import_functions.app.http("internalCasesStatusEvaluate", {
   route: "internal/cases/{id}/status-evaluate",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const caseId = req.params.id;
-    const value = await recomputeStatus(caseId);
-    return { status: 200, jsonBody: { value } };
+    const body2 = await req.json().catch(() => ({}));
+    const generation = body2.generation == null ? void 0 : Number(body2.generation);
+    if (generation != null && (!Number.isSafeInteger(generation) || generation < 1)) {
+      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
+    }
+    const result = await recomputeStatus(caseId, generation);
+    return {
+      status: 200,
+      jsonBody: {
+        value: result.value,
+        ...result.completed == null ? {} : { completed: result.completed },
+        ...result.pending == null ? {} : { pending: result.pending }
+      }
+    };
+  })
+});
+import_functions.app.http("internalCasesArchiveEvidenceRelease", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/archive-evidence/release",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const evidenceId = typeof body2.evidenceId === "string" ? body2.evidenceId.trim() : "";
+    const claimToken = typeof body2.claimToken === "string" ? body2.claimToken.trim() : "";
+    if (!caseId || !evidenceId || !claimToken) {
+      return { status: 400, jsonBody: { error: "caseId, evidenceId and claimToken required" } };
+    }
+    const released = await tx(async (q) => {
+      const lockedCase = await lockCaseForMutation(q, caseId);
+      if (lockedCase.kind !== "active") return false;
+      const rows = await q(
+        `UPDATE evidence
+              SET archive_mirror_claim_token = NULL,
+                  archive_mirror_claimed_at = NULL,
+                  archive_mirror_claim_expires_at = NULL,
+                  updated_at = now()
+            WHERE id = $1
+              AND case_id = $2
+              AND archive_mirror_claim_token = $3::uuid
+            RETURNING id`,
+        [evidenceId, lockedCase.caseId, claimToken]
+      );
+      return rows.length > 0;
+    });
+    return { status: 200, jsonBody: { released } };
   })
 });
 import_functions.app.http("internalCasesSetIngested", {
@@ -18325,27 +19588,12 @@ import_functions.app.http("internalCasesMarkDone", {
     const caseId = req.params.id;
     const body2 = await req.json().catch(() => ({}));
     const signal = ["sent_email", "box_pdf", "eva_poll", "manual"].includes(body2.signal ?? "") ? body2.signal : "unknown";
-    const updated = await query(
-      // Clear on_hold on the terminal transition (parity with the SPA mark-done route in
-      // cases.ts): a delivered case must not linger in the Held/work queues. (PR51-E3)
-      `UPDATE case_ SET status_code = $1, on_hold = false, updated_at = now()
-         WHERE id = $2 AND status_code = $3
-         RETURNING id`,
-      [statusToInt("done"), caseId, statusToInt("eva_submitted")]
-    );
-    if (updated.length > 0) {
-      await writeAudit({
-        action: AUDIT_ACTION.report_delivered,
-        caseId,
-        summary: "Report delivered to the work provider \u2014 case marked Done",
-        after: {
-          status: "done",
-          signal,
-          ...body2.detail ? { detail: String(body2.detail).slice(0, 500) } : {}
-        }
-      });
-    }
-    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+    const updated = await tx((q) => markCaseDoneUsing(q, {
+      caseId,
+      signal,
+      ...body2.detail ? { detail: String(body2.detail) } : {}
+    }));
+    return { status: 200, jsonBody: { updated } };
   })
 });
 import_functions.app.http("internalCasesLookup", {
@@ -18511,13 +19759,310 @@ import_functions.app.http("internalBoxMarkPurged", {
   route: "internal/box/mark-purged",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const body2 = await req.json();
-    await query(
-      `UPDATE evidence
-            SET storage_path = NULL, updated_at = now()
-          WHERE case_id = $1 AND storage_path = $2`,
-      [body2.caseId, body2.blobPath]
-    );
+    await tx(async (q) => {
+      const lockedCase = await lockCaseForMutation(q, body2.caseId);
+      if (lockedCase.kind !== "active") return;
+      await q(
+        `UPDATE evidence
+              SET storage_path = NULL, updated_at = now()
+            WHERE case_id = $1 AND storage_path = $2`,
+        [lockedCase.caseId, body2.blobPath]
+      );
+    });
     return { status: 204 };
+  })
+});
+import_functions.app.http("internalEvidenceUnclassifiedBox", {
+  methods: ["GET", "POST"],
+  authLevel: "anonymous",
+  route: "internal/evidence/unclassified-box",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const limitRaw = Number(req.query.get("limit") ?? "25");
+    const limit = Math.min(100, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25));
+    const imageKind = evidenceKindCodec.toInt("image") ?? 1e8;
+    const unknownRole = imageRoleCodec.toInt("unknown") ?? 100000003;
+    const duePredicate = `e.box_file_id IS NOT NULL
+            AND e.source_label LIKE 'box_upload%'
+            AND e.kind_code = $1
+            AND e.image_role_code = $2
+            AND e.registration_visible IS NULL
+            AND e.excluded = false
+            AND (
+              COALESCE(e.box_classify_attempt_count, 0) > 0
+              OR e.created_at > now() - interval '14 days'
+            )
+            AND e.box_classify_dead_lettered_at IS NULL
+            AND (e.box_classify_next_attempt_at IS NULL OR e.box_classify_next_attempt_at <= now())
+            AND (e.box_classify_claim_expires_at IS NULL OR e.box_classify_claim_expires_at <= now())
+            AND wp.ai_allowed IS DISTINCT FROM false`;
+    const rows = req.method?.toUpperCase() === "POST" ? await query(
+      `WITH candidates AS (
+               SELECT e.id
+                 FROM evidence e
+                 JOIN case_ c ON c.id = e.case_id
+                 LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+                WHERE ${duePredicate}
+                ORDER BY e.created_at DESC, e.id
+                LIMIT $3
+                FOR UPDATE OF e SKIP LOCKED
+             ), claimed AS (
+               UPDATE evidence e
+                  SET box_classify_claim_token = gen_random_uuid(),
+                      box_classify_claim_expires_at = now() + interval '30 minutes',
+                      box_classify_attempt_count = e.box_classify_attempt_count + 1,
+                      updated_at = now()
+                 FROM candidates candidate
+                WHERE e.id = candidate.id
+               RETURNING e.*
+             )
+             SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id,
+                    e.source_message_id, e.box_classify_claim_token,
+                    e.box_classify_attempt_count, c.vrm, c.work_provider_id
+               FROM claimed e
+               JOIN case_ c ON c.id = e.case_id
+              ORDER BY e.created_at DESC, e.id`,
+      [imageKind, unknownRole, limit]
+    ) : await query(
+      `SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id,
+                    e.source_message_id, NULL::uuid AS box_classify_claim_token,
+                    e.box_classify_attempt_count, c.vrm, c.work_provider_id
+               FROM evidence e
+               JOIN case_ c ON c.id = e.case_id
+               LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+              WHERE ${duePredicate}
+              ORDER BY e.created_at DESC, e.id
+              LIMIT $3`,
+      [imageKind, unknownRole, limit]
+    );
+    return {
+      status: 200,
+      jsonBody: {
+        rows: rows.map((r) => ({
+          evidenceId: r.id,
+          caseId: r.case_id,
+          filename: r.file_name ?? "",
+          contentType: r.content_type ?? null,
+          boxFileId: r.box_file_id,
+          sourceMessageId: r.source_message_id ?? null,
+          caseVrm: r.vrm ?? "",
+          workProviderId: r.work_provider_id ?? "",
+          claimToken: r.box_classify_claim_token ?? null,
+          attemptCount: Number(r.box_classify_attempt_count ?? 0)
+        }))
+      }
+    };
+  })
+});
+import_functions.app.http("internalEvidenceBoxClassification", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/evidence/{id}/box-classification",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const evidenceId = (req.params.id ?? "").trim();
+    const body2 = await req.json();
+    const imageKind = evidenceKindCodec.toInt("image") ?? 1e8;
+    const unknownRole = imageRoleCodec.toInt("unknown") ?? 100000003;
+    const claimToken = (body2.claimToken ?? "").trim();
+    if (body2.failure != null) {
+      const disposition = body2.failure.disposition;
+      const code = (body2.failure.code ?? "").trim().toLowerCase();
+      const detail = (body2.failure.detail ?? "").trim().slice(0, 400);
+      if (!evidenceId || !claimToken || disposition !== "transient" && disposition !== "terminal" || !/^[a-z0-9][a-z0-9_.:-]{0,79}$/.test(code)) {
+        return {
+          status: 400,
+          jsonBody: { error: "claimToken and a valid failure disposition/code are required" }
+        };
+      }
+      const terminal = disposition === "terminal";
+      const failed = await query(
+        `UPDATE evidence
+              SET box_classify_claim_token = NULL,
+                  box_classify_claim_expires_at = NULL,
+                  box_classify_last_failure_code = $3,
+                  box_classify_next_attempt_at = CASE
+                    WHEN $4::boolean THEN NULL
+                    WHEN box_classify_attempt_count <= 1 THEN now() + interval '15 minutes'
+                    WHEN box_classify_attempt_count = 2 THEN now() + interval '1 hour'
+                    WHEN box_classify_attempt_count = 3 THEN now() + interval '6 hours'
+                    ELSE now() + interval '24 hours'
+                  END,
+                  box_classify_dead_lettered_at = CASE WHEN $4::boolean THEN now() ELSE NULL END,
+                  box_classify_dead_letter_reason = CASE
+                    WHEN $4::boolean THEN left(COALESCE(NULLIF($5, ''), $3), 400)
+                    ELSE NULL
+                  END,
+                  updated_at = now()
+            WHERE id = $1
+              AND box_classify_claim_token::text = $2
+              AND kind_code = $6
+              AND image_role_code = $7
+              AND registration_visible IS NULL
+              AND excluded = false
+          RETURNING box_classify_attempt_count,
+                    box_classify_next_attempt_at,
+                    box_classify_dead_lettered_at`,
+        [evidenceId, claimToken, code, terminal, detail, imageKind, unknownRole]
+      );
+      const row = failed[0];
+      return {
+        status: 200,
+        jsonBody: row ? {
+          updated: true,
+          disposition,
+          attemptCount: Number(row.box_classify_attempt_count ?? 0),
+          nextAttemptAt: row.box_classify_next_attempt_at ?? null,
+          deadLettered: row.box_classify_dead_lettered_at != null
+        } : { updated: false, stale: true }
+      };
+    }
+    const caseId = (body2.caseId ?? "").trim();
+    const boxFileId = (body2.boxFileId ?? "").trim();
+    if (!evidenceId || !caseId || !boxFileId) {
+      return {
+        status: 400,
+        jsonBody: { error: "evidence id, caseId and boxFileId are required" }
+      };
+    }
+    if (typeof body2.registrationVisible !== "boolean" || typeof body2.acceptedForEva !== "boolean" || typeof body2.excluded !== "boolean" || typeof body2.personReflection !== "boolean" || body2.decisionSource !== "classifier") {
+      return { status: 400, jsonBody: { error: "classification booleans are required" } };
+    }
+    const imageRoleCode = body2.imageRole === "other" ? unknownRole : imageRoleCodec.toInt(body2.imageRole);
+    if (imageRoleCode == null) {
+      return { status: 400, jsonBody: { error: "imageRole is not recognised" } };
+    }
+    const excluded = body2.excluded === true;
+    const exclusionReason = excluded ? (body2.exclusionReason ?? "").trim() || "Excluded" : null;
+    const result = await tx(async (q) => {
+      const lockedCase = await lockCaseForMutation(q, caseId);
+      if (lockedCase.kind === "retired") {
+        return { kind: "retired", targetCaseId: lockedCase.mergedInto };
+      }
+      if (lockedCase.kind === "missing") return { kind: "missing" };
+      const current = await q(
+        `SELECT id FROM evidence
+            WHERE id = $1
+              AND case_id = $2
+              AND box_file_id = $3
+              AND kind_code = $4
+              AND source_label LIKE 'box_upload%'
+              AND ($5::text = '' OR box_classify_claim_token::text = $5)
+            FOR UPDATE`,
+        [evidenceId, lockedCase.caseId, boxFileId, imageKind, claimToken]
+      );
+      if (!current[0]) {
+        return claimToken ? { kind: "stale" } : { kind: "missing" };
+      }
+      const applied = await applyEvidenceMetadata(
+        ctx,
+        "id = $1 AND case_id = $2 AND box_file_id = $3",
+        [evidenceId, lockedCase.caseId, boxFileId],
+        {
+          imageRole: body2.imageRole,
+          registrationVisible: body2.registrationVisible,
+          acceptedForEva: body2.acceptedForEva,
+          excluded: body2.excluded,
+          exclusionReason,
+          decisionSource: "classifier",
+          personReflection: body2.personReflection
+        },
+        {
+          imageRoleCode,
+          registrationVisible: body2.registrationVisible,
+          excluded,
+          exclusionReason,
+          sha256: null,
+          sequenceIndex: null
+        },
+        q
+      );
+      if (applied.updated === 0) return { kind: "stale" };
+      await q(
+        `UPDATE evidence
+              SET box_classify_attempt_count = 0,
+                  box_classify_next_attempt_at = NULL,
+                  box_classify_claim_token = NULL,
+                  box_classify_claim_expires_at = NULL,
+                  box_classify_last_failure_code = NULL,
+                  box_classify_dead_lettered_at = NULL,
+                  box_classify_dead_letter_reason = NULL,
+                  updated_at = now()
+            WHERE id = $1
+              AND ($2::text = '' OR box_classify_claim_token::text = $2)`,
+        [evidenceId, claimToken]
+      );
+      const generation = applied.readinessChanged ? await requestStatusRecompute(q, lockedCase.caseId) : null;
+      return { kind: "updated", generation };
+    });
+    if (result.kind === "missing") {
+      return { status: 404, jsonBody: { error: "box evidence row not found" } };
+    }
+    if (result.kind === "retired") {
+      return {
+        status: 409,
+        jsonBody: { error: "case has been merged", code: "case_merged", targetCaseId: result.targetCaseId }
+      };
+    }
+    if (result.kind === "stale") {
+      return { status: 200, jsonBody: { updated: false, stale: true } };
+    }
+    return {
+      status: 200,
+      jsonBody: {
+        updated: true,
+        ...result.generation == null ? {} : { statusGeneration: result.generation }
+      }
+    };
+  })
+});
+import_functions.app.http("internalStatusRecomputePending", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/status-recompute/pending",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const limitRaw = Number(req.query.get("limit") ?? "25");
+    const limit = Math.min(
+      100,
+      Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25)
+    );
+    const rows = await query(
+      `SELECT id, status_recompute_requested_generation
+           FROM case_
+          WHERE status_recompute_completed_generation < status_recompute_requested_generation
+          ORDER BY status_recompute_requested_at ASC NULLS FIRST, id
+          LIMIT $1`,
+      [limit]
+    );
+    return {
+      status: 200,
+      jsonBody: {
+        rows: rows.map((r) => ({
+          caseId: r.id,
+          generation: Number(r.status_recompute_requested_generation)
+        }))
+      }
+    };
+  })
+});
+import_functions.app.http("internalStatusRecomputeComplete", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/status-recompute/{id}/complete",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = (req.params.id ?? "").trim();
+    const body2 = await req.json();
+    const generation = Number(body2.generation);
+    if (!caseId || !Number.isSafeInteger(generation) || generation < 1) {
+      return {
+        status: 400,
+        jsonBody: { error: "case id and a positive generation are required" }
+      };
+    }
+    const result = await recomputeStatus(caseId, generation);
+    if (!result.found) return { status: 404, jsonBody: { error: "case not found" } };
+    return {
+      status: 200,
+      jsonBody: { completed: result.completed, pending: result.pending }
+    };
   })
 });
 import_functions.app.http("internalCaseBoxFolderGet", {
@@ -18587,11 +20132,6 @@ function versionToken(updatedAt) {
 function ifMatch(req) {
   const raw = req.headers.get("if-match");
   return raw == null ? null : raw.replace(/"/g, "").trim();
-}
-function staleVersion(req, currentUpdatedAt) {
-  const im = ifMatch(req);
-  if (im == null || im === "") return false;
-  return im !== versionToken(currentUpdatedAt);
 }
 
 // api/src/lib/functions-client.ts
@@ -18698,6 +20238,21 @@ async function listBoxFolderEntries(folderId) {
   }
   return out;
 }
+async function callBoxCopyFileRequest(templateId, folderId, opts) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
+  const configured = Number(process.env.BOX_FILE_REQUEST_COPY_TIMEOUT_MS ?? FN_STAGE_TIMEOUT_MS);
+  const timeoutMs = opts?.timeoutMs ?? (Number.isFinite(configured) ? Math.min(6e4, Math.max(5e3, configured)) : FN_STAGE_TIMEOUT_MS);
+  return callFn(
+    base,
+    key,
+    "POST",
+    `/api/box/file-requests/${encodeURIComponent(templateId)}/copy`,
+    { folder: { id: folderId }, status: "active" },
+    { timeoutMs }
+  );
+}
 async function downloadBoxFileContent(fileId) {
   const base = process.env.BOX_FN_URL;
   const key = process.env.BOX_FN_KEY;
@@ -18714,6 +20269,239 @@ async function downloadBoxFileContent(fileId) {
   } catch {
     return void 0;
   }
+}
+
+// api/src/lib/box-file-request-outbox.ts
+var import_node_crypto6 = require("node:crypto");
+function allowedBoxHost(hostname) {
+  const host = hostname.toLowerCase();
+  return host === "app.box.com" || host.endsWith(".app.box.com");
+}
+function publicBoxOrigin() {
+  const raw = (process.env.BOX_FILE_REQUEST_PUBLIC_ORIGIN ?? "https://app.box.com").trim();
+  try {
+    const url2 = new URL(raw);
+    if (url2.protocol === "https:" && allowedBoxHost(url2.hostname)) return url2.origin;
+  } catch {
+  }
+  return "https://app.box.com";
+}
+function normalizeBoxFileRequestCopy(value) {
+  if (!value || typeof value !== "object") return void 0;
+  const rec = value;
+  if (typeof rec.id !== "string" || typeof rec.url !== "string") return void 0;
+  const id = rec.id.trim();
+  const rawUrl = rec.url.trim();
+  if (!/^\d{1,40}$/.test(id) || rawUrl.length === 0 || rawUrl.length > 400) return void 0;
+  if (rawUrl.startsWith("/") && !/^\/f\/[A-Za-z0-9_-]+\/?$/.test(rawUrl)) return void 0;
+  try {
+    const url2 = new URL(rawUrl, `${publicBoxOrigin()}/`);
+    if (url2.protocol !== "https:" || !allowedBoxHost(url2.hostname)) return void 0;
+    if (!/^\/f\/[A-Za-z0-9_-]+\/?$/.test(url2.pathname)) return void 0;
+    if (url2.username || url2.password || url2.search || url2.hash) return void 0;
+    return { id, url: url2.toString() };
+  } catch {
+    return void 0;
+  }
+}
+async function requestBoxFileRequestIntent(q, caseId, folderId, templateId) {
+  const rows = await q(
+    "SELECT * FROM box_file_request_outbox WHERE case_id = $1 FOR UPDATE",
+    [caseId]
+  );
+  const current = rows[0];
+  if (!current) {
+    await q(
+      `INSERT INTO box_file_request_outbox
+         (case_id, folder_id, template_id, requested_generation, completed_generation,
+          requested_at, next_attempt_at, updated_at)
+       VALUES ($1, $2, $3, 1, 0, now(), now(), now())`,
+      [caseId, folderId, templateId]
+    );
+    return { generation: 1, alreadyCompleted: false };
+  }
+  const requested = Number(current.requested_generation);
+  const completed = Number(current.completed_generation);
+  if (completed >= requested) return { generation: requested, alreadyCompleted: true };
+  await q(
+    `UPDATE box_file_request_outbox
+        SET folder_id = CASE WHEN attempt_count = 0 THEN $2 ELSE folder_id END,
+            template_id = CASE WHEN attempt_count = 0 THEN $3 ELSE template_id END,
+            next_attempt_at = CASE
+              WHEN claim_expires_at IS NULL OR claim_expires_at <= now() THEN now()
+              ELSE next_attempt_at
+            END,
+            updated_at = now()
+      WHERE case_id = $1`,
+    [caseId, folderId, templateId]
+  );
+  return { generation: requested, alreadyCompleted: false };
+}
+async function deferClaim(caseId, claimToken, error) {
+  const reason = (error instanceof Error ? error.message : String(error)).slice(0, 200);
+  try {
+    await tx(async (q) => {
+      await lockCaseForMutation(q, caseId);
+      await q(
+        `UPDATE box_file_request_outbox
+            SET next_attempt_at = now() + make_interval(
+                  secs => LEAST(3600, (30 * power(2, LEAST(attempt_count, 6)))::integer)
+                ),
+                last_error = $3,
+                claim_token = NULL,
+                claimed_at = NULL,
+                claim_expires_at = NULL,
+                updated_at = now()
+          WHERE case_id = $1
+            AND claim_token = $2
+            AND completed_generation < requested_generation`,
+        [caseId, claimToken, reason]
+      );
+    });
+  } catch (deferError) {
+    console.error("[box-file-request] could not defer claimed work", deferError);
+  }
+}
+async function processBoxFileRequestIntent(requestedCaseId, actor) {
+  const claimToken = (0, import_node_crypto6.randomUUID)();
+  const claim = await tx(async (q) => {
+    const lockedCase = await lockCaseForMutation(q, requestedCaseId);
+    if (lockedCase.kind === "missing") return { kind: "missing" };
+    if (lockedCase.kind === "retired") {
+      return { kind: "retired", mergedInto: lockedCase.mergedInto };
+    }
+    const caseRows = await q(
+      `SELECT box_folder_id, box_file_request_id, box_file_request_url
+         FROM case_ WHERE id = $1 FOR UPDATE`,
+      [lockedCase.caseId]
+    );
+    const caseRow = caseRows[0];
+    if (!caseRow) return { kind: "missing" };
+    const stampedId = caseRow.box_file_request_id?.trim() ?? "";
+    const stampedUrl = caseRow.box_file_request_url?.trim() ?? "";
+    const outboxRows = await q(
+      "SELECT * FROM box_file_request_outbox WHERE case_id = $1 FOR UPDATE",
+      [lockedCase.caseId]
+    );
+    const outbox = outboxRows[0];
+    if (stampedId && stampedUrl) {
+      if (outbox) {
+        await q(
+          `UPDATE box_file_request_outbox
+              SET completed_generation = requested_generation,
+                  completed_at = COALESCE(completed_at, now()),
+                  claim_token = NULL, claimed_at = NULL, claim_expires_at = NULL,
+                  last_error = NULL, updated_at = now()
+            WHERE case_id = $1`,
+          [lockedCase.caseId]
+        );
+      }
+      return { kind: "stamped", url: stampedUrl };
+    }
+    if (stampedId || stampedUrl) return { kind: "invalid_stamp" };
+    if (!outbox) return { kind: "no_intent" };
+    if (Number(outbox.completed_generation) >= Number(outbox.requested_generation)) {
+      return { kind: "completed_without_stamp" };
+    }
+    const now = Date.now();
+    const nextAttempt = new Date(outbox.next_attempt_at).getTime();
+    const claimExpires = outbox.claim_expires_at ? new Date(outbox.claim_expires_at).getTime() : 0;
+    if (Number.isFinite(nextAttempt) && nextAttempt > now || claimExpires > now) {
+      return { kind: "busy" };
+    }
+    const folderId = caseRow.box_folder_id?.trim() ?? "";
+    if (!folderId || folderId !== outbox.folder_id.trim()) return { kind: "folder_changed" };
+    const claimed = await q(
+      `UPDATE box_file_request_outbox
+          SET claim_token = $2,
+              claimed_at = now(),
+              claim_expires_at = now() + interval '2 minutes',
+              attempt_count = attempt_count + 1,
+              updated_at = now()
+        WHERE case_id = $1
+        RETURNING *`,
+      [lockedCase.caseId, claimToken]
+    );
+    return {
+      kind: "claimed",
+      caseId: lockedCase.caseId,
+      folderId,
+      templateId: claimed[0].template_id.trim(),
+      generation: Number(claimed[0].requested_generation)
+    };
+  });
+  if (claim.kind === "missing") return { kind: "missing" };
+  if (claim.kind === "retired") return { kind: "retired", mergedInto: claim.mergedInto };
+  if (claim.kind === "stamped") return { kind: "ok", fileRequestUrl: claim.url, reused: true };
+  if (claim.kind === "busy") return { kind: "pending" };
+  if (claim.kind !== "claimed") {
+    return { kind: "error", reason: claim.kind };
+  }
+  try {
+    const copied = normalizeBoxFileRequestCopy(
+      await callBoxCopyFileRequest(claim.templateId, claim.folderId)
+    );
+    if (!copied) throw new Error("Box CopyFileRequest returned an invalid public link");
+    const stamped = await tx(async (q) => {
+      const lockedCase = await lockCaseForMutation(q, claim.caseId);
+      if (lockedCase.kind !== "active") return false;
+      const outbox = await q(
+        "SELECT * FROM box_file_request_outbox WHERE case_id = $1 FOR UPDATE",
+        [claim.caseId]
+      );
+      const current = outbox[0];
+      if (!current || current.claim_token !== claimToken || Number(current.requested_generation) !== claim.generation) return false;
+      await q(
+        `UPDATE case_
+            SET box_file_request_id = $2,
+                box_file_request_url = $3,
+                updated_at = now()
+          WHERE id = $1`,
+        [claim.caseId, copied.id, copied.url]
+      );
+      await q(
+        `UPDATE box_file_request_outbox
+            SET completed_generation = $2,
+                completed_at = now(),
+                next_attempt_at = now(),
+                claim_token = NULL, claimed_at = NULL, claim_expires_at = NULL,
+                last_error = NULL, updated_at = now()
+          WHERE case_id = $1`,
+        [claim.caseId, claim.generation]
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.box_file_request_copied,
+        caseId: claim.caseId,
+        summary: "Image-upload link created",
+        after: {
+          boxFileRequestId: copied.id,
+          fileRequestUrl: copied.url,
+          boxFolderId: claim.folderId
+        },
+        ...actor ? { actor } : {}
+      }, q);
+      return true;
+    });
+    if (!stamped) throw new Error("Box File Request intent changed before it could be stamped");
+    return { kind: "ok", fileRequestUrl: copied.url, reused: false };
+  } catch (error) {
+    await deferClaim(claim.caseId, claimToken, error);
+    return { kind: "pending", reason: error instanceof Error ? error.message : String(error) };
+  }
+}
+async function pendingBoxFileRequestCaseIds(limit = 20) {
+  const bounded = Math.max(1, Math.min(100, Math.trunc(limit)));
+  const rows = await query(
+    `SELECT case_id
+       FROM box_file_request_outbox
+      WHERE requested_generation > completed_generation
+        AND next_attempt_at <= now()
+        AND (claim_expires_at IS NULL OR claim_expires_at <= now())
+      ORDER BY next_attempt_at, requested_at, case_id
+      LIMIT $1`,
+    [bounded]
+  );
+  return rows.map((row) => row.case_id);
 }
 
 // api/src/functions/cases.ts
@@ -18753,17 +20541,21 @@ async function loadAllCases(now) {
   const rows = await query(`${CASE_SELECT_WITH_ACTIVITY} ORDER BY c.created_at DESC`);
   return rows.map((r) => rowToCase(r, { now }));
 }
-async function loadCaseFull(id, now) {
-  const rows = await query(`${CASE_SELECT} WHERE c.id = $1`, [id]);
+async function loadCaseFullSnapshotUsing(q, id, now, lockCase = false) {
+  const rows = await q(
+    `${CASE_SELECT} WHERE c.id = $1${lockCase ? " FOR UPDATE OF c" : ""}`,
+    [id]
+  );
   const rec = rows[0];
   if (!rec) return void 0;
-  const [prov, ev, notes, chasers] = await Promise.all([
-    query("SELECT * FROM field_level_provenance WHERE case_id = $1", [id]),
-    query("SELECT * FROM evidence WHERE case_id = $1 ORDER BY sequence_index NULLS LAST, created_at", [id]),
-    query("SELECT * FROM note WHERE case_id = $1 ORDER BY occurred_at", [id]),
-    query("SELECT * FROM chaser WHERE case_id = $1 ORDER BY created_at", [id])
-  ]);
-  return rowToCase(rec, {
+  const prov = await q("SELECT * FROM field_level_provenance WHERE case_id = $1", [id]);
+  const ev = await q(
+    "SELECT * FROM evidence WHERE case_id = $1 ORDER BY sequence_index NULLS LAST, created_at",
+    [id]
+  );
+  const notes = await q("SELECT * FROM note WHERE case_id = $1 ORDER BY occurred_at", [id]);
+  const chasers = await q("SELECT * FROM chaser WHERE case_id = $1 ORDER BY created_at", [id]);
+  const value = rowToCase(rec, {
     now,
     provenanceRows: prov,
     evidence: ev.map(rowToEvidence),
@@ -18775,75 +20567,56 @@ async function loadCaseFull(id, now) {
     })),
     chasers: chasers.map(rowToChaser)
   });
+  return { value, version: versionToken(rec.updated_at) };
 }
-async function loadCaseLite(id) {
-  const rows = await query(`${CASE_SELECT} WHERE c.id = $1`, [id]);
+async function loadCaseFullUsing(q, id, now, lockCase = false) {
+  return (await loadCaseFullSnapshotUsing(q, id, now, lockCase))?.value;
+}
+async function loadCaseFull(id, now) {
+  return loadCaseFullUsing(query, id, now);
+}
+async function loadCaseLite(id, q = query) {
+  const rows = await q(`${CASE_SELECT} WHERE c.id = $1`, [id]);
   return rows[0] ? rowToCase(rows[0]) : void 0;
 }
 async function recomputeStatus2(caseId, actor) {
-  const full = await loadCaseFull(caseId, /* @__PURE__ */ new Date());
-  if (!full) return;
-  if (isPrefillApplicable(full)) {
-    const filled = await prefillImageBasedInspection(caseId, actor);
-    if (filled) {
-      full.evaFields.inspectionAddress.value = IMAGE_BASED_LITERAL;
-      full.inspectionDecision = "image_based";
+  const prefillProbe = await loadCaseFull(caseId, /* @__PURE__ */ new Date());
+  if (!prefillProbe) return false;
+  if (isPrefillApplicable(prefillProbe)) {
+    await prefillImageBasedInspection(caseId, actor);
+  }
+  const next = await tx(async (q) => {
+    const full = await loadCaseFullUsing(q, caseId, /* @__PURE__ */ new Date(), true);
+    if (!full) return null;
+    const input = {
+      status: full.status,
+      evaFields: full.evaFields,
+      evidence: full.evidence,
+      instructionCount: full.evidence.filter((e) => e.kind === "instruction").length,
+      hasIdentity: full.vrm.trim().length > 0 || full.providerCode.trim().length > 0 || full.evaFields.claimantName.value.trim().length > 0,
+      // TKT-141 retired-lock: this value was re-read while the case row was locked.
+      mergedInto: full.mergedInto
+    };
+    const evaluated = statusForReviewCase(input);
+    if (evaluated !== full.status) {
+      await q("UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1", [
+        caseId,
+        statusToInt(evaluated)
+      ]);
+      await writeAudit({
+        action: AUDIT_ACTION.status_changed,
+        caseId,
+        summary: `Status ${full.status} -> ${evaluated}`,
+        before: { status: full.status },
+        after: { status: evaluated },
+        ...actor ? { actor } : {}
+      }, q);
     }
-  }
-  const input = {
-    status: full.status,
-    evaFields: full.evaFields,
-    evidence: full.evidence,
-    instructionCount: full.evidence.filter((e) => e.kind === "instruction").length,
-    hasIdentity: full.vrm.trim().length > 0 || full.providerCode.trim().length > 0 || full.evaFields.claimantName.value.trim().length > 0
-  };
-  const next = statusForReviewCase(input);
-  if (next === full.status) return;
-  await query("UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1", [
-    caseId,
-    statusToInt(next)
-  ]);
-  await writeAudit({
-    action: AUDIT_ACTION.status_changed,
-    caseId,
-    summary: `Status ${full.status} -> ${next}`,
-    before: { status: full.status },
-    after: { status: next },
-    ...actor ? { actor } : {}
+    return evaluated;
   });
-}
-var EVA_MAXLEN = {
-  workProvider: 200,
-  vehicleModel: 200,
-  claimantName: 200,
-  claimantTelephone: 60,
-  claimantEmail: 320,
-  dateOfLoss: 10,
-  dateOfInstruction: 10,
-  accidentCircumstances: 4e3,
-  inspectionAddress: 2e3,
-  vatStatus: 3,
-  mileage: 20,
-  mileageUnit: 6
-};
-var isDmyOrEmpty = (v) => v === "" || /^\d{2}\/\d{2}\/\d{4}$/.test(v);
-var VAT_VALUES = /* @__PURE__ */ new Set(["", "Yes", "No"]);
-var MILEAGE_UNITS = /* @__PURE__ */ new Set(["", "Miles", "Km"]);
-function normaliseEvaEdit(key, raw) {
-  const trimmed = raw.trim();
-  if (key === "dateOfLoss" || key === "dateOfInstruction") {
-    if (!isDmyOrEmpty(trimmed)) return { error: `${key} must be DD/MM/YYYY or empty` };
-    return { value: trimmed };
-  }
-  if (key === "vatStatus") {
-    if (!VAT_VALUES.has(trimmed)) return { error: "vatStatus must be '', 'Yes' or 'No'" };
-    return { value: trimmed };
-  }
-  if (key === "mileageUnit") {
-    if (!MILEAGE_UNITS.has(trimmed)) return { error: "mileageUnit must be '', 'Miles' or 'Km'" };
-    return { value: trimmed };
-  }
-  return { value: raw.slice(0, EVA_MAXLEN[key]) };
+  if (!next) return false;
+  await maybeSuggestOverviewChase(caseId, next, actor);
+  return true;
 }
 async function upsertManualProvenance(caseId, fieldName, value) {
   try {
@@ -18874,13 +20647,12 @@ import_functions2.app.http("caseById", {
   route: "cases/{id}",
   handler: withRole("CollisionSpike.User", async (req) => {
     const id = req.params.id;
-    const c = await loadCaseFull(id, /* @__PURE__ */ new Date());
-    if (!c) return { status: 404, jsonBody: { error: "not found" } };
-    const ver = await query("SELECT updated_at FROM case_ WHERE id = $1", [id]);
+    const snapshot2 = await loadCaseFullSnapshotUsing(query, id, /* @__PURE__ */ new Date());
+    if (!snapshot2) return { status: 404, jsonBody: { error: "not found" } };
     return {
       status: 200,
-      jsonBody: c,
-      ...ver[0] ? { headers: { ETag: versionToken(ver[0].updated_at) } } : {}
+      jsonBody: { ...snapshot2.value, version: snapshot2.version },
+      headers: { ETag: `"${snapshot2.version}"`, "Access-Control-Expose-Headers": "ETag" }
     };
   })
 });
@@ -18888,112 +20660,126 @@ import_functions2.app.http("patchCase", {
   methods: ["PATCH"],
   authLevel: "anonymous",
   route: "cases/{id}",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
     const id = req.params.id;
     const body2 = await req.json().catch(() => ({}));
     const actor = actorFromClaims(claims);
-    const existing = await loadCaseLite(id);
-    if (!existing) return { status: 404, jsonBody: { error: "not found" } };
-    const sets = [];
-    const vals = [];
-    const before = {};
-    const after = {};
-    const changedEvaFields = [];
-    if (body2.vrm !== void 0) {
-      const raw = String(body2.vrm ?? "").trim();
-      const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
-      const newVrm = raw ? extractVrm(raw) || cleaned : "";
-      if (newVrm !== existing.vrm) {
-        sets.push(`vrm = $${sets.length + 1}`);
-        vals.push(newVrm);
-        before.vrm = existing.vrm;
-        after.vrm = newVrm;
-      }
-    }
-    let inspectionAddressChanged = false;
-    if (body2.evaFields && typeof body2.evaFields === "object") {
-      for (const [k, rawVal] of Object.entries(body2.evaFields)) {
-        if (rawVal === void 0 || !(k in EVA_COLUMN_BY_KEY)) continue;
-        const key = k;
-        const norm = normaliseEvaEdit(key, String(rawVal ?? ""));
-        if ("error" in norm) return { status: 400, jsonBody: { error: norm.error } };
-        const oldVal = existing.evaFields[key]?.value ?? "";
-        if (norm.value === oldVal) continue;
-        sets.push(`${EVA_COLUMN_BY_KEY[key]} = $${sets.length + 1}`);
-        vals.push(norm.value);
-        before[key] = oldVal;
-        after[key] = norm.value;
-        changedEvaFields.push({ key, value: norm.value });
-        if (key === "inspectionAddress") inspectionAddressChanged = true;
-      }
-    }
-    if (inspectionAddressChanged) {
-      sets.push("inspection_decision_code = NULL");
-    }
-    if (body2.casePo !== void 0) {
-      const raw = String(body2.casePo ?? "").trim();
-      const normalized = raw ? normalizeCasePo(raw) : "";
-      if (normalized && !CASE_PO_SHAPE_RE.test(normalized)) {
-        return {
-          status: 400,
-          jsonBody: {
-            error: `casePo '${raw}' is not Case/PO-shaped (marker? + principal + YY + sequence, e.g. CCPY26050 or A.PCH261269)`
-          }
-        };
-      }
-      const oldPo = (existing.casePo ?? "").toUpperCase();
-      if (normalized !== oldPo) {
-        sets.push(`case_po = $${sets.length + 1}`);
-        vals.push(normalized || null);
-        before.casePo = oldPo || "(none)";
-        after.casePo = normalized || "(cleared)";
-      }
-    }
-    if (body2.caseType !== void 0) {
-      const rawType = String(body2.caseType ?? "").trim();
-      const validName = rawType === "" || caseTypeCodec.toInt(rawType) != null;
-      if (!validName) {
-        return {
-          status: 400,
-          jsonBody: {
-            error: `caseType must be one of ${caseTypeCodec.names().map((n) => `'${n}'`).join(", ")} (or '' to clear)`
-          }
-        };
-      }
-      const newCode = rawType === "" || rawType === "standard" ? null : caseTypeCodec.toInt(rawType);
-      const curRows = await query(
-        "SELECT case_type_code FROM case_ WHERE id = $1",
-        [id]
-      );
-      const oldCode = curRows[0]?.case_type_code ?? null;
-      if (newCode !== oldCode) {
-        sets.push(`case_type_code = $${sets.length + 1}`);
-        vals.push(newCode);
-        before.caseType = caseTypeCodec.toName(oldCode) ?? "standard";
-        after.caseType = rawType || "standard";
-      }
-    }
-    if (sets.length === 0) {
-      const cur = await loadCaseFull(id, /* @__PURE__ */ new Date());
-      return { status: 200, jsonBody: cur };
-    }
-    vals.push(id);
+    let attemptedCasePo;
+    let outcome;
     try {
-      await query(
-        `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
-        vals
-      );
+      outcome = await tx(async (q) => {
+        const snapshot2 = await loadCaseFullSnapshotUsing(q, id, /* @__PURE__ */ new Date(), true);
+        if (!snapshot2) {
+          return { kind: "response", response: { status: 404, jsonBody: { error: "not found" } } };
+        }
+        const expected = ifMatch(req);
+        if (expected && expected !== snapshot2.version) {
+          return {
+            kind: "response",
+            response: { status: 409, jsonBody: { error: "stale", currentVersion: snapshot2.version } }
+          };
+        }
+        const existing = snapshot2.value;
+        const sets = [];
+        const vals = [];
+        const before = {};
+        const after = {};
+        const changedEvaFields = [];
+        if (body2.vrm !== void 0) {
+          const raw = String(body2.vrm ?? "").trim();
+          const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
+          const newVrm = raw ? extractVrm(raw) || cleaned : "";
+          if (newVrm !== existing.vrm) {
+            sets.push(`vrm = $${vals.length + 1}`);
+            vals.push(newVrm);
+            before.vrm = existing.vrm;
+            after.vrm = newVrm;
+          }
+        }
+        let inspectionAddressChanged = false;
+        if (body2.evaFields && typeof body2.evaFields === "object") {
+          for (const [k, rawVal] of Object.entries(body2.evaFields)) {
+            if (rawVal === void 0 || !(k in EVA_COLUMN_BY_KEY)) continue;
+            const key = k;
+            const norm = normaliseEvaEdit(key, String(rawVal ?? ""));
+            if ("error" in norm) {
+              return { kind: "response", response: { status: 400, jsonBody: { error: norm.error } } };
+            }
+            const oldVal = existing.evaFields[key]?.value ?? "";
+            if (norm.value === oldVal) continue;
+            sets.push(`${EVA_COLUMN_BY_KEY[key]} = $${vals.length + 1}`);
+            vals.push(norm.value);
+            before[key] = oldVal;
+            after[key] = norm.value;
+            changedEvaFields.push({ key, value: norm.value });
+            if (key === "inspectionAddress") inspectionAddressChanged = true;
+          }
+        }
+        if (inspectionAddressChanged) sets.push("inspection_decision_code = NULL");
+        if (body2.casePo !== void 0) {
+          const raw = String(body2.casePo ?? "").trim();
+          const normalized = raw ? normalizeCasePo(raw) : "";
+          if (normalized && !CASE_PO_SHAPE_RE.test(normalized)) {
+            return {
+              kind: "response",
+              response: { status: 400, jsonBody: { error: `casePo '${raw}' is not Case/PO-shaped` } }
+            };
+          }
+          const oldPo = (existing.casePo ?? "").toUpperCase();
+          if (normalized !== oldPo) {
+            attemptedCasePo = normalized || void 0;
+            sets.push(`case_po = $${vals.length + 1}`);
+            vals.push(normalized || null);
+            before.casePo = oldPo || "(none)";
+            after.casePo = normalized || "(cleared)";
+          }
+        }
+        if (body2.caseType !== void 0) {
+          const rawType = String(body2.caseType ?? "").trim();
+          const validName = rawType === "" || caseTypeCodec.toInt(rawType) != null;
+          if (!validName) {
+            return {
+              kind: "response",
+              response: {
+                status: 400,
+                jsonBody: { error: `caseType must be one of ${caseTypeCodec.names().join(", ")}` }
+              }
+            };
+          }
+          const newCode = rawType === "" || rawType === "standard" ? null : caseTypeCodec.toInt(rawType);
+          const oldCode = caseTypeCodec.toInt(existing.caseType) ?? null;
+          if (newCode !== oldCode) {
+            sets.push(`case_type_code = $${vals.length + 1}`);
+            vals.push(newCode);
+            before.caseType = existing.caseType ?? "standard";
+            after.caseType = rawType || "standard";
+          }
+        }
+        if (sets.length === 0) return { kind: "unchanged", snapshot: snapshot2 };
+        vals.push(id);
+        await q(`UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`, vals);
+        await writeAudit({
+          action: AUDIT_ACTION.status_changed,
+          caseId: id,
+          summary: `Case edited: ${Object.keys(after).join(", ")}`,
+          before,
+          after,
+          ...actor ? { actor } : {}
+        }, q);
+        const statusGeneration = await requestStatusRecompute(q, id);
+        return { kind: "changed", changedEvaFields, statusGeneration };
+      });
     } catch (e) {
-      if (isUniqueViolation(e) && after.casePo) {
+      if (isUniqueViolation(e) && attemptedCasePo) {
         const holder = await query(
           "SELECT id, vrm FROM case_ WHERE upper(case_po) = $1 AND id <> $2",
-          [String(after.casePo).toUpperCase(), id]
+          [attemptedCasePo.toUpperCase(), id]
         );
         return {
           status: 409,
           jsonBody: {
             error: "case_po_in_use",
-            message: `Case/PO ${after.casePo} is already assigned to another case.`,
+            message: `Case/PO ${attemptedCasePo} is already assigned to another case.`,
             conflictCaseId: holder[0]?.id ?? null,
             conflictVrm: holder[0]?.vrm ?? null
           }
@@ -19001,27 +20787,107 @@ import_functions2.app.http("patchCase", {
       }
       throw e;
     }
-    for (const f of changedEvaFields) await upsertManualProvenance(id, f.key, f.value);
-    await writeAudit({
-      action: AUDIT_ACTION.status_changed,
-      caseId: id,
-      summary: `Case edited: ${Object.keys(after).join(", ")}`,
-      before,
-      after,
-      ...actor ? { actor } : {}
-    });
-    await recomputeStatus2(id, actor);
-    const updated = await loadCaseFull(id, /* @__PURE__ */ new Date());
-    return { status: 200, jsonBody: updated };
+    if (outcome.kind === "response") return outcome.response;
+    if (outcome.kind === "unchanged") {
+      return {
+        status: 200,
+        jsonBody: { ...outcome.snapshot.value, version: outcome.snapshot.version }
+      };
+    }
+    for (const field of outcome.changedEvaFields) {
+      await upsertManualProvenance(id, field.key, field.value);
+    }
+    try {
+      const evaluated = await recomputeStatus2(id, actor);
+      if (!evaluated) throw new Error("case was not available for readiness evaluation");
+      await acknowledgeStatusRecompute(query, id, outcome.statusGeneration);
+    } catch (error) {
+      ctx.warn(
+        `[patch-case] readiness recompute remains pending for ${id} (generation ${outcome.statusGeneration}): ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    const updated = await loadCaseFullSnapshotUsing(query, id, /* @__PURE__ */ new Date());
+    return updated ? { status: 200, jsonBody: { ...updated.value, version: updated.version } } : { status: 404, jsonBody: { error: "not found" } };
   })
 });
+function isObjectRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function normalizeCreateCaseInput(raw) {
+  if (!isObjectRecord(raw)) return void 0;
+  if ("evaFields" in raw || "status" in raw) {
+    const full = FullCreateCaseParams.safeParse(raw);
+    if (!full.success) return void 0;
+    return {
+      ...full.data,
+      sourceLabel: full.data.sourceLabel?.trim() || "Manual intake"
+    };
+  }
+  const parsed = CreateCaseParams.safeParse(raw);
+  if (!parsed.success) return void 0;
+  const vrm = canonicalizeVrm(parsed.data.vrm);
+  if (!vrm) return void 0;
+  const claimantName = parsed.data.claimantName?.trim() ?? "";
+  const evaFieldsRecord = {};
+  for (const desc of EVA_FIELD_ORDER) {
+    const fieldValue = desc.key === "claimantName" ? claimantName : "";
+    const supplied = fieldValue.length > 0;
+    evaFieldsRecord[desc.key] = {
+      value: fieldValue,
+      provenance: supplied ? { sourceType: "staff", sourceLabel: "Confirmed by staff" } : { sourceType: "manual_upload", sourceLabel: "Not supplied" },
+      reviewState: supplied ? "reviewed" : "needs_review"
+    };
+  }
+  const evaFields = evaFieldsRecord;
+  const providerCode = parsed.data.providerCode?.trim().toUpperCase();
+  return {
+    evaFields,
+    vrm,
+    ...providerCode ? { providerCode } : {},
+    status: "ingested",
+    sourceLabel: "Staff-confirmed case creation",
+    writeProvenance: true
+  };
+}
 import_functions2.app.http("createCase", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases",
   handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const input = await req.json();
+    const raw = await req.json().catch(() => void 0);
+    let input = normalizeCreateCaseInput(raw);
+    if (!input) return { status: 400, jsonBody: { error: "invalid case create payload" } };
     const actor = actorFromClaims(claims);
+    const pcode = (input.providerCode ?? "").trim().toUpperCase();
+    let providerRow;
+    if (pcode) {
+      const providers = await query(
+        `SELECT id, display_name
+           FROM work_provider
+          WHERE upper(principal_code) = $1
+          LIMIT 1`,
+        [pcode]
+      );
+      providerRow = providers[0];
+      if (!providerRow) {
+        return { status: 400, jsonBody: { error: "unknown provider principal code" } };
+      }
+      if (!input.evaFields.workProvider.value.trim()) {
+        input = {
+          ...input,
+          provider: input.provider?.trim() || providerRow.display_name,
+          providerCode: pcode,
+          evaFields: {
+            ...input.evaFields,
+            workProvider: {
+              value: providerRow.display_name,
+              provenance: { sourceType: "corpus", sourceLabel: "Matched provider principal" },
+              reviewState: "reviewed"
+            }
+          }
+        };
+      }
+    }
     const evalInput = {
       status: input.status,
       evaFields: input.evaFields,
@@ -19044,16 +20910,9 @@ import_functions2.app.http("createCase", {
       cols.push(col);
       vals.push(value);
     };
-    const pcode = (input.providerCode ?? "").trim();
-    if (pcode) {
-      const wp = await query("SELECT id FROM work_provider WHERE principal_code = $1 LIMIT 1", [pcode]);
-      if (wp[0]?.id) add("work_provider_id", wp[0].id);
-    }
+    if (providerRow) add("work_provider_id", providerRow.id);
     const suppliedCasePo = (input.casePo ?? "").trim().toUpperCase();
     const principalForAutoMint = !suppliedCasePo ? pcode.toUpperCase() : "";
-    if (principalForAutoMint && !/^[A-Z][A-Z0-9]{0,7}$/.test(principalForAutoMint)) {
-      return { status: 400, jsonBody: { error: "invalid principal code" } };
-    }
     if (input.onHold) add("on_hold", true);
     if (input.insuredName) add("ov_insured_name", input.insuredName);
     if (input.providerReference) add("ov_claim_number", input.providerReference);
@@ -19189,26 +21048,42 @@ import_functions2.app.http("setOnHold", {
   handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
     const id = req.params.id;
     const body2 = await req.json();
-    if (ifMatch(req) != null) {
-      const cur = await query("SELECT updated_at FROM case_ WHERE id = $1", [id]);
-      if (!cur[0]) return { status: 404, jsonBody: { error: "not found" } };
-      if (staleVersion(req, cur[0].updated_at)) {
-        return { status: 409, jsonBody: { error: "stale", currentVersion: versionToken(cur[0].updated_at) } };
-      }
+    if (typeof body2.onHold !== "boolean") {
+      return { status: 400, jsonBody: { error: "onHold must be a boolean" } };
     }
-    const updated = await query(
-      "UPDATE case_ SET on_hold = $2, updated_at = now() WHERE id = $1 RETURNING updated_at",
-      [id, body2.onHold]
-    );
-    if (!updated[0]) return { status: 404, jsonBody: { error: "not found" } };
-    await writeAudit({
-      action: AUDIT_ACTION.status_changed,
-      caseId: id,
-      summary: body2.onHold ? "Case put on hold" : "Case taken off hold",
-      after: { onHold: body2.onHold },
-      ...actorFromClaims(claims) ? { actor: actorFromClaims(claims) } : {}
+    const actor = actorFromClaims(claims);
+    const outcome = await tx(async (q) => {
+      const current = await q(
+        "SELECT updated_at FROM case_ WHERE id = $1 FOR UPDATE",
+        [id]
+      );
+      if (!current[0]) return { kind: "missing" };
+      const currentVersion = versionToken(current[0].updated_at);
+      const expected = ifMatch(req);
+      if (expected != null && expected !== "" && expected !== currentVersion) {
+        return { kind: "stale", currentVersion };
+      }
+      const updated = await q(
+        "UPDATE case_ SET on_hold = $2, updated_at = now() WHERE id = $1 RETURNING updated_at",
+        [id, body2.onHold]
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.status_changed,
+        caseId: id,
+        summary: body2.onHold ? "Case put on hold" : "Case taken off hold",
+        after: { onHold: body2.onHold },
+        ...actor ? { actor } : {}
+      }, q);
+      return { kind: "updated", version: versionToken(updated[0]?.updated_at) };
     });
-    return { status: 204, headers: { ETag: versionToken(updated[0].updated_at) } };
+    if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+    if (outcome.kind === "stale") {
+      return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
+    }
+    return {
+      status: 204,
+      headers: { ETag: `"${outcome.version}"`, "Access-Control-Expose-Headers": "ETag" }
+    };
   })
 });
 import_functions2.app.http("logChase", {
@@ -19236,54 +21111,78 @@ import_functions2.app.http("logChase", {
       return { status: 400, jsonBody: { error: "note must be 2000 characters or fewer" } };
     }
     const note = typeof body2.note === "string" ? body2.note.trim() : "";
-    const existing = await loadCaseLite(id);
-    if (!existing) return { status: 404, jsonBody: { error: "not found" } };
     const actor = actorFromClaims(claims);
     const channelLabel = channel === "whatsapp" ? "WhatsApp" : "email";
     const summary = `Chased via ${channelLabel} \u2014 ${templateLabel}.`.slice(0, 400);
-    const targetName = existing.provider.slice(0, 200);
-    const rows = await query(
-      `INSERT INTO chaser
-         (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at)
-       VALUES ($1, $2, $3, $4, $5, $6, now())
-       RETURNING *`,
-      [
-        summary,
-        id,
-        100000002,
-        // choice_chaser_target_type: work_provider
-        targetName,
-        channel === "whatsapp" ? 100000001 : 1e8,
-        // choice_chaser_channel
-        templateLabel
-      ]
-    );
-    const created = rows[0];
-    if (!created) return { status: 500, jsonBody: { error: "chaser insert returned no row" } };
-    if (note) {
-      try {
-        await query(
+    const outcome = await tx(async (q) => {
+      const locked = await q(
+        `${CASE_SELECT} WHERE c.id = $1 FOR UPDATE OF c`,
+        [id]
+      );
+      if (!locked[0]) return { kind: "missing" };
+      const existing = rowToCase(locked[0]);
+      if (isRetiredMerged(existing)) return { kind: "retired" };
+      const currentVersion = versionToken(locked[0].updated_at);
+      const expected = ifMatch(req);
+      if (expected != null && expected !== "" && expected !== currentVersion) {
+        return { kind: "stale", currentVersion };
+      }
+      const rows = await q(
+        `INSERT INTO chaser
+           (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at)
+         VALUES ($1, $2, $3, $4, $5, $6, now())
+         RETURNING *`,
+        [
+          summary,
+          id,
+          100000002,
+          existing.provider.slice(0, 200),
+          channel === "whatsapp" ? 100000001 : 1e8,
+          templateLabel
+        ]
+      );
+      const created = rows[0];
+      if (!created) throw new Error("chaser insert returned no row");
+      if (note) {
+        await q(
           "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
           ["Chase note", id, actor ?? "Staff", note]
         );
-      } catch {
       }
-    }
-    await writeAudit({
-      action: AUDIT_ACTION.chaser_sent,
-      caseId: id,
-      summary: `Chase logged (${channel} \xB7 ${templateLabel})`,
-      after: {
-        chaserId: created.id,
-        channel,
-        templateLabel,
-        ...note ? { note } : {}
-      },
-      ...actor ? { actor } : {}
+      const updated = await q(
+        "UPDATE case_ SET updated_at = now() WHERE id = $1 RETURNING updated_at",
+        [id]
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.chaser_sent,
+        caseId: id,
+        summary: `Chase logged (${channel} \xB7 ${templateLabel})`,
+        after: { chaserId: created.id, channel, templateLabel, ...note ? { note } : {} },
+        ...actor ? { actor } : {}
+      }, q);
+      return {
+        kind: "created",
+        value: rowToChaser(created),
+        version: versionToken(updated[0]?.updated_at)
+      };
     });
-    return { status: 201, jsonBody: rowToChaser(created) };
+    if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+    if (outcome.kind === "retired") return { status: 409, jsonBody: { error: "case has been merged" } };
+    if (outcome.kind === "stale") {
+      return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
+    }
+    return {
+      status: 201,
+      jsonBody: outcome.value,
+      headers: { ETag: `"${outcome.version}"`, "Access-Control-Expose-Headers": "ETag" }
+    };
   })
 });
+function mergeProvidersCompatible(leftProviderCode, rightProviderCode) {
+  const left = (leftProviderCode ?? "").trim().toUpperCase();
+  const right = (rightProviderCode ?? "").trim().toUpperCase();
+  return !left || !right || left === right;
+}
 import_functions2.app.http("mergeCandidates", {
   methods: ["GET"],
   authLevel: "anonymous",
@@ -19294,101 +21193,406 @@ import_functions2.app.http("mergeCandidates", {
     if (!self2) return { status: 200, jsonBody: [] };
     const rows = await query(`${CASE_SELECT} ORDER BY c.created_at DESC`);
     const candidates = rows.map((r) => rowToCase(r)).filter(
-      (cc) => cc.id !== id && !TWIN_TERMINAL.has(cc.status) && cc.status !== "linked_to_instruction" && cc.providerCode === self2.providerCode
+      (cc) => cc.id !== id && !TWIN_TERMINAL.has(cc.status) && cc.status !== "linked_to_instruction" && mergeProvidersCompatible(cc.providerCode, self2.providerCode)
     );
     return { status: 200, jsonBody: candidates };
   })
 });
+var MERGE_SHA256_RE = /^[0-9a-f]{64}$/i;
+var MERGE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+async function mergeEvidenceRows(q, sourceCaseId, targetCaseId) {
+  const locked = await q(
+    `SELECT id, case_id, sha256, created_at,
+            archive_mirror_claim_token, archive_mirror_claim_expires_at
+       FROM evidence
+      WHERE case_id = ANY($1::uuid[])
+      ORDER BY case_id, created_at, id
+      FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]]
+  );
+  const now = Date.now();
+  if (locked.some((row) => {
+    if (!row.archive_mirror_claim_token || !row.archive_mirror_claim_expires_at) return false;
+    const expires = new Date(row.archive_mirror_claim_expires_at).getTime();
+    return Number.isFinite(expires) && expires > now;
+  })) {
+    return { movedEvidence: 0, collidingEvidence: 0, archiveBusy: true };
+  }
+  const canonicalSha = (value) => {
+    const trimmed = (value ?? "").trim();
+    return MERGE_SHA256_RE.test(trimmed) ? trimmed.toLowerCase() : null;
+  };
+  const survivorBySha = /* @__PURE__ */ new Map();
+  for (const row of locked) {
+    if (row.case_id.toLowerCase() !== targetCaseId) continue;
+    const sha = canonicalSha(row.sha256);
+    if (sha && !survivorBySha.has(sha)) survivorBySha.set(sha, row.id);
+  }
+  const collisionSourceIds = [];
+  for (const row of locked) {
+    if (row.case_id.toLowerCase() !== sourceCaseId) continue;
+    const sha = canonicalSha(row.sha256);
+    if (!sha) continue;
+    const survivorId = survivorBySha.get(sha);
+    if (!survivorId) {
+      survivorBySha.set(sha, row.id);
+      continue;
+    }
+    collisionSourceIds.push(row.id);
+    const survivors = await q(
+      `UPDATE evidence AS survivor
+          SET storage_path = COALESCE(survivor.storage_path, redundant.storage_path),
+              source_message_id = COALESCE(survivor.source_message_id, redundant.source_message_id),
+              box_file_id = COALESCE(survivor.box_file_id, redundant.box_file_id),
+              box_file_url = COALESCE(survivor.box_file_url, redundant.box_file_url),
+              content_type = COALESCE(NULLIF(btrim(survivor.content_type), ''), redundant.content_type),
+              size_bytes = COALESCE(survivor.size_bytes, redundant.size_bytes),
+              source_label = COALESCE(NULLIF(btrim(survivor.source_label), ''), redundant.source_label),
+              sequence_index = COALESCE(survivor.sequence_index, redundant.sequence_index),
+              image_role_code = CASE
+                WHEN survivor.image_role_source IS NULL
+                 AND survivor.image_role_code = 100000003
+                 AND redundant.image_role_code <> 100000003
+                  THEN redundant.image_role_code
+                ELSE survivor.image_role_code
+              END,
+              image_role_source = CASE
+                WHEN survivor.image_role_source IS NULL
+                 AND survivor.image_role_code = 100000003
+                 AND redundant.image_role_code <> 100000003
+                  THEN redundant.image_role_source
+                ELSE survivor.image_role_source
+              END,
+              registration_visible = CASE
+                WHEN survivor.registration_visible_source IS NULL
+                 AND survivor.registration_visible IS NULL
+                 AND redundant.registration_visible IS NOT NULL
+                  THEN redundant.registration_visible
+                ELSE survivor.registration_visible
+              END,
+              registration_visible_source = CASE
+                WHEN survivor.registration_visible_source IS NULL
+                 AND survivor.registration_visible IS NULL
+                 AND redundant.registration_visible IS NOT NULL
+                  THEN redundant.registration_visible_source
+                ELSE survivor.registration_visible_source
+              END,
+              accepted_for_eva = CASE
+                WHEN survivor.accepted_for_eva_source IS NULL
+                 AND redundant.accepted_for_eva_source IS NOT NULL
+                  THEN redundant.accepted_for_eva
+                ELSE survivor.accepted_for_eva
+              END,
+              accepted_for_eva_source = COALESCE(
+                survivor.accepted_for_eva_source,
+                redundant.accepted_for_eva_source
+              ),
+              excluded = CASE
+                WHEN survivor.exclusion_decision_source IS NULL
+                 AND redundant.exclusion_decision_source IS NOT NULL
+                 AND (
+                   survivor.archive_mirror_claim_token IS NULL
+                   OR survivor.archive_mirror_claim_expires_at <= now()
+                 )
+                  THEN redundant.excluded
+                ELSE survivor.excluded
+              END,
+              exclusion_reason = CASE
+                WHEN survivor.exclusion_decision_source IS NULL
+                 AND redundant.exclusion_decision_source IS NOT NULL
+                 AND (
+                   survivor.archive_mirror_claim_token IS NULL
+                   OR survivor.archive_mirror_claim_expires_at <= now()
+                 )
+                  THEN redundant.exclusion_reason
+                ELSE survivor.exclusion_reason
+              END,
+              exclusion_decision_source = COALESCE(
+                survivor.exclusion_decision_source,
+                CASE
+                  WHEN survivor.archive_mirror_claim_token IS NULL
+                    OR survivor.archive_mirror_claim_expires_at <= now()
+                    THEN redundant.exclusion_decision_source
+                  ELSE NULL
+                END
+              ),
+              person_reflection = survivor.person_reflection OR redundant.person_reflection,
+              reflection_dismissed = survivor.reflection_dismissed OR redundant.reflection_dismissed,
+              updated_at = now()
+         FROM evidence AS redundant
+        WHERE survivor.id = $1
+          AND redundant.id = $2
+      RETURNING survivor.id,
+                survivor.case_id,
+                survivor.excluded,
+                survivor.storage_path,
+                survivor.box_file_id`,
+      [survivorId, row.id]
+    );
+    if (survivors[0]) {
+      await requestArchiveMirrorIfEligible(q, survivors[0]);
+    }
+    await q(
+      `UPDATE archive_mirror_outbox
+          SET completed_generation = requested_generation,
+              completed_at = now(),
+              updated_at = now()
+        WHERE evidence_id = $1
+          AND completed_generation < requested_generation`,
+      [row.id]
+    );
+  }
+  const moved = await q(
+    `UPDATE evidence
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1
+        AND NOT (id = ANY($3::uuid[]))
+      RETURNING id`,
+    [sourceCaseId, targetCaseId, collisionSourceIds]
+  );
+  if (moved.length > 0) {
+    await q(
+      `UPDATE archive_mirror_outbox
+          SET case_id = $2, updated_at = now()
+        WHERE evidence_id = ANY($1::uuid[])`,
+      [moved.map((row) => row.id), targetCaseId]
+    );
+  }
+  return { movedEvidence: moved.length, collidingEvidence: collisionSourceIds.length };
+}
+async function reconcileMergeFileRequestIntent(q, sourceCaseId, targetCaseId) {
+  const cases = await q(
+    `SELECT id, box_folder_id, box_file_request_id, box_file_request_url
+       FROM case_ WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]]
+  );
+  const source = cases.find((row) => row.id.toLowerCase() === sourceCaseId);
+  const target = cases.find((row) => row.id.toLowerCase() === targetCaseId);
+  if (!source || !target) return "Source or target case not found.";
+  if ((source.box_file_request_id ?? "").trim() || (source.box_file_request_url ?? "").trim()) {
+    return "The source case already has an image-upload link. Move or close that link before merging.";
+  }
+  const intents = await q(
+    `SELECT case_id, requested_generation, completed_generation, attempt_count, claim_token
+       FROM box_file_request_outbox
+      WHERE case_id = ANY($1::uuid[])
+      ORDER BY case_id
+      FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]]
+  );
+  const sourceIntent = intents.find((row) => row.case_id.toLowerCase() === sourceCaseId);
+  if (!sourceIntent) return void 0;
+  const sourcePending = Number(sourceIntent.requested_generation) > Number(sourceIntent.completed_generation);
+  if (!sourcePending) {
+    return "The source case has completed image-upload-link work that cannot be transferred safely.";
+  }
+  if (sourceIntent.attempt_count > 0 || sourceIntent.claim_token) {
+    return "Image-upload link creation may already have started for the source case. Try the merge after it finishes.";
+  }
+  const targetIntent = intents.find((row) => row.case_id.toLowerCase() === targetCaseId);
+  const targetHasPartialLink = !!(target.box_file_request_id ?? "").trim() !== !!(target.box_file_request_url ?? "").trim();
+  if (targetHasPartialLink) {
+    return "The survivor has an incomplete image-upload-link record. Resolve it before merging.";
+  }
+  const targetHasLink = !!(target.box_file_request_id ?? "").trim() && !!(target.box_file_request_url ?? "").trim();
+  if (targetIntent && Number(targetIntent.completed_generation) >= Number(targetIntent.requested_generation) && !targetHasLink) {
+    return "The survivor has completed image-upload-link work with no saved link. Resolve it before merging.";
+  }
+  if (targetIntent || targetHasLink) {
+    await q(
+      `UPDATE box_file_request_outbox
+          SET completed_generation = requested_generation,
+              completed_at = now(),
+              last_error = 'superseded by merge target',
+              updated_at = now()
+        WHERE case_id = $1`,
+      [sourceCaseId]
+    );
+    return void 0;
+  }
+  const targetFolder = (target.box_folder_id ?? "").trim();
+  if (!targetFolder) {
+    return "The survivor has no archive folder for the pending image-upload link.";
+  }
+  await q(
+    `UPDATE box_file_request_outbox
+        SET case_id = $2,
+            folder_id = $3,
+            next_attempt_at = now(),
+            updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId, targetFolder]
+  );
+  return void 0;
+}
 import_functions2.app.http("mergeCases", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{tgt}/merge",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const targetCaseId = req.params.tgt;
+  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
+    const targetCaseId = (req.params.tgt ?? "").trim().toLowerCase();
     const body2 = await req.json();
-    const sourceCaseId = body2.sourceCaseId;
+    const sourceCaseId = typeof body2.sourceCaseId === "string" ? body2.sourceCaseId.trim().toLowerCase() : "";
     const actor = actorFromClaims(claims);
-    if (!sourceCaseId || sourceCaseId === targetCaseId) {
+    if (!MERGE_UUID_RE.test(sourceCaseId) || !MERGE_UUID_RE.test(targetCaseId)) {
+      return { status: 400, jsonBody: { error: "Case identifiers are invalid." } };
+    }
+    if (sourceCaseId === targetCaseId) {
       return { status: 400, jsonBody: { error: "Cannot merge a case into itself." } };
     }
-    const [src, tgt] = await Promise.all([loadCaseLite(sourceCaseId), loadCaseLite(targetCaseId)]);
-    if (!src || !tgt) return { status: 404, jsonBody: { error: "Source or target case not found." } };
-    if (src.providerCode && tgt.providerCode && src.providerCode !== tgt.providerCode) {
-      return { status: 400, jsonBody: { error: "Refusing to merge across different work providers." } };
-    }
-    if (TWIN_TERMINAL.has(tgt.status)) {
-      return { status: 400, jsonBody: { error: "Cannot merge into a finalised (terminal) case." } };
-    }
-    const moved = await query(
-      "UPDATE evidence SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id",
-      [sourceCaseId, targetCaseId]
-    );
-    const movedEvidence = moved.length;
-    const movedEmails = await query(
-      "UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id",
-      [sourceCaseId, targetCaseId]
-    );
-    const fkRows = await query(
-      "SELECT id, work_provider_id FROM case_ WHERE id = ANY($1::uuid[])",
-      [[sourceCaseId, targetCaseId]]
-    );
-    const srcFk = fkRows.find((r) => r.id === sourceCaseId)?.work_provider_id ?? null;
-    const tgtFk = fkRows.find((r) => r.id === targetCaseId)?.work_provider_id ?? null;
-    const providerDecision = decideMergeProvider(srcFk, tgtFk);
-    let providerFilled = false;
-    if (!providerDecision.crossProvider && providerDecision.filledFrom === "source" && providerDecision.providerId) {
-      await query(
-        `UPDATE case_ SET work_provider_id = $2, updated_at = now()
-          WHERE id = $1 AND work_provider_id IS NULL`,
-        [targetCaseId, providerDecision.providerId]
+    const merged = await tx(async (q) => {
+      await acquireCaseMutationLocks(q, [sourceCaseId, targetCaseId]);
+      const orderedIds = orderedCaseMutationIds([sourceCaseId, targetCaseId]);
+      const lockedCases = await q(
+        "SELECT id FROM case_ WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE",
+        [orderedIds]
       );
-      const wp = await query("SELECT display_name FROM work_provider WHERE id = $1", [
-        providerDecision.providerId
-      ]);
-      const displayName = (wp[0]?.display_name ?? "").trim();
-      if (displayName) {
-        await query(
-          `UPDATE case_ SET eva_work_provider = $2, updated_at = now()
-            WHERE id = $1 AND (eva_work_provider IS NULL OR eva_work_provider = '')`,
-          [targetCaseId, displayName.slice(0, 200)]
-        );
+      if (lockedCases.length !== 2) {
+        return { kind: "error", status: 404, error: "Source or target case not found." };
       }
-      await query(
-        `INSERT INTO field_level_provenance
-           (name, case_id, field_name, value, source_type_code, source_label)
-         VALUES ($1, $2, 'workProviderId', $3, $4, $5)`,
-        [
-          `${targetCaseId}:workProviderId`,
-          targetCaseId,
-          providerDecision.providerId,
-          sourceTypeCodec.toInt("corpus") ?? 100000003,
-          "Carried over from the merged case"
-        ]
-      ).catch(() => {
-      });
-      providerFilled = true;
-    }
-    await query(
-      `UPDATE case_
-         SET status_code = $2, duplicate_keys = $3, on_hold = false, updated_at = now()
-       WHERE id = $1`,
-      [sourceCaseId, statusToInt("linked_to_instruction"), JSON.stringify({ mergedInto: targetCaseId })]
-    );
-    await writeAudit({
-      action: AUDIT_ACTION.case_attached,
-      caseId: targetCaseId,
-      summary: `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence, ${movedEmails.length} emails${providerFilled ? ", provider carried over from the merged case" : ""})`,
-      after: {
+      const src = await loadCaseLite(sourceCaseId, q);
+      const tgt = await loadCaseLite(targetCaseId, q);
+      if (!src || !tgt) {
+        return { kind: "error", status: 404, error: "Source or target case not found." };
+      }
+      if (isRetiredMerged(src) || isRetiredMerged(tgt)) {
+        return {
+          kind: "error",
+          status: 409,
+          error: "One of these cases has already been merged. Refresh and try again."
+        };
+      }
+      if (src.providerCode && tgt.providerCode && src.providerCode !== tgt.providerCode) {
+        return {
+          kind: "error",
+          status: 400,
+          error: "Refusing to merge across different work providers."
+        };
+      }
+      if (TWIN_TERMINAL.has(tgt.status)) {
+        return {
+          kind: "error",
+          status: 400,
+          error: "Cannot merge into a finalised case."
+        };
+      }
+      const fileRequestConflict = await reconcileMergeFileRequestIntent(
+        q,
         sourceCaseId,
-        targetCaseId,
+        targetCaseId
+      );
+      if (fileRequestConflict) {
+        return { kind: "error", status: 409, error: fileRequestConflict };
+      }
+      await q(
+        "SELECT id FROM inbound_email WHERE case_id = $1 ORDER BY id FOR UPDATE",
+        [sourceCaseId]
+      );
+      const { movedEvidence, collidingEvidence, archiveBusy } = await mergeEvidenceRows(
+        q,
+        sourceCaseId,
+        targetCaseId
+      );
+      if (archiveBusy) {
+        return {
+          kind: "error",
+          status: 409,
+          error: "Archive work is still finishing for one of these cases. Try the merge again shortly."
+        };
+      }
+      const movedEmails = await q(
+        "UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id",
+        [sourceCaseId, targetCaseId]
+      );
+      const fkRows = await q(
+        "SELECT id, work_provider_id FROM case_ WHERE id = ANY($1::uuid[])",
+        [[sourceCaseId, targetCaseId]]
+      );
+      const srcFk = fkRows.find((r) => r.id === sourceCaseId)?.work_provider_id ?? null;
+      const tgtFk = fkRows.find((r) => r.id === targetCaseId)?.work_provider_id ?? null;
+      const providerDecision = decideMergeProvider(srcFk, tgtFk);
+      let providerFilled = false;
+      if (!providerDecision.crossProvider && providerDecision.filledFrom === "source" && providerDecision.providerId) {
+        await q(
+          `UPDATE case_ SET work_provider_id = $2, updated_at = now()
+            WHERE id = $1 AND work_provider_id IS NULL`,
+          [targetCaseId, providerDecision.providerId]
+        );
+        const wp = await q("SELECT display_name FROM work_provider WHERE id = $1", [
+          providerDecision.providerId
+        ]);
+        const displayName = (wp[0]?.display_name ?? "").trim();
+        if (displayName) {
+          await q(
+            `UPDATE case_ SET eva_work_provider = $2, updated_at = now()
+              WHERE id = $1 AND (eva_work_provider IS NULL OR eva_work_provider = '')`,
+            [targetCaseId, displayName.slice(0, 200)]
+          );
+        }
+        await q("SAVEPOINT merge_provider_provenance");
+        try {
+          await q(
+            `INSERT INTO field_level_provenance
+               (name, case_id, field_name, value, source_type_code, source_label)
+             VALUES ($1, $2, 'workProviderId', $3, $4, $5)`,
+            [
+              `${targetCaseId}:workProviderId`,
+              targetCaseId,
+              providerDecision.providerId,
+              sourceTypeCodec.toInt("corpus") ?? 100000003,
+              "Carried over from the merged case"
+            ]
+          );
+          await q("RELEASE SAVEPOINT merge_provider_provenance");
+        } catch {
+          await q("ROLLBACK TO SAVEPOINT merge_provider_provenance");
+          await q("RELEASE SAVEPOINT merge_provider_provenance");
+        }
+        providerFilled = true;
+      }
+      await q(
+        `UPDATE case_
+           SET status_code = $2, duplicate_keys = $3, on_hold = false, updated_at = now()
+         WHERE id = $1`,
+        [sourceCaseId, statusToInt("linked_to_instruction"), JSON.stringify({ mergedInto: targetCaseId })]
+      );
+      const statusGeneration = await requestStatusRecompute(q, targetCaseId);
+      await writeAudit({
+        action: AUDIT_ACTION.case_attached,
+        caseId: targetCaseId,
+        summary: `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence, ${movedEmails.length} emails${providerFilled ? ", provider carried over from the merged case" : ""})`,
+        after: {
+          sourceCaseId,
+          targetCaseId,
+          movedEvidence,
+          collidingEvidence,
+          movedEmails: movedEmails.length,
+          providerFilled
+        },
+        ...actor ? { actor } : {}
+      }, q);
+      return {
+        kind: "merged",
         movedEvidence,
+        collidingEvidence,
         movedEmails: movedEmails.length,
-        providerFilled
-      },
-      ...actor ? { actor } : {}
+        providerFilled,
+        statusGeneration
+      };
     });
-    await recomputeStatus2(targetCaseId, actor);
-    const result = { targetCaseId, movedEvidence };
+    if (merged.kind === "error") {
+      return { status: merged.status, jsonBody: { error: merged.error } };
+    }
+    try {
+      const evaluated = await recomputeStatus2(targetCaseId, actor);
+      if (!evaluated) throw new Error("target case was not available for readiness evaluation");
+      await acknowledgeStatusRecompute(query, targetCaseId, merged.statusGeneration);
+    } catch (e) {
+      ctx.warn(
+        `[merge] readiness recompute remains pending for ${targetCaseId} (generation ${merged.statusGeneration}): ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+    const result = { targetCaseId, movedEvidence: merged.movedEvidence };
     return { status: 200, jsonBody: result };
   })
 });
@@ -19399,13 +21603,10 @@ import_functions2.app.http("imagesForCase", {
   handler: withRole("CollisionSpike.User", async (req) => {
     const id = req.params.id;
     const rows = await query(
-      // Person-reflection photos are auto-excluded from EVA (domain rule: a visible reflection
-      // makes the photo unusable — acceptedForEva stays false), but they MUST still surface in
-      // the case-detail REVIEW list so the TKT-123 dismissible warning + Exclude control are
-      // reachable and staff can override a false-positive detection. They carry acceptedForEva
-      // = false, so EVA export / photo-ordering / readiness (all keyed on acceptedForEva) are
-      // unaffected. Non-reflection excluded rows stay hidden as before. (PR48-B2)
-      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded <> true OR person_reflection = true) ORDER BY sequence_index NULLS LAST, created_at",
+      // Automatic exclusions stay visible in the REVIEW list so staff can recover a false
+      // positive. Staff/provider/cleanup/legacy exclusions stay hidden. Every returned excluded
+      // row remains acceptedForEva=false and therefore cannot affect readiness/order/export.
+      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded = false OR exclusion_decision_source = 'classifier' OR person_reflection = true) ORDER BY sequence_index NULLS LAST, created_at",
       [id]
     );
     return { status: 200, jsonBody: rows.map(rowToEvidence) };
@@ -19576,26 +21777,115 @@ import_functions2.app.http("caseBoxCopyFileRequest", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/box/copy-file-request",
-  handler: withRole("CollisionSpike.User", async (req) => {
+  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) {
       return { status: 200, jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." } };
     }
     const caseId = (req.params.id ?? "").trim();
     if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
-    if (!gates.boxFileRequestTemplateId()) {
+    const templateId = gates.boxFileRequestTemplateId().trim();
+    if (!templateId) {
       return {
         status: 200,
         jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." }
       };
     }
-    const { boxFolderId } = await readCaseBoxFolder(caseId);
-    if (!boxFolderId) {
-      return { status: 200, jsonBody: { status: "folder_not_ready", message: "This case has no archive folder yet." } };
+    const actor = actorFromClaims(claims);
+    try {
+      const prepared = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, caseId);
+        if (lockedCase.kind === "missing") return { kind: "missing" };
+        if (lockedCase.kind === "retired") {
+          return { kind: "retired", mergedInto: lockedCase.mergedInto };
+        }
+        const rows = await q(
+          `SELECT box_folder_id, box_file_request_id, box_file_request_url
+             FROM case_
+            WHERE id = $1
+            FOR UPDATE`,
+          [lockedCase.caseId]
+        );
+        const row = rows[0];
+        const folderId = row?.box_folder_id?.trim() ?? "";
+        const stampedId = row?.box_file_request_id?.trim() ?? "";
+        const stampedUrl = row?.box_file_request_url?.trim() ?? "";
+        if (!row || !folderId) {
+          return {
+            kind: "folder_not_ready"
+          };
+        }
+        if (stampedId && stampedUrl) {
+          return { kind: "ready", fileRequestUrl: stampedUrl };
+        }
+        if (stampedId || stampedUrl) {
+          return { kind: "invalid_stamp" };
+        }
+        const intent = await requestBoxFileRequestIntent(
+          q,
+          lockedCase.caseId,
+          folderId,
+          templateId
+        );
+        if (intent.alreadyCompleted) return { kind: "invalid_stamp" };
+        return { kind: "pending", caseId: lockedCase.caseId };
+      });
+      if (prepared.kind === "missing") {
+        return { status: 404, jsonBody: { status: "error", message: "Case not found." } };
+      }
+      if (prepared.kind === "retired") {
+        return {
+          status: 409,
+          jsonBody: {
+            status: "error",
+            message: "This case has been merged. Open the current case and try again.",
+            mergedInto: prepared.mergedInto
+          }
+        };
+      }
+      if (prepared.kind === "folder_not_ready") {
+        return {
+          status: 200,
+          jsonBody: { status: "folder_not_ready", message: "This case has no archive folder yet." }
+        };
+      }
+      if (prepared.kind === "ready") {
+        return { status: 200, jsonBody: { status: "ok", data: { fileRequestUrl: prepared.fileRequestUrl } } };
+      }
+      if (prepared.kind === "invalid_stamp") throw new Error("case has an incomplete Box File Request stamp");
+      const processed = await processBoxFileRequestIntent(prepared.caseId, actor);
+      if (processed.kind === "ok") {
+        return {
+          status: 200,
+          jsonBody: { status: "ok", data: { fileRequestUrl: processed.fileRequestUrl } }
+        };
+      }
+      if (processed.kind === "retired") {
+        return {
+          status: 409,
+          jsonBody: {
+            status: "error",
+            message: "This case has been merged. Open the current case and try again.",
+            mergedInto: processed.mergedInto
+          }
+        };
+      }
+      return {
+        status: 200,
+        jsonBody: {
+          status: "error",
+          message: "The image-upload link is still being created. Please try again shortly."
+        }
+      };
+    } catch (error) {
+      ctx.error("[caseBoxCopyFileRequest] failed", error);
+      return {
+        status: 200,
+        jsonBody: {
+          status: "error",
+          message: "The image-upload link could not be created. Please try again."
+        }
+      };
     }
-    return {
-      status: 200,
-      jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." }
-    };
   })
 });
 import_functions2.app.http("caseBoxFinalize", {
@@ -19618,25 +21908,8 @@ import_functions2.app.http("markEvaSubmitted", {
   handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
     const id = (req.params.id ?? "").trim();
     if (!id) return { status: 400, jsonBody: { message: "A case is required." } };
-    const updated = await query(
-      // Clear on_hold on the terminal handoff: filterQueue gives onHold precedence over
-      // status (mappers.ts), so a still-held case would otherwise linger in the Held/work
-      // queues while ALSO showing in Completed. A submitted case is no longer actionable.
-      `UPDATE case_ SET status_code = $1, submitted_at = now(), on_hold = false, updated_at = now()
-       WHERE id = $2 AND status_code = $3
-       RETURNING id`,
-      [statusToInt("eva_submitted"), id, statusToInt("ready_for_eva")]
-    );
-    if (updated.length > 0) {
-      await writeAudit({
-        action: AUDIT_ACTION.eva_submitted,
-        caseId: id,
-        summary: "Exported for EVA \u2014 case marked EVA Submitted",
-        after: { status: "eva_submitted" },
-        actor: actorFromClaims(claims)
-      });
-    }
-    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+    const updated = await tx((q) => markEvaSubmittedUsing(q, id, actorFromClaims(claims)));
+    return { status: 200, jsonBody: { updated } };
   })
 });
 import_functions2.app.http("markCaseDone", {
@@ -19646,24 +21919,12 @@ import_functions2.app.http("markCaseDone", {
   handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
     const id = (req.params.id ?? "").trim();
     if (!id) return { status: 400, jsonBody: { message: "A case is required." } };
-    const updated = await query(
-      // Clear on_hold on the terminal transition (same reason as eva-submitted above):
-      // a delivered/done case must not remain in the Held/work queues.
-      `UPDATE case_ SET status_code = $1, on_hold = false, updated_at = now()
-       WHERE id = $2 AND status_code = $3
-       RETURNING id`,
-      [statusToInt("done"), id, statusToInt("eva_submitted")]
-    );
-    if (updated.length > 0) {
-      await writeAudit({
-        action: AUDIT_ACTION.report_delivered,
-        caseId: id,
-        summary: "Report delivered to the work provider \u2014 case marked Done",
-        after: { status: "done", signal: "manual" },
-        actor: actorFromClaims(claims)
-      });
-    }
-    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+    const updated = await tx((q) => markCaseDoneUsing(q, {
+      caseId: id,
+      signal: "manual",
+      actor: actorFromClaims(claims)
+    }));
+    return { status: 200, jsonBody: { updated } };
   })
 });
 var COMPLETED_STATUSES = ["eva_submitted", "done", "box_synced"];
@@ -19852,7 +22113,6 @@ async function geocodePostcode(postcode) {
 
 // api/src/functions/inspection.ts
 var CONFIRMED_PHYSICAL = inspectionDecisionCodec.toInt("confirmed_physical");
-var IMAGE_BASED = inspectionDecisionCodec.toInt("image_based");
 var SHORTLIST_LIMIT = 8;
 var SEARCH_LIMIT = 25;
 function addressMatches(a, needle) {
@@ -19929,27 +22189,47 @@ import_functions4.app.http("saveInspectionDecision", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/inspection-decision",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
     const caseId = req.params.id;
-    const decision = await req.json();
-    try {
-      const lines = (decision.addressLines ?? []).map((l) => (l ?? "").trim()).filter(Boolean);
-      const isImageBased = decision.decisionMode === "image_based";
-      const label = (isImageBased ? "Image Based Assessment" : [lines[0], decision.postcode?.trim()].filter(Boolean).join(", ") || "Inspection address").slice(0, 200);
-      let providerCode = "";
-      try {
-        const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [caseId]);
-        providerCode = principalFromCasePo(caseRows[0]?.case_po);
-      } catch {
+    const parsed = SaveInspectionDecisionParams.safeParse({
+      ...await req.json().catch(() => ({})),
+      caseId
+    });
+    if (!parsed.success) {
+      return { status: 400, jsonBody: { error: "invalid inspection decision", issues: parsed.error.issues } };
+    }
+    const decision = parsed.data;
+    const lines = (decision.addressLines ?? []).map((line) => line.trim()).filter(Boolean);
+    const postcode = decision.postcode?.trim() ?? "";
+    const isImageBased = decision.decisionMode === "image_based";
+    const label = (isImageBased ? `Image Based Assessment (${caseId})` : [lines[0], postcode].filter(Boolean).join(", ") || "Inspection address").slice(0, 200);
+    const evaAddress = isImageBased ? "Image Based Assessment" : [...lines, ...postcode ? [postcode] : []].join("\n").slice(0, 2e3);
+    const decisionModeCode = inspectionDecisionCodec.toInt(decision.decisionMode);
+    if (decisionModeCode == null) {
+      return { status: 400, jsonBody: { error: "invalid inspection decision mode" } };
+    }
+    const actor = actorFromClaims(claims);
+    const outcome = await tx(async (q) => {
+      const caseRows = await q(
+        `SELECT case_po, eva_inspection_address, inspection_decision_code, updated_at
+           FROM case_ WHERE id = $1 FOR UPDATE`,
+        [caseId]
+      );
+      const caseRow = caseRows[0];
+      if (!caseRow) return { kind: "missing" };
+      const currentVersion2 = versionToken(caseRow.updated_at);
+      const expected = ifMatch(req);
+      if (expected != null && expected !== "" && expected !== currentVersion2) {
+        return { kind: "stale", currentVersion: currentVersion2 };
       }
+      const providerCode = principalFromCasePo(caseRow.case_po);
       const sourceNote = [
         `case=${caseId}`,
         ...providerCode ? [`provider=${providerCode}`] : [],
         decision.sourceNote
       ].join(" ").trim();
-      const decisionModeCode = decision.decisionMode && decision.decisionMode !== "unknown" ? inspectionDecisionCodec.toInt(decision.decisionMode) : void 0;
-      const decisionReason = decisionModeCode === IMAGE_BASED ? decision.sourceNote.trim() || "Image based assessment" : null;
-      const rows = await query(
+      const decisionReason = isImageBased ? decision.sourceNote : null;
+      const rows = await q(
         `INSERT INTO inspection_address
            (label, decision_mode_code, decision_reason, source_label, source_note,
             address_line1, address_line2, address_line3, address_line4, address_line5, address_line6, postcode)
@@ -19983,18 +22263,59 @@ import_functions4.app.http("saveInspectionDecision", {
         ]
       );
       const id = rows[0]?.id;
+      const updated = await q(
+        `UPDATE case_
+            SET eva_inspection_address = $2,
+                inspection_decision_code = $3,
+                updated_at = now()
+          WHERE id = $1
+          RETURNING updated_at`,
+        [caseId, evaAddress, decisionModeCode]
+      );
+      const statusGeneration = await requestStatusRecompute(q, caseId);
       await writeAudit({
         action: AUDIT_ACTION.inspection_override,
         caseId,
         summary: `Inspection decision confirmed (${decision.decisionMode})`,
-        after: { decisionMode: decision.decisionMode, label },
-        ...actorFromClaims(claims) ? { actor: actorFromClaims(claims) } : {}
-      });
-      const result = { persisted: true, ...id ? { id } : {} };
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: { persisted: false } };
+        before: {
+          inspectionAddress: caseRow.eva_inspection_address ?? null,
+          decisionModeCode: caseRow.inspection_decision_code ?? null
+        },
+        after: { decisionMode: decision.decisionMode, label, inspectionAddress: evaAddress },
+        ...actor ? { actor } : {}
+      }, q);
+      return {
+        kind: "saved",
+        id,
+        version: versionToken(updated[0]?.updated_at),
+        statusGeneration
+      };
+    });
+    if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+    if (outcome.kind === "stale") {
+      return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
     }
+    try {
+      const evaluated = await recomputeStatus2(caseId, actor);
+      if (!evaluated) throw new Error("case was not available for readiness evaluation");
+      await acknowledgeStatusRecompute(query, caseId, outcome.statusGeneration);
+    } catch (error) {
+      ctx.warn(
+        `[inspection-decision] readiness recompute remains pending for ${caseId} (generation ${outcome.statusGeneration}): ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    const current = await query("SELECT updated_at FROM case_ WHERE id = $1", [caseId]);
+    const currentVersion = current[0] ? versionToken(current[0].updated_at) : outcome.version;
+    const result = {
+      persisted: true,
+      ...outcome.id ? { id: outcome.id } : {},
+      version: currentVersion
+    };
+    return {
+      status: 200,
+      jsonBody: result,
+      headers: { ETag: `"${currentVersion}"`, "Access-Control-Expose-Headers": "ETag" }
+    };
   })
 });
 
@@ -20328,12 +22649,12 @@ async function getStorageToken() {
 function xmlEscape(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-async function enqueueOutlookMove(job) {
-  const serviceUrl = gates.outlookMoveQueueServiceUrl().replace(/\/$/, "");
-  if (!serviceUrl) throw new Error("OUTLOOK_MOVE_QUEUE_SERVICE_URL not configured");
+async function enqueueQueueMessage(serviceUrlRaw, queueName, payload) {
+  const serviceUrl = serviceUrlRaw.replace(/\/$/, "");
+  if (!serviceUrl) throw new Error("queue service URL not configured");
   const token = await getStorageToken();
-  const messageText = Buffer.from(JSON.stringify(job), "utf8").toString("base64");
-  const res = await fetch(`${serviceUrl}/${OUTLOOK_MOVE_QUEUE_NAME}/messages`, {
+  const messageText = Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
+  const res = await fetch(`${serviceUrl}/${queueName}/messages`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -20344,8 +22665,13 @@ async function enqueueOutlookMove(job) {
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new Error(`outlook-move enqueue \u2192 ${res.status}: ${detail.slice(0, 300)}`);
+    throw new Error(`${queueName} enqueue \u2192 ${res.status}: ${detail.slice(0, 300)}`);
   }
+}
+async function enqueueOutlookMove(job) {
+  const serviceUrl = gates.outlookMoveQueueServiceUrl();
+  if (!serviceUrl) throw new Error("OUTLOOK_MOVE_QUEUE_SERVICE_URL not configured");
+  await enqueueQueueMessage(serviceUrl, OUTLOOK_MOVE_QUEUE_NAME, job);
 }
 function classifyEnqueueFailure(e) {
   const text = e instanceof Error ? e.message : String(e ?? "");
@@ -20385,6 +22711,33 @@ var TRIAGE_AUDIT_ACTION = {
   actioned: AUDIT_ACTION.inbound_actioned,
   new: AUDIT_ACTION.inbound_reopened,
   routed: AUDIT_ACTION.inbound_routed
+};
+var CATEGORY_FOR_SUBTYPE = {
+  existing_provider_instruction: "receiving_work",
+  existing_provider_audit: "receiving_work",
+  existing_provider_diminution: "receiving_work",
+  new_client_work: "receiving_work",
+  query_existing_work: "query",
+  query_new_enquiry: "query",
+  billing_request: "billing",
+  payment_remittance: "billing",
+  case_summary: "non_actionable",
+  acknowledgement: "non_actionable",
+  other: "other",
+  images_received: "case_update",
+  update_general: "case_update",
+  cancellation_notice: "cancellation",
+  pre_instruction_directions: "pre_instruction"
+};
+var DEFAULT_SUBTYPE_FOR_CATEGORY = {
+  receiving_work: "existing_provider_instruction",
+  query: "query_existing_work",
+  other: "other",
+  billing: "billing_request",
+  non_actionable: "case_summary",
+  case_update: "update_general",
+  cancellation: "cancellation_notice",
+  pre_instruction: "pre_instruction_directions"
 };
 import_functions8.app.http("inboundEmails", {
   methods: ["GET"],
@@ -20443,6 +22796,28 @@ import_functions8.app.http("inboundEmailCounts", {
     }
   })
 });
+import_functions8.app.http("inboundEmailById", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "inbound/{id}",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const rows = await query(
+      `SELECT inbound_email.*, c.case_po AS case_po
+         FROM inbound_email
+         LEFT JOIN case_ c ON c.id = inbound_email.case_id
+        WHERE inbound_email.id = $1`,
+      [req.params.id]
+    );
+    const row = rows[0];
+    if (!row) return { status: 404, jsonBody: { error: "not found" } };
+    const version2 = versionToken(row.updated_at);
+    return {
+      status: 200,
+      jsonBody: { ...rowToInboundEmail(row), version: version2 },
+      headers: { ETag: `"${version2}"`, "Access-Control-Expose-Headers": "ETag" }
+    };
+  })
+});
 import_functions8.app.http("setTriageState", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -20454,31 +22829,48 @@ import_functions8.app.http("setTriageState", {
     if (!isValidTriageState(state3)) {
       return { status: 400, jsonBody: { error: "invalid triage state" } };
     }
-    const existing = await query(
-      "SELECT id, triage_state, case_id, source_message_id FROM inbound_email WHERE id = $1",
-      [id]
-    );
-    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const before = existing[0].triage_state ?? "new";
-    const updated = await query(
-      "UPDATE inbound_email SET triage_state = $2, updated_at = now() WHERE id = $1 RETURNING id",
-      [id, state3]
-    );
-    if (!updated[0]) return { status: 404, jsonBody: { error: "not found" } };
     const actor = actorFromClaims(claims);
-    await writeAudit({
-      action: TRIAGE_AUDIT_ACTION[state3],
-      ...existing[0].case_id ? { caseId: existing[0].case_id } : {},
-      summary: `Inbound email ${before} -> ${state3}`,
-      before: { triageState: before },
-      after: {
-        triageState: state3,
-        inboundEmailId: id,
-        sourceMessageId: existing[0].source_message_id ?? null
-      },
-      ...actor ? { actor } : {}
+    const outcome = await tx(async (q) => {
+      const existing = await q(
+        `SELECT id, triage_state, case_id, source_message_id, updated_at
+           FROM inbound_email WHERE id = $1 FOR UPDATE`,
+        [id]
+      );
+      const row = existing[0];
+      if (!row) return { kind: "missing" };
+      const currentVersion = versionToken(row.updated_at);
+      const expected = ifMatch(req);
+      if (expected != null && expected !== "" && expected !== currentVersion) {
+        return { kind: "stale", currentVersion };
+      }
+      const before = row.triage_state ?? "new";
+      const updated = await q(
+        `UPDATE inbound_email SET triage_state = $2, updated_at = now()
+          WHERE id = $1 RETURNING updated_at`,
+        [id, state3]
+      );
+      await writeAudit({
+        action: TRIAGE_AUDIT_ACTION[state3],
+        ...row.case_id ? { caseId: row.case_id } : {},
+        summary: `Inbound email ${before} -> ${state3}`,
+        before: { triageState: before },
+        after: {
+          triageState: state3,
+          inboundEmailId: id,
+          sourceMessageId: row.source_message_id ?? null
+        },
+        ...actor ? { actor } : {}
+      }, q);
+      return { kind: "updated", version: versionToken(updated[0]?.updated_at) };
     });
-    return { status: 204 };
+    if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+    if (outcome.kind === "stale") {
+      return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
+    }
+    return {
+      status: 204,
+      headers: { ETag: `"${outcome.version}"`, "Access-Control-Expose-Headers": "ETag" }
+    };
   })
 });
 import_functions8.app.http("moveInboundToOutlook", {
@@ -20597,60 +22989,100 @@ import_functions8.app.http("reclassifyInbound", {
     if (!category && !subtype) {
       return { status: 400, jsonBody: { error: "category, subtype or tag required" } };
     }
-    const existing = await query(
-      `SELECT id, category_code, subtype_code, suggested_category_code, suggested_subtype_code,
-              case_id, work_provider_id, source_message_id
-         FROM inbound_email WHERE id = $1`,
-      [id]
-    );
-    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const cur = existing[0];
-    const sets = ["classifier_mode = 'human'"];
-    const vals = [];
-    if (category) {
-      vals.push(INBOUND_CATEGORY_TO_INT[category]);
-      sets.push(`category_code = $${vals.length}`);
-    }
-    if (subtype) {
-      vals.push(INBOUND_SUBTYPE_TO_INT[subtype]);
-      sets.push(`subtype_code = $${vals.length}`);
-    }
-    vals.push(id);
-    const updated = await query(
-      `UPDATE inbound_email SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}
-       RETURNING *`,
-      vals
-    );
-    if (!updated[0]) return { status: 404, jsonBody: { error: "not found" } };
     const actor = actorFromClaims(claims);
-    const suggestedCat = inboundCategoryFromInt(
-      cur.suggested_category_code ?? cur.category_code
-    );
-    const suggestedSub = inboundSubtypeFromInt(
-      cur.suggested_subtype_code ?? cur.subtype_code
-    );
     const reason = typeof body2.reason === "string" ? body2.reason.trim() : "";
-    if (category && category !== suggestedCat) {
-      await writeImprovementSignal(cur, "category", suggestedCat ?? "(none)", category, actor, reason);
-    }
-    if (subtype && subtype !== suggestedSub) {
-      await writeImprovementSignal(cur, "subtype", suggestedSub ?? "(none)", subtype, actor, reason);
-    }
-    await writeAudit({
-      action: AUDIT_ACTION.inbound_reclassified,
-      ...cur.case_id ? { caseId: cur.case_id } : {},
-      summary: `Inbound reclassified${category ? ` category=${category}` : ""}${subtype ? ` subtype=${subtype}` : ""}`,
-      before: { category: suggestedCat ?? null, subtype: suggestedSub ?? null },
-      after: {
-        category: category ?? null,
-        subtype: subtype ?? null,
-        inboundEmailId: id,
-        sourceMessageId: cur.source_message_id ?? null,
-        ...reason ? { reason } : {}
-      },
-      ...actor ? { actor } : {}
+    const outcome = await tx(async (q) => {
+      const existing = await q(
+        `SELECT *, updated_at FROM inbound_email WHERE id = $1 FOR UPDATE`,
+        [id]
+      );
+      const cur = existing[0];
+      if (!cur) return { kind: "missing" };
+      const currentVersion = versionToken(cur.updated_at);
+      const expected = ifMatch(req);
+      if (expected != null && expected !== "" && expected !== currentVersion) {
+        return { kind: "stale", currentVersion };
+      }
+      let chosenCategory = category;
+      let chosenSubtype = subtype;
+      if (chosenSubtype && !chosenCategory) chosenCategory = CATEGORY_FOR_SUBTYPE[chosenSubtype];
+      if (chosenCategory && !chosenSubtype) {
+        const currentSubtype = inboundSubtypeFromInt(cur.subtype_code);
+        chosenSubtype = currentSubtype && CATEGORY_FOR_SUBTYPE[currentSubtype] === chosenCategory ? currentSubtype : DEFAULT_SUBTYPE_FOR_CATEGORY[chosenCategory];
+      }
+      if (!chosenCategory || !chosenSubtype || CATEGORY_FOR_SUBTYPE[chosenSubtype] !== chosenCategory) {
+        return { kind: "invalid_pair" };
+      }
+      const suggestedCat = inboundCategoryFromInt(
+        cur.suggested_category_code ?? cur.category_code
+      );
+      const suggestedSub = inboundSubtypeFromInt(
+        cur.suggested_subtype_code ?? cur.subtype_code
+      );
+      const updated = await q(
+        `UPDATE inbound_email
+            SET classifier_mode = 'human', category_code = $2, subtype_code = $3, updated_at = now()
+          WHERE id = $1
+          RETURNING *`,
+        [id, INBOUND_CATEGORY_TO_INT[chosenCategory], INBOUND_SUBTYPE_TO_INT[chosenSubtype]]
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.inbound_reclassified,
+        ...cur.case_id ? { caseId: cur.case_id } : {},
+        summary: `Inbound reclassified category=${chosenCategory} subtype=${chosenSubtype}`,
+        before: { category: suggestedCat ?? null, subtype: suggestedSub ?? null },
+        after: {
+          category: chosenCategory,
+          subtype: chosenSubtype,
+          inboundEmailId: id,
+          sourceMessageId: cur.source_message_id ?? null,
+          ...reason ? { reason } : {}
+        },
+        ...actor ? { actor } : {}
+      }, q);
+      return {
+        kind: "updated",
+        cur,
+        value: rowToInboundEmail(updated[0]),
+        chosenCategory,
+        chosenSubtype,
+        suggestedCat,
+        suggestedSub,
+        version: versionToken(updated[0].updated_at)
+      };
     });
-    return { status: 200, jsonBody: rowToInboundEmail(updated[0]) };
+    if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+    if (outcome.kind === "invalid_pair") {
+      return { status: 400, jsonBody: { error: "category and subtype do not match" } };
+    }
+    if (outcome.kind === "stale") {
+      return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
+    }
+    if (outcome.chosenCategory !== outcome.suggestedCat) {
+      await writeImprovementSignal(
+        outcome.cur,
+        "category",
+        outcome.suggestedCat ?? "(none)",
+        outcome.chosenCategory,
+        actor,
+        reason
+      );
+    }
+    if (outcome.chosenSubtype !== outcome.suggestedSub) {
+      await writeImprovementSignal(
+        outcome.cur,
+        "subtype",
+        outcome.suggestedSub ?? "(none)",
+        outcome.chosenSubtype,
+        actor,
+        reason
+      );
+    }
+    return {
+      status: 200,
+      jsonBody: { ...outcome.value, version: outcome.version },
+      headers: { ETag: `"${outcome.version}"`, "Access-Control-Expose-Headers": "ETag" }
+    };
   })
 });
 import_functions8.app.http("inboundEmailSuggestions", {
@@ -21094,7 +23526,7 @@ function createHttpHeaders(rawHeaders) {
 }
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/util/uuidUtils.js
-function randomUUID() {
+function randomUUID2() {
   return crypto.randomUUID();
 }
 
@@ -21134,7 +23566,7 @@ var PipelineRequestImpl = class {
     this.abortSignal = options.abortSignal;
     this.onUploadProgress = options.onUploadProgress;
     this.onDownloadProgress = options.onDownloadProgress;
-    this.requestId = options.requestId || randomUUID();
+    this.requestId = options.requestId || randomUUID2();
     this.allowInsecureConnection = options.allowInsecureConnection ?? false;
     this.enableBrowserStreams = options.enableBrowserStreams ?? false;
     this.requestOverrides = options.requestOverrides;
@@ -22503,7 +24935,7 @@ async function concat2(sources) {
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/policies/multipartPolicy.js
 function generateBoundary() {
-  return `----AzSDKFormBoundary${randomUUID()}`;
+  return `----AzSDKFormBoundary${randomUUID2()}`;
 }
 function encodeHeaders(headers) {
   let result = "";
@@ -22815,8 +25247,8 @@ function getErrorMessage(e) {
 function isError2(e) {
   return isError(e);
 }
-function randomUUID2() {
-  return randomUUID();
+function randomUUID3() {
+  return randomUUID2();
 }
 var isNodeLike2 = isNodeLike;
 function uint8ArrayToString2(bytes, format) {
@@ -34832,7 +37264,7 @@ var AnonymousCredential = class extends Credential {
 };
 
 // node_modules/@azure/storage-common/dist/esm/credentials/StorageSharedKeyCredential.js
-var import_node_crypto6 = require("node:crypto");
+var import_node_crypto7 = require("node:crypto");
 
 // node_modules/@azure/storage-common/dist/esm/utils/constants.js
 var URLConstants = {
@@ -35533,7 +37965,7 @@ var StorageSharedKeyCredential = class extends Credential {
    * @param stringToSign -
    */
   computeHMACSHA256(stringToSign) {
-    return (0, import_node_crypto6.createHmac)("sha256", this.accountKey).update(stringToSign, "utf8").digest("base64");
+    return (0, import_node_crypto7.createHmac)("sha256", this.accountKey).update(stringToSign, "utf8").digest("base64");
   }
 };
 
@@ -35899,7 +38331,7 @@ function storageRetryPolicy(options = {}) {
 }
 
 // node_modules/@azure/storage-common/dist/esm/policies/StorageSharedKeyCredentialPolicyV2.js
-var import_node_crypto7 = require("node:crypto");
+var import_node_crypto8 = require("node:crypto");
 var storageSharedKeyCredentialPolicyName = "storageSharedKeyCredentialPolicy";
 function storageSharedKeyCredentialPolicy(options) {
   function signRequest(request) {
@@ -35921,7 +38353,7 @@ function storageSharedKeyCredentialPolicy(options) {
       getHeaderValueToSign(request, HeaderConstants.IF_UNMODIFIED_SINCE),
       getHeaderValueToSign(request, HeaderConstants.RANGE)
     ].join("\n") + "\n" + getCanonicalizedHeadersString(request) + getCanonicalizedResourceString(request);
-    const signature = (0, import_node_crypto7.createHmac)("sha256", options.accountKey).update(stringToSign, "utf8").digest("base64");
+    const signature = (0, import_node_crypto8.createHmac)("sha256", options.accountKey).update(stringToSign, "utf8").digest("base64");
     request.headers.set(HeaderConstants.AUTHORIZATION, `SharedKey ${options.accountName}:${signature}`);
   }
   function getHeaderValueToSign(request, headerName) {
@@ -36011,7 +38443,7 @@ function storageRequestFailureDetailsParserPolicy() {
 }
 
 // node_modules/@azure/storage-common/dist/esm/credentials/UserDelegationKeyCredential.js
-var import_node_crypto8 = require("node:crypto");
+var import_node_crypto9 = require("node:crypto");
 var UserDelegationKeyCredential = class {
   /**
    * Azure Storage account name; readonly.
@@ -36041,7 +38473,7 @@ var UserDelegationKeyCredential = class {
    * @param stringToSign -
    */
   computeHMACSHA256(stringToSign) {
-    return (0, import_node_crypto8.createHmac)("sha256", this.key).update(stringToSign, "utf8").digest("base64");
+    return (0, import_node_crypto9.createHmac)("sha256", this.key).update(stringToSign, "utf8").digest("base64");
   }
 };
 
@@ -52123,7 +54555,7 @@ var BlobLeaseClient = class {
       this._containerOrBlobOperation = clientContext.blob;
     }
     if (!leaseId2) {
-      leaseId2 = randomUUID2();
+      leaseId2 = randomUUID3();
     }
     this._leaseId = leaseId2;
   }
@@ -56328,7 +58760,7 @@ var BlockBlobClient = class _BlockBlobClient extends BlobClient {
         throw new RangeError(`The buffer's size is too big or the BlockSize is too small;the number of blocks must be <= ${BLOCK_BLOB_MAX_BLOCKS}`);
       }
       const blockList = [];
-      const blockIDPrefix = randomUUID2();
+      const blockIDPrefix = randomUUID3();
       let transferProgress = 0;
       const batch = new Batch(options.concurrency);
       for (let i = 0; i < numBlocks; i++) {
@@ -56410,7 +58842,7 @@ var BlockBlobClient = class _BlockBlobClient extends BlobClient {
     }
     return tracingClient.withSpan("BlockBlobClient-uploadStream", options, async (updatedOptions) => {
       let blockNum = 0;
-      const blockIDPrefix = randomUUID2();
+      const blockIDPrefix = randomUUID3();
       let transferProgress = 0;
       const blockList = [];
       const scheduler = new BufferScheduler(
@@ -57470,7 +59902,7 @@ var InnerBatchRequest = class {
   constructor() {
     this.operationCount = 0;
     this.body = "";
-    const tempGuid = randomUUID2();
+    const tempGuid = randomUUID3();
     this.boundary = `batch_${tempGuid}`;
     this.subRequestPrefix = `--${this.boundary}${HTTP_LINE_ENDING}${HeaderConstants2.CONTENT_TYPE}: application/http${HTTP_LINE_ENDING}${HeaderConstants2.CONTENT_TRANSFER_ENCODING}: binary`;
     this.multipartContentType = `multipart/mixed; boundary=${this.boundary}`;
@@ -60872,9 +63304,8 @@ var LEGACY_TOOL_NAMES = /* @__PURE__ */ new Set(["lookup_case", "count_cases_by_
 var SYSTEM_PROMPT_BASE = [
   "You are a helpful, concise assistant for staff at Collision Engineers, a vehicle-collision",
   "engineering business, working inside their case-intake system. Answer questions about cases,",
-  "queues, and inbound emails using ONLY the tools provided. You are strictly READ-ONLY: you",
-  "cannot create, change, submit, or delete anything \u2014 if asked to, explain that you can only",
-  "look things up and they should use the app itself.",
+  "queues, and inbound emails using ONLY the tools provided. You never execute a change directly;",
+  "you may only use the exact capabilities present in this request.",
   "",
   "Domain terms: a Case is one vehicle-damage assessment; its Case/PO is an internal reference",
   "(a leading-alpha principal code + year + number, e.g. CCPY26050). A case moves through",
@@ -60885,6 +63316,11 @@ var SYSTEM_PROMPT_BASE = [
   "EVA is the downstream assessment platform. Answer in plain English for a non-technical case",
   "handler; never invent a case number, reference, or registration that the tools did not return.",
   "If a lookup returns nothing, say so plainly rather than guessing."
+].join("\n");
+var SYSTEM_PROMPT_READ_ONLY = [
+  "",
+  "This request has no proposal capability. You can only look things up. If asked to change",
+  "anything, explain that the change must be made in the app."
 ].join("\n");
 var SYSTEM_PROMPT_V2_TOOLS = [
   "",
@@ -60906,7 +63342,7 @@ var SYSTEM_PROMPT_WRITE_TIER = [
 ].join("\n");
 function systemPrompt() {
   let p = gates.assistantToolsetV2() ? SYSTEM_PROMPT_BASE + "\n" + SYSTEM_PROMPT_V2_TOOLS : SYSTEM_PROMPT_BASE;
-  if (gates.assistantWriteTier()) p += "\n" + SYSTEM_PROMPT_WRITE_TIER;
+  p += gates.assistantWriteTier() ? "\n" + SYSTEM_PROMPT_WRITE_TIER : "\n" + SYSTEM_PROMPT_READ_ONLY;
   return p;
 }
 function capabilityToToolDef(c) {
@@ -60915,6 +63351,15 @@ function capabilityToToolDef(c) {
 function proposalToolDef() {
   const caps = proposableCapabilities();
   const menu = caps.map((c) => `- ${c.name}: ${c.description}`).join("\n");
+  const variants = caps.map((c) => ({
+    type: "object",
+    properties: {
+      capability: { type: "string", enum: [c.name], description: c.title },
+      params: c.parameters
+    },
+    required: ["capability", "params"],
+    additionalProperties: false
+  }));
   return {
     type: "function",
     function: {
@@ -60923,10 +63368,12 @@ function proposalToolDef() {
       parameters: {
         type: "object",
         properties: {
-          capability: { type: "string", enum: caps.map((c) => c.name), description: "which action to propose" },
-          params: { type: "object", description: "the parameters for that action", additionalProperties: true }
+          action: {
+            description: "Exactly one proposed, capability-specific action.",
+            anyOf: variants
+          }
         },
-        required: ["capability", "params"],
+        required: ["action"],
         additionalProperties: false
       }
     }
@@ -60947,7 +63394,8 @@ function buildExecutor(proposals) {
   return async (name, args) => {
     if (name === "propose_action") {
       if (!gates.assistantWriteTier()) return { proposed: false, error: "proposing actions is switched off" };
-      const v = validateProposal(String(args.capability ?? ""), args.params ?? {});
+      const proposed = args.action && typeof args.action === "object" && !Array.isArray(args.action) ? args.action : args;
+      const v = validateProposal(String(proposed.capability ?? ""), proposed.params ?? {});
       if (!v.ok || !v.capability || !v.params) {
         return { proposed: false, error: v.error ?? "invalid proposal" };
       }
@@ -60990,6 +63438,7 @@ function queueLabelFromCase(c) {
 }
 function caseCard(c) {
   return {
+    caseId: c.id,
     casePo: c.casePo ?? null,
     vrm: c.vrm || null,
     queue: queueLabelFromCase(c),
@@ -61044,7 +63493,7 @@ async function execTool(name, args) {
         preds.push("regexp_replace(upper(c.case_po), '[^A-Z0-9]', '', 'g') LIKE $2");
       }
       const rows = await query(
-        `SELECT c.case_po, c.vrm, c.case_ref, c.status_code, c.on_hold, c.eva_claimant_name AS claimant,
+        `SELECT c.id AS case_id, c.case_po, c.vrm, c.case_ref, c.status_code, c.on_hold, c.eva_claimant_name AS claimant,
                 wp.display_name AS provider
            FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
           WHERE ${preds.join(" OR ")}
@@ -61053,6 +63502,7 @@ async function execTool(name, args) {
       );
       return {
         matches: rows.map((r) => ({
+          caseId: r.case_id,
           casePo: r.case_po ?? null,
           vrm: r.vrm ?? null,
           ref: r.case_ref ?? null,
@@ -61089,17 +63539,20 @@ async function execTool(name, args) {
     case "search_inbound": {
       const q = `%${String(args.query ?? "").trim().slice(0, 80)}%`;
       const rows = await query(
-        `SELECT subject, from_address, received_on, category_code
+        `SELECT id, subject, from_address, received_on, category_code, subtype_code, triage_state
            FROM inbound_email WHERE subject ILIKE $1 OR from_address ILIKE $1
           ORDER BY received_on DESC LIMIT 5`,
         [q]
       );
       return {
         matches: rows.map((r) => ({
+          inboundId: r.id,
           subject: r.subject ?? null,
           from: r.from_address ?? null,
           received: r.received_on ?? null,
-          category: categoryName(r.category_code)
+          category: categoryName(r.category_code),
+          subtype: r.subtype_code == null ? null : String(inboundSubtypeCodec.toName(r.subtype_code) ?? "unknown"),
+          triageState: r.triage_state ?? "new"
         }))
       };
     }
@@ -61127,6 +63580,7 @@ async function execTool(name, args) {
       );
       return {
         found: true,
+        caseId: row.id,
         casePo: row.case_po ?? null,
         entries: rows.map(rowToActivityEvent).map((e) => ({
           when: e.timestamp,
@@ -61165,18 +63619,22 @@ async function execTool(name, args) {
       const row = await resolveCaseRow(args.case);
       if (!row) return { found: false, emails: [] };
       const rows = await query(
-        `SELECT subject, from_address, received_on, category_code, triage_state
+        `SELECT id, subject, from_address, received_on, category_code, subtype_code, triage_state
            FROM inbound_email WHERE case_id = $1 ORDER BY received_on DESC LIMIT 15`,
         [row.id]
       );
       return {
         found: true,
+        caseId: row.id,
         casePo: row.case_po ?? null,
         emails: rows.map((r) => ({
+          inboundId: r.id,
           subject: r.subject ?? null,
           from: r.from_address ?? null,
           received: r.received_on ?? null,
-          category: categoryName(r.category_code)
+          category: categoryName(r.category_code),
+          subtype: r.subtype_code == null ? null : String(inboundSubtypeCodec.toName(r.subtype_code) ?? "unknown"),
+          triageState: r.triage_state ?? "new"
         }))
       };
     }
@@ -61291,7 +63749,10 @@ import_functions11.app.http("aiChatGate", {
   route: "gates/ai-chat",
   handler: withRole("CollisionSpike.User", async () => ({
     status: 200,
-    jsonBody: { enabled: gates.aiChatEnabled() }
+    jsonBody: {
+      enabled: gates.aiChatEnabled(),
+      writeEnabled: gates.assistantWriteTier()
+    }
   }))
 });
 
@@ -61550,33 +64011,472 @@ import_functions14.app.http("patchEvidence", {
     const id = req.params.id;
     if (!id) return { status: 400, jsonBody: { error: "evidence id required" } };
     const body2 = await req.json().catch(() => ({}));
-    if (typeof body2.reflectionDismissed !== "boolean") {
-      return { status: 400, jsonBody: { error: "reflectionDismissed (boolean) is required" } };
+    const supplied = (key) => Object.prototype.hasOwnProperty.call(body2, key);
+    const supported = [
+      "imageRole",
+      "registrationVisible",
+      "acceptedForEva",
+      "excluded",
+      "reflectionDismissed"
+    ];
+    if (!supported.some(supplied)) {
+      return { status: 400, jsonBody: { error: "at least one review field is required" } };
     }
-    const rows = await query(
-      `UPDATE evidence
-          SET reflection_dismissed = $2, updated_at = now()
-        WHERE id = $1
-        RETURNING *`,
-      [id, body2.reflectionDismissed]
+    if (supplied("imageRole") && typeof body2.imageRole !== "string") {
+      return { status: 400, jsonBody: { error: "imageRole is not recognised" } };
+    }
+    const roleCode = supplied("imageRole") ? imageRoleCodec.toInt(body2.imageRole) : void 0;
+    if (supplied("imageRole") && roleCode == null) {
+      return { status: 400, jsonBody: { error: "imageRole is not recognised" } };
+    }
+    for (const key of ["registrationVisible", "acceptedForEva", "excluded", "reflectionDismissed"]) {
+      if (supplied(key) && typeof body2[key] !== "boolean") {
+        return { status: 400, jsonBody: { error: `${key} must be boolean` } };
+      }
+    }
+    if (supplied("exclusionReason") && !supplied("excluded")) {
+      return { status: 400, jsonBody: { error: "exclusionReason requires excluded" } };
+    }
+    if (supplied("exclusionReason") && body2.exclusionReason !== null && typeof body2.exclusionReason !== "string") {
+      return { status: 400, jsonBody: { error: "exclusionReason must be text or null" } };
+    }
+    if (typeof body2.exclusionReason === "string" && body2.exclusionReason.trim().length > 400) {
+      return { status: 400, jsonBody: { error: "exclusionReason must be 400 characters or fewer" } };
+    }
+    const imageKind = evidenceKindCodec.toInt("image") ?? 1e8;
+    const owner = await query(
+      "SELECT case_id FROM evidence WHERE id = $1 AND kind_code = $2",
+      [id, imageKind]
     );
-    const updated = rows[0];
-    if (!updated) return { status: 404, jsonBody: { error: "not found" } };
+    if (!owner[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const mutation = await tx(async (q) => {
+      const caseLock = await lockCaseForMutation(q, owner[0].case_id);
+      if (caseLock.kind === "missing") return { kind: "missing" };
+      if (caseLock.kind === "retired") {
+        return { kind: "retired", mergedInto: caseLock.mergedInto };
+      }
+      const currentRows = await q(
+        "SELECT * FROM evidence WHERE id = $1 AND case_id = $2 AND kind_code = $3 FOR UPDATE",
+        [id, caseLock.caseId, imageKind]
+      );
+      const current = currentRows[0];
+      if (!current) return { kind: "moved" };
+      let nextRole = current.image_role_code;
+      let nextRoleSource = current.image_role_source;
+      let nextRegistration = current.registration_visible;
+      let nextRegistrationSource = current.registration_visible_source;
+      let nextAccepted = current.accepted_for_eva;
+      let nextAcceptedSource = current.accepted_for_eva_source;
+      let nextExcluded = current.excluded === true;
+      let nextReason = current.exclusion_reason ?? null;
+      let nextExclusionSource = current.exclusion_decision_source;
+      let nextReflectionDismissed = current.reflection_dismissed === true;
+      if (roleCode != null) {
+        nextRole = roleCode;
+        nextRoleSource = "staff";
+      }
+      if (typeof body2.registrationVisible === "boolean") {
+        nextRegistration = body2.registrationVisible;
+        nextRegistrationSource = "staff";
+      }
+      if (typeof body2.acceptedForEva === "boolean") {
+        nextAccepted = body2.acceptedForEva;
+        nextAcceptedSource = "staff";
+      }
+      const usableRole = body2.imageRole === "overview" || body2.imageRole === "damage_closeup" || body2.imageRole === "additional";
+      if (usableRole && body2.acceptedForEva === true && current.person_reflection !== true && (nextExclusionSource == null || nextExclusionSource === "classifier")) {
+        nextExcluded = false;
+        nextReason = null;
+        nextExclusionSource = "staff";
+      }
+      if (typeof body2.excluded === "boolean") {
+        nextExcluded = body2.excluded;
+        nextReason = body2.excluded ? (typeof body2.exclusionReason === "string" ? body2.exclusionReason.trim() : "") || "Excluded by reviewer" : null;
+        nextExclusionSource = "staff";
+      }
+      if (typeof body2.reflectionDismissed === "boolean") {
+        nextReflectionDismissed = body2.reflectionDismissed;
+      }
+      const readinessChanged = nextRole !== current.image_role_code || nextRegistration !== current.registration_visible || nextAccepted !== current.accepted_for_eva || nextExcluded !== current.excluded;
+      const changed = readinessChanged || nextReason !== current.exclusion_reason || nextRoleSource !== current.image_role_source || nextRegistrationSource !== current.registration_visible_source || nextAcceptedSource !== current.accepted_for_eva_source || nextExclusionSource !== current.exclusion_decision_source || nextReflectionDismissed !== current.reflection_dismissed;
+      const exclusionWouldStart = current.excluded !== true && nextExcluded === true;
+      const claimExpiresAt = current.archive_mirror_claim_expires_at ? new Date(String(current.archive_mirror_claim_expires_at)).getTime() : 0;
+      if (exclusionWouldStart && current.archive_mirror_claim_token && Number.isFinite(claimExpiresAt) && claimExpiresAt > Date.now()) {
+        return { kind: "archive_busy" };
+      }
+      if (!changed) {
+        return {
+          kind: "updated",
+          value: { current, updated: current, readinessChanged: false, changed: false }
+        };
+      }
+      const rows = await q(
+        `UPDATE evidence
+            SET image_role_code = $2,
+                image_role_source = $3,
+                registration_visible = $4,
+                registration_visible_source = $5,
+                accepted_for_eva = $6,
+                accepted_for_eva_source = $7,
+                excluded = $8,
+                exclusion_reason = $9,
+                exclusion_decision_source = $10,
+                reflection_dismissed = $11,
+                archive_mirror_decision_generation =
+                  archive_mirror_decision_generation +
+                  CASE WHEN excluded IS DISTINCT FROM $8 THEN 1 ELSE 0 END,
+                updated_at = now()
+          WHERE id = $1 AND kind_code = $12
+            AND (
+              NOT $13
+              OR archive_mirror_claim_token IS NULL
+              OR archive_mirror_claim_expires_at <= now()
+            )
+          RETURNING *`,
+        [
+          id,
+          nextRole,
+          nextRoleSource,
+          nextRegistration,
+          nextRegistrationSource,
+          nextAccepted,
+          nextAcceptedSource,
+          nextExcluded,
+          nextReason,
+          nextExclusionSource,
+          nextReflectionDismissed,
+          imageKind,
+          exclusionWouldStart
+        ]
+      );
+      if (!rows[0]) return { kind: "moved" };
+      const becameArchiveEligible = current.excluded === true && nextExcluded === false && typeof current.storage_path === "string" && current.storage_path.trim().length > 0 && (typeof current.box_file_id !== "string" || current.box_file_id.trim().length === 0);
+      if (becameArchiveEligible) {
+        await requestArchiveMirrorIfEligible(q, rows[0]);
+      }
+      if (readinessChanged) await requestStatusRecompute(q, String(current.case_id));
+      return {
+        kind: "updated",
+        value: { current, updated: rows[0], readinessChanged, changed: true }
+      };
+    });
+    if (mutation.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+    if (mutation.kind === "archive_busy") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "This photo is being added to the Archive. Try excluding it again shortly.",
+          code: "archive_in_progress"
+        }
+      };
+    }
+    if (mutation.kind === "retired" || mutation.kind === "moved") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "This case changed while the photo was being saved. Refresh and try again.",
+          ...mutation.kind === "retired" ? { targetCaseId: mutation.mergedInto } : {}
+        }
+      };
+    }
+    const result = mutation.value;
+    if (!result.changed) return { status: 200, jsonBody: rowToEvidence(result.updated) };
     const actor = actorFromClaims(claims);
     await writeAudit({
       action: AUDIT_ACTION.attachment_classified,
-      ...updated.case_id ? { caseId: updated.case_id } : {},
-      summary: body2.reflectionDismissed ? `Reflection warning dismissed on ${updated.file_name ?? id}` : `Reflection warning restored on ${updated.file_name ?? id}`,
-      after: { evidenceId: id, reflectionDismissed: body2.reflectionDismissed },
+      ...result.updated.case_id ? { caseId: result.updated.case_id } : {},
+      summary: `Photo review updated for ${result.updated.file_name ?? id}`,
+      before: {
+        imageRole: result.current.image_role_code,
+        registrationVisible: result.current.registration_visible,
+        acceptedForEva: result.current.accepted_for_eva,
+        excluded: result.current.excluded,
+        reflectionDismissed: result.current.reflection_dismissed
+      },
+      after: {
+        evidenceId: id,
+        imageRole: result.updated.image_role_code,
+        registrationVisible: result.updated.registration_visible,
+        acceptedForEva: result.updated.accepted_for_eva,
+        excluded: result.updated.excluded,
+        reflectionDismissed: result.updated.reflection_dismissed
+      },
       ...actor ? { actor } : {}
     });
-    return { status: 200, jsonBody: rowToEvidence(updated) };
+    return { status: 200, jsonBody: rowToEvidence(result.updated) };
   })
 });
 
-// api/src/functions/evidence-upload.ts
+// api/src/functions/archive-mirror-outbox.ts
 var import_functions15 = require("@azure/functions");
-var import_node_crypto9 = require("node:crypto");
+async function withServiceAuth2(req, ctx, fn) {
+  try {
+    await authenticate(req);
+    return await fn();
+  } catch (e) {
+    return toErrorResponse(e, ctx);
+  }
+}
+function isMirrorEligible(row) {
+  const boxFileId = typeof row.box_file_id === "string" ? row.box_file_id.trim() : "";
+  return row.excluded === false && typeof row.storage_path === "string" && row.storage_path.trim().length > 0 && !boxFileId;
+}
+import_functions15.app.http("internalArchiveMirrorOutboxPending", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/archive-mirror-outbox/pending",
+  handler: (req, ctx) => withServiceAuth2(req, ctx, async () => {
+    const rawLimit = Number(req.query.get("limit") ?? "100");
+    const limit = Number.isSafeInteger(rawLimit) && rawLimit >= 1 && rawLimit <= 500 ? rawLimit : 100;
+    const rows = await query(
+      `SELECT
+           o.evidence_id AS "evidenceId",
+           e.case_id AS "caseId",
+           o.requested_generation AS generation,
+           (e.excluded = false
+             AND NULLIF(btrim(e.storage_path), '') IS NOT NULL
+             AND NULLIF(btrim(e.box_file_id), '') IS NULL) AS "mirrorEligible"
+         FROM archive_mirror_outbox o
+         JOIN evidence e ON e.id = o.evidence_id
+        WHERE o.requested_generation > o.completed_generation
+          AND o.next_attempt_at <= now()
+        ORDER BY o.next_attempt_at, o.requested_at, o.evidence_id
+        LIMIT $1`,
+      [limit]
+    );
+    return {
+      status: 200,
+      jsonBody: {
+        rows: rows.map((row) => ({
+          evidenceId: row.evidenceId,
+          caseId: row.caseId,
+          generation: Number(row.generation),
+          mirrorEligible: row.mirrorEligible
+        }))
+      }
+    };
+  })
+});
+import_functions15.app.http("internalArchiveMirrorOutboxComplete", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/archive-mirror-outbox/{id}/complete",
+  handler: (req, ctx) => withServiceAuth2(req, ctx, async () => {
+    const evidenceId = req.params.id?.trim();
+    if (!evidenceId) return { status: 400, jsonBody: { error: "evidenceId required" } };
+    const body2 = await req.json().catch(() => ({}));
+    const generation = Number(body2.generation);
+    if (!Number.isSafeInteger(generation) || generation < 1) {
+      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
+    }
+    let result;
+    for (let attempt = 0; attempt < 4 && !result; attempt++) {
+      const owner = await query(
+        "SELECT case_id FROM evidence WHERE id = $1",
+        [evidenceId]
+      );
+      if (!owner[0]) {
+        result = { completed: true, pending: false, missing: true };
+        break;
+      }
+      const resolved = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, owner[0].case_id);
+        const evidence = await q(
+          `SELECT case_id, excluded, storage_path, box_file_id
+               FROM evidence
+              WHERE id = $1
+              FOR UPDATE`,
+          [evidenceId]
+        );
+        const evidenceRow = evidence[0];
+        if (!evidenceRow) return { kind: "retry" };
+        const evidenceCaseId = evidenceRow.case_id.trim().toLowerCase();
+        if (evidenceCaseId !== lockedCase.caseId) {
+          return { kind: "retry" };
+        }
+        const rows = await q(
+          `SELECT requested_generation, completed_generation
+               FROM archive_mirror_outbox
+              WHERE evidence_id = $1
+              FOR UPDATE`,
+          [evidenceId]
+        );
+        const outbox = rows[0];
+        if (!outbox) {
+          return { kind: "done", value: { completed: true, pending: false, missing: true } };
+        }
+        const requested = Number(outbox.requested_generation);
+        const completed = Number(outbox.completed_generation);
+        if (lockedCase.kind !== "active") {
+          return completed >= requested ? { kind: "done", value: { completed: true, pending: false } } : { kind: "retry" };
+        }
+        if (generation <= completed) {
+          return {
+            kind: "done",
+            value: { completed: true, pending: requested > completed }
+          };
+        }
+        const mirrorState = {
+          ...outbox,
+          excluded: evidenceRow.excluded,
+          storage_path: evidenceRow.storage_path,
+          box_file_id: evidenceRow.box_file_id
+        };
+        if (isMirrorEligible(mirrorState)) {
+          return {
+            kind: "done",
+            value: { completed: false, pending: true }
+          };
+        }
+        const acknowledged = Math.min(generation, requested);
+        await q(
+          `UPDATE archive_mirror_outbox
+                SET completed_generation = $2,
+                    completed_at = CASE WHEN $2 >= requested_generation THEN now() ELSE completed_at END,
+                    attempt_count = 0,
+                    next_attempt_at = now(),
+                    last_attempt_at = now(),
+                    last_error = NULL,
+                    updated_at = now()
+              WHERE evidence_id = $1`,
+          [evidenceId, acknowledged]
+        );
+        return {
+          kind: "done",
+          value: {
+            completed: true,
+            // A newer staff reversal raced this exact acknowledgement; leave it pending.
+            pending: acknowledged < requested
+          }
+        };
+      });
+      if (resolved.kind === "done") result = resolved.value;
+    }
+    if (!result) {
+      return {
+        status: 409,
+        jsonBody: { error: "evidence moved while completion was being checked", code: "evidence_moved" }
+      };
+    }
+    return { status: 200, jsonBody: result };
+  })
+});
+import_functions15.app.http("internalArchiveMirrorOutboxDefer", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/archive-mirror-outbox/{id}/defer",
+  handler: (req, ctx) => withServiceAuth2(req, ctx, async () => {
+    const evidenceId = req.params.id?.trim();
+    if (!evidenceId) return { status: 400, jsonBody: { error: "evidenceId required" } };
+    const body2 = await req.json().catch(() => ({}));
+    const generation = Number(body2.generation);
+    if (!Number.isSafeInteger(generation) || generation < 1) {
+      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
+    }
+    const reason = typeof body2.reason === "string" ? body2.reason.trim().slice(0, 200) || "archive pass incomplete" : "archive pass incomplete";
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const owner = await query(
+        "SELECT case_id FROM evidence WHERE id = $1",
+        [evidenceId]
+      );
+      if (!owner[0]) {
+        return { status: 200, jsonBody: { deferred: false, pending: false, missing: true } };
+      }
+      const deferred = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, owner[0].case_id);
+        const evidence = await q(
+          "SELECT case_id FROM evidence WHERE id = $1 FOR UPDATE",
+          [evidenceId]
+        );
+        if (!evidence[0] || evidence[0].case_id.trim().toLowerCase() !== lockedCase.caseId) {
+          return { kind: "retry" };
+        }
+        const outbox = await q(
+          `SELECT requested_generation, completed_generation
+               FROM archive_mirror_outbox
+              WHERE evidence_id = $1
+              FOR UPDATE`,
+          [evidenceId]
+        );
+        if (!outbox[0]) {
+          return { kind: "done", value: { deferred: false, pending: false, missing: true } };
+        }
+        const requested = Number(outbox[0].requested_generation);
+        const completed = Number(outbox[0].completed_generation);
+        if (completed >= requested) {
+          return { kind: "done", value: { deferred: false, pending: false } };
+        }
+        if (lockedCase.kind !== "active" || requested !== generation) {
+          return { kind: "done", value: { deferred: false, pending: true } };
+        }
+        const rows = await q(
+          `UPDATE archive_mirror_outbox
+                SET attempt_count = attempt_count + 1,
+                    last_attempt_at = now(),
+                    last_error = $3,
+                    next_attempt_at = now() + make_interval(
+                      secs => LEAST(3600, (30 * power(2, LEAST(attempt_count, 6)))::integer)
+                    ),
+                    updated_at = now()
+              WHERE evidence_id = $1
+                AND requested_generation = $2
+                AND completed_generation < requested_generation
+            RETURNING next_attempt_at`,
+          [evidenceId, generation, reason]
+        );
+        return {
+          kind: "done",
+          value: {
+            deferred: rows.length > 0,
+            pending: true,
+            ...rows[0] ? { nextAttemptAt: rows[0].next_attempt_at } : {}
+          }
+        };
+      });
+      if (deferred.kind === "done") return { status: 200, jsonBody: deferred.value };
+    }
+    return {
+      status: 409,
+      jsonBody: { error: "evidence moved while retry was being deferred", code: "evidence_moved" }
+    };
+  })
+});
+
+// api/src/functions/box-file-request-outbox.ts
+var import_functions16 = require("@azure/functions");
+async function drainBoxFileRequestOutbox() {
+  if (!gates.boxApi() || !gates.boxFileRequest()) return { processed: 0, completed: 0 };
+  const caseIds = await pendingBoxFileRequestCaseIds();
+  let completed = 0;
+  for (const caseId of caseIds) {
+    const result = await processBoxFileRequestIntent(caseId);
+    if (result.kind === "ok") completed++;
+  }
+  return { processed: caseIds.length, completed };
+}
+import_functions16.app.timer("box-file-request-outbox-drain", {
+  schedule: "30 * * * * *",
+  handler: async () => {
+    try {
+      await drainBoxFileRequestOutbox();
+    } catch (error) {
+      console.error("[box-file-request] timer drain failed", error);
+    }
+  }
+});
+import_functions16.app.http("internalBoxFileRequestOutboxDrain", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/box-file-request-outbox/drain",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => ({
+    status: 200,
+    jsonBody: await drainBoxFileRequestOutbox()
+  }))
+});
+
+// api/src/functions/evidence-upload.ts
+var import_functions17 = require("@azure/functions");
+var import_node_crypto10 = require("node:crypto");
 
 // api/src/lib/upload-validate.ts
 var MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
@@ -61594,9 +64494,9 @@ function classifyUpload(contentType2, size) {
 }
 
 // api/src/functions/evidence-upload.ts
-var IMAGE_KIND_CODE = 1e8;
+var IMAGE_KIND_CODE2 = 1e8;
 var DOCUMENT_KIND_CODE = 100000002;
-import_functions15.app.http("uploadCaseEvidence", {
+import_functions17.app.http("uploadCaseEvidence", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/evidence/upload",
@@ -61614,6 +64514,7 @@ import_functions15.app.http("uploadCaseEvidence", {
     if (!files.length) return { status: 400, jsonBody: { error: "no files provided" } };
     const added = [];
     const rejected = [];
+    let retiredTargetCaseId;
     for (const file of files) {
       const check = classifyUpload(file.type, file.size);
       if (!check.ok) {
@@ -61622,15 +64523,37 @@ import_functions15.app.http("uploadCaseEvidence", {
       }
       try {
         const bytes = Buffer.from(await file.arrayBuffer());
-        const sha256 = (0, import_node_crypto9.createHash)("sha256").update(bytes).digest("hex");
+        const sha256 = (0, import_node_crypto10.createHash)("sha256").update(bytes).digest("hex");
         const { blobPath, size } = await uploadEvidenceBytes(caseId, file.name, bytes, file.type);
-        const kindCode = check.kind === "image" ? IMAGE_KIND_CODE : DOCUMENT_KIND_CODE;
-        await query(
-          `INSERT INTO evidence
-             (file_name, case_id, kind_code, sha256, content_type, size_bytes, storage_path, source_label)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 'assistant_upload')`,
-          [file.name, caseId, kindCode, sha256, file.type, size, blobPath]
-        );
+        const kindCode = check.kind === "image" ? IMAGE_KIND_CODE2 : DOCUMENT_KIND_CODE;
+        const persisted = await tx(async (q) => {
+          const caseLock = await lockCaseForMutation(q, caseId);
+          if (caseLock.kind !== "active") return caseLock;
+          const inserted = await q(
+            `INSERT INTO evidence
+               (file_name, case_id, kind_code, sha256, content_type, size_bytes, storage_path,
+                source_label)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'assistant_upload')
+          RETURNING id, case_id, excluded, storage_path, box_file_id`,
+            [file.name, caseLock.caseId, kindCode, sha256, file.type, size, blobPath]
+          );
+          if (!inserted[0]) throw new Error("evidence insert returned no row");
+          await requestArchiveMirrorIfEligible(q, inserted[0]);
+          if (kindCode === IMAGE_KIND_CODE2) await requestStatusRecompute(q, caseLock.caseId);
+          return { kind: "persisted" };
+        });
+        if (persisted.kind === "retired") {
+          retiredTargetCaseId = persisted.mergedInto;
+          rejected.push({
+            fileName: file.name,
+            reason: "This case changed while the file was uploading. Refresh and try again."
+          });
+          break;
+        }
+        if (persisted.kind === "missing") {
+          rejected.push({ fileName: file.name, reason: "This case is no longer available." });
+          break;
+        }
         added.push({ fileName: file.name });
       } catch (e) {
         ctx.error(`[evidence-upload] ${file.name}: ${e instanceof Error ? e.message : String(e)}`);
@@ -61647,12 +64570,19 @@ import_functions15.app.http("uploadCaseEvidence", {
         ...actor ? { actor } : {}
       });
     }
-    return { status: added.length ? 201 : 400, jsonBody: { added, rejected } };
+    return {
+      status: added.length ? 201 : retiredTargetCaseId ? 409 : 400,
+      jsonBody: {
+        added,
+        rejected,
+        ...retiredTargetCaseId ? { targetCaseId: retiredTargetCaseId } : {}
+      }
+    };
   })
 });
 
 // api/src/functions/ai-suggestions.ts
-var import_functions16 = require("@azure/functions");
+var import_functions18 = require("@azure/functions");
 
 // api/src/lib/aoai-suggestions.ts
 var CASE_ASSESSMENT_SUGGESTION_TYPES = {
@@ -61877,9 +64807,147 @@ ${capText(body2, SECTION_CHAR_CAP)}` });
   return { text, hasInput: sections.length > 0, sections: sections.map((s) => s.name) };
 }
 
+// api/src/lib/evidence-backfill-queue.ts
+var EVIDENCE_BACKFILL_QUEUE_NAME = "evidence-backfill";
+async function enqueueEvidenceBackfill(job) {
+  const serviceUrl = gates.evidenceBackfillQueueServiceUrl();
+  if (!serviceUrl) throw new Error("evidence-backfill queue service URL not configured");
+  await enqueueQueueMessage(serviceUrl, EVIDENCE_BACKFILL_QUEUE_NAME, job);
+}
+
 // api/src/functions/ai-suggestions.ts
-var IMAGE_ROLE_UNKNOWN = 100000003;
-import_functions16.app.http("caseAiSuggestions", {
+var IMAGE_KIND = 1e8;
+async function acceptedEvidenceBackfillTarget(inboundEmailId, currentOwner) {
+  const accepted = await query(
+    `SELECT NULLIF(btrim(s.suggested_value ->> 'targetCaseId'), '') AS target_case_id
+       FROM ai_suggestion s
+      WHERE s.inbound_email_id = $1
+        AND s.suggestion_type = 'case_link'
+        AND s.review_state = 'accepted'
+        AND NULLIF(btrim(s.suggested_value ->> 'targetCaseId'), '') IS NOT NULL
+      ORDER BY s.reviewed_at DESC NULLS LAST, s.created_at DESC, s.id DESC`,
+    [inboundEmailId]
+  );
+  const canonicalOwner = currentOwner.trim().toLowerCase();
+  for (const candidate of accepted) {
+    const target = candidate.target_case_id?.trim();
+    if (!target) continue;
+    if (target.toLowerCase() === canonicalOwner) return target;
+    if (await verifiedMergeLineage(query, target, currentOwner)) return target;
+  }
+  return void 0;
+}
+async function drainEvidenceBackfillRequests(inboundEmailId, limit = 50) {
+  const effectiveLimit = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 250) : 50;
+  const scanPageSize = inboundEmailId ? 1 : Math.max(50, effectiveLimit);
+  let cursorUpdatedAt = null;
+  let cursorId = null;
+  let promotedLegacy = 0;
+  while (promotedLegacy < effectiveLimit) {
+    const legacy = await query(
+      `SELECT ie.id, ie.case_id, ie.source_mailbox, ie.source_message_id, ie.subject,
+              ie.evidence_backfill_requested_generation,
+              ie.evidence_backfill_enqueued_generation,
+              ie.updated_at AS scan_updated_at
+         FROM inbound_email ie
+        WHERE ie.evidence_backfill_requested_generation = 0
+          AND ie.case_id IS NOT NULL
+          AND ie.has_attachments = true
+          AND NULLIF(btrim(ie.source_mailbox), '') IS NOT NULL
+          AND NULLIF(btrim(ie.source_message_id), '') IS NOT NULL
+          ${inboundEmailId ? "AND ie.id = $1" : "AND ($1::timestamptz IS NULL OR (ie.updated_at, ie.id) > ($1::timestamptz, $2::uuid))"}
+          AND EXISTS (
+            SELECT 1
+              FROM ai_suggestion s
+             WHERE s.inbound_email_id = ie.id
+               AND s.suggestion_type = 'case_link'
+               AND s.review_state = 'accepted'
+               AND NULLIF(btrim(s.suggested_value ->> 'targetCaseId'), '') IS NOT NULL
+          )
+        ORDER BY ie.updated_at, ie.id
+        LIMIT $${inboundEmailId ? 2 : 3}`,
+      inboundEmailId ? [inboundEmailId, scanPageSize] : [cursorUpdatedAt, cursorId, scanPageSize]
+    );
+    if (legacy.length === 0) break;
+    for (const candidate of legacy) {
+      if (promotedLegacy >= effectiveLimit) break;
+      const acceptedTarget = await acceptedEvidenceBackfillTarget(candidate.id, candidate.case_id);
+      if (!acceptedTarget) continue;
+      const promoted = await query(
+        `UPDATE inbound_email
+            SET evidence_backfill_requested_generation = 1,
+                evidence_backfill_requested_at = now(),
+                updated_at = now()
+          WHERE id = $1
+            AND case_id = $2
+            AND evidence_backfill_requested_generation = 0
+        RETURNING id`,
+        [candidate.id, candidate.case_id]
+      );
+      if (promoted[0]) promotedLegacy++;
+    }
+    if (inboundEmailId || legacy.length < scanPageSize) break;
+    const last = legacy[legacy.length - 1];
+    cursorUpdatedAt = last.scan_updated_at;
+    cursorId = last.id;
+  }
+  const rows = await query(
+    `SELECT ie.id, ie.case_id, ie.source_mailbox, ie.source_message_id, ie.subject,
+            ie.evidence_backfill_requested_generation,
+            ie.evidence_backfill_enqueued_generation
+       FROM inbound_email ie
+      WHERE ie.evidence_backfill_requested_generation > ie.evidence_backfill_enqueued_generation
+        AND ie.case_id IS NOT NULL
+        AND NULLIF(btrim(ie.source_mailbox), '') IS NOT NULL
+        AND NULLIF(btrim(ie.source_message_id), '') IS NOT NULL
+        ${inboundEmailId ? "AND ie.id = $1" : ""}
+      ORDER BY ie.evidence_backfill_requested_at, ie.id
+      LIMIT $${inboundEmailId ? 2 : 1}`,
+    inboundEmailId ? [inboundEmailId, effectiveLimit] : [effectiveLimit]
+  );
+  let published = 0;
+  let failed = 0;
+  for (const row of rows) {
+    const generation = Number(row.evidence_backfill_requested_generation);
+    const targetCaseId = await acceptedEvidenceBackfillTarget(row.id, row.case_id);
+    if (!targetCaseId) continue;
+    try {
+      await enqueueEvidenceBackfill({
+        inboundEmailId: row.id,
+        generation,
+        sourceMailbox: row.source_mailbox.trim(),
+        sourceMessageId: row.source_message_id.trim(),
+        // For the first durable generation, preserve the case that staff actually
+        // accepted. The consumer validates/follows its mergedInto lineage to the
+        // row's current owner; a manual unrelated relink therefore settles stale
+        // instead of copying attachments onto the wrong case.
+        targetCaseId,
+        subject: row.subject ?? ""
+      });
+      await query(
+        `UPDATE inbound_email
+            SET evidence_backfill_enqueued_generation = GREATEST(
+                  evidence_backfill_enqueued_generation,
+                  $2
+                ),
+                evidence_backfill_enqueued_at = now(),
+                updated_at = now()
+          WHERE id = $1
+            AND case_id = $3
+            AND evidence_backfill_requested_generation >= $2`,
+        [row.id, generation, row.case_id]
+      );
+      published++;
+    } catch (error) {
+      failed++;
+      console.error(
+        `[ai-suggestions] evidence-backfill publish failed for inbound ${row.id}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+  return { published, failed };
+}
+import_functions18.app.http("caseAiSuggestions", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "cases/{id}/ai-suggestions",
@@ -61900,7 +64968,7 @@ import_functions16.app.http("caseAiSuggestions", {
     }
   })
 });
-import_functions16.app.http("reviewAiSuggestion", {
+import_functions18.app.http("reviewAiSuggestion", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "ai-suggestions/{id}/review",
@@ -61920,12 +64988,213 @@ import_functions16.app.http("reviewAiSuggestion", {
     const row = existing[0];
     const actor = actorFromClaims(claims);
     if (row.review_state !== "pending") {
+      if (row.suggestion_type === "case_link" && typeof row.inbound_email_id === "string") {
+        await drainEvidenceBackfillRequests(row.inbound_email_id, 1);
+      }
       const result2 = {
         id,
         reviewState: row.review_state,
         promoted: false
       };
       return { status: 200, jsonBody: result2 };
+    }
+    if (decision === "accepted" && (row.suggestion_type === "image_role" || row.suggestion_type === "registration")) {
+      const atomic = await tx(async (q) => {
+        const locked = await q(
+          `SELECT id, case_id, evidence_id, inbound_email_id, suggestion_type,
+                  suggested_value, review_state
+             FROM ai_suggestion WHERE id = $1
+            FOR UPDATE`,
+          [id]
+        );
+        const current = locked[0];
+        if (!current) return { kind: "missing" };
+        if (current.review_state !== "pending") {
+          return { kind: "reviewed", row: current };
+        }
+        const evidenceId = typeof current.evidence_id === "string" ? current.evidence_id : "";
+        const owner = evidenceId ? await q("SELECT case_id FROM evidence WHERE id = $1", [evidenceId]) : [];
+        if (!owner[0]) return { kind: "conflict", row: current };
+        const caseLock = await lockCaseForMutation(q, owner[0].case_id);
+        if (caseLock.kind !== "active") return { kind: "conflict", row: current };
+        const evidenceLock = await q(
+          "SELECT id FROM evidence WHERE id = $1 AND case_id = $2 FOR UPDATE",
+          [evidenceId, caseLock.caseId]
+        );
+        if (!evidenceLock[0]) return { kind: "conflict", row: current };
+        const promotion2 = await promoteAcceptedSuggestion(current, actor, q, caseLock.caseId);
+        if (!promotion2.promoted) {
+          return { kind: "conflict", row: current };
+        }
+        const reviewed = await q(
+          `UPDATE ai_suggestion
+              SET review_state = 'accepted', reviewed_by = $2, reviewed_at = now()
+            WHERE id = $1 AND review_state = 'pending'
+          RETURNING id, review_state`,
+          [id, actor ?? null]
+        );
+        if (!reviewed[0]) throw new Error("suggestion review race after row lock");
+        return { kind: "accepted", row: current, promotion: promotion2 };
+      });
+      if (atomic.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+      if (atomic.kind === "conflict") {
+        return {
+          status: 409,
+          jsonBody: { error: "suggestion target changed; refresh and review again" }
+        };
+      }
+      if (atomic.kind === "reviewed") {
+        const result3 = {
+          id,
+          reviewState: atomic.row.review_state,
+          promoted: false
+        };
+        return { status: 200, jsonBody: result3 };
+      }
+      await writeAudit({
+        action: AUDIT_ACTION.ai_suggestion_accepted,
+        ...atomic.row.case_id ? { caseId: atomic.row.case_id } : {},
+        summary: `AI suggestion ${atomic.row.suggestion_type} accepted${atomic.promotion.promoted ? ` (promoted -> ${atomic.promotion.promotedField})` : ""}`,
+        before: { reviewState: "pending" },
+        after: {
+          reviewState: "accepted",
+          suggestionId: id,
+          suggestionType: atomic.row.suggestion_type,
+          ...atomic.promotion.promoted ? { promotedField: atomic.promotion.promotedField } : {}
+        },
+        ...actor ? { actor } : {}
+      });
+      const result2 = {
+        id,
+        reviewState: "accepted",
+        promoted: atomic.promotion.promoted,
+        ...atomic.promotion.promotedField ? { promotedField: atomic.promotion.promotedField } : {}
+      };
+      return { status: 200, jsonBody: result2 };
+    }
+    if (decision === "accepted" && row.suggestion_type === "case_link") {
+      const atomic = await tx(async (q) => {
+        const locked = await q(
+          `SELECT id, case_id, evidence_id, inbound_email_id, suggestion_type,
+                  suggested_value, review_state
+             FROM ai_suggestion WHERE id = $1
+            FOR UPDATE`,
+          [id]
+        );
+        const current = locked[0];
+        if (!current) return { kind: "missing" };
+        if (current.review_state !== "pending") {
+          return { kind: "reviewed", row: current };
+        }
+        const inboundEmailId = typeof current.inbound_email_id === "string" ? current.inbound_email_id : "";
+        const value = coerceJsonValue(current.suggested_value);
+        const requestedTarget = value?.targetCaseId?.trim();
+        let promoted = false;
+        if (inboundEmailId && requestedTarget) {
+          const caseLock = await lockCaseForMutation(q, requestedTarget);
+          if (caseLock.kind !== "active") return { kind: "conflict" };
+          const linked = await q(
+            `UPDATE inbound_email
+                SET case_id = $2,
+                    triage_state = 'routed',
+                    evidence_backfill_requested_generation = CASE
+                      WHEN has_attachments = true
+                       AND NULLIF(btrim(source_mailbox), '') IS NOT NULL
+                       AND NULLIF(btrim(source_message_id), '') IS NOT NULL
+                        THEN evidence_backfill_requested_generation + 1
+                      ELSE evidence_backfill_requested_generation
+                    END,
+                    evidence_backfill_requested_at = CASE
+                      WHEN has_attachments = true
+                       AND NULLIF(btrim(source_mailbox), '') IS NOT NULL
+                       AND NULLIF(btrim(source_message_id), '') IS NOT NULL
+                        THEN now()
+                      ELSE evidence_backfill_requested_at
+                    END,
+                    updated_at = now()
+              WHERE id = $1 AND case_id IS NULL
+            RETURNING id, has_attachments, source_mailbox, source_message_id, subject,
+                      evidence_backfill_requested_generation`,
+            [inboundEmailId, caseLock.caseId]
+          );
+          if (linked[0]) {
+            promoted = true;
+            const hasAttachments = linked[0].has_attachments === true;
+            const hasProvenance = typeof linked[0].source_mailbox === "string" && linked[0].source_mailbox.trim() !== "" && typeof linked[0].source_message_id === "string" && linked[0].source_message_id.trim() !== "";
+            if (hasAttachments && !hasProvenance) {
+              await writeEvidenceBackfillNote({
+                caseId: caseLock.caseId,
+                inboundEmailId,
+                author: actor ?? "System",
+                kind: "failed"
+              }, q);
+            }
+            await writeAudit({
+              action: AUDIT_ACTION.inbound_linked,
+              caseId: caseLock.caseId,
+              summary: "Inbound email linked to case (suggestion accepted)",
+              before: { caseId: null },
+              after: { caseId: caseLock.caseId, inboundEmailId },
+              ...actor ? { actor } : {}
+            }, q);
+          }
+        }
+        const reviewed = await q(
+          `UPDATE ai_suggestion
+              SET review_state = 'accepted', reviewed_by = $2, reviewed_at = now()
+            WHERE id = $1 AND review_state = 'pending'
+          RETURNING id, review_state`,
+          [id, actor ?? null]
+        );
+        if (!reviewed[0]) throw new Error("suggestion review race after row lock");
+        return {
+          kind: "accepted",
+          row: current,
+          inboundEmailId,
+          requestedTarget,
+          promoted
+        };
+      });
+      if (atomic.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+      if (atomic.kind === "conflict") {
+        return { status: 409, jsonBody: { error: "suggestion target changed; refresh and review again" } };
+      }
+      if (atomic.kind === "reviewed") {
+        if (typeof atomic.row.inbound_email_id === "string") {
+          await drainEvidenceBackfillRequests(atomic.row.inbound_email_id, 1);
+        }
+        return {
+          status: 200,
+          jsonBody: { id, reviewState: atomic.row.review_state, promoted: false }
+        };
+      }
+      if (atomic.promoted && atomic.requestedTarget) {
+        await markOutstandingChasersResponded(atomic.requestedTarget, "suggestion accepted");
+      }
+      if (atomic.inboundEmailId) {
+        await drainEvidenceBackfillRequests(atomic.inboundEmailId, 1);
+      }
+      await writeAudit({
+        action: AUDIT_ACTION.ai_suggestion_accepted,
+        summary: `AI suggestion ${row.suggestion_type} accepted${atomic.promoted ? " (promoted -> inbound_email.case_id)" : ""}`,
+        before: { reviewState: "pending" },
+        after: {
+          reviewState: "accepted",
+          suggestionId: id,
+          suggestionType: row.suggestion_type,
+          ...atomic.promoted ? { promotedField: "inbound_email.case_id" } : {}
+        },
+        ...actor ? { actor } : {}
+      });
+      return {
+        status: 200,
+        jsonBody: {
+          id,
+          reviewState: "accepted",
+          promoted: atomic.promoted,
+          ...atomic.promoted ? { promotedField: "inbound_email.case_id" } : {}
+        }
+      };
     }
     const updated = await query(
       `UPDATE ai_suggestion
@@ -61967,7 +65236,7 @@ import_functions16.app.http("reviewAiSuggestion", {
     return { status: 200, jsonBody: result };
   })
 });
-async function promoteAcceptedSuggestion(row, actor) {
+async function promoteAcceptedSuggestion(row, actor, q = query, lockedEvidenceCaseId) {
   const evidenceId = row.evidence_id;
   const inboundEmailId = row.inbound_email_id;
   const value = coerceJsonValue(row.suggested_value);
@@ -61975,30 +65244,99 @@ async function promoteAcceptedSuggestion(row, actor) {
     if (row.suggestion_type === "image_role" && evidenceId) {
       const role = value?.role;
       const code = role ? imageRoleCodec.toInt(role) : void 0;
-      if (code != null) {
-        const upd = await query(
-          `UPDATE evidence SET image_role_code = $2, updated_at = now()
-             WHERE id = $1 AND image_role_code = $3 RETURNING id`,
-          [evidenceId, code, IMAGE_ROLE_UNKNOWN]
+      if (code != null && role !== "unknown") {
+        const upd = await q(
+          `UPDATE evidence
+              SET image_role_code = $2,
+                  image_role_source = 'staff',
+                  accepted_for_eva = true,
+                  accepted_for_eva_source = 'staff',
+                  excluded = CASE
+                    WHEN (exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')
+                         AND NOT person_reflection
+                      THEN false
+                    ELSE excluded
+                  END,
+                  exclusion_reason = CASE
+                    WHEN (exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')
+                         AND NOT person_reflection
+                      THEN NULL
+                    ELSE exclusion_reason
+                  END,
+                  exclusion_decision_source = CASE
+                    WHEN (exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')
+                         AND NOT person_reflection
+                      THEN 'staff'
+                    ELSE exclusion_decision_source
+                  END,
+                  updated_at = now()
+            WHERE id = $1
+              AND kind_code = $3
+              AND case_id = $4
+              AND (image_role_source IS NULL OR image_role_source = 'classifier')
+              AND (accepted_for_eva_source IS NULL OR accepted_for_eva_source = 'classifier')
+              AND (
+                NOT excluded
+                OR exclusion_decision_source IS NULL
+                OR exclusion_decision_source = 'classifier'
+              )
+          RETURNING id, case_id, excluded, storage_path, box_file_id`,
+          [evidenceId, code, IMAGE_KIND, lockedEvidenceCaseId]
         );
-        if (upd[0]) return { promoted: true, promotedField: "evidence.image_role_code" };
+        if (upd[0]) {
+          await requestArchiveMirrorIfEligible(q, upd[0]);
+          await requestStatusRecompute(q, String(upd[0].case_id));
+          return { promoted: true, promotedField: "evidence.image_role_code" };
+        }
       }
     } else if (row.suggestion_type === "registration" && evidenceId) {
       const visible = value?.visible;
       if (typeof visible === "boolean") {
-        const upd = await query(
-          `UPDATE evidence SET registration_visible = $2, updated_at = now()
-             WHERE id = $1 AND registration_visible IS NULL RETURNING id`,
-          [evidenceId, visible]
+        const upd = await q(
+          `UPDATE evidence
+              SET registration_visible = $2,
+                  registration_visible_source = 'staff',
+                  updated_at = now()
+            WHERE id = $1
+              AND kind_code = $3
+              AND case_id = $4
+              AND (
+                registration_visible_source IS NULL
+                OR registration_visible_source = 'classifier'
+              )
+          RETURNING id, case_id`,
+          [evidenceId, visible, IMAGE_KIND, lockedEvidenceCaseId]
         );
-        if (upd[0]) return { promoted: true, promotedField: "evidence.registration_visible" };
+        if (upd[0]) {
+          await requestStatusRecompute(q, String(upd[0].case_id));
+          return { promoted: true, promotedField: "evidence.registration_visible" };
+        }
       }
     } else if (row.suggestion_type === "case_link" && inboundEmailId) {
       const targetCaseId = value?.targetCaseId?.trim();
       if (targetCaseId) {
         const upd = await query(
-          `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
-             WHERE id = $1 AND case_id IS NULL RETURNING id, has_attachments`,
+          `UPDATE inbound_email
+              SET case_id = $2,
+                  triage_state = 'routed',
+                  evidence_backfill_requested_generation = CASE
+                    WHEN has_attachments = true
+                     AND NULLIF(btrim(source_mailbox), '') IS NOT NULL
+                     AND NULLIF(btrim(source_message_id), '') IS NOT NULL
+                      THEN evidence_backfill_requested_generation + 1
+                    ELSE evidence_backfill_requested_generation
+                  END,
+                  evidence_backfill_requested_at = CASE
+                    WHEN has_attachments = true
+                     AND NULLIF(btrim(source_mailbox), '') IS NOT NULL
+                     AND NULLIF(btrim(source_message_id), '') IS NOT NULL
+                      THEN now()
+                    ELSE evidence_backfill_requested_at
+                  END,
+                  updated_at = now()
+             WHERE id = $1 AND case_id IS NULL
+           RETURNING id, has_attachments, source_mailbox, source_message_id, subject,
+                     evidence_backfill_requested_generation`,
           [inboundEmailId, targetCaseId]
         );
         if (upd[0]) {
@@ -62013,15 +65351,27 @@ async function promoteAcceptedSuggestion(row, actor) {
           await markOutstandingChasersResponded(targetCaseId, "suggestion accepted");
           if (upd[0].has_attachments === true) {
             try {
-              await query(
-                "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
-                [
-                  "Attachments to add",
-                  targetCaseId,
-                  actor ?? "System",
-                  "The linked email arrived with attachments (e.g. photos or a PDF) that are not yet on this case. Please add them by hand from the email."
-                ]
-              );
+              const sourceMailbox = typeof upd[0].source_mailbox === "string" ? upd[0].source_mailbox.trim() : "";
+              const sourceMessageId = typeof upd[0].source_message_id === "string" ? upd[0].source_message_id.trim() : "";
+              let backfillQueued = false;
+              if (sourceMailbox && sourceMessageId) {
+                try {
+                  const drained = await drainEvidenceBackfillRequests(inboundEmailId, 1);
+                  backfillQueued = drained.published === 1;
+                } catch (e) {
+                  console.error(
+                    `[ai-suggestions] evidence-backfill enqueue failed for inbound ${inboundEmailId} -> case ${targetCaseId} (degrading to the manual note): ${e instanceof Error ? e.message : String(e)}`
+                  );
+                }
+              }
+              if (!backfillQueued) {
+                await writeEvidenceBackfillNote({
+                  caseId: targetCaseId,
+                  inboundEmailId,
+                  author: actor ?? "System",
+                  kind: "failed"
+                });
+              }
             } catch {
             }
           }
@@ -62096,7 +65446,10 @@ async function promoteAcceptedSuggestion(row, actor) {
         }
       }
     }
-  } catch {
+  } catch (e) {
+    if (q !== query && (row.suggestion_type === "image_role" || row.suggestion_type === "registration")) {
+      throw e;
+    }
   }
   return { promoted: false };
 }
@@ -62108,7 +65461,7 @@ function coerceJsonValue(v) {
     return v;
   }
 }
-import_functions16.app.http("generateAiSuggestions", {
+import_functions18.app.http("generateAiSuggestions", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/ai-suggestions/generate",
@@ -62239,8 +65592,21 @@ async function callModelForSuggestions(input) {
   return callSuggestionModel(input);
 }
 
+// api/src/functions/evidence-backfill-drain.ts
+var import_functions19 = require("@azure/functions");
+import_functions19.app.http("internalEvidenceBackfillRequestDrain", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/evidence-backfill-requests/drain",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const result = await drainEvidenceBackfillRequests(void 0, 50);
+    ctx.log(JSON.stringify({ evt: "evidenceBackfillRequestDrain", ...result }));
+    return { status: 200, jsonBody: result };
+  })
+});
+
 // api/src/functions/image-analysis.ts
-var import_functions17 = require("@azure/functions");
+var import_functions20 = require("@azure/functions");
 
 // api/src/lib/image-analysis.ts
 var IMAGE_ANALYSIS_SUGGESTION_TYPES = {
@@ -62727,7 +66093,7 @@ function rasterFilename(fileName, contentType2) {
   const base = name.replace(/\.[^.]*$/, "") || "image";
   return `${base}${ext}`;
 }
-import_functions17.app.http("generateImageAnalysis", {
+import_functions20.app.http("generateImageAnalysis", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/image-analysis/generate",
@@ -62854,18 +66220,18 @@ async function persistDraft(caseId, d) {
 }
 
 // api/src/functions/provider-keys.ts
-var import_functions18 = require("@azure/functions");
+var import_functions21 = require("@azure/functions");
 
 // api/src/lib/api-key-auth.ts
-var import_node_crypto10 = require("node:crypto");
+var import_node_crypto11 = require("node:crypto");
 var API_KEY_PREFIX = "cspk_";
 var SECRET_RANDOM_CHARS = 32;
 var KEY_PREFIX_LEN = 12;
 function hashApiKey(secret) {
-  return (0, import_node_crypto10.createHash)("sha256").update(secret, "utf8").digest("hex");
+  return (0, import_node_crypto11.createHash)("sha256").update(secret, "utf8").digest("hex");
 }
 function generateApiKey() {
-  const random = (0, import_node_crypto10.randomBytes)(24).toString("base64url");
+  const random = (0, import_node_crypto11.randomBytes)(24).toString("base64url");
   const plaintext = `${API_KEY_PREFIX}${random}`;
   return {
     plaintext,
@@ -62889,7 +66255,7 @@ async function verifyApiKey(presented) {
   for (const row of rows) {
     if (row.revoked_at) continue;
     const stored = Buffer.from(String(row.key_hash), "hex");
-    if (stored.length === presentedHash.length && (0, import_node_crypto10.timingSafeEqual)(stored, presentedHash)) {
+    if (stored.length === presentedHash.length && (0, import_node_crypto11.timingSafeEqual)(stored, presentedHash)) {
       matched = row;
       break;
     }
@@ -62936,7 +66302,7 @@ function rowToApiKey(r) {
     lastUsedAt: iso(r.last_used_at)
   };
 }
-import_functions18.app.http("createProviderApiKey", {
+import_functions21.app.http("createProviderApiKey", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "providers/{id}/api-keys",
@@ -62971,7 +66337,7 @@ import_functions18.app.http("createProviderApiKey", {
     return { status: 201, jsonBody: result };
   })
 });
-import_functions18.app.http("listProviderApiKeys", {
+import_functions21.app.http("listProviderApiKeys", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "providers/{id}/api-keys",
@@ -62988,7 +66354,7 @@ import_functions18.app.http("listProviderApiKeys", {
     return { status: 200, jsonBody: rows.map(rowToApiKey) };
   })
 });
-import_functions18.app.http("revokeProviderApiKey", {
+import_functions21.app.http("revokeProviderApiKey", {
   methods: ["DELETE"],
   authLevel: "anonymous",
   route: "providers/{id}/api-keys/{keyId}",
@@ -63020,13 +66386,13 @@ import_functions18.app.http("revokeProviderApiKey", {
 });
 
 // api/src/functions/provider-intake.ts
-var import_functions19 = require("@azure/functions");
-var import_node_crypto11 = require("node:crypto");
+var import_functions22 = require("@azure/functions");
+var import_node_crypto12 = require("node:crypto");
 
 // api/src/lib/provider-intake-validate.ts
 var DMY = /^\d{2}\/\d{2}\/\d{4}$/;
-var VAT_VALUES2 = /* @__PURE__ */ new Set(["", "Yes", "No"]);
-var MILEAGE_UNITS2 = /* @__PURE__ */ new Set(["", "Miles", "Km"]);
+var VAT_VALUES = /* @__PURE__ */ new Set(["", "Yes", "No"]);
+var MILEAGE_UNITS = /* @__PURE__ */ new Set(["", "Miles", "Km"]);
 var IMAGE_ROLES = /* @__PURE__ */ new Set(["overview", "damage_closeup", "additional"]);
 var str2 = (v) => typeof v === "string" ? v : "";
 var err = (code, message2) => ({
@@ -63063,11 +66429,11 @@ function validateProviderApiSubmission(raw) {
     return err("missing_accident_circumstances", "accidentCircumstances is required.");
   }
   const vatStatus = str2(b.vatStatus).trim();
-  if (!VAT_VALUES2.has(vatStatus)) {
+  if (!VAT_VALUES.has(vatStatus)) {
     return err("invalid_vat_status", "vatStatus must be '', 'Yes' or 'No'.");
   }
   const mileageUnit = str2(b.mileageUnit).trim();
-  if (!MILEAGE_UNITS2.has(mileageUnit)) {
+  if (!MILEAGE_UNITS.has(mileageUnit)) {
     return err("invalid_mileage_unit", "mileageUnit must be '', 'Miles' or 'Km'.");
   }
   if (b.inspectionAddress !== void 0 && typeof b.inspectionAddress !== "string") {
@@ -63173,49 +66539,68 @@ async function persistEvidence(ctx, caseId, kind, att, sequenceIndex) {
   try {
     const bytes = Buffer.from(att.base64Data, "base64");
     if (bytes.length === 0) return false;
-    const sha256 = (0, import_node_crypto11.createHash)("sha256").update(bytes).digest("hex");
+    const sha256 = (0, import_node_crypto12.createHash)("sha256").update(bytes).digest("hex");
     const { blobPath, size } = await uploadEvidenceBytes(caseId, att.filename, bytes, att.contentType);
     const kindCode = evidenceKindCodec.toInt(kind) ?? (kind === "image" ? 1e8 : 100000002);
-    if (kind === "image") {
-      const img = att;
-      const roleCode = imageRoleCodec.toInt(img.imageRole) ?? UNKNOWN_IMAGE_ROLE_CODE;
-      await query(
-        `INSERT INTO evidence
-           (file_name, case_id, kind_code, image_role_code, registration_visible,
-            accepted_for_eva, excluded, exclusion_reason, sequence_index, sha256,
-            content_type, size_bytes, storage_path, source_label)
-         VALUES ($1,$2,$3,$4,NULL,$5,$6,$7,$8,$9,$10,$11,$12,'provider_api')`,
-        [
-          img.filename,
-          caseId,
-          kindCode,
-          roleCode,
-          !img.excluded,
-          img.excluded,
-          img.exclusionReason,
-          img.sequenceIndex ?? sequenceIndex,
-          sha256,
-          img.contentType,
-          size,
-          blobPath
-        ]
-      );
-    } else {
-      await query(
-        `INSERT INTO evidence
-           (file_name, case_id, kind_code, sequence_index, sha256,
-            content_type, size_bytes, storage_path, source_label)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'provider_api')`,
-        [att.filename, caseId, kindCode, sequenceIndex, sha256, att.contentType, size, blobPath]
-      );
-    }
-    return true;
+    return await tx(async (q) => {
+      const caseLock = await lockCaseForMutation(q, caseId);
+      if (caseLock.kind !== "active") return false;
+      let inserted;
+      if (kind === "image") {
+        const img = att;
+        const roleCode = imageRoleCodec.toInt(img.imageRole) ?? UNKNOWN_IMAGE_ROLE_CODE;
+        inserted = await q(
+          `INSERT INTO evidence
+             (file_name, case_id, kind_code, image_role_code, registration_visible,
+              image_role_source, accepted_for_eva, accepted_for_eva_source,
+              excluded, exclusion_reason, exclusion_decision_source, sequence_index, sha256,
+              content_type, size_bytes, storage_path, source_label)
+           VALUES ($1,$2,$3,$4,NULL,'provider',$5,'provider',$6,$7,'provider',$8,$9,$10,$11,$12,'provider_api')
+        RETURNING id, case_id, excluded, storage_path, box_file_id`,
+          [
+            img.filename,
+            caseLock.caseId,
+            kindCode,
+            roleCode,
+            !img.excluded,
+            img.excluded,
+            img.exclusionReason,
+            img.sequenceIndex ?? sequenceIndex,
+            sha256,
+            img.contentType,
+            size,
+            blobPath
+          ]
+        );
+      } else {
+        inserted = await q(
+          `INSERT INTO evidence
+             (file_name, case_id, kind_code, sequence_index, sha256,
+              content_type, size_bytes, storage_path, source_label)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'provider_api')
+        RETURNING id, case_id, excluded, storage_path, box_file_id`,
+          [
+            att.filename,
+            caseLock.caseId,
+            kindCode,
+            sequenceIndex,
+            sha256,
+            att.contentType,
+            size,
+            blobPath
+          ]
+        );
+      }
+      if (!inserted[0]) return false;
+      await requestArchiveMirrorIfEligible(q, inserted[0]);
+      return true;
+    });
   } catch (e) {
     ctx.error(`[provider-intake] evidence persist failed (${att.filename}): ${String(e)}`);
     return false;
   }
 }
-import_functions19.app.http("providerIntakeCase", {
+import_functions22.app.http("providerIntakeCase", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "provider-intake/cases",

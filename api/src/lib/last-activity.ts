@@ -48,6 +48,7 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   box_upload_received: 'Images received',
   location_assist_confirmed: 'Inspection address set',
   chaser_sent: 'Chased',
+  chaser_suggested: 'Chase suggested',
   inbound_classified: 'Email sorted',
   inbound_routed: 'Email filed',
   case_disposed: 'Case closed',
@@ -77,6 +78,7 @@ const AUDIT_ACTION_CODE_LABELS: Record<number, string> = {
   100000047: 'Email attached', // retro_case_linked
   100000049: 'Files added', // evidence_added
   100000052: 'Photos analysed', // image_analysis_generated
+  100000054: 'Chase suggested', // chaser_suggested
 };
 
 /** Safe fallback when an action has no mapping — plain, honest, never an enum. */
@@ -143,14 +145,18 @@ export function plainDetail(raw: string | null | undefined): string | undefined 
  * The "Last update" descriptor for the newest activity row of a case.
  *   audit  → the controlled-action mapping above;
  *   note   → "Note added by <author>" (author omitted unless human-safe);
- *   chaser → "Chased".
+ *   chaser → "Chase suggested" for a system draft, otherwise "Chased".
  * Unknown kinds degrade to the safe default (never a raw token).
  */
 export function lastActivityLabel(row: {
   kind: LastActivityKind | string | null | undefined;
   actionCode?: number | null;
   actor?: string | null;
+  /** True for deterministic draft suggestions, including legacy audit rows whose
+   *  `after` metadata carried suggested=true under the older chaser_sent action. */
+  suggested?: boolean;
 }): string {
+  if (row.suggested === true) return 'Chase suggested';
   switch (row.kind) {
     case 'audit':
       return auditActionLabel(row.actionCode);

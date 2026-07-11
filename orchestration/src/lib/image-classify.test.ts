@@ -7,7 +7,9 @@ import { describe, it, expect } from 'vitest';
 import {
   buildImageRequestBody,
   parseImageResponse,
+  imageClassificationOutcomeFromResponse,
   classificationToEvidenceFields,
+  NON_VEHICLE_AUTO_EXCLUDE_MIN_CONFIDENCE,
   type ImageClassification,
 } from './image-classify.js';
 
@@ -68,6 +70,59 @@ describe('parseImageResponse', () => {
   });
 });
 
+describe('imageClassificationOutcomeFromResponse', () => {
+  const valid = {
+    choices: [{
+      finish_reason: 'stop',
+      message: {
+        content: JSON.stringify({
+          role: 'overview',
+          registration_visible: true,
+          plate_text: 'AB12CDE',
+          person_reflection: false,
+          confidence: 0.9,
+        }),
+      },
+    }],
+  };
+
+  it('returns a successful parsed classification', () => {
+    expect(imageClassificationOutcomeFromResponse(200, valid)).toMatchObject({
+      ok: true,
+      classification: { role: 'overview', registrationVisible: true },
+    });
+  });
+
+  it('treats an explicit content-filter result as terminal for these bytes', () => {
+    expect(imageClassificationOutcomeFromResponse(200, {
+      choices: [{ finish_reason: 'content_filter', message: { content: '' } }],
+    })).toEqual({
+      ok: false,
+      failure: { disposition: 'terminal', code: 'model_content_filter' },
+    });
+  });
+
+  it('treats payload-too-large as terminal but auth/rate-limit/server faults as transient', () => {
+    expect(imageClassificationOutcomeFromResponse(413, {})).toEqual({
+      ok: false,
+      failure: { disposition: 'terminal', code: 'model_payload_too_large' },
+    });
+    for (const status of [401, 403, 404, 429, 500, 503]) {
+      expect(imageClassificationOutcomeFromResponse(status, {})).toEqual({
+        ok: false,
+        failure: { disposition: 'transient', code: `model_http_${status}` },
+      });
+    }
+  });
+
+  it('keeps malformed success payloads transient because a later model response may recover', () => {
+    expect(imageClassificationOutcomeFromResponse(200, { choices: [] })).toEqual({
+      ok: false,
+      failure: { disposition: 'transient', code: 'model_malformed_response' },
+    });
+  });
+});
+
 describe('classificationToEvidenceFields', () => {
   const base: ImageClassification = { role: 'overview', registrationVisible: true, plateText: 'AB12CDE', personReflection: false, confidence: 0.9 };
 
@@ -84,8 +139,41 @@ describe('classificationToEvidenceFields', () => {
     expect(classificationToEvidenceFields(base)).toMatchObject({ personReflection: false });
   });
 
-  it('non-vehicle "other" -> not accepted, not excluded', () => {
-    expect(classificationToEvidenceFields({ ...base, role: 'other' })).toMatchObject({ acceptedForEva: false, excluded: false });
+  it('low-confidence non-vehicle stays reviewable and not accepted', () => {
+    expect(classificationToEvidenceFields({ ...base, role: 'other', confidence: 0.89 })).toMatchObject({ acceptedForEva: false, excluded: false });
+  });
+
+  it('high-confidence non-vehicle with no readable registration is excluded', () => {
+    const f = classificationToEvidenceFields({ ...base, role: 'other', registrationVisible: false, plateText: '', confidence: 0.9 });
+    expect(f).toMatchObject({ imageRole: 'other', acceptedForEva: false, excluded: true, personReflection: false });
+    expect(f.exclusionReason).toBe('This image may not show the vehicle');
+    expect(NON_VEHICLE_AUTO_EXCLUDE_MIN_CONFIDENCE).toBe(0.9);
+  });
+
+  it('person reflection still takes precedence with its own reason', () => {
+    const f = classificationToEvidenceFields(
+      { ...base, role: 'other', personReflection: true },
+      undefined,
+    );
+    expect(f).toMatchObject({ excluded: true, personReflection: true });
+    expect(f.exclusionReason).toBe('A person’s reflection may be visible');
+  });
+
+  it('genuine vehicle roles are never excluded', () => {
+    for (const role of ['overview', 'damage_closeup', 'additional'] as const) {
+      expect(
+        classificationToEvidenceFields({ ...base, role }),
+      ).toMatchObject({ imageRole: role, acceptedForEva: true, excluded: false });
+    }
+  });
+
+  it('a readable registration signal prevents non-vehicle auto-exclusion', () => {
+    expect(
+      classificationToEvidenceFields({ ...base, role: 'other', confidence: 1, registrationVisible: true }),
+    ).toMatchObject({ acceptedForEva: false, excluded: false });
+    expect(
+      classificationToEvidenceFields({ ...base, role: 'other', confidence: 1, registrationVisible: false, plateText: 'ZZ99 ZZZ' }),
+    ).toMatchObject({ acceptedForEva: false, excluded: false });
   });
 
   it('a genuine vehicle photo -> accepted for EVA', () => {

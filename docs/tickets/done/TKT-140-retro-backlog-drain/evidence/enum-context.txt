@@ -1,0 +1,75 @@
+Timing is on.
+SET
+Time: 20.652 ms
+=== context: inbound_email totals ===
+ inbound_total | inbound_uncased 
+---------------+-----------------
+           867 |             281
+(1 row)
+
+Time: 29.760 ms
+=== context: category/subtype distribution of un-linked rows (chosen, else suggested) ===
+    category     |            subtype            | rows 
+-----------------+-------------------------------+------
+ other           | other                         |  128
+ query           | query_existing_work           |  104
+ case_update     | update_general                |   11
+ non_actionable  | acknowledgement               |   10
+ non_actionable  | case_summary                  |    8
+ case_update     | images_received               |    5
+ receiving_work  | existing_provider_instruction |    5
+ query           | query_new_enquiry             |    4
+ cancellation    | cancellation_notice           |    4
+ pre_instruction | pre_instruction_directions    |    1
+ receiving_work  | existing_provider_audit       |    1
+(11 rows)
+
+Time: 23.993 ms
+=== context: attention_reason on un-linked rows (prior Unable-to-locate stamps) ===
+ attention_reason | rows 
+------------------+------
+ (null)           |  278
+ unable_to_locate |    3
+(2 rows)
+
+Time: 21.938 ms
+Output format is csv.
+Time: 43.751 ms
+Time: 118.909 ms
+Time: 32.107 ms
+Output format is aligned.
+=== mint-guard refusals recorded live (retro/create refused_category audits) ===
+          occurred_at          |                                           name                                           
+-------------------------------+------------------------------------------------------------------------------------------
+ 2026-07-09 11:00:32.864107+00 | Retro create refused — the located original is a 'other' email, which never opens a case
+(1 row)
+
+Time: 21.483 ms
+=== retro failure audits (bottom-of-ladder Unable-to-locate), last 20 ===
+          occurred_at          |                                     summary                                      
+-------------------------------+----------------------------------------------------------------------------------
+ 2026-07-10 08:00:20.19732+00  | Retro: no case found or reconstructable for query email (TG/ND/45430/1)
+ 2026-07-09 17:47:41.080456+00 | Retro: no case found or reconstructable for case_update email (DF25LZE)
+ 2026-07-09 11:00:32.986585+00 | Retro: no case found or reconstructable for query email (30211-01)
+ 2026-07-08 09:10:07.495716+00 | Retro: no case found or reconstructable for case_update email (330.86)
+ 2026-07-08 09:03:59.128769+00 | Retro: no case found or reconstructable for query email (330.86)
+ 2026-07-08 08:32:52.720681+00 | Retro: no case found or reconstructable for case_update email (330.86)
+ 2026-07-07 16:24:28.876806+00 | Retro: no case found or reconstructable for cancellation email (DIK/JMO/46440/1)
+ 2026-07-07 14:36:32.517251+00 | Retro: no case found or reconstructable for case_update email (SAB/46329/1)
+ 2026-07-07 11:49:51.126655+00 | Retro: no case found or reconstructable for query email (WG16SGZ)
+ 2026-07-07 10:39:40.166827+00 | Retro: no case found or reconstructable for query email (IMAGE492049)
+ 2026-07-07 10:35:55.433277+00 | Retro: no case found or reconstructable for query email (WG16SGZ)
+ 2026-07-07 10:00:27.660169+00 | Retro: no case found or reconstructable for case_update email (WG16SGZ)
+ 2026-07-07 09:47:53.662745+00 | Retro: no case found or reconstructable for query email (30154-01)
+ 2026-07-07 09:16:53.71373+00  | Retro: no case found or reconstructable for query email (261622SA)
+ 2026-07-07 09:06:39.224028+00 | Retro: no case found or reconstructable for query email (44960/1)
+ 2026-07-07 08:42:44.979897+00 | Retro: no case found or reconstructable for case_update email (LOP//43454/1)
+ 2026-07-07 08:22:23.609171+00 | Retro: no case found or reconstructable for query email (A.QDOS251687)
+ 2026-07-06 21:07:20.950118+00 | Retro: no case found or reconstructable for case_update email (46640/1)
+ 2026-07-06 20:54:17.150123+00 | Retro: no case found or reconstructable for case_update email (46670/1)
+ 2026-07-06 18:06:25.916116+00 | Retro: no case found or reconstructable for case_update email (768.00)
+(20 rows)
+
+Time: 34.487 ms
+RESET
+Time: 22.455 ms

@@ -60,7 +60,7 @@ These domain capabilities are **deployed and functioning** on the Azure stack:
   real PDFs/DOCX/EML/MSG. **OCR** for scanned images is the separate `ocr` Function.
   **Platform limit (FC1):** legacy table-heavy `.doc` files may miss table-cell narrative on the binary-scrape
   path because LibreOffice cannot be installed on Flex Consumption without a **custom container** migration
-  ([ROADMAP Later](../ROADMAP.md) — parser container item; [TKT-001 follow-up](./tickets/verify/TKT-001-document-parsing/changes-regression-01-07-26.md)).
+  ([ROADMAP Later](../ROADMAP.md) — parser container item; [TKT-001 follow-up](./tickets/done/TKT-001-document-parsing/changes-regression-01-07-26.md)).
   Triage QDOS intake is bridged by the orchestration email-body supplement when the attachment parse returns
   empty `accident_circumstances`.
 - **Vehicle look-ups (DVSA/DVLA enrichment).** The enrichment Function is deployed and calls **DVSA + DVLA
@@ -122,6 +122,9 @@ Function Apps, Postgres, Key Vaults, Blob) unless it is upgraded.
    tied to PAYG, not to the trial).
 3. After upgrade, re-check that all resources in `rg-collisionspike-dev` are **running** (nothing got
    suspended at the trial boundary).
+
+> **Operator decision 2026-07-10:** acknowledged; the operator will resolve this the week commencing
+> 2026-07-13. No agent action until then.
 
 > Until this is done, treat every other activation as **provisional** — the whole environment can be
 > disabled at the trial deadline.
@@ -311,8 +314,8 @@ yourself — no automated live move test will be run.**
 **`CollisionSpike.Superuser`** is the full-privilege role, **renamed from `CollisionSpike.Admin`** (same
 app-role id, so any existing assignment carried over; the API still accepts the legacy `CollisionSpike.Admin`
 for back-compat). A third role **`CollisionSpike.Engineer`** is **defined but not yet enforced** — don't
-assign it for access yet. Right now **only one** staff principal is assigned; **everyone else gets `403`**
-until you assign them.
+assign it for access yet. **As of 2026-07-10 four principals are assigned** (digital@ Superuser + the
+operator-directed interim set below); **any other staff still gets `403`** until you assign them.
 
 **Why you:** assigning enterprise-app roles to users is an Entra directory operation only an admin can do.
 
@@ -324,6 +327,19 @@ until you assign them.
 > MSAL mints a fresh token carrying the `roles` claim) or you are signing into the SPA with a
 > **different** account (e.g. a personal/guest identity) than `digital@` — say which and it can be
 > assigned. This item stays open only for the **other** staff who are not yet assigned.
+
+> ✅ **2026-07-10 — operator-directed interim staff set assigned (closes part of this gap).** On your
+> instruction this session ("set up app accounts for desk, info, engineers email accounts for now"),
+> **`CollisionSpike.User`** (app-role id `764d4c83-6f41-44eb-a6fd-daba463a9261`) was assigned on the
+> API service principal (`f5cf0eba-c8bf-4f2a-badd-049166ded3e7`) to the three production mailbox
+> user principals via Graph `POST /users/{upn}/appRoleAssignments` (idempotency-checked first —
+> digital@'s Superuser assignment was the only pre-existing one, untouched):
+> **desk@** (oid `7189a6a3-…`, assignment `o6aJcRlqVkGWWe6q9U4f5j1Uuw7N92RJpjwya_ZPwXU`),
+> **info@** (oid `f07309ff-…`, assignment `_wlz8PnN3EubU2wDRdZOkPsCZXED5XtNm62ftTUBpG8`),
+> **engineers@** (oid `016aa11f-…`, assignment `H6FqAXbCVE-hvqGK4Ckb-WZkEnvOzH1PtPycNtUKV-Y`).
+> The API SP now carries **4** assignments (full list: [`LIVE_FACTS.json`](../LIVE_FACTS.json)
+> `staffAppRoleAssignments`). Each account must sign out/in so a fresh token carries the role.
+> **Named individual staff principals remain unassigned** — the item stays open for them.
 
 **Steps (for any not-yet-assigned staff):**
 1. In Entra → **Enterprise applications** → the app that exposes these roles (the `cespk-api-dev` /
@@ -405,7 +421,7 @@ confirm there isn't one) and it gets added to the provider's domain field in Pos
 **PHA/Parkhouse principal code** so its insert can land too. *(In the decommissioned stack this was the
 Dataverse `cr1bd_knownemaildomains` column.)*
 
-> **QDOS domain — needed for audit-case resolution ([TKT-065](./tickets/verify/TKT-065-audit-provider-resolution/TKT-065-audit-provider-resolution.md)).**
+> **QDOS domain — needed for audit-case resolution ([TKT-065](./tickets/done/TKT-065-audit-provider-resolution/TKT-065-audit-provider-resolution.md)).**
 > **QDOS** has **no `known_email_domains`**, so a **direct QDOS audit email cannot domain-resolve** —
 > it only resolves when the instruction document content names QDOS. (PCH is already covered: D8 seeded
 > `pch-ltd.com`.) Send QDOS's real sending domain(s) and it gets seeded (idempotent `916`-style delta),
@@ -422,11 +438,19 @@ Dataverse `cr1bd_knownemaildomains` column.)*
 > held pre-instruction email is retained and whether a chaser fires. Say the retention window /
 > chaser policy and it gets built.
 
-> **BOX_REG_FOLDER_ENABLED — new dark gate (2026-07-09, [TKT-034](./tickets/verify/TKT-034-images-received-routing/TKT-034-images-received-routing.md)).**
-> Unmatched image-bearing emails now flag visibly for manual handling; the OPTIONAL next rung — a
-> registration-keyed Box folder created for unmatched images — is built **dark** behind
-> `BOX_REG_FOLDER_ENABLED` (absent = off) because it creates new Box folder semantics. Say the word
-> and it flips (Box writes stay inside the archive root).
+> **BOX_REG_FOLDER_ENABLED — ✅ FLIPPED LIVE 2026-07-10 (operator-authorized; [TKT-034](./tickets/done/TKT-034-images-received-routing/TKT-034-images-received-routing.md) step-2).**
+> What it does: when an image-bearing email matches NO case (`route_images_unmatched`), the
+> `imagesUnmatched` activity — beyond the always-on visible `images_no_match` flag — creates a
+> **registration-named Box holding folder** under the live root `BOX_FOLDER_ROOT_ID`
+> (`392761581105`) when the email carries a viewable registration (no reg → honest skip
+> `no_registration`; folder create is idempotent — a Box 409 name-conflict reuses the existing
+> folder). Built **dark** 2026-07-09 because non-Case/PO folder naming under the root is a new
+> semantic; the operator **approved that semantic and authorized the flip 2026-07-10** —
+> `BOX_REG_FOLDER_ENABLED=true` set on `cespk-orch-dev` (readback-verified; no deploy needed, the
+> consumer was already live). **Post-flip proof (watch item):** the next unmatched image email with
+> a viewable reg should log `evt:imagesUnmatched` with a `boxFolderId` and the reg-named folder
+> should appear under the root; a repeat arrival for the same reg must REUSE that folder (Box 409 →
+> same id), never duplicate it.
 
 > **DONE_SENT_EMAIL_ENABLED — new dark gate (2026-07-09, [TKT-095](./tickets/verify/TKT-095-case-done-detectors/TKT-095-case-done-detectors.md)).**
 > The sent-email → case-`done` detector (a CE mailbox sends to the case's work provider → the case
@@ -436,7 +460,7 @@ Dataverse `cr1bd_knownemaildomains` column.)*
 > "Mark report delivered" button and the Box report-PDF detector are live without it. (The EVA-poll
 > detector skeleton stays behind `EVA_API_ENABLED` with the rest of EVA REST — D1.)
 
-> **QCL Held-case backlog — staff item (2026-07-09, [TKT-099](./tickets/verify/TKT-099-qcl-case-po-generation/TKT-099-qcl-case-po-generation.md)).**
+> **QCL Held-case backlog — staff item (2026-07-09, [TKT-099](./tickets/done/TKT-099-qcl-case-po-generation/TKT-099-qcl-case-po-generation.md)).**
 > The 11 pre-fix complexreports/QCL cases sit Held with no Case/PO **by design** (the fix never
 > back-mints). Staff confirm each is genuinely QCL work, then mint via the case page (Set Case/PO)
 > or ask for a scripted batch mint.
@@ -667,7 +691,7 @@ immediate flip. The case-type pipeline is **acting**: detected audits write `cas
 standalone PCH/QDOS audits mint from the marker's own sequence (`A.PCH26xxx`…), QDOS dual
 "report + audit report" letters keep the standard number with case-type `audit`, and report-typed
 attachments persist as `engineer_report` evidence. **Remaining:** the
-[TKT-056](./tickets/verify/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md) step-6
+[TKT-056](./tickets/done/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md) step-6
 **live probe** — watch the next real pch-ltd.com / QDOS audit email land correctly (work provider =
 PCH/QDOS, marker Case/PO, `engineer_report` evidence). _(Original two-step item retained below for
 reference.)_
@@ -741,11 +765,16 @@ existing un-linked pile drains one email at a time via the keyed starter — see
    box-webhook fn, and the **Box service-account Viewer grant is CONFIRMED** (operator, 2026-07-07) —
    so the read-only archive is now fully readable via the facade (`box/search`, `box/files/{id}/content`).
    **The one remaining blocker for the R2 *auto-reconstruction* rung is the step-1 Case/PO
-   sequence-alignment:** `RETRO_BOX_ARCHIVE_ROOT_IDS` stays UNSET until then, because
-   `retroCreatePersist` creates the case with the archive folder's OWN Case/PO (`discoveredPo`), which
-   would inject far-ahead archive numbers beside the restarted ~001 live sequence.
+   sequence-alignment:** `RETRO_BOX_ARCHIVE_ROOT_IDS` stays UNSET **on `cespk-orch-dev`** until then,
+   because `retroCreatePersist` creates the case with the archive folder's OWN Case/PO
+   (`discoveredPo`), which would inject far-ahead archive numbers beside the restarted ~001 live
+   sequence. ✅ **2026-07-10 (operator-authorized):** `RETRO_BOX_ARCHIVE_ROOT_IDS=4077648161` was SET
+   **on `cespk-api-dev` only** (root re-confirmed read-only via `box folders:get` — "Collision
+   Engineers", 7 top-level entries) — on the api its ONLY reader is the TKT-107 `archive_lookup`
+   suggest-only assist (`archiveConfigured()`), which mints nothing, so the sequence stays untouched.
    **Read-only USES that don't mint are UNBLOCKED now** (archive-match *suggestions*, operator/assistant
-   lookup, evidence reference) — they carry no numbering risk. Captured as **TKT-107**.
+   lookup, evidence reference) — they carry no numbering risk. Captured as **TKT-107** (the assistant
+   `archive_lookup` rung is live as of the 2026-07-10 config; the inbox-hint half is still open).
 3. Two operator sanity checks that shape R2: eyeball 5–10 archive folders — are they named EXACTLY
    the Case/PO (suffixed variants like `CCPY26050 - Smith` would need a flagged prefix-match arm)?
    And do they reliably contain the original instruction **`.eml`** (if a cohort only holds PDFs,
@@ -854,14 +883,24 @@ and gates; it does not flip a live gate or create an app-registration.
    (`SET ROLE csadmin` runbook): the `ai_usage_ledger` table + RLS (`p_ai_usage_ledger_rw` /
    `p_ai_usage_ledger_no_delete`) + `cespk_app` GRANT are live (0 rows; base tables 45→46). Applied **ahead
    of** the ungated `recordAiUsage()` writer, so the deploy-ordering gap is closed pre-emptively (App
-   Insights showed 0 `[ai-usage] ledger write failed` over the prior 72h — the live api build predates the
-   writer). **Remaining = the redeploy** (folds into step 1's `main`→`cespk-api-dev` publish); once the
-   writer ships, the capacity ledger starts accruing.
-6. **MCP read-only server** (TKT-110): ⛔ **OPERATOR-ONLY — still open.** Create the **MCP Entra
-   app-registration** (a directory change only you make; delegated scopes for the near-term Flow A;
-   app-roles for the later Flow B), then set **`MCP_SERVER_ENABLED`**. Record it in the registry (bump
-   `lastVerified`). **Not created in the 2026-07-09 wave by explicit instruction.** Autonomous agent
-   **writes** are a separate, later rung (ADR-0023 Phase 3b) — not shipped.
+   Insights showed 0 `[ai-usage] ledger write failed` over the prior 72h — the live api build predated the
+   writer). ✅ **The writer SHIPPED with the 2026-07-09/07-10 api publishes** (`recordAiUsage` verified in
+   the live-lineage bundle, 2026-07-10 sweep) — sole call-site today is the **assistant** surface
+   (`assistant.ts`); the orch email-AI/classify lanes are future call sites by design. The ledger accrues
+   from the first authenticated staff chat; rows-check queued on the TKT-113 record.
+6. **MCP read-only server** (TKT-110): ✅ **APP-REG CREATED + GATE FLIPPED 2026-07-10**
+   (operator-authorized this session — "mcp app reg — auth granted"). The **Flow A** client
+   app-registration exists: **`CollisionSpike MCP Client`** (appId
+   `88589edc-527a-4d84-83da-a2ddb8664f08`, SP `fb3fd892-8c4e-46a9-ab31-b4da29596e42`) — a **public**
+   client (Auth-Code + PKCE, loopback `http://localhost`, `AzureADMyOrg`, **no secret**) whose ONLY
+   permission is the **existing** API's delegated scope `access_as_user` (tenant consent granted).
+   Per ADR-0023 the token audience stays the API (`fa2fb28c…`), so `withRole` authorization is
+   unchanged; **no Flow B app-roles** were added (later rung). **`MCP_SERVER_ENABLED=true`** is set
+   on `cespk-api-dev` (readback-verified) and an unauthenticated `POST /api/mcp` still **401s**
+   fail-closed (`Missing bearer token`). **Remaining:** the live **Flow A client probe** — an
+   interactive MCP client signing in as an assigned staff user, listing + calling a read tool
+   (record it on [TKT-110](./tickets/verify/TKT-110-mcp-readonly-server/verification.md)).
+   Autonomous agent **writes** stay a separate, later rung (ADR-0023 Phase 3b) — not shipped.
 
 **✅ Vision family — FLIPPED LIVE 2026-07-08 (was "deliberately deferred"):** on your instruction and with
 your **DPIA + `gpt-5` GlobalStandard processing/data-residency-posture sign-off confirmed 2026-07-08** (recorded in

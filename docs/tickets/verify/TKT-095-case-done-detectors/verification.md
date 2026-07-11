@@ -1,9 +1,36 @@
 # Verification — TKT-095: Case `done` detectors
 
 ## Verdict
-PENDING — all four rungs code-complete + offline-tested and DEPLOYED (2026-07-09, PLAN-003
-lifecycle wave); no rung has live proof yet (nothing can flip until a case reaches
-`eva_submitted`, which the TKT-094 export flow only started producing this deploy).
+PENDING — deployment fully certified; every acceptance line awaits its trigger event.
+
+Verified by: ticket-verifier dispatch, 10-07-26. Findings:
+- **Deployed surface certified live (az reads):** all six TKT-095 detector functions registered on
+  cespk-orch-dev (graph-webhook-sent, graph-lifecycle-sent, sent-items-processor,
+  eva-report-poll-start, evaReportPollOrchestrator, evaReportPollTick); markCaseDone /
+  internalCasesMarkDone / internalCasesLookup / completedCases / markEvaSubmitted on cespk-api-dev;
+  detector (b) rides the existing box-webhook (12 fns, no new registration). Gates dark by design:
+  DONE_SENT_EMAIL_ENABLED absent, EVA_API_ENABLED absent (live appsettings read).
+- **Line 1 (manual bridge):** route + SPA button live in the deployed bundle (renders only under
+  status eva_submitted; handler-plain copy "Mark report delivered"). Not exercisable — zero
+  eva_submitted/done cases exist (corroborated by TKT-096's verifier: all-time Sent-to-EVA = 0);
+  KQL 3d: zero mark-done requests.
+- **Line 2 (detector b, Box report-PDF):** wiring confirmed in the deployed box-webhook
+  (is_ce_report → engineer_report → best-effort mark_case_done); the FILE.UPLOADED lane is alive
+  (62 webhook requests/3d) but 0 "CE report detected" — no report-named PDF has landed. Expected
+  absence. Re-delivery no-op guard offline-proven (150 pytest incl. the redelivery case).
+- **Line 3 (detector a, sent-email):** requires the operator-approved DONE_SENT_EMAIL_ENABLED
+  test-slot flip (creates per-mailbox SentItems Graph subscriptions — gated.md D3). Zero detector
+  invocations in 3d KQL; only the 3 Inbox Graph subs exist. An operator wait, not implementer debt.
+- Detector (c) EVA poll: no acceptance line; skeleton correctly dark pending EVA REST.
+- **Real bugs found: none.**
+
+Queued SQL (next data pass): status distribution (expect no 100000008/100000012 rows);
+report_delivered audits (expect 0); the per-case proof query for after the first flip.
+
+**Re-verify recipe:** drive a ready_for_eva case (27 exist) through Export-for-EVA → the button
+renders → mark done → report_delivered audit; drop `<CasePO> report.pdf` into that case's Box folder
+→ "CE report detected" + mark-done updated=True; operator test-slot flip for line 3
+(create-then-prune both observed). KQL files reusable: scratchpad a-orch-dark/b-boxfn/c-api-markdone.
 
 ## Evidence (offline + deploy, 2026-07-09)
 - Shared transition: `POST /api/internal/cases/{id}/mark-done` live on `cespk-api-dev`
@@ -37,3 +64,23 @@ lifecycle wave); no rung has live proof yet (nothing can flip until a case reach
 - (a): flip `DONE_SENT_EMAIL_ENABLED=true` on `cespk-orch-dev` (operator), wait one maintenance
   tick, confirm SentItems subs exist; send a threaded reply to the provider; case flips; flip the
   gate back off and confirm the subs are pruned.
+
+## Regression verification — 2026-07-11
+
+**Verdict: TESTED (offline) — deployment pending.**
+
+This block supersedes the earlier live/deployed verdicts for the PR 55 detector-reliability repair.
+No repaired webhook or terminal transition has been live-proven yet.
+
+- Manual, Box report-PDF and sent-email detectors retain the shared guarded `eva_submitted → done`
+  path. Its status and required `report_delivered` audit are now atomic and rollback-tested in
+  `api/src/lib/terminal-transition.test.ts`.
+- `mark_case_done` settles only on a successful response; transport/non-success/configuration faults
+  raise a retry signal, while a successful `{updated:false}` remains an idempotent no-op.
+  `functions/box-webhook/tests/test_data_api_client.py` pins those response classes.
+- The webhook delivery cache distinguishes in-flight from settled. `tests/test_webhook.py` covers a
+  fresh evidence write followed by mark-done failure, redelivery that reuses the durable evidence row,
+  and a same-id duplicate that receives 503 while the first request is still in flight and then fails.
+- Deployment proof still required: deploy API and Box webhook, redeliver a report-PDF event through
+  one forced terminal-call failure, and verify one evidence row, one done transition and one audit.
+  SentItems gate activation/subscription proof is also still pending this release.

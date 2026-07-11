@@ -73,7 +73,11 @@ export const CASE_STATUSES: readonly CaseStatus[] = [
  * (`packages/domain/src/data/choicesets/case-status.json`), asserted by
  * `migration/assets/verify-parity-pg.mjs`. `linked_to_instruction` and `duplicate_risk`
  * are BRANCH states set by the dedup flow, NOT terminals — the guard may
- * recompute a linked/duplicate case once its fields/images resolve.
+ * recompute a linked/duplicate case once its fields/images resolve — EXCEPT a
+ * merge-retired case: when the `duplicate_keys.mergedInto` survivor marker is
+ * present the guard preserves `linked_to_instruction` instead of recomputing
+ * (the TKT-141 retired-lock below; the marker, not the status, is what makes
+ * retirement durable).
  * NOTE the terminal-lock semantics: the guard returns a terminal UNCHANGED, so
  * `eva_submitted → done` is legal precisely because it is an explicit write,
  * never a guard recompute.
@@ -131,6 +135,15 @@ export interface StatusEvaluationInput {
    * it explicitly when vrm/caseref identity is known (they are NOT EVA fields).
    */
   hasIdentity?: boolean;
+  /**
+   * Survivor case id when THIS case was retired by a staff/data merge (TKT-092
+   * writes `{"mergedInto": <survivor>}` into `duplicate_keys`; surfaced as
+   * `Case.mergedInto`). Present (non-blank) => the case is resolved work: the
+   * guard preserves the retired `linked_to_instruction` state instead of
+   * recomputing from fields/images (the TKT-141 retired-lock). Callers
+   * recomputing an EXISTING case must pass it; case-create paths have none.
+   */
+  mergedInto?: string;
 }
 
 /* ----------  Required-field check (re-implements payload validation)  ----------
@@ -188,6 +201,11 @@ function hasIdentityOf(input: StatusEvaluationInput): boolean {
    through the app no longer re-stamps a status the flow wouldn't). Order is
    load-bearing:
      1. terminal?                          -> return it unchanged (terminal-lock)
+     1b. merge-retired (`mergedInto` set)?  -> 'linked_to_instruction' (retired-lock,
+         TKT-141: a merged case is resolved work — any recompute PRESERVES the
+         retired state, and CONVERGES a marker-bearing case that was wrongly
+         un-retired back to it; the only writer of the marker is the merge path,
+         which sets `linked_to_instruction` atomically, and there is no unmerge)
      2. fieldsValid && imagesValid          -> 'ready_for_eva'
      3. fieldsValid && !imagesValid         -> 'missing_images'
      4. !fieldsValid && imagesValid         -> 'missing_required_fields'
@@ -210,6 +228,15 @@ function hasIdentityOf(input: StatusEvaluationInput): boolean {
    by the terminal-lock. */
 export function statusForReviewCase(input: StatusEvaluationInput): CaseStatus {
   if (isTerminalStatus(input.status)) return input.status;
+
+  // TKT-141 retired-lock: a merge-retired case (duplicate_keys.mergedInto) is
+  // resolved work. Preserve `linked_to_instruction` instead of recomputing from
+  // fields/images — otherwise any touch (re-ingest, evidence event, PATCH)
+  // silently un-retires it and the isRetiredMerged exclusion goes inert (the
+  // 2026-07-10 live regression). Terminal statuses still win above (a stale
+  // marker never rewrites `removed`/`done`); a plain `linked_to_instruction`
+  // case WITHOUT the marker keeps recomputing as before.
+  if ((input.mergedInto ?? '').trim().length > 0) return 'linked_to_instruction';
 
   const fieldsValid = missingRequiredFieldKeys(input.evaFields).length === 0;
   const imagesValid = validateEvaImageRules(input.evidence).length === 0;

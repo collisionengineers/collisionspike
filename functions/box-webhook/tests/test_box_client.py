@@ -66,6 +66,50 @@ def _no_backoff(monkeypatch):
     monkeypatch.setattr(BoxClient, "_backoff", staticmethod(lambda attempt: None))
 
 
+@respx.mock
+def test_copy_file_request_marks_created():
+    _mock_token()
+    respx.post(f"{API_BASE}/2.0/file_requests/template-1/copy").mock(
+        return_value=httpx.Response(201, json={"id": "9001", "url": "/f/public-token"})
+    )
+    out = _client().copy_file_request("template-1", "folder-1")
+    assert out == {
+        "id": "9001",
+        "url": "/f/public-token",
+        "outcome": "created",
+    }
+
+
+@respx.mock
+def test_copy_file_request_recovers_409_conflict():
+    _mock_token()
+    respx.post(f"{API_BASE}/2.0/file_requests/template-1/copy").mock(
+        return_value=httpx.Response(
+            409,
+            json={"context_info": {"conflicts": {"id": "9001", "type": "file_request"}}},
+        )
+    )
+    get_existing = respx.get(f"{API_BASE}/2.0/file_requests/9001").mock(
+        return_value=httpx.Response(200, json={"id": "9001", "url": "/f/public-token"})
+    )
+    out = _client().copy_file_request("template-1", "folder-1")
+    assert out["id"] == "9001"
+    assert out["url"] == "/f/public-token"
+    assert out["outcome"] == "reused"
+    assert get_existing.call_count == 1
+
+
+@respx.mock
+def test_copy_file_request_unresolvable_409_stays_failure():
+    _mock_token()
+    respx.post(f"{API_BASE}/2.0/file_requests/template-1/copy").mock(
+        return_value=httpx.Response(409, json={"context_info": {}})
+    )
+    with pytest.raises(BoxError) as exc:
+        _client().copy_file_request("template-1", "folder-1")
+    assert exc.value.status == 409
+
+
 # ==========================================================================
 # Token mint shape + caching
 # ==========================================================================

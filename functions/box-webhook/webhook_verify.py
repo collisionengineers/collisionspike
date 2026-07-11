@@ -147,8 +147,9 @@ class DeliveryDedup:
     that arrives with a fresh id. The DURABLE, authoritative dedup is the
     Evidence-existence check the receiver does against Dataverse before writing
     (case folder id + Box file id, idempotent regardless of the delivery id).
-    ``seen()`` marks and reports atomically: returns True if the id was already
-    present.
+    ``begin()`` distinguishes a settled duplicate from one that is still being
+    processed. An in-flight duplicate must never receive a settled 200 because
+    the first request may still fail.
 
     The mark is provisional: when the receiver returns a non-2xx after a transient
     failure (so Box retries), it ``forget()``s the id so a retry that DOES reuse
@@ -159,23 +160,39 @@ class DeliveryDedup:
     def __init__(self, *, ttl_s: float = 7200.0, max_entries: int = 4096) -> None:
         self._ttl_s = ttl_s
         self._max = max_entries
-        self._store: "OrderedDict[str, float]" = OrderedDict()
+        self._store: "OrderedDict[str, tuple[float, str]]" = OrderedDict()
         self._lock = threading.Lock()
 
-    def seen(self, delivery_id: str | None, *, now: float | None = None) -> bool:
+    def begin(self, delivery_id: str | None, *, now: float | None = None) -> str:
+        """Atomically claim an id. Returns ``new``, ``in_flight`` or ``settled``.
+
+        A missing id is always ``new`` and relies on durable evidence idempotency.
+        """
         if not delivery_id:
-            # No delivery id -> cannot dedup in-process; let the durable layer
-            # decide. Treat as not-seen (do not silently swallow).
-            return False
+            return "new"
         now = now if now is not None else time.monotonic()
         with self._lock:
             self._evict(now)
-            if delivery_id in self._store:
-                return True
+            existing = self._store.get(delivery_id)
+            if existing is not None:
+                return existing[1]
             if len(self._store) >= self._max:
-                self._store.popitem(last=False)  # drop oldest
-            self._store[delivery_id] = now
-            return False
+                self._store.popitem(last=False)
+            self._store[delivery_id] = (now, "in_flight")
+            return "new"
+
+    def settle(self, delivery_id: str | None, *, now: float | None = None) -> None:
+        """Mark the owning request settled so later duplicates can safely 200."""
+        if not delivery_id:
+            return
+        now = now if now is not None else time.monotonic()
+        with self._lock:
+            if delivery_id in self._store:
+                self._store[delivery_id] = (now, "settled")
+
+    def seen(self, delivery_id: str | None, *, now: float | None = None) -> bool:
+        """Backward-compatible duplicate probe used by older callers/tests."""
+        return self.begin(delivery_id, now=now) != "new"
 
     def forget(self, delivery_id: str | None) -> None:
         """Un-mark a previously-``seen()`` id so a Box retry that reuses the SAME
@@ -191,7 +208,7 @@ class DeliveryDedup:
 
     def _evict(self, now: float) -> None:
         cutoff = now - self._ttl_s
-        stale = [k for k, t in self._store.items() if t < cutoff]
+        stale = [k for k, (marked_at, _state) in self._store.items() if marked_at < cutoff]
         for k in stale:
             self._store.pop(k, None)
 

@@ -1,0 +1,29 @@
+{
+  "probedAt": "2026-07-10T09:29:30.962Z",
+  "enumeratedKeyStrings": 107,
+  "backlogProbed": 88,
+  "wouldLinkAtR1": 19,
+  "variantStrings": 149,
+  "probeCalls": 15,
+  "callErrors": 0,
+  "mailboxErrors": 0,
+  "callErrorRate": "0.0%",
+  "locatable": 75,
+  "wouldMint": 75,
+  "unlocatable": 13,
+  "locatableWithDeletedScopeHits": 70,
+  "mailboxMeta": {
+    "info@collisionengineers.co.uk": {
+      "deletedTotal": 7173,
+      "inboxTotal": 42
+    },
+    "engineers@collisionengineers.co.uk": {
+      "deletedTotal": 9546,
+      "inboxTotal": 83
+    },
+    "desk@collisionengineers.co.uk": {
+      "deletedTotal": 7180,
+      "inboxTotal": 32
+    }
+  }
+}

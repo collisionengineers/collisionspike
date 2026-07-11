@@ -94,3 +94,118 @@ no longer surface in the evidence view or EVA flow; the Box copies remain as arc
 heuristic: aspect ≥ 3.5 with short side ≤ 240 px is decorative even above the area floor) and orch
 with the mirrored email-lane heuristic + GIF/BMP dimension sniffing. Live re-parse probe + recall
 guard remain verify-stage.
+
+## 2026-07-10 — REOPEN fix: classifier-gated suppression + Box-mirror filter (deployed live)
+
+Reopened verify→now by the 2026-07-10 verify-sweep FAILED verdict
+([evidence/reopen-followup-100726.md](./evidence/reopen-followup-100726.md)): the ticket's own two
+samples still extracted on the live parser (QDOS logo 575×174 aspect 3.305 < 3.5; MGAA badge 204×204
+area +4% over the floor and square), AND the Box-mirror selection had no `excluded` filter, so even
+classifier-stamped non-vehicle crops mirrored. Per the follow-up's constraint, the robust fix is
+**classifier-gated, not threshold-tuned** — three coordinated pieces:
+
+### 1. Box-mirror filter (api — the storage-gap closure)
+`api/src/functions/internal.ts` `internalCasesArchiveEvidence`
+(`GET /api/internal/cases/{id}/archive-evidence`): the selection now carries **`AND excluded = false`**
+(column is `NOT NULL DEFAULT false`), so an excluded row — classifier-stamped non-vehicle, person
+reflection, staff/cleanup exclusion — is never offered to `boxArchiveEvidence` as mirror work.
+**Chosen semantics (the race + the refinement):**
+- **Race-free by ordering, not by skip-and-retry.** Both intake persist lanes stamp `excluded`
+  in-memory BEFORE their persist call (`classifyPersist` and `extractImages` classify inline), and the
+  orchestrator sequences `boxArchiveEvidence` strictly AFTER both in every lane (main / attach_case /
+  linked-reply), so a row is never mirror-visible in a pre-classification state when classification
+  succeeded. There is no "stamps later" window left on the intake path.
+- **Classify-failure = fail-open (deliberate).** A crop whose classify returned null (AOAI blip/outage/
+  content-filter) persists role-unknown, NOT excluded, and stays mirror-eligible — the follow-up's
+  "row as today" rule. The alternative (archive skips still-unclassified rows on the first pass)
+  was REJECTED: `boxArchiveEvidence` only runs per-intake-email + via the manual lever, so there is no
+  guaranteed later archive run per case and skipping would strand genuine photos out of the Box archive
+  after any transient AOAI failure (a Box-mirror recall regression).
+- **Deliberately NOT role-aware.** A classified-'other' crop is stored as role `unknown` (the domain
+  choice-set has no `other` row — `imageRoleCodec` coalesces it), which is indistinguishable from
+  not-yet-classified; filtering on role would strand real photos. `excluded` is the one deliberate,
+  auditable, staff-reversible discriminator (un-excluding a row makes the next archive run pick it up).
+- Offline pin: NEW `api/src/functions/internal-archive-evidence.test.ts` (3 tests — the four-condition
+  predicate incl. `excluded = false`, row passthrough, 400 guard).
+
+### 2. Classifier-gated suppression for extraction crops (orchestration)
+`orchestration/src/lib/image-classify.ts` `classificationToEvidenceFields` gains an options param
+`{ nonVehicleExcluded?: boolean }`: when set and the classification is non-vehicle **`other`** (and not
+person-reflection, which keeps precedence + its own reason), the mapping returns
+**`excluded: true, exclusionReason: 'non-vehicle image detected (auto-classified)'`** (user-legible,
+parallel to the person-reflection wording). `extractImages` passes the option — **extraction lane
+ONLY**: a non-vehicle crop from INSIDE a document adds nothing (the document itself is already
+evidence), whereas a DIRECT email/Box image attachment classified 'other' (e.g. a photographed V5C)
+may be genuine correspondence, so `classifyPersist` / `box-classify-sweep` / `evidence-backfill` keep
+today's visible-but-not-accepted semantics. A classify failure never reaches the mapper (classifyImage
+never-throws → null → the row persists role-unknown, NOT dropped, exactly as before TKT-064).
+Observability: the `extractImages` summary event now carries **`excludedNonVehicle`**.
+**AOAI cost: ZERO new calls** — extraction crops have classified inline since TKT-064
+(`IMAGE_ROLE_CLASSIFY_ENABLED=true` live); volume for context: the PDF lane produced ~4,129 rows in the
+7 days to 2026-07-09 (~590/day, ~$1.40/day at TKT-131's ~$0.0024/image), unchanged by this fix; the
+engine retune (below) slightly REDUCES it (suppressed crops never reach the pipeline).
+Offline pins: `image-classify.test.ts` (+3 mapping tests incl. recall guard over all three vehicle
+roles) and NEW `orchestration/src/functions/activities/extractImages.test.ts` (5 tests through the
+REAL mapping: 'other'→excluded+reason; vehicle crop accepted+not-excluded; classify-null fail-open;
+gate-off never calls the classifier; the excludedNonVehicle counter).
+
+### 3. Threshold supplement (sibling-first per ADR-0018 — NOT the sole fix)
+Sibling `cedocumentmapper_v2.0` commit **`79efe22`**, annotated tag **`engine-v2.15`** (branch
+`feat/tkt043-open-case-ref-context`, **branch + tag pushed to origin**): `_BANNER_ASPECT_RATIO`
+**3.5 → 3.2** (short-side cap 240 px unchanged) — deterministically suppresses the recurring QDOS
+Assistance letterhead logo (575×174 = 3.305) engine-side, independent of AOAI health / per-provider
+`ai_allowed` opt-outs. Recall analysis: photos are ≤ ~1.8:1 (21:9 crop ≈ 2.33); a genuine 3.2:1 pano
+carries a short side far above 240 px. The **204×204 MGAA square badge is deliberately NOT
+shape-caught** (the verifier's judgement: a small square is indistinguishable from a small genuine
+photo) — it stays engine-kept and the classifier lane (#2) owns it; a sibling pin documents that
+division of labour. Sibling fixtures: 575×174 suppressed (unit matrix + PDF-extraction param),
+768×240 / 767×240 inclusive-boundary pair, 204×204 kept. Sibling suite **452 passed / 5 skipped**
+(all skips environmental). **Re-vendored** into `functions/parser/cedocumentmapper_v2/` per the
+PROVENANCE mirror loop — only `application/service.py` changed; drift guard green; PROVENANCE.md
+history + Cut-from updated to `engine-v2.15`. The parser deploy **rides the already-vendored
+`engine-v2.14`** (TKT-147 Tractable `two_label_join` + VIN envelope — additive, EVA export
+byte-stable, no DDL dependency; live was v2.13). Email-lane lockstep:
+`orchestration/src/lib/image-sniff.ts` `BANNER_ASPECT_RATIO` 3.5 → 3.2 (+ test boundaries updated,
+575×174 flagged, 204×204 documented classifier-owned).
+
+### Suites / gates
+- orchestration **296/296**, api **415/415** (vitest); parser Function **283 passed / 11 skipped /
+  1 failed** — the failure is the documented pre-existing environmental
+  `test_multiformat_extraction[ALS_doc]` on this Windows box (identical pre-change; memory:
+  windows-parser-test-preexisting-failures), which also keeps `verify-all.mjs` at its known baseline
+  (parser gate FAIL environmental, all other gates pass).
+
+### Deploys (2026-07-10 ~17:25–17:35Z, Windows func per the deploy playbook)
+- `cespk-api-dev` (96 functions), `cespk-orch-dev` (74), parser
+  `cespike-parser-dev-x7xt3d5ovhi7y` (4, `--build remote`) — **counts unchanged** (modifications
+  only), all three **Running** (ARM), post-deploy App Insights: api 49 reqs / 0 5xx / 0 exceptions,
+  orch 20 / 0 / 0, parser `extract_images` 2/2. `mcp__azure__get_azure_bestpractices` consulted
+  pre-deploy. LIVE_FACTS.json + live-environment.md updated (counts/timestamps + narrative).
+
+### Live re-proof (the verifier's probe, re-run post-deploy)
+- **Engine probe:** both named samples POSTed to the live `/extract-images`
+  (`test-cases-and-data/QDOS261608/.../42117_1_LtrtoEngineerIn.pdf` and
+  `docs/tickets/to-distill/audits/report-and-audit-report/LtrtoEngineerIn.pdf`) → **HTTP 200,
+  count = 1 each** (was 2/2): the QDOS logo (10,720 B png) is **gone**; only the MGAA badge returns
+  (28,728 / 29,026 B jpeg) — by design, it is classifier-owned downstream.
+- **Mirror-filter probe (excluded-and-not-mirrored, live):** Postgres recon found A.QDOS26009 holding
+  exactly 1 excluded unmirrored blob row — **the QDOS logo itself** (10,738 B, cleanup-excluded
+  2026-07-09) — plus 1 legit unmirrored 19.1 MB `message.eml` (pre-TKT-142 stranding). The keyed
+  `box-archive` lever completed **`{uploaded: 1, total: 1}`**: the excluded logo was **not selected**
+  (`box_file_id` still NULL, `updated_at` untouched) while the `.eml` mirrored via the TKT-142
+  streamed lane (box file `2339522313264`) — the mirror filter and the mirror-still-works recall
+  proof in one run. Pre-fix, `total` would have been 2 and the logo would have been pushed to Box.
+- **Forward-window baseline (the queued SQL, run):** since 2026-07-09, **40** suspect-class extraction
+  crops (logo 10,720/10,738 B png + badge 28,728/29,026 B jpeg across ~18 QDOS cases, plus a
+  30,057 B DFD-form class), **38 already in Box, 0 excluded** — the quantified pre-fix leak, newest at
+  2026-07-10T14:16Z (all pre-deploy). Transient FW rules `tkt089-reprobe-*` created + trap-deleted.
+- **Queued (needs the next natural QDOS letter intake, post-17:35Z):** expect NO `img_1_1` logo row at
+  all (engine), the badge row persisted `excluded=true` with the auto-classified reason and never
+  mirrored, and `excludedNonVehicle ≥ 1` on the case's `extractImages` App Insights event.
+
+NOT done here (dispatcher-owned): the fresh verifier pass (verdict stays PENDING) and any ticket
+status move.
+
+## Regression follow-up
+
+- [2026-07-11 evidence recall and durable review controls](./changes-regression-11-07-26.md)

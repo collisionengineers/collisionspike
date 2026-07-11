@@ -1,9 +1,35 @@
 # Verification — TKT-044: Mileage calculations look ~10,000 over expected values
 
 ## Verdict
-PENDING — the calculation audit + arithmetic pin are done (offline); the acceptance's
-"handful of real cases re-run through enrichment" comparison is pending (read-only live checks
-in the wave's deploy phase).
+PENDING — solely on the operator confirming the expectation source.
+
+Verified by: ticket-verifier dispatch, 10-07-26. The technical work is complete and independently
+corroborated:
+- **Live re-runs exist (acceptance's first branch):** 4 real case VRMs (SD66CVW, Y40SJL, AC14ACE,
+  PK20FWT) re-run via POST /api/dvsa-mot/enrich with document_has_mileage:false — deltas
+  +890…+3,592, all HIGH confidence, **no ~10k systematic overshoot on any real case**;
+  ENRICHMENT_ENABLED=true both apps (the probed path is the live one).
+- **No calculation bug (second branch's substance):** verified against source —
+  functions/enrichment/analysis.py:326-442 (MOT-anchored projection,
+  last_known + annual_rate × days_since/365.25, rounded to 100) and the ADR-0006 guard intact
+  (document_has_mileage defaults True → estimate skipped).
+- **Pin test re-run by the verifier:** 30/30 passed incl.
+  test_estimate_projects_forward_from_last_mot_by_design_tkt044.
+- **Independent arithmetic spot-check by the verifier:** the pinned inputs reproduce exactly 8,800
+  overshoot — the "~10k over" arises only when a last-MOT anchor is ~13+ months stale at ~8k mi/yr,
+  i.e. the designed projection-to-today, not a double-count.
+- Expected absence: no enrichment-sourced mileage has ever overwritten a document value (all sampled
+  stored mileages pdf_extraction-sourced — ADR-0006 working).
+
+**The single open item (operator, not code):** confirm which "expected value" the original ~10k-over
+observation compared against (last-MOT figure vs photographed odometer vs document value). The
+original instance was never located; the assessment is a strong arithmetically-consistent explanation
+rather than a confirmed reproduction. On the operator's confirmation this closes with no further
+technical work (follow-up candidates 1/2/3 in changes.md — surface the estimate basis in UI;
+damaged-vehicle as_of cap; prefer photographed odometer — remain optional).
+
+Queued SQL (informational, next data pass): mileage provenance distribution (expect only
+pdf_extraction); the stored-mileage comparison set (newest 20).
 
 ## Evidence (so far)
 - Code audit of `functions/enrichment/analysis.py` `current_mileage_estimate` (see changes.md):

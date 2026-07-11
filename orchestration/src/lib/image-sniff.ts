@@ -9,13 +9,11 @@
  * correctly, so this module gives a second, content-based filter for what slips
  * through.
  *
- * Mirrors the vendored cedocumentmapper engine's decorative-raster filter
- * (`_MIN_EXTRACTED_IMAGE_AREA` + the banner-shape rung in `is_decorative_raster`,
- * functions/parser/cedocumentmapper_v2/application/service.py, engine-v2.11): a
- * pixel-**area** floor below which a raster is letterhead art, not a vehicle photo,
- * plus a conservative large-banner shape heuristic for above-floor letterhead
- * furniture (TKT-047's 2026-07-08 live leak / TKT-089) — and dimensions that cannot
- * be determined are never blind-flagged on that basis alone. Graph gives us bytes
+ * Mirrors the vendored cedocumentmapper engine's recall-safe decorative-raster floor:
+ * a pixel-**area** floor below which a raster is letterhead art, while dimensions that
+ * cannot be determined are never blind-flagged. Shape alone is deliberately NOT a
+ * discard rule: a low-resolution panoramic vehicle photo must reach classification.
+ * Graph gives us bytes
  * only (no decoded dimensions, no image-processing dependency), so
  * `sniffImageDimensions` reads just enough of the image header to recover
  * width*height without decoding the image.
@@ -32,23 +30,6 @@
  * per-axis check) survives a wide-but-short banner logo while still rejecting it.
  */
 export const AREA_FLOOR = 200 * 200;
-
-/**
- * Large-banner shape heuristic (TKT-047 above-floor leak / TKT-089) — mirrors the
- * engine's `_BANNER_ASPECT_RATIO` / `_BANNER_MAX_SHORT_SIDE`
- * (functions/parser/cedocumentmapper_v2/application/service.py `is_decorative_raster`,
- * engine-v2.11 — keep the two in lockstep). The 2026-07-08 operator report showed
- * signature images STILL reaching Box with the area floor provably acting: wide banner
- * signatures (e.g. 600x150 = 90,000 px² > the 40,000 floor) clear a pure area check.
- * An image above the floor is still decorative only when BOTH hold: the aspect ratio
- * is extreme (long side >= 3.5x the short side) AND the short side is small
- * (<= 240 px). Recall guard: no real phone/camera photo can match — photos are
- * 4:3 / 3:2 / 16:9 (aspect <= ~1.8), and even an aggressive panoramic crop that
- * reached 3.5:1 would carry a short side far above 240 px. A false positive here is
- * evidence loss, so both conditions are required, never either alone.
- */
-export const BANNER_ASPECT_RATIO = 3.5;
-export const BANNER_MAX_SHORT_SIDE = 240;
 
 /**
  * Conservative byte-size fallback for images whose pixel dimensions could not be
@@ -235,7 +216,7 @@ function isImageAttachment(filename: string, contentType: string | undefined): b
 }
 
 /** Why an attachment was flagged — lets the graph.ts skip trace say which rung acted. */
-export type SignatureImageReason = 'area-floor' | 'banner-shape' | 'byte-floor';
+export type SignatureImageReason = 'area-floor' | 'byte-floor';
 
 export interface SignatureImageVerdict {
   flagged: boolean;
@@ -253,9 +234,6 @@ export interface SignatureImageVerdict {
  *
  * Decision table for an image attachment:
  *   - dimensions sniffed AND pixel area < `areaFloor`               → flag (`area-floor`)
- *   - dimensions sniffed, above the floor, BUT banner-shaped
- *     (aspect >= `BANNER_ASPECT_RATIO` AND short side <=
- *     `BANNER_MAX_SHORT_SIDE` — see those constants' recall guard)  → flag (`banner-shape`)
  *   - dimensions unknown AND `bytes.length` < `byteFloorForUnknown` → flag (`byte-floor`)
  *   - anything else (including "dimensions unknown but large enough") → keep
  *
@@ -282,11 +260,6 @@ export function assessSignatureImage(
   const dims = sniffImageDimensions(bytes);
   if (dims) {
     if (dims.width * dims.height < areaFloor) return { flagged: true, reason: 'area-floor', dims };
-    const longSide = Math.max(dims.width, dims.height);
-    const shortSide = Math.min(dims.width, dims.height);
-    if (longSide >= shortSide * BANNER_ASPECT_RATIO && shortSide <= BANNER_MAX_SHORT_SIDE) {
-      return { flagged: true, reason: 'banner-shape', dims };
-    }
     return { flagged: false, dims };
   }
   if (bytes.length < byteFloor) return { flagged: true, reason: 'byte-floor' };

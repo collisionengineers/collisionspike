@@ -1,0 +1,110 @@
+key,kind,row_count,categories,mailboxes_observed,earliest_received,latest_received,sample_subject,r1_match_exact,r1_match_loose
+AMS26030,case_po,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-02 12:44:07+00,2026-07-02 12:44:07+00,Re: Our Ref: 100698.001/Mr M Kamara - Your ref: ams26030,f,f
+A.PCH25537,case_po,1,query/query_existing_work,info@collisionengineers.co.uk,2026-07-06 08:21:52+00,2026-07-06 08:21:52+00,"RE: Your Ref: A.pch25537, Our ref: 566566",f,f
+A.PCH26427,case_po,1,query/query_existing_work,info@collisionengineers.co.uk,2026-07-01 14:52:36+00,2026-07-01 14:52:36+00,RE: Our Ref: 572238 - Your Ref: a.pch26427,f,f
+A.QDOS251286,case_po,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 13:26:06+00,2026-07-06 13:26:06+00,RE: Daniel McMillan v Axa Insurance - QDO2077.259   Your ref: a.qdos251286 [BRO-D.FID7335568],f,f
+A.QDOS251687,case_po,2,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-06 14:00:51+00,2026-07-07 08:21:38+00,"RE: (EREF45) RTA on 10/09/2025 : Mr Michael Hanson (Our Ref: CWA/39900/1, Your Ref: 2024/447271)- a.qdos251687",f,f
+AX25026,case_po,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 08:03:26+00,2026-07-06 08:03:26+00,RE: Claim  001-01-084464 - Motor trade  - PX22ZHA AX Ref 976106,f,f
+EFD80660,case_po,1,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-02 08:06:38+00,2026-07-02 08:06:38+00,RE: (EREF31) RTA on 05/03/2026 : Mr Mujibur Ali (Our Ref: TG/43917/1) - BE11 MUJ,f,f
+ENQ495023,case_po,2,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-03 13:44:50+00,2026-07-03 14:07:58+00,Re: Our ref. ENQ495023 Dr Richard Marks,f,f
+IMAGE492049,case_po,1,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-07 10:39:34+00,2026-07-07 10:39:34+00,NA68FMU. 46587/1,f,f
+IMAGE747974,case_po,2,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-06 12:10:51+00,2026-07-06 12:20:50+00,"Re: FW: (EREF1) Mr Paul Tasker : accident date tba (Our Ref: //46587/1, Registration: NA68 FMU)",f,f
+001-01-084464,external_ref,2,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 08:01:46+00,2026-07-06 08:03:26+00,AutoResponse: [EXTERNAL] FW: Claim  001-01-084464 - Motor trade  - PX22ZHA AX Ref 976106,f,f
+100875.003,external_ref,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 09:34:15+00,2026-07-06 09:34:15+00,Re:100875.003/Mr J Siranseevi,f,f
+2025/09,external_ref,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 08:00:33+00,2026-07-06 08:00:33+00,RE: Oakwood Scotland Soliciutors- Instructions,f,f
+261622SA,external_ref,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-07 09:16:40+00,2026-07-07 09:16:40+00,RE: Our Client - Dawit Ocbamichael /  Our Reference - 261622SA,t,t
+272.19,external_ref,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 09:39:44+00,2026-07-06 09:39:44+00,RE: Mr Abu Zaid Rasool - PE19UDH - 06/10/2025,f,f
+30154-01,external_ref,2,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 09:51:10+00,2026-07-07 09:47:34+00,30154 - Osman Kadar Salad  - B18OSM,t,t
+30211-01,external_ref,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-09 11:00:29+00,2026-07-09 11:00:29+00,30211-01   Mr Cumar Xersi    WF69NDX,f,f
+30230-01,external_ref,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 11:06:11+00,2026-07-06 11:06:11+00,Our Ref: 30230-01 ; Name: Mr Abdullahi Yusuf Ibrahim   ; Vehicle Registration Number: BV72YVB,f,f
+330.86,external_ref,3,case_update/update_general; query/query_existing_work,desk@collisionengineers.co.uk; engineers@collisionengineers.co.uk,2026-07-08 08:32:31+00,2026-07-08 09:09:40+00,✅ New completed lead: Book Rebecca  in today,f,f
+44960/1,external_ref,3,non_actionable/acknowledgement; query/query_existing_work,desk@collisionengineers.co.uk,2026-07-07 09:06:30+00,2026-07-07 11:38:45+00,"RE: (EREF25) Client: Mr Joginder Singh Thiara, Vehicle: MERCEDES CL500 AUTO JST305, Our Ref: 44960/1",t,t
+46458/1,external_ref,1,cancellation/cancellation_notice,desk@collisionengineers.co.uk,2026-07-06 15:48:41+00,2026-07-06 15:48:41+00,"(EREF11) Client: Mr Chris Legge, Vehicle: PEUGEOT 206 SE KU05 NJZ, Our Ref: 46458/1",f,f
+46587/1,external_ref,3,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-06 12:10:51+00,2026-07-07 10:39:34+00,"Re: FW: (EREF1) Mr Paul Tasker : accident date tba (Our Ref: //46587/1, Registration: NA68 FMU)",f,f
+46632/1,external_ref,1,case_update/images_received,desk@collisionengineers.co.uk,2026-07-05 14:41:58+00,2026-07-05 14:41:58+00,"Engineer Triage - Our Claim Reference 46632/1, Vehicle registration GB64SMM",f,f
+46633/1,external_ref,1,case_update/images_received,desk@collisionengineers.co.uk,2026-07-05 14:45:07+00,2026-07-05 14:45:07+00,"Engineer Triage - Our Claim Reference 46633/1, Vehicle registration MJ64YOX",f,f
+46640/1,external_ref,1,case_update/images_received,desk@collisionengineers.co.uk,2026-07-06 21:06:48+00,2026-07-06 21:06:48+00,46640/1 - Andy Smith,f,f
+46670/1,external_ref,1,case_update/images_received,desk@collisionengineers.co.uk,2026-07-06 20:53:50+00,2026-07-06 20:53:50+00,46670/1 - Mohammed Jameel,f,f
+567840,external_ref,1,query/query_existing_work,info@collisionengineers.co.uk,2026-07-06 08:14:41+00,2026-07-06 08:14:41+00,Our ref: 567840 SUPPLEMENTARY,f,f
+768.00,external_ref,1,case_update/update_general,desk@collisionengineers.co.uk,2026-07-06 18:06:03+00,2026-07-06 18:06:03+00,✅ New completed lead: Book Jenosampaul  in today,f,f
+900.62,external_ref,2,query/query_existing_work,info@collisionengineers.co.uk,2026-07-06 09:34:08+00,2026-07-06 10:23:07+00,RE: Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd) 575888,f,f
+AMA/46296/1,external_ref,1,case_update/images_received,desk@collisionengineers.co.uk,2026-07-03 15:26:56+00,2026-07-03 15:26:56+00,"(EREF9) RTA on 19/06/2026 : Mr Kandasamy Naguleswaran (Our Ref: AMA/46296/1, Vehicle: EX72 YXW)",t,t
+A.PCH25537,external_ref,1,query/query_existing_work,info@collisionengineers.co.uk,2026-07-06 08:21:52+00,2026-07-06 08:21:52+00,"RE: Your Ref: A.pch25537, Our ref: 566566",f,f
+A.QDOS251286,external_ref,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 13:26:06+00,2026-07-06 13:26:06+00,RE: Daniel McMillan v Axa Insurance - QDO2077.259   Your ref: a.qdos251286 [BRO-D.FID7335568],f,f
+CWA/39900/1,external_ref,2,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-06 14:00:51+00,2026-07-07 08:21:38+00,"RE: (EREF45) RTA on 10/09/2025 : Mr Michael Hanson (Our Ref: CWA/39900/1, Your Ref: 2024/447271)- a.qdos251687",f,f
+DIK/JMO/46440/1,external_ref,1,cancellation/cancellation_notice,desk@collisionengineers.co.uk,2026-07-07 16:23:24+00,2026-07-07 16:23:24+00,(EREF18) RTA on 27/06/2026 : Ms Patricia McCarty,f,f
+FC/901615693,external_ref,1,case_update/update_general,engineers@collisionengineers.co.uk,2026-07-04 12:55:19+00,2026-07-04 12:55:19+00,1st CENTRAL claim number FC/901615693,f,f
+KAD/41981/1,external_ref,1,non_actionable/acknowledgement,desk@collisionengineers.co.uk,2026-07-08 09:45:24+00,2026-07-08 09:45:24+00,"RE: (EREF25) RTA on 12/12/2025 : Mr Andrew Anderson (Our Ref: KAD/41981/1, Vehicle: M238JPE)",f,f
+LOP//43454/1,external_ref,1,case_update/update_general,desk@collisionengineers.co.uk,2026-07-07 08:42:25+00,2026-07-07 08:42:25+00,"(EREF35) RTA on 16/02/2026 : Ms Irene Williams (Our Ref: LOP//43454/1, Vehicle: 9497IW)",f,f
+NV.8541.VD,external_ref,1,case_update/update_general,engineers@collisionengineers.co.uk,2026-07-06 10:32:58+00,2026-07-06 10:32:58+00,Our Ref: NV.8541.VD  Client: Mr Belal Hussain,f,f
+PHA5013,external_ref,2,case_update/update_general; non_actionable/acknowledgement,engineers@collisionengineers.co.uk,2026-07-06 13:38:53+00,2026-07-07 12:50:47+00,PHA 5013 Reg: YH08 MWS,t,t
+REFERENCE-46626/1-,external_ref,1,case_update/update_general,desk@collisionengineers.co.uk,2026-07-05 05:48:58+00,2026-07-05 05:48:58+00,Engineer Triage-Our claim Reference-46626/1- Vehicle registration- UIG4844,f,f
+SAB/46329/1,external_ref,1,case_update/update_general,desk@collisionengineers.co.uk,2026-07-07 14:36:05+00,2026-07-07 14:36:05+00,"(EREF16) RTA on 18/06/2026 : Mr Junior Hanson (Our Ref: SAB/46329/1, Vehicle: LC57XMK)",f,f
+SR/VRL/1/5347,external_ref,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 08:38:59+00,2026-07-06 08:38:59+00,NEW INSTRUCTIONS - North Lanarkshire - John Johnstone        Our ref: SR/VRL/1/5347,f,f
+TG/43917/1,external_ref,1,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-06 11:08:56+00,2026-07-06 11:08:56+00,RE: (EREF31) RTA on 05/03/2026 : Mr Mujibur Ali (Our Ref: TG/43917/1) - BE11 MUJ,f,f
+TG/ND/45430/1,external_ref,1,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-10 07:59:59+00,2026-07-10 07:59:59+00,(EREF42) RTA on 17/05/2026 : Mr Demetri Yhap (Our Ref: TG/ND/45430/1),f,f
+TJD/WILKIE/S487416.001,external_ref,2,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 08:46:28+00,2026-07-06 15:24:38+00,RE: Oakwood Scotland Soliciutors- Instructions,f,f
+AE63SON,vrm,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-06-30 13:03:33+00,2026-06-30 13:03:33+00,Re: Repair Authority - AE63SON,f,f
+AO25ULG,vrm,3,query/query_existing_work,info@collisionengineers.co.uk,2026-07-02 14:20:06+00,2026-07-06 10:23:07+00,RE: Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd) 575888,f,f
+AP70WAA,vrm,3,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-02 09:46:05+00,2026-07-02 10:54:40+00,RE: Reg AP70WAA - Our Ref 30161,f,f
+AT850,vrm,2,query/query_existing_work,info@collisionengineers.co.uk,2026-07-03 14:08:44+00,2026-07-03 14:48:41+00,RE: RE: 573387  S TAAFFE    ZIP FILE/IMAGES,f,f
+AY63WJE,vrm,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-06-30 13:25:26+00,2026-06-30 13:25:26+00,Re: AY63 WJE,t,t
+B18OSM,vrm,4,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-02 09:41:12+00,2026-07-07 09:47:34+00,30154 - Osman Kadar Salad  - B18OSM,t,t
+BA69UXT,vrm,2,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-03 09:24:15+00,2026-07-03 09:25:15+00,30212   Mr Ahmed Abukar Omar   BA69UXT,f,f
+BB12ASB,vrm,2,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-02 11:08:35+00,2026-07-02 12:13:34+00,our ref 46452/1  registration BB12ASB,f,f
+BE11MUJ,vrm,2,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-02 08:06:38+00,2026-07-06 11:08:56+00,RE: (EREF31) RTA on 05/03/2026 : Mr Mujibur Ali (Our Ref: TG/43917/1) - BE11 MUJ,f,f
+BL68MJE,vrm,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 13:26:06+00,2026-07-06 13:26:06+00,RE: Daniel McMillan v Axa Insurance - QDO2077.259   Your ref: a.qdos251286 [BRO-D.FID7335568],f,f
+BMW118D,vrm,1,case_update/update_general,desk@collisionengineers.co.uk,2026-07-05 05:48:58+00,2026-07-05 05:48:58+00,Engineer Triage-Our claim Reference-46626/1- Vehicle registration- UIG4844,f,f
+BN71JZX,vrm,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-01 09:59:41+00,2026-07-01 09:59:41+00,Our Ref: 30135-01 ; Name: Mr Ahmed Mohamed Abdi ; Vehicle Registration Number: BN71 JZX,f,f
+BV72YVB,vrm,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 11:06:11+00,2026-07-06 11:06:11+00,Our Ref: 30230-01 ; Name: Mr Abdullahi Yusuf Ibrahim   ; Vehicle Registration Number: BV72YVB,f,f
+CL500,vrm,5,non_actionable/acknowledgement; query/query_existing_work,desk@collisionengineers.co.uk,2026-06-30 10:33:58+00,2026-07-07 11:38:45+00,"RE: (EREF25) Client: Mr Joginder Singh Thiara, Vehicle: MERCEDES CL500 AUTO JST305, Our Ref: 44960/1",f,f
+CZ033,vrm,1,query/query_new_enquiry,engineers@collisionengineers.co.uk,2026-07-01 13:40:35+00,2026-07-01 13:40:35+00,RE: CZ033-3/FP - Mr Chisty A B Chowdhury - LOI,f,f
+DF25LZE,vrm,1,case_update/update_general,engineers@collisionengineers.co.uk,2026-07-09 17:47:00+00,2026-07-09 17:47:00+00,Fw: DF25LZE -supp request - revised repair cost £44553.77,f,f
+DN14VKZ,vrm,1,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-02 14:44:49+00,2026-07-02 14:44:49+00,"RE: (EREF11) RTA on 18/06/2026 : Mrs Lisa Thomas (Our Ref: SAB/46201/1, Vehicle: DN14VKZ)",t,t
+EJ05MCM,vrm,1,query/query_existing_work,info@collisionengineers.co.uk,2026-07-03 14:00:55+00,2026-07-03 14:00:55+00,Estimate Updates,t,t
+EJ64VTO,vrm,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-06-30 12:40:02+00,2026-06-30 12:40:02+00,RE: Lyndsay Fleming - EJ64 VTO - 23/05/26,f,f
+EX72YXW,vrm,1,case_update/images_received,desk@collisionengineers.co.uk,2026-07-03 15:26:56+00,2026-07-03 15:26:56+00,"(EREF9) RTA on 19/06/2026 : Mr Kandasamy Naguleswaran (Our Ref: AMA/46296/1, Vehicle: EX72 YXW)",t,t
+FY12FRJ,vrm,1,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-03 07:57:59+00,2026-07-03 07:57:59+00,"(EREF31) Client: Mr Jamie Hodkinson, Vehicle: VAUXHALL CORSA LIMITED EDITION FY12FRJ, Our Ref: 45415/1",f,f
+GB64SMM,vrm,1,case_update/images_received,desk@collisionengineers.co.uk,2026-07-05 14:41:58+00,2026-07-05 14:41:58+00,"Engineer Triage - Our Claim Reference 46632/1, Vehicle registration GB64SMM",t,t
+GF26OHO,vrm,2,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-03 07:39:36+00,2026-07-03 09:29:57+00,our ref 45304  registration  GF26OHO,f,f
+GK64TEO,vrm,1,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-03 12:50:02+00,2026-07-03 12:50:02+00,RE: (EREF32) RTA on 01/05/2026 : Miss Abigail Tettey (Our Ref: TG/45106/1),f,f
+HW20VOO,vrm,2,non_actionable/acknowledgement,info@collisionengineers.co.uk,2026-07-07 10:27:07+00,2026-07-07 11:44:02+00,RE: ESTIMATE,f,f
+KU05NJZ,vrm,1,cancellation/cancellation_notice,desk@collisionengineers.co.uk,2026-07-06 15:48:41+00,2026-07-06 15:48:41+00,"(EREF11) Client: Mr Chris Legge, Vehicle: PEUGEOT 206 SE KU05 NJZ, Our Ref: 46458/1",f,f
+KW20VEH,vrm,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-02 14:45:13+00,2026-07-02 14:45:13+00,Our Ref: NV.8541.VD  Client: Mr Belal Hussain,f,f
+LC57XMK,vrm,1,case_update/update_general,desk@collisionengineers.co.uk,2026-07-07 14:36:05+00,2026-07-07 14:36:05+00,"(EREF16) RTA on 18/06/2026 : Mr Junior Hanson (Our Ref: SAB/46329/1, Vehicle: LC57XMK)",f,f
+LO20XCX,vrm,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-01 11:57:16+00,2026-07-01 11:57:16+00,30199 - Muhammad Ashfaq  - LO20XCX,f,f
+LO72XPW,vrm,1,query/query_existing_work,info@collisionengineers.co.uk,2026-07-03 09:05:03+00,2026-07-03 09:05:03+00,Estimate Updates,t,t
+LT65FOP,vrm,2,query/query_existing_work,desk@collisionengineers.co.uk,2026-06-30 13:35:54+00,2026-07-01 11:31:18+00,RE: (EREF32) RTA on 12/04/2026 : Mr Roi Nadin (Our Ref: TG/RLS/44648/1),f,f
+M238JPE,vrm,1,non_actionable/acknowledgement,desk@collisionengineers.co.uk,2026-07-08 09:45:24+00,2026-07-08 09:45:24+00,"RE: (EREF25) RTA on 12/12/2025 : Mr Andrew Anderson (Our Ref: KAD/41981/1, Vehicle: M238JPE)",f,f
+M26GSS,vrm,1,query/query_existing_work,info@collisionengineers.co.uk,2026-07-06 08:14:41+00,2026-07-06 08:14:41+00,Our ref: 567840 SUPPLEMENTARY,f,f
+MAY2026,vrm,3,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 08:00:33+00,2026-07-06 15:24:38+00,RE: Oakwood Scotland Soliciutors- Instructions,f,f
+MJ64YOX,vrm,1,case_update/images_received,desk@collisionengineers.co.uk,2026-07-05 14:45:07+00,2026-07-05 14:45:07+00,"Engineer Triage - Our Claim Reference 46633/1, Vehicle registration MJ64YOX",f,f
+N700KEE,vrm,1,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-02 11:34:18+00,2026-07-02 11:34:18+00,"(EREF20) Client: Mr Mani Takhtshahi, Vehicle: LEVC TX VISTA COMFORT PLUS N700 KEE, Our Ref: 40019/2",t,t
+NA68FMU,vrm,3,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-06 12:10:51+00,2026-07-07 10:39:34+00,"Re: FW: (EREF1) Mr Paul Tasker : accident date tba (Our Ref: //46587/1, Registration: NA68 FMU)",t,t
+ND14BFX,vrm,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-02 14:19:59+00,2026-07-02 14:19:59+00,Our Ref: AM.8540.PI  Client: Mr Muhammad Nawazish,f,f
+NL65UBY,vrm,3,query/query_existing_work,info@collisionengineers.co.uk,2026-06-30 12:39:41+00,2026-07-02 10:10:41+00,NL65 UBY,t,t
+NY51YCU,vrm,3,non_actionable/acknowledgement; query/query_existing_work,desk@collisionengineers.co.uk,2026-07-03 13:24:24+00,2026-07-03 14:33:00+00,"RE: (EREF29) RTA on 12/04/2026 : Mr Stephen Chaplin (Our Ref: KAD/44642/1, Vehicle: NY51YCU)",f,f
+ON10,vrm,2,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-06 14:00:51+00,2026-07-07 08:21:38+00,"RE: (EREF45) RTA on 10/09/2025 : Mr Michael Hanson (Our Ref: CWA/39900/1, Your Ref: 2024/447271)- a.qdos251687",f,f
+ON16,vrm,1,case_update/update_general,desk@collisionengineers.co.uk,2026-07-07 08:42:25+00,2026-07-07 08:42:25+00,"(EREF35) RTA on 16/02/2026 : Ms Irene Williams (Our Ref: LOP//43454/1, Vehicle: 9497IW)",f,f
+ON2,vrm,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-02 13:29:30+00,2026-07-02 13:29:30+00,Re: Oakwood Scotland Solicitors- Instructions,f,f
+ON23,vrm,2,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-02 10:51:50+00,2026-07-02 10:56:39+00,RE: (EREF22) RTA on 23/05/2026 : Mr Jagdip Nahal (Our Ref: JF/ND/45627/1),f,f
+ON27,vrm,1,cancellation/cancellation_notice,desk@collisionengineers.co.uk,2026-07-07 16:23:24+00,2026-07-07 16:23:24+00,(EREF18) RTA on 27/06/2026 : Ms Patricia McCarty,f,f
+ON29,vrm,1,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-02 11:07:50+00,2026-07-02 11:07:50+00,RE: (EREF35) RTA on 29/05/2026 : Mr Craig Gresty (Our Ref: MFI/ND/45725/1),f,f
+PE19UDH,vrm,2,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-03 13:37:10+00,2026-07-06 09:39:44+00,Mr Abu Zaid Rasool - PE19UDH - 06/10/2025,f,f
+PX22ZHA,vrm,2,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 08:01:46+00,2026-07-06 08:03:26+00,AutoResponse: [EXTERNAL] FW: Claim  001-01-084464 - Motor trade  - PX22ZHA AX Ref 976106,f,f
+RTA2,vrm,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-01 12:37:14+00,2026-07-01 12:37:14+00,RE: Our Ref: 206848.001 - Kassar Saeed - New eng ins,f,f
+SB26CYU,vrm,1,query/query_existing_work,info@collisionengineers.co.uk,2026-07-02 08:36:57+00,2026-07-02 08:36:57+00,ESTIMATES,t,t
+SG75WZD,vrm,2,query/query_existing_work,info@collisionengineers.co.uk,2026-06-30 14:41:43+00,2026-06-30 14:46:18+00,RE: Estimate Update,f,f
+SL24YOE,vrm,2,non_actionable/acknowledgement; query/query_existing_work,info@collisionengineers.co.uk,2026-07-01 08:47:07+00,2026-07-01 11:30:34+00,ESTIMATES,f,f
+SM21ZKW,vrm,2,query/query_existing_work,info@collisionengineers.co.uk,2026-06-30 16:07:14+00,2026-07-01 10:21:40+00,SM21 ZKW,f,f
+SW18EAY,vrm,1,query/query_existing_work,desk@collisionengineers.co.uk,2026-07-03 10:04:59+00,2026-07-03 10:04:59+00,"Engineer Triage - Our Claim Reference 46573/1, Vehicle Registration, SW18EAY",t,t
+WD25TWX,vrm,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-02 10:06:15+00,2026-07-02 10:06:15+00,RE: Reg WD25TWX - Our Ref 29775,f,f
+WF69NDX,vrm,2,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-03 09:23:06+00,2026-07-09 11:00:29+00,30211-01   Mr Cumar Xersi    WF69NDX,f,f
+WG16SGZ,vrm,3,case_update/update_general; query/query_existing_work,info@collisionengineers.co.uk,2026-07-07 09:59:59+00,2026-07-07 11:49:39+00,573387   WG16SGZ,f,f
+WV17XNX,vrm,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-06 08:38:59+00,2026-07-06 08:38:59+00,NEW INSTRUCTIONS - North Lanarkshire - John Johnstone        Our ref: SR/VRL/1/5347,f,f
+YE12SSU,vrm,2,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-01 11:13:02+00,2026-07-02 09:13:07+00,30144-01 ; Name: Mr Mathew Olusegun Adekoya ; Vehicle Registration Number: YE12SSU,f,f
+YG22FZZ,vrm,1,cancellation/cancellation_notice,engineers@collisionengineers.co.uk,2026-07-06 15:57:14+00,2026-07-06 15:57:14+00,Client: Mr Atique Ur Rehman  // Engineer Instruction - VRN: YG22 FZZ,f,f
+YG26OSF,vrm,1,non_actionable/acknowledgement,desk@collisionengineers.co.uk,2026-07-09 11:52:01+00,2026-07-09 11:52:01+00,RE: YG26OSF. BMW X1,t,t
+YH08MWS,vrm,2,case_update/update_general; non_actionable/acknowledgement,engineers@collisionengineers.co.uk,2026-07-06 13:38:53+00,2026-07-07 12:50:47+00,PHA 5013 Reg: YH08 MWS,t,t
+YX15USS,vrm,1,query/query_existing_work,engineers@collisionengineers.co.uk,2026-07-01 12:13:49+00,2026-07-01 12:13:49+00,29969 - Abdullahi Hassan Mahamoud  -  YX15USS,f,f
+YY70RVC,vrm,1,query/query_existing_work,info@collisionengineers.co.uk,2026-06-30 14:10:15+00,2026-06-30 14:10:15+00,Estimate Update,f,f

@@ -2,7 +2,7 @@
  * api/src/functions/assistant.ts — AI chat helper (TKT-060 / TKT-066 / TKT-069).
  *
  *   POST /api/assistant/chat   a read-only conversational Q&A over the live case data
- *   GET  /api/gates/ai-chat    { enabled } for the SPA to show/hide the drawer
+ *   GET  /api/gates/ai-chat    { enabled, writeEnabled } for the SPA to describe its live abilities
  *
  * READ-ONLY by construction: the model may only call the SELECT-only lookup tools below, and
  * the route performs no mutations (TKT-060 invariant). Gated `AI_CHAT_ENABLED` (+ a configured
@@ -33,7 +33,7 @@ import {
   type ProposedAction,
   type QueueName,
 } from '@cs/domain';
-import { caseStatusCodec, inboundCategoryCodec } from '@cs/domain/codecs';
+import { caseStatusCodec, inboundCategoryCodec, inboundSubtypeCodec } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { actorFromClaims } from '../lib/audit.js';
 import { recordAiUsage } from '../lib/ai-usage.js';
@@ -59,9 +59,8 @@ const LEGACY_TOOL_NAMES = new Set(['lookup_case', 'count_cases_by_status', 'sear
 const SYSTEM_PROMPT_BASE = [
   'You are a helpful, concise assistant for staff at Collision Engineers, a vehicle-collision',
   'engineering business, working inside their case-intake system. Answer questions about cases,',
-  'queues, and inbound emails using ONLY the tools provided. You are strictly READ-ONLY: you',
-  'cannot create, change, submit, or delete anything — if asked to, explain that you can only',
-  'look things up and they should use the app itself.',
+  'queues, and inbound emails using ONLY the tools provided. You never execute a change directly;',
+  'you may only use the exact capabilities present in this request.',
   '',
   'Domain terms: a Case is one vehicle-damage assessment; its Case/PO is an internal reference',
   '(a leading-alpha principal code + year + number, e.g. CCPY26050). A case moves through',
@@ -72,6 +71,12 @@ const SYSTEM_PROMPT_BASE = [
   'EVA is the downstream assessment platform. Answer in plain English for a non-technical case',
   'handler; never invent a case number, reference, or registration that the tools did not return.',
   'If a lookup returns nothing, say so plainly rather than guessing.',
+].join('\n');
+
+const SYSTEM_PROMPT_READ_ONLY = [
+  '',
+  'This request has no proposal capability. You can only look things up. If asked to change',
+  'anything, explain that the change must be made in the app.',
 ].join('\n');
 
 const SYSTEM_PROMPT_V2_TOOLS = [
@@ -94,9 +99,9 @@ const SYSTEM_PROMPT_WRITE_TIER = [
   'you to do something you have no capability for, say so — do not pretend it is done.',
 ].join('\n');
 
-function systemPrompt(): string {
+export function systemPrompt(): string {
   let p = gates.assistantToolsetV2() ? SYSTEM_PROMPT_BASE + '\n' + SYSTEM_PROMPT_V2_TOOLS : SYSTEM_PROMPT_BASE;
-  if (gates.assistantWriteTier()) p += '\n' + SYSTEM_PROMPT_WRITE_TIER;
+  p += gates.assistantWriteTier() ? '\n' + SYSTEM_PROMPT_WRITE_TIER : '\n' + SYSTEM_PROMPT_READ_ONLY;
   return p;
 }
 
@@ -111,6 +116,15 @@ function capabilityToToolDef(c: CapabilityDescriptor): ToolDef {
 function proposalToolDef(): ToolDef {
   const caps = proposableCapabilities();
   const menu = caps.map((c) => `- ${c.name}: ${c.description}`).join('\n');
+  const variants = caps.map((c) => ({
+    type: 'object',
+    properties: {
+      capability: { type: 'string', enum: [c.name], description: c.title },
+      params: c.parameters,
+    },
+    required: ['capability', 'params'],
+    additionalProperties: false,
+  }));
   return {
     type: 'function',
     function: {
@@ -122,10 +136,12 @@ function proposalToolDef(): ToolDef {
       parameters: {
         type: 'object',
         properties: {
-          capability: { type: 'string', enum: caps.map((c) => c.name), description: 'which action to propose' },
-          params: { type: 'object', description: 'the parameters for that action', additionalProperties: true },
+          action: {
+            description: 'Exactly one proposed, capability-specific action.',
+            anyOf: variants,
+          },
         },
-        required: ['capability', 'params'],
+        required: ['action'],
         additionalProperties: false,
       },
     },
@@ -155,7 +171,13 @@ export function buildExecutor(proposals: ProposedAction[]): ToolExecutor {
   return async (name, args) => {
     if (name === 'propose_action') {
       if (!gates.assistantWriteTier()) return { proposed: false, error: 'proposing actions is switched off' };
-      const v = validateProposal(String(args.capability ?? ''), args.params ?? {});
+      // Current schema nests the union below `action` because Azure structured-output
+      // schemas do not support a root union. Keep legacy top-level input during rollout.
+      const proposed =
+        args.action && typeof args.action === 'object' && !Array.isArray(args.action)
+          ? (args.action as Record<string, unknown>)
+          : args;
+      const v = validateProposal(String(proposed.capability ?? ''), proposed.params ?? {});
       if (!v.ok || !v.capability || !v.params) {
         return { proposed: false, error: v.error ?? 'invalid proposal' };
       }
@@ -204,6 +226,7 @@ function queueLabelFromCase(c: Case): string {
 /** A compact, handler-facing case card (no raw enums). */
 function caseCard(c: Case): Record<string, unknown> {
   return {
+    caseId: c.id,
     casePo: c.casePo ?? null,
     vrm: c.vrm || null,
     queue: queueLabelFromCase(c),
@@ -266,7 +289,7 @@ export async function execTool(name: string, args: Record<string, unknown>): Pro
         preds.push("regexp_replace(upper(c.case_po), '[^A-Z0-9]', '', 'g') LIKE $2");
       }
       const rows = await query<Record<string, unknown>>(
-        `SELECT c.case_po, c.vrm, c.case_ref, c.status_code, c.on_hold, c.eva_claimant_name AS claimant,
+        `SELECT c.id AS case_id, c.case_po, c.vrm, c.case_ref, c.status_code, c.on_hold, c.eva_claimant_name AS claimant,
                 wp.display_name AS provider
            FROM case_ c LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
           WHERE ${preds.join(' OR ')}
@@ -275,6 +298,7 @@ export async function execTool(name: string, args: Record<string, unknown>): Pro
       );
       return {
         matches: rows.map((r) => ({
+          caseId: r.case_id,
           casePo: r.case_po ?? null,
           vrm: r.vrm ?? null,
           ref: r.case_ref ?? null,
@@ -313,17 +337,20 @@ export async function execTool(name: string, args: Record<string, unknown>): Pro
     case 'search_inbound': {
       const q = `%${String(args.query ?? '').trim().slice(0, 80)}%`;
       const rows = await query<Record<string, unknown>>(
-        `SELECT subject, from_address, received_on, category_code
+        `SELECT id, subject, from_address, received_on, category_code, subtype_code, triage_state
            FROM inbound_email WHERE subject ILIKE $1 OR from_address ILIKE $1
           ORDER BY received_on DESC LIMIT 5`,
         [q],
       );
       return {
         matches: rows.map((r) => ({
+          inboundId: r.id,
           subject: r.subject ?? null,
           from: r.from_address ?? null,
           received: r.received_on ?? null,
           category: categoryName(r.category_code),
+          subtype: r.subtype_code == null ? null : String(inboundSubtypeCodec.toName(r.subtype_code as number) ?? 'unknown'),
+          triageState: r.triage_state ?? 'new',
         })),
       };
     }
@@ -360,6 +387,7 @@ export async function execTool(name: string, args: Record<string, unknown>): Pro
       );
       return {
         found: true,
+        caseId: row.id,
         casePo: row.case_po ?? null,
         entries: rows.map(rowToActivityEvent).map((e) => ({
           when: e.timestamp,
@@ -405,18 +433,22 @@ export async function execTool(name: string, args: Record<string, unknown>): Pro
       const row = await resolveCaseRow(args.case);
       if (!row) return { found: false, emails: [] };
       const rows = await query<Record<string, unknown>>(
-        `SELECT subject, from_address, received_on, category_code, triage_state
+        `SELECT id, subject, from_address, received_on, category_code, subtype_code, triage_state
            FROM inbound_email WHERE case_id = $1 ORDER BY received_on DESC LIMIT 15`,
         [row.id],
       );
       return {
         found: true,
+        caseId: row.id,
         casePo: row.case_po ?? null,
         emails: rows.map((r) => ({
+          inboundId: r.id,
           subject: r.subject ?? null,
           from: r.from_address ?? null,
           received: r.received_on ?? null,
           category: categoryName(r.category_code),
+          subtype: r.subtype_code == null ? null : String(inboundSubtypeCodec.toName(r.subtype_code as number) ?? 'unknown'),
+          triageState: r.triage_state ?? 'new',
         })),
       };
     }
@@ -545,6 +577,9 @@ app.http('aiChatGate', {
   route: 'gates/ai-chat',
   handler: withRole('CollisionSpike.User', async () => ({
     status: 200,
-    jsonBody: { enabled: gates.aiChatEnabled() },
+    jsonBody: {
+      enabled: gates.aiChatEnabled(),
+      writeEnabled: gates.assistantWriteTier(),
+    },
   })),
 });

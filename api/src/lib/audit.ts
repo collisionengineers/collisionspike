@@ -17,7 +17,7 @@
  * NEVER throws — an audit-write failure must not block the primary operation.
  */
 
-import { query } from './db.js';
+import { query, type TxQuery } from './db.js';
 
 /** Controlled audit action codes (choice_audit_action, plan 10 §2.1; base 100000000). */
 export const AUDIT_ACTION = {
@@ -112,6 +112,9 @@ export const AUDIT_ACTION = {
   // above. NOTE: the case-done plan draft reserved 100000049 for this, but
   // 100000049–100000052 were taken by TKT-068/110/016 first — hence 100000053.
   report_delivered: 100000053,
+  // TKT-148 — a deterministic draft chase suggestion. Distinct from chaser_sent:
+  // no email or message has been sent and staff still decide whether to use the draft.
+  chaser_suggested: 100000054,
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
@@ -135,27 +138,53 @@ export interface AuditEventOptions {
   actor?: string;
 }
 
+const INSERT_AUDIT_SQL = `INSERT INTO audit_event
+         (name, case_id, actor, action_code, severity_code, before, after, occurred_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, now())`;
+
+function auditParams(opts: AuditEventOptions): unknown[] {
+  return [
+    opts.summary,
+    opts.caseId ?? null,
+    opts.actor ?? null,
+    opts.action,
+    SEVERITY_CODE[opts.severity ?? 'info'],
+    opts.before !== undefined ? JSON.stringify(opts.before) : null,
+    opts.after !== undefined ? JSON.stringify(opts.after) : null,
+  ];
+}
+
+/**
+ * Required audit write for a state transition whose business contract includes
+ * the audit event. This deliberately throws and must be called inside the same
+ * transaction as the guarded state change, so neither half can commit alone.
+ */
+export async function writeAuditStrict(opts: AuditEventOptions, q: TxQuery): Promise<void> {
+  await q(INSERT_AUDIT_SQL, auditParams(opts));
+}
+
 /**
  * Write one append-only audit row. Never throws — audit failures are logged and
- * swallowed so the primary operation still succeeds.
+ * swallowed so the primary operation still succeeds. When a transaction query is
+ * supplied, a savepoint keeps that best-effort posture without aborting the caller's
+ * surrounding transaction.
  */
-export async function writeAudit(opts: AuditEventOptions): Promise<void> {
+export async function writeAudit(opts: AuditEventOptions, transactionQuery?: TxQuery): Promise<void> {
+  const q = transactionQuery ?? query;
+  const savepoint = transactionQuery ? 'audit_event_write' : null;
   try {
-    await query(
-      `INSERT INTO audit_event
-         (name, case_id, actor, action_code, severity_code, before, after, occurred_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
-      [
-        opts.summary,
-        opts.caseId ?? null,
-        opts.actor ?? null,
-        opts.action,
-        SEVERITY_CODE[opts.severity ?? 'info'],
-        opts.before !== undefined ? JSON.stringify(opts.before) : null,
-        opts.after !== undefined ? JSON.stringify(opts.after) : null,
-      ],
-    );
+    if (savepoint) await q(`SAVEPOINT ${savepoint}`);
+    await q(INSERT_AUDIT_SQL, auditParams(opts));
+    if (savepoint) await q(`RELEASE SAVEPOINT ${savepoint}`);
   } catch (err) {
+    if (savepoint) {
+      try {
+        await q(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+        await q(`RELEASE SAVEPOINT ${savepoint}`);
+      } catch {
+        // The outer transaction owns the final rollback if the connection itself failed.
+      }
+    }
     // Log but do not rethrow — audit failures must not block primary ops.
     console.error('[audit] write failed', err);
   }

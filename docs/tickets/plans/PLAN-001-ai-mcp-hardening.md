@@ -168,7 +168,7 @@ Tickets: TKT-064/088, TKT-016/017/018, TKT-015 case+vision consumers.
 - `api/src/functions/search.ts` (new), `api/src/functions/mcp.ts` (new)
 - `orchestration/src/lib/image-classify.ts` (reuse), `api/src/functions/ai-suggestions.ts` (reconcile + wire)
 - Migration pattern: `migration/assets/schema/160_ai_suggestion.sql` + `900_constraints.sql`
-- Reference MCP template (do not modify): `../../connectors/evaconnector`, `../../connectors/mcp-gateway`
+- Reference MCP template (do not modify): `../../active/connectors/evaconnector`, `../../active/connectors/mcp-gateway`
 
 ## What we deliberately DON'T build this pass (and why)
 

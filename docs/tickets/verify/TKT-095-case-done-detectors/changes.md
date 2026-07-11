@@ -154,3 +154,8 @@ Files:
 - Registry/docs (LIVE_FACTS.json gate list + live-environment mirror, gated.md entry for
   `DONE_SENT_EMAIL_ENABLED`) after deploy — live-numbers protocol.
 - verification.md: PENDING (no verdict written here).
+
+## PR 55 regression repair — 2026-07-11
+
+The strict webhook retry/dedup correction and current offline evidence are recorded in
+[changes-regression-11-07-26.md](./changes-regression-11-07-26.md).

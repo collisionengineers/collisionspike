@@ -16,6 +16,7 @@ vi.mock('../lib/db.js', () => ({
 // Import AFTER the mock is registered.
 const { execTool, toolsForRequest, buildExecutor } = await import('./assistant.js');
 const domain = await import('@cs/domain');
+const { EVA_EDIT_MAX_LENGTH } = domain;
 type ProposedAction = import('@cs/domain').ProposedAction;
 
 const READ_TOOLS = [
@@ -39,7 +40,6 @@ afterEach(() => {
   delete process.env.ASSISTANT_TOOLSET_V2;
   delete process.env.ASSISTANT_WRITE_TIER_ENABLED;
 });
-void domain;
 
 describe('assistant read tools (TKT-066/069)', () => {
   it('every tool issues SELECT-only SQL (read-only invariant, TKT-060/069)', async () => {
@@ -68,6 +68,57 @@ describe('assistant read tools (TKT-066/069)', () => {
     const call = query.mock.calls.find((c) => /FROM case_/i.test(c[0] as string))!;
     const params = call[1] as unknown[];
     expect(params).toContain('%YT13UTV%'); // canonical, compacted, upper-cased
+  });
+
+  it('returns stable write-target ids from case and inbound searches', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM case_ c/i.test(sql)) {
+        return [{ case_id: '11111111-1111-4111-8111-111111111111', case_po: 'QDOS-26-001' }];
+      }
+      if (/FROM inbound_email/i.test(sql)) {
+        return [{ id: '22222222-2222-4222-8222-222222222222', subject: 'Instruction' }];
+      }
+      return [];
+    });
+    const cases = await execTool('lookup_case', { query: 'QDOS-26-001' }) as {
+      matches: Array<{ caseId: string }>;
+    };
+    const inbound = await execTool('search_inbound', { query: 'Instruction' }) as {
+      matches: Array<{ inboundId: string }>;
+    };
+    expect(cases.matches[0].caseId).toBe('11111111-1111-4111-8111-111111111111');
+    expect(inbound.matches[0].inboundId).toBe('22222222-2222-4222-8222-222222222222');
+  });
+
+  it('keeps the resolved case UUID in activity and linked-email results for follow-up writes', async () => {
+    const caseId = '11111111-1111-4111-8111-111111111111';
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM case_ c/i.test(sql)) {
+        return [{ id: caseId, case_po: 'QDOS-26-001' }];
+      }
+      if (/FROM inbound_email/i.test(sql)) {
+        return [{ id: '22222222-2222-4222-8222-222222222222', subject: 'Instruction' }];
+      }
+      return [];
+    });
+
+    const activity = await execTool('case_activity', { case: 'QDOS-26-001' }) as {
+      found: boolean;
+      caseId: string;
+      casePo: string;
+      entries: unknown[];
+    };
+    const emails = await execTool('emails_for_case', { case: 'QDOS-26-001' }) as {
+      found: boolean;
+      caseId: string;
+      casePo: string;
+      emails: Array<{ inboundId: string }>;
+    };
+
+    expect(activity).toMatchObject({ found: true, caseId, casePo: 'QDOS-26-001' });
+    expect(activity.entries).toEqual([]);
+    expect(emails).toMatchObject({ found: true, caseId, casePo: 'QDOS-26-001' });
+    expect(emails.emails[0].inboundId).toBe('22222222-2222-4222-8222-222222222222');
   });
 
   it('list_queue_cases rejects an unknown queue without any DB call', async () => {
@@ -112,6 +163,22 @@ describe('toolsForRequest gating (ASSISTANT_TOOLSET_V2)', () => {
     process.env.ASSISTANT_WRITE_TIER_ENABLED = 'true';
     expect(toolsForRequest().map((t) => t.function.name)).toContain('propose_action');
   });
+
+  it('keeps every capability-specific params schema below the supported nested anyOf', () => {
+    process.env.ASSISTANT_WRITE_TIER_ENABLED = 'true';
+    const tool = toolsForRequest().find((t) => t.function.name === 'propose_action')!;
+    const root = tool.function.parameters as Record<string, unknown>;
+    const properties = root.properties as Record<string, Record<string, unknown>>;
+    const variants = properties.action.anyOf as Array<Record<string, unknown>>;
+    expect(root).toMatchObject({ type: 'object', required: ['action'], additionalProperties: false });
+    expect(root).not.toHaveProperty('oneOf');
+    expect(variants.length).toBeGreaterThan(0);
+    for (const variant of variants) {
+      const variantProperties = variant.properties as Record<string, Record<string, unknown>>;
+      expect(variantProperties.capability.enum).toHaveLength(1);
+      expect(variantProperties.params).toMatchObject({ type: 'object', additionalProperties: false });
+    }
+  });
 });
 
 describe('propose_action executor (TKT-111 write tier)', () => {
@@ -120,15 +187,17 @@ describe('propose_action executor (TKT-111 write tier)', () => {
     const proposals: ProposedAction[] = [];
     const exec = buildExecutor(proposals);
     const res = (await exec('propose_action', {
-      capability: 'set_on_hold',
-      params: { caseId: 'c-1', onHold: true },
+      action: {
+        capability: 'set_on_hold',
+        params: { caseId: '11111111-1111-4111-8111-111111111111', onHold: true },
+      },
     })) as { proposed: boolean };
     expect(res.proposed).toBe(true);
     expect(proposals).toHaveLength(1);
     expect(proposals[0]).toMatchObject({
       capability: 'set_on_hold',
       method: 'POST',
-      path: 'cases/c-1/hold',
+      path: 'cases/11111111-1111-4111-8111-111111111111/hold',
       body: { onHold: true },
     });
     expect(sqls.length).toBe(0); // proposing issues NO SQL — nothing is written
@@ -144,6 +213,77 @@ describe('propose_action executor (TKT-111 write tier)', () => {
     };
     expect(res.proposed).toBe(false);
     expect(proposals).toHaveLength(0);
+  });
+
+  it('rejects a generic work-provider edit that would split provider identity', async () => {
+    process.env.ASSISTANT_WRITE_TIER_ENABLED = 'true';
+    const proposals: ProposedAction[] = [];
+    const res = (await buildExecutor(proposals)('propose_action', {
+      action: {
+        capability: 'edit_case_fields',
+        params: {
+          caseId: '11111111-1111-4111-8111-111111111111',
+          evaFields: { workProvider: 'QDOS' },
+        },
+      },
+    })) as { proposed: boolean };
+
+    expect(res.proposed).toBe(false);
+    expect(proposals).toHaveLength(0);
+    expect(sqls.length).toBe(0);
+  });
+
+  it('rejects case edits the PATCH would reject or silently clip', async () => {
+    process.env.ASSISTANT_WRITE_TIER_ENABLED = 'true';
+    const invalidFields = [
+      { dateOfLoss: '2026-07-11' },
+      { dateOfInstruction: '11 July 2026' },
+      { vatStatus: 'Exempt' },
+      { mileageUnit: 'Kilometres' },
+      { claimantName: 'x'.repeat(EVA_EDIT_MAX_LENGTH.claimantName + 1) },
+    ];
+
+    for (const evaFields of invalidFields) {
+      const proposals: ProposedAction[] = [];
+      const result = await buildExecutor(proposals)('propose_action', {
+        action: {
+          capability: 'edit_case_fields',
+          params: {
+            caseId: '11111111-1111-4111-8111-111111111111',
+            evaFields,
+          },
+        },
+      }) as { proposed: boolean };
+      expect(result.proposed).toBe(false);
+      expect(proposals).toHaveLength(0);
+    }
+    expect(sqls.length).toBe(0);
+  });
+
+  it('captures boundary-valid case edits without changing their displayed values', async () => {
+    process.env.ASSISTANT_WRITE_TIER_ENABLED = 'true';
+    const proposals: ProposedAction[] = [];
+    const evaFields = {
+      dateOfLoss: '11/07/2026',
+      vatStatus: 'No',
+      mileageUnit: 'Miles',
+      claimantTelephone: 'x'.repeat(EVA_EDIT_MAX_LENGTH.claimantTelephone),
+    };
+
+    const result = await buildExecutor(proposals)('propose_action', {
+      action: {
+        capability: 'edit_case_fields',
+        params: {
+          caseId: '11111111-1111-4111-8111-111111111111',
+          evaFields,
+        },
+      },
+    }) as { proposed: boolean };
+
+    expect(result.proposed).toBe(true);
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0].body).toEqual({ evaFields });
+    expect(sqls.length).toBe(0);
   });
 
   it('refuses a human-only / destructive capability (merge_cases) as a proposal', async () => {

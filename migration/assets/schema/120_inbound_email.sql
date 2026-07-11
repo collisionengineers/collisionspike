@@ -60,6 +60,45 @@ CREATE TABLE inbound_email (
   -- TKT-119c/TKT-034 (2026-07-09 delta -- deltas/2026-07-09-inbound-attention-reason.sql):
   -- a pipeline outcome needing a person, rendered as a plain-English chip while unlinked.
   attention_reason  varchar(32) CHECK (attention_reason IS NULL OR attention_reason IN ('unable_to_locate','images_no_match')),
+  -- Last terminal case-link evidence-backfill report. The reporting route locks the
+  -- inbound row and audits only outcome transitions, so an at-least-once queue replay
+  -- cannot duplicate the same audit event.
+  evidence_backfill_report_outcome varchar(20) CHECK (
+    evidence_backfill_report_outcome IS NULL OR
+    evidence_backfill_report_outcome IN ('completed','partial','failed')
+  ),
+  evidence_backfill_reported_at timestamptz,
+  evidence_backfill_requested_generation integer NOT NULL DEFAULT 0 CHECK (
+    evidence_backfill_requested_generation >= 0
+  ),
+  evidence_backfill_enqueued_generation integer NOT NULL DEFAULT 0 CHECK (
+    evidence_backfill_enqueued_generation >= 0 AND
+    evidence_backfill_enqueued_generation <= evidence_backfill_requested_generation
+  ),
+  -- Persistence completion is stamped in the SAME transaction as recovered evidence.
+  -- Reporting is separately monotonic/CAS-protected so a lost report can never let a
+  -- later mailbox failure downgrade already-committed recovery work.
+  evidence_backfill_completed_generation integer NOT NULL DEFAULT 0 CHECK (
+    evidence_backfill_completed_generation >= 0 AND
+    evidence_backfill_completed_generation <= evidence_backfill_requested_generation
+  ),
+  -- Exact terminal result committed with the evidence for completed_generation.
+  -- A queue redelivery replays this snapshot instead of guessing "completed".
+  evidence_backfill_completed_result jsonb CHECK (
+    (evidence_backfill_completed_generation = 0 AND evidence_backfill_completed_result IS NULL) OR (
+      evidence_backfill_completed_generation > 0 AND
+      evidence_backfill_completed_result IS NOT NULL AND
+      jsonb_typeof(evidence_backfill_completed_result) = 'object' AND
+      evidence_backfill_completed_result->>'outcome' IN ('completed','partial')
+    )
+  ),
+  evidence_backfill_reported_generation integer NOT NULL DEFAULT 0 CHECK (
+    evidence_backfill_reported_generation >= 0 AND
+    evidence_backfill_reported_generation <= evidence_backfill_requested_generation
+  ),
+  evidence_backfill_requested_at timestamptz,
+  evidence_backfill_enqueued_at timestamptz,
+  evidence_backfill_completed_at timestamptz,
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now()
 );

@@ -416,15 +416,30 @@ export const mockDataAccess: DataAccessExt = {
   inspectionAddressSuggestions: (_caseId, _q) => Promise.resolve([]),
   assistantChat: (_messages) =>
     Promise.resolve({ reply: 'The assistant is not available in this preview.', disabled: true }),
-  getAiChatGate: () => Promise.resolve({ enabled: false }),
+  getAiChatGate: () => Promise.resolve({ enabled: false, writeEnabled: false }),
   globalSearch: (q) => Promise.resolve({ ...EMPTY_SEARCH, query: q }),
-  caseWithVersion: (_id) => Promise.resolve({}),
-  executeProposal: (_action, _ifMatch) => Promise.resolve({ ok: false, status: 501 }),
+  caseWithVersion: (_id) =>
+    Promise.resolve({
+      state: 'unavailable' as const,
+      reason: 'request_failed' as const,
+      status: 0,
+      error: 'The latest case could not be loaded.',
+    }),
+  inboundWithVersion: (_id) =>
+    Promise.resolve({
+      state: 'unavailable' as const,
+      reason: 'request_failed' as const,
+      status: 0,
+      error: 'The latest email could not be loaded.',
+    }),
+  executeProposal: (_action, _ifMatch) =>
+    Promise.resolve({ ok: false, status: 501, error: 'That change is not available.' }),
   uploadEvidence: (_caseId, _files) => Promise.resolve({ added: [], rejected: [], status: 501 }),
   evidenceContentUrl: (_id) => Promise.resolve(undefined),
   evidenceContentBlob: (_id) => Promise.resolve(undefined),
   // Durable write — rejects until the live source is injected (mirrors createCase).
   setReflectionDismissed: (_evidenceId, _dismissed) => Promise.reject(new Error(NOT_CONFIGURED)),
+  updateEvidenceReview: (_evidenceId, _input) => Promise.reject(new Error(NOT_CONFIGURED)),
   inspectionAddressCounts: () => Promise.resolve({ confirmed: 0, suggested: 0 }),
   // Honest no-op: the empty default writes nothing (the live REST source, backed by
   // the Postgres `inspection_address` table, is injected at startup). The CaseDetail

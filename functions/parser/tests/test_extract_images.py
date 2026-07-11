@@ -210,26 +210,41 @@ def test_large_embedded_image_is_kept():
     "width,height",
     [
         (900, 180),  # wide letterhead banner — ABOVE the 200x200 area floor
+        (600, 150),
         (150, 800),  # tall narrow sidebar strip
+        (840, 240),
+        (768, 240),
+        (575, 174),  # the TKT-089 reopen QDOS Assistance letterhead logo (aspect 3.305)
     ],
 )
-def test_large_banner_furniture_is_filtered_out(width, height):
-    """TKT-089 (engine-v2.11): letterhead/banner furniture that clears the pixel-area
-    floor is still suppressed by the banner-shape heuristic (aspect >= 3.5:1 AND
-    short side <= 240 px) — the residual gap behind the 2026-07-08 live-failure
-    report. Mirrors the sibling's tests/test_extract_images.py."""
+def test_above_floor_banner_shapes_are_retained_for_classification(width, height):
+    """TKT-089 recall: geometry cannot distinguish a banner-shaped vehicle crop
+    from letterhead furniture. Above-floor rasters therefore reach the semantic
+    classifier instead of being discarded by the parser. Mirrors the sibling's
+    tests/test_extract_images.py."""
     pdf_bytes = _make_pdf_with_image(width, height)
     res = parser_adapter.run_image_extraction(pdf_bytes, "LtrtoEngineerIn.pdf")
-    assert res["count"] == 0, f"{width}x{height} banner furniture must be filtered, not stored as evidence"
+    assert res["count"] == 1, f"{width}x{height} candidate must reach semantic classification"
 
 
 @pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
-def test_real_photo_shape_is_never_banner_filtered():
-    """Recall guard (TKT-089): a genuine camera-photo shape (1600x1200) sails past
-    both the area floor and the banner heuristic."""
+def test_real_photo_shape_is_retained():
+    """Recall guard (TKT-089): a genuine camera-photo shape clears the area floor."""
     pdf_bytes = _make_pdf_with_image(1600, 1200)
     res = parser_adapter.run_image_extraction(pdf_bytes, "photos.pdf")
     assert res["count"] == 1, "a genuine photo must never be dropped by the decorative filter"
+
+
+@pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")
+def test_square_badge_stays_engine_kept_for_the_classifier():
+    """TKT-089 reopen: the 204x204 MGAA square badge is DELIBERATELY engine-kept
+    (shape-indistinguishable from a small genuine photo). The orchestration's
+    vision classifier excludes it at persist (extraction-lane `nonVehicleExcluded`,
+    orchestration/src/lib/image-classify.ts) — this pin documents the division of
+    labour. Mirrors the sibling's tests/test_extract_images.py."""
+    pdf_bytes = _make_pdf_with_image(204, 204)
+    res = parser_adapter.run_image_extraction(pdf_bytes, "LtrtoEngineerIn.pdf")
+    assert res["count"] == 1, "the square badge shape is classifier-owned, not engine-dropped"
 
 
 @pytest.mark.skipif(not _fitz_available(), reason="PyMuPDF not installed on this runner")

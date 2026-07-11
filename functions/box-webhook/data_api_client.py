@@ -35,7 +35,7 @@ What it does (the receiver's step 6-7) — SAME method names + signatures as the
   raises ``DataApiError`` (so the receiver treats it as transient and Box retries).
 * ``mark_case_done(case_id, signal, detail)`` — POST ``/api/internal/cases/{id}/
   mark-done`` (TKT-095 detector (b) / ADR-0023): eva_submitted -> done, guarded +
-  idempotent server-side. BEST-EFFORT — never raises; a miss never 503s the webhook.
+  idempotent server-side. Transport/non-2xx faults raise so Box redelivers.
 
 Auth (MI client-credentials, never a key)
 ------------------------------------------
@@ -360,32 +360,35 @@ class DataApiClient:
         so a webhook re-delivery / double-fire is a server-side no-op
         (``{updated: false}``) and a non-eva_submitted case is never moved.
 
-        BEST-EFFORT by design (unlike reinvoke_status_evaluate): a failure here
-        must NEVER fail the upload-processing path — the webhook still settles
-        200 and Box must NOT retry just because the done-flip missed (the manual
-        "Mark report delivered" bridge + the other detectors cover it). Returns
-        True only when the API reports the transition actually happened; False
-        on a guard no-op, an unset DATA_API_URL, or ANY failure (logged)."""
+        A report delivery is not settled until this call receives a 2xx. Transport,
+        configuration, malformed-response and non-2xx failures raise DataApiError
+        so the webhook returns 503 and Box retries. Returns True when the guarded
+        transition happened and False only for a valid 2xx ``{updated:false}``
+        idempotent/status no-op."""
         if not self._base_url:
-            logger.info("mark-done skipped (DATA_API_URL unset)")
-            return False
+            raise DataApiError("mark-done unavailable: DATA_API_URL unset")
         url = f"{self.base_url}/api/internal/cases/{quote(str(case_id), safe='')}/mark-done"
         payload: dict[str, Any] = {"signal": signal}
         if detail:
             payload["detail"] = str(detail)[:500]
         try:
             resp = self._send("POST", url, headers=self._headers(), json=payload)
-        except Exception as exc:  # best-effort: never bubbles to the receiver
+        except Exception as exc:
             logger.warning("mark-done request failed: %s", type(exc).__name__)
-            return False
+            raise DataApiError("mark-done request failed") from exc
         if not (200 <= resp.status_code < 300):
             logger.warning("mark-done returned HTTP %s", resp.status_code)
-            return False
+            raise DataApiError(
+                f"mark-done returned HTTP {resp.status_code}",
+                status=resp.status_code,
+            )
         try:
             body = resp.json()
-        except ValueError:
-            return False
-        updated = bool(body.get("updated")) if isinstance(body, dict) else False
+        except ValueError as exc:
+            raise DataApiError("mark-done returned invalid JSON") from exc
+        if not isinstance(body, dict) or not isinstance(body.get("updated"), bool):
+            raise DataApiError("mark-done returned an invalid result")
+        updated = body["updated"]
         logger.info("mark-done signal=%s updated=%s", signal, updated)
         return updated
 

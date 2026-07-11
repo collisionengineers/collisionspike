@@ -104,7 +104,27 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (res.status === 409) {
     // Surfaced verbatim so caseResolve can map a UNIQUE(sourcemessageid) collision
     // to `already_ingested` (idempotent intake).
-    throw new ConflictError(`${method} ${path} → 409`);
+    const detail = await safeText(res);
+    if (detail.includes('evidence_backfill_reclassification_required')) {
+      let targetCaseId: string | undefined;
+      try {
+        const parsed = JSON.parse(detail) as { targetCaseId?: unknown };
+        if (typeof parsed.targetCaseId === 'string' && parsed.targetCaseId.trim()) {
+          targetCaseId = parsed.targetCaseId.trim();
+        }
+      } catch {
+        // The typed code is enough to force a safe retry; targetCaseId is an
+        // optional convenience for the terminal report path.
+      }
+      throw new EvidenceBackfillReclassificationRequiredError(
+        `${method} ${path} → 409: ${detail}`,
+        targetCaseId,
+      );
+    }
+    if (detail.includes('evidence_backfill_target_changed')) {
+      throw new EvidenceBackfillTargetChangedError(`${method} ${path} → 409: ${detail}`);
+    }
+    throw new ConflictError(`${method} ${path} → 409: ${detail}`);
   }
   if (!res.ok) {
     throw new Error(`data-api ${method} ${path} → ${res.status}: ${await safeText(res)}`);
@@ -114,6 +134,20 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 }
 
 export class ConflictError extends Error {}
+export class EvidenceBackfillTargetChangedError extends ConflictError {}
+export class EvidenceBackfillReclassificationRequiredError extends ConflictError {
+  constructor(message: string, public readonly targetCaseId?: string) {
+    super(message);
+  }
+}
+
+export interface EvidenceBackfillCommittedResult {
+  outcome: 'completed' | 'partial';
+  persisted: number;
+  merged?: number;
+  failedAttachments?: number;
+  detail?: string;
+}
 
 /* ---------- typed surface ---------- */
 
@@ -209,6 +243,40 @@ export interface TriageSuggestClassificationRequest {
   confidence: number;
   /** '<deployment>:<modelVersion-from-response>' — see triage-classify.ts's own stamp. */
   modelVersion: string;
+}
+
+/**
+ * One claimed still-unclassified FILE.UPLOADED-lane image evidence row
+ * (POST /api/internal/evidence/unclassified-box — TKT-146). `sourceMessageId` is the
+ * row's durable `box:file:<id>` dedup tag when the registration wrote one; the sweep
+ * mirrors the row's OWN identity verbatim on the stamp re-POST (see
+ * box-classify-sweep.ts's buildStampRow — sending a tag the row does not have would
+ * make the evidence route's NOT-EXISTS dedup miss and INSERT a duplicate).
+ */
+export interface UnclassifiedBoxEvidenceRow {
+  evidenceId: string;
+  caseId: string;
+  filename: string;
+  contentType: string | null;
+  boxFileId: string;
+  sourceMessageId: string | null;
+  caseVrm: string;
+  workProviderId: string;
+  /** Present on POST/claim responses; null only for rolling-compatible GET reads. */
+  claimToken: string | null;
+  attemptCount: number;
+}
+
+export interface BoxClassificationFailure {
+  disposition: 'transient' | 'terminal';
+  code: string;
+  detail?: string;
+}
+
+/** Durable case-status recompute generation requested atomically by a Box stamp. */
+export interface PendingStatusRecompute {
+  caseId: string;
+  generation: number;
 }
 
 export const dataApi = {
@@ -441,7 +509,8 @@ export const dataApi = {
         registrationVisible?: boolean;
         acceptedForEva?: boolean;
         excluded?: boolean;
-        exclusionReason?: string;
+        exclusionReason?: string | null;
+        decisionSource?: 'classifier';
         /** TKT-123: the vision classifier saw a person's reflection (advisory —
          *  drives the SPA's dismissible warning; separate from `excluded`). */
         personReflection?: boolean;
@@ -453,8 +522,39 @@ export const dataApi = {
         sha256?: string;
       }
     >,
-  ): Promise<{ persisted: number }> {
-    return request('POST', `/api/internal/cases/${caseId}/evidence`, { rows });
+    options?: {
+      expectedInboundEmailId?: string;
+      evidenceBackfillGeneration?: number;
+      evidenceBackfillResult?: Omit<EvidenceBackfillCommittedResult, 'persisted' | 'merged'>;
+    },
+  ): Promise<{
+    persisted: number;
+    updated: number;
+    merged: number;
+    targetCaseId?: string;
+    statusGeneration?: number;
+    backfillGeneration?: number;
+    alreadyCompleted?: boolean;
+    completedResult?: EvidenceBackfillCommittedResult;
+  }> {
+    return request('POST', `/api/internal/cases/${caseId}/evidence`, {
+      rows,
+      ...(options?.expectedInboundEmailId ? { expectedInboundEmailId: options.expectedInboundEmailId } : {}),
+      ...(options?.evidenceBackfillGeneration != null
+        ? { evidenceBackfillGeneration: options.evidenceBackfillGeneration }
+        : {}),
+      ...(options?.evidenceBackfillResult
+        ? {
+            evidenceBackfillOutcome: options.evidenceBackfillResult.outcome,
+            ...(options.evidenceBackfillResult.failedAttachments == null
+              ? {}
+              : { evidenceBackfillFailedAttachments: options.evidenceBackfillResult.failedAttachments }),
+            ...(options.evidenceBackfillResult.detail
+              ? { evidenceBackfillDetail: options.evidenceBackfillResult.detail }
+              : {}),
+          }
+        : {}),
+    });
   },
 
   /**
@@ -482,21 +582,34 @@ export const dataApi = {
       acceptedForEva?: boolean;
       /** EVA exclusion (e.g. person reflection) — reason required by the schema when true. */
       excluded?: boolean;
-      exclusionReason?: string;
+      exclusionReason?: string | null;
+      decisionSource?: 'classifier';
       /** TKT-123 advisory reflection flag (dismissible SPA warning). */
       personReflection?: boolean;
       sha256?: string;
       sequenceIndex?: number;
       sourceLabel?: string;
     }>,
-  ): Promise<{ persisted: number }> {
+  ): Promise<{
+    persisted: number;
+    updated: number;
+    merged: number;
+    statusGeneration?: number;
+  }> {
     return request('POST', `/api/internal/cases/${caseId}/evidence`, { rows });
   },
 
   /** Persisted blob-backed evidence rows ready for archive mirroring. */
   archiveEvidenceRows(
     caseId: string,
-  ): Promise<{ rows: Array<{ id: string; filename: string; contentType: string | null; blobPath: string }> }> {
+  ): Promise<{ rows: Array<{
+    id: string;
+    filename: string;
+    contentType: string | null;
+    blobPath: string;
+    claimToken: string;
+    decisionGeneration: number;
+  }> }> {
     return request('GET', `/api/internal/cases/${caseId}/archive-evidence`);
   },
 
@@ -507,18 +620,41 @@ export const dataApi = {
     blobPath: string;
     boxFileId: string;
     boxFileUrl?: string;
+    claimToken: string;
+    decisionGeneration: number;
   }): Promise<{ updated: boolean }> {
     return request('POST', `/api/internal/cases/${payload.caseId}/archive-evidence/stamp`, {
       evidenceId: payload.evidenceId,
       blobPath: payload.blobPath,
       boxFileId: payload.boxFileId,
+      claimToken: payload.claimToken,
+      decisionGeneration: payload.decisionGeneration,
       ...(payload.boxFileUrl ? { boxFileUrl: payload.boxFileUrl } : {}),
     });
   },
 
-  /** Recompute EVA-readiness + status machine and persist (internal route). */
-  evaluateStatus(caseId: string): Promise<{ value: string }> {
-    return request('POST', `/api/internal/cases/${caseId}/status-evaluate`, {});
+  /**
+   * Recompute EVA-readiness from a row-locked snapshot. Supplying the generation
+   * atomically acknowledges it only after that stable evaluation succeeds.
+   */
+  evaluateStatus(
+    caseId: string,
+    generation?: number,
+  ): Promise<{ value: string; completed?: boolean; pending?: boolean }> {
+    return request('POST', `/api/internal/cases/${caseId}/status-evaluate`, {
+      ...(generation == null ? {} : { generation }),
+    });
+  },
+
+  releaseArchiveEvidenceClaim(payload: {
+    caseId: string;
+    evidenceId: string;
+    claimToken: string;
+  }): Promise<{ released: boolean }> {
+    return request('POST', `/api/internal/cases/${payload.caseId}/archive-evidence/release`, {
+      evidenceId: payload.evidenceId,
+      claimToken: payload.claimToken,
+    });
   },
 
   /** Set status to ingested (only if currently new_email). Internal route — idempotent. */
@@ -669,6 +805,53 @@ export const dataApi = {
     return request('POST', `/api/internal/inbound/${inboundEmailId}/outlook-moved`, payload);
   },
 
+  /**
+   * Report the terminal outcome of a case_link evidence backfill (TKT-145) — the
+   * `evidence-backfill` queue consumer's write-back (the reportOutlookMove pattern).
+   * `completed` writes the case-scoped attachment_classified audit; `failed` writes the
+   * durable "Attachments to add" staff note + a warning audit (the inverted mitigation).
+   */
+  reportEvidenceBackfill(
+    inboundEmailId: string,
+    payload: {
+      outcome: 'completed' | 'partial' | 'failed';
+      targetCaseId: string;
+      persisted?: number;
+      merged?: number;
+      failedAttachments?: number;
+      detail?: string;
+      generation: number;
+    },
+  ): Promise<void> {
+    return request(
+      'POST',
+      `/api/internal/inbound/${encodeURIComponent(inboundEmailId)}/evidence-backfill`,
+      payload,
+    );
+  },
+
+  /**
+   * Resolve the current owner of a queued backfill. The API follows only a
+   * verified merge-retirement lineage; an unrelated relink still returns 409.
+   */
+  validateEvidenceBackfillTarget(
+    inboundEmailId: string,
+    targetCaseId: string,
+    generation?: number,
+  ): Promise<{
+    targetCaseId: string;
+    generation: number;
+    completed: boolean;
+    superseded?: boolean;
+    committedResult?: EvidenceBackfillCommittedResult;
+  }> {
+    return request(
+      'POST',
+      `/api/internal/inbound/${encodeURIComponent(inboundEmailId)}/evidence-backfill/validate`,
+      { targetCaseId, ...(generation == null ? {} : { generation }) },
+    );
+  },
+
   /** Append one audit_event row (internal route; the API enforces append-only). */
   recordAudit(payload: {
     action: string;
@@ -704,6 +887,113 @@ export const dataApi = {
   /** Mark an evidence blob purged after the one-way Box mirror confirmed it (internal route). */
   markBlobPurged(payload: { caseId: string; blobPath: string }): Promise<void> {
     return request('POST', '/api/internal/box/mark-purged', payload);
+  },
+
+  /**
+   * TKT-146 — atomically claim still-unclassified FILE.UPLOADED-lane image evidence rows.
+   * Rows with box_file_id whose
+   * image_role_code is `unknown` AND registration_visible IS NULL (the TKT-131
+   * "still-unclassified" predicate — a classified non-vehicle row keeps role unknown but
+   * gains a boolean registration_visible, so re-sweeps are idempotent), newest first,
+   * capped server-side at `limit` (clamped 1..100) inside a 14-day created_at window.
+   */
+  claimUnclassifiedBoxEvidence(limit: number): Promise<{ rows: UnclassifiedBoxEvidenceRow[] }> {
+    return request(
+      'POST',
+      `/api/internal/evidence/unclassified-box?limit=${encodeURIComponent(String(limit))}`,
+      {},
+    );
+  },
+
+  /** Rolling-deploy compatibility/read-only diagnostic; the sweep uses the claim method. */
+  unclassifiedBoxEvidence(limit: number): Promise<{ rows: UnclassifiedBoxEvidenceRow[] }> {
+    return request(
+      'GET',
+      `/api/internal/evidence/unclassified-box?limit=${encodeURIComponent(String(limit))}`,
+    );
+  },
+
+  /**
+   * TKT-146 — stamp one exact Box-lane evidence row and atomically increment the
+   * case's durable status-recompute generation. The evidence id comes from the server-side
+   * enumeration, so this never re-enters the general evidence dedup/link path.
+   */
+  stampBoxEvidenceClassification(
+    evidenceId: string,
+    caseId: string,
+    row: {
+      filename: string;
+      evidenceClass: 'image';
+      sourceMessageId?: string;
+      boxFileId: string;
+      imageRole: string;
+      registrationVisible: boolean;
+      acceptedForEva: boolean;
+      excluded: boolean;
+      exclusionReason?: string | null;
+      decisionSource: 'classifier';
+      personReflection: boolean;
+    },
+    claimToken?: string,
+  ): Promise<{ updated: boolean; statusGeneration?: number; stale?: boolean }> {
+    return request(
+      'POST',
+      `/api/internal/evidence/${encodeURIComponent(evidenceId)}/box-classification`,
+      {
+        ...row,
+        caseId,
+        ...(claimToken ? { claimToken } : {}),
+      },
+    );
+  },
+
+  /** Wake-safe publisher backstop: the API owns the generation outbox and queue write. */
+  drainEvidenceBackfillRequests(): Promise<{ published: number; failed: number }> {
+    return request('POST', '/api/internal/evidence-backfill-requests/drain', {});
+  },
+
+  /**
+   * Release a classification claim after a failed attempt. Transient failures are
+   * rescheduled with server-owned backoff; terminal row-specific failures are
+   * dead-lettered without deleting or excluding the evidence.
+   */
+  reportBoxEvidenceClassificationFailure(
+    evidenceId: string,
+    claimToken: string,
+    failure: BoxClassificationFailure,
+  ): Promise<{
+    updated: boolean;
+    stale?: boolean;
+    disposition?: 'transient' | 'terminal';
+    attemptCount?: number;
+    nextAttemptAt?: string | null;
+    deadLettered?: boolean;
+  }> {
+    return request(
+      'POST',
+      `/api/internal/evidence/${encodeURIComponent(evidenceId)}/box-classification`,
+      { claimToken, failure },
+    );
+  },
+
+  /** Pending durable status generations, oldest request first. */
+  pendingStatusRecomputes(limit: number): Promise<{ rows: PendingStatusRecompute[] }> {
+    return request(
+      'GET',
+      `/api/internal/status-recompute/pending?limit=${encodeURIComponent(String(limit))}`,
+    );
+  },
+
+  /** Acknowledge only the generation whose status evaluation completed successfully. */
+  completeStatusRecompute(
+    caseId: string,
+    generation: number,
+  ): Promise<{ completed: boolean; pending: boolean }> {
+    return request(
+      'POST',
+      `/api/internal/status-recompute/${encodeURIComponent(caseId)}/complete`,
+      { generation },
+    );
   },
 
   /**

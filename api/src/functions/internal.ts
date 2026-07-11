@@ -30,6 +30,11 @@
  *  GET  /api/internal/box/case-by-folder/{folderId}  → { caseId: string | null, casePo: string | null }
  *  GET  /api/internal/box/purge-candidates           → [{ caseId, blobPath }]
  *  POST /api/internal/box/mark-purged                → 204
+ *  GET|POST /api/internal/evidence/unclassified-box → { rows: [...] } (TKT-146: due-row read /
+ *                                                        atomic claim for the Box classify sweep)
+ *  POST /api/internal/evidence/{id}/box-classification → { updated, statusGeneration }
+ *  GET  /api/internal/status-recompute/pending       → { rows: [{ caseId, generation }] }
+ *  POST /api/internal/status-recompute/{id}/complete → { completed, pending }
  *  GET  /api/internal/cases/{id}/box-folder          → { boxFolderId, boxFolderUrl, casePo }
  *  POST /api/internal/cases/{id}/box-folder          → { applied, boxFolderId } (first-wins stamp)
  *  POST /api/internal/triage/context                 → { openCaseMatches, duplicateInternetMessageId, conversationSiblingCaseIds } (rules-engine-v2 Phase 2)
@@ -37,12 +42,12 @@
  *                                                         suggestionType 'triage_category' added Phase 4)
  *  POST /api/internal/triage/held-pre-instruction     → { held: [{ inboundEmailId, sourceMessageId, matchedOn }] } (TKT-084, taxonomy v3)
  *  POST /api/internal/inbound/{id}/outlook-moved      → 204 (TKT-054 Outlook-filing outcome report)
+ *  POST /api/internal/inbound/{id}/evidence-backfill  → 204 (TKT-145 case_link evidence-backfill outcome report)
  */
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import {
   EVA_FIELD_ORDER,
-  IMAGE_BASED_LITERAL,
   TERMINAL_STATUSES,
   allowedCaseTypes,
   categoryMintsCase,
@@ -70,10 +75,14 @@ import {
 } from '@cs/domain/codecs';
 import { gates } from '../lib/gates.js';
 import { authenticate, toErrorResponse } from '../lib/auth.js';
-import { query, tx } from '../lib/db.js';
+import { query, tx, type TxQuery } from '../lib/db.js';
 import { isPrefillApplicable, prefillImageBasedInspection } from '../lib/inspection-prefill.js';
+import { maybeSuggestOverviewChase } from '../lib/overview-chase.js';
+import { writeEvidenceBackfillNote } from '../lib/evidence-backfill-note.js';
+import { withResolvedEvidenceBackfillTarget } from '../lib/evidence-backfill-target.js';
 import { mintCasePo } from '../lib/case-po.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
+import { markCaseDoneUsing } from '../lib/terminal-transition.js';
 import { combineMakeModel } from '../lib/enrichment-map.js';
 import {
   corpusWorkProviderCandidate,
@@ -97,8 +106,14 @@ import {
 } from '../lib/mappers.js';
 import { hasColumn, planOptionalColumns, tableColumns } from '../lib/schema-introspect.js';
 import { acquireTriageLocks } from '../lib/triage-locks.js';
+import { lockCaseForMutation } from '../lib/case-mutation-locks.js';
 import { clampVarchar, vrmOrEmpty } from '../lib/varchar-guard.js';
 import { vrmLinkRefConflict } from '../lib/link-guards.js';
+import { requestStatusRecompute } from '../lib/status-recompute.js';
+import {
+  requestArchiveMirrorIfEligible,
+  type ArchiveMirrorCandidate,
+} from '../lib/archive-mirror-outbox.js';
 
 /* ============================================================
    Service auth — validate the JWT (sig + iss + aud + exp) without
@@ -228,49 +243,107 @@ export async function markOutstandingChasersResponded(
  * fill-if-empty, audited) — the SAME seam as the staff-facing recomputeStatus in
  * cases.ts, so intake-driven evaluation and staff-driven evaluation agree.
  */
-async function recomputeStatus(caseId: string): Promise<CaseStatus> {
-  const rows = await query<Row>(`${CASE_SELECT} WHERE c.id = $1`, [caseId]);
-  const rec = rows[0];
-  if (!rec) return 'error';
+interface StatusRecomputeResult {
+  found: boolean;
+  value: CaseStatus;
+  completed?: boolean;
+  pending?: boolean;
+}
 
-  const evidenceRows = await query<Row>('SELECT * FROM evidence WHERE case_id = $1', [caseId]);
-  const evidence = evidenceRows.map(rowToEvidence);
-  const full = rowToCase(rec, { evidence });
+/**
+ * Evaluate from one stable case snapshot. The case row is locked before evidence is
+ * read, status is computed, and an optional durable generation is acknowledged. Every
+ * evidence mutation requests its generation by updating this same case row, so a
+ * concurrent mutation either commits before this lock (and is visible) or waits and
+ * requests a newer still-pending generation after this transaction commits.
+ */
+async function recomputeStatus(
+  caseId: string,
+  acknowledgeGeneration?: number,
+): Promise<StatusRecomputeResult> {
+  // Preserve the provider-policy prefill seam. It owns supplementary provenance and
+  // audit writes outside this module; the guarded fill completes before the stable
+  // status transaction re-reads and locks the case.
+  const previewRows = await query<Row>(`${CASE_SELECT} WHERE c.id = $1`, [caseId]);
+  const preview = previewRows[0];
+  if (preview && isPrefillApplicable(rowToCase(preview))) {
+    await prefillImageBasedInspection(caseId);
+  }
 
-  if (isPrefillApplicable(full)) {
-    const filled = await prefillImageBasedInspection(caseId);
-    if (filled) {
-      full.evaFields.inspectionAddress.value = IMAGE_BASED_LITERAL;
-      full.inspectionDecision = 'image_based';
+  const result = await tx<StatusRecomputeResult>(async (q) => {
+    const rows = await q<Row>(
+      `${CASE_SELECT} WHERE c.id = $1 FOR UPDATE OF c`,
+      [caseId],
+    );
+    const rec = rows[0];
+    if (!rec) return { found: false, value: 'error' };
+
+    const evidenceRows = await q<Row>('SELECT * FROM evidence WHERE case_id = $1', [caseId]);
+    const evidence = evidenceRows.map(rowToEvidence);
+    const full = rowToCase(rec, { evidence });
+    const input: StatusEvaluationInput = {
+      status: full.status,
+      evaFields: full.evaFields,
+      evidence: full.evidence,
+      instructionCount: full.evidence.filter((e) => e.kind === 'instruction').length,
+      hasIdentity:
+        full.vrm.trim().length > 0 ||
+        full.providerCode.trim().length > 0 ||
+        full.evaFields.claimantName.value.trim().length > 0,
+      // TKT-141 retired-lock: the marker is read while the case row is locked.
+      // A merge that won first is preserved; one that starts later waits.
+      mergedInto: full.mergedInto,
+    };
+    const next = statusForReviewCase(input);
+
+    if (next !== full.status) {
+      await q('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [
+        caseId,
+        statusToInt(next),
+      ]);
+      await writeAudit({
+        action: AUDIT_ACTION.status_changed,
+        caseId,
+        summary: `Status ${full.status} -> ${next} (internal recompute)`,
+        before: { status: full.status },
+        after: { status: next },
+      }, q);
     }
-  }
 
-  const input: StatusEvaluationInput = {
-    status: full.status,
-    evaFields: full.evaFields,
-    evidence: full.evidence,
-    instructionCount: full.evidence.filter((e) => e.kind === 'instruction').length,
-    hasIdentity:
-      full.vrm.trim().length > 0 ||
-      full.providerCode.trim().length > 0 ||
-      full.evaFields.claimantName.value.trim().length > 0,
-  };
-  const next = statusForReviewCase(input);
+    if (acknowledgeGeneration != null) {
+      const ack = await q<{
+        status_recompute_requested_generation: string | number;
+        status_recompute_completed_generation: string | number;
+      }>(
+        `UPDATE case_
+            SET status_recompute_completed_generation = GREATEST(
+                  status_recompute_completed_generation,
+                  LEAST($2::bigint, status_recompute_requested_generation)
+                )
+          WHERE id = $1
+          RETURNING status_recompute_requested_generation,
+                    status_recompute_completed_generation`,
+        [caseId, acknowledgeGeneration],
+      );
+      const requested = Number(ack[0].status_recompute_requested_generation);
+      const completedGeneration = Number(ack[0].status_recompute_completed_generation);
+      return {
+        found: true,
+        value: next,
+        completed: completedGeneration >= acknowledgeGeneration,
+        pending: completedGeneration < requested,
+      };
+    }
 
-  if (next !== full.status) {
-    await query('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [
-      caseId,
-      statusToInt(next),
-    ]);
-    await writeAudit({
-      action: AUDIT_ACTION.status_changed,
-      caseId,
-      summary: `Status ${full.status} -> ${next} (internal recompute)`,
-      before: { status: full.status },
-      after: { status: next },
-    });
+    return { found: true, value: next };
+  });
+
+  if (result.found) {
+    // TKT-148: advisory and internally row-locking before it inserts, so it is safe
+    // after the status transaction commits and never widens the locked critical path.
+    await maybeSuggestOverviewChase(caseId, result.value);
   }
-  return next;
+  return result;
 }
 
 /**
@@ -299,6 +372,13 @@ async function recomputeStatus(caseId: string): Promise<CaseStatus> {
  *  Each field actually filled this run gets a field_level_provenance row. A no-op when every
  *  input is absent, so callers can pass them unconditionally.
  */
+export type ProviderResolutionSource = 'none' | 'instruction_content' | 'single_intermediary';
+
+export interface ApplyParserFieldsResult {
+  providerResolutionSource: ProviderResolutionSource;
+  resolvedProviderId?: string;
+}
+
 export async function applyParserFields(
   caseId: string,
   parserRef?: string,
@@ -310,7 +390,13 @@ export async function applyParserFields(
    *  (orchestration providerMatch activity); its N:N candidate work providers let a
    *  content-detected match be recorded as CORROBORATED rather than a bare guess. */
   intermediary?: { imageSourceId: string; candidateProviderIds: readonly string[] } | null,
-): Promise<void> {
+): Promise<ApplyParserFieldsResult> {
+  let providerResolutionSource: ProviderResolutionSource = 'none';
+  let resolvedProviderId: string | undefined;
+  const result = (): ApplyParserFieldsResult => ({
+    providerResolutionSource,
+    ...(resolvedProviderId ? { resolvedProviderId } : {}),
+  });
   const ref = (parserRef ?? '').trim();
   const mileage = parserMileage != null ? String(parserMileage).replace(/[^\d]/g, '') : '';
   const unitRaw = (parserMileageUnit ?? '').trim();
@@ -345,7 +431,7 @@ export async function applyParserFields(
     !mightMatchWorkProviderIdFromContent &&
     !singleIntermediaryCandidate
   ) {
-    return;
+    return result();
   }
 
   // Read every column we might fill so each write is strictly fill-if-empty.
@@ -358,7 +444,7 @@ export async function applyParserFields(
     ...evaCandidates.map((c) => c.column),
   ];
   const cur = await query<Row>(`SELECT ${readCols.join(', ')} FROM case_ WHERE id = $1`, [caseId]);
-  if (!cur[0]) return;
+  if (!cur[0]) return result();
   const isEmpty = (v: unknown): boolean => !String(v ?? '').trim();
 
   const sets: string[] = [];
@@ -454,6 +540,8 @@ export async function applyParserFields(
       if (isEmpty(existingWorkProviderId)) {
         sets.push(`work_provider_id = $${sets.length + 1}`);
         vals.push(contentMatch.workProviderId);
+        providerResolutionSource = 'instruction_content';
+        resolvedProviderId = contentMatch.workProviderId;
         provenance.push({
           field: 'workProviderId',
           value: contentMatch.workProviderId,
@@ -513,6 +601,8 @@ export async function applyParserFields(
     if (wpRows[0]) {
       sets.push(`work_provider_id = $${sets.length + 1}`);
       vals.push(singleIntermediaryCandidate);
+      providerResolutionSource = 'single_intermediary';
+      resolvedProviderId = singleIntermediaryCandidate;
       provenance.push({
         field: 'workProviderId',
         value: singleIntermediaryCandidate,
@@ -571,7 +661,7 @@ export async function applyParserFields(
     }
   }
 
-  if (sets.length === 0) return; // every candidate already populated — respect existing values
+  if (sets.length === 0) return result(); // every candidate already populated — respect existing values
 
   vals.push(caseId);
   await query(
@@ -600,6 +690,7 @@ export async function applyParserFields(
       [`${caseId}:${p.field}`, caseId, p.field, p.value, sourceTypeCode, p.sourceLabel],
     ).catch(() => { /* provenance is supplementary */ });
   }
+  return result();
 }
 
 /* ============================================================
@@ -830,6 +921,93 @@ app.http('internalDedupContext', {
       };
     }),
 });
+
+/** Staff-facing wording for the Held routing note + audit written when a case is created
+ *  with no matched work provider (the `newClient` create branch below). */
+export interface HeldReason {
+  noteName: string;
+  noteText: string;
+  auditSummary: string;
+}
+
+/**
+ * Build the Held reason for a no-provider case create (TKT-021 reopen fix, 2026-07-10).
+ *
+ * Two distinct situations were previously collapsed into one "New client" note:
+ *  - TRUE UNKNOWN sender (no corpus match at all) → the existing New-client wording,
+ *    kept verbatim.
+ *  - KNOWN INTERMEDIARY sender (the provider-match step resolved an Image-Source
+ *    intermediary — e.g. a claims manager that routes work for several providers) → must
+ *    NOT be branded "New client"; the note names the intermediary and its candidate
+ *    providers explicitly ("intermediary — principal unresolved", per the ticket's
+ *    acceptance). applyParserFields returns HOW it resolved a provider, so instruction
+ *    evidence and the neutral one-provider intermediary fallback cannot be conflated.
+ *
+ * PURE — display names in, strings out (callers resolve ids → names). All strings are
+ * handler-plain: no matchState/FK/corpus vocabulary. Empty-tolerant: a missing
+ * intermediary name or an empty candidate list degrades the wording, never throws.
+ */
+export function buildHeldReason(input: {
+  senderDomain: string;
+  /** null → true unknown sender (New-client wording). */
+  intermediary: {
+    /** Intermediary display name (image_source.name); '' tolerated. */
+    name: string;
+    /** Candidate providers' display names; may be empty (intermediary with no links yet). */
+    candidateNames: readonly string[];
+    /** Display name of the provider resolved onto the case; resolutionSource says why.
+     *  Empty when the name lookup failed or the provider is still unresolved. */
+    resolvedProviderName: string;
+    resolutionSource: ProviderResolutionSource;
+  } | null;
+}): HeldReason {
+  const { senderDomain: domain, intermediary } = input;
+  if (!intermediary) {
+    return {
+      noteName: 'New client',
+      noteText:
+        `New client — no work provider matched for sender${domain ? ` @${domain}` : ''}. ` +
+        `No Case/PO has been created. Set up the work provider and confirm before EVA.`,
+      auditSummary: 'New client routed to Held (no work provider matched)',
+    };
+  }
+  const who = intermediary.name.trim()
+    ? `Intermediary sender (${intermediary.name.trim()})`
+    : 'Intermediary sender';
+  const resolvedName = intermediary.resolvedProviderName.trim();
+  if (intermediary.resolutionSource === 'instruction_content') {
+    return {
+      noteName: 'Held — intermediary sender',
+      noteText:
+        `${who}: ${
+          resolvedName
+            ? `the instructions identify ${resolvedName} as the provider`
+            : 'the instructions identify the provider'
+        }. ` +
+        `No Case/PO has been created. Confirm the provider before EVA.`,
+      auditSummary: 'Intermediary sender routed to Held (provider found in the instructions)',
+    };
+  }
+  if (intermediary.resolutionSource === 'single_intermediary') {
+    return {
+      noteName: 'Held — intermediary sender',
+      noteText:
+        `${who}: This intermediary routes work to one provider` +
+        (resolvedName ? `, ${resolvedName},` : ',') +
+        ` which has been selected. No Case/PO has been created. Confirm the provider before EVA.`,
+      auditSummary: 'Intermediary sender routed to Held (single provider selected)',
+    };
+  }
+  const candidates = intermediary.candidateNames.map((n) => n.trim()).filter(Boolean);
+  return {
+    noteName: 'Held — intermediary sender',
+    noteText:
+      `${who}: the instructing provider could not be determined from the instruction.` +
+      (candidates.length ? ` Possible providers: ${candidates.join(', ')}.` : '') +
+      ` No Case/PO has been created. Pick the provider and confirm before EVA.`,
+    auditSummary: 'Intermediary sender routed to Held (provider not yet confirmed)',
+  };
+}
 
 /* ============================================================
    3 — POST /api/internal/cases/resolve
@@ -1105,7 +1283,7 @@ app.http('internalCasesResolve', {
       await upsertInboundEmail(inbound, workProviderId, newCaseId, undefined, body.parserVrm);
       // Fill-if-empty parser fields onto the new case (case_ref takes the inbound candidateRef
       // first, so parserRef only fills when that was blank; mileage gets provenance).
-      await applyParserFields(
+      const parserFieldsResult = await applyParserFields(
         newCaseId,
         body.parserRef,
         body.parserMileage,
@@ -1184,23 +1362,75 @@ app.http('internalCasesResolve', {
 
       if (created.newClient) {
         const domain = senderDomain(inbound.senderAddress ?? '');
-        // Best-effort note (human-readable new-client tag) — must not block intake.
+        // TKT-021 reopen fix: a sender the provider-match step identified as a KNOWN
+        // INTERMEDIARY must not be branded "New client" — its Held reason names the
+        // intermediary + candidates explicitly (buildHeldReason above). The wire payload
+        // carries ids only, so the display names are looked up here; best-effort — a
+        // lookup failure degrades to name-less wording and must not block intake.
+        let heldIntermediary: {
+          name: string;
+          candidateNames: string[];
+          resolvedProviderName: string;
+          resolutionSource: ProviderResolutionSource;
+        } | null = null;
+        if (intermediary) {
+          heldIntermediary = {
+            name: '',
+            candidateNames: [],
+            resolvedProviderName: '',
+            resolutionSource: parserFieldsResult.providerResolutionSource,
+          };
+          try {
+            const src = await query<Row>(
+              'SELECT name FROM image_source WHERE id = $1',
+              [intermediary.imageSourceId],
+            );
+            heldIntermediary.name = String(src[0]?.name ?? '').trim();
+            if (intermediary.candidateProviderIds.length > 0) {
+              const wps = await query<Row>(
+                'SELECT display_name FROM work_provider WHERE id = ANY($1::uuid[]) ORDER BY display_name',
+                [intermediary.candidateProviderIds],
+              );
+              heldIntermediary.candidateNames = wps
+                .map((r) => String(r.display_name ?? '').trim())
+                .filter(Boolean);
+            }
+            if (parserFieldsResult.resolvedProviderId) {
+              const resolved = await query<Row>(
+                'SELECT display_name FROM work_provider WHERE id = $1',
+                [parserFieldsResult.resolvedProviderId],
+              );
+              heldIntermediary.resolvedProviderName = String(
+                resolved[0]?.display_name ?? '',
+              ).trim();
+            }
+          } catch { /* names are cosmetic — the Held note still lands without them */ }
+        }
+        const reason = buildHeldReason({ senderDomain: domain, intermediary: heldIntermediary });
+        // Best-effort note (human-readable Held reason) — must not block intake.
         await query(
           `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
-          [
-            'New client',
-            newCaseId,
-            'Email intake (auto)',
-            `New client — no work provider matched for sender${domain ? ` @${domain}` : ''}. ` +
-              `No Case/PO minted; set up the work provider and confirm before EVA.`,
-          ],
+          [reason.noteName, newCaseId, 'Email intake (auto)', reason.noteText],
         ).catch(() => { /* note is supplementary */ });
         await writeAudit({
           action: AUDIT_ACTION.inbound_routed,
           caseId: newCaseId,
           severity: 'warning',
-          summary: 'New client routed to Held (no work provider matched)',
-          after: { newClient: true, onHold: true, senderDomain: domain },
+          summary: reason.auditSummary,
+          after: intermediary
+            ? {
+                intermediary: true,
+                onHold: true,
+                senderDomain: domain,
+                imageSourceId: intermediary.imageSourceId,
+                candidateProviderIds: intermediary.candidateProviderIds,
+                ...(heldIntermediary?.resolvedProviderName
+                  ? { resolvedProvider: heldIntermediary.resolvedProviderName }
+                  : {}),
+                providerResolutionSource:
+                  heldIntermediary?.resolutionSource ?? 'none',
+              }
+            : { newClient: true, onHold: true, senderDomain: domain },
         });
       }
 
@@ -2174,6 +2404,393 @@ app.http('internalInboundOutlookMoved', {
     }),
 });
 
+type EvidenceBackfillCommittedOutcome = 'completed' | 'partial';
+
+interface EvidenceBackfillCommittedResult {
+  outcome: EvidenceBackfillCommittedOutcome;
+  persisted: number;
+  merged?: number;
+  failedAttachments?: number;
+  detail?: string;
+}
+
+function parseEvidenceBackfillCommittedResult(value: unknown): EvidenceBackfillCommittedResult | null {
+  let candidate = value;
+  if (typeof candidate === 'string') {
+    try {
+      candidate = JSON.parse(candidate);
+    } catch {
+      return null;
+    }
+  }
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return null;
+  const row = candidate as Record<string, unknown>;
+  if (row.outcome !== 'completed' && row.outcome !== 'partial') return null;
+  const persisted = Number(row.persisted);
+  if (!Number.isSafeInteger(persisted) || persisted < 0) return null;
+  const result: EvidenceBackfillCommittedResult = { outcome: row.outcome, persisted };
+  const merged = Number(row.merged);
+  if (Number.isSafeInteger(merged) && merged >= 0) result.merged = merged;
+  const failedAttachments = Number(row.failedAttachments);
+  if (Number.isSafeInteger(failedAttachments) && failedAttachments >= 0) {
+    result.failedAttachments = failedAttachments;
+  }
+  if (typeof row.detail === 'string' && row.detail.trim()) result.detail = row.detail.slice(0, 300);
+  return result;
+}
+
+/* Validate the queued TKT-145 target before orchestration reads Graph or lands bytes.
+   A merge-retired target resolves only through its verified mergedInto lineage. */
+app.http('internalInboundEvidenceBackfillValidate', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/inbound/{id}/evidence-backfill/validate',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const body = (await req.json().catch(() => ({}))) as {
+        targetCaseId?: unknown;
+        generation?: unknown;
+      };
+      const targetCaseId = typeof body.targetCaseId === 'string' ? body.targetCaseId.trim() : '';
+      if (!targetCaseId) return { status: 400, jsonBody: { error: 'targetCaseId is required' } };
+      const suppliedGeneration = body.generation == null ? null : Number(body.generation);
+      if (
+        suppliedGeneration != null &&
+        (!Number.isSafeInteger(suppliedGeneration) || suppliedGeneration < 1)
+      ) {
+        return { status: 400, jsonBody: { error: 'generation must be a positive integer' } };
+      }
+      const resolved = await withResolvedEvidenceBackfillTarget(
+        req.params.id,
+        targetCaseId,
+        async (q) => {
+          const rows = await q<{
+            evidence_backfill_requested_generation: string | number;
+            evidence_backfill_completed_generation: string | number;
+            evidence_backfill_completed_result: unknown;
+          }>(
+            `SELECT evidence_backfill_requested_generation,
+                    evidence_backfill_completed_generation,
+                    evidence_backfill_completed_result
+               FROM inbound_email
+              WHERE id = $1`,
+            [req.params.id],
+          );
+          const requested = Number(
+            rows[0]?.evidence_backfill_requested_generation ?? suppliedGeneration ?? 1,
+          );
+          const completed = Number(rows[0]?.evidence_backfill_completed_generation ?? 0);
+          const generation = suppliedGeneration ?? requested; // rolling compatibility for old queued jobs
+          if (generation < 1 || generation > requested) {
+            return { kind: 'generation_mismatch' as const, requested };
+          }
+          if (suppliedGeneration != null && generation < requested && completed < generation) {
+            return { kind: 'superseded' as const, generation };
+          }
+          const committedGeneration = completed >= generation ? completed : generation;
+          const committedResult = completed >= generation
+            ? parseEvidenceBackfillCommittedResult(rows[0]?.evidence_backfill_completed_result)
+            : null;
+          return {
+            kind: 'validated' as const,
+            generation: committedGeneration,
+            completed: completed >= generation,
+            ...(committedResult ? { committedResult } : {}),
+          };
+        },
+      );
+      if (resolved.kind === 'stale') {
+        return {
+          status: 409,
+          jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
+        };
+      }
+      if (resolved.value.kind === 'generation_mismatch') {
+        return {
+          status: 409,
+          jsonBody: {
+            error: 'evidence backfill generation changed',
+            code: 'evidence_backfill_generation_changed',
+            requestedGeneration: resolved.value.requested,
+          },
+        };
+      }
+      if (resolved.value.kind === 'superseded') {
+        return {
+          status: 200,
+          jsonBody: {
+            targetCaseId: resolved.targetCaseId,
+            generation: resolved.value.generation,
+            completed: false,
+            superseded: true,
+          },
+        };
+      }
+      return {
+        status: 200,
+        jsonBody: {
+          targetCaseId: resolved.targetCaseId,
+          generation: resolved.value.generation,
+          completed: resolved.value.completed,
+          ...(resolved.value.committedResult
+            ? { committedResult: resolved.value.committedResult }
+            : {}),
+        },
+      };
+    }),
+});
+
+/* ============================================================
+   POST /api/internal/inbound/{id}/evidence-backfill  (TKT-145)
+   Called by: the orchestration `evidence-backfill` queue consumer reporting the
+   terminal outcome of a case_link evidence backfill (the outlook-moved pattern).
+   `completed` → the case-scoped attachment_classified audit (the same action the
+   normal classifyPersist lane writes). `failed` → the durable "Attachments to
+   add" case note (the TKT-145 INVERSION of the always-note interim mitigation:
+   staff are told to attach by hand ONLY when the backfill terminally failed) +
+   a warning audit. The note insert is duplicate-guarded so a poison-path
+   re-report never stacks identical notes.
+   ============================================================ */
+app.http('internalInboundEvidenceBackfill', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/inbound/{id}/evidence-backfill',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const id = req.params.id;
+      const body = (await req.json().catch(() => ({}))) as {
+        outcome?: unknown;
+        targetCaseId?: unknown;
+        persisted?: unknown;
+        merged?: unknown;
+        failedAttachments?: unknown;
+        detail?: unknown;
+        generation?: unknown;
+      };
+      const outcome = body.outcome;
+      if (outcome !== 'completed' && outcome !== 'partial' && outcome !== 'failed') {
+        return { status: 400, jsonBody: { error: "outcome must be 'completed', 'partial' or 'failed'" } };
+      }
+      const targetCaseId = typeof body.targetCaseId === 'string' ? body.targetCaseId.trim() : '';
+      if (!targetCaseId) return { status: 400, jsonBody: { error: 'targetCaseId is required' } };
+      const suppliedGeneration = body.generation == null ? null : Number(body.generation);
+      if (
+        suppliedGeneration != null &&
+        (!Number.isSafeInteger(suppliedGeneration) || suppliedGeneration < 1)
+      ) {
+        return { status: 400, jsonBody: { error: 'generation must be a positive integer' } };
+      }
+      const requestedDetail = typeof body.detail === 'string' ? body.detail.slice(0, 300) : null;
+      const requestedPersisted = typeof body.persisted === 'number' ? body.persisted : null;
+      const requestedMerged = typeof body.merged === 'number' ? body.merged : null;
+      const requestedFailedAttachments = typeof body.failedAttachments === 'number'
+        ? Math.max(0, Math.trunc(body.failedAttachments))
+        : null;
+
+      // Every outcome reconciles the ONE source-keyed recovery note under the
+      // inbound row lock. Failed/partial upsert the current actionable wording;
+      // completed converts a pre-existing manual-action note to resolved wording
+      // without creating a success-path note when none existed.
+      const report = await tx(async (q) => {
+        const locked = await q<{
+          case_id: string | null;
+          evidence_backfill_report_outcome: string | null;
+          evidence_backfill_requested_generation: string | number;
+          evidence_backfill_completed_generation: string | number;
+          evidence_backfill_completed_result: unknown;
+          evidence_backfill_reported_generation: string | number;
+        }>(
+          `SELECT case_id, evidence_backfill_report_outcome,
+                  evidence_backfill_requested_generation,
+                  evidence_backfill_completed_generation,
+                  evidence_backfill_completed_result,
+                  evidence_backfill_reported_generation
+             FROM inbound_email
+            WHERE id = $1
+            FOR UPDATE`,
+          [id],
+        );
+        if (!locked[0]) return { kind: 'missing' as const };
+        if ((locked[0].case_id ?? null) !== targetCaseId) return { kind: 'stale' as const };
+        const requestedGeneration = Number(
+          locked[0].evidence_backfill_requested_generation ?? suppliedGeneration ?? 1,
+        );
+        const completedGeneration = Number(locked[0].evidence_backfill_completed_generation ?? 0);
+        const reportedGeneration = Number(locked[0].evidence_backfill_reported_generation ?? 0);
+        const generation = suppliedGeneration ?? requestedGeneration; // legacy reporter compatibility
+        if (generation < 1 || generation > requestedGeneration) {
+          return { kind: 'generation_mismatch' as const, requestedGeneration };
+        }
+
+        // A newer committed generation supersedes this delivery. Its own delivery (or
+        // another replay) reports that generation; this older one must not reinterpret it.
+        if (completedGeneration > generation) {
+          return {
+            kind: 'replay' as const,
+            generation,
+            effectiveOutcome: outcome,
+            protectedCompletion: true,
+          };
+        }
+
+        // Persistence truth outranks the reporter for this generation. The exact
+        // completed/partial result and recovered rows commit together, so a lost report
+        // replays this snapshot instead of guessing that any commit was fully completed.
+        const committedResult = completedGeneration === generation
+          ? parseEvidenceBackfillCommittedResult(locked[0].evidence_backfill_completed_result)
+          : null;
+        if (suppliedGeneration != null && completedGeneration === generation && !committedResult) {
+          return { kind: 'missing_committed_result' as const, completedGeneration };
+        }
+        const protectedCompletion = committedResult != null && outcome !== committedResult.outcome;
+        const effectiveOutcome = committedResult?.outcome ?? outcome;
+        const persisted = committedResult?.persisted ?? requestedPersisted;
+        const merged = committedResult?.merged ?? requestedMerged;
+        const failedAttachments = committedResult?.failedAttachments ?? requestedFailedAttachments;
+        const detail = committedResult?.detail ?? requestedDetail;
+        if (
+          suppliedGeneration != null &&
+          (effectiveOutcome === 'completed' || effectiveOutcome === 'partial') &&
+          completedGeneration < generation
+        ) {
+          return { kind: 'not_committed' as const, completedGeneration };
+        }
+
+        const rank: Record<'failed' | 'partial' | 'completed', number> = {
+          failed: 0,
+          partial: 1,
+          completed: 2,
+        };
+        const currentOutcome = locked[0].evidence_backfill_report_outcome as
+          | 'failed'
+          | 'partial'
+          | 'completed'
+          | null;
+        if (
+          generation < reportedGeneration ||
+          (generation === reportedGeneration && currentOutcome != null &&
+            rank[currentOutcome] >= rank[effectiveOutcome])
+        ) {
+          return {
+            kind: 'replay' as const,
+            generation,
+            effectiveOutcome,
+            protectedCompletion,
+          };
+        }
+        await writeEvidenceBackfillNote(
+          { caseId: targetCaseId, inboundEmailId: id, kind: effectiveOutcome },
+          q,
+        );
+
+        const updated = await q<{ id: string }>(
+          `UPDATE inbound_email
+              SET evidence_backfill_report_outcome = $2,
+                  evidence_backfill_reported_generation = $3,
+                  evidence_backfill_reported_at = now(),
+                  updated_at = now()
+            WHERE id = $1
+              AND evidence_backfill_reported_generation <= $3
+          RETURNING id`,
+          [id, effectiveOutcome, generation],
+        );
+        if (!updated[0] && suppliedGeneration != null) {
+          return { kind: 'replay' as const, generation, effectiveOutcome, protectedCompletion };
+        }
+
+        if (effectiveOutcome === 'completed') {
+          await writeAudit({
+            action: AUDIT_ACTION.attachment_classified,
+            caseId: targetCaseId,
+            summary: `Attachments added from the linked email (${persisted ?? '?'} new${
+              merged ? `, ${merged} matched` : ''
+            })`,
+            after: {
+              inboundEmailId: id,
+              generation,
+              persisted,
+              merged,
+              ...(protectedCompletion ? { protectedFromOutcome: outcome } : {}),
+            },
+            actor: 'orchestration',
+          }, q);
+        } else {
+          await writeAudit({
+            action: AUDIT_ACTION.graph_message_ingest_failed,
+            caseId: targetCaseId,
+            summary: effectiveOutcome === 'partial'
+              ? 'Some attachments from the linked email could not be added'
+              : 'Attachments from the linked email could not be added — staff must add them',
+            severity: 'warning',
+            after: {
+              inboundEmailId: id,
+              generation,
+              ...(failedAttachments != null ? { failedAttachments } : {}),
+              ...(detail ? { detail } : {}),
+            },
+            actor: 'orchestration',
+          }, q);
+        }
+        return {
+          kind: 'transition' as const,
+          generation,
+          effectiveOutcome,
+          protectedCompletion,
+        };
+      });
+      if (report.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
+      if (report.kind === 'stale') {
+        return {
+          status: 409,
+          jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
+        };
+      }
+      if (report.kind === 'generation_mismatch') {
+        return {
+          status: 409,
+          jsonBody: {
+            error: 'evidence backfill generation changed',
+            code: 'evidence_backfill_generation_changed',
+            requestedGeneration: report.requestedGeneration,
+          },
+        };
+      }
+      if (report.kind === 'not_committed') {
+        return {
+          status: 409,
+          jsonBody: {
+            error: 'evidence backfill persistence is not committed',
+            code: 'evidence_backfill_not_committed',
+            completedGeneration: report.completedGeneration,
+          },
+        };
+      }
+      if (report.kind === 'missing_committed_result') {
+        return {
+          status: 409,
+          jsonBody: {
+            error: 'evidence backfill committed result is unavailable',
+            code: 'evidence_backfill_committed_result_missing',
+            completedGeneration: report.completedGeneration,
+          },
+        };
+      }
+      ctx.log(
+        JSON.stringify({
+          evt: 'evidenceBackfillReport',
+          inboundEmailId: id,
+          outcome: report.effectiveOutcome,
+          requestedOutcome: outcome,
+          generation: report.generation,
+          targetCaseId,
+          replay: report.kind === 'replay',
+          protectedCompletion: report.protectedCompletion,
+        }),
+      );
+      return { status: 204 };
+    }),
+});
+
 /* ============================================================
    POST /api/internal/inbound/attention  (TKT-119c / TKT-034)
    Called by: orchestration when a pipeline outcome needs a VISIBLE home on the
@@ -2226,11 +2843,12 @@ app.http('internalInboundAttention', {
  * image-extraction worker enrich an attachment that intake created without it). Only the
  * fields the caller actually supplied are written (so an intake row's defaults are never
  * clobbered). excluded + exclusion_reason move together (the schema CHECK requires a reason
- * when excluded). Best-effort: a failure is logged + swallowed so one bad row never sinks the
- * batch. Returns the number of rows updated. `whereClause` keys on $1..$N from `whereVals`.
+ * when excluded). A database failure escapes so the surrounding evidence/status transaction
+ * rolls back and the durable caller can retry. Returns the number of rows updated.
+ * `whereClause` keys on $1..$N from `whereVals`.
  */
 async function applyEvidenceMetadata(
-  ctx: InvocationContext,
+  _ctx: InvocationContext,
   whereClause: string,
   whereVals: unknown[],
   row: {
@@ -2239,7 +2857,8 @@ async function applyEvidenceMetadata(
     registrationVisible?: boolean;
     acceptedForEva?: boolean;
     excluded?: boolean;
-    exclusionReason?: string;
+    exclusionReason?: string | null;
+    decisionSource?: 'classifier';
     personReflection?: boolean;
     sha256?: string;
     sequenceIndex?: number;
@@ -2252,38 +2871,109 @@ async function applyEvidenceMetadata(
     sha256: string | null;
     sequenceIndex: number | null;
   },
-): Promise<number> {
-  const sets: string[] = [];
-  const vals: unknown[] = [...whereVals];
-  const push = (col: string, v: unknown): void => {
-    vals.push(v);
-    sets.push(`${col} = $${vals.length}`);
+  q: TxQuery = query,
+): Promise<{ updated: number; readinessChanged: boolean }> {
+  const changedIds = new Set<string>();
+  let readinessChanged = false;
+
+  // Autonomous image decisions are compare-and-set per field. A classifier may fill
+  // an unowned field or revise its own result, but never overwrite staff/provider/
+  // cleanup/legacy ownership. An omitted decisionSource is deliberately NOT granted
+  // classifier authority during a rolling deployment.
+  const ownedSets: string[] = [];
+  const ownedChanges: string[] = [];
+  const ownedVals: unknown[] = [...whereVals];
+  const pushOwned = (column: string, sourceColumn: string, value: unknown): void => {
+    ownedVals.push(value);
+    const p = `$${ownedVals.length}`;
+    const allowed = `(${sourceColumn} IS NULL OR ${sourceColumn} = 'classifier')`;
+    ownedSets.push(
+      `${column} = CASE WHEN ${allowed} THEN ${p} ELSE ${column} END`,
+      `${sourceColumn} = CASE WHEN ${allowed} THEN 'classifier' ELSE ${sourceColumn} END`,
+    );
+    ownedChanges.push(
+      `(${allowed} AND (${column} IS DISTINCT FROM ${p} OR ${sourceColumn} IS DISTINCT FROM 'classifier'))`,
+    );
   };
 
-  if (row.imageRoleCode != null || row.imageRole != null) push('image_role_code', computed.imageRoleCode);
-  if (typeof row.registrationVisible === 'boolean') push('registration_visible', computed.registrationVisible);
-  if (typeof row.acceptedForEva === 'boolean') push('accepted_for_eva', row.acceptedForEva);
-  if (typeof row.personReflection === 'boolean') push('person_reflection', row.personReflection);
-  if (row.excluded != null) {
-    push('excluded', computed.excluded);
-    push('exclusion_reason', computed.exclusionReason); // CHECK-safe: non-empty when excluded
-  } else if (typeof row.exclusionReason === 'string' && row.exclusionReason.trim()) {
-    push('exclusion_reason', row.exclusionReason.trim());
+  if (row.decisionSource === 'classifier' && (row.imageRoleCode != null || row.imageRole != null)) {
+    pushOwned('image_role_code', 'image_role_source', computed.imageRoleCode);
   }
-  if (row.sha256 != null) push('sha256', computed.sha256);
-  if (row.sequenceIndex != null) push('sequence_index', computed.sequenceIndex);
-
-  if (sets.length === 0) return 0;
-  try {
-    const res = await query<{ id: string }>(
-      `UPDATE evidence SET ${sets.join(', ')}, updated_at = now() WHERE ${whereClause} RETURNING id`,
-      vals,
+  if (row.decisionSource === 'classifier' && typeof row.registrationVisible === 'boolean') {
+    pushOwned('registration_visible', 'registration_visible_source', computed.registrationVisible);
+  }
+  if (row.decisionSource === 'classifier' && typeof row.acceptedForEva === 'boolean') {
+    pushOwned('accepted_for_eva', 'accepted_for_eva_source', row.acceptedForEva);
+  }
+  const legacyExplicitExclusion = row.decisionSource == null && row.excluded === true;
+  if ((row.decisionSource === 'classifier' || legacyExplicitExclusion) && row.excluded != null) {
+    ownedVals.push(computed.excluded, computed.exclusionReason);
+    const excludedP = `$${ownedVals.length - 1}`;
+    const reasonP = `$${ownedVals.length}`;
+    const allowed = `(
+      (exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')
+      AND (
+        NOT ${excludedP}
+        OR archive_mirror_claim_token IS NULL
+        OR archive_mirror_claim_expires_at <= now()
+      )
+    )`;
+    ownedSets.push(
+      `excluded = CASE WHEN ${allowed} THEN ${excludedP} ELSE excluded END`,
+      `exclusion_reason = CASE WHEN ${allowed} THEN ${reasonP} ELSE exclusion_reason END`,
+      `exclusion_decision_source = CASE WHEN ${allowed} THEN 'classifier' ELSE exclusion_decision_source END`,
+      `archive_mirror_decision_generation = archive_mirror_decision_generation +
+        CASE WHEN ${allowed} AND excluded IS DISTINCT FROM ${excludedP} THEN 1 ELSE 0 END`,
     );
-    return res.length;
-  } catch (e) {
-    ctx.error(e);
-    return 0;
+    ownedChanges.push(
+      `(${allowed} AND (excluded IS DISTINCT FROM ${excludedP} OR exclusion_reason IS DISTINCT FROM ${reasonP} OR exclusion_decision_source IS DISTINCT FROM 'classifier'))`,
+    );
   }
+
+  if (ownedSets.length > 0) {
+    const res = await q<ArchiveMirrorCandidate>(
+      `UPDATE evidence
+            SET ${ownedSets.join(', ')}, updated_at = now()
+          WHERE ${whereClause}
+            AND (${ownedChanges.join(' OR ')})
+          RETURNING id, case_id, excluded, storage_path, box_file_id`,
+      ownedVals,
+    );
+    for (const item of res) changedIds.add(item.id);
+    if (row.decisionSource === 'classifier' && row.excluded === false) {
+      for (const item of res) await requestArchiveMirrorIfEligible(q, item);
+    }
+    readinessChanged = res.length > 0;
+  }
+
+  const simpleSets: string[] = [];
+  const simpleChanges: string[] = [];
+  const simpleVals: unknown[] = [...whereVals];
+  const pushSimple = (column: string, value: unknown): void => {
+    simpleVals.push(value);
+    const p = `$${simpleVals.length}`;
+    simpleSets.push(`${column} = ${p}`);
+    simpleChanges.push(`${column} IS DISTINCT FROM ${p}`);
+  };
+  if (typeof row.personReflection === 'boolean') pushSimple('person_reflection', row.personReflection);
+  if (row.excluded == null && typeof row.exclusionReason === 'string' && row.exclusionReason.trim()) {
+    pushSimple('exclusion_reason', row.exclusionReason.trim());
+  }
+  if (row.sha256 != null) pushSimple('sha256', computed.sha256);
+  if (row.sequenceIndex != null) pushSimple('sequence_index', computed.sequenceIndex);
+
+  if (simpleSets.length > 0) {
+    const res = await q<{ id: string }>(
+      `UPDATE evidence
+            SET ${simpleSets.join(', ')}, updated_at = now()
+          WHERE ${whereClause}
+            AND (${simpleChanges.join(' OR ')})
+          RETURNING id`,
+      simpleVals,
+    );
+    for (const item of res) changedIds.add(item.id);
+  }
+  return { updated: changedIds.size, readinessChanged };
 }
 
 /* ============================================================
@@ -2326,6 +3016,11 @@ app.http('internalCasesEvidence', {
     withServiceAuth(req, ctx, async () => {
       const caseId = req.params.id;
       const body = (await req.json()) as {
+        expectedInboundEmailId?: unknown;
+        evidenceBackfillGeneration?: unknown;
+        evidenceBackfillOutcome?: unknown;
+        evidenceBackfillFailedAttachments?: unknown;
+        evidenceBackfillDetail?: unknown;
         rows: Array<
           Partial<EvidenceDescriptor> & {
             filename: string;
@@ -2342,7 +3037,10 @@ app.http('internalCasesEvidence', {
             imageRoleCode?: number;
             registrationVisible?: boolean;
             excluded?: boolean;
-            exclusionReason?: string;
+            exclusionReason?: string | null;
+            /** Autonomous evidence decisions are owned by the classifier. Omitted is
+             *  accepted temporarily so orchestration and API can roll independently. */
+            decisionSource?: 'classifier';
             /** TKT-123: the vision classifier saw a person's reflection (advisory flag). */
             personReflection?: boolean;
             sha256?: string;
@@ -2350,10 +3048,23 @@ app.http('internalCasesEvidence', {
           }
         >;
       };
+      if (
+        !Array.isArray(body.rows) ||
+        body.rows.some(
+          (row) => row.decisionSource != null && row.decisionSource !== 'classifier',
+        )
+      ) {
+        return { status: 400, jsonBody: { error: 'unsupported evidence decision source' } };
+      }
 
+      const persistRows = async (
+        q: TxQuery,
+        persistCaseId: string,
+      ): Promise<{ persisted: number; updated: number; merged: number; statusGeneration?: number }> => {
       let persisted = 0;
       let updated = 0;
       let merged = 0; // TKT-133: sha256 content twins linked onto an existing row instead of inserted
+      let readinessChanged = false;
       for (const row of body.rows ?? []) {
         // TKT-124 kind guard: the box-webhook historically hardcoded
         // evidenceClass='image' for EVERY FILE.UPLOADED row, so PDFs/.doc/.eml/
@@ -2398,11 +3109,26 @@ app.http('internalCasesEvidence', {
           row.imageRoleCode != null ||
           row.imageRole != null ||
           typeof row.registrationVisible === 'boolean' ||
+          typeof row.acceptedForEva === 'boolean' ||
           row.excluded != null ||
           row.exclusionReason != null ||
           row.personReflection != null ||
           row.sha256 != null ||
           row.sequenceIndex != null;
+        const hasReadinessMetadata =
+          row.imageRoleCode != null ||
+          row.imageRole != null ||
+          typeof row.registrationVisible === 'boolean' ||
+          typeof row.acceptedForEva === 'boolean' ||
+          typeof row.excluded === 'boolean';
+        const decisionSource = row.decisionSource === 'classifier' ? 'classifier' : null;
+        // Older orchestration writers omitted decisionSource. An explicit exclusion
+        // from that writer still needs visible autonomous ownership so staff can review
+        // and reverse it; omitted non-exclusion fields remain deliberately unowned.
+        const insertionExclusionDecisionSource =
+          typeof row.excluded === 'boolean' && row.excluded
+            ? (decisionSource ?? 'classifier')
+            : decisionSource;
 
         const sourceMessageId = (row.sourceMessageId ?? '').trim() || null;
         const boxFileId = (row.boxFileId ?? '').trim() || null;
@@ -2414,7 +3140,7 @@ app.http('internalCasesEvidence', {
         // never deduped. Only runs when the caller supplied a plausible 64-hex sha256;
         // rows without one take exactly the pre-TKT-133 path.
         if (sha256 && SHA256_HEX_RE.test(sha256)) {
-          const twin = await query<{
+          const twin = await q<{
             id: string;
             box_file_id: string | null;
             box_file_url: string | null;
@@ -2423,7 +3149,7 @@ app.http('internalCasesEvidence', {
           }>(
             `SELECT id, box_file_id, box_file_url, storage_path, source_message_id
                FROM evidence WHERE case_id = $1 AND sha256 = $2 LIMIT 1`,
-            [caseId, sha256],
+            [persistCaseId, sha256],
           );
           const ex = twin[0];
           if (ex) {
@@ -2446,6 +3172,7 @@ app.http('internalCasesEvidence', {
               row.imageRoleCode != null ||
               row.imageRole != null ||
               typeof row.registrationVisible === 'boolean' ||
+              typeof row.acceptedForEva === 'boolean' ||
               row.excluded != null ||
               row.exclusionReason != null ||
               row.personReflection != null ||
@@ -2456,7 +3183,7 @@ app.http('internalCasesEvidence', {
               if (isBoxRow && ex.box_file_id == null && boxFileId != null) {
                 // Box mirror of an email-first row → fill the Box provenance. The existing
                 // row's source_message_id is ITS lane's identity — deliberately left alone.
-                await query(
+                await q(
                   `UPDATE evidence
                       SET box_file_id = $2,
                           box_file_url = COALESCE($3, box_file_url),
@@ -2466,7 +3193,7 @@ app.http('internalCasesEvidence', {
                 );
               } else if (!isBoxRow && ex.storage_path == null && row.blobPath) {
                 // Email/blob arrival of a Box-first row → fill the blob provenance.
-                await query(
+                await q(
                   `UPDATE evidence
                       SET storage_path = $2::text, updated_at = now()
                     WHERE id = $1 AND storage_path IS NULL`,
@@ -2474,14 +3201,16 @@ app.http('internalCasesEvidence', {
                 );
               }
               if (hasMergeMetadata) {
-                await applyEvidenceMetadata(ctx, 'id = $1', [ex.id], row, {
+                const applied = await applyEvidenceMetadata(ctx, 'id = $1', [ex.id], row, {
                   imageRoleCode,
                   registrationVisible,
                   excluded,
                   exclusionReason,
                   sha256,
                   sequenceIndex,
-                });
+                }, q);
+                updated += applied.updated;
+                readinessChanged ||= applied.readinessChanged;
               }
               merged++;
               continue; // never insert a same-case content twin (cross-lane mirror)
@@ -2490,14 +3219,16 @@ app.http('internalCasesEvidence', {
             // exists on this case. Absorb any new metadata in place and stop — do NOT fall
             // through to the lane INSERT (whose single-column NOT EXISTS can miss a merged row).
             if (hasMergeMetadata) {
-              updated += await applyEvidenceMetadata(ctx, 'id = $1', [ex.id], row, {
+              const applied = await applyEvidenceMetadata(ctx, 'id = $1', [ex.id], row, {
                 imageRoleCode,
                 registrationVisible,
                 excluded,
                 exclusionReason,
                 sha256,
                 sequenceIndex,
-              });
+              }, q);
+              updated += applied.updated;
+              readinessChanged ||= applied.readinessChanged;
             }
             continue; // idempotent: the identical row already exists on this case
           }
@@ -2510,19 +3241,21 @@ app.http('internalCasesEvidence', {
           // box_file_id only if the tag is absent).
           const dedupCol = sourceMessageId != null ? 'source_message_id' : 'box_file_id';
           const dedupVal = sourceMessageId ?? boxFileId;
-          const result = await query<{ id: string }>(
+          const result = await q<{ id: string }>(
             `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes,
                 source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label,
-                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index)
-             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index,
+                image_role_source, registration_visible_source, accepted_for_eva_source, exclusion_decision_source)
+             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+                    $18, $19, $20, $21
              WHERE NOT EXISTS (
-               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $18
+               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $22
              )
              RETURNING id`,
             [
               row.filename,
-              caseId,
+              persistCaseId,
               kindCode,
               row.contentType || null,
               row.size ?? null,
@@ -2538,40 +3271,50 @@ app.http('internalCasesEvidence', {
               personReflection,
               sha256,
               sequenceIndex,
+              row.imageRoleCode != null || row.imageRole != null ? decisionSource : null,
+              typeof row.registrationVisible === 'boolean' ? decisionSource : null,
+              typeof row.acceptedForEva === 'boolean' ? decisionSource : null,
+              typeof row.excluded === 'boolean' ? insertionExclusionDecisionSource : null,
               dedupVal,
             ],
           );
           inserted = result.length > 0;
           // Existing Box row + new metadata (e.g. OCR ran after the upload) -> update in place.
           if (!inserted && hasMetadata) {
-            updated += await applyEvidenceMetadata(
+            const applied = await applyEvidenceMetadata(
               ctx,
               `case_id = $1 AND ${dedupCol} = $2`,
-              [caseId, dedupVal],
+              [persistCaseId, dedupVal],
               row,
               { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
+              q,
             );
+            updated += applied.updated;
+            readinessChanged ||= applied.readinessChanged;
           }
         } else {
           // Email/orchestration: idempotent on (case_id, storage_path).
           const acceptedForEva = row.acceptedForEva ?? true;
-          const result = await query<{ id: string }>(
+          const result = await q<{ id: string }>(
             `INSERT INTO evidence
                (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label,
                 accepted_for_eva,
-                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index)
-             SELECT $1, $2, $3, $4, $5, $6::text, 'auto-intake', $7, $8, $9, $10, $11, $12, $13, $14
+                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index,
+                image_role_source, registration_visible_source, accepted_for_eva_source, exclusion_decision_source)
+             SELECT $1, $2, $3, $4, $5, $6::text, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+                    $16, $17, $18, $19
              WHERE NOT EXISTS (
                SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6::text
              )
              RETURNING id`,
             [
               row.filename,
-              caseId,
+              persistCaseId,
               kindCode,
               row.contentType || null,
               row.size ?? null,
               row.blobPath ?? null,
+              (row.sourceLabel ?? '').trim() || 'auto-intake',
               acceptedForEva,
               imageRoleCode,
               registrationVisible,
@@ -2580,25 +3323,249 @@ app.http('internalCasesEvidence', {
               personReflection,
               sha256,
               sequenceIndex,
+              row.imageRoleCode != null || row.imageRole != null ? decisionSource : null,
+              typeof row.registrationVisible === 'boolean' ? decisionSource : null,
+              typeof row.acceptedForEva === 'boolean' ? decisionSource : null,
+              typeof row.excluded === 'boolean' ? insertionExclusionDecisionSource : null,
             ],
           );
           inserted = result.length > 0;
           // Existing intake row + new image metadata -> update it in place (the seam that
           // lets the image-extraction worker enrich an already-persisted attachment).
           if (!inserted && hasMetadata && row.blobPath) {
-            updated += await applyEvidenceMetadata(
+            const applied = await applyEvidenceMetadata(
               ctx,
               'case_id = $1 AND storage_path = $2::text',
-              [caseId, row.blobPath],
+              [persistCaseId, row.blobPath],
               row,
               { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
+              q,
             );
+            updated += applied.updated;
+            readinessChanged ||= applied.readinessChanged;
           }
         }
-        if (inserted) persisted++;
+        if (inserted) {
+          persisted++;
+          // Any newly committed evidence row can change status inputs: images affect
+          // accepted-photo readiness and instruction rows affect the no-evidence branch.
+          // Request durable recompute work in this SAME transaction even when an image
+          // classifier did not supply metadata.
+          readinessChanged = true;
+          if (
+            suppliedClass === 'image' &&
+            hasReadinessMetadata &&
+            row.decisionSource === 'classifier'
+          ) readinessChanged = true;
+        }
       }
 
-      return { status: 200, jsonBody: { persisted, updated, merged } };
+      const statusGeneration = readinessChanged
+        ? await requestStatusRecompute(q, persistCaseId)
+        : undefined;
+
+      return {
+        persisted,
+        updated,
+        merged,
+        ...(statusGeneration == null ? {} : { statusGeneration }),
+      };
+      };
+
+      const expectedInboundEmailId = typeof body.expectedInboundEmailId === 'string'
+        ? body.expectedInboundEmailId.trim()
+        : '';
+      if (expectedInboundEmailId) {
+        const suppliedBackfillGeneration = body.evidenceBackfillGeneration == null
+          ? null
+          : Number(body.evidenceBackfillGeneration);
+        if (
+          suppliedBackfillGeneration != null &&
+          (!Number.isSafeInteger(suppliedBackfillGeneration) || suppliedBackfillGeneration < 1)
+        ) {
+          return { status: 400, jsonBody: { error: 'evidenceBackfillGeneration must be a positive integer' } };
+        }
+        const suppliedBackfillOutcome = body.evidenceBackfillOutcome;
+        if (
+          suppliedBackfillGeneration != null &&
+          suppliedBackfillOutcome !== 'completed' &&
+          suppliedBackfillOutcome !== 'partial'
+        ) {
+          return {
+            status: 400,
+            jsonBody: { error: "evidenceBackfillOutcome must be 'completed' or 'partial'" },
+          };
+        }
+        const backfillOutcome: EvidenceBackfillCommittedOutcome = suppliedBackfillOutcome === 'partial'
+          ? 'partial'
+          : 'completed';
+        const backfillFailedAttachments = typeof body.evidenceBackfillFailedAttachments === 'number'
+          ? Math.max(0, Math.trunc(body.evidenceBackfillFailedAttachments))
+          : undefined;
+        const backfillDetail = typeof body.evidenceBackfillDetail === 'string' && body.evidenceBackfillDetail.trim()
+          ? body.evidenceBackfillDetail.slice(0, 300)
+          : undefined;
+        const guarded = await withResolvedEvidenceBackfillTarget(
+          expectedInboundEmailId,
+          caseId,
+          async (q, resolvedCaseId) => {
+            // Validation/classification happens before this persistence transaction.
+            // If a merge redirected ownership in that window, the rows carry the old
+            // case's provider policy/VRM decisions. Reject WITHOUT mutating so the queue
+            // retries from validation and reclassifies against the survivor.
+            if (resolvedCaseId.trim().toLowerCase() !== caseId.trim().toLowerCase()) {
+              return { kind: 'reclassification_required' as const };
+            }
+            // Rolling deployment compatibility: the old orchestration writer did not
+            // know generations or the intended terminal outcome. Persist its rows using
+            // the legacy guarded path, but do NOT guess "completed" or stamp a marker;
+            // its subsequent legacy partial/completed report remains authoritative.
+            if (suppliedBackfillGeneration == null) {
+              return {
+                kind: 'persisted' as const,
+                value: await persistRows(q, resolvedCaseId),
+              };
+            }
+            const progress = await q<{
+              evidence_backfill_requested_generation: string | number;
+              evidence_backfill_completed_generation: string | number;
+              evidence_backfill_completed_result: unknown;
+            }>(
+              `SELECT evidence_backfill_requested_generation,
+                      evidence_backfill_completed_generation,
+                      evidence_backfill_completed_result
+                 FROM inbound_email
+                WHERE id = $1`,
+              [expectedInboundEmailId],
+            );
+            const requestedGeneration = Number(
+              progress[0]?.evidence_backfill_requested_generation ?? suppliedBackfillGeneration ?? 1,
+            );
+            const completedGeneration = Number(
+              progress[0]?.evidence_backfill_completed_generation ?? 0,
+            );
+            const backfillGeneration = suppliedBackfillGeneration ?? requestedGeneration;
+            if (backfillGeneration < 1 || backfillGeneration > requestedGeneration) {
+              return {
+                kind: 'generation_mismatch' as const,
+                requestedGeneration,
+              };
+            }
+            if (completedGeneration >= backfillGeneration) {
+              const completedResult = parseEvidenceBackfillCommittedResult(
+                progress[0]?.evidence_backfill_completed_result,
+              );
+              if (suppliedBackfillGeneration != null && !completedResult) {
+                throw new Error('evidence backfill completion marker has no durable result');
+              }
+              return {
+                kind: 'persisted' as const,
+                value: {
+                  persisted: completedResult?.persisted ?? 0,
+                  updated: 0,
+                  merged: completedResult?.merged ?? 0,
+                  backfillGeneration,
+                  alreadyCompleted: true,
+                  ...(completedResult ? { completedResult } : {}),
+                },
+              };
+            }
+            const value = await persistRows(q, resolvedCaseId);
+            const completedResult: EvidenceBackfillCommittedResult = {
+              outcome: backfillOutcome,
+              persisted: value.persisted,
+              merged: value.merged,
+              ...(backfillFailedAttachments == null
+                ? {}
+                : { failedAttachments: backfillFailedAttachments }),
+              ...(backfillDetail ? { detail: backfillDetail } : {}),
+            };
+            const marked = await q<{
+              evidence_backfill_completed_generation: string | number;
+              evidence_backfill_completed_result: unknown;
+            }>(
+              `UPDATE inbound_email
+                  SET evidence_backfill_completed_generation = $2,
+                      evidence_backfill_completed_result = $4::jsonb,
+                      evidence_backfill_completed_at = now(),
+                      updated_at = now()
+                WHERE id = $1
+                  AND case_id = $3
+                  AND evidence_backfill_requested_generation = $2
+                  AND evidence_backfill_completed_generation < $2
+              RETURNING evidence_backfill_completed_generation,
+                        evidence_backfill_completed_result`,
+              [
+                expectedInboundEmailId,
+                backfillGeneration,
+                resolvedCaseId,
+                JSON.stringify(completedResult),
+              ],
+            );
+            if (!marked[0]) {
+              throw new Error('evidence backfill completion marker target disappeared');
+            }
+            return {
+              kind: 'persisted' as const,
+              value: {
+                ...value,
+                backfillGeneration,
+                alreadyCompleted: false,
+                completedResult,
+              },
+            };
+          },
+        );
+        if (guarded.kind === 'stale') {
+          return {
+            status: 409,
+            jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
+          };
+        }
+        if (guarded.value.kind === 'reclassification_required') {
+          return {
+            status: 409,
+            jsonBody: {
+              error: 'evidence backfill must be reclassified for the merged case',
+              code: 'evidence_backfill_reclassification_required',
+              targetCaseId: guarded.targetCaseId,
+            },
+          };
+        }
+        if (guarded.value.kind === 'generation_mismatch') {
+          return {
+            status: 409,
+            jsonBody: {
+              error: 'evidence backfill generation changed',
+              code: 'evidence_backfill_generation_changed',
+              requestedGeneration: guarded.value.requestedGeneration,
+            },
+          };
+        }
+        return {
+          status: 200,
+          jsonBody: { ...guarded.value.value, targetCaseId: guarded.targetCaseId },
+        };
+      }
+      const result = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, caseId);
+        if (lockedCase.kind !== 'active') return lockedCase;
+        return { kind: 'persisted' as const, value: await persistRows(q, lockedCase.caseId) };
+      });
+      if (result.kind === 'missing') {
+        return { status: 404, jsonBody: { error: 'case not found' } };
+      }
+      if (result.kind === 'retired') {
+        return {
+          status: 409,
+          jsonBody: {
+            error: 'case has been merged',
+            code: 'case_merged',
+            targetCaseId: result.mergedInto,
+          },
+        };
+      }
+      return { status: 200, jsonBody: result.value };
     }),
 });
 
@@ -2607,6 +3574,23 @@ app.http('internalCasesEvidence', {
    Called by: orchestration boxArchiveEvidence activity.
    Returns persisted blob-backed evidence rows only, so archive mirroring follows
    the Data API's evidence truth instead of a stale in-memory intake envelope.
+
+   TKT-089 (reopen): `excluded` rows are NEVER selected — a classifier-stamped
+   non-vehicle crop, a person-reflection exclusion, or a staff/cleanup exclusion
+   must not mirror into the Box case folder (ADR-0012 one-way mirror: copies
+   already in Box stay, but no NEW excluded row goes over). Race-free by intake
+   ordering: both persist lanes (classifyPersist + extractImages) stamp
+   `excluded` in-memory BEFORE their persist call, and boxArchiveEvidence runs
+   strictly after both in every orchestrator lane. A row whose classify FAILED
+   persists un-excluded and stays mirror-eligible (deliberate fail-open — recall
+   protection; there is no guaranteed later archive run per case, so skipping
+   "still-unclassified" rows would strand genuine photos out of the archive).
+   Deliberately NOT role-aware: a non-vehicle "other" classification is stored
+   as role `unknown` (no choice-set row), which is indistinguishable from
+   not-yet-classified — filtering on it would strand real photos after any
+   transient classify failure. `excluded` is the one deliberate, auditable,
+   staff-reversible discriminator (un-excluding a row makes the next archive
+   run pick it up).
    ============================================================ */
 app.http('internalCasesArchiveEvidence', {
   methods: ['GET'],
@@ -2617,26 +3601,43 @@ app.http('internalCasesArchiveEvidence', {
       const caseId = req.params.id;
       if (!caseId) return { status: 400, jsonBody: { error: 'caseId required' } };
 
-      const rows = await query<{
+      const result = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, caseId);
+        if (lockedCase.kind !== 'active') return { kind: lockedCase.kind as 'missing' | 'retired' };
+        const rows = await q<{
         id: string;
         filename: string;
         contentType: string | null;
         blobPath: string;
+        claimToken: string;
+        decisionGeneration: string | number;
       }>(
-        `SELECT
-           id,
-           file_name AS filename,
-           content_type AS "contentType",
-           storage_path AS "blobPath"
-         FROM evidence
-         WHERE case_id = $1
-           AND storage_path IS NOT NULL
-           AND box_file_id IS NULL
-         ORDER BY created_at ASC, file_name ASC`,
-        [caseId],
-      );
+          `UPDATE evidence
+              SET archive_mirror_claim_token = gen_random_uuid(),
+                  archive_mirror_claimed_at = now(),
+                  archive_mirror_claim_expires_at = now() + interval '30 minutes',
+                  updated_at = now()
+            WHERE case_id = $1
+              AND storage_path IS NOT NULL
+              AND box_file_id IS NULL
+              AND excluded = false
+              AND (
+                archive_mirror_claim_token IS NULL
+                OR archive_mirror_claim_expires_at <= now()
+              )
+          RETURNING id,
+                    file_name AS filename,
+                    content_type AS "contentType",
+                    storage_path AS "blobPath",
+                    archive_mirror_claim_token::text AS "claimToken",
+                    archive_mirror_decision_generation AS "decisionGeneration"`,
+          [lockedCase.caseId],
+        );
+        rows.sort((a, b) => a.filename.localeCompare(b.filename));
+        return { kind: 'claimed' as const, rows };
+      });
 
-      return { status: 200, jsonBody: { rows } };
+      return { status: 200, jsonBody: { rows: result.kind === 'claimed' ? result.rows : [] } };
     }),
 });
 
@@ -2659,27 +3660,59 @@ app.http('internalCasesArchiveEvidenceStamp', {
         blobPath?: unknown;
         boxFileId?: unknown;
         boxFileUrl?: unknown;
+        claimToken?: unknown;
+        decisionGeneration?: unknown;
       };
       const evidenceId = typeof body.evidenceId === 'string' ? body.evidenceId.trim() : '';
       const blobPath = typeof body.blobPath === 'string' ? body.blobPath.trim() : '';
       const boxFileId = typeof body.boxFileId === 'string' ? body.boxFileId.trim() : '';
       const boxFileUrl = typeof body.boxFileUrl === 'string' ? body.boxFileUrl.trim() : '';
-      if (!evidenceId || !blobPath || !boxFileId) {
-        return { status: 400, jsonBody: { error: 'evidenceId, blobPath and boxFileId required' } };
+      const claimToken = typeof body.claimToken === 'string' ? body.claimToken.trim() : '';
+      const decisionGeneration = Number(body.decisionGeneration);
+      if (
+        !evidenceId || !blobPath || !boxFileId || !claimToken ||
+        !Number.isSafeInteger(decisionGeneration) || decisionGeneration < 0
+      ) {
+        return {
+          status: 400,
+          jsonBody: {
+            error: 'evidenceId, blobPath, boxFileId, claimToken and decisionGeneration required',
+          },
+        };
       }
 
-      const updated = await query<{ id: string }>(
-        `UPDATE evidence
-            SET box_file_id = $4,
-                box_file_url = COALESCE($5, box_file_url),
-                updated_at = now()
-          WHERE case_id = $1
-            AND id = $2
-            AND storage_path = $3
-          RETURNING id`,
-        [caseId, evidenceId, blobPath, boxFileId, boxFileUrl || null],
-      );
-      return { status: 200, jsonBody: { updated: updated.length > 0 } };
+      const result = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, caseId);
+        if (lockedCase.kind !== 'active') return { kind: lockedCase.kind as 'missing' | 'retired' };
+        const updated = await q<{ id: string }>(
+          `UPDATE evidence
+              SET box_file_id = $4,
+                  box_file_url = COALESCE($5, box_file_url),
+                  archive_mirror_claim_token = NULL,
+                  archive_mirror_claimed_at = NULL,
+                  archive_mirror_claim_expires_at = NULL,
+                  updated_at = now()
+            WHERE case_id = $1
+              AND id = $2
+              AND storage_path = $3
+              AND excluded = false
+              AND archive_mirror_claim_token = $6::uuid
+              AND archive_mirror_claim_expires_at > now()
+              AND archive_mirror_decision_generation = $7
+            RETURNING id`,
+          [
+            lockedCase.caseId,
+            evidenceId,
+            blobPath,
+            boxFileId,
+            boxFileUrl || null,
+            claimToken,
+            decisionGeneration,
+          ],
+        );
+        return { kind: 'updated' as const, updated: updated.length > 0 };
+      });
+      return { status: 200, jsonBody: { updated: result.kind === 'updated' && result.updated } };
     }),
 });
 
@@ -2695,8 +3728,60 @@ app.http('internalCasesStatusEvaluate', {
   handler: (req, ctx) =>
     withServiceAuth(req, ctx, async () => {
       const caseId = req.params.id;
-      const value = await recomputeStatus(caseId);
-      return { status: 200, jsonBody: { value } };
+      const body = (await req.json().catch(() => ({}))) as { generation?: unknown };
+      const generation = body.generation == null ? undefined : Number(body.generation);
+      if (
+        generation != null &&
+        (!Number.isSafeInteger(generation) || generation < 1)
+      ) {
+        return { status: 400, jsonBody: { error: 'generation must be a positive integer' } };
+      }
+      const result = await recomputeStatus(caseId, generation);
+      return {
+        status: 200,
+        jsonBody: {
+          value: result.value,
+          ...(result.completed == null ? {} : { completed: result.completed }),
+          ...(result.pending == null ? {} : { pending: result.pending }),
+        },
+      };
+    }),
+});
+
+app.http('internalCasesArchiveEvidenceRelease', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/cases/{id}/archive-evidence/release',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const caseId = req.params.id;
+      const body = (await req.json().catch(() => ({}))) as {
+        evidenceId?: unknown;
+        claimToken?: unknown;
+      };
+      const evidenceId = typeof body.evidenceId === 'string' ? body.evidenceId.trim() : '';
+      const claimToken = typeof body.claimToken === 'string' ? body.claimToken.trim() : '';
+      if (!caseId || !evidenceId || !claimToken) {
+        return { status: 400, jsonBody: { error: 'caseId, evidenceId and claimToken required' } };
+      }
+      const released = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, caseId);
+        if (lockedCase.kind !== 'active') return false;
+        const rows = await q<{ id: string }>(
+          `UPDATE evidence
+              SET archive_mirror_claim_token = NULL,
+                  archive_mirror_claimed_at = NULL,
+                  archive_mirror_claim_expires_at = NULL,
+                  updated_at = now()
+            WHERE id = $1
+              AND case_id = $2
+              AND archive_mirror_claim_token = $3::uuid
+            RETURNING id`,
+          [evidenceId, lockedCase.caseId, claimToken],
+        );
+        return rows.length > 0;
+      });
+      return { status: 200, jsonBody: { released } };
     }),
 });
 
@@ -2757,27 +3842,12 @@ app.http('internalCasesMarkDone', {
       const signal = ['sent_email', 'box_pdf', 'eva_poll', 'manual'].includes(body.signal ?? '')
         ? (body.signal as string)
         : 'unknown';
-      const updated = await query<{ id: string }>(
-        // Clear on_hold on the terminal transition (parity with the SPA mark-done route in
-        // cases.ts): a delivered case must not linger in the Held/work queues. (PR51-E3)
-        `UPDATE case_ SET status_code = $1, on_hold = false, updated_at = now()
-         WHERE id = $2 AND status_code = $3
-         RETURNING id`,
-        [statusToInt('done'), caseId, statusToInt('eva_submitted')],
-      );
-      if (updated.length > 0) {
-        await writeAudit({
-          action: AUDIT_ACTION.report_delivered,
-          caseId,
-          summary: 'Report delivered to the work provider — case marked Done',
-          after: {
-            status: 'done',
-            signal,
-            ...(body.detail ? { detail: String(body.detail).slice(0, 500) } : {}),
-          },
-        });
-      }
-      return { status: 200, jsonBody: { updated: updated.length > 0 } };
+      const updated = await tx((q) => markCaseDoneUsing(q, {
+        caseId,
+        signal,
+        ...(body.detail ? { detail: String(body.detail) } : {}),
+      }));
+      return { status: 200, jsonBody: { updated } };
     }),
 });
 
@@ -3048,13 +4118,424 @@ app.http('internalBoxMarkPurged', {
   handler: (req, ctx) =>
     withServiceAuth(req, ctx, async () => {
       const body = (await req.json()) as { caseId: string; blobPath: string };
-      await query(
-        `UPDATE evidence
-            SET storage_path = NULL, updated_at = now()
-          WHERE case_id = $1 AND storage_path = $2`,
-        [body.caseId, body.blobPath],
-      );
+      await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, body.caseId);
+        if (lockedCase.kind !== 'active') return;
+        await q(
+          `UPDATE evidence
+              SET storage_path = NULL, updated_at = now()
+            WHERE case_id = $1 AND storage_path = $2`,
+          [lockedCase.caseId, body.blobPath],
+        );
+      });
       return { status: 204 };
+    }),
+});
+
+/* ============================================================
+   11b — GET|POST /api/internal/evidence/unclassified-box   (TKT-146)
+   Called by: the orchestration `box-classify-sweep` timer. GET is the
+   rolling-deploy-compatible due-row read used by the older orchestration
+   build. POST atomically CLAIMS due rows for the current build.
+
+   Both paths enumerate the
+   still-unclassified FILE.UPLOADED-lane image evidence rows (box_file_id
+   present, source_label 'box_upload…' — the box-webhook writes plain
+   'box_upload' or 'box_upload sha1=<sha1>'; the retro register's archive
+   rows use a different label and stay out of the sweep) together with each
+   row's case VRM + work-provider id, so the sweep can vision-classify them
+   shortly after upload (TKT-064 policy) and honour the per-provider
+   ai_allowed opt-out.
+
+   "Still unclassified" is the TKT-131 predicate: image_role_code = unknown
+   AND registration_visible IS NULL. A successful classification ALWAYS
+   stamps a boolean registration_visible — including the non-vehicle 'other'
+   verdict, which keeps role `unknown` (no 'other' option in the choice set)
+   but is stamped not-accepted — so a classified row is never re-enumerated
+   and re-sweeps are idempotent. Excluded rows are never candidates. The
+   14-day created_at window bounds FIRST attempts only. Once a row has an
+   attempt_count > 0, its persisted retry remains eligible after day 14 so a
+   day-13 transient backoff cannot silently strand it. Persisted claim,
+   due-time and dead-letter fields keep terminal/persistent failures OUT of
+   the next capped page; a crash leaves a 30-minute lease, after which the row
+   is safely retryable. Newest-first still prioritises fresh uploads, while
+   explicit provider AI opt-outs are filtered BEFORE the LIMIT.
+   ============================================================ */
+app.http('internalEvidenceUnclassifiedBox', {
+  methods: ['GET', 'POST'],
+  authLevel: 'anonymous',
+  route: 'internal/evidence/unclassified-box',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const limitRaw = Number(req.query.get('limit') ?? '25');
+      const limit = Math.min(100, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25));
+      const imageKind = evidenceKindCodec.toInt('image') ?? 100000000;
+      const unknownRole = imageRoleCodec.toInt('unknown' as ImageRole) ?? 100000003;
+      const duePredicate = `e.box_file_id IS NOT NULL
+            AND e.source_label LIKE 'box_upload%'
+            AND e.kind_code = $1
+            AND e.image_role_code = $2
+            AND e.registration_visible IS NULL
+            AND e.excluded = false
+            AND (
+              COALESCE(e.box_classify_attempt_count, 0) > 0
+              OR e.created_at > now() - interval '14 days'
+            )
+            AND e.box_classify_dead_lettered_at IS NULL
+            AND (e.box_classify_next_attempt_at IS NULL OR e.box_classify_next_attempt_at <= now())
+            AND (e.box_classify_claim_expires_at IS NULL OR e.box_classify_claim_expires_at <= now())
+            AND wp.ai_allowed IS DISTINCT FROM false`;
+      const rows = req.method?.toUpperCase() === 'POST'
+        ? await query<Row>(
+            `WITH candidates AS (
+               SELECT e.id
+                 FROM evidence e
+                 JOIN case_ c ON c.id = e.case_id
+                 LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+                WHERE ${duePredicate}
+                ORDER BY e.created_at DESC, e.id
+                LIMIT $3
+                FOR UPDATE OF e SKIP LOCKED
+             ), claimed AS (
+               UPDATE evidence e
+                  SET box_classify_claim_token = gen_random_uuid(),
+                      box_classify_claim_expires_at = now() + interval '30 minutes',
+                      box_classify_attempt_count = e.box_classify_attempt_count + 1,
+                      updated_at = now()
+                 FROM candidates candidate
+                WHERE e.id = candidate.id
+               RETURNING e.*
+             )
+             SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id,
+                    e.source_message_id, e.box_classify_claim_token,
+                    e.box_classify_attempt_count, c.vrm, c.work_provider_id
+               FROM claimed e
+               JOIN case_ c ON c.id = e.case_id
+              ORDER BY e.created_at DESC, e.id`,
+            [imageKind, unknownRole, limit],
+          )
+        : await query<Row>(
+            `SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id,
+                    e.source_message_id, NULL::uuid AS box_classify_claim_token,
+                    e.box_classify_attempt_count, c.vrm, c.work_provider_id
+               FROM evidence e
+               JOIN case_ c ON c.id = e.case_id
+               LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+              WHERE ${duePredicate}
+              ORDER BY e.created_at DESC, e.id
+              LIMIT $3`,
+            [imageKind, unknownRole, limit],
+          );
+      return {
+        status: 200,
+        jsonBody: {
+          rows: rows.map((r) => ({
+            evidenceId: r.id as string,
+            caseId: r.case_id as string,
+            filename: (r.file_name as string | null) ?? '',
+            contentType: (r.content_type as string | null) ?? null,
+            boxFileId: r.box_file_id as string,
+            sourceMessageId: (r.source_message_id as string | null) ?? null,
+            caseVrm: (r.vrm as string | null) ?? '',
+            workProviderId: (r.work_provider_id as string | null) ?? '',
+            claimToken: (r.box_classify_claim_token as string | null) ?? null,
+            attemptCount: Number(r.box_classify_attempt_count ?? 0),
+          })),
+        },
+      };
+    }),
+});
+
+/* ============================================================
+   11c — TKT-146 durable classification → status-recompute handoff
+
+   The exact evidence-row UPDATE and case generation increment share one DB
+   transaction. Once a classification stamp commits, requested > completed is
+   durable until a successful status evaluation acknowledges that generation.
+   A retry may increment again; evaluation is idempotent and the generation-aware
+   acknowledgement cannot consume newer work.
+   ============================================================ */
+app.http('internalEvidenceBoxClassification', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/evidence/{id}/box-classification',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const evidenceId = (req.params.id ?? '').trim();
+      const body = (await req.json()) as {
+        caseId?: string;
+        boxFileId?: string;
+        claimToken?: string;
+        failure?: {
+          disposition?: 'transient' | 'terminal';
+          code?: string;
+          detail?: string;
+        };
+        imageRole?: string;
+        registrationVisible?: boolean;
+        acceptedForEva?: boolean;
+        excluded?: boolean;
+        exclusionReason?: string | null;
+        decisionSource?: 'classifier';
+        personReflection?: boolean;
+      };
+      const imageKind = evidenceKindCodec.toInt('image') ?? 100000000;
+      const unknownRole = imageRoleCodec.toInt('unknown') ?? 100000003;
+      const claimToken = (body.claimToken ?? '').trim();
+
+      // A claimed worker reports a failed attempt through the SAME route. This is
+      // retry metadata only: evidence bytes/visibility/role are untouched. The
+      // claim-token compare-and-set prevents an expired worker changing a newer
+      // claimant's schedule.
+      if (body.failure != null) {
+        const disposition = body.failure.disposition;
+        const code = (body.failure.code ?? '').trim().toLowerCase();
+        const detail = (body.failure.detail ?? '').trim().slice(0, 400);
+        if (
+          !evidenceId ||
+          !claimToken ||
+          (disposition !== 'transient' && disposition !== 'terminal') ||
+          !/^[a-z0-9][a-z0-9_.:-]{0,79}$/.test(code)
+        ) {
+          return {
+            status: 400,
+            jsonBody: { error: 'claimToken and a valid failure disposition/code are required' },
+          };
+        }
+        const terminal = disposition === 'terminal';
+        const failed = await query<Row>(
+          `UPDATE evidence
+              SET box_classify_claim_token = NULL,
+                  box_classify_claim_expires_at = NULL,
+                  box_classify_last_failure_code = $3,
+                  box_classify_next_attempt_at = CASE
+                    WHEN $4::boolean THEN NULL
+                    WHEN box_classify_attempt_count <= 1 THEN now() + interval '15 minutes'
+                    WHEN box_classify_attempt_count = 2 THEN now() + interval '1 hour'
+                    WHEN box_classify_attempt_count = 3 THEN now() + interval '6 hours'
+                    ELSE now() + interval '24 hours'
+                  END,
+                  box_classify_dead_lettered_at = CASE WHEN $4::boolean THEN now() ELSE NULL END,
+                  box_classify_dead_letter_reason = CASE
+                    WHEN $4::boolean THEN left(COALESCE(NULLIF($5, ''), $3), 400)
+                    ELSE NULL
+                  END,
+                  updated_at = now()
+            WHERE id = $1
+              AND box_classify_claim_token::text = $2
+              AND kind_code = $6
+              AND image_role_code = $7
+              AND registration_visible IS NULL
+              AND excluded = false
+          RETURNING box_classify_attempt_count,
+                    box_classify_next_attempt_at,
+                    box_classify_dead_lettered_at`,
+          [evidenceId, claimToken, code, terminal, detail, imageKind, unknownRole],
+        );
+        const row = failed[0];
+        return {
+          status: 200,
+          jsonBody: row
+            ? {
+                updated: true,
+                disposition,
+                attemptCount: Number(row.box_classify_attempt_count ?? 0),
+                nextAttemptAt: row.box_classify_next_attempt_at ?? null,
+                deadLettered: row.box_classify_dead_lettered_at != null,
+              }
+            : { updated: false, stale: true },
+        };
+      }
+
+      const caseId = (body.caseId ?? '').trim();
+      const boxFileId = (body.boxFileId ?? '').trim();
+      if (!evidenceId || !caseId || !boxFileId) {
+        return {
+          status: 400,
+          jsonBody: { error: 'evidence id, caseId and boxFileId are required' },
+        };
+      }
+      if (
+        typeof body.registrationVisible !== 'boolean' ||
+        typeof body.acceptedForEva !== 'boolean' ||
+        typeof body.excluded !== 'boolean' ||
+        typeof body.personReflection !== 'boolean' ||
+        body.decisionSource !== 'classifier'
+      ) {
+        return { status: 400, jsonBody: { error: 'classification booleans are required' } };
+      }
+
+      // `other` is a valid classifier verdict but deliberately has no stored
+      // image-role choice; it persists as unknown + acceptedForEva=false. Every
+      // other unknown role name is a caller error, never silently coerced.
+      const imageRoleCode =
+        body.imageRole === 'other'
+          ? unknownRole
+          : imageRoleCodec.toInt(body.imageRole as ImageRole | undefined);
+      if (imageRoleCode == null) {
+        return { status: 400, jsonBody: { error: 'imageRole is not recognised' } };
+      }
+      const excluded = body.excluded === true;
+      const exclusionReason = excluded
+        ? (body.exclusionReason ?? '').trim() || 'Excluded'
+        : null;
+
+      const result = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, caseId);
+        if (lockedCase.kind === 'retired') {
+          return { kind: 'retired' as const, targetCaseId: lockedCase.mergedInto };
+        }
+        if (lockedCase.kind === 'missing') return { kind: 'missing' as const };
+
+        // Lock the identity after its owning case. The source-aware metadata helper may revise an
+        // autonomous result (including excluded -> included) but independently
+        // preserves every staff/provider/cleanup/legacy-owned field.
+        const current = await q<{ id: string }>(
+          `SELECT id FROM evidence
+            WHERE id = $1
+              AND case_id = $2
+              AND box_file_id = $3
+              AND kind_code = $4
+              AND source_label LIKE 'box_upload%'
+              AND ($5::text = '' OR box_classify_claim_token::text = $5)
+            FOR UPDATE`,
+          [evidenceId, lockedCase.caseId, boxFileId, imageKind, claimToken],
+        );
+        if (!current[0]) {
+          return claimToken
+            ? { kind: 'stale' as const }
+            : { kind: 'missing' as const };
+        }
+
+        const applied = await applyEvidenceMetadata(
+          ctx,
+          'id = $1 AND case_id = $2 AND box_file_id = $3',
+          [evidenceId, lockedCase.caseId, boxFileId],
+          {
+            imageRole: body.imageRole,
+            registrationVisible: body.registrationVisible!,
+            acceptedForEva: body.acceptedForEva!,
+            excluded: body.excluded!,
+            exclusionReason,
+            decisionSource: 'classifier',
+            personReflection: body.personReflection!,
+          },
+          {
+            imageRoleCode,
+            registrationVisible: body.registrationVisible!,
+            excluded,
+            exclusionReason,
+            sha256: null,
+            sequenceIndex: null,
+          },
+          q,
+        );
+        if (applied.updated === 0) return { kind: 'stale' as const };
+
+        // Classification is complete for this exact row. Clear the durable work
+        // lease/schedule in the same transaction as the metadata stamp. Preserve
+        // no stale failure/dead-letter marker that could misdescribe a success.
+        await q(
+          `UPDATE evidence
+              SET box_classify_attempt_count = 0,
+                  box_classify_next_attempt_at = NULL,
+                  box_classify_claim_token = NULL,
+                  box_classify_claim_expires_at = NULL,
+                  box_classify_last_failure_code = NULL,
+                  box_classify_dead_lettered_at = NULL,
+                  box_classify_dead_letter_reason = NULL,
+                  updated_at = now()
+            WHERE id = $1
+              AND ($2::text = '' OR box_classify_claim_token::text = $2)`,
+          [evidenceId, claimToken],
+        );
+
+        const generation = applied.readinessChanged
+          ? await requestStatusRecompute(q, lockedCase.caseId)
+          : null;
+        return { kind: 'updated' as const, generation };
+      });
+
+      if (result.kind === 'missing') {
+        return { status: 404, jsonBody: { error: 'box evidence row not found' } };
+      }
+      if (result.kind === 'retired') {
+        return {
+          status: 409,
+          jsonBody: { error: 'case has been merged', code: 'case_merged', targetCaseId: result.targetCaseId },
+        };
+      }
+      if (result.kind === 'stale') {
+        return { status: 200, jsonBody: { updated: false, stale: true } };
+      }
+      return {
+        status: 200,
+        jsonBody: {
+          updated: true,
+          ...(result.generation == null ? {} : { statusGeneration: result.generation }),
+        },
+      };
+    }),
+});
+
+app.http('internalStatusRecomputePending', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'internal/status-recompute/pending',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const limitRaw = Number(req.query.get('limit') ?? '25');
+      const limit = Math.min(
+        100,
+        Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25),
+      );
+      const rows = await query<{
+        id: string;
+        status_recompute_requested_generation: string | number;
+      }>(
+        `SELECT id, status_recompute_requested_generation
+           FROM case_
+          WHERE status_recompute_completed_generation < status_recompute_requested_generation
+          ORDER BY status_recompute_requested_at ASC NULLS FIRST, id
+          LIMIT $1`,
+        [limit],
+      );
+      return {
+        status: 200,
+        jsonBody: {
+          rows: rows.map((r) => ({
+            caseId: r.id,
+            generation: Number(r.status_recompute_requested_generation),
+          })),
+        },
+      };
+    }),
+});
+
+app.http('internalStatusRecomputeComplete', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/status-recompute/{id}/complete',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const caseId = (req.params.id ?? '').trim();
+      const body = (await req.json()) as { generation?: number };
+      const generation = Number(body.generation);
+      if (!caseId || !Number.isSafeInteger(generation) || generation < 1) {
+        return {
+          status: 400,
+          jsonBody: { error: 'case id and a positive generation are required' },
+        };
+      }
+      // Do not blindly acknowledge a generation evaluated by a prior request: a
+      // mutation/terminal transition may have committed in between. Re-evaluate and
+      // acknowledge under one case-row lock so completion always names a stable snapshot.
+      const result = await recomputeStatus(caseId, generation);
+      if (!result.found) return { status: 404, jsonBody: { error: 'case not found' } };
+      return {
+        status: 200,
+        jsonBody: { completed: result.completed, pending: result.pending },
+      };
     }),
 });
 

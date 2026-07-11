@@ -1,0 +1,32 @@
+case_id,case_po,vrm,status,provider_display,accepted_count,overview_count,unclassified_count
+f5d53f28-bfdc-4285-9e23-b5dc502bf750,ALS26001,SE06SFJ,needs_review,Auto Logistic Solutions Ltd,5,0,0
+2e252fcd-88dc-4449-8e1a-5153865536a5,ALS26007,M10HKG,needs_review,Auto Logistic Solutions Ltd,8,0,0
+316aba2e-b155-4e78-9547-ffa89d71a68c,A.QDOS26008,NG18RKJ,missing_images,QDOS,7,0,0
+ec468d1e-cdc5-4223-bfd4-93f4fdb4bc1d,A.QDOS26011,NA68FMU,missing_images,QDOS,8,0,0
+68c7f663-0ffe-4eef-8b35-1a270a6c6b26,A.QDOS26014,AK21CHL,missing_images,QDOS,5,0,0
+ac34fae6-1b6f-4af6-b296-660d53631577,A.QDOS26029,SB09XZS,missing_images,QDOS,8,0,0
+0b07b3d3-ecd6-49ed-9e35-a95e841aabf0,A.QDOS26034,SW18EAY,missing_images,QDOS,8,0,0
+9ba30e36-ff4f-410e-a606-22d5e3f8e362,A.QDOS26042,FY54UZO,missing_images,QDOS,8,0,0
+466770e8-8a27-49c2-8b8c-84685cea9c41,A.QDOS26046,EY21XUO,missing_images,QDOS,10,0,0
+9baff34b-7b06-49d2-ab21-b51bc6af8482,A.QDOS26062,RJ22KXK,missing_images,QDOS,5,0,0
+31794f42-90b1-43a2-bdf2-892e6c62f7ea,FW26001,WF66NKT,needs_review,Fairway Solicitors,5,0,0
+a45c0aee-f49e-47be-8693-595b06005712,MP26003,MF69NBA,needs_review,Montreal Prestige,8,0,0
+14400ae6-5644-41f6-9e3f-68887db145a8,PCH26001,YH65FVK,needs_review,Performance Car Hire,16,0,0
+2fcc3117-5b4f-4c3d-a7e7-a655a39173fc,PCH26008,YH21HZL,needs_review,Performance Car Hire,22,0,0
+97cca07d-f217-4a28-bd61-82c48ab70d8c,PCH26021,KR21NYP,needs_review,Performance Car Hire,13,0,0
+1dbd93fa-64b3-4d8e-bbe9-6fc3d7a38fda,QDOS26010,VN64WNG,needs_review,QDOS,8,0,0
+55cb5147-c5f7-4a95-bc29-c01e0c38bd2f,QDOS26019,OW72GWM,missing_images,QDOS,8,0,0
+1e0b89fb-48cc-4691-b0ce-c8a1df0b3d0f,QDOS26024,PY20HBF,missing_images,QDOS,8,0,0
+55923fe6-abcc-4378-8503-1d4394028084,QDOS26030,MK59VEM,missing_images,QDOS,8,0,0
+2b3d64d9-d1f5-4be6-b2a0-ca16bdc2aecd,QDOS26035,K295YDP,missing_images,QDOS,5,0,0
+cf606b2d-0237-4614-ab0a-db628a6eee8b,QDOS26045,SJ23ENH,missing_images,QDOS,7,0,0
+85fedca4-0c3b-4854-a678-4bec23515fbe,QDOS26052,KM10EXX,missing_images,QDOS,5,0,0
+3b041c9c-9d46-491b-978e-26ad2ada72b3,QDOS26054,EA64UBD,needs_review,QDOS,7,0,0
+e3f8b598-0ea0-4c22-95da-7d91ad4fa947,QDOS26065,SB09XZS,needs_review,QDOS,8,0,0
+e858368f-34f3-4c1e-87ad-6ec645a0d21b,QDOS26072,T999ANU,missing_images,QDOS,5,0,0
+24c1cbd1-ca9a-447e-9068-0869d8fecf78,QDOS26073,RN03TTJ,needs_review,QDOS,7,0,0
+3cd59041-60d7-41f1-9bb0-8c60fc1ee841,QDOS26074,AK12PLZ,needs_review,QDOS,8,0,0
+6edf0875-770c-4d04-8eeb-008ad69af1e8,SS26001,KS18UWK,needs_review,Savas & Savage,14,0,0
+97eb5156-c099-45a4-970f-de70e492dadb,,MJ73XTB,needs_review,"",9,0,0
+7176b50e-cddc-4b48-ad7e-0dba77722c51,,YG26OSF,needs_review,"",6,0,0
+63553eb0-b25d-45bd-946d-e723d1402032,,MK69FAF,needs_review,"",9,0,0

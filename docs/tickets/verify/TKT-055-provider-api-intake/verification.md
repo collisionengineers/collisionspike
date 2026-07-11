@@ -43,3 +43,12 @@ Per-key rate limiting, a `multipart/form-data` transport, and a provider "test m
 - Auth smoke: `POST /api/provider-intake/cases` with **no key → 401**, **bad key → 401** (fail-closed).
 - SPA Admin "API keys" panel confirmed rendering in the provider editor (Superuser-gated message shown to non-superuser session).
 - **Pending (operator):** mint the first key as Superuser, then an end-to-end `POST /api/provider-intake/cases` submit with real Base64 payload per `docs/reference/provider-api-intake-spec.md`.
+
+## Verdict update — 2026-07-10 (final sweep, ticket-verifier dispatch; transcribed verbatim)
+
+**PENDING.** Routes still live and fail-closed, re-proven fresh: all four functions in the live 96-fn list + the deployed bundle; `POST /api/provider-intake/cases` → **401** no-key AND **401** malformed-key (this sweep's probes, matching the 07-03 smoke). No key mint recorded anywhere (BOARD/gated.md/LIVE_FACTS all say 0 rows). Remaining, operator-bound: (1) Superuser mints the first key in Admin; (2) E2E submit → `201 {caseId, casePo}`, case in review, evidence in Blob. Queued SQL certifies key-table emptiness (probes can't distinguish "no keys" from "unused keys"): `provider_api_key` counts + key-lifecycle audits + `intake_channel_kind_code=100000002` case count. Verified by: ticket-verifier dispatch, 2026-07-10.
+
+### W7 data-pass result (orchestrator-run, 2026-07-10)
+Key-table emptiness CERTIFIED: `provider_api_key` **0 keys / 0 active**, 0 key-lifecycle audits
+(100000042–45), 0 `provider_api`-channel cases. The channel has never been used; the operator mint +
+E2E submit remain the only path to close.

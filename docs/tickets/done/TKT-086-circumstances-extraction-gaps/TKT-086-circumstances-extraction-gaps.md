@@ -32,7 +32,7 @@ known, instead of whack-a-mole.
   `.DOC` — the format lane TKT-001 flagged as needing an e2e Postgres proof on the triage `.doc`
   path).
 - Prior fixes: [TKT-050](../TKT-050-ax-pdf-extract/TKT-050-ax-pdf-extract.md) (AX circumstances
-  boundary), [TKT-001](../../verify/TKT-001-document-parsing/TKT-001-document-parsing.md) (multi-format
+  boundary), [TKT-001](../TKT-001-document-parsing/TKT-001-document-parsing.md) (multi-format
   extraction + field-drop).
 - Extraction engine is dual-home (ADR-0018): edit the `cedocumentmapper_v2.0` sibling first,
   then re-vendor into the parser Function.

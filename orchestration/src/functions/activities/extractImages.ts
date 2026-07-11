@@ -24,6 +24,7 @@ import { callExtractImages, callPlateOcr } from '../../lib/functions-client.js';
 import { dataApi } from '../../lib/data-api.js';
 import { downloadEvidenceBytes, uploadEvidenceBytes } from '../../lib/blob.js';
 import { classifyImage, classificationToEvidenceFields } from '../../lib/image-classify.js';
+import { settlePersistedStatusGeneration } from '../../lib/status-generation.js';
 
 interface ExtractAttachment {
   filename: string;
@@ -68,6 +69,9 @@ df.app.activity('extractImages', {
     const messageId = input.messageId || input.caseId;
     let totalExtracted = 0;
     let anyRegVisible = false;
+    // TKT-089 observability: crops the classifier suppressed as non-vehicle (they still
+    // persist — excluded, with a reason — but never surface as live evidence or mirror).
+    let excludedNonVehicle = 0;
 
     // Per-provider AI opt-out (docs/gated.md D6): if the resolved work provider has
     // ai_allowed=false, do NOT send its evidence images to the vision model — mirror the
@@ -141,6 +145,13 @@ df.app.activity('extractImages', {
         // reflection, TKT-064) when enabled; otherwise fall back to the plate-OCR-only
         // registration flag (role stays `unknown` = pre-classifier behaviour). Both are
         // best-effort on a raster image — never block intake.
+        //
+        // TKT-089: a high-confidence non-vehicle result with no readable registration
+        // persists `excluded: true` (+ a plain-language reason) BEFORE the persist call, so the
+        // boxArchiveEvidence step that follows this activity in every orchestrator lane
+        // never sees it mirror-eligible (the archive-evidence route also filters
+        // `excluded`). A classify failure (null) keeps today's fail-open path: the row
+        // persists role-unknown, NOT dropped and NOT excluded — recall protection.
         let imageRole: string | undefined;
         let registrationVisible: boolean | undefined;
         let acceptedForEva = false; // auto-extracted unknowns: staff tag role + accept
@@ -164,6 +175,7 @@ df.app.activity('extractImages', {
             exclusionReason = f.exclusionReason;
             // TKT-123: advisory flag → dismissible SPA warning; exclusion unchanged.
             personReflection = f.personReflection;
+            if (f.excluded && !f.personReflection) excludedNonVehicle++;
             if (f.registrationVisible) anyRegVisible = true;
             classified = true;
           }
@@ -195,7 +207,8 @@ df.app.activity('extractImages', {
           ...(imageRole ? { imageRole } : { imageRoleCode: 'unknown' }),
           acceptedForEva,
           ...(registrationVisible !== undefined ? { registrationVisible } : {}),
-          ...(excluded ? { excluded: true, exclusionReason } : {}),
+          ...(classified ? { excluded, exclusionReason: exclusionReason ?? null } : {}),
+          ...(classified ? { decisionSource: 'classifier' as const } : {}),
           ...(personReflection !== undefined ? { personReflection } : {}),
           sha256: img.sha256,
           sequenceIndex: img.sequence_index,
@@ -207,6 +220,7 @@ df.app.activity('extractImages', {
         try {
           const res = await dataApi.persistImageEvidence(input.caseId, rows);
           totalExtracted += res.persisted;
+          await settlePersistedStatusGeneration(input.caseId, res, ctx);
         } catch (e) {
           ctx.warn(`[extractImages] persist failed for ${doc.filename}: ${e instanceof Error ? e.message : String(e)}`);
         }
@@ -232,7 +246,7 @@ df.app.activity('extractImages', {
       }
     }
 
-    ctx.log(JSON.stringify({ evt: 'extractImages', caseId: input.caseId, extracted: totalExtracted, registrationVisible: anyRegVisible }));
+    ctx.log(JSON.stringify({ evt: 'extractImages', caseId: input.caseId, extracted: totalExtracted, registrationVisible: anyRegVisible, excludedNonVehicle }));
     return { extracted: totalExtracted, registrationVisible: anyRegVisible };
   },
 });

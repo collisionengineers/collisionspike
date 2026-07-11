@@ -1,320 +1,395 @@
 {
-  "lastVerified": "2026-07-09T15:40:00Z",
-  "verifiedBy": "agent (2026-07-09 PR47-52 review+merge+deploy pass): main @ 03e0f56 (PR #52 merge — the reconciled PLAN-003 stack + the PR46-review/#53 AI-surface fixes that had been merged-but-not-deployed + this session's triaged review fixes) DEPLOYED LIVE — api (94) + SPA + parser @ NEW ENGINE TAG engine-v2.13 REDEPLOYED (Windows func / swa); orch UNTOUCHED (72, live already matched main). Function counts UNCHANGED (api 94 / orch 72 / parser 4 / boxWebhook 12 — all fixes are modifications, not new registrations); NO gate/secret/RBAC change; unauth probes 401 fail-closed; SPA 200 + strict CSP fresh bundle; 0 new App-Insights errors on api+parser post-deploy (only the known orch graph-webhook cold-start residual). Review fixes shipped: A1/A2 (inspection-prefill btrim + decision-code clear on address edit), A3 (queue reason-facets client-scoped), B1 (images-only intake requires+uploads photos), B2 (person-reflection photos surfaced in the review list), B4 (EVA photo-order reset on role/exclude change), C2/C4 (parser classifier — engine-v2.13, sibling-first+re-vendored), C3 (payment_remittance -> Billing folder), D1 (Box->archive wording), D3 (rowToChaser reads status_code), D4 (VRM-link veto checks the strict ref), E1 (EVA primary Submit exports before marking submitted), E2 (sent-item VRM canonicalised), E3 (on_hold cleared on eva_submitted+done), E4 (completed screen pages all rows), F1 (Box redelivery no longer duplicates a merged evidence row), F3 (merge-retired rows filtered before VRM cardinality), F4 (interim: case-note-on-accept safety mitigation, full fix tracked TKT-145), F5 (raw audit tokens removed from Action Logs). D2 (outlook-queue 403) adjudicated INVALID; stale-fn-count finding RESOLVED-LATER. PRIOR — agent (2026-07-09 PLAN-003 final wave D2 — the last implementer batch): ALL FOUR apps + SPA REDEPLOYED via Windows func / WSL swa — api 94 (TKT-133 sha256 evidence dedup-link on the internal route; TKT-132 widened generate inputs w/ caps; TKT-072 search createdAt), orch 71->72 (+imagesReceivedVrmMatch — TKT-102 Tractable PDF-VRM match rung; TKT-133 email-lane sha256; TKT-142 blobPath size-branch), parser 4 @ NEW ENGINE TAG engine-v2.12 (TKT-136 fallback-ref money/fragment guards + doc-path VRM tight-anchor; TKT-102 Tractable classifier Rule 0f + layout provider; vendored providers.json seed deliberately bumped), boxWebhook 12 (TKT-142 blobPath/MI-streamed + Box chunked-upload lanes, base64 413-before-decode cap; TKT-133 true-kind + sha256 at source; EVIDENCE_BLOB_ACCOUNT/CONTAINER set + readback; MI granted Storage Blob Data Reader 2a2b9908 on cespkevidstdev01 via ARM PUT, assignment 25c7bca6). SPA 200 + strict CSP + new bundle (TKT-137 uncased triage-suggestion banner; TKT-072 age + /inbox?item deep-link). TOOLSET-V2 INCIDENT CLOSED: the D1 flip 400d EVERY assistant chat (openApi3 zod emission: boolean exclusiveMinimum on .positive() limit fields -> AOAI rejects the whole tools array, invalid_function_parameters 'True is not of type number'); fixed in @cs/domain schemas.ts (.min(1) + recursive normalizeExclusiveBounds; pinned by schemas.test.ts) and ASSISTANT_TOOLSET_V2 RE-FLIPPED true post-deploy (readback + unauth 401 + 0 'Invalid schema' traces in 6h KQL; authenticated staff-use check = operator watch-item). LIVE DATA OPS (all transient-FW + csadmin + backup-first + audited): TKT-131 backfill — 1998/2002 role-unknown images vision-classified + stamped ($4.72 AOAI spend; 260 overview/752 closeup/585 additional/401 non-vehicle; 337 person-reflection exclusions = the TKT-123 backfill for these rows; 4 residuals = AOAI content-safety refusals, enumerated), statuses re-evaluated: 4 missing_images->ready_for_eva (+6/+3 other moves), 108 cases now pass the EVA image rule, A.QDOS26029 honestly stays missing_images (its set contains NO overview shot); TKT-133 cleanup — 58 blob<->box mirror twins + 1411 box<->box same-name duplicate rows excluded across 111 cases (keeper=earliest; per-case duplicate_dropped audits; post-dedup re-eval moved 2; A.QDOS26035 EVA order now shows each photo once; 214 blob<->blob same-name rows remain — need a byte-hash backfill, new-ticket candidate); TKT-136 delta 2026-07-09-tkt136-ref-junk-cleanup.sql — 4 junk case_refs cleared (incl. the RIGERANT marker), 8 RJS refs label-stripped (real refs KEPT), WLS26001 left for operator judgement. TKT-142 PROVEN LIVE: the stranded QDOS26029 (ae1c0c84) archive re-ran through the new streamed lane -> durable Completed {uploaded:4,total:4} (was 0/4; 17.6MB .eml included; case-folder scope only). Final case-status distribution: needs_review 142 / missing_images 108 / missing_required_fields 78 / ready_for_eva 27 / error 2 / removed 2 (POINT-IN-TIME; intake live). Prior wave (D1, 2026-07-09T08:20Z): gate flips + api 94/orch 71 — full narrative in this file's git history.",
-  "subscription": "e6076573-23a5-46a8-acef-7e22d264e5db",
-  "resourceGroup": "rg-collisionspike-dev",
-  "region": "uksouth",
-  "tenant": "858cf5b3-aa0a-47a6-9b40-4851fd0afa94",
-  "notes": "READ-ONLY ground-truth snapshot. No secrets/tokens stored. 2026-06-29T15:39Z UPDATE — Graph intake mailbox cutover finished: graphSubscriptions, mailboxRbac and gates.GRAPH_INTAKE_MAILBOXES now reflect the production set info@ + engineers@ + desk@ (test mailbox digital@ removed). Other fields (functionCounts, BOX/ENRICHMENT gates, httpsOnly) unchanged from the 2026-06-29 doc-hygiene pass. postgresCounts were VERIFIED 2026-06-30T09:35Z (transient FW rule + Entra azure_pg_admin psql -> SET ROLE csadmin owner read): case_=20 (not 0), work_provider 390 (174 active/216 inactive), active providers flipped manual->review_auto. DURABILITY GAP CLOSED 2026-07-05 (P7): runSubscriptionMaintenance now PRUNES (deletes) a subscription whose mailbox left GRAPH_INTAKE_MAILBOXES instead of renewing it forever (deployed to orch; guarded against wiping all subs on empty/misread config). It still auto-creates missing intake mailboxes + renews the configured ones. A mailbox REMOVAL no longer needs manual deletion (was: the digital@ manual-delete gap).",
-  "functionCounts": {
-    "value": {
-      "orch": 72,
-      "api": 94,
-      "parser": 4,
-      "boxWebhook": 12
-    },
-    "sourceCommand": "az functionapp function list -g rg-collisionspike-dev -n <app> --query '[].name' -o tsv | wc -l",
-    "verifiedAt": "2026-07-09T11:10:00Z",
-    "verified": true,
-    "docDrift": "2026-07-09 PLAN-003 final wave D2: orch 71->72 (+1 imagesReceivedVrmMatch activity — TKT-102); api RE-VERIFIED 94 (D2 rides existing routes); parser re-published (still 4) at NEW engine tag engine-v2.12 (TKT-136 guards + TKT-102 Tractable provider/classifier); box-webhook re-published (still 12 — the upload route was EXTENDED with the blobPath/chunked lanes, not added). All four verified via az functionapp function list after the D2 publishes. Prior: D1: api RE-VERIFIED 94 and orch RE-VERIFIED 71 via az functionapp function list after the final-wave publishes (no new registrations — TKT-023/134/138/141 ride existing api routes; TKT-139/143 ride existing orch activities); parser re-published (still 4 — /extract-images now accepts optional provider/vrm; vendored engine untouched at engine-v2.11); box-webhook NOT touched (12). Prior: 2026-07-09 PLAN-003 lifecycle wave: api 89->94 (+markEvaSubmitted +markCaseDone +completedCases +internalCasesMarkDone +internalCasesLookup — TKT-094/095/096), orch 70->71 (NET: -5 replay-backfill registrations removed TKT-106, +6 dark TKT-095 detector functions: graph-webhook-sent/lifecycle-sent/sent-items-processor/eva-report-poll-start/evaReportPollOrchestrator/evaReportPollTick). Parser re-published (still 4) at engine tag engine-v2.11; box-webhook re-published (still 12). Verified via az functionapp function list after the 2026-07-09 publishes. Prior: intake-correctness wave api 88->89, orch 68->70; classifier wave orch 67->68, api 87->88."
+ "lastVerified": "2026-07-10T21:10:00Z",
+ "verifiedBy": "agent (2026-07-10T21:10Z operator-authorized activation batch, feat/backlog-drain): CONFIG + ENTRA ONLY — no deploy, function counts unchanged (api 96 / orch 74 / parser 4 / boxWebhook 12). (1) BOX_REG_FOLDER_ENABLED=true SET+readback on cespk-orch-dev (TKT-034 step-2, operator approved the reg-keyed non-Case/PO folder-naming semantic; consumer imagesUnmatched already live — post-flip watch: next unmatched image email with a viewable reg -> reg-named folder under BOX_FOLDER_ROOT_ID, 409-reuse on repeat). (2) RETRO_BOX_ARCHIVE_ROOT_IDS=4077648161 SET+readback on cespk-api-dev ONLY (TKT-107 config half — root confirmed read-only FIRST via Windows box CLI folders:get: 'Collision Engineers', root-level under All Files, item_status active, ~494.7GB, 7 top-level entries; matches the facade's BOX_READONLY_ROOT_IDS. On the api the sole reader is archive-lookup.ts -> archiveConfigured() true -> the assistant advertises archive_lookup. Deliberately NOT set on cespk-orch-dev: the minting R2 rung stays dark pending gated.md D11 sequence alignment; orchestration/src has zero readers of this var — verified by grep). (3) TKT-110 MCP Flow A: NEW Entra app-reg 'CollisionSpike MCP Client' appId 88589edc-527a-4d84-83da-a2ddb8664f08 / SP fb3fd892-8c4e-46a9-ab31-b4da29596e42 (PUBLIC client Auth-Code+PKCE, redirect http://localhost, AzureADMyOrg, NO secret, sole delegated permission = the API's access_as_user d567b632 with tenant consent AllPrincipals, NO Flow B app-roles) + MCP_SERVER_ENABLED=true SET+readback on cespk-api-dev; unauthenticated POST /api/mcp -> 401 'Missing bearer token' both pre- and post-flip (withRole precedes the gate; fail-closed proven). Remaining verify: the live Flow A interactive-client probe (tools/list + one read tools/call as an assigned staff user). (4) C1 partial close — CollisionSpike.User (764d4c83-6f41-44eb-a6fd-daba463a9261) assigned on the API SP f5cf0eba-c8bf-4f2a-badd-049166ded3e7 to the operator-directed interim staff set: desk@ (oid 7189a6a3, assignment o6aJcRlqVkGWWe6q9U4f5j1Uuw7N92RJpjwya_ZPwXU), info@ (oid f07309ff, assignment _wlz8PnN3EubU2wDRdZOkPsCZXED5XtNm62ftTUBpG8), engineers@ (oid 016aa11f, assignment H6FqAXbCVE-hvqGK4Ckb-WZkEnvOzH1PtPycNtUKV-Y) — idempotency-checked first (only digital@'s Superuser pre-existed, untouched); post-check shows exactly 4 assignments. NEW blocks this pass: staffAppRoleAssignments + mcpAppRegistration. PRIOR — agent (2026-07-10T17:55Z TKT-089 REOPEN fix deploy, feat/backlog-drain): api + orch + parser ALL republished (Windows func), counts UNCHANGED api 96 / orch 74 / parser 4 (modifications only, re-verified via az functionapp function list; all three apps Running via ARM). (1) api: the archive-evidence mirror selection (GET internal/cases/{id}/archive-evidence) now filters `excluded = false` — classifier-stamped non-vehicle crops, person-reflection and staff/cleanup exclusions can never mirror to Box; race-free by intake ordering (both persist lanes stamp excluded in-memory BEFORE persist and boxArchiveEvidence runs after both in every orchestrator lane); classify-FAILURE rows deliberately stay mirror-eligible (fail-open recall protection — no guaranteed later archive run exists per case); deliberately NOT role-aware (classified-'other' is stored as role `unknown`, indistinguishable from not-yet-classified). (2) orch: extraction-lane crops (extractImages) the live TKT-064 classifier reads as non-vehicle 'other' now persist excluded=true + reason 'non-vehicle image detected (auto-classified)' — extraction lane ONLY (email/Box 'other' attachments keep visible-not-accepted semantics); new excludedNonVehicle counter in the extractImages summary event; email-lane image-sniff BANNER_ASPECT_RATIO 3.5->3.2 in lockstep. ZERO new AOAI volume (extraction crops already classify since TKT-064). (3) parser @ NEW sibling engine tag engine-v2.15 (sibling commit 79efe22, branch+tag pushed): _BANNER_ASPECT_RATIO 3.5->3.2 so the recurring QDOS Assistance letterhead logo (575x174, aspect 3.305) is engine-suppressed; the 204x204 MGAA square badge is DELIBERATELY engine-kept (classifier-owned; sibling pin documents it); rides the already-vendored engine-v2.14 (Tractable two_label_join + VIN envelope — additive, EVA export byte-stable, no DDL). LIVE-PROVEN: both retained LtrtoEngineerIn.pdf samples re-probed on live /extract-images -> count 2 -> 1 each (the 10.7KB logo GONE; only the ~29KB badge returns, classifier-owned downstream); the box-archive lever on A.QDOS26009 completed {uploaded:1,total:1} — the excluded QDOS-logo row was NOT selected (box_file_id still NULL, row untouched) while the legit 19.1MB message.eml mirrored via the TKT-142 streamed lane (box file 2339522313264) = mirror-filter + recall proof in one; forward-window SQL baselined the pre-fix leak (40 suspect-class extraction crops since 2026-07-09, 38 already in Box, 0 excluded — logo 10,720/10,738B png + badge 28,728/29,026B jpeg across ~18 QDOS cases + a 30,057B DFD form class). Post-deploy KQL: api 49 reqs / 0 5xx / 0 exc, orch 20 / 0 / 0, parser extract_images 2/2 ok. Transient PG FW rules (tkt089-reprobe-*) created+trap-deleted; only AllowAzureServices remains. QUEUED forward check: the next QDOS letter intake should show NO img_1_1 logo row (engine) and the badge persisted excluded-and-unmirrored (excludedNonVehicle>=1 in the extractImages event). PRIOR — agent (2026-07-10 PLAN-003 backlog-drain D3 / TKT-146 deploy pass): feat/backlog-drain — orch 73->74 (+box-classify-sweep: 5-min timer, cap 25, enumerates still-unclassified FILE.UPLOADED-lane image evidence via the new api read route, bytes via the Box facade downloadFile ONLY, TKT-064 classify policy verbatim incl. per-provider ai_allowed opt-out, stamps by re-POSTing the row's own box:file:<id> identity WITHOUT a sha256 so the TKT-133 twin pass can't redirect it, then per-case status re-evaluate; gated on already-live IMAGE_ROLE_CLASSIFY_ENABLED + BOX_API_ENABLED — NO new app-setting) + api 95->96 (+internalEvidenceUnclassifiedBox GET /api/internal/evidence/unclassified-box — TKT-131 predicate image_role_code=unknown AND registration_visible IS NULL, source_label LIKE 'box_upload%', 14-day window, newest-first, limit clamp 1..100; unauth probe 401). LIVE-PROVEN: facade upload TKT146-liveproof-112816.jpg (box file 2338959990817) into A.PCH26036's folder 398564730902 registered 11:28:19Z, stamped overview + registration_visible=true at 11:30:09Z (1m50s, within one sweep period); the sweep is also draining the accumulated unclassified box-lane backlog (242 -> 227 observed across the first tick; first summary enumerated:25 classified:25 stamped:25 failed:0 in 189s; ~$0.57 AOAI at TKT-131's unit cost to drain fully). Post-deploy: both apps Running (ARM), 0 exceptions / 0 5xx on api+orch App Insights (30m window), Graph subs still 3 (renewed via keyed graph-renew POST, errors:[]), transient PG firewall rule tkt146-liveproof deleted (only AllowAzureServices remains). GATES-BLOCK DRIFT FIXED: IMAGE_ROLE_CLASSIFY_ENABLED=true on cespk-orch-dev was live-but-untracked (set at TKT-064 go-live); now recorded since the new sweep also rides it. PRIOR — agent (2026-07-10 PLAN-003 backlog-drain D2 / TKT-145 deploy pass): feat/backlog-drain — orch+api republished (evidence-backfill queue consumer + accept-seam enqueue + report-back route); counts, app states, queue list and App-Insights quiet-window verified via az/ARM after the publishes. agent (2026-07-09 PR47-52 review+merge+deploy pass): main @ 03e0f56 (PR #52 merge — the reconciled PLAN-003 stack + the PR46-review/#53 AI-surface fixes that had been merged-but-not-deployed + this session's triaged review fixes) DEPLOYED LIVE — api (94) + SPA + parser @ NEW ENGINE TAG engine-v2.13 REDEPLOYED (Windows func / swa); orch UNTOUCHED (72, live already matched main). Function counts UNCHANGED (api 94 / orch 72 / parser 4 / boxWebhook 12 — all fixes are modifications, not new registrations); NO gate/secret/RBAC change; unauth probes 401 fail-closed; SPA 200 + strict CSP fresh bundle; 0 new App-Insights errors on api+parser post-deploy (only the known orch graph-webhook cold-start residual). Review fixes shipped: A1/A2 (inspection-prefill btrim + decision-code clear on address edit), A3 (queue reason-facets client-scoped), B1 (images-only intake requires+uploads photos), B2 (person-reflection photos surfaced in the review list), B4 (EVA photo-order reset on role/exclude change), C2/C4 (parser classifier — engine-v2.13, sibling-first+re-vendored), C3 (payment_remittance -> Billing folder), D1 (Box->archive wording), D3 (rowToChaser reads status_code), D4 (VRM-link veto checks the strict ref), E1 (EVA primary Submit exports before marking submitted), E2 (sent-item VRM canonicalised), E3 (on_hold cleared on eva_submitted+done), E4 (completed screen pages all rows), F1 (Box redelivery no longer duplicates a merged evidence row), F3 (merge-retired rows filtered before VRM cardinality), F4 (interim: case-note-on-accept safety mitigation, full fix tracked TKT-145), F5 (raw audit tokens removed from Action Logs). D2 (outlook-queue 403) adjudicated INVALID; stale-fn-count finding RESOLVED-LATER. PRIOR — agent (2026-07-09 PLAN-003 final wave D2 — the last implementer batch): ALL FOUR apps + SPA REDEPLOYED via Windows func / WSL swa — api 94 (TKT-133 sha256 evidence dedup-link on the internal route; TKT-132 widened generate inputs w/ caps; TKT-072 search createdAt), orch 71->72 (+imagesReceivedVrmMatch — TKT-102 Tractable PDF-VRM match rung; TKT-133 email-lane sha256; TKT-142 blobPath size-branch), parser 4 @ NEW ENGINE TAG engine-v2.12 (TKT-136 fallback-ref money/fragment guards + doc-path VRM tight-anchor; TKT-102 Tractable classifier Rule 0f + layout provider; vendored providers.json seed deliberately bumped), boxWebhook 12 (TKT-142 blobPath/MI-streamed + Box chunked-upload lanes, base64 413-before-decode cap; TKT-133 true-kind + sha256 at source; EVIDENCE_BLOB_ACCOUNT/CONTAINER set + readback; MI granted Storage Blob Data Reader 2a2b9908 on cespkevidstdev01 via ARM PUT, assignment 25c7bca6). SPA 200 + strict CSP + new bundle (TKT-137 uncased triage-suggestion banner; TKT-072 age + /inbox?item deep-link). TOOLSET-V2 INCIDENT CLOSED: the D1 flip 400d EVERY assistant chat (openApi3 zod emission: boolean exclusiveMinimum on .positive() limit fields -> AOAI rejects the whole tools array, invalid_function_parameters 'True is not of type number'); fixed in @cs/domain schemas.ts (.min(1) + recursive normalizeExclusiveBounds; pinned by schemas.test.ts) and ASSISTANT_TOOLSET_V2 RE-FLIPPED true post-deploy (readback + unauth 401 + 0 'Invalid schema' traces in 6h KQL; authenticated staff-use check = operator watch-item). LIVE DATA OPS (all transient-FW + csadmin + backup-first + audited): TKT-131 backfill — 1998/2002 role-unknown images vision-classified + stamped ($4.72 AOAI spend; 260 overview/752 closeup/585 additional/401 non-vehicle; 337 person-reflection exclusions = the TKT-123 backfill for these rows; 4 residuals = AOAI content-safety refusals, enumerated), statuses re-evaluated: 4 missing_images->ready_for_eva (+6/+3 other moves), 108 cases now pass the EVA image rule, A.QDOS26029 honestly stays missing_images (its set contains NO overview shot); TKT-133 cleanup — 58 blob<->box mirror twins + 1411 box<->box same-name duplicate rows excluded across 111 cases (keeper=earliest; per-case duplicate_dropped audits; post-dedup re-eval moved 2; A.QDOS26035 EVA order now shows each photo once; 214 blob<->blob same-name rows remain — need a byte-hash backfill, new-ticket candidate); TKT-136 delta 2026-07-09-tkt136-ref-junk-cleanup.sql — 4 junk case_refs cleared (incl. the RIGERANT marker), 8 RJS refs label-stripped (real refs KEPT), WLS26001 left for operator judgement. TKT-142 PROVEN LIVE: the stranded QDOS26029 (ae1c0c84) archive re-ran through the new streamed lane -> durable Completed {uploaded:4,total:4} (was 0/4; 17.6MB .eml included; case-folder scope only). Final case-status distribution: needs_review 142 / missing_images 108 / missing_required_fields 78 / ready_for_eva 27 / error 2 / removed 2 (POINT-IN-TIME; intake live). Prior wave (D1, 2026-07-09T08:20Z): gate flips + api 94/orch 71 — full narrative in this file's git history.",
+ "subscription": "e6076573-23a5-46a8-acef-7e22d264e5db",
+ "resourceGroup": "rg-collisionspike-dev",
+ "region": "uksouth",
+ "tenant": "858cf5b3-aa0a-47a6-9b40-4851fd0afa94",
+ "notes": "READ-ONLY ground-truth snapshot. No secrets/tokens stored. 2026-06-29T15:39Z UPDATE — Graph intake mailbox cutover finished: graphSubscriptions, mailboxRbac and gates.GRAPH_INTAKE_MAILBOXES now reflect the production set info@ + engineers@ + desk@ (test mailbox digital@ removed). Other fields (functionCounts, BOX/ENRICHMENT gates, httpsOnly) unchanged from the 2026-06-29 doc-hygiene pass. postgresCounts were VERIFIED 2026-06-30T09:35Z (transient FW rule + Entra azure_pg_admin psql -> SET ROLE csadmin owner read): case_=20 (not 0), work_provider 390 (174 active/216 inactive), active providers flipped manual->review_auto. DURABILITY GAP CLOSED 2026-07-05 (P7): runSubscriptionMaintenance now PRUNES (deletes) a subscription whose mailbox left GRAPH_INTAKE_MAILBOXES instead of renewing it forever (deployed to orch; guarded against wiping all subs on empty/misread config). It still auto-creates missing intake mailboxes + renews the configured ones. A mailbox REMOVAL no longer needs manual deletion (was: the digital@ manual-delete gap).",
+ "functionCounts": {
+  "value": {
+   "orch": 74,
+   "api": 96,
+   "parser": 4,
+   "boxWebhook": 12
   },
-  "graphSubscriptions": {
-    "value": [
-      {
-        "id": "4559ceb6-2225-4cdc-9a0a-bd1ae6a8f216",
-        "resource": "users/info@collisionengineers.co.uk/mailFolders('Inbox')/messages",
-        "changeType": "created",
-        "notificationUrl": "https://cespk-orch-dev.azurewebsites.net/api/graph-webhook",
-        "expirationDateTime": "2026-07-06T14:38:05.251Z"
-      },
-      {
-        "id": "09489bf1-ffa8-4eca-9449-32301b2847ba",
-        "resource": "users/engineers@collisionengineers.co.uk/mailFolders('Inbox')/messages",
-        "changeType": "created",
-        "notificationUrl": "https://cespk-orch-dev.azurewebsites.net/api/graph-webhook",
-        "expirationDateTime": "2026-07-06T14:38:06.899Z"
-      },
-      {
-        "id": "c76b9841-6d7d-498b-8d47-7d8f06908f3a",
-        "resource": "users/desk@collisionengineers.co.uk/mailFolders('Inbox')/messages",
-        "changeType": "created",
-        "notificationUrl": "https://cespk-orch-dev.azurewebsites.net/api/graph-webhook",
-        "expirationDateTime": "2026-07-06T14:38:06.155Z"
-      }
-    ],
-    "sourceCommand": "GET https://graph.microsoft.com/v1.0/subscriptions with the intake app-only token (filtered to our notificationUrl host). info@/desk@ created via POST /api/graph-renew -> runSubscriptionMaintenance create-missing; de-scoped digital@ removed via Graph DELETE /subscriptions/{id} -> 204.",
-    "verifiedAt": "2026-06-29T15:39:00Z",
-    "verified": true,
-    "docDrift": "2026-06-29T15:39Z (AIE — mailbox cutover finished): active intake set is now EXACTLY the production target info@ + engineers@ + desk@. info@ (4559ceb6) + desk@ (c76b9841) push subscriptions CREATED (Exchange-RBAC cache had cleared; create summary errors:[]); the de-scoped test mailbox digital@ sub 5bb19aa0-579a-... was DELETED (204). All three -> graph-webhook, changeType=created, expiry ~2026-07-06T14:38Z. WAS: engineers@ + digital@ only. Ongoing renewal continues via the durable subscriptionMonitorOrchestrator (it renews ALL existing subs, so the new info@/desk@ are auto-covered)."
+  "sourceCommand": "az functionapp function list -g rg-collisionspike-dev -n <app> --query '[].name' -o tsv | wc -l",
+  "verifiedAt": "2026-07-10T17:55:00Z",
+  "verified": true,
+  "docDrift": "2026-07-10T17:55Z TKT-089 reopen: api + orch + parser republished, counts UNCHANGED (api 96 / orch 74 / parser 4 — the mirror filter, the extraction-lane classify exclusion, and the engine-v2.15 banner retune are all modifications to existing registrations). Re-verified via az functionapp function list after all three publishes; all three apps Running (ARM properties.state); 0 exceptions / 0 5xx on api+orch App Insights post-deploy. Prior: 2026-07-10 TKT-146 (PLAN-003 backlog-drain D3): orch 73->74 (+1 box-classify-sweep timer), api 95->96 (+1 internalEvidenceUnclassifiedBox read route). Verified via az functionapp function list after both publishes; both apps Running (ARM properties.state); 0 exceptions / 0 5xx in the 30-min post-deploy App Insights window. Prior: 2026-07-10 TKT-145 (PLAN-003 backlog-drain D2): orch 72->73 (+1 evidence-backfill queue consumer), api 94->95 (+1 internalInboundEvidenceBackfill report-back route). Verified via az functionapp function list after both publishes; both apps Running (ARM properties.state); no App-Insights error burst in the 20-min post-deploy window. Prior: 2026-07-09 PLAN-003 final wave D2: orch 71->72 (+1 imagesReceivedVrmMatch activity — TKT-102); api RE-VERIFIED 94 (D2 rides existing routes); parser re-published (still 4) at NEW engine tag engine-v2.12 (TKT-136 guards + TKT-102 Tractable provider/classifier); box-webhook re-published (still 12 — the upload route was EXTENDED with the blobPath/chunked lanes, not added). All four verified via az functionapp function list after the D2 publishes. Prior: D1: api RE-VERIFIED 94 and orch RE-VERIFIED 71 via az functionapp function list after the final-wave publishes (no new registrations — TKT-023/134/138/141 ride existing api routes; TKT-139/143 ride existing orch activities); parser re-published (still 4 — /extract-images now accepts optional provider/vrm; vendored engine untouched at engine-v2.11); box-webhook NOT touched (12). Prior: 2026-07-09 PLAN-003 lifecycle wave: api 89->94 (+markEvaSubmitted +markCaseDone +completedCases +internalCasesMarkDone +internalCasesLookup — TKT-094/095/096), orch 70->71 (NET: -5 replay-backfill registrations removed TKT-106, +6 dark TKT-095 detector functions: graph-webhook-sent/lifecycle-sent/sent-items-processor/eva-report-poll-start/evaReportPollOrchestrator/evaReportPollTick). Parser re-published (still 4) at engine tag engine-v2.11; box-webhook re-published (still 12). Verified via az functionapp function list after the 2026-07-09 publishes. Prior: intake-correctness wave api 88->89, orch 68->70; classifier wave orch 67->68, api 87->88."
+ },
+ "storageQueues": {
+  "value": {
+   "cespkorchstdev01": [
+    "evidence-backfill",
+    "intake-messages",
+    "intake-messages-poison",
+    "outlook-move"
+   ]
   },
-  "mailboxRbac": {
-    "value": {
-      "info@collisionengineers.co.uk": {
-        "http": 200,
-        "result": "OK (subscription create succeeded)"
-      },
-      "engineers@collisionengineers.co.uk": {
-        "http": 200,
-        "result": "OK"
-      },
-      "desk@collisionengineers.co.uk": {
-        "http": 200,
-        "result": "OK (subscription create succeeded)"
-      },
-      "digital@collisionengineers.co.uk": {
-        "http": 200,
-        "result": "OK but de-scoped from intake config (subscription deleted)"
-      }
-    },
-    "sourceCommand": "info@/desk@ effective access proven by a SUCCESSFUL POST /subscriptions (create-missing returned created:[info@,desk@], errors:[]) at 2026-06-29T15:38Z, after the Exchange-RBAC permission cache cleared. (Direct GET /users/<mbx>/messages deliberately not re-run, to avoid extra Graph calls during the cache-sensitive window.)",
-    "verifiedAt": "2026-06-29T15:39:00Z",
-    "verified": true,
-    "docDrift": "2026-06-29T15:39Z: info@ + desk@ are now Exchange-RBAC EFFECTIVE (scope CollisionSpike-Intake-Prod, Application Mail.Read) — their Graph push-subscription creates SUCCEEDED with zero ErrorAccessDenied, flipping them from the prior 403. The earlier 403s were the ~30min-2h permission cache, not a wrong grant (Test-ServicePrincipalAuthorization already showed InScope:True). digital@ remains scoped but is dropped from the intake config. Production mailbox set info@ + engineers@ + desk@ is now fully scoped + subscribed."
+  "sourceCommand": "az storage queue list --account-name cespkorchstdev01 --auth-mode login --query '[].name'",
+  "verifiedAt": "2026-07-10T10:20:00Z",
+  "verified": true,
+  "docDrift": "2026-07-10 TKT-145: +evidence-backfill (case_link evidence-backfill jobs: producer = cespk-api-dev MI via its account-scoped Storage Queue Data Message Sender on cespkorchstdev01, riding OUTLOOK_MOVE_QUEUE_SERVICE_URL; consumer = the cespk-orch-dev evidence-backfill queue trigger). The Durable control/workitems queues (cespkorchdev-*) exist too but are host-managed and deliberately not tracked."
+ },
+ "graphSubscriptions": {
+  "value": [
+   {
+    "id": "4559ceb6-2225-4cdc-9a0a-bd1ae6a8f216",
+    "resource": "users/info@collisionengineers.co.uk/mailFolders('Inbox')/messages",
+    "changeType": "created",
+    "notificationUrl": "https://cespk-orch-dev.azurewebsites.net/api/graph-webhook",
+    "expirationDateTime": "2026-07-06T14:38:05.251Z"
+   },
+   {
+    "id": "09489bf1-ffa8-4eca-9449-32301b2847ba",
+    "resource": "users/engineers@collisionengineers.co.uk/mailFolders('Inbox')/messages",
+    "changeType": "created",
+    "notificationUrl": "https://cespk-orch-dev.azurewebsites.net/api/graph-webhook",
+    "expirationDateTime": "2026-07-06T14:38:06.899Z"
+   },
+   {
+    "id": "c76b9841-6d7d-498b-8d47-7d8f06908f3a",
+    "resource": "users/desk@collisionengineers.co.uk/mailFolders('Inbox')/messages",
+    "changeType": "created",
+    "notificationUrl": "https://cespk-orch-dev.azurewebsites.net/api/graph-webhook",
+    "expirationDateTime": "2026-07-06T14:38:06.155Z"
+   }
+  ],
+  "sourceCommand": "GET https://graph.microsoft.com/v1.0/subscriptions with the intake app-only token (filtered to our notificationUrl host). info@/desk@ created via POST /api/graph-renew -> runSubscriptionMaintenance create-missing; de-scoped digital@ removed via Graph DELETE /subscriptions/{id} -> 204.",
+  "verifiedAt": "2026-06-29T15:39:00Z",
+  "verified": true,
+  "docDrift": "2026-06-29T15:39Z (AIE — mailbox cutover finished): active intake set is now EXACTLY the production target info@ + engineers@ + desk@. info@ (4559ceb6) + desk@ (c76b9841) push subscriptions CREATED (Exchange-RBAC cache had cleared; create summary errors:[]); the de-scoped test mailbox digital@ sub 5bb19aa0-579a-... was DELETED (204). All three -> graph-webhook, changeType=created, expiry ~2026-07-06T14:38Z. WAS: engineers@ + digital@ only. Ongoing renewal continues via the durable subscriptionMonitorOrchestrator (it renews ALL existing subs, so the new info@/desk@ are auto-covered)."
+ },
+ "mailboxRbac": {
+  "value": {
+   "info@collisionengineers.co.uk": {
+    "http": 200,
+    "result": "OK (subscription create succeeded)"
+   },
+   "engineers@collisionengineers.co.uk": {
+    "http": 200,
+    "result": "OK"
+   },
+   "desk@collisionengineers.co.uk": {
+    "http": 200,
+    "result": "OK (subscription create succeeded)"
+   },
+   "digital@collisionengineers.co.uk": {
+    "http": 200,
+    "result": "OK but de-scoped from intake config (subscription deleted)"
+   }
   },
-  "subscriptionRenewalRisk": {
-    "value": {
-      "nearestExpiration": "2026-07-06T14:38:05.251Z",
-      "today": "2026-06-29T15:39:00Z",
-      "status": "RESOLVED",
-      "rootCause": "Flex Consumption does not wake a scaled-to-zero app for a plain timer trigger, so graph-renew (NCRONTAB) logged 0 executions in 7d and subscriptions were heading for a silent lapse (azure-diagnostician root-caused, App Insights component cespk-orch-dev).",
-      "fix": "Durable eternal-orchestration subscriptionMonitorOrchestrator (instanceId subscription-monitor-singleton, runtimeStatus Running): renew activity -> durable timer (SUBSCRIPTION_MONITOR_INTERVAL_HOURS, default 6h) -> continueAsNew. A durable timer message WAKES a scaled-to-zero Flex app (Microsoft Learn), so renewal fires unattended with NO always-ready instance and NO external scheduler. Bootstrapped by intake-starter (any intake traffic) and by the graph-renew HTTP route; the original graph-renew timer is retained as a backstop."
-    },
-    "sourceCommand": "durable mgmt GET /runtime/webhooks/durabletask/instances/subscription-monitor-singleton (runtimeStatus Running, name subscriptionMonitorOrchestrator); also confirmed via POST /api/graph-renew JSON monitor.status=Running",
-    "verifiedAt": "2026-06-29T15:39:00Z",
-    "verified": true,
-    "note": "OPERATOR WATCH (next cycle): confirm an UNATTENDED renew fires at the durable-timer wake (~6h cadence) i.e. graph-renewal-success in App Insights with no manual trigger. 2026-06-29T15:39Z: the singleton was re-confirmed Running during the mailbox cutover (graph-renew HTTP returned monitor.status=Running) and it now covers all 3 production subs (it renews EVERY existing sub). DURABILITY GAP (recommended small code fix): runSubscriptionMaintenance create-misses + renews but never PRUNES — a mailbox REMOVED from GRAPH_INTAKE_MAILBOXES keeps its subscription (renewed forever), which is exactly why the de-scoped digital@ sub had to be deleted by hand here. Recommend adding a prune step to runSubscriptionMaintenance (subscriptions.ts): after create+renew, delete any of OUR subs whose mailboxOfResource(resource) is not in intakeMailboxes(), so a GRAPH_INTAKE_MAILBOXES change fully self-reconciles (add+remove) on the next maintenance tick. Belt-and-braces renewal fallback if the durable timer ever fails: az functionapp scale config always-ready set -g rg-collisionspike-dev -n cespk-orch-dev --settings function:graph-renew=1 (always-ready cost — flagged, NOT enabled)."
+  "sourceCommand": "info@/desk@ effective access proven by a SUCCESSFUL POST /subscriptions (create-missing returned created:[info@,desk@], errors:[]) at 2026-06-29T15:38Z, after the Exchange-RBAC permission cache cleared. (Direct GET /users/<mbx>/messages deliberately not re-run, to avoid extra Graph calls during the cache-sensitive window.)",
+  "verifiedAt": "2026-06-29T15:39:00Z",
+  "verified": true,
+  "docDrift": "2026-06-29T15:39Z: info@ + desk@ are now Exchange-RBAC EFFECTIVE (scope CollisionSpike-Intake-Prod, Application Mail.Read) — their Graph push-subscription creates SUCCEEDED with zero ErrorAccessDenied, flipping them from the prior 403. The earlier 403s were the ~30min-2h permission cache, not a wrong grant (Test-ServicePrincipalAuthorization already showed InScope:True). digital@ remains scoped but is dropped from the intake config. Production mailbox set info@ + engineers@ + desk@ is now fully scoped + subscribed."
+ },
+ "subscriptionRenewalRisk": {
+  "value": {
+   "nearestExpiration": "2026-07-06T14:38:05.251Z",
+   "today": "2026-06-29T15:39:00Z",
+   "status": "RESOLVED",
+   "rootCause": "Flex Consumption does not wake a scaled-to-zero app for a plain timer trigger, so graph-renew (NCRONTAB) logged 0 executions in 7d and subscriptions were heading for a silent lapse (azure-diagnostician root-caused, App Insights component cespk-orch-dev).",
+   "fix": "Durable eternal-orchestration subscriptionMonitorOrchestrator (instanceId subscription-monitor-singleton, runtimeStatus Running): renew activity -> durable timer (SUBSCRIPTION_MONITOR_INTERVAL_HOURS, default 6h) -> continueAsNew. A durable timer message WAKES a scaled-to-zero Flex app (Microsoft Learn), so renewal fires unattended with NO always-ready instance and NO external scheduler. Bootstrapped by intake-starter (any intake traffic) and by the graph-renew HTTP route; the original graph-renew timer is retained as a backstop."
   },
-  "postgresCounts": {
-    "value": {
-      "work_provider": 390,
-      "work_provider_active": 174,
-      "work_provider_inactive": 216,
-      "work_provider_active_automation_mode": "100000001 review_auto (flipped 2026-06-30 from 100000000 manual; the 216 inactive remain manual)",
-      "repairer": null,
-      "image_source": null,
-      "inspection_address": 2187,
-      "case_": 2,
-      "_case_note": "Was 0 at the 2026-06-30T10:21:17Z clean-slate reset; live-growing. A read-only e2e verification later on 2026-06-30 found case_=2 — two post-reset live intakes on the new code: dc307411 (connexus sender, no provider match → partial path, ~10:30Z) and ca3acf21 = Case/PO QDOS26001 (full happy path: 8/6 EVA cols + provenance, Box folder 395397724540 with .eml+PDF, ~10:43Z). POINT-IN-TIME only — intake is LIVE so the count keeps growing.",
-      "_publicBaseTables": 46,
-      "_publicBaseTables_note": "AUTHORITATIVE 2026-07-08 csadmin read (0 views; unfiltered public == BASE TABLE == 46). Supersedes the stale 39 (and the mirror's changelog 40) — the intervening rules-engine-v2 build added tables that were never re-counted here; pre-ledger the true count was already 45. +1 this change = ai_usage_ledger.",
-      "_ai_usage_ledger_note": "ai_usage_ledger table added 2026-07-08 (deltas/2026-07-08-ai-usage-ledger.sql, applied live via Entra digital@ -> SET ROLE csadmin; transient FW rule added+removed). RLS ENABLE+FORCE + policies p_ai_usage_ledger_rw + p_ai_usage_ledger_no_delete verified; uq_ai_usage_ledger_day_actor_surface present; GRANT SELECT/INSERT/UPDATE to cespk_app. 0 rows until the first model call. Closes the PLAN-001 Phase 4 (TKT-113) deploy-ordering gap: applied AHEAD of the ungated recordAiUsage() writer — App Insights (api component) shows 0 '[ai-usage] ledger write failed' traces over the prior 72h, i.e. the live cespk-api-dev build predates the writer, so there was never a log-spam window. gated.md step 5 DDL is now DONE; the remaining redeploy folds into gated step 1.",
-      "_provider_api_key_note": "provider_api_key table added 2026-07-03 (deltas/2026-07-03-provider-api-intake.sql, applied live; RLS FORCE + policies verified). 0 rows until a Superuser mints the first key.",
-      "_rules_engine_v2_note": "2026-07-03: D7 taxonomy (case_update/cancellation categories, images_received/cancellation_notice/update_general subtypes, inbound_email.body_jobref+conversation_id), Phase-4 ai_suggestion.embedding (DDL only, unpopulated), and D8 identification (Connexus intermediary + PCH pch-ltd.com) deltas applied; 916 Section A provider-domain corrections applied (FW/TEN/AX/BC/DFD/BLACK).",
-      "_audit_case_type_note": "2026-07-04: D10 delta applied - choice_case_type 4 rows (standard/audit/audit_total_loss/diminution), choice_evidence_kind 100000007 engineer_report present. D9 EVA-deactivation delta applied as a VERIFIED NO-OP: pre-check + broad ILIKE '%eva%' sweep found ZERO matching work_provider rows (the corpus never held an EVA row - the mislabel was the parser layout-name fallback, not data)."
-    },
-    "sourceCommand": "psql via Entra digital@ (azure_pg_admin, --resource-type oss-rdbms) -> SET ROLE csadmin (owner; csadmin BYPASSES RLS) -> SELECT count(*); transient FW rule added+removed (only AllowAzureServices remains)",
-    "verifiedAt": "2026-06-30T09:35:00Z",
-    "verified": true,
-    "reason": "2026-06-30T09:35Z CORRECTIVE deploy: read authoritatively as csadmin (owner BYPASSES RLS -- confirmed: with app.role unset case_ STILL returned 20), so these are TRUE unfiltered counts. case_ = 20 (NOT 0 -- the registry's prior 0 was an RLS/stale read artifact: a read as the non-owner cespk_app WITHOUT app.role, or pre-intake). work_provider = 390 total (174 active / 216 inactive). PROVIDER AUTOMATION FLIP (user-approved 'Both' box-sync fix): UPDATE work_provider SET provider_automation_mode_code=100000001 (review_auto) WHERE active=true -> 174 rows affected; BEFORE all 390 were 100000000 manual; AFTER 174 active=review_auto + 216 inactive=manual. The stale csadmin KV pg-admin-password was NOT used (known rotation footgun) -- auth went via the Entra azure_pg_admin path. repairer/image_source/inspection_address NOT re-counted this pass. PRIOR 2026-06-30 (work-todo-spike LIVE migration): applied the idempotent additive DDL delta to db collisionspike as Entra digital@ (azure_pg_admin) -> SET ROLE csadmin (table owner). Added: ai_suggestion table (csadmin-owned, RLS ENABLE+FORCE, policies p_ai_suggestion_rw + p_ai_suggestion_no_delete, GRANT SELECT/INSERT/UPDATE to cespk_app, 3 FKs case/evidence CASCADE + inbound_email SET NULL, 4 indexes); inbound_email.suggested_category_code + suggested_subtype_code (+ canonical FKs); choice_audit_action 100000027-100000034 (8 rows); choice_case_status 100000011 'removed'; uq_case_case_po UNIQUE on upper(case_po) WHERE case_po IS NOT NULL (was ABSENT live, created fresh). public BASE tables 37->38; case_ confirmed 0 rows (owner read). The seed/910 provider_automation_mode_code flip was NOT applied (out of scope -- touches the 390-row corpus). A transient workstation firewall rule was added then REMOVED (only AllowAzureServices remains). NOTE: the csadmin KV secret pg-admin-password FAILED auth (2 versions, stale rotation footgun) -> DDL went via the Entra azure_pg_admin path instead. work_provider=390 last confirmed 2026-06-29 (not re-verified this pass; work_provider FORCE RLS reads 0 without app.role)."
+  "sourceCommand": "durable mgmt GET /runtime/webhooks/durabletask/instances/subscription-monitor-singleton (runtimeStatus Running, name subscriptionMonitorOrchestrator); also confirmed via POST /api/graph-renew JSON monitor.status=Running",
+  "verifiedAt": "2026-06-29T15:39:00Z",
+  "verified": true,
+  "note": "OPERATOR WATCH (next cycle): confirm an UNATTENDED renew fires at the durable-timer wake (~6h cadence) i.e. graph-renewal-success in App Insights with no manual trigger. 2026-06-29T15:39Z: the singleton was re-confirmed Running during the mailbox cutover (graph-renew HTTP returned monitor.status=Running) and it now covers all 3 production subs (it renews EVERY existing sub). DURABILITY GAP (recommended small code fix): runSubscriptionMaintenance create-misses + renews but never PRUNES — a mailbox REMOVED from GRAPH_INTAKE_MAILBOXES keeps its subscription (renewed forever), which is exactly why the de-scoped digital@ sub had to be deleted by hand here. Recommend adding a prune step to runSubscriptionMaintenance (subscriptions.ts): after create+renew, delete any of OUR subs whose mailboxOfResource(resource) is not in intakeMailboxes(), so a GRAPH_INTAKE_MAILBOXES change fully self-reconciles (add+remove) on the next maintenance tick. Belt-and-braces renewal fallback if the durable timer ever fails: az functionapp scale config always-ready set -g rg-collisionspike-dev -n cespk-orch-dev --settings function:graph-renew=1 (always-ready cost — flagged, NOT enabled)."
+ },
+ "postgresCounts": {
+  "value": {
+   "work_provider": 390,
+   "work_provider_active": 174,
+   "work_provider_inactive": 216,
+   "work_provider_active_automation_mode": "100000001 review_auto (flipped 2026-06-30 from 100000000 manual; the 216 inactive remain manual)",
+   "repairer": null,
+   "image_source": null,
+   "inspection_address": 2187,
+   "case_": 2,
+   "_case_note": "Was 0 at the 2026-06-30T10:21:17Z clean-slate reset; live-growing. A read-only e2e verification later on 2026-06-30 found case_=2 — two post-reset live intakes on the new code: dc307411 (connexus sender, no provider match → partial path, ~10:30Z) and ca3acf21 = Case/PO QDOS26001 (full happy path: 8/6 EVA cols + provenance, Box folder 395397724540 with .eml+PDF, ~10:43Z). POINT-IN-TIME only — intake is LIVE so the count keeps growing.",
+   "_publicBaseTables": 46,
+   "_publicBaseTables_note": "AUTHORITATIVE 2026-07-08 csadmin read (0 views; unfiltered public == BASE TABLE == 46). Supersedes the stale 39 (and the mirror's changelog 40) — the intervening rules-engine-v2 build added tables that were never re-counted here; pre-ledger the true count was already 45. +1 this change = ai_usage_ledger.",
+   "_ai_usage_ledger_note": "ai_usage_ledger table added 2026-07-08 (deltas/2026-07-08-ai-usage-ledger.sql, applied live via Entra digital@ -> SET ROLE csadmin; transient FW rule added+removed). RLS ENABLE+FORCE + policies p_ai_usage_ledger_rw + p_ai_usage_ledger_no_delete verified; uq_ai_usage_ledger_day_actor_surface present; GRANT SELECT/INSERT/UPDATE to cespk_app. 0 rows until the first model call. Closes the PLAN-001 Phase 4 (TKT-113) deploy-ordering gap: applied AHEAD of the ungated recordAiUsage() writer — App Insights (api component) shows 0 '[ai-usage] ledger write failed' traces over the prior 72h, i.e. the live cespk-api-dev build predates the writer, so there was never a log-spam window. gated.md step 5 DDL is now DONE; the writer SHIPPED with the 2026-07-09/07-10 api publishes (recordAiUsage verified in the live-lineage bundle, 2026-07-10 sweep) — sole call-site = the assistant surface; rows accrue from the first authenticated staff chat.",
+   "_provider_api_key_note": "provider_api_key table added 2026-07-03 (deltas/2026-07-03-provider-api-intake.sql, applied live; RLS FORCE + policies verified). 0 rows until a Superuser mints the first key.",
+   "_rules_engine_v2_note": "2026-07-03: D7 taxonomy (case_update/cancellation categories, images_received/cancellation_notice/update_general subtypes, inbound_email.body_jobref+conversation_id), Phase-4 ai_suggestion.embedding (DDL only, unpopulated), and D8 identification (Connexus intermediary + PCH pch-ltd.com) deltas applied; 916 Section A provider-domain corrections applied (FW/TEN/AX/BC/DFD/BLACK).",
+   "_audit_case_type_note": "2026-07-04: D10 delta applied - choice_case_type 4 rows (standard/audit/audit_total_loss/diminution), choice_evidence_kind 100000007 engineer_report present. D9 EVA-deactivation delta applied as a VERIFIED NO-OP: pre-check + broad ILIKE '%eva%' sweep found ZERO matching work_provider rows (the corpus never held an EVA row - the mislabel was the parser layout-name fallback, not data)."
   },
-  "httpsOnly": {
-    "value": {
-      "cespk-api-dev": true,
-      "cespk-orch-dev": true
-    },
-    "sourceCommand": "az resource show -g rg-collisionspike-dev -n <app> --resource-type Microsoft.Web/sites --query properties.httpsOnly -o tsv",
-    "verifiedAt": "2026-06-28T21:41:30Z",
-    "verified": true,
-    "note": "az functionapp show --query httpsOnly returned null (property not surfaced by that path); az resource show confirmed true for both."
+  "sourceCommand": "psql via Entra digital@ (azure_pg_admin, --resource-type oss-rdbms) -> SET ROLE csadmin (owner; csadmin BYPASSES RLS) -> SELECT count(*); transient FW rule added+removed (only AllowAzureServices remains)",
+  "verifiedAt": "2026-06-30T09:35:00Z",
+  "verified": true,
+  "reason": "2026-06-30T09:35Z CORRECTIVE deploy: read authoritatively as csadmin (owner BYPASSES RLS -- confirmed: with app.role unset case_ STILL returned 20), so these are TRUE unfiltered counts. case_ = 20 (NOT 0 -- the registry's prior 0 was an RLS/stale read artifact: a read as the non-owner cespk_app WITHOUT app.role, or pre-intake). work_provider = 390 total (174 active / 216 inactive). PROVIDER AUTOMATION FLIP (user-approved 'Both' box-sync fix): UPDATE work_provider SET provider_automation_mode_code=100000001 (review_auto) WHERE active=true -> 174 rows affected; BEFORE all 390 were 100000000 manual; AFTER 174 active=review_auto + 216 inactive=manual. The stale csadmin KV pg-admin-password was NOT used (known rotation footgun) -- auth went via the Entra azure_pg_admin path. repairer/image_source/inspection_address NOT re-counted this pass. PRIOR 2026-06-30 (work-todo-spike LIVE migration): applied the idempotent additive DDL delta to db collisionspike as Entra digital@ (azure_pg_admin) -> SET ROLE csadmin (table owner). Added: ai_suggestion table (csadmin-owned, RLS ENABLE+FORCE, policies p_ai_suggestion_rw + p_ai_suggestion_no_delete, GRANT SELECT/INSERT/UPDATE to cespk_app, 3 FKs case/evidence CASCADE + inbound_email SET NULL, 4 indexes); inbound_email.suggested_category_code + suggested_subtype_code (+ canonical FKs); choice_audit_action 100000027-100000034 (8 rows); choice_case_status 100000011 'removed'; uq_case_case_po UNIQUE on upper(case_po) WHERE case_po IS NOT NULL (was ABSENT live, created fresh). public BASE tables 37->38; case_ confirmed 0 rows (owner read). The seed/910 provider_automation_mode_code flip was NOT applied (out of scope -- touches the 390-row corpus). A transient workstation firewall rule was added then REMOVED (only AllowAzureServices remains). NOTE: the csadmin KV secret pg-admin-password FAILED auth (2 versions, stale rotation footgun) -> DDL went via the Entra azure_pg_admin path instead. work_provider=390 last confirmed 2026-06-29 (not re-verified this pass; work_provider FORCE RLS reads 0 without app.role)."
+ },
+ "httpsOnly": {
+  "value": {
+   "cespk-api-dev": true,
+   "cespk-orch-dev": true
   },
-  "appInsightsComponents": {
-    "value": {
-      "cespk-api-dev": "95e70d0f-c5cf-47d8-994f-96638d1d64e6 (Data API has its OWN App Insights component)",
-      "cespk-orch-dev": "7c7ea68a-d14f-4196-ae58-d83711b7eb2a (orchestration has its OWN App Insights component)",
-      "cespike-parser-ai-dev": "da68d9aa-c85e-4407-8967-28361e471266 (parser + retained Python fns)",
-      "cespkocr-ai-dev": "efa0532c-d3a9-4b2b-9cb7-13f6d4a510ba (OCR)"
-    },
-    "sourceCommand": "az monitor app-insights component show -g rg-collisionspike-dev --query '[].{name:name,appId:appId}'",
-    "verifiedAt": "2026-06-30T09:40:00Z",
-    "verified": true,
-    "note": "CORRECTS the stale 'orch/api telemetry shared in cespike-parser-ai-dev' claim: cespk-api-dev and cespk-orch-dev EACH have their OWN App Insights component (matching the app name). Only the Python parser/retained fns log to cespike-parser-ai-dev; OCR to cespkocr-ai-dev. Post-2026-06-30-deploy telemetry: api 0 exceptions / 0 5xx (150 reqs); orch 0 5xx (79 reqs), exceptions are ONLY the pre-existing graph-webhook 499/cold-start Kestrel BadHttpRequestException residual (present in the pre-deploy baseline too, not a regression)."
+  "sourceCommand": "az resource show -g rg-collisionspike-dev -n <app> --resource-type Microsoft.Web/sites --query properties.httpsOnly -o tsv",
+  "verifiedAt": "2026-06-28T21:41:30Z",
+  "verified": true,
+  "note": "az functionapp show --query httpsOnly returned null (property not surfaced by that path); az resource show confirmed true for both."
+ },
+ "appInsightsComponents": {
+  "value": {
+   "cespk-api-dev": "95e70d0f-c5cf-47d8-994f-96638d1d64e6 (Data API has its OWN App Insights component)",
+   "cespk-orch-dev": "7c7ea68a-d14f-4196-ae58-d83711b7eb2a (orchestration has its OWN App Insights component)",
+   "cespike-parser-ai-dev": "da68d9aa-c85e-4407-8967-28361e471266 (parser + retained Python fns)",
+   "cespkocr-ai-dev": "efa0532c-d3a9-4b2b-9cb7-13f6d4a510ba (OCR)"
   },
-  "boxSmoke": {
-    "value": {
-      "endpoint": "https://cespkbox-fn-v76a47.azurewebsites.net/api/box/folders/392761581105/items",
-      "http": 200,
-      "sampleResult": {
-        "total_count": 7,
-        "firstEntry": {
-          "type": "folder",
-          "id": "395125010165",
-          "name": "ACSP26001"
-        }
-      }
-    },
-    "sourceCommand": "az functionapp keys list (cespkbox-fn-v76a47) -> GET /api/box/folders/392761581105/items with x-functions-key header",
-    "verifiedAt": "2026-06-30T07:40:00Z",
-    "verified": true,
-    "docDrift": "2026-06-30 (work-todo-spike): re-verified AFTER the box-fn config-zip redeploy that ADDED upload_file (POST /api/box/folders/{id}/files; Blob->Box archive mirror, scope-locked to BOX_ALLOWED_ROOT_ID). Authenticated READ of the allowed root 392761581105 still returns 200 (now 7 case folders: ACSP26001, AX26001, KBS26001, QDOS26001, QDOS26002, ...). box-fn route count 9->10. NO write/upload performed (read-only smoke under the allowed root only). Box JWT auth LIVE since 2026-06-28."
+  "sourceCommand": "az monitor app-insights component show -g rg-collisionspike-dev --query '[].{name:name,appId:appId}'",
+  "verifiedAt": "2026-06-30T09:40:00Z",
+  "verified": true,
+  "note": "CORRECTS the stale 'orch/api telemetry shared in cespike-parser-ai-dev' claim: cespk-api-dev and cespk-orch-dev EACH have their OWN App Insights component (matching the app name). Only the Python parser/retained fns log to cespike-parser-ai-dev; OCR to cespkocr-ai-dev. Post-2026-06-30-deploy telemetry: api 0 exceptions / 0 5xx (150 reqs); orch 0 5xx (79 reqs), exceptions are ONLY the pre-existing graph-webhook 499/cold-start Kestrel BadHttpRequestException residual (present in the pre-deploy baseline too, not a regression)."
+ },
+ "boxSmoke": {
+  "value": {
+   "endpoint": "https://cespkbox-fn-v76a47.azurewebsites.net/api/box/folders/392761581105/items",
+   "http": 200,
+   "sampleResult": {
+    "total_count": 7,
+    "firstEntry": {
+     "type": "folder",
+     "id": "395125010165",
+     "name": "ACSP26001"
+    }
+   }
   },
-  "gates": {
-    "value": {
-      "cespk-api-dev": {
-        "ENRICHMENT_ENABLED": "true",
-        "PDF_MAPPER_ENABLED": "true",
-        "BOX_API_ENABLED": "true",
-        "BOX_FOLDER_AT_INTAKE_ENABLED": "true",
-        "BOX_FILEREQUEST_ENABLED": "true",
-        "BOX_FOLDER_ROOT_ID": "392761581105",
-        "BOX_FN_URL": "https://cespkbox-fn-v76a47.azurewebsites.net",
-        "BOX_FN_KEY": "@Microsoft.KeyVault(VaultName=cespk-pg-kv-dev;SecretName=boxwebhook-fn-key)",
-        "EVA_API_ENABLED": "(absent)",
-        "VALUATION_ENABLED": "(absent)",
-        "OUTLOOK_MOVE_ENABLED": "true",
-        "OUTLOOK_MOVE_QUEUE_SERVICE_URL": "https://cespkorchstdev01.queue.core.windows.net",
-        "EVIDENCE_BLOB_ACCOUNT": "cespkevidstdev01",
-        "EVIDENCE_BLOB_CONTAINER": "evidence",
-        "LOCATION_ASSIST_ENABLED": "true",
-        "AZURE_MAPS_ENABLED": "true",
-        "LOCATION_ASSIST_API_BASE": "https://cespkloc-fn-a7tzj2.azurewebsites.net",
-        "LOCATION_SUGGEST_FN_URL": "https://cespkloc-fn-a7tzj2.azurewebsites.net",
-        "LOCATION_SUGGEST_FN_KEY": "@Microsoft.KeyVault(VaultName=cespk-pg-kv-dev;SecretName=locationsuggest-fn-key)",
-        "AUDIT_CASES_ENABLED": "true",
-        "RETRO_CASE_ENABLED": "true",
-        "AI_MODEL_ENDPOINT": "https://digital-3339-resource.cognitiveservices.azure.com",
-        "AI_MODEL_DEPLOYMENT": "gpt-5",
-        "AI_CHAT_ENABLED": "true",
-        "AI_ASSIST_ENABLED": "true",
-        "IMAGE_ANALYSIS_ENABLED": "true",
-        "ASSISTANT_TOOLSET_V2": "true",
-        "GLOBAL_SEARCH_ENABLED": "true",
-        "ASSISTANT_WRITE_TIER_ENABLED": "(absent)",
-        "MCP_SERVER_ENABLED": "(absent)"
-      },
-      "cespk-orch-dev": {
-        "ENRICHMENT_ENABLED": "true",
-        "PDF_MAPPER_ENABLED": "true",
-        "BOX_API_ENABLED": "true",
-        "BOX_FOLDER_AT_INTAKE_ENABLED": "true",
-        "BOX_FILEREQUEST_ENABLED": "true",
-        "BOX_FOLDER_ROOT_ID": "392761581105",
-        "OCR_FN_URL": "https://cespkocr-fn-dev-glju3v.proudwave-aa00ada9.uksouth.azurecontainerapps.io",
-        "OCR_FN_KEY": "@Microsoft.KeyVault(VaultName=cespk-pg-kv-dev;SecretName=ocr-fn-key)",
-        "GRAPH_INTAKE_MAILBOXES": "[{\"mailbox\":\"info@collisionengineers.co.uk\",\"minIntakeDate\":\"2026-06-29T00:00:00Z\"},{\"mailbox\":\"engineers@collisionengineers.co.uk\",\"minIntakeDate\":\"2026-06-27T00:00:00Z\"},{\"mailbox\":\"desk@collisionengineers.co.uk\",\"minIntakeDate\":\"2026-06-29T00:00:00Z\"}]",
-        "EVA_API_ENABLED": "(absent)",
-        "VALUATION_ENABLED": "(absent)",
-        "OUTLOOK_MOVE_ENABLED": "true",
-        "PLATE_OCR_ENABLED": "true",
-        "OCR_SCANNED_PDF_ENABLED": "true",
-        "EMAIL_AI_ENABLED": "true",
-        "AI_MODEL_ENDPOINT": "https://digital-3339-resource.cognitiveservices.azure.com",
-        "AI_MODEL_DEPLOYMENT": "gpt-5",
-        "TRIAGE_REF_GATE_ENABLED": "true",
-        "TRIAGE_CANCELLATION_ENABLED": "true",
-        "TRIAGE_IMAGES_ROUTING_ENABLED": "true",
-        "TRIAGE_CASE_UPDATE_ENABLED": "true",
-        "TRIAGE_AUTO_ATTACH_ENABLED": "true",
-        "TRIAGE_PRE_INSTRUCTION_ENABLED": "true",
-        "AUDIT_CASES_ENABLED": "true",
-        "RETRO_CASE_ENABLED": "true",
-        "RETRO_OUTLOOK_SEARCH_ENABLED": "true",
-        "RETRO_BOX_ARCHIVE_ROOT_IDS": "(absent)",
-        "BOX_REG_FOLDER_ENABLED": "(absent)",
-        "DONE_SENT_EMAIL_ENABLED": "(absent)"
-      }
-    },
-    "sourceCommand": "az functionapp config appsettings list -g rg-collisionspike-dev -n <app> --query \"[?contains(name,'BOX_')||contains(name,'EVA_')||contains(name,'ENRICHMENT')||contains(name,'VALUATION')||name=='GRAPH_INTAKE_MAILBOXES']\"",
-    "verifiedAt": "2026-06-28T23:55:15Z (BOX/ENRICHMENT gates); 2026-06-29T15:14Z (GRAPH_INTAKE_MAILBOXES); 2026-06-30T07:50Z (added OCR_FN_* on orch + BOX_FN_* on api -- work-todo-spike wiring); 2026-07-02T15:50Z (OUTLOOK_MOVE_* -- TKT-054); 2026-07-03T15:25Z (nine-task activation flips); 2026-07-03T16:10Z (TRIAGE_* flips); 2026-07-04T13:05Z (AUDIT_CASES_ENABLED flip, both apps); 2026-07-09T08:00Z (ASSISTANT_TOOLSET_V2 + GLOBAL_SEARCH_ENABLED flips on api, readback-verified)",
-    "verified": true,
-    "docDrift": "2026-07-09 (PLAN-003 final wave D1): ASSISTANT_TOOLSET_V2=true + GLOBAL_SEARCH_ENABLED=true SET+readback-verified on cespk-api-dev (operator-granted flips — TKT-066/069 assistant read toolset + TKT-072/096 global search; unauthenticated GET /api/search probe -> 401 fail-closed). ASSISTANT_WRITE_TIER_ENABLED and MCP_SERVER_ENABLED added to tracking as '(absent)' — BOTH stay operator-only (the write tier needs the per-capability DPIA/E2-G5 sign-off; MCP needs the Entra app-registration only the operator creates — docs/gated.md F4/F6; neither flipped/created this wave by explicit instruction). Prior: 2026-07-09 (PLAN-003 lifecycle wave): REPLAY_BACKFILL_ENABLED REMOVED from this block — the app-setting was DELETED live on cespk-orch-dev and the driver + gate removed from code (TKT-106; the wipe-and-rebuild path is non-viable per TKT-059's finding, which is preserved in that ticket). DONE_SENT_EMAIL_ENABLED added as '(absent)' — the NEW dark gate for the TKT-095 sent-email done-detector (default off; flipping it makes orch subscription maintenance CREATE SentItems Graph subscriptions per intake mailbox and flipping back prunes them; no subscription was created this wave). Detector (c) EVA poll skeleton rides the existing EVA_API_ENABLED (still absent). Prior: 2026-07-09 (PLAN-003 intake wave): BOX_REG_FOLDER_ENABLED added to tracking as '(absent)' — the NEW dark gate for the TKT-034 reg-keyed Box holding-folder rung (default off in code; the operator must approve the non-Case/PO folder-naming semantic before flipping). Not set live. Prior: 2026-07-09 (PLAN-003 classifier wave): TRIAGE_PRE_INSTRUCTION_ENABLED=true SET+verified on cespk-orch-dev (TKT-084 lane go-live, operator-granted; DDL taxonomy-v3 delta applied first per deploy-order). ALSO corrected pre-existing drift: TRIAGE_AUTO_ATTACH_ENABLED is LIVE 'true' on cespk-orch-dev (verified via az appsettings list this session) but was never added to this block when flipped. Prior: 2026-07-09 (TKT-080 verifier finding): gates.value corrected — RETRO_OUTLOOK_SEARCH_ENABLED was recorded '(absent)' but has been LIVE 'true' on cespk-orch-dev since the 2026-07-07 dark-gate audit (the flip was narrated in verifiedBy but the gates block was never updated); REPLAY_BACKFILL_ENABLED value normalised to plain 'false' (the inline annotation made VERIFY_LIVE diff on every run — context: turned back off after the 2026-07-05 dry-run, TKT-059/106). Prior: 2026-07-08 (TKT-115): OCR_FN_URL on cespk-orch-dev CORRECTED from the wrong FC1 host https://cespkocr-fn-dev-glju3v.azurewebsites.net (NXDOMAIN) to the ACA ingress FQDN https://cespkocr-fn-dev-glju3v.proudwave-aa00ada9.uksouth.azurecontainerapps.io — the OCR app is Functions-on-Azure-Container-Apps, not FC1, so the old host did not resolve and ALL plate-OCR + scanned-PDF-OCR calls failed 'fetch failed' from 2026-07-04 (when PLATE_OCR_ENABLED went live) until this fix. Config-only, no redeploy (setting change restarts orch). Endpoint proven reachable+authenticating from the new value: /api/plate-ocr + /api/ocr-pdf = 401 (no key) and 400 (with the KV ocr-fn-key on an empty body); old host still NXDOMAINs. Behavioural proof on a live intake with a vehicle photo (registration_visible via OCR fallback; cespkocr-ai-dev receiving orch-originated requests) is verify-stage. Robustness follow-up: derive the OCR host from az defaultHostName at deploy time — the ACA infix (proudwave-aa00ada9) changes if the managed env/app is recreated. Prior: 2026-07-04: AUDIT_CASES_ENABLED=true on BOTH apps (user-instructed go-live; D10 delta applied FIRST per the delta's deploy-order warning; shadow-review step waived by the user). Prior: 2026-07-03 second wave: all four TRIAGE_* behaviour gates =true on orch (D7 taxonomy delta confirmed live first, per the delta's deploy-order warning); parser redeployed with the taxonomy-v2 engine. Prior: 2026-07-03 nine-task activation: OUTLOOK_MOVE_ENABLED=true on BOTH apps (user-instructed; Exchange Mail.ReadWrite grant still pending - moves 403 until B4 steps 1-2 done); orch PLATE_OCR_ENABLED/OCR_SCANNED_PDF_ENABLED/EMAIL_AI_ENABLED=true + AI_MODEL_ENDPOINT/AI_MODEL_DEPLOYMENT=gpt-5; api EVIDENCE_BLOB_* + LOCATION_ASSIST_*/AZURE_MAPS_ENABLED/LOCATION_SUGGEST_FN_* (location-assist live). Prior: 2026-07-02 TKT-054: OUTLOOK_MOVE_ENABLED ABSENT on both apps (dark by design — operator-blocked on the Mail.ReadWrite Exchange-RBAC re-consent, gated.md B4); OUTLOOK_MOVE_QUEUE_SERVICE_URL set on api only (the enqueue target — orch consumes the same queue via AzureWebJobsStorage); api MI holds Storage Queue Data Message Sender on cespkorchstdev01. Prior: 2026-06-30 work-todo-spike NEW wiring app-settings (tracked here so verify-live diffs them): orch OCR_FN_URL (plain host cespkocr-fn-dev-glju3v) + OCR_FN_KEY (KV ref cespk-pg-kv-dev/ocr-fn-key) for registration-visible plate OCR; api BOX_FN_URL (plain host cespkbox-fn-v76a47) + BOX_FN_KEY (KV ref cespk-pg-kv-dev/boxwebhook-fn-key, reused) for the Case/PO allocator new-provider Box fallback -- both follow the established *_FN_URL=plain / *_FN_KEY=KV-ref convention. Feature gates UNCHANGED: BOX_API_ENABLED, BOX_FOLDER_AT_INTAKE_ENABLED, BOX_FILEREQUEST_ENABLED are all 'true' on BOTH api and orch — Box is ACTIVATED, not off. ENRICHMENT_ENABLED and PDF_MAPPER_ENABLED are 'true' on both. EVA_API_ENABLED, VALUATION_ENABLED are not set (effectively off). BOX_EMBED_ENABLED and BOX_METADATA_ENABLED are no longer tracked here — both gates were RETIRED FROM CODE 2026-07-03 (the embed and metadata options were formally dropped, not merely left unset). GRAPH_INTAKE_MAILBOXES = info@ + engineers@ + desk@ (the production target; test mailbox digital@ removed in the 2026-06-29 mailbox cutover; info@/desk@ minIntakeDate 2026-06-29, engineers@ 2026-06-27). NOTE: PDF_MAPPER_ENABLED=true was unrecorded before the 2026-06-29 re-verification; CLAUDE.md's gate list describes default-off SEMANTICS, not current live values."
+  "sourceCommand": "az functionapp keys list (cespkbox-fn-v76a47) -> GET /api/box/folders/392761581105/items with x-functions-key header",
+  "verifiedAt": "2026-06-30T07:40:00Z",
+  "verified": true,
+  "docDrift": "2026-06-30 (work-todo-spike): re-verified AFTER the box-fn config-zip redeploy that ADDED upload_file (POST /api/box/folders/{id}/files; Blob->Box archive mirror, scope-locked to BOX_ALLOWED_ROOT_ID). Authenticated READ of the allowed root 392761581105 still returns 200 (now 7 case folders: ACSP26001, AX26001, KBS26001, QDOS26001, QDOS26002, ...). box-fn route count 9->10. NO write/upload performed (read-only smoke under the allowed root only). Box JWT auth LIVE since 2026-06-28."
+ },
+ "gates": {
+  "value": {
+   "cespk-api-dev": {
+    "ENRICHMENT_ENABLED": "true",
+    "PDF_MAPPER_ENABLED": "true",
+    "BOX_API_ENABLED": "true",
+    "BOX_FOLDER_AT_INTAKE_ENABLED": "true",
+    "BOX_FILEREQUEST_ENABLED": "true",
+    "BOX_FOLDER_ROOT_ID": "392761581105",
+    "BOX_FN_URL": "https://cespkbox-fn-v76a47.azurewebsites.net",
+    "BOX_FN_KEY": "@Microsoft.KeyVault(VaultName=cespk-pg-kv-dev;SecretName=boxwebhook-fn-key)",
+    "EVA_API_ENABLED": "(absent)",
+    "VALUATION_ENABLED": "(absent)",
+    "OUTLOOK_MOVE_ENABLED": "true",
+    "OUTLOOK_MOVE_QUEUE_SERVICE_URL": "https://cespkorchstdev01.queue.core.windows.net",
+    "EVIDENCE_BLOB_ACCOUNT": "cespkevidstdev01",
+    "EVIDENCE_BLOB_CONTAINER": "evidence",
+    "LOCATION_ASSIST_ENABLED": "true",
+    "AZURE_MAPS_ENABLED": "true",
+    "LOCATION_ASSIST_API_BASE": "https://cespkloc-fn-a7tzj2.azurewebsites.net",
+    "LOCATION_SUGGEST_FN_URL": "https://cespkloc-fn-a7tzj2.azurewebsites.net",
+    "LOCATION_SUGGEST_FN_KEY": "@Microsoft.KeyVault(VaultName=cespk-pg-kv-dev;SecretName=locationsuggest-fn-key)",
+    "AUDIT_CASES_ENABLED": "true",
+    "RETRO_CASE_ENABLED": "true",
+    "RETRO_BOX_ARCHIVE_ROOT_IDS": "4077648161",
+    "AI_MODEL_ENDPOINT": "https://digital-3339-resource.cognitiveservices.azure.com",
+    "AI_MODEL_DEPLOYMENT": "gpt-5",
+    "AI_CHAT_ENABLED": "true",
+    "AI_ASSIST_ENABLED": "true",
+    "IMAGE_ANALYSIS_ENABLED": "true",
+    "ASSISTANT_TOOLSET_V2": "true",
+    "GLOBAL_SEARCH_ENABLED": "true",
+    "ASSISTANT_WRITE_TIER_ENABLED": "(absent)",
+    "MCP_SERVER_ENABLED": "true"
+   },
+   "cespk-orch-dev": {
+    "ENRICHMENT_ENABLED": "true",
+    "PDF_MAPPER_ENABLED": "true",
+    "IMAGE_ROLE_CLASSIFY_ENABLED": "true",
+    "BOX_API_ENABLED": "true",
+    "BOX_FOLDER_AT_INTAKE_ENABLED": "true",
+    "BOX_FILEREQUEST_ENABLED": "true",
+    "BOX_FOLDER_ROOT_ID": "392761581105",
+    "OCR_FN_URL": "https://cespkocr-fn-dev-glju3v.proudwave-aa00ada9.uksouth.azurecontainerapps.io",
+    "OCR_FN_KEY": "@Microsoft.KeyVault(VaultName=cespk-pg-kv-dev;SecretName=ocr-fn-key)",
+    "GRAPH_INTAKE_MAILBOXES": "[{\"mailbox\":\"info@collisionengineers.co.uk\",\"minIntakeDate\":\"2026-06-29T00:00:00Z\"},{\"mailbox\":\"engineers@collisionengineers.co.uk\",\"minIntakeDate\":\"2026-06-27T00:00:00Z\"},{\"mailbox\":\"desk@collisionengineers.co.uk\",\"minIntakeDate\":\"2026-06-29T00:00:00Z\"}]",
+    "EVA_API_ENABLED": "(absent)",
+    "VALUATION_ENABLED": "(absent)",
+    "OUTLOOK_MOVE_ENABLED": "true",
+    "PLATE_OCR_ENABLED": "true",
+    "OCR_SCANNED_PDF_ENABLED": "true",
+    "EMAIL_AI_ENABLED": "true",
+    "AI_MODEL_ENDPOINT": "https://digital-3339-resource.cognitiveservices.azure.com",
+    "AI_MODEL_DEPLOYMENT": "gpt-5",
+    "TRIAGE_REF_GATE_ENABLED": "true",
+    "TRIAGE_CANCELLATION_ENABLED": "true",
+    "TRIAGE_IMAGES_ROUTING_ENABLED": "true",
+    "TRIAGE_CASE_UPDATE_ENABLED": "true",
+    "TRIAGE_AUTO_ATTACH_ENABLED": "true",
+    "TRIAGE_PRE_INSTRUCTION_ENABLED": "true",
+    "AUDIT_CASES_ENABLED": "true",
+    "RETRO_CASE_ENABLED": "true",
+    "RETRO_OUTLOOK_SEARCH_ENABLED": "true",
+    "RETRO_BOX_ARCHIVE_ROOT_IDS": "(absent)",
+    "BOX_REG_FOLDER_ENABLED": "true",
+    "DONE_SENT_EMAIL_ENABLED": "(absent)"
+   }
   },
-  "foundry": {
-    "value": {
-      "account": "digital-3339-resource",
-      "kind": "AIServices",
-      "sku": "S0",
-      "location": "uksouth",
-      "project": "digital-3339",
-      "disableLocalAuth": false,
-      "publicNetworkAccess": "Enabled",
-      "deployments": [
-        {
-          "name": "gpt-5",
-          "model": "gpt-5",
-          "modelVersion": "2025-08-07",
-          "sku": "GlobalStandard",
-          "capacityKTPM": 50,
-          "rateLimits": "50K TPM / 500 RPM",
-          "raiPolicy": "Microsoft.DefaultV2",
-          "versionUpgradeOption": "OnceNewDefaultVersionAvailable",
-          "createdBy": "digital@collisionengineers.co.uk (User)",
-          "createdAt": "2026-07-01T14:41:12Z",
-          "dataProcessing": "GlobalStandard = inference may process in ANY Azure region (data at rest stays uksouth); no UK data zone exists (DataZone is US/EU only) and uksouth has no regional-Standard gpt-5 quota — Global is the only gpt-5 option here"
-        },
-        {
-          "name": "text-embedding-3-large",
-          "model": "text-embedding-3-large",
-          "modelVersion": "1",
-          "sku": "Standard",
-          "capacityKTPM": 120,
-          "raiPolicy": "Microsoft.DefaultV2",
-          "versionUpgradeOption": "OnceNewDefaultVersionAvailable",
-          "dataProcessing": "regional Standard — processed in uksouth"
-        }
-      ],
-      "quotaHeadroomUksouth": {
-        "OpenAI.GlobalStandard.gpt-5": "50 used / 1000 limit (K TPM)",
-        "OpenAI.GlobalStandard.gpt-5-mini": "0 used / 1000 limit",
-        "OpenAI.Standard.text-embedding-3-large": "120 used / 350 limit"
-      },
-      "miGrants": "cespk-orch-dev MI (principal ad47e928-c6b5-4b24-895a-0500a9f5b22d) now holds Cognitive Services OpenAI User (5e0bd9bd) on this account — role assignment d695d697-ba96-42c4-a958-3cd61d868bb0, applied 2026-07-02 via ARM PUT (rules-engine-v2 Phase 4 keyless prerequisite; verified via roleAssignments list). The cespk-api-dev MI (principal 51dcdd5f-7802-40e6-9388-18b66e006e71) ALSO holds Cognitive Services OpenAI User (5e0bd9bd) on this account since 2026-07-05 (ARM PUT, verified via role assignment list) - the keyless prerequisite for the TKT-060 AI chat helper (POST /api/assistant/chat). The disableLocalAuth flip stays operator-gated (docs/gated.md D6).",
-      "wiring": "EMAIL_AI is LIVE (2026-07-03): EMAIL_AI_ENABLED=true + AI_MODEL_ENDPOINT + AI_MODEL_DEPLOYMENT=gpt-5 set on cespk-orch-dev (user-instructed production flip; per-provider work_provider.ai_allowed opt-out implemented + deployed FIRST - explicit false skips with provider_ai_opt_out). Suggestion-only posture unchanged: PII-scrubbed AOAI call for abstain/uncorroborated rows, writes ai_suggestion rows for human accept/reject. Was: Code path DEPLOYED but GATED-OFF (2026-07-02 Phase-4 deploy): orchestration triage-classify now carries the real AOAI structured-output call (MSI/keyless, PII-scrubbed, suggestion-only) — dead until the operator sets EMAIL_AI_ENABLED / AI_MODEL_ENDPOINT / AI_MODEL_DEPLOYMENT (all still absent from app-settings; gated.md D6). A/B smoke with the operator token against gpt-5 succeeded 2026-07-02 (3/3 structured responses); gpt-5-mini NOT deployed (404)."
+  "sourceCommand": "az functionapp config appsettings list -g rg-collisionspike-dev -n <app> --query \"[?contains(name,'BOX_')||contains(name,'EVA_')||contains(name,'ENRICHMENT')||contains(name,'VALUATION')||name=='GRAPH_INTAKE_MAILBOXES']\"",
+  "verifiedAt": "2026-06-28T23:55:15Z (BOX/ENRICHMENT gates); 2026-06-29T15:14Z (GRAPH_INTAKE_MAILBOXES); 2026-06-30T07:50Z (added OCR_FN_* on orch + BOX_FN_* on api -- work-todo-spike wiring); 2026-07-02T15:50Z (OUTLOOK_MOVE_* -- TKT-054); 2026-07-03T15:25Z (nine-task activation flips); 2026-07-03T16:10Z (TRIAGE_* flips); 2026-07-04T13:05Z (AUDIT_CASES_ENABLED flip, both apps); 2026-07-09T08:00Z (ASSISTANT_TOOLSET_V2 + GLOBAL_SEARCH_ENABLED flips on api, readback-verified); 2026-07-10T21:10Z (operator-authorized activation batch: BOX_REG_FOLDER_ENABLED=true on orch, RETRO_BOX_ARCHIVE_ROOT_IDS=4077648161 + MCP_SERVER_ENABLED=true on api — all three SET+readback-verified)",
+  "verified": true,
+  "docDrift": "2026-07-10T21:10Z (operator-authorized activation batch): THREE gate changes, all readback-verified. BOX_REG_FOLDER_ENABLED '(absent)'->'true' on cespk-orch-dev (TKT-034 step-2 — the reg-keyed Box holding folder for unmatched image emails is ACTING; operator approved the non-Case/PO folder-naming semantic). RETRO_BOX_ARCHIVE_ROOT_IDS added as '4077648161' on cespk-api-dev (TKT-107 read-only archive assist — arms archiveConfigured()/archive_lookup only; root confirmed read-only via box CLI first; stays '(absent)' on cespk-orch-dev DELIBERATELY — the minting R2 rung waits on gated.md D11 sequence alignment). MCP_SERVER_ENABLED '(absent)'->'true' on cespk-api-dev (TKT-110 — the CollisionSpike MCP Client Flow A app-reg was created the same pass, see mcpAppRegistration; unauthenticated POST /api/mcp -> 401 fail-closed post-flip). Prior: 2026-07-10 (TKT-146): IMAGE_ROLE_CLASSIFY_ENABLED added to the cespk-orch-dev map as 'true' — pre-existing drift fixed: the TKT-064 go-live set it on orch but this block was never updated (re-verified live via az appsettings list this session); recorded now because the new box-classify-sweep timer is gated on it (+ BOX_API_ENABLED). NO gate value changed and NO new app-setting added this pass — the sweep's cap (25) and period (5 min) are code constants. Prior: 2026-07-09 (PLAN-003 final wave D1): ASSISTANT_TOOLSET_V2=true + GLOBAL_SEARCH_ENABLED=true SET+readback-verified on cespk-api-dev (operator-granted flips — TKT-066/069 assistant read toolset + TKT-072/096 global search; unauthenticated GET /api/search probe -> 401 fail-closed). ASSISTANT_WRITE_TIER_ENABLED and MCP_SERVER_ENABLED added to tracking as '(absent)' — BOTH stay operator-only (the write tier needs the per-capability DPIA/E2-G5 sign-off; MCP needs the Entra app-registration only the operator creates — docs/gated.md F4/F6; neither flipped/created this wave by explicit instruction). Prior: 2026-07-09 (PLAN-003 lifecycle wave): REPLAY_BACKFILL_ENABLED REMOVED from this block — the app-setting was DELETED live on cespk-orch-dev and the driver + gate removed from code (TKT-106; the wipe-and-rebuild path is non-viable per TKT-059's finding, which is preserved in that ticket). DONE_SENT_EMAIL_ENABLED added as '(absent)' — the NEW dark gate for the TKT-095 sent-email done-detector (default off; flipping it makes orch subscription maintenance CREATE SentItems Graph subscriptions per intake mailbox and flipping back prunes them; no subscription was created this wave). Detector (c) EVA poll skeleton rides the existing EVA_API_ENABLED (still absent). Prior: 2026-07-09 (PLAN-003 intake wave): BOX_REG_FOLDER_ENABLED added to tracking as '(absent)' — the NEW dark gate for the TKT-034 reg-keyed Box holding-folder rung (default off in code; the operator must approve the non-Case/PO folder-naming semantic before flipping). Not set live. Prior: 2026-07-09 (PLAN-003 classifier wave): TRIAGE_PRE_INSTRUCTION_ENABLED=true SET+verified on cespk-orch-dev (TKT-084 lane go-live, operator-granted; DDL taxonomy-v3 delta applied first per deploy-order). ALSO corrected pre-existing drift: TRIAGE_AUTO_ATTACH_ENABLED is LIVE 'true' on cespk-orch-dev (verified via az appsettings list this session) but was never added to this block when flipped. Prior: 2026-07-09 (TKT-080 verifier finding): gates.value corrected — RETRO_OUTLOOK_SEARCH_ENABLED was recorded '(absent)' but has been LIVE 'true' on cespk-orch-dev since the 2026-07-07 dark-gate audit (the flip was narrated in verifiedBy but the gates block was never updated); REPLAY_BACKFILL_ENABLED value normalised to plain 'false' (the inline annotation made VERIFY_LIVE diff on every run — context: turned back off after the 2026-07-05 dry-run, TKT-059/106). Prior: 2026-07-08 (TKT-115): OCR_FN_URL on cespk-orch-dev CORRECTED from the wrong FC1 host https://cespkocr-fn-dev-glju3v.azurewebsites.net (NXDOMAIN) to the ACA ingress FQDN https://cespkocr-fn-dev-glju3v.proudwave-aa00ada9.uksouth.azurecontainerapps.io — the OCR app is Functions-on-Azure-Container-Apps, not FC1, so the old host did not resolve and ALL plate-OCR + scanned-PDF-OCR calls failed 'fetch failed' from 2026-07-04 (when PLATE_OCR_ENABLED went live) until this fix. Config-only, no redeploy (setting change restarts orch). Endpoint proven reachable+authenticating from the new value: /api/plate-ocr + /api/ocr-pdf = 401 (no key) and 400 (with the KV ocr-fn-key on an empty body); old host still NXDOMAINs. Behavioural proof on a live intake with a vehicle photo (registration_visible via OCR fallback; cespkocr-ai-dev receiving orch-originated requests) is verify-stage. Robustness follow-up: derive the OCR host from az defaultHostName at deploy time — the ACA infix (proudwave-aa00ada9) changes if the managed env/app is recreated. Prior: 2026-07-04: AUDIT_CASES_ENABLED=true on BOTH apps (user-instructed go-live; D10 delta applied FIRST per the delta's deploy-order warning; shadow-review step waived by the user). Prior: 2026-07-03 second wave: all four TRIAGE_* behaviour gates =true on orch (D7 taxonomy delta confirmed live first, per the delta's deploy-order warning); parser redeployed with the taxonomy-v2 engine. Prior: 2026-07-03 nine-task activation: OUTLOOK_MOVE_ENABLED=true on BOTH apps (user-instructed; Exchange Mail.ReadWrite grant still pending - moves 403 until B4 steps 1-2 done); orch PLATE_OCR_ENABLED/OCR_SCANNED_PDF_ENABLED/EMAIL_AI_ENABLED=true + AI_MODEL_ENDPOINT/AI_MODEL_DEPLOYMENT=gpt-5; api EVIDENCE_BLOB_* + LOCATION_ASSIST_*/AZURE_MAPS_ENABLED/LOCATION_SUGGEST_FN_* (location-assist live). Prior: 2026-07-02 TKT-054: OUTLOOK_MOVE_ENABLED ABSENT on both apps (dark by design — operator-blocked on the Mail.ReadWrite Exchange-RBAC re-consent, gated.md B4); OUTLOOK_MOVE_QUEUE_SERVICE_URL set on api only (the enqueue target — orch consumes the same queue via AzureWebJobsStorage); api MI holds Storage Queue Data Message Sender on cespkorchstdev01. Prior: 2026-06-30 work-todo-spike NEW wiring app-settings (tracked here so verify-live diffs them): orch OCR_FN_URL (plain host cespkocr-fn-dev-glju3v) + OCR_FN_KEY (KV ref cespk-pg-kv-dev/ocr-fn-key) for registration-visible plate OCR; api BOX_FN_URL (plain host cespkbox-fn-v76a47) + BOX_FN_KEY (KV ref cespk-pg-kv-dev/boxwebhook-fn-key, reused) for the Case/PO allocator new-provider Box fallback -- both follow the established *_FN_URL=plain / *_FN_KEY=KV-ref convention. Feature gates UNCHANGED: BOX_API_ENABLED, BOX_FOLDER_AT_INTAKE_ENABLED, BOX_FILEREQUEST_ENABLED are all 'true' on BOTH api and orch — Box is ACTIVATED, not off. ENRICHMENT_ENABLED and PDF_MAPPER_ENABLED are 'true' on both. EVA_API_ENABLED, VALUATION_ENABLED are not set (effectively off). BOX_EMBED_ENABLED and BOX_METADATA_ENABLED are no longer tracked here — both gates were RETIRED FROM CODE 2026-07-03 (the embed and metadata options were formally dropped, not merely left unset). GRAPH_INTAKE_MAILBOXES = info@ + engineers@ + desk@ (the production target; test mailbox digital@ removed in the 2026-06-29 mailbox cutover; info@/desk@ minIntakeDate 2026-06-29, engineers@ 2026-06-27). NOTE: PDF_MAPPER_ENABLED=true was unrecorded before the 2026-06-29 re-verification; CLAUDE.md's gate list describes default-off SEMANTICS, not current live values."
+ },
+ "staffAppRoleAssignments": {
+  "value": {
+   "resourceSp": "f5cf0eba-c8bf-4f2a-badd-049166ded3e7 (CollisionSpike API enterprise app; API appId fa2fb28c-fef6-40a4-8d3b-ae6725891d72)",
+   "appRoleIds": {
+    "CollisionSpike.User": "764d4c83-6f41-44eb-a6fd-daba463a9261",
+    "CollisionSpike.Superuser": "5b356d4c-32ef-496a-96e4-72ee848e6710",
+    "CollisionSpike.Engineer": "bd45e8ab-78fb-4376-9721-12224bfcd0c7 (defined, NOT enforced/assigned)"
+   },
+   "assignments": [
+    {
+     "principal": "digital@collisionengineers.co.uk",
+     "principalId": "06b65d89-b4dd-4e64-927e-0f154b4f9427",
+     "appRole": "CollisionSpike.Superuser",
+     "assignmentId": "iV22Bt20ZE6Sfg8VS0-UJ3xBuNl6tFROvINy5cvOsZs",
+     "note": "pre-existing (TKT-065 verified 2026-07-06); untouched this pass"
     },
-    "sourceCommand": "az cognitiveservices account deployment list -n digital-3339-resource -g rg-collisionspike-dev; az cognitiveservices account show (disableLocalAuth/publicNetworkAccess); az cognitiveservices usage list -l uksouth; ARM roleAssignments list at the account scope",
-    "verifiedAt": "2026-07-01T23:14:18Z",
-    "verified": true,
-    "docDrift": "NEW block (2026-07-01 rules-engine-v2 review): the deployments were created by the operator at 2026-07-01T14:41Z — AFTER the 14:20Z snapshot and the earlier ai-assistant research — so live-environment.md's 'ORPHAN, no model deployments' line, gates.ts's ZERO-deployments comment, and BOARD's TKT-015 'no model deployed' note were all stale (each now corrected to point here). The account is no longer an orphan: it is the Stage-C target of docs/plans/rules_engine_v2_plan_9ba034c4.plan.md (gated, unwired)."
+    {
+     "principal": "desk@collisionengineers.co.uk",
+     "principalId": "7189a6a3-6a19-4156-9659-eeaaf54e1fe6",
+     "appRole": "CollisionSpike.User",
+     "assignmentId": "o6aJcRlqVkGWWe6q9U4f5j1Uuw7N92RJpjwya_ZPwXU",
+     "note": "created 2026-07-10T21:08:17Z (operator-directed interim staff set)"
+    },
+    {
+     "principal": "info@collisionengineers.co.uk",
+     "principalId": "f07309ff-cdf9-4bdc-9b53-6c0345d64e90",
+     "appRole": "CollisionSpike.User",
+     "assignmentId": "_wlz8PnN3EubU2wDRdZOkPsCZXED5XtNm62ftTUBpG8",
+     "note": "created 2026-07-10T21:08:18Z (operator-directed interim staff set)"
+    },
+    {
+     "principal": "engineers@collisionengineers.co.uk",
+     "principalId": "016aa11f-c276-4f54-a1be-a18ae0291bf9",
+     "appRole": "CollisionSpike.User",
+     "assignmentId": "H6FqAXbCVE-hvqGK4Ckb-WZkEnvOzH1PtPycNtUKV-Y",
+     "note": "created 2026-07-10T21:08:19Z (operator-directed interim staff set)"
+    }
+   ]
   },
-  "resourceInventory": {
-    "value": {
-      "count": 49,
-      "coreLiveResources": [
-        "cespk-api-dev (Microsoft.Web/sites - Data API)",
-        "cespk-orch-dev (Microsoft.Web/sites - orchestration)",
-        "cespk-spa-dev (Microsoft.Web/staticSites - SPA, westeurope)",
-        "cespk-pg-dev (Microsoft.DBforPostgreSQL/flexibleServers)",
-        "cespk-pg-kv-dev (Microsoft.KeyVault/vaults)",
-        "cespkbox-fn-v76a47 (Microsoft.Web/sites - Box fn)",
-        "cespkbox-plan-v76a47, cespkboxkvv76a47, cespkboxstv76a47 (Box plan/kv/storage)",
-        "cespkapistdev01, cespkorchstdev01 (api/orch storage)",
-        "cespike-parser-dev-x7xt3d5ovhi7y, cespkenrich-fn-gi62sd, cespkeva-fn-ufa3ci, cespkeval-fn-6c6fxd, cespkocr-fn-dev-glju3v (retained Python fns)",
-        "cespkdocintel-dev (Document Intelligence)",
-        "cespkevidstdev01 (evidence blob)",
-        "digital-3339-resource (+ project/appinsights) (Microsoft.CognitiveServices - AI Foundry)",
-        "cespkmaps-dev (Microsoft.Maps/accounts - Azure Maps Gen2 G2, northeurope)",
-        "cespkvision-dev (Microsoft.CognitiveServices ComputerVision F0 - location-assist Vision OCR)",
-        "cespkloc-fn-a7tzj2 (Microsoft.Web/sites - location-suggest Python fn) + cespkloc-plan-a7tzj2, cespklockva7tzj2, cespklocsta7tzj2 (plan/kv/storage)"
-      ]
-    },
-    "sourceCommand": "mcp__azure__group_resource_list (rg-collisionspike-dev)",
-    "verifiedAt": "2026-07-03T15:30:00Z",
-    "verified": true
+  "sourceCommand": "GET /servicePrincipals/{sp}/appRoleAssignedTo (pre + post) + POST /users/{upn}/appRoleAssignments via az rest (WSL, 2026-07-10 operator-authorized activation batch)",
+  "verifiedAt": "2026-07-10T21:08:30Z",
+  "verified": true,
+  "docDrift": "NEW block (2026-07-10): the operator-directed interim staff set — CollisionSpike.User assigned to the three production mailbox accounts desk@/info@/engineers@ (gated.md C1 partial close; named individual staff principals remain unassigned). Supersedes the standing 'only ONE staff principal is app-role-assigned' line wherever it still appears — the API SP now carries 4 assignments."
+ },
+ "mcpAppRegistration": {
+  "value": {
+   "displayName": "CollisionSpike MCP Client",
+   "appId": "88589edc-527a-4d84-83da-a2ddb8664f08",
+   "appObjectId": "3aa373e8-8924-4bcc-be23-788aabf35bbb",
+   "spObjectId": "fb3fd892-8c4e-46a9-ab31-b4da29596e42",
+   "kind": "PUBLIC client (OAuth Auth-Code + PKCE, isFallbackPublicClient true), signInAudience AzureADMyOrg, redirect http://localhost, NO client secret",
+   "permissions": "ONE delegated permission: CollisionSpike API (fa2fb28c-fef6-40a4-8d3b-ae6725891d72) scope access_as_user (d567b632-8f58-405c-b372-dca7e8ed5da5); tenant-wide oauth2PermissionGrant (consentType AllPrincipals, resourceId f5cf0eba-c8bf-4f2a-badd-049166ded3e7) granted",
+   "flowBAppRoles": "NONE — deliberately not added (ADR-0023 Flow B autonomous agents are a later rung)"
   },
-  "csvComparison": {
-    "value": {
-      "files": [
-        "Azureresources.csv (31 data rows)",
-        "Azureresources (1).csv (names-only, 32 rows)"
-      ],
-      "stale": true,
-      "missingFromCsvButLive": [
-        "cespk-api-dev",
-        "cespk-orch-dev",
-        "cespk-spa-dev",
-        "cespk-pg-dev",
-        "cespk-pg-kv-dev",
-        "cespkbox-fn-v76a47",
-        "cespkbox-plan-v76a47",
-        "cespkboxkvv76a47",
-        "cespkboxstv76a47",
-        "cespkapistdev01",
-        "cespkorchstdev01",
-        "digital-3339-resource (and project/appinsights)"
-      ]
+  "sourceCommand": "az ad app create + az ad sp create + az ad app permission grant + az ad app show readback (WSL az, 2026-07-10 operator-authorized activation batch)",
+  "verifiedAt": "2026-07-10T21:05:00Z",
+  "verified": true,
+  "docDrift": "NEW block (2026-07-10): the TKT-110 / ADR-0023 Flow A MCP client app-registration, created on explicit operator authority ('mcp app reg — auth granted'). MCP_SERVER_ENABLED=true set on cespk-api-dev the same pass (readback-verified; unauthenticated POST /api/mcp → 401 'Missing bearer token' both before and after the flip — the withRole wrapper precedes the gate). Remaining verify item: the live Flow A interactive-client probe (tools/list + one read tools/call as an assigned staff user)."
+ },
+ "foundry": {
+  "value": {
+   "account": "digital-3339-resource",
+   "kind": "AIServices",
+   "sku": "S0",
+   "location": "uksouth",
+   "project": "digital-3339",
+   "disableLocalAuth": false,
+   "publicNetworkAccess": "Enabled",
+   "deployments": [
+    {
+     "name": "gpt-5",
+     "model": "gpt-5",
+     "modelVersion": "2025-08-07",
+     "sku": "GlobalStandard",
+     "capacityKTPM": 50,
+     "rateLimits": "50K TPM / 500 RPM",
+     "raiPolicy": "Microsoft.DefaultV2",
+     "versionUpgradeOption": "OnceNewDefaultVersionAvailable",
+     "createdBy": "digital@collisionengineers.co.uk (User)",
+     "createdAt": "2026-07-01T14:41:12Z",
+     "dataProcessing": "GlobalStandard = inference may process in ANY Azure region (data at rest stays uksouth); no UK data zone exists (DataZone is US/EU only) and uksouth has no regional-Standard gpt-5 quota — Global is the only gpt-5 option here"
     },
-    "sourceCommand": "cut -d',' -f1 on both CSVs vs mcp__azure__group_resource_list output",
-    "verifiedAt": "2026-06-28T21:40:30Z",
-    "verified": true,
-    "recommendation": "Both root CSVs are STALE/superseded — they predate the API/orchestration/SPA/Postgres/Box/Foundry deployment and omit all of those core live resources. Safe to delete; the live registry (docs/architecture/live-environment.md) + mcp__azure__group_resource_list are authoritative."
-  }
+    {
+     "name": "text-embedding-3-large",
+     "model": "text-embedding-3-large",
+     "modelVersion": "1",
+     "sku": "Standard",
+     "capacityKTPM": 120,
+     "raiPolicy": "Microsoft.DefaultV2",
+     "versionUpgradeOption": "OnceNewDefaultVersionAvailable",
+     "dataProcessing": "regional Standard — processed in uksouth"
+    }
+   ],
+   "quotaHeadroomUksouth": {
+    "OpenAI.GlobalStandard.gpt-5": "50 used / 1000 limit (K TPM)",
+    "OpenAI.GlobalStandard.gpt-5-mini": "0 used / 1000 limit",
+    "OpenAI.Standard.text-embedding-3-large": "120 used / 350 limit"
+   },
+   "miGrants": "cespk-orch-dev MI (principal ad47e928-c6b5-4b24-895a-0500a9f5b22d) now holds Cognitive Services OpenAI User (5e0bd9bd) on this account — role assignment d695d697-ba96-42c4-a958-3cd61d868bb0, applied 2026-07-02 via ARM PUT (rules-engine-v2 Phase 4 keyless prerequisite; verified via roleAssignments list). The cespk-api-dev MI (principal 51dcdd5f-7802-40e6-9388-18b66e006e71) ALSO holds Cognitive Services OpenAI User (5e0bd9bd) on this account since 2026-07-05 (ARM PUT, verified via role assignment list) - the keyless prerequisite for the TKT-060 AI chat helper (POST /api/assistant/chat). The disableLocalAuth flip stays operator-gated (docs/gated.md D6).",
+   "wiring": "EMAIL_AI is LIVE (2026-07-03): EMAIL_AI_ENABLED=true + AI_MODEL_ENDPOINT + AI_MODEL_DEPLOYMENT=gpt-5 set on cespk-orch-dev (user-instructed production flip; per-provider work_provider.ai_allowed opt-out implemented + deployed FIRST - explicit false skips with provider_ai_opt_out). Suggestion-only posture unchanged: PII-scrubbed AOAI call for abstain/uncorroborated rows, writes ai_suggestion rows for human accept/reject. Was: Code path DEPLOYED but GATED-OFF (2026-07-02 Phase-4 deploy): orchestration triage-classify now carries the real AOAI structured-output call (MSI/keyless, PII-scrubbed, suggestion-only) — dead until the operator sets EMAIL_AI_ENABLED / AI_MODEL_ENDPOINT / AI_MODEL_DEPLOYMENT (all still absent from app-settings; gated.md D6). A/B smoke with the operator token against gpt-5 succeeded 2026-07-02 (3/3 structured responses); gpt-5-mini NOT deployed (404)."
+  },
+  "sourceCommand": "az cognitiveservices account deployment list -n digital-3339-resource -g rg-collisionspike-dev; az cognitiveservices account show (disableLocalAuth/publicNetworkAccess); az cognitiveservices usage list -l uksouth; ARM roleAssignments list at the account scope",
+  "verifiedAt": "2026-07-01T23:14:18Z",
+  "verified": true,
+  "docDrift": "NEW block (2026-07-01 rules-engine-v2 review): the deployments were created by the operator at 2026-07-01T14:41Z — AFTER the 14:20Z snapshot and the earlier ai-assistant research — so live-environment.md's 'ORPHAN, no model deployments' line, gates.ts's ZERO-deployments comment, and BOARD's TKT-015 'no model deployed' note were all stale (each now corrected to point here). The account is no longer an orphan: it is the Stage-C target of docs/plans/rules_engine_v2_plan_9ba034c4.plan.md (gated, unwired)."
+ },
+ "resourceInventory": {
+  "value": {
+   "count": 49,
+   "coreLiveResources": [
+    "cespk-api-dev (Microsoft.Web/sites - Data API)",
+    "cespk-orch-dev (Microsoft.Web/sites - orchestration)",
+    "cespk-spa-dev (Microsoft.Web/staticSites - SPA, westeurope)",
+    "cespk-pg-dev (Microsoft.DBforPostgreSQL/flexibleServers)",
+    "cespk-pg-kv-dev (Microsoft.KeyVault/vaults)",
+    "cespkbox-fn-v76a47 (Microsoft.Web/sites - Box fn)",
+    "cespkbox-plan-v76a47, cespkboxkvv76a47, cespkboxstv76a47 (Box plan/kv/storage)",
+    "cespkapistdev01, cespkorchstdev01 (api/orch storage)",
+    "cespike-parser-dev-x7xt3d5ovhi7y, cespkenrich-fn-gi62sd, cespkeva-fn-ufa3ci, cespkeval-fn-6c6fxd, cespkocr-fn-dev-glju3v (retained Python fns)",
+    "cespkdocintel-dev (Document Intelligence)",
+    "cespkevidstdev01 (evidence blob)",
+    "digital-3339-resource (+ project/appinsights) (Microsoft.CognitiveServices - AI Foundry)",
+    "cespkmaps-dev (Microsoft.Maps/accounts - Azure Maps Gen2 G2, northeurope)",
+    "cespkvision-dev (Microsoft.CognitiveServices ComputerVision F0 - location-assist Vision OCR)",
+    "cespkloc-fn-a7tzj2 (Microsoft.Web/sites - location-suggest Python fn) + cespkloc-plan-a7tzj2, cespklockva7tzj2, cespklocsta7tzj2 (plan/kv/storage)"
+   ]
+  },
+  "sourceCommand": "mcp__azure__group_resource_list (rg-collisionspike-dev)",
+  "verifiedAt": "2026-07-03T15:30:00Z",
+  "verified": true
+ },
+ "csvComparison": {
+  "value": {
+   "files": [
+    "Azureresources.csv (31 data rows)",
+    "Azureresources (1).csv (names-only, 32 rows)"
+   ],
+   "stale": true,
+   "missingFromCsvButLive": [
+    "cespk-api-dev",
+    "cespk-orch-dev",
+    "cespk-spa-dev",
+    "cespk-pg-dev",
+    "cespk-pg-kv-dev",
+    "cespkbox-fn-v76a47",
+    "cespkbox-plan-v76a47",
+    "cespkboxkvv76a47",
+    "cespkboxstv76a47",
+    "cespkapistdev01",
+    "cespkorchstdev01",
+    "digital-3339-resource (and project/appinsights)"
+   ]
+  },
+  "sourceCommand": "cut -d',' -f1 on both CSVs vs mcp__azure__group_resource_list output",
+  "verifiedAt": "2026-06-28T21:40:30Z",
+  "verified": true,
+  "recommendation": "Both root CSVs are STALE/superseded — they predate the API/orchestration/SPA/Postgres/Box/Foundry deployment and omit all of those core live resources. Safe to delete; the live registry (docs/architecture/live-environment.md) + mcp__azure__group_resource_list are authoritative."
+ }
 }

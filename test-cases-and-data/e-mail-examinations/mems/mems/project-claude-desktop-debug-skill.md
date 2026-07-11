@@ -8,7 +8,7 @@ metadata:
 ---
 
 Skill `claude-desktop-debug` now lives in the **collision-agent-skills** repo (as of 2026-06-24):
-`C:\Users\Alex\Documents\GitHub\collisionsuite\collision-agent-skills\claude-desktop-debug\`
+`C:\Users\Alex\Documents\GitHub\collisionsuite\active\collision-agent-skills\claude-desktop-debug\`
 (was previously under `connectors/`; a working copy is also mirrored in the connectors workspace at `connectors\.claude\skills\claude-desktop-debug\`). Sibling skill `mcp-debugger` is a *separate* skill in the same repo — not the same as this one.
 
 **Why:** Diagnose Claude Desktop chat-side issues on Windows — MCP tools missing, extensions not loading, white screen, crashes, auth loops, slow performance. Scoped to the Desktop app chat UI (not Claude Code CLI).

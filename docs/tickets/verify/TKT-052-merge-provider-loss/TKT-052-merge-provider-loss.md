@@ -10,6 +10,11 @@ research-link: docs/tickets/verify/TKT-052-merge-provider-loss/evidence/operator
 
 # Merged image-only case loses the provider (merge logic wrong)
 
+> **Sweep PENDING 2026-07-10** — fix deployed + offline-proven (22/22), but **no live route merge
+> has ever executed** (0 `mergeCases` POSTs in 90d) and the SPA dialog's same-provider candidate
+> filter makes the fill branch UI-unreachable for the exact operator scenario; see
+> [verification.md](./verification.md) (follow-up candidate: relax the dialog filter to ADR-0010).
+
 ## Problem (operator drop-note, verbatim in [evidence/operator-note.md](./evidence/operator-note.md))
 
 Merge thinking is wrong for cases that are merged together: the image-only side has no provider,

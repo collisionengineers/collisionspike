@@ -23,8 +23,10 @@
 import { app, type HttpRequest } from '@azure/functions';
 import {
   CASE_PO_SHAPE_RE,
+  CreateCaseParams,
+  FullCreateCaseParams,
   EVA_FIELD_ORDER,
-  IMAGE_BASED_LITERAL,
+  normaliseEvaEdit,
   canonicalizeVrm,
   casePoSequenceRegex,
   casePoYear,
@@ -37,6 +39,8 @@ import {
   type Case,
   type Chaser,
   type CreateCaseInput,
+  type EvaField,
+  type EvaFields,
   type EvaFieldKey,
   type MergeCasesResult,
   type NextCasePoResult,
@@ -53,14 +57,33 @@ import {
   statusToInt,
 } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
-import { query, tx } from '../lib/db.js';
+import { query, tx, type TxQuery } from '../lib/db.js';
+import {
+  acquireCaseMutationLocks,
+  lockCaseForMutation,
+  orderedCaseMutationIds,
+} from '../lib/case-mutation-locks.js';
 import { isPrefillApplicable, prefillImageBasedInspection } from '../lib/inspection-prefill.js';
+import { maybeSuggestOverviewChase } from '../lib/overview-chase.js';
+import {
+  acknowledgeStatusRecompute,
+  requestStatusRecompute,
+} from '../lib/status-recompute.js';
 import { casePoFloor, mintCasePo } from '../lib/case-po.js';
 import { isUniqueViolation } from './internal.js';
-import { ifMatch, staleVersion, versionToken } from '../lib/concurrency.js';
+import { ifMatch, versionToken } from '../lib/concurrency.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
+import { markCaseDoneUsing, markEvaSubmittedUsing } from '../lib/terminal-transition.js';
 import { gates } from '../lib/gates.js';
 import { listBoxFolderNames } from '../lib/functions-client.js';
+import {
+  processBoxFileRequestIntent,
+  requestBoxFileRequestIntent,
+} from '../lib/box-file-request-outbox.js';
+import {
+  requestArchiveMirrorIfEligible,
+  type ArchiveMirrorCandidate,
+} from '../lib/archive-mirror-outbox.js';
 import {
   CASE_SELECT,
   CASE_SELECT_WITH_ACTIVITY,
@@ -125,18 +148,32 @@ async function loadAllCases(now: Date): Promise<Case[]> {
   return rows.map((r) => rowToCase(r, { now }));
 }
 
-/** Load a single case_ row + its expanded children -> a full domain Case. */
-async function loadCaseFull(id: string, now: Date): Promise<Case | undefined> {
-  const rows = await query<Row>(`${CASE_SELECT} WHERE c.id = $1`, [id]);
+/** Load a single case_ row + its expanded children through one query surface. */
+interface VersionedCaseSnapshot {
+  value: Case;
+  version: string;
+}
+
+async function loadCaseFullSnapshotUsing(
+  q: TxQuery,
+  id: string,
+  now: Date,
+  lockCase = false,
+): Promise<VersionedCaseSnapshot | undefined> {
+  const rows = await q<Row>(
+    `${CASE_SELECT} WHERE c.id = $1${lockCase ? ' FOR UPDATE OF c' : ''}`,
+    [id],
+  );
   const rec = rows[0];
   if (!rec) return undefined;
-  const [prov, ev, notes, chasers] = await Promise.all([
-    query<Row>('SELECT * FROM field_level_provenance WHERE case_id = $1', [id]),
-    query<Row>('SELECT * FROM evidence WHERE case_id = $1 ORDER BY sequence_index NULLS LAST, created_at', [id]),
-    query<Row>('SELECT * FROM note WHERE case_id = $1 ORDER BY occurred_at', [id]),
-    query<Row>('SELECT * FROM chaser WHERE case_id = $1 ORDER BY created_at', [id]),
-  ]);
-  return rowToCase(rec, {
+  const prov = await q<Row>('SELECT * FROM field_level_provenance WHERE case_id = $1', [id]);
+  const ev = await q<Row>(
+    'SELECT * FROM evidence WHERE case_id = $1 ORDER BY sequence_index NULLS LAST, created_at',
+    [id],
+  );
+  const notes = await q<Row>('SELECT * FROM note WHERE case_id = $1 ORDER BY occurred_at', [id]);
+  const chasers = await q<Row>('SELECT * FROM chaser WHERE case_id = $1 ORDER BY created_at', [id]);
+  const value = rowToCase(rec, {
     now,
     provenanceRows: prov,
     evidence: ev.map(rowToEvidence),
@@ -148,106 +185,93 @@ async function loadCaseFull(id: string, now: Date): Promise<Case | undefined> {
     })),
     chasers: chasers.map(rowToChaser),
   });
+  return { value, version: versionToken(rec.updated_at) };
+}
+
+async function loadCaseFullUsing(
+  q: TxQuery,
+  id: string,
+  now: Date,
+  lockCase = false,
+): Promise<Case | undefined> {
+  return (await loadCaseFullSnapshotUsing(q, id, now, lockCase))?.value;
+}
+
+/** Load a full case outside an existing transaction. */
+async function loadCaseFull(id: string, now: Date): Promise<Case | undefined> {
+  return loadCaseFullUsing(query, id, now);
 }
 
 /** Light Case (row only, no children) — for merge/twin scoping checks + aggregates. */
-async function loadCaseLite(id: string): Promise<Case | undefined> {
-  const rows = await query<Row>(`${CASE_SELECT} WHERE c.id = $1`, [id]);
+async function loadCaseLite(id: string, q: TxQuery = query): Promise<Case | undefined> {
+  const rows = await q<Row>(`${CASE_SELECT} WHERE c.id = $1`, [id]);
   return rows[0] ? rowToCase(rows[0]) : undefined;
 }
 
 /**
  * Recompute a case's workflow status via the shared @cs/domain guard over its
  * current persisted fields + evidence; persist + audit only when it changes
- * (the guard self-enforces the terminal-lock). Returns the resulting status.
+ * (the guard self-enforces the terminal-lock). Returns whether a case was evaluated.
  *
  * TKT-109/129: the evaluation seam first applies the provider-policy inspection
  * pre-fill (always_image_based providers auto-complete "Image Based Assessment",
  * fill-if-empty, audited) so an image-led provider's case is never held Not Ready
  * on a blank inspection field a policy already answers.
  */
-async function recomputeStatus(caseId: string, actor?: string): Promise<void> {
-  const full = await loadCaseFull(caseId, new Date());
-  if (!full) return;
-  if (isPrefillApplicable(full)) {
-    const filled = await prefillImageBasedInspection(caseId, actor);
-    if (filled) {
-      // Patch the in-memory copy so THIS evaluation already sees the filled field
-      // (no re-read; the guarded UPDATE is the durable source of truth).
-      full.evaFields.inspectionAddress.value = IMAGE_BASED_LITERAL;
-      full.inspectionDecision = 'image_based';
-    }
+export async function recomputeStatus(caseId: string, actor?: string): Promise<boolean> {
+  // The provider-policy pre-fill owns its own guarded write. Run it before taking
+  // the status lock, then re-read all decision inputs inside the transaction below.
+  // Calling it while holding the case row would deadlock on its separate pool query.
+  const prefillProbe = await loadCaseFull(caseId, new Date());
+  if (!prefillProbe) return false;
+  if (isPrefillApplicable(prefillProbe)) {
+    await prefillImageBasedInspection(caseId, actor);
   }
-  const input: StatusEvaluationInput = {
-    status: full.status,
-    evaFields: full.evaFields,
-    evidence: full.evidence,
-    instructionCount: full.evidence.filter((e) => e.kind === 'instruction').length,
-    hasIdentity:
-      full.vrm.trim().length > 0 ||
-      full.providerCode.trim().length > 0 ||
-      full.evaFields.claimantName.value.trim().length > 0,
-  };
-  const next = statusForReviewCase(input);
-  if (next === full.status) return;
-  await query('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [
-    caseId,
-    statusToInt(next),
-  ]);
-  await writeAudit({
-    action: AUDIT_ACTION.status_changed,
-    caseId,
-    summary: `Status ${full.status} -> ${next}`,
-    before: { status: full.status },
-    after: { status: next },
-    ...(actor ? { actor } : {}),
+
+  const next = await tx(async (q) => {
+    // Every terminal/merge writer updates this same case row. Holding it through
+    // the re-read, evaluation, and optional update makes the domain terminal lock
+    // real at the database boundary instead of relying on an earlier snapshot.
+    const full = await loadCaseFullUsing(q, caseId, new Date(), true);
+    if (!full) return null;
+    const input: StatusEvaluationInput = {
+      status: full.status,
+      evaFields: full.evaFields,
+      evidence: full.evidence,
+      instructionCount: full.evidence.filter((e) => e.kind === 'instruction').length,
+      hasIdentity:
+        full.vrm.trim().length > 0 ||
+        full.providerCode.trim().length > 0 ||
+        full.evaFields.claimantName.value.trim().length > 0,
+      // TKT-141 retired-lock: this value was re-read while the case row was locked.
+      mergedInto: full.mergedInto,
+    };
+    const evaluated = statusForReviewCase(input);
+    if (evaluated !== full.status) {
+      await q('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [
+        caseId,
+        statusToInt(evaluated),
+      ]);
+      await writeAudit({
+        action: AUDIT_ACTION.status_changed,
+        caseId,
+        summary: `Status ${full.status} -> ${evaluated}`,
+        before: { status: full.status },
+        after: { status: evaluated },
+        ...(actor ? { actor } : {}),
+      }, q);
+    }
+    return evaluated;
   });
+  if (!next) return false;
+  // TKT-148: runs on EVERY evaluation (changed or not — a merge can add photos while
+  // the status stays missing_images). It independently locks/rechecks the current
+  // case state immediately before minting, so the post-commit gap is safe.
+  await maybeSuggestOverviewChase(caseId, next, actor);
+  return true;
 }
 
 /* ----------  Durable case-page EVA-field edits (work-todo-spike: casepage)  ---------- */
-
-/** Per-key max length (mirrors the case_.eva_* column widths) so an edit never 500s on a
- *  length overflow — over-long free text is clipped, validated fields are rejected (400). */
-const EVA_MAXLEN: Record<EvaFieldKey, number> = {
-  workProvider: 200,
-  vehicleModel: 200,
-  claimantName: 200,
-  claimantTelephone: 60,
-  claimantEmail: 320,
-  dateOfLoss: 10,
-  dateOfInstruction: 10,
-  accidentCircumstances: 4000,
-  inspectionAddress: 2000,
-  vatStatus: 3,
-  mileage: 20,
-  mileageUnit: 6,
-};
-const isDmyOrEmpty = (v: string): boolean => v === '' || /^\d{2}\/\d{2}\/\d{4}$/.test(v);
-const VAT_VALUES = new Set(['', 'Yes', 'No']);
-const MILEAGE_UNITS = new Set(['', 'Miles', 'Km']);
-
-/**
- * Validate + normalise a single editable EVA field value. Returns the normalised string to
- * persist, or an `{ error }` when the value violates the EVA format invariants (the same
- * CHECKs the DB enforces) — surfaced as a 400 so a bad edit never reaches the DB as a 500.
- */
-function normaliseEvaEdit(key: EvaFieldKey, raw: string): { value: string } | { error: string } {
-  const trimmed = raw.trim();
-  if (key === 'dateOfLoss' || key === 'dateOfInstruction') {
-    if (!isDmyOrEmpty(trimmed)) return { error: `${key} must be DD/MM/YYYY or empty` };
-    return { value: trimmed };
-  }
-  if (key === 'vatStatus') {
-    if (!VAT_VALUES.has(trimmed)) return { error: "vatStatus must be '', 'Yes' or 'No'" };
-    return { value: trimmed };
-  }
-  if (key === 'mileageUnit') {
-    if (!MILEAGE_UNITS.has(trimmed)) return { error: "mileageUnit must be '', 'Miles' or 'Km'" };
-    return { value: trimmed };
-  }
-  // Free-text fields: keep as-is but clip to the column width (no hard 4xx on length).
-  return { value: raw.slice(0, EVA_MAXLEN[key]) };
-}
 
 /** Upsert a 'staff' (manual edit) field_level_provenance row for one EVA field. One row per
  *  (case_id, field_name): UPDATE if present, else INSERT. Best-effort — provenance is
@@ -286,15 +310,12 @@ app.http('caseById', {
   route: 'cases/{id}',
   handler: withRole('CollisionSpike.User', async (req) => {
     const id = req.params.id;
-    const c = await loadCaseFull(id, new Date());
-    if (!c) return { status: 404, jsonBody: { error: 'not found' } };
-    // Expose the case version as an ETag (TKT-111) so the assistant write tier can re-fetch,
-    // capture it, and send it back as If-Match on a confirmed write (optimistic concurrency).
-    const ver = await query<Row>('SELECT updated_at FROM case_ WHERE id = $1', [id]);
+    const snapshot = await loadCaseFullSnapshotUsing(query, id, new Date());
+    if (!snapshot) return { status: 404, jsonBody: { error: 'not found' } };
     return {
       status: 200,
-      jsonBody: c,
-      ...(ver[0] ? { headers: { ETag: versionToken(ver[0].updated_at) } } : {}),
+      jsonBody: { ...snapshot.value, version: snapshot.version },
+      headers: { ETag: `"${snapshot.version}"`, 'Access-Control-Expose-Headers': 'ETag' },
     };
   }),
 });
@@ -311,7 +332,7 @@ app.http('patchCase', {
   methods: ['PATCH'],
   authLevel: 'anonymous',
   route: 'cases/{id}',
-  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+  handler: withRole('CollisionSpike.User', async (req, ctx, claims) => {
     const id = req.params.id;
     const body = (await req.json().catch(() => ({}))) as {
       vrm?: string;
@@ -326,137 +347,136 @@ app.http('patchCase', {
       casePo?: string;
     };
     const actor = actorFromClaims(claims);
-
-    const existing = await loadCaseLite(id);
-    if (!existing) return { status: 404, jsonBody: { error: 'not found' } };
-
-    const sets: string[] = [];
-    const vals: unknown[] = [];
-    const before: Record<string, unknown> = {};
-    const after: Record<string, unknown> = {};
-    const changedEvaFields: Array<{ key: EvaFieldKey; value: string }> = [];
-
-    // --- vrm ---
-    if (body.vrm !== undefined) {
-      const raw = String(body.vrm ?? '').trim();
-      // Lenient by design: normalise via the shared canonical sniff (which strips embedded
-      // postcodes/junk), but if the sniff rejects it, accept the operator's input verbatim
-      // (uppercased, alphanumerics only, ≤16) — deliberate corrections of foreign/trade/
-      // personal plates must land. '' clears the VRM. Never hard-4xx a non-standard mark.
-      const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
-      const newVrm = raw ? extractVrm(raw) || cleaned : '';
-      if (newVrm !== existing.vrm) {
-        sets.push(`vrm = $${sets.length + 1}`);
-        vals.push(newVrm);
-        before.vrm = existing.vrm;
-        after.vrm = newVrm;
-      }
-    }
-
-    // --- editable EVA fields (durable case-page edits) ---
-    let inspectionAddressChanged = false;
-    if (body.evaFields && typeof body.evaFields === 'object') {
-      for (const [k, rawVal] of Object.entries(body.evaFields)) {
-        if (rawVal === undefined || !(k in EVA_COLUMN_BY_KEY)) continue; // ignore unknown keys
-        const key = k as EvaFieldKey;
-        const norm = normaliseEvaEdit(key, String(rawVal ?? ''));
-        if ('error' in norm) return { status: 400, jsonBody: { error: norm.error } };
-        const oldVal = existing.evaFields[key]?.value ?? '';
-        if (norm.value === oldVal) continue; // unchanged
-        sets.push(`${EVA_COLUMN_BY_KEY[key]} = $${sets.length + 1}`);
-        vals.push(norm.value);
-        before[key] = oldVal;
-        after[key] = norm.value;
-        changedEvaFields.push({ key, value: norm.value });
-        if (key === 'inspectionAddress') inspectionAddressChanged = true;
-      }
-    }
-
-    // A staff inspection-address edit must not leave an earlier auto-prefilled
-    // image_based decision code shadowing it: rowToCase/deriveInspectionDecision prefer the
-    // explicit code over the address text, so an image-based-provider case would reload as
-    // 'image_based' even after a physical address is chosen. Clear the explicit code so the
-    // decision re-derives from the new address text (IBA literal -> image_based; a physical
-    // address -> unknown, symmetric with a never-prefilled case). (TKT-129/PR47-A2)
-    if (inspectionAddressChanged) {
-      sets.push('inspection_decision_code = NULL');
-    }
-
-    // --- casePo (ADR-0022 transition seam: stamp the REAL number; '' clears) ---
-    if (body.casePo !== undefined) {
-      const raw = String(body.casePo ?? '').trim();
-      const normalized = raw ? normalizeCasePo(raw) : '';
-      if (normalized && !CASE_PO_SHAPE_RE.test(normalized)) {
-        return {
-          status: 400,
-          jsonBody: {
-            error: `casePo '${raw}' is not Case/PO-shaped (marker? + principal + YY + sequence, e.g. CCPY26050 or A.PCH261269)`,
-          },
+    let attemptedCasePo: string | undefined;
+    let outcome:
+      | { kind: 'response'; response: { status: number; jsonBody: unknown } }
+      | { kind: 'unchanged'; snapshot: VersionedCaseSnapshot }
+      | {
+          kind: 'changed';
+          changedEvaFields: Array<{ key: EvaFieldKey; value: string }>;
+          statusGeneration: number;
         };
-      }
-      const oldPo = (existing.casePo ?? '').toUpperCase();
-      if (normalized !== oldPo) {
-        sets.push(`case_po = $${sets.length + 1}`);
-        vals.push(normalized || null);
-        before.casePo = oldPo || '(none)';
-        after.casePo = normalized || '(cleared)';
-      }
-    }
-
-    // --- case type (ADR-0021 review-time correction) ---
-    if (body.caseType !== undefined) {
-      const rawType = String(body.caseType ?? '').trim();
-      const validName = rawType === '' || caseTypeCodec.toInt(rawType as never) != null;
-      if (!validName) {
-        return {
-          status: 400,
-          jsonBody: {
-            error: `caseType must be one of ${caseTypeCodec.names().map((n) => `'${n}'`).join(', ')} (or '' to clear)`,
-          },
-        };
-      }
-      // 'standard' is stored as NULL (the column default semantics: null = standard), so
-      // clearing and setting-standard are the same write.
-      const newCode =
-        rawType === '' || rawType === 'standard' ? null : caseTypeCodec.toInt(rawType as never)!;
-      const curRows = await query<{ case_type_code: number | null }>(
-        'SELECT case_type_code FROM case_ WHERE id = $1',
-        [id],
-      );
-      const oldCode = curRows[0]?.case_type_code ?? null;
-      if (newCode !== oldCode) {
-        sets.push(`case_type_code = $${sets.length + 1}`);
-        vals.push(newCode);
-        before.caseType = caseTypeCodec.toName(oldCode) ?? 'standard';
-        after.caseType = rawType || 'standard';
-      }
-    }
-
-    // No supplied change → return the current full Case unchanged (idempotent PATCH).
-    if (sets.length === 0) {
-      const cur = await loadCaseFull(id, new Date());
-      return { status: 200, jsonBody: cur };
-    }
-
-    vals.push(id);
     try {
-      await query(
-        `UPDATE case_ SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}`,
-        vals,
-      );
+      outcome = await tx(async (q) => {
+        const snapshot = await loadCaseFullSnapshotUsing(q, id, new Date(), true);
+        if (!snapshot) {
+          return { kind: 'response' as const, response: { status: 404, jsonBody: { error: 'not found' } } };
+        }
+        const expected = ifMatch(req);
+        if (expected && expected !== snapshot.version) {
+          return {
+            kind: 'response' as const,
+            response: { status: 409, jsonBody: { error: 'stale', currentVersion: snapshot.version } },
+          };
+        }
+        const existing = snapshot.value;
+        const sets: string[] = [];
+        const vals: unknown[] = [];
+        const before: Record<string, unknown> = {};
+        const after: Record<string, unknown> = {};
+        const changedEvaFields: Array<{ key: EvaFieldKey; value: string }> = [];
+
+        if (body.vrm !== undefined) {
+          const raw = String(body.vrm ?? '').trim();
+          const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
+          const newVrm = raw ? extractVrm(raw) || cleaned : '';
+          if (newVrm !== existing.vrm) {
+            sets.push(`vrm = $${vals.length + 1}`);
+            vals.push(newVrm);
+            before.vrm = existing.vrm;
+            after.vrm = newVrm;
+          }
+        }
+
+        let inspectionAddressChanged = false;
+        if (body.evaFields && typeof body.evaFields === 'object') {
+          for (const [k, rawVal] of Object.entries(body.evaFields)) {
+            if (rawVal === undefined || !(k in EVA_COLUMN_BY_KEY)) continue;
+            const key = k as EvaFieldKey;
+            const norm = normaliseEvaEdit(key, String(rawVal ?? ''));
+            if ('error' in norm) {
+              return { kind: 'response' as const, response: { status: 400, jsonBody: { error: norm.error } } };
+            }
+            const oldVal = existing.evaFields[key]?.value ?? '';
+            if (norm.value === oldVal) continue;
+            sets.push(`${EVA_COLUMN_BY_KEY[key]} = $${vals.length + 1}`);
+            vals.push(norm.value);
+            before[key] = oldVal;
+            after[key] = norm.value;
+            changedEvaFields.push({ key, value: norm.value });
+            if (key === 'inspectionAddress') inspectionAddressChanged = true;
+          }
+        }
+        if (inspectionAddressChanged) sets.push('inspection_decision_code = NULL');
+
+        if (body.casePo !== undefined) {
+          const raw = String(body.casePo ?? '').trim();
+          const normalized = raw ? normalizeCasePo(raw) : '';
+          if (normalized && !CASE_PO_SHAPE_RE.test(normalized)) {
+            return {
+              kind: 'response' as const,
+              response: { status: 400, jsonBody: { error: `casePo '${raw}' is not Case/PO-shaped` } },
+            };
+          }
+          const oldPo = (existing.casePo ?? '').toUpperCase();
+          if (normalized !== oldPo) {
+            attemptedCasePo = normalized || undefined;
+            sets.push(`case_po = $${vals.length + 1}`);
+            vals.push(normalized || null);
+            before.casePo = oldPo || '(none)';
+            after.casePo = normalized || '(cleared)';
+          }
+        }
+
+        if (body.caseType !== undefined) {
+          const rawType = String(body.caseType ?? '').trim();
+          const validName = rawType === '' || caseTypeCodec.toInt(rawType as never) != null;
+          if (!validName) {
+            return {
+              kind: 'response' as const,
+              response: {
+                status: 400,
+                jsonBody: { error: `caseType must be one of ${caseTypeCodec.names().join(', ')}` },
+              },
+            };
+          }
+          const newCode = rawType === '' || rawType === 'standard'
+            ? null
+            : caseTypeCodec.toInt(rawType as never)!;
+          const oldCode = caseTypeCodec.toInt(existing.caseType as never) ?? null;
+          if (newCode !== oldCode) {
+            sets.push(`case_type_code = $${vals.length + 1}`);
+            vals.push(newCode);
+            before.caseType = existing.caseType ?? 'standard';
+            after.caseType = rawType || 'standard';
+          }
+        }
+
+        if (sets.length === 0) return { kind: 'unchanged' as const, snapshot };
+        vals.push(id);
+        await q(`UPDATE case_ SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}`, vals);
+        await writeAudit({
+          action: AUDIT_ACTION.status_changed,
+          caseId: id,
+          summary: `Case edited: ${Object.keys(after).join(', ')}`,
+          before,
+          after,
+          ...(actor ? { actor } : {}),
+        }, q);
+        const statusGeneration = await requestStatusRecompute(q, id);
+        return { kind: 'changed' as const, changedEvaFields, statusGeneration };
+      });
     } catch (e) {
-      // uq_case_case_po: the stamped number is already held by another case — a REAL
-      // conflict the staff member must see (which case owns it), never a bare 500.
-      if (isUniqueViolation(e) && after.casePo) {
+      if (isUniqueViolation(e) && attemptedCasePo) {
         const holder = await query<{ id: string; vrm: string | null }>(
           'SELECT id, vrm FROM case_ WHERE upper(case_po) = $1 AND id <> $2',
-          [String(after.casePo).toUpperCase(), id],
+          [attemptedCasePo.toUpperCase(), id],
         );
         return {
           status: 409,
           jsonBody: {
             error: 'case_po_in_use',
-            message: `Case/PO ${after.casePo} is already assigned to another case.`,
+            message: `Case/PO ${attemptedCasePo} is already assigned to another case.`,
             conflictCaseId: holder[0]?.id ?? null,
             conflictVrm: holder[0]?.vrm ?? null,
           },
@@ -465,37 +485,131 @@ app.http('patchCase', {
       throw e;
     }
 
-    // One 'staff' (manual edit) provenance row per changed EVA field (best-effort upsert).
-    for (const f of changedEvaFields) await upsertManualProvenance(id, f.key, f.value);
-
-    await writeAudit({
-      action: AUDIT_ACTION.status_changed,
-      caseId: id,
-      summary: `Case edited: ${Object.keys(after).join(', ')}`,
-      before,
-      after,
-      ...(actor ? { actor } : {}),
-    });
-
-    // A VRM or required-EVA-field change can alter identity/readiness → recompute the workflow
-    // status (terminal-locked by the shared guard); writes its own status_changed audit if it moves.
-    await recomputeStatus(id, actor);
-
-    const updated = await loadCaseFull(id, new Date());
-    return { status: 200, jsonBody: updated };
+    if (outcome.kind === 'response') return outcome.response;
+    if (outcome.kind === 'unchanged') {
+      return {
+        status: 200,
+        jsonBody: { ...outcome.snapshot.value, version: outcome.snapshot.version },
+      };
+    }
+    for (const field of outcome.changedEvaFields) {
+      await upsertManualProvenance(id, field.key, field.value);
+    }
+    try {
+      const evaluated = await recomputeStatus(id, actor);
+      if (!evaluated) throw new Error('case was not available for readiness evaluation');
+      await acknowledgeStatusRecompute(query, id, outcome.statusGeneration);
+    } catch (error) {
+      ctx.warn(
+        `[patch-case] readiness recompute remains pending for ${id} ` +
+          `(generation ${outcome.statusGeneration}): ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    const updated = await loadCaseFullSnapshotUsing(query, id, new Date());
+    return updated
+      ? { status: 200, jsonBody: { ...updated.value, version: updated.version } }
+      : { status: 404, jsonBody: { error: 'not found' } };
   }),
 });
 
 /* ============================================================
    2 — POST /api/cases   (manual-intake write path)
    ============================================================ */
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Accept either the established, complete Manual Intake DTO or the strict minimal
+ * assistant create_case proposal. The minimal form is expanded into the same DTO
+ * before any status evaluation or persistence touches evaFields.
+ */
+export function normalizeCreateCaseInput(raw: unknown): CreateCaseInput | undefined {
+  if (!isObjectRecord(raw)) return undefined;
+
+  // A body claiming either full-contract discriminator must satisfy the full contract;
+  // do not reinterpret a malformed Manual Intake body as an assistant proposal.
+  if ('evaFields' in raw || 'status' in raw) {
+    const full = FullCreateCaseParams.safeParse(raw);
+    if (!full.success) return undefined;
+    return {
+      ...full.data,
+      sourceLabel: full.data.sourceLabel?.trim() || 'Manual intake',
+    } as CreateCaseInput;
+  }
+
+  const parsed = CreateCaseParams.safeParse(raw);
+  if (!parsed.success) return undefined;
+  const vrm = canonicalizeVrm(parsed.data.vrm);
+  if (!vrm) return undefined;
+  const claimantName = parsed.data.claimantName?.trim() ?? '';
+  const evaFieldsRecord = {} as Record<EvaFieldKey, EvaField>;
+  for (const desc of EVA_FIELD_ORDER) {
+    const fieldValue = desc.key === 'claimantName' ? claimantName : '';
+    const supplied = fieldValue.length > 0;
+    evaFieldsRecord[desc.key] = {
+      value: fieldValue,
+      provenance: supplied
+        ? { sourceType: 'staff', sourceLabel: 'Confirmed by staff' }
+        : { sourceType: 'manual_upload', sourceLabel: 'Not supplied' },
+      reviewState: supplied ? 'reviewed' : 'needs_review',
+    };
+  }
+  const evaFields = evaFieldsRecord as unknown as EvaFields;
+  const providerCode = parsed.data.providerCode?.trim().toUpperCase();
+  return {
+    evaFields,
+    vrm,
+    ...(providerCode ? { providerCode } : {}),
+    status: 'ingested',
+    sourceLabel: 'Staff-confirmed case creation',
+    writeProvenance: true,
+  };
+}
+
 app.http('createCase', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'cases',
   handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
-    const input = (await req.json()) as CreateCaseInput;
+    const raw = await req.json().catch(() => undefined);
+    let input = normalizeCreateCaseInput(raw);
+    if (!input) return { status: 400, jsonBody: { error: 'invalid case create payload' } };
     const actor = actorFromClaims(claims);
+
+    // Resolve a supplied principal before readiness evaluation or Case/PO minting.
+    // A syntactically valid typo is not a provider and must never open a numbering series.
+    const pcode = (input.providerCode ?? '').trim().toUpperCase();
+    let providerRow: { id: string; display_name: string } | undefined;
+    if (pcode) {
+      const providers = await query<{ id: string; display_name: string }>(
+        `SELECT id, display_name
+           FROM work_provider
+          WHERE upper(principal_code) = $1
+          LIMIT 1`,
+        [pcode],
+      );
+      providerRow = providers[0];
+      if (!providerRow) {
+        return { status: 400, jsonBody: { error: 'unknown provider principal code' } };
+      }
+      if (!input.evaFields.workProvider.value.trim()) {
+        input = {
+          ...input,
+          provider: input.provider?.trim() || providerRow.display_name,
+          providerCode: pcode,
+          evaFields: {
+            ...input.evaFields,
+            workProvider: {
+              value: providerRow.display_name,
+              provenance: { sourceType: 'corpus', sourceLabel: 'Matched provider principal' },
+              reviewState: 'reviewed',
+            },
+          },
+        };
+      }
+    }
 
     // Status state machine — compute the persisted status from the reviewed fields
     // (no evidence yet at manual intake), terminal-locked by the guard itself.
@@ -529,21 +643,12 @@ app.http('createCase', {
       cols.push(col);
       vals.push(value);
     };
-    // Resolve the work_provider FK from the supplied principal code so merge-scoping and the
-    // ADR-0010 cross-provider guard work for manual cases (sweep #24); leave null if unmatched.
-    const pcode = (input.providerCode ?? '').trim();
-    if (pcode) {
-      const wp = await query<Row>('SELECT id FROM work_provider WHERE principal_code = $1 LIMIT 1', [pcode]);
-      if (wp[0]?.id) add('work_provider_id', wp[0].id);
-    }
+    if (providerRow) add('work_provider_id', providerRow.id);
     // Normalise explicit references to canonical UPPER (+ trim). If the client omits
     // casePo but supplies a valid principal, the API allocates under the same
     // per-(principal,year) advisory lock used by automated intake.
     const suppliedCasePo = (input.casePo ?? '').trim().toUpperCase();
     const principalForAutoMint = !suppliedCasePo ? pcode.toUpperCase() : '';
-    if (principalForAutoMint && !/^[A-Z][A-Z0-9]{0,7}$/.test(principalForAutoMint)) {
-      return { status: 400, jsonBody: { error: 'invalid principal code' } };
-    }
     if (input.onHold) add('on_hold', true);
     if (input.insuredName) add('ov_insured_name', input.insuredName);
     if (input.providerReference) add('ov_claim_number', input.providerReference);
@@ -732,28 +837,42 @@ app.http('setOnHold', {
   handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
     const id = req.params.id;
     const body = (await req.json()) as { onHold: boolean };
-    // Optimistic concurrency (TKT-111): a confirmed assistant write carries If-Match; reject a
-    // stale precondition with 409. No If-Match (the normal SPA) → skip the check (back-compat).
-    if (ifMatch(req) != null) {
-      const cur = await query<Row>('SELECT updated_at FROM case_ WHERE id = $1', [id]);
-      if (!cur[0]) return { status: 404, jsonBody: { error: 'not found' } };
-      if (staleVersion(req, cur[0].updated_at)) {
-        return { status: 409, jsonBody: { error: 'stale', currentVersion: versionToken(cur[0].updated_at) } };
-      }
+    if (typeof body.onHold !== 'boolean') {
+      return { status: 400, jsonBody: { error: 'onHold must be a boolean' } };
     }
-    const updated = await query<Row>(
-      'UPDATE case_ SET on_hold = $2, updated_at = now() WHERE id = $1 RETURNING updated_at',
-      [id, body.onHold],
-    );
-    if (!updated[0]) return { status: 404, jsonBody: { error: 'not found' } };
-    await writeAudit({
-      action: AUDIT_ACTION.status_changed,
-      caseId: id,
-      summary: body.onHold ? 'Case put on hold' : 'Case taken off hold',
-      after: { onHold: body.onHold },
-      ...(actorFromClaims(claims) ? { actor: actorFromClaims(claims) } : {}),
+    const actor = actorFromClaims(claims);
+    const outcome = await tx(async (q) => {
+      const current = await q<Row>(
+        'SELECT updated_at FROM case_ WHERE id = $1 FOR UPDATE',
+        [id],
+      );
+      if (!current[0]) return { kind: 'missing' as const };
+      const currentVersion = versionToken(current[0].updated_at);
+      const expected = ifMatch(req);
+      if (expected != null && expected !== '' && expected !== currentVersion) {
+        return { kind: 'stale' as const, currentVersion };
+      }
+      const updated = await q<Row>(
+        'UPDATE case_ SET on_hold = $2, updated_at = now() WHERE id = $1 RETURNING updated_at',
+        [id, body.onHold],
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.status_changed,
+        caseId: id,
+        summary: body.onHold ? 'Case put on hold' : 'Case taken off hold',
+        after: { onHold: body.onHold },
+        ...(actor ? { actor } : {}),
+      }, q);
+      return { kind: 'updated' as const, version: versionToken(updated[0]?.updated_at) };
     });
-    return { status: 204, headers: { ETag: versionToken(updated[0].updated_at) } };
+    if (outcome.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
+    if (outcome.kind === 'stale') {
+      return { status: 409, jsonBody: { error: 'stale', currentVersion: outcome.currentVersion } };
+    }
+    return {
+      status: 204,
+      headers: { ETag: `"${outcome.version}"`, 'Access-Control-Expose-Headers': 'ETag' },
+    };
   }),
 });
 
@@ -799,9 +918,6 @@ app.http('logChase', {
     }
     const note = typeof body.note === 'string' ? body.note.trim() : '';
 
-    const existing = await loadCaseLite(id);
-    if (!existing) return { status: 404, jsonBody: { error: 'not found' } };
-
     const actor = actorFromClaims(claims);
     const channelLabel = channel === 'whatsapp' ? 'WhatsApp' : 'email';
     // chaser.name = the queue summary (varchar(400)); mirrors the SPA's "Chased via …"
@@ -809,60 +925,86 @@ app.http('logChase', {
     const summary = `Chased via ${channelLabel} — ${templateLabel}.`.slice(0, 400);
     // The chase target: the work provider (the party chased for missing items) — the
     // read's default targetType. target_name = the provider display name (varchar(200)).
-    const targetName = existing.provider.slice(0, 200);
-
-    const rows = await query<Row>(
-      `INSERT INTO chaser
-         (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at)
-       VALUES ($1, $2, $3, $4, $5, $6, now())
-       RETURNING *`,
-      [
-        summary,
-        id,
-        100000002, // choice_chaser_target_type: work_provider
-        targetName,
-        channel === 'whatsapp' ? 100000001 : 100000000, // choice_chaser_channel
-        templateLabel,
-      ],
-    );
-    const created = rows[0];
-    if (!created) return { status: 500, jsonBody: { error: 'chaser insert returned no row' } };
-
-    // Optional free-text note -> a durable case note (best-effort, same pattern as
-    // createCase's inspection-decision note; a note failure must not sink the chase log).
-    if (note) {
-      try {
-        await query(
+    const outcome = await tx(async (q) => {
+      const locked = await q<Row>(
+        `${CASE_SELECT} WHERE c.id = $1 FOR UPDATE OF c`,
+        [id],
+      );
+      if (!locked[0]) return { kind: 'missing' as const };
+      const existing = rowToCase(locked[0]);
+      if (isRetiredMerged(existing)) return { kind: 'retired' as const };
+      const currentVersion = versionToken(locked[0].updated_at);
+      const expected = ifMatch(req);
+      if (expected != null && expected !== '' && expected !== currentVersion) {
+        return { kind: 'stale' as const, currentVersion };
+      }
+      const rows = await q<Row>(
+        `INSERT INTO chaser
+           (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at)
+         VALUES ($1, $2, $3, $4, $5, $6, now())
+         RETURNING *`,
+        [
+          summary,
+          id,
+          100000002,
+          existing.provider.slice(0, 200),
+          channel === 'whatsapp' ? 100000001 : 100000000,
+          templateLabel,
+        ],
+      );
+      const created = rows[0];
+      if (!created) throw new Error('chaser insert returned no row');
+      if (note) {
+        await q(
           'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
           ['Chase note', id, actor ?? 'Staff', note],
         );
-      } catch {
-        /* best-effort */
       }
-    }
-
-    // chaser_sent (100000023) is the controlled chaser-family audit action (one of the
-    // original seeded codes); the summary keeps the wording honest — LOGGED, not sent.
-    await writeAudit({
-      action: AUDIT_ACTION.chaser_sent,
-      caseId: id,
-      summary: `Chase logged (${channel} · ${templateLabel})`,
-      after: {
-        chaserId: created.id,
-        channel,
-        templateLabel,
-        ...(note ? { note } : {}),
-      },
-      ...(actor ? { actor } : {}),
+      const updated = await q<Row>(
+        'UPDATE case_ SET updated_at = now() WHERE id = $1 RETURNING updated_at',
+        [id],
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.chaser_sent,
+        caseId: id,
+        summary: `Chase logged (${channel} · ${templateLabel})`,
+        after: { chaserId: created.id, channel, templateLabel, ...(note ? { note } : {}) },
+        ...(actor ? { actor } : {}),
+      }, q);
+      return {
+        kind: 'created' as const,
+        value: rowToChaser(created),
+        version: versionToken(updated[0]?.updated_at),
+      };
     });
-
-    return { status: 201, jsonBody: rowToChaser(created) };
+    if (outcome.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
+    if (outcome.kind === 'retired') return { status: 409, jsonBody: { error: 'case has been merged' } };
+    if (outcome.kind === 'stale') {
+      return { status: 409, jsonBody: { error: 'stale', currentVersion: outcome.currentVersion } };
+    }
+    return {
+      status: 201,
+      jsonBody: outcome.value,
+      headers: { ETag: `"${outcome.version}"`, 'Access-Control-Expose-Headers': 'ETag' },
+    };
   }),
 });
 
 /* ============================================================
    6 — GET /api/cases/{id}/merge-candidates
    ============================================================ */
+export function mergeProvidersCompatible(
+  leftProviderCode: string | undefined,
+  rightProviderCode: string | undefined,
+): boolean {
+  const left = (leftProviderCode ?? '').trim().toUpperCase();
+  const right = (rightProviderCode ?? '').trim().toUpperCase();
+  // Match the merge transaction's ADR-0010 guard exactly: only two known,
+  // different providers are incompatible. A providerless image-led case must
+  // remain reachable so the merge can preserve the resolved provider from its twin.
+  return !left || !right || left === right;
+}
+
 app.http('mergeCandidates', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -879,11 +1021,301 @@ app.http('mergeCandidates', {
           cc.id !== id &&
           !TWIN_TERMINAL.has(cc.status) &&
           cc.status !== 'linked_to_instruction' &&
-          cc.providerCode === self.providerCode,
+          mergeProvidersCompatible(cc.providerCode, self.providerCode),
       );
     return { status: 200, jsonBody: candidates };
   }),
 });
+
+const MERGE_SHA256_RE = /^[0-9a-f]{64}$/i;
+const MERGE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+interface MergeEvidenceLockRow extends Record<string, unknown> {
+  id: string;
+  case_id: string;
+  sha256: string | null;
+  created_at: Date | string;
+  archive_mirror_claim_token: string | null;
+  archive_mirror_claim_expires_at: Date | string | null;
+}
+
+/**
+ * Move the source evidence that is not already present on the target by byte hash.
+ * For a target collision, the target row remains the survivor: missing byte/source
+ * provenance and missing review metadata are absorbed onto it, while the redundant
+ * source row stays on the soon-to-be-retired case (the staff DB role cannot DELETE).
+ */
+async function mergeEvidenceRows(
+  q: TxQuery,
+  sourceCaseId: string,
+  targetCaseId: string,
+): Promise<{ movedEvidence: number; collidingEvidence: number; archiveBusy?: boolean }> {
+  const locked = await q<MergeEvidenceLockRow>(
+    `SELECT id, case_id, sha256, created_at,
+            archive_mirror_claim_token, archive_mirror_claim_expires_at
+       FROM evidence
+      WHERE case_id = ANY($1::uuid[])
+      ORDER BY case_id, created_at, id
+      FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]],
+  );
+  const now = Date.now();
+  if (locked.some((row) => {
+    if (!row.archive_mirror_claim_token || !row.archive_mirror_claim_expires_at) return false;
+    const expires = new Date(row.archive_mirror_claim_expires_at).getTime();
+    return Number.isFinite(expires) && expires > now;
+  })) {
+    return { movedEvidence: 0, collidingEvidence: 0, archiveBusy: true };
+  }
+  const canonicalSha = (value: string | null): string | null => {
+    const trimmed = (value ?? '').trim();
+    return MERGE_SHA256_RE.test(trimmed) ? trimmed.toLowerCase() : null;
+  };
+
+  // The oldest target row is the deterministic survivor if historic target-side
+  // duplicates exist. The source is never allowed to replace a target-owned row.
+  const survivorBySha = new Map<string, string>();
+  for (const row of locked) {
+    if (row.case_id.toLowerCase() !== targetCaseId) continue;
+    const sha = canonicalSha(row.sha256);
+    if (sha && !survivorBySha.has(sha)) survivorBySha.set(sha, row.id);
+  }
+
+  const collisionSourceIds: string[] = [];
+  for (const row of locked) {
+    if (row.case_id.toLowerCase() !== sourceCaseId) continue;
+    const sha = canonicalSha(row.sha256);
+    if (!sha) continue;
+    const survivorId = survivorBySha.get(sha);
+    if (!survivorId) {
+      // No target copy: the oldest source row becomes the one copy that moves.
+      // Later source twins with this hash are coalesced into it and stay retired.
+      survivorBySha.set(sha, row.id);
+      continue;
+    }
+    collisionSourceIds.push(row.id);
+
+    // Fill only information the target survivor does not already own. Explicit
+    // target-side staff/provider/cleanup decisions always win over source metadata.
+    const survivors = await q<ArchiveMirrorCandidate>(
+      `UPDATE evidence AS survivor
+          SET storage_path = COALESCE(survivor.storage_path, redundant.storage_path),
+              source_message_id = COALESCE(survivor.source_message_id, redundant.source_message_id),
+              box_file_id = COALESCE(survivor.box_file_id, redundant.box_file_id),
+              box_file_url = COALESCE(survivor.box_file_url, redundant.box_file_url),
+              content_type = COALESCE(NULLIF(btrim(survivor.content_type), ''), redundant.content_type),
+              size_bytes = COALESCE(survivor.size_bytes, redundant.size_bytes),
+              source_label = COALESCE(NULLIF(btrim(survivor.source_label), ''), redundant.source_label),
+              sequence_index = COALESCE(survivor.sequence_index, redundant.sequence_index),
+              image_role_code = CASE
+                WHEN survivor.image_role_source IS NULL
+                 AND survivor.image_role_code = 100000003
+                 AND redundant.image_role_code <> 100000003
+                  THEN redundant.image_role_code
+                ELSE survivor.image_role_code
+              END,
+              image_role_source = CASE
+                WHEN survivor.image_role_source IS NULL
+                 AND survivor.image_role_code = 100000003
+                 AND redundant.image_role_code <> 100000003
+                  THEN redundant.image_role_source
+                ELSE survivor.image_role_source
+              END,
+              registration_visible = CASE
+                WHEN survivor.registration_visible_source IS NULL
+                 AND survivor.registration_visible IS NULL
+                 AND redundant.registration_visible IS NOT NULL
+                  THEN redundant.registration_visible
+                ELSE survivor.registration_visible
+              END,
+              registration_visible_source = CASE
+                WHEN survivor.registration_visible_source IS NULL
+                 AND survivor.registration_visible IS NULL
+                 AND redundant.registration_visible IS NOT NULL
+                  THEN redundant.registration_visible_source
+                ELSE survivor.registration_visible_source
+              END,
+              accepted_for_eva = CASE
+                WHEN survivor.accepted_for_eva_source IS NULL
+                 AND redundant.accepted_for_eva_source IS NOT NULL
+                  THEN redundant.accepted_for_eva
+                ELSE survivor.accepted_for_eva
+              END,
+              accepted_for_eva_source = COALESCE(
+                survivor.accepted_for_eva_source,
+                redundant.accepted_for_eva_source
+              ),
+              excluded = CASE
+                WHEN survivor.exclusion_decision_source IS NULL
+                 AND redundant.exclusion_decision_source IS NOT NULL
+                 AND (
+                   survivor.archive_mirror_claim_token IS NULL
+                   OR survivor.archive_mirror_claim_expires_at <= now()
+                 )
+                  THEN redundant.excluded
+                ELSE survivor.excluded
+              END,
+              exclusion_reason = CASE
+                WHEN survivor.exclusion_decision_source IS NULL
+                 AND redundant.exclusion_decision_source IS NOT NULL
+                 AND (
+                   survivor.archive_mirror_claim_token IS NULL
+                   OR survivor.archive_mirror_claim_expires_at <= now()
+                 )
+                  THEN redundant.exclusion_reason
+                ELSE survivor.exclusion_reason
+              END,
+              exclusion_decision_source = COALESCE(
+                survivor.exclusion_decision_source,
+                CASE
+                  WHEN survivor.archive_mirror_claim_token IS NULL
+                    OR survivor.archive_mirror_claim_expires_at <= now()
+                    THEN redundant.exclusion_decision_source
+                  ELSE NULL
+                END
+              ),
+              person_reflection = survivor.person_reflection OR redundant.person_reflection,
+              reflection_dismissed = survivor.reflection_dismissed OR redundant.reflection_dismissed,
+              updated_at = now()
+         FROM evidence AS redundant
+        WHERE survivor.id = $1
+          AND redundant.id = $2
+      RETURNING survivor.id,
+                survivor.case_id,
+                survivor.excluded,
+                survivor.storage_path,
+                survivor.box_file_id`,
+      [survivorId, row.id],
+    );
+    if (survivors[0]) {
+      // A collision may have supplied the survivor's only blob path. Queue that
+      // canonical row, then retire any redundant row's pending generation. Both
+      // evidence rows are already locked and the case rows were locked first.
+      await requestArchiveMirrorIfEligible(q, survivors[0]);
+    }
+    await q(
+      `UPDATE archive_mirror_outbox
+          SET completed_generation = requested_generation,
+              completed_at = now(),
+              updated_at = now()
+        WHERE evidence_id = $1
+          AND completed_generation < requested_generation`,
+      [row.id],
+    );
+  }
+
+  const moved = await q<Row>(
+    `UPDATE evidence
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1
+        AND NOT (id = ANY($3::uuid[]))
+      RETURNING id`,
+    [sourceCaseId, targetCaseId, collisionSourceIds],
+  );
+  if (moved.length > 0) {
+    await q(
+      `UPDATE archive_mirror_outbox
+          SET case_id = $2, updated_at = now()
+        WHERE evidence_id = ANY($1::uuid[])`,
+      [moved.map((row) => row.id), targetCaseId],
+    );
+  }
+  return { movedEvidence: moved.length, collidingEvidence: collisionSourceIds.length };
+}
+
+/**
+ * A File Request is bound to one Box folder, so an already-created or possibly-created
+ * source link cannot be silently carried to a different survivor folder. A never-attempted
+ * durable intent is safe to transfer; any attempted/ambiguous source blocks the merge.
+ */
+async function reconcileMergeFileRequestIntent(
+  q: TxQuery,
+  sourceCaseId: string,
+  targetCaseId: string,
+): Promise<string | undefined> {
+  const cases = await q<{
+    id: string;
+    box_folder_id: string | null;
+    box_file_request_id: string | null;
+    box_file_request_url: string | null;
+  }>(
+    `SELECT id, box_folder_id, box_file_request_id, box_file_request_url
+       FROM case_ WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]],
+  );
+  const source = cases.find((row) => row.id.toLowerCase() === sourceCaseId);
+  const target = cases.find((row) => row.id.toLowerCase() === targetCaseId);
+  if (!source || !target) return 'Source or target case not found.';
+  if ((source.box_file_request_id ?? '').trim() || (source.box_file_request_url ?? '').trim()) {
+    return 'The source case already has an image-upload link. Move or close that link before merging.';
+  }
+  const intents = await q<{
+    case_id: string;
+    requested_generation: string | number;
+    completed_generation: string | number;
+    attempt_count: number;
+    claim_token: string | null;
+  }>(
+    `SELECT case_id, requested_generation, completed_generation, attempt_count, claim_token
+       FROM box_file_request_outbox
+      WHERE case_id = ANY($1::uuid[])
+      ORDER BY case_id
+      FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]],
+  );
+  const sourceIntent = intents.find((row) => row.case_id.toLowerCase() === sourceCaseId);
+  if (!sourceIntent) return undefined;
+  const sourcePending = Number(sourceIntent.requested_generation) > Number(sourceIntent.completed_generation);
+  if (!sourcePending) {
+    return 'The source case has completed image-upload-link work that cannot be transferred safely.';
+  }
+  if (sourceIntent.attempt_count > 0 || sourceIntent.claim_token) {
+    return 'Image-upload link creation may already have started for the source case. Try the merge after it finishes.';
+  }
+  const targetIntent = intents.find((row) => row.case_id.toLowerCase() === targetCaseId);
+  const targetHasPartialLink =
+    !!(target.box_file_request_id ?? '').trim() !== !!(target.box_file_request_url ?? '').trim();
+  if (targetHasPartialLink) {
+    return 'The survivor has an incomplete image-upload-link record. Resolve it before merging.';
+  }
+  const targetHasLink =
+    !!(target.box_file_request_id ?? '').trim() && !!(target.box_file_request_url ?? '').trim();
+  if (
+    targetIntent &&
+    Number(targetIntent.completed_generation) >= Number(targetIntent.requested_generation) &&
+    !targetHasLink
+  ) {
+    return 'The survivor has completed image-upload-link work with no saved link. Resolve it before merging.';
+  }
+  if (targetIntent || targetHasLink) {
+    // The survivor already owns equivalent work. Cancel the never-attempted source
+    // generation without deleting history.
+    await q(
+      `UPDATE box_file_request_outbox
+          SET completed_generation = requested_generation,
+              completed_at = now(),
+              last_error = 'superseded by merge target',
+              updated_at = now()
+        WHERE case_id = $1`,
+      [sourceCaseId],
+    );
+    return undefined;
+  }
+  const targetFolder = (target.box_folder_id ?? '').trim();
+  if (!targetFolder) {
+    return 'The survivor has no archive folder for the pending image-upload link.';
+  }
+  await q(
+    `UPDATE box_file_request_outbox
+        SET case_id = $2,
+            folder_id = $3,
+            next_attempt_at = now(),
+            updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId, targetFolder],
+  );
+  return undefined;
+}
 
 /* ============================================================
    7 — POST /api/cases/{tgt}/merge   ({tgt} = target/survivor)
@@ -892,112 +1324,209 @@ app.http('mergeCases', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'cases/{tgt}/merge',
-  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
-    const targetCaseId = req.params.tgt;
-    const body = (await req.json()) as { sourceCaseId: string };
-    const sourceCaseId = body.sourceCaseId;
+  handler: withRole('CollisionSpike.User', async (req, ctx, claims) => {
+    const targetCaseId = (req.params.tgt ?? '').trim().toLowerCase();
+    const body = (await req.json()) as { sourceCaseId?: unknown };
+    const sourceCaseId = typeof body.sourceCaseId === 'string'
+      ? body.sourceCaseId.trim().toLowerCase()
+      : '';
     const actor = actorFromClaims(claims);
 
-    if (!sourceCaseId || sourceCaseId === targetCaseId) {
+    if (!MERGE_UUID_RE.test(sourceCaseId) || !MERGE_UUID_RE.test(targetCaseId)) {
+      return { status: 400, jsonBody: { error: 'Case identifiers are invalid.' } };
+    }
+    if (sourceCaseId === targetCaseId) {
       return { status: 400, jsonBody: { error: 'Cannot merge a case into itself.' } };
     }
-    const [src, tgt] = await Promise.all([loadCaseLite(sourceCaseId), loadCaseLite(targetCaseId)]);
-    if (!src || !tgt) return { status: 404, jsonBody: { error: 'Source or target case not found.' } };
-    // ADR-0010 INVIOLABLE rule 2: NEVER link across different work providers.
-    if (src.providerCode && tgt.providerCode && src.providerCode !== tgt.providerCode) {
-      return { status: 400, jsonBody: { error: 'Refusing to merge across different work providers.' } };
-    }
-    if (TWIN_TERMINAL.has(tgt.status)) {
-      return { status: 400, jsonBody: { error: 'Cannot merge into a finalised (terminal) case.' } };
-    }
-
-    // 1. Reparent the source's evidence onto the target.
-    const moved = await query<Row>(
-      'UPDATE evidence SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id',
-      [sourceCaseId, targetCaseId],
-    );
-    const movedEvidence = moved.length;
-
-    // 1b. Reparent the source's inbound emails too (TKT-092 — the retired case must not
-    // keep the email trail; the survivor owns the whole thread).
-    const movedEmails = await query<Row>(
-      'UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id',
-      [sourceCaseId, targetCaseId],
-    );
-
-    // 1c. Provider preference (TKT-052): the merged survivor must end with whichever side
-    // carries a resolved provider — an image-only target merged with an instructions
-    // source used to LOSE the provider the source knew. Cross-provider was already
-    // refused above (ADR-0010 rule 2); decideMergeProvider re-asserts it defensively.
-    const fkRows = await query<Row>(
-      'SELECT id, work_provider_id FROM case_ WHERE id = ANY($1::uuid[])',
-      [[sourceCaseId, targetCaseId]],
-    );
-    const srcFk = (fkRows.find((r) => r.id === sourceCaseId)?.work_provider_id as string | null) ?? null;
-    const tgtFk = (fkRows.find((r) => r.id === targetCaseId)?.work_provider_id as string | null) ?? null;
-    const providerDecision = decideMergeProvider(srcFk, tgtFk);
-    let providerFilled = false;
-    if (!providerDecision.crossProvider && providerDecision.filledFrom === 'source' && providerDecision.providerId) {
-      await query(
-        `UPDATE case_ SET work_provider_id = $2, updated_at = now()
-          WHERE id = $1 AND work_provider_id IS NULL`,
-        [targetCaseId, providerDecision.providerId],
+    const merged = await tx(async (q) => {
+      // Merge and guarded backfill share these namespaced advisory locks. Both callers
+      // acquire multiple case ids in the same lexical order before taking row locks,
+      // so reverse concurrent merges cannot deadlock.
+      await acquireCaseMutationLocks(q, [sourceCaseId, targetCaseId]);
+      const orderedIds = orderedCaseMutationIds([sourceCaseId, targetCaseId]);
+      const lockedCases = await q<{ id: string }>(
+        'SELECT id FROM case_ WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE',
+        [orderedIds],
       );
-      // Fill the human-readable EVA provider column too (fill-if-empty) + provenance.
-      const wp = await query<Row>('SELECT display_name FROM work_provider WHERE id = $1', [
-        providerDecision.providerId,
-      ]);
-      const displayName = ((wp[0]?.display_name as string | null) ?? '').trim();
-      if (displayName) {
-        await query(
-          `UPDATE case_ SET eva_work_provider = $2, updated_at = now()
-            WHERE id = $1 AND (eva_work_provider IS NULL OR eva_work_provider = '')`,
-          [targetCaseId, displayName.slice(0, 200)],
-        );
+      if (lockedCases.length !== 2) {
+        return { kind: 'error' as const, status: 404, error: 'Source or target case not found.' };
       }
-      await query(
-        `INSERT INTO field_level_provenance
-           (name, case_id, field_name, value, source_type_code, source_label)
-         VALUES ($1, $2, 'workProviderId', $3, $4, $5)`,
-        [
-          `${targetCaseId}:workProviderId`,
-          targetCaseId,
-          providerDecision.providerId,
-          sourceTypeCodec.toInt('corpus') ?? 100000003,
-          'Carried over from the merged case',
-        ],
-      ).catch(() => { /* provenance is supplementary */ });
-      providerFilled = true;
-    }
 
-    // 2. Retire the source: linked_to_instruction, record the survivor, clear hold.
-    await query(
-      `UPDATE case_
-         SET status_code = $2, duplicate_keys = $3, on_hold = false, updated_at = now()
-       WHERE id = $1`,
-      [sourceCaseId, statusToInt('linked_to_instruction'), JSON.stringify({ mergedInto: targetCaseId })],
-    );
+      // Re-read the decision inputs only after both rows are locked. A competing merge
+      // may have retired one side while this request waited on the advisory locks.
+      const src = await loadCaseLite(sourceCaseId, q);
+      const tgt = await loadCaseLite(targetCaseId, q);
+      if (!src || !tgt) {
+        return { kind: 'error' as const, status: 404, error: 'Source or target case not found.' };
+      }
+      if (isRetiredMerged(src) || isRetiredMerged(tgt)) {
+        return {
+          kind: 'error' as const,
+          status: 409,
+          error: 'One of these cases has already been merged. Refresh and try again.',
+        };
+      }
+      // ADR-0010 INVIOLABLE rule 2: NEVER link across different work providers.
+      if (src.providerCode && tgt.providerCode && src.providerCode !== tgt.providerCode) {
+        return {
+          kind: 'error' as const,
+          status: 400,
+          error: 'Refusing to merge across different work providers.',
+        };
+      }
+      if (TWIN_TERMINAL.has(tgt.status)) {
+        return {
+          kind: 'error' as const,
+          status: 400,
+          error: 'Cannot merge into a finalised case.',
+        };
+      }
 
-    await writeAudit({
-      action: AUDIT_ACTION.case_attached,
-      caseId: targetCaseId,
-      summary:
-        `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence, ${movedEmails.length} emails` +
-        `${providerFilled ? ', provider carried over from the merged case' : ''})`,
-      after: {
+      const fileRequestConflict = await reconcileMergeFileRequestIntent(
+        q,
         sourceCaseId,
         targetCaseId,
+      );
+      if (fileRequestConflict) {
+        return { kind: 'error' as const, status: 409, error: fileRequestConflict };
+      }
+
+      // Lock every source inbound row before touching evidence. Guarded backfill takes
+      // the same case advisory lock before its one inbound row lock, so either it commits
+      // first and this UPDATE moves the new evidence, or this merge commits first and the
+      // queued job follows the verified mergedInto lineage to the survivor.
+      await q(
+        'SELECT id FROM inbound_email WHERE case_id = $1 ORDER BY id FOR UPDATE',
+        [sourceCaseId],
+      );
+
+      const { movedEvidence, collidingEvidence, archiveBusy } = await mergeEvidenceRows(
+        q,
+        sourceCaseId,
+        targetCaseId,
+      );
+      if (archiveBusy) {
+        return {
+          kind: 'error' as const,
+          status: 409,
+          error: 'Archive work is still finishing for one of these cases. Try the merge again shortly.',
+        };
+      }
+      const movedEmails = await q<Row>(
+        'UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id',
+        [sourceCaseId, targetCaseId],
+      );
+
+      // Provider preference (TKT-052): preserve the source's resolved provider when
+      // the image-led survivor is still empty. Every associated write stays in this tx.
+      const fkRows = await q<Row>(
+        'SELECT id, work_provider_id FROM case_ WHERE id = ANY($1::uuid[])',
+        [[sourceCaseId, targetCaseId]],
+      );
+      const srcFk = (fkRows.find((r) => r.id === sourceCaseId)?.work_provider_id as string | null) ?? null;
+      const tgtFk = (fkRows.find((r) => r.id === targetCaseId)?.work_provider_id as string | null) ?? null;
+      const providerDecision = decideMergeProvider(srcFk, tgtFk);
+      let providerFilled = false;
+      if (!providerDecision.crossProvider && providerDecision.filledFrom === 'source' && providerDecision.providerId) {
+        await q(
+          `UPDATE case_ SET work_provider_id = $2, updated_at = now()
+            WHERE id = $1 AND work_provider_id IS NULL`,
+          [targetCaseId, providerDecision.providerId],
+        );
+        const wp = await q<Row>('SELECT display_name FROM work_provider WHERE id = $1', [
+          providerDecision.providerId,
+        ]);
+        const displayName = ((wp[0]?.display_name as string | null) ?? '').trim();
+        if (displayName) {
+          await q(
+            `UPDATE case_ SET eva_work_provider = $2, updated_at = now()
+              WHERE id = $1 AND (eva_work_provider IS NULL OR eva_work_provider = '')`,
+            [targetCaseId, displayName.slice(0, 200)],
+          );
+        }
+        // Provenance remains supplementary. A savepoint is required here: catching a
+        // failed Postgres statement without rolling back to one would leave the whole
+        // merge transaction aborted and make the later COMMIT fail.
+        await q('SAVEPOINT merge_provider_provenance');
+        try {
+          await q(
+            `INSERT INTO field_level_provenance
+               (name, case_id, field_name, value, source_type_code, source_label)
+             VALUES ($1, $2, 'workProviderId', $3, $4, $5)`,
+            [
+              `${targetCaseId}:workProviderId`,
+              targetCaseId,
+              providerDecision.providerId,
+              sourceTypeCodec.toInt('corpus') ?? 100000003,
+              'Carried over from the merged case',
+            ],
+          );
+          await q('RELEASE SAVEPOINT merge_provider_provenance');
+        } catch {
+          await q('ROLLBACK TO SAVEPOINT merge_provider_provenance');
+          await q('RELEASE SAVEPOINT merge_provider_provenance');
+        }
+        providerFilled = true;
+      }
+
+      await q(
+        `UPDATE case_
+           SET status_code = $2, duplicate_keys = $3, on_hold = false, updated_at = now()
+         WHERE id = $1`,
+        [sourceCaseId, statusToInt('linked_to_instruction'), JSON.stringify({ mergedInto: targetCaseId })],
+      );
+
+      // The merge is the primary mutation. Make readiness recomputation durable in
+      // the same transaction so an interrupted post-commit fast path cannot strand
+      // the survivor on its pre-merge status.
+      const statusGeneration = await requestStatusRecompute(q, targetCaseId);
+
+      await writeAudit({
+        action: AUDIT_ACTION.case_attached,
+        caseId: targetCaseId,
+        summary:
+          `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence, ${movedEmails.length} emails` +
+          `${providerFilled ? ', provider carried over from the merged case' : ''})`,
+        after: {
+          sourceCaseId,
+          targetCaseId,
+          movedEvidence,
+          collidingEvidence,
+          movedEmails: movedEmails.length,
+          providerFilled,
+        },
+        ...(actor ? { actor } : {}),
+      }, q);
+
+      return {
+        kind: 'merged' as const,
         movedEvidence,
+        collidingEvidence,
         movedEmails: movedEmails.length,
         providerFilled,
-      },
-      ...(actor ? { actor } : {}),
+        statusGeneration,
+      };
     });
 
-    // 3. Recompute the target's readiness now its evidence set changed.
-    await recomputeStatus(targetCaseId, actor);
+    if (merged.kind === 'error') {
+      return { status: merged.status, jsonBody: { error: merged.error } };
+    }
 
-    const result: MergeCasesResult = { targetCaseId, movedEvidence };
+    // Fast path only. The generation requested in the merge transaction stays
+    // pending unless both evaluation and its monotonic acknowledgement succeed;
+    // failure here must not misreport or retry the committed primary mutation.
+    try {
+      const evaluated = await recomputeStatus(targetCaseId, actor);
+      if (!evaluated) throw new Error('target case was not available for readiness evaluation');
+      await acknowledgeStatusRecompute(query, targetCaseId, merged.statusGeneration);
+    } catch (e) {
+      ctx.warn(
+        `[merge] readiness recompute remains pending for ${targetCaseId} ` +
+          `(generation ${merged.statusGeneration}): ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+
+    const result: MergeCasesResult = { targetCaseId, movedEvidence: merged.movedEvidence };
     return { status: 200, jsonBody: result };
   }),
 });
@@ -1012,13 +1541,10 @@ app.http('imagesForCase', {
   handler: withRole('CollisionSpike.User', async (req) => {
     const id = req.params.id;
     const rows = await query<Row>(
-      // Person-reflection photos are auto-excluded from EVA (domain rule: a visible reflection
-      // makes the photo unusable — acceptedForEva stays false), but they MUST still surface in
-      // the case-detail REVIEW list so the TKT-123 dismissible warning + Exclude control are
-      // reachable and staff can override a false-positive detection. They carry acceptedForEva
-      // = false, so EVA export / photo-ordering / readiness (all keyed on acceptedForEva) are
-      // unaffected. Non-reflection excluded rows stay hidden as before. (PR48-B2)
-      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded <> true OR person_reflection = true) ORDER BY sequence_index NULLS LAST, created_at",
+      // Automatic exclusions stay visible in the REVIEW list so staff can recover a false
+      // positive. Staff/provider/cleanup/legacy exclusions stay hidden. Every returned excluded
+      // row remains acceptedForEva=false and therefore cannot affect readiness/order/export.
+      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded = false OR exclusion_decision_source = 'classifier' OR person_reflection = true) ORDER BY sequence_index NULLS LAST, created_at",
       [id],
     );
     return { status: 200, jsonBody: rows.map(rowToEvidence) };
@@ -1271,37 +1797,126 @@ app.http('caseBoxSharedLink', {
 });
 
 /* POST /api/cases/{id}/box/copy-file-request → BoxResult<FileRequestLink>
-   Copies the per-case File Request (account-free upload page) from the template.
-   Requires the operator-provisioned BOX_FILE_REQUEST_TEMPLATE_ID (an outstanding
-   Box-side item). Until that is set, an honest gated_off — NOT a 404 — so the chaser
-   action degrades cleanly. (Wiring the box-fn copy op is a follow-up once the template
-   id exists; it cannot be exercised before then, so it is not shipped half-built.) */
+   Persists intent before the bounded remote call. A timer replays any crash/timeout,
+   while repeated staff clicks reuse the same pending generation. */
 app.http('caseBoxCopyFileRequest', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'cases/{id}/box/copy-file-request',
-  handler: withRole('CollisionSpike.User', async (req) => {
+  handler: withRole('CollisionSpike.User', async (req, ctx, claims) => {
     if (!gates.boxApi() || !gates.boxFileRequest()) {
       return { status: 200, jsonBody: { status: 'gated_off', message: "Image-upload links aren't available yet." } };
     }
     const caseId = (req.params.id ?? '').trim();
     if (!caseId) return { status: 400, jsonBody: { status: 'error', message: 'caseId is required' } };
-    if (!gates.boxFileRequestTemplateId()) {
+    const templateId = gates.boxFileRequestTemplateId().trim();
+    if (!templateId) {
       return {
         status: 200,
         jsonBody: { status: 'gated_off', message: "Image-upload links aren't available yet." },
       };
     }
-    const { boxFolderId } = await readCaseBoxFolder(caseId);
-    if (!boxFolderId) {
-      return { status: 200, jsonBody: { status: 'folder_not_ready', message: 'This case has no archive folder yet.' } };
+    const actor = actorFromClaims(claims);
+    try {
+      const prepared = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, caseId);
+        if (lockedCase.kind === 'missing') return { kind: 'missing' as const };
+        if (lockedCase.kind === 'retired') {
+          return { kind: 'retired' as const, mergedInto: lockedCase.mergedInto };
+        }
+        const rows = await q<{
+          box_folder_id: string | null;
+          box_file_request_id: string | null;
+          box_file_request_url: string | null;
+        }>(
+          `SELECT box_folder_id, box_file_request_id, box_file_request_url
+             FROM case_
+            WHERE id = $1
+            FOR UPDATE`,
+          [lockedCase.caseId],
+        );
+        const row = rows[0];
+        const folderId = row?.box_folder_id?.trim() ?? '';
+        const stampedId = row?.box_file_request_id?.trim() ?? '';
+        const stampedUrl = row?.box_file_request_url?.trim() ?? '';
+        if (!row || !folderId) {
+          return {
+            kind: 'folder_not_ready' as const,
+          };
+        }
+        if (stampedId && stampedUrl) {
+          return { kind: 'ready' as const, fileRequestUrl: stampedUrl };
+        }
+        if (stampedId || stampedUrl) {
+          return { kind: 'invalid_stamp' as const };
+        }
+        const intent = await requestBoxFileRequestIntent(
+          q,
+          lockedCase.caseId,
+          folderId,
+          templateId,
+        );
+        if (intent.alreadyCompleted) return { kind: 'invalid_stamp' as const };
+        return { kind: 'pending' as const, caseId: lockedCase.caseId };
+      });
+      if (prepared.kind === 'missing') {
+        return { status: 404, jsonBody: { status: 'error', message: 'Case not found.' } };
+      }
+      if (prepared.kind === 'retired') {
+        return {
+          status: 409,
+          jsonBody: {
+            status: 'error',
+            message: 'This case has been merged. Open the current case and try again.',
+            mergedInto: prepared.mergedInto,
+          },
+        };
+      }
+      if (prepared.kind === 'folder_not_ready') {
+        return {
+          status: 200,
+          jsonBody: { status: 'folder_not_ready', message: 'This case has no archive folder yet.' },
+        };
+      }
+      if (prepared.kind === 'ready') {
+        return { status: 200, jsonBody: { status: 'ok', data: { fileRequestUrl: prepared.fileRequestUrl } } };
+      }
+      if (prepared.kind === 'invalid_stamp') throw new Error('case has an incomplete Box File Request stamp');
+
+      const processed = await processBoxFileRequestIntent(prepared.caseId, actor);
+      if (processed.kind === 'ok') {
+        return {
+          status: 200,
+          jsonBody: { status: 'ok', data: { fileRequestUrl: processed.fileRequestUrl } },
+        };
+      }
+      if (processed.kind === 'retired') {
+        return {
+          status: 409,
+          jsonBody: {
+            status: 'error',
+            message: 'This case has been merged. Open the current case and try again.',
+            mergedInto: processed.mergedInto,
+          },
+        };
+      }
+      return {
+        status: 200,
+        jsonBody: {
+          status: 'error',
+          message: 'The image-upload link is still being created. Please try again shortly.',
+        },
+      };
+    } catch (error) {
+      ctx.error('[caseBoxCopyFileRequest] failed', error);
+      return {
+        status: 200,
+        jsonBody: {
+          status: 'error',
+          message: 'The image-upload link could not be created. Please try again.',
+        },
+      };
     }
-    // Template id present (operator provisioned it) but the box-fn copy bridge is not
-    // yet wired — honest gated_off rather than a fabricated link. Follow-up ticket.
-    return {
-      status: 200,
-      jsonBody: { status: 'gated_off', message: "Image-upload links aren't available yet." },
-    };
   }),
 });
 
@@ -1339,27 +1954,10 @@ app.http('markEvaSubmitted', {
   handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
     const id = (req.params.id ?? '').trim();
     if (!id) return { status: 400, jsonBody: { message: 'A case is required.' } };
-    const updated = await query<{ id: string }>(
-      // Clear on_hold on the terminal handoff: filterQueue gives onHold precedence over
-      // status (mappers.ts), so a still-held case would otherwise linger in the Held/work
-      // queues while ALSO showing in Completed. A submitted case is no longer actionable.
-      `UPDATE case_ SET status_code = $1, submitted_at = now(), on_hold = false, updated_at = now()
-       WHERE id = $2 AND status_code = $3
-       RETURNING id`,
-      [statusToInt('eva_submitted'), id, statusToInt('ready_for_eva')],
-    );
-    if (updated.length > 0) {
-      await writeAudit({
-        action: AUDIT_ACTION.eva_submitted,
-        caseId: id,
-        summary: 'Exported for EVA — case marked EVA Submitted',
-        after: { status: 'eva_submitted' },
-        actor: actorFromClaims(claims),
-      });
-    }
+    const updated = await tx((q) => markEvaSubmittedUsing(q, id, actorFromClaims(claims)));
     // updated:false covers both "already submitted" (benign idempotent no-op)
     // and "not ready yet" — the caller re-reads the case either way.
-    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+    return { status: 200, jsonBody: { updated } };
   }),
 });
 
@@ -1378,24 +1976,12 @@ app.http('markCaseDone', {
   handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
     const id = (req.params.id ?? '').trim();
     if (!id) return { status: 400, jsonBody: { message: 'A case is required.' } };
-    const updated = await query<{ id: string }>(
-      // Clear on_hold on the terminal transition (same reason as eva-submitted above):
-      // a delivered/done case must not remain in the Held/work queues.
-      `UPDATE case_ SET status_code = $1, on_hold = false, updated_at = now()
-       WHERE id = $2 AND status_code = $3
-       RETURNING id`,
-      [statusToInt('done'), id, statusToInt('eva_submitted')],
-    );
-    if (updated.length > 0) {
-      await writeAudit({
-        action: AUDIT_ACTION.report_delivered,
-        caseId: id,
-        summary: 'Report delivered to the work provider — case marked Done',
-        after: { status: 'done', signal: 'manual' },
-        actor: actorFromClaims(claims),
-      });
-    }
-    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+    const updated = await tx((q) => markCaseDoneUsing(q, {
+      caseId: id,
+      signal: 'manual',
+      actor: actorFromClaims(claims),
+    }));
+    return { status: 200, jsonBody: { updated } };
   }),
 });
 

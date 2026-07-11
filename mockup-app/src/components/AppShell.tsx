@@ -472,7 +472,13 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
           </AppErrorBoundary>
         </main>
       </div>
-      {chatGate?.enabled && <AssistantDrawer open={assistantOpen} onOpenChange={setAssistantOpen} />}
+      {chatGate?.enabled && (
+        <AssistantDrawer
+          open={assistantOpen}
+          onOpenChange={setAssistantOpen}
+          writeEnabled={chatGate.writeEnabled}
+        />
+      )}
     </div>
   );
 }

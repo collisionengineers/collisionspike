@@ -46,8 +46,8 @@ type FieldCell = { value?: string } | null | undefined;
 /**
  * The subset of the parser `/api/parse` (and `/ocr-pdf`) envelope this activity reads to
  * decide + apply the scanned-PDF OCR fallback and to SELECT the instruction among several
- * parsed documents. `extraction` is the 12-EVA-key map; `vrm` and `reference` are the
- * Case-identity cells; `content_typing` is the parser's content-derived doc type
+ * parsed documents. `extraction` is the 12-EVA-key map; `vrm`, `reference`, and
+ * envelope-only `vin` are separate identity cells; `content_typing` is the parser's content-derived doc type
  * (instruction/report/junk/unknown — rules-engine-v2 Phase 3). Everything else on the
  * envelope is passed through untouched.
  */
@@ -55,6 +55,7 @@ interface ParseEnvelope {
   extraction?: Record<string, FieldCell>;
   vrm?: FieldCell;
   reference?: FieldCell;
+  vin?: FieldCell;
   content_typing?: { doc_type?: string; provider_name?: string | null; markers?: string[] };
   skipped?: boolean;
   [k: string]: unknown;

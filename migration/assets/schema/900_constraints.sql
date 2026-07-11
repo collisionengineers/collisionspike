@@ -150,7 +150,8 @@ BEGIN
     'case_','evidence','field_level_provenance','chaser','note',
     'work_provider','repairer','image_source','inspection_address',
     'improvement_signal','inbound_email','repairer_workprovider','imagesource_workprovider',
-    'ai_suggestion','provider_api_key','case_po_floor','ai_usage_ledger'
+    'ai_suggestion','provider_api_key','case_po_floor','ai_usage_ledger',
+    'archive_mirror_outbox','box_file_request_outbox'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('ALTER TABLE %I FORCE  ROW LEVEL SECURITY;', t);

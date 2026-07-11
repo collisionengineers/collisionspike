@@ -210,8 +210,8 @@ export function MergeCaseDialog() {
               <MessageBarBody>
                 <MessageBarTitle>Pick the case to merge into</MessageBarTitle>
                 The case you choose is kept (it keeps its Case/PO). This case’s evidence moves onto
-                it and this case is marked merged. Only open cases for the same provider are offered —
-                cases are never merged across providers.
+                it and this case is marked merged. Cases with the same provider, or without a provider
+                yet, are offered. Two cases with different providers are never merged.
               </MessageBarBody>
             </MessageBar>
 
@@ -234,12 +234,12 @@ export function MergeCaseDialog() {
             <span className={styles.sectionLabel}>Merge into…</span>
 
             {candidates === undefined ? (
-              <Spinner size="tiny" label="Finding open cases for this provider…" labelPosition="after" />
+              <Spinner size="tiny" label="Finding open cases…" labelPosition="after" />
             ) : candidates.length === 0 ? (
               <MessageBar intent="info">
                 <MessageBarBody>
-                  No other open case for this provider to merge into. (Targets must be open, the same
-                  provider, and not already merged.)
+                  No other compatible open case to merge into. Cases already merged or with a different
+                  provider are not shown.
                 </MessageBarBody>
               </MessageBar>
             ) : (

@@ -34,6 +34,11 @@ import { uploadEvidenceBytes } from '../lib/blob.js';
 import { query, tx } from '../lib/db.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
 import { EVA_COLUMN_BY_KEY, type Row } from '../lib/mappers.js';
+import { lockCaseForMutation } from '../lib/case-mutation-locks.js';
+import {
+  requestArchiveMirrorIfEligible,
+  type ArchiveMirrorCandidate,
+} from '../lib/archive-mirror-outbox.js';
 import {
   validateProviderApiSubmission,
   type NormalisedAttachment,
@@ -87,40 +92,59 @@ async function persistEvidence(
     const { blobPath, size } = await uploadEvidenceBytes(caseId, att.filename, bytes, att.contentType);
 
     const kindCode = evidenceKindCodec.toInt(kind) ?? (kind === 'image' ? 100000000 : 100000002);
-    if (kind === 'image') {
-      const img = att as NormalisedImage;
-      const roleCode = imageRoleCodec.toInt(img.imageRole as ImageRole) ?? UNKNOWN_IMAGE_ROLE_CODE;
-      await query(
-        `INSERT INTO evidence
-           (file_name, case_id, kind_code, image_role_code, registration_visible,
-            accepted_for_eva, excluded, exclusion_reason, sequence_index, sha256,
-            content_type, size_bytes, storage_path, source_label)
-         VALUES ($1,$2,$3,$4,NULL,$5,$6,$7,$8,$9,$10,$11,$12,'provider_api')`,
-        [
-          img.filename,
-          caseId,
-          kindCode,
-          roleCode,
-          !img.excluded,
-          img.excluded,
-          img.exclusionReason,
-          img.sequenceIndex ?? sequenceIndex,
-          sha256,
-          img.contentType,
-          size,
-          blobPath,
-        ],
-      );
-    } else {
-      await query(
-        `INSERT INTO evidence
-           (file_name, case_id, kind_code, sequence_index, sha256,
-            content_type, size_bytes, storage_path, source_label)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'provider_api')`,
-        [att.filename, caseId, kindCode, sequenceIndex, sha256, att.contentType, size, blobPath],
-      );
-    }
-    return true;
+    return await tx(async (q) => {
+      const caseLock = await lockCaseForMutation(q, caseId);
+      if (caseLock.kind !== 'active') return false;
+      let inserted: ArchiveMirrorCandidate[];
+      if (kind === 'image') {
+        const img = att as NormalisedImage;
+        const roleCode = imageRoleCodec.toInt(img.imageRole as ImageRole) ?? UNKNOWN_IMAGE_ROLE_CODE;
+        inserted = await q<ArchiveMirrorCandidate>(
+          `INSERT INTO evidence
+             (file_name, case_id, kind_code, image_role_code, registration_visible,
+              image_role_source, accepted_for_eva, accepted_for_eva_source,
+              excluded, exclusion_reason, exclusion_decision_source, sequence_index, sha256,
+              content_type, size_bytes, storage_path, source_label)
+           VALUES ($1,$2,$3,$4,NULL,'provider',$5,'provider',$6,$7,'provider',$8,$9,$10,$11,$12,'provider_api')
+        RETURNING id, case_id, excluded, storage_path, box_file_id`,
+          [
+            img.filename,
+            caseLock.caseId,
+            kindCode,
+            roleCode,
+            !img.excluded,
+            img.excluded,
+            img.exclusionReason,
+            img.sequenceIndex ?? sequenceIndex,
+            sha256,
+            img.contentType,
+            size,
+            blobPath,
+          ],
+        );
+      } else {
+        inserted = await q<ArchiveMirrorCandidate>(
+          `INSERT INTO evidence
+             (file_name, case_id, kind_code, sequence_index, sha256,
+              content_type, size_bytes, storage_path, source_label)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'provider_api')
+        RETURNING id, case_id, excluded, storage_path, box_file_id`,
+          [
+            att.filename,
+            caseLock.caseId,
+            kindCode,
+            sequenceIndex,
+            sha256,
+            att.contentType,
+            size,
+            blobPath,
+          ],
+        );
+      }
+      if (!inserted[0]) return false;
+      await requestArchiveMirrorIfEligible(q, inserted[0]);
+      return true;
+    });
   } catch (e) {
     ctx.error(`[provider-intake] evidence persist failed (${att.filename}): ${String(e)}`);
     return false;

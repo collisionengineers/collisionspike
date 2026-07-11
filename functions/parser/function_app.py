@@ -4,7 +4,7 @@ HTTP trigger ``POST /parse``. Accepts a base64-encoded instruction document,
 runs it through the sibling ``cedocumentmapper_v2`` parser (via parser_adapter,
 the only seam), maps the result onto the settled 12-field snake_case EVA
 contract with per-field ``{value, confidence, source, warnings?}``, surfaces
-``vrm``/``reference`` SEPARATELY (Case-identity, NOT in the EVA payload),
+``vrm``/``reference``/``vin`` SEPARATELY (identity fields, NOT in the EVA payload),
 validates the flat 12-field payload against ``contracts/eva-payload.schema.json``,
 and returns a structured envelope.
 
@@ -24,6 +24,7 @@ Response envelope:
       "extraction":       { <12 EVA keys in order>: {value, confidence, source, warnings?} },
       "vrm":              {value, confidence, source, warnings?} | null,
       "reference":        {value, confidence, source, warnings?} | null,
+      "vin":              {value, confidence, source, warnings?} | null,
       "audit":            {value: bool, signals: [...], source} | null,
       "content_typing":   {doc_type, provider_name, markers} | null,
       "issues":           [ {field, severity?, code, message} ],
@@ -224,7 +225,7 @@ def _parse(req: func.HttpRequest) -> func.HttpResponse:
         _LOG.exception("parser dependency failed")
         return _error(502, "parser_failed", str(exc))
 
-    # --- 3. Map to the 12-field EVA contract + Case-identity fields ----------
+    # --- 3. Map to the 12-field EVA contract + separate identity fields ------
     mapped = parser_adapter.to_eva_extraction(parser_result)
     extraction = mapped["extraction"]
     issues: list[dict[str, Any]] = list(mapped.get("issues", []))
@@ -251,6 +252,7 @@ def _parse(req: func.HttpRequest) -> func.HttpResponse:
         "extraction": extraction,
         "vrm": mapped.get("vrm"),
         "reference": mapped.get("reference"),
+        "vin": mapped.get("vin"),
         "audit": mapped.get("audit"),
         "content_typing": mapped.get("content_typing"),
         "issues": issues,
@@ -482,9 +484,6 @@ EML_CONTRACT_VERSION = "explode_eml_v1"
 # Mirror of the intake body cap (classify path) — the reconstruction only needs
 # enough body for circumstances supplement + key corroboration.
 _EML_BODY_CAP = 20_000
-# TKT-047 doctrine (signature/logo rasters are not evidence): drop images below
-# this byte floor — a genuine damage photo is far larger than an email-footer logo.
-_EML_IMAGE_MIN_BYTES = 15_000
 # The facade rides base64-in-JSON: cap each attachment + the whole response.
 _EML_ATTACHMENT_MAX_BYTES = 26_214_400  # 25 MiB
 _EML_TOTAL_MAX_BYTES = 78_643_200  # 75 MiB across all attachments
@@ -587,10 +586,6 @@ def _explode_eml(req: func.HttpRequest) -> func.HttpResponse:
         if size == 0:
             skipped.append({"filename": filename, "reason": "empty"})
             continue
-        if content_type.startswith("image/") and size < _EML_IMAGE_MIN_BYTES:
-            # Signature/footer raster (TKT-047 doctrine) — never evidence.
-            skipped.append({"filename": filename, "reason": "signature_image"})
-            continue
         if size > _EML_ATTACHMENT_MAX_BYTES:
             skipped.append({"filename": filename, "reason": "too_large"})
             continue
@@ -665,6 +660,7 @@ def _error(status: int, code: str, message: str) -> func.HttpResponse:
             "extraction": None,
             "vrm": None,
             "reference": None,
+            "vin": None,
             "audit": None,
             "content_typing": None,
             "issues": [{"field": "(request)", "severity": "error", "code": code, "message": message}],

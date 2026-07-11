@@ -44,41 +44,19 @@ from cedocumentmapper_v2.ui.paths import (
 # below any real photo but above typical letterhead art.
 _MIN_EXTRACTED_IMAGE_AREA = 200 * 200
 
-# Large-banner shape heuristic (collisionspike TKT-089): letterhead/banner/logo
-# furniture can clear the area floor and still be page furniture -- e.g. a wide
-# banner logo (~900x180 = 162,000 px^2) or a tall sidebar strip. An above-floor
-# raster is still decorative only when BOTH hold: the aspect ratio is extreme
-# (long side >= 3.5x the short side) AND the short side is small (<= 240 px).
-# Recall guard: no real phone/camera photo can match -- photos are 4:3 / 3:2 /
-# 16:9 (aspect <= ~1.8), and even an aggressive panoramic crop that reached
-# 3.5:1 would carry a short side far above 240 px. A false positive here is
-# evidence loss, so both conditions are required, never either alone.
-_BANNER_ASPECT_RATIO = 3.5
-_BANNER_MAX_SHORT_SIDE = 240
-
-
 def is_decorative_raster(width: int | None, height: int | None) -> bool:
     """True when an extracted embedded raster is page furniture, not evidence.
 
-    Two conservative rungs (collisionspike TKT-089; mirrored by the email-lane
-    filter in collisionspike ``orchestration/src/lib/image-sniff.ts`` -- keep the
-    two in lockstep):
-
-    1. Pixel-AREA floor (``_MIN_EXTRACTED_IMAGE_AREA``): rasters below 200x200
-       equivalent area are letterhead logos, signature stamps, or dividers.
-    2. Banner shape (``_BANNER_ASPECT_RATIO`` + ``_BANNER_MAX_SHORT_SIDE``): an
-       above-floor raster whose aspect ratio is extreme AND whose short side is
-       small is a letterhead banner / sidebar strip, a shape no genuine
-       phone/camera photo has.
-
-    Unknown dimensions are always kept rather than risk dropping a real photo.
+    Only the conservative pixel-AREA floor is applied. The former 3.2:1 banner
+    shape rule could not distinguish page furniture from a low-resolution
+    panoramic vehicle photo because this seam receives dimensions only. Every
+    above-floor candidate is therefore kept for semantic classification by the
+    consuming pipeline. Unknown dimensions are also kept rather than risk
+    dropping genuine evidence.
     """
     if not width or not height:
         return False
-    if width * height < _MIN_EXTRACTED_IMAGE_AREA:
-        return True
-    long_side, short_side = (width, height) if width >= height else (height, width)
-    return long_side >= short_side * _BANNER_ASPECT_RATIO and short_side <= _BANNER_MAX_SHORT_SIDE
+    return width * height < _MIN_EXTRACTED_IMAGE_AREA
 
 
 class DocumentMapperService:
@@ -457,8 +435,8 @@ class DocumentMapperService:
 
         def is_decorative(width: int | None, height: int | None) -> bool:
             """See module-level ``is_decorative_raster``: the 200x200 pixel-area
-            floor plus the TKT-089 large-banner shape heuristic; unknown
-            dimensions are kept rather than risk dropping a real photo."""
+            floor is the only hard drop; above-floor and unknown-dimension
+            candidates are kept rather than risk dropping a real photo."""
             return is_decorative_raster(width, height)
 
         def save_bytes(stem: str, suffix: str, content: bytes) -> None:

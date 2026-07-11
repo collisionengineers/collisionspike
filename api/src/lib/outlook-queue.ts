@@ -64,16 +64,22 @@ function xmlEscape(s: string): string {
 }
 
 /**
- * Enqueue one move job. THROWS on any failure — the route maps it to an honest 503
- * and records outlook_move_state='failed' so the SPA never shows a phantom "Filing…".
+ * Shared queue-enqueue core (TKT-145 extracted it from enqueueOutlookMove so the
+ * `evidence-backfill` queue could reuse the identical MI-token + Queue REST mechanics —
+ * lib/evidence-backfill-queue.ts). THROWS on any failure; the error text keeps the
+ * `<queue> enqueue → <status>: <detail>` shape {@link classifyEnqueueFailure} matches on.
  */
-export async function enqueueOutlookMove(job: OutlookMoveJob): Promise<void> {
-  const serviceUrl = gates.outlookMoveQueueServiceUrl().replace(/\/$/, '');
-  if (!serviceUrl) throw new Error('OUTLOOK_MOVE_QUEUE_SERVICE_URL not configured');
+export async function enqueueQueueMessage(
+  serviceUrlRaw: string,
+  queueName: string,
+  payload: unknown,
+): Promise<void> {
+  const serviceUrl = serviceUrlRaw.replace(/\/$/, '');
+  if (!serviceUrl) throw new Error('queue service URL not configured');
 
   const token = await getStorageToken();
-  const messageText = Buffer.from(JSON.stringify(job), 'utf8').toString('base64');
-  const res = await fetch(`${serviceUrl}/${OUTLOOK_MOVE_QUEUE_NAME}/messages`, {
+  const messageText = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
+  const res = await fetch(`${serviceUrl}/${queueName}/messages`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -84,8 +90,18 @@ export async function enqueueOutlookMove(job: OutlookMoveJob): Promise<void> {
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new Error(`outlook-move enqueue → ${res.status}: ${detail.slice(0, 300)}`);
+    throw new Error(`${queueName} enqueue → ${res.status}: ${detail.slice(0, 300)}`);
   }
+}
+
+/**
+ * Enqueue one move job. THROWS on any failure — the route maps it to an honest 503
+ * and records outlook_move_state='failed' so the SPA never shows a phantom "Filing…".
+ */
+export async function enqueueOutlookMove(job: OutlookMoveJob): Promise<void> {
+  const serviceUrl = gates.outlookMoveQueueServiceUrl();
+  if (!serviceUrl) throw new Error('OUTLOOK_MOVE_QUEUE_SERVICE_URL not configured');
+  await enqueueQueueMessage(serviceUrl, OUTLOOK_MOVE_QUEUE_NAME, job);
 }
 
 /** Machine-readable enqueue-failure classes (TKT-091) + the plain-English line the SPA

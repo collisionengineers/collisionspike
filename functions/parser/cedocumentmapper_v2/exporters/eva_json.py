@@ -4,7 +4,12 @@ import json
 from pathlib import Path
 import jsonschema
 
-from cedocumentmapper_v2.domain.models import ExtractedRecord, FieldKey, FIELD_ORDER, FIELD_LABELS
+from cedocumentmapper_v2.domain.models import (
+    ExtractedRecord,
+    FieldKey,
+    EVA_EXPORT_FIELD_ORDER,
+    FIELD_LABELS,
+)
 from cedocumentmapper_v2.exporters.base import Exporter
 from cedocumentmapper_v2 import resources
 
@@ -24,9 +29,13 @@ class EVAJsonExporter(Exporter):
         if not wp_val or not wp_val.value.strip():
             raise ValueError("Export blocked: 'Work Provider' cannot be blank.")
 
-        # Construct dictionary in specific display field order
+        # Construct dictionary in specific display field order. Deliberately
+        # EVA_EXPORT_FIELD_ORDER, never FIELD_ORDER: the engine envelope carries
+        # envelope-only fields (vin — collisionspike TKT-147) that the settled
+        # EVA contract has no slot for; the schema below (additionalProperties
+        # false) would reject them, and the export shape must stay byte-stable.
         export_data = {}
-        for key in FIELD_ORDER:
+        for key in EVA_EXPORT_FIELD_ORDER:
             label = FIELD_LABELS[key]
             val = record.fields.get(key)
             export_data[label] = val.value if val else ""

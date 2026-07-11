@@ -212,8 +212,10 @@ Per-component status + live IDs/counts (SPA, Data API, orchestration, Postgres, 
 is the full-privilege (settings / feature-gates / audit / corpus-write) role, **renamed from
 `CollisionSpike.Admin`** (same app-role id, so the existing assignment carried over; the legacy name is still
 accepted for back-compat). A third role **`CollisionSpike.Engineer`** is **defined but NOT yet enforced** (a
-placeholder for future assessment/engineer functionality). **Only one staff principal is app-role-assigned so
-far** — every other staff member will receive **403** until an admin assigns them a role.
+placeholder for future assessment/engineer functionality). **Interim staff set assigned 2026-07-10
+(operator-directed):** digital@ (Superuser) plus **desk@ / info@ / engineers@** (`CollisionSpike.User`) —
+4 assignments total; accounts must sign out/in for tokens to carry the role. Any other staff member still
+receives **403** until an admin assigns them a role (state: registry + gated.md C1).
 
 **Intake auth model — Exchange RBAC for Applications + Graph PUSH subscriptions (NOT Global-Admin consent,
 NOT delta-poll).** The intake path uses **Exchange RBAC for Applications**: an **Exchange Administrator**

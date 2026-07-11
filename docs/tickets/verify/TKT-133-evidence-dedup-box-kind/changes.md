@@ -1,8 +1,9 @@
 # Changes — TKT-133: Evidence dedup + box-webhook kind
 
+> Regression follow-up (2026-07-11): [changes-regression-11-07-26.md](./changes-regression-11-07-26.md)
+
 ## Status
-code-complete offline across all three seams (final wave D2, 2026-07-09); one-off twin cleanup
-run live same day — deploy + live twin-collapse proof PENDING
+Reopened to `now` on 2026-07-11: PR 55 review found that the case-merge route bypassed the established same-case SHA dedup contract. The prior implementation and cleanup record below remains historical evidence.
 
 ## Overview
 The fix spans the two producers + the writer + a one-off data cleanup:

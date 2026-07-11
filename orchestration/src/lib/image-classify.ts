@@ -35,9 +35,21 @@ export interface ImageClassification {
   confidence: number;
 }
 
+export interface ImageClassificationFailure {
+  disposition: 'transient' | 'terminal';
+  code: string;
+  detail?: string;
+}
+
+export type ImageClassificationOutcome =
+  | { ok: true; classification: ImageClassification }
+  | { ok: false; failure: ImageClassificationFailure };
+
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_COMPLETION_TOKENS = 3000;
 const SCHEMA_NAME = 'vehicle_image_classification';
+/** A non-vehicle verdict may withhold an image only at this confidence or above. */
+export const NON_VEHICLE_AUTO_EXCLUDE_MIN_CONFIDENCE = 0.9;
 
 const SYSTEM_PROMPT =
   'You are an expert UK motor-claims vehicle-inspection image classifier. You are shown ONE ' +
@@ -130,20 +142,69 @@ export function parseImageResponse(json: unknown): ImageClassification | null {
   };
 }
 
+/** Detect an explicit model refusal tied to these exact bytes. */
+function hasExplicitContentFilter(result: unknown): boolean {
+  if (!result || typeof result !== 'object') return false;
+  const first = (result as { choices?: Array<{ finish_reason?: unknown }> }).choices?.[0];
+  if (first?.finish_reason === 'content_filter') return true;
+  try {
+    return /content[_ -]?filter|responsibleaipolicyviolation/i.test(JSON.stringify(result));
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Classify one image. Returns the classification, or `null` on ANY failure (not configured,
- * auth, timeout, non-2xx, content filter, malformed) — the caller falls back to role
- * `unknown`. Gate/config check is the caller's job (this runs only when
- * gates.imageRoleClassifyEnabled()); still degrades safely if called speculatively.
+ * Classify an HTTP response without guessing row permanence. Only failures that
+ * are explicitly tied to these exact bytes are terminal: a content-filter verdict
+ * or an over-size request. Auth/config/rate-limit/server and malformed responses
+ * remain transient because a later service/model state may succeed.
  */
-export async function classifyImage(input: {
+export function imageClassificationOutcomeFromResponse(
+  status: number,
+  result: unknown,
+): ImageClassificationOutcome {
+  if (hasExplicitContentFilter(result)) {
+    return {
+      ok: false,
+      failure: { disposition: 'terminal', code: 'model_content_filter' },
+    };
+  }
+  if (status === 413) {
+    return {
+      ok: false,
+      failure: { disposition: 'terminal', code: 'model_payload_too_large' },
+    };
+  }
+  if (status < 200 || status >= 300) {
+    return {
+      ok: false,
+      failure: { disposition: 'transient', code: `model_http_${status}` },
+    };
+  }
+  const classification = parseImageResponse(result);
+  return classification
+    ? { ok: true, classification }
+    : {
+        ok: false,
+        failure: { disposition: 'transient', code: 'model_malformed_response' },
+      };
+}
+
+/** Detailed, never-throwing variant used by durable retry schedulers. */
+export async function classifyImageWithOutcome(input: {
   imageBase64: string;
   contentType?: string;
   caseVrm?: string;
-}): Promise<ImageClassification | null> {
+}): Promise<ImageClassificationOutcome> {
   const endpoint = gates.aiModelEndpoint();
   const deployment = gates.aiModelDeployment();
-  if (!endpoint || !deployment) return null;
+  if (!endpoint || !deployment) {
+    return {
+      ok: false,
+      failure: { disposition: 'transient', code: 'model_not_configured' },
+    };
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -158,14 +219,34 @@ export async function classifyImage(input: {
       ),
       signal: controller.signal,
     });
-    if (!res.ok) return null;
     const json: unknown = await res.json().catch(() => undefined);
-    return parseImageResponse(json);
-  } catch {
-    return null;
+    return imageClassificationOutcomeFromResponse(res.status, json);
+  } catch (error) {
+    const timeout = error instanceof Error && error.name === 'AbortError';
+    return {
+      ok: false,
+      failure: {
+        disposition: 'transient',
+        code: timeout ? 'model_timeout' : 'model_unavailable',
+      },
+    };
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Compatibility wrapper for intake callers whose established contract is
+ * classification-or-null. Durable consumers should use classifyImageWithOutcome
+ * so terminal content-filter/size failures can leave the capped retry page.
+ */
+export async function classifyImage(input: {
+  imageBase64: string;
+  contentType?: string;
+  caseVrm?: string;
+}): Promise<ImageClassification | null> {
+  const outcome = await classifyImageWithOutcome(input);
+  return outcome.ok ? outcome.classification : null;
 }
 
 /**
@@ -192,8 +273,17 @@ export function caseRegistrationVisible(c: ImageClassification, caseVrm?: string
  * non-vehicle "other" -> not accepted; overview/damage/additional -> accepted for EVA.
  * `caseVrm` (when known) constrains `registrationVisible` to the case vehicle's plate —
  * see `caseRegistrationVisible`.
+ *
+ * TKT-089 regression policy: a non-vehicle result is automatically excluded only when
+ * confidence is >= 0.90 AND the result carries no readable registration signal. This is
+ * shared by every autonomous writer. A low-confidence `other`, or any result that reports
+ * a readable plate/plate text, remains reviewable and not accepted for EVA. Person reflection
+ * takes precedence with its own reason. A classify FAILURE never reaches this mapper.
  */
-export function classificationToEvidenceFields(c: ImageClassification, caseVrm?: string): {
+export function classificationToEvidenceFields(
+  c: ImageClassification,
+  caseVrm?: string,
+): {
   imageRole: ImageRoleName;
   registrationVisible: boolean;
   acceptedForEva: boolean;
@@ -211,8 +301,27 @@ export function classificationToEvidenceFields(c: ImageClassification, caseVrm?:
       registrationVisible,
       acceptedForEva: false,
       excluded: true,
-      exclusionReason: 'person reflection detected (auto-classified)',
+      exclusionReason: 'A person’s reflection may be visible',
       personReflection: true,
+    };
+  }
+  // Use the classifier's raw plate signal for the exclusion safety guard. A readable
+  // third-party plate may not satisfy the CASE registration rule above, but it still proves
+  // this is not safe to discard as obvious letterhead/signature furniture.
+  const readableRegistrationSignal =
+    c.registrationVisible || canonicalizeVrm(c.plateText).length > 0;
+  if (
+    c.role === 'other' &&
+    c.confidence >= NON_VEHICLE_AUTO_EXCLUDE_MIN_CONFIDENCE &&
+    !readableRegistrationSignal
+  ) {
+    return {
+      imageRole: c.role,
+      registrationVisible,
+      acceptedForEva: false,
+      excluded: true,
+      exclusionReason: 'This image may not show the vehicle',
+      personReflection: false,
     };
   }
   const accepted = c.role !== 'other';
