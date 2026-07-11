@@ -113,8 +113,7 @@ async function settleStatusRequests(
   let completed = 0;
   for (const request of requests) {
     try {
-      await dataApi.evaluateStatus(request.caseId);
-      const ack = await dataApi.completeStatusRecompute(request.caseId, request.generation);
+      const ack = await dataApi.evaluateStatus(request.caseId, request.generation);
       if (ack.completed) completed++;
     } catch (e) {
       ctx.warn(

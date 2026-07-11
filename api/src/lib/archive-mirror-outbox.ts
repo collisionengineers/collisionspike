@@ -1,0 +1,46 @@
+import type { TxQuery } from './db.js';
+
+export interface ArchiveMirrorCandidate extends Record<string, unknown> {
+  id: string;
+  case_id: string;
+  excluded: boolean;
+  storage_path: string | null;
+  box_file_id: string | null;
+}
+
+/**
+ * Advance durable archive work for a currently eligible evidence row. The caller
+ * supplies its transaction-bound query so this generation commits atomically with the
+ * decision that made the row eligible. Returns the requested generation, or undefined
+ * when the row is excluded, byte-less, or already archived.
+ */
+export async function requestArchiveMirrorIfEligible(
+  q: TxQuery,
+  row: Partial<ArchiveMirrorCandidate>,
+): Promise<number | undefined> {
+  const storagePath = typeof row.storage_path === 'string' ? row.storage_path.trim() : '';
+  const boxFileId = typeof row.box_file_id === 'string' ? row.box_file_id.trim() : '';
+  if (
+    row.excluded !== false ||
+    !row.id ||
+    !row.case_id ||
+    !storagePath ||
+    boxFileId
+  ) {
+    return undefined;
+  }
+  const requested = await q<{ requested_generation: string | number }>(
+    `INSERT INTO archive_mirror_outbox
+       (evidence_id, case_id, requested_generation, completed_generation,
+        requested_at, updated_at)
+     VALUES ($1, $2, 1, 0, now(), now())
+     ON CONFLICT (evidence_id) DO UPDATE
+       SET case_id = EXCLUDED.case_id,
+           requested_generation = archive_mirror_outbox.requested_generation + 1,
+           requested_at = now(),
+           updated_at = now()
+     RETURNING requested_generation`,
+    [row.id, row.case_id],
+  );
+  return requested[0] ? Number(requested[0].requested_generation) : undefined;
+}

@@ -119,11 +119,13 @@ DO $$ BEGIN
     ALTER TABLE evidence ADD CONSTRAINT ck_evidence_exclusion_decision_source
       CHECK (exclusion_decision_source IS NULL OR exclusion_decision_source IN ('classifier','staff','provider','cleanup','legacy'));
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_evidence_exclusion_source') THEN
-    ALTER TABLE evidence ADD CONSTRAINT ck_evidence_exclusion_source
-      CHECK (NOT excluded OR exclusion_decision_source IS NOT NULL);
-  END IF;
 END $$;
+
+-- Rolling-deploy compatibility: the pre-source orchestration build may legitimately
+-- insert excluded=true while omitting decisionSource. Keep NULL as "unowned" so the
+-- old writer remains safe; the allowed-value checks above still reject invented owners,
+-- and source-aware updates never overwrite a protected non-NULL owner.
+ALTER TABLE evidence DROP CONSTRAINT IF EXISTS ck_evidence_exclusion_source;
 
 CREATE INDEX IF NOT EXISTS ix_evidence_case_classifier_review
   ON evidence (case_id, sequence_index, created_at)

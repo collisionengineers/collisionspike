@@ -55,7 +55,7 @@ beforeEach(() => {
 });
 
 describe('staff evidence upload', () => {
-  it('commits an image insert, staff ownership, and status request in one transaction', async () => {
+  it('commits an image insert and status request without claiming default decisions', async () => {
     const response = await upload(
       requestWith(new File([new Uint8Array([1, 2, 3])], 'photo.jpg', { type: 'image/jpeg' })),
       ctx,
@@ -66,9 +66,8 @@ describe('staff evidence upload', () => {
     expect(db.tx).toHaveBeenCalledTimes(1);
     expect(db.txQuery).toHaveBeenCalledTimes(2);
     const insertSql = String(db.txQuery.mock.calls[0][0]);
-    expect(insertSql).toContain('accepted_for_eva_source');
-    expect(insertSql).toContain('exclusion_decision_source');
-    expect(insertSql).toContain("THEN 'staff'");
+    expect(insertSql).not.toContain('accepted_for_eva_source');
+    expect(insertSql).not.toContain('exclusion_decision_source');
     expect(String(db.txQuery.mock.calls[1][0])).toContain(
       'status_recompute_requested_generation',
     );

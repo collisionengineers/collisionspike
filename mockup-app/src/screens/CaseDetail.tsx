@@ -143,7 +143,12 @@ import { AiAssistPanel } from '../components/AiAssistPanel';
 // DataAccessExt: the SPA-side seam with the work-todo-spike additive methods
 // (removeCase). The base DataAccess in '@cs/domain' stays the frozen server contract.
 import type { DataAccessExt } from '../data/rest-client';
-import { persistEvidenceReview } from './evidence-review';
+import {
+  mergeEvidenceReviewDecision,
+  persistEvidenceReview,
+  releaseEvidenceMutation,
+  tryAcquireEvidenceMutation,
+} from './evidence-review';
 
 /* ============================================================
    CaseDetail — the core review screen.
@@ -656,7 +661,7 @@ function EvidenceCard({
             <Button
               appearance="subtle"
               size="small"
-              disabled={dismissingReflection}
+              disabled={saving}
               onClick={() => onDismissReflection(ev.id)}
             >
               {dismissingReflection ? 'Dismissing…' : 'Dismiss'}
@@ -1480,17 +1485,32 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
 
   // TKT-089: role/registration/EVA-use/include changes are durable server mutations.
   // The working copy changes only after the server confirms; failures keep the prior row.
-  const [savingEvidence, setSavingEvidence] = useState<ReadonlySet<string>>(new Set());
-  const savingEvidenceRef = useRef<Set<string>>(new Set());
+  type EvidenceMutationKind = 'review' | 'reflection';
+  const [evidenceMutations, setEvidenceMutations] = useState<
+    Readonly<Record<string, EvidenceMutationKind>>
+  >({});
+  const evidenceMutationRef = useRef<Set<string>>(new Set());
   const [evidenceSaveErrors, setEvidenceSaveErrors] = useState<Readonly<Record<string, string>>>({});
+
+  const beginEvidenceMutation = (id: string, kind: EvidenceMutationKind): boolean => {
+    if (!tryAcquireEvidenceMutation(evidenceMutationRef.current, id)) return false;
+    setEvidenceMutations((prev) => ({ ...prev, [id]: kind }));
+    return true;
+  };
+  const finishEvidenceMutation = (id: string): void => {
+    releaseEvidenceMutation(evidenceMutationRef.current, id);
+    setEvidenceMutations((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
 
   const saveEvidenceReview = async (
     id: string,
     input: Parameters<DataAccessExt['updateEvidenceReview']>[1],
   ) => {
-    if (savingEvidenceRef.current.has(id)) return;
-    savingEvidenceRef.current.add(id);
-    setSavingEvidence(new Set(savingEvidenceRef.current));
+    if (!beginEvidenceMutation(id, 'review')) return;
     setEvidenceSaveErrors((prev) => {
       const next = { ...prev };
       delete next[id];
@@ -1498,15 +1518,18 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     });
     const outcome = await persistEvidenceReview(id, input, data.updateEvidenceReview);
     if (outcome.updated) {
-      setImgState((prev) => prev.map((e) => (e.id === id ? outcome.updated! : e)));
+      setImgState((prev) =>
+        prev.map((e) =>
+          e.id === id ? mergeEvidenceReviewDecision(e, outcome.updated!) : e,
+        ),
+      );
     } else {
       setEvidenceSaveErrors((prev) => ({
         ...prev,
         [id]: outcome.error ?? 'Couldn’t save this photo. Try again.',
       }));
     }
-    savingEvidenceRef.current.delete(id);
-    setSavingEvidence(new Set(savingEvidenceRef.current));
+    finishEvidenceMutation(id);
   };
 
   const imageById = (id: string): Evidence | undefined => imgState.find((e) => e.id === id);
@@ -1539,10 +1562,8 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   /* TKT-123: dismiss the reflection warning — persists via the seam (PATCH), so
      the dismissal survives a reload. The card's flag flips only after the server
      confirms; a failure surfaces as a toast, never a fake dismissal. */
-  const [dismissingReflection, setDismissingReflection] = useState<ReadonlySet<string>>(new Set());
   const onDismissReflection = async (id: string) => {
-    if (dismissingReflection.has(id)) return;
-    setDismissingReflection((prev) => new Set(prev).add(id));
+    if (!beginEvidenceMutation(id, 'reflection')) return;
     try {
       const updated = await (data as DataAccessExt).setReflectionDismissed(id, true);
       setImgState((prev) =>
@@ -1556,11 +1577,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
         { intent: 'error' },
       );
     } finally {
-      setDismissingReflection((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
+      finishEvidenceMutation(id);
     }
   };
 
@@ -2234,8 +2251,8 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                             onAcceptedForEva={onAcceptedForEva}
                             onExclude={onExclude}
                             onDismissReflection={(id) => void onDismissReflection(id)}
-                            dismissingReflection={dismissingReflection.has(ev.id)}
-                            saving={savingEvidence.has(ev.id)}
+                            dismissingReflection={evidenceMutations[ev.id] === 'reflection'}
+                            saving={evidenceMutations[ev.id] != null}
                             saveError={evidenceSaveErrors[ev.id]}
                           />
                         ))}

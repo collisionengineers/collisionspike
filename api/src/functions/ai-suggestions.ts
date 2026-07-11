@@ -68,9 +68,8 @@ import { markOutstandingChasersResponded } from './internal.js';
 import { enqueueEvidenceBackfill } from '../lib/evidence-backfill-queue.js';
 import { writeEvidenceBackfillNote } from '../lib/evidence-backfill-note.js';
 import { requestStatusRecompute } from '../lib/status-recompute.js';
+import { requestArchiveMirrorIfEligible } from '../lib/archive-mirror-outbox.js';
 
-/** image_role 'unknown' code — the FILL-IF-EMPTY sentinel for evidence.image_role_code. */
-const IMAGE_ROLE_UNKNOWN = 100000003;
 const IMAGE_KIND = 100000000;
 
 // GET /api/cases/{id}/ai-suggestions — pending first, then recent. Honest-empty on any
@@ -161,6 +160,11 @@ app.http('reviewAiSuggestion', {
           return { kind: 'reviewed' as const, row: current };
         }
         const promotion = await promoteAcceptedSuggestion(current, actor, q);
+        if (!promotion.promoted) {
+          // The target was replaced or is now owned by staff/provider/cleanup/legacy.
+          // Keep the suggestion pending and tell the reviewer their accept did not apply.
+          return { kind: 'conflict' as const, row: current };
+        }
         const reviewed = await q<Row>(
           `UPDATE ai_suggestion
               SET review_state = 'accepted', reviewed_by = $2, reviewed_at = now()
@@ -173,6 +177,12 @@ app.http('reviewAiSuggestion', {
       });
 
       if (atomic.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
+      if (atomic.kind === 'conflict') {
+        return {
+          status: 409,
+          jsonBody: { error: 'suggestion target changed; refresh and review again' },
+        };
+      }
       if (atomic.kind === 'reviewed') {
         const result: AiSuggestionReviewResult = {
           id,
@@ -289,7 +299,9 @@ async function promoteAcceptedSuggestion(
       const role = (value as { role?: string } | null)?.role;
       const code = role ? imageRoleCodec.toInt(role as ImageRole) : undefined;
       if (code != null && role !== 'unknown') {
-        // FILL-IF-EMPTY: only set the role when it is still 'unknown'.
+        // Source-aware CAS: a human acceptance may replace an autonomous/unowned
+        // decision even when the classifier raced ahead or produced the same value.
+        // Human/provider/cleanup/legacy decisions remain immutable from this seam.
         const upd = await q<Row>(
           `UPDATE evidence
               SET image_role_code = $2,
@@ -316,12 +328,23 @@ async function promoteAcceptedSuggestion(
                   END,
                   updated_at = now()
             WHERE id = $1
-              AND kind_code = $4
-              AND image_role_code = $3
-          RETURNING id, case_id`,
-          [evidenceId, code, IMAGE_ROLE_UNKNOWN, IMAGE_KIND],
+              AND kind_code = $3
+              AND (image_role_source IS NULL OR image_role_source = 'classifier')
+              AND (accepted_for_eva_source IS NULL OR accepted_for_eva_source = 'classifier')
+              AND (
+                NOT excluded
+                OR exclusion_decision_source IS NULL
+                OR exclusion_decision_source = 'classifier'
+              )
+          RETURNING id, case_id, excluded, storage_path, box_file_id`,
+          [evidenceId, code, IMAGE_KIND],
         );
         if (upd[0]) {
+          // Accepting an image-role suggestion can recover a classifier exclusion
+          // after intake's one-shot archive pass. Schedule the mirror in this same
+          // transaction; the helper no-ops for byte-less/already-archived/still-
+          // excluded rows and generation-upserts safely if it was already included.
+          await requestArchiveMirrorIfEligible(q, upd[0]);
           await requestStatusRecompute(q, String(upd[0].case_id));
           return { promoted: true, promotedField: 'evidence.image_role_code' };
         }
@@ -329,7 +352,8 @@ async function promoteAcceptedSuggestion(
     } else if (row.suggestion_type === 'registration' && evidenceId) {
       const visible = (value as { visible?: boolean } | null)?.visible;
       if (typeof visible === 'boolean') {
-        // FILL-IF-EMPTY: registration_visible is tri-state; only set it when still NULL.
+        // Source-aware CAS: replace NULL or classifier-owned values (including a
+        // same-value race) and convert ownership to staff in this transaction.
         const upd = await q<Row>(
           `UPDATE evidence
               SET registration_visible = $2,
@@ -337,7 +361,10 @@ async function promoteAcceptedSuggestion(
                   updated_at = now()
             WHERE id = $1
               AND kind_code = $3
-              AND registration_visible IS NULL
+              AND (
+                registration_visible_source IS NULL
+                OR registration_visible_source = 'classifier'
+              )
           RETURNING id, case_id`,
           [evidenceId, visible, IMAGE_KIND],
         );

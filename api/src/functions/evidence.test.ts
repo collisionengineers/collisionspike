@@ -162,7 +162,7 @@ describe('PATCH /api/evidence/{id}', () => {
   });
 
   it('makes an explicit exclusion reversal staff-owned and requests status work', async () => {
-    const before = current();
+    const before = current({ storage_path: 'msg-1/photo.jpg', box_file_id: '   ' });
     db.txQuery.mockImplementation(async (sql: string, params?: unknown[]) => {
       if (sql.startsWith('SELECT * FROM evidence')) return [before];
       if (sql.includes('UPDATE evidence')) return [{ ...before, excluded: params![7], exclusion_reason: params![8], exclusion_decision_source: params![9] }];
@@ -173,5 +173,42 @@ describe('PATCH /api/evidence/{id}', () => {
     await patchEvidence(req({ excluded: false }), ctx, {});
     const params = db.txQuery.mock.calls.find(([sql]) => String(sql).includes('UPDATE evidence'))![1] as unknown[];
     expect(params.slice(7, 10)).toEqual([false, null, 'staff']);
+    const outbox = db.txQuery.mock.calls.find(([sql]) =>
+      String(sql).includes('INSERT INTO archive_mirror_outbox'),
+    );
+    expect(outbox?.[1]).toEqual(['ev-1', 'case-1']);
+    expect(String(outbox?.[0])).toContain(
+      'requested_generation = archive_mirror_outbox.requested_generation + 1',
+    );
+  });
+
+  it.each([
+    ['already archived', { storage_path: 'msg-1/photo.jpg', box_file_id: 'box-1' }],
+    ['not blob-backed', { storage_path: null, box_file_id: null }],
+  ])('does not schedule archive work when the row is %s', async (_label, overrides) => {
+    const before = current(overrides);
+    db.txQuery.mockImplementation(async (sql: string, params?: unknown[]) => {
+      if (sql.startsWith('SELECT * FROM evidence')) return [before];
+      if (sql.includes('UPDATE evidence')) {
+        return [{
+          ...before,
+          excluded: params![7],
+          exclusion_reason: params![8],
+          exclusion_decision_source: params![9],
+        }];
+      }
+      if (sql.includes('status_recompute_requested_generation')) {
+        return [{ status_recompute_requested_generation: 3 }];
+      }
+      return [];
+    });
+
+    await patchEvidence(req({ excluded: false }), ctx, {});
+
+    expect(
+      db.txQuery.mock.calls.some(([sql]) =>
+        String(sql).includes('INSERT INTO archive_mirror_outbox'),
+      ),
+    ).toBe(false);
   });
 });

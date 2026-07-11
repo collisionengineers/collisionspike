@@ -108,6 +108,10 @@ import { acquireTriageLocks } from '../lib/triage-locks.js';
 import { clampVarchar, vrmOrEmpty } from '../lib/varchar-guard.js';
 import { vrmLinkRefConflict } from '../lib/link-guards.js';
 import { requestStatusRecompute } from '../lib/status-recompute.js';
+import {
+  requestArchiveMirrorIfEligible,
+  type ArchiveMirrorCandidate,
+} from '../lib/archive-mirror-outbox.js';
 
 /* ============================================================
    Service auth — validate the JWT (sig + iss + aud + exp) without
@@ -2660,15 +2664,18 @@ async function applyEvidenceMetadata(
   }
 
   if (ownedSets.length > 0) {
-    const res = await q<{ id: string }>(
+    const res = await q<ArchiveMirrorCandidate>(
       `UPDATE evidence
             SET ${ownedSets.join(', ')}, updated_at = now()
           WHERE ${whereClause}
             AND (${ownedChanges.join(' OR ')})
-          RETURNING id`,
+          RETURNING id, case_id, excluded, storage_path, box_file_id`,
       ownedVals,
     );
     for (const item of res) changedIds.add(item.id);
+    if (row.decisionSource === 'classifier' && row.excluded === false) {
+      for (const item of res) await requestArchiveMirrorIfEligible(q, item);
+    }
     readinessChanged = res.length > 0;
   }
 

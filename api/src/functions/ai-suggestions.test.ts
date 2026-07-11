@@ -363,10 +363,19 @@ const REGISTRATION_ROW = {
 };
 
 describe('reviewAiSuggestion — atomic readiness promotion', () => {
-  it('accepts an image-role suggestion with staff ownership and durable status work in one transaction', async () => {
+  it('CAS-overwrites a classifier race, converts ownership, and durably schedules an eligible archive mirror', async () => {
     rowsFor.mockImplementation((sql: string) => {
       if (/FROM ai_suggestion[\s\S]*WHERE id/i.test(sql)) return [IMAGE_ROLE_ROW];
-      if (/UPDATE evidence/i.test(sql)) return [{ id: 'ev-1', case_id: 'case-1' }];
+      if (/UPDATE evidence/i.test(sql)) return [{
+        id: 'ev-1',
+        case_id: 'case-1',
+        excluded: false,
+        storage_path: 'msg-1/photo.jpg',
+        box_file_id: null,
+      }];
+      if (/INSERT INTO archive_mirror_outbox/i.test(sql)) {
+        return [{ requested_generation: '1' }];
+      }
       if (/UPDATE case_/i.test(sql)) return [{ status_recompute_requested_generation: '8' }];
       if (/UPDATE ai_suggestion/i.test(sql)) return [{ id: 'sug-1', review_state: 'accepted' }];
       return [];
@@ -384,6 +393,18 @@ describe('reviewAiSuggestion — atomic readiness promotion', () => {
     expect(evidenceSql).toContain("image_role_source = 'staff'");
     expect(evidenceSql).toContain("accepted_for_eva_source = 'staff'");
     expect(evidenceSql).toContain("exclusion_decision_source = 'classifier'");
+    expect(evidenceSql).toContain(
+      "image_role_source IS NULL OR image_role_source = 'classifier'",
+    );
+    expect(evidenceSql).toContain(
+      "accepted_for_eva_source IS NULL OR accepted_for_eva_source = 'classifier'",
+    );
+    expect(evidenceSql).not.toContain('image_role_code = $3');
+    const outboxSql = sqls.find((sql) => /INSERT INTO archive_mirror_outbox/i.test(sql))!;
+    expect(outboxSql).toContain(
+      'requested_generation = archive_mirror_outbox.requested_generation + 1',
+    );
+    expect(params[sqls.indexOf(outboxSql)]).toEqual(['ev-1', 'case-1']);
     expect(sqls.some((sql) => /UPDATE case_[\s\S]*status_recompute_requested_generation/.test(sql))).toBe(true);
     expect(sqls.findIndex((sql) => /UPDATE evidence/i.test(sql))).toBeLessThan(
       sqls.findIndex((sql) => /UPDATE ai_suggestion/i.test(sql)),
@@ -407,6 +428,33 @@ describe('reviewAiSuggestion — atomic readiness promotion', () => {
     expect(sqls.find((sql) => /UPDATE evidence/i.test(sql))).toContain(
       "registration_visible_source = 'staff'",
     );
+    expect(sqls.find((sql) => /UPDATE evidence/i.test(sql))).toContain(
+      "registration_visible_source = 'classifier'",
+    );
+    expect(sqls.find((sql) => /UPDATE evidence/i.test(sql))).not.toContain(
+      'registration_visible IS NULL',
+    );
+  });
+
+  it.each([
+    ['image role', IMAGE_ROLE_ROW],
+    ['registration', REGISTRATION_ROW],
+  ])('returns a conflict and leaves %s pending when a protected owner wins', async (_label, suggestion) => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM ai_suggestion[\s\S]*WHERE id/i.test(sql)) return [suggestion];
+      if (/UPDATE evidence/i.test(sql)) return []; // staff/provider/cleanup/legacy CAS miss
+      return [];
+    });
+
+    const response = await review(reviewReq(), ctx, {});
+
+    expect(response.status).toBe(409);
+    expect(response.jsonBody).toEqual({
+      error: 'suggestion target changed; refresh and review again',
+    });
+    expect(sqls.some((sql) => /UPDATE ai_suggestion/i.test(sql))).toBe(false);
+    expect(sqls.some((sql) => /status_recompute_requested_generation/.test(sql))).toBe(false);
+    expect(auditCalls).toHaveLength(0);
   });
 
   it('leaves the suggestion pending/retryable when evidence promotion fails', async () => {

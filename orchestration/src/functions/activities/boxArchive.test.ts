@@ -7,8 +7,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   boxInlineUploadMaxBytes,
+  mirrorArchiveItems,
   uploadArchiveItem,
   type ArchiveUploadDeps,
+  type ArchiveMirrorItemDeps,
 } from './boxArchive.js';
 
 const EIGHT_MIB = 8 * 1024 * 1024;
@@ -101,5 +103,44 @@ describe('boxInlineUploadMaxBytes — env knob', () => {
     expect(boxInlineUploadMaxBytes()).toBe(EIGHT_MIB);
     process.env[KEY] = '-5';
     expect(boxInlineUploadMaxBytes()).toBe(EIGHT_MIB);
+  });
+});
+
+describe('mirrorArchiveItems — row-specific stamping', () => {
+  const rows = [
+    { id: 'ev-1', filename: 'photo-a.jpg', blobPath: 'msg/shared.jpg', contentType: 'image/jpeg' },
+    { id: 'ev-2', filename: 'photo-b.jpg', blobPath: 'msg/shared.jpg', contentType: 'image/jpeg' },
+  ];
+
+  it('uploads a shared blob once but stamps and counts every evidence row', async () => {
+    const deps: ArchiveMirrorItemDeps = {
+      upload: vi.fn(async () => ({ id: 'box-1' })),
+      stamp: vi.fn(async () => ({ updated: true })),
+    };
+    const ctx = { warn: vi.fn() };
+
+    const result = await mirrorArchiveItems('case-1', 'folder-1', rows, ctx, deps);
+
+    expect(result).toEqual({ uploaded: 2, total: 2, fileIds: ['box-1', 'box-1'] });
+    expect(deps.upload).toHaveBeenCalledTimes(1);
+    expect(deps.stamp).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(deps.stamp).mock.calls.map(([payload]) => payload.evidenceId)).toEqual([
+      'ev-1', 'ev-2',
+    ]);
+  });
+
+  it('does not count a row whose stamp reports updated=false', async () => {
+    const deps: ArchiveMirrorItemDeps = {
+      upload: vi.fn(async () => ({ id: 'box-1' })),
+      stamp: vi.fn()
+        .mockResolvedValueOnce({ updated: true })
+        .mockResolvedValueOnce({ updated: false }),
+    };
+    const ctx = { warn: vi.fn() };
+
+    const result = await mirrorArchiveItems('case-1', 'folder-1', rows, ctx, deps);
+
+    expect(result).toEqual({ uploaded: 1, total: 2, fileIds: ['box-1'] });
+    expect(ctx.warn).toHaveBeenCalledWith(expect.stringContaining('was not stamped'));
   });
 });

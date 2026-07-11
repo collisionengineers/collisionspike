@@ -153,6 +153,41 @@ describe('exact Box classification stamp', () => {
     ).toBe(false);
   });
 
+  it('durably schedules a classifier-owned exclusion recovery in the same transaction', async () => {
+    db.txQuery.mockImplementation(async (sql: string) => {
+      if (sql.startsWith('SELECT id FROM evidence')) return [{ id: 'ev-1' }];
+      if (sql.startsWith('UPDATE evidence') && sql.includes('image_role_source')) {
+        return [{
+          id: 'ev-1',
+          case_id: 'case-1',
+          excluded: false,
+          storage_path: 'msg-1/photo.jpg',
+          box_file_id: null,
+        }];
+      }
+      if (sql.includes('INSERT INTO archive_mirror_outbox')) {
+        return [{ requested_generation: '4' }];
+      }
+      if (sql.startsWith('UPDATE evidence')) return [{ id: 'ev-1' }];
+      if (sql.startsWith('UPDATE case_')) {
+        return [{ status_recompute_requested_generation: '8' }];
+      }
+      return [];
+    });
+
+    const response = await stamp(
+      req({ id: 'ev-1', body: { ...classification, excluded: false } }),
+      ctx,
+    );
+
+    expect(response.jsonBody).toEqual({ updated: true, statusGeneration: 8 });
+    const outbox = db.txQuery.mock.calls.find(([sql]) =>
+      String(sql).includes('INSERT INTO archive_mirror_outbox'),
+    );
+    expect(outbox?.[1]).toEqual(['ev-1', 'case-1']);
+    expect(String(outbox?.[0])).toContain('ON CONFLICT (evidence_id) DO UPDATE');
+  });
+
   it('returns 404 only when the exact evidence identity does not exist', async () => {
     db.txQuery.mockResolvedValue([]);
     const response = await stamp(req({ id: 'wrong', body: classification }), ctx);

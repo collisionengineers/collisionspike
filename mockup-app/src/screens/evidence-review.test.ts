@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Evidence } from '../data';
-import { EVIDENCE_SAVE_ERROR, persistEvidenceReview } from './evidence-review';
+import {
+  EVIDENCE_SAVE_ERROR,
+  mergeEvidenceReviewDecision,
+  persistEvidenceReview,
+  releaseEvidenceMutation,
+  tryAcquireEvidenceMutation,
+} from './evidence-review';
 
 const evidence = {
   id: 'ev-1',
@@ -27,5 +33,39 @@ describe('persistEvidenceReview', () => {
     const result = await persistEvidenceReview('ev-1', { excluded: true }, save);
     expect(result).toEqual({ error: EVIDENCE_SAVE_ERROR });
     expect(result.updated).toBeUndefined();
+  });
+
+  it('serialises review and reflection actions through one synchronous per-image lock', () => {
+    const active = new Set<string>();
+    expect(tryAcquireEvidenceMutation(active, 'ev-1')).toBe(true);
+    expect(tryAcquireEvidenceMutation(active, 'ev-1')).toBe(false);
+    expect(tryAcquireEvidenceMutation(active, 'ev-2')).toBe(true);
+    releaseEvidenceMutation(active, 'ev-1');
+    expect(tryAcquireEvidenceMutation(active, 'ev-1')).toBe(true);
+  });
+
+  it('does not let a stale full-row response overwrite unrelated live fields', () => {
+    const current = {
+      ...evidence,
+      reflectionDismissed: true,
+      personReflection: true,
+      boxFileUrl: 'https://archive.test/new',
+    };
+    const staleResponse = {
+      ...evidence,
+      acceptedForEva: false,
+      excluded: true,
+      reflectionDismissed: false,
+      personReflection: undefined,
+      boxFileUrl: 'https://archive.test/old',
+    } as Evidence;
+
+    expect(mergeEvidenceReviewDecision(current, staleResponse)).toMatchObject({
+      acceptedForEva: false,
+      excluded: true,
+      reflectionDismissed: true,
+      personReflection: true,
+      boxFileUrl: 'https://archive.test/new',
+    });
   });
 });

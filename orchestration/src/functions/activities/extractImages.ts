@@ -24,6 +24,7 @@ import { callExtractImages, callPlateOcr } from '../../lib/functions-client.js';
 import { dataApi } from '../../lib/data-api.js';
 import { downloadEvidenceBytes, uploadEvidenceBytes } from '../../lib/blob.js';
 import { classifyImage, classificationToEvidenceFields } from '../../lib/image-classify.js';
+import { settlePersistedStatusGeneration } from '../../lib/status-generation.js';
 
 interface ExtractAttachment {
   filename: string;
@@ -219,6 +220,7 @@ df.app.activity('extractImages', {
         try {
           const res = await dataApi.persistImageEvidence(input.caseId, rows);
           totalExtracted += res.persisted;
+          await settlePersistedStatusGeneration(input.caseId, res, ctx);
         } catch (e) {
           ctx.warn(`[extractImages] persist failed for ${doc.filename}: ${e instanceof Error ? e.message : String(e)}`);
         }

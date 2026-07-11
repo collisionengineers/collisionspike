@@ -13,6 +13,7 @@ import './functions/graph-lifecycle.js';
 import './functions/graph-renew.js';
 import './functions/graph-renew-http.js';
 import './functions/subscriptionMonitor.js';
+import './functions/archive-mirror-monitor.js';
 // TKT-095 detector (a) — gated SentItems surface (DONE_SENT_EMAIL_ENABLED, default off/dark):
 // the sent-items webhook + lifecycle endpoints and the 'sent-messages' queue processor.
 // Deploying these registers the handlers only — no Graph subscription is created until the

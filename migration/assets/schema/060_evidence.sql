@@ -37,9 +37,7 @@ CREATE TABLE evidence (
   updated_at            timestamptz NOT NULL DEFAULT now(),
   -- exclusion_reason required when excluded=true (schema invariant)
   CONSTRAINT ck_evidence_exclusion_reason
-    CHECK (NOT excluded OR (exclusion_reason IS NOT NULL AND length(btrim(exclusion_reason)) > 0)),
-  CONSTRAINT ck_evidence_exclusion_source
-    CHECK (NOT excluded OR exclusion_decision_source IS NOT NULL)
+    CHECK (NOT excluded OR (exclusion_reason IS NOT NULL AND length(btrim(exclusion_reason)) > 0))
 );
 
 COMMENT ON TABLE evidence IS 'cr1bd_evidence -- per-artifact row; bytes off-row in Blob (storage_path). Dataverse File column not translated.';

@@ -21,6 +21,7 @@ import { resolveBytesForRow, type EvidenceByteRow } from '../lib/evidence-bytes.
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import { rowToEvidence, type Row } from '../lib/mappers.js';
 import { requestStatusRecompute } from '../lib/status-recompute.js';
+import { requestArchiveMirrorIfEligible } from '../lib/archive-mirror-outbox.js';
 
 // GET /api/evidence/{id}/content
 app.http('evidenceContent', {
@@ -230,6 +231,20 @@ app.http('patchEvidence', {
         ],
       );
       if (!rows[0]) return undefined;
+      // Intake's archive pass is intentionally one-shot. If staff later reverses an
+      // exclusion, durably request another mirror pass in this SAME transaction as the
+      // evidence decision. A generation upsert is replay-safe: retrying an already-applied
+      // PATCH sees excluded=false and cannot mint another request, while a later genuine
+      // true -> false transition advances the generation.
+      const becameArchiveEligible =
+        current.excluded === true &&
+        nextExcluded === false &&
+        typeof current.storage_path === 'string' &&
+        current.storage_path.trim().length > 0 &&
+        (typeof current.box_file_id !== 'string' || current.box_file_id.trim().length === 0);
+      if (becameArchiveEligible) {
+        await requestArchiveMirrorIfEligible(q, rows[0]);
+      }
       if (readinessChanged) await requestStatusRecompute(q, String(current.case_id));
       return { current, updated: rows[0], readinessChanged, changed: true };
     });

@@ -43,9 +43,18 @@ vi.mock('../../lib/functions-client.js', () => fnClient);
 
 /* ---- data API: recording doubles ---- */
 const dataApiMock = vi.hoisted(() => ({
-  persistImageEvidence: vi.fn(async (_caseId: string, rows: unknown[]) => ({ persisted: rows.length })),
+  persistImageEvidence: vi.fn(async (
+    _caseId: string,
+    rows: unknown[],
+  ): Promise<{
+    persisted: number;
+    updated?: number;
+    merged?: number;
+    statusGeneration?: number;
+  }> => ({ persisted: rows.length })),
   recordAudit: vi.fn(async () => ({})),
   workProviderAiAllowed: vi.fn(async (): Promise<{ aiAllowed: boolean | null }> => ({ aiAllowed: null })),
+  evaluateStatus: vi.fn(async () => ({ value: 'needs_review', completed: true, pending: false })),
 }));
 vi.mock('../../lib/data-api.js', () => ({ dataApi: dataApiMock }));
 
@@ -121,7 +130,13 @@ beforeEach(() => {
   for (const fn of Object.values(dataApiMock)) fn.mockClear();
   blobMock.downloadEvidenceBytes.mockClear();
   blobMock.uploadEvidenceBytes.mockClear();
+  dataApiMock.persistImageEvidence.mockImplementation(async (_caseId: string, rows: unknown[]) => ({
+    persisted: rows.length,
+  }));
   dataApiMock.workProviderAiAllowed.mockResolvedValue({ aiAllowed: null });
+  dataApiMock.evaluateStatus.mockResolvedValue({
+    value: 'needs_review', completed: true, pending: false,
+  });
 });
 afterEach(() => {
   delete process.env.PDF_MAPPER_ENABLED;
@@ -206,5 +221,37 @@ describe('extractImages — TKT-089 classifier-gated suppression of non-vehicle 
       .find((s) => s.includes('"evt":"extractImages"'));
     expect(summary).toBeTruthy();
     expect(JSON.parse(summary!)).toMatchObject({ extracted: 2, excludedNonVehicle: 1 });
+  });
+
+  it('evaluates and acknowledges the generation returned by image persistence', async () => {
+    fnClient.callExtractImages.mockResolvedValue({ count: 1, images: [PHOTO_IMG] });
+    classifyImageMock.mockResolvedValue(CLS_OVERVIEW);
+    dataApiMock.persistImageEvidence.mockResolvedValue({
+      persisted: 1,
+      updated: 0,
+      merged: 0,
+      statusGeneration: 5,
+    });
+
+    await activity.handler(INPUT, ctx());
+
+    expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-1', 5);
+  });
+
+  it('leaves the returned generation pending when immediate evaluation fails', async () => {
+    fnClient.callExtractImages.mockResolvedValue({ count: 1, images: [PHOTO_IMG] });
+    classifyImageMock.mockResolvedValue(CLS_OVERVIEW);
+    dataApiMock.persistImageEvidence.mockResolvedValue({
+      persisted: 1,
+      updated: 0,
+      merged: 0,
+      statusGeneration: 6,
+    });
+    dataApiMock.evaluateStatus.mockRejectedValueOnce(new Error('status unavailable'));
+
+    const c = ctx();
+    await activity.handler(INPUT, c);
+
+    expect(c.warn).toHaveBeenCalledWith(expect.stringContaining('remains pending'));
   });
 });

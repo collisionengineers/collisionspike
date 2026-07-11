@@ -74,11 +74,15 @@ const dataApiMock = vi.hoisted(() => ({
   workProviderAiAllowed: vi.fn(
     async (_id: string): Promise<{ aiAllowed: boolean | null }> => ({ aiAllowed: null }),
   ),
-  evaluateStatus: vi.fn(async (_caseId: string) => ({ value: 'needs_review' })),
+  evaluateStatus: vi.fn(async (
+    _caseId: string,
+    _generation?: number,
+  ): Promise<{ value: string; completed?: boolean; pending?: boolean }> => ({
+    value: 'needs_review', completed: true, pending: false,
+  })),
   pendingStatusRecomputes: vi.fn(
     async (): Promise<{ rows: Array<{ caseId: string; generation: number }> }> => ({ rows: [] }),
   ),
-  completeStatusRecompute: vi.fn(async () => ({ completed: true, pending: false })),
 }));
 vi.mock('../lib/data-api.js', () => ({ dataApi: dataApiMock }));
 
@@ -134,7 +138,9 @@ beforeEach(() => {
   dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({ rows: [] });
   dataApiMock.workProviderAiAllowed.mockResolvedValue({ aiAllowed: null });
   dataApiMock.pendingStatusRecomputes.mockResolvedValue({ rows: [] });
-  dataApiMock.completeStatusRecompute.mockResolvedValue({ completed: true, pending: false });
+  dataApiMock.evaluateStatus.mockResolvedValue({
+    value: 'needs_review', completed: true, pending: false,
+  });
   dataApiMock.stampBoxEvidenceClassification.mockResolvedValue({
     updated: true,
     statusGeneration: 1,
@@ -191,8 +197,7 @@ describe('box-classify-sweep — (a) happy path', () => {
 
     // Status re-evaluated once for the stamped case.
     expect(dataApiMock.evaluateStatus).toHaveBeenCalledTimes(1);
-    expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-A');
-    expect(dataApiMock.completeStatusRecompute).toHaveBeenCalledWith('case-A', 1);
+    expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-A', 1);
   });
 });
 
@@ -236,7 +241,7 @@ describe('box-classify-sweep — (c) never-throws, never-blocks', () => {
     expect(dataApiMock.stampBoxEvidenceClassification).toHaveBeenCalledTimes(1);
     expect(dataApiMock.stampBoxEvidenceClassification.mock.calls[0][1]).toBe('case-C');
     expect(dataApiMock.evaluateStatus).toHaveBeenCalledTimes(1);
-    expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-C');
+    expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-C', 1);
   });
 });
 
@@ -394,15 +399,13 @@ describe('box-classify-sweep — (g) durable status generations', () => {
     classifyImageMock.mockResolvedValue(CLS_OVERVIEW);
     dataApiMock.evaluateStatus
       .mockRejectedValueOnce(new Error('status API 503'))
-      .mockResolvedValueOnce({ value: 'ready_for_eva' });
+      .mockResolvedValueOnce({ value: 'ready_for_eva', completed: true, pending: false });
 
     await sweep.handler(TIMER, ctx());
-    expect(dataApiMock.completeStatusRecompute).not.toHaveBeenCalled();
 
     await sweep.handler(TIMER, ctx());
     expect(dataApiMock.evaluateStatus).toHaveBeenCalledTimes(2);
-    expect(dataApiMock.completeStatusRecompute).toHaveBeenCalledTimes(1);
-    expect(dataApiMock.completeStatusRecompute).toHaveBeenCalledWith('case-A', 7);
+    expect(dataApiMock.evaluateStatus).toHaveBeenLastCalledWith('case-A', 7);
   });
 
   it('drains committed status work even when new classifications are gated off', async () => {
@@ -413,8 +416,7 @@ describe('box-classify-sweep — (g) durable status generations', () => {
 
     await sweep.handler(TIMER, ctx());
 
-    expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-old');
-    expect(dataApiMock.completeStatusRecompute).toHaveBeenCalledWith('case-old', 3);
+    expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-old', 3);
     expect(dataApiMock.unclassifiedBoxEvidence).not.toHaveBeenCalled();
   });
 
@@ -429,7 +431,6 @@ describe('box-classify-sweep — (g) durable status generations', () => {
     await sweep.handler(TIMER, ctx());
 
     expect(dataApiMock.evaluateStatus).not.toHaveBeenCalled();
-    expect(dataApiMock.completeStatusRecompute).not.toHaveBeenCalled();
   });
 });
 

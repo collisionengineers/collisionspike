@@ -58,12 +58,9 @@ app.http('uploadCaseEvidence', {
           await q(
             `INSERT INTO evidence
                (file_name, case_id, kind_code, sha256, content_type, size_bytes, storage_path,
-                accepted_for_eva_source, exclusion_decision_source, source_label)
-             VALUES ($1, $2, $3, $4, $5, $6, $7,
-                     CASE WHEN $3 = $8 THEN 'staff' ELSE NULL END,
-                     CASE WHEN $3 = $8 THEN 'staff' ELSE NULL END,
-                     'assistant_upload')`,
-            [file.name, caseId, kindCode, sha256, file.type, size, blobPath, IMAGE_KIND_CODE],
+                source_label)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'assistant_upload')`,
+            [file.name, caseId, kindCode, sha256, file.type, size, blobPath],
           );
           if (kindCode === IMAGE_KIND_CODE) await requestStatusRecompute(q, caseId);
         });
