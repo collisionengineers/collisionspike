@@ -1,0 +1,1 @@
+Where a case is deemed "image based assessment" (either manually set, or by the providers default rules) - it is not necessary to care about reflections and this needs to be factored into the system.
