@@ -105,6 +105,27 @@ function isRetryableBackfillFetchError(error: unknown): boolean {
   );
 }
 
+/** Azure Storage SDK / transport failures worth queue redelivery before any
+ * evidence row is committed. Client validation/auth/not-found 4xx stay terminal. */
+export function isRetryableStorageInfrastructureError(error: unknown): boolean {
+  const candidate = (error && typeof error === 'object')
+    ? error as { statusCode?: unknown; status?: unknown; code?: unknown; name?: unknown }
+    : {};
+  const status = Number(candidate.statusCode ?? candidate.status);
+  if (Number.isFinite(status) && (status === 429 || status >= 500)) return true;
+
+  const code = String(candidate.code ?? candidate.name ?? '');
+  if (/^(?:ServerBusy|InternalError|OperationTimedOut|ServiceUnavailable|TooManyRequests|ECONNRESET|ETIMEDOUT|ESOCKETTIMEDOUT|EAI_AGAIN)$/i.test(code)) {
+    return true;
+  }
+  return /\b(?:ServerBusy|ServiceUnavailable|TooManyRequests|ECONNRESET|ETIMEDOUT|ESOCKETTIMEDOUT|EAI_AGAIN)\b/i
+    .test(errorDetail(error));
+}
+
+function isRetryableBackfillInfrastructureError(error: unknown): boolean {
+  return isRetryableBackfillFetchError(error) || isRetryableStorageInfrastructureError(error);
+}
+
 /**
  * Whole-mailbox `$search` fallback (gated RETRO_OUTLOOK_SEARCH_ENABLED by the caller):
  * search on the email's SUBJECT (Graph $search cannot filter on internetMessageId — its
@@ -292,7 +313,7 @@ app.storageQueue('evidence-backfill', {
           sha256: emlUp.sha256,
         };
       } catch (e) {
-        if (!lastAttempt && isRetryableBackfillFetchError(e)) throw e;
+        if (!lastAttempt && isRetryableBackfillInfrastructureError(e)) throw e;
         rawMimeFailure = errorDetail(e).slice(0, 300);
         ctx.warn(
           `[evidence-backfill] raw .eml capture failed for ${job.inboundEmailId} (best-effort): ${
@@ -447,7 +468,7 @@ app.storageQueue('evidence-backfill', {
         return;
       }
       if (reportAttempted || persistenceCommitted || !targetValidated) throw e;
-      if (!lastAttempt && isRetryableBackfillFetchError(e)) {
+      if (!lastAttempt && isRetryableBackfillInfrastructureError(e)) {
         ctx.warn(
           `[evidence-backfill] transient failure (attempt ${dequeueCount}/${MAX_DEQUEUE}) — retrying: ${detail}`,
         );

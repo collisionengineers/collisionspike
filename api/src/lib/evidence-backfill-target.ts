@@ -20,6 +20,11 @@ export type EvidenceBackfillTargetResult<T> =
   | { kind: 'resolved'; targetCaseId: string; value: T }
   | { kind: 'stale' };
 
+type OptimisticTargetProbe =
+  | { kind: 'resolved'; owner: string; lineage: string[] }
+  | { kind: 'stale' }
+  | { kind: 'retry' };
+
 async function inboundOwner(q: TxQuery, inboundEmailId: string, forUpdate = false): Promise<string | null> {
   const rows = await q<{ case_id: string | null }>(
     `SELECT case_id FROM inbound_email WHERE id = $1${forUpdate ? ' FOR UPDATE' : ''}`,
@@ -65,6 +70,30 @@ export async function verifiedMergeLineage(
 }
 
 /**
+ * Read owner -> lineage -> owner and accept the probe only when the owner stayed
+ * stable across the lineage walk. Under READ COMMITTED each SELECT gets a fresh
+ * statement snapshot; a merge can otherwise commit between the first owner read
+ * and the lineage reads, making a valid old->survivor chain look unrelated. The
+ * second owner read turns that mixed-snapshot observation into a retry, never stale.
+ */
+async function stableOptimisticTargetProbe(
+  inboundEmailId: string,
+  requestedCaseId: string,
+): Promise<OptimisticTargetProbe> {
+  const ownerBefore = await inboundOwner(query, inboundEmailId);
+  const lineage = ownerBefore
+    ? await verifiedMergeLineage(query, requestedCaseId, ownerBefore)
+    : null;
+  const ownerAfter = await inboundOwner(query, inboundEmailId);
+
+  if ((ownerBefore ?? '').trim().toLowerCase() !== (ownerAfter ?? '').trim().toLowerCase()) {
+    return { kind: 'retry' };
+  }
+  if (!ownerBefore || !lineage) return { kind: 'stale' };
+  return { kind: 'resolved', owner: ownerBefore, lineage };
+}
+
+/**
  * Run `work` under the case-lineage advisory locks, locked case rows, and locked
  * inbound row. A merge that commits between the optimistic probe and lock
  * acquisition causes a fresh transaction retry with the new complete lineage.
@@ -75,10 +104,10 @@ export async function withResolvedEvidenceBackfillTarget<T>(
   work: (q: TxQuery, targetCaseId: string) => Promise<T>,
 ): Promise<EvidenceBackfillTargetResult<T>> {
   for (let attempt = 0; attempt < MAX_LOCK_RETRIES; attempt++) {
-    const probedOwner = await inboundOwner(query, inboundEmailId);
-    if (!probedOwner) return { kind: 'stale' };
-    const probedLineage = await verifiedMergeLineage(query, requestedCaseId, probedOwner);
-    if (!probedLineage) return { kind: 'stale' };
+    const probe = await stableOptimisticTargetProbe(inboundEmailId, requestedCaseId);
+    if (probe.kind === 'retry') continue;
+    if (probe.kind === 'stale') return probe;
+    const probedLineage = probe.lineage;
 
     const outcome = await tx(async (q) => {
       await acquireCaseMutationLocks(q, probedLineage);

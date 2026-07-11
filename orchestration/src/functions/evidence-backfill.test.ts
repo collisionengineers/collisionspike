@@ -279,6 +279,65 @@ describe('evidence-backfill — (c) retryable vs terminal split', () => {
   });
 });
 
+describe('evidence-backfill — pre-persist storage landing failures', () => {
+  it('retries a raw-email Blob ServerBusy response without reporting a terminal failure', async () => {
+    arrangeFetch();
+    blob.uploadEvidenceBytes
+      .mockResolvedValueOnce({
+        blobPath: 'g1/attachment-photo.jpg',
+        size: 3,
+        sha256: 'f'.repeat(64),
+      })
+      .mockRejectedValueOnce(Object.assign(new Error('storage is busy'), { code: 'ServerBusy' }));
+
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(1))).rejects.toThrow(/storage is busy/i);
+
+    expect(blob.uploadEvidenceBytes).toHaveBeenCalledTimes(2);
+    expect(dataApiMock.persistEvidence).not.toHaveBeenCalled();
+    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+  });
+
+  it('retries a storage 503 until the final dequeue, then honestly reports failed', async () => {
+    arrangeFetch();
+    const unavailable = () => Object.assign(new Error('storage unavailable'), { statusCode: 503 });
+    blob.uploadEvidenceBytes
+      .mockRejectedValueOnce(unavailable())
+      .mockRejectedValueOnce(unavailable());
+
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(1))).rejects.toThrow(/storage unavailable/i);
+    expect(dataApiMock.persistEvidence).not.toHaveBeenCalled();
+    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+
+    await backfill.handler(JSON.stringify(JOB), ctxAt(5));
+
+    expect(dataApiMock.persistEvidence).not.toHaveBeenCalled();
+    expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledTimes(1);
+    expect(dataApiMock.reportEvidenceBackfill.mock.calls[0][1]).toMatchObject({
+      outcome: 'failed',
+      detail: expect.stringMatching(/storage unavailable/i),
+    });
+  });
+
+  it('reports a terminal storage 4xx immediately instead of retrying', async () => {
+    arrangeFetch();
+    blob.uploadEvidenceBytes.mockRejectedValueOnce(
+      Object.assign(new Error('storage authorization failed'), {
+        statusCode: 403,
+        code: 'AuthorizationFailure',
+      }),
+    );
+
+    await backfill.handler(JSON.stringify(JOB), ctxAt(1));
+
+    expect(dataApiMock.persistEvidence).not.toHaveBeenCalled();
+    expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledTimes(1);
+    expect(dataApiMock.reportEvidenceBackfill.mock.calls[0][1]).toMatchObject({
+      outcome: 'failed',
+      detail: expect.stringMatching(/storage authorization failed/i),
+    });
+  });
+});
+
 describe('evidence-backfill — (d) the $search fallback corroborates on the exact internetMessageId', () => {
   it('uses the candidate whose internetMessageId matches; ignores subject-only hits', async () => {
     process.env.RETRO_OUTLOOK_SEARCH_ENABLED = 'true';
