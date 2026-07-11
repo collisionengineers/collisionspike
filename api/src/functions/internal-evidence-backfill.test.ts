@@ -85,8 +85,14 @@ beforeEach(() => {
   sqls.length = 0;
   params.length = 0;
   rowsFor.mockReset();
-  rowsFor.mockImplementation((sql: string) => {
+  rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
     if (/FROM inbound_email/i.test(sql)) return [{ id: 'ie-1', case_id: 'case-target' }];
+    if (/SELECT id, duplicate_keys FROM case_/i.test(sql)) {
+      return [{ id: p?.[0] as string, duplicate_keys: null }];
+    }
+    if (/SELECT id FROM case_/i.test(sql) && /FOR UPDATE/i.test(sql)) {
+      return ((p?.[0] as string[] | undefined) ?? []).map((id) => ({ id }));
+    }
     return [];
   });
 });
@@ -212,12 +218,52 @@ describe('internalInboundEvidenceBackfill partial + validation', () => {
     expect(noteParams[1]).toContain('evidence-backfill:ie-2');
   });
 
-  it('validates only the current exact link', async () => {
-    expect((await validate(req('ie-1', { targetCaseId: 'case-target' }), ctx)).status).toBe(204);
+  it('validates the current exact link and returns its resolved target', async () => {
+    const current = await validate(req('ie-1', { targetCaseId: 'case-target' }), ctx);
+    expect(current.status).toBe(200);
+    expect(current.jsonBody).toEqual({ targetCaseId: 'case-target' });
     rowsFor.mockImplementation(() => []);
     const stale = await validate(req('ie-1', { targetCaseId: 'case-target' }), ctx);
     expect(stale.status).toBe(409);
     expect(stale.jsonBody).toMatchObject({ code: 'evidence_backfill_target_changed' });
+  });
+
+  it('merge-first: follows only a verified mergedInto lineage to the current owner', async () => {
+    rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
+      if (/FROM inbound_email/i.test(sql)) return [{ id: 'ie-1', case_id: 'case-new' }];
+      if (/SELECT id, duplicate_keys FROM case_/i.test(sql)) {
+        const id = p?.[0] as string;
+        return [{ id, duplicate_keys: id === 'case-old' ? { mergedInto: 'case-new' } : null }];
+      }
+      if (/SELECT id FROM case_/i.test(sql) && /FOR UPDATE/i.test(sql)) {
+        return ((p?.[0] as string[] | undefined) ?? []).map((id) => ({ id }));
+      }
+      return [];
+    });
+
+    const res = await validate(req('ie-1', { targetCaseId: 'case-old' }), ctx);
+    expect(res.status).toBe(200);
+    expect(res.jsonBody).toEqual({ targetCaseId: 'case-new' });
+    const advisoryParams = params
+      .filter((_, i) => /pg_advisory_xact_lock/i.test(sqls[i]))
+      .map((p) => p[0]);
+    expect(advisoryParams).toEqual([
+      'case-merge-backfill:case-new',
+      'case-merge-backfill:case-old',
+    ]);
+  });
+
+  it('an unrelated manual relink remains a benign typed stale result', async () => {
+    rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
+      if (/FROM inbound_email/i.test(sql)) return [{ id: 'ie-1', case_id: 'case-new' }];
+      if (/SELECT id, duplicate_keys FROM case_/i.test(sql)) {
+        return [{ id: p?.[0] as string, duplicate_keys: null }];
+      }
+      return [];
+    });
+    const res = await validate(req('ie-1', { targetCaseId: 'case-old' }), ctx);
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toMatchObject({ code: 'evidence_backfill_target_changed' });
   });
 });
 
@@ -230,6 +276,38 @@ describe('internalCasesEvidence guarded persistence', () => {
     expect(res.status).toBe(200);
     expect(sqls.some((s) => /FROM inbound_email/i.test(s) && /FOR UPDATE/i.test(s))).toBe(true);
     expect(sqls.some((s) => /INSERT INTO evidence/i.test(s))).toBe(true);
+    const advisory = sqls.findIndex((s) => /pg_advisory_xact_lock/i.test(s));
+    const caseRowLock = sqls.findIndex((s) => /FROM case_/i.test(s) && /FOR UPDATE/i.test(s));
+    const inboundRowLock = sqls.findIndex((s) => /FROM inbound_email/i.test(s) && /FOR UPDATE/i.test(s));
+    const evidenceWrite = sqls.findIndex((s) => /INSERT INTO evidence/i.test(s));
+    expect(advisory).toBeGreaterThanOrEqual(0);
+    expect(advisory).toBeLessThan(caseRowLock);
+    expect(caseRowLock).toBeLessThan(inboundRowLock);
+    expect(inboundRowLock).toBeLessThan(evidenceWrite);
+  });
+
+  it('merge-first persistence redirects the write to the verified survivor', async () => {
+    rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
+      if (/FROM inbound_email/i.test(sql)) return [{ id: 'ie-1', case_id: 'case-new' }];
+      if (/SELECT id, duplicate_keys FROM case_/i.test(sql)) {
+        const id = p?.[0] as string;
+        return [{ id, duplicate_keys: id === 'case-old' ? { mergedInto: 'case-new' } : null }];
+      }
+      if (/SELECT id FROM case_/i.test(sql) && /FOR UPDATE/i.test(sql)) {
+        return ((p?.[0] as string[] | undefined) ?? []).map((id) => ({ id }));
+      }
+      return [];
+    });
+
+    const res = await persist(req('case-old', {
+      expectedInboundEmailId: 'ie-1',
+      rows: [{ filename: 'photo.jpg', evidenceClass: 'image', blobPath: 'g/photo.jpg', size: 3 }],
+    }), ctx);
+    expect(res.status).toBe(200);
+    expect(res.jsonBody).toMatchObject({ targetCaseId: 'case-new' });
+    const insertIndex = sqls.findIndex((s) => /INSERT INTO evidence/i.test(s));
+    expect(params[insertIndex]).toContain('case-new');
+    expect(params[insertIndex]).not.toContain('case-old');
   });
 
   it('returns typed 409 before evidence mutation after detach/relink', async () => {

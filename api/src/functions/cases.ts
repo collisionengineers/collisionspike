@@ -53,7 +53,8 @@ import {
   statusToInt,
 } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
-import { query, tx } from '../lib/db.js';
+import { query, tx, type TxQuery } from '../lib/db.js';
+import { acquireCaseMutationLocks, orderedCaseMutationIds } from '../lib/case-mutation-locks.js';
 import { isPrefillApplicable, prefillImageBasedInspection } from '../lib/inspection-prefill.js';
 import { maybeSuggestOverviewChase } from '../lib/overview-chase.js';
 import { casePoFloor, mintCasePo } from '../lib/case-po.js';
@@ -152,8 +153,8 @@ async function loadCaseFull(id: string, now: Date): Promise<Case | undefined> {
 }
 
 /** Light Case (row only, no children) — for merge/twin scoping checks + aggregates. */
-async function loadCaseLite(id: string): Promise<Case | undefined> {
-  const rows = await query<Row>(`${CASE_SELECT} WHERE c.id = $1`, [id]);
+async function loadCaseLite(id: string, q: TxQuery = query): Promise<Case | undefined> {
+  const rows = await q<Row>(`${CASE_SELECT} WHERE c.id = $1`, [id]);
   return rows[0] ? rowToCase(rows[0]) : undefined;
 }
 
@@ -909,103 +910,155 @@ app.http('mergeCases', {
     if (!sourceCaseId || sourceCaseId === targetCaseId) {
       return { status: 400, jsonBody: { error: 'Cannot merge a case into itself.' } };
     }
-    const [src, tgt] = await Promise.all([loadCaseLite(sourceCaseId), loadCaseLite(targetCaseId)]);
-    if (!src || !tgt) return { status: 404, jsonBody: { error: 'Source or target case not found.' } };
-    // ADR-0010 INVIOLABLE rule 2: NEVER link across different work providers.
-    if (src.providerCode && tgt.providerCode && src.providerCode !== tgt.providerCode) {
-      return { status: 400, jsonBody: { error: 'Refusing to merge across different work providers.' } };
-    }
-    if (TWIN_TERMINAL.has(tgt.status)) {
-      return { status: 400, jsonBody: { error: 'Cannot merge into a finalised (terminal) case.' } };
-    }
-
-    // 1. Reparent the source's evidence onto the target.
-    const moved = await query<Row>(
-      'UPDATE evidence SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id',
-      [sourceCaseId, targetCaseId],
-    );
-    const movedEvidence = moved.length;
-
-    // 1b. Reparent the source's inbound emails too (TKT-092 — the retired case must not
-    // keep the email trail; the survivor owns the whole thread).
-    const movedEmails = await query<Row>(
-      'UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id',
-      [sourceCaseId, targetCaseId],
-    );
-
-    // 1c. Provider preference (TKT-052): the merged survivor must end with whichever side
-    // carries a resolved provider — an image-only target merged with an instructions
-    // source used to LOSE the provider the source knew. Cross-provider was already
-    // refused above (ADR-0010 rule 2); decideMergeProvider re-asserts it defensively.
-    const fkRows = await query<Row>(
-      'SELECT id, work_provider_id FROM case_ WHERE id = ANY($1::uuid[])',
-      [[sourceCaseId, targetCaseId]],
-    );
-    const srcFk = (fkRows.find((r) => r.id === sourceCaseId)?.work_provider_id as string | null) ?? null;
-    const tgtFk = (fkRows.find((r) => r.id === targetCaseId)?.work_provider_id as string | null) ?? null;
-    const providerDecision = decideMergeProvider(srcFk, tgtFk);
-    let providerFilled = false;
-    if (!providerDecision.crossProvider && providerDecision.filledFrom === 'source' && providerDecision.providerId) {
-      await query(
-        `UPDATE case_ SET work_provider_id = $2, updated_at = now()
-          WHERE id = $1 AND work_provider_id IS NULL`,
-        [targetCaseId, providerDecision.providerId],
+    const merged = await tx(async (q) => {
+      // Merge and guarded backfill share these namespaced advisory locks. Both callers
+      // acquire multiple case ids in the same lexical order before taking row locks,
+      // so reverse concurrent merges cannot deadlock.
+      await acquireCaseMutationLocks(q, [sourceCaseId, targetCaseId]);
+      const orderedIds = orderedCaseMutationIds([sourceCaseId, targetCaseId]);
+      const lockedCases = await q<{ id: string }>(
+        'SELECT id FROM case_ WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE',
+        [orderedIds],
       );
-      // Fill the human-readable EVA provider column too (fill-if-empty) + provenance.
-      const wp = await query<Row>('SELECT display_name FROM work_provider WHERE id = $1', [
-        providerDecision.providerId,
-      ]);
-      const displayName = ((wp[0]?.display_name as string | null) ?? '').trim();
-      if (displayName) {
-        await query(
-          `UPDATE case_ SET eva_work_provider = $2, updated_at = now()
-            WHERE id = $1 AND (eva_work_provider IS NULL OR eva_work_provider = '')`,
-          [targetCaseId, displayName.slice(0, 200)],
-        );
+      if (lockedCases.length !== 2) {
+        return { kind: 'error' as const, status: 404, error: 'Source or target case not found.' };
       }
-      await query(
-        `INSERT INTO field_level_provenance
-           (name, case_id, field_name, value, source_type_code, source_label)
-         VALUES ($1, $2, 'workProviderId', $3, $4, $5)`,
-        [
-          `${targetCaseId}:workProviderId`,
-          targetCaseId,
+
+      // Re-read the decision inputs only after both rows are locked. A competing merge
+      // may have retired one side while this request waited on the advisory locks.
+      const src = await loadCaseLite(sourceCaseId, q);
+      const tgt = await loadCaseLite(targetCaseId, q);
+      if (!src || !tgt) {
+        return { kind: 'error' as const, status: 404, error: 'Source or target case not found.' };
+      }
+      if (isRetiredMerged(src) || isRetiredMerged(tgt)) {
+        return {
+          kind: 'error' as const,
+          status: 409,
+          error: 'One of these cases has already been merged. Refresh and try again.',
+        };
+      }
+      // ADR-0010 INVIOLABLE rule 2: NEVER link across different work providers.
+      if (src.providerCode && tgt.providerCode && src.providerCode !== tgt.providerCode) {
+        return {
+          kind: 'error' as const,
+          status: 400,
+          error: 'Refusing to merge across different work providers.',
+        };
+      }
+      if (TWIN_TERMINAL.has(tgt.status)) {
+        return {
+          kind: 'error' as const,
+          status: 400,
+          error: 'Cannot merge into a finalised case.',
+        };
+      }
+
+      // Lock every source inbound row before touching evidence. Guarded backfill takes
+      // the same case advisory lock before its one inbound row lock, so either it commits
+      // first and this UPDATE moves the new evidence, or this merge commits first and the
+      // queued job follows the verified mergedInto lineage to the survivor.
+      await q(
+        'SELECT id FROM inbound_email WHERE case_id = $1 ORDER BY id FOR UPDATE',
+        [sourceCaseId],
+      );
+
+      const moved = await q<Row>(
+        'UPDATE evidence SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id',
+        [sourceCaseId, targetCaseId],
+      );
+      const movedEvidence = moved.length;
+      const movedEmails = await q<Row>(
+        'UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id',
+        [sourceCaseId, targetCaseId],
+      );
+
+      // Provider preference (TKT-052): preserve the source's resolved provider when
+      // the image-led survivor is still empty. Every associated write stays in this tx.
+      const fkRows = await q<Row>(
+        'SELECT id, work_provider_id FROM case_ WHERE id = ANY($1::uuid[])',
+        [[sourceCaseId, targetCaseId]],
+      );
+      const srcFk = (fkRows.find((r) => r.id === sourceCaseId)?.work_provider_id as string | null) ?? null;
+      const tgtFk = (fkRows.find((r) => r.id === targetCaseId)?.work_provider_id as string | null) ?? null;
+      const providerDecision = decideMergeProvider(srcFk, tgtFk);
+      let providerFilled = false;
+      if (!providerDecision.crossProvider && providerDecision.filledFrom === 'source' && providerDecision.providerId) {
+        await q(
+          `UPDATE case_ SET work_provider_id = $2, updated_at = now()
+            WHERE id = $1 AND work_provider_id IS NULL`,
+          [targetCaseId, providerDecision.providerId],
+        );
+        const wp = await q<Row>('SELECT display_name FROM work_provider WHERE id = $1', [
           providerDecision.providerId,
-          sourceTypeCodec.toInt('corpus') ?? 100000003,
-          'Carried over from the merged case',
-        ],
-      ).catch(() => { /* provenance is supplementary */ });
-      providerFilled = true;
-    }
+        ]);
+        const displayName = ((wp[0]?.display_name as string | null) ?? '').trim();
+        if (displayName) {
+          await q(
+            `UPDATE case_ SET eva_work_provider = $2, updated_at = now()
+              WHERE id = $1 AND (eva_work_provider IS NULL OR eva_work_provider = '')`,
+            [targetCaseId, displayName.slice(0, 200)],
+          );
+        }
+        // Provenance remains supplementary. A savepoint is required here: catching a
+        // failed Postgres statement without rolling back to one would leave the whole
+        // merge transaction aborted and make the later COMMIT fail.
+        await q('SAVEPOINT merge_provider_provenance');
+        try {
+          await q(
+            `INSERT INTO field_level_provenance
+               (name, case_id, field_name, value, source_type_code, source_label)
+             VALUES ($1, $2, 'workProviderId', $3, $4, $5)`,
+            [
+              `${targetCaseId}:workProviderId`,
+              targetCaseId,
+              providerDecision.providerId,
+              sourceTypeCodec.toInt('corpus') ?? 100000003,
+              'Carried over from the merged case',
+            ],
+          );
+          await q('RELEASE SAVEPOINT merge_provider_provenance');
+        } catch {
+          await q('ROLLBACK TO SAVEPOINT merge_provider_provenance');
+          await q('RELEASE SAVEPOINT merge_provider_provenance');
+        }
+        providerFilled = true;
+      }
 
-    // 2. Retire the source: linked_to_instruction, record the survivor, clear hold.
-    await query(
-      `UPDATE case_
-         SET status_code = $2, duplicate_keys = $3, on_hold = false, updated_at = now()
-       WHERE id = $1`,
-      [sourceCaseId, statusToInt('linked_to_instruction'), JSON.stringify({ mergedInto: targetCaseId })],
-    );
+      await q(
+        `UPDATE case_
+           SET status_code = $2, duplicate_keys = $3, on_hold = false, updated_at = now()
+         WHERE id = $1`,
+        [sourceCaseId, statusToInt('linked_to_instruction'), JSON.stringify({ mergedInto: targetCaseId })],
+      );
 
-    await writeAudit({
-      action: AUDIT_ACTION.case_attached,
-      caseId: targetCaseId,
-      summary:
-        `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence, ${movedEmails.length} emails` +
-        `${providerFilled ? ', provider carried over from the merged case' : ''})`,
-      after: {
-        sourceCaseId,
-        targetCaseId,
-        movedEvidence,
-        movedEmails: movedEmails.length,
-        providerFilled,
-      },
-      ...(actor ? { actor } : {}),
+      await writeAudit({
+        action: AUDIT_ACTION.case_attached,
+        caseId: targetCaseId,
+        summary:
+          `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence, ${movedEmails.length} emails` +
+          `${providerFilled ? ', provider carried over from the merged case' : ''})`,
+        after: {
+          sourceCaseId,
+          targetCaseId,
+          movedEvidence,
+          movedEmails: movedEmails.length,
+          providerFilled,
+        },
+        ...(actor ? { actor } : {}),
+      }, q);
+
+      return { kind: 'merged' as const, movedEvidence, movedEmails: movedEmails.length, providerFilled };
     });
+
+    if (merged.kind === 'error') {
+      return { status: merged.status, jsonBody: { error: merged.error } };
+    }
 
     // 3. Recompute the target's readiness now its evidence set changed.
     await recomputeStatus(targetCaseId, actor);
 
-    const result: MergeCasesResult = { targetCaseId, movedEvidence };
+    const result: MergeCasesResult = { targetCaseId, movedEvidence: merged.movedEvidence };
     return { status: 200, jsonBody: result };
   }),
 });

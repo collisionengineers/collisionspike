@@ -484,7 +484,7 @@ export const dataApi = {
       }
     >,
     options?: { expectedInboundEmailId?: string },
-  ): Promise<{ persisted: number; updated: number; merged: number }> {
+  ): Promise<{ persisted: number; updated: number; merged: number; targetCaseId?: string }> {
     return request('POST', `/api/internal/cases/${caseId}/evidence`, {
       rows,
       ...(options?.expectedInboundEmailId ? { expectedInboundEmailId: options.expectedInboundEmailId } : {}),
@@ -727,8 +727,14 @@ export const dataApi = {
     );
   },
 
-  /** Reject a queued backfill target that is no longer the inbound email's case. */
-  validateEvidenceBackfillTarget(inboundEmailId: string, targetCaseId: string): Promise<void> {
+  /**
+   * Resolve the current owner of a queued backfill. The API follows only a
+   * verified merge-retirement lineage; an unrelated relink still returns 409.
+   */
+  validateEvidenceBackfillTarget(
+    inboundEmailId: string,
+    targetCaseId: string,
+  ): Promise<{ targetCaseId: string }> {
     return request(
       'POST',
       `/api/internal/inbound/${encodeURIComponent(inboundEmailId)}/evidence-backfill/validate`,

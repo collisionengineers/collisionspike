@@ -17,7 +17,7 @@
  * NEVER throws — an audit-write failure must not block the primary operation.
  */
 
-import { query } from './db.js';
+import { query, type TxQuery } from './db.js';
 
 /** Controlled audit action codes (choice_audit_action, plan 10 §2.1; base 100000000). */
 export const AUDIT_ACTION = {
@@ -140,11 +140,16 @@ export interface AuditEventOptions {
 
 /**
  * Write one append-only audit row. Never throws — audit failures are logged and
- * swallowed so the primary operation still succeeds.
+ * swallowed so the primary operation still succeeds. When a transaction query is
+ * supplied, a savepoint keeps that best-effort posture without aborting the caller's
+ * surrounding transaction.
  */
-export async function writeAudit(opts: AuditEventOptions): Promise<void> {
+export async function writeAudit(opts: AuditEventOptions, transactionQuery?: TxQuery): Promise<void> {
+  const q = transactionQuery ?? query;
+  const savepoint = transactionQuery ? 'audit_event_write' : null;
   try {
-    await query(
+    if (savepoint) await q(`SAVEPOINT ${savepoint}`);
+    await q(
       `INSERT INTO audit_event
          (name, case_id, actor, action_code, severity_code, before, after, occurred_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, now())`,
@@ -158,7 +163,16 @@ export async function writeAudit(opts: AuditEventOptions): Promise<void> {
         opts.after !== undefined ? JSON.stringify(opts.after) : null,
       ],
     );
+    if (savepoint) await q(`RELEASE SAVEPOINT ${savepoint}`);
   } catch (err) {
+    if (savepoint) {
+      try {
+        await q(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+        await q(`RELEASE SAVEPOINT ${savepoint}`);
+      } catch {
+        // The outer transaction owns the final rollback if the connection itself failed.
+      }
+    }
     // Log but do not rethrow — audit failures must not block primary ops.
     console.error('[audit] write failed', err);
   }

@@ -80,6 +80,7 @@ import { query, tx, type TxQuery } from '../lib/db.js';
 import { isPrefillApplicable, prefillImageBasedInspection } from '../lib/inspection-prefill.js';
 import { maybeSuggestOverviewChase } from '../lib/overview-chase.js';
 import { writeEvidenceBackfillNote } from '../lib/evidence-backfill-note.js';
+import { withResolvedEvidenceBackfillTarget } from '../lib/evidence-backfill-target.js';
 import { mintCasePo } from '../lib/case-po.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
 import { combineMakeModel } from '../lib/enrichment-map.js';
@@ -2347,7 +2348,8 @@ app.http('internalInboundOutlookMoved', {
     }),
 });
 
-/* Validate the queued TKT-145 target before orchestration reads Graph or lands bytes. */
+/* Validate the queued TKT-145 target before orchestration reads Graph or lands bytes.
+   A merge-retired target resolves only through its verified mergedInto lineage. */
 app.http('internalInboundEvidenceBackfillValidate', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -2357,14 +2359,18 @@ app.http('internalInboundEvidenceBackfillValidate', {
       const body = (await req.json().catch(() => ({}))) as { targetCaseId?: unknown };
       const targetCaseId = typeof body.targetCaseId === 'string' ? body.targetCaseId.trim() : '';
       if (!targetCaseId) return { status: 400, jsonBody: { error: 'targetCaseId is required' } };
-      const rows = await query<Row>('SELECT case_id FROM inbound_email WHERE id = $1', [req.params.id]);
-      if (((rows[0]?.case_id as string | null | undefined) ?? null) !== targetCaseId) {
+      const resolved = await withResolvedEvidenceBackfillTarget(
+        req.params.id,
+        targetCaseId,
+        async () => undefined,
+      );
+      if (resolved.kind === 'stale') {
         return {
           status: 409,
           jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
         };
       }
-      return { status: 204 };
+      return { status: 200, jsonBody: { targetCaseId: resolved.targetCaseId } };
     }),
 });
 
@@ -2648,7 +2654,10 @@ app.http('internalCasesEvidence', {
         >;
       };
 
-      const persistRows = async (q: TxQuery): Promise<{ persisted: number; updated: number; merged: number }> => {
+      const persistRows = async (
+        q: TxQuery,
+        persistCaseId: string,
+      ): Promise<{ persisted: number; updated: number; merged: number }> => {
       let persisted = 0;
       let updated = 0;
       let merged = 0; // TKT-133: sha256 content twins linked onto an existing row instead of inserted
@@ -2721,7 +2730,7 @@ app.http('internalCasesEvidence', {
           }>(
             `SELECT id, box_file_id, box_file_url, storage_path, source_message_id
                FROM evidence WHERE case_id = $1 AND sha256 = $2 LIMIT 1`,
-            [caseId, sha256],
+            [persistCaseId, sha256],
           );
           const ex = twin[0];
           if (ex) {
@@ -2820,7 +2829,7 @@ app.http('internalCasesEvidence', {
              RETURNING id`,
             [
               row.filename,
-              caseId,
+              persistCaseId,
               kindCode,
               row.contentType || null,
               row.size ?? null,
@@ -2845,7 +2854,7 @@ app.http('internalCasesEvidence', {
             updated += await applyEvidenceMetadata(
               ctx,
               `case_id = $1 AND ${dedupCol} = $2`,
-              [caseId, dedupVal],
+              [persistCaseId, dedupVal],
               row,
               { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
               q,
@@ -2866,7 +2875,7 @@ app.http('internalCasesEvidence', {
              RETURNING id`,
             [
               row.filename,
-              caseId,
+              persistCaseId,
               kindCode,
               row.contentType || null,
               row.size ?? null,
@@ -2888,7 +2897,7 @@ app.http('internalCasesEvidence', {
             updated += await applyEvidenceMetadata(
               ctx,
               'case_id = $1 AND storage_path = $2::text',
-              [caseId, row.blobPath],
+              [persistCaseId, row.blobPath],
               row,
               { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
               q,
@@ -2905,23 +2914,23 @@ app.http('internalCasesEvidence', {
         ? body.expectedInboundEmailId.trim()
         : '';
       if (expectedInboundEmailId) {
-        const guarded = await tx(async (q) => {
-          const linked = await q<{ case_id: string | null }>(
-            'SELECT case_id FROM inbound_email WHERE id = $1 FOR UPDATE',
-            [expectedInboundEmailId],
-          );
-          if ((linked[0]?.case_id ?? null) !== caseId) return { stale: true as const };
-          return { stale: false as const, result: await persistRows(q) };
-        });
-        if (guarded.stale) {
+        const guarded = await withResolvedEvidenceBackfillTarget(
+          expectedInboundEmailId,
+          caseId,
+          (q, resolvedCaseId) => persistRows(q, resolvedCaseId),
+        );
+        if (guarded.kind === 'stale') {
           return {
             status: 409,
             jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
           };
         }
-        return { status: 200, jsonBody: guarded.result };
+        return {
+          status: 200,
+          jsonBody: { ...guarded.value, targetCaseId: guarded.targetCaseId },
+        };
       }
-      return { status: 200, jsonBody: await persistRows(query) };
+      return { status: 200, jsonBody: await persistRows(query, caseId) };
     }),
 });
 

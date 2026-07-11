@@ -94,7 +94,7 @@ const dataApiMock = vi.hoisted(() => ({
   reportEvidenceBackfill: vi.fn(async (_id: string, p: { outcome: string }) => {
     order.push(`report:${p.outcome}`);
   }),
-  validateEvidenceBackfillTarget: vi.fn(async (_inboundEmailId: string, _targetCaseId: string) => {}),
+  validateEvidenceBackfillTarget: vi.fn(async (_inboundEmailId: string, targetCaseId: string) => ({ targetCaseId })),
   casesLookup: vi.fn(async (_payload: { caseIds?: string[] }) => ({
     cases: [] as Array<{ caseId: string; casePo: string; status: string; workProviderId: string; vrm: string }>,
   })),
@@ -107,8 +107,9 @@ vi.mock('../lib/data-api.js', async (importOriginal) => {
   return { ...actual, dataApi: dataApiMock };
 });
 
-await import('./evidence-backfill.js'); // registers 'evidence-backfill' against the captured app
+const backfillModule = await import('./evidence-backfill.js'); // registers the queue handler
 const backfill = queueRegs.get('evidence-backfill')!;
+const { locateBySubjectSearch } = backfillModule;
 const { EvidenceBackfillTargetChangedError } = await import('../lib/data-api.js');
 
 function ctxAt(dequeueCount: number): InvocationContext {
@@ -153,7 +154,9 @@ beforeEach(() => {
   dataApiMock.reportEvidenceBackfill.mockImplementation(async (_id: string, p: { outcome: string }) => {
     order.push(`report:${p.outcome}`);
   });
-  dataApiMock.validateEvidenceBackfillTarget.mockResolvedValue(undefined);
+  dataApiMock.validateEvidenceBackfillTarget.mockImplementation(async (_id: string, targetCaseId: string) => ({
+    targetCaseId,
+  }));
   dataApiMock.casesLookup.mockResolvedValue({ cases: [] });
   dataApiMock.workProviderAiAllowed.mockResolvedValue({ aiAllowed: null });
   imageClassify.classifyImage.mockResolvedValue(null);
@@ -282,6 +285,55 @@ describe('evidence-backfill — (d) the $search fallback corroborates on the exa
     expect(order).toEqual(['persist', 'status', 'report:completed']);
   });
 
+  it('503 candidate + only mismatches rethrows so the queue retries', async () => {
+    process.env.RETRO_OUTLOOK_SEARCH_ENABLED = 'true';
+    graph.findMessageByInternetMessageId.mockResolvedValue(null);
+    graph.searchMessages.mockResolvedValue([
+      { id: 'transient-1', subject: JOB.subject, receivedDateTime: '', from: 'a@b.c', hasAttachments: true },
+      { id: 'noise-2', subject: JOB.subject, receivedDateTime: '', from: 'a@b.c', hasAttachments: true },
+    ]);
+    graph.graphFetch.mockImplementation(async (path: string) => {
+      if (path.includes('transient-1')) throw new Error('graph GET candidate → 503: unavailable');
+      return { internetMessageId: '<other@x>' };
+    });
+
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(1))).rejects.toThrow(/503/);
+    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+  });
+
+  it('a later exact match wins even after an earlier retryable candidate failure', async () => {
+    process.env.RETRO_OUTLOOK_SEARCH_ENABLED = 'true';
+    graph.findMessageByInternetMessageId.mockResolvedValue(null);
+    graph.searchMessages.mockResolvedValue([
+      { id: 'transient-1', subject: JOB.subject, receivedDateTime: '', from: 'a@b.c', hasAttachments: true },
+      { id: 'match-2', subject: JOB.subject, receivedDateTime: '', from: 'a@b.c', hasAttachments: true },
+    ]);
+    graph.graphFetch.mockImplementation(async (path: string) => {
+      if (path.includes('transient-1')) throw new Error('graph GET candidate → 503: unavailable');
+      return { internetMessageId: JOB.sourceMessageId };
+    });
+    graph.getMessageWithAttachments.mockResolvedValue({
+      message: { id: 'match-2', internetMessageId: JOB.sourceMessageId },
+      attachments: [A_PHOTO],
+      attachmentFailures: [],
+    });
+    graph.getMessageRawMime.mockResolvedValue(Buffer.from('raw'));
+
+    await backfill.handler(JSON.stringify(JOB), ctxAt(1));
+    expect(graph.getMessageWithAttachments).toHaveBeenCalledWith(JOB.sourceMailbox, 'match-2');
+    expect(order).toEqual(['persist', 'status', 'report:completed']);
+  });
+
+  it('404-only candidates are terminal misses, not retryable errors', async () => {
+    graph.searchMessages.mockResolvedValue([
+      { id: 'gone-1', subject: JOB.subject, receivedDateTime: '', from: 'a@b.c', hasAttachments: true },
+    ]);
+    graph.graphFetch.mockRejectedValue(new Error('graph GET candidate → 404: not found'));
+    await expect(
+      locateBySubjectSearch(JOB.sourceMailbox, String(JOB.subject), JOB.sourceMessageId),
+    ).resolves.toBeNull();
+  });
+
   it('gate OFF → no $search; a $filter miss is terminal', async () => {
     graph.findMessageByInternetMessageId.mockResolvedValue(null);
     await backfill.handler(JSON.stringify(JOB), ctxAt(1));
@@ -321,6 +373,28 @@ describe('evidence-backfill — target, attachment and policy safety', () => {
     expect(graph.findMessageByInternetMessageId).not.toHaveBeenCalled();
     expect(dataApiMock.persistEvidence).not.toHaveBeenCalled();
     expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+  });
+
+  it('merge-first: uses the API-verified survivor for persistence, status and reporting', async () => {
+    arrangeFetch();
+    dataApiMock.validateEvidenceBackfillTarget.mockResolvedValue({ targetCaseId: 'case-survivor' });
+    dataApiMock.persistEvidence.mockImplementation(async () => {
+      order.push('persist');
+      return { persisted: 2, merged: 0, targetCaseId: 'case-survivor' };
+    });
+
+    await backfill.handler(JSON.stringify(JOB), ctxAt(1));
+
+    expect(dataApiMock.persistEvidence).toHaveBeenCalledWith(
+      'case-survivor',
+      expect.any(Array),
+      { expectedInboundEmailId: 'ie-1' },
+    );
+    expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-survivor');
+    expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledWith(
+      'ie-1',
+      expect.objectContaining({ targetCaseId: 'case-survivor', outcome: 'completed' }),
+    );
   });
 
   it('drops a detach/relink race rejected by guarded persistence without status or reporting', async () => {

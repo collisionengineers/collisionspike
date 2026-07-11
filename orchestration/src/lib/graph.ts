@@ -21,6 +21,7 @@
 import { assessSignatureImage } from './image-sniff.js';
 
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
+const MAX_ATTACHMENT_PAGES = 100;
 
 /* ---------- token (client-credentials, cached until ~60 s before expiry) ---------- */
 
@@ -141,59 +142,81 @@ export async function getMessageWithAttachments(
   const attachments: GraphAttachment[] = [];
   const attachmentFailures: FetchedMessage['attachmentFailures'] = [];
   if (message.hasAttachments) {
-    const list = await graphFetch<{ value: GraphAttachment[] }>(`${base}/attachments`);
-    for (const a of list.value ?? []) {
-      if (a.isInline === true) continue;
-      if (!(a.id ?? '').trim()) {
-        attachmentFailures.push({
-          id: '',
-          name: a.name ?? '',
-          contentType: a.contentType ?? 'application/octet-stream',
-          reason: 'attachment identity missing',
-        });
-        continue;
+    let pagePath: string | null = `${base}/attachments`;
+    const seenPages = new Set<string>();
+    let pageCount = 0;
+    while (pagePath) {
+      const pageKey = pagePath.startsWith('http') ? pagePath : `${GRAPH_BASE}${pagePath}`;
+      if (seenPages.has(pageKey)) {
+        throw new Error(`graph attachment pagination cycle at ${pagePath}`);
       }
-      const otype = (a['@odata.type'] ?? '').toLowerCase();
-      if (a.contentBytes !== undefined) {
-        // A normal fileAttachment with inline base64 bytes — the common case.
-        // TKT-047: the isInline check above only catches signature/logo images when the
-        // sender's client flagged them inline — many arrive as ordinary attachments instead,
-        // so sniff + drop those too before they land in the evidence set.
-        if (skipAsSignatureImage(a.name, a.contentType, Buffer.from(a.contentBytes, 'base64'))) {
+      if (pageCount >= MAX_ATTACHMENT_PAGES) {
+        throw new Error(`graph attachment pagination exceeded ${MAX_ATTACHMENT_PAGES} pages`);
+      }
+      seenPages.add(pageKey);
+      pageCount++;
+
+      // A failed later page must reject the whole fetch. Treating the pages already
+      // seen as complete would make the caller report success while silently omitting
+      // every attachment on the unavailable page.
+      const list: {
+        value?: GraphAttachment[];
+        '@odata.nextLink'?: string;
+      } = await graphFetch(pagePath);
+      for (const a of list.value ?? []) {
+        if (a.isInline === true) continue;
+        if (!(a.id ?? '').trim()) {
+          attachmentFailures.push({
+            id: '',
+            name: a.name ?? '',
+            contentType: a.contentType ?? 'application/octet-stream',
+            reason: 'attachment identity missing',
+          });
           continue;
         }
-        attachments.push(a);
-        continue;
-      }
-      // No contentBytes: either an ITEM attachment (a forwarded message — the
-      // instruction often arrives this way and was previously DROPPED, so the
-      // parser saw nothing → the "only registration" symptom) or a large
-      // fileAttachment whose bytes Graph omitted. Both are fetchable via `$value`.
-      // Best-effort: a fetch failure skips that one attachment, never the message.
-      try {
-        const raw = await getAttachmentRawValue(mailbox, messageId, a.id);
-        if (otype.includes('itemattachment')) {
-          // The embedded item's MIME — land it as a parseable/archivable `.eml`.
-          attachments.push({
-            ...a,
-            name: ensureEmlName(a.name),
-            contentType: 'message/rfc822',
-            size: raw.length,
-            contentBytes: raw.toString('base64'),
-          });
-        } else {
-          // TKT-047: same signature/logo sniff as the inline-bytes branch above.
-          if (skipAsSignatureImage(a.name, a.contentType, raw)) continue;
-          attachments.push({ ...a, size: raw.length, contentBytes: raw.toString('base64') });
+        const otype = (a['@odata.type'] ?? '').toLowerCase();
+        if (a.contentBytes !== undefined) {
+          // A normal fileAttachment with inline base64 bytes — the common case.
+          // TKT-047: the isInline check above only catches signature/logo images when the
+          // sender's client flagged them inline — many arrive as ordinary attachments instead,
+          // so sniff + drop those too before they land in the evidence set.
+          if (skipAsSignatureImage(a.name, a.contentType, Buffer.from(a.contentBytes, 'base64'))) {
+            continue;
+          }
+          attachments.push(a);
+          continue;
         }
-      } catch (e) {
-        attachmentFailures.push({
-          id: a.id,
-          name: a.name ?? '',
-          contentType: a.contentType ?? 'application/octet-stream',
-          reason: (e instanceof Error ? e.message : String(e)).slice(0, 300),
-        });
+        // No contentBytes: either an ITEM attachment (a forwarded message — the
+        // instruction often arrives this way and was previously DROPPED, so the
+        // parser saw nothing → the "only registration" symptom) or a large
+        // fileAttachment whose bytes Graph omitted. Both are fetchable via `$value`.
+        // Best-effort: a fetch failure records that attachment and continues its siblings.
+        try {
+          const raw = await getAttachmentRawValue(mailbox, messageId, a.id);
+          if (otype.includes('itemattachment')) {
+            // The embedded item's MIME — land it as a parseable/archivable `.eml`.
+            attachments.push({
+              ...a,
+              name: ensureEmlName(a.name),
+              contentType: 'message/rfc822',
+              size: raw.length,
+              contentBytes: raw.toString('base64'),
+            });
+          } else {
+            // TKT-047: same signature/logo sniff as the inline-bytes branch above.
+            if (skipAsSignatureImage(a.name, a.contentType, raw)) continue;
+            attachments.push({ ...a, size: raw.length, contentBytes: raw.toString('base64') });
+          }
+        } catch (e) {
+          attachmentFailures.push({
+            id: a.id,
+            name: a.name ?? '',
+            contentType: a.contentType ?? 'application/octet-stream',
+            reason: (e instanceof Error ? e.message : String(e)).slice(0, 300),
+          });
+        }
       }
+      pagePath = list['@odata.nextLink']?.trim() || null;
     }
   }
   return { message, attachments, attachmentFailures };
@@ -212,11 +235,9 @@ function ensureEmlName(name: string | undefined): string {
  * they were case evidence. Delegates the actual decision to `assessSignatureImage`
  * (image-sniff.ts), which mirrors the vendored cedocumentmapper engine's decorative-raster
  * filter (`_MIN_EXTRACTED_IMAGE_AREA` / `is_decorative_raster` in
- * functions/parser/cedocumentmapper_v2/application/service.py, engine-v2.11): a pixel-area
- * floor, an above-floor banner-shape heuristic (extreme aspect + small short side —
- * TKT-047's 2026-07-08 live leak / TKT-089), and a conservative byte-size fallback for
- * images Graph's bytes-only payload can't be dimension-sniffed from (see that module for
- * the full rationale and the recall guard on each rung).
+ * functions/parser/cedocumentmapper_v2/application/service.py): conservative content-based
+ * checks plus a byte-size fallback for images Graph's bytes-only payload can't be
+ * dimension-sniffed from (see that module for the current decision rules and recall guards).
  *
  * Logs the filename + why (dimensions vs byte-size) on every skip — a filtered attachment must
  * stay observable in App Insights traces, never a silent gap in the evidence set.
@@ -228,16 +249,12 @@ function skipAsSignatureImage(name: string, contentType: string | undefined, byt
   if (process.env.GRAPH_IMAGE_FLOOR_DISABLED === 'true') return false;
   const verdict = assessSignatureImage(name, contentType, bytes);
   if (!verdict.flagged) return false;
-  // Trace text distinguishes the rung that acted: "dimensions WxH" (area floor —
-  // unchanged wording, existing App Insights queries keep matching), "banner shape
-  // WxH" (the above-floor aspect heuristic, TKT-047/089), "byte-size Nb" (unknown
-  // dimensions). Traces only — never surfaced to handlers.
-  const reason =
-    verdict.reason === 'banner-shape'
-      ? `banner shape ${verdict.dims!.width}x${verdict.dims!.height}`
-      : verdict.reason === 'area-floor'
-        ? `dimensions ${verdict.dims!.width}x${verdict.dims!.height}`
-        : `byte-size ${bytes.length}b`;
+  // Keep the trace independent of the classifier's evolving reason union. Dimensions
+  // remain the useful diagnostic for every geometry-based rule; the byte count covers
+  // rules that act when dimensions cannot be recovered.
+  const reason = verdict.dims
+    ? `dimensions ${verdict.dims.width}x${verdict.dims.height}`
+    : `byte-size ${bytes.length}b`;
   console.log(`[graph] skipped attachment "${name}" — likely signature/logo image (${reason})`);
   return true;
 }

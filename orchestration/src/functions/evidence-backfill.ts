@@ -20,10 +20,11 @@
  *   5. the EXISTING persist chain: buildBaseEvidenceRows (the classifyPersist row
  *      assembly) + the TKT-064 image-classify stamping (same gates, same per-provider
  *      ai_allowed opt-out — resolved via the target case's provider) →
- *      dataApi.persistEvidence (the internal evidence route, whose TKT-133
- *      (case_id, sha256) dedup/LINK makes replays and double-accepts safe);
+ *      dataApi.persistEvidence (the internal evidence route, whose merge-lineage
+ *      guard redirects only a retired target to its verified survivor, and whose
+ *      TKT-133 (case_id, sha256) dedup/LINK makes replays and double-accepts safe);
  *   6. status recompute (dataApi.evaluateStatus — the acceptance's second line);
- *   7. report `completed`/`failed` back to the Data API
+ *   7. report `completed`/`partial`/`failed` back to the Data API
  *      (POST /api/internal/inbound/{id}/evidence-backfill): `completed` writes the
  *      case-scoped attachment_classified audit; `failed` writes the durable
  *      "Attachments to add" staff note (the TKT-145 INVERSION of the always-note
@@ -77,8 +78,9 @@ const SEARCH_CANDIDATE_CAP = 25;
  * Whole-mailbox `$search` fallback (gated RETRO_OUTLOOK_SEARCH_ENABLED by the caller):
  * search on the email's SUBJECT (Graph $search cannot filter on internetMessageId — its
  * un-propertied scope is from/subject/body), then corroborate every candidate by fetching
- * its internetMessageId and requiring an EXACT match on the stored id. Returns the
- * current Graph id, or null. Never guesses: an uncorroborated candidate set is a miss.
+ * its internetMessageId and requiring an EXACT match on the stored id. A terminal
+ * per-candidate miss is skipped. Retryable candidate failures are remembered: a
+ * later exact match still wins, otherwise the transient is rethrown for redelivery.
  */
 export async function locateBySubjectSearch(
   mailbox: string,
@@ -88,6 +90,7 @@ export async function locateBySubjectSearch(
   const phrase = (subject ?? '').trim();
   if (!phrase) return null;
   const hits = await searchMessages(mailbox, kqlPhrase(phrase), SEARCH_CANDIDATE_CAP);
+  let retryableFailure: unknown;
   for (const h of hits) {
     try {
       const msg = await graphFetch<{ internetMessageId?: string }>(
@@ -95,10 +98,17 @@ export async function locateBySubjectSearch(
           `?$select=internetMessageId`,
       );
       if ((msg.internetMessageId ?? '') === internetMessageId) return h.id;
-    } catch {
-      /* a single unreadable candidate never sinks the sweep */
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e);
+      if (retryableFailure === undefined && isRetryableGraphError(detail)) {
+        retryableFailure = e;
+      }
+      // A terminal candidate failure (for example 404) is just one stale search
+      // hit. A remembered transient is deferred until all later candidates have
+      // had the chance to corroborate successfully.
     }
   }
+  if (retryableFailure !== undefined) throw retryableFailure;
   return null;
 }
 
@@ -112,6 +122,7 @@ app.storageQueue('evidence-backfill', {
     let targetValidated = false;
     let persistenceCommitted = false;
     let reportAttempted = false;
+    let targetCaseId = job.targetCaseId;
 
     const report = async (payload: Parameters<typeof dataApi.reportEvidenceBackfill>[1]): Promise<void> => {
       reportAttempted = true;
@@ -122,7 +133,7 @@ app.storageQueue('evidence-backfill', {
       ctx.warn(`[evidence-backfill] ${job.inboundEmailId}: ${detail}`);
       await report({
         outcome: 'failed',
-        targetCaseId: job.targetCaseId,
+        targetCaseId,
         detail,
       });
     };
@@ -133,7 +144,8 @@ app.storageQueue('evidence-backfill', {
         ctx.error(`[evidence-backfill] malformed job dropped: ${JSON.stringify(job).slice(0, 300)}`);
         return;
       }
-      await dataApi.validateEvidenceBackfillTarget(job.inboundEmailId, job.targetCaseId);
+      const validated = await dataApi.validateEvidenceBackfillTarget(job.inboundEmailId, targetCaseId);
+      targetCaseId = validated.targetCaseId;
       targetValidated = true;
       if (!job.sourceMailbox || !job.sourceMessageId) {
         // No mailbox provenance to re-fetch from (the producer guards this, but a
@@ -241,7 +253,7 @@ app.storageQueue('evidence-backfill', {
       let caseVrm: string | undefined;
       if (classificationRequested) {
         try {
-          const lookup = await dataApi.casesLookup({ caseIds: [job.targetCaseId] });
+          const lookup = await dataApi.casesLookup({ caseIds: [targetCaseId] });
           const target = lookup.cases[0];
           if (!target) throw new Error('target case unavailable for classification policy');
           caseVrm = target?.vrm || undefined;
@@ -259,7 +271,7 @@ app.storageQueue('evidence-backfill', {
           ctx.log(
             JSON.stringify({
               evt: 'evidenceBackfill.caseLookupFailed',
-              caseId: job.targetCaseId,
+              caseId: targetCaseId,
               err: e instanceof Error ? e.message : String(e),
             }),
           );
@@ -291,7 +303,7 @@ app.storageQueue('evidence-backfill', {
             ctx.log(
               JSON.stringify({
                 evt: 'evidenceBackfill.imageClassifyFailed',
-                caseId: job.targetCaseId,
+                caseId: targetCaseId,
                 file: r.filename,
                 err: e instanceof Error ? e.message : String(e),
               }),
@@ -300,19 +312,20 @@ app.storageQueue('evidence-backfill', {
         }
       }
 
-      const result = await dataApi.persistEvidence(job.targetCaseId, rows, {
+      const result = await dataApi.persistEvidence(targetCaseId, rows, {
         expectedInboundEmailId: job.inboundEmailId,
       });
       persistenceCommitted = true;
+      targetCaseId = result.targetCaseId ?? targetCaseId;
       const merged = (result as { merged?: number }).merged;
 
       // 6 — status recompute AFTER the backfill (the TKT-145 acceptance's second line).
-      const status = await dataApi.evaluateStatus(job.targetCaseId);
+      const status = await dataApi.evaluateStatus(targetCaseId);
 
       // 7 — report completion (the Data API writes the case-scoped audit).
       await report({
         outcome: attachmentFailures.length > 0 ? 'partial' : 'completed',
-        targetCaseId: job.targetCaseId,
+        targetCaseId,
         persisted: result.persisted,
         ...(typeof merged === 'number' ? { merged } : {}),
         ...(attachmentFailures.length > 0
@@ -326,7 +339,7 @@ app.storageQueue('evidence-backfill', {
         JSON.stringify({
           evt: 'evidence-backfill',
           inboundEmailId: job.inboundEmailId,
-          caseId: job.targetCaseId,
+          caseId: targetCaseId,
           attachments: landed.length,
           eml: Boolean(rawEml),
           persisted: result.persisted,
