@@ -105,6 +105,22 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     // Surfaced verbatim so caseResolve can map a UNIQUE(sourcemessageid) collision
     // to `already_ingested` (idempotent intake).
     const detail = await safeText(res);
+    if (detail.includes('evidence_backfill_reclassification_required')) {
+      let targetCaseId: string | undefined;
+      try {
+        const parsed = JSON.parse(detail) as { targetCaseId?: unknown };
+        if (typeof parsed.targetCaseId === 'string' && parsed.targetCaseId.trim()) {
+          targetCaseId = parsed.targetCaseId.trim();
+        }
+      } catch {
+        // The typed code is enough to force a safe retry; targetCaseId is an
+        // optional convenience for the terminal report path.
+      }
+      throw new EvidenceBackfillReclassificationRequiredError(
+        `${method} ${path} → 409: ${detail}`,
+        targetCaseId,
+      );
+    }
     if (detail.includes('evidence_backfill_target_changed')) {
       throw new EvidenceBackfillTargetChangedError(`${method} ${path} → 409: ${detail}`);
     }
@@ -119,6 +135,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 export class ConflictError extends Error {}
 export class EvidenceBackfillTargetChangedError extends ConflictError {}
+export class EvidenceBackfillReclassificationRequiredError extends ConflictError {
+  constructor(message: string, public readonly targetCaseId?: string) {
+    super(message);
+  }
+}
 
 /* ---------- typed surface ---------- */
 
@@ -563,9 +584,17 @@ export const dataApi = {
     });
   },
 
-  /** Recompute EVA-readiness + status machine and persist (internal route). */
-  evaluateStatus(caseId: string): Promise<{ value: string }> {
-    return request('POST', `/api/internal/cases/${caseId}/status-evaluate`, {});
+  /**
+   * Recompute EVA-readiness from a row-locked snapshot. Supplying the generation
+   * atomically acknowledges it only after that stable evaluation succeeds.
+   */
+  evaluateStatus(
+    caseId: string,
+    generation?: number,
+  ): Promise<{ value: string; completed?: boolean; pending?: boolean }> {
+    return request('POST', `/api/internal/cases/${caseId}/status-evaluate`, {
+      ...(generation == null ? {} : { generation }),
+    });
   },
 
   /** Set status to ingested (only if currently new_email). Internal route — idempotent. */

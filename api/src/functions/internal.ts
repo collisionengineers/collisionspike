@@ -48,7 +48,6 @@
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import {
   EVA_FIELD_ORDER,
-  IMAGE_BASED_LITERAL,
   TERMINAL_STATUSES,
   allowedCaseTypes,
   categoryMintsCase,
@@ -238,57 +237,107 @@ export async function markOutstandingChasersResponded(
  * fill-if-empty, audited) — the SAME seam as the staff-facing recomputeStatus in
  * cases.ts, so intake-driven evaluation and staff-driven evaluation agree.
  */
-async function recomputeStatus(caseId: string): Promise<CaseStatus> {
-  const rows = await query<Row>(`${CASE_SELECT} WHERE c.id = $1`, [caseId]);
-  const rec = rows[0];
-  if (!rec) return 'error';
+interface StatusRecomputeResult {
+  found: boolean;
+  value: CaseStatus;
+  completed?: boolean;
+  pending?: boolean;
+}
 
-  const evidenceRows = await query<Row>('SELECT * FROM evidence WHERE case_id = $1', [caseId]);
-  const evidence = evidenceRows.map(rowToEvidence);
-  const full = rowToCase(rec, { evidence });
+/**
+ * Evaluate from one stable case snapshot. The case row is locked before evidence is
+ * read, status is computed, and an optional durable generation is acknowledged. Every
+ * evidence mutation requests its generation by updating this same case row, so a
+ * concurrent mutation either commits before this lock (and is visible) or waits and
+ * requests a newer still-pending generation after this transaction commits.
+ */
+async function recomputeStatus(
+  caseId: string,
+  acknowledgeGeneration?: number,
+): Promise<StatusRecomputeResult> {
+  // Preserve the provider-policy prefill seam. It owns supplementary provenance and
+  // audit writes outside this module; the guarded fill completes before the stable
+  // status transaction re-reads and locks the case.
+  const previewRows = await query<Row>(`${CASE_SELECT} WHERE c.id = $1`, [caseId]);
+  const preview = previewRows[0];
+  if (preview && isPrefillApplicable(rowToCase(preview))) {
+    await prefillImageBasedInspection(caseId);
+  }
 
-  if (isPrefillApplicable(full)) {
-    const filled = await prefillImageBasedInspection(caseId);
-    if (filled) {
-      full.evaFields.inspectionAddress.value = IMAGE_BASED_LITERAL;
-      full.inspectionDecision = 'image_based';
+  const result = await tx<StatusRecomputeResult>(async (q) => {
+    const rows = await q<Row>(
+      `${CASE_SELECT} WHERE c.id = $1 FOR UPDATE OF c`,
+      [caseId],
+    );
+    const rec = rows[0];
+    if (!rec) return { found: false, value: 'error' };
+
+    const evidenceRows = await q<Row>('SELECT * FROM evidence WHERE case_id = $1', [caseId]);
+    const evidence = evidenceRows.map(rowToEvidence);
+    const full = rowToCase(rec, { evidence });
+    const input: StatusEvaluationInput = {
+      status: full.status,
+      evaFields: full.evaFields,
+      evidence: full.evidence,
+      instructionCount: full.evidence.filter((e) => e.kind === 'instruction').length,
+      hasIdentity:
+        full.vrm.trim().length > 0 ||
+        full.providerCode.trim().length > 0 ||
+        full.evaFields.claimantName.value.trim().length > 0,
+      // TKT-141 retired-lock: the marker is read while the case row is locked.
+      // A merge that won first is preserved; one that starts later waits.
+      mergedInto: full.mergedInto,
+    };
+    const next = statusForReviewCase(input);
+
+    if (next !== full.status) {
+      await q('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [
+        caseId,
+        statusToInt(next),
+      ]);
+      await writeAudit({
+        action: AUDIT_ACTION.status_changed,
+        caseId,
+        summary: `Status ${full.status} -> ${next} (internal recompute)`,
+        before: { status: full.status },
+        after: { status: next },
+      }, q);
     }
-  }
 
-  const input: StatusEvaluationInput = {
-    status: full.status,
-    evaFields: full.evaFields,
-    evidence: full.evidence,
-    instructionCount: full.evidence.filter((e) => e.kind === 'instruction').length,
-    hasIdentity:
-      full.vrm.trim().length > 0 ||
-      full.providerCode.trim().length > 0 ||
-      full.evaFields.claimantName.value.trim().length > 0,
-    // TKT-141 retired-lock: pass the merge-retirement marker (rowToCase surfaces
-    // duplicate_keys.mergedInto) so a recompute can never un-retire a merged case.
-    mergedInto: full.mergedInto,
-  };
-  const next = statusForReviewCase(input);
+    if (acknowledgeGeneration != null) {
+      const ack = await q<{
+        status_recompute_requested_generation: string | number;
+        status_recompute_completed_generation: string | number;
+      }>(
+        `UPDATE case_
+            SET status_recompute_completed_generation = GREATEST(
+                  status_recompute_completed_generation,
+                  LEAST($2::bigint, status_recompute_requested_generation)
+                )
+          WHERE id = $1
+          RETURNING status_recompute_requested_generation,
+                    status_recompute_completed_generation`,
+        [caseId, acknowledgeGeneration],
+      );
+      const requested = Number(ack[0].status_recompute_requested_generation);
+      const completedGeneration = Number(ack[0].status_recompute_completed_generation);
+      return {
+        found: true,
+        value: next,
+        completed: completedGeneration >= acknowledgeGeneration,
+        pending: completedGeneration < requested,
+      };
+    }
 
-  if (next !== full.status) {
-    await query('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [
-      caseId,
-      statusToInt(next),
-    ]);
-    await writeAudit({
-      action: AUDIT_ACTION.status_changed,
-      caseId,
-      summary: `Status ${full.status} -> ${next} (internal recompute)`,
-      before: { status: full.status },
-      after: { status: next },
-    });
+    return { found: true, value: next };
+  });
+
+  if (result.found) {
+    // TKT-148: advisory and internally row-locking before it inserts, so it is safe
+    // after the status transaction commits and never widens the locked critical path.
+    await maybeSuggestOverviewChase(caseId, result.value);
   }
-  // TKT-148: the overview-photo chase detector rides every internal evaluation too
-  // (this is the seam the TKT-146 classify sweep re-invokes per stamped case, so a
-  // freshly classified overview-less photo set is examined at event time).
-  // Advisory + idempotent; never throws.
-  await maybeSuggestOverviewChase(caseId, next);
-  return next;
+  return result;
 }
 
 /**
@@ -2425,6 +2474,29 @@ app.http('internalInboundEvidenceBackfill', {
         ? Math.max(0, Math.trunc(body.failedAttachments))
         : null;
 
+      // Every outcome reconciles the ONE source-keyed recovery note under the
+      // inbound row lock. Failed/partial upsert the current actionable wording;
+      // completed converts a pre-existing manual-action note to resolved wording
+      // without creating a success-path note when none existed.
+      const noteTargetCurrent = await tx(async (q) => {
+        const locked = await q<{ case_id: string | null }>(
+          'SELECT case_id FROM inbound_email WHERE id = $1 FOR UPDATE',
+          [id],
+        );
+        if ((locked[0]?.case_id ?? null) !== targetCaseId) return false;
+        await writeEvidenceBackfillNote(
+          { caseId: targetCaseId, inboundEmailId: id, kind: outcome },
+          q,
+        );
+        return true;
+      });
+      if (!noteTargetCurrent) {
+        return {
+          status: 409,
+          jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
+        };
+      }
+
       if (outcome === 'completed') {
         await writeAudit({
           action: AUDIT_ACTION.attachment_classified,
@@ -2436,24 +2508,6 @@ app.http('internalInboundEvidenceBackfill', {
           actor: 'orchestration',
         });
       } else {
-        const noteTargetCurrent = await tx(async (q) => {
-          const locked = await q<{ case_id: string | null }>(
-            'SELECT case_id FROM inbound_email WHERE id = $1 FOR UPDATE',
-            [id],
-          );
-          if ((locked[0]?.case_id ?? null) !== targetCaseId) return false;
-          await writeEvidenceBackfillNote(
-            { caseId: targetCaseId, inboundEmailId: id, kind: outcome },
-            q,
-          );
-          return true;
-        });
-        if (!noteTargetCurrent) {
-          return {
-            status: 409,
-            jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
-          };
-        }
         await writeAudit({
           action: AUDIT_ACTION.graph_message_ingest_failed,
           caseId: targetCaseId,
@@ -3008,6 +3062,11 @@ app.http('internalCasesEvidence', {
         }
         if (inserted) {
           persisted++;
+          // Any newly committed evidence row can change status inputs: images affect
+          // accepted-photo readiness and instruction rows affect the no-evidence branch.
+          // Request durable recompute work in this SAME transaction even when an image
+          // classifier did not supply metadata.
+          readinessChanged = true;
           if (
             suppliedClass === 'image' &&
             hasReadinessMetadata &&
@@ -3035,7 +3094,19 @@ app.http('internalCasesEvidence', {
         const guarded = await withResolvedEvidenceBackfillTarget(
           expectedInboundEmailId,
           caseId,
-          (q, resolvedCaseId) => persistRows(q, resolvedCaseId),
+          async (q, resolvedCaseId) => {
+            // Validation/classification happens before this persistence transaction.
+            // If a merge redirected ownership in that window, the rows carry the old
+            // case's provider policy/VRM decisions. Reject WITHOUT mutating so the queue
+            // retries from validation and reclassifies against the survivor.
+            if (resolvedCaseId.trim().toLowerCase() !== caseId.trim().toLowerCase()) {
+              return { kind: 'reclassification_required' as const };
+            }
+            return {
+              kind: 'persisted' as const,
+              value: await persistRows(q, resolvedCaseId),
+            };
+          },
         );
         if (guarded.kind === 'stale') {
           return {
@@ -3043,9 +3114,19 @@ app.http('internalCasesEvidence', {
             jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
           };
         }
+        if (guarded.value.kind === 'reclassification_required') {
+          return {
+            status: 409,
+            jsonBody: {
+              error: 'evidence backfill must be reclassified for the merged case',
+              code: 'evidence_backfill_reclassification_required',
+              targetCaseId: guarded.targetCaseId,
+            },
+          };
+        }
         return {
           status: 200,
-          jsonBody: { ...guarded.value, targetCaseId: guarded.targetCaseId },
+          jsonBody: { ...guarded.value.value, targetCaseId: guarded.targetCaseId },
         };
       }
       return { status: 200, jsonBody: await tx((q) => persistRows(q, caseId)) };
@@ -3163,8 +3244,23 @@ app.http('internalCasesStatusEvaluate', {
   handler: (req, ctx) =>
     withServiceAuth(req, ctx, async () => {
       const caseId = req.params.id;
-      const value = await recomputeStatus(caseId);
-      return { status: 200, jsonBody: { value } };
+      const body = (await req.json().catch(() => ({}))) as { generation?: unknown };
+      const generation = body.generation == null ? undefined : Number(body.generation);
+      if (
+        generation != null &&
+        (!Number.isSafeInteger(generation) || generation < 1)
+      ) {
+        return { status: 400, jsonBody: { error: 'generation must be a positive integer' } };
+      }
+      const result = await recomputeStatus(caseId, generation);
+      return {
+        status: 200,
+        jsonBody: {
+          value: result.value,
+          ...(result.completed == null ? {} : { completed: result.completed }),
+          ...(result.pending == null ? {} : { pending: result.pending }),
+        },
+      };
     }),
 });
 
@@ -3769,26 +3865,14 @@ app.http('internalStatusRecomputeComplete', {
           jsonBody: { error: 'case id and a positive generation are required' },
         };
       }
-      const rows = await query<{
-        status_recompute_requested_generation: string | number;
-        status_recompute_completed_generation: string | number;
-      }>(
-        `UPDATE case_
-            SET status_recompute_completed_generation = GREATEST(
-                  status_recompute_completed_generation,
-                  LEAST($2::bigint, status_recompute_requested_generation)
-                )
-          WHERE id = $1
-          RETURNING status_recompute_requested_generation,
-                    status_recompute_completed_generation`,
-        [caseId, generation],
-      );
-      if (!rows[0]) return { status: 404, jsonBody: { error: 'case not found' } };
-      const requested = Number(rows[0].status_recompute_requested_generation);
-      const completed = Number(rows[0].status_recompute_completed_generation);
+      // Do not blindly acknowledge a generation evaluated by a prior request: a
+      // mutation/terminal transition may have committed in between. Re-evaluate and
+      // acknowledge under one case-row lock so completion always names a stable snapshot.
+      const result = await recomputeStatus(caseId, generation);
+      if (!result.found) return { status: 404, jsonBody: { error: 'case not found' } };
       return {
         status: 200,
-        jsonBody: { completed: completed >= generation, pending: completed < requested },
+        jsonBody: { completed: result.completed, pending: result.pending },
       };
     }),
 });

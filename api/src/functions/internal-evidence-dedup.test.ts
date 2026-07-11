@@ -137,7 +137,7 @@ describe('TKT-133 (a) — email arrival then Box mirror = ONE row (the acceptanc
       return [];
     });
     const res = await evidenceRoute(req('case-1', [EMAIL_ROW]), ctx);
-    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0 });
+    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, statusGeneration: 1 });
     expect(shaLookups()).toHaveLength(1); // the sha pre-check DID run (sha supplied)
     expect(inserts()).toHaveLength(1);
   });
@@ -219,7 +219,7 @@ describe('TKT-133 (c) — NEGATIVE: same sha256, DIFFERENT case → no merge, no
       return [];
     });
     const res = await evidenceRoute(req('case-2', [BOX_ROW]), ctx);
-    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0 });
+    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, statusGeneration: 1 });
     // The lookup asked about case-2 (never a cross-case probe), and the row inserted.
     const lookupIdx = sqls.findIndex((s) => /FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(s));
     expect(params[lookupIdx]).toEqual(['case-2', SHA]);
@@ -235,7 +235,7 @@ describe('TKT-133 (d) — no/implausible sha256 → exactly the pre-existing beh
     });
     const { sha256: _drop, ...noSha } = EMAIL_ROW;
     const res = await evidenceRoute(req('case-1', [noSha]), ctx);
-    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0 });
+    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, statusGeneration: 1 });
     expect(shaLookups()).toHaveLength(0);
   });
 
@@ -245,7 +245,7 @@ describe('TKT-133 (d) — no/implausible sha256 → exactly the pre-existing beh
       return [];
     });
     const res = await evidenceRoute(req('case-1', [{ ...EMAIL_ROW, sha256: 'abc123' }]), ctx);
-    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0 });
+    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, statusGeneration: 1 });
     expect(shaLookups()).toHaveLength(0);
   });
 });
@@ -263,7 +263,7 @@ describe('TKT-089 ownership compatibility', () => {
       ctx,
     );
 
-    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0 });
+    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, statusGeneration: 1 });
     const insertIdx = sqls.findIndex((sql) => /INSERT INTO evidence/i.test(sql));
     // Email INSERT params 16..19 are the four decision-source columns.
     expect(params[insertIdx].slice(15, 19)).toEqual([null, null, null, null]);

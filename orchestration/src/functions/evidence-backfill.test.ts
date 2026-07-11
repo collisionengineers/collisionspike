@@ -75,7 +75,7 @@ vi.mock('../lib/blob.js', () => blob);
 
 /* ---- image classifier: controllable double ---- */
 const imageClassify = vi.hoisted(() => ({
-  classifyImage: vi.fn(async () => null),
+  classifyImage: vi.fn(async (_input?: unknown) => null),
   classificationToEvidenceFields: vi.fn(),
 }));
 vi.mock('../lib/image-classify.js', () => imageClassify);
@@ -85,11 +85,11 @@ const order = vi.hoisted(() => [] as string[]);
 const dataApiMock = vi.hoisted(() => ({
   persistEvidence: vi.fn(async (_caseId: string, _rows: unknown[], _options?: { expectedInboundEmailId?: string }) => {
     order.push('persist');
-    return { persisted: 2, merged: 0 };
+    return { persisted: 2, merged: 0, statusGeneration: 7 };
   }),
-  evaluateStatus: vi.fn(async () => {
+  evaluateStatus: vi.fn(async (_caseId: string, _generation?: number) => {
     order.push('status');
-    return { value: 'needs_review' };
+    return { value: 'needs_review', completed: true, pending: false };
   }),
   reportEvidenceBackfill: vi.fn(async (_id: string, p: { outcome: string }) => {
     order.push(`report:${p.outcome}`);
@@ -110,7 +110,10 @@ vi.mock('../lib/data-api.js', async (importOriginal) => {
 const backfillModule = await import('./evidence-backfill.js'); // registers the queue handler
 const backfill = queueRegs.get('evidence-backfill')!;
 const { locateBySubjectSearch } = backfillModule;
-const { EvidenceBackfillTargetChangedError } = await import('../lib/data-api.js');
+const {
+  EvidenceBackfillReclassificationRequiredError,
+  EvidenceBackfillTargetChangedError,
+} = await import('../lib/data-api.js');
 
 function ctxAt(dequeueCount: number): InvocationContext {
   return {
@@ -145,11 +148,11 @@ beforeEach(() => {
   blob.uploadEvidenceBytes.mockClear();
   dataApiMock.persistEvidence.mockImplementation(async () => {
     order.push('persist');
-    return { persisted: 2, merged: 0 };
+    return { persisted: 2, merged: 0, statusGeneration: 7 };
   });
   dataApiMock.evaluateStatus.mockImplementation(async () => {
     order.push('status');
-    return { value: 'needs_review' };
+    return { value: 'needs_review', completed: true, pending: false };
   });
   dataApiMock.reportEvidenceBackfill.mockImplementation(async (_id: string, p: { outcome: string }) => {
     order.push(`report:${p.outcome}`);
@@ -199,6 +202,7 @@ describe('evidence-backfill — (a) happy path drives the existing persist chain
 
     // The acceptance's second line: the status recompute runs AFTER the backfill persist.
     expect(order).toEqual(['persist', 'status', 'report:completed']);
+    expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-target', 7);
     expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledWith('ie-1', {
       outcome: 'completed',
       targetCaseId: 'case-target',
@@ -209,10 +213,13 @@ describe('evidence-backfill — (a) happy path drives the existing persist chain
 });
 
 describe('evidence-backfill — (b) note-on-terminal-failure', () => {
-  it('message not found (no fallback gate) → report failed; NO throw, NO persist', async () => {
+  it('message not found is retried until the final dequeue, then reports failed', async () => {
     graph.findMessageByInternetMessageId.mockResolvedValue(null);
-    const ctx = ctxAt(1);
-    await backfill.handler(JSON.stringify(JOB), ctx); // must not throw
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(1))).rejects.toThrow(/no exact match/i);
+    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+
+    await backfill.handler(JSON.stringify(JOB), ctxAt(5));
+    expect(graph.findMessageByInternetMessageId).toHaveBeenCalledTimes(2);
     expect(dataApiMock.persistEvidence).not.toHaveBeenCalled();
     expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledTimes(1);
     const [, payload] = dataApiMock.reportEvidenceBackfill.mock.calls[0] as [string, { outcome: string; detail?: string }];
@@ -245,6 +252,21 @@ describe('evidence-backfill — (c) retryable vs terminal split', () => {
     await backfill.handler(JSON.stringify(JOB), ctxAt(5)); // maxDequeueCount
     expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledTimes(1);
     expect((dataApiMock.reportEvidenceBackfill.mock.calls[0][1] as { outcome: string }).outcome).toBe('failed');
+  });
+
+  it('a moved-message 404 is retried with a fresh resolver pass, then fails only on the final dequeue', async () => {
+    graph.findMessageByInternetMessageId.mockResolvedValue({ id: 'g-stale', parentFolderId: 'f' });
+    graph.getMessageWithAttachments.mockRejectedValue(
+      new Error('graph GET /users/x/messages/g-stale → 404: not found'),
+    );
+
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(1))).rejects.toThrow(/404/);
+    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+    await backfill.handler(JSON.stringify(JOB), ctxAt(5));
+
+    expect(graph.findMessageByInternetMessageId).toHaveBeenCalledTimes(2);
+    expect(graph.getMessageWithAttachments).toHaveBeenCalledTimes(2);
+    expect(dataApiMock.reportEvidenceBackfill.mock.calls[0][1]).toMatchObject({ outcome: 'failed' });
   });
 
   it('a terminal Graph 4xx goes straight to the failed report (no retry churn)', async () => {
@@ -324,6 +346,30 @@ describe('evidence-backfill — (d) the $search fallback corroborates on the exa
     expect(order).toEqual(['persist', 'status', 'report:completed']);
   });
 
+  it('corroborates an exact Internet-Message-Id at overall search position 26', async () => {
+    const hits = Array.from({ length: 26 }, (_unused, i) => ({
+      id: i === 25 ? 'match-26' : `noise-${i + 1}`,
+      subject: JOB.subject,
+      receivedDateTime: '',
+      from: 'a@b.c',
+      hasAttachments: true,
+    }));
+    graph.searchMessages.mockResolvedValue(hits);
+    graph.graphFetch.mockImplementation(async (path: string) => ({
+      internetMessageId: path.includes('match-26') ? JOB.sourceMessageId : '<other@x>',
+    }));
+
+    await expect(
+      locateBySubjectSearch(JOB.sourceMailbox, String(JOB.subject), JOB.sourceMessageId),
+    ).resolves.toBe('match-26');
+    expect(graph.searchMessages).toHaveBeenCalledWith(
+      JOB.sourceMailbox,
+      expect.any(String),
+      100,
+    );
+    expect(graph.graphFetch).toHaveBeenCalledTimes(26);
+  });
+
   it('404-only candidates are terminal misses, not retryable errors', async () => {
     graph.searchMessages.mockResolvedValue([
       { id: 'gone-1', subject: JOB.subject, receivedDateTime: '', from: 'a@b.c', hasAttachments: true },
@@ -334,10 +380,11 @@ describe('evidence-backfill — (d) the $search fallback corroborates on the exa
     ).resolves.toBeNull();
   });
 
-  it('gate OFF → no $search; a $filter miss is terminal', async () => {
+  it('gate OFF → no $search; a $filter miss still retries resolver until the final dequeue', async () => {
     graph.findMessageByInternetMessageId.mockResolvedValue(null);
-    await backfill.handler(JSON.stringify(JOB), ctxAt(1));
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(1))).rejects.toThrow(/no exact match/i);
     expect(graph.searchMessages).not.toHaveBeenCalled();
+    await backfill.handler(JSON.stringify(JOB), ctxAt(5));
     expect((dataApiMock.reportEvidenceBackfill.mock.calls[0][1] as { outcome: string }).outcome).toBe('failed');
   });
 });
@@ -380,7 +427,7 @@ describe('evidence-backfill — target, attachment and policy safety', () => {
     dataApiMock.validateEvidenceBackfillTarget.mockResolvedValue({ targetCaseId: 'case-survivor' });
     dataApiMock.persistEvidence.mockImplementation(async () => {
       order.push('persist');
-      return { persisted: 2, merged: 0, targetCaseId: 'case-survivor' };
+      return { persisted: 2, merged: 0, targetCaseId: 'case-survivor', statusGeneration: 7 };
     });
 
     await backfill.handler(JSON.stringify(JOB), ctxAt(1));
@@ -390,7 +437,7 @@ describe('evidence-backfill — target, attachment and policy safety', () => {
       expect.any(Array),
       { expectedInboundEmailId: 'ie-1' },
     );
-    expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-survivor');
+    expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-survivor', 7);
     expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledWith(
       'ie-1',
       expect.objectContaining({ targetCaseId: 'case-survivor', outcome: 'completed' }),
@@ -405,6 +452,68 @@ describe('evidence-backfill — target, attachment and policy safety', () => {
     await backfill.handler(JSON.stringify(JOB), ctxAt(1));
     expect(dataApiMock.evaluateStatus).not.toHaveBeenCalled();
     expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+  });
+
+  it('retries a merge-time persistence redirect and reloads survivor policy/VRM before reclassification', async () => {
+    process.env.IMAGE_ROLE_CLASSIFY_ENABLED = 'true';
+    process.env.AI_MODEL_ENDPOINT = 'https://model.example';
+    process.env.AI_MODEL_DEPLOYMENT = 'vision';
+    arrangeFetch();
+    dataApiMock.validateEvidenceBackfillTarget
+      .mockResolvedValueOnce({ targetCaseId: 'case-old' })
+      .mockResolvedValueOnce({ targetCaseId: 'case-survivor' });
+    dataApiMock.casesLookup.mockImplementation(async (payload: { caseIds?: string[] }) => {
+      const id = payload.caseIds?.[0] ?? '';
+      return {
+        cases: [{
+          caseId: id,
+          casePo: id === 'case-old' ? 'OLD26001' : 'NEW26001',
+          status: 'needs_review',
+          workProviderId: id === 'case-old' ? 'wp-old' : 'wp-survivor',
+          vrm: id === 'case-old' ? 'OLDVRM' : 'NEWVRM',
+        }],
+      };
+    });
+    dataApiMock.workProviderAiAllowed.mockResolvedValue({ aiAllowed: true });
+    imageClassify.classifyImage.mockResolvedValue({ role: 'overview' } as never);
+    imageClassify.classificationToEvidenceFields.mockReturnValue({
+      imageRole: 'overview',
+      registrationVisible: true,
+      acceptedForEva: true,
+      excluded: false,
+      exclusionReason: null,
+      personReflection: false,
+    });
+    dataApiMock.persistEvidence
+      .mockRejectedValueOnce(new EvidenceBackfillReclassificationRequiredError(
+        'merged while classifying',
+        'case-survivor',
+      ))
+      .mockImplementationOnce(async () => {
+        order.push('persist');
+        return { persisted: 2, merged: 0, statusGeneration: 9 };
+      });
+
+    await expect(
+      backfill.handler(JSON.stringify({ ...JOB, targetCaseId: 'case-old' }), ctxAt(1)),
+    ).rejects.toBeInstanceOf(EvidenceBackfillReclassificationRequiredError);
+    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+
+    await backfill.handler(JSON.stringify({ ...JOB, targetCaseId: 'case-old' }), ctxAt(2));
+
+    expect(dataApiMock.casesLookup.mock.calls.map(([payload]) => payload.caseIds?.[0]))
+      .toEqual(['case-old', 'case-survivor']);
+    expect(imageClassify.classifyImage.mock.calls.map(
+      ([input]) => (input as { caseVrm?: string }).caseVrm,
+    ))
+      .toEqual(['OLDVRM', 'NEWVRM']);
+    expect(dataApiMock.persistEvidence.mock.calls.map(([caseId]) => caseId))
+      .toEqual(['case-old', 'case-survivor']);
+    expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-survivor', 9);
+    expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledWith(
+      'ie-1',
+      expect.objectContaining({ outcome: 'completed', targetCaseId: 'case-survivor' }),
+    );
   });
 
   it('uses attachment identity in Blob keys while retaining equal display filenames', async () => {
@@ -475,6 +584,73 @@ describe('evidence-backfill — target, attachment and policy safety', () => {
     expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
   });
 
+  it('retries an attachment $value 404 and reports partial only on the final dequeue', async () => {
+    const failure = {
+      id: 'att-gone',
+      name: 'moved.pdf',
+      contentType: 'application/pdf',
+      reason: 'graph GET attachment $value → 404: not found',
+    };
+    arrangeFetch([A_PHOTO], [failure]);
+
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(1))).rejects.toThrow(/404/);
+    expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
+    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+
+    await backfill.handler(JSON.stringify(JOB), ctxAt(5));
+    expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledWith(
+      'ie-1',
+      expect.objectContaining({ outcome: 'partial', failedAttachments: 1 }),
+    );
+  });
+
+  it('retries a null/missing attachment identity before reporting the final gap', async () => {
+    arrangeFetch([], [{
+      id: '',
+      name: 'photo.jpg',
+      contentType: 'image/jpeg',
+      reason: 'attachment identity missing',
+    }]);
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(1))).rejects.toThrow(
+      /attachment identity missing/i,
+    );
+    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+    await backfill.handler(JSON.stringify(JOB), ctxAt(5));
+    expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledWith(
+      'ie-1',
+      expect.objectContaining({ outcome: 'partial', failedAttachments: 1 }),
+    );
+  });
+
+  it('retries attachment pagination failures instead of accepting a truncated page', async () => {
+    graph.findMessageByInternetMessageId.mockResolvedValue({ id: 'g1', parentFolderId: 'f' });
+    graph.getMessageWithAttachments.mockRejectedValue(
+      new Error('graph attachment pagination cycle at page-2'),
+    );
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(1))).rejects.toThrow(/pagination cycle/);
+    expect(dataApiMock.persistEvidence).not.toHaveBeenCalled();
+    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+  });
+
+  it('retries raw MIME null/404, then records a final-attempt gap as partial rather than completed', async () => {
+    arrangeFetch();
+    graph.getMessageRawMime.mockResolvedValueOnce(null).mockRejectedValueOnce(
+      new Error('graph GET message $value → 404: not found'),
+    );
+
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(1))).rejects.toThrow(/raw MIME response was empty/i);
+    expect(dataApiMock.persistEvidence).not.toHaveBeenCalled();
+    await backfill.handler(JSON.stringify(JOB), ctxAt(5));
+
+    expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledWith(
+      'ie-1',
+      expect.objectContaining({ outcome: 'partial', failedAttachments: 1 }),
+    );
+    expect(
+      dataApiMock.reportEvidenceBackfill.mock.calls.some(([, payload]) => payload.outcome === 'completed'),
+    ).toBe(false);
+  });
+
   it('persists landed siblings and reports partial, never completed, for a terminal gap', async () => {
     arrangeFetch([A_PHOTO], [
       { id: 'att-2', name: 'other.jpg', contentType: 'image/jpeg', reason: 'graph GET attachment $value → 403: denied' },
@@ -489,11 +665,33 @@ describe('evidence-backfill — target, attachment and policy safety', () => {
 });
 
 describe('evidence-backfill — committed phase and terminal reporting', () => {
-  it('rethrows status failure after persistence on the final attempt without reporting failed', async () => {
+  it('requires the atomic evaluate response to acknowledge the returned generation', async () => {
+    arrangeFetch();
+    dataApiMock.evaluateStatus.mockImplementation(async () => {
+      order.push('status');
+      return { value: 'needs_review', completed: false, pending: true };
+    });
+    const ctx = ctxAt(1);
+    await backfill.handler(JSON.stringify(JOB), ctx);
+    expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-target', 7);
+    expect(ctx.warn).toHaveBeenCalledWith(expect.stringMatching(/evaluated but not acknowledged/i));
+    expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledWith(
+      'ie-1',
+      expect.objectContaining({ outcome: 'completed' }),
+    );
+  });
+
+  it('keeps committed evidence successful when immediate status evaluation fails, leaving generation pending', async () => {
     arrangeFetch();
     dataApiMock.evaluateStatus.mockRejectedValue(new Error('data-api POST status → 400'));
-    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(5))).rejects.toThrow(/400/);
-    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+    const ctx = ctxAt(5);
+    await backfill.handler(JSON.stringify(JOB), ctx);
+    expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-target', 7);
+    expect(dataApiMock.reportEvidenceBackfill).toHaveBeenCalledWith(
+      'ie-1',
+      expect.objectContaining({ outcome: 'completed' }),
+    );
+    expect(ctx.warn).toHaveBeenCalledWith(expect.stringMatching(/evidence committed.*remains pending/i));
   });
 
   it('rethrows completion-report failure without a contradictory failed report', async () => {

@@ -30,10 +30,12 @@
  *      "Attachments to add" staff note (the TKT-145 INVERSION of the always-note
  *      interim mitigation) + a warning audit.
  *
- * Retry semantics (the outlook-move.ts split): a TRANSIENT error (Graph/API 5xx/429/
- * network) rethrows so the queue redelivers (up to the ~5-dequeue poison limit); on the
- * LAST attempt — or any non-retryable failure (message gone, 4xx) — the terminal `failed`
- * outcome is reported instead so the note lands. The report itself is best-effort: if even
+ * Retry semantics (the outlook-move.ts split, strengthened for mailbox convergence): a
+ * TRANSIENT error (Graph/API 5xx/429/network), a message/attachment/raw-MIME null/404,
+ * or an incomplete/cyclic page rethrows so the queue redelivers and re-resolves the
+ * current Graph id. Individual stale 404 subject-search candidates are skipped while
+ * later candidates are corroborated. On the LAST attempt — or any genuinely terminal
+ * failure — `failed`/`partial` is reported so the note lands. The report itself is best-effort: if even
  * that fails on the last attempt the message poisons and the failure stays visible in App
  * Insights (the accept itself was never at risk — it committed before the enqueue).
  *
@@ -57,7 +59,11 @@ import { attachmentBlobFileName, rawEmlFileName } from '../lib/evidence-names.js
 import { classifyImage, classificationToEvidenceFields } from '../lib/image-classify.js';
 import { buildBaseEvidenceRows } from './activities/classifyPersist.js';
 import type { InboundEnvelope } from './activities/fetchMessage.js';
-import { dataApi, EvidenceBackfillTargetChangedError } from '../lib/data-api.js';
+import {
+  dataApi,
+  EvidenceBackfillReclassificationRequiredError,
+  EvidenceBackfillTargetChangedError,
+} from '../lib/data-api.js';
 import { isRetryableGraphError } from './outlook-move.js';
 
 /** Keep in sync with api/src/lib/evidence-backfill-queue.ts (the producer). */
@@ -72,7 +78,32 @@ interface EvidenceBackfillJob {
 const MAX_DEQUEUE = 5; // host.json default maxDequeueCount
 
 /** Candidates the $search fallback will corroborate before giving up. */
-const SEARCH_CANDIDATE_CAP = 25;
+const SEARCH_CANDIDATE_CAP = 100;
+
+class RetryableBackfillFetchError extends Error {}
+
+function errorDetail(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Backfill has stricter recovery semantics than ordinary Graph calls. A moved
+ * message/attachment can briefly return null or 404 while Graph converges, and a
+ * later-page failure must not turn a truncated collection into success. Candidate
+ * corroboration deliberately continues using `isRetryableGraphError` directly so an
+ * individual stale 404 hit remains a skip rather than poisoning the whole search.
+ */
+function isRetryableBackfillFetchError(error: unknown): boolean {
+  if (error instanceof RetryableBackfillFetchError) return true;
+  const detail = errorDetail(error);
+  return (
+    isRetryableGraphError(detail) ||
+    /graph\b[^\n]*→ 404\b/i.test(detail) ||
+    /graph\b[^\n]*pagination\b/i.test(detail) ||
+    /graph\b[^\n]*(?:null|empty|missing|incomplete)\b/i.test(detail) ||
+    /attachment (?:identity|response) missing/i.test(detail)
+  );
+}
 
 /**
  * Whole-mailbox `$search` fallback (gated RETRO_OUTLOOK_SEARCH_ENABLED by the caller):
@@ -172,12 +203,17 @@ app.storageQueue('evidence-backfill', {
         } catch (e) {
           // A search blip is worth a redelivery decision, not an instant terminal:
           // rethrow transient shapes; anything else degrades to not-found below.
-          const detail = e instanceof Error ? e.message : String(e);
-          if (!lastAttempt && isRetryableGraphError(detail)) throw e;
+          const detail = errorDetail(e);
+          if (!lastAttempt && isRetryableBackfillFetchError(e)) throw e;
           ctx.warn(`[evidence-backfill] $search fallback failed (treating as not found): ${detail}`);
         }
       }
       if (!graphId) {
+        if (!lastAttempt) {
+          throw new RetryableBackfillFetchError(
+            'graph message lookup returned no exact match; retry after mailbox convergence',
+          );
+        }
         await fail('message not found in the mailbox (deleted beyond search, or moved out?)');
         return;
       }
@@ -185,9 +221,23 @@ app.storageQueue('evidence-backfill', {
       // 3 — fetch the message + attachments (TKT-047 signature/logo floor applies) and
       //     capture the original as raw `.eml` (best-effort — parity with fetchMessage A0).
       const fetched = await getMessageWithAttachments(job.sourceMailbox, graphId);
+      if (!fetched?.message || !Array.isArray(fetched.attachments)) {
+        throw new RetryableBackfillFetchError(
+          'graph message/attachment response was incomplete; retry after mailbox convergence',
+        );
+      }
       const { message } = fetched;
       const attachmentFailures = [...(fetched.attachmentFailures ?? [])];
       const attachments = fetched.attachments.filter((a) => {
+        if (!a) {
+          attachmentFailures.push({
+            id: '',
+            name: '',
+            contentType: 'application/octet-stream',
+            reason: 'attachment response missing',
+          });
+          return false;
+        }
         if ((a.id ?? '').trim()) return true;
         attachmentFailures.push({
           id: '',
@@ -197,7 +247,8 @@ app.storageQueue('evidence-backfill', {
         });
         return false;
       });
-      const retryableAttachmentFailure = attachmentFailures.find((f) => isRetryableGraphError(f.reason));
+      const retryableAttachmentFailure = attachmentFailures.find((f) =>
+        isRetryableBackfillFetchError(f.reason));
       if (retryableAttachmentFailure && !lastAttempt) throw new Error(retryableAttachmentFailure.reason);
 
       // 4 — land the bytes in Blob under the CURRENT Graph id (deterministic per attempt;
@@ -223,8 +274,14 @@ app.storageQueue('evidence-backfill', {
         bytesByPath.set(up.blobPath, bytes);
       }
       let rawEml: InboundEnvelope['rawEml'];
+      let rawMimeFailure: string | null = null;
       try {
         const mime = await getMessageRawMime(job.sourceMailbox, graphId);
+        if (!Buffer.isBuffer(mime) || mime.length === 0) {
+          throw new RetryableBackfillFetchError(
+            'graph raw MIME response was empty; retry after mailbox convergence',
+          );
+        }
         const emlName = rawEmlFileName(message.internetMessageId ?? job.sourceMessageId);
         const emlUp = await uploadEvidenceBytes(graphId, emlName, mime, 'message/rfc822');
         rawEml = {
@@ -235,9 +292,11 @@ app.storageQueue('evidence-backfill', {
           sha256: emlUp.sha256,
         };
       } catch (e) {
+        if (!lastAttempt && isRetryableBackfillFetchError(e)) throw e;
+        rawMimeFailure = errorDetail(e).slice(0, 300);
         ctx.warn(
           `[evidence-backfill] raw .eml capture failed for ${job.inboundEmailId} (best-effort): ${
-            e instanceof Error ? e.message : String(e)
+            errorDetail(e)
           }`,
         );
       }
@@ -318,19 +377,38 @@ app.storageQueue('evidence-backfill', {
       targetCaseId = result.targetCaseId ?? targetCaseId;
       const merged = (result as { merged?: number }).merged;
 
-      // 6 — status recompute AFTER the backfill (the TKT-145 acceptance's second line).
-      const status = await dataApi.evaluateStatus(targetCaseId);
+      // 6 — opportunistic status fast-path AFTER the committed backfill. When the
+      // evidence transaction returned a generation, the API evaluates + acknowledges
+      // that generation atomically under the case-row lock. A transient failure here
+      // must NOT turn committed evidence into a failed backfill: the durable generation
+      // remains pending for the sweep.
+      let statusValue = 'recompute_pending';
+      try {
+        const status = await dataApi.evaluateStatus(targetCaseId, result.statusGeneration);
+        if (result.statusGeneration != null && status.completed !== true) {
+          throw new Error(
+            `status generation ${result.statusGeneration} was evaluated but not acknowledged`,
+          );
+        }
+        statusValue = status.value;
+      } catch (e) {
+        ctx.warn(
+          `[evidence-backfill] evidence committed; immediate status evaluation remains pending for ` +
+            `${targetCaseId}: ${errorDetail(e)}`,
+        );
+      }
 
       // 7 — report completion (the Data API writes the case-scoped audit).
+      const recoveryFailures = attachmentFailures.length + (rawMimeFailure ? 1 : 0);
       await report({
-        outcome: attachmentFailures.length > 0 ? 'partial' : 'completed',
+        outcome: recoveryFailures > 0 ? 'partial' : 'completed',
         targetCaseId,
         persisted: result.persisted,
         ...(typeof merged === 'number' ? { merged } : {}),
-        ...(attachmentFailures.length > 0
+        ...(recoveryFailures > 0
           ? {
-              failedAttachments: attachmentFailures.length,
-              detail: `${attachmentFailures.length} attachment${attachmentFailures.length === 1 ? '' : 's'} could not be retrieved`,
+              failedAttachments: recoveryFailures,
+              detail: `${recoveryFailures} recovery item${recoveryFailures === 1 ? '' : 's'} could not be retrieved`,
             }
           : {}),
       });
@@ -343,17 +421,33 @@ app.storageQueue('evidence-backfill', {
           eml: Boolean(rawEml),
           persisted: result.persisted,
           ...(typeof merged === 'number' ? { merged } : {}),
-          status: status.value,
+          status: statusValue,
         }),
       );
     } catch (e) {
-      const detail = e instanceof Error ? e.message : String(e);
+      const detail = errorDetail(e);
+      if (
+        e instanceof EvidenceBackfillReclassificationRequiredError &&
+        !persistenceCommitted &&
+        !reportAttempted
+      ) {
+        targetCaseId = e.targetCaseId ?? targetCaseId;
+        if (!lastAttempt) {
+          ctx.warn(
+            `[evidence-backfill] case ownership changed during classification; retrying against ` +
+              `${targetCaseId} (attempt ${dequeueCount}/${MAX_DEQUEUE})`,
+          );
+          throw e;
+        }
+        await fail('case ownership changed during attachment classification; staff must add any missing attachments');
+        return;
+      }
       if (e instanceof EvidenceBackfillTargetChangedError && !persistenceCommitted && !reportAttempted) {
         ctx.warn(`[evidence-backfill] stale target dropped for ${job.inboundEmailId}`);
         return;
       }
       if (reportAttempted || persistenceCommitted || !targetValidated) throw e;
-      if (!lastAttempt && isRetryableGraphError(detail)) {
+      if (!lastAttempt && isRetryableBackfillFetchError(e)) {
         ctx.warn(
           `[evidence-backfill] transient failure (attempt ${dequeueCount}/${MAX_DEQUEUE}) — retrying: ${detail}`,
         );

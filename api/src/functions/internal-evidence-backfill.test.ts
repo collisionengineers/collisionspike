@@ -8,8 +8,9 @@
  * Pins the TKT-145 inversion + report semantics:
  *   (a) outcome 'failed' → the durable "Attachments to add" staff note is written on the
  *       TARGET case (note-on-terminal-failure) + a warning audit; the note INSERT is
- *       duplicate-guarded (NOT EXISTS) so a poison-path re-report never stacks copies;
- *   (b) outcome 'completed' → the case-scoped attachment_classified audit, NO note;
+ *       source-keyed UPSERT so a poison-path re-report never stacks copies;
+ *   (b) outcome 'completed' → the case-scoped attachment_classified audit and conversion
+ *       of any existing actionable source-keyed note (without inserting a success note);
  *   (c) contract edges: unknown outcome → 400; unknown inbound row → 404; no target case
  *       resolvable → 400.
  */
@@ -79,6 +80,8 @@ function req(id: string, body: unknown): HttpRequest {
 }
 
 const noteSqls = () => sqls.filter((s) => /INSERT INTO note/i.test(s));
+const noteUpdateSqls = () => sqls.filter((s) => /UPDATE note/i.test(s));
+const noteWriteSqls = () => sqls.filter((s) => /(?:INSERT INTO|UPDATE) note/i.test(s));
 const auditSqls = () => sqls.filter((s) => /INSERT INTO audit_event/i.test(s));
 
 beforeEach(() => {
@@ -105,10 +108,12 @@ describe('internalInboundEvidenceBackfill — (a) note-on-terminal-failure', () 
     );
     expect(res.status).toBe(204);
 
-    // The note lands on the case, with the NOT EXISTS duplicate guard.
+    // The note lands on the case, with a source-keyed outcome-reconciling UPSERT.
     expect(noteSqls()).toHaveLength(1);
     const noteIdx = sqls.findIndex((s) => /INSERT INTO note/i.test(s));
     expect(sqls[noteIdx]).toMatch(/ON CONFLICT \(case_id, source_key\)/i);
+    expect(sqls[noteIdx]).toMatch(/DO UPDATE/i);
+    expect(sqls[noteIdx]).toMatch(/IS DISTINCT FROM/i);
     expect(params[noteIdx]).toContain('Attachments to add');
     expect(params[noteIdx]).toContain('case-target');
     expect(params[noteIdx]).toContain('evidence-backfill:ie-1');
@@ -120,24 +125,28 @@ describe('internalInboundEvidenceBackfill — (a) note-on-terminal-failure', () 
     expect(params[auditIdx]).toContain('case-target');
   });
 
-  it('a re-reported failure re-issues the SAME guarded INSERT (SQL-level dedup, no second copy)', async () => {
+  it('a re-reported failure re-issues the SAME idempotent UPSERT (no second copy)', async () => {
     await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-target' }), ctx);
     await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-target' }), ctx);
-    // Both runs execute the guarded statement; the NOT EXISTS clause (asserted above)
-    // is what suppresses the duplicate row live — the guard lives in SQL, not the caller.
+    // Both runs execute the source-keyed statement; exact content leaves timestamps
+    // untouched through the IS DISTINCT FROM guard.
     for (const s of noteSqls()) expect(s).toMatch(/ON CONFLICT/i);
     expect(noteSqls()).toHaveLength(2);
   });
 });
 
 describe('internalInboundEvidenceBackfill — (b) completion report', () => {
-  it("outcome 'completed' → the case-scoped attachment_classified audit; NO note", async () => {
+  it("outcome 'completed' → audit + convert an existing actionable note, never insert a success note", async () => {
     const res = await report(
       req('ie-1', { outcome: 'completed', targetCaseId: 'case-target', persisted: 4, merged: 1 }),
       ctx,
     );
     expect(res.status).toBe(204);
     expect(noteSqls()).toHaveLength(0);
+    expect(noteUpdateSqls()).toHaveLength(1);
+    const noteIdx = sqls.findIndex((s) => /UPDATE note/i.test(s));
+    expect(params[noteIdx]).toContain('Attachments added');
+    expect(params[noteIdx]).toContain('evidence-backfill:ie-1');
     expect(auditSqls()).toHaveLength(1);
     const auditIdx = sqls.findIndex((s) => /INSERT INTO audit_event/i.test(s));
     expect(params[auditIdx]).toContain(AUDIT_ACTION.attachment_classified);
@@ -193,7 +202,7 @@ describe('internalInboundEvidenceBackfill — (c) contract edges', () => {
     });
     const res = await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-target' }), ctx);
     expect(res.status).toBe(409);
-    expect(noteSqls()).toHaveLength(0);
+    expect(noteWriteSqls()).toHaveLength(0);
     expect(auditSqls()).toHaveLength(0);
   });
 });
@@ -286,7 +295,7 @@ describe('internalCasesEvidence guarded persistence', () => {
     expect(inboundRowLock).toBeLessThan(evidenceWrite);
   });
 
-  it('merge-first persistence redirects the write to the verified survivor', async () => {
+  it('merge-first persistence rejects before mutation so the queue reclassifies against the survivor', async () => {
     rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
       if (/FROM inbound_email/i.test(sql)) return [{ id: 'ie-1', case_id: 'case-new' }];
       if (/SELECT id, duplicate_keys FROM case_/i.test(sql)) {
@@ -303,11 +312,41 @@ describe('internalCasesEvidence guarded persistence', () => {
       expectedInboundEmailId: 'ie-1',
       rows: [{ filename: 'photo.jpg', evidenceClass: 'image', blobPath: 'g/photo.jpg', size: 3 }],
     }), ctx);
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toMatchObject({
+      code: 'evidence_backfill_reclassification_required',
+      targetCaseId: 'case-new',
+    });
+    expect(sqls.some((s) => /INSERT INTO evidence|UPDATE evidence/i.test(s))).toBe(false);
+  });
+
+  it('requests and returns a status generation in the same transaction as a new evidence row', async () => {
+    rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
+      if (/FROM inbound_email/i.test(sql)) return [{ id: 'ie-1', case_id: 'case-target' }];
+      if (/SELECT id, duplicate_keys FROM case_/i.test(sql)) {
+        return [{ id: p?.[0] as string, duplicate_keys: null }];
+      }
+      if (/SELECT id FROM case_/i.test(sql) && /FOR UPDATE/i.test(sql)) {
+        return ((p?.[0] as string[] | undefined) ?? []).map((id) => ({ id }));
+      }
+      if (/INSERT INTO evidence/i.test(sql)) return [{ id: 'ev-new' }];
+      if (/status_recompute_requested_generation = status_recompute_requested_generation \+ 1/i.test(sql)) {
+        return [{ status_recompute_requested_generation: '4' }];
+      }
+      return [];
+    });
+
+    const res = await persist(req('case-target', {
+      expectedInboundEmailId: 'ie-1',
+      rows: [{ filename: 'instruction.pdf', evidenceClass: 'instruction', blobPath: 'g/instruction.pdf', size: 3 }],
+    }), ctx);
+
     expect(res.status).toBe(200);
-    expect(res.jsonBody).toMatchObject({ targetCaseId: 'case-new' });
-    const insertIndex = sqls.findIndex((s) => /INSERT INTO evidence/i.test(s));
-    expect(params[insertIndex]).toContain('case-new');
-    expect(params[insertIndex]).not.toContain('case-old');
+    expect(res.jsonBody).toMatchObject({ persisted: 1, statusGeneration: 4 });
+    const evidenceWrite = sqls.findIndex((s) => /INSERT INTO evidence/i.test(s));
+    const generationRequest = sqls.findIndex((s) => /status_recompute_requested_generation =/i.test(s));
+    expect(evidenceWrite).toBeGreaterThanOrEqual(0);
+    expect(generationRequest).toBeGreaterThan(evidenceWrite);
   });
 
   it('returns typed 409 before evidence mutation after detach/relink', async () => {

@@ -22,6 +22,9 @@ import { assessSignatureImage } from './image-sniff.js';
 
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 const MAX_ATTACHMENT_PAGES = 100;
+const MAX_MESSAGE_SEARCH_PAGES = 100;
+const MAX_MESSAGE_SEARCH_RESULTS = 1_000;
+const MESSAGE_SEARCH_PAGE_SIZE = 25;
 
 /* ---------- token (client-credentials, cached until ~60 s before expiry) ---------- */
 
@@ -139,6 +142,9 @@ export async function getMessageWithAttachments(
   const message = await graphFetch<GraphMessage>(base, {
     headers: { Prefer: 'outlook.body-content-type="text"' },
   });
+  if (!message || typeof message !== 'object') {
+    throw new Error('graph message response was null');
+  }
   const attachments: GraphAttachment[] = [];
   const attachmentFailures: FetchedMessage['attachmentFailures'] = [];
   if (message.hasAttachments) {
@@ -163,7 +169,10 @@ export async function getMessageWithAttachments(
         value?: GraphAttachment[];
         '@odata.nextLink'?: string;
       } = await graphFetch(pagePath);
-      for (const a of list.value ?? []) {
+      if (!list || !Array.isArray(list.value)) {
+        throw new Error(`graph attachment pagination response was null at ${pagePath}`);
+      }
+      for (const a of list.value) {
         if (a.isInline === true) continue;
         if (!(a.id ?? '').trim()) {
           attachmentFailures.push({
@@ -175,7 +184,7 @@ export async function getMessageWithAttachments(
           continue;
         }
         const otype = (a['@odata.type'] ?? '').toLowerCase();
-        if (a.contentBytes !== undefined) {
+        if (typeof a.contentBytes === 'string') {
           // A normal fileAttachment with inline base64 bytes — the common case.
           // TKT-047: the isInline check above only catches signature/logo images when the
           // sender's client flagged them inline — many arrive as ordinary attachments instead,
@@ -396,7 +405,8 @@ export function kqlPhrase(value: string): string {
  *  - messages `$search` without a property targets **from, subject, body**; KQL
  *    property syntax (subject:/body:/attachment:) is supported inside the quotes;
  *  - results come back sorted by SENT date-time; up to 1,000 results exist and
- *    `$top` page-sizes them (we take one page and rank client-side);
+ *    `$top` page-sizes them. This helper follows `@odata.nextLink` with cycle,
+ *    page-count and caller-supplied total-result bounds;
  *  - the whole clause MUST be double-quoted ({@link kqlPhrase});
  *  - do NOT combine `$search` with `$filter`/`$orderby` on messages — unsupported
  *    parameter combos "might fail silently" (known-issues §9);
@@ -419,26 +429,62 @@ export async function searchMessages(
     hasAttachments: boolean;
   }>
 > {
-  const path =
+  const totalLimit = Math.min(
+    MAX_MESSAGE_SEARCH_RESULTS,
+    Math.max(1, Number.isFinite(top) ? Math.trunc(top) : MESSAGE_SEARCH_PAGE_SIZE),
+  );
+  let path: string | null =
     `/users/${encodeURIComponent(mailbox)}/messages` +
     `?$search=${encodeURIComponent(phrase)}` +
-    `&$select=id,subject,receivedDateTime,from,hasAttachments&$top=${top}`;
-  const res = await graphFetch<{
-    value: Array<{
-      id: string;
-      subject?: string;
-      receivedDateTime?: string;
-      from?: { emailAddress?: { address?: string } };
-      hasAttachments?: boolean;
-    }>;
-  }>(path);
-  return (res.value ?? []).map((m) => ({
-    id: m.id,
-    subject: m.subject ?? '',
-    receivedDateTime: m.receivedDateTime ?? '',
-    from: (m.from?.emailAddress?.address ?? '').toLowerCase(),
-    hasAttachments: m.hasAttachments === true,
-  }));
+    `&$select=id,subject,receivedDateTime,from,hasAttachments` +
+    `&$top=${Math.min(MESSAGE_SEARCH_PAGE_SIZE, totalLimit)}`;
+  const seenPages = new Set<string>();
+  const found: Array<{
+    id: string;
+    subject: string;
+    receivedDateTime: string;
+    from: string;
+    hasAttachments: boolean;
+  }> = [];
+  let pageCount = 0;
+
+  while (path && found.length < totalLimit) {
+    const pageKey = path.startsWith('http') ? path : `${GRAPH_BASE}${path}`;
+    if (seenPages.has(pageKey)) {
+      throw new Error(`graph message search pagination cycle at ${path}`);
+    }
+    if (pageCount >= MAX_MESSAGE_SEARCH_PAGES) {
+      throw new Error(`graph message search pagination exceeded ${MAX_MESSAGE_SEARCH_PAGES} pages`);
+    }
+    seenPages.add(pageKey);
+    pageCount++;
+
+    const page: {
+      value?: Array<{
+        id: string;
+        subject?: string;
+        receivedDateTime?: string;
+        from?: { emailAddress?: { address?: string } };
+        hasAttachments?: boolean;
+      }>;
+      '@odata.nextLink'?: string;
+    } = await graphFetch(path);
+    if (!page || !Array.isArray(page.value)) {
+      throw new Error(`graph message search pagination response was null at ${path}`);
+    }
+    for (const m of page.value) {
+      if (found.length >= totalLimit) break;
+      found.push({
+        id: m.id,
+        subject: m.subject ?? '',
+        receivedDateTime: m.receivedDateTime ?? '',
+        from: (m.from?.emailAddress?.address ?? '').toLowerCase(),
+        hasAttachments: m.hasAttachments === true,
+      });
+    }
+    path = page['@odata.nextLink']?.trim() || null;
+  }
+  return found;
 }
 
 /* ---------- Outlook filing (TKT-054 / 020726 E6 — gated by OUTLOOK_MOVE_ENABLED) ---------- */

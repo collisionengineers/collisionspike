@@ -38,6 +38,7 @@ const enumerate = registrations.get('internalEvidenceUnclassifiedBox')!.handler;
 const stamp = registrations.get('internalEvidenceBoxClassification')!.handler;
 const pending = registrations.get('internalStatusRecomputePending')!.handler;
 const complete = registrations.get('internalStatusRecomputeComplete')!.handler;
+const evaluate = registrations.get('internalCasesStatusEvaluate')!.handler;
 
 const ctx = { log: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as InvocationContext;
 
@@ -207,16 +208,94 @@ describe('generation-aware status acknowledgement', () => {
   });
 
   it('acknowledging generation 1 leaves a concurrently-requested generation 2 pending', async () => {
-    db.query.mockResolvedValue([
-      {
-        status_recompute_requested_generation: '2',
-        status_recompute_completed_generation: '1',
-      },
-    ]);
+    const doneRow = {
+      id: 'case-1',
+      status_code: 100000012,
+      created_at: new Date('2026-07-01T00:00:00Z'),
+    };
+    db.query.mockResolvedValue([doneRow]); // provider-policy preview
+    db.txQuery.mockImplementation(async (sql: string) => {
+      if (/FOR UPDATE OF c/i.test(sql)) return [doneRow];
+      if (/FROM evidence/i.test(sql)) return [];
+      if (/status_recompute_completed_generation/i.test(sql)) {
+        return [{
+          status_recompute_requested_generation: '2',
+          status_recompute_completed_generation: '1',
+        }];
+      }
+      throw new Error(`unexpected SQL: ${sql}`);
+    });
     const response = await complete(req({ id: 'case-1', body: { generation: 1 } }), ctx);
     expect(response.jsonBody).toEqual({ completed: true, pending: true });
-    const sql = String(db.query.mock.calls[0][0]);
-    expect(sql).toContain('GREATEST');
-    expect(sql).toContain('LEAST($2::bigint, status_recompute_requested_generation)');
+    const lockIndex = db.txQuery.mock.calls.findIndex(([sql]) => /FOR UPDATE OF c/i.test(String(sql)));
+    const evidenceIndex = db.txQuery.mock.calls.findIndex(([sql]) => /FROM evidence/i.test(String(sql)));
+    const ackIndex = db.txQuery.mock.calls.findIndex(([sql]) =>
+      /status_recompute_completed_generation/i.test(String(sql)));
+    expect(lockIndex).toBe(0);
+    expect(evidenceIndex).toBeGreaterThan(lockIndex);
+    expect(ackIndex).toBeGreaterThan(evidenceIndex);
+    const ackSql = String(db.txQuery.mock.calls[ackIndex][0]);
+    expect(ackSql).toContain('GREATEST');
+    expect(ackSql).toContain('LEAST($2::bigint, status_recompute_requested_generation)');
+  });
+
+  it('status-evaluate protects a terminal row and acknowledges only inside the locked evaluation transaction', async () => {
+    const terminal = {
+      id: 'case-1',
+      status_code: 100000011, // removed
+      status_recompute_requested_generation: '3',
+      status_recompute_completed_generation: '2',
+      created_at: new Date('2026-07-01T00:00:00Z'),
+    };
+    db.query.mockResolvedValue([terminal]);
+    db.txQuery.mockImplementation(async (sql: string) => {
+      if (/FOR UPDATE OF c/i.test(sql)) return [terminal];
+      if (/FROM evidence/i.test(sql)) return [];
+      if (/status_recompute_completed_generation/i.test(sql)) {
+        return [{
+          status_recompute_requested_generation: '3',
+          status_recompute_completed_generation: '3',
+        }];
+      }
+      throw new Error(`unexpected SQL: ${sql}`);
+    });
+
+    const response = await evaluate(req({ id: 'case-1', body: { generation: 3 } }), ctx);
+
+    expect(response.jsonBody).toEqual({ value: 'removed', completed: true, pending: false });
+    expect(db.tx).toHaveBeenCalledTimes(1);
+    expect(
+      db.txQuery.mock.calls.some(([sql]) => /SET status_code/i.test(String(sql))),
+    ).toBe(false);
+    const lockIndex = db.txQuery.mock.calls.findIndex(([sql]) => /FOR UPDATE OF c/i.test(String(sql)));
+    const ackIndex = db.txQuery.mock.calls.findIndex(([sql]) =>
+      /status_recompute_completed_generation/i.test(String(sql)));
+    expect(lockIndex).toBe(0);
+    expect(ackIndex).toBeGreaterThan(lockIndex);
+  });
+
+  it('status-evaluate converges a merge-marked row to linked_to_instruction from the locked row', async () => {
+    const merged = {
+      id: 'case-merged',
+      status_code: 100000002,
+      duplicate_keys: '{"mergedInto":"case-survivor"}',
+      created_at: new Date('2026-07-01T00:00:00Z'),
+    };
+    db.query.mockResolvedValue([merged]);
+    db.txQuery.mockImplementation(async (sql: string) => {
+      if (/FOR UPDATE OF c/i.test(sql)) return [merged];
+      if (/FROM evidence/i.test(sql)) return [];
+      if (/UPDATE case_ SET status_code/i.test(sql)) return [];
+      if (/SAVEPOINT|RELEASE SAVEPOINT|INSERT INTO audit_event/i.test(sql)) return [];
+      throw new Error(`unexpected SQL: ${sql}`);
+    });
+
+    const response = await evaluate(req({ id: 'case-merged', body: {} }), ctx);
+
+    expect(response.jsonBody).toEqual({ value: 'linked_to_instruction' });
+    const lockIndex = db.txQuery.mock.calls.findIndex(([sql]) => /FOR UPDATE OF c/i.test(String(sql)));
+    const updateIndex = db.txQuery.mock.calls.findIndex(([sql]) => /UPDATE case_ SET status_code/i.test(String(sql)));
+    expect(updateIndex).toBeGreaterThan(lockIndex);
+    expect(db.txQuery.mock.calls[updateIndex][1]).toEqual(['case-merged', 100000006]);
   });
 });

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const fetchMock = vi.fn<typeof fetch>();
 vi.stubGlobal('fetch', fetchMock);
 
-const { getMessageWithAttachments } = await import('./graph.js');
+const { getMessageWithAttachments, searchMessages } = await import('./graph.js');
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -202,5 +202,76 @@ describe('getMessageWithAttachments attachment recovery results', () => {
     });
 
     await expect(getMessageWithAttachments('mailbox@example.test', 'message-page-fail')).rejects.toThrow(/503/);
+  });
+});
+
+describe('searchMessages bounded pagination', () => {
+  it('follows page 2 so an exact candidate at overall position 26 is returned', async () => {
+    const page2 =
+      'https://graph.microsoft.com/v1.0/users/mailbox%40example.test/messages?$search=subject&$skiptoken=page-2';
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/oauth2/v2.0/token')) return json({ access_token: 'token', expires_in: 3600 });
+      if (url === page2) {
+        return json({
+          value: [{ id: 'exact-26', subject: 'Subject', hasAttachments: true }],
+        });
+      }
+      if (url.includes('/messages?$search=')) {
+        return json({
+          value: Array.from({ length: 25 }, (_unused, i) => ({
+            id: `noise-${i + 1}`,
+            subject: 'Subject',
+          })),
+          '@odata.nextLink': page2,
+        });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+
+    const rows = await searchMessages('mailbox@example.test', '"Subject"', 100);
+    expect(rows).toHaveLength(26);
+    expect(rows[25]).toMatchObject({ id: 'exact-26', hasAttachments: true });
+    expect(fetchMock.mock.calls.some(([input]) => String(input) === page2)).toBe(true);
+  });
+
+  it('stops at the caller total bound and rejects a repeated nextLink cycle', async () => {
+    const page2 =
+      'https://graph.microsoft.com/v1.0/users/mailbox%40example.test/messages?$search=subject&$skiptoken=bounded-2';
+    const page3 =
+      'https://graph.microsoft.com/v1.0/users/mailbox%40example.test/messages?$search=subject&$skiptoken=bounded-3';
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/oauth2/v2.0/token')) return json({ access_token: 'token', expires_in: 3600 });
+      if (url === page2) {
+        return json({
+          value: Array.from({ length: 10 }, (_unused, i) => ({ id: `page2-${i}` })),
+          '@odata.nextLink': page3,
+        });
+      }
+      if (url.includes('/messages?$search=')) {
+        return json({
+          value: Array.from({ length: 25 }, (_unused, i) => ({ id: `page1-${i}` })),
+          '@odata.nextLink': page2,
+        });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+
+    const bounded = await searchMessages('mailbox@example.test', '"Subject"', 26);
+    expect(bounded).toHaveLength(26);
+    expect(fetchMock.mock.calls.some(([input]) => String(input) === page3)).toBe(false);
+
+    fetchMock.mockReset();
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/messages?$search=')) {
+        return json({ value: [], '@odata.nextLink': url });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    await expect(searchMessages('mailbox@example.test', '"Cycle"', 100)).rejects.toThrow(
+      /message search pagination cycle/i,
+    );
   });
 });
