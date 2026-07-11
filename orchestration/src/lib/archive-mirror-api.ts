@@ -69,4 +69,16 @@ export const archiveMirrorApi = {
       { generation },
     );
   },
+
+  defer(
+    evidenceId: string,
+    generation: number,
+    reason: string,
+  ): Promise<{ deferred: boolean; pending: boolean; nextAttemptAt?: string }> {
+    return request(
+      'POST',
+      `/api/internal/archive-mirror-outbox/${encodeURIComponent(evidenceId)}/defer`,
+      { generation, reason },
+    );
+  },
 };

@@ -121,6 +121,10 @@ beforeEach(() => {
       fn(async (sql: string, p?: unknown[]) => {
         sqls.push(sql);
         params.push(p ?? []);
+        if (/pg_advisory_xact_lock/.test(sql)) return [];
+        if (/SELECT id, duplicate_keys FROM case_/.test(sql)) {
+          return [{ id: String(p?.[0] ?? ''), duplicate_keys: null }];
+        }
         if (/UPDATE case_[\s\S]*status_recompute_requested_generation/.test(sql)) {
           return [{ status_recompute_requested_generation: '1' }];
         }
@@ -269,6 +273,22 @@ describe('TKT-089 ownership compatibility', () => {
     expect(params[insertIdx].slice(15, 19)).toEqual([null, null, null, null]);
   });
 
+  it('marks an explicit legacy exclusion as classifier-owned when decisionSource was omitted', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(sql)) return [];
+      if (/INSERT INTO evidence/i.test(sql)) return [{ id: 'ev-1' }];
+      return [];
+    });
+
+    await evidenceRoute(
+      req('case-1', [{ ...EMAIL_ROW, excluded: true, exclusionReason: 'Not a vehicle image' }]),
+      ctx,
+    );
+
+    const insertIdx = sqls.findIndex((sql) => /INSERT INTO evidence/i.test(sql));
+    expect(params[insertIdx][18]).toBe('classifier');
+  });
+
   it('does not overwrite readiness fields on an existing row when decisionSource is omitted', async () => {
     rowsFor.mockImplementation((sql: string) => {
       if (/FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(sql)) {
@@ -301,6 +321,35 @@ describe('TKT-089 ownership compatibility', () => {
       ),
     ).toBe(false);
     expect(sqls.some((sql) => /status_recompute_requested_generation/.test(sql))).toBe(false);
+  });
+
+  it('stamps an existing explicit legacy exclusion as classifier-owned without owning other fields', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(sql)) {
+        return [{
+          id: 'ev-1',
+          box_file_id: '9900',
+          box_file_url: null,
+          storage_path: null,
+          source_message_id: 'box:file:9900',
+        }];
+      }
+      if (/UPDATE evidence/i.test(sql)) return [{ id: 'ev-1' }];
+      if (/UPDATE case_/i.test(sql)) return [{ status_recompute_requested_generation: 1 }];
+      return [];
+    });
+
+    const res = await evidenceRoute(req('case-1', [{
+      ...BOX_ROW,
+      imageRole: 'overview',
+      excluded: true,
+      exclusionReason: 'Not a vehicle image',
+    }]), ctx);
+
+    expect(res.jsonBody).toMatchObject({ updated: 1 });
+    const update = sqls.find((sql) => /UPDATE evidence/i.test(sql) && /exclusion_decision_source/.test(sql))!;
+    expect(update).toContain("exclusion_decision_source = CASE");
+    expect(update).not.toContain('image_role_source = CASE');
   });
 });
 

@@ -127,7 +127,21 @@ beforeEach(() => {
       const ids = (params[0] as string[]) ?? [];
       return evidenceRows.filter((row) => ids.includes(row.case_id as string));
     }
-    if (/UPDATE evidence AS survivor/i.test(sql)) return [];
+    if (/UPDATE evidence AS survivor/i.test(sql)) {
+      const survivor = evidenceRows.find((row) => row.id === params[0]);
+      const redundant = evidenceRows.find((row) => row.id === params[1]);
+      if (!survivor || !redundant) return [];
+      survivor.storage_path ??= redundant.storage_path ?? null;
+      survivor.box_file_id ??= redundant.box_file_id ?? null;
+      survivor.excluded ??= false;
+      return [{
+        id: survivor.id,
+        case_id: survivor.case_id,
+        excluded: survivor.excluded,
+        storage_path: survivor.storage_path ?? null,
+        box_file_id: survivor.box_file_id ?? null,
+      }];
+    }
     if (/UPDATE evidence\s+SET case_id/i.test(sql)) {
       const [sourceId, targetId, excludedIds] = params as [string, string, string[]];
       const moved = evidenceRows.filter(
@@ -182,12 +196,16 @@ describe('mergeCases atomic lock protocol', () => {
     const casesLocked = txSql.findIndex((s) => /FROM case_/i.test(s) && /FOR UPDATE/i.test(s));
     const inboundLocked = txSql.findIndex((s) => /FROM inbound_email/i.test(s) && /FOR UPDATE/i.test(s));
     const evidenceMoved = txSql.findIndex((s) => /UPDATE evidence\s+SET case_id/i.test(s));
+    const outboxRekeyed = txSql.findIndex((s) =>
+      /UPDATE archive_mirror_outbox[\s\S]*SET case_id = \$2/i.test(s));
     const inboundMoved = txSql.findIndex((s) => /UPDATE inbound_email SET case_id/i.test(s));
     const sourceRetired = txSql.findIndex((s) => /duplicate_keys = \$3/i.test(s));
     expect(advisory).toBeGreaterThanOrEqual(0);
     expect(advisory).toBeLessThan(casesLocked);
     expect(casesLocked).toBeLessThan(inboundLocked);
     expect(inboundLocked).toBeLessThan(evidenceMoved);
+    expect(evidenceMoved).toBeLessThan(outboxRekeyed);
+    expect(outboxRekeyed).toBeLessThan(inboundMoved);
     expect(evidenceMoved).toBeLessThan(inboundMoved);
     expect(inboundMoved).toBeLessThan(sourceRetired);
     expect(poolSql.some((s) => /UPDATE evidence|UPDATE inbound_email|duplicate_keys = \$3/i.test(s))).toBe(false);
@@ -240,6 +258,19 @@ describe('mergeCases atomic lock protocol', () => {
     expect(res.jsonBody).toEqual({ error: 'Cannot merge into a finalised case.' });
   });
 
+  it('does not move a case while an archive upload claim is active', async () => {
+    evidenceRows[0].archive_mirror_claim_token = '11111111-1111-4111-8111-111111111111';
+    evidenceRows[0].archive_mirror_claim_expires_at = new Date(Date.now() + 60_000).toISOString();
+
+    const res = await merge(request(CASE_B, CASE_A), ctx);
+
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toEqual({
+      error: 'Archive work is still finishing for one of these cases. Try the merge again shortly.',
+    });
+    expect(txSql.some((sql) => /UPDATE evidence\s+SET case_id/i.test(sql))).toBe(false);
+  });
+
   it('canonicalises UUID text before self-checks and provider carry-over', async () => {
     cases.set(CASE_A, caseRow(CASE_A, { work_provider_id: 'wp-source' }));
     cases.set(CASE_B, caseRow(CASE_B, { work_provider_id: null }));
@@ -281,11 +312,36 @@ describe('mergeCases atomic lock protocol', () => {
     expect(txSql[absorb]).toContain('storage_path = COALESCE');
     expect(txSql[absorb]).toContain('image_role_source IS NULL');
     expect(txSql[absorb]).toContain('exclusion_decision_source IS NULL');
+    const cancelled = txSql.findIndex((s) =>
+      /UPDATE archive_mirror_outbox[\s\S]*completed_generation = requested_generation/i.test(s));
+    expect(cancelled).toBeGreaterThan(absorb);
+    expect(txParams[cancelled]).toEqual([EV_SOURCE_COPY]);
 
     const move = txSql.findIndex((s) => /UPDATE evidence\s+SET case_id/i.test(s));
     expect(txParams[move]).toEqual([CASE_A, CASE_B, [EV_SOURCE_COPY]]);
     expect(evidenceRows.find((row) => row.id === EV_SOURCE_COPY)?.case_id).toBe(CASE_A);
     expect(evidenceRows.find((row) => row.id === EV_SOURCE_UNIQUE)?.case_id).toBe(CASE_B);
+  });
+
+  it('requests the survivor mirror when a collision supplies its only blob path', async () => {
+    const sha = 'e'.repeat(64);
+    evidenceRows.length = 0;
+    evidenceRows.push(
+      {
+        id: EV_TARGET, case_id: CASE_B, sha256: sha, created_at: '2026-07-01',
+        excluded: false, storage_path: null, box_file_id: null,
+      },
+      {
+        id: EV_SOURCE_COPY, case_id: CASE_A, sha256: sha, created_at: '2026-07-02',
+        excluded: false, storage_path: 'msg/photo.jpg', box_file_id: null,
+      },
+    );
+
+    await merge(request(CASE_B, CASE_A), ctx);
+
+    const requestIndex = txSql.findIndex((sql) => /INSERT INTO archive_mirror_outbox/i.test(sql));
+    expect(requestIndex).toBeGreaterThanOrEqual(0);
+    expect(txParams[requestIndex]).toEqual([EV_TARGET, CASE_B]);
   });
 
   it('moves one deterministic source SHA survivor and leaves later source twins retired', async () => {

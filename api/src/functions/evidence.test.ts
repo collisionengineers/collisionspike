@@ -72,13 +72,26 @@ beforeEach(() => {
   db.tx.mockReset();
   db.txQuery.mockReset();
   audit.writeAudit.mockReset();
+  db.query.mockResolvedValue([{ case_id: 'case-1' }]);
   db.tx.mockImplementation(async (fn: (q: typeof db.txQuery) => Promise<unknown>) => fn(db.txQuery));
 });
+
+function withCaseLock(
+  implementation: (sql: string, params?: unknown[]) => Promise<unknown[]> | unknown[],
+): void {
+  db.txQuery.mockImplementation(async (sql: string, params?: unknown[]) => {
+    if (sql.includes('pg_advisory_xact_lock')) return [];
+    if (sql.startsWith('SELECT id, duplicate_keys FROM case_')) {
+      return [{ id: 'case-1', duplicate_keys: null }];
+    }
+    return implementation(sql, params);
+  });
+}
 
 describe('PATCH /api/evidence/{id}', () => {
   it('atomically recovers a classifier exclusion and stamps staff ownership', async () => {
     const before = current();
-    db.txQuery.mockImplementation(async (sql: string, params?: unknown[]) => {
+    withCaseLock(async (sql: string, params?: unknown[]) => {
       if (sql.startsWith('SELECT * FROM evidence')) return [before];
       if (sql.includes('UPDATE evidence')) {
         return [{
@@ -107,7 +120,7 @@ describe('PATCH /api/evidence/{id}', () => {
     expect(response.status).toBe(200);
     const update = db.txQuery.mock.calls.find(([sql]) => String(sql).includes('UPDATE evidence'))!;
     expect(update[1]).toEqual([
-      'ev-1', OVERVIEW, 'staff', false, 'classifier', true, 'staff', false, null, 'staff', false, IMAGE,
+      'ev-1', OVERVIEW, 'staff', false, 'classifier', true, 'staff', false, null, 'staff', false, IMAGE, false,
     ]);
     expect(
       db.txQuery.mock.calls.some(([sql]) => String(sql).includes('status_recompute_requested_generation')),
@@ -126,7 +139,7 @@ describe('PATCH /api/evidence/{id}', () => {
       exclusion_decision_source: 'provider',
       exclusion_reason: 'Provider excluded',
     });
-    db.txQuery.mockImplementation(async (sql: string, params?: unknown[]) => {
+    withCaseLock(async (sql: string, params?: unknown[]) => {
       if (sql.startsWith('SELECT * FROM evidence')) return [before];
       if (sql.includes('UPDATE evidence')) return [{ ...before, image_role_code: params![1], image_role_source: params![2], accepted_for_eva: params![5], accepted_for_eva_source: params![6] }];
       if (sql.includes('status_recompute_requested_generation')) return [{ status_recompute_requested_generation: 2 }];
@@ -145,6 +158,27 @@ describe('PATCH /api/evidence/{id}', () => {
     expect(db.tx).not.toHaveBeenCalled();
   });
 
+  it('blocks re-exclusion while an archive claim is active', async () => {
+    const before = current({
+      excluded: false,
+      exclusion_reason: null,
+      exclusion_decision_source: 'staff',
+      archive_mirror_claim_token: '11111111-1111-4111-8111-111111111111',
+      archive_mirror_claim_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    withCaseLock(async (sql: string) => sql.startsWith('SELECT * FROM evidence') ? [before] : []);
+
+    const response = await patchEvidence(
+      req({ excluded: true, exclusionReason: 'Not needed' }),
+      ctx,
+      {},
+    );
+
+    expect(response.status).toBe(409);
+    expect(response.jsonBody).toMatchObject({ code: 'archive_in_progress' });
+    expect(db.txQuery.mock.calls.some(([sql]) => String(sql).startsWith('UPDATE evidence'))).toBe(false);
+  });
+
   it('does not audit or request status work for an identical staff-owned no-op', async () => {
     const before = current({
       excluded: false,
@@ -152,18 +186,18 @@ describe('PATCH /api/evidence/{id}', () => {
       exclusion_decision_source: 'staff',
       registration_visible_source: 'staff',
     });
-    db.txQuery.mockResolvedValueOnce([before]);
+    withCaseLock(async (sql: string) => sql.startsWith('SELECT * FROM evidence') ? [before] : []);
 
     const response = await patchEvidence(req({ registrationVisible: false }), ctx, {});
 
     expect(response.status).toBe(200);
-    expect(db.txQuery).toHaveBeenCalledTimes(1);
+    expect(db.txQuery.mock.calls.filter(([sql]) => String(sql).startsWith('SELECT * FROM evidence'))).toHaveLength(1);
     expect(audit.writeAudit).not.toHaveBeenCalled();
   });
 
   it('makes an explicit exclusion reversal staff-owned and requests status work', async () => {
     const before = current({ storage_path: 'msg-1/photo.jpg', box_file_id: '   ' });
-    db.txQuery.mockImplementation(async (sql: string, params?: unknown[]) => {
+    withCaseLock(async (sql: string, params?: unknown[]) => {
       if (sql.startsWith('SELECT * FROM evidence')) return [before];
       if (sql.includes('UPDATE evidence')) return [{ ...before, excluded: params![7], exclusion_reason: params![8], exclusion_decision_source: params![9] }];
       if (sql.includes('status_recompute_requested_generation')) return [{ status_recompute_requested_generation: 3 }];
@@ -187,7 +221,7 @@ describe('PATCH /api/evidence/{id}', () => {
     ['not blob-backed', { storage_path: null, box_file_id: null }],
   ])('does not schedule archive work when the row is %s', async (_label, overrides) => {
     const before = current(overrides);
-    db.txQuery.mockImplementation(async (sql: string, params?: unknown[]) => {
+    withCaseLock(async (sql: string, params?: unknown[]) => {
       if (sql.startsWith('SELECT * FROM evidence')) return [before];
       if (sql.includes('UPDATE evidence')) {
         return [{

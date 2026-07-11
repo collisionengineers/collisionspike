@@ -17,6 +17,10 @@ CREATE TABLE archive_mirror_outbox (
   completed_generation  bigint NOT NULL DEFAULT 0,
   requested_at          timestamptz NOT NULL DEFAULT now(),
   completed_at          timestamptz,
+  attempt_count         integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+  next_attempt_at       timestamptz NOT NULL DEFAULT now(),
+  last_attempt_at       timestamptz,
+  last_error            varchar(200),
   updated_at            timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT ck_archive_mirror_outbox_generations CHECK (
     requested_generation >= 1
@@ -26,7 +30,7 @@ CREATE TABLE archive_mirror_outbox (
 );
 
 CREATE INDEX ix_archive_mirror_outbox_pending
-  ON archive_mirror_outbox (requested_at, evidence_id)
+  ON archive_mirror_outbox (next_attempt_at, requested_at, evidence_id)
   WHERE requested_generation > completed_generation;
 
 DO $$

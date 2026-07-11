@@ -17,12 +17,30 @@ import {
   useToastController,
 } from '@fluentui/react-components';
 import { Copy, ClipboardCheck, Link2 } from 'lucide-react';
-import type { Case, ChaserChannel, CopyFileRequestTransport, CaseType } from '../data';
+import type { Case, Chaser, ChaserChannel, CopyFileRequestTransport, CaseType } from '../data';
 import { caseTypeOf } from '../data';
 import { GLOBAL_TOASTER_ID } from './toaster';
 
 /** The template key for the Box (Archive) image upload-link action. */
 const COPY_FILE_REQUEST_KEY = 'copy_file_request';
+const OVERVIEW_PHOTO_REQUEST = 'Overview photo request';
+const EXISTING_OVERVIEW_REQUEST_KEY = 'existing_overview_photo_request';
+
+export function overviewChaserForPanel(chasers: Chaser[]): Chaser | undefined {
+  return chasers.find(
+    (chaser) =>
+      chaser.templateUsed === OVERVIEW_PHOTO_REQUEST &&
+      (chaser.status === 'drafted' || chaser.status === 'sent' || chaser.status === 'overdue'),
+  );
+}
+
+export function overviewChaserStatusText(chaser: Chaser): string {
+  if (chaser.status === 'drafted') return 'Drafted overview photo request — ready to copy and send.';
+  if (chaser.status === 'sent') {
+    return `Overview photo request sent${chaser.sentAt ? ` on ${chaser.sentAt}` : ''}.`;
+  }
+  return 'Overview photo request is overdue — copy it to follow up.';
+}
 
 /* Chaser composer — minimalistic, adapted from the Job Sheet chaser (review
    caseview #7). Channel = Email | WhatsApp, a template seeds an editable draft,
@@ -129,14 +147,32 @@ export function ChaserPanel({
       }),
     [c],
   );
+  const existingOverviewChaser = useMemo(() => overviewChaserForPanel(c.chasers), [c.chasers]);
+  const existingOverviewTemplate = useMemo<ChaserTemplate | undefined>(
+    () => existingOverviewChaser
+      ? {
+          key: EXISTING_OVERVIEW_REQUEST_KEY,
+          label: OVERVIEW_PHOTO_REQUEST,
+          channels: [existingOverviewChaser.channel],
+          applicableTo: () => true,
+          body: (caseRow) =>
+            `Hi,\n\nPlease could you send a photo of the whole vehicle ${caseRow.vrm} ` +
+            `showing the registration plate clearly.\n\nMany thanks,\nCollision Engineers`,
+        }
+      : undefined,
+    [existingOverviewChaser],
+  );
   // A template shows only when (a) it is applicable to THIS case type and (b) —
   // for the gated upload-link — the feature is on.
   const visibleTemplates = useMemo(
     () =>
-      TEMPLATES.filter(
-        (t) => t.applicableTo(caseType) && (t.key !== COPY_FILE_REQUEST_KEY || fileRequestEnabled),
-      ),
-    [fileRequestEnabled, caseType],
+      [
+        ...(existingOverviewTemplate ? [existingOverviewTemplate] : []),
+        ...TEMPLATES.filter(
+          (t) => t.applicableTo(caseType) && (t.key !== COPY_FILE_REQUEST_KEY || fileRequestEnabled),
+        ),
+      ],
+    [existingOverviewTemplate, fileRequestEnabled, caseType],
   );
   const available = useMemo(
     () => visibleTemplates.filter((t) => t.channels.includes(channel)),
@@ -278,6 +314,9 @@ export function ChaserPanel({
 
   return (
     <div className={styles.root}>
+      {existingOverviewChaser && activeTemplate.key === EXISTING_OVERVIEW_REQUEST_KEY ? (
+        <Text>{overviewChaserStatusText(existingOverviewChaser)}</Text>
+      ) : null}
       <Field label="Channel">
         <RadioGroup
           layout="horizontal"

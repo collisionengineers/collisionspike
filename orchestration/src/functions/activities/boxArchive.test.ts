@@ -108,8 +108,14 @@ describe('boxInlineUploadMaxBytes — env knob', () => {
 
 describe('mirrorArchiveItems — row-specific stamping', () => {
   const rows = [
-    { id: 'ev-1', filename: 'photo-a.jpg', blobPath: 'msg/shared.jpg', contentType: 'image/jpeg' },
-    { id: 'ev-2', filename: 'photo-b.jpg', blobPath: 'msg/shared.jpg', contentType: 'image/jpeg' },
+    {
+      id: 'ev-1', filename: 'photo-a.jpg', blobPath: 'msg/shared.jpg', contentType: 'image/jpeg',
+      claimToken: '11111111-1111-4111-8111-111111111111', decisionGeneration: 1,
+    },
+    {
+      id: 'ev-2', filename: 'photo-b.jpg', blobPath: 'msg/shared.jpg', contentType: 'image/jpeg',
+      claimToken: '22222222-2222-4222-8222-222222222222', decisionGeneration: 2,
+    },
   ];
 
   it('uploads a shared blob once but stamps and counts every evidence row', async () => {
@@ -127,6 +133,10 @@ describe('mirrorArchiveItems — row-specific stamping', () => {
     expect(vi.mocked(deps.stamp).mock.calls.map(([payload]) => payload.evidenceId)).toEqual([
       'ev-1', 'ev-2',
     ]);
+    expect(vi.mocked(deps.stamp).mock.calls[0][0]).toMatchObject({
+      claimToken: '11111111-1111-4111-8111-111111111111',
+      decisionGeneration: 1,
+    });
   });
 
   it('does not count a row whose stamp reports updated=false', async () => {
@@ -142,5 +152,24 @@ describe('mirrorArchiveItems — row-specific stamping', () => {
 
     expect(result).toEqual({ uploaded: 1, total: 2, fileIds: ['box-1'] });
     expect(ctx.warn).toHaveBeenCalledWith(expect.stringContaining('was not stamped'));
+  });
+
+  it('releases a claim when upload fails before any irreversible archive write', async () => {
+    const deps: ArchiveMirrorItemDeps = {
+      upload: vi.fn(async () => { throw new Error('upload failed'); }),
+      stamp: vi.fn(async () => ({ updated: true })),
+      release: vi.fn(async () => ({ released: true })),
+    };
+    const ctx = { warn: vi.fn() };
+
+    const result = await mirrorArchiveItems('case-1', 'folder-1', [rows[0]], ctx, deps);
+
+    expect(result.uploaded).toBe(0);
+    expect(deps.release).toHaveBeenCalledWith({
+      caseId: 'case-1',
+      evidenceId: 'ev-1',
+      claimToken: '11111111-1111-4111-8111-111111111111',
+    });
+    expect(deps.stamp).not.toHaveBeenCalled();
   });
 });

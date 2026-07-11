@@ -140,6 +140,8 @@ export interface ArchiveItem {
   filename: string;
   blobPath: string;
   contentType: string;
+  claimToken: string;
+  decisionGeneration: number;
 }
 
 export interface ArchiveMirrorItemDeps {
@@ -150,12 +152,20 @@ export interface ArchiveMirrorItemDeps {
     blobPath: string;
     boxFileId: string;
     boxFileUrl: string;
+    claimToken: string;
+    decisionGeneration: number;
   }): Promise<{ updated: boolean }>;
+  release?(payload: {
+    caseId: string;
+    evidenceId: string;
+    claimToken: string;
+  }): Promise<unknown>;
 }
 
 const realMirrorItemDeps: ArchiveMirrorItemDeps = {
   upload: (folderId, item) => uploadArchiveItem(folderId, item),
   stamp: (payload) => dataApi.stampArchivedEvidence(payload),
+  release: (payload) => dataApi.releaseArchiveEvidenceClaim(payload),
 };
 
 /**
@@ -184,10 +194,20 @@ export async function mirrorArchiveItems(
         ctx.warn(
           `[boxArchive] upload failed for ${item.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`,
         );
+        await deps.release?.({
+          caseId,
+          evidenceId: item.id,
+          claimToken: item.claimToken,
+        }).catch(() => undefined);
         continue;
       }
       if (!result.id) {
         ctx.warn(`[boxArchive] upload returned no file id for ${item.filename} (case ${caseId})`);
+        await deps.release?.({
+          caseId,
+          evidenceId: item.id,
+          claimToken: item.claimToken,
+        }).catch(() => undefined);
         continue;
       }
       // Cache only a usable upload. A failed/no-id first sibling must not poison a
@@ -204,6 +224,8 @@ export async function mirrorArchiveItems(
         blobPath: item.blobPath,
         boxFileId: result.id,
         boxFileUrl,
+        claimToken: item.claimToken,
+        decisionGeneration: item.decisionGeneration,
       });
       if (!stamped.updated) {
         ctx.warn(`[boxArchive] evidence row was not stamped for ${item.filename} (case ${caseId})`);
@@ -257,6 +279,8 @@ df.app.activity('boxArchiveEvidence', {
         filename: row.filename,
         blobPath: row.blobPath,
         contentType: row.contentType || 'application/octet-stream',
+        claimToken: row.claimToken,
+        decisionGeneration: Number(row.decisionGeneration),
       }));
     } catch (e) {
       ctx.warn(`[boxArchive] could not read evidence rows for ${caseId}: ${String(e)}`);

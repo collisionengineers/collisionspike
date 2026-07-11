@@ -33,6 +33,10 @@ CREATE TABLE evidence (
   source_label          varchar(400),
   box_file_id           varchar(40),              -- Box correlation only (not a dedup key)
   box_file_url          varchar(400),             -- format:Url
+  archive_mirror_decision_generation bigint NOT NULL DEFAULT 0,
+  archive_mirror_claim_token uuid,
+  archive_mirror_claimed_at timestamptz,
+  archive_mirror_claim_expires_at timestamptz,
   created_at            timestamptz NOT NULL DEFAULT now(),
   updated_at            timestamptz NOT NULL DEFAULT now(),
   -- exclusion_reason required when excluded=true (schema invariant)

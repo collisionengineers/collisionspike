@@ -18,6 +18,12 @@ vi.mock('../lib/auth.js', () => ({
   authenticate: vi.fn(async () => ({})),
   toErrorResponse: vi.fn(() => ({ status: 401 })),
 }));
+vi.mock('../lib/case-mutation-locks.js', () => ({
+  lockCaseForMutation: vi.fn(async (_q: unknown, caseId: string) => ({
+    kind: 'active',
+    caseId: caseId.trim().toLowerCase(),
+  })),
+}));
 
 const db = vi.hoisted(() => ({
   query: vi.fn(),

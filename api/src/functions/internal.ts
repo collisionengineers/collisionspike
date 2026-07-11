@@ -105,6 +105,7 @@ import {
 } from '../lib/mappers.js';
 import { hasColumn, planOptionalColumns, tableColumns } from '../lib/schema-introspect.js';
 import { acquireTriageLocks } from '../lib/triage-locks.js';
+import { lockCaseForMutation } from '../lib/case-mutation-locks.js';
 import { clampVarchar, vrmOrEmpty } from '../lib/varchar-guard.js';
 import { vrmLinkRefConflict } from '../lib/link-guards.js';
 import { requestStatusRecompute } from '../lib/status-recompute.js';
@@ -2458,19 +2459,8 @@ app.http('internalInboundEvidenceBackfill', {
       if (outcome !== 'completed' && outcome !== 'partial' && outcome !== 'failed') {
         return { status: 400, jsonBody: { error: "outcome must be 'completed', 'partial' or 'failed'" } };
       }
-      const existing = await query<Row>(
-        'SELECT id, case_id FROM inbound_email WHERE id = $1',
-        [id],
-      );
-      if (!existing[0]) return { status: 404, jsonBody: { error: 'not found' } };
       const targetCaseId = typeof body.targetCaseId === 'string' ? body.targetCaseId.trim() : '';
       if (!targetCaseId) return { status: 400, jsonBody: { error: 'targetCaseId is required' } };
-      if (((existing[0].case_id as string | null) ?? null) !== targetCaseId) {
-        return {
-          status: 409,
-          jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
-        };
-      }
       const detail = typeof body.detail === 'string' ? body.detail.slice(0, 300) : null;
       const persisted = typeof body.persisted === 'number' ? body.persisted : null;
       const merged = typeof body.merged === 'number' ? body.merged : null;
@@ -2482,53 +2472,81 @@ app.http('internalInboundEvidenceBackfill', {
       // inbound row lock. Failed/partial upsert the current actionable wording;
       // completed converts a pre-existing manual-action note to resolved wording
       // without creating a success-path note when none existed.
-      const noteTargetCurrent = await tx(async (q) => {
-        const locked = await q<{ case_id: string | null }>(
-          'SELECT case_id FROM inbound_email WHERE id = $1 FOR UPDATE',
+      const report = await tx(async (q) => {
+        const locked = await q<{
+          case_id: string | null;
+          evidence_backfill_report_outcome: string | null;
+        }>(
+          `SELECT case_id, evidence_backfill_report_outcome
+             FROM inbound_email
+            WHERE id = $1
+            FOR UPDATE`,
           [id],
         );
-        if ((locked[0]?.case_id ?? null) !== targetCaseId) return false;
+        if (!locked[0]) return { kind: 'missing' as const };
+        if ((locked[0].case_id ?? null) !== targetCaseId) return { kind: 'stale' as const };
         await writeEvidenceBackfillNote(
           { caseId: targetCaseId, inboundEmailId: id, kind: outcome },
           q,
         );
-        return true;
+        if (locked[0].evidence_backfill_report_outcome === outcome) {
+          return { kind: 'replay' as const };
+        }
+
+        await q(
+          `UPDATE inbound_email
+              SET evidence_backfill_report_outcome = $2,
+                  evidence_backfill_reported_at = now(),
+                  updated_at = now()
+            WHERE id = $1`,
+          [id, outcome],
+        );
+
+        if (outcome === 'completed') {
+          await writeAudit({
+            action: AUDIT_ACTION.attachment_classified,
+            caseId: targetCaseId,
+            summary: `Attachments added from the linked email (${persisted ?? '?'} new${
+              merged ? `, ${merged} matched` : ''
+            })`,
+            after: { inboundEmailId: id, persisted, merged },
+            actor: 'orchestration',
+          }, q);
+        } else {
+          await writeAudit({
+            action: AUDIT_ACTION.graph_message_ingest_failed,
+            caseId: targetCaseId,
+            summary: outcome === 'partial'
+              ? 'Some attachments from the linked email could not be added'
+              : 'Attachments from the linked email could not be added — staff must add them',
+            severity: 'warning',
+            after: {
+              inboundEmailId: id,
+              ...(failedAttachments != null ? { failedAttachments } : {}),
+              ...(detail ? { detail } : {}),
+            },
+            actor: 'orchestration',
+          }, q);
+        }
+        return { kind: 'transition' as const };
       });
-      if (!noteTargetCurrent) {
+      if (report.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
+      if (report.kind === 'stale') {
         return {
           status: 409,
           jsonBody: { error: 'evidence backfill target changed', code: 'evidence_backfill_target_changed' },
         };
       }
-
-      if (outcome === 'completed') {
-        await writeAudit({
-          action: AUDIT_ACTION.attachment_classified,
-          caseId: targetCaseId,
-          summary: `Attachments added from the linked email (${persisted ?? '?'} new${
-            merged ? `, ${merged} matched` : ''
-          })`,
-          after: { inboundEmailId: id, persisted, merged },
-          actor: 'orchestration',
-        });
-      } else {
-        await writeAudit({
-          action: AUDIT_ACTION.graph_message_ingest_failed,
-          caseId: targetCaseId,
-          summary: outcome === 'partial'
-            ? 'Some attachments from the linked email could not be added'
-            : 'Attachments from the linked email could not be added — staff must add them',
-          severity: 'warning',
-          after: {
-            inboundEmailId: id,
-            ...(failedAttachments != null ? { failedAttachments } : {}),
-            ...(detail ? { detail } : {}),
-          },
-          actor: 'orchestration',
-        });
-      }
       ctx.log(
-        JSON.stringify({ evt: 'evidenceBackfillReport', inboundEmailId: id, outcome, targetCaseId, persisted, merged }),
+        JSON.stringify({
+          evt: 'evidenceBackfillReport',
+          inboundEmailId: id,
+          outcome,
+          targetCaseId,
+          persisted,
+          merged,
+          replay: report.kind === 'replay',
+        }),
       );
       return { status: 204 };
     }),
@@ -2648,15 +2666,25 @@ async function applyEvidenceMetadata(
   if (row.decisionSource === 'classifier' && typeof row.acceptedForEva === 'boolean') {
     pushOwned('accepted_for_eva', 'accepted_for_eva_source', row.acceptedForEva);
   }
-  if (row.decisionSource === 'classifier' && row.excluded != null) {
+  const legacyExplicitExclusion = row.decisionSource == null && row.excluded === true;
+  if ((row.decisionSource === 'classifier' || legacyExplicitExclusion) && row.excluded != null) {
     ownedVals.push(computed.excluded, computed.exclusionReason);
     const excludedP = `$${ownedVals.length - 1}`;
     const reasonP = `$${ownedVals.length}`;
-    const allowed = `(exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')`;
+    const allowed = `(
+      (exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')
+      AND (
+        NOT ${excludedP}
+        OR archive_mirror_claim_token IS NULL
+        OR archive_mirror_claim_expires_at <= now()
+      )
+    )`;
     ownedSets.push(
       `excluded = CASE WHEN ${allowed} THEN ${excludedP} ELSE excluded END`,
       `exclusion_reason = CASE WHEN ${allowed} THEN ${reasonP} ELSE exclusion_reason END`,
       `exclusion_decision_source = CASE WHEN ${allowed} THEN 'classifier' ELSE exclusion_decision_source END`,
+      `archive_mirror_decision_generation = archive_mirror_decision_generation +
+        CASE WHEN ${allowed} AND excluded IS DISTINCT FROM ${excludedP} THEN 1 ELSE 0 END`,
     );
     ownedChanges.push(
       `(${allowed} AND (excluded IS DISTINCT FROM ${excludedP} OR exclusion_reason IS DISTINCT FROM ${reasonP} OR exclusion_decision_source IS DISTINCT FROM 'classifier'))`,
@@ -2851,6 +2879,13 @@ app.http('internalCasesEvidence', {
           typeof row.acceptedForEva === 'boolean' ||
           typeof row.excluded === 'boolean';
         const decisionSource = row.decisionSource === 'classifier' ? 'classifier' : null;
+        // Older orchestration writers omitted decisionSource. An explicit exclusion
+        // from that writer still needs visible autonomous ownership so staff can review
+        // and reverse it; omitted non-exclusion fields remain deliberately unowned.
+        const insertionExclusionDecisionSource =
+          typeof row.excluded === 'boolean' && row.excluded
+            ? (decisionSource ?? 'classifier')
+            : decisionSource;
 
         const sourceMessageId = (row.sourceMessageId ?? '').trim() || null;
         const boxFileId = (row.boxFileId ?? '').trim() || null;
@@ -2996,7 +3031,7 @@ app.http('internalCasesEvidence', {
               row.imageRoleCode != null || row.imageRole != null ? decisionSource : null,
               typeof row.registrationVisible === 'boolean' ? decisionSource : null,
               typeof row.acceptedForEva === 'boolean' ? decisionSource : null,
-              typeof row.excluded === 'boolean' ? decisionSource : null,
+              typeof row.excluded === 'boolean' ? insertionExclusionDecisionSource : null,
               dedupVal,
             ],
           );
@@ -3048,7 +3083,7 @@ app.http('internalCasesEvidence', {
               row.imageRoleCode != null || row.imageRole != null ? decisionSource : null,
               typeof row.registrationVisible === 'boolean' ? decisionSource : null,
               typeof row.acceptedForEva === 'boolean' ? decisionSource : null,
-              typeof row.excluded === 'boolean' ? decisionSource : null,
+              typeof row.excluded === 'boolean' ? insertionExclusionDecisionSource : null,
             ],
           );
           inserted = result.length > 0;
@@ -3136,7 +3171,25 @@ app.http('internalCasesEvidence', {
           jsonBody: { ...guarded.value.value, targetCaseId: guarded.targetCaseId },
         };
       }
-      return { status: 200, jsonBody: await tx((q) => persistRows(q, caseId)) };
+      const result = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, caseId);
+        if (lockedCase.kind !== 'active') return lockedCase;
+        return { kind: 'persisted' as const, value: await persistRows(q, lockedCase.caseId) };
+      });
+      if (result.kind === 'missing') {
+        return { status: 404, jsonBody: { error: 'case not found' } };
+      }
+      if (result.kind === 'retired') {
+        return {
+          status: 409,
+          jsonBody: {
+            error: 'case has been merged',
+            code: 'case_merged',
+            targetCaseId: result.mergedInto,
+          },
+        };
+      }
+      return { status: 200, jsonBody: result.value };
     }),
 });
 
@@ -3172,27 +3225,43 @@ app.http('internalCasesArchiveEvidence', {
       const caseId = req.params.id;
       if (!caseId) return { status: 400, jsonBody: { error: 'caseId required' } };
 
-      const rows = await query<{
+      const result = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, caseId);
+        if (lockedCase.kind !== 'active') return { kind: lockedCase.kind as 'missing' | 'retired' };
+        const rows = await q<{
         id: string;
         filename: string;
         contentType: string | null;
         blobPath: string;
+        claimToken: string;
+        decisionGeneration: string | number;
       }>(
-        `SELECT
-           id,
-           file_name AS filename,
-           content_type AS "contentType",
-           storage_path AS "blobPath"
-         FROM evidence
-         WHERE case_id = $1
-           AND storage_path IS NOT NULL
-           AND box_file_id IS NULL
-           AND excluded = false
-         ORDER BY created_at ASC, file_name ASC`,
-        [caseId],
-      );
+          `UPDATE evidence
+              SET archive_mirror_claim_token = gen_random_uuid(),
+                  archive_mirror_claimed_at = now(),
+                  archive_mirror_claim_expires_at = now() + interval '30 minutes',
+                  updated_at = now()
+            WHERE case_id = $1
+              AND storage_path IS NOT NULL
+              AND box_file_id IS NULL
+              AND excluded = false
+              AND (
+                archive_mirror_claim_token IS NULL
+                OR archive_mirror_claim_expires_at <= now()
+              )
+          RETURNING id,
+                    file_name AS filename,
+                    content_type AS "contentType",
+                    storage_path AS "blobPath",
+                    archive_mirror_claim_token::text AS "claimToken",
+                    archive_mirror_decision_generation AS "decisionGeneration"`,
+          [lockedCase.caseId],
+        );
+        rows.sort((a, b) => a.filename.localeCompare(b.filename));
+        return { kind: 'claimed' as const, rows };
+      });
 
-      return { status: 200, jsonBody: { rows } };
+      return { status: 200, jsonBody: { rows: result.kind === 'claimed' ? result.rows : [] } };
     }),
 });
 
@@ -3215,27 +3284,59 @@ app.http('internalCasesArchiveEvidenceStamp', {
         blobPath?: unknown;
         boxFileId?: unknown;
         boxFileUrl?: unknown;
+        claimToken?: unknown;
+        decisionGeneration?: unknown;
       };
       const evidenceId = typeof body.evidenceId === 'string' ? body.evidenceId.trim() : '';
       const blobPath = typeof body.blobPath === 'string' ? body.blobPath.trim() : '';
       const boxFileId = typeof body.boxFileId === 'string' ? body.boxFileId.trim() : '';
       const boxFileUrl = typeof body.boxFileUrl === 'string' ? body.boxFileUrl.trim() : '';
-      if (!evidenceId || !blobPath || !boxFileId) {
-        return { status: 400, jsonBody: { error: 'evidenceId, blobPath and boxFileId required' } };
+      const claimToken = typeof body.claimToken === 'string' ? body.claimToken.trim() : '';
+      const decisionGeneration = Number(body.decisionGeneration);
+      if (
+        !evidenceId || !blobPath || !boxFileId || !claimToken ||
+        !Number.isSafeInteger(decisionGeneration) || decisionGeneration < 0
+      ) {
+        return {
+          status: 400,
+          jsonBody: {
+            error: 'evidenceId, blobPath, boxFileId, claimToken and decisionGeneration required',
+          },
+        };
       }
 
-      const updated = await query<{ id: string }>(
-        `UPDATE evidence
-            SET box_file_id = $4,
-                box_file_url = COALESCE($5, box_file_url),
-                updated_at = now()
-          WHERE case_id = $1
-            AND id = $2
-            AND storage_path = $3
-          RETURNING id`,
-        [caseId, evidenceId, blobPath, boxFileId, boxFileUrl || null],
-      );
-      return { status: 200, jsonBody: { updated: updated.length > 0 } };
+      const result = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, caseId);
+        if (lockedCase.kind !== 'active') return { kind: lockedCase.kind as 'missing' | 'retired' };
+        const updated = await q<{ id: string }>(
+          `UPDATE evidence
+              SET box_file_id = $4,
+                  box_file_url = COALESCE($5, box_file_url),
+                  archive_mirror_claim_token = NULL,
+                  archive_mirror_claimed_at = NULL,
+                  archive_mirror_claim_expires_at = NULL,
+                  updated_at = now()
+            WHERE case_id = $1
+              AND id = $2
+              AND storage_path = $3
+              AND excluded = false
+              AND archive_mirror_claim_token = $6::uuid
+              AND archive_mirror_claim_expires_at > now()
+              AND archive_mirror_decision_generation = $7
+            RETURNING id`,
+          [
+            lockedCase.caseId,
+            evidenceId,
+            blobPath,
+            boxFileId,
+            boxFileUrl || null,
+            claimToken,
+            decisionGeneration,
+          ],
+        );
+        return { kind: 'updated' as const, updated: updated.length > 0 };
+      });
+      return { status: 200, jsonBody: { updated: result.kind === 'updated' && result.updated } };
     }),
 });
 
@@ -3268,6 +3369,43 @@ app.http('internalCasesStatusEvaluate', {
           ...(result.pending == null ? {} : { pending: result.pending }),
         },
       };
+    }),
+});
+
+app.http('internalCasesArchiveEvidenceRelease', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/cases/{id}/archive-evidence/release',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const caseId = req.params.id;
+      const body = (await req.json().catch(() => ({}))) as {
+        evidenceId?: unknown;
+        claimToken?: unknown;
+      };
+      const evidenceId = typeof body.evidenceId === 'string' ? body.evidenceId.trim() : '';
+      const claimToken = typeof body.claimToken === 'string' ? body.claimToken.trim() : '';
+      if (!caseId || !evidenceId || !claimToken) {
+        return { status: 400, jsonBody: { error: 'caseId, evidenceId and claimToken required' } };
+      }
+      const released = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, caseId);
+        if (lockedCase.kind !== 'active') return false;
+        const rows = await q<{ id: string }>(
+          `UPDATE evidence
+              SET archive_mirror_claim_token = NULL,
+                  archive_mirror_claimed_at = NULL,
+                  archive_mirror_claim_expires_at = NULL,
+                  updated_at = now()
+            WHERE id = $1
+              AND case_id = $2
+              AND archive_mirror_claim_token = $3::uuid
+            RETURNING id`,
+          [evidenceId, lockedCase.caseId, claimToken],
+        );
+        return rows.length > 0;
+      });
+      return { status: 200, jsonBody: { released } };
     }),
 });
 
@@ -3619,12 +3757,16 @@ app.http('internalBoxMarkPurged', {
   handler: (req, ctx) =>
     withServiceAuth(req, ctx, async () => {
       const body = (await req.json()) as { caseId: string; blobPath: string };
-      await query(
-        `UPDATE evidence
-            SET storage_path = NULL, updated_at = now()
-          WHERE case_id = $1 AND storage_path = $2`,
-        [body.caseId, body.blobPath],
-      );
+      await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, body.caseId);
+        if (lockedCase.kind !== 'active') return;
+        await q(
+          `UPDATE evidence
+              SET storage_path = NULL, updated_at = now()
+            WHERE case_id = $1 AND storage_path = $2`,
+          [lockedCase.caseId, body.blobPath],
+        );
+      });
       return { status: 204 };
     }),
 });
@@ -3761,7 +3903,13 @@ app.http('internalEvidenceBoxClassification', {
         : null;
 
       const result = await tx(async (q) => {
-        // Lock the identity first. The source-aware metadata helper may revise an
+        const lockedCase = await lockCaseForMutation(q, caseId);
+        if (lockedCase.kind === 'retired') {
+          return { kind: 'retired' as const, targetCaseId: lockedCase.mergedInto };
+        }
+        if (lockedCase.kind === 'missing') return { kind: 'missing' as const };
+
+        // Lock the identity after its owning case. The source-aware metadata helper may revise an
         // autonomous result (including excluded -> included) but independently
         // preserves every staff/provider/cleanup/legacy-owned field.
         const current = await q<{ id: string }>(
@@ -3772,14 +3920,14 @@ app.http('internalEvidenceBoxClassification', {
               AND kind_code = $4
               AND source_label LIKE 'box_upload%'
             FOR UPDATE`,
-          [evidenceId, caseId, boxFileId, imageKind],
+          [evidenceId, lockedCase.caseId, boxFileId, imageKind],
         );
         if (!current[0]) return { kind: 'missing' as const };
 
         const applied = await applyEvidenceMetadata(
           ctx,
           'id = $1 AND case_id = $2 AND box_file_id = $3',
-          [evidenceId, caseId, boxFileId],
+          [evidenceId, lockedCase.caseId, boxFileId],
           {
             imageRole: body.imageRole,
             registrationVisible: body.registrationVisible!,
@@ -3802,13 +3950,19 @@ app.http('internalEvidenceBoxClassification', {
         if (applied.updated === 0) return { kind: 'stale' as const };
 
         const generation = applied.readinessChanged
-          ? await requestStatusRecompute(q, caseId)
+          ? await requestStatusRecompute(q, lockedCase.caseId)
           : null;
         return { kind: 'updated' as const, generation };
       });
 
       if (result.kind === 'missing') {
         return { status: 404, jsonBody: { error: 'box evidence row not found' } };
+      }
+      if (result.kind === 'retired') {
+        return {
+          status: 409,
+          jsonBody: { error: 'case has been merged', code: 'case_merged', targetCaseId: result.targetCaseId },
+        };
       }
       if (result.kind === 'stale') {
         return { status: 200, jsonBody: { updated: false, stale: true } };

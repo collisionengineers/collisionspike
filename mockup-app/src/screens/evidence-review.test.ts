@@ -44,14 +44,14 @@ describe('persistEvidenceReview', () => {
     expect(tryAcquireEvidenceMutation(active, 'ev-1')).toBe(true);
   });
 
-  it('does not let a stale full-row response overwrite unrelated live fields', () => {
+  it('adopts the complete authoritative Evidence row returned by the server', () => {
     const current = {
       ...evidence,
       reflectionDismissed: true,
       personReflection: true,
       boxFileUrl: 'https://archive.test/new',
     };
-    const staleResponse = {
+    const serverResponse = {
       ...evidence,
       acceptedForEva: false,
       excluded: true,
@@ -60,12 +60,13 @@ describe('persistEvidenceReview', () => {
       boxFileUrl: 'https://archive.test/old',
     } as Evidence;
 
-    expect(mergeEvidenceReviewDecision(current, staleResponse)).toMatchObject({
+    expect(mergeEvidenceReviewDecision(current, serverResponse)).toEqual(serverResponse);
+    expect(mergeEvidenceReviewDecision(current, serverResponse)).toMatchObject({
       acceptedForEva: false,
       excluded: true,
-      reflectionDismissed: true,
-      personReflection: true,
-      boxFileUrl: 'https://archive.test/new',
+      reflectionDismissed: false,
+      personReflection: undefined,
+      boxFileUrl: 'https://archive.test/old',
     });
   });
 });

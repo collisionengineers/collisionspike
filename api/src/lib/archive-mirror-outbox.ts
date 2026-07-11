@@ -38,6 +38,10 @@ export async function requestArchiveMirrorIfEligible(
        SET case_id = EXCLUDED.case_id,
            requested_generation = archive_mirror_outbox.requested_generation + 1,
            requested_at = now(),
+           attempt_count = 0,
+           next_attempt_at = now(),
+           last_attempt_at = NULL,
+           last_error = NULL,
            updated_at = now()
      RETURNING requested_generation`,
     [row.id, row.case_id],

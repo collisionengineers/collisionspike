@@ -30,7 +30,7 @@ vi.mock('durable-functions', () => ({
   },
 }));
 vi.mock('../lib/archive-mirror-api.js', () => ({
-  archiveMirrorApi: { pending: vi.fn(), complete: vi.fn() },
+  archiveMirrorApi: { pending: vi.fn(), complete: vi.fn(), defer: vi.fn() },
 }));
 
 interface ActivityYield {
@@ -112,6 +112,15 @@ describe('archive mirror durable monitor', () => {
     ] });
     expect(step.value).toMatchObject({ name: 'boxArchiveEvidence' });
     step = run.next(result);
+    expect(step.value).toMatchObject({
+      name: 'archiveMirrorOutboxDefer',
+      input: {
+        evidenceId: 'ev-1',
+        generation: 1,
+        reason: 'skipped' in result ? result.skipped : 'archive pass incomplete',
+      },
+    });
+    step = run.next({ deferred: true, pending: true });
     expect(step.value).toMatchObject({ kind: 'timer' });
     expect(ctx.df.callActivityWithRetry).not.toHaveBeenCalledWith(
       'archiveMirrorOutboxComplete', expect.anything(), expect.anything(),
@@ -169,6 +178,7 @@ describe('archive mirror durable monitor', () => {
     });
     expect(activities.has('archiveMirrorOutboxList')).toBe(true);
     expect(activities.has('archiveMirrorOutboxComplete')).toBe(true);
+    expect(activities.has('archiveMirrorOutboxDefer')).toBe(true);
   });
 });
 

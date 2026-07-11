@@ -7,6 +7,7 @@
  * its current case.
  */
 import type { TxQuery } from './db.js';
+import { mergedIntoFrom } from './mappers.js';
 
 const CASE_MUTATION_LOCK_NAMESPACE = 'case-merge-backfill:';
 
@@ -25,4 +26,37 @@ export async function acquireCaseMutationLocks(q: TxQuery, caseIds: readonly str
   for (const key of deriveCaseMutationLockKeys(caseIds)) {
     await q('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [key]);
   }
+}
+
+export type LockedCaseMutation =
+  | { kind: 'active'; caseId: string }
+  | { kind: 'retired'; caseId: string; mergedInto: string }
+  | { kind: 'missing'; caseId: string };
+
+/**
+ * Take the shared case-mutation advisory lock and then the physical case row lock.
+ *
+ * Every evidence writer must call this before locking/inserting evidence or touching an
+ * evidence-owned outbox row. Merge uses the same advisory key and locks case rows before
+ * evidence, so this establishes one global case -> evidence -> outbox order. The merge
+ * marker is read only after both locks are held; a writer can never continue against a
+ * case that retired while it was waiting.
+ */
+export async function lockCaseForMutation(
+  q: TxQuery,
+  requestedCaseId: string,
+): Promise<LockedCaseMutation> {
+  const caseId = requestedCaseId.trim().toLowerCase();
+  if (!caseId) return { kind: 'missing', caseId };
+  await acquireCaseMutationLocks(q, [caseId]);
+  const rows = await q<{ id: string; duplicate_keys: unknown }>(
+    'SELECT id, duplicate_keys FROM case_ WHERE id = $1 FOR UPDATE',
+    [caseId],
+  );
+  const row = rows[0];
+  if (!row) return { kind: 'missing', caseId };
+  const canonicalId = row.id.trim().toLowerCase();
+  const mergedInto = mergedIntoFrom(row.duplicate_keys)?.trim().toLowerCase();
+  if (mergedInto) return { kind: 'retired', caseId: canonicalId, mergedInto };
+  return { kind: 'active', caseId: canonicalId };
 }

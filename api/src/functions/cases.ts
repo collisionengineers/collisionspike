@@ -70,6 +70,10 @@ import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import { gates } from '../lib/gates.js';
 import { callBoxCopyFileRequest, listBoxFolderNames } from '../lib/functions-client.js';
 import {
+  requestArchiveMirrorIfEligible,
+  type ArchiveMirrorCandidate,
+} from '../lib/archive-mirror-outbox.js';
+import {
   CASE_SELECT,
   CASE_SELECT_WITH_ACTIVITY,
   EVA_COLUMN_BY_KEY,
@@ -1051,6 +1055,8 @@ interface MergeEvidenceLockRow extends Record<string, unknown> {
   case_id: string;
   sha256: string | null;
   created_at: Date | string;
+  archive_mirror_claim_token: string | null;
+  archive_mirror_claim_expires_at: Date | string | null;
 }
 
 /**
@@ -1063,15 +1069,24 @@ async function mergeEvidenceRows(
   q: TxQuery,
   sourceCaseId: string,
   targetCaseId: string,
-): Promise<{ movedEvidence: number; collidingEvidence: number }> {
+): Promise<{ movedEvidence: number; collidingEvidence: number; archiveBusy?: boolean }> {
   const locked = await q<MergeEvidenceLockRow>(
-    `SELECT id, case_id, sha256, created_at
+    `SELECT id, case_id, sha256, created_at,
+            archive_mirror_claim_token, archive_mirror_claim_expires_at
        FROM evidence
       WHERE case_id = ANY($1::uuid[])
       ORDER BY case_id, created_at, id
       FOR UPDATE`,
     [[sourceCaseId, targetCaseId]],
   );
+  const now = Date.now();
+  if (locked.some((row) => {
+    if (!row.archive_mirror_claim_token || !row.archive_mirror_claim_expires_at) return false;
+    const expires = new Date(row.archive_mirror_claim_expires_at).getTime();
+    return Number.isFinite(expires) && expires > now;
+  })) {
+    return { movedEvidence: 0, collidingEvidence: 0, archiveBusy: true };
+  }
   const canonicalSha = (value: string | null): string | null => {
     const trimmed = (value ?? '').trim();
     return MERGE_SHA256_RE.test(trimmed) ? trimmed.toLowerCase() : null;
@@ -1102,7 +1117,7 @@ async function mergeEvidenceRows(
 
     // Fill only information the target survivor does not already own. Explicit
     // target-side staff/provider/cleanup decisions always win over source metadata.
-    await q(
+    const survivors = await q<ArchiveMirrorCandidate>(
       `UPDATE evidence AS survivor
           SET storage_path = COALESCE(survivor.storage_path, redundant.storage_path),
               source_message_id = COALESCE(survivor.source_message_id, redundant.source_message_id),
@@ -1153,26 +1168,59 @@ async function mergeEvidenceRows(
               excluded = CASE
                 WHEN survivor.exclusion_decision_source IS NULL
                  AND redundant.exclusion_decision_source IS NOT NULL
+                 AND (
+                   survivor.archive_mirror_claim_token IS NULL
+                   OR survivor.archive_mirror_claim_expires_at <= now()
+                 )
                   THEN redundant.excluded
                 ELSE survivor.excluded
               END,
               exclusion_reason = CASE
                 WHEN survivor.exclusion_decision_source IS NULL
                  AND redundant.exclusion_decision_source IS NOT NULL
+                 AND (
+                   survivor.archive_mirror_claim_token IS NULL
+                   OR survivor.archive_mirror_claim_expires_at <= now()
+                 )
                   THEN redundant.exclusion_reason
                 ELSE survivor.exclusion_reason
               END,
               exclusion_decision_source = COALESCE(
                 survivor.exclusion_decision_source,
-                redundant.exclusion_decision_source
+                CASE
+                  WHEN survivor.archive_mirror_claim_token IS NULL
+                    OR survivor.archive_mirror_claim_expires_at <= now()
+                    THEN redundant.exclusion_decision_source
+                  ELSE NULL
+                END
               ),
               person_reflection = survivor.person_reflection OR redundant.person_reflection,
               reflection_dismissed = survivor.reflection_dismissed OR redundant.reflection_dismissed,
               updated_at = now()
          FROM evidence AS redundant
         WHERE survivor.id = $1
-          AND redundant.id = $2`,
+          AND redundant.id = $2
+      RETURNING survivor.id,
+                survivor.case_id,
+                survivor.excluded,
+                survivor.storage_path,
+                survivor.box_file_id`,
       [survivorId, row.id],
+    );
+    if (survivors[0]) {
+      // A collision may have supplied the survivor's only blob path. Queue that
+      // canonical row, then retire any redundant row's pending generation. Both
+      // evidence rows are already locked and the case rows were locked first.
+      await requestArchiveMirrorIfEligible(q, survivors[0]);
+    }
+    await q(
+      `UPDATE archive_mirror_outbox
+          SET completed_generation = requested_generation,
+              completed_at = now(),
+              updated_at = now()
+        WHERE evidence_id = $1
+          AND completed_generation < requested_generation`,
+      [row.id],
     );
   }
 
@@ -1184,6 +1232,14 @@ async function mergeEvidenceRows(
       RETURNING id`,
     [sourceCaseId, targetCaseId, collisionSourceIds],
   );
+  if (moved.length > 0) {
+    await q(
+      `UPDATE archive_mirror_outbox
+          SET case_id = $2, updated_at = now()
+        WHERE evidence_id = ANY($1::uuid[])`,
+      [moved.map((row) => row.id), targetCaseId],
+    );
+  }
   return { movedEvidence: moved.length, collidingEvidence: collisionSourceIds.length };
 }
 
@@ -1261,11 +1317,18 @@ app.http('mergeCases', {
         [sourceCaseId],
       );
 
-      const { movedEvidence, collidingEvidence } = await mergeEvidenceRows(
+      const { movedEvidence, collidingEvidence, archiveBusy } = await mergeEvidenceRows(
         q,
         sourceCaseId,
         targetCaseId,
       );
+      if (archiveBusy) {
+        return {
+          kind: 'error' as const,
+          status: 409,
+          error: 'Archive work is still finishing for one of these cases. Try the merge again shortly.',
+        };
+      }
       const movedEmails = await q<Row>(
         'UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id',
         [sourceCaseId, targetCaseId],

@@ -14,18 +14,9 @@ export function releaseEvidenceMutation(active: Set<string>, evidenceId: string)
   active.delete(evidenceId);
 }
 
-/** Merge only review-decision fields from a PATCH response. The API returns a full row,
- *  which may be older than an independently refreshed preview/reflection/archive field. */
-export function mergeEvidenceReviewDecision(current: Evidence, updated: Evidence): Evidence {
-  return {
-    ...current,
-    imageRole: updated.imageRole,
-    registrationVisible: updated.registrationVisible,
-    acceptedForEva: updated.acceptedForEva,
-    excluded: updated.excluded,
-    exclusionReason: updated.exclusionReason,
-    reviewRequired: updated.reviewRequired,
-  };
+/** The PATCH response is the authoritative, transactionally refreshed Evidence row. */
+export function mergeEvidenceReviewDecision(_current: Evidence, updated: Evidence): Evidence {
+  return updated;
 }
 
 /** Resolve one durable review request without manufacturing an optimistic row. */

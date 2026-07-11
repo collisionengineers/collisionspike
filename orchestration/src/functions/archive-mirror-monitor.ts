@@ -57,6 +57,11 @@ df.app.activity('archiveMirrorOutboxComplete', {
     archiveMirrorApi.complete(input.evidenceId, input.generation),
 });
 
+df.app.activity('archiveMirrorOutboxDefer', {
+  handler: async (input: { evidenceId: string; generation: number; reason: string }) =>
+    archiveMirrorApi.defer(input.evidenceId, input.generation, input.reason),
+});
+
 df.app.orchestration('archiveMirrorMonitorOrchestrator', function* (ctx) {
   try {
     const listed = (yield ctx.df.callActivityWithRetry(
@@ -77,6 +82,15 @@ df.app.orchestration('archiveMirrorMonitorOrchestrator', function* (ctx) {
         if (!ctx.df.isReplaying) {
           ctx.log(`[archiveMirrorMonitor] completion failed for ${row.evidenceId}: ${String(e)}`);
         }
+        try {
+          yield ctx.df.callActivityWithRetry('archiveMirrorOutboxDefer', retry, {
+            evidenceId: row.evidenceId,
+            generation: row.generation,
+            reason: 'completion verification failed',
+          });
+        } catch {
+          // The next durable wake retries if both completion and defer are unavailable.
+        }
       }
     }
 
@@ -91,12 +105,40 @@ df.app.orchestration('archiveMirrorMonitorOrchestrator', function* (ctx) {
         if (!ctx.df.isReplaying) {
           ctx.log(`[archiveMirrorMonitor] archive pass failed for ${caseId}: ${String(e)}`);
         }
+        for (const row of pendingRows) {
+          try {
+            yield ctx.df.callActivityWithRetry('archiveMirrorOutboxDefer', retry, {
+              evidenceId: row.evidenceId,
+              generation: row.generation,
+              reason: 'archive activity failed',
+            });
+          } catch (deferError) {
+            if (!ctx.df.isReplaying) {
+              ctx.log(`[archiveMirrorMonitor] defer failed for ${row.evidenceId}: ${String(deferError)}`);
+            }
+          }
+        }
         continue;
       }
       // A partial or skipped pass is never enough to acknowledge anything. On a
       // complete pass (including 0/0 after a race), the API still verifies EACH row's
       // box_file_id/no-longer-eligible state before advancing its exact generation.
-      if (!canVerifyArchivePass(result)) continue;
+      if (!canVerifyArchivePass(result)) {
+        for (const row of pendingRows) {
+          try {
+            yield ctx.df.callActivityWithRetry('archiveMirrorOutboxDefer', retry, {
+              evidenceId: row.evidenceId,
+              generation: row.generation,
+              reason: result.skipped ?? 'archive pass incomplete',
+            });
+          } catch (deferError) {
+            if (!ctx.df.isReplaying) {
+              ctx.log(`[archiveMirrorMonitor] defer failed for ${row.evidenceId}: ${String(deferError)}`);
+            }
+          }
+        }
+        continue;
+      }
       for (const row of pendingRows) {
         try {
           yield ctx.df.callActivityWithRetry('archiveMirrorOutboxComplete', retry, {
@@ -106,6 +148,15 @@ df.app.orchestration('archiveMirrorMonitorOrchestrator', function* (ctx) {
         } catch (e) {
           if (!ctx.df.isReplaying) {
             ctx.log(`[archiveMirrorMonitor] completion failed for ${row.evidenceId}: ${String(e)}`);
+          }
+          try {
+            yield ctx.df.callActivityWithRetry('archiveMirrorOutboxDefer', retry, {
+              evidenceId: row.evidenceId,
+              generation: row.generation,
+              reason: 'completion verification failed',
+            });
+          } catch {
+            // The next durable wake retries if both completion and defer are unavailable.
           }
         }
       }

@@ -22,6 +22,7 @@ import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import { rowToEvidence, type Row } from '../lib/mappers.js';
 import { requestStatusRecompute } from '../lib/status-recompute.js';
 import { requestArchiveMirrorIfEligible } from '../lib/archive-mirror-outbox.js';
+import { lockCaseForMutation } from '../lib/case-mutation-locks.js';
 
 // GET /api/evidence/{id}/content
 app.http('evidenceContent', {
@@ -124,13 +125,27 @@ app.http('patchEvidence', {
     }
 
     const imageKind = evidenceKindCodec.toInt('image') ?? 100000000;
-    const result = await tx(async (q) => {
+    // Discover the owning case without locking evidence first. The transaction then
+    // establishes the global case -> evidence -> outbox order. If merge wins between
+    // this probe and the advisory lock, the retired marker produces an honest conflict.
+    const owner = await query<{ case_id: string }>(
+      'SELECT case_id FROM evidence WHERE id = $1 AND kind_code = $2',
+      [id, imageKind],
+    );
+    if (!owner[0]) return { status: 404, jsonBody: { error: 'not found' } };
+
+    const mutation = await tx(async (q) => {
+      const caseLock = await lockCaseForMutation(q, owner[0].case_id);
+      if (caseLock.kind === 'missing') return { kind: 'missing' as const };
+      if (caseLock.kind === 'retired') {
+        return { kind: 'retired' as const, mergedInto: caseLock.mergedInto };
+      }
       const currentRows = await q<Row>(
-        'SELECT * FROM evidence WHERE id = $1 AND kind_code = $2 FOR UPDATE',
-        [id, imageKind],
+        'SELECT * FROM evidence WHERE id = $1 AND case_id = $2 AND kind_code = $3 FOR UPDATE',
+        [id, caseLock.caseId, imageKind],
       );
       const current = currentRows[0];
-      if (!current) return undefined;
+      if (!current) return { kind: 'moved' as const };
 
       let nextRole = current.image_role_code as number;
       let nextRoleSource = current.image_role_source as string | null;
@@ -199,7 +214,25 @@ app.http('patchEvidence', {
         nextExclusionSource !== current.exclusion_decision_source ||
         nextReflectionDismissed !== current.reflection_dismissed;
 
-      if (!changed) return { current, updated: current, readinessChanged: false, changed: false };
+      const exclusionWouldStart = current.excluded !== true && nextExcluded === true;
+      const claimExpiresAt = current.archive_mirror_claim_expires_at
+        ? new Date(String(current.archive_mirror_claim_expires_at)).getTime()
+        : 0;
+      if (
+        exclusionWouldStart &&
+        current.archive_mirror_claim_token &&
+        Number.isFinite(claimExpiresAt) &&
+        claimExpiresAt > Date.now()
+      ) {
+        return { kind: 'archive_busy' as const };
+      }
+
+      if (!changed) {
+        return {
+          kind: 'updated' as const,
+          value: { current, updated: current, readinessChanged: false, changed: false },
+        };
+      }
       const rows = await q<Row>(
         `UPDATE evidence
             SET image_role_code = $2,
@@ -212,8 +245,16 @@ app.http('patchEvidence', {
                 exclusion_reason = $9,
                 exclusion_decision_source = $10,
                 reflection_dismissed = $11,
+                archive_mirror_decision_generation =
+                  archive_mirror_decision_generation +
+                  CASE WHEN excluded IS DISTINCT FROM $8 THEN 1 ELSE 0 END,
                 updated_at = now()
           WHERE id = $1 AND kind_code = $12
+            AND (
+              NOT $13
+              OR archive_mirror_claim_token IS NULL
+              OR archive_mirror_claim_expires_at <= now()
+            )
           RETURNING *`,
         [
           id,
@@ -228,9 +269,10 @@ app.http('patchEvidence', {
           nextExclusionSource,
           nextReflectionDismissed,
           imageKind,
+          exclusionWouldStart,
         ],
       );
-      if (!rows[0]) return undefined;
+      if (!rows[0]) return { kind: 'moved' as const };
       // Intake's archive pass is intentionally one-shot. If staff later reverses an
       // exclusion, durably request another mirror pass in this SAME transaction as the
       // evidence decision. A generation upsert is replay-safe: retrying an already-applied
@@ -246,9 +288,31 @@ app.http('patchEvidence', {
         await requestArchiveMirrorIfEligible(q, rows[0]);
       }
       if (readinessChanged) await requestStatusRecompute(q, String(current.case_id));
-      return { current, updated: rows[0], readinessChanged, changed: true };
+      return {
+        kind: 'updated' as const,
+        value: { current, updated: rows[0], readinessChanged, changed: true },
+      };
     });
-    if (!result) return { status: 404, jsonBody: { error: 'not found' } };
+    if (mutation.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
+    if (mutation.kind === 'archive_busy') {
+      return {
+        status: 409,
+        jsonBody: {
+          error: 'This photo is being added to the Archive. Try excluding it again shortly.',
+          code: 'archive_in_progress',
+        },
+      };
+    }
+    if (mutation.kind === 'retired' || mutation.kind === 'moved') {
+      return {
+        status: 409,
+        jsonBody: {
+          error: 'This case changed while the photo was being saved. Refresh and try again.',
+          ...(mutation.kind === 'retired' ? { targetCaseId: mutation.mergedInto } : {}),
+        },
+      };
+    }
+    const result = mutation.value;
     if (!result.changed) return { status: 200, jsonBody: rowToEvidence(result.updated) };
 
     // Classification-family audit: a human overrode/acknowledged an image decision.

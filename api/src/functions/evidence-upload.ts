@@ -18,6 +18,11 @@ import { uploadEvidenceBytes } from '../lib/blob.js';
 import { classifyUpload } from '../lib/upload-validate.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import { requestStatusRecompute } from '../lib/status-recompute.js';
+import { lockCaseForMutation } from '../lib/case-mutation-locks.js';
+import {
+  requestArchiveMirrorIfEligible,
+  type ArchiveMirrorCandidate,
+} from '../lib/archive-mirror-outbox.js';
 
 const IMAGE_KIND_CODE = 100000000;
 const DOCUMENT_KIND_CODE = 100000002;
@@ -42,6 +47,7 @@ app.http('uploadCaseEvidence', {
 
     const added: Array<{ fileName: string }> = [];
     const rejected: Array<{ fileName: string; reason: string }> = [];
+    let retiredTargetCaseId: string | undefined;
 
     for (const file of files) {
       const check = classifyUpload(file.type, file.size);
@@ -54,16 +60,37 @@ app.http('uploadCaseEvidence', {
         const sha256 = createHash('sha256').update(bytes).digest('hex');
         const { blobPath, size } = await uploadEvidenceBytes(caseId, file.name, bytes, file.type);
         const kindCode = check.kind === 'image' ? IMAGE_KIND_CODE : DOCUMENT_KIND_CODE;
-        await tx(async (q) => {
-          await q(
+        const persisted = await tx(async (q) => {
+          // Blob I/O intentionally happens outside the DB transaction. Re-lock and
+          // re-check the case afterwards so a merge that completed while bytes were
+          // uploading cannot strand a new evidence row on the retired source.
+          const caseLock = await lockCaseForMutation(q, caseId);
+          if (caseLock.kind !== 'active') return caseLock;
+          const inserted = await q<ArchiveMirrorCandidate>(
             `INSERT INTO evidence
                (file_name, case_id, kind_code, sha256, content_type, size_bytes, storage_path,
                 source_label)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'assistant_upload')`,
-            [file.name, caseId, kindCode, sha256, file.type, size, blobPath],
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'assistant_upload')
+          RETURNING id, case_id, excluded, storage_path, box_file_id`,
+            [file.name, caseLock.caseId, kindCode, sha256, file.type, size, blobPath],
           );
-          if (kindCode === IMAGE_KIND_CODE) await requestStatusRecompute(q, caseId);
+          if (!inserted[0]) throw new Error('evidence insert returned no row');
+          await requestArchiveMirrorIfEligible(q, inserted[0]);
+          if (kindCode === IMAGE_KIND_CODE) await requestStatusRecompute(q, caseLock.caseId);
+          return { kind: 'persisted' as const };
         });
+        if (persisted.kind === 'retired') {
+          retiredTargetCaseId = persisted.mergedInto;
+          rejected.push({
+            fileName: file.name,
+            reason: 'This case changed while the file was uploading. Refresh and try again.',
+          });
+          break;
+        }
+        if (persisted.kind === 'missing') {
+          rejected.push({ fileName: file.name, reason: 'This case is no longer available.' });
+          break;
+        }
         added.push({ fileName: file.name });
       } catch (e) {
         ctx.error(`[evidence-upload] ${file.name}: ${e instanceof Error ? e.message : String(e)}`);
@@ -82,6 +109,13 @@ app.http('uploadCaseEvidence', {
       });
     }
 
-    return { status: added.length ? 201 : 400, jsonBody: { added, rejected } };
+    return {
+      status: added.length ? 201 : retiredTargetCaseId ? 409 : 400,
+      jsonBody: {
+        added,
+        rejected,
+        ...(retiredTargetCaseId ? { targetCaseId: retiredTargetCaseId } : {}),
+      },
+    };
   }),
 });

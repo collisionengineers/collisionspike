@@ -49,4 +49,21 @@ describe('archiveMirrorApi', () => {
       expect.objectContaining({ method: 'POST', body: JSON.stringify({ generation: 7 }) }),
     );
   });
+
+  it('defers the exact observed generation with its retry reason', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(
+      JSON.stringify({ deferred: true, pending: true }),
+      { status: 200 },
+    ));
+
+    await archiveMirrorApi.defer('evidence/a', 7, 'no_folder');
+
+    expect(fetch).toHaveBeenCalledWith(
+      'https://data.example.test/api/internal/archive-mirror-outbox/evidence%2Fa/defer',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ generation: 7, reason: 'no_folder' }),
+      }),
+    );
+  });
 });

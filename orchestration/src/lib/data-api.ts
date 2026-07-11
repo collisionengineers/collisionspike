@@ -564,7 +564,14 @@ export const dataApi = {
   /** Persisted blob-backed evidence rows ready for archive mirroring. */
   archiveEvidenceRows(
     caseId: string,
-  ): Promise<{ rows: Array<{ id: string; filename: string; contentType: string | null; blobPath: string }> }> {
+  ): Promise<{ rows: Array<{
+    id: string;
+    filename: string;
+    contentType: string | null;
+    blobPath: string;
+    claimToken: string;
+    decisionGeneration: number;
+  }> }> {
     return request('GET', `/api/internal/cases/${caseId}/archive-evidence`);
   },
 
@@ -575,11 +582,15 @@ export const dataApi = {
     blobPath: string;
     boxFileId: string;
     boxFileUrl?: string;
+    claimToken: string;
+    decisionGeneration: number;
   }): Promise<{ updated: boolean }> {
     return request('POST', `/api/internal/cases/${payload.caseId}/archive-evidence/stamp`, {
       evidenceId: payload.evidenceId,
       blobPath: payload.blobPath,
       boxFileId: payload.boxFileId,
+      claimToken: payload.claimToken,
+      decisionGeneration: payload.decisionGeneration,
       ...(payload.boxFileUrl ? { boxFileUrl: payload.boxFileUrl } : {}),
     });
   },
@@ -594,6 +605,17 @@ export const dataApi = {
   ): Promise<{ value: string; completed?: boolean; pending?: boolean }> {
     return request('POST', `/api/internal/cases/${caseId}/status-evaluate`, {
       ...(generation == null ? {} : { generation }),
+    });
+  },
+
+  releaseArchiveEvidenceClaim(payload: {
+    caseId: string;
+    evidenceId: string;
+    claimToken: string;
+  }): Promise<{ released: boolean }> {
+    return request('POST', `/api/internal/cases/${payload.caseId}/archive-evidence/release`, {
+      evidenceId: payload.evidenceId,
+      claimToken: payload.claimToken,
     });
   },
 

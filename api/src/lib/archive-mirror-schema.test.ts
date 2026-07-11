@@ -30,6 +30,8 @@ describe('TKT-089 rolling schema and archive-outbox parity', () => {
       expect(contract).toContain('archive_mirror_outbox');
       expect(contract).toContain('requested_generation');
       expect(contract).toContain('completed_generation');
+      expect(contract).toContain('attempt_count');
+      expect(contract).toContain('next_attempt_at');
       expect(contract).toContain('ix_archive_mirror_outbox_pending');
       expect(contract).toContain('GRANT SELECT, INSERT, UPDATE ON archive_mirror_outbox TO cespk_app');
     }
@@ -38,5 +40,22 @@ describe('TKT-089 rolling schema and archive-outbox parity', () => {
     expect(delta).toContain('p_archive_mirror_outbox_rw');
     expect(delta).toContain('p_archive_mirror_outbox_no_delete');
     expect(constraints).toContain("'archive_mirror_outbox'");
+  });
+
+  it('ships archive claims and durable case-link backfill generations in canonical and live schemas', () => {
+    const evidence = schema('060_evidence.sql');
+    const claims = schema('deltas/2026-07-11-tkt089-archive-mirror-claims.sql');
+    const inbound = schema('120_inbound_email.sql');
+    const backfill = schema('deltas/2026-07-11-tkt145-backfill-report-idempotency.sql');
+
+    for (const contract of [evidence, claims]) {
+      expect(contract).toContain('archive_mirror_claim_token');
+      expect(contract).toContain('archive_mirror_decision_generation');
+    }
+    for (const contract of [inbound, backfill]) {
+      expect(contract).toContain('evidence_backfill_requested_generation');
+      expect(contract).toContain('evidence_backfill_enqueued_generation');
+      expect(contract).toContain('evidence_backfill_report_outcome');
+    }
   });
 });

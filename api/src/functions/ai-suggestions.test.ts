@@ -46,6 +46,12 @@ vi.mock('../lib/db.js', () => ({
   getPool: vi.fn(),
   tx: txMock,
 }));
+vi.mock('../lib/case-mutation-locks.js', () => ({
+  lockCaseForMutation: vi.fn(async (_q: unknown, caseId: string) => ({
+    kind: 'active',
+    caseId,
+  })),
+}));
 
 /* ---- audit: keep AUDIT_ACTION + actorFromClaims real; spy writeAudit ---- */
 const auditCalls = vi.hoisted(() => [] as Array<{ action: number }>);
@@ -366,6 +372,8 @@ describe('reviewAiSuggestion — atomic readiness promotion', () => {
   it('CAS-overwrites a classifier race, converts ownership, and durably schedules an eligible archive mirror', async () => {
     rowsFor.mockImplementation((sql: string) => {
       if (/FROM ai_suggestion[\s\S]*WHERE id/i.test(sql)) return [IMAGE_ROLE_ROW];
+      if (/SELECT case_id FROM evidence/i.test(sql)) return [{ case_id: 'case-1' }];
+      if (/SELECT id FROM evidence/i.test(sql)) return [{ id: 'ev-1' }];
       if (/UPDATE evidence/i.test(sql)) return [{
         id: 'ev-1',
         case_id: 'case-1',
@@ -414,6 +422,8 @@ describe('reviewAiSuggestion — atomic readiness promotion', () => {
   it('accepts a registration suggestion with staff ownership and status work in the same transaction', async () => {
     rowsFor.mockImplementation((sql: string) => {
       if (/FROM ai_suggestion[\s\S]*WHERE id/i.test(sql)) return [REGISTRATION_ROW];
+      if (/SELECT case_id FROM evidence/i.test(sql)) return [{ case_id: 'case-1' }];
+      if (/SELECT id FROM evidence/i.test(sql)) return [{ id: 'ev-1' }];
       if (/UPDATE evidence/i.test(sql)) return [{ id: 'ev-1', case_id: 'case-1' }];
       if (/UPDATE case_/i.test(sql)) return [{ status_recompute_requested_generation: 9 }];
       if (/UPDATE ai_suggestion/i.test(sql)) return [{ id: 'sug-1', review_state: 'accepted' }];
@@ -442,6 +452,8 @@ describe('reviewAiSuggestion — atomic readiness promotion', () => {
   ])('returns a conflict and leaves %s pending when a protected owner wins', async (_label, suggestion) => {
     rowsFor.mockImplementation((sql: string) => {
       if (/FROM ai_suggestion[\s\S]*WHERE id/i.test(sql)) return [suggestion];
+      if (/SELECT case_id FROM evidence/i.test(sql)) return [{ case_id: 'case-1' }];
+      if (/SELECT id FROM evidence/i.test(sql)) return [{ id: 'ev-1' }];
       if (/UPDATE evidence/i.test(sql)) return []; // staff/provider/cleanup/legacy CAS miss
       return [];
     });
@@ -460,6 +472,8 @@ describe('reviewAiSuggestion — atomic readiness promotion', () => {
   it('leaves the suggestion pending/retryable when evidence promotion fails', async () => {
     rowsFor.mockImplementation((sql: string) => {
       if (/FROM ai_suggestion[\s\S]*WHERE id/i.test(sql)) return [IMAGE_ROLE_ROW];
+      if (/SELECT case_id FROM evidence/i.test(sql)) return [{ case_id: 'case-1' }];
+      if (/SELECT id FROM evidence/i.test(sql)) return [{ id: 'ev-1' }];
       if (/UPDATE evidence/i.test(sql)) throw new Error('evidence write failed');
       return [];
     });
@@ -600,10 +614,28 @@ const ATTACHED_LINK_UPDATE_ROW = {
 };
 
 function linkRows(updRow: Record<string, unknown> | null, reviewState = 'pending') {
+  let linked = false;
   return (sql: string): Record<string, unknown>[] => {
     if (/FROM ai_suggestion WHERE id/i.test(sql)) return [{ ...CASE_LINK_ROW, review_state: reviewState }];
     if (/UPDATE ai_suggestion/i.test(sql)) return [{ id: 'sug-1', review_state: 'accepted' }];
-    if (/UPDATE inbound_email/i.test(sql)) return updRow ? [updRow] : [];
+    if (/UPDATE inbound_email[\s\S]*SET case_id/i.test(sql)) {
+      linked = Boolean(updRow);
+      return updRow ? [{ ...updRow, evidence_backfill_requested_generation: 1 }] : [];
+    }
+    if (/SELECT id, case_id, source_mailbox, source_message_id, subject/i.test(sql)) {
+      const sourceMailbox = updRow?.source_mailbox;
+      const sourceMessageId = updRow?.source_message_id;
+      return linked && updRow?.has_attachments === true && sourceMailbox && sourceMessageId
+        ? [{
+            id: 'ie-1',
+            case_id: 'case-target',
+            source_mailbox: sourceMailbox,
+            source_message_id: sourceMessageId,
+            subject: updRow.subject ?? null,
+            evidence_backfill_requested_generation: 1,
+          }]
+        : [];
+    }
     return [];
   };
 }
@@ -633,19 +665,16 @@ describe('reviewAiSuggestion — TKT-145 case_link accept enqueues the evidence 
     expect(noteSqls()).toHaveLength(0);
   });
 
-  it('enqueue FAILURE → the manual note is written (the inverted mitigation) and the accept still succeeds', async () => {
+  it('enqueue failure leaves the durable generation pending and the accept still succeeds', async () => {
     rowsFor.mockImplementation(linkRows(ATTACHED_LINK_UPDATE_ROW));
     backfill.enqueueEvidenceBackfill.mockRejectedValue(new Error('evidence-backfill enqueue → 404: QueueNotFound'));
 
     const res = await review(reviewReq(), ctx, {});
     // A backfill failure must NEVER unwind or fail the accept itself.
     expect(res.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: true });
-    expect(noteSqls()).toHaveLength(1);
-    const noteParams = params[sqls.findIndex((s) => /INSERT INTO note/i.test(s))];
-    expect(noteParams).toContain('Attachments to add');
-    expect(noteParams).toContain('case-target');
-    expect(noteParams).toContain('evidence-backfill:ie-1');
-    expect(noteSqls()[0]).toMatch(/ON CONFLICT \(case_id, source_key\)/i);
+    expect(noteSqls()).toHaveLength(0);
+    expect(sqls.some((sql) => /evidence_backfill_requested_generation = CASE/i.test(sql))).toBe(true);
+    expect(sqls.some((sql) => /evidence_backfill_enqueued_generation = GREATEST/i.test(sql))).toBe(false);
   });
 
   it('NO mailbox provenance (retro/synthetic row) → no enqueue; the note degrades in directly', async () => {
@@ -671,11 +700,8 @@ describe('reviewAiSuggestion — TKT-145 case_link accept enqueues the evidence 
       }),
   );
 
-  it('enqueue and fallback-note failure never unwind the accepted link', async () => {
-    rowsFor.mockImplementation((sql: string) => {
-      if (/INSERT INTO note/i.test(sql)) throw new Error('note write unavailable');
-      return linkRows(ATTACHED_LINK_UPDATE_ROW)(sql);
-    });
+  it('enqueue failure never unwinds the accepted link', async () => {
+    rowsFor.mockImplementation(linkRows(ATTACHED_LINK_UPDATE_ROW));
     backfill.enqueueEvidenceBackfill.mockRejectedValue(new Error('queue unavailable'));
     const res = await review(reviewReq(), ctx, {});
     expect(res.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: true });
@@ -705,6 +731,51 @@ describe('reviewAiSuggestion — TKT-145 case_link accept enqueues the evidence 
     expect(second.jsonBody).toMatchObject({ reviewState: 'accepted', promoted: false });
     expect(backfill.enqueueEvidenceBackfill).toHaveBeenCalledTimes(1);
     expect(noteSqls()).toHaveLength(0);
+  });
+
+  it('an accepted link whose first publish crashed is recovered by idempotent re-review', async () => {
+    let reviewState = 'pending';
+    let linked = false;
+    let enqueued = false;
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM ai_suggestion WHERE id/i.test(sql)) {
+        return [{ ...CASE_LINK_ROW, review_state: reviewState }];
+      }
+      if (/UPDATE ai_suggestion/i.test(sql)) {
+        reviewState = 'accepted';
+        return [{ id: 'sug-1', review_state: 'accepted' }];
+      }
+      if (/UPDATE inbound_email[\s\S]*SET case_id/i.test(sql)) {
+        linked = true;
+        return [{ ...ATTACHED_LINK_UPDATE_ROW, evidence_backfill_requested_generation: 1 }];
+      }
+      if (/SELECT id, case_id, source_mailbox, source_message_id, subject/i.test(sql)) {
+        return linked && !enqueued ? [{
+          id: 'ie-1',
+          case_id: 'case-target',
+          source_mailbox: ATTACHED_LINK_UPDATE_ROW.source_mailbox,
+          source_message_id: ATTACHED_LINK_UPDATE_ROW.source_message_id,
+          subject: ATTACHED_LINK_UPDATE_ROW.subject,
+          evidence_backfill_requested_generation: 1,
+        }] : [];
+      }
+      if (/evidence_backfill_enqueued_generation = GREATEST/i.test(sql)) enqueued = true;
+      return [];
+    });
+    backfill.enqueueEvidenceBackfill
+      .mockRejectedValueOnce(new Error('worker recycled after commit'))
+      .mockResolvedValueOnce(undefined);
+
+    expect((await review(reviewReq(), ctx, {})).jsonBody).toMatchObject({
+      reviewState: 'accepted', promoted: true,
+    });
+    expect(enqueued).toBe(false);
+
+    expect((await review(reviewReq(), ctx, {})).jsonBody).toMatchObject({
+      reviewState: 'accepted', promoted: false,
+    });
+    expect(backfill.enqueueEvidenceBackfill).toHaveBeenCalledTimes(2);
+    expect(enqueued).toBe(true);
   });
 
   it('FILL-IF-EMPTY miss (email already linked) → no enqueue, no note', async () => {

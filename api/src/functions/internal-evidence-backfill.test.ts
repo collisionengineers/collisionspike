@@ -89,7 +89,9 @@ beforeEach(() => {
   params.length = 0;
   rowsFor.mockReset();
   rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
-    if (/FROM inbound_email/i.test(sql)) return [{ id: 'ie-1', case_id: 'case-target' }];
+    if (/FROM inbound_email/i.test(sql)) {
+      return [{ id: 'ie-1', case_id: 'case-target', evidence_backfill_report_outcome: null }];
+    }
     if (/SELECT id, duplicate_keys FROM case_/i.test(sql)) {
       return [{ id: p?.[0] as string, duplicate_keys: null }];
     }
@@ -126,12 +128,49 @@ describe('internalInboundEvidenceBackfill — (a) note-on-terminal-failure', () 
   });
 
   it('a re-reported failure re-issues the SAME idempotent UPSERT (no second copy)', async () => {
+    let storedOutcome: string | null = null;
+    rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
+      if (/FROM inbound_email/i.test(sql)) {
+        return [{
+          id: 'ie-1',
+          case_id: 'case-target',
+          evidence_backfill_report_outcome: storedOutcome,
+        }];
+      }
+      if (/UPDATE inbound_email/i.test(sql)) storedOutcome = String(p?.[1]);
+      return [];
+    });
     await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-target' }), ctx);
     await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-target' }), ctx);
     // Both runs execute the source-keyed statement; exact content leaves timestamps
     // untouched through the IS DISTINCT FROM guard.
     for (const s of noteSqls()) expect(s).toMatch(/ON CONFLICT/i);
     expect(noteSqls()).toHaveLength(2);
+    expect(auditSqls()).toHaveLength(1);
+  });
+
+  it('audits a genuine failed to completed outcome transition exactly once per state', async () => {
+    let storedOutcome: string | null = null;
+    rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
+      if (/FROM inbound_email/i.test(sql)) {
+        return [{
+          id: 'ie-1',
+          case_id: 'case-target',
+          evidence_backfill_report_outcome: storedOutcome,
+        }];
+      }
+      if (/UPDATE inbound_email/i.test(sql)) storedOutcome = String(p?.[1]);
+      return [];
+    });
+
+    await report(req('ie-1', { outcome: 'failed', targetCaseId: 'case-target' }), ctx);
+    await report(req('ie-1', { outcome: 'completed', targetCaseId: 'case-target', persisted: 2 }), ctx);
+    await report(req('ie-1', { outcome: 'completed', targetCaseId: 'case-target', persisted: 2 }), ctx);
+
+    expect(auditSqls()).toHaveLength(2);
+    const actions = params.filter((_, index) => /INSERT INTO audit_event/i.test(sqls[index]));
+    expect(actions[0]).toContain(AUDIT_ACTION.graph_message_ingest_failed);
+    expect(actions[1]).toContain(AUDIT_ACTION.attachment_classified);
   });
 });
 
