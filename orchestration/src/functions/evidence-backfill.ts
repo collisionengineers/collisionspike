@@ -108,18 +108,35 @@ function isRetryableBackfillFetchError(error: unknown): boolean {
 /** Azure Storage SDK / transport failures worth queue redelivery before any
  * evidence row is committed. Client validation/auth/not-found 4xx stay terminal. */
 export function isRetryableStorageInfrastructureError(error: unknown): boolean {
-  const candidate = (error && typeof error === 'object')
-    ? error as { statusCode?: unknown; status?: unknown; code?: unknown; name?: unknown }
-    : {};
-  const status = Number(candidate.statusCode ?? candidate.status);
-  if (Number.isFinite(status) && (status === 429 || status >= 500)) return true;
+  let cursor: unknown = error;
+  const seen = new Set<unknown>();
+  for (let depth = 0; cursor != null && depth < 5 && !seen.has(cursor); depth++) {
+    seen.add(cursor);
+    const candidate = (typeof cursor === 'object')
+      ? cursor as {
+          statusCode?: unknown;
+          status?: unknown;
+          code?: unknown;
+          name?: unknown;
+          cause?: unknown;
+        }
+      : {};
+    const status = Number(candidate.statusCode ?? candidate.status);
+    if (Number.isFinite(status) && (status === 429 || status >= 500)) return true;
 
-  const code = String(candidate.code ?? candidate.name ?? '');
-  if (/^(?:ServerBusy|InternalError|OperationTimedOut|ServiceUnavailable|TooManyRequests|ECONNRESET|ETIMEDOUT|ESOCKETTIMEDOUT|EAI_AGAIN)$/i.test(code)) {
-    return true;
+    const code = String(candidate.code ?? candidate.name ?? '');
+    if (/^(?:ServerBusy|InternalError|OperationTimedOut|ServiceUnavailable|TooManyRequests|ManagedIdentityTokenError|ECONNRESET|ETIMEDOUT|ESOCKETTIMEDOUT|EAI_AGAIN)$/i.test(code)) {
+      // A managed-identity error is retryable only when its status/message says
+      // throttling or service failure; ordinary named transport codes are retryable.
+      if (!/^ManagedIdentityTokenError$/i.test(code) ||
+          /MSI storage token (?:429|5\d\d)\b/i.test(errorDetail(cursor)) ||
+          status === 429 || status >= 500) return true;
+    }
+    if (/\b(?:MSI storage token (?:429|5\d\d)|ServerBusy|ServiceUnavailable|TooManyRequests|ECONNRESET|ETIMEDOUT|ESOCKETTIMEDOUT|EAI_AGAIN)\b/i
+      .test(errorDetail(cursor))) return true;
+    cursor = candidate.cause;
   }
-  return /\b(?:ServerBusy|ServiceUnavailable|TooManyRequests|ECONNRESET|ETIMEDOUT|ESOCKETTIMEDOUT|EAI_AGAIN)\b/i
-    .test(errorDetail(error));
+  return false;
 }
 
 function isRetryableBackfillInfrastructureError(error: unknown): boolean {

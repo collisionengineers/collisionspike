@@ -280,6 +280,32 @@ describe('evidence-backfill — (c) retryable vs terminal split', () => {
 });
 
 describe('evidence-backfill — pre-persist storage landing failures', () => {
+  it('retries the managed-identity token service 429/5xx shape used by blob.ts', async () => {
+    arrangeFetch();
+    blob.uploadEvidenceBytes.mockRejectedValueOnce(
+      new Error('MSI storage token 500'),
+    );
+
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(1))).rejects.toThrow(
+      /MSI storage token 500/,
+    );
+    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+  });
+
+  it('recognises a retryable managed-identity failure nested as a transport cause', async () => {
+    arrangeFetch();
+    blob.uploadEvidenceBytes.mockRejectedValueOnce(
+      new Error('blob credential unavailable', {
+        cause: Object.assign(new Error('MSI storage token 429'), { statusCode: 429 }),
+      }),
+    );
+
+    await expect(backfill.handler(JSON.stringify(JOB), ctxAt(1))).rejects.toThrow(
+      /blob credential unavailable/,
+    );
+    expect(dataApiMock.reportEvidenceBackfill).not.toHaveBeenCalled();
+  });
+
   it('retries a raw-email Blob ServerBusy response without reporting a terminal failure', async () => {
     arrangeFetch();
     blob.uploadEvidenceBytes
