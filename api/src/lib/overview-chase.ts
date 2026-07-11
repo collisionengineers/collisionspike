@@ -39,9 +39,10 @@
  */
 
 import { isTerminalStatus, type CaseStatus } from '@cs/domain';
-import { evidenceKindCodec, imageRoleCodec } from '@cs/domain/codecs';
-import { query } from './db.js';
+import { caseStatusCodec, evidenceKindCodec, imageRoleCodec } from '@cs/domain/codecs';
+import { query, tx, type TxQuery } from './db.js';
 import { AUDIT_ACTION, writeAudit } from './audit.js';
+import { mergedIntoFrom } from './mappers.js';
 
 /** N — minimum accepted photos before an overview-less set is worth a chase (TKT-148). */
 export const OVERVIEW_CHASE_MIN_ACCEPTED_IMAGES = 5;
@@ -73,6 +74,40 @@ export interface OverviewChaseCounts {
   overviewCount: number;
   /** Still-unclassified photos: role unknown AND registration_visible IS NULL, not excluded. */
   unclassifiedCount: number;
+}
+
+interface OverviewChaseAggregate extends Record<string, unknown> {
+  provider_display: string | null;
+  accepted_count: number | string;
+  overview_count: number | string;
+  unclassified_count: number | string;
+}
+
+async function loadOverviewChaseAggregate(
+  q: TxQuery,
+  caseId: string,
+): Promise<OverviewChaseAggregate | undefined> {
+  const rows = await q<OverviewChaseAggregate>(
+    `SELECT COALESCE(wp.display_name, '') AS provider_display,
+            COUNT(e.id) FILTER (WHERE e.accepted_for_eva AND NOT e.excluded)::int AS accepted_count,
+            COUNT(e.id) FILTER (WHERE e.accepted_for_eva AND NOT e.excluded AND e.image_role_code = $3)::int AS overview_count,
+            COUNT(e.id) FILTER (WHERE NOT e.excluded AND e.image_role_code = $4 AND e.registration_visible IS NULL)::int AS unclassified_count
+       FROM case_ c
+       LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+       LEFT JOIN evidence e ON e.case_id = c.id AND e.kind_code = $2
+      WHERE c.id = $1
+      GROUP BY wp.display_name`,
+    [caseId, IMAGE_KIND_CODE, OVERVIEW_ROLE_CODE, UNKNOWN_ROLE_CODE],
+  );
+  return rows[0];
+}
+
+function countsFrom(row: OverviewChaseAggregate): OverviewChaseCounts {
+  return {
+    acceptedCount: Number(row.accepted_count ?? 0),
+    overviewCount: Number(row.overview_count ?? 0),
+    unclassifiedCount: Number(row.unclassified_count ?? 0),
+  };
 }
 
 /**
@@ -108,57 +143,67 @@ export async function maybeSuggestOverviewChase(
     // Terminal / retired-merged cases are never chased — skip before any DB work.
     if (isTerminalStatus(status) || status === 'linked_to_instruction') return false;
 
-    const agg = await query<{
-      provider_display: string | null;
-      accepted_count: number | string;
-      overview_count: number | string;
-      unclassified_count: number | string;
-    }>(
-      `SELECT COALESCE(wp.display_name, '') AS provider_display,
-              COUNT(e.id) FILTER (WHERE e.accepted_for_eva AND NOT e.excluded)::int AS accepted_count,
-              COUNT(e.id) FILTER (WHERE e.accepted_for_eva AND NOT e.excluded AND e.image_role_code = $3)::int AS overview_count,
-              COUNT(e.id) FILTER (WHERE NOT e.excluded AND e.image_role_code = $4 AND e.registration_visible IS NULL)::int AS unclassified_count
-         FROM case_ c
-         LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
-         LEFT JOIN evidence e ON e.case_id = c.id AND e.kind_code = $2
-        WHERE c.id = $1
-        GROUP BY wp.display_name`,
-      [caseId, IMAGE_KIND_CODE, OVERVIEW_ROLE_CODE, UNKNOWN_ROLE_CODE],
-    );
-    const row = agg[0];
+    const row = await loadOverviewChaseAggregate(query, caseId);
     if (!row) return false; // unknown case
-    const counts: OverviewChaseCounts = {
-      acceptedCount: Number(row.accepted_count ?? 0),
-      overviewCount: Number(row.overview_count ?? 0),
-      unclassifiedCount: Number(row.unclassified_count ?? 0),
-    };
+    const counts = countsFrom(row);
     if (!isOverviewChaseEligible(status, counts)) return false;
 
-    const targetName = String(row.provider_display ?? '').slice(0, 200);
+    const minted = await tx(async (q) => {
+      // The aggregate above is advisory, but the case lifecycle is not: lock and
+      // re-read the current persisted status + merge marker immediately before the
+      // INSERT. A finalize/close/merge that won the row first therefore suppresses
+      // the chase; one that arrives later waits until this decision commits.
+      const current = await q<{ status_code: number; duplicate_keys: unknown }>(
+        `SELECT status_code, duplicate_keys
+           FROM case_
+          WHERE id = $1
+          FOR UPDATE`,
+        [caseId],
+      );
+      const currentStatus = caseStatusCodec.toName(current[0]?.status_code) as CaseStatus | undefined;
+      if (
+        !currentStatus ||
+        mergedIntoFrom(current[0]?.duplicate_keys) ||
+        isTerminalStatus(currentStatus) ||
+        currentStatus === 'linked_to_instruction'
+      ) {
+        return null;
+      }
 
-    // Guard + mint in ONE statement (concurrent recomputes can't double-mint):
-    // blocked when the system suggestion already exists (any status — once per
-    // case, ever) OR any open chase exists (staff are already chasing).
-    const inserted = await query<{ id: string }>(
-      `INSERT INTO chaser
-         (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at, suggested)
-       SELECT $1, $2, $3, $4, $5, $6, now(), true
-        WHERE NOT EXISTS (
-          SELECT 1 FROM chaser ch
-           WHERE ch.case_id = $2
-              AND (ch.template_used = $6 OR ch.status_code IN (${OPEN_CHASER_STATUS_CODES})))
-       ON CONFLICT DO NOTHING
-       RETURNING id`,
-      [
-        OVERVIEW_CHASE_SUMMARY,
-        caseId,
-        TARGET_TYPE_WORK_PROVIDER,
-        targetName,
-        CHANNEL_EMAIL,
-        OVERVIEW_CHASE_TEMPLATE_LABEL,
-      ],
-    );
-    if (!inserted[0]) return false; // already suggested / staff already chasing
+      // Evidence and provider details may have changed while this call waited for
+      // the case lock. Re-run the aggregate now and use only this fresh snapshot for
+      // the eligibility decision, INSERT target, and audit facts.
+      const freshRow = await loadOverviewChaseAggregate(q, caseId);
+      if (!freshRow) return null;
+      const freshCounts = countsFrom(freshRow);
+      if (!isOverviewChaseEligible(currentStatus, freshCounts)) return null;
+      const targetName = String(freshRow.provider_display ?? '').slice(0, 200);
+
+      // Guard + mint in ONE statement (concurrent recomputes can't double-mint):
+      // blocked when the system suggestion already exists (any status — once per
+      // case, ever) OR any open chase exists (staff are already chasing).
+      const rows = await q<{ id: string }>(
+        `INSERT INTO chaser
+           (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at, suggested)
+         SELECT $1, $2, $3, $4, $5, $6, now(), true
+          WHERE NOT EXISTS (
+            SELECT 1 FROM chaser ch
+             WHERE ch.case_id = $2
+                AND (ch.template_used = $6 OR ch.status_code IN (${OPEN_CHASER_STATUS_CODES})))
+         ON CONFLICT DO NOTHING
+         RETURNING id`,
+        [
+          OVERVIEW_CHASE_SUMMARY,
+          caseId,
+          TARGET_TYPE_WORK_PROVIDER,
+          targetName,
+          CHANNEL_EMAIL,
+          OVERVIEW_CHASE_TEMPLATE_LABEL,
+        ],
+      );
+      return rows[0] ? { inserted: rows[0], counts: freshCounts } : null;
+    });
+    if (!minted) return false; // terminal/merged/ineligible/already suggested/staff already chasing
 
     // A suggestion is not a sent/logged chase. The distinct controlled action keeps
     // the activity feed honest while staff decide whether to use the draft.
@@ -167,10 +212,10 @@ export async function maybeSuggestOverviewChase(
       caseId,
       summary: `Chase suggested (${OVERVIEW_CHASE_TEMPLATE_LABEL}) — drafted for staff to send`,
       after: {
-        chaserId: inserted[0].id,
+        chaserId: minted.inserted.id,
         templateLabel: OVERVIEW_CHASE_TEMPLATE_LABEL,
         suggested: true,
-        acceptedImages: counts.acceptedCount,
+        acceptedImages: minted.counts.acceptedCount,
       },
       ...(actor ? { actor } : {}),
     });

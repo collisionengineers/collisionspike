@@ -19,6 +19,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { CaseStatus } from '@cs/domain';
+import { statusToInt } from '@cs/domain/codecs';
 import { readFileSync } from 'node:fs';
 
 /* ---- db: record every SQL + params; canned rows per statement ---- */
@@ -32,7 +33,13 @@ vi.mock('./db.js', () => ({
     return rowsFor(sql, p);
   }),
   getPool: vi.fn(),
-  tx: vi.fn(),
+  tx: vi.fn(async (fn: (q: (sql: string, p?: unknown[]) => Promise<Record<string, unknown>[]>) => Promise<unknown>) =>
+    fn(async (sql: string, p?: unknown[]) => {
+      sqls.push(sql);
+      params.push(p ?? []);
+      return rowsFor(sql, p);
+    }),
+  ),
 }));
 
 /* ---- audit: keep AUDIT_ACTION real; spy writeAudit ---- */
@@ -74,6 +81,13 @@ function aggRow(over: Partial<Record<string, unknown>> = {}): Record<string, unk
   };
 }
 
+const activeLockRow = () => ({
+  status_code: statusToInt('missing_images'),
+  duplicate_keys: null,
+});
+const isCaseLock = (sql: string): boolean =>
+  /FROM case_\s+WHERE id = \$1\s+FOR UPDATE/i.test(sql);
+
 beforeEach(() => {
   sqls.length = 0;
   params.length = 0;
@@ -81,6 +95,7 @@ beforeEach(() => {
   rowsFor.mockReset();
   rowsFor.mockImplementation((sql: string) => {
     if (sql.includes('FROM case_ c')) return [aggRow()];
+    if (isCaseLock(sql)) return [activeLockRow()];
     if (sql.includes('INSERT INTO chaser')) return [{ id: 'ch-148' }];
     return [];
   });
@@ -164,6 +179,10 @@ describe('maybeSuggestOverviewChase — mint', () => {
     );
     expect(ins!.sql).toMatch(/now\(\), true/);
     expect(ins!.sql).toMatch(/ON CONFLICT DO NOTHING/);
+    const locked = sqls.findIndex((sql) => /FROM case_\s+WHERE id = \$1\s+FOR UPDATE/i.test(sql));
+    const inserted = sqls.findIndex((sql) => /INSERT INTO chaser/i.test(sql));
+    expect(locked).toBeGreaterThanOrEqual(0);
+    expect(locked).toBeLessThan(inserted);
     expect(ins!.p).toEqual([
       OVERVIEW_CHASE_SUMMARY,
       'case-1',
@@ -202,6 +221,7 @@ describe('maybeSuggestOverviewChase — mint', () => {
     let insertAttempt = 0;
     rowsFor.mockImplementation((sql: string) => {
       if (sql.includes('FROM case_ c')) return [aggRow()];
+      if (isCaseLock(sql)) return [activeLockRow()];
       if (sql.includes('INSERT INTO chaser')) {
         insertAttempt++;
         return insertAttempt === 1 ? [{ id: 'ch-winner' }] : [];
@@ -224,6 +244,25 @@ describe('maybeSuggestOverviewChase — mint', () => {
     expect(auditCalls[0].actor).toBe('staff-1');
   });
 
+  it('uses the provider and counts re-read after acquiring the case lock', async () => {
+    let aggregateRead = 0;
+    rowsFor.mockImplementation((sql: string) => {
+      if (sql.includes('FROM case_ c')) {
+        aggregateRead++;
+        return aggregateRead === 1
+          ? [aggRow({ provider_display: 'Old provider', accepted_count: 8 })]
+          : [aggRow({ provider_display: 'Current provider', accepted_count: 9 })];
+      }
+      if (isCaseLock(sql)) return [activeLockRow()];
+      if (sql.includes('INSERT INTO chaser')) return [{ id: 'ch-fresh' }];
+      return [];
+    });
+
+    await expect(maybeSuggestOverviewChase('case-1', 'missing_images')).resolves.toBe(true);
+    expect(insertCall()!.p[3]).toBe('Current provider');
+    expect(auditCalls[0].after).toMatchObject({ acceptedImages: 9 });
+  });
+
   it('handler-plain copy: no engineering tokens in any staff-visible string', () => {
     for (const s of [OVERVIEW_CHASE_SUMMARY, OVERVIEW_CHASE_TEMPLATE_LABEL]) {
       expect(s).not.toMatch(/_/); // no snake_case enum leakage
@@ -241,6 +280,7 @@ describe('maybeSuggestOverviewChase — no-op paths', () => {
   it('lost guard (suggestion already exists / staff already chasing): false, NO audit', async () => {
     rowsFor.mockImplementation((sql: string) => {
       if (sql.includes('FROM case_ c')) return [aggRow()];
+      if (isCaseLock(sql)) return [activeLockRow()];
       return []; // INSERT ... WHERE NOT EXISTS matched nothing
     });
     const minted = await maybeSuggestOverviewChase('case-1', 'missing_images');
@@ -276,9 +316,63 @@ describe('maybeSuggestOverviewChase — no-op paths', () => {
     expect(insertCall()).toBeUndefined();
   });
 
+  it('re-reads and rejects a case finalised after the aggregate snapshot', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (sql.includes('FROM case_ c')) return [aggRow()];
+      if (/FOR UPDATE/i.test(sql)) {
+        return [{ status_code: statusToInt('done'), duplicate_keys: null }];
+      }
+      if (sql.includes('INSERT INTO chaser')) return [{ id: 'must-not-mint' }];
+      return [];
+    });
+
+    const minted = await maybeSuggestOverviewChase('case-1', 'missing_images');
+    expect(minted).toBe(false);
+    expect(sqls.some((sql) => /FOR UPDATE/i.test(sql))).toBe(true);
+    expect(insertCall()).toBeUndefined();
+    expect(auditCalls).toHaveLength(0);
+  });
+
+  it('re-reads and rejects an active-looking case carrying a merge-retirement marker', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (sql.includes('FROM case_ c')) return [aggRow()];
+      if (/FOR UPDATE/i.test(sql)) {
+        return [{
+          status_code: statusToInt('missing_images'),
+          duplicate_keys: { mergedInto: 'case-survivor' },
+        }];
+      }
+      if (sql.includes('INSERT INTO chaser')) return [{ id: 'must-not-mint' }];
+      return [];
+    });
+
+    await expect(maybeSuggestOverviewChase('case-1', 'missing_images')).resolves.toBe(false);
+    expect(insertCall()).toBeUndefined();
+    expect(auditCalls).toHaveLength(0);
+  });
+
+  it('re-runs evidence counts under the lock and suppresses a stale overview-less decision', async () => {
+    let aggregateRead = 0;
+    rowsFor.mockImplementation((sql: string) => {
+      if (sql.includes('FROM case_ c')) {
+        aggregateRead++;
+        return aggregateRead === 1 ? [aggRow()] : [aggRow({ overview_count: 1 })];
+      }
+      if (isCaseLock(sql)) return [activeLockRow()];
+      if (sql.includes('INSERT INTO chaser')) return [{ id: 'must-not-mint' }];
+      return [];
+    });
+
+    await expect(maybeSuggestOverviewChase('case-1', 'missing_images')).resolves.toBe(false);
+    expect(aggregateRead).toBe(2);
+    expect(insertCall()).toBeUndefined();
+    expect(auditCalls).toHaveLength(0);
+  });
+
   it('exactly N accepted at the boundary DOES mint', async () => {
     rowsFor.mockImplementation((sql: string) => {
       if (sql.includes('FROM case_ c')) return [aggRow({ accepted_count: N })];
+      if (isCaseLock(sql)) return [activeLockRow()];
       if (sql.includes('INSERT INTO chaser')) return [{ id: 'ch-n' }];
       return [];
     });

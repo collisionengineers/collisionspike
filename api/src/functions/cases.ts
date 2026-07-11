@@ -24,7 +24,6 @@ import { app, type HttpRequest } from '@azure/functions';
 import {
   CASE_PO_SHAPE_RE,
   EVA_FIELD_ORDER,
-  IMAGE_BASED_LITERAL,
   canonicalizeVrm,
   casePoSequenceRegex,
   casePoYear,
@@ -57,6 +56,10 @@ import { query, tx, type TxQuery } from '../lib/db.js';
 import { acquireCaseMutationLocks, orderedCaseMutationIds } from '../lib/case-mutation-locks.js';
 import { isPrefillApplicable, prefillImageBasedInspection } from '../lib/inspection-prefill.js';
 import { maybeSuggestOverviewChase } from '../lib/overview-chase.js';
+import {
+  acknowledgeStatusRecompute,
+  requestStatusRecompute,
+} from '../lib/status-recompute.js';
 import { casePoFloor, mintCasePo } from '../lib/case-po.js';
 import { isUniqueViolation } from './internal.js';
 import { ifMatch, staleVersion, versionToken } from '../lib/concurrency.js';
@@ -127,17 +130,26 @@ async function loadAllCases(now: Date): Promise<Case[]> {
   return rows.map((r) => rowToCase(r, { now }));
 }
 
-/** Load a single case_ row + its expanded children -> a full domain Case. */
-async function loadCaseFull(id: string, now: Date): Promise<Case | undefined> {
-  const rows = await query<Row>(`${CASE_SELECT} WHERE c.id = $1`, [id]);
+/** Load a single case_ row + its expanded children through one query surface. */
+async function loadCaseFullUsing(
+  q: TxQuery,
+  id: string,
+  now: Date,
+  lockCase = false,
+): Promise<Case | undefined> {
+  const rows = await q<Row>(
+    `${CASE_SELECT} WHERE c.id = $1${lockCase ? ' FOR UPDATE OF c' : ''}`,
+    [id],
+  );
   const rec = rows[0];
   if (!rec) return undefined;
-  const [prov, ev, notes, chasers] = await Promise.all([
-    query<Row>('SELECT * FROM field_level_provenance WHERE case_id = $1', [id]),
-    query<Row>('SELECT * FROM evidence WHERE case_id = $1 ORDER BY sequence_index NULLS LAST, created_at', [id]),
-    query<Row>('SELECT * FROM note WHERE case_id = $1 ORDER BY occurred_at', [id]),
-    query<Row>('SELECT * FROM chaser WHERE case_id = $1 ORDER BY created_at', [id]),
-  ]);
+  const prov = await q<Row>('SELECT * FROM field_level_provenance WHERE case_id = $1', [id]);
+  const ev = await q<Row>(
+    'SELECT * FROM evidence WHERE case_id = $1 ORDER BY sequence_index NULLS LAST, created_at',
+    [id],
+  );
+  const notes = await q<Row>('SELECT * FROM note WHERE case_id = $1 ORDER BY occurred_at', [id]);
+  const chasers = await q<Row>('SELECT * FROM chaser WHERE case_id = $1 ORDER BY created_at', [id]);
   return rowToCase(rec, {
     now,
     provenanceRows: prov,
@@ -152,6 +164,11 @@ async function loadCaseFull(id: string, now: Date): Promise<Case | undefined> {
   });
 }
 
+/** Load a full case outside an existing transaction. */
+async function loadCaseFull(id: string, now: Date): Promise<Case | undefined> {
+  return loadCaseFullUsing(query, id, now);
+}
+
 /** Light Case (row only, no children) — for merge/twin scoping checks + aggregates. */
 async function loadCaseLite(id: string, q: TxQuery = query): Promise<Case | undefined> {
   const rows = await q<Row>(`${CASE_SELECT} WHERE c.id = $1`, [id]);
@@ -161,56 +178,64 @@ async function loadCaseLite(id: string, q: TxQuery = query): Promise<Case | unde
 /**
  * Recompute a case's workflow status via the shared @cs/domain guard over its
  * current persisted fields + evidence; persist + audit only when it changes
- * (the guard self-enforces the terminal-lock). Returns the resulting status.
+ * (the guard self-enforces the terminal-lock). Returns whether a case was evaluated.
  *
  * TKT-109/129: the evaluation seam first applies the provider-policy inspection
  * pre-fill (always_image_based providers auto-complete "Image Based Assessment",
  * fill-if-empty, audited) so an image-led provider's case is never held Not Ready
  * on a blank inspection field a policy already answers.
  */
-async function recomputeStatus(caseId: string, actor?: string): Promise<void> {
-  const full = await loadCaseFull(caseId, new Date());
-  if (!full) return;
-  if (isPrefillApplicable(full)) {
-    const filled = await prefillImageBasedInspection(caseId, actor);
-    if (filled) {
-      // Patch the in-memory copy so THIS evaluation already sees the filled field
-      // (no re-read; the guarded UPDATE is the durable source of truth).
-      full.evaFields.inspectionAddress.value = IMAGE_BASED_LITERAL;
-      full.inspectionDecision = 'image_based';
+export async function recomputeStatus(caseId: string, actor?: string): Promise<boolean> {
+  // The provider-policy pre-fill owns its own guarded write. Run it before taking
+  // the status lock, then re-read all decision inputs inside the transaction below.
+  // Calling it while holding the case row would deadlock on its separate pool query.
+  const prefillProbe = await loadCaseFull(caseId, new Date());
+  if (!prefillProbe) return false;
+  if (isPrefillApplicable(prefillProbe)) {
+    await prefillImageBasedInspection(caseId, actor);
+  }
+
+  const next = await tx(async (q) => {
+    // Every terminal/merge writer updates this same case row. Holding it through
+    // the re-read, evaluation, and optional update makes the domain terminal lock
+    // real at the database boundary instead of relying on an earlier snapshot.
+    const full = await loadCaseFullUsing(q, caseId, new Date(), true);
+    if (!full) return null;
+    const input: StatusEvaluationInput = {
+      status: full.status,
+      evaFields: full.evaFields,
+      evidence: full.evidence,
+      instructionCount: full.evidence.filter((e) => e.kind === 'instruction').length,
+      hasIdentity:
+        full.vrm.trim().length > 0 ||
+        full.providerCode.trim().length > 0 ||
+        full.evaFields.claimantName.value.trim().length > 0,
+      // TKT-141 retired-lock: this value was re-read while the case row was locked.
+      mergedInto: full.mergedInto,
+    };
+    const evaluated = statusForReviewCase(input);
+    if (evaluated !== full.status) {
+      await q('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [
+        caseId,
+        statusToInt(evaluated),
+      ]);
+      await writeAudit({
+        action: AUDIT_ACTION.status_changed,
+        caseId,
+        summary: `Status ${full.status} -> ${evaluated}`,
+        before: { status: full.status },
+        after: { status: evaluated },
+        ...(actor ? { actor } : {}),
+      }, q);
     }
-  }
-  const input: StatusEvaluationInput = {
-    status: full.status,
-    evaFields: full.evaFields,
-    evidence: full.evidence,
-    instructionCount: full.evidence.filter((e) => e.kind === 'instruction').length,
-    hasIdentity:
-      full.vrm.trim().length > 0 ||
-      full.providerCode.trim().length > 0 ||
-      full.evaFields.claimantName.value.trim().length > 0,
-    // TKT-141 retired-lock: pass the merge-retirement marker (rowToCase surfaces
-    // duplicate_keys.mergedInto) so a recompute can never un-retire a merged case.
-    mergedInto: full.mergedInto,
-  };
-  const next = statusForReviewCase(input);
-  if (next !== full.status) {
-    await query('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [
-      caseId,
-      statusToInt(next),
-    ]);
-    await writeAudit({
-      action: AUDIT_ACTION.status_changed,
-      caseId,
-      summary: `Status ${full.status} -> ${next}`,
-      before: { status: full.status },
-      after: { status: next },
-      ...(actor ? { actor } : {}),
-    });
-  }
+    return evaluated;
+  });
+  if (!next) return false;
   // TKT-148: runs on EVERY evaluation (changed or not — a merge can add photos while
-  // the status stays missing_images). Advisory + idempotent; never throws.
+  // the status stays missing_images). It independently locks/rechecks the current
+  // case state immediately before minting, so the post-commit gap is safe.
   await maybeSuggestOverviewChase(caseId, next, actor);
+  return true;
 }
 
 /* ----------  Durable case-page EVA-field edits (work-todo-spike: casepage)  ---------- */
@@ -894,6 +919,150 @@ app.http('mergeCandidates', {
   }),
 });
 
+const MERGE_SHA256_RE = /^[0-9a-f]{64}$/i;
+const MERGE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+interface MergeEvidenceLockRow extends Record<string, unknown> {
+  id: string;
+  case_id: string;
+  sha256: string | null;
+  created_at: Date | string;
+}
+
+/**
+ * Move the source evidence that is not already present on the target by byte hash.
+ * For a target collision, the target row remains the survivor: missing byte/source
+ * provenance and missing review metadata are absorbed onto it, while the redundant
+ * source row stays on the soon-to-be-retired case (the staff DB role cannot DELETE).
+ */
+async function mergeEvidenceRows(
+  q: TxQuery,
+  sourceCaseId: string,
+  targetCaseId: string,
+): Promise<{ movedEvidence: number; collidingEvidence: number }> {
+  const locked = await q<MergeEvidenceLockRow>(
+    `SELECT id, case_id, sha256, created_at
+       FROM evidence
+      WHERE case_id = ANY($1::uuid[])
+      ORDER BY case_id, created_at, id
+      FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]],
+  );
+  const canonicalSha = (value: string | null): string | null => {
+    const trimmed = (value ?? '').trim();
+    return MERGE_SHA256_RE.test(trimmed) ? trimmed.toLowerCase() : null;
+  };
+
+  // The oldest target row is the deterministic survivor if historic target-side
+  // duplicates exist. The source is never allowed to replace a target-owned row.
+  const survivorBySha = new Map<string, string>();
+  for (const row of locked) {
+    if (row.case_id.toLowerCase() !== targetCaseId) continue;
+    const sha = canonicalSha(row.sha256);
+    if (sha && !survivorBySha.has(sha)) survivorBySha.set(sha, row.id);
+  }
+
+  const collisionSourceIds: string[] = [];
+  for (const row of locked) {
+    if (row.case_id.toLowerCase() !== sourceCaseId) continue;
+    const sha = canonicalSha(row.sha256);
+    if (!sha) continue;
+    const survivorId = survivorBySha.get(sha);
+    if (!survivorId) {
+      // No target copy: the oldest source row becomes the one copy that moves.
+      // Later source twins with this hash are coalesced into it and stay retired.
+      survivorBySha.set(sha, row.id);
+      continue;
+    }
+    collisionSourceIds.push(row.id);
+
+    // Fill only information the target survivor does not already own. Explicit
+    // target-side staff/provider/cleanup decisions always win over source metadata.
+    await q(
+      `UPDATE evidence AS survivor
+          SET storage_path = COALESCE(survivor.storage_path, redundant.storage_path),
+              source_message_id = COALESCE(survivor.source_message_id, redundant.source_message_id),
+              box_file_id = COALESCE(survivor.box_file_id, redundant.box_file_id),
+              box_file_url = COALESCE(survivor.box_file_url, redundant.box_file_url),
+              content_type = COALESCE(NULLIF(btrim(survivor.content_type), ''), redundant.content_type),
+              size_bytes = COALESCE(survivor.size_bytes, redundant.size_bytes),
+              source_label = COALESCE(NULLIF(btrim(survivor.source_label), ''), redundant.source_label),
+              sequence_index = COALESCE(survivor.sequence_index, redundant.sequence_index),
+              image_role_code = CASE
+                WHEN survivor.image_role_source IS NULL
+                 AND survivor.image_role_code = 100000003
+                 AND redundant.image_role_code <> 100000003
+                  THEN redundant.image_role_code
+                ELSE survivor.image_role_code
+              END,
+              image_role_source = CASE
+                WHEN survivor.image_role_source IS NULL
+                 AND survivor.image_role_code = 100000003
+                 AND redundant.image_role_code <> 100000003
+                  THEN redundant.image_role_source
+                ELSE survivor.image_role_source
+              END,
+              registration_visible = CASE
+                WHEN survivor.registration_visible_source IS NULL
+                 AND survivor.registration_visible IS NULL
+                 AND redundant.registration_visible IS NOT NULL
+                  THEN redundant.registration_visible
+                ELSE survivor.registration_visible
+              END,
+              registration_visible_source = CASE
+                WHEN survivor.registration_visible_source IS NULL
+                 AND survivor.registration_visible IS NULL
+                 AND redundant.registration_visible IS NOT NULL
+                  THEN redundant.registration_visible_source
+                ELSE survivor.registration_visible_source
+              END,
+              accepted_for_eva = CASE
+                WHEN survivor.accepted_for_eva_source IS NULL
+                 AND redundant.accepted_for_eva_source IS NOT NULL
+                  THEN redundant.accepted_for_eva
+                ELSE survivor.accepted_for_eva
+              END,
+              accepted_for_eva_source = COALESCE(
+                survivor.accepted_for_eva_source,
+                redundant.accepted_for_eva_source
+              ),
+              excluded = CASE
+                WHEN survivor.exclusion_decision_source IS NULL
+                 AND redundant.exclusion_decision_source IS NOT NULL
+                  THEN redundant.excluded
+                ELSE survivor.excluded
+              END,
+              exclusion_reason = CASE
+                WHEN survivor.exclusion_decision_source IS NULL
+                 AND redundant.exclusion_decision_source IS NOT NULL
+                  THEN redundant.exclusion_reason
+                ELSE survivor.exclusion_reason
+              END,
+              exclusion_decision_source = COALESCE(
+                survivor.exclusion_decision_source,
+                redundant.exclusion_decision_source
+              ),
+              person_reflection = survivor.person_reflection OR redundant.person_reflection,
+              reflection_dismissed = survivor.reflection_dismissed OR redundant.reflection_dismissed,
+              updated_at = now()
+         FROM evidence AS redundant
+        WHERE survivor.id = $1
+          AND redundant.id = $2`,
+      [survivorId, row.id],
+    );
+  }
+
+  const moved = await q<Row>(
+    `UPDATE evidence
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1
+        AND NOT (id = ANY($3::uuid[]))
+      RETURNING id`,
+    [sourceCaseId, targetCaseId, collisionSourceIds],
+  );
+  return { movedEvidence: moved.length, collidingEvidence: collisionSourceIds.length };
+}
+
 /* ============================================================
    7 — POST /api/cases/{tgt}/merge   ({tgt} = target/survivor)
    ============================================================ */
@@ -901,13 +1070,18 @@ app.http('mergeCases', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'cases/{tgt}/merge',
-  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
-    const targetCaseId = req.params.tgt;
-    const body = (await req.json()) as { sourceCaseId: string };
-    const sourceCaseId = body.sourceCaseId;
+  handler: withRole('CollisionSpike.User', async (req, ctx, claims) => {
+    const targetCaseId = (req.params.tgt ?? '').trim().toLowerCase();
+    const body = (await req.json()) as { sourceCaseId?: unknown };
+    const sourceCaseId = typeof body.sourceCaseId === 'string'
+      ? body.sourceCaseId.trim().toLowerCase()
+      : '';
     const actor = actorFromClaims(claims);
 
-    if (!sourceCaseId || sourceCaseId === targetCaseId) {
+    if (!MERGE_UUID_RE.test(sourceCaseId) || !MERGE_UUID_RE.test(targetCaseId)) {
+      return { status: 400, jsonBody: { error: 'Case identifiers are invalid.' } };
+    }
+    if (sourceCaseId === targetCaseId) {
       return { status: 400, jsonBody: { error: 'Cannot merge a case into itself.' } };
     }
     const merged = await tx(async (q) => {
@@ -963,11 +1137,11 @@ app.http('mergeCases', {
         [sourceCaseId],
       );
 
-      const moved = await q<Row>(
-        'UPDATE evidence SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id',
-        [sourceCaseId, targetCaseId],
+      const { movedEvidence, collidingEvidence } = await mergeEvidenceRows(
+        q,
+        sourceCaseId,
+        targetCaseId,
       );
-      const movedEvidence = moved.length;
       const movedEmails = await q<Row>(
         'UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id',
         [sourceCaseId, targetCaseId],
@@ -1032,6 +1206,11 @@ app.http('mergeCases', {
         [sourceCaseId, statusToInt('linked_to_instruction'), JSON.stringify({ mergedInto: targetCaseId })],
       );
 
+      // The merge is the primary mutation. Make readiness recomputation durable in
+      // the same transaction so an interrupted post-commit fast path cannot strand
+      // the survivor on its pre-merge status.
+      const statusGeneration = await requestStatusRecompute(q, targetCaseId);
+
       await writeAudit({
         action: AUDIT_ACTION.case_attached,
         caseId: targetCaseId,
@@ -1042,21 +1221,40 @@ app.http('mergeCases', {
           sourceCaseId,
           targetCaseId,
           movedEvidence,
+          collidingEvidence,
           movedEmails: movedEmails.length,
           providerFilled,
         },
         ...(actor ? { actor } : {}),
       }, q);
 
-      return { kind: 'merged' as const, movedEvidence, movedEmails: movedEmails.length, providerFilled };
+      return {
+        kind: 'merged' as const,
+        movedEvidence,
+        collidingEvidence,
+        movedEmails: movedEmails.length,
+        providerFilled,
+        statusGeneration,
+      };
     });
 
     if (merged.kind === 'error') {
       return { status: merged.status, jsonBody: { error: merged.error } };
     }
 
-    // 3. Recompute the target's readiness now its evidence set changed.
-    await recomputeStatus(targetCaseId, actor);
+    // Fast path only. The generation requested in the merge transaction stays
+    // pending unless both evaluation and its monotonic acknowledgement succeed;
+    // failure here must not misreport or retry the committed primary mutation.
+    try {
+      const evaluated = await recomputeStatus(targetCaseId, actor);
+      if (!evaluated) throw new Error('target case was not available for readiness evaluation');
+      await acknowledgeStatusRecompute(query, targetCaseId, merged.statusGeneration);
+    } catch (e) {
+      ctx.warn(
+        `[merge] readiness recompute remains pending for ${targetCaseId} ` +
+          `(generation ${merged.statusGeneration}): ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
 
     const result: MergeCasesResult = { targetCaseId, movedEvidence: merged.movedEvidence };
     return { status: 200, jsonBody: result };
