@@ -22,8 +22,9 @@
  *     an unclassified photo MIGHT be the overview.
  *
  * MINT SEMANTICS (idempotent, deliberately conservative):
- *   - at most ONE system suggestion per case, EVER — the guarded INSERT's
- *     NOT-EXISTS blocks when any chaser row with this template already exists
+ *   - at most ONE system suggestion per case, EVER — a partial UNIQUE index over
+ *     `suggested` overview requests is the concurrency backstop; the guarded INSERT's
+ *     NOT-EXISTS also blocks when any chaser row with this template already exists
  *     (any status) OR any OPEN chaser (drafted/sent/overdue) of any template
  *     exists (staff are already chasing; don't pile on).
  *   - NO automatic re-mint after a responded/satisfied chase: an email attach
@@ -93,8 +94,9 @@ export function isOverviewChaseEligible(status: CaseStatus, counts: OverviewChas
 
 /**
  * Evaluate the predicate for one case and mint the suggested chase when it holds.
- * Returns true only when THIS call minted the row (the single-statement NOT-EXISTS
- * INSERT makes concurrent evaluators safe: exactly one wins, the rest no-op).
+ * Returns true only when THIS call minted the row. The NOT-EXISTS policy avoids
+ * unnecessary writes; ON CONFLICT + the partial unique index make concurrent
+ * evaluators safe: exactly one wins and the rest no-op.
  * Never throws — advisory, best-effort (the audit write is itself never-throws).
  */
 export async function maybeSuggestOverviewChase(
@@ -139,12 +141,13 @@ export async function maybeSuggestOverviewChase(
     // case, ever) OR any open chase exists (staff are already chasing).
     const inserted = await query<{ id: string }>(
       `INSERT INTO chaser
-         (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at)
-       SELECT $1, $2, $3, $4, $5, $6, now()
+         (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at, suggested)
+       SELECT $1, $2, $3, $4, $5, $6, now(), true
         WHERE NOT EXISTS (
           SELECT 1 FROM chaser ch
            WHERE ch.case_id = $2
-             AND (ch.template_used = $6 OR ch.status_code IN (${OPEN_CHASER_STATUS_CODES})))
+              AND (ch.template_used = $6 OR ch.status_code IN (${OPEN_CHASER_STATUS_CODES})))
+       ON CONFLICT DO NOTHING
        RETURNING id`,
       [
         OVERVIEW_CHASE_SUMMARY,
@@ -157,11 +160,10 @@ export async function maybeSuggestOverviewChase(
     );
     if (!inserted[0]) return false; // already suggested / staff already chasing
 
-    // chaser_sent is the controlled chaser-family audit action (the same reuse
-    // logChase and markOutstandingChasersResponded make); the summary keeps the
-    // wording honest — SUGGESTED, drafted, not sent.
+    // A suggestion is not a sent/logged chase. The distinct controlled action keeps
+    // the activity feed honest while staff decide whether to use the draft.
     await writeAudit({
-      action: AUDIT_ACTION.chaser_sent,
+      action: AUDIT_ACTION.chaser_suggested,
       caseId,
       summary: `Chase suggested (${OVERVIEW_CHASE_TEMPLATE_LABEL}) — drafted for staff to send`,
       after: {

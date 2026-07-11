@@ -32,6 +32,9 @@
  *  POST /api/internal/box/mark-purged                → 204
  *  GET  /api/internal/evidence/unclassified-box      → { rows: [...] } (TKT-146: still-unclassified
  *                                                        FILE.UPLOADED-lane image rows for the orch classify sweep)
+ *  POST /api/internal/evidence/{id}/box-classification → { updated, statusGeneration }
+ *  GET  /api/internal/status-recompute/pending       → { rows: [{ caseId, generation }] }
+ *  POST /api/internal/status-recompute/{id}/complete → { completed, pending }
  *  GET  /api/internal/cases/{id}/box-folder          → { boxFolderId, boxFolderUrl, casePo }
  *  POST /api/internal/cases/{id}/box-folder          → { applied, boxFolderId } (first-wins stamp)
  *  POST /api/internal/triage/context                 → { openCaseMatches, duplicateInternetMessageId, conversationSiblingCaseIds } (rules-engine-v2 Phase 2)
@@ -312,6 +315,13 @@ async function recomputeStatus(caseId: string): Promise<CaseStatus> {
  *  Each field actually filled this run gets a field_level_provenance row. A no-op when every
  *  input is absent, so callers can pass them unconditionally.
  */
+export type ProviderResolutionSource = 'none' | 'instruction_content' | 'single_intermediary';
+
+export interface ApplyParserFieldsResult {
+  providerResolutionSource: ProviderResolutionSource;
+  resolvedProviderId?: string;
+}
+
 export async function applyParserFields(
   caseId: string,
   parserRef?: string,
@@ -323,7 +333,13 @@ export async function applyParserFields(
    *  (orchestration providerMatch activity); its N:N candidate work providers let a
    *  content-detected match be recorded as CORROBORATED rather than a bare guess. */
   intermediary?: { imageSourceId: string; candidateProviderIds: readonly string[] } | null,
-): Promise<void> {
+): Promise<ApplyParserFieldsResult> {
+  let providerResolutionSource: ProviderResolutionSource = 'none';
+  let resolvedProviderId: string | undefined;
+  const result = (): ApplyParserFieldsResult => ({
+    providerResolutionSource,
+    ...(resolvedProviderId ? { resolvedProviderId } : {}),
+  });
   const ref = (parserRef ?? '').trim();
   const mileage = parserMileage != null ? String(parserMileage).replace(/[^\d]/g, '') : '';
   const unitRaw = (parserMileageUnit ?? '').trim();
@@ -358,7 +374,7 @@ export async function applyParserFields(
     !mightMatchWorkProviderIdFromContent &&
     !singleIntermediaryCandidate
   ) {
-    return;
+    return result();
   }
 
   // Read every column we might fill so each write is strictly fill-if-empty.
@@ -371,7 +387,7 @@ export async function applyParserFields(
     ...evaCandidates.map((c) => c.column),
   ];
   const cur = await query<Row>(`SELECT ${readCols.join(', ')} FROM case_ WHERE id = $1`, [caseId]);
-  if (!cur[0]) return;
+  if (!cur[0]) return result();
   const isEmpty = (v: unknown): boolean => !String(v ?? '').trim();
 
   const sets: string[] = [];
@@ -467,6 +483,8 @@ export async function applyParserFields(
       if (isEmpty(existingWorkProviderId)) {
         sets.push(`work_provider_id = $${sets.length + 1}`);
         vals.push(contentMatch.workProviderId);
+        providerResolutionSource = 'instruction_content';
+        resolvedProviderId = contentMatch.workProviderId;
         provenance.push({
           field: 'workProviderId',
           value: contentMatch.workProviderId,
@@ -526,6 +544,8 @@ export async function applyParserFields(
     if (wpRows[0]) {
       sets.push(`work_provider_id = $${sets.length + 1}`);
       vals.push(singleIntermediaryCandidate);
+      providerResolutionSource = 'single_intermediary';
+      resolvedProviderId = singleIntermediaryCandidate;
       provenance.push({
         field: 'workProviderId',
         value: singleIntermediaryCandidate,
@@ -584,7 +604,7 @@ export async function applyParserFields(
     }
   }
 
-  if (sets.length === 0) return; // every candidate already populated — respect existing values
+  if (sets.length === 0) return result(); // every candidate already populated — respect existing values
 
   vals.push(caseId);
   await query(
@@ -613,6 +633,7 @@ export async function applyParserFields(
       [`${caseId}:${p.field}`, caseId, p.field, p.value, sourceTypeCode, p.sourceLabel],
     ).catch(() => { /* provenance is supplementary */ });
   }
+  return result();
 }
 
 /* ============================================================
@@ -862,9 +883,8 @@ export interface HeldReason {
  *    intermediary — e.g. a claims manager that routes work for several providers) → must
  *    NOT be branded "New client"; the note names the intermediary and its candidate
  *    providers explicitly ("intermediary — principal unresolved", per the ticket's
- *    acceptance). When the instruction content already resolved the provider
- *    (applyParserFields ran before this note is written), the note must not claim
- *    "unresolved" either — it names the identified provider and asks for confirmation.
+ *    acceptance). applyParserFields returns HOW it resolved a provider, so instruction
+ *    evidence and the neutral one-provider intermediary fallback cannot be conflated.
  *
  * PURE — display names in, strings out (callers resolve ids → names). All strings are
  * handler-plain: no matchState/FK/corpus vocabulary. Empty-tolerant: a missing
@@ -878,9 +898,10 @@ export function buildHeldReason(input: {
     name: string;
     /** Candidate providers' display names; may be empty (intermediary with no links yet). */
     candidateNames: readonly string[];
-    /** Display name of the provider already resolved onto the case (instruction content),
-     *  '' when the principal is still unresolved. */
+    /** Display name of the provider resolved onto the case; resolutionSource says why.
+     *  Empty when the name lookup failed or the provider is still unresolved. */
     resolvedProviderName: string;
+    resolutionSource: ProviderResolutionSource;
   } | null;
 }): HeldReason {
   const { senderDomain: domain, intermediary } = input;
@@ -889,20 +910,35 @@ export function buildHeldReason(input: {
       noteName: 'New client',
       noteText:
         `New client — no work provider matched for sender${domain ? ` @${domain}` : ''}. ` +
-        `No Case/PO minted; set up the work provider and confirm before EVA.`,
+        `No Case/PO has been created. Set up the work provider and confirm before EVA.`,
       auditSummary: 'New client routed to Held (no work provider matched)',
     };
   }
   const who = intermediary.name.trim()
     ? `Intermediary sender (${intermediary.name.trim()})`
     : 'Intermediary sender';
-  if (intermediary.resolvedProviderName.trim()) {
+  const resolvedName = intermediary.resolvedProviderName.trim();
+  if (intermediary.resolutionSource === 'instruction_content') {
     return {
       noteName: 'Held — intermediary sender',
       noteText:
-        `${who}: the instructions identify ${intermediary.resolvedProviderName.trim()} as the provider. ` +
-        `No Case/PO minted; confirm the provider before EVA.`,
-      auditSummary: 'Intermediary sender routed to Held (provider identified from the instructions)',
+        `${who}: ${
+          resolvedName
+            ? `the instructions identify ${resolvedName} as the provider`
+            : 'the instructions identify the provider'
+        }. ` +
+        `No Case/PO has been created. Confirm the provider before EVA.`,
+      auditSummary: 'Intermediary sender routed to Held (provider found in the instructions)',
+    };
+  }
+  if (intermediary.resolutionSource === 'single_intermediary') {
+    return {
+      noteName: 'Held — intermediary sender',
+      noteText:
+        `${who}: This intermediary routes work to one provider` +
+        (resolvedName ? `, ${resolvedName},` : ',') +
+        ` which has been selected. No Case/PO has been created. Confirm the provider before EVA.`,
+      auditSummary: 'Intermediary sender routed to Held (single provider selected)',
     };
   }
   const candidates = intermediary.candidateNames.map((n) => n.trim()).filter(Boolean);
@@ -910,9 +946,9 @@ export function buildHeldReason(input: {
     noteName: 'Held — intermediary sender',
     noteText:
       `${who}: the instructing provider could not be determined from the instruction.` +
-      (candidates.length ? ` Candidates: ${candidates.join(', ')}.` : '') +
-      ` No Case/PO minted; pick the provider and confirm before EVA.`,
-    auditSummary: 'Intermediary sender routed to Held (principal unresolved)',
+      (candidates.length ? ` Possible providers: ${candidates.join(', ')}.` : '') +
+      ` No Case/PO has been created. Pick the provider and confirm before EVA.`,
+    auditSummary: 'Intermediary sender routed to Held (provider not yet confirmed)',
   };
 }
 
@@ -1190,7 +1226,7 @@ app.http('internalCasesResolve', {
       await upsertInboundEmail(inbound, workProviderId, newCaseId, undefined, body.parserVrm);
       // Fill-if-empty parser fields onto the new case (case_ref takes the inbound candidateRef
       // first, so parserRef only fills when that was blank; mileage gets provenance).
-      await applyParserFields(
+      const parserFieldsResult = await applyParserFields(
         newCaseId,
         body.parserRef,
         body.parserMileage,
@@ -1278,9 +1314,15 @@ app.http('internalCasesResolve', {
           name: string;
           candidateNames: string[];
           resolvedProviderName: string;
+          resolutionSource: ProviderResolutionSource;
         } | null = null;
         if (intermediary) {
-          heldIntermediary = { name: '', candidateNames: [], resolvedProviderName: '' };
+          heldIntermediary = {
+            name: '',
+            candidateNames: [],
+            resolvedProviderName: '',
+            resolutionSource: parserFieldsResult.providerResolutionSource,
+          };
           try {
             const src = await query<Row>(
               'SELECT name FROM image_source WHERE id = $1',
@@ -1296,15 +1338,15 @@ app.http('internalCasesResolve', {
                 .map((r) => String(r.display_name ?? '').trim())
                 .filter(Boolean);
             }
-            // applyParserFields (above) may already have resolved the provider from the
-            // instruction content — the note must not claim "unresolved" in that case.
-            const resolved = await query<Row>(
-              `SELECT wp.display_name FROM case_ c
-                 JOIN work_provider wp ON wp.id = c.work_provider_id
-                WHERE c.id = $1`,
-              [newCaseId],
-            );
-            heldIntermediary.resolvedProviderName = String(resolved[0]?.display_name ?? '').trim();
+            if (parserFieldsResult.resolvedProviderId) {
+              const resolved = await query<Row>(
+                'SELECT display_name FROM work_provider WHERE id = $1',
+                [parserFieldsResult.resolvedProviderId],
+              );
+              heldIntermediary.resolvedProviderName = String(
+                resolved[0]?.display_name ?? '',
+              ).trim();
+            }
           } catch { /* names are cosmetic — the Held note still lands without them */ }
         }
         const reason = buildHeldReason({ senderDomain: domain, intermediary: heldIntermediary });
@@ -1328,6 +1370,8 @@ app.http('internalCasesResolve', {
                 ...(heldIntermediary?.resolvedProviderName
                   ? { resolvedProvider: heldIntermediary.resolvedProviderName }
                   : {}),
+                providerResolutionSource:
+                  heldIntermediary?.resolutionSource ?? 'none',
               }
             : { newClient: true, onHold: true, senderDomain: domain },
         });
@@ -3375,7 +3419,8 @@ app.http('internalBoxMarkPurged', {
    14-day created_at window bounds eternal retry of permanently-failing rows
    (e.g. AOAI content-safety refusals — TKT-131 left 4 such residuals);
    newest-first + LIMIT gives fresh uploads event-time priority under the
-   sweep cap.
+   sweep cap. Explicit provider AI opt-outs are filtered BEFORE the LIMIT,
+   so rows the model must not process cannot monopolise a sweep page.
    ============================================================ */
 app.http('internalEvidenceUnclassifiedBox', {
   methods: ['GET'],
@@ -3392,6 +3437,7 @@ app.http('internalEvidenceUnclassifiedBox', {
                 e.source_message_id, c.vrm, c.work_provider_id
            FROM evidence e
            JOIN case_ c ON c.id = e.case_id
+           LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
           WHERE e.box_file_id IS NOT NULL
             AND e.source_label LIKE 'box_upload%'
             AND e.kind_code = $1
@@ -3399,6 +3445,7 @@ app.http('internalEvidenceUnclassifiedBox', {
             AND e.registration_visible IS NULL
             AND e.excluded = false
             AND e.created_at > now() - interval '14 days'
+            AND wp.ai_allowed IS DISTINCT FROM false
           ORDER BY e.created_at DESC
           LIMIT $3`,
         [imageKind, unknownRole, limit],
@@ -3417,6 +3464,212 @@ app.http('internalEvidenceUnclassifiedBox', {
             workProviderId: (r.work_provider_id as string | null) ?? '',
           })),
         },
+      };
+    }),
+});
+
+/* ============================================================
+   11c — TKT-146 durable classification → status-recompute handoff
+
+   The exact evidence-row UPDATE and case generation increment share one DB
+   transaction. Once a classification stamp commits, requested > completed is
+   durable until a successful status evaluation acknowledges that generation.
+   A retry may increment again; evaluation is idempotent and the generation-aware
+   acknowledgement cannot consume newer work.
+   ============================================================ */
+app.http('internalEvidenceBoxClassification', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/evidence/{id}/box-classification',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const evidenceId = (req.params.id ?? '').trim();
+      const body = (await req.json()) as {
+        caseId?: string;
+        boxFileId?: string;
+        imageRole?: string;
+        registrationVisible?: boolean;
+        acceptedForEva?: boolean;
+        excluded?: boolean;
+        exclusionReason?: string;
+        personReflection?: boolean;
+      };
+      const caseId = (body.caseId ?? '').trim();
+      const boxFileId = (body.boxFileId ?? '').trim();
+      if (!evidenceId || !caseId || !boxFileId) {
+        return {
+          status: 400,
+          jsonBody: { error: 'evidence id, caseId and boxFileId are required' },
+        };
+      }
+      if (
+        typeof body.registrationVisible !== 'boolean' ||
+        typeof body.acceptedForEva !== 'boolean' ||
+        typeof body.personReflection !== 'boolean'
+      ) {
+        return { status: 400, jsonBody: { error: 'classification booleans are required' } };
+      }
+
+      const imageKind = evidenceKindCodec.toInt('image') ?? 100000000;
+      const unknownRole = imageRoleCodec.toInt('unknown') ?? 100000003;
+      // `other` is a valid classifier verdict but deliberately has no stored
+      // image-role choice; it persists as unknown + acceptedForEva=false. Every
+      // other unknown role name is a caller error, never silently coerced.
+      const imageRoleCode =
+        body.imageRole === 'other'
+          ? unknownRole
+          : imageRoleCodec.toInt(body.imageRole as ImageRole | undefined);
+      if (imageRoleCode == null) {
+        return { status: 400, jsonBody: { error: 'imageRole is not recognised' } };
+      }
+      const excluded = body.excluded === true;
+      const exclusionReason = excluded
+        ? (body.exclusionReason ?? '').trim() || 'Excluded'
+        : null;
+
+      const result = await tx(async (q) => {
+        const stamped = await q<{ id: string }>(
+          `UPDATE evidence
+              SET image_role_code = $5,
+                  registration_visible = $6,
+                  accepted_for_eva = $7,
+                  excluded = $8,
+                  exclusion_reason = $9,
+                  person_reflection = $10,
+                  updated_at = now()
+            WHERE id = $1
+              AND case_id = $2
+              AND box_file_id = $3
+              AND kind_code = $4
+              AND source_label LIKE 'box_upload%'
+              AND image_role_code = $11
+              AND registration_visible IS NULL
+              AND excluded = false
+            RETURNING id`,
+          [
+            evidenceId,
+            caseId,
+            boxFileId,
+            imageKind,
+            imageRoleCode,
+            body.registrationVisible,
+            body.acceptedForEva,
+            excluded,
+            exclusionReason,
+            body.personReflection,
+            unknownRole,
+          ],
+        );
+        if (!stamped[0]) {
+          // A delayed sweep must not overwrite a newer manual/classifier stamp or
+          // re-open an excluded row. Distinguish that benign race from a bad identity.
+          const current = await q<{ id: string }>(
+            `SELECT id FROM evidence
+              WHERE id = $1
+                AND case_id = $2
+                AND box_file_id = $3`,
+            [evidenceId, caseId, boxFileId],
+          );
+          return current[0] ? { kind: 'stale' as const } : { kind: 'missing' as const };
+        }
+
+        const requested = await q<{ status_recompute_requested_generation: string | number }>(
+          `UPDATE case_
+              SET status_recompute_requested_generation = status_recompute_requested_generation + 1,
+                  status_recompute_requested_at = now()
+            WHERE id = $1
+            RETURNING status_recompute_requested_generation`,
+          [caseId],
+        );
+        if (!requested[0]) throw new Error('classification target case disappeared');
+        return {
+          kind: 'updated' as const,
+          generation: Number(requested[0].status_recompute_requested_generation),
+        };
+      });
+
+      if (result.kind === 'missing') {
+        return { status: 404, jsonBody: { error: 'box evidence row not found' } };
+      }
+      if (result.kind === 'stale') {
+        return { status: 200, jsonBody: { updated: false, stale: true } };
+      }
+      return {
+        status: 200,
+        jsonBody: { updated: true, statusGeneration: result.generation },
+      };
+    }),
+});
+
+app.http('internalStatusRecomputePending', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'internal/status-recompute/pending',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const limitRaw = Number(req.query.get('limit') ?? '25');
+      const limit = Math.min(
+        100,
+        Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25),
+      );
+      const rows = await query<{
+        id: string;
+        status_recompute_requested_generation: string | number;
+      }>(
+        `SELECT id, status_recompute_requested_generation
+           FROM case_
+          WHERE status_recompute_completed_generation < status_recompute_requested_generation
+          ORDER BY status_recompute_requested_at ASC NULLS FIRST, id
+          LIMIT $1`,
+        [limit],
+      );
+      return {
+        status: 200,
+        jsonBody: {
+          rows: rows.map((r) => ({
+            caseId: r.id,
+            generation: Number(r.status_recompute_requested_generation),
+          })),
+        },
+      };
+    }),
+});
+
+app.http('internalStatusRecomputeComplete', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/status-recompute/{id}/complete',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const caseId = (req.params.id ?? '').trim();
+      const body = (await req.json()) as { generation?: number };
+      const generation = Number(body.generation);
+      if (!caseId || !Number.isSafeInteger(generation) || generation < 1) {
+        return {
+          status: 400,
+          jsonBody: { error: 'case id and a positive generation are required' },
+        };
+      }
+      const rows = await query<{
+        status_recompute_requested_generation: string | number;
+        status_recompute_completed_generation: string | number;
+      }>(
+        `UPDATE case_
+            SET status_recompute_completed_generation = GREATEST(
+                  status_recompute_completed_generation,
+                  LEAST($2::bigint, status_recompute_requested_generation)
+                )
+          WHERE id = $1
+          RETURNING status_recompute_requested_generation,
+                    status_recompute_completed_generation`,
+        [caseId, generation],
+      );
+      if (!rows[0]) return { status: 404, jsonBody: { error: 'case not found' } };
+      const requested = Number(rows[0].status_recompute_requested_generation);
+      const completed = Number(rows[0].status_recompute_completed_generation);
+      return {
+        status: 200,
+        jsonBody: { completed: completed >= generation, pending: completed < requested },
       };
     }),
 });

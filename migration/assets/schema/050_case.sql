@@ -64,6 +64,15 @@ CREATE TABLE case_ (
   legal_hold_reason           varchar(400),
   held_by                     varchar(200),
 
+  -- ---- Durable status-recompute request (TKT-146) -------------------------
+  -- A Box classification stamp increments requested_generation in the SAME
+  -- transaction as the evidence update. The orchestration sweep advances
+  -- completed_generation only after status evaluation succeeds, so a crash or
+  -- transient API failure leaves durable retry work on the case.
+  status_recompute_requested_generation bigint NOT NULL DEFAULT 0,
+  status_recompute_completed_generation bigint NOT NULL DEFAULT 0,
+  status_recompute_requested_at          timestamptz,
+
   -- ---- The 12 EVA payload fields (evaOrder 1..12) --------------------------
   eva_work_provider           varchar(200),   -- 1
   eva_vehicle_model           varchar(200),   -- 2
@@ -99,7 +108,10 @@ CREATE TABLE case_ (
   CONSTRAINT ck_case_eva_date_of_loss        CHECK (eva_date_of_loss        IS NULL OR eva_date_of_loss        ~ '^\d{2}/\d{2}/\d{4}$' OR eva_date_of_loss        = ''),
   CONSTRAINT ck_case_eva_date_of_instruction CHECK (eva_date_of_instruction IS NULL OR eva_date_of_instruction ~ '^\d{2}/\d{2}/\d{4}$' OR eva_date_of_instruction = ''),
   CONSTRAINT ck_case_eva_vat_status          CHECK (eva_vat_status          IS NULL OR eva_vat_status   IN ('', 'Yes', 'No')),
-  CONSTRAINT ck_case_eva_mileage_unit        CHECK (eva_mileage_unit        IS NULL OR eva_mileage_unit IN ('', 'Miles', 'Km'))
+  CONSTRAINT ck_case_eva_mileage_unit        CHECK (eva_mileage_unit        IS NULL OR eva_mileage_unit IN ('', 'Miles', 'Km')),
+  CONSTRAINT ck_case_status_recompute_generation CHECK (
+    status_recompute_completed_generation <= status_recompute_requested_generation
+  )
 );
 
 COMMENT ON TABLE  case_ IS 'cr1bd_case -- central work item. EVA payload = the 12 eva_* columns ONLY (evaOrder 1..12); vrm/case_ref/case_po are identity, never EVA fields.';
@@ -112,5 +124,8 @@ CREATE INDEX ix_case_case_po             ON case_ (case_po);
 CREATE INDEX ix_case_work_provider_id    ON case_ (work_provider_id);
 CREATE INDEX ix_case_action_reason       ON case_ (action_reason_code);
 CREATE INDEX ix_case_submit_requested    ON case_ (submit_requested) WHERE submit_requested = true;
+CREATE INDEX ix_case_status_recompute_pending
+  ON case_ (status_recompute_requested_at, id)
+  WHERE status_recompute_completed_generation < status_recompute_requested_generation;
 
 COMMIT;

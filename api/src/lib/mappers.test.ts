@@ -5,6 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  CASE_SELECT_WITH_ACTIVITY,
   casePoSeqOfName,
   deriveSuggestionIdempotencyKey,
   inboundCategoryFromInt,
@@ -56,6 +57,34 @@ describe('rowToCase — mergedInto surfaced from duplicate_keys (TKT-141)', () =
   it('a plain linked_to_instruction row (no marker) has no mergedInto', () => {
     const c = rowToCase({ ...base, duplicate_keys: null });
     expect(c.mergedInto).toBeUndefined();
+  });
+});
+
+describe('rowToCase — truthful chase suggestion activity (TKT-148)', () => {
+  const base = {
+    id: 'c-chase',
+    vrm: 'PK20FWT',
+    status_code: 100000004,
+    created_at: new Date(2026, 6, 1),
+    last_activity_at: new Date(2026, 6, 11),
+    last_activity_kind: 'audit',
+    last_activity_action_code: 100000023,
+  };
+
+  it('legacy suggested=true metadata corrects the former chaser_sent label', () => {
+    const c = rowToCase({ ...base, last_activity_suggested: true });
+    expect(c.lastActivity?.label).toBe('Chase suggested');
+  });
+
+  it('manual/staff chasers remain labelled Chased', () => {
+    const c = rowToCase({ ...base, last_activity_suggested: false });
+    expect(c.lastActivity?.label).toBe('Chased');
+  });
+
+  it('the queue query carries both legacy audit metadata and the schema marker', () => {
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain(`ae.after @> '{"suggested": true}'::jsonb`);
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain('ch.suggested');
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain('last_activity_suggested');
   });
 });
 

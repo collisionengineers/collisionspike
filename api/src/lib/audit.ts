@@ -112,6 +112,9 @@ export const AUDIT_ACTION = {
   // above. NOTE: the case-done plan draft reserved 100000049 for this, but
   // 100000049–100000052 were taken by TKT-068/110/016 first — hence 100000053.
   report_delivered: 100000053,
+  // TKT-148 — a deterministic draft chase suggestion. Distinct from chaser_sent:
+  // no email or message has been sent and staff still decide whether to use the draft.
+  chaser_suggested: 100000054,
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

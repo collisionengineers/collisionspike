@@ -235,6 +235,12 @@ export interface UnclassifiedBoxEvidenceRow {
   workProviderId: string;
 }
 
+/** Durable case-status recompute generation requested atomically by a Box stamp. */
+export interface PendingStatusRecompute {
+  caseId: string;
+  generation: number;
+}
+
 export const dataApi = {
   /**
    * Providers + Image-Source intermediaries for the in-activity `matchSenderIdentity`
@@ -783,15 +789,12 @@ export const dataApi = {
   },
 
   /**
-   * TKT-146 — stamp one Box-lane evidence row's vision classification via the EXISTING
-   * internal evidence route: a re-POST of the row's own identity (its `box:file:<id>`
-   * source_message_id when present, else its box_file_id) with the image metadata; the
-   * route's box-lane NOT-EXISTS dedup no-ops the insert and `applyEvidenceMetadata`
-   * updates the row in place. DELIBERATELY no sha256 on this call: supplying one would
-   * engage the TKT-133 (case_id, sha256) twin pass, which can redirect the stamp onto a
-   * cross-lane twin row and leave the target row unclassified (a sweep loop).
+   * TKT-146 — stamp one exact Box-lane evidence row and atomically increment the
+   * case's durable status-recompute generation. The evidence id comes from the server-side
+   * enumeration, so this never re-enters the general evidence dedup/link path.
    */
   stampBoxEvidenceClassification(
+    evidenceId: string,
     caseId: string,
     row: {
       filename: string;
@@ -805,10 +808,35 @@ export const dataApi = {
       exclusionReason?: string;
       personReflection: boolean;
     },
-  ): Promise<{ persisted: number; updated: number; merged: number }> {
-    return request('POST', `/api/internal/cases/${encodeURIComponent(caseId)}/evidence`, {
-      rows: [row],
-    });
+  ): Promise<{ updated: boolean; statusGeneration?: number; stale?: boolean }> {
+    return request(
+      'POST',
+      `/api/internal/evidence/${encodeURIComponent(evidenceId)}/box-classification`,
+      {
+        ...row,
+        caseId,
+      },
+    );
+  },
+
+  /** Pending durable status generations, oldest request first. */
+  pendingStatusRecomputes(limit: number): Promise<{ rows: PendingStatusRecompute[] }> {
+    return request(
+      'GET',
+      `/api/internal/status-recompute/pending?limit=${encodeURIComponent(String(limit))}`,
+    );
+  },
+
+  /** Acknowledge only the generation whose status evaluation completed successfully. */
+  completeStatusRecompute(
+    caseId: string,
+    generation: number,
+  ): Promise<{ completed: boolean; pending: boolean }> {
+    return request(
+      'POST',
+      `/api/internal/status-recompute/${encodeURIComponent(caseId)}/complete`,
+      { generation },
+    );
   },
 
   /**

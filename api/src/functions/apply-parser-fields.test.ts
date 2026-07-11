@@ -74,7 +74,7 @@ const CONNEXUS = 'img-connexus';
 
 describe('applyParserFields — 1c single-candidate intermediary fallback (TKT-065)', () => {
   it('fills work_provider_id from a SINGLE-candidate intermediary when content is denylisted', async () => {
-    await applyParserFields(
+    const resolution = await applyParserFields(
       'case-1',
       undefined,
       undefined,
@@ -91,6 +91,10 @@ describe('applyParserFields — 1c single-candidate intermediary fallback (TKT-0
     // blank while the FK identity is set) — mirrors the corpus-display fallback.
     expect(upd![0]).toContain('eva_work_provider =');
     expect(upd![1]).toContain('Performance Car Hire');
+    expect(resolution).toEqual({
+      providerResolutionSource: 'single_intermediary',
+      resolvedProviderId: 'wp-pch',
+    });
     // audit trail records the intermediary resolution
     expect(auditCall()).toBeDefined();
   });
@@ -98,7 +102,7 @@ describe('applyParserFields — 1c single-candidate intermediary fallback (TKT-0
   it('does NOT resolve a single-candidate intermediary whose provider is INACTIVE', async () => {
     // candidateProviderIds comes from the image-source N:N, which is not active-filtered; a
     // stale link to a deactivated provider (absent from the active corpus) must not be written.
-    await applyParserFields(
+    const resolution = await applyParserFields(
       'case-1',
       undefined,
       undefined,
@@ -110,10 +114,11 @@ describe('applyParserFields — 1c single-candidate intermediary fallback (TKT-0
     const upd = updateCall();
     expect(upd?.[0].includes('work_provider_id =') ?? false).toBe(false);
     expect(auditCall()).toBeUndefined();
+    expect(resolution).toEqual({ providerResolutionSource: 'none' });
   });
 
   it('fills from a single-candidate intermediary even with NO content provider at all', async () => {
-    await applyParserFields(
+    const resolution = await applyParserFields(
       'case-1',
       undefined,
       undefined,
@@ -125,10 +130,14 @@ describe('applyParserFields — 1c single-candidate intermediary fallback (TKT-0
     const upd = updateCall();
     expect(upd).toBeDefined();
     expect(upd![1]).toContain('wp-sbl');
+    expect(resolution).toEqual({
+      providerResolutionSource: 'single_intermediary',
+      resolvedProviderId: 'wp-sbl',
+    });
   });
 
   it('does NOT guess when the intermediary has >1 candidate ({PCH,SBL}) — stays Held', async () => {
-    await applyParserFields(
+    const resolution = await applyParserFields(
       'case-1',
       undefined,
       undefined,
@@ -140,11 +149,12 @@ describe('applyParserFields — 1c single-candidate intermediary fallback (TKT-0
     // nothing to fill → no UPDATE at all (or, if present, never sets work_provider_id)
     const upd = updateCall();
     expect(upd?.[0].includes('work_provider_id =') ?? false).toBe(false);
+    expect(resolution).toEqual({ providerResolutionSource: 'none' });
   });
 
   it('never overwrites a work_provider_id already on the case', async () => {
     caseRow.work_provider_id = 'wp-existing';
-    await applyParserFields(
+    const resolution = await applyParserFields(
       'case-1',
       undefined,
       undefined,
@@ -155,10 +165,11 @@ describe('applyParserFields — 1c single-candidate intermediary fallback (TKT-0
     );
     const upd = updateCall();
     expect(upd?.[0].includes('work_provider_id =') ?? false).toBe(false);
+    expect(resolution).toEqual({ providerResolutionSource: 'none' });
   });
 
   it('a real content-match wins — the single-candidate fallback does not double-set', async () => {
-    await applyParserFields(
+    const resolution = await applyParserFields(
       'case-1',
       undefined,
       undefined,
@@ -174,10 +185,14 @@ describe('applyParserFields — 1c single-candidate intermediary fallback (TKT-0
     expect(assignments).toBe(1);
     expect(upd![1]).toContain('wp-pch');
     expect(upd![1]).not.toContain('wp-sbl');
+    expect(resolution).toEqual({
+      providerResolutionSource: 'instruction_content',
+      resolvedProviderId: 'wp-pch',
+    });
   });
 
   it('no intermediary + denylisted content + no domain match → no work_provider_id write', async () => {
-    await applyParserFields(
+    const resolution = await applyParserFields(
       'case-1',
       undefined,
       undefined,
@@ -187,6 +202,7 @@ describe('applyParserFields — 1c single-candidate intermediary fallback (TKT-0
       null,
     );
     expect(updateCall()?.[0].includes('work_provider_id =') ?? false).toBe(false);
+    expect(resolution).toEqual({ providerResolutionSource: 'none' });
   });
 });
 
@@ -222,7 +238,7 @@ describe('buildHeldReason — Held routing wording (TKT-021 reopen fix)', () => 
     expect(r.noteName).toBe('New client');
     expect(r.noteText).toBe(
       'New client — no work provider matched for sender @unknown-co.example. ' +
-        'No Case/PO minted; set up the work provider and confirm before EVA.',
+        'No Case/PO has been created. Set up the work provider and confirm before EVA.',
     );
     expect(r.auditSummary).toBe('New client routed to Held (no work provider matched)');
   });
@@ -231,7 +247,7 @@ describe('buildHeldReason — Held routing wording (TKT-021 reopen fix)', () => 
     const r = buildHeldReason({ senderDomain: '', intermediary: null });
     expect(r.noteText).toBe(
       'New client — no work provider matched for sender. ' +
-        'No Case/PO minted; set up the work provider and confirm before EVA.',
+        'No Case/PO has been created. Set up the work provider and confirm before EVA.',
     );
   });
 
@@ -242,15 +258,16 @@ describe('buildHeldReason — Held routing wording (TKT-021 reopen fix)', () => 
         name: 'Connexus',
         candidateNames: ['Performance Car Hire', 'SBL'],
         resolvedProviderName: '',
+        resolutionSource: 'none',
       },
     });
     expect(r.noteName).toBe('Held — intermediary sender');
     expect(r.noteText).toBe(
       'Intermediary sender (Connexus): the instructing provider could not be determined ' +
-        'from the instruction. Candidates: Performance Car Hire, SBL. ' +
-        'No Case/PO minted; pick the provider and confirm before EVA.',
+        'from the instruction. Possible providers: Performance Car Hire, SBL. ' +
+        'No Case/PO has been created. Pick the provider and confirm before EVA.',
     );
-    expect(r.auditSummary).toBe('Intermediary sender routed to Held (principal unresolved)');
+    expect(r.auditSummary).toBe('Intermediary sender routed to Held (provider not yet confirmed)');
     // The misframing this ticket removes must not reappear anywhere in the strings.
     expect(r.noteText).not.toContain('New client');
     expect(r.auditSummary).not.toContain('New client');
@@ -263,15 +280,16 @@ describe('buildHeldReason — Held routing wording (TKT-021 reopen fix)', () => 
         name: 'Connexus',
         candidateNames: ['Performance Car Hire', 'SBL'],
         resolvedProviderName: 'Performance Car Hire',
+        resolutionSource: 'instruction_content',
       },
     });
     expect(r.noteName).toBe('Held — intermediary sender');
     expect(r.noteText).toBe(
       'Intermediary sender (Connexus): the instructions identify Performance Car Hire as ' +
-        'the provider. No Case/PO minted; confirm the provider before EVA.',
+        'the provider. No Case/PO has been created. Confirm the provider before EVA.',
     );
     expect(r.auditSummary).toBe(
-      'Intermediary sender routed to Held (provider identified from the instructions)',
+      'Intermediary sender routed to Held (provider found in the instructions)',
     );
     expect(r.noteText).not.toContain('unresolved');
     expect(r.noteText).not.toContain('New client');
@@ -280,25 +298,88 @@ describe('buildHeldReason — Held routing wording (TKT-021 reopen fix)', () => 
   it('intermediary with NO linked candidates yet omits the Candidates sentence (empty-N:N tolerant)', () => {
     const r = buildHeldReason({
       senderDomain: 'connexus.co.uk',
-      intermediary: { name: 'Connexus', candidateNames: [], resolvedProviderName: '' },
+      intermediary: {
+        name: 'Connexus',
+        candidateNames: [],
+        resolvedProviderName: '',
+        resolutionSource: 'none',
+      },
     });
     expect(r.noteText).toBe(
       'Intermediary sender (Connexus): the instructing provider could not be determined ' +
-        'from the instruction. No Case/PO minted; pick the provider and confirm before EVA.',
+        'from the instruction. No Case/PO has been created. Pick the provider and confirm before EVA.',
     );
-    expect(r.noteText).not.toContain('Candidates:');
+    expect(r.noteText).not.toContain('Possible providers:');
   });
 
   it('a failed display-name lookup degrades to name-less wording (never throws, never New-client)', () => {
     const r = buildHeldReason({
       senderDomain: 'connexus.co.uk',
-      intermediary: { name: '', candidateNames: ['', '  '], resolvedProviderName: '' },
+      intermediary: {
+        name: '',
+        candidateNames: ['', '  '],
+        resolvedProviderName: '',
+        resolutionSource: 'none',
+      },
     });
     expect(r.noteName).toBe('Held — intermediary sender');
     expect(r.noteText).toBe(
       'Intermediary sender: the instructing provider could not be determined ' +
-        'from the instruction. No Case/PO minted; pick the provider and confirm before EVA.',
+        'from the instruction. No Case/PO has been created. Pick the provider and confirm before EVA.',
     );
-    expect(r.auditSummary).toBe('Intermediary sender routed to Held (principal unresolved)');
+    expect(r.auditSummary).toBe('Intermediary sender routed to Held (provider not yet confirmed)');
+  });
+
+  it('single-provider intermediary fallback is explicit and never claims instruction evidence', () => {
+    const r = buildHeldReason({
+      senderDomain: 'audit-services.example',
+      intermediary: {
+        name: 'Audit Services',
+        candidateNames: ['Performance Car Hire'],
+        resolvedProviderName: 'Performance Car Hire',
+        resolutionSource: 'single_intermediary',
+      },
+    });
+    expect(r.noteText).toBe(
+      'Intermediary sender (Audit Services): This intermediary routes work to one provider, ' +
+        'Performance Car Hire, which has been selected. No Case/PO has been created. ' +
+        'Confirm the provider before EVA.',
+    );
+    expect(r.auditSummary).toBe(
+      'Intermediary sender routed to Held (single provider selected)',
+    );
+    expect(r.noteText).not.toContain('instructions identify');
+  });
+
+  it('single-provider fallback remains plain when the provider display lookup fails', () => {
+    const r = buildHeldReason({
+      senderDomain: 'audit-services.example',
+      intermediary: {
+        name: 'Audit Services',
+        candidateNames: [],
+        resolvedProviderName: '',
+        resolutionSource: 'single_intermediary',
+      },
+    });
+    expect(r.noteText).toBe(
+      'Intermediary sender (Audit Services): This intermediary routes work to one provider, ' +
+        'which has been selected. No Case/PO has been created. Confirm the provider before EVA.',
+    );
+  });
+
+  it('no Held reason exposes the former internal “minted” wording', () => {
+    const reasons = [
+      buildHeldReason({ senderDomain: 'unknown.example', intermediary: null }),
+      buildHeldReason({
+        senderDomain: 'connexus.co.uk',
+        intermediary: {
+          name: 'Connexus',
+          candidateNames: ['Performance Car Hire', 'SBL'],
+          resolvedProviderName: '',
+          resolutionSource: 'none',
+        },
+      }),
+    ];
+    for (const reason of reasons) expect(reason.noteText.toLowerCase()).not.toContain('mint');
   });
 });

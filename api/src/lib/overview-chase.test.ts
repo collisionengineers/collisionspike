@@ -9,7 +9,7 @@
  *       (N boundary, terminal/retired statuses, each predicate leg).
  *   (b) maybeSuggestOverviewChase — the guarded single-statement INSERT mints the
  *       drafted suggestion with the staff-visible handler-plain copy, targets the
- *       work provider over email, and writes ONE chaser_sent audit row carrying
+ *       work provider over email, and writes ONE chaser_suggested audit row carrying
  *       the created chaser id + suggested:true.
  *   (c) idempotency — a lost guard (the NOT-EXISTS matched an existing suggestion
  *       or an open chase) returns false and writes NO audit; ineligible counts
@@ -19,6 +19,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { CaseStatus } from '@cs/domain';
+import { readFileSync } from 'node:fs';
 
 /* ---- db: record every SQL + params; canned rows per statement ---- */
 const sqls: string[] = [];
@@ -159,8 +160,10 @@ describe('maybeSuggestOverviewChase — mint', () => {
     // nothing here sends). The guard's ch.status_code reference is the idempotency
     // check, not a write.
     expect(ins!.sql).toMatch(
-      /INSERT INTO chaser\s*\(name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at\)/,
+      /INSERT INTO chaser\s*\(name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at, suggested\)/,
     );
+    expect(ins!.sql).toMatch(/now\(\), true/);
+    expect(ins!.sql).toMatch(/ON CONFLICT DO NOTHING/);
     expect(ins!.p).toEqual([
       OVERVIEW_CHASE_SUMMARY,
       'case-1',
@@ -170,9 +173,9 @@ describe('maybeSuggestOverviewChase — mint', () => {
       OVERVIEW_CHASE_TEMPLATE_LABEL,
     ]);
 
-    // ONE chaser_sent audit row carrying the created chaser id + suggested:true.
+    // ONE chaser_suggested audit row carrying the created chaser id + suggested:true.
     expect(auditCalls).toHaveLength(1);
-    expect(auditCalls[0].action).toBe(AUDIT_ACTION.chaser_sent);
+    expect(auditCalls[0].action).toBe(AUDIT_ACTION.chaser_suggested);
     expect(auditCalls[0].summary).toContain('Chase suggested');
     expect(auditCalls[0].after).toMatchObject({
       chaserId: 'ch-148',
@@ -191,7 +194,29 @@ describe('maybeSuggestOverviewChase — mint', () => {
       // open statuses: drafted, sent, overdue — never 'responded' (100000002)
       expect(ins!.sql).toMatch(/ch\.status_code IN \(100000000, 100000001, 100000003\)/);
       expect(ins!.sql).not.toMatch(/100000002\)/);
+      expect(ins!.sql).toMatch(/ON CONFLICT DO NOTHING/);
     });
+  });
+
+  it('two concurrent evaluators produce one suggestion and one audit', async () => {
+    let insertAttempt = 0;
+    rowsFor.mockImplementation((sql: string) => {
+      if (sql.includes('FROM case_ c')) return [aggRow()];
+      if (sql.includes('INSERT INTO chaser')) {
+        insertAttempt++;
+        return insertAttempt === 1 ? [{ id: 'ch-winner' }] : [];
+      }
+      return [];
+    });
+
+    const results = await Promise.all([
+      maybeSuggestOverviewChase('case-1', 'missing_images'),
+      maybeSuggestOverviewChase('case-1', 'missing_images'),
+    ]);
+
+    expect(results.sort()).toEqual([false, true]);
+    expect(auditCalls).toHaveLength(1);
+    expect(auditCalls[0].after).toMatchObject({ chaserId: 'ch-winner', suggested: true });
   });
 
   it('carries the staff actor onto the audit row when one is supplied', async () => {
@@ -273,5 +298,27 @@ describe('maybeSuggestOverviewChase — advisory', () => {
     });
     await expect(maybeSuggestOverviewChase('case-1', 'missing_images')).resolves.toBe(false);
     expect(auditCalls).toHaveLength(0);
+  });
+});
+
+describe('TKT-148 migration contract', () => {
+  it('deduplicates only the exact system signature before adding the partial unique index', () => {
+    const sql = readFileSync(
+      new URL(
+        '../../../migration/assets/schema/deltas/2026-07-11-tkt148-chaser-suggestions.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    expect(sql).toMatch(/row_number\(\) OVER \(\s*PARTITION BY case_id/);
+    expect(sql).toContain("template_used = 'Overview photo request'");
+    expect(sql).toContain(`name = '${OVERVIEW_CHASE_SUMMARY.replaceAll("'", "''")}'`);
+    expect(sql).toMatch(/ORDER BY CASE status_code[\s\S]*WHEN 100000002 THEN 0/);
+    expect(sql).toMatch(/WHEN 100000003 THEN 1[\s\S]*WHEN 100000001 THEN 2/);
+    expect(sql).toMatch(/sent_at DESC NULLS LAST/);
+    expect(sql).toMatch(/DELETE FROM chaser ch[\s\S]*exact\.occurrence > 1/);
+    expect(sql).toMatch(
+      /CREATE UNIQUE INDEX IF NOT EXISTS uq_chaser_overview_suggestion[\s\S]*WHERE template_used = 'Overview photo request'[\s\S]*AND name = 'Suggested chase/,
+    );
   });
 });

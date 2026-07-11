@@ -62,7 +62,8 @@
         { "value": 100000050, "name": "agent_read",                   "label": "Agent Read" },
         { "value": 100000051, "name": "agent_write",                  "label": "Agent Write" },
         { "value": 100000052, "name": "image_analysis_generated",     "label": "Image Analysis Generated" },
-        { "value": 100000053, "name": "report_delivered",             "label": "Report Delivered" }
+        { "value": 100000053, "name": "report_delivered",             "label": "Report Delivered" },
+        { "value": 100000054, "name": "chaser_suggested",             "label": "Chase suggested" }
       ]
     },
     {

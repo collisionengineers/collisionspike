@@ -62,16 +62,23 @@ vi.mock('../lib/image-classify.js', async (importOriginal) => {
 const dataApiMock = vi.hoisted(() => ({
   unclassifiedBoxEvidence: vi.fn(),
   stampBoxEvidenceClassification: vi.fn(
-    async (_caseId: string, _row: Record<string, unknown>) => ({
-      persisted: 0,
-      updated: 1,
-      merged: 0,
+    async (
+      _evidenceId: string,
+      _caseId: string,
+      _row: Record<string, unknown>,
+    ): Promise<{ updated: boolean; statusGeneration?: number; stale?: boolean }> => ({
+      updated: true,
+      statusGeneration: 1,
     }),
   ),
   workProviderAiAllowed: vi.fn(
     async (_id: string): Promise<{ aiAllowed: boolean | null }> => ({ aiAllowed: null }),
   ),
   evaluateStatus: vi.fn(async (_caseId: string) => ({ value: 'needs_review' })),
+  pendingStatusRecomputes: vi.fn(
+    async (): Promise<{ rows: Array<{ caseId: string; generation: number }> }> => ({ rows: [] }),
+  ),
+  completeStatusRecompute: vi.fn(async () => ({ completed: true, pending: false })),
 }));
 vi.mock('../lib/data-api.js', () => ({ dataApi: dataApiMock }));
 
@@ -126,6 +133,12 @@ beforeEach(() => {
   for (const fn of Object.values(dataApiMock)) fn.mockClear();
   dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({ rows: [] });
   dataApiMock.workProviderAiAllowed.mockResolvedValue({ aiAllowed: null });
+  dataApiMock.pendingStatusRecomputes.mockResolvedValue({ rows: [] });
+  dataApiMock.completeStatusRecompute.mockResolvedValue({ completed: true, pending: false });
+  dataApiMock.stampBoxEvidenceClassification.mockResolvedValue({
+    updated: true,
+    statusGeneration: 1,
+  });
   boxMock.downloadFile.mockResolvedValue({
     id: '111',
     filename: 'IMG_100.jpg',
@@ -153,10 +166,12 @@ describe('box-classify-sweep — (a) happy path', () => {
     expect(classifyImageMock.mock.calls[0][0]).toMatchObject({ caseVrm: 'MX17 PNL' });
 
     expect(dataApiMock.stampBoxEvidenceClassification).toHaveBeenCalledTimes(1);
-    const [caseId, row] = dataApiMock.stampBoxEvidenceClassification.mock.calls[0] as unknown as [
+    const [evidenceId, caseId, row] = dataApiMock.stampBoxEvidenceClassification.mock.calls[0] as unknown as [
+      string,
       string,
       Record<string, unknown>,
     ];
+    expect(evidenceId).toBe('ev-1');
     expect(caseId).toBe('case-A');
     // Identity mirrored verbatim; role + registration_visible stamped; sha256 NEVER sent.
     expect(row).toMatchObject({
@@ -175,6 +190,7 @@ describe('box-classify-sweep — (a) happy path', () => {
     // Status re-evaluated once for the stamped case.
     expect(dataApiMock.evaluateStatus).toHaveBeenCalledTimes(1);
     expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-A');
+    expect(dataApiMock.completeStatusRecompute).toHaveBeenCalledWith('case-A', 1);
   });
 });
 
@@ -185,7 +201,8 @@ describe('box-classify-sweep — (b) identity mirroring', () => {
 
     await sweep.handler(TIMER, ctx());
 
-    const [, row] = dataApiMock.stampBoxEvidenceClassification.mock.calls[0] as unknown as [
+    const [, , row] = dataApiMock.stampBoxEvidenceClassification.mock.calls[0] as unknown as [
+      string,
       string,
       Record<string, unknown>,
     ];
@@ -215,7 +232,7 @@ describe('box-classify-sweep — (c) never-throws, never-blocks', () => {
 
     // Only rowC stamped; only case-C re-evaluated; the sweep never threw.
     expect(dataApiMock.stampBoxEvidenceClassification).toHaveBeenCalledTimes(1);
-    expect(dataApiMock.stampBoxEvidenceClassification.mock.calls[0][0]).toBe('case-C');
+    expect(dataApiMock.stampBoxEvidenceClassification.mock.calls[0][1]).toBe('case-C');
     expect(dataApiMock.evaluateStatus).toHaveBeenCalledTimes(1);
     expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-C');
   });
@@ -262,14 +279,31 @@ describe('box-classify-sweep — (e) per-provider ai_allowed opt-out', () => {
     expect(dataApiMock.stampBoxEvidenceClassification).not.toHaveBeenCalled();
   });
 
-  it('an ai_allowed lookup error fails OPEN (classify proceeds), like classifyPersist', async () => {
-    dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
-    dataApiMock.workProviderAiAllowed.mockRejectedValue(new Error('lookup 500'));
+  it('a lookup error fails closed, is cached for that provider, and does not block another provider', async () => {
+    const sameProvider = { ...ROW_TAGGED, evidenceId: 'ev-2', boxFileId: '112' };
+    const otherProvider = {
+      ...ROW_TAGGED,
+      evidenceId: 'ev-3',
+      caseId: 'case-Z',
+      boxFileId: '333',
+      workProviderId: 'wp-2',
+    };
+    dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({
+      rows: [ROW_TAGGED, sameProvider, otherProvider],
+    });
+    dataApiMock.workProviderAiAllowed.mockImplementation(async (providerId: string) => {
+      if (providerId === 'wp-1') throw new Error('lookup 500');
+      return { aiAllowed: true };
+    });
     classifyImageMock.mockResolvedValue(CLS_OVERVIEW);
 
     await sweep.handler(TIMER, ctx());
 
+    expect(dataApiMock.workProviderAiAllowed.mock.calls.filter(([id]) => id === 'wp-1')).toHaveLength(1);
+    expect(boxMock.downloadFile).toHaveBeenCalledTimes(1);
+    expect(boxMock.downloadFile).toHaveBeenCalledWith('333');
     expect(dataApiMock.stampBoxEvidenceClassification).toHaveBeenCalledTimes(1);
+    expect(dataApiMock.stampBoxEvidenceClassification.mock.calls[0][0]).toBe('ev-3');
   });
 });
 
@@ -286,7 +320,8 @@ describe('box-classify-sweep — (f) TKT-064 policy rides verbatim', () => {
 
     await sweep.handler(TIMER, ctx());
 
-    const [, row] = dataApiMock.stampBoxEvidenceClassification.mock.calls[0] as unknown as [
+    const [, , row] = dataApiMock.stampBoxEvidenceClassification.mock.calls[0] as unknown as [
+      string,
       string,
       Record<string, unknown>,
     ];
@@ -306,7 +341,8 @@ describe('box-classify-sweep — (f) TKT-064 policy rides verbatim', () => {
 
     await sweep.handler(TIMER, ctx());
 
-    const [, row] = dataApiMock.stampBoxEvidenceClassification.mock.calls[0] as unknown as [
+    const [, , row] = dataApiMock.stampBoxEvidenceClassification.mock.calls[0] as unknown as [
+      string,
       string,
       Record<string, unknown>,
     ];
@@ -325,11 +361,66 @@ describe('box-classify-sweep — (f) TKT-064 policy rides verbatim', () => {
 
     await sweep.handler(TIMER, ctx());
 
-    const [, row] = dataApiMock.stampBoxEvidenceClassification.mock.calls[0] as unknown as [
+    const [, , row] = dataApiMock.stampBoxEvidenceClassification.mock.calls[0] as unknown as [
+      string,
       string,
       Record<string, unknown>,
     ];
     expect(row).toMatchObject({ imageRole: 'overview', registrationVisible: false });
+  });
+});
+
+describe('box-classify-sweep — (g) durable status generations', () => {
+  it('leaves a failed status generation pending and acknowledges it on the next invocation', async () => {
+    dataApiMock.unclassifiedBoxEvidence
+      .mockResolvedValueOnce({ rows: [ROW_TAGGED] })
+      .mockResolvedValueOnce({ rows: [] });
+    dataApiMock.pendingStatusRecomputes
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ caseId: 'case-A', generation: 7 }] });
+    dataApiMock.stampBoxEvidenceClassification.mockResolvedValue({
+      updated: true,
+      statusGeneration: 7,
+    });
+    classifyImageMock.mockResolvedValue(CLS_OVERVIEW);
+    dataApiMock.evaluateStatus
+      .mockRejectedValueOnce(new Error('status API 503'))
+      .mockResolvedValueOnce({ value: 'ready_for_eva' });
+
+    await sweep.handler(TIMER, ctx());
+    expect(dataApiMock.completeStatusRecompute).not.toHaveBeenCalled();
+
+    await sweep.handler(TIMER, ctx());
+    expect(dataApiMock.evaluateStatus).toHaveBeenCalledTimes(2);
+    expect(dataApiMock.completeStatusRecompute).toHaveBeenCalledTimes(1);
+    expect(dataApiMock.completeStatusRecompute).toHaveBeenCalledWith('case-A', 7);
+  });
+
+  it('drains committed status work even when new classifications are gated off', async () => {
+    delete process.env.IMAGE_ROLE_CLASSIFY_ENABLED;
+    dataApiMock.pendingStatusRecomputes.mockResolvedValue({
+      rows: [{ caseId: 'case-old', generation: 3 }],
+    });
+
+    await sweep.handler(TIMER, ctx());
+
+    expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-old');
+    expect(dataApiMock.completeStatusRecompute).toHaveBeenCalledWith('case-old', 3);
+    expect(dataApiMock.unclassifiedBoxEvidence).not.toHaveBeenCalled();
+  });
+
+  it('does not request status work when a delayed classification stamp is stale', async () => {
+    dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
+    dataApiMock.stampBoxEvidenceClassification.mockResolvedValue({
+      updated: false,
+      stale: true,
+    });
+    classifyImageMock.mockResolvedValue(CLS_OVERVIEW);
+
+    await sweep.handler(TIMER, ctx());
+
+    expect(dataApiMock.evaluateStatus).not.toHaveBeenCalled();
+    expect(dataApiMock.completeStatusRecompute).not.toHaveBeenCalled();
   });
 });
 

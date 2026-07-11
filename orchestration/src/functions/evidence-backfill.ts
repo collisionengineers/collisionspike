@@ -232,8 +232,8 @@ app.storageQueue('evidence-backfill', {
 
       // 5 — the EXISTING persist chain: the classifyPersist row assembly + the TKT-064
       //     image-classify stamping (same gate, same per-provider ai_allowed opt-out —
-      //     resolved via the TARGET CASE's provider; fail-open on lookup error, exactly
-      //     like classifyPersist), then ONE persist through the internal evidence route.
+      //     resolved via the TARGET CASE's provider; fail-closed on either case/provider
+      //     policy lookup error), then ONE persist through the internal evidence route.
       const rows = buildBaseEvidenceRows({ attachments: landed, ...(rawEml ? { rawEml } : {}) });
 
       const classificationRequested = gates.imageRoleClassifyEnabled() && rows.some((r) => r.isImage);

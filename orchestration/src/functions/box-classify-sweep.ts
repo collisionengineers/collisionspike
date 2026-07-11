@@ -19,12 +19,10 @@
  *      `unknown` [no 'other' choice-set option] + not accepted; person reflection →
  *      excluded), honouring the per-provider ai_allowed opt-out exactly like
  *      classifyPersist / evidence-backfill;
- *   4. stamp via the EXISTING internal evidence route by re-POSTing the row's OWN
- *      identity (its `box:file:<id>` tag when present, else box_file_id — never a tag
- *      the row does not carry, and NEVER a sha256: see stampBoxEvidenceClassification);
- *   5. re-evaluate each stamped case's status (idempotent — the same re-invoke the
- *      FILE.UPLOADED registration and the evidence-backfill consumer already perform),
- *      so a case whose photo set now satisfies the EVA image rules advances.
+ *   4. stamp the exact enumerated evidence id through a dedicated Data API route; the
+ *      metadata update atomically increments the case's durable status generation;
+ *   5. re-evaluate and acknowledge that generation. Any crash/API failure leaves it
+ *      pending for a later sweep, so a stamped case cannot be stranded.
  *
  * Failure semantics: NEVER blocks or deletes the registration row. A per-row failure
  * (facade 4xx/5xx, over-cap 413, classify null, stamp error) logs and continues — the
@@ -45,7 +43,11 @@ import {
   classificationToEvidenceFields,
 } from '../lib/image-classify.js';
 import { box } from '../lib/functions-client.js';
-import { dataApi, type UnclassifiedBoxEvidenceRow } from '../lib/data-api.js';
+import {
+  dataApi,
+  type PendingStatusRecompute,
+  type UnclassifiedBoxEvidenceRow,
+} from '../lib/data-api.js';
 
 /** Sweep period — every 5 minutes (six-field NCRONTAB). Recorded in TKT-146 changes.md. */
 export const SWEEP_SCHEDULE = '0 */5 * * * *';
@@ -78,18 +80,14 @@ export function mimeForClassify(filename: string, contentType?: string | null): 
 }
 
 /**
- * Build the stamp re-POST row for the internal evidence route. Pure; exported for tests.
- * Pins two footguns:
- *   - identity mirroring — `sourceMessageId` is sent ONLY when the row itself carries
- *     one (a tag the row lacks would miss the route's NOT-EXISTS dedup and INSERT a
- *     duplicate row); `boxFileId` always rides along;
- *   - NEVER a sha256 — supplying one engages the TKT-133 twin pass, which can redirect
- *     the stamp onto a cross-lane twin and loop the sweep on the unstamped target.
+ * Build the exact-row classification payload. The dedicated stamp route keys on the
+ * enumerated evidence id + case id + Box file id and never enters the general evidence
+ * insert/dedup path. Pure; exported for tests.
  */
 export function buildStampRow(
   row: UnclassifiedBoxEvidenceRow,
   fields: ReturnType<typeof classificationToEvidenceFields>,
-): Parameters<typeof dataApi.stampBoxEvidenceClassification>[1] {
+): Parameters<typeof dataApi.stampBoxEvidenceClassification>[2] {
   return {
     filename: row.filename,
     evidenceClass: 'image',
@@ -105,15 +103,54 @@ export function buildStampRow(
   };
 }
 
+type ProviderPolicyDecision = 'allowed' | 'opted_out' | 'lookup_failed';
+
+/** Evaluate + generation-aware acknowledge. Failure leaves the request durable. */
+async function settleStatusRequests(
+  requests: Iterable<PendingStatusRecompute>,
+  ctx: InvocationContext,
+): Promise<number> {
+  let completed = 0;
+  for (const request of requests) {
+    try {
+      await dataApi.evaluateStatus(request.caseId);
+      const ack = await dataApi.completeStatusRecompute(request.caseId, request.generation);
+      if (ack.completed) completed++;
+    } catch (e) {
+      ctx.warn(
+        `[box-classify-sweep] status re-evaluate remains pending for ${request.caseId} ` +
+          `(generation ${request.generation}): ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+  return completed;
+}
+
 app.timer('box-classify-sweep', {
   schedule: SWEEP_SCHEDULE,
   handler: async (_timer: Timer, ctx: InvocationContext): Promise<void> => {
+    const started = Date.now();
+
+    // Drain durable work BEFORE checking classification gates. Turning off Box/model
+    // access must stop new classifications, not strand status work already committed.
+    let recoveredStatusRequests: PendingStatusRecompute[] = [];
+    try {
+      recoveredStatusRequests =
+        (await dataApi.pendingStatusRecomputes(SWEEP_CAP)).rows ?? [];
+    } catch (e) {
+      ctx.warn(
+        `[box-classify-sweep] pending status enumeration failed (will retry next sweep): ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+    const recoveredStatuses = await settleStatusRequests(recoveredStatusRequests, ctx);
+
     // Honest no-ops: the TKT-064 gate (IMAGE_ROLE_CLASSIFY_ENABLED + model endpoint +
     // deployment) governs the classify; the Box gate governs the facade fetch. Either
     // off → images keep persisting role `unknown` exactly as before this sweep existed.
     if (!gates.imageRoleClassifyEnabled() || !gates.boxApi()) return;
 
-    const started = Date.now();
     let rows: UnclassifiedBoxEvidenceRow[];
     try {
       rows = (await dataApi.unclassifiedBoxEvidence(SWEEP_CAP)).rows ?? [];
@@ -127,31 +164,43 @@ app.timer('box-classify-sweep', {
     }
     if (rows.length === 0) return; // 0-row fast path — one internal GET, nothing else
 
-    // Per-provider ai_allowed opt-out (docs/gated.md D6) — same policy + fail-open
-    // semantics as classifyPersist / evidence-backfill, cached per sweep.
-    const aiAllowedByProvider = new Map<string, boolean | null>();
-    const stampedCases = new Set<string>();
+    // Per-provider ai_allowed decision cached per sweep. A lookup failure is a
+    // fail-closed policy decision for this sweep: no bytes reach the model.
+    const policyByProvider = new Map<string, ProviderPolicyDecision>();
+    const stampedGenerations = new Map<string, number>();
     let classified = 0;
     let stamped = 0;
     let failed = 0;
     let skippedOptOut = 0;
+    let skippedPolicyLookup = 0;
 
     for (const row of rows) {
       try {
         const providerId = row.workProviderId || '';
         if (providerId) {
-          let allowed = aiAllowedByProvider.get(providerId);
-          if (allowed === undefined) {
+          let decision = policyByProvider.get(providerId);
+          if (decision === undefined) {
             try {
-              allowed = (await dataApi.workProviderAiAllowed(providerId)).aiAllowed;
-            } catch {
-              allowed = null; // fail-open on lookup error, exactly like classifyPersist
+              const { aiAllowed } = await dataApi.workProviderAiAllowed(providerId);
+              decision = aiAllowed === false ? 'opted_out' : 'allowed';
+            } catch (e) {
+              decision = 'lookup_failed';
+              ctx.warn(
+                `[box-classify-sweep] provider AI preference unavailable for ${providerId}; ` +
+                  `classification skipped for this sweep: ${
+                    e instanceof Error ? e.message : String(e)
+                  }`,
+              );
             }
-            aiAllowedByProvider.set(providerId, allowed);
+            policyByProvider.set(providerId, decision);
           }
-          if (allowed === false) {
+          if (decision === 'opted_out') {
             skippedOptOut++;
             continue; // provider opted out of AI — the row stays role-unknown for staff
+          }
+          if (decision === 'lookup_failed') {
+            skippedPolicyLookup++;
+            continue;
           }
         }
 
@@ -176,9 +225,26 @@ app.timer('box-classify-sweep', {
         classified++;
 
         const fields = classificationToEvidenceFields(cls, row.caseVrm || undefined);
-        await dataApi.stampBoxEvidenceClassification(row.caseId, buildStampRow(row, fields));
+        const stamp = await dataApi.stampBoxEvidenceClassification(
+          row.evidenceId,
+          row.caseId,
+          buildStampRow(row, fields),
+        );
+        if (!stamp.updated || stamp.statusGeneration == null) {
+          ctx.log(
+            JSON.stringify({
+              evt: 'boxClassifySweep.stale',
+              evidenceId: row.evidenceId,
+              caseId: row.caseId,
+            }),
+          );
+          continue;
+        }
         stamped++;
-        stampedCases.add(row.caseId);
+        stampedGenerations.set(
+          row.caseId,
+          Math.max(stampedGenerations.get(row.caseId) ?? 0, stamp.statusGeneration),
+        );
         ctx.log(
           JSON.stringify({
             evt: 'boxClassifySweep.stamped',
@@ -202,20 +268,13 @@ app.timer('box-classify-sweep', {
       }
     }
 
-    // Status recompute per stamped case — the same idempotent re-invoke the
-    // FILE.UPLOADED registration performs; a newly-satisfied EVA image rule advances
-    // the case. Best-effort: a miss here is re-run by any later evidence/status touch.
-    for (const caseId of stampedCases) {
-      try {
-        await dataApi.evaluateStatus(caseId);
-      } catch (e) {
-        ctx.warn(
-          `[box-classify-sweep] status re-evaluate failed for ${caseId}: ${
-            e instanceof Error ? e.message : String(e)
-          }`,
-        );
-      }
-    }
+    // Fast-path the generations requested by this invocation. They are already durable,
+    // so a crash before/during this loop is recovered by the next sweep's opening drain.
+    const currentStatusRequests = [...stampedGenerations].map(([caseId, generation]) => ({
+      caseId,
+      generation,
+    }));
+    const currentStatuses = await settleStatusRequests(currentStatusRequests, ctx);
 
     ctx.log(
       JSON.stringify({
@@ -225,7 +284,9 @@ app.timer('box-classify-sweep', {
         stamped,
         failed,
         skippedOptOut,
-        casesReEvaluated: stampedCases.size,
+        skippedPolicyLookup,
+        recoveredStatusRequests: recoveredStatusRequests.length,
+        casesReEvaluated: recoveredStatuses + currentStatuses,
         ms: Date.now() - started,
       }),
     );
