@@ -30,8 +30,8 @@
  *  GET  /api/internal/box/case-by-folder/{folderId}  → { caseId: string | null, casePo: string | null }
  *  GET  /api/internal/box/purge-candidates           → [{ caseId, blobPath }]
  *  POST /api/internal/box/mark-purged                → 204
- *  GET  /api/internal/evidence/unclassified-box      → { rows: [...] } (TKT-146: still-unclassified
- *                                                        FILE.UPLOADED-lane image rows for the orch classify sweep)
+ *  GET|POST /api/internal/evidence/unclassified-box → { rows: [...] } (TKT-146: due-row read /
+ *                                                        atomic claim for the Box classify sweep)
  *  POST /api/internal/evidence/{id}/box-classification → { updated, statusGeneration }
  *  GET  /api/internal/status-recompute/pending       → { rows: [{ caseId, generation }] }
  *  POST /api/internal/status-recompute/{id}/complete → { completed, pending }
@@ -3772,8 +3772,12 @@ app.http('internalBoxMarkPurged', {
 });
 
 /* ============================================================
-   11b — GET /api/internal/evidence/unclassified-box   (TKT-146)
-   Called by: the orchestration `box-classify-sweep` timer. Enumerates the
+   11b — GET|POST /api/internal/evidence/unclassified-box   (TKT-146)
+   Called by: the orchestration `box-classify-sweep` timer. GET is the
+   rolling-deploy-compatible due-row read used by the older orchestration
+   build. POST atomically CLAIMS due rows for the current build.
+
+   Both paths enumerate the
    still-unclassified FILE.UPLOADED-lane image evidence rows (box_file_id
    present, source_label 'box_upload…' — the box-webhook writes plain
    'box_upload' or 'box_upload sha1=<sha1>'; the retro register's archive
@@ -3788,14 +3792,14 @@ app.http('internalBoxMarkPurged', {
    verdict, which keeps role `unknown` (no 'other' option in the choice set)
    but is stamped not-accepted — so a classified row is never re-enumerated
    and re-sweeps are idempotent. Excluded rows are never candidates. The
-   14-day created_at window bounds eternal retry of permanently-failing rows
-   (e.g. AOAI content-safety refusals — TKT-131 left 4 such residuals);
-   newest-first + LIMIT gives fresh uploads event-time priority under the
-   sweep cap. Explicit provider AI opt-outs are filtered BEFORE the LIMIT,
-   so rows the model must not process cannot monopolise a sweep page.
+   14-day created_at window bounds the event-time scope. Persisted claim,
+   due-time and dead-letter fields keep terminal/persistent failures OUT of
+   the next capped page; a crash leaves a 30-minute lease, after which the row
+   is safely retryable. Newest-first still prioritises fresh uploads, while
+   explicit provider AI opt-outs are filtered BEFORE the LIMIT.
    ============================================================ */
 app.http('internalEvidenceUnclassifiedBox', {
-  methods: ['GET'],
+  methods: ['GET', 'POST'],
   authLevel: 'anonymous',
   route: 'internal/evidence/unclassified-box',
   handler: (req, ctx) =>
@@ -3804,24 +3808,58 @@ app.http('internalEvidenceUnclassifiedBox', {
       const limit = Math.min(100, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25));
       const imageKind = evidenceKindCodec.toInt('image') ?? 100000000;
       const unknownRole = imageRoleCodec.toInt('unknown' as ImageRole) ?? 100000003;
-      const rows = await query<Row>(
-        `SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id,
-                e.source_message_id, c.vrm, c.work_provider_id
-           FROM evidence e
-           JOIN case_ c ON c.id = e.case_id
-           LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
-          WHERE e.box_file_id IS NOT NULL
+      const duePredicate = `e.box_file_id IS NOT NULL
             AND e.source_label LIKE 'box_upload%'
             AND e.kind_code = $1
             AND e.image_role_code = $2
             AND e.registration_visible IS NULL
             AND e.excluded = false
             AND e.created_at > now() - interval '14 days'
-            AND wp.ai_allowed IS DISTINCT FROM false
-          ORDER BY e.created_at DESC
-          LIMIT $3`,
-        [imageKind, unknownRole, limit],
-      );
+            AND e.box_classify_dead_lettered_at IS NULL
+            AND (e.box_classify_next_attempt_at IS NULL OR e.box_classify_next_attempt_at <= now())
+            AND (e.box_classify_claim_expires_at IS NULL OR e.box_classify_claim_expires_at <= now())
+            AND wp.ai_allowed IS DISTINCT FROM false`;
+      const rows = req.method?.toUpperCase() === 'POST'
+        ? await query<Row>(
+            `WITH candidates AS (
+               SELECT e.id
+                 FROM evidence e
+                 JOIN case_ c ON c.id = e.case_id
+                 LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+                WHERE ${duePredicate}
+                ORDER BY e.created_at DESC, e.id
+                LIMIT $3
+                FOR UPDATE OF e SKIP LOCKED
+             ), claimed AS (
+               UPDATE evidence e
+                  SET box_classify_claim_token = gen_random_uuid(),
+                      box_classify_claim_expires_at = now() + interval '30 minutes',
+                      box_classify_attempt_count = e.box_classify_attempt_count + 1,
+                      updated_at = now()
+                 FROM candidates candidate
+                WHERE e.id = candidate.id
+               RETURNING e.*
+             )
+             SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id,
+                    e.source_message_id, e.box_classify_claim_token,
+                    e.box_classify_attempt_count, c.vrm, c.work_provider_id
+               FROM claimed e
+               JOIN case_ c ON c.id = e.case_id
+              ORDER BY e.created_at DESC, e.id`,
+            [imageKind, unknownRole, limit],
+          )
+        : await query<Row>(
+            `SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id,
+                    e.source_message_id, NULL::uuid AS box_classify_claim_token,
+                    e.box_classify_attempt_count, c.vrm, c.work_provider_id
+               FROM evidence e
+               JOIN case_ c ON c.id = e.case_id
+               LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+              WHERE ${duePredicate}
+              ORDER BY e.created_at DESC, e.id
+              LIMIT $3`,
+            [imageKind, unknownRole, limit],
+          );
       return {
         status: 200,
         jsonBody: {
@@ -3834,6 +3872,8 @@ app.http('internalEvidenceUnclassifiedBox', {
             sourceMessageId: (r.source_message_id as string | null) ?? null,
             caseVrm: (r.vrm as string | null) ?? '',
             workProviderId: (r.work_provider_id as string | null) ?? '',
+            claimToken: (r.box_classify_claim_token as string | null) ?? null,
+            attemptCount: Number(r.box_classify_attempt_count ?? 0),
           })),
         },
       };
@@ -3859,6 +3899,12 @@ app.http('internalEvidenceBoxClassification', {
       const body = (await req.json()) as {
         caseId?: string;
         boxFileId?: string;
+        claimToken?: string;
+        failure?: {
+          disposition?: 'transient' | 'terminal';
+          code?: string;
+          detail?: string;
+        };
         imageRole?: string;
         registrationVisible?: boolean;
         acceptedForEva?: boolean;
@@ -3867,6 +3913,74 @@ app.http('internalEvidenceBoxClassification', {
         decisionSource?: 'classifier';
         personReflection?: boolean;
       };
+      const imageKind = evidenceKindCodec.toInt('image') ?? 100000000;
+      const unknownRole = imageRoleCodec.toInt('unknown') ?? 100000003;
+      const claimToken = (body.claimToken ?? '').trim();
+
+      // A claimed worker reports a failed attempt through the SAME route. This is
+      // retry metadata only: evidence bytes/visibility/role are untouched. The
+      // claim-token compare-and-set prevents an expired worker changing a newer
+      // claimant's schedule.
+      if (body.failure != null) {
+        const disposition = body.failure.disposition;
+        const code = (body.failure.code ?? '').trim().toLowerCase();
+        const detail = (body.failure.detail ?? '').trim().slice(0, 400);
+        if (
+          !evidenceId ||
+          !claimToken ||
+          (disposition !== 'transient' && disposition !== 'terminal') ||
+          !/^[a-z0-9][a-z0-9_.:-]{0,79}$/.test(code)
+        ) {
+          return {
+            status: 400,
+            jsonBody: { error: 'claimToken and a valid failure disposition/code are required' },
+          };
+        }
+        const terminal = disposition === 'terminal';
+        const failed = await query<Row>(
+          `UPDATE evidence
+              SET box_classify_claim_token = NULL,
+                  box_classify_claim_expires_at = NULL,
+                  box_classify_last_failure_code = $3,
+                  box_classify_next_attempt_at = CASE
+                    WHEN $4::boolean THEN NULL
+                    WHEN box_classify_attempt_count <= 1 THEN now() + interval '15 minutes'
+                    WHEN box_classify_attempt_count = 2 THEN now() + interval '1 hour'
+                    WHEN box_classify_attempt_count = 3 THEN now() + interval '6 hours'
+                    ELSE now() + interval '24 hours'
+                  END,
+                  box_classify_dead_lettered_at = CASE WHEN $4::boolean THEN now() ELSE NULL END,
+                  box_classify_dead_letter_reason = CASE
+                    WHEN $4::boolean THEN left(COALESCE(NULLIF($5, ''), $3), 400)
+                    ELSE NULL
+                  END,
+                  updated_at = now()
+            WHERE id = $1
+              AND box_classify_claim_token::text = $2
+              AND kind_code = $6
+              AND image_role_code = $7
+              AND registration_visible IS NULL
+              AND excluded = false
+          RETURNING box_classify_attempt_count,
+                    box_classify_next_attempt_at,
+                    box_classify_dead_lettered_at`,
+          [evidenceId, claimToken, code, terminal, detail, imageKind, unknownRole],
+        );
+        const row = failed[0];
+        return {
+          status: 200,
+          jsonBody: row
+            ? {
+                updated: true,
+                disposition,
+                attemptCount: Number(row.box_classify_attempt_count ?? 0),
+                nextAttemptAt: row.box_classify_next_attempt_at ?? null,
+                deadLettered: row.box_classify_dead_lettered_at != null,
+              }
+            : { updated: false, stale: true },
+        };
+      }
+
       const caseId = (body.caseId ?? '').trim();
       const boxFileId = (body.boxFileId ?? '').trim();
       if (!evidenceId || !caseId || !boxFileId) {
@@ -3885,8 +3999,6 @@ app.http('internalEvidenceBoxClassification', {
         return { status: 400, jsonBody: { error: 'classification booleans are required' } };
       }
 
-      const imageKind = evidenceKindCodec.toInt('image') ?? 100000000;
-      const unknownRole = imageRoleCodec.toInt('unknown') ?? 100000003;
       // `other` is a valid classifier verdict but deliberately has no stored
       // image-role choice; it persists as unknown + acceptedForEva=false. Every
       // other unknown role name is a caller error, never silently coerced.
@@ -3919,10 +4031,15 @@ app.http('internalEvidenceBoxClassification', {
               AND box_file_id = $3
               AND kind_code = $4
               AND source_label LIKE 'box_upload%'
+              AND ($5::text = '' OR box_classify_claim_token::text = $5)
             FOR UPDATE`,
-          [evidenceId, lockedCase.caseId, boxFileId, imageKind],
+          [evidenceId, lockedCase.caseId, boxFileId, imageKind, claimToken],
         );
-        if (!current[0]) return { kind: 'missing' as const };
+        if (!current[0]) {
+          return claimToken
+            ? { kind: 'stale' as const }
+            : { kind: 'missing' as const };
+        }
 
         const applied = await applyEvidenceMetadata(
           ctx,
@@ -3948,6 +4065,24 @@ app.http('internalEvidenceBoxClassification', {
           q,
         );
         if (applied.updated === 0) return { kind: 'stale' as const };
+
+        // Classification is complete for this exact row. Clear the durable work
+        // lease/schedule in the same transaction as the metadata stamp. Preserve
+        // no stale failure/dead-letter marker that could misdescribe a success.
+        await q(
+          `UPDATE evidence
+              SET box_classify_attempt_count = 0,
+                  box_classify_next_attempt_at = NULL,
+                  box_classify_claim_token = NULL,
+                  box_classify_claim_expires_at = NULL,
+                  box_classify_last_failure_code = NULL,
+                  box_classify_dead_lettered_at = NULL,
+                  box_classify_dead_letter_reason = NULL,
+                  updated_at = now()
+            WHERE id = $1
+              AND ($2::text = '' OR box_classify_claim_token::text = $2)`,
+          [evidenceId, claimToken],
+        );
 
         const generation = applied.readinessChanged
           ? await requestStatusRecompute(q, lockedCase.caseId)

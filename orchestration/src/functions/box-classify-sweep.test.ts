@@ -3,7 +3,7 @@
  * pins for the Box FILE.UPLOADED-lane classify sweep.
  *
  * No Functions host, no Box, no AOAI: `@azure/functions` timer registration is captured,
- * the Box facade / data API / classifyImage are controllable doubles
+ * the Box facade / data API / detailed classifier are controllable doubles
  * (classificationToEvidenceFields stays REAL — the policy under test is TKT-064's,
  * verbatim). Gates are driven through process.env (gates.ts reads env directly).
  *
@@ -51,21 +51,29 @@ const boxMock = vi.hoisted(() => ({
 }));
 vi.mock('../lib/functions-client.js', () => ({ box: boxMock }));
 
-/* ---- image classifier: stub classifyImage, keep classificationToEvidenceFields REAL ---- */
+/* ---- image classifier: stub detailed outcome, keep classification policy REAL ---- */
 const classifyImageMock = vi.hoisted(() => vi.fn());
 vi.mock('../lib/image-classify.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../lib/image-classify.js')>();
-  return { ...actual, classifyImage: classifyImageMock };
+  return { ...actual, classifyImageWithOutcome: classifyImageMock };
 });
 
 /* ---- data API: recording doubles ---- */
 const dataApiMock = vi.hoisted(() => ({
-  unclassifiedBoxEvidence: vi.fn(),
+  claimUnclassifiedBoxEvidence: vi.fn(),
+  reportBoxEvidenceClassificationFailure: vi.fn(
+    async (
+      _evidenceId: string,
+      _claimToken: string,
+      _failure: { disposition: 'transient' | 'terminal'; code: string },
+    ) => ({ updated: true }),
+  ),
   stampBoxEvidenceClassification: vi.fn(
     async (
       _evidenceId: string,
       _caseId: string,
       _row: Record<string, unknown>,
+      _claimToken?: string,
     ): Promise<{ updated: boolean; statusGeneration?: number; stale?: boolean }> => ({
       updated: true,
       statusGeneration: 1,
@@ -86,7 +94,7 @@ const dataApiMock = vi.hoisted(() => ({
 }));
 vi.mock('../lib/data-api.js', () => ({ dataApi: dataApiMock }));
 
-const { mimeForClassify } = await import('./box-classify-sweep.js'); // registers the timer too
+const { mimeForClassify, boxDownloadFailure } = await import('./box-classify-sweep.js'); // registers the timer too
 const sweep = timerRegs.get('box-classify-sweep')!;
 
 function ctx(): InvocationContext {
@@ -103,6 +111,8 @@ const ROW_TAGGED = {
   sourceMessageId: 'box:file:111',
   caseVrm: 'MX17 PNL',
   workProviderId: 'wp-1',
+  claimToken: '00000000-0000-4000-8000-000000000001',
+  attemptCount: 1,
 };
 const ROW_UNTAGGED = {
   evidenceId: 'ev-2',
@@ -113,6 +123,8 @@ const ROW_UNTAGGED = {
   sourceMessageId: null,
   caseVrm: '',
   workProviderId: '',
+  claimToken: '00000000-0000-4000-8000-000000000002',
+  attemptCount: 1,
 };
 
 const CLS_OVERVIEW = {
@@ -122,6 +134,11 @@ const CLS_OVERVIEW = {
   personReflection: false,
   confidence: 0.95,
 };
+
+const classified = (classification: typeof CLS_OVERVIEW) => ({
+  ok: true as const,
+  classification,
+});
 
 function gatesOn(): void {
   process.env.IMAGE_ROLE_CLASSIFY_ENABLED = 'true';
@@ -135,7 +152,8 @@ beforeEach(() => {
   boxMock.downloadFile.mockReset();
   classifyImageMock.mockReset();
   for (const fn of Object.values(dataApiMock)) fn.mockClear();
-  dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({ rows: [] });
+  dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({ rows: [] });
+  dataApiMock.reportBoxEvidenceClassificationFailure.mockResolvedValue({ updated: true });
   dataApiMock.workProviderAiAllowed.mockResolvedValue({ aiAllowed: null });
   dataApiMock.pendingStatusRecomputes.mockResolvedValue({ rows: [] });
   dataApiMock.evaluateStatus.mockResolvedValue({
@@ -162,8 +180,8 @@ afterEach(() => {
 
 describe('box-classify-sweep — (a) happy path', () => {
   it('enumerates, fetches via the facade, classifies with the case VRM, stamps the row identity (never a sha256), re-evaluates the case once', async () => {
-    dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
-    classifyImageMock.mockResolvedValue(CLS_OVERVIEW);
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
+    classifyImageMock.mockResolvedValue(classified(CLS_OVERVIEW));
 
     await sweep.handler(TIMER, ctx());
 
@@ -172,10 +190,11 @@ describe('box-classify-sweep — (a) happy path', () => {
     expect(classifyImageMock.mock.calls[0][0]).toMatchObject({ caseVrm: 'MX17 PNL' });
 
     expect(dataApiMock.stampBoxEvidenceClassification).toHaveBeenCalledTimes(1);
-    const [evidenceId, caseId, row] = dataApiMock.stampBoxEvidenceClassification.mock.calls[0] as unknown as [
+    const [evidenceId, caseId, row, claimToken] = dataApiMock.stampBoxEvidenceClassification.mock.calls[0] as unknown as [
       string,
       string,
       Record<string, unknown>,
+      string,
     ];
     expect(evidenceId).toBe('ev-1');
     expect(caseId).toBe('case-A');
@@ -194,6 +213,7 @@ describe('box-classify-sweep — (a) happy path', () => {
       personReflection: false,
     });
     expect('sha256' in row).toBe(false);
+    expect(claimToken).toBe(ROW_TAGGED.claimToken);
 
     // Status re-evaluated once for the stamped case.
     expect(dataApiMock.evaluateStatus).toHaveBeenCalledTimes(1);
@@ -203,8 +223,8 @@ describe('box-classify-sweep — (a) happy path', () => {
 
 describe('box-classify-sweep — (b) identity mirroring', () => {
   it('a row without a box:file tag stamps on boxFileId alone (no invented sourceMessageId)', async () => {
-    dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_UNTAGGED] });
-    classifyImageMock.mockResolvedValue(CLS_OVERVIEW);
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_UNTAGGED] });
+    classifyImageMock.mockResolvedValue(classified(CLS_OVERVIEW));
 
     await sweep.handler(TIMER, ctx());
 
@@ -223,7 +243,7 @@ describe('box-classify-sweep — (b) identity mirroring', () => {
 describe('box-classify-sweep — (c) never-throws, never-blocks', () => {
   it('a classify null and a facade throw each leave their row unstamped while the rest completes', async () => {
     const rowC = { ...ROW_UNTAGGED, evidenceId: 'ev-3', caseId: 'case-C', boxFileId: '333' };
-    dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({
       rows: [ROW_TAGGED, ROW_UNTAGGED, rowC],
     });
     boxMock.downloadFile
@@ -242,6 +262,13 @@ describe('box-classify-sweep — (c) never-throws, never-blocks', () => {
     expect(dataApiMock.stampBoxEvidenceClassification.mock.calls[0][1]).toBe('case-C');
     expect(dataApiMock.evaluateStatus).toHaveBeenCalledTimes(1);
     expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-C', 1);
+    expect(dataApiMock.reportBoxEvidenceClassificationFailure).toHaveBeenCalledTimes(2);
+    expect(dataApiMock.reportBoxEvidenceClassificationFailure.mock.calls[0][2]).toMatchObject({
+      disposition: 'transient', code: 'model_unavailable',
+    });
+    expect(dataApiMock.reportBoxEvidenceClassificationFailure.mock.calls[1][2]).toMatchObject({
+      disposition: 'terminal', code: 'box_file_too_large',
+    });
   });
 });
 
@@ -249,25 +276,26 @@ describe('box-classify-sweep — (d) gate + 0-row fast paths', () => {
   it('IMAGE_ROLE_CLASSIFY off → not even the enumeration GET runs', async () => {
     delete process.env.IMAGE_ROLE_CLASSIFY_ENABLED;
     await sweep.handler(TIMER, ctx());
-    expect(dataApiMock.unclassifiedBoxEvidence).not.toHaveBeenCalled();
+    expect(dataApiMock.claimUnclassifiedBoxEvidence).not.toHaveBeenCalled();
   });
 
   it('BOX_API off → not even the enumeration GET runs', async () => {
     process.env.BOX_API_ENABLED = 'false';
     await sweep.handler(TIMER, ctx());
-    expect(dataApiMock.unclassifiedBoxEvidence).not.toHaveBeenCalled();
+    expect(dataApiMock.claimUnclassifiedBoxEvidence).not.toHaveBeenCalled();
   });
 
   it('0 rows → one enumeration GET, no facade/classify/stamp calls', async () => {
     await sweep.handler(TIMER, ctx());
-    expect(dataApiMock.unclassifiedBoxEvidence).toHaveBeenCalledTimes(1);
+    expect(dataApiMock.claimUnclassifiedBoxEvidence).toHaveBeenCalledTimes(1);
     expect(boxMock.downloadFile).not.toHaveBeenCalled();
     expect(classifyImageMock).not.toHaveBeenCalled();
     expect(dataApiMock.stampBoxEvidenceClassification).not.toHaveBeenCalled();
+    expect(dataApiMock.reportBoxEvidenceClassificationFailure).not.toHaveBeenCalled();
   });
 
   it('an enumeration failure logs and returns (retried next sweep), never throws', async () => {
-    dataApiMock.unclassifiedBoxEvidence.mockRejectedValue(new Error('data-api GET → 503'));
+    dataApiMock.claimUnclassifiedBoxEvidence.mockRejectedValue(new Error('data-api POST → 503'));
     await expect(sweep.handler(TIMER, ctx())).resolves.toBeUndefined();
     expect(boxMock.downloadFile).not.toHaveBeenCalled();
   });
@@ -275,7 +303,7 @@ describe('box-classify-sweep — (d) gate + 0-row fast paths', () => {
 
 describe('box-classify-sweep — (e) per-provider ai_allowed opt-out', () => {
   it('ai_allowed=false skips the row BEFORE any byte fetch or classify', async () => {
-    dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
     dataApiMock.workProviderAiAllowed.mockResolvedValue({ aiAllowed: false });
 
     await sweep.handler(TIMER, ctx());
@@ -284,6 +312,11 @@ describe('box-classify-sweep — (e) per-provider ai_allowed opt-out', () => {
     expect(boxMock.downloadFile).not.toHaveBeenCalled();
     expect(classifyImageMock).not.toHaveBeenCalled();
     expect(dataApiMock.stampBoxEvidenceClassification).not.toHaveBeenCalled();
+    expect(dataApiMock.reportBoxEvidenceClassificationFailure).toHaveBeenCalledWith(
+      ROW_TAGGED.evidenceId,
+      ROW_TAGGED.claimToken,
+      { disposition: 'transient', code: 'provider_ai_opted_out' },
+    );
   });
 
   it('a lookup error fails closed, is cached for that provider, and does not block another provider', async () => {
@@ -295,7 +328,7 @@ describe('box-classify-sweep — (e) per-provider ai_allowed opt-out', () => {
       boxFileId: '333',
       workProviderId: 'wp-2',
     };
-    dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({
       rows: [ROW_TAGGED, sameProvider, otherProvider],
     });
     dataApiMock.workProviderAiAllowed.mockImplementation(async (providerId: string) => {
@@ -316,7 +349,7 @@ describe('box-classify-sweep — (e) per-provider ai_allowed opt-out', () => {
 
 describe('box-classify-sweep — (f) TKT-064 policy rides verbatim', () => {
   it("high-confidence non-vehicle 'other' stamps a recoverable automatic exclusion", async () => {
-    dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
     classifyImageMock.mockResolvedValue({
       role: 'other',
       registrationVisible: false,
@@ -343,7 +376,7 @@ describe('box-classify-sweep — (f) TKT-064 policy rides verbatim', () => {
   });
 
   it('a person reflection stamps excluded + reason (the domain exclusion rule)', async () => {
-    dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
     classifyImageMock.mockResolvedValue({
       role: 'damage_closeup',
       registrationVisible: false,
@@ -370,7 +403,7 @@ describe('box-classify-sweep — (f) TKT-064 policy rides verbatim', () => {
   });
 
   it('a mismatched legible plate does NOT clear registration_visible for the case (case-VRM constraint)', async () => {
-    dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
     classifyImageMock.mockResolvedValue({ ...CLS_OVERVIEW, plateText: 'ZZ99ZZZ' });
 
     await sweep.handler(TIMER, ctx());
@@ -382,11 +415,69 @@ describe('box-classify-sweep — (f) TKT-064 policy rides verbatim', () => {
     ];
     expect(row).toMatchObject({ imageRole: 'overview', registrationVisible: false });
   });
+
+  it('dead-letters an explicit content-filter result while retaining the evidence row', async () => {
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
+    classifyImageMock.mockResolvedValue({
+      ok: false,
+      failure: { disposition: 'terminal', code: 'model_content_filter' },
+    });
+
+    await sweep.handler(TIMER, ctx());
+
+    expect(dataApiMock.stampBoxEvidenceClassification).not.toHaveBeenCalled();
+    expect(dataApiMock.reportBoxEvidenceClassificationFailure).toHaveBeenCalledWith(
+      ROW_TAGGED.evidenceId,
+      ROW_TAGGED.claimToken,
+      { disposition: 'terminal', code: 'model_content_filter' },
+    );
+  });
+
+  it('reaches eligible work behind a full 25-row page of terminal poison', async () => {
+    const poisonRows = Array.from({ length: 25 }, (_, index) => ({
+      ...ROW_UNTAGGED,
+      evidenceId: `poison-${index}`,
+      boxFileId: `poison-${index}`,
+      claimToken: `claim-poison-${index}`,
+    }));
+    const behind = {
+      ...ROW_UNTAGGED,
+      evidenceId: 'eligible-26',
+      boxFileId: 'eligible-26',
+      claimToken: 'claim-eligible-26',
+    };
+    dataApiMock.claimUnclassifiedBoxEvidence
+      .mockResolvedValueOnce({ rows: poisonRows })
+      .mockResolvedValueOnce({ rows: [behind] });
+    boxMock.downloadFile.mockImplementation(async (fileId: string) => {
+      if (fileId.startsWith('poison-')) {
+        throw new Error(`fn GET box/files/${fileId}/content → 413: over cap`);
+      }
+      return {
+        id: fileId,
+        filename: 'eligible.jpg',
+        size: 3,
+        sha1: 'ok',
+        contentBase64: 'b2s=',
+      };
+    });
+    classifyImageMock.mockResolvedValue(CLS_OVERVIEW);
+
+    await sweep.handler(TIMER, ctx());
+    await sweep.handler(TIMER, ctx());
+
+    expect(dataApiMock.reportBoxEvidenceClassificationFailure).toHaveBeenCalledTimes(25);
+    for (const call of dataApiMock.reportBoxEvidenceClassificationFailure.mock.calls) {
+      expect(call[2]).toEqual({ disposition: 'terminal', code: 'box_file_too_large' });
+    }
+    expect(dataApiMock.stampBoxEvidenceClassification).toHaveBeenCalledTimes(1);
+    expect(dataApiMock.stampBoxEvidenceClassification.mock.calls[0][0]).toBe('eligible-26');
+  });
 });
 
 describe('box-classify-sweep — (g) durable status generations', () => {
   it('leaves a failed status generation pending and acknowledges it on the next invocation', async () => {
-    dataApiMock.unclassifiedBoxEvidence
+    dataApiMock.claimUnclassifiedBoxEvidence
       .mockResolvedValueOnce({ rows: [ROW_TAGGED] })
       .mockResolvedValueOnce({ rows: [] });
     dataApiMock.pendingStatusRecomputes
@@ -417,11 +508,11 @@ describe('box-classify-sweep — (g) durable status generations', () => {
     await sweep.handler(TIMER, ctx());
 
     expect(dataApiMock.evaluateStatus).toHaveBeenCalledWith('case-old', 3);
-    expect(dataApiMock.unclassifiedBoxEvidence).not.toHaveBeenCalled();
+    expect(dataApiMock.claimUnclassifiedBoxEvidence).not.toHaveBeenCalled();
   });
 
   it('does not request status work when a delayed classification stamp is stale', async () => {
-    dataApiMock.unclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_TAGGED] });
     dataApiMock.stampBoxEvidenceClassification.mockResolvedValue({
       updated: false,
       stale: true,
@@ -431,6 +522,11 @@ describe('box-classify-sweep — (g) durable status generations', () => {
     await sweep.handler(TIMER, ctx());
 
     expect(dataApiMock.evaluateStatus).not.toHaveBeenCalled();
+    expect(dataApiMock.reportBoxEvidenceClassificationFailure).toHaveBeenCalledWith(
+      ROW_TAGGED.evidenceId,
+      ROW_TAGGED.claimToken,
+      { disposition: 'terminal', code: 'classification_not_applicable' },
+    );
   });
 });
 
@@ -441,5 +537,24 @@ describe('mimeForClassify', () => {
     expect(mimeForClassify('photo.JPG', null)).toBe('image/jpeg');
     expect(mimeForClassify('scan.webp', null)).toBe('image/webp');
     expect(mimeForClassify('noext', null)).toBe('image/jpeg');
+  });
+});
+
+describe('boxDownloadFailure', () => {
+  it('only treats row-specific missing/over-cap failures as terminal', () => {
+    expect(boxDownloadFailure(new Error('fn GET box/files/1/content → 404: missing'))).toEqual({
+      disposition: 'terminal', code: 'box_file_missing',
+    });
+    expect(boxDownloadFailure(new Error('fn GET box/files/1/content → 410: gone'))).toEqual({
+      disposition: 'terminal', code: 'box_file_missing',
+    });
+    expect(boxDownloadFailure(new Error('fn GET box/files/1/content → 413: over cap'))).toEqual({
+      disposition: 'terminal', code: 'box_file_too_large',
+    });
+    for (const status of [401, 403, 429, 500, 503]) {
+      expect(boxDownloadFailure(new Error(`fn GET box/files/1/content → ${status}`))).toEqual({
+        disposition: 'transient', code: 'box_download_unavailable',
+      });
+    }
   });
 });

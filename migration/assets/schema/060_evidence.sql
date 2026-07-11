@@ -33,6 +33,18 @@ CREATE TABLE evidence (
   source_label          varchar(400),
   box_file_id           varchar(40),              -- Box correlation only (not a dedup key)
   box_file_url          varchar(400),             -- format:Url
+  -- TKT-146 FILE.UPLOADED classification work state. Claims stop overlapping timer
+  -- invocations taking the same row; due/backoff/dead-letter state prevents one
+  -- permanently-unclassifiable file from monopolising the capped newest-first page.
+  -- Dead-lettering annotates the evidence row only — bytes and evidence are retained.
+  box_classify_attempt_count integer NOT NULL DEFAULT 0
+    CHECK (box_classify_attempt_count >= 0),
+  box_classify_next_attempt_at timestamptz,
+  box_classify_claim_token uuid,
+  box_classify_claim_expires_at timestamptz,
+  box_classify_last_failure_code varchar(80),
+  box_classify_dead_lettered_at timestamptz,
+  box_classify_dead_letter_reason varchar(400),
   archive_mirror_decision_generation bigint NOT NULL DEFAULT 0,
   archive_mirror_claim_token uuid,
   archive_mirror_claimed_at timestamptz,
@@ -52,5 +64,14 @@ CREATE INDEX ix_evidence_case_classifier_review
   WHERE kind_code = 100000000
     AND excluded
     AND exclusion_decision_source = 'classifier';
+
+CREATE INDEX ix_evidence_box_classify_due
+  ON evidence (box_classify_next_attempt_at, created_at DESC, id)
+  WHERE box_file_id IS NOT NULL
+    AND kind_code = 100000000
+    AND image_role_code = 100000003
+    AND registration_visible IS NULL
+    AND excluded = false
+    AND box_classify_dead_lettered_at IS NULL;
 
 COMMIT;

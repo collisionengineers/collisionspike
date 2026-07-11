@@ -52,8 +52,10 @@ function req(options: {
   id?: string;
   body?: unknown;
   query?: Record<string, string>;
+  method?: string;
 } = {}): HttpRequest {
   return {
+    method: options.method ?? 'GET',
     params: { id: options.id ?? '' },
     query: new URLSearchParams(options.query ?? {}),
     json: async () => options.body ?? {},
@@ -94,6 +96,130 @@ describe('unclassified Box enumeration', () => {
     expect(sql).toContain('LEFT JOIN work_provider wp ON wp.id = c.work_provider_id');
     expect(sql).toContain('wp.ai_allowed IS DISTINCT FROM false');
     expect(sql.indexOf('wp.ai_allowed IS DISTINCT FROM false')).toBeLessThan(sql.indexOf('LIMIT $3'));
+    expect(sql).toContain('box_classify_dead_lettered_at IS NULL');
+    expect(sql).toContain('box_classify_next_attempt_at <= now()');
+    expect(sql).toContain('box_classify_claim_expires_at <= now()');
+  });
+
+  it('POST atomically claims due rows with a lease before returning them', async () => {
+    db.query.mockResolvedValue([{
+      id: 'ev-26',
+      case_id: 'case-26',
+      file_name: 'behind.jpg',
+      content_type: 'image/jpeg',
+      box_file_id: 'box-26',
+      source_message_id: 'box:file:box-26',
+      box_classify_claim_token: '00000000-0000-4000-8000-000000000026',
+      box_classify_attempt_count: 1,
+      vrm: 'AB12CDE',
+      work_provider_id: 'wp-1',
+    }]);
+
+    const response = await enumerate(req({ method: 'POST', query: { limit: '25' } }), ctx);
+
+    expect(response.jsonBody).toMatchObject({
+      rows: [{
+        evidenceId: 'ev-26',
+        claimToken: '00000000-0000-4000-8000-000000000026',
+        attemptCount: 1,
+      }],
+    });
+    const sql = String(db.query.mock.calls[0][0]);
+    expect(sql).toContain('FOR UPDATE OF e SKIP LOCKED');
+    expect(sql).toContain("box_classify_claim_expires_at = now() + interval '30 minutes'");
+    expect(sql).toContain('box_classify_attempt_count = e.box_classify_attempt_count + 1');
+    expect(sql.indexOf('box_classify_dead_lettered_at IS NULL')).toBeLessThan(sql.indexOf('LIMIT $3'));
+    expect(sql.indexOf('box_classify_next_attempt_at <= now()')).toBeLessThan(sql.indexOf('LIMIT $3'));
+  });
+
+  it('excludes leased/backed-off/dead-letter poison rows before LIMIT so work behind 25 failures is reachable', async () => {
+    await enumerate(req({ method: 'POST', query: { limit: '25' } }), ctx);
+    const sql = String(db.query.mock.calls[0][0]);
+    const limit = sql.indexOf('LIMIT $3');
+    for (const predicate of [
+      'box_classify_dead_lettered_at IS NULL',
+      'box_classify_next_attempt_at <= now()',
+      'box_classify_claim_expires_at <= now()',
+      'wp.ai_allowed IS DISTINCT FROM false',
+    ]) {
+      expect(sql.indexOf(predicate)).toBeGreaterThan(-1);
+      expect(sql.indexOf(predicate)).toBeLessThan(limit);
+    }
+  });
+});
+
+describe('Box classification failure scheduling', () => {
+  const failureBase = {
+    claimToken: '00000000-0000-4000-8000-000000000001',
+  };
+
+  it('dead-letters a terminal row without deleting or changing evidence metadata', async () => {
+    db.query.mockResolvedValue([{
+      box_classify_attempt_count: 1,
+      box_classify_next_attempt_at: null,
+      box_classify_dead_lettered_at: new Date('2026-07-11T12:00:00Z'),
+    }]);
+    const response = await stamp(req({
+      method: 'POST',
+      id: 'ev-1',
+      body: {
+        ...failureBase,
+        failure: { disposition: 'terminal', code: 'box_file_too_large' },
+      },
+    }), ctx);
+
+    expect(response.jsonBody).toMatchObject({
+      updated: true,
+      disposition: 'terminal',
+      deadLettered: true,
+    });
+    const sql = String(db.query.mock.calls[0][0]);
+    expect(sql).toContain('box_classify_dead_lettered_at');
+    expect(sql).toContain('WHEN $4::boolean THEN NULL');
+    expect(sql).not.toContain('DELETE');
+    expect(sql).not.toContain('SET excluded');
+    expect(db.tx).not.toHaveBeenCalled();
+  });
+
+  it('backs a transient failure off for at least 15 minutes and preserves later retry', async () => {
+    db.query.mockResolvedValue([{
+      box_classify_attempt_count: 1,
+      box_classify_next_attempt_at: new Date('2026-07-11T12:15:00Z'),
+      box_classify_dead_lettered_at: null,
+    }]);
+    const response = await stamp(req({
+      method: 'POST',
+      id: 'ev-1',
+      body: {
+        ...failureBase,
+        failure: { disposition: 'transient', code: 'box_download_unavailable' },
+      },
+    }), ctx);
+
+    expect(response.jsonBody).toMatchObject({
+      updated: true,
+      disposition: 'transient',
+      deadLettered: false,
+    });
+    const sql = String(db.query.mock.calls[0][0]);
+    expect(sql).toContain("interval '15 minutes'");
+    expect(sql).toContain("interval '1 hour'");
+    expect(sql).toContain("interval '6 hours'");
+    expect(sql).toContain("interval '24 hours'");
+  });
+
+  it('a stale claimant cannot overwrite the current schedule', async () => {
+    db.query.mockResolvedValue([]);
+    const response = await stamp(req({
+      method: 'POST',
+      id: 'ev-1',
+      body: {
+        ...failureBase,
+        failure: { disposition: 'terminal', code: 'model_content_filter' },
+      },
+    }), ctx);
+    expect(response.jsonBody).toEqual({ updated: false, stale: true });
+    expect(String(db.query.mock.calls[0][0])).toContain('box_classify_claim_token::text = $2');
   });
 });
 
@@ -103,7 +229,7 @@ describe('exact Box classification stamp', () => {
     expect(response.status).toBe(200);
     expect(response.jsonBody).toEqual({ updated: true, statusGeneration: 7 });
     expect(db.tx).toHaveBeenCalledTimes(1);
-    expect(db.txQuery).toHaveBeenCalledTimes(4);
+    expect(db.txQuery).toHaveBeenCalledTimes(5);
 
     const lockSql = String(db.txQuery.mock.calls[0][0]);
     expect(lockSql).toContain('FOR UPDATE');
@@ -113,7 +239,9 @@ describe('exact Box classification stamp', () => {
     expect(updateSql).toContain('exclusion_decision_source');
     const reflectionSql = String(db.txQuery.mock.calls[2][0]);
     expect(reflectionSql).toContain('person_reflection');
-    const requestSql = String(db.txQuery.mock.calls[3][0]);
+    const clearSql = String(db.txQuery.mock.calls[3][0]);
+    expect(clearSql).toContain('box_classify_claim_token = NULL');
+    const requestSql = String(db.txQuery.mock.calls[4][0]);
     expect(requestSql).toContain('status_recompute_requested_generation + 1');
   });
 

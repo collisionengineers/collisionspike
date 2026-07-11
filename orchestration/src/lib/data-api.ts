@@ -238,8 +238,8 @@ export interface TriageSuggestClassificationRequest {
 }
 
 /**
- * One still-unclassified FILE.UPLOADED-lane image evidence row
- * (GET /api/internal/evidence/unclassified-box — TKT-146). `sourceMessageId` is the
+ * One claimed still-unclassified FILE.UPLOADED-lane image evidence row
+ * (POST /api/internal/evidence/unclassified-box — TKT-146). `sourceMessageId` is the
  * row's durable `box:file:<id>` dedup tag when the registration wrote one; the sweep
  * mirrors the row's OWN identity verbatim on the stamp re-POST (see
  * box-classify-sweep.ts's buildStampRow — sending a tag the row does not have would
@@ -254,6 +254,15 @@ export interface UnclassifiedBoxEvidenceRow {
   sourceMessageId: string | null;
   caseVrm: string;
   workProviderId: string;
+  /** Present on POST/claim responses; null only for rolling-compatible GET reads. */
+  claimToken: string | null;
+  attemptCount: number;
+}
+
+export interface BoxClassificationFailure {
+  disposition: 'transient' | 'terminal';
+  code: string;
+  detail?: string;
 }
 
 /** Durable case-status recompute generation requested atomically by a Box stamp. */
@@ -844,13 +853,22 @@ export const dataApi = {
   },
 
   /**
-   * TKT-146 — still-unclassified FILE.UPLOADED-lane image evidence rows (internal route;
-   * read-only). The box-classify-sweep timer's enumeration: rows with box_file_id whose
+   * TKT-146 — atomically claim still-unclassified FILE.UPLOADED-lane image evidence rows.
+   * Rows with box_file_id whose
    * image_role_code is `unknown` AND registration_visible IS NULL (the TKT-131
    * "still-unclassified" predicate — a classified non-vehicle row keeps role unknown but
    * gains a boolean registration_visible, so re-sweeps are idempotent), newest first,
    * capped server-side at `limit` (clamped 1..100) inside a 14-day created_at window.
    */
+  claimUnclassifiedBoxEvidence(limit: number): Promise<{ rows: UnclassifiedBoxEvidenceRow[] }> {
+    return request(
+      'POST',
+      `/api/internal/evidence/unclassified-box?limit=${encodeURIComponent(String(limit))}`,
+      {},
+    );
+  },
+
+  /** Rolling-deploy compatibility/read-only diagnostic; the sweep uses the claim method. */
   unclassifiedBoxEvidence(limit: number): Promise<{ rows: UnclassifiedBoxEvidenceRow[] }> {
     return request(
       'GET',
@@ -879,6 +897,7 @@ export const dataApi = {
       decisionSource: 'classifier';
       personReflection: boolean;
     },
+    claimToken?: string,
   ): Promise<{ updated: boolean; statusGeneration?: number; stale?: boolean }> {
     return request(
       'POST',
@@ -886,7 +905,32 @@ export const dataApi = {
       {
         ...row,
         caseId,
+        ...(claimToken ? { claimToken } : {}),
       },
+    );
+  },
+
+  /**
+   * Release a classification claim after a failed attempt. Transient failures are
+   * rescheduled with server-owned backoff; terminal row-specific failures are
+   * dead-lettered without deleting or excluding the evidence.
+   */
+  reportBoxEvidenceClassificationFailure(
+    evidenceId: string,
+    claimToken: string,
+    failure: BoxClassificationFailure,
+  ): Promise<{
+    updated: boolean;
+    stale?: boolean;
+    disposition?: 'transient' | 'terminal';
+    attemptCount?: number;
+    nextAttemptAt?: string | null;
+    deadLettered?: boolean;
+  }> {
+    return request(
+      'POST',
+      `/api/internal/evidence/${encodeURIComponent(evidenceId)}/box-classification`,
+      { claimToken, failure },
     );
   },
 

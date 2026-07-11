@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildImageRequestBody,
   parseImageResponse,
+  imageClassificationOutcomeFromResponse,
   classificationToEvidenceFields,
   NON_VEHICLE_AUTO_EXCLUDE_MIN_CONFIDENCE,
   type ImageClassification,
@@ -66,6 +67,59 @@ describe('parseImageResponse', () => {
   it('clamps confidence and coerces booleans defensively', () => {
     const res = parseImageResponse(wrap({ role: 'additional', registration_visible: 'yes', plate_text: 123, person_reflection: 1, confidence: 5 }));
     expect(res).toMatchObject({ role: 'additional', registrationVisible: false, plateText: '', personReflection: false, confidence: 1 });
+  });
+});
+
+describe('imageClassificationOutcomeFromResponse', () => {
+  const valid = {
+    choices: [{
+      finish_reason: 'stop',
+      message: {
+        content: JSON.stringify({
+          role: 'overview',
+          registration_visible: true,
+          plate_text: 'AB12CDE',
+          person_reflection: false,
+          confidence: 0.9,
+        }),
+      },
+    }],
+  };
+
+  it('returns a successful parsed classification', () => {
+    expect(imageClassificationOutcomeFromResponse(200, valid)).toMatchObject({
+      ok: true,
+      classification: { role: 'overview', registrationVisible: true },
+    });
+  });
+
+  it('treats an explicit content-filter result as terminal for these bytes', () => {
+    expect(imageClassificationOutcomeFromResponse(200, {
+      choices: [{ finish_reason: 'content_filter', message: { content: '' } }],
+    })).toEqual({
+      ok: false,
+      failure: { disposition: 'terminal', code: 'model_content_filter' },
+    });
+  });
+
+  it('treats payload-too-large as terminal but auth/rate-limit/server faults as transient', () => {
+    expect(imageClassificationOutcomeFromResponse(413, {})).toEqual({
+      ok: false,
+      failure: { disposition: 'terminal', code: 'model_payload_too_large' },
+    });
+    for (const status of [401, 403, 404, 429, 500, 503]) {
+      expect(imageClassificationOutcomeFromResponse(status, {})).toEqual({
+        ok: false,
+        failure: { disposition: 'transient', code: `model_http_${status}` },
+      });
+    }
+  });
+
+  it('keeps malformed success payloads transient because a later model response may recover', () => {
+    expect(imageClassificationOutcomeFromResponse(200, { choices: [] })).toEqual({
+      ok: false,
+      failure: { disposition: 'transient', code: 'model_malformed_response' },
+    });
   });
 });
 

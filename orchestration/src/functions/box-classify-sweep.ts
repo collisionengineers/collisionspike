@@ -7,8 +7,8 @@
  * intake — Box-lane images sat role-unknown until a batch backfill (TKT-131). This sweep
  * closes that gap per the TKT-112 ownership model (ORCH owns autonomous stamps):
  *
- *   1. enumerate still-unclassified box_upload-lane image rows via the NEW read route
- *      GET /api/internal/evidence/unclassified-box (server-side: the TKT-131
+ *   1. claim still-unclassified box_upload-lane image rows via
+ *      POST /api/internal/evidence/unclassified-box (server-side: the TKT-131
  *      "still-unclassified" predicate image_role_code=unknown AND registration_visible
  *      IS NULL, a 14-day window, newest first, capped at SWEEP_CAP);
  *   2. fetch the image bytes through the EXISTING Box facade ONLY (box.downloadFile —
@@ -25,9 +25,10 @@
  *      pending for a later sweep, so a stamped case cannot be stranded.
  *
  * Failure semantics: NEVER blocks or deletes the registration row. A per-row failure
- * (facade 4xx/5xx, over-cap 413, classify null, stamp error) logs and continues — the
- * row simply stays role-unknown and is re-tried on later sweeps until the 14-day window
- * passes it by. A sweep with nothing to do costs one internal GET (0-row fast path).
+ * is reported against its durable claim. Row-specific terminal failures (Box missing/
+ * over-cap, explicit model content-filter) are dead-lettered in place; transient failures
+ * back off. Neither can monopolise the capped newest-first page. A crash leaves a lease
+ * that excludes the row while later work drains, then safely expires for retry.
  *
  * "Event time" here means within one sweep period of upload — with the FC1 caveat that
  * a plain NCRONTAB timer does not WAKE a scaled-to-zero Flex app (LIVE_FACTS
@@ -39,12 +40,15 @@
 import { app, type InvocationContext, type Timer } from '@azure/functions';
 import { gates } from '@cs/domain/gates';
 import {
-  classifyImage,
+  classifyImageWithOutcome,
   classificationToEvidenceFields,
+  type ImageClassification,
+  type ImageClassificationFailure,
 } from '../lib/image-classify.js';
 import { box } from '../lib/functions-client.js';
 import {
   dataApi,
+  type BoxClassificationFailure,
   type PendingStatusRecompute,
   type UnclassifiedBoxEvidenceRow,
 } from '../lib/data-api.js';
@@ -103,6 +107,18 @@ export function buildStampRow(
   };
 }
 
+/** Row-specific Box failures are terminal; service/config failures may recover. */
+export function boxDownloadFailure(error: unknown): BoxClassificationFailure {
+  const text = error instanceof Error ? error.message : String(error ?? '');
+  if (/→\s*(404|410)\b/.test(text)) {
+    return { disposition: 'terminal', code: 'box_file_missing' };
+  }
+  if (/→\s*413\b/.test(text)) {
+    return { disposition: 'terminal', code: 'box_file_too_large' };
+  }
+  return { disposition: 'transient', code: 'box_download_unavailable' };
+}
+
 type ProviderPolicyDecision = 'allowed' | 'opted_out' | 'lookup_failed';
 
 /** Evaluate + generation-aware acknowledge. Failure leaves the request durable. */
@@ -152,7 +168,7 @@ app.timer('box-classify-sweep', {
 
     let rows: UnclassifiedBoxEvidenceRow[];
     try {
-      rows = (await dataApi.unclassifiedBoxEvidence(SWEEP_CAP)).rows ?? [];
+      rows = (await dataApi.claimUnclassifiedBoxEvidence(SWEEP_CAP)).rows ?? [];
     } catch (e) {
       ctx.warn(
         `[box-classify-sweep] enumeration failed (will retry next sweep): ${
@@ -172,99 +188,182 @@ app.timer('box-classify-sweep', {
     let failed = 0;
     let skippedOptOut = 0;
     let skippedPolicyLookup = 0;
+    let backedOff = 0;
+    let deadLettered = 0;
+    let failureReportFailed = 0;
 
-    for (const row of rows) {
+    const reportFailure = async (
+      row: UnclassifiedBoxEvidenceRow,
+      failure: BoxClassificationFailure | ImageClassificationFailure,
+    ): Promise<void> => {
+      if (!row.claimToken) {
+        failureReportFailed++;
+        ctx.warn(`[box-classify-sweep] claimed row ${row.evidenceId} had no claim token`);
+        return;
+      }
       try {
-        const providerId = row.workProviderId || '';
-        if (providerId) {
-          let decision = policyByProvider.get(providerId);
-          if (decision === undefined) {
-            try {
-              const { aiAllowed } = await dataApi.workProviderAiAllowed(providerId);
-              decision = aiAllowed === false ? 'opted_out' : 'allowed';
-            } catch (e) {
-              decision = 'lookup_failed';
-              ctx.warn(
-                `[box-classify-sweep] provider AI preference unavailable for ${providerId}; ` +
-                  `classification skipped for this sweep: ${
-                    e instanceof Error ? e.message : String(e)
-                  }`,
-              );
-            }
-            policyByProvider.set(providerId, decision);
-          }
-          if (decision === 'opted_out') {
-            skippedOptOut++;
-            continue; // provider opted out of AI — the row stays role-unknown for staff
-          }
-          if (decision === 'lookup_failed') {
-            skippedPolicyLookup++;
-            continue;
-          }
-        }
-
-        // Bytes via the Box facade ONLY (server-side download cap → over-cap throws 413
-        // and is absorbed by this row's catch — the row stays unknown, sweep continues).
-        const dl = await box.downloadFile(row.boxFileId);
-
-        const cls = await classifyImage({
-          imageBase64: dl.contentBase64,
-          contentType: mimeForClassify(row.filename, row.contentType),
-          caseVrm: row.caseVrm || undefined,
-        });
-        if (!cls) {
-          // classifyImage never throws — null covers auth/timeout/content-filter/
-          // malformed. Role stays unknown; re-tried on later sweeps inside the window.
-          failed++;
-          ctx.log(
-            JSON.stringify({ evt: 'boxClassifySweep.classifyNull', evidenceId: row.evidenceId }),
-          );
-          continue;
-        }
-        classified++;
-
-        const fields = classificationToEvidenceFields(cls, row.caseVrm || undefined);
-        const stamp = await dataApi.stampBoxEvidenceClassification(
+        const result = await dataApi.reportBoxEvidenceClassificationFailure(
           row.evidenceId,
-          row.caseId,
-          buildStampRow(row, fields),
+          row.claimToken,
+          failure,
         );
-        if (!stamp.updated || stamp.statusGeneration == null) {
-          ctx.log(
-            JSON.stringify({
-              evt: 'boxClassifySweep.stale',
-              evidenceId: row.evidenceId,
-              caseId: row.caseId,
-            }),
-          );
-          continue;
-        }
-        stamped++;
-        stampedGenerations.set(
-          row.caseId,
-          Math.max(stampedGenerations.get(row.caseId) ?? 0, stamp.statusGeneration),
-        );
-        ctx.log(
-          JSON.stringify({
-            evt: 'boxClassifySweep.stamped',
-            evidenceId: row.evidenceId,
-            caseId: row.caseId,
-            boxFileId: row.boxFileId,
-            role: fields.imageRole,
-            registrationVisible: fields.registrationVisible,
-            excluded: fields.excluded === true,
-          }),
-        );
+        if (!result.updated) return; // expired/stale claimant; current owner decides
+        if (failure.disposition === 'terminal') deadLettered++;
+        else backedOff++;
       } catch (e) {
-        // Per-row never-throws: a failed classify/stamp must never block (or delete)
-        // the registration row, nor sink the rest of the sweep.
-        failed++;
+        // The persisted lease still keeps this row out of the next page. If the
+        // report path stays unavailable, lease expiry makes it retryable later.
+        failureReportFailed++;
         ctx.warn(
-          `[box-classify-sweep] ${row.evidenceId} left role-unknown: ${
+          `[box-classify-sweep] failure outcome for ${row.evidenceId} was not recorded: ${
             e instanceof Error ? e.message : String(e)
           }`,
         );
       }
+    };
+
+    for (const row of rows) {
+      const providerId = row.workProviderId || '';
+      if (providerId) {
+        let decision = policyByProvider.get(providerId);
+        if (decision === undefined) {
+          try {
+            const { aiAllowed } = await dataApi.workProviderAiAllowed(providerId);
+            decision = aiAllowed === false ? 'opted_out' : 'allowed';
+          } catch (e) {
+            decision = 'lookup_failed';
+            ctx.warn(
+              `[box-classify-sweep] provider AI preference unavailable for ${providerId}; ` +
+                `classification skipped for this sweep: ${
+                  e instanceof Error ? e.message : String(e)
+                }`,
+            );
+          }
+          policyByProvider.set(providerId, decision);
+        }
+        if (decision === 'opted_out') {
+          skippedOptOut++;
+          failed++;
+          await reportFailure(row, { disposition: 'transient', code: 'provider_ai_opted_out' });
+          continue;
+        }
+        if (decision === 'lookup_failed') {
+          skippedPolicyLookup++;
+          failed++;
+          await reportFailure(row, { disposition: 'transient', code: 'provider_policy_unavailable' });
+          continue;
+        }
+      }
+
+      // Bytes via the Box facade ONLY. A missing/over-cap file is terminal for
+      // these exact bytes; service/auth/network failures remain transient.
+      let dl: Awaited<ReturnType<typeof box.downloadFile>>;
+      try {
+        dl = await box.downloadFile(row.boxFileId);
+      } catch (e) {
+        failed++;
+        await reportFailure(row, boxDownloadFailure(e));
+        continue;
+      }
+
+      let outcome: Awaited<ReturnType<typeof classifyImageWithOutcome>>;
+      try {
+        const rawOutcome = await classifyImageWithOutcome({
+          imageBase64: dl.contentBase64,
+          contentType: mimeForClassify(row.filename, row.contentType),
+          caseVrm: row.caseVrm || undefined,
+        });
+        // Keep test doubles and one rolling local build tolerant of the former
+        // classification-or-null contract. The deployed detailed caller always
+        // returns the tagged outcome shape.
+        outcome = rawOutcome && typeof rawOutcome === 'object' && 'ok' in rawOutcome
+          ? rawOutcome
+          : rawOutcome
+            ? { ok: true, classification: rawOutcome as ImageClassification }
+            : {
+                ok: false,
+                failure: { disposition: 'transient', code: 'model_unavailable' },
+              };
+      } catch {
+        // Test doubles may throw even though the real detailed classifier never does.
+        outcome = {
+          ok: false,
+          failure: { disposition: 'transient', code: 'model_unavailable' },
+        };
+      }
+      if (!outcome.ok) {
+        failed++;
+        await reportFailure(row, outcome.failure);
+        ctx.log(
+          JSON.stringify({
+            evt: 'boxClassifySweep.classifyFailed',
+            evidenceId: row.evidenceId,
+            code: outcome.failure.code,
+            disposition: outcome.failure.disposition,
+          }),
+        );
+        continue;
+      }
+      classified++;
+
+      const fields = classificationToEvidenceFields(
+        outcome.classification,
+        row.caseVrm || undefined,
+      );
+      let stamp: Awaited<ReturnType<typeof dataApi.stampBoxEvidenceClassification>>;
+      try {
+        stamp = await dataApi.stampBoxEvidenceClassification(
+          row.evidenceId,
+          row.caseId,
+          buildStampRow(row, fields),
+          row.claimToken ?? undefined,
+        );
+      } catch (e) {
+        failed++;
+        await reportFailure(row, { disposition: 'transient', code: 'classification_stamp_unavailable' });
+        ctx.warn(
+          `[box-classify-sweep] ${row.evidenceId} classification stamp failed: ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
+        continue;
+      }
+      if (!stamp.updated) {
+        failed++;
+        // If another writer already classified/excluded the row, this CAS no-ops.
+        // If a protected decision left it unclassified, dead-lettering prevents a
+        // futile retry loop; the claim-token CAS makes the distinction race-safe.
+        await reportFailure(row, {
+          disposition: 'terminal',
+          code: 'classification_not_applicable',
+        });
+        ctx.log(
+          JSON.stringify({
+            evt: 'boxClassifySweep.stale',
+            evidenceId: row.evidenceId,
+            caseId: row.caseId,
+          }),
+        );
+        continue;
+      }
+      stamped++;
+      if (stamp.statusGeneration != null) {
+        stampedGenerations.set(
+          row.caseId,
+          Math.max(stampedGenerations.get(row.caseId) ?? 0, stamp.statusGeneration),
+        );
+      }
+      ctx.log(
+        JSON.stringify({
+          evt: 'boxClassifySweep.stamped',
+          evidenceId: row.evidenceId,
+          caseId: row.caseId,
+          boxFileId: row.boxFileId,
+          role: fields.imageRole,
+          registrationVisible: fields.registrationVisible,
+          excluded: fields.excluded === true,
+        }),
+      );
     }
 
     // Fast-path the generations requested by this invocation. They are already durable,
@@ -284,6 +383,9 @@ app.timer('box-classify-sweep', {
         failed,
         skippedOptOut,
         skippedPolicyLookup,
+        backedOff,
+        deadLettered,
+        failureReportFailed,
         recoveredStatusRequests: recoveredStatusRequests.length,
         casesReEvaluated: recoveredStatuses + currentStatuses,
         ms: Date.now() - started,

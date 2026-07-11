@@ -35,6 +35,16 @@ export interface ImageClassification {
   confidence: number;
 }
 
+export interface ImageClassificationFailure {
+  disposition: 'transient' | 'terminal';
+  code: string;
+  detail?: string;
+}
+
+export type ImageClassificationOutcome =
+  | { ok: true; classification: ImageClassification }
+  | { ok: false; failure: ImageClassificationFailure };
+
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_COMPLETION_TOKENS = 3000;
 const SCHEMA_NAME = 'vehicle_image_classification';
@@ -132,20 +142,69 @@ export function parseImageResponse(json: unknown): ImageClassification | null {
   };
 }
 
+/** Detect an explicit model refusal tied to these exact bytes. */
+function hasExplicitContentFilter(result: unknown): boolean {
+  if (!result || typeof result !== 'object') return false;
+  const first = (result as { choices?: Array<{ finish_reason?: unknown }> }).choices?.[0];
+  if (first?.finish_reason === 'content_filter') return true;
+  try {
+    return /content[_ -]?filter|responsibleaipolicyviolation/i.test(JSON.stringify(result));
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Classify one image. Returns the classification, or `null` on ANY failure (not configured,
- * auth, timeout, non-2xx, content filter, malformed) — the caller falls back to role
- * `unknown`. Gate/config check is the caller's job (this runs only when
- * gates.imageRoleClassifyEnabled()); still degrades safely if called speculatively.
+ * Classify an HTTP response without guessing row permanence. Only failures that
+ * are explicitly tied to these exact bytes are terminal: a content-filter verdict
+ * or an over-size request. Auth/config/rate-limit/server and malformed responses
+ * remain transient because a later service/model state may succeed.
  */
-export async function classifyImage(input: {
+export function imageClassificationOutcomeFromResponse(
+  status: number,
+  result: unknown,
+): ImageClassificationOutcome {
+  if (hasExplicitContentFilter(result)) {
+    return {
+      ok: false,
+      failure: { disposition: 'terminal', code: 'model_content_filter' },
+    };
+  }
+  if (status === 413) {
+    return {
+      ok: false,
+      failure: { disposition: 'terminal', code: 'model_payload_too_large' },
+    };
+  }
+  if (status < 200 || status >= 300) {
+    return {
+      ok: false,
+      failure: { disposition: 'transient', code: `model_http_${status}` },
+    };
+  }
+  const classification = parseImageResponse(result);
+  return classification
+    ? { ok: true, classification }
+    : {
+        ok: false,
+        failure: { disposition: 'transient', code: 'model_malformed_response' },
+      };
+}
+
+/** Detailed, never-throwing variant used by durable retry schedulers. */
+export async function classifyImageWithOutcome(input: {
   imageBase64: string;
   contentType?: string;
   caseVrm?: string;
-}): Promise<ImageClassification | null> {
+}): Promise<ImageClassificationOutcome> {
   const endpoint = gates.aiModelEndpoint();
   const deployment = gates.aiModelDeployment();
-  if (!endpoint || !deployment) return null;
+  if (!endpoint || !deployment) {
+    return {
+      ok: false,
+      failure: { disposition: 'transient', code: 'model_not_configured' },
+    };
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -160,14 +219,34 @@ export async function classifyImage(input: {
       ),
       signal: controller.signal,
     });
-    if (!res.ok) return null;
     const json: unknown = await res.json().catch(() => undefined);
-    return parseImageResponse(json);
-  } catch {
-    return null;
+    return imageClassificationOutcomeFromResponse(res.status, json);
+  } catch (error) {
+    const timeout = error instanceof Error && error.name === 'AbortError';
+    return {
+      ok: false,
+      failure: {
+        disposition: 'transient',
+        code: timeout ? 'model_timeout' : 'model_unavailable',
+      },
+    };
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Compatibility wrapper for intake callers whose established contract is
+ * classification-or-null. Durable consumers should use classifyImageWithOutcome
+ * so terminal content-filter/size failures can leave the capped retry page.
+ */
+export async function classifyImage(input: {
+  imageBase64: string;
+  contentType?: string;
+  caseVrm?: string;
+}): Promise<ImageClassification | null> {
+  const outcome = await classifyImageWithOutcome(input);
+  return outcome.ok ? outcome.classification : null;
 }
 
 /**
