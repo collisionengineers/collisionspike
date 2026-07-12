@@ -1,0 +1,11 @@
+{
+  "fixture_id": "claimant_label_prose_01",
+  "source_file": "CLAIMANT LABEL PROSE 01.eml",
+  "expected_provider": "unknown_temp",
+  "expected_values": {
+    "vrm": "QR23STU",
+    "claimant_name": "Ms Jane Sample"
+  },
+  "allowed_blank_fields": [],
+  "notes": "TKT-150 PR-8 regression: a next-line claimant label value continues into instruction prose. The parser must keep only the leading person name and exclude trailing instructions."
+}

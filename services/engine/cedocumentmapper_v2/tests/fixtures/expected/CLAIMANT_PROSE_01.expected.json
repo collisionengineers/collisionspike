@@ -1,0 +1,12 @@
+{
+  "fixture_id": "claimant_prose_01",
+  "source_file": "CLAIMANT PROSE 01.eml",
+  "expected_provider": "unknown_temp",
+  "expected_values": {
+    "vrm": "AB12CDE",
+    "claimant_name": "Ms Jane Example"
+  },
+  "allowed_blank_fields": [],
+  "notes": "TKT-150 non-PII regression: ordinary instruction prose names the claimant before the e-mail sign-off. The parser must recover Ms Jane Example and must never replace her with the case handler named in the signature."
+}
+
