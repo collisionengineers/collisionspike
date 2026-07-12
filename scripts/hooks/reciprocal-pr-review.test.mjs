@@ -186,6 +186,11 @@ test('compound, web, interactive, alias, path-qualified, API, GraphQL and MCP by
     'g${EMPTY}h pr create --fill',
     '$(printf gh) pr create --fill',
     'gh pr mer$\'ge\' 42 --squash',
+    'g"$EMPTY"h pr create --fill',
+    'g"${EMPTY:-h}" pr create --fill',
+    '$(printf gh) $(printf pr) $(printf create) --fill',
+    "g$'\\x68' p$'\\x72' cr$'\\x65'ate --fill",
+    'gh${IFS}pr${IFS}create --title t --body b',
     'gh pr create --title title',
     'gh pr new --fill',
     'gh -R acme/repo pr create --fill',
@@ -523,7 +528,16 @@ test('reviewer comment selection uses the exact trusted canonical comment id, ne
   unscoped.body += `\n${reviewMarker('claude', current, visibleReview('claude'), 'pass')}`;
   const selectedUnscoped = findReviewerComment([...comments, unscoped], 'claude');
   assert.equal(selectedUnscoped.parsed.kind, 'invalid');
-  assert.equal(selectedUnscoped.commentId, null);
+  assert.equal(selectedUnscoped.parsed.reviewer, 'claude');
+  assert.equal(selectedUnscoped.commentId, 60);
+  const humanQuote = {
+    id: 61,
+    body: 'Docs example: <!-- reciprocal-review:malformed -->',
+    author_association: 'OWNER',
+    created_at: '2026-07-12T15:00:00Z',
+    user: { login: 'maintainer' },
+  };
+  assert.equal(findReviewerComment([...comments, unscoped, humanQuote], 'claude').commentId, 60);
 });
 
 test('review comment creation and updates use payload files rather than body argv', () => {
@@ -600,6 +614,7 @@ test('trusted executable resolution rejects an outside symlink into the reposito
   const untrustedBin = path.join(untrusted, 'bin');
   const outside = path.join(fixture, 'outside');
   const linkedBin = path.join(outside, 'linked-bin');
+  const linkedRoot = path.join(outside, 'linked-root');
   const executableName = process.platform === 'win32' ? 'fixture-tool.exe' : 'fixture-tool';
   const originalPath = process.env.PATH;
   try {
@@ -610,6 +625,9 @@ test('trusted executable resolution rejects an outside symlink into the reposito
     symlinkSync(untrustedBin, linkedBin, process.platform === 'win32' ? 'junction' : 'dir');
     process.env.PATH = linkedBin;
     assert.throws(() => resolveTrustedExecutable('fixture-tool', untrusted), /not found outside the repository/iu);
+    symlinkSync(untrusted, linkedRoot, process.platform === 'win32' ? 'junction' : 'dir');
+    process.env.PATH = untrustedBin;
+    assert.throws(() => resolveTrustedExecutable('fixture-tool', linkedRoot), /not found outside the repository/iu);
   } finally {
     process.env.PATH = originalPath;
     rmSync(fixture, { recursive: true, force: true });

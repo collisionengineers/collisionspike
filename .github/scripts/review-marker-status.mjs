@@ -26,35 +26,35 @@ export function digestVisibleBody(value) {
  */
 export function parseReviewComment(body) {
   const normalized = normalizeLineEndings(body);
+  const headingReviewer = normalized.match(/^\s*###\s+(Claude|Codex) PR review\b/iu)?.[1]?.toLowerCase();
+  const invalid = (reason, reviewer = headingReviewer) => reviewer
+    ? { kind: "invalid", reviewer, reason }
+    : { kind: "invalid", reason };
   const prefixCount = normalized.split(MARKER_PREFIX).length - 1;
   if (prefixCount === 0) return { kind: "none" };
-  if (prefixCount !== 1) return { kind: "invalid", reason: "multiple review markers" };
+  if (prefixCount !== 1) return invalid("multiple review markers");
 
   const matches = [...normalized.matchAll(MARKER_PATTERN)];
-  if (matches.length !== 1) return { kind: "invalid", reason: "malformed review marker" };
+  if (matches.length !== 1) return invalid("malformed review marker");
 
   const match = matches[0];
   const markerEnd = (match.index ?? 0) + match[0].length;
   if (normalized.slice(markerEnd).trim() !== "") {
-    return { kind: "invalid", reason: "review marker is not final" };
+    return invalid("review marker is not final");
   }
 
   const visibleBody = canonicalVisibleBody(
     normalized.slice(0, match.index) + normalized.slice(markerEnd),
   );
-  if (!visibleBody) return { kind: "invalid", reason: "review body is empty" };
+  if (!visibleBody) return invalid("review body is empty");
   if (visibleBody.includes(MARKER_PREFIX)) {
-    return { kind: "invalid", reason: "review body contains a marker" };
+    return invalid("review body contains a marker");
   }
 
   const [, reviewer, head, base, result, outcome] = match;
   const actualDigest = digestVisibleBody(visibleBody);
   if (actualDigest !== result) {
-    return {
-      kind: "invalid",
-      reviewer,
-      reason: "review body digest does not match",
-    };
+    return invalid("review body digest does not match", reviewer);
   }
 
   return {
@@ -102,10 +102,10 @@ export function evaluateReviewMarkers({ comments, headSha, baseSha }) {
     if (!TRUSTED_ASSOCIATIONS.has(association)) continue;
 
     const parsed = parseReviewComment(comment.body);
-    if (parsed.kind === "none") continue;
+    if (parsed.kind === "none" || (parsed.kind === "invalid" && !parsed.reviewer)) continue;
 
     const order = commentOrder(comment, index);
-    const claimedReviewers = parsed.reviewer ? [parsed.reviewer] : REVIEWERS;
+    const claimedReviewers = [parsed.reviewer];
     for (const reviewer of claimedReviewers) {
       const current = latest.get(reviewer);
       if (isLater(order, current?.order)) {

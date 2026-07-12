@@ -133,6 +133,21 @@ test("a duplicate marker in one comment is rejected", () => {
   });
 });
 
+test("a trusted human merely quoting marker syntax does not shadow wrapper reviews", () => {
+  const result = evaluate([
+    reviewComment({ id: 1, reviewer: "claude" }),
+    reviewComment({ id: 2, reviewer: "codex" }),
+    {
+      id: 3,
+      body: "Documentation example: <!-- reciprocal-review:not-a-wrapper-marker -->",
+      author_association: "OWNER",
+      created_at: "2026-07-12T13:00:00Z",
+      user: { login: "maintainer" },
+    },
+  ]);
+  assert.equal(result.ok, true);
+});
+
 test("the latest valid marker for a reviewer is authoritative", () => {
   const result = evaluate([
     reviewComment({ id: 1, reviewer: "claude", outcome: "changes-requested" }),

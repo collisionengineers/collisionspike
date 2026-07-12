@@ -147,10 +147,22 @@ function collapsePosixBackslashEscapes(command) {
   return result;
 }
 
-function collapseSimpleShellConcatenations(command) {
+function decodeSimpleAnsiCString(body) {
+  const simple = { a: '\x07', b: '\b', e: '\x1b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', "'": "'", '"': '"' };
+  return body
+    .replace(/\\x([0-9a-f]{2})/giu, (_match, value) => String.fromCharCode(Number.parseInt(value, 16)))
+    .replace(/\\u([0-9a-f]{4})/giu, (_match, value) => String.fromCharCode(Number.parseInt(value, 16)))
+    .replace(/\\([0-7]{1,3})/gu, (_match, value) => String.fromCharCode(Number.parseInt(value, 8)))
+    .replace(/\\([abefnrtv\\'"])/gu, (_match, value) => simple[value] ?? value);
+}
+
+function collapseSimpleShellConcatenations(command, variableReplacement = '') {
   return command
-    .replace(/\$'((?:\\.|[^'])*)'/gu, (_match, body) => body.replace(/\\(.)/gsu, '$1'))
-    .replace(/\$\{[^{}]*\}/gu, '');
+    .replace(/\$'((?:\\.|[^'])*)'/gu, (_match, body) => decodeSimpleAnsiCString(body))
+    .replace(/\$\(\s*printf\s+(?:(?:['"]?%s['"]?)\s+)?(['"]?)([a-z]+)\1\s*\)/giu, '$2')
+    .replace(/\$\{[a-z_][a-z0-9_]*(?::-|-)\s*([^{}]*)\}/giu, '$1')
+    .replace(/\$\{[^{}]*\}/gu, variableReplacement)
+    .replace(/\$[a-z_][a-z0-9_]*/giu, variableReplacement);
 }
 
 function flagPresent(tokens, ...names) {
@@ -238,7 +250,11 @@ export function classifyHookEvent(event, origin = 'codex') {
   if (!command.trim()) return { action: 'pass' };
   const parsed = tokenize(command);
   const posixCollapsedCommand = collapsePosixBackslashEscapes(command);
-  const collapsedCandidates = new Set([posixCollapsedCommand, collapseSimpleShellConcatenations(posixCollapsedCommand)]);
+  const collapsedCandidates = new Set([
+    posixCollapsedCommand,
+    collapseSimpleShellConcatenations(posixCollapsedCommand),
+    collapseSimpleShellConcatenations(posixCollapsedCommand, ' '),
+  ]);
   for (const candidate of collapsedCandidates) {
     if (candidate === command) continue;
     const collapsed = tokenize(candidate);
@@ -411,6 +427,17 @@ function isPathInside(root, target) {
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
 }
 
+function trustBoundaries(root) {
+  if (!root) return [];
+  const boundaries = new Set([path.resolve(root)]);
+  try { boundaries.add(realpathSync(root)); } catch { /* a missing boundary remains path-resolved */ }
+  return [...boundaries];
+}
+
+function isInsideTrustBoundary(boundaries, target) {
+  return boundaries.some((boundary) => isPathInside(boundary, target));
+}
+
 function findRepositoryBoundary(cwd) {
   let current = path.resolve(cwd);
   while (true) {
@@ -425,13 +452,14 @@ export function resolveTrustedExecutable(name, untrustedRoot = '') {
   if (!/^[a-z0-9-]+$/iu.test(name)) throw new Error(`Unsafe executable name: ${name}`);
   const directories = String(process.env.PATH || '').split(path.delimiter).map((entry) => entry.replace(/^"|"$/gu, '')).filter(Boolean);
   const leafNames = process.platform === 'win32' ? [`${name}.exe`] : [name];
+  const untrustedBoundaries = trustBoundaries(untrustedRoot);
   for (const directory of directories) {
     for (const leaf of leafNames) {
       const candidate = path.resolve(directory, leaf);
-      if (!existsSync(candidate) || (untrustedRoot && isPathInside(untrustedRoot, candidate))) continue;
+      if (!existsSync(candidate) || isInsideTrustBoundary(untrustedBoundaries, candidate)) continue;
       try {
         const resolved = realpathSync(candidate);
-        if (untrustedRoot && isPathInside(untrustedRoot, resolved)) continue;
+        if (isInsideTrustBoundary(untrustedBoundaries, resolved)) continue;
         accessSync(resolved, fsConstants.X_OK);
         return resolved;
       } catch {
@@ -444,17 +472,18 @@ export function resolveTrustedExecutable(name, untrustedRoot = '') {
 }
 
 export function resolveTrustedCodexCommand(untrustedRoot = '') {
+  const untrustedBoundaries = trustBoundaries(untrustedRoot);
   if (process.platform === 'win32') {
     const directories = String(process.env.PATH || '').split(path.delimiter).map((entry) => entry.replace(/^"|"$/gu, '')).filter(Boolean);
     for (const directory of directories) {
       const shim = path.resolve(directory, 'codex.cmd');
       const entry = path.resolve(directory, 'node_modules', '@openai', 'codex', 'bin', 'codex.js');
-      if (!existsSync(shim) || !existsSync(entry) || isPathInside(untrustedRoot, shim) || isPathInside(untrustedRoot, entry)) continue;
+      if (!existsSync(shim) || !existsSync(entry) || isInsideTrustBoundary(untrustedBoundaries, shim) || isInsideTrustBoundary(untrustedBoundaries, entry)) continue;
       const resolvedShim = realpathSync(shim);
       const resolvedEntry = realpathSync(entry);
-      if (isPathInside(untrustedRoot, resolvedShim) || isPathInside(untrustedRoot, resolvedEntry)) continue;
+      if (isInsideTrustBoundary(untrustedBoundaries, resolvedShim) || isInsideTrustBoundary(untrustedBoundaries, resolvedEntry)) continue;
       const nodePath = realpathSync(process.execPath);
-      if (isPathInside(untrustedRoot, nodePath)) throw new Error('Refusing a repository-controlled Node executable for Codex.');
+      if (isInsideTrustBoundary(untrustedBoundaries, nodePath)) throw new Error('Refusing a repository-controlled Node executable for Codex.');
       return { file: nodePath, prefixArgs: [resolvedEntry] };
     }
   }
@@ -475,7 +504,7 @@ function findRealGh(repoRoot) {
 
 export function snapshotCaller(cwd, gitPath = resolveTrustedExecutable('git', findRepositoryBoundary(cwd))) {
   const root = path.resolve(run(gitPath, ['rev-parse', '--show-toplevel'], { cwd }).stdout.trim());
-  if (isPathInside(root, gitPath)) throw new Error('Refusing a repository-controlled Git executable.');
+  if (isInsideTrustBoundary(trustBoundaries(root), gitPath)) throw new Error('Refusing a repository-controlled Git executable.');
   const head = run(gitPath, ['rev-parse', 'HEAD'], { cwd: root }).stdout.trim();
   const branchResult = spawnSync(gitPath, ['symbolic-ref', '--short', '-q', 'HEAD'], { cwd: root, encoding: 'utf8', shell: false, windowsHide: true });
   const branch = branchResult.status === 0 ? String(branchResult.stdout).trim() : '';
@@ -653,7 +682,7 @@ export function findReviewerComment(comments, reviewer) {
   for (const [index, comment] of comments.entries()) {
     if (!TRUSTED_ASSOCIATIONS.has(String(comment.author_association || '').toUpperCase())) continue;
     const parsed = parseReviewComment(comment.body);
-    if (parsed.kind === 'none' || (parsed.reviewer && parsed.reviewer !== reviewer) || comment.id === null || comment.id === undefined) continue;
+    if (parsed.kind === 'none' || !parsed.reviewer || parsed.reviewer !== reviewer || comment.id === null || comment.id === undefined) continue;
     const order = commentOrder(comment, index);
     if (isLaterComment(order, selected?.order)) {
       const reusableCommentId = parsed.kind === 'review' || parsed.reviewer === reviewer ? comment.id : null;
