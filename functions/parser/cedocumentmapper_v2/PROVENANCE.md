@@ -29,6 +29,19 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-12 (TKT-150 PR 8 final review repair — explicit-label precision):** re-cut from the
+sibling at **`engine-v2.19`** (branch `codex/tkt-150-claimant-extraction`, commit `f0026d2`;
+branch + annotated tag pushed unchanged to origin). One engine file, `rules/engine.py`: explicit
+claimant/client label tails now pass through the same conservative person-name prefix parser as
+ordinary prose, so `Our client: Mr John Sample requires an inspection` yields only
+`Mr John Sample`, while a following line containing instructions but no name stays blank. New
+non-PII `CLAIMANT LABEL PROSE 01.eml` pins the next-line form, with same-line and negative controls
+alongside it. Sibling focused extraction suite: **22 passed**. Sibling full suite: **472 passed / 5
+skipped / 5 pre-existing environmental legacy-DOC/eval failures**. Wrapper immutable/claimant/
+contact/smoke slice: **60 passed / 2 environmental skips**; wrapper full suite: **311 passed / 11
+skipped / 1 pre-existing environmental ALS legacy-DOC failure**. No taxonomy/DDL dependency;
+providers.json untouched; the cloud boundary remains a pure mirror.
+
 **2026-07-12 (TKT-150 PR 8 review repairs — context-safe e-mail signatures):** re-cut from the
 sibling at **`engine-v2.18`** (branch `codex/tkt-150-claimant-extraction`, commit `c99ca5b`;
 branch + annotated tag pushed unchanged to origin). One engine file, `rules/engine.py`: replaces the
@@ -428,12 +441,15 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.18`** on branch
-  `codex/tkt-150-claimant-extraction`, commit **`c99ca5b`** (2026-07-12). The branch and tag are
+- **Cut from:** annotated tag **`engine-v2.19`** on branch
+  `codex/tkt-150-claimant-extraction`, commit **`f0026d2`** (2026-07-12). The branch and tag are
   **pushed unchanged to origin** and pass the trusted private-sibling proof. Changed vs
-  `engine-v2.17`: `rules/engine.py` ONLY (TKT-150 PR 8 review repairs: context-safe signature
+  `engine-v2.18`: `rules/engine.py` ONLY (TKT-150 PR 8 final review repair: explicit claimant-label
+  values are reduced to a conservative person-name prefix; no taxonomy/DDL dependency;
+  providers.json untouched). Prior pin: annotated tag **`engine-v2.18`**, commit **`c99ca5b`**
+  (2026-07-12) — TKT-150 PR 8 review repairs: context-safe signature
   ranges, intermediary-name normalisation, and composite-label next-line fallback; no taxonomy/DDL
-  dependency; providers.json untouched). Prior pin: annotated tag **`engine-v2.17`**, commit
+  dependency; providers.json untouched. Prior pin: annotated tag **`engine-v2.17`**, commit
   **`f3e780f`** (2026-07-12) — initial TKT-150 claimant-name prose recall + e-mail-signature
   exclusion. Prior pin: annotated tag **`engine-v2.16`**, commit **`8dd4ba8`**
   (2026-07-11) — TKT-089 banner recall, pushed and merged into the sibling's default `main` by PR 7
@@ -484,7 +500,7 @@ nothing further to do here.
 
 ## Reconciliations: none outstanding
 
-As of `engine-v2.1` (and unchanged through `engine-v2.18`) this copy is a **pure
+As of `engine-v2.1` (and unchanged through `engine-v2.19`) this copy is a **pure
 mirror** — no vendored-only or sibling-only divergence remains. The executable
 boundary is enforced by `VENDOR_LOCK.json` and
 `scripts/verify_vendor_pin.py`: every shared `.py` module, bundled resource
@@ -569,7 +585,7 @@ must stay off the cloud path (see "Omitted modules" above).
 Run from the repo root (`collisionspike/`), Git Bash / bash:
 
 ```bash
-REF=engine-v2.18  # the committed, tagged sibling ref you are cutting from
+REF=engine-v2.19  # the committed, tagged sibling ref you are cutting from
 S=../cedocumentmapper_v2.0   # sibling repo
 V=functions/parser/cedocumentmapper_v2
 
