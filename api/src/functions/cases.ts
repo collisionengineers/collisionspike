@@ -25,6 +25,7 @@ import {
   CASE_PO_SHAPE_RE,
   CreateCaseParams,
   FullCreateCaseParams,
+  SaveInspectionDecisionParams,
   EVA_FIELD_ORDER,
   normaliseEvaEdit,
   canonicalizeVrm,
@@ -75,7 +76,7 @@ import { casePoFloor, mintCasePo } from '../lib/case-po.js';
 import { isUniqueViolation } from './internal.js';
 import { ifMatch, versionToken } from '../lib/concurrency.js';
 import { isUuid } from '../lib/uuid.js';
-import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
+import { AUDIT_ACTION, actorFromClaims, writeAudit, writeAuditStrict } from '../lib/audit.js';
 import { markCaseDoneUsing, markEvaSubmittedUsing } from '../lib/terminal-transition.js';
 import { gates } from '../lib/gates.js';
 import { listBoxFolderNames } from '../lib/functions-client.js';
@@ -309,6 +310,34 @@ async function upsertManualProvenance(caseId: string, fieldName: string, value: 
   }
 }
 
+/** Explicit case saves treat manual provenance as part of the reviewed transaction.
+ *  Unlike the legacy field-level path, a failed provenance write rolls the save back. */
+async function upsertManualProvenanceStrict(
+  q: TxQuery,
+  caseId: string,
+  fieldName: string,
+  value: string,
+): Promise<void> {
+  const staff = sourceTypeCodec.toInt('staff') ?? 100000000;
+  const reviewed = reviewStateCodec.toInt('reviewed') ?? 100000002;
+  const updated = await q<{ id: string }>(
+    `UPDATE field_level_provenance
+        SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
+            review_state_code = $5, updated_at = now()
+      WHERE case_id = $1 AND field_name = $2
+      RETURNING id`,
+    [caseId, fieldName, value, staff, reviewed],
+  );
+  if (updated.length === 0) {
+    await q(
+      `INSERT INTO field_level_provenance
+         (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
+       VALUES ($1, $2, $3, $4, $5, 'Manual edit (case page)', $6)`,
+      [`${caseId}:${fieldName}`, caseId, fieldName, value, staff, reviewed],
+    );
+  }
+}
+
 /* ============================================================
    1 — GET /api/cases/{id}
    ============================================================ */
@@ -356,7 +385,43 @@ app.http('patchCase', {
        *  onto an un-numbered case) at EVA-add time during the parallel-run, and the
        *  cutover renumber uses the same write. Shape-validated; '' clears. */
       casePo?: string;
+      /** TKT-153: one reviewed field/address/decision save. */
+      inspectionDecision?: unknown;
+      editSession?: true;
     };
+    const explicitSave = body.editSession === true;
+    const parsedInspection =
+      body.inspectionDecision === undefined
+        ? undefined
+        : SaveInspectionDecisionParams.safeParse({
+            ...(body.inspectionDecision as Record<string, unknown>),
+            caseId: id,
+          });
+    if (parsedInspection && !parsedInspection.success) {
+      return {
+        status: 400,
+        jsonBody: {
+          error: 'invalid inspection decision',
+          message: 'Check the inspection choice and try again.',
+          issues: parsedInspection.error.issues,
+        },
+      };
+    }
+    const inspection = parsedInspection?.data;
+    const inspectionLines = (inspection?.addressLines ?? [])
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const inspectionPostcode = inspection?.postcode?.trim() ?? '';
+    const inspectionAddress = inspection
+      ? inspection.decisionMode === 'image_based'
+        ? 'Image Based Assessment'
+        : [...inspectionLines, ...(inspectionPostcode ? [inspectionPostcode] : [])]
+            .join('\n')
+            .slice(0, 2000)
+      : undefined;
+    const inspectionModeCode = inspection
+      ? inspectionDecisionCodec.toInt(inspection.decisionMode)
+      : undefined;
     const actor = actorFromClaims(claims);
     let attemptedCasePo: string | undefined;
     let outcome:
@@ -365,7 +430,8 @@ app.http('patchCase', {
       | {
           kind: 'changed';
           changedEvaFields: Array<{ key: EvaFieldKey; value: string }>;
-          statusGeneration: number;
+          statusGeneration?: number;
+          explicitSave: boolean;
         };
     try {
       outcome = await tx(async (q) => {
@@ -374,10 +440,31 @@ app.http('patchCase', {
           return { kind: 'response' as const, response: { status: 404, jsonBody: { error: 'not found' } } };
         }
         const expected = ifMatch(req);
+        if (explicitSave && !expected) {
+          return {
+            kind: 'response' as const,
+            response: {
+              status: 428,
+              jsonBody: {
+                error: 'version_required',
+                message: 'Reload this case before saving your changes.',
+              },
+            },
+          };
+        }
         if (expected && expected !== snapshot.version) {
           return {
             kind: 'response' as const,
-            response: { status: 409, jsonBody: { error: 'stale', currentVersion: snapshot.version } },
+            response: {
+              status: 409,
+              jsonBody: {
+                error: 'stale',
+                currentVersion: snapshot.version,
+                ...(explicitSave
+                  ? { message: 'This case changed while you were editing it. Reload it before saving.' }
+                  : {}),
+              },
+            },
           };
         }
         const existing = snapshot.value;
@@ -418,7 +505,65 @@ app.http('patchCase', {
             if (key === 'inspectionAddress') inspectionAddressChanged = true;
           }
         }
-        if (inspectionAddressChanged) sets.push('inspection_decision_code = NULL');
+        if (inspectionAddressChanged && !inspection) {
+          if (explicitSave) {
+            return {
+              kind: 'response' as const,
+              response: {
+                status: 400,
+                jsonBody: {
+                  error: 'inspection_decision_required',
+                  message: 'Choose an inspection address or Image Based Assessment before saving.',
+                },
+              },
+            };
+          }
+          sets.push('inspection_decision_code = NULL');
+        }
+
+        if (inspection) {
+          if (inspectionModeCode == null || inspectionAddress == null) {
+            return {
+              kind: 'response' as const,
+              response: { status: 400, jsonBody: { error: 'invalid inspection decision mode' } },
+            };
+          }
+          const submittedAddress = body.evaFields?.inspectionAddress;
+          if (submittedAddress !== undefined && submittedAddress !== inspectionAddress) {
+            return {
+              kind: 'response' as const,
+              response: {
+                status: 400,
+                jsonBody: {
+                  error: 'inspection_address_mismatch',
+                  message: 'The inspection address and choice do not match. Review them and try again.',
+                },
+              },
+            };
+          }
+          if (inspectionAddress !== existing.evaFields.inspectionAddress.value && submittedAddress === undefined) {
+            return {
+              kind: 'response' as const,
+              response: {
+                status: 400,
+                jsonBody: {
+                  error: 'inspection_address_required',
+                  message: 'Include the inspection address with the inspection choice.',
+                },
+              },
+            };
+          }
+          // An explicit decision payload is deliberate even when its mode/address
+          // text matches the prior row (for example, staff supplied a new reason).
+          // Write the decision column in this same statement so the paired address
+          // and choice can never be split or reordered.
+          sets.push(`inspection_decision_code = $${vals.length + 1}`);
+          vals.push(inspectionModeCode);
+          if (inspection.decisionMode !== existing.inspectionDecision) {
+            before.inspectionDecision = existing.inspectionDecision;
+          }
+          after.inspectionDecision = inspection.decisionMode;
+        }
 
         if (body.casePo !== undefined) {
           const raw = String(body.casePo ?? '').trim();
@@ -464,8 +609,122 @@ app.http('patchCase', {
         }
 
         if (sets.length === 0) return { kind: 'unchanged' as const, snapshot };
+
+        // TKT-153 explicit saves recompute readiness from the complete reviewed draft
+        // exactly once, inside this transaction, so a response can never confirm the
+        // field changes while carrying a stale status.
+        if (explicitSave) {
+          const changedByKey = new Map(changedEvaFields.map((field) => [field.key, field.value]));
+          const nextEvaFields = Object.fromEntries(
+            EVA_FIELD_ORDER.map(({ key }) => {
+              const prior = existing.evaFields[key];
+              return [
+                key,
+                changedByKey.has(key)
+                  ? { ...prior, value: changedByKey.get(key)!, reviewState: 'reviewed' as const }
+                  : prior,
+              ];
+            }),
+          ) as unknown as EvaFields;
+          const nextVrm = typeof after.vrm === 'string' ? after.vrm : existing.vrm;
+          const evaluated = statusForReviewCase({
+            status: existing.status,
+            evaFields: nextEvaFields,
+            evidence: existing.evidence,
+            instructionCount: existing.evidence.filter((item) => item.kind === 'instruction').length,
+            hasIdentity:
+              nextVrm.trim().length > 0 ||
+              existing.providerCode.trim().length > 0 ||
+              nextEvaFields.claimantName.value.trim().length > 0,
+            mergedInto: existing.mergedInto,
+          });
+          if (evaluated !== existing.status) {
+            sets.push(`status_code = $${vals.length + 1}`);
+            vals.push(statusToInt(evaluated));
+            before.status = existing.status;
+            after.status = evaluated;
+          }
+        }
         vals.push(id);
         await q(`UPDATE case_ SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}`, vals);
+
+        if (explicitSave) {
+          for (const field of changedEvaFields) {
+            await upsertManualProvenanceStrict(q, id, field.key, field.value);
+          }
+          if (inspection) {
+            const imageBased = inspection.decisionMode === 'image_based';
+            const label = (
+              imageBased
+                ? `Image Based Assessment (${id})`
+                : [inspectionLines[0], inspectionPostcode].filter(Boolean).join(', ') || 'Inspection address'
+            ).slice(0, 200);
+            const sourceNote = [
+              `case=${id}`,
+              ...(existing.providerCode ? [`provider=${existing.providerCode}`] : []),
+              inspection.sourceNote,
+            ].join(' ').trim();
+            await q(
+              `INSERT INTO inspection_address
+                 (label, decision_mode_code, decision_reason, source_label, source_note,
+                  address_line1, address_line2, address_line3, address_line4, address_line5, address_line6, postcode)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+               ON CONFLICT (label) DO UPDATE SET
+                 decision_mode_code = EXCLUDED.decision_mode_code,
+                 decision_reason = EXCLUDED.decision_reason,
+                 source_label = EXCLUDED.source_label,
+                 source_note = EXCLUDED.source_note,
+                 address_line1 = EXCLUDED.address_line1,
+                 address_line2 = EXCLUDED.address_line2,
+                 address_line3 = EXCLUDED.address_line3,
+                 address_line4 = EXCLUDED.address_line4,
+                 address_line5 = EXCLUDED.address_line5,
+                 address_line6 = EXCLUDED.address_line6,
+                 postcode = EXCLUDED.postcode`,
+              [
+                label,
+                inspectionModeCode,
+                imageBased ? inspection.sourceNote : null,
+                inspection.sourceLabel ?? (imageBased ? 'image_based' : 'manual'),
+                sourceNote,
+                inspectionLines[0] ?? null,
+                inspectionLines[1] ?? null,
+                inspectionLines[2] ?? null,
+                inspectionLines[3] ?? null,
+                inspectionLines[4] ?? null,
+                inspectionLines[5] ?? null,
+                imageBased ? null : inspectionPostcode || null,
+              ],
+            );
+          }
+          const fieldLabels = new Map(EVA_FIELD_ORDER.map((field) => [field.key, field.label]));
+          const changedFields = Object.keys(after).map((key) =>
+            fieldLabels.get(key as EvaFieldKey) ??
+            ({
+              vrm: 'Registration',
+              casePo: 'Case/PO',
+              caseType: 'Case type',
+              inspectionDecision: 'Inspection choice',
+              status: 'Readiness',
+            } as Record<string, string>)[key] ??
+            key,
+          );
+          await writeAuditStrict(
+            {
+              action: AUDIT_ACTION.status_changed,
+              caseId: id,
+              summary: `Case saved: ${changedFields.join(', ')}`,
+              // Record WHAT changed without copying claimant/contact values into the
+              // generic audit payload.
+              before: { changedFields },
+              after: { changedFields },
+              ...(actor ? { actor } : {}),
+            },
+            q,
+          );
+          return { kind: 'changed' as const, changedEvaFields, explicitSave: true };
+        }
+
         await writeAudit({
           action: AUDIT_ACTION.status_changed,
           caseId: id,
@@ -475,7 +734,7 @@ app.http('patchCase', {
           ...(actor ? { actor } : {}),
         }, q);
         const statusGeneration = await requestStatusRecompute(q, id);
-        return { kind: 'changed' as const, changedEvaFields, statusGeneration };
+        return { kind: 'changed' as const, changedEvaFields, statusGeneration, explicitSave: false };
       });
     } catch (e) {
       if (isUniqueViolation(e) && attemptedCasePo) {
@@ -503,22 +762,28 @@ app.http('patchCase', {
         jsonBody: { ...outcome.snapshot.value, version: outcome.snapshot.version },
       };
     }
-    for (const field of outcome.changedEvaFields) {
-      await upsertManualProvenance(id, field.key, field.value);
-    }
-    try {
-      const evaluated = await recomputeStatus(id, actor);
-      if (!evaluated) throw new Error('case was not available for readiness evaluation');
-      await acknowledgeStatusRecompute(query, id, outcome.statusGeneration);
-    } catch (error) {
-      ctx.warn(
-        `[patch-case] readiness recompute remains pending for ${id} ` +
-          `(generation ${outcome.statusGeneration}): ${error instanceof Error ? error.message : String(error)}`,
-      );
+    if (!outcome.explicitSave) {
+      for (const field of outcome.changedEvaFields) {
+        await upsertManualProvenance(id, field.key, field.value);
+      }
+      try {
+        const evaluated = await recomputeStatus(id, actor);
+        if (!evaluated) throw new Error('case was not available for readiness evaluation');
+        await acknowledgeStatusRecompute(query, id, outcome.statusGeneration!);
+      } catch (error) {
+        ctx.warn(
+          `[patch-case] readiness recompute remains pending for ${id} ` +
+            `(generation ${outcome.statusGeneration}): ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     }
     const updated = await loadCaseFullSnapshotUsing(query, id, new Date());
     return updated
-      ? { status: 200, jsonBody: { ...updated.value, version: updated.version } }
+      ? {
+          status: 200,
+          jsonBody: { ...updated.value, version: updated.version },
+          headers: { ETag: `"${updated.version}"`, 'Access-Control-Expose-Headers': 'ETag' },
+        }
       : { status: 404, jsonBody: { error: 'not found' } };
   }),
 });

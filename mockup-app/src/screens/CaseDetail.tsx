@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Outlet, useNavigate, useParams } from 'react-router-dom';
+import { Outlet, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { zipSync } from 'fflate';
 import {
   Badge,
@@ -110,6 +110,7 @@ import {
   activeGetSharedLinkTransport,
   activeLocationAssistTransport,
   getDataAccess,
+  serverMessageOf,
   type Case,
   type CaseStatus,
   type EvaFieldKey,
@@ -150,6 +151,13 @@ import {
   releaseEvidenceMutation,
   tryAcquireEvidenceMutation,
 } from './evidence-review';
+import {
+  buildExplicitCaseSave,
+  initialInspectionDraft,
+  shouldBlockCaseNavigation,
+  validateCaseEdit,
+  type CaseEditInspectionDraft,
+} from './case-edit-session';
 
 /* ============================================================
    CaseDetail — the core review screen.
@@ -159,7 +167,8 @@ import {
    (each ✗ row deep-links to the owning tab + field) and a greyed
    read-only "Case facts" panel.
 
-   MOCK ONLY — edits live in local React state; nothing persists.
+   Case fields use one explicit draft/save transaction. Photo controls remain
+   individually server-confirmed and are labelled separately on the Evidence tab.
    ============================================================ */
 
 const useStyles = makeStyles({
@@ -254,6 +263,31 @@ const useStyles = makeStyles({
     letterSpacing: '0.04em',
   },
   actions: { display: 'flex', gap: tokens.spacingHorizontalS, flexWrap: 'wrap', alignItems: 'center' },
+  saveBar: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: tokens.spacingHorizontalM,
+    flexWrap: 'wrap',
+    padding: `${tokens.spacingVerticalS} ${tokens.spacingHorizontalM}`,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderLeft: '3px solid var(--ce-charcoal)',
+    borderRadius: tokens.borderRadiusMedium,
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  saveBarMessage: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+    minWidth: 0,
+    flexGrow: 1,
+  },
+  saveBarActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+    flexWrap: 'wrap',
+  },
 
   grid: {
     display: 'grid',
@@ -848,7 +882,7 @@ export function CaseDetail() {
 
   return (
       <CaseDetailView
-        key={caseQuery.data.id}
+        key={`${caseQuery.data.id}:${caseQuery.data.version ?? 'unversioned'}`}
         caseData={caseQuery.data}
         images={imagesQuery.data ?? []}
         imagesLoading={imagesQuery.loading && imagesQuery.data === undefined}
@@ -875,8 +909,15 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const navigate = useNavigate();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
 
-  // Local working copy so mock edits feel live (never persisted).
+  // One local working copy plus the last server-confirmed baseline. EVA fields and
+  // the inspection decision remain here until the explicit Save succeeds.
   const [c, setC] = useState<Case>(caseData);
+  const [persistedCase, setPersistedCase] = useState<Case>(caseData);
+  const [caseVersion, setCaseVersion] = useState(caseData.version ?? '');
+  const [savingEdits, setSavingEdits] = useState(false);
+  const [saveError, setSaveError] = useState<string | undefined>(undefined);
+  const [saveConflict, setSaveConflict] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
 
   const refreshAfterAiPromotion = async () => {
     onRefreshImages();
@@ -900,11 +941,10 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const [noteDraft, setNoteDraft] = useState('');
   const [overrideAddr, setOverrideAddr] = useState(caseData.inspectionDecision === 'image_based');
   const [overrideReason, setOverrideReason] = useState('');
-  // The inspection decision mode — staff picking a suggested location sets it to
-  // 'manual' (an explicit human action). Seeded from the loaded case.
-  const [decisionMode, setDecisionMode] = useState<Case['inspectionDecision']>(
-    caseData.inspectionDecision,
+  const [inspectionDraft, setInspectionDraft] = useState<CaseEditInspectionDraft>(() =>
+    initialInspectionDraft(caseData),
   );
+  const decisionMode = inspectionDraft.decisionMode;
 
   // Low-confidence inspection-address SUGGESTIONS for this case (corpus). Always
   // surfaced strictly as suggestions; picking one copies it into the manual draft
@@ -1014,6 +1054,33 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const workflowBlocked = readiness.ready && blocked;
   const blockerCount = readiness.missing.length + (workflowBlocked ? 1 : 0);
 
+  const caseSaveInput = buildExplicitCaseSave(persistedCase, c, inspectionDraft);
+  const hasUnsavedChanges = caseSaveInput !== undefined;
+  const editValidation = hasUnsavedChanges
+    ? validateCaseEdit(c, inspectionDraft, persistedCase)
+    : [];
+  const validationByField = new Map(
+    editValidation.map((issue) => [issue.fieldKey, issue.message] as const),
+  );
+  const invalidFieldCount = new Set(editValidation.map((issue) => issue.fieldKey)).size;
+  const canSaveEdits =
+    hasUnsavedChanges &&
+    editValidation.length === 0 &&
+    caseVersion.length > 0 &&
+    !savingEdits &&
+    !saveConflict;
+  const navigationBlocker = useBlocker(shouldBlockCaseNavigation(hasUnsavedChanges));
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const warnBeforeClose = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warnBeforeClose);
+    return () => window.removeEventListener('beforeunload', warnBeforeClose);
+  }, [hasUnsavedChanges]);
+
   const toast = (title: string) =>
     dispatchToast(
       <Toast>
@@ -1022,60 +1089,103 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       { intent: 'success' },
     );
 
-  /* --- durable EVA field edits (work-todo-spike: ui-changes/casepage) ---
-     onTextChange keeps the working copy responsive while typing; on COMMIT
-     (blur / dropdown select / calendar pick) the field is PERSISTED via
-     updateCase. Per-field saving/error state drives the row's indicator. The
-     server recomputes status + the committed field; we adopt ONLY those so a
-     save never clobbers other locally-edited-but-uncommitted fields. */
-  const { update: persistField } = useCaseUpdate();
-  const cRef = useRef(c);
-  cRef.current = c;
-  const lastSavedRef = useRef<Partial<Record<EvaFieldKey, string>>>({});
-  const [savingKeys, setSavingKeys] = useState<ReadonlySet<EvaFieldKey>>(new Set());
-  const [errorKeys, setErrorKeys] = useState<ReadonlySet<EvaFieldKey>>(new Set());
+  const restorePersistedDraft = () => {
+    setC(persistedCase);
+    setInspectionDraft(initialInspectionDraft(persistedCase));
+    setOverrideAddr(persistedCase.inspectionDecision === 'image_based');
+    setOverrideReason('');
+    setConfirmedProvenance(undefined);
+    setSaveError(undefined);
+    setSaveConflict(false);
+    setDiscardOpen(false);
+  };
 
-  const commitField = async (key: EvaFieldKey, value: string) => {
-    const baseline = lastSavedRef.current[key] ?? caseData.evaFields[key].value;
-    if (value === baseline) return; // nothing actually changed
-    setSavingKeys((s) => new Set(s).add(key));
-    setErrorKeys((s) => {
-      const n = new Set(s);
-      n.delete(key);
-      return n;
-    });
+  const saveCaseEdits = async () => {
+    if (!caseSaveInput || editValidation.length > 0 || savingEdits) return;
+    if (!caseVersion) {
+      setSaveError('Reload this case before saving your changes.');
+      return;
+    }
+    setSavingEdits(true);
+    setSaveError(undefined);
+    setSaveConflict(false);
     try {
-      const updated = await persistField(caseData.id, { evaFields: { [key]: value } });
-      lastSavedRef.current[key] = value;
-      setC((prev) => ({
-        ...prev,
-        status: updated.status,
-        evaFields: { ...prev.evaFields, [key]: updated.evaFields[key] ?? prev.evaFields[key] },
-      }));
-    } catch {
-      setErrorKeys((s) => new Set(s).add(key));
-      dispatchToast(
-        <Toast>
-          <ToastTitle>Couldn’t save changes — try again</ToastTitle>
-        </Toast>,
-        { intent: 'error' },
+      const updated = await (data as DataAccessExt).saveCaseEdits(
+        c.id,
+        caseSaveInput,
+        caseVersion,
+      );
+      setC(updated);
+      setPersistedCase(updated);
+      setCaseVersion(updated.version ?? caseVersion);
+      setInspectionDraft(initialInspectionDraft(updated));
+      setOverrideAddr(updated.inspectionDecision === 'image_based');
+      setOverrideReason('');
+      setConfirmedProvenance(undefined);
+      toast('Changes saved');
+    } catch (error) {
+      const status =
+        error && typeof error === 'object' && 'status' in error
+          ? Number((error as { status?: unknown }).status)
+          : 0;
+      const conflict = status === 409;
+      setSaveConflict(conflict);
+      setSaveError(
+        conflict
+          ? 'This case changed while you were editing it. Reload it before saving.'
+          : serverMessageOf(error) ?? 'Your changes weren’t saved. Check your connection and try again.',
       );
     } finally {
-      setSavingKeys((s) => {
-        const n = new Set(s);
-        n.delete(key);
-        return n;
-      });
+      setSavingEdits(false);
+    }
+  };
+
+  const reloadLatestForReconcile = async () => {
+    if (!caseSaveInput || savingEdits) return;
+    setSavingEdits(true);
+    try {
+      const latest = await data.caseById(c.id);
+      if (!latest?.version) {
+        setSaveError('Couldn’t reload the latest case. Try again.');
+        return;
+      }
+      // Rebase only the fields this session actually changed. Concurrent edits to
+      // every other field stay on the latest server copy and cannot be overwritten.
+      const intendedFields = caseSaveInput.evaFields ?? {};
+      const reconciled: Case = {
+        ...latest,
+        evaFields: {
+          ...latest.evaFields,
+          ...Object.fromEntries(
+            Object.keys(intendedFields).map((key) => [
+              key,
+              c.evaFields[key as EvaFieldKey],
+            ]),
+          ),
+        },
+      };
+      if (caseSaveInput.caseType !== undefined) {
+        if (c.caseType) reconciled.caseType = c.caseType;
+        else delete reconciled.caseType;
+      }
+      setPersistedCase(latest);
+      setCaseVersion(latest.version);
+      setC(reconciled);
+      setInspectionDraft(
+        caseSaveInput.inspectionDecision ? inspectionDraft : initialInspectionDraft(latest),
+      );
+      setSaveConflict(false);
+      setSaveError(undefined);
+      toast('Latest case loaded — review your changes before saving');
+    } catch {
+      setSaveError('Couldn’t reload the latest case. Try again.');
+    } finally {
+      setSavingEdits(false);
     }
   };
 
   /* --- Case type (TKT-057 — the AP. review-time refinement) ---
-     Shown when the provider is marker-allowlisted (PCH/QDOS — allowedCaseTypes)
-     or the case already carries a non-standard type. Persists via the existing
-     PATCH { caseType } seam; the derived marker ID (marker + Case/PO, e.g.
-     AP.PCH26010) renders beside it once it applies — presentation-only, the
-     stored Case/PO is never renamed. */
-  const { update: updateCaseType, saving: savingCaseType } = useCaseUpdate();
+     This is part of the same explicit draft as the EVA fields. */
   const currentCaseType: CaseWorkType = c.caseType ?? 'standard';
   const caseTypeOptions = useMemo<CaseWorkType[]>(() => {
     const opts = new Set<CaseWorkType>(['standard', ...allowedCaseTypes(c.providerCode)]);
@@ -1085,30 +1195,15 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const showCaseTypeControl =
     allowedCaseTypes(c.providerCode).length > 0 || currentCaseType !== 'standard';
   const derivedAuditId = derivedMarkerCasePo(currentCaseType, c.casePo);
-  const setCaseType = async (next: CaseWorkType) => {
-    if (next === currentCaseType || savingCaseType) return;
-    try {
-      const updated = await updateCaseType(c.id, { caseType: next });
-      setC((prev) => {
-        const merged: Case = { ...prev, ...updated };
-        // The server omits caseType for a standard case — an omitted key must
-        // CLEAR the old value, not keep it.
-        if (!updated.caseType) delete merged.caseType;
-        return merged;
-      });
-      toast(
-        next === 'standard'
-          ? 'Recorded as a standard case'
-          : `Recorded as ${CASE_WORK_TYPE_LABELS[next].toLowerCase()}`,
-      );
-    } catch {
-      dispatchToast(
-        <Toast>
-          <ToastTitle>Couldn’t update the case type — try again</ToastTitle>
-        </Toast>,
-        { intent: 'error' },
-      );
-    }
+  const setCaseType = (next: CaseWorkType) => {
+    if (next === currentCaseType) return;
+    setC((previous) => {
+      const updated = { ...previous };
+      if (next === 'standard') delete updated.caseType;
+      else updated.caseType = next;
+      return updated;
+    });
+    toast('Case type selected — save changes when ready');
   };
 
   /* --- Close case (TKT-010, re-scoped 2026-07-08) ---
@@ -1272,6 +1367,16 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     }
   };
 
+  const focusFirstEditIssue = () => {
+    const first = editValidation[0];
+    if (!first) return;
+    setTab('fields');
+    requestAnimationFrame(() => {
+      document.getElementById(`field-${first.fieldKey}`)?.scrollIntoView({ block: 'center' });
+      fieldRefs.current[first.fieldKey]?.focus();
+    });
+  };
+
   /* --- field edits --- */
   const onTextChange = (key: EvaFieldKey, value: string) => {
     setC((prev) => {
@@ -1286,6 +1391,26 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
         },
       };
     });
+    if (key === 'inspectionAddress') {
+      const trimmed = value.trim();
+      setInspectionDraft((current) => ({
+        decisionMode:
+          trimmed === 'Image Based Assessment'
+            ? 'image_based'
+            : trimmed
+              ? 'manual'
+              : 'unknown',
+        sourceLabel: trimmed === 'Image Based Assessment' ? 'image_based' : 'manual',
+        sourceNote:
+          trimmed === 'Image Based Assessment'
+            ? current.sourceNote
+            : 'Entered and confirmed by staff',
+        touched: true,
+      }));
+      setOverrideAddr(trimmed === 'Image Based Assessment');
+      if (trimmed !== 'Image Based Assessment') setOverrideReason('');
+      setConfirmedProvenance(undefined);
+    }
   };
 
   /* Pick a SUGGESTED location (corpus OR live-assist): copy its lines into the
@@ -1329,8 +1454,6 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     if (decision.imageBased || decision.needsReviewerDecision) return;
     const resolvedMode = decision.decisionMode ?? 'manual';
     onTextChange('inspectionAddress', draft);
-    void commitField('inspectionAddress', draft); // persist the picked address durably
-    setDecisionMode(resolvedMode);
     setOverrideAddr(false); // a real address supersedes any image-based override
     // Capture the confirmed decision's provenance into local state (rendered as the
     // caption below the draft). The reviewer has just CONFIRMED this pick, so the
@@ -1350,27 +1473,16 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
               : 'Suggested from the photos',
           }
         : { sourceLabel: 'confirmed:corpus', sourceNote: 'Picked from suggested locations' };
+    setInspectionDraft({
+      decisionMode: resolvedMode,
+      sourceLabel: provenance.sourceLabel,
+      sourceNote: provenance.sourceNote,
+      touched: true,
+    });
     // Live-assist picks set the caption; corpus picks clear it (parity with prior behaviour).
     setConfirmedProvenance(s.source === 'assist' ? provenance : undefined);
     setTab('address');
-    toast('Suggested location copied to the address — review before submit');
-
-    // PERSIST the human-confirmed decision + its provenance to the corpus table
-    // (ADR-0013: fires ONLY here, on the explicit "Use this address" click — never
-    // on load, never auto-resolved). Honest no-op until the table is wired, so the
-    // local working copy above is always the source of truth in the meantime; a
-    // write failure must not undo the in-screen pick, so it is best-effort.
-    void data
-      .saveInspectionDecision(c.id, {
-        decisionMode: resolvedMode,
-        sourceLabel: provenance.sourceLabel,
-        sourceNote: provenance.sourceNote,
-        addressLines: s.lines,
-        ...(s.postcode ? { postcode: s.postcode } : {}),
-      })
-      .catch(() => {
-        /* persistence is supplementary — the local pick already stands */
-      });
+    toast('Address selected — save changes when ready');
   };
 
   /* Confirm an Image Based Assessment override. The reviewer ticked "Override to
@@ -1387,23 +1499,14 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       return;
     }
     onTextChange('inspectionAddress', 'Image Based Assessment');
-    void commitField('inspectionAddress', 'Image Based Assessment'); // persist durably
-    setDecisionMode('image_based');
+    setInspectionDraft({
+      decisionMode: 'image_based',
+      sourceLabel: 'image_based',
+      sourceNote: reason,
+      touched: true,
+    });
     setConfirmedProvenance(undefined);
-    toast('Image Based Assessment recorded — review before submit');
-
-    // PERSIST the image-based decision + reason (ADR-0013: fires ONLY here, on this
-    // explicit confirm). Honest no-op until the table is wired; best-effort so a
-    // write failure never undoes the in-screen decision.
-    void data
-      .saveInspectionDecision(c.id, {
-        decisionMode: 'image_based',
-        sourceLabel: 'image_based',
-        sourceNote: reason,
-      })
-      .catch(() => {
-        /* persistence is supplementary — the local decision already stands */
-      });
+    toast('Image Based Assessment selected — save changes when ready');
   };
 
   /* Run the live location-assist (Phase 4a). Builds the request from data ALREADY
@@ -1811,7 +1914,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                   <Button
                     appearance="primary"
                     icon={savingVrm ? <Spinner size="tiny" /> : <Check size={16} />}
-                    disabled={savingVrm || vrmCheck.status === 'empty'}
+                    disabled={savingVrm || hasUnsavedChanges || vrmCheck.status === 'empty'}
                     onClick={() => void saveVrm()}
                   >
                     Save
@@ -1836,6 +1939,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                       size="small"
                       icon={<Pencil size={14} />}
                       onClick={beginEditVrm}
+                      disabled={hasUnsavedChanges}
                     />
                   </Tooltip>
                 </span>
@@ -1870,7 +1974,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                   <Button
                     appearance="primary"
                     icon={savingPo ? <Spinner size="tiny" /> : <Check size={16} />}
-                    disabled={savingPo || !poShapeOk}
+                    disabled={savingPo || hasUnsavedChanges || !poShapeOk}
                     onClick={() => void savePo()}
                   >
                     Save
@@ -1897,6 +2001,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                       icon={<Pencil size={14} />}
                       aria-label={c.casePo ? 'Correct the Case/PO' : 'Set the Case/PO'}
                       onClick={beginEditPo}
+                      disabled={hasUnsavedChanges}
                     />
                   </Tooltip>
                 </span>
@@ -1934,12 +2039,15 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                     );
                   }
                 }}
+                disabled={hasUnsavedChanges}
               >
                 {c.onHold ? 'Release' : 'Hold'}
               </Button>
               <Tooltip
                 content={
-                  blocked
+                  hasUnsavedChanges
+                    ? 'Save or discard changes before exporting'
+                    : blocked
                     ? `Can't export yet — ${blockerCount} item(s) outstanding`
                     : 'Download one zip — the EVA file plus every included photo, in upload order'
                 }
@@ -1948,20 +2056,26 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                 <Button
                   appearance="secondary"
                   icon={exportingEva ? <Spinner size="tiny" /> : <Download size={16} />}
-                  disabled={blocked || isRemoved || exportingEva}
+                  disabled={blocked || isRemoved || exportingEva || hasUnsavedChanges}
                   onClick={() => void onExportForEva()}
                 >
                   {exportingEva ? 'Exporting…' : 'Export for EVA'}
                 </Button>
               </Tooltip>
               <Tooltip
-                content={blocked ? `Can't submit to EVA yet — ${blockerCount} item(s) outstanding` : 'Submit this case to EVA'}
+                content={
+                  hasUnsavedChanges
+                    ? 'Save or discard changes before submitting'
+                    : blocked
+                      ? `Can't submit to EVA yet — ${blockerCount} item(s) outstanding`
+                      : 'Submit this case to EVA'
+                }
                 relationship="label"
               >
                 <Button
                   appearance="primary"
                   icon={<Send size={16} />}
-                  disabled={blocked || isRemoved}
+                  disabled={blocked || isRemoved || hasUnsavedChanges}
                   onClick={() => navigate(`/case/${c.id}/submit`)}
                 >
                   Submit to EVA
@@ -1979,7 +2093,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                   <Button
                     appearance="primary"
                     icon={markingDone ? <Spinner size="tiny" /> : <CheckCircle2 size={16} />}
-                    disabled={markingDone}
+                    disabled={markingDone || hasUnsavedChanges}
                     onClick={() => void onMarkReportDelivered()}
                   >
                     {markingDone ? 'Recording…' : 'Mark report delivered'}
@@ -1992,7 +2106,12 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                 <Menu>
                   <MenuTrigger disableButtonEnhancement>
                     <Tooltip content="More actions" relationship="label">
-                      <Button appearance="subtle" icon={<MoreHorizontal size={16} />} aria-label="More actions" />
+                      <Button
+                        appearance="subtle"
+                        icon={<MoreHorizontal size={16} />}
+                        aria-label="More actions"
+                        disabled={hasUnsavedChanges}
+                      />
                     </Tooltip>
                   </MenuTrigger>
                   <MenuPopover>
@@ -2037,7 +2156,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                     <Button
                       appearance="outline"
                       size="small"
-                      icon={savingCaseType ? <Spinner size="tiny" /> : <ChevronDown size={14} />}
+                      icon={<ChevronDown size={14} />}
                       iconPosition="after"
                       aria-label={`Case type: ${CASE_WORK_TYPE_LABELS[currentCaseType]}`}
                     >
@@ -2113,6 +2232,61 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
         </MessageBar>
       )}
 
+      <div className={styles.saveBar} aria-live="polite">
+        <div className={styles.saveBarMessage} role="status">
+          <Text weight="semibold">
+            {savingEdits
+              ? 'Saving changes…'
+              : saveError
+                ? 'Changes not saved'
+                : hasUnsavedChanges
+                  ? 'Unsaved changes'
+                  : 'No unsaved changes'}
+          </Text>
+          <Caption1 className={styles.hint}>
+            {saveError ??
+              (!caseVersion && hasUnsavedChanges
+                ? 'Reload this case before saving your changes.'
+                : invalidFieldCount > 0
+                  ? `${invalidFieldCount} field${invalidFieldCount === 1 ? '' : 's'} need attention before saving.`
+                  : hasUnsavedChanges
+                    ? 'Review the changes, then save or discard them.'
+                    : 'Edits only take effect after you save them.')}
+          </Caption1>
+        </div>
+        <div className={styles.saveBarActions}>
+          {saveConflict && (
+            <Button
+              appearance="secondary"
+              disabled={savingEdits}
+              onClick={() => void reloadLatestForReconcile()}
+            >
+              Reload latest
+            </Button>
+          )}
+          {editValidation.length > 0 && (
+            <Button appearance="subtle" onClick={focusFirstEditIssue}>
+              Review fields
+            </Button>
+          )}
+          <Button
+            appearance="secondary"
+            disabled={!hasUnsavedChanges || savingEdits}
+            onClick={() => setDiscardOpen(true)}
+          >
+            Discard changes
+          </Button>
+          <Button
+            appearance="primary"
+            icon={savingEdits ? <Spinner size="tiny" /> : <Check size={16} />}
+            disabled={!canSaveEdits}
+            onClick={() => void saveCaseEdits()}
+          >
+            {savingEdits ? 'Saving…' : saveError && !saveConflict ? 'Try again' : 'Save changes'}
+          </Button>
+        </div>
+      </div>
+
       <div className={styles.grid}>
         {/* ---------------- MAIN ---------------- */}
         <div className={styles.main}>
@@ -2144,10 +2318,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                             required={LABEL_FOR[key].required}
                             field={c.evaFields[key]}
                             onChange={onTextChange}
-                            onCommit={(k, v) => void commitField(k, v)}
-                            saving={savingKeys.has(key)}
-                            saveError={errorKeys.has(key)}
-                            onRetry={() => void commitField(key, cRef.current.evaFields[key].value)}
+                            validationMessage={validationByField.get(key)}
                             rowId={`field-${key}`}
                             registerRef={registerRef}
                           />
@@ -2160,6 +2331,9 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
 
               {tab === 'evidence' && (
                 <div className={styles.stack}>
+                  <Caption1 className={styles.hint}>
+                    Photo choices save as you make them. Use Save changes for case fields and the inspection choice.
+                  </Caption1>
                   {/* Case archive (Box) — folder deep link at the top. Prefers the
                       stored folder shared-link (works with no live connector, e.g.
                       the free-account demo); falls back to the connector "Open in
@@ -2465,7 +2639,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
 
                   <Checkbox
                     checked={overrideAddr}
-                    label="Override to Image Based Assessment"
+                    label="Set as Image Based Assessment"
                     onChange={(_, d) => setOverrideAddr(!!d.checked)}
                   />
                   {overrideAddr && (
@@ -2484,7 +2658,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                           onClick={confirmImageBased}
                           disabled={!overrideReason.trim()}
                         >
-                          Record Image Based Assessment
+                          Use Image Based Assessment
                         </Button>
                       </div>
                     </>
@@ -2669,9 +2843,73 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
           {/* Gated AI "Assistant" (TKT-015) — renders NOTHING unless AI_ASSIST_ENABLED.
               Observation-first: suggestions with Accept/Reject; nothing mutates the case
               on its own (the API promotes an accepted value FILL-IF-EMPTY). */}
-          <AiAssistPanel caseId={c.id} onPromoted={() => void refreshAfterAiPromotion()} />
+          <AiAssistPanel
+            caseId={c.id}
+            disabled={hasUnsavedChanges}
+            onPromoted={() => void refreshAfterAiPromotion()}
+          />
         </div>
       </div>
+
+      <Dialog
+        open={discardOpen}
+        modalType="modal"
+        onOpenChange={(_, detail) => {
+          if (!detail.open && !savingEdits) setDiscardOpen(false);
+        }}
+      >
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>Discard unsaved changes?</DialogTitle>
+            <DialogContent>
+              The case will return to the last saved values.
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="secondary" onClick={() => setDiscardOpen(false)}>
+                Keep editing
+              </Button>
+              <Button appearance="primary" onClick={restorePersistedDraft}>
+                Discard changes
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+
+      <Dialog
+        open={navigationBlocker.state === 'blocked'}
+        modalType="modal"
+        onOpenChange={(_, detail) => {
+          if (!detail.open && navigationBlocker.state === 'blocked') navigationBlocker.reset();
+        }}
+      >
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>Leave without saving?</DialogTitle>
+            <DialogContent>
+              This case has unsaved changes. Stay to save them, or leave and discard them.
+            </DialogContent>
+            <DialogActions>
+              <Button
+                appearance="secondary"
+                onClick={() => {
+                  if (navigationBlocker.state === 'blocked') navigationBlocker.reset();
+                }}
+              >
+                Stay on case
+              </Button>
+              <Button
+                appearance="primary"
+                onClick={() => {
+                  if (navigationBlocker.state === 'blocked') navigationBlocker.proceed();
+                }}
+              >
+                Leave without saving
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
 
       {/* Close-case confirmation (TKT-010) — all staff. Typed confirm (kept as
           deliberate friction) + the archive ACK; the server sets the terminal

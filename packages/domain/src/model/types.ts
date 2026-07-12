@@ -297,6 +297,9 @@ import type { CaseWorkType } from '../domain/case-type';
 /* ----------  Case (the live work item)  ---------- */
 export interface Case {
   id: string;
+  /** Optimistic-concurrency token returned by a single-case read/write. Queue/list
+   *  payloads may omit it; an edit session must have one before it can save. */
+  version?: string;
   vrm: string;
   /** Entered at EVA submit; absent until then. */
   casePo?: string;

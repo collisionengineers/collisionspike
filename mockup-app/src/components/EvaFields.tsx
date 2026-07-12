@@ -106,6 +106,8 @@ export interface EvaFieldRowProps {
   saveError?: boolean;
   /** Retry the failed save for this field. */
   onRetry?: () => void;
+  /** Explicit edit-session validation. Supersedes the generic required message. */
+  validationMessage?: string;
   /** Optional row id (CaseDetail's deep-link scroll target, e.g. `field-<key>`). */
   rowId?: string;
   /** Optional focus-target registrar (CaseDetail deep-links focus the control). */
@@ -124,13 +126,15 @@ export function EvaFieldRow({
   saving,
   saveError,
   onRetry,
+  validationMessage,
   rowId,
   registerRef,
 }: EvaFieldRowProps) {
   const styles = useStyles();
   const empty = field.value.trim().length === 0;
-  const validation =
-    required && empty
+  const validation = validationMessage
+    ? ({ validationState: 'error' as const, validationMessage })
+    : required && empty
       ? ({ validationState: 'error' as const, validationMessage: 'Required' })
       : {};
 

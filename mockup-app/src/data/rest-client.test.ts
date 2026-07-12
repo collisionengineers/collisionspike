@@ -200,6 +200,64 @@ describe('rest-client — updateCase / editable VRM (issue #12)', () => {
     expect(init.method).toBe('PATCH');
     expect(init.body).toBe(JSON.stringify(patch));
   });
+
+  it('saves a reviewed field/address/decision set in one versioned PATCH', async () => {
+    const response = { ...updated, version: 'v8', inspectionDecision: 'manual' };
+    const fetchMock = vi.fn().mockResolvedValue(okJson(response));
+    const da = clientWith(fetchMock);
+    const patch = {
+      evaFields: { claimantName: 'Jane Example', inspectionAddress: '10 Example Road' },
+      inspectionDecision: {
+        decisionMode: 'manual' as const,
+        sourceLabel: 'manual',
+        sourceNote: 'Entered and confirmed by staff',
+        addressLines: ['10 Example Road'],
+      },
+    };
+
+    await expect(da.saveCaseEdits(caseId, patch, 'v7')).resolves.toEqual(response);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const init = lastInit(fetchMock);
+    expect(init.method).toBe('PATCH');
+    expect((init.headers as Record<string, string>)['If-Match']).toBe('v7');
+    expect(JSON.parse(String(init.body))).toEqual({ ...patch, editSession: true });
+  });
+
+  it('cannot expose an early inspection success while the single save is delayed', async () => {
+    let resolveResponse!: (value: ReturnType<typeof okJson>) => void;
+    const delayed = new Promise<ReturnType<typeof okJson>>((resolve) => {
+      resolveResponse = resolve;
+    });
+    const fetchMock = vi.fn().mockReturnValue(delayed);
+    const da = clientWith(fetchMock);
+    const body = {
+      evaFields: { inspectionAddress: 'Image Based Assessment' },
+      inspectionDecision: {
+        decisionMode: 'image_based' as const,
+        sourceLabel: 'image_based',
+        sourceNote: 'Confirmed by staff',
+      },
+    };
+    let settled = false;
+    const save = da.saveCaseEdits(caseId, body, 'v7').finally(() => {
+      settled = true;
+    });
+
+    await Promise.resolve();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(settled).toBe(false);
+    resolveResponse(okJson({ ...updated, version: 'v8' }));
+    await save;
+    expect(settled).toBe(true);
+  });
+
+  it('rejects a failed reviewed save without mutating the retry body', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(503, '{"message":"Try again."}'));
+    const da = clientWith(fetchMock);
+    const patch = { evaFields: { claimantName: 'Jane Example' } };
+    await expect(da.saveCaseEdits(caseId, patch, 'v7')).rejects.toThrow(/503/);
+    expect(patch).toEqual({ evaFields: { claimantName: 'Jane Example' } });
+  });
 });
 
 describe('rest-client — assistant confirmation snapshots (TKT-111 repair)', () => {
