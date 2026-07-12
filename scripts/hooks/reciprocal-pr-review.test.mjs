@@ -140,6 +140,8 @@ test('status backstop recalculates on base edits and default-branch pushes witho
   assert.match(workflow, /push:\s*\n\s+branches: \[main\]/u);
   assert.match(workflow, /state: "open"/u);
   assert.match(workflow, /core\.setFailed\("Unable to resolve a valid pull request number\."\);\s+continue;/u);
+  assert.match(workflow, /let writeStatus = null;\s+try \{\s+const \{ data: pull \} = await github\.rest\.pulls\.get/u);
+  assert.match(workflow, /if \(writeStatus\) await writeStatus\("failure"[\s\S]*?continue;/u);
   assert.match(workflow, /ref: baseSha/u);
   assert.doesNotMatch(workflow, /actions\/checkout/u);
 });
