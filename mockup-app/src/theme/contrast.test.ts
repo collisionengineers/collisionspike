@@ -153,6 +153,24 @@ describe('WCAG contrast (≥ 4.5:1)', () => {
   });
 });
 
+describe('WCAG focus appearance contrast (≥ 3:1)', () => {
+  it('the outer focus stroke clears 3:1 against white controls and cards', () => {
+    const r = ratio('--ce-focus-stroke', '#ffffff');
+    expect(r, `--ce-focus-stroke on white = ${r.toFixed(2)}:1`).toBeGreaterThanOrEqual(3);
+  });
+
+  it('the focus separator clears 3:1 against the charcoal navigation rail', () => {
+    const r = ratio('--ce-focus-separator', '--ce-charcoal');
+    expect(r, `--ce-focus-separator on charcoal = ${r.toFixed(2)}:1`).toBeGreaterThanOrEqual(3);
+  });
+
+  it('uses the solid two-layer recipe instead of the old translucent halo', () => {
+    expect(css).toContain('0 0 0 2px var(--ce-focus-separator)');
+    expect(css).toContain('0 0 0 5px var(--ce-focus-stroke)');
+    expect(css).not.toContain('0 0 0 3px rgba(219, 8, 22, 0.55)');
+  });
+});
+
 describe('red budget guards', () => {
   // Built in pieces so this file passes its own source sweep below.
   const PRINT_RED = ['c80a', '32'].join('');

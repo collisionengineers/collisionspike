@@ -1,11 +1,11 @@
 ---
 id: TKT-155
 title: Simplify the dashboard around Not Ready, Review and Held
-status: verify
+status: now
 priority: P2
 area: dashboard
 tickets-it-relates-to: [TKT-007, TKT-012, TKT-026, TKT-054, TKT-122, TKT-130, TKT-164]
-research-link: docs/tickets/verify/TKT-155-dashboard-three-state-layout/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-155-dashboard-three-state-layout/evidence/operator-note.md
 plan: PLAN-004
 ---
 
@@ -20,7 +20,12 @@ The live dashboard repeats queue information in three places and gives most of t
 - TKT-054 — introduced the queue snapshot this request supersedes.
 
 ## Proposed change
-PROPOSED (not built): remove the duplicate action/queue panels, promote Held to an equal top-level card, and rebalance the remaining inbox/throughput information inside a centred responsive layout.
+The three-card dashboard is built and deployed. Independent live verification reopened this ticket to repair the fixed navigation rail at narrow widths and bring the focus indicator above the required contrast threshold.
+
+## Live verification regression — 2026-07-12
+- Queue content and all three drill-throughs are correct.
+- At 390px width, the fixed 240px navigation rail crushes and clips the dashboard cards.
+- The current translucent red focus halo measures approximately 2.80:1 against white, below the 3:1 requirement.
 
 ## Acceptance
 - The dashboard's primary intake group contains exactly three equal-status cards: Not Ready, Review and Held. Each uses the authoritative queue count and opens its matching queue.

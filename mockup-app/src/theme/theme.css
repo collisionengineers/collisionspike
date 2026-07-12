@@ -84,6 +84,8 @@
   --ce-red: #db0816;
   --ce-red-dark: #8f1422;
   --ce-red-tint: rgba(219, 8, 22, 0.07);
+  --ce-focus-stroke: var(--ce-red);
+  --ce-focus-separator: #ffffff;
   --ce-charcoal: #2c2a27;
   --ce-ink: #16191d;
   --ce-muted: #6b6b6b;
@@ -298,11 +300,15 @@ body,
 }
 
 /* ----------  CE focus ring  ----------
-   3px CE-red halo. Apply `.ce-focusable` to any custom interactive surface
-   that doesn't already inherit a Fluent focus indicator. */
+   A 2px white separator plus a 3px solid CE-red outer stroke. The red clears
+   3:1 against white, while the separator keeps the indicator unmistakable on
+   the charcoal rail and other dark surfaces. Apply `.ce-focusable` to any
+   custom interactive surface that doesn't inherit a Fluent indicator. */
 .ce-focusable:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(219, 8, 22, 0.55);
+  box-shadow:
+    0 0 0 2px var(--ce-focus-separator),
+    0 0 0 5px var(--ce-focus-stroke);
   border-radius: 2px;
 }
 
