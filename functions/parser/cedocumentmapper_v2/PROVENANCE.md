@@ -31,7 +31,7 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 **2026-07-12 (TKT-150 placeholder hardening):** re-cut from the sibling at
 **`engine-v2.22`** (branch `codex/tkt-150-claimant-extraction`, commit `9998284`; branch + annotated
-tag pushed unchanged to origin). One engine file, `rules/engine.py`: claimant-specific absence
+tag pushed unchanged to origin and merged to sibling `main` by PR 8 on 2026-07-12). One engine file, `rules/engine.py`: claimant-specific absence
 markers (`TBC`, `TBA`, `N/A`, `None`, `Unknown`, and their reviewed long forms) are rejected at both
 the configured-rule safety boundary and the explicit-label fallback. A placeholder therefore stays
 blank when no defensible claimant exists and cannot block a later defensible prose candidate. The
@@ -480,7 +480,7 @@ nothing further to do here.
   `providers.json`, which lives at the sibling repo root)
 - **Cut from:** annotated tag **`engine-v2.22`** on branch
   `codex/tkt-150-claimant-extraction`, commit **`9998284`** (2026-07-12). The branch and tag are
-  **pushed unchanged to origin** and pass the trusted private-sibling proof. Changed vs
+  **pushed unchanged to origin**, merged to sibling `main` by PR 8 on 2026-07-12, and pass the trusted private-sibling proof. Changed vs
   `engine-v2.21`: `rules/engine.py` ONLY (TKT-150 claimant placeholders are absence, cannot win a
   configured/explicit-label path, and cannot block a later defensible claimant; no taxonomy/DDL
   dependency; providers.json untouched). Prior pin: annotated tag **`engine-v2.21`**, commit

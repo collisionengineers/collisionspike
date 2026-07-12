@@ -16,7 +16,7 @@ verification remain dispatcher-owned follow-up work.
   continuation, safe explicit surnames, organisation rejection, and domain-qualified prose anchors.
 - Sibling `9998284` / `engine-v2.22` — reject claimant absence markers (`TBC`, `TBA`, `N/A`,
   `None`, `Unknown`, and reviewed long forms); the annotated tag is pushed unchanged.
-- CollisionSpike `364cc25`, `311aa1b`, `103a35b`, `9c6e4df`, and `6982347` — pure-mirror cuts
+- CollisionSpike `14914d9`, `fb7aaa6`, `42a5036`, `b0e1ae1`, and `4c29b26` — pure-mirror cuts
   through `engine-v2.22`, immutable-lock regeneration, and matching wrapper regressions.
 
 ## Files touched
