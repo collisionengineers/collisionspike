@@ -29,6 +29,21 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-12 (TKT-150 legacy-DOC deployment repair):** re-cut from the sibling at
+**`engine-v2.23`** (branch `codex/tkt-150-legacy-doc-reader`, commit
+`3dd1f305fc16fa4489bea3c4eada65f85c45ae69`; branch + annotated tag pushed unchanged to origin).
+One engine file, `readers/doc.py`: Word 97+ OLE documents are now decoded from their authoritative
+CLX piece table in-process, with strict stream/offset/size bounds. Both compressed Windows-1252 and
+uncompressed UTF-16 pieces are supported, and Word table-cell controls become extraction boundaries.
+The Function deployment path therefore no longer depends on a Word, LibreOffice, or antiword
+executable for this document family; those remain desktop compatibility fallbacks. The existing
+QDOS table fixture now runs without a LibreOffice skip and recovers both claimant and accident
+narrative; a new RTF-in-DOC signature-only negative keeps claimant blank. Sibling focused checks:
+ruff + strict mypy clean for the changed reader, with the two new positive/negative checks passing;
+full suite **525 passed / 4 skipped / 4 pre-existing ACSP/eval-baseline failures** (the former QDOS
+legacy-DOC failure is removed). No taxonomy/DDL dependency; providers.json untouched; the cloud
+boundary remains a pure mirror.
+
 **2026-07-12 (TKT-150 placeholder hardening):** re-cut from the sibling at
 **`engine-v2.22`** (branch `codex/tkt-150-claimant-extraction`, commit `9998284`; branch + annotated
 tag pushed unchanged to origin and merged to sibling `main` by PR 8 on 2026-07-12). One engine file, `rules/engine.py`: claimant-specific absence
@@ -478,12 +493,15 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.22`** on branch
-  `codex/tkt-150-claimant-extraction`, commit **`9998284`** (2026-07-12). The branch and tag are
-  **pushed unchanged to origin**, merged to sibling `main` by PR 8 on 2026-07-12, and pass the trusted private-sibling proof. Changed vs
-  `engine-v2.21`: `rules/engine.py` ONLY (TKT-150 claimant placeholders are absence, cannot win a
-  configured/explicit-label path, and cannot block a later defensible claimant; no taxonomy/DDL
-  dependency; providers.json untouched). Prior pin: annotated tag **`engine-v2.21`**, commit
+- **Cut from:** annotated tag **`engine-v2.23`** on branch
+  `codex/tkt-150-legacy-doc-reader`, commit **`3dd1f305fc16fa4489bea3c4eada65f85c45ae69`**
+  (2026-07-12). The branch and tag are **pushed unchanged to origin** and pass the immutable source
+  proof. Changed vs `engine-v2.22`: `readers/doc.py` ONLY — bounded, pure-Python Word 97+ CLX
+  piece-table extraction (compressed and Unicode pieces; no host binary); no taxonomy/DDL dependency;
+  providers.json untouched. Prior pin: annotated tag **`engine-v2.22`**, commit **`9998284`**
+  (2026-07-12), merged to sibling `main` by PR 8 — TKT-150 claimant placeholders are absence,
+  cannot win a configured/explicit-label path, and cannot block a later defensible claimant. Prior
+  pin: annotated tag **`engine-v2.21`**, commit
   **`8bf8311`** (2026-07-12) — generic representation prose requires an explicit client/claimant
   domain noun; no taxonomy/DDL dependency; providers.json untouched. Prior pin: annotated tag
   **`engine-v2.20`**, commit **`3809941`** (2026-07-12) —
@@ -546,7 +564,7 @@ nothing further to do here.
 
 ## Reconciliations: none outstanding
 
-As of `engine-v2.1` (and unchanged through `engine-v2.22`) this copy is a **pure
+As of `engine-v2.1` (and unchanged through `engine-v2.23`) this copy is a **pure
 mirror** — no vendored-only or sibling-only divergence remains. The executable
 boundary is enforced by `VENDOR_LOCK.json` and
 `scripts/verify_vendor_pin.py`: every shared `.py` module, bundled resource
@@ -631,7 +649,7 @@ must stay off the cloud path (see "Omitted modules" above).
 Run from the repo root (`collisionspike/`), Git Bash / bash:
 
 ```bash
-REF=engine-v2.22  # the committed, tagged sibling ref you are cutting from
+REF=engine-v2.23  # the committed, tagged sibling ref you are cutting from
 S=../cedocumentmapper_v2.0   # sibling repo
 V=functions/parser/cedocumentmapper_v2
 

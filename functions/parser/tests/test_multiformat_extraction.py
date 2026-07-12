@@ -10,8 +10,8 @@ A regression back to "only registration" fails this loudly.
 
 Tolerant by design (non-empty / provider-match assertions, not brittle exact goldens —
 that is ``test_engine_smoke``'s job) so minor rule tweaks don't false-fail. Individual
-fixtures skip cleanly where a reader's deps are absent (PyMuPDF for PDF; a legacy .DOC
-whose pure-python text scrape yields nothing on a bare runtime).
+fixtures skip cleanly where a reader's deps are absent (PyMuPDF for PDF). Word 97+
+legacy `.DOC` text uses the in-process piece-table reader and is not dependency-gated.
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ REPO_ROOT = HERE.parents[2]  # functions/parser/tests -> collisionspike
 # Import the production adapter seam (same module the Function's /parse route uses).
 sys.path.insert(0, str(HERE.parent))
 import parser_adapter  # noqa: E402
+from cedocumentmapper_v2.readers import get_reader_for_path  # noqa: E402
 
 
 def _fitz_available() -> bool:
@@ -46,6 +47,24 @@ _CASES = [
 ]
 
 
+def test_qdos_binary_doc_uses_piece_table_and_retains_claimant_and_narrative() -> None:
+    """Pin the deployment-critical pure-Python path inside this repository.
+
+    The fixture is a genuine Word 97+ OLE document. Requiring the reader note
+    proves the assertion did not silently pass through the scrape/desktop
+    fallbacks, while the two field-bearing phrases pin its table-cell text.
+    """
+    src = INSTRUCTIONS / "QDOS_TRIAGE_01.doc"
+    assert src.exists(), "binary QDOS regression fixture is required"
+
+    document = get_reader_for_path(src).read(src)
+
+    assert "embedded Word piece table" in " ".join(document.reader_notes)
+    assert "Miss Nicola Granger" in document.plain_text
+    assert "Accident Circumstances" in document.plain_text
+    assert "Damage Description" in document.plain_text
+
+
 @pytest.mark.parametrize("fid,fname,provider,vrm", _CASES, ids=[c[0] for c in _CASES])
 def test_multiformat_extracts_more_than_vrm(fid: str, fname: str, provider: str, vrm: str) -> None:
     src = INSTRUCTIONS / fname
@@ -60,8 +79,8 @@ def test_multiformat_extracts_more_than_vrm(fid: str, fname: str, provider: str,
 
     work_provider = extraction["work_provider"]["value"]
     if not work_provider or work_provider == "UNKNOWN":
-        # The reader produced no usable text on this runtime (e.g. a legacy .DOC with
-        # no scraping support). Nothing to assert about extraction quality -> skip.
+        # A genuinely unsupported/corrupt document can still land without provider
+        # text. Nothing to assert about extraction quality in that case -> skip.
         pytest.skip(f"{fname}: reader produced no provider text on this runtime")
 
     assert work_provider == provider, f"{fname}: work_provider {work_provider!r} != {provider!r}"

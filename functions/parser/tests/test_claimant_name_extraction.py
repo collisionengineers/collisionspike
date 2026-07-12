@@ -65,9 +65,10 @@ def _provider(provider_id: str) -> dict:
         "CLAIMANT_SINGLE_SURNAME_01.expected.json",
         "CLAIMANT_PLACEHOLDER_SIGNATURE_01.expected.json",
         "EMAIL_SIGNATURE_ONLY_01.expected.json",
+        "CLAIMANT_SIGNATURE_ONLY_DOC_01.expected.json",
     ],
 )
-def test_non_pii_email_fixture(golden_name: str):
+def test_non_pii_claimant_fixture(golden_name: str):
     golden = json.loads((FIXTURES / "expected" / golden_name).read_text(encoding="utf-8"))
     source = FIXTURES / "instructions" / golden["source_file"]
     document = get_reader_for_path(source).read(source)

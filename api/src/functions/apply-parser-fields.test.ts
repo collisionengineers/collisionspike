@@ -69,6 +69,8 @@ beforeEach(() => {
 const calls = () => db.query.mock.calls as Array<[string, unknown[]?]>;
 const updateCall = () => calls().find(([sql]) => sql.startsWith('UPDATE case_ SET'));
 const auditCall = () => calls().find(([sql]) => sql.includes('INTO audit_event'));
+const provenanceCall = () =>
+  calls().find(([sql]) => sql.includes('INTO field_level_provenance'));
 
 const CONNEXUS = 'img-connexus';
 
@@ -229,6 +231,37 @@ describe('applyParserFields — parserRef mirrors into the Imported-details fact
   it('no parserRef → neither column is written', async () => {
     await applyParserFields('case-1', '');
     expect(updateCall()).toBeUndefined();
+  });
+});
+
+describe('applyParserFields — e-mail-body claimant provenance (TKT-150)', () => {
+  it('fills an empty claimant and records Email Text rather than PDF Extraction', async () => {
+    await applyParserFields(
+      'case-1',
+      undefined,
+      undefined,
+      undefined,
+      {
+        claimant_name: 'Ms Jane Example',
+        sources: { claimant_name: 'email_text' },
+      },
+    );
+
+    const upd = updateCall();
+    expect(upd).toBeDefined();
+    expect(upd![0]).toContain('eva_claimant_name =');
+    expect(upd![1]).toContain('Ms Jane Example');
+
+    const provenance = provenanceCall();
+    expect(provenance).toBeDefined();
+    expect(provenance![1]).toEqual([
+      'case-1:claimantName',
+      'case-1',
+      'claimantName',
+      'Ms Jane Example',
+      100000002,
+      'From email body',
+    ]);
   });
 });
 

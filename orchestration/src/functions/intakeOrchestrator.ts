@@ -37,7 +37,10 @@
  */
 
 import * as df from 'durable-functions';
-import { supplementAccidentCircumstancesFromBody } from '../lib/supplement-parse.js';
+import {
+  supplementAccidentCircumstancesFromBody,
+  supplementClaimantNameFromBody,
+} from '../lib/supplement-parse.js';
 import type { InboundClassification } from './activities/classifyInbound.js';
 import { shouldAttemptPdfVrmMatch } from './activities/imagesReceivedVrmMatch.js';
 import { shouldAttemptTriageAssist } from './gated/triage-classify.js';
@@ -550,10 +553,25 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // (older parser bundle not yet redeployed).
   const resolvedWorkProvider = (parseResult.resolvedWorkProvider ?? '').trim();
   const exWorkProvider = resolvedWorkProvider || exVal('work_provider');
+  const documentClaimantName = exVal('claimant_name');
+  const bodyClaimant = supplementClaimantNameFromBody(
+    String((inbound as { body?: string }).body ?? ''),
+  );
+  const claimantName =
+    documentClaimantName || (bodyClaimant.status === 'matched' ? bodyClaimant.value : '');
+  if (!documentClaimantName && bodyClaimant.status === 'conflict' && !ctx.df.isReplaying) {
+    ctx.log(
+      JSON.stringify({
+        evt: 'claimant-body-conflict',
+        messageId: (inbound as { messageId?: string }).messageId,
+        candidateCount: bodyClaimant.candidates.length,
+      }),
+    );
+  }
   const parserEvaFields = {
     work_provider: exWorkProvider.toUpperCase() === 'UNKNOWN' ? '' : exWorkProvider,
     vehicle_model: exVal('vehicle_model'),
-    claimant_name: exVal('claimant_name'),
+    claimant_name: claimantName,
     claimant_telephone: exVal('claimant_telephone'),
     claimant_email: exVal('claimant_email'),
     date_of_loss: exVal('date_of_loss'),
@@ -562,6 +580,9 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
       exVal('accident_circumstances') ||
       supplementAccidentCircumstancesFromBody(String((inbound as { body?: string }).body ?? '')),
     vat_status: exVal('vat_status'),
+    ...(!documentClaimantName && claimantName
+      ? { sources: { claimant_name: 'email_text' as const } }
+      : {}),
   };
 
   // Case-type decision (ADR-0021) — pure + deterministic over the two CHECKPOINTED

@@ -73,6 +73,22 @@ describe('selectParserEvaCandidates', () => {
     ]);
   });
 
+  it('marks an e-mail-body claimant with e-mail provenance', () => {
+    const out = selectParserEvaCandidates({
+      claimant_name: 'Ms Jane Example',
+      sources: { claimant_name: 'email_text' },
+    });
+    expect(out).toEqual([
+      {
+        column: 'eva_claimant_name',
+        provenanceField: 'claimantName',
+        value: 'Ms Jane Example',
+        sourceType: 'email_text',
+        sourceLabel: 'From email body',
+      },
+    ]);
+  });
+
   it('SKIPS a date that is not DD/MM/YYYY (would violate ck_case_eva_date_of_*)', () => {
     expect(selectParserEvaCandidates({ date_of_loss: '2026-02-01' })).toEqual([]);
     expect(selectParserEvaCandidates({ date_of_loss: 'February 2026' })).toEqual([]);

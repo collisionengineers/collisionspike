@@ -26,7 +26,18 @@
 
 import { isEngineerReportLayoutName } from '@cs/domain';
 
-/** The parser-owned EVA fields forwarded from the orchestration parse activity (value-only). */
+export type ParserEvaFieldKey =
+  | 'work_provider'
+  | 'vehicle_model'
+  | 'claimant_name'
+  | 'claimant_telephone'
+  | 'claimant_email'
+  | 'date_of_loss'
+  | 'date_of_instruction'
+  | 'accident_circumstances'
+  | 'vat_status';
+
+/** The parser-owned EVA fields forwarded from the orchestration parse activity. */
 export interface ParserEvaFields {
   work_provider?: string;
   vehicle_model?: string;
@@ -37,6 +48,9 @@ export interface ParserEvaFields {
   date_of_instruction?: string;
   accident_circumstances?: string;
   vat_status?: string;
+  /** Source overrides for a field filled from a weaker, non-document lane. Omitted
+   *  fields retain the established instruction-document provenance. */
+  sources?: Partial<Record<ParserEvaFieldKey, 'email_text'>>;
 }
 
 /** A constraint-validated, length-capped value ready for a fill-if-empty UPDATE. */
@@ -47,6 +61,8 @@ export interface ParserEvaCandidate {
   provenanceField: string;
   /** The validated value (already trimmed, length-capped, constraint-checked). */
   value: string;
+  sourceType?: 'email_text';
+  sourceLabel?: 'From email body';
 }
 
 const DDMMYYYY = /^\d{2}\/\d{2}\/\d{4}$/;
@@ -78,7 +94,7 @@ export function isEngineerReportLayoutSentinel(raw: string): boolean {
  * persist or '' to SKIP (failed a column CHECK constraint). Order is the EVA contract order.
  */
 const SPEC: Record<
-  keyof ParserEvaFields,
+  ParserEvaFieldKey,
   { column: string; provenanceField: string; normalize: (raw: string) => string }
 > = {
   work_provider:          { column: 'eva_work_provider',          provenanceField: 'workProvider',          normalize: (v) => (isUnknownWorkProviderSentinel(v) || isEngineerReportLayoutSentinel(v) ? '' : v.slice(0, 200)) },
@@ -95,7 +111,7 @@ const SPEC: Record<
 };
 
 /** EVA contract order for deterministic candidate ordering. */
-const PARSER_EVA_FIELD_ORDER: (keyof ParserEvaFields)[] = [
+const PARSER_EVA_FIELD_ORDER: ParserEvaFieldKey[] = [
   'work_provider',
   'vehicle_model',
   'claimant_name',
@@ -135,7 +151,15 @@ export function selectParserEvaCandidates(
     const spec = SPEC[key];
     const value = spec.normalize(raw);
     if (!value) continue; // failed a constraint guard (bad date / non-Yes/No VAT) — skip silently
-    out.push({ column: spec.column, provenanceField: spec.provenanceField, value });
+    const sourceType = parserEva.sources?.[key];
+    out.push({
+      column: spec.column,
+      provenanceField: spec.provenanceField,
+      value,
+      ...(sourceType === 'email_text'
+        ? { sourceType, sourceLabel: 'From email body' as const }
+        : {}),
+    });
   }
   return out;
 }

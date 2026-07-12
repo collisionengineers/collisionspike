@@ -40,12 +40,24 @@ export interface ProviderMatchRecordsResult {
 }
 
 /**
- * Parser-owned EVA fields (value-only) forwarded from the orchestration `parse` activity to
+ * Parser-owned EVA fields forwarded from the orchestration `parse` activity to
  * the Data API resolve-persist, where they fill the case_ eva_* columns fill-if-empty. Keyed
  * by EVA contract key. inspection_address is excluded (corpus picker — ADR-0013); mileage rides
  * its own parserMileage field. When work_provider is absent/UNKNOWN, resolve-persist may still
- * fill eva_work_provider from the matched corpus display_name.
+ * fill eva_work_provider from the matched corpus display_name. `sources` is an optional
+ * per-field provenance override for a conservative e-mail-body supplement.
  */
+export type ParserEvaFieldKey =
+  | 'work_provider'
+  | 'vehicle_model'
+  | 'claimant_name'
+  | 'claimant_telephone'
+  | 'claimant_email'
+  | 'date_of_loss'
+  | 'date_of_instruction'
+  | 'accident_circumstances'
+  | 'vat_status';
+
 export interface ParserEvaFields {
   work_provider?: string;
   vehicle_model?: string;
@@ -56,6 +68,7 @@ export interface ParserEvaFields {
   date_of_instruction?: string;
   accident_circumstances?: string;
   vat_status?: string;
+  sources?: Partial<Record<ParserEvaFieldKey, 'email_text'>>;
 }
 
 /* ---------- service token ---------- */
