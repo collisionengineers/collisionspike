@@ -1,0 +1,11 @@
+{
+  "fixture_id": "claimant_signature_only_doc_01",
+  "source_file": "CLAIMANT SIGNATURE ONLY 01.DOC",
+  "expected_provider": "unknown_temp",
+  "expected_values": {
+    "vrm": "XY12ZZZ",
+    "claimant_name": ""
+  },
+  "allowed_blank_fields": [],
+  "notes": "TKT-150 non-PII legacy-DOC negative control. The RTF-in-DOC source contains no claimant; the staff name below the e-mail-style sign-off must remain signature data and claimant_name must stay blank."
+}
