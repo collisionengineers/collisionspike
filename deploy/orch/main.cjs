@@ -3567,18 +3567,35 @@ var dataApi = {
   markBlobPurged(payload) {
     return request2("POST", "/api/internal/box/mark-purged", payload);
   },
+  /** Claim unique, unreferenced Blob paths left by a failed staff upload. */
+  claimStaffUploadCleanup(limit) {
+    return request2(
+      "POST",
+      `/api/internal/staff-upload-cleanup/claim?limit=${encodeURIComponent(String(limit))}`,
+      {}
+    );
+  },
+  /** Acknowledge deletion/missing bytes or persist retry backoff for cleanup. */
+  completeStaffUploadCleanup(itemId, payload) {
+    return request2(
+      "POST",
+      `/api/internal/staff-upload-cleanup/${encodeURIComponent(itemId)}/complete`,
+      payload
+    );
+  },
   /**
-   * TKT-146 — atomically claim still-unclassified FILE.UPLOADED-lane image evidence rows.
-   * Rows with box_file_id whose
+   * Atomically claim still-unclassified Box/staff-upload image evidence rows.
+   * Rows with a canonical byte locator whose
    * image_role_code is `unknown` AND registration_visible IS NULL (the TKT-131
    * "still-unclassified" predicate — a classified non-vehicle row keeps role unknown but
    * gains a boolean registration_visible, so re-sweeps are idempotent), newest first,
-   * capped server-side at `limit` (clamped 1..100) inside a 14-day created_at window.
+   * capped server-side at `limit` (clamped 1..100). The 14-day first-attempt
+   * window applies to Box rows; staff uploads stay durable until disposition.
    */
-  claimUnclassifiedBoxEvidence(limit) {
+  claimUnclassifiedBoxEvidence(limit, includeBox = true) {
     return request2(
       "POST",
-      `/api/internal/evidence/unclassified-box?limit=${encodeURIComponent(String(limit))}`,
+      `/api/internal/evidence/unclassified-box?limit=${encodeURIComponent(String(limit))}` + (includeBox ? "" : "&includeBox=false"),
       {}
     );
   },
@@ -51346,22 +51363,23 @@ var EXT_MIME = {
   bmp: "image/bmp",
   webp: "image/webp",
   tif: "image/tiff",
-  tiff: "image/tiff",
-  heic: "image/heic"
+  tiff: "image/tiff"
 };
+var CLASSIFIER_MIME = /* @__PURE__ */ new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 function mimeForClassify(filename, contentType2) {
   const ct = (contentType2 ?? "").trim().toLowerCase();
-  if (ct.startsWith("image/")) return ct;
+  if (CLASSIFIER_MIME.has(ct)) return ct;
   const m = /\.([a-z0-9]+)$/i.exec(filename ?? "");
   const mapped = m ? EXT_MIME[m[1].toLowerCase()] : void 0;
   return mapped ?? "image/jpeg";
 }
-function buildStampRow(row, fields) {
+function buildStampRow(row, fields, locator = locatorForRow(row)) {
   return {
     filename: row.filename,
     evidenceClass: "image",
     ...row.sourceMessageId ? { sourceMessageId: row.sourceMessageId } : {},
-    boxFileId: row.boxFileId,
+    ...locator === "box" && row.boxFileId ? { boxFileId: row.boxFileId } : {},
+    ...locator === "blob" && row.storagePath ? { storagePath: row.storagePath } : {},
     imageRole: fields.imageRole,
     registrationVisible: fields.registrationVisible,
     acceptedForEva: fields.acceptedForEva,
@@ -51370,6 +51388,18 @@ function buildStampRow(row, fields) {
     decisionSource: "classifier",
     personReflection: fields.personReflection
   };
+}
+function locatorForRow(row) {
+  const sourceLabel = row.sourceLabel ?? "";
+  if (sourceLabel.startsWith("box_upload") && row.boxFileId) return "box";
+  if (sourceLabel.startsWith("staff_") && row.storagePath) return "blob";
+  if (row.boxFileId) return "box";
+  return "blob";
+}
+function unsupportedClassifierFormat(row) {
+  const type = (row.contentType ?? "").trim().toLowerCase();
+  const extension = /\.([a-z0-9]+)$/iu.exec(row.filename)?.[1]?.toLowerCase();
+  return type === "image/heic" || type === "image/heif" || extension === "heic" || extension === "heif";
 }
 function boxDownloadFailure(error) {
   const text = error instanceof Error ? error.message : String(error ?? "");
@@ -51380,6 +51410,13 @@ function boxDownloadFailure(error) {
     return { disposition: "terminal", code: "box_file_too_large" };
   }
   return { disposition: "transient", code: "box_download_unavailable" };
+}
+function blobDownloadFailure(error) {
+  const text = error instanceof Error ? error.message : String(error ?? "");
+  if (/\b(404|BlobNotFound|not found)\b/i.test(text)) {
+    return { disposition: "terminal", code: "evidence_blob_missing" };
+  }
+  return { disposition: "transient", code: "evidence_blob_unavailable" };
 }
 async function settleStatusRequests(requests, ctx) {
   let completed = 0;
@@ -51397,6 +51434,40 @@ async function settleStatusRequests(requests, ctx) {
 }
 async function runBoxClassifySweep(ctx) {
   const started = Date.now();
+  let cleanupClaimed = 0;
+  let cleanupCompleted = 0;
+  let cleanupFailed = 0;
+  try {
+    const cleanupRows = (await dataApi.claimStaffUploadCleanup(SWEEP_CAP)).rows ?? [];
+    cleanupClaimed = cleanupRows.length;
+    for (const cleanup of cleanupRows) {
+      try {
+        const deleted = await deleteEvidenceBytes(cleanup.blobPath);
+        await dataApi.completeStaffUploadCleanup(cleanup.itemId, {
+          claimToken: cleanup.claimToken,
+          outcome: deleted ? "deleted" : "missing"
+        });
+        cleanupCompleted++;
+      } catch (error) {
+        cleanupFailed++;
+        try {
+          await dataApi.completeStaffUploadCleanup(cleanup.itemId, {
+            claimToken: cleanup.claimToken,
+            outcome: "failed",
+            detail: error instanceof Error ? error.message : String(error)
+          });
+        } catch (reportError) {
+          ctx.warn(
+            `[box-classify-sweep] upload cleanup outcome for ${cleanup.itemId} was not recorded: ${reportError instanceof Error ? reportError.message : String(reportError)}`
+          );
+        }
+      }
+    }
+  } catch (error) {
+    ctx.warn(
+      `[box-classify-sweep] staff upload cleanup enumeration failed: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
   let recoveredStatusRequests = [];
   try {
     recoveredStatusRequests = (await dataApi.pendingStatusRecomputes(SWEEP_CAP)).rows ?? [];
@@ -51406,10 +51477,11 @@ async function runBoxClassifySweep(ctx) {
     );
   }
   const recoveredStatuses = await settleStatusRequests(recoveredStatusRequests, ctx);
-  if (!gates.imageRoleClassifyEnabled() || !gates.boxApi()) return;
+  if (!gates.imageRoleClassifyEnabled()) return;
+  const includeBox = gates.boxApi();
   let rows;
   try {
-    rows = (await dataApi.claimUnclassifiedBoxEvidence(SWEEP_CAP)).rows ?? [];
+    rows = (await dataApi.claimUnclassifiedBoxEvidence(SWEEP_CAP, includeBox)).rows ?? [];
   } catch (e) {
     ctx.warn(
       `[box-classify-sweep] enumeration failed (will retry next sweep): ${e instanceof Error ? e.message : String(e)}`
@@ -51468,7 +51540,10 @@ async function runBoxClassifySweep(ctx) {
       if (decision === "opted_out") {
         skippedOptOut++;
         failed++;
-        await reportFailure(row, { disposition: "transient", code: "provider_ai_opted_out" });
+        await reportFailure(
+          row,
+          (row.sourceLabel ?? "").startsWith("staff_") ? { disposition: "terminal", code: "provider_ai_opted_out_manual_review" } : { disposition: "transient", code: "provider_ai_opted_out" }
+        );
         continue;
       }
       if (decision === "lookup_failed") {
@@ -51478,18 +51553,41 @@ async function runBoxClassifySweep(ctx) {
         continue;
       }
     }
-    let dl;
-    try {
-      dl = await box.downloadFile(row.boxFileId);
-    } catch (e) {
+    if (unsupportedClassifierFormat(row)) {
       failed++;
-      await reportFailure(row, boxDownloadFailure(e));
+      await reportFailure(row, { disposition: "terminal", code: "image_format_unsupported" });
+      continue;
+    }
+    const locator = locatorForRow(row);
+    let contentBase64;
+    if (locator === "blob" && row.storagePath) {
+      try {
+        contentBase64 = (await downloadEvidenceBytes(row.storagePath)).toString("base64");
+      } catch (e) {
+        failed++;
+        await reportFailure(row, blobDownloadFailure(e));
+        continue;
+      }
+    } else if (locator === "box" && row.boxFileId) {
+      if (!includeBox) {
+        continue;
+      }
+      try {
+        contentBase64 = (await box.downloadFile(row.boxFileId)).contentBase64;
+      } catch (e) {
+        failed++;
+        await reportFailure(row, boxDownloadFailure(e));
+        continue;
+      }
+    } else {
+      failed++;
+      await reportFailure(row, { disposition: "terminal", code: "evidence_bytes_missing" });
       continue;
     }
     let outcome;
     try {
       const rawOutcome = await classifyImageWithOutcome({
-        imageBase64: dl.contentBase64,
+        imageBase64: contentBase64,
         contentType: mimeForClassify(row.filename, row.contentType),
         caseVrm: row.caseVrm || void 0
       });
@@ -51526,7 +51624,7 @@ async function runBoxClassifySweep(ctx) {
       stamp = await dataApi.stampBoxEvidenceClassification(
         row.evidenceId,
         row.caseId,
-        buildStampRow(row, fields),
+        buildStampRow(row, fields, locator),
         row.claimToken ?? void 0
       );
     } catch (e) {
@@ -51564,7 +51662,8 @@ async function runBoxClassifySweep(ctx) {
         evt: "boxClassifySweep.stamped",
         evidenceId: row.evidenceId,
         caseId: row.caseId,
-        boxFileId: row.boxFileId,
+        ...locator === "box" && row.boxFileId ? { boxFileId: row.boxFileId } : {},
+        ...locator === "blob" && row.storagePath ? { storagePath: row.storagePath } : {},
         role: fields.imageRole,
         registrationVisible: fields.registrationVisible,
         excluded: fields.excluded === true
@@ -51588,6 +51687,9 @@ async function runBoxClassifySweep(ctx) {
       backedOff,
       deadLettered,
       failureReportFailed,
+      cleanupClaimed,
+      cleanupCompleted,
+      cleanupFailed,
       recoveredStatusRequests: recoveredStatusRequests.length,
       casesReEvaluated: recoveredStatuses + currentStatuses,
       ms: Date.now() - started
