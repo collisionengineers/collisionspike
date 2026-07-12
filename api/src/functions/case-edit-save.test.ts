@@ -158,7 +158,10 @@ describe('explicit case save transaction', () => {
   it('keeps Image Based Assessment and its reason in the same case save', async () => {
     const body = {
       editSession: true,
-      evaFields: { inspectionAddress: 'Image Based Assessment' },
+      evaFields: {
+        claimantName: 'Jane Example',
+        inspectionAddress: 'Image Based Assessment',
+      },
       inspectionDecision: {
         decisionMode: 'image_based',
         sourceLabel: 'image_based',
@@ -169,6 +172,10 @@ describe('explicit case save transaction', () => {
     expect(result.status).toBe(200);
     const caseUpdate = calls.find(({ sql }) => /UPDATE case_ SET/i.test(sql));
     expect(caseUpdate?.params).toEqual(expect.arrayContaining(['Image Based Assessment', CASE_ID]));
+    // With the explicit image-based decision included in the canonical evaluator,
+    // the complete field contract reaches missing_images (there is no image fixture).
+    // Omitting the decision incorrectly leaves this at needs_review.
+    expect(caseUpdate?.params).toContain(100000004);
     const inspectionWrite = calls.find(({ sql }) => /INSERT INTO inspection_address/i.test(sql));
     expect(inspectionWrite?.params).toEqual(expect.arrayContaining(['Confirmed by staff']));
   });

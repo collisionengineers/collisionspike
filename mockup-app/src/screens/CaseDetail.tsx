@@ -154,6 +154,7 @@ import {
 import {
   buildExplicitCaseSave,
   initialInspectionDraft,
+  persistedSessionSnapshot,
   shouldBlockCaseNavigation,
   validateCaseEdit,
   type CaseEditInspectionDraft,
@@ -919,12 +920,6 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const [saveConflict, setSaveConflict] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
 
-  const refreshAfterAiPromotion = async () => {
-    onRefreshImages();
-    const updated = await data.caseById(c.id);
-    if (updated) setC(updated);
-  };
-
   // Editable VRM (issue #12) — the human-correction safety net for a mis-extracted
   // registration. View mode shows the plate; edit mode swaps in a validated field.
   const { update: updateCaseVrm, saving: savingVrm } = useCaseUpdate();
@@ -945,6 +940,28 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     initialInspectionDraft(caseData),
   );
   const decisionMode = inspectionDraft.decisionMode;
+
+  /** Adopt a complete server-confirmed snapshot after an isolated mutation. Those
+   * controls are disabled while this edit session is dirty, so the snapshot is the
+   * new draft and baseline together rather than a competing local edit. */
+  const adoptPersistedCase = (updated: Case) => {
+    const snapshot = persistedSessionSnapshot(updated);
+    setC(snapshot.draft);
+    setPersistedCase(snapshot.persisted);
+    setCaseVersion(snapshot.version);
+    setInspectionDraft(snapshot.inspection);
+    setOverrideAddr(updated.inspectionDecision === 'image_based');
+    setOverrideReason('');
+    setConfirmedProvenance(undefined);
+    setSaveError(undefined);
+    setSaveConflict(false);
+  };
+
+  const refreshAfterAiPromotion = async () => {
+    onRefreshImages();
+    const updated = await data.caseById(c.id);
+    if (updated) adoptPersistedCase(updated);
+  };
 
   // Low-confidence inspection-address SUGGESTIONS for this case (corpus). Always
   // surfaced strictly as suggestions; picking one copies it into the manual draft
@@ -1297,7 +1314,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       // so changing the registration can move the case server-side. Keeping only
       // `updated.vrm` would leave the screen rendering a stale status/checklist/pipeline.
       // (VRM editing is its own isolated editor, so this won't clobber other concurrent edits.)
-      setC((prev) => ({ ...prev, ...updated }));
+      adoptPersistedCase(updated);
       setEditingVrm(false);
       toast('Registration updated');
       requestAnimationFrame(() => vrmEditBtnRef.current?.focus());
@@ -1332,7 +1349,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     }
     try {
       const updated = await updateCasePo(c.id, { casePo: poNormalized });
-      setC((prev) => ({ ...prev, ...updated }));
+      adoptPersistedCase(updated);
       setEditingPo(false);
       toast('Case/PO updated');
     } catch (e) {

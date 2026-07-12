@@ -31,6 +31,17 @@ export function initialInspectionDraft(c: Case): CaseEditInspectionDraft {
   };
 }
 
+/** Build the new edit-session baseline after a separately saved server mutation.
+ * The caller may adopt this only when the main draft is clean. */
+export function persistedSessionSnapshot(updated: Case) {
+  return {
+    draft: updated,
+    persisted: updated,
+    version: updated.version ?? '',
+    inspection: initialInspectionDraft(updated),
+  } as const;
+}
+
 function changedEvaFields(
   persisted: Case,
   draft: Case,

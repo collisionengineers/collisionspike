@@ -631,6 +631,7 @@ app.http('patchCase', {
             status: existing.status,
             evaFields: nextEvaFields,
             evidence: existing.evidence,
+            inspectionDecision: inspection?.decisionMode ?? existing.inspectionDecision,
             instructionCount: existing.evidence.filter((item) => item.kind === 'instruction').length,
             hasIdentity:
               nextVrm.trim().length > 0 ||

@@ -3,6 +3,7 @@ import { EVA_FIELD_ORDER, type Case, type EvaFields } from '@cs/domain';
 import {
   buildExplicitCaseSave,
   initialInspectionDraft,
+  persistedSessionSnapshot,
   shouldBlockCaseNavigation,
   validateCaseEdit,
 } from './case-edit-session';
@@ -53,6 +54,19 @@ function clone(c: Case): Case {
 }
 
 describe('explicit case edit session', () => {
+  it('advances draft, baseline and version together after an isolated saved mutation', () => {
+    const updated = caseOf({ version: 'v2', vrm: 'XY12ZAB' });
+    const snapshot = persistedSessionSnapshot(updated);
+
+    expect(snapshot.draft).toBe(updated);
+    expect(snapshot.persisted).toBe(updated);
+    expect(snapshot.version).toBe('v2');
+    expect(snapshot.inspection).toEqual(initialInspectionDraft(updated));
+    expect(
+      buildExplicitCaseSave(snapshot.persisted, snapshot.draft, snapshot.inspection),
+    ).toBeUndefined();
+  });
+
   it('does not issue a no-op save and resetting to persisted values cancels the draft', () => {
     const persisted = caseOf();
     expect(buildExplicitCaseSave(persisted, clone(persisted), initialInspectionDraft(persisted)))
