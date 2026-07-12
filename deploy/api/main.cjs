@@ -7156,9 +7156,6 @@ function evaluateEvaImageRules(evidence) {
     failures
   };
 }
-function validateEvaImageRules(evidence) {
-  return evaluateEvaImageRules(evidence).failures;
-}
 
 // packages/domain/dist/contracts/case-status.js
 var TERMINAL_STATUSES = [
@@ -7179,6 +7176,91 @@ function missingRequiredFieldKeys(fields) {
     return !field || field.value.trim().length === 0;
   });
 }
+function unresolvedReviewFieldKeys(fields) {
+  return EVA_FIELD_ORDER.map((d) => d.key).filter((key) => {
+    const state3 = fields[key]?.reviewState;
+    return state3 === "needs_review" || state3 === "conflict";
+  });
+}
+var IMAGE_BASED_ASSESSMENT = "Image Based Assessment";
+function evaluateCaseReadiness(input) {
+  const checks = [];
+  for (const desc of EVA_FIELD_ORDER) {
+    if (!desc.required || desc.key === "inspectionAddress")
+      continue;
+    const ok = (input.evaFields[desc.key]?.value ?? "").trim().length > 0;
+    checks.push({
+      id: `field-${desc.key}`,
+      label: `${desc.label} present`,
+      ok,
+      group: "fields",
+      ...ok ? {} : { detail: `${desc.label} is empty` }
+    });
+  }
+  const imageRules = evaluateEvaImageRules(input.evidence);
+  const unresolvedImages = input.evidence.filter((e) => e.kind === "image" && e.reviewRequired === true);
+  const imageGaps = imageRules.failures.map((failure) => {
+    switch (failure.code) {
+      case "min_count":
+        return `need at least ${MIN_ACCEPTED_IMAGES} accepted (have ${imageRules.acceptedCount})`;
+      case "missing_overview":
+        return "no overview with a visible registration";
+      case "missing_damage_closeup":
+        return "no main-damage close-up";
+    }
+  });
+  if (unresolvedImages.length > 0) {
+    imageGaps.push(`${unresolvedImages.length} image${unresolvedImages.length === 1 ? "" : "s"} still ${unresolvedImages.length === 1 ? "needs" : "need"} review`);
+  }
+  const imagesReady = imageRules.ok && unresolvedImages.length === 0;
+  checks.push({
+    id: "images",
+    label: "Images",
+    ok: imagesReady,
+    group: "images",
+    ...imagesReady ? {} : { detail: imageGaps.join("; ") }
+  });
+  const address = (input.evaFields.inspectionAddress?.value ?? "").trim();
+  const isImageBased = input.inspectionDecision === "image_based";
+  const hasDecision = input.inspectionDecision !== "unknown";
+  const addressMatchesDecision = isImageBased ? address === IMAGE_BASED_ASSESSMENT : address.length > 0 && address !== IMAGE_BASED_ASSESSMENT;
+  const inspectionReady = hasDecision && addressMatchesDecision;
+  let addressDetail;
+  if (!address)
+    addressDetail = "Inspection address is empty";
+  else if (!hasDecision)
+    addressDetail = "Choose an inspection address or Image Based Assessment";
+  else if (!addressMatchesDecision)
+    addressDetail = "Inspection choice and address do not match";
+  checks.push({
+    id: "address-decision",
+    label: isImageBased ? "Inspection: Image Based Assessment" : "Inspection address ready",
+    ok: inspectionReady,
+    group: "address",
+    ...inspectionReady ? {} : { detail: addressDetail ?? "Choose an inspection option" }
+  });
+  const unresolvedFields = unresolvedReviewFieldKeys(input.evaFields);
+  const reviewsResolved = unresolvedFields.length === 0;
+  checks.push({
+    id: "no-conflicts",
+    label: "No unresolved field reviews",
+    ok: reviewsResolved,
+    group: "conflicts",
+    ...reviewsResolved ? {} : {
+      detail: `Review: ${unresolvedFields.map((key) => EVA_FIELD_ORDER.find((d) => d.key === key)?.label ?? key).join(", ")}`
+    }
+  });
+  const requiredFieldsPresent = missingRequiredFieldKeys(input.evaFields).length === 0;
+  return {
+    checks,
+    ready: checks.every((check) => check.ok),
+    requiredFieldsPresent,
+    inspectionReady,
+    imageRulesPass: imageRules.ok,
+    imagesReady,
+    reviewsResolved
+  };
+}
 function instructionCountOf(input) {
   if (typeof input.instructionCount === "number")
     return input.instructionCount;
@@ -7196,14 +7278,19 @@ function statusForReviewCase(input) {
     return input.status;
   if ((input.mergedInto ?? "").trim().length > 0)
     return "linked_to_instruction";
-  const fieldsValid = missingRequiredFieldKeys(input.evaFields).length === 0;
-  const imagesValid = validateEvaImageRules(input.evidence).length === 0;
-  if (fieldsValid && imagesValid)
+  const readiness = evaluateCaseReadiness(input);
+  const baseImagesValid = readiness.imageRulesPass;
+  const fieldContractValid = readiness.requiredFieldsPresent && readiness.inspectionReady;
+  if (readiness.ready)
     return "ready_for_eva";
-  if (fieldsValid && !imagesValid)
+  if (fieldContractValid && !baseImagesValid) {
     return "missing_images";
-  if (!fieldsValid && imagesValid)
+  }
+  if (!fieldContractValid && baseImagesValid)
     return "missing_required_fields";
+  if ((fieldContractValid || baseImagesValid) && (!readiness.reviewsResolved || baseImagesValid && !readiness.imagesReady)) {
+    return "needs_review";
+  }
   const acceptedImages = acceptedEvaImages(input.evidence).length;
   const instructionCount = instructionCountOf(input);
   if (acceptedImages === 0 && instructionCount === 0)
@@ -7786,7 +7873,8 @@ var QUEUES = [
       "ingested",
       "missing_images",
       "missing_required_fields",
-      "linked_to_instruction"
+      "linked_to_instruction",
+      "needs_review"
     ],
     tone: "muted"
   },
@@ -7795,11 +7883,10 @@ var QUEUES = [
     routeSegment: "review",
     label: "Review",
     shortLabel: "Review",
-    // The human-in-the-loop queue: a case flagged for a person (needs_review) or
-    // complete and awaiting the final check before EVA submit (ready_for_eva).
-    // needs_review moved here from Not ready 2026-07-08 (TKT-130 operator
-    // direction: "Needs Review cases belong in the Review queue").
-    statuses: ["needs_review", "ready_for_eva"],
+    // Review is the theoretically-submittable population: the canonical
+    // readiness evaluator has passed every field, inspection, image and review
+    // check. A raw needs_review status is incomplete and remains Not ready.
+    statuses: ["ready_for_eva"],
     tone: "blocker"
   },
   {
@@ -7821,6 +7908,11 @@ function statusToQueue(status) {
 function isRetiredMerged(c) {
   return c.status === "linked_to_instruction" && Boolean(c.mergedInto);
 }
+function caseToQueue(c) {
+  if (isRetiredMerged(c))
+    return void 0;
+  return c.onHold ? "held" : statusToQueue(c.status);
+}
 function queueByName(name) {
   return QUEUES.find((q) => q.name === name);
 }
@@ -7832,8 +7924,8 @@ function statusToStage(status) {
     case "missing_images":
     case "missing_required_fields":
     case "linked_to_instruction":
-      return "not_ready";
     case "needs_review":
+      return "not_ready";
     case "ready_for_eva":
       return "review";
     case "eva_submitted":
@@ -7842,6 +7934,7 @@ function statusToStage(status) {
       return "submitted";
     case "error":
     case "duplicate_risk":
+    case "removed":
       return void 0;
   }
 }
@@ -7852,6 +7945,28 @@ var REASON_LABELS = {
   conflict: "Conflict",
   needs_review: "Needs review"
 };
+
+// packages/domain/dist/model/case-readiness.js
+function readinessInputForCase(c) {
+  return {
+    status: c.status,
+    evaFields: c.evaFields,
+    evidence: c.evidence,
+    inspectionDecision: c.inspectionDecision,
+    instructionCount: c.evidence.filter((e) => e.kind === "instruction").length,
+    hasIdentity: c.vrm.trim().length > 0 || (c.casePo ?? "").trim().length > 0 || c.providerCode.trim().length > 0 || c.evaFields.claimantName.value.trim().length > 0,
+    mergedInto: c.mergedInto
+  };
+}
+function canSubmitCaseToEva(c) {
+  const input = readinessInputForCase(c);
+  const readiness = evaluateCaseReadiness(input);
+  return readiness.ready && caseToQueue({
+    status: c.status,
+    onHold: c.onHold,
+    mergedInto: c.mergedInto
+  }) === "review";
+}
 
 // packages/domain/dist/dto/index.js
 var BOX_GATES_ALL_FALSE = {
@@ -15776,9 +15891,6 @@ function rowToOverviewFacts(rec) {
 function deriveInspectionDecision(rec) {
   const explicit = inspectionDecisionCodec.toName(rec.inspection_decision_code);
   if (explicit) return explicit;
-  if ((rec.eva_inspection_address ?? "").trim() === "Image Based Assessment") {
-    return "image_based";
-  }
   return "unknown";
 }
 function mergedIntoFrom(raw) {
@@ -16264,9 +16376,7 @@ function startOfWeek(d) {
 }
 function filterQueue(all, name) {
   if (!queueByName(name)) return [];
-  return all.filter(
-    (c) => !isRetiredMerged(c) && (c.onHold ? "held" : statusToQueue(c.status)) === name
-  );
+  return all.filter((c) => caseToQueue(c) === name);
 }
 function actionableCases(all) {
   return [
@@ -17353,20 +17463,14 @@ async function recomputeStatus(caseId, acknowledgeGeneration) {
     );
     const rec = rows[0];
     if (!rec) return { found: false, value: "error" };
+    const provenanceRows = await q(
+      "SELECT * FROM field_level_provenance WHERE case_id = $1",
+      [caseId]
+    );
     const evidenceRows = await q("SELECT * FROM evidence WHERE case_id = $1", [caseId]);
     const evidence = evidenceRows.map(rowToEvidence);
-    const full = rowToCase(rec, { evidence });
-    const input = {
-      status: full.status,
-      evaFields: full.evaFields,
-      evidence: full.evidence,
-      instructionCount: full.evidence.filter((e) => e.kind === "instruction").length,
-      hasIdentity: full.vrm.trim().length > 0 || full.providerCode.trim().length > 0 || full.evaFields.claimantName.value.trim().length > 0,
-      // TKT-141 retired-lock: the marker is read while the case row is locked.
-      // A merge that won first is preserved; one that starts later waits.
-      mergedInto: full.mergedInto
-    };
-    const next = statusForReviewCase(input);
+    const full = rowToCase(rec, { evidence, provenanceRows });
+    const next = statusForReviewCase(readinessInputForCase(full));
     if (next !== full.status) {
       await q("UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1", [
         caseId,
@@ -20807,16 +20911,7 @@ async function recomputeStatus2(caseId, actor) {
   const next = await tx(async (q) => {
     const full = await loadCaseFullUsing(q, caseId, /* @__PURE__ */ new Date(), true);
     if (!full) return null;
-    const input = {
-      status: full.status,
-      evaFields: full.evaFields,
-      evidence: full.evidence,
-      instructionCount: full.evidence.filter((e) => e.kind === "instruction").length,
-      hasIdentity: full.vrm.trim().length > 0 || full.providerCode.trim().length > 0 || full.evaFields.claimantName.value.trim().length > 0,
-      // TKT-141 retired-lock: this value was re-read while the case row was locked.
-      mergedInto: full.mergedInto
-    };
-    const evaluated = statusForReviewCase(input);
+    const evaluated = statusForReviewCase(readinessInputForCase(full));
     if (evaluated !== full.status) {
       await q("UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1", [
         caseId,
@@ -20836,6 +20931,13 @@ async function recomputeStatus2(caseId, actor) {
   if (!next) return false;
   await maybeSuggestOverviewChase(caseId, next, actor);
   return true;
+}
+async function markEvaSubmittedIfReady(caseId, actor) {
+  return tx(async (q) => {
+    const full = await loadCaseFullUsing(q, caseId, /* @__PURE__ */ new Date(), true);
+    if (!full || !canSubmitCaseToEva(full)) return false;
+    return markEvaSubmittedUsing(q, caseId, actor);
+  });
 }
 async function upsertManualProvenance(caseId, fieldName, value) {
   try {
@@ -21114,6 +21216,7 @@ import_functions2.app.http("createCase", {
       status: input.status,
       evaFields: input.evaFields,
       evidence: [],
+      inspectionDecision: input.inspectionDecision ?? "unknown",
       instructionCount: 0,
       hasIdentity: (input.vrm ?? "").trim().length > 0 || (input.providerCode ?? "").trim().length > 0 || input.evaFields.claimantName.value.trim().length > 0
     };
@@ -22130,7 +22233,7 @@ import_functions2.app.http("markEvaSubmitted", {
   handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
     const id = (req.params.id ?? "").trim();
     if (!id) return { status: 400, jsonBody: { message: "A case is required." } };
-    const updated = await tx((q) => markEvaSubmittedUsing(q, id, actorFromClaims(claims)));
+    const updated = await markEvaSubmittedIfReady(id, actorFromClaims(claims));
     return { status: 200, jsonBody: { updated } };
   })
 });
@@ -67536,6 +67639,7 @@ import_functions22.app.http("providerIntakeCase", {
       status: "ingested",
       evaFields,
       evidence: imageEvidence,
+      inspectionDecision: "unknown",
       instructionCount: v.instructions.length,
       hasIdentity: v.vrm.length > 0 || principalCode.length > 0 || v.claimantName.length > 0
     };
