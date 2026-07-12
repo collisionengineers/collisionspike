@@ -1,8 +1,8 @@
 # Changes — TKT-150: Restore claimant-name extraction and remediate affected held cases
 
 ## Status
-Parser extraction slice implemented and immutably re-vendored. Ticket lifecycle remains unchanged;
-the live census, QDOS26079 trace, deployment, remediation, readiness recomputation, and independent
+Parser extraction slice implemented and immutably re-vendored. The ticket is active in `now`; the
+live census, QDOS26079 trace, deployment, remediation, readiness recomputation, and independent
 verification remain dispatcher-owned follow-up work.
 
 ## Commits
