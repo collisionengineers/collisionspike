@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Avatar,
@@ -25,6 +25,7 @@ import {
   Inbox,
   Menu,
   Sparkles,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import { QUEUES, data, useAiChatGate, type QueueName } from '../data';
@@ -37,6 +38,7 @@ import { AssistantDrawer } from './AssistantDrawer';
 // Regenerate: `node scripts/gen-logo-data-uris.mjs`. See docs/plans/phase-1-intake-and-case-tracking/code-app/logo-fix-findings.md.
 import { logoMark } from '../assets/logos.generated';
 import { AppErrorBoundary } from './AppErrorBoundary';
+import { APP_SHELL_LAYOUT, COMPACT_NAV_MEDIA_QUERY } from './app-shell-layout';
 
 /* Two-part app chrome (review 190626 nav-bar + R2 logo/colour):
    - charcoal (#2c2a27) left rail with a clean WHITE brand header carrying the
@@ -50,9 +52,28 @@ import { AppErrorBoundary } from './AppErrorBoundary';
      Settings, Action Logs). "Done (today)" is no longer a queue page.
    <Outlet/> renders the active route. */
 
-const RAIL_W = 240;
-const RAIL_W_COLLAPSED = 60;
-const TOPBAR_H = 56;
+const COMPACT_MEDIA = `@media ${COMPACT_NAV_MEDIA_QUERY}`;
+
+function compactViewportMatches(): boolean {
+  return typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia(COMPACT_NAV_MEDIA_QUERY).matches;
+}
+
+function useCompactViewport(): boolean {
+  const [compact, setCompact] = useState(compactViewportMatches);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia(COMPACT_NAV_MEDIA_QUERY);
+    const onChange = (event: MediaQueryListEvent) => setCompact(event.matches);
+    setCompact(query.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
+
+  return compact;
+}
 
 const QUEUE_ICONS: Record<QueueName, LucideIcon> = {
   'not-ready': Clock,
@@ -68,25 +89,62 @@ const useStyles = makeStyles({
     color: '#fff',
     display: 'flex',
     flexDirection: 'column',
-    width: `${RAIL_W}px`,
+    width: `${APP_SHELL_LAYOUT.wideRailWidth}px`,
     flexShrink: 0,
     transition: 'width 0.15s ease',
+    [COMPACT_MEDIA]: {
+      position: 'fixed',
+      inset: 0,
+      right: 'auto',
+      width: `${APP_SHELL_LAYOUT.compactRailWidth}px`,
+      zIndex: 30,
+      boxShadow: 'none',
+    },
   },
-  railCollapsed: { width: `${RAIL_W_COLLAPSED}px` },
+  railCollapsed: { width: `${APP_SHELL_LAYOUT.compactRailWidth}px` },
+  railExpandedCompact: {
+    [COMPACT_MEDIA]: {
+      width: `${APP_SHELL_LAYOUT.wideRailWidth}px`,
+      boxShadow: '8px 0 24px rgba(22, 25, 29, 0.24)',
+    },
+  },
 
-  // White brand header — the full-colour CE logo (the signature) on clean white,
-  // atop the charcoal rail. Red stays in the logo + accents, never a band.
-  railLogo: {
-    height: `${TOPBAR_H}px`,
+  railHeader: {
+    height: `${APP_SHELL_LAYOUT.topbarHeight}px`,
     display: 'flex',
     alignItems: 'center',
-    padding: `0 ${tokens.spacingHorizontalL}`,
     backgroundColor: '#ffffff',
     borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
     flexShrink: 0,
   },
+
+  // White brand header — the full-colour CE logo (the signature) on clean white,
+  // atop the charcoal rail. Red stays in the logo + accents, never a band.
+  railLogo: {
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    padding: `0 ${tokens.spacingHorizontalL}`,
+    flex: 1,
+    minWidth: 0,
+  },
   railLogoImg: { height: '30px', width: 'auto', maxWidth: '100%', display: 'block' },
   railLogoImgCollapsed: { height: '22px' },
+  mobileClose: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '40px',
+    height: '40px',
+    marginRight: tokens.spacingHorizontalS,
+    flexShrink: 0,
+    border: 0,
+    borderRadius: tokens.borderRadiusSmall,
+    backgroundColor: 'transparent',
+    color: tokens.colorNeutralForeground2,
+    cursor: 'pointer',
+    ':hover': { backgroundColor: tokens.colorNeutralBackground2 },
+  },
 
   navList: {
     display: 'flex',
@@ -129,7 +187,7 @@ const useStyles = makeStyles({
     ':hover': { backgroundColor: 'rgba(255,255,255,0.06)', color: '#fff' },
     ':focus-visible': {
       outline: 'none',
-      boxShadow: '0 0 0 3px rgba(219,8,22,0.55)',
+      boxShadow: 'inset 0 0 0 2px var(--ce-focus-separator), inset 0 0 0 5px var(--ce-focus-stroke)',
       zIndex: 1,
     },
   },
@@ -190,10 +248,16 @@ const useStyles = makeStyles({
     color: '#fff',
   },
 
-  main: { display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 },
+  main: {
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
+    minWidth: 0,
+    [COMPACT_MEDIA]: { marginLeft: `${APP_SHELL_LAYOUT.compactRailWidth}px` },
+  },
 
   topbar: {
-    height: `${TOPBAR_H}px`,
+    height: `${APP_SHELL_LAYOUT.topbarHeight}px`,
     flexShrink: 0,
     backgroundColor: '#fff',
     borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
@@ -201,6 +265,11 @@ const useStyles = makeStyles({
     alignItems: 'center',
     gap: tokens.spacingHorizontalL,
     padding: `0 ${tokens.spacingHorizontalXL}`,
+    minWidth: 0,
+    [COMPACT_MEDIA]: {
+      gap: tokens.spacingHorizontalS,
+      padding: `0 ${tokens.spacingHorizontalM}`,
+    },
   },
   burger: {
     border: 0,
@@ -218,12 +287,41 @@ const useStyles = makeStyles({
     fontWeight: 600,
     color: tokens.colorNeutralForeground1,
     whiteSpace: 'nowrap',
+    '@media (max-width: 640px)': { display: 'none' },
   },
-  spacer: { flex: 1 },
-  search: { width: '240px', maxWidth: '34vw' },
-  user: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalS },
+  spacer: { flex: 1, [COMPACT_MEDIA]: { display: 'none' } },
+  search: {
+    width: '240px',
+    maxWidth: '34vw',
+    [COMPACT_MEDIA]: {
+      width: 'auto',
+      maxWidth: 'none',
+      minWidth: 0,
+      flex: '1 1 160px',
+    },
+  },
+  user: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacingHorizontalS,
+    '@media (max-width: 420px)': { display: 'none' },
+  },
 
-  content: { flex: 1, overflow: 'auto', padding: tokens.spacingHorizontalXXL },
+  content: {
+    flex: 1,
+    minWidth: 0,
+    overflow: 'auto',
+    padding: `${APP_SHELL_LAYOUT.wideContentPadding}px`,
+    [COMPACT_MEDIA]: { padding: `${APP_SHELL_LAYOUT.compactContentPadding}px` },
+  },
+  compactScrim: {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 20,
+    border: 0,
+    backgroundColor: 'rgba(22, 25, 29, 0.38)',
+    cursor: 'pointer',
+  },
 });
 
 export interface AppShellProps {
@@ -236,9 +334,34 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
   const styles = useStyles();
   const navigate = useNavigate();
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
+  const compactViewport = useCompactViewport();
+  const [collapsed, setCollapsed] = useState(compactViewport);
+  const navigationToggleRef = useRef<HTMLButtonElement>(null);
+  const mobileCloseRef = useRef<HTMLButtonElement>(null);
+  const compactNavigationWasOpen = useRef(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const { data: chatGate } = useAiChatGate();
+
+  // A compact viewport starts with the icon rail. Expanding it overlays the
+  // page instead of reflowing or clipping the dashboard; navigation closes it.
+  useEffect(() => setCollapsed(compactViewport), [compactViewport]);
+  useEffect(() => {
+    if (compactViewport) setCollapsed(true);
+  }, [compactViewport, location.pathname]);
+  useEffect(() => {
+    if (compactViewport && !collapsed) {
+      compactNavigationWasOpen.current = true;
+      mobileCloseRef.current?.focus();
+      return;
+    }
+    if (compactNavigationWasOpen.current) {
+      compactNavigationWasOpen.current = false;
+      navigationToggleRef.current?.focus();
+    }
+  }, [compactViewport, collapsed]);
+  const closeCompactNavigation = () => {
+    if (compactViewport) setCollapsed(true);
+  };
 
   // The "Queues" group expands to its sub-queues; auto-open on a queue route.
   const onQueueRoute = location.pathname.startsWith('/queue/');
@@ -295,6 +418,7 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
     const inner = (
       <NavLink
         to={`/queue/${segment}`}
+        onClick={closeCompactNavigation}
         className={({ isActive }) =>
           mergeClasses(styles.navItem, sub && !collapsed && styles.navSubItem, isActive && styles.navItemActive)
         }
@@ -322,6 +446,7 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
       <NavLink
         to={to}
         end={end}
+        onClick={closeCompactNavigation}
         className={({ isActive }) => mergeClasses(styles.navItem, isActive && styles.navItemActive)}
       >
         <span className={styles.navIcon}>
@@ -350,6 +475,7 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
     const inner = (
       <NavLink
         to="/inbox"
+        onClick={closeCompactNavigation}
         className={({ isActive }) => mergeClasses(styles.navItem, isActive && styles.navItemActive)}
       >
         <span className={styles.navIcon}>
@@ -400,14 +526,46 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
 
   return (
     <div className={styles.shell}>
-      <nav className={mergeClasses(styles.rail, collapsed && styles.railCollapsed)} aria-label="Primary">
-        <Link to="/" className={mergeClasses('ce-focusable', styles.railLogo)} aria-label="Collision Engineers — home">
-          <img
-            src={logoMark}
-            alt="Collision Engineers"
-            className={mergeClasses(styles.railLogoImg, collapsed && styles.railLogoImgCollapsed)}
-          />
-        </Link>
+      <nav
+        id="primary-navigation"
+        className={mergeClasses(
+          styles.rail,
+          collapsed && styles.railCollapsed,
+          compactViewport && !collapsed && styles.railExpandedCompact,
+        )}
+        aria-label="Primary"
+        onKeyDown={(event) => {
+          if (compactViewport && !collapsed && event.key === 'Escape') {
+            event.preventDefault();
+            setCollapsed(true);
+          }
+        }}
+      >
+        <div className={styles.railHeader}>
+          <Link
+            to="/"
+            onClick={closeCompactNavigation}
+            className={mergeClasses('ce-focusable', styles.railLogo)}
+            aria-label="Collision Engineers — home"
+          >
+            <img
+              src={logoMark}
+              alt="Collision Engineers"
+              className={mergeClasses(styles.railLogoImg, collapsed && styles.railLogoImgCollapsed)}
+            />
+          </Link>
+          {compactViewport && !collapsed && (
+            <button
+              type="button"
+              ref={mobileCloseRef}
+              className={mergeClasses('ce-focusable', styles.mobileClose)}
+              aria-label="Close navigation"
+              onClick={() => setCollapsed(true)}
+            >
+              <X size={20} aria-hidden />
+            </button>
+          )}
+        </div>
 
         <div className={styles.navList}>
           {!collapsed && <div className={styles.navSectionLabel}>Overview</div>}
@@ -435,13 +593,25 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
         </div>
       </nav>
 
+      {compactViewport && !collapsed && (
+        <button
+          type="button"
+          className={styles.compactScrim}
+          aria-label="Dismiss navigation"
+          tabIndex={-1}
+          onClick={() => setCollapsed(true)}
+        />
+      )}
+
       <div className={styles.main}>
         <header className={styles.topbar}>
           <button
+            ref={navigationToggleRef}
             className={mergeClasses('ce-focusable', styles.burger)}
             onClick={() => setCollapsed((v) => !v)}
             aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
             aria-expanded={!collapsed}
+            aria-controls="primary-navigation"
           >
             <Menu size={20} aria-hidden />
           </button>
