@@ -4,9 +4,9 @@
  * A confirmed write from the assistant carries an `If-Match` header holding the version token
  * (the target row's `updated_at`, epoch-ms) the human SAW when they confirmed. If the row has
  * changed since (someone else edited it), the write is stale and must 409 rather than silently
- * clobber. Back-compat: a request WITHOUT `If-Match` skips the check entirely, so the normal SPA
- * (which doesn't send it yet) is unaffected. The version token is returned as an `ETag` on reads
- * and successful writes so the caller can round-trip it.
+ * clobber. The explicit case-page save requires the header. Older isolated mutation routes
+ * retain the no-header compatibility path; when a caller does send one, the same stale-write
+ * guard applies. The version token is returned as an `ETag` on reads and successful writes.
  */
 
 import type { HttpRequest } from '@azure/functions';
