@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createRestDataAccess } from './rest-client';
-import { INBOUND_COUNTS_ZERO } from '@cs/domain';
 
 /* ============================================================
    rest-client — the inbox error-surfacing + dashboard `now`-threading
@@ -10,7 +9,8 @@ import { INBOUND_COUNTS_ZERO } from '@cs/domain';
    The two behaviours under test:
      - The inbox LIST (`inboundEmails`) must PROPAGATE transport errors so the
        screen can show an error/retry state — NOT swallow them to `[]` and look
-       like an empty inbox. The COUNTS read stays safe() (zero baseline).
+       like an empty inbox. The counts read also propagates failure so a
+       sectioned dashboard never presents an unavailable total as zero.
      - Dashboard reads must thread the client `now` as `?now=<ISO>` so server
        windowing matches the client clock (it was being dropped).
    ============================================================ */
@@ -87,10 +87,10 @@ describe('rest-client — inbox list error surfacing (#4)', () => {
     expect(lastUrl(fetchMock)).toContain('/api/inbound?category=receiving_work&subtype=new_client_work');
   });
 
-  it('inboundEmailCounts STAYS safe() — degrades to the zero baseline on a 5xx', async () => {
+  it('inboundEmailCounts rejects on a 5xx so the dashboard can show a partial error', async () => {
     const fetchMock = vi.fn().mockResolvedValue(errStatus(500));
     const da = clientWith(fetchMock);
-    await expect(da.inboundEmailCounts()).resolves.toEqual(INBOUND_COUNTS_ZERO);
+    await expect(da.inboundEmailCounts()).rejects.toThrow(/500/);
   });
 });
 
