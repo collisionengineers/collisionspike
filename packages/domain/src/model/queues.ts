@@ -5,17 +5,15 @@ import type { ActionReason, Case, CaseStatus } from './types';
 
    The queue information architecture is the case's NATURAL state, surfaced as
    the sub-options under the first-class "Queues" nav button and as the tabs on
-   the merged queue page. THREE queues (revised 2026-06-20; needs_review moved
-   into Review 2026-07-08, TKT-130 operator direction):
+   the merged queue page. THREE queues (revised 2026-07-12; Review is strictly
+   the complete, EVA-ready set):
 
      1. not-ready  — "Not ready": arrived and progressing but not complete —
                      instructions without images, images without instructions, a
                      just-arrived case, or a merged case still missing a detail
                      (e.g. the inspection address).
-     2. review     — "Review": the human-in-the-loop queue — a case flagged for a
-                     person to look at (needs_review) or complete and awaiting the
-                     final check before EVA submit (ready_for_eva). (TKT-130:
-                     needs_review cases belong HERE, not in Not ready.)
+     2. review     — "Review": complete and awaiting the final human check before
+                     EVA submit (`ready_for_eva` only).
      3. held       — "Held": cannot pass through automatically (missing the basics
                      — VRM / claimant — or errored), a possible duplicate awaiting
                      a decision, or put on hold by a person.
@@ -37,7 +35,7 @@ import type { ActionReason, Case, CaseStatus } from './types';
    Dates are DD/MM/YYYY strings; the sources accept an optional `now`.
    ============================================================ */
 
-/* ----------  The four user-facing queues (sub-options under "Queues")  ---------- */
+/* ----------  The three user-facing queues (sub-options under "Queues")  ---------- */
 export type QueueName =
   | 'not-ready'
   | 'review'
@@ -71,6 +69,7 @@ export const QUEUES: readonly QueueDef[] = [
       'missing_images',
       'missing_required_fields',
       'linked_to_instruction',
+      'needs_review',
     ],
     tone: 'muted',
   },
@@ -79,11 +78,10 @@ export const QUEUES: readonly QueueDef[] = [
     routeSegment: 'review',
     label: 'Review',
     shortLabel: 'Review',
-    // The human-in-the-loop queue: a case flagged for a person (needs_review) or
-    // complete and awaiting the final check before EVA submit (ready_for_eva).
-    // needs_review moved here from Not ready 2026-07-08 (TKT-130 operator
-    // direction: "Needs Review cases belong in the Review queue").
-    statuses: ['needs_review', 'ready_for_eva'],
+    // Review is the theoretically-submittable population: the canonical
+    // readiness evaluator has passed every field, inspection, image and review
+    // check. A raw needs_review status is incomplete and remains Not ready.
+    statuses: ['ready_for_eva'],
     tone: 'blocker',
   },
   {
@@ -120,6 +118,17 @@ export function isRetiredMerged(c: Pick<Case, 'status' | 'mergedInto'>): boolean
   return c.status === 'linked_to_instruction' && Boolean(c.mergedInto);
 }
 
+/**
+ * One queue-membership predicate. Explicit holds and blocking workflow states
+ * take precedence; retired merge sources and terminal states own no work queue.
+ */
+export function caseToQueue(
+  c: Pick<Case, 'status' | 'onHold' | 'mergedInto'>,
+): QueueName | undefined {
+  if (isRetiredMerged(c)) return undefined;
+  return c.onHold ? 'held' : statusToQueue(c.status);
+}
+
 export function queueByName(name: string): QueueDef | undefined {
   return QUEUES.find((q) => q.name === name);
 }
@@ -133,12 +142,11 @@ export function queueByName(name: string): QueueDef | undefined {
    has NO held stage. `error` and `duplicate_risk` are Held — surfaced via the
    Held queue + the dashboard held bar + the aging hero — never a funnel count —
    so they map to `undefined` here (callers exclude them from the strip).
-   Buckets align with the QUEUES taxonomy (needs_review sits in Review since
-   2026-07-08 — TKT-130 — so the funnel and the queues stay in lockstep):
+   Buckets align with the QUEUES taxonomy:
      - new        ← new_email, ingested            (intake/settling)
      - not_ready  ← missing_images, missing_required_fields,
-                    linked_to_instruction
-     - review     ← needs_review, ready_for_eva
+                    linked_to_instruction, needs_review
+     - review     ← ready_for_eva
      - submitted  ← eva_submitted, box_synced
      - (none)     ← error, duplicate_risk          (Held only) */
 export function statusToStage(status: CaseStatus): PipelineStageKey | undefined {
@@ -149,8 +157,8 @@ export function statusToStage(status: CaseStatus): PipelineStageKey | undefined 
     case 'missing_images':
     case 'missing_required_fields':
     case 'linked_to_instruction':
-      return 'not_ready';
     case 'needs_review':
+      return 'not_ready';
     case 'ready_for_eva':
       return 'review';
     case 'eva_submitted':
@@ -159,7 +167,8 @@ export function statusToStage(status: CaseStatus): PipelineStageKey | undefined 
       return 'submitted';
     case 'error':
     case 'duplicate_risk':
-      return undefined; // Held — never inflates a funnel stage.
+    case 'removed':
+      return undefined; // Held/closed — never inflates a funnel stage.
   }
 }
 

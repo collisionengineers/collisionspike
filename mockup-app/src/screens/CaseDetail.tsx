@@ -120,6 +120,7 @@ import {
   type SuggestedAddress,
 } from '../data';
 import {
+  canSubmitCaseToEva,
   resolveInspectionDecision,
   allowedCaseTypes,
   buildEvaJson,
@@ -1009,8 +1010,8 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     ],
   };
   const readiness = computeReadiness(liveCase);
-  const blocked = !readiness.ready;
-  const blockerCount = readiness.missing.length;
+  const blocked = !canSubmitCaseToEva(liveCase);
+  const blockerCount = readiness.missing.length + (liveCase.onHold ? 1 : 0);
 
   const toast = (title: string) =>
     dispatchToast(
@@ -2100,7 +2101,11 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
         <MessageBar intent="error">
           <MessageBarBody>
             <MessageBarTitle>Can't submit to EVA yet — {blockerCount} item{blockerCount === 1 ? '' : 's'}</MessageBarTitle>
-            Use the readiness list — each outstanding item links to the field to fix.
+            {liveCase.onHold
+              ? readiness.missing.length > 0
+                ? 'Release the hold and resolve the outstanding readiness items before submitting to EVA.'
+                : 'Release the hold before submitting to EVA.'
+              : 'Use the readiness list — each outstanding item links to the field to fix.'}
           </MessageBarBody>
         </MessageBar>
       )}
@@ -2577,7 +2582,11 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
             <Text className="ce-section-heading">Readiness</Text>
             <Caption1 className={mergeClasses(styles.hint, styles.hintNudgeTop)} block>
               {blocked
-                ? `${blockerCount} item${blockerCount === 1 ? '' : 's'} to resolve before EVA — select one to fix.`
+                ? liveCase.onHold
+                  ? readiness.missing.length > 0
+                    ? `Release the hold and resolve ${readiness.missing.length} readiness item${readiness.missing.length === 1 ? '' : 's'} before EVA.`
+                    : 'Release the hold before EVA.'
+                  : `${blockerCount} item${blockerCount === 1 ? '' : 's'} to resolve before EVA — select one to fix.`
                 : 'Every check passes — ready for EVA.'}
             </Caption1>
             <div className={styles.readyList} role="list">

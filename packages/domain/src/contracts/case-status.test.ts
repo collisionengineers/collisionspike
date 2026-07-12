@@ -64,6 +64,7 @@ function caseInput(over: Partial<StatusEvaluationInput> = {}): StatusEvaluationI
     status: 'ingested',
     evaFields: fullFields(),
     evidence: goodEvidence,
+    inspectionDecision: 'confirmed_physical',
     ...over,
   };
 }
@@ -261,15 +262,14 @@ describe('statusForReviewCase — needs_review branch (FIX-3 evidence-aware)', (
     expect(statusForReviewCase(input)).toBe('needs_review');
   });
 
-  it('a populated case with an open conflict is ready_for_eva (FIX-3 does not gate on review state)', () => {
-    // Divergence from the old tree: fieldsValid is field-presence only.
+  it('a populated case with an open conflict stays needs_review', () => {
     const input = caseInput({
       evaFields: fullFields({ vehicleModel: field('Audi A3', 'conflict') }),
     });
-    expect(statusForReviewCase(input)).toBe('ready_for_eva');
+    expect(statusForReviewCase(input)).toBe('needs_review');
   });
 
-  it('image rules take precedence over an open review state', () => {
+  it('a concrete image failure remains the persisted reason when a field also needs review', () => {
     const input = caseInput({
       evaFields: fullFields({ mileage: field('1000', 'needs_review') }),
       evidence: [],

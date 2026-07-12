@@ -1,14 +1,13 @@
 /**
  * packages/domain/src/model/queues.test.ts — the queue IA + funnel-stage mapping.
  *
- * Pins TKT-130 (2026-07-08 operator direction): needs_review cases belong in the
- * REVIEW queue (the human-in-the-loop queue), not "Not ready" — and the funnel
- * stage mapping stays in lockstep with the queues so the dashboard tiles, the
- * pipeline strip, and the queue tabs all agree (TKT-012 single-sourcing).
+ * Pins the superseding TKT-130 rule (2026-07-12): Review is strictly the
+ * theoretically EVA-ready set. needs_review is incomplete and belongs in Not
+ * ready. The funnel remains in lockstep with the queue contract (TKT-012).
  */
 
 import { describe, it, expect } from 'vitest';
-import { QUEUES, isRetiredMerged, queueByName, statusToQueue, statusToStage } from './queues';
+import { QUEUES, caseToQueue, isRetiredMerged, queueByName, statusToQueue, statusToStage } from './queues';
 import type { CaseStatus } from './types';
 
 describe('isRetiredMerged — the TKT-141 retired-duplicate predicate (one source)', () => {
@@ -26,25 +25,31 @@ describe('isRetiredMerged — the TKT-141 retired-duplicate predicate (one sourc
 });
 
 describe('statusToQueue — TKT-130 queue routing', () => {
-  it('needs_review lands in the Review queue (operator direction 2026-07-08)', () => {
-    expect(statusToQueue('needs_review')).toBe('review');
+  it('needs_review lands in Not ready under the superseding rule', () => {
+    expect(statusToQueue('needs_review')).toBe('not-ready');
   });
 
   it('ready_for_eva stays in the Review queue', () => {
     expect(statusToQueue('ready_for_eva')).toBe('review');
   });
 
-  it('the Not ready queue holds the arrived-but-incomplete states (no needs_review)', () => {
+  it('the Not ready queue holds every arrived-but-incomplete state', () => {
     for (const s of [
       'new_email',
       'ingested',
       'missing_images',
       'missing_required_fields',
       'linked_to_instruction',
+      'needs_review',
     ] as CaseStatus[]) {
       expect(statusToQueue(s)).toBe('not-ready');
     }
-    expect(queueByName('not-ready')?.statuses).not.toContain('needs_review');
+    expect(queueByName('review')?.statuses).toEqual(['ready_for_eva']);
+  });
+
+  it('an explicit hold takes precedence over a passing status', () => {
+    expect(caseToQueue({ status: 'ready_for_eva', onHold: true })).toBe('held');
+    expect(caseToQueue({ status: 'ready_for_eva', onHold: false })).toBe('review');
   });
 
   it('Held holds error + duplicate_risk; terminals own no queue', () => {
@@ -67,8 +72,8 @@ describe('statusToQueue — TKT-130 queue routing', () => {
 });
 
 describe('statusToStage — the funnel stays in lockstep with the queues (TKT-012/130)', () => {
-  it('needs_review counts in the review stage (matches its queue)', () => {
-    expect(statusToStage('needs_review')).toBe('review');
+  it('needs_review counts in Not ready while ready_for_eva counts in Review', () => {
+    expect(statusToStage('needs_review')).toBe('not_ready');
     expect(statusToStage('ready_for_eva')).toBe('review');
   });
 

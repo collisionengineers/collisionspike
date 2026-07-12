@@ -37,6 +37,12 @@ export interface ImageRuleEvidence {
   acceptedForEva: boolean;
   /** Flagged unusable (e.g. a person's reflection is visible). */
   excluded?: boolean;
+  /**
+   * An automatic image decision still needs a person to confirm it. A case with
+   * any such unresolved image cannot be ready even when its other accepted
+   * images happen to satisfy the count/role rules.
+   */
+  reviewRequired?: boolean;
 }
 
 /** Stable codes for each rule failure (UI / flow can branch on these). */

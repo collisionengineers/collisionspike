@@ -28,6 +28,7 @@ import {
   EVA_FIELD_ORDER,
   normaliseEvaEdit,
   canonicalizeVrm,
+  canSubmitCaseToEva,
   casePoSequenceRegex,
   casePoYear,
   decideMergeProvider,
@@ -35,6 +36,7 @@ import {
   formatCasePo,
   isRetiredMerged,
   normalizeCasePo,
+  readinessInputForCase,
   statusForReviewCase,
   type Case,
   type Chaser,
@@ -235,19 +237,7 @@ export async function recomputeStatus(caseId: string, actor?: string): Promise<b
     // real at the database boundary instead of relying on an earlier snapshot.
     const full = await loadCaseFullUsing(q, caseId, new Date(), true);
     if (!full) return null;
-    const input: StatusEvaluationInput = {
-      status: full.status,
-      evaFields: full.evaFields,
-      evidence: full.evidence,
-      instructionCount: full.evidence.filter((e) => e.kind === 'instruction').length,
-      hasIdentity:
-        full.vrm.trim().length > 0 ||
-        full.providerCode.trim().length > 0 ||
-        full.evaFields.claimantName.value.trim().length > 0,
-      // TKT-141 retired-lock: this value was re-read while the case row was locked.
-      mergedInto: full.mergedInto,
-    };
-    const evaluated = statusForReviewCase(input);
+    const evaluated = statusForReviewCase(readinessInputForCase(full));
     if (evaluated !== full.status) {
       await q('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [
         caseId,
@@ -270,6 +260,23 @@ export async function recomputeStatus(caseId: string, actor?: string): Promise<b
   // case state immediately before minting, so the post-commit gap is safe.
   await maybeSuggestOverviewChase(caseId, next, actor);
   return true;
+}
+
+/**
+ * Atomically re-check canonical readiness and workflow queue precedence before
+ * the guarded EVA-submitted transition. The row lock spans the full child-row
+ * snapshot and transition, so a stale ready status or browser cannot win a
+ * race with a field/evidence/hold change.
+ */
+export async function markEvaSubmittedIfReady(
+  caseId: string,
+  actor?: string,
+): Promise<boolean> {
+  return tx(async (q) => {
+    const full = await loadCaseFullUsing(q, caseId, new Date(), true);
+    if (!full || !canSubmitCaseToEva(full)) return false;
+    return markEvaSubmittedUsing(q, caseId, actor);
+  });
 }
 
 /* ----------  Durable case-page EVA-field edits (work-todo-spike: casepage)  ---------- */
@@ -621,6 +628,7 @@ app.http('createCase', {
       status: input.status,
       evaFields: input.evaFields,
       evidence: [],
+      inspectionDecision: input.inspectionDecision ?? 'unknown',
       instructionCount: 0,
       hasIdentity:
         (input.vrm ?? '').trim().length > 0 ||
@@ -1958,7 +1966,7 @@ app.http('markEvaSubmitted', {
   handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
     const id = (req.params.id ?? '').trim();
     if (!id) return { status: 400, jsonBody: { message: 'A case is required.' } };
-    const updated = await tx((q) => markEvaSubmittedUsing(q, id, actorFromClaims(claims)));
+    const updated = await markEvaSubmittedIfReady(id, actorFromClaims(claims));
     // updated:false covers both "already submitted" (benign idempotent no-op)
     // and "not ready yet" — the caller re-reads the case either way.
     return { status: 200, jsonBody: { updated } };

@@ -564,6 +564,7 @@ describe('generation-aware status acknowledgement', () => {
     db.query.mockResolvedValue([doneRow]); // provider-policy preview
     db.txQuery.mockImplementation(async (sql: string) => {
       if (/FOR UPDATE OF c/i.test(sql)) return [doneRow];
+      if (/FROM field_level_provenance/i.test(sql)) return [];
       if (/FROM evidence/i.test(sql)) return [];
       if (/status_recompute_completed_generation/i.test(sql)) {
         return [{
@@ -576,11 +577,14 @@ describe('generation-aware status acknowledgement', () => {
     const response = await complete(req({ id: 'case-1', body: { generation: 1 } }), ctx);
     expect(response.jsonBody).toEqual({ completed: true, pending: true });
     const lockIndex = db.txQuery.mock.calls.findIndex(([sql]) => /FOR UPDATE OF c/i.test(String(sql)));
+    const provenanceIndex = db.txQuery.mock.calls.findIndex(([sql]) =>
+      /FROM field_level_provenance/i.test(String(sql)));
     const evidenceIndex = db.txQuery.mock.calls.findIndex(([sql]) => /FROM evidence/i.test(String(sql)));
     const ackIndex = db.txQuery.mock.calls.findIndex(([sql]) =>
       /status_recompute_completed_generation/i.test(String(sql)));
     expect(lockIndex).toBe(0);
-    expect(evidenceIndex).toBeGreaterThan(lockIndex);
+    expect(provenanceIndex).toBeGreaterThan(lockIndex);
+    expect(evidenceIndex).toBeGreaterThan(provenanceIndex);
     expect(ackIndex).toBeGreaterThan(evidenceIndex);
     const ackSql = String(db.txQuery.mock.calls[ackIndex][0]);
     expect(ackSql).toContain('GREATEST');
@@ -598,6 +602,7 @@ describe('generation-aware status acknowledgement', () => {
     db.query.mockResolvedValue([terminal]);
     db.txQuery.mockImplementation(async (sql: string) => {
       if (/FOR UPDATE OF c/i.test(sql)) return [terminal];
+      if (/FROM field_level_provenance/i.test(sql)) return [];
       if (/FROM evidence/i.test(sql)) return [];
       if (/status_recompute_completed_generation/i.test(sql)) {
         return [{
@@ -632,6 +637,7 @@ describe('generation-aware status acknowledgement', () => {
     db.query.mockResolvedValue([merged]);
     db.txQuery.mockImplementation(async (sql: string) => {
       if (/FOR UPDATE OF c/i.test(sql)) return [merged];
+      if (/FROM field_level_provenance/i.test(sql)) return [];
       if (/FROM evidence/i.test(sql)) return [];
       if (/UPDATE case_ SET status_code/i.test(sql)) return [];
       if (/SAVEPOINT|RELEASE SAVEPOINT|INSERT INTO audit_event/i.test(sql)) return [];

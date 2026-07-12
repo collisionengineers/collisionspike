@@ -325,24 +325,11 @@ describe('EVA-readiness TS<->Python parity (shared parity_fixtures.json)', () =>
     }
   });
 
-  describe('statusForReviewCase tracks the shared derivedStatus, modulo its two DOCUMENTED refinements', () => {
-    // The full LIVE status guard (statusForReviewCase, mirroring the deployed
-    // FIX-3 status-evaluate flow) intentionally differs from the parity harness's
-    // `_derived_status` precedence in exactly TWO documented ways. For every
-    // fixture NOT hitting one of those, statusForReviewCase MUST return the shared
-    // derivedStatus — so this block pins the live guard tree to the same fixtures.
-    //
-    //   (a) needs_review rung — statusForReviewCase's `fieldsValid` is purely
-    //       "all required fields non-empty"; it deliberately does NOT gate on
-    //       review state (case-status.ts lines ~182-185 / ~216-228, matching the
-    //       live flow). A fully-populated, EVA-image-complete case is therefore
-    //       `ready_for_eva` even with an open needs_review/conflict — whereas the
-    //       parity precedence folds needs_review in as a rung. So a fixture whose
-    //       shared derivedStatus is `needs_review` ONLY because of an open review
-    //       state (fields+images otherwise valid) is `ready_for_eva` here.
-    //   (b) evidence-less rung — for a case with NO accepted images AND no
-    //       instructions, a field-incomplete case is held as `needs_review`
-    //       (pending/new) rather than `missing_required_fields`.
+  describe('statusForReviewCase tracks the shared derivedStatus, modulo the evidence-less pending refinement', () => {
+    // The canonical guard now consumes the same review-state rung as the parity
+    // evaluator. Its sole deliberate status refinement is evidence-less pending:
+    // no accepted images + no instructions remains needs_review rather than
+    // prematurely becoming missing_required_fields.
     for (const fx of FIXTURES) {
       it(`${fx.name}`, () => {
         const evaFields = toEvaFields(fx.case);
@@ -351,6 +338,13 @@ describe('EVA-readiness TS<->Python parity (shared parity_fixtures.json)', () =>
           status: 'needs_review', // non-terminal entry status (terminal-lock untested here)
           evaFields,
           evidence,
+          // The legacy parity corpus predates explicit inspection decisions.
+          // Give every non-empty fixture address its matching saved choice so
+          // this gate remains focused on TS/Python field/image/review parity.
+          inspectionDecision:
+            evaFields.inspectionAddress.value.trim() === 'Image Based Assessment'
+              ? 'image_based'
+              : 'confirmed_physical',
         };
         const actual = statusForReviewCase(input);
 
@@ -361,18 +355,7 @@ describe('EVA-readiness TS<->Python parity (shared parity_fixtures.json)', () =>
           (e) => e.kind === 'instruction',
         ).length;
 
-        // (a) needs_review-only: shared verdict is needs_review purely from an
-        // open review state (fields + images both valid) -> live guard says ready.
-        if (
-          fx.expected.derivedStatus === 'needs_review' &&
-          fx.expected.fieldsValid &&
-          fx.expected.imagesValid
-        ) {
-          expect(actual).toBe('ready_for_eva');
-          return;
-        }
-
-        // (b) evidence-less + field-incomplete -> held pending (needs_review).
+        // Evidence-less + field-incomplete -> held pending (needs_review).
         if (
           !fx.expected.fieldsValid &&
           !fx.expected.imagesValid &&
