@@ -399,7 +399,7 @@ nothing further to do here.
   `providers.json`, which lives at the sibling repo root)
 - **Cut from:** annotated tag **`engine-v2.16`** on branch
   `codex/tkt089-banner-recall`, commit **`8dd4ba8`** (2026-07-11) — **branch + tag PUSHED to
-  origin**. The TKT-089 recall removes the banner-aspect/short-side hard drop so every candidate at
+  origin** and merged into the sibling's default `main` by PR 7 on 2026-07-12. The TKT-089 recall removes the banner-aspect/short-side hard drop so every candidate at
   or above the 40,000-pixel area floor reaches semantic classification. Changed vs `engine-v2.15`:
   `application/service.py` ONLY (no taxonomy/DDL dependency; providers.json untouched).
   Prior pin: annotated tag **`engine-v2.15`**, commit **`79efe22`** (2026-07-10) — the now-superseded
@@ -449,22 +449,19 @@ nothing further to do here.
 
 ## Reconciliations: none outstanding
 
-As of `engine-v2.1` (and unchanged through `engine-v2.5`) this copy is a **pure
-mirror** — no vendored-only or sibling-only divergence remains. `RECONCILED_MODULES` in
-`tests/test_engine_vendored_in_sync.py` is empty, and every shared file
-(all `.py` modules plus `resources/*.json`) is byte-compared with no
-exceptions. The `engine-v2.5` re-cut added three new shared files
-(`rules/triage_rules.py`, `resources/triage-rules.json`,
-`resources/triage-rules.schema.json`) — the drift guard's file lists are
-dynamic (`VENDORED_ROOT.rglob("*.py")` / `resources/*.json`), so all three
-were covered automatically with no test-file changes needed.
+As of `engine-v2.1` (and unchanged through `engine-v2.16`) this copy is a **pure
+mirror** — no vendored-only or sibling-only divergence remains. The executable
+boundary is enforced by `VENDOR_LOCK.json` and
+`scripts/verify_vendor_pin.py`: every shared `.py` module, bundled resource
+JSON, and the separately located `providers.json` seed is included in one
+deterministic content digest. The `engine-v2.5` re-cut added three new shared
+files (`rules/triage_rules.py`, `resources/triage-rules.json`, and
+`resources/triage-rules.schema.json`), and the boundary enumerator picked them
+up automatically.
 
-The test file keeps its marker-based mechanism (`_VENDORED_MARKERS` /
-`_SIBLING_MARKERS`, currently empty dicts) ready for reuse: the next time an
-engine-core fix must land here before it can be upstreamed (as B2 and, before
-it, the classifier's 2026-06-29 corroboration-gate fix both did), add the file
-to `RECONCILED_MODULES`, populate the markers, and record it in this section —
-then collapse it back to "none outstanding" once the sibling re-syncs.
+A future intentional reconciliation must be represented in the verifier's
+reviewed boundary rules and recorded here; it cannot disappear behind a
+working-tree-dependent skip.
 
 ## Omitted modules (deliberately NOT vendored)
 
@@ -505,16 +502,25 @@ The adapter pins the service to it explicitly
 sibling's root `providers.json` at the cut, but the **vendored copy is
 authoritative for the deployed Function** — a re-cut must **not** clobber it
 with the sibling's unless the seed has intentionally changed. Treat a
-providers.json change as a deliberate, reviewed update (it is excluded from
-the drift guard's byte-compare for exactly this reason).
+providers.json change as a deliberate, reviewed update. It has its own digest
+in `VENDOR_LOCK.json` and is also included in the full vendor-tree digest and
+locked-tag comparison.
 
 ## Drift guard
 
-`functions/parser/tests/test_engine_vendored_in_sync.py` fails when this copy
-drifts from the sibling source, *excluding* only the omitted modules and
-`providers.json` (both above). Every other shared file — every `.py` module
-AND the bundled `resources/*.json` — is byte-compared with no exceptions. It
-skips cleanly when the sibling repo is unreachable.
+`functions/parser/scripts/verify_vendor_pin.py` is the executable guard.
+`VENDOR_LOCK.json` records the annotated engine tag, its full peeled commit,
+the explicit cloud/desktop boundary, the complete vendored-tree digest, and
+the provider-catalogue digest. The guard always verifies that self-contained
+lock, so CI does not need access to the private sibling repository and never
+silently skips. A second CI job checks out the private sibling with a dedicated
+read-only deploy key on pushes and same-repository PRs. With that clone (or a
+trusted local clone), the verifier additionally resolves the recorded tag with
+Git, verifies that it still peels to the locked commit, enumerates the
+source/vendored file sets in both directions, and reads every blob with
+`git show <locked-commit>:<path>`. The sibling's checked-out branch therefore
+cannot affect the result. The pytest wrapper
+`tests/test_engine_vendored_in_sync.py` invokes the same guard.
 
 ## Re-vendor procedure (against a COMMITTED sibling ref)
 
@@ -564,13 +570,17 @@ done
 #    ( cd "$S" && git show "$REF:providers.json" ) > "$V/providers.json"
 #    -- only run this line for a deliberate, reviewed seed update.
 
-# 4. Verify:
+# 4. Regenerate the lock ONLY after the tag/source comparison proves this cut.
+python functions/parser/scripts/verify_vendor_pin.py --write --ref "$REF"
+
+# 5. Verify the lock directly, then run the parser suite:
+python functions/parser/scripts/verify_vendor_pin.py
 ( cd functions/parser && python -m pytest -q )
 ```
 
-The drift guard (`test_engine_vendored_in_sync.py`) verifies the result: every
-shared file must now be byte-identical (`git -C $S diff --stat` against the
-ref should show nothing beyond what you intended to change). If it isn't,
-STOP and reconcile before committing — see "Reconciliations" above for the
-pattern to use if a genuine new divergence is unavoidable.
+The lock writer refuses to update `VENDOR_LOCK.json` unless every included
+file is present on both sides and byte-equivalent after cross-platform newline
+normalisation. If it refuses, STOP and reconcile before committing — see
+"Reconciliations" above for the process if a genuine new divergence is
+unavoidable.
 

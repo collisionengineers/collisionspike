@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "repository": "collisionengineers/cedocumentmapper_v2.0",
+  "ref": "engine-v2.16",
+  "commit": "8dd4ba862500e2fbcd9e809523301e16e23eb9d8",
+  "sourceRoot": "src/cedocumentmapper_v2",
+  "omittedFiles": [
+    "__main__.py",
+    "cli.py",
+    "resources/extraction-rule.schema.json",
+    "resources/provider-config.schema.json",
+    "ui/host.py"
+  ],
+  "omittedPrefixes": [
+    "eval/",
+    "extraction/"
+  ],
+  "vendoredFileCount": 36,
+  "contentSha256": "24F1F7292B3CD9E0C464342CEABD99B914C2AB5AFD290CA3CC0A7C5B0EF7F6DF",
+  "providersSha256": "596A4F95F00E59F6E4E4672041661BD6702CA67A14CA48790CA2CF38CD55C06E"
+}
