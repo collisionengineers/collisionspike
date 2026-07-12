@@ -5,7 +5,8 @@ TESTED (offline) + VERIFIED-LIVE (partial) — reciprocal exact-head draft-PR be
 
 ## Evidence
 
-- `npm run test:pr-review-hooks` — PASS, 45/45 on 2026-07-12. Coverage includes Windows production launch, Claude `//drive` permission rules, timeouts, live/stale locks, wrapper/API/MCP bypasses, benign-search pass-through, merge SHA binding, forced draft, per-commit bundles, marker sanitization, file-backed comment payloads, ready-state races and current-head outcomes.
+- `npm run test:pr-review-hooks` — PASS, 48/48 on 2026-07-12. Coverage includes Windows production launch, Claude `//drive` permission rules, timeouts, live/stale locks, wrapper/API/MCP bypasses, benign-search pass-through, merge SHA binding, forced draft, per-commit bundles, randomized prompt boundaries, marker sanitization, canonical executable/root realpaths, file-backed comment payloads, ready-state races and current-head outcomes.
+- `npm test` — PASS from a clean lockfile install: domain 551/551, SPA 410/410, reciprocal hooks 48/48. The local real-CLI smoke test runs when GitHub/Claude/Codex are installed and otherwise skips; deterministic hook tests always run.
 - `node --check` — PASS for the shared runner, both hook adapters and marker evaluator.
 - Both hook configuration files parse as JSON.
 - The Codex `commandWindows` Git-root resolver was exercised from `mockup-app/`; it found the root adapter and returned the expected `updatedInput` rewrite.
@@ -23,6 +24,8 @@ TESTED (offline) + VERIFIED-LIVE (partial) — reciprocal exact-head draft-PR be
 - On head `3f6c8aa`, Claude again replaced its marker with `PASS`. Codex validly found that new Claude comments and comment updates could still place a 60 KB body in Windows argv. The next head uses `--body-file` for creation and JSON `--input` for PATCH updates; a fixture proves neither command contains review text. The PR remains draft pending both fresh passes.
 - Subsequent adversarial review cycles closed case-insensitive/global-option and quoted-shell REST bypasses, a newer-invalid-marker fallback to an older pass, copied marker publication, unscoped malformed-comment overwrite, and broad GraphQL-name false positives. An independent verifier re-ran 18 direct/wrapped/API variants and the duplicate-marker reproduction at `eadf15f`: every mutation was denied and the newer invalid claim produced `failure`/`invalid`, never the older pass.
 - On head `8f6c3cb`, Claude posted `PASS`; Codex posted `CHANGES_REQUESTED` only for a proposed Codex `updatedInput.timeout`. The official Codex hook schema documents Bash `tool_input.command` and requires a string `updatedInput.command`; it provides no rewritten-command timeout field. `.codex/hooks.json` already grants the hook process 1,800 seconds, while the rewritten shell command uses Codex's ongoing command session. No unsupported Claude-only milliseconds field was added; a fresh head forces reassessment.
+- Later exact-head cycles accepted and fixed reviewer findings for POSIX command escaping/line continuation, static context-tag injection, repository-controlled executable symlinks, aliased trust roots, demonstrated dynamic shell concatenations, benign marker quotations and default-test portability. The independent replay at `caa93c1` denied every named LF/CRLF, IFS/default-variable, ANSI-escape and `printf` construction; rejected both physical and junction-aliased repository roots; preserved benign Windows/search commands; and re-proved 5,000 randomized context boundaries.
+- On head `caa93c1`, Claude posted `PASS`; Codex requested only that the real local-CLI launch smoke test not break developers without those optional binaries. The availability skip is now in place while all deterministic guard tests remain on the default path.
 
 ## Pending / gaps
 

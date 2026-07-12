@@ -185,7 +185,7 @@
 
 | ID | Title | State |
 |---|---|---|
-| [TKT-149](./verify/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) | Require reciprocal Claude and Codex reviews on every pull request | **TESTED + PARTIAL LIVE 2026-07-12:** 45/45 fixtures and PR #60 prove the shared exact-head runner, draft/failure behavior and reciprocal comments; awaiting one real PR creation through each agent hook. GitHub private Free cannot require the visible status server-side. |
+| [TKT-149](./verify/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) | Require reciprocal Claude and Codex reviews on every pull request | **TESTED + PARTIAL LIVE 2026-07-12:** 48/48 guard fixtures plus the 961 app/domain tests and PR #60 prove the shared exact-head runner, draft/failure behavior and reciprocal comments; awaiting one real PR creation through each agent hook. GitHub private Free cannot require the visible status server-side. |
 | [TKT-148](./verify/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for overview-less photo sets | **REOPENED 2026-07-11:** guarantee one draft under concurrency and distinguish drafted from sent activity. |
 | [TKT-147](./verify/TKT-147-tractable-make-vin/TKT-147-tractable-make-vin.md) | Tractable layout: vehicle make (two-label rule) + VIN slot | **REOPENED 2026-07-11:** expose the extracted VIN through `/parse` without changing the EVA export. |
 | [TKT-146](./verify/TKT-146-box-upload-event-classify/TKT-146-box-upload-event-classify.md) | Classify images at Box-upload event time | **REOPENED 2026-07-11:** fail closed on consent lookup, prevent batch starvation, and make status recomputation durable. |
