@@ -188,6 +188,7 @@ async function loadCaseFullSnapshotUsing(
   );
   const notes = await q<Row>('SELECT * FROM note WHERE case_id = $1 ORDER BY occurred_at', [id]);
   const chasers = await q<Row>('SELECT * FROM chaser WHERE case_id = $1 ORDER BY created_at', [id]);
+  const sourceEvidencePending = await manualIntakeEvidencePending(q, id);
   const value = rowToCase(rec, {
     now,
     provenanceRows: prov,
@@ -200,6 +201,7 @@ async function loadCaseFullSnapshotUsing(
     })),
     chasers: chasers.map(rowToChaser),
   });
+  value.sourceEvidencePending = sourceEvidencePending;
   return { value, version: versionToken(rec.updated_at) };
 }
 
@@ -249,10 +251,7 @@ export async function recomputeStatus(caseId: string, actor?: string): Promise<b
     // real at the database boundary instead of relying on an earlier snapshot.
     const full = await loadCaseFullUsing(q, caseId, new Date(), true);
     if (!full) return null;
-    const evaluated = statusForReviewCase({
-      ...readinessInputForCase(full),
-      sourceEvidencePending: await manualIntakeEvidencePending(q, caseId),
-    });
+    const evaluated = statusForReviewCase(readinessInputForCase(full));
     if (evaluated !== full.status) {
       await q('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [
         caseId,
@@ -291,7 +290,7 @@ export async function markEvaSubmittedIfReady(
     const full = await loadCaseFullUsing(q, caseId, new Date(), true);
     if (
       !full ||
-      await manualIntakeEvidencePending(q, caseId) ||
+      full.sourceEvidencePending === true ||
       !canSubmitCaseToEva(full)
     ) return false;
     return markEvaSubmittedUsing(q, caseId, actor);

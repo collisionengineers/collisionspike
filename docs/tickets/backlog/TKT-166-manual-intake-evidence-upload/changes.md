@@ -7,11 +7,13 @@ loop still owns the ticket-status move, database delta, deployment and independe
 
 ## Commits
 
-- `d20584b` — make Manual Intake case creation and its source-file batch resumable, target-bound and
+- `606d086` — make Manual Intake case creation and its source-file batch resumable, target-bound and
   truthful on partial failure.
-- `0070145` — reconcile the source-file blocker with the merged canonical readiness contract.
-- `c5fed47` — pin the locked submission refusal while the source batch remains incomplete.
-- `b4657a5` — carry the source-file readiness group through the SPA checklist adapter.
+- `0fbe511` — reconcile the source-file blocker with the merged canonical readiness contract.
+- `ddb129c` — pin the locked submission refusal while the source batch remains incomplete.
+- `3a7ea4f` — carry the source-file readiness group through the SPA checklist adapter.
+- `cf61871` — safely reopen a completed binding when a lost response is followed by a changed file
+  selection.
 
 ## Files touched
 
@@ -44,13 +46,15 @@ The case-create key is independent from the file-batch key. A lost create respon
 case, a lost upload response replays the same evidence identities, and a handler changing the file
 selection rebinds the unfinished operation without allocating another Case/PO. The shared readiness
 contract blocks Review while the selected source batch is incomplete. The recovery view names every
-outstanding file, preserves already-added identities, and does not navigate automatically.
+outstanding file, preserves already-added identities, and does not navigate automatically. The
+single-case response also carries this pending state, so the case-page checklist cannot appear
+complete while the persisted status is still Not Ready.
 
 ## Offline checks
 
-- Full Domain suite: **1,134 tests passed**.
-- Full API suite: **628 tests passed**.
-- Full orchestration suite: **401 tests passed**.
+- Full Domain suite: **1,136 tests passed**.
+- Full API suite: **630 tests passed**.
+- Full orchestration suite: **417 tests passed**.
 - Full SPA suite: **459 tests passed**.
 - Focused final run: Domain **41**, API **45**, SPA **57** tests passed.
 - Production TypeScript builds passed for Domain, API, orchestration and the SPA; the Vite bundle was

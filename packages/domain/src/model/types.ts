@@ -324,6 +324,8 @@ export interface Case {
   evaFields: EvaFields;
 
   evidence: Evidence[];
+  /** A manually selected source batch has not finished attaching to this case yet. */
+  sourceEvidencePending?: boolean;
   notes: Note[];
   chasers: Chaser[];
   overviewFacts: OverviewFacts;
