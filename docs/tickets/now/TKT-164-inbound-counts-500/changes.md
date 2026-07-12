@@ -1,12 +1,12 @@
 # Changes — TKT-164: Restore the live inbound dashboard counts
 
 ## Status
-API implementation complete offline on `codex/tkt-164-inbound-route`; dashboard integration,
-deployment and live verification remain pending. Ticket placement/status was not changed by the
-delegated implementer.
+API implementation is complete offline on `codex/tkt-164-inbound-route`; the dashboard retry state
+landed in PR 61. The dispatching loop moved this ticket from `backlog` to `now`; deployment and live
+verification remain pending.
 
 ## Commit
-- `2c2b48e` — constrain UUID detail routes, make inbound-count failures observable, and add API regressions.
+- `1fb580a` — constrain UUID detail routes, make inbound-count failures observable, and add API regressions.
 
 ## Files touched
 - `api/src/functions/inbound.ts`
