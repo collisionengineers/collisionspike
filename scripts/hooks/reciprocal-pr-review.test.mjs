@@ -187,6 +187,7 @@ test('compound, web, interactive, alias, path-qualified, API, GraphQL and MCP by
     '& "C:\\Program Files\\GitHub CLI\\gh.exe" pr merge 42 --squash',
     'gh api -X POST repos/acme/repo/pulls -f title=x',
     'gh api repos/acme/repo/pulls -f title=x -f head=branch -f base=main',
+    'GH API repos/acme/repo/pulls -f title=x -f head=branch -f base=main',
     'gh api -X PUT repos/acme/repo/pulls/42/merge',
     'gh api -XPUT repos/acme/repo/pulls/42/merge',
     'gh api -X POST /repos/acme/repo/pulls -f title=x',

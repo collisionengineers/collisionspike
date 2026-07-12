@@ -114,7 +114,9 @@ function normalizedToolName(value) {
 function looksLikePullRequestApiMutation(tokens, raw) {
   const lower = raw.toLowerCase();
   if (lower.includes('createpullrequest') || lower.includes('create_pull_request')) return true;
-  if ((tokens[0] === 'gh' || tokens[0] === 'gh.exe') && tokens[1] === 'api') {
+  const executable = tokens[0]?.toLowerCase();
+  const subcommand = tokens[1]?.toLowerCase();
+  if ((executable === 'gh' || executable === 'gh.exe') && subcommand === 'api') {
     if (tokens.some((token) => token.toLowerCase() === 'graphql')) return true;
     const mutatingInput = flagPresent(tokens, '-X', '--method', '-f', '--raw-field', '-F', '--field', '--input')
       || tokens.some((token) => /^-(?:X|f|F).+/u.test(token));
