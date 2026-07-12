@@ -110,35 +110,25 @@ The sibling repo **`collisionengineers/cedocumentmapper_v2.0`** is the
 is a **pinned vendored copy** re-cut from it by the command in
 [`cedocumentmapper_v2/PROVENANCE.md`](./cedocumentmapper_v2/PROVENANCE.md). **All
 engine edits land in the sibling first** and are then re-vendored — the vendored
-copy is **never hand-edited** except for two intentional, recorded reconciliations
-(below). A drift guard (`tests/test_engine_vendored_in_sync.py`) fails when this
-copy diverges from the sibling source, so a change is never silently lost; it
-skips cleanly when the sibling is unreachable (CI).
+copy is **never hand-edited**. As of `engine-v2.1` every earlier reconciliation
+is upstream and the cloud engine is a pure mirror of its declared sibling
+boundary.
 
-The vendored copy is a deliberate **superset** that reconciles a verified
-bidirectional fork (full detail in `PROVENANCE.md`):
+The machine-readable `cedocumentmapper_v2/VENDOR_LOCK.json` records the
+annotated release tag, full peeled commit, boundary, complete content digest,
+and provider-catalogue digest. The dependency-free verifier
+`scripts/verify_vendor_pin.py` runs on every PR and push. It always checks the
+offline lock; when the sibling clone is available it also reads the locked Git
+objects directly, independent of the sibling's checked-out branch, and compares
+the source/vendored path sets in both directions. Pushes and same-repository PRs
+receive that full source proof through a dedicated read-only sibling deploy key;
+fork PRs receive the offline check only. The pytest guard invokes the same
+verifier.
 
-- **vendored-only — ROADMAP-B2 claimant contact extraction** (`claimant_telephone`
-  / `claimant_email`; lives in prod): re-applied on every re-cut across
-  `domain/models.py`, `normalization/`, `rules/engine.py`.
-- **sibling-only — engineer-report overlay/notes** (`overlay_records_with_overrides`,
-  `detect_engineer_provider`, `ExtractedRecord.notes`): brought in from the
-  sibling. `notes` is **session provenance** — it rides at the top level of
-  `record_to_dict`, never inside `fields`, so it **never reaches the 12-field EVA
-  payload** (the adapter builds it solely from `EVA_FIELD_ORDER` over `fields`,
-  exactly as `inspection_date`/`issues` are dropped).
-- **converged — "Image Based Assessment" inspection normalisation**: identical in
-  both.
-
-Two files from the sibling are **omitted** from the vendored copy because they
-are the only modules that import GUI/CLI/Windows deps and are never on the runtime
-path: `ui/host.py` (`import webview`) and `cli.py`. `ui/__init__.py` only
-references `host` lazily via `__getattr__`, and `service.py` imports just
-`ui.paths` (stdlib-only, with `ctypes` Windows calls guarded behind
-`sys.platform == "win32"`), so dropping `host.py` is safe. The `.doc` Word-COM
-path (`pythoncom`/`win32com`) and the desktop `_convert_doc_to_docx` are lazy +
-guarded, so they never import on Linux; `.doc` still reads via the
-olefile/text-scrape fallback.
+The explicitly omitted sibling surface is desktop/dev-only: `cli.py`,
+`__main__.py`, `ui/host.py`, `extraction/`, `eval/`, and the two authoring-only
+resource schemas. `ui/paths.py` remains vendored because the service imports its
+stdlib-only path helpers. Full boundary detail is in `PROVENANCE.md`.
 
 `providers.json` (the provider catalogue) is vendored inside the package as
 `cedocumentmapper_v2/providers.json` and is the **pinned seed** for the deployed
@@ -146,8 +136,8 @@ Function. The adapter pins the service to it and to a **writable temp app-data d
 (`<tmp>/cedocumentmapper_v2_appdata`), because the engine's desktop default writes
 its migrated catalogue into `~/CE Document Mapper`, which is read-only/absent on
 FC1. A re-cut must **not** clobber this seed with the sibling's unless the seed has
-intentionally changed (the drift guard excludes it from the byte-compare). This is
-a wrapper-side construction only
+intentionally changed. The vendor lock verifies it separately and as part of the
+complete tree digest. This is a wrapper-side construction only
 (`DocumentMapperService(app_data_dir=..., seed_path=...)`).
 
 ### OCR on FC1 (Tesseract optional — scanned-image PDFs unavailable)
@@ -206,7 +196,7 @@ in the contract.)
 |---|---|
 | `function_app.py` | HTTP trigger `POST /parse`; input validation, mapping, schema validation, error envelopes. |
 | `parser_adapter.py` | The only seam to `cedocumentmapper_v2`; lazy import; pins service to vendored seed + writable temp app-data; native→EVA field mapping. |
-| `cedocumentmapper_v2/` | **Vendored engine** — a pinned re-cut of sibling `src/cedocumentmapper_v2` (minus `ui/host.py` + `cli.py`); superset reconciling B2 contact extraction + the engineer-report overlay. Includes the pinned `providers.json` seed and `PROVENANCE.md` (cut state + re-vendor command). Importable on the FC1 worker. |
+| `cedocumentmapper_v2/` | **Vendored engine** — a pinned pure-mirror re-cut of the sibling's declared cloud boundary. Includes the pinned `providers.json`, `VENDOR_LOCK.json`, and `PROVENANCE.md`. Importable on the FC1 worker. |
 | `schema_validation.py` | Loads + validates against `contracts/eva-payload.schema.json`; structured errors. |
 | `host.json` | Functions host config. |
 | `requirements.txt` | Linux/FC1 runtime deps: `azure-functions`, `jsonschema`, + the vendored engine's deps (PyMuPDF, pypdf[image], Pillow, python-docx, extract-msg, olefile, pytesseract). **No GUI/Windows deps; engine itself is vendored, not pip-installed.** |
@@ -215,7 +205,7 @@ in the contract.)
 | `local.settings.json.TEMPLATE` | App-setting **names** only; secrets shown as Key Vault reference syntax. **No secret values.** |
 | `infra/main.bicep` | Linux Python Function App + Storage + plan + App Insights; app settings as Key Vault references; parameterized. |
 | `openapi/parser-connector.json` | Power Platform custom-connector OpenAPI 2.0 (swagger) for `POST /parse`. |
-| `tests/` | Offline pytest (handler called directly with a fake `HttpRequest`; `run_parser` monkeypatched). Plus the vendored-engine **drift guard** (`test_engine_vendored_in_sync.py`, skips when the sibling is absent) and an **engine smoke** slice (`test_engine_smoke.py` + `fixtures/instructions` + `fixtures/expected`, gated by `pytest.importorskip("fitz")`). |
+| `tests/` | Offline pytest (handler called directly with a fake `HttpRequest`; `run_parser` monkeypatched). Plus the always-on immutable vendor-pin guard (`test_engine_vendored_in_sync.py`) and an **engine smoke** slice (`test_engine_smoke.py` + `fixtures/instructions` + `fixtures/expected`, gated by `pytest.importorskip("fitz")`). |
 
 ## Build / Deploy / Reserved boundary
 

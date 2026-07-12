@@ -1,10 +1,16 @@
 # ADR-0018 — `cedocumentmapper_v2` is a standalone dual-target product; collisionspike vendors the headless engine-core (pinned to a committed ref, mirror-only)
 
-- **Status:** Proposed (2026-06-24)
+- **Status:** Accepted and implemented (2026-07-12)
 - **Deciders:** operator · document-parser-engineer · azure-integration-engineer
 - **Extends:** [ADR-0004](0004-parser-as-azure-function-inline.md) (parser is an in-process Azure Function).
   Complements the vendoring mechanics in `functions/parser/cedocumentmapper_v2/PROVENANCE.md` and the
   [repo-constellation](../architecture/repo-constellation.md) entry.
+
+> **Implementation note (2026-07-12):** the deployed copy is pinned to annotated tag
+> `engine-v2.16` / commit `8dd4ba862500e2fbcd9e809523301e16e23eb9d8`; that lineage is now on the
+> sibling's default `main`. `VENDOR_LOCK.json` plus the always-on CI verifier validates the immutable
+> tag/SHA, both-direction boundary, complete vendored digest, and provider seed without depending on
+> the sibling's checked-out branch.
 
 ## Context
 
@@ -62,10 +68,13 @@ guard), but harden it so the two repos reconcile **deterministically and one-dir
    reconciliations is **zero**, and "converged-by-parallel-authoring" features become "vendored-from-sibling"
    (single author, one source).
 
-4. **Keep the drift guard in the gate; define the re-vendor trigger.** `test_engine_vendored_in_sync.py`
-   stays wired into `verify-all.mjs`. **Re-vendor when the sibling tags a new engine release that touches the
-   engine-core** — not when only the GUI / orchestrator / eval / frontend change. After B2 is upstreamed, the
-   byte-compare can cover all shared modules with no reconciliation exclusions.
+4. **Keep the drift guard in the gate; define the re-vendor trigger.**
+   `scripts/verify_vendor_pin.py` runs directly in CI and through
+   `test_engine_vendored_in_sync.py`. It always validates the self-contained lock and, when the sibling
+   clone exists, reads the locked Git commit rather than its working tree. **Re-vendor when the sibling tags
+   a new engine release that touches the engine-core** — not when only the GUI / orchestrator / eval /
+   frontend changes. The verifier compares the boundary in both directions with no reconciliation
+   exclusions and includes the provider seed.
 
 5. **Awareness rules (restated, unchanged):** never call the sibling at **runtime** (ADR-0004 — the engine is
    in-process, not a service); never **hand-edit** the vendored copy; cross-link both repos' docs so the
@@ -76,22 +85,26 @@ guard), but harden it so the two repos reconcile **deterministically and one-dir
 **Positive.** A reproducible pin; a green, meaningful drift guard; a crisp desktop-vs-cloud boundary that
 keeps the GUI and dev tooling out of the deployed Function; the fork's most fragile leg removed.
 
-**Negative / cost.** The operator must commit + tag the sibling before the next re-vendor (it cannot be done
-from collisionspike — the sibling is never modified from here). Upstreaming B2 is sibling-side work. Until the
-re-vendor lands, `verify-all.mjs` stays **red** on dev boxes that have the sibling checked out — the **live**
-deployed Function is unaffected (it runs the older, self-consistent vendored copy).
+**Negative / cost.** The operator must commit + tag the sibling before each re-vendor (it cannot be done
+from collisionspike — the sibling is never modified from here), then regenerate the machine-readable lock.
+The private sibling requires a dedicated read-only deploy key because CollisionSpike's default Actions token
+cannot read another private repository. Pushes and same-repository PRs run the full private-source proof;
+fork PRs receive only the offline lock check and must be re-run from a trusted branch before merge.
 
 **Not chosen.**
 - *pip-install from a git tag / wheel* — FC1's Oryx remote build would need private-repo auth and the sibling
   would need to publish wheels; deferred, but becomes viable once B2 is upstreamed (the fork is what blocks it).
 - *git submodule* — incompatible with the vendored-only B2 divergence and with FC1's build model.
 
-## Operator / cross-repo prerequisites (cannot be done from collisionspike)
+## Operator / cross-repo prerequisites
 
-1. Commit the sibling's in-flight engine-core work and **tag an engine release**.
-2. **Upstream the B2 claimant-contact extraction** into the sibling (reconciliation #1 → mirror).
-3. Re-vendor `functions/parser/cedocumentmapper_v2/` against the tag (engine-core only), update
-   `PROVENANCE.md` to the committed SHA, and confirm `test_engine_vendored_in_sync.py` is green.
+Completed: the claimant-contact reconciliation is upstream, `engine-v2.16` is committed/tagged and on
+the sibling's `main`, and the cloud boundary is a pure mirror. For each future engine release:
+
+1. Commit the sibling's engine-core work and create a pushed, annotated **engine release tag**.
+2. Re-vendor `functions/parser/cedocumentmapper_v2/` against that tag (engine-core only).
+3. Regenerate `VENDOR_LOCK.json`; its writer must prove the tag SHA, both-direction boundary, provider seed,
+   and complete content match before it will update the lock.
 
 ## Related
 
