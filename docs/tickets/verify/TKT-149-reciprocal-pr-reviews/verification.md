@@ -1,11 +1,11 @@
 # Verification — TKT-149: Require reciprocal Claude and Codex reviews on every pull request
 
 ## Verdict
-TESTED (offline) — live draft-PR proof is pending.
+TESTED (offline) + VERIFIED-LIVE (partial) — reciprocal exact-head draft-PR behavior is proven; separate Codex-origin and Claude-origin creation-path proofs remain.
 
 ## Evidence
 
-- `npm run test:pr-review-hooks` — PASS, 42/42 on 2026-07-12. Coverage includes Windows production launch, Claude `//drive` permission rules, timeouts, live/stale locks, wrapper/API/MCP bypasses, merge SHA binding, forced draft, per-commit bundles, file-backed comment payloads, ready-state races and current-head outcomes.
+- `npm run test:pr-review-hooks` — PASS, 45/45 on 2026-07-12. Coverage includes Windows production launch, Claude `//drive` permission rules, timeouts, live/stale locks, wrapper/API/MCP bypasses, benign-search pass-through, merge SHA binding, forced draft, per-commit bundles, marker sanitization, file-backed comment payloads, ready-state races and current-head outcomes.
 - `node --check` — PASS for the shared runner, both hook adapters and marker evaluator.
 - Both hook configuration files parse as JSON.
 - The Codex `commandWindows` Git-root resolver was exercised from `mockup-app/`; it found the root adapter and returned the expected `updatedInput` rewrite.
@@ -21,11 +21,12 @@ TESTED (offline) — live draft-PR proof is pending.
 - On head `56fc179`, Claude replaced its exact comment with `PASS`. Codex replaced its comment with `CHANGES_REQUESTED` solely on the claim that Claude cannot rewrite a pending Bash input; the current official Claude reference explicitly documents that exact `PreToolUse.updatedInput` behavior, so the finding is rejected. The PR correctly remains draft because the marker outcome is still non-passing; the next head forces both reviewers to reassess.
 - Fresh Claude-path rewrite proof: a normal Claude 2.1.202 session attempted the harmless nonexistent command `gh pr ready 999999`. Debug output shows the checked-in hook returning `permissionDecision: allow` with `updatedInput.command = node … reciprocal-pr-review.mjs gate --origin claude …` and `updatedInput.timeout = 600000`; Claude reports `[pr-review] … gh pr view 999999 … failed`, proving the original `gh pr ready` input was replaced before execution. No request was mutated.
 - On head `3f6c8aa`, Claude again replaced its marker with `PASS`. Codex validly found that new Claude comments and comment updates could still place a 60 KB body in Windows argv. The next head uses `--body-file` for creation and JSON `--input` for PATCH updates; a fixture proves neither command contains review text. The PR remains draft pending both fresh passes.
+- Subsequent adversarial review cycles closed case-insensitive/global-option and quoted-shell REST bypasses, a newer-invalid-marker fallback to an older pass, copied marker publication, unscoped malformed-comment overwrite, and broad GraphQL-name false positives. An independent verifier re-ran 18 direct/wrapped/API variants and the duplicate-marker reproduction at `eadf15f`: every mutation was denied and the newer invalid claim produced `failure`/`invalid`, never the older pass.
+- On head `8f6c3cb`, Claude posted `PASS`; Codex posted `CHANGES_REQUESTED` only for a proposed Codex `updatedInput.timeout`. The official Codex hook schema documents Bash `tool_input.command` and requires a string `updatedInput.command`; it provides no rewritten-command timeout field. `.codex/hooks.json` already grants the hook process 1,800 seconds, while the rewritten shell command uses Codex's ongoing command session. No unsupported Claude-only milliseconds field was added; a fresh head forces reassessment.
 
 ## Pending / gaps
 
-- Open a real draft via the runner, then independently inspect both exact-head GitHub comments, outcome/digest markers, status and initiating checkout invariants.
-- Push a new commit and prove the old markers fail until `review-existing` refreshes both.
+- Open one disposable draft through the Codex hook path and one through the Claude hook path; PR #60 already proves the shared runner's draft state, exact-head comments, stale-marker rejection, repeated head refreshes, visible failure status and unchanged initiating checkout.
 - Open a second disposable draft through the Claude hook path to prove its adapter outside the fixture harness.
 - GitHub's current private-Free plan rejects branch protection/rulesets, so `reciprocal-pr-review/head` cannot yet be configured as a required server-side merge check. Local agent ready/merge commands fail closed; browser merge remains a documented platform limitation.
 - Both reviews currently use the repository owner's authenticated GitHub identity. Marker digests detect text edits but do not cryptographically prove which model authored a comment; separate GitHub App identities or signed attestations would be required for that stronger property.

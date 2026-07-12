@@ -20,7 +20,7 @@ The operator supplied a production-readiness programme on 2026-07-12 covering re
 - User-facing copy follows the handler-language rule in `AGENTS.md`; the private contextual rationale supplied for inspection policy is deliberately not reproduced in application or deployment copy.
 
 ## Ticket sequence
-1. [TKT-149](../now/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) — install the review guard before this programme opens implementation PRs.
+1. [TKT-149](../verify/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) — install the review guard before this programme opens implementation PRs.
 2. [TKT-165](../backlog/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md), [TKT-166](../backlog/TKT-166-manual-intake-evidence-upload/TKT-166-manual-intake-evidence-upload.md), and [TKT-153](../backlog/TKT-153-explicit-case-save/TKT-153-explicit-case-save.md) — remove the false-success and competing-write P0 paths.
 3. [TKT-150](../backlog/TKT-150-claimant-extraction-held-audit/TKT-150-claimant-extraction-held-audit.md), [TKT-151](../backlog/TKT-151-vehicle-enrichment-completeness/TKT-151-vehicle-enrichment-completeness.md), and [TKT-152](../backlog/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md) — repair the data spine.
 4. [TKT-160](../backlog/TKT-160-delete-case-image/TKT-160-delete-case-image.md), [TKT-161](../backlog/TKT-161-image-based-reflection-policy/TKT-161-image-based-reflection-policy.md), [TKT-162](../backlog/TKT-162-nested-audit-archive/TKT-162-nested-audit-archive.md), [TKT-167](../backlog/TKT-167-image-gap-chasers/TKT-167-image-gap-chasers.md), and the reopened evidence/archive tickets — make evidence, chasers and archive state agree.

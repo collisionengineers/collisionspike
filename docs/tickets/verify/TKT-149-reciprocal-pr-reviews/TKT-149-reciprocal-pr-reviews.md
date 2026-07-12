@@ -1,11 +1,11 @@
 ---
 id: TKT-149
 title: Require reciprocal Claude and Codex reviews on every pull request
-status: now
+status: verify
 priority: P0
 area: platform
 tickets-it-relates-to: [TKT-074, TKT-114]
-research-link: docs/tickets/now/TKT-149-reciprocal-pr-reviews/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-149-reciprocal-pr-reviews/evidence/operator-note.md
 plan: PLAN-004
 ---
 
@@ -20,7 +20,7 @@ Pull requests can currently be opened by Codex or Claude without an enforced ind
 - `.claude/settings.json` — current Claude lifecycle configuration.
 
 ## Proposed change
-IMPLEMENTED; live PR proof pending: add Codex and Claude PR-creation hooks backed by one tested shared runner. Every PR runs the Claude review first and a separate non-interactive Codex review second. Both execute at the exact PR head in a detached temporary worktree, publish marked PR comments, and stop the originating agent visibly if either review or comment publication fails.
+IMPLEMENTED; cross-agent hook-creation proof pending: add Codex and Claude PR-creation hooks backed by one tested shared runner. Every PR runs the Claude review first and a separate non-interactive Codex review second. Both execute at the exact PR head in a detached temporary worktree, publish marked PR comments, and stop the originating agent visibly if either review or comment publication fails.
 
 ## Acceptance
 - A PR created through either the Codex hook or the Claude hook synchronously runs `claude -p` against the exact PR head first, then runs a separate non-interactive Codex review against that same current head before the originating agent continues.

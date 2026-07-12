@@ -180,12 +180,12 @@
 | [TKT-034](./now/TKT-034-images-received-routing/TKT-034-images-received-routing.md) | Archive unmatched images by registration and adopt the folder into the case | **REOPENED 2026-07-12:** current code creates an empty VRM folder only; implement image upload plus idempotent Case/PO folder adoption. |
 | [TKT-129](./now/TKT-129-image-based-inspection-done/TKT-129-image-based-inspection-done.md) | Simplify the inspection address or Image Based Assessment choice | **REOPENED 2026-07-12:** remove the explanatory paragraph, hide address controls for Image Based Assessment, and preserve explicit provider defaults. |
 | [TKT-130](./now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | Review contains only cases that are ready for EVA | **REOPENED 2026-07-12:** binding rule now supersedes the old `needs_review → Review` behavior; incomplete/problem cases are Not Ready unless Held. |
-| [TKT-149](./now/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) | Require reciprocal Claude and Codex reviews on every pull request | **IN PROGRESS 2026-07-12:** shared cross-platform runner, exact-head detached worktree, reciprocal hook adapters and fail-closed fixture suite. |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-149](./verify/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) | Require reciprocal Claude and Codex reviews on every pull request | **TESTED + PARTIAL LIVE 2026-07-12:** 45/45 fixtures and PR #60 prove the shared exact-head runner, draft/failure behavior and reciprocal comments; awaiting one real PR creation through each agent hook. GitHub private Free cannot require the visible status server-side. |
 | [TKT-148](./verify/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for overview-less photo sets | **REOPENED 2026-07-11:** guarantee one draft under concurrency and distinguish drafted from sent activity. |
 | [TKT-147](./verify/TKT-147-tractable-make-vin/TKT-147-tractable-make-vin.md) | Tractable layout: vehicle make (two-label rule) + VIN slot | **REOPENED 2026-07-11:** expose the extracted VIN through `/parse` without changing the EVA export. |
 | [TKT-146](./verify/TKT-146-box-upload-event-classify/TKT-146-box-upload-event-classify.md) | Classify images at Box-upload event time | **REOPENED 2026-07-11:** fail closed on consent lookup, prevent batch starvation, and make status recomputation durable. |

@@ -24,6 +24,8 @@ implemented and offline-tested; live pull-request proof pending
 - supplies every per-commit patch plus the aggregate diff and rejects changes-requested output without a priority and valid path/changed-hunk line;
 - omits raw binary patch bytes while retaining binary paths/statistics, caps text context at 8 MiB, and streams the complete trusted bundle to both reviewers over stdin instead of making them page it through tool calls;
 - updates each reviewer's exact existing comment ID, never `--edit-last`, and binds the visible-body digest/outcome to the full base and head IDs;
+- sanitizes any copied wrapper-marker literal from either model before validation/publication, while telling Codex not to reproduce marker text from the untrusted diff;
+- treats the latest trusted marker claim as authoritative even when its digest is invalid, orders duplicate claims by immutable creation time, and creates a replacement comment instead of overwriting an unscoped malformed human comment;
 - posts new marked comments from an owned Markdown payload file and updates exact comment IDs from an owned JSON `--input` payload, keeping bodies up to 60 KB out of Windows process arguments;
 - rechecks GitHub revision before and after each stage, restarts a bounded number of times when it changes, and leaves the request draft on any failure;
 - writes commit status `reciprocal-pr-review/head`, restores ready state only when requested and both outcomes pass, and gates later standalone ready/merge commands on those current markers;
@@ -36,13 +38,14 @@ implemented and offline-tested; live pull-request proof pending
 - `.github/scripts/review-marker-status.mjs` is the single canonical marker parser/evaluator.
 - `.github/workflows/reciprocal-ai-review-markers.yml` never checks out or executes request-head code. It loads the evaluator from the trusted base commit, writes pending first, and then writes success/failure to the exact current head. Base retargeting and `main` pushes recalculate open requests.
 - A malformed pull number on a base-branch push now fails that item and continues evaluating the remaining open requests instead of returning from the whole batch.
+- A newer malformed or digest-invalid trusted claim now fails closed instead of falling back to an older pass marker.
 - The current private GitHub Free repository cannot make this status a required branch-protection/ruleset check. The visible status and local ready/merge gate are implemented; browser/manual merge prevention remains externally gated on a plan that supports required checks.
 
 ## Documentation and tests
 
 - `docs/PR-REVIEW-GUARD.md` records normal use, refresh after pushes, failure recovery, security boundaries and the honest GitHub-plan limitation.
 - `npm run test:pr-review-hooks` runs the runner and canonical marker suites.
-- The fixture suite covers hook schemas, unrelated-command fail-open behavior, wrapper/REST/GraphQL/MCP bypasses, forced-draft semantics, strict target parsing, atomic merge arguments, Windows-safe executable resolution, Claude permission paths, reviewer timeouts, per-commit context, order/outcomes, exact revision/digests, comment IDs, caller state, live/stale locks, ready-state races, head changes and safe cleanup. The final count is recorded in `verification.md` after the implementation freeze.
+- The fixture suite covers hook schemas, unrelated-command fail-open behavior, wrapper/REST/GraphQL/MCP bypasses, forced-draft semantics, strict target parsing, atomic merge arguments, Windows-safe executable resolution, Claude permission paths, reviewer timeouts, per-commit context, marker sanitization, order/outcomes, exact revision/digests, comment IDs, caller state, live/stale locks, ready-state races, head changes and safe cleanup. The final count is recorded in `verification.md` after the implementation freeze.
 
 ## Review disposition
 
@@ -52,3 +55,6 @@ implemented and offline-tested; live pull-request proof pending
 - Claude's base-push loop finding was accepted and fixed.
 - Claude's non-blocking note about `pulls.get` sitting outside the per-request `try` was accepted: each open request is now isolated so a transient metadata lookup failure is reported and the remaining batch continues.
 - Codex's Windows command-line finding on the 60 KB review-body allowance was accepted: both new-comment and PATCH paths now pass owned payload files rather than body text in argv.
+- Claude's findings on copied marker literals and unscoped malformed-comment reuse were accepted: both reviewer bodies now pass through one sanitizer, and unscoped invalid claims force a new wrapper comment without overwriting the source comment.
+- Codex's broad `createPullRequest` substring finding was accepted: ordinary repository searches now pass through, while direct and nested GitHub GraphQL mutations remain denied.
+- Codex's later claim that the Codex-origin rewritten Bash call needs a Claude-style `timeout` input was rejected against the official [Codex Hooks reference](https://learn.chatgpt.com/docs/hooks#pretooluse): Codex documents Bash `tool_input` and rewritten `updatedInput` with the single string `command` field; the `timeout` documented elsewhere configures the hook handler in seconds, not the rewritten shell call. The Codex hook fixture intentionally asserts that no unsupported Claude milliseconds field is emitted.
