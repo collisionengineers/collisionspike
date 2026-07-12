@@ -226,6 +226,26 @@ function uniqueClaimants(values: readonly string[]): string[] {
   return [...byKey.values()];
 }
 
+/** Bare prose such as "Our client is seeking compensation" is too ambiguous to
+ * write into the claimant field. Unlike an explicit label, the prose lane must
+ * look like a conventional proper name: at least two non-title tokens, each with
+ * an uppercase first letter. This deliberately abstains on uncertain particles
+ * and lower-case names rather than inventing a legal party. */
+function isConservativeProseName(value: string): boolean {
+  const tokens = value
+    .split(/\s+/)
+    .map((token) => token.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, ''))
+    .filter(Boolean)
+    .filter((token) => !CLAIMANT_TITLES.has(token.toLowerCase().replace(/\.$/, '')));
+  return (
+    tokens.length >= 2 &&
+    tokens.every((token) => {
+      const first = [...token][0];
+      return first != null && first === first.toLocaleUpperCase() && first !== first.toLocaleLowerCase();
+    })
+  );
+}
+
 function claimantResult(values: readonly string[]): ClaimantBodySupplement {
   const candidates = uniqueClaimants(values);
   if (candidates.length === 1) {
@@ -276,7 +296,7 @@ export function supplementClaimantNameFromBody(body: string): ClaimantBodySupple
     const proseMatch = CLAIMANT_PROSE_RE.exec(line);
     if (proseMatch) {
       const candidate = claimantCandidate(proseMatch[1], false);
-      if (candidate) prose.push(candidate);
+      if (candidate && isConservativeProseName(candidate)) prose.push(candidate);
     }
   }
 

@@ -148,4 +148,16 @@ describe('supplementClaimantNameFromBody', () => {
     expect(result.value).toBe('');
     expect(result.candidates).toEqual(['Ms Jane First', 'Dr Evelyn Second']);
   });
+
+  it.each([
+    'Our client is seeking compensation',
+    'Our client is dealing with this matter',
+    'The claimant is very shaken',
+  ])('abstains when claimant prose is a description rather than a proper name: %s', (body) => {
+    expect(supplementClaimantNameFromBody(body)).toEqual({
+      status: 'absent',
+      value: '',
+      candidates: [],
+    });
+  });
 });
