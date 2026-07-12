@@ -14,6 +14,8 @@ loop still owns the ticket-status move, database delta, deployment and independe
 - `3a7ea4f` — carry the source-file readiness group through the SPA checklist adapter.
 - `cf61871` — safely reopen a completed binding when a lost response is followed by a changed file
   selection.
+- `9b37310` — close independent-review gaps: reload-safe retry identity, per-file source roles,
+  tri-state completion, batch-result audits and truthful recovery controls.
 
 ## Files touched
 
@@ -53,10 +55,10 @@ complete while the persisted status is still Not Ready.
 ## Offline checks
 
 - Full Domain suite: **1,136 tests passed**.
-- Full API suite: **630 tests passed**.
+- Full API suite: **634 tests passed**.
 - Full orchestration suite: **417 tests passed**.
-- Full SPA suite: **459 tests passed**.
-- Focused final run: Domain **41**, API **45**, SPA **57** tests passed.
+- Full SPA suite: **464 tests passed**.
+- Independent-review focused run: Domain **42**, API **62**, SPA **62** tests passed.
 - Production TypeScript builds passed for Domain, API, orchestration and the SPA; the Vite bundle was
   produced successfully.
 - `node verify-all.mjs`: **8 passed / 0 failed / 13 expected skips**.
@@ -73,3 +75,19 @@ complete while the persisted status is still Not Ready.
   reintroduce a parallel readiness predicate.
 - Archive mirroring and image classification remain the canonical TKT-165 outbox/classifier paths;
   this ticket reuses them rather than introducing another byte or cleanup lifecycle.
+
+## Independent review follow-up — 2026-07-12
+
+- The case-create and evidence retry keys now survive a same-tab reload in session storage and are
+  cleared only after confirmed completion or an intentional fresh-draft reset.
+- The multipart contract carries one bound role per selected file. The chosen PDF is persisted as
+  the instruction; extra PDFs are persisted as other documents; photos remain classifier-owned
+  images. The role participates in the manifest hash, and exact-content dedup can promote an earlier
+  extra document to the reviewed instruction role without duplicating bytes.
+- Manual source completion now returns `completed`, `already_complete` or `not_bound`. A stale/rebound
+  operation returns an honest retry state even when every evidence identity exists; it cannot be
+  displayed as finished while the source blocker remains.
+- Manual Intake writes one controlled batch-result audit for full, partial, refused and recovered
+  attempts alongside the existing per-evidence success audits.
+- Confirmed files no longer show a remove control in recovery. Outstanding selections remain
+  removable, and the add-files label says exactly what the control does.
