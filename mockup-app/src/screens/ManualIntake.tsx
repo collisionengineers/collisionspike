@@ -703,11 +703,15 @@ export function ManualIntake() {
       // attached when they weren't. The case already exists, so we navigate to it
       // either way (its evidence tab lets the operator retry the attach).
       if (isImagesOnly && evidenceFiles.length > 0) {
-        const result = await getDataAccess().uploadEvidence(id, evidenceFiles);
-        const uploaded = result.status >= 200 && result.status < 300 && result.added.length > 0;
-        if (uploaded) {
-          toast(`Case created — ${result.added.length} photo${result.added.length === 1 ? '' : 's'} attached`);
-        } else {
+        try {
+          const result = await getDataAccess().uploadEvidence(id, evidenceFiles);
+          const uploaded = result.status >= 200 && result.status < 300 && result.added.length > 0;
+          if (uploaded) {
+            toast(`Case created — ${result.added.length} photo${result.added.length === 1 ? '' : 's'} attached`);
+          } else {
+            toast('Case created, but the photos could not be attached — open the case to add them', 'error');
+          }
+        } catch {
           toast('Case created, but the photos could not be attached — open the case to add them', 'error');
         }
         navigate(`/case/${id}`);
@@ -737,7 +741,7 @@ export function ManualIntake() {
     setVrm('');
     setProvider('');
     setProviderCode('');
-      setProviderReference('');
+    setProviderReference('');
     setInsuredName('');
     setMake('');
     setInspectOn(todayDdMmYyyy());
