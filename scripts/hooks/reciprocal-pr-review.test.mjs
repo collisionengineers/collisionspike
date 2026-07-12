@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -177,8 +177,15 @@ test('compound, web, interactive, alias, path-qualified, API, GraphQL and MCP by
     'npm test && gh pr create --fill',
     'gh pr create --fill --web',
     'g\\h pr create --fill',
+    'g\\\nh pr create --fill',
+    '"g\\\nh" pr create --fill',
     'gh pr me\\rge 42 --squash',
+    'gh pr mer\\\nge 42 --squash',
     'g\\h a\\pi repos/acme/repo/pulls -f title=x -f head=branch -f base=main',
+    'g$\'h\' pr create --fill',
+    'g${EMPTY}h pr create --fill',
+    '$(printf gh) pr create --fill',
+    'gh pr mer$\'ge\' 42 --squash',
     'gh pr create --title title',
     'gh pr new --fill',
     'gh -R acme/repo pr create --fill',
@@ -585,6 +592,28 @@ test('trusted Windows-safe Codex command and core CLIs execute without shell shi
   const result = spawnSync(codex.file, [...codex.prefixArgs, '--version'], { encoding: 'utf8', shell: false, timeout: 15_000 });
   assert.equal(result.status, 0, result.error?.message || result.stderr);
   assert.match(result.stdout, /codex/iu);
+});
+
+test('trusted executable resolution rejects an outside symlink into the repository', () => {
+  const fixture = mkdtempSync(path.join(tmpdir(), 'collisionspike-executable-realpath-'));
+  const untrusted = path.join(fixture, 'repo');
+  const untrustedBin = path.join(untrusted, 'bin');
+  const outside = path.join(fixture, 'outside');
+  const linkedBin = path.join(outside, 'linked-bin');
+  const executableName = process.platform === 'win32' ? 'fixture-tool.exe' : 'fixture-tool';
+  const originalPath = process.env.PATH;
+  try {
+    mkdirSync(untrustedBin, { recursive: true });
+    mkdirSync(outside, { recursive: true });
+    writeFileSync(path.join(untrustedBin, executableName), 'fixture', 'utf8');
+    if (process.platform !== 'win32') chmodSync(path.join(untrustedBin, executableName), 0o700);
+    symlinkSync(untrustedBin, linkedBin, process.platform === 'win32' ? 'junction' : 'dir');
+    process.env.PATH = linkedBin;
+    assert.throws(() => resolveTrustedExecutable('fixture-tool', untrusted), /not found outside the repository/iu);
+  } finally {
+    process.env.PATH = originalPath;
+    rmSync(fixture, { recursive: true, force: true });
+  }
 });
 
 test('command runner enforces reviewer-style timeouts', () => {

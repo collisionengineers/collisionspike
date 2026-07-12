@@ -92,6 +92,7 @@ export function tokenize(command) {
     if (';&|<>`'.includes(ch) || (ch === '$' && command[i + 1] === '(')) {
       compound = true;
     }
+    if (ch === '$' && ['{', "'", '"'].includes(command[i + 1])) ambiguous = true;
     token += ch;
   }
   if (escaped || quote) ambiguous = true;
@@ -113,6 +114,10 @@ function collapsePosixBackslashEscapes(command) {
       if (character === '"') {
         quote = null;
         result += character;
+      } else if (character === '\\' && command[index + 1] === '\n') {
+        index += 1;
+      } else if (character === '\\' && command[index + 1] === '\r' && command[index + 2] === '\n') {
+        index += 2;
       } else if (character === '\\' && /[$`"\\\n]/u.test(command[index + 1] || '')) {
         result += command[index + 1];
         index += 1;
@@ -124,6 +129,14 @@ function collapsePosixBackslashEscapes(command) {
       result += character;
       continue;
     }
+    if (character === '\\' && command[index + 1] === '\n') {
+      index += 1;
+      continue;
+    }
+    if (character === '\\' && command[index + 1] === '\r' && command[index + 2] === '\n') {
+      index += 2;
+      continue;
+    }
     if (character === '\\' && command[index + 1]) {
       result += command[index + 1];
       index += 1;
@@ -132,6 +145,12 @@ function collapsePosixBackslashEscapes(command) {
     result += character;
   }
   return result;
+}
+
+function collapseSimpleShellConcatenations(command) {
+  return command
+    .replace(/\$'((?:\\.|[^'])*)'/gu, (_match, body) => body.replace(/\\(.)/gsu, '$1'))
+    .replace(/\$\{[^{}]*\}/gu, '');
 }
 
 function flagPresent(tokens, ...names) {
@@ -219,17 +238,22 @@ export function classifyHookEvent(event, origin = 'codex') {
   if (!command.trim()) return { action: 'pass' };
   const parsed = tokenize(command);
   const posixCollapsedCommand = collapsePosixBackslashEscapes(command);
-  if (posixCollapsedCommand !== command) {
-    const collapsed = tokenize(posixCollapsedCommand);
+  const collapsedCandidates = new Set([posixCollapsedCommand, collapseSimpleShellConcatenations(posixCollapsedCommand)]);
+  for (const candidate of collapsedCandidates) {
+    if (candidate === command) continue;
+    const collapsed = tokenize(candidate);
     const collapsedGuardedIndex = collapsed.tokens.findIndex((token, index) => /^(?:gh|gh\.exe)$/iu.test(path.basename(token))
       && collapsed.tokens[index + 1]?.toLowerCase() === 'pr'
       && /^(?:create|new|merge|ready)$/u.test(collapsed.tokens[index + 2]?.toLowerCase() || ''));
-    if (commandKind(collapsed.tokens) || collapsedGuardedIndex >= 0 || looksLikePullRequestApiMutation(collapsed.tokens, posixCollapsedCommand)) {
-      return { action: 'deny', reason: 'Backslash-obfuscated GitHub pull-request commands are refused; use the canonical standalone gh command.' };
+    if (commandKind(collapsed.tokens) || collapsedGuardedIndex >= 0 || looksLikePullRequestApiMutation(collapsed.tokens, candidate)) {
+      return { action: 'deny', reason: 'Shell-obfuscated GitHub pull-request commands are refused; use the canonical standalone gh command.' };
     }
   }
   const canonicalGh = /^(?:gh|gh\.exe)$/iu.test(parsed.tokens[0] || '');
   const guardedPrIndex = parsed.tokens.findIndex((token, index) => token.toLowerCase() === 'pr' && /^(?:create|new|merge|ready)$/iu.test(parsed.tokens[index + 1] || ''));
+  if ((parsed.compound || parsed.ambiguous) && (guardedPrIndex >= 0 || (canonicalGh && parsed.tokens[1]?.toLowerCase() === 'pr'))) {
+    return { action: 'deny', reason: 'Shell substitutions cannot be used to construct a pull-request command; use canonical gh arguments literally.' };
+  }
   if (canonicalGh && guardedPrIndex > 1) {
     return { action: 'deny', reason: 'Put `pr create`, `pr ready`, or `pr merge` immediately after canonical `gh`; global gh options can bypass the review wrapper.' };
   }
@@ -406,8 +430,10 @@ export function resolveTrustedExecutable(name, untrustedRoot = '') {
       const candidate = path.resolve(directory, leaf);
       if (!existsSync(candidate) || (untrustedRoot && isPathInside(untrustedRoot, candidate))) continue;
       try {
-        accessSync(candidate, fsConstants.X_OK);
-        return realpathSync(candidate);
+        const resolved = realpathSync(candidate);
+        if (untrustedRoot && isPathInside(untrustedRoot, resolved)) continue;
+        accessSync(resolved, fsConstants.X_OK);
+        return resolved;
       } catch {
         // Continue until a native executable outside the repository is found.
       }
@@ -424,9 +450,12 @@ export function resolveTrustedCodexCommand(untrustedRoot = '') {
       const shim = path.resolve(directory, 'codex.cmd');
       const entry = path.resolve(directory, 'node_modules', '@openai', 'codex', 'bin', 'codex.js');
       if (!existsSync(shim) || !existsSync(entry) || isPathInside(untrustedRoot, shim) || isPathInside(untrustedRoot, entry)) continue;
+      const resolvedShim = realpathSync(shim);
+      const resolvedEntry = realpathSync(entry);
+      if (isPathInside(untrustedRoot, resolvedShim) || isPathInside(untrustedRoot, resolvedEntry)) continue;
       const nodePath = realpathSync(process.execPath);
       if (isPathInside(untrustedRoot, nodePath)) throw new Error('Refusing a repository-controlled Node executable for Codex.');
-      return { file: nodePath, prefixArgs: [realpathSync(entry)] };
+      return { file: nodePath, prefixArgs: [resolvedEntry] };
     }
   }
   return { file: resolveTrustedExecutable('codex', untrustedRoot), prefixArgs: [] };
