@@ -673,7 +673,12 @@ class RuleEngine:
                     if not fallback_norm.strip():
                         fallback_norm = ""
 
-                    if fallback_norm and not self._is_suspicious_value(field_key, fallback_norm, document):
+                    if fallback_norm and not self._is_suspicious_value(
+                        field_key,
+                        fallback_norm,
+                        document,
+                        fallback.source_span,
+                    ):
                         ext = fallback
             
             # Normalise the value
@@ -716,7 +721,7 @@ class RuleEngine:
                 ext = replace(ext, value="", raw_value=ext.raw_value)
                 norm_val = ""
 
-            if self._is_suspicious_value(field_key, norm_val, document):
+            if self._is_suspicious_value(field_key, norm_val, document, ext.source_span):
                 fallback = (
                     self._fallback_field(document, field_key)
                     if allow_fallback
@@ -739,7 +744,12 @@ class RuleEngine:
                     fallback_norm = self._clean_claimant_name(fallback_norm)
                 if not fallback_norm.strip():
                     fallback_norm = ""
-                if fallback_norm and not self._is_suspicious_value(field_key, fallback_norm, document):
+                if fallback_norm and not self._is_suspicious_value(
+                    field_key,
+                    fallback_norm,
+                    document,
+                    fallback.source_span,
+                ):
                     ext = fallback
                     norm_val = fallback_norm
                 elif field_key in {
@@ -1724,7 +1734,13 @@ class RuleEngine:
         cleaned = re.sub(r"\s*[-–]\s*[A-Z]{1,3}\d{1,3}\s?[A-Z]{3}\s*$", "", cleaned, flags=re.IGNORECASE)
         return clean_val(cleaned)
 
-    def _is_suspicious_value(self, field_key: FieldKey, value: str, document: DocumentModel) -> bool:
+    def _is_suspicious_value(
+        self,
+        field_key: FieldKey,
+        value: str,
+        document: DocumentModel,
+        source_span: SourceSpan | None = None,
+    ) -> bool:
         cleaned = clean_val(value)
         lower = cleaned.lower()
         if field_key not in {FieldKey.ACCIDENT_CIRCUMSTANCES, FieldKey.INSPECTION_ADDRESS}:
@@ -1745,6 +1761,8 @@ class RuleEngine:
         if field_key in {FieldKey.INCIDENT_DATE, FieldKey.INSTRUCTION_DATE, FieldKey.INSPECTION_DATE}:
             return bool(cleaned) and not re.fullmatch(r"\d{2}/\d{2}/\d{4}", cleaned)
         if field_key == FieldKey.CLAIMANT_NAME:
+            if self._source_is_in_email_signature(document, source_span):
+                return True
             if len(cleaned) > 40:
                 return True
             if any(w in f" {lower} " for w in (" was ", " has ", " had ", " been ", " when ", " hit ", " that ", " this ", " inspect ", " report ", " parked ", " vehicle ", " accident ", " witness ", " seen ", " collision ")):
@@ -1920,15 +1938,7 @@ class RuleEngine:
         if field_key == FieldKey.REFERENCE:
             return self._fallback_reference(lines)
         if field_key == FieldKey.CLAIMANT_NAME:
-            claimant = self._fallback_claimant_name(lines)
-            if claimant.value:
-                return claimant
-            return self._fallback_label_value(
-                lines,
-                ("our insured", "our client", "client name", "claimant name", "policyholder", "client", "claimant", "name"),
-                field_key,
-                reject_labels={"name", "claimant", "client", "claimant name"},
-            )
+            return self._fallback_claimant_name(lines, document)
         if field_key == FieldKey.CLAIMANT_TELEPHONE:
             return self._fallback_telephone(lines, text)
         if field_key == FieldKey.CLAIMANT_EMAIL:
@@ -2059,19 +2069,231 @@ class RuleEngine:
                 )
         return FieldExtraction(value="", rule_id=rule_id, confidence=0.0)
 
-    def _fallback_claimant_name(self, lines: list[DocumentLine]) -> FieldExtraction:
-        structured = self._extract_value_after_structured_label(
-            lines,
-            ("our insured", "our client", "re client", "client"),
-            "fallback_claimant_structured",
-            reject_labels={"name", "client", "our client", "claimant"},
+    _EMAIL_SIGNATURE_RE = re.compile(
+        r"^(?:"
+        r"kind(?:est)?\s+regards|best\s+regards|warm\s+regards|regards|"
+        r"yours\s+(?:faithfully|sincerely)|many\s+thanks|thanks|best\s+wishes|"
+        r"all\s+the\s+best|"
+        r"sent\s+from\s+my\b"
+        r")\b",
+        re.IGNORECASE,
+    )
+
+    _CLAIMANT_PROSE_ANCHORS: tuple[re.Pattern[str], ...] = (
+        re.compile(r"\bour\s+client\b\s*[:,\-–—]?\s*(.+)$", re.IGNORECASE),
+        re.compile(r"\bwe\s+(?:act\s+for|represent)\s+(.+)$", re.IGNORECASE),
+        re.compile(r"\bon\s+behalf\s+of\s+(.+)$", re.IGNORECASE),
+    )
+
+    _CLAIMANT_NAME_STOPWORDS: frozenset[str] = frozenset(
+        {
+            "was",
+            "is",
+            "has",
+            "had",
+            "will",
+            "would",
+            "no",
+            "not",
+            "who",
+            "whose",
+            "in",
+            "at",
+            "on",
+            "for",
+            "from",
+            "of",
+            "to",
+            "and",
+            "or",
+            "with",
+            "regarding",
+            "following",
+            "please",
+            "about",
+            "contact",
+            "vehicle",
+            "car",
+            "vrm",
+            "registration",
+            "reg",
+            "reference",
+            "ref",
+            "dob",
+            "claim",
+            "case",
+            "accident",
+            "requires",
+            "needs",
+            "requested",
+            "requesting",
+            "available",
+            "claims",
+            "handler",
+            "team",
+            "department",
+            "services",
+            "manager",
+            "solicitor",
+            "solicitors",
+            "engineer",
+            "repairer",
+            "garage",
+            "insured",
+            "defendant",
+            "third",
+            "party",
+        }
+    )
+
+    def _email_signature_start_line(self, document: DocumentModel) -> int | None:
+        """Return the first sign-off line for an e-mail, if one is present.
+
+        The e-mail reader deliberately retains the full body for auditability. Claimant
+        extraction therefore needs its own boundary: a person's name below a conventional
+        sign-off is sender metadata, never claimant evidence.
+        """
+        if document.source_type not in {"eml", "msg"}:
+            return None
+        for page in document.pages:
+            for line in page.lines:
+                cleaned = clean_val(line.text)
+                if self._EMAIL_SIGNATURE_RE.match(cleaned) or re.fullmatch(r"[-_]{2,}", cleaned):
+                    return line.line_index
+        return None
+
+    def _source_is_in_email_signature(
+        self,
+        document: DocumentModel,
+        source_span: SourceSpan | None,
+    ) -> bool:
+        if source_span is None or source_span.line_index is None:
+            return False
+        boundary = self._email_signature_start_line(document)
+        return boundary is not None and source_span.line_index >= boundary
+
+    def _claimant_lines_before_signature(
+        self,
+        lines: list[DocumentLine],
+        document: DocumentModel,
+    ) -> list[DocumentLine]:
+        boundary = self._email_signature_start_line(document)
+        if boundary is None:
+            return lines
+        return [line for line in lines if line.line_index < boundary]
+
+    def _fallback_claimant_label(self, lines: list[DocumentLine]) -> FieldExtraction:
+        """Read explicit claimant/client labels, never a bare ``Name`` label.
+
+        Bare ``Name:`` is common in staff e-mail signatures and carried the exact false
+        positive behind TKT-150. Provider-specific layouts may still define a Name rule;
+        the signature-span guard above rejects it when its source is a sign-off.
+        """
+        label_re = re.compile(
+            r"^\s*(?:re\s*:\s*)?(?:"
+            r"claimant(?:'s)?(?:\s+name)?|name\s+of\s+(?:the\s+)?claimant|"
+            r"client\s+name|our\s+client|re\s+client"
+            r")\s*(?:[:|\-–—]\s*(.*))?$",
+            re.IGNORECASE,
         )
-        if structured.value and not re.fullmatch(r"[A-Z]{1,3}\d{1,3}\s?[A-Z]{3}", structured.value, re.IGNORECASE):
-            return structured
+        for index, line in enumerate(lines):
+            match = label_re.match(line.text)
+            if not match:
+                continue
+            candidates = [(clean_val(match.group(1) or ""), line)]
+            if not candidates[0][0]:
+                candidates.extend(
+                    (clean_val(next_line.text), next_line)
+                    for next_line in lines[index + 1:index + 4]
+                )
+            for value, value_line in candidates:
+                value = self._clean_claimant_name(value)
+                if not value or self._is_label_only_value(value):
+                    continue
+                if re.fullmatch(r"[A-Z]{1,3}\d{1,3}\s?[A-Z]{3}", value, re.IGNORECASE):
+                    continue
+                return FieldExtraction(
+                    value=value,
+                    raw_value=value,
+                    rule_id="fallback_claimant_label",
+                    confidence=0.9,
+                    source_span=SourceSpan(
+                        page_index=value_line.page_index,
+                        line_index=value_line.line_index,
+                        bbox=value_line.bbox,
+                    ),
+                )
+        return FieldExtraction(value="", rule_id="fallback_claimant_label", confidence=0.0)
+
+    def _person_name_prefix(self, value: str) -> str:
+        """Conservatively take a person-name prefix from ordinary instruction prose."""
+        value = re.sub(r"^[\s,:;\-–—]+", "", value)
+        token_matches = list(re.finditer(r"[A-Za-z][A-Za-z'’.\-]*", value))
+        if not token_matches:
+            return ""
+
+        title = ""
+        chosen: list[re.Match[str]] = []
+        first = token_matches[0].group(0).rstrip(".")
+        start = 0
+        if first.lower() in {"mr", "mrs", "miss", "ms", "mx", "dr"}:
+            title = token_matches[0].group(0)
+            start = 1
+
+        for match in token_matches[start:]:
+            token = match.group(0).strip(".")
+            if token.lower() in self._CLAIMANT_NAME_STOPWORDS:
+                break
+            chosen.append(match)
+            if len(chosen) == 4:
+                break
+
+        minimum = 1 if title else 2
+        if len(chosen) < minimum:
+            return ""
+        end = chosen[-1].end()
+        candidate = clean_val(value[:end]).rstrip(".,;:")
+        candidate_tokens = {token.lower().strip(".") for token in re.findall(r"[A-Za-z][A-Za-z'’.\-]*", candidate)}
+        if candidate_tokens & self._CLAIMANT_NAME_STOPWORDS:
+            return ""
+        return self._clean_claimant_name(candidate)
+
+    def _fallback_claimant_name(
+        self,
+        lines: list[DocumentLine],
+        document: DocumentModel,
+    ) -> FieldExtraction:
+        usable_lines = self._claimant_lines_before_signature(lines, document)
+
+        # Strong, explicit evidence wins even when weaker prose appears earlier.
+        labelled = self._fallback_claimant_label(usable_lines)
+        if labelled.value:
+            return labelled
+
+        for line in usable_lines:
+            for pattern in self._CLAIMANT_PROSE_ANCHORS:
+                match = pattern.search(line.text)
+                if not match:
+                    continue
+                value = self._person_name_prefix(match.group(1))
+                if not value:
+                    continue
+                return FieldExtraction(
+                    value=value,
+                    raw_value=value,
+                    rule_id="fallback_claimant_prose",
+                    confidence=0.78,
+                    source_span=SourceSpan(
+                        page_index=line.page_index,
+                        line_index=line.line_index,
+                        bbox=line.bbox,
+                    ),
+                )
+
         available_re = re.compile(
             r"\b((?:Mr|Mrs|Miss|Ms|Mx|Dr)\s+[A-Z][A-Za-z'’-]+(?:\s+[A-Z][A-Za-z'’-]+){0,4})\s+is\s+available\b"
         )
-        for line in lines:
+        for line in usable_lines:
             match = available_re.search(line.text)
             if match:
                 value = clean_val(match.group(1))
@@ -2082,7 +2304,7 @@ class RuleEngine:
                     confidence=0.74,
                     source_span=SourceSpan(page_index=line.page_index, line_index=line.line_index, bbox=line.bbox),
                 )
-        return structured
+        return FieldExtraction(value="", rule_id="fallback_claimant_name", confidence=0.0)
 
     def _fallback_vehicle_model(self, lines: list[DocumentLine]) -> FieldExtraction:
         for line in lines:

@@ -29,6 +29,20 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-12 (TKT-150 claimant-name recall + e-mail-signature exclusion):** re-cut from the
+sibling at **`engine-v2.17`** (branch `codex/tkt-150-claimant-extraction`, commit `f3e780f`;
+branch + annotated tag pushed unchanged to origin).
+One engine file, `rules/engine.py`: claimant fallback now gives explicit claimant/client labels
+priority over prose, recognises conservative ordinary wording such as “our client, Ms …”, removes
+the unsafe bare-`Name:` fallback, and rejects configured claimant candidates whose source span is
+at or below a conventional e-mail sign-off. Two non-PII EML fixtures pin both sides: prose claimant
+recovery returns `Ms Jane Example`; a source containing only staff/signature names returns an
+honest blank. Sibling focused extraction suite: **76 passed / 1 environmental skip**. Sibling full
+suite: **457 passed / 5 skipped / 5 pre-existing environmental legacy-DOC/eval failures** on this
+Windows runner (LibreOffice/antiword unavailable). Wrapper claimant/contact/smoke slice: **40 passed
+/ 2 environmental skips**. Immutable vendor proof: **PASS, 36 files, official tag verified**. No
+taxonomy/DDL dependency; providers.json untouched; the cloud boundary remains a pure mirror.
+
 **2026-07-11 (TKT-089 recall — classifier-owned banner shapes):** re-cut from the sibling at
 **`engine-v2.16`** (branch `codex/tkt089-banner-recall`, commit `8dd4ba8` — **branch + annotated
 tag PUSHED to origin**). One file, `application/service.py`: removed the aspect-ratio/short-side
@@ -397,12 +411,14 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.16`** on branch
-  `codex/tkt089-banner-recall`, commit **`8dd4ba8`** (2026-07-11) — **branch + tag PUSHED to
-  origin** and merged into the sibling's default `main` by PR 7 on 2026-07-12. The TKT-089 recall removes the banner-aspect/short-side hard drop so every candidate at
-  or above the 40,000-pixel area floor reaches semantic classification. Changed vs `engine-v2.15`:
-  `application/service.py` ONLY (no taxonomy/DDL dependency; providers.json untouched).
-  Prior pin: annotated tag **`engine-v2.15`**, commit **`79efe22`** (2026-07-10) — the now-superseded
+- **Cut from:** annotated tag **`engine-v2.17`** on branch
+  `codex/tkt-150-claimant-extraction`, commit **`f3e780f`** (2026-07-12). The branch and tag are
+  **pushed unchanged to origin** and pass the trusted private-sibling proof. Changed vs
+  `engine-v2.16`: `rules/engine.py` ONLY (TKT-150
+  claimant-name prose recall + e-mail-signature exclusion; no taxonomy/DDL dependency;
+  providers.json untouched). Prior pin: annotated tag **`engine-v2.16`**, commit **`8dd4ba8`**
+  (2026-07-11) — TKT-089 banner recall, pushed and merged into the sibling's default `main` by PR 7
+  on 2026-07-12. Prior pin: annotated tag **`engine-v2.15`**, commit **`79efe22`** (2026-07-10) — the now-superseded
   banner-aspect retune (3.5 → 3.2). Prior pin: annotated tag **`engine-v2.14`**, commit **`2609b1a`**
   (2026-07-10) — the TKT-147
   `two_label_join` rule kind (Tractable `Producer`+`Model` make+model capture)
@@ -449,7 +465,7 @@ nothing further to do here.
 
 ## Reconciliations: none outstanding
 
-As of `engine-v2.1` (and unchanged through `engine-v2.16`) this copy is a **pure
+As of `engine-v2.1` (and unchanged through `engine-v2.17`) this copy is a **pure
 mirror** — no vendored-only or sibling-only divergence remains. The executable
 boundary is enforced by `VENDOR_LOCK.json` and
 `scripts/verify_vendor_pin.py`: every shared `.py` module, bundled resource
@@ -534,7 +550,7 @@ must stay off the cloud path (see "Omitted modules" above).
 Run from the repo root (`collisionspike/`), Git Bash / bash:
 
 ```bash
-REF=engine-v2.16  # the committed, tagged sibling ref you are cutting from
+REF=engine-v2.17  # the committed, tagged sibling ref you are cutting from
 S=../cedocumentmapper_v2.0   # sibling repo
 V=functions/parser/cedocumentmapper_v2
 
