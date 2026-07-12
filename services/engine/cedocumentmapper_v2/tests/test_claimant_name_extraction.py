@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from cedocumentmapper_v2.config import migrate_providers_config
 from cedocumentmapper_v2.domain.models import (
     DocumentLine,
     DocumentModel,
@@ -16,6 +17,7 @@ from cedocumentmapper_v2.rules import RuleEngine
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
+PROVIDERS_JSON = Path(__file__).resolve().parents[1] / "providers.json"
 
 
 def _email_doc(*text_lines: str) -> DocumentModel:
@@ -44,9 +46,20 @@ def _claimant(*text_lines: str):
     return record.fields[FieldKey.CLAIMANT_NAME]
 
 
+def _provider(provider_id: str) -> dict:
+    catalog = migrate_providers_config(
+        json.loads(PROVIDERS_JSON.read_text(encoding="utf-8"))
+    )
+    return next(provider for provider in catalog["providers"] if provider["id"] == provider_id)
+
+
 @pytest.mark.parametrize(
     "golden_name",
-    ["CLAIMANT_PROSE_01.expected.json", "EMAIL_SIGNATURE_ONLY_01.expected.json"],
+    [
+        "CLAIMANT_PROSE_01.expected.json",
+        "CLAIMANT_THREADED_01.expected.json",
+        "EMAIL_SIGNATURE_ONLY_01.expected.json",
+    ],
 )
 def test_non_pii_email_fixture(golden_name: str):
     golden = json.loads((FIXTURES / "expected" / golden_name).read_text(encoding="utf-8"))
@@ -129,3 +142,101 @@ def test_third_party_and_repairer_names_are_not_claimant_fallbacks():
     )
 
     assert extracted.value == ""
+
+
+def test_opening_pleasantry_is_not_mistaken_for_a_signature_boundary():
+    extracted = _claimant(
+        "Many thanks for the instruction, our client is Mr John Sample.",
+        "Vehicle Registration: JK78 LMN",
+    )
+
+    assert extracted.value == "Mr John Sample"
+    assert extracted.rule_id == "fallback_claimant_prose"
+
+
+def test_threaded_original_claimant_survives_the_sender_signature_block():
+    extracted = _claimant(
+        "Please see the original instruction below.",
+        "Kind regards,",
+        "Alex Handler",
+        "Claims Team",
+        "-----Original Message-----",
+        "From: original.sender@provider.example",
+        "Claimant Name: Ms Jane Original",
+        "Vehicle Registration: LM89 NOP",
+    )
+
+    assert extracted.value == "Ms Jane Original"
+    assert extracted.rule_id == "fallback_claimant_label"
+
+
+def test_configured_claimant_rule_survives_a_thread_boundary_after_signature():
+    configured_provider = {
+        **_UNKNOWN_PROVIDER,
+        "field_rules": {
+            "claimant_name": {
+                "id": "claimant_name_rule",
+                "kind": "label_same_line",
+                "labels": ["Claimant Name"],
+            }
+        },
+    }
+    record = RuleEngine().extract_record(
+        _email_doc(
+            "Kind regards,",
+            "Alex Handler",
+            "------------------------------",
+            "Claimant Name: Dr Evelyn Original",
+        ),
+        configured_provider,
+    )
+
+    assert record.fields[FieldKey.CLAIMANT_NAME].value == "Dr Evelyn Original"
+
+
+@pytest.mark.parametrize(
+    "line,expected",
+    [
+        ("We act for the claimant, Mr John Sample.", "Mr John Sample"),
+        ("On behalf of our client Ms Jane Sample.", "Ms Jane Sample"),
+        ("We represent the client named Dr Evelyn Confirmed.", "Dr Evelyn Confirmed"),
+    ],
+)
+def test_prose_intermediary_words_are_not_captured_as_the_name(line: str, expected: str):
+    extracted = _claimant(line, "Vehicle Registration: MN90 PQR")
+
+    assert extracted.value == expected
+    assert extracted.rule_id == "fallback_claimant_prose"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Our Insured: Ms Irene Example",
+        "Policyholder Name: Mr Peter Example",
+    ],
+)
+def test_generic_fallback_does_not_conflate_insured_or_policyholder_with_claimant(line: str):
+    """Insured/policyholder is a separate overview fact without provider context."""
+    assert _claimant(line, "Vehicle Registration: NP01 QRS").value == ""
+
+
+@pytest.mark.parametrize(
+    "provider_id,lines,expected",
+    [
+        ("fw_garage", ("Our Insured: Name:", "Ms Isla Example"), "Ms Isla Example"),
+        ("pch_performance", ("Policyholder Name: Mr Peter Example",), "Mr Peter Example"),
+    ],
+)
+def test_provider_specific_alias_rule_remains_authoritative(
+    provider_id: str,
+    lines: tuple[str, ...],
+    expected: str,
+):
+    """Seeded layouts may explicitly map their own alias to EVA claimant name.
+
+    The generic fallback stays conservative because the CollisionSpike domain carries
+    insuredName separately; these provider-owned rules are the reviewed exceptions.
+    """
+    record = RuleEngine().extract_record(_email_doc(*lines), _provider(provider_id))
+    assert record.fields[FieldKey.CLAIMANT_NAME].value == expected

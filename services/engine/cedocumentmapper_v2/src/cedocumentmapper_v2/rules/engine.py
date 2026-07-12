@@ -994,7 +994,10 @@ class RuleEngine:
 
     def _extract_label_same_or_next_line(self, lines: list[DocumentLine], cfg: dict[str, Any], rule_id: str) -> FieldExtraction:
         same_line = self._extract_label_same_line(lines, cfg, rule_id)
-        if same_line.value:
+        # Composite labels such as ``Our Insured: Name:`` can leave the trailing
+        # label word "Name" as the apparent same-line value. That is still a label,
+        # so continue to the next line instead of blanking it later as suspicious.
+        if same_line.value and not self._is_label_only_value(same_line.value):
             return same_line
         return self._extract_label_next_line(lines, cfg, rule_id)
 
@@ -2069,14 +2072,53 @@ class RuleEngine:
                 )
         return FieldExtraction(value="", rule_id=rule_id, confidence=0.0)
 
-    _EMAIL_SIGNATURE_RE = re.compile(
+    _EMAIL_SIGNOFF_PREFIX_RE = re.compile(
         r"^(?:"
         r"kind(?:est)?\s+regards|best\s+regards|warm\s+regards|regards|"
         r"yours\s+(?:faithfully|sincerely)|many\s+thanks|thanks|best\s+wishes|"
-        r"all\s+the\s+best|"
-        r"sent\s+from\s+my\b"
-        r")\b",
+        r"all\s+the\s+best"
+        r")\b(?P<remainder>.*)$",
         re.IGNORECASE,
+    )
+    _EMAIL_MOBILE_SIGNATURE_RE = re.compile(
+        r"^sent\s+from\s+my(?:\s+[A-Za-z0-9'’._-]+){1,4}[.!]*$",
+        re.IGNORECASE,
+    )
+    _EMAIL_THREAD_BOUNDARY_RE = re.compile(
+        r"^(?:"
+        r"[-_]{3,}(?:\s*(?:original|forwarded)\s+message\s*[-_]*)?|"
+        r"begin\s+forwarded\s+message|"
+        r"on\s+.+\s+wrote\s*:|"
+        r"(?:from|sent|to|subject)\s*:\s*\S|"
+        r">"
+        r")",
+        re.IGNORECASE,
+    )
+    _EMAIL_SIGNOFF_REMAINDER_STOPWORDS: frozenset[str] = frozenset(
+        {
+            "for",
+            "the",
+            "our",
+            "your",
+            "client",
+            "claimant",
+            "instruction",
+            "message",
+            "email",
+            "help",
+            "assistance",
+            "attached",
+            "update",
+            "to",
+            "and",
+            "but",
+            "if",
+            "please",
+            "report",
+            "vehicle",
+            "claim",
+            "case",
+        }
     )
 
     _CLAIMANT_PROSE_ANCHORS: tuple[re.Pattern[str], ...] = (
@@ -2095,6 +2137,12 @@ class RuleEngine:
             "would",
             "no",
             "not",
+            "the",
+            "our",
+            "client",
+            "claimant",
+            "named",
+            "name",
             "who",
             "whose",
             "in",
@@ -2146,21 +2194,63 @@ class RuleEngine:
         }
     )
 
-    def _email_signature_start_line(self, document: DocumentModel) -> int | None:
-        """Return the first sign-off line for an e-mail, if one is present.
+    def _is_standalone_email_signoff(self, value: str) -> bool:
+        """True only for a standalone sign-off, optionally followed by a name.
 
-        The e-mail reader deliberately retains the full body for auditability. Claimant
-        extraction therefore needs its own boundary: a person's name below a conventional
-        sign-off is sender metadata, never claimant evidence.
+        Prefix matching alone is unsafe: “Many thanks for the instruction, our client
+        is …” is ordinary evidence, not a signature. A short name may share the sign-off
+        line (``Kind regards, Alex Handler``); prose-like remainders are rejected.
+        """
+        cleaned = clean_val(value)
+        if self._EMAIL_MOBILE_SIGNATURE_RE.fullmatch(cleaned):
+            return True
+        match = self._EMAIL_SIGNOFF_PREFIX_RE.fullmatch(cleaned)
+        if not match:
+            return False
+        remainder = (match.group("remainder") or "").strip(" ,.!:;-–—")
+        if not remainder:
+            return True
+        tokens = re.findall(r"[A-Za-z][A-Za-z'’.\-]*", remainder)
+        if not 1 <= len(tokens) <= 4:
+            return False
+        return not any(
+            token.lower().strip(".") in self._EMAIL_SIGNOFF_REMAINDER_STOPWORDS
+            for token in tokens
+        )
+
+    def _is_email_thread_boundary(self, value: str) -> bool:
+        return bool(self._EMAIL_THREAD_BOUNDARY_RE.match(clean_val(value)))
+
+    def _email_signature_ranges(self, document: DocumentModel) -> tuple[tuple[int, int], ...]:
+        """Return signature-only line ranges while preserving later quoted instructions.
+
+        Each standalone sign-off starts a signature block. A reply/forward boundary ends
+        that block, so claimant evidence in the quoted original remains available. Long
+        dash rules are thread boundaries; only the exact RFC ``--`` delimiter starts a
+        signature by itself.
         """
         if document.source_type not in {"eml", "msg"}:
-            return None
-        for page in document.pages:
-            for line in page.lines:
-                cleaned = clean_val(line.text)
-                if self._EMAIL_SIGNATURE_RE.match(cleaned) or re.fullmatch(r"[-_]{2,}", cleaned):
-                    return line.line_index
-        return None
+            return ()
+        lines = sorted(
+            (line for page in document.pages for line in page.lines),
+            key=lambda line: (line.page_index, line.line_index),
+        )
+        if not lines:
+            return ()
+
+        ranges: list[tuple[int, int]] = []
+        final_end = max(line.line_index for line in lines) + 1
+        for position, line in enumerate(lines):
+            cleaned = clean_val(line.text)
+            if not (self._is_standalone_email_signoff(cleaned) or cleaned == "--"):
+                continue
+            end = final_end
+            for next_line in lines[position + 1:]:
+                if self._is_email_thread_boundary(next_line.text):
+                    end = next_line.line_index
+                    break
+            ranges.append((line.line_index, end))
+        return tuple(ranges)
 
     def _source_is_in_email_signature(
         self,
@@ -2169,18 +2259,24 @@ class RuleEngine:
     ) -> bool:
         if source_span is None or source_span.line_index is None:
             return False
-        boundary = self._email_signature_start_line(document)
-        return boundary is not None and source_span.line_index >= boundary
+        return any(
+            start <= source_span.line_index < end
+            for start, end in self._email_signature_ranges(document)
+        )
 
-    def _claimant_lines_before_signature(
+    def _claimant_lines_without_signatures(
         self,
         lines: list[DocumentLine],
         document: DocumentModel,
     ) -> list[DocumentLine]:
-        boundary = self._email_signature_start_line(document)
-        if boundary is None:
+        ranges = self._email_signature_ranges(document)
+        if not ranges:
             return lines
-        return [line for line in lines if line.line_index < boundary]
+        return [
+            line
+            for line in lines
+            if not any(start <= line.line_index < end for start, end in ranges)
+        ]
 
     def _fallback_claimant_label(self, lines: list[DocumentLine]) -> FieldExtraction:
         """Read explicit claimant/client labels, never a bare ``Name`` label.
@@ -2189,6 +2285,10 @@ class RuleEngine:
         positive behind TKT-150. Provider-specific layouts may still define a Name rule;
         the signature-span guard above rejects it when its source is a sign-off.
         """
+        # The generic fallback deliberately excludes ``our insured`` and
+        # ``policyholder``: CollisionSpike carries insuredName as a separate fact.
+        # Reviewed provider profiles (FW/PCH/SBL) explicitly map those aliases in
+        # their OWN field rules where the layout contract proves they mean claimant.
         label_re = re.compile(
             r"^\s*(?:re\s*:\s*)?(?:"
             r"claimant(?:'s)?(?:\s+name)?|name\s+of\s+(?:the\s+)?claimant|"
@@ -2197,7 +2297,8 @@ class RuleEngine:
             re.IGNORECASE,
         )
         for index, line in enumerate(lines):
-            match = label_re.match(line.text)
+            line_text = re.sub(r"^\s*>+\s*", "", line.text)
+            match = label_re.match(line_text)
             if not match:
                 continue
             candidates = [(clean_val(match.group(1) or ""), line)]
@@ -2228,6 +2329,26 @@ class RuleEngine:
     def _person_name_prefix(self, value: str) -> str:
         """Conservatively take a person-name prefix from ordinary instruction prose."""
         value = re.sub(r"^[\s,:;\-–—]+", "", value)
+        # ``we act for`` / ``on behalf of`` often introduce the person through
+        # intermediary words. Consume those words; merely declaring them stopwords
+        # would stop at the first token and miss the actual name that follows.
+        for _ in range(2):
+            shortened = re.sub(
+                r"^(?:(?:the|our)\s+)?(?:client|claimant)\b"
+                r"(?:\s+(?:is|named))?\s*[:,;\-–—]*\s*",
+                "",
+                value,
+                flags=re.IGNORECASE,
+            )
+            shortened = re.sub(
+                r"^(?:is|named)\b\s*[:,;\-–—]*\s*",
+                "",
+                shortened,
+                flags=re.IGNORECASE,
+            )
+            if shortened == value:
+                break
+            value = shortened
         token_matches = list(re.finditer(r"[A-Za-z][A-Za-z'’.\-]*", value))
         if not token_matches:
             return ""
@@ -2263,7 +2384,7 @@ class RuleEngine:
         lines: list[DocumentLine],
         document: DocumentModel,
     ) -> FieldExtraction:
-        usable_lines = self._claimant_lines_before_signature(lines, document)
+        usable_lines = self._claimant_lines_without_signatures(lines, document)
 
         # Strong, explicit evidence wins even when weaker prose appears earlier.
         labelled = self._fallback_claimant_label(usable_lines)
