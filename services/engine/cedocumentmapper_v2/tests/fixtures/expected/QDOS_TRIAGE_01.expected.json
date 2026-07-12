@@ -19,5 +19,5 @@
     "mileage",
     "mileage_unit"
   ],
-  "notes": "QDOS triage letter (.doc with table layout). Requires LibreOffice for full DOC read; provider hint QDOS when footer phrase absent."
+  "notes": "QDOS triage letter (.doc with table layout). The pure-Python Word piece-table reader must retain the claimant and accident narrative without Word, LibreOffice, or antiword; provider hint QDOS is used when the footer phrase is absent."
 }

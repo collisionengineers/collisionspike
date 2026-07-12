@@ -293,16 +293,9 @@ def test_qdos_triage_between_labels_extracts_accident_circumstances():
     assert record.fields[FieldKey.ACCIDENT_CIRCUMSTANCES].value == QDOS_TRIAGE_NARRATIVE
 
 
-def _soffice_available() -> bool:
-    import shutil
-
-    return bool(shutil.which("soffice") or shutil.which("libreoffice"))
-
-
 @pytest.mark.skipif(not QDOS_TRIAGE_DOC.exists(), reason="QDOS triage DOC fixture not present")
-@pytest.mark.skipif(not _soffice_available(), reason="LibreOffice not installed")
 def test_qdos_triage_doc_fixture_accident_circumstances_with_provider_hint():
-    """Legacy QDOS triage .doc tables need LibreOffice; provider hint supplies QDOS rules."""
+    """The pure-Python DOC piece reader retains table cells; the provider hint supplies QDOS rules."""
     with open(QDOS_TRIAGE_EXPECTED, "r", encoding="utf-8") as f:
         expected = json.load(f)
 
@@ -315,6 +308,8 @@ def test_qdos_triage_doc_fixture_accident_circumstances_with_provider_hint():
         record.fields[FieldKey.ACCIDENT_CIRCUMSTANCES].value
         == expected["expected_values"]["accident_circumstances"]
     )
+    assert record.fields[FieldKey.CLAIMANT_NAME].value == "Miss Nicola Granger"
+    assert "embedded Word piece table" in " ".join(doc.reader_notes)
 
 
 AX_CIRCUMSTANCES_WITH_PRE_EXISTING = (

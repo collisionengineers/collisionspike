@@ -53,30 +53,7 @@ def test_msg_reader():
     assert any("Subject:" in line.text for line in model.pages[0].lines)
 
 
-def _is_doc_supported():
-    import shutil
-    if shutil.which("soffice") or shutil.which("libreoffice") or shutil.which("antiword"):
-        return True
-    import os
-    if os.environ.get("CEDOCUMENTMAPPER_RUN_WORD_COM_TESTS") != "1":
-        return False
-    try:
-        import win32com.client
-        # Try to initialize COM and check if Word is dispatchable
-        import pythoncom
-        pythoncom.CoInitialize()
-        try:
-            word = win32com.client.DispatchEx("Word.Application")
-            word.Quit()
-            return True
-        finally:
-            pythoncom.CoUninitialize()
-    except Exception:
-        pass
-    return False
-
-
-@pytest.mark.skipif(not INSTRUCTIONS_DIR.exists() or not _is_doc_supported(), reason="DOC reading dependencies not available")
+@pytest.mark.skipif(not INSTRUCTIONS_DIR.exists(), reason="v1 Instructions directory not found")
 def test_doc_reader():
     doc_path = INSTRUCTIONS_DIR / "ALS 01.DOC"
     assert doc_path.exists()
