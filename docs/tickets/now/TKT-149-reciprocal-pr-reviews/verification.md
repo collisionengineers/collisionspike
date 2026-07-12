@@ -5,7 +5,7 @@ TESTED (offline) — live draft-PR proof is pending.
 
 ## Evidence
 
-- `npm run test:pr-review-hooks` — PASS, 41/41 on 2026-07-12. Coverage includes Windows production launch, Claude `//drive` permission rules, timeouts, live/stale locks, wrapper/API/MCP bypasses, merge SHA binding, forced draft, per-commit bundles, ready-state races and current-head outcomes.
+- `npm run test:pr-review-hooks` — PASS, 42/42 on 2026-07-12. Coverage includes Windows production launch, Claude `//drive` permission rules, timeouts, live/stale locks, wrapper/API/MCP bypasses, merge SHA binding, forced draft, per-commit bundles, file-backed comment payloads, ready-state races and current-head outcomes.
 - `node --check` — PASS for the shared runner, both hook adapters and marker evaluator.
 - Both hook configuration files parse as JSON.
 - The Codex `commandWindows` Git-root resolver was exercised from `mockup-app/`; it found the root adapter and returned the expected `updatedInput` rewrite.
@@ -20,6 +20,7 @@ TESTED (offline) — live draft-PR proof is pending.
 - After pushing head `80a18e0`, `verify-markers` rejected both prior comments as `stale-head`. The fresh Claude pass then reached the old four-minute ceiling before replacement. The live timings now set Claude to six minutes, Codex to three minutes, the whole sequence to 9½ minutes, and the rewritten Claude Bash input to its ten-minute maximum. Final exact-head rerun remains pending.
 - On head `56fc179`, Claude replaced its exact comment with `PASS`. Codex replaced its comment with `CHANGES_REQUESTED` solely on the claim that Claude cannot rewrite a pending Bash input; the current official Claude reference explicitly documents that exact `PreToolUse.updatedInput` behavior, so the finding is rejected. The PR correctly remains draft because the marker outcome is still non-passing; the next head forces both reviewers to reassess.
 - Fresh Claude-path rewrite proof: a normal Claude 2.1.202 session attempted the harmless nonexistent command `gh pr ready 999999`. Debug output shows the checked-in hook returning `permissionDecision: allow` with `updatedInput.command = node … reciprocal-pr-review.mjs gate --origin claude …` and `updatedInput.timeout = 600000`; Claude reports `[pr-review] … gh pr view 999999 … failed`, proving the original `gh pr ready` input was replaced before execution. No request was mutated.
+- On head `3f6c8aa`, Claude again replaced its marker with `PASS`. Codex validly found that new Claude comments and comment updates could still place a 60 KB body in Windows argv. The next head uses `--body-file` for creation and JSON `--input` for PATCH updates; a fixture proves neither command contains review text. The PR remains draft pending both fresh passes.
 
 ## Pending / gaps
 

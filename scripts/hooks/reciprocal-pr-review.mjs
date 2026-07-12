@@ -826,17 +826,29 @@ function runCodexReviewer(worktree, pr, bundle, codexCommand, timeoutMs) {
 
 function publishReviewComment(cwd, realGh, slug, pr, reviewer, visibleBody, existingCommentId = null) {
   const body = buildReviewComment(reviewer, pr, visibleBody);
-  const file = path.join(tmpdir(), `collisionspike-pr-comment-${randomUUID()}.md`);
-  writeFileSync(file, body, 'utf8');
+  const payload = createCommentPayload(body);
   try {
-    if (existingCommentId !== null && existingCommentId !== undefined) {
-      run(realGh, ['api', '--method', 'PATCH', `repos/${slug}/issues/comments/${existingCommentId}`, '--raw-field', `body=${body}`], { cwd });
-    } else {
-      run(realGh, ['pr', 'comment', pr.url, '--repo', slug, '--body-file', file], { cwd });
-    }
+    run(realGh, reviewCommentMutationArgs({ slug, prUrl: pr.url, existingCommentId, ...payload }), { cwd });
   } finally {
-    unlinkSync(file);
+    removeOwnedTempDir(payload.owned);
   }
+}
+
+function createCommentPayload(body) {
+  const owned = createOwnedTempDir('collisionspike-comment-payload-');
+  const bodyFile = path.join(owned.location, 'body.md');
+  const jsonFile = path.join(owned.location, 'body.json');
+  writeFileSync(bodyFile, body, 'utf8');
+  writeFileSync(jsonFile, JSON.stringify({ body }), 'utf8');
+  return { owned, bodyFile, jsonFile };
+}
+
+export function reviewCommentMutationArgs({ slug, prUrl, existingCommentId = null, bodyFile, jsonFile }) {
+  if (existingCommentId !== null && existingCommentId !== undefined && existingCommentId !== '') {
+    if (!/^\d+$/u.test(String(existingCommentId))) throw new Error('Invalid bound review comment id.');
+    return ['api', '--method', 'PATCH', `repos/${slug}/issues/comments/${existingCommentId}`, '--input', jsonFile];
+  }
+  return ['pr', 'comment', prUrl, '--repo', slug, '--body-file', bodyFile];
 }
 
 function setCommitStatus(cwd, realGh, slug, pr, state = 'success', description = 'Claude and Codex exact-head reviews verified') {
@@ -1166,11 +1178,16 @@ async function proxyComment(argv) {
   const visible = `### Claude PR review\n\n${raw}`;
   const body = buildReviewComment('claude', pr, visible);
   const commentId = process.env.PR_REVIEW_COMMENT_ID || '';
-  if (commentId) {
-    if (!/^\d+$/u.test(commentId)) throw new Error('Invalid bound Claude comment id.');
-    run(process.env.PR_REVIEW_REAL_GH, ['api', '--method', 'PATCH', `repos/${process.env.PR_REVIEW_REPO}/issues/comments/${commentId}`, '--raw-field', `body=${body}`], { cwd: process.cwd(), env: process.env });
-  } else {
-    run(process.env.PR_REVIEW_REAL_GH, ['pr', 'comment', expected, '--body', body], { cwd: process.cwd(), env: process.env });
+  const payload = createCommentPayload(body);
+  try {
+    run(process.env.PR_REVIEW_REAL_GH, reviewCommentMutationArgs({
+      slug: process.env.PR_REVIEW_REPO,
+      prUrl: expected,
+      existingCommentId: commentId,
+      ...payload,
+    }), { cwd: process.cwd(), env: process.env });
+  } finally {
+    removeOwnedTempDir(payload.owned);
   }
 }
 

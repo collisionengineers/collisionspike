@@ -23,6 +23,7 @@ import {
   parseGateInvocation,
   releaseLock,
   requiresPassingMarkers,
+  reviewCommentMutationArgs,
   removeOwnedTempDir,
   removeVerifiedWorktree,
   resolveTrustedCodexCommand,
@@ -469,6 +470,28 @@ test('reviewer comment selection uses the exact trusted canonical comment id, ne
     reviewComment('claude', current, 99, 'PASS', '2026-07-12T12:00:00Z', 'NONE'),
   ];
   assert.equal(findReviewerComment(comments, 'claude').commentId, 47);
+});
+
+test('review comment creation and updates use payload files rather than body argv', () => {
+  const bodyFile = 'C:\\Temp\\comment-body.md';
+  const jsonFile = 'C:\\Temp\\comment-body.json';
+  const createArgs = reviewCommentMutationArgs({
+    slug: 'acme/repo',
+    prUrl: 'https://github.com/acme/repo/pull/42',
+    bodyFile,
+    jsonFile,
+  });
+  assert.deepEqual(createArgs, ['pr', 'comment', 'https://github.com/acme/repo/pull/42', '--repo', 'acme/repo', '--body-file', bodyFile]);
+  const updateArgs = reviewCommentMutationArgs({
+    slug: 'acme/repo',
+    prUrl: 'https://github.com/acme/repo/pull/42',
+    existingCommentId: 123,
+    bodyFile,
+    jsonFile,
+  });
+  assert.deepEqual(updateArgs, ['api', '--method', 'PATCH', 'repos/acme/repo/issues/comments/123', '--input', jsonFile]);
+  assert.equal([...createArgs, ...updateArgs].some((value) => String(value).includes('REVIEW_OUTCOME')), false);
+  assert.throws(() => reviewCommentMutationArgs({ slug: 'acme/repo', prUrl: 'x', existingCommentId: 'not-a-number', bodyFile, jsonFile }), /invalid bound review comment id/iu);
 });
 
 test('recursive temporary cleanup requires containment, prefix, and matching ownership sentinel', () => {

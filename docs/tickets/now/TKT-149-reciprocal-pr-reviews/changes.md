@@ -24,6 +24,7 @@ implemented and offline-tested; live pull-request proof pending
 - supplies every per-commit patch plus the aggregate diff and rejects changes-requested output without a priority and valid path/changed-hunk line;
 - omits raw binary patch bytes while retaining binary paths/statistics, caps text context at 8 MiB, and streams the complete trusted bundle to both reviewers over stdin instead of making them page it through tool calls;
 - updates each reviewer's exact existing comment ID, never `--edit-last`, and binds the visible-body digest/outcome to the full base and head IDs;
+- posts new marked comments from an owned Markdown payload file and updates exact comment IDs from an owned JSON `--input` payload, keeping bodies up to 60 KB out of Windows process arguments;
 - rechecks GitHub revision before and after each stage, restarts a bounded number of times when it changes, and leaves the request draft on any failure;
 - writes commit status `reciprocal-pr-review/head`, restores ready state only when requested and both outcomes pass, and gates later standalone ready/merge commands on those current markers;
 - reconstructs immediate merge commands against the authoritative request URL with `--match-head-commit`, while refusing cross-repository targets, auto-merge, administrative bypass and branch deletion;
@@ -50,3 +51,4 @@ implemented and offline-tested; live pull-request proof pending
 - Codex's later concern that Claude ignores `PreToolUse.updatedInput` conflicts with the current [Claude hooks reference](https://code.claude.com/docs/en/hooks#pretooluse-decision-control), which explicitly states that `updatedInput` replaces the tool's entire argument object when returned with `permissionDecision: allow`. A fresh Claude process then proved the live rewrite: `gh pr ready 999999` became the runner's `gate --origin claude ...` command with a 600,000 ms timeout before execution. No code change was made for that false finding; a Claude-origin PR remains the final creation-path proof.
 - Claude's base-push loop finding was accepted and fixed.
 - Claude's non-blocking note about `pulls.get` sitting outside the per-request `try` was accepted: each open request is now isolated so a transient metadata lookup failure is reported and the remaining batch continues.
+- Codex's Windows command-line finding on the 60 KB review-body allowance was accepted: both new-comment and PATCH paths now pass owned payload files rather than body text in argv.
