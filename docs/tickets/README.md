@@ -17,6 +17,9 @@ docs/tickets/
       evidence/
 ```
 
+[to-distill/](./to-distill/README.md) is the indexed inbox for source notes and evidence that still
+need to be converted into normal ticket folders.
+
 The status folder and the ticket frontmatter `status` must match. Do not move ticket folders by hand; use:
 
 ```sh
