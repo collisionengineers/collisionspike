@@ -61,6 +61,8 @@ def _provider(provider_id: str) -> dict:
         "CLAIMANT_PROSE_01.expected.json",
         "CLAIMANT_THREADED_01.expected.json",
         "CLAIMANT_LABEL_PROSE_01.expected.json",
+        "CLAIMANT_LABEL_INTERVENING_01.expected.json",
+        "CLAIMANT_SINGLE_SURNAME_01.expected.json",
         "EMAIL_SIGNATURE_ONLY_01.expected.json",
     ],
 )
@@ -129,6 +131,31 @@ def test_explicit_claimant_label_rejects_next_line_instruction_without_a_name():
     )
 
     assert extracted.value == ""
+
+
+def test_empty_claimant_label_does_not_skip_intervening_prose_for_a_later_name():
+    extracted = _claimant(
+        "Claimant Name:",
+        "Please arrange access.",
+        "Alex Smith",
+        "Vehicle Registration: AB12 CDE",
+    )
+
+    assert extracted.value == ""
+
+
+@pytest.mark.parametrize(
+    "lines",
+    [
+        ("Claimant Name: O'Brien",),
+        ("Claimant Name:", "O'Brien"),
+    ],
+)
+def test_explicit_claimant_label_accepts_a_single_surname(lines: tuple[str, ...]):
+    extracted = _claimant(*lines, "Vehicle Registration: AB12 CDE")
+
+    assert extracted.value == "O'Brien"
+    assert extracted.rule_id == "fallback_claimant_label"
 
 
 def test_signature_name_is_not_used_when_claimant_is_absent():
@@ -241,6 +268,34 @@ def test_prose_intermediary_words_are_not_captured_as_the_name(line: str, expect
     extracted = _claimant(line, "Vehicle Registration: MN90 PQR")
 
     assert extracted.value == expected
+    assert extracted.rule_id == "fallback_claimant_prose"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "We write on behalf of Acme Insurance Ltd regarding the vehicle.",
+        "We write on behalf of Acme International Risk Management Insurance Ltd.",
+        "We act for Example Legal Services in this matter.",
+        "On behalf of Northside Claims LLP, please inspect the vehicle.",
+        "We write on behalf of Northside Motor Solutions regarding the vehicle.",
+        "On behalf of Northside Automotive Partners, please inspect the vehicle.",
+        "We represent Alpha Beta Consulting regarding the vehicle.",
+        "We act for Northside Motor Solutions regarding the vehicle.",
+        "We act for Jane Sample regarding the vehicle.",
+    ],
+)
+def test_bare_representation_prose_does_not_establish_a_claimant(line: str):
+    assert _claimant(line, "Vehicle Registration: MN90 PQR").value == ""
+
+
+def test_person_before_an_organisation_separator_remains_a_claimant():
+    extracted = _claimant(
+        "We act for our client Ms Jane Lloyd of Acme Insurance Ltd.",
+        "Vehicle Registration: MN90 PQR",
+    )
+
+    assert extracted.value == "Ms Jane Lloyd"
     assert extracted.rule_id == "fallback_claimant_prose"
 
 
