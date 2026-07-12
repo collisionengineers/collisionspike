@@ -182,6 +182,7 @@
 | [TKT-129](./now/TKT-129-image-based-inspection-done/TKT-129-image-based-inspection-done.md) | Simplify the inspection address or Image Based Assessment choice | **REOPENED 2026-07-12:** remove the explanatory paragraph, hide address controls for Image Based Assessment, and preserve explicit provider defaults. |
 | [TKT-130](./now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | Review contains only cases that are ready for EVA | **REOPENED 2026-07-12:** binding rule now supersedes the old `needs_review → Review` behavior; incomplete/problem cases are Not Ready unless Held. |
 | [TKT-155](./now/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) | Rebuild the dashboard around Not Ready, Review and Held | Distilled 2026-07-12 with screenshots and image-generated design exploration. |
+| [TKT-164](./now/TKT-164-inbound-counts-500/TKT-164-inbound-counts-500.md) | Restore the live inbound dashboard counts | Discovered 2026-07-12 in Chrome: authenticated endpoint returns HTTP 500 while the UI hides the failure. |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
@@ -348,7 +349,6 @@
 | [TKT-161](./backlog/TKT-161-image-based-reflection-policy/TKT-161-image-based-reflection-policy.md) | Allow reflection images for Image Based Assessment cases | Distilled 2026-07-12 from the inbox note; reflection remains an observation but is not a reflection-only blocker for these cases. |
 | [TKT-162](./backlog/TKT-162-nested-audit-archive/TKT-162-nested-audit-archive.md) | Nest QDOS audit work inside the standard case archive folder | Distilled 2026-07-12 with the supplied email/document; canonical parent plus deterministic audit child. |
 | [TKT-163](./backlog/TKT-163-merge-dialog-layout/TKT-163-merge-dialog-layout.md) | Repair the merge-case dialog layout | Distilled 2026-07-12 with the supplied screenshots; responsive, accessible non-overlapping dialog. |
-| [TKT-164](./backlog/TKT-164-inbound-counts-500/TKT-164-inbound-counts-500.md) | Restore the live inbound dashboard counts | Discovered 2026-07-12 in Chrome: authenticated endpoint returns HTTP 500 while the UI hides the failure. |
 | [TKT-165](./backlog/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) | Make Add evidence upload the selected files | Discovered 2026-07-12 in source: the action ignores selected files and only navigates. |
 | [TKT-166](./backlog/TKT-166-manual-intake-evidence-upload/TKT-166-manual-intake-evidence-upload.md) | Persist instruction and extra files from Manual Intake | Discovered 2026-07-12 in source: document/manual intake claims files are linked without uploading them. |
 | [TKT-167](./backlog/TKT-167-image-gap-chasers/TKT-167-image-gap-chasers.md) | Keep image chasers available until every image rule passes | Distilled 2026-07-12; replaces raw-image-count gating with canonical unresolved image gaps. |
