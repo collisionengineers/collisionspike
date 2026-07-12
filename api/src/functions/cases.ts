@@ -72,6 +72,7 @@ import {
 import { casePoFloor, mintCasePo } from '../lib/case-po.js';
 import { isUniqueViolation } from './internal.js';
 import { ifMatch, versionToken } from '../lib/concurrency.js';
+import { isUuid } from '../lib/uuid.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit } from '../lib/audit.js';
 import { markCaseDoneUsing, markEvaSubmittedUsing } from '../lib/terminal-transition.js';
 import { gates } from '../lib/gates.js';
@@ -307,9 +308,12 @@ async function upsertManualProvenance(caseId: string, fieldName: string, value: 
 app.http('caseById', {
   methods: ['GET'],
   authLevel: 'anonymous',
-  route: 'cases/{id}',
+  // Keep the literal `/cases/next-po` allocator outside the parameter route even if host
+  // registration order changes.
+  route: 'cases/{id:guid}',
   handler: withRole('CollisionSpike.User', async (req) => {
     const id = req.params.id;
+    if (!isUuid(id)) return { status: 400, jsonBody: { error: 'invalid id' } };
     const snapshot = await loadCaseFullSnapshotUsing(query, id, new Date());
     if (!snapshot) return { status: 404, jsonBody: { error: 'not found' } };
     return {

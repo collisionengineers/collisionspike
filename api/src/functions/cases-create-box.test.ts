@@ -129,6 +129,23 @@ beforeEach(() => {
   });
 });
 
+describe('GET case route specificity', () => {
+  it('keeps the literal next-po allocator separate from the guid-only detail route', () => {
+    expect(registration('caseById')).toMatchObject({ methods: ['GET'], route: 'cases/{id:guid}' });
+    expect(registration('nextCasePo')).toMatchObject({ methods: ['GET'], route: 'cases/next-po' });
+  });
+
+  it('rejects an invalid direct-handler id before it can reach the uuid column', async () => {
+    const response = await registration('caseById').handler(
+      request({}, { id: 'next-po' }),
+      context(),
+    );
+
+    expect(response).toEqual({ status: 400, jsonBody: { error: 'invalid id' } });
+    expect(db.query).not.toHaveBeenCalled();
+  });
+});
+
 describe('POST /api/cases — assistant create_case normalization', () => {
   it('keeps the existing POST route registration', () => {
     const reg = registration('createCase');
