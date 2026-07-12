@@ -2194,6 +2194,35 @@ class RuleEngine:
         }
     )
 
+    _CLAIMANT_ORGANISATION_MARKERS: frozenset[str] = frozenset(
+        {
+            "assurance",
+            "bank",
+            "claims",
+            "company",
+            "corp",
+            "corporation",
+            "engineers",
+            "engineering",
+            "finance",
+            "garage",
+            "group",
+            "holdings",
+            "inc",
+            "incorporated",
+            "insurance",
+            "insurer",
+            "law",
+            "legal",
+            "limited",
+            "llp",
+            "ltd",
+            "plc",
+            "services",
+            "solicitors",
+        }
+    )
+
     def _is_standalone_email_signoff(self, value: str) -> bool:
         """True only for a standalone sign-off, optionally followed by a name.
 
@@ -2303,17 +2332,25 @@ class RuleEngine:
                 continue
             candidates = [(clean_val(match.group(1) or ""), line)]
             if not candidates[0][0]:
-                candidates.extend(
-                    (clean_val(next_line.text), next_line)
-                    for next_line in lines[index + 1:index + 4]
-                )
+                # Follow an empty label to the first non-empty line only. If that
+                # line is prose rather than a name, it is intervening content and
+                # must stop the search instead of allowing a later unrelated name.
+                for next_line in lines[index + 1:index + 4]:
+                    next_value = clean_val(next_line.text)
+                    if not next_value:
+                        continue
+                    candidates.append((next_value, next_line))
+                    break
             for value, value_line in candidates:
                 # A label proves the field, not that the entire remainder is a name.
                 # Same-line and following-line values frequently continue straight into
                 # instruction prose (for example, ``Mr J Sample requires inspection``).
                 # Reuse the conservative prose parser so only the leading person name is
                 # accepted and prose-only following lines remain blank.
-                value = self._person_name_prefix(self._clean_claimant_name(value))
+                value = self._person_name_prefix(
+                    self._clean_claimant_name(value),
+                    allow_single_token=True,
+                )
                 if not value or self._is_label_only_value(value):
                     continue
                 if re.fullmatch(r"[A-Z]{1,3}\d{1,3}\s?[A-Z]{3}", value, re.IGNORECASE):
@@ -2331,8 +2368,19 @@ class RuleEngine:
                 )
         return FieldExtraction(value="", rule_id="fallback_claimant_label", confidence=0.0)
 
-    def _person_name_prefix(self, value: str) -> str:
-        """Conservatively take a person-name prefix from ordinary instruction prose."""
+    def _person_name_prefix(
+        self,
+        value: str,
+        *,
+        allow_single_token: bool = False,
+    ) -> str:
+        """Conservatively take a person-name prefix from instruction text.
+
+        A single token is accepted only when an explicit claimant/client label has
+        already established the field. Generic prose still requires a title or at
+        least two name tokens. Organisation and legal-form markers reject the whole
+        candidate rather than returning a misleading prefix before the marker.
+        """
         value = re.sub(r"^[\s,:;\-–—]+", "", value)
         # ``we act for`` / ``on behalf of`` often introduce the person through
         # intermediary words. Consume those words; merely declaring them stopwords
@@ -2366,15 +2414,21 @@ class RuleEngine:
             title = token_matches[0].group(0)
             start = 1
 
+        prefix_matches: list[re.Match[str]] = []
+        organisation_marker_seen = False
         for match in token_matches[start:]:
             token = match.group(0).strip(".")
+            if token.lower() in self._CLAIMANT_ORGANISATION_MARKERS:
+                organisation_marker_seen = True
+                break
             if token.lower() in self._CLAIMANT_NAME_STOPWORDS:
                 break
-            chosen.append(match)
-            if len(chosen) == 4:
-                break
+            prefix_matches.append(match)
 
-        minimum = 1 if title else 2
+        if organisation_marker_seen:
+            return ""
+        chosen.extend(prefix_matches[:4])
+        minimum = 1 if title or allow_single_token else 2
         if len(chosen) < minimum:
             return ""
         end = chosen[-1].end()

@@ -1,0 +1,11 @@
+{
+  "fixture_id": "claimant_single_surname_01",
+  "source_file": "CLAIMANT SINGLE SURNAME 01.eml",
+  "expected_provider": "unknown_temp",
+  "expected_values": {
+    "vrm": "YZ67ABC",
+    "claimant_name": "O'Brien"
+  },
+  "allowed_blank_fields": [],
+  "notes": "TKT-150 final-review positive control: a strong explicit claimant label may contain a legitimate single-token surname when it is not a stopword, role, or organisation marker."
+}

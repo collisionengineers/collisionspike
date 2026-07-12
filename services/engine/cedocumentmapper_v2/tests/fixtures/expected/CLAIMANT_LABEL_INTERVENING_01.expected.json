@@ -1,0 +1,11 @@
+{
+  "fixture_id": "claimant_label_intervening_01",
+  "source_file": "CLAIMANT LABEL INTERVENING 01.eml",
+  "expected_provider": "unknown_temp",
+  "expected_values": {
+    "vrm": "UV45WXY",
+    "claimant_name": ""
+  },
+  "allowed_blank_fields": [],
+  "notes": "TKT-150 final-review negative control: an organisation in generic on-behalf-of prose is not a claimant, and an empty claimant label cannot skip intervening instructions to capture a later unrelated name."
+}
