@@ -1,11 +1,11 @@
 ---
 id: TKT-150
 title: Restore claimant-name extraction and remediate affected held cases
-status: backlog
+status: now
 priority: P1
 area: parsing
 tickets-it-relates-to: [TKT-001, TKT-022, TKT-086, TKT-130, TKT-135]
-research-link: docs/tickets/backlog/TKT-150-claimant-extraction-held-audit/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-150-claimant-extraction-held-audit/evidence/operator-note.md
 plan: PLAN-004
 ---
 
@@ -20,7 +20,7 @@ Open cases, including QDOS26079 and cases in Held, are missing claimant names ev
 - TKT-130 — readiness/queue contract that must treat a missing claimant as Not Ready.
 
 ## Proposed change
-PROPOSED (not built): produce a full open-case claimant census, reproduce representative failures by provider/layout, fix the owning extraction or persistence seam with fixtures, re-vendor the parser when required, and safely repair affected rows from retained source evidence.
+IN PROGRESS: the parser/signature failure family is fixed and immutably re-vendored at `engine-v2.22`. The remaining work is the full open-case claimant census, QDOS26079 trace, live parser deployment, safe source-backed remediation, readiness recomputation, and independent verification.
 
 ## Acceptance
 - A reproducible census lists every active Held, Not Ready, and Review case whose claimant name is blank, grouped by provider, source format, intake path, parser version, and earliest source message/document.
@@ -38,7 +38,7 @@ PROPOSED (not built): produce a full open-case claimant census, reproduce repres
 - Independent live verification proves claimant extraction and persistence on at least one fresh case per repaired failure family and confirms the full residual census.
 
 ## Research
-Distilled 2026-07-12 from the operator's live-case report; raw wording is in [evidence/](./evidence/).
+Distilled 2026-07-12 from the operator's live-case report; raw wording is in [evidence/](./evidence).
 
 ## Artifacts
 - [Changes made](./changes.md)

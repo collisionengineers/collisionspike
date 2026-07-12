@@ -172,6 +172,7 @@
 
 
 
+
 ## Now — in flight / not yet confirmed live
 
 | ID | Title | State |
@@ -185,6 +186,7 @@
 | [TKT-130](./now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | Review contains only cases that are ready for EVA | **REOPENED 2026-07-12:** binding rule now supersedes the old `needs_review → Review` behavior; incomplete/problem cases are Not Ready unless Held. |
 | [TKT-165](./now/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) | Make Add evidence upload the selected files | Discovered 2026-07-12 in source: the action ignores selected files and only navigates. |
 | [TKT-155](./now/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) | Rebuild the dashboard around Not Ready, Review and Held | Distilled 2026-07-12 with screenshots and image-generated design exploration. |
+| [TKT-150](./now/TKT-150-claimant-extraction-held-audit/TKT-150-claimant-extraction-held-audit.md) | Restore claimant-name extraction and remediate affected held cases | Distilled 2026-07-12; includes QDOS26079, full live census, source-to-persistence trace and safe repair. |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
@@ -339,7 +341,6 @@
 | ID | Title | State |
 |---|---|---|
 | [TKT-018](./backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md) | AI total-loss vs repairable categorisation | Deferral RE-AFFIRMED by the operator 2026-07-10 (backlog-drain batch AskUserQuestion: "Keep deferred" over build-dark/blocked). Stays backlog; the 2026-07-09 assessment (deps live, build shape, fresh-DPIA need) remains current. |
-| [TKT-150](./backlog/TKT-150-claimant-extraction-held-audit/TKT-150-claimant-extraction-held-audit.md) | Restore claimant-name extraction and remediate affected held cases | Distilled 2026-07-12; includes QDOS26079, full live census, source-to-persistence trace and safe repair. |
 | [TKT-151](./backlog/TKT-151-vehicle-enrichment-completeness/TKT-151-vehicle-enrichment-completeness.md) | Complete vehicle enrichment and warn when a registration cannot be resolved | Distilled 2026-07-12; one live lookup seam, durable outcomes/warnings and full missing-field census. |
 | [TKT-152](./backlog/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md) | Consolidate vehicle lookups and harden the MOT mileage estimator | Distilled 2026-07-12; one source of truth, robust anomaly handling, abstention and calibrated backtest. |
 | [TKT-153](./backlog/TKT-153-explicit-case-save/TKT-153-explicit-case-save.md) | Save case edits explicitly as one reviewed change | Distilled 2026-07-12; also removes the competing inspection PATCH/POST race and false success. |

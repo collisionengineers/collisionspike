@@ -29,6 +29,87 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-12 (TKT-150 placeholder hardening):** re-cut from the sibling at
+**`engine-v2.22`** (branch `codex/tkt-150-claimant-extraction`, commit `9998284`; branch + annotated
+tag pushed unchanged to origin and merged to sibling `main` by PR 8 on 2026-07-12). One engine file, `rules/engine.py`: claimant-specific absence
+markers (`TBC`, `TBA`, `N/A`, `None`, `Unknown`, and their reviewed long forms) are rejected at both
+the configured-rule safety boundary and the explicit-label fallback. A placeholder therefore stays
+blank when no defensible claimant exists and cannot block a later defensible prose candidate. The
+new non-PII EML fixture combines a placeholder with an explicit claimant label inside the handler's
+signature, pinning both negative controls together. Sibling claimant suite: **72 passed**; split full
+suite: **522 passed / 5 skipped / 5 failures identical to the `engine-v2.21` Windows legacy-DOC/eval
+baseline**. Wrapper immutable/claimant/contact/smoke/classifier slice: **292 passed / 11 environment
+skips**; wrapper full suite: **367 passed / 11 skipped / 1 unchanged ALS legacy-DOC failure**. No
+taxonomy/DDL dependency; providers.json untouched; the cloud boundary remains a pure mirror.
+
+**2026-07-12 (TKT-150 exact-head review — domain-qualified prose):** re-cut from the sibling at
+**`engine-v2.21`** (branch `codex/tkt-150-claimant-extraction`, commit `8bf8311`; branch + annotated
+tag pushed unchanged to origin). One engine file, `rules/engine.py`: the previously broad
+`act for` / `represent` / `on behalf of` prose anchors now require an explicit `client` or
+`claimant` domain noun before accepting a person-name candidate. This removes the open-ended
+organisation-name false-positive class while preserving qualified wording such as `our client`,
+`the claimant`, and `the client named`. The non-PII empty-label fixture now also pins an organisation
+whose words are not in the marker set. Sibling focused extraction suite: **37 passed**. Sibling full
+suite: **487 passed / 5 skipped / 5 pre-existing environmental legacy-DOC/eval failures**. Wrapper
+immutable/claimant/contact/smoke slice: **79 passed / 2 environmental skips**; wrapper full suite:
+**330 passed / 11 skipped / 1 pre-existing environmental ALS legacy-DOC failure**. No taxonomy/DDL
+dependency; providers.json untouched; the cloud boundary remains a pure mirror.
+
+**2026-07-12 (TKT-150 exact-head review — claimant candidate boundaries):** re-cut from the
+sibling at **`engine-v2.20`** (branch `codex/tkt-150-claimant-extraction`, commit `3809941`;
+branch + annotated tag pushed unchanged to origin). One engine file, `rules/engine.py`: empty labels
+now inspect only the first following non-empty line, so intervening prose stops rather than being
+skipped for a later unrelated name; generic prose rejects organisation/legal-form markers before a
+person-name boundary; and the explicit-label path alone may accept a safe single-token surname.
+Two non-PII fixtures pin the empty-label/organisation negative path and the single-surname positive
+path. Sibling focused extraction suite: **32 passed**. Sibling full suite: **482 passed / 5 skipped /
+5 pre-existing environmental legacy-DOC/eval failures**. No taxonomy/DDL dependency; providers.json
+untouched; the cloud boundary remains a pure mirror.
+
+**2026-07-12 (TKT-150 PR 8 final review repair — explicit-label precision):** re-cut from the
+sibling at **`engine-v2.19`** (branch `codex/tkt-150-claimant-extraction`, commit `f0026d2`;
+branch + annotated tag pushed unchanged to origin). One engine file, `rules/engine.py`: explicit
+claimant/client label tails now pass through the same conservative person-name prefix parser as
+ordinary prose, so `Our client: Mr John Sample requires an inspection` yields only
+`Mr John Sample`, while a following line containing instructions but no name stays blank. New
+non-PII `CLAIMANT LABEL PROSE 01.eml` pins the next-line form, with same-line and negative controls
+alongside it. Sibling focused extraction suite: **22 passed**. Sibling full suite: **472 passed / 5
+skipped / 5 pre-existing environmental legacy-DOC/eval failures**. Wrapper immutable/claimant/
+contact/smoke slice: **60 passed / 2 environmental skips**; wrapper full suite: **311 passed / 11
+skipped / 1 pre-existing environmental ALS legacy-DOC failure**. No taxonomy/DDL dependency;
+providers.json untouched; the cloud boundary remains a pure mirror.
+
+**2026-07-12 (TKT-150 PR 8 review repairs — context-safe e-mail signatures):** re-cut from the
+sibling at **`engine-v2.18`** (branch `codex/tkt-150-claimant-extraction`, commit `c99ca5b`;
+branch + annotated tag pushed unchanged to origin). One engine file, `rules/engine.py`: replaces the
+first-sign-off-to-EOF cutoff with signature-only ranges that stop at reply/forward boundaries;
+requires a standalone sign-off so opening prose such as “Many thanks for the instruction …” stays
+evidence; treats long divider rules as thread boundaries, not signatures; and normalises intermediary
+phrases such as “the claimant” / “our client” before extracting a prose name. The generic fallback
+continues to reject `Our Insured` / `Policyholder` because CollisionSpike stores insured name as a
+separate fact, while reviewed FW/PCH/SBL provider rules remain authoritative exceptions; a composite
+`Our Insured: Name:` rule now correctly falls through from the label-only same-line fragment to the
+next line. New non-PII `CLAIMANT THREADED 01.eml` pins both the threaded and opening-pleasantry
+regressions. Sibling focused extraction suite: **86 passed / 1 environmental skip**. Sibling full
+suite: **468 passed / 5 skipped / 5 pre-existing environmental legacy-DOC/eval failures**. Wrapper
+immutable/claimant/contact/smoke slice: **54 passed / 2 environmental skips**; wrapper full suite:
+**305 passed / 11 skipped / 1 pre-existing environmental ALS legacy-DOC failure**. No taxonomy/DDL
+dependency; providers.json untouched; the cloud boundary remains a pure mirror.
+
+**2026-07-12 (TKT-150 claimant-name recall + e-mail-signature exclusion):** re-cut from the
+sibling at **`engine-v2.17`** (branch `codex/tkt-150-claimant-extraction`, commit `f3e780f`;
+branch + annotated tag pushed unchanged to origin).
+One engine file, `rules/engine.py`: claimant fallback now gives explicit claimant/client labels
+priority over prose, recognises conservative ordinary wording such as “our client, Ms …”, removes
+the unsafe bare-`Name:` fallback, and rejects configured claimant candidates whose source span is
+at or below a conventional e-mail sign-off. Two non-PII EML fixtures pin both sides: prose claimant
+recovery returns `Ms Jane Example`; a source containing only staff/signature names returns an
+honest blank. Sibling focused extraction suite: **76 passed / 1 environmental skip**. Sibling full
+suite: **457 passed / 5 skipped / 5 pre-existing environmental legacy-DOC/eval failures** on this
+Windows runner (LibreOffice/antiword unavailable). Wrapper claimant/contact/smoke slice: **40 passed
+/ 2 environmental skips**. Immutable vendor proof: **PASS, 36 files, official tag verified**. No
+taxonomy/DDL dependency; providers.json untouched; the cloud boundary remains a pure mirror.
+
 **2026-07-11 (TKT-089 recall — classifier-owned banner shapes):** re-cut from the sibling at
 **`engine-v2.16`** (branch `codex/tkt089-banner-recall`, commit `8dd4ba8` — **branch + annotated
 tag PUSHED to origin**). One file, `application/service.py`: removed the aspect-ratio/short-side
@@ -397,12 +478,28 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.16`** on branch
-  `codex/tkt089-banner-recall`, commit **`8dd4ba8`** (2026-07-11) — **branch + tag PUSHED to
-  origin** and merged into the sibling's default `main` by PR 7 on 2026-07-12. The TKT-089 recall removes the banner-aspect/short-side hard drop so every candidate at
-  or above the 40,000-pixel area floor reaches semantic classification. Changed vs `engine-v2.15`:
-  `application/service.py` ONLY (no taxonomy/DDL dependency; providers.json untouched).
-  Prior pin: annotated tag **`engine-v2.15`**, commit **`79efe22`** (2026-07-10) — the now-superseded
+- **Cut from:** annotated tag **`engine-v2.22`** on branch
+  `codex/tkt-150-claimant-extraction`, commit **`9998284`** (2026-07-12). The branch and tag are
+  **pushed unchanged to origin**, merged to sibling `main` by PR 8 on 2026-07-12, and pass the trusted private-sibling proof. Changed vs
+  `engine-v2.21`: `rules/engine.py` ONLY (TKT-150 claimant placeholders are absence, cannot win a
+  configured/explicit-label path, and cannot block a later defensible claimant; no taxonomy/DDL
+  dependency; providers.json untouched). Prior pin: annotated tag **`engine-v2.21`**, commit
+  **`8bf8311`** (2026-07-12) — generic representation prose requires an explicit client/claimant
+  domain noun; no taxonomy/DDL dependency; providers.json untouched. Prior pin: annotated tag
+  **`engine-v2.20`**, commit **`3809941`** (2026-07-12) —
+  TKT-150 exact-head review: immediate-only empty-label
+  continuation, generic organisation rejection, and explicit-label-only single-surname support; no
+  taxonomy/DDL dependency; providers.json untouched. Prior pin: annotated tag **`engine-v2.19`**,
+  commit **`f0026d2`** (2026-07-12) — TKT-150 PR 8 final review repair: explicit claimant-label
+  values are reduced to a conservative person-name prefix; no taxonomy/DDL dependency;
+  providers.json untouched. Prior pin: annotated tag **`engine-v2.18`**, commit **`c99ca5b`**
+  (2026-07-12) — TKT-150 PR 8 review repairs: context-safe signature
+  ranges, intermediary-name normalisation, and composite-label next-line fallback; no taxonomy/DDL
+  dependency; providers.json untouched. Prior pin: annotated tag **`engine-v2.17`**, commit
+  **`f3e780f`** (2026-07-12) — initial TKT-150 claimant-name prose recall + e-mail-signature
+  exclusion. Prior pin: annotated tag **`engine-v2.16`**, commit **`8dd4ba8`**
+  (2026-07-11) — TKT-089 banner recall, pushed and merged into the sibling's default `main` by PR 7
+  on 2026-07-12. Prior pin: annotated tag **`engine-v2.15`**, commit **`79efe22`** (2026-07-10) — the now-superseded
   banner-aspect retune (3.5 → 3.2). Prior pin: annotated tag **`engine-v2.14`**, commit **`2609b1a`**
   (2026-07-10) — the TKT-147
   `two_label_join` rule kind (Tractable `Producer`+`Model` make+model capture)
@@ -449,7 +546,7 @@ nothing further to do here.
 
 ## Reconciliations: none outstanding
 
-As of `engine-v2.1` (and unchanged through `engine-v2.16`) this copy is a **pure
+As of `engine-v2.1` (and unchanged through `engine-v2.22`) this copy is a **pure
 mirror** — no vendored-only or sibling-only divergence remains. The executable
 boundary is enforced by `VENDOR_LOCK.json` and
 `scripts/verify_vendor_pin.py`: every shared `.py` module, bundled resource
@@ -534,7 +631,7 @@ must stay off the cloud path (see "Omitted modules" above).
 Run from the repo root (`collisionspike/`), Git Bash / bash:
 
 ```bash
-REF=engine-v2.16  # the committed, tagged sibling ref you are cutting from
+REF=engine-v2.22  # the committed, tagged sibling ref you are cutting from
 S=../cedocumentmapper_v2.0   # sibling repo
 V=functions/parser/cedocumentmapper_v2
 
