@@ -169,6 +169,7 @@
 
 
 
+
 ## Now — in flight / not yet confirmed live
 
 | ID | Title | State |
@@ -180,6 +181,7 @@
 | [TKT-034](./now/TKT-034-images-received-routing/TKT-034-images-received-routing.md) | Archive unmatched images by registration and adopt the folder into the case | **REOPENED 2026-07-12:** current code creates an empty VRM folder only; implement image upload plus idempotent Case/PO folder adoption. |
 | [TKT-129](./now/TKT-129-image-based-inspection-done/TKT-129-image-based-inspection-done.md) | Simplify the inspection address or Image Based Assessment choice | **REOPENED 2026-07-12:** remove the explanatory paragraph, hide address controls for Image Based Assessment, and preserve explicit provider defaults. |
 | [TKT-130](./now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | Review contains only cases that are ready for EVA | **REOPENED 2026-07-12:** binding rule now supersedes the old `needs_review → Review` behavior; incomplete/problem cases are Not Ready unless Held. |
+| [TKT-155](./now/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) | Rebuild the dashboard around Not Ready, Review and Held | Distilled 2026-07-12 with screenshots and image-generated design exploration. |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
@@ -338,7 +340,6 @@
 | [TKT-152](./backlog/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md) | Consolidate vehicle lookups and harden the MOT mileage estimator | Distilled 2026-07-12; one source of truth, robust anomaly handling, abstention and calibrated backtest. |
 | [TKT-153](./backlog/TKT-153-explicit-case-save/TKT-153-explicit-case-save.md) | Save case edits explicitly as one reviewed change | Distilled 2026-07-12; also removes the competing inspection PATCH/POST race and false success. |
 | [TKT-154](./backlog/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) | Add a constrained MCP image-ingestion lane for external agents | Distilled 2026-07-12; exact VRM lookup, idempotent upload and test-root-only live proof. |
-| [TKT-155](./backlog/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) | Rebuild the dashboard around Not Ready, Review and Held | Distilled 2026-07-12 with screenshots and image-generated design exploration. |
 | [TKT-156](./backlog/TKT-156-chaser-file-request/TKT-156-chaser-file-request.md) | Put an active archive upload link in every image chaser | Distilled 2026-07-12; idempotent per-case File Request plus real webhook proof in the test root. |
 | [TKT-157](./backlog/TKT-157-handler-copy-audit/TKT-157-handler-copy-audit.md) | Remove dev copy and unnecessary explanatory text from the app | Distilled 2026-07-12; whole-route rendered-string and built-bundle audit. |
 | [TKT-158](./backlog/TKT-158-case-remediation-rerun/TKT-158-case-remediation-rerun.md) | Rerun and account for every affected case after the fixes deploy | Distilled 2026-07-12; backup-first targeted rerun with field-level residual ledger. |
