@@ -235,9 +235,10 @@ export async function runBoxClassifySweep(ctx: InvocationContext): Promise<void>
     // row so Blob-backed staff uploads still progress if the independent Box facade is off.
     if (!gates.imageRoleClassifyEnabled()) return;
 
+    const includeBox = gates.boxApi();
     let rows: UnclassifiedBoxEvidenceRow[];
     try {
-      rows = (await dataApi.claimUnclassifiedBoxEvidence(SWEEP_CAP)).rows ?? [];
+      rows = (await dataApi.claimUnclassifiedBoxEvidence(SWEEP_CAP, includeBox)).rows ?? [];
     } catch (e) {
       ctx.warn(
         `[box-classify-sweep] enumeration failed (will retry next sweep): ${
@@ -348,7 +349,7 @@ export async function runBoxClassifySweep(ctx: InvocationContext): Promise<void>
           continue;
         }
       } else if (locator === 'box' && row.boxFileId) {
-        if (!gates.boxApi()) {
+        if (!includeBox) {
           // A global gate is not a row failure; leave it out of retry/dead-letter accounting.
           continue;
         }

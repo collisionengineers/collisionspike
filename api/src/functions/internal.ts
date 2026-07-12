@@ -4327,10 +4327,15 @@ app.http('internalEvidenceUnclassifiedBox', {
     withServiceAuth(req, ctx, async () => {
       const limitRaw = Number(req.query.get('limit') ?? '25');
       const limit = Math.min(100, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25));
+      const includeBoxRaw = req.query.get('includeBox');
+      if (includeBoxRaw != null && includeBoxRaw !== 'true' && includeBoxRaw !== 'false') {
+        return { status: 400, jsonBody: { error: 'includeBox must be true or false' } };
+      }
+      const includeBox = includeBoxRaw !== 'false';
       const imageKind = evidenceKindCodec.toInt('image') ?? 100000000;
       const unknownRole = imageRoleCodec.toInt('unknown' as ImageRole) ?? 100000003;
       const duePredicate = `(
-              (e.box_file_id IS NOT NULL AND e.source_label LIKE 'box_upload%')
+              ($4::boolean AND e.box_file_id IS NOT NULL AND e.source_label LIKE 'box_upload%')
               OR (
                 NULLIF(btrim(e.storage_path), '') IS NOT NULL
                 AND e.source_label IN (
@@ -4399,7 +4404,7 @@ app.http('internalEvidenceUnclassifiedBox', {
                FROM claimed e
                JOIN case_ c ON c.id = e.case_id
               ORDER BY e.created_at DESC, e.id`,
-            [imageKind, unknownRole, limit],
+            [imageKind, unknownRole, limit, includeBox],
           )
         : await query<Row>(
             `SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id, e.storage_path,
@@ -4411,7 +4416,7 @@ app.http('internalEvidenceUnclassifiedBox', {
               WHERE ${duePredicate}
               ORDER BY e.created_at DESC, e.id
               LIMIT $3`,
-            [imageKind, unknownRole, limit],
+            [imageKind, unknownRole, limit, includeBox],
           );
       return {
         status: 200,

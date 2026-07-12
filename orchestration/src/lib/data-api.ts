@@ -932,10 +932,14 @@ export const dataApi = {
    * capped server-side at `limit` (clamped 1..100). The 14-day first-attempt
    * window applies to Box rows; staff uploads stay durable until disposition.
    */
-  claimUnclassifiedBoxEvidence(limit: number): Promise<{ rows: UnclassifiedBoxEvidenceRow[] }> {
+  claimUnclassifiedBoxEvidence(
+    limit: number,
+    includeBox = true,
+  ): Promise<{ rows: UnclassifiedBoxEvidenceRow[] }> {
     return request(
       'POST',
-      `/api/internal/evidence/unclassified-box?limit=${encodeURIComponent(String(limit))}`,
+      `/api/internal/evidence/unclassified-box?limit=${encodeURIComponent(String(limit))}` +
+        (includeBox ? '' : '&includeBox=false'),
       {},
     );
   },

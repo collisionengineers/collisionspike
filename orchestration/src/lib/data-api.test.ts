@@ -158,6 +158,21 @@ describe('durable Box classification work contract', () => {
     expect(JSON.parse(String(init?.body))).toEqual({});
   });
 
+  it('requests a Blob-only claim page while Box access is globally unavailable', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ rows: [] }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+
+    await dataApi.claimUnclassifiedBoxEvidence(25, false);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe(
+      'https://api.example.test/api/internal/evidence/unclassified-box?limit=25&includeBox=false',
+    );
+    expect(init?.method).toBe('POST');
+  });
+
   it('carries the claim token on success and failure compare-and-set writes', async () => {
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify({ updated: true }), {

@@ -162,6 +162,32 @@ describe('unclassified Box enumeration', () => {
     expect(sql.indexOf('box_classify_next_attempt_at <= now()')).toBeLessThan(sql.indexOf('LIMIT $3'));
   });
 
+  it('excludes Box rows in the candidate query before leasing when includeBox=false', async () => {
+    await enumerate(req({ method: 'POST', query: { limit: '25', includeBox: 'false' } }), ctx);
+
+    const [rawSql, params] = db.query.mock.calls[0];
+    const sql = String(rawSql);
+    expect(sql).toContain(
+      "$4::boolean AND e.box_file_id IS NOT NULL AND e.source_label LIKE 'box_upload%'",
+    );
+    expect(sql.indexOf('$4::boolean')).toBeLessThan(sql.indexOf('FOR UPDATE OF e SKIP LOCKED'));
+    expect(params).toHaveLength(4);
+    expect(params[3]).toBe(false);
+  });
+
+  it('defaults includeBox to true for rolling-compatible callers and rejects invalid values', async () => {
+    await enumerate(req({ method: 'POST', query: { limit: '25' } }), ctx);
+    expect(db.query.mock.calls[0][1][3]).toBe(true);
+
+    db.query.mockClear();
+    const response = await enumerate(
+      req({ method: 'POST', query: { limit: '25', includeBox: 'sometimes' } }),
+      ctx,
+    );
+    expect(response).toMatchObject({ status: 400 });
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
   it('excludes leased/backed-off/dead-letter poison rows before LIMIT so work behind 25 failures is reachable', async () => {
     await enumerate(req({ method: 'POST', query: { limit: '25' } }), ctx);
     const sql = String(db.query.mock.calls[0][0]);

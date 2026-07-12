@@ -320,6 +320,7 @@ describe('box-classify-sweep — (d) gate + 0-row fast paths', () => {
     process.env.BOX_API_ENABLED = 'false';
     await sweep.handler(TIMER, ctx());
     expect(dataApiMock.claimUnclassifiedBoxEvidence).toHaveBeenCalledTimes(1);
+    expect(dataApiMock.claimUnclassifiedBoxEvidence).toHaveBeenCalledWith(25, false);
   });
 
   it('repeated Box gate-off sweeps skip Box rows without recording failures while Blob rows progress', async () => {
@@ -335,6 +336,8 @@ describe('box-classify-sweep — (d) gate + 0-row fast paths', () => {
     await sweep.handler(TIMER, ctx());
     await sweep.handler(TIMER, ctx());
 
+    expect(dataApiMock.claimUnclassifiedBoxEvidence).toHaveBeenNthCalledWith(1, 25, false);
+    expect(dataApiMock.claimUnclassifiedBoxEvidence).toHaveBeenNthCalledWith(2, 25, false);
     expect(dataApiMock.reportBoxEvidenceClassificationFailure).not.toHaveBeenCalled();
     expect(boxMock.downloadFile).not.toHaveBeenCalled();
     expect(blobMock.downloadEvidenceBytes).toHaveBeenCalledTimes(2);
