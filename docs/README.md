@@ -76,6 +76,8 @@ playbooks under [azure/README.md](./azure/README.md). _Historical:_ [PLAN.md](./
 ## Maintenance
 - [MAINTENANCE.md](./MAINTENANCE.md) — the doc-freshness contract: the verify-live gate, the link-checker,
   and how to keep the registry (`LIVE_FACTS.json` / `live-environment.md`) the single source for live numbers.
+- [PR-REVIEW-GUARD.md](./PR-REVIEW-GUARD.md) — mandatory Claude-first then Codex exact-head review hooks,
+  failure recovery, review refresh after pushes, and the current GitHub-plan enforcement limitation.
 
 ## Reviews — binding manual reviews
 - [reviews/README.md](./reviews/README.md) — the binding-review convention (dated `reviews/<DDMMYY>/` folders are authoritative, superseded only by a later review).

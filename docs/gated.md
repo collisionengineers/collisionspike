@@ -438,7 +438,7 @@ Dataverse `cr1bd_knownemaildomains` column.)*
 > held pre-instruction email is retained and whether a chaser fires. Say the retention window /
 > chaser policy and it gets built.
 
-> **BOX_REG_FOLDER_ENABLED — ✅ FLIPPED LIVE 2026-07-10 (operator-authorized; [TKT-034](./tickets/done/TKT-034-images-received-routing/TKT-034-images-received-routing.md) step-2).**
+> **BOX_REG_FOLDER_ENABLED — ✅ FLIPPED LIVE 2026-07-10 (operator-authorized; [TKT-034](./tickets/now/TKT-034-images-received-routing/TKT-034-images-received-routing.md) step-2).**
 > What it does: when an image-bearing email matches NO case (`route_images_unmatched`), the
 > `imagesUnmatched` activity — beyond the always-on visible `images_no_match` flag — creates a
 > **registration-named Box holding folder** under the live root `BOX_FOLDER_ROOT_ID`
