@@ -246,10 +246,9 @@ export interface TriageSuggestClassificationRequest {
 }
 
 /**
- * One claimed still-unclassified FILE.UPLOADED-lane image evidence row
- * (POST /api/internal/evidence/unclassified-box — TKT-146). `sourceMessageId` is the
- * row's durable `box:file:<id>` dedup tag when the registration wrote one; the sweep
- * mirrors the row's OWN identity verbatim on the stamp re-POST (see
+ * One claimed still-unclassified autonomous image row. This includes Box
+ * FILE.UPLOADED and staff-confirmed Blob uploads. `sourceMessageId` is the row's
+ * own durable identity; the sweep mirrors it verbatim on the stamp re-POST (see
  * box-classify-sweep.ts's buildStampRow — sending a tag the row does not have would
  * make the evidence route's NOT-EXISTS dedup miss and INSERT a duplicate).
  */
@@ -258,7 +257,10 @@ export interface UnclassifiedBoxEvidenceRow {
   caseId: string;
   filename: string;
   contentType: string | null;
-  boxFileId: string;
+  /** Exactly one byte locator is present: Box for FILE.UPLOADED, Blob for staff upload. */
+  boxFileId: string | null;
+  storagePath: string | null;
+  sourceLabel: string;
   sourceMessageId: string | null;
   caseVrm: string;
   workProviderId: string;
@@ -271,6 +273,13 @@ export interface BoxClassificationFailure {
   disposition: 'transient' | 'terminal';
   code: string;
   detail?: string;
+}
+
+export interface StaffUploadCleanupRow {
+  itemId: string;
+  blobPath: string;
+  claimToken: string;
+  attemptCount: number;
 }
 
 /** Durable case-status recompute generation requested atomically by a Box stamp. */
@@ -889,18 +898,48 @@ export const dataApi = {
     return request('POST', '/api/internal/box/mark-purged', payload);
   },
 
+  /** Claim unique, unreferenced Blob paths left by a failed staff upload. */
+  claimStaffUploadCleanup(limit: number): Promise<{ rows: StaffUploadCleanupRow[] }> {
+    return request(
+      'POST',
+      `/api/internal/staff-upload-cleanup/claim?limit=${encodeURIComponent(String(limit))}`,
+      {},
+    );
+  },
+
+  /** Acknowledge deletion/missing bytes or persist retry backoff for cleanup. */
+  completeStaffUploadCleanup(
+    itemId: string,
+    payload: {
+      claimToken: string;
+      outcome: 'deleted' | 'missing' | 'failed';
+      detail?: string;
+    },
+  ): Promise<{ updated: boolean; cleaned?: boolean; stale?: boolean }> {
+    return request(
+      'POST',
+      `/api/internal/staff-upload-cleanup/${encodeURIComponent(itemId)}/complete`,
+      payload,
+    );
+  },
+
   /**
-   * TKT-146 — atomically claim still-unclassified FILE.UPLOADED-lane image evidence rows.
-   * Rows with box_file_id whose
+   * Atomically claim still-unclassified Box/staff-upload image evidence rows.
+   * Rows with a canonical byte locator whose
    * image_role_code is `unknown` AND registration_visible IS NULL (the TKT-131
    * "still-unclassified" predicate — a classified non-vehicle row keeps role unknown but
    * gains a boolean registration_visible, so re-sweeps are idempotent), newest first,
-   * capped server-side at `limit` (clamped 1..100) inside a 14-day created_at window.
+   * capped server-side at `limit` (clamped 1..100). The 14-day first-attempt
+   * window applies to Box rows; staff uploads stay durable until disposition.
    */
-  claimUnclassifiedBoxEvidence(limit: number): Promise<{ rows: UnclassifiedBoxEvidenceRow[] }> {
+  claimUnclassifiedBoxEvidence(
+    limit: number,
+    includeBox = true,
+  ): Promise<{ rows: UnclassifiedBoxEvidenceRow[] }> {
     return request(
       'POST',
-      `/api/internal/evidence/unclassified-box?limit=${encodeURIComponent(String(limit))}`,
+      `/api/internal/evidence/unclassified-box?limit=${encodeURIComponent(String(limit))}` +
+        (includeBox ? '' : '&includeBox=false'),
       {},
     );
   },
@@ -925,7 +964,8 @@ export const dataApi = {
       filename: string;
       evidenceClass: 'image';
       sourceMessageId?: string;
-      boxFileId: string;
+      boxFileId?: string;
+      storagePath?: string;
       imageRole: string;
       registrationVisible: boolean;
       acceptedForEva: boolean;

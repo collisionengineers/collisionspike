@@ -208,6 +208,9 @@ beforeEach(() => {
     if (/status_recompute_requested_generation = status_recompute_requested_generation \+ 1/i.test(sql)) {
       return [{ status_recompute_requested_generation: '1' }];
     }
+    if (/INSERT INTO archive_mirror_outbox/i.test(sql)) {
+      return [{ requested_generation: '1' }];
+    }
     return [];
   });
   db.tx.mockImplementation(async (fn: (q: typeof db.txQuery) => Promise<unknown>) => fn(db.txQuery));

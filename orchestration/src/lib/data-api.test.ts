@@ -158,6 +158,21 @@ describe('durable Box classification work contract', () => {
     expect(JSON.parse(String(init?.body))).toEqual({});
   });
 
+  it('requests a Blob-only claim page while Box access is globally unavailable', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ rows: [] }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+
+    await dataApi.claimUnclassifiedBoxEvidence(25, false);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe(
+      'https://api.example.test/api/internal/evidence/unclassified-box?limit=25&includeBox=false',
+    );
+    expect(init?.method).toBe('POST');
+  });
+
   it('carries the claim token on success and failure compare-and-set writes', async () => {
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify({ updated: true }), {
@@ -200,6 +215,38 @@ describe('durable Box classification work contract', () => {
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({
       claimToken,
       failure: { disposition: 'terminal', code: 'model_content_filter' },
+    });
+  });
+});
+
+describe('durable staff-upload cleanup contract', () => {
+  it('claims cleanup owners and reports the exact claim outcome', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ rows: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ updated: true, cleaned: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+    await dataApi.claimStaffUploadCleanup(25);
+    await dataApi.completeStaffUploadCleanup('item-1', {
+      claimToken: '00000000-0000-4000-8000-000000000123',
+      outcome: 'deleted',
+    });
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/api/internal/staff-upload-cleanup/claim?limit=25',
+    );
+    expect(fetchMock.mock.calls[0][1]?.method).toBe('POST');
+    expect(String(fetchMock.mock.calls[1][0])).toBe(
+      'https://api.example.test/api/internal/staff-upload-cleanup/item-1/complete',
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({
+      claimToken: '00000000-0000-4000-8000-000000000123',
+      outcome: 'deleted',
     });
   });
 });

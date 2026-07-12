@@ -51,6 +51,12 @@ const boxMock = vi.hoisted(() => ({
 }));
 vi.mock('../lib/functions-client.js', () => ({ box: boxMock }));
 
+const blobMock = vi.hoisted(() => ({ downloadEvidenceBytes: vi.fn(), deleteEvidenceBytes: vi.fn() }));
+vi.mock('../lib/blob.js', () => ({
+  downloadEvidenceBytes: blobMock.downloadEvidenceBytes,
+  deleteEvidenceBytes: blobMock.deleteEvidenceBytes,
+}));
+
 /* ---- image classifier: stub detailed outcome, keep classification policy REAL ---- */
 const classifyImageMock = vi.hoisted(() => vi.fn());
 vi.mock('../lib/image-classify.js', async (importOriginal) => {
@@ -60,6 +66,13 @@ vi.mock('../lib/image-classify.js', async (importOriginal) => {
 
 /* ---- data API: recording doubles ---- */
 const dataApiMock = vi.hoisted(() => ({
+  claimStaffUploadCleanup: vi.fn(async (): Promise<{ rows: Array<{
+    itemId: string;
+    blobPath: string;
+    claimToken: string;
+    attemptCount: number;
+  }> }> => ({ rows: [] })),
+  completeStaffUploadCleanup: vi.fn(async () => ({ updated: true, cleaned: true })),
   claimUnclassifiedBoxEvidence: vi.fn(),
   reportBoxEvidenceClassificationFailure: vi.fn(
     async (
@@ -108,6 +121,8 @@ const ROW_TAGGED = {
   filename: 'IMG_100.jpg',
   contentType: null,
   boxFileId: '111',
+  storagePath: null,
+  sourceLabel: 'box_upload',
   sourceMessageId: 'box:file:111',
   caseVrm: 'MX17 PNL',
   workProviderId: 'wp-1',
@@ -120,10 +135,26 @@ const ROW_UNTAGGED = {
   filename: 'IMG_200.png',
   contentType: null,
   boxFileId: '222',
+  storagePath: null,
+  sourceLabel: 'box_upload',
   sourceMessageId: null,
   caseVrm: '',
   workProviderId: '',
   claimToken: '00000000-0000-4000-8000-000000000002',
+  attemptCount: 1,
+};
+const ROW_STAFF = {
+  evidenceId: 'ev-staff',
+  caseId: 'case-staff',
+  filename: 'staff-photo.jpg',
+  contentType: 'image/jpeg',
+  boxFileId: null,
+  storagePath: 'staff-key/staff-photo.jpg',
+  sourceLabel: 'staff_add_evidence',
+  sourceMessageId: 'staff:add_evidence:key:0',
+  caseVrm: 'MX17 PNL',
+  workProviderId: 'wp-1',
+  claimToken: '00000000-0000-4000-8000-000000000099',
   attemptCount: 1,
 };
 
@@ -150,9 +181,13 @@ function gatesOn(): void {
 beforeEach(() => {
   gatesOn();
   boxMock.downloadFile.mockReset();
+  blobMock.downloadEvidenceBytes.mockReset();
+  blobMock.deleteEvidenceBytes.mockReset();
   classifyImageMock.mockReset();
   for (const fn of Object.values(dataApiMock)) fn.mockClear();
   dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({ rows: [] });
+  dataApiMock.claimStaffUploadCleanup.mockResolvedValue({ rows: [] });
+  dataApiMock.completeStaffUploadCleanup.mockResolvedValue({ updated: true, cleaned: true });
   dataApiMock.reportBoxEvidenceClassificationFailure.mockResolvedValue({ updated: true });
   dataApiMock.workProviderAiAllowed.mockResolvedValue({ aiAllowed: null });
   dataApiMock.pendingStatusRecomputes.mockResolvedValue({ rows: [] });
@@ -170,6 +205,8 @@ beforeEach(() => {
     sha1: 'abc',
     contentBase64: Buffer.from('abc').toString('base64'),
   });
+  blobMock.downloadEvidenceBytes.mockResolvedValue(Buffer.from('staff-image'));
+  blobMock.deleteEvidenceBytes.mockResolvedValue(true);
 });
 afterEach(() => {
   delete process.env.IMAGE_ROLE_CLASSIFY_ENABLED;
@@ -279,9 +316,92 @@ describe('box-classify-sweep — (d) gate + 0-row fast paths', () => {
     expect(dataApiMock.claimUnclassifiedBoxEvidence).not.toHaveBeenCalled();
   });
 
-  it('BOX_API off → not even the enumeration GET runs', async () => {
+  it('BOX_API off does not block enumeration because Blob-backed staff work is independent', async () => {
     process.env.BOX_API_ENABLED = 'false';
     await sweep.handler(TIMER, ctx());
+    expect(dataApiMock.claimUnclassifiedBoxEvidence).toHaveBeenCalledTimes(1);
+    expect(dataApiMock.claimUnclassifiedBoxEvidence).toHaveBeenCalledWith(25, false);
+  });
+
+  it('repeated Box gate-off sweeps skip Box rows without recording failures while Blob rows progress', async () => {
+    process.env.BOX_API_ENABLED = 'false';
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({
+      rows: [
+        { ...ROW_TAGGED, attemptCount: 9 },
+        ROW_STAFF,
+      ],
+    });
+    classifyImageMock.mockResolvedValue(classified(CLS_OVERVIEW));
+
+    await sweep.handler(TIMER, ctx());
+    await sweep.handler(TIMER, ctx());
+
+    expect(dataApiMock.claimUnclassifiedBoxEvidence).toHaveBeenNthCalledWith(1, 25, false);
+    expect(dataApiMock.claimUnclassifiedBoxEvidence).toHaveBeenNthCalledWith(2, 25, false);
+    expect(dataApiMock.reportBoxEvidenceClassificationFailure).not.toHaveBeenCalled();
+    expect(boxMock.downloadFile).not.toHaveBeenCalled();
+    expect(blobMock.downloadEvidenceBytes).toHaveBeenCalledTimes(2);
+    expect(classifyImageMock).toHaveBeenCalledTimes(2);
+    expect(dataApiMock.stampBoxEvidenceClassification).toHaveBeenCalledTimes(2);
+    expect(dataApiMock.stampBoxEvidenceClassification.mock.calls.every(
+      ([evidenceId]) => evidenceId === ROW_STAFF.evidenceId,
+    )).toBe(true);
+  });
+
+  it('classifies a staff upload from Blob without using the Box facade', async () => {
+    process.env.BOX_API_ENABLED = 'false';
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_STAFF] });
+    classifyImageMock.mockResolvedValue(classified(CLS_OVERVIEW));
+
+    await sweep.handler(TIMER, ctx());
+
+    expect(blobMock.downloadEvidenceBytes).toHaveBeenCalledWith(ROW_STAFF.storagePath);
+    expect(boxMock.downloadFile).not.toHaveBeenCalled();
+    const [, , stamp] = dataApiMock.stampBoxEvidenceClassification.mock.calls[0] as unknown as [
+      string,
+      string,
+      Record<string, unknown>,
+    ];
+    expect(stamp).toMatchObject({
+      storagePath: ROW_STAFF.storagePath,
+      sourceMessageId: ROW_STAFF.sourceMessageId,
+      imageRole: 'overview',
+    });
+    expect(stamp).not.toHaveProperty('boxFileId');
+  });
+
+  it('uses only the Box locator for a Box-owned cross-lane row carrying both locators', async () => {
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({ rows: [{
+      ...ROW_TAGGED,
+      storagePath: 'mirror/IMG_100.jpg',
+    }] });
+    classifyImageMock.mockResolvedValue(classified(CLS_OVERVIEW));
+
+    await sweep.handler(TIMER, ctx());
+
+    expect(boxMock.downloadFile).toHaveBeenCalledWith('111');
+    expect(blobMock.downloadEvidenceBytes).not.toHaveBeenCalled();
+    const stamp = dataApiMock.stampBoxEvidenceClassification.mock.calls[0][2] as Record<string, unknown>;
+    expect(stamp).toMatchObject({ boxFileId: '111' });
+    expect(stamp).not.toHaveProperty('storagePath');
+  });
+
+  it('drains durable failed-upload cleanup even when classification is gated off', async () => {
+    delete process.env.IMAGE_ROLE_CLASSIFY_ENABLED;
+    dataApiMock.claimStaffUploadCleanup.mockResolvedValue({ rows: [{
+      itemId: 'item-1',
+      blobPath: 'staff-key/orphan.jpg',
+      claimToken: '00000000-0000-4000-8000-000000000123',
+      attemptCount: 1,
+    }] });
+
+    await sweep.handler(TIMER, ctx());
+
+    expect(blobMock.deleteEvidenceBytes).toHaveBeenCalledWith('staff-key/orphan.jpg');
+    expect(dataApiMock.completeStaffUploadCleanup).toHaveBeenCalledWith('item-1', {
+      claimToken: '00000000-0000-4000-8000-000000000123',
+      outcome: 'deleted',
+    });
     expect(dataApiMock.claimUnclassifiedBoxEvidence).not.toHaveBeenCalled();
   });
 
@@ -316,6 +436,20 @@ describe('box-classify-sweep — (e) per-provider ai_allowed opt-out', () => {
       ROW_TAGGED.evidenceId,
       ROW_TAGGED.claimToken,
       { disposition: 'transient', code: 'provider_ai_opted_out' },
+    );
+  });
+
+  it('gives a staff upload an explicit terminal manual-review disposition on provider opt-out', async () => {
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_STAFF] });
+    dataApiMock.workProviderAiAllowed.mockResolvedValue({ aiAllowed: false });
+
+    await sweep.handler(TIMER, ctx());
+
+    expect(blobMock.downloadEvidenceBytes).not.toHaveBeenCalled();
+    expect(dataApiMock.reportBoxEvidenceClassificationFailure).toHaveBeenCalledWith(
+      ROW_STAFF.evidenceId,
+      ROW_STAFF.claimToken,
+      { disposition: 'terminal', code: 'provider_ai_opted_out_manual_review' },
     );
   });
 

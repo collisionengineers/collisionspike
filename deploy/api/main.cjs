@@ -17245,6 +17245,12 @@ async function requestArchiveMirrorIfEligible(q, row) {
   if (row.excluded !== false || !row.id || !row.case_id || !storagePath || boxFileId) {
     return void 0;
   }
+  return requestArchiveMirrorGeneration(
+    q,
+    row
+  );
+}
+async function requestArchiveMirrorGeneration(q, row) {
   const requested = await q(
     `INSERT INTO archive_mirror_outbox
        (evidence_id, case_id, requested_generation, completed_generation,
@@ -17263,6 +17269,11 @@ async function requestArchiveMirrorIfEligible(q, row) {
     [row.id, row.case_id]
   );
   return requested[0] ? Number(requested[0].requested_generation) : void 0;
+}
+async function requestArchiveMirror(q, row) {
+  const generation = await requestArchiveMirrorGeneration(q, row);
+  if (generation === void 0) throw new Error("archive mirror request returned no generation");
+  return generation;
 }
 
 // api/src/functions/internal.ts
@@ -19772,6 +19783,140 @@ import_functions.app.http("internalBoxMarkPurged", {
     return { status: 204 };
   })
 });
+import_functions.app.http("internalStaffUploadCleanupClaim", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/staff-upload-cleanup/claim",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const limitRaw = Number(req.query.get("limit") ?? "25");
+    const limit = Math.min(100, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25));
+    const rows = await tx(async (q) => {
+      await q(
+        `UPDATE staff_evidence_upload_item item
+              SET state = 'complete', evidence_id = e.id,
+                  upload_claim_token = NULL, upload_claim_expires_at = NULL,
+                  cleanup_claim_token = NULL, cleanup_claim_expires_at = NULL,
+                  cleanup_next_attempt_at = NULL, updated_at = now()
+             FROM evidence e
+            WHERE e.storage_path = item.blob_path
+              AND item.state IN ('uploading', 'cleanup_pending')`
+      );
+      await q(
+        `UPDATE staff_evidence_upload_item item
+              SET state = 'cleanup_pending',
+                  upload_claim_token = NULL, upload_claim_expires_at = NULL,
+                  cleanup_next_attempt_at = now() + interval '15 minutes',
+                  cleanup_last_error = COALESCE(cleanup_last_error, 'upload lease expired'),
+                  updated_at = now()
+            WHERE item.state = 'uploading'
+              AND (item.upload_claim_expires_at IS NULL OR item.upload_claim_expires_at <= now())
+              AND NOT EXISTS (
+                SELECT 1 FROM evidence e WHERE e.storage_path = item.blob_path
+              )`
+      );
+      return q(
+        `WITH candidates AS (
+             SELECT item.id
+               FROM staff_evidence_upload_item item
+              WHERE item.state = 'cleanup_pending'
+                AND (item.cleanup_next_attempt_at IS NULL OR item.cleanup_next_attempt_at <= now())
+                AND (item.cleanup_claim_expires_at IS NULL OR item.cleanup_claim_expires_at <= now())
+                AND NOT EXISTS (
+                  SELECT 1 FROM evidence e WHERE e.storage_path = item.blob_path
+                )
+              ORDER BY item.created_at, item.id
+              LIMIT $1
+              FOR UPDATE SKIP LOCKED
+           )
+           UPDATE staff_evidence_upload_item item
+              SET state = 'cleanup_pending',
+                  upload_claim_token = NULL, upload_claim_expires_at = NULL,
+                  cleanup_claim_token = gen_random_uuid(),
+                  cleanup_claim_expires_at = now() + interval '15 minutes',
+                  cleanup_attempt_count = cleanup_attempt_count + 1,
+                  updated_at = now()
+             FROM candidates candidate
+            WHERE item.id = candidate.id
+        RETURNING item.id, item.blob_path, item.cleanup_claim_token,
+                  item.cleanup_attempt_count`,
+        [limit]
+      );
+    });
+    return {
+      status: 200,
+      jsonBody: {
+        rows: rows.map((row) => ({
+          itemId: row.id,
+          blobPath: row.blob_path,
+          claimToken: row.cleanup_claim_token,
+          attemptCount: Number(row.cleanup_attempt_count ?? 0)
+        }))
+      }
+    };
+  })
+});
+import_functions.app.http("internalStaffUploadCleanupComplete", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/staff-upload-cleanup/{id}/complete",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const itemId = (req.params.id ?? "").trim();
+    const body2 = await req.json();
+    const claimToken = (body2.claimToken ?? "").trim();
+    if (!itemId || !claimToken || !["deleted", "missing", "failed"].includes(body2.outcome ?? "")) {
+      return { status: 400, jsonBody: { error: "cleanup claim and outcome are required" } };
+    }
+    const result = await tx(async (q) => {
+      const items = await q(
+        `SELECT blob_path, cleanup_attempt_count
+             FROM staff_evidence_upload_item
+            WHERE id = $1 AND state = 'cleanup_pending'
+              AND cleanup_claim_token = $2::uuid
+            FOR UPDATE`,
+        [itemId, claimToken]
+      );
+      const item = items[0];
+      if (!item) return { updated: false, stale: true };
+      const linked = await q(
+        `SELECT id FROM evidence WHERE storage_path = $1 ORDER BY created_at, id LIMIT 1 FOR UPDATE`,
+        [item.blob_path]
+      );
+      if (linked[0]) {
+        await q(
+          `UPDATE staff_evidence_upload_item
+                SET state = 'complete', evidence_id = $2,
+                    cleanup_claim_token = NULL, cleanup_claim_expires_at = NULL,
+                    cleanup_next_attempt_at = NULL, updated_at = now()
+              WHERE id = $1`,
+          [itemId, linked[0].id]
+        );
+        return { updated: true, cleaned: false, referenced: true };
+      }
+      if (body2.outcome === "failed") {
+        const delayMinutes = Math.min(1440, 5 * 2 ** Math.min(8, item.cleanup_attempt_count));
+        await q(
+          `UPDATE staff_evidence_upload_item
+                SET cleanup_claim_token = NULL, cleanup_claim_expires_at = NULL,
+                    cleanup_next_attempt_at = now() + make_interval(mins => $2),
+                    cleanup_last_error = $3, updated_at = now()
+              WHERE id = $1`,
+          [itemId, delayMinutes, (body2.detail ?? "").trim().slice(0, 400)]
+        );
+        return { updated: true, cleaned: false, retry: true };
+      }
+      await q(
+        `UPDATE staff_evidence_upload_item
+              SET state = 'cleaned', cleanup_claim_token = NULL,
+                  cleanup_claim_expires_at = NULL, cleanup_next_attempt_at = NULL,
+                  cleanup_last_error = NULL, updated_at = now()
+            WHERE id = $1`,
+        [itemId]
+      );
+      return { updated: true, cleaned: true };
+    });
+    return { status: 200, jsonBody: result };
+  })
+});
 import_functions.app.http("internalEvidenceUnclassifiedBox", {
   methods: ["GET", "POST"],
   authLevel: "anonymous",
@@ -19779,22 +19924,56 @@ import_functions.app.http("internalEvidenceUnclassifiedBox", {
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const limitRaw = Number(req.query.get("limit") ?? "25");
     const limit = Math.min(100, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25));
+    const includeBoxRaw = req.query.get("includeBox");
+    if (includeBoxRaw != null && includeBoxRaw !== "true" && includeBoxRaw !== "false") {
+      return { status: 400, jsonBody: { error: "includeBox must be true or false" } };
+    }
+    const includeBox = includeBoxRaw !== "false";
     const imageKind = evidenceKindCodec.toInt("image") ?? 1e8;
     const unknownRole = imageRoleCodec.toInt("unknown") ?? 100000003;
-    const duePredicate = `e.box_file_id IS NOT NULL
-            AND e.source_label LIKE 'box_upload%'
+    const duePredicate = `(
+              ($4::boolean AND e.box_file_id IS NOT NULL AND e.source_label LIKE 'box_upload%')
+              OR (
+                NULLIF(btrim(e.storage_path), '') IS NOT NULL
+                AND e.source_label IN (
+                  'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                  'staff_legacy_upload'
+                )
+              )
+            )
             AND e.kind_code = $1
             AND e.image_role_code = $2
             AND e.registration_visible IS NULL
-            AND e.excluded = false
+            AND (
+              e.excluded = false
+              OR (
+                e.source_label IN (
+                  'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                  'staff_legacy_upload'
+                )
+                AND e.excluded = true
+                AND e.exclusion_decision_source = 'classifier'
+                AND e.exclusion_reason = 'Image check pending'
+              )
+            )
             AND (
               COALESCE(e.box_classify_attempt_count, 0) > 0
               OR e.created_at > now() - interval '14 days'
+              OR e.source_label IN (
+                'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                'staff_legacy_upload'
+              )
             )
             AND e.box_classify_dead_lettered_at IS NULL
             AND (e.box_classify_next_attempt_at IS NULL OR e.box_classify_next_attempt_at <= now())
             AND (e.box_classify_claim_expires_at IS NULL OR e.box_classify_claim_expires_at <= now())
-            AND wp.ai_allowed IS DISTINCT FROM false`;
+            AND (
+              wp.ai_allowed IS DISTINCT FROM false
+              OR e.source_label IN (
+                'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                'staff_legacy_upload'
+              )
+            )`;
     const rows = req.method?.toUpperCase() === "POST" ? await query(
       `WITH candidates AS (
                SELECT e.id
@@ -19815,16 +19994,16 @@ import_functions.app.http("internalEvidenceUnclassifiedBox", {
                 WHERE e.id = candidate.id
                RETURNING e.*
              )
-             SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id,
-                    e.source_message_id, e.box_classify_claim_token,
+             SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id, e.storage_path,
+                    e.source_label, e.source_message_id, e.box_classify_claim_token,
                     e.box_classify_attempt_count, c.vrm, c.work_provider_id
                FROM claimed e
                JOIN case_ c ON c.id = e.case_id
               ORDER BY e.created_at DESC, e.id`,
-      [imageKind, unknownRole, limit]
+      [imageKind, unknownRole, limit, includeBox]
     ) : await query(
-      `SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id,
-                    e.source_message_id, NULL::uuid AS box_classify_claim_token,
+      `SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id, e.storage_path,
+                    e.source_label, e.source_message_id, NULL::uuid AS box_classify_claim_token,
                     e.box_classify_attempt_count, c.vrm, c.work_provider_id
                FROM evidence e
                JOIN case_ c ON c.id = e.case_id
@@ -19832,7 +20011,7 @@ import_functions.app.http("internalEvidenceUnclassifiedBox", {
               WHERE ${duePredicate}
               ORDER BY e.created_at DESC, e.id
               LIMIT $3`,
-      [imageKind, unknownRole, limit]
+      [imageKind, unknownRole, limit, includeBox]
     );
     return {
       status: 200,
@@ -19842,7 +20021,9 @@ import_functions.app.http("internalEvidenceUnclassifiedBox", {
           caseId: r.case_id,
           filename: r.file_name ?? "",
           contentType: r.content_type ?? null,
-          boxFileId: r.box_file_id,
+          boxFileId: r.box_file_id ?? null,
+          storagePath: r.storage_path ?? null,
+          sourceLabel: r.source_label ?? "",
           sourceMessageId: r.source_message_id ?? null,
           caseVrm: r.vrm ?? "",
           workProviderId: r.work_provider_id ?? "",
@@ -19891,13 +20072,35 @@ import_functions.app.http("internalEvidenceBoxClassification", {
                     WHEN $4::boolean THEN left(COALESCE(NULLIF($5, ''), $3), 400)
                     ELSE NULL
                   END,
+                  exclusion_reason = CASE
+                    WHEN $4::boolean
+                     AND $3 = 'provider_ai_opted_out_manual_review'
+                     AND excluded = true
+                     AND source_label IN (
+                       'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                       'staff_legacy_upload'
+                     )
+                    THEN 'Image needs staff review'
+                    ELSE exclusion_reason
+                  END,
                   updated_at = now()
             WHERE id = $1
               AND box_classify_claim_token::text = $2
               AND kind_code = $6
               AND image_role_code = $7
               AND registration_visible IS NULL
-              AND excluded = false
+              AND (
+                excluded = false
+                OR (
+                  source_label IN (
+                    'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                    'staff_legacy_upload'
+                  )
+                  AND excluded = true
+                  AND exclusion_decision_source = 'classifier'
+                  AND exclusion_reason = 'Image check pending'
+                )
+              )
           RETURNING box_classify_attempt_count,
                     box_classify_next_attempt_at,
                     box_classify_dead_lettered_at`,
@@ -19917,10 +20120,11 @@ import_functions.app.http("internalEvidenceBoxClassification", {
     }
     const caseId = (body2.caseId ?? "").trim();
     const boxFileId = (body2.boxFileId ?? "").trim();
-    if (!evidenceId || !caseId || !boxFileId) {
+    const storagePath = (body2.storagePath ?? "").trim();
+    if (!evidenceId || !caseId || Boolean(boxFileId) === Boolean(storagePath)) {
       return {
         status: 400,
-        jsonBody: { error: "evidence id, caseId and boxFileId are required" }
+        jsonBody: { error: "evidence id, caseId and exactly one file locator are required" }
       };
     }
     if (typeof body2.registrationVisible !== "boolean" || typeof body2.acceptedForEva !== "boolean" || typeof body2.excluded !== "boolean" || typeof body2.personReflection !== "boolean" || body2.decisionSource !== "classifier") {
@@ -19942,20 +20146,29 @@ import_functions.app.http("internalEvidenceBoxClassification", {
         `SELECT id FROM evidence
             WHERE id = $1
               AND case_id = $2
-              AND box_file_id = $3
-              AND kind_code = $4
-              AND source_label LIKE 'box_upload%'
-              AND ($5::text = '' OR box_classify_claim_token::text = $5)
+              AND (
+                ($3::text <> '' AND box_file_id = $3 AND source_label LIKE 'box_upload%')
+                OR (
+                  $4::text <> '' AND storage_path = $4
+                  AND source_label IN (
+                    'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                    'staff_legacy_upload'
+                  )
+                )
+              )
+              AND kind_code = $5
+              AND ($6::text = '' OR box_classify_claim_token::text = $6)
             FOR UPDATE`,
-        [evidenceId, lockedCase.caseId, boxFileId, imageKind, claimToken]
+        [evidenceId, lockedCase.caseId, boxFileId, storagePath, imageKind, claimToken]
       );
       if (!current[0]) {
         return claimToken ? { kind: "stale" } : { kind: "missing" };
       }
+      const identityWhere = boxFileId ? "id = $1 AND case_id = $2 AND box_file_id = $3" : "id = $1 AND case_id = $2 AND storage_path = $3";
       const applied = await applyEvidenceMetadata(
         ctx,
-        "id = $1 AND case_id = $2 AND box_file_id = $3",
-        [evidenceId, lockedCase.caseId, boxFileId],
+        identityWhere,
+        [evidenceId, lockedCase.caseId, boxFileId || storagePath],
         {
           imageRole: body2.imageRole,
           registrationVisible: body2.registrationVisible,
@@ -19994,7 +20207,7 @@ import_functions.app.http("internalEvidenceBoxClassification", {
       return { kind: "updated", generation };
     });
     if (result.kind === "missing") {
-      return { status: 404, jsonBody: { error: "box evidence row not found" } };
+      return { status: 404, jsonBody: { error: "evidence row not found" } };
     }
     if (result.kind === "retired") {
       return {
@@ -62550,10 +62763,13 @@ function containerName() {
 async function uploadEvidenceBytes(pathPrefix, filename, bytes, contentType2) {
   const container = client().getContainerClient(containerName());
   await container.createIfNotExists();
-  const blobPath = `${sanitize(pathPrefix)}/${sanitize(filename)}`;
+  const blobPath = evidenceBlobPath(pathPrefix, filename);
   const block = container.getBlockBlobClient(blobPath);
   await block.uploadData(bytes, { blobHTTPHeaders: { blobContentType: contentType2 } });
   return { blobPath, size: bytes.length };
+}
+function evidenceBlobPath(pathPrefix, filename) {
+  return `${sanitize(pathPrefix)}/${sanitize(filename)}`;
 }
 function sanitize(seg) {
   return seg.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 200) || "file";
@@ -64506,104 +64722,741 @@ var import_functions17 = require("@azure/functions");
 var import_node_crypto11 = require("node:crypto");
 
 // api/src/lib/upload-validate.ts
+var import_sharp = __toESM(require("sharp"), 1);
 var MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
-function classifyUpload(contentType2, size) {
+var MAX_UPLOAD_FILES = 20;
+var MAX_UPLOAD_TOTAL_BYTES = 100 * 1024 * 1024;
+var MAX_UPLOAD_IMAGE_PIXELS = 32e6;
+var MAX_UPLOAD_DECODED_BYTES = MAX_UPLOAD_IMAGE_PIXELS * 4;
+var UPLOAD_DECODE_TIMEOUT_SECONDS = 5;
+var EXTENSION_TYPE = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  pdf: "application/pdf"
+};
+var MIME_TYPE = {
+  "image/jpeg": "image/jpeg",
+  "image/jpg": "image/jpeg",
+  "image/png": "image/png",
+  "image/webp": "image/webp",
+  "application/pdf": "application/pdf"
+};
+function extensionOf2(filename) {
+  return /\.([a-z0-9]+)$/i.exec(filename.trim())?.[1]?.toLowerCase() ?? "";
+}
+function classifyUpload(contentType2, size, filename = "") {
   if (!Number.isFinite(size) || size <= 0) {
     return { ok: false, reason: "That file looks empty, so I did not add it." };
   }
   if (size > MAX_UPLOAD_BYTES) {
     return { ok: false, reason: "That file is too big \u2014 the limit is 15 MB." };
   }
-  const ct = (contentType2 || "").toLowerCase().split(";")[0].trim();
-  if (ct === "application/pdf") return { ok: true, kind: "document" };
-  if (ct.startsWith("image/")) return { ok: true, kind: "image" };
-  return { ok: false, reason: "I can only add photos and PDFs to a case." };
+  const declared = (contentType2 || "").toLowerCase().split(";")[0].trim();
+  const extension = extensionOf2(filename);
+  const declaredType = MIME_TYPE[declared];
+  const extensionType = EXTENSION_TYPE[extension];
+  if (extension && !extensionType) {
+    return { ok: false, reason: "You can add JPG, PNG or WebP photos, and PDFs." };
+  }
+  if (declared && declared !== "application/octet-stream" && !declaredType) {
+    return { ok: false, reason: "You can add JPG, PNG or WebP photos, and PDFs." };
+  }
+  if (declaredType && extensionType && declaredType !== extensionType) {
+    return { ok: false, reason: "That file name and format do not match." };
+  }
+  const canonical = declaredType ?? extensionType;
+  if (!canonical) {
+    return { ok: false, reason: "You can add JPG, PNG or WebP photos, and PDFs." };
+  }
+  return {
+    ok: true,
+    kind: canonical === "application/pdf" ? "document" : "image",
+    contentType: canonical
+  };
+}
+function startsWith(bytes, prefix2) {
+  return prefix2.every((value, index) => bytes[index] === value);
+}
+function ascii(bytes, start, length) {
+  return String.fromCharCode(...bytes.slice(start, start + length));
+}
+function uint32Be(bytes, start) {
+  return (bytes[start] ?? 0) * 16777216 + ((bytes[start + 1] ?? 0) << 16) + ((bytes[start + 2] ?? 0) << 8) + (bytes[start + 3] ?? 0) >>> 0;
+}
+function uint32Le(bytes, start) {
+  return (bytes[start] ?? 0) + ((bytes[start + 1] ?? 0) << 8) + ((bytes[start + 2] ?? 0) << 16) + (bytes[start + 3] ?? 0) * 16777216 >>> 0;
+}
+function containsAscii(bytes, needle, start = 0) {
+  const target = [...needle].map((character) => character.charCodeAt(0));
+  for (let offset = Math.max(0, start); offset <= bytes.length - target.length; offset++) {
+    if (target.every((value, index) => bytes[offset + index] === value)) return true;
+  }
+  return false;
+}
+function completeJpeg(bytes) {
+  if (bytes.length < 24 || !startsWith(bytes, [255, 216]) || bytes[bytes.length - 2] !== 255 || bytes[bytes.length - 1] !== 217) return false;
+  const sofMarkers = /* @__PURE__ */ new Set([192, 193, 194, 195, 197, 198, 199, 201, 202, 203, 205, 206, 207]);
+  let offset = 2;
+  let frameComponents = 0;
+  while (offset < bytes.length - 2) {
+    if (bytes[offset] !== 255) return false;
+    while (bytes[offset] === 255) offset++;
+    const marker2 = bytes[offset++];
+    if (marker2 == null || marker2 === 0 || marker2 === 217) return false;
+    if (marker2 === 1 || marker2 >= 208 && marker2 <= 215) continue;
+    if (offset + 2 > bytes.length - 2) return false;
+    const segmentLength = ((bytes[offset] ?? 0) << 8) + (bytes[offset + 1] ?? 0);
+    if (segmentLength < 2 || offset + segmentLength > bytes.length - 2) return false;
+    if (sofMarkers.has(marker2)) {
+      const components = bytes[offset + 7] ?? 0;
+      if (components < 1 || components > 4 || segmentLength !== 8 + 3 * components) return false;
+      const height = ((bytes[offset + 3] ?? 0) << 8) + (bytes[offset + 4] ?? 0);
+      const width = ((bytes[offset + 5] ?? 0) << 8) + (bytes[offset + 6] ?? 0);
+      if (width === 0 || height === 0) return false;
+      frameComponents = components;
+    }
+    if (marker2 === 218) {
+      const scanComponents = bytes[offset + 2] ?? 0;
+      const scanStart = offset + segmentLength;
+      return frameComponents > 0 && scanComponents > 0 && scanComponents <= frameComponents && segmentLength === 6 + 2 * scanComponents && scanStart < bytes.length - 2;
+    }
+    offset += segmentLength;
+  }
+  return false;
+}
+function completePng(bytes) {
+  if (!startsWith(bytes, [137, 80, 78, 71, 13, 10, 26, 10])) return false;
+  let offset = 8;
+  let first = true;
+  let imageDataBytes = 0;
+  const zlibHeader = [];
+  while (offset + 12 <= bytes.length) {
+    const length = uint32Be(bytes, offset);
+    const type = ascii(bytes, offset + 4, 4);
+    const next = offset + 12 + length;
+    if (next > bytes.length) return false;
+    if (first) {
+      if (type !== "IHDR" || length !== 13 || uint32Be(bytes, offset + 8) === 0 || uint32Be(bytes, offset + 12) === 0) return false;
+      first = false;
+    }
+    if (type === "IDAT" && length > 0) {
+      imageDataBytes += length;
+      for (let index = 0; index < length && zlibHeader.length < 2; index++) {
+        zlibHeader.push(bytes[offset + 8 + index] ?? 0);
+      }
+    }
+    if (type === "IEND") {
+      const [cmf = 0, flg = 0] = zlibHeader;
+      const validZlibHeader = (cmf & 15) === 8 && cmf >> 4 <= 7 && ((cmf << 8) + flg) % 31 === 0;
+      return length === 0 && imageDataBytes >= 6 && validZlibHeader && next === bytes.length;
+    }
+    offset = next;
+  }
+  return false;
+}
+function completeWebp(bytes) {
+  if (bytes.length < 20 || ascii(bytes, 0, 4) !== "RIFF" || ascii(bytes, 8, 4) !== "WEBP" || uint32Le(bytes, 4) + 8 !== bytes.length) return false;
+  let offset = 12;
+  let sawImagePayload = false;
+  while (offset + 8 <= bytes.length) {
+    const type = ascii(bytes, offset, 4);
+    const size = uint32Le(bytes, offset + 4);
+    const dataStart = offset + 8;
+    const next = dataStart + size + size % 2;
+    if (next > bytes.length) return false;
+    if (type === "VP8 " && size > 10) {
+      const width = (bytes[dataStart + 6] ?? 0) + ((bytes[dataStart + 7] ?? 0) << 8) & 16383;
+      const height = (bytes[dataStart + 8] ?? 0) + ((bytes[dataStart + 9] ?? 0) << 8) & 16383;
+      sawImagePayload = width > 0 && height > 0 && bytes[dataStart + 3] === 157 && bytes[dataStart + 4] === 1 && bytes[dataStart + 5] === 42;
+    } else if (type === "VP8L" && size > 5) {
+      sawImagePayload = bytes[dataStart] === 47 && ((bytes[dataStart + 4] ?? 0) & 224) === 0;
+    } else if (type === "VP8X" && size !== 10) {
+      return false;
+    }
+    offset = next;
+  }
+  return offset === bytes.length && sawImagePayload;
+}
+function completePdf(bytes) {
+  if (bytes.length < 64 || !/^%PDF-(?:1\.[0-7]|2\.0)$/u.test(ascii(bytes, 0, 8))) return false;
+  const tail = ascii(bytes, Math.max(0, bytes.length - 2048), Math.min(2048, bytes.length));
+  const startXref = /startxref\s+(\d+)\s+%%EOF\s*$/u.exec(tail);
+  const xrefOffset = startXref ? Number(startXref[1]) : Number.NaN;
+  if (!Number.isSafeInteger(xrefOffset) || xrefOffset < 0 || xrefOffset >= bytes.length) return false;
+  const xrefWindow = ascii(bytes, xrefOffset, Math.min(2048, bytes.length - xrefOffset));
+  const objectHeader = /^\d+\s+\d+\s+obj\b/u.exec(xrefWindow);
+  const streamMarker = /\bstream(?:\r\n|\r|\n)/u.exec(xrefWindow);
+  const firstEndObject = xrefWindow.indexOf("endobj");
+  const pointedDictionary = objectHeader && streamMarker ? xrefWindow.slice(objectHeader[0].length, streamMarker.index).trim() : "";
+  const pointsToCrossReference = /^xref(?:\s|$)/u.test(xrefWindow) || objectHeader != null && streamMarker != null && (firstEndObject < 0 || firstEndObject > streamMarker.index) && pointedDictionary.startsWith("<<") && pointedDictionary.endsWith(">>") && /\/Type\s*\/XRef\b/u.test(pointedDictionary);
+  return containsAscii(bytes, " obj") && containsAscii(bytes, "endobj") && pointsToCrossReference;
+}
+function detectedType(bytes) {
+  if (completeJpeg(bytes)) return "image/jpeg";
+  if (completePng(bytes)) return "image/png";
+  if (completeWebp(bytes)) return "image/webp";
+  if (completePdf(bytes)) return "application/pdf";
+  return void 0;
+}
+async function fullyDecodeImage(bytes) {
+  try {
+    const { data, info } = await (0, import_sharp.default)(bytes, {
+      animated: true,
+      pages: -1,
+      failOn: "warning",
+      limitInputPixels: MAX_UPLOAD_IMAGE_PIXELS,
+      limitInputChannels: 4,
+      sequentialRead: true,
+      unlimited: false
+    }).timeout({ seconds: UPLOAD_DECODE_TIMEOUT_SECONDS }).raw().toBuffer({ resolveWithObject: true });
+    const decodedBytes = info.width * info.height * info.channels;
+    return info.width > 0 && info.height > 0 && info.channels > 0 && decodedBytes <= MAX_UPLOAD_DECODED_BYTES && data.length === decodedBytes;
+  } catch {
+    return false;
+  }
+}
+async function validateUploadContent(expected, bytes) {
+  const detected = detectedType(bytes);
+  if (!detected || detected !== expected.contentType) {
+    return { ok: false, reason: "That file does not match a supported photo or PDF format." };
+  }
+  if (expected.kind === "image" && !await fullyDecodeImage(bytes)) {
+    return { ok: false, reason: "That photo is damaged or cannot be read safely." };
+  }
+  return {
+    ok: true,
+    kind: detected === "application/pdf" ? "document" : "image",
+    contentType: detected
+  };
+}
+function validateUploadBatch(files) {
+  if (files.length > MAX_UPLOAD_FILES) return `Choose no more than ${MAX_UPLOAD_FILES} files at once.`;
+  const total = files.reduce((sum, file) => sum + (Number.isFinite(file.size) ? file.size : 0), 0);
+  if (total > MAX_UPLOAD_TOTAL_BYTES) return "Those files are too large to add together.";
+  return void 0;
 }
 
 // api/src/functions/evidence-upload.ts
 var IMAGE_KIND_CODE2 = 1e8;
 var DOCUMENT_KIND_CODE = 100000002;
+var IDEMPOTENCY_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$/;
+var SHA256_RE = /^[0-9a-f]{64}$/;
+var IMAGE_CHECK_PENDING = "Image check pending";
+var TERMINAL_STATUS_CODES = [
+  statusToInt("eva_submitted"),
+  statusToInt("box_synced"),
+  statusToInt("removed"),
+  statusToInt("done")
+];
+var SOURCE_LABEL = {
+  add_evidence: "staff_add_evidence",
+  manual_intake: "staff_manual_intake",
+  assistant_confirmed: "staff_assistant_confirmed",
+  legacy_upload: "staff_legacy_upload"
+};
+var SOURCE_SUMMARY = {
+  add_evidence: "Add evidence",
+  manual_intake: "New case",
+  assistant_confirmed: "Assistant confirmation",
+  legacy_upload: "Staff upload"
+};
+var UploadRefusal = class extends Error {
+  constructor(status, message2, targetCaseId) {
+    super(message2);
+    this.status = status;
+    this.targetCaseId = targetCaseId;
+  }
+};
+function sourceOf(value) {
+  return value === "add_evidence" || value === "manual_intake" || value === "assistant_confirmed" ? value : void 0;
+}
+function legacyIdempotencyKey(caseId, actor, manifest) {
+  return `legacy-${(0, import_node_crypto11.createHash)("sha256").update(JSON.stringify({ caseId: caseId.toLowerCase(), actor, manifest }), "utf8").digest("hex")}`;
+}
+function manifestHash(files) {
+  const manifest = files.map((file) => ({
+    index: file.index,
+    name: file.name,
+    size: file.bytes.length,
+    sha256: file.sha256,
+    contentType: file.contentType
+  }));
+  return (0, import_node_crypto11.createHash)("sha256").update(JSON.stringify(manifest), "utf8").digest("hex");
+}
+function itemIdentity(source, idempotencyKey, index) {
+  return `staff:${source}:${idempotencyKey}:${index}`;
+}
+async function assertActiveCase(q, caseId) {
+  const locked = await lockCaseForMutation(q, caseId);
+  if (locked.kind === "missing") throw new UploadRefusal(404, "This case is no longer available.");
+  if (locked.kind === "retired") {
+    throw new UploadRefusal(
+      409,
+      "This case has been merged. Open the current case and try again.",
+      locked.mergedInto
+    );
+  }
+  const rows = await q(
+    "SELECT status_code FROM case_ WHERE id = $1",
+    [locked.caseId]
+  );
+  if (!rows[0] || TERMINAL_STATUS_CODES.includes(Number(rows[0].status_code))) {
+    throw new UploadRefusal(409, "This case is no longer open for evidence.");
+  }
+  return locked.caseId;
+}
+async function bindBatch(input) {
+  return tx(async (q) => {
+    const caseId = await assertActiveCase(q, input.caseId);
+    await q(
+      `INSERT INTO staff_evidence_upload
+         (idempotency_key, case_id, actor, source, manifest_hash)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (idempotency_key) DO NOTHING`,
+      [input.idempotencyKey, caseId, input.actor, input.source, input.manifestHash]
+    );
+    const batches = await q(
+      `SELECT case_id, actor, source, manifest_hash
+         FROM staff_evidence_upload
+        WHERE idempotency_key = $1
+        FOR UPDATE`,
+      [input.idempotencyKey]
+    );
+    const batch = batches[0];
+    if (!batch || batch.case_id.toLowerCase() !== caseId || batch.actor !== input.actor || batch.source !== input.source || batch.manifest_hash !== input.manifestHash) {
+      throw new UploadRefusal(
+        409,
+        "This upload no longer matches the selected case or files. Choose them again."
+      );
+    }
+    for (const file of input.files) {
+      const prefix2 = `staff-${input.idempotencyKey}-${file.index}-${file.sha256.slice(0, 16)}`;
+      const blobPath = evidenceBlobPath(prefix2, file.name);
+      await q(
+        `INSERT INTO staff_evidence_upload_item
+           (idempotency_key, item_index, case_id, sha256, file_name, content_type, blob_path)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (idempotency_key, item_index) DO NOTHING`,
+        [
+          input.idempotencyKey,
+          file.index,
+          caseId,
+          file.sha256,
+          file.name,
+          file.contentType,
+          blobPath
+        ]
+      );
+      const items = await q(
+        `SELECT case_id, sha256, file_name, content_type, blob_path
+           FROM staff_evidence_upload_item
+          WHERE idempotency_key = $1 AND item_index = $2
+          FOR UPDATE`,
+        [input.idempotencyKey, file.index]
+      );
+      const item = items[0];
+      if (!item || item.case_id.toLowerCase() !== caseId || item.sha256 !== file.sha256 || item.file_name !== file.name || item.content_type !== file.contentType) {
+        throw new UploadRefusal(
+          409,
+          "This upload no longer matches the selected case or files. Choose them again."
+        );
+      }
+    }
+    return caseId;
+  });
+}
+async function existingEvidence(q, caseId, identity, sha256) {
+  const identityRows = await q(
+    `SELECT id, case_id, sha256, storage_path
+       FROM evidence
+      WHERE source_message_id = $1
+      FOR UPDATE`,
+    [identity]
+  );
+  if (identityRows[0]) {
+    const row = identityRows[0];
+    if (row.case_id.toLowerCase() !== caseId || row.sha256 !== sha256) {
+      throw new UploadRefusal(409, "This upload no longer matches the selected case or files.");
+    }
+    return { id: row.id, duplicate: true, storagePath: row.storage_path };
+  }
+  const twins = await q(
+    `SELECT id, storage_path FROM evidence
+      WHERE case_id = $1 AND sha256 = $2
+      ORDER BY created_at, id
+      LIMIT 1
+      FOR UPDATE`,
+    [caseId, sha256]
+  );
+  return twins[0] ? { id: twins[0].id, duplicate: true, storagePath: twins[0].storage_path } : void 0;
+}
+async function claimUploadItem(input) {
+  return tx(async (q) => {
+    const caseId = await assertActiveCase(q, input.caseId);
+    const items = await q(
+      `SELECT id, state, evidence_id, blob_path
+         FROM staff_evidence_upload_item
+        WHERE idempotency_key = $1 AND item_index = $2 AND case_id = $3
+        FOR UPDATE`,
+      [input.idempotencyKey, input.file.index, caseId]
+    );
+    const item = items[0];
+    if (!item) throw new UploadRefusal(409, "This upload could not be resumed. Choose the files again.");
+    if (item.state === "complete" && item.evidence_id) {
+      return { kind: "existing", id: item.evidence_id };
+    }
+    if (item.state === "cleanup_pending" || item.state === "uploading") {
+      throw new UploadRefusal(
+        409,
+        item.state === "cleanup_pending" ? "That upload is being safely reset. Wait a moment and try again." : "That upload is already in progress. Wait a moment and try again."
+      );
+    }
+    if (item.state !== "reserved" && item.state !== "cleaned") {
+      throw new UploadRefusal(409, "This upload could not be resumed. Choose the files again.");
+    }
+    const identity = itemIdentity(input.source, input.idempotencyKey, input.file.index);
+    const existing = await existingEvidence(q, caseId, identity, input.file.sha256);
+    if (existing) {
+      await q(
+        `UPDATE staff_evidence_upload_item
+            SET state = 'complete', evidence_id = $2,
+                upload_claim_token = NULL, upload_claim_expires_at = NULL,
+                cleanup_claim_token = NULL, cleanup_claim_expires_at = NULL,
+                updated_at = now()
+          WHERE id = $1`,
+        [item.id, existing.id]
+      );
+      return { kind: "existing", id: existing.id };
+    }
+    const claimToken = (0, import_node_crypto11.randomUUID)();
+    const pathPrefix = [
+      "staff",
+      input.idempotencyKey,
+      input.file.index,
+      input.file.sha256.slice(0, 16),
+      claimToken
+    ].join("-");
+    const blobPath = evidenceBlobPath(pathPrefix, input.file.name);
+    const claimed = await q(
+      `UPDATE staff_evidence_upload_item
+          SET state = 'uploading', upload_claim_token = $2,
+              upload_claim_expires_at = now() + interval '15 minutes',
+              blob_path = $3,
+              cleanup_claim_token = NULL, cleanup_claim_expires_at = NULL,
+              updated_at = now()
+        WHERE id = $1
+          AND state IN ('reserved', 'cleaned')
+      RETURNING id, blob_path`,
+      [item.id, claimToken, blobPath]
+    );
+    if (!claimed[0]) {
+      throw new UploadRefusal(409, "That upload is already in progress. Wait a moment and try again.");
+    }
+    return {
+      kind: "upload",
+      itemId: claimed[0].id,
+      claimToken,
+      pathPrefix,
+      blobPath: claimed[0].blob_path
+    };
+  });
+}
+async function scheduleItemCleanup(itemId, claimToken, detail) {
+  await tx(async (q) => {
+    const items = await q(
+      `SELECT blob_path FROM staff_evidence_upload_item
+        WHERE id = $1 AND state = 'uploading' AND upload_claim_token = $2::uuid
+        FOR UPDATE`,
+      [itemId, claimToken]
+    );
+    if (!items[0]) return;
+    const linked = await q(
+      `SELECT id FROM evidence WHERE storage_path = $1 ORDER BY created_at, id LIMIT 1 FOR UPDATE`,
+      [items[0].blob_path]
+    );
+    if (linked[0]) {
+      await q(
+        `UPDATE staff_evidence_upload_item
+            SET state = 'complete', evidence_id = $2,
+                upload_claim_token = NULL, upload_claim_expires_at = NULL,
+                updated_at = now()
+          WHERE id = $1`,
+        [itemId, linked[0].id]
+      );
+      return;
+    }
+    await q(
+      `UPDATE staff_evidence_upload_item
+          SET state = 'cleanup_pending',
+              upload_claim_token = NULL, upload_claim_expires_at = NULL,
+              cleanup_next_attempt_at = now(), cleanup_last_error = $3,
+              updated_at = now()
+        WHERE id = $1 AND upload_claim_token = $2::uuid`,
+      [itemId, claimToken, detail.slice(0, 400)]
+    );
+  });
+}
+async function persistFile(input) {
+  return tx(async (q) => {
+    const caseId = await assertActiveCase(q, input.caseId);
+    const owned = await q(
+      `SELECT id, blob_path
+         FROM staff_evidence_upload_item
+        WHERE id = $1 AND case_id = $2 AND state = 'uploading'
+          AND upload_claim_token = $3::uuid
+        FOR UPDATE`,
+      [input.itemId, caseId, input.claimToken]
+    );
+    if (!owned[0] || owned[0].blob_path !== input.blobPath) {
+      throw new UploadRefusal(409, "That upload is no longer current. Try the file again.");
+    }
+    const identity = itemIdentity(input.source, input.idempotencyKey, input.file.index);
+    const existing = await existingEvidence(q, caseId, identity, input.file.sha256);
+    if (existing) {
+      const ownsStoredBytes = existing.storagePath === input.blobPath;
+      await q(
+        `UPDATE staff_evidence_upload_item
+            SET state = $2, evidence_id = $3,
+                upload_claim_token = NULL, upload_claim_expires_at = NULL,
+                cleanup_next_attempt_at = CASE WHEN $2 = 'cleanup_pending' THEN now() ELSE NULL END,
+                updated_at = now()
+          WHERE id = $1`,
+        [input.itemId, ownsStoredBytes ? "complete" : "cleanup_pending", existing.id]
+      );
+      return { id: existing.id, duplicate: true };
+    }
+    const isImage = input.file.kind === "image";
+    const inserted = await q(
+      `INSERT INTO evidence
+         (file_name, case_id, kind_code, sha256, content_type, size_bytes, storage_path,
+          source_message_id, source_label, accepted_for_eva, excluded, exclusion_reason,
+          exclusion_decision_source)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+               $10, $11, $12, $13)
+       ON CONFLICT DO NOTHING
+       RETURNING id, case_id, excluded, storage_path, box_file_id`,
+      [
+        input.file.name,
+        caseId,
+        isImage ? IMAGE_KIND_CODE2 : DOCUMENT_KIND_CODE,
+        input.file.sha256,
+        input.file.contentType,
+        input.size,
+        input.blobPath,
+        identity,
+        SOURCE_LABEL[input.source],
+        !isImage,
+        isImage,
+        isImage ? IMAGE_CHECK_PENDING : null,
+        isImage ? "classifier" : null
+      ]
+    );
+    const row = inserted[0];
+    if (!row) {
+      const raced = await existingEvidence(q, caseId, identity, input.file.sha256);
+      if (raced) {
+        const ownsStoredBytes = raced.storagePath === input.blobPath;
+        await q(
+          `UPDATE staff_evidence_upload_item
+              SET state = $2, evidence_id = $3,
+                  upload_claim_token = NULL, upload_claim_expires_at = NULL,
+                  cleanup_next_attempt_at = CASE WHEN $2 = 'cleanup_pending' THEN now() ELSE NULL END,
+                  updated_at = now()
+            WHERE id = $1`,
+          [input.itemId, ownsStoredBytes ? "complete" : "cleanup_pending", raced.id]
+        );
+        return { id: raced.id, duplicate: true };
+      }
+      throw new Error("evidence insert did not return a row");
+    }
+    if (isImage) await requestArchiveMirror(q, row);
+    else await requestArchiveMirrorIfEligible(q, row);
+    await requestStatusRecompute(q, caseId);
+    await writeAuditStrict(
+      {
+        action: AUDIT_ACTION.evidence_added,
+        caseId,
+        actor: input.actor,
+        summary: `Staff added ${input.file.name} through ${SOURCE_SUMMARY[input.source]}`.slice(0, 400),
+        after: {
+          evidenceId: row.id,
+          fileName: input.file.name,
+          source: input.source,
+          sha256: input.file.sha256
+        }
+      },
+      q
+    );
+    await q(
+      `UPDATE staff_evidence_upload_item
+          SET state = 'complete', evidence_id = $2,
+              upload_claim_token = NULL, upload_claim_expires_at = NULL,
+              cleanup_claim_token = NULL, cleanup_claim_expires_at = NULL,
+              cleanup_next_attempt_at = NULL, cleanup_last_error = NULL,
+              updated_at = now()
+        WHERE id = $1 AND upload_claim_token = $3::uuid`,
+      [input.itemId, row.id, input.claimToken]
+    );
+    return { id: row.id, duplicate: false };
+  });
+}
 import_functions17.app.http("uploadCaseEvidence", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/evidence/upload",
   handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
-    const caseId = req.params.id;
-    const exists = await query("SELECT id FROM case_ WHERE id = $1", [caseId]);
-    if (!exists[0]) return { status: 404, jsonBody: { error: "not found" } };
     let form;
     try {
       form = await req.formData();
     } catch {
-      return { status: 400, jsonBody: { error: "expected multipart/form-data" } };
+      return { status: 400, jsonBody: { error: "Choose the files again and try once more." } };
     }
-    const files = form.getAll("file").filter((f) => typeof f === "object" && f instanceof File);
-    if (!files.length) return { status: 400, jsonBody: { error: "no files provided" } };
-    const added = [];
+    const suppliedIdempotencyKey = (req.headers?.get("idempotency-key") ?? "").trim();
+    const suppliedSourceValue = form.get("source");
+    const suppliedSource = sourceOf(suppliedSourceValue);
+    const legacyRequest = !suppliedIdempotencyKey && suppliedSourceValue == null;
+    if (!legacyRequest && !IDEMPOTENCY_RE.test(suppliedIdempotencyKey)) {
+      return { status: 400, jsonBody: { error: "This upload could not be safely retried. Choose the files again." } };
+    }
+    if (!legacyRequest && !suppliedSource) {
+      return { status: 400, jsonBody: { error: "Choose where these files are being added from." } };
+    }
+    const files = form.getAll("file").filter((value) => value instanceof File);
+    if (!files.length) return { status: 400, jsonBody: { error: "Choose at least one file." } };
+    const batchRefusal = validateUploadBatch(files);
+    if (batchRefusal) return { status: 400, jsonBody: { error: batchRefusal } };
+    const prepared = [];
     const rejected = [];
-    let retiredTargetCaseId;
-    for (const file of files) {
-      const check = classifyUpload(file.type, file.size);
-      if (!check.ok) {
-        rejected.push({ fileName: file.name, reason: check.reason });
+    for (const [index, file] of files.entries()) {
+      const metadata2 = classifyUpload(file.type, file.size, file.name);
+      if (!metadata2.ok) {
+        rejected.push({ fileIndex: index, fileName: file.name, reason: metadata2.reason });
         continue;
       }
-      try {
-        const bytes = Buffer.from(await file.arrayBuffer());
-        const sha256 = (0, import_node_crypto11.createHash)("sha256").update(bytes).digest("hex");
-        const { blobPath, size } = await uploadEvidenceBytes(caseId, file.name, bytes, file.type);
-        const kindCode = check.kind === "image" ? IMAGE_KIND_CODE2 : DOCUMENT_KIND_CODE;
-        const persisted = await tx(async (q) => {
-          const caseLock = await lockCaseForMutation(q, caseId);
-          if (caseLock.kind !== "active") return caseLock;
-          const inserted = await q(
-            `INSERT INTO evidence
-               (file_name, case_id, kind_code, sha256, content_type, size_bytes, storage_path,
-                source_label)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'assistant_upload')
-          RETURNING id, case_id, excluded, storage_path, box_file_id`,
-            [file.name, caseLock.caseId, kindCode, sha256, file.type, size, blobPath]
-          );
-          if (!inserted[0]) throw new Error("evidence insert returned no row");
-          await requestArchiveMirrorIfEligible(q, inserted[0]);
-          if (kindCode === IMAGE_KIND_CODE2) await requestStatusRecompute(q, caseLock.caseId);
-          return { kind: "persisted" };
-        });
-        if (persisted.kind === "retired") {
-          retiredTargetCaseId = persisted.mergedInto;
-          rejected.push({
-            fileName: file.name,
-            reason: "This case changed while the file was uploading. Refresh and try again."
-          });
-          break;
-        }
-        if (persisted.kind === "missing") {
-          rejected.push({ fileName: file.name, reason: "This case is no longer available." });
-          break;
-        }
-        added.push({ fileName: file.name });
-      } catch (e) {
-        ctx.error(`[evidence-upload] ${file.name}: ${e instanceof Error ? e.message : String(e)}`);
-        rejected.push({ fileName: file.name, reason: "That did not upload \u2014 please try again." });
+      const bytes = Buffer.from(await file.arrayBuffer());
+      const content = await validateUploadContent(metadata2, bytes);
+      if (!content.ok) {
+        rejected.push({ fileIndex: index, fileName: file.name, reason: content.reason });
+        continue;
       }
-    }
-    if (added.length) {
-      const actor = actorFromClaims(claims);
-      await writeAudit({
-        action: AUDIT_ACTION.evidence_added,
-        caseId,
-        summary: `${added.length} file(s) added to the case via the assistant`,
-        after: { files: added.map((a) => a.fileName) },
-        ...actor ? { actor } : {}
+      const sha256 = (0, import_node_crypto11.createHash)("sha256").update(bytes).digest("hex");
+      if (!SHA256_RE.test(sha256)) throw new Error("unreachable sha256 result");
+      prepared.push({
+        index,
+        name: (file.name.trim() || `file-${index + 1}`).slice(0, 400),
+        bytes,
+        sha256,
+        kind: content.kind,
+        contentType: content.contentType
       });
     }
-    return {
-      status: added.length ? 201 : retiredTargetCaseId ? 409 : 400,
-      jsonBody: {
-        added,
-        rejected,
-        ...retiredTargetCaseId ? { targetCaseId: retiredTargetCaseId } : {}
+    if (!prepared.length) return { status: 400, jsonBody: { added: [], rejected } };
+    const actor = actorFromClaims(claims) ?? "authenticated staff";
+    const batchManifestHash = manifestHash(prepared);
+    const source = suppliedSource ?? "legacy_upload";
+    const idempotencyKey = suppliedIdempotencyKey || legacyIdempotencyKey(req.params.id, actor, batchManifestHash);
+    let caseId;
+    try {
+      caseId = await bindBatch({
+        caseId: req.params.id,
+        idempotencyKey,
+        actor,
+        source,
+        manifestHash: batchManifestHash,
+        files: prepared
+      });
+    } catch (error) {
+      if (error instanceof UploadRefusal) {
+        return {
+          status: error.status,
+          jsonBody: {
+            added: [],
+            rejected: files.map((file, fileIndex) => ({
+              fileIndex,
+              fileName: file.name,
+              reason: error.message
+            })),
+            ...error.targetCaseId ? { targetCaseId: error.targetCaseId } : {}
+          }
+        };
       }
+      throw error;
+    }
+    const added = [];
+    let created = 0;
+    for (const file of prepared) {
+      let uploadClaim;
+      try {
+        const claim = await claimUploadItem({ caseId, source, idempotencyKey, file });
+        if (claim.kind === "existing") {
+          added.push({
+            fileIndex: file.index,
+            fileName: file.name,
+            evidenceId: claim.id,
+            duplicate: true
+          });
+          continue;
+        }
+        uploadClaim = claim;
+        const { blobPath, size } = await uploadEvidenceBytes(
+          claim.pathPrefix,
+          file.name,
+          file.bytes,
+          file.contentType
+        );
+        if (blobPath !== claim.blobPath) throw new Error("reserved blob path changed");
+        const persisted = await persistFile({
+          caseId,
+          source,
+          idempotencyKey,
+          actor,
+          file,
+          itemId: claim.itemId,
+          claimToken: claim.claimToken,
+          blobPath,
+          size
+        });
+        if (!persisted.duplicate) created++;
+        added.push({
+          fileIndex: file.index,
+          fileName: file.name,
+          evidenceId: persisted.id,
+          duplicate: persisted.duplicate
+        });
+      } catch (error) {
+        if (uploadClaim) {
+          try {
+            await scheduleItemCleanup(
+              uploadClaim.itemId,
+              uploadClaim.claimToken,
+              error instanceof Error ? error.message : String(error)
+            );
+          } catch (cleanupError) {
+            ctx.error(
+              `[evidence-upload] cleanup scheduling ${file.name}: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`
+            );
+          }
+        }
+        const refusal = error instanceof UploadRefusal ? error : void 0;
+        ctx.error(`[evidence-upload] ${file.name}: ${error instanceof Error ? error.message : String(error)}`);
+        rejected.push({
+          fileIndex: file.index,
+          fileName: file.name,
+          reason: refusal?.message ?? "That file was not added. Try it again."
+        });
+        if (refusal?.targetCaseId) {
+          return {
+            status: 409,
+            jsonBody: { added, rejected, targetCaseId: refusal.targetCaseId }
+          };
+        }
+      }
+    }
+    return {
+      status: rejected.length ? added.length ? 207 : 400 : created > 0 ? 201 : 200,
+      jsonBody: { added, rejected }
     };
   })
 });

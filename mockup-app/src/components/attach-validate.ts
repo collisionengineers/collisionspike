@@ -25,6 +25,8 @@ import { CASE_PO_SHAPE_RE, canonicalizeVrm, extractVrm, normalizeCasePo } from '
 
 /** Client-side size cap — mirrors the server's MAX_UPLOAD_BYTES (upload-validate.ts). */
 export const MAX_ATTACH_BYTES = 15 * 1024 * 1024; // 15 MB
+export const MAX_ATTACH_FILES = 20;
+export const MAX_ATTACH_TOTAL_BYTES = 100 * 1024 * 1024;
 
 export type AttachKind = 'image' | 'document';
 
@@ -39,7 +41,7 @@ export type AttachCheck = { ok: true; kind: AttachKind } | { ok: false; reason: 
 
 /**
  * Classify + size-check ONE attachment, mirroring the server gate exactly: only photos
- * (image/*) and PDFs, only up to the size cap, nothing empty. Rejection reasons are the
+ * (JPG, PNG and WebP) and PDFs, only up to the size cap, nothing empty. Rejection reasons are the
  * SAME plain-language wording the server returns, so a client-side "no" and a server-side
  * "no" read identically to the handler.
  */
@@ -52,9 +54,36 @@ export function classifyAttachment(file: AttachFileMeta): AttachCheck {
     return { ok: false, reason: 'That file is too big — the limit is 15 MB.' };
   }
   const ct = (file.type || '').toLowerCase().split(';')[0].trim();
-  if (ct === 'application/pdf') return { ok: true, kind: 'document' };
-  if (ct.startsWith('image/')) return { ok: true, kind: 'image' };
-  return { ok: false, reason: 'I can only add photos and PDFs to a case.' };
+  const ext = /\.([a-z0-9]+)$/i.exec(file.name.trim())?.[1]?.toLowerCase() ?? '';
+  type CanonicalFormat = 'pdf' | 'jpeg' | 'png' | 'webp';
+  const byType: Record<string, CanonicalFormat> = {
+    'application/pdf': 'pdf',
+    'image/jpeg': 'jpeg',
+    'image/jpg': 'jpeg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+  };
+  const byExtension: Record<string, CanonicalFormat> = {
+    pdf: 'pdf',
+    jpg: 'jpeg',
+    jpeg: 'jpeg',
+    png: 'png',
+    webp: 'webp',
+  };
+  const typeKind = byType[ct];
+  const extensionKind = byExtension[ext];
+  if (ext && !extensionKind) {
+    return { ok: false, reason: 'You can add JPG, PNG or WebP photos, and PDFs.' };
+  }
+  if (ct && ct !== 'application/octet-stream' && !typeKind) {
+    return { ok: false, reason: 'You can add JPG, PNG or WebP photos, and PDFs.' };
+  }
+  if (typeKind && extensionKind && typeKind !== extensionKind) {
+    return { ok: false, reason: 'That file name and format do not match.' };
+  }
+  const format = typeKind ?? extensionKind;
+  if (format) return { ok: true, kind: format === 'pdf' ? 'document' : 'image' };
+  return { ok: false, reason: 'You can add JPG, PNG or WebP photos, and PDFs.' };
 }
 
 export interface PartitionedAttachments {
@@ -68,10 +97,23 @@ export interface PartitionedAttachments {
 export function partitionAttachments(files: File[]): PartitionedAttachments {
   const accepted: File[] = [];
   const rejected: Array<{ name: string; reason: string }> = [];
+  let acceptedBytes = 0;
   for (const f of files) {
     const check = classifyAttachment(f);
-    if (check.ok) accepted.push(f);
-    else rejected.push({ name: f.name, reason: check.reason });
+    if (!check.ok) {
+      rejected.push({ name: f.name, reason: check.reason });
+      continue;
+    }
+    if (accepted.length >= MAX_ATTACH_FILES) {
+      rejected.push({ name: f.name, reason: `Choose no more than ${MAX_ATTACH_FILES} files at once.` });
+      continue;
+    }
+    if (acceptedBytes + f.size > MAX_ATTACH_TOTAL_BYTES) {
+      rejected.push({ name: f.name, reason: 'Those files are too large to add together.' });
+      continue;
+    }
+    accepted.push(f);
+    acceptedBytes += f.size;
   }
   return { accepted, rejected };
 }

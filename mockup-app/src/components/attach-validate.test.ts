@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   capturePendingAttachmentTarget,
   MAX_ATTACH_BYTES,
+  MAX_ATTACH_FILES,
   classifyAttachment,
   partitionAttachments,
   startPendingAttachmentBatch,
@@ -59,7 +60,17 @@ describe('classifyAttachment — rejects with plain-language reasons (no enginee
   it('rejects an unsupported type (e.g. a spreadsheet)', () => {
     const r = classifyAttachment(meta('sheet.xlsx', 'application/vnd.ms-excel', 2048));
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason).toBe('I can only add photos and PDFs to a case.');
+    if (!r.ok) expect(r.reason).toBe('You can add JPG, PNG or WebP photos, and PDFs.');
+  });
+  it('rejects HEIC and HEIF instead of advertising formats the image check cannot read', () => {
+    for (const file of [
+      meta('photo.heic', 'image/heic', 2048),
+      meta('photo.heif', 'image/heif', 2048),
+    ]) {
+      const result = classifyAttachment(file);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).not.toMatch(/HEIC|HEIF/i);
+    }
   });
   it('rejects a zip masquerading with no image/pdf type', () => {
     const r = classifyAttachment(meta('a.zip', 'application/zip', 2048));
@@ -91,10 +102,32 @@ describe('partitionAttachments — splits a picked set into held vs turned-away'
     expect(accepted.map((f) => f.name)).toEqual(['ok.jpg', 'doc.pdf']);
     expect(rejected.map((r) => r.name)).toEqual(['big.png', 'sheet.csv']);
     expect(rejected[0].reason).toContain('too big');
-    expect(rejected[1].reason).toContain('photos and PDFs');
+    expect(rejected[1].reason).toContain('JPG');
+  });
+  it('rejects supported content with a conflicting or unsupported file extension', () => {
+    expect(classifyAttachment(meta('photo.pdf', 'image/jpeg', 2048))).toEqual({
+      ok: false,
+      reason: 'That file name and format do not match.',
+    });
+    expect(classifyAttachment(meta('photo.png', 'image/jpeg', 2048)).ok).toBe(false);
+    expect(classifyAttachment(meta('document.exe', 'application/pdf', 2048)).ok).toBe(false);
   });
   it('returns empty arrays for an empty pick', () => {
     expect(partitionAttachments([])).toEqual({ accepted: [], rejected: [] });
+  });
+  it('mirrors the server count and aggregate caps', () => {
+    const count = Array.from({ length: MAX_ATTACH_FILES + 1 }, (_, i) =>
+      meta(`${i}.jpg`, 'image/jpeg', 1),
+    ) as unknown as File[];
+    expect(partitionAttachments(count).accepted).toHaveLength(MAX_ATTACH_FILES);
+    const countResult = partitionAttachments(count);
+    expect(countResult.rejected[countResult.rejected.length - 1]?.reason).toContain('no more');
+
+    const total = Array.from({ length: 7 }, (_, index) =>
+      meta(`${index}.jpg`, 'image/jpeg', 15 * 1024 * 1024),
+    ) as unknown as File[];
+    expect(partitionAttachments(total).accepted).toHaveLength(6);
+    expect(partitionAttachments(total).rejected[0].reason).toContain('too large');
   });
 });
 

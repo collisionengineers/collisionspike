@@ -306,7 +306,7 @@ export function AssistantDrawer({
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*,application/pdf"
+                accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
                 multiple
                 className={styles.hiddenInput}
                 onChange={onPickFiles}

@@ -42,6 +42,8 @@ await import('./internal.js');
 
 const enumerate = registrations.get('internalEvidenceUnclassifiedBox')!.handler;
 const stamp = registrations.get('internalEvidenceBoxClassification')!.handler;
+const cleanupClaim = registrations.get('internalStaffUploadCleanupClaim')!.handler;
+const cleanupComplete = registrations.get('internalStaffUploadCleanupComplete')!.handler;
 const pending = registrations.get('internalStatusRecomputePending')!.handler;
 const complete = registrations.get('internalStatusRecomputeComplete')!.handler;
 const evaluate = registrations.get('internalCasesStatusEvaluate')!.handler;
@@ -99,6 +101,34 @@ describe('unclassified Box enumeration', () => {
     expect(sql).toContain('box_classify_dead_lettered_at IS NULL');
     expect(sql).toContain('box_classify_next_attempt_at <= now()');
     expect(sql).toContain('box_classify_claim_expires_at <= now()');
+    expect(sql).toContain("'staff_add_evidence'");
+    expect(sql).toContain("e.exclusion_reason = 'Image check pending'");
+  });
+
+  it('returns the Blob locator for classifier-pending staff uploads', async () => {
+    db.query.mockResolvedValue([{
+      id: 'ev-staff',
+      case_id: 'case-1',
+      file_name: 'photo.jpg',
+      content_type: 'image/jpeg',
+      box_file_id: null,
+      storage_path: 'staff-key/photo.jpg',
+      source_label: 'staff_add_evidence',
+      source_message_id: 'staff:add_evidence:key:0',
+      box_classify_claim_token: '00000000-0000-4000-8000-000000000099',
+      box_classify_attempt_count: 1,
+      vrm: 'AB12CDE',
+      work_provider_id: 'wp-1',
+    }]);
+
+    const response = await enumerate(req({ method: 'POST' }), ctx);
+
+    expect(response.jsonBody).toMatchObject({ rows: [{
+      evidenceId: 'ev-staff',
+      boxFileId: null,
+      storagePath: 'staff-key/photo.jpg',
+      sourceLabel: 'staff_add_evidence',
+    }] });
   });
 
   it('POST atomically claims due rows with a lease before returning them', async () => {
@@ -132,6 +162,32 @@ describe('unclassified Box enumeration', () => {
     expect(sql.indexOf('box_classify_next_attempt_at <= now()')).toBeLessThan(sql.indexOf('LIMIT $3'));
   });
 
+  it('excludes Box rows in the candidate query before leasing when includeBox=false', async () => {
+    await enumerate(req({ method: 'POST', query: { limit: '25', includeBox: 'false' } }), ctx);
+
+    const [rawSql, params] = db.query.mock.calls[0];
+    const sql = String(rawSql);
+    expect(sql).toContain(
+      "$4::boolean AND e.box_file_id IS NOT NULL AND e.source_label LIKE 'box_upload%'",
+    );
+    expect(sql.indexOf('$4::boolean')).toBeLessThan(sql.indexOf('FOR UPDATE OF e SKIP LOCKED'));
+    expect(params).toHaveLength(4);
+    expect(params[3]).toBe(false);
+  });
+
+  it('defaults includeBox to true for rolling-compatible callers and rejects invalid values', async () => {
+    await enumerate(req({ method: 'POST', query: { limit: '25' } }), ctx);
+    expect(db.query.mock.calls[0][1][3]).toBe(true);
+
+    db.query.mockClear();
+    const response = await enumerate(
+      req({ method: 'POST', query: { limit: '25', includeBox: 'sometimes' } }),
+      ctx,
+    );
+    expect(response).toMatchObject({ status: 400 });
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
   it('excludes leased/backed-off/dead-letter poison rows before LIMIT so work behind 25 failures is reachable', async () => {
     await enumerate(req({ method: 'POST', query: { limit: '25' } }), ctx);
     const sql = String(db.query.mock.calls[0][0]);
@@ -155,11 +211,79 @@ describe('unclassified Box enumeration', () => {
     const sql = String(db.query.mock.calls[0][0]).replace(/\s+/g, ' ');
 
     expect(sql).toContain(
-      "( COALESCE(e.box_classify_attempt_count, 0) > 0 OR e.created_at > now() - interval '14 days' )",
+      "COALESCE(e.box_classify_attempt_count, 0) > 0 OR e.created_at > now() - interval '14 days'",
     );
+    expect(sql).toContain("OR e.source_label IN ( 'staff_add_evidence'");
     expect(sql.indexOf('COALESCE(e.box_classify_attempt_count, 0) > 0'))
       .toBeLessThan(sql.indexOf('LIMIT $3'));
     expect(sql).toContain('e.box_classify_next_attempt_at <= now()');
+  });
+
+  it('keeps first-attempt staff rows eligible after day 14 and bypasses only their stable AI opt-out', async () => {
+    await enumerate(req({ method: 'POST', query: { limit: '25' } }), ctx);
+    const sql = String(db.query.mock.calls[0][0]).replace(/\s+/g, ' ');
+    expect(sql).toContain("OR e.source_label IN ( 'staff_add_evidence', 'staff_manual_intake'");
+    expect(sql).toContain("wp.ai_allowed IS DISTINCT FROM false OR e.source_label IN");
+    expect(sql.indexOf("wp.ai_allowed IS DISTINCT FROM false OR e.source_label IN"))
+      .toBeLessThan(sql.indexOf('LIMIT $3'));
+  });
+});
+
+describe('durable failed-upload cleanup ownership', () => {
+  it('claims expired upload owners only when no evidence row references their exact path', async () => {
+    db.txQuery.mockImplementation(async (sql: string) => {
+      if (sql.trimStart().startsWith('UPDATE staff_evidence_upload_item item') && sql.includes("state = 'complete'")) return [];
+      if (sql.includes("SET state = 'cleanup_pending'") && sql.includes('upload lease expired')) return [];
+      if (sql.includes('WITH candidates AS')) {
+        return [{
+          id: 'item-1',
+          blob_path: 'staff-key/photo.jpg',
+          cleanup_claim_token: '00000000-0000-4000-8000-000000000123',
+          cleanup_attempt_count: 1,
+        }];
+      }
+      return [];
+    });
+    const response = await cleanupClaim(req({ method: 'POST', query: { limit: '25' } }), ctx);
+    expect(response.jsonBody).toEqual({ rows: [{
+      itemId: 'item-1',
+      blobPath: 'staff-key/photo.jpg',
+      claimToken: '00000000-0000-4000-8000-000000000123',
+      attemptCount: 1,
+    }] });
+    const quarantineSql = String(db.txQuery.mock.calls[1][0]);
+    expect(quarantineSql).toContain("item.state = 'uploading'");
+    expect(quarantineSql).toContain('item.upload_claim_expires_at <= now()');
+    expect(quarantineSql).toContain("cleanup_next_attempt_at = now() + interval '15 minutes'");
+    const claimSql = String(db.txQuery.mock.calls[2][0]);
+    expect(claimSql).toContain("item.state = 'cleanup_pending'");
+    expect(claimSql).toContain('NOT EXISTS');
+    expect(claimSql).toContain('e.storage_path = item.blob_path');
+    expect(claimSql).toContain('FOR UPDATE SKIP LOCKED');
+  });
+
+  it('retries a failed delete without losing the durable owner record', async () => {
+    db.txQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT blob_path, cleanup_attempt_count')) {
+        return [{ blob_path: 'staff-key/photo.jpg', cleanup_attempt_count: 2 }];
+      }
+      if (sql.includes('SELECT id FROM evidence WHERE storage_path')) return [];
+      if (sql.includes('UPDATE staff_evidence_upload_item')) return [];
+      return [];
+    });
+    const response = await cleanupComplete(req({
+      method: 'POST',
+      id: 'item-1',
+      body: {
+        claimToken: '00000000-0000-4000-8000-000000000123',
+        outcome: 'failed',
+        detail: 'temporary storage error',
+      },
+    }), ctx);
+    expect(response.jsonBody).toMatchObject({ updated: true, cleaned: false, retry: true });
+    const updateSql = String(db.txQuery.mock.calls[2][0]);
+    expect(updateSql).toContain('cleanup_next_attempt_at');
+    expect(updateSql).not.toContain('DELETE');
   });
 });
 
@@ -239,6 +363,28 @@ describe('Box classification failure scheduling', () => {
     expect(response.jsonBody).toEqual({ updated: false, stale: true });
     expect(String(db.query.mock.calls[0][0])).toContain('box_classify_claim_token::text = $2');
   });
+
+  it('turns a staff provider opt-out into explicit terminal manual review', async () => {
+    db.query.mockResolvedValue([{
+      box_classify_attempt_count: 1,
+      box_classify_next_attempt_at: null,
+      box_classify_dead_lettered_at: new Date('2026-07-12T12:00:00Z'),
+    }]);
+    await stamp(req({
+      method: 'POST',
+      id: 'ev-staff',
+      body: {
+        ...failureBase,
+        failure: {
+          disposition: 'terminal',
+          code: 'provider_ai_opted_out_manual_review',
+        },
+      },
+    }), ctx);
+    const sql = String(db.query.mock.calls[0][0]);
+    expect(sql).toContain("THEN 'Image needs staff review'");
+    expect(sql).toContain("'staff_legacy_upload'");
+  });
 });
 
 describe('exact Box classification stamp', () => {
@@ -261,6 +407,21 @@ describe('exact Box classification stamp', () => {
     expect(clearSql).toContain('box_classify_claim_token = NULL');
     const requestSql = String(db.txQuery.mock.calls[4][0]);
     expect(requestSql).toContain('status_recompute_requested_generation + 1');
+  });
+
+  it('stamps a staff-upload row by its exact Blob path and releases classifier-owned pending state', async () => {
+    const { boxFileId: _drop, ...withoutBox } = classification;
+    const response = await stamp(req({
+      id: 'ev-staff',
+      body: { ...withoutBox, storagePath: 'staff-key/photo.jpg' },
+    }), ctx);
+
+    expect(response.status).toBe(200);
+    const lockSql = String(db.txQuery.mock.calls[0][0]);
+    const lockParams = db.txQuery.mock.calls[0][1] as unknown[];
+    expect(lockSql).toContain('storage_path = $4');
+    expect(lockSql).toContain("'staff_add_evidence'");
+    expect(lockParams).toContain('staff-key/photo.jpg');
   });
 
   it('treats a newer manual/classifier stamp as a benign stale no-op', async () => {

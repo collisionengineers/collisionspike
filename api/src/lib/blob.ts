@@ -82,10 +82,16 @@ export async function uploadEvidenceBytes(
 ): Promise<UploadedBlob> {
   const container = client().getContainerClient(containerName());
   await container.createIfNotExists();
-  const blobPath = `${sanitize(pathPrefix)}/${sanitize(filename)}`;
+  const blobPath = evidenceBlobPath(pathPrefix, filename);
   const block = container.getBlockBlobClient(blobPath);
   await block.uploadData(bytes, { blobHTTPHeaders: { blobContentType: contentType } });
   return { blobPath, size: bytes.length };
+}
+
+/** Pure deterministic path builder used by the durable upload-owner row before
+ * bytes are written. Keeping path construction in one place makes cleanup exact. */
+export function evidenceBlobPath(pathPrefix: string, filename: string): string {
+  return `${sanitize(pathPrefix)}/${sanitize(filename)}`;
 }
 
 function sanitize(seg: string): string {

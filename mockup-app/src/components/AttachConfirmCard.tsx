@@ -13,7 +13,7 @@
  * Mirrors ConfirmActionCard's shape (TKT-111): re-fetch, render, confirm.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Button,
   Caption1,
@@ -29,6 +29,7 @@ import {
 import { Check, X, AlertTriangle, Search } from 'lucide-react';
 import { getDataAccess, statusToQueue, type Case } from '../data';
 import { fileCountLabel } from './attach-validate';
+import { evidenceUploadIsComplete } from '../screens/evidence-upload-result';
 
 const useStyles = makeStyles({
   card: {
@@ -67,6 +68,17 @@ function caseLabel(c: Case): string {
   return c.casePo || c.vrm || 'this case';
 }
 
+function uploadResultFileLabel(
+  files: readonly File[],
+  fileIndex: number,
+  fallbackName: string,
+): string {
+  const fileName = files[fileIndex]?.name || fallbackName;
+  return files.filter((file) => file.name === fileName).length > 1
+    ? `${fileName} (file ${fileIndex + 1})`
+    : fileName;
+}
+
 export function AttachConfirmCard({
   files,
   suggestedVrm,
@@ -87,6 +99,7 @@ export function AttachConfirmCard({
   const [matches, setMatches] = useState<Case[]>([]);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   const [feedback, setFeedback] = useState<string>('');
+  const uploadKeyRef = useRef(crypto.randomUUID());
 
   const selected = matches.find((m) => m.id === selectedId);
 
@@ -155,22 +168,32 @@ export function AttachConfirmCard({
   const confirm = useCallback(async () => {
     if (!selected) return;
     setPhase('submitting');
-    const res = await getDataAccess().uploadEvidence(selected.id, files);
+    const res = await getDataAccess().uploadEvidence(selected.id, files, {
+      source: 'assistant_confirmed',
+      idempotencyKey: uploadKeyRef.current,
+    });
     const addedN = res.added.length;
     const rejected = res.rejected;
-    if (addedN > 0) {
+    if (evidenceUploadIsComplete(res, files.length)) {
+      setFeedback(`${fileCountLabel(addedN)} added to ${caseLabel(selected)}.`);
+      setPhase('done');
+    } else if (addedN > 0) {
       let msg = `${fileCountLabel(addedN)} added to ${caseLabel(selected)}.`;
       if (rejected.length) {
         msg += ` ${fileCountLabel(rejected.length)} couldn't be added: ${rejected
-          .map((r) => `${r.fileName} — ${r.reason}`)
+          .map((r) => `${uploadResultFileLabel(files, r.fileIndex, r.fileName)} — ${r.reason}`)
           .join('; ')}`;
+      } else {
+        msg += ' The remaining files still need to be added. Retry is safe.';
       }
       setFeedback(msg);
-      setPhase('done');
+      setPhase('error');
     } else if (rejected.length) {
       // Server turned everything away — surface its plain-language reasons.
       setFeedback(
-        `Those files couldn't be added: ${rejected.map((r) => `${r.fileName} — ${r.reason}`).join('; ')}`,
+        `Those files couldn't be added: ${rejected
+          .map((r) => `${uploadResultFileLabel(files, r.fileIndex, r.fileName)} — ${r.reason}`)
+          .join('; ')}`,
       );
       setPhase('error');
     } else {
@@ -268,13 +291,13 @@ export function AttachConfirmCard({
       {phase === 'submitting' && <Spinner size="tiny" label="Adding the files…" labelPosition="after" />}
 
       {phase === 'error' && (
-        <Caption1 className={styles.warn}>
+        <Caption1 className={styles.warn} role="alert" aria-live="assertive">
           <AlertTriangle size={14} /> {feedback}
         </Caption1>
       )}
 
       {phase === 'done' && (
-        <Caption1 className={styles.ok}>
+        <Caption1 className={styles.ok} role="status" aria-live="polite">
           <Check size={14} /> {feedback}
         </Caption1>
       )}
