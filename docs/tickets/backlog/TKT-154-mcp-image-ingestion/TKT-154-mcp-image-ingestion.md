@@ -19,8 +19,11 @@ The live MCP endpoint is read-only. An external automated agent that watches a l
 - TKT-110 — existing read-only MCP server.
 - TKT-068/TKT-111 — existing human-confirmed evidence write seams that may be reusable but are not a headless folder-agent contract.
 
-## Proposed change
-PROPOSED (not built): add least-privilege MCP tools for canonical registration lookup and idempotent image attachment, reusing the existing evidence/Box/classification pipeline rather than creating a second uploader.
+## Implemented change
+Implemented dark on `codex/tkt-154-mcp-image-ingestion`: least-privilege MCP tools for canonical
+registration lookup and idempotent image attachment reuse the canonical evidence, classification,
+Archive and readiness pipeline. Live role creation, deployment, gate activation and behavioral proof
+remain operator-gated and are not claimed here.
 
 ## Acceptance
 - The authenticated MCP server exposes a documented read tool that canonicalises a supplied registration and returns only the minimum case identity/status needed to decide whether exactly one eligible open case matches.

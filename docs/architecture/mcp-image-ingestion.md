@@ -50,7 +50,10 @@ Input:
 }
 ```
 
-The write tool resolves the registration again at call time. There is intentionally no `caseId`,
+The write tool resolves the registration again at call time and repeats the exact-match/eligibility
+test under a registration-scoped advisory lock plus a short `case_` SHARE lock before any Blob write.
+The table lock prevents a concurrent case insert or VRM update from creating a phantom second match
+before the idempotency binding commits. There is intentionally no `caseId`,
 `folderId` or path field. Supplied filenames are reduced to a basename and control characters are
 removed. The server applies the same content-signature and full image-decode checks as Add evidence:
 JPG, PNG and WebP only; at most 20 files; 15 MB per file; 30 MB decoded per MCP batch (the canonical
@@ -71,17 +74,37 @@ Responses are intentionally conservative:
   readiness is still pending. This is not reported as success (`ok` is false).
 - `accepted_requires_review` means evidence is durable but an image check ended in an explicit
   staff-review disposition. It is not reported as success.
-- `partial`, `rejected` and `incomplete_readback` identify retryable per-file outcomes without claiming
+- `partial`, `rejected`, `write_state_unconfirmed` and `incomplete_readback` identify retryable per-file outcomes without claiming
   that an incomplete write finished.
 
-Each accepted file returns its evidence id, SHA-256, duplicate flag/outcome, classification state and
-Archive state. The response includes the case's current readiness status without exposing personal
-details.
+Each accepted file returns its original batch index, normalised filename, SHA-256, outcome,
+classification state and Archive state. Database evidence ids, backend exception text and Archive
+retry error text are deliberately not returned. When a canonical write throws or returns an unknown
+shape, the response says `retry_required` and instructs the caller to reuse the same idempotency key.
+When only the post-write state readback fails, the durable receipt is retained without exposing the
+internal id. The response includes the case's current readiness status without exposing personal details.
+
+## MCP transport contract
+
+The endpoint is a stateless MCP 2025-06-18 Streamable HTTP server. A client must:
+
+1. `POST` `initialize`, then send `notifications/initialized`;
+2. include `Accept: application/json, text/event-stream` and `Content-Type: application/json`;
+3. send `MCP-Protocol-Version: 2025-06-18` after initialization; and
+4. send one JSON-RPC message per request. JSON-RPC arrays/batches are refused, so uploads cannot run
+   concurrently through one HTTP request.
+
+Tool/business refusals are MCP tool results with `isError: true` and `structuredContent`; malformed
+JSON-RPC remains a protocol error. Browser-origin requests are rejected unless their exact Origin is
+listed in `MCP_ALLOWED_ORIGINS` (folder watchers normally send no Origin). The dedicated identity is
+durably limited per minute in Postgres. `Content-Length` and cumulative decoded-size checks run before
+any image buffers are retained. The sample watcher implements the full lifecycle and sends batches
+sequentially so earlier Base64 batches are released before the next is assembled.
 
 ## Authorization and dark gates
 
 Create one dedicated confidential client (or federated workload identity) and assign it only the
-API app role `CollisionSpike.ImageIngest`. The access token must be app-only, have the CollisionSpike
+API app role `CollisionSpike.ImageIngest` and no other app role. The access token must be app-only, have the CollisionSpike
 API as its audience, and contain no delegated user scope. Do not grant the client Microsoft Graph,
 Outlook, general `CollisionSpike.User`, `CollisionSpike.Superuser` or the broader deferred
 `CollisionSpike.Agent` role.
@@ -99,16 +122,35 @@ MCP_IMAGE_INGEST_ENABLED=true
 MCP_IMAGE_INGEST_BOX_ROOT_ID=392761581105
 BOX_API_ENABLED=true
 BOX_FOLDER_ROOT_ID=392761581105
+BOX_FN_URL=<box facade host>
+BOX_FN_KEY=<Key Vault referenced function key>
+MCP_IMAGE_INGEST_REQUESTS_PER_MINUTE=60
 ```
 
-The two independent root settings must both equal programme test root `392761581105`. Archive work
-uses only the case's server-owned folder and the existing root-scoped Box facade; the MCP request
-cannot redirect it. Before live proof, also read back the Box Function's independent
-`BOX_ALLOWED_ROOT_ID=392761581105` scope lock; that facade checks the target folder's Box ancestry
-before upload. Do not enable this lane for a different root during this programme.
+The two independent root settings must both equal programme test root `392761581105`. Before live
+proof, deploy the Box façade change and read back the Box Function's independent
+`BOX_ALLOWED_ROOT_ID=392761581105` scope lock. The API asks that façade to attest the configured root
+and target-folder ancestry on every lookup/write resolution. Agent-sourced evidence also sends
+`requiredWriteRootId=392761581105` when the asynchronous Archive worker performs the actual upload;
+the façade repeats strict attestation immediately before bytes leave it. An unset lock, wrong lock or
+out-of-root folder therefore fails closed at both points. Do not enable this lane for a different root
+during this programme.
+
+The existing downstream path must also be live on orchestration before the MCP gate is enabled:
+
+```text
+IMAGE_ROLE_CLASSIFY_ENABLED=true
+BOX_API_ENABLED=true
+BOX_FOLDER_AT_INTAKE_ENABLED=true
+```
+
+Read all three settings back from `cespk-orch-dev`; otherwise durable evidence can remain pending and
+the MCP tool must never claim completion. The image-classifier prompt treats all visible image text,
+QR codes, captions and metadata as untrusted evidence and never follows instructions embedded in a
+photo.
 
 Apply `migration/assets/schema/deltas/2026-07-12-tkt154-mcp-image-ingestion.sql` before deploying the
-API. The sample one-pass folder scanner is [`tools/mcp-image-folder-watcher.mjs`](../../tools/mcp-image-folder-watcher.mjs).
+API. Deploy the Box façade, API and orchestration changes before enabling the gate. The sample one-pass folder scanner is [`tools/mcp-image-folder-watcher.mjs`](../../tools/mcp-image-folder-watcher.mjs).
 It reads its endpoint, bearer and folder from environment variables and contains no secret.
 
 ## Live proof checklist
@@ -116,9 +158,11 @@ It reads its endpoint, bearer and folder from environment variables and contains
 1. Authenticate as the dedicated app-only role and call `tools/list`; exactly the two tools above must
    appear. Repeat as the delegated MCP client; the upload tool must be absent and refused if named.
 2. Prove spaced/canonical lookup plus invalid, no-match, ambiguous and terminal/merged refusals.
-3. On a designated case whose Archive folder is below test root `392761581105`, upload a harmless image,
+3. Read back the Box façade lock and all three downstream orchestration gates. On a designated case whose Archive folder is below test root `392761581105`, upload a harmless image,
    repeat the exact key, and prove one evidence row/Blob/Archive file.
 4. Read back the image check, registration-visible result, status-recompute generation, audit/owner
    record and case attachment. A pending dependency must remain pending in the tool result.
-5. Prove an unsafe type and a mixed batch, and confirm no Outlook change and no Box write outside the
-   test root.
+5. Prove an unsafe type, a mixed batch, an image containing adversarial instruction text, and
+   unset/wrong/out-of-root scope refusals. Confirm no Outlook change and no Box write outside the test root.
+6. Run the lifecycle with a standard MCP client as well as the sample watcher: initialize, initialized
+   notification, tools/list, lookup and upload. Preserve the exact HTTP/protocol evidence.

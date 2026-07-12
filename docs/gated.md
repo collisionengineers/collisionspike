@@ -998,7 +998,17 @@ and gates; it does not flip a live gate or create an app-registration.
    `MCP_IMAGE_INGEST_BOX_ROOT_ID=392761581105`. The existing `BOX_FOLDER_ROOT_ID` must independently
    remain the same test root. Contract and proof steps:
    [mcp-image-ingestion.md](./architecture/mcp-image-ingestion.md). Do not flip the new gate until the
-   dedicated role assignment has been read back.
+   dedicated role assignment has been read back. The dedicated service principal must carry
+   **exactly** `CollisionSpike.ImageIngest` (no staff, Superuser or general-Agent role). Deploy the
+   Box façade and orchestration changes as well as the API; configure/read back `BOX_FN_URL` + the
+   KV-referenced `BOX_FN_KEY` on the API; and read back
+   `BOX_ALLOWED_ROOT_ID=392761581105` on the Box Function. Before the MCP gate is enabled, also prove
+   `IMAGE_ROLE_CLASSIFY_ENABLED=true`, `BOX_API_ENABLED=true` and
+   `BOX_FOLDER_AT_INTAKE_ENABLED=true` on `cespk-orch-dev`. The façade must successfully attest the
+   designated case folder under the test root; unset, wrong-root and out-of-root checks must all
+   refuse. Finally run initialize→initialized→tools/list→lookup→upload using a standard MCP client,
+   not only a raw HTTP probe. Until those reads and the end-to-end evidence are recorded, TKT-154 is
+   code-complete but not live or verified.
 
 **✅ Vision family — FLIPPED LIVE 2026-07-08 (was "deliberately deferred"):** on your instruction and with
 your **DPIA + `gpt-5` GlobalStandard processing/data-residency-posture sign-off confirmed 2026-07-08** (recorded in
