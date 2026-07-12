@@ -262,6 +262,7 @@ export type MissingItemKind =
   | 'required_field'
   | 'image_rule'
   | 'inspection_address'
+  | 'source_evidence'
   | 'conflict';
 
 export interface MissingItem {

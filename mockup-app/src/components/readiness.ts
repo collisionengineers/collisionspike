@@ -10,7 +10,7 @@ export interface ChecklistItem {
   label: string;
   ok: boolean;
   /** Category, for grouping/iconography. */
-  group: 'fields' | 'images' | 'address' | 'conflicts';
+  group: 'fields' | 'images' | 'address' | 'conflicts' | 'source';
   /** Optional detail shown when not ok. */
   detail?: string;
 }
@@ -42,7 +42,9 @@ export function computeReadiness(c: Case): ReadinessResult {
             ? 'image_rule'
             : i.group === 'address'
               ? 'inspection_address'
-              : 'conflict',
+              : i.group === 'source'
+                ? 'source_evidence'
+                : 'conflict',
       label: i.detail ?? i.label,
     }));
 

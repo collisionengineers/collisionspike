@@ -580,6 +580,7 @@ function caseStageKey(status: CaseStatus): PipelineStageKey {
    item, the EvaFieldKey to focus. Keeps the deep-link the ONE blocker UI. */
 function checklistTarget(item: ChecklistItem, c: Case): { tab: TabName; fieldKey?: EvaFieldKey } {
   if (item.group === 'images') return { tab: 'evidence' };
+  if (item.group === 'source') return { tab: 'evidence' };
   if (item.group === 'address') return { tab: 'address' };
   if (item.group === 'conflicts') {
     const conflict = EVA_FIELD_ORDER.find((d) => c.evaFields[d.key].reviewState === 'conflict');
