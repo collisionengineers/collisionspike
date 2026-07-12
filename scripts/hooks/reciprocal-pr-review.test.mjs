@@ -260,6 +260,34 @@ test('compound, web, interactive, alias, path-qualified, API, GraphQL and MCP by
     'Select-String -Pattern x -InputObject (gh pr create --fill)',
     'Write-Output (gh pr create --fill)',
     'echo (gh pr create --fill)',
+    'GH=gh; $GH pr create --fill',
+    'GH=gh; P=pr; $GH $P create --fill',
+    '$GH $PR create --fill',
+    "$GH='gh'; $P='pr'; & $GH $P create --fill",
+    '%GH% %PR% merge 42 --squash',
+    'G=g; H=h; P=p; R=r; $G$H $P$R create --fill',
+    'TOOL=gh; $TOOL $SUBCOMMAND merge 42 --squash',
+    'gh pr $ACTION --fill',
+    'C=reate; gh pr c$C --fill',
+    'A=mer; B=ge; gh pr $A$B 42 --squash',
+    "$C='reate'; & gh pr \"c$C\" --fill",
+    'cmd /V:ON /C "set C=reate& gh pr c!C! --fill"',
+    'G=g; H=h; P=p; R=r; A=cre; B=ate; $G$H $P$R $A$B --fill',
+    'cmd /V:ON /C "set G=g&set H=h&set P=p&set R=r&set A=cre&set B=ate&!G!!H! !P!!R! !A!!B! --fill"',
+    "[string]$G='g'; [string]$H='h'; [string]$P='p'; [string]$R='r'; & \"$G$H\" \"$P$R\" create --fill",
+    'Set-Variable G g; Set-Variable H h; Set-Variable P p; Set-Variable R r; & "$G$H" "$P$R" create --fill',
+    '$GH $PR $X',
+    '%GH% %PR% %X%',
+    'cmd /V:ON /C \'set "G=g"&set "H=h"&set "P=p"&set "R=r"&set "A=cre"&set "B=ate"&!G!!H! !P!!R! !A!!B! --fill\'',
+    "bash -lc '$GH $PR $ACTION --fill'",
+    "sh -c '$X $Y $Z'",
+    'cmd /C "%X% %Y% %Z%"',
+    'cmd /V:ON /C "!X! !Y! !Z!"',
+    "powershell -Command '& $X $Y $Z'",
+    "pwsh -Command '& $GH $PR $ACTION --fill'",
+    "bash -c 'g''h p''r cr''eate --fill'",
+    "g=G; p=P; c=CREATE; \"${g,,}h\" \"${p,,}r\" \"${c,,}\" --fill",
+    "& ('g'+'h') ('p'+'r') ('cre'+'ate') --fill",
     '& "C:\\Program Files\\GitHub CLI\\gh.exe" pr create --fill',
     '& "C:\\Program Files\\GitHub CLI\\gh.exe" pr merge 42 --squash',
     'gh api -X POST repos/acme/repo/pulls -f title=x',
@@ -302,6 +330,26 @@ test('compound, web, interactive, alias, path-qualified, API, GraphQL and MCP by
   assert.equal(classifyHookEvent({ tool_name: 'mcp__codex_apps__github_enable_auto_merge', tool_input: {} }).action, 'deny');
   assert.deepEqual(classifyHookEvent(shellEvent('rg "gh pr create" docs'), 'codex'), { action: 'pass' });
   assert.deepEqual(classifyHookEvent(shellEvent('git commit -m "document gh pr merge"'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('echo $GH $PR create'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('npm test && echo ready'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('git merge $BRANCH'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('BRANCH=main; git merge $BRANCH'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent("npm test && echo 'PR ready'"), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('npm run create && echo pr'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent("git status && echo 'pull request ready'"), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('$TOOL merge branch'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('TOOL=git; $TOOL merge $BRANCH'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent("npm test && echo '$GH $PR create'"), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent("npm test && rg '$GH $PR create' docs"), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('python tool.py G=g H=h P=p R=r A=cre B=ate $G$H $P$R $A$B --fill'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('node tool.mjs MODE=merge TARGET=pr $MODE $TARGET'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('G=g H=h P=p R=r A=cre B=ate python tool.py $G$H $P$R $A$B --fill'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent("bash -lc 'echo gh pr create'"), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('& $PYTHON $SCRIPT $FIXTURE'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('$runner $script $target'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('& $tool create --title release --body notes'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('$X $Y $Z'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('!X! !Y! !Z!'), 'codex'), { action: 'pass' });
   assert.deepEqual(classifyHookEvent(shellEvent('gh issue view 42'), 'codex'), { action: 'pass' });
   assert.deepEqual(classifyHookEvent(shellEvent('gh pr view 42'), 'codex'), { action: 'pass' });
   assert.deepEqual(classifyHookEvent(shellEvent('gh --version'), 'codex'), { action: 'pass' });

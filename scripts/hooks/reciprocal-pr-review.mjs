@@ -166,13 +166,111 @@ function decodeSimpleAnsiCString(body) {
     .replace(/\\([abefnrtv\\'"])/gu, (_match, value) => simple[value] ?? value);
 }
 
+function collapsePowerShellLiteralConcatenations(command) {
+  let result = command;
+  for (let pass = 0; pass < 8; pass += 1) {
+    const next = result
+      .replace(/(['"])([^'"\r\n]*)\1\s*\+\s*(['"])([^'"\r\n]*)\3/gu,
+        (_match, quote, left, _rightQuote, right) => `${quote}${left}${right}${quote}`)
+      .replace(/(['"])([^'"\r\n]*)\1(['"])([^'"\r\n]*)\3/gu,
+        (_match, quote, left, _rightQuote, right) => `${quote}${left}${right}${quote}`);
+    if (next === result) break;
+    result = next;
+  }
+  return result.replace(/\(\s*(['"])([a-z0-9 ._\/-]+)\1\s*\)/giu, '$2');
+}
+
 function collapseSimpleShellConcatenations(command, variableReplacement = '') {
-  return command
+  return collapsePowerShellLiteralConcatenations(command)
     .replace(/\$'((?:\\.|[^'])*)'/gu, (_match, body) => decodeSimpleAnsiCString(body))
     .replace(/\$\(\s*printf\s+(?:(?:['"]?%s['"]?)\s+)?(['"]?)([a-z]+)\1\s*\)/giu, '$2')
     .replace(/\$\{[a-z_][a-z0-9_]*(?::-|-)\s*([^{}]*)\}/giu, '$1')
     .replace(/\$\{[^{}]*\}/gu, variableReplacement)
     .replace(/\$[a-z_][a-z0-9_]*/giu, variableReplacement);
+}
+
+function collapseSimpleAssignedVariables(command) {
+  const assignments = new Map();
+  const assignmentCommand = collapsePowerShellLiteralConcatenations(command);
+  const leadingAssignmentPattern = /^(?:export\s+)?(?:\[[^\]\r\n]+\]\s*)?(?:\$(?:env:)?|)([a-z_][a-z0-9_]*)\s*=\s*(?:"([^"\r\n;&|]*)"|'([^'\r\n;&|]*)'|([a-z0-9_-]+))(?:\s+|$)/iu;
+  const segments = splitSimpleShellSegments(assignmentCommand);
+  for (const segment of segments) {
+    let remaining = segment.trim();
+    const segmentAssignments = [];
+    while (remaining) {
+      const match = remaining.match(leadingAssignmentPattern);
+      if (!match) break;
+      const value = match[2] ?? match[3] ?? match[4] ?? '';
+      if (/^[a-z0-9_-]*$/iu.test(value)) segmentAssignments.push([match[1].toLowerCase(), value]);
+      remaining = remaining.slice(match[0].length).trimStart();
+    }
+    if (!remaining) for (const [name, value] of segmentAssignments) assignments.set(name, value);
+  }
+  const cmdSetPattern = /\bset\s+(?:"([a-z_][a-z0-9_]*)=([^"\r\n;&|]*)"|([a-z_][a-z0-9_]*)=([^\s'";&|]+))/giu;
+  const cmdSetSources = /^\s*cmd(?:\.exe)?\b/iu.test(assignmentCommand)
+    ? [assignmentCommand]
+    : segments.filter((segment) => /^\s*set\s+/iu.test(segment));
+  for (const source of cmdSetSources) {
+    for (const match of source.matchAll(cmdSetPattern)) {
+      const name = match[1] ?? match[3];
+      const value = (match[2] ?? match[4] ?? '').replace(/\^([a-z0-9])/giu, '$1');
+      if (/^[a-z0-9_-]*$/iu.test(value)) assignments.set(name.toLowerCase(), value);
+    }
+  }
+  const setVariablePattern = /\bset-variable\s+(?:-name\s+)?([a-z_][a-z0-9_]*)\s+(?:-value\s+)?(?:"([^"\r\n;&|]*)"|'([^'\r\n;&|]*)'|([a-z0-9_-]+))/giu;
+  for (const segment of segments.filter((value) => /^\s*set-variable\s+/iu.test(value))) {
+    for (const match of segment.matchAll(setVariablePattern)) {
+      const value = match[2] ?? match[3] ?? match[4] ?? '';
+      if (/^[a-z0-9_-]*$/iu.test(value)) assignments.set(match[1].toLowerCase(), value);
+    }
+  }
+  let result = command;
+  for (let pass = 0; pass < 2; pass += 1) {
+    for (const [name, value] of assignments) {
+      result = result
+        .replace(new RegExp(`\\$\\{${name}\\}`, 'giu'), value)
+        .replace(new RegExp(`\\$\\{${name},,\\}`, 'giu'), value.toLowerCase())
+        .replace(new RegExp(`\\$\\{${name}\\^\\^\\}`, 'giu'), value.toUpperCase())
+        .replace(new RegExp(`\\$env:${name}\\b`, 'giu'), value)
+        .replace(new RegExp(`\\$${name}\\b`, 'giu'), value)
+        .replace(new RegExp(`%${name}%`, 'giu'), value)
+        .replace(new RegExp(`!${name}!`, 'giu'), value);
+    }
+  }
+  return result;
+}
+
+function splitSimpleShellSegments(command) {
+  const segments = [];
+  let current = '';
+  let quote = null;
+  let escaped = false;
+  for (const character of command) {
+    if (escaped) {
+      current += character;
+      escaped = false;
+      continue;
+    }
+    if (quote) {
+      current += character;
+      if (character === '\\' && quote === '"') escaped = true;
+      else if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      current += character;
+      continue;
+    }
+    if (';&|\r\n'.includes(character)) {
+      if (current.trim()) segments.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += character;
+  }
+  if (current.trim()) segments.push(current.trim());
+  return segments;
 }
 
 function flagPresent(tokens, ...names) {
@@ -181,6 +279,73 @@ function flagPresent(tokens, ...names) {
 
 function exactFlagPresent(tokens, ...names) {
   return tokens.some((token) => names.includes(token));
+}
+
+function isLiteralInspectionCommand(parsed) {
+  const executableBase = path.basename(String(parsed.tokens[0] || '')).toLowerCase();
+  const unsafeRgPreprocessor = /^(?:rg|rg\.exe|ripgrep)$/u.test(executableBase)
+    && flagPresent(parsed.tokens, '--pre');
+  const gitCommitMessage = executableBase === 'git'
+    && parsed.tokens[1]?.toLowerCase() === 'commit'
+    && flagPresent(parsed.tokens, '-m', '--message');
+  return !parsed.compound && !parsed.ambiguous
+    && ((LITERAL_INSPECTION_EXECUTABLES.has(executableBase) && !unsafeRgPreprocessor) || gitCommitMessage);
+}
+
+function inlineWrapperBody(parsed) {
+  const inlineFlags = new Set(['-c', '-lc', '--command', '-command', '/c', '/k']);
+  const encodedFlags = new Set(['-e', '-enc', '-encodedcommand']);
+  const inlineShells = new Set([
+    'bash', 'cmd', 'cmd.exe', 'powershell', 'powershell.exe', 'pwsh', 'pwsh.exe',
+    'sh', 'wsl', 'wsl.exe', 'zsh',
+  ]);
+  const inlinePrograms = new Set(['node', 'node.exe', 'py', 'py.exe', 'python', 'python.exe', 'python3', 'python3.exe']);
+  const launcherPrefixes = new Set(['command', 'env', 'exec', 'nice', 'nohup', 'sudo', 'timeout', 'winpty']);
+  const firstExecutable = path.basename(String(parsed.tokens[0] || '')).toLowerCase();
+  if (!inlineShells.has(firstExecutable) && !inlinePrograms.has(firstExecutable) && !launcherPrefixes.has(firstExecutable)) return null;
+  const runtimeIndex = parsed.tokens.findIndex((token) => {
+    const executable = path.basename(String(token)).toLowerCase();
+    return inlineShells.has(executable) || inlinePrograms.has(executable);
+  });
+  if (runtimeIndex < 0) return null;
+  const runtime = path.basename(String(parsed.tokens[runtimeIndex])).toLowerCase();
+  if (inlinePrograms.has(runtime)) {
+    const evalFlags = /^(?:node|node\.exe)$/u.test(runtime) ? new Set(['-e', '--eval']) : new Set(['-c']);
+    const evalIndex = parsed.tokens.findIndex((token, index) => index > runtimeIndex && evalFlags.has(token.toLowerCase()));
+    if (evalIndex < 0 || evalIndex === parsed.tokens.length - 1) return null;
+    return { body: parsed.tokens.slice(evalIndex + 1).join(' '), program: true };
+  }
+  const encodedIndex = parsed.tokens.findIndex((token, index) => index > runtimeIndex && encodedFlags.has(token.toLowerCase()));
+  if (/^(?:powershell|powershell\.exe|pwsh|pwsh\.exe)$/u.test(runtime) && encodedIndex >= 0) {
+    if (encodedIndex === parsed.tokens.length - 1) return { invalid: true };
+    try {
+      const decoded = Buffer.from(parsed.tokens[encodedIndex + 1], 'base64').toString('utf16le');
+      if (!decoded.trim() || decoded.includes('\uFFFD')) return { invalid: true };
+      return { body: decoded };
+    } catch {
+      return { invalid: true };
+    }
+  }
+  const flagIndex = parsed.tokens.findIndex((token, index) => index > runtimeIndex
+    && (inlineFlags.has(token.toLowerCase()) || /^-[a-z]*c[a-z]*$/iu.test(token)));
+  if (flagIndex < 0 || flagIndex === parsed.tokens.length - 1) return null;
+  return { body: parsed.tokens.slice(flagIndex + 1).join(' ') };
+}
+
+function looksLikeOpaqueDynamicInvocation(command) {
+  const variablePattern = /\$(?:\{)?(?:env:)?[a-z_][a-z0-9_]*|%[a-z_][a-z0-9_]*%|![a-z_][a-z0-9_]*!/giu;
+  const variableCount = command.match(variablePattern)?.length ?? 0;
+  const dynamicExecutable = /^(?:[(!]\s*)?(?:&\s*)?(?:\$(?:\{)?(?:env:)?[a-z_][a-z0-9_]*|%[a-z_][a-z0-9_]*%|![a-z_][a-z0-9_]*!)/iu.test(command.trim());
+  return dynamicExecutable && variableCount >= 3;
+}
+
+function looksLikeInlineProgramPullRequest(command) {
+  const lower = command.toLowerCase();
+  const executionPrimitive = /\b(?:child_process|exec|execfile|popen|spawn|spawnsync|subprocess|system)\b/u.test(lower);
+  const gh = /(?:^|[^a-z0-9])gh(?:\.exe)?(?:[^a-z0-9]|$)/u.test(lower);
+  const pr = /(?:^|[^a-z0-9])pr(?:[^a-z0-9]|$)/u.test(lower);
+  const action = /(?:^|[^a-z0-9])(?:create|merge|new|ready)(?:[^a-z0-9]|$)/u.test(lower);
+  return executionPrimitive && gh && pr && action;
 }
 
 function normalizedToolName(value) {
@@ -239,6 +404,28 @@ function ghTopLevelCommand(tokens) {
   return '';
 }
 
+function looksLikeDynamicPullRequestCommand(command, parsed) {
+  const semanticCommand = splitSimpleShellSegments(command)
+    .filter((segment) => !isLiteralInspectionCommand(tokenize(segment)))
+    .join('; ')
+    .replace(/'[^'\r\n]*'/gu, '');
+  if (!semanticCommand.trim()) return false;
+  const variableReference = /\$(?:\{|\(|[a-z_])|%[a-z_][a-z0-9_]*%|![a-z_][a-z0-9_]*!/iu;
+  const dynamicShell = parsed.ambiguous || variableReference.test(semanticCommand);
+  if (!dynamicShell) return false;
+  const pullRequestIdentity = /(?:\b(?:gh|github|pr|pull[-_\s]*request)\b|\$(?:\{)?(?:env:)?(?:gh|github|pr|pull_?request)\b|%(?:gh|github|pr|pull_?request)%)/iu.test(semanticCommand);
+  const guardedAction = /\b(?:create|new|merge|ready)\b/iu.test(semanticCommand);
+  const guardedFlag = /--(?:fill|fill-first|fill-verbose|draft|title|body|body-file|squash|rebase|merge|match-head-commit)\b/iu.test(semanticCommand);
+  const dynamicActionName = /(?:\$(?:\{)?(?:env:)?(?:action|verb|operation|op|subcommand)|%(?:action|verb|operation|op|subcommand)%|!(?:action|verb|operation|op|subcommand)!)/iu.test(semanticCommand);
+  const dynamicExecutable = /(?:^|[;&|]\s*)(?:[(!]\s*)?(?:&\s*)?(?:\$(?:\{)?(?:env:)?[a-z_][a-z0-9_]*|%[a-z_][a-z0-9_]*%|![a-z_][a-z0-9_]*!)/iu.test(semanticCommand);
+  const dynamicGhPrAction = /\bgh(?:\.exe)?\s+pr\s+["']?[^\s;&|"']*(?:\$(?:\{)?(?:env:)?[a-z_][a-z0-9_]*|%[a-z_][a-z0-9_]*%|![a-z_][a-z0-9_]*!)/iu.test(semanticCommand);
+  const dynamicPrWord = /(?:^|[;&|]\s*)gh(?:\.exe)?\s+(?:\$(?:\{)?(?:env:)?[a-z_][a-z0-9_]*|%[a-z_][a-z0-9_]*%|![a-z_][a-z0-9_]*!)\s+/iu.test(semanticCommand);
+  const dynamicPrTriplet = /(?:(?:\$(?:\{)?(?:env:)?gh|%gh%|!gh!)\s+(?:pr|\$(?:\{)?(?:env:)?pr|%pr%|!pr!)|gh(?:\.exe)?\s+(?:\$(?:\{)?(?:env:)?pr|%pr%|!pr!))\s+(?:\$(?:\{)?(?:env:)?[a-z_][a-z0-9_]*|%[a-z_][a-z0-9_]*%|![a-z_][a-z0-9_]*!)/iu.test(semanticCommand);
+  if (dynamicGhPrAction || dynamicPrWord || dynamicPrTriplet) return true;
+  const mutationSignal = guardedAction || guardedFlag || dynamicActionName;
+  return mutationSignal && dynamicExecutable && pullRequestIdentity;
+}
+
 export function classifyHookEvent(event, origin = 'codex') {
   const toolName = String(event?.tool_name || event?.toolName || '');
   const normalized = normalizedToolName(toolName);
@@ -259,7 +446,54 @@ export function classifyHookEvent(event, origin = 'codex') {
   const command = String(event?.tool_input?.command ?? event?.toolInput?.command ?? '');
   if (!command.trim()) return { action: 'pass' };
   const parsed = tokenize(command);
+  const inlineWrapper = inlineWrapperBody(parsed);
+  if (inlineWrapper?.invalid) {
+    return { action: 'deny', reason: 'Encoded inline shell commands must decode to an inspectable command.' };
+  }
+  if (inlineWrapper?.body) {
+    const wrapperBody = inlineWrapper.body;
+    if (inlineWrapper.program) {
+      return looksLikeInlineProgramPullRequest(wrapperBody)
+        ? { action: 'deny', reason: 'Inline program code cannot launch pull-request create, ready, or merge operations.' }
+        : { action: 'pass' };
+    }
+    const nested = classifyHookEvent({
+      hook_event_name: 'PreToolUse',
+      tool_name: toolName,
+      tool_input: { command: wrapperBody },
+    }, origin);
+    if (nested.action !== 'pass') {
+      return { action: 'deny', reason: 'Inline shell bodies cannot conceal pull-request create, ready, or merge operations.' };
+    }
+    if (looksLikeOpaqueDynamicInvocation(wrapperBody)) {
+      return { action: 'deny', reason: 'Opaque dynamic commands cannot be launched through an inline shell body.' };
+    }
+    return { action: 'pass' };
+  }
   const posixCollapsedCommand = collapsePosixBackslashEscapes(command);
+  const assignedCollapsedCommand = collapseSimpleAssignedVariables(posixCollapsedCommand);
+  const assignedCandidates = new Set([
+    assignedCollapsedCommand,
+    collapseSimpleShellConcatenations(assignedCollapsedCommand),
+    collapseSimpleShellConcatenations(assignedCollapsedCommand, ' '),
+  ]);
+  for (const candidate of assignedCandidates) {
+    if (candidate === command) continue;
+    for (const segment of splitSimpleShellSegments(candidate)) {
+      const segmentParsed = tokenize(segment);
+      if (isLiteralInspectionCommand(segmentParsed)) continue;
+      const segmentGuardedIndex = segmentParsed.tokens.findIndex((token, index) => /^(?:gh|gh\.exe)$/iu.test(path.basename(token))
+        && segmentParsed.tokens[index + 1]?.toLowerCase() === 'pr'
+        && /^(?:create|new|merge|ready)$/u.test(segmentParsed.tokens[index + 2]?.toLowerCase() || ''));
+      const wrapperContainsGuarded = COMMAND_LAUNCHER_EXECUTABLES.has(path.basename(String(segmentParsed.tokens[0] || '')).toLowerCase())
+        && /\bgh(?:\.exe)?\s+pr\s+(?:create|new|merge|ready)\b/iu.test(segment);
+      if (commandKind(segmentParsed.tokens) || segmentGuardedIndex >= 0 || wrapperContainsGuarded
+          || looksLikeDynamicPullRequestCommand(segment, segmentParsed)
+          || looksLikePullRequestApiMutation(segmentParsed.tokens, segment)) {
+        return { action: 'deny', reason: 'Shell-obfuscated GitHub pull-request commands are refused; use the canonical standalone gh command.' };
+      }
+    }
+  }
   const collapsedCandidates = new Set([
     posixCollapsedCommand,
     collapseSimpleShellConcatenations(posixCollapsedCommand),
@@ -309,13 +543,10 @@ export function classifyHookEvent(event, origin = 'codex') {
     }
     const prefixedByEnvironmentAssignment = guardedSequenceIndex > 0
       && parsed.tokens.slice(0, guardedSequenceIndex).some((token) => /^[a-z_][a-z0-9_]*=/iu.test(token));
-    const unsafeRgPreprocessor = /^(?:rg|rg\.exe|ripgrep)$/u.test(executableBase)
-      && flagPresent(parsed.tokens, '--pre');
-    const gitCommitMessage = executableBase === 'git'
-      && parsed.tokens[1]?.toLowerCase() === 'commit'
-      && flagPresent(parsed.tokens, '-m', '--message');
-    const literalInspection = !parsed.compound && !parsed.ambiguous
-      && ((LITERAL_INSPECTION_EXECUTABLES.has(executableBase) && !unsafeRgPreprocessor) || gitCommitMessage);
+    const literalInspection = isLiteralInspectionCommand(parsed);
+    if (looksLikeDynamicPullRequestCommand(command, parsed) && !literalInspection) {
+      return { action: 'deny', reason: 'Dynamically constructed pull-request create, ready, and merge commands are refused; invoke canonical gh literally.' };
+    }
     if (rawGuardedPrCommand && !literalInspection) {
       return { action: 'deny', reason: 'Pull-request create, ready, and merge commands must invoke canonical gh directly; executable wrappers and shell prefixes are refused.' };
     }
