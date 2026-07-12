@@ -20134,6 +20134,12 @@ function ifMatch(req) {
   return raw == null ? null : raw.replace(/"/g, "").trim();
 }
 
+// api/src/lib/uuid.ts
+var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isUuid(value) {
+  return typeof value === "string" && UUID_RE.test(value);
+}
+
 // api/src/lib/functions-client.ts
 var FN_STAGE_TIMEOUT_MS = 3e4;
 async function callFn(baseUrl, fnKey, method, path, body2, opts) {
@@ -20644,9 +20650,12 @@ async function upsertManualProvenance(caseId, fieldName, value) {
 import_functions2.app.http("caseById", {
   methods: ["GET"],
   authLevel: "anonymous",
-  route: "cases/{id}",
+  // Keep the literal `/cases/next-po` allocator outside the parameter route even if host
+  // registration order changes.
+  route: "cases/{id:guid}",
   handler: withRole("CollisionSpike.User", async (req) => {
     const id = req.params.id;
+    if (!isUuid(id)) return { status: 400, jsonBody: { error: "invalid id" } };
     const snapshot2 = await loadCaseFullSnapshotUsing(query, id, /* @__PURE__ */ new Date());
     if (!snapshot2) return { status: 404, jsonBody: { error: "not found" } };
     return {
@@ -21983,7 +21992,7 @@ import_functions3.app.http("providerByCode", {
     return { status: 200, jsonBody: rowToProvider(rows[0]) };
   })
 });
-var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var UUID_RE2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function normaliseDomains(input) {
   if (!Array.isArray(input)) return void 0;
   const seen = /* @__PURE__ */ new Set();
@@ -22022,7 +22031,7 @@ import_functions3.app.http("updateProvider", {
     if (modeCode === void 0 && domains === void 0) {
       return { status: 400, jsonBody: { error: "nothing to update" } };
     }
-    const where2 = UUID_RE.test(idOrCode) ? "id = $1" : "principal_code = $1";
+    const where2 = UUID_RE2.test(idOrCode) ? "id = $1" : "principal_code = $1";
     const existing = await query(`SELECT * FROM work_provider WHERE ${where2} LIMIT 1`, [idOrCode]);
     if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
     const beforeRow = existing[0];
@@ -22621,6 +22630,7 @@ import_functions7.app.http("setHoldNewCasesDefault", {
 });
 
 // api/src/functions/inbound.ts
+var import_node_crypto7 = require("node:crypto");
 var import_functions8 = require("@azure/functions");
 
 // api/src/lib/outlook-queue.ts
@@ -22786,27 +22796,44 @@ import_functions8.app.http("inboundEmailCounts", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "inbound/counts",
-  handler: withRole("CollisionSpike.User", async () => {
+  handler: withRole("CollisionSpike.User", async (_req, ctx) => {
     try {
       const rows = await query("SELECT category_code, triage_state FROM inbound_email");
       const counts = tallyActiveInboundCounts(rows);
       return { status: 200, jsonBody: counts };
-    } catch {
-      return { status: 200, jsonBody: { ...INBOUND_COUNTS_ZERO } };
+    } catch (error) {
+      const correlationId = ctx.invocationId || (0, import_node_crypto7.randomUUID)();
+      ctx.error(
+        JSON.stringify({
+          evt: "inboundCountsFailed",
+          correlationId,
+          errorName: error instanceof Error ? error.name : "UnknownError",
+          detail: error instanceof Error ? error.message : String(error)
+        })
+      );
+      return {
+        status: 500,
+        jsonBody: { error: "internal", correlationId },
+        headers: { "x-correlation-id": correlationId }
+      };
     }
   })
 });
 import_functions8.app.http("inboundEmailById", {
   methods: ["GET"],
   authLevel: "anonymous",
-  route: "inbound/{id}",
+  // The guid constraint prevents this parameter route from ever consuming the literal
+  // `/inbound/counts` route in the Functions host.
+  route: "inbound/{id:guid}",
   handler: withRole("CollisionSpike.User", async (req) => {
+    const id = req.params.id;
+    if (!isUuid(id)) return { status: 400, jsonBody: { error: "invalid id" } };
     const rows = await query(
       `SELECT inbound_email.*, c.case_po AS case_po
          FROM inbound_email
          LEFT JOIN case_ c ON c.id = inbound_email.case_id
         WHERE inbound_email.id = $1`,
-      [req.params.id]
+      [id]
     );
     const row = rows[0];
     if (!row) return { status: 404, jsonBody: { error: "not found" } };
@@ -23526,7 +23553,7 @@ function createHttpHeaders(rawHeaders) {
 }
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/util/uuidUtils.js
-function randomUUID2() {
+function randomUUID3() {
   return crypto.randomUUID();
 }
 
@@ -23566,7 +23593,7 @@ var PipelineRequestImpl = class {
     this.abortSignal = options.abortSignal;
     this.onUploadProgress = options.onUploadProgress;
     this.onDownloadProgress = options.onDownloadProgress;
-    this.requestId = options.requestId || randomUUID2();
+    this.requestId = options.requestId || randomUUID3();
     this.allowInsecureConnection = options.allowInsecureConnection ?? false;
     this.enableBrowserStreams = options.enableBrowserStreams ?? false;
     this.requestOverrides = options.requestOverrides;
@@ -24935,7 +24962,7 @@ async function concat2(sources) {
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/policies/multipartPolicy.js
 function generateBoundary() {
-  return `----AzSDKFormBoundary${randomUUID2()}`;
+  return `----AzSDKFormBoundary${randomUUID3()}`;
 }
 function encodeHeaders(headers) {
   let result = "";
@@ -25247,8 +25274,8 @@ function getErrorMessage(e) {
 function isError2(e) {
   return isError(e);
 }
-function randomUUID3() {
-  return randomUUID2();
+function randomUUID4() {
+  return randomUUID3();
 }
 var isNodeLike2 = isNodeLike;
 function uint8ArrayToString2(bytes, format) {
@@ -27573,7 +27600,7 @@ var Constants = {
     AUTHORIZATION: "authorization"
   }
 };
-function isUuid(text) {
+function isUuid2(text) {
   return /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/.test(text);
 }
 var authorizeRequestOnTenantChallenge = async (challengeOptions) => {
@@ -27602,7 +27629,7 @@ function extractTenantId(challengeInfo) {
   const parsedAuthUri = new URL(challengeInfo.authorization_uri);
   const pathSegments = parsedAuthUri.pathname.split("/");
   const tenantId = pathSegments[1];
-  if (tenantId && isUuid(tenantId)) {
+  if (tenantId && isUuid2(tenantId)) {
     return tenantId;
   }
   return void 0;
@@ -37264,7 +37291,7 @@ var AnonymousCredential = class extends Credential {
 };
 
 // node_modules/@azure/storage-common/dist/esm/credentials/StorageSharedKeyCredential.js
-var import_node_crypto7 = require("node:crypto");
+var import_node_crypto8 = require("node:crypto");
 
 // node_modules/@azure/storage-common/dist/esm/utils/constants.js
 var URLConstants = {
@@ -37965,7 +37992,7 @@ var StorageSharedKeyCredential = class extends Credential {
    * @param stringToSign -
    */
   computeHMACSHA256(stringToSign) {
-    return (0, import_node_crypto7.createHmac)("sha256", this.accountKey).update(stringToSign, "utf8").digest("base64");
+    return (0, import_node_crypto8.createHmac)("sha256", this.accountKey).update(stringToSign, "utf8").digest("base64");
   }
 };
 
@@ -38331,7 +38358,7 @@ function storageRetryPolicy(options = {}) {
 }
 
 // node_modules/@azure/storage-common/dist/esm/policies/StorageSharedKeyCredentialPolicyV2.js
-var import_node_crypto8 = require("node:crypto");
+var import_node_crypto9 = require("node:crypto");
 var storageSharedKeyCredentialPolicyName = "storageSharedKeyCredentialPolicy";
 function storageSharedKeyCredentialPolicy(options) {
   function signRequest(request) {
@@ -38353,7 +38380,7 @@ function storageSharedKeyCredentialPolicy(options) {
       getHeaderValueToSign(request, HeaderConstants.IF_UNMODIFIED_SINCE),
       getHeaderValueToSign(request, HeaderConstants.RANGE)
     ].join("\n") + "\n" + getCanonicalizedHeadersString(request) + getCanonicalizedResourceString(request);
-    const signature = (0, import_node_crypto8.createHmac)("sha256", options.accountKey).update(stringToSign, "utf8").digest("base64");
+    const signature = (0, import_node_crypto9.createHmac)("sha256", options.accountKey).update(stringToSign, "utf8").digest("base64");
     request.headers.set(HeaderConstants.AUTHORIZATION, `SharedKey ${options.accountName}:${signature}`);
   }
   function getHeaderValueToSign(request, headerName) {
@@ -38443,7 +38470,7 @@ function storageRequestFailureDetailsParserPolicy() {
 }
 
 // node_modules/@azure/storage-common/dist/esm/credentials/UserDelegationKeyCredential.js
-var import_node_crypto9 = require("node:crypto");
+var import_node_crypto10 = require("node:crypto");
 var UserDelegationKeyCredential = class {
   /**
    * Azure Storage account name; readonly.
@@ -38473,7 +38500,7 @@ var UserDelegationKeyCredential = class {
    * @param stringToSign -
    */
   computeHMACSHA256(stringToSign) {
-    return (0, import_node_crypto9.createHmac)("sha256", this.key).update(stringToSign, "utf8").digest("base64");
+    return (0, import_node_crypto10.createHmac)("sha256", this.key).update(stringToSign, "utf8").digest("base64");
   }
 };
 
@@ -54555,7 +54582,7 @@ var BlobLeaseClient = class {
       this._containerOrBlobOperation = clientContext.blob;
     }
     if (!leaseId2) {
-      leaseId2 = randomUUID3();
+      leaseId2 = randomUUID4();
     }
     this._leaseId = leaseId2;
   }
@@ -58760,7 +58787,7 @@ var BlockBlobClient = class _BlockBlobClient extends BlobClient {
         throw new RangeError(`The buffer's size is too big or the BlockSize is too small;the number of blocks must be <= ${BLOCK_BLOB_MAX_BLOCKS}`);
       }
       const blockList = [];
-      const blockIDPrefix = randomUUID3();
+      const blockIDPrefix = randomUUID4();
       let transferProgress = 0;
       const batch = new Batch(options.concurrency);
       for (let i = 0; i < numBlocks; i++) {
@@ -58842,7 +58869,7 @@ var BlockBlobClient = class _BlockBlobClient extends BlobClient {
     }
     return tracingClient.withSpan("BlockBlobClient-uploadStream", options, async (updatedOptions) => {
       let blockNum = 0;
-      const blockIDPrefix = randomUUID3();
+      const blockIDPrefix = randomUUID4();
       let transferProgress = 0;
       const blockList = [];
       const scheduler = new BufferScheduler(
@@ -59902,7 +59929,7 @@ var InnerBatchRequest = class {
   constructor() {
     this.operationCount = 0;
     this.body = "";
-    const tempGuid = randomUUID3();
+    const tempGuid = randomUUID4();
     this.boundary = `batch_${tempGuid}`;
     this.subRequestPrefix = `--${this.boundary}${HTTP_LINE_ENDING}${HeaderConstants2.CONTENT_TYPE}: application/http${HTTP_LINE_ENDING}${HeaderConstants2.CONTENT_TRANSFER_ENCODING}: binary`;
     this.multipartContentType = `multipart/mixed; boundary=${this.boundary}`;
@@ -64476,7 +64503,7 @@ import_functions16.app.http("internalBoxFileRequestOutboxDrain", {
 
 // api/src/functions/evidence-upload.ts
 var import_functions17 = require("@azure/functions");
-var import_node_crypto10 = require("node:crypto");
+var import_node_crypto11 = require("node:crypto");
 
 // api/src/lib/upload-validate.ts
 var MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
@@ -64523,7 +64550,7 @@ import_functions17.app.http("uploadCaseEvidence", {
       }
       try {
         const bytes = Buffer.from(await file.arrayBuffer());
-        const sha256 = (0, import_node_crypto10.createHash)("sha256").update(bytes).digest("hex");
+        const sha256 = (0, import_node_crypto11.createHash)("sha256").update(bytes).digest("hex");
         const { blobPath, size } = await uploadEvidenceBytes(caseId, file.name, bytes, file.type);
         const kindCode = check.kind === "image" ? IMAGE_KIND_CODE2 : DOCUMENT_KIND_CODE;
         const persisted = await tx(async (q) => {
@@ -66223,15 +66250,15 @@ async function persistDraft(caseId, d) {
 var import_functions21 = require("@azure/functions");
 
 // api/src/lib/api-key-auth.ts
-var import_node_crypto11 = require("node:crypto");
+var import_node_crypto12 = require("node:crypto");
 var API_KEY_PREFIX = "cspk_";
 var SECRET_RANDOM_CHARS = 32;
 var KEY_PREFIX_LEN = 12;
 function hashApiKey(secret) {
-  return (0, import_node_crypto11.createHash)("sha256").update(secret, "utf8").digest("hex");
+  return (0, import_node_crypto12.createHash)("sha256").update(secret, "utf8").digest("hex");
 }
 function generateApiKey() {
-  const random = (0, import_node_crypto11.randomBytes)(24).toString("base64url");
+  const random = (0, import_node_crypto12.randomBytes)(24).toString("base64url");
   const plaintext = `${API_KEY_PREFIX}${random}`;
   return {
     plaintext,
@@ -66255,7 +66282,7 @@ async function verifyApiKey(presented) {
   for (const row of rows) {
     if (row.revoked_at) continue;
     const stored = Buffer.from(String(row.key_hash), "hex");
-    if (stored.length === presentedHash.length && (0, import_node_crypto11.timingSafeEqual)(stored, presentedHash)) {
+    if (stored.length === presentedHash.length && (0, import_node_crypto12.timingSafeEqual)(stored, presentedHash)) {
       matched = row;
       break;
     }
@@ -66280,9 +66307,9 @@ function withApiKey(handler) {
 }
 
 // api/src/functions/provider-keys.ts
-var UUID_RE2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var UUID_RE3 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function resolveProvider(idOrCode) {
-  const where2 = UUID_RE2.test(idOrCode) ? "id = $1" : "principal_code = $1";
+  const where2 = UUID_RE3.test(idOrCode) ? "id = $1" : "principal_code = $1";
   const rows = await query(`SELECT * FROM work_provider WHERE ${where2} LIMIT 1`, [idOrCode]);
   return rows[0] ?? null;
 }
@@ -66362,7 +66389,7 @@ import_functions21.app.http("revokeProviderApiKey", {
     const idOrCode = (req.params.id ?? "").trim();
     const keyId = (req.params.keyId ?? "").trim();
     if (!idOrCode || !keyId) return { status: 400, jsonBody: { error: "id and keyId are required" } };
-    if (!UUID_RE2.test(keyId)) return { status: 400, jsonBody: { error: "invalid keyId" } };
+    if (!UUID_RE3.test(keyId)) return { status: 400, jsonBody: { error: "invalid keyId" } };
     const provider = await resolveProvider(idOrCode);
     if (!provider) return { status: 404, jsonBody: { error: "not found" } };
     const rows = await query(
@@ -66387,7 +66414,7 @@ import_functions21.app.http("revokeProviderApiKey", {
 
 // api/src/functions/provider-intake.ts
 var import_functions22 = require("@azure/functions");
-var import_node_crypto12 = require("node:crypto");
+var import_node_crypto13 = require("node:crypto");
 
 // api/src/lib/provider-intake-validate.ts
 var DMY = /^\d{2}\/\d{2}\/\d{4}$/;
@@ -66539,7 +66566,7 @@ async function persistEvidence(ctx, caseId, kind, att, sequenceIndex) {
   try {
     const bytes = Buffer.from(att.base64Data, "base64");
     if (bytes.length === 0) return false;
-    const sha256 = (0, import_node_crypto12.createHash)("sha256").update(bytes).digest("hex");
+    const sha256 = (0, import_node_crypto13.createHash)("sha256").update(bytes).digest("hex");
     const { blobPath, size } = await uploadEvidenceBytes(caseId, att.filename, bytes, att.contentType);
     const kindCode = evidenceKindCodec.toInt(kind) ?? (kind === "image" ? 1e8 : 100000002);
     return await tx(async (q) => {
