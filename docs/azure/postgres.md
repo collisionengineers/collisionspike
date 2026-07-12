@@ -53,3 +53,32 @@ the role/secret before rewriting SQL.
 As `cespk_app`: `/api/dashboard/*` + `/api/queues/*/cases` return 200; `DELETE FROM case_` and
 `UPDATE audit_event` are **denied**. Table count `SELECT count(*) FROM information_schema.tables WHERE
 table_schema='public'` → 36.
+
+## Inbound dashboard-count health probe
+
+`GET /api/inbound/counts` is a protected staff endpoint. A no-token request must return `401`; that
+proves only the authentication boundary. For the functional probe, reload the signed-in dashboard and
+require the request to return `200` with every `InboundCounts` key. Never convert a failed read into
+zero counts in a probe or user interface.
+
+Reconcile the four displayed values with [`.azure/verify-inbound-count-parity.sql`](../../.azure/verify-inbound-count-parity.sql)
+using the `cespk_app` policy shape (`PGOPTIONS='-c app.role=staff'`). A workstation query must use the
+transient-firewall procedure above with `trap cleanup EXIT`; after the query, read the rules back and
+require only `AllowAzureServices` to remain. Do not use an owner-only read as RLS proof.
+
+When the endpoint fails, query the Data API's own Application Insights component in its backing Log
+Analytics workspace:
+
+```kusto
+AppRequests
+| where Url has "/api/inbound/counts"
+| project TimeGenerated, Name, ResultCode, Success, OperationId
+| order by TimeGenerated desc
+```
+
+Then correlate the failing `OperationId` in `AppTraces`. If the request name is
+`inboundEmailById` and PostgreSQL reports `22P02` for UUID value `counts`, the literal route was
+captured by the parameter route. The required registration is `inbound/{id:guid}` alongside the
+literal `inbound/counts`; verify both in `az functionapp function list` before changing the query.
+For a real count-query failure, expect the `inboundCountsFailed` event with an opaque correlation id;
+technical detail stays in telemetry and must not be rendered to staff.

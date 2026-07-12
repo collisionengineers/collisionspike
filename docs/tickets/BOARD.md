@@ -170,6 +170,7 @@
 
 
 
+
 ## Now — in flight / not yet confirmed live
 
 | ID | Title | State |
@@ -181,13 +182,12 @@
 | [TKT-034](./now/TKT-034-images-received-routing/TKT-034-images-received-routing.md) | Archive unmatched images by registration and adopt the folder into the case | **REOPENED 2026-07-12:** current code creates an empty VRM folder only; implement image upload plus idempotent Case/PO folder adoption. |
 | [TKT-129](./now/TKT-129-image-based-inspection-done/TKT-129-image-based-inspection-done.md) | Simplify the inspection address or Image Based Assessment choice | **REOPENED 2026-07-12:** remove the explanatory paragraph, hide address controls for Image Based Assessment, and preserve explicit provider defaults. |
 | [TKT-130](./now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | Review contains only cases that are ready for EVA | **REOPENED 2026-07-12:** binding rule now supersedes the old `needs_review → Review` behavior; incomplete/problem cases are Not Ready unless Held. |
-| [TKT-155](./now/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) | Rebuild the dashboard around Not Ready, Review and Held | Distilled 2026-07-12 with screenshots and image-generated design exploration. |
-| [TKT-164](./now/TKT-164-inbound-counts-500/TKT-164-inbound-counts-500.md) | Restore the live inbound dashboard counts | Discovered 2026-07-12 in Chrome: authenticated endpoint returns HTTP 500 while the UI hides the failure. |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-155](./verify/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) | Rebuild the dashboard around Not Ready, Review and Held | Distilled 2026-07-12 with screenshots and image-generated design exploration. |
 | [TKT-149](./verify/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) | Require reciprocal Claude and Codex reviews on every pull request | **TESTED + PARTIAL LIVE 2026-07-12:** 48/48 guard fixtures plus the 961 app/domain tests and PR #60 prove the shared exact-head runner, draft/failure behavior and reciprocal comments; awaiting one real PR creation through each agent hook. GitHub private Free cannot require the visible status server-side. |
 | [TKT-148](./verify/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for overview-less photo sets | **REOPENED 2026-07-11:** guarantee one draft under concurrency and distinguish drafted from sent activity. |
 | [TKT-147](./verify/TKT-147-tractable-make-vin/TKT-147-tractable-make-vin.md) | Tractable layout: vehicle make (two-label rule) + VIN slot | **REOPENED 2026-07-11:** expose the extracted VIN through `/parse` without changing the EVA export. |
@@ -222,6 +222,7 @@
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-164](./done/TKT-164-inbound-counts-500/TKT-164-inbound-counts-500.md) | Restore the live inbound dashboard counts | Discovered 2026-07-12 in Chrome: authenticated endpoint returns HTTP 500 while the UI hides the failure. |
 | [TKT-091](./done/TKT-091-outlook-move-fail/TKT-091-outlook-move-fail.md) | Outlook "File to …" move fails live with a 503 from the Data API | **VERIFIED-LIVE 2026-07-10** (ticket-verifier final ruling): acceptance 4 landed at ~21:03Z — an operator-authorized "File to Inbox/Instructions" click ran the full chain in **10.5s**, independently corroborated in both App Insights components (202 → orch consumer → Graph-success-gated moved trace → 204 write-back) + DB census 1 `moved` + both audits (requested/completed). Root cause (enqueue 404 QueueNotFound) + status-code mapping (6/6) + SPA toast all previously proven. The 07-06 latched `failed` row remains re-clickable residue (optional hygiene). → done. |
 | [TKT-128](./done/TKT-128-imported-details-blank/TKT-128-imported-details-blank.md) | "Imported details — from the instruction document or email" renders blank | **VERIFIED-LIVE 2026-07-10** (ticket-verifier final ruling): the positive-path render landed — QCL26008's CaseDetail shows "Imported details · Claim no. 226095.TA" in the operator-authorized signed-in session (screenshot), on top of W7's 20 `ov_claim_number` fills since 07-09, the 07-09 empty-state live proof, and 16/16 fill tests. Wider fact set (insured/insurer/repairer/policy) = new-ticket candidate. → done. |
 | [TKT-113](./done/TKT-113-ai-usage-ledger/TKT-113-ai-usage-ledger.md) | AI usage ledger for model capacity controls | **VERIFIED-LIVE 2026-07-10** (ticket-verifier final ruling, W7 decider): the ledger **accrues organically** — one live row (2026-07-09, staff actor, surface `assistant`, gpt-5, 4 calls / 23,866 in / 3,341 out) proving the `ON CONFLICT` day-actor-surface aggregation live; RLS/grants live-verified 07-08; the `surface` separator live-populated. Classifier/vision writer wiring = a NEW-ticket follow-up (explicitly future per the DDL comment), no capacity-consumer promised. → done. |

@@ -1,7 +1,9 @@
 # Changes — TKT-155: Simplify the dashboard around Not Ready, Review and Held
 
 ## Status
-Implemented on `codex/tkt-155-dashboard`; lifecycle status is intentionally left for the dispatching orchestrator.
+Merged in PR 61 and deployed to the production Static Web App on 2026-07-12. Lifecycle status remains
+owned by the dispatching orchestrator; the remaining responsive/accessibility proof is recorded in
+`verification.md`.
 
 ## Commits
 - `f1bfcfe` — replace the dashboard cockpit with the three-queue overview, sectioned Inbox health, responsive skeleton and contract tests.
