@@ -5,6 +5,7 @@ interface Registration {
   handler: (request: HttpRequest, context: InvocationContext) => Promise<{
     status?: number;
     jsonBody?: unknown;
+    headers?: Record<string, string>;
   }>;
 }
 
@@ -34,6 +35,8 @@ vi.mock('./mcp-image-ingestion.js', () => ({
     { name: 'upload_case_images', description: 'upload', inputSchema: { type: 'object' } },
   ],
   mcpImageIngestConfigured: () => true,
+  MCP_IMAGE_INGEST_MAX_HTTP_BODY_BYTES: 42_000_000,
+  consumeImageIngestRateLimit: vi.fn(async () => true),
   executeImageIngestTool: vi.fn(async () => ({ ok: false, code: 'accepted_pending_processing' })),
 }));
 
@@ -41,9 +44,20 @@ await import('./mcp.js');
 const route = registrations.get('mcpServer')!.handler;
 const ctx = { error: vi.fn(), log: vi.fn(), warn: vi.fn() } as unknown as InvocationContext;
 
-function request(method: string, params?: Record<string, unknown>): HttpRequest {
+function request(
+  method: string,
+  params?: Record<string, unknown>,
+  options: { headers?: Record<string, string>; body?: unknown; httpMethod?: string } = {},
+): HttpRequest {
   return {
-    json: async () => ({ jsonrpc: '2.0', id: 1, method, ...(params ? { params } : {}) }),
+    method: options.httpMethod ?? 'POST',
+    headers: new Headers({
+      'Content-Type': 'application/json',
+      Accept: 'application/json, text/event-stream',
+      'MCP-Protocol-Version': '2025-06-18',
+      ...options.headers,
+    }),
+    json: async () => options.body ?? ({ jsonrpc: '2.0', id: 1, method, ...(params ? { params } : {}) }),
   } as unknown as HttpRequest;
 }
 
@@ -78,5 +92,52 @@ describe('MCP route principal isolation', () => {
       'lookup_open_case_by_registration',
       'upload_case_images',
     ]);
+  });
+
+  it('supports a standard initialize -> initialized notification -> tools/list lifecycle', async () => {
+    auth.principal = 'image_ingest_agent';
+    const initialized = await route(request('initialize', {
+      protocolVersion: '2025-06-18',
+      capabilities: {},
+      clientInfo: { name: 'standard-test-client', version: '1.0.0' },
+    }), ctx);
+    expect(initialized.status).toBe(200);
+    expect(initialized.jsonBody).toMatchObject({
+      result: { protocolVersion: '2025-06-18', capabilities: { tools: {} } },
+    });
+
+    const notification = await route(request('notifications/initialized', undefined, {
+      body: { jsonrpc: '2.0', method: 'notifications/initialized' },
+    }), ctx);
+    expect(notification.status).toBe(202);
+
+    const list = await route(request('tools/list'), ctx);
+    expect(list.status).toBe(200);
+  });
+
+  it('rejects batch writes, oversized bodies, invalid origins and unsupported versions', async () => {
+    auth.principal = 'image_ingest_agent';
+    expect((await route(request('tools/list', undefined, {
+      body: [{ jsonrpc: '2.0', id: 1, method: 'tools/list' }],
+    }), ctx)).status).toBe(400);
+    expect((await route(request('tools/list', undefined, {
+      headers: { 'Content-Length': '42000001' },
+    }), ctx)).status).toBe(413);
+    expect((await route(request('tools/list', undefined, {
+      headers: { Origin: 'https://untrusted.example' },
+    }), ctx)).status).toBe(403);
+    expect((await route(request('tools/list', undefined, {
+      headers: { 'MCP-Protocol-Version': '1999-01-01' },
+    }), ctx)).status).toBe(400);
+  });
+
+  it('requires Streamable HTTP Accept media types and rejects GET with 405', async () => {
+    auth.principal = 'readonly_staff';
+    expect((await route(request('tools/list', undefined, {
+      headers: { Accept: 'application/json' },
+    }), ctx)).status).toBe(406);
+    const get = await route(request('tools/list', undefined, { httpMethod: 'GET' }), ctx);
+    expect(get.status).toBe(405);
+    expect(get.headers).toMatchObject({ Allow: 'POST' });
   });
 });

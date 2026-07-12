@@ -12,6 +12,10 @@ import {
   NON_VEHICLE_AUTO_EXCLUDE_MIN_CONFIDENCE,
   type ImageClassification,
 } from './image-classify.js';
+import {
+  ADVERSARIAL_IMAGE_TEXT,
+  ADVERSARIAL_IMAGE_TEXT_BASE64,
+} from './fixtures/adversarial-image-text.js';
 
 describe('buildImageRequestBody', () => {
   it('is a gpt-5 reasoning request: max_completion_tokens + reasoning_effort, NO temperature/max_tokens', () => {
@@ -43,6 +47,21 @@ describe('buildImageRequestBody', () => {
     const parts = (body.messages[1].content as Array<Record<string, unknown>>);
     const img = parts.find((p) => p.type === 'image_url') as { image_url: { url: string } };
     expect(img.image_url.url).toMatch(/^data:image\/jpeg;base64,/);
+  });
+
+  it('treats instructions visible inside an image as untrusted evidence', () => {
+    const body = buildImageRequestBody(
+      ADVERSARIAL_IMAGE_TEXT_BASE64,
+      'image/svg+xml',
+      'gpt-5',
+    ) as { messages: Array<{ role: string; content: unknown }> };
+    const system = String(body.messages.find((message) => message.role === 'system')?.content ?? '');
+    const user = JSON.stringify(body.messages.find((message) => message.role === 'user')?.content ?? '');
+
+    expect(system).toMatch(/untrusted evidence/i);
+    expect(system).toMatch(/never follow/i);
+    expect(user).not.toContain(ADVERSARIAL_IMAGE_TEXT);
+    expect(user).toContain(ADVERSARIAL_IMAGE_TEXT_BASE64);
   });
 });
 

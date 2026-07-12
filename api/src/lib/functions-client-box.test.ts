@@ -4,6 +4,7 @@ import {
   callBoxCopyFileRequest,
   callBoxGetFileRequest,
   callBoxReactivateFileRequest,
+  verifyBoxWriteScope,
 } from './functions-client.js';
 
 const fetchMock = vi.fn();
@@ -90,5 +91,26 @@ describe('callBoxCopyFileRequest', () => {
       'BOX_FN_URL/BOX_FN_KEY not configured',
     );
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('verifyBoxWriteScope', () => {
+  it('asks the facade to attest the candidate folder without trusting a caller-supplied root', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ writable: true, rootId: '392761581105' }),
+    });
+
+    await expect(verifyBoxWriteScope('folder/one')).resolves.toEqual({
+      writable: true,
+      rootId: '392761581105',
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://box-facade.example/api/box/scope/write-check',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ folderId: 'folder/one' }),
+      }),
+    );
   });
 });

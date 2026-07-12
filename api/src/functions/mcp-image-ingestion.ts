@@ -28,6 +28,7 @@ import {
   validateUploadBatch,
 } from '../lib/upload-validate.js';
 import { handleEvidenceUpload, validUploadIdempotencyKey } from './evidence-upload.js';
+import { verifyBoxWriteScope } from '../lib/functions-client.js';
 
 export const MCP_IMAGE_INGEST_TEST_ROOT_ID = '392761581105';
 
@@ -40,6 +41,8 @@ export interface McpToolDefinition {
 const BASE64_MAX_CHARS = Math.ceil(MAX_UPLOAD_BYTES / 3) * 4;
 /** Keep the Base64 JSON request comfortably below the platform HTTP body ceiling. */
 export const MCP_IMAGE_INGEST_MAX_TOTAL_BYTES = 30 * 1024 * 1024;
+export const MCP_IMAGE_INGEST_MAX_HTTP_BODY_BYTES =
+  Math.ceil(MCP_IMAGE_INGEST_MAX_TOTAL_BYTES / 3) * 4 + (256 * 1024);
 
 export const IMAGE_INGEST_TOOLS: readonly McpToolDefinition[] = [
   {
@@ -98,6 +101,7 @@ export function mcpImageIngestConfigured(): boolean {
   return (
     gates.mcpImageIngest()
     && gates.boxApi()
+    && Boolean(process.env.BOX_FN_URL && process.env.BOX_FN_KEY)
     && gates.boxFolderRootId() === MCP_IMAGE_INGEST_TEST_ROOT_ID
     && gates.mcpImageIngestBoxRootId() === MCP_IMAGE_INGEST_TEST_ROOT_ID
   );
@@ -138,7 +142,6 @@ export interface ImagePipelineFileState {
   fileName: string;
   classification: 'pending' | 'complete' | 'manual_review';
   archive: 'waiting_for_image_check' | 'pending' | 'retry_pending' | 'complete' | 'not_required';
-  archiveError?: string;
 }
 
 export interface ImagePipelineState {
@@ -152,6 +155,7 @@ export interface ImagePipelineState {
 
 export interface ImageIngestDependencies {
   listCandidates: (registration: string) => Promise<CandidateRow[]>;
+  verifyArchiveTarget: (folderId: string) => Promise<{ writable: boolean; rootId: string }>;
   upload: (
     request: HttpRequest,
     context: InvocationContext,
@@ -169,6 +173,13 @@ const productionDependencies: ImageIngestDependencies = {
         ORDER BY created_at, id`,
       [registration],
     ),
+  verifyArchiveTarget: async (folderId) => {
+    const attestation = await verifyBoxWriteScope(folderId);
+    return {
+      writable: attestation.writable === true,
+      rootId: typeof attestation.rootId === 'string' ? attestation.rootId : '',
+    };
+  },
   upload: (request, context, claims) =>
     handleEvidenceUpload(request, context, claims, { allowMcpAgentSource: true }),
   readPipelineState: async (caseId, evidenceIds) => {
@@ -232,7 +243,6 @@ const productionDependencies: ImageIngestDependencies = {
           fileName: item.file_name,
           classification,
           archive,
-          ...(item.last_error ? { archiveError: item.last_error } : {}),
         };
       }),
       readiness: {
@@ -259,7 +269,7 @@ function directRegistration(value: unknown): string {
 
 export async function resolveImageIngestCase(
   supplied: unknown,
-  deps: Pick<ImageIngestDependencies, 'listCandidates'> = productionDependencies,
+  deps: Pick<ImageIngestDependencies, 'listCandidates' | 'verifyArchiveTarget'> = productionDependencies,
 ): Promise<ImageIngestLookup> {
   const registration = directRegistration(supplied);
   if (!registration) {
@@ -307,6 +317,19 @@ export async function resolveImageIngestCase(
       message: 'The matching case has no approved Archive target yet.',
     };
   }
+  try {
+    const scope = await deps.verifyArchiveTarget(row.box_folder_id.trim());
+    if (!scope.writable || scope.rootId !== MCP_IMAGE_INGEST_TEST_ROOT_ID) {
+      throw new Error('write scope did not attest the dedicated test root');
+    }
+  } catch {
+    return {
+      ok: false,
+      code: 'archive_target_unavailable',
+      registration,
+      message: 'The matching case does not have an approved Archive target.',
+    };
+  }
   const status = caseStatusCodec.toName(Number(row.status_code)) ?? 'unknown';
   return {
     ok: true,
@@ -333,10 +356,69 @@ function strictBase64(value: unknown): Buffer | undefined {
   return bytes.toString('base64') === value ? bytes : undefined;
 }
 
+function strictBase64DecodedLength(value: unknown): number | undefined {
+  if (typeof value !== 'string' || value.length < 4 || value.length > BASE64_MAX_CHARS) return undefined;
+  if (value.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) {
+    return undefined;
+  }
+  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  return (value.length / 4) * 3 - padding;
+}
+
 interface SuppliedImage {
   fileName?: unknown;
   contentType?: unknown;
   dataBase64?: unknown;
+}
+
+export function preflightBase64Batch(
+  files: readonly SuppliedImage[],
+  maxBytes = MCP_IMAGE_INGEST_MAX_TOTAL_BYTES,
+): {
+  ok: boolean;
+  decodedBytes: number;
+} {
+  let decodedBytes = 0;
+  for (const file of files) {
+    const size = strictBase64DecodedLength(file?.dataBase64);
+    if (size === undefined) continue;
+    decodedBytes += size;
+    if (decodedBytes > maxBytes) {
+      return { ok: false, decodedBytes };
+    }
+  }
+  return { ok: true, decodedBytes };
+}
+
+function imageIngestRequestsPerMinute(): number {
+  const configured = Number(process.env.MCP_IMAGE_INGEST_REQUESTS_PER_MINUTE ?? 60);
+  return Number.isFinite(configured) ? Math.min(120, Math.max(1, Math.trunc(configured))) : 60;
+}
+
+/** Durable, per-client admission control. The single UPSERT is concurrency-safe. */
+export async function consumeImageIngestRateLimit(clientId: string): Promise<boolean> {
+  const rows = await query<{ request_count: number }>(
+    `INSERT INTO mcp_image_ingest_rate_limit
+       (principal_id, window_started_at, request_count)
+     VALUES ($1, date_trunc('minute', now()), 1)
+     ON CONFLICT (principal_id) DO UPDATE
+       SET window_started_at = CASE
+             WHEN mcp_image_ingest_rate_limit.window_started_at < date_trunc('minute', now())
+               THEN date_trunc('minute', now())
+             ELSE mcp_image_ingest_rate_limit.window_started_at
+           END,
+           request_count = CASE
+             WHEN mcp_image_ingest_rate_limit.window_started_at < date_trunc('minute', now())
+               THEN 1
+             ELSE mcp_image_ingest_rate_limit.request_count + 1
+           END,
+           updated_at = now()
+     WHERE mcp_image_ingest_rate_limit.window_started_at < date_trunc('minute', now())
+        OR mcp_image_ingest_rate_limit.request_count < $2
+     RETURNING request_count`,
+    [clientId.slice(0, 200), imageIngestRequestsPerMinute()],
+  );
+  return rows.length === 1;
 }
 
 interface CanonicalUploadBody {
@@ -394,6 +476,14 @@ export function createImageIngestExecutor(deps: ImageIngestDependencies = produc
     if (!suppliedFiles.length || suppliedFiles.length > MAX_UPLOAD_FILES) {
       return { ok: false, code: 'invalid_batch', message: `Supply between 1 and ${MAX_UPLOAD_FILES} images.` };
     }
+    const preflight = preflightBase64Batch(suppliedFiles);
+    if (!preflight.ok) {
+      return {
+        ok: false,
+        code: 'invalid_batch',
+        message: 'Those images are too large to send together; split them into smaller batches.',
+      };
+    }
 
     // Resolve server-side on every write call. The schema deliberately has no caseId/folderId.
     const resolved = await resolveImageIngestCase(args.registration, deps);
@@ -447,14 +537,6 @@ export function createImageIngestExecutor(deps: ImageIngestDependencies = produc
     if (batchRefusal) {
       return { ok: false, code: 'invalid_batch', message: batchRefusal, files: earlyRejected };
     }
-    if (decodedSizes.reduce((sum, file) => sum + file.size, 0) > MCP_IMAGE_INGEST_MAX_TOTAL_BYTES) {
-      return {
-        ok: false,
-        code: 'invalid_batch',
-        message: 'Those images are too large to send together; split them into smaller batches.',
-        files: earlyRejected,
-      };
-    }
     if (!accepted.length) {
       return { ok: false, code: 'batch_rejected', batchStatus: 'rejected', files: earlyRejected };
     }
@@ -470,8 +552,52 @@ export function createImageIngestExecutor(deps: ImageIngestDependencies = produc
       headers: new Headers({ 'idempotency-key': idempotencyKey }),
       formData: async () => form,
     } as unknown as HttpRequest;
-    const response = await deps.upload(request, session.context, session.claims);
+    let response: HttpResponseInit;
+    try {
+      response = await deps.upload(request, session.context, session.claims);
+    } catch (error) {
+      session.context.error(`[mcp-image-ingest] canonical upload failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`);
+      return {
+        ok: false,
+        code: 'write_state_unconfirmed',
+        registration: resolved.registration,
+        match: resolved.match,
+        files: [
+          ...accepted.map((item) => ({
+            fileIndex: item.originalIndex,
+            fileName: item.name,
+            sha256: item.sha256,
+            outcome: 'retry_required',
+            durable: 'unknown',
+          })),
+          ...earlyRejected.map((item) => ({ ...item, outcome: 'rejected', durable: false })),
+        ].sort((a, b) => a.fileIndex - b.fileIndex),
+        note: 'Retry the same batch with the same idempotency key. The server will not duplicate a completed write.',
+      };
+    }
     const body = (response.jsonBody ?? {}) as CanonicalUploadBody;
+    if (Number(response.status ?? 500) >= 500 || (!Array.isArray(body.added) && !Array.isArray(body.rejected))) {
+      session.context.error(`[mcp-image-ingest] canonical upload returned an unconfirmed response (${response.status ?? 500})`);
+      return {
+        ok: false,
+        code: 'write_state_unconfirmed',
+        registration: resolved.registration,
+        match: resolved.match,
+        files: [
+          ...accepted.map((item) => ({
+            fileIndex: item.originalIndex,
+            fileName: item.name,
+            sha256: item.sha256,
+            outcome: 'retry_required',
+            durable: 'unknown',
+          })),
+          ...earlyRejected.map((item) => ({ ...item, outcome: 'rejected', durable: false })),
+        ].sort((a, b) => a.fileIndex - b.fileIndex),
+        note: 'Retry the same batch with the same idempotency key. The server will not duplicate a completed write.',
+      };
+    }
     const added = (body.added ?? []).map((item) => {
       const source = accepted[item.fileIndex];
       return {
@@ -495,21 +621,43 @@ export function createImageIngestExecutor(deps: ImageIngestDependencies = produc
       }),
     ].sort((a, b) => a.fileIndex - b.fileIndex);
     const evidenceIds = added.map((item) => item.evidenceId);
-    const pipeline = await deps.readPipelineState(resolved.caseId, evidenceIds);
+    let pipeline: ImagePipelineState;
+    try {
+      pipeline = await deps.readPipelineState(resolved.caseId, evidenceIds);
+    } catch (error) {
+      session.context.error(`[mcp-image-ingest] durable readback failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`);
+      return {
+        ok: false,
+        code: 'incomplete_readback',
+        registration: resolved.registration,
+        match: resolved.match,
+        files: [
+          ...added.map((item) => ({
+            fileIndex: item.fileIndex,
+            fileName: item.fileName,
+            sha256: item.sha256,
+            outcome: item.duplicate ? 'already_attached' : 'accepted',
+            durable: true,
+            classification: 'unknown',
+            archive: 'unknown',
+          })),
+          ...rejected.map((item) => ({ ...item, outcome: 'rejected', durable: false })),
+        ].sort((a, b) => a.fileIndex - b.fileIndex),
+        note: 'The evidence write completed, but processing state could not be read. Check again before resending.',
+      };
+    }
     const states = new Map(pipeline.files.map((file) => [file.evidenceId, file]));
     const files = [
       ...added.map((item) => ({
         fileIndex: item.fileIndex,
         fileName: item.fileName,
         sha256: item.sha256,
-        evidenceId: item.evidenceId,
         outcome: item.duplicate ? 'already_attached' : 'accepted',
         durable: states.has(item.evidenceId),
         classification: states.get(item.evidenceId)?.classification ?? 'unknown',
         archive: states.get(item.evidenceId)?.archive ?? 'unknown',
-        ...(states.get(item.evidenceId)?.archiveError
-          ? { archiveError: states.get(item.evidenceId)?.archiveError }
-          : {}),
       })),
       ...rejected.map((item) => ({ ...item, outcome: 'rejected', durable: false })),
     ].sort((a, b) => a.fileIndex - b.fileIndex);

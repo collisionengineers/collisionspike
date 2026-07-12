@@ -21,26 +21,71 @@ const contentTypes = new Map([
   ['png', 'image/png'],
   ['webp', 'image/webp'],
 ]);
+const protocolVersion = '2025-06-18';
 
-async function callTool(id, name, args) {
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id,
-      method: 'tools/call',
-      params: { name, arguments: args },
-    }),
-  });
+async function rpcCall(message, includeVersion = true) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60_000);
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+        ...(includeVersion ? { 'mcp-protocol-version': protocolVersion } : {}),
+      },
+      body: JSON.stringify(message),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!response.ok) throw new Error(`MCP HTTP ${response.status}`);
+  if (message.id === undefined) return undefined;
   const rpc = await response.json();
   if (rpc.error) throw new Error(rpc.error.message ?? 'MCP error');
-  const text = rpc.result?.content?.find((part) => part.type === 'text')?.text;
-  return text ? JSON.parse(text) : rpc.result;
+  return rpc.result;
+}
+
+async function callTool(id, name, args) {
+  const result = await rpcCall({
+    jsonrpc: '2.0',
+    id,
+    method: 'tools/call',
+    params: { name, arguments: args },
+  });
+  if (result?.structuredContent) return result.structuredContent;
+  const text = result?.content?.find((part) => part.type === 'text')?.text;
+  return text ? JSON.parse(text) : result;
+}
+
+const initialization = await rpcCall({
+  jsonrpc: '2.0',
+  id: 'initialize',
+  method: 'initialize',
+  params: {
+    protocolVersion,
+    capabilities: {},
+    clientInfo: { name: 'collisionspike-folder-watcher-sample', version: '1.0.0' },
+  },
+}, false);
+if (initialization?.protocolVersion !== protocolVersion) {
+  throw new Error(`Server negotiated unsupported MCP version ${initialization?.protocolVersion ?? 'none'}`);
+}
+await rpcCall({ jsonrpc: '2.0', method: 'notifications/initialized' });
+
+async function uploadBatch(registration, batch, batchIndex) {
+  const manifest = createHash('sha256').update(registration);
+  for (const file of batch) manifest.update(`\n${file.fileName}:${file.sha256}`);
+  const idempotencyKey = `folder:${manifest.digest('hex')}`;
+  const result = await callTool(`upload:${registration}:${batchIndex}`, 'upload_case_images', {
+    registration,
+    idempotencyKey,
+    files: batch.map(({ sha256: _sha256, ...file }) => file),
+  });
+  console.log(JSON.stringify({ registration, batch: batchIndex + 1, result }));
 }
 
 const names = (await readdir(dropFolder)).filter((name) => {
@@ -64,9 +109,9 @@ for (const [registration, fileNames] of groups) {
     continue;
   }
 
-  const batches = [];
   let files = [];
   let batchBytes = 0;
+  let batchIndex = 0;
   for (const fileName of fileNames.sort()) {
     const bytes = await readFile(join(dropFolder, fileName));
     const extension = fileName.split('.').pop().toLowerCase();
@@ -75,7 +120,10 @@ for (const [registration, fileNames] of groups) {
       continue;
     }
     if (files.length >= 20 || batchBytes + bytes.length > 30 * 1024 * 1024) {
-      if (files.length) batches.push(files);
+      if (files.length) {
+        await uploadBatch(registration, files, batchIndex);
+        batchIndex++;
+      }
       files = [];
       batchBytes = 0;
     }
@@ -87,16 +135,5 @@ for (const [registration, fileNames] of groups) {
     });
     batchBytes += bytes.length;
   }
-  if (files.length) batches.push(files);
-  for (const [batchIndex, batch] of batches.entries()) {
-    const manifest = createHash('sha256').update(registration);
-    for (const file of batch) manifest.update(`\n${file.fileName}:${file.sha256}`);
-    const idempotencyKey = `folder:${manifest.digest('hex')}`;
-    const result = await callTool(`upload:${registration}:${batchIndex}`, 'upload_case_images', {
-      registration,
-      idempotencyKey,
-      files: batch.map(({ sha256: _sha256, ...file }) => file),
-    });
-    console.log(JSON.stringify({ registration, batch: batchIndex + 1, result }));
-  }
+  if (files.length) await uploadBatch(registration, files, batchIndex);
 }

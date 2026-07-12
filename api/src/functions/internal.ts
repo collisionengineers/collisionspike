@@ -3938,6 +3938,7 @@ app.http('internalCasesArchiveEvidence', {
         blobPath: string;
         claimToken: string;
         decisionGeneration: string | number;
+        sourceLabel: string;
       }>(
           `UPDATE evidence
               SET archive_mirror_claim_token = gen_random_uuid(),
@@ -3957,7 +3958,8 @@ app.http('internalCasesArchiveEvidence', {
                     content_type AS "contentType",
                     storage_path AS "blobPath",
                     archive_mirror_claim_token::text AS "claimToken",
-                    archive_mirror_decision_generation AS "decisionGeneration"`,
+                    archive_mirror_decision_generation AS "decisionGeneration",
+                    source_label AS "sourceLabel"`,
           [lockedCase.caseId],
         );
         rows.sort((a, b) => a.filename.localeCompare(b.filename));

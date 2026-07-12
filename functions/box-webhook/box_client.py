@@ -603,6 +603,24 @@ class BoxClient:
             f"{item_type}/{sid} is outside the allowed Box root (BOX_ALLOWED_ROOT_ID lock)"
         )
 
+    def verify_write_scope(self, folder_id: str) -> str:
+        """Strictly attest a folder before an autonomous write lane is activated.
+
+        The generic connector deliberately treats an unset ``BOX_ALLOWED_ROOT_ID`` as
+        the production/unlocked posture. Autonomous MCP ingestion has a narrower
+        contract: an unset lock is a configuration failure, never permission to write.
+        Return the configured root only after the folder itself has passed the normal
+        descendant check so the caller can also pin the expected test root exactly.
+        """
+        root = self.config.allowed_root_id
+        if not root:
+            raise BoxScopeError("write-scope attestation requires BOX_ALLOWED_ROOT_ID")
+        sid = str(folder_id or "").strip()
+        if not sid:
+            raise BoxScopeError("write-scope attestation requires a folder id")
+        self._assert_in_scope("folders", sid)
+        return root
+
     def _readable_roots(self) -> tuple[str, ...]:
         """Every root a READ may target: the RW root plus the RO archive roots."""
         cfg = self.config

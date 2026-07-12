@@ -191,7 +191,9 @@ function hasDelegatedUserIdentity(claims: JWTPayload): boolean {
  * happens to carry the role is never promoted into the autonomous write lane. */
 export function isImageIngestAgentPrincipal(claims: JWTPayload): boolean {
   const roles = (claims.roles as string[] | undefined) ?? [];
-  return roles.includes(IMAGE_INGEST_AGENT_ROLE) && !hasDelegatedUserIdentity(claims);
+  return roles.length === 1
+    && roles[0] === IMAGE_INGEST_AGENT_ROLE
+    && !hasDelegatedUserIdentity(claims);
 }
 
 export type McpPrincipalKind = 'readonly_staff' | 'image_ingest_agent';

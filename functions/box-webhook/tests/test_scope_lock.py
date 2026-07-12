@@ -206,6 +206,32 @@ def test_lock_disabled_when_root_unset():
     assert out["id"] == "c"
 
 
+def test_strict_write_scope_refuses_when_root_unset():
+    with pytest.raises(BoxScopeError, match="requires BOX_ALLOWED_ROOT_ID"):
+        _client(allowed_root="").verify_write_scope("999")
+
+
+@respx.mock
+def test_strict_write_scope_attests_root_and_descendant_but_refuses_outside():
+    assert _client().verify_write_scope(ROOT) == ROOT
+
+    _mock_token()
+    respx.get(f"{API_BASE}/2.0/folders/555").mock(
+        return_value=httpx.Response(
+            200, json={"id": "555", "path_collection": {"entries": [{"id": ROOT}]}}
+        )
+    )
+    assert _client().verify_write_scope("555") == ROOT
+
+    respx.get(f"{API_BASE}/2.0/folders/999").mock(
+        return_value=httpx.Response(
+            200, json={"id": "999", "path_collection": {"entries": [{"id": "0"}]}}
+        )
+    )
+    with pytest.raises(BoxScopeError):
+        _client().verify_write_scope("999")
+
+
 # --- UploadFile is scope-locked too (the archive mirror must stay in the test root) ---
 
 UPLOAD_URL = "https://upload.box.com/api/2.0/files/content"

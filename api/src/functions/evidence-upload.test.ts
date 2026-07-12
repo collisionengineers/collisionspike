@@ -105,6 +105,7 @@ const state = {
   lastManualFileCount: 0,
   recoveryAuditClaimed: false,
   blobPaths: new Set<string>(),
+  registrationCaseIds: ['case-1'] as string[],
 };
 
 function restore(snapshot: ReturnType<typeof snapshotState>): void {
@@ -189,6 +190,7 @@ beforeEach(() => {
   state.lastManualFileCount = 1;
   state.recoveryAuditClaimed = false;
   state.blobPaths = new Set();
+  state.registrationCaseIds = ['case-1'];
   db.query.mockReset();
   db.tx.mockReset();
   db.txQuery.mockReset();
@@ -206,6 +208,13 @@ beforeEach(() => {
   db.txQuery.mockImplementation(async (sqlValue: string, params: unknown[] = []) => {
     const sql = String(sqlValue);
     if (sql.includes('pg_advisory_xact_lock')) return [];
+    if (sql.includes("regexp_replace(upper(vrm)")) {
+      return state.registrationCaseIds.map((id) => ({
+        id,
+        status_code: state.statusCode,
+        duplicate_keys: null,
+      }));
+    }
     if (sql.startsWith('SELECT id, duplicate_keys FROM case_')) {
       if (state.caseMissing) return [];
       return [{
@@ -413,11 +422,62 @@ describe('canonical staff evidence upload', () => {
       allowMcpAgentSource: true,
     });
     expect(response.status).toBe(201);
+    expect(db.txQuery.mock.calls.some(([sql]) => String(sql) === 'LOCK TABLE case_ IN SHARE MODE')).toBe(true);
     expect(state.evidence[0].source_message_id).toContain('staff:mcp_agent:');
     const audit = db.txQuery.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO audit_event'))!;
     expect(audit[1][3]).toBe(100000051);
     expect(audit[1][6]).toContain('"registration":"SP23OBX"');
     expect(audit[1][6]).toContain('"idempotencyKey"');
+  });
+
+  it('refuses an MCP upload when the registration no longer matches under the transaction lock', async () => {
+    state.registrationCaseIds = [];
+    const baseRequest = requestWith(
+      [new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })],
+      { source: 'mcp_agent' },
+    );
+    const request = {
+      params: baseRequest.params,
+      headers: baseRequest.headers,
+      formData: async () => {
+        const form = await baseRequest.formData();
+        form.append('registration', 'SP23OBX');
+        return form;
+      },
+    } as unknown as HttpRequest;
+
+    const response = await uploadFromMcp(request, ctx, { oid: 'sp-image-agent' }, {
+      allowMcpAgentSource: true,
+    });
+    expect(response.status).toBe(409);
+    expect(response.jsonBody).toMatchObject({
+      added: [],
+      rejected: [{ reason: expect.stringContaining('no longer identifies one current case') }],
+    });
+    expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
+  });
+
+  it('refuses an MCP upload when a second active case appears before binding', async () => {
+    state.registrationCaseIds = ['case-1', 'case-2'];
+    const baseRequest = requestWith(
+      [new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })],
+      { source: 'mcp_agent' },
+    );
+    const request = {
+      params: baseRequest.params,
+      headers: baseRequest.headers,
+      formData: async () => {
+        const form = await baseRequest.formData();
+        form.append('registration', 'SP23OBX');
+        return form;
+      },
+    } as unknown as HttpRequest;
+
+    const response = await uploadFromMcp(request, ctx, { oid: 'sp-image-agent' }, {
+      allowMcpAgentSource: true,
+    });
+    expect(response.status).toBe(409);
+    expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
   });
 
   it('persists an Add evidence photo in a classifier-owned pending state with one audit and readiness request', async () => {

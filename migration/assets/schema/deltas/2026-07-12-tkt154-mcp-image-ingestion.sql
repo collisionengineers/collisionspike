@@ -39,4 +39,29 @@ CREATE UNIQUE INDEX uq_evidence_staff_upload_item
     'agent_image_ingest'
   );
 
+CREATE TABLE IF NOT EXISTS mcp_image_ingest_rate_limit (
+  principal_id       varchar(200) PRIMARY KEY,
+  window_started_at  timestamptz NOT NULL,
+  request_count      integer NOT NULL CHECK (request_count >= 1),
+  updated_at         timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE mcp_image_ingest_rate_limit ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mcp_image_ingest_rate_limit FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS p_mcp_image_ingest_rate_limit_rw ON mcp_image_ingest_rate_limit;
+CREATE POLICY p_mcp_image_ingest_rate_limit_rw ON mcp_image_ingest_rate_limit
+  USING (current_setting('app.role', true) IN ('staff','admin'))
+  WITH CHECK (current_setting('app.role', true) IN ('staff','admin'));
+DROP POLICY IF EXISTS p_mcp_image_ingest_rate_limit_no_delete ON mcp_image_ingest_rate_limit;
+CREATE POLICY p_mcp_image_ingest_rate_limit_no_delete ON mcp_image_ingest_rate_limit
+  AS RESTRICTIVE FOR DELETE
+  USING (current_setting('app.role', true) = 'admin');
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cespk_app') THEN
+    GRANT SELECT, INSERT, UPDATE ON mcp_image_ingest_rate_limit TO cespk_app;
+  END IF;
+END $$;
+
 COMMIT;

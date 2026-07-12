@@ -153,6 +153,27 @@ def _run_box_op(fn: Callable[[BoxClient], dict[str, Any]]) -> func.HttpResponse:
 # A. Connector facade routes
 # ===========================================================================
 
+@app.route(route="box/scope/write-check", methods=["POST"])
+def verify_write_scope(req: func.HttpRequest) -> func.HttpResponse:
+    """Fail-closed write-scope attestation for autonomous image ingestion.
+
+    Unlike the generic Box operations, this route never treats an unset scope
+    lock as an unrestricted production posture. It validates the configured
+    root and the candidate folder without changing Box.
+    """
+    if not _truthy(os.environ.get("BOX_API_ENABLED")):
+        return _gated_off()
+    body = _body(req)
+    folder_id = str(body.get("folderId") or "") if body else ""
+    if not folder_id:
+        return _json_response({"error": "folderId is required.", "status": 400}, status=400)
+
+    def attest(client: BoxClient) -> dict[str, Any]:
+        root_id = client.verify_write_scope(folder_id)
+        return {"writable": True, "rootId": root_id}
+
+    return _run_box_op(attest)
+
 @app.route(route="box/folders", methods=["POST"])
 def create_folder(req: func.HttpRequest) -> func.HttpResponse:
     if not _truthy(os.environ.get("BOX_API_ENABLED")):
@@ -233,6 +254,16 @@ def upload_file(req: func.HttpRequest) -> func.HttpResponse:
             {"error": "Provide exactly ONE of contentBase64 or blobPath.", "status": 400}, status=400
         )
     content_type = body.get("contentType") if isinstance(body.get("contentType"), str) else None
+    required_root = body.get("requiredWriteRootId")
+    if required_root is not None and not isinstance(required_root, str):
+        return _json_response({"error": "requiredWriteRootId must be a string.", "status": 400}, status=400)
+
+    def assert_required_scope(client: BoxClient) -> None:
+        if required_root is None:
+            return
+        attested_root = client.verify_write_scope(folder_id)
+        if attested_root != required_root:
+            raise BoxScopeError("configured write root does not match the required root")
 
     if has_base64:
         raw_b64 = body["contentBase64"]
@@ -257,7 +288,11 @@ def upload_file(req: func.HttpRequest) -> func.HttpResponse:
             return _json_response({"error": "contentBase64 is not valid base64.", "status": 400}, status=400)
         if not content:
             return _json_response({"error": "Decoded content is empty.", "status": 400}, status=400)
-        return _run_box_op(lambda c: c.upload_file(folder_id, body["filename"], content, content_type))
+        def upload_inline(client: BoxClient) -> dict[str, Any]:
+            assert_required_scope(client)
+            return client.upload_file(folder_id, body["filename"], content, content_type)
+
+        return _run_box_op(upload_inline)
 
     # blobPath lane: the facade fetches the bytes itself (streamed, hashed) and
     # streams them on to Box — no base64, no whole-payload bytes object.
@@ -279,6 +314,7 @@ def upload_file(req: func.HttpRequest) -> func.HttpResponse:
 
     try:
         def run(c: BoxClient) -> dict[str, Any]:
+            assert_required_scope(c)
             entry = c.upload_file_stream(
                 folder_id, body["filename"], payload.file,
                 size=payload.size, sha1_hex=payload.sha1, content_type=content_type,

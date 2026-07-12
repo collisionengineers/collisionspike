@@ -36,6 +36,13 @@ describe('MCP least-privilege principal split (TKT-154)', () => {
     } as JWTPayload;
     expect(isImageIngestAgentPrincipal(delegated)).toBe(false);
     expect(mcpPrincipalKind(delegated)).toBeUndefined();
+
+    const overPrivileged = {
+      roles: [IMAGE_INGEST_AGENT_ROLE, 'CollisionSpike.User'],
+      azp: 'folder-watcher',
+    } as JWTPayload;
+    expect(isImageIngestAgentPrincipal(overPrivileged)).toBe(false);
+    expect(mcpPrincipalKind(overPrivileged)).toBeUndefined();
   });
 
   it('keeps delegated staff in the read-only MCP lane and refuses app-only staff roles', () => {

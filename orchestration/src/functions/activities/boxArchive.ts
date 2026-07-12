@@ -51,6 +51,7 @@ import { downloadEvidenceBytes, getEvidenceBlobSize } from '../../lib/blob.js';
  * all. Env knob: BOX_INLINE_UPLOAD_MAX_BYTES (bytes); default 8 MiB. */
 
 const DEFAULT_INLINE_UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
+const MCP_IMAGE_INGEST_TEST_ROOT_ID = '392761581105';
 
 /** Inline (base64) upload cap in bytes — BOX_INLINE_UPLOAD_MAX_BYTES, default 8 MiB.
  *  A missing/garbage/non-positive value falls back to the default (never 0/NaN). */
@@ -71,17 +72,17 @@ export interface BoxUploadResult {
 export interface ArchiveUploadDeps {
   sizeOf(blobPath: string): Promise<number>;
   download(blobPath: string): Promise<Buffer>;
-  uploadInline(folderId: string, filename: string, contentBase64: string, contentType?: string): Promise<BoxUploadResult>;
-  uploadFromBlob(folderId: string, filename: string, blobPath: string, contentType?: string): Promise<BoxUploadResult>;
+  uploadInline(folderId: string, filename: string, contentBase64: string, contentType?: string, requiredWriteRootId?: string): Promise<BoxUploadResult>;
+  uploadFromBlob(folderId: string, filename: string, blobPath: string, contentType?: string, requiredWriteRootId?: string): Promise<BoxUploadResult>;
 }
 
 const realUploadDeps: ArchiveUploadDeps = {
   sizeOf: getEvidenceBlobSize,
   download: downloadEvidenceBytes,
-  uploadInline: (folderId, filename, contentBase64, contentType) =>
-    box.uploadFile(folderId, filename, contentBase64, contentType),
-  uploadFromBlob: (folderId, filename, blobPath, contentType) =>
-    box.uploadFileFromBlob(folderId, filename, blobPath, contentType),
+  uploadInline: (folderId, filename, contentBase64, contentType, requiredWriteRootId) =>
+    box.uploadFile(folderId, filename, contentBase64, contentType, requiredWriteRootId),
+  uploadFromBlob: (folderId, filename, blobPath, contentType, requiredWriteRootId) =>
+    box.uploadFileFromBlob(folderId, filename, blobPath, contentType, requiredWriteRootId),
 };
 
 /**
@@ -93,16 +94,23 @@ const realUploadDeps: ArchiveUploadDeps = {
  */
 export async function uploadArchiveItem(
   folderId: string,
-  item: { filename: string; blobPath: string; contentType: string },
+  item: { filename: string; blobPath: string; contentType: string; sourceLabel?: string },
   maxInlineBytes: number = boxInlineUploadMaxBytes(),
   deps: ArchiveUploadDeps = realUploadDeps,
 ): Promise<BoxUploadResult> {
   const size = await deps.sizeOf(item.blobPath);
+  const requiredWriteRootId = item.sourceLabel === 'agent_image_ingest'
+    ? MCP_IMAGE_INGEST_TEST_ROOT_ID
+    : undefined;
   if (size > maxInlineBytes) {
-    return deps.uploadFromBlob(folderId, item.filename, item.blobPath, item.contentType);
+    return requiredWriteRootId
+      ? deps.uploadFromBlob(folderId, item.filename, item.blobPath, item.contentType, requiredWriteRootId)
+      : deps.uploadFromBlob(folderId, item.filename, item.blobPath, item.contentType);
   }
   const bytes = await deps.download(item.blobPath);
-  return deps.uploadInline(folderId, item.filename, bytes.toString('base64'), item.contentType);
+  return requiredWriteRootId
+    ? deps.uploadInline(folderId, item.filename, bytes.toString('base64'), item.contentType, requiredWriteRootId)
+    : deps.uploadInline(folderId, item.filename, bytes.toString('base64'), item.contentType);
 }
 
 interface BoxArchiveInput {
@@ -142,6 +150,7 @@ export interface ArchiveItem {
   contentType: string;
   claimToken: string;
   decisionGeneration: number;
+  sourceLabel?: string;
 }
 
 export interface ArchiveMirrorItemDeps {
@@ -281,6 +290,7 @@ df.app.activity('boxArchiveEvidence', {
         contentType: row.contentType || 'application/octet-stream',
         claimToken: row.claimToken,
         decisionGeneration: Number(row.decisionGeneration),
+        sourceLabel: row.sourceLabel,
       }));
     } catch (e) {
       ctx.warn(`[boxArchive] could not read evidence rows for ${caseId}: ${String(e)}`);

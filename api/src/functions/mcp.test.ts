@@ -15,12 +15,12 @@ describe('MCP JSON-RPC handler (TKT-110)', () => {
   });
 
   it('initialize falls back to the server default version when the client omits one', async () => {
-    const res = (await handleMcpMessage({ id: 1, method: 'initialize', params: {} }, okExec))!;
+    const res = (await handleMcpMessage({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }, okExec))!;
     expect((res.result as { protocolVersion: string }).protocolVersion).toBe(MCP_PROTOCOL_VERSION);
   });
 
   it('tools/list exposes ONLY read tools — never a write or destructive tool (C1)', async () => {
-    const res = (await handleMcpMessage({ id: 2, method: 'tools/list' }, okExec))!;
+    const res = (await handleMcpMessage({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, okExec))!;
     const names = (res.result as { tools: Array<{ name: string; inputSchema: unknown }> }).tools.map((t) => t.name);
     expect(names).toContain('lookup_case');
     expect(names).toContain('get_case_detail');
@@ -36,7 +36,7 @@ describe('MCP JSON-RPC handler (TKT-110)', () => {
 
   it('tools/call runs a read tool and wraps the result as MCP content', async () => {
     const exec = vi.fn(async () => ({ matches: [{ casePo: 'CCPY26050' }] }));
-    const res = (await handleMcpMessage({ id: 3, method: 'tools/call', params: { name: 'lookup_case', arguments: { query: 'CCPY26050' } } }, exec))!;
+    const res = (await handleMcpMessage({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'lookup_case', arguments: { query: 'CCPY26050' } } }, exec))!;
     expect(exec).toHaveBeenCalledWith('lookup_case', { query: 'CCPY26050' });
     const content = (res.result as { content: Array<{ type: string; text: string }>; isError?: boolean }).content;
     expect(content[0].text).toContain('CCPY26050');
@@ -46,7 +46,7 @@ describe('MCP JSON-RPC handler (TKT-110)', () => {
   it('tools/call REFUSES a write / unknown tool without executing it (C1 defence in depth)', async () => {
     const exec = vi.fn();
     for (const name of ['set_on_hold', 'merge_cases', 'propose_action', 'definitely_not_a_tool']) {
-      const res = (await handleMcpMessage({ id: 4, method: 'tools/call', params: { name, arguments: {} } }, exec))!;
+      const res = (await handleMcpMessage({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name, arguments: {} } }, exec))!;
       expect((res.result as { isError?: boolean }).isError).toBe(true);
     }
     expect(exec).not.toHaveBeenCalled();
@@ -55,6 +55,7 @@ describe('MCP JSON-RPC handler (TKT-110)', () => {
   it('a read-only MCP tool set cannot call the dedicated image write', async () => {
     const exec = vi.fn();
     const res = (await handleMcpMessage({
+      jsonrpc: '2.0',
       id: 5,
       method: 'tools/call',
       params: { name: 'upload_case_images', arguments: {} },
@@ -66,7 +67,7 @@ describe('MCP JSON-RPC handler (TKT-110)', () => {
   it('still refuses a registry write if a caller tries to inject it into a custom tool list', async () => {
     const exec = vi.fn();
     const res = (await handleMcpMessage(
-      { id: 41, method: 'tools/call', params: { name: 'set_on_hold', arguments: {} } },
+      { jsonrpc: '2.0', id: 41, method: 'tools/call', params: { name: 'set_on_hold', arguments: {} } },
       exec,
       [{ name: 'set_on_hold', description: 'forged', inputSchema: { type: 'object' } }],
     ))!;
@@ -76,7 +77,7 @@ describe('MCP JSON-RPC handler (TKT-110)', () => {
 
   it('the dedicated image identity sees exactly lookup + upload and no other read/write surface', async () => {
     const list = (await handleMcpMessage(
-      { id: 6, method: 'tools/list' },
+      { jsonrpc: '2.0', id: 6, method: 'tools/list' },
       okExec,
       IMAGE_INGEST_TOOLS,
     ))!;
@@ -87,6 +88,7 @@ describe('MCP JSON-RPC handler (TKT-110)', () => {
 
     const exec = vi.fn(async () => ({ ok: true }));
     await handleMcpMessage({
+      jsonrpc: '2.0',
       id: 7,
       method: 'tools/call',
       params: { name: 'upload_case_images', arguments: { registration: 'SP23OBX' } },
@@ -94,6 +96,7 @@ describe('MCP JSON-RPC handler (TKT-110)', () => {
     expect(exec).toHaveBeenCalledTimes(1);
 
     const refused = (await handleMcpMessage({
+      jsonrpc: '2.0',
       id: 8,
       method: 'tools/call',
       params: { name: 'lookup_case', arguments: { query: 'SP23OBX' } },
@@ -103,16 +106,39 @@ describe('MCP JSON-RPC handler (TKT-110)', () => {
   });
 
   it('a notification (no id) gets no response', async () => {
-    expect(await handleMcpMessage({ method: 'notifications/initialized' }, okExec)).toBeNull();
+    expect(await handleMcpMessage({ jsonrpc: '2.0', method: 'notifications/initialized' }, okExec)).toBeNull();
   });
 
   it('an unknown method returns a JSON-RPC method-not-found error', async () => {
-    const res = (await handleMcpMessage({ id: 9, method: 'nope/nope' }, okExec))!;
+    const res = (await handleMcpMessage({ jsonrpc: '2.0', id: 9, method: 'nope/nope' }, okExec))!;
     expect((res.error as { code: number }).code).toBe(-32601);
   });
 
   it('ping returns an empty result', async () => {
-    const res = (await handleMcpMessage({ id: 10, method: 'ping' }, okExec))!;
+    const res = (await handleMcpMessage({ jsonrpc: '2.0', id: 10, method: 'ping' }, okExec))!;
     expect(res.result).toEqual({});
+  });
+
+  it('rejects invalid JSON-RPC envelopes and non-object tool arguments', async () => {
+    expect((await handleMcpMessage({ id: 11, method: 'ping' }, okExec))?.error).toMatchObject({ code: -32600 });
+    expect((await handleMcpMessage({
+      jsonrpc: '2.0',
+      id: 12,
+      method: 'tools/call',
+      params: { name: 'lookup_case', arguments: [] as unknown as Record<string, unknown> },
+    }, okExec))?.error).toMatchObject({ code: -32602 });
+  });
+
+  it('marks business failures as tool errors with structured content and hides thrown details', async () => {
+    const refusal = (await handleMcpMessage({
+      jsonrpc: '2.0', id: 13, method: 'tools/call', params: { name: 'lookup_case', arguments: {} },
+    }, vi.fn(async () => ({ ok: false, code: 'no_match' }))))!;
+    expect(refusal.result).toMatchObject({ isError: true, structuredContent: { ok: false, code: 'no_match' } });
+
+    const failure = (await handleMcpMessage({
+      jsonrpc: '2.0', id: 14, method: 'tools/call', params: { name: 'lookup_case', arguments: {} },
+    }, vi.fn(async () => { throw new Error('secret backend detail'); })))!;
+    expect(JSON.stringify(failure)).not.toContain('secret backend detail');
+    expect(failure.result).toMatchObject({ isError: true });
   });
 });

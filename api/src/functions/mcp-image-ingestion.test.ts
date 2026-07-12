@@ -4,6 +4,7 @@ import type { JWTPayload } from 'jose';
 import { statusToInt } from '@cs/domain/codecs';
 import {
   createImageIngestExecutor,
+  preflightBase64Batch,
   resolveImageIngestCase,
   type ImageIngestDependencies,
   type ImagePipelineState,
@@ -56,6 +57,7 @@ function dependencies(input: {
 } = {}): ImageIngestDependencies {
   return {
     listCandidates: vi.fn(async () => input.rows ?? [openRow]),
+    verifyArchiveTarget: vi.fn(async () => ({ writable: true, rootId: '392761581105' })),
     upload: vi.fn(async (request) =>
       input.upload?.(request) ?? {
         status: 201,
@@ -85,6 +87,8 @@ beforeEach(() => {
   process.env.MCP_IMAGE_INGEST_BOX_ROOT_ID = '392761581105';
   process.env.BOX_FOLDER_ROOT_ID = '392761581105';
   process.env.BOX_API_ENABLED = 'true';
+  process.env.BOX_FN_URL = 'https://box-function.example';
+  process.env.BOX_FN_KEY = 'test-function-key';
 });
 
 describe('TKT-154 registration resolution', () => {
@@ -134,9 +138,36 @@ describe('TKT-154 registration resolution', () => {
       rows: [{ ...openRow, box_folder_id: null }],
     }))).toMatchObject({ ok: false, code: 'archive_target_unavailable' });
   });
+
+  it('refuses an unset, wrong or out-of-root facade attestation', async () => {
+    for (const attestation of [
+      { writable: false, rootId: '392761581105' },
+      { writable: true, rootId: 'wrong-root' },
+    ]) {
+      const deps = dependencies();
+      deps.verifyArchiveTarget = vi.fn(async () => attestation);
+      expect(await resolveImageIngestCase('SP23OBX', deps)).toMatchObject({
+        ok: false,
+        code: 'archive_target_unavailable',
+      });
+    }
+    const failed = dependencies();
+    failed.verifyArchiveTarget = vi.fn(async () => { throw new Error('scope lock missing'); });
+    expect(await resolveImageIngestCase('SP23OBX', failed)).toMatchObject({
+      ok: false,
+      code: 'archive_target_unavailable',
+    });
+  });
 });
 
 describe('TKT-154 bounded canonical upload', () => {
+  it('rejects a cumulative payload from encoded lengths before retaining decoded buffers', () => {
+    expect(preflightBase64Batch([
+      { dataBase64: 'AAAA' },
+      { dataBase64: 'AAAA' },
+    ], 5)).toEqual({ ok: false, decodedBytes: 6 });
+  });
+
   it('stays dark unless both independent Archive root settings equal the programme test root', async () => {
     const deps = dependencies();
     const exec = createImageIngestExecutor(deps);
@@ -191,9 +222,10 @@ describe('TKT-154 bounded canonical upload', () => {
     expect(result).toMatchObject({
       ok: false,
       code: 'accepted_pending_processing',
-      files: [{ evidenceId: 'ev-1', durable: true, classification: 'pending' }],
+      files: [{ durable: true, classification: 'pending' }],
       readiness: { state: 'pending' },
     });
+    expect(JSON.stringify(result)).not.toContain('ev-1');
   });
 
   it('rejects non-images, invalid base64, oversized payloads and excessive counts before upload', async () => {
@@ -256,7 +288,6 @@ describe('TKT-154 bounded canonical upload', () => {
           fileName: 'photo.jpg',
           classification: 'complete',
           archive: 'retry_pending',
-          archiveError: 'temporary Archive failure',
         }],
         readiness: { state: 'pending', currentStatus: 'missing_images', queue: 'Not ready' },
       }),
@@ -271,10 +302,42 @@ describe('TKT-154 bounded canonical upload', () => {
       ok: false,
       code: 'partial',
       files: [
-        { outcome: 'accepted', archive: 'retry_pending', archiveError: 'temporary Archive failure' },
+        { outcome: 'accepted', archive: 'retry_pending' },
         { outcome: 'rejected' },
       ],
       readiness: { state: 'pending' },
     });
+    expect(JSON.stringify(result)).not.toContain('temporary Archive failure');
+  });
+
+  it('returns a retry-safe, sanitized result when the canonical upload outcome is unknown', async () => {
+    const deps = dependencies({
+      upload: async () => { throw new Error('postgres password and backend trace'); },
+    });
+    const exec = createImageIngestExecutor(deps);
+    const result = await exec('upload_case_images', uploadArgs(), { claims, context: ctx });
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: 'write_state_unconfirmed',
+      files: [{ outcome: 'retry_required', durable: 'unknown' }],
+      note: expect.stringContaining('same idempotency key'),
+    });
+    expect(JSON.stringify(result)).not.toContain('postgres password');
+  });
+
+  it('retains a safe durable receipt when processing-state readback fails', async () => {
+    const deps = dependencies();
+    deps.readPipelineState = vi.fn(async () => { throw new Error('archive backend details'); });
+    const exec = createImageIngestExecutor(deps);
+    const result = await exec('upload_case_images', uploadArgs(), { claims, context: ctx });
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: 'incomplete_readback',
+      files: [{ outcome: 'accepted', durable: true, classification: 'unknown', archive: 'unknown' }],
+    });
+    expect(JSON.stringify(result)).not.toContain('archive backend details');
+    expect(JSON.stringify(result)).not.toContain('ev-1');
   });
 });

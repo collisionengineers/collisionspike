@@ -15,7 +15,8 @@
 import { app, type HttpRequest, type InvocationContext } from '@azure/functions';
 import { createHash, randomUUID } from 'node:crypto';
 import type { JWTPayload } from 'jose';
-import { statusToInt } from '@cs/domain/codecs';
+import { canonicalizeVrm, isTerminalStatus, type CaseStatus } from '@cs/domain';
+import { caseStatusCodec, statusToInt } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
 import { tx, type TxQuery } from '../lib/db.js';
 import { evidenceBlobPath, uploadEvidenceBytes } from '../lib/blob.js';
@@ -29,6 +30,7 @@ import {
 import { AUDIT_ACTION, actorFromClaims, writeAudit, writeAuditStrict } from '../lib/audit.js';
 import { requestStatusRecompute } from '../lib/status-recompute.js';
 import { lockCaseForMutation } from '../lib/case-mutation-locks.js';
+import { mergedIntoFrom } from '../lib/mappers.js';
 import {
   requestArchiveMirror,
   requestArchiveMirrorIfEligible,
@@ -218,6 +220,46 @@ async function assertActiveCase(q: TxQuery, caseId: string): Promise<string> {
   return locked.caseId;
 }
 
+async function assertImageIngestRegistrationBinding(
+  q: TxQuery,
+  expectedCaseId: string,
+  suppliedRegistration: string,
+): Promise<string> {
+  const registration = canonicalizeVrm(suppliedRegistration);
+  if (!registration || registration !== suppliedRegistration) {
+    throw new UploadRefusal(409, 'The registration no longer identifies one current case. Try the lookup again.');
+  }
+  await q('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+    `mcp-image-registration:${registration}`,
+  ]);
+  // The advisory lock serialises this lane; the short SHARE lock also blocks a
+  // concurrent case INSERT/VRM update from creating a phantom match between the
+  // exact-match query and the idempotency binding commit.
+  await q('LOCK TABLE case_ IN SHARE MODE');
+  const rows = await q<{
+    id: string;
+    status_code: number;
+    duplicate_keys: unknown;
+  }>(
+    `SELECT id, status_code, duplicate_keys
+       FROM case_
+      WHERE regexp_replace(upper(vrm), '[^A-Z0-9]', '', 'g') = $1
+      ORDER BY created_at, id
+      FOR UPDATE`,
+    [registration],
+  );
+  const active = rows.filter((row) => {
+    const status = caseStatusCodec.toName(Number(row.status_code));
+    return Boolean(status)
+      && !isTerminalStatus(status as CaseStatus)
+      && !mergedIntoFrom(row.duplicate_keys);
+  });
+  if (active.length !== 1 || active[0].id.toLowerCase() !== expectedCaseId.toLowerCase()) {
+    throw new UploadRefusal(409, 'The registration no longer identifies one current case. Try the lookup again.');
+  }
+  return registration;
+}
+
 async function bindBatch(input: {
   caseId: string;
   idempotencyKey: string;
@@ -228,6 +270,9 @@ async function bindBatch(input: {
   files: readonly PreparedFile[];
 }): Promise<string> {
   return tx(async (q) => {
+    const registration = input.source === 'mcp_agent'
+      ? await assertImageIngestRegistrationBinding(q, input.caseId, input.registration ?? '')
+      : input.registration;
     const caseId = await assertActiveCase(q, input.caseId);
     await q(
       `INSERT INTO staff_evidence_upload
@@ -239,7 +284,7 @@ async function bindBatch(input: {
         caseId,
         input.actor,
         input.source,
-        input.registration ?? null,
+        registration ?? null,
         input.manifestHash,
       ],
     );
@@ -262,7 +307,7 @@ async function bindBatch(input: {
       batch.case_id.toLowerCase() !== caseId ||
       batch.actor !== input.actor ||
       batch.source !== input.source ||
-      (batch.registration ?? '') !== (input.registration ?? '') ||
+      (batch.registration ?? '') !== (registration ?? '') ||
       batch.manifest_hash !== input.manifestHash
     ) {
       throw new UploadRefusal(
