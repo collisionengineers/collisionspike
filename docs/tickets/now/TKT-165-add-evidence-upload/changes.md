@@ -46,8 +46,8 @@ ticket-status move, live database delta, deployment and independent verification
   released to archive work by the classification stamp. Staff rows never age out before a first
   attempt; a stable provider AI opt-out becomes an explicit staff-review disposition rather than an
   endless retry. Cross-lane rows send only the locator owned by their source lane. When Archive
-  access is globally unavailable, Box-backed rows are skipped without consuming their per-row retry
-  budget while Blob-backed staff uploads continue through the same sweep.
+  access is globally unavailable, the API excludes Box-backed rows before claiming, leasing or
+  incrementing them, while Blob-backed staff uploads continue through the same sweep.
 - `migration/assets/schema/195_staff_evidence_upload.sql`,
   `migration/assets/schema/deltas/2026-07-12-tkt165-staff-evidence-upload.sql`, and
   `migration/assets/schema/900_constraints.sql` — target/actor/source/manifest binding plus one
