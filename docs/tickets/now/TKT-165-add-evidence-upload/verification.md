@@ -14,6 +14,9 @@ a ticket-level verification verdict.
 - Full Domain suite: **52 test files / 1,102 tests passed**.
 - The final review-closure focus run passed API **25** and rendered/helper SPA **13** tests; the
   earlier focused TKT-165 API, orchestration and SPA coverage remains in the full suites above.
+- The PR review regression run passed all **24** focused orchestration tests and proves repeated
+  Archive gate-off sweeps do not record failures for Box-backed rows while Blob-backed staff rows
+  continue to classify.
 - Production builds passed for `@cs/api`, `@cs/orchestration`, `@cs/domain`, and `mockup-app` (Vite).
 - `node verify-all.mjs`: **8 passed / 0 failed / 13 explicitly skipped**; its compiled suites include
   Domain **1,102**, API **610**, orchestration **399**, and SPA **437** passing tests.
