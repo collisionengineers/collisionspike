@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  manualIntakeBatchRejection,
   manualIntakeFileRejection,
   partitionManualIntakeFiles,
   type ManualIntakeFileLike,
@@ -50,7 +51,38 @@ describe('manual intake file partition', () => {
 
   it('gives other unsupported files concise handler-facing guidance', () => {
     expect(manualIntakeFileRejection(file('notes.txt', 'text/plain'))).toBe(
-      'This file can’t be added. Use PDF, Word, email, JPG, PNG or WebP.',
+      'This file can’t be added. Use PDF, JPG, PNG or WebP.',
     );
+  });
+
+  it('does not promise Word or email files that the canonical upload rejects', () => {
+    const result = partitionManualIntakeFiles([
+      file('instructions.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+      file('instructions.doc', 'application/msword'),
+      file('message.eml', 'message/rfc822'),
+      file('message.msg', 'application/vnd.ms-outlook'),
+    ]);
+    expect(result.accepted).toEqual([]);
+    expect(result.rejected).toHaveLength(4);
+  });
+
+  it('mirrors the server count, per-file and aggregate-size boundaries', () => {
+    expect(manualIntakeFileRejection({
+      name: 'empty.pdf',
+      type: 'application/pdf',
+      size: 0,
+    })).toContain('empty');
+    expect(manualIntakeFileRejection({
+      name: 'large.pdf',
+      type: 'application/pdf',
+      size: (15 * 1024 * 1024) + 1,
+    })).toContain('15 MB');
+    expect(manualIntakeBatchRejection(
+      Array.from({ length: 21 }, (_, index) => file(`${index}.pdf`, 'application/pdf')),
+    )).toContain('20 files');
+    expect(manualIntakeBatchRejection([
+      { name: 'a.pdf', type: 'application/pdf', size: 60 * 1024 * 1024 },
+      { name: 'b.pdf', type: 'application/pdf', size: 60 * 1024 * 1024 },
+    ])).toContain('too large');
   });
 });

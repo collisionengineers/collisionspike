@@ -23,6 +23,7 @@
 import type {
   DataAccess,
   CreateCaseInput,
+  CreateCaseOptions,
   CreateCaseResult,
   CaseUpdateInput,
   SuggestedAddress,
@@ -570,7 +571,18 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       get<Case | undefined>(`/api/cases/${enc(id)}`).catch((e: unknown) =>
         /→ 404\b/.test(String(e)) ? undefined : Promise.reject(e),
       ),
-    createCase: (input: CreateCaseInput) => post<CreateCaseResult>('/api/cases', input),
+    createCase: (input: CreateCaseInput, options?: CreateCaseOptions) =>
+      call<CreateCaseResult>('POST', '/api/cases', input, {
+        ...(options?.idempotencyKey
+          ? { 'Idempotency-Key': options.idempotencyKey }
+          : {}),
+        ...(options?.evidenceUploadKey
+          ? { 'X-Manual-Intake-Upload-Key': options.evidenceUploadKey }
+          : {}),
+        ...(options?.expectedEvidenceCount !== undefined
+          ? { 'X-Manual-Intake-File-Count': String(options.expectedEvidenceCount) }
+          : {}),
+      }),
     // Human-correction write path (issue #12): PATCH the case with a partial body
     // (`{ vrm }`) → 200 + the updated Case JSON. DELIBERATELY NOT safe()-wrapped — a
     // failed VRM correction MUST reach the operator (a silent swallow would let them

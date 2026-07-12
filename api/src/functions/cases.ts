@@ -77,6 +77,14 @@ import { isUniqueViolation } from './internal.js';
 import { ifMatch, versionToken } from '../lib/concurrency.js';
 import { isUuid } from '../lib/uuid.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit, writeAuditStrict } from '../lib/audit.js';
+import {
+  beginManualIntakeOperation,
+  finishManualIntakeOperation,
+  MANUAL_INTAKE_OPERATION_KEY_RE,
+  manualIntakeEvidencePending,
+  manualIntakeRequestHash,
+  ManualIntakeOperationConflict,
+} from '../lib/manual-intake-operation.js';
 import { markCaseDoneUsing, markEvaSubmittedUsing } from '../lib/terminal-transition.js';
 import { gates } from '../lib/gates.js';
 import { listBoxFolderNames } from '../lib/functions-client.js';
@@ -241,7 +249,10 @@ export async function recomputeStatus(caseId: string, actor?: string): Promise<b
     // real at the database boundary instead of relying on an earlier snapshot.
     const full = await loadCaseFullUsing(q, caseId, new Date(), true);
     if (!full) return null;
-    const evaluated = statusForReviewCase(readinessInputForCase(full));
+    const evaluated = statusForReviewCase({
+      ...readinessInputForCase(full),
+      sourceEvidencePending: await manualIntakeEvidencePending(q, caseId),
+    });
     if (evaluated !== full.status) {
       await q('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [
         caseId,
@@ -278,7 +289,11 @@ export async function markEvaSubmittedIfReady(
 ): Promise<boolean> {
   return tx(async (q) => {
     const full = await loadCaseFullUsing(q, caseId, new Date(), true);
-    if (!full || !canSubmitCaseToEva(full)) return false;
+    if (
+      !full ||
+      await manualIntakeEvidencePending(q, caseId) ||
+      !canSubmitCaseToEva(full)
+    ) return false;
     return markEvaSubmittedUsing(q, caseId, actor);
   });
 }
@@ -878,7 +893,34 @@ app.http('createCase', {
     const raw = await req.json().catch(() => undefined);
     let input = normalizeCreateCaseInput(raw);
     if (!input) return { status: 400, jsonBody: { error: 'invalid case create payload' } };
-    const actor = actorFromClaims(claims);
+    const actor = actorFromClaims(claims) ?? 'authenticated staff';
+    const suppliedOperationKey = (req.headers?.get('idempotency-key') ?? '').trim();
+    const suppliedUploadKey = (req.headers?.get('x-manual-intake-upload-key') ?? '').trim();
+    const suppliedFileCount = (req.headers?.get('x-manual-intake-file-count') ?? '').trim();
+    const hasOperationHeaders = Boolean(
+      suppliedOperationKey || suppliedUploadKey || suppliedFileCount,
+    );
+    if (hasOperationHeaders && !MANUAL_INTAKE_OPERATION_KEY_RE.test(suppliedOperationKey)) {
+      return { status: 400, jsonBody: { error: 'invalid manual intake operation key' } };
+    }
+    const expectedFileCount = suppliedFileCount === '' ? 0 : Number(suppliedFileCount);
+    if (
+      !Number.isInteger(expectedFileCount) ||
+      expectedFileCount < 0 ||
+      expectedFileCount > 20 ||
+      (expectedFileCount > 0) !== MANUAL_INTAKE_OPERATION_KEY_RE.test(suppliedUploadKey)
+    ) {
+      return { status: 400, jsonBody: { error: 'invalid manual intake evidence binding' } };
+    }
+    const operationBinding = suppliedOperationKey
+      ? {
+          idempotencyKey: suppliedOperationKey,
+          actor,
+          requestHash: manualIntakeRequestHash(input),
+          ...(suppliedUploadKey ? { uploadIdempotencyKey: suppliedUploadKey } : {}),
+          expectedFileCount,
+        }
+      : undefined;
 
     // Resolve a supplied principal before readiness evaluation or Case/PO minting.
     // A syntactically valid typo is not a provider and must never open a numbering series.
@@ -919,6 +961,7 @@ app.http('createCase', {
       status: input.status,
       evaFields: input.evaFields,
       evidence: [],
+      inspectionDecision: input.inspectionDecision ?? 'unknown',
       inspectionDecision: input.inspectionDecision ?? 'unknown',
       instructionCount: 0,
       hasIdentity:
@@ -962,28 +1005,71 @@ app.http('createCase', {
       add(EVA_COLUMN_BY_KEY[desc.key], input.evaFields[desc.key]?.value ?? '');
     }
 
-    const newId = await tx(async (q) => {
-      const insertCols = [...cols];
-      const insertVals = [...vals];
-      let casePo = suppliedCasePo;
-      if (!casePo && principalForAutoMint) {
-        // Shared advisory-locked mint (api/src/lib/case-po.ts) — identical logic to the
-        // automated-intake and provider-API paths; the lock lives on this transaction's `q`.
-        casePo = await mintCasePo(q, principalForAutoMint);
-      }
-      if (casePo) {
-        insertCols.push('case_po');
-        insertVals.push(casePo);
-      }
+    let createOutcome: { id: string; replayed: boolean };
+    try {
+      createOutcome = await tx(async (q) => {
+        if (operationBinding) {
+          const existingId = await beginManualIntakeOperation(q, operationBinding);
+          if (existingId) return { id: existingId, replayed: true };
+        }
+        const insertCols = [...cols];
+        const insertVals = [...vals];
+        let casePo = suppliedCasePo;
+        if (!casePo && principalForAutoMint) {
+          // Shared advisory-locked mint (api/src/lib/case-po.ts) — identical logic to the
+          // automated-intake and provider-API paths; the lock lives on this transaction's `q`.
+          casePo = await mintCasePo(q, principalForAutoMint);
+        }
+        if (casePo) {
+          insertCols.push('case_po');
+          insertVals.push(casePo);
+        }
 
-      const placeholders = insertVals.map((_v, i) => `$${i + 1}`).join(', ');
-      const rows = await q<Row>(
-        `INSERT INTO case_ (${insertCols.join(', ')}) VALUES (${placeholders}) RETURNING id`,
-        insertVals,
-      );
-      return rows[0]?.id as string | undefined;
-    });
-    if (!newId) return { status: 500, jsonBody: { error: 'case create returned no id' } };
+        const placeholders = insertVals.map((_v, i) => `$${i + 1}`).join(', ');
+        const rows = await q<Row>(
+          `INSERT INTO case_ (${insertCols.join(', ')}) VALUES (${placeholders}) RETURNING id`,
+          insertVals,
+        );
+        const id = rows[0]?.id as string | undefined;
+        if (!id) throw new Error('case create returned no id');
+        if (operationBinding) {
+          await finishManualIntakeOperation(
+            q,
+            operationBinding.idempotencyKey,
+            id,
+            operationBinding.expectedFileCount,
+          );
+          await writeAuditStrict({
+            action: AUDIT_ACTION.case_created,
+            caseId: id,
+            summary: `Case created (${name})`,
+            after: {
+              status,
+              vrm: input.vrm,
+              manualIntakeOperation: operationBinding.idempotencyKey,
+            },
+            actor,
+          }, q);
+        }
+        return { id, replayed: false };
+      });
+    } catch (error) {
+      if (
+        error instanceof ManualIntakeOperationConflict ||
+        (operationBinding && isUniqueViolation(error))
+      ) {
+        return {
+          status: 409,
+          jsonBody: { error: 'manual intake operation does not match this case or file selection' },
+        };
+      }
+      throw error;
+    }
+    const newId = createOutcome.id;
+    if (createOutcome.replayed) {
+      await recomputeStatus(newId, actor);
+      return { status: 200, jsonBody: { id: newId, replayed: true } };
+    }
 
     // Best-effort: one FieldLevelProvenance row per EVA field.
     if (input.writeProvenance) {
@@ -1052,13 +1138,15 @@ app.http('createCase', {
       }
     }
 
-    await writeAudit({
-      action: AUDIT_ACTION.case_created,
-      caseId: newId,
-      summary: `Case created (${name})`,
-      after: { status, vrm: input.vrm },
-      ...(actor ? { actor } : {}),
-    });
+    if (!operationBinding) {
+      await writeAudit({
+        action: AUDIT_ACTION.case_created,
+        caseId: newId,
+        summary: `Case created (${name})`,
+        after: { status, vrm: input.vrm },
+        actor,
+      });
+    }
 
     // TKT-109/129: a manual case for an always_image_based provider pre-fills its
     // inspection field immediately (recomputeStatus runs the guarded pre-fill first,

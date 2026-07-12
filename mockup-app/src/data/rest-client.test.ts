@@ -136,6 +136,31 @@ describe('rest-client — dashboard `now` threading (#4)', () => {
   });
 });
 
+describe('rest-client — resumable Manual Intake create', () => {
+  it('sends case and evidence retry identities as headers without changing the case body', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson({ id: 'case-created' }));
+    const da = clientWith(fetchMock);
+    const body = { vrm: 'AB12CDE' } as Parameters<typeof da.createCase>[0];
+
+    await da.createCase(body, {
+      idempotencyKey: 'manual-create-operation-0001',
+      evidenceUploadKey: 'manual-upload-operation-0001',
+      expectedEvidenceCount: 3,
+    });
+
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases');
+    const init = lastInit(fetchMock);
+    expect(init.method).toBe('POST');
+    expect(init.body).toBe(JSON.stringify(body));
+    expect(init.headers).toMatchObject({
+      Authorization: 'Bearer TOKEN',
+      'Idempotency-Key': 'manual-create-operation-0001',
+      'X-Manual-Intake-Upload-Key': 'manual-upload-operation-0001',
+      'X-Manual-Intake-File-Count': '3',
+    });
+  });
+});
+
 describe('rest-client — openCasePoMatches (TKT-068 attach-by-Case/PO)', () => {
   it('GETs /api/cases?case_po=<encoded> and returns the matches', async () => {
     const rows = [{ id: 'c-9', casePo: 'CCPY26050', vrm: 'YT13UTV', status: 'needs_review' }];

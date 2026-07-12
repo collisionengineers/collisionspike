@@ -84,6 +84,7 @@ import { mintCasePo } from '../lib/case-po.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
 import { markCaseDoneUsing } from '../lib/terminal-transition.js';
 import { combineMakeModel } from '../lib/enrichment-map.js';
+import { manualIntakeEvidencePending } from '../lib/manual-intake-operation.js';
 import {
   corpusWorkProviderCandidate,
   isEngineerReportLayoutSentinel,
@@ -286,7 +287,10 @@ async function recomputeStatus(
     const evidenceRows = await q<Row>('SELECT * FROM evidence WHERE case_id = $1', [caseId]);
     const evidence = evidenceRows.map(rowToEvidence);
     const full = rowToCase(rec, { evidence, provenanceRows });
-    const next = statusForReviewCase(readinessInputForCase(full));
+    const next = statusForReviewCase({
+      ...readinessInputForCase(full),
+      sourceEvidencePending: await manualIntakeEvidencePending(q, caseId),
+    });
 
     if (next !== full.status) {
       await q('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [

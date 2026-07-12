@@ -65,14 +65,19 @@ import {
 } from '../data';
 import { makeRestParserTransport } from '../data/parser-rest-transport';
 import type { DataAccessExt } from '../data/rest-client';
-import type { NextCasePoResult } from '@cs/domain';
+import type { CreateCaseInput, NextCasePoResult } from '@cs/domain';
 import { acquireApiToken } from '../auth/msalConfig';
 import { createIdentityFields, type ManualIntakeMode } from './manual-intake-create';
 import { manualIntakeEvidenceNotice } from './evidence-upload-result';
 import {
+  manualIntakeUploadOutcome,
+  type ManualIntakeUploadOutcome,
+} from './manual-intake-upload';
+import {
   isImageFile,
   isInstructionFile,
   MANUAL_INTAKE_ACCEPT,
+  manualIntakeBatchRejection,
   manualIntakeFileRejection,
   partitionManualIntakeFiles,
 } from './manual-intake-files';
@@ -104,8 +109,8 @@ const restParserTransport = makeRestParserTransport(parserApiCall);
      A. Document intake — pick (or drag in) an instruction document, base64-encode
         it in the browser, POST it to the live parser (CSP-safe connector transport
         via the data seam's parseDocument), and pre-fill the 12 EVA fields with
-        their parser provenance. Additional files (vehicle images, .eml/.msg) ride
-        along as evidence to link on create.
+        their parser provenance. Additional JPG, PNG, WebP and PDF files are
+        persisted through the same evidence path before completion is reported.
 
      B. Fully-manual entry — skip the parser entirely and key every field by hand
         (empty EvaFields seeded with staff provenance).
@@ -351,6 +356,12 @@ type Phase = 'pick' | 'parsing' | 'review' | 'creating';
      the VRM until instructions arrive). */
 type IntakeMode = ManualIntakeMode;
 
+interface PendingManualUpload {
+  caseId: string;
+  requiresInstruction: boolean;
+  outcome?: ManualIntakeUploadOutcome;
+}
+
 export function ManualIntake() {
   const styles = useStyles();
   const navigate = useNavigate();
@@ -360,12 +371,14 @@ export function ManualIntake() {
      images afterwards (or a failed parse) does not re-fire the auto-read. */
   const autoParsedRef = useRef<string | null>(null);
   const gateAppliedRef = useRef(false);
+  const caseCreateKeyRef = useRef(crypto.randomUUID());
   const evidenceUploadKeyRef = useRef(crypto.randomUUID());
   const holdGate = useHoldNewCasesDefault();
 
   const [phase, setPhase] = useState<Phase>('pick');
   const [mode, setMode] = useState<IntakeMode>('document');
   const [files, setFiles] = useState<File[]>([]);
+  const [pendingManualUpload, setPendingManualUpload] = useState<PendingManualUpload | undefined>();
   const [dragging, setDragging] = useState(false);
 
   const [fields, setFields] = useState<EvaFields | undefined>();
@@ -410,6 +423,7 @@ export function ManualIntake() {
 
   const filePartition = useMemo(() => partitionManualIntakeFiles(files), [files]);
   const unsupportedFiles = filePartition.rejected;
+  const batchRejection = useMemo(() => manualIntakeBatchRejection(files), [files]);
   /* The first instruction-type file is the parse target; the rest are evidence. */
   const instructionFile = useMemo(
     () => filePartition.accepted.find(isInstructionFile),
@@ -429,6 +443,10 @@ export function ManualIntake() {
   const addFiles = (list: FileList | null) => {
     if (!list || list.length === 0) return;
     setError(undefined);
+    evidenceUploadKeyRef.current = crypto.randomUUID();
+    setPendingManualUpload((pending) =>
+      pending ? { ...pending, outcome: undefined } : pending,
+    );
     setFiles((prev) => {
       const seen = new Set(prev.map((f) => `${f.name}:${f.size}`));
       const next = [...prev];
@@ -445,6 +463,10 @@ export function ManualIntake() {
 
   const removeFile = (index: number) => {
     setError(undefined);
+    evidenceUploadKeyRef.current = crypto.randomUUID();
+    setPendingManualUpload((pending) =>
+      pending ? { ...pending, outcome: undefined } : pending,
+    );
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -499,8 +521,8 @@ export function ManualIntake() {
 
   /* Fully-manual entry (review #17): straight to the review form, empty fields. */
   const startManual = () => {
-    if (unsupportedFiles.length > 0) {
-      setError('Remove the files marked Not supported before continuing.');
+    if (unsupportedFiles.length > 0 || batchRejection) {
+      setError(batchRejection ?? 'Remove the files marked Not supported before continuing.');
       return;
     }
     setError(undefined);
@@ -517,8 +539,8 @@ export function ManualIntake() {
      instruction-only fields don't exist yet, so the form drops them; the
      inspection Location stays a REQUIRED field, and no reason is asked for. */
   const startImagesOnly = () => {
-    if (unsupportedFiles.length > 0) {
-      setError('Remove the files marked Not supported before continuing.');
+    if (unsupportedFiles.length > 0 || batchRejection) {
+      setError(batchRejection ?? 'Remove the files marked Not supported before continuing.');
       return;
     }
     setError(undefined);
@@ -540,7 +562,7 @@ export function ManualIntake() {
      added later, or when a failed parse returns to 'pick'. */
   useEffect(() => {
     if (phase !== 'pick') return;
-    if (unsupportedFiles.length > 0) return;
+    if (unsupportedFiles.length > 0 || batchRejection) return;
     if (!instructionFile) {
       autoParsedRef.current = null;
       return;
@@ -550,7 +572,7 @@ export function ManualIntake() {
     autoParsedRef.current = key;
     void runParse();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [instructionFile, phase, unsupportedFiles.length]);
+  }, [instructionFile, phase, unsupportedFiles.length, batchRejection]);
 
   /* Seed the per-case hold from the admin "hold by default" gate, once, when it
      first resolves; a later manual toggle then sticks. */
@@ -688,10 +710,11 @@ export function ManualIntake() {
     setPhase('creating');
     setError(undefined);
     try {
-      const evidenceFiles = filePartition.accepted.filter((f) => f !== instructionFile);
-      const evidenceCount = evidenceFiles.length;
       const isImagesOnly = mode === 'images';
-      const { id } = await getDataAccess().createCase({
+      const uploadFiles = isImagesOnly
+        ? filePartition.accepted.filter((f) => f !== instructionFile)
+        : filePartition.accepted;
+      const createInput: CreateCaseInput = {
         evaFields: evaForCreate,
         vrm: vrm.trim(),
         // Image-only intake (TKT-024/TKT-118): NO provider is sent — the provider
@@ -704,41 +727,75 @@ export function ManualIntake() {
         sourceLabel: isImagesOnly
           ? `Images received — from ${receivedFrom.trim()}`
           : instructionFile
-            ? `Manual intake — ${instructionFile.name}`
+            ? 'Manual intake (instruction document)'
             : 'Manual intake (keyed by hand)',
         ...(isImagesOnly
           ? { receivedFrom: receivedFrom.trim(), receivedOn: receivedOn.trim() }
           : {}),
         ...(onHold ? { onHold: true } : {}),
         writeProvenance,
-      });
+      };
+      const { id } = await getDataAccess().createCase(
+        createInput,
+        isImagesOnly
+          ? undefined
+          : {
+              idempotencyKey: caseCreateKeyRef.current,
+              ...(uploadFiles.length > 0
+                ? { evidenceUploadKey: evidenceUploadKeyRef.current }
+                : {}),
+              expectedEvidenceCount: uploadFiles.length,
+            },
+      );
+      if (pendingManualUpload && pendingManualUpload.caseId !== id) {
+        throw new Error('The existing case could not be safely resumed.');
+      }
       // B1: an images-only case's photos must actually be PERSISTED — createCase
       // records only metadata. Upload the selected files through the evidence seam
       // and AWAIT it, so a failed upload surfaces and we never claim photos were
       // attached when they weren't. The case already exists, so we navigate to it
       // either way (its evidence tab lets the operator retry the attach).
-      if (isImagesOnly && evidenceFiles.length > 0) {
-        const result = await getDataAccess().uploadEvidence(id, evidenceFiles, {
+      if (isImagesOnly && uploadFiles.length > 0) {
+        const result = await getDataAccess().uploadEvidence(id, uploadFiles, {
           source: 'manual_intake',
           idempotencyKey: evidenceUploadKeyRef.current,
         });
-        const notice = manualIntakeEvidenceNotice(result, evidenceFiles.length);
+        const notice = manualIntakeEvidenceNotice(result, uploadFiles.length);
         toast(notice.message, notice.intent);
         navigate(`/case/${id}`);
         return;
       }
-      if (evidenceCount > 0) {
-        // Persisting the evidence bytes is the operator-gated storage step; the
-        // case link is the point. Surface that the files travel with the case.
-        toast(`Case created — ${evidenceCount} evidence file(s) linked`);
+      if (uploadFiles.length > 0) {
+        const result = await getDataAccess().uploadEvidence(id, uploadFiles, {
+          source: 'manual_intake',
+          idempotencyKey: evidenceUploadKeyRef.current,
+        });
+        const outcome = manualIntakeUploadOutcome(
+          result,
+          uploadFiles,
+          instructionFile ? uploadFiles.indexOf(instructionFile) : -1,
+        );
+        if (!outcome.complete) {
+          setPendingManualUpload({
+            caseId: id,
+            requiresInstruction: mode === 'document',
+            outcome,
+          });
+          setPhase('review');
+          toast('Case created — some files still need attention', 'error');
+          return;
+        }
+        toast(outcome.message);
+        navigate(`/case/${id}`);
+        return;
       } else {
         toast('Case created');
       }
       navigate(`/case/${id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError('The case could not be finished. Check the details and files, then try again.');
       setPhase('review');
-      toast('Could not create the case', 'error');
+      toast(pendingManualUpload ? 'The files were not added' : 'Could not create the case', 'error');
     }
   };
 
@@ -762,7 +819,9 @@ export function ManualIntake() {
     setError(undefined);
     setInfo(undefined);
     autoParsedRef.current = null;
+    caseCreateKeyRef.current = crypto.randomUUID();
     evidenceUploadKeyRef.current = crypto.randomUUID();
+    setPendingManualUpload(undefined);
     setOnHold(holdGate.data ?? false);
   };
 
@@ -771,6 +830,18 @@ export function ManualIntake() {
   return (
     <div className={mergeClasses('ce-enter', styles.page)}>
       <SectionHeading eyebrow="Intake" heading="New case" subtitle="Read the details from an instruction document, or type a case in by hand." />
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={MANUAL_INTAKE_ACCEPT}
+        multiple
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          addFiles(e.target.files);
+          e.target.value = '';
+        }}
+      />
 
       {error && (
         <MessageBar intent="error">
@@ -787,6 +858,98 @@ export function ManualIntake() {
         </MessageBar>
       )}
 
+      {pendingManualUpload && (
+        <Panel>
+          <MessageBar intent="error" aria-live="assertive">
+            <MessageBarBody>
+              <MessageBarTitle>Some files still need attention</MessageBarTitle>
+              {pendingManualUpload.outcome?.message ??
+                'The case has been created. Add the selected files to finish it.'}
+            </MessageBarBody>
+          </MessageBar>
+          <Text>This case will stay Not Ready until every selected file has been added.</Text>
+          <div className={styles.fileList} aria-label="Files for this case">
+            {files.map((file, index) => {
+              const result = pendingManualUpload.outcome?.items.find(
+                (item) => item.fileIndex === index,
+              );
+              const isInstruction = file === instructionFile;
+              return (
+                <div key={`${file.name}-${file.size}-${index}`} className={styles.fileChip}>
+                  {isImageFile(file)
+                    ? <ImageIcon size={14} aria-hidden />
+                    : <FileText size={14} aria-hidden />}
+                  <span className={styles.fileName} title={file.name}>{file.name}</span>
+                  <Badge
+                    className={styles.fileTag}
+                    size="small"
+                    appearance="tint"
+                    color={result?.state === 'added' ? 'success' : 'danger'}
+                  >
+                    {result?.state === 'added'
+                      ? isInstruction ? 'Instruction added' : 'File added'
+                      : isInstruction ? 'Instruction needs retry' : 'Needs retry'}
+                  </Badge>
+                  <Button
+                    appearance="subtle"
+                    size="small"
+                    icon={<X size={14} />}
+                    aria-label={`Remove ${file.name}`}
+                    onClick={() => removeFile(index)}
+                    disabled={phase === 'creating'}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          {pendingManualUpload.outcome?.items.some((item) => item.state === 'outstanding') && (
+            <ul aria-label="Files that need attention">
+              {pendingManualUpload.outcome.items
+                .filter((item) => item.state === 'outstanding')
+                .map((item) => (
+                  <li key={`${item.fileIndex}-${item.fileName}`}>
+                    {item.fileName}: {item.reason}
+                  </li>
+                ))}
+            </ul>
+          )}
+          {pendingManualUpload.requiresInstruction && !instructionFile && (
+            <MessageBar intent="warning">
+              <MessageBarBody>
+                <MessageBarTitle>Add the instruction</MessageBarTitle>
+                Choose a PDF instruction before retrying.
+              </MessageBarBody>
+            </MessageBar>
+          )}
+          {phase === 'creating' && (
+            <ProgressBar aria-label="Adding files" thickness="medium" />
+          )}
+          <div className={styles.footerActions}>
+            <Button
+              appearance="secondary"
+              icon={<Upload size={16} />}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={phase === 'creating'}
+            >
+              Add or replace files
+            </Button>
+            <Button
+              appearance="primary"
+              icon={phase === 'creating' ? <Spinner size="tiny" /> : <Upload size={16} />}
+              onClick={createCase}
+              disabled={
+                phase === 'creating' ||
+                unsupportedFiles.length > 0 ||
+                Boolean(batchRejection) ||
+                (pendingManualUpload.requiresInstruction && !instructionFile)
+              }
+            >
+              {phase === 'creating' ? 'Adding files…' : 'Retry files'}
+            </Button>
+          </div>
+        </Panel>
+      )}
+
       {/* ----- STEP 1: pick + parse ----- */}
       {(phase === 'pick' || phase === 'parsing') && (
         <Panel>
@@ -799,21 +962,10 @@ export function ManualIntake() {
             <Upload size={36} className={styles.dropIcon} strokeWidth={1.5} aria-hidden />
             <Text weight="semibold">Drag files here — we’ll read an instruction document automatically</Text>
             <Caption1 className={styles.hint}>
-              Drop a PDF, Word (.docx/.doc) or email (.eml/.msg) and it’s read automatically — no button
-              needed. Add vehicle images alongside to attach them as evidence, or choose “Images only”
+              Drop a PDF and it’s read automatically — no button needed. Add vehicle images alongside,
+              or choose “Images only”
               when photos arrived without instructions.
             </Caption1>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={MANUAL_INTAKE_ACCEPT}
-              multiple
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                addFiles(e.target.files);
-                e.target.value = ''; // allow re-picking the same file
-              }}
-            />
             <div className={styles.pickActions}>
               <Button
                 appearance="secondary"
@@ -880,13 +1032,21 @@ export function ManualIntake() {
                 <MessageBarBody>
                   <MessageBarTitle>Some files can’t be added</MessageBarTitle>
                   {unsupportedFiles.map(({ file }) => file.name).join(' · ')}. Use JPG, PNG, WebP,
-                  PDF, Word or email files. Remove these files to continue.
+                  or PDF files. Remove these files to continue.
+                </MessageBarBody>
+              </MessageBar>
+            )}
+            {batchRejection && (
+              <MessageBar intent="warning" className={styles.barAbove}>
+                <MessageBarBody>
+                  <MessageBarTitle>Choose fewer files</MessageBarTitle>
+                  {batchRejection}
                 </MessageBarBody>
               </MessageBar>
             )}
             {files.length > 0 && !instructionFile && (
               <Caption1 className={styles.hint}>
-                Add a PDF, Word, or email instruction document to read from, or enter the case manually.
+                Add a PDF instruction document to read from, or enter the case manually.
               </Caption1>
             )}
           </div>
@@ -904,7 +1064,7 @@ export function ManualIntake() {
       )}
 
       {/* ----- STEP 2: review + create ----- */}
-      {(phase === 'review' || phase === 'creating') && fields && (
+      {(phase === 'review' || phase === 'creating') && fields && !pendingManualUpload && (
         <Panel>
           {warnings.length > 0 && (
             <MessageBar intent="warning" className={styles.barBelow}>

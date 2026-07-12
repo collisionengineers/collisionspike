@@ -33,6 +33,7 @@ import {
   requestArchiveMirrorIfEligible,
   type ArchiveMirrorCandidate,
 } from '../lib/archive-mirror-outbox.js';
+import { completeManualIntakeEvidence } from '../lib/manual-intake-operation.js';
 
 const IMAGE_KIND_CODE = 100000000;
 const DOCUMENT_KIND_CODE = 100000002;
@@ -693,6 +694,34 @@ app.http('uploadCaseEvidence', {
           };
         }
       }
+    }
+
+    const confirmedIndexes = new Set(added.map((item) => item.fileIndex));
+    const batchComplete =
+      rejected.length === 0 &&
+      added.length === files.length &&
+      confirmedIndexes.size === files.length;
+    if (batchComplete) {
+      await tx(async (q) => {
+        await q(
+          `UPDATE staff_evidence_upload
+              SET completed_at = COALESCE(completed_at, now()), updated_at = now()
+            WHERE idempotency_key = $1 AND case_id = $2`,
+          [idempotencyKey, caseId],
+        );
+        if (
+          source === 'manual_intake' &&
+          await completeManualIntakeEvidence(q, {
+            caseId,
+            uploadIdempotencyKey: idempotencyKey,
+            fileCount: files.length,
+          })
+        ) {
+          // Each file requested a generation while the manual-source blocker was
+          // still present. Request one more after releasing that blocker.
+          await requestStatusRecompute(q, caseId);
+        }
+      });
     }
 
     return {

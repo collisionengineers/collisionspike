@@ -79,10 +79,22 @@ export interface CreateCaseInput {
   receivedOn?: string;
 }
 
+/** Retry identity for staff Manual Intake case creation. The browser keeps these
+ * values stable across response loss/double submission; the server binds them to
+ * the authenticated actor, exact case request and expected evidence batch. */
+export interface CreateCaseOptions {
+  idempotencyKey?: string;
+  evidenceUploadKey?: string;
+  expectedEvidenceCount?: number;
+}
+
 /** The result of a Case write — the new row's id (GUID) the UI navigates to. */
 export interface CreateCaseResult {
   /** The created Case's id (cr1bd_caseid GUID), used by `/case/:caseId`. */
   id: string;
+  /** True when the server returned the case created by an earlier delivery of the
+   * same operation instead of minting another case. */
+  replayed?: boolean;
 }
 
 /**
@@ -716,7 +728,7 @@ export const INBOUND_COUNTS_ZERO: InboundCounts = {
 export interface DataAccess {
   /* ----- Cases ----- */
   caseById(id: string): Promise<Case | undefined>;
-  createCase(input: CreateCaseInput): Promise<CreateCaseResult>;
+  createCase(input: CreateCaseInput, options?: CreateCaseOptions): Promise<CreateCaseResult>;
   /**
    * Patch an existing case (human correction — e.g. the editable VRM, issue #12).
    * `PATCH /api/cases/{id}` with a partial body → 200 + the updated Case JSON.

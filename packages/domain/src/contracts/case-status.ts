@@ -155,6 +155,10 @@ export interface StatusEvaluationInput {
    * recomputing an EXISTING case must pass it; case-create paths have none.
    */
   mergedInto?: string;
+  /** A staff Manual Intake case whose selected source/evidence batch has not yet
+   * been fully persisted. It cannot be Review-ready even if a partial upload made
+   * the visible EVA fields/images otherwise look complete. */
+  sourceEvidencePending?: boolean;
 }
 
 /* ----------  Required-field check (re-implements payload validation)  ----------
@@ -198,7 +202,7 @@ export function unresolvedReviewFieldKeys(
 }
 
 /** Stable groups used by every checklist adapter. */
-export type ReadinessCheckGroup = 'fields' | 'images' | 'address' | 'conflicts';
+export type ReadinessCheckGroup = 'fields' | 'images' | 'address' | 'conflicts' | 'source';
 
 /** One canonical, handler-facing readiness check. */
 export interface ReadinessCheck {
@@ -219,6 +223,7 @@ export interface CaseReadinessResult {
   imageRulesPass: boolean;
   imagesReady: boolean;
   reviewsResolved: boolean;
+  sourceEvidenceReady: boolean;
 }
 
 const IMAGE_BASED_ASSESSMENT = 'Image Based Assessment';
@@ -232,7 +237,10 @@ const IMAGE_BASED_ASSESSMENT = 'Image Based Assessment';
  * address or review-state rule.
  */
 export function evaluateCaseReadiness(
-  input: Pick<StatusEvaluationInput, 'evaFields' | 'evidence' | 'inspectionDecision'>,
+  input: Pick<
+    StatusEvaluationInput,
+    'evaFields' | 'evidence' | 'inspectionDecision' | 'sourceEvidencePending'
+  >,
 ): CaseReadinessResult {
   const checks: ReadinessCheck[] = [];
 
@@ -311,6 +319,17 @@ export function evaluateCaseReadiness(
         }),
   });
 
+  const sourceEvidenceReady = input.sourceEvidencePending !== true;
+  if (!sourceEvidenceReady) {
+    checks.push({
+      id: 'source-evidence',
+      label: 'Source files added',
+      ok: false,
+      group: 'source',
+      detail: 'The selected instruction or extra files still need to be added',
+    });
+  }
+
   const requiredFieldsPresent = missingRequiredFieldKeys(input.evaFields).length === 0;
   return {
     checks,
@@ -320,6 +339,7 @@ export function evaluateCaseReadiness(
     imageRulesPass: imageRules.ok,
     imagesReady,
     reviewsResolved,
+    sourceEvidenceReady,
   };
 }
 

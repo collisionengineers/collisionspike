@@ -29,6 +29,32 @@ describe('staff evidence upload schema', () => {
     }
   });
 
+  it('persists one resumable manual case operation and gates incomplete source batches', () => {
+    for (const sql of [
+      schema('196_manual_intake_case_create.sql'),
+      schema('deltas/2026-07-12-tkt166-manual-intake-case-create.sql'),
+    ]) {
+      expect(sql).toContain('manual_intake_case_create_operation');
+      expect(sql).toContain('request_hash');
+      expect(sql).toContain('upload_idempotency_key');
+      expect(sql).toContain('expected_file_count');
+      expect(sql).toContain('evidence_completed_at');
+      expect(sql).toContain('ix_manual_intake_case_create_pending');
+    }
+    const canonicalPolicies = schema('900_constraints.sql');
+    const delta = schema('deltas/2026-07-12-tkt166-manual-intake-case-create.sql');
+    expect(canonicalPolicies).toContain("'manual_intake_case_create_operation'");
+    expect(delta).toContain(
+      'ALTER TABLE manual_intake_case_create_operation FORCE ROW LEVEL SECURITY',
+    );
+    expect(delta).toContain(
+      'GRANT SELECT, INSERT, UPDATE ON manual_intake_case_create_operation TO cespk_app',
+    );
+    expect(delta).not.toContain(
+      'GRANT DELETE ON manual_intake_case_create_operation TO cespk_app',
+    );
+  });
+
   it('forces RLS and grants only non-delete app operations', () => {
     const canonicalPolicies = schema('900_constraints.sql');
     const delta = schema('deltas/2026-07-12-tkt165-staff-evidence-upload.sql');

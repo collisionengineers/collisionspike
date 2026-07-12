@@ -153,6 +153,20 @@ describe('statusForReviewCase — merge-retired lock (TKT-141)', () => {
     expect(statusForReviewCase(input)).toBe('linked_to_instruction');
   });
 
+  it('keeps an incomplete manual-intake source batch Not Ready without breaking terminal/merge locks', () => {
+    const complete = caseInput({
+      status: 'ingested',
+      evaFields: fullFields(),
+      evidence: goodEvidence,
+      sourceEvidencePending: true,
+    });
+    expect(statusForReviewCase(complete)).toBe('needs_review');
+    expect(statusForReviewCase({ ...complete, status: 'done' })).toBe('done');
+    expect(statusForReviewCase({ ...complete, mergedInto: 'survivor-case' })).toBe(
+      'linked_to_instruction',
+    );
+  });
+
   it('converges a wrongly un-retired marker-bearing case back to linked_to_instruction (self-heal)', () => {
     // The regression population: marker present but status already flipped to
     // needs_review. The next recompute re-retires it rather than perpetuating it.

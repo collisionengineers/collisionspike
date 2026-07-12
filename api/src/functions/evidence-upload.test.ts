@@ -96,6 +96,7 @@ const state = {
   archiveFailure: false,
   hideTwinUntilUpload: false,
   mergeAfterUpload: false,
+  manualCompletionAttempts: 0,
   blobPaths: new Set<string>(),
 };
 
@@ -107,6 +108,7 @@ function restore(snapshot: ReturnType<typeof snapshotState>): void {
   state.archiveRequests = snapshot.archiveRequests;
   state.statusRequests = snapshot.statusRequests;
   state.nextEvidence = snapshot.nextEvidence;
+  state.manualCompletionAttempts = snapshot.manualCompletionAttempts;
 }
 
 function snapshotState() {
@@ -118,6 +120,7 @@ function snapshotState() {
     archiveRequests: state.archiveRequests,
     statusRequests: state.statusRequests,
     nextEvidence: state.nextEvidence,
+    manualCompletionAttempts: state.manualCompletionAttempts,
   };
 }
 
@@ -149,6 +152,7 @@ beforeEach(() => {
   state.archiveFailure = false;
   state.hideTwinUntilUpload = false;
   state.mergeAfterUpload = false;
+  state.manualCompletionAttempts = 0;
   state.blobPaths = new Set();
   db.query.mockReset();
   db.tx.mockReset();
@@ -295,6 +299,10 @@ beforeEach(() => {
       return [];
     }
     if (sql.includes('UPDATE staff_evidence_upload')) return [];
+    if (sql.includes('UPDATE manual_intake_case_create_operation')) {
+      state.manualCompletionAttempts++;
+      return [{ idempotency_key: 'manual-create-operation' }];
+    }
     return [];
   });
   blob.uploadEvidenceBytes.mockImplementation(async (prefix: string, name: string, bytes: Buffer) => {
@@ -347,6 +355,35 @@ describe('canonical staff evidence upload', () => {
     const audit = db.txQuery.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO audit_event'))!;
     expect(audit[1]?.[0]).toContain('through Add evidence');
     expect(audit[1]?.[0]).not.toMatch(/assistant/i);
+  });
+
+  it('releases the Manual Intake readiness blocker only after every selected file is confirmed', async () => {
+    const complete = await upload(
+      requestWith(
+        [new File([PDF], 'instruction.pdf', { type: 'application/pdf' })],
+        { source: 'manual_intake' },
+      ),
+      ctx,
+      {},
+    );
+    expect(complete.status).toBe(201);
+    expect(state.manualCompletionAttempts).toBe(1);
+    expect(state.statusRequests).toBe(2); // file persisted, then source-batch blocker released
+
+    state.manualCompletionAttempts = 0;
+    const partial = await upload(
+      requestWith(
+        [
+          new File([PDF], 'instruction-2.pdf', { type: 'application/pdf' }),
+          new File(['not an image'], 'broken.jpg', { type: 'image/jpeg' }),
+        ],
+        { source: 'manual_intake', key: '00000000-0000-4000-8000-000000000199' },
+      ),
+      ctx,
+      {},
+    );
+    expect(partial.status).toBe(207);
+    expect(state.manualCompletionAttempts).toBe(0);
   });
 
   it('replays an exact idempotency key without another Blob write, row, archive request or audit', async () => {
