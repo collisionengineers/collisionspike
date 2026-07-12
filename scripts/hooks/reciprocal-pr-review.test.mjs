@@ -594,7 +594,19 @@ test('detached worktree lifecycle leaves caller branch, head, and status unchang
   }
 });
 
-test('trusted Windows-safe Codex command and core CLIs execute without shell shims', { skip: Boolean(process.env.CI) }, () => {
+function localReviewerClisAvailable() {
+  if (process.env.CI) return false;
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+  try {
+    for (const name of ['git', 'gh', 'claude']) resolveTrustedExecutable(name, root);
+    resolveTrustedCodexCommand(root);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+test('trusted Windows-safe Codex command and core CLIs execute without shell shims', { skip: !localReviewerClisAvailable() }, () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
   for (const name of ['git', 'gh', 'claude']) {
     const executable = resolveTrustedExecutable(name, root);
