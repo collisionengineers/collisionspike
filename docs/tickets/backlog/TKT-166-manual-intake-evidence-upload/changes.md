@@ -7,7 +7,7 @@ loop still owns the ticket-status move, database delta, deployment and independe
 
 ## Commits
 
-- `6240215` — make Manual Intake case creation and its source-file batch resumable, target-bound and
+- `d20584b` — make Manual Intake case creation and its source-file batch resumable, target-bound and
   truthful on partial failure.
 
 ## Files touched
@@ -45,10 +45,10 @@ outstanding file, preserves already-added identities, and does not navigate auto
 
 ## Offline checks
 
-- Full Domain suite: **52 files / 1,104 tests passed**.
-- Full API suite: **64 files / 624 tests passed**.
+- Full Domain suite: **53 files / 1,119 tests passed**.
+- Full API suite: **64 files / 628 tests passed**.
 - Full orchestration suite: **30 files / 401 tests passed**.
-- Full SPA suite: **39 files / 453 tests passed**.
+- Full SPA suite: **40 files / 459 tests passed**.
 - Focused final run: Domain **41**, API **40**, SPA **57** tests passed.
 - Production TypeScript builds passed for Domain, API, orchestration and the SPA; the Vite bundle was
   produced successfully.
@@ -60,5 +60,8 @@ outstanding file, preserves already-added identities, and does not navigate auto
   this document/manual source-file transaction. Its branch will need a normal rebase conflict review.
 - TKT-153 owns explicit saving on an existing case. This change does not turn the New case form into
   a general case editor and does not alter its save contract.
+- TKT-130's merged canonical readiness evaluator remains authoritative. TKT-166 contributes one
+  additional source-file check to that evaluator and to the locked submission re-check; it does not
+  reintroduce a parallel readiness predicate.
 - Archive mirroring and image classification remain the canonical TKT-165 outbox/classifier paths;
   this ticket reuses them rather than introducing another byte or cleanup lifecycle.

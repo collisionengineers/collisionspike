@@ -962,7 +962,6 @@ app.http('createCase', {
       evaFields: input.evaFields,
       evidence: [],
       inspectionDecision: input.inspectionDecision ?? 'unknown',
-      inspectionDecision: input.inspectionDecision ?? 'unknown',
       instructionCount: 0,
       hasIdentity:
         (input.vrm ?? '').trim().length > 0 ||
