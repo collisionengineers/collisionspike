@@ -29,6 +29,19 @@ export async function requestArchiveMirrorIfEligible(
   ) {
     return undefined;
   }
+  return requestArchiveMirror(q, row as Pick<ArchiveMirrorCandidate, 'id' | 'case_id'>);
+}
+
+/**
+ * Record an evidence generation even when it is intentionally ineligible right now.
+ * The monitor acknowledges that inert generation; a later classifier/staff decision
+ * requests the next generation if the row becomes eligible. This is used by staff
+ * photos so archive work is durable from creation without racing the image-safety gate.
+ */
+export async function requestArchiveMirror(
+  q: TxQuery,
+  row: Pick<ArchiveMirrorCandidate, 'id' | 'case_id'>,
+): Promise<number> {
   const requested = await q<{ requested_generation: string | number }>(
     `INSERT INTO archive_mirror_outbox
        (evidence_id, case_id, requested_generation, completed_generation,
@@ -46,5 +59,6 @@ export async function requestArchiveMirrorIfEligible(
      RETURNING requested_generation`,
     [row.id, row.case_id],
   );
-  return requested[0] ? Number(requested[0].requested_generation) : undefined;
+  if (!requested[0]) throw new Error('archive mirror request returned no generation');
+  return Number(requested[0].requested_generation);
 }

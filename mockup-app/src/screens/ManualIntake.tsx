@@ -68,6 +68,7 @@ import type { DataAccessExt } from '../data/rest-client';
 import type { NextCasePoResult } from '@cs/domain';
 import { acquireApiToken } from '../auth/msalConfig';
 import { createIdentityFields, type ManualIntakeMode } from './manual-intake-create';
+import { manualIntakeEvidenceNotice } from './evidence-upload-result';
 
 // Authenticated REST transport for the parser — replaces the connector-backed
 // transport (parser-connector-transport.ts, removed in plan 30 migration).
@@ -311,14 +312,18 @@ const CONTRACT_REQUIRED: ReadonlySet<EvaFieldKey> = new Set(
 /* The instruction-document parser supports these; images ride along as evidence. */
 const INSTRUCTION_EXT = ['.pdf', '.docx', '.doc', '.eml', '.msg'];
 /* The dropzone accepts the instruction doc PLUS extra evidence (images, .eml/.msg). */
-const ACCEPT = 'image/*,.pdf,.docx,.doc,.eml,.msg';
+const ACCEPT = '.jpg,.jpeg,.png,.webp,.pdf,.docx,.doc,.eml,.msg,image/jpeg,image/png,image/webp';
 
 function isInstructionFile(f: File): boolean {
   const n = f.name.toLowerCase();
   return INSTRUCTION_EXT.some((ext) => n.endsWith(ext));
 }
 function isImageFile(f: File): boolean {
-  return f.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|gif|tiff?)$/i.test(f.name);
+  const type = f.type.toLowerCase().split(';')[0].trim();
+  if (type.startsWith('image/')) {
+    return ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(type);
+  }
+  return /\.(jpe?g|png|webp)$/i.test(f.name);
 }
 
 /* Today as DD/MM/YYYY — the "Inspect on" default when the document carries none. */
@@ -365,6 +370,7 @@ export function ManualIntake() {
      images afterwards (or a failed parse) does not re-fire the auto-read. */
   const autoParsedRef = useRef<string | null>(null);
   const gateAppliedRef = useRef(false);
+  const evidenceUploadKeyRef = useRef(crypto.randomUUID());
   const holdGate = useHoldNewCasesDefault();
 
   const [phase, setPhase] = useState<Phase>('pick');
@@ -703,17 +709,12 @@ export function ManualIntake() {
       // attached when they weren't. The case already exists, so we navigate to it
       // either way (its evidence tab lets the operator retry the attach).
       if (isImagesOnly && evidenceFiles.length > 0) {
-        try {
-          const result = await getDataAccess().uploadEvidence(id, evidenceFiles);
-          const uploaded = result.status >= 200 && result.status < 300 && result.added.length > 0;
-          if (uploaded) {
-            toast(`Case created — ${result.added.length} photo${result.added.length === 1 ? '' : 's'} attached`);
-          } else {
-            toast('Case created, but the photos could not be attached — open the case to add them', 'error');
-          }
-        } catch {
-          toast('Case created, but the photos could not be attached — open the case to add them', 'error');
-        }
+        const result = await getDataAccess().uploadEvidence(id, evidenceFiles, {
+          source: 'manual_intake',
+          idempotencyKey: evidenceUploadKeyRef.current,
+        });
+        const notice = manualIntakeEvidenceNotice(result, evidenceFiles.length);
+        toast(notice.message, notice.intent);
         navigate(`/case/${id}`);
         return;
       }
@@ -752,6 +753,7 @@ export function ManualIntake() {
     setError(undefined);
     setInfo(undefined);
     autoParsedRef.current = null;
+    evidenceUploadKeyRef.current = crypto.randomUUID();
     setOnHold(holdGate.data ?? false);
   };
 

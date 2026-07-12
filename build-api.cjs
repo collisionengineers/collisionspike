@@ -11,7 +11,9 @@ esbuild.build({
   platform: 'node',
   format: 'cjs',
   target: 'node20',
-  external: ['@azure/functions'],
+  // Native Sharp/libvips binaries cannot be embedded in a single JS bundle.
+  // deploy/api/package.json ships the Linux x64 production dependency beside it.
+  external: ['@azure/functions', 'sharp'],
   define: { 'import.meta.url': '__importMetaUrl' },
   banner: { js: "const __importMetaUrl = require('url').pathToFileURL(__filename).href;" },
   outfile: 'deploy/api/main.cjs',

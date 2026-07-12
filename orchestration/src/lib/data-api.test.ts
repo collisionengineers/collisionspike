@@ -203,3 +203,35 @@ describe('durable Box classification work contract', () => {
     });
   });
 });
+
+describe('durable staff-upload cleanup contract', () => {
+  it('claims cleanup owners and reports the exact claim outcome', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ rows: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ updated: true, cleaned: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+    await dataApi.claimStaffUploadCleanup(25);
+    await dataApi.completeStaffUploadCleanup('item-1', {
+      claimToken: '00000000-0000-4000-8000-000000000123',
+      outcome: 'deleted',
+    });
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      'https://api.example.test/api/internal/staff-upload-cleanup/claim?limit=25',
+    );
+    expect(fetchMock.mock.calls[0][1]?.method).toBe('POST');
+    expect(String(fetchMock.mock.calls[1][0])).toBe(
+      'https://api.example.test/api/internal/staff-upload-cleanup/item-1/complete',
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({
+      claimToken: '00000000-0000-4000-8000-000000000123',
+      outcome: 'deleted',
+    });
+  });
+});

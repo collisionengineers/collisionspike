@@ -20,11 +20,32 @@
 Both are a **single esbuild bundle** (`deploy/api/main.cjs`, `deploy/orch/main.cjs`).
 1. `npm run build --prefix api`  (or `--prefix orchestration`)  — tsc typecheck, builds `@cs/domain` too.
 2. `node build-api.cjs`  (or `node build-orch.cjs`) — esbuild bundle **with the import.meta.url banner**.
-3. **`npm install --prefix deploy/api --omit=dev`** (orch: `deploy/orch`) — ship `node_modules`.
-4. Smoke: `node -e "require('./deploy/api/main.cjs')"` → test-mode warnings + lists all functions
+3. Smoke the bundle against the Windows workspace dependencies:
+   `node -e "require('./deploy/api/main.cjs')"` → test-mode warnings + lists all functions
    (NOT a `createRequire`/`ERR_INVALID_ARG_VALUE` crash).
+4. Package runtime dependencies. API uses Sharp's native image decoder, so install its **Linux x64
+   glibc** optional binary explicitly even though the bundle is built on Windows:
+   `npm ci --prefix deploy/api --omit=dev --include=optional --os=linux --cpu=x64 --libc=glibc`.
+   Confirm both `deploy/api/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-*.node` and
+   `deploy/api/node_modules/@img/sharp-libvips-linux-x64/lib/libvips-cpp.so.*` exist. For orchestration,
+   the existing `npm ci --prefix deploy/orch --omit=dev` remains sufficient.
 5. From `deploy/api/`: `func azure functionapp publish cespk-api-dev --javascript` (orch: `cespk-orch-dev`).
 6. App-settings via `az functionapp config appsettings set` (gates default-off; secrets as KV refs).
+
+## Multi-surface rollout order
+
+For a change that alters a SPA↔API contract, publish in this order:
+
+1. apply its additive database delta;
+2. publish and smoke-check the API;
+3. publish orchestration when it consumes new internal API routes;
+4. deploy the SPA last, then hard-refresh and smoke-check it.
+
+The API must remain compatible with the previously cached SPA during this window. In particular,
+TKT-165's evidence route derives a stable target-bound identity for the older upload request that
+does not send the new source/idempotency fields, while always returning evidence identities. The new
+SPA deliberately refuses to claim completion without those identities, so it must not precede the
+compatible API.
 
 ## Procedure — SPA (Static Web App)
 `npm run build` in `mockup-app/` — the four public `VITE_*` values are **committed in

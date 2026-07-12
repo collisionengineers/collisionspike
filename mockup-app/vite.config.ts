@@ -28,10 +28,12 @@ export default defineConfig({
       },
     },
   },
-  // Pure, deterministic contract tests — node env, no jsdom required.
+  // Keep pure contract tests in Node; rendered component files opt into jsdom with
+  // `@vitest-environment jsdom` so most of the suite stays lightweight.
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: ['src/test/setup-dom.ts'],
     // Resolve @cs/domain (and its subpaths) to the package SOURCE for tests only, so the
     // suite never depends on a freshly-built ./dist. The package's `import` condition points
     // at ./dist/index.js, so an out-of-date / missing `tsc -b` build of @cs/domain would

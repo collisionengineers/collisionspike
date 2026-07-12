@@ -153,6 +153,9 @@ export type {
   OutlookMoveResult,
   VersionedRead,
   ProposalExecutionResult,
+  EvidenceUploadOptions,
+  EvidenceUploadResult,
+  EvidenceUploadSource,
 } from './rest-client';
 // The all-false Box-gate baseline + the all-off location-assist baseline (values).
 export {

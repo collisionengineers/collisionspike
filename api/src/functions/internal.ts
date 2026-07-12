@@ -4133,16 +4133,171 @@ app.http('internalBoxMarkPurged', {
 });
 
 /* ============================================================
+   11a — durable cleanup for failed staff-upload Blob owners (TKT-165)
+
+   Each upload lease owns a claim-token-specific path before its Blob write. These routes
+   let the wake-safe orchestration sweep claim and retire only paths whose owner
+   is abandoned and which no evidence row references. Upload retries cannot
+   reuse a cleanup-pending owner, and a reclaimed retry receives a new path, so a
+   stale cleanup delete can never remove the winning generation's bytes.
+   ============================================================ */
+app.http('internalStaffUploadCleanupClaim', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/staff-upload-cleanup/claim',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const limitRaw = Number(req.query.get('limit') ?? '25');
+      const limit = Math.min(100, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25));
+      const rows = await tx(async (q) => {
+        // A process may have committed evidence but lost its response before marking
+        // the owner. Reconcile that fact before considering any deletion.
+        await q(
+          `UPDATE staff_evidence_upload_item item
+              SET state = 'complete', evidence_id = e.id,
+                  upload_claim_token = NULL, upload_claim_expires_at = NULL,
+                  cleanup_claim_token = NULL, cleanup_claim_expires_at = NULL,
+                  cleanup_next_attempt_at = NULL, updated_at = now()
+             FROM evidence e
+            WHERE e.storage_path = item.blob_path
+              AND item.state IN ('uploading', 'cleanup_pending')`,
+        );
+        // An expired request may have died while Azure was still finishing the
+        // Block Blob commit. Revoke its owner now, but quarantine the path for a
+        // further 15 minutes before making it deletable. Normal caught failures
+        // are already cleanup_pending and can be retried immediately.
+        await q(
+          `UPDATE staff_evidence_upload_item item
+              SET state = 'cleanup_pending',
+                  upload_claim_token = NULL, upload_claim_expires_at = NULL,
+                  cleanup_next_attempt_at = now() + interval '15 minutes',
+                  cleanup_last_error = COALESCE(cleanup_last_error, 'upload lease expired'),
+                  updated_at = now()
+            WHERE item.state = 'uploading'
+              AND (item.upload_claim_expires_at IS NULL OR item.upload_claim_expires_at <= now())
+              AND NOT EXISTS (
+                SELECT 1 FROM evidence e WHERE e.storage_path = item.blob_path
+              )`,
+        );
+        return q<Row>(
+          `WITH candidates AS (
+             SELECT item.id
+               FROM staff_evidence_upload_item item
+              WHERE item.state = 'cleanup_pending'
+                AND (item.cleanup_next_attempt_at IS NULL OR item.cleanup_next_attempt_at <= now())
+                AND (item.cleanup_claim_expires_at IS NULL OR item.cleanup_claim_expires_at <= now())
+                AND NOT EXISTS (
+                  SELECT 1 FROM evidence e WHERE e.storage_path = item.blob_path
+                )
+              ORDER BY item.created_at, item.id
+              LIMIT $1
+              FOR UPDATE SKIP LOCKED
+           )
+           UPDATE staff_evidence_upload_item item
+              SET state = 'cleanup_pending',
+                  upload_claim_token = NULL, upload_claim_expires_at = NULL,
+                  cleanup_claim_token = gen_random_uuid(),
+                  cleanup_claim_expires_at = now() + interval '15 minutes',
+                  cleanup_attempt_count = cleanup_attempt_count + 1,
+                  updated_at = now()
+             FROM candidates candidate
+            WHERE item.id = candidate.id
+        RETURNING item.id, item.blob_path, item.cleanup_claim_token,
+                  item.cleanup_attempt_count`,
+          [limit],
+        );
+      });
+      return {
+        status: 200,
+        jsonBody: {
+          rows: rows.map((row) => ({
+            itemId: row.id as string,
+            blobPath: row.blob_path as string,
+            claimToken: row.cleanup_claim_token as string,
+            attemptCount: Number(row.cleanup_attempt_count ?? 0),
+          })),
+        },
+      };
+    }),
+});
+
+app.http('internalStaffUploadCleanupComplete', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/staff-upload-cleanup/{id}/complete',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const itemId = (req.params.id ?? '').trim();
+      const body = (await req.json()) as {
+        claimToken?: string;
+        outcome?: 'deleted' | 'missing' | 'failed';
+        detail?: string;
+      };
+      const claimToken = (body.claimToken ?? '').trim();
+      if (!itemId || !claimToken || !['deleted', 'missing', 'failed'].includes(body.outcome ?? '')) {
+        return { status: 400, jsonBody: { error: 'cleanup claim and outcome are required' } };
+      }
+      const result = await tx(async (q) => {
+        const items = await q<{ blob_path: string; cleanup_attempt_count: number }>(
+          `SELECT blob_path, cleanup_attempt_count
+             FROM staff_evidence_upload_item
+            WHERE id = $1 AND state = 'cleanup_pending'
+              AND cleanup_claim_token = $2::uuid
+            FOR UPDATE`,
+          [itemId, claimToken],
+        );
+        const item = items[0];
+        if (!item) return { updated: false, stale: true };
+        const linked = await q<{ id: string }>(
+          `SELECT id FROM evidence WHERE storage_path = $1 ORDER BY created_at, id LIMIT 1 FOR UPDATE`,
+          [item.blob_path],
+        );
+        if (linked[0]) {
+          await q(
+            `UPDATE staff_evidence_upload_item
+                SET state = 'complete', evidence_id = $2,
+                    cleanup_claim_token = NULL, cleanup_claim_expires_at = NULL,
+                    cleanup_next_attempt_at = NULL, updated_at = now()
+              WHERE id = $1`,
+            [itemId, linked[0].id],
+          );
+          return { updated: true, cleaned: false, referenced: true };
+        }
+        if (body.outcome === 'failed') {
+          const delayMinutes = Math.min(1440, 5 * (2 ** Math.min(8, item.cleanup_attempt_count)));
+          await q(
+            `UPDATE staff_evidence_upload_item
+                SET cleanup_claim_token = NULL, cleanup_claim_expires_at = NULL,
+                    cleanup_next_attempt_at = now() + make_interval(mins => $2),
+                    cleanup_last_error = $3, updated_at = now()
+              WHERE id = $1`,
+            [itemId, delayMinutes, (body.detail ?? '').trim().slice(0, 400)],
+          );
+          return { updated: true, cleaned: false, retry: true };
+        }
+        await q(
+          `UPDATE staff_evidence_upload_item
+              SET state = 'cleaned', cleanup_claim_token = NULL,
+                  cleanup_claim_expires_at = NULL, cleanup_next_attempt_at = NULL,
+                  cleanup_last_error = NULL, updated_at = now()
+            WHERE id = $1`,
+          [itemId],
+        );
+        return { updated: true, cleaned: true };
+      });
+      return { status: 200, jsonBody: result };
+    }),
+});
+
+/* ============================================================
    11b — GET|POST /api/internal/evidence/unclassified-box   (TKT-146)
    Called by: the orchestration `box-classify-sweep` timer. GET is the
    rolling-deploy-compatible due-row read used by the older orchestration
    build. POST atomically CLAIMS due rows for the current build.
 
-   Both paths enumerate the
-   still-unclassified FILE.UPLOADED-lane image evidence rows (box_file_id
-   present, source_label 'box_upload…' — the box-webhook writes plain
-   'box_upload' or 'box_upload sha1=<sha1>'; the retro register's archive
-   rows use a different label and stay out of the sweep) together with each
+   Both paths enumerate still-unclassified Box FILE.UPLOADED rows and the
+   classifier-pending staff-upload rows. Retro archive rows use a different
+   label and stay out of the sweep. Each row is returned together with its
    row's case VRM + work-provider id, so the sweep can vision-classify them
    shortly after upload (TKT-064 policy) and honour the per-provider
    ai_allowed opt-out.
@@ -4153,13 +4308,16 @@ app.http('internalBoxMarkPurged', {
    verdict, which keeps role `unknown` (no 'other' option in the choice set)
    but is stamped not-accepted — so a classified row is never re-enumerated
    and re-sweeps are idempotent. Excluded rows are never candidates. The
-   14-day created_at window bounds FIRST attempts only. Once a row has an
-   attempt_count > 0, its persisted retry remains eligible after day 14 so a
-   day-13 transient backoff cannot silently strand it. Persisted claim,
+   The 14-day created_at window bounds FIRST Box-lane attempts only; staff-upload
+   first attempts do not expire. Once any row has an attempt_count > 0, its
+   persisted retry remains eligible after day 14 so a day-13 transient backoff
+   cannot silently strand it. Persisted claim,
    due-time and dead-letter fields keep terminal/persistent failures OUT of
    the next capped page; a crash leaves a 30-minute lease, after which the row
    is safely retryable. Newest-first still prioritises fresh uploads, while
-   explicit provider AI opt-outs are filtered BEFORE the LIMIT.
+   Box-lane provider AI opt-outs are filtered BEFORE the LIMIT. Staff uploads
+   deliberately remain claimable so the worker can give them a terminal,
+   explicit manual-review disposition instead of leaving them pending forever.
    ============================================================ */
 app.http('internalEvidenceUnclassifiedBox', {
   methods: ['GET', 'POST'],
@@ -4171,20 +4329,49 @@ app.http('internalEvidenceUnclassifiedBox', {
       const limit = Math.min(100, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25));
       const imageKind = evidenceKindCodec.toInt('image') ?? 100000000;
       const unknownRole = imageRoleCodec.toInt('unknown' as ImageRole) ?? 100000003;
-      const duePredicate = `e.box_file_id IS NOT NULL
-            AND e.source_label LIKE 'box_upload%'
+      const duePredicate = `(
+              (e.box_file_id IS NOT NULL AND e.source_label LIKE 'box_upload%')
+              OR (
+                NULLIF(btrim(e.storage_path), '') IS NOT NULL
+                AND e.source_label IN (
+                  'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                  'staff_legacy_upload'
+                )
+              )
+            )
             AND e.kind_code = $1
             AND e.image_role_code = $2
             AND e.registration_visible IS NULL
-            AND e.excluded = false
+            AND (
+              e.excluded = false
+              OR (
+                e.source_label IN (
+                  'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                  'staff_legacy_upload'
+                )
+                AND e.excluded = true
+                AND e.exclusion_decision_source = 'classifier'
+                AND e.exclusion_reason = 'Image check pending'
+              )
+            )
             AND (
               COALESCE(e.box_classify_attempt_count, 0) > 0
               OR e.created_at > now() - interval '14 days'
+              OR e.source_label IN (
+                'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                'staff_legacy_upload'
+              )
             )
             AND e.box_classify_dead_lettered_at IS NULL
             AND (e.box_classify_next_attempt_at IS NULL OR e.box_classify_next_attempt_at <= now())
             AND (e.box_classify_claim_expires_at IS NULL OR e.box_classify_claim_expires_at <= now())
-            AND wp.ai_allowed IS DISTINCT FROM false`;
+            AND (
+              wp.ai_allowed IS DISTINCT FROM false
+              OR e.source_label IN (
+                'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                'staff_legacy_upload'
+              )
+            )`;
       const rows = req.method?.toUpperCase() === 'POST'
         ? await query<Row>(
             `WITH candidates AS (
@@ -4206,8 +4393,8 @@ app.http('internalEvidenceUnclassifiedBox', {
                 WHERE e.id = candidate.id
                RETURNING e.*
              )
-             SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id,
-                    e.source_message_id, e.box_classify_claim_token,
+             SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id, e.storage_path,
+                    e.source_label, e.source_message_id, e.box_classify_claim_token,
                     e.box_classify_attempt_count, c.vrm, c.work_provider_id
                FROM claimed e
                JOIN case_ c ON c.id = e.case_id
@@ -4215,8 +4402,8 @@ app.http('internalEvidenceUnclassifiedBox', {
             [imageKind, unknownRole, limit],
           )
         : await query<Row>(
-            `SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id,
-                    e.source_message_id, NULL::uuid AS box_classify_claim_token,
+            `SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id, e.storage_path,
+                    e.source_label, e.source_message_id, NULL::uuid AS box_classify_claim_token,
                     e.box_classify_attempt_count, c.vrm, c.work_provider_id
                FROM evidence e
                JOIN case_ c ON c.id = e.case_id
@@ -4234,7 +4421,9 @@ app.http('internalEvidenceUnclassifiedBox', {
             caseId: r.case_id as string,
             filename: (r.file_name as string | null) ?? '',
             contentType: (r.content_type as string | null) ?? null,
-            boxFileId: r.box_file_id as string,
+            boxFileId: (r.box_file_id as string | null) ?? null,
+            storagePath: (r.storage_path as string | null) ?? null,
+            sourceLabel: (r.source_label as string | null) ?? '',
             sourceMessageId: (r.source_message_id as string | null) ?? null,
             caseVrm: (r.vrm as string | null) ?? '',
             workProviderId: (r.work_provider_id as string | null) ?? '',
@@ -4265,6 +4454,7 @@ app.http('internalEvidenceBoxClassification', {
       const body = (await req.json()) as {
         caseId?: string;
         boxFileId?: string;
+        storagePath?: string;
         claimToken?: string;
         failure?: {
           disposition?: 'transient' | 'terminal';
@@ -4320,13 +4510,35 @@ app.http('internalEvidenceBoxClassification', {
                     WHEN $4::boolean THEN left(COALESCE(NULLIF($5, ''), $3), 400)
                     ELSE NULL
                   END,
+                  exclusion_reason = CASE
+                    WHEN $4::boolean
+                     AND $3 = 'provider_ai_opted_out_manual_review'
+                     AND excluded = true
+                     AND source_label IN (
+                       'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                       'staff_legacy_upload'
+                     )
+                    THEN 'Image needs staff review'
+                    ELSE exclusion_reason
+                  END,
                   updated_at = now()
             WHERE id = $1
               AND box_classify_claim_token::text = $2
               AND kind_code = $6
               AND image_role_code = $7
               AND registration_visible IS NULL
-              AND excluded = false
+              AND (
+                excluded = false
+                OR (
+                  source_label IN (
+                    'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                    'staff_legacy_upload'
+                  )
+                  AND excluded = true
+                  AND exclusion_decision_source = 'classifier'
+                  AND exclusion_reason = 'Image check pending'
+                )
+              )
           RETURNING box_classify_attempt_count,
                     box_classify_next_attempt_at,
                     box_classify_dead_lettered_at`,
@@ -4349,10 +4561,11 @@ app.http('internalEvidenceBoxClassification', {
 
       const caseId = (body.caseId ?? '').trim();
       const boxFileId = (body.boxFileId ?? '').trim();
-      if (!evidenceId || !caseId || !boxFileId) {
+      const storagePath = (body.storagePath ?? '').trim();
+      if (!evidenceId || !caseId || Boolean(boxFileId) === Boolean(storagePath)) {
         return {
           status: 400,
-          jsonBody: { error: 'evidence id, caseId and boxFileId are required' },
+          jsonBody: { error: 'evidence id, caseId and exactly one file locator are required' },
         };
       }
       if (
@@ -4394,12 +4607,20 @@ app.http('internalEvidenceBoxClassification', {
           `SELECT id FROM evidence
             WHERE id = $1
               AND case_id = $2
-              AND box_file_id = $3
-              AND kind_code = $4
-              AND source_label LIKE 'box_upload%'
-              AND ($5::text = '' OR box_classify_claim_token::text = $5)
+              AND (
+                ($3::text <> '' AND box_file_id = $3 AND source_label LIKE 'box_upload%')
+                OR (
+                  $4::text <> '' AND storage_path = $4
+                  AND source_label IN (
+                    'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                    'staff_legacy_upload'
+                  )
+                )
+              )
+              AND kind_code = $5
+              AND ($6::text = '' OR box_classify_claim_token::text = $6)
             FOR UPDATE`,
-          [evidenceId, lockedCase.caseId, boxFileId, imageKind, claimToken],
+          [evidenceId, lockedCase.caseId, boxFileId, storagePath, imageKind, claimToken],
         );
         if (!current[0]) {
           return claimToken
@@ -4407,10 +4628,13 @@ app.http('internalEvidenceBoxClassification', {
             : { kind: 'missing' as const };
         }
 
+        const identityWhere = boxFileId
+          ? 'id = $1 AND case_id = $2 AND box_file_id = $3'
+          : 'id = $1 AND case_id = $2 AND storage_path = $3';
         const applied = await applyEvidenceMetadata(
           ctx,
-          'id = $1 AND case_id = $2 AND box_file_id = $3',
-          [evidenceId, lockedCase.caseId, boxFileId],
+          identityWhere,
+          [evidenceId, lockedCase.caseId, boxFileId || storagePath],
           {
             imageRole: body.imageRole,
             registrationVisible: body.registrationVisible!,
@@ -4457,7 +4681,7 @@ app.http('internalEvidenceBoxClassification', {
       });
 
       if (result.kind === 'missing') {
-        return { status: 404, jsonBody: { error: 'box evidence row not found' } };
+        return { status: 404, jsonBody: { error: 'evidence row not found' } };
       }
       if (result.kind === 'retired') {
         return {

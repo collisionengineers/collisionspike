@@ -434,7 +434,7 @@ export const mockDataAccess: DataAccessExt = {
     }),
   executeProposal: (_action, _ifMatch) =>
     Promise.resolve({ ok: false, status: 501, error: 'That change is not available.' }),
-  uploadEvidence: (_caseId, _files) => Promise.resolve({ added: [], rejected: [], status: 501 }),
+  uploadEvidence: (_caseId, _files, _options) => Promise.resolve({ added: [], rejected: [], status: 501 }),
   evidenceContentUrl: (_id) => Promise.resolve(undefined),
   evidenceContentBlob: (_id) => Promise.resolve(undefined),
   // Durable write — rejects until the live source is injected (mirrors createCase).

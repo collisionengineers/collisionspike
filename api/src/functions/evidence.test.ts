@@ -200,6 +200,7 @@ describe('PATCH /api/evidence/{id}', () => {
     withCaseLock(async (sql: string, params?: unknown[]) => {
       if (sql.startsWith('SELECT * FROM evidence')) return [before];
       if (sql.includes('UPDATE evidence')) return [{ ...before, excluded: params![7], exclusion_reason: params![8], exclusion_decision_source: params![9] }];
+      if (sql.includes('INSERT INTO archive_mirror_outbox')) return [{ requested_generation: 1 }];
       if (sql.includes('status_recompute_requested_generation')) return [{ status_recompute_requested_generation: 3 }];
       return [];
     });

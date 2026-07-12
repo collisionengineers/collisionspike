@@ -151,10 +151,18 @@ export interface GlobalSearchResults {
   truncated: { cases: boolean; emails: boolean; providers: boolean };
 }
 /** Result of POST /api/cases/{id}/evidence/upload (TKT-068). */
+export type EvidenceUploadSource = 'add_evidence' | 'manual_intake' | 'assistant_confirmed';
+export interface EvidenceUploadOptions {
+  source: EvidenceUploadSource;
+  /** Stable across a retry of the same case + ordered files. */
+  idempotencyKey?: string;
+}
 export interface EvidenceUploadResult {
-  added: Array<{ fileName: string }>;
-  rejected: Array<{ fileName: string; reason: string }>;
+  added: Array<{ fileIndex: number; fileName: string; evidenceId: string; duplicate: boolean }>;
+  rejected: Array<{ fileIndex: number; fileName: string; reason: string }>;
   status: number;
+  error?: string;
+  targetCaseId?: string;
 }
 
 /** A fresh entity snapshot used by the assistant confirmation gate. Existing-target
@@ -291,7 +299,11 @@ export interface DataAccessExt extends DataAccess {
   /** Upload staff-attached evidence files to a case (TKT-068) — multipart POST. The model never
    *  uploads; these bytes come from the user's file picker. Returns which files landed / were
    *  rejected (with plain-language reasons) plus the HTTP status. Never throws. */
-  uploadEvidence(caseId: string, files: File[]): Promise<EvidenceUploadResult>;
+  uploadEvidence(
+    caseId: string,
+    files: File[],
+    options?: EvidenceUploadOptions,
+  ): Promise<EvidenceUploadResult>;
   /** Evidence inline preview (TKT-048): authenticated fetch → a `blob:` object URL for an
    *  <img>, or undefined when there's no inline content (Box-only / bytes gone). The caller
    *  MUST URL.revokeObjectURL it on unmount. */
@@ -826,24 +838,59 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       })();
       return settleWithin(work, fallback);
     },
-    uploadEvidence: async (caseId, files) => {
+    uploadEvidence: async (caseId, files, options) => {
       try {
         const token = await opts.getToken();
         const fd = new FormData();
         for (const f of files) fd.append('file', f);
+        const source = options?.source ?? 'assistant_confirmed';
+        fd.append('source', source);
+        const idempotencyKey = options?.idempotencyKey ?? crypto.randomUUID();
         // NB: no Content-Type header — the browser sets the multipart boundary itself.
         const res = await fetch(`${base}/api/cases/${enc(caseId)}/evidence/upload`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Idempotency-Key': idempotencyKey,
+          },
           body: fd,
         });
         const json = (await res.json().catch(() => ({ added: [], rejected: [] }))) as {
-          added?: Array<{ fileName: string }>;
-          rejected?: Array<{ fileName: string; reason: string }>;
+          added?: Array<{ fileIndex?: number; fileName: string; evidenceId: string; duplicate?: boolean }>;
+          rejected?: Array<{ fileIndex?: number; fileName: string; reason: string }>;
+          error?: string;
+          targetCaseId?: string;
         };
-        return { added: json.added ?? [], rejected: json.rejected ?? [], status: res.status };
+        return {
+          added: (json.added ?? []).flatMap((item, responseIndex) =>
+            item.evidenceId
+              ? [{
+                  fileIndex: Number.isInteger(item.fileIndex) ? Number(item.fileIndex) : responseIndex,
+                  fileName: item.fileName,
+                  evidenceId: item.evidenceId,
+                  duplicate: item.duplicate === true,
+                }]
+              : [],
+          ),
+          rejected: (json.rejected ?? []).map((item, responseIndex) => ({
+            fileIndex: Number.isInteger(item.fileIndex) ? Number(item.fileIndex) : responseIndex,
+            fileName: item.fileName,
+            reason: item.reason,
+          })),
+          status: res.status,
+          ...(json.error ? { error: json.error } : {}),
+          ...(json.targetCaseId ? { targetCaseId: json.targetCaseId } : {}),
+        };
       } catch {
-        return { added: [], rejected: [], status: 0 };
+        return {
+          added: [],
+          rejected: files.map((file, fileIndex) => ({
+            fileIndex,
+            fileName: file.name,
+            reason: 'The files could not be added. Check your connection and try again.',
+          })),
+          status: 0,
+        };
       }
     },
     evidenceContentUrl: (id) => blobUrl(`/api/evidence/${enc(id)}/content`),

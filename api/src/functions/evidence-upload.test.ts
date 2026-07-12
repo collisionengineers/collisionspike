@@ -1,4 +1,3 @@
-/** Staff-upload evidence/status transaction contract. */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 
@@ -11,122 +10,608 @@ interface Reg {
 }
 
 const registrations = vi.hoisted(() => new Map<string, Reg>());
+const requiredRoles = vi.hoisted(() => [] as string[]);
 vi.mock('@azure/functions', () => ({
   app: { http: (name: string, opts: Reg) => registrations.set(name, opts) },
 }));
-vi.mock('../lib/auth.js', () => ({ withRole: (_role: string, handler: Reg['handler']) => handler }));
+vi.mock('../lib/auth.js', () => ({
+  withRole: (role: string, handler: Reg['handler']) => {
+    requiredRoles.push(role);
+    return handler;
+  },
+}));
 
 const db = vi.hoisted(() => ({ query: vi.fn(), tx: vi.fn(), txQuery: vi.fn() }));
 vi.mock('../lib/db.js', () => ({ query: db.query, tx: db.tx }));
 const blob = vi.hoisted(() => ({ uploadEvidenceBytes: vi.fn() }));
-vi.mock('../lib/blob.js', () => ({ uploadEvidenceBytes: blob.uploadEvidenceBytes }));
+vi.mock('../lib/blob.js', () => ({
+  uploadEvidenceBytes: blob.uploadEvidenceBytes,
+  evidenceBlobPath: (prefix: string, name: string) => `${prefix}/${name}`,
+}));
 vi.mock('../lib/audit.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../lib/audit.js')>();
-  return { ...actual, actorFromClaims: vi.fn(() => 'staff-1'), writeAudit: vi.fn() };
+  return { ...actual, actorFromClaims: vi.fn(() => 'staff-1') };
 });
 
 await import('./evidence-upload.js');
 const upload = registrations.get('uploadCaseEvidence')!.handler;
 const ctx = { log: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as InvocationContext;
 
-function requestWith(file: File): HttpRequest {
-  const form = new FormData();
-  form.append('file', file);
+const KEY = '00000000-0000-4000-8000-000000000165';
+const JPEG = new Uint8Array(Buffer.from(
+  '/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAACAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAB//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AI4BJH7/2Q==',
+  'base64',
+));
+function pdfFixture(objectBody = '<<>>'): ArrayBuffer {
+  const prefix = `%PDF-1.7\n1 0 obj\n${objectBody}\nendobj\n`;
+  const xrefOffset = new TextEncoder().encode(prefix).length;
+  const encoded = new TextEncoder().encode(
+    `${prefix}xref\n0 1\n0000000000 65535 f\ntrailer\n` +
+    `<< /Size 1 >>\nstartxref\n${xrefOffset}\n%%EOF`,
+  );
+  return encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength);
+}
+const PDF = pdfFixture();
+
+interface BatchRow {
+  case_id: string;
+  actor: string;
+  source: string;
+  manifest_hash: string;
+}
+interface EvidenceRow {
+  id: string;
+  case_id: string;
+  sha256: string;
+  source_message_id: string;
+  excluded: boolean;
+  storage_path: string;
+  box_file_id: null;
+}
+interface ItemRow {
+  id: string;
+  idempotency_key: string;
+  item_index: number;
+  case_id: string;
+  sha256: string;
+  file_name: string;
+  content_type: string;
+  blob_path: string;
+  state: string;
+  evidence_id: string | null;
+  upload_claim_token: string | null;
+}
+
+const state = {
+  batches: new Map<string, BatchRow>(),
+  evidence: [] as EvidenceRow[],
+  items: [] as ItemRow[],
+  audits: 0,
+  archiveRequests: 0,
+  statusRequests: 0,
+  nextEvidence: 1,
+  statusCode: 100000001,
+  mergedInto: '' as string,
+  caseMissing: false,
+  archiveFailure: false,
+  hideTwinUntilUpload: false,
+  mergeAfterUpload: false,
+  blobPaths: new Set<string>(),
+};
+
+function restore(snapshot: ReturnType<typeof snapshotState>): void {
+  state.batches = new Map(snapshot.batches);
+  state.evidence = snapshot.evidence.map((row) => ({ ...row }));
+  state.items = snapshot.items.map((row) => ({ ...row }));
+  state.audits = snapshot.audits;
+  state.archiveRequests = snapshot.archiveRequests;
+  state.statusRequests = snapshot.statusRequests;
+  state.nextEvidence = snapshot.nextEvidence;
+}
+
+function snapshotState() {
   return {
-    params: { id: 'case-1' },
+    batches: new Map(state.batches),
+    evidence: state.evidence.map((row) => ({ ...row })),
+    items: state.items.map((row) => ({ ...row })),
+    audits: state.audits,
+    archiveRequests: state.archiveRequests,
+    statusRequests: state.statusRequests,
+    nextEvidence: state.nextEvidence,
+  };
+}
+
+function requestWith(
+  files: File[],
+  options: { caseId?: string; key?: string; source?: string; legacy?: boolean } = {},
+): HttpRequest {
+  const form = new FormData();
+  for (const file of files) form.append('file', file);
+  if (!options.legacy) form.append('source', options.source ?? 'add_evidence');
+  return {
+    params: { id: options.caseId ?? 'case-1' },
+    headers: new Headers(options.legacy ? {} : { 'idempotency-key': options.key ?? KEY }),
     formData: async () => form,
   } as unknown as HttpRequest;
 }
 
 beforeEach(() => {
+  state.batches = new Map();
+  state.evidence = [];
+  state.items = [];
+  state.audits = 0;
+  state.archiveRequests = 0;
+  state.statusRequests = 0;
+  state.nextEvidence = 1;
+  state.statusCode = 100000001;
+  state.mergedInto = '';
+  state.caseMissing = false;
+  state.archiveFailure = false;
+  state.hideTwinUntilUpload = false;
+  state.mergeAfterUpload = false;
+  state.blobPaths = new Set();
   db.query.mockReset();
   db.tx.mockReset();
   db.txQuery.mockReset();
   blob.uploadEvidenceBytes.mockReset();
-  db.query.mockResolvedValue([{ id: 'case-1' }]);
-  db.tx.mockImplementation(async (fn: (q: typeof db.txQuery) => Promise<unknown>) => fn(db.txQuery));
-  db.txQuery.mockImplementation(async (sql: string) => {
+
+  db.tx.mockImplementation(async (fn: (q: typeof db.txQuery) => Promise<unknown>) => {
+    const snapshot = snapshotState();
+    try {
+      return await fn(db.txQuery);
+    } catch (error) {
+      restore(snapshot);
+      throw error;
+    }
+  });
+  db.txQuery.mockImplementation(async (sqlValue: string, params: unknown[] = []) => {
+    const sql = String(sqlValue);
     if (sql.includes('pg_advisory_xact_lock')) return [];
     if (sql.startsWith('SELECT id, duplicate_keys FROM case_')) {
-      return [{ id: 'case-1', duplicate_keys: null }];
-    }
-    if (sql.includes('INSERT INTO evidence')) {
+      if (state.caseMissing) return [];
       return [{
-        id: 'ev-1', case_id: 'case-1', excluded: false,
-        storage_path: 'case-1/photo.jpg', box_file_id: null,
+        id: String(params[0]),
+        duplicate_keys: state.mergedInto ? JSON.stringify({ mergedInto: state.mergedInto }) : null,
       }];
     }
+    if (sql === 'SELECT status_code FROM case_ WHERE id = $1') return [{ status_code: state.statusCode }];
+    if (sql.includes('INSERT INTO staff_evidence_upload_item')) {
+      const key = String(params[0]);
+      const index = Number(params[1]);
+      if (!state.items.some((item) => item.idempotency_key === key && item.item_index === index)) {
+        state.items.push({
+          id: `item-${state.items.length + 1}`,
+          idempotency_key: key,
+          item_index: index,
+          case_id: String(params[2]),
+          sha256: String(params[3]),
+          file_name: String(params[4]),
+          content_type: String(params[5]),
+          blob_path: String(params[6]),
+          state: 'reserved',
+          evidence_id: null,
+          upload_claim_token: null,
+        });
+      }
+      return [];
+    }
+    if (sql.includes('INSERT INTO staff_evidence_upload')) {
+      const key = String(params[0]);
+      if (!state.batches.has(key)) {
+        state.batches.set(key, {
+          case_id: String(params[1]),
+          actor: String(params[2]),
+          source: String(params[3]),
+          manifest_hash: String(params[4]),
+        });
+      }
+      return [];
+    }
+    if (
+      sql.includes('FROM staff_evidence_upload')
+      && !sql.includes('FROM staff_evidence_upload_item')
+      && sql.includes('FOR UPDATE')
+    ) {
+      const row = state.batches.get(String(params[0]));
+      return row ? [row] : [];
+    }
+    if (sql.includes('FROM staff_evidence_upload_item') && sql.includes('idempotency_key = $1')) {
+      const item = state.items.find(
+        (row) => row.idempotency_key === String(params[0]) && row.item_index === Number(params[1]),
+      );
+      return item ? [item] : [];
+    }
+    if (sql.includes("SET state = 'uploading'")) {
+      const item = state.items.find((row) => row.id === params[0]);
+      if (!item || !['reserved', 'cleaned'].includes(item.state)) return [];
+      item.state = 'uploading';
+      item.upload_claim_token = String(params[1]);
+      item.blob_path = String(params[2]);
+      return [{ id: item.id, blob_path: item.blob_path }];
+    }
+    if (sql.includes('FROM staff_evidence_upload_item') && sql.includes("state = 'uploading'")) {
+      const token = params.length >= 3 ? params[2] : params[1];
+      const item = state.items.find(
+        (row) => row.id === params[0] && row.upload_claim_token === token && row.state === 'uploading',
+      );
+      return item ? [item] : [];
+    }
+    if (sql.includes('WHERE source_message_id = $1')) {
+      const row = state.evidence.find((item) => item.source_message_id === params[0]);
+      return row ? [row] : [];
+    }
+    if (sql.includes('WHERE case_id = $1 AND sha256 = $2')) {
+      if (state.hideTwinUntilUpload) return [];
+      const row = state.evidence.find(
+        (item) => item.case_id === params[0] && item.sha256 === params[1],
+      );
+      return row ? [{ id: row.id, storage_path: row.storage_path }] : [];
+    }
+    if (sql.includes('FROM evidence WHERE storage_path = $1')) {
+      const row = state.evidence.find((item) => item.storage_path === params[0]);
+      return row ? [{ id: row.id }] : [];
+    }
+    if (sql.includes('INSERT INTO evidence')) {
+      const row: EvidenceRow = {
+        id: `ev-${state.nextEvidence++}`,
+        case_id: String(params[1]),
+        sha256: String(params[3]),
+        source_message_id: String(params[7]),
+        excluded: params[10] === true,
+        storage_path: String(params[6]),
+        box_file_id: null,
+      };
+      state.evidence.push(row);
+      return [row];
+    }
     if (sql.includes('INSERT INTO archive_mirror_outbox')) {
+      if (state.archiveFailure) throw new Error('archive outbox unavailable');
+      state.archiveRequests++;
       return [{ requested_generation: 1 }];
     }
     if (sql.includes('status_recompute_requested_generation')) {
-      return [{ status_recompute_requested_generation: 1 }];
+      state.statusRequests++;
+      return [{ status_recompute_requested_generation: state.statusRequests }];
     }
+    if (sql.includes('INSERT INTO audit_event')) {
+      state.audits++;
+      return [];
+    }
+    if (sql.includes('UPDATE staff_evidence_upload_item')) {
+      const item = state.items.find((row) => row.id === params[0]);
+      if (!item) return [];
+      if (sql.includes("state = 'complete'")) {
+        item.state = 'complete';
+        item.evidence_id = String(params[1] ?? params[2]);
+        item.upload_claim_token = null;
+      } else if (sql.includes("state = 'cleanup_pending'")) {
+        item.state = 'cleanup_pending';
+        item.upload_claim_token = null;
+      } else if (sql.includes('SET state = $2')) {
+        item.state = String(params[1]);
+        item.evidence_id = String(params[2]);
+        item.upload_claim_token = null;
+      }
+      return [];
+    }
+    if (sql.includes('UPDATE staff_evidence_upload')) return [];
     return [];
   });
-  blob.uploadEvidenceBytes.mockResolvedValue({ blobPath: 'case-1/photo.jpg', size: 3 });
+  blob.uploadEvidenceBytes.mockImplementation(async (prefix: string, name: string, bytes: Buffer) => {
+    state.hideTwinUntilUpload = false;
+    if (state.mergeAfterUpload) state.mergedInto = 'case-2';
+    const blobPath = `${prefix}/${name}`;
+    state.blobPaths.add(blobPath);
+    return { blobPath, size: bytes.length };
+  });
 });
 
-describe('staff evidence upload', () => {
-  it('commits an image insert and status request without claiming default decisions', async () => {
+describe('canonical staff evidence upload', () => {
+  it('is registered behind the staff app role', () => {
+    expect(requiredRoles).toContain('CollisionSpike.User');
+  });
+
+  it('persists an Add evidence photo in a classifier-owned pending state with one audit and readiness request', async () => {
     const response = await upload(
-      requestWith(new File([new Uint8Array([1, 2, 3])], 'photo.jpg', { type: 'image/jpeg' })),
+      requestWith([new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })]),
       ctx,
       {},
     );
 
     expect(response.status).toBe(201);
-    expect(db.tx).toHaveBeenCalledTimes(1);
-    expect(db.txQuery).toHaveBeenCalledTimes(5);
-    const insert = db.txQuery.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO evidence'))!;
-    const insertSql = String(insert[0]);
-    expect(insertSql).not.toContain('accepted_for_eva_source');
-    expect(insertSql).not.toContain('exclusion_decision_source');
-    expect(db.txQuery.mock.calls.some(([sql]) =>
-      String(sql).includes('INSERT INTO archive_mirror_outbox'))).toBe(true);
-    expect(String(db.txQuery.mock.calls.find(([sql]) =>
-      String(sql).includes('status_recompute_requested_generation'))?.[0])).toContain(
-      'status_recompute_requested_generation',
-    );
-  });
-
-  it('requests archive mirroring for a staff PDF without requesting image status work', async () => {
-    const response = await upload(
-      requestWith(new File([new Uint8Array([1, 2, 3])], 'report.pdf', { type: 'application/pdf' })),
-      ctx,
-      {},
-    );
-
-    expect(response.status).toBe(201);
-    expect(db.txQuery.mock.calls.some(([sql]) =>
-      String(sql).includes('INSERT INTO archive_mirror_outbox'))).toBe(true);
-    expect(db.txQuery.mock.calls.some(([sql]) =>
-      String(sql).includes('status_recompute_requested_generation'))).toBe(false);
-  });
-
-  it('does not report an upload as added when durable archive work fails in the transaction', async () => {
-    db.txQuery.mockImplementation(async (sql: string) => {
-      if (sql.includes('pg_advisory_xact_lock')) return [];
-      if (sql.startsWith('SELECT id, duplicate_keys FROM case_')) {
-        return [{ id: 'case-1', duplicate_keys: null }];
-      }
-      if (sql.includes('INSERT INTO evidence')) {
-        return [{
-          id: 'ev-1', case_id: 'case-1', excluded: false,
-          storage_path: 'case-1/photo.jpg', box_file_id: null,
-        }];
-      }
-      if (sql.includes('INSERT INTO archive_mirror_outbox')) throw new Error('outbox unavailable');
-      return [];
+    expect(response.jsonBody).toMatchObject({
+      added: [{ fileName: 'photo.jpg', evidenceId: 'ev-1', duplicate: false }],
+      rejected: [],
     });
+    const insert = db.txQuery.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO evidence'))!;
+    expect(insert[1]).toEqual(expect.arrayContaining([
+      'staff_add_evidence', false, true, 'Image check pending', 'classifier',
+    ]));
+    expect(state.archiveRequests).toBe(1); // inert until the classifier releases a later generation
+    expect(state.statusRequests).toBe(1);
+    expect(state.audits).toBe(1);
+  });
 
+  it('archives a PDF durably and labels it as Add evidence rather than assistant work', async () => {
     const response = await upload(
-      requestWith(new File([new Uint8Array([1, 2, 3])], 'photo.jpg', { type: 'image/jpeg' })),
+      requestWith([new File([PDF], 'instruction.pdf', { type: 'application/pdf' })]),
+      ctx,
+      {},
+    );
+
+    expect(response.status).toBe(201);
+    expect(state.archiveRequests).toBe(1);
+    expect(state.statusRequests).toBe(1);
+    const insert = db.txQuery.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO evidence'))!;
+    expect(insert[1]).toContain('staff_add_evidence');
+    const audit = db.txQuery.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO audit_event'))!;
+    expect(audit[1]?.[0]).toContain('through Add evidence');
+    expect(audit[1]?.[0]).not.toMatch(/assistant/i);
+  });
+
+  it('replays an exact idempotency key without another Blob write, row, archive request or audit', async () => {
+    const makeRequest = () => requestWith([new File([PDF], 'instruction.pdf', { type: 'application/pdf' })]);
+    const first = await upload(makeRequest(), ctx, {});
+    const second = await upload(makeRequest(), ctx, {});
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(200);
+    expect(second.jsonBody).toMatchObject({
+      added: [{ evidenceId: 'ev-1', duplicate: true }],
+      rejected: [],
+    });
+    expect(blob.uploadEvidenceBytes).toHaveBeenCalledTimes(1);
+    expect(state.evidence).toHaveLength(1);
+    expect(state.archiveRequests).toBe(1);
+    expect(state.audits).toBe(1);
+  });
+
+  it('deduplicates the same content on the same case even under a fresh retry key', async () => {
+    const first = await upload(
+      requestWith([new File([PDF], 'one.pdf', { type: 'application/pdf' })]),
+      ctx,
+      {},
+    );
+    const second = await upload(
+      requestWith(
+        [new File([PDF], 'renamed.pdf', { type: 'application/pdf' })],
+        { key: '00000000-0000-4000-8000-000000000166' },
+      ),
+      ctx,
+      {},
+    );
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(200);
+    expect(state.evidence).toHaveLength(1);
+    expect(blob.uploadEvidenceBytes).toHaveBeenCalledTimes(1);
+    expect(state.audits).toBe(1);
+  });
+
+  it('binds an idempotency key to one case and manifest before any bytes are stored', async () => {
+    const first = await upload(
+      requestWith([new File([PDF], 'one.pdf', { type: 'application/pdf' })]),
+      ctx,
+      {},
+    );
+    const changedTarget = await upload(
+      requestWith([new File([PDF], 'one.pdf', { type: 'application/pdf' })], { caseId: 'case-2' }),
+      ctx,
+      {},
+    );
+    const changedManifest = await upload(
+      requestWith([
+        new File([pdfFixture('<< /Changed true >>')], 'changed.pdf', {
+          type: 'application/pdf',
+        }),
+      ]),
+      ctx,
+      {},
+    );
+
+    expect(first.status).toBe(201);
+    expect(changedTarget.status).toBe(409);
+    expect(changedManifest.status).toBe(409);
+    expect(blob.uploadEvidenceBytes).toHaveBeenCalledTimes(1);
+    expect(state.evidence).toHaveLength(1);
+  });
+
+  it('rejects merged and terminal targets before Blob storage', async () => {
+    state.mergedInto = 'case-2';
+    const merged = await upload(
+      requestWith([new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })]),
+      ctx,
+      {},
+    );
+    expect(merged.status).toBe(409);
+    expect(merged.jsonBody).toMatchObject({ targetCaseId: 'case-2' });
+    expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
+
+    state.mergedInto = '';
+    state.statusCode = 100000011; // removed
+    const removed = await upload(
+      requestWith([new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })]),
+      ctx,
+      {},
+    );
+    expect(removed.status).toBe(409);
+    expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
+  });
+
+  it('uses byte signatures to refuse masquerading content while preserving a valid file in a mixed batch', async () => {
+    const response = await upload(
+      requestWith([
+        new File([new TextEncoder().encode('<script>')], 'fake.jpg', { type: 'image/jpeg' }),
+        new File([PDF], 'good.pdf', { type: 'application/pdf' }),
+      ]),
+      ctx,
+      {},
+    );
+
+    expect(response.status).toBe(207);
+    expect(response.jsonBody).toMatchObject({
+      added: [{ fileName: 'good.pdf', evidenceId: 'ev-1' }],
+      rejected: [{ fileName: 'fake.jpg' }],
+    });
+    expect(blob.uploadEvidenceBytes).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns original indexes so duplicate filenames remain distinguishable', async () => {
+    const response = await upload(
+      requestWith([
+        new File([new TextEncoder().encode('<script>')], 'photo.jpg', { type: 'image/jpeg' }),
+        new File([JPEG], 'photo.jpg', { type: 'image/jpeg' }),
+      ]),
+      ctx,
+      {},
+    );
+
+    expect(response.status).toBe(207);
+    expect(response.jsonBody).toMatchObject({
+      added: [{ fileIndex: 1, fileName: 'photo.jpg', evidenceId: 'ev-1' }],
+      rejected: [{ fileIndex: 0, fileName: 'photo.jpg' }],
+    });
+  });
+
+  it('rolls back evidence, audit and readiness if durable archive work cannot commit', async () => {
+    state.archiveFailure = true;
+    const response = await upload(
+      requestWith([new File([PDF], 'instruction.pdf', { type: 'application/pdf' })]),
       ctx,
       {},
     );
 
     expect(response.status).toBe(400);
-    expect(response.jsonBody).toMatchObject({ added: [] });
+    expect(response.jsonBody).toMatchObject({ added: [], rejected: [{ fileName: 'instruction.pdf' }] });
+    expect(state.evidence).toHaveLength(0);
+    expect(state.audits).toBe(0);
+    expect(state.statusRequests).toBe(0);
+    expect(state.items).toHaveLength(1);
+    expect(state.items[0]).toMatchObject({ state: 'cleanup_pending', evidence_id: null });
+    expect(state.items[0].blob_path).toContain('instruction.pdf');
+  });
+
+  it('keeps a stale-target Blob discoverable for durable cleanup', async () => {
+    state.mergeAfterUpload = true;
+    const response = await upload(
+      requestWith([new File([PDF], 'instruction.pdf', { type: 'application/pdf' })]),
+      ctx,
+      {},
+    );
+
+    expect(response.status).toBe(409);
+    expect(response.jsonBody).toMatchObject({ targetCaseId: 'case-2' });
+    expect(state.evidence).toHaveLength(0);
+    expect(state.items[0]).toMatchObject({ state: 'cleanup_pending', evidence_id: null });
+  });
+
+  it('records a fresh-key same-SHA race as cleanup-owned rather than orphaning its Blob', async () => {
+    const first = await upload(
+      requestWith([new File([PDF], 'one.pdf', { type: 'application/pdf' })]),
+      ctx,
+      {},
+    );
+    state.hideTwinUntilUpload = true;
+    const second = await upload(
+      requestWith(
+        [new File([PDF], 'raced.pdf', { type: 'application/pdf' })],
+        { key: '00000000-0000-4000-8000-000000000166' },
+      ),
+      ctx,
+      {},
+    );
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(200);
+    expect(state.evidence).toHaveLength(1);
+    expect(blob.uploadEvidenceBytes).toHaveBeenCalledTimes(2);
+    expect(state.items[1]).toMatchObject({ state: 'cleanup_pending', evidence_id: 'ev-1' });
+    expect(state.items[1].blob_path).not.toBe(state.evidence[0].storage_path);
+
+    const retryWhileCleanupOwnsPath = await upload(
+      requestWith(
+        [new File([PDF], 'raced.pdf', { type: 'application/pdf' })],
+        { key: '00000000-0000-4000-8000-000000000166' },
+      ),
+      ctx,
+      {},
+    );
+    expect(retryWhileCleanupOwnsPath.status).toBe(400);
+    expect(state.items[1].state).toBe('cleanup_pending');
+    expect(blob.uploadEvidenceBytes).toHaveBeenCalledTimes(2);
+  });
+
+  it('allows only one exact-key concurrent request to own the Blob write', async () => {
+    let releaseUpload!: () => void;
+    const held = new Promise<void>((resolve) => { releaseUpload = resolve; });
+    blob.uploadEvidenceBytes.mockImplementationOnce(async (prefix: string, name: string, bytes: Buffer) => {
+      await held;
+      return { blobPath: `${prefix}/${name}`, size: bytes.length };
+    });
+    const makeRequest = () => requestWith([
+      new File([PDF], 'instruction.pdf', { type: 'application/pdf' }),
+    ]);
+    const firstPromise = upload(makeRequest(), ctx, {});
+    await vi.waitFor(() => expect(blob.uploadEvidenceBytes).toHaveBeenCalledTimes(1));
+    const second = await upload(makeRequest(), ctx, {});
+    releaseUpload();
+    const first = await firstPromise;
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(400);
+    expect(blob.uploadEvidenceBytes).toHaveBeenCalledTimes(1);
+    expect(state.evidence).toHaveLength(1);
+    expect(state.items[0]).toMatchObject({ state: 'complete', evidence_id: 'ev-1' });
+  });
+
+  it('fences an expired upload from a reclaimed retry and a stale cleanup delete', async () => {
+    // Generation A writes bytes but its durable transaction fails, leaving cleanup ownership.
+    state.archiveFailure = true;
+    const makeRequest = () => requestWith([
+      new File([PDF], 'instruction.pdf', { type: 'application/pdf' }),
+    ]);
+    const failedA = await upload(makeRequest(), ctx, {});
+    expect(failedA.status).toBe(400);
+    const pathA = state.items[0].blob_path;
+    expect(state.blobPaths.has(pathA)).toBe(true);
+
+    // Cleanup claim A expires; worker B reclaims and completes that old-path cleanup.
+    const staleWorkerAPath = pathA;
+    state.blobPaths.delete(pathA);
+    state.items[0].state = 'cleaned';
+    state.archiveFailure = false;
+
+    // The browser retries with the same idempotency key. Generation B must write elsewhere.
+    const successfulB = await upload(makeRequest(), ctx, {});
+    expect(successfulB.status).toBe(201);
+    const pathB = state.items[0].blob_path;
+    expect(pathB).not.toBe(pathA);
+    expect(state.blobPaths.has(pathB)).toBe(true);
+    expect(state.evidence[0].storage_path).toBe(pathB);
+
+    // Stale worker A finally issues its already-authorised delete. It can touch only A.
+    state.blobPaths.delete(staleWorkerAPath);
+    expect(state.blobPaths.has(pathB)).toBe(true);
+    expect(state.evidence[0].storage_path).toBe(pathB);
+  });
+
+  it('derives stable identity for a cached legacy client and returns evidence ids on replay', async () => {
+    const makeRequest = () => requestWith(
+      [new File([PDF], 'instruction.pdf', { type: 'application/pdf' })],
+      { legacy: true },
+    );
+    const first = await upload(makeRequest(), ctx, {});
+    const second = await upload(makeRequest(), ctx, {});
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(200);
+    expect(second.jsonBody).toMatchObject({
+      added: [{ evidenceId: 'ev-1', duplicate: true }],
+      rejected: [],
+    });
+    expect(state.batches.size).toBe(1);
+    expect([...state.batches.keys()][0]).toMatch(/^legacy-[0-9a-f]{64}$/u);
+    expect(state.evidence[0].source_message_id).toContain('staff:legacy_upload:legacy-');
+    expect(blob.uploadEvidenceBytes).toHaveBeenCalledTimes(1);
   });
 });
