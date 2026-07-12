@@ -93,6 +93,7 @@ Plans cluster related tickets without moving them. A plan lives at `docs/tickets
 | [PLAN-001](./plans/PLAN-001-ai-mcp-hardening.md) | Harden and enhance AI features plus MCP | active | 8/17 done |
 | [PLAN-002](./plans/PLAN-002-case-done-lifecycle.md) | Case done lifecycle | active | 1/3 done |
 | [PLAN-003](./plans/PLAN-003-operator-fixup-wave.md) | Operator fix-up wave 2026-07-08 | active | 35/37 done |
+| [PLAN-004](./plans/PLAN-004-production-readiness.md) | Production readiness and lifecycle completion | active | 0/19 done |
 
 ## Validation
 
@@ -110,6 +111,12 @@ node scripts/check-skills-sync.mjs
 
 | Ticket | Title | Priority | Area | Plan |
 |---|---|---|---|---|
+| [TKT-009](./now/TKT-009-clickable-case-and-email/TKT-009-clickable-case-and-email.md) | Open an associated email in Outlook | P3 | ui | — |
+| [TKT-020](./now/TKT-020-docs-cleanup/TKT-020-docs-cleanup.md) | Stale-plan cleanup + root-doc reconciliation | P2 | docs | — |
+| [TKT-024](./now/TKT-024-image-based-new-case/TKT-024-image-based-new-case.md) | Image-only new-case form (drop instruction-only fields) | P2 | ui | PLAN-003 |
+| [TKT-034](./now/TKT-034-images-received-routing/TKT-034-images-received-routing.md) | Archive unmatched images by registration and adopt the folder into the case | P2 | intake | — |
+| [TKT-129](./now/TKT-129-image-based-inspection-done/TKT-129-image-based-inspection-done.md) | Simplify the inspection address or Image Based Assessment choice | P1 | ui | PLAN-003 |
+| [TKT-130](./now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | Review contains only cases that are ready for EVA | P1 | intake | PLAN-003 |
 | [TKT-107](./now/TKT-107-readonly-archive-assist/TKT-107-readonly-archive-assist.md) | "Read-only Box archive assist (suggest-only) — decouple from the sequence-blocked reconstruction" | P2 | intake | PLAN-001 |
 | [TKT-021](./verify/TKT-021-connexus-intermediary/TKT-021-connexus-intermediary.md) | Resolve Connexus claims-manager to the real provider (PCH/SBL) | P2 | intake | — |
 | [TKT-141](./verify/TKT-141-merged-twins-exclusion/TKT-141-merged-twins-exclusion.md) | Exclude merged/retired duplicate cases from twin counts and attention lists | P2 | dashboard | PLAN-003 |
@@ -155,7 +162,6 @@ node scripts/check-skills-sync.mjs
 | [TKT-006](./done/TKT-006-suggested-tags-and-folders/TKT-006-suggested-tags-and-folders.md) | Suggest email categories/tags + Outlook folders, log overrides | P2 | email | — |
 | [TKT-007](./done/TKT-007-amalgamated-dashboard/TKT-007-amalgamated-dashboard.md) | Combine email + intake overviews into one compact dashboard | P2 | ui | — |
 | [TKT-008](./done/TKT-008-calendar-date-fields/TKT-008-calendar-date-fields.md) | Calendar picker on the date-of-incident / instruction fields | P3 | ui | — |
-| [TKT-009](./done/TKT-009-clickable-case-and-email/TKT-009-clickable-case-and-email.md) | Make associated emails clickable + view-full-email link | P3 | ui | — |
 | [TKT-010](./done/TKT-010-delete-case/TKT-010-delete-case.md) | Close case (renamed from delete/remove) — confirm + audit, available to all users | P2 | ui | PLAN-003 |
 | [TKT-011](./done/TKT-011-case-page/TKT-011-case-page.md) | Case page de-jargon + layout fixes | P2 | ui | — |
 | [TKT-012](./done/TKT-012-dashboard-logic/TKT-012-dashboard-logic.md) | Define the combined dashboard/queue count contract | P2 | dashboard | — |
@@ -164,10 +170,8 @@ node scripts/check-skills-sync.mjs
 | [TKT-015](./done/TKT-015-ai-assistant/TKT-015-ai-assistant.md) | AI suggestion layer (observation-first, gated) | P2 | ai | PLAN-001 |
 | [TKT-017](./done/TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md) | Registration-recognition model research + bench | P2 | ai | PLAN-001 |
 | [TKT-019](./done/TKT-019-ticket-system/TKT-019-ticket-system.md) | Build the Markdown ticket system + board + validator | P2 | docs | — |
-| [TKT-020](./done/TKT-020-docs-cleanup/TKT-020-docs-cleanup.md) | Stale-plan cleanup + root-doc reconciliation | P2 | docs | — |
 | [TKT-022](./done/TKT-022-docx-extraction-fail/TKT-022-docx-extraction-fail.md) | .docx claim-form extraction fails | P1 | parsing | — |
 | [TKT-023](./done/TKT-023-follow-up-docs/TKT-023-follow-up-docs.md) | Link follow-up documents/emails to the existing case + Box | P2 | intake | — |
-| [TKT-024](./done/TKT-024-image-based-new-case/TKT-024-image-based-new-case.md) | Image-only new-case form (drop instruction-only fields) | P2 | ui | PLAN-003 |
 | [TKT-025](./done/TKT-025-inbox-source-filter/TKT-025-inbox-source-filter.md) | Mark + filter inbox by source mailbox (info/engineers/desk) | P2 | email | — |
 | [TKT-026](./done/TKT-026-queue-tracking/TKT-026-queue-tracking.md) | Queue counts don't match the actual queues | P2 | dashboard | — |
 | [TKT-027](./done/TKT-027-intake-triage-status/TKT-027-intake-triage-status.md) | Intermediate intake status beyond 'new' | P2 | intake | — |
@@ -176,7 +180,6 @@ node scripts/check-skills-sync.mjs
 | [TKT-030](./done/TKT-030-misclass-chasing-report/TKT-030-misclass-chasing-report.md) | Report-chaser misclassified as new work | P1 | email | — |
 | [TKT-031](./done/TKT-031-misclass-client-chasing/TKT-031-misclass-client-chasing.md) | Client report-chaser misrouted to 'Other' | P2 | email | — |
 | [TKT-033](./done/TKT-033-misclass-email-reply/TKT-033-misclass-email-reply.md) | Simple reply to our query misclassified as new work | P1 | email | — |
-| [TKT-034](./done/TKT-034-images-received-routing/TKT-034-images-received-routing.md) | 'Inbound images: match to case / create Box folder by reg / flag' | P2 | intake | — |
 | [TKT-036](./done/TKT-036-misclass-instructions/TKT-036-misclass-instructions.md) | Work-instructions email misclassified as query | P1 | email | — |
 | [TKT-037](./done/TKT-037-misclass-invoice-request/TKT-037-misclass-invoice-request.md) | Invoice request misclassified as new case | P2 | email | — |
 | [TKT-038](./done/TKT-038-misclass-query-ack/TKT-038-misclass-query-ack.md) | Bare acknowledgement ('Thanks Ed') misclassified as query | P2 | email | — |
@@ -247,8 +250,6 @@ node scripts/check-skills-sync.mjs
 | [TKT-126](./done/TKT-126-eva-export-zip/TKT-126-eva-export-zip.md) | Export for EVA downloads a .zip of the JSON plus all the images | P1 | ui | PLAN-003 |
 | [TKT-127](./done/TKT-127-ai-suggestions-generate-204/TKT-127-ai-suggestions-generate-204.md) | AI Assistant "Generate Suggestions" does not generate — devtools shows 204 no content | P1 | ai | PLAN-003 |
 | [TKT-128](./done/TKT-128-imported-details-blank/TKT-128-imported-details-blank.md) | "Imported details — from the instruction document or email" renders blank | P2 | ui | PLAN-003 |
-| [TKT-129](./done/TKT-129-image-based-inspection-done/TKT-129-image-based-inspection-done.md) | Image-based providers: inspection field must auto-complete as Done + fix the inverted wording | P1 | ui | PLAN-003 |
-| [TKT-130](./done/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | needs_review cases belong in the Review queue — readiness wrongly piles everything into Not Ready | P1 | intake | PLAN-003 |
 | [TKT-131](./done/TKT-131-image-role-classify-retry/TKT-131-image-role-classify-retry.md) | Classify the role-unknown evidence images — retry the backfill residue so cases can reach Ready for EVA | P1 | evidence | PLAN-003 |
 | [TKT-132](./done/TKT-132-generate-suggestions-inputs/TKT-132-generate-suggestions-inputs.md) | Widen the AI-suggestion generate inputs beyond accident circumstances | P2 | ai | PLAN-003 |
 | [TKT-133](./verify/TKT-133-evidence-dedup-box-kind/TKT-133-evidence-dedup-box-kind.md) | Deduplicate evidence rows (email + Box mirror twins) + fix the box-webhook kind at source | P2 | evidence | PLAN-003 |
@@ -271,6 +272,25 @@ node scripts/check-skills-sync.mjs
 | Ticket | Title | Priority | Area | Plan |
 |---|---|---|---|---|
 | [TKT-018](./backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md) | AI VLM total-loss vs repairable categorisation (deferred) | P3 | ai | PLAN-001 |
+| [TKT-149](./backlog/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) | Enforce reciprocal Claude and Codex reviews on every PR | P0 | platform | PLAN-004 |
+| [TKT-150](./backlog/TKT-150-claimant-extraction-held-audit/TKT-150-claimant-extraction-held-audit.md) | Restore claimant-name extraction and remediate affected held cases | P1 | parsing | PLAN-004 |
+| [TKT-151](./backlog/TKT-151-vehicle-enrichment-completeness/TKT-151-vehicle-enrichment-completeness.md) | Complete vehicle enrichment and warn when a registration cannot be resolved | P1 | enrichment | PLAN-004 |
+| [TKT-152](./backlog/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md) | Consolidate vehicle lookups and harden the MOT mileage estimator | P1 | enrichment | PLAN-004 |
+| [TKT-153](./backlog/TKT-153-explicit-case-save/TKT-153-explicit-case-save.md) | Save case edits explicitly as one reviewed change | P1 | ui | PLAN-004 |
+| [TKT-154](./backlog/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) | Add a constrained MCP image-ingestion lane for external agents | P1 | integration | PLAN-004 |
+| [TKT-155](./backlog/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) | Rebuild the dashboard around Not Ready, Review and Held | P2 | dashboard | PLAN-004 |
+| [TKT-156](./backlog/TKT-156-chaser-file-request/TKT-156-chaser-file-request.md) | Put an active archive upload link in every image chaser | P1 | box | PLAN-004 |
+| [TKT-157](./backlog/TKT-157-handler-copy-audit/TKT-157-handler-copy-audit.md) | Remove dev copy and unnecessary explanatory text from the app | P2 | ui | PLAN-004 |
+| [TKT-158](./backlog/TKT-158-case-remediation-rerun/TKT-158-case-remediation-rerun.md) | Rerun and account for every affected case after the fixes deploy | P1 | pipeline | PLAN-004 |
+| [TKT-159](./backlog/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md) | Reconcile every feature gate with intended production behavior | P1 | platform | PLAN-004 |
+| [TKT-160](./backlog/TKT-160-delete-case-image/TKT-160-delete-case-image.md) | Delete an individual case image from every active store | P2 | evidence | PLAN-004 |
+| [TKT-161](./backlog/TKT-161-image-based-reflection-policy/TKT-161-image-based-reflection-policy.md) | Allow reflection images for Image Based Assessment cases | P1 | evidence | PLAN-004 |
+| [TKT-162](./backlog/TKT-162-nested-audit-archive/TKT-162-nested-audit-archive.md) | Nest QDOS audit work inside the standard case archive folder | P1 | box | PLAN-004 |
+| [TKT-163](./backlog/TKT-163-merge-dialog-layout/TKT-163-merge-dialog-layout.md) | Repair the merge-case dialog layout | P2 | ui | PLAN-004 |
+| [TKT-164](./backlog/TKT-164-inbound-counts-500/TKT-164-inbound-counts-500.md) | Restore the live inbound dashboard counts | P1 | platform | PLAN-004 |
+| [TKT-165](./backlog/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) | Make Add evidence upload the selected files | P0 | evidence | PLAN-004 |
+| [TKT-166](./backlog/TKT-166-manual-intake-evidence-upload/TKT-166-manual-intake-evidence-upload.md) | Persist instruction and extra files from Manual Intake | P0 | intake | PLAN-004 |
+| [TKT-167](./backlog/TKT-167-image-gap-chasers/TKT-167-image-gap-chasers.md) | Keep image chasers available until every image rule passes | P1 | pipeline | PLAN-004 |
 
 ### blocked
 
