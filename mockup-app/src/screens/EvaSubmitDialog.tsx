@@ -329,7 +329,8 @@ export function EvaSubmitDialog() {
   }
 
   const ready = canSubmitCaseToEva(c);
-  const blockedCount = readiness.missing.length + (c.onHold ? 1 : 0);
+  const workflowBlocked = readiness.ready && !ready;
+  const blockedCount = readiness.missing.length + (workflowBlocked ? 1 : 0);
 
   // Compose the live Case/PO from locked segments + the edited sequence. Existing
   // case references are authoritative; otherwise prefer the allocator preview.
@@ -467,6 +468,8 @@ export function EvaSubmitDialog() {
                         ? readiness.missing.length > 0
                           ? 'Take the case off hold and resolve the items below before submitting to EVA.'
                           : 'Take the case off hold before submitting to EVA.'
+                        : workflowBlocked
+                          ? 'Finish the outstanding case decision so it can move to Review before submitting to EVA.'
                         : 'Resolve the items below before submitting to EVA.'}
                     </MessageBarBody>
                   </MessageBar>

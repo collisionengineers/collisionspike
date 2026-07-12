@@ -1011,7 +1011,8 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   };
   const readiness = computeReadiness(liveCase);
   const blocked = !canSubmitCaseToEva(liveCase);
-  const blockerCount = readiness.missing.length + (liveCase.onHold ? 1 : 0);
+  const workflowBlocked = readiness.ready && blocked;
+  const blockerCount = readiness.missing.length + (workflowBlocked ? 1 : 0);
 
   const toast = (title: string) =>
     dispatchToast(
@@ -2105,6 +2106,8 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
               ? readiness.missing.length > 0
                 ? 'Release the hold and resolve the outstanding readiness items before submitting to EVA.'
                 : 'Release the hold before submitting to EVA.'
+              : workflowBlocked
+                ? 'Finish the outstanding case decision so it can move to Review before submitting to EVA.'
               : 'Use the readiness list — each outstanding item links to the field to fix.'}
           </MessageBarBody>
         </MessageBar>
@@ -2586,6 +2589,8 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                   ? readiness.missing.length > 0
                     ? `Release the hold and resolve ${readiness.missing.length} readiness item${readiness.missing.length === 1 ? '' : 's'} before EVA.`
                     : 'Release the hold before EVA.'
+                  : workflowBlocked
+                    ? 'Finish the outstanding case decision so it can move to Review before EVA.'
                   : `${blockerCount} item${blockerCount === 1 ? '' : 's'} to resolve before EVA — select one to fix.`
                 : 'Every check passes — ready for EVA.'}
             </Caption1>

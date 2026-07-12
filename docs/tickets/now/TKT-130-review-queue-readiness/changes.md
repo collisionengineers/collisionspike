@@ -11,6 +11,10 @@ session.
 
 - `6eb7cdb` — replace the competing status/UI/queue/submission predicates with one canonical EVA
   readiness gate and exhaustive regression coverage.
+- `26a1db3` — require the current workflow state itself to be Review, preventing a complete-looking
+  duplicate, terminal, or other non-Review case from bypassing the client submission gate.
+- Final review follow-up — make the workflow blocker count/copy truthful when field/image checks are
+  green but the case has not reached Review, and add the positive atomic submission-path test.
 
 ## Reopened change summary
 
@@ -48,7 +52,7 @@ session.
 ## Offline proof
 
 - `node verify-all.mjs`: **8 passed, 0 failed, 13 expected skips**.
-- SPA: **450 passed** plus production Vite build.
+- SPA: **453 passed** plus production Vite build.
 - Data API: **618 passed** plus TypeScript build.
 - Domain: **1,132 passed** (including the shared TS/Python parity corpus).
 - Orchestration: **401 passed** plus TypeScript build.
