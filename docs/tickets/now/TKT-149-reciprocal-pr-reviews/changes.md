@@ -29,7 +29,7 @@ implemented and offline-tested; live pull-request proof pending
 - writes commit status `reciprocal-pr-review/head`, restores ready state only when requested and both outcomes pass, and gates later standalone ready/merge commands on those current markers;
 - reconstructs immediate merge commands against the authoritative request URL with `--match-head-commit`, while refusing cross-repository targets, auto-merge, administrative bypass and branch deletion;
 - supports `review-existing --repo OWNER/REPO --pr N` for every new pushed head; and
-- enforces six-minute Claude and three-minute Codex limits inside one 9½-minute workflow deadline, raises the parent Claude Bash call to its documented ten-minute maximum, recovers dead-process locks without stealing a live lock, verifies sentinel/containment ownership before recursive cleanup, and proves the caller checkout is unchanged.
+- enforces six-minute Claude and three-and-a-half-minute Codex limits inside one 9½-minute workflow deadline, tells the stdin-complete Codex reviewer not to spend that bound re-reading the bundle through shell tools, raises the parent Claude Bash call to its documented ten-minute maximum, recovers dead-process locks without stealing a live lock, verifies sentinel/containment ownership before recursive cleanup, and proves the caller checkout is unchanged.
 
 ## GitHub backstop
 
