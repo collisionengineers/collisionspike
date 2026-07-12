@@ -642,11 +642,28 @@ export function removeOwnedTempDir(owned) {
 
 export function addDetachedWorktree(repoRoot, headOid, gitPath = resolveTrustedExecutable('git', repoRoot)) {
   const location = path.join(tmpdir(), `collisionspike-pr-review-${randomUUID()}`);
-  run(gitPath, ['worktree', 'add', '--detach', location, headOid], { cwd: repoRoot });
+  try {
+    run(gitPath, ['-c', 'core.longpaths=true', 'worktree', 'add', '--detach', location, headOid], { cwd: repoRoot });
+  } catch (error) {
+    try {
+      const entries = parseWorktrees(run(gitPath, ['worktree', 'list', '--porcelain'], { cwd: repoRoot }).stdout);
+      const registered = entries.find((entry) => path.resolve(entry.worktree) === path.resolve(location));
+      if (registered && registered.HEAD === headOid && isReviewWorktreeLocation(location)) {
+        run(gitPath, ['-c', 'core.longpaths=true', 'worktree', 'remove', '--force', location], { cwd: repoRoot });
+      }
+    } catch (cleanupError) {
+      throw new Error(`${error.message}; partial-worktree cleanup also failed: ${cleanupError.message}`);
+    }
+    throw error;
+  }
   const actual = path.resolve(run(gitPath, ['rev-parse', '--show-toplevel'], { cwd: location }).stdout.trim());
   const actualHead = run(gitPath, ['rev-parse', 'HEAD'], { cwd: location }).stdout.trim();
   if (actual !== path.resolve(location) || actualHead !== headOid) throw new Error('Detached review worktree failed exact-head verification.');
   return location;
+}
+
+function isReviewWorktreeLocation(location) {
+  return path.basename(location).startsWith('collisionspike-pr-review-') && path.dirname(location) === path.resolve(tmpdir());
 }
 
 function gitHasCommit(repoRoot, oid, gitPath) {
@@ -669,10 +686,10 @@ function ensureReviewCommits(repoRoot, pr, gitPath) {
 export function removeVerifiedWorktree(repoRoot, location, expectedHead, gitPath = resolveTrustedExecutable('git', repoRoot)) {
   const entries = parseWorktrees(run(gitPath, ['worktree', 'list', '--porcelain'], { cwd: repoRoot }).stdout);
   const registered = entries.find((entry) => path.resolve(entry.worktree) === path.resolve(location));
-  if (!registered || registered.HEAD !== expectedHead || !path.basename(location).startsWith('collisionspike-pr-review-') || path.dirname(location) !== path.resolve(tmpdir())) {
+  if (!registered || registered.HEAD !== expectedHead || !isReviewWorktreeLocation(location)) {
     throw new Error('Refusing to remove an unverified temporary worktree.');
   }
-  run(gitPath, ['worktree', 'remove', '--force', location], { cwd: repoRoot });
+  run(gitPath, ['-c', 'core.longpaths=true', 'worktree', 'remove', '--force', location], { cwd: repoRoot });
 }
 
 export function buildReviewBundle(worktree, pr, gitPath = resolveTrustedExecutable('git', worktree)) {

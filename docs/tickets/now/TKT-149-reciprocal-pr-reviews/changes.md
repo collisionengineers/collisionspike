@@ -16,6 +16,7 @@ implemented and offline-tested; live pull-request proof pending
 
 - creates every new request as draft, resolves the authoritative GitHub base/head commits, and snapshots the initiating checkout's branch, `HEAD` and full status;
 - creates a unique detached worktree at the exact head without checkout, switch or `gh pr checkout`;
+- forces Git long-path handling for detached checkout/removal on Windows and attempts verified cleanup if checkout fails part-way through;
 - resolves trusted absolute executables outside the request checkout, including the Windows Codex npm entry point, before request code is read;
 - runs reviewers from fresh empty child directories with secret-like environment variables removed, preventing request-controlled executable shadowing;
 - runs Claude first with `--safe-mode -p`, no session persistence/Chrome/custom hooks, `dontAsk`, scoped Read, one temporary review-body Write, and one exact `gh pr comment --body-file` proxy command;
