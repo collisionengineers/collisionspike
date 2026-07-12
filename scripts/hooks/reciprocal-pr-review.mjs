@@ -36,6 +36,16 @@ const GH_BUILTIN_COMMANDS = new Set([
   'repo', 'ruleset', 'run', 'search', 'secret', 'ssh-key', 'status', 'variable',
   'workflow',
 ]);
+const COMMAND_LAUNCHER_EXECUTABLES = new Set([
+  '!', '(', 'bash', 'builtin', 'cmd', 'cmd.exe', 'command', 'env', 'eval', 'exec',
+  'iex', 'invoke-expression', 'nice', 'nohup', 'parallel', 'powershell',
+  'powershell.exe', 'pwsh', 'pwsh.exe', 'setsid', 'sh', 'start', 'start-process',
+  'sudo', 'time', 'timeout', 'watch', 'winpty', 'wsl', 'wsl.exe', 'xargs', 'zsh',
+]);
+const LITERAL_INSPECTION_EXECUTABLES = new Set([
+  'echo', 'findstr', 'findstr.exe', 'grep', 'grep.exe', 'printf', 'rg', 'rg.exe',
+  'ripgrep', 'select-string', 'write-host', 'write-output',
+]);
 
 export function tokenize(command) {
   const tokens = [];
@@ -89,7 +99,7 @@ export function tokenize(command) {
       if (token) tokens.push(token), (token = '');
       continue;
     }
-    if (';&|<>`'.includes(ch) || (ch === '$' && command[i + 1] === '(')) {
+    if (';&|<>`()!'.includes(ch) || (ch === '$' && command[i + 1] === '(')) {
       compound = true;
     }
     if (ch === '$' && ['{', "'", '"'].includes(command[i + 1])) ambiguous = true;
@@ -188,7 +198,7 @@ function looksLikePullRequestApiMutation(tokens, raw) {
   const executable = tokens[0]?.toLowerCase();
   const canonicalGhApi = (executable === 'gh' || executable === 'gh.exe') && ghTopLevelCommand(tokens) === 'api';
   const graphqlPullMutation = endpointText.includes('createpullrequest') || endpointText.includes('create_pull_request');
-  const wrapperExecutable = new Set(['powershell', 'powershell.exe', 'pwsh', 'pwsh.exe', 'cmd', 'cmd.exe', 'wsl', 'wsl.exe', 'bash', 'sh', 'zsh', 'env', 'command', 'nice']).has(path.basename(executable || ''));
+  const wrapperExecutable = COMMAND_LAUNCHER_EXECUTABLES.has(path.basename(executable || ''));
   const nestedGhGraphql = /(?:^|[\s'"`&])gh(?:\.exe)?\s+(?:(?:-r|--repo|--hostname)(?:=[^\s'"`]+|\s+[^\s'"`]+)\s+)*api\s+graphql(?:[\s'"`]|$)/u.test(endpointText);
   if (graphqlPullMutation && wrapperExecutable && nestedGhGraphql) return true;
   if (canonicalGhApi && tokens.some((token) => token.toLowerCase() === 'graphql')) return true;
@@ -275,6 +285,7 @@ export function classifyHookEvent(event, origin = 'codex') {
   }
   const kind = commandKind(parsed.tokens);
   const rawLower = command.toLowerCase();
+  const rawGuardedPrCommand = /(?:^|[\s'"`&(!])gh(?:\.exe)?\s+pr\s+(?:create|new|merge|ready)\b/iu.test(command);
   const guardedSequenceIndex = parsed.tokens.findIndex((token, index) => /^(?:gh|gh\.exe)$/iu.test(path.basename(token))
     && parsed.tokens[index + 1]?.toLowerCase() === 'pr'
     && /^(?:create|new|merge|ready)$/u.test(parsed.tokens[index + 2]?.toLowerCase() || ''));
@@ -291,16 +302,25 @@ export function classifyHookEvent(event, origin = 'codex') {
       return { action: 'deny', reason: 'GitHub CLI extensions and aliases are refused because their expansion cannot be verified by the pull-request guard.' };
     }
   }
-  if (!kind && guardedSequenceIndex >= 0) {
-    return { action: 'deny', reason: 'Pull-request create, ready, and merge commands must invoke canonical gh directly with no wrappers, prefixes, pipes, redirects, substitutions, or chaining.' };
-  }
   if (!kind) {
     const executableBase = path.basename(String(parsed.tokens[0] || '')).toLowerCase();
     if ((executableBase === 'gh' || executableBase === 'gh.exe') && parsed.tokens[1]?.toLowerCase() === 'pr' && /^(create|new|merge|ready)$/u.test(parsed.tokens[2]?.toLowerCase() || '')) {
       return { action: 'deny', reason: 'Use the canonical `gh` executable directly; path-qualified launchers bypass the review guard.' };
     }
-    if (['powershell', 'powershell.exe', 'pwsh', 'pwsh.exe', 'cmd', 'cmd.exe', 'wsl', 'wsl.exe'].includes(executableBase) && guardedSequenceIndex >= 0) {
-      return { action: 'deny', reason: 'Wrapper shells cannot be used for pull-request create, ready, or merge operations.' };
+    const prefixedByEnvironmentAssignment = guardedSequenceIndex > 0
+      && parsed.tokens.slice(0, guardedSequenceIndex).some((token) => /^[a-z_][a-z0-9_]*=/iu.test(token));
+    const unsafeRgPreprocessor = /^(?:rg|rg\.exe|ripgrep)$/u.test(executableBase)
+      && flagPresent(parsed.tokens, '--pre');
+    const gitCommitMessage = executableBase === 'git'
+      && parsed.tokens[1]?.toLowerCase() === 'commit'
+      && flagPresent(parsed.tokens, '-m', '--message');
+    const literalInspection = !parsed.compound && !parsed.ambiguous
+      && ((LITERAL_INSPECTION_EXECUTABLES.has(executableBase) && !unsafeRgPreprocessor) || gitCommitMessage);
+    if (rawGuardedPrCommand && !literalInspection) {
+      return { action: 'deny', reason: 'Pull-request create, ready, and merge commands must invoke canonical gh directly; executable wrappers and shell prefixes are refused.' };
+    }
+    if (guardedSequenceIndex >= 0 && (COMMAND_LAUNCHER_EXECUTABLES.has(executableBase) || prefixedByEnvironmentAssignment)) {
+      return { action: 'deny', reason: 'Executable wrappers and environment prefixes cannot be used for pull-request create, ready, or merge operations.' };
     }
     if (/\b(?:start-process|cmd\s+\/c|wsl(?:\.exe)?)\b/u.test(rawLower) && /\bgh(?:\.exe)?\s+pr\s+(?:create|new|merge|ready)\b/u.test(rawLower)) {
       return { action: 'deny', reason: 'Ambiguous shell launchers cannot be used for pull-request create, ready, or merge operations.' };
@@ -372,30 +392,58 @@ export function hookOutput(result) {
 }
 
 async function readStdin(timeoutMs = 1200) {
-  return await new Promise((resolve) => {
+  return await new Promise((resolve, reject) => {
     let raw = '';
     let finished = false;
-    const finish = () => {
+    let timer;
+    const onData = (chunk) => (raw += chunk);
+    const cleanup = () => {
+      clearTimeout(timer);
+      process.stdin.off('data', onData);
+      process.stdin.off('end', onEnd);
+      process.stdin.off('error', onError);
+      process.stdin.pause();
+    };
+    const finish = (error) => {
       if (finished) return;
       finished = true;
-      resolve(raw);
+      cleanup();
+      if (error) reject(error);
+      else resolve(raw);
     };
+    const onEnd = () => finish();
+    const onError = () => finish(new Error('standard input failed'));
     process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (chunk) => (raw += chunk));
-    process.stdin.on('end', finish);
-    process.stdin.on('error', finish);
-    setTimeout(finish, timeoutMs);
+    process.stdin.on('data', onData);
+    process.stdin.on('end', onEnd);
+    process.stdin.on('error', onError);
+    timer = setTimeout(() => finish(new Error('standard input timed out')), timeoutMs);
+    process.stdin.resume();
   });
 }
 
 export async function runHookCli(origin) {
   try {
-    const event = JSON.parse((await readStdin()) || '{}');
+    const raw = await readStdin();
+    if (!raw.trim()) throw new Error('standard input was empty');
+    const event = JSON.parse(raw);
+    if (!event || typeof event !== 'object' || Array.isArray(event)) throw new Error('hook event must be an object');
+    if (event.hook_event_name !== 'PreToolUse') throw new Error('hook event must be PreToolUse');
+    const toolName = event.tool_name ?? event.toolName;
+    if (typeof toolName !== 'string' || !toolName.trim()) throw new Error('hook event must name a tool');
+    const toolInput = event.tool_input ?? event.toolInput;
+    if (!toolInput || typeof toolInput !== 'object' || Array.isArray(toolInput)) throw new Error('hook event must contain tool input');
+    if ((toolName === 'Bash' || toolName === 'PowerShell')
+        && (typeof toolInput.command !== 'string' || !toolInput.command.trim())) {
+      throw new Error('shell hook event must contain a command');
+    }
     const output = hookOutput(classifyHookEvent(event, origin));
     if (output) process.stdout.write(JSON.stringify(output));
   } catch (error) {
-    process.stderr.write(`[pr-review] Hook failed closed: ${error.message}\n`);
-    process.exitCode = 2;
+    const detail = error instanceof Error ? error.message : String(error);
+    const reason = `PR review hook could not validate its input (${detail}).`;
+    process.stderr.write(`[pr-review] Hook failed closed: ${detail}\n`);
+    process.stdout.write(JSON.stringify(hookOutput({ action: 'deny', reason })));
   }
 }
 

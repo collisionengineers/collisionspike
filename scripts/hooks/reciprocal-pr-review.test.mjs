@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -88,7 +88,7 @@ test('Codex and Claude PreToolUse schemas rewrite standalone gh pr create', () =
   }
 });
 
-test('actual Codex and Claude hook entrypoints consume stdin and emit valid rewrite JSON', () => {
+test('actual Codex and Claude hook entrypoints consume stdin and emit valid rewrite JSON', async () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
   for (const relative of ['.codex/hooks/pr-review.mjs', '.claude/hooks/pr-review.mjs']) {
     const result = spawnSync(process.execPath, [path.join(root, relative)], {
@@ -101,7 +101,50 @@ test('actual Codex and Claude hook entrypoints consume stdin and emit valid rewr
     const output = JSON.parse(result.stdout);
     assert.equal(output.hookSpecificOutput.permissionDecision, 'allow');
     assert.match(output.hookSpecificOutput.updatedInput.command, /reciprocal-pr-review\.mjs" create/u);
+
+    for (const invalidInput of [
+      '',
+      '{',
+      '{}',
+      JSON.stringify({ foo: 'bar' }),
+      JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Bash' }),
+      JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: {} }),
+    ]) {
+      const invalid = spawnSync(process.execPath, [path.join(root, relative)], {
+        cwd: root,
+        input: invalidInput,
+        encoding: 'utf8',
+        shell: false,
+      });
+      assert.equal(invalid.status, 0, invalid.stderr);
+      const denied = JSON.parse(invalid.stdout);
+      assert.equal(denied.hookSpecificOutput.permissionDecision, 'deny');
+      assert.match(denied.hookSpecificOutput.permissionDecisionReason, /could not validate its input/u);
+    }
   }
+
+  const delayed = spawn(process.execPath, [path.join(root, '.codex', 'hooks', 'pr-review.mjs')], {
+    cwd: root,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    shell: false,
+  });
+  let delayedStdout = '';
+  let delayedStderr = '';
+  delayed.stdout.setEncoding('utf8').on('data', (chunk) => (delayedStdout += chunk));
+  delayed.stderr.setEncoding('utf8').on('data', (chunk) => (delayedStderr += chunk));
+  const delayedExit = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      delayed.kill();
+      reject(new Error('held-open hook stdin did not fail closed within five seconds'));
+    }, 5_000);
+    delayed.once('error', reject);
+    delayed.once('close', (code) => {
+      clearTimeout(timer);
+      resolve(code);
+    });
+  });
+  assert.equal(delayedExit, 0, delayedStderr);
+  assert.equal(JSON.parse(delayedStdout).hookSpecificOutput.permissionDecision, 'deny');
 });
 
 test('hook configs keep existing guards portable and include ready/auto-merge MCP coverage', () => {
@@ -152,6 +195,8 @@ test('status backstop recalculates on base edits and default-branch pushes witho
 test('non-PR shell commands pass through without hook output', () => {
   assert.deepEqual(classifyHookEvent(shellEvent('npm test'), 'codex'), { action: 'pass' });
   assert.deepEqual(classifyHookEvent(shellEvent('rg createPullRequest docs'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('echo gh pr create'), 'codex'), { action: 'pass' });
+  assert.deepEqual(classifyHookEvent(shellEvent('rg "gh pr create" docs'), 'claude'), { action: 'pass' });
   assert.deepEqual(classifyHookEvent(shellEvent('Select-String -Pattern create_pull_request -Path docs\\*.md'), 'claude'), { action: 'pass' });
   assert.equal(hookOutput({ action: 'pass' }), null);
 });
@@ -202,6 +247,19 @@ test('compound, web, interactive, alias, path-qualified, API, GraphQL and MCP by
     'command gh pr create --fill',
     'GH_REPO=acme/repo gh pr create --fill',
     'nice gh pr merge 42 --squash',
+    'time gh pr create --fill',
+    '! gh pr create --fill',
+    '(gh pr create --fill)',
+    'xargs gh pr create --fill',
+    'watch gh pr create --fill',
+    'bash -lc "gh pr create --fill"',
+    "sh -c 'gh pr ready 42'",
+    'pwsh -NoProfile -Command "gh pr create --fill"',
+    'powershell -Command "gh pr merge 42 --squash"',
+    'rg --pre "gh pr create" needle docs',
+    'Select-String -Pattern x -InputObject (gh pr create --fill)',
+    'Write-Output (gh pr create --fill)',
+    'echo (gh pr create --fill)',
     '& "C:\\Program Files\\GitHub CLI\\gh.exe" pr create --fill',
     '& "C:\\Program Files\\GitHub CLI\\gh.exe" pr merge 42 --squash',
     'gh api -X POST repos/acme/repo/pulls -f title=x',
