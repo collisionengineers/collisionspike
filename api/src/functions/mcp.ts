@@ -1,27 +1,31 @@
 /**
- * api/src/functions/mcp.ts — read-only MCP server for external agents (TKT-110, ADR-0023).
+ * api/src/functions/mcp.ts — MCP server for external agents (TKT-110/TKT-154, ADR-0023).
  *
  *   POST /api/mcp   a stateless Streamable-HTTP MCP endpoint (JSON-RPC 2.0).
  *
  * Hosted ON the existing Data API Function App (no Container App / ACR for the spike). Behind
- * `MCP_SERVER_ENABLED` (default OFF) — while off it 404-gates (dark). Wrapped in
- * withRole('CollisionSpike.User'): an interactive MCP client (Flow A: OAuth Auth-Code + PKCE, a
- * DELEGATED staff user) presents a normal staff token, so authorization is enforced at the Data
- * API exactly like every other route — RLS `app.role=staff` + the same read executors. A
- * foreign-app-reg / wrong-audience / unauthenticated token fails closed (401) via withRole (C2).
+ * `MCP_SERVER_ENABLED` (default OFF) — while off it 404-gates (dark). The route authenticates once
+ * against the Data API audience, then splits a delegated staff token into the read-only Flow-A
+ * surface or the dedicated app-only ImageIngest role into the TKT-154 surface. A foreign audience,
+ * unauthenticated token or any other role fails closed before tool dispatch.
  *
- * Exposes ONLY the registry's AGENT-visible read capabilities (read, not humanOnly, not
- * destructive) — never a write or destructive tool (C1). The tool executor is the SAME SELECT-only
- * read dispatch the in-app assistant uses. Autonomous agent WRITES (Flow B) are a Phase-3b
- * deliverable behind the agent-authz design in auth.ts + a signed-commit token — not shipped here.
+ * Delegated staff see ONLY the registry's agent-visible read capabilities. The dedicated app-only
+ * ImageIngest role sees exactly registration lookup + image upload; that upload re-resolves the
+ * case and invokes the canonical evidence seam. It cannot reach the general read or write registry.
  */
 
 import { app, type HttpRequest, type InvocationContext } from '@azure/functions';
 import { gates } from '@cs/domain/gates';
 import { agentCapabilities, capabilityByName } from '@cs/domain';
-import { withRole } from '../lib/auth.js';
+import { authenticate, mcpPrincipalKind, toErrorResponse } from '../lib/auth.js';
 import { execTool } from './assistant.js';
 import type { ToolExecutor } from '../lib/aoai-chat.js';
+import {
+  executeImageIngestTool,
+  IMAGE_INGEST_TOOLS,
+  mcpImageIngestConfigured,
+  type McpToolDefinition,
+} from './mcp-image-ingestion.js';
 
 /** The MCP protocol version we default to when the client doesn't pin one. */
 export const MCP_PROTOCOL_VERSION = '2025-06-18';
@@ -41,8 +45,12 @@ function rpcError(id: unknown, code: number, message: string): Record<string, un
 }
 
 /** The tools an MCP agent may see/call — the registry's agent-visible READ capabilities only. */
-function agentToolNames(): Set<string> {
-  return new Set(agentCapabilities().map((c) => c.name));
+function readonlyToolDefinitions(): McpToolDefinition[] {
+  return agentCapabilities().map((c) => ({
+    name: c.name,
+    description: c.description,
+    inputSchema: c.parameters,
+  }));
 }
 
 /**
@@ -52,6 +60,7 @@ function agentToolNames(): Set<string> {
 export async function handleMcpMessage(
   msg: RpcMessage | null,
   exec: ToolExecutor,
+  toolDefinitions: readonly McpToolDefinition[] = readonlyToolDefinitions(),
 ): Promise<Record<string, unknown> | null> {
   if (!msg || typeof msg !== 'object') return rpcError(null, -32600, 'invalid request');
   const { id, method, params } = msg;
@@ -60,12 +69,17 @@ export async function handleMcpMessage(
   switch (method) {
     case 'initialize': {
       const clientVer = params?.protocolVersion;
+      const imageIngestSurface = toolDefinitions.some((tool) => tool.name === 'upload_case_images');
       return rpcResult(id, {
         protocolVersion: typeof clientVer === 'string' ? clientVer : MCP_PROTOCOL_VERSION,
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: 'collisionspike-readonly', version: '0.1.0' },
-        instructions:
-          'Read-only Collision Engineers case-intake tools. Every tool is a lookup — nothing here can create, change, or delete anything.',
+        serverInfo: {
+          name: imageIngestSurface ? 'collisionspike-image-ingest' : 'collisionspike-readonly',
+          version: '0.2.0',
+        },
+        instructions: imageIngestSurface
+          ? 'Registration-bound image ingestion only. The server selects one eligible case; no case or Archive folder id is accepted.'
+          : 'Read-only Collision Engineers case-intake tools. Every tool is a lookup — nothing here can create, change, or delete anything.',
       });
     }
     case 'notifications/initialized':
@@ -76,12 +90,7 @@ export async function handleMcpMessage(
       return rpcResult(id, {});
 
     case 'tools/list': {
-      const tools = agentCapabilities().map((c) => ({
-        name: c.name,
-        description: c.description,
-        inputSchema: c.parameters,
-      }));
-      return rpcResult(id, { tools });
+      return rpcResult(id, { tools: toolDefinitions });
     }
 
     case 'tools/call': {
@@ -89,7 +98,16 @@ export async function handleMcpMessage(
       const args = (params?.arguments ?? {}) as Record<string, unknown>;
       // Defence in depth: only an agent-visible READ capability is ever callable via MCP —
       // a write / destructive / humanOnly tool name is refused here even if it were requested (C1).
-      if (!capabilityByName(name) || !agentToolNames().has(name)) {
+      const allowed = toolDefinitions.some((tool) => tool.name === name);
+      const registryRead = capabilityByName(name);
+      const safeRegistryRead = Boolean(
+        registryRead
+        && registryRead.kind === 'read'
+        && !registryRead.humanOnly
+        && !registryRead.destructive,
+      );
+      const dedicatedImageTool = IMAGE_INGEST_TOOLS.some((tool) => tool.name === name);
+      if (!allowed || (!safeRegistryRead && !dedicatedImageTool)) {
         return rpcResult(id, {
           content: [{ type: 'text', text: `Tool "${name}" is not available.` }],
           isError: true,
@@ -117,26 +135,40 @@ app.http('mcpServer', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'mcp',
-  handler: withRole('CollisionSpike.User', async (req: HttpRequest, _ctx: InvocationContext) => {
-    if (!gates.mcpServer()) {
-      // Dark until the operator flips MCP_SERVER_ENABLED (+ creates the MCP Entra app-reg).
-      return { status: 404, jsonBody: rpcError(null, -32000, 'MCP server is not enabled') };
-    }
-    let body: unknown;
+  handler: async (req: HttpRequest, ctx: InvocationContext) => {
     try {
-      body = await req.json();
-    } catch {
-      return { status: 200, jsonBody: rpcError(null, -32700, 'parse error') };
-    }
-    const exec: ToolExecutor = (name, args) => execTool(name, args);
+      const claims = await authenticate(req);
+      const principal = mcpPrincipalKind(claims);
+      if (!principal) return { status: 403, jsonBody: { error: 'forbidden' } };
+      if (!gates.mcpServer()) {
+        return { status: 404, jsonBody: rpcError(null, -32000, 'MCP server is not enabled') };
+      }
+      if (principal === 'image_ingest_agent' && !mcpImageIngestConfigured()) {
+        return { status: 404, jsonBody: rpcError(null, -32000, 'Image ingestion is not enabled') };
+      }
+      let body: unknown;
+      try {
+        body = await req.json();
+      } catch {
+        return { status: 200, jsonBody: rpcError(null, -32700, 'parse error') };
+      }
+      const tools = principal === 'image_ingest_agent'
+        ? IMAGE_INGEST_TOOLS
+        : readonlyToolDefinitions();
+      const exec: ToolExecutor = principal === 'image_ingest_agent'
+        ? (name, args) => executeImageIngestTool(name, args, { claims, context: ctx })
+        : (name, args) => execTool(name, args);
 
-    if (Array.isArray(body)) {
-      const out = (await Promise.all(body.map((m) => handleMcpMessage(m as RpcMessage, exec)))).filter(
-        (r): r is Record<string, unknown> => r !== null,
-      );
-      return out.length ? { status: 200, jsonBody: out } : { status: 202 };
+      if (Array.isArray(body)) {
+        const out = (await Promise.all(
+          body.map((message) => handleMcpMessage(message as RpcMessage, exec, tools)),
+        )).filter((response): response is Record<string, unknown> => response !== null);
+        return out.length ? { status: 200, jsonBody: out } : { status: 202 };
+      }
+      const result = await handleMcpMessage(body as RpcMessage, exec, tools);
+      return result ? { status: 200, jsonBody: result } : { status: 202 };
+    } catch (error) {
+      return toErrorResponse(error, ctx);
     }
-    const res = await handleMcpMessage(body as RpcMessage, exec);
-    return res ? { status: 200, jsonBody: res } : { status: 202 };
-  }),
+  },
 });

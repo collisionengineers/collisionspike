@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { handleMcpMessage, MCP_PROTOCOL_VERSION } from './mcp.js';
+import { IMAGE_INGEST_TOOLS } from './mcp-image-ingestion.js';
 
 const okExec = vi.fn(async (_name: string, _args: Record<string, unknown>) => ({ matches: [] }));
 
@@ -49,6 +50,56 @@ describe('MCP JSON-RPC handler (TKT-110)', () => {
       expect((res.result as { isError?: boolean }).isError).toBe(true);
     }
     expect(exec).not.toHaveBeenCalled();
+  });
+
+  it('a read-only MCP tool set cannot call the dedicated image write', async () => {
+    const exec = vi.fn();
+    const res = (await handleMcpMessage({
+      id: 5,
+      method: 'tools/call',
+      params: { name: 'upload_case_images', arguments: {} },
+    }, exec))!;
+    expect((res.result as { isError?: boolean }).isError).toBe(true);
+    expect(exec).not.toHaveBeenCalled();
+  });
+
+  it('still refuses a registry write if a caller tries to inject it into a custom tool list', async () => {
+    const exec = vi.fn();
+    const res = (await handleMcpMessage(
+      { id: 41, method: 'tools/call', params: { name: 'set_on_hold', arguments: {} } },
+      exec,
+      [{ name: 'set_on_hold', description: 'forged', inputSchema: { type: 'object' } }],
+    ))!;
+    expect((res.result as { isError?: boolean }).isError).toBe(true);
+    expect(exec).not.toHaveBeenCalled();
+  });
+
+  it('the dedicated image identity sees exactly lookup + upload and no other read/write surface', async () => {
+    const list = (await handleMcpMessage(
+      { id: 6, method: 'tools/list' },
+      okExec,
+      IMAGE_INGEST_TOOLS,
+    ))!;
+    expect((list.result as { tools: Array<{ name: string }> }).tools.map((tool) => tool.name)).toEqual([
+      'lookup_open_case_by_registration',
+      'upload_case_images',
+    ]);
+
+    const exec = vi.fn(async () => ({ ok: true }));
+    await handleMcpMessage({
+      id: 7,
+      method: 'tools/call',
+      params: { name: 'upload_case_images', arguments: { registration: 'SP23OBX' } },
+    }, exec, IMAGE_INGEST_TOOLS);
+    expect(exec).toHaveBeenCalledTimes(1);
+
+    const refused = (await handleMcpMessage({
+      id: 8,
+      method: 'tools/call',
+      params: { name: 'lookup_case', arguments: { query: 'SP23OBX' } },
+    }, exec, IMAGE_INGEST_TOOLS))!;
+    expect((refused.result as { isError?: boolean }).isError).toBe(true);
+    expect(exec).toHaveBeenCalledTimes(1);
   });
 
   it('a notification (no id) gets no response', async () => {

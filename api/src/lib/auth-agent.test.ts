@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import type { JWTPayload } from 'jose';
-import { authorizeAgentCapability, isAgentPrincipal, AGENT_ROLE } from './auth.js';
+import {
+  authorizeAgentCapability,
+  isAgentPrincipal,
+  isImageIngestAgentPrincipal,
+  mcpPrincipalKind,
+  AGENT_ROLE,
+  IMAGE_INGEST_AGENT_ROLE,
+} from './auth.js';
 
 describe('isAgentPrincipal (PLAN-001 Phase 3)', () => {
   it('an app-only token with the Agent role and no user identity IS an agent', () => {
@@ -13,6 +20,31 @@ describe('isAgentPrincipal (PLAN-001 Phase 3)', () => {
   it('a plain user without the Agent role is NOT an agent', () => {
     expect(isAgentPrincipal({ roles: ['CollisionSpike.User'] } as JWTPayload)).toBe(false);
     expect(isAgentPrincipal({} as JWTPayload)).toBe(false);
+  });
+});
+
+describe('MCP least-privilege principal split (TKT-154)', () => {
+  it('admits the dedicated role only as an app-only image-ingest agent', () => {
+    const appOnly = { roles: [IMAGE_INGEST_AGENT_ROLE], azp: 'folder-watcher' } as JWTPayload;
+    expect(isImageIngestAgentPrincipal(appOnly)).toBe(true);
+    expect(mcpPrincipalKind(appOnly)).toBe('image_ingest_agent');
+
+    const delegated = {
+      roles: [IMAGE_INGEST_AGENT_ROLE],
+      scp: 'access_as_user',
+      preferred_username: 'staff@example.test',
+    } as JWTPayload;
+    expect(isImageIngestAgentPrincipal(delegated)).toBe(false);
+    expect(mcpPrincipalKind(delegated)).toBeUndefined();
+  });
+
+  it('keeps delegated staff in the read-only MCP lane and refuses app-only staff roles', () => {
+    expect(mcpPrincipalKind({
+      roles: ['CollisionSpike.User'],
+      scp: 'access_as_user',
+    } as JWTPayload)).toBe('readonly_staff');
+    expect(mcpPrincipalKind({ roles: ['CollisionSpike.User'] } as JWTPayload)).toBeUndefined();
+    expect(mcpPrincipalKind({ roles: [AGENT_ROLE] } as JWTPayload)).toBeUndefined();
   });
 });
 

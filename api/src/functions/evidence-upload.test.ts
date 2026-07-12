@@ -33,8 +33,9 @@ vi.mock('../lib/audit.js', async (importOriginal) => {
   return { ...actual, actorFromClaims: vi.fn(() => 'staff-1') };
 });
 
-await import('./evidence-upload.js');
+const evidenceUploadModule = await import('./evidence-upload.js');
 const upload = registrations.get('uploadCaseEvidence')!.handler;
+const uploadFromMcp = evidenceUploadModule.handleEvidenceUpload;
 const ctx = { log: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as InvocationContext;
 
 const KEY = '00000000-0000-4000-8000-000000000165';
@@ -57,6 +58,7 @@ interface BatchRow {
   case_id: string;
   actor: string;
   source: string;
+  registration: string | null;
   manifest_hash: string;
 }
 interface EvidenceRow {
@@ -239,7 +241,8 @@ beforeEach(() => {
           case_id: String(params[1]),
           actor: String(params[2]),
           source: String(params[3]),
-          manifest_hash: String(params[4]),
+          registration: params[4] == null ? null : String(params[4]),
+          manifest_hash: String(params[5]),
         });
       }
       return [];
@@ -382,6 +385,39 @@ beforeEach(() => {
 describe('canonical staff evidence upload', () => {
   it('is registered behind the staff app role', () => {
     expect(requiredRoles).toContain('CollisionSpike.User');
+  });
+
+  it('accepts the MCP source only through the internal role-checked seam and writes an agent audit', async () => {
+    const staffRequest = requestWith(
+      [new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })],
+      { source: 'mcp_agent' },
+    );
+    const forged = await upload(staffRequest, ctx, {});
+    expect(forged.status).toBe(400);
+    expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
+
+    const baseRequest = requestWith(
+      [new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })],
+      { source: 'mcp_agent' },
+    );
+    const request = {
+      params: baseRequest.params,
+      headers: baseRequest.headers,
+      formData: async () => {
+        const form = await baseRequest.formData();
+        form.append('registration', 'SP23OBX');
+        return form;
+      },
+    } as unknown as HttpRequest;
+    const response = await uploadFromMcp(request, ctx, { oid: 'sp-image-agent' }, {
+      allowMcpAgentSource: true,
+    });
+    expect(response.status).toBe(201);
+    expect(state.evidence[0].source_message_id).toContain('staff:mcp_agent:');
+    const audit = db.txQuery.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO audit_event'))!;
+    expect(audit[1][3]).toBe(100000051);
+    expect(audit[1][6]).toContain('"registration":"SP23OBX"');
+    expect(audit[1][6]).toContain('"idempotencyKey"');
   });
 
   it('persists an Add evidence photo in a classifier-owned pending state with one audit and readiness request', async () => {
@@ -679,6 +715,15 @@ describe('canonical staff evidence upload', () => {
       {},
     );
     expect(removed.status).toBe(409);
+    expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
+
+    state.statusCode = 100000010; // error
+    const errorCase = await upload(
+      requestWith([new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })]),
+      ctx,
+      {},
+    );
+    expect(errorCase.status).toBe(409);
     expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
   });
 

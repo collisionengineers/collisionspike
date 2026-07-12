@@ -32,6 +32,7 @@ playbooks under [azure/README.md](./azure/README.md). _Historical:_ [PLAN.md](./
 - [architecture/eva-sentry-api.md](./architecture/eva-sentry-api.md) — authoritative EVA "Sentry" API v1.2 endpoints & auth (from the PDF in `raw/`).
 - [architecture/integrations.md](./architecture/integrations.md) — EVA, enrichment (DVSA/DVLA), parser, address (postcode.io), Box, and the feature-flag gating model.
 - [architecture/vehicle-data.md](./architecture/vehicle-data.md) — the one vehicle-data service contract, immutable MOT evidence and displayed-mileage estimator.
+- [architecture/mcp-image-ingestion.md](./architecture/mcp-image-ingestion.md) — the dark, least-privilege registration-based MCP image-ingestion contract.
 - [architecture/live-environment.md](./architecture/live-environment.md) — **canonical live registry — mirrors [`LIVE_FACTS.json`](../LIVE_FACTS.json)** (live Azure resource IDs, counts, connectors). The single source for live numbers.
 - [architecture/repository-data-authority.md](./architecture/repository-data-authority.md) — binding authority for complete internal project evidence processing and retained security boundaries.
 - [architecture/repo-constellation.md](./architecture/repo-constellation.md) — the sibling repos (ideas/prior-art only, none canonical).

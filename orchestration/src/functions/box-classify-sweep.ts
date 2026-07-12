@@ -115,9 +115,15 @@ export function buildStampRow(
 export function locatorForRow(row: UnclassifiedBoxEvidenceRow): 'box' | 'blob' {
   const sourceLabel = row.sourceLabel ?? '';
   if (sourceLabel.startsWith('box_upload') && row.boxFileId) return 'box';
-  if (sourceLabel.startsWith('staff_') && row.storagePath) return 'blob';
+  if (isBlobUploadSource(sourceLabel) && row.storagePath) return 'blob';
   if (row.boxFileId) return 'box';
   return 'blob';
+}
+
+/** Blob-backed uploads that must enter the same classifier lane. The agent label is
+ * explicit (not `staff_*`) while retaining the exact staff-upload mechanics. */
+export function isBlobUploadSource(sourceLabel: string): boolean {
+  return sourceLabel.startsWith('staff_') || sourceLabel === 'agent_image_ingest';
 }
 
 function unsupportedClassifierFormat(row: UnclassifiedBoxEvidenceRow): boolean {
@@ -316,7 +322,7 @@ export async function runBoxClassifySweep(ctx: InvocationContext): Promise<void>
           failed++;
           await reportFailure(
             row,
-            (row.sourceLabel ?? '').startsWith('staff_')
+            isBlobUploadSource(row.sourceLabel ?? '')
               ? { disposition: 'terminal', code: 'provider_ai_opted_out_manual_review' }
               : { disposition: 'transient', code: 'provider_ai_opted_out' },
           );
