@@ -9,6 +9,9 @@ loop still owns the ticket-status move, database delta, deployment and independe
 
 - `d20584b` — make Manual Intake case creation and its source-file batch resumable, target-bound and
   truthful on partial failure.
+- `0070145` — reconcile the source-file blocker with the merged canonical readiness contract.
+- `c5fed47` — pin the locked submission refusal while the source batch remains incomplete.
+- `b4657a5` — carry the source-file readiness group through the SPA checklist adapter.
 
 ## Files touched
 
@@ -45,13 +48,14 @@ outstanding file, preserves already-added identities, and does not navigate auto
 
 ## Offline checks
 
-- Full Domain suite: **53 files / 1,119 tests passed**.
-- Full API suite: **64 files / 628 tests passed**.
-- Full orchestration suite: **30 files / 401 tests passed**.
-- Full SPA suite: **40 files / 459 tests passed**.
-- Focused final run: Domain **41**, API **40**, SPA **57** tests passed.
+- Full Domain suite: **1,134 tests passed**.
+- Full API suite: **628 tests passed**.
+- Full orchestration suite: **401 tests passed**.
+- Full SPA suite: **459 tests passed**.
+- Focused final run: Domain **41**, API **45**, SPA **57** tests passed.
 - Production TypeScript builds passed for Domain, API, orchestration and the SPA; the Vite bundle was
   produced successfully.
+- `node verify-all.mjs`: **8 passed / 0 failed / 13 expected skips**.
 - Postgres parity, documentation links, ticket integrity and shared-skill checks passed.
 
 ## Scope boundaries / overlap
