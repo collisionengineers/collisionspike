@@ -21,8 +21,10 @@ const MAX_COMMENT_BYTES = 60_000;
 const MAX_REVIEW_CONTEXT_BYTES = 8 * 1024 * 1024;
 const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
 const TEMP_SENTINEL = '.reciprocal-pr-review-owned';
-const REVIEW_TIMEOUT_MS = 4 * 60 * 1000;
-const WORKFLOW_TIMEOUT_MS = 9 * 60 * 1000;
+const CLAUDE_REVIEW_TIMEOUT_MS = 6 * 60 * 1000;
+const CODEX_REVIEW_TIMEOUT_MS = 3 * 60 * 1000;
+const WORKFLOW_TIMEOUT_MS = (9 * 60 * 1000) + (30 * 1000);
+const CLAUDE_BASH_TIMEOUT_MS = 10 * 60 * 1000;
 const CODEX_REVIEW_DISABLED_FEATURES = [
   'apps', 'browser_use', 'browser_use_external', 'browser_use_full_cdp_access',
   'computer_use', 'goals', 'image_generation', 'in_app_browser', 'memories',
@@ -246,7 +248,7 @@ export function classifyHookEvent(event, origin = 'codex') {
   const mode = kind === 'create' ? 'create' : 'gate';
   const commandB64 = Buffer.from(command, 'utf8').toString('base64');
   const rewritten = `node "${SCRIPT_PATH.replaceAll('"', '\\"')}" ${mode} --origin ${origin} --command-b64 ${commandB64}`;
-  return { action: 'rewrite', command: rewritten, kind };
+  return { action: 'rewrite', command: rewritten, kind, origin };
 }
 
 export function hookOutput(result) {
@@ -266,7 +268,10 @@ export function hookOutput(result) {
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
       permissionDecision: 'allow',
-      updatedInput: { command: result.command },
+      updatedInput: {
+        command: result.command,
+        ...(result.origin === 'claude' ? { timeout: CLAUDE_BASH_TIMEOUT_MS } : {}),
+      },
     },
   };
 }
@@ -853,10 +858,10 @@ export async function runReviewWorkflow({ command = '', cwd = process.cwd(), ori
   const claudePath = resolveTrustedExecutable('claude', before.root);
   const codexCommand = resolveTrustedCodexCommand(before.root);
   const deadline = Date.now() + WORKFLOW_TIMEOUT_MS;
-  const reviewerTimeout = () => {
+  const reviewerTimeout = (maximum) => {
     const remaining = deadline - Date.now();
-    if (remaining <= 0) throw new Error('Reciprocal review exceeded its nine-minute workflow deadline.');
-    return Math.min(REVIEW_TIMEOUT_MS, remaining);
+    if (remaining <= 0) throw new Error('Reciprocal review exceeded its nine-and-a-half-minute workflow deadline.');
+    return Math.min(maximum, remaining);
   };
   let worktree = '';
   let lock = '';
@@ -898,7 +903,7 @@ export async function runReviewWorkflow({ command = '', cwd = process.cwd(), ori
 
         if (!hasCurrentReviewerAttestation(comments, 'claude', pr)) {
           const existingClaude = findReviewerComment(comments, 'claude');
-          runClaudeReviewer(worktree, { ...pr, slug, claudeCommentId: existingClaude?.commentId ?? null }, bundle, realGh, claudePath, reviewerTimeout());
+          runClaudeReviewer(worktree, { ...pr, slug, claudeCommentId: existingClaude?.commentId ?? null }, bundle, realGh, claudePath, reviewerTimeout(CLAUDE_REVIEW_TIMEOUT_MS));
           const afterClaude = resolvePr(cwd, realGh, String(pr.number), slug);
           if (!sameRevision(pr, afterClaude)) {
             pr = afterClaude;
@@ -915,7 +920,7 @@ export async function runReviewWorkflow({ command = '', cwd = process.cwd(), ori
         }
         comments = listComments(cwd, realGh, slug, pr.number);
         if (!hasCurrentReviewerAttestation(comments, 'codex', pr)) {
-          const review = runCodexReviewer(worktree, pr, bundle, codexCommand, reviewerTimeout());
+          const review = runCodexReviewer(worktree, pr, bundle, codexCommand, reviewerTimeout(CODEX_REVIEW_TIMEOUT_MS));
           const beforePost = resolvePr(cwd, realGh, String(pr.number), slug);
           if (!sameRevision(pr, beforePost)) {
             pr = beforePost;

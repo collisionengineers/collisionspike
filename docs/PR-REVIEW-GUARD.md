@@ -51,7 +51,7 @@ A same-head retry preserves each existing attestation, including changes-request
 
 ## Failure and recovery
 
-A missing CLI/auth session, four-minute per-reviewer timeout, nine-minute workflow deadline, head change, malformed outcome, invalid changed-line citation, absent comment, unsafe cleanup target, or failed status update stops the command and leaves the pull request in draft. Fix the underlying problem or findings, push a new commit, and run `review-existing` again.
+A missing CLI/auth session, six-minute Claude timeout, three-minute Codex timeout, 9½-minute workflow deadline, head change, malformed outcome, invalid changed-line citation, absent comment, unsafe cleanup target, or failed status update stops the command and leaves the pull request in draft. The Claude adapter also sets the parent Bash call to its documented ten-minute maximum. Fix the underlying problem or findings, push a new commit, and run `review-existing` again.
 
 The runner uses only uniquely owned temporary directories with sentinels and exact-head detached worktrees. Locks include process/age ownership and recover after a dead or timed-out process. It never changes the initiating branch.
 

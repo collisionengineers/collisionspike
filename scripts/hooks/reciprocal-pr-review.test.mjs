@@ -76,10 +76,12 @@ test('Codex and Claude PreToolUse schemas rewrite standalone gh pr create', () =
     const decision = classifyHookEvent(event, origin);
     assert.equal(decision.action, 'rewrite');
     assert.equal(decision.kind, 'create');
+    assert.equal(decision.origin, origin);
     assert.match(decision.command, new RegExp(`create --origin ${origin} --command-b64`));
     const output = hookOutput(decision);
     assert.equal(output.hookSpecificOutput.permissionDecision, 'allow');
     assert.equal(output.hookSpecificOutput.updatedInput.command, decision.command);
+    assert.equal(output.hookSpecificOutput.updatedInput.timeout, origin === 'claude' ? 600_000 : undefined);
   }
 });
 
