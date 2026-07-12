@@ -11,17 +11,18 @@
  *   --  POST  /api/inbound/{id}/detach               unlink from its case (idempotent; audited)
  *   --  POST  /api/inbound/{id}/outlook-move         gated Outlook filing enqueue (TKT-054; 409 while off)
  *
- * Read endpoints 27 + 28 (+ the new suggestions list) stay "honest-empty" on ANY read
- * failure (table not wired / read error) so the SPA never hard-fails. The WRITE endpoints
- * are trustworthy: 29 validates the state, uses RETURNING (404 on unknown id), surfaces real
+ * The inbox list + suggestions stay "honest-empty" when their optional read models are not
+ * available. Counts are different: an empty inbox returns the complete zero contract, while
+ * a query fault returns a correlated generic 500 so the SPA cannot present stale/false zeros.
+ * The WRITE endpoints are trustworthy: 29 validates the state, uses RETURNING (404 on unknown id), surfaces real
  * DB errors (500), and writes a staff-action audit row; reclassify captures the
  * suggested-vs-chosen override; detach is idempotent (ok:false, not an error, when already
  * unlinked) and never touches Box (ADR-0012/0017: one-way archive — see its own doc comment).
  */
 
+import { randomUUID } from 'node:crypto';
 import { app } from '@azure/functions';
 import {
-  INBOUND_COUNTS_ZERO,
   suggestedOutlookFolder,
   type AiSuggestion,
   type InboundCategory,
@@ -33,6 +34,7 @@ import {
 import { withRole } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
 import { ifMatch, versionToken } from '../lib/concurrency.js';
+import { isUuid } from '../lib/uuid.js';
 import { gates } from '../lib/gates.js';
 import { classifyEnqueueFailure, enqueueOutlookMove } from '../lib/outlook-queue.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit, type AuditAction } from '../lib/audit.js';
@@ -139,19 +141,35 @@ app.http('inboundEmails', {
   }),
 });
 
-// 28 — GET /api/inbound/counts   (ACTIVE-FIRST per-category tally; honest INBOUND_COUNTS_ZERO)
+// 28 — GET /api/inbound/counts   (ACTIVE-FIRST per-category tally; empty inbox = honest zero)
 app.http('inboundEmailCounts', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'inbound/counts',
-  handler: withRole('CollisionSpike.User', async () => {
+  handler: withRole('CollisionSpike.User', async (_req, ctx) => {
     try {
       const rows = await query<Row>('SELECT category_code, triage_state FROM inbound_email');
       // Counts reflect OUTSTANDING work — handled rows are excluded (work-todo-spike).
       const counts: InboundCounts = tallyActiveInboundCounts(rows);
       return { status: 200, jsonBody: counts };
-    } catch {
-      return { status: 200, jsonBody: { ...INBOUND_COUNTS_ZERO } };
+    } catch (error) {
+      // Use the server invocation id rather than a caller-supplied header so log lines cannot
+      // be forged. The response carries only that opaque id; actionable detail stays in
+      // server telemetry and never reaches rendered handler copy.
+      const correlationId = ctx.invocationId || randomUUID();
+      ctx.error(
+        JSON.stringify({
+          evt: 'inboundCountsFailed',
+          correlationId,
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+          detail: error instanceof Error ? error.message : String(error),
+        }),
+      );
+      return {
+        status: 500,
+        jsonBody: { error: 'internal', correlationId },
+        headers: { 'x-correlation-id': correlationId },
+      };
     }
   }),
 });
@@ -160,14 +178,19 @@ app.http('inboundEmailCounts', {
 app.http('inboundEmailById', {
   methods: ['GET'],
   authLevel: 'anonymous',
-  route: 'inbound/{id}',
+  // The guid constraint prevents this parameter route from ever consuming the literal
+  // `/inbound/counts` route in the Functions host.
+  route: 'inbound/{id:guid}',
   handler: withRole('CollisionSpike.User', async (req) => {
+    const id = req.params.id;
+    // Defence in depth for direct handler invocation/tests and future host changes.
+    if (!isUuid(id)) return { status: 400, jsonBody: { error: 'invalid id' } };
     const rows = await query<Row>(
       `SELECT inbound_email.*, c.case_po AS case_po
          FROM inbound_email
          LEFT JOIN case_ c ON c.id = inbound_email.case_id
         WHERE inbound_email.id = $1`,
-      [req.params.id],
+      [id],
     );
     const row = rows[0];
     if (!row) return { status: 404, jsonBody: { error: 'not found' } };

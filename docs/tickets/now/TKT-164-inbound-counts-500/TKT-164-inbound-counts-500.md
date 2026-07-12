@@ -1,11 +1,11 @@
 ---
 id: TKT-164
 title: Restore the live inbound dashboard counts
-status: backlog
+status: now
 priority: P1
 area: platform
 tickets-it-relates-to: [TKT-007, TKT-054, TKT-122, TKT-155]
-research-link: docs/tickets/backlog/TKT-164-inbound-counts-500/evidence/live-observation.md
+research-link: docs/tickets/now/TKT-164-inbound-counts-500/evidence/live-observation.md
 plan: PLAN-004
 ---
 
