@@ -2123,8 +2123,16 @@ class RuleEngine:
 
     _CLAIMANT_PROSE_ANCHORS: tuple[re.Pattern[str], ...] = (
         re.compile(r"\bour\s+client\b\s*[:,\-–—]?\s*(.+)$", re.IGNORECASE),
-        re.compile(r"\bwe\s+(?:act\s+for|represent)\s+(.+)$", re.IGNORECASE),
-        re.compile(r"\bon\s+behalf\s+of\s+(.+)$", re.IGNORECASE),
+        re.compile(
+            r"\bwe\s+(?:act\s+for|represent)\s+"
+            r"((?:(?:the|our)\s+)?(?:client|claimant)\b.+)$",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"\bon\s+behalf\s+of\s+"
+            r"((?:(?:the|our)\s+)?(?:client|claimant)\b.+)$",
+            re.IGNORECASE,
+        ),
     )
 
     _CLAIMANT_NAME_STOPWORDS: frozenset[str] = frozenset(

@@ -7,5 +7,5 @@
     "claimant_name": ""
   },
   "allowed_blank_fields": [],
-  "notes": "TKT-150 final-review negative control: an organisation in generic on-behalf-of prose is not a claimant, and an empty claimant label cannot skip intervening instructions to capture a later unrelated name."
+  "notes": "TKT-150 exact-head negative control: bare representation prose without an explicit client/claimant noun does not establish a claimant, and an empty claimant label cannot skip intervening instructions to capture a later unrelated name."
 }

@@ -276,15 +276,20 @@ def test_prose_intermediary_words_are_not_captured_as_the_name(line: str, expect
         "We write on behalf of Acme International Risk Management Insurance Ltd.",
         "We act for Example Legal Services in this matter.",
         "On behalf of Northside Claims LLP, please inspect the vehicle.",
+        "We write on behalf of Northside Motor Solutions regarding the vehicle.",
+        "On behalf of Northside Automotive Partners, please inspect the vehicle.",
+        "We represent Alpha Beta Consulting regarding the vehicle.",
+        "We act for Northside Motor Solutions regarding the vehicle.",
+        "We act for Jane Sample regarding the vehicle.",
     ],
 )
-def test_generic_prose_does_not_treat_an_organisation_as_the_claimant(line: str):
+def test_bare_representation_prose_does_not_establish_a_claimant(line: str):
     assert _claimant(line, "Vehicle Registration: MN90 PQR").value == ""
 
 
 def test_person_before_an_organisation_separator_remains_a_claimant():
     extracted = _claimant(
-        "We act for Ms Jane Lloyd of Acme Insurance Ltd.",
+        "We act for our client Ms Jane Lloyd of Acme Insurance Ltd.",
         "Vehicle Registration: MN90 PQR",
     )
 
