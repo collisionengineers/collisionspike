@@ -115,15 +115,13 @@ function looksLikePullRequestApiMutation(tokens, raw) {
   const lower = raw.toLowerCase();
   if (lower.includes('createpullrequest') || lower.includes('create_pull_request')) return true;
   const executable = tokens[0]?.toLowerCase();
-  const subcommand = tokens[1]?.toLowerCase();
-  if ((executable === 'gh' || executable === 'gh.exe') && subcommand === 'api') {
-    if (tokens.some((token) => token.toLowerCase() === 'graphql')) return true;
-    const mutatingInput = flagPresent(tokens, '-X', '--method', '-f', '--raw-field', '-F', '--field', '--input')
-      || tokens.some((token) => /^-(?:X|f|F).+/u.test(token));
-    const pullEndpoint = /(?:^|[\s'"=])(?:https:\/\/api\.github\.com\/)?\/?repos\/[^\s/]+\/[^\s/]+\/pulls(?:\/\d+)?(?:\/merge)?(?:[\s?'"=]|$)/u.test(lower);
-    if (mutatingInput && pullEndpoint) return true;
-    if (pullEndpoint && /\/pulls\/\d+\/merge(?:[\s?'"=]|$)/u.test(lower)) return true;
-  }
+  const canonicalGhApi = (executable === 'gh' || executable === 'gh.exe') && ghTopLevelCommand(tokens) === 'api';
+  if (canonicalGhApi && tokens.some((token) => token.toLowerCase() === 'graphql')) return true;
+  const mutatingInput = flagPresent(tokens, '-X', '--method', '-f', '--raw-field', '-F', '--field', '--input')
+    || tokens.some((token) => /^-(?:X|f|F).+/u.test(token));
+  const pullEndpoint = /(?:^|[\s'"=])(?:https:\/\/api\.github\.com\/)?\/?repos\/[^\s/]+\/[^\s/]+\/pulls(?:\/\d+)?(?:\/merge)?(?:[\s?'"=]|$)/u.test(lower);
+  if (mutatingInput && pullEndpoint) return true;
+  if (pullEndpoint && /\/pulls\/\d+\/merge(?:[\s?'"=]|$)/u.test(lower)) return true;
   if (/api\.github\.com\/(?:graphql|repos\/[^\s/]+\/[^\s/]+\/pulls)/u.test(lower)
       && /(?:\bpost\b|\bput\b|\bpatch\b|\bdelete\b|--data|-d\b|--body|--input|mutation\b)/u.test(lower)) return true;
   return false;
