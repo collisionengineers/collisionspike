@@ -1724,6 +1724,210 @@
       ],
       "force_postcode_for_inspection_address": true,
       "engineer_report": false
+    },
+    {
+      "name": "CDQ",
+      "priority": 10,
+      "detect_phrases": [
+        "Is client happy to be contacted by email"
+      ],
+      "detect": {
+        "required_phrases": [
+          "Is client happy to be contacted by email",
+          "Accident Circumstances"
+        ],
+        "optional_phrases": [
+          "Defendant",
+          "Claimant",
+          "Heads of Loss",
+          "Further Accident Details",
+          "How were details obtained"
+        ],
+        "negative_phrases": [
+          "Owner Details",
+          "Driver Details"
+        ],
+        "minimum_confidence": 0.9
+      },
+      "field_rules": {
+        "work_provider": {
+          "method": "none",
+          "config": ""
+        },
+        "vrm": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "vehicle_model": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "claimant_name": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "claimant_telephone": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "claimant_email": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "reference": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "incident_date": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "instruction_date": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "inspection_date": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "inspection_address": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "accident_circumstances": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "vat_status": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "mileage": {
+          "method": "cdq_claim_form",
+          "config": ""
+        },
+        "mileage_unit": {
+          "method": "cdq_claim_form",
+          "config": ""
+        }
+      },
+      "suppress_fallback_fields": [
+        "work_provider",
+        "reference",
+        "instruction_date",
+        "inspection_date",
+        "vat_status",
+        "mileage",
+        "mileage_unit"
+      ],
+      "suppress_default_work_provider": true,
+      "force_postcode_for_inspection_address": true,
+      "engineer_report": false
+    },
+    {
+      "name": "Tractable",
+      "priority": 10,
+      "detect_phrases": [
+        "Submitted Vehicle Images"
+      ],
+      "detect": {
+        "required_phrases": [
+          "Vehicle Information",
+          "Submitted Vehicle Images",
+          "Preliminary AI quote"
+        ],
+        "optional_phrases": [
+          "Registration Number",
+          "Year of Production",
+          "Case Details",
+          "Repair quote:"
+        ],
+        "negative_phrases": [],
+        "minimum_confidence": 0.9
+      },
+      "field_rules": {
+        "work_provider": {
+          "method": "none",
+          "config": ""
+        },
+        "vrm": {
+          "method": "single_label",
+          "config": "Registration Number"
+        },
+        "vehicle_model": {
+          "method": "two_label_join",
+          "config": "Producer||Model"
+        },
+        "vin": {
+          "method": "single_label",
+          "config": "VIN"
+        },
+        "claimant_name": {
+          "method": "none",
+          "config": ""
+        },
+        "claimant_telephone": {
+          "method": "none",
+          "config": ""
+        },
+        "claimant_email": {
+          "method": "none",
+          "config": ""
+        },
+        "reference": {
+          "method": "none",
+          "config": ""
+        },
+        "incident_date": {
+          "method": "single_label",
+          "config": "Accident Date:"
+        },
+        "instruction_date": {
+          "method": "none",
+          "config": ""
+        },
+        "inspection_date": {
+          "method": "none",
+          "config": ""
+        },
+        "inspection_address": {
+          "method": "none",
+          "config": ""
+        },
+        "accident_circumstances": {
+          "method": "none",
+          "config": ""
+        },
+        "vat_status": {
+          "method": "none",
+          "config": ""
+        },
+        "mileage": {
+          "method": "single_label",
+          "config": "Mileage"
+        },
+        "mileage_unit": {
+          "method": "none",
+          "config": ""
+        }
+      },
+      "suppress_fallback_fields": [
+        "work_provider",
+        "vin",
+        "claimant_name",
+        "claimant_telephone",
+        "claimant_email",
+        "reference",
+        "instruction_date",
+        "inspection_date",
+        "inspection_address",
+        "accident_circumstances",
+        "vat_status",
+        "mileage_unit"
+      ],
+      "suppress_default_work_provider": true,
+      "force_postcode_for_inspection_address": false,
+      "engineer_report": false
     }
   ]
 }

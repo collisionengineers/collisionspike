@@ -18,6 +18,7 @@ from cedocumentmapper_v2.domain.models import (
 )
 from cedocumentmapper_v2.normalization import (
     normalize_vrm,
+    normalize_vin,
     normalize_mileage,
     normalize_date,
     normalize_vat_status,
@@ -97,6 +98,49 @@ VRM_RE = re.compile(
 )
 
 
+# Month / day-of-week words (collisionspike TKT-085): a date word must never be
+# accepted as a registration mark. The live audit case A.PCH26003 logged its VRM
+# as "OCTOBER" — a month word captured near a "registration" label. Every VRM
+# regex in this module requires digits, so the guard is defence-in-depth for the
+# labelled-field / normalization paths (and any future shape loosening). Includes
+# the common 3-4 letter abbreviations; "MAY"/"JAN" style abbreviations are
+# accepted as the FULL candidate only (a real dateless plate is letters+digits,
+# so a bare month word is never a plate).
+_VRM_MONTH_DAY_WORDS = frozenset({
+    "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST",
+    "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER",
+    "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY",
+    "JAN", "FEB", "MAR", "APR", "JUN", "JUL", "AUG", "SEP", "SEPT", "OCT", "NOV", "DEC",
+})
+
+# Common English FUNCTION words that the loose dateless shape's 1-3 letter alpha
+# head can accidentally spell out of running prose (collisionspike TKT-100: the
+# QDOS footer's "Offices 1 and 2, 1A King Street" surfaced "AND2" as a live VRM).
+# A loose candidate whose alpha head is one of these is prose, not a plate.
+# Deliberately restricted to function words nobody buys as a personalised-plate
+# head — real dateless heads like "VAN"/"JET"/"SAM" are NOT listed.
+_VRM_LOOSE_ALPHA_STOPWORDS = frozenset({
+    "AND", "THE", "FOR", "NOT", "BUT", "ARE", "WAS", "OUR", "YOU", "ALL",
+    "ANY", "HAS", "HAD", "PER", "VIA",
+})
+
+# The current UK postcode AREA prefixes (the alphabetic head of a postcode).
+# Mirrors the TS filter's POSTCODE_AREAS (packages/domain vrm-filter.ts). Used by
+# the email sniff's tight-anchor rule (collisionspike TKT-071): a loose dateless
+# candidate whose letters are a postcode area (HD4110, LS8) reads as a postcode
+# fragment / provider job ref unless a VRM anchor word IMMEDIATELY precedes it.
+POSTCODE_AREAS = frozenset({
+    "AB", "AL", "B", "BA", "BB", "BD", "BH", "BL", "BN", "BR", "BS", "BT", "CA", "CB", "CF", "CH",
+    "CM", "CO", "CR", "CT", "CV", "CW", "DA", "DD", "DE", "DG", "DH", "DL", "DN", "DT", "DY", "E",
+    "EC", "EH", "EN", "EX", "FK", "FY", "G", "GL", "GU", "GY", "HA", "HD", "HG", "HP", "HR", "HS",
+    "HU", "HX", "IG", "IM", "IP", "IV", "JE", "KA", "KT", "KW", "KY", "L", "LA", "LD", "LE", "LL",
+    "LN", "LS", "LU", "M", "ME", "MK", "ML", "N", "NE", "NG", "NN", "NP", "NR", "NW", "OL", "OX",
+    "PA", "PE", "PH", "PL", "PO", "PR", "RG", "RH", "RM", "S", "SA", "SE", "SG", "SK", "SL", "SM",
+    "SN", "SO", "SP", "SR", "SS", "ST", "SW", "SY", "TA", "TD", "TF", "TN", "TQ", "TR", "TS", "TW",
+    "UB", "W", "WA", "WC", "WD", "WF", "WN", "WR", "WS", "WV", "YO", "ZE",
+})
+
+
 def vrm_candidate_is_bad(candidate: str, context: str) -> bool:
     """True when a VRM-shaped ``candidate`` should be REJECTED.
 
@@ -105,8 +149,10 @@ def vrm_candidate_is_bad(candidate: str, context: str) -> bool:
     so the two never drift. Rejects: a too-short compact that is not a full
     letter-digit-letter plate; a candidate that is actually the OUTWARD half of a
     UK postcode (immediately followed by an inward ``\\d[A-Z]{2}`` code, e.g.
-    ``LS8 2AB``); and bare label words. ``RuleEngine._vrm_candidate_is_bad``
-    delegates here.
+    ``LS8 2AB``); bare label words; a month / day-of-week word (TKT-085 — the
+    live "OCTOBER" registration); and a loose dateless candidate whose alpha head
+    is a common English function word (TKT-100 — the QDOS "AND2").
+    ``RuleEngine._vrm_candidate_is_bad`` delegates here.
     """
     compact = normalize_vrm(candidate)
     if len(compact) < 5 and not re.fullmatch(r"[A-Z]{1,3}\d{1,3}[A-Z]{1,3}", compact):
@@ -114,6 +160,86 @@ def vrm_candidate_is_bad(candidate: str, context: str) -> bool:
     if re.search(rf"\b{re.escape(candidate)}\s*\d[ABD-HJLNP-UW-Z]{{2}}\b", context, re.IGNORECASE):
         return True
     if compact in {"CLIENT", "VEHICLE", "REG", "MODEL"}:
+        return True
+    # TKT-085: a month or day-of-week word is a date fragment, never a mark.
+    if compact in _VRM_MONTH_DAY_WORDS:
+        return True
+    # TKT-100: a LOOSE dateless candidate (letters+digits) whose alpha head is a
+    # common English function word ("and 2" -> AND2) is running prose, not a plate.
+    loose = re.fullmatch(r"([A-Z]{1,3})\d{1,4}", compact)
+    if loose and loose.group(1) in _VRM_LOOSE_ALPHA_STOPWORDS:
+        return True
+    return False
+
+
+# --- Shared reference money guard (collisionspike TKT-103 / TKT-136) --------- #
+# A currency amount is exactly the structured-ref shape ("768.00" = digits + '.'
+# + digits), so the Tractable "AI Quote: £768.00" surfaced as a job reference on
+# the CLASSIFIER path (TKT-103) and money values could equally mint the /parse
+# fallback reference (TKT-136). ONE definition, shared by BOTH
+# ``rules/email_classifier._job_reference`` and ``RuleEngine._fallback_reference``,
+# so the two guards can never drift (the classifier aliases these). A token whose
+# dotted tail is exactly TWO decimal digits is a money value, never a ref (every
+# real dotted ref in the corpus carries a 1- or 3-4-digit sequence suffix —
+# "206848.001", "45391_1" — never .NN). Comma-grouped thousands included.
+MONEY_TOKEN_RE = re.compile(r"^\d{1,3}(?:,\d{3})*\.\d{2}$")
+# A currency marker immediately before the token ("£768.00", "GBP 768.00") also
+# disqualifies it, whatever the decimal shape.
+CURRENCY_BEFORE_RE = re.compile(r"(?:[£$€]|\bGBP|\bEUR|\bUSD)\s*$", re.IGNORECASE)
+
+
+def reference_candidate_is_money(token: str, preceding: str = "") -> bool:
+    """True when a reference-shaped ``token`` is actually a MONEY value.
+
+    ``preceding`` is the raw text immediately BEFORE the token (the classifier
+    passes an ~8-char window; the /parse tiers pass the line text up to the
+    match), so a currency marker just before the token ("£ 768.00", "GBP 487")
+    disqualifies it whatever its decimal shape. The /parse label tiers capture
+    free text, so a currency marker glued INTO the value itself ("£768.00") is
+    stripped before the shape test — a no-op for the classifier's regex-captured
+    tokens, which can never start with a currency mark.
+    """
+    compact = re.sub(r"\s+", "", token or "")
+    inner = re.sub(r"^(?:[£$€]|GBP|EUR|USD)", "", compact, flags=re.IGNORECASE)
+    if MONEY_TOKEN_RE.fullmatch(inner):
+        return True
+    # A currency CODE can be captured as the token's own alpha head
+    # ("GBP 487.32" -> "GBP487" via the classifier's spaced-principal arm).
+    if re.match(r"^(?:GBP|EUR|USD)\d", compact, re.IGNORECASE):
+        return True
+    return bool(CURRENCY_BEFORE_RE.search(preceding or ""))
+
+
+# --- Reference fragment-plausibility guard (collisionspike TKT-136) ---------- #
+# The live case_ref "RIGERANT R1234YF" was a refrigerant SPEC fragment: the
+# fuzzy "ref" label matched the head of "REFRIGERANT R1234YF 650g" and the tail
+# of the parts line was minted as the reference. A candidate reference VALUE
+# that reads as prose / a spec-list fragment is rejected:
+#   * any token shaped like a unit quantity ("650g", "2.5kg", "0.7hours") marks
+#     a parts/spec line;
+#   * a MULTI-word value whose first token carries no digit and is not a short
+#     ALL-CAPS principal/prefix code ("PHA 5013" passes; "RIGERANT R1234YF" and
+#     title-case prose heads do not) is narrative, not a reference.
+# Single-token values (the overwhelmingly common real-ref shape — "REB/46487/1",
+# "206848.001", "CCPY26050") are untouched apart from the unit-token test.
+SPEC_UNIT_TOKEN_RE = re.compile(
+    r"^\d+(?:\.\d+)?(?:g|kg|mg|ml|ltr|litres?|liters?|mm|cm|km|cc|kw|bhp|psi|bar|hrs?|hours?)$",
+    re.IGNORECASE,
+)
+REF_PREFIX_HEAD_RE = re.compile(r"^[A-Z]{1,6}[.:#-]?$")
+
+
+def reference_candidate_is_fragment(value: str) -> bool:
+    """True when a candidate reference VALUE reads as a prose/spec fragment."""
+    tokens = (value or "").split()
+    if not tokens:
+        return False
+    if any(SPEC_UNIT_TOKEN_RE.fullmatch(t) for t in tokens):
+        return True
+    if len(tokens) < 2:
+        return False
+    head = tokens[0]
+    if not re.search(r"\d", head) and not REF_PREFIX_HEAD_RE.fullmatch(head):
         return True
     return False
 
@@ -152,6 +278,104 @@ _IMAGE_BASED_PHRASES = (
 # nothing. Regexes, rule ordering, confidence bands and suppression logic are
 # all still Python, unchanged, below/around these constants.
 _RULES = load_triage_rules()
+
+
+# --- Shared VRM context/anchor guard data (collisionspike TKT-071/#7/TKT-136) - #
+# These previously lived ONLY in rules/email_classifier.py (the classifier's
+# canonical ``body_vrm`` sniff). TKT-136's scope addendum ports them to the
+# /parse DOCUMENT path too, so junk VRMs cannot re-enter via documents; the
+# canonical definitions now live HERE and the classifier imports/aliases them —
+# one source, no drift.
+#
+# Words that must sit near a loose/dateless candidate for it to count as a VRM.
+VRM_CONTEXT_WORDS: tuple[str, ...] = (
+    "reg",  # also covers "registration"
+    "registration",
+    "vrm",
+    "vehicle",
+    "plate",
+)
+# How far either side of a candidate to look for a context word / postcode.
+VRM_CONTEXT_WINDOW = 30
+# TIGHT anchor (collisionspike TKT-071): when a loose candidate's letters are a
+# UK postcode AREA (HD4110, LS8 — see POSTCODE_AREAS), an anchor word merely
+# NEARBY is not enough (a letter of instruction mentions "vehicle" everywhere
+# and quotes the provider's own job ref, which is exactly postcode-shaped:
+# HD4110). The anchor must IMMEDIATELY precede the candidate ("reg HD4110",
+# "registration: HD4110") — this many chars of lookbehind, enough for
+# "registration:  " plus separators.
+VRM_TIGHT_ANCHOR_WINDOW = 16
+VRM_TIGHT_ANCHOR_RE = re.compile(
+    r"(?:reg(?:istration)?|vrm|vehicle|plate)\s*(?:no|number|mark)?\s*[:.\-#]?\s*$",
+    re.IGNORECASE,
+)
+# Common English words a WELL-FORMED VRM's 3-letter alpha group can accidentally
+# spell out of natural-language / model text ("Model X5 now …" -> "X5 NOW").
+# Deliberately small + conservative so real plates are never dropped (#7/F162).
+_VRM_STOPWORD_TRIGRAMS: frozenset[str] = _RULES.vrm_stopword_trigrams
+
+
+def loose_alpha_head_is_postcode_area(candidate: str) -> bool:
+    """True when the loose candidate's letter head is a UK postcode AREA prefix
+    (HD, LS, G, ...) — the shape a postcode fragment or a provider job ref
+    (HD4110) shares, requiring the TIGHT anchor instead of the nearby one."""
+    m = re.match(r"^([A-Z]{1,3})", re.sub(r"\s+", "", candidate).upper())
+    return bool(m) and m.group(1) in POSTCODE_AREAS
+
+
+def wellformed_trigram_is_stopword(candidate: str) -> bool:
+    """True when a well-formed VRM candidate's 3-letter alpha group spells a common
+    English stop-word — a strong hint it is natural-language noise, not a plate
+    (collisionspike #7 / F162). The whitespace-stripped candidate is split into its
+    maximal letter runs; a run of exactly three letters that is a known stop-word
+    trips it (covers the trailing trigram of the current/prefix shapes AND the
+    leading trigram of the dateless-suffix shape)."""
+    compact = re.sub(r"\s+", "", candidate).upper()
+    return any(
+        len(run) == 3 and run in _VRM_STOPWORD_TRIGRAMS
+        for run in re.findall(r"[A-Z]+", compact)
+    )
+
+
+def vrm_document_candidate_is_bad(
+    candidate: str, text: str, start: int, end: int, anchor_text: str | None = None
+) -> bool:
+    """Document-path VRM guard (collisionspike TKT-136 scope addendum).
+
+    The shared :func:`vrm_candidate_is_bad` window checks PLUS the two guards
+    that previously protected only the classifier's ``body_vrm``:
+
+      * the TKT-071 TIGHT anchor — a loose/dateless candidate whose alpha head
+        is a UK postcode AREA (HD4110) is accepted only when a reg/vrm/vehicle/
+        plate anchor IMMEDIATELY precedes it in ``text``;
+      * the #7/F162 stop-word TRIGRAM — a well-formed candidate whose 3-letter
+        alpha group spells a common English word is rejected when no VRM context
+        word sits within ``VRM_CONTEXT_WINDOW`` of it.
+
+    ``start``/``end`` are the candidate's span within ``text`` (a line or the
+    whole document text), so the anchor check reads what actually precedes it.
+    ``anchor_text`` overrides the tight anchor's default 16-char lookbehind —
+    the LABELLED tier passes the fuzzy-matched VRM label line itself, because a
+    label like "Vehicle Registration Number" is the anchor by construction but
+    is longer than the flowing-text window.
+    """
+    window = text[max(0, start - VRM_CONTEXT_WINDOW):end + VRM_CONTEXT_WINDOW]
+    if vrm_candidate_is_bad(candidate, window):
+        return True
+    compact = re.sub(r"\s+", "", candidate or "").upper()
+    if re.fullmatch(r"[A-Z]{1,3}\d{1,4}", compact) and loose_alpha_head_is_postcode_area(candidate):
+        before = (
+            anchor_text
+            if anchor_text is not None
+            else text[max(0, start - VRM_TIGHT_ANCHOR_WINDOW):start]
+        )
+        if not VRM_TIGHT_ANCHOR_RE.search(before):
+            return True
+    if wellformed_trigram_is_stopword(candidate):
+        lowered_window = window.lower()
+        if not any(word in lowered_window for word in VRM_CONTEXT_WORDS):
+            return True
+    return False
 
 
 # Phrases (case-insensitive) that signal an AUDIT instruction — CE is asked to
@@ -294,6 +518,31 @@ _SUMMARY_MARKERS: tuple[str, ...] = _RULES.summary_markers
 _CANCELLATION_PHRASES: tuple[str, ...] = _RULES.cancellation_phrases
 
 
+# Phrases (case-insensitive) that signal an INBOUND payment notification — a
+# remittance advice or payment-transfer notice for work we already did
+# (collisionspike TKT-105 / TKT-120). The MIRROR-IMAGE of _BILLING_KEYWORDS: those
+# are a REQUEST for our invoice; these say money has been / is being sent. A
+# remittance advice typically arrives with a payment PDF whose extension-derived
+# attachment kind is "instruction", so without this signal it would promote to
+# receiving_work at Rule 1 and mint a Case (the live TKT-105 failure). Grounded on
+# the real Express Solicitors remittance ("Please see attached remittance advice,
+# the funds will be in your nominated account") and the FAIRWAY LEGAL transfer
+# (TKT-120). Anchored payment-statement wording, never the bare word "payment".
+_PAYMENT_PHRASES: tuple[str, ...] = _RULES.payment_phrases
+
+
+# Phrases (case-insensitive) that signal PRE-INSTRUCTION directions — the sender is
+# telling us what to do WHEN the official instruction later arrives (collisionspike
+# TKT-084): not yet an instruction (no case may be minted), not noise. Grounded on
+# the real Accident Specialists email ("When you receive an instruction from RJ on
+# this one please hold off from obtaining images..."). Every phrase is anchored to
+# a FUTURE-instruction reference — never a bare direction verb like "hold off" —
+# so a chase/hold request about live work (TKT-041's hold example) and a genuine
+# instruction email cannot trip it. The classifier additionally requires an
+# identifier (VRM or reference) and the ABSENCE of an attached instruction doc.
+_PRE_INSTRUCTION_PHRASES: tuple[str, ...] = _RULES.pre_instruction_phrases
+
+
 def _match_keywords(text: str, phrases: tuple[str, ...]) -> tuple[str, ...]:
     """Return the subset of ``phrases`` present (case-insensitive) in ``text``.
 
@@ -431,6 +680,15 @@ class RuleEngine:
             norm_val = ext.value
             if field_key == FieldKey.VRM:
                 norm_val = normalize_vrm(norm_val)
+            elif field_key == FieldKey.VIN:
+                # A labelled placeholder cell ("-" — the Tractable empty-cell
+                # convention) normalizes to EMPTY: a VIN the document does not
+                # carry is absent, not a value (collisionspike TKT-147). The
+                # fallback normalization sites above/below deliberately carry NO
+                # VIN branch — _fallback_field returns empty for VIN by design
+                # (no document-wide sniff), so this is the only site the field
+                # can reach with a value.
+                norm_val = normalize_vin(norm_val)
             elif field_key == FieldKey.MILEAGE:
                 norm_val = normalize_mileage(norm_val)
             elif field_key in {FieldKey.INCIDENT_DATE, FieldKey.INSTRUCTION_DATE, FieldKey.INSPECTION_DATE}:
@@ -507,7 +765,12 @@ class RuleEngine:
                 # TKT-051). Left empty, the caller's UNKNOWN/blank path applies
                 # and the real provider comes from the instruction document /
                 # sender identity instead.
-                if not provider.get("engineer_report"):
+                # A layout may also DECLARE it carries no work provider
+                # (suppress_default_work_provider, e.g. the CDQ claimant
+                # questionnaire, collisionspike TKT-022) — the field stays
+                # empty for the intake sender-context to fill, instead of the
+                # template's name masquerading as a work provider.
+                if not provider.get("engineer_report") and not provider.get("suppress_default_work_provider"):
                     norm_val = provider.get("work_provider", "").strip() or provider.get("name", "").strip()
             
             if field_key == FieldKey.INSPECTION_DATE and use_current_date:
@@ -587,6 +850,8 @@ class RuleEngine:
                 return self._extract_label_next_line(flat_lines, rule_config, rule_id)
             elif kind == "label_same_or_next_line":
                 return self._extract_label_same_or_next_line(flat_lines, rule_config, rule_id)
+            elif kind == "two_label_join":
+                return self._extract_two_label_join(flat_lines, rule_config, rule_id)
             elif kind == "between_labels":
                 return self._extract_between_labels(flat_lines, document.plain_text, rule_config, rule_id)
             elif kind == "fixed_line":
@@ -605,6 +870,11 @@ class RuleEngine:
                 return self._extract_email_date(flat_lines, rule_config, rule_id)
             elif kind == "acsp_claim_form":
                 return self._extract_acsp_claim_form(document, field_key, rule_id)
+            elif kind == "cdq_claim_form":
+                return self._extract_cdq_claim_form(document, field_key, rule_id)
+            elif kind == "none":
+                # Explicit no-op: the layout declares this field absent.
+                return FieldExtraction(value="", rule_id=rule_id, confidence=0.0)
             else:
                 return FieldExtraction(
                     value="",
@@ -717,6 +987,61 @@ class RuleEngine:
         if same_line.value:
             return same_line
         return self._extract_label_next_line(lines, cfg, rule_id)
+
+    # Bare placeholder tokens a labelled table cell prints instead of a value
+    # (the Tractable Vehicle Information rows use a lone "-" — collisionspike
+    # TKT-147). A two_label_join part carrying only a placeholder is ABSENT, so
+    # it can never pollute the joined value ("- Touran").
+    _JOIN_PART_PLACEHOLDERS = frozenset({"-", "–", "—"})
+
+    def _extract_two_label_join(self, lines: list[DocumentLine], cfg: dict[str, Any], rule_id: str) -> FieldExtraction:
+        """Join the values of TWO separately-labelled fields into one value.
+
+        Collisionspike TKT-147: the Tractable damage-capture PDF labels the
+        vehicle make ("Producer") and model ("Model") as two SEPARATE
+        label/value pairs, and its two-column layout interleaves Repair Summary
+        rows between them in the extracted line stream — a single-label capture
+        sees only one half, and a between_labels capture reads the interleaved
+        junk. Each part is captured independently with the existing
+        label_same_or_next_line machinery (``first_labels`` / ``second_labels``
+        are each an ordered list of alternate labels), a part whose value is a
+        bare placeholder dash reads as absent, and the non-empty parts are
+        joined with ``separator`` (default single space):
+        "Producer"→"Volkswagen" + "Model"→"Touran" ⇒ "Volkswagen Touran".
+        One absent part degrades to the other alone; both absent ⇒ a clean
+        empty miss. Confidence is the MINIMUM of the joined parts' confidences
+        (conservative); the source span is the first joined part's.
+        """
+        separator = str(cfg.get("separator", " "))
+        parts: list[str] = []
+        confidences: list[float] = []
+        span: SourceSpan | None = None
+        for labels_key in ("first_labels", "second_labels"):
+            labels = cfg.get(labels_key, [])
+            if not labels:
+                continue
+            part = self._extract_label_same_or_next_line(
+                lines, {"labels": labels}, rule_id
+            )
+            value = part.value.strip()
+            if value in self._JOIN_PART_PLACEHOLDERS:
+                value = ""
+            if not value:
+                continue
+            parts.append(value)
+            confidences.append(part.confidence if part.confidence is not None else 0.0)
+            if span is None:
+                span = part.source_span
+        val = clean_val(separator.join(parts))
+        if not val:
+            return FieldExtraction(value="", rule_id=rule_id)
+        return FieldExtraction(
+            value=val,
+            raw_value=val,
+            rule_id=rule_id,
+            confidence=min(confidences) if confidences else 0.0,
+            source_span=span,
+        )
 
     def _extract_between_labels(self, lines: list[DocumentLine], plain_text: str, cfg: dict[str, Any], rule_id: str) -> FieldExtraction:
         label_pairs: list[tuple[str, str]] = []
@@ -958,6 +1283,141 @@ class RuleEngine:
             return FieldExtraction(value=value, raw_value=value, rule_id=rule_id, confidence=0.85 if value else 0.0)
 
         return FieldExtraction(value="", rule_id=rule_id, confidence=0.0)
+
+    # --- CDQ: claimant/defendant questionnaire claim form (collisionspike TKT-022)
+    # A textbox-drawn solicitor/CMC claim-intake questionnaire with DEFENDANT and
+    # CLAIMANT sections carrying the SAME labels ("Name", "Vehicle Registration",
+    # "Vehicle make/model", "Email", ...). The generic label fallbacks read the
+    # first (defendant) occurrence — the live Cheema failure: defendant colour
+    # fragment as the vehicle model, a questionnaire prompt as the claimant name,
+    # a "-" value prefix leaking into the email. Every value here is read from
+    # the CLAIMANT section only, with the questionnaire's leading-dash value
+    # convention stripped. The layout names NO work provider (see
+    # suppress_default_work_provider in providers.json).
+
+    _CDQ_SECTION_STOPS = (
+        "accident details",
+        "defendant",
+        "further accident details",
+        "police details",
+        "ambulance details",
+        "heads of loss",
+        "vehicle damage",
+        "injury and medical details",
+    )
+
+    def _extract_cdq_claim_form(self, document: DocumentModel, field_key: FieldKey, rule_id: str) -> FieldExtraction:
+        lines = [line for page in document.pages for line in page.lines]
+
+        def _found(value: str, confidence: float = 0.9) -> FieldExtraction:
+            return FieldExtraction(
+                value=value, raw_value=value, rule_id=rule_id,
+                confidence=confidence if value else 0.0,
+            )
+
+        if field_key == FieldKey.VRM:
+            value = self._cdq_claimant_value(lines, ("vehicle registration",))
+            match = VRM_RE.search(value) if value else None
+            return _found(clean_val(match.group(1)) if match else "", 0.92)
+        if field_key == FieldKey.VEHICLE_MODEL:
+            return _found(self._cdq_claimant_value(lines, ("vehicle make/model",)))
+        if field_key == FieldKey.CLAIMANT_NAME:
+            return _found(self._cdq_claimant_value(lines, ("name",)))
+        if field_key == FieldKey.CLAIMANT_TELEPHONE:
+            return _found(self._cdq_claimant_value(lines, ("telephone number", "telephone")))
+        if field_key == FieldKey.CLAIMANT_EMAIL:
+            return _found(self._cdq_claimant_value(lines, ("email",)))
+        if field_key == FieldKey.INSPECTION_ADDRESS:
+            street = self._cdq_claimant_value(lines, ("address",))
+            postcode = self._cdq_claimant_value(lines, ("post code", "postcode"))
+            value = clean_val("\n".join(p for p in (street, postcode) if p))
+            return _found(value, 0.85)
+        if field_key == FieldKey.INCIDENT_DATE:
+            return _found(self._cdq_accident_details_value(lines, "date"), 0.92)
+        if field_key == FieldKey.ACCIDENT_CIRCUMSTANCES:
+            return _found(self._cdq_accident_circumstances(lines), 0.85)
+
+        return FieldExtraction(value="", rule_id=rule_id, confidence=0.0)
+
+    def _cdq_section_bounds(self, lines: list[DocumentLine], section: str) -> tuple[int, int] | None:
+        """(start, end) line indexes of a CDQ section body ("claimant", ...)."""
+        start = next(
+            (idx for idx, line in enumerate(lines) if self._normalized_label_text(line.text) == section),
+            None,
+        )
+        if start is None:
+            return None
+        end = len(lines)
+        for idx in range(start + 1, len(lines)):
+            if self._normalized_label_text(lines[idx].text) in self._CDQ_SECTION_STOPS:
+                end = idx
+                break
+        return start + 1, end
+
+    @staticmethod
+    def _cdq_clean_value(value: str) -> str:
+        """Strip the questionnaire's value decorations: leading '-'/':' markers
+        ("-SN67 USB", "-AJMAL.CHEEMA@YAHOO.COM") and dotted answer-leader runs
+        (an ellipsis char is ALWAYS a leader; ASCII dots only in runs of 2+ so
+        a genuine full stop survives)."""
+        value = re.sub(r"…+|\.{2,}", " ", value)
+        value = re.sub(r"^[\s:\-–—.…]+", "", value)
+        return clean_val(value)
+
+    def _cdq_claimant_value(self, lines: list[DocumentLine], labels: tuple[str, ...]) -> str:
+        bounds = self._cdq_section_bounds(lines, "claimant")
+        if bounds is None:
+            return ""
+        start, end = bounds
+        for line in lines[start:end]:
+            text = line.text.strip()
+            lower = text.lower()
+            if "?" in text:
+                continue  # a questionnaire prompt, never a value line
+            for label in labels:
+                if lower.startswith(label):
+                    value = self._cdq_clean_value(text[len(label):])
+                    if value:
+                        return value
+        return ""
+
+    def _cdq_accident_details_value(self, lines: list[DocumentLine], label: str) -> str:
+        bounds = self._cdq_section_bounds(lines, "accident details")
+        if bounds is None:
+            return ""
+        start, end = bounds
+        for line in lines[start:min(end, start + 8)]:
+            lower = line.text.strip().lower()
+            if lower.startswith(label):
+                value = self._cdq_clean_value(line.text.strip()[len(label):])
+                if value:
+                    return value
+        return ""
+
+    def _cdq_accident_circumstances(self, lines: list[DocumentLine]) -> str:
+        """The narrative under the "Accident Circumstances" heading, bounded at
+        the next questionnaire prompt (a "?" line) or section heading, with the
+        dotted answer-leader runs stripped."""
+        start = next(
+            (idx for idx, line in enumerate(lines)
+             if self._normalized_label_text(line.text) == "accident circumstances"),
+            None,
+        )
+        if start is None:
+            return ""
+        collected: list[str] = []
+        for line in lines[start + 1:start + 12]:
+            text = line.text.strip()
+            if "?" in text:
+                break  # the next questionnaire prompt ends the narrative
+            if self._normalized_label_text(text) in self._CDQ_SECTION_STOPS:
+                break
+            value = self._cdq_clean_value(text)
+            if value:
+                collected.append(value)
+        joined = clean_val(" ".join(collected))
+        # A leader run at the answer's tail can leave a lone orphaned dot.
+        return re.sub(r"(?:\s+\.)+$", "", joined)
 
     def _acsp_vehicle_value(
         self,
@@ -1333,6 +1793,17 @@ class RuleEngine:
             compact = normalize_vrm(cleaned)
             if not compact:
                 return False
+            # Every real UK registration mark carries at least one digit (current /
+            # prefix / suffix / dateless alike) — an all-alphabetic value is a word,
+            # never a mark. Catches the live TKT-085 failure where the audit case
+            # A.PCH26003 logged its registration as the month word "OCTOBER".
+            if compact.isalpha():
+                return True
+            # TKT-100: a loose dateless shape whose alpha head is a common English
+            # function word ("and 2" -> AND2) is running prose, not a plate.
+            loose = re.fullmatch(r"([A-Z]{1,3})\d{1,4}", compact)
+            if loose and loose.group(1) in _VRM_LOOSE_ALPHA_STOPWORDS:
+                return True
             if len(compact) < 5 and not re.fullmatch(r"[A-Z]{1,3}\d{1,3}[A-Z]{1,3}", compact):
                 return True
             postcode_context = re.search(rf"\b{re.escape(cleaned)}\s*\d[A-Z]{{2}}\b", document.plain_text, re.IGNORECASE)
@@ -1648,7 +2119,9 @@ class RuleEngine:
                 continue
             if any(word in lower for word in context_words):
                 match = VRM_RE.search(line.text)
-                if match and not self._vrm_candidate_is_bad(match.group(1), line.text):
+                if match and not vrm_document_candidate_is_bad(
+                    match.group(1), line.text, match.start(1), match.end(1)
+                ):
                     value = clean_val(match.group(1))
                     return FieldExtraction(
                         value=value,
@@ -1658,7 +2131,7 @@ class RuleEngine:
                         source_span=SourceSpan(page_index=line.page_index, line_index=line.line_index, bbox=line.bbox),
                     )
         match = VRM_RE.search(text)
-        if match and not self._vrm_candidate_is_bad(match.group(1), text[max(0, match.start() - 20):match.end() + 20]):
+        if match and not vrm_document_candidate_is_bad(match.group(1), text, match.start(1), match.end(1)):
             value = clean_val(match.group(1))
             return FieldExtraction(value=value, raw_value=value, rule_id="fallback_vrm_document", confidence=0.52)
         return FieldExtraction(value="", rule_id="fallback_vrm", confidence=0.0)
@@ -1675,7 +2148,28 @@ class RuleEngine:
                 if self._is_label_only_value(candidate_line.text):
                     continue
                 match = VRM_RE.search(candidate_line.text)
-                if match and not self._vrm_candidate_is_bad(match.group(1), candidate_line.text):
+                if not match:
+                    continue
+                # TKT-136 addendum: the fuzzy-matched VRM label is the TKT-071
+                # anchor by construction — pass the label line as the anchor
+                # scope (a label like "Vehicle Registration Number" overflows
+                # the flowing-text 16-char window). For a value on a FOLLOWING
+                # line the label also rides in the trigram context window via
+                # the joined prefix.
+                if candidate_line is line:
+                    ctx_text, offset = candidate_line.text, 0
+                    anchor_text = line.text[:match.start(1)]
+                else:
+                    prefix = line.text.rstrip() + " "
+                    ctx_text, offset = prefix + candidate_line.text, len(prefix)
+                    anchor_text = line.text
+                if not vrm_document_candidate_is_bad(
+                    match.group(1),
+                    ctx_text,
+                    match.start(1) + offset,
+                    match.end(1) + offset,
+                    anchor_text=anchor_text,
+                ):
                     value = clean_val(match.group(1))
                     return FieldExtraction(
                         value=value,
@@ -1689,6 +2183,11 @@ class RuleEngine:
     def _vrm_candidate_is_bad(self, candidate: str, context: str) -> bool:
         return vrm_candidate_is_bad(candidate, context)
 
+    def _reference_value_is_junk(self, value: str, preceding: str = "") -> bool:
+        """TKT-136: a fallback-reference candidate that is money-shaped or a
+        prose/spec fragment must never be minted, on ANY tier."""
+        return reference_candidate_is_money(value, preceding) or reference_candidate_is_fragment(value)
+
     def _fallback_reference(self, lines: list[DocumentLine]) -> FieldExtraction:
         labels = ("reference", "ref", "claim no", "claim number", "case number", "our ref", "your ref")
         exact_label_re = re.compile(r"^\s*(?:our|your)?\s*ref(?:erence)?\s*:\s*(.+?)\s*$", re.IGNORECASE)
@@ -1699,7 +2198,10 @@ class RuleEngine:
                 continue
             match = subject_ref_re.search(line.text) or slash_ref_re.search(line.text)
             if match:
-                value = clean_val(match.group(1) if match.lastindex else match.group(0))
+                group = 1 if match.lastindex else 0
+                value = clean_val(match.group(group))
+                if self._reference_value_is_junk(value, line.text[:match.start(group)]):
+                    continue
                 return FieldExtraction(
                     value=value,
                     raw_value=value,
@@ -1713,6 +2215,8 @@ class RuleEngine:
             if match:
                 value = clean_val(match.group(1))
                 if self._is_rejected_label_value(value, {"ref", "reference", "our ref", "your ref"}):
+                    continue
+                if self._reference_value_is_junk(value, line.text[:match.start(1)]):
                     continue
                 return FieldExtraction(
                     value=value,
@@ -1728,6 +2232,8 @@ class RuleEngine:
                         continue
                     if not (re.search(r"\d", value) and re.fullmatch(r"[A-Z0-9./ -]+", value, re.IGNORECASE)):
                         continue
+                    if self._reference_value_is_junk(value):
+                        continue
                     return FieldExtraction(
                         value=value,
                         raw_value=value,
@@ -1736,14 +2242,24 @@ class RuleEngine:
                         source_span=SourceSpan(page_index=next_line.page_index, line_index=next_line.line_index, bbox=next_line.bbox),
                     )
         by_label = self._fallback_label_value(lines, labels, FieldKey.REFERENCE)
-        if by_label.value:
+        # TKT-136: the fuzzy label tier is where the live "RIGERANT R1234YF" was
+        # minted — the substring "ref" label matched the head of "REFRIGERANT
+        # R1234YF 650g" and the rest of the parts line became the reference. A
+        # money/fragment value from this tier falls through to tier 4 instead.
+        if by_label.value and not self._reference_value_is_junk(by_label.value):
             return by_label
         ref_re = re.compile(r"\b(?:[A-Z]{2,6}[-/ ]?)?\d{4,}[A-Z0-9/-]*\b", re.IGNORECASE)
+        # TKT-136: cue words match on WORD BOUNDARIES — the old substring test
+        # made "refrigerant" contain "ref" and turned a parts line into a
+        # reference cue. Plural forms stay covered explicitly.
+        ref_cue_re = re.compile(r"\b(?:references?|claims?|refs?|cases?)\b", re.IGNORECASE)
         for line in lines[:25]:
-            if any(word in line.text.lower() for word in ("reference", "claim", "ref", "case")):
+            if ref_cue_re.search(line.text):
                 match = ref_re.search(line.text)
                 if match:
                     value = clean_val(match.group(0))
+                    if self._reference_value_is_junk(value, line.text[:match.start()]):
+                        continue
                     return FieldExtraction(
                         value=value,
                         raw_value=value,

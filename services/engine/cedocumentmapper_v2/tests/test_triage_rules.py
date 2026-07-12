@@ -61,12 +61,25 @@ _EXPECTED_COUNTS: dict[str, int] = {
     "query_keywords": 50,
     "chase_phrases": 20,
     "summary_markers": 9,
-    "cancellation_phrases": 29,
-    "auto_reply_markers": 17,
+    # 29 -> 31 (collisionspike TKT-097): + "not wish to proceed",
+    # "no longer wishes to proceed" — the Oakwood live cancellation miss.
+    "cancellation_phrases": 31,
+    # 17 -> 20: the three TKT-081 automated-acknowledgement markers ("this is an
+    # automated email", "please do not respond", "do not respond directly") were
+    # added at engine-v2.7 without this snapshot being updated in the same
+    # commit (pre-existing red since ccfb473); reconciled here.
+    "auto_reply_markers": 20,
     "vrm_stopword_trigrams": 30,
     "report_title_phrases": 6,
     "report_structure_phrases": 5,
     "junk_phrases": 8,
+    # Taxonomy v3 collections (collisionspike TKT-105/120 + TKT-084).
+    "payment_phrases": 14,
+    "pre_instruction_phrases": 17,
+    # Image-capture delivery service lane (collisionspike TKT-102: Tractable).
+    "image_service_sender_domains": 1,
+    "image_service_identity_phrases": 3,
+    "image_service_delivery_phrases": 2,
 }
 
 
@@ -145,10 +158,13 @@ def test_parity_snapshot_counts():
 
 
 def test_parity_snapshot_total():
-    """Belt-and-braces: the grand total across all 13 collections."""
+    """Belt-and-braces: the grand total across all collections."""
     rules = load_triage_rules()
     total = sum(len(getattr(rules, name)) for name in _EXPECTED_COUNTS)
-    assert total == sum(_EXPECTED_COUNTS.values()) == 255
+    # 255 -> 258 (auto_reply_markers reconciliation) -> 260 (TKT-097) -> 291
+    # (payment_phrases 14 + pre_instruction_phrases 17, taxonomy v3) -> 297
+    # (the three image_service_* collections, collisionspike TKT-102).
+    assert total == sum(_EXPECTED_COUNTS.values()) == 297
 
 
 # --- Golden phrase pins -------------------------------------------------------

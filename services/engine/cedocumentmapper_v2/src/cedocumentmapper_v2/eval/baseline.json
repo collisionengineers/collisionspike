@@ -3,15 +3,20 @@
   "engine": "v2",
   "corpus": "tests/fixtures",
   "tolerance": 0.0001,
-  "overall_exact_match": 0.8889,
+  "overall_exact_match": 0.9571,
   "per_field_exact_match": {
-    "accident_circumstances": 0.6667,
+    "accident_circumstances": 0.8,
+    "claimant_email": 1.0,
     "claimant_name": 1.0,
+    "claimant_telephone": 1.0,
     "incident_date": 1.0,
     "inspection_address": 1.0,
+    "instruction_date": 1.0,
+    "mileage": 1.0,
     "reference": 1.0,
     "vehicle_model": 1.0,
+    "vin": 1.0,
     "vrm": 1.0,
-    "work_provider": 0.6
+    "work_provider": 0.7778
   }
 }

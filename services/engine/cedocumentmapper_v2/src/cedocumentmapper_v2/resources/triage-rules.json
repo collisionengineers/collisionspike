@@ -208,7 +208,56 @@
       "no further action is required",
       "no further action required",
       "can be disregarded",
-      "withdrawn"
+      "withdrawn",
+      "not wish to proceed",
+      "no longer wishes to proceed"
+    ],
+    "payment_phrases": [
+      "remittance advice",
+      "payment has been made",
+      "payment has been sent",
+      "payment is on its way",
+      "we have made a payment",
+      "we have sent a payment",
+      "funds will be in your",
+      "funds have been sent",
+      "funds have been transferred",
+      "transferred to your account",
+      "payment transfer",
+      "bacs payment",
+      "bacs remittance",
+      "payment of your invoice has been"
+    ],
+    "pre_instruction_phrases": [
+      "when you receive an instruction",
+      "when you receive the instruction",
+      "when instructions are received",
+      "once you receive the instruction",
+      "once you receive an instruction",
+      "once the instruction is received",
+      "prior to receiving instruction",
+      "prior to the instruction",
+      "before you receive the instruction",
+      "ahead of the instruction",
+      "instructions will follow",
+      "instruction will follow",
+      "instructions to follow",
+      "instruction to follow",
+      "will be instructing you",
+      "will instruct you shortly",
+      "formal instruction is to follow"
+    ],
+    "image_service_sender_domains": [
+      "tractable.ai"
+    ],
+    "image_service_identity_phrases": [
+      "powered by tractable",
+      "tractable portal",
+      "tractable support team"
+    ],
+    "image_service_delivery_phrases": [
+      "completed lead",
+      "damage capture"
     ],
     "auto_reply_markers": [
       "out of office",
@@ -227,7 +276,10 @@
       "message could not be delivered",
       "returned to sender",
       "do not reply",
-      "do-not-reply"
+      "do-not-reply",
+      "this is an automated email",
+      "please do not respond",
+      "do not respond directly"
     ],
     "vrm_stopword_trigrams": [
       "NOW",

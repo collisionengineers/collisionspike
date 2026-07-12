@@ -16,6 +16,14 @@ class FieldKey(StrEnum):
     WORK_PROVIDER = "work_provider"
     VRM = "vrm"
     VEHICLE_MODEL = "vehicle_model"
+    # vin is an OPTIONAL envelope-only field (collisionspike TKT-147): extracted
+    # where a layout labels it (the Tractable damage-capture PDF's "VIN" row),
+    # absent otherwise — there is deliberately NO document-wide fallback sniff (a
+    # bare 17-char alphanumeric heuristic would be all false-positive surface),
+    # so absence stays absence. NOT in REQUIRED_FIELDS and NEVER in the EVA JSON
+    # export (the settled EVA contract has no VIN slot — see
+    # EVA_EXPORT_FIELD_ORDER below; same never-exported discipline as is_audit).
+    VIN = "vin"
     CLAIMANT_NAME = "claimant_name"
     # claimant_telephone / claimant_email are the parser's NATIVE keys feeding the
     # settled EVA fields of the same name (ROADMAP B2). They are OPTIONAL: derived
@@ -38,6 +46,7 @@ FIELD_ORDER: tuple[FieldKey, ...] = (
     FieldKey.WORK_PROVIDER,
     FieldKey.VRM,
     FieldKey.VEHICLE_MODEL,
+    FieldKey.VIN,
     FieldKey.CLAIMANT_NAME,
     FieldKey.CLAIMANT_TELEPHONE,
     FieldKey.CLAIMANT_EMAIL,
@@ -52,10 +61,21 @@ FIELD_ORDER: tuple[FieldKey, ...] = (
     FieldKey.MILEAGE_UNIT,
 )
 
+# The EVA JSON export enumerates EXACTLY these keys, in this order — the settled
+# EVA drag-drop contract (resources/eva-json.schema.json, additionalProperties
+# false). FIELD_ORDER above is the ENGINE's extraction envelope and may carry
+# additional envelope-only fields (vin — collisionspike TKT-147) that must never
+# reach the EVA export; exporters/eva_json.py iterates THIS tuple, never
+# FIELD_ORDER. Keep in lockstep with the schema's property set.
+EVA_EXPORT_FIELD_ORDER: tuple[FieldKey, ...] = tuple(
+    key for key in FIELD_ORDER if key is not FieldKey.VIN
+)
+
 FIELD_LABELS: dict[FieldKey, str] = {
     FieldKey.WORK_PROVIDER: "Work Provider",
     FieldKey.VRM: "VRM",
     FieldKey.VEHICLE_MODEL: "Vehicle Model",
+    FieldKey.VIN: "VIN",
     FieldKey.CLAIMANT_NAME: "Claimant Name",
     FieldKey.CLAIMANT_TELEPHONE: "Claimant Telephone",
     FieldKey.CLAIMANT_EMAIL: "Claimant Email",

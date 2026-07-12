@@ -14,6 +14,30 @@ def normalize_vrm(value: str) -> str:
     return compact
 
 
+# Bare form-placeholder tokens a labelled VIN cell can carry instead of a value.
+# Grounded on the Tractable damage-capture PDFs (collisionspike TKT-147): a
+# sample without a captured VIN prints a lone "-" in the Vehicle Information
+# row. None of these is a plausible complete VIN/chassis number, so blanking
+# them can never lose a real value.
+_VIN_PLACEHOLDER_TOKENS = frozenset({"-", "–", "—", "N/A", "NA", "NONE"})
+
+
+def normalize_vin(value: str) -> str:
+    """Normalize a VIN / chassis number: strip whitespace, uppercase.
+
+    A bare placeholder token ("-", "N/A" — the Tractable empty-cell convention)
+    normalizes to EMPTY: a VIN the document does not carry is ABSENT, never an
+    error and never a junk value (collisionspike TKT-147). No length/character
+    validation beyond that — modern VINs are 17 chars but older vehicles carry
+    shorter chassis numbers, and the field is label-driven per layout (there is
+    no document-wide fallback sniff to over-collect junk in the first place).
+    """
+    compact = re.sub(r"\s+", "", (value or "").strip()).upper()
+    if compact in _VIN_PLACEHOLDER_TOKENS:
+        return ""
+    return compact
+
+
 def normalize_mileage(value: str) -> str:
     """Extract a mileage number from the text.
     
@@ -48,6 +72,17 @@ def normalize_date(value: str) -> str:
     cleaned = re.sub(r"(\d{1,2}/\d{2})(\d{4})\b", r"\1/\2", cleaned)
     cleaned = cleaned.replace(",", " ")
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    # A leading day-of-week word is calendar decoration, not date content —
+    # "Mon Jul 06 2026" (the Tractable PDF's ctime-style "Accident Date:",
+    # collisionspike TKT-102) must parse exactly like "Jul 06 2026". Weekday
+    # words only: month words ("May 06 2026") are untouched.
+    cleaned = re.sub(
+        r"^(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday"
+        r"|mon|tues?|wed|thur?s?|fri|sat|sun)[,.]?\s+",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
 
     formats = [
         "%d/%m/%Y",

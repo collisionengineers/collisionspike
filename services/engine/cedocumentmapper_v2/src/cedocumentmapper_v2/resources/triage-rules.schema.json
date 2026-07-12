@@ -25,6 +25,11 @@
         "chase_phrases",
         "summary_markers",
         "cancellation_phrases",
+        "payment_phrases",
+        "pre_instruction_phrases",
+        "image_service_sender_domains",
+        "image_service_identity_phrases",
+        "image_service_delivery_phrases",
         "auto_reply_markers",
         "vrm_stopword_trigrams",
         "report_title_phrases",
@@ -71,6 +76,26 @@
         "cancellation_phrases": {
           "$ref": "#/$defs/phrase_list",
           "description": "Signal the sender is cancelling/withdrawing an existing instruction, claim or inspection."
+        },
+        "payment_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Signal an INBOUND payment notification -- a remittance advice or payment-transfer notice for work we did (collisionspike TKT-105/TKT-120). The mirror-image of billing_keywords (which is a REQUEST for our invoice): these say money has been / is being sent, so the email routes to billing/payment_remittance, never receiving_work."
+        },
+        "pre_instruction_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Signal PRE-INSTRUCTION directions -- the sender is telling us what to do WHEN the official instruction later arrives (collisionspike TKT-084). Anchored to a future-instruction reference ('when you receive an instruction'), never bare direction verbs, so a live instruction email cannot trip it."
+        },
+        "image_service_sender_domains": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Sender DOMAINS of image-capture delivery services CE itself commissions (collisionspike TKT-102: Tractable). An email from one of these domains is a candidate image delivery, never a work provider instructing new work. Matched exactly or as a subdomain suffix (email_classifier.py Rule 0f)."
+        },
+        "image_service_identity_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Body/footer wording that identifies an image-capture delivery service when the sender domain is unavailable or the mail is forwarded ('powered by tractable'). An identity anchor alone does not fire Rule 0f -- a delivery phrase must corroborate."
+        },
+        "image_service_delivery_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "The completed-capture delivery shape ('completed lead', 'damage capture') -- the signal that the service is DELIVERING captured vehicle images/quote (collisionspike TKT-102). Requires an image_service identity anchor (domain or phrase); deliberately never keyed on subject emoji."
         },
         "auto_reply_markers": {
           "$ref": "#/$defs/phrase_list",
