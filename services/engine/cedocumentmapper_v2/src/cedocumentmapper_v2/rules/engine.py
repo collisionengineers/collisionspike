@@ -2308,7 +2308,12 @@ class RuleEngine:
                     for next_line in lines[index + 1:index + 4]
                 )
             for value, value_line in candidates:
-                value = self._clean_claimant_name(value)
+                # A label proves the field, not that the entire remainder is a name.
+                # Same-line and following-line values frequently continue straight into
+                # instruction prose (for example, ``Mr J Sample requires inspection``).
+                # Reuse the conservative prose parser so only the leading person name is
+                # accepted and prose-only following lines remain blank.
+                value = self._person_name_prefix(self._clean_claimant_name(value))
                 if not value or self._is_label_only_value(value):
                     continue
                 if re.fullmatch(r"[A-Z]{1,3}\d{1,3}\s?[A-Z]{3}", value, re.IGNORECASE):

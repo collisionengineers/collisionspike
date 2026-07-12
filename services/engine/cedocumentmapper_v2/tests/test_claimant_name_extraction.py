@@ -58,6 +58,7 @@ def _provider(provider_id: str) -> dict:
     [
         "CLAIMANT_PROSE_01.expected.json",
         "CLAIMANT_THREADED_01.expected.json",
+        "CLAIMANT_LABEL_PROSE_01.expected.json",
         "EMAIL_SIGNATURE_ONLY_01.expected.json",
     ],
 )
@@ -94,6 +95,38 @@ def test_explicit_claimant_label_outranks_earlier_prose_candidate():
 
     assert extracted.value == "Dr Evelyn Confirmed"
     assert extracted.rule_id == "fallback_claimant_label"
+
+
+@pytest.mark.parametrize(
+    ("lines", "expected"),
+    [
+        (("Our client: Mr John Sample requires an inspection.",), "Mr John Sample"),
+        (
+            (
+                "Claimant Name:",
+                "Ms Jane Sample requires collection from her home address.",
+            ),
+            "Ms Jane Sample",
+        ),
+    ],
+)
+def test_explicit_claimant_label_truncates_trailing_instruction_prose(
+    lines: tuple[str, ...], expected: str
+):
+    extracted = _claimant(*lines, "Vehicle Registration: AB12 CDE")
+
+    assert extracted.value == expected
+    assert extracted.rule_id == "fallback_claimant_label"
+
+
+def test_explicit_claimant_label_rejects_next_line_instruction_without_a_name():
+    extracted = _claimant(
+        "Claimant Name:",
+        "Please contact the repairer to arrange access.",
+        "Vehicle Registration: AB12 CDE",
+    )
+
+    assert extracted.value == ""
 
 
 def test_signature_name_is_not_used_when_claimant_is_absent():
