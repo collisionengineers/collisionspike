@@ -184,12 +184,12 @@
 | [TKT-129](./now/TKT-129-image-based-inspection-done/TKT-129-image-based-inspection-done.md) | Simplify the inspection address or Image Based Assessment choice | **REOPENED 2026-07-12:** remove the explanatory paragraph, hide address controls for Image Based Assessment, and preserve explicit provider defaults. |
 | [TKT-130](./now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | Review contains only cases that are ready for EVA | **REOPENED 2026-07-12:** binding rule now supersedes the old `needs_review → Review` behavior; incomplete/problem cases are Not Ready unless Held. |
 | [TKT-165](./now/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) | Make Add evidence upload the selected files | Discovered 2026-07-12 in source: the action ignores selected files and only navigates. |
+| [TKT-155](./now/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) | Rebuild the dashboard around Not Ready, Review and Held | Distilled 2026-07-12 with screenshots and image-generated design exploration. |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
 | ID | Title | State |
 |---|---|---|
-| [TKT-155](./verify/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) | Rebuild the dashboard around Not Ready, Review and Held | Distilled 2026-07-12 with screenshots and image-generated design exploration. |
 | [TKT-149](./verify/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) | Require reciprocal Claude and Codex reviews on every pull request | **TESTED + PARTIAL LIVE 2026-07-12:** 48/48 guard fixtures plus the 961 app/domain tests and PR #60 prove the shared exact-head runner, draft/failure behavior and reciprocal comments; awaiting one real PR creation through each agent hook. GitHub private Free cannot require the visible status server-side. |
 | [TKT-148](./verify/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for overview-less photo sets | **REOPENED 2026-07-11:** guarantee one draft under concurrency and distinguish drafted from sent activity. |
 | [TKT-147](./verify/TKT-147-tractable-make-vin/TKT-147-tractable-make-vin.md) | Tractable layout: vehicle make (two-label rule) + VIN slot | **REOPENED 2026-07-11:** expose the extracted VIN through `/parse` without changing the EVA export. |

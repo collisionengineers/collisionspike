@@ -1,9 +1,17 @@
 # Changes — TKT-155: Simplify the dashboard around Not Ready, Review and Held
 
 ## Status
-Merged in PR 61 and deployed to the production Static Web App on 2026-07-12. Lifecycle status remains
-owned by the dispatching orchestrator; the remaining responsive/accessibility proof is recorded in
-`verification.md`.
+The core dashboard was merged in PR 61 and deployed on 2026-07-12. Independent live verification then
+failed at 390px width and on focus-indicator contrast, so the dispatching orchestrator returned the
+ticket from `verify` to `now`. Exact failure evidence is recorded in `verification.md`; the repair is
+not yet deployed.
+
+## Independent verification follow-up — 2026-07-12
+- Passed all three live queue-card drill-throughs and their unique accessible names.
+- Passed keyboard order and visible-focus presence.
+- Failed the translucent red focus halo at approximately 2.80:1 against white.
+- Failed the 390px layout because the 240px navigation rail left cards only about 87px wide and clipped their contents.
+- Left true 200% zoom and short-height proof pending rather than inferring success from viewport emulation.
 
 ## Commits
 - `f1bfcfe` — replace the dashboard cockpit with the three-queue overview, sectioned Inbox health, responsive skeleton and contract tests.
