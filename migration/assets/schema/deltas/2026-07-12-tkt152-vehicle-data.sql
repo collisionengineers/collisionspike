@@ -42,13 +42,14 @@ CREATE TABLE IF NOT EXISTS vehicle_provider_snapshot (
   error_class varchar(120),
   error_code varchar(80),
   created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT uq_vehicle_provider_snapshot_id_run UNIQUE (id, lookup_run_id),
   UNIQUE (lookup_run_id, provider)
 );
 
 CREATE TABLE IF NOT EXISTS mot_odometer_observation (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   lookup_run_id uuid NOT NULL REFERENCES vehicle_lookup_run(id) ON DELETE RESTRICT,
-  provider_snapshot_id uuid NOT NULL REFERENCES vehicle_provider_snapshot(id) ON DELETE RESTRICT,
+  provider_snapshot_id uuid NOT NULL,
   observation_id varchar(64) NOT NULL,
   raw_index integer NOT NULL CHECK (raw_index >= 0),
   data_source varchar(80) NOT NULL,
@@ -69,6 +70,9 @@ CREATE TABLE IF NOT EXISTS mot_odometer_observation (
   decision_codes text[] NOT NULL DEFAULT '{}',
   warning_codes text[] NOT NULL DEFAULT '{}',
   created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT fk_mot_observation_snapshot_run
+    FOREIGN KEY (provider_snapshot_id, lookup_run_id)
+    REFERENCES vehicle_provider_snapshot(id, lookup_run_id) ON DELETE RESTRICT,
   UNIQUE (provider_snapshot_id, raw_index),
   UNIQUE (lookup_run_id, observation_id)
 );
@@ -103,6 +107,31 @@ CREATE INDEX IF NOT EXISTS ix_vehicle_lookup_run_case_retrieved
   ON vehicle_lookup_run (case_id, retrieved_at DESC) WHERE case_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS ix_mot_odometer_observation_run_date
   ON mot_odometer_observation (lookup_run_id, test_date, raw_index);
+
+-- Reconcile an earlier partial application of this idempotent delta. The
+-- composite relationship prevents an observation from claiming one lookup run
+-- while pointing at a provider snapshot captured by another.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'uq_vehicle_provider_snapshot_id_run'
+      AND conrelid = 'vehicle_provider_snapshot'::regclass
+  ) THEN
+    ALTER TABLE vehicle_provider_snapshot
+      ADD CONSTRAINT uq_vehicle_provider_snapshot_id_run UNIQUE (id, lookup_run_id);
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'fk_mot_observation_snapshot_run'
+      AND conrelid = 'mot_odometer_observation'::regclass
+  ) THEN
+    ALTER TABLE mot_odometer_observation
+      ADD CONSTRAINT fk_mot_observation_snapshot_run
+      FOREIGN KEY (provider_snapshot_id, lookup_run_id)
+      REFERENCES vehicle_provider_snapshot(id, lookup_run_id) ON DELETE RESTRICT;
+  END IF;
+END $$;
 
 DO $$
 DECLARE t text;

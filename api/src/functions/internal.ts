@@ -53,6 +53,7 @@ import {
   allowedCaseTypes,
   categoryMintsCase,
   describeEvidence,
+  isVehicleDataEnrichmentResponse,
   markerForMint,
   readinessInputForCase,
   statusForReviewCase,
@@ -1661,7 +1662,11 @@ app.http('internalCasesEnrichment', {
       // TKT-151 owns persisting the nested evidence/run records; this route
       // already consumes the canonical envelope and temporarily projects only
       // its compatibility fields onto empty case columns.
-      const body = (await req.json()) as VehicleDataEnrichmentResponse;
+      const payload: unknown = await req.json();
+      if (!isVehicleDataEnrichmentResponse(payload)) {
+        return { status: 400, jsonBody: { error: 'invalid vehicle data response' } };
+      }
+      const body: VehicleDataEnrichmentResponse = payload;
 
       const cur = await query<Row>(
         'SELECT eva_vehicle_model, eva_mileage, eva_mileage_unit FROM case_ WHERE id = $1',

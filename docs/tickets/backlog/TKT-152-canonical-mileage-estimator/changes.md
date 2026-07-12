@@ -25,9 +25,32 @@ and independent live verification still gate completion.
   active orchestration activity and Data API case route consume the shared canonical
   response type; current fill-if-empty case application remains explicitly TKT-151 scope.
 - Recorded the complete in-repo and sibling product inventory/decisions in
-  `docs/architecture/vehicle-data.md`. The standalone MCP/Cloudflare connector and C#
-  mileage tool are not runtime dependencies or acceptable fallback sources; they remain
-  delegated contract consumers and are non-canonical until changed in their own repos.
+  `docs/architecture/vehicle-data.md`. Follow-up branch
+  `dvla-dvsa-connector:codex/tkt-152-canonical-mileage-adapter` removes the active MCP
+  server's copied maths and calls `vehicle-data.v1` without a local fallback. Follow-up
+  branch `mileagetool:codex/tkt-152-retire-estimator` removes the desktop point estimate;
+  its documented blocker is the absence of a staff-authenticated/user-delegated route or
+  trusted broker that avoids embedding an internal Function key. The retained Cloudflare
+  source is explicitly historical/non-active and prohibited as a mileage deployment path.
+  Exact sibling heads and gates are recorded in the
+  [sibling consolidation evidence](./evidence/sibling-consolidation-2026-07-12.md).
+
+## Review hardening
+
+- Unknown numeric odometer units now make the history ambiguous and force abstention;
+  unread/missing odometers remain preserved evidence without poisoning the estimate.
+- Interpolation is allowed only across an included, non-negative trusted interval. A reset,
+  rollback, keying anomaly or excluded interval cannot produce a point by interpolation.
+- Cohort selection now matches deterministic vehicle-type, age, fuel and make/model keys,
+  with explicit generic fallback and stable specificity/sample/version tie-breaking. An
+  unrelated first prior can no longer win by file order.
+- A vehicle whose first-use date predates its registration date is treated as imported or
+  previously used and cannot receive a registration-anchor backcast.
+- MOT observations now have a composite foreign key to a provider snapshot from the same
+  lookup run, closing the cross-run evidence-integrity gap in both fresh and delta DDL.
+- Every successful HTTP response now uses the canonical versioned envelope, including
+  gate-off and fail-soft outcomes. TypeScript consumers validate the runtime contract before
+  persistence; invalid envelopes are rejected/audited rather than trusted through a cast.
 
 ## Estimator behaviour
 
@@ -76,10 +99,15 @@ and independent live verification still gate completion.
 
 ## Gates run
 
-- `functions/enrichment`: `python -m pytest -q` → **51 passed**.
+- `functions/enrichment`: `python -m pytest -q` → **57 passed**.
 - Python compile/import gate (`compileall`) → pass.
-- Data API: TypeScript build → pass; Vitest → **64 files / 617 tests passed**.
-- Domain contract suite → **54 files / 1,104 tests passed** after the new parity test.
+- Data API: TypeScript build → pass; Vitest → **64 files / 624 tests passed**.
+- Orchestration: TypeScript build → pass; Vitest → **30 files / 417 tests passed**.
+- Domain contract suite → **56 files / 1,136 tests passed** after runtime validation tests.
+- Sibling connector: typecheck/build pass; Vitest → **9 files / 55 tests passed** at
+  commit `c629a6a0822247ab3c40409eea7f67add7b368a9`.
+- Sibling Windows tool: `BuildAndRun.ps1 -SkipRun` → **0 warnings / 0 errors** at
+  commit `2e24802417ff122e7cc0c0dd66e608c17eb0f7a2`.
 - Aggregate `node verify-all.mjs` → **8 passed, 0 failed, 13 expected skips**.
 - `node migration/assets/verify-parity-pg.mjs` → all applicable checks passed.
 - `node scripts/check-doc-links.mjs` → 0 broken links / 0 orphan docs / 0 live-fact leaks.
@@ -96,6 +124,7 @@ and independent live verification still gate completion.
 - TKT-151 must apply/persist the nested lookup/run/evidence contract, surface insufficient
   mileage as Not Ready, and add the case warning/UI wording. This branch intentionally does
   not change case readiness or UI.
-- The sibling MCP/Cloudflare and Windows applications still contain their own estimators.
-  They are outside this repository/commit and explicitly non-canonical; their follow-up must
-  replace those copies with calls to `vehicle-data.v1` before suite-wide parity can be claimed.
+- The sibling MCP and Windows changes are pushed but not merged or deployed. Until those
+  delivery units land, their current default branches remain unchanged and suite-wide live
+  consolidation cannot be claimed. The historical Cloudflare source remains textually present
+  but explicitly non-active and is not an authorised deployment target.

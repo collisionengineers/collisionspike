@@ -29,6 +29,7 @@ from pathlib import Path
 
 import httpx
 import respx
+from jsonschema import Draft202012Validator, FormatChecker
 
 # Make the function modules importable when pytest runs from anywhere.
 FN_DIR = Path(__file__).resolve().parent.parent
@@ -89,6 +90,16 @@ def _calibration() -> CalibrationProfile:
 
 def _load(name: str) -> dict:
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+def _assert_canonical_response(payload: dict) -> None:
+    schema = json.loads(
+        (FN_DIR.parents[1] / "contracts" / "vehicle-data-v1.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    Draft202012Validator(schema, format_checker=FormatChecker()).validate(payload)
+    assert isinstance(payload["warnings"], list)
 
 
 def _dvsa_client() -> DvsaClient:
@@ -591,7 +602,28 @@ def test_handler_gated_off_returns_200(monkeypatch):
     resp = function_app.dvsa_mot_enrich(_fake_request({"vrm": "TE57VRM"}))
     assert resp.status_code == 200
     payload = json.loads(resp.get_body())
-    assert any("ENRICHMENT_ENABLED is false" in w for w in payload["warnings"])
+    _assert_canonical_response(payload)
+    assert payload["lookup"]["status"] == "configuration_error"
+    assert payload["mileage"]["status"] == "insufficient"
+    assert any("not enabled" in w for w in payload["warnings"])
+
+
+def test_handler_unexpected_failure_returns_canonical_insufficient_envelope(
+    monkeypatch,
+):
+    monkeypatch.setenv("ENRICHMENT_ENABLED", "true")
+    monkeypatch.setattr(
+        function_app,
+        "enrich",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    resp = function_app.dvsa_mot_enrich(_fake_request({"vrm": "TE57VRM"}))
+    assert resp.status_code == 200
+    payload = json.loads(resp.get_body())
+    _assert_canonical_response(payload)
+    assert payload["lookup"]["status"] == "temporarily_unavailable"
+    assert payload["mileage"]["status"] == "insufficient"
+    assert payload["mileage"]["warnings"][0]["code"] == "enrichment_failed"
 
 
 def test_handler_missing_vrm_returns_400(monkeypatch):
@@ -672,7 +704,8 @@ def test_handler_gated_off_is_a_true_no_op(monkeypatch):
     )
     assert resp.status_code == 200
     payload = json.loads(resp.get_body())
-    assert any("ENRICHMENT_ENABLED is false" in w for w in payload["warnings"])
+    _assert_canonical_response(payload)
+    assert any("not enabled" in w for w in payload["warnings"])
     # No make/model/mileage suggested — the parsed values stay untouched.
     assert "vehicle_model" not in payload
     assert "make" not in payload

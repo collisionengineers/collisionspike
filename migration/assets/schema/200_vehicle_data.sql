@@ -47,13 +47,14 @@ CREATE TABLE vehicle_provider_snapshot (
   error_class              varchar(120),
   error_code               varchar(80),
   created_at               timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT uq_vehicle_provider_snapshot_id_run UNIQUE (id, lookup_run_id),
   UNIQUE (lookup_run_id, provider)
 );
 
 CREATE TABLE mot_odometer_observation (
   id                       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   lookup_run_id            uuid NOT NULL REFERENCES vehicle_lookup_run(id) ON DELETE RESTRICT,
-  provider_snapshot_id     uuid NOT NULL REFERENCES vehicle_provider_snapshot(id) ON DELETE RESTRICT,
+  provider_snapshot_id     uuid NOT NULL,
   observation_id           varchar(64) NOT NULL,
   raw_index                integer NOT NULL CHECK (raw_index >= 0),
   data_source              varchar(80) NOT NULL,
@@ -74,6 +75,9 @@ CREATE TABLE mot_odometer_observation (
   decision_codes           text[] NOT NULL DEFAULT '{}',
   warning_codes            text[] NOT NULL DEFAULT '{}',
   created_at               timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT fk_mot_observation_snapshot_run
+    FOREIGN KEY (provider_snapshot_id, lookup_run_id)
+    REFERENCES vehicle_provider_snapshot(id, lookup_run_id) ON DELETE RESTRICT,
   UNIQUE (provider_snapshot_id, raw_index),
   UNIQUE (lookup_run_id, observation_id)
 );

@@ -80,25 +80,194 @@ def _snapshot(
     }
 
 
-def cohort_prior_from_env() -> CohortPrior | None:
+def failure_contract(
+    *,
+    requested_registration: str,
+    lookup_status: str,
+    warning_code: str,
+    message: str,
+    target_date: date | None = None,
+    retrieved_at: datetime | None = None,
+    run_id: str | None = None,
+) -> dict[str, object]:
+    """Build the canonical fail-soft envelope used at every service edge."""
+
+    retrieved = retrieved_at or datetime.now(timezone.utc)
+    if retrieved.tzinfo is None:
+        retrieved = retrieved.replace(tzinfo=timezone.utc)
+    target = target_date or retrieved.date()
+    canonical = canonicalize_registration(requested_registration)
+    warning = {
+        "code": warning_code,
+        "severity": "blocking",
+        "message": message,
+    }
+    return {
+        "contract_version": CONTRACT_VERSION,
+        "algorithm_version": ALGORITHM_VERSION,
+        "lookup": {
+            "run_id": run_id or str(uuid.uuid4()),
+            "status": lookup_status,
+            "requested_registration": requested_registration,
+            "canonical_registration": canonical,
+            "target_date": target.isoformat(),
+            "retrieved_at": retrieved.isoformat(),
+            "provider_statuses": {},
+        },
+        "vehicle": {},
+        "provider_snapshots": [],
+        "mileage": {
+            "status": "insufficient",
+            "method": "none",
+            "odometer_meaning": "displayed_odometer",
+            "target_date": target.isoformat(),
+            "algorithm_version": ALGORITHM_VERSION,
+            "estimated_mileage": None,
+            "observed_mileage": None,
+            "annual_rate_miles": None,
+            "prediction_interval": None,
+            "range": None,
+            "prior": None,
+            "reason": message,
+            "warnings": [warning],
+            "evidence": {
+                "observations": [],
+                "intervals": [],
+                "anomaly_class": "not_evaluated",
+            },
+        },
+    }
+
+
+def _cohort_prior(payload: dict[str, Any]) -> CohortPrior:
+    return CohortPrior(
+        version=str(payload["version"]),
+        dataset_digest=str(payload["dataset_digest"]),
+        annual_rate_miles=float(payload["annual_rate_miles"]),
+        annual_sigma_miles=float(payload["annual_sigma_miles"]),
+        sample_size=int(payload["sample_size"]),
+        vehicle_type=str(payload.get("vehicle_type", "unknown")),
+        age_band=str(payload.get("age_band", "unknown")),
+        fuel_type=str(payload.get("fuel_type", "unknown")),
+        make_model_family=str(payload.get("make_model_family", "all")),
+    )
+
+
+def cohort_priors_from_env() -> tuple[CohortPrior, ...]:
+    """Load a deterministic set of versioned cohort priors.
+
+    The setting accepts the legacy single-prior object, a JSON array, or
+    ``{"priors": [...]}``. Selection happens only after vehicle identity is
+    known; loading a labelled prior never makes it applicable by itself.
+    """
+
     raw = (os.environ.get("MILEAGE_COHORT_PRIOR_JSON") or "").strip()
     if not raw:
-        return None
+        return ()
     try:
         payload = json.loads(raw)
-        return CohortPrior(
-            version=str(payload["version"]),
-            dataset_digest=str(payload["dataset_digest"]),
-            annual_rate_miles=float(payload["annual_rate_miles"]),
-            annual_sigma_miles=float(payload["annual_sigma_miles"]),
-            sample_size=int(payload["sample_size"]),
-            vehicle_type=str(payload.get("vehicle_type", "unknown")),
-            age_band=str(payload.get("age_band", "unknown")),
-            fuel_type=str(payload.get("fuel_type", "unknown")),
-            make_model_family=str(payload.get("make_model_family", "all")),
+        raw_priors: list[object]
+        if isinstance(payload, dict) and isinstance(payload.get("priors"), list):
+            raw_priors = list(payload["priors"])
+        elif isinstance(payload, list):
+            raw_priors = list(payload)
+        else:
+            raw_priors = [payload]
+        return tuple(
+            prior
+            for item in raw_priors
+            if isinstance(item, dict)
+            and (prior := _cohort_prior(item)).defensible
         )
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return ()
+
+
+def cohort_prior_from_env() -> CohortPrior | None:
+    """Compatibility loader for callers that still expect one generic prior."""
+
+    priors = cohort_priors_from_env()
+    return priors[0] if len(priors) == 1 else None
+
+
+_GENERIC_COHORT_VALUES = {"", "*", "all", "any", "unknown"}
+
+
+def _cohort_value(value: object) -> str:
+    return str(value or "").strip().casefold()
+
+
+def _age_band(vehicle: dict[str, Any], target: date) -> str:
+    anchor = _clean(vehicle.get("registrationDate")) or _clean(
+        vehicle.get("firstUsedDate")
+    )
+    if not anchor:
+        return "unknown"
+    try:
+        anchor_date = date.fromisoformat(anchor.split("T", 1)[0].split(" ", 1)[0])
+    except ValueError:
+        return "unknown"
+    years = max(0, (target - anchor_date).days // 365)
+    if years < 4:
+        return "0-3"
+    if years < 8:
+        return "4-7"
+    if years < 13:
+        return "8-12"
+    return "13+"
+
+
+def select_cohort_prior(
+    priors: tuple[CohortPrior, ...],
+    vehicle: dict[str, Any],
+    target: date,
+) -> CohortPrior | None:
+    """Select the most-specific compatible prior, then a generic fallback.
+
+    A labelled prior never crosses vehicle type, age, fuel, or make/model
+    boundaries. Fully/partially generic values remain explicit fallback cells.
+    Ties prefer the larger cohort, then a stable lexical version.
+    """
+
+    actual = {
+        "vehicle_type": _cohort_value(vehicle.get("vehicleType")),
+        "age_band": _cohort_value(_age_band(vehicle, target)),
+        "fuel_type": _cohort_value(vehicle.get("fuelType")),
+        "make_model_family": _cohort_value(
+            " ".join(
+                part
+                for part in (
+                    _clean(vehicle.get("make")),
+                    _clean(vehicle.get("model")),
+                )
+                if part
+            )
+        ),
+    }
+
+    def compatible(prior: CohortPrior) -> bool:
+        for field in actual:
+            expected = _cohort_value(getattr(prior, field))
+            if expected in _GENERIC_COHORT_VALUES:
+                continue
+            if not actual[field] or actual[field] in _GENERIC_COHORT_VALUES:
+                return False
+            if expected != actual[field]:
+                return False
+        return prior.defensible
+
+    candidates = [prior for prior in priors if compatible(prior)]
+    if not candidates:
         return None
+
+    def rank(prior: CohortPrior) -> tuple[int, int, str]:
+        specificity = sum(
+            _cohort_value(getattr(prior, field)) not in _GENERIC_COHORT_VALUES
+            for field in actual
+        )
+        return (-specificity, -prior.sample_size, prior.version)
+
+    return sorted(candidates, key=rank)[0]
 
 
 def calibration_profile_from_env() -> CalibrationProfile | None:
@@ -143,13 +312,21 @@ class VehicleDataService:
         clock: Callable[[], datetime] | None = None,
         id_factory: Callable[[], uuid.UUID] | None = None,
         cohort_prior: CohortPrior | None = None,
+        cohort_priors: tuple[CohortPrior, ...] = (),
         calibration: CalibrationProfile | None = None,
     ) -> None:
         self.dvsa = dvsa
         self.dvla = dvla
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self.id_factory = id_factory or uuid.uuid4
-        self.cohort_prior = cohort_prior
+        self.cohort_priors = tuple(
+            dict.fromkeys(
+                [
+                    *([cohort_prior] if cohort_prior is not None else []),
+                    *cohort_priors,
+                ]
+            )
+        )
         self.calibration = calibration
 
     def lookup(
@@ -300,10 +477,13 @@ class VehicleDataService:
         }
 
         if dvsa_vehicle is not None and include_mileage:
+            selected_prior = select_cohort_prior(
+                self.cohort_priors, dvsa_vehicle, target
+            )
             contract["mileage"] = estimate_displayed_mileage(
                 dvsa_vehicle,
                 target_date=target,
-                cohort_prior=self.cohort_prior,
+                cohort_prior=selected_prior,
                 calibration=self.calibration,
             )
         elif not include_mileage:

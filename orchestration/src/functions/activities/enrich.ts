@@ -26,6 +26,7 @@
 import * as df from 'durable-functions';
 import { gates } from '@cs/domain/gates';
 import type { VehicleDataEnrichmentResponse } from '@cs/domain';
+import { isVehicleDataEnrichmentResponse } from '@cs/domain';
 import { dataApi } from '../../lib/data-api.js';
 
 interface EnrichInput {
@@ -80,7 +81,20 @@ df.app.activity('enrich', {
       return { skipped: true, status: res.status };
     }
 
-    const result = (await res.json()) as VehicleDataEnrichmentResponse;
+    const payload: unknown = await res.json();
+    if (!isVehicleDataEnrichmentResponse(payload)) {
+      ctx.error(
+        `[enrich] enrichment returned a non-canonical response for case ${input.caseId}`,
+      );
+      await dataApi.recordAudit({
+        action: 'enrichment_failed',
+        caseId: input.caseId,
+        severity: 'error',
+        summary: 'vehicle lookup returned an invalid response',
+      });
+      return { enriched: false, error: 'invalid_contract' };
+    }
+    const result: VehicleDataEnrichmentResponse = payload;
 
     // Persist the advisory result onto the case (fill-if-empty, server-side). The Data API's
     // internalCasesEnrichment ALREADY writes the single `enrichment_called` audit row, so we do

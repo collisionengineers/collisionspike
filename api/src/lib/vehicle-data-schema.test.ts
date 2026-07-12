@@ -65,4 +65,16 @@ describe('TKT-152 vehicle-data schema parity', () => {
     expect(delta).not.toContain("FOR UPDATE");
     expect(delta).not.toContain("FOR DELETE");
   });
+
+  it('binds every raw MOT observation to a snapshot from the same lookup run', () => {
+    for (const sql of [canonical, delta]) {
+      expect(sql).toContain('uq_vehicle_provider_snapshot_id_run');
+      expect(sql).toContain('UNIQUE (id, lookup_run_id)');
+      expect(sql).toContain('fk_mot_observation_snapshot_run');
+      expect(sql).toContain('FOREIGN KEY (provider_snapshot_id, lookup_run_id)');
+      expect(sql).toContain(
+        'REFERENCES vehicle_provider_snapshot(id, lookup_run_id) ON DELETE RESTRICT',
+      );
+    }
+  });
 });

@@ -55,7 +55,11 @@ from dvla_client import (
 )
 from vehicle_data import VehicleDataService, legacy_enrichment_adapter
 from vehicle_data.contracts import CalibrationProfile, CohortPrior
-from vehicle_data.service import calibration_profile_from_env, cohort_prior_from_env
+from vehicle_data.service import (
+    calibration_profile_from_env,
+    cohort_priors_from_env,
+    failure_contract,
+)
 
 logger = logging.getLogger("enrichment.function")
 
@@ -139,6 +143,7 @@ def enrich(
     dvla: DvlaClient | None = None,
     target_date: date | None = None,
     cohort_prior: CohortPrior | None = None,
+    cohort_priors: tuple[CohortPrior, ...] = (),
     calibration: CalibrationProfile | None = None,
 ) -> dict:
     """Invoke the sole vehicle-data service and project its compatibility fields.
@@ -151,7 +156,12 @@ def enrich(
     service = VehicleDataService(
         dvsa=dvsa,
         dvla=dvla,
-        cohort_prior=cohort_prior if cohort_prior is not None else cohort_prior_from_env(),
+        cohort_prior=cohort_prior,
+        cohort_priors=(
+            cohort_priors
+            if cohort_prior is not None or cohort_priors
+            else cohort_priors_from_env()
+        ),
         calibration=calibration if calibration is not None else calibration_profile_from_env(),
     )
     contract = service.lookup(
@@ -193,8 +203,19 @@ def dvsa_mot_enrich(req: func.HttpRequest) -> func.HttpResponse:
 
     # Gate at the edge as well as in the flow — defence in depth.
     if not _truthy(os.environ.get("ENRICHMENT_ENABLED")):
+        result = legacy_enrichment_adapter(
+            failure_contract(
+                requested_registration=(
+                    _clean_str(body.get("vrm")) if isinstance(body, dict) else None
+                )
+                or "",
+                lookup_status="configuration_error",
+                warning_code="enrichment_disabled",
+                message="Vehicle lookup is not enabled.",
+            )
+        )
         return func.HttpResponse(
-            json.dumps({"warnings": ["ENRICHMENT_ENABLED is false; enrichment skipped."]}),
+            json.dumps(result),
             status_code=200,
             mimetype="application/json",
         )
@@ -233,9 +254,18 @@ def dvsa_mot_enrich(req: func.HttpRequest) -> func.HttpResponse:
             target_date=target_date,
         )
     except Exception as exc:  # pragma: no cover - top-level safety net
-        # Never bubble: enrichment is advisory. Return 200 with a warning.
+        # Never bubble: enrichment is advisory. Return a canonical insufficient
+        # envelope so typed callers never receive a structurally different 200.
         logger.warning("enrichment hard-failed: %s", type(exc).__name__)
-        result = {"warnings": ["Enrichment failed; case left for manual review."]}
+        result = legacy_enrichment_adapter(
+            failure_contract(
+                requested_registration=vrm,
+                lookup_status="temporarily_unavailable",
+                warning_code="enrichment_failed",
+                message="Vehicle details could not be checked; the case was left for review.",
+                target_date=target_date,
+            )
+        )
     finally:
         dvsa.close()
         dvla.close()

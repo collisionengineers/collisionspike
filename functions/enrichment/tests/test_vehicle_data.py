@@ -26,7 +26,12 @@ from vehicle_data.contracts import (  # noqa: E402
 )
 from vehicle_data.mileage import estimate_displayed_mileage, prepare_history  # noqa: E402
 from vehicle_data.registration import canonicalize_registration  # noqa: E402
-from vehicle_data.service import VehicleDataService, legacy_enrichment_adapter  # noqa: E402
+from vehicle_data.service import (  # noqa: E402
+    VehicleDataService,
+    cohort_priors_from_env,
+    legacy_enrichment_adapter,
+    select_cohort_prior,
+)
 
 
 def mot(
@@ -212,6 +217,34 @@ def test_unit_contradiction_abstains_instead_of_guessing():
     assert "odometer_unit_contradiction" in warning_codes(result)
 
 
+def test_latest_numeric_unknown_unit_abstains_even_with_calibration():
+    record = vehicle(
+        mot("2022-01-01", "30000", number="1"),
+        mot("2023-01-01", "40000", number="2"),
+        mot("2024-01-01", "50000", number="3", unit="UNKNOWN"),
+    )
+    result = estimate_displayed_mileage(
+        record, target_date=date(2024, 6, 1), calibration=calibration()
+    )
+    assert result["status"] == "insufficient"
+    assert result["estimated_mileage"] is None
+    assert result["prediction_interval"] is None
+    assert "unknown_odometer_unit" in warning_codes(result)
+
+
+def test_small_negative_interval_is_not_trusted_for_interpolation():
+    record = vehicle(
+        mot("2023-01-01", "100000", number="1"),
+        mot("2024-01-01", "99500", number="2"),
+    )
+    result = estimate_displayed_mileage(record, target_date=date(2023, 7, 1))
+    assert result["status"] == "insufficient"
+    assert result["method"] == "none"
+    assert result["annual_rate_miles"] is None
+    assert result["range"] is None
+    assert "not trustworthy" in result["reason"]
+
+
 def test_exact_mot_is_exact_and_interpolation_is_logically_bounded():
     record = vehicle(
         mot("2023-01-01", "40001", number="1"),
@@ -312,6 +345,73 @@ def test_pre_first_mot_requires_a_defensible_prior_and_registration_anchor():
     assert assisted["status"] == "estimated"
     assert assisted["method"] == "cohort_assisted_backcast"
     assert 0 <= assisted["estimated_mileage"] <= 24000
+
+
+def test_pre_first_mot_abstains_when_first_use_predates_registration():
+    record = vehicle(
+        mot("2021-01-01", "80000", number="1"),
+        registration_date="2020-01-01",
+    )
+    record["firstUsedDate"] = "2010-01-01"
+    result = estimate_displayed_mileage(
+        record,
+        target_date=date(2020, 7, 1),
+        cohort_prior=prior(),
+        calibration=calibration(),
+    )
+    assert result["status"] == "insufficient"
+    assert result["estimated_mileage"] is None
+    assert "pre_registration_use_detected" in warning_codes(result)
+
+
+def test_pre_first_mot_abstains_without_a_registration_anchor():
+    record = vehicle(
+        mot("2021-01-01", "80000", number="1"),
+        registration_date="",
+    )
+    record["firstUsedDate"] = "2010-01-01"
+    result = estimate_displayed_mileage(
+        record,
+        target_date=date(2020, 7, 1),
+        cohort_prior=prior(),
+        calibration=calibration(),
+    )
+    assert result["status"] == "insufficient"
+    assert result["estimated_mileage"] is None
+    assert "registration_anchor_unavailable" in warning_codes(result)
+
+
+def test_cohort_selector_never_crosses_labels_and_uses_explicit_generic_fallback(
+    monkeypatch,
+):
+    specific = prior()
+    generic = CohortPrior(
+        version="generic-v1",
+        dataset_digest="c" * 64,
+        annual_rate_miles=9000,
+        annual_sigma_miles=3000,
+        sample_size=5000,
+        vehicle_type="all",
+        age_band="all",
+        fuel_type="all",
+        make_model_family="all",
+    )
+    van = {
+        "vehicleType": "van",
+        "registrationDate": "2018-01-01",
+        "fuelType": "Diesel",
+        "make": "MERCEDES",
+        "model": "SPRINTER",
+    }
+    assert select_cohort_prior((specific,), van, date(2024, 1, 1)) is None
+    assert select_cohort_prior((specific, generic), van, date(2024, 1, 1)) == generic
+
+    monkeypatch.setenv(
+        "MILEAGE_COHORT_PRIOR_JSON",
+        json.dumps({"priors": [specific.to_contract() | specific.to_contract()["cohort"], generic.to_contract() | generic.to_contract()["cohort"]]}),
+    )
+    loaded = cohort_priors_from_env()
+    assert [item.version for item in loaded] == ["cohort-test-v1", "generic-v1"]
 
 
 def test_tkt044_projection_is_auditable_but_not_presented_as_calibrated_without_profile():

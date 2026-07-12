@@ -31,14 +31,15 @@ own this algorithm.
 | `packages/domain/src/contracts/vehicle-data.ts` | Shared TypeScript consumer response shape | Mechanical consumer view of the root JSON Schema, guarded by a parity test; no provider or estimator logic. |
 | `mockup-app/src/data/enrichment-client.ts` | Disabled UI transport shape | No provider HTTP/cache/calculation; its default transport returns unavailable and is not a source of case mileage. |
 | `packages/domain/.../vrm-canon.ts` | General case/search comparison form | Not a provider client. The external boundary still re-canonicalises in the owning service. |
-| sibling `active/connectors/dvla-dvsa-connector/server/src/{dvsa-client,dvla-client,dvla-models,analysis,storage,vehicle-history}.ts` | Standalone MCP service: provider clients/models, Firestore token/snapshot cache and copied TypeScript estimator | Separate product and not used by CollisionSpike runtime. Its result is explicitly non-canonical until it calls `vehicle-data.v1`; no case-workflow caller imports it. |
-| sibling `active/connectors/dvla-dvsa-connector/cf-worker/src/{dvsa-client,dvla-client,dvla-models,analysis,storage,combined}.ts` | Cloudflare variant with a second copied TypeScript client/model/estimator/cache | Separate product and not used by CollisionSpike runtime. It is a delegated service-contract consumer, never a fallback case-mileage source. |
-| sibling `active/mileagetool/RegLookup/Services/{DvsaService,DvlaService,VehicleLookupService,MileageAnalysis}.cs` plus `Models/{DvsaApiResponse,DvlaApiResponse,MotTestRecord,MileageEstimate,...}.cs` | Standalone Windows provider clients/models and copied C# estimator | Separate product and not used by CollisionSpike runtime. It must consume `vehicle-data.v1` before its estimate can be treated as equivalent. |
+| sibling `active/connectors/dvla-dvsa-connector/server/src/` | Active MCP service previously contained copied TypeScript current-mileage and plausibility maths | Follow-up branch `codex/tkt-152-canonical-mileage-adapter` removes that maths. The MCP server calls `vehicle-data.v1`, validates its versioned envelope and derives only observed-vs-canonical-bounds wording. It fails closed when the canonical service is not configured; it has no local estimate fallback. |
+| sibling `active/connectors/dvla-dvsa-connector/cf-worker/src/` | Historical Cloudflare implementation still contains an older copied estimator | Explicitly historical/non-active in that repository and prohibited as a mileage deployment source. Its retained source is not an authorised runtime alternative to `vehicle-data.v1`. |
+| sibling `active/mileagetool/RegLookup/` | Standalone Windows lookup application previously exposed a copied C# target/current-mileage estimate | Follow-up branch `codex/tkt-152-retire-estimator` removes the estimate model, service method and UI result. Raw provider lookup and factual interval/anomaly display remain. A safe canonical desktop adapter is blocked until a staff-authenticated/user-delegated route or trusted broker exists; an internal Function key must not be embedded in the desktop app. |
 
-This establishes one case-workflow source of truth without changing the independent
-products in a CollisionSpike-only pull request. A suite-wide consolidation must
-replace their copied maths with service calls or mechanically generated adapters;
-their results are explicitly non-canonical until then.
+This establishes one active handwritten estimator across the suite once the two sibling
+follow-up branches are merged and deployed. Those sibling branches are separate delivery
+units, not part of this repository's runtime until then. The historical Cloudflare tree
+remains as labelled reference source only and must not be restored as an active mileage
+path.
 
 ## Official source contract
 

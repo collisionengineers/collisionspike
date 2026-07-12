@@ -77,3 +77,57 @@ export interface VehicleDataEnrichmentResponse extends VehicleDataContract {
   mileage_warnings?: VehicleDataWarning[];
   warnings: string[];
 }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isWarning(value: unknown): value is VehicleDataWarning {
+  return (
+    isRecord(value) &&
+    typeof value.code === 'string' &&
+    (value.severity === 'warning' || value.severity === 'blocking') &&
+    typeof value.message === 'string'
+  );
+}
+
+/** Runtime boundary guard for the Python Function's canonical response. */
+export function isVehicleDataEnrichmentResponse(
+  value: unknown,
+): value is VehicleDataEnrichmentResponse {
+  if (!isRecord(value)) return false;
+  if (value.contract_version !== VEHICLE_DATA_CONTRACT_VERSION) return false;
+  if (value.algorithm_version !== VEHICLE_DATA_ALGORITHM_VERSION) return false;
+  if (!isRecord(value.lookup) || !isRecord(value.mileage)) return false;
+  if (!isRecord(value.vehicle) || !Array.isArray(value.provider_snapshots)) return false;
+  if (!Array.isArray(value.warnings) || !value.warnings.every((item) => typeof item === 'string')) {
+    return false;
+  }
+  if (
+    typeof value.lookup.run_id !== 'string' ||
+    !VEHICLE_LOOKUP_STATUSES.includes(value.lookup.status as VehicleLookupStatus) ||
+    typeof value.lookup.requested_registration !== 'string' ||
+    typeof value.lookup.canonical_registration !== 'string' ||
+    typeof value.lookup.target_date !== 'string' ||
+    typeof value.lookup.retrieved_at !== 'string' ||
+    !isRecord(value.lookup.provider_statuses)
+  ) {
+    return false;
+  }
+  if (
+    !MILEAGE_OUTCOME_STATUSES.includes(value.mileage.status as MileageOutcomeStatus) ||
+    value.mileage.odometer_meaning !== 'displayed_odometer' ||
+    value.mileage.algorithm_version !== VEHICLE_DATA_ALGORITHM_VERSION ||
+    typeof value.mileage.method !== 'string' ||
+    typeof value.mileage.target_date !== 'string' ||
+    !Array.isArray(value.mileage.warnings) ||
+    !value.mileage.warnings.every(isWarning) ||
+    !isRecord(value.mileage.evidence) ||
+    !Array.isArray(value.mileage.evidence.observations) ||
+    !Array.isArray(value.mileage.evidence.intervals) ||
+    typeof value.mileage.evidence.anomaly_class !== 'string'
+  ) {
+    return false;
+  }
+  return true;
+}

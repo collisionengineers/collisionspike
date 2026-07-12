@@ -277,7 +277,11 @@ def _raw_observations(vehicle: dict[str, Any]) -> list[Observation]:
             obs.decisions.append("rejected_invalid_odometer_value")
         if unit is None:
             obs.decisions.append("rejected_unknown_odometer_unit")
-            obs.warnings.append("unknown_odometer_unit")
+            # An unknown unit is ambiguous only when the provider says a
+            # numeric odometer was actually read. Unread rows often omit both
+            # value and unit and must not poison an otherwise usable history.
+            if number is not None and result_type in {"READ", "OK"}:
+                obs.warnings.append("unknown_odometer_unit")
         if number == 0:
             obs.warnings.append("zero_odometer_reading")
         observations.append(obs)
@@ -494,7 +498,13 @@ def prepare_history(vehicle: dict[str, Any]) -> PreparedHistory:
     observations = _raw_observations(vehicle)
     selected = _consolidate_episodes(observations)
     series = _exclude_isolated_errors(selected)
-    unresolved_unit, unresolved_reset = _assign_segments(series)
+    contradictory_unit, unresolved_reset = _assign_segments(series)
+    # Unknown-unit READ/OK rows are deliberately absent from ``series`` because
+    # they cannot be normalised. Preserve that absence as an explicit blocking
+    # state rather than forecasting through the missing observation.
+    unresolved_unit = contradictory_unit or any(
+        "unknown_odometer_unit" in obs.warnings for obs in observations
+    )
     events = [Event(obs) for obs in series]
     intervals = _build_intervals(events)
     warning_codes = sorted(
@@ -585,6 +595,8 @@ def _warnings(
         "forecast_horizon_exceeded": "The target is beyond the validated forecast horizon.",
         "cohort_prior_unavailable": "No defensible similar-vehicle prior was supplied.",
         "cohort_prior_used": "A versioned similar-vehicle prior was blended with sparse vehicle history.",
+        "registration_anchor_unavailable": "A dated new-at-registration anchor is unavailable, so a pre-first-MOT estimate is unsafe.",
+        "pre_registration_use_detected": "The vehicle was recorded as first used before registration, so a zero-mile registration anchor is unsafe.",
         "displayed_segment_only": "The result describes the current displayed-odometer segment, not unknowable lifetime mileage.",
     }
     codes = list(dict.fromkeys([*history.warning_codes, *extra]))
@@ -598,6 +610,8 @@ def _warnings(
                 "odometer_unit_contradiction",
                 "unresolved_odometer_reset",
                 "forecast_horizon_exceeded",
+                "registration_anchor_unavailable",
+                "pre_registration_use_detected",
             }
             else "warning",
             "message": messages.get(code, code.replace("_", " ").capitalize() + "."),
@@ -654,38 +668,39 @@ def _apply_interval(
         else None
     )
     if bucket:
+        assert calibration is not None
         low = estimate + bucket.error_q_low
         high = estimate + bucket.error_q_high
         if hard_low is not None:
             low = max(low, hard_low)
         if hard_high is not None:
             high = min(high, hard_high)
-        if low > high:
-            low, high = (
-                (hard_low if hard_low is not None else estimate),
-                (hard_high if hard_high is not None else estimate),
-            )
-        result["status"] = "estimated"
-        result["prediction_interval"] = {
-            "coverage": calibration.target_coverage,
-            "lower_mileage": _round_hundred(low),
-            "upper_mileage": _round_hundred(high),
-            "calibration_version": calibration.version,
-            "dataset_digest": calibration.dataset_digest,
-            "sample_size": bucket.sample_size,
-        }
-    else:
-        low = hard_low if hard_low is not None else max(0.0, estimate - fallback_spread)
-        high = hard_high if hard_high is not None else estimate + fallback_spread
-        result["status"] = "range_only"
-        result["range"] = {
-            "lower_mileage": _round_hundred(low),
-            "upper_mileage": _round_hundred(high),
-            "basis": "logical_bounds"
-            if hard_low is not None and hard_high is not None
-            else "rate_dispersion_not_calibrated",
-        }
-        result["warnings"] = _warnings(history, ["uncalibrated_range"])
+        if low <= high:
+            result["status"] = "estimated"
+            result["prediction_interval"] = {
+                "coverage": calibration.target_coverage,
+                "lower_mileage": _round_hundred(low),
+                "upper_mileage": _round_hundred(high),
+                "calibration_version": calibration.version,
+                "dataset_digest": calibration.dataset_digest,
+                "sample_size": bucket.sample_size,
+            }
+            return
+
+    # No eligible bucket, or its calibrated residual interval has no overlap
+    # with the hard logical bounds. Never relabel a synthetic fallback as a
+    # calibrated probability interval.
+    low = hard_low if hard_low is not None else max(0.0, estimate - fallback_spread)
+    high = hard_high if hard_high is not None else estimate + fallback_spread
+    result["status"] = "range_only"
+    result["range"] = {
+        "lower_mileage": _round_hundred(low),
+        "upper_mileage": _round_hundred(high),
+        "basis": "logical_bounds"
+        if hard_low is not None and hard_high is not None
+        else "rate_dispersion_not_calibrated",
+    }
+    result["warnings"] = _warnings(history, ["uncalibrated_range"])
 
 
 def estimate_displayed_mileage(
@@ -725,15 +740,24 @@ def estimate_displayed_mileage(
         )
         return result
 
-    # Bounded interpolation between trusted observations in the same segment.
-    for left, right in zip(history.events, history.events[1:]):
+    # Bounded interpolation is valid only across a trusted, non-decreasing
+    # interval. A small negative change stays in the same displayed segment for
+    # audit purposes, but it must never create inverted logical bounds.
+    for interval in history.intervals:
+        left, right = interval.left, interval.right
         if left.date < target_date < right.date and left.segment == right.segment:
+            if not interval.included or interval.delta_miles < 0:
+                result["reason"] = (
+                    "The surrounding MOT interval is not trustworthy enough for interpolation."
+                )
+                return result
             elapsed = (target_date - left.date).days
             total = (right.date - left.date).days
             estimate = left.miles + (right.miles - left.miles) * elapsed / total
+            assert interval.annual_rate is not None
             result["method"] = "bounded_interpolation"
             result["annual_rate_miles"] = round(
-                (right.miles - left.miles) * DAYS_PER_YEAR / total
+                interval.annual_rate
             )
             _apply_interval(
                 result,
@@ -751,21 +775,36 @@ def estimate_displayed_mileage(
     first = history.events[0]
     latest = history.events[-1]
     if target_date < first.date:
-        registration_date = _parse_date(
-            vehicle.get("registrationDate") or vehicle.get("firstUsedDate")
+        registration_date = _parse_date(vehicle.get("registrationDate"))
+        first_used_date = _parse_date(vehicle.get("firstUsedDate"))
+        previously_used_before_registration = (
+            registration_date is not None
+            and first_used_date is not None
+            and first_used_date < registration_date
         )
+        # A first-use date is not evidence of a near-zero odometer and can be
+        # years earlier for an imported/pre-used vehicle. Only registration can
+        # serve as the guarded new-vehicle anchor.
+        registration_anchor = registration_date
         if (
             not cohort_prior
             or not cohort_prior.defensible
-            or registration_date is None
-            or target_date < registration_date
+            or registration_anchor is None
+            or target_date < registration_anchor
+            or previously_used_before_registration
         ):
             result["reason"] = (
-                "A pre-first-MOT estimate is not defensible without a dated, versioned cohort prior."
+                "A pre-first-MOT estimate is not defensible without a new-at-registration anchor and a dated, versioned cohort prior."
             )
-            result["warnings"] = _warnings(history, ["cohort_prior_unavailable"])
+            if previously_used_before_registration:
+                extra = ["pre_registration_use_detected"]
+            elif registration_anchor is None:
+                extra = ["registration_anchor_unavailable"]
+            else:
+                extra = ["cohort_prior_unavailable"]
+            result["warnings"] = _warnings(history, extra)
             return result
-        age_to_first = max(1, (first.date - registration_date).days)
+        age_to_first = max(1, (first.date - registration_anchor).days)
         first_life_rate = first.miles * DAYS_PER_YEAR / age_to_first
         blended_rate = 0.7 * first_life_rate + 0.3 * cohort_prior.annual_rate_miles
         estimate = max(
