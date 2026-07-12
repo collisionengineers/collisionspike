@@ -36,6 +36,7 @@ hooks (`.claude/hooks/azure-route-guard.mjs` PreToolUse + `azure-churn-guard.mjs
 | Entra app-reg / token audience / Graph subs / Exchange-RBAC | `azure:entra-app-registration`; `microsoft-docs` | [entra-graph.md](./entra-graph.md) |
 | **Activate Box** (wire the JWT creds into KV, reconcile gates, smoke-test) | `azure:azure-compliance` / `mcp__azure__keyvault` | [box-activation.md](./box-activation.md) |
 | Postgres ops (RLS, app.role, audit) | `mcp__azure__postgres` / `psql` | [postgres.md](./postgres.md) |
+| Diagnose or reconcile `/api/inbound/counts` | `azure:azure-kusto` + `mcp__azure__postgres` | [postgres.md#inbound-dashboard-count-health-probe](./postgres.md#inbound-dashboard-count-health-probe) |
 | Understand any Microsoft behavior/limit/error | `microsoft-docs:microsoft-docs` **before** retrying | — |
 | What's deployed / inventory | `azure:azure-resource-lookup` → `mcp__azure__group_resource_list` | — |
 

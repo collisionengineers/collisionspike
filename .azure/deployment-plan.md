@@ -1,6 +1,6 @@
 # Azure deployment plan — production-readiness wave 1
 
-> **Status:** Validated
+> **Status:** Deployed
 
 Generated: 2026-07-12 (Europe/London)
 
@@ -13,7 +13,8 @@ complete. Runtime dependency checks remain mandatory.
 **Goal:** Deploy merged PR 61 (`d2ff80bb913033259e2e753b9e6a2384161e26be`) and PR 62
 (`09e817199d9cdda4066fae2401adae902b1cccf3`) to the existing live Azure stack.
 
-**Candidate:** `09e817199d9cdda4066fae2401adae902b1cccf3` (`origin/main`).
+**Candidate:** `54a04d131c0ee8051e354ebfe8ba1f6656db9947` (`origin/main`), the reviewed
+release-artifact merge containing PRs 61-63.
 
 **Scope:**
 
@@ -36,7 +37,7 @@ No database or resource rollback is involved.
 
 | Check | Result | Timestamp |
 |---|---|---|
-| Candidate and source gates | `origin/main` was exactly `09e817199d9cdda4066fae2401adae902b1cccf3`. Domain 551, SPA 421, API 585 and reciprocal-review 48 tests passed; ticket/doc/skill checks reported zero failures. | 2026-07-12 14:09 BST |
+| Candidate and source gates | The source candidate was exactly `09e817199d9cdda4066fae2401adae902b1cccf3`; PR 63 then committed the rebuilt deploy artifact and merged as final release tree `54a04d131c0ee8051e354ebfe8ba1f6656db9947`. Domain 551, SPA 421, API 585 and reciprocal-review 48 tests passed; ticket/doc/skill checks reported zero failures. | 2026-07-12 14:09 BST |
 | Production artifacts | Domain/API TypeScript builds and the SPA Vite build passed. `build-api.cjs` rebuilt a loadable bundle registering the expected 108 functions; production API dependencies are present. The deployed SPA folder contains the committed Static Web App configuration with matching SHA-256. | 2026-07-12 14:09 BST |
 | Azure target | Azure MCP and Azure CLI both resolved enabled default subscription `e6076573-23a5-46a8-acef-7e22d264e5db` and `rg-collisionspike-dev`. The API resource is Running with system-assigned identity and 108 registered functions. The Static Web App resolves to `proud-sky-04e318b03.7.azurestaticapps.net`. | 2026-07-12 14:09 BST |
 | Edge/auth boundary | API no-auth probe returned 401; SWA-origin CORS preflight returned 204; CORS readback contains only the production SWA origin. | 2026-07-12 14:09 BST |
@@ -45,8 +46,16 @@ No database or resource rollback is involved.
 
 ### Active deployment proof
 
-Pending `azure-deploy`: API and SPA publish receipts, function inventory, authenticated count parity,
-Chrome network/console/screenshots and post-release telemetry.
+| Check | Result | Timestamp |
+|---|---|---|
+| Data API publish | Functions Core Tools published `deploy/api` successfully to `cespk-api-dev`. The host returned `Running`, registered 108 functions, and exposed the repaired disjoint routes `inbound/{id:guid}` and `inbound/counts` plus `cases/{id:guid}`. | 2026-07-12 14:25 BST |
+| Static Web App publish | SWA CLI 2.0.9 published the reviewed `mockup-app/dist` artifact and committed `staticwebapp.config.json` to the production environment at `https://proud-sky-04e318b03.7.azurestaticapps.net`. | 2026-07-12 14:29 BST |
+| Edge and identity boundary | Missing API authentication returns 401 and the production SWA-origin preflight returns 204. The API managed identity still has its Key Vault, Blob, Queue and model data-plane roles; no identity, role, setting, schema or infrastructure change was made. | 2026-07-12 14:31 BST |
+| Authenticated browser proof | Signed-in Chrome loaded the dashboard with Not ready `204`, Review `191`, Held `124`, and live Inbox counts Receiving work `570`, Queries `199`, Other `141`, Needs sorting `673`. DevTools recorded authenticated `GET /api/inbound/counts` 200, all other dashboard requests 200 after their 204 preflights, no failed request and no console warning/error. An independent read-only Postgres query with `app.role=staff` returned the same `570 / 199 / 141 / 673`; the transient workstation firewall rule was removed and only `AllowAzureServices` remains. | 2026-07-12 14:49 BST |
+| UI proof | Chrome confirmed the three equal top-level case queues and absence of “Needs action”, “Check the flagged details”, and “Progress the case”. The images-only form contains Claimant name, Registration, Make, Vehicle model and Mileage in one group and contains no Insured name field. No case was created during this read-only release check. | 2026-07-12 14:35 BST |
+| Post-release telemetry | Application Insights `AppRequests` recorded five post-release `inboundEmailCounts` requests as HTTP 200. Focused queries after `2026-07-12T13:25:00Z` returned zero API 5xx requests, zero `inboundCountsFailed`/PostgreSQL `22P02` traces and zero API exceptions. | 2026-07-12 14:38 BST |
+
+**Deployed by:** `azure-deploy`, 2026-07-12 14:38 BST.
 
 ---
 

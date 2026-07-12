@@ -21,7 +21,8 @@ Verified by: ticket-verifier dispatch, transcribed by the orchestrating session,
 
 ## Reopened follow-up verdict — 2026-07-12
 
-TESTED (offline). The remaining Insured-name and layout regression is fixed in source and covered by the full SPA test/build gates. Live Chrome creation proof is still required after deployment, so the reopened ticket remains `now`.
+PENDING — the Insured-name/layout fix is deployed, but component coverage and a designated-case
+creation proof are still required, so the reopened ticket remains `now`.
 
 ### Evidence
 
@@ -29,9 +30,13 @@ TESTED (offline). The remaining Insured-name and layout regression is fixed in s
 - Images-only keyboard order is claimant name → registration → make → vehicle model → mileage, with no insured-name entry.
 - SPA tests: 413/413 passed across 30 files.
 - Production SPA build passed.
+- The deployed JS/CSS hashes match the reviewed release artifact.
+- Signed-in Chrome opened “Images only (no instructions yet)”. The form contained Claimant name,
+  Registration, Make, Vehicle model and Mileage in one field group and contained no Insured name.
 
 ### Pending
 
-- Deploy the reviewed SPA build.
 - At supported desktop/narrow widths and 200% zoom, confirm no overflow or clipped validation content.
+- Add a rendered component test for field absence, claimant submission/persistence, validation,
+  responsive grouping and keyboard order; the current helper/order tests do not satisfy this line.
 - Create one designated images-only test case and prove `insuredName` is absent, claimant name persists, and incomplete EVA data leaves the case Not Ready.

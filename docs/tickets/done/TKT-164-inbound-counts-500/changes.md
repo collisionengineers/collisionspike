@@ -1,9 +1,9 @@
 # Changes — TKT-164: Restore the live inbound dashboard counts
 
 ## Status
-API implementation is complete offline on `codex/tkt-164-inbound-route`; the dashboard retry state
-landed in PR 61. The dispatching loop moved this ticket from `backlog` to `now`; deployment and live
-verification remain pending.
+Merged in PR 62; the dashboard retry state landed in PR 61. The reviewed API and SPA artifacts were
+deployed on 2026-07-12 and the route/count contract was verified against Chrome, Application Insights,
+the Function inventory and an independent RLS-shaped Postgres read.
 
 ## Commit
 - `1fb580a` — constrain UUID detail routes, make inbound-count failures observable, and add API regressions.
@@ -33,9 +33,10 @@ verification remain pending.
 - Domain source: 26 files / 551 tests passed.
 - TypeScript: `tsc -b packages/domain api` passed.
 
-## Still required
-- Integrate the dashboard's retryable partial-error state from TKT-155.
-- Deploy the API and SPA through the normal validated deployment path.
-- Prove authenticated 200 counts, independent live-source parity, 401/403 behavior, correlation
-  telemetry on a controlled failure path, and clean Chrome network/console behavior before moving
-  the ticket through verification.
+## Live evidence
+- Signed-in `GET /api/inbound/counts` returns 200; a missing token returns 401.
+- Chrome rendered `570 / 199 / 141 / 673`, with no console error or failed dashboard request.
+- A read-only Postgres query under `app.role=staff` returned the same values.
+- Application Insights proved the former parameter-route/UUID collision and shows no post-release
+  5xx, `22P02`, correlated count failure or API exception.
+- The focused health/diagnostic procedure is recorded in `docs/azure/postgres.md`.
