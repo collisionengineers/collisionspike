@@ -67,6 +67,7 @@ import { makeRestParserTransport } from '../data/parser-rest-transport';
 import type { DataAccessExt } from '../data/rest-client';
 import type { NextCasePoResult } from '@cs/domain';
 import { acquireApiToken } from '../auth/msalConfig';
+import { createIdentityFields, type ManualIntakeMode } from './manual-intake-create';
 
 // Authenticated REST transport for the parser — replaces the connector-backed
 // transport (parser-connector-transport.ts, removed in plan 30 migration).
@@ -190,9 +191,26 @@ const useStyles = makeStyles({
   /* A two-up row for paired fields (Work provider + Principal, Make + Model). */
   pairRow: {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
     gap: tokens.spacingHorizontalM,
     paddingBottom: tokens.spacingVerticalM,
+    '@media (max-width: 720px)': { gridTemplateColumns: 'minmax(0, 1fr)' },
+  },
+  imageIdentityGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: `${tokens.spacingVerticalM} ${tokens.spacingHorizontalM}`,
+    paddingBottom: tokens.spacingVerticalM,
+    '& > *': { minWidth: 0 },
+    '@media (max-width: 720px)': { gridTemplateColumns: 'minmax(0, 1fr)' },
+  },
+  imageLookupCell: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) auto',
+    alignItems: 'end',
+    gap: tokens.spacingHorizontalS,
+    minWidth: 0,
+    '@media (max-width: 520px)': { gridTemplateColumns: 'minmax(0, 1fr)' },
   },
 
   /* Field clusters (mirrors CaseDetail) */
@@ -213,10 +231,11 @@ const useStyles = makeStyles({
   clusterBody: { paddingTop: tokens.spacingVerticalM },
   fieldRow: {
     display: 'grid',
-    gridTemplateColumns: '1fr auto',
+    gridTemplateColumns: 'minmax(0, 1fr) auto',
     gap: tokens.spacingHorizontalM,
     alignItems: 'start',
     paddingBottom: tokens.spacingVerticalM,
+    '@media (max-width: 720px)': { gridTemplateColumns: 'minmax(0, 1fr)' },
   },
   fieldMeta: {
     display: 'flex',
@@ -224,12 +243,17 @@ const useStyles = makeStyles({
     justifyContent: 'flex-end',
     gap: tokens.spacingHorizontalXS,
     paddingTop: '26px',
+    '@media (max-width: 720px)': {
+      justifyContent: 'flex-start',
+      paddingTop: 0,
+    },
   },
   /* A field with an inline action button to its right (enrich / normalise). */
   fieldWithAction: {
     display: 'flex',
     alignItems: 'flex-end',
     gap: tokens.spacingHorizontalS,
+    flexWrap: 'wrap',
   },
   fieldGrow: { flexGrow: 1 },
   inlineNote: {
@@ -330,7 +354,7 @@ type Phase = 'pick' | 'parsing' | 'review' | 'creating';
      instruction-only fields are absent; required = Received from / Received on /
      Vehicle details / Location; no provider → no Case/PO is minted (identity is
      the VRM until instructions arrive). */
-type IntakeMode = 'document' | 'manual' | 'images';
+type IntakeMode = ManualIntakeMode;
 
 export function ManualIntake() {
   const styles = useStyles();
@@ -487,6 +511,10 @@ export function ManualIntake() {
     setIssues([]);
     setFields(emptyEvaFields());
     setHasInstructions(false);
+    setProvider('');
+    setProviderCode('');
+    setProviderReference('');
+    setInsuredName('');
     setReceivedFrom('');
     setReceivedOn(todayDdMmYyyy());
     setMode('images');
@@ -603,10 +631,10 @@ export function ManualIntake() {
       // Image-only intake (TKT-024): required = Received from / Received on /
       // Vehicle details / Location (+ the VRM — the case's identity until
       // instructions arrive, TKT-118). Everything else is optional.
-      if (!vrm.trim()) missing.push('Vehicle Registration');
+      if (!vrm.trim()) missing.push('Registration');
       if (!receivedFrom.trim()) missing.push('Received from');
       if (!receivedOn.trim()) missing.push('Received on');
-      if (!fields.vehicleModel.value.trim()) missing.push('Vehicle Model');
+      if (!fields.vehicleModel.value.trim()) missing.push('Vehicle model');
       if (!fields.inspectionAddress.value.trim()) missing.push('Location');
       // B1: an images-only case exists BECAUSE photos arrived — require at least one,
       // and the create handler now uploads them (previously they were silently dropped).
@@ -638,7 +666,7 @@ export function ManualIntake() {
     // the created Case's EVA fields are self-consistent (Work Provider = provider).
     const evaForCreate: EvaFields = {
       ...fields,
-      workProvider: provider.trim()
+      workProvider: mode !== 'images' && provider.trim()
         ? { ...fields.workProvider, value: provider.trim(), reviewState: 'reviewed' }
         : fields.workProvider,
     };
@@ -654,12 +682,7 @@ export function ManualIntake() {
         // Image-only intake (TKT-024/TKT-118): NO provider is sent — the provider
         // is unknown until instructions arrive, so no Case/PO can be minted (the
         // server only mints under a supplied principal). Identity is the VRM.
-        ...(!isImagesOnly && provider.trim() ? { provider: provider.trim() } : {}),
-        ...(!isImagesOnly && providerCode.trim() ? { providerCode: providerCode.trim() } : {}),
-        ...(insuredName.trim() ? { insuredName: insuredName.trim() } : {}),
-        ...(!isImagesOnly && providerReference.trim()
-          ? { providerReference: providerReference.trim() }
-          : {}),
+        ...createIdentityFields(mode, { provider, providerCode, providerReference, insuredName }),
         // Intake status is automatic for image-only cases (the server recomputes
         // from the field/evidence state) — the form no longer offers a picker.
         status: isImagesOnly ? 'ingested' : status,
@@ -884,30 +907,32 @@ export function ManualIntake() {
 
             <div className={styles.identityRow}>{vrm.trim() && <VrmPlate vrm={vrm} size="large" />}</div>
 
-            {/* VRM — a REQUIRED EVA field (review #7), with the DVLA/DVSA lookup.
-                For an image-only case it is the case's IDENTITY (TKT-118). */}
-            <div className={styles.fieldRow}>
-              <div className={styles.fieldWithAction}>
-                <Field
-                  className={styles.fieldGrow}
-                  label="Vehicle Registration (VRM)"
-                  required
-                  {...(!vrm.trim()
-                    ? { validationState: 'error' as const, validationMessage: 'Required' }
-                    : {})}
-                >
-                  <Input value={vrm} onChange={(_, d) => setVrm(d.value)} />
-                </Field>
-                <Button
-                  icon={enriching ? <Spinner size="tiny" /> : <Car size={16} />}
-                  onClick={lookUpVehicle}
-                  disabled={enriching || !vrm.trim()}
-                >
-                  Look up vehicle details
-                </Button>
+            {/* Instruction-led intake keeps registration with the case identity.
+                Images-only intake renders it in the consolidated details group. */}
+            {mode !== 'images' && (
+              <div className={styles.fieldRow}>
+                <div className={styles.fieldWithAction}>
+                  <Field
+                    className={styles.fieldGrow}
+                    label="Vehicle Registration (VRM)"
+                    required
+                    {...(!vrm.trim()
+                      ? { validationState: 'error' as const, validationMessage: 'Required' }
+                      : {})}
+                  >
+                    <Input value={vrm} onChange={(_, d) => setVrm(d.value)} />
+                  </Field>
+                  <Button
+                    icon={enriching ? <Spinner size="tiny" /> : <Car size={16} />}
+                    onClick={lookUpVehicle}
+                    disabled={enriching || !vrm.trim()}
+                  >
+                    Look up vehicle details
+                  </Button>
+                </div>
+                <div />
               </div>
-              <div />
-            </div>
+            )}
 
             {/* Image-only intake (TKT-024): who sent the photos + when. The
                 provider fields below are ABSENT — no instructions, no provider,
@@ -980,17 +1005,19 @@ export function ManualIntake() {
               </>
             )}
 
-            {/* Insured name — optional for an image-only case (TKT-024). */}
-            <div className={styles.fieldRow}>
-              <Field
-                label="Insured Name"
-                required={mode !== 'images'}
-                {...(mode !== 'images' && !insuredName.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
-              >
-                <Input value={insuredName} onChange={(_, d) => setInsuredName(d.value)} />
-              </Field>
-              <div />
-            </div>
+            {/* Policyholder identity only exists on instruction-led intake. */}
+            {mode !== 'images' && (
+              <div className={styles.fieldRow}>
+                <Field
+                  label="Insured Name"
+                  required
+                  {...(!insuredName.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}
+                >
+                  <Input value={insuredName} onChange={(_, d) => setInsuredName(d.value)} />
+                </Field>
+                <div />
+              </div>
+            )}
 
             {/* Intake status (review #7) — instruction-led paths only; an image-only
                 case's status is automatic (TKT-024: "should be automatic regardless"). */}
@@ -1015,41 +1042,102 @@ export function ManualIntake() {
             )}
           </div>
 
-          {/* Claimant + Vehicle (make/model lookup lives here). Claimant details are
-              OPTIONAL for an image-only case (TKT-024). */}
-          <span className={styles.clusterHead}>
-            {mode === 'images' ? 'Claimant (optional)' : 'Provider & claimant'}
-          </span>
-          <div className={styles.clusterBody}>
-            {MANUAL_CLUSTER_KEYS[0].map((key) => (
-              <EvaFieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={mode !== 'images' && LABEL_FOR[key].required} field={fields[key]} onChange={onFieldChange} />
-            ))}
-          </div>
-
-          <span className={styles.clusterHead}>Vehicle</span>
-          <div className={styles.clusterBody}>
-            {/* Make (informational/enrichable) + Model side by side (review #11). */}
-            <div className={styles.pairRow}>
-              <Field label="Make">
-                <Input value={make} onChange={(_, d) => setMake(d.value)} />
-              </Field>
-              <Field label={LABEL_FOR.vehicleModel.label} required={LABEL_FOR.vehicleModel.required} {...(LABEL_FOR.vehicleModel.required && !fields.vehicleModel.value.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
-                <Input value={fields.vehicleModel.value} onChange={(_, d) => onFieldChange('vehicleModel', d.value)} />
-              </Field>
-            </div>
-            {/* Mileage — fillable by the same DVLA/DVSA lookup (review #12). */}
-            <div className={styles.fieldRow}>
-              <Field label={LABEL_FOR.mileage.label}>
-                <Input value={fields.mileage.value} onChange={(_, d) => onFieldChange('mileage', d.value)} />
-              </Field>
-              <div className={styles.fieldMeta}>
-                <ProvenanceBadge provenance={fields.mileage.provenance} reviewState={fields.mileage.reviewState} />
+          {mode === 'images' ? (
+            <>
+              <span className={styles.clusterHead}>Claimant and vehicle</span>
+              <div className={styles.clusterBody}>
+                <div className={styles.imageIdentityGrid}>
+                  <Field label="Claimant name">
+                    <Input
+                      value={fields.claimantName.value}
+                      onChange={(_, d) => onFieldChange('claimantName', d.value)}
+                    />
+                  </Field>
+                  <div className={styles.imageLookupCell}>
+                    <Field
+                      label="Registration"
+                      required
+                      {...(!vrm.trim()
+                        ? { validationState: 'error' as const, validationMessage: 'Required' }
+                        : {})}
+                    >
+                      <Input value={vrm} onChange={(_, d) => setVrm(d.value)} />
+                    </Field>
+                    <Button
+                      icon={enriching ? <Spinner size="tiny" /> : <Car size={16} />}
+                      onClick={lookUpVehicle}
+                      disabled={enriching || !vrm.trim()}
+                    >
+                      Look up vehicle details
+                    </Button>
+                  </div>
+                  <Field label="Make">
+                    <Input value={make} onChange={(_, d) => setMake(d.value)} />
+                  </Field>
+                  <Field
+                    label="Vehicle model"
+                    required
+                    {...(!fields.vehicleModel.value.trim()
+                      ? { validationState: 'error' as const, validationMessage: 'Required' }
+                      : {})}
+                  >
+                    <Input
+                      value={fields.vehicleModel.value}
+                      onChange={(_, d) => onFieldChange('vehicleModel', d.value)}
+                    />
+                  </Field>
+                  <Field label="Mileage">
+                    <Input
+                      value={fields.mileage.value}
+                      onChange={(_, d) => onFieldChange('mileage', d.value)}
+                    />
+                  </Field>
+                </div>
+                {MANUAL_CLUSTER_KEYS[1].map((key) => (
+                  <EvaFieldRow
+                    key={key}
+                    fieldKey={key}
+                    label={LABEL_FOR[key].label}
+                    required={false}
+                    field={fields[key]}
+                    onChange={onFieldChange}
+                  />
+                ))}
               </div>
-            </div>
-            {MANUAL_CLUSTER_KEYS[1].map((key) => (
-              <EvaFieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} field={fields[key]} onChange={onFieldChange} />
-            ))}
-          </div>
+            </>
+          ) : (
+            <>
+              <span className={styles.clusterHead}>Provider &amp; claimant</span>
+              <div className={styles.clusterBody}>
+                {MANUAL_CLUSTER_KEYS[0].map((key) => (
+                  <EvaFieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} field={fields[key]} onChange={onFieldChange} />
+                ))}
+              </div>
+
+              <span className={styles.clusterHead}>Vehicle</span>
+              <div className={styles.clusterBody}>
+                <div className={styles.pairRow}>
+                  <Field label="Make">
+                    <Input value={make} onChange={(_, d) => setMake(d.value)} />
+                  </Field>
+                  <Field label={LABEL_FOR.vehicleModel.label} required={LABEL_FOR.vehicleModel.required} {...(LABEL_FOR.vehicleModel.required && !fields.vehicleModel.value.trim() ? { validationState: 'error' as const, validationMessage: 'Required' } : {})}>
+                    <Input value={fields.vehicleModel.value} onChange={(_, d) => onFieldChange('vehicleModel', d.value)} />
+                  </Field>
+                </div>
+                <div className={styles.fieldRow}>
+                  <Field label={LABEL_FOR.mileage.label}>
+                    <Input value={fields.mileage.value} onChange={(_, d) => onFieldChange('mileage', d.value)} />
+                  </Field>
+                  <div className={styles.fieldMeta}>
+                    <ProvenanceBadge provenance={fields.mileage.provenance} reviewState={fields.mileage.reviewState} />
+                  </div>
+                </div>
+                {MANUAL_CLUSTER_KEYS[1].map((key) => (
+                  <EvaFieldRow key={key} fieldKey={key} label={LABEL_FOR[key].label} required={LABEL_FOR[key].required} field={fields[key]} onChange={onFieldChange} />
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Incident / location. The image-only variant (TKT-024) keeps ONLY the
               required Location — accident circumstances are instruction facts that
