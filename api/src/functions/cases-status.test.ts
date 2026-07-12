@@ -40,6 +40,7 @@ let probeRow: Rec;
 let lockedRow: Rec;
 let provenanceRows: Rec[];
 let evidenceRows: Rec[];
+let manualSourcePending: boolean;
 
 function caseRow(status: Parameters<typeof statusToInt>[0], duplicateKeys: unknown = null): Rec {
   return {
@@ -63,6 +64,7 @@ beforeEach(() => {
   lockedRow = caseRow('ingested');
   provenanceRows = [];
   evidenceRows = [];
+  manualSourcePending = false;
 
   db.query.mockReset();
   db.tx.mockReset();
@@ -78,6 +80,9 @@ beforeEach(() => {
     if (/FROM case_ c/i.test(sql) && /FOR UPDATE OF c/i.test(sql)) return [lockedRow];
     if (/FROM field_level_provenance/i.test(sql)) return provenanceRows;
     if (/FROM evidence/i.test(sql)) return evidenceRows;
+    if (/manual_intake_case_create_operation/i.test(sql)) {
+      return [{ pending: manualSourcePending }];
+    }
     if (/submitted_at = now\(\)/i.test(sql)) {
       lockedRow.status_code = params[0];
       return [{ id: 'case-1' }];
@@ -145,7 +150,7 @@ describe('EVA submission canonical re-check', () => {
     expect(lockedRow.status_code).toBe(statusToInt('ready_for_eva'));
   });
 
-  it('submits a genuinely ready, reviewed and unheld case', async () => {
+  it('blocks an incomplete source batch, then submits the same genuinely ready case after completion', async () => {
     lockedRow = {
       ...caseRow('ready_for_eva'),
       eva_work_provider: 'QDOS',
@@ -187,6 +192,11 @@ describe('EVA submission canonical re-check', () => {
       },
     ];
 
+    manualSourcePending = true;
+    await expect(markEvaSubmittedIfReady('case-1', 'staff-1')).resolves.toBe(false);
+    expect(txSql.some((sql) => /submitted_at = now\(\)/i.test(sql))).toBe(false);
+
+    manualSourcePending = false;
     await expect(markEvaSubmittedIfReady('case-1', 'staff-1')).resolves.toBe(true);
 
     expect(txSql[0]).toMatch(/FOR UPDATE OF c/i);

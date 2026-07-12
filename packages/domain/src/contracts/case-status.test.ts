@@ -7,6 +7,7 @@ import {
   missingRequiredFieldKeys,
   conflictFieldKeys,
   REQUIRED_FIELD_KEYS,
+  evaluateCaseReadiness,
   type CaseStatus,
   type ReviewableField,
   type StatusEvaluationInput,
@@ -161,6 +162,14 @@ describe('statusForReviewCase — merge-retired lock (TKT-141)', () => {
       sourceEvidencePending: true,
     });
     expect(statusForReviewCase(complete)).toBe('needs_review');
+    const readiness = evaluateCaseReadiness(complete);
+    expect(readiness.ready).toBe(false);
+    expect(readiness.sourceEvidenceReady).toBe(false);
+    expect(readiness.checks).toContainEqual(expect.objectContaining({
+      id: 'source-evidence',
+      ok: false,
+      group: 'source',
+    }));
     expect(statusForReviewCase({ ...complete, status: 'done' })).toBe('done');
     expect(statusForReviewCase({ ...complete, mergedInto: 'survivor-case' })).toBe(
       'linked_to_instruction',
