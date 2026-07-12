@@ -75,7 +75,7 @@ jobs:
             for (const prNumber of prNumbers) {
               if (!Number.isSafeInteger(prNumber) || prNumber <= 0) {
                 core.setFailed("Unable to resolve a valid pull request number.");
-                return;
+                continue;
               }
               const { data: pull } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
               const headSha = pull.head.sha;

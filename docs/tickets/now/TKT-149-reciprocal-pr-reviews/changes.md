@@ -34,6 +34,7 @@ implemented and offline-tested; live pull-request proof pending
 
 - `.github/scripts/review-marker-status.mjs` is the single canonical marker parser/evaluator.
 - `.github/workflows/reciprocal-ai-review-markers.yml` never checks out or executes request-head code. It loads the evaluator from the trusted base commit, writes pending first, and then writes success/failure to the exact current head. Base retargeting and `main` pushes recalculate open requests.
+- A malformed pull number on a base-branch push now fails that item and continues evaluating the remaining open requests instead of returning from the whole batch.
 - The current private GitHub Free repository cannot make this status a required branch-protection/ruleset check. The visible status and local ready/merge gate are implemented; browser/manual merge prevention remains externally gated on a plan that supports required checks.
 
 ## Documentation and tests
@@ -41,3 +42,9 @@ implemented and offline-tested; live pull-request proof pending
 - `docs/PR-REVIEW-GUARD.md` records normal use, refresh after pushes, failure recovery, security boundaries and the honest GitHub-plan limitation.
 - `npm run test:pr-review-hooks` runs the runner and canonical marker suites.
 - The fixture suite covers hook schemas, unrelated-command fail-open behavior, wrapper/REST/GraphQL/MCP bypasses, forced-draft semantics, strict target parsing, atomic merge arguments, Windows-safe executable resolution, Claude permission paths, reviewer timeouts, per-commit context, order/outcomes, exact revision/digests, comment IDs, caller state, live/stale locks, ready-state races, head changes and safe cleanup. The final count is recorded in `verification.md` after the implementation freeze.
+
+## Review disposition
+
+- Claude's `.claude/settings.json` exec-form concern was checked against the official Claude hooks reference: `command` plus `args` is the documented direct-spawn form, and placeholders are substituted inside every argument. A fresh non-safe-mode Claude 2.1.202 session loaded the project settings, ran a Bash call through the project hooks, returned `v24.14.0`, and exited 0.
+- Codex's concern that `Edit(...)` would not authorize Claude's Write tool is disproved by the exact live review that created `claude-review.md` and posted the Claude marker through the constrained command. Claude's permission rules intentionally use `Edit(...)` as the scoped file-editor rule.
+- Claude's base-push loop finding was accepted and fixed.

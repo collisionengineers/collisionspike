@@ -137,6 +137,7 @@ test('status backstop recalculates on base edits and default-branch pushes witho
   assert.match(workflow, /ready_for_review, edited/u);
   assert.match(workflow, /push:\s*\n\s+branches: \[main\]/u);
   assert.match(workflow, /state: "open"/u);
+  assert.match(workflow, /core\.setFailed\("Unable to resolve a valid pull request number\."\);\s+continue;/u);
   assert.match(workflow, /ref: baseSha/u);
   assert.doesNotMatch(workflow, /actions\/checkout/u);
 });
