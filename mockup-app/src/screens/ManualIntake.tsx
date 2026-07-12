@@ -69,6 +69,13 @@ import type { NextCasePoResult } from '@cs/domain';
 import { acquireApiToken } from '../auth/msalConfig';
 import { createIdentityFields, type ManualIntakeMode } from './manual-intake-create';
 import { manualIntakeEvidenceNotice } from './evidence-upload-result';
+import {
+  isImageFile,
+  isInstructionFile,
+  MANUAL_INTAKE_ACCEPT,
+  manualIntakeFileRejection,
+  partitionManualIntakeFiles,
+} from './manual-intake-files';
 
 // Authenticated REST transport for the parser — replaces the connector-backed
 // transport (parser-connector-transport.ts, removed in plan 30 migration).
@@ -309,23 +316,6 @@ const CONTRACT_REQUIRED: ReadonlySet<EvaFieldKey> = new Set(
 /* Inspection Type is a constant for manual intake — always a desktop / image-based
    "Vehicle Damage Inspection". Recorded, never configured (review #15). */
 
-/* The instruction-document parser supports these; images ride along as evidence. */
-const INSTRUCTION_EXT = ['.pdf', '.docx', '.doc', '.eml', '.msg'];
-/* The dropzone accepts the instruction doc PLUS extra evidence (images, .eml/.msg). */
-const ACCEPT = '.jpg,.jpeg,.png,.webp,.pdf,.docx,.doc,.eml,.msg,image/jpeg,image/png,image/webp';
-
-function isInstructionFile(f: File): boolean {
-  const n = f.name.toLowerCase();
-  return INSTRUCTION_EXT.some((ext) => n.endsWith(ext));
-}
-function isImageFile(f: File): boolean {
-  const type = f.type.toLowerCase().split(';')[0].trim();
-  if (type.startsWith('image/')) {
-    return ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(type);
-  }
-  return /\.(jpe?g|png|webp)$/i.test(f.name);
-}
-
 /* Today as DD/MM/YYYY — the "Inspect on" default when the document carries none. */
 function todayDdMmYyyy(): string {
   const d = new Date();
@@ -418,9 +408,17 @@ export function ManualIntake() {
       { intent },
     );
 
+  const filePartition = useMemo(() => partitionManualIntakeFiles(files), [files]);
+  const unsupportedFiles = filePartition.rejected;
   /* The first instruction-type file is the parse target; the rest are evidence. */
-  const instructionFile = useMemo(() => files.find(isInstructionFile), [files]);
-  const hasImages = useMemo(() => files.some(isImageFile), [files]);
+  const instructionFile = useMemo(
+    () => filePartition.accepted.find(isInstructionFile),
+    [filePartition.accepted],
+  );
+  const hasImages = useMemo(
+    () => filePartition.accepted.some(isImageFile),
+    [filePartition.accepted],
+  );
 
   /* Derived, non-configurable case type (review #5). */
   const caseType: CaseType = useMemo(
@@ -445,8 +443,10 @@ export function ManualIntake() {
     });
   };
 
-  const removeFile = (index: number) =>
+  const removeFile = (index: number) => {
+    setError(undefined);
     setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
   /* ---- Drag-and-drop (review #1) ---- */
   const onDragOver = (e: React.DragEvent) => {
@@ -499,6 +499,10 @@ export function ManualIntake() {
 
   /* Fully-manual entry (review #17): straight to the review form, empty fields. */
   const startManual = () => {
+    if (unsupportedFiles.length > 0) {
+      setError('Remove the files marked Not supported before continuing.');
+      return;
+    }
     setError(undefined);
     setIssues([]);
     setFields(emptyEvaFields());
@@ -513,6 +517,10 @@ export function ManualIntake() {
      instruction-only fields don't exist yet, so the form drops them; the
      inspection Location stays a REQUIRED field, and no reason is asked for. */
   const startImagesOnly = () => {
+    if (unsupportedFiles.length > 0) {
+      setError('Remove the files marked Not supported before continuing.');
+      return;
+    }
     setError(undefined);
     setIssues([]);
     setFields(emptyEvaFields());
@@ -532,6 +540,7 @@ export function ManualIntake() {
      added later, or when a failed parse returns to 'pick'. */
   useEffect(() => {
     if (phase !== 'pick') return;
+    if (unsupportedFiles.length > 0) return;
     if (!instructionFile) {
       autoParsedRef.current = null;
       return;
@@ -541,7 +550,7 @@ export function ManualIntake() {
     autoParsedRef.current = key;
     void runParse();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [instructionFile, phase]);
+  }, [instructionFile, phase, unsupportedFiles.length]);
 
   /* Seed the per-case hold from the admin "hold by default" gate, once, when it
      first resolves; a later manual toggle then sticks. */
@@ -679,7 +688,7 @@ export function ManualIntake() {
     setPhase('creating');
     setError(undefined);
     try {
-      const evidenceFiles = files.filter((f) => f !== instructionFile);
+      const evidenceFiles = filePartition.accepted.filter((f) => f !== instructionFile);
       const evidenceCount = evidenceFiles.length;
       const isImagesOnly = mode === 'images';
       const { id } = await getDataAccess().createCase({
@@ -797,7 +806,7 @@ export function ManualIntake() {
             <input
               ref={fileInputRef}
               type="file"
-              accept={ACCEPT}
+              accept={MANUAL_INTAKE_ACCEPT}
               multiple
               style={{ display: 'none' }}
               onChange={(e) => {
@@ -838,6 +847,7 @@ export function ManualIntake() {
                 {files.map((f, i) => {
                   const isDoc = f === instructionFile;
                   const isImg = isImageFile(f);
+                  const rejection = manualIntakeFileRejection(f);
                   return (
                     <div key={`${f.name}-${f.size}-${i}`} className={styles.fileChip}>
                       {isImg ? <ImageIcon size={14} aria-hidden /> : <FileText size={14} aria-hidden />}
@@ -848,9 +858,9 @@ export function ManualIntake() {
                         className={styles.fileTag}
                         size="small"
                         appearance="tint"
-                        color={isDoc ? 'danger' : 'informative'}
+                        color={isDoc || rejection ? 'danger' : 'informative'}
                       >
-                        {isDoc ? 'Instruction' : isImg ? 'Image' : 'Evidence'}
+                        {rejection ? 'Not supported' : isDoc ? 'Instruction' : isImg ? 'Image' : 'Evidence'}
                       </Badge>
                       <Button
                         appearance="subtle"
@@ -864,6 +874,15 @@ export function ManualIntake() {
                   );
                 })}
               </div>
+            )}
+            {unsupportedFiles.length > 0 && (
+              <MessageBar intent="warning" className={styles.barAbove}>
+                <MessageBarBody>
+                  <MessageBarTitle>Some files can’t be added</MessageBarTitle>
+                  {unsupportedFiles.map(({ file }) => file.name).join(' · ')}. Use JPG, PNG, WebP,
+                  PDF, Word or email files. Remove these files to continue.
+                </MessageBarBody>
+              </MessageBar>
             )}
             {files.length > 0 && !instructionFile && (
               <Caption1 className={styles.hint}>

@@ -17245,9 +17245,12 @@ async function requestArchiveMirrorIfEligible(q, row) {
   if (row.excluded !== false || !row.id || !row.case_id || !storagePath || boxFileId) {
     return void 0;
   }
-  return requestArchiveMirror(q, row);
+  return requestArchiveMirrorGeneration(
+    q,
+    row
+  );
 }
-async function requestArchiveMirror(q, row) {
+async function requestArchiveMirrorGeneration(q, row) {
   const requested = await q(
     `INSERT INTO archive_mirror_outbox
        (evidence_id, case_id, requested_generation, completed_generation,
@@ -17265,8 +17268,12 @@ async function requestArchiveMirror(q, row) {
      RETURNING requested_generation`,
     [row.id, row.case_id]
   );
-  if (!requested[0]) throw new Error("archive mirror request returned no generation");
-  return Number(requested[0].requested_generation);
+  return requested[0] ? Number(requested[0].requested_generation) : void 0;
+}
+async function requestArchiveMirror(q, row) {
+  const generation = await requestArchiveMirrorGeneration(q, row);
+  if (generation === void 0) throw new Error("archive mirror request returned no generation");
+  return generation;
 }
 
 // api/src/functions/internal.ts
