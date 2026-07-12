@@ -1,6 +1,6 @@
 # Azure deployment plan — production-readiness wave 1
 
-> **Status:** Deployed
+> **Status:** Validated
 
 Generated: 2026-07-12 (Europe/London)
 
@@ -8,7 +8,65 @@ The user's explicit instruction to push, merge, deploy every changed area, and e
 features is the approval for this plan. External legal/security approvals are operator-attested as
 complete. Runtime dependency checks remain mandatory.
 
-## Active release — 2026-07-12
+## Active release — 2026-07-12 (TKT-165 Add evidence)
+
+**Goal:** Deploy merged PR 65 (`7883a6702cb670ea4fa2ae3f18d2a38ccee30ef5`) to the existing
+live Azure stack and prove staff-selected evidence is stored, classified, mirrored and reflected in
+case readiness without duplicate work on retry.
+
+**Candidate:** `7883a6702cb670ea4fa2ae3f18d2a38ccee30ef5` (`origin/main`), whose exact PR head
+`1d10f63b6245be9d091f89da69b38304f447408d` passed the reciprocal Claude and Codex review gate.
+
+**Scope:**
+
+- PostgreSQL `cespk-pg-dev/collisionspike`: apply only the additive, idempotent
+  `2026-07-12-tkt165-staff-evidence-upload.sql` delta and verify forced RLS, grants, constraints and
+  replay safety.
+- Data API `cespk-api-dev`: publish the reviewed evidence-upload, durable owner/cleanup,
+  validation and internal classification-claim contract with the rebuilt Linux Sharp package.
+- Orchestration `cespk-orch-dev`: publish the Blob-backed staff-photo classification and cleanup
+  sweep, including the pre-claim exclusion of Box rows while Archive access is unavailable.
+- Static Web App `cespk-spa-dev`: publish truthful Add evidence/manual-intake progress, partial retry,
+  duplicate-name and unsupported-file handling.
+
+**Order:** Apply and verify the database delta; publish API and smoke its function/auth boundary;
+publish orchestration and smoke its function/timer inventory; build and publish the SPA with its
+Static Web App configuration; then perform the designated-test-case browser, database, Blob and
+Archive proof. Archive writes are restricted to test root `392761581105`; all other Archive access
+is read-only.
+
+**Rollback:** Prefer a forward repair. The schema delta is additive and remains in place. If a code
+surface regresses, restore only that surface's preceding artifact in reverse exposure order (SPA,
+orchestration, API) while keeping the compatibility-safe API-first contract. Do not delete upload
+ownership rows or evidence as rollback.
+
+### Active validation proof
+
+| Check | Result | Timestamp |
+|---|---|---|
+| Candidate and source gates | Candidate is exact merged `origin/main` `7883a6702cb670ea4fa2ae3f18d2a38ccee30ef5`; PR 65's exact head passed signed Claude + Codex review. `verify-all.mjs` passed 8/8 with zero failures: API 615, orchestration 401, domain 1,102 and SPA 440 tests. Focused TKT-165 reruns passed API 55, orchestration 33 and SPA 16 tests. | 2026-07-12 19:18 BST |
+| Production artifacts and schema | API/orchestration/domain TypeScript and SPA production builds passed. Both Function bundles load-smoked; API is syntax-valid with Sharp externalised and Linux x64 Sharp/libvips ELF binaries installed; the rebuilt orchestration bundle contains cleanup, Blob classification and pre-claim Box exclusion. SPA `dist` contains the Static Web App configuration with matching SHA-256. The exact database delta applied, replayed idempotently, and proved both tables forced-RLS, both restrictive no-delete policies, SELECT/INSERT/UPDATE-only app grants, both indexes and zero rows. | 2026-07-12 19:18 BST |
+| Azure target and policy | Azure MCP + WSL Azure CLI resolved enabled/default `Azure subscription 1` (`e6076573-23a5-46a8-acef-7e22d264e5db`), `rg-collisionspike-dev`, running `cespk-api-dev` and `cespk-orch-dev`, and `cespk-spa-dev`. No policy assignments apply at the target resource-group scope. Pre-release counts are API 108 / orchestration 87. | 2026-07-12 19:18 BST |
+| Edge/auth boundary | Missing API authentication returns 401; production-SWA-origin CORS preflight returns 204; CORS readback contains only `https://proud-sky-04e318b03.7.azurestaticapps.net`. | 2026-07-12 19:18 BST |
+
+**Validated by:** `azure-validate`, 2026-07-12 19:18 BST.
+
+### Active deployment proof
+
+| Check | Result | Timestamp |
+|---|---|---|
+| PostgreSQL delta | Applied exact additive TKT-165 delta and replayed it idempotently. Both new tables have forced RLS, staff/admin read-write policies, restrictive admin-only delete policies, `cespk_app` has no DELETE grant, both required indexes exist, and both tables contain zero rows before code rollout. Transient firewall rule removed; only `AllowAzureServices` remains. | 2026-07-12 19:17 BST |
+| Data API publish | PENDING | PENDING |
+| Orchestration publish | PENDING | PENDING |
+| Static Web App publish | PENDING | PENDING |
+| Designated test-case proof | PENDING | PENDING |
+| Post-release telemetry | PENDING | PENDING |
+
+**Deployed by:** PENDING.
+
+---
+
+## Previous deployed release record — 2026-07-12 (dashboard wave)
 
 **Goal:** Deploy merged PR 61 (`d2ff80bb913033259e2e753b9e6a2384161e26be`) and PR 62
 (`09e817199d9cdda4066fae2401adae902b1cccf3`) to the existing live Azure stack.
