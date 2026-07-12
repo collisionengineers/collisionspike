@@ -148,6 +148,13 @@ describe('explicit case save transaction', () => {
     expect(calls.filter(({ sql }) => /INSERT INTO inspection_address/i.test(sql))).toHaveLength(1);
     expect(calls.some(({ sql }) => /status_recompute_requested_generation/i.test(sql))).toBe(false);
 
+    const provenanceUpdates = calls.filter(({ sql }) => /UPDATE field_level_provenance/i.test(sql));
+    expect(provenanceUpdates).not.toHaveLength(0);
+    for (const update of provenanceUpdates) {
+      expect(update.sql).toMatch(/WHERE id = \(\s*SELECT id[\s\S]*source_type_code = \$4/i);
+      expect(update.sql).not.toMatch(/WHERE case_id = \$1 AND field_name = \$2\s*RETURNING/i);
+    }
+
     const audits = calls.filter(({ sql }) => /INSERT INTO audit_event/i.test(sql));
     expect(audits).toHaveLength(1);
     expect(JSON.stringify(audits[0].params)).toContain('Claimant Name');

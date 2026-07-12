@@ -324,7 +324,15 @@ async function upsertManualProvenanceStrict(
     `UPDATE field_level_provenance
         SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
             review_state_code = $5, updated_at = now()
-      WHERE case_id = $1 AND field_name = $2
+      WHERE id = (
+        SELECT id
+        FROM field_level_provenance
+        WHERE case_id = $1
+          AND field_name = $2
+          AND source_type_code = $4
+        ORDER BY updated_at DESC, id
+        LIMIT 1
+      )
       RETURNING id`,
     [caseId, fieldName, value, staff, reviewed],
   );
