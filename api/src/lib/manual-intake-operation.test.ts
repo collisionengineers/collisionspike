@@ -131,6 +131,16 @@ describe('manual intake operation', () => {
       fileCount: 2,
     })).toBe(true);
     expect(await manualIntakeEvidencePending(q, 'case-3')).toBe(false);
+
+    // A response can be lost after completion. If the handler then changes the
+    // selection, the operation must reopen the same case instead of trapping them
+    // on the old completed binding or minting another case.
+    expect(await beginManualIntakeOperation(q, {
+      ...binding,
+      uploadIdempotencyKey: 'manual-upload-operation-0005',
+      expectedFileCount: 1,
+    })).toBe('case-3');
+    expect(await manualIntakeEvidencePending(q, 'case-3')).toBe(true);
   });
 
   it('refuses a retry key reused by a different actor or changed case request', async () => {

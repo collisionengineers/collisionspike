@@ -74,11 +74,6 @@ export async function beginManualIntakeOperation(
   const bindingChanged =
     operation.upload_idempotency_key !== uploadKey ||
     Number(operation.expected_file_count) !== input.expectedFileCount;
-  if (bindingChanged && operation.evidence_completed_at) {
-    throw new ManualIntakeOperationConflict(
-      'This case attempt has already finished with a different set of files.',
-    );
-  }
   if (bindingChanged) {
     await q(
       `UPDATE manual_intake_case_create_operation
