@@ -445,7 +445,7 @@ export async function applyParserFields(
   const provenance: Array<{
     field: string;
     value: string;
-    sourceType: 'pdf_extraction' | 'corpus';
+    sourceType: 'pdf_extraction' | 'email_text' | 'corpus';
     sourceLabel: string;
   }> = [];
 
@@ -477,8 +477,8 @@ export async function applyParserFields(
       provenance.push({
         field: cand.provenanceField,
         value: cand.value,
-        sourceType: 'pdf_extraction',
-        sourceLabel: 'From instructions',
+        sourceType: cand.sourceType ?? 'pdf_extraction',
+        sourceLabel: cand.sourceLabel ?? 'From instructions',
       });
     }
   }
@@ -671,9 +671,15 @@ export async function applyParserFields(
     });
   }
   const pdfSourceTypeCode = sourceTypeCodec.toInt('pdf_extraction') ?? 100000001;
+  const emailSourceTypeCode = sourceTypeCodec.toInt('email_text') ?? 100000002;
   const corpusSourceTypeCode = sourceTypeCodec.toInt('corpus') ?? 100000003;
   for (const p of provenance) {
-    const sourceTypeCode = p.sourceType === 'corpus' ? corpusSourceTypeCode : pdfSourceTypeCode;
+    const sourceTypeCode =
+      p.sourceType === 'corpus'
+        ? corpusSourceTypeCode
+        : p.sourceType === 'email_text'
+          ? emailSourceTypeCode
+          : pdfSourceTypeCode;
     await query(
       `INSERT INTO field_level_provenance
          (name, case_id, field_name, value, source_type_code, source_label)
