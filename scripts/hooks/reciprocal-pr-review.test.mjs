@@ -191,6 +191,11 @@ test('compound, web, interactive, alias, path-qualified, API, GraphQL and MCP by
     'gh -R acme/repo api repos/acme/repo/pulls -f title=x -f head=branch -f base=main',
     'C:\\tools\\gh.exe api repos/acme/repo/pulls -f title=x -f head=branch -f base=main',
     'pwsh -NoProfile -Command gh api repos/acme/repo/pulls -f title=x -f head=branch -f base=main',
+    'pwsh -NoProfile -Command "gh api repos/acme/repo/pulls -f title=x -f head=branch -f base=main"',
+    'powershell -NoProfile -Command "& gh api repos/acme/repo/pulls --method POST --input body.json"',
+    'cmd /c "gh api repos/acme/repo/pulls -f title=x -f head=branch -f base=main"',
+    'wsl sh -lc "gh api repos/acme/repo/pulls -f title=x -f head=branch -f base=main"',
+    'gh api repos/acme/repo/p%75lls -f title=x -f head=branch -f base=main',
     'gh api -X PUT repos/acme/repo/pulls/42/merge',
     'gh api -XPUT repos/acme/repo/pulls/42/merge',
     'gh api -X POST /repos/acme/repo/pulls -f title=x',
@@ -462,18 +467,24 @@ test('canonical evaluator rejects untrusted, tampered, stale, and changes-reques
   const validClaude = reviewComment('claude', current, 10);
   const validCodex = reviewComment('codex', current, 11);
   assert.throws(() => verifyReviewMarkers(current, [{ ...validClaude, author_association: 'NONE' }, validCodex]), /claude: missing/u);
-  assert.throws(() => verifyReviewMarkers(current, [{ ...validClaude, body: `tampered\n${validClaude.body}` }, validCodex]), /claude: missing/u);
+  assert.throws(() => verifyReviewMarkers(current, [{ ...validClaude, body: `tampered\n${validClaude.body}` }, validCodex]), /claude: invalid/u);
   assert.throws(() => verifyReviewMarkers(current, [validClaude, reviewComment('codex', current, 12, 'CHANGES_REQUESTED')]), /codex: changes-requested/u);
 });
 
 test('reviewer comment selection uses the exact trusted canonical comment id, never edit-last', () => {
   const current = pr();
+  const invalidNewer = reviewComment('claude', current, 48, 'CHANGES_REQUESTED', '2026-07-12T12:00:00Z');
+  invalidNewer.body = invalidNewer.body.replace('No findings.', 'Tampered after review.');
   const comments = [
     reviewComment('claude', current, 31, 'PASS', '2026-07-12T10:00:00Z'),
     reviewComment('claude', current, 47, 'PASS', '2026-07-12T11:00:00Z'),
-    reviewComment('claude', current, 99, 'PASS', '2026-07-12T12:00:00Z', 'NONE'),
+    invalidNewer,
+    reviewComment('claude', current, 99, 'PASS', '2026-07-12T13:00:00Z', 'NONE'),
   ];
-  assert.equal(findReviewerComment(comments, 'claude').commentId, 47);
+  const selected = findReviewerComment(comments, 'claude');
+  assert.equal(selected.commentId, 48);
+  assert.equal(selected.parsed.kind, 'invalid');
+  assert.throws(() => verifyReviewMarkers(current, [comments[0], comments[1], invalidNewer, reviewComment('codex', current, 50)]), /claude: invalid/u);
 });
 
 test('review comment creation and updates use payload files rather than body argv', () => {

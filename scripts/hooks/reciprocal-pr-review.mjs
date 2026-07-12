@@ -113,17 +113,24 @@ function normalizedToolName(value) {
 
 function looksLikePullRequestApiMutation(tokens, raw) {
   const lower = raw.toLowerCase();
+  let endpointText = lower;
+  try {
+    endpointText = decodeURIComponent(lower);
+  } catch {
+    // A malformed escape is not repaired; the undecoded command is still checked below.
+  }
   if (lower.includes('createpullrequest') || lower.includes('create_pull_request')) return true;
   const executable = tokens[0]?.toLowerCase();
   const canonicalGhApi = (executable === 'gh' || executable === 'gh.exe') && ghTopLevelCommand(tokens) === 'api';
   if (canonicalGhApi && tokens.some((token) => token.toLowerCase() === 'graphql')) return true;
   const mutatingInput = flagPresent(tokens, '-X', '--method', '-f', '--raw-field', '-F', '--field', '--input')
-    || tokens.some((token) => /^-(?:X|f|F).+/u.test(token));
-  const pullEndpoint = /(?:^|[\s'"=])(?:https:\/\/api\.github\.com\/)?\/?repos\/[^\s/]+\/[^\s/]+\/pulls(?:\/\d+)?(?:\/merge)?(?:[\s?'"=]|$)/u.test(lower);
+    || tokens.some((token) => /^-(?:X|f|F).+/u.test(token))
+    || /(?:^|[\s'"`])(?:-x|--method|-f|--raw-field|--field|--input)(?:$|[=\s'"`]|[^\s'"`=])/u.test(endpointText);
+  const pullEndpoint = /(?:^|[\s'"=])(?:https:\/\/api\.github\.com\/)?\/?repos\/[^\s/]+\/[^\s/]+\/pulls(?:\/\d+)?(?:\/merge)?(?:[\s?'"=]|$)/u.test(endpointText);
   if (mutatingInput && pullEndpoint) return true;
-  if (pullEndpoint && /\/pulls\/\d+\/merge(?:[\s?'"=]|$)/u.test(lower)) return true;
-  if (/api\.github\.com\/(?:graphql|repos\/[^\s/]+\/[^\s/]+\/pulls)/u.test(lower)
-      && /(?:\bpost\b|\bput\b|\bpatch\b|\bdelete\b|--data|-d\b|--body|--input|mutation\b)/u.test(lower)) return true;
+  if (pullEndpoint && /\/pulls\/\d+\/merge(?:[\s?'"=]|$)/u.test(endpointText)) return true;
+  if (/api\.github\.com\/(?:graphql|repos\/[^\s/]+\/[^\s/]+\/pulls)/u.test(endpointText)
+      && /(?:\bpost\b|\bput\b|\bpatch\b|\bdelete\b|--data|-d\b|--body|--input|mutation\b)/u.test(endpointText)) return true;
   return false;
 }
 
@@ -537,7 +544,7 @@ export function verifyReviewMarkers(pr, comments) {
 }
 
 function commentOrder(comment, index) {
-  const timestamp = Date.parse(comment.updated_at || comment.created_at || '');
+  const timestamp = Date.parse(comment.created_at || '');
   return { timestamp: Number.isFinite(timestamp) ? timestamp : 0, id: String(comment.id ?? index), index };
 }
 
@@ -553,7 +560,7 @@ export function findReviewerComment(comments, reviewer) {
   for (const [index, comment] of comments.entries()) {
     if (!TRUSTED_ASSOCIATIONS.has(String(comment.author_association || '').toUpperCase())) continue;
     const parsed = parseReviewComment(comment.body);
-    if (parsed.kind !== 'review' || parsed.reviewer !== reviewer || comment.id === null || comment.id === undefined) continue;
+    if (parsed.kind === 'none' || (parsed.reviewer && parsed.reviewer !== reviewer) || comment.id === null || comment.id === undefined) continue;
     const order = commentOrder(comment, index);
     if (isLaterComment(order, selected?.order)) selected = { commentId: comment.id, order, parsed };
   }
@@ -562,7 +569,7 @@ export function findReviewerComment(comments, reviewer) {
 
 function hasCurrentReviewerAttestation(comments, reviewer, pr) {
   const selected = findReviewerComment(comments, reviewer);
-  return Boolean(selected && selected.parsed.head === pr.headRefOid && selected.parsed.base === pr.baseRefOid);
+  return Boolean(selected && selected.parsed.kind === 'review' && selected.parsed.head === pr.headRefOid && selected.parsed.base === pr.baseRefOid);
 }
 
 function processIsAlive(pid) {

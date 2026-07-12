@@ -75,7 +75,53 @@ test("tampering with the visible body invalidates its digest", () => {
   claude.body = claude.body.replace("No blocking findings.", "Blocking finding removed.");
   const result = evaluate([claude, reviewComment({ id: 2, reviewer: "codex" })]);
   assert.equal(parseReviewComment(claude.body).kind, "invalid");
-  assert.equal(result.reviewers.claude.status, "missing");
+  assert.equal(result.reviewers.claude.status, "invalid");
+});
+
+test("a newer trusted invalid claim shadows an older valid pass", () => {
+  const older = reviewComment({
+    id: 1,
+    reviewer: "claude",
+    outcome: "pass",
+    updatedAt: "2026-07-12T10:00:00Z",
+  });
+  const newer = reviewComment({
+    id: 3,
+    reviewer: "claude",
+    outcome: "changes-requested",
+    updatedAt: "2026-07-12T11:00:00Z",
+  });
+  newer.body = newer.body.replace("No blocking findings.", "Tampered after review.");
+
+  const result = evaluate([
+    older,
+    reviewComment({ id: 2, reviewer: "codex", updatedAt: "2026-07-12T10:30:00Z" }),
+    newer,
+  ]);
+  assert.equal(result.ok, false);
+  assert.equal(result.reviewers.claude.status, "invalid");
+  assert.equal(result.reviewers.claude.commentId, 3);
+});
+
+test("editing an older comment does not make it newer than a later claim", () => {
+  const older = reviewComment({
+    id: 1,
+    reviewer: "claude",
+    outcome: "pass",
+    updatedAt: "2026-07-12T10:00:00Z",
+  });
+  older.updated_at = "2026-07-12T12:00:00Z";
+  const newer = reviewComment({
+    id: 3,
+    reviewer: "claude",
+    outcome: "changes-requested",
+    updatedAt: "2026-07-12T11:00:00Z",
+  });
+
+  const result = evaluate([older, reviewComment({ id: 2, reviewer: "codex" }), newer]);
+  assert.equal(result.ok, false);
+  assert.equal(result.reviewers.claude.status, "changes-requested");
+  assert.equal(result.reviewers.claude.commentId, 3);
 });
 
 test("a duplicate marker in one comment is rejected", () => {

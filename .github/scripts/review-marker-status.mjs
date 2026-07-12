@@ -69,7 +69,7 @@ export function parseReviewComment(body) {
 }
 
 function commentOrder(comment, index) {
-  const timestamp = Date.parse(comment.updated_at ?? comment.created_at ?? "");
+  const timestamp = Date.parse(comment.created_at ?? "");
   return {
     timestamp: Number.isFinite(timestamp) ? timestamp : 0,
     id: String(comment.id ?? index),
@@ -86,9 +86,10 @@ function isLater(left, right) {
 }
 
 /**
- * Select exactly one latest structurally valid, digest-valid marker for each
- * reviewer from trusted issue-comment authors, then bind both attestations to
- * the PR's exact current head and base commits.
+ * Select the latest marker claim for each reviewer from trusted issue-comment
+ * authors, then validate that claim and bind both attestations to the PR's
+ * exact current head and base commits. A newer malformed or digest-invalid
+ * claim must shadow an older pass instead of being skipped.
  */
 export function evaluateReviewMarkers({ comments, headSha, baseSha }) {
   if (!/^[0-9a-f]{40}$/.test(headSha ?? "") || !/^[0-9a-f]{40}$/.test(baseSha ?? "")) {
@@ -101,18 +102,21 @@ export function evaluateReviewMarkers({ comments, headSha, baseSha }) {
     if (!TRUSTED_ASSOCIATIONS.has(association)) continue;
 
     const parsed = parseReviewComment(comment.body);
-    if (parsed.kind !== "review") continue;
+    if (parsed.kind === "none") continue;
 
     const order = commentOrder(comment, index);
-    const current = latest.get(parsed.reviewer);
-    if (isLater(order, current?.order)) {
-      latest.set(parsed.reviewer, {
-        marker: parsed,
-        order,
-        commentId: comment.id ?? null,
-        author: comment.user?.login ?? null,
-        association,
-      });
+    const claimedReviewers = parsed.reviewer ? [parsed.reviewer] : REVIEWERS;
+    for (const reviewer of claimedReviewers) {
+      const current = latest.get(reviewer);
+      if (isLater(order, current?.order)) {
+        latest.set(reviewer, {
+          marker: parsed,
+          order,
+          commentId: comment.id ?? null,
+          author: comment.user?.login ?? null,
+          association,
+        });
+      }
     }
   }
 
@@ -127,6 +131,17 @@ export function evaluateReviewMarkers({ comments, headSha, baseSha }) {
     }
 
     const { marker } = selected;
+    if (marker.kind === "invalid") {
+      reviewers[reviewer] = {
+        status: "invalid",
+        reason: marker.reason,
+        commentId: selected.commentId,
+        author: selected.author,
+        association: selected.association,
+      };
+      failures.push(`${reviewer}: invalid`);
+      continue;
+    }
     let status = "pass";
     if (marker.head !== headSha) status = "stale-head";
     else if (marker.base !== baseSha) status = "stale-base";
