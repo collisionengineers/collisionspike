@@ -1,6 +1,5 @@
 import {
   evaluateCaseReadiness,
-  statusForReviewCase,
   type CaseReadinessResult,
   type StatusEvaluationInput,
 } from '../contracts/case-status';
@@ -42,9 +41,9 @@ export function readinessForCase(c: Case): CaseReadinessResult {
  */
 export function canSubmitCaseToEva(c: Case): boolean {
   const input = readinessInputForCase(c);
-  const evaluatedStatus = statusForReviewCase(input);
-  return caseToQueue({
-    status: evaluatedStatus,
+  const readiness = evaluateCaseReadiness(input);
+  return readiness.ready && caseToQueue({
+    status: c.status,
     onHold: c.onHold,
     mergedInto: c.mergedInto,
   }) === 'review';

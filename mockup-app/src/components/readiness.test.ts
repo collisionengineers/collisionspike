@@ -94,4 +94,14 @@ describe('computeReadiness canonical adapter', () => {
     expect(computeReadiness(c).ready).toBe(true);
     expect(canSubmitCaseToEva(c)).toBe(false);
   });
+
+  it.each(['duplicate_risk', 'needs_review', 'eva_submitted'] as const)(
+    'a canonically complete case in %s cannot bypass its current workflow state',
+    (status) => {
+      const c = testCase();
+      c.status = status;
+      expect(computeReadiness(c).ready).toBe(true);
+      expect(canSubmitCaseToEva(c)).toBe(false);
+    },
+  );
 });
