@@ -79,6 +79,7 @@ const AUDIT_ACTION_CODE_LABELS: Record<number, string> = {
   100000049: 'Files added', // evidence_added
   100000052: 'Photos analysed', // image_analysis_generated
   100000054: 'Chase suggested', // chaser_suggested
+  100000055: 'Files checked', // evidence_upload_result
 };
 
 /** Safe fallback when an action has no mapping — plain, honest, never an enum. */

@@ -110,7 +110,7 @@ export async function finishManualIntakeOperation(
 export async function completeManualIntakeEvidence(
   q: TxQuery,
   input: { caseId: string; uploadIdempotencyKey: string; fileCount: number },
-): Promise<boolean> {
+): Promise<'completed' | 'already_complete' | 'not_bound'> {
   const rows = await q<{ idempotency_key: string }>(
     `UPDATE manual_intake_case_create_operation
         SET evidence_completed_at = now(), updated_at = now()
@@ -121,7 +121,29 @@ export async function completeManualIntakeEvidence(
       RETURNING idempotency_key`,
     [input.caseId, input.uploadIdempotencyKey, input.fileCount],
   );
-  return Boolean(rows[0]);
+  if (rows[0]) return 'completed';
+
+  const bindings = await q<{
+    upload_idempotency_key: string | null;
+    expected_file_count: number | string;
+    evidence_completed_at: Date | string | null;
+  }>(
+    `SELECT upload_idempotency_key, expected_file_count, evidence_completed_at
+       FROM manual_intake_case_create_operation
+      WHERE case_id = $1
+      FOR UPDATE`,
+    [input.caseId],
+  );
+  const binding = bindings[0];
+  if (
+    binding
+    && binding.upload_idempotency_key === input.uploadIdempotencyKey
+    && Number(binding.expected_file_count) === input.fileCount
+    && binding.evidence_completed_at != null
+  ) {
+    return 'already_complete';
+  }
+  return 'not_bound';
 }
 
 export async function manualIntakeEvidencePending(

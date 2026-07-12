@@ -64,7 +64,7 @@ import {
   type VatStatus,
 } from '../data';
 import { makeRestParserTransport } from '../data/parser-rest-transport';
-import type { DataAccessExt } from '../data/rest-client';
+import type { DataAccessExt, EvidenceUploadRole } from '../data/rest-client';
 import type { CreateCaseInput, NextCasePoResult } from '@cs/domain';
 import { acquireApiToken } from '../auth/msalConfig';
 import { createIdentityFields, type ManualIntakeMode } from './manual-intake-create';
@@ -81,6 +81,12 @@ import {
   manualIntakeFileRejection,
   partitionManualIntakeFiles,
 } from './manual-intake-files';
+import {
+  clearManualIntakeOperationIdentity,
+  loadManualIntakeOperationIdentity,
+  rotateManualIntakeOperationIdentity,
+  saveManualIntakeOperationIdentity,
+} from './manual-intake-operation-identity';
 
 // Authenticated REST transport for the parser — replaces the connector-backed
 // transport (parser-connector-transport.ts, removed in plan 30 migration).
@@ -371,8 +377,9 @@ export function ManualIntake() {
      images afterwards (or a failed parse) does not re-fire the auto-read. */
   const autoParsedRef = useRef<string | null>(null);
   const gateAppliedRef = useRef(false);
-  const caseCreateKeyRef = useRef(crypto.randomUUID());
-  const evidenceUploadKeyRef = useRef(crypto.randomUUID());
+  const [initialOperationIdentity] = useState(loadManualIntakeOperationIdentity);
+  const caseCreateKeyRef = useRef(initialOperationIdentity.caseCreateKey);
+  const evidenceUploadKeyRef = useRef(initialOperationIdentity.evidenceUploadKey);
   const holdGate = useHoldNewCasesDefault();
 
   const [phase, setPhase] = useState<Phase>('pick');
@@ -421,6 +428,14 @@ export function ManualIntake() {
       { intent },
     );
 
+  const rotateEvidenceUploadKey = () => {
+    evidenceUploadKeyRef.current = crypto.randomUUID();
+    saveManualIntakeOperationIdentity({
+      caseCreateKey: caseCreateKeyRef.current,
+      evidenceUploadKey: evidenceUploadKeyRef.current,
+    });
+  };
+
   const filePartition = useMemo(() => partitionManualIntakeFiles(files), [files]);
   const unsupportedFiles = filePartition.rejected;
   const batchRejection = useMemo(() => manualIntakeBatchRejection(files), [files]);
@@ -443,10 +458,7 @@ export function ManualIntake() {
   const addFiles = (list: FileList | null) => {
     if (!list || list.length === 0) return;
     setError(undefined);
-    evidenceUploadKeyRef.current = crypto.randomUUID();
-    setPendingManualUpload((pending) =>
-      pending ? { ...pending, outcome: undefined } : pending,
-    );
+    rotateEvidenceUploadKey();
     setFiles((prev) => {
       const seen = new Set(prev.map((f) => `${f.name}:${f.size}`));
       const next = [...prev];
@@ -463,9 +475,23 @@ export function ManualIntake() {
 
   const removeFile = (index: number) => {
     setError(undefined);
-    evidenceUploadKeyRef.current = crypto.randomUUID();
+    rotateEvidenceUploadKey();
     setPendingManualUpload((pending) =>
-      pending ? { ...pending, outcome: undefined } : pending,
+      pending?.outcome
+        ? {
+            ...pending,
+            outcome: {
+              ...pending.outcome,
+              message: 'The case has been created. Add the selected files to finish it.',
+              items: pending.outcome.items
+                .filter((item) => item.fileIndex !== index)
+                .map((item) => ({
+                  ...item,
+                  fileIndex: item.fileIndex > index ? item.fileIndex - 1 : item.fileIndex,
+                })),
+            },
+          }
+        : pending,
     );
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
@@ -714,6 +740,9 @@ export function ManualIntake() {
       const uploadFiles = isImagesOnly
         ? filePartition.accepted.filter((f) => f !== instructionFile)
         : filePartition.accepted;
+      const uploadRoles: EvidenceUploadRole[] = uploadFiles.map((file) =>
+        file === instructionFile ? 'instruction' : 'extra',
+      );
       const createInput: CreateCaseInput = {
         evaFields: evaForCreate,
         vrm: vrm.trim(),
@@ -759,9 +788,11 @@ export function ManualIntake() {
         const result = await getDataAccess().uploadEvidence(id, uploadFiles, {
           source: 'manual_intake',
           idempotencyKey: evidenceUploadKeyRef.current,
+          fileRoles: uploadRoles,
         });
         const notice = manualIntakeEvidenceNotice(result, uploadFiles.length);
         toast(notice.message, notice.intent);
+        clearManualIntakeOperationIdentity();
         navigate(`/case/${id}`);
         return;
       }
@@ -769,6 +800,8 @@ export function ManualIntake() {
         const result = await getDataAccess().uploadEvidence(id, uploadFiles, {
           source: 'manual_intake',
           idempotencyKey: evidenceUploadKeyRef.current,
+          fileRoles: uploadRoles,
+          manualIntakeOperation: true,
         });
         const outcome = manualIntakeUploadOutcome(
           result,
@@ -786,11 +819,13 @@ export function ManualIntake() {
           return;
         }
         toast(outcome.message);
+        clearManualIntakeOperationIdentity();
         navigate(`/case/${id}`);
         return;
       } else {
         toast('Case created');
       }
+      clearManualIntakeOperationIdentity();
       navigate(`/case/${id}`);
     } catch (e) {
       setError('The case could not be finished. Check the details and files, then try again.');
@@ -819,8 +854,9 @@ export function ManualIntake() {
     setError(undefined);
     setInfo(undefined);
     autoParsedRef.current = null;
-    caseCreateKeyRef.current = crypto.randomUUID();
-    evidenceUploadKeyRef.current = crypto.randomUUID();
+    const identity = rotateManualIntakeOperationIdentity();
+    caseCreateKeyRef.current = identity.caseCreateKey;
+    evidenceUploadKeyRef.current = identity.evidenceUploadKey;
     setPendingManualUpload(undefined);
     setOnHold(holdGate.data ?? false);
   };
@@ -890,14 +926,16 @@ export function ManualIntake() {
                       ? isInstruction ? 'Instruction added' : 'File added'
                       : isInstruction ? 'Instruction needs retry' : 'Needs retry'}
                   </Badge>
-                  <Button
-                    appearance="subtle"
-                    size="small"
-                    icon={<X size={14} />}
-                    aria-label={`Remove ${file.name}`}
-                    onClick={() => removeFile(index)}
-                    disabled={phase === 'creating'}
-                  />
+                  {result?.state !== 'added' && (
+                    <Button
+                      appearance="subtle"
+                      size="small"
+                      icon={<X size={14} />}
+                      aria-label={`Remove ${file.name} from this retry`}
+                      onClick={() => removeFile(index)}
+                      disabled={phase === 'creating'}
+                    />
+                  )}
                 </div>
               );
             })}
@@ -931,7 +969,7 @@ export function ManualIntake() {
               onClick={() => fileInputRef.current?.click()}
               disabled={phase === 'creating'}
             >
-              Add or replace files
+              Add files
             </Button>
             <Button
               appearance="primary"

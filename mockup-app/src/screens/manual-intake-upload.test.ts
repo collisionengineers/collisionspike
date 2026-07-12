@@ -53,4 +53,21 @@ describe('manual intake upload outcome', () => {
     expect(outcome.complete).toBe(false);
     expect(outcome.items[1].state).toBe('outstanding');
   });
+
+  it('keeps a stale operation on the recovery screen even when every file identity exists', () => {
+    const outcome = manualIntakeUploadOutcome({
+      status: 409,
+      added: files.map((file, fileIndex) => ({
+        fileIndex,
+        fileName: file.name,
+        evidenceId: `evidence-${fileIndex}`,
+        duplicate: false,
+      })),
+      rejected: [],
+      manualIntakeCompletion: 'not_bound',
+    }, files, 0);
+    expect(outcome.complete).toBe(false);
+    expect(outcome.message).toContain('case could not be marked finished');
+    expect(outcome.items.every((item) => item.state === 'added')).toBe(true);
+  });
 });

@@ -159,6 +159,31 @@ describe('rest-client — resumable Manual Intake create', () => {
       'X-Manual-Intake-File-Count': '3',
     });
   });
+
+  it('binds per-file roles and the manual-operation marker into the multipart upload', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson({
+      added: [],
+      rejected: [],
+      manualIntakeCompletion: 'not_bound',
+    }));
+    const da = clientWith(fetchMock);
+    const files = [
+      new File(['instruction'], 'instruction.pdf', { type: 'application/pdf' }),
+      new File(['extra'], 'estimate.pdf', { type: 'application/pdf' }),
+    ];
+
+    const result = await da.uploadEvidence('case-1', files, {
+      source: 'manual_intake',
+      idempotencyKey: 'manual-upload-operation-0001',
+      fileRoles: ['instruction', 'extra'],
+      manualIntakeOperation: true,
+    });
+
+    const form = lastInit(fetchMock).body as FormData;
+    expect(form.getAll('fileRole')).toEqual(['instruction', 'extra']);
+    expect(form.get('manualIntakeOperation')).toBe('true');
+    expect(result.manualIntakeCompletion).toBe('not_bound');
+  });
 });
 
 describe('rest-client — openCasePoMatches (TKT-068 attach-by-Case/PO)', () => {

@@ -41,6 +41,9 @@ describe('staff evidence upload schema', () => {
       expect(sql).toContain('evidence_completed_at');
       expect(sql).toContain('ix_manual_intake_case_create_pending');
     }
+    expect(schema('000_enums_lookups.sql')).toContain('evidence_upload_result');
+    expect(schema('deltas/2026-07-12-tkt166-manual-intake-case-create.sql'))
+      .toContain('evidence_upload_result');
     const canonicalPolicies = schema('900_constraints.sql');
     const delta = schema('deltas/2026-07-12-tkt166-manual-intake-case-create.sql');
     expect(canonicalPolicies).toContain("'manual_intake_case_create_operation'");

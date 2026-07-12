@@ -35,6 +35,10 @@ function memoryQuery() {
       }
       return [];
     }
+    if (sql.includes('SELECT upload_idempotency_key') && sql.includes('WHERE case_id = $1')) {
+      const row = [...operations.values()].find((candidate) => candidate.case_id === params[0]);
+      return row ? [row] : [];
+    }
     if (sql.includes('FOR UPDATE')) {
       const row = operations.get(String(params[0]));
       return row ? [row] : [];
@@ -124,12 +128,17 @@ describe('manual intake operation', () => {
       caseId: 'case-3',
       uploadIdempotencyKey: binding.uploadIdempotencyKey,
       fileCount: 1,
-    })).toBe(false);
+    })).toBe('not_bound');
     expect(await completeManualIntakeEvidence(q, {
       caseId: 'case-3',
       uploadIdempotencyKey: binding.uploadIdempotencyKey,
       fileCount: 2,
-    })).toBe(true);
+    })).toBe('completed');
+    expect(await completeManualIntakeEvidence(q, {
+      caseId: 'case-3',
+      uploadIdempotencyKey: binding.uploadIdempotencyKey,
+      fileCount: 2,
+    })).toBe('already_complete');
     expect(await manualIntakeEvidencePending(q, 'case-3')).toBe(false);
 
     // A response can be lost after completion. If the handler then changes the

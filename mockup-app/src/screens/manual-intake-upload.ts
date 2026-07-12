@@ -66,6 +66,13 @@ export function manualIntakeUploadOutcome(
   }
   const outstanding = items.filter((item) => item.state === 'outstanding').length;
   const addedCount = items.length - outstanding;
+  if (result.manualIntakeCompletion === 'not_bound' && addedCount === items.length) {
+    return {
+      complete: false,
+      message: 'The files were added, but the case could not be marked finished. Retry to confirm.',
+      items,
+    };
+  }
   return {
     complete: false,
     message:

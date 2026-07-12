@@ -5,6 +5,11 @@
 -- =============================================================================
 BEGIN;
 
+INSERT INTO choice_audit_action (code, name, label) VALUES
+  (100000055, 'evidence_upload_result', 'Files Checked')
+ON CONFLICT (code) DO UPDATE
+  SET name = EXCLUDED.name, label = EXCLUDED.label;
+
 CREATE TABLE IF NOT EXISTS manual_intake_case_create_operation (
   idempotency_key        varchar(128) PRIMARY KEY,
   actor                  varchar(320) NOT NULL,

@@ -97,6 +97,9 @@ const state = {
   hideTwinUntilUpload: false,
   mergeAfterUpload: false,
   manualCompletionAttempts: 0,
+  manualCompletionMode: 'completed' as 'completed' | 'already_complete' | 'not_bound',
+  lastManualUploadKey: KEY,
+  lastManualFileCount: 0,
   blobPaths: new Set<string>(),
 };
 
@@ -109,6 +112,9 @@ function restore(snapshot: ReturnType<typeof snapshotState>): void {
   state.statusRequests = snapshot.statusRequests;
   state.nextEvidence = snapshot.nextEvidence;
   state.manualCompletionAttempts = snapshot.manualCompletionAttempts;
+  state.manualCompletionMode = snapshot.manualCompletionMode;
+  state.lastManualUploadKey = snapshot.lastManualUploadKey;
+  state.lastManualFileCount = snapshot.lastManualFileCount;
 }
 
 function snapshotState() {
@@ -121,16 +127,28 @@ function snapshotState() {
     statusRequests: state.statusRequests,
     nextEvidence: state.nextEvidence,
     manualCompletionAttempts: state.manualCompletionAttempts,
+    manualCompletionMode: state.manualCompletionMode,
+    lastManualUploadKey: state.lastManualUploadKey,
+    lastManualFileCount: state.lastManualFileCount,
   };
 }
 
 function requestWith(
   files: File[],
-  options: { caseId?: string; key?: string; source?: string; legacy?: boolean } = {},
+  options: {
+    caseId?: string;
+    key?: string;
+    source?: string;
+    legacy?: boolean;
+    roles?: Array<'instruction' | 'extra'>;
+    manualIntakeOperation?: boolean;
+  } = {},
 ): HttpRequest {
   const form = new FormData();
   for (const file of files) form.append('file', file);
   if (!options.legacy) form.append('source', options.source ?? 'add_evidence');
+  for (const role of options.roles ?? []) form.append('fileRole', role);
+  if (options.manualIntakeOperation) form.append('manualIntakeOperation', 'true');
   return {
     params: { id: options.caseId ?? 'case-1' },
     headers: new Headers(options.legacy ? {} : { 'idempotency-key': options.key ?? KEY }),
@@ -153,6 +171,9 @@ beforeEach(() => {
   state.hideTwinUntilUpload = false;
   state.mergeAfterUpload = false;
   state.manualCompletionAttempts = 0;
+  state.manualCompletionMode = 'completed';
+  state.lastManualUploadKey = KEY;
+  state.lastManualFileCount = 0;
   state.blobPaths = new Set();
   db.query.mockReset();
   db.tx.mockReset();
@@ -301,7 +322,24 @@ beforeEach(() => {
     if (sql.includes('UPDATE staff_evidence_upload')) return [];
     if (sql.includes('UPDATE manual_intake_case_create_operation')) {
       state.manualCompletionAttempts++;
-      return [{ idempotency_key: 'manual-create-operation' }];
+      state.lastManualUploadKey = String(params[1]);
+      state.lastManualFileCount = Number(params[2]);
+      return state.manualCompletionMode === 'completed'
+        ? [{ idempotency_key: 'manual-create-operation' }]
+        : [];
+    }
+    if (sql.includes('SELECT upload_idempotency_key') && sql.includes('manual_intake_case_create_operation')) {
+      return state.manualCompletionMode === 'already_complete'
+        ? [{
+            upload_idempotency_key: state.lastManualUploadKey,
+            expected_file_count: state.lastManualFileCount,
+            evidence_completed_at: new Date(),
+          }]
+        : [{
+            upload_idempotency_key: 'different-upload-key-0001',
+            expected_file_count: state.lastManualFileCount,
+            evidence_completed_at: null,
+          }];
     }
     return [];
   });
@@ -357,11 +395,58 @@ describe('canonical staff evidence upload', () => {
     expect(audit[1]?.[0]).not.toMatch(/assistant/i);
   });
 
+  it('binds Manual Intake roles into the manifest and persists only the selected PDF as instruction', async () => {
+    const response = await upload(
+      requestWith(
+        [
+          new File([PDF], 'instruction.pdf', { type: 'application/pdf' }),
+          new File([pdfFixture('<< /Extra true >>')], 'estimate.pdf', { type: 'application/pdf' }),
+          new File([JPEG], 'overview.jpg', { type: 'image/jpeg' }),
+        ],
+        {
+          source: 'manual_intake',
+          roles: ['instruction', 'extra', 'extra'],
+        },
+      ),
+      ctx,
+      {},
+    );
+    expect(response.status).toBe(201);
+    const inserts = db.txQuery.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO evidence'));
+    expect(inserts.map((call) => call[1]?.[2])).toEqual([
+      100000002, // selected instruction
+      100000006, // extra PDF -> other document
+      100000000, // photo
+    ]);
+
+    const changedRole = await upload(
+      requestWith(
+        [
+          new File([PDF], 'instruction.pdf', { type: 'application/pdf' }),
+          new File([pdfFixture('<< /Extra true >>')], 'estimate.pdf', { type: 'application/pdf' }),
+          new File([JPEG], 'overview.jpg', { type: 'image/jpeg' }),
+        ],
+        {
+          source: 'manual_intake',
+          roles: ['extra', 'instruction', 'extra'],
+        },
+      ),
+      ctx,
+      {},
+    );
+    expect(changedRole.status).toBe(409);
+    expect(blob.uploadEvidenceBytes).toHaveBeenCalledTimes(3);
+  });
+
   it('releases the Manual Intake readiness blocker only after every selected file is confirmed', async () => {
     const complete = await upload(
       requestWith(
         [new File([PDF], 'instruction.pdf', { type: 'application/pdf' })],
-        { source: 'manual_intake' },
+        {
+          source: 'manual_intake',
+          roles: ['instruction'],
+          manualIntakeOperation: true,
+        },
       ),
       ctx,
       {},
@@ -369,8 +454,16 @@ describe('canonical staff evidence upload', () => {
     expect(complete.status).toBe(201);
     expect(state.manualCompletionAttempts).toBe(1);
     expect(state.statusRequests).toBe(2); // file persisted, then source-batch blocker released
+    expect(db.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO audit_event'))?.[1])
+      .toEqual(expect.arrayContaining([
+        expect.stringContaining('New case files confirmed'),
+        'case-1',
+        'staff-1',
+        100000055,
+      ]));
 
     state.manualCompletionAttempts = 0;
+    db.query.mockClear();
     const partial = await upload(
       requestWith(
         [
@@ -384,6 +477,67 @@ describe('canonical staff evidence upload', () => {
     );
     expect(partial.status).toBe(207);
     expect(state.manualCompletionAttempts).toBe(0);
+    expect(db.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO audit_event'))?.[1]?.[0])
+      .toContain('need attention');
+  });
+
+  it('audits eventual recovery distinctly from the first persisted evidence result', async () => {
+    const makeRequest = () => requestWith(
+      [new File([PDF], 'instruction.pdf', { type: 'application/pdf' })],
+      {
+        source: 'manual_intake',
+        roles: ['instruction'],
+        manualIntakeOperation: true,
+      },
+    );
+    await upload(makeRequest(), ctx, {});
+    db.query.mockClear();
+
+    const replay = await upload(makeRequest(), ctx, {});
+    expect(replay.status).toBe(200);
+    expect(db.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO audit_event'))?.[1]?.[0])
+      .toContain('confirmed after retry');
+  });
+
+  it('returns an honest conflict when files persisted but a rebound Manual Intake operation did not complete', async () => {
+    state.manualCompletionMode = 'not_bound';
+    const response = await upload(
+      requestWith(
+        [new File([PDF], 'instruction.pdf', { type: 'application/pdf' })],
+        {
+          source: 'manual_intake',
+          roles: ['instruction'],
+          manualIntakeOperation: true,
+        },
+      ),
+      ctx,
+      {},
+    );
+    expect(response.status).toBe(409);
+    expect(response.jsonBody).toMatchObject({
+      added: [{ evidenceId: 'ev-1' }],
+      rejected: [],
+      manualIntakeCompletion: 'not_bound',
+    });
+    expect(state.statusRequests).toBe(1); // evidence write only; blocker was not released
+  });
+
+  it('treats an exact already-completed Manual Intake replay as successful', async () => {
+    state.manualCompletionMode = 'already_complete';
+    const response = await upload(
+      requestWith(
+        [new File([PDF], 'instruction.pdf', { type: 'application/pdf' })],
+        {
+          source: 'manual_intake',
+          roles: ['instruction'],
+          manualIntakeOperation: true,
+        },
+      ),
+      ctx,
+      {},
+    );
+    expect(response.status).toBe(201);
+    expect(response.jsonBody).toMatchObject({ manualIntakeCompletion: 'already_complete' });
   });
 
   it('replays an exact idempotency key without another Blob write, row, archive request or audit', async () => {
