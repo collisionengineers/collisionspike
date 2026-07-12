@@ -1,7 +1,75 @@
-# Changes — TKT-130: needs_review cases belong in the Review queue — readiness wrongly piles everything into Not Ready
+# Changes — TKT-130: one canonical Review readiness contract
 
-## Status
-built + deployed + live re-evaluation recorded (2026-07-08, branch `feat/readiness-ai-spine`) — awaiting verifier
+## Current status — reopened implementation (2026-07-12)
+
+Implemented and fully tested offline on `codex/tkt-130-canonical-readiness`; not deployed and no live
+case status has been recomputed by this branch. PR review, merge, release bundles, deployment,
+backup-first active-case recomputation and independent live verification remain for the orchestrating
+session.
+
+## Commit
+
+- `6eb7cdb` — replace the competing status/UI/queue/submission predicates with one canonical EVA
+  readiness gate and exhaustive regression coverage.
+
+## Reopened change summary
+
+- **One domain verdict:** `evaluateCaseReadiness` now owns required fields, an explicit and
+  internally-consistent inspection choice, accepted-image count/roles, unresolved automatic image
+  decisions and every `needs_review`/`conflict` field state. `readinessInputForCase` is the one adapter
+  used by API recomputation, the SPA checklist and submission eligibility.
+- **Review is complete-only:** `needs_review` moved back to **Not ready**; Review contains only
+  `ready_for_eva`. `caseToQueue` is now the single queue-membership predicate, including explicit Held
+  precedence and retired-merge exclusion. Dashboard stage/count derivation follows the same mapping.
+- **Persisted status agrees with the checklist:** both staff and orchestration status recomputation call
+  the same domain evaluator. The orchestration-facing API path now loads field provenance as well as
+  evidence, so review states cannot silently default or drift between paths.
+- **Submission re-checks current truth:** the staff EVA-submitted route locks and reloads the complete
+  case snapshot, then runs the same readiness + queue predicate before the atomic terminal transition.
+  Stale `ready_for_eva`, an explicit hold, a merge branch or any current blocker returns a no-op.
+- **SPA is an adapter, not another evaluator:** Case Detail and the EVA dialog project the domain checks,
+  disable submission from the shared eligibility result and state the hold reason plainly. Review's
+  empty-state copy now describes only complete cases; its redundant status filter is hidden.
+- **Matrix coverage:** QDOS26079-shaped missing details, blank claimant, blank model, unresolved review,
+  conflict, all images excluded, unresolved automatic image decision, unknown inspection choice,
+  explicit Image Based Assessment, missing registration-visible overview, missing damage close-up,
+  valid complete case, stale ready status and explicit hold.
+
+## Files touched (reopened implementation)
+
+- `packages/domain/src/contracts/{case-status,image-rules}.ts`
+- `packages/domain/src/model/{case-readiness,queues}.ts`
+- `api/src/functions/{cases,internal,provider-intake}.ts`
+- `api/src/lib/mappers.ts`
+- `mockup-app/src/components/readiness.ts`
+- `mockup-app/src/screens/{CaseDetail,CaseList,EvaSubmitDialog}.tsx`
+- focused domain/API/SPA parity, matrix, queue, dashboard, mapper and submission tests.
+
+## Offline proof
+
+- `node verify-all.mjs`: **8 passed, 0 failed, 13 expected skips**.
+- SPA: **450 passed** plus production Vite build.
+- Data API: **618 passed** plus TypeScript build.
+- Domain: **1,132 passed** (including the shared TS/Python parity corpus).
+- Orchestration: **401 passed** plus TypeScript build.
+- `git diff --check`: clean.
+
+## Remaining release/live gates
+
+- Claude-first and Codex exact-head PR review, merge, then rebuild the tracked API deployment bundle and
+  SPA artifact from merged `main`.
+- Deploy API + SPA (orchestration source already delegates to the API and has no new local evaluator).
+- Take the ticket-specified backup, idempotently recompute every active case, and retain a residual ledger.
+- Independently compare DB status/queue membership, API counts and deployed SPA counts; specifically prove
+  QDOS26079 and every incomplete former-Review case moved to Not ready or Held with its checklist reason.
+- Record the live evidence in `verification.md` only in the orchestrating/verifier loop.
+
+## Historical first pass — 2026-07-08 (superseded by the reopened acceptance)
+
+The material below records the earlier implementation and live proof. Its `needs_review -> Review` rule
+is deliberately retained as history but is no longer the specification.
+
+## What changed (historical)
 
 ## What changed
 
