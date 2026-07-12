@@ -349,8 +349,7 @@ export async function runBoxClassifySweep(ctx: InvocationContext): Promise<void>
         }
       } else if (locator === 'box' && row.boxFileId) {
         if (!gates.boxApi()) {
-          failed++;
-          await reportFailure(row, { disposition: 'transient', code: 'box_api_disabled' });
+          // A global gate is not a row failure; leave it out of retry/dead-letter accounting.
           continue;
         }
         try {

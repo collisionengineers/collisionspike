@@ -322,6 +322,29 @@ describe('box-classify-sweep — (d) gate + 0-row fast paths', () => {
     expect(dataApiMock.claimUnclassifiedBoxEvidence).toHaveBeenCalledTimes(1);
   });
 
+  it('repeated Box gate-off sweeps skip Box rows without recording failures while Blob rows progress', async () => {
+    process.env.BOX_API_ENABLED = 'false';
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({
+      rows: [
+        { ...ROW_TAGGED, attemptCount: 9 },
+        ROW_STAFF,
+      ],
+    });
+    classifyImageMock.mockResolvedValue(classified(CLS_OVERVIEW));
+
+    await sweep.handler(TIMER, ctx());
+    await sweep.handler(TIMER, ctx());
+
+    expect(dataApiMock.reportBoxEvidenceClassificationFailure).not.toHaveBeenCalled();
+    expect(boxMock.downloadFile).not.toHaveBeenCalled();
+    expect(blobMock.downloadEvidenceBytes).toHaveBeenCalledTimes(2);
+    expect(classifyImageMock).toHaveBeenCalledTimes(2);
+    expect(dataApiMock.stampBoxEvidenceClassification).toHaveBeenCalledTimes(2);
+    expect(dataApiMock.stampBoxEvidenceClassification.mock.calls.every(
+      ([evidenceId]) => evidenceId === ROW_STAFF.evidenceId,
+    )).toBe(true);
+  });
+
   it('classifies a staff upload from Blob without using the Box facade', async () => {
     process.env.BOX_API_ENABLED = 'false';
     dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_STAFF] });
