@@ -14,6 +14,7 @@ TESTED (offline) — live draft-PR proof is pending.
 - The Windows production resolver launches Codex through its npm JavaScript entry with `shell:false`; `codex-cli 0.144.0` returned successfully where the `.cmd`/WindowsApps launch paths returned `EPERM`.
 - Exact no-GitHub CLI preflights passed for Claude 2.1.202 scoped Read/Edit plus the constrained body-file command, and for locked-down plain `codex exec` after the installed `exec review` subcommand rejected a custom prompt.
 - Bootstrap draft [PR #60](https://github.com/collisionengineers/collisionspike/pull/60) was created by the runner. Its first review attempt stopped before either model after Git hit an existing over-260-character evidence path; the request remained draft with zero review comments. The runner now forces `core.longpaths=true`, and a real exact-head detached checkout/removal of all 2,856 files passed locally. Reciprocal live comments remain pending on the corrected head.
+- The next attempt proved the long-path checkout but Claude hit the four-minute bound before commenting: the review bundle contained 5,093,470 bytes/75,275 lines because `--binary` embedded the supplied screenshots twice (per-commit plus aggregate). The request again remained draft with zero markers. The corrected bundle is 336,819 aggregate-text bytes/5,298 lines before per-commit context, retains binary paths without raw payloads, and is streamed directly to the reviewers. Live rerun remains pending.
 
 ## Pending / gaps
 

@@ -22,6 +22,7 @@ implemented and offline-tested; live pull-request proof pending
 - runs Claude first with `--safe-mode -p`, no session persistence/Chrome/custom hooks, `dontAsk`, scoped Read, one temporary review-body Write, and one exact `gh pr comment --body-file` proxy command;
 - runs Codex second in ephemeral, hooks-off, user-config/rules-ignored, read-only review mode and publishes its separate outcome;
 - supplies every per-commit patch plus the aggregate diff and rejects changes-requested output without a priority and valid path/changed-hunk line;
+- omits raw binary patch bytes while retaining binary paths/statistics, caps text context at 8 MiB, and streams the complete trusted bundle to both reviewers over stdin instead of making them page it through tool calls;
 - updates each reviewer's exact existing comment ID, never `--edit-last`, and binds the visible-body digest/outcome to the full base and head IDs;
 - rechecks GitHub revision before and after each stage, restarts a bounded number of times when it changes, and leaves the request draft on any failure;
 - writes commit status `reciprocal-pr-review/head`, restores ready state only when requested and both outcomes pass, and gates later standalone ready/merge commands on those current markers;
