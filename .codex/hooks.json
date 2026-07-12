@@ -2,11 +2,24 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "Bash|PowerShell|mcp__.*(create_pull_request|create_pr|merge_pull_request|merge_pr|ready_for_review|mark.*ready|enable_auto_merge|auto.*merge).*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/pr-review.mjs\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -Command \"$root = git rev-parse --show-toplevel; node (Join-Path $root '.codex/hooks/pr-review.mjs')\"",
+            "timeout": 1800,
+            "statusMessage": "Preparing mandatory Claude and Codex PR reviews"
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "node '/home/alex/projects/collisionsuite/active/collisionspike/.codex/hooks/box-scope-guard.mjs'"
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/box-scope-guard.mjs\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -Command \"$root = git rev-parse --show-toplevel; node (Join-Path $root '.codex/hooks/box-scope-guard.mjs')\""
           }
         ]
       },
@@ -15,7 +28,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node '/home/alex/projects/collisionsuite/active/collisionspike/.codex/hooks/azure-route-guard.mjs'"
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/azure-route-guard.mjs\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -Command \"$root = git rev-parse --show-toplevel; node (Join-Path $root '.codex/hooks/azure-route-guard.mjs')\""
           }
         ]
       }
@@ -26,7 +40,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node '/home/alex/projects/collisionsuite/active/collisionspike/.codex/hooks/box-scope-postcreate.mjs'"
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/box-scope-postcreate.mjs\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -Command \"$root = git rev-parse --show-toplevel; node (Join-Path $root '.codex/hooks/box-scope-postcreate.mjs')\""
           }
         ]
       },
@@ -35,7 +50,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node '/home/alex/projects/collisionsuite/active/collisionspike/.codex/hooks/azure-churn-guard.mjs'"
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/azure-churn-guard.mjs\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -Command \"$root = git rev-parse --show-toplevel; node (Join-Path $root '.codex/hooks/azure-churn-guard.mjs')\""
           }
         ]
       }

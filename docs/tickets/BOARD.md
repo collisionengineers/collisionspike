@@ -180,6 +180,7 @@
 | [TKT-034](./now/TKT-034-images-received-routing/TKT-034-images-received-routing.md) | Archive unmatched images by registration and adopt the folder into the case | **REOPENED 2026-07-12:** current code creates an empty VRM folder only; implement image upload plus idempotent Case/PO folder adoption. |
 | [TKT-129](./now/TKT-129-image-based-inspection-done/TKT-129-image-based-inspection-done.md) | Simplify the inspection address or Image Based Assessment choice | **REOPENED 2026-07-12:** remove the explanatory paragraph, hide address controls for Image Based Assessment, and preserve explicit provider defaults. |
 | [TKT-130](./now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | Review contains only cases that are ready for EVA | **REOPENED 2026-07-12:** binding rule now supersedes the old `needs_review → Review` behavior; incomplete/problem cases are Not Ready unless Held. |
+| [TKT-149](./now/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) | Require reciprocal Claude and Codex reviews on every pull request | **IN PROGRESS 2026-07-12:** shared cross-platform runner, exact-head detached worktree, reciprocal hook adapters and fail-closed fixture suite. |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
@@ -332,7 +333,6 @@
 | ID | Title | State |
 |---|---|---|
 | [TKT-018](./backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md) | AI total-loss vs repairable categorisation | Deferral RE-AFFIRMED by the operator 2026-07-10 (backlog-drain batch AskUserQuestion: "Keep deferred" over build-dark/blocked). Stays backlog; the 2026-07-09 assessment (deps live, build shape, fresh-DPIA need) remains current. |
-| [TKT-149](./backlog/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) | Enforce reciprocal Claude and Codex reviews on every PR | Distilled 2026-07-12; implement first so every later PR is independently reviewed without changing the active branch. |
 | [TKT-150](./backlog/TKT-150-claimant-extraction-held-audit/TKT-150-claimant-extraction-held-audit.md) | Restore claimant-name extraction and remediate affected held cases | Distilled 2026-07-12; includes QDOS26079, full live census, source-to-persistence trace and safe repair. |
 | [TKT-151](./backlog/TKT-151-vehicle-enrichment-completeness/TKT-151-vehicle-enrichment-completeness.md) | Complete vehicle enrichment and warn when a registration cannot be resolved | Distilled 2026-07-12; one live lookup seam, durable outcomes/warnings and full missing-field census. |
 | [TKT-152](./backlog/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md) | Consolidate vehicle lookups and harden the MOT mileage estimator | Distilled 2026-07-12; one source of truth, robust anomaly handling, abstention and calibrated backtest. |

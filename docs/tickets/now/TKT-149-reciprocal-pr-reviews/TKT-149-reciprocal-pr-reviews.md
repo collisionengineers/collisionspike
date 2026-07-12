@@ -1,11 +1,11 @@
 ---
 id: TKT-149
 title: Require reciprocal Claude and Codex reviews on every pull request
-status: backlog
+status: now
 priority: P0
 area: platform
 tickets-it-relates-to: [TKT-074, TKT-114]
-research-link: docs/tickets/backlog/TKT-149-reciprocal-pr-reviews/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-149-reciprocal-pr-reviews/evidence/operator-note.md
 plan: PLAN-004
 ---
 
@@ -20,12 +20,12 @@ Pull requests can currently be opened by Codex or Claude without an enforced ind
 - `.claude/settings.json` — current Claude lifecycle configuration.
 
 ## Proposed change
-PROPOSED (not built): add reciprocal synchronous PR-creation hooks backed by one tested shared runner. Reviews execute at the exact PR head in a detached temporary worktree, post or update a marked PR comment, and stop the originating agent visibly if review or comment publication fails.
+IMPLEMENTED; live PR proof pending: add Codex and Claude PR-creation hooks backed by one tested shared runner. Every PR runs the Claude review first and a separate non-interactive Codex review second. Both execute at the exact PR head in a detached temporary worktree, publish marked PR comments, and stop the originating agent visibly if either review or comment publication fails.
 
 ## Acceptance
-- A PR created from Codex through standalone `gh pr create` or the installed GitHub create-pull-request tool synchronously runs `claude -p` against the exact PR head before Codex continues.
+- A PR created through either the Codex hook or the Claude hook synchronously runs `claude -p` against the exact PR head first, then runs a separate non-interactive Codex review against that same current head before the originating agent continues.
 - Claude uses narrowly allowed read-only Git/GitHub commands plus `gh pr comment` to post or update one top-level review comment on the PR; the comment is present even when no findings are reported.
-- A PR created from Claude through standalone `gh pr create` or a GitHub create-pull-request tool synchronously runs non-interactive Codex review against the exact PR head and publishes one marked top-level review comment.
+- The Codex review runs non-interactively with hooks/custom write paths disabled, cannot edit the worktree, and is published as its own marked top-level review comment even when no findings are reported.
 - Reviews inspect the aggregate diff, individual commits, and relevant changed lines; actionable findings include severity, path, and a valid changed-line location.
 - The runner creates a uniquely named detached temporary worktree at the authoritative head SHA. It never calls `git checkout`, `git switch`, or `gh pr checkout`, and proves the caller's branch, HEAD, and worktree status are unchanged before and after.
 - A reviewer/head marker makes retries and concurrent hook invocations idempotent. A new PR head SHA triggers a fresh review and updates the existing reviewer comment rather than duplicating it.

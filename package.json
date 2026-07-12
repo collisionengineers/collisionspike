@@ -13,7 +13,8 @@
     "build:domain": "npm run build --workspace @cs/domain",
     "build:api": "npm run build --workspace @cs/api",
     "build:orch": "npm run build --workspace @cs/orchestration",
-    "test": "npm run test --workspace @cs/domain && npm run test --workspace mockup-app"
+    "test": "npm run test --workspace @cs/domain && npm run test --workspace mockup-app",
+    "test:pr-review-hooks": "node --test scripts/hooks/reciprocal-pr-review.test.mjs .github/scripts/review-marker-status.test.mjs"
   },
   "engines": {
     "node": ">=20"
