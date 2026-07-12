@@ -1,12 +1,56 @@
-# Azure deployment plan — PR 55 functional remediation
+# Azure deployment plan — production-readiness wave 1
 
-> **Status:** Deployed
+> **Status:** Validated
 
-Generated: 2026-07-11 (Europe/London)
+Generated: 2026-07-12 (Europe/London)
 
 The user's explicit instruction to push, merge, deploy every changed area, and enable remaining
 features is the approval for this plan. External legal/security approvals are operator-attested as
 complete. Runtime dependency checks remain mandatory.
+
+## Active release — 2026-07-12
+
+**Goal:** Deploy merged PR 61 (`d2ff80bb913033259e2e753b9e6a2384161e26be`) and PR 62
+(`09e817199d9cdda4066fae2401adae902b1cccf3`) to the existing live Azure stack.
+
+**Candidate:** `09e817199d9cdda4066fae2401adae902b1cccf3` (`origin/main`).
+
+**Scope:**
+
+- Data API `cespk-api-dev`: deploy the static-route collision repair for inbound counts and
+  Case/PO lookup. No schema, setting, identity, orchestration or infrastructure change.
+- Static Web App `cespk-spa-dev`: deploy the simplified three-queue dashboard and image-only
+  intake form, including a visible retry state for inbound-count failures.
+
+**Order:** API first, then SPA. The existing SPA tolerates the repaired count response; the new SPA
+must not be exposed before the API route is repaired. Build both artifacts from the exact merged
+candidate, capture the current artifact state, publish, then verify authenticated counts, queue-count
+parity, CORS, browser console/network and the new dashboard/form UI.
+
+**Rollback:** Prefer a forward repair. If the SPA regresses, restore its preceding artifact while
+leaving the compatible API route repair in place. If the API regresses, restore the preceding API
+artifact only after confirming the deployed SPA still receives a compatible inbound-count response.
+No database or resource rollback is involved.
+
+### Active validation proof
+
+| Check | Result | Timestamp |
+|---|---|---|
+| Candidate and source gates | `origin/main` was exactly `09e817199d9cdda4066fae2401adae902b1cccf3`. Domain 551, SPA 421, API 585 and reciprocal-review 48 tests passed; ticket/doc/skill checks reported zero failures. | 2026-07-12 14:09 BST |
+| Production artifacts | Domain/API TypeScript builds and the SPA Vite build passed. `build-api.cjs` rebuilt a loadable bundle registering the expected 108 functions; production API dependencies are present. The deployed SPA folder contains the committed Static Web App configuration with matching SHA-256. | 2026-07-12 14:09 BST |
+| Azure target | Azure MCP and Azure CLI both resolved enabled default subscription `e6076573-23a5-46a8-acef-7e22d264e5db` and `rg-collisionspike-dev`. The API resource is Running with system-assigned identity and 108 registered functions. The Static Web App resolves to `proud-sky-04e318b03.7.azurestaticapps.net`. | 2026-07-12 14:09 BST |
+| Edge/auth boundary | API no-auth probe returned 401; SWA-origin CORS preflight returned 204; CORS readback contains only the production SWA origin. | 2026-07-12 14:09 BST |
+
+**Validated by:** `azure-validate`, 2026-07-12 14:09 BST.
+
+### Active deployment proof
+
+Pending `azure-deploy`: API and SPA publish receipts, function inventory, authenticated count parity,
+Chrome network/console/screenshots and post-release telemetry.
+
+---
+
+## Previous deployed release record — 2026-07-11
 
 ---
 
