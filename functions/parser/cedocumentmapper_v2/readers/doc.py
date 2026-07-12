@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
 import re
 import shutil
+import struct
 import subprocess
 import tempfile
 from pathlib import Path
@@ -26,8 +26,18 @@ class DocDocumentReader(DocumentReader):
 
         notes = []
         
-        # Method 1: Try readable embedded streams first. This avoids launching
-        # Word for every legacy DOC when the corpus already contains usable text.
+        # Method 1: parse the Word 97+ OLE piece table in-process. This is the
+        # deployment path: it needs no Word/LibreOffice/antiword executable and
+        # retains table-cell text that a blind binary scrape commonly drops.
+        try:
+            text = self._read_via_ole_piece_table(path)
+            notes.append("Read DOC using the embedded Word piece table.")
+            return self._build_model_from_text(path, text, notes)
+        except Exception as piece_table_exc:
+            notes.append(f"Word piece-table extraction failed: {piece_table_exc}")
+
+        # Method 2: try readable embedded streams. This also handles RTF files
+        # whose extension is .DOC, a common legacy export in the source corpus.
         try:
             text = self._read_via_binary_text_scrape(path)
             if self._scrape_text_is_incomplete(text):
@@ -37,7 +47,7 @@ class DocDocumentReader(DocumentReader):
         except Exception as scrape_exc:
             notes.append(f"Embedded text scrape failed: {scrape_exc}")
 
-        # Method 2: Try Microsoft Word COM Automation
+        # Method 3: Try Microsoft Word COM Automation
         try:
             text = self._read_via_word_com(path)
             notes.append("Read DOC using Microsoft Word automation.")
@@ -45,7 +55,7 @@ class DocDocumentReader(DocumentReader):
         except Exception as com_exc:
             notes.append(f"Word COM extraction failed: {com_exc}")
 
-        # Method 3: Try LibreOffice head-less docx conversion
+        # Method 4: Try LibreOffice head-less docx conversion
         try:
             text = self._read_via_libreoffice(path)
             notes.append("Read DOC using LibreOffice conversion.")
@@ -53,7 +63,7 @@ class DocDocumentReader(DocumentReader):
         except Exception as lo_exc:
             notes.append(f"LibreOffice conversion failed: {lo_exc}")
 
-        # Method 4: Try antiword text extraction for old binary DOC files.
+        # Method 5: Try antiword text extraction for old binary DOC files.
         try:
             text = self._read_via_antiword(path)
             notes.append("Read DOC using antiword fallback.")
@@ -66,8 +76,168 @@ class DocDocumentReader(DocumentReader):
             notes.append(f"antiword extraction failed: {antiword_exc}")
 
         raise ReaderError(
-            "Could not read DOC. Microsoft Word, LibreOffice, or antiword is required to extract text from legacy .doc files."
+            "Could not read DOC as a Word 97+ binary document or RTF export, and no "
+            "desktop conversion fallback succeeded."
         )
+
+    @staticmethod
+    def _unpack_u16(data: bytes, offset: int, label: str) -> int:
+        if offset < 0 or offset + 2 > len(data):
+            raise ReaderError(f"DOC {label} offset is outside its stream.")
+        return int(struct.unpack_from("<H", data, offset)[0])
+
+    @staticmethod
+    def _unpack_u32(data: bytes, offset: int, label: str) -> int:
+        if offset < 0 or offset + 4 > len(data):
+            raise ReaderError(f"DOC {label} offset is outside its stream.")
+        return int(struct.unpack_from("<I", data, offset)[0])
+
+    def _read_via_ole_piece_table(self, path: Path) -> str:
+        """Read Word 97+ binary text from the CLX piece table (MS-DOC).
+
+        The piece table is the document's authoritative mapping from logical
+        character positions to byte ranges in the ``WordDocument`` stream. It
+        therefore retains table-cell text that is not recoverable by scanning
+        for printable byte runs. Bounds are validated before every allocation
+        and slice because instruction documents are untrusted input.
+        """
+        try:
+            import olefile
+        except ImportError as exc:
+            raise DependencyMissingError("olefile is not installed.") from exc
+
+        if not olefile.isOleFile(path):
+            raise ReaderError("File is not an OLE compound Word document.")
+
+        ole = olefile.OleFileIO(path)
+        try:
+            if not ole.exists("WordDocument"):
+                raise ReaderError("OLE document has no WordDocument stream.")
+            word_stream = ole.openstream("WordDocument").read()
+
+            if len(word_stream) < 34 or self._unpack_u16(word_stream, 0, "FIB magic") != 0xA5EC:
+                raise ReaderError("WordDocument stream has an invalid file-information block.")
+
+            n_fib = self._unpack_u16(word_stream, 2, "FIB version")
+            if n_fib < 0x00C1:
+                raise ReaderError("Pre-Word-97 binary DOC is not supported by the piece-table reader.")
+
+            fib_flags = self._unpack_u16(word_stream, 0x0A, "FIB flags")
+            if fib_flags & 0x0100:
+                raise ReaderError("Encrypted legacy DOC files cannot be read.")
+            table_name = "1Table" if fib_flags & 0x0200 else "0Table"
+            if not ole.exists(table_name):
+                raise ReaderError(f"OLE document has no {table_name} stream.")
+            table_stream = ole.openstream(table_name).read()
+        finally:
+            ole.close()
+
+        # The FIB's variable-length sections lead to FibRgFcLcb. Entry 33 is
+        # fcClx/lcbClx for Word 97 and later. Do not use hard-coded absolute
+        # offsets: later Word versions extend the preceding sections.
+        fib_offset = 32
+        csw = self._unpack_u16(word_stream, fib_offset, "csw")
+        fib_offset += 2 + csw * 2
+        cslw = self._unpack_u16(word_stream, fib_offset, "cslw")
+        fib_offset += 2 + cslw * 4
+        cb_rg_fc_lcb = self._unpack_u16(word_stream, fib_offset, "cbRgFcLcb")
+        fib_offset += 2
+        clx_pair_index = 33
+        if cb_rg_fc_lcb <= clx_pair_index:
+            raise ReaderError("DOC file-information block has no CLX entry.")
+
+        clx_entry = fib_offset + clx_pair_index * 8
+        fc_clx = self._unpack_u32(word_stream, clx_entry, "fcClx")
+        lcb_clx = self._unpack_u32(word_stream, clx_entry + 4, "lcbClx")
+        if lcb_clx < 5 or fc_clx + lcb_clx > len(table_stream):
+            raise ReaderError("DOC CLX range is outside the selected table stream.")
+        clx = table_stream[fc_clx : fc_clx + lcb_clx]
+
+        # CLX contains zero or more formatting PRCs (0x01) followed by one
+        # Pcdt (0x02). Only the Pcdt carries the character-piece mapping.
+        clx_offset = 0
+        while clx_offset < len(clx) and clx[clx_offset] == 0x01:
+            prc_size = self._unpack_u16(clx, clx_offset + 1, "CLX PRC length")
+            clx_offset += 3 + prc_size
+        if clx_offset >= len(clx) or clx[clx_offset] != 0x02:
+            raise ReaderError("DOC CLX has no piece-table record.")
+
+        plc_size = self._unpack_u32(clx, clx_offset + 1, "piece-table length")
+        plc_start = clx_offset + 5
+        if plc_size < 16 or plc_start + plc_size > len(clx) or (plc_size - 4) % 12:
+            raise ReaderError("DOC piece-table length is invalid.")
+        plc = clx[plc_start : plc_start + plc_size]
+        piece_count = (plc_size - 4) // 12
+        if piece_count < 1 or piece_count > 100_000:
+            raise ReaderError("DOC piece count is outside the supported range.")
+
+        cp_count = piece_count + 1
+        cp_bytes = cp_count * 4
+        character_positions = [
+            self._unpack_u32(plc, index * 4, "piece character position")
+            for index in range(cp_count)
+        ]
+        if character_positions[0] != 0:
+            raise ReaderError("DOC piece table does not start at character position zero.")
+        if any(
+            right < left
+            for left, right in zip(character_positions, character_positions[1:])
+        ):
+            raise ReaderError("DOC piece character positions are not monotonic.")
+        if character_positions[-1] > 20_000_000:
+            raise ReaderError("DOC text exceeds the supported character limit.")
+
+        pieces: list[str] = []
+        for index in range(piece_count):
+            pcd_offset = cp_bytes + index * 8
+            raw_fc = self._unpack_u32(plc, pcd_offset + 2, "piece file offset")
+            compressed = bool(raw_fc & 0x40000000)
+            file_offset = raw_fc & 0x3FFFFFFF
+            if compressed:
+                file_offset //= 2
+
+            character_count = character_positions[index + 1] - character_positions[index]
+            byte_count = character_count if compressed else character_count * 2
+            if file_offset + byte_count > len(word_stream):
+                raise ReaderError("DOC text piece is outside the WordDocument stream.")
+
+            encoded = word_stream[file_offset : file_offset + byte_count]
+            encoding = "cp1252" if compressed else "utf-16le"
+            pieces.append(encoded.decode(encoding, errors="replace"))
+
+        text = self._normalise_word_binary_text("".join(pieces))
+        if not text.strip() or not any(character.isalpha() for character in text):
+            raise ReaderError("DOC piece table contained no readable text.")
+        return text
+
+    @staticmethod
+    def _normalise_word_binary_text(value: str) -> str:
+        """Turn Word story/table controls into a stable, readable line stream."""
+        text = value.replace("\u00a0", " ")
+        # Paragraph, hard-line, page and table-cell delimiters all represent a
+        # safe extraction boundary. Field/picture controls carry no visible text.
+        text = text.translate(
+            {
+                0x01: None,
+                0x07: "\n",
+                0x08: None,
+                0x0B: "\n",
+                0x0C: "\n",
+                0x0D: "\n",
+                0x13: None,
+                0x14: None,
+                0x15: None,
+            }
+        )
+        text = "".join(
+            character
+            if character in "\n\t" or ord(character) >= 0x20
+            else " "
+            for character in text
+        )
+        text = re.sub(r"[ \t]+\n", "\n", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        return text.strip()
 
     def _read_via_word_com(self, path: Path) -> str:
         try:
@@ -350,7 +520,7 @@ class DocDocumentReader(DocumentReader):
             source_path=path,
             source_type="doc",
             pages=(page,),
-            plain_text="\n".join(l.text for l in lines_list),
+            plain_text="\n".join(line.text for line in lines_list),
             reader_notes=tuple(notes),
             metadata={
                 "raw_text": text,

@@ -10,8 +10,8 @@ A regression back to "only registration" fails this loudly.
 
 Tolerant by design (non-empty / provider-match assertions, not brittle exact goldens —
 that is ``test_engine_smoke``'s job) so minor rule tweaks don't false-fail. Individual
-fixtures skip cleanly where a reader's deps are absent (PyMuPDF for PDF; a legacy .DOC
-whose pure-python text scrape yields nothing on a bare runtime).
+fixtures skip cleanly where a reader's deps are absent (PyMuPDF for PDF). Word 97+
+legacy `.DOC` text uses the in-process piece-table reader and is not dependency-gated.
 """
 
 from __future__ import annotations
@@ -60,8 +60,8 @@ def test_multiformat_extracts_more_than_vrm(fid: str, fname: str, provider: str,
 
     work_provider = extraction["work_provider"]["value"]
     if not work_provider or work_provider == "UNKNOWN":
-        # The reader produced no usable text on this runtime (e.g. a legacy .DOC with
-        # no scraping support). Nothing to assert about extraction quality -> skip.
+        # A genuinely unsupported/corrupt document can still land without provider
+        # text. Nothing to assert about extraction quality in that case -> skip.
         pytest.skip(f"{fname}: reader produced no provider text on this runtime")
 
     assert work_provider == provider, f"{fname}: work_provider {work_provider!r} != {provider!r}"
