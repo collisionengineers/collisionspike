@@ -29,6 +29,19 @@ byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
 
+**2026-07-12 (TKT-150 placeholder hardening):** re-cut from the sibling at
+**`engine-v2.22`** (branch `codex/tkt-150-claimant-extraction`, commit `9998284`; branch + annotated
+tag pushed unchanged to origin). One engine file, `rules/engine.py`: claimant-specific absence
+markers (`TBC`, `TBA`, `N/A`, `None`, `Unknown`, and their reviewed long forms) are rejected at both
+the configured-rule safety boundary and the explicit-label fallback. A placeholder therefore stays
+blank when no defensible claimant exists and cannot block a later defensible prose candidate. The
+new non-PII EML fixture combines a placeholder with an explicit claimant label inside the handler's
+signature, pinning both negative controls together. Sibling claimant suite: **72 passed**; split full
+suite: **522 passed / 5 skipped / 5 failures identical to the `engine-v2.21` Windows legacy-DOC/eval
+baseline**. Wrapper immutable/claimant/contact/smoke/classifier slice: **292 passed / 11 environment
+skips**; wrapper full suite: **367 passed / 11 skipped / 1 unchanged ALS legacy-DOC failure**. No
+taxonomy/DDL dependency; providers.json untouched; the cloud boundary remains a pure mirror.
+
 **2026-07-12 (TKT-150 exact-head review — domain-qualified prose):** re-cut from the sibling at
 **`engine-v2.21`** (branch `codex/tkt-150-claimant-extraction`, commit `8bf8311`; branch + annotated
 tag pushed unchanged to origin). One engine file, `rules/engine.py`: the previously broad
@@ -465,12 +478,15 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.21`** on branch
-  `codex/tkt-150-claimant-extraction`, commit **`8bf8311`** (2026-07-12). The branch and tag are
+- **Cut from:** annotated tag **`engine-v2.22`** on branch
+  `codex/tkt-150-claimant-extraction`, commit **`9998284`** (2026-07-12). The branch and tag are
   **pushed unchanged to origin** and pass the trusted private-sibling proof. Changed vs
-  `engine-v2.20`: `rules/engine.py` ONLY (TKT-150 exact-head review: generic representation prose
-  requires an explicit client/claimant domain noun; no taxonomy/DDL dependency; providers.json
-  untouched). Prior pin: annotated tag **`engine-v2.20`**, commit **`3809941`** (2026-07-12) —
+  `engine-v2.21`: `rules/engine.py` ONLY (TKT-150 claimant placeholders are absence, cannot win a
+  configured/explicit-label path, and cannot block a later defensible claimant; no taxonomy/DDL
+  dependency; providers.json untouched). Prior pin: annotated tag **`engine-v2.21`**, commit
+  **`8bf8311`** (2026-07-12) — generic representation prose requires an explicit client/claimant
+  domain noun; no taxonomy/DDL dependency; providers.json untouched. Prior pin: annotated tag
+  **`engine-v2.20`**, commit **`3809941`** (2026-07-12) —
   TKT-150 exact-head review: immediate-only empty-label
   continuation, generic organisation rejection, and explicit-label-only single-surname support; no
   taxonomy/DDL dependency; providers.json untouched. Prior pin: annotated tag **`engine-v2.19`**,
@@ -530,7 +546,7 @@ nothing further to do here.
 
 ## Reconciliations: none outstanding
 
-As of `engine-v2.1` (and unchanged through `engine-v2.21`) this copy is a **pure
+As of `engine-v2.1` (and unchanged through `engine-v2.22`) this copy is a **pure
 mirror** — no vendored-only or sibling-only divergence remains. The executable
 boundary is enforced by `VENDOR_LOCK.json` and
 `scripts/verify_vendor_pin.py`: every shared `.py` module, bundled resource
@@ -615,7 +631,7 @@ must stay off the cloud path (see "Omitted modules" above).
 Run from the repo root (`collisionspike/`), Git Bash / bash:
 
 ```bash
-REF=engine-v2.21  # the committed, tagged sibling ref you are cutting from
+REF=engine-v2.22  # the committed, tagged sibling ref you are cutting from
 S=../cedocumentmapper_v2.0   # sibling repo
 V=functions/parser/cedocumentmapper_v2
 

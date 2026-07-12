@@ -1737,6 +1737,36 @@ class RuleEngine:
         cleaned = re.sub(r"\s*[-–]\s*[A-Z]{1,3}\d{1,3}\s?[A-Z]{3}\s*$", "", cleaned, flags=re.IGNORECASE)
         return clean_val(cleaned)
 
+    _CLAIMANT_PLACEHOLDER_VALUES: frozenset[str] = frozenset(
+        {
+            "tbc",
+            "tba",
+            "none",
+            "unknown",
+            "not known",
+            "not provided",
+            "not available",
+            "not applicable",
+            "to be confirmed",
+            "to be advised",
+        }
+    )
+
+    def _is_claimant_placeholder(self, value: str) -> bool:
+        """Return true for explicit absence markers, never for a claimant name.
+
+        Keep this field-specific: accepting a single surname behind an explicit
+        claimant label is intentional, while values such as ``TBC`` and ``N/A``
+        state that the source does not yet carry a defensible name.
+        """
+        cleaned = clean_val(value).casefold().strip()
+        if not cleaned or cleaned in {"-", "–", "—"}:
+            return True
+        if re.fullmatch(r"n\s*[./\\-]\s*a\.?", cleaned):
+            return True
+        normalized = re.sub(r"\s+", " ", cleaned).strip(" .,:;|-–—")
+        return normalized in self._CLAIMANT_PLACEHOLDER_VALUES
+
     def _is_suspicious_value(
         self,
         field_key: FieldKey,
@@ -1765,6 +1795,8 @@ class RuleEngine:
             return bool(cleaned) and not re.fullmatch(r"\d{2}/\d{2}/\d{4}", cleaned)
         if field_key == FieldKey.CLAIMANT_NAME:
             if self._source_is_in_email_signature(document, source_span):
+                return True
+            if self._is_claimant_placeholder(cleaned):
                 return True
             if len(cleaned) > 40:
                 return True
@@ -2355,8 +2387,11 @@ class RuleEngine:
                 # instruction prose (for example, ``Mr J Sample requires inspection``).
                 # Reuse the conservative prose parser so only the leading person name is
                 # accepted and prose-only following lines remain blank.
+                cleaned_value = self._clean_claimant_name(value)
+                if self._is_claimant_placeholder(cleaned_value):
+                    continue
                 value = self._person_name_prefix(
-                    self._clean_claimant_name(value),
+                    cleaned_value,
                     allow_single_token=True,
                 )
                 if not value or self._is_label_only_value(value):

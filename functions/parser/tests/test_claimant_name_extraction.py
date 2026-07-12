@@ -63,6 +63,7 @@ def _provider(provider_id: str) -> dict:
         "CLAIMANT_LABEL_PROSE_01.expected.json",
         "CLAIMANT_LABEL_INTERVENING_01.expected.json",
         "CLAIMANT_SINGLE_SURNAME_01.expected.json",
+        "CLAIMANT_PLACEHOLDER_SIGNATURE_01.expected.json",
         "EMAIL_SIGNATURE_ONLY_01.expected.json",
     ],
 )
@@ -156,6 +157,74 @@ def test_explicit_claimant_label_accepts_a_single_surname(lines: tuple[str, ...]
 
     assert extracted.value == "O'Brien"
     assert extracted.rule_id == "fallback_claimant_label"
+
+
+@pytest.mark.parametrize(
+    "placeholder",
+    [
+        "TBC",
+        "TBA",
+        "N/A",
+        "N.A.",
+        "None",
+        "Unknown",
+        "Not known",
+        "Not provided",
+        "Not available",
+        "To be confirmed",
+        "To be advised",
+        "-",
+    ],
+)
+@pytest.mark.parametrize("next_line", [False, True])
+def test_explicit_claimant_label_rejects_placeholders(
+    placeholder: str,
+    next_line: bool,
+):
+    lines = (
+        ("Claimant Name:", placeholder)
+        if next_line
+        else (f"Claimant Name: {placeholder}",)
+    )
+
+    extracted = _claimant(*lines, "Vehicle Registration: AB12 CDE")
+
+    assert extracted.value == ""
+
+
+@pytest.mark.parametrize("placeholder", ["TBC", "TBA", "N/A", "None", "Unknown"])
+def test_placeholder_label_does_not_block_defensible_claimant_prose(placeholder: str):
+    extracted = _claimant(
+        f"Claimant Name: {placeholder}",
+        "Please arrange access with our client, Ms Jane Example.",
+        "Vehicle Registration: AB12 CDE",
+    )
+
+    assert extracted.value == "Ms Jane Example"
+    assert extracted.rule_id == "fallback_claimant_prose"
+
+
+@pytest.mark.parametrize("placeholder", ["TBC", "TBA", "N/A", "None", "Unknown"])
+def test_configured_claimant_rule_rejects_placeholders(placeholder: str):
+    provider_with_claimant_rule = {
+        **_UNKNOWN_PROVIDER,
+        "field_rules": {
+            "claimant_name": {
+                "id": "claimant_name_rule",
+                "kind": "label_same_line",
+                "labels": ["Claimant Name"],
+            }
+        },
+    }
+    record = RuleEngine().extract_record(
+        _email_doc(
+            f"Claimant Name: {placeholder}",
+            "Vehicle Registration: AB12 CDE",
+        ),
+        provider_with_claimant_rule,
+    )
+
+    assert record.fields[FieldKey.CLAIMANT_NAME].value == ""
 
 
 def test_signature_name_is_not_used_when_claimant_is_absent():
