@@ -62,6 +62,7 @@ import {
   type ImageRole,
   type InboundCategory,
   type InboundSubtype,
+  type VehicleDataEnrichmentResponse,
 } from '@cs/domain';
 import {
   actionReasonCodec,
@@ -1657,13 +1658,10 @@ app.http('internalCasesEnrichment', {
   handler: (req, ctx) =>
     withServiceAuth(req, ctx, async () => {
       const caseId = req.params.id;
-      const body = (await req.json()) as {
-        vehicle_model?: string;
-        make?: string;
-        current_mileage?: number | string;
-        mileage_unit?: string;
-        warnings?: string[];
-      };
+      // TKT-151 owns persisting the nested evidence/run records; this route
+      // already consumes the canonical envelope and temporarily projects only
+      // its compatibility fields onto empty case columns.
+      const body = (await req.json()) as VehicleDataEnrichmentResponse;
 
       const cur = await query<Row>(
         'SELECT eva_vehicle_model, eva_mileage, eva_mileage_unit FROM case_ WHERE id = $1',

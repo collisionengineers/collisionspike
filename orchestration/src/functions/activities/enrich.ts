@@ -25,20 +25,13 @@
 
 import * as df from 'durable-functions';
 import { gates } from '@cs/domain/gates';
+import type { VehicleDataEnrichmentResponse } from '@cs/domain';
 import { dataApi } from '../../lib/data-api.js';
 
 interface EnrichInput {
   caseId: string;
   vrm?: string;
   documentHasMileage?: boolean;
-}
-
-interface EnrichmentResult {
-  vehicle_model?: string;
-  make?: string;
-  current_mileage?: number | string;
-  mileage_unit?: string;
-  warnings?: string[];
 }
 
 df.app.activity('enrich', {
@@ -87,7 +80,7 @@ df.app.activity('enrich', {
       return { skipped: true, status: res.status };
     }
 
-    const result = (await res.json()) as EnrichmentResult;
+    const result = (await res.json()) as VehicleDataEnrichmentResponse;
 
     // Persist the advisory result onto the case (fill-if-empty, server-side). The Data API's
     // internalCasesEnrichment ALREADY writes the single `enrichment_called` audit row, so we do

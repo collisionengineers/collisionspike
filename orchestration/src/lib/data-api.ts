@@ -22,7 +22,11 @@
  *   optional DATA_API_TOKEN (local dev).
  */
 
-import type { CreateCaseInput, CreateCaseResult } from '@cs/domain';
+import type {
+  CreateCaseInput,
+  CreateCaseResult,
+  VehicleDataEnrichmentResponse,
+} from '@cs/domain';
 import type { ProviderMatchRecord, OpenProviderCase } from '@cs/domain';
 import type { ImageSourceMatchRecord } from '@cs/domain';
 import type { EvidenceDescriptor } from '@cs/domain';
@@ -731,13 +735,7 @@ export const dataApi = {
    */
   persistEnrichment(
     caseId: string,
-    result: {
-      vehicle_model?: string;
-      make?: string;
-      current_mileage?: number | string;
-      mileage_unit?: string;
-      warnings?: string[];
-    },
+    result: VehicleDataEnrichmentResponse,
   ): Promise<{ applied: string[] }> {
     return request('POST', `/api/internal/cases/${caseId}/enrichment`, result);
   },

@@ -15,7 +15,8 @@ Covered:
 * A 401 on the DVSA history call refreshes the Entra token exactly once, then
   soft-fails with a warning — no exception bubbles.
 * The client_secret / api_key / token never appear in logs or in the response.
-* Ported analysis: clocking suppression, single-reading, KM normalisation.
+* Canonical vehicle-data path: reset abstention, exact KM normalisation and
+  calibrated-versus-range-only outcomes.
 """
 
 from __future__ import annotations
@@ -23,11 +24,10 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import httpx
-import pytest
 import respx
 
 # Make the function modules importable when pytest runs from anywhere.
@@ -39,6 +39,8 @@ from dvsa_client import DvsaClient, DvsaConfig  # noqa: E402
 from dvla_client import DvlaClient, DvlaConfig  # noqa: E402
 import analysis  # noqa: E402
 import function_app  # noqa: E402
+from vehicle_data.contracts import CalibrationBucket, CalibrationProfile  # noqa: E402
+from vehicle_data.mileage import estimate_displayed_mileage  # noqa: E402
 
 TENANT = "11111111-2222-3333-4444-555555555555"
 TOKEN_URL = f"https://login.microsoftonline.com/{TENANT}/oauth2/v2.0/token"
@@ -52,8 +54,37 @@ FAKE_DVLA_KEY = "FAKE-dvla-api-key-0987654321"  # noqa: S105 - test-only
 FAKE_TOKEN = "FAKE.test.access-token.not-a-real-jwt"  # from token_response.json
 
 # Deterministic assessment date: 374 days after the fixture's last MOT reading
-# (2023-03-06) so current_mileage_estimate yields exactly 62400 / MEDIUM.
+# (2023-03-06), yielding 62,400 with the injected chronological test profile.
 AS_OF = date(2024, 3, 14)
+
+
+def _calibration() -> CalibrationProfile:
+    """Small deterministic holdout profile for compatibility-path tests.
+
+    Production never invents this profile: it must be injected from a dated,
+    versioned chronological backtest artifact. These values retain the fixture's
+    historical 60,300–64,500 interval without reviving the removed confidence
+    label heuristic.
+    """
+
+    return CalibrationProfile(
+        version="enrichment-fixture-v1",
+        dataset_digest="a" * 64,
+        target_coverage=0.9,
+        useful_tolerance_miles=2500,
+        validated_horizon_days=730,
+        buckets=(
+            CalibrationBucket(
+                method="*",
+                max_horizon_days=730,
+                min_clean_intervals=0,
+                anomaly_class="*",
+                error_q_low=-2100,
+                error_q_high=2100,
+                sample_size=100,
+            ),
+        ),
+    )
 
 
 def _load(name: str) -> dict:
@@ -131,7 +162,9 @@ def test_mileage_fetched_when_document_lacks_mileage(monkeypatch):
     assert result["make"] == "FORD"
     assert result["current_mileage"] == 62400
     assert result["mileage_unit"] == "Miles"
-    assert result["mileage_confidence"] == "MEDIUM"
+    assert result["mileage"]["status"] == "estimated"
+    assert result["mileage"]["prediction_interval"]["coverage"] == 0.9
+    assert "mileage_confidence" not in result
     # Still a single DVSA call — one fetch feeds both summary and estimate.
     assert dvsa_route.call_count == 1
 
@@ -453,15 +486,15 @@ def test_secret_never_in_response_or_logs(monkeypatch, caplog):
 # Ported analysis fidelity (pure, no HTTP)
 # --------------------------------------------------------------------------
 
-def test_estimate_matches_ts_fixture():
+def test_estimate_matches_canonical_fixture():
     v = _load("dvsa_vehicle.json")
-    est = analysis.current_mileage_estimate(v, AS_OF)
-    assert est["estimate_available"] is True
+    est = estimate_displayed_mileage(v, target_date=AS_OF, calibration=_calibration())
+    assert est["status"] == "estimated"
     assert est["estimated_mileage"] == 62400
-    assert est["estimate_low"] == 60300
-    assert est["estimate_high"] == 64500
-    assert est["annual_rate_used"] == 8100
-    assert est["confidence"] == "MEDIUM"
+    assert est["prediction_interval"]["lower_mileage"] == 60300
+    assert est["prediction_interval"]["upper_mileage"] == 64500
+    assert est["annual_rate_miles"] == 8150
+    assert "confidence" not in est
 
 
 def test_clocking_decrease_excluded_from_rate():
@@ -474,28 +507,33 @@ def test_clocking_decrease_excluded_from_rate():
         ]
     }
     anomalies = analysis.detect_mileage_anomalies(v)["anomalies"]
-    assert any(a["type"] == "DECREASE" for a in anomalies)
-    est = analysis.current_mileage_estimate(v, date(2023, 6, 1))
-    # Recent window is dirty (the decrease) so it is NOT a HIGH-confidence path.
-    assert est["confidence"] in {"LOW", "VERY_LOW", "MEDIUM"}
+    assert any(a["type"] == "ODOMETER_SEGMENT_STARTED" for a in anomalies)
+    est = estimate_displayed_mileage(v, target_date=date(2023, 6, 1), calibration=_calibration())
+    # A latest unresolved decrease is an abstention, never a guessed lifetime mileage.
+    assert est["status"] == "insufficient"
+    assert est["method"] == "displayed_segment_only"
+    assert any(w["code"] == "unresolved_odometer_reset" for w in est["warnings"])
 
 
 def test_km_readings_normalised_to_miles():
-    # 80000 KM ~= 49710 miles; a single reading returns last-known in miles.
+    # 80000 KM ~= 49710 miles; an exact-date observation is normalised to miles.
     v = {
         "motTests": [
             {"completedDate": "2023-01-01", "odometerValue": "80000", "odometerUnit": "KM", "odometerResultType": "READ", "testResult": "PASSED"},
         ]
     }
-    est = analysis.current_mileage_estimate(v, date(2023, 6, 1))
-    assert est["estimate_available"] is True
+    est = estimate_displayed_mileage(v, target_date=date(2023, 1, 1))
+    assert est["status"] == "observed"
     assert est["estimated_mileage"] == round(80000 * 0.621371)
 
 
 def test_no_mot_history_estimate_unavailable():
-    est = analysis.current_mileage_estimate({"motTestDueDate": "2027-01-01"}, date(2025, 1, 1))
-    assert est["estimate_available"] is False
-    assert est["confidence"] == "VERY_LOW"
+    est = estimate_displayed_mileage(
+        {"motTestDueDate": "2027-01-01"}, target_date=date(2025, 1, 1)
+    )
+    assert est["status"] == "insufficient"
+    assert est["estimated_mileage"] is None
+    assert "confidence" not in est
 
 
 def test_estimate_projects_forward_from_last_mot_by_design_tkt044():
@@ -516,20 +554,23 @@ def test_estimate_projects_forward_from_last_mot_by_design_tkt044():
         ]
     }
     as_of = date(2026, 7, 9)  # ~13.2 months after the last MOT
-    est = analysis.current_mileage_estimate(v, as_of)
-    assert est["estimate_available"] is True
-    # Rate: 16,000 miles over 731 days -> 21.888 mi/day * 365.25 = round(7994.5) = 7995/yr.
-    assert est["annual_rate_used"] == 7995
+    est = estimate_displayed_mileage(v, target_date=as_of)
+    # Without a backtest profile, the point is retained for audit but explicitly
+    # classified as a non-probabilistic range rather than a fake confidence score.
+    assert est["status"] == "range_only"
+    # Recency weighting uses the latest exact-date annualised interval (8,005/yr).
+    assert est["annual_rate_miles"] == 8005
     days_since = (as_of - date(2025, 6, 1)).days  # 403
-    projected = 7995 * (days_since / 365.25)  # ~8821 miles ON TOP of the 40,000 reading
+    projected = 8005 * (days_since / 365.25)  # ~8832 miles ON TOP of the 40,000 reading
     assert est["estimated_mileage"] == round((40000 + projected) / 100) * 100  # 48800
     assert est["estimated_mileage"] == 48800
     # The overshoot vs the last MOT reading is the projection term alone — the
     # "~10k over" a reader anchored on the MOT figure perceives.
     assert est["estimated_mileage"] - 40000 == 8800
-    # Basis fields make the anchor auditable.
-    assert est["basis"]["last_known_mileage"] == 40000
-    assert est["basis"]["last_known_date"] == "2025-06-01"
+    # Raw evidence makes the anchor auditable.
+    latest = est["evidence"]["observations"][-1]
+    assert latest["normalized_miles"] == 40000
+    assert latest["test_date"] == "2025-06-01"
 
 
 # --------------------------------------------------------------------------
@@ -750,13 +791,16 @@ def _no_backoff(monkeypatch):
     monkeypatch.setattr(DvsaClient, "_backoff", staticmethod(lambda attempt: None))
 
 def _pin_as_of(monkeypatch):
-    """Freeze current_mileage_estimate's as-of to AS_OF for deterministic output."""
-    orig = analysis.current_mileage_estimate
+    """Freeze the canonical service clock and inject a real calibration artifact."""
+    service_type = function_app.VehicleDataService
 
-    def pinned(v, as_of=None):
-        return orig(v, AS_OF)
+    def pinned_service(*args, **kwargs):
+        kwargs.setdefault(
+            "clock",
+            lambda: datetime(AS_OF.year, AS_OF.month, AS_OF.day, tzinfo=timezone.utc),
+        )
+        if kwargs.get("calibration") is None:
+            kwargs["calibration"] = _calibration()
+        return service_type(*args, **kwargs)
 
-    monkeypatch.setattr(analysis, "current_mileage_estimate", pinned)
-    # function_app imported get_mileage_estimate which calls
-    # current_mileage_estimate by reference within analysis; patch get_mileage_estimate too.
-    monkeypatch.setattr(function_app, "get_mileage_estimate", lambda v, as_of=None: orig(v, AS_OF))
+    monkeypatch.setattr(function_app, "VehicleDataService", pinned_service)

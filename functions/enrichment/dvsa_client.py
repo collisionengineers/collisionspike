@@ -45,6 +45,8 @@ from typing import Any
 
 import httpx
 
+from vehicle_data.registration import canonicalize_registration
+
 logger = logging.getLogger("enrichment.dvsa")
 
 # Microsoft Entra token authority (tenant-scoped v2.0 client-credentials).
@@ -86,19 +88,47 @@ _RETRY_SAFE_STATUS = {429, 500, 502, 503, 504}
 class DvsaError(RuntimeError):
     """Non-recoverable DVSA failure (after the 401 retry / retry budget)."""
 
+    lookup_status = "temporarily_unavailable"
+
+    def __init__(self, message: str, *, error_code: str | None = None) -> None:
+        super().__init__(message)
+        self.error_code = error_code
+
 
 class DvsaAuthError(DvsaError):
     """The Entra token endpoint rejected our credentials, or DVSA returned 401
     twice (token + one forced refresh)."""
 
+    lookup_status = "configuration_error"
+
+
+class DvsaConfigurationError(DvsaError):
+    """Required app settings or credentials are absent."""
+
+    lookup_status = "configuration_error"
+
 
 class DvsaNotFoundError(DvsaError):
     """DVSA has no record for the registration (404 / not-found error code)."""
 
+    lookup_status = "not_found"
+
+
+class DvsaInvalidRegistrationError(DvsaError):
+    """DVSA rejected the supplied registration syntax/value."""
+
+    lookup_status = "invalid_registration"
+
+
+class DvsaTransientError(DvsaError):
+    """A retryable provider/rate-limit fault exhausted its local retry budget."""
+
+    lookup_status = "temporarily_unavailable"
+
 
 def normalize_registration(reg: str) -> str:
-    """Strip whitespace and upper-case — matches ``normalizeRegistration``."""
-    return "".join(reg.split()).upper().strip()
+    """Compatibility alias; canonical logic lives in vehicle_data.registration."""
+    return canonicalize_registration(reg)
 
 
 @dataclass
@@ -142,7 +172,7 @@ class DvsaConfig:
         ]
         if missing:
             # Signal the gap by name only — never the (empty/non-empty) values.
-            raise DvsaError(
+            raise DvsaConfigurationError(
                 "DVSA credentials are not configured (missing Key Vault refs / "
                 f"app settings: {', '.join(missing)})"
             )
@@ -276,10 +306,16 @@ class DvsaClient:
             raise DvsaAuthError("DVSA returned 401 after one token refresh")
 
         if resp.status_code == 404:
-            raise DvsaNotFoundError("DVSA has no record for this registration")
+            raise DvsaNotFoundError("DVSA has no record for this registration", error_code=self._error_code(resp))
 
         if resp.status_code >= 400:
             code = self._error_code(resp)
+            if code == "MOTH-IV-03":
+                raise DvsaInvalidRegistrationError("DVSA rejected the registration", error_code=code)
+            if code == "MOTH-NF-01":
+                raise DvsaNotFoundError("DVSA has no record for this registration", error_code=code)
+            if code in {"MOTH-UA-01", "MOTH-FB-01", "MOTH-FB-03", "MOTH-FB-04"}:
+                raise DvsaAuthError("DVSA rejected the configured credentials", error_code=code)
             # Retry-safe if EITHER a documented retry-safe errorCode is present OR
             # the bare HTTP status is transient (429 rate-limit / 5xx). The latter
             # mirrors the DVLA client and covers a 429 whose body has no/!=errorCode
@@ -290,7 +326,11 @@ class DvsaClient:
                 self._backoff(attempt)
                 return self._get_with_retry(path, attempt=attempt + 1, refreshed=refreshed)
             # Never include the body verbatim.
-            raise DvsaError(f"DVSA returned HTTP {resp.status_code} ({code or 'no code'})")
+            error_type = DvsaTransientError if retry_safe or code == "MOTH-RL-01" else DvsaError
+            raise error_type(
+                f"DVSA returned HTTP {resp.status_code} ({code or 'no code'})",
+                error_code=code,
+            )
 
         return resp.json()
 

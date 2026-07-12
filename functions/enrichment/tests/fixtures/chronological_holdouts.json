@@ -1,0 +1,114 @@
+[
+  {
+    "vehicleId": "holdout-01",
+    "registration": "HT01AAA",
+    "registrationDate": "2018-01-01",
+    "vehicleType": "car",
+    "fuelType": "Petrol",
+    "motTests": [
+      {"motTestNumber":"101","dataSource":"dvsa","completedDate":"2021-01-10","testResult":"PASSED","odometerValue":"10000","odometerUnit":"MI","odometerResultType":"READ","registrationAtTimeOfTest":"HT01AAA"},
+      {"motTestNumber":"102","dataSource":"dvsa","completedDate":"2022-01-10","testResult":"PASSED","odometerValue":"18000","odometerUnit":"MI","odometerResultType":"READ","registrationAtTimeOfTest":"HT01AAA"},
+      {"motTestNumber":"103","dataSource":"dvsa","completedDate":"2023-01-10","testResult":"PASSED","odometerValue":"26100","odometerUnit":"MI","odometerResultType":"READ","registrationAtTimeOfTest":"HT01AAA"},
+      {"motTestNumber":"104","dataSource":"dvsa","completedDate":"2024-01-10","testResult":"PASSED","odometerValue":"34500","odometerUnit":"MI","odometerResultType":"READ","registrationAtTimeOfTest":"HT01AAA"},
+      {"motTestNumber":"105","dataSource":"dvsa","completedDate":"2025-01-10","testResult":"PASSED","odometerValue":"43200","odometerUnit":"MI","odometerResultType":"READ","registrationAtTimeOfTest":"HT01AAA"}
+    ]
+  },
+  {
+    "vehicleId": "holdout-02",
+    "registration": "HT02BBB",
+    "registrationDate": "2016-03-01",
+    "vehicleType": "car",
+    "fuelType": "Diesel",
+    "motTests": [
+      {"motTestNumber":"201","dataSource":"dvsa","completedDate":"2020-03-05","testResult":"PASSED","odometerValue":"22000","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"202","dataSource":"dvsa","completedDate":"2021-03-05","testResult":"PASSED","odometerValue":"33500","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"203","dataSource":"dvsa","completedDate":"2022-03-05","testResult":"PASSED","odometerValue":"44700","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"204","dataSource":"dvsa","completedDate":"2023-03-05","testResult":"PASSED","odometerValue":"56600","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"205","dataSource":"dvsa","completedDate":"2024-03-05","testResult":"PASSED","odometerValue":"68100","odometerUnit":"MI","odometerResultType":"READ"}
+    ]
+  },
+  {
+    "vehicleId": "holdout-03",
+    "registration": "HT03CCC",
+    "registrationDate": "2019-05-01",
+    "vehicleType": "car",
+    "fuelType": "Electric",
+    "motTests": [
+      {"motTestNumber":"301","dataSource":"dvsa","completedDate":"2022-05-01","testResult":"PASSED","odometerValue":"12000","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"302","dataSource":"dvsa","completedDate":"2023-05-01","testResult":"PASSED","odometerValue":"19000","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"303","dataSource":"dvsa","completedDate":"2024-05-01","testResult":"PASSED","odometerValue":"25700","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"304","dataSource":"dvsa","completedDate":"2025-05-01","testResult":"PASSED","odometerValue":"32900","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"305","dataSource":"dvsa","completedDate":"2026-05-01","testResult":"PASSED","odometerValue":"39800","odometerUnit":"MI","odometerResultType":"READ"}
+    ]
+  },
+  {
+    "vehicleId": "holdout-04",
+    "registration": "HT04DDD",
+    "registrationDate": "2014-07-01",
+    "vehicleType": "van",
+    "fuelType": "Diesel",
+    "motTests": [
+      {"motTestNumber":"401","dataSource":"dvsa","completedDate":"2020-07-15","testResult":"PASSED","odometerValue":"48000","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"402","dataSource":"dvsa","completedDate":"2021-07-15","testResult":"PASSED","odometerValue":"66500","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"403","dataSource":"dvsa","completedDate":"2022-07-15","testResult":"PASSED","odometerValue":"85700","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"404","dataSource":"dvsa","completedDate":"2023-07-15","testResult":"PASSED","odometerValue":"104000","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"405","dataSource":"dvsa","completedDate":"2024-07-15","testResult":"PASSED","odometerValue":"123500","odometerUnit":"MI","odometerResultType":"READ"}
+    ]
+  },
+  {
+    "vehicleId": "holdout-05",
+    "registration": "HT05EEE",
+    "registrationDate": "2011-09-01",
+    "vehicleType": "car",
+    "fuelType": "Hybrid Electric (Clean)",
+    "motTests": [
+      {"motTestNumber":"501","dataSource":"dvsa","completedDate":"2019-09-20","testResult":"PASSED","odometerValue":"55000","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"502","dataSource":"dvsa","completedDate":"2020-09-20","testResult":"PASSED","odometerValue":"61000","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"503","dataSource":"dvsa","completedDate":"2021-09-20","testResult":"PASSED","odometerValue":"66800","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"504","dataSource":"dvsa","completedDate":"2022-09-20","testResult":"PASSED","odometerValue":"73000","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"505","dataSource":"dvsa","completedDate":"2023-09-20","testResult":"PASSED","odometerValue":"79100","odometerUnit":"MI","odometerResultType":"READ"}
+    ]
+  },
+  {
+    "vehicleId": "holdout-06",
+    "registration": "HT06FFF",
+    "registrationDate": "2020-11-01",
+    "vehicleType": "motorcycle",
+    "fuelType": "Petrol",
+    "motTests": [
+      {"motTestNumber":"601","dataSource":"dvsa","completedDate":"2023-11-02","testResult":"PASSED","odometerValue":"5000","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"602","dataSource":"dvsa","completedDate":"2024-11-02","testResult":"PASSED","odometerValue":"8500","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"603","dataSource":"dvsa","completedDate":"2025-11-02","testResult":"PASSED","odometerValue":"11800","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"604","dataSource":"dvsa","completedDate":"2026-11-02","testResult":"PASSED","odometerValue":"15400","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"605","dataSource":"dvsa","completedDate":"2027-11-02","testResult":"PASSED","odometerValue":"18800","odometerUnit":"MI","odometerResultType":"READ"}
+    ]
+  },
+  {
+    "vehicleId": "holdout-07",
+    "registration": "HT07GGG",
+    "registrationDate": "2017-02-01",
+    "vehicleType": "car",
+    "fuelType": "Petrol",
+    "motTests": [
+      {"motTestNumber":"701","dataSource":"dvsa","completedDate":"2020-02-10","testResult":"PASSED","odometerValue":"15000","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"702","dataSource":"dvsa","completedDate":"2021-02-10","testResult":"PASSED","odometerValue":"24500","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"703","dataSource":"dvsa","completedDate":"2022-02-10","testResult":"PASSED","odometerValue":"33600","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"704","dataSource":"dvsa","completedDate":"2023-02-10","testResult":"PASSED","odometerValue":"43500","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"705","dataSource":"dvsa","completedDate":"2024-02-10","testResult":"PASSED","odometerValue":"52700","odometerUnit":"MI","odometerResultType":"READ"}
+    ]
+  },
+  {
+    "vehicleId": "holdout-08",
+    "registration": "HT08HHH",
+    "registrationDate": "2013-04-01",
+    "vehicleType": "van",
+    "fuelType": "Diesel",
+    "motTests": [
+      {"motTestNumber":"801","dataSource":"dvsa","completedDate":"2019-04-12","testResult":"PASSED","odometerValue":"62000","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"802","dataSource":"dvsa","completedDate":"2020-04-12","testResult":"PASSED","odometerValue":"77500","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"803","dataSource":"dvsa","completedDate":"2021-04-12","testResult":"PASSED","odometerValue":"92700","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"804","dataSource":"dvsa","completedDate":"2022-04-12","testResult":"PASSED","odometerValue":"108500","odometerUnit":"MI","odometerResultType":"READ"},
+      {"motTestNumber":"805","dataSource":"dvsa","completedDate":"2023-04-12","testResult":"PASSED","odometerValue":"124000","odometerUnit":"MI","odometerResultType":"READ"}
+    ]
+  }
+]

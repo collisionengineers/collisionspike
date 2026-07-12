@@ -33,7 +33,7 @@ from typing import Any
 
 import httpx
 
-from dvsa_client import normalize_registration
+from vehicle_data.registration import canonicalize_registration
 
 logger = logging.getLogger("enrichment.dvla")
 
@@ -52,9 +52,33 @@ DEFAULT_DVLA_API_BASE = "https://driver-vehicle-licensing.api.gov.uk/vehicle-enq
 class DvlaError(RuntimeError):
     """Non-recoverable DVLA failure (after the retry budget)."""
 
+    lookup_status = "temporarily_unavailable"
+
+    def __init__(self, message: str, *, error_code: str | None = None) -> None:
+        super().__init__(message)
+        self.error_code = error_code
+
 
 class DvlaNotConfigured(DvlaError):
     """DVLA credentials are absent — the fallback is simply skipped."""
+
+    lookup_status = "configuration_error"
+
+
+class DvlaNotFoundError(DvlaError):
+    lookup_status = "not_found"
+
+
+class DvlaInvalidRegistrationError(DvlaError):
+    lookup_status = "invalid_registration"
+
+
+class DvlaAuthError(DvlaError):
+    lookup_status = "configuration_error"
+
+
+class DvlaTransientError(DvlaError):
+    lookup_status = "temporarily_unavailable"
 
 
 @dataclass
@@ -110,7 +134,7 @@ class DvlaClient:
             self._client = None
 
     def get_vehicle(self, registration: str) -> dict[str, Any]:
-        reg = normalize_registration(registration)
+        reg = canonicalize_registration(registration)
         return self._post("/v1/vehicles", {"registrationNumber": reg})
 
     def _post(self, path: str, body: dict, *, attempt: int = 0) -> dict[str, Any]:
@@ -128,11 +152,19 @@ class DvlaClient:
         if resp.status_code < 400:
             return resp.json()
 
+        if resp.status_code == 404:
+            raise DvlaNotFoundError("DVLA has no record for this registration")
+        if resp.status_code == 400:
+            raise DvlaInvalidRegistrationError("DVLA rejected the registration")
+        if resp.status_code in {401, 403}:
+            raise DvlaAuthError("DVLA rejected the configured credentials")
+
         if resp.status_code in _RETRY_SAFE_STATUS and attempt < _MAX_RETRIES:
             self._backoff(attempt)
             return self._post(path, body, attempt=attempt + 1)
         # Never include the body verbatim.
-        raise DvlaError(f"DVLA returned HTTP {resp.status_code}")
+        error_type = DvlaTransientError if resp.status_code in _RETRY_SAFE_STATUS else DvlaError
+        raise error_type(f"DVLA returned HTTP {resp.status_code}")
 
     @staticmethod
     def _backoff(attempt: int) -> None:

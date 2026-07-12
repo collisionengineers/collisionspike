@@ -8,6 +8,7 @@ How the system is built. **The canonical live registry is [`live-environment.md`
 - [`eva-field-model.md`](./eva-field-model.md) — the 12-field EVA contract + mappings.
 - [`eva-sentry-api.md`](./eva-sentry-api.md) — EVA "Sentry" API v1.2 endpoints & auth.
 - [`integrations.md`](./integrations.md) — EVA / enrichment / parser / Box + the feature-gating model.
+- [`vehicle-data.md`](./vehicle-data.md) — the canonical DVLA/DVSA contract, immutable MOT evidence and displayed-mileage estimator.
 - [`inspection-address-corpus.md`](./inspection-address-corpus.md) — the ADR-0013 offline-suggestion model.
 - [`data-protection.md`](./data-protection.md) — controller/processor map, lawful-basis, retention.
 - [`azure-cost-model.md`](./azure-cost-model.md) — the per-service cost model.

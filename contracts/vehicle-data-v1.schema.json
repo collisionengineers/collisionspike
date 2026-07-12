@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collisionengineers.co.uk/contracts/vehicle-data-v1.schema.json",
+  "title": "CollisionSpike canonical vehicle data lookup",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["contract_version", "algorithm_version", "lookup", "vehicle", "provider_snapshots", "mileage"],
+  "properties": {
+    "contract_version": { "const": "vehicle-data.v1" },
+    "algorithm_version": { "const": "mot-display-estimator.v2" },
+    "lookup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "status", "requested_registration", "canonical_registration", "target_date", "retrieved_at", "provider_statuses"],
+      "properties": {
+        "run_id": { "type": "string", "format": "uuid" },
+        "status": { "$ref": "#/$defs/lookupStatus" },
+        "requested_registration": { "type": "string" },
+        "canonical_registration": { "type": "string", "pattern": "^[A-Z0-9]{0,16}$" },
+        "target_date": { "type": "string", "format": "date" },
+        "retrieved_at": { "type": "string", "format": "date-time" },
+        "provider_statuses": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/lookupStatus" }
+        }
+      }
+    },
+    "vehicle": { "type": "object" },
+    "provider_snapshots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["provider", "retrieved_at", "status", "payload_sha256", "raw_payload", "error_class", "error_code"],
+        "properties": {
+          "provider": { "enum": ["dvsa_mot_history_v1", "dvla_vehicle_enquiry_v1"] },
+          "retrieved_at": { "type": "string", "format": "date-time" },
+          "status": { "$ref": "#/$defs/lookupStatus" },
+          "payload_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+          "raw_payload": { "type": ["object", "null"] },
+          "error_class": { "type": ["string", "null"] },
+          "error_code": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "mileage": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["status", "method", "odometer_meaning", "target_date", "algorithm_version", "warnings", "evidence"],
+      "properties": {
+        "status": { "enum": ["observed", "estimated", "range_only", "insufficient"] },
+        "method": { "enum": ["observed_mot", "bounded_interpolation", "recent_rate_forecast", "cohort_assisted_forecast", "cohort_assisted_backcast", "displayed_segment_only", "none"] },
+        "odometer_meaning": { "const": "displayed_odometer" },
+        "target_date": { "type": "string", "format": "date" },
+        "algorithm_version": { "const": "mot-display-estimator.v2" },
+        "observed_mileage": { "type": ["integer", "null"], "minimum": 0 },
+        "estimated_mileage": { "type": ["integer", "null"], "minimum": 0 },
+        "annual_rate_miles": { "type": ["integer", "null"], "minimum": 0 },
+        "reason": { "type": ["string", "null"] },
+        "prediction_interval": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["coverage", "lower_mileage", "upper_mileage", "calibration_version", "dataset_digest", "sample_size"],
+              "properties": {
+                "coverage": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+                "lower_mileage": { "type": "integer", "minimum": 0 },
+                "upper_mileage": { "type": "integer", "minimum": 0 },
+                "calibration_version": { "type": "string", "minLength": 1 },
+                "dataset_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                "sample_size": { "type": "integer", "minimum": 30 }
+              }
+            }
+          ]
+        },
+        "range": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["lower_mileage", "upper_mileage", "basis"],
+              "properties": {
+                "lower_mileage": { "type": "integer", "minimum": 0 },
+                "upper_mileage": { "type": "integer", "minimum": 0 },
+                "basis": { "enum": ["observed_mot", "logical_bounds", "rate_dispersion_not_calibrated"] }
+              }
+            }
+          ]
+        },
+        "prior": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["version", "dataset_digest", "annual_rate_miles", "annual_sigma_miles", "sample_size", "cohort"],
+              "properties": {
+                "version": { "type": "string", "minLength": 1 },
+                "dataset_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                "annual_rate_miles": { "type": "integer", "minimum": 0, "maximum": 100000 },
+                "annual_sigma_miles": { "type": "integer", "exclusiveMinimum": 0 },
+                "sample_size": { "type": "integer", "minimum": 200 },
+                "cohort": { "type": "object" }
+              }
+            }
+          ]
+        },
+        "warnings": { "type": "array", "items": { "$ref": "#/$defs/warning" } },
+        "evidence": {
+          "type": "object",
+          "required": ["observations", "intervals", "anomaly_class"],
+          "properties": {
+            "observations": { "type": "array", "items": { "$ref": "#/$defs/observation" } },
+            "intervals": { "type": "array", "items": { "type": "object" } },
+            "anomaly_class": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "lookupStatus": {
+      "enum": ["found", "not_found", "invalid_registration", "temporarily_unavailable", "configuration_error"]
+    },
+    "warning": {
+      "type": "object",
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": { "type": "string" },
+        "severity": { "enum": ["warning", "blocking"] },
+        "message": { "type": "string" }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "required": ["observation_id", "raw_index", "source", "mot_test_number", "test_date", "test_result", "odometer_value_raw", "odometer_unit_raw", "odometer_result_type_raw", "registration_at_test", "stable_vehicle_identity", "normalized_miles", "decisions", "warnings"],
+      "properties": {
+        "observation_id": { "type": "string" },
+        "raw_index": { "type": "integer", "minimum": 0 },
+        "source": { "type": "string" },
+        "mot_test_number": { "type": ["string", "null"] },
+        "test_date": { "type": ["string", "null"], "format": "date" },
+        "test_result": { "type": ["string", "null"] },
+        "odometer_value_raw": { "type": ["string", "null"] },
+        "odometer_unit_raw": { "type": ["string", "null"] },
+        "odometer_result_type_raw": { "type": ["string", "null"] },
+        "registration_at_test": { "type": ["string", "null"] },
+        "stable_vehicle_identity": { "type": ["string", "null"] },
+        "normalized_miles": { "type": ["number", "null"], "minimum": 0 },
+        "decisions": { "type": "array", "items": { "type": "string" } },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

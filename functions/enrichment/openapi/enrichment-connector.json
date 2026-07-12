@@ -2,8 +2,8 @@
   "swagger": "2.0",
   "info": {
     "title": "CollisionSpike DVSA Enrichment",
-    "description": "Custom connector over the DVSA enrichment Azure Function. The Function calls the DVSA MOT History API directly (Microsoft Entra client_credentials + X-API-Key) and the DVLA Vehicle Enquiry API directly (API-key) — no gateway, all-Microsoft. It returns vehicle make/model (get_vehicle_summary) and a current mileage estimate (current_mileage_estimate). Enrichment is advisory and staff-reviewed; the mileage estimate is computed ONLY when the parsed document has no mileage (document authoritative, ADR-0006).",
-    "version": "1.0.0"
+    "description": "Historical connector description for the canonical vehicle-data Function. The nested vehicle-data.v1 response is authoritative; compatibility fields remain temporarily for the existing case writer. Mileage is computed only when the instruction has none.",
+    "version": "2.0.0"
   },
   "host": "REPLACE_WITH_FUNCTION_HOSTNAME.azurewebsites.net",
   "basePath": "/api",
@@ -72,6 +72,12 @@
           "description": "True if the parsed instruction already has a mileage. When true, the DVSA mileage estimate is skipped (document is authoritative). Defaults to true.",
           "x-ms-summary": "Document has mileage"
         },
+        "target_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Optional assessment date (YYYY-MM-DD). Defaults to the lookup date.",
+          "x-ms-summary": "Assessment date"
+        },
         "dry_run": {
           "type": "boolean",
           "description": "When true, returns a no-secrets self-check (config-presence booleans and resolved non-secret endpoints) WITHOUT calling DVSA/DVLA, ignoring vrm. Used to confirm Key Vault wiring before enabling enrichment.",
@@ -81,7 +87,41 @@
     },
     "EnrichResponse": {
       "type": "object",
+      "required": [
+        "contract_version",
+        "algorithm_version",
+        "lookup",
+        "vehicle",
+        "provider_snapshots",
+        "mileage",
+        "warnings"
+      ],
       "properties": {
+        "contract_version": {
+          "type": "string",
+          "enum": ["vehicle-data.v1"]
+        },
+        "algorithm_version": {
+          "type": "string",
+          "enum": ["mot-display-estimator.v2"]
+        },
+        "lookup": {
+          "type": "object",
+          "description": "Typed lookup outcome and immutable run identity."
+        },
+        "vehicle": {
+          "type": "object",
+          "description": "Canonical vehicle identity/details."
+        },
+        "provider_snapshots": {
+          "type": "array",
+          "description": "Raw provider snapshots and content digests for audit persistence.",
+          "items": { "type": "object" }
+        },
+        "mileage": {
+          "type": "object",
+          "description": "Displayed-odometer outcome: observed, estimated, range_only or insufficient, with evidence and warnings."
+        },
         "vehicle_model": {
           "type": "string",
           "description": "Suggested vehicle model (maps to the EVA vehicle_model field)."
@@ -99,16 +139,6 @@
           "description": "Always 'Miles' (MOT odometer history is normalised to miles).",
           "enum": [
             "Miles"
-          ]
-        },
-        "mileage_confidence": {
-          "type": "string",
-          "description": "Confidence band for the mileage estimate.",
-          "enum": [
-            "HIGH",
-            "MEDIUM",
-            "LOW",
-            "VERY_LOW"
           ]
         },
         "warnings": {

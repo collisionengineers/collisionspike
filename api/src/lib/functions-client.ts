@@ -1,5 +1,5 @@
 /**
- * api/src/lib/functions-client.ts — typed HTTP client for the 6 existing Python Functions.
+ * api/src/lib/functions-client.ts — typed HTTP client for Python Function stages called by the API.
  *
  * The API calls the Python Functions over HTTP with a function key (x-functions-key header),
  * exactly as the Power Automate flows did via connectors. Managed-identity auth to the Functions
@@ -7,11 +7,13 @@
  *
  * App-settings required per Function (set via Azure portal / az CLI, KV-referenced):
  *   PARSER_FN_URL          / PARSER_FN_KEY
- *   ENRICH_FN_URL          / ENRICH_FN_KEY
  *   LOCATION_SUGGEST_FN_URL / LOCATION_SUGGEST_FN_KEY
  *   (evasentry, evavalidation, box-webhook are called by orchestration, not the API)
  *
- * TODO (api-build agent): add typed request/response types for each Python Function's
+ * Vehicle enrichment is deliberately absent: orchestration's enrich activity is
+ * the sole caller of the canonical vehicle-data Function.
+ *
+ * TODO (api-build agent): add typed request/response types for each remaining Python Function's
  * HTTP contract once those Function signatures are confirmed.
  */
 
@@ -83,17 +85,6 @@ export async function callParser(body: unknown): Promise<unknown> {
     process.env.PARSER_FN_KEY!,
     'POST',
     '/api/parse',
-    body,
-  );
-}
-
-// --- Enrichment Function ---
-export async function callEnrichment(body: unknown): Promise<unknown> {
-  return callFn(
-    process.env.ENRICH_FN_URL!,
-    process.env.ENRICH_FN_KEY!,
-    'POST',
-    '/api/enrich',
     body,
   );
 }

@@ -168,6 +168,27 @@ END $$;
 
 COMMIT;
 
+-- Immutable vehicle lookup / MOT estimator evidence (TKT-152). These tables
+-- intentionally do NOT use the generic rw policy above: provider snapshots,
+-- raw observations, model profiles and estimate runs are append-only evidence.
+BEGIN;
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY[
+    'mileage_model_profile','vehicle_lookup_run','vehicle_provider_snapshot',
+    'mot_odometer_observation','mileage_estimate_result'
+  ] LOOP
+    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
+    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', t);
+    EXECUTE format($p$CREATE POLICY p_%1$s_select ON %1$I FOR SELECT
+      USING (current_setting('app.role', true) IN ('staff','admin'));$p$, t);
+    EXECUTE format($p$CREATE POLICY p_%1$s_insert ON %1$I FOR INSERT
+      WITH CHECK (current_setting('app.role', true) IN ('staff','admin'));$p$, t);
+  END LOOP;
+END $$;
+COMMIT;
+
 -- NOTE on PERMISSIVE vs RESTRICTIVE: p_<t>_rw is PERMISSIVE and covers ALL/SELECT/
 -- INSERT/UPDATE/DELETE; the RESTRICTIVE p_<t>_no_delete is AND-ed on top for DELETE
 -- only, so a staff role can read/insert/update but cannot delete. Adjust per the

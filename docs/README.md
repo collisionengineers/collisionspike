@@ -31,6 +31,7 @@ playbooks under [azure/README.md](./azure/README.md). _Historical:_ [PLAN.md](./
 - [architecture/eva-field-model.md](./architecture/eva-field-model.md) — the EVA 12-field contract + mappings + the enrichment/AI status checks.
 - [architecture/eva-sentry-api.md](./architecture/eva-sentry-api.md) — authoritative EVA "Sentry" API v1.2 endpoints & auth (from the PDF in `raw/`).
 - [architecture/integrations.md](./architecture/integrations.md) — EVA, enrichment (DVSA/DVLA), parser, address (postcode.io), Box, and the feature-flag gating model.
+- [architecture/vehicle-data.md](./architecture/vehicle-data.md) — the one vehicle-data service contract, immutable MOT evidence and displayed-mileage estimator.
 - [architecture/live-environment.md](./architecture/live-environment.md) — **canonical live registry — mirrors [`LIVE_FACTS.json`](../LIVE_FACTS.json)** (live Azure resource IDs, counts, connectors). The single source for live numbers.
 - [architecture/repo-constellation.md](./architecture/repo-constellation.md) — the sibling repos (ideas/prior-art only, none canonical).
 - [architecture/environment.md](./architecture/environment.md) — _historical_ build-environment notes (superseded by `live-environment.md`; kept for context).
