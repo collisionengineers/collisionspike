@@ -286,8 +286,9 @@ export function useInbox(facet?: InboundFacet): QueryState<InboundEmail[]> {
   return useAsync(run, [category, subtype, view], { kind: 'inbound' });
 }
 
-/** Per-category ACTIVE-first triage counts (+ untriaged backlog) — TabList badges +
- *  nav pill. safe()-degrades to the zero baseline (the badge must never crash the nav). */
+/** Per-category ACTIVE-first triage counts (+ untriaged backlog). Failures are
+ *  surfaced so sectioned consumers can distinguish unavailable from an honest
+ *  zero; the nav badge catches and degrades at its own non-critical boundary. */
 export function useInboundCounts(): QueryState<InboundCounts> {
   const run = useCallback(() => getDataAccess().inboundEmailCounts(), []);
   return useAsync(run, [], { kind: 'inbound' });

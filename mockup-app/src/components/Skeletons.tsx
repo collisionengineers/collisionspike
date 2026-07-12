@@ -39,22 +39,52 @@ const useStyles = makeStyles({
     borderRadius: tokens.borderRadiusMedium,
     backgroundColor: tokens.colorNeutralBackground1,
   },
-  liveStrip: { display: 'flex', flexWrap: 'wrap', gap: tokens.spacingHorizontalM },
-  liveBtn: {
+  dashboardPrimary: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr)',
+    gap: tokens.spacingHorizontalL,
+    '@media (min-width: 960px)': {
+      gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    },
+  },
+  dashboardQueueCard: {
     display: 'flex',
     alignItems: 'center',
-    gap: tokens.spacingHorizontalM,
-    padding: `${tokens.spacingVerticalS} ${tokens.spacingHorizontalL}`,
+    gap: tokens.spacingHorizontalL,
+    minHeight: '128px',
+    padding: `${tokens.spacingVerticalXL} ${tokens.spacingHorizontalXL}`,
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     borderRadius: tokens.borderRadiusMedium,
-    minWidth: '200px',
   },
-  pipeBar: {
+  dashboardSecondary: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr)',
+    gap: tokens.spacingHorizontalXL,
+    '@media (min-width: 1100px)': {
+      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    },
+  },
+  dashboardPanel: {
     display: 'flex',
-    gap: tokens.spacingHorizontalXS,
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalM,
+    minHeight: '280px',
+    padding: tokens.spacingHorizontalXL,
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     borderRadius: tokens.borderRadiusMedium,
-    padding: tokens.spacingVerticalM,
+  },
+  dashboardMetricGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr)',
+    gap: tokens.spacingHorizontalM,
+    '@media (min-width: 760px)': {
+      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    },
+  },
+  dashboardMetric: {
+    minHeight: '92px',
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: tokens.borderRadiusMedium,
   },
   thumbGrid: {
     display: 'grid',
@@ -70,40 +100,33 @@ function Bar({ w, h = 16 }: { w: number | string; h?: number }) {
 }
 
 /* ----------  Dashboard ---------- */
-/** PipelineStrip-shaped bar + two live buttons + three throughput cells + aging rows. */
+/** Three queue cards plus the balanced Inbox and throughput panels. */
 export function DashboardSkeleton() {
   const styles = useStyles();
   return (
     <Skeleton aria-label="Loading dashboard">
       <div className={styles.stack}>
-        {/* pipeline strip (7 stages) */}
-        <div className={styles.pipeBar}>
-          {Array.from({ length: 7 }).map((_, i) => (
-            <SkeletonItem key={i} style={{ height: '40px', flex: 1 }} />
-          ))}
-        </div>
-        {/* live work (2 buttons) */}
-        <div className={styles.liveStrip}>
-          {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className={styles.liveBtn}>
-              <SkeletonItem shape="square" style={{ width: '34px', height: '34px' }} />
+        <Bar w={90} h={12} />
+        <div className={styles.dashboardPrimary}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className={styles.dashboardQueueCard}>
+              <SkeletonItem shape="square" style={{ width: '44px', height: '44px' }} />
               <div className={styles.stack} style={{ gap: tokens.spacingVerticalXS }}>
-                <Bar w={40} h={24} />
-                <Bar w={96} h={12} />
+                <Bar w={56} h={32} />
+                <Bar w={88} h={14} />
               </div>
             </div>
           ))}
         </div>
-        {/* aging rows */}
-        <div className={styles.stack}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className={styles.providerRow}>
-              <SkeletonItem shape="square" style={{ width: '32px', height: '32px' }} />
-              <div className={styles.stack} style={{ gap: tokens.spacingVerticalXS, flex: 1 }}>
-                <Bar w="40%" />
-                <Bar w="60%" h={12} />
+        <div className={styles.dashboardSecondary}>
+          {Array.from({ length: 2 }).map((_, panel) => (
+            <div key={panel} className={styles.dashboardPanel}>
+              <Bar w={110} h={12} />
+              <div className={styles.dashboardMetricGrid}>
+                {Array.from({ length: 4 }).map((__, metric) => (
+                  <SkeletonItem key={metric} className={styles.dashboardMetric} />
+                ))}
               </div>
-              <Bar w={90} h={20} />
             </div>
           ))}
         </div>

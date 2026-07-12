@@ -259,14 +259,19 @@ export function AppShell({ userName = 'J. Mercer' }: AppShellProps) {
     };
   }, []);
 
-  // Phase 8: the untriaged-inbox backlog drives the Inbox nav pill (honest 0 until
-  // the cr1bd_inboundemail table is wired — the seam returns zero counts).
+  // Phase 8: the untriaged-inbox backlog drives the Inbox nav pill. This small
+  // navigation badge deliberately degrades to zero on a read failure; richer
+  // surfaces such as the dashboard show the affected section's retry state.
   const [inboundUntriaged, setInboundUntriaged] = useState<number | undefined>();
   useEffect(() => {
     let cancelled = false;
-    void data.inboundEmailCounts().then((c) => {
-      if (!cancelled) setInboundUntriaged(c.untriaged);
-    });
+    void data.inboundEmailCounts()
+      .then((c) => {
+        if (!cancelled) setInboundUntriaged(c.untriaged);
+      })
+      .catch(() => {
+        if (!cancelled) setInboundUntriaged(0);
+      });
     return () => {
       cancelled = true;
     };

@@ -66,7 +66,6 @@ import type {
 import {
   BOX_GATES_ALL_FALSE,
   LOCATION_ASSIST_GATE_ALL_OFF,
-  INBOUND_COUNTS_ZERO,
   AI_ASSIST_GATE_ALL_OFF,
   OUTLOOK_MOVE_GATE_ALL_OFF,
 } from '@cs/domain';
@@ -713,8 +712,9 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
     // The inbox LIST is deliberately NOT safe()-wrapped: a 5xx / timeout must
     // reach the screen as an error / retry state, never masquerade as an empty
     // inbox (which is what swallowing the error to `[]` did — a transient API
-    // failure looked exactly like "no email"). The COUNTS read below STAYS
-    // safe() — a zero badge degrades cleanly and must never crash the nav.
+    // failure looked exactly like "no email"). The counts read is strict too:
+    // callers that can deliberately degrade (the nav badge) catch it locally,
+    // while the dashboard can identify only its affected Inbox section.
     inboundEmails: (facet?: InboundFacet) => {
       // category / subtype / view are each threaded only when present (order:
       // category, subtype, view), so `view=active|handled|all` reaches the server
@@ -726,11 +726,7 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       const q = parts.length ? `?${parts.join('&')}` : '';
       return get<InboundEmail[]>(`/api/inbound${q}`);
     },
-    inboundEmailCounts: () =>
-      safe(
-        () => get<InboundCounts>('/api/inbound/counts'),
-        { ...INBOUND_COUNTS_ZERO },
-      ),
+    inboundEmailCounts: () => get<InboundCounts>('/api/inbound/counts'),
     setTriageState: (id, state: TriageState) =>
       post<void>(`/api/inbound/${enc(id)}/triage`, { state }),
     // Staff reclassify/override (work-todo-spike: suggested-tags-and-folders). PATCH the
