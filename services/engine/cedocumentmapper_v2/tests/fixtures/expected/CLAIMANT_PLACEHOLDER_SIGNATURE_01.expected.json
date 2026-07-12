@@ -1,0 +1,11 @@
+{
+  "fixture_id": "claimant_placeholder_signature_01",
+  "source_file": "CLAIMANT PLACEHOLDER SIGNATURE 01.eml",
+  "expected_provider": "unknown_temp",
+  "expected_values": {
+    "vrm": "XY12ZZZ",
+    "claimant_name": ""
+  },
+  "allowed_blank_fields": [],
+  "notes": "TKT-150 non-PII adversarial control: TBC is absence, not a claimant, and the explicit claimant label in the case-handler signature must not supply a replacement."
+}
