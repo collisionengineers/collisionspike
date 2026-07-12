@@ -900,9 +900,8 @@ interface CaseDetailViewProps {
   onRefreshImages: () => void;
 }
 
-/* The editing workspace. Receives the loaded Case + images; all edits live in
-   local React state (mock only — never persisted). Visually identical to the
-   pre-seam screen once data has loaded. */
+/* The editing workspace. Receives the loaded Case + images; case-field and
+   inspection edits stay in a local draft until the explicit Save succeeds. */
 function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: CaseDetailViewProps) {
   const styles = useStyles();
   const chips = useSeverityChipStyles();
@@ -991,12 +990,9 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const [assistCandidates, setAssistCandidates] = useState<SuggestedAddress[]>([]);
   // null = not run yet; true/false = the last run's "no confident location" result.
   const [assistNoResult, setAssistNoResult] = useState<boolean | null>(null);
-  // Plain-language provenance of a CONFIRMED suggestion, captured for a FUTURE
-  // save path (NOT yet wired — this review screen holds local working-copy state
-  // only and writes nothing). When the InspectionAddress upsert is built it will
-  // carry sourceLabel -> cr1bd_sourcelabel + sourceNote -> cr1bd_sourcenote. Set
-  // only when the reviewer picks a live-assist candidate; cleared for corpus picks.
-  // Today only sourceNote is consumed (rendered as the caption below the draft).
+  // Plain-language source of a CONFIRMED suggestion. The explicit case save carries
+  // sourceLabel/sourceNote with the address and decision in one transaction. Set only
+  // when the reviewer picks a live-assist candidate; cleared for corpus picks.
   const [confirmedProvenance, setConfirmedProvenance] = useState<
     { sourceLabel: string; sourceNote: string } | undefined
   >(undefined);
@@ -1438,9 +1434,8 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
 
      The decision is routed through resolveInspectionDecision (ADR-0013 confirmation
      path): a 'use_physical_address' choice with a real address resolves to
-     decisionMode='manual'. We CAPTURE the plain-language provenance into local
-     working-copy state AND persist it via saveInspectionDecision (honest no-op until
-     the corpus table is wired). The persisted sourceLabel is a CONFIRMED label
+     decisionMode='manual'. We capture the plain-language source in the local draft;
+     the explicit Save persists it with the address and decision. The sourceLabel is a CONFIRMED label
      ('confirmed:assist' / 'confirmed:corpus') — NOT 'suggested*' — so the row records
      WHERE the confirmed manual decision came from (cr1bd_sourcelabel/-sourcenote)
      WITHOUT becoming a new unconfirmed suggestion (the suggestions query + the Admin
@@ -1459,10 +1454,8 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     const draft = lines.join('\n');
     // Validate the confirmation through the policy resolver. We use the prefer_address
     // default (a confirmed physical address resolves to a manual human decision).
-    // FOLLOW-UP: when the InspectionAddress upsert/save path is wired, resolve against
-    // the case provider's real inspectionLocationPolicy (required_address ->
-    // confirmed_physical; always_image_based override). The policy is not plumbed onto
-    // this screen yet, and nothing here persists, so the default is safe until then.
+    // The provider-policy prefill remains server-owned; this reviewer-invoked physical
+    // address choice is validated as a manual decision before it enters the draft.
     const decision = resolveInspectionDecision('prefer_address', lines.length > 0, {
       choice: 'use_physical_address',
     });
@@ -1506,9 +1499,8 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
      Image Based Assessment" and typed a reason; this is the explicit confirm for
      that path (the SAME ADR-0013 shape as picking a suggested address: writes ONLY
      on this click, never on load, never auto-resolved, no runtime matcher). It sets
-     the local working copy to image_based and PERSISTS the decision + reason to the
-     corpus as an image-based row (sourceLabel 'image_based' — not 'suggested', so it
-     is never re-surfaced as a candidate). Honest no-op until the table is wired. */
+     the local draft to image_based; Save persists the decision and reason as one change
+     (sourceLabel 'image_based' — not 'suggested', so it is never re-surfaced as a candidate). */
   const confirmImageBased = () => {
     const reason = overrideReason.trim();
     if (!reason) {
