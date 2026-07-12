@@ -31,7 +31,7 @@ import {
   Send,
   ShieldAlert,
 } from 'lucide-react';
-import { buildEvaJson, type NextCasePoResult } from '@cs/domain';
+import { buildEvaJson, canSubmitCaseToEva, type NextCasePoResult } from '@cs/domain';
 import {
   data,
   suggestCasePo,
@@ -328,8 +328,9 @@ export function EvaSubmitDialog() {
     );
   }
 
-  const ready = readiness.ready;
-  const blockedCount = readiness.missing.length;
+  const ready = canSubmitCaseToEva(c);
+  const workflowBlocked = readiness.ready && !ready;
+  const blockedCount = readiness.missing.length + (workflowBlocked ? 1 : 0);
 
   // Compose the live Case/PO from locked segments + the edited sequence. Existing
   // case references are authoritative; otherwise prefer the allocator preview.
@@ -463,7 +464,13 @@ export function EvaSubmitDialog() {
                         {blockedCount} item{blockedCount === 1 ? '' : 's'} blocking
                         submission
                       </MessageBarTitle>
-                      Resolve the items below before submitting to EVA.
+                      {c.onHold
+                        ? readiness.missing.length > 0
+                          ? 'Take the case off hold and resolve the items below before submitting to EVA.'
+                          : 'Take the case off hold before submitting to EVA.'
+                        : workflowBlocked
+                          ? 'Finish the outstanding case decision so it can move to Review before submitting to EVA.'
+                        : 'Resolve the items below before submitting to EVA.'}
                     </MessageBarBody>
                   </MessageBar>
                   <ReadinessChecklist case={c} />

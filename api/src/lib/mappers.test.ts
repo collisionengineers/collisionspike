@@ -86,6 +86,24 @@ describe('rowToCase — mergedInto surfaced from duplicate_keys (TKT-141)', () =
   });
 });
 
+describe('rowToCase — inspection decision is explicit', () => {
+  const base = {
+    id: 'c-inspection',
+    status_code: 100000002,
+    eva_inspection_address: 'Image Based Assessment',
+    created_at: new Date(2026, 6, 12),
+  };
+
+  it('does not turn address text into a saved decision', () => {
+    expect(rowToCase(base).inspectionDecision).toBe('unknown');
+  });
+
+  it('maps the explicit saved decision', () => {
+    expect(rowToCase({ ...base, inspection_decision_code: 100000002 }).inspectionDecision)
+      .toBe('image_based');
+  });
+});
+
 describe('rowToCase — truthful chase suggestion activity (TKT-148)', () => {
   const base = {
     id: 'c-chase',

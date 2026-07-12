@@ -4,6 +4,7 @@
  * row cannot be overwritten by an older application snapshot.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { EVA_FIELD_ORDER } from '@cs/domain';
 import { statusToInt } from '@cs/domain/codecs';
 
 vi.mock('@azure/functions', () => ({ app: { http: vi.fn() } }));
@@ -29,13 +30,15 @@ vi.mock('../lib/db.js', () => ({
   },
 }));
 
-const { recomputeStatus } = await import('./cases.js');
+const { markEvaSubmittedIfReady, recomputeStatus } = await import('./cases.js');
 
 const poolSql: string[] = [];
 const txSql: string[] = [];
 const txParams: unknown[][] = [];
 let probeRow: Rec;
 let lockedRow: Rec;
+let provenanceRows: Rec[];
+let evidenceRows: Rec[];
 
 function caseRow(status: Parameters<typeof statusToInt>[0], duplicateKeys: unknown = null): Rec {
   return {
@@ -57,6 +60,8 @@ beforeEach(() => {
   chase.mockClear();
   probeRow = caseRow('ingested');
   lockedRow = caseRow('ingested');
+  provenanceRows = [];
+  evidenceRows = [];
 
   db.query.mockReset();
   db.tx.mockReset();
@@ -70,6 +75,12 @@ beforeEach(() => {
     txSql.push(sql);
     txParams.push(params);
     if (/FROM case_ c/i.test(sql) && /FOR UPDATE OF c/i.test(sql)) return [lockedRow];
+    if (/FROM field_level_provenance/i.test(sql)) return provenanceRows;
+    if (/FROM evidence/i.test(sql)) return evidenceRows;
+    if (/submitted_at = now\(\)/i.test(sql)) {
+      lockedRow.status_code = params[0];
+      return [{ id: 'case-1' }];
+    }
     if (/UPDATE case_ SET status_code/i.test(sql)) {
       lockedRow.status_code = params[1];
       return [];
@@ -84,10 +95,12 @@ describe('recomputeStatus case-row serialization', () => {
     await recomputeStatus('case-1', 'staff-1');
 
     const locked = txSql.findIndex((sql) => /FROM case_ c/i.test(sql) && /FOR UPDATE OF c/i.test(sql));
+    const provenanceRead = txSql.findIndex((sql) => /FROM field_level_provenance/i.test(sql));
     const evidenceRead = txSql.findIndex((sql) => /FROM evidence/i.test(sql));
     const statusWrite = txSql.findIndex((sql) => /UPDATE case_ SET status_code/i.test(sql));
     expect(locked).toBeGreaterThanOrEqual(0);
-    expect(locked).toBeLessThan(evidenceRead);
+    expect(locked).toBeLessThan(provenanceRead);
+    expect(provenanceRead).toBeLessThan(evidenceRead);
     expect(evidenceRead).toBeLessThan(statusWrite);
     expect(txParams[statusWrite]).toEqual(['case-1', statusToInt('needs_review')]);
     expect(txSql.some((sql) => /INSERT INTO audit_event/i.test(sql))).toBe(true);
@@ -117,5 +130,66 @@ describe('recomputeStatus case-row serialization', () => {
 
     expect(txSql.some((sql) => /UPDATE case_ SET status_code/i.test(sql))).toBe(false);
     expect(chase).toHaveBeenCalledWith('case-1', 'linked_to_instruction', undefined);
+  });
+});
+
+describe('EVA submission canonical re-check', () => {
+  it('rejects a stale ready_for_eva row whose current contract is incomplete', async () => {
+    lockedRow = caseRow('ready_for_eva');
+
+    await expect(markEvaSubmittedIfReady('case-1', 'staff-1')).resolves.toBe(false);
+
+    expect(txSql[0]).toMatch(/FOR UPDATE OF c/i);
+    expect(txSql.some((sql) => /submitted_at = now\(\)/i.test(sql))).toBe(false);
+    expect(lockedRow.status_code).toBe(statusToInt('ready_for_eva'));
+  });
+
+  it('submits a genuinely ready, reviewed and unheld case', async () => {
+    lockedRow = {
+      ...caseRow('ready_for_eva'),
+      eva_work_provider: 'QDOS',
+      eva_vehicle_model: 'Audi A3',
+      eva_claimant_name: 'Jane Driver',
+      eva_claimant_telephone: '07123 456789',
+      eva_claimant_email: 'jane@example.test',
+      eva_date_of_loss: '01/07/2026',
+      eva_date_of_instruction: '02/07/2026',
+      eva_accident_circumstances: 'Rear impact',
+      eva_inspection_address: '1 Test Road',
+      eva_vat_status: 'Yes',
+      eva_mileage: '12000',
+      eva_mileage_unit: 'Miles',
+      inspection_decision_code: 100000000,
+    };
+    provenanceRows = EVA_FIELD_ORDER.map((field) => ({
+      field_name: field.key,
+      review_state_code: 100000002,
+      source_label: 'Staff entry',
+    }));
+    evidenceRows = [
+      {
+        id: 'overview',
+        kind_code: 100000000,
+        image_role_code: 100000000,
+        registration_visible: true,
+        accepted_for_eva: true,
+        excluded: false,
+      },
+      {
+        id: 'damage',
+        kind_code: 100000000,
+        image_role_code: 100000001,
+        registration_visible: false,
+        accepted_for_eva: true,
+        excluded: false,
+      },
+    ];
+
+    await expect(markEvaSubmittedIfReady('case-1', 'staff-1')).resolves.toBe(true);
+
+    expect(txSql[0]).toMatch(/FOR UPDATE OF c/i);
+    expect(txSql.some((sql) => /submitted_at = now\(\)/i.test(sql))).toBe(true);
+    expect(txSql.some((sql) => /INSERT INTO audit_event/i.test(sql))).toBe(true);
+    expect(lockedRow.status_code).toBe(statusToInt('eva_submitted'));
   });
 });

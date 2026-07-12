@@ -218,6 +218,7 @@ app.http('providerIntakeCase', {
       status: 'ingested',
       evaFields,
       evidence: imageEvidence,
+      inspectionDecision: 'unknown',
       instructionCount: v.instructions.length,
       hasIdentity: v.vrm.length > 0 || principalCode.length > 0 || v.claimantName.length > 0,
     };

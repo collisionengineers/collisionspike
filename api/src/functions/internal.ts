@@ -53,6 +53,7 @@ import {
   categoryMintsCase,
   describeEvidence,
   markerForMint,
+  readinessInputForCase,
   statusForReviewCase,
   type CaseStatus,
   type CaseWorkType,
@@ -60,7 +61,6 @@ import {
   type ImageRole,
   type InboundCategory,
   type InboundSubtype,
-  type StatusEvaluationInput,
 } from '@cs/domain';
 import {
   actionReasonCodec,
@@ -278,23 +278,14 @@ async function recomputeStatus(
     const rec = rows[0];
     if (!rec) return { found: false, value: 'error' };
 
+    const provenanceRows = await q<Row>(
+      'SELECT * FROM field_level_provenance WHERE case_id = $1',
+      [caseId],
+    );
     const evidenceRows = await q<Row>('SELECT * FROM evidence WHERE case_id = $1', [caseId]);
     const evidence = evidenceRows.map(rowToEvidence);
-    const full = rowToCase(rec, { evidence });
-    const input: StatusEvaluationInput = {
-      status: full.status,
-      evaFields: full.evaFields,
-      evidence: full.evidence,
-      instructionCount: full.evidence.filter((e) => e.kind === 'instruction').length,
-      hasIdentity:
-        full.vrm.trim().length > 0 ||
-        full.providerCode.trim().length > 0 ||
-        full.evaFields.claimantName.value.trim().length > 0,
-      // TKT-141 retired-lock: the marker is read while the case row is locked.
-      // A merge that won first is preserved; one that starts later waits.
-      mergedInto: full.mergedInto,
-    };
-    const next = statusForReviewCase(input);
+    const full = rowToCase(rec, { evidence, provenanceRows });
+    const next = statusForReviewCase(readinessInputForCase(full));
 
     if (next !== full.status) {
       await q('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [

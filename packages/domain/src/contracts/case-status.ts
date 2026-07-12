@@ -17,7 +17,8 @@ import {
   type EvaFieldKey,
 } from './eva-export';
 import {
-  validateEvaImageRules,
+  MIN_ACCEPTED_IMAGES,
+  evaluateEvaImageRules,
   acceptedEvaImages,
   type ImageRuleEvidence,
 } from './image-rules';
@@ -123,6 +124,16 @@ export interface StatusEvaluationInput {
   /** Evidence usable by the image rules (+ instruction-kind rows for FIX-3). */
   evidence: readonly ImageRuleEvidence[];
   /**
+   * The saved inspection choice. A non-empty address alone is not a decision:
+   * the handler must have explicitly chosen a physical address or Image Based
+   * Assessment before the case can become ready.
+   */
+  inspectionDecision:
+    | 'confirmed_physical'
+    | 'manual'
+    | 'image_based'
+    | 'unknown';
+  /**
    * Count of active instruction-kind evidence rows (FIX-3). When omitted it is
    * DERIVED from `evidence` (items whose `kind === 'instruction'`). Lets the tree
    * tell an instructions-only case from a genuinely-empty one.
@@ -176,6 +187,142 @@ export function conflictFieldKeys(
   );
 }
 
+/** Field keys still awaiting review or carrying an unresolved conflict. */
+export function unresolvedReviewFieldKeys(
+  fields: Record<EvaFieldKey, ReviewableField>,
+): EvaFieldKey[] {
+  return EVA_FIELD_ORDER.map((d) => d.key).filter((key) => {
+    const state = fields[key]?.reviewState;
+    return state === 'needs_review' || state === 'conflict';
+  });
+}
+
+/** Stable groups used by every checklist adapter. */
+export type ReadinessCheckGroup = 'fields' | 'images' | 'address' | 'conflicts';
+
+/** One canonical, handler-facing readiness check. */
+export interface ReadinessCheck {
+  id: string;
+  label: string;
+  ok: boolean;
+  group: ReadinessCheckGroup;
+  detail?: string;
+}
+
+/** The complete verdict consumed by status, the SPA checklist and submission. */
+export interface CaseReadinessResult {
+  checks: ReadinessCheck[];
+  ready: boolean;
+  requiredFieldsPresent: boolean;
+  inspectionReady: boolean;
+  /** Base accepted-count/role image contract (before unresolved-review gate). */
+  imageRulesPass: boolean;
+  imagesReady: boolean;
+  reviewsResolved: boolean;
+}
+
+const IMAGE_BASED_ASSESSMENT = 'Image Based Assessment';
+
+/**
+ * The ONE readiness evaluator.
+ *
+ * It is deliberately richer than a status enum: the same ordered checks drive
+ * the Case Detail checklist while the booleans drive persisted status and the
+ * submission guard. No caller is expected to re-implement any field, image,
+ * address or review-state rule.
+ */
+export function evaluateCaseReadiness(
+  input: Pick<StatusEvaluationInput, 'evaFields' | 'evidence' | 'inspectionDecision'>,
+): CaseReadinessResult {
+  const checks: ReadinessCheck[] = [];
+
+  for (const desc of EVA_FIELD_ORDER) {
+    if (!desc.required || desc.key === 'inspectionAddress') continue;
+    const ok = (input.evaFields[desc.key]?.value ?? '').trim().length > 0;
+    checks.push({
+      id: `field-${desc.key}`,
+      label: `${desc.label} present`,
+      ok,
+      group: 'fields',
+      ...(ok ? {} : { detail: `${desc.label} is empty` }),
+    });
+  }
+
+  const imageRules = evaluateEvaImageRules(input.evidence);
+  const unresolvedImages = input.evidence.filter(
+    (e) => e.kind === 'image' && e.reviewRequired === true,
+  );
+  const imageGaps = imageRules.failures.map((failure) => {
+    switch (failure.code) {
+      case 'min_count':
+        return `need at least ${MIN_ACCEPTED_IMAGES} accepted (have ${imageRules.acceptedCount})`;
+      case 'missing_overview':
+        return 'no overview with a visible registration';
+      case 'missing_damage_closeup':
+        return 'no main-damage close-up';
+    }
+  });
+  if (unresolvedImages.length > 0) {
+    imageGaps.push(
+      `${unresolvedImages.length} image${unresolvedImages.length === 1 ? '' : 's'} still ${unresolvedImages.length === 1 ? 'needs' : 'need'} review`,
+    );
+  }
+  const imagesReady = imageRules.ok && unresolvedImages.length === 0;
+  checks.push({
+    id: 'images',
+    label: 'Images',
+    ok: imagesReady,
+    group: 'images',
+    ...(imagesReady ? {} : { detail: imageGaps.join('; ') }),
+  });
+
+  const address = (input.evaFields.inspectionAddress?.value ?? '').trim();
+  const isImageBased = input.inspectionDecision === 'image_based';
+  const hasDecision = input.inspectionDecision !== 'unknown';
+  const addressMatchesDecision = isImageBased
+    ? address === IMAGE_BASED_ASSESSMENT
+    : address.length > 0 && address !== IMAGE_BASED_ASSESSMENT;
+  const inspectionReady = hasDecision && addressMatchesDecision;
+  let addressDetail: string | undefined;
+  if (!address) addressDetail = 'Inspection address is empty';
+  else if (!hasDecision) addressDetail = 'Choose an inspection address or Image Based Assessment';
+  else if (!addressMatchesDecision) addressDetail = 'Inspection choice and address do not match';
+  checks.push({
+    id: 'address-decision',
+    label: isImageBased ? 'Inspection: Image Based Assessment' : 'Inspection address ready',
+    ok: inspectionReady,
+    group: 'address',
+    ...(inspectionReady ? {} : { detail: addressDetail ?? 'Choose an inspection option' }),
+  });
+
+  const unresolvedFields = unresolvedReviewFieldKeys(input.evaFields);
+  const reviewsResolved = unresolvedFields.length === 0;
+  checks.push({
+    id: 'no-conflicts',
+    label: 'No unresolved field reviews',
+    ok: reviewsResolved,
+    group: 'conflicts',
+    ...(reviewsResolved
+      ? {}
+      : {
+          detail: `Review: ${unresolvedFields
+            .map((key) => EVA_FIELD_ORDER.find((d) => d.key === key)?.label ?? key)
+            .join(', ')}`,
+        }),
+  });
+
+  const requiredFieldsPresent = missingRequiredFieldKeys(input.evaFields).length === 0;
+  return {
+    checks,
+    ready: checks.every((check) => check.ok),
+    requiredFieldsPresent,
+    inspectionReady,
+    imageRulesPass: imageRules.ok,
+    imagesReady,
+    reviewsResolved,
+  };
+}
+
 /* ----------  Count of instruction-kind evidence (FIX-3 input)  ----------
    The image rules ignore non-image evidence; the status tree, however, needs to
    know whether ANY instructions arrived. `evidence` carries `kind` as a string,
@@ -206,21 +353,23 @@ function hasIdentityOf(input: StatusEvaluationInput): boolean {
          retired state, and CONVERGES a marker-bearing case that was wrongly
          un-retired back to it; the only writer of the marker is the merge path,
          which sets `linked_to_instruction` atomically, and there is no unmerge)
-     2. fieldsValid && imagesValid          -> 'ready_for_eva'
-     3. fieldsValid && !imagesValid         -> 'missing_images'
-     4. !fieldsValid && imagesValid         -> 'missing_required_fields'
+     2. canonical readiness passes          -> 'ready_for_eva'
+     3. field/address contract valid and images fail -> 'missing_images'
+     4. field/address contract fails and base image rules pass
+                                             -> 'missing_required_fields'
         (RESERVED for cases that actually hold accepted image evidence but whose
          required fields are incomplete — the "Images only" queue)
+     4b. unresolved field/image review       -> 'needs_review'
      5. no accepted images AND no instructions -> 'needs_review'
         (nothing usable has arrived yet — pending/new; NEVER a premature error,
          and NEVER 'missing_required_fields' for an evidence-less case)
      6. identifiable (provider/vrm/caseref/claimant) -> 'needs_review'
      7. otherwise (unidentifiable, image-less)        -> 'error'
 
-   `fieldsValid` is purely "all required EVA fields non-empty" — it deliberately
-   does NOT gate on review state (matching the live flow), so a fully-populated
-   case is `ready_for_eva` even with an open conflict; surfacing unreviewed
-   conflicts is the readiness UI's job (components/readiness.ts), not this status.
+   Readiness is evaluated exactly once by `evaluateCaseReadiness`: required
+   values, an explicit and internally-consistent inspection decision, the image
+   contract, unresolved image decisions and every field review/conflict. The SPA
+   checklist and submission path consume this same result.
 
    It deliberately does NOT invent `duplicate_risk` / `linked_to_instruction`
    (set by the dedup flow) nor the submit terminals (`eva_submitted` /
@@ -238,15 +387,28 @@ export function statusForReviewCase(input: StatusEvaluationInput): CaseStatus {
   // case WITHOUT the marker keeps recomputing as before.
   if ((input.mergedInto ?? '').trim().length > 0) return 'linked_to_instruction';
 
-  const fieldsValid = missingRequiredFieldKeys(input.evaFields).length === 0;
-  const imagesValid = validateEvaImageRules(input.evidence).length === 0;
+  const readiness = evaluateCaseReadiness(input);
+  const baseImagesValid = readiness.imageRulesPass;
+  const fieldContractValid =
+    readiness.requiredFieldsPresent && readiness.inspectionReady;
 
-  if (fieldsValid && imagesValid) return 'ready_for_eva';
-  if (fieldsValid && !imagesValid) return 'missing_images';
+  if (readiness.ready) return 'ready_for_eva';
+  if (fieldContractValid && !baseImagesValid) {
+    return 'missing_images';
+  }
   // missing_required_fields is RESERVED for cases WITH real (accepted) image
   // evidence — i.e. imagesValid — that are missing required fields. An
   // evidence-less, field-incomplete case falls through to the pending branches.
-  if (!fieldsValid && imagesValid) return 'missing_required_fields';
+  if (!fieldContractValid && baseImagesValid) return 'missing_required_fields';
+
+  // A complete-looking case with any unresolved field conflict/review or
+  // classifier image decision remains Not Ready (needs_review maps there).
+  if (
+    (fieldContractValid || baseImagesValid) &&
+    (!readiness.reviewsResolved || (baseImagesValid && !readiness.imagesReady))
+  ) {
+    return 'needs_review';
+  }
 
   const acceptedImages = acceptedEvaImages(input.evidence).length;
   const instructionCount = instructionCountOf(input);
@@ -260,16 +422,9 @@ export function statusForReviewCase(input: StatusEvaluationInput): CaseStatus {
   return hasIdentityOf(input) ? 'needs_review' : 'error';
 }
 
-/** Open review issues = any field still `needs_review`, or any field in `conflict`.
-    NOTE: the FIX-3 status tree intentionally does NOT gate on this (it matches
-    the live flow's field-presence-only `fieldsValid`). Retained as a helper for
-    callers that want to surface unreviewed conflicts in the UI separately from
-    the workflow status. */
+/** Open review issues = any field still `needs_review`, or any field in `conflict`. */
 export function hasOpenReviewIssues(
   fields: Record<EvaFieldKey, ReviewableField>,
 ): boolean {
-  return EVA_FIELD_ORDER.some((d) => {
-    const s = fields[d.key]?.reviewState;
-    return s === 'needs_review' || s === 'conflict';
-  });
+  return unresolvedReviewFieldKeys(fields).length > 0;
 }

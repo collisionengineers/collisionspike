@@ -19,9 +19,8 @@ import {
   INBOUND_ATTENTION_REASONS,
   OUTLOOK_MOVE_STATES,
   QUEUES,
-  isRetiredMerged,
+  caseToQueue,
   queueByName,
-  statusToQueue,
   type ActivityEvent,
   type AiSuggestion,
   type AiSuggestionReviewState,
@@ -222,14 +221,11 @@ function rowToOverviewFacts(rec: Row): OverviewFacts {
   return f;
 }
 
-/** Resolve the inspection decision; image-based fallback when the address text is
- *  the IBA literal but no explicit mode was written yet (mirrors the adapter). */
+/** Resolve only the explicit saved inspection decision. Address text by itself
+ *  is not a decision and must remain `unknown` for canonical readiness. */
 function deriveInspectionDecision(rec: Row): Case['inspectionDecision'] {
   const explicit = inspectionDecisionCodec.toName(rec.inspection_decision_code);
   if (explicit) return explicit;
-  if ((rec.eva_inspection_address ?? '').trim() === 'Image Based Assessment') {
-    return 'image_based';
-  }
   return 'unknown';
 }
 
@@ -966,9 +962,7 @@ export function startOfWeek(d: Date): Date {
  *  (it stays openable directly; the single-case read does not go through here). */
 export function filterQueue(all: Case[], name: QueueName): Case[] {
   if (!queueByName(name)) return [];
-  return all.filter(
-    (c) => !isRetiredMerged(c) && (c.onHold ? 'held' : statusToQueue(c.status)) === name,
-  );
+  return all.filter((c) => caseToQueue(c) === name);
 }
 
 /** The cases that need a human — all three queues, Held INCLUDED (an overdue held

@@ -92,9 +92,9 @@ describe('computePipelineStages — funnel excludes Held/terminal-none', () => {
   ];
   it('folds new_email/ingested into Not ready so it matches the Not-ready queue', () => {
     const byKey = Object.fromEntries(computePipelineStages(cases).map((s) => [s.key, s.count]));
-    // 2 new (new_email + ingested) = 2 Not ready; needs_review + ready_for_eva = 2 Review
-    // (TKT-130: needs_review sits in the Review queue/stage); onHold/error/removed excluded.
-    expect(byKey).toEqual({ not_ready: 2, review: 2, submitted: 1 });
+    // new_email + ingested + needs_review = 3 Not ready; only ready_for_eva = Review.
+    // onHold/error/removed are excluded.
+    expect(byKey).toEqual({ not_ready: 3, review: 1, submitted: 1 });
   });
   it('the strip Not-ready count equals the Not-ready QUEUE (no 123-vs-124 split)', () => {
     const stages = Object.fromEntries(computePipelineStages(cases).map((s) => [s.key, s.count]));
@@ -161,9 +161,9 @@ describe('TKT-141 — retired merged duplicates excluded from counts/lists', () 
   const all = [survivor, retiredA, retiredB, plainLinked];
 
   it('queue lists / live counts drop the retired pair but keep the un-marked linked case', () => {
-    expect(filterQueue(all, 'not-ready').map((c) => c.id)).toEqual(['plain']);
-    expect(computeLiveCounts(all)).toEqual({ notReady: 1, review: 1, held: 0 });
-    expect(computeQueueCounts(all)).toEqual({ 'not-ready': 1, review: 1, held: 0 });
+    expect(filterQueue(all, 'not-ready').map((c) => c.id)).toEqual(['surv', 'plain']);
+    expect(computeLiveCounts(all)).toEqual({ notReady: 2, review: 0, held: 0 });
+    expect(computeQueueCounts(all)).toEqual({ 'not-ready': 2, review: 0, held: 0 });
   });
 
   it('needs-action/aging rows exclude the retired pair (the PK20FWT badge derives from these rows)', () => {
@@ -180,6 +180,6 @@ describe('TKT-141 — retired merged duplicates excluded from counts/lists', () 
 
   it('pipeline-stage counts skip the retired pair but count the un-marked linked case', () => {
     const byKey = Object.fromEntries(computePipelineStages(all).map((s) => [s.key, s.count]));
-    expect(byKey).toEqual({ not_ready: 1, review: 1, submitted: 0 });
+    expect(byKey).toEqual({ not_ready: 2, review: 0, submitted: 0 });
   });
 });
