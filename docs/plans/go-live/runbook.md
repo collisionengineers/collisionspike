@@ -69,17 +69,20 @@ auto-matching is complete before intake volume ramps.
 row active; corpus count moves in the registry
 [`live-environment.md`](../../architecture/live-environment.md).
 
-## 4. Case/PO floor seeding + placeholder renumber
+## 4. Case/PO floor seeding + placeholder renumber — BLOCKED future window
 
 The live mint restarted near 001 after the 2026-06-30 reset while the real archive numbering is far
-ahead. Take over the sequence per the full procedure in
-[`case-po-sequence-cutover.md`](../case-po-sequence-cutover.md) (§ "Cutover day"). **This gates the
+ahead. This section is not authority to execute. TKT-178 first requires the signed/checksummed job
+spreadsheet, authenticated/verified production EVA, the exact approved production Archive target and
+write scope, backup/restore proof, a frozen approved dry-run hash and a named window. After those gates
+pass, take over the sequence per the full procedure in
+[`case-po-sequence-cutover.md`](../case-po-sequence-cutover.md) (§ "Future cutover window"). **This gates the
 retro Box rung in step 5** ([gated.md D11 step 1](../../gated.md)).
 
 1. **Freeze staff minting** — from here the system is the only allocator.
-2. **Collect real maxima** per (marker, principal, year): the archive folder-name listing (a Box web
-   export, or the facade once the archive roots in step 5 are set), or the operator's known
-   next-numbers per active principal from EVA.
+2. **Collect real maxima** per (marker, principal, year) from the approved production Archive inventory
+   and authenticated/verified EVA evidence retained by TKT-178. A test/mirror/Viewer-only root or a
+   blocked EVA path is not an acceptable substitute.
 3. **Seed the floors:** on Windows
    `node scripts/cutover/case-po-floor-from-folders.mjs names.txt > seed.sql`
    ([`scripts/cutover/case-po-floor-from-folders.mjs`](../../../scripts/cutover/case-po-floor-from-folders.mjs)
@@ -92,7 +95,8 @@ retro Box rung in step 5** ([gated.md D11 step 1](../../gated.md)).
    the next EVA-add assign. Trial cases already stamped with real numbers are left alone.
 
 **Verify:** `GET /api/cases/next-po?principal=<X>` returns `source: 'floor'` (or a DB max above it) for
-every active principal; mint one test case and confirm it lands above the archive max.
+every active principal; confirm the next naturally created, operator-designated genuine case lands
+above the approved production Archive max. Do not mint a disposable live case for proof.
 
 ## 5. Archive roots + retro gate flips ([gated.md D11 steps 2–4](../../gated.md))
 

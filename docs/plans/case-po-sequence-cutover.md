@@ -28,12 +28,19 @@ ticket: [TKT-058](../tickets/done/TKT-058-retro-case-creation/TKT-058-retro-case
 - Cases not on EVA yet correctly have **no number anywhere** — linking/dedup/retro all match on
   provider reference + VRM, and retro creates un-numbered Held cases rather than guessing.
 
-## Cutover day (scripted; blocks the ADR-0022 Box reconstruction rung — gated.md D11)
+## Future cutover window — BLOCKED (scripted; gated by TKT-178 and gated.md D11)
+
+This is a future operator runbook, not authority to execute now. Do not freeze minting, query EVA,
+apply SQL, renumber a production case, write/rename/merge Archive content or retarget configuration
+until TKT-178 has the signed/checksummed job spreadsheet, a successful authenticated production EVA
+contract probe, the exact production Archive root plus explicit/proven write scope, backup/restore
+proof, a frozen approved dry-run hash and a named live window. Viewer-only, test, mirror or configured
+default roots do not satisfy that gate.
 
 1. **Freeze staff minting.** From this moment the system is the only allocator.
-2. **Collect the real maxima** per (marker, principal, year): export the archive folder-name
-   listing (the facade's `box/search` / `folders/{id}/items` once the archive roots are configured,
-   or a Box web export), or take the operator's known next-numbers per active principal from EVA.
+2. **Collect the real maxima** per (marker, principal, year): use the approved production Archive
+   inventory and the authenticated/verified EVA evidence retained by TKT-178. Do not substitute a
+   test/mirror/Viewer-only root or an unavailable EVA path.
 3. **Seed the floors:** `node scripts/cutover/case-po-floor-from-folders.mjs names.txt > seed.sql`,
    review `seed.sql` (the stderr report lists every non-Case/PO folder name — resolve variants
    before trusting the numbers), then apply via the [postgres.md](../azure/postgres.md) runbook
@@ -42,10 +49,13 @@ ticket: [TKT-058](../tickets/done/TKT-058-retro-case-creation/TKT-058-retro-case
    pre-cutover (they all sit at implausibly low sequences); for each, in created order, stamp a
    fresh number via the Set-Case/PO edit (which now allocates… manual) — or simply clear the PO
    (`casePo: ''`) and let the next EVA-add/finalize assign it. Cases staff already EVA'd during
-   the trial keep their stamped real numbers. Old placeholder-named folders under the live mirror
-   root are disposable.
+   the trial keep their stamped real numbers. Preserve every placeholder-named folder and byte until
+   the TKT-178 ledger has matched, backed up and explicitly authorized its merge/rename outcome; no
+   folder is disposable merely because its name looks temporary.
 5. **Verify:** `GET /api/cases/next-po?principal=X` shows `source: 'floor'` (or a DB max above it)
-   for every active principal; mint one test case; confirm it lands above the archive's max.
+   for every active principal; use the next naturally created, operator-designated genuine case to
+   confirm it lands above the approved production Archive maximum. Never create a disposable live case
+   solely for proof.
 
 ## Known consequence (accepted)
 

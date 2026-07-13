@@ -144,3 +144,8 @@ and [TKT-129 evidence/delta-apply-output-2026-07-08.txt](../TKT-129-image-based-
 ## Deploy state
 Shared with the batch: `cespk-api-dev` republished (86 fns re-verified), SPA redeployed (200 + CSP),
 orchestration untouched. Registry updated (`LIVE_FACTS.json` + `live-environment.md`).
+# Operator ruling — 2026-07-13
+
+Remove the blanket field-review blocker. Populated, valid, non-conflicting values require no extra
+confirmation; only missing, invalid or genuinely conflicting values block readiness. Viewing is read-only.
+Implementation and live recomputation remain pending.

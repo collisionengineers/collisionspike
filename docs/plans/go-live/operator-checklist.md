@@ -113,14 +113,17 @@ az functionapp config appsettings set -g rg-collisionspike-dev -n cespk-orch-dev
 
 ---
 
-### 5. Supply the Case/PO real maxima for floor seeding  ·  **[MUST]** — [gated.md D11 step 1](../../gated.md)
+### 5. Supply the Case/PO real maxima for floor seeding  ·  **[BLOCKED FUTURE WINDOW]** — [TKT-178](../../tickets/blocked/TKT-178-production-archive-cutover-reconciliation/TKT-178-production-archive-cutover-reconciliation.md)
 
 The live mint restarted near 001 after the 2026-06-30 reset while the real archive numbering is far ahead.
-Full procedure: [`case-po-sequence-cutover.md`](../case-po-sequence-cutover.md) (§ "Cutover day"). Only you
-have the true next-numbers.
+Full procedure: [`case-po-sequence-cutover.md`](../case-po-sequence-cutover.md) (§ "Future cutover
+window"). Do not run the commands below until TKT-178 has the signed/checksummed job spreadsheet,
+authenticated/verified production EVA, the exact approved production Archive target plus proven write
+scope, backup/restore proof, a frozen approved dry-run hash and a named operator window.
 
-**Do (you supply):** either the **archive folder-name listing** (a Box web export of the historical
-archive folders), or the **known next-number per active principal** from EVA.
+**Do (you supply for that future window):** the approved production Archive inventory and the
+authenticated/verified EVA evidence. Test, mirror, configured-default and Viewer-only roots do not
+satisfy the production target/write gate.
 
 **Apply (Windows, then WSL):**
 ```
@@ -135,7 +138,8 @@ real number via the case-page Set-Case/PO edit (`PATCH /api/cases/{id}` `casePo`
 a case the old way.
 
 **Verify:** `GET /api/cases/next-po?principal=<X>` returns `source: 'floor'` (or a DB max above it) for
-every active principal; mint one test case and confirm it lands above the archive max.
+every active principal; confirm the next naturally created, operator-designated genuine case lands
+above the approved production Archive max. Do not mint a disposable live case for proof.
 
 ---
 

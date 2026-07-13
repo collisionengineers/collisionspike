@@ -93,7 +93,7 @@ Plans cluster related tickets without moving them. A plan lives at `docs/tickets
 | [PLAN-001](./plans/PLAN-001-ai-mcp-hardening.md) | Harden and enhance AI features plus MCP | active | 8/17 done |
 | [PLAN-002](./plans/PLAN-002-case-done-lifecycle.md) | Case done lifecycle | active | 1/3 done |
 | [PLAN-003](./plans/PLAN-003-operator-fixup-wave.md) | Operator fix-up wave 2026-07-08 | active | 35/37 done |
-| [PLAN-004](./plans/PLAN-004-production-readiness.md) | Production readiness and lifecycle completion | active | 0/22 done |
+| [PLAN-004](./plans/PLAN-004-production-readiness.md) | Production readiness and lifecycle completion | active | 1/53 done |
 
 ## Validation
 
@@ -115,6 +115,10 @@ node scripts/check-skills-sync.mjs
 | [TKT-020](./now/TKT-020-docs-cleanup/TKT-020-docs-cleanup.md) | Stale-plan cleanup + root-doc reconciliation | P2 | docs | — |
 | [TKT-024](./now/TKT-024-image-based-new-case/TKT-024-image-based-new-case.md) | Image-only new-case form (drop instruction-only fields) | P2 | ui | PLAN-003 |
 | [TKT-034](./now/TKT-034-images-received-routing/TKT-034-images-received-routing.md) | Archive unmatched images by registration and adopt the folder into the case | P2 | intake | — |
+| [TKT-041](./now/TKT-041-cancelled-case/TKT-041-cancelled-case.md) | Cancelled/closed-case emails have no home (no cancellation concept) | P1 | email | PLAN-004 |
+| [TKT-067](./now/TKT-067-assistant-new-chat/TKT-067-assistant-new-chat.md) | Assistant drawer needs a "New chat" button to clear the conversation | P2 | ui | PLAN-001 |
+| [TKT-068](./now/TKT-068-assistant-attach-evidence/TKT-068-assistant-attach-evidence.md) | Let the assistant understand images and add them to a case | P1 | ai | PLAN-001 |
+| [TKT-102](./now/TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md) | Tractable received-email handling — categorise, match to case, parse PDF, extract images | P1 | intake | PLAN-004 |
 | [TKT-129](./now/TKT-129-image-based-inspection-done/TKT-129-image-based-inspection-done.md) | Simplify the inspection address or Image Based Assessment choice | P1 | ui | PLAN-003 |
 | [TKT-130](./now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | Review contains only cases that are ready for EVA | P1 | intake | PLAN-003 |
 | [TKT-149](./verify/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) | Require reciprocal Claude and Codex reviews on every pull request | P0 | platform | PLAN-004 |
@@ -139,7 +143,6 @@ node scripts/check-skills-sync.mjs
 | [TKT-052](./verify/TKT-052-merge-provider-loss/TKT-052-merge-provider-loss.md) | Merged image-only case loses the provider (merge logic wrong) | P2 | intake | — |
 | [TKT-055](./verify/TKT-055-provider-api-intake/TKT-055-provider-api-intake.md) | Provider API intake channel (machine-to-machine case lodging) | P2 | intake | — |
 | [TKT-066](./verify/TKT-066-assistant-lookup-observability/TKT-066-assistant-lookup-observability.md) | Assistant can't find a case by spaced registration + tool failures are invisible | P1 | ai | PLAN-001 |
-| [TKT-068](./verify/TKT-068-assistant-attach-evidence/TKT-068-assistant-attach-evidence.md) | Attach files in the assistant and add them to a case (user-confirmed upload) | P2 | ai | PLAN-001 |
 | [TKT-069](./verify/TKT-069-assistant-more-tools/TKT-069-assistant-more-tools.md) | Assistant answers more questions — case detail, activity, twins, queues, emails, overdue | P2 | ai | PLAN-001 |
 | [TKT-072](./verify/TKT-072-global-search/TKT-072-global-search.md) | The search box doesn't search — global search across cases, emails, providers | P1 | ui | PLAN-001 |
 | [TKT-077](./verify/TKT-077-location-assist-photos/TKT-077-location-assist-photos.md) | Location assist can't see the case photos — real photo bytes + signage business lookup | P1 | ai | — |
@@ -147,7 +150,6 @@ node scripts/check-skills-sync.mjs
 | [TKT-084](./verify/TKT-084-pre-instruction-handling/TKT-084-pre-instruction-handling.md) | Pre-instruction directions email unidentified — define a handling lane | P2 | email | — |
 | [TKT-094](./verify/TKT-094-case-done-status-model/TKT-094-case-done-status-model.md) | Case `done` terminal state — status model + auto-`eva_submitted` on export | P1 | intake | PLAN-002 |
 | [TKT-095](./verify/TKT-095-case-done-detectors/TKT-095-case-done-detectors.md) | Case `done` detectors — manual → Box report-PDF → sent-email → EVA poll | P1 | intake | PLAN-002 |
-| [TKT-102](./verify/TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md) | Tractable received-email handling — categorise, match to case, parse PDF, extract images | P2 | intake | — |
 | [TKT-110](./verify/TKT-110-mcp-readonly-server/TKT-110-mcp-readonly-server.md) | Read-only MCP server for external agents | P2 | ai | PLAN-001 |
 | [TKT-111](./verify/TKT-111-assistant-write-tier/TKT-111-assistant-write-tier.md) | Assistant write tier with human confirmation | P2 | ai | PLAN-001 |
 | [TKT-137](./verify/TKT-137-uncased-ai-suggestion-surface/TKT-137-uncased-ai-suggestion-surface.md) | Surface triage_category AI suggestions on uncased emails — currently written but invisible | P2 | ui | PLAN-003 |
@@ -186,7 +188,6 @@ node scripts/check-skills-sync.mjs
 | [TKT-038](./done/TKT-038-misclass-query-ack/TKT-038-misclass-query-ack.md) | Bare acknowledgement ('Thanks Ed') misclassified as query | P2 | email | — |
 | [TKT-039](./done/TKT-039-misclass-query-report-support/TKT-039-misclass-query-report-support.md) | Report-support request misclassified as new case | P2 | email | — |
 | [TKT-040](./done/TKT-040-misclass-roadworthy-request/TKT-040-misclass-roadworthy-request.md) | Informal roadworthy work-request misrouted to 'Other' | P2 | email | — |
-| [TKT-041](./done/TKT-041-cancelled-case/TKT-041-cancelled-case.md) | Cancelled/closed-case emails have no home (no cancellation concept) | P2 | email | — |
 | [TKT-046](./done/TKT-046-seperate-case-updates/TKT-046-seperate-case-updates.md) | Separate case updates from general queries (own lane + attach-to-case) | P2 | email | — |
 | [TKT-048](./done/TKT-048-no-image-previews/TKT-048-no-image-previews.md) | Inbox/case image previews not rendering | P2 | ui | — |
 | [TKT-049](./done/TKT-049-incorrect-claimant-email/TKT-049-incorrect-claimant-email.md) | Claimant email wrongly set to AX team inbox | P1 | parsing | — |
@@ -202,7 +203,6 @@ node scripts/check-skills-sync.mjs
 | [TKT-063](./done/TKT-063-go-live-docs/TKT-063-go-live-docs.md) | Go-live runbook, readiness matrix & operator checklist | P1 | docs | — |
 | [TKT-064](./done/TKT-064-image-classification/TKT-064-image-classification.md) | Auto-classify evidence images — role (overview/damage) + registration visible | P2 | pipeline | PLAN-001 |
 | [TKT-065](./done/TKT-065-audit-provider-resolution/TKT-065-audit-provider-resolution.md) | Audit cases resolve NO work provider (leaked "EVA (Engineers)" masked a real bug) | P1 | pipeline | — |
-| [TKT-067](./done/TKT-067-assistant-new-chat/TKT-067-assistant-new-chat.md) | Assistant drawer needs a "New chat" button to clear the conversation | P3 | ui | PLAN-001 |
 | [TKT-070](./done/TKT-070-email-body-readability/TKT-070-email-body-readability.md) | Inbox email previews are one unreadable line — keep line breaks, cut noise | P2 | email | PLAN-003 |
 | [TKT-071](./done/TKT-071-vrm-false-positive-hd4110/TKT-071-vrm-false-positive-hd4110.md) | Job references like HD4110 wrongly captured as a vehicle registration | P1 | parsing | — |
 | [TKT-073](./done/TKT-073-varchar16-overflow-clamp/TKT-073-varchar16-overflow-clamp.md) | Intake write fails with "value too long" — clamp over-length field before insert | P2 | intake | — |
@@ -294,6 +294,36 @@ node scripts/check-skills-sync.mjs
 | [TKT-168](./now/TKT-168-unify-not-ready-language/TKT-168-unify-not-ready-language.md) | Make Not Ready status language agree with the queue | P1 | ui | PLAN-004 |
 | [TKT-169](./now/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md) | Keep long email previews inside the visible window | P2 | ui | PLAN-004 |
 | [TKT-170](./now/TKT-170-website-enquiry-classification/TKT-170-website-enquiry-classification.md) | Classify website contact forms as Website enquiries | P1 | email | PLAN-004 |
+| [TKT-171](./backlog/TKT-171-four-digit-case-po-sequence/TKT-171-four-digit-case-po-sequence.md) | Keep Case/PO numbering working after 999 | P1 | intake | PLAN-004 |
+| [TKT-172](./backlog/TKT-172-manual-intake-duplicate-guard/TKT-172-manual-intake-duplicate-guard.md) | Check matching registrations before Manual Intake creates a case | P1 | intake | PLAN-004 |
+| [TKT-173](./backlog/TKT-173-ax-instruction-acceptance-action/TKT-173-ax-instruction-acceptance-action.md) | Make AX instruction acceptance impossible to miss | P2 | intake | PLAN-004 |
+| [TKT-174](./backlog/TKT-174-archive-evidence-preview/TKT-174-archive-evidence-preview.md) | Make Archive evidence previews load clearly and open larger | P2 | ui | PLAN-004 |
+| [TKT-175](./backlog/TKT-175-archive-deletion-resilience-investigation/TKT-175-archive-deletion-resilience-investigation.md) | Investigate resilience to direct Archive changes | P1 | box | PLAN-004 |
+| [TKT-176](./backlog/TKT-176-dashboard-period-wording/TKT-176-dashboard-period-wording.md) | Use clear period wording on the dashboard | P3 | ui | PLAN-004 |
+| [TKT-177](./backlog/TKT-177-duplicate-case-resolution-workspace/TKT-177-duplicate-case-resolution-workspace.md) | Resolve likely duplicate cases in one workspace | P1 | intake | PLAN-004 |
+| [TKT-178](./blocked/TKT-178-production-archive-cutover-reconciliation/TKT-178-production-archive-cutover-reconciliation.md) | Reconcile active cases and the Archive at production cutover | P0 | platform | PLAN-004 |
+| [TKT-179](./backlog/TKT-179-evidence-image-decision-controls/TKT-179-evidence-image-decision-controls.md) | Make photo decisions explicit | P2 | ui | PLAN-004 |
+| [TKT-180](./backlog/TKT-180-icon-semantic-consistency/TKT-180-icon-semantic-consistency.md) | Use one icon for each app concept | P3 | ui | PLAN-004 |
+| [TKT-181](./backlog/TKT-181-truthful-image-analysis-states/TKT-181-truthful-image-analysis-states.md) | Show truthful photo-checking states | P1 | evidence | PLAN-004 |
+| [TKT-182](./backlog/TKT-182-long-reference-layout/TKT-182-long-reference-layout.md) | Keep long email references inside their column | P3 | ui | PLAN-004 |
+| [TKT-183](./backlog/TKT-183-name-variant-case-correlation/TKT-183-name-variant-case-correlation.md) | Match case emails when first names are shortened to initials | P1 | intake | PLAN-004 |
+| [TKT-184](./backlog/TKT-184-out-of-office-no-action/TKT-184-out-of-office-no-action.md) | Treat automatic out-of-office replies as no action needed | P2 | email | PLAN-004 |
+| [TKT-185](./backlog/TKT-185-override-provenance-audit/TKT-185-override-provenance-audit.md) | Audit what actually caused each category override | P1 | ai | PLAN-004 |
+| [TKT-186](./backlog/TKT-186-provider-update-chase-category/TKT-186-provider-update-chase-category.md) | Separate provider chases from case queries | P2 | email | PLAN-004 |
+| [TKT-187](./backlog/TKT-187-multi-case-provider-chase-linking/TKT-187-multi-case-provider-chase-linking.md) | Link one provider chase to every referenced case | P1 | intake | PLAN-004 |
+| [TKT-188](./backlog/TKT-188-report-amendment-classification-reconstruction/TKT-188-report-amendment-classification-reconstruction.md) | Keep report amendments with the existing case | P1 | intake | PLAN-004 |
+| [TKT-189](./backlog/TKT-189-search-result-affordance/TKT-189-search-result-affordance.md) | Make search results clearly actionable | P2 | ui | PLAN-004 |
+| [TKT-190](./backlog/TKT-190-inbox-case-po-status-display/TKT-190-inbox-case-po-status-display.md) | Show complete case details in inbox statuses | P2 | ui | PLAN-004 |
+| [TKT-191](./backlog/TKT-191-actionable-email-suggestions/TKT-191-actionable-email-suggestions.md) | Suggest email replies and urgency only when justified | P2 | email | PLAN-004 |
+| [TKT-192](./backlog/TKT-192-triage-precase-category/TKT-192-triage-precase-category.md) | Keep triage requests outside the case queue until instructions arrive | P1 | intake | PLAN-004 |
+| [TKT-193](./backlog/TKT-193-precase-evidence-holding-adoption/TKT-193-precase-evidence-holding-adoption.md) | Hold pre-case evidence and adopt it when instructions arrive | P1 | intake | PLAN-004 |
+| [TKT-194](./backlog/TKT-194-unidentified-reason-explanation/TKT-194-unidentified-reason-explanation.md) | Explain why an email needs sorting | P2 | email | PLAN-004 |
+| [TKT-195](./backlog/TKT-195-entra-staff-access-management/TKT-195-entra-staff-access-management.md) | Manage staff access with Microsoft work accounts | P1 | platform | PLAN-004 |
+| [TKT-196](./backlog/TKT-196-video-frame-evidence-extraction/TKT-196-video-frame-evidence-extraction.md) | Create evidence stills from case videos | P3 | evidence | — |
+| [TKT-197](./backlog/TKT-197-linked-email-identity-display/TKT-197-linked-email-identity-display.md) | Show a trustworthy registration and email reference on linked emails | P1 | intake | PLAN-004 |
+| [TKT-198](./backlog/TKT-198-wrong-vehicle-evidence-detection/TKT-198-wrong-vehicle-evidence-detection.md) | Flag photos that show a different vehicle | P1 | evidence | PLAN-004 |
+| [TKT-199](./backlog/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) | Make repository data authority explicit without weakening security | P1 | docs | PLAN-004 |
+| [TKT-200](./now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md) | Add secure guided photo capture sessions | P1 | integration | PLAN-004 |
 
 ### blocked
 

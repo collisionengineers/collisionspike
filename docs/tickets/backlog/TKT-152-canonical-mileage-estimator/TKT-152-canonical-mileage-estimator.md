@@ -5,7 +5,7 @@ status: backlog
 priority: P1
 area: enrichment
 tickets-it-relates-to: [TKT-044, TKT-151]
-research-link: docs/tickets/backlog/TKT-152-canonical-mileage-estimator/evidence/operator-note.md
+research-link: docs/tickets/backlog/TKT-151-vehicle-enrichment-completeness/evidence/followup-2026-07-13/issue.md
 plan: PLAN-004
 ---
 
@@ -38,6 +38,22 @@ PROPOSED (not built): establish one versioned vehicle-data domain package and se
 - TKT-044's named real cases and anomaly fixtures are re-evaluated through the canonical implementation, with old/new results and reasons recorded.
 - Live enrichment uses only the canonical path, emits observable method/warning metadata, and leaves a case Not Ready when mileage evidence is insufficient under the business requirement.
 - Architecture, runbook, API contract, and operator-facing wording are updated without exposing provider/cloud implementation language in the app.
+- Mileage source precedence is explicit and shared by intake, retry, case editing and readiness: a valid
+  staff-confirmed value wins; otherwise use a valid mileage from the instruction/document; otherwise use a
+  readable odometer image; only when neither source exists may the MOT-history estimator autofill.
+- A lower-precedence estimate never silently replaces a higher-precedence value. Conflicting instruction
+  and odometer evidence is surfaced for resolution rather than selecting MOT as a tie-breaker.
+- A.QDOS26088 is a pinned third-option regression: when instruction mileage and readable odometer evidence
+  are absent, a successful MOT lookup produces the canonical estimate and source metadata automatically.
+
+## Validation
+
+- A table-driven precedence suite covers every combination of staff value, instruction value, odometer
+  observation, MOT estimate, invalid source and conflict, asserting value, source, warning and readiness.
+- The A.QDOS26088 fixture proves the third-option autofill; paired fixtures prove MOT is not called or applied
+  when valid instruction or odometer mileage exists.
+- Live verification captures the source label and estimator metadata on one third-option case and confirms
+  rerun/idempotency plus preservation of a later staff-confirmed value.
 
 ## Research
 Distilled 2026-07-12 from the operator request and the two supplied MOT-estimator conversations; the accepted design is recorded in [evidence/operator-note.md](./evidence/operator-note.md).

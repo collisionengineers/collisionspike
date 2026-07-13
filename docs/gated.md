@@ -311,13 +311,19 @@ is present; the final mailbox-key cutover, immutable-ID subscription replacement
 and signed-in Outlook-link proof have not run. No production Archive write/root retarget or EVA query is
 authorised by this work.
 
+**Current blockers (2026-07-13):** the signed job spreadsheet is absent; production EVA is blocked and
+has no successful authenticated contract probe; and no exact production Archive target plus
+least-privilege write/rename/merge/retarget authorization has been supplied or proven. Existing test,
+mirror, configured-default or Viewer/read-only roots are not approval. TKT-178 therefore stays blocked.
+
 The final production cutover cannot execute until one approved input pack contains all of:
 
 1. the dated, signed-off job spreadsheet plus its SHA-256 and named approval;
 2. authenticated and verified production EVA API access — while it is blocked, record `not queried` and
    keep the cutover blocked;
-3. an independently confirmed production Archive root and explicit authorization for the exact writes
-   and root retarget (ordinary work remains under the test root until then);
+3. an independently confirmed production Archive root, the acting identity's proven least-privilege
+   write/rename/merge/retarget capability and explicit authorization for those exact actions (ordinary
+   work remains under the test root until then);
 4. checksum-verified database/Archive backups and successful restore proof on a non-production copy;
 5. the deterministic zero-write reconciliation ledger, frozen SHA-256 and named approval of that exact
    output; and

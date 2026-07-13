@@ -12,3 +12,8 @@ TESTED (offline) — implementation, full tests and production build pass; deplo
 - Focused rendered status and shared-reason tests: PASS.
 - Domain: 1,132 tests PASS; SPA: 469 tests PASS.
 - Domain and production SPA builds: PASS.
+
+## Follow-up verdict — 2026-07-13
+
+PENDING for the expanded acceptance. Prior copy tests remain valid, but a specific blocker/multi-blocker
+matrix and signed-in live proof are still required before the generic label replacement is complete.

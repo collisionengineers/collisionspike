@@ -5,7 +5,7 @@ status: backlog
 priority: P1
 area: enrichment
 tickets-it-relates-to: [TKT-044, TKT-102, TKT-147, TKT-150]
-research-link: docs/tickets/backlog/TKT-151-vehicle-enrichment-completeness/evidence/operator-note.md
+research-link: docs/tickets/backlog/TKT-151-vehicle-enrichment-completeness/evidence/followup-2026-07-13/issue.md
 plan: PLAN-004
 ---
 
@@ -35,7 +35,23 @@ PROPOSED (not built): census the live gaps, make the canonical enrichment outcom
 - Retry and orchestration logic is idempotent and bounded; it does not create duplicate audits or overwrite later human edits.
 - A backup-first remediation retries all eligible missing-field cases and produces a before/after/residual ledger without touching cases that lack a defensible registration.
 - Tests cover GB/NI registration normalisation, lookup success, not-found, insufficient MOT history, timeouts/retries, document precedence, staff precedence, merge, and repeated delivery.
-- Live proof includes successful enrichment, a genuine/controlled not-found result with visible warning, and a final census that accounts for every remaining gap.
+- Live proof includes successful enrichment, a naturally occurring operator-designated not-found result with visible warning, and a final census that accounts for every remaining gap; unavailable live outcome classes remain PENDING rather than being manufactured.
+- Case A.QDOS26088 is a pinned regression: the supplied instruction/registration reaches the real vehicle
+  lookup path, the warning identifies its actual outcome, and “Check again” starts a fresh bounded attempt
+  with visible progress and a terminal result rather than doing nothing.
+- The retry action is available only for retryable outcomes. Invalid/not-found results explain the next
+  handler action; authentication/configuration failures are observable to support staff and never
+  misrepresented as an unknown registration.
+
+## Validation
+
+- A.QDOS26088 and the supplied AY15EWU source document/email are fixture-linked through registration
+  normalisation, route request, outcome mapping, persistence and UI state; a test fails if the button has no
+  request side effect.
+- Fake-clock tests cover retry backoff, double-click, stale response, timeout, eventual success and permanent
+  failure while preserving a later staff edit.
+- Signed-in live verification records the initial warning, network call triggered by Check again, terminal
+  outcome, resulting fields/warning and audit/telemetry correlation for the same case.
 
 ## Research
 Distilled 2026-07-12 from the operator report; raw wording is in [evidence/](./evidence/).
@@ -44,3 +60,4 @@ Distilled 2026-07-12 from the operator report; raw wording is in [evidence/](./e
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator note](./evidence/operator-note.md)
+- [2026-07-13 retry failure note](./evidence/followup-2026-07-13/issue.md)

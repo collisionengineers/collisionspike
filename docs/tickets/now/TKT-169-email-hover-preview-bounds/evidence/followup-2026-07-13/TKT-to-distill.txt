@@ -1,0 +1,3 @@
+TKT to distill:
+
+1. E-mail preview lag. Needs to appear when hover over subject field and immediately vanish afterwards. Too delayed. Should aim to appear below/above cursor depending on proximity to top of page, and the size of the preview (to avoid cutoff, and to avoid hiding adjacent columns)

@@ -22,3 +22,9 @@ residual case and confirm telemetry. No live verdict is claimed here.
 
 ## How to re-verify
 Run the enrichment fixtures, execute controlled found/not-found live probes, and repeat the missing-field census with a residual reason for every row.
+
+## Follow-up requirement — 2026-07-13
+
+The supplied A.QDOS26088/AY15EWU failure and inert Check again action are now mandatory regression proof.
+Capture the retry request, progress, terminal outcome and durable warning/fields for that exact shape; a
+button-render or direct service probe alone is insufficient.

@@ -13,3 +13,9 @@ Implemented offline; deployment and independent live verification remain.
 - Domain: 54 files / 1,132 tests passed.
 - SPA: 42 files / 469 tests passed.
 - Domain and production SPA builds passed; ticket and documentation gates passed.
+
+## Follow-up scope — 2026-07-13
+
+The new operator note requires specific blocker wording, not merely replacing “Needs review” with generic
+“Not ready”. The existing offline implementation has not yet proven deterministic multi-blocker summaries,
+full reason discovery or the live specific-reason matrix.

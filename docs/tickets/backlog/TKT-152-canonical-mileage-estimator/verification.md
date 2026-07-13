@@ -23,3 +23,9 @@ still require owner-side rotation/revocation; no secret value is reproduced here
 
 ## How to re-verify
 Run the canonical contract/unit suite and chronological backtest, compare against the previous baseline and TKT-044 cases, then exercise one live observed/interpolated/forecast/insufficient path.
+
+## Follow-up requirement — 2026-07-13
+
+Add a source-precedence matrix and A.QDOS26088 third-option proof: staff-confirmed, instruction and readable
+odometer mileage must outrank MOT; only their absence permits automatic MOT estimation. Verify that a later
+retry cannot overwrite a higher-precedence value.

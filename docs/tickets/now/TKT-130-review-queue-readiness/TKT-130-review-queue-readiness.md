@@ -4,7 +4,7 @@ title: Review contains only cases that are ready for EVA
 status: now
 priority: P1
 area: intake
-tickets-it-relates-to: [TKT-129, TKT-094, TKT-012]
+tickets-it-relates-to: [TKT-129, TKT-094, TKT-012, TKT-153, TKT-168]
 research-link: docs/tickets/now/TKT-130-review-queue-readiness/evidence/operator-note.md
 plan: PLAN-003
 ---
@@ -57,3 +57,38 @@ Distilled 2026-07-08 from the operator workstream note (see Evidence).
 - [regression changes](./changes-regression-12-07-26.md)
 - [operator follow-up](./evidence/operator-followup-12-07-26.md)
 - [code audit](./evidence/readiness-code-audit-12-07-26.md)
+
+## Field-review ruling — 2026-07-13
+
+The blanket “No unresolved field reviews” blocker is removed. A populated, valid value that does not
+conflict with another credible source needs no separate per-field confirmation. Review means checking a
+complete case before submission, not acknowledging every imported field.
+
+### Acceptance
+
+- Readiness is blocked by a required value only when it is missing, invalid or has a genuine unresolved
+  source conflict. A generic `needs_review` marker is not independently blocking.
+- A populated non-conflicting work provider, vehicle model, claimant name/contact, incident/instruction date,
+  circumstances, VAT status, mileage or mileage unit is accepted without a “mark reviewed” action.
+- A genuine conflict identifies the field, candidate values and their sources and provides an explicit
+  resolution action. Resolving it records the chosen value/source and clears only that conflict.
+- Merely opening a case, viewing a value or entering the Review queue does not write the case, change source
+  lineage, clear a conflict or create a “reviewed” audit event.
+- Explicit edits, accepted suggestions, conflict resolutions and case submission remain audited user actions.
+- Legacy rows blocked solely by blanket field-review state are recomputed idempotently; cases with real
+  missing/invalid/conflicting data remain Not Ready with a specific reason.
+- The Case Detail checklist, queue membership, dashboard counts and submission endpoint all consume the same
+  canonical outcome and never display “No unresolved field reviews” as an un-actionable blocker.
+
+### Validation
+
+- Contract tests enumerate all required fields across populated-valid, missing, invalid, one-source,
+  agreeing-multi-source and conflicting-multi-source states and assert one canonical blocker set.
+- Interaction tests prove view-only navigation performs no update/audit request and conflict resolution
+  changes only the selected field and blocker.
+- A backup-first live recomputation ledger separates cases released from the blanket marker from cases still
+  blocked for substantive reasons, with DB/API/SPA counts reconciled and an EVA submission counter-probe.
+
+### Follow-up evidence
+
+- [Operator field-review ruling source](./evidence/followup-2026-07-13/issue.md)

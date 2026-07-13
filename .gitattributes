@@ -16,6 +16,10 @@
 *.woff2 binary
 *.eot   binary
 *.pdf   binary
+*.eml   binary
+*.doc   binary
+*.docx  binary
+*.pptx  binary
 *.xls   binary
 *.xlsx  binary
 *.zip   binary
