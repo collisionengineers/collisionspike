@@ -1,7 +1,7 @@
 # Changes — TKT-156: Put an active archive upload link in every image chaser
 
 ## Status
-Merged and deployed behind a fail-closed configuration seam. The additive schema and all three runtime surfaces are live; the designated test-folder lifecycle proof is blocked only on creating the first File Request template in the signed-in Box web interface under test root `392761581105`.
+Merged, configured and deployed. The additive schema and all three runtime surfaces are live; the designated AX26039/P40DLN walkthrough now proves active-link creation/reuse, editable-message copy and chase logging. The remaining live proof is an upload through that request followed through the existing evidence, classification, readiness and response lifecycle.
 
 ## Commits
 - `7a2d2eeb1543b25f093e5db29700764549cb030f` — require an active, case-scoped upload link for every image chaser and complete the repair/webhook lifecycle.
@@ -25,7 +25,8 @@ Merged and deployed behind a fail-closed configuration seam. The additive schema
 - A newly persisted image uploaded through the existing webhook lane marks only outstanding image chasers responded and queues the existing readiness recompute. Webhook redelivery, classifier re-stamps and archive mirrors of pre-existing bytes do not falsely satisfy a later chase.
 - The TKT-156 Postgres delta was applied live and read back successfully. `chaser.box_file_request_id`, `chaser.box_file_request_url`, `box_file_request_outbox.repair_reason`, and `ix_chaser_case_file_request_open` are present.
 - The Box Function was deployed from the reviewed merged tree at `2026-07-13T04:43:25Z`; all `12` routes registered, including `copy_file_request` and `file_request_lifecycle`.
-- Deployment was deliberately serialized with TKT-166. API and SPA were **not** republished from the older TKT-156 merge tree: the API package `cdc10863-adcf-423b-978d-6eaa75b4cc76` and SPA were published from later `main` `6ebfb7ea25b43dfbb3655883d67eda7fa30859c0`, which includes TKT-156. The live API reports `111` functions; the SPA serves `/assets/index-BGDf47o7.js` with HTTP `200` and the strict CSP.
-- Live safe-setting readback confirms `BOX_FILEREQUEST_ENABLED=true`, `BOX_FOLDER_ROOT_ID=392761581105`, and the Box Function `BOX_ALLOWED_ROOT_ID=392761581105`. `BOX_FILE_REQUEST_TEMPLATE_ID` is absent, so the deployed API fails closed instead of creating or logging a linkless image chaser.
-- The connected Box tools and Box REST API expose copy/get/update/delete but not initial File Request creation. Chrome reached the designated test-root URL but the Box session requires sign-in. No existing request can be promoted: the live database contains `0` case rows with a File Request identity.
-- No Outlook data was mutated. No Box write was attempted outside the test root; this rollout made no Box content mutation because the template prerequisite was unavailable.
+- The latest production SPA deployment is from `main` `da56628cc87988de6d640cc7256d15b1d8ae6838`, which contains TKT-156 and the TKT-167 image-gap correction. `/assets/index-CAyuuESV.js` returned HTTP `200`, and the production response retained the strict CSP.
+- Live safe-setting readback confirms `BOX_FILEREQUEST_ENABLED=true`, `BOX_FOLDER_ROOT_ID=392761581105`, Box Function `BOX_ALLOWED_ROOT_ID=392761581105`, and approved template `BOX_FILE_REQUEST_TEMPLATE_ID=23193724288`. The identifier is non-secret configuration; no File Request share token is recorded in repository documentation.
+- In the signed-in production SPA, AX26039/P40DLN remained **Not ready** with **Missing images** and zero accepted images, while Chasers correctly offered **Image request**. **Copy prepared** produced an editable/copyable message containing exactly one `https://app.box.com/f/[redacted]` link. Repeating the action reused the same single link rather than creating or appending another request.
+- **Log as chased** completed through `logChase` with HTTP `201` at `2026-07-13T07:59:25Z`. This proves the case-scoped active link can be used for a persisted chase without incorrectly moving the zero-image case out of Not ready.
+- No Outlook data was mutated. The File Request operation stayed within test root `392761581105`; no Box content was written outside that root, and no test image was uploaded during this proof.
