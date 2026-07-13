@@ -1282,6 +1282,17 @@ app.http('logChase', {
         fileRequest &&
         String(locked[0].box_folder_id ?? '').trim() !== fileRequest.folderId
       ) return { kind: 'file_request_changed' as const };
+      if (fileRequest) {
+        // A replacement/reactivation can change the durable link after an older
+        // image draft was created. Keep every still-outstanding image chaser on
+        // this case aligned before inserting the newly logged row.
+        await associateOutstandingImageChasersWithFileRequest(
+          q,
+          id,
+          fileRequest.id,
+          fileRequest.url,
+        );
+      }
       const currentVersion = versionToken(locked[0].updated_at);
       const expected = ifMatch(req);
       if (expected != null && expected !== '' && expected !== currentVersion) {

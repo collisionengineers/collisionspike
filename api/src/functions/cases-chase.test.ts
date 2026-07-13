@@ -340,6 +340,12 @@ describe('logChase — happy path', () => {
       '9001',
       'https://app.box.com/f/active-token',
     ]);
+    const association = findCall('UPDATE chaser');
+    expect(association?.[1]).toEqual(expect.arrayContaining([
+      'case-1',
+      '9001',
+      'https://app.box.com/f/active-token',
+    ]));
 
     // chaser_sent audit row, terminology-safe "logged" wording, actor from the JWT
     const audit = findCall('INSERT INTO audit_event');
