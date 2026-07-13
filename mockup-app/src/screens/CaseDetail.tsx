@@ -163,6 +163,7 @@ import {
   buildExplicitCaseSave,
   canCheckVehicleDetails,
   initialInspectionDraft,
+  startInspectionAddressDraft,
   persistedSessionSnapshot,
   shouldBlockCaseNavigation,
   validateCaseEdit,
@@ -1560,6 +1561,11 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
         setInspectionDraft(snapshot.inspection);
         setConfirmedProvenance(snapshot.provenance);
         setAddressDraftSnapshot(undefined);
+      } else if (inspectionDraft.decisionMode === 'image_based') {
+        onTextChange('inspectionAddress', '');
+        setInspectionDraft(startInspectionAddressDraft());
+        setOverrideReason('');
+        setConfirmedProvenance(undefined);
       }
       return;
     }
@@ -2634,44 +2640,51 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                       inspectionDraft.decisionMode === 'image_based' && inspectionDraft.touched
                     }
                   >
-                      <Divider />
-                      <div className={styles.assistActionRow}>
-                        <span className={styles.suggestHead}>
-                          <Lightbulb size={15} strokeWidth={2} aria-hidden />
-                          <Text size={200} weight="semibold">
-                            Suggested locations
-                          </Text>
-                          <Caption1 className={styles.hint}>
-                            Low confidence — verify before use.
-                          </Caption1>
-                        </span>
-                        {/* Plain label — no engineering terms. Hidden unless the
-                            assist is switched on (gate + Maps + API base). */}
-                        {locationAssistEnabled && (
-                          <Button
-                            appearance="secondary"
-                            size="small"
-                            icon={assistRunning ? <Spinner size="tiny" /> : <Search size={14} />}
-                            onClick={() => onSuggestLocation(false)}
-                            disabled={assistRunning}
-                          >
-                            {assistRunning ? 'Looking…' : 'Suggest location'}
-                          </Button>
-                        )}
-                        {/* Deeper AI vision-reasoning escalation (TKT-078) — hidden unless the
-                            escalation gate is on (ships DARK, so not shown live today). */}
-                        {assistAiEnabled && (
-                          <Button
-                            appearance="subtle"
-                            size="small"
-                            icon={<Lightbulb size={14} />}
-                            onClick={() => onSuggestLocation(true)}
-                            disabled={assistRunning}
-                          >
-                            Try a deeper photo-based suggestion
-                          </Button>
-                        )}
-                      </div>
+                      {(suggestions.length > 0 ||
+                        locationAssistEnabled ||
+                        assistCandidates.length > 0 ||
+                        assistNoResult !== null) && (
+                        <>
+                          <Divider />
+                          <div className={styles.assistActionRow}>
+                            <span className={styles.suggestHead}>
+                              <Lightbulb size={15} strokeWidth={2} aria-hidden />
+                              <Text size={200} weight="semibold">
+                                Suggested locations
+                              </Text>
+                              <Caption1 className={styles.hint}>
+                                Low confidence — verify before use.
+                              </Caption1>
+                            </span>
+                            {/* Plain label — no engineering terms. Hidden unless the
+                                assist is switched on (gate + Maps + API base). */}
+                            {locationAssistEnabled && (
+                              <Button
+                                appearance="secondary"
+                                size="small"
+                                icon={assistRunning ? <Spinner size="tiny" /> : <Search size={14} />}
+                                onClick={() => onSuggestLocation(false)}
+                                disabled={assistRunning}
+                              >
+                                {assistRunning ? 'Looking…' : 'Suggest location'}
+                              </Button>
+                            )}
+                            {/* Deeper AI vision-reasoning escalation (TKT-078) — hidden unless the
+                                escalation gate is on (ships DARK, so not shown live today). */}
+                            {assistAiEnabled && (
+                              <Button
+                                appearance="subtle"
+                                size="small"
+                                icon={<Lightbulb size={14} />}
+                                onClick={() => onSuggestLocation(true)}
+                                disabled={assistRunning}
+                              >
+                                Try a deeper photo-based suggestion
+                              </Button>
+                            )}
+                          </div>
+                        </>
+                      )}
 
                       {/* Search the full corpus — the list otherwise shows only the ranked
                           provider shortlist (TKT-062). Typing ≥2 chars queries all ~2,200. */}

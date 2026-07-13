@@ -6,6 +6,7 @@ import {
   initialInspectionDraft,
   persistedSessionSnapshot,
   shouldBlockCaseNavigation,
+  startInspectionAddressDraft,
   validateCaseEdit,
 } from './case-edit-session';
 
@@ -177,6 +178,23 @@ describe('explicit case edit session', () => {
     draft.evaFields.claimantName.value = 'Jane Example';
     const issues = validateCaseEdit(draft, initialInspectionDraft(persisted), persisted);
     expect(issues.some((issue) => issue.message === 'Add the assessment reason')).toBe(false);
+  });
+
+  it('blocks Save when a saved image-based case switches to address without choosing one', () => {
+    const persisted = caseOf({ inspectionDecision: 'image_based' });
+    persisted.evaFields.inspectionAddress.value = 'Image Based Assessment';
+    const draft = clone(persisted);
+    draft.evaFields.inspectionAddress.value = '';
+    const inspection = startInspectionAddressDraft();
+
+    expect(inspection).toMatchObject({ decisionMode: 'unknown', touched: true });
+    expect(validateCaseEdit(draft, inspection, persisted)).toEqual(expect.arrayContaining([
+      { fieldKey: 'inspectionAddress', message: 'Required' },
+      {
+        fieldKey: 'inspectionAddress',
+        message: 'Choose an inspection address or Image Based Assessment',
+      },
+    ]));
   });
 
   it('blocks route/window navigation exactly while a draft is dirty', () => {

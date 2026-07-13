@@ -31,6 +31,17 @@ export function initialInspectionDraft(c: Case): CaseEditInspectionDraft {
   };
 }
 
+/** Start an explicit physical-address choice from a saved image-based case.
+ * The empty/unknown draft keeps Save blocked until staff actually select an address. */
+export function startInspectionAddressDraft(): CaseEditInspectionDraft {
+  return {
+    decisionMode: 'unknown',
+    sourceLabel: 'manual',
+    sourceNote: '',
+    touched: true,
+  };
+}
+
 /** Build the new edit-session baseline after a separately saved server mutation.
  * The caller may adopt this only when the main draft is clean. */
 export function persistedSessionSnapshot(updated: Case) {
