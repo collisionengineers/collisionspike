@@ -21,7 +21,7 @@ CREATE TABLE evidence_deletion (
   box_folder_id         varchar(40),
   requested_by          varchar(320) NOT NULL,
   state                 varchar(24) NOT NULL DEFAULT 'pending'
-    CHECK (state IN ('pending','retry_needed','ready_to_finalize','completed')),
+    CHECK (state IN ('pending','retry_needed','ready_to_finalize','completed','cancelled')),
   blob_outcome          varchar(20) NOT NULL
     CHECK (blob_outcome IN ('pending','not_required','deleted','missing','failed')),
   box_outcome           varchar(20) NOT NULL
@@ -47,7 +47,8 @@ CREATE INDEX ix_evidence_deletion_replay_storage
 CREATE INDEX ix_evidence_deletion_replay_box
   ON evidence_deletion (case_id, box_file_id) WHERE box_file_id IS NOT NULL;
 CREATE INDEX ix_evidence_deletion_retry
-  ON evidence_deletion (state, updated_at, id) WHERE state <> 'completed';
+  ON evidence_deletion (state, updated_at, id)
+  WHERE state IN ('pending','retry_needed','ready_to_finalize');
 
 CREATE OR REPLACE FUNCTION complete_evidence_deletion(
   p_operation_id uuid,
@@ -82,7 +83,6 @@ BEGIN
      AND e.storage_path IS NOT DISTINCT FROM d.storage_path
      AND e.source_message_id IS NOT DISTINCT FROM d.source_message_id
      AND e.box_file_id IS NOT DISTINCT FROM d.box_file_id
-     AND c.box_folder_id IS NOT DISTINCT FROM d.box_folder_id
    FOR UPDATE OF d, e, c;
 
   IF v_evidence_id IS NULL THEN

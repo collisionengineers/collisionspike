@@ -10,7 +10,8 @@ implemented offline; awaiting independent live verification
   outcomes/lease, evidence marker, guarded finalizer, RLS and per-file replay indexes.
 - `api/src/functions/evidence-delete.ts` adds the authenticated per-case image DELETE route with
   wrong-case/kind checks, Archive preflight, intent/audit-before-stores, idempotent Archive/Blob cleanup,
-  retryable partial outcomes, guarded finalization and durable status recomputation.
+  retryable partial outcomes, safe cancellation/reactivation before any store delete, guarded
+  finalization and durable status recomputation.
 - Evidence review, classification, archive mirroring and case merge now refuse/ignore an image with an
   active deletion marker. Automatic evidence persistence suppresses an exact deleted Blob-path/Archive-
   file replay and removes any deterministic copy recreated before the tombstone check; a shared email
@@ -32,8 +33,9 @@ implemented offline; awaiting independent live verification
 ## Tests added or extended
 
 - Data API: ownership/kind/scope refusal, store ordering, present/missing outcomes, partial failure,
-  truthful finalization failure, safe evidence-child FK actions, repeat completion, Box client contract,
-  exact per-file replay suppression, sibling Message-ID isolation and same-byte/new-identity upload.
+  truthful finalization failure, scope-change cancellation/reactivation, safe evidence-child FK actions,
+  repeat completion, Box client contract, exact per-file replay suppression, sibling Message-ID
+  isolation and same-byte/new-identity upload.
 - Box Function: exact-folder deletion, missing-file idempotency, sibling and read-only-root refusal,
   validation-only GET and DELETE route arguments.
 - SPA: filename/source-boundary copy, mutation-free cancel, explicit confirmation, visible retry after

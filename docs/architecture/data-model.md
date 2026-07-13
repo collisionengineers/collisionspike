@@ -150,7 +150,9 @@ become EVA-ready from client guidance claims.
 **Staff-confirmed image deletion (TKT-160):** `evidence.deletion_operation_id` marks an image while a
 delete is incomplete. The append-preserved `evidence_deletion` row snapshots case/evidence identity,
 filename, Blob path, source identity, exact Box file/folder IDs, requesting actor, per-store outcomes,
-lease/attempt state and failure code — never image bytes. Normal evidence reads keep a pending image
+lease/attempt state and failure code — never image bytes. A scope/identity change before any successful
+delete moves the intent to `cancelled` and clears the evidence marker; a later confirmation reactivates
+that row with a fresh snapshot. Normal evidence reads keep a pending image
 visible (the SPA offers **Finish deleting**); review edits, archive mirroring, classification and case
 merge refuse/ignore that marked row. `complete_evidence_deletion(operation, claim)` is the sole guarded
 hard-delete seam and succeeds only after both store outcomes are resolved and the live row still exactly

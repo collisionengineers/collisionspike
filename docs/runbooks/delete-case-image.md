@@ -79,14 +79,18 @@ from `392761581105`. Stop if any identity is blank/ambiguous or the folder is ou
 When a store call or finalization fails, the API returns non-2xx and never claims completion. The image
 remains on the case with `deletionPending=true`; review/classification/archive-mirror/merge work cannot
 race it. The staff member selects **Finish deleting** to retry the same durable operation. Already
-resolved stores are not repeated.
+resolved stores are not repeated. If the Archive file or case folder changes before any copy is deleted,
+the API cancels the intent, clears the image marker and returns `deletionPending=false`; refresh before
+starting a new confirmed deletion. A cancelled intent is safely reactivated with a fresh snapshot on a
+later request.
 
 Use `evidence_deletion.last_failure_code`, `attempt_count`, per-store outcomes and the
 `image_deletion_failed` (`100000064`) audit to diagnose. A `case_update` failure leaves both resolved
 store outcomes unchanged so retry resumes at finalization without misreporting a store failure. An
-Archive scope mismatch is fail-closed and
-non-retryable until the case/evidence identity is corrected; never substitute a name/path lookup or
-broaden the allowed root. A transient 503 is retryable. If stores resolved but finalization did not,
+Archive scope mismatch is fail-closed and cancels safely when no copy was deleted; never substitute a
+name/path lookup or broaden the allowed root. A transient 503 is retryable. If Archive already resolved
+before a case-folder relink, recovery continues from the durable original scope without repeating that
+store. If stores resolved but finalization did not,
 retry the route; do not manually delete the evidence/tombstone rows.
 
 ## Evidence to attach to ticket verification

@@ -27,7 +27,7 @@ import {
 import { recomputeStatus } from './cases.js';
 
 type StoreOutcome = 'pending' | 'not_required' | 'deleted' | 'missing' | 'failed';
-type DeletionState = 'pending' | 'retry_needed' | 'ready_to_finalize' | 'completed';
+type DeletionState = 'pending' | 'retry_needed' | 'ready_to_finalize' | 'completed' | 'cancelled';
 
 interface DeletionIntent extends Record<string, unknown> {
   id: string;
@@ -77,7 +77,11 @@ function clean(value: string | null): string | null {
   return trimmed || null;
 }
 
-function snapshotMatchesIntent(row: EvidenceDeleteSnapshot, intent: DeletionIntent): boolean {
+function snapshotMatchesIntent(
+  row: EvidenceDeleteSnapshot,
+  intent: DeletionIntent,
+  allowFolderChange = false,
+): boolean {
   return (
     row.id === intent.evidence_id &&
     row.case_id.toLowerCase() === intent.case_id.toLowerCase() &&
@@ -85,7 +89,7 @@ function snapshotMatchesIntent(row: EvidenceDeleteSnapshot, intent: DeletionInte
     clean(row.storage_path) === clean(intent.storage_path) &&
     clean(row.source_message_id) === clean(intent.source_message_id) &&
     clean(row.box_file_id) === clean(intent.box_file_id) &&
-    clean(row.box_folder_id) === clean(intent.box_folder_id)
+    (allowFolderChange || clean(row.box_folder_id) === clean(intent.box_folder_id))
   );
 }
 
@@ -203,6 +207,34 @@ async function claimDeletion(
     ],
   );
 
+  if (!inserted[0] && current.deletion_operation_id == null) {
+    inserted = await q<DeletionIntent>(
+      `UPDATE evidence_deletion
+          SET case_id = $2, file_name = $3, kind_code = $4, storage_path = $5,
+              source_message_id = $6, box_file_id = $7, box_folder_id = $8,
+              requested_by = $9, state = 'pending', blob_outcome = $10,
+              box_outcome = $11, attempt_count = 0, claim_token = NULL,
+              claim_expires_at = NULL, last_failure_code = NULL,
+              requested_at = now(), last_attempt_at = NULL, completed_at = NULL,
+              updated_at = now()
+        WHERE evidence_id = $1 AND state = 'cancelled'
+        RETURNING *`,
+      [
+        evidenceId,
+        lockedCase.caseId,
+        current.file_name,
+        imageKind,
+        clean(current.storage_path),
+        clean(current.source_message_id),
+        clean(current.box_file_id),
+        clean(current.box_folder_id),
+        actor,
+        clean(current.storage_path) ? 'pending' : 'not_required',
+        preflight,
+      ],
+    );
+  }
+
   if (inserted[0]) {
     const marker = await q<{ id: string }>(
       `UPDATE evidence
@@ -238,7 +270,11 @@ async function claimDeletion(
         [evidenceId, lockedCase.caseId],
       );
   const intent = intentRows[0];
-  if (!intent || !snapshotMatchesIntent(current, intent)) return { kind: 'changed' };
+  if (!intent || !snapshotMatchesIntent(
+    current,
+    intent,
+    deletionStoreResolved(intent.box_outcome),
+  )) return { kind: 'changed' };
   if (intent.state === 'completed') return { kind: 'completed', intent };
   if (current.deletion_operation_id !== intent.id) return { kind: 'changed' };
 
@@ -345,6 +381,69 @@ async function recordFinalizationFailure(
   });
 }
 
+function cancellationIsSafe(intent: DeletionIntent): boolean {
+  return intent.blob_outcome !== 'deleted' && intent.box_outcome !== 'deleted';
+}
+
+async function cancelDeletion(
+  intent: DeletionIntent,
+  actor: string,
+  code: string,
+  ownedClaimToken?: string,
+): Promise<boolean> {
+  return tx(async (q) => {
+    const caseLock = await lockCaseForMutation(q, intent.case_id);
+    if (caseLock.kind !== 'active') return false;
+    const rows = await q<DeletionIntent>(
+      `SELECT d.*
+         FROM evidence_deletion d
+         JOIN evidence e ON e.id = d.evidence_id AND e.case_id = d.case_id
+        WHERE d.id = $1 AND e.deletion_operation_id = d.id
+        FOR UPDATE OF d, e`,
+      [intent.id],
+    );
+    const current = rows[0];
+    if (!current || !cancellationIsSafe(current)) return false;
+    const ownsClaim = ownedClaimToken
+      ? current.claim_token === ownedClaimToken
+      : !claimIsActive(current.claim_token, current.claim_expires_at);
+    if (!ownsClaim || !['pending', 'retry_needed'].includes(current.state)) return false;
+
+    const marker = await q<{ id: string }>(
+      `UPDATE evidence
+          SET deletion_operation_id = NULL, updated_at = now()
+        WHERE id = $1 AND case_id = $2 AND deletion_operation_id = $3
+        RETURNING id`,
+      [current.evidence_id, current.case_id, current.id],
+    );
+    if (!marker[0]) return false;
+    const cancelled = await q<{ id: string }>(
+      `UPDATE evidence_deletion
+          SET state = 'cancelled', last_failure_code = $2,
+              claim_token = NULL, claim_expires_at = NULL, updated_at = now()
+        WHERE id = $1
+        RETURNING id`,
+      [current.id, code],
+    );
+    if (!cancelled[0]) throw new Error('image deletion cancellation changed');
+    await writeAuditStrict({
+      action: AUDIT_ACTION.image_deletion_failed,
+      caseId: current.case_id,
+      summary: `Image deletion cancelled for ${current.file_name}`,
+      severity: 'warning',
+      actor,
+      after: {
+        operationId: current.id,
+        evidenceId: current.evidence_id,
+        failedStore: 'archive',
+        failureCode: code,
+        cancelled: true,
+      },
+    }, q);
+    return true;
+  });
+}
+
 async function finalizeDeletion(intent: DeletionIntent, actor: string): Promise<number> {
   return tx(async (q) => {
     const caseLock = await lockCaseForMutation(q, intent.case_id);
@@ -393,15 +492,31 @@ app.http('deleteCaseImage', {
     if (existing?.state === 'completed') {
       return { status: 200, jsonBody: completeBody(existing, true) };
     }
+    if (existing?.state === 'cancelled') existing = undefined;
     let snapshot = await readSnapshot(caseId, evidenceId);
     if (!snapshot) return { status: 404, jsonBody: { error: 'image not found' } };
     if (snapshot.kind_code !== imageKind) {
       return { status: 409, jsonBody: { error: 'Only case images can be deleted here.' } };
     }
-    if (existing && !snapshotMatchesIntent(snapshot, existing)) {
+    if (
+      existing &&
+      !snapshotMatchesIntent(snapshot, existing) &&
+      !(
+        deletionStoreResolved(existing.box_outcome) &&
+        snapshotMatchesIntent(snapshot, existing, true)
+      )
+    ) {
+      const cancelled = await cancelDeletion(existing, actor, 'deletion_target_changed')
+        .catch(() => false);
       return {
-        status: 409,
-        jsonBody: { message: 'This image changed while deletion was being prepared. Refresh and try again.' },
+        status: cancelled ? 409 : 503,
+        jsonBody: {
+          message: cancelled
+            ? 'This image or its Archive folder changed. The unfinished deletion was cancelled; refresh before trying again.'
+            : 'This image changed while deletion was being prepared. Refresh and try again.',
+          retryable: !cancelled,
+          deletionPending: !cancelled,
+        },
       };
     }
     if (claimIsActive(snapshot.archive_mirror_claim_token, snapshot.archive_mirror_claim_expires_at)) {
@@ -466,18 +581,23 @@ app.http('deleteCaseImage', {
       }
     } catch (error) {
       const unsafe = error instanceof FunctionCallError && error.status === 400;
-      await recordFailure(intent, actor, 'box', unsafe ? 'archive_target_changed' : 'archive_delete_failed');
+      const cancelled = unsafe
+        ? await cancelDeletion(intent, actor, 'archive_target_changed', claimToken).catch(() => false)
+        : false;
+      if (!cancelled) {
+        await recordFailure(intent, actor, 'box', unsafe ? 'archive_target_changed' : 'archive_delete_failed');
+      }
       return {
-        status: unsafe ? 409 : 503,
+        status: cancelled ? 409 : 503,
         jsonBody: {
           completed: false,
-          retryable: !unsafe,
+          retryable: !cancelled,
           evidenceId,
           fileName: intent.file_name,
-          message: unsafe
-            ? 'The Archive copy moved or no longer belongs to this case. The image is still on the case.'
+          message: cancelled
+            ? 'The Archive copy moved or no longer belongs to this case. Nothing was deleted; refresh before trying again.'
             : 'The Archive copy could not be removed. The image is still on the case; try again.',
-          deletionPending: true,
+          deletionPending: !cancelled,
         },
       };
     }

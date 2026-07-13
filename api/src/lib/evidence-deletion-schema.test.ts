@@ -45,5 +45,12 @@ describe('single-image deletion schema safety', () => {
       expect(sql).toContain('CREATE POLICY p_evidence_scoped_delete ON evidence');
       expect(sql).toContain("d.state = 'ready_to_finalize'");
     }
+    for (const sql of [
+      schema('205_evidence_deletion.sql'),
+      schema('deltas/2026-07-13-tkt160-evidence-deletion.sql'),
+    ]) {
+      expect(sql).toContain("'cancelled'");
+      expect(sql).not.toContain('c.box_folder_id IS NOT DISTINCT FROM d.box_folder_id');
+    }
   });
 });

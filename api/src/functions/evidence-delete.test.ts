@@ -81,11 +81,19 @@ function req(): HttpRequest {
   return { params: { caseId: 'case-1', evidenceId: 'ev-1' } } as unknown as HttpRequest;
 }
 
-function configureSuccess(overrides?: { boxMissing?: boolean; blobMissing?: boolean }): void {
+function configureSuccess(overrides?: {
+  boxMissing?: boolean;
+  blobMissing?: boolean;
+  cancelled?: boolean;
+}): void {
   let transaction = 0;
   db.query.mockImplementation(async (sql: string) => {
-    if (sql.includes('FROM evidence_deletion WHERE case_id')) return [];
-    if (sql.includes('FROM evidence e') && sql.includes('JOIN case_ c')) return [snapshot];
+    if (sql.includes('FROM evidence_deletion WHERE case_id')) {
+      return overrides?.cancelled
+        ? [{ ...intent, state: 'cancelled', claim_token: null, claim_expires_at: null }]
+        : [];
+    }
+    if (sql.includes('FROM evidence e') && sql.includes('JOIN case_ c')) return [{ ...snapshot }];
     if (sql.includes('UPDATE evidence_deletion SET box_outcome')) return [{ id: intent.id }];
     if (sql.includes('UPDATE evidence_deletion SET blob_outcome')) return [{ id: intent.id }];
     return [];
@@ -93,8 +101,9 @@ function configureSuccess(overrides?: { boxMissing?: boolean; blobMissing?: bool
   db.tx.mockImplementation(async (fn: (q: typeof db.txQuery) => Promise<unknown>) => {
     transaction++;
     db.txQuery.mockImplementation(async (sql: string) => {
-      if (sql.includes('FROM evidence e') && sql.includes('FOR UPDATE OF e, c')) return [snapshot];
+      if (sql.includes('FROM evidence e') && sql.includes('FOR UPDATE OF e, c')) return [{ ...snapshot }];
       if (sql.includes('INSERT INTO evidence_deletion')) {
+        if (overrides?.cancelled) return [];
         return [{
           ...intent,
           box_outcome: overrides?.boxMissing ? 'missing' : 'pending',
@@ -102,7 +111,12 @@ function configureSuccess(overrides?: { boxMissing?: boolean; blobMissing?: bool
           claim_token: null,
         }];
       }
+      if (sql.includes("WHERE evidence_id = $1 AND state = 'cancelled'")) {
+        return [{ ...intent, state: 'pending', claim_token: null, claim_expires_at: null }];
+      }
+      if (sql.includes('SELECT d.*') && sql.includes('FROM evidence_deletion d')) return [{ ...intent }];
       if (sql.includes('SET deletion_operation_id')) return [{ id: 'ev-1' }];
+      if (sql.includes("SET state = 'cancelled'")) return [{ id: intent.id }];
       if (sql.includes("state = 'retry_needed'")) return [{ ...intent, state: 'retry_needed' }];
       if (sql.includes("SET state = 'pending'")) {
         return [{ ...intent, box_outcome: overrides?.boxMissing ? 'missing' : 'pending' }];
@@ -187,7 +201,7 @@ describe('DELETE /api/cases/{caseId}/images/{evidenceId}', () => {
     configureSuccess();
     stores.box.mockRejectedValue(new FunctionCallError('unavailable', 503));
     db.txQuery.mockImplementation(async (sql: string) => {
-      if (sql.includes('FROM evidence e') && sql.includes('FOR UPDATE OF e, c')) return [snapshot];
+      if (sql.includes('FROM evidence e') && sql.includes('FOR UPDATE OF e, c')) return [{ ...snapshot }];
       if (sql.includes('INSERT INTO evidence_deletion')) return [{ ...intent, attempt_count: 0, claim_token: null }];
       if (sql.includes('SET deletion_operation_id')) return [{ id: 'ev-1' }];
       if (sql.includes("SET state = 'pending'")) return [intent];
@@ -203,6 +217,141 @@ describe('DELETE /api/cases/{caseId}/images/{evidenceId}', () => {
     });
     expect(stores.blob).not.toHaveBeenCalled();
     expect(db.txQuery.mock.calls.some(([sql]) => String(sql).includes("state = 'retry_needed'"))).toBe(true);
+  });
+
+  it('cancels a non-retryable Archive scope change without freezing the image', async () => {
+    configureSuccess();
+    stores.box.mockRejectedValue(new FunctionCallError('scope changed', 400));
+
+    const response = await handler(req(), ctx, {});
+
+    expect(response.status).toBe(409);
+    expect(response.jsonBody).toMatchObject({
+      completed: false,
+      retryable: false,
+      deletionPending: false,
+    });
+    expect(db.txQuery.mock.calls.some(([sql]) => (
+      String(sql).includes('SET deletion_operation_id = NULL')
+    ))).toBe(true);
+    expect(db.txQuery.mock.calls.some(([sql]) => (
+      String(sql).includes("SET state = 'cancelled'")
+    ))).toBe(true);
+  });
+
+  it('reactivates a cancelled intent as a fresh confirmed deletion', async () => {
+    configureSuccess({ cancelled: true });
+
+    const response = await handler(req(), ctx, {});
+
+    expect(response.status, JSON.stringify(response.jsonBody)).toBe(200);
+    expect(response.jsonBody).toMatchObject({ completed: true, evidenceId: 'ev-1' });
+    expect(db.txQuery.mock.calls.some(([sql]) => (
+      String(sql).includes("WHERE evidence_id = $1 AND state = 'cancelled'")
+    ))).toBe(true);
+    expect(stores.box).toHaveBeenCalledTimes(1);
+    expect(stores.blob).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels a changed case folder before any store was deleted', async () => {
+    const retry = {
+      ...intent,
+      state: 'retry_needed',
+      box_outcome: 'failed',
+      claim_token: null,
+      claim_expires_at: null,
+    };
+    const moved = { ...snapshot, box_folder_id: 'folder-2', deletion_operation_id: intent.id };
+    db.query.mockImplementation(async (sql: string) => (
+      sql.includes('FROM evidence_deletion WHERE case_id') ? [retry] : [moved]
+    ));
+    db.tx.mockImplementation(async (fn: (q: typeof db.txQuery) => Promise<unknown>) => {
+      db.txQuery.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT d.*') && sql.includes('FROM evidence_deletion d')) return [retry];
+        if (sql.includes('SET deletion_operation_id = NULL')) return [{ id: 'ev-1' }];
+        if (sql.includes("SET state = 'cancelled'")) return [{ id: intent.id }];
+        return [];
+      });
+      return fn(db.txQuery);
+    });
+
+    const response = await handler(req(), ctx, {});
+
+    expect(response.status).toBe(409);
+    expect(response.jsonBody).toMatchObject({ retryable: false, deletionPending: false });
+    expect(stores.validate).not.toHaveBeenCalled();
+    expect(stores.box).not.toHaveBeenCalled();
+    expect(stores.blob).not.toHaveBeenCalled();
+  });
+
+  it('does not cancel another request that still owns an active deletion claim', async () => {
+    const active = {
+      ...intent,
+      state: 'pending',
+      claim_expires_at: '2099-07-13T12:05:00Z',
+    };
+    const moved = { ...snapshot, box_folder_id: 'folder-2', deletion_operation_id: intent.id };
+    db.query.mockImplementation(async (sql: string) => (
+      sql.includes('FROM evidence_deletion WHERE case_id') ? [active] : [moved]
+    ));
+    db.tx.mockImplementation(async (fn: (q: typeof db.txQuery) => Promise<unknown>) => {
+      db.txQuery.mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT d.*') && sql.includes('FROM evidence_deletion d')) return [active];
+        return [];
+      });
+      return fn(db.txQuery);
+    });
+
+    const response = await handler(req(), ctx, {});
+
+    expect(response.status).toBe(503);
+    expect(response.jsonBody).toMatchObject({ retryable: true, deletionPending: true });
+    expect(db.txQuery.mock.calls.some(([sql]) => (
+      String(sql).includes('SET deletion_operation_id = NULL')
+    ))).toBe(false);
+    expect(stores.validate).not.toHaveBeenCalled();
+    expect(stores.box).not.toHaveBeenCalled();
+    expect(stores.blob).not.toHaveBeenCalled();
+  });
+
+  it('finishes from a resolved Archive outcome after the case folder changes', async () => {
+    const retry = {
+      ...intent,
+      state: 'retry_needed',
+      box_outcome: 'deleted',
+      blob_outcome: 'pending',
+      claim_token: null,
+      claim_expires_at: null,
+    };
+    const moved = { ...snapshot, box_folder_id: 'folder-2', deletion_operation_id: intent.id };
+    db.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM evidence_deletion WHERE case_id')) return [retry];
+      if (sql.includes('FROM evidence e') && sql.includes('JOIN case_ c')) return [{ ...moved }];
+      if (sql.includes('UPDATE evidence_deletion SET blob_outcome')) return [{ id: intent.id }];
+      return [];
+    });
+    db.tx.mockImplementation(async (fn: (q: typeof db.txQuery) => Promise<unknown>) => {
+      db.txQuery.mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM evidence e') && sql.includes('FOR UPDATE OF e, c')) return [{ ...moved }];
+        if (sql.includes('INSERT INTO evidence_deletion')) return [];
+        if (sql.includes('SELECT * FROM evidence_deletion WHERE evidence_id')) return [retry];
+        if (sql.includes("SET state = 'pending'")) {
+          return [{ ...retry, state: 'pending', claim_token: intent.claim_token }];
+        }
+        if (sql.includes('complete_evidence_deletion')) return [{ case_id: 'case-1', evidence_id: 'ev-1' }];
+        return [];
+      });
+      return fn(db.txQuery);
+    });
+    stores.blob.mockResolvedValue(true);
+    status.request.mockResolvedValue(5);
+
+    const response = await handler(req(), ctx, {});
+
+    expect(response.status, JSON.stringify(response.jsonBody)).toBe(200);
+    expect(stores.validate).not.toHaveBeenCalled();
+    expect(stores.box).not.toHaveBeenCalled();
+    expect(stores.blob).toHaveBeenCalledTimes(1);
   });
 
   it('keeps resolved store outcomes truthful when only case finalization fails', async () => {

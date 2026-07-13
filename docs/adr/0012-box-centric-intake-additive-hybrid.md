@@ -183,6 +183,8 @@ before either store is changed; partial outcomes remain visible and retryable; t
 removed only after Blob and Box are each deleted, already missing, or not required. The originating
 per-file Blob path and Box file ID are retained as tombstone keys so retries cannot recreate the
 deliberately deleted image. A shared email Message-ID remains provenance only and cannot suppress a
-sibling attachment. A later explicit upload with a new source identity is still allowed. TKT-160 and
+sibling attachment. A non-retryable identity/scope change before any successful delete cancels the
+intent and clears its evidence marker instead of freezing the case. A later explicit upload with a new
+source identity is still allowed. TKT-160 and
 [`docs/runbooks/delete-case-image.md`](../runbooks/delete-case-image.md) are the implementation and
 verification contract.
