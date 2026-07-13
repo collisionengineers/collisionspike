@@ -57,6 +57,10 @@ import type {
   CreateProviderApiKeyInput,
   CreateProviderApiKeyResult,
   VehicleDataEnrichmentResponse,
+  CaptureSessionStaffSummary,
+  CaptureSessionListResponse,
+  CreateCaptureSessionRequest,
+  CaptureSessionSecretResponse,
 } from '@cs/domain';
 import type { Case, Chaser, Evidence, Provider, ActivityEvent } from '@cs/domain';
 import type {
@@ -278,6 +282,19 @@ export interface DataAccessExt extends DataAccess {
    *  chaser row in the SAME shape the case-detail read returns. Throws on
    *  non-2xx — a chase that didn't persist must never look logged. */
   logChase(caseId: string, input: LogChaseInput): Promise<Chaser>;
+
+  /* ----- Guided photo requests ----- */
+  /** List safe staff summaries. Public links are never recoverable from this read. */
+  captureSessions(caseId: string): Promise<CaptureSessionStaffSummary[]>;
+  /** Create a request and return its public link once. */
+  createCaptureSession(
+    caseId: string,
+    input: CreateCaptureSessionRequest,
+  ): Promise<CaptureSessionSecretResponse>;
+  /** Invalidate the previous public link and return its replacement once. */
+  rotateCaptureSession(sessionId: string): Promise<CaptureSessionSecretResponse>;
+  /** Cancel a public link and return the updated safe summary. */
+  revokeCaptureSession(sessionId: string): Promise<CaptureSessionStaffSummary>;
 
   /* ----- Case done lifecycle (TKT-094/095/096, ADR-0023) ----- */
   /** Mark a case EVA Submitted after a successful Export-for-EVA download
@@ -641,6 +658,23 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
     // Record a chase (M-E2) — 201 + the created chaser row. NOT safe()-wrapped:
     // a chase that failed to persist must surface (never a fake "logged").
     logChase: (caseId, input) => post<Chaser>(`/api/cases/${enc(caseId)}/chase`, input),
+    captureSessions: (caseId) =>
+      get<CaptureSessionListResponse>(`/api/cases/${enc(caseId)}/capture-sessions`).then(
+        (result) => result.sessions,
+      ),
+    createCaptureSession: (caseId, input) =>
+      post<CaptureSessionSecretResponse>(
+        `/api/cases/${enc(caseId)}/capture-sessions`,
+        input,
+      ),
+    rotateCaptureSession: (sessionId) =>
+      post<CaptureSessionSecretResponse>(
+        `/api/capture-sessions/${enc(sessionId)}/rotate`,
+      ),
+    revokeCaptureSession: (sessionId) =>
+      post<CaptureSessionStaffSummary>(
+        `/api/capture-sessions/${enc(sessionId)}/revoke`,
+      ),
     // Case done lifecycle (TKT-094/095/096). The two writes are NOT safe()-wrapped —
     // a status flip that failed must reach the operator; the completed list is a
     // browse read, safe()-empty on failure.

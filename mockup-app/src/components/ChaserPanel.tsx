@@ -20,9 +20,11 @@ import { Copy, ClipboardCheck } from 'lucide-react';
 import { evaluateEvaImageReadiness } from '@cs/domain';
 import type { Case, Chaser, ChaserChannel, CopyFileRequestTransport } from '../data';
 import { GLOBAL_TOASTER_ID } from './toaster';
+import type { GuidedPhotoLink } from './GuidedPhotoRequestPanel';
 
 const OVERVIEW_PHOTO_REQUEST = 'Overview photo request';
 const EXISTING_OVERVIEW_REQUEST_KEY = 'existing_overview_photo_request';
+const GUIDED_PHOTO_REQUEST_KEY = 'guided_photo_request';
 
 export function overviewChaserForPanel(chasers: Chaser[]): Chaser | undefined {
   return chasers.find(
@@ -164,6 +166,20 @@ export interface ChaserPanelProps {
    * an honest "not available yet" — it never fabricates a link.
    */
   onRequestUploadLink?: CopyFileRequestTransport;
+  /** One-time guided-photo link returned by create/replace in this page visit. */
+  guidedPhotoLink?: GuidedPhotoLink;
+}
+
+export function guidedPhotoRequestBody(c: Case, link: GuidedPhotoLink): string {
+  const expires = new Date(link.expiresAt);
+  const expiryText = Number.isNaN(expires.getTime())
+    ? link.expiresAt
+    : new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(expires);
+  return (
+    `Hi,\n\nPlease use the secure link below to take the requested photographs of vehicle ${c.vrm} ` +
+    `(${c.vehicleModel}). No account is needed. The link expires ${expiryText}.\n\n` +
+    `${link.captureUrl}\n\nMany thanks,\nCollision Engineers`
+  );
 }
 
 /** Channel-aware chaser composer. Drafts only — never sends. */
@@ -172,6 +188,7 @@ export function ChaserPanel({
   onLogChased,
   fileRequestEnabled = false,
   onRequestUploadLink,
+  guidedPhotoLink,
 }: ChaserPanelProps) {
   const styles = useStyles();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
@@ -181,7 +198,26 @@ export function ChaserPanel({
   // Image requests stay visible when link provisioning is unavailable, but their
   // actions are disabled with an honest explanation below. They must never fall
   // back to a linkless message that looks complete.
-  const visibleTemplates = useMemo(() => chaserTemplatesForCase(c), [c]);
+  const guidedPhotoTemplate = useMemo<ChaserTemplate | undefined>(
+    () =>
+      guidedPhotoLink
+        ? {
+            key: GUIDED_PHOTO_REQUEST_KEY,
+            label: 'Guided photo request',
+            channels: ['email', 'whatsapp'],
+            requiresUploadLink: false,
+            body: guidedPhotoRequestBody(c, guidedPhotoLink),
+          }
+        : undefined,
+    [c.vehicleModel, c.vrm, guidedPhotoLink],
+  );
+  const visibleTemplates = useMemo(
+    () => [
+      ...(guidedPhotoTemplate ? [guidedPhotoTemplate] : []),
+      ...chaserTemplatesForCase(c),
+    ],
+    [c, guidedPhotoTemplate],
+  );
   const available = useMemo(
     () => visibleTemplates.filter((t) => t.channels.includes(channel)),
     [visibleTemplates, channel],
@@ -207,6 +243,15 @@ export function ChaserPanel({
     setTemplateKey(fallback?.key ?? '');
     setBody(fallback?.body ?? '');
   }, [c.id, channel, templateKey, visibleTemplates]);
+
+  // A create/replace response carries the public link once. Put it straight into
+  // the existing editable composer; a reload intentionally cannot recover it.
+  useEffect(() => {
+    if (!guidedPhotoLink) return;
+    setChannel('email');
+    setTemplateKey(GUIDED_PHOTO_REQUEST_KEY);
+    setBody(guidedPhotoRequestBody(c, guidedPhotoLink));
+  }, [c.vehicleModel, c.vrm, guidedPhotoLink]);
 
   const applyTemplate = (key: string) => {
     setTemplateKey(key);

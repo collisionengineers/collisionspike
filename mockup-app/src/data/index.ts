@@ -143,6 +143,12 @@ export type {
   AssistantChatTurn,
   AssistantReply,
   ProposedAction,
+  CaptureSessionStatus,
+  CaptureGuidanceMode,
+  CaptureSessionStaffSummary,
+  CaptureSessionListResponse,
+  CreateCaptureSessionRequest,
+  CaptureSessionSecretResponse,
 } from '@cs/domain';
 // The seam's EXTENDED DataAccess (frozen @cs/domain DataAccess + the work-todo-spike
 // methods). `getDataAccess()` returns this; screens that type-annotate use it.
@@ -314,6 +320,7 @@ export {
   useCompletedCases,
   useDashboard,
   useImages,
+  useCaptureSessions,
   useProviders,
   useInspectionAddressSuggestions,
   useInspectionAddressCounts,
@@ -329,6 +336,7 @@ export {
   useTriage,
   useReclassifyInbound,
   useLogChase,
+  useCaptureSessionMutations,
   useCaseRemove,
   useProviderUpdate,
   // AI suggestion layer hooks (TKT-015) — gate, list, review, generate.
@@ -348,6 +356,7 @@ export {
   type TriageMutationState,
   type ReclassifyInboundState,
   type LogChaseState,
+  type CaptureSessionMutationState,
   type CaseRemoveState,
   type ProviderUpdateState,
   type ReviewAiSuggestionState,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Outlet, useBlocker, useNavigate, useParams } from 'react-router-dom';
+import { Outlet, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { zipSync } from 'fflate';
 import {
   Badge,
@@ -50,6 +50,7 @@ import {
   ArrowUpRight,
   Archive,
   CalendarClock,
+  Camera,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -73,6 +74,7 @@ import {
 } from 'lucide-react';
 import {
   ChaserPanel,
+  GuidedPhotoRequestPanel,
   EvaFieldRow,
   FIELD_CLUSTERS,
   LABEL_FOR,
@@ -89,6 +91,7 @@ import {
   computeReadiness,
   useSeverityChipStyles,
   type ChecklistItem,
+  type GuidedPhotoLink,
 } from '../components';
 import {
   data,
@@ -173,6 +176,11 @@ import {
   type CaseEditInspectionDraft,
   type InspectionAddressDraftSnapshot,
 } from './case-edit-session';
+import {
+  caseDetailSearchForTab,
+  caseDetailTabFromSearch,
+  type CaseDetailTab,
+} from './case-detail-tab';
 
 /* ============================================================
    CaseDetail — the core review screen.
@@ -541,8 +549,6 @@ const useStyles = makeStyles({
   },
 });
 
-type TabName = 'fields' | 'evidence' | 'address' | 'notes' | 'chasers' | 'emails';
-
 /* The EVA field clusters, label/required lookup, and the editable field row are
    shared with ManualIntake (src/components/EvaFields.tsx) so they cannot drift. */
 
@@ -592,7 +598,7 @@ function caseStageKey(status: CaseStatus): PipelineStageKey {
 
 /* Resolve a readiness ChecklistItem to the tab that owns it and, for a field
    item, the EvaFieldKey to focus. Keeps the deep-link the ONE blocker UI. */
-function checklistTarget(item: ChecklistItem, c: Case): { tab: TabName; fieldKey?: EvaFieldKey } {
+function checklistTarget(item: ChecklistItem, c: Case): { tab: CaseDetailTab; fieldKey?: EvaFieldKey } {
   if (item.group === 'images') return { tab: 'evidence' };
   if (item.group === 'source') return { tab: 'evidence' };
   if (item.group === 'address') return { tab: 'address' };
@@ -922,6 +928,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const chips = useSeverityChipStyles();
   const { logChase } = useLogChase();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
 
   // One local working copy plus the last server-confirmed baseline. EVA fields and
@@ -946,7 +953,11 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const [poDraft, setPoDraft] = useState(caseData.casePo ?? '');
   const vrmInputRef = useRef<HTMLInputElement>(null);
   const vrmEditBtnRef = useRef<HTMLButtonElement>(null);
-  const [tab, setTab] = useState<TabName>('fields');
+  const tab = caseDetailTabFromSearch(searchParams);
+  const setTab = (next: CaseDetailTab) => {
+    setSearchParams(caseDetailSearchForTab(searchParams, next));
+  };
+  const [guidedPhotoLink, setGuidedPhotoLink] = useState<GuidedPhotoLink | undefined>();
   const [noteDraft, setNoteDraft] = useState('');
   const [overrideAddr, setOverrideAddr] = useState(
     inspectionChoiceForCase(caseData) === 'image_based',
@@ -1942,6 +1953,12 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   // Non-image artifacts (source email, instruction PDFs, …) for the Documents list.
   const documents = c.evidence.filter((e) => e.kind !== 'image' && e.kind !== 'video');
   const notesNewestFirst = c.notes; // already inserted newest-first
+  const photoRequestsDisabled =
+    c.mergedInto !== undefined ||
+    c.status === 'eva_submitted' ||
+    c.status === 'box_synced' ||
+    c.status === 'done' ||
+    c.status === 'removed';
 
   /* --- header subtitle --- */
   const subtitle = [c.vehicleModel, c.vehicleYear ? `(${c.vehicleYear})` : undefined]
@@ -2404,7 +2421,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
           <Panel>
             <TabList
               selectedValue={tab}
-              onTabSelect={(_: SelectTabEvent, d: SelectTabData) => setTab(d.value as TabName)}
+              onTabSelect={(_: SelectTabEvent, d: SelectTabData) => setTab(d.value as CaseDetailTab)}
             >
               <Tab value="fields">Fields</Tab>
               <Tab value="evidence">Evidence</Tab>
@@ -2459,6 +2476,16 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                       setCaseVersion(snapshot.version);
                     }}
                   />
+                  <div>
+                    <Button
+                      appearance="primary"
+                      icon={<Camera size={16} />}
+                      disabled={photoRequestsDisabled}
+                      onClick={() => setTab('chasers')}
+                    >
+                      Request guided photos
+                    </Button>
+                  </div>
                   {/* Case archive (Box) — folder deep link at the top. Prefers the
                       stored folder shared-link (works with no live connector, e.g.
                       the free-account demo); falls back to the connector "Open in
@@ -2794,11 +2821,19 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
               )}
 
               {tab === 'chasers' && (
-                <ChaserPanel
-                  case={liveCase}
-                  fileRequestEnabled={uploadLinkEnabled}
-                  onRequestUploadLink={activeCopyFileRequestTransport}
-                  onLogChased={({ channel, templateLabel }) => {
+                <div className={styles.stack}>
+                  <GuidedPhotoRequestPanel
+                    caseId={c.id}
+                    disabled={photoRequestsDisabled}
+                    onLinkReady={setGuidedPhotoLink}
+                  />
+                  <Divider />
+                  <ChaserPanel
+                    case={liveCase}
+                    guidedPhotoLink={guidedPhotoLink}
+                    fileRequestEnabled={uploadLinkEnabled}
+                    onRequestUploadLink={activeCopyFileRequestTransport}
+                    onLogChased={({ channel, templateLabel }) => {
                     // Optimistic note (the visible artifact) rolled back if the
                     // POST fails; the durable chaser row PERSISTS through the
                     // seam (M-E2) and reconciles into c.chasers on response.
@@ -2833,8 +2868,9 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                           { intent: 'error' },
                         );
                       });
-                  }}
-                />
+                    }}
+                  />
+                </div>
               )}
 
               {/* Emails linked to this case (TKT-009). Mounted only when the tab
