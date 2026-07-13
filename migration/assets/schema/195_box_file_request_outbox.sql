@@ -17,6 +17,7 @@ CREATE TABLE box_file_request_outbox (
   claimed_at             timestamptz,
   claim_expires_at       timestamptz,
   last_error             varchar(200),
+  repair_reason          varchar(100),
   updated_at             timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT ck_box_file_request_outbox_generations CHECK (
     requested_generation >= 1

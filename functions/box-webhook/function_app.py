@@ -288,7 +288,12 @@ def copy_file_request(req: func.HttpRequest) -> func.HttpResponse:
     template_id = req.route_params.get("fileRequestId", "")
     body = _body(req) or {}
     folder = body.get("folder")
-    if not template_id or not isinstance(folder, dict) or not folder.get("id"):
+    if (
+        not template_id
+        or not isinstance(folder, dict)
+        or not folder.get("id")
+        or str(body.get("status") or "active") != "active"
+    ):
         return _json_response({"error": "Path fileRequestId and body folder.id are required.", "status": 400}, status=400)
     return _run_box_op(
         lambda c: c.copy_file_request(
@@ -458,14 +463,34 @@ def file_request_lifecycle(req: func.HttpRequest) -> func.HttpResponse:
     if not _truthy(os.environ.get("BOX_API_ENABLED")):
         return _gated_off()
     fr_id = req.route_params.get("fileRequestId", "")
-    if not fr_id:
-        return _json_response({"error": "fileRequestId is required.", "status": 400}, status=400)
+    expected_folder_id = (req.params.get("folderId") or "").strip()
+    if not fr_id or not expected_folder_id:
+        return _json_response(
+            {"error": "fileRequestId and folderId are required.", "status": 400},
+            status=400,
+        )
     if req.method == "DELETE":
-        return _run_box_op(lambda c: c.delete_file_request(fr_id))
+        return _run_box_op(
+            lambda c: c.delete_file_request(fr_id, expected_folder_id=expected_folder_id)
+        )
     if req.method == "PUT":
         body = _body(req) or {}
-        return _run_box_op(lambda c: c.update_file_request(fr_id, body))
-    return _run_box_op(lambda c: c.get_file_request(fr_id))
+        allowed = {key: body[key] for key in ("status", "expires_at") if key in body}
+        if not allowed or set(allowed) != set(body):
+            return _json_response(
+                {"error": "Only status and expires_at may be changed.", "status": 400},
+                status=400,
+            )
+        return _run_box_op(
+            lambda c: c.update_file_request(
+                fr_id,
+                allowed,
+                expected_folder_id=expected_folder_id,
+            )
+        )
+    return _run_box_op(
+        lambda c: c.get_file_request(fr_id, expected_folder_id=expected_folder_id)
+    )
 
 
 def _int_param(value: str | None) -> int | None:

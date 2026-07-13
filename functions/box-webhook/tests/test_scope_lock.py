@@ -115,6 +115,90 @@ def test_webhook_off_root_target_raises():
 
 
 @respx.mock
+def test_copy_file_request_refuses_template_outside_root_before_copy():
+    _mock_token()
+    respx.get(f"{API_BASE}/2.0/file_requests/template-1").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "template-1",
+                "folder": {"id": "outside-template", "type": "folder"},
+                "status": "active",
+                "url": "/f/template",
+            },
+        )
+    )
+    respx.get(f"{API_BASE}/2.0/folders/outside-template").mock(
+        return_value=httpx.Response(
+            200,
+            json={"id": "outside-template", "path_collection": {"entries": [{"id": "0"}]}},
+        )
+    )
+    copied = respx.post(f"{API_BASE}/2.0/file_requests/template-1/copy").mock(
+        return_value=httpx.Response(200, json={"id": "never"})
+    )
+    with pytest.raises(BoxScopeError):
+        _client().copy_file_request("template-1", ROOT)
+    assert not copied.called
+
+
+@respx.mock
+def test_file_request_lifecycle_requires_the_expected_case_folder_before_update():
+    _mock_token()
+    respx.get(f"{API_BASE}/2.0/file_requests/9001").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "9001",
+                "folder": {"id": "other-case", "type": "folder"},
+                "status": "inactive",
+                "url": "/f/token",
+            },
+        )
+    )
+    updated = respx.put(f"{API_BASE}/2.0/file_requests/9001").mock(
+        return_value=httpx.Response(200, json={})
+    )
+    with pytest.raises(BoxScopeError):
+        _client().update_file_request(
+            "9001",
+            {"status": "active"},
+            expected_folder_id="expected-case",
+        )
+    assert not updated.called
+
+
+@respx.mock
+def test_file_request_reuse_ignores_a_stale_scope_cache_after_folder_move():
+    _mock_token()
+    # Simulate a warm worker which verified the case folder before an admin moved it.
+    bc._SCOPE_VERIFIED.add("case-folder")
+    respx.get(f"{API_BASE}/2.0/file_requests/9001").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "9001",
+                "folder": {"id": "case-folder", "type": "folder"},
+                "status": "active",
+                "url": "/f/token",
+            },
+        )
+    )
+    scope_get = respx.get(f"{API_BASE}/2.0/folders/case-folder").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "case-folder",
+                "path_collection": {"entries": [{"id": "0"}]},
+            },
+        )
+    )
+    with pytest.raises(BoxScopeError):
+        _client().get_file_request("9001", expected_folder_id="case-folder")
+    assert scope_get.called
+
+
+@respx.mock
 def test_lock_disabled_when_root_unset():
     _mock_token()
     respx.post(f"{API_BASE}/2.0/folders").mock(return_value=httpx.Response(201, json={"id": "c"}))

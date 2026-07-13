@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Chaser } from '../data';
-import { overviewChaserForPanel, overviewChaserStatusText } from './ChaserPanel';
+import {
+  messageWithUploadLink,
+  overviewChaserForPanel,
+  overviewChaserStatusText,
+} from './ChaserPanel';
 
 function chaser(overrides: Partial<Chaser> = {}): Chaser {
   return {
@@ -32,5 +36,15 @@ describe('overview-photo chase visibility', () => {
 
   it('does not revive a responded overview request', () => {
     expect(overviewChaserForPanel([chaser({ status: 'responded' })])).toBeUndefined();
+  });
+});
+
+describe('image chaser copy', () => {
+  it('appends exactly one active link and replaces a stale link on retry', () => {
+    const first = messageWithUploadLink('Please send photos.', 'https://app.box.com/f/first');
+    const repaired = messageWithUploadLink(first, 'https://app.box.com/f/repaired');
+    expect(repaired).toContain('Upload your photos here:\nhttps://app.box.com/f/repaired');
+    expect(repaired).not.toContain('/first');
+    expect(repaired.match(/Upload your photos here:/g)).toHaveLength(1);
   });
 });

@@ -181,6 +181,9 @@ describe('TKT-133 (a) — email arrival then Box mirror = ONE row (the acceptanc
     expect(sqls[updIdx]).toContain('box_file_id IS NULL');
     expect(sqls[updIdx]).not.toContain('source_message_id');
     expect(params[updIdx]).toEqual(['ev-1', '9900', 'https://app.box.com/file/9900']);
+    // This is only the archive mirror of bytes already present through email,
+    // not a new provider response to an image chase.
+    expect(sqls.some((sql) => /UPDATE chaser/.test(sql))).toBe(false);
   });
 
   it('mirror-first direction: a Box-first row (no storage_path) is filled by the email arrival', async () => {
@@ -228,6 +231,8 @@ describe('TKT-133 (c) — NEGATIVE: same sha256, DIFFERENT case → no merge, no
     const lookupIdx = sqls.findIndex((s) => /FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(s));
     expect(params[lookupIdx]).toEqual(['case-2', SHA]);
     expect(inserts()).toHaveLength(1);
+    expect(sqls.some((sql) => /UPDATE chaser/.test(sql) && /box_file_request_id IS NOT NULL/.test(sql)))
+      .toBe(true);
   });
 });
 
@@ -389,6 +394,7 @@ describe('TKT-133 (e) — a retry of the SAME identity is absorbed in the sha256
       merged: 0,
       statusGeneration: 1,
     });
+    expect(sqls.some((sql) => /UPDATE chaser/.test(sql))).toBe(false);
     // The sha256 pass now `continue`s — the lane INSERT is never even issued.
     expect(sqls.some((s) => /INSERT INTO evidence/i.test(s))).toBe(false);
     // The metadata landed against the twin's REAL id (not the lane's source_message_id key),

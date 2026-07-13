@@ -2726,7 +2726,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                       text: `Chased via ${channel === 'whatsapp' ? 'WhatsApp' : 'email'} — ${templateLabel}.`,
                     };
                     setC((prev) => (prev ? { ...prev, notes: [note, ...prev.notes] } : prev));
-                    void logChase(c.id, { channel, templateLabel })
+                    return logChase(c.id, { channel, templateLabel })
                       .then((chaser) => {
                         setC((prev) =>
                           prev ? { ...prev, chasers: [chaser, ...prev.chasers] } : prev,

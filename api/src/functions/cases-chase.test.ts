@@ -59,6 +59,18 @@ vi.mock('../lib/db.js', () => ({
     throw new Error('no pool in tests');
   },
 }));
+const fileRequest = vi.hoisted(() => ({ ensure: vi.fn() }));
+vi.mock('../lib/box-file-request-outbox.js', () => ({
+  ensureActiveBoxFileRequest: fileRequest.ensure,
+}));
+vi.mock('../lib/gates.js', () => ({
+  gates: {
+    boxApi: () => true,
+    boxFileRequest: () => true,
+    boxFileRequestTemplateId: () => '8001',
+    boxFolderRootId: () => '',
+  },
+}));
 
 import { SignJWT, generateKeyPair, type KeyLike } from 'jose';
 import { rowToChaser } from './cases';
@@ -112,7 +124,12 @@ async function call(opts: { auth?: string; id?: string; body?: unknown } = {}) {
 const DRAFTED_AT = new Date(2026, 6, 1, 10, 30);
 
 /** Minimal case_ row — rowToCase (mappers) is defensive about absent columns. */
-const CASE_ROW = { id: 'case-1', provider_display: 'Principal Co', status_code: 100000001 };
+const CASE_ROW = {
+  id: 'case-1',
+  provider_display: 'Principal Co',
+  status_code: 100000001,
+  box_folder_id: '398564730902',
+};
 
 let caseRows: Array<Record<string, unknown>>;
 
@@ -121,11 +138,27 @@ beforeEach(() => {
   db.tx.mockReset();
   db.tx.mockImplementation(async (fn: (q: typeof db.query) => unknown) => fn(db.query));
   caseRows = [CASE_ROW];
+  fileRequest.ensure.mockReset().mockResolvedValue({
+    kind: 'ok',
+    folderId: '398564730902',
+    fileRequestId: '9001',
+    fileRequestUrl: 'https://app.box.com/f/active-token',
+    reused: true,
+  });
   db.query.mockImplementation(async (sql: string, params?: unknown[]) => {
     if (sql.includes('FROM case_') && sql.includes('WHERE c.id')) return caseRows;
     if (sql.includes('INSERT INTO chaser')) {
       // Echo the params back as the RETURNING * row, like Postgres would.
-      const [name, caseId, targetTypeCode, targetName, channelCode, templateUsed] = params ?? [];
+      const [
+        name,
+        caseId,
+        targetTypeCode,
+        targetName,
+        channelCode,
+        templateUsed,
+        boxFileRequestId,
+        boxFileRequestUrl,
+      ] = params ?? [];
       return [
         {
           id: 'ch-1',
@@ -135,6 +168,8 @@ beforeEach(() => {
           target_name: targetName,
           channel_code: channelCode,
           template_used: templateUsed,
+          box_file_request_id: boxFileRequestId,
+          box_file_request_url: boxFileRequestUrl,
           status_code: 100000000, // drafted (DB default)
           sent_by: null,
           sent_at: null,
@@ -229,6 +264,46 @@ describe('logChase — 404', () => {
   });
 });
 
+describe('logChase — image upload link is mandatory', () => {
+  it('503s retryably and writes no chaser when the active link cannot be prepared', async () => {
+    fileRequest.ensure.mockResolvedValueOnce({ kind: 'pending', reason: 'temporary failure' });
+    const res = await call({
+      auth: `Bearer ${await mint()}`,
+      body: { channel: 'email', templateLabel: 'Image request' },
+    });
+    expect(res.status).toBe(503);
+    expect(res.jsonBody).toMatchObject({ retryable: true });
+    expect(findCall('INSERT INTO chaser')).toBeUndefined();
+    expect(findCall('INSERT INTO audit_event')).toBeUndefined();
+  });
+
+  it('does not provision a link for a non-image instruction chase', async () => {
+    const res = await call({
+      auth: `Bearer ${await mint()}`,
+      body: { channel: 'email', templateLabel: 'Instruction request' },
+    });
+    expect(res.status).toBe(201);
+    expect(fileRequest.ensure).not.toHaveBeenCalled();
+  });
+
+  it('does not persist a link from a folder superseded during provisioning', async () => {
+    fileRequest.ensure.mockResolvedValueOnce({
+      kind: 'ok',
+      folderId: 'old-folder',
+      fileRequestId: '9001',
+      fileRequestUrl: 'https://app.box.com/f/old-folder-token',
+      reused: true,
+    });
+    const res = await call({
+      auth: `Bearer ${await mint()}`,
+      body: { channel: 'email', templateLabel: 'Pictures needed' },
+    });
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toMatchObject({ retryable: true });
+    expect(findCall('INSERT INTO chaser')).toBeUndefined();
+  });
+});
+
 /* ----------  happy path: 201 + EXACT read shape + audit  ---------- */
 
 describe('logChase — happy path', () => {
@@ -262,7 +337,15 @@ describe('logChase — happy path', () => {
       'Principal Co',
       100000000, // email channel
       'Image request',
+      '9001',
+      'https://app.box.com/f/active-token',
     ]);
+    const association = findCall('UPDATE chaser');
+    expect(association?.[1]).toEqual(expect.arrayContaining([
+      'case-1',
+      '9001',
+      'https://app.box.com/f/active-token',
+    ]));
 
     // chaser_sent audit row, terminology-safe "logged" wording, actor from the JWT
     const audit = findCall('INSERT INTO audit_event');
@@ -321,6 +404,8 @@ describe('logChase — happy path', () => {
       target_name: 'Principal Co',
       channel_code: 100000000,
       template_used: 'Instruction request',
+      box_file_request_id: null,
+      box_file_request_url: null,
       status_code: 100000000,
       sent_by: null,
       sent_at: null,
