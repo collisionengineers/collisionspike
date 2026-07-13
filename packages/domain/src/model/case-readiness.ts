@@ -66,8 +66,8 @@ export function readinessInputForCase(c: Case): StatusEvaluationInput {
     inspectionDecision: c.inspectionDecision,
     vehicleData: {
       hasRegistration: c.vrm.trim().length > 0,
-      modelResolved: c.evaFields.vehicleModel.value.trim().length > 0,
-      mileageResolved: isValidEvaMileage(c.evaFields.mileage.value),
+      modelResolved: (c.evaFields.vehicleModel?.value ?? '').trim().length > 0,
+      mileageResolved: isValidEvaMileage(c.evaFields.mileage?.value ?? ''),
       ...(c.vehicleLookup?.warning ? { warning: c.vehicleLookup.warning } : {}),
     },
     instructionCount: c.evidence.filter((e) => e.kind === 'instruction').length,

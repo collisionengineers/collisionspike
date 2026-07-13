@@ -85,7 +85,6 @@ import { withResolvedEvidenceBackfillTarget } from '../lib/evidence-backfill-tar
 import { mintCasePo } from '../lib/case-po.js';
 import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
 import { markCaseDoneUsing } from '../lib/terminal-transition.js';
-import { combineMakeModel } from '../lib/enrichment-map.js';
 import { manualIntakeEvidenceState } from '../lib/manual-intake-operation.js';
 import {
   corpusWorkProviderCandidate,
