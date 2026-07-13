@@ -8,9 +8,9 @@ Deployment and the ticket-required disposable live-case proof remain owned by th
 ## Offline evidence
 
 - Domain: **56 files / 1,138 tests passed**.
-- Data API: **66 files / 658 tests passed**.
+- Data API: **67 files / 681 tests passed**.
 - Orchestration: **30 files / 417 tests passed**.
-- SPA: **42 files / 480 tests passed**.
+- SPA: **43 files / 483 tests passed**.
 - Production TypeScript builds passed for Domain and the Data API; the SPA TypeScript/Vite build
   produced a production bundle.
 - `node verify-all.mjs`: **8 passed / 0 failed / 13 expected skips**.
