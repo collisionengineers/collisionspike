@@ -26,6 +26,8 @@ import './functions/sent-items-processor.js';
 import './functions/intake-starter.js';
 // Gated Outlook filing mover (TKT-054 / 020726 E6; OUTLOOK_MOVE_ENABLED)
 import './functions/outlook-move.js';
+import './functions/outlook-link-resolve.js';
+import './functions/outlook-link-backfill.js';
 // case_link evidence backfill consumer (TKT-145; enqueued by the Data API accept seam)
 import './functions/evidence-backfill.js';
 // Box FILE.UPLOADED-lane image classify sweep (TKT-146; timer, IMAGE_ROLE_CLASSIFY + BOX_API gated)

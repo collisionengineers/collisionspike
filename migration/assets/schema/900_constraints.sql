@@ -87,8 +87,12 @@ ALTER TABLE imagesource_workprovider ADD CONSTRAINT fk_iswp_work_provider
 -- unaffected; only a repeated real Message-ID collides -> the get-or-create guard.
 ALTER TABLE case_ ADD CONSTRAINT uq_case_source_message_id
   UNIQUE (source_message_id);                                                                   -- cr1bd_case_sourcemessageid_key
-ALTER TABLE inbound_email ADD CONSTRAINT uq_inbound_email_source_message_id
-  UNIQUE (source_message_id);                                                                   -- cr1bd_inboundemail_sourcemessageid_key
+-- Internet-Message-Id is not globally unique across independent mailboxes. Keep the
+-- mailbox-qualified arrival identity so a duplicated id can never mix one mailbox's
+-- immutable Graph id/webLink tuple into another mailbox's row. NULLS NOT DISTINCT keeps
+-- legacy rows with an unknown mailbox replay-safe too (Postgres 16 live).
+ALTER TABLE inbound_email ADD CONSTRAINT uq_inbound_email_source_mailbox_message_id
+  UNIQUE NULLS NOT DISTINCT (source_mailbox, source_message_id);
 
 -- Case/PO uniqueness (#11) — belt-and-braces over the intake mint. The automated mint
 -- (api/src/functions/internal.ts) already guarantees no duplicate per-(principal,year)
@@ -138,6 +142,15 @@ CREATE POLICY p_audit_event_insert ON audit_event FOR INSERT WITH CHECK (true);
 CREATE POLICY p_audit_event_select ON audit_event FOR SELECT USING (true);
 CREATE POLICY p_audit_event_delete ON audit_event FOR DELETE
   USING (current_setting('app.role', true) = 'admin');
+
+-- Historical Outlook-link remediation evidence is append-only: the Data API may
+-- SELECT candidates/ledger and INSERT outcomes, but can never revise or delete one.
+ALTER TABLE outlook_link_backfill_ledger ENABLE ROW LEVEL SECURITY;
+ALTER TABLE outlook_link_backfill_ledger FORCE  ROW LEVEL SECURITY;
+CREATE POLICY p_outlook_link_backfill_ledger_select ON outlook_link_backfill_ledger
+  FOR SELECT USING (current_setting('app.role', true) IN ('staff','admin'));
+CREATE POLICY p_outlook_link_backfill_ledger_insert ON outlook_link_backfill_ledger
+  FOR INSERT WITH CHECK (current_setting('app.role', true) IN ('staff','admin'));
 
 -- Case data: full DML for staff + admin (the app already authenticates the user,
 -- Entra staff-only, no External ID). The policies are permissive on purpose -- they

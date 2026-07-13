@@ -6,6 +6,9 @@ import type { InboundEmail } from '@cs/domain';
 
 vi.mock('../data', () => ({
   useInbox: () => ({ data: [], loading: false, error: undefined }),
+  getDataAccess: () => ({
+    resolveOutlookMessageLink: async () => ({ status: 'missing_identity' as const }),
+  }),
 }));
 
 const { LinkedEmailsPanel } = await import('./LinkedEmailsPanel');
@@ -38,13 +41,13 @@ function linkedEmail(overrides: Partial<InboundEmail> = {}): InboundEmail {
 }
 
 describe('LinkedEmailsPanel Outlook fallback', () => {
-  it('retains the internal preview when no Outlook target is available', () => {
+  it('retains the internal preview when no Outlook target is available', async () => {
     render(<LinkedEmailsPanel caseId="case-1" emails={[linkedEmail()]} />);
 
     fireEvent.click(screen.getByText('Instruction subject'));
 
     expect(screen.getByText('The saved message text remains readable.')).toBeTruthy();
     expect(screen.queryByRole('link', { name: /View in Outlook/i })).toBeNull();
-    expect(screen.getByText(/saved preview is still available/i)).toBeTruthy();
+    expect(await screen.findByText(/saved preview is still available/i)).toBeTruthy();
   });
 });

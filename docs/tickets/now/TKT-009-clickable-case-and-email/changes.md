@@ -32,15 +32,30 @@ to act on.
   saved-preview fallback instead of opening a generic inbox.
 - Fresh-schema truth and the replay-safe live delta now carry `graph_message_id` and
   `outlook_web_link`; historical rows safely remain null until replayed/backfilled.
+- The SPA now waits for a fresh server check. The API reads the row's mailbox + immutable Graph id
+  and delegates a GET-only current-message check to the orchestration identity. Deleted,
+  inaccessible and temporarily unavailable messages retain the saved preview with a concise outcome.
+- New subscriptions send `Prefer: IdType="ImmutableId"`. Maintenance recognizes their versioned
+  callback URL and rotates a legacy subscription create-before-delete; a failed replacement leaves
+  the old delivery path alive and renewed.
+- Historical remediation is implemented but deliberately not run. An explicit function-key endpoint
+  enumerates mailbox-qualified rows, performs GET-only exact Internet-Message-Id matching, and appends
+  an immutable outcome to `outlook_link_backfill_ledger`. Only one exact result can atomically fill the
+  Graph-id/webLink tuple.
+- Inbound arrival identity is mailbox-qualified. The same Internet-Message-Id delivered to two shared
+  mailboxes now creates two rows, preventing cross-wired mailbox/Graph/link tuples.
 
 ### Files
 
 - `orchestration/src/lib/graph.ts`, `orchestration/src/functions/activities/fetchMessage.ts`
+- `orchestration/src/lib/outlook-links.ts`, `orchestration/src/functions/outlook-link-{resolve,backfill}.ts`
 - `api/src/functions/internal.ts`, `api/src/lib/mappers.ts`
+- `api/src/functions/inbound.ts`, `api/src/lib/outlook-link-{resolver,backfill}.ts`
 - `packages/domain/src/domain/outlook-link.ts`, `packages/domain/src/dto/index.ts`
 - `mockup-app/src/components/OutlookMessageAction.tsx`, `LinkedEmailsPanel.tsx`, `screens/Inbox.tsx`
 - `migration/assets/schema/120_inbound_email.sql`
 - `migration/assets/schema/deltas/2026-07-13-tkt009-outlook-message-link.sql`
+- `migration/assets/schema/205_outlook_link_backfill.sql` and its replay-safe delta
 
 ### Offline evidence
 
@@ -49,7 +64,21 @@ to act on.
 - Orchestration Graph tests: 12 passed, including `info@`, `engineers@`, and `desk@` mailbox coverage
   plus the immutable-id request header.
 - SPA Outlook-action and saved-preview fallback tests: 4 passed.
+- Follow-up focused tests: API 9, orchestration 46, SPA 7, and domain link policy 11 passed.
+- Full suites after hardening: domain 1,188, API 722, orchestration 441, SPA 516 passed.
 - Domain/API/orchestration TypeScript build: passed.
 - Production SPA build: passed.
 
 No Outlook mailbox mutation was performed by this implementation or its tests.
+
+### Rollout still required
+
+1. Apply the phase-A Outlook-link + ledger deltas, which add the composite key while retaining the old
+   global key. Deploy the composite-upsert API, then apply the mailbox-dedup cutover delta that drops
+   the old key. This order avoids an intake error window during rolling deployment.
+2. Deploy orchestration, mint a function-scoped resolver key, and configure the API's
+   `OUTLOOK_LINK_RESOLVER_URL` plus Key-Vault-backed `OUTLOOK_LINK_RESOLVER_KEY`; then deploy API + SPA.
+3. Observe maintenance's create-before-delete immutable-subscription rotation. Never delete the legacy
+   subscription before its replacement exists.
+4. Invoke historical backfill only after a dry-run candidate count and explicit approval. Retain its
+   ledger evidence and do not mutate any Outlook item.

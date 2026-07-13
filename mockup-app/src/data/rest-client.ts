@@ -52,6 +52,7 @@ import type {
   AssistantReply,
   ProposedAction,
   OutlookMoveGate,
+  OutlookMessageLinkResolution,
   ProviderApiKey,
   CreateProviderApiKeyInput,
   CreateProviderApiKeyResult,
@@ -320,6 +321,9 @@ export interface DataAccessExt extends DataAccess {
   /** Independently re-fetch an inbound email plus its version before a triage/classification
    *  confirmation. Same non-throwing contract as caseWithVersion. */
   inboundWithVersion(id: string): Promise<VersionedRead<InboundEmail>>;
+  /** Re-check the exact mailbox item through the read-only server path. Missing,
+   * deleted or inaccessible items return an explicit saved-preview outcome. */
+  resolveOutlookMessageLink(id: string): Promise<OutlookMessageLinkResolution>;
   /** Execute a CONFIRMED assistant proposal against its existing staff-authorized route
    *  (TKT-111). Sends the re-fetched version as If-Match so a stale write returns 409.
    *  Refuses an existing-target write when the token is absent. Never throws. */
@@ -835,6 +839,8 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       versionedRead<Case>(`/api/cases/${enc(id)}`, 'case'),
     inboundWithVersion: (id) =>
       versionedRead<InboundEmail>(`/api/inbound/${enc(id)}`, 'email'),
+    resolveOutlookMessageLink: (id) =>
+      get<OutlookMessageLinkResolution>(`/api/inbound/${enc(id)}/outlook-link`),
     executeProposal: async (action, ifMatchToken) => {
       if (requiresProposalVersion(action) && !ifMatchToken?.trim()) {
         return {

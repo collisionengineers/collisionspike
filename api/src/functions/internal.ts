@@ -115,6 +115,11 @@ import { markImageChasersResponded } from '../lib/image-chasers.js';
 import { vrmLinkRefConflict } from '../lib/link-guards.js';
 import { requestStatusRecompute } from '../lib/status-recompute.js';
 import {
+  listOutlookLinkBackfillCandidates,
+  recordOutlookLinkBackfillResult,
+  type OutlookLinkBackfillOutcome,
+} from '../lib/outlook-link-backfill.js';
+import {
   requestArchiveMirrorIfEligible,
   type ArchiveMirrorCandidate,
 } from '../lib/archive-mirror-outbox.js';
@@ -1529,10 +1534,16 @@ export async function upsertInboundEmail(
   // An identifier must remain byte-for-byte exact. Reject an impossible oversize value
   // instead of truncating it into a different (and unusable) message identity.
   const rawGraphMessageId = (inbound.graphMessageId ?? '').trim();
-  const graphMessageId = rawGraphMessageId && rawGraphMessageId.length <= 1_024
-    ? rawGraphMessageId
-    : null;
-  const outlookWebLink = normalizeOutlookWebLink(inbound.outlookWebLink) ?? null;
+  const normalizedOutlookWebLink = normalizeOutlookWebLink(inbound.outlookWebLink) ?? null;
+  // Persist the Graph identity + browser target as one tuple. Partial input stores
+  // neither value, so an at-least-once replay can never combine one message's id with
+  // another delivery's link under the same mailbox-qualified Internet-Message-Id.
+  const hasCompleteOutlookTuple =
+    rawGraphMessageId.length > 0 &&
+    rawGraphMessageId.length <= 1_024 &&
+    normalizedOutlookWebLink !== null;
+  const graphMessageId = hasCompleteOutlookTuple ? rawGraphMessageId : null;
+  const outlookWebLink = hasCompleteOutlookTuple ? normalizedOutlookWebLink : null;
   try {
     // Base statement occupies $1..$18 below (unchanged from before Phase 2) — optional
     // columns, if present live, are appended starting at $19.
@@ -1563,7 +1574,7 @@ export async function upsertInboundEmail(
           confidence, classifier_mode, signals, triage_state, body_vrm, body_caseref,
           body_preview, case_id, work_provider_id${optionalColsFragment})
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,COALESCE($18, 'new'),$13,$14,$15,$16,$17${optionalValsFragment})
-       ON CONFLICT (source_message_id) DO UPDATE SET
+       ON CONFLICT (source_mailbox, source_message_id) DO UPDATE SET
          case_id          = COALESCE(EXCLUDED.case_id, inbound_email.case_id),
          category_code    = CASE
                               WHEN inbound_email.classifier_mode = 'human'
@@ -1602,7 +1613,7 @@ export async function upsertInboundEmail(
         subject || null,
         inbound.senderAddress ?? null,
         senderDomain(inbound.senderAddress ?? ''),
-        inbound.sourceMailbox ?? null,
+        (inbound.sourceMailbox ?? '').trim().toLowerCase() || null,
         inbound.receivedAt ?? null,
         (inbound.attachments?.length ?? 0) > 0,
         categoryCode,
@@ -4794,4 +4805,52 @@ app.http('internalCaseBoxFolderStamp', {
         jsonBody: { applied: false, boxFolderId: (cur[0]?.box_folder_id as string) ?? null },
       };
     }),
+});
+
+/* ============================================================
+   TKT-009 historical Outlook-link remediation. These routes are inert until the
+   function-key protected orchestration backfill endpoint is explicitly invoked.
+   Graph use is read-only; the API owns only candidate reads + ledgered DB writes.
+   ============================================================ */
+app.http('internalOutlookLinkBackfillCandidates', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'internal/outlook-links/backfill-candidates',
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const limit = Number(req.query.get('limit') ?? '25');
+    const rows = await listOutlookLinkBackfillCandidates(limit);
+    return { status: 200, jsonBody: { rows } };
+  }),
+});
+
+app.http('internalOutlookLinkBackfillResult', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/outlook-links/backfill-result',
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    const text = (key: string) => typeof body[key] === 'string' ? String(body[key]).trim() : '';
+    const attemptId = text('attemptId');
+    const inboundEmailId = text('inboundEmailId');
+    const sourceMailbox = text('sourceMailbox');
+    const sourceMessageId = text('sourceMessageId');
+    const outcome = text('outcome') as OutlookLinkBackfillOutcome;
+    const allowed: OutlookLinkBackfillOutcome[] = [
+      'resolved', 'not_found', 'not_accessible', 'ambiguous', 'unavailable',
+    ];
+    if (!attemptId || !inboundEmailId || !sourceMailbox || !sourceMessageId || !allowed.includes(outcome)) {
+      return { status: 400, jsonBody: { error: 'invalid backfill result' } };
+    }
+    const result = await recordOutlookLinkBackfillResult({
+      attemptId,
+      inboundEmailId,
+      sourceMailbox,
+      sourceMessageId,
+      outcome,
+      reason: text('reason') || outcome,
+      ...(text('graphMessageId') ? { graphMessageId: text('graphMessageId') } : {}),
+      ...(text('outlookWebLink') ? { outlookWebLink: text('outlookWebLink') } : {}),
+    });
+    return { status: result.recorded ? 200 : 404, jsonBody: result };
+  }),
 });

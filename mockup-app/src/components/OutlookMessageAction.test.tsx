@@ -32,35 +32,61 @@ function email(overrides: Partial<InboundEmail> = {}): InboundEmail {
 }
 
 describe('OutlookMessageAction', () => {
-  it('opens Graph\'s exact message target without giving the new tab opener control', () => {
+  it('opens the freshly resolved exact message target without giving the new tab opener control', async () => {
     const outlookWebLink =
       'https://outlook.office365.com/owa/?ItemID=AAMk-message&exvsurl=1&viewmodel=ReadMessageItem';
-    render(<OutlookMessageAction email={email({ outlookWebLink })} />);
+    render(
+      <OutlookMessageAction
+        email={email({ outlookWebLink })}
+        resolveLink={async () => ({ status: 'available', outlookWebLink })}
+      />,
+    );
 
-    const link = screen.getByRole('link', { name: /View in Outlook/i });
+    const link = await screen.findByRole('link', { name: /View in Outlook/i });
     expect(link.getAttribute('href')).toBe(outlookWebLink);
     expect(link.getAttribute('target')).toBe('_blank');
     expect(link.getAttribute('rel')).toContain('noopener');
     expect(link.getAttribute('rel')).toContain('noreferrer');
   });
 
-  it('keeps an honest saved-preview outcome when the row has no link', () => {
-    render(<OutlookMessageAction email={email()} />);
+  it('keeps an honest saved-preview outcome when the row has no immutable identity', async () => {
+    render(
+      <OutlookMessageAction
+        email={email()}
+        resolveLink={async () => ({ status: 'missing_identity' })}
+      />,
+    );
 
     expect(screen.queryByRole('link')).toBeNull();
-    expect(screen.getByRole('status').textContent).toMatch(/saved preview is still available/i);
+    expect(await screen.findByText(/saved preview is still available/i)).toBeTruthy();
   });
 
-  it('rejects an unexpected host at the final rendering boundary', () => {
+  it('rejects an unexpected host at the final rendering boundary', async () => {
     render(
       <OutlookMessageAction
         email={email({
+          outlookWebLink: 'https://outlook.office365.com.evil.example/owa/?ItemID=message',
+        })}
+        resolveLink={async () => ({
+          status: 'available',
           outlookWebLink: 'https://outlook.office365.com.evil.example/owa/?ItemID=message',
         })}
       />,
     );
 
     expect(screen.queryByRole('link')).toBeNull();
-    expect(screen.getByRole('status')).toBeTruthy();
+    expect(await screen.findByText(/couldn’t be checked/i)).toBeTruthy();
+  });
+
+  it.each([
+    ['not_found', /no longer available/i],
+    ['not_accessible', /can’t be opened/i],
+    ['unavailable', /couldn’t be checked/i],
+  ] as const)('renders the saved-preview outcome for %s', async (status, copy) => {
+    render(
+      <OutlookMessageAction email={email()} resolveLink={async () => ({ status })} />,
+    );
+    expect(await screen.findByText(copy)).toBeTruthy();
+    expect(screen.queryByRole('link')).toBeNull();
   });
 });

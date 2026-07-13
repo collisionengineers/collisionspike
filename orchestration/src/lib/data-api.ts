@@ -312,6 +312,12 @@ export interface StaffUploadCleanupRow {
   attemptCount: number;
 }
 
+export interface OutlookLinkBackfillCandidate {
+  inboundEmailId: string;
+  sourceMailbox: string;
+  sourceMessageId: string;
+}
+
 /** Durable case-status recompute generation requested atomically by a Box stamp. */
 export interface PendingStatusRecompute {
   caseId: string;
@@ -319,6 +325,30 @@ export interface PendingStatusRecompute {
 }
 
 export const dataApi = {
+  /** Historical TKT-009 candidates. Read-only enumeration; nothing runs unless the
+   * function-key protected backfill endpoint is explicitly invoked. */
+  outlookLinkBackfillCandidates(limit: number): Promise<{ rows: OutlookLinkBackfillCandidate[] }> {
+    return request(
+      'GET',
+      `/api/internal/outlook-links/backfill-candidates?limit=${encodeURIComponent(String(limit))}`,
+    );
+  },
+
+  /** Append one remediation outcome and, for a verified exact match, atomically fill
+   * the stored immutable id/webLink tuple. Outlook itself remains read-only. */
+  reportOutlookLinkBackfill(payload: {
+    attemptId: string;
+    inboundEmailId: string;
+    sourceMailbox: string;
+    sourceMessageId: string;
+    outcome: 'resolved' | 'not_found' | 'not_accessible' | 'ambiguous' | 'unavailable';
+    reason: string;
+    graphMessageId?: string;
+    outlookWebLink?: string;
+  }): Promise<{ recorded: boolean; applied: boolean; outcome: string }> {
+    return request('POST', '/api/internal/outlook-links/backfill-result', payload);
+  },
+
   /**
    * Providers + Image-Source intermediaries for the in-activity `matchSenderIdentity`
    * (internal route; rules-engine-v2 Phase 3, ADR-0011 — was providers-only before).

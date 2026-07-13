@@ -436,6 +436,14 @@ export const mockDataAccess: DataAccessExt = {
       status: 0,
       error: 'The latest email could not be loaded.',
     }),
+  resolveOutlookMessageLink: (id) => {
+    const row = inboundRows.find((item) => item.id === id);
+    return Promise.resolve(
+      row?.outlookWebLink
+        ? { status: 'available' as const, outlookWebLink: row.outlookWebLink }
+        : { status: 'missing_identity' as const },
+    );
+  },
   executeProposal: (_action, _ifMatch) =>
     Promise.resolve({ ok: false, status: 501, error: 'That change is not available.' }),
   uploadEvidence: (_caseId, _files, _options) => Promise.resolve({ added: [], rejected: [], status: 501 }),

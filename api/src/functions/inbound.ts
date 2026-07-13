@@ -29,6 +29,7 @@ import {
   type InboundCounts,
   type InboundEmail,
   type InboundSubtype,
+  type OutlookMessageLinkResolution,
   type TriageState,
 } from '@cs/domain';
 import { withRole } from '../lib/auth.js';
@@ -37,6 +38,7 @@ import { ifMatch, versionToken } from '../lib/concurrency.js';
 import { isUuid } from '../lib/uuid.js';
 import { gates } from '../lib/gates.js';
 import { classifyEnqueueFailure, enqueueOutlookMove } from '../lib/outlook-queue.js';
+import { resolveCurrentOutlookLink } from '../lib/outlook-link-resolver.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit, type AuditAction } from '../lib/audit.js';
 import {
   INBOUND_CATEGORY_TO_INT,
@@ -202,6 +204,35 @@ app.http('inboundEmailById', {
       jsonBody: { ...rowToInboundEmail(row), version },
       headers: { ETag: `"${version}"`, 'Access-Control-Expose-Headers': 'ETag' },
     };
+  }),
+});
+
+// GET /api/inbound/{id}/outlook-link — fresh, read-only exact-message check.
+// The browser supplies only the inbound row id. Mailbox + immutable Graph id are
+// read from Postgres and resolved by the orchestration app's Mail.Read identity.
+app.http('inboundOutlookLink', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'inbound/{id:guid}/outlook-link',
+  handler: withRole('CollisionSpike.User', async (req) => {
+    const id = req.params.id;
+    if (!isUuid(id)) return { status: 400, jsonBody: { error: 'invalid id' } };
+    const rows = await query<Row>(
+      `SELECT source_mailbox, graph_message_id
+         FROM inbound_email
+        WHERE id = $1`,
+      [id],
+    );
+    const row = rows[0];
+    if (!row) return { status: 404, jsonBody: { error: 'not found' } };
+    const sourceMailbox = typeof row.source_mailbox === 'string' ? row.source_mailbox.trim() : '';
+    const graphMessageId = typeof row.graph_message_id === 'string' ? row.graph_message_id.trim() : '';
+    if (!sourceMailbox || !graphMessageId) {
+      const result: OutlookMessageLinkResolution = { status: 'missing_identity' };
+      return { status: 200, jsonBody: result };
+    }
+    const result = await resolveCurrentOutlookLink({ sourceMailbox, graphMessageId });
+    return { status: 200, jsonBody: result };
   }),
 });
 

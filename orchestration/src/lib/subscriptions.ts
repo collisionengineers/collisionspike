@@ -22,6 +22,7 @@ import { graphFetch } from './graph.js';
 export const RENEWAL_MARGIN_MS = (6 * 24 + 23) * 3_600_000;
 
 const SUBSCRIPTIONS_PATH = '/subscriptions';
+export const IMMUTABLE_ID_MARKER = 'idType=immutable-v1';
 
 /**
  * The two mail folders this app subscribes to (TKT-095 detector (a) added SentItems):
@@ -109,12 +110,18 @@ export async function createSubscription(
 ): Promise<GraphSubscription> {
   const url = baseUrl();
   const sent = folder === 'SentItems';
+  const notificationPath = sent ? 'graph-webhook-sent' : 'graph-webhook';
+  const lifecyclePath = sent ? 'graph-lifecycle-sent' : 'graph-lifecycle';
   return graphFetch<GraphSubscription>(SUBSCRIPTIONS_PATH, {
     method: 'POST',
+    // Change notifications inherit the requested Outlook id type at CREATE time.
+    // PATCH renewal cannot convert a legacy subscription, so maintenance performs
+    // create-before-delete rotation below.
+    headers: { Prefer: 'IdType="ImmutableId"' },
     body: JSON.stringify({
       changeType: 'created',
-      notificationUrl: sent ? `${url}/api/graph-webhook-sent` : `${url}/api/graph-webhook`,
-      lifecycleNotificationUrl: sent ? `${url}/api/graph-lifecycle-sent` : `${url}/api/graph-lifecycle`,
+      notificationUrl: `${url}/api/${notificationPath}?${IMMUTABLE_ID_MARKER}`,
+      lifecycleNotificationUrl: `${url}/api/${lifecyclePath}?${IMMUTABLE_ID_MARKER}`,
       resource: resourceFor(mailbox, folder),
       expirationDateTime: nextExpiration(),
       clientState: requireClientState(),
@@ -160,7 +167,13 @@ export interface MaintenanceSummary {
   /** Subscriptions DELETED this pass: a mailbox that left GRAPH_INTAKE_MAILBOXES, or a
    *  `sentitems:`-prefixed entry pruned because DONE_SENT_EMAIL_ENABLED is off (TKT-095). */
   pruned: string[];
+  /** Legacy default-id subscriptions replaced create-before-delete with immutable-id ones. */
+  rotated: string[];
   errors: string[];
+}
+
+export function isImmutableIdSubscription(subscription: GraphSubscription): boolean {
+  return (subscription.notificationUrl ?? '').includes(IMMUTABLE_ID_MARKER);
 }
 
 /**
@@ -172,7 +185,7 @@ export interface MaintenanceSummary {
  * failure is logged and collected, never thrown (one bad mailbox must not stop the rest).
  */
 export async function runSubscriptionMaintenance(logger: MaintenanceLog): Promise<MaintenanceSummary> {
-  const summary: MaintenanceSummary = { created: [], renewed: [], recreated: [], pruned: [], errors: [] };
+  const summary: MaintenanceSummary = { created: [], renewed: [], recreated: [], pruned: [], rotated: [], errors: [] };
   const subs = await listOurSubscriptions();
   const configured = intakeMailboxes();
   const configuredMailboxes = new Set(configured.map((c) => c.mailbox));
@@ -180,18 +193,21 @@ export async function runSubscriptionMaintenance(logger: MaintenanceLog): Promis
   // With the gate OFF (the live default) and no SentItems subscriptions present, every
   // step below is byte-identical to the pre-TKT-095 routine.
   const sentGateOn = gates.doneSentEmail();
-  const inboxSubbed = new Set(
-    subs.filter((s) => !isSentItemsResource(s.resource)).map((s) => mailboxOfResource(s.resource)).filter(Boolean),
+  const immutableInboxReady = new Set(
+    subs.filter((s) => !isSentItemsResource(s.resource) && isImmutableIdSubscription(s))
+      .map((s) => mailboxOfResource(s.resource)).filter(Boolean),
   );
-  const sentSubbed = new Set(
-    subs.filter((s) => isSentItemsResource(s.resource)).map((s) => mailboxOfResource(s.resource)).filter(Boolean),
+  const immutableSentReady = new Set(
+    subs.filter((s) => isSentItemsResource(s.resource) && isImmutableIdSubscription(s))
+      .map((s) => mailboxOfResource(s.resource)).filter(Boolean),
   );
 
   // BOOTSTRAP — ensure every configured intake mailbox has an Inbox subscription (create if missing).
   for (const cfg of configured) {
-    if (inboxSubbed.has(cfg.mailbox)) continue;
+    if (immutableInboxReady.has(cfg.mailbox)) continue;
     try {
       const created = await createSubscription(cfg.mailbox);
+      immutableInboxReady.add(cfg.mailbox);
       summary.created.push(cfg.mailbox);
       logger.log(JSON.stringify({ evt: 'graph-subscription-created', subId: created.id, mailbox: cfg.mailbox, next: created.expirationDateTime }));
     } catch (e) {
@@ -205,9 +221,10 @@ export async function runSubscriptionMaintenance(logger: MaintenanceLog): Promis
   // per configured intake mailbox, feeding /api/graph-webhook-sent (never the intake queue).
   if (sentGateOn) {
     for (const cfg of configured) {
-      if (sentSubbed.has(cfg.mailbox)) continue;
+      if (immutableSentReady.has(cfg.mailbox)) continue;
       try {
         const created = await createSubscription(cfg.mailbox, 'SentItems');
+        immutableSentReady.add(cfg.mailbox);
         summary.created.push(`sentitems:${cfg.mailbox}`);
         logger.log(JSON.stringify({ evt: 'graph-subscription-created', subId: created.id, mailbox: cfg.mailbox, folder: 'SentItems', next: created.expirationDateTime }));
       } catch (e) {
@@ -237,6 +254,29 @@ export async function runSubscriptionMaintenance(logger: MaintenanceLog): Promis
         logger.error(`[subscription-maintenance] prune ${sub.id} (${mbx}) failed: ${m}`);
       }
       continue;
+    }
+    // IMMUTABLE-ID ROTATION — a subscription's id type is fixed at creation. Keep a
+    // legacy subscription until its immutable replacement was created successfully;
+    // only then delete it. A create failure therefore leaves the old delivery path
+    // alive and it is renewed below, avoiding an intake gap.
+    if (
+      mbx &&
+      !isImmutableIdSubscription(sub) &&
+      (isSent ? immutableSentReady.has(mbx) : immutableInboxReady.has(mbx))
+    ) {
+      let deleted = false;
+      try {
+        await deleteSubscription(sub.id);
+        deleted = true;
+        const label = isSent ? `sentitems:${mbx}` : mbx;
+        summary.rotated.push(label);
+        logger.log(JSON.stringify({ evt: 'graph-subscription-rotated', subId: sub.id, mailbox: mbx, ...(isSent ? { folder: 'SentItems' } : {}) }));
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e);
+        summary.errors.push(`rotate ${sub.id} (${mbx}): ${m}`);
+        logger.error(`[subscription-maintenance] immutable-id rotation ${sub.id} (${mbx}) failed: ${m}`);
+      }
+      if (deleted) continue;
     }
     // PRUNE SentItems on gate OFF (TKT-095 detector (a)) — a gate flip fully self-reconciles:
     // OFF retires every SentItems subscription the ON state created (the same semantics as the
