@@ -74,8 +74,12 @@ No Outlook mailbox mutation was performed by this implementation or its tests.
 ### Rollout still required
 
 1. Apply the phase-A Outlook-link + ledger deltas, which add the composite key while retaining the old
-   global key. Deploy the composite-upsert API, then apply the mailbox-dedup cutover delta that drops
-   the old key. This order avoids an intake error window during rolling deployment.
+   global key. Then perform a short controlled cutover: stop orchestration so Graph retains and retries
+   any deliveries, deploy the composite-upsert API, apply the mailbox-dedup cutover delta that drops
+   the old key, prove the API is healthy, and restart orchestration. Do not describe this as a rolling
+   zero-error migration: while both keys coexist, a genuinely duplicated Internet-Message-Id delivered
+   to a second mailbox cannot be inserted without violating the old global key. The controlled pause
+   closes that window without cross-wiring the existing row or losing the Outlook delivery.
 2. Deploy orchestration, mint a function-scoped resolver key, and configure the API's
    `OUTLOOK_LINK_RESOLVER_URL` plus Key-Vault-backed `OUTLOOK_LINK_RESOLVER_KEY`; then deploy API + SPA.
 3. Observe maintenance's create-before-delete immutable-subscription rotation. Never delete the legacy
