@@ -53,6 +53,17 @@ export interface ImageRuleFailure {
   message: string;
 }
 
+/** A readiness-owned image gap. Base EVA rule failures retain their stable
+ * codes; unresolved automatic decisions are the one additional image gate
+ * shared by status, the checklist and chaser availability. */
+export type ImageReadinessGap =
+  | ImageRuleFailure
+  | {
+      code: 'review_required';
+      message: string;
+      count: number;
+    };
+
 /** Minimum accepted images required for an EVA upload set. */
 export const MIN_ACCEPTED_IMAGES = 2;
 
@@ -75,6 +86,14 @@ export interface ImageRuleResult {
   hasOverview: boolean;
   hasDamageCloseup: boolean;
   failures: ImageRuleFailure[];
+}
+
+/** The complete image-readiness verdict used by every case surface. */
+export interface EvaImageReadinessResult {
+  ok: boolean;
+  rules: ImageRuleResult;
+  unresolvedReviewCount: number;
+  gaps: ImageReadinessGap[];
 }
 
 /**
@@ -118,6 +137,36 @@ export function evaluateEvaImageRules(
     hasOverview,
     hasDamageCloseup,
     failures,
+  };
+}
+
+/**
+ * Evaluate every readiness-owned image gate in stable order.
+ *
+ * A person's-reflection observation is deliberately not a gap by itself. It
+ * affects this verdict only when another persisted decision marks the image
+ * excluded or awaiting review, preserving the Image Based Assessment exception.
+ */
+export function evaluateEvaImageReadiness(
+  evidence: readonly ImageRuleEvidence[],
+): EvaImageReadinessResult {
+  const rules = evaluateEvaImageRules(evidence);
+  const unresolvedReviewCount = evidence.filter(
+    (item) => item.kind === 'image' && item.reviewRequired === true,
+  ).length;
+  const gaps: ImageReadinessGap[] = [...rules.failures];
+  if (unresolvedReviewCount > 0) {
+    gaps.push({
+      code: 'review_required',
+      message: `${unresolvedReviewCount} image${unresolvedReviewCount === 1 ? '' : 's'} still ${unresolvedReviewCount === 1 ? 'needs' : 'need'} review.`,
+      count: unresolvedReviewCount,
+    });
+  }
+  return {
+    ok: gaps.length === 0,
+    rules,
+    unresolvedReviewCount,
+    gaps,
   };
 }
 

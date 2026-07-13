@@ -18,7 +18,7 @@ import {
 } from './eva-export';
 import {
   MIN_ACCEPTED_IMAGES,
-  evaluateEvaImageRules,
+  evaluateEvaImageReadiness,
   acceptedEvaImages,
   type ImageRuleEvidence,
 } from './image-rules';
@@ -259,26 +259,21 @@ export function evaluateCaseReadiness(
     });
   }
 
-  const imageRules = evaluateEvaImageRules(input.evidence);
-  const unresolvedImages = input.evidence.filter(
-    (e) => e.kind === 'image' && e.reviewRequired === true,
-  );
-  const imageGaps = imageRules.failures.map((failure) => {
-    switch (failure.code) {
+  const imageReadiness = evaluateEvaImageReadiness(input.evidence);
+  const imageRules = imageReadiness.rules;
+  const imageGaps = imageReadiness.gaps.map((gap) => {
+    switch (gap.code) {
       case 'min_count':
         return `need at least ${MIN_ACCEPTED_IMAGES} accepted (have ${imageRules.acceptedCount})`;
       case 'missing_overview':
         return 'no overview with a visible registration';
       case 'missing_damage_closeup':
         return 'no main-damage close-up';
+      case 'review_required':
+        return `${gap.count} image${gap.count === 1 ? '' : 's'} still ${gap.count === 1 ? 'needs' : 'need'} review`;
     }
   });
-  if (unresolvedImages.length > 0) {
-    imageGaps.push(
-      `${unresolvedImages.length} image${unresolvedImages.length === 1 ? '' : 's'} still ${unresolvedImages.length === 1 ? 'needs' : 'need'} review`,
-    );
-  }
-  const imagesReady = imageRules.ok && unresolvedImages.length === 0;
+  const imagesReady = imageReadiness.ok;
   checks.push({
     id: 'images',
     label: 'Images',

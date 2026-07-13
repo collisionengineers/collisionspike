@@ -2729,7 +2729,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
 
               {tab === 'chasers' && (
                 <ChaserPanel
-                  case={c}
+                  case={liveCase}
                   fileRequestEnabled={uploadLinkEnabled}
                   onRequestUploadLink={activeCopyFileRequestTransport}
                   onLogChased={({ channel, templateLabel }) => {
