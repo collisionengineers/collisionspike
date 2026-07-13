@@ -69,6 +69,7 @@ import { acquireApiToken } from '../auth/msalConfig';
 import {
   createIdentityFields,
   manualVehicleModel,
+  manualVehicleLookupMessage,
   mergeManualVehicleLookup,
   type ManualIntakeMode,
 } from './manual-intake-create';
@@ -690,7 +691,7 @@ export function ManualIntake() {
             : 'Vehicle details checked',
         );
       } else {
-        setInfo(d.mileage.reason ?? 'Vehicle details could not be found.');
+        setInfo(manualVehicleLookupMessage(d.lookup.status));
       }
     } catch {
       setInfo('Vehicle details are temporarily unavailable. Try again.');

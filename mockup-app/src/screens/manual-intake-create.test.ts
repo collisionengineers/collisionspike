@@ -4,6 +4,7 @@ import {
   createIdentityFields,
   IMAGE_ONLY_IDENTITY_ORDER,
   manualVehicleModel,
+  manualVehicleLookupMessage,
   mergeManualVehicleLookup,
 } from './manual-intake-create';
 
@@ -43,6 +44,15 @@ describe('manual vehicle identity', () => {
       mileage: '41000',
       mileageUnit: 'Km',
     });
+  });
+
+  it('maps lookup outcomes to staff-safe copy instead of estimator diagnostics', () => {
+    expect(manualVehicleLookupMessage('invalid_registration')).toBe('Check the registration and try again.');
+    expect(manualVehicleLookupMessage('not_found')).toBe('No vehicle record was found for this registration.');
+    expect(manualVehicleLookupMessage('temporarily_unavailable')).toBe(
+      'Vehicle details are temporarily unavailable. Try again.',
+    );
+    expect(manualVehicleLookupMessage('configuration_error')).not.toMatch(/profile|cohort|algorithm/i);
   });
 });
 

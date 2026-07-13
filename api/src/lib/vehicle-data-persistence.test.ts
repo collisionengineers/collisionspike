@@ -19,13 +19,17 @@ async function dbQuery(sql: string, params: unknown[] = []): Promise<Record<stri
       harness.calls.push({ sql, params });
       if (sql.includes('FROM case_ WHERE id = $1 FOR UPDATE')) return [harness.caseRow];
       if (sql.includes('INSERT INTO mileage_model_profile')) {
-        harness.profileRows.set(`${String(params[0])}:${String(params[1])}`, {
-          profile_kind: params[0],
-          dataset_digest: params[2],
-        });
+        const key = `${String(params[0])}:${String(params[1])}`;
+        if (!harness.profileRows.has(key)) {
+          harness.profileRows.set(key, {
+            profile_kind: params[0],
+            dataset_digest: params[2],
+            profile: JSON.parse(String(params[3])),
+          });
+        }
         return [];
       }
-      if (sql.includes('SELECT profile_kind, dataset_digest FROM mileage_model_profile')) {
+      if (sql.includes('SELECT profile_kind, dataset_digest, profile FROM mileage_model_profile')) {
         const row = harness.profileRows.get(`${String(params[0])}:${String(params[1])}`);
         return row ? [row] : [];
       }
@@ -340,6 +344,25 @@ describe('persistVehicleData', () => {
       'calibration:calibration-v1',
       'cohort_prior:calibration-v1',
     ]);
+  });
+
+  it('rejects reused model versions whose immutable profile content changed', async () => {
+    const first = result();
+    await persistVehicleData('case-1', first, {
+      source: 'case_lookup',
+      document_has_mileage: false,
+      request_sha256: '5'.repeat(64),
+    });
+
+    harness.runRow = undefined;
+    const changed = result();
+    changed.lookup.run_id = '00000000-0000-4000-8000-000000000153';
+    changed.mileage.calibration_profile!.useful_tolerance_miles = 3000;
+    await expect(persistVehicleData('case-1', changed, {
+      source: 'case_lookup',
+      document_has_mileage: false,
+      request_sha256: '6'.repeat(64),
+    })).rejects.toThrow('profile version conflicts');
   });
 
   it('translates estimator diagnostics into handler guidance and suppresses document-mileage skips', async () => {

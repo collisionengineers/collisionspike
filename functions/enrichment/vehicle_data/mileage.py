@@ -576,6 +576,22 @@ def _round_hundred(value: float) -> int:
     return max(0, int(round(value / 100.0) * 100))
 
 
+def _bounded_integer(
+    value: float,
+    *,
+    hard_low: float | None = None,
+    hard_high: float | None = None,
+) -> int:
+    """Round a point for presentation without crossing observed hard bounds."""
+
+    rounded = _round_hundred(value)
+    if hard_low is not None:
+        rounded = max(rounded, max(0, math.ceil(hard_low)))
+    if hard_high is not None:
+        rounded = min(rounded, max(0, math.floor(hard_high)))
+    return rounded
+
+
 def _warnings(
     history: PreparedHistory, extra: Iterable[str] = ()
 ) -> list[dict[str, str]]:
@@ -660,7 +676,11 @@ def _apply_interval(
     hard_high: float | None = None,
     fallback_spread: float = 0,
 ) -> None:
-    rounded = _round_hundred(estimate)
+    rounded = _bounded_integer(
+        estimate,
+        hard_low=hard_low,
+        hard_high=hard_high,
+    )
     result["estimated_mileage"] = rounded
     bucket = (
         calibration.select(
@@ -680,13 +700,15 @@ def _apply_interval(
             low = max(low, hard_low)
         if hard_high is not None:
             high = min(high, hard_high)
-        if low <= high:
+        rounded_low = _bounded_integer(low, hard_low=hard_low, hard_high=hard_high)
+        rounded_high = _bounded_integer(high, hard_low=hard_low, hard_high=hard_high)
+        if low <= high and rounded_low <= rounded_high:
             result["status"] = "estimated"
             result["calibration_profile"] = calibration.to_contract()
             result["prediction_interval"] = {
                 "coverage": calibration.target_coverage,
-                "lower_mileage": _round_hundred(low),
-                "upper_mileage": _round_hundred(high),
+                "lower_mileage": rounded_low,
+                "upper_mileage": rounded_high,
                 "calibration_version": calibration.version,
                 "dataset_digest": calibration.dataset_digest,
                 "sample_size": bucket.sample_size,
@@ -715,9 +737,19 @@ def _apply_interval(
     # range, and attach the uncalibrated warning. It remains visible to staff,
     # but cannot become a default case-field write.
     result["status"] = "estimated"
+    rounded_low = (
+        max(0, math.ceil(hard_low))
+        if hard_low is not None and hard_high is not None
+        else _bounded_integer(low, hard_low=hard_low, hard_high=hard_high)
+    )
+    rounded_high = (
+        max(0, math.floor(hard_high))
+        if hard_low is not None and hard_high is not None
+        else _bounded_integer(high, hard_low=hard_low, hard_high=hard_high)
+    )
     result["range"] = {
-        "lower_mileage": _round_hundred(low),
-        "upper_mileage": _round_hundred(high),
+        "lower_mileage": rounded_low,
+        "upper_mileage": rounded_high,
         "basis": "logical_bounds"
         if hard_low is not None and hard_high is not None
         else "rate_dispersion_not_calibrated",

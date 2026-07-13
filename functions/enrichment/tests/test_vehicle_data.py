@@ -319,9 +319,25 @@ def test_exact_mot_is_exact_and_interpolation_is_logically_bounded():
     middle = estimate_displayed_mileage(record, target_date=date(2023, 7, 2))
     assert middle["status"] == "estimated"
     assert middle["method"] == "bounded_interpolation"
-    assert middle["range"]["lower_mileage"] == 40000
-    assert middle["range"]["upper_mileage"] == 50000
+    assert middle["range"]["lower_mileage"] == 40001
+    assert middle["range"]["upper_mileage"] == 50003
     assert 40001 <= middle["estimated_mileage"] <= 50003
+
+
+def test_near_endpoint_rounding_never_crosses_observed_bounds():
+    record = vehicle(
+        mot("2023-01-01", "40001", number="1"),
+        mot("2024-01-01", "50003", number="2"),
+    )
+    near_left = estimate_displayed_mileage(record, target_date=date(2023, 1, 2))
+    near_right = estimate_displayed_mileage(record, target_date=date(2023, 12, 31))
+    assert 40001 <= near_left["estimated_mileage"] <= 50003
+    assert 40001 <= near_right["estimated_mileage"] <= 50003
+    assert near_left["range"] == {
+        "lower_mileage": 40001,
+        "upper_mileage": 50003,
+        "basis": "logical_bounds",
+    }
 
 
 def test_recent_weighted_median_blends_only_with_a_defensible_versioned_prior():

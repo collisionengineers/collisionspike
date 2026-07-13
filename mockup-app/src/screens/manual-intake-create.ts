@@ -71,6 +71,24 @@ export interface ManualVehicleLookupDefaults {
   mileageUnit?: MileageUnit;
 }
 
+/** Staff-safe copy for a lookup that did not return vehicle details. The
+ * canonical estimator carries a detailed diagnostic/evidence reason for audit,
+ * but that implementation-facing text must never leak into this form. */
+export function manualVehicleLookupMessage(status: string): string {
+  switch (status) {
+    case 'invalid_registration':
+      return 'Check the registration and try again.';
+    case 'not_found':
+      return 'No vehicle record was found for this registration.';
+    case 'configuration_error':
+      return 'Vehicle lookup isn\u2019t available. Ask a supervisor to check it.';
+    case 'temporarily_unavailable':
+      return 'Vehicle details are temporarily unavailable. Try again.';
+    default:
+      return 'Vehicle details could not be found.';
+  }
+}
+
 /**
  * Apply lookup values as defaults, never as an overwrite. A valid parsed or
  * staff-entered mileage/model wins. Invalid legacy mileage is unresolved data,

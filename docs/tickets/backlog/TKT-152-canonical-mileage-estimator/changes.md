@@ -103,6 +103,10 @@ recorded by the PR marker rather than self-referenced inside its own commit.
   the deliberate document-mileage skip. The remediation census includes invalid non-empty
   mileage, and classifier parity pins all 9 categories plus all 15 emitted subtypes rather than
   accepting coordinated shrinkage. Both checked-in deployment bundles were regenerated.
+- Final exact-head review also keeps manual-preview copy on the same staff-safe boundary,
+  clamps rounded estimates and intervals inside observed MOT endpoints, and rejects a reused
+  model-profile version when its immutable profile content differs even if its dataset label is
+  unchanged.
 
 ## Estimator behaviour
 
