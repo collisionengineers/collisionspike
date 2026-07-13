@@ -188,18 +188,51 @@ function provenanceRowToEvaField(value: string, row?: Row): EvaField {
   };
 }
 
+/** Compare legacy/current provenance without making harmless storage formatting
+ *  differences (case, surrounding whitespace, CRLF, phone punctuation, mileage
+ *  separators) detach a source from the value it describes. A null source value is
+ *  never guessed: it remains review-required until explicitly reviewed/backfilled. */
+function comparableProvenanceValue(key: EvaFieldKey, raw: unknown): string | null {
+  if (raw == null) return null;
+  let value = String(raw).replace(/\r\n/g, '\n').trim();
+  if (key === 'mileage') value = value.replace(/[^\d]/g, '');
+  if (key === 'claimantTelephone') value = value.replace(/[\s().-]+/g, '');
+  return value.toLocaleLowerCase('en-GB');
+}
+
 /** Assemble the 12-field EvaFields object from a case_ row + its provenance rows. */
 export function rowToEvaFields(rec: Row, provenanceRows: readonly Row[] = []): EvaFields {
-  const byField = new Map<string, Row>();
+  const byField = new Map<string, Row[]>();
   for (const row of provenanceRows) {
-    if (row.field_name) byField.set(String(row.field_name), row);
+    if (!row.field_name) continue;
+    const key = String(row.field_name);
+    byField.set(key, [...(byField.get(key) ?? []), row]);
   }
   const out = {} as EvaFields;
   for (const desc of EVA_FIELD_ORDER) {
     const value = (rec[EVA_COLUMN_BY_KEY[desc.key]] as string | undefined) ?? '';
+    // Multiple source/conflict rows are valid. Only provenance for the CURRENT case
+    // value can describe that value. Prefer an explicitly reviewed row, then a staff
+    // row, then the newest source. The final id tie-break makes the result independent
+    // of PostgreSQL row order (which has no guarantee without ORDER BY).
+    const currentComparable = comparableProvenanceValue(desc.key, value);
+    const provenance = (byField.get(desc.key) ?? [])
+      .filter((row) => comparableProvenanceValue(desc.key, row.value) === currentComparable)
+      .sort((a, b) => {
+        const reviewedA = reviewStateCodec.toName(a.review_state_code) === 'reviewed' ? 1 : 0;
+        const reviewedB = reviewStateCodec.toName(b.review_state_code) === 'reviewed' ? 1 : 0;
+        if (reviewedA !== reviewedB) return reviewedB - reviewedA;
+        const staffA = sourceTypeCodec.toName(a.source_type_code) === 'staff' ? 1 : 0;
+        const staffB = sourceTypeCodec.toName(b.source_type_code) === 'staff' ? 1 : 0;
+        if (staffA !== staffB) return staffB - staffA;
+        const timeA = new Date(String(a.updated_at ?? a.created_at ?? 0)).getTime() || 0;
+        const timeB = new Date(String(b.updated_at ?? b.created_at ?? 0)).getTime() || 0;
+        if (timeA !== timeB) return timeB - timeA;
+        return String(a.id ?? '').localeCompare(String(b.id ?? ''));
+      })[0];
     (out as Record<EvaFieldKey, EvaField>)[desc.key] = provenanceRowToEvaField(
       value,
-      byField.get(desc.key),
+      provenance,
     );
   }
   out.vatStatus = { ...out.vatStatus, value: out.vatStatus.value as VatStatus };

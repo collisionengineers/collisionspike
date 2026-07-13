@@ -24,6 +24,7 @@ import type {
   DataAccess,
   CreateCaseInput,
   CreateCaseResult,
+  CaseUpdateInput,
   SuggestedAddress,
   InspectionDecisionInput,
   SaveInspectionDecisionResult,
@@ -78,7 +79,12 @@ export interface RestClientOptions {
 }
 
 /** The authenticated HTTP helper shared with the three REST transports. */
-export type ApiCall = <T>(method: string, path: string, body?: unknown) => Promise<T>;
+export type ApiCall = <T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  extraHeaders?: Record<string, string>,
+) => Promise<T>;
 
 /* ============================================================
    DataAccessExt — the seam interface the SPA actually binds to.
@@ -227,6 +233,9 @@ export interface OutlookMoveResult {
 }
 
 export interface DataAccessExt extends DataAccess {
+  /** Save one reviewed case-edit session with optimistic concurrency. Every EVA
+   *  field plus the inspection address/decision travels in this one PATCH. */
+  saveCaseEdits(id: string, patch: CaseUpdateInput, version: string): Promise<Case>;
   /** ONE-call amalgamated dashboard (case pipeline + inbound). `now` windows
    *  server aggregates against the CLIENT clock. NOT safe()-wrapped — a failure
    *  surfaces so the dashboard shows its error panel (matches the prior bundle). */
@@ -412,6 +421,7 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
     method: string,
     path: string,
     body?: unknown,
+    extraHeaders?: Record<string, string>,
   ): Promise<T> => {
     const token = await opts.getToken();              // Bearer injected HERE, not in query args
     const res = await fetch(`${base}${path}`, {
@@ -419,6 +429,7 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       headers: {
         Authorization: `Bearer ${token}`,
         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...extraHeaders,
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
@@ -566,6 +577,13 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
     // believe a mis-extracted registration was fixed when it wasn't). call() encodes
     // any non-ok status in the thrown error so the screen can toast + keep the editor open.
     updateCase: (id, patch) => call<Case>('PATCH', `/api/cases/${enc(id)}`, patch),
+    saveCaseEdits: (id, patch, version) =>
+      call<Case>(
+        'PATCH',
+        `/api/cases/${enc(id)}`,
+        { ...patch, editSession: true },
+        { 'If-Match': version },
+      ),
     casesForQueue: (name) => get<Case[]>(`/api/queues/${enc(name)}/cases`),
     openVrmTwins: (vrm, exclude) =>
       get<Case[]>(

@@ -103,6 +103,13 @@ export interface CaseUpdateInput {
    * mileageUnit ∈ {'',Miles,Km} — invalid values are rejected (400), not coerced.
    */
   evaFields?: Partial<Record<EvaFieldKey, string>>;
+  /** A human-reviewed inspection choice saved atomically with `evaFields` by the
+   *  explicit case-edit session. The address in `evaFields.inspectionAddress` and
+   *  this decision are one change; the API rejects a mismatched pair. */
+  inspectionDecision?: InspectionDecisionInput;
+  /** Marks the explicit case-page edit session. The API requires If-Match for this
+   *  path and performs its field, decision, readiness and audit work as one save. */
+  editSession?: true;
   /** ADR-0021 review-time case-type correction ('standard'/'' clears). */
   caseType?: string;
   /**

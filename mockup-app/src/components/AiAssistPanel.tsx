@@ -198,10 +198,12 @@ export interface AiAssistPanelProps {
   caseId: string;
   /** Called after an accepted suggestion is promoted into the case record. */
   onPromoted?: () => void;
+  /** Prevent suggestion writes while the case page has an unsaved edit session. */
+  disabled?: boolean;
 }
 
 /** The gated AI "Assistant" panel for a case (TKT-015). Renders nothing when the gate is off. */
-export function AiAssistPanel({ caseId, onPromoted }: AiAssistPanelProps) {
+export function AiAssistPanel({ caseId, onPromoted, disabled = false }: AiAssistPanelProps) {
   const styles = useStyles();
   const chips = useSeverityChipStyles();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
@@ -325,7 +327,7 @@ export function AiAssistPanel({ caseId, onPromoted }: AiAssistPanelProps) {
               size="small"
               icon={generating ? <Spinner size="tiny" /> : <Sparkles size={14} />}
               onClick={() => void onGenerate()}
-              disabled={generating || !modelConfigured}
+              disabled={disabled || generating || !modelConfigured}
             >
               {generating ? 'Working…' : 'Generate suggestions'}
             </Button>
@@ -333,7 +335,9 @@ export function AiAssistPanel({ caseId, onPromoted }: AiAssistPanelProps) {
         </div>
 
         <Caption1 className={styles.hint}>
-          Suggestions only — review each one before it applies. Nothing changes the case on its own.
+          {disabled
+            ? 'Save or discard the case changes before reviewing suggestions.'
+            : 'Suggestions only — review each one before it applies. Nothing changes the case on its own.'}
         </Caption1>
 
         {!modelConfigured && (
@@ -385,7 +389,7 @@ export function AiAssistPanel({ caseId, onPromoted }: AiAssistPanelProps) {
                           appearance="primary"
                           size="small"
                           icon={busy ? <Spinner size="tiny" /> : <Check size={14} />}
-                          disabled={busy}
+                          disabled={disabled || busy}
                           onClick={() => void onReview(s, 'accepted')}
                         >
                           Accept
@@ -394,7 +398,7 @@ export function AiAssistPanel({ caseId, onPromoted }: AiAssistPanelProps) {
                           appearance="secondary"
                           size="small"
                           icon={<X size={14} />}
-                          disabled={busy}
+                          disabled={disabled || busy}
                           onClick={() => void onReview(s, 'rejected')}
                         >
                           Reject

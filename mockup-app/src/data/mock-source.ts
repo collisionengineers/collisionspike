@@ -363,6 +363,7 @@ export const mockDataAccess: DataAccessExt = {
   createCase: (_input) => Promise.reject(new Error(NOT_CONFIGURED)),
   // Write — rejects until the live source is injected (mirrors createCase/setOnHold).
   updateCase: (_id, _patch) => Promise.reject(new Error(NOT_CONFIGURED)),
+  saveCaseEdits: (_id, _patch, _version) => Promise.reject(new Error(NOT_CONFIGURED)),
   casesForQueue: (_name, _now) => Promise.resolve([]),
   openVrmTwins: (_vrm, _excludeCaseId) => Promise.resolve([]),
   openCasePoMatches: (_casePo, _excludeCaseId) => Promise.resolve([]),
