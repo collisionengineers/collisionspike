@@ -1,16 +1,19 @@
 /**
  * orchestration/src/lib/functions-client.ts
  *
- * Typed fetch to the six existing **Python** Functions (plan 22 §B / §C). The language
+ * Shared typed fetches to the retained **Python** Functions (plan 22 §B / §C). The language
  * boundary is just HTTP: the orchestration calls them with a Function key today (managed
  * identity later — plan 31), exactly as the flows did via connectors.
  *
  * The Box facade (CCG token mint) stays inside the `box-webhook` Function — the Box
  * orchestrations call its HTTP routes; they never re-mint Box tokens (plan 22 §C).
  *
- * App-settings: PARSER_FN_URL/PARSER_FN_KEY, ENRICH_FN_URL/ENRICH_FN_KEY,
+ * App-settings: PARSER_FN_URL/PARSER_FN_KEY,
  *   BOXWEBHOOK_FN_URL/BOXWEBHOOK_FN_KEY, EVASENTRY_FN_URL/EVASENTRY_FN_KEY,
  *   LOCATION_FN_URL/LOCATION_FN_KEY.
+ * Vehicle enrichment is intentionally not exposed here: the dedicated enrich
+ * activity is the sole caller of the vehicle-data.v1 service and owns its
+ * advisory retry/error semantics.
  */
 
 interface FnTarget {
@@ -19,7 +22,6 @@ interface FnTarget {
 }
 
 const PARSER: FnTarget = { urlEnv: 'PARSER_FN_URL', keyEnv: 'PARSER_FN_KEY' };
-const ENRICH: FnTarget = { urlEnv: 'ENRICH_FN_URL', keyEnv: 'ENRICH_FN_KEY' };
 const BOX: FnTarget = { urlEnv: 'BOXWEBHOOK_FN_URL', keyEnv: 'BOXWEBHOOK_FN_KEY' };
 const EVA: FnTarget = { urlEnv: 'EVASENTRY_FN_URL', keyEnv: 'EVASENTRY_FN_KEY' };
 const LOCATION: FnTarget = { urlEnv: 'LOCATION_FN_URL', keyEnv: 'LOCATION_FN_KEY' };
@@ -256,12 +258,6 @@ export function callExplodeEml(input: {
     document: input.documentBase64,
     ...(input.filename ? { filename: input.filename } : {}),
   });
-}
-
-/* ---------- enrichment ---------- */
-
-export function callEnrichment(caseId: string): Promise<unknown> {
-  return callFunction(ENRICH, 'POST', 'enrich', { caseId });
 }
 
 /* ---------- EVA Sentry submit ---------- */

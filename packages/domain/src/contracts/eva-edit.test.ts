@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   EVA_EDIT_MAX_LENGTH,
+  normaliseExtractedEvaMileage,
   normaliseEvaEdit,
+  parseExtractedEvaMileage,
 } from './eva-edit';
 
 describe('shared EVA edit normalisation', () => {
@@ -18,6 +20,24 @@ describe('shared EVA edit normalisation', () => {
     expect(normaliseEvaEdit('vatStatus', 'Exempt')).toHaveProperty('error');
     expect(normaliseEvaEdit('mileageUnit', ' Km ')).toEqual({ value: 'Km' });
     expect(normaliseEvaEdit('mileageUnit', 'Kilometres')).toHaveProperty('error');
+  });
+
+  it('accepts only strict numeric mileage or an explicit empty value', () => {
+    expect(normaliseEvaEdit('mileage', ' 50000 ')).toEqual({ value: '50000' });
+    expect(normaliseEvaEdit('mileage', '50,000')).toEqual({ value: '50000' });
+    expect(normaliseEvaEdit('mileage', '')).toEqual({ value: '' });
+    expect(normaliseEvaEdit('mileage', '50,000 miles')).toHaveProperty('error');
+    expect(normaliseEvaEdit('mileage', '123456789012345678901')).toHaveProperty('error');
+  });
+
+  it('keeps machine/provider compatibility to an exact standalone unit suffix', () => {
+    expect(normaliseExtractedEvaMileage('50,000 miles')).toBe('50000');
+    expect(normaliseExtractedEvaMileage('50000 km')).toBe('50000');
+    expect(normaliseExtractedEvaMileage('about 50,000 miles')).toBeUndefined();
+    expect(normaliseExtractedEvaMileage('50,000 miles approximately')).toBeUndefined();
+    expect(parseExtractedEvaMileage('50,000 mi')).toEqual({ value: '50000', unit: 'Miles' });
+    expect(parseExtractedEvaMileage('50000 kilometres')).toEqual({ value: '50000', unit: 'Km' });
+    expect(parseExtractedEvaMileage('50,000')).toEqual({ value: '50000' });
   });
 
   it('retains the established clip-at-column-width behavior for ordinary case-page text', () => {

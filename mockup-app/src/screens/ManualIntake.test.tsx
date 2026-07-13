@@ -108,11 +108,25 @@ describe('Manual Intake images-only rendered workflow', () => {
       new File(['disposable image'], 'vehicle.jpg', { type: 'image/jpeg' }),
     ]);
 
-    await user.type(screen.getByLabelText(/^Received from/), 'TKT-024 verification');
-    await user.type(screen.getByLabelText('Claimant name'), 'Rachael Driver');
-    await user.type(screen.getByLabelText(/^Registration/), 'T24IMG');
-    await user.type(screen.getByLabelText(/^Vehicle model/), 'Test vehicle');
-    await user.type(screen.getByLabelText(/^Location/), 'Test inspection address');
+    // These assertions exercise the controlled form state and submit contract,
+    // not keyboard mechanics. Direct changes keep this large rendered form
+    // deterministic under the full repository gate instead of spending the
+    // default timeout dispatching dozens of synthetic key events.
+    fireEvent.change(screen.getByLabelText(/^Received from/), {
+      target: { value: 'TKT-024 verification' },
+    });
+    fireEvent.change(screen.getByLabelText('Claimant name'), {
+      target: { value: 'Rachael Driver' },
+    });
+    fireEvent.change(screen.getByLabelText(/^Registration/), {
+      target: { value: 'T24IMG' },
+    });
+    fireEvent.change(screen.getByLabelText(/^Vehicle model/), {
+      target: { value: 'Test vehicle' },
+    });
+    fireEvent.change(screen.getByLabelText(/^Location/), {
+      target: { value: 'Test inspection address' },
+    });
 
     const submit = screen.getByRole('button', { name: 'Create case' });
     expect((submit as HTMLButtonElement).disabled).toBe(false);

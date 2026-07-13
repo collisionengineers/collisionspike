@@ -359,6 +359,7 @@ function countInbound(rows: InboundEmail[]): InboundCounts {
  * (createCase) rejects until the live source is injected.
  */
 export const mockDataAccess: DataAccessExt = {
+  lookupVehicle: (_input) => Promise.reject(new Error(NOT_CONFIGURED)),
   /* ----- Cases ----- */
   caseById: (_id) => Promise.resolve(undefined),
   createCase: (_input) => Promise.reject(new Error(NOT_CONFIGURED)),

@@ -52,7 +52,6 @@ import {
   fileToBase64,
   getDataAccess,
   useHoldNewCasesDefault,
-  enrichVehicle,
   normaliseAddress,
   type CaseStatus,
   type CaseType,
@@ -67,7 +66,13 @@ import { makeRestParserTransport } from '../data/parser-rest-transport';
 import type { DataAccessExt, EvidenceUploadRole } from '../data/rest-client';
 import type { CreateCaseInput, NextCasePoResult } from '@cs/domain';
 import { acquireApiToken } from '../auth/msalConfig';
-import { createIdentityFields, type ManualIntakeMode } from './manual-intake-create';
+import {
+  createIdentityFields,
+  manualVehicleModel,
+  manualVehicleLookupMessage,
+  mergeManualVehicleLookup,
+  type ManualIntakeMode,
+} from './manual-intake-create';
 import { manualIntakeEvidenceNotice } from './evidence-upload-result';
 import {
   manualIntakeUploadOutcome,
@@ -646,22 +651,50 @@ export function ManualIntake() {
 
   /* ---- Vehicle lookup (DVLA/DVSA) — fills Make/Model/Mileage (review #11, #12) ---- */
   const lookUpVehicle = async () => {
+    if (!fields) return;
     setError(undefined);
     setInfo(undefined);
     setEnriching(true);
     try {
-      const res = await enrichVehicle(vrm);
-      if (res.status === 'ok' && res.data) {
-        const d = res.data;
-        if (d.make) setMake(d.make);
-        if (d.model) onFieldChange('vehicleModel', d.model);
-        if (d.mileage) onFieldChange('mileage', d.mileage);
-        if (d.mileageUnit) onFieldChange('mileageUnit', d.mileageUnit);
-        toast('Vehicle details filled in');
+      const d = await getDataAccess().lookupVehicle({ registration: vrm });
+      if (d.lookup.status === 'found') {
+        const merged = mergeManualVehicleLookup(
+          {
+            make,
+            vehicleModel: fields.vehicleModel.value,
+            mileage: fields.mileage.value,
+            mileageUnit: fields.mileageUnit.value,
+          },
+          {
+            make: d.make,
+            vehicleModel: d.vehicle_model,
+            currentMileage: d.current_mileage,
+            mileageUnit: d.mileage_unit,
+          },
+        );
+        if (merged.make !== make) setMake(merged.make);
+        if (merged.vehicleModel !== fields.vehicleModel.value) {
+          onFieldChange('vehicleModel', merged.vehicleModel);
+        }
+        if (merged.mileage !== fields.mileage.value) {
+          onFieldChange('mileage', merged.mileage);
+        }
+        if (merged.mileageUnit !== fields.mileageUnit.value) {
+          onFieldChange('mileageUnit', merged.mileageUnit);
+        }
+        toast(
+          merged.make !== make ||
+          merged.vehicleModel !== fields.vehicleModel.value ||
+          merged.mileage !== fields.mileage.value ||
+          merged.mileageUnit !== fields.mileageUnit.value
+            ? 'Vehicle details filled in'
+            : 'Vehicle details checked',
+        );
       } else {
-        // not_connected / error — show the returned message, never fabricate.
-        setInfo(res.message ?? 'Vehicle lookup isn’t available yet.');
+        setInfo(manualVehicleLookupMessage(d.lookup.status));
       }
+    } catch {
+      setInfo('Vehicle details are temporarily unavailable. Try again.');
     } finally {
       setEnriching(false);
     }
@@ -729,6 +762,10 @@ export function ManualIntake() {
     // the created Case's EVA fields are self-consistent (Work Provider = provider).
     const evaForCreate: EvaFields = {
       ...fields,
+      vehicleModel: {
+        ...fields.vehicleModel,
+        value: manualVehicleModel(make, fields.vehicleModel.value),
+      },
       workProvider: mode !== 'images' && provider.trim()
         ? { ...fields.workProvider, value: provider.trim(), reviewState: 'reviewed' }
         : fields.workProvider,

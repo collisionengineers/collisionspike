@@ -1,5 +1,5 @@
 {
-  "_comment": "FAKE DVSA MOT History API response shape — GET /v1/trade/vehicles/registration/{reg}. A 2018 Ford Focus with three yearly MOT odometer reads (38000 / 46000 / 54100 miles). With an injected as-of of 2024-03-14 the ported current_mileage_estimate yields estimated_mileage 62400 / confidence MEDIUM. NOT a real vehicle.",
+  "_comment": "FAKE DVSA MOT History API response shape — GET /v1/trade/vehicles/registration/{reg}. A 2018 Ford Focus with three yearly MOT odometer reads (38000 / 46000 / 54100 miles). At 2024-03-14 the canonical estimator yields 62400; a prediction interval appears only when a chronological calibration profile is injected. NOT a real vehicle.",
   "registration": "TE57VRM",
   "make": "FORD",
   "model": "FOCUS",

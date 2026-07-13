@@ -854,8 +854,14 @@ export function normalizeCreateCaseInput(raw: unknown): CreateCaseInput | undefi
   if ('evaFields' in raw || 'status' in raw) {
     const full = FullCreateCaseParams.safeParse(raw);
     if (!full.success) return undefined;
+    const mileage = normaliseEvaEdit('mileage', full.data.evaFields.mileage.value);
+    if ('error' in mileage) return undefined;
     return {
       ...full.data,
+      evaFields: {
+        ...full.data.evaFields,
+        mileage: { ...full.data.evaFields.mileage, value: mileage.value },
+      },
       sourceLabel: full.data.sourceLabel?.trim() || 'Manual intake',
     } as CreateCaseInput;
   }

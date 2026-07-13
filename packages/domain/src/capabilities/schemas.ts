@@ -16,6 +16,7 @@ import {
   EVA_EDIT_DATE_RE,
   EVA_EDIT_MAX_LENGTH,
   EVA_EDIT_MILEAGE_UNITS,
+  normaliseEvaMileage,
   EVA_EDIT_VAT_VALUES,
 } from '../contracts/eva-edit.js';
 
@@ -103,7 +104,12 @@ const EditableEvaFieldsParam = z
       .optional(),
     inspectionAddress: z.string().max(EVA_EDIT_MAX_LENGTH.inspectionAddress).optional(),
     vatStatus: z.enum(EVA_EDIT_VAT_VALUES).optional(),
-    mileage: z.string().max(EVA_EDIT_MAX_LENGTH.mileage).optional(),
+    mileage: z
+      .string()
+      .trim()
+      .max(EVA_EDIT_MAX_LENGTH.mileage)
+      .refine((value) => value === '' || normaliseEvaMileage(value) !== undefined, 'mileage must contain digits only')
+      .optional(),
     mileageUnit: z.enum(EVA_EDIT_MILEAGE_UNITS).optional(),
   })
   .strict()

@@ -41,6 +41,10 @@ redeploy.
 
 ## Enrichment (DVSA / DVLA)
 
+The canonical contract, provider boundary, immutable evidence model and mileage
+algorithm are defined in [vehicle-data.md](./vehicle-data.md). Callers consume that
+service; they do not reimplement MOT cleaning or estimation.
+
 > **ADR-0006 chosen pattern:** a thin Azure Function REST wrapper. The wrapper authenticates **directly to
 > DVSA + DVLA via Entra `client_credentials` + X-API-Key** (the Cloud Run OAuth gateway `ce-mcp-gateway` is
 > **retired** — no gateway hop). **LIVE:** the Function `cespkenrich-fn-gi62sd` is deployed and verified;

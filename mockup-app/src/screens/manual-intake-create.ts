@@ -1,4 +1,8 @@
-import type { CreateCaseInput } from '@cs/domain';
+import {
+  isValidEvaMileage,
+  type CreateCaseInput,
+  type MileageUnit,
+} from '@cs/domain';
 
 export type ManualIntakeMode = 'document' | 'manual' | 'images';
 
@@ -40,3 +44,84 @@ export const IMAGE_ONLY_IDENTITY_ORDER = [
   'vehicleModel',
   'mileage',
 ] as const;
+
+/** Persist the two visible controls in EVA's single vehicle-model field. */
+export function manualVehicleModel(make: string, model: string): string {
+  const cleanMake = make.trim();
+  const cleanModel = model.trim();
+  if (!cleanMake) return cleanModel;
+  if (!cleanModel) return cleanMake;
+  if (cleanModel.toLocaleUpperCase().startsWith(`${cleanMake.toLocaleUpperCase()} `)) {
+    return cleanModel;
+  }
+  return `${cleanMake} ${cleanModel}`;
+}
+
+export interface ManualVehicleDraft {
+  make: string;
+  vehicleModel: string;
+  mileage: string;
+  mileageUnit: MileageUnit;
+}
+
+export interface ManualVehicleLookupDefaults {
+  make?: string;
+  vehicleModel?: string;
+  currentMileage?: number;
+  mileageUnit?: MileageUnit;
+}
+
+/** Staff-safe copy for a lookup that did not return vehicle details. The
+ * canonical estimator carries a detailed diagnostic/evidence reason for audit,
+ * but that implementation-facing text must never leak into this form. */
+export function manualVehicleLookupMessage(status: string): string {
+  switch (status) {
+    case 'invalid_registration':
+      return 'Check the registration and try again.';
+    case 'not_found':
+      return 'No vehicle record was found for this registration.';
+    case 'configuration_error':
+      return 'Vehicle lookup isn\u2019t available. Ask a supervisor to check it.';
+    case 'temporarily_unavailable':
+      return 'Vehicle details are temporarily unavailable. Try again.';
+    default:
+      return 'Vehicle details could not be found.';
+  }
+}
+
+/**
+ * Apply lookup values as defaults, never as an overwrite. A valid parsed or
+ * staff-entered mileage/model wins. Invalid legacy mileage is unresolved data,
+ * so a defensible lookup may replace that value and its paired unit together.
+ */
+export function mergeManualVehicleLookup(
+  current: ManualVehicleDraft,
+  lookup: ManualVehicleLookupDefaults,
+): ManualVehicleDraft {
+  const lookupMake = lookup.make?.trim() ?? '';
+  const lookupModel = lookup.vehicleModel?.trim() ?? '';
+  const make = current.make.trim() ? current.make : lookupMake || current.make;
+  const vehicleModel = current.vehicleModel.trim()
+    ? current.vehicleModel
+    : lookupModel
+      ? manualVehicleModel(make, lookupModel)
+      : current.vehicleModel;
+
+  if (isValidEvaMileage(current.mileage)) {
+    return { ...current, make, vehicleModel };
+  }
+
+  const lookedUpMileage = lookup.currentMileage === undefined
+    ? undefined
+    : String(lookup.currentMileage);
+  if (!lookedUpMileage || !isValidEvaMileage(lookedUpMileage)) {
+    return { ...current, make, vehicleModel };
+  }
+
+  return {
+    make,
+    vehicleModel,
+    mileage: lookedUpMileage,
+    mileageUnit: lookup.mileageUnit === 'Km' ? 'Km' : 'Miles',
+  };
+}

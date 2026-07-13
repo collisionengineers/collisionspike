@@ -12,6 +12,7 @@ export * from './contracts/case-status.js';
 export * from './contracts/image-rules.js';
 export * from './contracts/eva-export.js';
 export * from './contracts/eva-edit.js';
+export * from './contracts/vehicle-data.js';
 
 // domain (moved verbatim from mockup-app/src/domain/)
 export * from './domain/index.js';

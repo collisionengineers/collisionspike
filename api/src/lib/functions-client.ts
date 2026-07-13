@@ -1,5 +1,5 @@
 /**
- * api/src/lib/functions-client.ts — typed HTTP client for the 6 existing Python Functions.
+ * api/src/lib/functions-client.ts — typed HTTP client for Python Function stages called by the API.
  *
  * The API calls the Python Functions over HTTP with a function key (x-functions-key header),
  * exactly as the Power Automate flows did via connectors. Managed-identity auth to the Functions
@@ -7,13 +7,22 @@
  *
  * App-settings required per Function (set via Azure portal / az CLI, KV-referenced):
  *   PARSER_FN_URL          / PARSER_FN_KEY
- *   ENRICH_FN_URL          / ENRICH_FN_KEY
  *   LOCATION_SUGGEST_FN_URL / LOCATION_SUGGEST_FN_KEY
+ *   ENRICH_FN_URL          / ENRICH_FN_KEY
  *   (evasentry, evavalidation, box-webhook are called by orchestration, not the API)
  *
- * TODO (api-build agent): add typed request/response types for each Python Function's
+ * Vehicle enrichment is owned by the Data API: every automated intake, staff
+ * retry, and manual preview passes through the same authenticated route and this
+ * one validated Function client.
+ *
+ * TODO (api-build agent): add typed request/response types for each remaining Python Function's
  * HTTP contract once those Function signatures are confirmed.
  */
+
+import {
+  parseVehicleDataEnrichmentResponse,
+  type VehicleDataEnrichmentResponse,
+} from '@cs/domain';
 
 /** Default bound for the latency-sensitive image-analysis stage calls (OCR / location-suggest) —
  *  matches the AOAI adapter timeout so every image-analysis stage degrades on a slow/stuck host
@@ -30,6 +39,35 @@ export class FunctionCallError extends Error {
     super(message);
     this.name = 'FunctionCallError';
   }
+}
+
+export async function callVehicleData(input: {
+  registration: string;
+  documentHasMileage: boolean;
+  targetDate?: string;
+  idempotencyKey?: string;
+}): Promise<VehicleDataEnrichmentResponse> {
+  const base = process.env.ENRICH_FN_URL;
+  const key = process.env.ENRICH_FN_KEY;
+  if (!base || !key) {
+    throw new Error('[functions-client] ENRICH_FN_URL/ENRICH_FN_KEY not configured');
+  }
+  const raw = await callFn(
+    base,
+    key,
+    'POST',
+    '/api/dvsa-mot/enrich',
+    {
+      vrm: input.registration,
+      document_has_mileage: input.documentHasMileage,
+      ...(input.targetDate ? { target_date: input.targetDate } : {}),
+      ...(input.idempotencyKey ? { idempotency_key: input.idempotencyKey } : {}),
+    },
+    { timeoutMs: FN_STAGE_TIMEOUT_MS },
+  );
+  const parsed = parseVehicleDataEnrichmentResponse(raw);
+  if (!parsed) throw new Error('[functions-client] vehicle-data response failed contract validation');
+  return parsed;
 }
 
 async function callFn(
@@ -83,17 +121,6 @@ export async function callParser(body: unknown): Promise<unknown> {
     process.env.PARSER_FN_KEY!,
     'POST',
     '/api/parse',
-    body,
-  );
-}
-
-// --- Enrichment Function ---
-export async function callEnrichment(body: unknown): Promise<unknown> {
-  return callFn(
-    process.env.ENRICH_FN_URL!,
-    process.env.ENRICH_FN_KEY!,
-    'POST',
-    '/api/enrich',
     body,
   );
 }

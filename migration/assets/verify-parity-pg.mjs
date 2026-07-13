@@ -332,6 +332,38 @@ const pyConst = (prefix) =>
 const pyCategories = pyConst("CATEGORY");
 const pySubtypes   = pyConst("SUBTYPE");
 
+// These are a deliberate contract, not merely whatever happens to agree
+// between two files. Pin the complete classifier surface so coordinated drift
+// cannot silently make a reduced taxonomy look green.
+const expectedClassifierCategories = [
+  "billing",
+  "cancellation",
+  "case_update",
+  "non_actionable",
+  "other",
+  "pre_instruction",
+  "query",
+  "receiving_work",
+  "website_enquiry",
+].sort();
+const expectedClassifierSubtypes = [
+  "acknowledgement",
+  "billing_request",
+  "cancellation_notice",
+  "case_summary",
+  "existing_provider_audit",
+  "existing_provider_instruction",
+  "images_received",
+  "new_client_work",
+  "other",
+  "payment_remittance",
+  "pre_instruction_directions",
+  "query_existing_work",
+  "query_new_enquiry",
+  "update_general",
+  "website_general_enquiry",
+].sort();
+
 const catSet = jsonSets.get("cr1bd_inboundcategory");
 const subSet = jsonSets.get("cr1bd_inboundsubtype");
 
@@ -350,11 +382,29 @@ if (catSet && subSet) {
   const classifierSubNames = subNames.filter((name) => !staffOnlySubtypes.has(name));
 
   ok(
-    pyCategories.length === 8 && JSON.stringify(catNames) === JSON.stringify(pyCategories),
+    catNames.length === 9 && JSON.stringify(catNames) === JSON.stringify(expectedClassifierCategories),
+    `cr1bd_inboundcategory pins all 9 canonical categories ` +
+    `(expected=${JSON.stringify(expectedClassifierCategories)}, got=${JSON.stringify(catNames)})`);
+  ok(
+    classifierSubNames.length === 15 &&
+      JSON.stringify(classifierSubNames) === JSON.stringify(expectedClassifierSubtypes),
+    `cr1bd_inboundsubtype pins all 15 classifier-emittable subtypes ` +
+    `(expected=${JSON.stringify(expectedClassifierSubtypes)}, got=${JSON.stringify(classifierSubNames)})`);
+  ok(
+    JSON.stringify(pyCategories) === JSON.stringify(expectedClassifierCategories),
+    `email_classifier.py pins all 9 canonical categories ` +
+    `(expected=${JSON.stringify(expectedClassifierCategories)}, got=${JSON.stringify(pyCategories)})`);
+  ok(
+    JSON.stringify(pySubtypes) === JSON.stringify(expectedClassifierSubtypes),
+    `email_classifier.py pins all 15 canonical subtypes ` +
+    `(expected=${JSON.stringify(expectedClassifierSubtypes)}, got=${JSON.stringify(pySubtypes)})`);
+
+  ok(
+    pyCategories.length === catNames.length && JSON.stringify(catNames) === JSON.stringify(pyCategories),
     `cr1bd_inboundcategory names == CATEGORY_* 1:1 ` +
     `(json=${JSON.stringify(catNames)}, py=${JSON.stringify(pyCategories)})`);
   ok(
-    pySubtypes.length === 14 && JSON.stringify(classifierSubNames) === JSON.stringify(pySubtypes),
+    pySubtypes.length === classifierSubNames.length && JSON.stringify(classifierSubNames) === JSON.stringify(pySubtypes),
     `classifier-emittable cr1bd_inboundsubtype names == SUBTYPE_* 1:1 ` +
     `(json-minus-staff-only=${JSON.stringify(classifierSubNames)}, ` +
     `staff-only=${JSON.stringify([...staffOnlySubtypes])}, py=${JSON.stringify(pySubtypes)})`);

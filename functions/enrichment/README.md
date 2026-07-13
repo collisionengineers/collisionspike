@@ -1,163 +1,107 @@
-# DVSA enrichment wrapper (`Func_DvsaEnrich`)
+# Canonical vehicle-data enrichment service
 
-A thin Azure Function (Python v2) that exposes plain REST for vehicle enrichment.
-It calls the **DVSA MOT History API directly** (Microsoft Entra
-`client_credentials` + `X-API-Key`) and the **DVLA Vehicle Enquiry API directly**
-(API-key REST) — **no gateway, all-Microsoft**. It suggests vehicle make/model
-and (conditionally) a current mileage estimate for a Case during intake.
-Enrichment is **advisory and staff-reviewed** — it never blocks intake. Plan
-reference: phase-1 §5.6.
+`functions/enrichment/` is the sole vehicle-data owner for the CollisionSpike case
+workflow. The retained Python Function holds provider authentication and HTTP details,
+normalises registrations once, calls DVSA/DVLA, and returns the versioned
+[`vehicle-data.v1`](../../contracts/vehicle-data-v1.schema.json) contract.
 
-## Architecture — direct DVSA/DVLA (blocker B1 obviated)
+The existing orchestration/Data API case writer is a temporary thin consumer of the
+top-level compatibility fields. It does not own lookup, cleaning, or mileage maths;
+TKT-151 will persist and apply the nested contract without reimplementing it.
 
-Previously this wrapper routed every call through the `collisionplugin`
-`ce-mcp-gateway` (an OAuth-MCP gateway on **Google Cloud Run**) to reach the
-`dvsa-mot` MCP connector. That cross-cloud hop is **gone**. The DVSA MOT History
-API is itself **Microsoft-Entra-authenticated** (`login.microsoftonline.com`,
-`client_credentials`), so an Azure Function has no reason to detour through GCP.
-The product owner's decision: go all-Microsoft. **Blocker B1 (gateway exposure /
-OAuth client-credentials availability) is therefore obviated** — there is no
-gateway in the path at all.
+## Runtime boundary
 
-```
-Function ──client_credentials──▶ https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
-   (DVSA client_id/secret + scope from Key Vault refs, form-encoded)
-                                        │  Bearer JWT (~3600s, cached)
-   GET ─────────────────────────▶ {DVSA_API_BASE}/v1/trade/vehicles/registration/{reg}
-        Authorization: Bearer ...        Headers: X-API-Key (KV ref)
-                                        │  DVSA vehicle JSON (make/model/motTests[])
-   analysis.py (pure) ──────────▶ vehicle_summary + current_mileage_estimate
-
-   Fallback (make only, new vehicles with no MOT):
-   POST ────────────────────────▶ {DVLA_API_BASE}/v1/vehicles   (x-api-key)
-```
-
-## Boundary tags
-
-| Activity | Tag |
-|---|---|
-| Function **code** (`function_app.py`, `dvsa_client.py`, `dvla_client.py`, `analysis.py`), `infra/main.bicep`, `openapi/enrichment-connector.json` | **[BUILD]** — authored offline, verified by local `pytest`. Zero tenant/Azure/DVSA contact. |
-| Deploy the Function + Key Vault + import the custom connector | **[DEPLOY-WITH-LOGIN]** |
-| Inject the real DVSA / DVLA secret **values** into Key Vault | **[RESERVED-FOR-USER]** |
-
-This directory contains **no secret values** — only Key Vault *references* and
-fake test fixtures. There is **no Google Cloud** anywhere in this path.
-
-## Endpoint
-
-```
+```text
+orchestration / explicit retry
+          |
+          v
 POST /api/dvsa-mot/enrich
-Body: { "vrm": "TE57VRM", "reference"?: "CCPY26050", "document_has_mileage"?: false }
+          |
+          v
+vehicle_data.VehicleDataService
+  |-- dvsa_client.py  (provider transport/auth only)
+  |-- dvla_client.py  (provider transport/auth only)
+  `-- vehicle_data/mileage.py (the one handwritten estimator)
+          |
+          v
+vehicle-data.v1 + temporary compatibility projection
 ```
 
-Always returns **HTTP 200** with a `warnings[]` array (advisory; never blocks):
+`analysis.py` contains no rules; it is a deprecated import facade over
+`vehicle_data.mileage`. The standalone `dvla-dvsa-connector` and `mileagetool`
+repositories are not case-workflow dependencies and must delegate to this service
+contract before their local estimator copies can be treated as equivalent.
+
+## Request
 
 ```json
 {
-  "vehicle_model": "FOCUS",
-  "make": "FORD",
-  "current_mileage": 62400,
-  "mileage_unit": "Miles",
-  "mileage_confidence": "MEDIUM",
-  "warnings": []
+  "vrm": "TE57 VRM",
+  "document_has_mileage": false,
+  "target_date": "2026-07-12",
+  "idempotency_key": "intake:<durable-instance>:vehicle-data:<case-id>"
 }
 ```
 
-`vehicle_model` maps to the settled EVA contract (`contracts/eva-payload.schema.json`);
-`vrm` is Case-identity and is **not** part of the EVA payload. Suggestions are
-written to empty Case fields with `dvla_dvsa` provenance and reviewed by staff
-before EVA submission.
+- `target_date` is optional and defaults to the lookup date.
+- `idempotency_key` is optional for interactive lookups; durable callers reuse
+  one opaque key so retries share the same run identity.
+- `document_has_mileage` defaults to `true`; instruction mileage remains
+  authoritative under ADR-0006.
+- `dry_run: true` still returns presence-only configuration health without a
+  provider call.
 
-## The clients
+## Mileage result semantics
 
-### `dvsa_client.py` (primary)
-- **Auth:** OAuth2 **client_credentials** (RFC 6749 §4.4) against
-  `https://login.microsoftonline.com/{DVSA_TENANT_ID}/oauth2/v2.0/token`, form-
-  encoded with `scope=DVSA_SCOPE` (default `https://tapi.dvsa.gov.uk/.default`).
-  The token is cached in-process with a TTL (expiry minus a 60s skew). On a 401
-  the client drops the token, refreshes **exactly once**, and retries.
-- **Lookup:** `GET {DVSA_API_BASE}/v1/trade/vehicles/registration/{reg}` with
-  `Authorization: Bearer` **and** `X-API-Key`. Retry-safe DVSA error codes
-  (`MOTH-FB-02`, `MOTH-RL-02`, `MOTH-UN-01`) get bounded exponential backoff with
-  jitter (max 4 retries); a 404 maps to a soft "no MOT record" warning.
+- `observed`: exact trusted MOT-date reading; exact value is retained.
+- `estimated`: a bounded interpolation or forecast point. `auto_fill_eligible`
+  remains false unless an empirical holdout profile and the explicit rollout
+  gate both qualify it; an uncalibrated point is display-only.
+- `range_only`: a useful logical range exists without a safe point.
+- `insufficient`: ambiguity, stale horizon, or evidence scarcity makes even a
+  range unsafe.
 
-### `dvla_client.py` (make-only fallback)
-- `POST {DVLA_API_BASE}/v1/vehicles` with the `x-api-key` header and a
-  `{ "registrationNumber": "<reg>" }` body. Used **only** when DVSA returns no
-  make (e.g. a vehicle too new to have an MOT). DVLA has no model field, so it
-  fills `make` only. Skipped silently when `DVLA_API_KEY` is absent.
+The output always means **displayed odometer**, never unknowable lifetime mileage
+after a reset/replacement/rollover. Forecast points are rounded to 100 miles.
+Observed readings remain exact.
 
-### `analysis.py` (pure, ported)
-A faithful Python port of `collisionplugin/.../analysis.ts` — the M1 subset:
-`vehicle_summary`, `mot_status`, `mileage_history`, `detect_mileage_anomalies`,
-and the **`current_mileage_estimate`** algorithm. No I/O. The heavier
-valuation / clone-risk / DVLA cross-check helpers are intentionally not ported.
+Cleaning preserves every raw MOT row and its source/test number/date/result,
+original odometer value/unit/result type, registration-at-test and stable identity
+when present. Decisions are recorded alongside the row: dedup, fail/retest episode,
+short interval, isolated spike/dip, segment boundary, unit ambiguity, zero movement,
+extreme usage and historical-only gap.
 
-## Mileage-guard logic (ADR-0006 — document authoritative)
+## Versioned priors and calibration
 
-The mileage estimate is computed **only when `document_has_mileage` is `false`**.
-If the parsed instruction already carries a mileage, the MOT estimate is skipped
-(and a warning records why) — the document wins. The request default is
-`document_has_mileage = true` (safer: do not override an authoritative document
-unless told the field is empty). MOT odometer history is normalised to miles, so
-`mileage_unit` is always `"Miles"`.
+There is no hard-coded probability score. Optional JSON app settings supply
+versioned artefacts:
 
-### The estimate algorithm (ported from `currentMileageEstimate`)
-1. Take readable odometer readings (`odometerResultType == "READ"`), normalise KM
-   to miles, sort oldest→newest, and keep only readings on/before the assessment
-   date.
-2. Build consecutive intervals; mark each **clean** unless it shows a mileage
-   **decrease** or an **implausible increase** (>200 mi/day over a >30-day gap) —
-   the same thresholds as `detect_mileage_anomalies`.
-3. Prefer the most recent up-to-2 clean intervals (≈ last 3 readings); else fall
-   back to all clean intervals. Derive an annual rate = `(Σdelta / Σdays) × 365.25`.
-4. Project from the last reading to the assessment date; round the central
-   estimate and the 0.75×/1.25× band to the nearest 100 miles. The floor never
-   drops below the last recorded reading.
-5. Confidence: `VERY_LOW` if >5 yr since last reading or no usable intervals;
-   `HIGH` if the recent clean window was used, ≥3 readings, no anomalies, and
-   ≤1 yr since last; `LOW` if >2 yr or the recent window was dirty; else `MEDIUM`.
+- `MILEAGE_COHORT_PRIOR_JSON`
+- `MILEAGE_CALIBRATION_PROFILE_JSON`
+- `MILEAGE_ESTIMATE_AUTOFILL_ENABLED` (fail-closed rollout gate)
 
-## Secret handling — Key Vault only
+Without a defensible prior the estimator does not cohort-assist. Without a matching
+calibration bucket it publishes only a non-probabilistic range and never defaults the
+point into a case. Even a matching bucket cannot auto-fill until the profile records at
+least 1,000 chronological holdouts, observed coverage meets the declared target, and
+the explicit rollout gate is enabled. The chronological
+holdout harness in `vehicle_data/backtest.py` reports MAE, median absolute error,
+range coverage and useful-tolerance coverage by horizon, vehicle type/age, clean
+interval count, volatility and anomaly class.
 
-`DVSA_CLIENT_ID` / `DVSA_CLIENT_SECRET` / `DVSA_API_KEY` / `DVLA_API_KEY` are app
-settings whose **values are Key Vault references** (`@Microsoft.KeyVault(SecretUri=...)`),
-resolved by the platform via the Function's system-assigned managed identity
-(granted *Key Vault Secrets User* in `infra/main.bicep`). Secrets are read only
-inside the clients, sent only in the token request body / request headers, and
-are **never** logged, echoed in a response, or written to a fixture.
-`DvsaConfig.__repr__` / `DvlaConfig.__repr__` redact every credential. Token
-exchange happens at runtime; tests mock it. `DVSA_TENANT_ID`, `DVSA_SCOPE`,
-`DVSA_API_BASE`, `DVLA_API_BASE` are **non-secret** plain app settings.
+## Persistence contract
 
-## Offline test command
+Fresh-build DDL is [`200_vehicle_data.sql`](../../migration/assets/schema/200_vehicle_data.sql);
+the idempotent rolling delta is
+[`2026-07-12-tkt152-vehicle-data.sql`](../../migration/assets/schema/deltas/2026-07-12-tkt152-vehicle-data.sql).
+Lookup runs, provider snapshots, raw MOT observations, results and model profiles are
+append-only (`SELECT`/`INSERT`; forced RLS, no app update/delete).
 
-No `func start` / Core Tools needed — handlers are exercised directly with a fake
-`HttpRequest`, and all HTTP (Entra token, DVSA, DVLA) is mocked with `respx`:
+## Offline gates
 
-```bash
-python -m venv .venv
-.venv/Scripts/python -m pip install -r requirements-dev.txt   # Windows
+```powershell
 python -m pytest -q
 ```
 
-Tests assert: the mileage path is computed only when `document_has_mileage` is
-false; DVSA make/model map correctly; the DVLA fallback fires only when DVSA has
-no make; a 401 refreshes the token once then self-heals (or soft-fails); the
-ported estimate reproduces the TS fixture (62400 / MEDIUM); KM normalisation and
-clocking suppression behave; and no secret/token appears in logs or output.
-
-## Files
-
-| File | Purpose |
-|---|---|
-| `function_app.py` | HTTP trigger + orchestration + field cleaning + mileage guard |
-| `dvsa_client.py` | Entra client_credentials token + DVSA MOT History GET (lazy, mockable) |
-| `dvla_client.py` | DVLA Vehicle Enquiry POST (make-only fallback, lazy, mockable) |
-| `analysis.py` | pure ported MOT analysis (summary + mileage estimate) |
-| `host.json` | Functions host config (extension bundle, App Insights) |
-| `requirements.txt` / `requirements-dev.txt` | runtime / test deps |
-| `local.settings.json.TEMPLATE` | setting **names** only; secrets as KV refs |
-| `infra/main.bicep` | Flex Consumption Function + Storage + Key Vault + RBAC |
-| `openapi/enrichment-connector.json` | custom-connector OpenAPI 2.0 |
-| `tests/` + `tests/fixtures/` | pytest + recorded **fake** DVSA/DVLA/token responses |
+All token/provider calls are mocked. No live provider, database or Azure mutation is
+part of this test path.

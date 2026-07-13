@@ -46,6 +46,7 @@ import { shouldAttemptPdfVrmMatch } from './activities/imagesReceivedVrmMatch.js
 import { shouldLinkReplyToCase } from './activities/reply-link-eligibility.js';
 import { shouldAttemptTriageAssist } from './gated/triage-classify.js';
 import { decideCaseType, decideRetro, categoryMintsCase } from '@cs/domain';
+import { vehicleDataIntakeIdempotencyKey } from '../lib/vehicle-data-intake.js';
 import type { TriagePolicyDecision } from '@cs/domain';
 
 const retry = new df.RetryOptions(/*firstRetryIntervalInMilliseconds*/ 5_000, /*maxNumberOfAttempts*/ 3);
@@ -672,19 +673,16 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // Box folder-create + evidence-archive + image-extraction are RECORD-KEEPING and now run
   // for ANY known-provider case (case_po present) REGARDLESS of mode — they were the cause of
   // "folders not getting made / box sync not working" when every provider resolved to manual.
-  // Only ENRICHMENT (and the reserved EVA-submit) remain gated by automation mode:
+  // Vehicle detail lookup is record completion and runs for every provider mode;
+  // only reserved submission/dispatch steps are gated by automation mode:
   //   • manual      — record + classify + persist evidence + Box folder + Box archive + image
-  //                   extraction, but DO NOT auto-enrich (staff trigger enrichment from the queue).
-  //   • review_auto — the default live path: everything manual does PLUS auto-enrichment, still
+  //                   extraction and vehicle lookup, but no submission.
+  //   • review_auto — the default live path: the same record completion, still
   //                   stopping short of EVA submission (always a staff action).
   //   • full_auto   — RESERVED. Behaves EXACTLY as review_auto today; its aggressive steps
   //                   (auto-EVA, auto-chaser, …) stay behind a default-off flag (FULL_AUTO_ENABLED)
   //                   and are intentionally NOT enabled here (ADR-0015 / am research §full).
   const automationMode = resolved.providerAutomationMode ?? 'review_auto';
-  const autoEnrich = automationMode !== 'manual';
-  if (!autoEnrich && !ctx.df.isReplaying) {
-    ctx.log(`[intake] provider automation mode = manual for case ${resolved.caseId}; record-keeping (Box folder/archive/images) runs, enrichment deferred to staff`);
-  }
 
   // 2.5 — Box folder at intake (#6, ADR-0012: additive one-way mirror). A known-provider case
   // has its Case/PO minted by caseResolve → create the Box folder named with it. A new client
@@ -763,14 +761,25 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
 
   // 6 — enrich (gate ENRICHMENT_ENABLED checked inside; no-op when off). Pass the best VRM
   // (parser PDF VRM preferred over the email sniff) + whether the doc already had mileage;
-  // the activity persists the advisory result onto the case on a 200 (#1). The ONE step still
-  // gated by automation mode: skipped in `manual` (staff trigger enrichment from the queue).
-  if (autoEnrich) {
+  // the activity persists the advisory result and recomputes readiness. This is
+  // record completion, so `manual` providers are not silently skipped.
+  try {
     yield ctx.df.callActivityWithRetry('enrich', retry, {
       caseId: resolved.caseId,
       vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
       documentHasMileage,
+      // Durable replays/retries of this intake instance must resolve to one
+      // immutable lookup run and one audit/provenance write. Graph-backed
+      // instance ids are hashed because the Data API key is deliberately bounded.
+      idempotencyKey: vehicleDataIntakeIdempotencyKey(ctx.df.instanceId, resolved.caseId),
     });
+  } catch (error) {
+    // Vehicle completion is advisory. Transient transport faults receive the
+    // normal Durable retry window, but exhausting it must not abort an intake
+    // whose case and evidence have already been committed.
+    if (!ctx.df.isReplaying) {
+      ctx.error(`[intake] vehicle details unavailable for case ${resolved.caseId} (non-blocking): ${String(error)}`);
+    }
   }
 
   return { caseId: resolved.caseId, status: status.value, mode: automationMode };

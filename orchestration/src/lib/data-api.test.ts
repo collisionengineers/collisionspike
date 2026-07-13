@@ -5,6 +5,7 @@ vi.stubGlobal('fetch', fetchMock);
 
 const {
   dataApi,
+  DataApiHttpError,
   EvidenceBackfillReclassificationRequiredError,
   EvidenceBackfillTargetChangedError,
 } = await import('./data-api.js');
@@ -138,6 +139,43 @@ describe('generation-aware status evaluation contract', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe('https://api.example.test/api/internal/cases/case-1/status-evaluate');
     expect(JSON.parse(String(init?.body))).toEqual({ generation: 7 });
+  });
+});
+
+describe('canonical vehicle lookup contract', () => {
+  it('uses the single Data API owner and forwards the durable caller key', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      persisted: { applied: ['mileage'], retryable: false, replayed: false },
+      lookup: { status: 'found', run_id: 'run-1' },
+      mileage: { status: 'estimated', warnings: [] },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    await dataApi.lookupVehicle('case-1', 'AB12CDE', 'intake:instance-1:vehicle-data:case-1');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe('https://api.example.test/api/vehicle-data/lookup');
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(String(init?.body))).toEqual({
+      caseId: 'case-1',
+      registration: 'AB12CDE',
+      idempotencyKey: 'intake:instance-1:vehicle-data:case-1',
+    });
+  });
+
+  it('preserves non-conflict HTTP status for advisory retry classification', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('forbidden', { status: 403 }));
+    const forbidden = await dataApi.lookupVehicle('case-1', 'AB12CDE').catch(
+      (error: unknown) => error,
+    );
+    expect(forbidden).toBeInstanceOf(DataApiHttpError);
+    expect((forbidden as InstanceType<typeof DataApiHttpError>).status).toBe(403);
+    expect((forbidden as InstanceType<typeof DataApiHttpError>).detail).toBe('forbidden');
+
+    fetchMock.mockResolvedValueOnce(new Response('unavailable', { status: 503 }));
+    const unavailable = await dataApi.lookupVehicle('case-1', 'AB12CDE').catch(
+      (error: unknown) => error,
+    );
+    expect(unavailable).toBeInstanceOf(DataApiHttpError);
+    expect((unavailable as InstanceType<typeof DataApiHttpError>).status).toBe(503);
   });
 });
 

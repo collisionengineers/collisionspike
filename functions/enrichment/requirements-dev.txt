@@ -2,3 +2,4 @@
 -r requirements.txt
 pytest>=8.0.0
 respx>=0.21.0   # httpx request mocking (token endpoint + MCP tool calls)
+jsonschema>=4.23.0  # vehicle-data.v1 response-contract validation

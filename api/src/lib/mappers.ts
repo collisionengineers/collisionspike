@@ -317,6 +317,19 @@ export function rowToCase(rec: Row, opts: CaseAssembly = {}): Case {
       ? { providerInspectionPolicy: inspectionPolicyCodec.toName(rec.provider_inspection_policy)! }
       : {}),
     vehicleModel: rec.eva_vehicle_model ?? '',
+    ...(rec.vehicle_lookup_status
+      ? {
+          vehicleLookup: {
+            ...(rec.last_vehicle_lookup_run_id ? { runId: rec.last_vehicle_lookup_run_id } : {}),
+            status: rec.vehicle_lookup_status,
+            ...(rec.vehicle_mileage_status ? { mileageStatus: rec.vehicle_mileage_status } : {}),
+            ...(rec.vehicle_mileage_method ? { mileageMethod: rec.vehicle_mileage_method } : {}),
+            ...(rec.vehicle_lookup_warning ? { warning: rec.vehicle_lookup_warning } : {}),
+            retryable: rec.vehicle_lookup_retryable === true,
+            ...(rec.vehicle_lookup_attempted_at ? { attemptedAt: toIso(rec.vehicle_lookup_attempted_at) } : {}),
+          },
+        }
+      : {}),
     evaFields: rowToEvaFields(rec, opts.provenanceRows),
     evidence: opts.evidence ?? [],
     notes: opts.notes ?? [],

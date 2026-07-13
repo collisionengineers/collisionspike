@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { EVA_FIELD_ORDER, type Case, type EvaFields } from '@cs/domain';
 import {
   buildExplicitCaseSave,
+  canCheckVehicleDetails,
   initialInspectionDraft,
   persistedSessionSnapshot,
   shouldBlockCaseNavigation,
@@ -181,5 +182,12 @@ describe('explicit case edit session', () => {
   it('blocks route/window navigation exactly while a draft is dirty', () => {
     expect(shouldBlockCaseNavigation(false)).toBe(false);
     expect(shouldBlockCaseNavigation(true)).toBe(true);
+  });
+
+  it('allows a vehicle refresh only for a clean versioned edit session', () => {
+    expect(canCheckVehicleDetails(false, false, 'AB12 CDE')).toBe(true);
+    expect(canCheckVehicleDetails(true, false, 'AB12 CDE')).toBe(false);
+    expect(canCheckVehicleDetails(false, true, 'AB12 CDE')).toBe(false);
+    expect(canCheckVehicleDetails(false, false, '   ')).toBe(false);
   });
 });

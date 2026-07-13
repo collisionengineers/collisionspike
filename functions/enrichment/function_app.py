@@ -19,15 +19,11 @@ Route
 ``POST /api/dvsa-mot/enrich``
     body: { "vrm": str, "reference"?: str, "document_has_mileage"?: bool }
 
-Returns (HTTP 200, always — enrichment is advisory and must never block intake):
-    {
-      "vehicle_model"?: str,
-      "make"?: str,
-      "current_mileage"?: int,      # digits only; only when document had none
-      "mileage_unit"?: "Miles",     # MOT odometer history is normalised to miles
-      "mileage_confidence"?: str,   # HIGH | MEDIUM | LOW | VERY_LOW
-      "warnings": [str, ...]
-    }
+Returns (HTTP 200, always — enrichment is advisory and must never block intake)
+the authoritative ``vehicle-data.v1`` lookup, vehicle, provider-snapshot and
+mileage contract. Temporary top-level ``vehicle_model``/``make`` and calibrated
+``current_mileage`` fields keep the existing case caller compatible. Range-only
+or insufficient mileage never becomes a legacy point value.
 
 Design rules honoured here
 --------------------------
@@ -44,22 +40,25 @@ from __future__ import annotations
 import json
 import logging
 import os
+from datetime import date, datetime
 
 import azure.functions as func
 
-from analysis import get_mileage_estimate, get_vehicle_summary
 from dvsa_client import (
     DEFAULT_DVSA_API_BASE,
     DEFAULT_DVSA_SCOPE,
     DvsaClient,
-    DvsaError,
-    DvsaNotFoundError,
 )
 from dvla_client import (
     DEFAULT_DVLA_API_BASE,
     DvlaClient,
-    DvlaError,
-    DvlaNotConfigured,
+)
+from vehicle_data import VehicleDataService, legacy_enrichment_adapter
+from vehicle_data.contracts import CalibrationProfile, CohortPrior
+from vehicle_data.service import (
+    calibration_profile_from_env,
+    cohort_priors_from_env,
+    failure_contract,
 )
 
 logger = logging.getLogger("enrichment.function")
@@ -142,79 +141,40 @@ def enrich(
     document_has_mileage: bool,
     dvsa: DvsaClient,
     dvla: DvlaClient | None = None,
+    target_date: date | None = None,
+    cohort_prior: CohortPrior | None = None,
+    cohort_priors: tuple[CohortPrior, ...] = (),
+    calibration: CalibrationProfile | None = None,
+    idempotency_key: str | None = None,
 ) -> dict:
-    """Pure orchestration: fetch the DVSA record, derive suggestions, clean.
+    """Invoke the sole vehicle-data service and project its compatibility fields.
 
-    Separated from the HTTP handler so tests can drive it with mocked clients
-    and assert the mileage guard without constructing an HttpRequest.
-
-    One DVSA lookup serves both ``get_vehicle_summary`` and the mileage estimate
-    (the old design made two MCP calls; direct access lets us fetch once).
+    The nested ``vehicle-data.v1`` contract is authoritative. Top-level
+    ``vehicle_model``/``make``/``current_mileage`` fields are a mechanical bridge
+    for the existing TKT-151-owned case persistence route.
     """
-    warnings: list[str] = []
-    out: dict[str, object] = {}
 
-    vehicle: dict | None = None
-    try:
-        vehicle = dvsa.get_vehicle_by_registration(vrm)
-    except DvsaNotFoundError:
-        warnings.append("DVSA has no MOT record for this registration.")
-    except DvsaError as exc:
-        # Advisory: log the class, not the (already-redacted) detail, and carry on.
-        logger.warning("DVSA lookup failed: %s", type(exc).__name__)
-        warnings.append("DVSA lookup failed; no vehicle details suggested.")
-
-    # --- Vehicle identity (always) -------------------------------------
-    make: str | None = None
-    model: str | None = None
-    if vehicle is not None:
-        summary = get_vehicle_summary(vehicle)
-        model = _clean_str(summary.get("model"))
-        make = _clean_str(summary.get("make"))
-
-    # DVLA make-only fallback: only when DVSA gave us nothing (e.g. a brand-new
-    # vehicle with no MOT history). DVLA has no model field, so it cannot fill
-    # vehicle_model — make only. Skipped silently when DVLA is not configured.
-    if make is None and dvla is not None:
-        try:
-            dvla_vehicle = dvla.get_vehicle(vrm)
-            make = _clean_str(dvla_vehicle.get("make"))
-        except DvlaNotConfigured:
-            pass  # fallback unavailable; not an error
-        except DvlaError as exc:
-            logger.warning("DVLA fallback failed: %s", type(exc).__name__)
-
-    if model:
-        # Map to the EVA contract's vehicle_model field name for the caller.
-        out["vehicle_model"] = model
-    if make:
-        out["make"] = make
-    if vehicle is not None and not model and not make:
-        warnings.append("Vehicle record returned no make/model.")
-
-    # --- Mileage (ONLY when the document lacks it) ---------------------
-    if document_has_mileage:
-        # Document is authoritative (ADR-0006) — do NOT compute the MOT estimate.
-        warnings.append(
-            "Mileage present on the instruction; DVSA estimate skipped "
-            "(document is authoritative)."
-        )
-    elif vehicle is None:
-        # No DVSA record to estimate from; the lookup warning already explains.
-        warnings.append("DVSA could not produce a mileage estimate.")
-    else:
-        try:
-            est = get_mileage_estimate(vehicle)
-            mileage_fields = _clean_mileage(est)
-            out.update(mileage_fields)
-            if "current_mileage" not in mileage_fields:
-                warnings.append("DVSA could not produce a mileage estimate.")
-        except Exception as exc:  # analysis is pure; guard anyway
-            logger.warning("mileage estimate failed: %s", type(exc).__name__)
-            warnings.append("Mileage estimate failed; no mileage suggested.")
-
-    out["warnings"] = warnings
-    return out
+    service = VehicleDataService(
+        dvsa=dvsa,
+        dvla=dvla,
+        cohort_prior=cohort_prior,
+        cohort_priors=(
+            cohort_priors
+            if cohort_prior is not None or cohort_priors
+            else cohort_priors_from_env()
+        ),
+        calibration=calibration if calibration is not None else calibration_profile_from_env(),
+        estimate_autofill_enabled=_truthy(
+            os.environ.get("MILEAGE_ESTIMATE_AUTOFILL_ENABLED")
+        ),
+    )
+    contract = service.lookup(
+        vrm,
+        target_date=target_date,
+        include_mileage=not document_has_mileage,
+        idempotency_key=idempotency_key,
+    )
+    return legacy_enrichment_adapter(contract)
 
 
 def _clean_str(value: object) -> str | None:
@@ -222,31 +182,6 @@ def _clean_str(value: object) -> str | None:
         s = value.strip()
         return s or None
     return None
-
-
-def _clean_mileage(est: dict) -> dict:
-    """Map ``current_mileage_estimate`` output to the cleaned REST shape.
-
-    MOT odometer history is normalised to miles by the analysis layer, so the
-    unit is always ``Miles`` (matches the EVA ``mileage_unit`` enum). Mileage is
-    emitted as a non-negative integer; the caller serialises it as digits-only.
-    """
-    if not est.get("estimate_available"):
-        return {}
-    raw = est.get("estimated_mileage")
-    if not isinstance(raw, (int, float)):
-        return {}
-    miles = int(round(raw))
-    if miles < 0:
-        return {}
-    result: dict[str, object] = {
-        "current_mileage": miles,
-        "mileage_unit": "Miles",
-    }
-    confidence = _clean_str(est.get("confidence"))
-    if confidence:
-        result["mileage_confidence"] = confidence
-    return result
 
 
 @app.route(route="dvsa-mot/enrich", methods=["POST"])
@@ -273,8 +208,19 @@ def dvsa_mot_enrich(req: func.HttpRequest) -> func.HttpResponse:
 
     # Gate at the edge as well as in the flow — defence in depth.
     if not _truthy(os.environ.get("ENRICHMENT_ENABLED")):
+        result = legacy_enrichment_adapter(
+            failure_contract(
+                requested_registration=(
+                    _clean_str(body.get("vrm")) if isinstance(body, dict) else None
+                )
+                or "",
+                lookup_status="configuration_error",
+                warning_code="enrichment_disabled",
+                message="Vehicle lookup is not enabled.",
+            )
+        )
         return func.HttpResponse(
-            json.dumps({"warnings": ["ENRICHMENT_ENABLED is false; enrichment skipped."]}),
+            json.dumps(result),
             status_code=200,
             mimetype="application/json",
         )
@@ -291,15 +237,48 @@ def dvsa_mot_enrich(req: func.HttpRequest) -> func.HttpResponse:
     # unless the caller explicitly says the document lacks it. Safer default —
     # avoids spending quota and avoids overriding an authoritative document.
     document_has_mileage = bool(body.get("document_has_mileage", True))
+    idempotency_key = _clean_str(body.get("idempotency_key"))
+    if idempotency_key is not None and len(idempotency_key) > 200:
+        return func.HttpResponse(
+            json.dumps({"error": "Field 'idempotency_key' is too long."}),
+            status_code=400,
+            mimetype="application/json",
+        )
+    target_date: date | None = None
+    if body.get("target_date") is not None:
+        try:
+            target_date = datetime.strptime(str(body["target_date"]), "%Y-%m-%d").date()
+        except ValueError:
+            return func.HttpResponse(
+                json.dumps({"error": "Field 'target_date' must be YYYY-MM-DD."}),
+                status_code=400,
+                mimetype="application/json",
+            )
 
     dvsa = DvsaClient()
     dvla = DvlaClient()
     try:
-        result = enrich(vrm, document_has_mileage=document_has_mileage, dvsa=dvsa, dvla=dvla)
+        result = enrich(
+            vrm,
+            document_has_mileage=document_has_mileage,
+            dvsa=dvsa,
+            dvla=dvla,
+            target_date=target_date,
+            idempotency_key=idempotency_key,
+        )
     except Exception as exc:  # pragma: no cover - top-level safety net
-        # Never bubble: enrichment is advisory. Return 200 with a warning.
+        # Never bubble: enrichment is advisory. Return a canonical insufficient
+        # envelope so typed callers never receive a structurally different 200.
         logger.warning("enrichment hard-failed: %s", type(exc).__name__)
-        result = {"warnings": ["Enrichment failed; case left for manual review."]}
+        result = legacy_enrichment_adapter(
+            failure_contract(
+                requested_registration=vrm,
+                lookup_status="temporarily_unavailable",
+                warning_code="enrichment_failed",
+                message="Vehicle details could not be checked; the case was left for review.",
+                target_date=target_date,
+            )
+        )
     finally:
         dvsa.close()
         dvla.close()

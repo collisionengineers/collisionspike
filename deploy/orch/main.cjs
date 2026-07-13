@@ -2502,7 +2502,9 @@ async function getMessageHeaders(mailbox, messageId) {
     const msg = await graphFetch(path);
     const out = {};
     for (const h of msg.internetMessageHeaders ?? []) {
-      if (h?.name) out[h.name.toLowerCase()] = h.value ?? "";
+      if (!h?.name) continue;
+      const name = h.name.toLowerCase();
+      if (!(name in out)) out[name] = h.value ?? "";
     }
     return out;
   } catch {
@@ -3258,12 +3260,24 @@ async function request2(method, path, body2) {
     throw new ConflictError(`${method} ${path} \u2192 409: ${detail}`);
   }
   if (!res.ok) {
-    throw new Error(`data-api ${method} ${path} \u2192 ${res.status}: ${await safeText2(res)}`);
+    const detail = await safeText2(res);
+    throw new DataApiHttpError(
+      `data-api ${method} ${path} \u2192 ${res.status}: ${detail}`,
+      res.status,
+      detail
+    );
   }
   if (res.status === 204) return void 0;
   return await res.json();
 }
 var ConflictError = class extends Error {
+};
+var DataApiHttpError = class extends Error {
+  constructor(message, status, detail) {
+    super(message);
+    this.status = status;
+    this.detail = detail;
+  }
 };
 var EvidenceBackfillTargetChangedError = class extends ConflictError {
 };
@@ -3446,12 +3460,13 @@ var dataApi = {
   casesLookup(payload) {
     return request2("POST", "/api/internal/cases/lookup", payload);
   },
-  /**
-   * Persist the advisory DVSA/DVLA enrichment result onto the case (internal route, #1).
-   * Fill-if-empty on the API side; returns the fields it actually filled.
-   */
-  persistEnrichment(caseId, result) {
-    return request2("POST", `/api/internal/cases/${caseId}/enrichment`, result);
+  /** Run and persist the canonical vehicle lookup through its one Data API owner. */
+  lookupVehicle(caseId, registration, idempotencyKey) {
+    return request2("POST", "/api/vehicle-data/lookup", {
+      caseId,
+      registration,
+      ...idempotencyKey ? { idempotencyKey } : {}
+    });
   },
   /**
    * Resolve a REPLY about existing work against OPEN cases (Case-ref first, then VRM) and
@@ -3950,972 +3965,15 @@ var EVA_EDIT_MAX_LENGTH = {
 var EVA_EDIT_DATE_RE = /^(?:|\d{2}\/\d{2}\/\d{4})$/;
 var EVA_EDIT_VAT_VALUES = ["", "Yes", "No"];
 var EVA_EDIT_MILEAGE_UNITS = ["", "Miles", "Km"];
-
-// packages/domain/dist/domain/classification.js
-var EXTENSION_TABLE = {
-  jpg: "image",
-  jpeg: "image",
-  png: "image",
-  pdf: "instruction",
-  docx: "instruction",
-  doc: "instruction",
-  eml: "email"
-};
-var MIME_TABLE = {
-  "image/jpeg": "image",
-  "image/jpg": "image",
-  "image/png": "image",
-  "application/pdf": "instruction",
-  "application/msword": "instruction",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "instruction",
-  "message/rfc822": "email"
-};
-function extensionOf(filename) {
-  const name = filename.trim();
-  const dot = name.lastIndexOf(".");
-  if (dot <= 0 || dot === name.length - 1)
-    return "";
-  return name.slice(dot + 1).toLowerCase();
+var EVA_MILEAGE_RE = /^\d{1,20}$/;
+var EVA_GROUPED_MILEAGE_RE = /^\d{1,3}(?:,\d{3})+$/;
+function normaliseEvaMileage(value) {
+  if (typeof value !== "string")
+    return void 0;
+  const trimmed = value.trim();
+  const digits = EVA_MILEAGE_RE.test(trimmed) ? trimmed : EVA_GROUPED_MILEAGE_RE.test(trimmed) ? trimmed.replaceAll(",", "") : "";
+  return digits && EVA_MILEAGE_RE.test(digits) ? digits : void 0;
 }
-function normaliseMime(contentType2) {
-  if (!contentType2)
-    return "";
-  const semi = contentType2.indexOf(";");
-  const base = semi >= 0 ? contentType2.slice(0, semi) : contentType2;
-  return base.trim().toLowerCase();
-}
-var ENGINEER_REPORT_LAYOUT_KEYS = new Set([
-  "EVA (Engineers)",
-  "CNX (Engineers)",
-  "Exclusive Vehicle Assessors",
-  "Connexus Vehicle Assessors"
-].map((n) => normaliseLayoutName(n)));
-function normaliseLayoutName(raw) {
-  return raw.trim().toUpperCase().replace(/[().,'&]/g, "").replace(/\s+/g, " ").trim();
-}
-function isEngineerReportLayoutName(raw) {
-  const key = normaliseLayoutName((raw ?? "").toString());
-  return key !== "" && ENGINEER_REPORT_LAYOUT_KEYS.has(key);
-}
-function classifyAttachment(filename, contentType2) {
-  const ext = extensionOf(filename);
-  const byExt = EXTENSION_TABLE[ext];
-  if (byExt)
-    return byExt;
-  const byMime = MIME_TABLE[normaliseMime(contentType2)];
-  if (byMime)
-    return byMime;
-  return "other";
-}
-function describeEvidence(filename, contentType2, isEmlMessage = false) {
-  const evidenceClass = isEmlMessage ? "email" : classifyAttachment(filename, contentType2);
-  return {
-    filename,
-    contentType: normaliseMime(contentType2),
-    extension: extensionOf(filename),
-    evidenceClass,
-    isImage: evidenceClass === "image",
-    isInstruction: evidenceClass === "instruction"
-  };
-}
-
-// packages/domain/dist/domain/dedup.js
-function hasRef(ref) {
-  return typeof ref === "string" && ref.trim().length > 0;
-}
-function refEquals(a, b) {
-  if (!hasRef(a) || !hasRef(b))
-    return false;
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
-}
-function eligibleCases(input16) {
-  return input16.openProviderCases.filter((c) => {
-    if (c.workProviderId !== void 0 && c.workProviderId !== input16.workProviderId) {
-      return false;
-    }
-    if (isTerminalStatus(c.status))
-      return false;
-    return true;
-  });
-}
-function resolveCase(input16) {
-  if (input16.seenMessageIds.includes(input16.messageId) || input16.seenPayloadHashes.includes(input16.payloadHash)) {
-    return {
-      resolution: "drop",
-      setDuplicateRisk: false,
-      statusEffect: "keep_target",
-      auditAction: "duplicate_dropped"
-    };
-  }
-  const candidates = eligibleCases(input16);
-  if (hasRef(input16.candidateRef)) {
-    const matched = candidates.find((c) => refEquals(c.caseRef, input16.candidateRef));
-    if (matched) {
-      return {
-        resolution: "attach",
-        targetCaseId: matched.caseId,
-        setDuplicateRisk: false,
-        caseLinkState: "none",
-        statusEffect: "keep_target",
-        auditAction: "case_attached"
-      };
-    }
-    if (candidates.length > 0) {
-      return {
-        resolution: "new_due_to_reference",
-        setDuplicateRisk: true,
-        caseLinkState: "none",
-        statusEffect: "new_email",
-        auditAction: "duplicate_flagged"
-      };
-    }
-  }
-  if (!hasRef(input16.candidateRef) && candidates.length > 0) {
-    return {
-      resolution: "propose_attach",
-      targetCaseId: candidates[0].caseId,
-      setDuplicateRisk: true,
-      caseLinkState: "pending",
-      statusEffect: "duplicate_risk",
-      auditAction: "duplicate_flagged"
-    };
-  }
-  return {
-    resolution: "create",
-    setDuplicateRisk: false,
-    caseLinkState: "none",
-    statusEffect: "new_email",
-    auditAction: "case_created"
-  };
-}
-
-// packages/domain/dist/domain/provider-match.js
-function domainOf(senderAddress) {
-  const raw = senderAddress.trim().toLowerCase();
-  const lt = raw.lastIndexOf("<");
-  const gt = raw.lastIndexOf(">");
-  const addr = lt >= 0 && gt > lt ? raw.slice(lt + 1, gt).trim() : raw;
-  const at = addr.lastIndexOf("@");
-  if (at < 0 || at === addr.length - 1)
-    return "";
-  const domain = addr.slice(at + 1).trim();
-  if (!domain.includes(".") || /\s/.test(domain))
-    return "";
-  return domain;
-}
-function addressOf(senderAddress) {
-  const raw = senderAddress.trim().toLowerCase();
-  const lt = raw.lastIndexOf("<");
-  const gt = raw.lastIndexOf(">");
-  const addr = lt >= 0 && gt > lt ? raw.slice(lt + 1, gt).trim() : raw;
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr))
-    return "";
-  return addr;
-}
-function matchProviderByDomain(senderAddress, providers) {
-  const address = addressOf(senderAddress);
-  const domain = domainOf(senderAddress);
-  if (address) {
-    const addrHits = providers.filter((p) => p.active && (p.knownEmailAddresses ?? []).some((a) => a.trim().toLowerCase() === address));
-    if (addrHits.length === 1) {
-      return {
-        outcome: "matched",
-        matchedDomain: domain,
-        matchedAddress: address,
-        matchedBy: "address",
-        workProviderId: addrHits[0].workProviderId,
-        principalCode: addrHits[0].principalCode
-      };
-    }
-    if (addrHits.length > 1) {
-      return {
-        outcome: "ambiguous",
-        matchedDomain: domain,
-        matchedAddress: address,
-        matchedBy: "address",
-        ambiguousProviderIds: addrHits.map((p) => p.workProviderId)
-      };
-    }
-  }
-  if (!domain) {
-    return { outcome: "unmatched", matchedDomain: "" };
-  }
-  const hits = providers.filter((p) => p.active && p.knownEmailDomains.some((d) => d.trim().toLowerCase() === domain));
-  if (hits.length === 0) {
-    return { outcome: "unmatched", matchedDomain: domain };
-  }
-  if (hits.length > 1) {
-    return {
-      outcome: "ambiguous",
-      matchedDomain: domain,
-      matchedBy: "domain",
-      ambiguousProviderIds: hits.map((p) => p.workProviderId)
-    };
-  }
-  return {
-    outcome: "matched",
-    matchedDomain: domain,
-    matchedBy: "domain",
-    workProviderId: hits[0].workProviderId,
-    principalCode: hits[0].principalCode
-  };
-}
-
-// packages/domain/dist/domain/sender-identity-match.js
-function matchSenderIdentity(senderAddress, providers, imageSources) {
-  const domain = domainOf(senderAddress);
-  const providerResult = matchProviderByDomain(senderAddress, providers);
-  if (providerResult.matchedBy === "address") {
-    return { kind: "provider", result: providerResult };
-  }
-  if (domain) {
-    const hit = imageSources.find((s) => s.kind === "intermediary" && s.emailDomain.trim().toLowerCase() === domain);
-    if (hit) {
-      return {
-        kind: "intermediary",
-        imageSourceId: hit.imageSourceId,
-        name: hit.name,
-        candidateProviderIds: hit.candidateProviderIds,
-        matchedDomain: domain
-      };
-    }
-  }
-  if (providerResult.outcome === "matched" || providerResult.outcome === "ambiguous") {
-    return { kind: "provider", result: providerResult };
-  }
-  return { kind: "none", matchedDomain: domain };
-}
-
-// packages/domain/dist/domain/vrm-canon.js
-function canonicalizeVrm(s) {
-  if (!s)
-    return "";
-  return s.toUpperCase().replace(/[^A-Z0-9]/g, "");
-}
-
-// packages/domain/dist/domain/vrm-filter.js
-var STRICT = /\b(?:[A-Z]{2}[0-9]{2}\s?[A-Z]{3}|[A-Z][0-9]{1,3}\s?[A-Z]{3}|[A-Z]{3}\s?[0-9]{1,3}[A-Z])\b/g;
-var LOOSE = /\b[A-Z]{1,3}\s?[0-9]{1,4}\b/g;
-var ANCHOR = /\b(?:registration|reg|vrm|vehicle|plate|number\s?plate)\b/i;
-var ANCHOR_WINDOW = 40;
-var TIGHT_ANCHOR_WINDOW = 16;
-var TIGHT_ANCHOR = /(?:reg(?:istration)?|vrm|vehicle|plate)\s*(?:no|number|mark)?\s*[:.\-#]?\s*$/i;
-var MONTH_DAY_WORDS = /* @__PURE__ */ new Set([
-  "JANUARY",
-  "FEBRUARY",
-  "MARCH",
-  "APRIL",
-  "MAY",
-  "JUNE",
-  "JULY",
-  "AUGUST",
-  "SEPTEMBER",
-  "OCTOBER",
-  "NOVEMBER",
-  "DECEMBER",
-  "MONDAY",
-  "TUESDAY",
-  "WEDNESDAY",
-  "THURSDAY",
-  "FRIDAY",
-  "SATURDAY",
-  "SUNDAY",
-  "JAN",
-  "FEB",
-  "MAR",
-  "APR",
-  "JUN",
-  "JUL",
-  "AUG",
-  "SEP",
-  "SEPT",
-  "OCT",
-  "NOV",
-  "DEC"
-]);
-var LOOSE_ALPHA_STOPWORDS = /* @__PURE__ */ new Set([
-  "AND",
-  "THE",
-  "FOR",
-  "NOT",
-  "BUT",
-  "ARE",
-  "WAS",
-  "OUR",
-  "YOU",
-  "ALL",
-  "ANY",
-  "HAS",
-  "HAD",
-  "PER",
-  "VIA"
-]);
-var EXCLUDE_WORDS = /* @__PURE__ */ new Set([
-  "VAT",
-  "TEL",
-  "REF",
-  "REFERENCE",
-  "INVOICE",
-  "INV",
-  "PHONE",
-  "FAX",
-  "FAO",
-  "PO",
-  "ORDER",
-  "ACCOUNT",
-  "ACC"
-]);
-var EXCLUDE_LABEL = new RegExp(`\\b(?:${[...EXCLUDE_WORDS].join("|")})[:.#\\-\\s]*$`);
-function isPostcodeOutward(upper, idx, cand) {
-  const after = upper.slice(idx + cand.length);
-  return /^\s?[0-9][A-Z]{2}\b/.test(after);
-}
-var POSTCODE_AREAS = /* @__PURE__ */ new Set([
-  "AB",
-  "AL",
-  "B",
-  "BA",
-  "BB",
-  "BD",
-  "BH",
-  "BL",
-  "BN",
-  "BR",
-  "BS",
-  "BT",
-  "CA",
-  "CB",
-  "CF",
-  "CH",
-  "CM",
-  "CO",
-  "CR",
-  "CT",
-  "CV",
-  "CW",
-  "DA",
-  "DD",
-  "DE",
-  "DG",
-  "DH",
-  "DL",
-  "DN",
-  "DT",
-  "DY",
-  "E",
-  "EC",
-  "EH",
-  "EN",
-  "EX",
-  "FK",
-  "FY",
-  "G",
-  "GL",
-  "GU",
-  "GY",
-  "HA",
-  "HD",
-  "HG",
-  "HP",
-  "HR",
-  "HS",
-  "HU",
-  "HX",
-  "IG",
-  "IM",
-  "IP",
-  "IV",
-  "JE",
-  "KA",
-  "KT",
-  "KW",
-  "KY",
-  "L",
-  "LA",
-  "LD",
-  "LE",
-  "LL",
-  "LN",
-  "LS",
-  "LU",
-  "M",
-  "ME",
-  "MK",
-  "ML",
-  "N",
-  "NE",
-  "NG",
-  "NN",
-  "NP",
-  "NR",
-  "NW",
-  "OL",
-  "OX",
-  "PA",
-  "PE",
-  "PH",
-  "PL",
-  "PO",
-  "PR",
-  "RG",
-  "RH",
-  "RM",
-  "S",
-  "SA",
-  "SE",
-  "SG",
-  "SK",
-  "SL",
-  "SM",
-  "SN",
-  "SO",
-  "SP",
-  "SR",
-  "SS",
-  "ST",
-  "SW",
-  "SY",
-  "TA",
-  "TD",
-  "TF",
-  "TN",
-  "TQ",
-  "TR",
-  "TS",
-  "TW",
-  "UB",
-  "W",
-  "WA",
-  "WC",
-  "WD",
-  "WF",
-  "WN",
-  "WR",
-  "WS",
-  "WV",
-  "YO",
-  "ZE"
-]);
-function isPostcodeOutwardCode(compact) {
-  const m = /^([A-Z]{1,2})[0-9]{1,2}$/.exec(compact);
-  return m !== null && POSTCODE_AREAS.has(m[1]);
-}
-function isPostcodeAreaHead(compact) {
-  const m = /^([A-Z]{1,3})[0-9]/.exec(compact);
-  return m !== null && POSTCODE_AREAS.has(m[1]);
-}
-function precededByExcludeLabel(upper, idx) {
-  const before = upper.slice(Math.max(0, idx - 16), idx);
-  return EXCLUDE_LABEL.test(before);
-}
-function extractVrm(text) {
-  if (!text)
-    return "";
-  const upper = text.toUpperCase();
-  for (const m of upper.matchAll(STRICT)) {
-    const cand = m[0];
-    if (isPostcodeOutward(upper, m.index ?? 0, cand))
-      continue;
-    return canonicalizeVrm(cand);
-  }
-  for (const m of upper.matchAll(LOOSE)) {
-    const cand = m[0];
-    const idx = m.index ?? 0;
-    const compact = cand.replace(/\s+/g, "");
-    if (MONTH_DAY_WORDS.has(compact))
-      continue;
-    if (isPostcodeOutward(upper, idx, cand))
-      continue;
-    if (isPostcodeOutwardCode(compact))
-      continue;
-    const alpha = cand.match(/^[A-Z]+/)?.[0] ?? "";
-    if (EXCLUDE_WORDS.has(alpha))
-      continue;
-    if (LOOSE_ALPHA_STOPWORDS.has(alpha))
-      continue;
-    if (precededByExcludeLabel(upper, idx))
-      continue;
-    if (isPostcodeAreaHead(compact)) {
-      const before = upper.slice(Math.max(0, idx - TIGHT_ANCHOR_WINDOW), idx);
-      if (!TIGHT_ANCHOR.test(before))
-        continue;
-    } else {
-      const windowText = upper.slice(Math.max(0, idx - ANCHOR_WINDOW), idx + cand.length + ANCHOR_WINDOW);
-      if (!ANCHOR.test(windowText))
-        continue;
-    }
-    return canonicalizeVrm(cand);
-  }
-  return "";
-}
-
-// packages/domain/dist/domain/email-body-clean.js
-var QUOTE_DIVIDERS = [
-  /^-{3,}\s*Original Message\s*-{3,}\s*$/im,
-  /^_{8,}\s*$/m,
-  // Outlook reply divider
-  /^\s*On\b[^\n]{0,160}\bwrote:\s*$/im,
-  // Gmail attribution
-  /^[ \t]*From:[ \t]*\S[^\n]*(?:\r?\n[ \t]*(?:Sent|To|Cc|Subject|Date):[ \t]*[^\n]*){1,5}/im
-  // Outlook header block
-];
-var SIGN_OFF_RE = /^(?:kind\s+regards|kindest\s+regards|best\s+regards|warm\s+regards|regards|many\s+thanks|thanks(?:\s+again)?|thank\s+you|best\s+wishes|yours\s+sincerely|yours\s+faithfully|cheers)\s*[,.!]?\s*$/i;
-var LEGAL_MARKERS = [
-  /\bregistered (?:office|in england|in scotland|number|no\b)/i,
-  /\bauthorised and regulated\b/i,
-  /\bthis (?:e-?mail|message) (?:carries a disclaimer|and any attachment|and its attachments?)/i,
-  /\bif you (?:are not|have received this .* in error)\b/i,
-  /\bintended (?:solely )?for the addressee\b/i,
-  /\bprivacy (?:notice|policy) (?:may be read|can be found|is available)\b/i,
-  /\breserves? copyright\b/i,
-  /\byou are dealing with\b/i,
-  /\bproud members? of\b/i,
-  /\bconfidentiality notice\b/i,
-  /\bplease consider the environment\b/i,
-  /\bscanned for the presence of computer viruses\b/i,
-  /\bcalls? (?:may|will) be recorded\b/i
-];
-var BRACKET_GARBAGE_RE = /\[(?:cid:|https?:\/\/)[^\]]*\]|<(?:tel:|mailto:|https?:\/\/)[^>\s]*>/gi;
-var BARE_URL_RE = /\bhttps?:\/\/([^\s/<>"')\]]+)[^\s<>"')\]]*/gi;
-var RESIDUE_LINE_RE = /^[\s[\]()|·•–—-]*$/;
-function cutAtEarliestQuote(text) {
-  let cut = text.length;
-  for (const re of QUOTE_DIVIDERS) {
-    const m = re.exec(text);
-    if (m && m.index < cut)
-      cut = m.index;
-  }
-  return text.slice(0, cut);
-}
-function cleanEmailBodyForPreview(body2) {
-  if (!body2)
-    return "";
-  let text = body2.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  text = cutAtEarliestQuote(text);
-  text = text.replace(BRACKET_GARBAGE_RE, " ");
-  text = text.replace(BARE_URL_RE, "$1");
-  const kept = [];
-  let signOffSeen = false;
-  let nameLinesAfterSignOff = 0;
-  for (const raw of text.split("\n")) {
-    const line = raw.replace(/[ \t]+$/g, "");
-    const trimmed = line.trim();
-    if (trimmed.startsWith(">"))
-      continue;
-    if (LEGAL_MARKERS.some((re) => re.test(trimmed)))
-      break;
-    if (signOffSeen && trimmed) {
-      if (nameLinesAfterSignOff >= 1 || trimmed.length > 40 || /[@\d]/.test(trimmed))
-        break;
-      nameLinesAfterSignOff += 1;
-      kept.push(line);
-      continue;
-    }
-    if (!signOffSeen && SIGN_OFF_RE.test(trimmed)) {
-      signOffSeen = true;
-      kept.push(line);
-      continue;
-    }
-    if (trimmed && RESIDUE_LINE_RE.test(trimmed))
-      continue;
-    kept.push(line);
-  }
-  return kept.join("\n").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
-}
-
-// packages/domain/dist/domain/case-type.js
-var CASE_PO_MARKER = {
-  standard: "",
-  audit: "A.",
-  audit_total_loss: "AP.",
-  diminution: "D."
-};
-function decideCaseType(signals) {
-  const parserValue = (signals.parserCaseType?.value ?? "").toString().trim();
-  const parserSignals = [
-    ...signals.parserCaseType?.signals ?? signals.parserAudit?.signals ?? []
-  ];
-  if (parserValue === "audit" || parserValue === "audit_total_loss" || parserValue === "diminution") {
-    return {
-      caseType: parserValue,
-      dual: signals.parserCaseType?.dual === true,
-      signals: parserSignals
-    };
-  }
-  if (signals.parserAudit?.value === true) {
-    return { caseType: "audit", dual: false, signals: parserSignals };
-  }
-  if ((signals.classifierSubtype ?? "") === "existing_provider_audit") {
-    return { caseType: "audit", dual: false, signals: ["classifier:existing_provider_audit"] };
-  }
-  return { caseType: "standard", dual: false, signals: [] };
-}
-
-// packages/domain/dist/domain/pii-scrub.js
-var DEFAULT_PLACEHOLDERS = {
-  email: "[EMAIL]",
-  phone: "[PHONE]",
-  postcode: "[POSTCODE]",
-  address: "[ADDRESS]",
-  nino: "[NINO]",
-  name: "[NAME]",
-  vrm: "[VRM]"
-};
-var EMAIL_RE = /(?<![\w])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![\w])/g;
-var NINO_RE = /(?<![\w])[ABCEGHJ-PRSTW-Z][ABCEGHJ-NPRSTW-Z][\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?[A-D](?![\w])/gi;
-var ADDRESS_RE = /(?<![\w])\d{1,4}[A-Za-z]?[\s,]+(?:[A-Z][A-Za-z'-]+[\s,]+){1,4}(?:Road|Rd|Street|St|Avenue|Ave|Lane|Ln|Drive|Dr|Close|Cl|Way|Court|Ct|Crescent|Cres|Place|Pl|Terrace|Gardens|Grove|Grv|Walk|Row|Hill|Park)\b\.?/g;
-var POSTCODE_RE = /(?<![\w])(?:[A-Z]{1,2}\d[A-Z\d]?|GIR)[\s-]?\d[A-Z]{2}(?![\w])/gi;
-var PHONE_RE = /(?<![\w])(?:\+44[\s-]?\(?0?\)?|\(?0)(?:[\s\-()]{0,2}\d){9,10}(?![\w])/g;
-var NAME_RE = /(?<![\w])(?:Mr|Mrs|Ms|Miss|Dr|Prof)\.?\s+[A-Z](?:[A-Za-z'-]+|\.)?(?:\s+[A-Z](?:[A-Za-z'-]+|\.)?){0,2}/g;
-var VRM_RE = /(?<![\w])(?:[A-Z]{2}\d{2}[\s-]?[A-Z]{3}|[A-Z]\d{1,3}[\s-]?[A-Z]{3}|[A-Z]{3}[\s-]?\d{1,3}[A-Z])(?![\w])/gi;
-var RULES = [
-  { kind: "email", re: EMAIL_RE, enabled: () => true },
-  { kind: "nino", re: NINO_RE, enabled: () => true },
-  { kind: "address", re: ADDRESS_RE, enabled: () => true },
-  { kind: "postcode", re: POSTCODE_RE, enabled: () => true },
-  { kind: "phone", re: PHONE_RE, enabled: () => true },
-  { kind: "name", re: NAME_RE, enabled: (o) => o.redactNames },
-  { kind: "vrm", re: VRM_RE, enabled: (o) => o.redactVrm }
-];
-function scrubPii(input16, opts = {}) {
-  const cfg = {
-    redactVrm: opts.redactVrm ?? false,
-    redactNames: opts.redactNames ?? true
-  };
-  const placeholderFor = (kind) => opts.placeholders?.[kind] ?? DEFAULT_PLACEHOLDERS[kind];
-  if (typeof input16 !== "string" || input16.length === 0) {
-    return { text: typeof input16 === "string" ? input16 : "", redactions: [], totalRedactions: 0 };
-  }
-  let text = input16;
-  const redactions = [];
-  for (const rule of RULES) {
-    if (!rule.enabled(cfg))
-      continue;
-    let count = 0;
-    const placeholder = placeholderFor(rule.kind);
-    rule.re.lastIndex = 0;
-    text = text.replace(rule.re, () => {
-      count += 1;
-      return placeholder;
-    });
-    if (count > 0)
-      redactions.push({ kind: rule.kind, count });
-  }
-  const totalRedactions = redactions.reduce((sum, r) => sum + r.count, 0);
-  return { text, redactions, totalRedactions };
-}
-
-// packages/domain/dist/domain/triage-policy.js
-var POLICY_VERSION = "triage-policy-v1";
-var REF_MATCH_PRIORITY = {
-  case_po: 0,
-  job_ref: 1,
-  vrm: 2
-};
-function matchLabel(matchedOn) {
-  switch (matchedOn) {
-    case "case_po":
-      return "Case/PO";
-    case "job_ref":
-      return "job reference";
-    case "vrm":
-      return "registration";
-  }
-}
-function distinctByCaseId(matches) {
-  const seen = /* @__PURE__ */ new Map();
-  for (const m of matches) {
-    if (!seen.has(m.caseId))
-      seen.set(m.caseId, m);
-  }
-  return [...seen.values()];
-}
-function bestMatchTier(matches) {
-  if (matches.length === 0)
-    return [];
-  const bestPriority = Math.min(...matches.map((m) => REF_MATCH_PRIORITY[m.matchedOn]));
-  const tier2 = matches.filter((m) => REF_MATCH_PRIORITY[m.matchedOn] === bestPriority);
-  return distinctByCaseId(tier2);
-}
-function cancellationEligibleMatches(matches) {
-  return distinctByCaseId(matches.filter((m) => m.matchedOn !== "vrm"));
-}
-function hasRefSignal(c) {
-  return Boolean(c.bodyCaseref && c.bodyCaseref.trim() || c.bodyJobref && c.bodyJobref.trim() || c.bodyVrm && c.bodyVrm.trim());
-}
-function decideTriage(classification, context3, gates2) {
-  if (context3.duplicateInternetMessageId && gates2.refGate) {
-    return {
-      action: "drop_duplicate",
-      finalCategory: classification.category,
-      finalSubtype: classification.subtype,
-      rationale: "This message has already been received and processed once \u2014 the repeat copy is not actioned again.",
-      decisionInputs: {
-        rung: "duplicate_internet_message_id",
-        duplicateInternetMessageId: context3.duplicateInternetMessageId
-      },
-      policyVersion: POLICY_VERSION
-    };
-  }
-  if (gates2.cancellation && classification.category === "cancellation") {
-    const eligible = cancellationEligibleMatches(context3.openCaseMatches);
-    const target = eligible.length === 1 ? eligible[0] : void 0;
-    return {
-      action: "propose_cancellation",
-      finalCategory: classification.category,
-      finalSubtype: classification.subtype,
-      ...target ? { targetCaseId: target.caseId } : {},
-      suggestionType: "cancellation",
-      rationale: target ? `This message reports case ${target.casePo} as cancelled or closed \u2014 flagged for a person to confirm before it is closed or put on hold.` : "This message reports a case cancelled or closed, but no single open case could be matched to it \u2014 flagged for a person to find the right one.",
-      decisionInputs: {
-        rung: "cancellation",
-        engineCategory: classification.category,
-        eligibleMatchCount: eligible.length,
-        openCaseMatches: context3.openCaseMatches
-      },
-      policyVersion: POLICY_VERSION
-    };
-  }
-  if (gates2.refGate && hasRefSignal(classification) && context3.openCaseMatches.length > 0) {
-    const tier2 = bestMatchTier(context3.openCaseMatches);
-    const target = tier2.length === 1 ? tier2[0] : void 0;
-    let finalCategory = classification.category;
-    let finalSubtype = classification.subtype;
-    let caseUpdateApplied = false;
-    if (gates2.caseUpdate && context3.hasAttachments) {
-      finalCategory = "case_update";
-      finalSubtype = context3.imagesOnly ? "images_received" : "update_general";
-      caseUpdateApplied = true;
-    }
-    const autoAttachEligible = gates2.autoAttach && target !== void 0 && target.matchedOn !== "vrm";
-    const action5 = autoAttachEligible ? "attach_case" : "suggest_attach";
-    return {
-      action: action5,
-      finalCategory,
-      finalSubtype,
-      ...target ? { targetCaseId: target.caseId } : {},
-      suggestionType: "case_link",
-      rationale: autoAttachEligible ? `Matches open case ${target.casePo} by its ${matchLabel(target.matchedOn)} \u2014 attached to it automatically (a person can detach it if this is wrong).` : target ? `Matches open case ${target.casePo} by its ${matchLabel(target.matchedOn)} \u2014 suggested attaching this email to it.` : `Matches ${tier2.length} open cases by ${matchLabel(tier2[0].matchedOn)} \u2014 needs a person to pick the right one.`,
-      decisionInputs: {
-        rung: "ref_gate",
-        matchTier: tier2[0]?.matchedOn,
-        matchCount: tier2.length,
-        openCaseMatches: context3.openCaseMatches,
-        conversationSiblingCaseIds: context3.conversationSiblingCaseIds,
-        caseUpdateApplied,
-        autoAttachApplied: autoAttachEligible,
-        hasAttachments: context3.hasAttachments,
-        imagesOnly: context3.imagesOnly
-      },
-      policyVersion: POLICY_VERSION
-    };
-  }
-  if (gates2.imagesRouting && context3.imagesOnly && context3.openCaseMatches.length === 0 && classification.bodyVrm && classification.bodyVrm.trim()) {
-    return {
-      action: "route_images_unmatched",
-      finalCategory: classification.category,
-      finalSubtype: "images_received",
-      rationale: `These photos show a registration (${classification.bodyVrm.trim()}) but do not yet match an open case \u2014 routed to the unmatched-photos folder for a person to place.`,
-      decisionInputs: {
-        rung: "images_routing",
-        bodyVrm: classification.bodyVrm,
-        openCaseMatchCount: context3.openCaseMatches.length
-      },
-      policyVersion: POLICY_VERSION
-    };
-  }
-  return {
-    action: "proceed_default",
-    finalCategory: classification.category,
-    finalSubtype: classification.subtype,
-    rationale: "No case-matching or cancellation action applies here \u2014 this message proceeds through the ordinary intake process unchanged.",
-    decisionInputs: {
-      rung: "default",
-      gates: gates2,
-      openCaseMatchCount: context3.openCaseMatches.length,
-      duplicateInternetMessageId: context3.duplicateInternetMessageId
-    },
-    policyVersion: POLICY_VERSION
-  };
-}
-
-// packages/domain/dist/domain/outlook-folder.js
-function outlookFolderSegments(path) {
-  const parts = path.split("/").map((p) => p.trim()).filter(Boolean);
-  return parts[0]?.toLowerCase() === "inbox" ? parts.slice(1) : parts;
-}
-
-// packages/domain/dist/domain/retro-case.js
-var RETRO_TRIGGER_CATEGORIES = [
-  "billing",
-  "case_update",
-  "cancellation",
-  "query"
-];
-var RETRO_TRIGGER_ACK_SUBTYPE = "acknowledgement";
-var CASE_PO_SHAPE_RE = /^(?:(?:AP|A|D)\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{2}\d{3,4})$/i;
-function normalizeCasePo(raw) {
-  return (raw ?? "").trim().toUpperCase().replace(/^((?:AP|A|D)\.)\s+/, "$1");
-}
-function decideRetro(input16) {
-  const reasons = [];
-  const keys = {};
-  const ackEligible = input16.category === "non_actionable" && (input16.subtype ?? "").trim() === RETRO_TRIGGER_ACK_SUBTYPE;
-  if (!RETRO_TRIGGER_CATEGORIES.includes(input16.category) && !ackEligible) {
-    return { attempt: false, keys, reasons: [`category_not_eligible:${input16.category}`] };
-  }
-  if (ackEligible)
-    reasons.push("ack_subtype_eligible");
-  const refCandidates = [input16.bodyCaseref, input16.candidateRef];
-  for (const raw of refCandidates) {
-    const token = normalizeCasePo(raw);
-    if (!token)
-      continue;
-    if (!keys.casePo && CASE_PO_SHAPE_RE.test(token)) {
-      keys.casePo = token;
-      reasons.push("key:case_po");
-    } else if (!keys.externalRef) {
-      keys.externalRef = token;
-      reasons.push("key:external_ref_from_subject");
-    }
-  }
-  const jobref = (input16.bodyJobref ?? "").trim().toUpperCase();
-  if (jobref && !keys.externalRef) {
-    keys.externalRef = jobref;
-    reasons.push("key:external_ref");
-  }
-  const vrm = ((input16.bodyVrm || input16.candidateVrm) ?? "").trim().toUpperCase().replace(/\s+/g, "");
-  if (vrm) {
-    keys.vrm = vrm;
-    reasons.push("key:vrm");
-  }
-  if (!keys.casePo && !keys.externalRef && !keys.vrm) {
-    return { attempt: false, keys, reasons: [...reasons, "no_usable_key"] };
-  }
-  if (input16.isReply && input16.linkReplyOutcome !== void 0 && input16.linkReplyOutcome !== "no_match") {
-    return {
-      attempt: false,
-      keys,
-      reasons: [...reasons, `reply_outcome_not_no_match:${input16.linkReplyOutcome}`]
-    };
-  }
-  return { attempt: true, keys, reasons };
-}
-function decideRetroStatus(input16) {
-  if (!input16.principalResolved || !input16.casePoKnown) {
-    return {
-      status: "needs_review",
-      onHold: true,
-      actionReason: "needs_review",
-      signals: [
-        input16.casePoKnown ? "retro_principal_unresolved" : "retro_case_po_unknown",
-        `retro_source:${input16.reconstruction}`
-      ]
-    };
-  }
-  if (input16.triggerCategory === "billing" && input16.reconstruction !== "minimal") {
-    return {
-      status: "eva_submitted",
-      onHold: false,
-      signals: ["retro_billing_implies_submitted", `retro_source:${input16.reconstruction}`]
-    };
-  }
-  return {
-    status: "needs_review",
-    onHold: true,
-    actionReason: "needs_review",
-    signals: [`retro_trigger:${input16.triggerCategory}`, `retro_source:${input16.reconstruction}`]
-  };
-}
-function parseCasePoMarker(po) {
-  const token = normalizeCasePo(po);
-  for (const marker2 of ["AP.", "A.", "D."]) {
-    if (token.startsWith(marker2))
-      return { marker: marker2, body: token.slice(marker2.length) };
-  }
-  return { marker: "", body: token };
-}
-function matchPrincipalByCasePo(po, principals) {
-  const { marker: marker2, body: body2 } = parseCasePoMarker(po);
-  if (!body2)
-    return null;
-  let best = null;
-  for (const raw of principals) {
-    const code = (raw ?? "").trim().toUpperCase();
-    if (!code || !body2.startsWith(code))
-      continue;
-    if (!/^\d{5,6}$/.test(body2.slice(code.length)))
-      continue;
-    if (!best || code.length > best.length)
-      best = code;
-  }
-  return best ? { principal: best, marker: marker2 } : null;
-}
-function markerToCaseType(marker2) {
-  const token = (marker2 ?? "").trim().toUpperCase();
-  const entry = Object.entries(CASE_PO_MARKER).find(([, m]) => m === token);
-  return entry ? entry[0] : "standard";
-}
-var EML_EXT_RE = /\.(eml|msg)$/i;
-var DOC_EXT_RE = /\.(pdf|docx?|rtf)$/i;
-var NON_INSTRUCTION_NAME_RE = /report|invoice|fee/i;
-var INSTRUCTION_NAME_RE = /instruction|new\s?case|message/i;
-function byOldestThenName(a, b) {
-  const at = a.createdAt ?? "9999";
-  const bt = b.createdAt ?? "9999";
-  if (at !== bt)
-    return at < bt ? -1 : 1;
-  return a.name.localeCompare(b.name);
-}
-function selectBoxInstructionCandidate(entries) {
-  const files = entries.filter((e) => (e.type ?? "file") === "file");
-  const emls = files.filter((e) => EML_EXT_RE.test(e.name)).sort(byOldestThenName);
-  if (emls.length > 0) {
-    const advertised = emls.filter((e) => INSTRUCTION_NAME_RE.test(e.name));
-    return { entry: advertised[0] ?? emls[0], kind: "eml" };
-  }
-  const docs = files.filter((e) => DOC_EXT_RE.test(e.name) && !NON_INSTRUCTION_NAME_RE.test(e.name)).sort(byOldestThenName);
-  if (docs.length > 0) {
-    const advertised = docs.filter((e) => INSTRUCTION_NAME_RE.test(e.name));
-    return { entry: advertised[0] ?? docs[0], kind: "doc" };
-  }
-  return null;
-}
-
-// packages/domain/dist/domain/intake-routing.js
-var CASE_MINTING_CATEGORIES = ["receiving_work"];
-function categoryMintsCase(category) {
-  return CASE_MINTING_CATEGORIES.includes(category);
-}
-
-// packages/domain/dist/dto/index.js
-var INBOUND_CATEGORIES = [
-  "receiving_work",
-  "query",
-  "billing",
-  "non_actionable",
-  "other",
-  "case_update",
-  "cancellation",
-  "pre_instruction"
-];
-var INBOUND_SUBTYPES = [
-  "existing_provider_instruction",
-  "existing_provider_audit",
-  "existing_provider_diminution",
-  "new_client_work",
-  "query_existing_work",
-  "query_new_enquiry",
-  "billing_request",
-  "case_summary",
-  "acknowledgement",
-  "other",
-  "images_received",
-  "cancellation_notice",
-  "update_general",
-  "payment_remittance",
-  "pre_instruction_directions"
-];
 
 // node_modules/zod/v3/external.js
 var external_exports = {};
@@ -8958,6 +8016,1217 @@ var coerce = {
 };
 var NEVER = INVALID;
 
+// packages/domain/dist/contracts/vehicle-data.js
+var VEHICLE_DATA_CONTRACT_VERSION = "vehicle-data.v1";
+var VEHICLE_DATA_ALGORITHM_VERSION = "mot-display-estimator.v2";
+var VEHICLE_LOOKUP_STATUSES = [
+  "found",
+  "not_found",
+  "invalid_registration",
+  "temporarily_unavailable",
+  "configuration_error"
+];
+var MILEAGE_OUTCOME_STATUSES = [
+  "observed",
+  "estimated",
+  "range_only",
+  "insufficient"
+];
+var MILEAGE_METHODS = [
+  "observed_mot",
+  "bounded_interpolation",
+  "recent_rate_forecast",
+  "cohort_assisted_forecast",
+  "cohort_assisted_backcast",
+  "displayed_segment_only",
+  "none"
+];
+var OBSERVATION_DECISIONS = [
+  "rejected_invalid_test_date",
+  "rejected_odometer_not_read",
+  "rejected_invalid_odometer_value",
+  "rejected_unknown_odometer_unit",
+  "duplicate_excluded",
+  "episode_selected",
+  "retest_episode_consolidated",
+  "isolated_spike_excluded",
+  "isolated_dip_excluded",
+  "persistent_lower_segment"
+];
+var INTERVAL_DECISIONS = [
+  "crosses_odometer_segment",
+  "short_interval_excluded",
+  "negative_interval_excluded",
+  "extreme_annual_rate_excluded",
+  "historical_gap_context_only",
+  "long_interval_half_weight",
+  "zero_movement_retained"
+];
+var lookupStatusSchema = external_exports.enum(VEHICLE_LOOKUP_STATUSES);
+var nonNegativeInteger = external_exports.number().int().nonnegative();
+var dateSchema = external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+var dateTimeSchema = external_exports.string().datetime({ offset: true });
+var sha256Schema = external_exports.string().regex(/^[0-9a-f]{64}$/);
+var vehicleDataWarningSchema = external_exports.object({
+  code: external_exports.string(),
+  severity: external_exports.enum(["warning", "blocking"]),
+  message: external_exports.string()
+}).passthrough();
+var observationSchema = external_exports.object({
+  observation_id: external_exports.string(),
+  raw_index: nonNegativeInteger,
+  source: external_exports.string(),
+  mot_test_number: external_exports.string().nullable(),
+  test_date: dateSchema.nullable(),
+  completed_date_raw: external_exports.string().nullable(),
+  test_result: external_exports.string().nullable(),
+  odometer_value_raw: external_exports.string().nullable(),
+  odometer_unit_raw: external_exports.string().nullable(),
+  odometer_result_type_raw: external_exports.string().nullable(),
+  registration_at_test: external_exports.string().nullable(),
+  stable_vehicle_identity: external_exports.string().nullable(),
+  normalized_miles: external_exports.number().nonnegative().nullable(),
+  episode: nonNegativeInteger.nullable(),
+  segment: nonNegativeInteger.nullable(),
+  selected_for_event: external_exports.boolean(),
+  included_for_rate: external_exports.boolean(),
+  decisions: external_exports.array(external_exports.enum(OBSERVATION_DECISIONS)),
+  warnings: external_exports.array(external_exports.string())
+}).strict();
+var intervalSchema = external_exports.object({
+  from_observation_id: external_exports.string(),
+  to_observation_id: external_exports.string(),
+  from_date: dateSchema,
+  to_date: dateSchema,
+  segment: nonNegativeInteger,
+  days: external_exports.number().int().positive(),
+  delta_miles: external_exports.number(),
+  annual_rate_miles: external_exports.number().int().nullable(),
+  quality_weight: external_exports.number().nonnegative(),
+  recency_weight: external_exports.number().nonnegative(),
+  weight: external_exports.number().nonnegative(),
+  included: external_exports.boolean(),
+  decisions: external_exports.array(external_exports.enum(INTERVAL_DECISIONS))
+}).strict();
+var predictionIntervalSchema = external_exports.object({
+  coverage: external_exports.number().gt(0).lt(1),
+  lower_mileage: nonNegativeInteger,
+  upper_mileage: nonNegativeInteger,
+  calibration_version: external_exports.string().min(1),
+  dataset_digest: sha256Schema,
+  sample_size: external_exports.number().int().min(30)
+}).strict().refine((value) => value.lower_mileage <= value.upper_mileage, {
+  message: "prediction interval lower bound exceeds upper bound"
+});
+var mileageRangeSchema = external_exports.object({
+  lower_mileage: nonNegativeInteger,
+  upper_mileage: nonNegativeInteger,
+  basis: external_exports.enum([
+    "observed_mot",
+    "logical_bounds",
+    "rate_dispersion_not_calibrated"
+  ])
+}).strict().refine((value) => value.lower_mileage <= value.upper_mileage, {
+  message: "mileage range lower bound exceeds upper bound"
+});
+var cohortPriorSchema = external_exports.object({
+  version: external_exports.string().min(1),
+  dataset_digest: sha256Schema,
+  annual_rate_miles: external_exports.number().int().min(0).max(1e5),
+  annual_sigma_miles: external_exports.number().int().positive(),
+  sample_size: external_exports.number().int().min(200),
+  cohort: external_exports.record(external_exports.string(), external_exports.unknown())
+}).strict();
+var calibrationBucketSchema = external_exports.object({
+  method: external_exports.string().min(1),
+  max_horizon_days: external_exports.number().int().positive(),
+  min_clean_intervals: nonNegativeInteger,
+  anomaly_class: external_exports.string().min(1),
+  error_q_low: external_exports.number().finite(),
+  error_q_high: external_exports.number().finite(),
+  sample_size: external_exports.number().int().positive()
+}).strict().refine((value) => value.error_q_low <= value.error_q_high, {
+  message: "calibration bucket lower residual exceeds upper residual"
+});
+var calibrationProfileSchema = external_exports.object({
+  version: external_exports.string().min(1),
+  dataset_digest: sha256Schema,
+  target_coverage: external_exports.number().min(0.5).lt(1),
+  useful_tolerance_miles: external_exports.number().int().positive(),
+  validated_horizon_days: external_exports.number().int().positive(),
+  minimum_bucket_size: external_exports.number().int().min(30),
+  holdout_sample_size: nonNegativeInteger,
+  observed_coverage: external_exports.number().min(0).max(1),
+  buckets: external_exports.array(calibrationBucketSchema).min(1)
+}).strict();
+var mileageSchema = external_exports.object({
+  status: external_exports.enum(MILEAGE_OUTCOME_STATUSES),
+  method: external_exports.enum(MILEAGE_METHODS),
+  odometer_meaning: external_exports.literal("displayed_odometer"),
+  target_date: dateSchema,
+  algorithm_version: external_exports.literal(VEHICLE_DATA_ALGORITHM_VERSION),
+  auto_fill_eligible: external_exports.boolean(),
+  observed_mileage: nonNegativeInteger.nullable().optional(),
+  estimated_mileage: nonNegativeInteger.nullable().optional(),
+  annual_rate_miles: nonNegativeInteger.nullable().optional(),
+  reason: external_exports.string().nullable().optional(),
+  prediction_interval: predictionIntervalSchema.nullable().optional(),
+  range: mileageRangeSchema.nullable().optional(),
+  prior: cohortPriorSchema.nullable().optional(),
+  calibration_profile: calibrationProfileSchema.nullable().optional(),
+  warnings: external_exports.array(vehicleDataWarningSchema),
+  evidence: external_exports.object({
+    observations: external_exports.array(observationSchema),
+    intervals: external_exports.array(intervalSchema),
+    anomaly_class: external_exports.string()
+  }).passthrough()
+}).passthrough();
+var providerSnapshotSchema = external_exports.object({
+  provider: external_exports.enum(["dvsa_mot_history_v1", "dvla_vehicle_enquiry_v1"]),
+  retrieved_at: dateTimeSchema,
+  status: lookupStatusSchema,
+  payload_sha256: sha256Schema.nullable(),
+  raw_payload: external_exports.record(external_exports.string(), external_exports.unknown()).nullable(),
+  error_class: external_exports.string().nullable(),
+  error_code: external_exports.string().nullable()
+}).passthrough();
+var vehicleDataEnrichmentResponseSchema = external_exports.object({
+  contract_version: external_exports.literal(VEHICLE_DATA_CONTRACT_VERSION),
+  algorithm_version: external_exports.literal(VEHICLE_DATA_ALGORITHM_VERSION),
+  lookup: external_exports.object({
+    run_id: external_exports.string().uuid(),
+    status: lookupStatusSchema,
+    requested_registration: external_exports.string(),
+    canonical_registration: external_exports.string().regex(/^[A-Z0-9]{0,16}$/),
+    target_date: dateSchema,
+    retrieved_at: dateTimeSchema,
+    provider_statuses: external_exports.record(external_exports.string(), lookupStatusSchema)
+  }).strict(),
+  vehicle: external_exports.record(external_exports.string(), external_exports.unknown()),
+  provider_snapshots: external_exports.array(providerSnapshotSchema),
+  mileage: mileageSchema,
+  // Mechanical bridge fields emitted by legacy_enrichment_adapter.
+  vehicle_model: external_exports.string().optional(),
+  make: external_exports.string().optional(),
+  current_mileage: nonNegativeInteger.optional(),
+  mileage_unit: external_exports.literal("Miles").optional(),
+  mileage_method: external_exports.enum(MILEAGE_METHODS).optional(),
+  mileage_warnings: external_exports.array(vehicleDataWarningSchema).optional(),
+  warnings: external_exports.array(external_exports.string())
+}).passthrough().superRefine((value, ctx) => {
+  if (value.current_mileage !== void 0 && value.mileage.status !== "observed" && value.mileage.auto_fill_eligible !== true) {
+    ctx.addIssue({
+      code: external_exports.ZodIssueCode.custom,
+      path: ["current_mileage"],
+      message: "estimated current_mileage requires auto_fill_eligible"
+    });
+  }
+  if (value.mileage.auto_fill_eligible && value.mileage.status !== "observed" && !value.mileage.prediction_interval) {
+    ctx.addIssue({
+      code: external_exports.ZodIssueCode.custom,
+      path: ["mileage", "auto_fill_eligible"],
+      message: "estimate autofill requires an empirical prediction interval"
+    });
+  }
+  const interval = value.mileage.prediction_interval;
+  const profile = value.mileage.calibration_profile;
+  if (interval && !profile) {
+    ctx.addIssue({
+      code: external_exports.ZodIssueCode.custom,
+      path: ["mileage", "calibration_profile"],
+      message: "prediction interval requires its complete calibration profile"
+    });
+  } else if (interval && profile && (interval.calibration_version !== profile.version || interval.dataset_digest !== profile.dataset_digest)) {
+    ctx.addIssue({
+      code: external_exports.ZodIssueCode.custom,
+      path: ["mileage", "calibration_profile"],
+      message: "calibration profile does not match the selected prediction interval"
+    });
+  }
+});
+
+// packages/domain/dist/domain/classification.js
+var EXTENSION_TABLE = {
+  jpg: "image",
+  jpeg: "image",
+  png: "image",
+  pdf: "instruction",
+  docx: "instruction",
+  doc: "instruction",
+  eml: "email"
+};
+var MIME_TABLE = {
+  "image/jpeg": "image",
+  "image/jpg": "image",
+  "image/png": "image",
+  "application/pdf": "instruction",
+  "application/msword": "instruction",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "instruction",
+  "message/rfc822": "email"
+};
+function extensionOf(filename) {
+  const name = filename.trim();
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0 || dot === name.length - 1)
+    return "";
+  return name.slice(dot + 1).toLowerCase();
+}
+function normaliseMime(contentType2) {
+  if (!contentType2)
+    return "";
+  const semi = contentType2.indexOf(";");
+  const base = semi >= 0 ? contentType2.slice(0, semi) : contentType2;
+  return base.trim().toLowerCase();
+}
+var ENGINEER_REPORT_LAYOUT_KEYS = new Set([
+  "EVA (Engineers)",
+  "CNX (Engineers)",
+  "Exclusive Vehicle Assessors",
+  "Connexus Vehicle Assessors"
+].map((n) => normaliseLayoutName(n)));
+function normaliseLayoutName(raw) {
+  return raw.trim().toUpperCase().replace(/[().,'&]/g, "").replace(/\s+/g, " ").trim();
+}
+function isEngineerReportLayoutName(raw) {
+  const key = normaliseLayoutName((raw ?? "").toString());
+  return key !== "" && ENGINEER_REPORT_LAYOUT_KEYS.has(key);
+}
+function classifyAttachment(filename, contentType2) {
+  const ext = extensionOf(filename);
+  const byExt = EXTENSION_TABLE[ext];
+  if (byExt)
+    return byExt;
+  const byMime = MIME_TABLE[normaliseMime(contentType2)];
+  if (byMime)
+    return byMime;
+  return "other";
+}
+function describeEvidence(filename, contentType2, isEmlMessage = false) {
+  const evidenceClass = isEmlMessage ? "email" : classifyAttachment(filename, contentType2);
+  return {
+    filename,
+    contentType: normaliseMime(contentType2),
+    extension: extensionOf(filename),
+    evidenceClass,
+    isImage: evidenceClass === "image",
+    isInstruction: evidenceClass === "instruction"
+  };
+}
+
+// packages/domain/dist/domain/dedup.js
+function hasRef(ref) {
+  return typeof ref === "string" && ref.trim().length > 0;
+}
+function refEquals(a, b) {
+  if (!hasRef(a) || !hasRef(b))
+    return false;
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+function eligibleCases(input16) {
+  return input16.openProviderCases.filter((c) => {
+    if (c.workProviderId !== void 0 && c.workProviderId !== input16.workProviderId) {
+      return false;
+    }
+    if (isTerminalStatus(c.status))
+      return false;
+    return true;
+  });
+}
+function resolveCase(input16) {
+  if (input16.seenMessageIds.includes(input16.messageId) || input16.seenPayloadHashes.includes(input16.payloadHash)) {
+    return {
+      resolution: "drop",
+      setDuplicateRisk: false,
+      statusEffect: "keep_target",
+      auditAction: "duplicate_dropped"
+    };
+  }
+  const candidates = eligibleCases(input16);
+  if (hasRef(input16.candidateRef)) {
+    const matched = candidates.find((c) => refEquals(c.caseRef, input16.candidateRef));
+    if (matched) {
+      return {
+        resolution: "attach",
+        targetCaseId: matched.caseId,
+        setDuplicateRisk: false,
+        caseLinkState: "none",
+        statusEffect: "keep_target",
+        auditAction: "case_attached"
+      };
+    }
+    if (candidates.length > 0) {
+      return {
+        resolution: "new_due_to_reference",
+        setDuplicateRisk: true,
+        caseLinkState: "none",
+        statusEffect: "new_email",
+        auditAction: "duplicate_flagged"
+      };
+    }
+  }
+  if (!hasRef(input16.candidateRef) && candidates.length > 0) {
+    return {
+      resolution: "propose_attach",
+      targetCaseId: candidates[0].caseId,
+      setDuplicateRisk: true,
+      caseLinkState: "pending",
+      statusEffect: "duplicate_risk",
+      auditAction: "duplicate_flagged"
+    };
+  }
+  return {
+    resolution: "create",
+    setDuplicateRisk: false,
+    caseLinkState: "none",
+    statusEffect: "new_email",
+    auditAction: "case_created"
+  };
+}
+
+// packages/domain/dist/domain/provider-match.js
+function domainOf(senderAddress) {
+  const raw = senderAddress.trim().toLowerCase();
+  const lt = raw.lastIndexOf("<");
+  const gt = raw.lastIndexOf(">");
+  const addr = lt >= 0 && gt > lt ? raw.slice(lt + 1, gt).trim() : raw;
+  const at = addr.lastIndexOf("@");
+  if (at < 0 || at === addr.length - 1)
+    return "";
+  const domain = addr.slice(at + 1).trim();
+  if (!domain.includes(".") || /\s/.test(domain))
+    return "";
+  return domain;
+}
+function addressOf(senderAddress) {
+  const raw = senderAddress.trim().toLowerCase();
+  const lt = raw.lastIndexOf("<");
+  const gt = raw.lastIndexOf(">");
+  const addr = lt >= 0 && gt > lt ? raw.slice(lt + 1, gt).trim() : raw;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr))
+    return "";
+  return addr;
+}
+function matchProviderByDomain(senderAddress, providers) {
+  const address = addressOf(senderAddress);
+  const domain = domainOf(senderAddress);
+  if (address) {
+    const addrHits = providers.filter((p) => p.active && (p.knownEmailAddresses ?? []).some((a) => a.trim().toLowerCase() === address));
+    if (addrHits.length === 1) {
+      return {
+        outcome: "matched",
+        matchedDomain: domain,
+        matchedAddress: address,
+        matchedBy: "address",
+        workProviderId: addrHits[0].workProviderId,
+        principalCode: addrHits[0].principalCode
+      };
+    }
+    if (addrHits.length > 1) {
+      return {
+        outcome: "ambiguous",
+        matchedDomain: domain,
+        matchedAddress: address,
+        matchedBy: "address",
+        ambiguousProviderIds: addrHits.map((p) => p.workProviderId)
+      };
+    }
+  }
+  if (!domain) {
+    return { outcome: "unmatched", matchedDomain: "" };
+  }
+  const hits = providers.filter((p) => p.active && p.knownEmailDomains.some((d) => d.trim().toLowerCase() === domain));
+  if (hits.length === 0) {
+    return { outcome: "unmatched", matchedDomain: domain };
+  }
+  if (hits.length > 1) {
+    return {
+      outcome: "ambiguous",
+      matchedDomain: domain,
+      matchedBy: "domain",
+      ambiguousProviderIds: hits.map((p) => p.workProviderId)
+    };
+  }
+  return {
+    outcome: "matched",
+    matchedDomain: domain,
+    matchedBy: "domain",
+    workProviderId: hits[0].workProviderId,
+    principalCode: hits[0].principalCode
+  };
+}
+
+// packages/domain/dist/domain/sender-identity-match.js
+function matchSenderIdentity(senderAddress, providers, imageSources) {
+  const domain = domainOf(senderAddress);
+  const providerResult = matchProviderByDomain(senderAddress, providers);
+  if (providerResult.matchedBy === "address") {
+    return { kind: "provider", result: providerResult };
+  }
+  if (domain) {
+    const hit = imageSources.find((s) => s.kind === "intermediary" && s.emailDomain.trim().toLowerCase() === domain);
+    if (hit) {
+      return {
+        kind: "intermediary",
+        imageSourceId: hit.imageSourceId,
+        name: hit.name,
+        candidateProviderIds: hit.candidateProviderIds,
+        matchedDomain: domain
+      };
+    }
+  }
+  if (providerResult.outcome === "matched" || providerResult.outcome === "ambiguous") {
+    return { kind: "provider", result: providerResult };
+  }
+  return { kind: "none", matchedDomain: domain };
+}
+
+// packages/domain/dist/domain/vrm-canon.js
+function canonicalizeVrm(s) {
+  if (!s)
+    return "";
+  return s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+// packages/domain/dist/domain/vrm-filter.js
+var STRICT = /\b(?:[A-Z]{2}[0-9]{2}\s?[A-Z]{3}|[A-Z][0-9]{1,3}\s?[A-Z]{3}|[A-Z]{3}\s?[0-9]{1,3}[A-Z])\b/g;
+var LOOSE = /\b[A-Z]{1,3}\s?[0-9]{1,4}\b/g;
+var ANCHOR = /\b(?:registration|reg|vrm|vehicle|plate|number\s?plate)\b/i;
+var ANCHOR_WINDOW = 40;
+var TIGHT_ANCHOR_WINDOW = 16;
+var TIGHT_ANCHOR = /(?:reg(?:istration)?|vrm|vehicle|plate)\s*(?:no|number|mark)?\s*[:.\-#]?\s*$/i;
+var MONTH_DAY_WORDS = /* @__PURE__ */ new Set([
+  "JANUARY",
+  "FEBRUARY",
+  "MARCH",
+  "APRIL",
+  "MAY",
+  "JUNE",
+  "JULY",
+  "AUGUST",
+  "SEPTEMBER",
+  "OCTOBER",
+  "NOVEMBER",
+  "DECEMBER",
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+  "SUNDAY",
+  "JAN",
+  "FEB",
+  "MAR",
+  "APR",
+  "JUN",
+  "JUL",
+  "AUG",
+  "SEP",
+  "SEPT",
+  "OCT",
+  "NOV",
+  "DEC"
+]);
+var LOOSE_ALPHA_STOPWORDS = /* @__PURE__ */ new Set([
+  "AND",
+  "THE",
+  "FOR",
+  "NOT",
+  "BUT",
+  "ARE",
+  "WAS",
+  "OUR",
+  "YOU",
+  "ALL",
+  "ANY",
+  "HAS",
+  "HAD",
+  "PER",
+  "VIA"
+]);
+var EXCLUDE_WORDS = /* @__PURE__ */ new Set([
+  "VAT",
+  "TEL",
+  "REF",
+  "REFERENCE",
+  "INVOICE",
+  "INV",
+  "PHONE",
+  "FAX",
+  "FAO",
+  "PO",
+  "ORDER",
+  "ACCOUNT",
+  "ACC"
+]);
+var EXCLUDE_LABEL = new RegExp(`\\b(?:${[...EXCLUDE_WORDS].join("|")})[:.#\\-\\s]*$`);
+function isPostcodeOutward(upper, idx, cand) {
+  const after = upper.slice(idx + cand.length);
+  return /^\s?[0-9][A-Z]{2}\b/.test(after);
+}
+var POSTCODE_AREAS = /* @__PURE__ */ new Set([
+  "AB",
+  "AL",
+  "B",
+  "BA",
+  "BB",
+  "BD",
+  "BH",
+  "BL",
+  "BN",
+  "BR",
+  "BS",
+  "BT",
+  "CA",
+  "CB",
+  "CF",
+  "CH",
+  "CM",
+  "CO",
+  "CR",
+  "CT",
+  "CV",
+  "CW",
+  "DA",
+  "DD",
+  "DE",
+  "DG",
+  "DH",
+  "DL",
+  "DN",
+  "DT",
+  "DY",
+  "E",
+  "EC",
+  "EH",
+  "EN",
+  "EX",
+  "FK",
+  "FY",
+  "G",
+  "GL",
+  "GU",
+  "GY",
+  "HA",
+  "HD",
+  "HG",
+  "HP",
+  "HR",
+  "HS",
+  "HU",
+  "HX",
+  "IG",
+  "IM",
+  "IP",
+  "IV",
+  "JE",
+  "KA",
+  "KT",
+  "KW",
+  "KY",
+  "L",
+  "LA",
+  "LD",
+  "LE",
+  "LL",
+  "LN",
+  "LS",
+  "LU",
+  "M",
+  "ME",
+  "MK",
+  "ML",
+  "N",
+  "NE",
+  "NG",
+  "NN",
+  "NP",
+  "NR",
+  "NW",
+  "OL",
+  "OX",
+  "PA",
+  "PE",
+  "PH",
+  "PL",
+  "PO",
+  "PR",
+  "RG",
+  "RH",
+  "RM",
+  "S",
+  "SA",
+  "SE",
+  "SG",
+  "SK",
+  "SL",
+  "SM",
+  "SN",
+  "SO",
+  "SP",
+  "SR",
+  "SS",
+  "ST",
+  "SW",
+  "SY",
+  "TA",
+  "TD",
+  "TF",
+  "TN",
+  "TQ",
+  "TR",
+  "TS",
+  "TW",
+  "UB",
+  "W",
+  "WA",
+  "WC",
+  "WD",
+  "WF",
+  "WN",
+  "WR",
+  "WS",
+  "WV",
+  "YO",
+  "ZE"
+]);
+function isPostcodeOutwardCode(compact) {
+  const m = /^([A-Z]{1,2})[0-9]{1,2}$/.exec(compact);
+  return m !== null && POSTCODE_AREAS.has(m[1]);
+}
+function isPostcodeAreaHead(compact) {
+  const m = /^([A-Z]{1,3})[0-9]/.exec(compact);
+  return m !== null && POSTCODE_AREAS.has(m[1]);
+}
+function precededByExcludeLabel(upper, idx) {
+  const before = upper.slice(Math.max(0, idx - 16), idx);
+  return EXCLUDE_LABEL.test(before);
+}
+function extractVrm(text) {
+  if (!text)
+    return "";
+  const upper = text.toUpperCase();
+  for (const m of upper.matchAll(STRICT)) {
+    const cand = m[0];
+    if (isPostcodeOutward(upper, m.index ?? 0, cand))
+      continue;
+    return canonicalizeVrm(cand);
+  }
+  for (const m of upper.matchAll(LOOSE)) {
+    const cand = m[0];
+    const idx = m.index ?? 0;
+    const compact = cand.replace(/\s+/g, "");
+    if (MONTH_DAY_WORDS.has(compact))
+      continue;
+    if (isPostcodeOutward(upper, idx, cand))
+      continue;
+    if (isPostcodeOutwardCode(compact))
+      continue;
+    const alpha = cand.match(/^[A-Z]+/)?.[0] ?? "";
+    if (EXCLUDE_WORDS.has(alpha))
+      continue;
+    if (LOOSE_ALPHA_STOPWORDS.has(alpha))
+      continue;
+    if (precededByExcludeLabel(upper, idx))
+      continue;
+    if (isPostcodeAreaHead(compact)) {
+      const before = upper.slice(Math.max(0, idx - TIGHT_ANCHOR_WINDOW), idx);
+      if (!TIGHT_ANCHOR.test(before))
+        continue;
+    } else {
+      const windowText = upper.slice(Math.max(0, idx - ANCHOR_WINDOW), idx + cand.length + ANCHOR_WINDOW);
+      if (!ANCHOR.test(windowText))
+        continue;
+    }
+    return canonicalizeVrm(cand);
+  }
+  return "";
+}
+
+// packages/domain/dist/domain/email-body-clean.js
+var QUOTE_DIVIDERS = [
+  /^-{3,}\s*Original Message\s*-{3,}\s*$/im,
+  /^_{8,}\s*$/m,
+  // Outlook reply divider
+  /^\s*On\b[^\n]{0,160}\bwrote:\s*$/im,
+  // Gmail attribution
+  /^[ \t]*From:[ \t]*\S[^\n]*(?:\r?\n[ \t]*(?:Sent|To|Cc|Subject|Date):[ \t]*[^\n]*){1,5}/im
+  // Outlook header block
+];
+var SIGN_OFF_RE = /^(?:kind\s+regards|kindest\s+regards|best\s+regards|warm\s+regards|regards|many\s+thanks|thanks(?:\s+again)?|thank\s+you|best\s+wishes|yours\s+sincerely|yours\s+faithfully|cheers)\s*[,.!]?\s*$/i;
+var LEGAL_MARKERS = [
+  /\bregistered (?:office|in england|in scotland|number|no\b)/i,
+  /\bauthorised and regulated\b/i,
+  /\bthis (?:e-?mail|message) (?:carries a disclaimer|and any attachment|and its attachments?)/i,
+  /\bif you (?:are not|have received this .* in error)\b/i,
+  /\bintended (?:solely )?for the addressee\b/i,
+  /\bprivacy (?:notice|policy) (?:may be read|can be found|is available)\b/i,
+  /\breserves? copyright\b/i,
+  /\byou are dealing with\b/i,
+  /\bproud members? of\b/i,
+  /\bconfidentiality notice\b/i,
+  /\bplease consider the environment\b/i,
+  /\bscanned for the presence of computer viruses\b/i,
+  /\bcalls? (?:may|will) be recorded\b/i
+];
+var BRACKET_GARBAGE_RE = /\[(?:cid:|https?:\/\/)[^\]]*\]|<(?:tel:|mailto:|https?:\/\/)[^>\s]*>/gi;
+var BARE_URL_RE = /\bhttps?:\/\/([^\s/<>"')\]]+)[^\s<>"')\]]*/gi;
+var RESIDUE_LINE_RE = /^[\s[\]()|·•–—-]*$/;
+function cutAtEarliestQuote(text) {
+  let cut = text.length;
+  for (const re of QUOTE_DIVIDERS) {
+    const m = re.exec(text);
+    if (m && m.index < cut)
+      cut = m.index;
+  }
+  return text.slice(0, cut);
+}
+function cleanEmailBodyForPreview(body2) {
+  if (!body2)
+    return "";
+  let text = body2.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  text = cutAtEarliestQuote(text);
+  text = text.replace(BRACKET_GARBAGE_RE, " ");
+  text = text.replace(BARE_URL_RE, "$1");
+  const kept = [];
+  let signOffSeen = false;
+  let nameLinesAfterSignOff = 0;
+  for (const raw of text.split("\n")) {
+    const line = raw.replace(/[ \t]+$/g, "");
+    const trimmed = line.trim();
+    if (trimmed.startsWith(">"))
+      continue;
+    if (LEGAL_MARKERS.some((re) => re.test(trimmed)))
+      break;
+    if (signOffSeen && trimmed) {
+      if (nameLinesAfterSignOff >= 1 || trimmed.length > 40 || /[@\d]/.test(trimmed))
+        break;
+      nameLinesAfterSignOff += 1;
+      kept.push(line);
+      continue;
+    }
+    if (!signOffSeen && SIGN_OFF_RE.test(trimmed)) {
+      signOffSeen = true;
+      kept.push(line);
+      continue;
+    }
+    if (trimmed && RESIDUE_LINE_RE.test(trimmed))
+      continue;
+    kept.push(line);
+  }
+  return kept.join("\n").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+// packages/domain/dist/domain/case-type.js
+var CASE_PO_MARKER = {
+  standard: "",
+  audit: "A.",
+  audit_total_loss: "AP.",
+  diminution: "D."
+};
+function decideCaseType(signals) {
+  const parserValue = (signals.parserCaseType?.value ?? "").toString().trim();
+  const parserSignals = [
+    ...signals.parserCaseType?.signals ?? signals.parserAudit?.signals ?? []
+  ];
+  if (parserValue === "audit" || parserValue === "audit_total_loss" || parserValue === "diminution") {
+    return {
+      caseType: parserValue,
+      dual: signals.parserCaseType?.dual === true,
+      signals: parserSignals
+    };
+  }
+  if (signals.parserAudit?.value === true) {
+    return { caseType: "audit", dual: false, signals: parserSignals };
+  }
+  if ((signals.classifierSubtype ?? "") === "existing_provider_audit") {
+    return { caseType: "audit", dual: false, signals: ["classifier:existing_provider_audit"] };
+  }
+  return { caseType: "standard", dual: false, signals: [] };
+}
+
+// packages/domain/dist/domain/pii-scrub.js
+var DEFAULT_PLACEHOLDERS = {
+  email: "[EMAIL]",
+  phone: "[PHONE]",
+  postcode: "[POSTCODE]",
+  address: "[ADDRESS]",
+  nino: "[NINO]",
+  name: "[NAME]",
+  vrm: "[VRM]"
+};
+var EMAIL_RE = /(?<![\w])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![\w])/g;
+var NINO_RE = /(?<![\w])[ABCEGHJ-PRSTW-Z][ABCEGHJ-NPRSTW-Z][\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?[A-D](?![\w])/gi;
+var ADDRESS_RE = /(?<![\w])\d{1,4}[A-Za-z]?[\s,]+(?:[A-Z][A-Za-z'-]+[\s,]+){1,4}(?:Road|Rd|Street|St|Avenue|Ave|Lane|Ln|Drive|Dr|Close|Cl|Way|Court|Ct|Crescent|Cres|Place|Pl|Terrace|Gardens|Grove|Grv|Walk|Row|Hill|Park)\b\.?/g;
+var POSTCODE_RE = /(?<![\w])(?:[A-Z]{1,2}\d[A-Z\d]?|GIR)[\s-]?\d[A-Z]{2}(?![\w])/gi;
+var PHONE_RE = /(?<![\w])(?:\+44[\s-]?\(?0?\)?|\(?0)(?:[\s\-()]{0,2}\d){9,10}(?![\w])/g;
+var NAME_RE = /(?<![\w])(?:Mr|Mrs|Ms|Miss|Dr|Prof)\.?\s+[A-Z](?:[A-Za-z'-]+|\.)?(?:\s+[A-Z](?:[A-Za-z'-]+|\.)?){0,2}/g;
+var VRM_RE = /(?<![\w])(?:[A-Z]{2}\d{2}[\s-]?[A-Z]{3}|[A-Z]\d{1,3}[\s-]?[A-Z]{3}|[A-Z]{3}[\s-]?\d{1,3}[A-Z])(?![\w])/gi;
+var RULES = [
+  { kind: "email", re: EMAIL_RE, enabled: () => true },
+  { kind: "nino", re: NINO_RE, enabled: () => true },
+  { kind: "address", re: ADDRESS_RE, enabled: () => true },
+  { kind: "postcode", re: POSTCODE_RE, enabled: () => true },
+  { kind: "phone", re: PHONE_RE, enabled: () => true },
+  { kind: "name", re: NAME_RE, enabled: (o) => o.redactNames },
+  { kind: "vrm", re: VRM_RE, enabled: (o) => o.redactVrm }
+];
+function scrubPii(input16, opts = {}) {
+  const cfg = {
+    redactVrm: opts.redactVrm ?? false,
+    redactNames: opts.redactNames ?? true
+  };
+  const placeholderFor = (kind) => opts.placeholders?.[kind] ?? DEFAULT_PLACEHOLDERS[kind];
+  if (typeof input16 !== "string" || input16.length === 0) {
+    return { text: typeof input16 === "string" ? input16 : "", redactions: [], totalRedactions: 0 };
+  }
+  let text = input16;
+  const redactions = [];
+  for (const rule of RULES) {
+    if (!rule.enabled(cfg))
+      continue;
+    let count = 0;
+    const placeholder = placeholderFor(rule.kind);
+    rule.re.lastIndex = 0;
+    text = text.replace(rule.re, () => {
+      count += 1;
+      return placeholder;
+    });
+    if (count > 0)
+      redactions.push({ kind: rule.kind, count });
+  }
+  const totalRedactions = redactions.reduce((sum, r) => sum + r.count, 0);
+  return { text, redactions, totalRedactions };
+}
+
+// packages/domain/dist/domain/triage-policy.js
+var TRIAGE_POLICY_VERSION = "triage-policy-v2";
+var REF_MATCH_PRIORITY = {
+  case_po: 0,
+  job_ref: 1,
+  vrm: 2
+};
+function matchLabel(matchedOn) {
+  switch (matchedOn) {
+    case "case_po":
+      return "Case/PO";
+    case "job_ref":
+      return "job reference";
+    case "vrm":
+      return "registration";
+  }
+}
+function distinctByCaseId(matches) {
+  const seen = /* @__PURE__ */ new Map();
+  for (const m of matches) {
+    if (!seen.has(m.caseId))
+      seen.set(m.caseId, m);
+  }
+  return [...seen.values()];
+}
+function bestMatchTier(matches) {
+  if (matches.length === 0)
+    return [];
+  const bestPriority = Math.min(...matches.map((m) => REF_MATCH_PRIORITY[m.matchedOn]));
+  const tier2 = matches.filter((m) => REF_MATCH_PRIORITY[m.matchedOn] === bestPriority);
+  return distinctByCaseId(tier2);
+}
+function cancellationEligibleMatches(matches) {
+  return distinctByCaseId(matches.filter((m) => m.matchedOn !== "vrm"));
+}
+function hasRefSignal(c) {
+  return Boolean(c.bodyCaseref && c.bodyCaseref.trim() || c.bodyJobref && c.bodyJobref.trim() || c.bodyVrm && c.bodyVrm.trim());
+}
+function decideTriage(classification, context3, gates2) {
+  if (context3.duplicateInternetMessageId && gates2.refGate) {
+    return {
+      action: "drop_duplicate",
+      finalCategory: classification.category,
+      finalSubtype: classification.subtype,
+      rationale: "This message has already been received and processed once \u2014 the repeat copy is not actioned again.",
+      decisionInputs: {
+        rung: "duplicate_internet_message_id",
+        duplicateInternetMessageId: context3.duplicateInternetMessageId
+      },
+      policyVersion: TRIAGE_POLICY_VERSION
+    };
+  }
+  if (classification.category === "website_enquiry") {
+    return {
+      action: "proceed_default",
+      finalCategory: classification.category,
+      finalSubtype: classification.subtype,
+      rationale: "This is a website enquiry and is kept separate from existing case work.",
+      decisionInputs: {
+        rung: "website_enquiry",
+        openCaseMatchCount: context3.openCaseMatches.length,
+        ignoredCaseSignals: hasRefSignal(classification)
+      },
+      policyVersion: TRIAGE_POLICY_VERSION
+    };
+  }
+  if (gates2.cancellation && classification.category === "cancellation") {
+    const eligible = cancellationEligibleMatches(context3.openCaseMatches);
+    const target = eligible.length === 1 ? eligible[0] : void 0;
+    return {
+      action: "propose_cancellation",
+      finalCategory: classification.category,
+      finalSubtype: classification.subtype,
+      ...target ? { targetCaseId: target.caseId } : {},
+      suggestionType: "cancellation",
+      rationale: target ? `This message reports case ${target.casePo} as cancelled or closed \u2014 flagged for a person to confirm before it is closed or put on hold.` : "This message reports a case cancelled or closed, but no single open case could be matched to it \u2014 flagged for a person to find the right one.",
+      decisionInputs: {
+        rung: "cancellation",
+        engineCategory: classification.category,
+        eligibleMatchCount: eligible.length,
+        openCaseMatches: context3.openCaseMatches
+      },
+      policyVersion: TRIAGE_POLICY_VERSION
+    };
+  }
+  if (gates2.refGate && hasRefSignal(classification) && context3.openCaseMatches.length > 0) {
+    const tier2 = bestMatchTier(context3.openCaseMatches);
+    const target = tier2.length === 1 ? tier2[0] : void 0;
+    let finalCategory = classification.category;
+    let finalSubtype = classification.subtype;
+    let caseUpdateApplied = false;
+    if (gates2.caseUpdate && context3.hasAttachments) {
+      finalCategory = "case_update";
+      finalSubtype = context3.imagesOnly ? "images_received" : "update_general";
+      caseUpdateApplied = true;
+    }
+    const autoAttachEligible = gates2.autoAttach && target !== void 0 && target.matchedOn !== "vrm";
+    const action5 = autoAttachEligible ? "attach_case" : "suggest_attach";
+    return {
+      action: action5,
+      finalCategory,
+      finalSubtype,
+      ...target ? { targetCaseId: target.caseId } : {},
+      suggestionType: "case_link",
+      rationale: autoAttachEligible ? `Matches open case ${target.casePo} by its ${matchLabel(target.matchedOn)} \u2014 attached to it automatically (a person can detach it if this is wrong).` : target ? `Matches open case ${target.casePo} by its ${matchLabel(target.matchedOn)} \u2014 suggested attaching this email to it.` : `Matches ${tier2.length} open cases by ${matchLabel(tier2[0].matchedOn)} \u2014 needs a person to pick the right one.`,
+      decisionInputs: {
+        rung: "ref_gate",
+        matchTier: tier2[0]?.matchedOn,
+        matchCount: tier2.length,
+        openCaseMatches: context3.openCaseMatches,
+        conversationSiblingCaseIds: context3.conversationSiblingCaseIds,
+        caseUpdateApplied,
+        autoAttachApplied: autoAttachEligible,
+        hasAttachments: context3.hasAttachments,
+        imagesOnly: context3.imagesOnly
+      },
+      policyVersion: TRIAGE_POLICY_VERSION
+    };
+  }
+  if (gates2.imagesRouting && context3.imagesOnly && context3.openCaseMatches.length === 0 && classification.bodyVrm && classification.bodyVrm.trim()) {
+    return {
+      action: "route_images_unmatched",
+      finalCategory: classification.category,
+      finalSubtype: "images_received",
+      rationale: `These photos show a registration (${classification.bodyVrm.trim()}) but do not yet match an open case \u2014 routed to the unmatched-photos folder for a person to place.`,
+      decisionInputs: {
+        rung: "images_routing",
+        bodyVrm: classification.bodyVrm,
+        openCaseMatchCount: context3.openCaseMatches.length
+      },
+      policyVersion: TRIAGE_POLICY_VERSION
+    };
+  }
+  return {
+    action: "proceed_default",
+    finalCategory: classification.category,
+    finalSubtype: classification.subtype,
+    rationale: "No case-matching or cancellation action applies here \u2014 this message proceeds through the ordinary intake process unchanged.",
+    decisionInputs: {
+      rung: "default",
+      gates: gates2,
+      openCaseMatchCount: context3.openCaseMatches.length,
+      duplicateInternetMessageId: context3.duplicateInternetMessageId
+    },
+    policyVersion: TRIAGE_POLICY_VERSION
+  };
+}
+
+// packages/domain/dist/domain/outlook-folder.js
+function outlookFolderSegments(path) {
+  const parts = path.split("/").map((p) => p.trim()).filter(Boolean);
+  return parts[0]?.toLowerCase() === "inbox" ? parts.slice(1) : parts;
+}
+
+// packages/domain/dist/domain/retro-case.js
+var RETRO_TRIGGER_CATEGORIES = [
+  "billing",
+  "case_update",
+  "cancellation",
+  "query"
+];
+var RETRO_TRIGGER_ACK_SUBTYPE = "acknowledgement";
+var CASE_PO_SHAPE_RE = /^(?:(?:AP|A|D)\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{2}\d{3,4})$/i;
+function normalizeCasePo(raw) {
+  return (raw ?? "").trim().toUpperCase().replace(/^((?:AP|A|D)\.)\s+/, "$1");
+}
+function decideRetro(input16) {
+  const reasons = [];
+  const keys = {};
+  const ackEligible = input16.category === "non_actionable" && (input16.subtype ?? "").trim() === RETRO_TRIGGER_ACK_SUBTYPE;
+  if (!RETRO_TRIGGER_CATEGORIES.includes(input16.category) && !ackEligible) {
+    return { attempt: false, keys, reasons: [`category_not_eligible:${input16.category}`] };
+  }
+  if (ackEligible)
+    reasons.push("ack_subtype_eligible");
+  const refCandidates = [input16.bodyCaseref, input16.candidateRef];
+  for (const raw of refCandidates) {
+    const token = normalizeCasePo(raw);
+    if (!token)
+      continue;
+    if (!keys.casePo && CASE_PO_SHAPE_RE.test(token)) {
+      keys.casePo = token;
+      reasons.push("key:case_po");
+    } else if (!keys.externalRef) {
+      keys.externalRef = token;
+      reasons.push("key:external_ref_from_subject");
+    }
+  }
+  const jobref = (input16.bodyJobref ?? "").trim().toUpperCase();
+  if (jobref && !keys.externalRef) {
+    keys.externalRef = jobref;
+    reasons.push("key:external_ref");
+  }
+  const vrm = ((input16.bodyVrm || input16.candidateVrm) ?? "").trim().toUpperCase().replace(/\s+/g, "");
+  if (vrm) {
+    keys.vrm = vrm;
+    reasons.push("key:vrm");
+  }
+  if (!keys.casePo && !keys.externalRef && !keys.vrm) {
+    return { attempt: false, keys, reasons: [...reasons, "no_usable_key"] };
+  }
+  if (input16.isReply && input16.linkReplyOutcome !== void 0 && input16.linkReplyOutcome !== "no_match") {
+    return {
+      attempt: false,
+      keys,
+      reasons: [...reasons, `reply_outcome_not_no_match:${input16.linkReplyOutcome}`]
+    };
+  }
+  return { attempt: true, keys, reasons };
+}
+function decideRetroStatus(input16) {
+  if (!input16.principalResolved || !input16.casePoKnown) {
+    return {
+      status: "needs_review",
+      onHold: true,
+      actionReason: "needs_review",
+      signals: [
+        input16.casePoKnown ? "retro_principal_unresolved" : "retro_case_po_unknown",
+        `retro_source:${input16.reconstruction}`
+      ]
+    };
+  }
+  if (input16.triggerCategory === "billing" && input16.reconstruction !== "minimal") {
+    return {
+      status: "eva_submitted",
+      onHold: false,
+      signals: ["retro_billing_implies_submitted", `retro_source:${input16.reconstruction}`]
+    };
+  }
+  return {
+    status: "needs_review",
+    onHold: true,
+    actionReason: "needs_review",
+    signals: [`retro_trigger:${input16.triggerCategory}`, `retro_source:${input16.reconstruction}`]
+  };
+}
+function parseCasePoMarker(po) {
+  const token = normalizeCasePo(po);
+  for (const marker2 of ["AP.", "A.", "D."]) {
+    if (token.startsWith(marker2))
+      return { marker: marker2, body: token.slice(marker2.length) };
+  }
+  return { marker: "", body: token };
+}
+function matchPrincipalByCasePo(po, principals) {
+  const { marker: marker2, body: body2 } = parseCasePoMarker(po);
+  if (!body2)
+    return null;
+  let best = null;
+  for (const raw of principals) {
+    const code = (raw ?? "").trim().toUpperCase();
+    if (!code || !body2.startsWith(code))
+      continue;
+    if (!/^\d{5,6}$/.test(body2.slice(code.length)))
+      continue;
+    if (!best || code.length > best.length)
+      best = code;
+  }
+  return best ? { principal: best, marker: marker2 } : null;
+}
+function markerToCaseType(marker2) {
+  const token = (marker2 ?? "").trim().toUpperCase();
+  const entry = Object.entries(CASE_PO_MARKER).find(([, m]) => m === token);
+  return entry ? entry[0] : "standard";
+}
+var EML_EXT_RE = /\.(eml|msg)$/i;
+var DOC_EXT_RE = /\.(pdf|docx?|rtf)$/i;
+var NON_INSTRUCTION_NAME_RE = /report|invoice|fee/i;
+var INSTRUCTION_NAME_RE = /instruction|new\s?case|message/i;
+function byOldestThenName(a, b) {
+  const at = a.createdAt ?? "9999";
+  const bt = b.createdAt ?? "9999";
+  if (at !== bt)
+    return at < bt ? -1 : 1;
+  return a.name.localeCompare(b.name);
+}
+function selectBoxInstructionCandidate(entries) {
+  const files = entries.filter((e) => (e.type ?? "file") === "file");
+  const emls = files.filter((e) => EML_EXT_RE.test(e.name)).sort(byOldestThenName);
+  if (emls.length > 0) {
+    const advertised = emls.filter((e) => INSTRUCTION_NAME_RE.test(e.name));
+    return { entry: advertised[0] ?? emls[0], kind: "eml" };
+  }
+  const docs = files.filter((e) => DOC_EXT_RE.test(e.name) && !NON_INSTRUCTION_NAME_RE.test(e.name)).sort(byOldestThenName);
+  if (docs.length > 0) {
+    const advertised = docs.filter((e) => INSTRUCTION_NAME_RE.test(e.name));
+    return { entry: advertised[0] ?? docs[0], kind: "doc" };
+  }
+  return null;
+}
+
+// packages/domain/dist/domain/intake-routing.js
+var CASE_MINTING_CATEGORIES = ["receiving_work"];
+function categoryMintsCase(category) {
+  return CASE_MINTING_CATEGORIES.includes(category);
+}
+
+// packages/domain/dist/dto/index.js
+var INBOUND_CATEGORIES = [
+  "receiving_work",
+  "query",
+  "billing",
+  "non_actionable",
+  "other",
+  "case_update",
+  "cancellation",
+  "pre_instruction",
+  "website_enquiry"
+];
+var INBOUND_SUBTYPES = [
+  "existing_provider_instruction",
+  "existing_provider_audit",
+  "existing_provider_diminution",
+  "new_client_work",
+  "query_existing_work",
+  "query_new_enquiry",
+  "billing_request",
+  "case_summary",
+  "acknowledgement",
+  "other",
+  "images_received",
+  "cancellation_notice",
+  "update_general",
+  "payment_remittance",
+  "pre_instruction_directions",
+  "website_general_enquiry"
+];
+
 // node_modules/zod-to-json-schema/dist/esm/Options.js
 var ignoreOverride = Symbol("Let zodToJsonSchema decide on which parser to use");
 var defaultOptions = {
@@ -10296,7 +10565,7 @@ var EditableEvaFieldsParam = external_exports.object({
   accidentCircumstances: external_exports.string().max(EVA_EDIT_MAX_LENGTH.accidentCircumstances).optional(),
   inspectionAddress: external_exports.string().max(EVA_EDIT_MAX_LENGTH.inspectionAddress).optional(),
   vatStatus: external_exports.enum(EVA_EDIT_VAT_VALUES).optional(),
-  mileage: external_exports.string().max(EVA_EDIT_MAX_LENGTH.mileage).optional(),
+  mileage: external_exports.string().trim().max(EVA_EDIT_MAX_LENGTH.mileage).refine((value) => value === "" || normaliseEvaMileage(value) !== void 0, "mileage must contain digits only").optional(),
   mileageUnit: external_exports.enum(EVA_EDIT_MILEAGE_UNITS).optional()
 }).strict().refine((value) => Object.keys(value).length > 0, "at least one EVA field is required");
 function toJsonSchema(schema) {
@@ -50359,7 +50628,8 @@ var CATEGORY_DEFINITIONS = {
   non_actionable: 'A short receipt/acknowledgement/no-action-needed message (e.g. "thanks", an auto-reply).',
   case_update: "New information \u2014 evidence, photographs, or an answer \u2014 for a case already open.",
   cancellation: "A claim or case reported cancelled, closed, or withdrawn.",
-  pre_instruction: "Directions to follow when a formal instruction arrives later \u2014 no instruction yet, so no case should be opened."
+  pre_instruction: "Directions to follow when a formal instruction arrives later \u2014 no instruction yet, so no case should be opened.",
+  website_enquiry: "A prospective customer enquiry submitted through the Collision Engineers website \u2014 never an existing-case update."
 };
 var SUBTYPE_DEFINITIONS = {
   existing_provider_instruction: "An instruction from a sender who is a known work provider.",
@@ -50376,7 +50646,8 @@ var SUBTYPE_DEFINITIONS = {
   cancellation_notice: "The usual subtype for a cancellation report.",
   update_general: "New information on an existing case that is not photographs alone.",
   payment_remittance: "A payment made TO us \u2014 a remittance advice or transfer notice for work already done (not a request for our invoice).",
-  pre_instruction_directions: "The usual subtype for pre-instruction directions."
+  pre_instruction_directions: "The usual subtype for pre-instruction directions.",
+  website_general_enquiry: "A general enquiry submitted through the Collision Engineers website contact form."
 };
 function categoryLine(name) {
   return `- ${name}: ${CATEGORY_DEFINITIONS[name] ?? "A taxonomy category (no further description on file)."}`;
@@ -51239,6 +51510,7 @@ function callClassifyEmail(input16) {
     body: input16.body ?? "",
     from: input16.from ?? "",
     sender_domain: input16.senderDomain ?? "",
+    authentication_results: input16.authenticationResults ?? "",
     provider_match_state: input16.providerMatchState ?? "",
     attachment_kinds: input16.attachmentKinds ?? [],
     attachment_filenames: input16.attachmentFilenames ?? [],
@@ -51949,6 +52221,244 @@ var ACCIDENT_END_RES = [
   /\bdriveable\s*:?/i,
   /\byours faithfully\b/i
 ];
+var CLAIMANT_LABEL_RE = /^(?:claimant(?:['’]s)?(?:\s+name)?|name\s+of\s+(?:the\s+)?claimant|client\s+name|our\s+client)\s*(?::|-)\s*(.*)$/i;
+var CLAIMANT_PROSE_RE = /^(?:our\s+client|the\s+claimant|claimant)\s+(?:is|was|named)\s+(.+)$/i;
+var SIGN_OFF_RE2 = /^(?:kind(?:est)?\s+regards|best\s+regards|warm\s+regards|regards|best\s+wishes|all\s+the\s+best|many\s+thanks|thanks|yours\s+(?:faithfully|sincerely))\b(?<remainder>.*)$/i;
+var MOBILE_SIGNATURE_RE = /^sent\s+from\s+my(?:\s+[\p{L}\p{N}'’._-]+){1,4}[.!]*$/iu;
+var THREAD_BOUNDARY_RE = /^(?:[-_]{3,}(?:\s*(?:original|forwarded)\s+message\s*[-_]*)?|begin\s+forwarded\s+message|on\s+.+\s+wrote\s*:|(?:from|sent|to|subject)\s*:\s*\S)/i;
+var CLAIMANT_THREAD_BOUNDARY = "\0";
+var NAME_TOKEN_RE = new RegExp("^\\p{L}+(?:['\u2019\\-]\\p{L}+)*$", "u");
+var CLAIMANT_TITLES = /* @__PURE__ */ new Set(["mr", "mrs", "miss", "ms", "mx", "dr", "prof"]);
+var CLAIMANT_PLACEHOLDERS = /* @__PURE__ */ new Set([
+  "tbc",
+  "tba",
+  "n a",
+  "na",
+  "none",
+  "unknown",
+  "not known",
+  "not provided",
+  "to follow",
+  "to be advised",
+  "to be confirmed"
+]);
+var CLAIMANT_REJECT_WORDS = /* @__PURE__ */ new Set([
+  "insured",
+  "policyholder",
+  "handler",
+  "solicitor",
+  "engineer",
+  "engineers",
+  "assessor",
+  "assessors",
+  "repairer",
+  "repairers",
+  "garage",
+  "bodyshop",
+  "third",
+  "party",
+  "claims",
+  "team",
+  "legal",
+  "insurance",
+  "services",
+  "solutions",
+  "associates",
+  "limited",
+  "ltd",
+  "llp",
+  "plc",
+  "company",
+  "group",
+  "management",
+  "administrator",
+  "advisor",
+  "manager"
+]);
+var CLAIMANT_NAME_STOPS = /* @__PURE__ */ new Set([
+  "and",
+  "accident",
+  "available",
+  "car",
+  "case",
+  "claim",
+  "claimant",
+  "client",
+  "contact",
+  "department",
+  "dob",
+  "for",
+  "from",
+  "has",
+  "have",
+  "in",
+  "is",
+  "name",
+  "named",
+  "need",
+  "needs",
+  "on",
+  "of",
+  "our",
+  "please",
+  "ref",
+  "reference",
+  "reg",
+  "regarding",
+  "registration",
+  "require",
+  "requires",
+  "requested",
+  "requesting",
+  "the",
+  "to",
+  "vehicle",
+  "vrm",
+  "was",
+  "who",
+  "whose"
+]);
+var SIGN_OFF_REMAINDER_STOPS = /* @__PURE__ */ new Set([
+  "for",
+  "the",
+  "our",
+  "your",
+  "client",
+  "claimant",
+  "instruction",
+  "message",
+  "email",
+  "help",
+  "assistance",
+  "attached",
+  "update",
+  "to",
+  "and",
+  "but",
+  "if",
+  "please",
+  "report",
+  "vehicle",
+  "claim",
+  "case"
+]);
+function isStandaloneSignoff(line) {
+  if (MOBILE_SIGNATURE_RE.test(line)) return true;
+  const match = SIGN_OFF_RE2.exec(line);
+  if (!match) return false;
+  const remainder = (match.groups?.remainder ?? "").replace(/^[,!.:;\s–—-]+/, "").trim();
+  if (!remainder) return true;
+  const tokens = remainder.match(new RegExp("\\p{L}[\\p{L}'\u2019.\\-]*", "gu")) ?? [];
+  return tokens.length >= 1 && tokens.length <= 4 && !tokens.some((token) => SIGN_OFF_REMAINDER_STOPS.has(token.toLowerCase().replace(/\.$/, "")));
+}
+function claimantEvidenceLines(body2) {
+  const lines = (body2 ?? "").replace(/\r\n?/g, "\n").split("\n");
+  let inSignature = false;
+  let inQuotedBlock = false;
+  return lines.map((rawLine) => {
+    const rawTrimmed = rawLine.trim();
+    const quoted = /^>+/.test(rawTrimmed);
+    if (quoted && !inQuotedBlock) inSignature = false;
+    if (!quoted && inQuotedBlock) inSignature = false;
+    inQuotedBlock = quoted;
+    const line = rawTrimmed.replace(/^>+\s*/, "");
+    if (THREAD_BOUNDARY_RE.test(line)) {
+      inSignature = false;
+      return CLAIMANT_THREAD_BOUNDARY;
+    }
+    if (isStandaloneSignoff(line)) {
+      inSignature = true;
+      return "";
+    }
+    return inSignature ? "" : line;
+  });
+}
+function claimantCandidate(raw, allowSingleName) {
+  const trimmed = raw.trim().replace(/^[|:–—\-\s]+/, "").replace(/^["“”']+|["“”']+$/g, "").trim();
+  if (!trimmed || trimmed.includes("@") || /\d/.test(trimmed)) return "";
+  const placeholderKey = trimmed.toLowerCase().replace(/[^a-z]+/g, " ").trim();
+  if (CLAIMANT_PLACEHOLDERS.has(placeholderKey)) return "";
+  const rawTokens = trimmed.split(/\s+/);
+  const accepted = [];
+  for (const rawToken of rawTokens) {
+    const token = rawToken.replace(/^[,;:()[\]{}]+|[,;:()[\]{}.!?]+$/g, "");
+    if (!token) continue;
+    const lower = token.toLowerCase().replace(/\.$/, "");
+    if (CLAIMANT_NAME_STOPS.has(lower)) break;
+    if (accepted.length === 0 && CLAIMANT_TITLES.has(lower)) {
+      accepted.push(token);
+      continue;
+    }
+    if (!NAME_TOKEN_RE.test(token)) return "";
+    accepted.push(token);
+    if (accepted.length > 6) return "";
+  }
+  const nameTokens = accepted.filter(
+    (token) => !CLAIMANT_TITLES.has(token.toLowerCase().replace(/\.$/, ""))
+  );
+  if (nameTokens.length === 0 || !allowSingleName && nameTokens.length < 2) return "";
+  if (nameTokens.some((token) => CLAIMANT_REJECT_WORDS.has(token.toLowerCase()))) return "";
+  return accepted.join(" ");
+}
+function uniqueClaimants(values) {
+  const byKey = /* @__PURE__ */ new Map();
+  for (const value of values) {
+    const key = value.normalize("NFKC").toLowerCase().replace(/[^\p{L}]+/gu, " ").trim();
+    if (key && !byKey.has(key)) byKey.set(key, value);
+  }
+  return [...byKey.values()];
+}
+function isConservativeProseName(value) {
+  const tokens = value.split(/\s+/).map((token) => token.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, "")).filter(Boolean).filter((token) => !CLAIMANT_TITLES.has(token.toLowerCase().replace(/\.$/, "")));
+  return tokens.length >= 2 && tokens.every((token) => {
+    const first = [...token][0];
+    return first != null && first === first.toLocaleUpperCase() && first !== first.toLocaleLowerCase();
+  });
+}
+function claimantResult(values) {
+  const candidates = uniqueClaimants(values);
+  if (candidates.length === 1) {
+    return { status: "matched", value: candidates[0], candidates };
+  }
+  if (candidates.length > 1) {
+    return { status: "conflict", value: "", candidates };
+  }
+  return { status: "absent", value: "", candidates: [] };
+}
+function supplementClaimantNameFromBody(body2) {
+  const lines = claimantEvidenceLines(body2);
+  const labelled = [];
+  const prose = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line) continue;
+    const label = CLAIMANT_LABEL_RE.exec(line);
+    if (label) {
+      const inline = claimantCandidate(label[1], true);
+      if (inline) {
+        labelled.push(inline);
+      } else if (!label[1].trim()) {
+        let next = "";
+        for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
+          if (lines[nextIndex] === CLAIMANT_THREAD_BOUNDARY) break;
+          if (lines[nextIndex].trim()) {
+            next = lines[nextIndex];
+            break;
+          }
+        }
+        const continued = claimantCandidate(next, true);
+        if (continued) labelled.push(continued);
+      }
+      continue;
+    }
+    const proseMatch = CLAIMANT_PROSE_RE.exec(line);
+    if (proseMatch) {
+      const candidate = claimantCandidate(proseMatch[1], false);
+      if (candidate && isConservativeProseName(candidate)) prose.push(candidate);
+    }
+  }
+  return claimantResult(labelled.length ? labelled : prose);
+}
 function supplementAccidentCircumstancesFromBody(body2) {
   const text = (body2 ?? "").replace(/\r\n/g, "\n").trim();
   if (!text || !ACCIDENT_START_RE.test(text)) {
@@ -52090,6 +52600,11 @@ df8.app.activity("imagesReceivedVrmMatch", {
     return { outcome: stamped ? `flagged:${flagReason}` : "flag_failed" };
   }
 });
+
+// orchestration/src/functions/activities/reply-link-eligibility.ts
+function shouldLinkReplyToCase(classification) {
+  return classification.isReply && classification.category !== "website_enquiry";
+}
 
 // orchestration/src/functions/gated/triage-classify.ts
 var import_functions14 = require("@azure/functions");
@@ -52253,6 +52768,18 @@ df9.app.activity("triageClassify", {
   }
 });
 
+// orchestration/src/lib/vehicle-data-intake.ts
+var import_node_crypto6 = require("node:crypto");
+function vehicleDataIntakeIdempotencyKey(instanceId, caseId) {
+  const instanceDigest = (0, import_node_crypto6.createHash)("sha256").update(instanceId).digest("hex");
+  return `intake:${instanceDigest}:vehicle-data:${caseId}`;
+}
+function isRetryableVehicleLookupFailure(error) {
+  if (error instanceof ConflictError) return false;
+  if (error instanceof DataApiHttpError) return error.status >= 500;
+  return true;
+}
+
 // orchestration/src/functions/intakeOrchestrator.ts
 var retry4 = new df10.RetryOptions(
   /*firstRetryIntervalInMilliseconds*/
@@ -52366,7 +52893,7 @@ df10.app.orchestration("intakeOrchestrator", function* (ctx) {
     }
   }
   if (!categoryMintsCase(classification.category)) {
-    if (classification.isReply) {
+    if (shouldLinkReplyToCase(classification)) {
       const inb = inbound;
       const ref = ((inb.candidateRef || classification.bodyCaseref) ?? "").trim();
       const vrm = ((inb.candidateVrm || classification.bodyVrm) ?? "").trim();
@@ -52567,16 +53094,31 @@ df10.app.orchestration("intakeOrchestrator", function* (ctx) {
   const exVal = (k) => (ex[k]?.value ?? "").trim();
   const resolvedWorkProvider = (parseResult.resolvedWorkProvider ?? "").trim();
   const exWorkProvider = resolvedWorkProvider || exVal("work_provider");
+  const documentClaimantName = exVal("claimant_name");
+  const bodyClaimant = supplementClaimantNameFromBody(
+    String(inbound.body ?? "")
+  );
+  const claimantName = documentClaimantName || (bodyClaimant.status === "matched" ? bodyClaimant.value : "");
+  if (!documentClaimantName && bodyClaimant.status === "conflict" && !ctx.df.isReplaying) {
+    ctx.log(
+      JSON.stringify({
+        evt: "claimant-body-conflict",
+        messageId: inbound.messageId,
+        candidateCount: bodyClaimant.candidates.length
+      })
+    );
+  }
   const parserEvaFields = {
     work_provider: exWorkProvider.toUpperCase() === "UNKNOWN" ? "" : exWorkProvider,
     vehicle_model: exVal("vehicle_model"),
-    claimant_name: exVal("claimant_name"),
+    claimant_name: claimantName,
     claimant_telephone: exVal("claimant_telephone"),
     claimant_email: exVal("claimant_email"),
     date_of_loss: exVal("date_of_loss"),
     date_of_instruction: exVal("date_of_instruction"),
     accident_circumstances: exVal("accident_circumstances") || supplementAccidentCircumstancesFromBody(String(inbound.body ?? "")),
-    vat_status: exVal("vat_status")
+    vat_status: exVal("vat_status"),
+    ...!documentClaimantName && claimantName ? { sources: { claimant_name: "email_text" } } : {}
   };
   const caseTypeDecision = decideCaseType({
     parserCaseType: parseResult.case_type,
@@ -52623,10 +53165,6 @@ df10.app.orchestration("intakeOrchestrator", function* (ctx) {
     }
   }
   const automationMode = resolved.providerAutomationMode ?? "review_auto";
-  const autoEnrich = automationMode !== "manual";
-  if (!autoEnrich && !ctx.df.isReplaying) {
-    ctx.log(`[intake] provider automation mode = manual for case ${resolved.caseId}; record-keeping (Box folder/archive/images) runs, enrichment deferred to staff`);
-  }
   if (resolved.casePo) {
     try {
       yield ctx.df.callSubOrchestratorWithRetry("boxFolderCreateOrchestrator", retry4, {
@@ -52673,18 +53211,26 @@ df10.app.orchestration("intakeOrchestrator", function* (ctx) {
   const status = yield ctx.df.callActivityWithRetry("statusEvaluate", retry4, {
     caseId: resolved.caseId
   });
-  if (autoEnrich) {
+  try {
     yield ctx.df.callActivityWithRetry("enrich", retry4, {
       caseId: resolved.caseId,
       vrm: parserVrm || inbound.candidateVrm,
-      documentHasMileage
+      documentHasMileage,
+      // Durable replays/retries of this intake instance must resolve to one
+      // immutable lookup run and one audit/provenance write. Graph-backed
+      // instance ids are hashed because the Data API key is deliberately bounded.
+      idempotencyKey: vehicleDataIntakeIdempotencyKey(ctx.df.instanceId, resolved.caseId)
     });
+  } catch (error) {
+    if (!ctx.df.isReplaying) {
+      ctx.error(`[intake] vehicle details unavailable for case ${resolved.caseId} (non-blocking): ${String(error)}`);
+    }
   }
   return { caseId: resolved.caseId, status: status.value, mode: automationMode };
 });
 
 // orchestration/src/functions/activities/fetchMessage.ts
-var import_node_crypto6 = require("node:crypto");
+var import_node_crypto7 = require("node:crypto");
 var df11 = __toESM(require("durable-functions"), 1);
 var BODY_CAP = 2e4;
 var BODY_PREVIEW_CAP = 3500;
@@ -52747,6 +53293,7 @@ ${body2}`);
       bodyPreview,
       inReplyTo: headers["in-reply-to"] ?? "",
       references: headers["references"] ?? "",
+      authenticationResults: headers["authentication-results"] ?? "",
       attachments: landed,
       ...rawEml ? { rawEml } : {}
     };
@@ -52756,7 +53303,7 @@ ${body2}`);
 });
 function hashPayload(subject, from, attachments) {
   const norm = subject.trim().toLowerCase() + "|" + from.trim().toLowerCase() + "|" + attachments.map((a) => `${a.filename.toLowerCase()}:${a.size}`).sort().join(",");
-  return (0, import_node_crypto6.createHash)("sha256").update(norm).digest("hex");
+  return (0, import_node_crypto7.createHash)("sha256").update(norm).digest("hex");
 }
 
 // orchestration/src/functions/activities/providerMatch.ts
@@ -52838,6 +53385,7 @@ function buildClassifyRequest(inbound, matchState) {
     body: inbound.body,
     from: inbound.senderAddress,
     senderDomain: domainOf3(inbound.senderAddress),
+    authenticationResults: inbound.authenticationResults,
     providerMatchState: MATCH_STATE_TO_CLASSIFIER[matchState ?? "unmatched"] ?? "none",
     attachmentKinds,
     attachmentFilenames,
@@ -53423,37 +53971,20 @@ df21.app.activity("enrich", {
       ctx.log(`[enrich] no VRM resolved for case ${input16.caseId}; nothing to enrich \u2014 skipping`);
       return { skipped: true, reason: "no_vrm" };
     }
-    const res = await fetch(`${process.env.ENRICH_FN_URL}/api/dvsa-mot/enrich`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-functions-key": process.env.ENRICH_FN_KEY
-      },
-      body: JSON.stringify({ vrm, document_has_mileage: input16.documentHasMileage ?? true })
-    });
-    if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
-        ctx.error(
-          `[enrich] auth/config error ${res.status} calling enrichment for case ${input16.caseId} \u2014 check ENRICH_FN_KEY`
-        );
-        await dataApi.recordAudit({
-          action: "enrichment_failed",
-          caseId: input16.caseId,
-          severity: "error",
-          summary: `enrichment auth/config error ${res.status}`
-        });
-        return { enriched: false, error: "auth", status: res.status };
-      }
-      if (res.status >= 500) {
-        throw new Error(`[enrich] enrichment Function responded ${res.status}`);
-      }
-      ctx.log(`[enrich] enrichment returned ${res.status} for case ${input16.caseId}; skipping`);
-      return { skipped: true, status: res.status };
+    let result;
+    try {
+      result = await dataApi.lookupVehicle(input16.caseId, vrm, input16.idempotencyKey);
+    } catch (error) {
+      if (isRetryableVehicleLookupFailure(error)) throw error;
+      ctx.error(`[enrich] advisory vehicle lookup rejected for case ${input16.caseId}: ${String(error)}`);
+      return { enriched: false, skipped: true, reason: "advisory_lookup_rejected" };
     }
-    const result = await res.json();
-    const persisted = await dataApi.persistEnrichment(input16.caseId, result);
-    ctx.log(JSON.stringify({ evt: "enrich", caseId: input16.caseId, applied: persisted.applied }));
-    return { enriched: true, applied: persisted.applied, warnings: result.warnings ?? [] };
+    ctx.log(JSON.stringify({ evt: "enrich", caseId: input16.caseId, applied: result.persisted.applied }));
+    return {
+      enriched: result.lookup.status === "found",
+      applied: result.persisted.applied,
+      warnings: result.mileage.warnings.map((warning) => warning.message)
+    };
   }
 });
 

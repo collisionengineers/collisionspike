@@ -129,6 +129,7 @@ import {
   derivedMarkerCasePo,
   INTAKE_CHANNEL_LABELS,
   sourceReadinessRecoverySnapshot,
+  isValidEvaMileage,
   normalizeCasePo,
   type CaseWorkType,
 } from '@cs/domain';
@@ -155,6 +156,7 @@ import {
 } from './evidence-review';
 import {
   buildExplicitCaseSave,
+  canCheckVehicleDetails,
   initialInspectionDraft,
   persistedSessionSnapshot,
   shouldBlockCaseNavigation,
@@ -1069,6 +1071,12 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const blocked = !canSubmitCaseToEva(liveCase);
   const workflowBlocked = readiness.ready && blocked;
   const blockerCount = readiness.missing.length + (workflowBlocked ? 1 : 0);
+  const vehicleNeedsAttention = c.vrm.trim().length > 0 && (
+    !c.evaFields.vehicleModel.value.trim() || !isValidEvaMileage(c.evaFields.mileage.value)
+  );
+  const vehicleWarning = c.vehicleLookup?.warning ?? (
+    vehicleNeedsAttention ? 'Vehicle model or mileage is missing.' : undefined
+  );
 
   const caseSaveInput = buildExplicitCaseSave(persistedCase, c, inspectionDraft);
   const hasUnsavedChanges = caseSaveInput !== undefined;
@@ -1104,6 +1112,28 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       </Toast>,
       { intent: 'success' },
     );
+  const [checkingVehicle, setCheckingVehicle] = useState(false);
+  const checkVehicleAgain = async () => {
+    if (!canCheckVehicleDetails(hasUnsavedChanges, checkingVehicle, c.vrm)) return;
+    setCheckingVehicle(true);
+    try {
+      await data.lookupVehicle({ caseId: c.id });
+      const updated = await data.caseById(c.id);
+      if (!updated) throw new Error('case refresh returned no case');
+      // The action is disabled while the draft is dirty, so adopting the full
+      // server snapshot safely advances draft, baseline and optimistic version
+      // together. A later Save therefore cannot use a stale version.
+      adoptPersistedCase(updated);
+      toast('Vehicle details checked');
+    } catch {
+      dispatchToast(
+        <Toast><ToastTitle>Couldn’t check vehicle details — try again</ToastTitle></Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setCheckingVehicle(false);
+    }
+  };
 
   const restorePersistedDraft = () => {
     setC(persistedCase);
@@ -2225,6 +2255,24 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
           <MessageBarBody>
             <MessageBarTitle>This case is closed</MessageBarTitle>
             It has left the work queues. Nothing was deleted — every detail is kept for the record.
+          </MessageBarBody>
+        </MessageBar>
+      )}
+
+      {vehicleWarning && !isRemoved && (
+        <MessageBar intent="warning">
+          <MessageBarBody>
+            <MessageBarTitle>Vehicle details need attention</MessageBarTitle>
+            {vehicleWarning}{' '}
+            <Button
+              appearance="transparent"
+              size="small"
+              disabled={!canCheckVehicleDetails(hasUnsavedChanges, checkingVehicle, c.vrm)}
+              icon={checkingVehicle ? <Spinner size="tiny" /> : undefined}
+              onClick={() => void checkVehicleAgain()}
+            >
+              {checkingVehicle ? 'Checking…' : 'Check again'}
+            </Button>
           </MessageBarBody>
         </MessageBar>
       )}

@@ -30,6 +30,58 @@ export const EVA_EDIT_DATE_RE = /^(?:|\d{2}\/\d{2}\/\d{4})$/;
 export const EVA_EDIT_VAT_VALUES = ['', 'Yes', 'No'] as const;
 export const EVA_EDIT_MILEAGE_UNITS = ['', 'Miles', 'Km'] as const;
 
+/**
+ * One strict boundary for a displayed odometer value written to an EVA field.
+ *
+ * Values are stored as base-10 digits. Correctly grouped thousands separators
+ * are normalised; arbitrary prose or punctuation is never stripped into a value.
+ * The 20-character limit is the physical case_.eva_mileage width.  Empty is a
+ * valid *optional field* value, but is deliberately not a resolved mileage.
+ */
+export const EVA_MILEAGE_RE = /^\d{1,20}$/;
+const EVA_GROUPED_MILEAGE_RE = /^\d{1,3}(?:,\d{3})+$/;
+
+export function normaliseEvaMileage(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  const digits = EVA_MILEAGE_RE.test(trimmed)
+    ? trimmed
+    : EVA_GROUPED_MILEAGE_RE.test(trimmed)
+      ? trimmed.replaceAll(',', '')
+      : '';
+  return digits && EVA_MILEAGE_RE.test(digits) ? digits : undefined;
+}
+
+/**
+ * Compatibility boundary for machine/provider inputs that historically carried
+ * a standalone unit suffix. The persisted value still passes through the strict
+ * digits/grouped-digits normaliser; arbitrary surrounding prose is not stripped.
+ */
+export type ExtractedEvaMileage = {
+  value: string;
+  unit?: 'Miles' | 'Km';
+};
+
+export function parseExtractedEvaMileage(value: unknown): ExtractedEvaMileage | undefined {
+  const direct = normaliseEvaMileage(value);
+  if (direct) return { value: direct };
+  if (typeof value !== 'string') return undefined;
+  const match = value.trim().match(/^(.+?)\s*(miles?|mi|kilometres?|km)$/i);
+  if (!match) return undefined;
+  const mileage = normaliseEvaMileage(match[1]);
+  if (!mileage) return undefined;
+  const unit = /^(?:miles?|mi)$/i.test(match[2]) ? 'Miles' : 'Km';
+  return { value: mileage, unit };
+}
+
+export function normaliseExtractedEvaMileage(value: unknown): string | undefined {
+  return parseExtractedEvaMileage(value)?.value;
+}
+
+export function isValidEvaMileage(value: unknown): value is string {
+  return normaliseEvaMileage(value) !== undefined;
+}
+
 export type EvaEditNormalisation = { value: string } | { error: string };
 
 /** Validate and normalise one case-page EVA edit exactly as the Data API persists it. */
@@ -52,6 +104,14 @@ export function normaliseEvaEdit(key: EvaFieldKey, raw: string): EvaEditNormalis
       return { error: "mileageUnit must be '', 'Miles' or 'Km'" };
     }
     return { value: trimmed };
+  }
+  if (key === 'mileage') {
+    if (!trimmed) return { value: '' };
+    const mileage = normaliseEvaMileage(trimmed);
+    if (!mileage) {
+      return { error: 'mileage must contain digits only' };
+    }
+    return { value: mileage };
   }
   // Normal staff case-page edits retain the established clip-at-column-width behavior.
   // The assistant schema is stricter and rejects an over-width proposal before confirm.

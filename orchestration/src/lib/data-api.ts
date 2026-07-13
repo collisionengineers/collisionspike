@@ -22,7 +22,10 @@
  *   optional DATA_API_TOKEN (local dev).
  */
 
-import type { CreateCaseInput, CreateCaseResult } from '@cs/domain';
+import type {
+  CreateCaseInput,
+  CreateCaseResult,
+} from '@cs/domain';
 import type { ProviderMatchRecord, OpenProviderCase } from '@cs/domain';
 import type { ImageSourceMatchRecord } from '@cs/domain';
 import type { EvidenceDescriptor } from '@cs/domain';
@@ -140,13 +143,27 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     throw new ConflictError(`${method} ${path} → 409: ${detail}`);
   }
   if (!res.ok) {
-    throw new Error(`data-api ${method} ${path} → ${res.status}: ${await safeText(res)}`);
+    const detail = await safeText(res);
+    throw new DataApiHttpError(
+      `data-api ${method} ${path} → ${res.status}: ${detail}`,
+      res.status,
+      detail,
+    );
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
 export class ConflictError extends Error {}
+export class DataApiHttpError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly detail: string,
+  ) {
+    super(message);
+  }
+}
 export class EvidenceBackfillTargetChangedError extends ConflictError {}
 export class EvidenceBackfillReclassificationRequiredError extends ConflictError {
   constructor(message: string, public readonly targetCaseId?: string) {
@@ -725,21 +742,17 @@ export const dataApi = {
     return request('POST', '/api/internal/cases/lookup', payload);
   },
 
-  /**
-   * Persist the advisory DVSA/DVLA enrichment result onto the case (internal route, #1).
-   * Fill-if-empty on the API side; returns the fields it actually filled.
-   */
-  persistEnrichment(
-    caseId: string,
-    result: {
-      vehicle_model?: string;
-      make?: string;
-      current_mileage?: number | string;
-      mileage_unit?: string;
-      warnings?: string[];
-    },
-  ): Promise<{ applied: string[] }> {
-    return request('POST', `/api/internal/cases/${caseId}/enrichment`, result);
+  /** Run and persist the canonical vehicle lookup through its one Data API owner. */
+  lookupVehicle(caseId: string, registration: string, idempotencyKey?: string): Promise<{
+    persisted: { applied: string[]; warning?: string; retryable: boolean; replayed: boolean };
+    lookup: { status: string; run_id: string };
+    mileage: { status: string; warnings: Array<{ message: string }> };
+  }> {
+    return request('POST', '/api/vehicle-data/lookup', {
+      caseId,
+      registration,
+      ...(idempotencyKey ? { idempotencyKey } : {}),
+    });
   },
 
   /**

@@ -287,6 +287,8 @@ describe('POST /api/cases — assistant create_case normalization', () => {
               ? 'Yes'
               : desc.key === 'mileageUnit'
                 ? 'Miles'
+                : desc.key === 'mileage'
+                  ? '50,000'
                 : `${desc.key} value`,
           provenance: { sourceType: 'pdf_extraction', sourceLabel: 'Reviewed instruction' },
           reviewState: 'reviewed',
@@ -317,6 +319,7 @@ describe('POST /api/cases — assistant create_case normalization', () => {
     expect(persisted.eva_claimant_name).toBe('claimantName value');
     expect(persisted.eva_vat_status).toBe('Yes');
     expect(persisted.eva_mileage_unit).toBe('Miles');
+    expect(persisted.eva_mileage).toBe('50000');
   });
 
   it('returns 400 for a malformed full body instead of dereferencing missing evaFields', async () => {
