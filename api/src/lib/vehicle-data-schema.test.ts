@@ -33,6 +33,8 @@ describe('TKT-152 vehicle-data schema parity', () => {
       'odometer_result_type_raw',
       'registration_at_test',
       'stable_vehicle_identity',
+      'episode_number',
+      'segment_number',
       'decision_codes',
       'warning_codes',
     ]) {
@@ -75,6 +77,16 @@ describe('TKT-152 vehicle-data schema parity', () => {
       expect(sql).toContain(
         'REFERENCES vehicle_provider_snapshot(id, lookup_run_id) ON DELETE RESTRICT',
       );
+    }
+  });
+
+  it('binds caller retries to an exact persisted request and response envelope', () => {
+    for (const sql of [canonical, delta]) {
+      expect(sql).toContain('idempotency_key');
+      expect(sql).toContain('request_sha256');
+      expect(sql).toContain('response_sha256');
+      expect(sql).toContain('response_envelope');
+      expect(sql).toContain('ux_vehicle_lookup_run_idempotency');
     }
   });
 

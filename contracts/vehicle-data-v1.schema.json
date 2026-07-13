@@ -5,6 +5,44 @@
   "type": "object",
   "additionalProperties": true,
   "required": ["contract_version", "algorithm_version", "lookup", "vehicle", "provider_snapshots", "mileage"],
+  "allOf": [
+    {
+      "if": { "required": ["current_mileage"] },
+      "then": {
+        "properties": {
+          "mileage": {
+            "anyOf": [
+              { "properties": { "status": { "const": "observed" } } },
+              { "properties": { "auto_fill_eligible": { "const": true } } }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mileage": {
+            "required": ["auto_fill_eligible"],
+            "properties": { "auto_fill_eligible": { "const": true } }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "mileage": {
+            "anyOf": [
+              { "properties": { "status": { "const": "observed" } } },
+              {
+                "required": ["prediction_interval"],
+                "properties": { "prediction_interval": { "type": "object" } }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
   "properties": {
     "contract_version": { "const": "vehicle-data.v1" },
     "algorithm_version": { "const": "mot-display-estimator.v2" },
@@ -45,13 +83,14 @@
     "mileage": {
       "type": "object",
       "additionalProperties": true,
-      "required": ["status", "method", "odometer_meaning", "target_date", "algorithm_version", "warnings", "evidence"],
+      "required": ["status", "method", "odometer_meaning", "target_date", "algorithm_version", "auto_fill_eligible", "warnings", "evidence"],
       "properties": {
         "status": { "enum": ["observed", "estimated", "range_only", "insufficient"] },
         "method": { "enum": ["observed_mot", "bounded_interpolation", "recent_rate_forecast", "cohort_assisted_forecast", "cohort_assisted_backcast", "displayed_segment_only", "none"] },
         "odometer_meaning": { "const": "displayed_odometer" },
         "target_date": { "type": "string", "format": "date" },
         "algorithm_version": { "const": "mot-display-estimator.v2" },
+        "auto_fill_eligible": { "type": "boolean" },
         "observed_mileage": { "type": ["integer", "null"], "minimum": 0 },
         "estimated_mileage": { "type": ["integer", "null"], "minimum": 0 },
         "annual_rate_miles": { "type": ["integer", "null"], "minimum": 0 },
@@ -113,12 +152,19 @@
           "required": ["observations", "intervals", "anomaly_class"],
           "properties": {
             "observations": { "type": "array", "items": { "$ref": "#/$defs/observation" } },
-            "intervals": { "type": "array", "items": { "type": "object" } },
+            "intervals": { "type": "array", "items": { "$ref": "#/$defs/interval" } },
             "anomaly_class": { "type": "string" }
           }
         }
       }
-    }
+    },
+    "vehicle_model": { "type": "string" },
+    "make": { "type": "string" },
+    "current_mileage": { "type": "integer", "minimum": 0 },
+    "mileage_unit": { "const": "Miles" },
+    "mileage_method": { "enum": ["observed_mot", "bounded_interpolation", "recent_rate_forecast", "cohort_assisted_forecast", "cohort_assisted_backcast", "displayed_segment_only", "none"] },
+    "mileage_warnings": { "type": "array", "items": { "$ref": "#/$defs/warning" } },
+    "warnings": { "type": "array", "items": { "type": "string" } }
   },
   "$defs": {
     "lookupStatus": {
@@ -135,13 +181,15 @@
     },
     "observation": {
       "type": "object",
-      "required": ["observation_id", "raw_index", "source", "mot_test_number", "test_date", "test_result", "odometer_value_raw", "odometer_unit_raw", "odometer_result_type_raw", "registration_at_test", "stable_vehicle_identity", "normalized_miles", "decisions", "warnings"],
+      "additionalProperties": false,
+      "required": ["observation_id", "raw_index", "source", "mot_test_number", "test_date", "completed_date_raw", "test_result", "odometer_value_raw", "odometer_unit_raw", "odometer_result_type_raw", "registration_at_test", "stable_vehicle_identity", "normalized_miles", "episode", "segment", "selected_for_event", "included_for_rate", "decisions", "warnings"],
       "properties": {
         "observation_id": { "type": "string" },
         "raw_index": { "type": "integer", "minimum": 0 },
         "source": { "type": "string" },
         "mot_test_number": { "type": ["string", "null"] },
         "test_date": { "type": ["string", "null"], "format": "date" },
+        "completed_date_raw": { "type": ["string", "null"] },
         "test_result": { "type": ["string", "null"] },
         "odometer_value_raw": { "type": ["string", "null"] },
         "odometer_unit_raw": { "type": ["string", "null"] },
@@ -149,8 +197,57 @@
         "registration_at_test": { "type": ["string", "null"] },
         "stable_vehicle_identity": { "type": ["string", "null"] },
         "normalized_miles": { "type": ["number", "null"], "minimum": 0 },
-        "decisions": { "type": "array", "items": { "type": "string" } },
+        "episode": { "type": ["integer", "null"], "minimum": 0 },
+        "segment": { "type": ["integer", "null"], "minimum": 0 },
+        "selected_for_event": { "type": "boolean" },
+        "included_for_rate": { "type": "boolean" },
+        "decisions": { "type": "array", "items": { "$ref": "#/$defs/observationDecision" } },
         "warnings": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "observationDecision": {
+      "enum": [
+        "rejected_invalid_test_date",
+        "rejected_odometer_not_read",
+        "rejected_invalid_odometer_value",
+        "rejected_unknown_odometer_unit",
+        "duplicate_excluded",
+        "episode_selected",
+        "retest_episode_consolidated",
+        "isolated_spike_excluded",
+        "isolated_dip_excluded",
+        "persistent_lower_segment"
+      ]
+    },
+    "intervalDecision": {
+      "enum": [
+        "crosses_odometer_segment",
+        "short_interval_excluded",
+        "negative_interval_excluded",
+        "extreme_annual_rate_excluded",
+        "historical_gap_context_only",
+        "long_interval_half_weight",
+        "zero_movement_retained"
+      ]
+    },
+    "interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from_observation_id", "to_observation_id", "from_date", "to_date", "segment", "days", "delta_miles", "annual_rate_miles", "quality_weight", "recency_weight", "weight", "included", "decisions"],
+      "properties": {
+        "from_observation_id": { "type": "string" },
+        "to_observation_id": { "type": "string" },
+        "from_date": { "type": "string", "format": "date" },
+        "to_date": { "type": "string", "format": "date" },
+        "segment": { "type": "integer", "minimum": 0 },
+        "days": { "type": "integer", "minimum": 1 },
+        "delta_miles": { "type": "number" },
+        "annual_rate_miles": { "type": ["integer", "null"] },
+        "quality_weight": { "type": "number", "minimum": 0 },
+        "recency_weight": { "type": "number", "minimum": 0 },
+        "weight": { "type": "number", "minimum": 0 },
+        "included": { "type": "boolean" },
+        "decisions": { "type": "array", "items": { "$ref": "#/$defs/intervalDecision" } }
       }
     }
   }

@@ -766,6 +766,9 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     caseId: resolved.caseId,
     vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
     documentHasMileage,
+    // Durable replays/retries of this intake instance must resolve to one
+    // immutable lookup run and one audit/provenance write.
+    idempotencyKey: `intake:${ctx.df.instanceId}:vehicle-data:${resolved.caseId}`,
   });
 
   return { caseId: resolved.caseId, status: status.value, mode: automationMode };

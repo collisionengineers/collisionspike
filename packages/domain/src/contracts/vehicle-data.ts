@@ -39,6 +39,29 @@ export const MILEAGE_METHODS = [
 export type VehicleLookupStatus = (typeof VEHICLE_LOOKUP_STATUSES)[number];
 export type MileageOutcomeStatus = (typeof MILEAGE_OUTCOME_STATUSES)[number];
 
+export const OBSERVATION_DECISIONS = [
+  'rejected_invalid_test_date',
+  'rejected_odometer_not_read',
+  'rejected_invalid_odometer_value',
+  'rejected_unknown_odometer_unit',
+  'duplicate_excluded',
+  'episode_selected',
+  'retest_episode_consolidated',
+  'isolated_spike_excluded',
+  'isolated_dip_excluded',
+  'persistent_lower_segment',
+] as const;
+
+export const INTERVAL_DECISIONS = [
+  'crosses_odometer_segment',
+  'short_interval_excluded',
+  'negative_interval_excluded',
+  'extreme_annual_rate_excluded',
+  'historical_gap_context_only',
+  'long_interval_half_weight',
+  'zero_movement_retained',
+] as const;
+
 const lookupStatusSchema = z.enum(VEHICLE_LOOKUP_STATUSES);
 const nonNegativeInteger = z.number().int().nonnegative();
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -62,6 +85,7 @@ const observationSchema = z
     source: z.string(),
     mot_test_number: z.string().nullable(),
     test_date: dateSchema.nullable(),
+    completed_date_raw: z.string().nullable(),
     test_result: z.string().nullable(),
     odometer_value_raw: z.string().nullable(),
     odometer_unit_raw: z.string().nullable(),
@@ -69,10 +93,32 @@ const observationSchema = z
     registration_at_test: z.string().nullable(),
     stable_vehicle_identity: z.string().nullable(),
     normalized_miles: z.number().nonnegative().nullable(),
-    decisions: z.array(z.string()),
+    episode: nonNegativeInteger.nullable(),
+    segment: nonNegativeInteger.nullable(),
+    selected_for_event: z.boolean(),
+    included_for_rate: z.boolean(),
+    decisions: z.array(z.enum(OBSERVATION_DECISIONS)),
     warnings: z.array(z.string()),
   })
-  .passthrough();
+  .strict();
+
+const intervalSchema = z
+  .object({
+    from_observation_id: z.string(),
+    to_observation_id: z.string(),
+    from_date: dateSchema,
+    to_date: dateSchema,
+    segment: nonNegativeInteger,
+    days: z.number().int().positive(),
+    delta_miles: z.number(),
+    annual_rate_miles: z.number().int().nullable(),
+    quality_weight: z.number().nonnegative(),
+    recency_weight: z.number().nonnegative(),
+    weight: z.number().nonnegative(),
+    included: z.boolean(),
+    decisions: z.array(z.enum(INTERVAL_DECISIONS)),
+  })
+  .strict();
 
 const predictionIntervalSchema = z
   .object({
@@ -121,6 +167,7 @@ const mileageSchema = z
     odometer_meaning: z.literal('displayed_odometer'),
     target_date: dateSchema,
     algorithm_version: z.literal(VEHICLE_DATA_ALGORITHM_VERSION),
+    auto_fill_eligible: z.boolean(),
     observed_mileage: nonNegativeInteger.nullable().optional(),
     estimated_mileage: nonNegativeInteger.nullable().optional(),
     annual_rate_miles: nonNegativeInteger.nullable().optional(),
@@ -132,7 +179,7 @@ const mileageSchema = z
     evidence: z
       .object({
         observations: z.array(observationSchema),
-        intervals: z.array(z.record(z.string(), z.unknown())),
+        intervals: z.array(intervalSchema),
         anomaly_class: z.string(),
       })
       .passthrough(),
@@ -178,7 +225,31 @@ export const vehicleDataEnrichmentResponseSchema = z
     mileage_warnings: z.array(vehicleDataWarningSchema).optional(),
     warnings: z.array(z.string()),
   })
-  .passthrough();
+  .passthrough()
+  .superRefine((value, ctx) => {
+    if (
+      value.current_mileage !== undefined &&
+      value.mileage.status !== 'observed' &&
+      value.mileage.auto_fill_eligible !== true
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['current_mileage'],
+        message: 'estimated current_mileage requires auto_fill_eligible',
+      });
+    }
+    if (
+      value.mileage.auto_fill_eligible &&
+      value.mileage.status !== 'observed' &&
+      !value.mileage.prediction_interval
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['mileage', 'auto_fill_eligible'],
+        message: 'estimate autofill requires an empirical prediction interval',
+      });
+    }
+  });
 
 export type VehicleDataEnrichmentResponse = z.infer<
   typeof vehicleDataEnrichmentResponseSchema

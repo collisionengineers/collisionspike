@@ -598,6 +598,7 @@ def _warnings(
         "registration_anchor_unavailable": "A dated new-at-registration anchor is unavailable, so a pre-first-MOT estimate is unsafe.",
         "pre_registration_use_detected": "The vehicle was recorded as first used before registration, so a zero-mile registration anchor is unsafe.",
         "displayed_segment_only": "The result describes the current displayed-odometer segment, not unknowable lifetime mileage.",
+        "autofill_calibration_required": "The estimate needs checking before it can be entered on the case.",
     }
     codes = list(dict.fromkeys([*history.warning_codes, *extra]))
     return [
@@ -627,6 +628,7 @@ def _base_result(target_date: date, history: PreparedHistory) -> dict[str, objec
         "odometer_meaning": "displayed_odometer",
         "target_date": target_date.isoformat(),
         "algorithm_version": ALGORITHM_VERSION,
+        "auto_fill_eligible": False,
         "estimated_mileage": None,
         "observed_mileage": None,
         "annual_rate_miles": None,
@@ -651,6 +653,7 @@ def _apply_interval(
     clean_intervals: int,
     history: PreparedHistory,
     calibration: CalibrationProfile | None,
+    allow_estimate_autofill: bool,
     hard_low: float | None = None,
     hard_high: float | None = None,
     fallback_spread: float = 0,
@@ -685,6 +688,18 @@ def _apply_interval(
                 "dataset_digest": calibration.dataset_digest,
                 "sample_size": bucket.sample_size,
             }
+            result["auto_fill_eligible"] = bool(
+                allow_estimate_autofill and calibration.autofill_ready
+            )
+            if not result["auto_fill_eligible"]:
+                existing_codes = [
+                    warning.get("code")
+                    for warning in result.get("warnings", [])
+                    if isinstance(warning, dict) and isinstance(warning.get("code"), str)
+                ]
+                result["warnings"] = _warnings(
+                    history, [*existing_codes, "autofill_calibration_required"]
+                )
             return
 
     # No eligible bucket, or its calibrated residual interval has no overlap
@@ -694,8 +709,8 @@ def _apply_interval(
     high = hard_high if hard_high is not None else estimate + fallback_spread
     # A point estimate remains useful without a calibrated probability profile.
     # Keep it explicitly estimated, publish only the wider non-probabilistic
-    # range, and attach the uncalibrated warning. This preserves normal case
-    # autofill without pretending that the fallback bounds have coverage.
+    # range, and attach the uncalibrated warning. It remains visible to staff,
+    # but cannot become a default case-field write.
     result["status"] = "estimated"
     result["range"] = {
         "lower_mileage": _round_hundred(low),
@@ -704,7 +719,15 @@ def _apply_interval(
         if hard_low is not None and hard_high is not None
         else "rate_dispersion_not_calibrated",
     }
-    result["warnings"] = _warnings(history, ["uncalibrated_range"])
+    existing_codes = [
+        warning.get("code")
+        for warning in result.get("warnings", [])
+        if isinstance(warning, dict) and isinstance(warning.get("code"), str)
+    ]
+    result["warnings"] = _warnings(
+        history,
+        [*existing_codes, "uncalibrated_range", "autofill_calibration_required"],
+    )
 
 
 def estimate_displayed_mileage(
@@ -714,6 +737,7 @@ def estimate_displayed_mileage(
     cohort_prior: CohortPrior | None = None,
     calibration: CalibrationProfile | None = None,
     forecast_horizon_days: int = DEFAULT_FORECAST_HORIZON_DAYS,
+    allow_estimate_autofill: bool = False,
 ) -> dict[str, object]:
     history = prepare_history(vehicle)
     result = _base_result(target_date, history)
@@ -740,6 +764,7 @@ def estimate_displayed_mileage(
                     "basis": "observed_mot",
                 },
                 "reason": None,
+                "auto_fill_eligible": True,
             }
         )
         return result
@@ -772,6 +797,7 @@ def estimate_displayed_mileage(
                 clean_intervals=1 if interval.included else 0,
                 history=history,
                 calibration=calibration,
+                allow_estimate_autofill=allow_estimate_autofill,
                 hard_low=left.miles,
                 hard_high=right.miles,
             )
@@ -840,6 +866,7 @@ def estimate_displayed_mileage(
             clean_intervals=0,
             history=history,
             calibration=calibration,
+            allow_estimate_autofill=allow_estimate_autofill,
             fallback_spread=max(1000.0, spread),
             hard_low=0,
             hard_high=first.miles,
@@ -944,6 +971,7 @@ def estimate_displayed_mileage(
         clean_intervals=clean_count,
         history=history,
         calibration=calibration,
+        allow_estimate_autofill=allow_estimate_autofill,
         fallback_spread=spread,
         hard_low=latest.miles,
     )
@@ -957,7 +985,9 @@ def legacy_estimate_adapter(result: dict[str, object]) -> dict[str, object]:
     outcomes intentionally do not become a point mileage.
     """
 
-    available = result.get("status") in {"observed", "estimated"}
+    available = result.get("status") == "observed" or bool(
+        result.get("auto_fill_eligible")
+    )
     interval = result.get("prediction_interval")
     range_block = result.get("range")
     bounds = (

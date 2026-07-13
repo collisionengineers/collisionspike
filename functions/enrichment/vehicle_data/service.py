@@ -19,6 +19,8 @@ from .contracts import (
 from .mileage import estimate_displayed_mileage
 from .registration import canonicalize_registration, is_plausible_registration
 
+IDEMPOTENCY_NAMESPACE = uuid.UUID("910c537c-9149-4cd4-b56d-47a5d2c4f8c4")
+
 
 class DvsaProvider(Protocol):
     def get_vehicle_by_registration(self, registration: str) -> dict[str, Any]: ...
@@ -122,6 +124,7 @@ def failure_contract(
             "odometer_meaning": "displayed_odometer",
             "target_date": target.isoformat(),
             "algorithm_version": ALGORITHM_VERSION,
+            "auto_fill_eligible": False,
             "estimated_mileage": None,
             "observed_mileage": None,
             "annual_rate_miles": None,
@@ -300,6 +303,8 @@ def calibration_profile_from_env() -> CalibrationProfile | None:
             validated_horizon_days=int(payload.get("validated_horizon_days", 730)),
             buckets=buckets,
             minimum_bucket_size=int(payload.get("minimum_bucket_size", 30)),
+            holdout_sample_size=int(payload.get("holdout_sample_size", 0)),
+            observed_coverage=float(payload.get("observed_coverage", 0)),
         )
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
         return None
@@ -318,6 +323,7 @@ class VehicleDataService:
         cohort_prior: CohortPrior | None = None,
         cohort_priors: tuple[CohortPrior, ...] = (),
         calibration: CalibrationProfile | None = None,
+        estimate_autofill_enabled: bool = False,
     ) -> None:
         self.dvsa = dvsa
         self.dvla = dvla
@@ -332,6 +338,7 @@ class VehicleDataService:
             )
         )
         self.calibration = calibration
+        self.estimate_autofill_enabled = estimate_autofill_enabled
 
     def lookup(
         self,
@@ -339,12 +346,17 @@ class VehicleDataService:
         *,
         target_date: date | None = None,
         include_mileage: bool = True,
+        idempotency_key: str | None = None,
     ) -> dict[str, object]:
         retrieved_at = self.clock()
         if retrieved_at.tzinfo is None:
             retrieved_at = retrieved_at.replace(tzinfo=timezone.utc)
         target = target_date or retrieved_at.date()
-        run_id = str(self.id_factory())
+        run_id = str(
+            uuid.uuid5(IDEMPOTENCY_NAMESPACE, idempotency_key)
+            if idempotency_key
+            else self.id_factory()
+        )
         canonical = canonicalize_registration(registration)
         lookup: dict[str, object] = {
             "run_id": run_id,
@@ -367,6 +379,7 @@ class VehicleDataService:
                 "odometer_meaning": "displayed_odometer",
                 "target_date": target.isoformat(),
                 "algorithm_version": ALGORITHM_VERSION,
+                "auto_fill_eligible": False,
                 "reason": "Registration is invalid.",
                 "warnings": [
                     {
@@ -489,6 +502,7 @@ class VehicleDataService:
                 target_date=target,
                 cohort_prior=selected_prior,
                 calibration=self.calibration,
+                allow_estimate_autofill=self.estimate_autofill_enabled,
             )
         elif not include_mileage:
             contract["mileage"] = {
@@ -497,6 +511,7 @@ class VehicleDataService:
                 "odometer_meaning": "displayed_odometer",
                 "target_date": target.isoformat(),
                 "algorithm_version": ALGORITHM_VERSION,
+                "auto_fill_eligible": False,
                 "reason": "Mileage from the instruction is authoritative; no MOT estimate was requested.",
                 "estimated_mileage": None,
                 "observed_mileage": None,
@@ -580,7 +595,9 @@ def legacy_enrichment_adapter(contract: dict[str, object]) -> dict[str, object]:
         output["vehicle_model"] = model
     if make:
         output["make"] = make
-    if isinstance(mileage, dict) and mileage.get("status") in {"observed", "estimated"}:
+    if isinstance(mileage, dict) and (
+        mileage.get("status") == "observed" or mileage.get("auto_fill_eligible") is True
+    ):
         estimate = mileage.get("estimated_mileage")
         if isinstance(estimate, (int, float)) and estimate >= 0:
             output["current_mileage"] = int(round(estimate))

@@ -1,16 +1,21 @@
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import type { JWTPayload } from 'jose';
+import { isValidEvaMileage } from '@cs/domain';
 import { authenticate, HttpError, toErrorResponse } from '../lib/auth.js';
 import { query } from '../lib/db.js';
 import { callVehicleData } from '../lib/functions-client.js';
-import { persistVehicleData } from '../lib/vehicle-data-persistence.js';
-import { AUDIT_ACTION, writeAudit } from '../lib/audit.js';
+import {
+  loadVehicleDataReplay,
+  persistVehicleData,
+  vehicleDataDigest,
+} from '../lib/vehicle-data-persistence.js';
 import { recomputeStatus } from './internal.js';
 
 interface LookupBody {
   caseId?: unknown;
   registration?: unknown;
   targetDate?: unknown;
+  idempotencyKey?: unknown;
 }
 
 type CaseLookupRow = {
@@ -64,6 +69,10 @@ app.http('vehicleDataLookup', {
     if (body.targetDate !== undefined && !isoDate(body.targetDate)) {
       return { status: 400, jsonBody: { error: 'targetDate must be YYYY-MM-DD' } };
     }
+    const idempotencyKey = typeof body.idempotencyKey === 'string' ? body.idempotencyKey.trim() : '';
+    if (idempotencyKey && (!caseId || idempotencyKey.length > 200)) {
+      return { status: 400, jsonBody: { error: 'idempotencyKey requires caseId and must be at most 200 characters' } };
+    }
 
     let registration = previewRegistration;
     let documentHasMileage = false;
@@ -75,14 +84,40 @@ app.http('vehicleDataLookup', {
       );
       if (!rows[0]) return { status: 404, jsonBody: { error: 'case not found' } };
       registration = rows[0].vrm?.trim() ?? '';
-      documentHasMileage = Boolean(rows[0].eva_mileage?.trim());
+      documentHasMileage = isValidEvaMileage(rows[0].eva_mileage ?? '');
       targetDate ??= isoDate(rows[0].eva_date_of_loss);
     }
     if (!registration) return { status: 400, jsonBody: { error: 'registration is required' } };
 
+    const requestShape = {
+      caseId,
+      registration,
+      targetDate: targetDate ?? null,
+      documentHasMileage,
+    };
+    const requestSha256 = vehicleDataDigest(requestShape);
+    if (caseId && idempotencyKey) {
+      let replay;
+      try {
+        replay = await loadVehicleDataReplay(caseId, idempotencyKey, requestSha256);
+      } catch (error) {
+        throw new HttpError(409, error instanceof Error ? error.message : 'vehicle lookup retry conflict');
+      }
+      if (replay) {
+        await recomputeStatus(caseId);
+        ctx.log(JSON.stringify({ evt: 'vehicleDataLookupReplay', caseId, runId: replay.result.lookup.run_id }));
+        return { status: 200, jsonBody: { ...replay.result, persisted: replay.persisted } };
+      }
+    }
+
     let result;
     try {
-      result = await callVehicleData({ registration, documentHasMileage, ...(targetDate ? { targetDate } : {}) });
+      result = await callVehicleData({
+        registration,
+        documentHasMileage,
+        ...(targetDate ? { targetDate } : {}),
+        ...(idempotencyKey ? { idempotencyKey } : {}),
+      });
     } catch (error) {
       ctx.error(error);
       throw new HttpError(503, 'Vehicle details are temporarily unavailable.');
@@ -91,22 +126,12 @@ app.http('vehicleDataLookup', {
     if (!caseId) return { status: 200, jsonBody: result };
 
     const persisted = await persistVehicleData(caseId, result, {
-      source: 'case_lookup',
+      source: idempotencyKey ? 'orchestration' : 'case_lookup',
       document_has_mileage: documentHasMileage,
+      ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {}),
+      request_sha256: requestSha256,
     });
     await recomputeStatus(caseId);
-    await writeAudit({
-      action: AUDIT_ACTION.enrichment_called,
-      caseId,
-      summary: `Vehicle details checked: ${persisted.applied.length ? persisted.applied.join(', ') : 'no empty fields filled'}`,
-      after: {
-        runId: result.lookup.run_id,
-        lookupStatus: result.lookup.status,
-        mileageStatus: result.mileage.status,
-        applied: persisted.applied,
-        warning: persisted.warning ?? null,
-      },
-    });
     ctx.log(JSON.stringify({ evt: 'vehicleDataLookup', caseId, runId: result.lookup.run_id, applied: persisted.applied }));
     return { status: 200, jsonBody: { ...result, persisted } };
   }),

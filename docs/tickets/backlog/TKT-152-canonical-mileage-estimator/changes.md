@@ -74,7 +74,12 @@ and offline-tested in the same branch, but remains undeployed.
   There is no hard-coded confidence label or probability. Only a valid versioned profile
   with SHA-256 provenance, at least 30 matching holdouts, and finite ordered residual
   quantiles can emit an empirical prediction interval. Without one, a defensible normal
-  point estimate remains available with a wider explicitly uncalibrated range.
+  point estimate remains visible with a wider explicitly uncalibrated range, but is
+  not exposed to legacy/default case-field writers.
+- Automatic estimate application additionally requires at least 1,000 empirical
+  chronological holdouts, observed coverage at or above the declared target and the
+  explicit `MILEAGE_ESTIMATE_AUTOFILL_ENABLED` rollout gate. Synthetic fixtures cannot
+  authorise it.
 - Defaults to a 730-day forecast horizon and abstains after it.
 
 ## Immutable persistence
@@ -103,14 +108,15 @@ and offline-tested in the same branch, but remains undeployed.
 
 ## Gates run
 
-- `functions/enrichment`: `python -m pytest -q` → **62 passed**.
+- `functions/enrichment`: `python -m pytest -q` → **64 passed**.
 - Python compile/import gate (`compileall`) → pass.
-- Data API: TypeScript build → pass; Vitest → **65 files / 629 tests passed**.
+- Data API: TypeScript build → pass; Vitest → **65 files / 635 tests passed**.
 - Orchestration: TypeScript build → pass; Vitest → **30 files / 418 tests passed**.
-- Domain contract suite → **56 files / 1,142 tests passed** after exhaustive runtime validation and readiness tests.
-- SPA: TypeScript/Vite build pass; Vitest → **39 files / 450 tests passed**.
+- Domain contract suite → **56 files / 1,144 tests passed** after exhaustive runtime validation and readiness tests.
+- SPA: TypeScript/Vite build pass; Vitest → **39 files / 452 tests passed**.
 - Sibling connector: typecheck/build/stdio bundle pass; Vitest → **2 files / 4 tests passed** at
-  commit `1cb7da9`.
+  commits `1cb7da9` + `dbb57d5` (including the tracked package/runtime purge and
+  strict current canonical contract).
 - Sibling Windows tool: direct `dotnet build` → **0 warnings / 0 errors** at commit `eb0329f`.
 - Aggregate `node verify-all.mjs` → **8 passed, 0 failed, 13 expected skips**.
 - `node migration/assets/verify-parity-pg.mjs` → all applicable checks passed.
@@ -128,6 +134,10 @@ and offline-tested in the same branch, but remains undeployed.
 - TKT-151 application/persistence/readiness/retry is implemented offline in this branch;
   it still needs migration/deployment, controlled found/not-found proof, backup-first
   remediation and the final residual census.
+- Durable orchestration retries now share one caller key; the Data API stores and
+  verifies request/response digests, replays the first validated envelope and does not
+  duplicate audit or provenance. MOT persistence now writes `completed_date_raw`,
+  episode/segment numbers, booleans and the actual contract decision codes.
 - The sibling MCP and Windows changes are committed but not yet merged or deployed. Until those
   delivery units land, their current default branches remain unchanged and suite-wide live
   consolidation cannot be claimed. The historical Cloudflare runtime and desktop duplicate

@@ -171,9 +171,10 @@ def test_mileage_fetched_when_document_lacks_mileage(monkeypatch):
 
     assert result["vehicle_model"] == "FOCUS"
     assert result["make"] == "FORD"
-    assert result["current_mileage"] == 62400
-    assert result["mileage_unit"] == "Miles"
+    assert "current_mileage" not in result
+    assert "mileage_unit" not in result
     assert result["mileage"]["status"] == "estimated"
+    assert result["mileage"]["auto_fill_eligible"] is False
     assert result["mileage"]["prediction_interval"]["coverage"] == 0.9
     assert "mileage_confidence" not in result
     # Still a single DVSA call — one fetch feeds both summary and estimate.
@@ -288,9 +289,11 @@ def test_401_refreshes_token_once_then_succeeds(monkeypatch, caplog):
             "TE57VRM", document_has_mileage=False, dvsa=_dvsa_client(), dvla=None
         )
 
-    # Recovered after one refresh: make/model + mileage present, no exception.
+    # Recovered after one refresh: make/model + visible estimate present, but
+    # the small fixture profile cannot authorise a default field write.
     assert result["make"] == "FORD"
-    assert result["current_mileage"] == 62400
+    assert "current_mileage" not in result
+    assert result["mileage"]["estimated_mileage"] == 62400
     assert token_route.call_count >= 2  # initial + forced refresh
     assert calls["n"] == 2  # one 401, one success
     assert FAKE_TOKEN not in caplog.text
@@ -343,9 +346,10 @@ def test_dvsa_bare_429_retries_then_succeeds(monkeypatch):
         "TE57VRM", document_has_mileage=False, dvsa=_dvsa_client(), dvla=None
     )
 
-    # Recovered after the retry: make/model + mileage present, no warning leak.
+    # Recovered after the retry: make/model + visible estimate present.
     assert result["make"] == "FORD"
-    assert result["current_mileage"] == 62400
+    assert "current_mileage" not in result
+    assert result["mileage"]["estimated_mileage"] == 62400
     assert calls["n"] == 2  # one 429, one success
     assert dvsa_route.call_count == 2
 
@@ -655,8 +659,10 @@ def test_handler_end_to_end_mileage_path(monkeypatch):
     )
     assert resp.status_code == 200
     payload = json.loads(resp.get_body())
-    assert payload["current_mileage"] == 62400
-    assert payload["mileage_unit"] == "Miles"
+    assert "current_mileage" not in payload
+    assert "mileage_unit" not in payload
+    assert payload["mileage"]["estimated_mileage"] == 62400
+    assert payload["mileage"]["auto_fill_eligible"] is False
     assert payload["vehicle_model"] == "FOCUS"
     body_text = resp.get_body().decode("utf-8")
     assert FAKE_SECRET not in body_text

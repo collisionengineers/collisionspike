@@ -66,7 +66,11 @@ import { makeRestParserTransport } from '../data/parser-rest-transport';
 import type { DataAccessExt, EvidenceUploadRole } from '../data/rest-client';
 import type { CreateCaseInput, NextCasePoResult } from '@cs/domain';
 import { acquireApiToken } from '../auth/msalConfig';
-import { createIdentityFields, type ManualIntakeMode } from './manual-intake-create';
+import {
+  createIdentityFields,
+  manualVehicleModel,
+  type ManualIntakeMode,
+} from './manual-intake-create';
 import { manualIntakeEvidenceNotice } from './evidence-upload-result';
 import {
   manualIntakeUploadOutcome,
@@ -652,7 +656,9 @@ export function ManualIntake() {
       const d = await getDataAccess().lookupVehicle({ registration: vrm });
       if (d.lookup.status === 'found') {
         if (d.make) setMake(d.make);
-        if (d.vehicle_model) onFieldChange('vehicleModel', d.vehicle_model);
+        if (d.make || d.vehicle_model) {
+          onFieldChange('vehicleModel', manualVehicleModel(d.make ?? '', d.vehicle_model ?? ''));
+        }
         if (d.current_mileage !== undefined) onFieldChange('mileage', String(d.current_mileage));
         if (d.mileage_unit) onFieldChange('mileageUnit', d.mileage_unit);
         toast('Vehicle details filled in');
@@ -728,6 +734,10 @@ export function ManualIntake() {
     // the created Case's EVA fields are self-consistent (Work Provider = provider).
     const evaForCreate: EvaFields = {
       ...fields,
+      vehicleModel: {
+        ...fields.vehicleModel,
+        value: manualVehicleModel(make, fields.vehicleModel.value),
+      },
       workProvider: mode !== 'images' && provider.trim()
         ? { ...fields.workProvider, value: provider.trim(), reviewState: 'reviewed' }
         : fields.workProvider,

@@ -1,6 +1,13 @@
-import type { VehicleDataEnrichmentResponse, VehicleDataWarning } from '@cs/domain';
-import { tx, type TxQuery } from './db.js';
+import { createHash } from 'node:crypto';
+import {
+  isValidEvaMileage,
+  parseVehicleDataEnrichmentResponse,
+  type VehicleDataEnrichmentResponse,
+  type VehicleDataWarning,
+} from '@cs/domain';
+import { query, tx, type TxQuery } from './db.js';
 import { combineMakeModel } from './enrichment-map.js';
+import { AUDIT_ACTION, writeAuditStrict } from './audit.js';
 
 type CaseVehicleRow = {
   id: string;
@@ -13,6 +20,29 @@ export interface PersistedVehicleData {
   applied: string[];
   warning?: string;
   retryable: boolean;
+  replayed: boolean;
+}
+
+export interface VehicleDataRequestContext {
+  source: string;
+  document_has_mileage: boolean;
+  idempotency_key?: string;
+  request_sha256: string;
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+}
+
+export function vehicleDataDigest(value: unknown): string {
+  return createHash('sha256').update(stableJson(value)).digest('hex');
 }
 
 const LOOKUP_MESSAGES: Record<VehicleDataEnrichmentResponse['lookup']['status'], string> = {
@@ -24,7 +54,7 @@ const LOOKUP_MESSAGES: Record<VehicleDataEnrichmentResponse['lookup']['status'],
 };
 
 function currentMileage(result: VehicleDataEnrichmentResponse): number | undefined {
-  if (result.mileage.status !== 'observed' && result.mileage.status !== 'estimated') return undefined;
+  if (result.mileage.status !== 'observed' && result.mileage.auto_fill_eligible !== true) return undefined;
   return result.current_mileage ?? result.mileage.observed_mileage ?? result.mileage.estimated_mileage ?? undefined;
 }
 
@@ -33,13 +63,80 @@ function blockingWarning(result: VehicleDataEnrichmentResponse): VehicleDataWarn
 }
 
 function staffWarning(result: VehicleDataEnrichmentResponse): string | undefined {
+  const messages: string[] = [];
   const blocking = blockingWarning(result);
-  if (blocking?.message) return blocking.message;
-  if (result.lookup.status !== 'found') return LOOKUP_MESSAGES[result.lookup.status];
-  if (result.mileage.status === 'range_only' || result.mileage.status === 'insufficient') {
-    return result.mileage.reason?.trim() || LOOKUP_MESSAGES.found;
+  if (blocking?.message) messages.push(blocking.message);
+  if (result.lookup.status !== 'found') messages.push(LOOKUP_MESSAGES[result.lookup.status]);
+  for (const failedProvider of result.provider_snapshots.filter((snapshot) => snapshot.status !== 'found')) {
+    if (failedProvider.provider === 'dvsa_mot_history_v1') {
+      if (failedProvider.status === 'temporarily_unavailable') {
+        messages.push('MOT history is temporarily unavailable. Try again.');
+      } else if (failedProvider.status === 'configuration_error') {
+        messages.push('MOT history is unavailable. Ask a supervisor to check it.');
+      } else if (failedProvider.status === 'not_found') {
+        messages.push('No MOT history was found for this registration.');
+      }
+    } else if (failedProvider.provider === 'dvla_vehicle_enquiry_v1') {
+      if (failedProvider.status === 'temporarily_unavailable') {
+        messages.push('Vehicle make and model are temporarily unavailable. Try again.');
+      } else if (failedProvider.status === 'configuration_error') {
+        messages.push('Vehicle make and model are unavailable. Ask a supervisor to check it.');
+      } else if (failedProvider.status === 'not_found') {
+        messages.push('No make or model was found for this registration.');
+      }
+    }
   }
-  return undefined;
+  if (result.mileage.status === 'range_only' || result.mileage.status === 'insufficient') {
+    messages.push(result.mileage.reason?.trim() || LOOKUP_MESSAGES.found);
+  } else if (result.mileage.status === 'estimated' && !result.mileage.auto_fill_eligible) {
+    const advisory = result.mileage.warnings.find((warning) => warning.code === 'autofill_calibration_required');
+    if (advisory?.message) messages.push(advisory.message);
+  }
+  return [...new Set(messages)].join(' ') || undefined;
+}
+
+function retryableLookup(result: VehicleDataEnrichmentResponse): boolean {
+  return result.lookup.status === 'temporarily_unavailable' ||
+    result.provider_snapshots.some((snapshot) => snapshot.status === 'temporarily_unavailable');
+}
+
+type ReplayRow = {
+  case_id: string | null;
+  request_sha256: string | null;
+  response_sha256: string | null;
+  response_envelope: unknown;
+};
+
+/** Return the first persisted response for an exact caller retry. */
+export async function loadVehicleDataReplay(
+  caseId: string,
+  idempotencyKey: string,
+  requestSha256: string,
+): Promise<{ result: VehicleDataEnrichmentResponse; persisted: PersistedVehicleData } | undefined> {
+  const rows = await query<ReplayRow>(
+    `SELECT case_id, request_sha256, response_sha256, response_envelope
+       FROM vehicle_lookup_run WHERE idempotency_key = $1`,
+    [idempotencyKey],
+  );
+  const row = rows[0];
+  if (!row) return undefined;
+  if (row.case_id !== caseId || row.request_sha256 !== requestSha256) {
+    throw new Error('vehicle lookup idempotency key conflicts with another request');
+  }
+  const result = parseVehicleDataEnrichmentResponse(row.response_envelope);
+  if (!result || row.response_sha256 !== vehicleDataDigest(result)) {
+    throw new Error('persisted vehicle lookup replay failed integrity validation');
+  }
+  const warning = staffWarning(result);
+  return {
+    result,
+    persisted: {
+      applied: [],
+      ...(warning ? { warning } : {}),
+      retryable: retryableLookup(result),
+      replayed: true,
+    },
+  };
 }
 
 async function insertProfile(
@@ -94,7 +191,7 @@ async function insertFieldSource(
 export async function persistVehicleData(
   caseId: string,
   result: VehicleDataEnrichmentResponse,
-  requestContext: Record<string, unknown> = {},
+  requestContext: VehicleDataRequestContext,
 ): Promise<PersistedVehicleData> {
   return tx(async (q) => {
     const cases = await q<CaseVehicleRow>(
@@ -116,12 +213,15 @@ export async function persistVehicleData(
     );
     await insertProfile(q, 'cohort_prior', prior?.version, prior?.dataset_digest, prior ?? {});
 
-    await q(
+    const responseSha256 = vehicleDataDigest(result);
+    const insertedRuns = await q<{ id: string }>(
       `INSERT INTO vehicle_lookup_run
          (id, case_id, contract_version, algorithm_version, requested_registration,
-          canonical_registration, target_date, lookup_status, retrieved_at, request_context)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)
-       ON CONFLICT (id) DO NOTHING`,
+          canonical_registration, target_date, lookup_status, retrieved_at,
+          idempotency_key, request_sha256, response_sha256, response_envelope, request_context)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb)
+       ON CONFLICT (id) DO NOTHING
+       RETURNING id`,
       [
         result.lookup.run_id,
         caseId,
@@ -132,12 +232,41 @@ export async function persistVehicleData(
         result.lookup.target_date,
         result.lookup.status,
         result.lookup.retrieved_at,
+        requestContext.idempotency_key ?? null,
+        requestContext.request_sha256,
+        responseSha256,
+        JSON.stringify(result),
         JSON.stringify(requestContext),
       ],
     );
-    const runs = await q<{ case_id: string | null }>('SELECT case_id FROM vehicle_lookup_run WHERE id = $1', [result.lookup.run_id]);
-    if (!runs[0] || runs[0].case_id !== caseId) {
-      throw new Error('vehicle lookup run is already assigned to another case');
+    const runs = await q<{
+      case_id: string | null;
+      idempotency_key: string | null;
+      request_sha256: string | null;
+      response_sha256: string | null;
+    }>(
+      `SELECT case_id, idempotency_key, request_sha256, response_sha256
+         FROM vehicle_lookup_run WHERE id = $1`,
+      [result.lookup.run_id],
+    );
+    const run = runs[0];
+    if (
+      !run ||
+      run.case_id !== caseId ||
+      run.idempotency_key !== (requestContext.idempotency_key ?? null) ||
+      run.request_sha256 !== requestContext.request_sha256 ||
+      run.response_sha256 !== responseSha256
+    ) {
+      throw new Error('vehicle lookup replay content conflicts with the persisted run');
+    }
+    if (!insertedRuns[0]) {
+      const warning = staffWarning(result);
+      return {
+        applied: [],
+        ...(warning ? { warning } : {}),
+        retryable: retryableLookup(result),
+        replayed: true,
+      };
     }
 
     const snapshotIds = new Map<string, string>();
@@ -186,9 +315,9 @@ export async function persistVehicleData(
              (lookup_run_id, provider_snapshot_id, observation_id, raw_index, data_source,
               mot_test_number, completed_date_raw, test_date, test_result, odometer_value_raw,
               odometer_unit_raw, odometer_result_type_raw, registration_at_test,
-              stable_vehicle_identity, normalized_miles, selected_for_event,
+              stable_vehicle_identity, normalized_miles, episode_number, segment_number, selected_for_event,
               included_for_rate, decision_codes, warning_codes)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
            ON CONFLICT DO NOTHING`,
           [
             result.lookup.run_id,
@@ -197,7 +326,7 @@ export async function persistVehicleData(
             observation.raw_index,
             observation.source,
             observation.mot_test_number,
-            observation.test_date,
+            observation.completed_date_raw,
             observation.test_date,
             observation.test_result,
             observation.odometer_value_raw,
@@ -206,8 +335,10 @@ export async function persistVehicleData(
             observation.registration_at_test,
             observation.stable_vehicle_identity,
             observation.normalized_miles,
-            observation.decisions.includes('selected_for_event'),
-            observation.decisions.includes('included_for_rate'),
+            observation.episode,
+            observation.segment,
+            observation.selected_for_event,
+            observation.included_for_rate,
             observation.decisions,
             observation.warnings,
           ],
@@ -251,7 +382,7 @@ export async function persistVehicleData(
       await insertFieldSource(q, caseId, result.lookup.run_id, 'vehicleModel', model.slice(0, 200), 'Vehicle record');
       applied.push('vehicleModel');
     }
-    if (mileage !== undefined && !current.eva_mileage?.trim()) {
+    if (mileage !== undefined && !isValidEvaMileage(current.eva_mileage ?? '')) {
       const exactMileage = String(mileage);
       await q(
         `UPDATE case_ SET eva_mileage = $2, eva_mileage_unit = 'Miles' WHERE id = $1`,
@@ -263,7 +394,7 @@ export async function persistVehicleData(
     }
 
     const warning = staffWarning(result);
-    const retryable = result.lookup.status === 'temporarily_unavailable';
+    const retryable = retryableLookup(result);
     await q(
       `UPDATE case_
           SET last_vehicle_lookup_run_id = $2,
@@ -286,6 +417,18 @@ export async function persistVehicleData(
         result.mileage.method,
       ],
     );
-    return { applied, ...(warning ? { warning } : {}), retryable };
+    await writeAuditStrict({
+      action: AUDIT_ACTION.enrichment_called,
+      caseId,
+      summary: `Vehicle details checked: ${applied.length ? applied.join(', ') : 'no empty fields filled'}`,
+      after: {
+        runId: result.lookup.run_id,
+        lookupStatus: result.lookup.status,
+        mileageStatus: result.mileage.status,
+        applied,
+        warning: warning ?? null,
+      },
+    }, q);
+    return { applied, ...(warning ? { warning } : {}), retryable, replayed: false };
   });
 }

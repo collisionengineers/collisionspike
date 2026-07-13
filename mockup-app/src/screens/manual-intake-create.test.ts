@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { createIdentityFields, IMAGE_ONLY_IDENTITY_ORDER } from './manual-intake-create';
+import {
+  createIdentityFields,
+  IMAGE_ONLY_IDENTITY_ORDER,
+  manualVehicleModel,
+} from './manual-intake-create';
 
 const values = {
   provider: '  QDOS  ',
@@ -8,6 +12,14 @@ const values = {
   providerReference: ' REF-1 ',
   insuredName: ' Policy Holder ',
 };
+
+describe('manual vehicle identity', () => {
+  it('persists make and model together without duplicating an existing make prefix', () => {
+    expect(manualVehicleModel('Ford', 'Focus')).toBe('Ford Focus');
+    expect(manualVehicleModel('Ford', 'FORD Focus')).toBe('FORD Focus');
+    expect(manualVehicleModel('', 'Focus')).toBe('Focus');
+  });
+});
 
 describe('images-only manual intake identity', () => {
   it('never submits provider or insured values', () => {

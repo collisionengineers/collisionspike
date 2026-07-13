@@ -26,6 +26,7 @@ function testCase(): Case {
     );
   }
   evaFields.vatStatus = { ...evaFields.vatStatus, value: 'Yes' };
+  evaFields.mileage = { ...evaFields.mileage, value: '48250' };
   evaFields.mileageUnit = { ...evaFields.mileageUnit, value: 'Miles' };
   return {
     id: 'case-1',
@@ -86,6 +87,14 @@ describe('computeReadiness canonical adapter', () => {
       detail: expect.stringContaining('Vehicle Model'),
     });
     expect(canSubmitCaseToEva(c)).toBe(false);
+  });
+
+  it('does not treat populated mileage prose as a resolved odometer value', () => {
+    const c = testCase();
+    c.evaFields.mileage.value = 'about fifty thousand';
+    const ui = computeReadiness(c);
+    expect(ui.ready).toBe(false);
+    expect(ui.items.find((item) => item.id === 'vehicle-details')).toMatchObject({ ok: false });
   });
 
   it('an explicit hold blocks submission without pretending the field/image checks failed', () => {

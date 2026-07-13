@@ -145,6 +145,7 @@ def enrich(
     cohort_prior: CohortPrior | None = None,
     cohort_priors: tuple[CohortPrior, ...] = (),
     calibration: CalibrationProfile | None = None,
+    idempotency_key: str | None = None,
 ) -> dict:
     """Invoke the sole vehicle-data service and project its compatibility fields.
 
@@ -163,11 +164,15 @@ def enrich(
             else cohort_priors_from_env()
         ),
         calibration=calibration if calibration is not None else calibration_profile_from_env(),
+        estimate_autofill_enabled=_truthy(
+            os.environ.get("MILEAGE_ESTIMATE_AUTOFILL_ENABLED")
+        ),
     )
     contract = service.lookup(
         vrm,
         target_date=target_date,
         include_mileage=not document_has_mileage,
+        idempotency_key=idempotency_key,
     )
     return legacy_enrichment_adapter(contract)
 
@@ -232,6 +237,13 @@ def dvsa_mot_enrich(req: func.HttpRequest) -> func.HttpResponse:
     # unless the caller explicitly says the document lacks it. Safer default —
     # avoids spending quota and avoids overriding an authoritative document.
     document_has_mileage = bool(body.get("document_has_mileage", True))
+    idempotency_key = _clean_str(body.get("idempotency_key"))
+    if idempotency_key is not None and len(idempotency_key) > 200:
+        return func.HttpResponse(
+            json.dumps({"error": "Field 'idempotency_key' is too long."}),
+            status_code=400,
+            mimetype="application/json",
+        )
     target_date: date | None = None
     if body.get("target_date") is not None:
         try:
@@ -252,6 +264,7 @@ def dvsa_mot_enrich(req: func.HttpRequest) -> func.HttpResponse:
             dvsa=dvsa,
             dvla=dvla,
             target_date=target_date,
+            idempotency_key=idempotency_key,
         )
     except Exception as exc:  # pragma: no cover - top-level safety net
         # Never bubble: enrichment is advisory. Return a canonical insufficient

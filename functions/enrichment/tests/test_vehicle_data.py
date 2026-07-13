@@ -615,8 +615,8 @@ def test_service_emits_one_versioned_contract_raw_snapshot_and_thin_legacy_proje
     adapted = legacy_enrichment_adapter(contract)
     assert adapted["vehicle_model"] == "FOCUS"
     assert adapted["make"] == "FORD"
-    assert adapted["current_mileage"] == contract["mileage"]["estimated_mileage"]
-    assert adapted["mileage_method"] == "recent_rate_forecast"
+    assert "current_mileage" not in adapted
+    assert contract["mileage"]["auto_fill_eligible"] is False
 
 
 @pytest.mark.parametrize(
@@ -640,6 +640,23 @@ def test_service_keeps_provider_outcomes_distinct(lookup_status: str, expected: 
     assert result["lookup"]["status"] == expected
 
 
+def test_caller_idempotency_key_stabilises_run_identity_across_retries():
+    first = VehicleDataService(
+        dvsa=StaticDvsa(vehicle()),
+        clock=lambda: datetime(2026, 7, 12, tzinfo=timezone.utc),
+    ).lookup("TE57VRM", idempotency_key="intake:instance-1:vehicle-data:case-1")
+    retry = VehicleDataService(
+        dvsa=StaticDvsa(vehicle()),
+        clock=lambda: datetime(2026, 7, 13, tzinfo=timezone.utc),
+    ).lookup("TE57VRM", idempotency_key="intake:instance-1:vehicle-data:case-1")
+    other = VehicleDataService(
+        dvsa=StaticDvsa(vehicle()),
+        clock=lambda: datetime(2026, 7, 13, tzinfo=timezone.utc),
+    ).lookup("TE57VRM", idempotency_key="intake:instance-2:vehicle-data:case-1")
+    assert first["lookup"]["run_id"] == retry["lookup"]["run_id"]
+    assert first["lookup"]["run_id"] != other["lookup"]["run_id"]
+
+
 def test_invalid_registration_is_blocked_before_provider_quota_and_warned():
     service = VehicleDataService(
         dvsa=StaticDvsa(),
@@ -651,7 +668,7 @@ def test_invalid_registration_is_blocked_before_provider_quota_and_warned():
     assert result["mileage"]["warnings"][0]["code"] == "invalid_registration"
 
 
-def test_uncalibrated_estimate_remains_available_to_legacy_autofill_with_wide_range():
+def test_uncalibrated_estimate_is_visible_but_never_available_to_legacy_autofill():
     payload = vehicle(
         mot("2023-01-01", "40000", number="1"),
         mot("2024-01-01", "48000", number="2"),
@@ -664,8 +681,31 @@ def test_uncalibrated_estimate_remains_available_to_legacy_autofill_with_wide_ra
     assert contract["mileage"]["prediction_interval"] is None
     assert contract["mileage"]["range"]["basis"] == "rate_dispersion_not_calibrated"
     adapted = legacy_enrichment_adapter(contract)
-    assert adapted["current_mileage"] == contract["mileage"]["estimated_mileage"]
+    assert contract["mileage"]["estimated_mileage"] is not None
+    assert contract["mileage"]["auto_fill_eligible"] is False
+    assert "current_mileage" not in adapted
     assert "mileage_confidence" not in adapted
+
+
+def test_estimate_autofill_requires_empirical_profile_and_explicit_rollout_gate():
+    payload = vehicle(
+        mot("2023-01-01", "40000", number="1"),
+        mot("2024-01-01", "48000", number="2"),
+    )
+    profile = replace(
+        calibration(),
+        holdout_sample_size=1000,
+        observed_coverage=0.9,
+    )
+    contract = VehicleDataService(
+        dvsa=StaticDvsa(payload),
+        clock=lambda: datetime(2024, 7, 1, tzinfo=timezone.utc),
+        calibration=profile,
+        estimate_autofill_enabled=True,
+    ).lookup("TE57VRM")
+    assert contract["mileage"]["auto_fill_eligible"] is True
+    adapted = legacy_enrichment_adapter(contract)
+    assert adapted["current_mileage"] == contract["mileage"]["estimated_mileage"]
 
 
 def test_chronological_backtest_reports_required_slices_and_builds_reproducible_profile():

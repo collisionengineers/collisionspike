@@ -40,3 +40,15 @@ export const IMAGE_ONLY_IDENTITY_ORDER = [
   'vehicleModel',
   'mileage',
 ] as const;
+
+/** Persist the two visible controls in EVA's single vehicle-model field. */
+export function manualVehicleModel(make: string, model: string): string {
+  const cleanMake = make.trim();
+  const cleanModel = model.trim();
+  if (!cleanMake) return cleanModel;
+  if (!cleanModel) return cleanMake;
+  if (cleanModel.toLocaleUpperCase().startsWith(`${cleanMake.toLocaleUpperCase()} `)) {
+    return cleanModel;
+  }
+  return `${cleanMake} ${cleanModel}`;
+}

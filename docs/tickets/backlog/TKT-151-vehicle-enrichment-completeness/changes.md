@@ -41,9 +41,16 @@ separate verification verdict.
 - Case Detail shows a durable “Vehicle details need attention” warning and a
   working “Check again” action. A later successful observed/estimated result clears
   the blocking warning; an unresolved result does not.
-- Uncalibrated but defensible point estimates still fill mileage and carry their
-  wider non-probabilistic range in evidence; calibration absence no longer disables
-  normal lookup/autofill.
+- Uncalibrated point estimates remain visible in the lookup evidence but never fill
+  the case. Estimate auto-fill is fail-closed until a production-scale chronological
+  holdout profile meets its declared coverage and the explicit rollout gate is enabled;
+  exact observed MOT readings remain eligible.
+- Durable intake retries carry one instance-stable idempotency key. It is bound to
+  strict request/response digests and replays the first validated envelope without a
+  second lookup run, audit event or field-source row.
+- Manual Intake now persists the visible make and model together in EVA's single
+  vehicle field. Mileage edits, parser authority, provider intake, persistence and
+  readiness share one numeric boundary (digits or correctly grouped thousands only).
 
 ## Remediation and verification preparation
 

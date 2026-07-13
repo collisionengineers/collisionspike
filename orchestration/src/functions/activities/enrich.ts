@@ -31,6 +31,7 @@ interface EnrichInput {
   caseId: string;
   vrm?: string;
   documentHasMileage?: boolean;
+  idempotencyKey?: string;
 }
 
 df.app.activity('enrich', {
@@ -48,7 +49,7 @@ df.app.activity('enrich', {
 
     // The route re-reads the saved case, so parser/staff mileage precedence is decided
     // at the write boundary rather than trusted from a replayed activity payload.
-    const result = await dataApi.lookupVehicle(input.caseId);
+    const result = await dataApi.lookupVehicle(input.caseId, input.idempotencyKey);
     ctx.log(JSON.stringify({ evt: 'enrich', caseId: input.caseId, applied: result.persisted.applied }));
     return {
       enriched: result.lookup.status === 'found',

@@ -28,6 +28,10 @@ CREATE TABLE vehicle_lookup_run (
     lookup_status IN ('found','not_found','invalid_registration','temporarily_unavailable','configuration_error')
   ),
   retrieved_at             timestamptz NOT NULL,
+  idempotency_key          varchar(200),
+  request_sha256           char(64) NOT NULL CHECK (request_sha256 ~ '^[0-9a-f]{64}$'),
+  response_sha256          char(64) NOT NULL CHECK (response_sha256 ~ '^[0-9a-f]{64}$'),
+  response_envelope        jsonb NOT NULL CHECK (jsonb_typeof(response_envelope) = 'object'),
   request_context          jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(request_context) = 'object'),
   created_at               timestamptz NOT NULL DEFAULT now()
 );
@@ -113,6 +117,8 @@ CREATE INDEX ix_vehicle_lookup_run_registration_retrieved
   ON vehicle_lookup_run (canonical_registration, retrieved_at DESC);
 CREATE INDEX ix_vehicle_lookup_run_case_retrieved
   ON vehicle_lookup_run (case_id, retrieved_at DESC) WHERE case_id IS NOT NULL;
+CREATE UNIQUE INDEX ux_vehicle_lookup_run_idempotency
+  ON vehicle_lookup_run (idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE INDEX ix_mot_odometer_observation_run_date
   ON mot_odometer_observation (lookup_run_id, test_date, raw_index);
 

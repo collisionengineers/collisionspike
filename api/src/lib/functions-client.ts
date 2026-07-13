@@ -45,6 +45,7 @@ export async function callVehicleData(input: {
   registration: string;
   documentHasMileage: boolean;
   targetDate?: string;
+  idempotencyKey?: string;
 }): Promise<VehicleDataEnrichmentResponse> {
   const base = process.env.ENRICH_FN_URL;
   const key = process.env.ENRICH_FN_KEY;
@@ -60,6 +61,7 @@ export async function callVehicleData(input: {
       vrm: input.registration,
       document_has_mileage: input.documentHasMileage,
       ...(input.targetDate ? { target_date: input.targetDate } : {}),
+      ...(input.idempotencyKey ? { idempotency_key: input.idempotencyKey } : {}),
     },
     { timeoutMs: FN_STAGE_TIMEOUT_MS },
   );

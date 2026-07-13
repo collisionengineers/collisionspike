@@ -142,18 +142,21 @@ describe('generation-aware status evaluation contract', () => {
 });
 
 describe('canonical vehicle lookup contract', () => {
-  it('uses the single Data API owner and sends only the case id', async () => {
+  it('uses the single Data API owner and forwards the durable caller key', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
-      persisted: { applied: ['mileage'], retryable: false },
+      persisted: { applied: ['mileage'], retryable: false, replayed: false },
       lookup: { status: 'found', run_id: 'run-1' },
       mileage: { status: 'estimated', warnings: [] },
     }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
 
-    await dataApi.lookupVehicle('case-1');
+    await dataApi.lookupVehicle('case-1', 'intake:instance-1:vehicle-data:case-1');
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe('https://api.example.test/api/vehicle-data/lookup');
     expect(init?.method).toBe('POST');
-    expect(JSON.parse(String(init?.body))).toEqual({ caseId: 'case-1' });
+    expect(JSON.parse(String(init?.body))).toEqual({
+      caseId: 'case-1',
+      idempotencyKey: 'intake:instance-1:vehicle-data:case-1',
+    });
   });
 });
 

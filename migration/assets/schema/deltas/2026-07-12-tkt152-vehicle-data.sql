@@ -25,6 +25,10 @@ CREATE TABLE IF NOT EXISTS vehicle_lookup_run (
     lookup_status IN ('found','not_found','invalid_registration','temporarily_unavailable','configuration_error')
   ),
   retrieved_at timestamptz NOT NULL,
+  idempotency_key varchar(200),
+  request_sha256 char(64) NOT NULL CHECK (request_sha256 ~ '^[0-9a-f]{64}$'),
+  response_sha256 char(64) NOT NULL CHECK (response_sha256 ~ '^[0-9a-f]{64}$'),
+  response_envelope jsonb NOT NULL CHECK (jsonb_typeof(response_envelope) = 'object'),
   request_context jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(request_context) = 'object'),
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -116,6 +120,17 @@ ALTER TABLE case_
   ADD COLUMN IF NOT EXISTS vehicle_lookup_attempted_at timestamptz,
   ADD COLUMN IF NOT EXISTS vehicle_mileage_status varchar(20),
   ADD COLUMN IF NOT EXISTS vehicle_mileage_method varchar(40);
+
+-- Reconcile a partial pre-release application. Existing rows (if any) remain
+-- readable but cannot participate in replay until their hash/envelope fields
+-- are present; all new writers provide the four values atomically.
+ALTER TABLE vehicle_lookup_run
+  ADD COLUMN IF NOT EXISTS idempotency_key varchar(200),
+  ADD COLUMN IF NOT EXISTS request_sha256 char(64),
+  ADD COLUMN IF NOT EXISTS response_sha256 char(64),
+  ADD COLUMN IF NOT EXISTS response_envelope jsonb;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_vehicle_lookup_run_idempotency
+  ON vehicle_lookup_run (idempotency_key) WHERE idempotency_key IS NOT NULL;
 
 DO $$
 BEGIN

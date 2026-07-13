@@ -5,6 +5,7 @@ import {
 } from '../contracts/case-status';
 import type { Case } from './types';
 import { caseToQueue } from './queues';
+import { isValidEvaMileage } from '../contracts/eva-edit';
 
 export type SourceReadinessInput = Pick<
   StatusEvaluationInput,
@@ -66,7 +67,7 @@ export function readinessInputForCase(c: Case): StatusEvaluationInput {
     vehicleData: {
       hasRegistration: c.vrm.trim().length > 0,
       modelResolved: c.evaFields.vehicleModel.value.trim().length > 0,
-      mileageResolved: c.evaFields.mileage.value.trim().length > 0,
+      mileageResolved: isValidEvaMileage(c.evaFields.mileage.value),
       ...(c.vehicleLookup?.warning ? { warning: c.vehicleLookup.warning } : {}),
     },
     instructionCount: c.evidence.filter((e) => e.kind === 'instruction').length,

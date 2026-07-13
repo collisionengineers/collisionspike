@@ -15,6 +15,7 @@ import type {
   ProviderApiImage,
   ProviderApiSubmission,
 } from '@cs/domain';
+import { normaliseEvaMileage } from '@cs/domain';
 
 /** Machine-readable rejection codes — documented in docs/reference/provider-api-intake-spec.md. */
 export type ProviderIntakeErrorCode =
@@ -144,7 +145,8 @@ export function validateProviderApiSubmission(
     return err('invalid_mileage_unit', "mileageUnit must be '', 'Miles' or 'Km'.");
   }
   const mileage = str(b.mileage).trim();
-  if (mileage && !/^\d+$/.test(mileage)) {
+  const normalizedMileage = mileage ? normaliseEvaMileage(mileage) : '';
+  if (mileage && !normalizedMileage) {
     return err('invalid_mileage', 'mileage must contain digits only.');
   }
 
@@ -226,7 +228,7 @@ export function validateProviderApiSubmission(
       accidentCircumstances,
       inspectionAddress,
       vatStatus: vatStatus as '' | 'Yes' | 'No',
-      mileage: mileage.slice(0, 20),
+      mileage: normalizedMileage ?? '',
       mileageUnit: mileageUnit as '' | 'Miles' | 'Km',
       instructions,
       images,

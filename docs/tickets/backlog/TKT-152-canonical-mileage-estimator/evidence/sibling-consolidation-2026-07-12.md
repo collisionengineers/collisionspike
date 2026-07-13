@@ -7,13 +7,19 @@ deployed by this implementation agent.
 
 - Repository: `collisionengineers/dvla-dvsa-connector`
 - Branch: `codex/tkt-152-canonical-mileage-adapter`
-- Commit: `1cb7da9` (`refactor(mcp): retire duplicate vehicle runtimes`)
+- Commits: `1cb7da9` (`refactor(mcp): retire duplicate vehicle runtimes`) and
+  `dbb57d5` (`fix(mcp): purge retired runtimes and enforce canonical contract`)
 - Removed both direct provider clients, embedded provider credential defaults,
   Firestore/cache/snapshot/evidence-pack/workspace surfaces, all local mileage and
   plausibility rules, and the complete historical Cloudflare runtime.
 - The remaining six-tool MCP delegates to `vehicle-data.v1`, validates every
   constrained nested field and exposes raw provider payloads only from canonical
   captured snapshots without inference.
+- Deleted the tracked `.mcpb` package, retired `.env` example, Cloudflare deploy/test
+  scripts and stale Firestore retention policy. A retained-tree scan found no
+  plaintext credential patterns. `SECURITY_ROTATION_REQUIRED.md` records the exact
+  historical DVSA application/tenant identifiers and the DVSA/DVLA key names that
+  the delivery owner must revoke/rotate without reproducing secret values.
 - `npm run typecheck`, `npm test` (2 files / 4 tests), `npm run build`, and
   `npm run build:stdio` pass.
 

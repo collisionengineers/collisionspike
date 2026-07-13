@@ -116,6 +116,8 @@ class CalibrationProfile:
     validated_horizon_days: int
     buckets: tuple[CalibrationBucket, ...]
     minimum_bucket_size: int = 30
+    holdout_sample_size: int = 0
+    observed_coverage: float = 0.0
 
     @property
     def defensible(self) -> bool:
@@ -127,6 +129,23 @@ class CalibrationProfile:
             and self.validated_horizon_days > 0
             and self.minimum_bucket_size >= 30
             and bool(self.buckets)
+        )
+
+    @property
+    def autofill_ready(self) -> bool:
+        """True only for a production-scale empirical holdout profile.
+
+        Small synthetic fixtures are useful for algorithm tests, but cannot
+        authorise automatic case-field writes. The explicit sample/coverage
+        evidence keeps the rollout gate fail-closed.
+        """
+
+        return (
+            self.defensible
+            and self.holdout_sample_size >= 1000
+            and math.isfinite(self.observed_coverage)
+            and self.observed_coverage >= self.target_coverage
+            and self.observed_coverage < 1
         )
 
     def select(

@@ -10,6 +10,11 @@ live mutations.
    API. Keep `ENRICHMENT_ENABLED=true` on the canonical enrichment Function and
    orchestration gate. The orchestration app no longer needs direct Function
    credentials after the new API deployment is proven.
+   Keep `MILEAGE_ESTIMATE_AUTOFILL_ENABLED=false` (or absent). Do not enable it
+   until `MILEAGE_CALIBRATION_PROFILE_JSON` points to a reviewed chronological
+   holdout artifact with at least 1,000 holdouts whose observed coverage meets
+   its declared target. An uncalibrated point is evidence for staff, not a case
+   default.
 4. Deploy the enrichment Function, Data API, orchestration and SPA from the same
    reviewed release. Verify the API function list includes `vehicleDataLookup`.
 5. Run the census SQL and save the output. Probe one known found registration and

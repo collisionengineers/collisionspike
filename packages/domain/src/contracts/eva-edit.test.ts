@@ -20,6 +20,14 @@ describe('shared EVA edit normalisation', () => {
     expect(normaliseEvaEdit('mileageUnit', 'Kilometres')).toHaveProperty('error');
   });
 
+  it('accepts only strict numeric mileage or an explicit empty value', () => {
+    expect(normaliseEvaEdit('mileage', ' 50000 ')).toEqual({ value: '50000' });
+    expect(normaliseEvaEdit('mileage', '50,000')).toEqual({ value: '50000' });
+    expect(normaliseEvaEdit('mileage', '')).toEqual({ value: '' });
+    expect(normaliseEvaEdit('mileage', '50,000 miles')).toHaveProperty('error');
+    expect(normaliseEvaEdit('mileage', '123456789012345678901')).toHaveProperty('error');
+  });
+
   it('retains the established clip-at-column-width behavior for ordinary case-page text', () => {
     const over = 'x'.repeat(EVA_EDIT_MAX_LENGTH.claimantName + 1);
     expect(normaliseEvaEdit('claimantName', over)).toEqual({

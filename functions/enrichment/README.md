@@ -38,11 +38,14 @@ contract before their local estimator copies can be treated as equivalent.
 {
   "vrm": "TE57 VRM",
   "document_has_mileage": false,
-  "target_date": "2026-07-12"
+  "target_date": "2026-07-12",
+  "idempotency_key": "intake:<durable-instance>:vehicle-data:<case-id>"
 }
 ```
 
 - `target_date` is optional and defaults to the lookup date.
+- `idempotency_key` is optional for interactive lookups; durable callers reuse
+  one opaque key so retries share the same run identity.
 - `document_has_mileage` defaults to `true`; instruction mileage remains
   authoritative under ADR-0006.
 - `dry_run: true` still returns presence-only configuration health without a
@@ -51,10 +54,10 @@ contract before their local estimator copies can be treated as equivalent.
 ## Mileage result semantics
 
 - `observed`: exact trusted MOT-date reading; exact value is retained.
-- `estimated`: bounded interpolation or forecast with an eligible empirical
-  calibration bucket.
-- `range_only`: a useful point/range exists but no eligible chronological
-  calibration bucket supports a probability claim.
+- `estimated`: a bounded interpolation or forecast point. `auto_fill_eligible`
+  remains false unless an empirical holdout profile and the explicit rollout
+  gate both qualify it; an uncalibrated point is display-only.
+- `range_only`: a useful logical range exists without a safe point.
 - `insufficient`: ambiguity, stale horizon, or evidence scarcity makes even a
   range unsafe.
 
@@ -75,9 +78,13 @@ versioned artefacts:
 
 - `MILEAGE_COHORT_PRIOR_JSON`
 - `MILEAGE_CALIBRATION_PROFILE_JSON`
+- `MILEAGE_ESTIMATE_AUTOFILL_ENABLED` (fail-closed rollout gate)
 
 Without a defensible prior the estimator does not cohort-assist. Without a matching
-calibration bucket it returns `range_only`, not “high confidence”. The chronological
+calibration bucket it publishes only a non-probabilistic range and never defaults the
+point into a case. Even a matching bucket cannot auto-fill until the profile records at
+least 1,000 chronological holdouts, observed coverage meets the declared target, and
+the explicit rollout gate is enabled. The chronological
 holdout harness in `vehicle_data/backtest.py` reports MAE, median absolute error,
 range coverage and useful-tolerance coverage by horizon, vehicle type/age, clean
 interval count, volatility and anomaly class.
