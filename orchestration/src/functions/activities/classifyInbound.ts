@@ -43,10 +43,8 @@ export interface InboundClassification {
   bodyJobref?: string;
   /** Reply about existing work (#3) — drives the open-case link path. Default false. */
   isReply: boolean;
-  /** Which taxonomy vintage produced this row (v1 today; v2 once the DDL-gated engine tag
-   *  ships — adds case_update/cancellation). Absent = v1 (today's live parser). Carried
-   *  through to the triage-policy activity (1.55) for decision telemetry only —
-   *  classification/routing never branches on it. */
+  /** Which append-only taxonomy generation produced this row. Absent means a legacy
+   *  v1 response. Carried into decision telemetry; routing uses category/subtype. */
   taxonomyVersion?: number;
 }
 
@@ -121,6 +119,7 @@ export function buildClassifyRequest(
     body: inbound.body,
     from: inbound.senderAddress,
     senderDomain: domainOf(inbound.senderAddress),
+    authenticationResults: inbound.authenticationResults,
     providerMatchState: MATCH_STATE_TO_CLASSIFIER[matchState ?? 'unmatched'] ?? 'none',
     attachmentKinds,
     attachmentFilenames,

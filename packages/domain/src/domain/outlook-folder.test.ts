@@ -20,6 +20,7 @@ describe('suggestedOutlookFolder — one folder per e-mail type (TKT-054 / 02072
     // v3 subtypes must not silently fall through to Inbox/Other (PR49-C3):
     expect(suggestedOutlookFolder('payment_remittance')).toBe('Inbox/Billing');
     expect(suggestedOutlookFolder('pre_instruction_directions')).toBe('Inbox/Pre-instructions');
+    expect(suggestedOutlookFolder('website_general_enquiry')).toBe('Inbox/Queries/Enquiries');
   });
 });
 

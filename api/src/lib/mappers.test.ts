@@ -237,10 +237,12 @@ describe('tallyActiveInboundCounts — handled rows excluded', () => {
       { category_code: 100000001, triage_state: 'actioned' }, // query — HANDLED, excluded
       { category_code: 100000002, triage_state: 'dismissed' }, // other — HANDLED, excluded
       { category_code: 100000000, triage_state: null }, // receiving_work, null->new
+      { category_code: 100000008, triage_state: 'routed' }, // website enquiry, active
     ]);
     expect(counts.receiving_work).toBe(3);
     expect(counts.query).toBe(0); // handled excluded
     expect(counts.other).toBe(0); // handled excluded
+    expect(counts.website_enquiry).toBe(1);
     expect(counts.untriaged).toBe(2); // the 'new' row + the null row
   });
 });
@@ -300,6 +302,8 @@ describe('inbound code <-> name', () => {
     expect(inboundSubtypeFromInt(100000001)).toBe('existing_provider_audit');
     expect(inboundSubtypeFromInt(100000006)).toBe('existing_provider_diminution');
     expect(inboundCategoryFromInt(undefined)).toBeUndefined();
+    expect(inboundCategoryFromInt(100000008)).toBe('website_enquiry');
+    expect(inboundSubtypeFromInt(100000015)).toBe('website_general_enquiry');
   });
 });
 

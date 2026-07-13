@@ -320,7 +320,12 @@ export async function getMessageHeaders(
     const msg = await graphFetch<{ internetMessageHeaders?: Array<{ name?: string; value?: string }> }>(path);
     const out: Record<string, string> = {};
     for (const h of msg.internetMessageHeaders ?? []) {
-      if (h?.name) out[h.name.toLowerCase()] = h.value ?? '';
+      if (!h?.name) continue;
+      const name = h.name.toLowerCase();
+      // Keep the outermost (recipient-nearest) occurrence. In particular, an
+      // attacker-supplied inner Authentication-Results header must never replace
+      // the result stamped by Exchange at receipt.
+      if (!(name in out)) out[name] = h.value ?? '';
     }
     return out;
   } catch {

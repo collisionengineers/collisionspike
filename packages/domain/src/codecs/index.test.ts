@@ -44,6 +44,11 @@ describe('inboundCategoryCodec — round-trip', () => {
     expect(inboundCategoryCodec.toName(100000006)).toBe('cancellation');
   });
 
+  it('appends website_enquiry at 100000008 without renumbering older categories', () => {
+    expect(inboundCategoryCodec.toInt('website_enquiry')).toBe(100000008);
+    expect(inboundCategoryCodec.toName(100000008)).toBe('website_enquiry');
+  });
+
   it('the pre-existing codes are unchanged (never-renumber discipline)', () => {
     expect(inboundCategoryCodec.toInt('receiving_work')).toBe(100000000);
     expect(inboundCategoryCodec.toInt('query')).toBe(100000001);
@@ -72,6 +77,11 @@ describe('inboundSubtypeCodec — round-trip', () => {
     expect(inboundSubtypeCodec.toInt('images_received')).toBe(100000010);
     expect(inboundSubtypeCodec.toInt('cancellation_notice')).toBe(100000011);
     expect(inboundSubtypeCodec.toInt('update_general')).toBe(100000012);
+  });
+
+  it('appends website_general_enquiry at 100000015', () => {
+    expect(inboundSubtypeCodec.toInt('website_general_enquiry')).toBe(100000015);
+    expect(inboundSubtypeCodec.toName(100000015)).toBe('website_general_enquiry');
   });
 
   it('the pre-existing codes are unchanged (never-renumber discipline)', () => {

@@ -22,6 +22,7 @@ import {
 export const CATEGORY_ORDER: InboundCategory[] = [
   'receiving_work',
   'query',
+  'website_enquiry',
   'case_update',
   // Taxonomy v3 (TKT-084) — directions held for a later official instruction.
   'pre_instruction',
@@ -34,6 +35,7 @@ export const CATEGORY_ORDER: InboundCategory[] = [
 export const CATEGORY_LABEL: Record<InboundCategory, string> = {
   receiving_work: 'Receiving work',
   query: 'Queries',
+  website_enquiry: 'Website enquiries',
   case_update: 'Case updates',
   pre_instruction: 'Pre-instruction',
   cancellation: 'Cancellations',
@@ -49,6 +51,7 @@ export const SUBTYPE_LABEL: Record<InboundSubtype, string> = {
   new_client_work: 'New client work',
   query_existing_work: 'Case query',
   query_new_enquiry: 'New enquiry',
+  website_general_enquiry: 'Website enquiry',
   billing_request: 'Invoice request',
   case_summary: 'Case summary',
   acknowledgement: 'Acknowledgement',
@@ -71,6 +74,7 @@ export const SUBTYPES_BY_CATEGORY: Record<InboundCategory, InboundSubtype[]> = {
   ],
   // The Enquiries-vs-Case-Queries split (TKT-034) lives here, as the two query subtypes.
   query: ['query_existing_work', 'query_new_enquiry'],
+  website_enquiry: ['website_general_enquiry'],
   case_update: ['images_received', 'update_general'],
   pre_instruction: ['pre_instruction_directions'],
   cancellation: ['cancellation_notice'],

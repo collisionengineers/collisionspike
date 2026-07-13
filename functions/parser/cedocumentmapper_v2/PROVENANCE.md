@@ -15,6 +15,11 @@
 > parser re-deploy second** — this mirrors the rules-engine-v2 plan's Phase 2
 > "deploy order is part of the design" discipline.
 > ([`docs/plans/rules_engine_v2_plan_9ba034c4.plan.md`](../../../docs/plans/rules_engine_v2_plan_9ba034c4.plan.md))
+>
+> **Taxonomy-v4 addendum (`engine-v2.24`, TKT-170):** apply
+> `migration/assets/schema/deltas/2026-07-13-tkt170-website-enquiry.sql` before
+> deploying this parser cut. It adds the append-only `website_enquiry` category and
+> `website_general_enquiry` subtype consumed by the classifier response.
 
 This directory is a **pinned vendored copy** of the Collision Engineers document
 parser engine. It is the package the FC1 parser Function imports as
@@ -28,6 +33,24 @@ hand-edited** — every shared file, including the bundled JSON resources, is a
 byte-for-byte mirror. No reconciliation is currently outstanding.
 
 ## History (condensed)
+
+**2026-07-13 (TKT-170 authenticated website enquiries):** re-cut from the sibling at
+**`engine-v2.24`** (branch `codex/tkt-170-website-enquiry`, commit
+`e9cec4acb8f1f49fb81c4d279d3a31cc82356d84`; merged by sibling PR 10; annotated tag
+pushed unchanged to origin after exact-head Claude + Codex PASS). One engine file,
+`rules/email_classifier.py`: taxonomy v4 adds the non-minting `website_enquiry` /
+`website_general_enquiry` lane for the Collision Engineers contact form. The rule
+requires the exact parsed transport mailbox/domain, recipient-stamped aligned DMARC
+plus Exchange composite-authentication pass, and at least two independent form
+markers; missing, partial, cross-segment or spoofed identity evidence fails closed.
+It precedes every case-related rule so visitor text, references, registrations and
+attachments cannot turn a website lead into case work. The public positional call
+contract remains unchanged because the new optional authentication input is appended.
+Sibling classifier suite: **74 passed**; wrapper classifier/corpus/route suite:
+**182 passed / 9 environmental skips**. The exact supplied EML and adversarial
+display-name/authentication/marker/cancellation paths are pinned. Providers.json is
+untouched; the cloud boundary remains a pure mirror. Apply the TKT-170 additive DDL
+delta before deployment.
 
 **2026-07-12 (TKT-150 legacy-DOC deployment repair):** re-cut from the sibling at
 **`engine-v2.23`** (branch `codex/tkt-150-legacy-doc-reader`, commit
@@ -493,10 +516,12 @@ nothing further to do here.
   (`https://github.com/collisionengineers/cedocumentmapper_v2.0.git`)
 - **Source path inside the sibling:** `src/cedocumentmapper_v2/` (except
   `providers.json`, which lives at the sibling repo root)
-- **Cut from:** annotated tag **`engine-v2.23`** on branch
-  `codex/tkt-150-legacy-doc-reader`, commit **`3dd1f305fc16fa4489bea3c4eada65f85c45ae69`**
-  (2026-07-12). The branch and tag are **pushed unchanged to origin** and pass the immutable source
-  proof. Changed vs `engine-v2.22`: `readers/doc.py` ONLY — bounded, pure-Python Word 97+ CLX
+- **Cut from:** annotated tag **`engine-v2.24`** on branch
+  `codex/tkt-170-website-enquiry`, commit **`e9cec4acb8f1f49fb81c4d279d3a31cc82356d84`**
+  (2026-07-13). The branch and tag are **pushed unchanged to origin** and pass the immutable source
+  proof. Changed vs `engine-v2.23`: `rules/email_classifier.py` ONLY — authenticated taxonomy-v4
+  website enquiry classification with no provider-seed change. Prior pin: annotated tag
+  **`engine-v2.23`**, commit **`3dd1f305fc16fa4489bea3c4eada65f85c45ae69`** — bounded, pure-Python Word 97+ CLX
   piece-table extraction (compressed and Unicode pieces; no host binary); no taxonomy/DDL dependency;
   providers.json untouched. Prior pin: annotated tag **`engine-v2.22`**, commit **`9998284`**
   (2026-07-12), merged to sibling `main` by PR 8 — TKT-150 claimant placeholders are absence,
@@ -564,7 +589,7 @@ nothing further to do here.
 
 ## Reconciliations: none outstanding
 
-As of `engine-v2.1` (and unchanged through `engine-v2.23`) this copy is a **pure
+As of `engine-v2.1` (and unchanged through `engine-v2.24`) this copy is a **pure
 mirror** — no vendored-only or sibling-only divergence remains. The executable
 boundary is enforced by `VENDOR_LOCK.json` and
 `scripts/verify_vendor_pin.py`: every shared `.py` module, bundled resource
@@ -649,7 +674,7 @@ must stay off the cloud path (see "Omitted modules" above).
 Run from the repo root (`collisionspike/`), Git Bash / bash:
 
 ```bash
-REF=engine-v2.23  # the committed, tagged sibling ref you are cutting from
+REF=engine-v2.24  # the committed, tagged sibling ref you are cutting from
 S=../cedocumentmapper_v2.0   # sibling repo
 V=functions/parser/cedocumentmapper_v2
 

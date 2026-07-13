@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const fetchMock = vi.fn<typeof fetch>();
 vi.stubGlobal('fetch', fetchMock);
 
-const { getMessageWithAttachments, searchMessages } = await import('./graph.js');
+const { getMessageHeaders, getMessageWithAttachments, searchMessages } = await import('./graph.js');
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -23,6 +23,29 @@ afterEach(() => {
   delete process.env.GRAPH_TENANT_ID;
   delete process.env.GRAPH_CLIENT_ID;
   delete process.env.GRAPH_CLIENT_SECRET;
+});
+
+describe('getMessageHeaders recipient-nearest precedence', () => {
+  it('keeps the first Authentication-Results value when an inner duplicate follows it', async () => {
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/oauth2/v2.0/token')) return json({ access_token: 'token', expires_in: 3600 });
+      if (url.includes('?$select=internetMessageHeaders')) {
+        return json({
+          internetMessageHeaders: [
+            { name: 'Authentication-Results', value: 'dmarc=pass; compauth=pass' },
+            { name: 'authentication-results', value: 'dmarc=fail; compauth=fail' },
+            { name: 'In-Reply-To', value: '<parent@example.test>' },
+          ],
+        });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+
+    const headers = await getMessageHeaders('mailbox@example.test', 'message-auth');
+    expect(headers['authentication-results']).toBe('dmarc=pass; compauth=pass');
+    expect(headers['in-reply-to']).toBe('<parent@example.test>');
+  });
 });
 
 describe('getMessageWithAttachments attachment recovery results', () => {

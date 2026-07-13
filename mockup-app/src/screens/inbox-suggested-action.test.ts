@@ -19,6 +19,7 @@ describe('suggestedFolder — chosen type wins over the original suggestion', ()
   it('maps the flagship types', () => {
     expect(suggestedFolder({ subtype: 'existing_provider_instruction' })).toBe('Inbox/Instructions');
     expect(suggestedFolder({ subtype: 'query_new_enquiry' })).toBe('Inbox/Queries/Enquiries');
+    expect(suggestedFolder({ subtype: 'website_general_enquiry' })).toBe('Inbox/Queries/Enquiries');
     expect(suggestedFolder({ subtype: 'other' })).toBe('Inbox/Other');
   });
 });

@@ -348,6 +348,7 @@ function countInbound(rows: InboundEmail[]): InboundCounts {
     case_update: active.filter((r) => r.category === 'case_update').length,
     cancellation: active.filter((r) => r.category === 'cancellation').length,
     pre_instruction: active.filter((r) => r.category === 'pre_instruction').length,
+    website_enquiry: active.filter((r) => r.category === 'website_enquiry').length,
     other: active.filter((r) => r.category === 'other').length,
     untriaged: active.filter((r) => r.triageState === 'new').length,
   };

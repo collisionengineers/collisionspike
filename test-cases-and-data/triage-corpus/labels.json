@@ -342,6 +342,13 @@
       "attachment_filenames": ["Engineer Report.pdf"],
       "has_attachments": true,
       "expected": { "category": "query", "subtype": "query_existing_work" }
+    },
+    {
+      "$comment": "Taxonomy v4 (TKT-170), exact operator-supplied email: CE website general-enquiry form. The infrastructure sender is internal-looking but the business sender is the visitor; this is a non-minting Website enquiry and must outrank reference/update detection.",
+      "eml": "website_enquiry/website-general-enquiry.eml",
+      "provider_match_state": "none",
+      "has_attachments": false,
+      "expected": { "category": "website_enquiry", "subtype": "website_general_enquiry" }
     }
   ]
 }

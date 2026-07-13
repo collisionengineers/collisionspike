@@ -76,6 +76,7 @@ const CATEGORY_FOR_SUBTYPE: Record<InboundSubtype, InboundCategory> = {
   update_general: 'case_update',
   cancellation_notice: 'cancellation',
   pre_instruction_directions: 'pre_instruction',
+  website_general_enquiry: 'website_enquiry',
 };
 
 const DEFAULT_SUBTYPE_FOR_CATEGORY: Record<InboundCategory, InboundSubtype> = {
@@ -87,6 +88,7 @@ const DEFAULT_SUBTYPE_FOR_CATEGORY: Record<InboundCategory, InboundSubtype> = {
   case_update: 'update_general',
   cancellation: 'cancellation_notice',
   pre_instruction: 'pre_instruction_directions',
+  website_enquiry: 'website_general_enquiry',
 };
 
 // 27 — GET /api/inbound?category=&subtype=&view=active|handled|all   (ACTIVE-FIRST; honest [])

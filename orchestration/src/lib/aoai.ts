@@ -136,6 +136,8 @@ const CATEGORY_DEFINITIONS: Partial<Record<InboundCategory, string>> = {
   cancellation: 'A claim or case reported cancelled, closed, or withdrawn.',
   pre_instruction:
     'Directions to follow when a formal instruction arrives later — no instruction yet, so no case should be opened.',
+  website_enquiry:
+    'A prospective customer enquiry submitted through the Collision Engineers website — never an existing-case update.',
 };
 
 const SUBTYPE_DEFINITIONS: Partial<Record<InboundSubtype, string>> = {
@@ -155,6 +157,7 @@ const SUBTYPE_DEFINITIONS: Partial<Record<InboundSubtype, string>> = {
   payment_remittance:
     'A payment made TO us — a remittance advice or transfer notice for work already done (not a request for our invoice).',
   pre_instruction_directions: 'The usual subtype for pre-instruction directions.',
+  website_general_enquiry: 'A general enquiry submitted through the Collision Engineers website contact form.',
 };
 
 function categoryLine(name: InboundCategory): string {

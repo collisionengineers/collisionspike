@@ -396,7 +396,10 @@ INSERT INTO choice_inbound_category (code, name, label) VALUES
   -- sent BEFORE the official instruction; no case minted -- the row is held and
   -- correlated onto the later instruction's case (suggest-first, gated
   -- TRIAGE_PRE_INSTRUCTION_ENABLED).
-  (100000007, 'pre_instruction', 'Pre-instruction');
+  (100000007, 'pre_instruction', 'Pre-instruction'),
+  -- append-only (TKT-170): contact forms from the CE website. This is a lead/enquiry,
+  -- never existing-case work and never a case-minting category.
+  (100000008, 'website_enquiry', 'Website enquiry');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_inboundsubtype  (inbound-email-classification.json bundle)
@@ -436,7 +439,8 @@ INSERT INTO choice_inbound_subtype (code, name, label) VALUES
   -- billing_request, filed under billing) and pre_instruction_directions (TKT-084 --
   -- pre_instruction's only subtype).
   (100000013, 'payment_remittance',         'Payment received'),
-  (100000014, 'pre_instruction_directions', 'Pre-instruction directions');
+  (100000014, 'pre_instruction_directions', 'Pre-instruction directions'),
+  (100000015, 'website_general_enquiry',    'Website general enquiry');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_inspectiondecisionmode  (inspection-decision-mode.json)

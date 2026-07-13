@@ -49,6 +49,7 @@ import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } 
 import {
   EVA_FIELD_ORDER,
   TERMINAL_STATUSES,
+  TRIAGE_POLICY_VERSION,
   allowedCaseTypes,
   categoryMintsCase,
   describeEvidence,
@@ -2038,7 +2039,7 @@ app.http('internalTriageContext', {
        (inbound.ts) use (INBOUND_CATEGORY_TO_INT / INBOUND_SUBTYPE_TO_INT) — an unknown name
        is a 400, never silently written. model_version is CALLER-supplied for this type
        ('<deployment>:<modelVersion-from-response>', stamped by triage-classify.ts) rather
-       than the hardcoded 'triage-policy-v1' the other two types carry (they are this
+       than the hardcoded triage-policy version the other two types carry (they are this
        endpoint's OWN deterministic policy output, not a separate model's).
 
    inboundEmailId resolution: a caller can run PRE-classifyPersist (the triage row may not
@@ -2197,9 +2198,11 @@ app.http('internalTriageSuggestLink', {
             };
       // 'triage_category' stamps the CALLER's model_version ('<deployment>:<modelVersion>',
       // triage-classify.ts); the other two types are this endpoint's own deterministic
-      // policy output, unchanged at 'triage-policy-v1'.
+      // policy output, aligned with the current deterministic policy version.
       const modelVersion =
-        suggestionType === 'triage_category' ? (body.modelVersion ?? '').trim() || 'unknown' : 'triage-policy-v1';
+        suggestionType === 'triage_category'
+          ? (body.modelVersion ?? '').trim() || 'unknown'
+          : TRIAGE_POLICY_VERSION;
       const inserted = await query<Row>(
         `INSERT INTO ai_suggestion
            (inbound_email_id, suggestion_type, suggested_value, rationale, confidence, model_version)

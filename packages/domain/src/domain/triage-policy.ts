@@ -192,7 +192,7 @@ export interface TriagePolicyDecision {
   policyVersion: string;
 }
 
-const POLICY_VERSION = 'triage-policy-v1';
+export const TRIAGE_POLICY_VERSION = 'triage-policy-v2';
 
 /* ----------  Match-ranking helpers  ---------- */
 
@@ -287,7 +287,26 @@ export function decideTriage(
         rung: 'duplicate_internet_message_id',
         duplicateInternetMessageId: context.duplicateInternetMessageId,
       },
-      policyVersion: POLICY_VERSION,
+      policyVersion: TRIAGE_POLICY_VERSION,
+    };
+  }
+
+  /* TKT-170 — the CE website form is a prospective-customer enquiry even when the
+     visitor happens to type a registration or reference belonging to an open case.
+     It must never enter the ref-gate, auto-attach, case-update or unmatched-images
+     lanes. Duplicate delivery still wins above so the same form is not processed twice. */
+  if (classification.category === 'website_enquiry') {
+    return {
+      action: 'proceed_default',
+      finalCategory: classification.category,
+      finalSubtype: classification.subtype,
+      rationale: 'This is a website enquiry and is kept separate from existing case work.',
+      decisionInputs: {
+        rung: 'website_enquiry',
+        openCaseMatchCount: context.openCaseMatches.length,
+        ignoredCaseSignals: hasRefSignal(classification),
+      },
+      policyVersion: TRIAGE_POLICY_VERSION,
     };
   }
 
@@ -314,7 +333,7 @@ export function decideTriage(
         eligibleMatchCount: eligible.length,
         openCaseMatches: context.openCaseMatches,
       },
-      policyVersion: POLICY_VERSION,
+      policyVersion: TRIAGE_POLICY_VERSION,
     };
   }
 
@@ -378,7 +397,7 @@ export function decideTriage(
         hasAttachments: context.hasAttachments,
         imagesOnly: context.imagesOnly,
       },
-      policyVersion: POLICY_VERSION,
+      policyVersion: TRIAGE_POLICY_VERSION,
     };
   }
 
@@ -403,7 +422,7 @@ export function decideTriage(
         bodyVrm: classification.bodyVrm,
         openCaseMatchCount: context.openCaseMatches.length,
       },
-      policyVersion: POLICY_VERSION,
+      policyVersion: TRIAGE_POLICY_VERSION,
     };
   }
 
@@ -423,6 +442,6 @@ export function decideTriage(
       openCaseMatchCount: context.openCaseMatches.length,
       duplicateInternetMessageId: context.duplicateInternetMessageId,
     },
-    policyVersion: POLICY_VERSION,
+      policyVersion: TRIAGE_POLICY_VERSION,
   };
 }

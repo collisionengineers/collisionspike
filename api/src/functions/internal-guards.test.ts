@@ -49,7 +49,15 @@ describe('mintBlockedByCategory — TKT-119 belt-and-braces mint guard', () => {
     expect(await mintBlockedByCategory('<ack@mail>')).toBe('non_actionable');
   });
 
-  it.each(['query', 'billing', 'cancellation', 'case_update', 'other', 'pre_instruction'])(
+  it.each([
+    'query',
+    'billing',
+    'cancellation',
+    'case_update',
+    'other',
+    'pre_instruction',
+    'website_enquiry',
+  ])(
     'a %s-classified message blocks the create (only receiving_work mints)',
     async (category) => {
       withCategory(category);
