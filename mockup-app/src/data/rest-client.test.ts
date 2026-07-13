@@ -579,6 +579,39 @@ describe('rest-client — durable evidence review', () => {
   });
 });
 
+describe('rest-client — confirmed case-image deletion', () => {
+  it('DELETEs the encoded case/image route and returns completion truth', async () => {
+    const result = {
+      completed: true as const,
+      evidenceId: 'ev/1',
+      fileName: 'damage.jpg',
+    };
+    const fetchMock = vi.fn().mockResolvedValue(okJson(result));
+    const da = clientWith(fetchMock);
+
+    await expect(da.deleteCaseImage('case/1', 'ev/1')).resolves.toEqual(result);
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases/case%2F1/images/ev%2F1');
+    expect(lastInit(fetchMock).method).toBe('DELETE');
+    expect(lastInit(fetchMock).body).toBeUndefined();
+  });
+
+  it('rejects a partial failure so the image remains visible for retry', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(
+      503,
+      JSON.stringify({
+        completed: false,
+        retryable: true,
+        deletionPending: true,
+        message: 'The Archive copy could not be removed. The image is still on the case; try again.',
+      }),
+    ));
+    const da = clientWith(fetchMock);
+    const failure = await da.deleteCaseImage('case-1', 'ev-1').catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as { deletionPending?: boolean }).deletionPending).toBe(true);
+  });
+});
+
 describe('rest-client — amalgamated dashboard + inbound view (work-todo-spike)', () => {
   const now = new Date('2026-06-29T10:00:00.000Z');
   const encoded = encodeURIComponent(now.toISOString());

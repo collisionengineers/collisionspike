@@ -402,3 +402,44 @@ export async function downloadBoxFileContent(
     return undefined;
   }
 }
+
+export interface BoxFileDeletionResponse {
+  id?: string;
+  status?: 'present' | 'deleted' | 'missing';
+}
+
+/** Fresh, non-mutating exact-folder/RW-root validation for a pending image delete. */
+export async function validateBoxFileDeletion(
+  fileId: string,
+  expectedFolderId: string,
+): Promise<BoxFileDeletionResponse> {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error('[functions-client] BOX_FN_URL/BOX_FN_KEY not configured');
+  return callFn(
+    base,
+    key,
+    'GET',
+    `/api/box/files/${encodeURIComponent(fileId)}?folderId=${encodeURIComponent(expectedFolderId)}`,
+    undefined,
+    { timeoutMs: FN_STAGE_TIMEOUT_MS },
+  ) as Promise<BoxFileDeletionResponse>;
+}
+
+/** Delete one exact, freshly revalidated file; already missing is successful. */
+export async function deleteBoxFile(
+  fileId: string,
+  expectedFolderId: string,
+): Promise<BoxFileDeletionResponse> {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error('[functions-client] BOX_FN_URL/BOX_FN_KEY not configured');
+  return callFn(
+    base,
+    key,
+    'DELETE',
+    `/api/box/files/${encodeURIComponent(fileId)}?folderId=${encodeURIComponent(expectedFolderId)}`,
+    undefined,
+    { timeoutMs: FN_STAGE_TIMEOUT_MS },
+  ) as Promise<BoxFileDeletionResponse>;
+}

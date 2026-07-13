@@ -168,3 +168,20 @@ linked-not-embedded mirror; no case logic ever runs off Box) is **unchanged**:
 The reserved Box-embed and deferred Box-metadata options are formally dropped; the
 `BOX_EMBED_ENABLED` / `BOX_METADATA_ENABLED` gates were removed from code. Evidence
 remains linked, never embedded.
+
+## Amendment (2026-07-13) — explicit staff deletion of one case image
+
+The write/retain-only rule continues to prohibit scheduled, lifecycle, reconciliation and
+source-replay jobs from deleting Box content. One narrow exception is accepted: after a staff member
+selects **Delete image** and confirms the named file, the Data API may delete that exact persisted
+`box_file_id` only after the Box Function proves it is a direct child of the case's persisted folder
+inside the configured read-write root. It never deletes a folder, a source email/document, sibling
+evidence or an inferred/path-matched file.
+
+The operation is not fire-and-forget. Postgres records a durable `evidence_deletion` intent and audit
+before either store is changed; partial outcomes remain visible and retryable; the evidence row is
+removed only after Blob and Box are each deleted, already missing, or not required. The originating
+automatic source identity is retained as a tombstone so retries cannot recreate the deliberately
+deleted image. A later explicit upload with a new source identity is still allowed. TKT-160 and
+[`docs/runbooks/delete-case-image.md`](../runbooks/delete-case-image.md) are the implementation and
+verification contract.

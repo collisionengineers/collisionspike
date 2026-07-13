@@ -309,7 +309,11 @@ export const data: DataAccessExt = new Proxy({} as DataAccessExt, {
 }) as DataAccessExt;
 
 export { mockDataAccess, createMockDataAccess } from './mock-source';
-export { createRestDataAccess, serverMessageOf } from './rest-client';
+export {
+  createRestDataAccess,
+  imageDeletionPendingOf,
+  serverMessageOf,
+} from './rest-client';
 
 /* ============================================================
    3. React hooks over the async fetchers.

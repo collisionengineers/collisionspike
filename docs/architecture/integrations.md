@@ -171,6 +171,16 @@ shared-link, webhook-lifecycle, and **`upload_file`** (byte mirror from Blob evi
 calls made **inside the Function**. *(Historical: under Power Platform two Box connections coexisted — both
 decommissioned.)*
 
+**One-image deletion is the explicit exception to additive-only archival (TKT-160).** A confirmed SPA
+request reaches `DELETE /api/cases/{caseId}/images/{evidenceId}`. Before intent/store mutation the Data
+API checks role, case ownership, image kind and asks the Box Function to validate the persisted file ID
+against the persisted case folder. The Function re-fetches the file under a fresh read-write-root scope,
+requires that exact direct parent, and rejects read-only/other-root or sibling targets. The Data API then
+records intent/audit, deletes the exact Box file before the transient Blob copy, and removes the active
+evidence row only after both stores resolve. Missing copies are idempotent success; partial failure keeps
+the image visible and retryable. No path/name lookup and no folder delete are permitted. See the
+[operational runbook](../runbooks/delete-case-image.md).
+
 **Box operations** (orchestration activities; folder/sequence behaviour per ADR-0012):
 the folder-create op mints the **UPPERCASE** Case/PO folder at parse-confirm (e.g. EVA `test26001` → Box
 `TEST26001`) and stamps `box_folder_id`; **`boxArchiveEvidence`** (intake, every case) uploads the `.eml`,

@@ -71,7 +71,10 @@
         { "value": 100000059, "name": "capture_asset_validated",       "label": "Capture Asset Validated" },
         { "value": 100000060, "name": "capture_session_completed",     "label": "Capture Session Completed" },
         { "value": 100000061, "name": "capture_session_retargeted",    "label": "Capture Session Retargeted" },
-        { "value": 100000062, "name": "capture_session_locked",        "label": "Capture Session Locked" }
+        { "value": 100000062, "name": "capture_session_locked",        "label": "Capture Session Locked" },
+        { "value": 100000063, "name": "image_deletion_requested",      "label": "Image Deletion Requested" },
+        { "value": 100000064, "name": "image_deletion_failed",         "label": "Image Deletion Needs Retry" },
+        { "value": 100000065, "name": "image_deleted",                 "label": "Image Deleted" }
       ]
     },
     {

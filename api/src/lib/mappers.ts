@@ -432,6 +432,7 @@ export function rowToEvidence(rec: Row): Evidence {
     sourceLabel: rec.source_label ?? '',
     ...(rec.box_file_id ? { boxFileId: rec.box_file_id } : {}),
     ...(rec.box_file_url ? { boxFileUrl: rec.box_file_url } : {}),
+    ...(rec.deletion_operation_id ? { deletionPending: true } : {}),
   };
 }
 

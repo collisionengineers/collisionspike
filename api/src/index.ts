@@ -22,6 +22,7 @@ import './functions/assistant.js'; // AI chat helper (TKT-060; AI_CHAT_ENABLED)
 import './functions/search.js'; // global search (TKT-072; GLOBAL_SEARCH_ENABLED)
 import './functions/mcp.js'; // read-only MCP + constrained image-ingest lane (TKT-110/154)
 import './functions/evidence.js'; // evidence byte preview (TKT-048)
+import './functions/evidence-delete.js'; // explicit single-image deletion (TKT-160)
 import './functions/archive-mirror-outbox.js'; // durable staff un-exclusion archive mirror
 import './functions/provider-archive-outbox.js'; // durable provider-recovery Archive continuation
 import './functions/box-file-request-outbox.js'; // durable case image-upload links

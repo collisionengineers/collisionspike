@@ -146,6 +146,7 @@ app.http('patchEvidence', {
       );
       const current = currentRows[0];
       if (!current) return { kind: 'moved' as const };
+      if (current.deletion_operation_id) return { kind: 'deletion_busy' as const };
 
       let nextRole = current.image_role_code as number;
       let nextRoleSource = current.image_role_source as string | null;
@@ -250,6 +251,7 @@ app.http('patchEvidence', {
                   CASE WHEN excluded IS DISTINCT FROM $8 THEN 1 ELSE 0 END,
                 updated_at = now()
           WHERE id = $1 AND kind_code = $12
+            AND deletion_operation_id IS NULL
             AND (
               NOT $13
               OR archive_mirror_claim_token IS NULL
@@ -301,6 +303,12 @@ app.http('patchEvidence', {
           error: 'This photo is being added to the Archive. Try excluding it again shortly.',
           code: 'archive_in_progress',
         },
+      };
+    }
+    if (mutation.kind === 'deletion_busy') {
+      return {
+        status: 409,
+        jsonBody: { message: 'This image is being deleted and can’t be changed.' },
       };
     }
     if (mutation.kind === 'retired' || mutation.kind === 'moved') {

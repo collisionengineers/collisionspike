@@ -67,6 +67,7 @@ import {
   Pencil,
   Search,
   Send,
+  Trash2,
   Upload,
   Pause,
   Play,
@@ -113,6 +114,7 @@ import {
   activeGetSharedLinkTransport,
   activeLocationAssistTransport,
   getDataAccess,
+  imageDeletionPendingOf,
   serverMessageOf,
   type Case,
   type CaseStatus,
@@ -150,6 +152,7 @@ import {
   inspectionChoiceForCase,
   type InspectionChoice,
 } from '../components/InspectionChoice';
+import { ImageDeleteDialog } from '../components/ImageDeleteDialog';
 // Gated AI "Assistant" surface (TKT-015). Self-contained: renders NOTHING unless
 // AI_ASSIST_ENABLED (checks the gate via its own hook), so this is an honest-off mount.
 import { AiAssistPanel } from '../components/AiAssistPanel';
@@ -379,6 +382,13 @@ const useStyles = makeStyles({
   thumbMeta: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalXS, padding: tokens.spacingVerticalS },
   thumbName: { fontSize: tokens.fontSizeBase200, color: tokens.colorNeutralForeground3, wordBreak: 'break-all' },
   thumbRowBetween: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacingHorizontalS },
+  thumbActions: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: tokens.spacingHorizontalS,
+    flexWrap: 'wrap',
+  },
   /* TKT-123 — dismissible person-reflection warning on a flagged photo. Amber
      warning triad (never colour-only: the triangle carries the shape cue). */
   reflectionWarning: {
@@ -627,6 +637,12 @@ interface EvidenceCardProps {
   saving?: boolean;
   /** Plain-language failure for this card's last save attempt. */
   saveError?: string;
+  /** Open the explicit, filename-bearing deletion confirmation. */
+  onDelete: (evidence: Evidence) => void;
+  /** True while this image's cross-store deletion is running. */
+  deleting?: boolean;
+  /** Case-field drafts must be saved/discarded before a deletion refreshes truth. */
+  deleteDisabled?: boolean;
 }
 
 function EvidenceCard({
@@ -639,9 +655,13 @@ function EvidenceCard({
   dismissingReflection,
   saving,
   saveError,
+  onDelete,
+  deleting,
+  deleteDisabled,
 }: EvidenceCardProps) {
   const styles = useStyles();
   const captureReviewWarning = guidedCaptureReviewWarning(ev);
+  const decisionsDisabled = saving || deleting || ev.deletionPending;
   // Real inline preview (TKT-048): fetch the bytes WITH the bearer -> blob: URL for <img>
   // (an <img src> can't carry the token, and CSP allows blob:). Falls back to the coloured
   // placeholder while loading, or if there is no inline content (Box-only / bytes gone).
@@ -688,7 +708,7 @@ function EvidenceCard({
         <Field label="Role" size="small">
           <Dropdown
             size="small"
-            disabled={saving}
+            disabled={decisionsDisabled}
             value={ROLE_OPTIONS.find((r) => r.value === ev.imageRole)?.label ?? 'Unclassified'}
             selectedOptions={[ev.imageRole]}
             onOptionSelect={(_, d) => d.optionValue && onRole(ev.id, d.optionValue as ImageRole)}
@@ -726,7 +746,7 @@ function EvidenceCard({
             <Button
               appearance="subtle"
               size="small"
-              disabled={saving}
+              disabled={decisionsDisabled}
               onClick={() => onDismissReflection(ev.id)}
             >
               {dismissingReflection ? 'Dismissing…' : 'Dismiss'}
@@ -735,35 +755,54 @@ function EvidenceCard({
         )}
         <Switch
           checked={ev.registrationVisible}
-          disabled={saving}
+          disabled={decisionsDisabled}
           label="Registration visible"
           onChange={(_, d) => onRegistrationVisible(ev.id, d.checked)}
         />
         <Switch
           checked={ev.acceptedForEva}
-          disabled={saving || !!ev.excluded}
+          disabled={decisionsDisabled || !!ev.excluded}
           label="Use for EVA"
           onChange={(_, d) => onAcceptedForEva(ev.id, d.checked)}
         />
         <Switch
           checked={!!ev.excluded}
-          disabled={saving}
+          disabled={decisionsDisabled}
           label="Exclude"
           onChange={(_, d) => onExclude(ev.id, d.checked)}
         />
         {saving && <Spinner size="tiny" label="Saving…" labelPosition="after" />}
+        {deleting && <Spinner size="tiny" label="Deleting…" labelPosition="after" />}
+        {ev.deletionPending && !deleting && (
+          <Caption1 className={styles.reflectionWarningText} role="status">
+            Deletion is unfinished. Select Finish deleting to retry.
+          </Caption1>
+        )}
         {saveError && (
           <Caption1 className={styles.reflectionWarningText} role="alert">
             {saveError}
           </Caption1>
         )}
-        {ev.boxFileUrl && (
-          // `inline` = rest-state underline: with links demoted to ink, a
-          // text-adjacent link needs the underline to read as a link at rest.
-          <Link inline href={ev.boxFileUrl} target="_blank" rel="noopener noreferrer">
-            <span className={styles.inlineIconText}>Open in Archive <ArrowUpRight size={12} /></span>
-          </Link>
-        )}
+        <div className={styles.thumbActions}>
+          {ev.boxFileUrl ? (
+            // `inline` = rest-state underline: with links demoted to ink, a
+            // text-adjacent link needs the underline to read as a link at rest.
+            <Link inline href={ev.boxFileUrl} target="_blank" rel="noopener noreferrer">
+              <span className={styles.inlineIconText}>Open in Archive <ArrowUpRight size={12} /></span>
+            </Link>
+          ) : <span />}
+          <Button
+            appearance="subtle"
+            size="small"
+            icon={<Trash2 size={14} />}
+            aria-label={`${ev.deletionPending ? 'Finish deleting' : 'Delete image'} ${ev.fileName}`}
+            title={deleteDisabled ? 'Save or discard the case changes first.' : undefined}
+            disabled={saving || deleting || deleteDisabled}
+            onClick={() => onDelete(ev)}
+          >
+            {ev.deletionPending ? 'Finish deleting' : 'Delete image'}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -1806,6 +1845,66 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     }
   };
 
+  // TKT-160: deleting an image is a deliberate, separately confirmed action.
+  // The card remains visible until the server confirms every required copy is
+  // gone. A partial failure marks it for an honest, user-driven retry.
+  const [deleteCandidate, setDeleteCandidate] = useState<Evidence | undefined>(undefined);
+  const [deletingImageId, setDeletingImageId] = useState<string | undefined>(undefined);
+  const [deleteImageError, setDeleteImageError] = useState<string | undefined>(undefined);
+
+  const openImageDeletion = (evidence: Evidence) => {
+    setDeleteImageError(undefined);
+    setDeleteCandidate(evidence);
+  };
+
+  const closeImageDeletion = () => {
+    if (deletingImageId) return;
+    setDeleteImageError(undefined);
+    setDeleteCandidate(undefined);
+  };
+
+  const confirmImageDeletion = async () => {
+    if (!deleteCandidate || deletingImageId) return;
+    const target = deleteCandidate;
+    setDeletingImageId(target.id);
+    setDeleteImageError(undefined);
+    try {
+      await (data as DataAccessExt).deleteCaseImage(c.id, target.id);
+      const withoutTarget = (items: Evidence[]) => items.filter((item) => item.id !== target.id);
+      setImgState(withoutTarget);
+      setC((current) => ({ ...current, evidence: withoutTarget(current.evidence) }));
+      setPersistedCase((current) => ({ ...current, evidence: withoutTarget(current.evidence) }));
+      onRefreshImages();
+      setDeleteCandidate(undefined);
+      toast(`Image deleted: ${target.fileName}`);
+
+      // No case-field draft can be active while the delete action is enabled, so
+      // a refreshed snapshot can safely adopt the server's recomputed status.
+      try {
+        const updated = await data.caseById(c.id);
+        if (updated) adoptPersistedCase(updated);
+      } catch {
+        // The image list/readiness is already correct locally. A later case refresh
+        // will pick up the server-confirmed status if this secondary read fails.
+      }
+    } catch (error) {
+      const message = serverMessageOf(error) ?? 'The image could not be deleted. It is still on the case; try again.';
+      setDeleteImageError(message);
+      // A scope/ownership/preflight refusal happens before durable intent and is
+      // not presented as an unfinished deletion. Only server-confirmed partial
+      // work (or an already-pending card) gets the Finish deleting state.
+      const pending = !!target.deletionPending || imageDeletionPendingOf(error);
+      if (pending) {
+        setDeleteCandidate((current) => current ? { ...current, deletionPending: true } : current);
+        setImgState((current) => current.map((item) => (
+          item.id === target.id ? { ...item, deletionPending: true } : item
+        )));
+      }
+    } finally {
+      setDeletingImageId(undefined);
+    }
+  };
+
   const addNote = () => {
     const text = noteDraft.trim();
     if (!text) return;
@@ -2604,6 +2703,9 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                             dismissingReflection={evidenceMutations[ev.id] === 'reflection'}
                             saving={evidenceMutations[ev.id] != null}
                             saveError={evidenceSaveErrors[ev.id]}
+                            onDelete={openImageDeletion}
+                            deleting={deletingImageId === ev.id}
+                            deleteDisabled={hasUnsavedChanges}
                           />
                         ))}
                       </div>
@@ -2999,6 +3101,15 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
           />
         </div>
       </div>
+
+      <ImageDeleteDialog
+        open={deleteCandidate !== undefined}
+        fileName={deleteCandidate?.fileName}
+        busy={deletingImageId !== undefined}
+        error={deleteImageError}
+        onCancel={closeImageDeletion}
+        onConfirm={() => void confirmImageDeletion()}
+      />
 
       <Dialog
         open={discardOpen}

@@ -26,6 +26,7 @@ interface LockedArchiveMirrorRow extends Record<string, unknown> {
   excluded: boolean;
   storage_path: string | null;
   box_file_id: string | null;
+  deletion_operation_id: string | null;
 }
 
 interface LockedEvidenceMirrorRow extends Record<string, unknown> {
@@ -33,6 +34,7 @@ interface LockedEvidenceMirrorRow extends Record<string, unknown> {
   excluded: boolean;
   storage_path: string | null;
   box_file_id: string | null;
+  deletion_operation_id: string | null;
 }
 
 export const ARCHIVE_MIRROR_MAX_ATTEMPTS = 8;
@@ -56,7 +58,8 @@ function isMirrorEligible(row: LockedArchiveMirrorRow): boolean {
     row.excluded === false &&
     typeof row.storage_path === 'string' &&
     row.storage_path.trim().length > 0 &&
-    !boxFileId
+    !boxFileId &&
+    row.deletion_operation_id == null
   );
 }
 
@@ -77,7 +80,8 @@ app.http('internalArchiveMirrorOutboxPending', {
            o.requested_generation AS generation,
            (e.excluded = false
              AND NULLIF(btrim(e.storage_path), '') IS NOT NULL
-             AND NULLIF(btrim(e.box_file_id), '') IS NULL) AS "mirrorEligible"
+             AND NULLIF(btrim(e.box_file_id), '') IS NULL
+             AND e.deletion_operation_id IS NULL) AS "mirrorEligible"
          FROM archive_mirror_outbox o
          JOIN evidence e ON e.id = o.evidence_id
         WHERE o.requested_generation > o.completed_generation
@@ -136,7 +140,7 @@ app.http('internalArchiveMirrorOutboxComplete', {
         const resolved = await tx(async (q) => {
           const lockedCase = await lockCaseForMutation(q, owner[0].case_id);
           const evidence = await q<LockedEvidenceMirrorRow>(
-            `SELECT case_id, excluded, storage_path, box_file_id
+            `SELECT case_id, excluded, storage_path, box_file_id, deletion_operation_id
                FROM evidence
               WHERE id = $1
               FOR UPDATE`,
@@ -184,6 +188,7 @@ app.http('internalArchiveMirrorOutboxComplete', {
             excluded: evidenceRow.excluded,
             storage_path: evidenceRow.storage_path,
             box_file_id: evidenceRow.box_file_id,
+            deletion_operation_id: evidenceRow.deletion_operation_id,
           };
           // This is the row-specific proof. If it still needs mirroring and has no
           // box_file_id, NEVER advance the generation — even if an activity reported

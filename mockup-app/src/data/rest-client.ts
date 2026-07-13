@@ -247,6 +247,15 @@ export interface OutlookMoveResult {
   folder: string;
 }
 
+/** Result of one confirmed case-image deletion (TKT-160). Non-2xx partial
+ *  outcomes throw so the screen keeps the image visible and offers a retry. */
+export interface DeleteCaseImageResult {
+  completed: true;
+  repeated?: boolean;
+  evidenceId: string;
+  fileName: string;
+}
+
 export type VehicleLookupResult = VehicleDataEnrichmentResponse & {
   persisted?: { applied: string[]; warning?: string; retryable: boolean };
 };
@@ -368,6 +377,9 @@ export interface DataAccessExt extends DataAccess {
   setReflectionDismissed(evidenceId: string, dismissed: boolean): Promise<Evidence>;
   /** Persist role, registration, EVA-use, and include/exclude decisions. */
   updateEvidenceReview(evidenceId: string, input: EvidenceReviewInput): Promise<Evidence>;
+  /** Permanently delete one image from its case and required stores. The server
+   *  owns scope checks, retries, audit and readiness recomputation. */
+  deleteCaseImage(caseId: string, evidenceId: string): Promise<DeleteCaseImageResult>;
 
   /* ----- Inbound suggestion affordance — ref-gate (rules-engine-v2 Phase 2) -----
      Distinct from `aiSuggestions` above (case-scoped): keyed by the INBOUND EMAIL
@@ -415,6 +427,18 @@ export function serverMessageOf(err: unknown): string | undefined {
     if (typeof m === 'string' && m) return m;
   }
   return undefined;
+}
+
+/** Whether a failed image-delete call crossed the durable-intent boundary. The
+ * screen uses this server truth to distinguish a retryable partial deletion from
+ * a preflight refusal where no deletion ever started. */
+export function imageDeletionPendingOf(err: unknown): boolean {
+  return !!(
+    err &&
+    typeof err === 'object' &&
+    'deletionPending' in err &&
+    (err as { deletionPending?: unknown }).deletionPending === true
+  );
 }
 
 const ASSISTANT_REQUEST_TIMEOUT_MS = 20_000;
@@ -479,13 +503,15 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       const err = new Error(`${method} ${path} → ${res.status} ${text}`) as Error & {
         status?: number;
         serverMessage?: string;
+        deletionPending?: boolean;
       };
       err.status = res.status;
       // TKT-091 — when the server sent a staff-facing `message` (plain English), carry
       // it so the UI can render THAT instead of the technical line above.
       try {
-        const parsed = JSON.parse(text) as { message?: unknown };
+        const parsed = JSON.parse(text) as { message?: unknown; deletionPending?: unknown };
         if (typeof parsed.message === 'string' && parsed.message) err.serverMessage = parsed.message;
+        if (parsed.deletionPending === true) err.deletionPending = true;
       } catch {
         /* non-JSON body — no server message */
       }
@@ -1006,6 +1032,11 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       }),
     updateEvidenceReview: (evidenceId, input) =>
       call<Evidence>('PATCH', `/api/evidence/${enc(evidenceId)}`, input),
+    deleteCaseImage: (caseId, evidenceId) =>
+      call<DeleteCaseImageResult>(
+        'DELETE',
+        `/api/cases/${enc(caseId)}/images/${enc(evidenceId)}`,
+      ),
 
     /* ----- Inbound suggestions — ref-gate affordance (rules-engine-v2 Phase 2) ----- */
     inboundSuggestions: (id) =>

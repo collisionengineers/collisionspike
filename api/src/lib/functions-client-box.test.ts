@@ -5,6 +5,8 @@ import {
   callBoxGetFileRequest,
   callBoxReactivateFileRequest,
   verifyBoxWriteScope,
+  deleteBoxFile,
+  validateBoxFileDeletion,
 } from './functions-client.js';
 
 const fetchMock = vi.fn();
@@ -112,5 +114,26 @@ describe('verifyBoxWriteScope', () => {
         body: JSON.stringify({ folderId: 'folder/one' }),
       }),
     );
+  });
+});
+
+describe('TKT-160 Box file deletion facade', () => {
+  it('validates then deletes through the exact expected-folder contract', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: 'file/1', status: 'present' }) });
+    await validateBoxFileDeletion('file/1', 'folder/1');
+    await deleteBoxFile('file/1', 'folder/1');
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'https://box-facade.example/api/box/files/file%2F1?folderId=folder%2F1',
+    );
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'GET' });
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: 'DELETE' });
+  });
+
+  it('preserves a scope rejection status for the caller to fail before deletion', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 400, text: async () => 'private details' });
+    const error = await validateBoxFileDeletion('file-1', 'folder-1').catch((value) => value);
+    expect(error).toBeInstanceOf(FunctionCallError);
+    expect(error.status).toBe(400);
+    expect(error.message).not.toContain('private details');
   });
 });

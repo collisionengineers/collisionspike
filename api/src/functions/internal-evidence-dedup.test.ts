@@ -58,6 +58,7 @@ const rowsFor = vi.hoisted(() =>
   vi.fn<(sql: string, p?: unknown[]) => Record<string, unknown>[]>(() => []),
 );
 const txMock = vi.hoisted(() => vi.fn());
+const replayCleanup = vi.hoisted(() => ({ blob: vi.fn(), box: vi.fn() }));
 vi.mock('../lib/db.js', () => ({
   query: vi.fn(async (sql: string, p?: unknown[]) => {
     sqls.push(sql);
@@ -69,6 +70,8 @@ vi.mock('../lib/db.js', () => ({
     throw new Error('no pool in tests');
   },
 }));
+vi.mock('../lib/blob.js', () => ({ deleteEvidenceBytes: replayCleanup.blob }));
+vi.mock('../lib/functions-client.js', () => ({ deleteBoxFile: replayCleanup.box }));
 
 await import('./internal.js'); // registers the routes against the captured app.http
 const evidenceRoute = registrations.get('internalCasesEvidence')!.handler;
@@ -112,6 +115,10 @@ beforeEach(() => {
   rowsFor.mockReset();
   rowsFor.mockImplementation(() => []);
   txMock.mockReset();
+  replayCleanup.blob.mockReset();
+  replayCleanup.box.mockReset();
+  replayCleanup.blob.mockResolvedValue(true);
+  replayCleanup.box.mockResolvedValue({ status: 'deleted' });
   txMock.mockImplementation(
     async (
       fn: (
@@ -131,6 +138,50 @@ beforeEach(() => {
         return rowsFor(sql, p);
       }),
   );
+});
+
+describe('TKT-160 — deleted automatic sources stay deleted without blocking later uploads', () => {
+  it('suppresses an exact source replay, removes the recreated copy, and never inserts', async () => {
+    rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
+      if (/FROM evidence_deletion/.test(sql) && p?.[1] === EMAIL_ROW.blobPath) {
+        return [{
+          storage_path: EMAIL_ROW.blobPath,
+          box_file_id: null,
+          box_folder_id: null,
+        }];
+      }
+      return [];
+    });
+
+    const res = await evidenceRoute(req('case-1', [EMAIL_ROW]), ctx);
+
+    expect(res.jsonBody).toEqual({
+      persisted: 0,
+      updated: 0,
+      merged: 0,
+      suppressed: 1,
+      replayCleanup: [{ blobPath: EMAIL_ROW.blobPath }],
+    });
+    expect(inserts()).toHaveLength(0);
+    expect(shaLookups()).toHaveLength(0);
+    expect(replayCleanup.blob).toHaveBeenCalledWith(EMAIL_ROW.blobPath);
+  });
+
+  it('allows an explicit later upload with a new source identity even when the bytes match', async () => {
+    const later = { ...EMAIL_ROW, blobPath: 'manual-upload/new-photo.jpg' };
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM evidence_deletion/.test(sql)) return [];
+      if (/FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(sql)) return [];
+      if (/INSERT INTO evidence/i.test(sql)) return [{ id: 'ev-later' }];
+      return [];
+    });
+
+    const res = await evidenceRoute(req('case-1', [later]), ctx);
+
+    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, statusGeneration: 1 });
+    expect(inserts()).toHaveLength(1);
+    expect(replayCleanup.blob).not.toHaveBeenCalled();
+  });
 });
 
 describe('TKT-133 (a) — email arrival then Box mirror = ONE row (the acceptance regression)', () => {

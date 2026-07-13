@@ -457,6 +457,7 @@ export const mockDataAccess: DataAccessExt = {
   // Durable write — rejects until the live source is injected (mirrors createCase).
   setReflectionDismissed: (_evidenceId, _dismissed) => Promise.reject(new Error(NOT_CONFIGURED)),
   updateEvidenceReview: (_evidenceId, _input) => Promise.reject(new Error(NOT_CONFIGURED)),
+  deleteCaseImage: (_caseId, _evidenceId) => Promise.reject(new Error(NOT_CONFIGURED)),
   inspectionAddressCounts: () => Promise.resolve({ confirmed: 0, suggested: 0 }),
   // Honest no-op: the empty default writes nothing (the live REST source, backed by
   // the Postgres `inspection_address` table, is injected at startup). The CaseDetail

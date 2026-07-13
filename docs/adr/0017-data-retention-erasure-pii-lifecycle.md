@@ -91,3 +91,17 @@ equivalents: retention-clock columns + disposition live in **Postgres** + the **
 role model is the Entra app-roles **`CollisionSpike.User` / `.Superuser`** (the **Admin** role above was
 renamed → **Superuser**), with **`.Engineer`** deferred. The `[RESERVED-FOR-USER]` legal items and the
 git-tracked corpus `.xlsx` are unchanged.
+
+## Amendment (2026-07-13) — TKT-160 is not a retention/disposition purge
+
+Item 9 prohibits automated retention, disposition, reconciliation and source-replay deletion. It does
+not prohibit a staff member from explicitly deleting one named case image. That narrow action is
+implemented as a server-authorised, durable cross-store transaction: exact case/image ownership and
+Box folder/root scope are verified; the selected image's Blob and Box file are removed idempotently;
+its source email/document, containing folder and sibling evidence remain untouched; and actor/outcome
+audit survives the active evidence row. Partial failure is retryable and cannot be shown as success.
+
+This exception does not choose or change any deferred retention period, lawful basis, legal-hold or
+whole-case erasure policy. It cannot be invoked by a timer or disposition sweep. Operational proof is
+restricted to a designated test case/folder as described in
+[`docs/runbooks/delete-case-image.md`](../runbooks/delete-case-image.md).

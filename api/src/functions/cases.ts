@@ -1810,6 +1810,7 @@ interface MergeEvidenceLockRow extends Record<string, unknown> {
   created_at: Date | string;
   archive_mirror_claim_token: string | null;
   archive_mirror_claim_expires_at: Date | string | null;
+  deletion_operation_id: string | null;
 }
 
 /**
@@ -1827,10 +1828,12 @@ async function mergeEvidenceRows(
   collidingEvidence: number;
   evidenceReplacements: Map<string, string>;
   archiveBusy?: boolean;
+  deletionBusy?: boolean;
 }> {
   const locked = await q<MergeEvidenceLockRow>(
     `SELECT id, case_id, sha256, created_at,
-            archive_mirror_claim_token, archive_mirror_claim_expires_at
+            archive_mirror_claim_token, archive_mirror_claim_expires_at,
+            deletion_operation_id
        FROM evidence
       WHERE case_id = ANY($1::uuid[])
       ORDER BY case_id, created_at, id
@@ -1849,6 +1852,9 @@ async function mergeEvidenceRows(
       evidenceReplacements: new Map(),
       archiveBusy: true,
     };
+  }
+  if (locked.some((row) => row.deletion_operation_id != null)) {
+    return { movedEvidence: 0, collidingEvidence: 0, deletionBusy: true };
   }
   const canonicalSha = (value: string | null): string | null => {
     const trimmed = (value ?? '').trim();
@@ -2391,6 +2397,7 @@ app.http('mergeCases', {
         collidingEvidence,
         evidenceReplacements,
         archiveBusy,
+        deletionBusy,
       } = await mergeEvidenceRows(
         q,
         sourceCaseId,
@@ -2401,6 +2408,13 @@ app.http('mergeCases', {
           kind: 'error' as const,
           status: 409,
           error: 'Archive work is still finishing for one of these cases. Try the merge again shortly.',
+        };
+      }
+      if (deletionBusy) {
+        return {
+          kind: 'error' as const,
+          status: 409,
+          error: 'An image is being deleted from one of these cases. Try the merge again shortly.',
         };
       }
       await transferStaffUploadOwnership(q, sourceCaseId, targetCaseId);
