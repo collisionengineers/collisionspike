@@ -42,7 +42,7 @@ This plan has **53 members**. It sequences implementation and verification, but 
 
 ### 1. Governance, authority and live control plane (5)
 
-1. [TKT-149](../verify/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) — keep reciprocal implementation review in place before the expanded programme lands.
+1. [TKT-149](../verify/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) — retire the mandatory Claude+Codex PR-review workflow per the 2026-07-14 operator ruling; retain normal checks and unrelated safety hooks.
 2. [TKT-199](../backlog/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) — make repository/raw-image authority and retained security/egress boundaries unambiguous.
 3. [TKT-195](../backlog/TKT-195-entra-staff-access-management/TKT-195-entra-staff-access-management.md) — establish named Entra staff identity and explicit User/Superuser assignment before broad signed-in proof.
 4. [TKT-159](../backlog/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md) — reconcile code, registry and live gates, including conditional EVA use.
@@ -144,7 +144,8 @@ TKT-130 carries the binding valid/non-conflicting field and view-only-no-mutatio
 ## Verification / close-out
 - All 53 frontmatter members reach `done` only through an independent `ticket-verifier` verdict; an implementer does not certify its own ticket, and code-reading alone is never sufficient for live acceptance.
 - Every member acceptance line has one concrete offline/isolated artifact and its required signed-in/live artifact or an honest PENDING reason. Artificial states are not seeded into the live app to obtain a green verdict.
-- Every implementation PR has reciprocal reviewer evidence and a separate Codex review of the final head. Required schema/config deploy order, rollback and live health proof are retained per ticket.
+- Every implementation PR passes its normal repository/CI checks. No mandatory AI-review marker workflow is
+  part of close-out; required schema/config deploy order, rollback and live health proof remain per ticket.
 - Active/verify related tickets that supply a member's prerequisite contract are independently verified before that dependent member closes, even though they are not PLAN-004 members.
 - Entra assignment/revocation, repository/configured-assistant authority, no-unapproved-egress controls, email no-mint/auto-Held paths, pre-case adoption and evidence/photo decisions receive signed-in proof at their real authorized surfaces.
 - TKT-200 cannot close until the CollisionSpike canonical OpenAPI and the CollisionCapture vendored

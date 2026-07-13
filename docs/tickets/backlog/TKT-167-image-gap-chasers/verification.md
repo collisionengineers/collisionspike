@@ -19,7 +19,7 @@ PENDING — implementation is tested offline; the reviewed merge, SPA deployment
 - `mockup-app/src/screens/case-detail-chaser-contract.test.ts` pins the composer to `liveCase`, the same current image working copy used by readiness.
 
 ## Pending / live gaps
-- Reciprocal Claude and Codex review markers must bind to the final PR base and head before merge.
+- The final PR must pass its normal repository and CI checks; no reciprocal AI-review marker is required.
 - The reviewed SPA build must be deployed, then a designated test case must walk representative gaps through upload/classification and show each option disappearing only after its own gap resolves.
 - TKT-156's Box File Request template is still an external dependency for the real upload-link walkthrough. It requires an authenticated Box session and all writes must stay inside test root `392761581105`; outside that root remains read-only.
 - No live case, Outlook message or Box object was mutated during offline verification.

@@ -1,40 +1,24 @@
-# Verification — TKT-149: Require reciprocal Claude and Codex reviews on every pull request
+# Verification — TKT-149: Retire mandatory reciprocal Claude and Codex PR reviews
 
 ## Verdict
-TESTED (offline) + VERIFIED-LIVE (partial) — reciprocal exact-head draft-PR behavior is proven; separate Codex-origin and Claude-origin creation-path proofs remain.
+
+TESTED (offline); default-branch deletion PENDING merge.
 
 ## Evidence
 
-- `npm run test:pr-review-hooks` — PASS, 48/48 on 2026-07-12. Coverage includes Windows production launch, Claude `//drive` permission rules, timeouts, live/stale locks, wrapper/API/MCP bypasses, benign-search pass-through, merge SHA binding, forced draft, per-commit bundles, randomized prompt boundaries, marker sanitization, canonical executable/root realpaths, file-backed comment payloads, ready-state races and current-head outcomes.
-- `npm test` — PASS from a clean lockfile install: domain 551/551, SPA 410/410, reciprocal hooks 48/48. The local real-CLI smoke test runs when GitHub/Claude/Codex are installed and otherwise skips; deterministic hook tests always run.
-- `node --check` — PASS for the shared runner, both hook adapters and marker evaluator.
-- Both hook configuration files parse as JSON.
-- The Codex `commandWindows` Git-root resolver was exercised from `mockup-app/`; it found the root adapter and returned the expected `updatedInput` rewrite.
-- Workflow YAML parses and the evaluator's data-URL import path was fixture-smoked.
-- `gh auth status`, `claude auth status`, and `codex login status` confirm all three required CLIs are currently authenticated.
-- The Windows production resolver launches Codex through its npm JavaScript entry with `shell:false`; `codex-cli 0.144.0` returned successfully where the `.cmd`/WindowsApps launch paths returned `EPERM`.
-- Exact no-GitHub CLI preflights passed for Claude 2.1.202 scoped Read/Edit plus the constrained body-file command, and for locked-down plain `codex exec` after the installed `exec review` subcommand rejected a custom prompt.
-- Bootstrap draft [PR #60](https://github.com/collisionengineers/collisionspike/pull/60) was created by the runner. Its first review attempt stopped before either model after Git hit an existing over-260-character evidence path; the request remained draft with zero review comments. The runner now forces `core.longpaths=true`, and a real exact-head detached checkout/removal of all 2,856 files passed locally. Reciprocal live comments remain pending on the corrected head.
-- The next attempt proved the long-path checkout but Claude hit the four-minute bound before commenting: the review bundle contained 5,093,470 bytes/75,275 lines because `--binary` embedded the supplied screenshots twice (per-commit plus aggregate). The request again remained draft with zero markers. The corrected bundle is 336,819 aggregate-text bytes/5,298 lines before per-commit context, retains binary paths without raw payloads, and is streamed directly to the reviewers. Live rerun remains pending.
-- On head `9e8fec4`, both stdin-fed reviewers completed and updated PR #60: Claude posted first, Codex posted second, both comments carried exact head/base/body-digest markers, and `reciprocal-pr-review/head` became `failure` because both requested changes. The request stayed draft. Claude's valid workflow-loop finding is fixed on the next head; its exec-form concern and Codex's `Edit(...)` concern were independently disproved as recorded in `changes.md`.
-- A normal (not safe-mode) fresh Claude 2.1.202 project session ran `node --version` through the checked-in project hook configuration and returned `v24.14.0` with exit 0; debug output showed hook JSON being parsed successfully with no hook failure. This exercises the actual `command` + `args` + `${CLAUDE_PROJECT_DIR}` load path rather than invoking the scripts directly.
-- After pushing head `80a18e0`, `verify-markers` rejected both prior comments as `stale-head`. The fresh Claude pass then reached the old four-minute ceiling before replacement. The live timings now set Claude to six minutes, Codex to three-and-a-half minutes, the whole sequence to 9½ minutes, and the rewritten Claude Bash input to its ten-minute maximum. Final exact-head rerun remains pending.
-- On head `56fc179`, Claude replaced its exact comment with `PASS`. Codex replaced its comment with `CHANGES_REQUESTED` solely on the claim that Claude cannot rewrite a pending Bash input; the current official Claude reference explicitly documents that exact `PreToolUse.updatedInput` behavior, so the finding is rejected. The PR correctly remains draft because the marker outcome is still non-passing; the next head forces both reviewers to reassess.
-- Fresh Claude-path rewrite proof: a normal Claude 2.1.202 session attempted the harmless nonexistent command `gh pr ready 999999`. Debug output shows the checked-in hook returning `permissionDecision: allow` with `updatedInput.command = node … reciprocal-pr-review.mjs gate --origin claude …` and `updatedInput.timeout = 600000`; Claude reports `[pr-review] … gh pr view 999999 … failed`, proving the original `gh pr ready` input was replaced before execution. No request was mutated.
-- On head `3f6c8aa`, Claude again replaced its marker with `PASS`. Codex validly found that new Claude comments and comment updates could still place a 60 KB body in Windows argv. The next head uses `--body-file` for creation and JSON `--input` for PATCH updates; a fixture proves neither command contains review text. The PR remains draft pending both fresh passes.
-- Subsequent adversarial review cycles closed case-insensitive/global-option and quoted-shell REST bypasses, a newer-invalid-marker fallback to an older pass, copied marker publication, unscoped malformed-comment overwrite, and broad GraphQL-name false positives. An independent verifier re-ran 18 direct/wrapped/API variants and the duplicate-marker reproduction at `eadf15f`: every mutation was denied and the newer invalid claim produced `failure`/`invalid`, never the older pass.
-- On head `8f6c3cb`, Claude posted `PASS`; Codex posted `CHANGES_REQUESTED` only for a proposed Codex `updatedInput.timeout`. The official Codex hook schema documents Bash `tool_input.command` and requires a string `updatedInput.command`; it provides no rewritten-command timeout field. `.codex/hooks.json` already grants the hook process 1,800 seconds, while the rewritten shell command uses Codex's ongoing command session. No unsupported Claude-only milliseconds field was added; a fresh head forces reassessment.
-- Later exact-head cycles accepted and fixed reviewer findings for POSIX command escaping/line continuation, static context-tag injection, repository-controlled executable symlinks, aliased trust roots, demonstrated dynamic shell concatenations, benign marker quotations and default-test portability. The independent replay at `caa93c1` denied every named LF/CRLF, IFS/default-variable, ANSI-escape and `printf` construction; rejected both physical and junction-aliased repository roots; preserved benign Windows/search commands; and re-proved 5,000 randomized context boundaries.
-- On head `caa93c1`, Claude posted `PASS`; Codex requested only that the real local-CLI launch smoke test not break developers without those optional binaries. The availability skip is now in place while all deterministic guard tests remain on the default path.
-- The final offline hardening pass accepted two further Codex findings: hook adapters now return an explicit deny decision (with exit 0 so the host consumes it) for empty, malformed, incomplete, partial or timed-out event input, and harmless literal searches no longer trigger the old blanket `gh pr` sequence denial. Independent adversarial replay then closed quoted shell launchers, environment/utility wrappers, `rg --pre`, and PowerShell parenthesized command expressions while proving quoted harmless text still passes. Both real adapters, including held-open stdin, are covered by the 48-test default hook suite.
-- The next exact-head Codex review correctly identified that fully variable-built command words could hide both `gh` and `pr`. The classifier now denies dynamic shell construction only when it also carries a GitHub/pull-request identity and a guarded create/ready/merge action; unrelated compound commands and explicit literal-inspection commands continue to pass.
+- GitHub reports workflow id `311669369` as `disabled_manually`.
+- Repository search finds no active reciprocal workflow, runner, evaluator or hook configuration after the
+  removal patch; unrelated Azure/Box hooks remain.
+- `.codex/hooks.json`, `.claude/settings.json` and `package.json` parse successfully.
+- `npm test`, ticket checks, document links and skills-sync checks must pass on the removal head.
 
 ## Pending / gaps
 
-- Open one disposable draft through the Codex hook path and one through the Claude hook path; PR #60 already proves the shared runner's draft state, exact-head comments, stale-marker rejection, repeated head refreshes, visible failure status and unchanged initiating checkout.
-- Open a second disposable draft through the Claude hook path to prove its adapter outside the fixture harness.
-- GitHub's current private-Free plan rejects branch protection/rulesets, so `reciprocal-pr-review/head` cannot yet be configured as a required server-side merge check. Local agent ready/merge commands fail closed; browser merge remains a documented platform limitation.
-- Both reviews currently use the repository owner's authenticated GitHub identity. Marker digests detect text edits but do not cryptographically prove which model authored a comment; separate GitHub App identities or signed attestations would be required for that stronger property.
+The workflow file remains present on `main` until this PR merges, although the server-side workflow is
+already disabled. After merge, confirm it no longer appears as an active workflow and that an ordinary PR
+operation does not emit or wait on `reciprocal-pr-review/head`.
 
 ## How to re-verify
-Run the fixture suite, then open one draft PR through Codex and one through Claude. Confirm both reciprocal current-head comments, the visible exact-head status, and unchanged initiating branch/HEAD/status.
+
+After merge, list all repository workflows and inspect the project hook configs. Confirm there is no active
+reciprocal workflow or PR-operation hook, then run the normal repository checks without either AI reviewer.
