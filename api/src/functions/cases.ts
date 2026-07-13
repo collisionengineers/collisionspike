@@ -1802,9 +1802,9 @@ async function mergeEvidenceRows(
     // so later archive failure/readiness and retry observe the survivor.
     await q(
       `UPDATE staff_evidence_upload_item
-          SET evidence_id = $2, case_id = $3, updated_at = now()
+          SET evidence_id = $2, updated_at = now()
         WHERE evidence_id = $1`,
-      [row.id, survivorId, targetCaseId],
+      [row.id, survivorId],
     );
   }
 
@@ -1819,12 +1819,6 @@ async function mergeEvidenceRows(
   if (moved.length > 0) {
     await q(
       `UPDATE archive_mirror_outbox
-          SET case_id = $2, updated_at = now()
-        WHERE evidence_id = ANY($1::uuid[])`,
-      [moved.map((row) => row.id), targetCaseId],
-    );
-    await q(
-      `UPDATE staff_evidence_upload_item
           SET case_id = $2, updated_at = now()
         WHERE evidence_id = ANY($1::uuid[])`,
       [moved.map((row) => row.id), targetCaseId],
@@ -1867,14 +1861,18 @@ async function transferStaffUploadOwnership(
   sourceCaseId: string,
   targetCaseId: string,
 ): Promise<void> {
+  // Move the durable parent batch first. Evidence coalescing above may rebind an
+  // item's evidence identity, but ownership stays on the source until its batch
+  // owns the survivor. The following item update then restores the batch/item
+  // case invariant before the transaction becomes visible.
   await q(
-    `UPDATE staff_evidence_upload_item
+    `UPDATE staff_evidence_upload
         SET case_id = $2, updated_at = now()
       WHERE case_id = $1`,
     [sourceCaseId, targetCaseId],
   );
   await q(
-    `UPDATE staff_evidence_upload
+    `UPDATE staff_evidence_upload_item
         SET case_id = $2, updated_at = now()
       WHERE case_id = $1`,
     [sourceCaseId, targetCaseId],

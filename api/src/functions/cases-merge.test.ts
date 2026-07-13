@@ -153,18 +153,10 @@ beforeEach(() => {
       const ids = (params[0] as string[]) ?? [];
       return manualOperations.filter((row) => ids.includes(row.case_id as string));
     }
-    if (/UPDATE staff_evidence_upload_item[\s\S]*SET evidence_id = \$2, case_id = \$3/i.test(sql)) {
-      const [fromEvidence, toEvidence, toCase] = params as string[];
+    if (/UPDATE staff_evidence_upload_item[\s\S]*SET evidence_id = \$2/i.test(sql)) {
+      const [fromEvidence, toEvidence] = params as string[];
       for (const item of staffUploadItems.filter((row) => row.evidence_id === fromEvidence)) {
         item.evidence_id = toEvidence;
-        item.case_id = toCase;
-      }
-      return [];
-    }
-    if (/UPDATE staff_evidence_upload_item[\s\S]*WHERE evidence_id = ANY/i.test(sql)) {
-      const [ids, toCase] = params as [string[], string];
-      for (const item of staffUploadItems.filter((row) => ids.includes(row.evidence_id as string))) {
-        item.case_id = toCase;
       }
       return [];
     }
@@ -556,6 +548,12 @@ describe('mergeCases atomic lock protocol', () => {
     expect(staffUploadItems.every((row) => row.case_id === CASE_B)).toBe(true);
     expect(staffUploadItems.find((row) => row.idempotency_key === 'manual-upload-old')?.evidence_id)
       .toBe(EV_TARGET);
+    const batchTransfer = txSql.findIndex((sql) =>
+      /UPDATE staff_evidence_upload\s+SET case_id = \$2/i.test(sql));
+    const itemTransfer = txSql.findIndex((sql) =>
+      /UPDATE staff_evidence_upload_item\s+SET case_id = \$2[\s\S]*WHERE case_id = \$1/i.test(sql));
+    expect(batchTransfer).toBeGreaterThanOrEqual(0);
+    expect(itemTransfer).toBeGreaterThan(batchTransfer);
 
     // The failure happens after merge. The old/rebound item now resolves through
     // the survivor evidence and therefore blocks the survivor, not the retired row.
