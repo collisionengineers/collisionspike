@@ -106,6 +106,7 @@ const state = {
   recoveryAuditClaimed: false,
   blobPaths: new Set<string>(),
   registrationCaseIds: ['case-1'] as string[],
+  registrationCaseStatus: new Map<string, number>(),
 };
 
 function restore(snapshot: ReturnType<typeof snapshotState>): void {
@@ -191,6 +192,7 @@ beforeEach(() => {
   state.recoveryAuditClaimed = false;
   state.blobPaths = new Set();
   state.registrationCaseIds = ['case-1'];
+  state.registrationCaseStatus = new Map();
   db.query.mockReset();
   db.tx.mockReset();
   db.txQuery.mockReset();
@@ -211,7 +213,7 @@ beforeEach(() => {
     if (sql.includes("regexp_replace(upper(vrm)")) {
       return state.registrationCaseIds.map((id) => ({
         id,
-        status_code: state.statusCode,
+        status_code: state.registrationCaseStatus.get(id) ?? state.statusCode,
         duplicate_keys: null,
       }));
     }
@@ -423,7 +425,14 @@ describe('canonical staff evidence upload', () => {
     });
     expect(response.status).toBe(201);
     expect(db.txQuery.mock.calls.some(([sql]) => String(sql).includes('pg_advisory_xact_lock'))).toBe(true);
-    expect(db.txQuery.mock.calls.some(([sql]) => String(sql) === 'LOCK TABLE case_ IN SHARE MODE')).toBe(false);
+    const tableLock = db.txQuery.mock.calls.findIndex(
+      ([sql]) => String(sql) === 'LOCK TABLE case_ IN SHARE MODE',
+    );
+    const registrationRead = db.txQuery.mock.calls.findIndex(
+      ([sql]) => String(sql).includes("regexp_replace(upper(vrm)"),
+    );
+    expect(tableLock).toBeGreaterThanOrEqual(0);
+    expect(tableLock).toBeLessThan(registrationRead);
     expect(db.txQuery.mock.calls.some(([sql]) => (
       String(sql).includes("regexp_replace(upper(vrm)") && String(sql).includes('FOR UPDATE')
     ))).toBe(true);
@@ -482,6 +491,30 @@ describe('canonical staff evidence upload', () => {
     });
     expect(response.status).toBe(409);
     expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
+  });
+
+  it('ignores error cases during the upload-time registration recheck, matching lookup eligibility', async () => {
+    state.registrationCaseIds = ['case-1', 'case-error'];
+    state.registrationCaseStatus.set('case-error', 100000010); // error (append-only case-status code)
+    const baseRequest = requestWith(
+      [new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })],
+      { source: 'mcp_agent' },
+    );
+    const request = {
+      params: baseRequest.params,
+      headers: baseRequest.headers,
+      formData: async () => {
+        const form = await baseRequest.formData();
+        form.append('registration', 'SP23OBX');
+        return form;
+      },
+    } as unknown as HttpRequest;
+
+    const response = await uploadFromMcp(request, ctx, { oid: 'sp-image-agent' }, {
+      allowMcpAgentSource: true,
+    });
+    expect(response.status).toBe(201);
+    expect(state.evidence).toHaveLength(1);
   });
 
   it('persists an Add evidence photo in a classifier-owned pending state with one audit and readiness request', async () => {

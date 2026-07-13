@@ -238,9 +238,13 @@ async function assertImageIngestRegistrationBinding(
   await q('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
     `mcp-image-registration:${registration}`,
   ]);
-  // The advisory lock serialises autonomous uploads for this registration. The
-  // matched case rows are locked below, without blocking unrelated staff case
-  // writes through a table-wide SHARE lock.
+  // The advisory lock serialises autonomous uploads for this registration. Staff
+  // case creates and VRM edits do not take that lane-specific lock, so matched row
+  // locks alone cannot prevent a new matching row (a phantom) appearing between
+  // the predicate read and the batch bind. Keep the SHARE lock inside this short,
+  // DB-only binding transaction: it blocks case inserts/updates until the unique
+  // registration decision and idempotency bind commit, but no Blob work is held.
+  await q('LOCK TABLE case_ IN SHARE MODE');
   const rows = await q<{
     id: string;
     status_code: number;
@@ -257,6 +261,7 @@ async function assertImageIngestRegistrationBinding(
     const status = caseStatusCodec.toName(Number(row.status_code));
     return Boolean(status)
       && !isTerminalStatus(status as CaseStatus)
+      && status !== 'error'
       && !mergedIntoFrom(row.duplicate_keys);
   });
   if (active.length !== 1 || active[0].id.toLowerCase() !== expectedCaseId.toLowerCase()) {
