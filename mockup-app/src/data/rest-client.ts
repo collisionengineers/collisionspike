@@ -432,13 +432,10 @@ export function serverMessageOf(err: unknown): string | undefined {
 /** Whether a failed image-delete call crossed the durable-intent boundary. The
  * screen uses this server truth to distinguish a retryable partial deletion from
  * a preflight refusal where no deletion ever started. */
-export function imageDeletionPendingOf(err: unknown): boolean {
-  return !!(
-    err &&
-    typeof err === 'object' &&
-    'deletionPending' in err &&
-    (err as { deletionPending?: unknown }).deletionPending === true
-  );
+export function imageDeletionPendingOf(err: unknown): boolean | undefined {
+  if (!err || typeof err !== 'object' || !('deletionPending' in err)) return undefined;
+  const value = (err as { deletionPending?: unknown }).deletionPending;
+  return typeof value === 'boolean' ? value : undefined;
 }
 
 const ASSISTANT_REQUEST_TIMEOUT_MS = 20_000;
@@ -511,7 +508,9 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       try {
         const parsed = JSON.parse(text) as { message?: unknown; deletionPending?: unknown };
         if (typeof parsed.message === 'string' && parsed.message) err.serverMessage = parsed.message;
-        if (parsed.deletionPending === true) err.deletionPending = true;
+        if (typeof parsed.deletionPending === 'boolean') {
+          err.deletionPending = parsed.deletionPending;
+        }
       } catch {
         /* non-JSON body — no server message */
       }

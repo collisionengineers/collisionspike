@@ -1895,12 +1895,24 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       // A scope/ownership/preflight refusal happens before durable intent and is
       // not presented as an unfinished deletion. Only server-confirmed partial
       // work (or an already-pending card) gets the Finish deleting state.
-      const pending = !!target.deletionPending || imageDeletionPendingOf(error);
-      if (pending) {
-        setDeleteCandidate((current) => current ? { ...current, deletionPending: true } : current);
-        setImgState((current) => current.map((item) => (
-          item.id === target.id ? { ...item, deletionPending: true } : item
-        )));
+      const serverPending = imageDeletionPendingOf(error);
+      const pending = serverPending ?? !!target.deletionPending;
+      if (pending || serverPending === false) {
+        const withPendingTruth = (items: Evidence[]) => items.map((item) => (
+          item.id === target.id
+            ? { ...item, deletionPending: pending || undefined }
+            : item
+        ));
+        setDeleteCandidate((current) => current
+          ? { ...current, deletionPending: pending || undefined }
+          : current);
+        setImgState(withPendingTruth);
+        setC((current) => ({ ...current, evidence: withPendingTruth(current.evidence) }));
+        setPersistedCase((current) => ({
+          ...current,
+          evidence: withPendingTruth(current.evidence),
+        }));
+        if (serverPending === false) onRefreshImages();
       }
     } finally {
       setDeletingImageId(undefined);

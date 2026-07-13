@@ -22,8 +22,9 @@ implemented offline; awaiting independent live verification
   sibling or outside-root targets before `DELETE /files/{id}`.
 - `mockup-app/src/screens/CaseDetail.tsx` adds an accessible action on every image card, a filename and
   Archive-specific confirmation, mutation-free cancel, progress/error state and **Finish deleting**
-  retry. Documents/source rows have no delete action. A successful response removes only that image and
-  refreshes the server-recomputed case status.
+  retry. An explicit server cancellation clears the pending card state immediately. Documents/source
+  rows have no delete action. A successful response removes only that image and refreshes the
+  server-recomputed case status.
 - Audit actions `image_deletion_requested`, `image_deletion_failed`, and `image_deleted` are registered
   through schema, domain choices, API audit and last-activity mapping. Evidence responses expose only a
   `deletionPending` flag, not internal operation details.

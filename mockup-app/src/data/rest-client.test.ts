@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { createRestDataAccess } from './rest-client';
+import { createRestDataAccess, imageDeletionPendingOf } from './rest-client';
 
 /* ============================================================
    rest-client — the inbox error-surfacing + dashboard `now`-threading
@@ -609,6 +609,23 @@ describe('rest-client — confirmed case-image deletion', () => {
     const failure = await da.deleteCaseImage('case-1', 'ev-1').catch((error: unknown) => error);
     expect(failure).toBeInstanceOf(Error);
     expect((failure as { deletionPending?: boolean }).deletionPending).toBe(true);
+  });
+
+  it('preserves explicit cancellation truth so a pending card can be cleared', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(
+      409,
+      JSON.stringify({
+        completed: false,
+        retryable: false,
+        deletionPending: false,
+        message: 'The unfinished deletion was cancelled; refresh before trying again.',
+      }),
+    ));
+    const da = clientWith(fetchMock);
+    const failure = await da.deleteCaseImage('case-1', 'ev-1').catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(Error);
+    expect(imageDeletionPendingOf(failure)).toBe(false);
   });
 });
 
