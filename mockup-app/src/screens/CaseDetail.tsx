@@ -1069,6 +1069,12 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const blocked = !canSubmitCaseToEva(liveCase);
   const workflowBlocked = readiness.ready && blocked;
   const blockerCount = readiness.missing.length + (workflowBlocked ? 1 : 0);
+  const vehicleNeedsAttention = c.vrm.trim().length > 0 && (
+    !c.evaFields.vehicleModel.value.trim() || !c.evaFields.mileage.value.trim()
+  );
+  const vehicleWarning = c.vehicleLookup?.warning ?? (
+    vehicleNeedsAttention ? 'Vehicle model or mileage is missing.' : undefined
+  );
 
   const caseSaveInput = buildExplicitCaseSave(persistedCase, c, inspectionDraft);
   const hasUnsavedChanges = caseSaveInput !== undefined;
@@ -2246,11 +2252,11 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
         </MessageBar>
       )}
 
-      {c.vehicleLookup?.warning && !isRemoved && (
+      {vehicleWarning && !isRemoved && (
         <MessageBar intent="warning">
           <MessageBarBody>
             <MessageBarTitle>Vehicle details need attention</MessageBarTitle>
-            {c.vehicleLookup.warning}{' '}
+            {vehicleWarning}{' '}
             <Button
               appearance="transparent"
               size="small"
