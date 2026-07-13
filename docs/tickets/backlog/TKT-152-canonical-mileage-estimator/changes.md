@@ -3,8 +3,9 @@
 ## Status
 Implemented and offline-tested on `codex/tkt-152-canonical-mileage` (2026-07-12).
 Not deployed and not made the live default in this ticket branch. A production-scale
-chronological calibration profile, live persistence/application (TKT-151), deployment,
-and independent live verification still gate completion.
+chronological calibration profile, deployment, controlled remediation and independent
+live verification still gate completion. TKT-151 application/persistence is now built
+and offline-tested in the same branch, but remains undeployed.
 
 ## Canonical ownership and contract
 
@@ -39,13 +40,15 @@ and independent live verification still gate completion.
 
 - Unknown numeric odometer units now make the history ambiguous and force abstention;
   unread/missing odometers remain preserved evidence without poisoning the estimate.
-- Interpolation is allowed only across an included, non-negative trusted interval. A reset,
-  rollback, keying anomaly or excluded interval cannot produce a point by interpolation.
-- Cohort selection now matches deterministic vehicle-type, age, fuel and make/model keys,
-  with explicit generic fallback and stable specificity/sample/version tie-breaking. An
-  unrelated first prior can no longer win by file order.
-- A vehicle whose first-use date predates its registration date is treated as imported or
-  previously used and cannot receive a registration-anchor backcast.
+- Interpolation uses monotonic same-segment observations independently of whether their
+  gap is eligible for annual-rate fitting. Short retests and long gaps can bound the target
+  safely; resets, rollbacks and cross-segment endpoints cannot.
+- Cohort selection uses official response fields only: `firstUsedDate`, fuel and make/model.
+  The live response exposes no vehicle type, so type-specific priors cannot match and the
+  deterministic generic fallback wins instead of inventing a type.
+- A registration backcast is permitted only when `firstUsedDate` and `registrationDate`
+  are both present and equal. It is exactly zero at that verified new-at-registration
+  anchor and linear to the first MOT; imported/pre-used/missing anchors abstain.
 - MOT observations now have a composite foreign key to a provider snapshot from the same
   lookup run, closing the cross-run evidence-integrity gap in both fresh and delta DDL.
 - Every successful HTTP response now uses the canonical versioned envelope, including
@@ -70,7 +73,8 @@ and independent live verification still gate completion.
   result `displayed_odometer`. Estimated points round to 100; observations remain exact.
   There is no hard-coded confidence label or probability. Only a valid versioned profile
   with SHA-256 provenance, at least 30 matching holdouts, and finite ordered residual
-  quantiles can emit an empirical prediction interval; otherwise the result is range-only.
+  quantiles can emit an empirical prediction interval. Without one, a defensible normal
+  point estimate remains available with a wider explicitly uncalibrated range.
 - Defaults to a 730-day forecast horizon and abstains after it.
 
 ## Immutable persistence
@@ -99,15 +103,15 @@ and independent live verification still gate completion.
 
 ## Gates run
 
-- `functions/enrichment`: `python -m pytest -q` → **57 passed**.
+- `functions/enrichment`: `python -m pytest -q` → **62 passed**.
 - Python compile/import gate (`compileall`) → pass.
-- Data API: TypeScript build → pass; Vitest → **64 files / 624 tests passed**.
-- Orchestration: TypeScript build → pass; Vitest → **30 files / 417 tests passed**.
-- Domain contract suite → **56 files / 1,136 tests passed** after runtime validation tests.
-- Sibling connector: typecheck/build pass; Vitest → **9 files / 55 tests passed** at
-  commit `c629a6a0822247ab3c40409eea7f67add7b368a9`.
-- Sibling Windows tool: `BuildAndRun.ps1 -SkipRun` → **0 warnings / 0 errors** at
-  commit `2e24802417ff122e7cc0c0dd66e608c17eb0f7a2`.
+- Data API: TypeScript build → pass; Vitest → **65 files / 629 tests passed**.
+- Orchestration: TypeScript build → pass; Vitest → **30 files / 418 tests passed**.
+- Domain contract suite → **56 files / 1,142 tests passed** after exhaustive runtime validation and readiness tests.
+- SPA: TypeScript/Vite build pass; Vitest → **39 files / 450 tests passed**.
+- Sibling connector: typecheck/build/stdio bundle pass; Vitest → **2 files / 4 tests passed** at
+  commit `1cb7da9`.
+- Sibling Windows tool: direct `dotnet build` → **0 warnings / 0 errors** at commit `eb0329f`.
 - Aggregate `node verify-all.mjs` → **8 passed, 0 failed, 13 expected skips**.
 - `node migration/assets/verify-parity-pg.mjs` → all applicable checks passed.
 - `node scripts/check-doc-links.mjs` → 0 broken links / 0 orphan docs / 0 live-fact leaks.
@@ -121,10 +125,10 @@ and independent live verification still gate completion.
   the required slices. The fixture above is deliberately insufficient for that claim.
 - TKT-044's previously sampled live VRMs were not called from this no-live-mutation branch;
   rerun old/new results after deployment and record them in independent verification.
-- TKT-151 must apply/persist the nested lookup/run/evidence contract, surface insufficient
-  mileage as Not Ready, and add the case warning/UI wording. This branch intentionally does
-  not change case readiness or UI.
-- The sibling MCP and Windows changes are pushed but not merged or deployed. Until those
+- TKT-151 application/persistence/readiness/retry is implemented offline in this branch;
+  it still needs migration/deployment, controlled found/not-found proof, backup-first
+  remediation and the final residual census.
+- The sibling MCP and Windows changes are committed but not yet merged or deployed. Until those
   delivery units land, their current default branches remain unchanged and suite-wide live
-  consolidation cannot be claimed. The historical Cloudflare source remains textually present
-  but explicitly non-active and is not an authorised deployment target.
+  consolidation cannot be claimed. The historical Cloudflare runtime and desktop duplicate
+  implementation are removed from their delivery branches.

@@ -11,8 +11,8 @@ versioned [`vehicle-data.v1`](../../contracts/vehicle-data-v1.schema.json) contr
 No Data API, orchestration or UI caller may clean MOT rows, calculate an annual rate,
 choose a mileage point, or label confidence independently. The temporary top-level
 response fields are produced by one mechanical adapter in `vehicle_data/service.py`.
-TKT-151 owns applying that result to a case and plain-language warnings; it does not
-own this algorithm.
+The Data API owns applying that result to a case, immutable evidence persistence,
+plain-language warnings and retry. It does not own this algorithm.
 
 ## Repository and sibling inventory
 
@@ -25,21 +25,17 @@ own this algorithm.
 | `functions/enrichment/dvla_client.py` | Provider client and DVLA fallback response | Transport/auth only; registration cleanup delegates to `vehicle_data/registration.py`; no MOT or mileage logic. |
 | `functions/enrichment/analysis.py` | Copied TypeScript cleaner/estimator and response model | Retired to a no-maths import facade over the canonical package. |
 | `functions/enrichment/function_app.py` | Function route and former calculation caller | Sole HTTP service boundary; invokes `VehicleDataService` once and emits the canonical envelope plus its temporary mechanical projection. |
-| `orchestration/src/functions/activities/enrich.ts` | Active Function caller | Sole runtime caller; consumes the shared `VehicleDataEnrichmentResponse` and forwards it unchanged. |
-| `orchestration/src/lib/data-api.ts` and `api/src/functions/internal.ts` | Case-application caller | Consume the shared response type. The current fill-if-empty projection is TKT-151-owned and contains no lookup/cleaning/estimation rule. |
+| `api/src/functions/vehicle-data.ts` and `api/src/lib/vehicle-data-persistence.ts` | Authenticated owner of lookup application | One route serves orchestration, Manual Intake and explicit retry. It validates the canonical response, persists its complete append-only evidence, applies only empty compatibility fields and stores the current warning/outcome pointer. |
+| `orchestration/src/functions/activities/enrich.ts` | Automated intake caller | Calls the one Data API route for every provider automation mode. It has no provider credentials, HTTP client, cleaning or estimation rule. |
 | `api/src/lib/functions-client.ts` and `orchestration/src/lib/functions-client.ts` | Unused legacy enrichment clients (`/api/enrich`) | Obsolete exports removed; they can no longer become a second runtime path. |
 | `packages/domain/src/contracts/vehicle-data.ts` | Shared TypeScript consumer response shape | Mechanical consumer view of the root JSON Schema, guarded by a parity test; no provider or estimator logic. |
-| `mockup-app/src/data/enrichment-client.ts` | Disabled UI transport shape | No provider HTTP/cache/calculation; its default transport returns unavailable and is not a source of case mileage. |
+| `mockup-app/src/data/rest-client.ts` | Staff/manual caller | Uses the same authenticated route for Manual Intake preview and Case Detail retry. The old disabled vehicle placeholder transport is removed. |
 | `packages/domain/.../vrm-canon.ts` | General case/search comparison form | Not a provider client. The external boundary still re-canonicalises in the owning service. |
-| sibling `active/connectors/dvla-dvsa-connector/server/src/` | Active MCP service previously contained copied TypeScript current-mileage and plausibility maths | Follow-up branch `codex/tkt-152-canonical-mileage-adapter` removes that maths. The MCP server calls `vehicle-data.v1`, validates its versioned envelope and derives only observed-vs-canonical-bounds wording. It fails closed when the canonical service is not configured; it has no local estimate fallback. |
-| sibling `active/connectors/dvla-dvsa-connector/cf-worker/src/` | Historical Cloudflare implementation still contains an older copied estimator | Explicitly historical/non-active in that repository and prohibited as a mileage deployment source. Its retained source is not an authorised runtime alternative to `vehicle-data.v1`. |
-| sibling `active/mileagetool/RegLookup/` | Standalone Windows lookup application previously exposed a copied C# target/current-mileage estimate | Follow-up branch `codex/tkt-152-retire-estimator` removes the estimate model, service method and UI result. Raw provider lookup and factual interval/anomaly display remain. A safe canonical desktop adapter is blocked until a staff-authenticated/user-delegated route or trusted broker exists; an internal Function key must not be embedded in the desktop app. |
+| sibling `active/connectors/dvla-dvsa-connector/server/src/` | MCP service previously contained direct clients, copied mileage/plausibility rules, cache and snapshots | Branch `codex/tkt-152-canonical-mileage-adapter` is a thin exhaustive `vehicle-data.v1` adapter only. Raw tools expose captured provider snapshots without inference. The direct clients, copied rules, storage/workspace/pack surfaces and historical Cloudflare runtime are removed. |
+| sibling `active/mileagetool/RegLookup/` | Standalone Windows lookup application previously contained direct clients, embedded credential generation and copied mileage/anomaly rules | Branch `codex/tkt-152-retire-estimator` removes every lookup client/model/rule and credential target. The remaining WinUI shell directs staff to CollisionSpike Case Intake. |
 
-This establishes one active handwritten estimator across the suite once the two sibling
-follow-up branches are merged and deployed. Those sibling branches are separate delivery
-units, not part of this repository's runtime until then. The historical Cloudflare tree
-remains as labelled reference source only and must not be restored as an active mileage
-path.
+This establishes one active handwritten estimator and one provider client pair across
+the suite once the two sibling delivery units are merged and deployed.
 
 ## Official source contract
 
@@ -49,7 +45,10 @@ the time of test. The bulk documentation warns callers to sort across sources an
 explains why registration-at-test matters for cherished transfers. The canonical
 cleaner therefore stores the raw row unchanged, accepts current `READ` plus the `OK`
 value present in DVSA examples/older exports, converts only recognised MI/KM units,
-and records every rejection or consolidation decision.
+and records every rejection or consolidation decision. The official live response has
+`firstUsedDate`, `registrationDate`, make, model and fuel type; it does not expose a
+vehicle-type field. Cohort age/import checks therefore use `firstUsedDate`, while
+type-specific priors are ineligible unless a future official response exposes that fact.
 
 References:
 
@@ -68,13 +67,15 @@ References:
    new displayed-odometer segment. An unresolved final drop abstains.
 5. Use a recency/quality-weighted median of clean rates. Blend a versioned cohort
    prior only for sparse histories and only when its sample/version checks pass.
-6. Return exact observations on exact MOT dates; bounded interpolation between trusted
-   same-segment observations; current-segment forecast after the latest; guarded
+6. Return exact observations on exact MOT dates; bounded interpolation between monotonic
+   same-segment endpoints even when their gap is outside the rate-estimation window;
+   current-segment forecast after the latest; guarded
    cohort-assisted backcast before the first MOT.
 7. Default forecast horizon is two years. Beyond the validated calibration horizon,
    return insufficient evidence.
 8. Prediction intervals come only from chronological holdout residual buckets. Without
-   an eligible bucket, return a non-probabilistic range and say it is uncalibrated.
+   an eligible bucket, keep a defensible point estimate for normal fill-in, return a
+   wider non-probabilistic range and explicitly say it is uncalibrated.
 
 ## Immutable persistence
 
