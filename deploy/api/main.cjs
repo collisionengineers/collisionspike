@@ -148,13 +148,13 @@ var require_postgres_date = __commonJS({
     var DATE = /^(\d{1,})-(\d{2})-(\d{2})( BC)?$/;
     var TIME_ZONE = /([Z+-])(\d{2})?:?(\d{2})?:?(\d{2})?/;
     var INFINITY = /^-?infinity$/;
-    module2.exports = function parseDate(isoDate) {
-      if (INFINITY.test(isoDate)) {
-        return Number(isoDate.replace("i", "I"));
+    module2.exports = function parseDate(isoDate2) {
+      if (INFINITY.test(isoDate2)) {
+        return Number(isoDate2.replace("i", "I"));
       }
-      var matches = DATE_TIME.exec(isoDate);
+      var matches = DATE_TIME.exec(isoDate2);
       if (!matches) {
-        return getDate(isoDate) || null;
+        return getDate(isoDate2) || null;
       }
       var isBC = !!matches[8];
       var year2 = parseInt(matches[1], 10);
@@ -169,7 +169,7 @@ var require_postgres_date = __commonJS({
       var ms = matches[7];
       ms = ms ? 1e3 * parseFloat(ms) : 0;
       var date;
-      var offset = timeZoneOffset(isoDate);
+      var offset = timeZoneOffset(isoDate2);
       if (offset != null) {
         date = new Date(Date.UTC(year2, month, day2, hour2, minute2, second, ms));
         if (is0To99(year2)) {
@@ -186,8 +186,8 @@ var require_postgres_date = __commonJS({
       }
       return date;
     };
-    function getDate(isoDate) {
-      var matches = DATE.exec(isoDate);
+    function getDate(isoDate2) {
+      var matches = DATE.exec(isoDate2);
       if (!matches) {
         return;
       }
@@ -204,11 +204,11 @@ var require_postgres_date = __commonJS({
       }
       return date;
     }
-    function timeZoneOffset(isoDate) {
-      if (isoDate.endsWith("+00")) {
+    function timeZoneOffset(isoDate2) {
+      if (isoDate2.endsWith("+00")) {
         return 0;
       }
-      var zone = TIME_ZONE.exec(isoDate.split(" ")[1]);
+      var zone = TIME_ZONE.exec(isoDate2.split(" ")[1]);
       if (!zone) return;
       var type = zone[1];
       if (type === "Z") {
@@ -7156,6 +7156,24 @@ function evaluateEvaImageRules(evidence) {
     failures
   };
 }
+function evaluateEvaImageReadiness(evidence) {
+  const rules = evaluateEvaImageRules(evidence);
+  const unresolvedReviewCount = evidence.filter((item) => item.kind === "image" && item.reviewRequired === true).length;
+  const gaps = [...rules.failures];
+  if (unresolvedReviewCount > 0) {
+    gaps.push({
+      code: "review_required",
+      message: `${unresolvedReviewCount} image${unresolvedReviewCount === 1 ? "" : "s"} still ${unresolvedReviewCount === 1 ? "needs" : "need"} review.`,
+      count: unresolvedReviewCount
+    });
+  }
+  return {
+    ok: gaps.length === 0,
+    rules,
+    unresolvedReviewCount,
+    gaps
+  };
+}
 
 // packages/domain/dist/contracts/case-status.js
 var TERMINAL_STATUSES = [
@@ -7197,28 +7215,40 @@ function evaluateCaseReadiness(input) {
       ...ok ? {} : { detail: `${desc.label} is empty` }
     });
   }
-  const imageRules = evaluateEvaImageRules(input.evidence);
-  const unresolvedImages = input.evidence.filter((e) => e.kind === "image" && e.reviewRequired === true);
-  const imageGaps = imageRules.failures.map((failure) => {
-    switch (failure.code) {
+  const imageReadiness = evaluateEvaImageReadiness(input.evidence);
+  const imageRules = imageReadiness.rules;
+  const imageGaps = imageReadiness.gaps.map((gap) => {
+    switch (gap.code) {
       case "min_count":
         return `need at least ${MIN_ACCEPTED_IMAGES} accepted (have ${imageRules.acceptedCount})`;
       case "missing_overview":
         return "no overview with a visible registration";
       case "missing_damage_closeup":
         return "no main-damage close-up";
+      case "review_required":
+        return `${gap.count} image${gap.count === 1 ? "" : "s"} still ${gap.count === 1 ? "needs" : "need"} review`;
     }
   });
-  if (unresolvedImages.length > 0) {
-    imageGaps.push(`${unresolvedImages.length} image${unresolvedImages.length === 1 ? "" : "s"} still ${unresolvedImages.length === 1 ? "needs" : "need"} review`);
-  }
-  const imagesReady = imageRules.ok && unresolvedImages.length === 0;
+  const imagesReady = imageReadiness.ok;
   checks.push({
     id: "images",
     label: "Images",
     ok: imagesReady,
     group: "images",
     ...imagesReady ? {} : { detail: imageGaps.join("; ") }
+  });
+  const vehicle = input.vehicleData;
+  const vehicleDetailsReady = !vehicle?.hasRegistration || vehicle.modelResolved && vehicle.mileageResolved;
+  const missingVehicle = [
+    vehicle?.modelResolved === false ? "vehicle model" : "",
+    vehicle?.mileageResolved === false ? "mileage" : ""
+  ].filter(Boolean);
+  checks.push({
+    id: "vehicle-details",
+    label: "Vehicle details are complete",
+    ok: vehicleDetailsReady,
+    group: "vehicle",
+    ...vehicleDetailsReady ? {} : { detail: vehicle?.warning || `Missing ${missingVehicle.join(" and ")}` }
   });
   const address = (input.evaFields.inspectionAddress?.value ?? "").trim();
   const isImageBased = input.inspectionDecision === "image_based";
@@ -7250,15 +7280,27 @@ function evaluateCaseReadiness(input) {
       detail: `Review: ${unresolvedFields.map((key) => EVA_FIELD_ORDER.find((d) => d.key === key)?.label ?? key).join(", ")}`
     }
   });
+  const sourceEvidenceReady = input.sourceEvidencePending !== true && input.sourceEvidenceArchiveFailed !== true;
+  if (!sourceEvidenceReady) {
+    checks.push({
+      id: "source-evidence",
+      label: "Source files added",
+      ok: false,
+      group: "source",
+      detail: input.sourceEvidenceArchiveFailed ? "A selected source file could not be archived. Retry it from Evidence" : "The selected instruction or extra files still need to be added"
+    });
+  }
   const requiredFieldsPresent = missingRequiredFieldKeys(input.evaFields).length === 0;
   return {
     checks,
     ready: checks.every((check) => check.ok),
     requiredFieldsPresent,
     inspectionReady,
+    vehicleDetailsReady,
     imageRulesPass: imageRules.ok,
     imagesReady,
-    reviewsResolved
+    reviewsResolved,
+    sourceEvidenceReady
   };
 }
 function instructionCountOf(input) {
@@ -7280,7 +7322,7 @@ function statusForReviewCase(input) {
     return "linked_to_instruction";
   const readiness = evaluateCaseReadiness(input);
   const baseImagesValid = readiness.imageRulesPass;
-  const fieldContractValid = readiness.requiredFieldsPresent && readiness.inspectionReady;
+  const fieldContractValid = readiness.requiredFieldsPresent && readiness.inspectionReady && readiness.vehicleDetailsReady;
   if (readiness.ready)
     return "ready_for_eva";
   if (fieldContractValid && !baseImagesValid) {
@@ -7316,6 +7358,36 @@ var EVA_EDIT_MAX_LENGTH = {
 var EVA_EDIT_DATE_RE = /^(?:|\d{2}\/\d{2}\/\d{4})$/;
 var EVA_EDIT_VAT_VALUES = ["", "Yes", "No"];
 var EVA_EDIT_MILEAGE_UNITS = ["", "Miles", "Km"];
+var EVA_MILEAGE_RE = /^\d{1,20}$/;
+var EVA_GROUPED_MILEAGE_RE = /^\d{1,3}(?:,\d{3})+$/;
+function normaliseEvaMileage(value) {
+  if (typeof value !== "string")
+    return void 0;
+  const trimmed = value.trim();
+  const digits = EVA_MILEAGE_RE.test(trimmed) ? trimmed : EVA_GROUPED_MILEAGE_RE.test(trimmed) ? trimmed.replaceAll(",", "") : "";
+  return digits && EVA_MILEAGE_RE.test(digits) ? digits : void 0;
+}
+function parseExtractedEvaMileage(value) {
+  const direct = normaliseEvaMileage(value);
+  if (direct)
+    return { value: direct };
+  if (typeof value !== "string")
+    return void 0;
+  const match = value.trim().match(/^(.+?)\s*(miles?|mi|kilometres?|km)$/i);
+  if (!match)
+    return void 0;
+  const mileage = normaliseEvaMileage(match[1]);
+  if (!mileage)
+    return void 0;
+  const unit = /^(?:miles?|mi)$/i.test(match[2]) ? "Miles" : "Km";
+  return { value: mileage, unit };
+}
+function normaliseExtractedEvaMileage(value) {
+  return parseExtractedEvaMileage(value)?.value;
+}
+function isValidEvaMileage(value) {
+  return normaliseEvaMileage(value) !== void 0;
+}
 function normaliseEvaEdit(key, raw) {
   const trimmed = raw.trim();
   if (key === "dateOfLoss" || key === "dateOfInstruction") {
@@ -7336,675 +7408,17 @@ function normaliseEvaEdit(key, raw) {
     }
     return { value: trimmed };
   }
+  if (key === "mileage") {
+    if (!trimmed)
+      return { value: "" };
+    const mileage = normaliseEvaMileage(trimmed);
+    if (!mileage) {
+      return { error: "mileage must contain digits only" };
+    }
+    return { value: mileage };
+  }
   return { value: raw.slice(0, EVA_EDIT_MAX_LENGTH[key]) };
 }
-
-// packages/domain/dist/domain/classification.js
-var EXTENSION_TABLE = {
-  jpg: "image",
-  jpeg: "image",
-  png: "image",
-  pdf: "instruction",
-  docx: "instruction",
-  doc: "instruction",
-  eml: "email"
-};
-var MIME_TABLE = {
-  "image/jpeg": "image",
-  "image/jpg": "image",
-  "image/png": "image",
-  "application/pdf": "instruction",
-  "application/msword": "instruction",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "instruction",
-  "message/rfc822": "email"
-};
-function extensionOf(filename) {
-  const name = filename.trim();
-  const dot = name.lastIndexOf(".");
-  if (dot <= 0 || dot === name.length - 1)
-    return "";
-  return name.slice(dot + 1).toLowerCase();
-}
-function normaliseMime(contentType2) {
-  if (!contentType2)
-    return "";
-  const semi = contentType2.indexOf(";");
-  const base = semi >= 0 ? contentType2.slice(0, semi) : contentType2;
-  return base.trim().toLowerCase();
-}
-var ENGINEER_REPORT_LAYOUT_KEYS = new Set([
-  "EVA (Engineers)",
-  "CNX (Engineers)",
-  "Exclusive Vehicle Assessors",
-  "Connexus Vehicle Assessors"
-].map((n) => normaliseLayoutName(n)));
-function normaliseLayoutName(raw) {
-  return raw.trim().toUpperCase().replace(/[().,'&]/g, "").replace(/\s+/g, " ").trim();
-}
-function isEngineerReportLayoutName(raw) {
-  const key = normaliseLayoutName((raw ?? "").toString());
-  return key !== "" && ENGINEER_REPORT_LAYOUT_KEYS.has(key);
-}
-function classifyAttachment(filename, contentType2) {
-  const ext = extensionOf(filename);
-  const byExt = EXTENSION_TABLE[ext];
-  if (byExt)
-    return byExt;
-  const byMime = MIME_TABLE[normaliseMime(contentType2)];
-  if (byMime)
-    return byMime;
-  return "other";
-}
-function describeEvidence(filename, contentType2, isEmlMessage = false) {
-  const evidenceClass = isEmlMessage ? "email" : classifyAttachment(filename, contentType2);
-  return {
-    filename,
-    contentType: normaliseMime(contentType2),
-    extension: extensionOf(filename),
-    evidenceClass,
-    isImage: evidenceClass === "image",
-    isInstruction: evidenceClass === "instruction"
-  };
-}
-
-// packages/domain/dist/domain/dedup.js
-function decideMergeProvider(sourceProviderId, targetProviderId) {
-  const src = (sourceProviderId ?? "").trim() || null;
-  const tgt = (targetProviderId ?? "").trim() || null;
-  if (src && tgt && src !== tgt)
-    return { providerId: tgt, filledFrom: null, crossProvider: true };
-  if (tgt)
-    return { providerId: tgt, filledFrom: "target", crossProvider: false };
-  if (src)
-    return { providerId: src, filledFrom: "source", crossProvider: false };
-  return { providerId: null, filledFrom: null, crossProvider: false };
-}
-
-// packages/domain/dist/domain/vrm-canon.js
-function canonicalizeVrm(s) {
-  if (!s)
-    return "";
-  return s.toUpperCase().replace(/[^A-Z0-9]/g, "");
-}
-
-// packages/domain/dist/domain/vrm-filter.js
-var STRICT = /\b(?:[A-Z]{2}[0-9]{2}\s?[A-Z]{3}|[A-Z][0-9]{1,3}\s?[A-Z]{3}|[A-Z]{3}\s?[0-9]{1,3}[A-Z])\b/g;
-var LOOSE = /\b[A-Z]{1,3}\s?[0-9]{1,4}\b/g;
-var ANCHOR = /\b(?:registration|reg|vrm|vehicle|plate|number\s?plate)\b/i;
-var ANCHOR_WINDOW = 40;
-var TIGHT_ANCHOR_WINDOW = 16;
-var TIGHT_ANCHOR = /(?:reg(?:istration)?|vrm|vehicle|plate)\s*(?:no|number|mark)?\s*[:.\-#]?\s*$/i;
-var MONTH_DAY_WORDS = /* @__PURE__ */ new Set([
-  "JANUARY",
-  "FEBRUARY",
-  "MARCH",
-  "APRIL",
-  "MAY",
-  "JUNE",
-  "JULY",
-  "AUGUST",
-  "SEPTEMBER",
-  "OCTOBER",
-  "NOVEMBER",
-  "DECEMBER",
-  "MONDAY",
-  "TUESDAY",
-  "WEDNESDAY",
-  "THURSDAY",
-  "FRIDAY",
-  "SATURDAY",
-  "SUNDAY",
-  "JAN",
-  "FEB",
-  "MAR",
-  "APR",
-  "JUN",
-  "JUL",
-  "AUG",
-  "SEP",
-  "SEPT",
-  "OCT",
-  "NOV",
-  "DEC"
-]);
-var LOOSE_ALPHA_STOPWORDS = /* @__PURE__ */ new Set([
-  "AND",
-  "THE",
-  "FOR",
-  "NOT",
-  "BUT",
-  "ARE",
-  "WAS",
-  "OUR",
-  "YOU",
-  "ALL",
-  "ANY",
-  "HAS",
-  "HAD",
-  "PER",
-  "VIA"
-]);
-var EXCLUDE_WORDS = /* @__PURE__ */ new Set([
-  "VAT",
-  "TEL",
-  "REF",
-  "REFERENCE",
-  "INVOICE",
-  "INV",
-  "PHONE",
-  "FAX",
-  "FAO",
-  "PO",
-  "ORDER",
-  "ACCOUNT",
-  "ACC"
-]);
-var EXCLUDE_LABEL = new RegExp(`\\b(?:${[...EXCLUDE_WORDS].join("|")})[:.#\\-\\s]*$`);
-function isPostcodeOutward(upper, idx, cand) {
-  const after = upper.slice(idx + cand.length);
-  return /^\s?[0-9][A-Z]{2}\b/.test(after);
-}
-var POSTCODE_AREAS = /* @__PURE__ */ new Set([
-  "AB",
-  "AL",
-  "B",
-  "BA",
-  "BB",
-  "BD",
-  "BH",
-  "BL",
-  "BN",
-  "BR",
-  "BS",
-  "BT",
-  "CA",
-  "CB",
-  "CF",
-  "CH",
-  "CM",
-  "CO",
-  "CR",
-  "CT",
-  "CV",
-  "CW",
-  "DA",
-  "DD",
-  "DE",
-  "DG",
-  "DH",
-  "DL",
-  "DN",
-  "DT",
-  "DY",
-  "E",
-  "EC",
-  "EH",
-  "EN",
-  "EX",
-  "FK",
-  "FY",
-  "G",
-  "GL",
-  "GU",
-  "GY",
-  "HA",
-  "HD",
-  "HG",
-  "HP",
-  "HR",
-  "HS",
-  "HU",
-  "HX",
-  "IG",
-  "IM",
-  "IP",
-  "IV",
-  "JE",
-  "KA",
-  "KT",
-  "KW",
-  "KY",
-  "L",
-  "LA",
-  "LD",
-  "LE",
-  "LL",
-  "LN",
-  "LS",
-  "LU",
-  "M",
-  "ME",
-  "MK",
-  "ML",
-  "N",
-  "NE",
-  "NG",
-  "NN",
-  "NP",
-  "NR",
-  "NW",
-  "OL",
-  "OX",
-  "PA",
-  "PE",
-  "PH",
-  "PL",
-  "PO",
-  "PR",
-  "RG",
-  "RH",
-  "RM",
-  "S",
-  "SA",
-  "SE",
-  "SG",
-  "SK",
-  "SL",
-  "SM",
-  "SN",
-  "SO",
-  "SP",
-  "SR",
-  "SS",
-  "ST",
-  "SW",
-  "SY",
-  "TA",
-  "TD",
-  "TF",
-  "TN",
-  "TQ",
-  "TR",
-  "TS",
-  "TW",
-  "UB",
-  "W",
-  "WA",
-  "WC",
-  "WD",
-  "WF",
-  "WN",
-  "WR",
-  "WS",
-  "WV",
-  "YO",
-  "ZE"
-]);
-function isPostcodeOutwardCode(compact) {
-  const m = /^([A-Z]{1,2})[0-9]{1,2}$/.exec(compact);
-  return m !== null && POSTCODE_AREAS.has(m[1]);
-}
-function isPostcodeAreaHead(compact) {
-  const m = /^([A-Z]{1,3})[0-9]/.exec(compact);
-  return m !== null && POSTCODE_AREAS.has(m[1]);
-}
-function precededByExcludeLabel(upper, idx) {
-  const before = upper.slice(Math.max(0, idx - 16), idx);
-  return EXCLUDE_LABEL.test(before);
-}
-function extractVrm(text) {
-  if (!text)
-    return "";
-  const upper = text.toUpperCase();
-  for (const m of upper.matchAll(STRICT)) {
-    const cand = m[0];
-    if (isPostcodeOutward(upper, m.index ?? 0, cand))
-      continue;
-    return canonicalizeVrm(cand);
-  }
-  for (const m of upper.matchAll(LOOSE)) {
-    const cand = m[0];
-    const idx = m.index ?? 0;
-    const compact = cand.replace(/\s+/g, "");
-    if (MONTH_DAY_WORDS.has(compact))
-      continue;
-    if (isPostcodeOutward(upper, idx, cand))
-      continue;
-    if (isPostcodeOutwardCode(compact))
-      continue;
-    const alpha = cand.match(/^[A-Z]+/)?.[0] ?? "";
-    if (EXCLUDE_WORDS.has(alpha))
-      continue;
-    if (LOOSE_ALPHA_STOPWORDS.has(alpha))
-      continue;
-    if (precededByExcludeLabel(upper, idx))
-      continue;
-    if (isPostcodeAreaHead(compact)) {
-      const before = upper.slice(Math.max(0, idx - TIGHT_ANCHOR_WINDOW), idx);
-      if (!TIGHT_ANCHOR.test(before))
-        continue;
-    } else {
-      const windowText = upper.slice(Math.max(0, idx - ANCHOR_WINDOW), idx + cand.length + ANCHOR_WINDOW);
-      if (!ANCHOR.test(windowText))
-        continue;
-    }
-    return canonicalizeVrm(cand);
-  }
-  return "";
-}
-
-// packages/domain/dist/domain/case-po.js
-var CASE_PO_SEQ_WIDTH = 3;
-function formatCasePo(principalCode, year2, seq, marker2 = "") {
-  const principal = String(principalCode).trim().toUpperCase();
-  const yy = String(year2).trim().padStart(2, "0").slice(-2);
-  const n = Math.max(0, Math.trunc(Number(seq) || 0));
-  return `${marker2.toUpperCase()}${principal}${yy}${String(n).padStart(CASE_PO_SEQ_WIDTH, "0")}`;
-}
-function casePoYear(d = /* @__PURE__ */ new Date()) {
-  return String(d.getFullYear() % 100).padStart(2, "0");
-}
-function casePoSequenceRegex(principal, yy, marker2 = "") {
-  const markerPattern = marker2 ? `${marker2.toUpperCase().slice(0, -1)}\\.` : "";
-  return `^${markerPattern}${principal.toUpperCase()}${yy}[0-9]{${CASE_PO_SEQ_WIDTH},}$`;
-}
-
-// packages/domain/dist/domain/case-type.js
-var CASE_PO_MARKER = {
-  standard: "",
-  audit: "A.",
-  audit_total_loss: "AP.",
-  diminution: "D."
-};
-var MARKERED_PRINCIPALS = {
-  PCH: ["audit", "diminution"],
-  QDOS: ["audit", "audit_total_loss", "diminution"]
-};
-function allowedCaseTypes(principalCode) {
-  const code = (principalCode ?? "").trim().toUpperCase();
-  return MARKERED_PRINCIPALS[code] ?? [];
-}
-function markerForMint(caseType, principalCode, dual) {
-  if (caseType === "standard")
-    return "";
-  if (dual)
-    return "";
-  if (caseType === "diminution")
-    return "";
-  if (!allowedCaseTypes(principalCode).includes(caseType))
-    return "";
-  return CASE_PO_MARKER[caseType];
-}
-
-// packages/domain/dist/domain/address-policy.js
-var IMAGE_BASED_LITERAL = "Image Based Assessment";
-
-// packages/domain/dist/domain/pii-scrub.js
-var DEFAULT_PLACEHOLDERS = {
-  email: "[EMAIL]",
-  phone: "[PHONE]",
-  postcode: "[POSTCODE]",
-  address: "[ADDRESS]",
-  nino: "[NINO]",
-  name: "[NAME]",
-  vrm: "[VRM]"
-};
-var EMAIL_RE = /(?<![\w])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![\w])/g;
-var NINO_RE = /(?<![\w])[ABCEGHJ-PRSTW-Z][ABCEGHJ-NPRSTW-Z][\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?[A-D](?![\w])/gi;
-var ADDRESS_RE = /(?<![\w])\d{1,4}[A-Za-z]?[\s,]+(?:[A-Z][A-Za-z'-]+[\s,]+){1,4}(?:Road|Rd|Street|St|Avenue|Ave|Lane|Ln|Drive|Dr|Close|Cl|Way|Court|Ct|Crescent|Cres|Place|Pl|Terrace|Gardens|Grove|Grv|Walk|Row|Hill|Park)\b\.?/g;
-var POSTCODE_RE = /(?<![\w])(?:[A-Z]{1,2}\d[A-Z\d]?|GIR)[\s-]?\d[A-Z]{2}(?![\w])/gi;
-var PHONE_RE = /(?<![\w])(?:\+44[\s-]?\(?0?\)?|\(?0)(?:[\s\-()]{0,2}\d){9,10}(?![\w])/g;
-var NAME_RE = /(?<![\w])(?:Mr|Mrs|Ms|Miss|Dr|Prof)\.?\s+[A-Z](?:[A-Za-z'-]+|\.)?(?:\s+[A-Z](?:[A-Za-z'-]+|\.)?){0,2}/g;
-var VRM_RE = /(?<![\w])(?:[A-Z]{2}\d{2}[\s-]?[A-Z]{3}|[A-Z]\d{1,3}[\s-]?[A-Z]{3}|[A-Z]{3}[\s-]?\d{1,3}[A-Z])(?![\w])/gi;
-var RULES = [
-  { kind: "email", re: EMAIL_RE, enabled: () => true },
-  { kind: "nino", re: NINO_RE, enabled: () => true },
-  { kind: "address", re: ADDRESS_RE, enabled: () => true },
-  { kind: "postcode", re: POSTCODE_RE, enabled: () => true },
-  { kind: "phone", re: PHONE_RE, enabled: () => true },
-  { kind: "name", re: NAME_RE, enabled: (o) => o.redactNames },
-  { kind: "vrm", re: VRM_RE, enabled: (o) => o.redactVrm }
-];
-function scrubPii(input, opts = {}) {
-  const cfg = {
-    redactVrm: opts.redactVrm ?? false,
-    redactNames: opts.redactNames ?? true
-  };
-  const placeholderFor = (kind) => opts.placeholders?.[kind] ?? DEFAULT_PLACEHOLDERS[kind];
-  if (typeof input !== "string" || input.length === 0) {
-    return { text: typeof input === "string" ? input : "", redactions: [], totalRedactions: 0 };
-  }
-  let text = input;
-  const redactions = [];
-  for (const rule of RULES) {
-    if (!rule.enabled(cfg))
-      continue;
-    let count = 0;
-    const placeholder = placeholderFor(rule.kind);
-    rule.re.lastIndex = 0;
-    text = text.replace(rule.re, () => {
-      count += 1;
-      return placeholder;
-    });
-    if (count > 0)
-      redactions.push({ kind: rule.kind, count });
-  }
-  const totalRedactions = redactions.reduce((sum, r) => sum + r.count, 0);
-  return { text, redactions, totalRedactions };
-}
-
-// packages/domain/dist/domain/outlook-folder.js
-function suggestedOutlookFolder(subtype) {
-  switch (subtype) {
-    case "existing_provider_instruction":
-      return "Inbox/Instructions";
-    case "existing_provider_audit":
-      return "Inbox/Audits";
-    case "existing_provider_diminution":
-      return "Inbox/Diminution";
-    case "new_client_work":
-      return "Inbox/New clients";
-    case "query_existing_work":
-      return "Inbox/Queries/Case queries";
-    case "query_new_enquiry":
-      return "Inbox/Queries/Enquiries";
-    case "billing_request":
-    case "payment_remittance":
-      return "Inbox/Billing";
-    case "pre_instruction_directions":
-      return "Inbox/Pre-instructions";
-    case "case_summary":
-    case "acknowledgement":
-      return "Inbox/No action";
-    case "images_received":
-      return "Inbox/Images";
-    case "cancellation_notice":
-      return "Inbox/Cancellations";
-    case "update_general":
-      return "Inbox/Case updates";
-    default:
-      return "Inbox/Other";
-  }
-}
-
-// packages/domain/dist/domain/retro-case.js
-var CASE_PO_SHAPE_RE = /^(?:(?:AP|A|D)\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{2}\d{3,4})$/i;
-function normalizeCasePo(raw) {
-  return (raw ?? "").trim().toUpperCase().replace(/^((?:AP|A|D)\.)\s+/, "$1");
-}
-function parseCasePoMarker(po) {
-  const token = normalizeCasePo(po);
-  for (const marker2 of ["AP.", "A.", "D."]) {
-    if (token.startsWith(marker2))
-      return { marker: marker2, body: token.slice(marker2.length) };
-  }
-  return { marker: "", body: token };
-}
-function matchPrincipalByCasePo(po, principals) {
-  const { marker: marker2, body: body2 } = parseCasePoMarker(po);
-  if (!body2)
-    return null;
-  let best = null;
-  for (const raw of principals) {
-    const code = (raw ?? "").trim().toUpperCase();
-    if (!code || !body2.startsWith(code))
-      continue;
-    if (!/^\d{5,6}$/.test(body2.slice(code.length)))
-      continue;
-    if (!best || code.length > best.length)
-      best = code;
-  }
-  return best ? { principal: best, marker: marker2 } : null;
-}
-function markerToCaseType(marker2) {
-  const token = (marker2 ?? "").trim().toUpperCase();
-  const entry = Object.entries(CASE_PO_MARKER).find(([, m]) => m === token);
-  return entry ? entry[0] : "standard";
-}
-
-// packages/domain/dist/domain/intake-routing.js
-var CASE_MINTING_CATEGORIES = ["receiving_work"];
-function categoryMintsCase(category) {
-  return CASE_MINTING_CATEGORIES.includes(category);
-}
-
-// packages/domain/dist/model/queues.js
-var QUEUES = [
-  {
-    name: "not-ready",
-    routeSegment: "not-ready",
-    label: "Not ready",
-    shortLabel: "Not ready",
-    // Arrived and progressing, but not yet complete: waiting on images, waiting
-    // on instructions/fields, just-arrived/settling, or a merged case still
-    // missing a required detail (e.g. the inspection address).
-    statuses: [
-      "new_email",
-      "ingested",
-      "missing_images",
-      "missing_required_fields",
-      "linked_to_instruction",
-      "needs_review"
-    ],
-    tone: "muted"
-  },
-  {
-    name: "review",
-    routeSegment: "review",
-    label: "Review",
-    shortLabel: "Review",
-    // Review is the theoretically-submittable population: the canonical
-    // readiness evaluator has passed every field, inspection, image and review
-    // check. A raw needs_review status is incomplete and remains Not ready.
-    statuses: ["ready_for_eva"],
-    tone: "blocker"
-  },
-  {
-    name: "held",
-    routeSegment: "held",
-    label: "Held",
-    shortLabel: "Held",
-    // Parked: cannot pass through automatically (errored, or missing the basics a
-    // case needs at all — VRM / claimant), a possible duplicate awaiting a
-    // decision, or put on hold by a person (the `onHold` flag, routed in the
-    // data source). See the case-status tree + dedup (ADR-0010).
-    statuses: ["error", "duplicate_risk"],
-    tone: "blocker"
-  }
-];
-function statusToQueue(status) {
-  return QUEUES.find((qq) => qq.statuses.includes(status))?.name;
-}
-function isRetiredMerged(c) {
-  return c.status === "linked_to_instruction" && Boolean(c.mergedInto);
-}
-function caseToQueue(c) {
-  if (isRetiredMerged(c))
-    return void 0;
-  return c.onHold ? "held" : statusToQueue(c.status);
-}
-function queueByName(name) {
-  return QUEUES.find((q) => q.name === name);
-}
-function statusToStage(status) {
-  switch (status) {
-    case "new_email":
-    case "ingested":
-      return "new";
-    case "missing_images":
-    case "missing_required_fields":
-    case "linked_to_instruction":
-    case "needs_review":
-      return "not_ready";
-    case "ready_for_eva":
-      return "review";
-    case "eva_submitted":
-    case "box_synced":
-    case "done":
-      return "submitted";
-    case "error":
-    case "duplicate_risk":
-    case "removed":
-      return void 0;
-  }
-}
-var REASON_LABELS = {
-  missing_images: "Missing images",
-  missing_instructions: "Missing instructions",
-  duplicate: "Duplicate",
-  conflict: "Conflict",
-  needs_review: "Needs review"
-};
-
-// packages/domain/dist/model/case-readiness.js
-function readinessInputForCase(c) {
-  return {
-    status: c.status,
-    evaFields: c.evaFields,
-    evidence: c.evidence,
-    inspectionDecision: c.inspectionDecision,
-    instructionCount: c.evidence.filter((e) => e.kind === "instruction").length,
-    hasIdentity: c.vrm.trim().length > 0 || (c.casePo ?? "").trim().length > 0 || c.providerCode.trim().length > 0 || c.evaFields.claimantName.value.trim().length > 0,
-    mergedInto: c.mergedInto
-  };
-}
-function canSubmitCaseToEva(c) {
-  const input = readinessInputForCase(c);
-  const readiness = evaluateCaseReadiness(input);
-  return readiness.ready && caseToQueue({
-    status: c.status,
-    onHold: c.onHold,
-    mergedInto: c.mergedInto
-  }) === "review";
-}
-
-// packages/domain/dist/dto/index.js
-var BOX_GATES_ALL_FALSE = {
-  apiEnabled: false,
-  folderAtIntakeEnabled: false,
-  fileRequestEnabled: false,
-  fileRequestTemplateConfigured: false
-};
-var LOCATION_ASSIST_GATE_ALL_OFF = {
-  assistEnabled: false,
-  mapsEnabled: false,
-  apiBaseConfigured: false,
-  enabled: false,
-  aiEnabled: false
-};
-var AI_ASSIST_GATE_ALL_OFF = {
-  enabled: false,
-  modelConfigured: false
-};
-var OUTLOOK_MOVE_GATE_ALL_OFF = {
-  enabled: false
-};
-var INBOUND_ATTENTION_REASONS = [
-  "unable_to_locate",
-  "images_no_match"
-];
-var OUTLOOK_MOVE_STATES = ["queued", "moved", "failed"];
-var INBOUND_COUNTS_ZERO = {
-  receiving_work: 0,
-  query: 0,
-  billing: 0,
-  non_actionable: 0,
-  other: 0,
-  case_update: 0,
-  cancellation: 0,
-  pre_instruction: 0,
-  untriaged: 0
-};
 
 // node_modules/zod/v3/external.js
 var external_exports = {};
@@ -12047,6 +11461,925 @@ var coerce = {
 };
 var NEVER = INVALID;
 
+// packages/domain/dist/contracts/vehicle-data.js
+var VEHICLE_DATA_CONTRACT_VERSION = "vehicle-data.v1";
+var VEHICLE_DATA_ALGORITHM_VERSION = "mot-display-estimator.v2";
+var VEHICLE_LOOKUP_STATUSES = [
+  "found",
+  "not_found",
+  "invalid_registration",
+  "temporarily_unavailable",
+  "configuration_error"
+];
+var MILEAGE_OUTCOME_STATUSES = [
+  "observed",
+  "estimated",
+  "range_only",
+  "insufficient"
+];
+var MILEAGE_METHODS = [
+  "observed_mot",
+  "bounded_interpolation",
+  "recent_rate_forecast",
+  "cohort_assisted_forecast",
+  "cohort_assisted_backcast",
+  "displayed_segment_only",
+  "none"
+];
+var OBSERVATION_DECISIONS = [
+  "rejected_invalid_test_date",
+  "rejected_odometer_not_read",
+  "rejected_invalid_odometer_value",
+  "rejected_unknown_odometer_unit",
+  "duplicate_excluded",
+  "episode_selected",
+  "retest_episode_consolidated",
+  "isolated_spike_excluded",
+  "isolated_dip_excluded",
+  "persistent_lower_segment"
+];
+var INTERVAL_DECISIONS = [
+  "crosses_odometer_segment",
+  "short_interval_excluded",
+  "negative_interval_excluded",
+  "extreme_annual_rate_excluded",
+  "historical_gap_context_only",
+  "long_interval_half_weight",
+  "zero_movement_retained"
+];
+var lookupStatusSchema = external_exports.enum(VEHICLE_LOOKUP_STATUSES);
+var nonNegativeInteger = external_exports.number().int().nonnegative();
+var dateSchema = external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+var dateTimeSchema = external_exports.string().datetime({ offset: true });
+var sha256Schema = external_exports.string().regex(/^[0-9a-f]{64}$/);
+var vehicleDataWarningSchema = external_exports.object({
+  code: external_exports.string(),
+  severity: external_exports.enum(["warning", "blocking"]),
+  message: external_exports.string()
+}).passthrough();
+var observationSchema = external_exports.object({
+  observation_id: external_exports.string(),
+  raw_index: nonNegativeInteger,
+  source: external_exports.string(),
+  mot_test_number: external_exports.string().nullable(),
+  test_date: dateSchema.nullable(),
+  completed_date_raw: external_exports.string().nullable(),
+  test_result: external_exports.string().nullable(),
+  odometer_value_raw: external_exports.string().nullable(),
+  odometer_unit_raw: external_exports.string().nullable(),
+  odometer_result_type_raw: external_exports.string().nullable(),
+  registration_at_test: external_exports.string().nullable(),
+  stable_vehicle_identity: external_exports.string().nullable(),
+  normalized_miles: external_exports.number().nonnegative().nullable(),
+  episode: nonNegativeInteger.nullable(),
+  segment: nonNegativeInteger.nullable(),
+  selected_for_event: external_exports.boolean(),
+  included_for_rate: external_exports.boolean(),
+  decisions: external_exports.array(external_exports.enum(OBSERVATION_DECISIONS)),
+  warnings: external_exports.array(external_exports.string())
+}).strict();
+var intervalSchema = external_exports.object({
+  from_observation_id: external_exports.string(),
+  to_observation_id: external_exports.string(),
+  from_date: dateSchema,
+  to_date: dateSchema,
+  segment: nonNegativeInteger,
+  days: external_exports.number().int().positive(),
+  delta_miles: external_exports.number(),
+  annual_rate_miles: external_exports.number().int().nullable(),
+  quality_weight: external_exports.number().nonnegative(),
+  recency_weight: external_exports.number().nonnegative(),
+  weight: external_exports.number().nonnegative(),
+  included: external_exports.boolean(),
+  decisions: external_exports.array(external_exports.enum(INTERVAL_DECISIONS))
+}).strict();
+var predictionIntervalSchema = external_exports.object({
+  coverage: external_exports.number().gt(0).lt(1),
+  lower_mileage: nonNegativeInteger,
+  upper_mileage: nonNegativeInteger,
+  calibration_version: external_exports.string().min(1),
+  dataset_digest: sha256Schema,
+  sample_size: external_exports.number().int().min(30)
+}).strict().refine((value) => value.lower_mileage <= value.upper_mileage, {
+  message: "prediction interval lower bound exceeds upper bound"
+});
+var mileageRangeSchema = external_exports.object({
+  lower_mileage: nonNegativeInteger,
+  upper_mileage: nonNegativeInteger,
+  basis: external_exports.enum([
+    "observed_mot",
+    "logical_bounds",
+    "rate_dispersion_not_calibrated"
+  ])
+}).strict().refine((value) => value.lower_mileage <= value.upper_mileage, {
+  message: "mileage range lower bound exceeds upper bound"
+});
+var cohortPriorSchema = external_exports.object({
+  version: external_exports.string().min(1),
+  dataset_digest: sha256Schema,
+  annual_rate_miles: external_exports.number().int().min(0).max(1e5),
+  annual_sigma_miles: external_exports.number().int().positive(),
+  sample_size: external_exports.number().int().min(200),
+  cohort: external_exports.record(external_exports.string(), external_exports.unknown())
+}).strict();
+var calibrationBucketSchema = external_exports.object({
+  method: external_exports.string().min(1),
+  max_horizon_days: external_exports.number().int().positive(),
+  min_clean_intervals: nonNegativeInteger,
+  anomaly_class: external_exports.string().min(1),
+  error_q_low: external_exports.number().finite(),
+  error_q_high: external_exports.number().finite(),
+  sample_size: external_exports.number().int().positive()
+}).strict().refine((value) => value.error_q_low <= value.error_q_high, {
+  message: "calibration bucket lower residual exceeds upper residual"
+});
+var calibrationProfileSchema = external_exports.object({
+  version: external_exports.string().min(1),
+  dataset_digest: sha256Schema,
+  target_coverage: external_exports.number().min(0.5).lt(1),
+  useful_tolerance_miles: external_exports.number().int().positive(),
+  validated_horizon_days: external_exports.number().int().positive(),
+  minimum_bucket_size: external_exports.number().int().min(30),
+  holdout_sample_size: nonNegativeInteger,
+  observed_coverage: external_exports.number().min(0).max(1),
+  buckets: external_exports.array(calibrationBucketSchema).min(1)
+}).strict();
+var mileageSchema = external_exports.object({
+  status: external_exports.enum(MILEAGE_OUTCOME_STATUSES),
+  method: external_exports.enum(MILEAGE_METHODS),
+  odometer_meaning: external_exports.literal("displayed_odometer"),
+  target_date: dateSchema,
+  algorithm_version: external_exports.literal(VEHICLE_DATA_ALGORITHM_VERSION),
+  auto_fill_eligible: external_exports.boolean(),
+  observed_mileage: nonNegativeInteger.nullable().optional(),
+  estimated_mileage: nonNegativeInteger.nullable().optional(),
+  annual_rate_miles: nonNegativeInteger.nullable().optional(),
+  reason: external_exports.string().nullable().optional(),
+  prediction_interval: predictionIntervalSchema.nullable().optional(),
+  range: mileageRangeSchema.nullable().optional(),
+  prior: cohortPriorSchema.nullable().optional(),
+  calibration_profile: calibrationProfileSchema.nullable().optional(),
+  warnings: external_exports.array(vehicleDataWarningSchema),
+  evidence: external_exports.object({
+    observations: external_exports.array(observationSchema),
+    intervals: external_exports.array(intervalSchema),
+    anomaly_class: external_exports.string()
+  }).passthrough()
+}).passthrough();
+var providerSnapshotSchema = external_exports.object({
+  provider: external_exports.enum(["dvsa_mot_history_v1", "dvla_vehicle_enquiry_v1"]),
+  retrieved_at: dateTimeSchema,
+  status: lookupStatusSchema,
+  payload_sha256: sha256Schema.nullable(),
+  raw_payload: external_exports.record(external_exports.string(), external_exports.unknown()).nullable(),
+  error_class: external_exports.string().nullable(),
+  error_code: external_exports.string().nullable()
+}).passthrough();
+var vehicleDataEnrichmentResponseSchema = external_exports.object({
+  contract_version: external_exports.literal(VEHICLE_DATA_CONTRACT_VERSION),
+  algorithm_version: external_exports.literal(VEHICLE_DATA_ALGORITHM_VERSION),
+  lookup: external_exports.object({
+    run_id: external_exports.string().uuid(),
+    status: lookupStatusSchema,
+    requested_registration: external_exports.string(),
+    canonical_registration: external_exports.string().regex(/^[A-Z0-9]{0,16}$/),
+    target_date: dateSchema,
+    retrieved_at: dateTimeSchema,
+    provider_statuses: external_exports.record(external_exports.string(), lookupStatusSchema)
+  }).strict(),
+  vehicle: external_exports.record(external_exports.string(), external_exports.unknown()),
+  provider_snapshots: external_exports.array(providerSnapshotSchema),
+  mileage: mileageSchema,
+  // Mechanical bridge fields emitted by legacy_enrichment_adapter.
+  vehicle_model: external_exports.string().optional(),
+  make: external_exports.string().optional(),
+  current_mileage: nonNegativeInteger.optional(),
+  mileage_unit: external_exports.literal("Miles").optional(),
+  mileage_method: external_exports.enum(MILEAGE_METHODS).optional(),
+  mileage_warnings: external_exports.array(vehicleDataWarningSchema).optional(),
+  warnings: external_exports.array(external_exports.string())
+}).passthrough().superRefine((value, ctx) => {
+  if (value.current_mileage !== void 0 && value.mileage.status !== "observed" && value.mileage.auto_fill_eligible !== true) {
+    ctx.addIssue({
+      code: external_exports.ZodIssueCode.custom,
+      path: ["current_mileage"],
+      message: "estimated current_mileage requires auto_fill_eligible"
+    });
+  }
+  if (value.mileage.auto_fill_eligible && value.mileage.status !== "observed" && !value.mileage.prediction_interval) {
+    ctx.addIssue({
+      code: external_exports.ZodIssueCode.custom,
+      path: ["mileage", "auto_fill_eligible"],
+      message: "estimate autofill requires an empirical prediction interval"
+    });
+  }
+  const interval = value.mileage.prediction_interval;
+  const profile = value.mileage.calibration_profile;
+  if (interval && !profile) {
+    ctx.addIssue({
+      code: external_exports.ZodIssueCode.custom,
+      path: ["mileage", "calibration_profile"],
+      message: "prediction interval requires its complete calibration profile"
+    });
+  } else if (interval && profile && (interval.calibration_version !== profile.version || interval.dataset_digest !== profile.dataset_digest)) {
+    ctx.addIssue({
+      code: external_exports.ZodIssueCode.custom,
+      path: ["mileage", "calibration_profile"],
+      message: "calibration profile does not match the selected prediction interval"
+    });
+  }
+});
+function parseVehicleDataEnrichmentResponse(value) {
+  const parsed = vehicleDataEnrichmentResponseSchema.safeParse(value);
+  return parsed.success ? parsed.data : void 0;
+}
+
+// packages/domain/dist/domain/classification.js
+var EXTENSION_TABLE = {
+  jpg: "image",
+  jpeg: "image",
+  png: "image",
+  pdf: "instruction",
+  docx: "instruction",
+  doc: "instruction",
+  eml: "email"
+};
+var MIME_TABLE = {
+  "image/jpeg": "image",
+  "image/jpg": "image",
+  "image/png": "image",
+  "application/pdf": "instruction",
+  "application/msword": "instruction",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "instruction",
+  "message/rfc822": "email"
+};
+function extensionOf(filename) {
+  const name = filename.trim();
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0 || dot === name.length - 1)
+    return "";
+  return name.slice(dot + 1).toLowerCase();
+}
+function normaliseMime(contentType2) {
+  if (!contentType2)
+    return "";
+  const semi = contentType2.indexOf(";");
+  const base = semi >= 0 ? contentType2.slice(0, semi) : contentType2;
+  return base.trim().toLowerCase();
+}
+var ENGINEER_REPORT_LAYOUT_KEYS = new Set([
+  "EVA (Engineers)",
+  "CNX (Engineers)",
+  "Exclusive Vehicle Assessors",
+  "Connexus Vehicle Assessors"
+].map((n) => normaliseLayoutName(n)));
+function normaliseLayoutName(raw) {
+  return raw.trim().toUpperCase().replace(/[().,'&]/g, "").replace(/\s+/g, " ").trim();
+}
+function isEngineerReportLayoutName(raw) {
+  const key = normaliseLayoutName((raw ?? "").toString());
+  return key !== "" && ENGINEER_REPORT_LAYOUT_KEYS.has(key);
+}
+function classifyAttachment(filename, contentType2) {
+  const ext = extensionOf(filename);
+  const byExt = EXTENSION_TABLE[ext];
+  if (byExt)
+    return byExt;
+  const byMime = MIME_TABLE[normaliseMime(contentType2)];
+  if (byMime)
+    return byMime;
+  return "other";
+}
+function describeEvidence(filename, contentType2, isEmlMessage = false) {
+  const evidenceClass = isEmlMessage ? "email" : classifyAttachment(filename, contentType2);
+  return {
+    filename,
+    contentType: normaliseMime(contentType2),
+    extension: extensionOf(filename),
+    evidenceClass,
+    isImage: evidenceClass === "image",
+    isInstruction: evidenceClass === "instruction"
+  };
+}
+
+// packages/domain/dist/domain/dedup.js
+function decideMergeProvider(sourceProviderId, targetProviderId) {
+  const src = (sourceProviderId ?? "").trim() || null;
+  const tgt = (targetProviderId ?? "").trim() || null;
+  if (src && tgt && src !== tgt)
+    return { providerId: tgt, filledFrom: null, crossProvider: true };
+  if (tgt)
+    return { providerId: tgt, filledFrom: "target", crossProvider: false };
+  if (src)
+    return { providerId: src, filledFrom: "source", crossProvider: false };
+  return { providerId: null, filledFrom: null, crossProvider: false };
+}
+
+// packages/domain/dist/domain/vrm-canon.js
+function canonicalizeVrm(s) {
+  if (!s)
+    return "";
+  return s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+// packages/domain/dist/domain/vrm-filter.js
+var STRICT = /\b(?:[A-Z]{2}[0-9]{2}\s?[A-Z]{3}|[A-Z][0-9]{1,3}\s?[A-Z]{3}|[A-Z]{3}\s?[0-9]{1,3}[A-Z])\b/g;
+var LOOSE = /\b[A-Z]{1,3}\s?[0-9]{1,4}\b/g;
+var ANCHOR = /\b(?:registration|reg|vrm|vehicle|plate|number\s?plate)\b/i;
+var ANCHOR_WINDOW = 40;
+var TIGHT_ANCHOR_WINDOW = 16;
+var TIGHT_ANCHOR = /(?:reg(?:istration)?|vrm|vehicle|plate)\s*(?:no|number|mark)?\s*[:.\-#]?\s*$/i;
+var MONTH_DAY_WORDS = /* @__PURE__ */ new Set([
+  "JANUARY",
+  "FEBRUARY",
+  "MARCH",
+  "APRIL",
+  "MAY",
+  "JUNE",
+  "JULY",
+  "AUGUST",
+  "SEPTEMBER",
+  "OCTOBER",
+  "NOVEMBER",
+  "DECEMBER",
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+  "SUNDAY",
+  "JAN",
+  "FEB",
+  "MAR",
+  "APR",
+  "JUN",
+  "JUL",
+  "AUG",
+  "SEP",
+  "SEPT",
+  "OCT",
+  "NOV",
+  "DEC"
+]);
+var LOOSE_ALPHA_STOPWORDS = /* @__PURE__ */ new Set([
+  "AND",
+  "THE",
+  "FOR",
+  "NOT",
+  "BUT",
+  "ARE",
+  "WAS",
+  "OUR",
+  "YOU",
+  "ALL",
+  "ANY",
+  "HAS",
+  "HAD",
+  "PER",
+  "VIA"
+]);
+var EXCLUDE_WORDS = /* @__PURE__ */ new Set([
+  "VAT",
+  "TEL",
+  "REF",
+  "REFERENCE",
+  "INVOICE",
+  "INV",
+  "PHONE",
+  "FAX",
+  "FAO",
+  "PO",
+  "ORDER",
+  "ACCOUNT",
+  "ACC"
+]);
+var EXCLUDE_LABEL = new RegExp(`\\b(?:${[...EXCLUDE_WORDS].join("|")})[:.#\\-\\s]*$`);
+function isPostcodeOutward(upper, idx, cand) {
+  const after = upper.slice(idx + cand.length);
+  return /^\s?[0-9][A-Z]{2}\b/.test(after);
+}
+var POSTCODE_AREAS = /* @__PURE__ */ new Set([
+  "AB",
+  "AL",
+  "B",
+  "BA",
+  "BB",
+  "BD",
+  "BH",
+  "BL",
+  "BN",
+  "BR",
+  "BS",
+  "BT",
+  "CA",
+  "CB",
+  "CF",
+  "CH",
+  "CM",
+  "CO",
+  "CR",
+  "CT",
+  "CV",
+  "CW",
+  "DA",
+  "DD",
+  "DE",
+  "DG",
+  "DH",
+  "DL",
+  "DN",
+  "DT",
+  "DY",
+  "E",
+  "EC",
+  "EH",
+  "EN",
+  "EX",
+  "FK",
+  "FY",
+  "G",
+  "GL",
+  "GU",
+  "GY",
+  "HA",
+  "HD",
+  "HG",
+  "HP",
+  "HR",
+  "HS",
+  "HU",
+  "HX",
+  "IG",
+  "IM",
+  "IP",
+  "IV",
+  "JE",
+  "KA",
+  "KT",
+  "KW",
+  "KY",
+  "L",
+  "LA",
+  "LD",
+  "LE",
+  "LL",
+  "LN",
+  "LS",
+  "LU",
+  "M",
+  "ME",
+  "MK",
+  "ML",
+  "N",
+  "NE",
+  "NG",
+  "NN",
+  "NP",
+  "NR",
+  "NW",
+  "OL",
+  "OX",
+  "PA",
+  "PE",
+  "PH",
+  "PL",
+  "PO",
+  "PR",
+  "RG",
+  "RH",
+  "RM",
+  "S",
+  "SA",
+  "SE",
+  "SG",
+  "SK",
+  "SL",
+  "SM",
+  "SN",
+  "SO",
+  "SP",
+  "SR",
+  "SS",
+  "ST",
+  "SW",
+  "SY",
+  "TA",
+  "TD",
+  "TF",
+  "TN",
+  "TQ",
+  "TR",
+  "TS",
+  "TW",
+  "UB",
+  "W",
+  "WA",
+  "WC",
+  "WD",
+  "WF",
+  "WN",
+  "WR",
+  "WS",
+  "WV",
+  "YO",
+  "ZE"
+]);
+function isPostcodeOutwardCode(compact) {
+  const m = /^([A-Z]{1,2})[0-9]{1,2}$/.exec(compact);
+  return m !== null && POSTCODE_AREAS.has(m[1]);
+}
+function isPostcodeAreaHead(compact) {
+  const m = /^([A-Z]{1,3})[0-9]/.exec(compact);
+  return m !== null && POSTCODE_AREAS.has(m[1]);
+}
+function precededByExcludeLabel(upper, idx) {
+  const before = upper.slice(Math.max(0, idx - 16), idx);
+  return EXCLUDE_LABEL.test(before);
+}
+function extractVrm(text) {
+  if (!text)
+    return "";
+  const upper = text.toUpperCase();
+  for (const m of upper.matchAll(STRICT)) {
+    const cand = m[0];
+    if (isPostcodeOutward(upper, m.index ?? 0, cand))
+      continue;
+    return canonicalizeVrm(cand);
+  }
+  for (const m of upper.matchAll(LOOSE)) {
+    const cand = m[0];
+    const idx = m.index ?? 0;
+    const compact = cand.replace(/\s+/g, "");
+    if (MONTH_DAY_WORDS.has(compact))
+      continue;
+    if (isPostcodeOutward(upper, idx, cand))
+      continue;
+    if (isPostcodeOutwardCode(compact))
+      continue;
+    const alpha = cand.match(/^[A-Z]+/)?.[0] ?? "";
+    if (EXCLUDE_WORDS.has(alpha))
+      continue;
+    if (LOOSE_ALPHA_STOPWORDS.has(alpha))
+      continue;
+    if (precededByExcludeLabel(upper, idx))
+      continue;
+    if (isPostcodeAreaHead(compact)) {
+      const before = upper.slice(Math.max(0, idx - TIGHT_ANCHOR_WINDOW), idx);
+      if (!TIGHT_ANCHOR.test(before))
+        continue;
+    } else {
+      const windowText = upper.slice(Math.max(0, idx - ANCHOR_WINDOW), idx + cand.length + ANCHOR_WINDOW);
+      if (!ANCHOR.test(windowText))
+        continue;
+    }
+    return canonicalizeVrm(cand);
+  }
+  return "";
+}
+
+// packages/domain/dist/domain/case-po.js
+var CASE_PO_SEQ_WIDTH = 3;
+function formatCasePo(principalCode, year2, seq, marker2 = "") {
+  const principal = String(principalCode).trim().toUpperCase();
+  const yy = String(year2).trim().padStart(2, "0").slice(-2);
+  const n = Math.max(0, Math.trunc(Number(seq) || 0));
+  return `${marker2.toUpperCase()}${principal}${yy}${String(n).padStart(CASE_PO_SEQ_WIDTH, "0")}`;
+}
+function casePoYear(d = /* @__PURE__ */ new Date()) {
+  return String(d.getFullYear() % 100).padStart(2, "0");
+}
+function casePoSequenceRegex(principal, yy, marker2 = "") {
+  const markerPattern = marker2 ? `${marker2.toUpperCase().slice(0, -1)}\\.` : "";
+  return `^${markerPattern}${principal.toUpperCase()}${yy}[0-9]{${CASE_PO_SEQ_WIDTH},}$`;
+}
+
+// packages/domain/dist/domain/case-type.js
+var CASE_PO_MARKER = {
+  standard: "",
+  audit: "A.",
+  audit_total_loss: "AP.",
+  diminution: "D."
+};
+var MARKERED_PRINCIPALS = {
+  PCH: ["audit", "diminution"],
+  QDOS: ["audit", "audit_total_loss", "diminution"]
+};
+function allowedCaseTypes(principalCode) {
+  const code = (principalCode ?? "").trim().toUpperCase();
+  return MARKERED_PRINCIPALS[code] ?? [];
+}
+function markerForMint(caseType, principalCode, dual) {
+  if (caseType === "standard")
+    return "";
+  if (dual)
+    return "";
+  if (caseType === "diminution")
+    return "";
+  if (!allowedCaseTypes(principalCode).includes(caseType))
+    return "";
+  return CASE_PO_MARKER[caseType];
+}
+
+// packages/domain/dist/domain/address-policy.js
+var IMAGE_BASED_LITERAL = "Image Based Assessment";
+
+// packages/domain/dist/domain/pii-scrub.js
+var DEFAULT_PLACEHOLDERS = {
+  email: "[EMAIL]",
+  phone: "[PHONE]",
+  postcode: "[POSTCODE]",
+  address: "[ADDRESS]",
+  nino: "[NINO]",
+  name: "[NAME]",
+  vrm: "[VRM]"
+};
+var EMAIL_RE = /(?<![\w])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![\w])/g;
+var NINO_RE = /(?<![\w])[ABCEGHJ-PRSTW-Z][ABCEGHJ-NPRSTW-Z][\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?[A-D](?![\w])/gi;
+var ADDRESS_RE = /(?<![\w])\d{1,4}[A-Za-z]?[\s,]+(?:[A-Z][A-Za-z'-]+[\s,]+){1,4}(?:Road|Rd|Street|St|Avenue|Ave|Lane|Ln|Drive|Dr|Close|Cl|Way|Court|Ct|Crescent|Cres|Place|Pl|Terrace|Gardens|Grove|Grv|Walk|Row|Hill|Park)\b\.?/g;
+var POSTCODE_RE = /(?<![\w])(?:[A-Z]{1,2}\d[A-Z\d]?|GIR)[\s-]?\d[A-Z]{2}(?![\w])/gi;
+var PHONE_RE = /(?<![\w])(?:\+44[\s-]?\(?0?\)?|\(?0)(?:[\s\-()]{0,2}\d){9,10}(?![\w])/g;
+var NAME_RE = /(?<![\w])(?:Mr|Mrs|Ms|Miss|Dr|Prof)\.?\s+[A-Z](?:[A-Za-z'-]+|\.)?(?:\s+[A-Z](?:[A-Za-z'-]+|\.)?){0,2}/g;
+var VRM_RE = /(?<![\w])(?:[A-Z]{2}\d{2}[\s-]?[A-Z]{3}|[A-Z]\d{1,3}[\s-]?[A-Z]{3}|[A-Z]{3}[\s-]?\d{1,3}[A-Z])(?![\w])/gi;
+var RULES = [
+  { kind: "email", re: EMAIL_RE, enabled: () => true },
+  { kind: "nino", re: NINO_RE, enabled: () => true },
+  { kind: "address", re: ADDRESS_RE, enabled: () => true },
+  { kind: "postcode", re: POSTCODE_RE, enabled: () => true },
+  { kind: "phone", re: PHONE_RE, enabled: () => true },
+  { kind: "name", re: NAME_RE, enabled: (o) => o.redactNames },
+  { kind: "vrm", re: VRM_RE, enabled: (o) => o.redactVrm }
+];
+function scrubPii(input, opts = {}) {
+  const cfg = {
+    redactVrm: opts.redactVrm ?? false,
+    redactNames: opts.redactNames ?? true
+  };
+  const placeholderFor = (kind) => opts.placeholders?.[kind] ?? DEFAULT_PLACEHOLDERS[kind];
+  if (typeof input !== "string" || input.length === 0) {
+    return { text: typeof input === "string" ? input : "", redactions: [], totalRedactions: 0 };
+  }
+  let text = input;
+  const redactions = [];
+  for (const rule of RULES) {
+    if (!rule.enabled(cfg))
+      continue;
+    let count = 0;
+    const placeholder = placeholderFor(rule.kind);
+    rule.re.lastIndex = 0;
+    text = text.replace(rule.re, () => {
+      count += 1;
+      return placeholder;
+    });
+    if (count > 0)
+      redactions.push({ kind: rule.kind, count });
+  }
+  const totalRedactions = redactions.reduce((sum, r) => sum + r.count, 0);
+  return { text, redactions, totalRedactions };
+}
+
+// packages/domain/dist/domain/triage-policy.js
+var TRIAGE_POLICY_VERSION = "triage-policy-v2";
+
+// packages/domain/dist/domain/outlook-folder.js
+function suggestedOutlookFolder(subtype) {
+  switch (subtype) {
+    case "existing_provider_instruction":
+      return "Inbox/Instructions";
+    case "existing_provider_audit":
+      return "Inbox/Audits";
+    case "existing_provider_diminution":
+      return "Inbox/Diminution";
+    case "new_client_work":
+      return "Inbox/New clients";
+    case "query_existing_work":
+      return "Inbox/Queries/Case queries";
+    case "query_new_enquiry":
+    case "website_general_enquiry":
+      return "Inbox/Queries/Enquiries";
+    case "billing_request":
+    case "payment_remittance":
+      return "Inbox/Billing";
+    case "pre_instruction_directions":
+      return "Inbox/Pre-instructions";
+    case "case_summary":
+    case "acknowledgement":
+      return "Inbox/No action";
+    case "images_received":
+      return "Inbox/Images";
+    case "cancellation_notice":
+      return "Inbox/Cancellations";
+    case "update_general":
+      return "Inbox/Case updates";
+    default:
+      return "Inbox/Other";
+  }
+}
+
+// packages/domain/dist/domain/retro-case.js
+var CASE_PO_SHAPE_RE = /^(?:(?:AP|A|D)\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{2}\d{3,4})$/i;
+function normalizeCasePo(raw) {
+  return (raw ?? "").trim().toUpperCase().replace(/^((?:AP|A|D)\.)\s+/, "$1");
+}
+function parseCasePoMarker(po) {
+  const token = normalizeCasePo(po);
+  for (const marker2 of ["AP.", "A.", "D."]) {
+    if (token.startsWith(marker2))
+      return { marker: marker2, body: token.slice(marker2.length) };
+  }
+  return { marker: "", body: token };
+}
+function matchPrincipalByCasePo(po, principals) {
+  const { marker: marker2, body: body2 } = parseCasePoMarker(po);
+  if (!body2)
+    return null;
+  let best = null;
+  for (const raw of principals) {
+    const code = (raw ?? "").trim().toUpperCase();
+    if (!code || !body2.startsWith(code))
+      continue;
+    if (!/^\d{5,6}$/.test(body2.slice(code.length)))
+      continue;
+    if (!best || code.length > best.length)
+      best = code;
+  }
+  return best ? { principal: best, marker: marker2 } : null;
+}
+function markerToCaseType(marker2) {
+  const token = (marker2 ?? "").trim().toUpperCase();
+  const entry = Object.entries(CASE_PO_MARKER).find(([, m]) => m === token);
+  return entry ? entry[0] : "standard";
+}
+
+// packages/domain/dist/domain/intake-routing.js
+var CASE_MINTING_CATEGORIES = ["receiving_work"];
+function categoryMintsCase(category) {
+  return CASE_MINTING_CATEGORIES.includes(category);
+}
+
+// packages/domain/dist/model/queues.js
+var QUEUES = [
+  {
+    name: "not-ready",
+    routeSegment: "not-ready",
+    label: "Not ready",
+    shortLabel: "Not ready",
+    // Arrived and progressing, but not yet complete: waiting on images, waiting
+    // on instructions/fields, just-arrived/settling, or a merged case still
+    // missing a required detail (e.g. the inspection address).
+    statuses: [
+      "new_email",
+      "ingested",
+      "missing_images",
+      "missing_required_fields",
+      "linked_to_instruction",
+      "needs_review"
+    ],
+    tone: "muted"
+  },
+  {
+    name: "review",
+    routeSegment: "review",
+    label: "Review",
+    shortLabel: "Review",
+    // Review is the theoretically-submittable population: the canonical
+    // readiness evaluator has passed every field, inspection, image and review
+    // check. A raw needs_review status is incomplete and remains Not ready.
+    statuses: ["ready_for_eva"],
+    tone: "blocker"
+  },
+  {
+    name: "held",
+    routeSegment: "held",
+    label: "Held",
+    shortLabel: "Held",
+    // Parked: cannot pass through automatically (errored, or missing the basics a
+    // case needs at all — VRM / claimant), a possible duplicate awaiting a
+    // decision, or put on hold by a person (the `onHold` flag, routed in the
+    // data source). See the case-status tree + dedup (ADR-0010).
+    statuses: ["error", "duplicate_risk"],
+    tone: "blocker"
+  }
+];
+function statusToQueue(status) {
+  return QUEUES.find((qq) => qq.statuses.includes(status))?.name;
+}
+function isRetiredMerged(c) {
+  return c.status === "linked_to_instruction" && Boolean(c.mergedInto);
+}
+function caseToQueue(c) {
+  if (isRetiredMerged(c))
+    return void 0;
+  return c.onHold ? "held" : statusToQueue(c.status);
+}
+function queueByName(name) {
+  return QUEUES.find((q) => q.name === name);
+}
+function statusToStage(status) {
+  switch (status) {
+    case "new_email":
+    case "ingested":
+      return "new";
+    case "missing_images":
+    case "missing_required_fields":
+    case "linked_to_instruction":
+    case "needs_review":
+      return "not_ready";
+    case "ready_for_eva":
+      return "review";
+    case "eva_submitted":
+    case "box_synced":
+    case "done":
+      return "submitted";
+    case "error":
+    case "duplicate_risk":
+    case "removed":
+      return void 0;
+  }
+}
+var REASON_LABELS = {
+  missing_images: "Missing images",
+  missing_instructions: "Missing instructions",
+  duplicate: "Duplicate",
+  conflict: "Conflict",
+  // The stored reason remains append-only; the handler-facing workflow is Not ready.
+  needs_review: "Not ready"
+};
+
+// packages/domain/dist/model/case-readiness.js
+function sourceReadinessInputForCase(c) {
+  return {
+    sourceEvidencePending: c.sourceEvidencePending === true,
+    sourceEvidenceArchiveFailed: c.sourceEvidenceArchiveFailed === true
+  };
+}
+function readinessInputForCase(c) {
+  return {
+    status: c.status,
+    evaFields: c.evaFields,
+    evidence: c.evidence,
+    inspectionDecision: c.inspectionDecision,
+    vehicleData: {
+      hasRegistration: c.vrm.trim().length > 0,
+      modelResolved: (c.evaFields.vehicleModel?.value ?? "").trim().length > 0,
+      mileageResolved: isValidEvaMileage(c.evaFields.mileage?.value ?? ""),
+      ...c.vehicleLookup?.warning ? { warning: c.vehicleLookup.warning } : {}
+    },
+    instructionCount: c.evidence.filter((e) => e.kind === "instruction").length,
+    ...sourceReadinessInputForCase(c),
+    hasIdentity: c.vrm.trim().length > 0 || (c.casePo ?? "").trim().length > 0 || c.providerCode.trim().length > 0 || c.evaFields.claimantName.value.trim().length > 0,
+    mergedInto: c.mergedInto
+  };
+}
+function canSubmitCaseToEva(c) {
+  const input = readinessInputForCase(c);
+  const readiness = evaluateCaseReadiness(input);
+  return readiness.ready && caseToQueue({
+    status: c.status,
+    onHold: c.onHold,
+    mergedInto: c.mergedInto
+  }) === "review";
+}
+
+// packages/domain/dist/dto/index.js
+var BOX_GATES_ALL_FALSE = {
+  apiEnabled: false,
+  folderAtIntakeEnabled: false,
+  fileRequestEnabled: false,
+  fileRequestTemplateConfigured: false
+};
+var LOCATION_ASSIST_GATE_ALL_OFF = {
+  assistEnabled: false,
+  mapsEnabled: false,
+  apiBaseConfigured: false,
+  enabled: false,
+  aiEnabled: false
+};
+var AI_ASSIST_GATE_ALL_OFF = {
+  enabled: false,
+  modelConfigured: false
+};
+var OUTLOOK_MOVE_GATE_ALL_OFF = {
+  enabled: false
+};
+var INBOUND_ATTENTION_REASONS = [
+  "unable_to_locate",
+  "images_no_match"
+];
+var OUTLOOK_MOVE_STATES = ["queued", "moved", "failed"];
+var INBOUND_COUNTS_ZERO = {
+  receiving_work: 0,
+  query: 0,
+  billing: 0,
+  non_actionable: 0,
+  other: 0,
+  case_update: 0,
+  cancellation: 0,
+  pre_instruction: 0,
+  website_enquiry: 0,
+  untriaged: 0
+};
+
 // node_modules/zod-to-json-schema/dist/esm/Options.js
 var ignoreOverride = Symbol("Let zodToJsonSchema decide on which parser to use");
 var defaultOptions = {
@@ -13385,7 +13718,7 @@ var EditableEvaFieldsParam = external_exports.object({
   accidentCircumstances: external_exports.string().max(EVA_EDIT_MAX_LENGTH.accidentCircumstances).optional(),
   inspectionAddress: external_exports.string().max(EVA_EDIT_MAX_LENGTH.inspectionAddress).optional(),
   vatStatus: external_exports.enum(EVA_EDIT_VAT_VALUES).optional(),
-  mileage: external_exports.string().max(EVA_EDIT_MAX_LENGTH.mileage).optional(),
+  mileage: external_exports.string().trim().max(EVA_EDIT_MAX_LENGTH.mileage).refine((value) => value === "" || normaliseEvaMileage(value) !== void 0, "mileage must contain digits only").optional(),
   mileageUnit: external_exports.enum(EVA_EDIT_MILEAGE_UNITS).optional()
 }).strict().refine((value) => Object.keys(value).length > 0, "at least one EVA field is required");
 function toJsonSchema(schema) {
@@ -14046,7 +14379,8 @@ var audit_event_default = {
         { value: 100000051, name: "agent_write", label: "Agent Write" },
         { value: 100000052, name: "image_analysis_generated", label: "Image Analysis Generated" },
         { value: 100000053, name: "report_delivered", label: "Report Delivered" },
-        { value: 100000054, name: "chaser_suggested", label: "Chase suggested" }
+        { value: 100000054, name: "chaser_suggested", label: "Chase suggested" },
+        { value: 100000055, name: "evidence_upload_result", label: "Files Checked" }
       ]
     },
     {
@@ -14083,7 +14417,8 @@ var inbound_email_classification_default = {
         { value: 100000004, name: "non_actionable", label: "Non-actionable" },
         { value: 100000005, name: "case_update", label: "Case Update" },
         { value: 100000006, name: "cancellation", label: "Cancellation" },
-        { value: 100000007, name: "pre_instruction", label: "Pre-instruction" }
+        { value: 100000007, name: "pre_instruction", label: "Pre-instruction" },
+        { value: 100000008, name: "website_enquiry", label: "Website Enquiry" }
       ]
     },
     {
@@ -14107,7 +14442,8 @@ var inbound_email_classification_default = {
         { value: 100000011, name: "cancellation_notice", label: "Cancellation Notice" },
         { value: 100000012, name: "update_general", label: "General Update" },
         { value: 100000013, name: "payment_remittance", label: "Payment Received" },
-        { value: 100000014, name: "pre_instruction_directions", label: "Pre-instruction Directions" }
+        { value: 100000014, name: "pre_instruction_directions", label: "Pre-instruction Directions" },
+        { value: 100000015, name: "website_general_enquiry", label: "Website General Enquiry" }
       ]
     }
   ]
@@ -15749,8 +16085,10 @@ var AUDIT_ACTION_CODE_LABELS = {
   // evidence_added
   100000052: "Photos analysed",
   // image_analysis_generated
-  100000054: "Chase suggested"
+  100000054: "Chase suggested",
   // chaser_suggested
+  100000055: "Files checked"
+  // evidence_upload_result
 };
 var DEFAULT_LABEL = "Updated";
 var GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -15945,6 +16283,17 @@ function rowToCase(rec, opts = {}) {
     // flow as an informational default, NEVER auto-applied (TKT-079). Omitted for an unknown provider.
     ...inspectionPolicyCodec.toName(rec.provider_inspection_policy ?? void 0) ? { providerInspectionPolicy: inspectionPolicyCodec.toName(rec.provider_inspection_policy) } : {},
     vehicleModel: rec.eva_vehicle_model ?? "",
+    ...rec.vehicle_lookup_status ? {
+      vehicleLookup: {
+        ...rec.last_vehicle_lookup_run_id ? { runId: rec.last_vehicle_lookup_run_id } : {},
+        status: rec.vehicle_lookup_status,
+        ...rec.vehicle_mileage_status ? { mileageStatus: rec.vehicle_mileage_status } : {},
+        ...rec.vehicle_mileage_method ? { mileageMethod: rec.vehicle_mileage_method } : {},
+        ...rec.vehicle_lookup_warning ? { warning: rec.vehicle_lookup_warning } : {},
+        retryable: rec.vehicle_lookup_retryable === true,
+        ...rec.vehicle_lookup_attempted_at ? { attemptedAt: toIso(rec.vehicle_lookup_attempted_at) } : {}
+      }
+    } : {},
     evaFields: rowToEvaFields(rec, opts.provenanceRows),
     evidence: opts.evidence ?? [],
     notes: opts.notes ?? [],
@@ -16133,7 +16482,8 @@ var INBOUND_CATEGORY_BY_INT = {
   100000005: "case_update",
   100000006: "cancellation",
   // Taxonomy v3 (TKT-084) — see deltas/2026-07-09-taxonomy-v3-pre-instruction-payments.sql.
-  100000007: "pre_instruction"
+  100000007: "pre_instruction",
+  100000008: "website_enquiry"
 };
 var INBOUND_CATEGORY_TO_INT = {
   receiving_work: 1e8,
@@ -16143,7 +16493,8 @@ var INBOUND_CATEGORY_TO_INT = {
   non_actionable: 100000004,
   case_update: 100000005,
   cancellation: 100000006,
-  pre_instruction: 100000007
+  pre_instruction: 100000007,
+  website_enquiry: 100000008
 };
 var INBOUND_SUBTYPE_BY_INT = {
   1e8: "existing_provider_instruction",
@@ -16161,7 +16512,8 @@ var INBOUND_SUBTYPE_BY_INT = {
   100000012: "update_general",
   // Taxonomy v3 (TKT-105/120 + TKT-084).
   100000013: "payment_remittance",
-  100000014: "pre_instruction_directions"
+  100000014: "pre_instruction_directions",
+  100000015: "website_general_enquiry"
 };
 var INBOUND_SUBTYPE_TO_INT = {
   existing_provider_instruction: 1e8,
@@ -16178,7 +16530,8 @@ var INBOUND_SUBTYPE_TO_INT = {
   cancellation_notice: 100000011,
   update_general: 100000012,
   payment_remittance: 100000013,
-  pre_instruction_directions: 100000014
+  pre_instruction_directions: 100000014,
+  website_general_enquiry: 100000015
 };
 var TRIAGE_STATES = ["new", "routed", "actioned", "dismissed"];
 var CLASSIFIER_MODES = ["deterministic", "llm", "human"];
@@ -16331,6 +16684,7 @@ function tallyActiveInboundCounts(rows) {
     case_update: 0,
     cancellation: 0,
     pre_instruction: 0,
+    website_enquiry: 0,
     other: 0,
     untriaged: 0
   };
@@ -16539,7 +16893,11 @@ var AUDIT_ACTION = {
   report_delivered: 100000053,
   // TKT-148 — a deterministic draft chase suggestion. Distinct from chaser_sent:
   // no email or message has been sent and staff still decide whether to use the draft.
-  chaser_suggested: 100000054
+  chaser_suggested: 100000054,
+  // TKT-166 — one batch-level Manual Intake result, including refusals, partial
+  // outcomes and eventual retry recovery. Per-file evidence_added remains the
+  // immutable success record for every newly persisted evidence row.
+  evidence_upload_result: 100000055
 };
 var SEVERITY_CODE = {
   info: 1e8,
@@ -17198,14 +17556,191 @@ async function markCaseDoneUsing(q, input) {
   return true;
 }
 
-// api/src/lib/enrichment-map.ts
-function combineMakeModel(make, model) {
-  const mk = (make ?? "").trim();
-  const md = (model ?? "").trim();
-  if (mk && md) {
-    return md.toUpperCase().startsWith(mk.toUpperCase()) ? md : `${mk} ${md}`;
+// api/src/lib/manual-intake-operation.ts
+var import_node_crypto6 = require("node:crypto");
+var MANUAL_INTAKE_OPERATION_KEY_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$/;
+function stableJson(value) {
+  if (value === null || typeof value !== "object") {
+    const encoded = JSON.stringify(value);
+    return encoded === void 0 ? "undefined" : encoded;
   }
-  return md || mk || "";
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  const record = value;
+  return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(",")}}`;
+}
+function manualIntakeRequestHash(value) {
+  return (0, import_node_crypto6.createHash)("sha256").update(stableJson(value), "utf8").digest("hex");
+}
+var ManualIntakeOperationConflict = class extends Error {
+};
+async function beginManualIntakeOperation(q, input) {
+  const uploadKey = input.uploadIdempotencyKey ?? null;
+  const instructionIndex = input.instructionFileIndex ?? null;
+  await q(
+    `INSERT INTO manual_intake_case_create_operation
+       (idempotency_key, actor, request_hash, upload_idempotency_key, expected_file_count,
+        instruction_file_index)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (idempotency_key) DO NOTHING`,
+    [
+      input.idempotencyKey,
+      input.actor,
+      input.requestHash,
+      uploadKey,
+      input.expectedFileCount,
+      instructionIndex
+    ]
+  );
+  const rows = await q(
+    `SELECT actor, request_hash, case_id, upload_idempotency_key,
+            expected_file_count, evidence_completed_at, instruction_file_index
+       FROM manual_intake_case_create_operation
+      WHERE idempotency_key = $1
+      FOR UPDATE`,
+    [input.idempotencyKey]
+  );
+  const operation = rows[0];
+  if (!operation || operation.actor !== input.actor || operation.request_hash !== input.requestHash) {
+    throw new ManualIntakeOperationConflict(
+      "This case attempt no longer matches the reviewed details."
+    );
+  }
+  const bindingChanged = operation.upload_idempotency_key !== uploadKey || Number(operation.expected_file_count) !== input.expectedFileCount || (operation.instruction_file_index == null ? null : Number(operation.instruction_file_index)) !== instructionIndex;
+  if (bindingChanged) {
+    await q(
+      `UPDATE manual_intake_case_create_operation
+          SET upload_idempotency_key = $2, expected_file_count = $3,
+              instruction_file_index = $4,
+              evidence_completed_at = CASE WHEN $3 = 0 THEN now() ELSE NULL END,
+              response_loss_recovery_audited_at = NULL,
+              updated_at = now()
+        WHERE idempotency_key = $1`,
+      [input.idempotencyKey, uploadKey, input.expectedFileCount, instructionIndex]
+    );
+  }
+  return operation.case_id ?? void 0;
+}
+async function finishManualIntakeOperation(q, idempotencyKey, caseId, expectedFileCount) {
+  const rows = await q(
+    `UPDATE manual_intake_case_create_operation
+        SET case_id = $2,
+            evidence_completed_at = CASE WHEN $3 = 0 THEN now() ELSE evidence_completed_at END,
+            updated_at = now()
+      WHERE idempotency_key = $1 AND case_id IS NULL
+      RETURNING idempotency_key`,
+    [idempotencyKey, caseId, expectedFileCount]
+  );
+  if (!rows[0]) {
+    throw new ManualIntakeOperationConflict("This case attempt could not be completed safely.");
+  }
+}
+async function completeManualIntakeEvidence(q, input) {
+  const instructionIndex = input.instructionFileIndex ?? null;
+  const rows = await q(
+    `UPDATE manual_intake_case_create_operation
+        SET evidence_completed_at = now(), updated_at = now()
+      WHERE case_id = $1
+        AND upload_idempotency_key = $2
+        AND expected_file_count = $3
+        AND instruction_file_index IS NOT DISTINCT FROM $4::integer
+        AND evidence_completed_at IS NULL
+      RETURNING idempotency_key`,
+    [input.caseId, input.uploadIdempotencyKey, input.fileCount, instructionIndex]
+  );
+  if (rows[0]) return "completed";
+  const bindings = await q(
+    `SELECT upload_idempotency_key, expected_file_count, instruction_file_index,
+            evidence_completed_at
+      FROM manual_intake_case_create_operation
+      WHERE case_id = $1 AND upload_idempotency_key = $2
+      FOR UPDATE`,
+    [input.caseId, input.uploadIdempotencyKey]
+  );
+  const binding = bindings[0];
+  if (binding && binding.upload_idempotency_key === input.uploadIdempotencyKey && Number(binding.expected_file_count) === input.fileCount && (binding.instruction_file_index == null ? null : Number(binding.instruction_file_index)) === instructionIndex && binding.evidence_completed_at != null) {
+    return "already_complete";
+  }
+  return "not_bound";
+}
+async function manualIntakeEvidenceBindingState(q, input) {
+  const instructionIndex = input.instructionFileIndex ?? null;
+  const rows = await q(
+    `SELECT upload_idempotency_key, expected_file_count, instruction_file_index,
+            evidence_completed_at
+      FROM manual_intake_case_create_operation
+      WHERE case_id = $1 AND upload_idempotency_key = $2
+      FOR UPDATE`,
+    [input.caseId, input.uploadIdempotencyKey]
+  );
+  const binding = rows[0];
+  if (!binding || binding.upload_idempotency_key !== input.uploadIdempotencyKey || Number(binding.expected_file_count) !== input.fileCount || (binding.instruction_file_index == null ? null : Number(binding.instruction_file_index)) !== instructionIndex) return "not_bound";
+  return binding.evidence_completed_at == null ? "pending" : "already_complete";
+}
+async function claimManualIntakeRecoveryAudit(q, input) {
+  const rows = await q(
+    `UPDATE manual_intake_case_create_operation
+        SET response_loss_recovery_audited_at = now(), updated_at = now()
+      WHERE case_id = $1
+        AND upload_idempotency_key = $2
+        AND expected_file_count = $3
+        AND instruction_file_index IS NOT DISTINCT FROM $4::integer
+        AND evidence_completed_at IS NOT NULL
+        AND response_loss_recovery_audited_at IS NULL
+      RETURNING idempotency_key`,
+    [
+      input.caseId,
+      input.uploadIdempotencyKey,
+      input.fileCount,
+      input.instructionFileIndex ?? null
+    ]
+  );
+  return rows.length > 0;
+}
+async function manualIntakeSideEffectsPending(q, idempotencyKey) {
+  const rows = await q(
+    `SELECT side_effects_completed_at
+       FROM manual_intake_case_create_operation
+      WHERE idempotency_key = $1
+      FOR UPDATE`,
+    [idempotencyKey]
+  );
+  return Boolean(rows[0]) && rows[0].side_effects_completed_at == null;
+}
+async function finishManualIntakeSideEffects(q, idempotencyKey) {
+  await q(
+    `UPDATE manual_intake_case_create_operation
+        SET side_effects_completed_at = COALESCE(side_effects_completed_at, now()), updated_at = now()
+      WHERE idempotency_key = $1`,
+    [idempotencyKey]
+  );
+}
+async function manualIntakeEvidenceState(q, caseId) {
+  const rows = await q(
+    `SELECT EXISTS (
+       SELECT 1
+         FROM manual_intake_case_create_operation
+        WHERE case_id = $1
+          AND expected_file_count > 0
+          AND evidence_completed_at IS NULL
+     ) AS pending,
+     EXISTS (
+       SELECT 1
+         FROM staff_evidence_upload batch
+         JOIN staff_evidence_upload_item item
+           ON item.idempotency_key = batch.idempotency_key
+          AND item.case_id = batch.case_id
+          AND item.evidence_id IS NOT NULL
+         JOIN archive_mirror_outbox o ON o.evidence_id = item.evidence_id
+        WHERE batch.case_id = $1
+          AND batch.source = 'manual_intake'
+          AND o.dead_lettered_at IS NOT NULL
+     ) AS "archiveFailed"`,
+    [caseId]
+  );
+  return {
+    pending: rows[0]?.pending === true,
+    archiveFailed: rows[0]?.archiveFailed === true
+  };
 }
 
 // api/src/lib/parser-eva-fields.ts
@@ -17364,6 +17899,65 @@ function vrmOrEmpty(raw) {
   return { value: s, dropped: false };
 }
 
+// api/src/lib/image-chasers.ts
+var IMAGE_CHASER_TEMPLATE_LABELS = [
+  "Image request",
+  "Image upload link",
+  // legacy rows; the SPA no longer offers this duplicate template
+  "Overview photo request"
+];
+var OUTSTANDING_CHASER_CODES = [1e8, 100000001, 100000003];
+var CHASER_STATUS_RESPONDED = 100000002;
+function imageChaserRequiresUploadLink(templateLabel) {
+  const normalized = templateLabel.trim().toLowerCase();
+  return IMAGE_CHASER_TEMPLATE_LABELS.some((label) => label.toLowerCase() === normalized) || /\b(?:images?|photos?|photographs?|pictures?|pics?)\b/.test(normalized);
+}
+async function associateOutstandingImageChasersWithFileRequest(q, caseId, fileRequestId, fileRequestUrl) {
+  const rows = await q(
+    `UPDATE chaser
+        SET box_file_request_id = $2,
+            box_file_request_url = $3,
+            updated_at = now()
+      WHERE case_id = $1
+        AND status_code = ANY($4::int[])
+        AND (
+          template_used = ANY($5::text[])
+          OR lower(template_used) ~ '(^|[^a-z])(image(s)?|photo(s)?|photograph(s)?|picture(s)?|pic(s)?)([^a-z]|$)'
+        )
+        AND (
+          box_file_request_id IS DISTINCT FROM $2
+          OR box_file_request_url IS DISTINCT FROM $3
+        )
+      RETURNING id`,
+    [caseId, fileRequestId, fileRequestUrl, [...OUTSTANDING_CHASER_CODES], [...IMAGE_CHASER_TEMPLATE_LABELS]]
+  );
+  return rows.length;
+}
+async function markImageChasersResponded(q, caseId, via) {
+  const rows = await q(
+    `UPDATE chaser
+        SET status_code = $2, updated_at = now()
+      WHERE case_id = $1
+        AND status_code = ANY($3::int[])
+        AND (
+          box_file_request_id IS NOT NULL
+          OR template_used = ANY($4::text[])
+          OR lower(template_used) ~ '(^|[^a-z])(image(s)?|photo(s)?|photograph(s)?|picture(s)?|pic(s)?)([^a-z]|$)'
+        )
+      RETURNING id`,
+    [caseId, CHASER_STATUS_RESPONDED, [...OUTSTANDING_CHASER_CODES], [...IMAGE_CHASER_TEMPLATE_LABELS]]
+  );
+  if (rows.length) {
+    await writeAudit({
+      action: AUDIT_ACTION.chaser_sent,
+      caseId,
+      summary: `Image chaser marked responded \u2014 photographs arrived (${via})`,
+      after: { chaserIds: rows.map((row) => row.id), via, responseKind: "image_upload" }
+    }, q);
+  }
+  return rows.length;
+}
+
 // api/src/lib/link-guards.ts
 function normalizeRefToken(raw) {
   return (raw ?? "").trim().toUpperCase().replace(/\s+/g, "");
@@ -17402,6 +17996,8 @@ async function requestArchiveMirrorGeneration(q, row) {
            next_attempt_at = now(),
            last_attempt_at = NULL,
            last_error = NULL,
+           dead_lettered_at = NULL,
+           dead_letter_reason = NULL,
            updated_at = now()
      RETURNING requested_generation`,
     [row.id, row.case_id]
@@ -17455,7 +18051,7 @@ async function mintBlockedByCategory(internetMessageId) {
     return null;
   }
 }
-var CHASER_STATUS_RESPONDED = 100000002;
+var CHASER_STATUS_RESPONDED2 = 100000002;
 var CHASER_OUTSTANDING_CODES = [1e8, 100000001, 100000003];
 async function markOutstandingChasersResponded(caseId, via) {
   try {
@@ -17463,7 +18059,7 @@ async function markOutstandingChasersResponded(caseId, via) {
       `UPDATE chaser SET status_code = $2, updated_at = now()
         WHERE case_id = $1 AND status_code IN (${CHASER_OUTSTANDING_CODES.join(",")})
         RETURNING id`,
-      [caseId, CHASER_STATUS_RESPONDED]
+      [caseId, CHASER_STATUS_RESPONDED2]
     );
     if (rows.length > 0) {
       await writeAudit({
@@ -17498,7 +18094,12 @@ async function recomputeStatus(caseId, acknowledgeGeneration) {
     const evidenceRows = await q("SELECT * FROM evidence WHERE case_id = $1", [caseId]);
     const evidence = evidenceRows.map(rowToEvidence);
     const full = rowToCase(rec, { evidence, provenanceRows });
-    const next = statusForReviewCase(readinessInputForCase(full));
+    const sourceEvidence = await manualIntakeEvidenceState(q, caseId);
+    const next = statusForReviewCase({
+      ...readinessInputForCase(full),
+      sourceEvidencePending: sourceEvidence.pending || sourceEvidence.archiveFailed,
+      sourceEvidenceArchiveFailed: sourceEvidence.archiveFailed
+    });
     if (next !== full.status) {
       await q("UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1", [
         caseId,
@@ -17548,7 +18149,8 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
     ...resolvedProviderId ? { resolvedProviderId } : {}
   });
   const ref = (parserRef ?? "").trim();
-  const mileage = parserMileage != null ? String(parserMileage).replace(/[^\d]/g, "") : "";
+  const mileageRaw = parserMileage != null ? String(parserMileage).trim() : "";
+  const mileage = normaliseExtractedEvaMileage(mileageRaw) ?? "";
   const unitRaw = (parserMileageUnit ?? "").trim();
   const unit = unitRaw === "Miles" || unitRaw === "Km" ? unitRaw : "";
   const evaCandidates = selectParserEvaCandidates(parserEva);
@@ -18303,62 +18905,6 @@ function uniqueConstraintName(e) {
   }
   return void 0;
 }
-import_functions.app.http("internalCasesEnrichment", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/cases/{id}/enrichment",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const caseId = req.params.id;
-    const body2 = await req.json();
-    const cur = await query(
-      "SELECT eva_vehicle_model, eva_mileage, eva_mileage_unit FROM case_ WHERE id = $1",
-      [caseId]
-    );
-    if (!cur[0]) return { status: 404, jsonBody: { error: "case not found" } };
-    const vehicleModel = combineMakeModel(
-      String(body2.make ?? "").trim(),
-      String(body2.vehicle_model ?? "").trim()
-    );
-    const mileage = body2.current_mileage != null ? String(body2.current_mileage).replace(/[^\d]/g, "") : "";
-    const mileageUnitRaw = String(body2.mileage_unit ?? "").trim();
-    const mileageUnit = mileageUnitRaw === "Miles" || mileageUnitRaw === "Km" ? mileageUnitRaw : "";
-    const applied = [];
-    const sets = [];
-    const vals = [];
-    const isEmpty = (v) => !String(v ?? "").trim();
-    if (vehicleModel && isEmpty(cur[0].eva_vehicle_model)) {
-      sets.push(`eva_vehicle_model = $${sets.length + 1}`);
-      vals.push(vehicleModel.slice(0, 200));
-      applied.push("vehicleModel");
-    }
-    if (mileage && isEmpty(cur[0].eva_mileage)) {
-      sets.push(`eva_mileage = $${sets.length + 1}`);
-      vals.push(mileage.slice(0, 20));
-      applied.push("mileage");
-      if (mileageUnit) {
-        sets.push(`eva_mileage_unit = $${sets.length + 1}`);
-        vals.push(mileageUnit);
-        applied.push("mileageUnit");
-      }
-    }
-    if (sets.length > 0) {
-      vals.push(caseId);
-      await query(
-        `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
-        vals
-      );
-      await recomputeStatus(caseId);
-    }
-    await writeAudit({
-      action: AUDIT_ACTION.enrichment_called,
-      caseId,
-      summary: `Enrichment persisted: ${applied.length ? applied.join(", ") : "no new fields"}`,
-      after: { applied, warnings: body2.warnings ?? [] }
-    });
-    ctx.log(JSON.stringify({ evt: "internalCasesEnrichment", caseId, applied }));
-    return { status: 200, jsonBody: { applied } };
-  })
-});
 import_functions.app.http("internalInboundLinkReply", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -18608,7 +19154,7 @@ import_functions.app.http("internalTriageSuggestLink", {
       ...sourceMessageId ? { sourceMessageId } : {},
       decisionInputs
     };
-    const modelVersion = suggestionType === "triage_category" ? (body2.modelVersion ?? "").trim() || "unknown" : "triage-policy-v1";
+    const modelVersion = suggestionType === "triage_category" ? (body2.modelVersion ?? "").trim() || "unknown" : TRIAGE_POLICY_VERSION;
     const inserted = await query(
       `INSERT INTO ai_suggestion
            (inbound_email_id, suggestion_type, suggested_value, rationale, confidence, model_version)
@@ -19191,6 +19737,7 @@ import_functions.app.http("internalCasesEvidence", {
       let updated = 0;
       let merged = 0;
       let readinessChanged = false;
+      let boxImageArrived = false;
       for (const row of body2.rows ?? []) {
         let suppliedClass = row.evidenceClass ?? "other";
         if (suppliedClass === "image") {
@@ -19213,6 +19760,7 @@ import_functions.app.http("internalCasesEvidence", {
         const sourceMessageId = (row.sourceMessageId ?? "").trim() || null;
         const boxFileId = (row.boxFileId ?? "").trim() || null;
         const isBoxRow = sourceMessageId != null || boxFileId != null;
+        const isBoxImageRow = isBoxRow && suppliedClass === "image";
         if (sha256 && SHA256_HEX_RE.test(sha256)) {
           const twin = await q(
             `SELECT id, box_file_id, box_file_url, storage_path, source_message_id
@@ -19376,10 +19924,14 @@ import_functions.app.http("internalCasesEvidence", {
           }
         }
         if (inserted) {
+          if (isBoxImageRow) boxImageArrived = true;
           persisted++;
           readinessChanged = true;
           if (suppliedClass === "image" && hasReadinessMetadata && row.decisionSource === "classifier") readinessChanged = true;
         }
+      }
+      if (boxImageArrived) {
+        await markImageChasersResponded(q, persistCaseId, "archive upload");
       }
       const statusGeneration = readinessChanged ? await requestStatusRecompute(q, persistCaseId) : void 0;
       return {
@@ -20488,6 +21040,36 @@ function isUuid(value) {
 
 // api/src/lib/functions-client.ts
 var FN_STAGE_TIMEOUT_MS = 3e4;
+var FunctionCallError = class extends Error {
+  constructor(message2, status) {
+    super(message2);
+    this.status = status;
+    this.name = "FunctionCallError";
+  }
+};
+async function callVehicleData(input) {
+  const base = process.env.ENRICH_FN_URL;
+  const key = process.env.ENRICH_FN_KEY;
+  if (!base || !key) {
+    throw new Error("[functions-client] ENRICH_FN_URL/ENRICH_FN_KEY not configured");
+  }
+  const raw = await callFn(
+    base,
+    key,
+    "POST",
+    "/api/dvsa-mot/enrich",
+    {
+      vrm: input.registration,
+      document_has_mileage: input.documentHasMileage,
+      ...input.targetDate ? { target_date: input.targetDate } : {},
+      ...input.idempotencyKey ? { idempotency_key: input.idempotencyKey } : {}
+    },
+    { timeoutMs: FN_STAGE_TIMEOUT_MS }
+  );
+  const parsed = parseVehicleDataEnrichmentResponse(raw);
+  if (!parsed) throw new Error("[functions-client] vehicle-data response failed contract validation");
+  return parsed;
+}
 async function callFn(baseUrl, fnKey, method, path, body2, opts) {
   const timeoutMs = opts?.timeoutMs;
   const controller = timeoutMs != null ? new AbortController() : void 0;
@@ -20503,7 +21085,11 @@ async function callFn(baseUrl, fnKey, method, path, body2, opts) {
       ...controller ? { signal: controller.signal } : {}
     });
     if (!res.ok) {
-      throw new Error(`[functions-client] ${method} ${path} \u2192 ${res.status} ${await res.text().catch(() => "")}`);
+      await res.text().catch(() => "");
+      throw new FunctionCallError(
+        `[functions-client] ${method} ${path} returned HTTP ${res.status}`,
+        res.status
+      );
     }
     return res.json();
   } catch (e) {
@@ -20590,6 +21176,11 @@ async function listBoxFolderEntries(folderId) {
   }
   return out;
 }
+function boxFileRequestExpiry() {
+  const configured = Number(process.env.BOX_FILE_REQUEST_EXPIRY_DAYS ?? "30");
+  const days = Number.isFinite(configured) ? Math.min(90, Math.max(1, configured)) : 30;
+  return new Date(Date.now() + days * 864e5).toISOString();
+}
 async function callBoxCopyFileRequest(templateId, folderId, opts) {
   const base = process.env.BOX_FN_URL;
   const key = process.env.BOX_FN_KEY;
@@ -20601,8 +21192,40 @@ async function callBoxCopyFileRequest(templateId, folderId, opts) {
     key,
     "POST",
     `/api/box/file-requests/${encodeURIComponent(templateId)}/copy`,
-    { folder: { id: folderId }, status: "active" },
+    {
+      folder: { id: folderId },
+      status: "active",
+      // Never inherit an already-expired template date. A later chaser validates
+      // the request remotely and renews it when this date passes.
+      expires_at: boxFileRequestExpiry()
+    },
     { timeoutMs }
+  );
+}
+async function callBoxGetFileRequest(fileRequestId, expectedFolderId, opts) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
+  return callFn(
+    base,
+    key,
+    "GET",
+    `/api/box/file-requests/${encodeURIComponent(fileRequestId)}?folderId=${encodeURIComponent(expectedFolderId)}`,
+    void 0,
+    { timeoutMs: opts?.timeoutMs ?? FN_STAGE_TIMEOUT_MS }
+  );
+}
+async function callBoxReactivateFileRequest(fileRequestId, expectedFolderId, opts) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
+  return callFn(
+    base,
+    key,
+    "PUT",
+    `/api/box/file-requests/${encodeURIComponent(fileRequestId)}?folderId=${encodeURIComponent(expectedFolderId)}`,
+    { status: "active", expires_at: boxFileRequestExpiry() },
+    { timeoutMs: opts?.timeoutMs ?? FN_STAGE_TIMEOUT_MS }
   );
 }
 async function downloadBoxFileContent(fileId) {
@@ -20624,7 +21247,7 @@ async function downloadBoxFileContent(fileId) {
 }
 
 // api/src/lib/box-file-request-outbox.ts
-var import_node_crypto6 = require("node:crypto");
+var import_node_crypto7 = require("node:crypto");
 function allowedBoxHost(hostname) {
   const host = hostname.toLowerCase();
   return host === "app.box.com" || host.endsWith(".app.box.com");
@@ -20638,25 +21261,42 @@ function publicBoxOrigin() {
   }
   return "https://app.box.com";
 }
-function normalizeBoxFileRequestCopy(value) {
+function normalizeBoxFileRequest(value, expectedFolderId, now = Date.now()) {
   if (!value || typeof value !== "object") return void 0;
   const rec = value;
-  if (typeof rec.id !== "string" || typeof rec.url !== "string") return void 0;
-  const id = rec.id.trim();
-  const rawUrl = rec.url.trim();
-  if (!/^\d{1,40}$/.test(id) || rawUrl.length === 0 || rawUrl.length > 400) return void 0;
+  const folder = rec.folder;
+  const id = typeof rec.id === "string" ? rec.id.trim() : "";
+  const rawUrl = typeof rec.url === "string" ? rec.url.trim() : "";
+  const folderId = typeof folder?.id === "string" ? folder.id.trim() : "";
+  const status = rec.status === "active" || rec.status === "inactive" ? rec.status : void 0;
+  const rawExpiry = typeof rec.expires_at === "string" ? rec.expires_at.trim() : "";
+  if (!/^\d{1,40}$/.test(id) || !/^\d{1,40}$/.test(folderId) || folderId !== expectedFolderId.trim() || !status || rawUrl.length === 0 || rawUrl.length > 400) return void 0;
   if (rawUrl.startsWith("/") && !/^\/f\/[A-Za-z0-9_-]+\/?$/.test(rawUrl)) return void 0;
+  let url2;
   try {
-    const url2 = new URL(rawUrl, `${publicBoxOrigin()}/`);
-    if (url2.protocol !== "https:" || !allowedBoxHost(url2.hostname)) return void 0;
-    if (!/^\/f\/[A-Za-z0-9_-]+\/?$/.test(url2.pathname)) return void 0;
-    if (url2.username || url2.password || url2.search || url2.hash) return void 0;
-    return { id, url: url2.toString() };
+    url2 = new URL(rawUrl, `${publicBoxOrigin()}/`);
   } catch {
     return void 0;
   }
+  if (url2.protocol !== "https:" || !allowedBoxHost(url2.hostname) || !/^\/f\/[A-Za-z0-9_-]+\/?$/.test(url2.pathname) || url2.username || url2.password || url2.search || url2.hash) return void 0;
+  let expiresAt;
+  let expired = false;
+  if (rawExpiry) {
+    const expiryMs = new Date(rawExpiry).getTime();
+    if (!Number.isFinite(expiryMs)) return void 0;
+    expiresAt = new Date(expiryMs).toISOString();
+    expired = expiryMs <= now;
+  }
+  return {
+    id,
+    url: url2.toString(),
+    folderId,
+    status,
+    ...expiresAt ? { expiresAt } : {},
+    active: status === "active" && !expired
+  };
 }
-async function requestBoxFileRequestIntent(q, caseId, folderId, templateId) {
+async function requestBoxFileRequestIntent(q, caseId, folderId, templateId, options = {}) {
   const rows = await q(
     "SELECT * FROM box_file_request_outbox WHERE case_id = $1 FOR UPDATE",
     [caseId]
@@ -20666,15 +21306,44 @@ async function requestBoxFileRequestIntent(q, caseId, folderId, templateId) {
     await q(
       `INSERT INTO box_file_request_outbox
          (case_id, folder_id, template_id, requested_generation, completed_generation,
-          requested_at, next_attempt_at, updated_at)
-       VALUES ($1, $2, $3, 1, 0, now(), now(), now())`,
-      [caseId, folderId, templateId]
+          requested_at, next_attempt_at, repair_reason, updated_at)
+       VALUES ($1, $2, $3, 1, 0, now(), now(), $4, now())`,
+      [caseId, folderId, templateId, options.replaceReason ?? null]
     );
     return { generation: 1, alreadyCompleted: false };
   }
   const requested = Number(current.requested_generation);
   const completed = Number(current.completed_generation);
-  if (completed >= requested) return { generation: requested, alreadyCompleted: true };
+  if (options.replaceReason) {
+    const generation = Math.max(requested, completed) + 1;
+    await q(
+      `UPDATE box_file_request_outbox
+          SET folder_id = $2,
+              template_id = $3,
+              requested_generation = $4,
+              requested_at = now(),
+              attempt_count = 0,
+              next_attempt_at = now(),
+              claim_token = NULL,
+              claimed_at = NULL,
+              claim_expires_at = NULL,
+              last_error = NULL,
+              repair_reason = $5,
+              updated_at = now()
+        WHERE case_id = $1`,
+      [caseId, folderId, templateId, generation, options.replaceReason.slice(0, 100)]
+    );
+    return { generation, alreadyCompleted: false };
+  }
+  if (completed >= requested) {
+    await q(
+      `UPDATE box_file_request_outbox
+          SET folder_id = $2, template_id = $3, updated_at = now()
+        WHERE case_id = $1`,
+      [caseId, folderId, templateId]
+    );
+    return { generation: requested, alreadyCompleted: true };
+  }
   await q(
     `UPDATE box_file_request_outbox
         SET folder_id = CASE WHEN attempt_count = 0 THEN $2 ELSE folder_id END,
@@ -20714,8 +21383,187 @@ async function deferClaim(caseId, claimToken, error) {
     console.error("[box-file-request] could not defer claimed work", deferError);
   }
 }
+function replacementReason(error) {
+  if (!(error instanceof FunctionCallError)) return void 0;
+  if (error.status === 404) return "remote_request_deleted";
+  if (error.status === 400 || error.status === 403) return "request_folder_mismatch";
+  return void 0;
+}
+async function queueReplacement(caseId, expected, templateId, reason, actor) {
+  return tx(async (q) => {
+    const locked = await lockCaseForMutation(q, caseId);
+    if (locked.kind === "missing") return "missing";
+    if (locked.kind === "retired") return "retired";
+    const rows = await q(
+      `SELECT box_folder_id, box_file_request_id, box_file_request_url
+         FROM case_ WHERE id = $1 FOR UPDATE`,
+      [locked.caseId]
+    );
+    const row = rows[0];
+    const id = row?.box_file_request_id?.trim() ?? "";
+    const url2 = row?.box_file_request_url?.trim() ?? "";
+    if (id !== expected.id || url2 !== expected.url) return "changed";
+    const folderId = row?.box_folder_id?.trim() ?? "";
+    if (!folderId) return "changed";
+    await q(
+      `UPDATE case_
+          SET box_file_request_id = NULL,
+              box_file_request_url = NULL,
+              updated_at = now()
+        WHERE id = $1`,
+      [locked.caseId]
+    );
+    await requestBoxFileRequestIntent(q, locked.caseId, folderId, templateId, {
+      replaceReason: reason
+    });
+    await writeAudit({
+      action: AUDIT_ACTION.box_file_request_copied,
+      caseId: locked.caseId,
+      summary: "Image-upload link repair queued",
+      before: { boxFileRequestId: id, fileRequestUrl: url2 },
+      after: { repairReason: reason, boxFolderId: folderId },
+      ...actor ? { actor } : {}
+    }, q);
+    return "queued";
+  });
+}
+async function stampValidatedRequest(caseId, expected, state3, summary, reason, actor) {
+  return tx(async (q) => {
+    const locked = await lockCaseForMutation(q, caseId);
+    if (locked.kind !== "active") return false;
+    const rows = await q(
+      `SELECT box_folder_id, box_file_request_id, box_file_request_url
+         FROM case_ WHERE id = $1 FOR UPDATE`,
+      [locked.caseId]
+    );
+    const row = rows[0];
+    if (row?.box_file_request_id?.trim() !== expected.id || row?.box_file_request_url?.trim() !== expected.url || row?.box_folder_id?.trim() !== state3.folderId) return false;
+    if (state3.url !== expected.url) {
+      await q(
+        "UPDATE case_ SET box_file_request_url = $2, updated_at = now() WHERE id = $1",
+        [locked.caseId, state3.url]
+      );
+    }
+    await q(
+      `UPDATE box_file_request_outbox
+          SET completed_generation = requested_generation,
+              completed_at = COALESCE(completed_at, now()),
+              claim_token = NULL, claimed_at = NULL, claim_expires_at = NULL,
+              last_error = NULL, updated_at = now()
+        WHERE case_id = $1`,
+      [locked.caseId]
+    );
+    if (summary) {
+      await writeAudit({
+        action: AUDIT_ACTION.box_file_request_copied,
+        caseId: locked.caseId,
+        summary,
+        before: { status: "inactive", fileRequestUrl: expected.url },
+        after: {
+          status: "active",
+          boxFileRequestId: state3.id,
+          fileRequestUrl: state3.url,
+          ...state3.expiresAt ? { expiresAt: state3.expiresAt } : {},
+          ...reason ? { repairReason: reason } : {}
+        },
+        ...actor ? { actor } : {}
+      }, q);
+    }
+    return true;
+  });
+}
+async function validateStampedRequest(caseId, folderId, templateId, stamped, actor) {
+  let raw;
+  try {
+    raw = await callBoxGetFileRequest(stamped.id, folderId);
+  } catch (error) {
+    const reason = replacementReason(error);
+    if (!reason) {
+      return { kind: "pending", reason: error instanceof Error ? error.message : String(error) };
+    }
+    const queued = await queueReplacement(caseId, stamped, templateId, reason, actor);
+    if (queued === "missing") return { kind: "missing" };
+    if (queued === "retired") return { kind: "error", reason: "case_retired_during_repair" };
+    return processBoxFileRequestIntent(caseId, actor);
+  }
+  const state3 = normalizeBoxFileRequest(raw, folderId);
+  if (!state3 || state3.id !== stamped.id) {
+    const queued = await queueReplacement(
+      caseId,
+      stamped,
+      templateId,
+      "remote_request_invalid",
+      actor
+    );
+    if (queued === "missing") return { kind: "missing" };
+    if (queued === "retired") return { kind: "error", reason: "case_retired_during_repair" };
+    return processBoxFileRequestIntent(caseId, actor);
+  }
+  if (state3.active) {
+    const stampedOk = await stampValidatedRequest(caseId, stamped, state3);
+    if (!stampedOk) return processBoxFileRequestIntent(caseId, actor);
+    return {
+      kind: "ok",
+      folderId: state3.folderId,
+      fileRequestId: state3.id,
+      fileRequestUrl: state3.url,
+      ...state3.expiresAt ? { expiresAt: state3.expiresAt } : {},
+      reused: true
+    };
+  }
+  try {
+    const reactivated = normalizeBoxFileRequest(
+      await callBoxReactivateFileRequest(stamped.id, folderId),
+      folderId
+    );
+    if (!reactivated?.active || reactivated.id !== stamped.id) {
+      const queued = await queueReplacement(
+        caseId,
+        stamped,
+        templateId,
+        "reactivation_returned_inactive",
+        actor
+      );
+      if (queued === "missing") return { kind: "missing" };
+      if (queued === "retired") return { kind: "error", reason: "case_retired_during_repair" };
+      return processBoxFileRequestIntent(caseId, actor);
+    }
+    const stampedOk = await stampValidatedRequest(
+      caseId,
+      stamped,
+      reactivated,
+      "Image-upload link reactivated",
+      state3.expiresAt && new Date(state3.expiresAt).getTime() <= Date.now() ? "expired_request" : "inactive_request",
+      actor
+    );
+    if (!stampedOk) return processBoxFileRequestIntent(caseId, actor);
+    return {
+      kind: "ok",
+      folderId: reactivated.folderId,
+      fileRequestId: reactivated.id,
+      fileRequestUrl: reactivated.url,
+      ...reactivated.expiresAt ? { expiresAt: reactivated.expiresAt } : {},
+      reused: true
+    };
+  } catch (error) {
+    const reason = replacementReason(error);
+    if (reason) {
+      const queued = await queueReplacement(
+        caseId,
+        stamped,
+        templateId,
+        reason === "remote_request_deleted" ? "remote_request_deleted_during_reactivation" : "reactivation_rejected",
+        actor
+      );
+      if (queued === "missing") return { kind: "missing" };
+      if (queued === "retired") return { kind: "error", reason: "case_retired_during_repair" };
+      return processBoxFileRequestIntent(caseId, actor);
+    }
+    return { kind: "pending", reason: error instanceof Error ? error.message : String(error) };
+  }
+}
 async function processBoxFileRequestIntent(requestedCaseId, actor) {
-  const claimToken = (0, import_node_crypto6.randomUUID)();
+  const claimToken = (0, import_node_crypto7.randomUUID)();
   const claim = await tx(async (q) => {
     const lockedCase = await lockCaseForMutation(q, requestedCaseId);
     if (lockedCase.kind === "missing") return { kind: "missing" };
@@ -20729,6 +21577,8 @@ async function processBoxFileRequestIntent(requestedCaseId, actor) {
     );
     const caseRow = caseRows[0];
     if (!caseRow) return { kind: "missing" };
+    const folderId = caseRow.box_folder_id?.trim() ?? "";
+    if (!folderId) return { kind: "folder_not_ready" };
     const stampedId = caseRow.box_file_request_id?.trim() ?? "";
     const stampedUrl = caseRow.box_file_request_url?.trim() ?? "";
     const outboxRows = await q(
@@ -20737,18 +21587,13 @@ async function processBoxFileRequestIntent(requestedCaseId, actor) {
     );
     const outbox = outboxRows[0];
     if (stampedId && stampedUrl) {
-      if (outbox) {
-        await q(
-          `UPDATE box_file_request_outbox
-              SET completed_generation = requested_generation,
-                  completed_at = COALESCE(completed_at, now()),
-                  claim_token = NULL, claimed_at = NULL, claim_expires_at = NULL,
-                  last_error = NULL, updated_at = now()
-            WHERE case_id = $1`,
-          [lockedCase.caseId]
-        );
-      }
-      return { kind: "stamped", url: stampedUrl };
+      return {
+        kind: "validate",
+        caseId: lockedCase.caseId,
+        folderId,
+        templateId: outbox?.template_id?.trim() ?? "",
+        stamped: { id: stampedId, url: stampedUrl }
+      };
     }
     if (stampedId || stampedUrl) return { kind: "invalid_stamp" };
     if (!outbox) return { kind: "no_intent" };
@@ -20761,8 +21606,7 @@ async function processBoxFileRequestIntent(requestedCaseId, actor) {
     if (Number.isFinite(nextAttempt) && nextAttempt > now || claimExpires > now) {
       return { kind: "busy" };
     }
-    const folderId = caseRow.box_folder_id?.trim() ?? "";
-    if (!folderId || folderId !== outbox.folder_id.trim()) return { kind: "folder_changed" };
+    if (folderId !== outbox.folder_id.trim()) return { kind: "folder_changed" };
     const claimed = await q(
       `UPDATE box_file_request_outbox
           SET claim_token = $2,
@@ -20779,21 +21623,31 @@ async function processBoxFileRequestIntent(requestedCaseId, actor) {
       caseId: lockedCase.caseId,
       folderId,
       templateId: claimed[0].template_id.trim(),
-      generation: Number(claimed[0].requested_generation)
+      generation: Number(claimed[0].requested_generation),
+      repairReason: claimed[0].repair_reason?.trim() || void 0
     };
   });
   if (claim.kind === "missing") return { kind: "missing" };
   if (claim.kind === "retired") return { kind: "retired", mergedInto: claim.mergedInto };
-  if (claim.kind === "stamped") return { kind: "ok", fileRequestUrl: claim.url, reused: true };
-  if (claim.kind === "busy") return { kind: "pending" };
-  if (claim.kind !== "claimed") {
-    return { kind: "error", reason: claim.kind };
-  }
-  try {
-    const copied = normalizeBoxFileRequestCopy(
-      await callBoxCopyFileRequest(claim.templateId, claim.folderId)
+  if (claim.kind === "folder_not_ready") return { kind: "folder_not_ready" };
+  if (claim.kind === "validate") {
+    if (!claim.templateId) return { kind: "error", reason: "missing_template_identity" };
+    return validateStampedRequest(
+      claim.caseId,
+      claim.folderId,
+      claim.templateId,
+      claim.stamped,
+      actor
     );
-    if (!copied) throw new Error("Box CopyFileRequest returned an invalid public link");
+  }
+  if (claim.kind === "busy") return { kind: "pending" };
+  if (claim.kind !== "claimed") return { kind: "error", reason: claim.kind };
+  try {
+    const copied = normalizeBoxFileRequest(
+      await callBoxCopyFileRequest(claim.templateId, claim.folderId),
+      claim.folderId
+    );
+    if (!copied?.active) throw new Error("CopyFileRequest returned no active upload link");
     const stamped = await tx(async (q) => {
       const lockedCase = await lockCaseForMutation(q, claim.caseId);
       if (lockedCase.kind !== "active") return false;
@@ -20824,22 +21678,68 @@ async function processBoxFileRequestIntent(requestedCaseId, actor) {
       await writeAudit({
         action: AUDIT_ACTION.box_file_request_copied,
         caseId: claim.caseId,
-        summary: "Image-upload link created",
+        summary: claim.repairReason ? "Image-upload link replaced" : "Image-upload link created",
         after: {
           boxFileRequestId: copied.id,
           fileRequestUrl: copied.url,
-          boxFolderId: claim.folderId
+          boxFolderId: claim.folderId,
+          ...copied.expiresAt ? { expiresAt: copied.expiresAt } : {},
+          ...claim.repairReason ? { repairReason: claim.repairReason } : {}
         },
         ...actor ? { actor } : {}
       }, q);
       return true;
     });
-    if (!stamped) throw new Error("Box File Request intent changed before it could be stamped");
-    return { kind: "ok", fileRequestUrl: copied.url, reused: false };
+    if (!stamped) throw new Error("File Request intent changed before it could be stamped");
+    return {
+      kind: "ok",
+      folderId: copied.folderId,
+      fileRequestId: copied.id,
+      fileRequestUrl: copied.url,
+      ...copied.expiresAt ? { expiresAt: copied.expiresAt } : {},
+      reused: false
+    };
   } catch (error) {
     await deferClaim(claim.caseId, claimToken, error);
     return { kind: "pending", reason: error instanceof Error ? error.message : String(error) };
   }
+}
+async function ensureActiveBoxFileRequest(requestedCaseId, templateId, actor) {
+  const prepared = await tx(async (q) => {
+    const locked = await lockCaseForMutation(q, requestedCaseId);
+    if (locked.kind === "missing") return { kind: "missing" };
+    if (locked.kind === "retired") return { kind: "retired", mergedInto: locked.mergedInto };
+    const rows = await q(
+      `SELECT box_folder_id, box_file_request_id, box_file_request_url
+         FROM case_ WHERE id = $1 FOR UPDATE`,
+      [locked.caseId]
+    );
+    const row = rows[0];
+    const folderId = row?.box_folder_id?.trim() ?? "";
+    if (!folderId) return { kind: "folder_not_ready" };
+    const id = row?.box_file_request_id?.trim() ?? "";
+    const url2 = row?.box_file_request_url?.trim() ?? "";
+    if (!!id !== !!url2) {
+      await q(
+        `UPDATE case_
+            SET box_file_request_id = NULL, box_file_request_url = NULL, updated_at = now()
+          WHERE id = $1`,
+        [locked.caseId]
+      );
+      await requestBoxFileRequestIntent(q, locked.caseId, folderId, templateId, {
+        replaceReason: "incomplete_persisted_identity"
+      });
+    } else if (!id) {
+      await requestBoxFileRequestIntent(q, locked.caseId, folderId, templateId);
+    } else {
+      await requestBoxFileRequestIntent(q, locked.caseId, folderId, templateId);
+    }
+    return { kind: "ready", caseId: locked.caseId };
+  });
+  if (prepared.kind === "missing") return { kind: "missing" };
+  if (prepared.kind === "retired") return { kind: "retired", mergedInto: prepared.mergedInto };
+  if (prepared.kind === "folder_not_ready") return { kind: "folder_not_ready" };
+  return processBoxFileRequestIntent(prepared.caseId, actor);
 }
 async function pendingBoxFileRequestCaseIds(limit = 20) {
   const bounded = Math.max(1, Math.min(100, Math.trunc(limit)));
@@ -20907,6 +21807,7 @@ async function loadCaseFullSnapshotUsing(q, id, now, lockCase = false) {
   );
   const notes = await q("SELECT * FROM note WHERE case_id = $1 ORDER BY occurred_at", [id]);
   const chasers = await q("SELECT * FROM chaser WHERE case_id = $1 ORDER BY created_at", [id]);
+  const sourceEvidenceState = await manualIntakeEvidenceState(q, id);
   const value = rowToCase(rec, {
     now,
     provenanceRows: prov,
@@ -20919,6 +21820,8 @@ async function loadCaseFullSnapshotUsing(q, id, now, lockCase = false) {
     })),
     chasers: chasers.map(rowToChaser)
   });
+  value.sourceEvidencePending = sourceEvidenceState.pending || sourceEvidenceState.archiveFailed;
+  value.sourceEvidenceArchiveFailed = sourceEvidenceState.archiveFailed;
   return { value, version: versionToken(rec.updated_at) };
 }
 async function loadCaseFullUsing(q, id, now, lockCase = false) {
@@ -20964,7 +21867,7 @@ async function recomputeStatus2(caseId, actor) {
 async function markEvaSubmittedIfReady(caseId, actor) {
   return tx(async (q) => {
     const full = await loadCaseFullUsing(q, caseId, /* @__PURE__ */ new Date(), true);
-    if (!full || !canSubmitCaseToEva(full)) return false;
+    if (!full || full.sourceEvidencePending === true || !canSubmitCaseToEva(full)) return false;
     return markEvaSubmittedUsing(q, caseId, actor);
   });
 }
@@ -21256,6 +22159,7 @@ import_functions2.app.http("patchCase", {
             evidence: existing.evidence,
             inspectionDecision: inspection?.decisionMode ?? existing.inspectionDecision,
             instructionCount: existing.evidence.filter((item) => item.kind === "instruction").length,
+            ...sourceReadinessInputForCase(existing),
             hasIdentity: nextVrm.trim().length > 0 || (nextCasePo ?? "").trim().length > 0 || existing.providerCode.trim().length > 0 || nextEvaFields.claimantName.value.trim().length > 0,
             mergedInto: existing.mergedInto
           });
@@ -21408,8 +22312,14 @@ function normalizeCreateCaseInput(raw) {
   if ("evaFields" in raw || "status" in raw) {
     const full = FullCreateCaseParams.safeParse(raw);
     if (!full.success) return void 0;
+    const mileage = normaliseEvaEdit("mileage", full.data.evaFields.mileage.value);
+    if ("error" in mileage) return void 0;
     return {
       ...full.data,
+      evaFields: {
+        ...full.data.evaFields,
+        mileage: { ...full.data.evaFields.mileage, value: mileage.value }
+      },
       sourceLabel: full.data.sourceLabel?.trim() || "Manual intake"
     };
   }
@@ -21447,7 +22357,30 @@ import_functions2.app.http("createCase", {
     const raw = await req.json().catch(() => void 0);
     let input = normalizeCreateCaseInput(raw);
     if (!input) return { status: 400, jsonBody: { error: "invalid case create payload" } };
-    const actor = actorFromClaims(claims);
+    const actor = actorFromClaims(claims) ?? "authenticated staff";
+    const suppliedOperationKey = (req.headers?.get("idempotency-key") ?? "").trim();
+    const suppliedUploadKey = (req.headers?.get("x-manual-intake-upload-key") ?? "").trim();
+    const suppliedFileCount = (req.headers?.get("x-manual-intake-file-count") ?? "").trim();
+    const suppliedInstructionIndex = (req.headers?.get("x-manual-intake-instruction-index") ?? "").trim();
+    const hasOperationHeaders = Boolean(
+      suppliedOperationKey || suppliedUploadKey || suppliedFileCount || suppliedInstructionIndex
+    );
+    if (hasOperationHeaders && !MANUAL_INTAKE_OPERATION_KEY_RE.test(suppliedOperationKey)) {
+      return { status: 400, jsonBody: { error: "invalid manual intake operation key" } };
+    }
+    const expectedFileCount = suppliedFileCount === "" ? 0 : Number(suppliedFileCount);
+    const instructionFileIndex = suppliedInstructionIndex === "" ? void 0 : Number(suppliedInstructionIndex);
+    if (!Number.isInteger(expectedFileCount) || expectedFileCount < 0 || expectedFileCount > 20 || expectedFileCount > 0 !== MANUAL_INTAKE_OPERATION_KEY_RE.test(suppliedUploadKey) || instructionFileIndex !== void 0 && (!Number.isInteger(instructionFileIndex) || instructionFileIndex < 0 || instructionFileIndex >= expectedFileCount)) {
+      return { status: 400, jsonBody: { error: "invalid manual intake evidence binding" } };
+    }
+    const operationBinding = suppliedOperationKey ? {
+      idempotencyKey: suppliedOperationKey,
+      actor,
+      requestHash: manualIntakeRequestHash(input),
+      ...suppliedUploadKey ? { uploadIdempotencyKey: suppliedUploadKey } : {},
+      expectedFileCount,
+      ...instructionFileIndex !== void 0 ? { instructionFileIndex } : {}
+    } : void 0;
     const pcode = (input.providerCode ?? "").trim().toUpperCase();
     let providerRow;
     if (pcode) {
@@ -21513,26 +22446,111 @@ import_functions2.app.http("createCase", {
     for (const desc of EVA_FIELD_ORDER) {
       add(EVA_COLUMN_BY_KEY[desc.key], input.evaFields[desc.key]?.value ?? "");
     }
-    const newId = await tx(async (q) => {
-      const insertCols = [...cols];
-      const insertVals = [...vals];
-      let casePo = suppliedCasePo;
-      if (!casePo && principalForAutoMint) {
-        casePo = await mintCasePo(q, principalForAutoMint);
+    let createOutcome;
+    try {
+      createOutcome = await tx(async (q) => {
+        if (operationBinding) {
+          const existingId = await beginManualIntakeOperation(q, operationBinding);
+          if (existingId) return { id: existingId, replayed: true };
+        }
+        const insertCols = [...cols];
+        const insertVals = [...vals];
+        let casePo = suppliedCasePo;
+        if (!casePo && principalForAutoMint) {
+          casePo = await mintCasePo(q, principalForAutoMint);
+        }
+        if (casePo) {
+          insertCols.push("case_po");
+          insertVals.push(casePo);
+        }
+        const placeholders = insertVals.map((_v, i) => `$${i + 1}`).join(", ");
+        const rows = await q(
+          `INSERT INTO case_ (${insertCols.join(", ")}) VALUES (${placeholders}) RETURNING id`,
+          insertVals
+        );
+        const id = rows[0]?.id;
+        if (!id) throw new Error("case create returned no id");
+        if (operationBinding) {
+          await finishManualIntakeOperation(
+            q,
+            operationBinding.idempotencyKey,
+            id,
+            operationBinding.expectedFileCount
+          );
+          await writeAuditStrict({
+            action: AUDIT_ACTION.case_created,
+            caseId: id,
+            summary: `Case created (${name})`,
+            after: {
+              status,
+              vrm: input.vrm,
+              manualIntakeOperation: operationBinding.idempotencyKey
+            },
+            actor
+          }, q);
+        }
+        return { id, replayed: false };
+      });
+    } catch (error) {
+      if (error instanceof ManualIntakeOperationConflict || operationBinding && isUniqueViolation(error)) {
+        return {
+          status: 409,
+          jsonBody: { error: "manual intake operation does not match this case or file selection" }
+        };
       }
-      if (casePo) {
-        insertCols.push("case_po");
-        insertVals.push(casePo);
-      }
-      const placeholders = insertVals.map((_v, i) => `$${i + 1}`).join(", ");
-      const rows = await q(
-        `INSERT INTO case_ (${insertCols.join(", ")}) VALUES (${placeholders}) RETURNING id`,
-        insertVals
-      );
-      return rows[0]?.id;
-    });
-    if (!newId) return { status: 500, jsonBody: { error: "case create returned no id" } };
-    if (input.writeProvenance) {
+      throw error;
+    }
+    const newId = createOutcome.id;
+    if (operationBinding) {
+      await tx(async (q) => {
+        if (!await manualIntakeSideEffectsPending(q, operationBinding.idempotencyKey)) return;
+        if (input.writeProvenance) {
+          for (const desc of EVA_FIELD_ORDER) {
+            const field = input.evaFields[desc.key];
+            await q(
+              `INSERT INTO field_level_provenance
+                 (name, case_id, field_name, value, source_type_code, source_label, confidence, review_state_code)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+              [
+                `${newId}:${desc.key}`,
+                newId,
+                desc.key,
+                field.value,
+                sourceTypeCodec.toInt(field.provenance.sourceType) ?? 1e8,
+                field.provenance.sourceLabel,
+                field.provenance.confidence ?? null,
+                reviewStateCodec.toInt(field.reviewState) ?? 100000001
+              ]
+            );
+          }
+        }
+        const receivedFrom2 = (input.receivedFrom ?? "").trim();
+        const receivedOn2 = (input.receivedOn ?? "").trim();
+        if (receivedFrom2 || receivedOn2) {
+          const parts = [
+            receivedFrom2 ? `Received from ${receivedFrom2}` : "Received",
+            receivedOn2 ? `on ${receivedOn2}` : ""
+          ].filter(Boolean).join(" ");
+          await q(
+            "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
+            ["Images received", newId, actor, `${parts}.`]
+          );
+        }
+        if (input.inspectionDecisionReason?.trim()) {
+          await q(
+            "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
+            [
+              "Inspection decision",
+              newId,
+              "Manual intake",
+              `Inspection decision: image-based - ${input.inspectionDecisionReason.trim()}`
+            ]
+          );
+        }
+        await finishManualIntakeSideEffects(q, operationBinding.idempotencyKey);
+      });
+    }
+    if (!operationBinding && input.writeProvenance) {
       await Promise.all(
         EVA_FIELD_ORDER.map(async (desc) => {
           const field = input.evaFields[desc.key];
@@ -21559,7 +22577,7 @@ import_functions2.app.http("createCase", {
     }
     const receivedFrom = (input.receivedFrom ?? "").trim();
     const receivedOn = (input.receivedOn ?? "").trim();
-    if (receivedFrom || receivedOn) {
+    if (!operationBinding && (receivedFrom || receivedOn)) {
       try {
         const parts = [
           receivedFrom ? `Received from ${receivedFrom}` : "Received",
@@ -21572,7 +22590,7 @@ import_functions2.app.http("createCase", {
       } catch {
       }
     }
-    if (input.inspectionDecisionReason?.trim()) {
+    if (!operationBinding && input.inspectionDecisionReason?.trim()) {
       try {
         await query(
           "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
@@ -21586,15 +22604,73 @@ import_functions2.app.http("createCase", {
       } catch {
       }
     }
-    await writeAudit({
-      action: AUDIT_ACTION.case_created,
-      caseId: newId,
-      summary: `Case created (${name})`,
-      after: { status, vrm: input.vrm },
-      ...actor ? { actor } : {}
-    });
+    if (!operationBinding) {
+      await writeAudit({
+        action: AUDIT_ACTION.case_created,
+        caseId: newId,
+        summary: `Case created (${name})`,
+        after: { status, vrm: input.vrm },
+        actor
+      });
+    }
     await recomputeStatus2(newId, actor);
-    return { status: 201, jsonBody: { id: newId } };
+    return createOutcome.replayed ? { status: 200, jsonBody: { id: newId, replayed: true } } : { status: 201, jsonBody: { id: newId } };
+  })
+});
+import_functions2.app.http("retryManualIntakeArchive", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/archive-retry",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const caseId = req.params.id;
+    const actor = actorFromClaims(claims) ?? "authenticated staff";
+    let requeued = 0;
+    try {
+      requeued = await tx(async (q) => {
+        const locked = await lockCaseForMutation(q, caseId);
+        if (locked.kind === "missing") return -1;
+        if (locked.kind !== "active") return -2;
+        const rows = await q(
+          `UPDATE archive_mirror_outbox o
+              SET requested_generation = o.requested_generation + 1,
+                  requested_at = now(), attempt_count = 0,
+                  next_attempt_at = now(), last_attempt_at = NULL, last_error = NULL,
+                  dead_lettered_at = NULL, dead_letter_reason = NULL, updated_at = now()
+             FROM evidence e
+             JOIN staff_evidence_upload_item item ON item.evidence_id = e.id
+             JOIN staff_evidence_upload batch
+               ON batch.idempotency_key = item.idempotency_key
+              AND batch.case_id = item.case_id
+            WHERE o.evidence_id = e.id
+              AND e.case_id = $1
+              AND batch.case_id = $1
+              AND batch.source = 'manual_intake'
+              AND o.dead_lettered_at IS NOT NULL
+          RETURNING o.evidence_id`,
+          [caseId]
+        );
+        if (rows.length > 0) {
+          await writeAuditStrict({
+            action: AUDIT_ACTION.evidence_upload_result,
+            caseId,
+            actor,
+            summary: `Manual source archive retry requested (${rows.length})`,
+            after: { requeued: rows.length, evidenceIds: rows.map((row) => row.evidence_id) }
+          }, q);
+          await requestStatusRecompute(q, caseId);
+        }
+        return rows.length;
+      });
+    } catch (error) {
+      if (error instanceof ManualIntakeOperationConflict) {
+        return { status: 409, jsonBody: { error: error.message } };
+      }
+      throw error;
+    }
+    if (requeued === -1) return { status: 404, jsonBody: { error: "case not found" } };
+    if (requeued === -2) return { status: 409, jsonBody: { error: "case is not active" } };
+    if (requeued > 0) await recomputeStatus2(caseId, actor);
+    return { status: 200, jsonBody: { requeued } };
   })
 });
 import_functions2.app.http("casesForQueue", {
@@ -21703,6 +22779,51 @@ import_functions2.app.http("logChase", {
     }
     const note = typeof body2.note === "string" ? body2.note.trim() : "";
     const actor = actorFromClaims(claims);
+    const needsUploadLink = imageChaserRequiresUploadLink(templateLabel);
+    let fileRequest;
+    if (needsUploadLink) {
+      if (!gates.boxApi() || !gates.boxFileRequest() || !gates.boxFileRequestTemplateId().trim()) {
+        return {
+          status: 503,
+          jsonBody: {
+            error: "An upload link is required before this image chase can be logged.",
+            retryable: true
+          }
+        };
+      }
+      const ensured = await ensureActiveBoxFileRequest(
+        id,
+        gates.boxFileRequestTemplateId().trim(),
+        actor
+      );
+      if (ensured.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+      if (ensured.kind === "retired") {
+        return { status: 409, jsonBody: { error: "case has been merged" } };
+      }
+      if (ensured.kind === "folder_not_ready") {
+        return {
+          status: 409,
+          jsonBody: {
+            error: "The case archive folder is not ready yet. Try again shortly.",
+            retryable: true
+          }
+        };
+      }
+      if (ensured.kind !== "ok") {
+        return {
+          status: 503,
+          jsonBody: {
+            error: "The upload link could not be prepared. Try again.",
+            retryable: true
+          }
+        };
+      }
+      fileRequest = {
+        folderId: ensured.folderId,
+        id: ensured.fileRequestId,
+        url: ensured.fileRequestUrl
+      };
+    }
     const channelLabel = channel === "whatsapp" ? "WhatsApp" : "email";
     const summary = `Chased via ${channelLabel} \u2014 ${templateLabel}.`.slice(0, 400);
     const outcome = await tx(async (q) => {
@@ -21713,6 +22834,15 @@ import_functions2.app.http("logChase", {
       if (!locked[0]) return { kind: "missing" };
       const existing = rowToCase(locked[0]);
       if (isRetiredMerged(existing)) return { kind: "retired" };
+      if (fileRequest && String(locked[0].box_folder_id ?? "").trim() !== fileRequest.folderId) return { kind: "file_request_changed" };
+      if (fileRequest) {
+        await associateOutstandingImageChasersWithFileRequest(
+          q,
+          id,
+          fileRequest.id,
+          fileRequest.url
+        );
+      }
       const currentVersion = versionToken(locked[0].updated_at);
       const expected = ifMatch(req);
       if (expected != null && expected !== "" && expected !== currentVersion) {
@@ -21720,8 +22850,9 @@ import_functions2.app.http("logChase", {
       }
       const rows = await q(
         `INSERT INTO chaser
-           (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at)
-         VALUES ($1, $2, $3, $4, $5, $6, now())
+           (name, case_id, target_type_code, target_name, channel_code, template_used,
+            box_file_request_id, box_file_request_url, drafted_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
          RETURNING *`,
         [
           summary,
@@ -21729,7 +22860,9 @@ import_functions2.app.http("logChase", {
           100000002,
           existing.provider.slice(0, 200),
           channel === "whatsapp" ? 100000001 : 1e8,
-          templateLabel
+          templateLabel,
+          fileRequest?.id ?? null,
+          fileRequest?.url ?? null
         ]
       );
       const created = rows[0];
@@ -21748,7 +22881,16 @@ import_functions2.app.http("logChase", {
         action: AUDIT_ACTION.chaser_sent,
         caseId: id,
         summary: `Chase logged (${channel} \xB7 ${templateLabel})`,
-        after: { chaserId: created.id, channel, templateLabel, ...note ? { note } : {} },
+        after: {
+          chaserId: created.id,
+          channel,
+          templateLabel,
+          ...fileRequest ? {
+            boxFileRequestId: fileRequest.id,
+            fileRequestUrl: fileRequest.url
+          } : {},
+          ...note ? { note } : {}
+        },
         ...actor ? { actor } : {}
       }, q);
       return {
@@ -21759,6 +22901,15 @@ import_functions2.app.http("logChase", {
     });
     if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
     if (outcome.kind === "retired") return { status: 409, jsonBody: { error: "case has been merged" } };
+    if (outcome.kind === "file_request_changed") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "The case archive folder changed. Prepare the upload link again.",
+          retryable: true
+        }
+      };
+    }
     if (outcome.kind === "stale") {
       return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
     }
@@ -21932,6 +23083,12 @@ async function mergeEvidenceRows(q, sourceCaseId, targetCaseId) {
           AND completed_generation < requested_generation`,
       [row.id]
     );
+    await q(
+      `UPDATE staff_evidence_upload_item
+          SET evidence_id = $2, updated_at = now()
+        WHERE evidence_id = $1`,
+      [row.id, survivorId]
+    );
   }
   const moved = await q(
     `UPDATE evidence
@@ -21950,6 +23107,38 @@ async function mergeEvidenceRows(q, sourceCaseId, targetCaseId) {
     );
   }
   return { movedEvidence: moved.length, collidingEvidence: collisionSourceIds.length };
+}
+async function manualIntakeMergeConflict(q, sourceCaseId, targetCaseId) {
+  const operations = await q(
+    `SELECT case_id, expected_file_count, evidence_completed_at, side_effects_completed_at
+       FROM manual_intake_case_create_operation
+      WHERE case_id = ANY($1::uuid[])
+      ORDER BY case_id, created_at, idempotency_key
+      FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]]
+  );
+  const incomplete = operations.some((operation) => operation.side_effects_completed_at == null || Number(operation.expected_file_count) > 0 && operation.evidence_completed_at == null);
+  return incomplete ? "Source files are still being added for one of these cases. Finish or retry them before merging." : void 0;
+}
+async function transferStaffUploadOwnership(q, sourceCaseId, targetCaseId) {
+  await q(
+    `UPDATE staff_evidence_upload
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId]
+  );
+  await q(
+    `UPDATE staff_evidence_upload_item
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId]
+  );
+  await q(
+    `UPDATE manual_intake_case_create_operation
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId]
+  );
 }
 async function reconcileMergeFileRequestIntent(q, sourceCaseId, targetCaseId) {
   const cases = await q(
@@ -22067,6 +23256,14 @@ import_functions2.app.http("mergeCases", {
           error: "Cannot merge into a finalised case."
         };
       }
+      const manualIntakeConflict = await manualIntakeMergeConflict(
+        q,
+        sourceCaseId,
+        targetCaseId
+      );
+      if (manualIntakeConflict) {
+        return { kind: "error", status: 409, error: manualIntakeConflict };
+      }
       const fileRequestConflict = await reconcileMergeFileRequestIntent(
         q,
         sourceCaseId,
@@ -22091,6 +23288,7 @@ import_functions2.app.http("mergeCases", {
           error: "Archive work is still finishing for one of these cases. Try the merge again shortly."
         };
       }
+      await transferStaffUploadOwnership(q, sourceCaseId, targetCaseId);
       const movedEmails = await q(
         "UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id",
         [sourceCaseId, targetCaseId]
@@ -22383,72 +23581,9 @@ import_functions2.app.http("caseBoxCopyFileRequest", {
     }
     const actor = actorFromClaims(claims);
     try {
-      const prepared = await tx(async (q) => {
-        const lockedCase = await lockCaseForMutation(q, caseId);
-        if (lockedCase.kind === "missing") return { kind: "missing" };
-        if (lockedCase.kind === "retired") {
-          return { kind: "retired", mergedInto: lockedCase.mergedInto };
-        }
-        const rows = await q(
-          `SELECT box_folder_id, box_file_request_id, box_file_request_url
-             FROM case_
-            WHERE id = $1
-            FOR UPDATE`,
-          [lockedCase.caseId]
-        );
-        const row = rows[0];
-        const folderId = row?.box_folder_id?.trim() ?? "";
-        const stampedId = row?.box_file_request_id?.trim() ?? "";
-        const stampedUrl = row?.box_file_request_url?.trim() ?? "";
-        if (!row || !folderId) {
-          return {
-            kind: "folder_not_ready"
-          };
-        }
-        if (stampedId && stampedUrl) {
-          return { kind: "ready", fileRequestUrl: stampedUrl };
-        }
-        if (stampedId || stampedUrl) {
-          return { kind: "invalid_stamp" };
-        }
-        const intent = await requestBoxFileRequestIntent(
-          q,
-          lockedCase.caseId,
-          folderId,
-          templateId
-        );
-        if (intent.alreadyCompleted) return { kind: "invalid_stamp" };
-        return { kind: "pending", caseId: lockedCase.caseId };
-      });
-      if (prepared.kind === "missing") {
+      const processed = await ensureActiveBoxFileRequest(caseId, templateId, actor);
+      if (processed.kind === "missing") {
         return { status: 404, jsonBody: { status: "error", message: "Case not found." } };
-      }
-      if (prepared.kind === "retired") {
-        return {
-          status: 409,
-          jsonBody: {
-            status: "error",
-            message: "This case has been merged. Open the current case and try again.",
-            mergedInto: prepared.mergedInto
-          }
-        };
-      }
-      if (prepared.kind === "folder_not_ready") {
-        return {
-          status: 200,
-          jsonBody: { status: "folder_not_ready", message: "This case has no archive folder yet." }
-        };
-      }
-      if (prepared.kind === "ready") {
-        return { status: 200, jsonBody: { status: "ok", data: { fileRequestUrl: prepared.fileRequestUrl } } };
-      }
-      if (prepared.kind === "invalid_stamp") throw new Error("case has an incomplete Box File Request stamp");
-      const processed = await processBoxFileRequestIntent(prepared.caseId, actor);
-      if (processed.kind === "ok") {
-        return {
-          status: 200,
-          jsonBody: { status: "ok", data: { fileRequestUrl: processed.fileRequestUrl } }
-        };
       }
       if (processed.kind === "retired") {
         return {
@@ -22457,6 +23592,49 @@ import_functions2.app.http("caseBoxCopyFileRequest", {
             status: "error",
             message: "This case has been merged. Open the current case and try again.",
             mergedInto: processed.mergedInto
+          }
+        };
+      }
+      if (processed.kind === "folder_not_ready") {
+        return {
+          status: 200,
+          jsonBody: { status: "folder_not_ready", message: "This case has no archive folder yet." }
+        };
+      }
+      if (processed.kind === "ok") {
+        const associated = await tx(async (q) => {
+          const locked = await lockCaseForMutation(q, caseId);
+          if (locked.kind !== "active") return false;
+          const current = await q(
+            "SELECT box_folder_id FROM case_ WHERE id = $1 FOR UPDATE",
+            [locked.caseId]
+          );
+          if ((current[0]?.box_folder_id ?? "").trim() !== processed.folderId) return false;
+          await associateOutstandingImageChasersWithFileRequest(
+            q,
+            locked.caseId,
+            processed.fileRequestId,
+            processed.fileRequestUrl
+          );
+          return true;
+        });
+        if (!associated) {
+          return {
+            status: 200,
+            jsonBody: {
+              status: "error",
+              message: "The case archive folder changed. Please try again."
+            }
+          };
+        }
+        return {
+          status: 200,
+          jsonBody: {
+            status: "ok",
+            data: {
+              fileRequestUrl: processed.fileRequestUrl,
+              ...processed.expiresAt ? { expiresAt: processed.expiresAt } : {}
+            }
           }
         };
       }
@@ -23212,7 +24390,7 @@ import_functions7.app.http("setHoldNewCasesDefault", {
 });
 
 // api/src/functions/inbound.ts
-var import_node_crypto7 = require("node:crypto");
+var import_node_crypto8 = require("node:crypto");
 var import_functions8 = require("@azure/functions");
 
 // api/src/lib/outlook-queue.ts
@@ -23319,7 +24497,8 @@ var CATEGORY_FOR_SUBTYPE = {
   images_received: "case_update",
   update_general: "case_update",
   cancellation_notice: "cancellation",
-  pre_instruction_directions: "pre_instruction"
+  pre_instruction_directions: "pre_instruction",
+  website_general_enquiry: "website_enquiry"
 };
 var DEFAULT_SUBTYPE_FOR_CATEGORY = {
   receiving_work: "existing_provider_instruction",
@@ -23329,7 +24508,8 @@ var DEFAULT_SUBTYPE_FOR_CATEGORY = {
   non_actionable: "case_summary",
   case_update: "update_general",
   cancellation: "cancellation_notice",
-  pre_instruction: "pre_instruction_directions"
+  pre_instruction: "pre_instruction_directions",
+  website_enquiry: "website_general_enquiry"
 };
 import_functions8.app.http("inboundEmails", {
   methods: ["GET"],
@@ -23384,7 +24564,7 @@ import_functions8.app.http("inboundEmailCounts", {
       const counts = tallyActiveInboundCounts(rows);
       return { status: 200, jsonBody: counts };
     } catch (error) {
-      const correlationId = ctx.invocationId || (0, import_node_crypto7.randomUUID)();
+      const correlationId = ctx.invocationId || (0, import_node_crypto8.randomUUID)();
       ctx.error(
         JSON.stringify({
           evt: "inboundCountsFailed",
@@ -37873,7 +39053,7 @@ var AnonymousCredential = class extends Credential {
 };
 
 // node_modules/@azure/storage-common/dist/esm/credentials/StorageSharedKeyCredential.js
-var import_node_crypto8 = require("node:crypto");
+var import_node_crypto9 = require("node:crypto");
 
 // node_modules/@azure/storage-common/dist/esm/utils/constants.js
 var URLConstants = {
@@ -38574,7 +39754,7 @@ var StorageSharedKeyCredential = class extends Credential {
    * @param stringToSign -
    */
   computeHMACSHA256(stringToSign) {
-    return (0, import_node_crypto8.createHmac)("sha256", this.accountKey).update(stringToSign, "utf8").digest("base64");
+    return (0, import_node_crypto9.createHmac)("sha256", this.accountKey).update(stringToSign, "utf8").digest("base64");
   }
 };
 
@@ -38940,7 +40120,7 @@ function storageRetryPolicy(options = {}) {
 }
 
 // node_modules/@azure/storage-common/dist/esm/policies/StorageSharedKeyCredentialPolicyV2.js
-var import_node_crypto9 = require("node:crypto");
+var import_node_crypto10 = require("node:crypto");
 var storageSharedKeyCredentialPolicyName = "storageSharedKeyCredentialPolicy";
 function storageSharedKeyCredentialPolicy(options) {
   function signRequest(request) {
@@ -38962,7 +40142,7 @@ function storageSharedKeyCredentialPolicy(options) {
       getHeaderValueToSign(request, HeaderConstants.IF_UNMODIFIED_SINCE),
       getHeaderValueToSign(request, HeaderConstants.RANGE)
     ].join("\n") + "\n" + getCanonicalizedHeadersString(request) + getCanonicalizedResourceString(request);
-    const signature = (0, import_node_crypto9.createHmac)("sha256", options.accountKey).update(stringToSign, "utf8").digest("base64");
+    const signature = (0, import_node_crypto10.createHmac)("sha256", options.accountKey).update(stringToSign, "utf8").digest("base64");
     request.headers.set(HeaderConstants.AUTHORIZATION, `SharedKey ${options.accountName}:${signature}`);
   }
   function getHeaderValueToSign(request, headerName) {
@@ -39052,7 +40232,7 @@ function storageRequestFailureDetailsParserPolicy() {
 }
 
 // node_modules/@azure/storage-common/dist/esm/credentials/UserDelegationKeyCredential.js
-var import_node_crypto10 = require("node:crypto");
+var import_node_crypto11 = require("node:crypto");
 var UserDelegationKeyCredential = class {
   /**
    * Azure Storage account name; readonly.
@@ -39082,7 +40262,7 @@ var UserDelegationKeyCredential = class {
    * @param stringToSign -
    */
   computeHMACSHA256(stringToSign) {
-    return (0, import_node_crypto10.createHmac)("sha256", this.key).update(stringToSign, "utf8").digest("base64");
+    return (0, import_node_crypto11.createHmac)("sha256", this.key).update(stringToSign, "utf8").digest("base64");
   }
 };
 
@@ -63507,7 +64687,7 @@ import_functions10.app.http("internalRetroCreate", {
     const caseTypeSignals = Array.isArray(body2.caseTypeSignals) ? body2.caseTypeSignals : [];
     const auditGateOn = gates.auditCases();
     const originalCategory = await mintBlockedByCategory(original.internetMessageId);
-    const blockedCategory = originalCategory && ["non_actionable", "other", "pre_instruction"].includes(originalCategory) ? originalCategory : null;
+    const blockedCategory = originalCategory && ["non_actionable", "other", "pre_instruction", "website_enquiry"].includes(originalCategory) ? originalCategory : null;
     if (blockedCategory) {
       await writeAudit({
         action: AUDIT_ACTION.inbound_routed,
@@ -64821,6 +66001,7 @@ import_functions14.app.http("patchEvidence", {
 
 // api/src/functions/archive-mirror-outbox.ts
 var import_functions15 = require("@azure/functions");
+var ARCHIVE_MIRROR_MAX_ATTEMPTS = 8;
 async function withServiceAuth2(req, ctx, fn) {
   try {
     await authenticate(req);
@@ -64851,6 +66032,7 @@ import_functions15.app.http("internalArchiveMirrorOutboxPending", {
          FROM archive_mirror_outbox o
          JOIN evidence e ON e.id = o.evidence_id
         WHERE o.requested_generation > o.completed_generation
+          AND o.dead_lettered_at IS NULL
           AND o.next_attempt_at <= now()
         ORDER BY o.next_attempt_at, o.requested_at, o.evidence_id
         LIMIT $1`,
@@ -64907,7 +66089,7 @@ import_functions15.app.http("internalArchiveMirrorOutboxComplete", {
           return { kind: "retry" };
         }
         const rows = await q(
-          `SELECT requested_generation, completed_generation
+          `SELECT requested_generation, completed_generation, attempt_count, dead_lettered_at
                FROM archive_mirror_outbox
               WHERE evidence_id = $1
               FOR UPDATE`,
@@ -64949,6 +66131,8 @@ import_functions15.app.http("internalArchiveMirrorOutboxComplete", {
                     next_attempt_at = now(),
                     last_attempt_at = now(),
                     last_error = NULL,
+                    dead_lettered_at = NULL,
+                    dead_letter_reason = NULL,
                     updated_at = now()
               WHERE evidence_id = $1`,
           [evidenceId, acknowledged]
@@ -64997,14 +66181,27 @@ import_functions15.app.http("internalArchiveMirrorOutboxDefer", {
       const deferred = await tx(async (q) => {
         const lockedCase = await lockCaseForMutation(q, owner[0].case_id);
         const evidence = await q(
-          "SELECT case_id FROM evidence WHERE id = $1 FOR UPDATE",
+          `SELECT e.case_id,
+                    EXISTS (
+                      SELECT 1
+                        FROM staff_evidence_upload_item item
+                        JOIN staff_evidence_upload batch
+                          ON batch.idempotency_key = item.idempotency_key
+                         AND batch.case_id = item.case_id
+                       WHERE item.evidence_id = e.id
+                         AND item.case_id = e.case_id
+                         AND batch.source = 'manual_intake'
+                    ) AS manual_intake
+               FROM evidence e
+              WHERE e.id = $1
+              FOR UPDATE OF e`,
           [evidenceId]
         );
         if (!evidence[0] || evidence[0].case_id.trim().toLowerCase() !== lockedCase.caseId) {
           return { kind: "retry" };
         }
         const outbox = await q(
-          `SELECT requested_generation, completed_generation
+          `SELECT requested_generation, completed_generation, attempt_count, dead_lettered_at
                FROM archive_mirror_outbox
               WHERE evidence_id = $1
               FOR UPDATE`,
@@ -65015,6 +66212,12 @@ import_functions15.app.http("internalArchiveMirrorOutboxDefer", {
         }
         const requested = Number(outbox[0].requested_generation);
         const completed = Number(outbox[0].completed_generation);
+        if (outbox[0].dead_lettered_at != null) {
+          return {
+            kind: "done",
+            value: { deferred: false, pending: false, deadLettered: true }
+          };
+        }
         if (completed >= requested) {
           return { kind: "done", value: { deferred: false, pending: false } };
         }
@@ -65025,22 +66228,39 @@ import_functions15.app.http("internalArchiveMirrorOutboxDefer", {
           `UPDATE archive_mirror_outbox
                 SET attempt_count = attempt_count + 1,
                     last_attempt_at = now(),
-                    last_error = $3,
-                    next_attempt_at = now() + make_interval(
-                      secs => LEAST(3600, (30 * power(2, LEAST(attempt_count, 6)))::integer)
-                    ),
+                    last_error = $3::text,
+                    dead_lettered_at = CASE
+                      WHEN $5 AND attempt_count + 1 >= $4 THEN now() ELSE NULL END,
+                    dead_letter_reason = CASE
+                      WHEN $5 AND attempt_count + 1 >= $4 THEN $3::text ELSE NULL END,
+                    next_attempt_at = CASE
+                      WHEN $5 AND attempt_count + 1 >= $4 THEN now()
+                      ELSE now() + make_interval(
+                        secs => LEAST(3600, (30 * power(2, LEAST(attempt_count, 6)))::integer)
+                      )
+                    END,
                     updated_at = now()
               WHERE evidence_id = $1
                 AND requested_generation = $2
                 AND completed_generation < requested_generation
-            RETURNING next_attempt_at`,
-          [evidenceId, generation, reason]
+            RETURNING next_attempt_at, dead_lettered_at`,
+          [
+            evidenceId,
+            generation,
+            reason,
+            ARCHIVE_MIRROR_MAX_ATTEMPTS,
+            evidence[0].manual_intake === true
+          ]
         );
+        if (rows[0]?.dead_lettered_at != null) {
+          await requestStatusRecompute(q, lockedCase.caseId);
+        }
         return {
           kind: "done",
           value: {
             deferred: rows.length > 0,
-            pending: true,
+            pending: rows[0]?.dead_lettered_at == null,
+            deadLettered: rows[0]?.dead_lettered_at != null,
             ...rows[0] ? { nextAttemptAt: rows[0].next_attempt_at } : {}
           }
         };
@@ -65088,7 +66308,7 @@ import_functions16.app.http("internalBoxFileRequestOutboxDrain", {
 
 // api/src/functions/evidence-upload.ts
 var import_functions17 = require("@azure/functions");
-var import_node_crypto11 = require("node:crypto");
+var import_node_crypto12 = require("node:crypto");
 
 // api/src/lib/upload-validate.ts
 var import_sharp = __toESM(require("sharp"), 1);
@@ -65309,7 +66529,8 @@ function validateUploadBatch(files) {
 
 // api/src/functions/evidence-upload.ts
 var IMAGE_KIND_CODE2 = 1e8;
-var DOCUMENT_KIND_CODE = 100000002;
+var INSTRUCTION_KIND_CODE = 100000002;
+var OTHER_KIND_CODE = 100000006;
 var IDEMPOTENCY_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$/;
 var SHA256_RE = /^[0-9a-f]{64}$/;
 var IMAGE_CHECK_PENDING = "Image check pending";
@@ -65331,6 +66552,36 @@ var SOURCE_SUMMARY = {
   assistant_confirmed: "Assistant confirmation",
   legacy_upload: "Staff upload"
 };
+async function recordManualIntakeResult(input) {
+  if (input.source !== "manual_intake") return;
+  const recovered = input.completion === "completed" && input.added.length === input.selectedCount && input.added.some((item) => item.duplicate);
+  const complete = input.rejected.length === 0 && input.added.length === input.selectedCount && input.completion !== "not_bound";
+  const summary = recovered ? `New case files confirmed after retry (${input.added.length} of ${input.selectedCount})` : complete ? `New case files confirmed (${input.added.length} of ${input.selectedCount})` : input.added.length > 0 ? `New case files need attention (${input.added.length} of ${input.selectedCount} confirmed)` : `New case files could not be added (0 of ${input.selectedCount} confirmed)`;
+  await writeAudit({
+    action: AUDIT_ACTION.evidence_upload_result,
+    caseId: input.caseId,
+    actor: input.actor,
+    severity: complete ? "info" : "warning",
+    summary,
+    after: {
+      idempotencyKey: input.idempotencyKey,
+      selectedCount: input.selectedCount,
+      completion: input.completion ?? "not_attempted",
+      recovered,
+      added: input.added.map((item) => ({
+        fileIndex: item.fileIndex,
+        fileName: item.fileName,
+        evidenceId: item.evidenceId,
+        duplicate: item.duplicate
+      })),
+      rejected: input.rejected.map((item) => ({
+        fileIndex: item.fileIndex,
+        fileName: item.fileName,
+        reason: item.reason
+      }))
+    }
+  });
+}
 var UploadRefusal = class extends Error {
   constructor(status, message2, targetCaseId) {
     super(message2);
@@ -65342,7 +66593,7 @@ function sourceOf(value) {
   return value === "add_evidence" || value === "manual_intake" || value === "assistant_confirmed" ? value : void 0;
 }
 function legacyIdempotencyKey(caseId, actor, manifest) {
-  return `legacy-${(0, import_node_crypto11.createHash)("sha256").update(JSON.stringify({ caseId: caseId.toLowerCase(), actor, manifest }), "utf8").digest("hex")}`;
+  return `legacy-${(0, import_node_crypto12.createHash)("sha256").update(JSON.stringify({ caseId: caseId.toLowerCase(), actor, manifest }), "utf8").digest("hex")}`;
 }
 function manifestHash(files) {
   const manifest = files.map((file) => ({
@@ -65350,9 +66601,10 @@ function manifestHash(files) {
     name: file.name,
     size: file.bytes.length,
     sha256: file.sha256,
-    contentType: file.contentType
+    contentType: file.contentType,
+    role: file.role
   }));
-  return (0, import_node_crypto11.createHash)("sha256").update(JSON.stringify(manifest), "utf8").digest("hex");
+  return (0, import_node_crypto12.createHash)("sha256").update(JSON.stringify(manifest), "utf8").digest("hex");
 }
 function itemIdentity(source, idempotencyKey, index) {
   return `staff:${source}:${idempotencyKey}:${index}`;
@@ -65438,7 +66690,7 @@ async function bindBatch(input) {
 }
 async function existingEvidence(q, caseId, identity, sha256) {
   const identityRows = await q(
-    `SELECT id, case_id, sha256, storage_path
+    `SELECT id, case_id, sha256, storage_path, kind_code
        FROM evidence
       WHERE source_message_id = $1
       FOR UPDATE`,
@@ -65449,17 +66701,37 @@ async function existingEvidence(q, caseId, identity, sha256) {
     if (row.case_id.toLowerCase() !== caseId || row.sha256 !== sha256) {
       throw new UploadRefusal(409, "This upload no longer matches the selected case or files.");
     }
-    return { id: row.id, duplicate: true, storagePath: row.storage_path };
+    return {
+      id: row.id,
+      duplicate: true,
+      storagePath: row.storage_path,
+      kindCode: Number(row.kind_code)
+    };
   }
   const twins = await q(
-    `SELECT id, storage_path FROM evidence
+    `SELECT id, storage_path, kind_code FROM evidence
       WHERE case_id = $1 AND sha256 = $2
       ORDER BY created_at, id
       LIMIT 1
       FOR UPDATE`,
     [caseId, sha256]
   );
-  return twins[0] ? { id: twins[0].id, duplicate: true, storagePath: twins[0].storage_path } : void 0;
+  return twins[0] ? {
+    id: twins[0].id,
+    duplicate: true,
+    storagePath: twins[0].storage_path,
+    kindCode: Number(twins[0].kind_code)
+  } : void 0;
+}
+function assertExistingRole(existing, file) {
+  if (file.kind !== "document" || file.role === "auto") return;
+  const expected = file.role === "extra" ? OTHER_KIND_CODE : INSTRUCTION_KIND_CODE;
+  if (existing.kindCode !== expected) {
+    throw new UploadRefusal(
+      409,
+      "That PDF was already added with a different role. Choose the correct file and try again."
+    );
+  }
 }
 async function claimUploadItem(input) {
   return tx(async (q) => {
@@ -65488,6 +66760,7 @@ async function claimUploadItem(input) {
     const identity = itemIdentity(input.source, input.idempotencyKey, input.file.index);
     const existing = await existingEvidence(q, caseId, identity, input.file.sha256);
     if (existing) {
+      assertExistingRole(existing, input.file);
       await q(
         `UPDATE staff_evidence_upload_item
             SET state = 'complete', evidence_id = $2,
@@ -65499,7 +66772,7 @@ async function claimUploadItem(input) {
       );
       return { kind: "existing", id: existing.id };
     }
-    const claimToken = (0, import_node_crypto11.randomUUID)();
+    const claimToken = (0, import_node_crypto12.randomUUID)();
     const pathPrefix = [
       "staff",
       input.idempotencyKey,
@@ -65584,6 +66857,7 @@ async function persistFile(input) {
     const identity = itemIdentity(input.source, input.idempotencyKey, input.file.index);
     const existing = await existingEvidence(q, caseId, identity, input.file.sha256);
     if (existing) {
+      assertExistingRole(existing, input.file);
       const ownsStoredBytes = existing.storagePath === input.blobPath;
       await q(
         `UPDATE staff_evidence_upload_item
@@ -65609,7 +66883,7 @@ async function persistFile(input) {
       [
         input.file.name,
         caseId,
-        isImage ? IMAGE_KIND_CODE2 : DOCUMENT_KIND_CODE,
+        isImage ? IMAGE_KIND_CODE2 : input.file.role === "extra" ? OTHER_KIND_CODE : INSTRUCTION_KIND_CODE,
         input.file.sha256,
         input.file.contentType,
         input.size,
@@ -65626,6 +66900,7 @@ async function persistFile(input) {
     if (!row) {
       const raced = await existingEvidence(q, caseId, identity, input.file.sha256);
       if (raced) {
+        assertExistingRole(raced, input.file);
         const ownsStoredBytes = raced.storagePath === input.blobPath;
         await q(
           `UPDATE staff_evidence_upload_item
@@ -65692,10 +66967,91 @@ import_functions17.app.http("uploadCaseEvidence", {
     if (!legacyRequest && !suppliedSource) {
       return { status: 400, jsonBody: { error: "Choose where these files are being added from." } };
     }
+    const actor = actorFromClaims(claims) ?? "authenticated staff";
+    const source = suppliedSource ?? "legacy_upload";
     const files = form.getAll("file").filter((value) => value instanceof File);
     if (!files.length) return { status: 400, jsonBody: { error: "Choose at least one file." } };
+    const operationMarker = form.get("manualIntakeOperation");
+    const manualIntakeOperation = operationMarker === "true";
+    const rawInstructionIndexes = form.getAll("manualIntakeInstructionIndex");
+    const parsedInstructionIndex = rawInstructionIndexes.length === 1 ? Number(rawInstructionIndexes[0]) : void 0;
+    const instructionFileIndex = parsedInstructionIndex !== void 0 && Number.isInteger(parsedInstructionIndex) && parsedInstructionIndex >= 0 && parsedInstructionIndex < files.length ? parsedInstructionIndex : void 0;
+    const rawRoles = form.getAll("fileRole");
+    const suppliedRoles = rawRoles.filter(
+      (value) => value === "instruction" || value === "extra"
+    );
+    if (manualIntakeOperation && rawRoles.length !== files.length || suppliedRoles.length !== rawRoles.length || rawRoles.length > 0 && suppliedRoles.length !== files.length) {
+      await recordManualIntakeResult({
+        source,
+        caseId: req.params.id,
+        actor,
+        idempotencyKey: suppliedIdempotencyKey,
+        selectedCount: files.length,
+        added: [],
+        rejected: files.map((file, fileIndex) => ({
+          fileIndex,
+          fileName: file.name,
+          reason: "The file role could not be confirmed."
+        }))
+      });
+      return { status: 400, jsonBody: { error: "Choose the files again so their roles can be confirmed." } };
+    }
+    if (operationMarker != null && operationMarker !== "true" || manualIntakeOperation && suppliedSource !== "manual_intake" || manualIntakeOperation && rawInstructionIndexes.length > 1 || manualIntakeOperation && rawInstructionIndexes.length === 1 && instructionFileIndex === void 0 || manualIntakeOperation && suppliedRoles.filter((role) => role === "instruction").length !== (instructionFileIndex === void 0 ? 0 : 1) || manualIntakeOperation && instructionFileIndex !== void 0 && suppliedRoles[instructionFileIndex] !== "instruction") {
+      await recordManualIntakeResult({
+        source,
+        caseId: req.params.id,
+        actor,
+        idempotencyKey: suppliedIdempotencyKey,
+        selectedCount: files.length,
+        added: [],
+        rejected: files.map((file, fileIndex) => ({
+          fileIndex,
+          fileName: file.name,
+          reason: "The case retry could not be confirmed."
+        }))
+      });
+      return { status: 400, jsonBody: { error: "This case upload could not be safely resumed." } };
+    }
+    if (manualIntakeOperation) {
+      const bindingState = await tx((q) => manualIntakeEvidenceBindingState(q, {
+        caseId: req.params.id,
+        uploadIdempotencyKey: suppliedIdempotencyKey,
+        fileCount: files.length,
+        ...instructionFileIndex !== void 0 ? { instructionFileIndex } : {}
+      }));
+      if (bindingState === "not_bound") {
+        return {
+          status: 409,
+          jsonBody: {
+            added: [],
+            rejected: files.map((file, fileIndex) => ({
+              fileIndex,
+              fileName: file.name,
+              reason: "This retry no longer matches the selected files."
+            })),
+            manualIntakeCompletion: "not_bound",
+            error: "This case upload could not be safely resumed."
+          }
+        };
+      }
+    }
     const batchRefusal = validateUploadBatch(files);
-    if (batchRefusal) return { status: 400, jsonBody: { error: batchRefusal } };
+    if (batchRefusal) {
+      await recordManualIntakeResult({
+        source,
+        caseId: req.params.id,
+        actor,
+        idempotencyKey: suppliedIdempotencyKey,
+        selectedCount: files.length,
+        added: [],
+        rejected: files.map((file, fileIndex) => ({
+          fileIndex,
+          fileName: file.name,
+          reason: batchRefusal
+        }))
+      });
+      return { status: 400, jsonBody: { error: batchRefusal } };
+    }
     const prepared = [];
     const rejected = [];
     for (const [index, file] of files.entries()) {
@@ -65710,7 +67066,16 @@ import_functions17.app.http("uploadCaseEvidence", {
         rejected.push({ fileIndex: index, fileName: file.name, reason: content.reason });
         continue;
       }
-      const sha256 = (0, import_node_crypto11.createHash)("sha256").update(bytes).digest("hex");
+      const role = suppliedRoles[index] ?? "auto";
+      if (role === "instruction" && content.kind !== "document") {
+        rejected.push({
+          fileIndex: index,
+          fileName: file.name,
+          reason: "Choose a PDF for the instruction."
+        });
+        continue;
+      }
+      const sha256 = (0, import_node_crypto12.createHash)("sha256").update(bytes).digest("hex");
       if (!SHA256_RE.test(sha256)) throw new Error("unreachable sha256 result");
       prepared.push({
         index,
@@ -65718,13 +67083,23 @@ import_functions17.app.http("uploadCaseEvidence", {
         bytes,
         sha256,
         kind: content.kind,
-        contentType: content.contentType
+        contentType: content.contentType,
+        role
       });
     }
-    if (!prepared.length) return { status: 400, jsonBody: { added: [], rejected } };
-    const actor = actorFromClaims(claims) ?? "authenticated staff";
+    if (!prepared.length) {
+      await recordManualIntakeResult({
+        source,
+        caseId: req.params.id,
+        actor,
+        idempotencyKey: suppliedIdempotencyKey,
+        selectedCount: files.length,
+        added: [],
+        rejected
+      });
+      return { status: 400, jsonBody: { added: [], rejected } };
+    }
     const batchManifestHash = manifestHash(prepared);
-    const source = suppliedSource ?? "legacy_upload";
     const idempotencyKey = suppliedIdempotencyKey || legacyIdempotencyKey(req.params.id, actor, batchManifestHash);
     let caseId;
     try {
@@ -65738,15 +67113,25 @@ import_functions17.app.http("uploadCaseEvidence", {
       });
     } catch (error) {
       if (error instanceof UploadRefusal) {
+        const refused = files.map((file, fileIndex) => ({
+          fileIndex,
+          fileName: file.name,
+          reason: error.message
+        }));
+        await recordManualIntakeResult({
+          source,
+          caseId: req.params.id,
+          actor,
+          idempotencyKey,
+          selectedCount: files.length,
+          added: [],
+          rejected: refused
+        });
         return {
           status: error.status,
           jsonBody: {
             added: [],
-            rejected: files.map((file, fileIndex) => ({
-              fileIndex,
-              fileName: file.name,
-              reason: error.message
-            })),
+            rejected: refused,
             ...error.targetCaseId ? { targetCaseId: error.targetCaseId } : {}
           }
         };
@@ -65816,6 +67201,15 @@ import_functions17.app.http("uploadCaseEvidence", {
           reason: refusal?.message ?? "That file was not added. Try it again."
         });
         if (refusal?.targetCaseId) {
+          await recordManualIntakeResult({
+            source,
+            caseId,
+            actor,
+            idempotencyKey,
+            selectedCount: files.length,
+            added,
+            rejected
+          });
           return {
             status: 409,
             jsonBody: { added, rejected, targetCaseId: refusal.targetCaseId }
@@ -65823,9 +67217,81 @@ import_functions17.app.http("uploadCaseEvidence", {
         }
       }
     }
+    const confirmedIndexes = new Set(added.map((item) => item.fileIndex));
+    const batchComplete = rejected.length === 0 && added.length === files.length && confirmedIndexes.size === files.length;
+    let manualIntakeCompletion;
+    if (batchComplete) {
+      await tx(async (q) => {
+        await q(
+          `UPDATE staff_evidence_upload
+              SET completed_at = COALESCE(completed_at, now()), updated_at = now()
+            WHERE idempotency_key = $1 AND case_id = $2`,
+          [idempotencyKey, caseId]
+        );
+        if (source === "manual_intake" && manualIntakeOperation) {
+          manualIntakeCompletion = await completeManualIntakeEvidence(q, {
+            caseId,
+            uploadIdempotencyKey: idempotencyKey,
+            fileCount: files.length,
+            ...instructionFileIndex !== void 0 ? { instructionFileIndex } : {}
+          });
+        }
+        if (manualIntakeCompletion === "completed") {
+          await requestStatusRecompute(q, caseId);
+        }
+        if (manualIntakeCompletion === "already_complete" && await claimManualIntakeRecoveryAudit(q, {
+          caseId,
+          uploadIdempotencyKey: idempotencyKey,
+          fileCount: files.length,
+          ...instructionFileIndex !== void 0 ? { instructionFileIndex } : {}
+        })) {
+          await writeAuditStrict({
+            action: AUDIT_ACTION.evidence_upload_result,
+            caseId,
+            actor,
+            summary: `New case files confirmed after response loss (${added.length} of ${files.length})`,
+            after: {
+              idempotencyKey,
+              selectedCount: files.length,
+              completion: "already_complete",
+              recovered: true,
+              added,
+              rejected
+            }
+          }, q);
+        }
+      });
+    }
+    if (manualIntakeCompletion !== "already_complete") {
+      await recordManualIntakeResult({
+        source,
+        caseId,
+        actor,
+        idempotencyKey,
+        selectedCount: files.length,
+        added,
+        rejected,
+        ...manualIntakeCompletion ? { completion: manualIntakeCompletion } : {}
+      });
+    }
+    if (manualIntakeCompletion === "not_bound") {
+      return {
+        status: 409,
+        jsonBody: {
+          added,
+          rejected,
+          manualIntakeCompletion,
+          error: "The files were added, but this case still needs the retry to be confirmed."
+        }
+      };
+    }
     return {
       status: rejected.length ? added.length ? 207 : 400 : created > 0 ? 201 : 200,
-      jsonBody: { added, rejected }
+      jsonBody: {
+        added,
+        rejected,
+        ...manualIntakeCompletion ? { manualIntakeCompletion } : {}
+      }
     };
   })
 });
@@ -67472,15 +68938,15 @@ async function persistDraft(caseId, d) {
 var import_functions21 = require("@azure/functions");
 
 // api/src/lib/api-key-auth.ts
-var import_node_crypto12 = require("node:crypto");
+var import_node_crypto13 = require("node:crypto");
 var API_KEY_PREFIX = "cspk_";
 var SECRET_RANDOM_CHARS = 32;
 var KEY_PREFIX_LEN = 12;
 function hashApiKey(secret) {
-  return (0, import_node_crypto12.createHash)("sha256").update(secret, "utf8").digest("hex");
+  return (0, import_node_crypto13.createHash)("sha256").update(secret, "utf8").digest("hex");
 }
 function generateApiKey() {
-  const random = (0, import_node_crypto12.randomBytes)(24).toString("base64url");
+  const random = (0, import_node_crypto13.randomBytes)(24).toString("base64url");
   const plaintext = `${API_KEY_PREFIX}${random}`;
   return {
     plaintext,
@@ -67504,7 +68970,7 @@ async function verifyApiKey(presented) {
   for (const row of rows) {
     if (row.revoked_at) continue;
     const stored = Buffer.from(String(row.key_hash), "hex");
-    if (stored.length === presentedHash.length && (0, import_node_crypto12.timingSafeEqual)(stored, presentedHash)) {
+    if (stored.length === presentedHash.length && (0, import_node_crypto13.timingSafeEqual)(stored, presentedHash)) {
       matched = row;
       break;
     }
@@ -67636,7 +69102,7 @@ import_functions21.app.http("revokeProviderApiKey", {
 
 // api/src/functions/provider-intake.ts
 var import_functions22 = require("@azure/functions");
-var import_node_crypto13 = require("node:crypto");
+var import_node_crypto14 = require("node:crypto");
 
 // api/src/lib/provider-intake-validate.ts
 var DMY = /^\d{2}\/\d{2}\/\d{4}$/;
@@ -67685,6 +69151,16 @@ function validateProviderApiSubmission(raw) {
   if (!MILEAGE_UNITS.has(mileageUnit)) {
     return err("invalid_mileage_unit", "mileageUnit must be '', 'Miles' or 'Km'.");
   }
+  const mileage = str2(b.mileage).trim();
+  const parsedMileage = mileage ? parseExtractedEvaMileage(mileage) : void 0;
+  if (mileage && !parsedMileage) {
+    return err("invalid_mileage", "mileage must be numeric, with an optional standalone unit.");
+  }
+  const explicitMileageUnit = mileageUnit;
+  if (parsedMileage?.unit && explicitMileageUnit && parsedMileage.unit !== explicitMileageUnit) {
+    return err("invalid_mileage_unit", "The mileage unit suffix must match mileageUnit.");
+  }
+  const normalizedMileageUnit = explicitMileageUnit || parsedMileage?.unit || "";
   if (b.inspectionAddress !== void 0 && typeof b.inspectionAddress !== "string") {
     return err("invalid_inspection_address", "inspectionAddress must be a string when supplied.");
   }
@@ -67756,8 +69232,8 @@ function validateProviderApiSubmission(raw) {
       accidentCircumstances,
       inspectionAddress,
       vatStatus,
-      mileage: str2(b.mileage).replace(/[^\d]/g, "").slice(0, 20),
-      mileageUnit,
+      mileage: parsedMileage?.value ?? "",
+      mileageUnit: normalizedMileageUnit,
       instructions,
       images
     }
@@ -67788,7 +69264,7 @@ async function persistEvidence(ctx, caseId, kind, att, sequenceIndex) {
   try {
     const bytes = Buffer.from(att.base64Data, "base64");
     if (bytes.length === 0) return false;
-    const sha256 = (0, import_node_crypto13.createHash)("sha256").update(bytes).digest("hex");
+    const sha256 = (0, import_node_crypto14.createHash)("sha256").update(bytes).digest("hex");
     const { blobPath, size } = await uploadEvidenceBytes(caseId, att.filename, bytes, att.contentType);
     const kindCode = evidenceKindCodec.toInt(kind) ?? (kind === "image" ? 1e8 : 100000002);
     return await tx(async (q) => {
@@ -67994,5 +69470,507 @@ import_functions22.app.http("providerIntakeCase", {
     });
     const result = { caseId, casePo: created.casePo };
     return { status: 201, jsonBody: result };
+  })
+});
+
+// api/src/functions/vehicle-data.ts
+var import_functions23 = require("@azure/functions");
+
+// api/src/lib/vehicle-data-persistence.ts
+var import_node_crypto15 = require("node:crypto");
+
+// api/src/lib/enrichment-map.ts
+function combineMakeModel(make, model) {
+  const mk = (make ?? "").trim();
+  const md = (model ?? "").trim();
+  if (mk && md) {
+    return md.toUpperCase().startsWith(mk.toUpperCase()) ? md : `${mk} ${md}`;
+  }
+  return md || mk || "";
+}
+
+// api/src/lib/vehicle-data-persistence.ts
+function stableJson2(value) {
+  if (Array.isArray(value)) return `[${value.map(stableJson2).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => `${JSON.stringify(key)}:${stableJson2(item)}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+function vehicleDataDigest(value) {
+  return (0, import_node_crypto15.createHash)("sha256").update(stableJson2(value)).digest("hex");
+}
+var LOOKUP_MESSAGES = {
+  found: "Vehicle details could not be completed from the available history.",
+  not_found: "No vehicle record was found for this registration.",
+  invalid_registration: "Check the registration and try again.",
+  temporarily_unavailable: "Vehicle details are temporarily unavailable. Try again.",
+  configuration_error: "Vehicle lookup is unavailable. Ask a supervisor to check it."
+};
+function currentMileage(result) {
+  if (result.mileage.status !== "observed" && result.mileage.auto_fill_eligible !== true) return void 0;
+  return result.current_mileage ?? result.mileage.observed_mileage ?? result.mileage.estimated_mileage ?? void 0;
+}
+var HANDLER_MILEAGE_GUIDANCE = {
+  unknown_odometer_unit: "One MOT reading has no clear mileage unit. Check the history and enter the mileage manually.",
+  odometer_unit_contradiction: "The MOT mileage units do not agree. Check the history and enter the mileage manually.",
+  unresolved_odometer_reset: "The latest MOT mileage is lower than the earlier history. Check the odometer history before entering a mileage.",
+  forecast_horizon_exceeded: "The latest usable MOT is too old to fill the mileage safely. Check the history and enter it manually.",
+  registration_anchor_unavailable: "There is not enough reliable MOT history to fill the mileage. Check it and enter the mileage manually.",
+  pre_registration_use_detected: "There is not enough reliable MOT history to fill the mileage. Check it and enter the mileage manually.",
+  cohort_prior_unavailable: "There is not enough reliable MOT history to fill the mileage. Check it and enter the mileage manually.",
+  displayed_segment_only: "The odometer history includes a lower reading. Check the history before entering a mileage.",
+  autofill_calibration_required: "Check the estimated mileage before using it.",
+  uncalibrated_range: "Check the estimated mileage before using it."
+};
+function staffWarning(result) {
+  const messages = [];
+  const mileageWarnings = result.mileage.warnings ?? [];
+  const documentMileageIsAuthoritative = mileageWarnings.some(
+    (warning) => warning.code === "document_mileage_authoritative" || warning.code === "document_has_mileage"
+  );
+  if (!documentMileageIsAuthoritative) {
+    for (const warning of mileageWarnings) {
+      const guidance = HANDLER_MILEAGE_GUIDANCE[warning.code];
+      if (guidance && (warning.severity === "blocking" || warning.code === "autofill_calibration_required")) {
+        messages.push(guidance);
+      }
+    }
+  }
+  if (result.lookup.status !== "found") messages.push(LOOKUP_MESSAGES[result.lookup.status]);
+  for (const failedProvider of result.provider_snapshots.filter((snapshot2) => snapshot2.status !== "found")) {
+    if (failedProvider.provider === "dvsa_mot_history_v1") {
+      if (failedProvider.status === "temporarily_unavailable") {
+        messages.push("MOT history is temporarily unavailable. Try again.");
+      } else if (failedProvider.status === "configuration_error") {
+        messages.push("MOT history is unavailable. Ask a supervisor to check it.");
+      } else if (failedProvider.status === "not_found") {
+        messages.push("No MOT history was found for this registration.");
+      }
+    } else if (failedProvider.provider === "dvla_vehicle_enquiry_v1") {
+      if (failedProvider.status === "temporarily_unavailable") {
+        messages.push("Vehicle make and model are temporarily unavailable. Try again.");
+      } else if (failedProvider.status === "configuration_error") {
+        messages.push("Vehicle make and model are unavailable. Ask a supervisor to check it.");
+      } else if (failedProvider.status === "not_found") {
+        messages.push("No make or model was found for this registration.");
+      }
+    }
+  }
+  if (!documentMileageIsAuthoritative) {
+    if (result.mileage.status === "range_only" || result.mileage.status === "insufficient") {
+      if (!mileageWarnings.some((warning) => HANDLER_MILEAGE_GUIDANCE[warning.code])) {
+        messages.push("Mileage could not be filled in safely. Check the MOT history and enter it manually.");
+      }
+    } else if (result.mileage.status === "estimated" && !result.mileage.auto_fill_eligible) {
+      messages.push(HANDLER_MILEAGE_GUIDANCE.autofill_calibration_required);
+    }
+  }
+  return [...new Set(messages)].join(" ") || void 0;
+}
+function retryableLookup(result) {
+  return result.lookup.status === "temporarily_unavailable" || result.provider_snapshots.some((snapshot2) => snapshot2.status === "temporarily_unavailable");
+}
+async function loadVehicleDataReplay(caseId, idempotencyKey, requestSha256) {
+  const rows = await query(
+    `SELECT case_id, request_sha256, response_sha256, response_envelope
+       FROM vehicle_lookup_run WHERE idempotency_key = $1`,
+    [idempotencyKey]
+  );
+  const row = rows[0];
+  if (!row) return void 0;
+  if (row.case_id !== caseId || row.request_sha256 !== requestSha256) {
+    throw new Error("vehicle lookup idempotency key conflicts with another request");
+  }
+  const result = parseVehicleDataEnrichmentResponse(row.response_envelope);
+  if (!result || row.response_sha256 !== vehicleDataDigest(result)) {
+    throw new Error("persisted vehicle lookup replay failed integrity validation");
+  }
+  const warning = staffWarning(result);
+  return {
+    result,
+    persisted: {
+      applied: [],
+      ...warning ? { warning } : {},
+      retryable: retryableLookup(result),
+      replayed: true
+    }
+  };
+}
+async function insertProfile(q, kind, version2, digest, profile) {
+  if (!version2 || !digest) return;
+  await q(
+    `INSERT INTO mileage_model_profile (profile_kind, version, dataset_digest, profile)
+     VALUES ($1, $2, $3, $4::jsonb)
+     ON CONFLICT (profile_kind, version) DO NOTHING`,
+    [kind, version2, digest, JSON.stringify(profile)]
+  );
+  const existing = await q(
+    "SELECT profile_kind, dataset_digest FROM mileage_model_profile WHERE profile_kind = $1 AND version = $2",
+    [kind, version2]
+  );
+  if (!existing[0] || existing[0].profile_kind !== kind || existing[0].dataset_digest !== digest) {
+    throw new Error("mileage model profile version conflicts with persisted provenance");
+  }
+}
+async function insertFieldSource(q, caseId, runId, fieldName, value, sourceLabel) {
+  await q(
+    `INSERT INTO field_level_provenance
+       (name, case_id, field_name, value, source_type_code, source_label,
+        source_reference, review_state_code)
+     SELECT $1, $2, $3, $4, 100000005, $5, $6, 100000000
+      WHERE NOT EXISTS (
+        SELECT 1 FROM field_level_provenance
+         WHERE case_id = $2 AND field_name = $3 AND source_reference = $6
+      )`,
+    [`${caseId}:${fieldName}:${runId}`.slice(0, 200), caseId, fieldName, value, sourceLabel, runId]
+  );
+}
+async function persistVehicleData(caseId, result, requestContext) {
+  return tx(async (q) => {
+    const cases = await q(
+      `SELECT id, eva_vehicle_model, eva_mileage, eva_mileage_unit
+         FROM case_ WHERE id = $1 FOR UPDATE`,
+      [caseId]
+    );
+    const current = cases[0];
+    if (!current) throw new Error("case not found");
+    const calibrationProfile = result.mileage.calibration_profile;
+    const prior = result.mileage.prior;
+    await insertProfile(
+      q,
+      "calibration",
+      calibrationProfile?.version,
+      calibrationProfile?.dataset_digest,
+      calibrationProfile ?? {}
+    );
+    await insertProfile(q, "cohort_prior", prior?.version, prior?.dataset_digest, prior ?? {});
+    const responseSha256 = vehicleDataDigest(result);
+    const insertedRuns = await q(
+      `INSERT INTO vehicle_lookup_run
+         (id, case_id, contract_version, algorithm_version, requested_registration,
+          canonical_registration, target_date, lookup_status, retrieved_at,
+          idempotency_key, request_sha256, response_sha256, response_envelope, request_context)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14::jsonb)
+       ON CONFLICT (id) DO NOTHING
+       RETURNING id`,
+      [
+        result.lookup.run_id,
+        caseId,
+        result.contract_version,
+        result.algorithm_version,
+        result.lookup.requested_registration,
+        result.lookup.canonical_registration,
+        result.lookup.target_date,
+        result.lookup.status,
+        result.lookup.retrieved_at,
+        requestContext.idempotency_key ?? null,
+        requestContext.request_sha256,
+        responseSha256,
+        JSON.stringify(result),
+        JSON.stringify(requestContext)
+      ]
+    );
+    const runs = await q(
+      `SELECT case_id, idempotency_key, request_sha256, response_sha256
+         FROM vehicle_lookup_run WHERE id = $1`,
+      [result.lookup.run_id]
+    );
+    const run = runs[0];
+    const identityMatches = Boolean(
+      run && run.case_id === caseId && run.idempotency_key === (requestContext.idempotency_key ?? null) && run.request_sha256 === requestContext.request_sha256
+    );
+    const responseMustMatch = !requestContext.idempotency_key;
+    if (!identityMatches || responseMustMatch && run?.response_sha256 !== responseSha256) {
+      throw new Error("vehicle lookup replay content conflicts with the persisted run");
+    }
+    if (!insertedRuns[0]) {
+      const warning2 = staffWarning(result);
+      return {
+        applied: [],
+        ...warning2 ? { warning: warning2 } : {},
+        retryable: retryableLookup(result),
+        replayed: true
+      };
+    }
+    const snapshotIds = /* @__PURE__ */ new Map();
+    for (const snapshot2 of result.provider_snapshots) {
+      const inserted = await q(
+        `INSERT INTO vehicle_provider_snapshot
+           (lookup_run_id, provider, provider_status, retrieved_at, payload_sha256,
+            raw_payload, error_class, error_code)
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8)
+         ON CONFLICT (lookup_run_id, provider) DO NOTHING
+         RETURNING id`,
+        [
+          result.lookup.run_id,
+          snapshot2.provider,
+          snapshot2.status,
+          snapshot2.retrieved_at,
+          snapshot2.payload_sha256,
+          snapshot2.raw_payload == null ? null : JSON.stringify(snapshot2.raw_payload),
+          snapshot2.error_class,
+          snapshot2.error_code
+        ]
+      );
+      const existing = inserted[0] ?? (await q(
+        "SELECT id FROM vehicle_provider_snapshot WHERE lookup_run_id = $1 AND provider = $2",
+        [result.lookup.run_id, snapshot2.provider]
+      ))[0];
+      if (!existing) throw new Error("vehicle provider snapshot was not persisted");
+      const persistedSnapshots = await q(
+        `SELECT id, provider_status, payload_sha256 FROM vehicle_provider_snapshot
+          WHERE lookup_run_id = $1 AND provider = $2`,
+        [result.lookup.run_id, snapshot2.provider]
+      );
+      if (!persistedSnapshots[0] || persistedSnapshots[0].provider_status !== snapshot2.status || persistedSnapshots[0].payload_sha256 !== snapshot2.payload_sha256) throw new Error("vehicle provider snapshot conflicts with persisted run evidence");
+      snapshotIds.set(snapshot2.provider, existing.id);
+    }
+    const motSnapshotId = snapshotIds.get("dvsa_mot_history_v1");
+    if (motSnapshotId) {
+      for (const observation of result.mileage.evidence.observations) {
+        await q(
+          `INSERT INTO mot_odometer_observation
+             (lookup_run_id, provider_snapshot_id, observation_id, raw_index, data_source,
+              mot_test_number, completed_date_raw, test_date, test_result, odometer_value_raw,
+              odometer_unit_raw, odometer_result_type_raw, registration_at_test,
+              stable_vehicle_identity, normalized_miles, episode_number, segment_number, selected_for_event,
+              included_for_rate, decision_codes, warning_codes)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+           ON CONFLICT DO NOTHING`,
+          [
+            result.lookup.run_id,
+            motSnapshotId,
+            observation.observation_id,
+            observation.raw_index,
+            observation.source,
+            observation.mot_test_number,
+            observation.completed_date_raw,
+            observation.test_date,
+            observation.test_result,
+            observation.odometer_value_raw,
+            observation.odometer_unit_raw,
+            observation.odometer_result_type_raw,
+            observation.registration_at_test,
+            observation.stable_vehicle_identity,
+            observation.normalized_miles,
+            observation.episode,
+            observation.segment,
+            observation.selected_for_event,
+            observation.included_for_rate,
+            observation.decisions,
+            observation.warnings
+          ]
+        );
+      }
+    }
+    const range2 = result.mileage.prediction_interval ?? result.mileage.range;
+    await q(
+      `INSERT INTO mileage_estimate_result
+         (lookup_run_id, result_status, method, odometer_meaning, target_date,
+          observed_mileage, estimated_mileage, annual_rate_miles,
+          range_low_mileage, range_high_mileage, interval_coverage,
+          calibration_version, cohort_prior_version, warnings, evidence)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15::jsonb)
+       ON CONFLICT (lookup_run_id) DO NOTHING`,
+      [
+        result.lookup.run_id,
+        result.mileage.status,
+        result.mileage.method,
+        result.mileage.odometer_meaning,
+        result.mileage.target_date,
+        result.mileage.observed_mileage ?? null,
+        result.mileage.estimated_mileage ?? null,
+        result.mileage.annual_rate_miles ?? null,
+        range2?.lower_mileage ?? null,
+        range2?.upper_mileage ?? null,
+        result.mileage.prediction_interval?.coverage ?? null,
+        result.mileage.calibration_profile?.version ?? null,
+        result.mileage.prior?.version ?? null,
+        JSON.stringify(result.mileage.warnings),
+        JSON.stringify(result.mileage.evidence)
+      ]
+    );
+    const applied = [];
+    const model = combineMakeModel(result.make?.trim() ?? "", result.vehicle_model?.trim() ?? "");
+    const mileage = currentMileage(result);
+    if (model && !current.eva_vehicle_model?.trim()) {
+      await q("UPDATE case_ SET eva_vehicle_model = $2 WHERE id = $1", [caseId, model.slice(0, 200)]);
+      await insertFieldSource(q, caseId, result.lookup.run_id, "vehicleModel", model.slice(0, 200), "Vehicle record");
+      applied.push("vehicleModel");
+    }
+    if (mileage !== void 0 && !isValidEvaMileage(current.eva_mileage ?? "")) {
+      const exactMileage = String(mileage);
+      await q(
+        `UPDATE case_ SET eva_mileage = $2, eva_mileage_unit = 'Miles' WHERE id = $1`,
+        [caseId, exactMileage]
+      );
+      await insertFieldSource(q, caseId, result.lookup.run_id, "mileage", exactMileage, "MOT history estimate");
+      await insertFieldSource(q, caseId, result.lookup.run_id, "mileageUnit", "Miles", "MOT history estimate");
+      applied.push("mileage", "mileageUnit");
+    }
+    const warning = staffWarning(result);
+    const retryable = retryableLookup(result);
+    await q(
+      `UPDATE case_
+          SET last_vehicle_lookup_run_id = $2,
+              vehicle_lookup_status = $3,
+              vehicle_lookup_warning = $4,
+              vehicle_lookup_retryable = $5,
+              vehicle_lookup_attempted_at = $6,
+              vehicle_mileage_status = $7,
+              vehicle_mileage_method = $8,
+              updated_at = now()
+        WHERE id = $1`,
+      [
+        caseId,
+        result.lookup.run_id,
+        result.lookup.status,
+        warning ?? null,
+        retryable,
+        result.lookup.retrieved_at,
+        result.mileage.status,
+        result.mileage.method
+      ]
+    );
+    await writeAuditStrict({
+      action: AUDIT_ACTION.enrichment_called,
+      caseId,
+      summary: `Vehicle details checked: ${applied.length ? applied.join(", ") : "no empty fields filled"}`,
+      after: {
+        runId: result.lookup.run_id,
+        lookupStatus: result.lookup.status,
+        mileageStatus: result.mileage.status,
+        applied,
+        warning: warning ?? null
+      }
+    }, q);
+    return { applied, ...warning ? { warning } : {}, retryable, replayed: false };
+  });
+}
+
+// api/src/functions/vehicle-data.ts
+function allowedPrincipal(claims) {
+  const roles = Array.isArray(claims.roles) ? claims.roles.filter((v) => typeof v === "string") : [];
+  const staff = roles.some(
+    (role) => ["CollisionSpike.User", "CollisionSpike.Superuser", "CollisionSpike.Admin"].includes(role)
+  );
+  if (staff) return true;
+  const appOnly = claims.idtyp === "app" || !claims.scp && !claims.preferred_username;
+  if (!appOnly) return false;
+  const claimBag = claims;
+  const clientId = typeof claimBag.azp === "string" ? claimBag.azp : typeof claimBag.appid === "string" ? claimBag.appid : "";
+  const allowedServiceClients = new Set(
+    (process.env.VEHICLE_DATA_SERVICE_CLIENT_IDS ?? "").split(/[;,\s]+/).map((value) => value.trim().toLowerCase()).filter(Boolean)
+  );
+  return Boolean(clientId) && allowedServiceClients.has(clientId.toLowerCase());
+}
+function withVehicleLookupAuth(handler) {
+  return async (req, ctx) => {
+    try {
+      const claims = await authenticate(req);
+      if (!allowedPrincipal(claims)) return { status: 403, jsonBody: { error: "forbidden" } };
+      return await handler(req, ctx);
+    } catch (error) {
+      return toErrorResponse(error, ctx);
+    }
+  };
+}
+function isoDate(value) {
+  if (typeof value !== "string") return void 0;
+  const v = value.trim();
+  const iso2 = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const dmy = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const year2 = Number(iso2?.[1] ?? dmy?.[3]);
+  const month = Number(iso2?.[2] ?? dmy?.[2]);
+  const day2 = Number(iso2?.[3] ?? dmy?.[1]);
+  if (!year2 || !month || !day2) return void 0;
+  const parsed = new Date(Date.UTC(year2, month - 1, day2));
+  if (parsed.getUTCFullYear() !== year2 || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day2) return void 0;
+  return `${String(year2).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day2).padStart(2, "0")}`;
+}
+import_functions23.app.http("vehicleDataLookup", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "vehicle-data/lookup",
+  handler: withVehicleLookupAuth(async (req, ctx) => {
+    const body2 = await req.json().catch(() => ({}));
+    const caseId = typeof body2.caseId === "string" ? body2.caseId.trim() : "";
+    const previewRegistration = typeof body2.registration === "string" ? body2.registration.trim() : "";
+    if (!caseId && !previewRegistration) {
+      return { status: 400, jsonBody: { error: "supply caseId or registration" } };
+    }
+    if (body2.targetDate !== void 0 && !isoDate(body2.targetDate)) {
+      return { status: 400, jsonBody: { error: "targetDate must be YYYY-MM-DD" } };
+    }
+    const idempotencyKey = typeof body2.idempotencyKey === "string" ? body2.idempotencyKey.trim() : "";
+    if (idempotencyKey && (!caseId || idempotencyKey.length > 200)) {
+      return { status: 400, jsonBody: { error: "idempotencyKey requires caseId and must be at most 200 characters" } };
+    }
+    let registration = previewRegistration;
+    let documentHasMileage = false;
+    let targetDate = isoDate(body2.targetDate);
+    if (caseId) {
+      const rows = await query(
+        "SELECT vrm, eva_mileage, eva_date_of_loss FROM case_ WHERE id = $1",
+        [caseId]
+      );
+      if (!rows[0]) return { status: 404, jsonBody: { error: "case not found" } };
+      const savedRegistration = rows[0].vrm?.trim() ?? "";
+      if (savedRegistration && previewRegistration && canonicalizeVrm(savedRegistration) !== canonicalizeVrm(previewRegistration)) {
+        return { status: 409, jsonBody: { error: "registration conflicts with the saved case" } };
+      }
+      registration = savedRegistration || previewRegistration;
+      documentHasMileage = isValidEvaMileage(rows[0].eva_mileage ?? "");
+      targetDate ??= isoDate(rows[0].eva_date_of_loss);
+    }
+    if (!registration) return { status: 400, jsonBody: { error: "registration is required" } };
+    const requestShape = {
+      caseId,
+      registration: canonicalizeVrm(registration),
+      targetDate: targetDate ?? null
+    };
+    const requestSha256 = vehicleDataDigest(requestShape);
+    if (caseId && idempotencyKey) {
+      let replay;
+      try {
+        replay = await loadVehicleDataReplay(caseId, idempotencyKey, requestSha256);
+      } catch (error) {
+        throw new HttpError(409, error instanceof Error ? error.message : "vehicle lookup retry conflict");
+      }
+      if (replay) {
+        await recomputeStatus(caseId);
+        ctx.log(JSON.stringify({ evt: "vehicleDataLookupReplay", caseId, runId: replay.result.lookup.run_id }));
+        return { status: 200, jsonBody: { ...replay.result, persisted: replay.persisted } };
+      }
+    }
+    let result;
+    try {
+      result = await callVehicleData({
+        registration,
+        documentHasMileage,
+        ...targetDate ? { targetDate } : {},
+        ...idempotencyKey ? { idempotencyKey } : {}
+      });
+    } catch (error) {
+      ctx.error(error);
+      throw new HttpError(503, "Vehicle details are temporarily unavailable.");
+    }
+    if (!caseId) return { status: 200, jsonBody: result };
+    const persisted = await persistVehicleData(caseId, result, {
+      source: idempotencyKey ? "orchestration" : "case_lookup",
+      document_has_mileage: documentHasMileage,
+      ...idempotencyKey ? { idempotency_key: idempotencyKey } : {},
+      request_sha256: requestSha256
+    });
+    await recomputeStatus(caseId);
+    if (persisted.replayed && idempotencyKey) {
+      const replay = await loadVehicleDataReplay(caseId, idempotencyKey, requestSha256);
+      if (!replay) throw new Error("persisted vehicle lookup replay could not be loaded");
+      ctx.log(JSON.stringify({ evt: "vehicleDataLookupReplay", caseId, runId: replay.result.lookup.run_id }));
+      return { status: 200, jsonBody: { ...replay.result, persisted: replay.persisted } };
+    }
+    ctx.log(JSON.stringify({ evt: "vehicleDataLookup", caseId, runId: result.lookup.run_id, applied: persisted.applied }));
+    return { status: 200, jsonBody: { ...result, persisted } };
   })
 });
