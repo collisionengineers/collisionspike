@@ -7,27 +7,27 @@ loop still owns the ticket-status move, database delta, deployment and independe
 
 ## Commits
 
-- `3a38f22` — make Manual Intake case creation and its source-file batch resumable, target-bound and
+- `9be15f2` — make Manual Intake case creation and its source-file batch resumable, target-bound and
   truthful on partial failure.
-- `6274e52` — reconcile the source-file blocker with the merged canonical readiness contract.
-- `c64f74e` — pin the locked submission refusal while the source batch remains incomplete.
-- `a815ffe` — carry the source-file readiness group through the SPA checklist adapter.
-- `dd59f3d` — safely reopen a completed binding when a lost response is followed by a changed file
+- `c0f3a82` — reconcile the source-file blocker with the merged canonical readiness contract.
+- `51979b1` — pin the locked submission refusal while the source batch remains incomplete.
+- `9229ed7` — carry the source-file readiness group through the SPA checklist adapter.
+- `3090ca4` — safely reopen a completed binding when a lost response is followed by a changed file
   selection.
-- `eb5c6cf` — close independent-review gaps: reload-safe retry identity, per-file source roles,
+- `b00b22c` — close independent-review gaps: reload-safe retry identity, per-file source roles,
   tri-state completion, batch-result audits and truthful recovery controls.
-- `ed3bbcb` — close the second independent audit: durable post-create reconciliation, fixed
+- `53a56df` — close the second independent audit: durable post-create reconciliation, fixed
   instruction identity, strict role validation, one-time response-loss auditing and terminal archive
   recovery.
-- `427eb0a` — make terminal archive state atomically recompute canonical status and preserve
+- `44708d9` — make terminal archive state atomically recompute canonical status and preserve
   earlier-key/content-dedup source failures across changed-selection rebinds.
-- `b3b67d4` — preserve Manual Intake operation, batch, item and canonical evidence ownership through
+- `505f7b5` — preserve Manual Intake operation, batch, item and canonical evidence ownership through
   case merges, including the later dead-letter and survivor retry lifecycle.
-- `7c715d8` — semantically rebase over merged TKT-153 so explicit Save retains the source blocker and
+- `2076979` — semantically rebase over merged TKT-153 so explicit Save retains the source blocker and
   archive recovery advances the dirty draft, persisted baseline and concurrency version together.
-- `0d33d63` — limit terminal archive dead-lettering to Manual Intake-owned evidence so unrelated
+- `0ee53b1` — limit terminal archive dead-lettering to Manual Intake-owned evidence so unrelated
   automated evidence keeps retrying, and preserve the archive-failure distinction in recomputation.
-- `4e7c291` — transfer the durable upload batch before its items during case merge while keeping
+- `9fe981e` — transfer the durable upload batch before its items during case merge while keeping
   evidence rebinding ownership-neutral until that ordered transfer.
 
 ## Files touched
@@ -74,7 +74,7 @@ complete while the persisted status is still Not Ready.
 ## Offline checks
 
 - Full Domain suite: **1,138 tests passed**.
-- Full API suite: **656 tests passed**.
+- Full API suite: **658 tests passed**.
 - Full orchestration suite: **417 tests passed**.
 - Full SPA suite: **480 tests passed**.
 - Production TypeScript builds passed for Domain, API, orchestration and the SPA; the Vite bundle was

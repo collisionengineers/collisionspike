@@ -8,7 +8,7 @@ Deployment and the ticket-required disposable live-case proof remain owned by th
 ## Offline evidence
 
 - Domain: **56 files / 1,138 tests passed**.
-- Data API: **66 files / 656 tests passed**.
+- Data API: **66 files / 658 tests passed**.
 - Orchestration: **30 files / 417 tests passed**.
 - SPA: **42 files / 480 tests passed**.
 - Production TypeScript builds passed for Domain and the Data API; the SPA TypeScript/Vite build
