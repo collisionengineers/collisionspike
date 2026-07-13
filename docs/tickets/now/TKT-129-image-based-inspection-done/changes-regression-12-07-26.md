@@ -1,6 +1,32 @@
 # Regression changes — TKT-129 — 2026-07-12
 
 ## Status
-reopened for a simplified direct choice; implementation not started
+implemented and tested offline; deployment and fresh Chrome proof pending
 
-The earlier provider-default behavior remains, but its explanatory paragraph and mixed address/override UI are superseded by the follow-up acceptance.
+The earlier server-owned provider default remains. The Address tab now presents one controlled choice between an inspection address and Image Based Assessment.
+
+## What changed
+
+- Removed the paragraph beginning `This provider works from photos` from the rendered source and production build.
+- Replaced the scattered suggestion list plus override checkbox/button with one labelled radio choice.
+- Selecting Image Based Assessment hides search, suggested addresses and address-only actions. Selecting Inspection address reveals them again.
+- A new Image Based Assessment choice joins its required reason to the existing explicit Save changes transaction; it performs no isolated write.
+- An existing saved Image Based Assessment choice remains visible without inventing a new edit or demanding a replacement historical reason.
+- Returning to that saved choice after briefly selecting Inspection address is a true no-op: no reason, save request or navigation warning is created.
+- Switching away from an unsaved physical-address choice and back restores that draft and its source note.
+- Switching a saved image-based case to Inspection address clears the stale image-based draft and keeps Save blocked until an address is selected.
+- Ordinary unknown/manual cases remain address-first. The UI reflects saved image-based truth but does not infer it from an empty address.
+- The choice row wraps at narrow widths rather than forcing horizontal overflow.
+- The suggested-locations heading is hidden when there are no suggestions or suggestion action to show; address search remains available.
+
+## Offline evidence
+
+- `npm run test --workspace mockup-app -- --run src/components/InspectionChoice.test.tsx src/screens/case-edit-session.test.ts` — 16/16 passed.
+- `npm run test --workspace mockup-app` — 48 files / 515 tests passed after the review corrections.
+- `npm run build --workspace mockup-app` — passed.
+- Source and built-asset scan found zero copies of the removed paragraph and old override labels.
+
+## Pending live proof
+
+- Deploy the reviewed SPA head.
+- In Chrome, verify one configured image-based provider and one ordinary provider at desktop and narrow width, including choice switching, hidden controls, Save/Cancel and reload.
