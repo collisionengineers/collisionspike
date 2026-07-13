@@ -4,7 +4,8 @@ on:
   pull_request:
     paths:
       - api/openapi/capture.v1.yaml
-      - api/src/generated/capture-api.ts
+      - api/src/**
+      - migration/assets/schema/**
       - api/package.json
       - api/tsconfig.json
       - package.json
@@ -15,7 +16,8 @@ on:
     branches: [main]
     paths:
       - api/openapi/capture.v1.yaml
-      - api/src/generated/capture-api.ts
+      - api/src/**
+      - migration/assets/schema/**
       - api/package.json
       - api/tsconfig.json
       - package.json

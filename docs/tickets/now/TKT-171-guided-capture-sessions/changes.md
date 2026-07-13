@@ -23,6 +23,8 @@ app setting, cloud resource or live data was changed by this branch.
   72-hour expiry. Manifest string bounds match the case schema.
 - `api/src/generated/capture-api.ts`, `scripts/check-capture-contract.mjs` and
   `.github/workflows/capture-contract.yml` make generated types and contract validation reproducible.
+  The workflow also runs the complete Data API suite for every API-source or schema change, so a
+  capture implementation-only edit cannot bypass the server tests.
 - The contract is authoritative for the companion CollisionCapture client; staff/public transport
   changes must update the spec and generated consumers together.
 
