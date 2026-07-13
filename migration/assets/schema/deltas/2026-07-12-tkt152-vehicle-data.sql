@@ -6,11 +6,12 @@
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS mileage_model_profile (
-  version varchar(100) PRIMARY KEY,
+  version varchar(100) NOT NULL,
   profile_kind varchar(20) NOT NULL CHECK (profile_kind IN ('cohort_prior','calibration')),
   dataset_digest char(64) NOT NULL CHECK (dataset_digest ~ '^[0-9a-f]{64}$'),
   profile jsonb NOT NULL CHECK (jsonb_typeof(profile) = 'object'),
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (profile_kind, version)
 );
 
 CREATE TABLE IF NOT EXISTS vehicle_lookup_run (
@@ -97,12 +98,24 @@ CREATE TABLE IF NOT EXISTS mileage_estimate_result (
   range_low_mileage bigint CHECK (range_low_mileage IS NULL OR range_low_mileage >= 0),
   range_high_mileage bigint CHECK (range_high_mileage IS NULL OR range_high_mileage >= 0),
   interval_coverage numeric(5,4) CHECK (interval_coverage IS NULL OR interval_coverage BETWEEN 0 AND 1),
-  calibration_version varchar(100) REFERENCES mileage_model_profile(version) ON DELETE RESTRICT,
-  cohort_prior_version varchar(100) REFERENCES mileage_model_profile(version) ON DELETE RESTRICT,
+  calibration_profile_kind varchar(20) NOT NULL DEFAULT 'calibration',
+  calibration_version varchar(100),
+  cohort_prior_profile_kind varchar(20) NOT NULL DEFAULT 'cohort_prior',
+  cohort_prior_version varchar(100),
   warnings jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(warnings) = 'array'),
   evidence jsonb NOT NULL CHECK (jsonb_typeof(evidence) = 'object'),
   created_at timestamptz NOT NULL DEFAULT now(),
-  CHECK (range_low_mileage IS NULL OR range_high_mileage IS NULL OR range_low_mileage <= range_high_mileage)
+  CHECK (range_low_mileage IS NULL OR range_high_mileage IS NULL OR range_low_mileage <= range_high_mileage),
+  CONSTRAINT ck_mileage_estimate_calibration_kind
+    CHECK (calibration_profile_kind = 'calibration'),
+  CONSTRAINT ck_mileage_estimate_cohort_kind
+    CHECK (cohort_prior_profile_kind = 'cohort_prior'),
+  CONSTRAINT fk_mileage_estimate_calibration_profile
+    FOREIGN KEY (calibration_profile_kind, calibration_version)
+    REFERENCES mileage_model_profile(profile_kind, version) ON DELETE RESTRICT,
+  CONSTRAINT fk_mileage_estimate_cohort_profile
+    FOREIGN KEY (cohort_prior_profile_kind, cohort_prior_version)
+    REFERENCES mileage_model_profile(profile_kind, version) ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS ix_vehicle_lookup_run_registration_retrieved
@@ -129,6 +142,54 @@ ALTER TABLE vehicle_lookup_run
   ADD COLUMN IF NOT EXISTS request_sha256 char(64),
   ADD COLUMN IF NOT EXISTS response_sha256 char(64),
   ADD COLUMN IF NOT EXISTS response_envelope jsonb;
+
+-- Earlier pre-release applications used version as the sole profile key. A
+-- calibration and a cohort prior can legitimately share a release version, so
+-- reconcile those installs to the kind-qualified identity before writers run.
+ALTER TABLE mileage_estimate_result
+  DROP CONSTRAINT IF EXISTS mileage_estimate_result_calibration_version_fkey,
+  DROP CONSTRAINT IF EXISTS mileage_estimate_result_cohort_prior_version_fkey,
+  ADD COLUMN IF NOT EXISTS calibration_profile_kind varchar(20) NOT NULL DEFAULT 'calibration',
+  ADD COLUMN IF NOT EXISTS cohort_prior_profile_kind varchar(20) NOT NULL DEFAULT 'cohort_prior';
+
+DO $$
+DECLARE
+  existing_primary_key text;
+BEGIN
+  SELECT pg_get_constraintdef(oid)
+    INTO existing_primary_key
+    FROM pg_constraint
+   WHERE conrelid = 'mileage_model_profile'::regclass
+     AND contype = 'p';
+
+  IF existing_primary_key IS DISTINCT FROM 'PRIMARY KEY (profile_kind, version)' THEN
+    ALTER TABLE mileage_model_profile DROP CONSTRAINT IF EXISTS mileage_model_profile_pkey;
+    ALTER TABLE mileage_model_profile
+      ADD CONSTRAINT mileage_model_profile_pkey PRIMARY KEY (profile_kind, version);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_mileage_estimate_calibration_kind') THEN
+    ALTER TABLE mileage_estimate_result ADD CONSTRAINT ck_mileage_estimate_calibration_kind
+      CHECK (calibration_profile_kind = 'calibration');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_mileage_estimate_cohort_kind') THEN
+    ALTER TABLE mileage_estimate_result ADD CONSTRAINT ck_mileage_estimate_cohort_kind
+      CHECK (cohort_prior_profile_kind = 'cohort_prior');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_mileage_estimate_calibration_profile') THEN
+    ALTER TABLE mileage_estimate_result ADD CONSTRAINT fk_mileage_estimate_calibration_profile
+      FOREIGN KEY (calibration_profile_kind, calibration_version)
+      REFERENCES mileage_model_profile(profile_kind, version) ON DELETE RESTRICT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_mileage_estimate_cohort_profile') THEN
+    ALTER TABLE mileage_estimate_result ADD CONSTRAINT fk_mileage_estimate_cohort_profile
+      FOREIGN KEY (cohort_prior_profile_kind, cohort_prior_version)
+      REFERENCES mileage_model_profile(profile_kind, version) ON DELETE RESTRICT;
+  END IF;
+END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_vehicle_lookup_run_idempotency
   ON vehicle_lookup_run (idempotency_key) WHERE idempotency_key IS NOT NULL;
 

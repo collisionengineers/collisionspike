@@ -235,6 +235,35 @@ def test_latest_numeric_unknown_unit_abstains_even_with_calibration():
     assert "unknown_odometer_unit" in warning_codes(result)
 
 
+def test_exact_target_observation_wins_before_an_unrelated_unknown_unit_row():
+    record = vehicle(
+        mot("2022-01-01", "30000", number="1"),
+        mot("2023-01-01", "40000", number="2", unit="UNKNOWN"),
+        mot("2024-01-01", "50000", number="3"),
+    )
+    result = estimate_displayed_mileage(
+        record, target_date=date(2024, 1, 1), calibration=calibration()
+    )
+    assert result["status"] == "observed"
+    assert result["method"] == "observed_mot"
+    assert result["observed_mileage"] == 50000
+
+
+def test_estimator_exposes_the_actual_calibration_profile_for_persistence():
+    profile = calibration()
+    record = vehicle(
+        mot("2022-01-01", "30000", number="1"),
+        mot("2023-01-01", "40000", number="2"),
+    )
+    result = estimate_displayed_mileage(
+        record, target_date=date(2023, 6, 1), calibration=profile
+    )
+    assert result["calibration_profile"] == profile.to_contract()
+    assert result["calibration_profile"]["buckets"] != [
+        result["prediction_interval"]
+    ]
+
+
 def test_small_negative_interval_is_not_trusted_for_interpolation():
     record = vehicle(
         mot("2023-01-01", "100000", number="1"),
@@ -562,6 +591,7 @@ def test_malformed_or_undersized_calibration_cannot_create_a_probability_claim()
     )
     assert result["status"] == "estimated"
     assert result["prediction_interval"] is None
+    assert "calibration_profile" not in result
     assert "uncalibrated_range" in warning_codes(result)
 
 

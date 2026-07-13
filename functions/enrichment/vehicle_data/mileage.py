@@ -682,6 +682,7 @@ def _apply_interval(
             high = min(high, hard_high)
         if low <= high:
             result["status"] = "estimated"
+            result["calibration_profile"] = calibration.to_contract()
             result["prediction_interval"] = {
                 "coverage": calibration.target_coverage,
                 "lower_mileage": _round_hundred(low),
@@ -746,11 +747,6 @@ def estimate_displayed_mileage(
     if not history.events:
         result["reason"] = "No readable MOT odometer observations are available."
         return result
-    if history.unresolved_unit:
-        result["reason"] = "The odometer unit history is contradictory."
-        result["warnings"] = _warnings(history, ["odometer_unit_contradiction"])
-        return result
-
     # Exact observation: return the exact normalised reading, never rounded.
     exact = next((event for event in history.events if event.date == target_date), None)
     if exact:
@@ -769,6 +765,14 @@ def estimate_displayed_mileage(
                 "auto_fill_eligible": True,
             }
         )
+        return result
+
+    # An exact target-date observation is authoritative even when a separate,
+    # unrelated row has an unknown unit. Forecasting/interpolation must still
+    # abstain across that ambiguity.
+    if history.unresolved_unit:
+        result["reason"] = "The odometer unit history is contradictory."
+        result["warnings"] = _warnings(history, ["odometer_unit_contradiction"])
         return result
 
     # Bounded interpolation uses two trusted, monotonic observations. The

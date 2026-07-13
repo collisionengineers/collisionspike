@@ -1,4 +1,8 @@
-import type { CreateCaseInput } from '@cs/domain';
+import {
+  isValidEvaMileage,
+  type CreateCaseInput,
+  type MileageUnit,
+} from '@cs/domain';
 
 export type ManualIntakeMode = 'document' | 'manual' | 'images';
 
@@ -51,4 +55,55 @@ export function manualVehicleModel(make: string, model: string): string {
     return cleanModel;
   }
   return `${cleanMake} ${cleanModel}`;
+}
+
+export interface ManualVehicleDraft {
+  make: string;
+  vehicleModel: string;
+  mileage: string;
+  mileageUnit: MileageUnit;
+}
+
+export interface ManualVehicleLookupDefaults {
+  make?: string;
+  vehicleModel?: string;
+  currentMileage?: number;
+  mileageUnit?: MileageUnit;
+}
+
+/**
+ * Apply lookup values as defaults, never as an overwrite. A valid parsed or
+ * staff-entered mileage/model wins. Invalid legacy mileage is unresolved data,
+ * so a defensible lookup may replace that value and its paired unit together.
+ */
+export function mergeManualVehicleLookup(
+  current: ManualVehicleDraft,
+  lookup: ManualVehicleLookupDefaults,
+): ManualVehicleDraft {
+  const lookupMake = lookup.make?.trim() ?? '';
+  const lookupModel = lookup.vehicleModel?.trim() ?? '';
+  const make = current.make.trim() ? current.make : lookupMake || current.make;
+  const vehicleModel = current.vehicleModel.trim()
+    ? current.vehicleModel
+    : lookupModel
+      ? manualVehicleModel(make, lookupModel)
+      : current.vehicleModel;
+
+  if (isValidEvaMileage(current.mileage)) {
+    return { ...current, make, vehicleModel };
+  }
+
+  const lookedUpMileage = lookup.currentMileage === undefined
+    ? undefined
+    : String(lookup.currentMileage);
+  if (!lookedUpMileage || !isValidEvaMileage(lookedUpMileage)) {
+    return { ...current, make, vehicleModel };
+  }
+
+  return {
+    make,
+    vehicleModel,
+    mileage: lookedUpMileage,
+    mileageUnit: lookup.mileageUnit === 'Km' ? 'Km' : 'Miles',
+  };
 }

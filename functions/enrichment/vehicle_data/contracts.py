@@ -89,6 +89,17 @@ class CalibrationBucket:
     error_q_high: float
     sample_size: int
 
+    def to_contract(self) -> dict[str, object]:
+        return {
+            "method": self.method,
+            "max_horizon_days": self.max_horizon_days,
+            "min_clean_intervals": self.min_clean_intervals,
+            "anomaly_class": self.anomaly_class,
+            "error_q_low": self.error_q_low,
+            "error_q_high": self.error_q_high,
+            "sample_size": self.sample_size,
+        }
+
     def matches(
         self,
         *,
@@ -119,16 +130,46 @@ class CalibrationProfile:
     holdout_sample_size: int = 0
     observed_coverage: float = 0.0
 
+    def to_contract(self) -> dict[str, object]:
+        """The actual immutable profile, not a selected lookup interval."""
+
+        return {
+            "version": self.version,
+            "dataset_digest": self.dataset_digest,
+            "target_coverage": self.target_coverage,
+            "useful_tolerance_miles": self.useful_tolerance_miles,
+            "validated_horizon_days": self.validated_horizon_days,
+            "minimum_bucket_size": self.minimum_bucket_size,
+            "holdout_sample_size": self.holdout_sample_size,
+            "observed_coverage": self.observed_coverage,
+            "buckets": [bucket.to_contract() for bucket in self.buckets],
+        }
+
     @property
     def defensible(self) -> bool:
         return (
             bool(self.version.strip())
             and re.fullmatch(r"[0-9a-f]{64}", self.dataset_digest) is not None
+            and math.isfinite(self.target_coverage)
             and 0.5 <= self.target_coverage < 1
             and self.useful_tolerance_miles > 0
             and self.validated_horizon_days > 0
             and self.minimum_bucket_size >= 30
+            and self.holdout_sample_size >= 0
+            and math.isfinite(self.observed_coverage)
+            and 0 <= self.observed_coverage <= 1
             and bool(self.buckets)
+            and all(
+                bool(bucket.method.strip())
+                and bucket.max_horizon_days > 0
+                and bucket.min_clean_intervals >= 0
+                and bool(bucket.anomaly_class.strip())
+                and math.isfinite(bucket.error_q_low)
+                and math.isfinite(bucket.error_q_high)
+                and bucket.error_q_low <= bucket.error_q_high
+                and bucket.sample_size > 0
+                for bucket in self.buckets
+            )
         )
 
     @property

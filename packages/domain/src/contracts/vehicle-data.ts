@@ -160,6 +160,35 @@ const cohortPriorSchema = z
   })
   .strict();
 
+const calibrationBucketSchema = z
+  .object({
+    method: z.string().min(1),
+    max_horizon_days: z.number().int().positive(),
+    min_clean_intervals: nonNegativeInteger,
+    anomaly_class: z.string().min(1),
+    error_q_low: z.number().finite(),
+    error_q_high: z.number().finite(),
+    sample_size: z.number().int().positive(),
+  })
+  .strict()
+  .refine((value) => value.error_q_low <= value.error_q_high, {
+    message: 'calibration bucket lower residual exceeds upper residual',
+  });
+
+const calibrationProfileSchema = z
+  .object({
+    version: z.string().min(1),
+    dataset_digest: sha256Schema,
+    target_coverage: z.number().min(0.5).lt(1),
+    useful_tolerance_miles: z.number().int().positive(),
+    validated_horizon_days: z.number().int().positive(),
+    minimum_bucket_size: z.number().int().min(30),
+    holdout_sample_size: nonNegativeInteger,
+    observed_coverage: z.number().min(0).max(1),
+    buckets: z.array(calibrationBucketSchema).min(1),
+  })
+  .strict();
+
 const mileageSchema = z
   .object({
     status: z.enum(MILEAGE_OUTCOME_STATUSES),
@@ -175,6 +204,7 @@ const mileageSchema = z
     prediction_interval: predictionIntervalSchema.nullable().optional(),
     range: mileageRangeSchema.nullable().optional(),
     prior: cohortPriorSchema.nullable().optional(),
+    calibration_profile: calibrationProfileSchema.nullable().optional(),
     warnings: z.array(vehicleDataWarningSchema),
     evidence: z
       .object({
@@ -247,6 +277,26 @@ export const vehicleDataEnrichmentResponseSchema = z
         code: z.ZodIssueCode.custom,
         path: ['mileage', 'auto_fill_eligible'],
         message: 'estimate autofill requires an empirical prediction interval',
+      });
+    }
+    const interval = value.mileage.prediction_interval;
+    const profile = value.mileage.calibration_profile;
+    if (interval && !profile) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['mileage', 'calibration_profile'],
+        message: 'prediction interval requires its complete calibration profile',
+      });
+    } else if (
+      interval &&
+      profile &&
+      (interval.calibration_version !== profile.version ||
+        interval.dataset_digest !== profile.dataset_digest)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['mileage', 'calibration_profile'],
+        message: 'calibration profile does not match the selected prediction interval',
       });
     }
   });

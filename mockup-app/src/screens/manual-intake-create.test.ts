@@ -4,6 +4,7 @@ import {
   createIdentityFields,
   IMAGE_ONLY_IDENTITY_ORDER,
   manualVehicleModel,
+  mergeManualVehicleLookup,
 } from './manual-intake-create';
 
 const values = {
@@ -18,6 +19,30 @@ describe('manual vehicle identity', () => {
     expect(manualVehicleModel('Ford', 'Focus')).toBe('Ford Focus');
     expect(manualVehicleModel('Ford', 'FORD Focus')).toBe('FORD Focus');
     expect(manualVehicleModel('', 'Focus')).toBe('Focus');
+  });
+
+  it('uses lookup values only for absent or invalid vehicle fields', () => {
+    expect(mergeManualVehicleLookup(
+      { make: '', vehicleModel: '', mileage: 'unknown', mileageUnit: '' },
+      { make: 'Ford', vehicleModel: 'Focus', currentMileage: 52_000, mileageUnit: 'Miles' },
+    )).toEqual({
+      make: 'Ford',
+      vehicleModel: 'Ford Focus',
+      mileage: '52000',
+      mileageUnit: 'Miles',
+    });
+  });
+
+  it('preserves parsed and staff-entered vehicle values during lookup', () => {
+    expect(mergeManualVehicleLookup(
+      { make: 'Staff make', vehicleModel: 'Parsed model', mileage: '41000', mileageUnit: 'Km' },
+      { make: 'Ford', vehicleModel: 'Focus', currentMileage: 52_000, mileageUnit: 'Miles' },
+    )).toEqual({
+      make: 'Staff make',
+      vehicleModel: 'Parsed model',
+      mileage: '41000',
+      mileageUnit: 'Km',
+    });
   });
 });
 

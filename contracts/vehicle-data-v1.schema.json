@@ -41,6 +41,21 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "mileage": {
+            "required": ["prediction_interval"],
+            "properties": { "prediction_interval": { "type": "object" } }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "mileage": { "required": ["calibration_profile"] }
+        }
+      }
     }
   ],
   "properties": {
@@ -146,6 +161,12 @@
             }
           ]
         },
+        "calibration_profile": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/calibrationProfile" }
+          ]
+        },
         "warnings": { "type": "array", "items": { "$ref": "#/$defs/warning" } },
         "evidence": {
           "type": "object",
@@ -169,6 +190,40 @@
   "$defs": {
     "lookupStatus": {
       "enum": ["found", "not_found", "invalid_registration", "temporarily_unavailable", "configuration_error"]
+    },
+    "calibrationBucket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "max_horizon_days", "min_clean_intervals", "anomaly_class", "error_q_low", "error_q_high", "sample_size"],
+      "properties": {
+        "method": { "type": "string", "minLength": 1 },
+        "max_horizon_days": { "type": "integer", "minimum": 1 },
+        "min_clean_intervals": { "type": "integer", "minimum": 0 },
+        "anomaly_class": { "type": "string", "minLength": 1 },
+        "error_q_low": { "type": "number" },
+        "error_q_high": { "type": "number" },
+        "sample_size": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "calibrationProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "dataset_digest", "target_coverage", "useful_tolerance_miles", "validated_horizon_days", "minimum_bucket_size", "holdout_sample_size", "observed_coverage", "buckets"],
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "dataset_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "target_coverage": { "type": "number", "minimum": 0.5, "exclusiveMaximum": 1 },
+        "useful_tolerance_miles": { "type": "integer", "minimum": 1 },
+        "validated_horizon_days": { "type": "integer", "minimum": 1 },
+        "minimum_bucket_size": { "type": "integer", "minimum": 30 },
+        "holdout_sample_size": { "type": "integer", "minimum": 0 },
+        "observed_coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+        "buckets": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/calibrationBucket" }
+        }
+      }
     },
     "warning": {
       "type": "object",

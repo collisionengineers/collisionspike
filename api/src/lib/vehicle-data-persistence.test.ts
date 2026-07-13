@@ -19,14 +19,14 @@ async function dbQuery(sql: string, params: unknown[] = []): Promise<Record<stri
       harness.calls.push({ sql, params });
       if (sql.includes('FROM case_ WHERE id = $1 FOR UPDATE')) return [harness.caseRow];
       if (sql.includes('INSERT INTO mileage_model_profile')) {
-        harness.profileRows.set(String(params[0]), {
-          profile_kind: params[1],
+        harness.profileRows.set(`${String(params[0])}:${String(params[1])}`, {
+          profile_kind: params[0],
           dataset_digest: params[2],
         });
         return [];
       }
       if (sql.includes('SELECT profile_kind, dataset_digest FROM mileage_model_profile')) {
-        const row = harness.profileRows.get(String(params[0]));
+        const row = harness.profileRows.get(`${String(params[0])}:${String(params[1])}`);
         return row ? [row] : [];
       }
       if (sql.includes('INSERT INTO vehicle_lookup_run')) {
@@ -104,6 +104,25 @@ function result() {
         dataset_digest: 'b'.repeat(64),
         sample_size: 1000,
       },
+      calibration_profile: {
+        version: 'calibration-v1',
+        dataset_digest: 'b'.repeat(64),
+        target_coverage: 0.9,
+        useful_tolerance_miles: 2500,
+        validated_horizon_days: 730,
+        minimum_bucket_size: 30,
+        holdout_sample_size: 1000,
+        observed_coverage: 0.9,
+        buckets: [{
+          method: 'recent_rate_forecast',
+          max_horizon_days: 730,
+          min_clean_intervals: 1,
+          anomaly_class: 'clean',
+          error_q_low: -3000,
+          error_q_high: 3000,
+          sample_size: 1000,
+        }],
+      },
       range: { lower_mileage: 46_000, upper_mileage: 54_000, basis: 'rate_dispersion_not_calibrated' },
       warnings: [],
       evidence: { observations: [], intervals: [], anomaly_class: 'clean' },
@@ -140,6 +159,17 @@ describe('persistVehicleData', () => {
     expect(mileageUpdate?.params).toEqual(['case-1', '50000']);
     expect(harness.calls.some((call) => call.sql.includes('INSERT INTO mileage_estimate_result'))).toBe(true);
     expect(harness.calls.some((call) => call.sql.includes('INSERT INTO vehicle_lookup_run'))).toBe(true);
+    const calibrationInsert = harness.calls.find(
+      (call) =>
+        call.sql.includes('INSERT INTO mileage_model_profile') &&
+        call.params[0] === 'calibration',
+    );
+    expect(JSON.parse(String(calibrationInsert?.params[3]))).toEqual(
+      result().mileage.calibration_profile,
+    );
+    expect(JSON.parse(String(calibrationInsert?.params[3]))).not.toEqual(
+      result().mileage.prediction_interval,
+    );
   });
 
   it('does not replace parser or staff-confirmed vehicle fields', async () => {
@@ -289,5 +319,66 @@ describe('persistVehicleData', () => {
     expect(persisted.retryable).toBe(true);
     expect(persisted.warning).toContain('MOT history is temporarily unavailable');
     expect(persisted.warning).toContain('Vehicle make and model are unavailable');
+  });
+
+  it('namespaces equal model versions by profile kind', async () => {
+    const sameVersion = result();
+    sameVersion.mileage.prior = {
+      version: 'calibration-v1',
+      dataset_digest: 'c'.repeat(64),
+      annual_rate_miles: 8000,
+      annual_sigma_miles: 2500,
+      sample_size: 1000,
+      cohort: { vehicle_type: 'all' },
+    };
+    await persistVehicleData('case-1', sameVersion, {
+      source: 'case_lookup',
+      document_has_mileage: false,
+      request_sha256: '2'.repeat(64),
+    });
+    expect([...harness.profileRows.keys()].sort()).toEqual([
+      'calibration:calibration-v1',
+      'cohort_prior:calibration-v1',
+    ]);
+  });
+
+  it('translates estimator diagnostics into handler guidance and suppresses document-mileage skips', async () => {
+    const diagnostic = result();
+    diagnostic.mileage.status = 'insufficient';
+    diagnostic.mileage.auto_fill_eligible = false;
+    delete diagnostic.current_mileage;
+    diagnostic.mileage.reason = 'internal_estimator_branch_x';
+    diagnostic.mileage.warnings = [{
+      code: 'unknown_odometer_unit',
+      severity: 'blocking',
+      message: 'internal diagnostic should never render',
+    }];
+    const persisted = await persistVehicleData('case-1', diagnostic, {
+      source: 'case_lookup',
+      document_has_mileage: false,
+      request_sha256: '3'.repeat(64),
+    });
+    expect(persisted.warning).toContain('One MOT reading has no clear mileage unit');
+    expect(persisted.warning).not.toContain('internal');
+
+    harness.runRow = undefined;
+    const authoritative = result();
+    authoritative.mileage.status = 'insufficient';
+    authoritative.mileage.method = 'none';
+    authoritative.mileage.auto_fill_eligible = false;
+    authoritative.mileage.prediction_interval = null;
+    authoritative.mileage.calibration_profile = null;
+    delete authoritative.current_mileage;
+    authoritative.mileage.warnings = [{
+      code: 'document_mileage_authoritative',
+      severity: 'warning',
+      message: 'Mileage from the instruction is authoritative; the MOT estimate was skipped.',
+    }];
+    const skipped = await persistVehicleData('case-1', authoritative, {
+      source: 'case_lookup',
+      document_has_mileage: true,
+      request_sha256: '4'.repeat(64),
+    });
+    expect(skipped.warning).toBeUndefined();
   });
 });

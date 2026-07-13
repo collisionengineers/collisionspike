@@ -46,6 +46,7 @@ import { shouldAttemptPdfVrmMatch } from './activities/imagesReceivedVrmMatch.js
 import { shouldLinkReplyToCase } from './activities/reply-link-eligibility.js';
 import { shouldAttemptTriageAssist } from './gated/triage-classify.js';
 import { decideCaseType, decideRetro, categoryMintsCase } from '@cs/domain';
+import { vehicleDataIntakeIdempotencyKey } from '../lib/vehicle-data-intake.js';
 import type { TriagePolicyDecision } from '@cs/domain';
 
 const retry = new df.RetryOptions(/*firstRetryIntervalInMilliseconds*/ 5_000, /*maxNumberOfAttempts*/ 3);
@@ -762,14 +763,24 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // (parser PDF VRM preferred over the email sniff) + whether the doc already had mileage;
   // the activity persists the advisory result and recomputes readiness. This is
   // record completion, so `manual` providers are not silently skipped.
-  yield ctx.df.callActivityWithRetry('enrich', retry, {
-    caseId: resolved.caseId,
-    vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
-    documentHasMileage,
-    // Durable replays/retries of this intake instance must resolve to one
-    // immutable lookup run and one audit/provenance write.
-    idempotencyKey: `intake:${ctx.df.instanceId}:vehicle-data:${resolved.caseId}`,
-  });
+  try {
+    yield ctx.df.callActivityWithRetry('enrich', retry, {
+      caseId: resolved.caseId,
+      vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
+      documentHasMileage,
+      // Durable replays/retries of this intake instance must resolve to one
+      // immutable lookup run and one audit/provenance write. Graph-backed
+      // instance ids are hashed because the Data API key is deliberately bounded.
+      idempotencyKey: vehicleDataIntakeIdempotencyKey(ctx.df.instanceId, resolved.caseId),
+    });
+  } catch (error) {
+    // Vehicle completion is advisory. Transient transport faults receive the
+    // normal Durable retry window, but exhausting it must not abort an intake
+    // whose case and evidence have already been committed.
+    if (!ctx.df.isReplaying) {
+      ctx.error(`[intake] vehicle details unavailable for case ${resolved.caseId} (non-blocking): ${String(error)}`);
+    }
+  }
 
   return { caseId: resolved.caseId, status: status.value, mode: automationMode };
 });

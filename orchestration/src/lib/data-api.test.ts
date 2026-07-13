@@ -5,6 +5,7 @@ vi.stubGlobal('fetch', fetchMock);
 
 const {
   dataApi,
+  DataApiHttpError,
   EvidenceBackfillReclassificationRequiredError,
   EvidenceBackfillTargetChangedError,
 } = await import('./data-api.js');
@@ -158,6 +159,23 @@ describe('canonical vehicle lookup contract', () => {
       registration: 'AB12CDE',
       idempotencyKey: 'intake:instance-1:vehicle-data:case-1',
     });
+  });
+
+  it('preserves non-conflict HTTP status for advisory retry classification', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('forbidden', { status: 403 }));
+    const forbidden = await dataApi.lookupVehicle('case-1', 'AB12CDE').catch(
+      (error: unknown) => error,
+    );
+    expect(forbidden).toBeInstanceOf(DataApiHttpError);
+    expect((forbidden as InstanceType<typeof DataApiHttpError>).status).toBe(403);
+    expect((forbidden as InstanceType<typeof DataApiHttpError>).detail).toBe('forbidden');
+
+    fetchMock.mockResolvedValueOnce(new Response('unavailable', { status: 503 }));
+    const unavailable = await dataApi.lookupVehicle('case-1', 'AB12CDE').catch(
+      (error: unknown) => error,
+    );
+    expect(unavailable).toBeInstanceOf(DataApiHttpError);
+    expect((unavailable as InstanceType<typeof DataApiHttpError>).status).toBe(503);
   });
 });
 

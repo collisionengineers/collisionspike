@@ -143,13 +143,27 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     throw new ConflictError(`${method} ${path} → 409: ${detail}`);
   }
   if (!res.ok) {
-    throw new Error(`data-api ${method} ${path} → ${res.status}: ${await safeText(res)}`);
+    const detail = await safeText(res);
+    throw new DataApiHttpError(
+      `data-api ${method} ${path} → ${res.status}: ${detail}`,
+      res.status,
+      detail,
+    );
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
 export class ConflictError extends Error {}
+export class DataApiHttpError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly detail: string,
+  ) {
+    super(message);
+  }
+}
 export class EvidenceBackfillTargetChangedError extends ConflictError {}
 export class EvidenceBackfillReclassificationRequiredError extends ConflictError {
   constructor(message: string, public readonly targetCaseId?: string) {

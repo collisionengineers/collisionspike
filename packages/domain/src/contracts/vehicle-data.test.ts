@@ -103,6 +103,25 @@ describe('vehicle-data consumer contract parity', () => {
           dataset_digest: 'b'.repeat(64),
           sample_size: 1000,
         },
+        calibration_profile: {
+          version: 'calibration-v1',
+          dataset_digest: 'b'.repeat(64),
+          target_coverage: 0.9,
+          useful_tolerance_miles: 2500,
+          validated_horizon_days: 730,
+          minimum_bucket_size: 30,
+          holdout_sample_size: 1000,
+          observed_coverage: 0.9,
+          buckets: [{
+            method: 'recent_rate_forecast',
+            max_horizon_days: 730,
+            min_clean_intervals: 1,
+            anomaly_class: 'clean',
+            error_q_low: -3000,
+            error_q_high: 3000,
+            sample_size: 1000,
+          }],
+        },
         range: {
           lower_mileage: 46_000,
           upper_mileage: 54_000,
@@ -150,6 +169,12 @@ describe('vehicle-data consumer contract parity', () => {
       isVehicleDataEnrichmentResponse({
         ...valid,
         provider_snapshots: [{ ...valid.provider_snapshots[0], payload_sha256: 'bad' }],
+      }),
+    ).toBe(false);
+    expect(
+      isVehicleDataEnrichmentResponse({
+        ...valid,
+        mileage: { ...valid.mileage, calibration_profile: null },
       }),
     ).toBe(false);
     expect(

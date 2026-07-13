@@ -3,7 +3,6 @@ import {
   isValidEvaMileage,
   parseVehicleDataEnrichmentResponse,
   type VehicleDataEnrichmentResponse,
-  type VehicleDataWarning,
 } from '@cs/domain';
 import { query, tx, type TxQuery } from './db.js';
 import { combineMakeModel } from './enrichment-map.js';
@@ -58,14 +57,33 @@ function currentMileage(result: VehicleDataEnrichmentResponse): number | undefin
   return result.current_mileage ?? result.mileage.observed_mileage ?? result.mileage.estimated_mileage ?? undefined;
 }
 
-function blockingWarning(result: VehicleDataEnrichmentResponse): VehicleDataWarning | undefined {
-  return (result.mileage.warnings ?? []).find((warning) => warning.severity === 'blocking');
-}
+const HANDLER_MILEAGE_GUIDANCE: Record<string, string> = {
+  unknown_odometer_unit: 'One MOT reading has no clear mileage unit. Check the history and enter the mileage manually.',
+  odometer_unit_contradiction: 'The MOT mileage units do not agree. Check the history and enter the mileage manually.',
+  unresolved_odometer_reset: 'The latest MOT mileage is lower than the earlier history. Check the odometer history before entering a mileage.',
+  forecast_horizon_exceeded: 'The latest usable MOT is too old to fill the mileage safely. Check the history and enter it manually.',
+  registration_anchor_unavailable: 'There is not enough reliable MOT history to fill the mileage. Check it and enter the mileage manually.',
+  pre_registration_use_detected: 'There is not enough reliable MOT history to fill the mileage. Check it and enter the mileage manually.',
+  cohort_prior_unavailable: 'There is not enough reliable MOT history to fill the mileage. Check it and enter the mileage manually.',
+  displayed_segment_only: 'The odometer history includes a lower reading. Check the history before entering a mileage.',
+  autofill_calibration_required: 'Check the estimated mileage before using it.',
+  uncalibrated_range: 'Check the estimated mileage before using it.',
+};
 
 function staffWarning(result: VehicleDataEnrichmentResponse): string | undefined {
   const messages: string[] = [];
-  const blocking = blockingWarning(result);
-  if (blocking?.message) messages.push(blocking.message);
+  const mileageWarnings = result.mileage.warnings ?? [];
+  const documentMileageIsAuthoritative = mileageWarnings.some(
+    (warning) => warning.code === 'document_mileage_authoritative' || warning.code === 'document_has_mileage',
+  );
+  if (!documentMileageIsAuthoritative) {
+    for (const warning of mileageWarnings) {
+      const guidance = HANDLER_MILEAGE_GUIDANCE[warning.code];
+      if (guidance && (warning.severity === 'blocking' || warning.code === 'autofill_calibration_required')) {
+        messages.push(guidance);
+      }
+    }
+  }
   if (result.lookup.status !== 'found') messages.push(LOOKUP_MESSAGES[result.lookup.status]);
   for (const failedProvider of result.provider_snapshots.filter((snapshot) => snapshot.status !== 'found')) {
     if (failedProvider.provider === 'dvsa_mot_history_v1') {
@@ -86,11 +104,14 @@ function staffWarning(result: VehicleDataEnrichmentResponse): string | undefined
       }
     }
   }
-  if (result.mileage.status === 'range_only' || result.mileage.status === 'insufficient') {
-    messages.push(result.mileage.reason?.trim() || LOOKUP_MESSAGES.found);
-  } else if (result.mileage.status === 'estimated' && !result.mileage.auto_fill_eligible) {
-    const advisory = result.mileage.warnings.find((warning) => warning.code === 'autofill_calibration_required');
-    if (advisory?.message) messages.push(advisory.message);
+  if (!documentMileageIsAuthoritative) {
+    if (result.mileage.status === 'range_only' || result.mileage.status === 'insufficient') {
+      if (!mileageWarnings.some((warning) => HANDLER_MILEAGE_GUIDANCE[warning.code])) {
+        messages.push('Mileage could not be filled in safely. Check the MOT history and enter it manually.');
+      }
+    } else if (result.mileage.status === 'estimated' && !result.mileage.auto_fill_eligible) {
+      messages.push(HANDLER_MILEAGE_GUIDANCE.autofill_calibration_required);
+    }
   }
   return [...new Set(messages)].join(' ') || undefined;
 }
@@ -148,14 +169,14 @@ async function insertProfile(
 ): Promise<void> {
   if (!version || !digest) return;
   await q(
-    `INSERT INTO mileage_model_profile (version, profile_kind, dataset_digest, profile)
+    `INSERT INTO mileage_model_profile (profile_kind, version, dataset_digest, profile)
      VALUES ($1, $2, $3, $4::jsonb)
-     ON CONFLICT (version) DO NOTHING`,
-    [version, kind, digest, JSON.stringify(profile)],
+     ON CONFLICT (profile_kind, version) DO NOTHING`,
+    [kind, version, digest, JSON.stringify(profile)],
   );
   const existing = await q<{ profile_kind: string; dataset_digest: string }>(
-    'SELECT profile_kind, dataset_digest FROM mileage_model_profile WHERE version = $1',
-    [version],
+    'SELECT profile_kind, dataset_digest FROM mileage_model_profile WHERE profile_kind = $1 AND version = $2',
+    [kind, version],
   );
   if (!existing[0] || existing[0].profile_kind !== kind || existing[0].dataset_digest !== digest) {
     throw new Error('mileage model profile version conflicts with persisted provenance');
@@ -202,14 +223,14 @@ export async function persistVehicleData(
     const current = cases[0];
     if (!current) throw new Error('case not found');
 
-    const interval = result.mileage.prediction_interval;
+    const calibrationProfile = result.mileage.calibration_profile;
     const prior = result.mileage.prior;
     await insertProfile(
       q,
       'calibration',
-      interval?.calibration_version,
-      interval?.dataset_digest,
-      interval ?? {},
+      calibrationProfile?.version,
+      calibrationProfile?.dataset_digest,
+      calibrationProfile ?? {},
     );
     await insertProfile(q, 'cohort_prior', prior?.version, prior?.dataset_digest, prior ?? {});
 
@@ -371,7 +392,7 @@ export async function persistVehicleData(
         range?.lower_mileage ?? null,
         range?.upper_mileage ?? null,
         result.mileage.prediction_interval?.coverage ?? null,
-        result.mileage.prediction_interval?.calibration_version ?? null,
+        result.mileage.calibration_profile?.version ?? null,
         result.mileage.prior?.version ?? null,
         JSON.stringify(result.mileage.warnings),
         JSON.stringify(result.mileage.evidence),

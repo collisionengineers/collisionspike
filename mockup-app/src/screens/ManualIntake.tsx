@@ -69,6 +69,7 @@ import { acquireApiToken } from '../auth/msalConfig';
 import {
   createIdentityFields,
   manualVehicleModel,
+  mergeManualVehicleLookup,
   type ManualIntakeMode,
 } from './manual-intake-create';
 import { manualIntakeEvidenceNotice } from './evidence-upload-result';
@@ -649,19 +650,45 @@ export function ManualIntake() {
 
   /* ---- Vehicle lookup (DVLA/DVSA) — fills Make/Model/Mileage (review #11, #12) ---- */
   const lookUpVehicle = async () => {
+    if (!fields) return;
     setError(undefined);
     setInfo(undefined);
     setEnriching(true);
     try {
       const d = await getDataAccess().lookupVehicle({ registration: vrm });
       if (d.lookup.status === 'found') {
-        if (d.make) setMake(d.make);
-        if (d.make || d.vehicle_model) {
-          onFieldChange('vehicleModel', manualVehicleModel(d.make ?? '', d.vehicle_model ?? ''));
+        const merged = mergeManualVehicleLookup(
+          {
+            make,
+            vehicleModel: fields.vehicleModel.value,
+            mileage: fields.mileage.value,
+            mileageUnit: fields.mileageUnit.value,
+          },
+          {
+            make: d.make,
+            vehicleModel: d.vehicle_model,
+            currentMileage: d.current_mileage,
+            mileageUnit: d.mileage_unit,
+          },
+        );
+        if (merged.make !== make) setMake(merged.make);
+        if (merged.vehicleModel !== fields.vehicleModel.value) {
+          onFieldChange('vehicleModel', merged.vehicleModel);
         }
-        if (d.current_mileage !== undefined) onFieldChange('mileage', String(d.current_mileage));
-        if (d.mileage_unit) onFieldChange('mileageUnit', d.mileage_unit);
-        toast('Vehicle details filled in');
+        if (merged.mileage !== fields.mileage.value) {
+          onFieldChange('mileage', merged.mileage);
+        }
+        if (merged.mileageUnit !== fields.mileageUnit.value) {
+          onFieldChange('mileageUnit', merged.mileageUnit);
+        }
+        toast(
+          merged.make !== make ||
+          merged.vehicleModel !== fields.vehicleModel.value ||
+          merged.mileage !== fields.mileage.value ||
+          merged.mileageUnit !== fields.mileageUnit.value
+            ? 'Vehicle details filled in'
+            : 'Vehicle details checked',
+        );
       } else {
         setInfo(d.mileage.reason ?? 'Vehicle details could not be found.');
       }

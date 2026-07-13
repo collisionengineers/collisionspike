@@ -2,6 +2,10 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import pg from 'pg';
+import {
+  VEHICLE_ENRICHMENT_CANDIDATE_SQL,
+  defensibleRegistration,
+} from './lib/vehicle-enrichment-remediation.mjs';
 
 const argv = process.argv.slice(2);
 const has = (name) => argv.includes(name);
@@ -31,25 +35,6 @@ const pool = new pg.Pool({
   options: '-c app.role=staff',
   max: 2,
 });
-
-const candidateSql = `
-  SELECT c.id, c.vrm, c.eva_vehicle_model, c.eva_mileage,
-         c.vehicle_lookup_status, c.vehicle_mileage_status,
-         c.vehicle_lookup_warning, c.vehicle_lookup_attempted_at
-    FROM case_ c
-    JOIN choice_case_status cs ON cs.code = c.status_code
-   WHERE cs.name NOT IN ('eva_submitted','box_synced','error','removed','done')
-     AND NULLIF(btrim(c.vrm), '') IS NOT NULL
-     AND (NULLIF(btrim(c.eva_vehicle_model), '') IS NULL OR
-          NULLIF(btrim(c.eva_mileage), '') IS NULL)
-   ORDER BY c.created_at, c.id
-   LIMIT $1`;
-
-function defensibleRegistration(raw) {
-  const value = String(raw ?? '').trim().toUpperCase();
-  const compact = value.replaceAll(' ', '');
-  return /^[A-Z0-9 ]+$/.test(value) && compact.length >= 2 && compact.length <= 8;
-}
 
 async function caseState(id) {
   const result = await pool.query(
@@ -81,7 +66,7 @@ async function retryCase(id) {
 }
 
 const startedAt = new Date().toISOString();
-const before = (await pool.query(candidateSql, [limit])).rows;
+const before = (await pool.query(VEHICLE_ENRICHMENT_CANDIDATE_SQL, [limit])).rows;
 const results = [];
 try {
   for (const row of before) {
@@ -100,7 +85,7 @@ try {
       results.push({ caseId: row.id, vrm: row.vrm, outcome: 'failed', error: error instanceof Error ? error.message : String(error), before: row, after: await caseState(row.id) });
     }
   }
-  const residual = execute ? (await pool.query(candidateSql, [limit])).rows : before;
+  const residual = execute ? (await pool.query(VEHICLE_ENRICHMENT_CANDIDATE_SQL, [limit])).rows : before;
   const ledger = {
     mode: execute ? 'execute' : 'dry_run',
     startedAt,

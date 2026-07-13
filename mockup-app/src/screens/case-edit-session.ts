@@ -173,3 +173,14 @@ export function validateCaseEdit(
 export function shouldBlockCaseNavigation(hasUnsavedChanges: boolean): boolean {
   return hasUnsavedChanges;
 }
+
+/** A server refresh may replace the full case snapshot only when this edit
+ * session is clean. This keeps an isolated vehicle retry from discarding a
+ * handler's draft or rebasing it onto the wrong optimistic-lock version. */
+export function canCheckVehicleDetails(
+  hasUnsavedChanges: boolean,
+  checking: boolean,
+  vrm: string,
+): boolean {
+  return !hasUnsavedChanges && !checking && vrm.trim().length > 0;
+}

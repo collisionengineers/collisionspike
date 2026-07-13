@@ -9,11 +9,12 @@
 BEGIN;
 
 CREATE TABLE mileage_model_profile (
-  version                  varchar(100) PRIMARY KEY,
+  version                  varchar(100) NOT NULL,
   profile_kind             varchar(20) NOT NULL CHECK (profile_kind IN ('cohort_prior','calibration')),
   dataset_digest           char(64) NOT NULL CHECK (dataset_digest ~ '^[0-9a-f]{64}$'),
   profile                  jsonb NOT NULL CHECK (jsonb_typeof(profile) = 'object'),
-  created_at               timestamptz NOT NULL DEFAULT now()
+  created_at               timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (profile_kind, version)
 );
 
 CREATE TABLE vehicle_lookup_run (
@@ -105,12 +106,24 @@ CREATE TABLE mileage_estimate_result (
   range_low_mileage        bigint CHECK (range_low_mileage IS NULL OR range_low_mileage >= 0),
   range_high_mileage       bigint CHECK (range_high_mileage IS NULL OR range_high_mileage >= 0),
   interval_coverage        numeric(5,4) CHECK (interval_coverage IS NULL OR interval_coverage BETWEEN 0 AND 1),
-  calibration_version      varchar(100) REFERENCES mileage_model_profile(version) ON DELETE RESTRICT,
-  cohort_prior_version     varchar(100) REFERENCES mileage_model_profile(version) ON DELETE RESTRICT,
+  calibration_profile_kind varchar(20) NOT NULL DEFAULT 'calibration',
+  calibration_version      varchar(100),
+  cohort_prior_profile_kind varchar(20) NOT NULL DEFAULT 'cohort_prior',
+  cohort_prior_version     varchar(100),
   warnings                 jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(warnings) = 'array'),
   evidence                 jsonb NOT NULL CHECK (jsonb_typeof(evidence) = 'object'),
   created_at               timestamptz NOT NULL DEFAULT now(),
-  CHECK (range_low_mileage IS NULL OR range_high_mileage IS NULL OR range_low_mileage <= range_high_mileage)
+  CHECK (range_low_mileage IS NULL OR range_high_mileage IS NULL OR range_low_mileage <= range_high_mileage),
+  CONSTRAINT ck_mileage_estimate_calibration_kind
+    CHECK (calibration_profile_kind = 'calibration'),
+  CONSTRAINT ck_mileage_estimate_cohort_kind
+    CHECK (cohort_prior_profile_kind = 'cohort_prior'),
+  CONSTRAINT fk_mileage_estimate_calibration_profile
+    FOREIGN KEY (calibration_profile_kind, calibration_version)
+    REFERENCES mileage_model_profile(profile_kind, version) ON DELETE RESTRICT,
+  CONSTRAINT fk_mileage_estimate_cohort_profile
+    FOREIGN KEY (cohort_prior_profile_kind, cohort_prior_version)
+    REFERENCES mileage_model_profile(profile_kind, version) ON DELETE RESTRICT
 );
 
 CREATE INDEX ix_vehicle_lookup_run_registration_retrieved

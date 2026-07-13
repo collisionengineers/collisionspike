@@ -82,10 +82,27 @@ recorded by the PR marker rather than self-referenced inside its own commit.
   into a different plausible vehicle. Durable replay digests use the canonical registration,
   so an equivalent spaced saved value cannot conflict with its first attempt. Provider
   mileage suffixes infer their unit when absent and fail closed when an explicit unit conflicts.
-- Rebased onto `main` at `eaa31fb` after the manual-source, status-language and website-enquiry deliveries.
+- Rebased onto `main` at `da56628` after the manual-source, status-language, website-enquiry
+  and subsequent mainline deliveries.
   The semantic merge preserves pending/failed source-evidence readiness, resumable Manual
   Intake uploads, explicit-save behavior, bounded e-mail previews and the new vehicle checks
   in the same canonical readiness result. Sparse legacy case fixtures remain safe.
+- Intake vehicle completion is now explicitly advisory: bounded replay keys hash arbitrarily
+  long Graph instance identifiers, permanent Data API rejections skip immediately, transient
+  faults use the Durable retry window, and an exhausted retry cannot roll back an already
+  committed case/evidence intake.
+- Case Detail disables vehicle re-check while a draft is dirty and adopts the complete returned
+  case snapshot (including optimistic version) after success. Manual Intake treats lookup data
+  as defaults only: parsed or staff-entered model/make and valid mileage/unit values are kept,
+  while an absent or invalid mileage may be repaired.
+- Exact target-date MOT observations now win before unrelated unknown-unit rows can force an
+  abstention. Empirical results carry the complete immutable calibration profile; persistence
+  stores that profile rather than the selected interval and keys profiles by `(kind, version)`
+  so cohort and calibration releases may legitimately share a version label.
+- Handler warnings now translate estimator diagnostics into task-focused guidance and suppress
+  the deliberate document-mileage skip. The remediation census includes invalid non-empty
+  mileage, and classifier parity pins all 9 categories plus all 15 emitted subtypes rather than
+  accepting coordinated shrinkage. Both checked-in deployment bundles were regenerated.
 
 ## Estimator behaviour
 
@@ -140,12 +157,13 @@ recorded by the PR marker rather than self-referenced inside its own commit.
 
 ## Gates run
 
-- `functions/enrichment`: `python -m pytest -q` → **65 passed**.
+- `functions/enrichment`: `python -m pytest -q` → **67 passed**.
 - Python compile/import gate (`compileall`) → pass.
-- Data API: TypeScript build → pass; Vitest → **70 files / 707 tests passed**.
-- Orchestration: TypeScript build → pass; Vitest → **31 files / 422 tests passed**.
-- Domain contract suite → **58 files / 1,160 tests passed** after exhaustive runtime validation and readiness tests.
-- SPA: TypeScript/Vite build pass; Vitest → **486 tests passed**.
+- Data API: TypeScript build → pass; Vitest → **70 files / 709 tests passed**.
+- Orchestration: TypeScript build → pass; Vitest → **32 files / 425 tests passed**.
+- Domain contract suite → **58 files / 1,166 tests passed** after exhaustive runtime validation and readiness tests.
+- SPA: TypeScript/Vite build pass; Vitest → **46 files / 505 tests passed**.
+- Vehicle-remediation guard: Node test runner → **2 tests passed**.
 - Sibling connector: typecheck/build/stdio bundle pass; Vitest → **2 files / 6 tests passed** at
   reviewed head `03c7b35ce94b379c6e0fa6efca2e1c61a0d6f008`.
 - Sibling Windows tool: direct `dotnet build` → **0 warnings / 0 errors** at reviewed head

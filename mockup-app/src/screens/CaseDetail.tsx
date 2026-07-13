@@ -156,6 +156,7 @@ import {
 } from './evidence-review';
 import {
   buildExplicitCaseSave,
+  canCheckVehicleDetails,
   initialInspectionDraft,
   persistedSessionSnapshot,
   shouldBlockCaseNavigation,
@@ -1113,11 +1114,16 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     );
   const [checkingVehicle, setCheckingVehicle] = useState(false);
   const checkVehicleAgain = async () => {
+    if (!canCheckVehicleDetails(hasUnsavedChanges, checkingVehicle, c.vrm)) return;
     setCheckingVehicle(true);
     try {
       await data.lookupVehicle({ caseId: c.id });
       const updated = await data.caseById(c.id);
-      if (updated) setC(updated);
+      if (!updated) throw new Error('case refresh returned no case');
+      // The action is disabled while the draft is dirty, so adopting the full
+      // server snapshot safely advances draft, baseline and optimistic version
+      // together. A later Save therefore cannot use a stale version.
+      adoptPersistedCase(updated);
       toast('Vehicle details checked');
     } catch {
       dispatchToast(
@@ -2261,7 +2267,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
             <Button
               appearance="transparent"
               size="small"
-              disabled={checkingVehicle || !c.vrm.trim()}
+              disabled={!canCheckVehicleDetails(hasUnsavedChanges, checkingVehicle, c.vrm)}
               icon={checkingVehicle ? <Spinner size="tiny" /> : undefined}
               onClick={() => void checkVehicleAgain()}
             >
