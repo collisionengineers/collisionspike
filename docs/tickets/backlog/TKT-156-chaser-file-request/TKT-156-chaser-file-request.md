@@ -20,7 +20,7 @@ Chaser copy can include a link only when a Box File Request already exists, but 
 - TKT-111/TKT-148 — current chaser outbox/drafting and image-problem semantics.
 
 ## Proposed change
-PROPOSED (not built): configure the template, make File Request creation/reuse an idempotent case-folder operation, persist its identity/link, and gate chaser readiness on a usable link.
+Configure the approved template, make File Request creation/reuse an idempotent case-folder operation, persist its identity/link, and gate every image-chaser action on a remotely validated active link.
 
 ## Acceptance
 - An approved File Request template exists in Box test root `392761581105`; its ID is stored through the existing secret/config mechanism and documented in the live registry without exposing a credential.
