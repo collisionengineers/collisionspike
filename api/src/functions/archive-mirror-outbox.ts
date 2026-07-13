@@ -263,8 +263,21 @@ app.http('internalArchiveMirrorOutboxDefer', {
         }
         const deferred = await tx(async (q) => {
           const lockedCase = await lockCaseForMutation(q, owner[0].case_id);
-          const evidence = await q<{ case_id: string }>(
-            'SELECT case_id FROM evidence WHERE id = $1 FOR UPDATE',
+          const evidence = await q<{ case_id: string; manual_intake: boolean }>(
+            `SELECT e.case_id,
+                    EXISTS (
+                      SELECT 1
+                        FROM staff_evidence_upload_item item
+                        JOIN staff_evidence_upload batch
+                          ON batch.idempotency_key = item.idempotency_key
+                         AND batch.case_id = item.case_id
+                       WHERE item.evidence_id = e.id
+                         AND item.case_id = e.case_id
+                         AND batch.source = 'manual_intake'
+                    ) AS manual_intake
+               FROM evidence e
+              WHERE e.id = $1
+              FOR UPDATE OF e`,
             [evidenceId],
           );
           if (!evidence[0] || evidence[0].case_id.trim().toLowerCase() !== lockedCase.caseId) {
@@ -308,11 +321,11 @@ app.http('internalArchiveMirrorOutboxDefer', {
                     last_attempt_at = now(),
                     last_error = $3,
                     dead_lettered_at = CASE
-                      WHEN attempt_count + 1 >= $4 THEN now() ELSE NULL END,
+                      WHEN $5 AND attempt_count + 1 >= $4 THEN now() ELSE NULL END,
                     dead_letter_reason = CASE
-                      WHEN attempt_count + 1 >= $4 THEN $3 ELSE NULL END,
+                      WHEN $5 AND attempt_count + 1 >= $4 THEN $3 ELSE NULL END,
                     next_attempt_at = CASE
-                      WHEN attempt_count + 1 >= $4 THEN now()
+                      WHEN $5 AND attempt_count + 1 >= $4 THEN now()
                       ELSE now() + make_interval(
                         secs => LEAST(3600, (30 * power(2, LEAST(attempt_count, 6)))::integer)
                       )
@@ -322,7 +335,13 @@ app.http('internalArchiveMirrorOutboxDefer', {
                 AND requested_generation = $2
                 AND completed_generation < requested_generation
             RETURNING next_attempt_at, dead_lettered_at`,
-            [evidenceId, generation, reason, ARCHIVE_MIRROR_MAX_ATTEMPTS],
+            [
+              evidenceId,
+              generation,
+              reason,
+              ARCHIVE_MIRROR_MAX_ATTEMPTS,
+              evidence[0].manual_intake === true,
+            ],
           );
           if (rows[0]?.dead_lettered_at != null) {
             // Terminal archive failure changes canonical source readiness. Queue the
