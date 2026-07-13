@@ -1,17 +1,13 @@
 import {
-  Button,
   Dropdown,
   Field,
   Input,
   Option,
-  Spinner,
   Textarea,
-  Tooltip,
   makeStyles,
   tokens,
   type InputOnChangeData,
 } from '@fluentui/react-components';
-import { AlertTriangle } from 'lucide-react';
 import { ProvenanceBadge } from './ProvenanceBadge';
 import { DateField } from './DateField';
 import {
@@ -41,9 +37,8 @@ import {
    - EvaFieldRow           : one editable value + provenance row, used by both
                              screens. CaseDetail additionally passes a `rowId`
                              (for deep-link scroll/focus), a `registerRef` (to
-                             focus the control), and `onCommit`/`saving`/`saveError`
-                             (durable persistence + its state); ManualIntake passes
-                             none of those (its fields persist only on case create).
+                             focus the control). CaseDetail owns one explicit Save;
+                             ManualIntake persists its fields only on case create.
 
    The two date fields (Date of Incident / Date of Instruction) render a calendar
    picker (DateField) that still stores DD/MM/YYYY strings; VAT / mileage unit
@@ -66,7 +61,6 @@ const useStyles = makeStyles({
     gap: tokens.spacingHorizontalXS,
     paddingTop: '26px',
   },
-  saveErrorBtn: { color: 'var(--ce-red)', minWidth: 'auto' },
 });
 
 /** EvaFieldKey → { label, required }, derived from the contract descriptor so a
@@ -96,16 +90,6 @@ export interface EvaFieldRowProps {
   field: EvaField;
   /** Staff edit handler — marks the field reviewed in the caller. */
   onChange: (key: EvaFieldKey, value: string) => void;
-  /** Commit handler — fires when an edit is COMMITTED (blur, dropdown select, or
-   *  calendar pick) so the caller can persist durably. Omitted = no persistence
-   *  (ManualIntake, where fields persist only on case create). */
-  onCommit?: (key: EvaFieldKey, value: string) => void;
-  /** True while this field's durable save is in flight. */
-  saving?: boolean;
-  /** True when the last durable save failed (offers a retry affordance). */
-  saveError?: boolean;
-  /** Retry the failed save for this field. */
-  onRetry?: () => void;
   /** Explicit edit-session validation. Supersedes the generic required message. */
   validationMessage?: string;
   /** Optional row id (CaseDetail's deep-link scroll target, e.g. `field-<key>`). */
@@ -114,18 +98,13 @@ export interface EvaFieldRowProps {
   registerRef?: (key: EvaFieldKey, el: HTMLElement | null) => void;
 }
 
-/** A single editable EVA field row: value control + a compact provenance token
- *  (and, when durable, its save state). */
+/** A single editable EVA field row: value control + a compact provenance token. */
 export function EvaFieldRow({
   fieldKey,
   label,
   required,
   field,
   onChange,
-  onCommit,
-  saving,
-  saveError,
-  onRetry,
   validationMessage,
   rowId,
   registerRef,
@@ -139,7 +118,6 @@ export function EvaFieldRow({
       : {};
 
   const change = (_: unknown, data: InputOnChangeData) => onChange(fieldKey, data.value);
-  const commit = () => onCommit?.(fieldKey, field.value);
   const setRef = registerRef ? (el: HTMLElement | null) => registerRef(fieldKey, el) : undefined;
 
   let control: React.ReactNode;
@@ -149,7 +127,6 @@ export function EvaFieldRow({
         ref={setRef as ((el: HTMLTextAreaElement | null) => void) | undefined}
         value={field.value}
         onChange={(_, d) => onChange(fieldKey, d.value)}
-        onBlur={commit}
         resize="vertical"
         rows={3}
       />
@@ -160,7 +137,6 @@ export function EvaFieldRow({
         ref={setRef as ((el: HTMLTextAreaElement | null) => void) | undefined}
         value={field.value}
         onChange={(_, d) => onChange(fieldKey, d.value)}
-        onBlur={commit}
         resize="vertical"
         rows={6}
       />
@@ -171,7 +147,6 @@ export function EvaFieldRow({
         ref={setRef as ((el: HTMLInputElement | null) => void) | undefined}
         value={field.value}
         onChange={(v) => onChange(fieldKey, v)}
-        onCommit={(v) => onCommit?.(fieldKey, v)}
         aria-label={label}
       />
     );
@@ -184,7 +159,6 @@ export function EvaFieldRow({
         onOptionSelect={(_, d) => {
           const v = d.optionValue ?? '';
           onChange(fieldKey, v);
-          onCommit?.(fieldKey, v);
         }}
       >
         {VAT_OPTIONS.map((o) => (
@@ -203,7 +177,6 @@ export function EvaFieldRow({
         onOptionSelect={(_, d) => {
           const v = d.optionValue ?? '';
           onChange(fieldKey, v);
-          onCommit?.(fieldKey, v);
         }}
       >
         {MILEAGE_UNIT_OPTIONS.map((o) => (
@@ -219,7 +192,6 @@ export function EvaFieldRow({
         ref={setRef as ((el: HTMLInputElement | null) => void) | undefined}
         value={field.value}
         onChange={change}
-        onBlur={commit}
       />
     );
   }
@@ -232,20 +204,6 @@ export function EvaFieldRow({
         {control}
       </Field>
       <div className={styles.fieldMeta}>
-        {saving ? (
-          <Spinner size="tiny" aria-label="Saving" />
-        ) : saveError ? (
-          <Tooltip content="Couldn’t save — select to retry" relationship="label">
-            <Button
-              className={styles.saveErrorBtn}
-              size="small"
-              appearance="subtle"
-              icon={<AlertTriangle size={14} />}
-              onClick={onRetry}
-              aria-label="Couldn’t save — retry"
-            />
-          </Tooltip>
-        ) : null}
         <ProvenanceBadge
           variant="compact"
           provenance={field.provenance}

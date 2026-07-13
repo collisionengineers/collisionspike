@@ -188,6 +188,18 @@ function provenanceRowToEvaField(value: string, row?: Row): EvaField {
   };
 }
 
+/** Compare legacy/current provenance without making harmless storage formatting
+ *  differences (case, surrounding whitespace, CRLF, phone punctuation, mileage
+ *  separators) detach a source from the value it describes. A null source value is
+ *  never guessed: it remains review-required until explicitly reviewed/backfilled. */
+function comparableProvenanceValue(key: EvaFieldKey, raw: unknown): string | null {
+  if (raw == null) return null;
+  let value = String(raw).replace(/\r\n/g, '\n').trim();
+  if (key === 'mileage') value = value.replace(/[^\d]/g, '');
+  if (key === 'claimantTelephone') value = value.replace(/[\s().-]+/g, '');
+  return value.toLocaleLowerCase('en-GB');
+}
+
 /** Assemble the 12-field EvaFields object from a case_ row + its provenance rows. */
 export function rowToEvaFields(rec: Row, provenanceRows: readonly Row[] = []): EvaFields {
   const byField = new Map<string, Row[]>();
@@ -203,8 +215,9 @@ export function rowToEvaFields(rec: Row, provenanceRows: readonly Row[] = []): E
     // value can describe that value. Prefer an explicitly reviewed row, then a staff
     // row, then the newest source. The final id tie-break makes the result independent
     // of PostgreSQL row order (which has no guarantee without ORDER BY).
+    const currentComparable = comparableProvenanceValue(desc.key, value);
     const provenance = (byField.get(desc.key) ?? [])
-      .filter((row) => String(row.value ?? '') === value)
+      .filter((row) => comparableProvenanceValue(desc.key, row.value) === currentComparable)
       .sort((a, b) => {
         const reviewedA = reviewStateCodec.toName(a.review_state_code) === 'reviewed' ? 1 : 0;
         const reviewedB = reviewStateCodec.toName(b.review_state_code) === 'reviewed' ? 1 : 0;

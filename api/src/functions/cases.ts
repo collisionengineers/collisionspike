@@ -282,9 +282,9 @@ export async function markEvaSubmittedIfReady(
 
 /* ----------  Durable case-page EVA-field edits (work-todo-spike: casepage)  ---------- */
 
-/** Upsert a 'staff' (manual edit) field_level_provenance row for one EVA field. One row per
- *  (case_id, field_name): UPDATE if present, else INSERT. Best-effort — provenance is
- *  supplementary and must never sink a durable case edit. */
+/** Upsert the newest staff provenance row for one EVA field without rewriting retained
+ *  extraction/conflict rows. Best-effort: this is the compatibility path for isolated
+ *  updates; the explicit case-page save uses the strict transactional twin below. */
 async function upsertManualProvenance(caseId: string, fieldName: string, value: string): Promise<void> {
   try {
     const staff = sourceTypeCodec.toInt('staff') ?? 100000000;
@@ -293,7 +293,15 @@ async function upsertManualProvenance(caseId: string, fieldName: string, value: 
       `UPDATE field_level_provenance
           SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
               review_state_code = $5, updated_at = now()
-        WHERE case_id = $1 AND field_name = $2
+        WHERE id = (
+          SELECT id
+          FROM field_level_provenance
+          WHERE case_id = $1
+            AND field_name = $2
+            AND source_type_code = $4
+          ORDER BY updated_at DESC, id
+          LIMIT 1
+        )
         RETURNING id`,
       [caseId, fieldName, value, staff, reviewed],
     );
@@ -302,7 +310,7 @@ async function upsertManualProvenance(caseId: string, fieldName: string, value: 
         `INSERT INTO field_level_provenance
            (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
          VALUES ($1, $2, $3, $4, $5, 'Manual edit (case page)', $6)`,
-        [`${caseId}:${fieldName}`, caseId, fieldName, value, staff, reviewed],
+        [`${caseId}:${fieldName}:staff`, caseId, fieldName, value, staff, reviewed],
       );
     }
   } catch {
@@ -341,7 +349,7 @@ async function upsertManualProvenanceStrict(
       `INSERT INTO field_level_provenance
          (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
        VALUES ($1, $2, $3, $4, $5, 'Manual edit (case page)', $6)`,
-      [`${caseId}:${fieldName}`, caseId, fieldName, value, staff, reviewed],
+      [`${caseId}:${fieldName}:staff`, caseId, fieldName, value, staff, reviewed],
     );
   }
 }
@@ -663,11 +671,13 @@ app.http('patchCase', {
           }
           if (inspection) {
             const imageBased = inspection.decisionMode === 'image_based';
-            const label = (
-              imageBased
-                ? `Image Based Assessment (${id})`
-                : [inspectionLines[0], inspectionPostcode].filter(Boolean).join(', ') || 'Inspection address'
-            ).slice(0, 200);
+            const label = imageBased
+              ? `Image Based Assessment (${id})`
+              : (() => {
+                  const suffix = ` (${id})`;
+                  const base = [inspectionLines[0], inspectionPostcode].filter(Boolean).join(', ') || 'Inspection address';
+                  return `${base.slice(0, 200 - suffix.length)}${suffix}`;
+                })();
             const sourceNote = [
               `case=${id}`,
               ...(existing.providerCode ? [`provider=${existing.providerCode}`] : []),

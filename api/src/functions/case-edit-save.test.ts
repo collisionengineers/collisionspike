@@ -146,6 +146,7 @@ describe('explicit case save transaction', () => {
     expect(caseUpdate?.sql).toMatch(/status_code = \$\d+/);
     expect(caseUpdate?.sql).not.toContain('inspection_decision_code = NULL');
     expect(calls.filter(({ sql }) => /INSERT INTO inspection_address/i.test(sql))).toHaveLength(1);
+    expect(calls.find(({ sql }) => /INSERT INTO inspection_address/i.test(sql))?.params[0]).toContain(CASE_ID);
     expect(calls.some(({ sql }) => /status_recompute_requested_generation/i.test(sql))).toBe(false);
 
     const provenanceUpdates = calls.filter(({ sql }) => /UPDATE field_level_provenance/i.test(sql));

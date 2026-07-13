@@ -47,4 +47,28 @@ describe('rowToEvaFields provenance selection', () => {
     expect(fields.claimantName.value).toBe('Current Person');
     expect(fields.claimantName.reviewState).toBe('needs_review');
   });
+
+  it('tolerates harmless legacy formatting without equating a different value', () => {
+    const fields = rowToEvaFields(
+      {
+        eva_claimant_name: 'Jane Example',
+        eva_claimant_telephone: '07123 456-789',
+        eva_mileage: '12000',
+      },
+      [
+        { field_name: 'claimantName', value: ' jane example ', source_type_code: 100000000, review_state_code: 100000002 },
+        { field_name: 'claimantTelephone', value: '07123 (456) 789', source_type_code: 100000000, review_state_code: 100000002 },
+        { field_name: 'mileage', value: '12,000 miles', source_type_code: 100000005, review_state_code: 100000002 },
+      ],
+    );
+    expect(fields.claimantName.reviewState).toBe('reviewed');
+    expect(fields.claimantTelephone.reviewState).toBe('reviewed');
+    expect(fields.mileage.reviewState).toBe('reviewed');
+
+    const changed = rowToEvaFields(
+      { eva_claimant_name: 'Jane Different' },
+      [{ field_name: 'claimantName', value: 'Jane Example', source_type_code: 100000000, review_state_code: 100000002 }],
+    );
+    expect(changed.claimantName.reviewState).toBe('needs_review');
+  });
 });
