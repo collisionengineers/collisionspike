@@ -22,7 +22,7 @@ import {
 } from '../../lib/subscriptions.js';
 import { uploadEvidenceBytes } from '../../lib/blob.js';
 import { rawEmlFileName } from '../../lib/evidence-names.js';
-import { cleanEmailBodyForPreview, extractVrm } from '@cs/domain';
+import { cleanEmailBodyForPreview, extractVrm, normalizeOutlookWebLink } from '@cs/domain';
 
 interface FetchMessageInput {
   messageId: string;
@@ -36,6 +36,11 @@ interface FetchMessageInput {
 export interface InboundEnvelope {
   messageId: string;
   internetMessageId: string;
+  /** Immutable Graph message id returned under Prefer: IdType="ImmutableId". */
+  graphMessageId?: string;
+  /** Microsoft Graph's authoritative Outlook-on-the-web target, safety-checked
+   *  before it leaves orchestration. Missing on older/inaccessible messages. */
+  outlookWebLink?: string;
   /** Graph's thread-correlation id (default property set — capture-only; persisted
    *  from Phase 2's DDL, which adds inbound_email.conversation_id). */
   conversationId?: string;
@@ -158,10 +163,13 @@ df.app.activity('fetchMessage', {
     // VRM sniff spans subject + body — a body-only instruction carries the reg in the text.
     // Canonical shared ruleset (@cs/domain) — postcode/junk-guarded (B8/LS8/BOX2 rejected).
     const candidateVrm = extractVrm(`${subject}\n${body}`);
+    const outlookWebLink = normalizeOutlookWebLink(message.webLink);
 
     const envelope: InboundEnvelope = {
       messageId: input.messageId,
       internetMessageId: message.internetMessageId ?? input.messageId,
+      ...((message.id ?? '').trim() ? { graphMessageId: message.id.trim() } : {}),
+      ...(outlookWebLink ? { outlookWebLink } : {}),
       conversationId: message.conversationId ?? '',
       subject,
       senderAddress,

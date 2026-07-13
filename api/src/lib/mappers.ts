@@ -20,6 +20,7 @@ import {
   OUTLOOK_MOVE_STATES,
   QUEUES,
   caseToQueue,
+  normalizeOutlookWebLink,
   queueByName,
   type ActivityEvent,
   type AiSuggestion,
@@ -724,10 +725,12 @@ export function rowToInboundEmail(rec: Row): InboundEmail {
   )
     ? (rec.classifier_mode as ClassifierMode)
     : 'deterministic';
+  const outlookWebLink = normalizeOutlookWebLink(rec.outlook_web_link);
   return {
     id: rec.id ?? '',
     name: rec.name ?? '',
     sourceMessageId: rec.source_message_id ?? '',
+    ...(outlookWebLink ? { outlookWebLink } : {}),
     subject: rec.subject ?? '',
     fromAddress: rec.from_address ?? '',
     senderDomain: rec.sender_domain ?? '',

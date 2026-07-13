@@ -361,6 +361,27 @@ describe('rowToInboundEmail — linked-case Case/PO + Phase-2 pass-throughs (TKT
     expect(bare.bodyJobref).toBeUndefined();
     expect(bare.conversationId).toBeUndefined();
   });
+
+  it.each([
+    'info@collisionengineers.co.uk',
+    'engineers@collisionengineers.co.uk',
+    'desk@collisionengineers.co.uk',
+  ])('maps Graph\'s safe exact-message target for %s', (sourceMailbox) => {
+    const outlookWebLink =
+      'https://outlook.office365.com/owa/?ItemID=AAMk-message&exvsurl=1&viewmodel=ReadMessageItem';
+    expect(rowToInboundEmail({ ...base, source_mailbox: sourceMailbox, outlook_web_link: outlookWebLink }))
+      .toMatchObject({ sourceMailbox, outlookWebLink });
+  });
+
+  it('omits a missing or unexpected-host Outlook target instead of exposing it', () => {
+    expect(rowToInboundEmail(base).outlookWebLink).toBeUndefined();
+    expect(
+      rowToInboundEmail({
+        ...base,
+        outlook_web_link: 'https://outlook.office365.com.evil.example/owa/?ItemID=message',
+      }).outlookWebLink,
+    ).toBeUndefined();
+  });
 });
 
 describe('rowToAiSuggestion — row -> domain mapping', () => {

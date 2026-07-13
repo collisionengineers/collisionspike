@@ -11,9 +11,15 @@ The clickable UI is in the live SPA bundle and now has linked data to act on. Li
 [live-environment.md](../../../architecture/live-environment.md).
 
 ## Pending / gaps
-A final manual click-through in the live SPA (open a case → click an associated email → "view full
-email") is the only remaining confidence step.
+The reopened Outlook work remains `TESTED (offline)` until its PR is merged and the rollout in
+`changes.md` is completed. Live proof still needs the DDL and exact merge builds deployed, every managed
+Inbox subscription carrying the immutable-id callback marker, one available sample from each production
+mailbox, and one deleted/inaccessible saved-preview outcome. The historical backfill must remain a
+separate, explicitly approved run.
 
 ## How to re-verify
-In the deployed SPA, open a case, confirm the associated emails are clickable and that "view full email"
-opens the full message.
+In the deployed SPA, expand an associated email. Confirm the action first checks the current exact
+message, `View in Outlook` opens only an available item, and deleted/inaccessible items keep their saved
+preview with the plain outcome. Repeat for info@, engineers@ and desk@. Query
+`outlook_link_backfill_ledger` separately for historical outcomes and confirm Outlook audit shows no
+read/unread, move, delete, category, reply or other mailbox write.

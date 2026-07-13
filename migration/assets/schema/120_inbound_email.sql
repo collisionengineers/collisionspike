@@ -2,8 +2,8 @@
 -- 120_inbound_email.sql  --  cr1bd_inboundemail  (staged; Phase-8 triage, ADR-0015)
 -- EXACTLY one row per email arriving at the shared inboxes -- the universal 'we saw
 -- this' record. category/subtype names mirror email_classifier.py CATEGORY_*/SUBTYPE_*
--- 1:1. Both lookups are nullable + RemoveLink (SET NULL in 900). The dedup key
--- UNIQUE(source_message_id) is added in 900_constraints.sql.
+-- 1:1. Both lookups are nullable + RemoveLink (SET NULL in 900). The arrival dedup
+-- key UNIQUE NULLS NOT DISTINCT(source_mailbox, source_message_id) is added in 900.
 -- triage_state + classifier_mode are deliberately short String tokens (not choicesets):
 -- low-churn workflow/provenance flags, matching the Dataverse schema.
 --
@@ -20,7 +20,13 @@ BEGIN;
 CREATE TABLE inbound_email (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name              varchar(200) NOT NULL,       -- primaryColumn cr1bd_name (triage label)
-  source_message_id varchar(400),                -- DEDUP KEY (alt key); UNIQUE in 900
+  source_message_id varchar(400),                -- mailbox-qualified dedup key; UNIQUE in 900
+  -- Graph identity/open target captured at intake (TKT-009). graph_message_id is
+  -- requested with Prefer: IdType="ImmutableId" so ordinary same-mailbox moves do
+  -- not invalidate it. outlook_web_link is Graph's own message.webLink; clients
+  -- never assemble an Outlook URL from subject/body/Internet-Message-Id text.
+  graph_message_id  varchar(1024),
+  outlook_web_link  varchar(4096),
   -- Graph conversationId (rules-engine-v2 Phase 2): LOCAL thread correlation only, NOT
   -- a dedup key -- many messages share one conversation_id (source_message_id above is
   -- the actual dedup key).

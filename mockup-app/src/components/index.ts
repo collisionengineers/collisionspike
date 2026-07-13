@@ -38,6 +38,7 @@ export {
   type ImageOrderEntry,
 } from './ImageOrderList';
 export { ChaserPanel, type ChaserPanelProps } from './ChaserPanel';
+export { OutlookMessageAction } from './OutlookMessageAction';
 export {
   LoadingState,
   EmptyState,

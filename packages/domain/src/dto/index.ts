@@ -602,6 +602,9 @@ export interface InboundEmail {
   id: string;
   name: string;
   sourceMessageId: string;
+  /** Graph's authoritative message.webLink, retained only when it is a safe
+   *  Microsoft 365 Outlook-on-the-web HTTPS target. Older/inaccessible rows omit it. */
+  outlookWebLink?: string;
   subject: string;
   fromAddress: string;
   senderDomain: string;
@@ -658,6 +661,21 @@ export interface InboundEmail {
    *  'images_no_match' (images arrived but no case matched). Rendered as a plain-English
    *  chip while the row is UNLINKED; a later case link supersedes it presentation-side. */
   attentionReason?: InboundAttentionReason;
+}
+
+/** Fresh, read-only check of an associated Outlook message. The server resolves the
+ * stored mailbox + immutable Graph id; the browser never supplies either identity. */
+export type OutlookMessageLinkStatus =
+  | 'available'
+  | 'missing_identity'
+  | 'not_found'
+  | 'not_accessible'
+  | 'unavailable';
+
+export interface OutlookMessageLinkResolution {
+  status: OutlookMessageLinkStatus;
+  /** Present only for `available`, after server and client host validation. */
+  outlookWebLink?: string;
 }
 
 /** inbound_email.attention_reason values (2026-07-09 DDL delta). */

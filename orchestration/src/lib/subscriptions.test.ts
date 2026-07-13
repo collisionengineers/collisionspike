@@ -20,6 +20,7 @@ import {
   resolveSubscriptionMailbox,
   clearSubscriptionMailboxCache,
   runSubscriptionMaintenance,
+  createSubscription,
 } from './subscriptions.js';
 
 const graphFetchMock = vi.mocked(graphFetch);
@@ -107,6 +108,90 @@ describe('resolveSubscriptionMailbox', () => {
   });
 });
 
+describe('immutable-id subscription creation and rotation', () => {
+  const OLD_ENV = {
+    base: process.env.ORCH_PUBLIC_BASE_URL,
+    mbx: process.env.GRAPH_INTAKE_MAILBOXES,
+    cs: process.env.GRAPH_CLIENT_STATE,
+  };
+  beforeEach(() => {
+    process.env.ORCH_PUBLIC_BASE_URL = 'https://orch.example';
+    process.env.GRAPH_CLIENT_STATE = 'test-client-state';
+    process.env.GRAPH_INTAKE_MAILBOXES = JSON.stringify([
+      { mailbox: 'info@x.com', minIntakeDate: '2026-01-01T00:00:00Z' },
+    ]);
+  });
+  afterEach(() => {
+    process.env.ORCH_PUBLIC_BASE_URL = OLD_ENV.base;
+    process.env.GRAPH_INTAKE_MAILBOXES = OLD_ENV.mbx;
+    process.env.GRAPH_CLIENT_STATE = OLD_ENV.cs;
+  });
+  const logger = { log: () => {}, warn: () => {}, error: () => {} };
+
+  it('sends Prefer IdType=ImmutableId on subscription creation', async () => {
+    graphFetchMock.mockResolvedValue({ id: 'new', expirationDateTime: 'later' });
+    await createSubscription('info@x.com');
+    expect(graphFetchMock).toHaveBeenCalledWith('/subscriptions', expect.objectContaining({
+      method: 'POST',
+      headers: { Prefer: 'IdType="ImmutableId"' },
+    }));
+    const init = graphFetchMock.mock.calls[0]?.[1] as { body?: string };
+    const body = JSON.parse(init.body ?? '{}');
+    expect(body.notificationUrl).toContain('idType=immutable-v1');
+  });
+
+  it('creates the immutable replacement before deleting the legacy subscription', async () => {
+    const order: string[] = [];
+    graphFetchMock.mockImplementation(async (path: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (path === '/subscriptions' && method === 'GET') {
+        return { value: [{
+          id: 'legacy',
+          resource: "users/info@x.com/mailFolders('Inbox')/messages",
+          notificationUrl: 'https://orch.example/api/graph-webhook',
+          expirationDateTime: 'e',
+        }] };
+      }
+      if (path === '/subscriptions' && method === 'POST') {
+        order.push('create');
+        return { id: 'immutable', expirationDateTime: 'later' };
+      }
+      if (path === '/subscriptions/legacy' && method === 'DELETE') {
+        order.push('delete');
+        return undefined;
+      }
+      return { id: 'legacy', expirationDateTime: 'renewed' };
+    });
+    const summary = await runSubscriptionMaintenance(logger);
+    expect(order).toEqual(['create', 'delete']);
+    expect(summary.rotated).toEqual(['info@x.com']);
+    expect(summary.created).toEqual(['info@x.com']);
+  });
+
+  it('keeps and renews the legacy subscription when replacement creation fails', async () => {
+    graphFetchMock.mockImplementation(async (path: string, init?: { method?: string }) => {
+      const method = init?.method ?? 'GET';
+      if (path === '/subscriptions' && method === 'GET') {
+        return { value: [{
+          id: 'legacy',
+          resource: "users/info@x.com/mailFolders('Inbox')/messages",
+          notificationUrl: 'https://orch.example/api/graph-webhook',
+          expirationDateTime: 'e',
+        }] };
+      }
+      if (path === '/subscriptions' && method === 'POST') throw new Error('create failed');
+      if (path === '/subscriptions/legacy' && method === 'PATCH') {
+        return { id: 'legacy', expirationDateTime: 'renewed' };
+      }
+      return undefined;
+    });
+    const summary = await runSubscriptionMaintenance(logger);
+    expect(summary.rotated).toEqual([]);
+    expect(summary.renewed.map((entry) => entry.subId)).toEqual(['legacy']);
+    expect(graphFetchMock).not.toHaveBeenCalledWith('/subscriptions/legacy', { method: 'DELETE' });
+  });
+});
+
 describe('runSubscriptionMaintenance — prune de-scoped mailboxes', () => {
   const OLD_ENV = { base: process.env.ORCH_PUBLIC_BASE_URL, mbx: process.env.GRAPH_INTAKE_MAILBOXES };
   beforeEach(() => {
@@ -120,7 +205,7 @@ describe('runSubscriptionMaintenance — prune de-scoped mailboxes', () => {
   const logger = { log: () => {}, warn: () => {}, error: () => {} };
   const subs = (extra: Record<string, unknown>[] = []) => ({
     value: [
-      { id: 'sub-info', resource: "users/info@x.com/mailFolders('Inbox')/messages", notificationUrl: 'https://orch.example/api/graph-webhook', expirationDateTime: 'e' },
+      { id: 'sub-info', resource: "users/info@x.com/mailFolders('Inbox')/messages", notificationUrl: 'https://orch.example/api/graph-webhook?idType=immutable-v1', expirationDateTime: 'e' },
       ...extra,
     ],
   });
@@ -129,7 +214,7 @@ describe('runSubscriptionMaintenance — prune de-scoped mailboxes', () => {
     graphFetchMock.mockImplementation(async (path: string, init?: { method?: string }) => {
       const method = init?.method ?? 'GET';
       if (path === '/subscriptions' && method === 'GET') {
-        return subs([{ id: 'sub-old', resource: "users/old@x.com/mailFolders('Inbox')/messages", notificationUrl: 'https://orch.example/api/graph-webhook', expirationDateTime: 'e' }]);
+        return subs([{ id: 'sub-old', resource: "users/old@x.com/mailFolders('Inbox')/messages", notificationUrl: 'https://orch.example/api/graph-webhook?idType=immutable-v1', expirationDateTime: 'e' }]);
       }
       if (method === 'DELETE') return undefined;
       if (method === 'PATCH') return { id: path.split('/').pop(), expirationDateTime: 'renewed' };
@@ -199,13 +284,13 @@ describe('runSubscriptionMaintenance — SentItems lifecycle (TKT-095 detector (
   const inboxSub = {
     id: 'sub-info',
     resource: "users/info@x.com/mailFolders('Inbox')/messages",
-    notificationUrl: 'https://orch.example/api/graph-webhook',
+    notificationUrl: 'https://orch.example/api/graph-webhook?idType=immutable-v1',
     expirationDateTime: 'e',
   };
   const sentSub = {
     id: 'sub-info-sent',
     resource: "users/info@x.com/mailFolders('SentItems')/messages",
-    notificationUrl: 'https://orch.example/api/graph-webhook-sent',
+    notificationUrl: 'https://orch.example/api/graph-webhook-sent?idType=immutable-v1',
     expirationDateTime: 'e',
   };
 
@@ -242,8 +327,8 @@ describe('runSubscriptionMaintenance — SentItems lifecycle (TKT-095 detector (
     expect(summary.created).toEqual(['sentitems:info@x.com']);
     expect(creates).toHaveLength(1);
     expect(creates[0].resource).toBe("users/info@x.com/mailFolders('SentItems')/messages");
-    expect(creates[0].notificationUrl).toBe('https://orch.example/api/graph-webhook-sent');
-    expect(creates[0].lifecycleNotificationUrl).toBe('https://orch.example/api/graph-lifecycle-sent');
+    expect(creates[0].notificationUrl).toBe('https://orch.example/api/graph-webhook-sent?idType=immutable-v1');
+    expect(creates[0].lifecycleNotificationUrl).toBe('https://orch.example/api/graph-lifecycle-sent?idType=immutable-v1');
     expect(creates[0].changeType).toBe('created');
     // The existing Inbox sub is renewed, never touched otherwise.
     expect(summary.renewed.map((r) => r.subId)).toEqual(['sub-info']);
@@ -296,8 +381,8 @@ describe('runSubscriptionMaintenance — SentItems lifecycle (TKT-095 detector (
       [
         inboxSub,
         sentSub,
-        { id: 'sub-old', resource: "users/old@x.com/mailFolders('Inbox')/messages", notificationUrl: 'https://orch.example/api/graph-webhook', expirationDateTime: 'e' },
-        { id: 'sub-old-sent', resource: "users/old@x.com/mailFolders('SentItems')/messages", notificationUrl: 'https://orch.example/api/graph-webhook-sent', expirationDateTime: 'e' },
+        { id: 'sub-old', resource: "users/old@x.com/mailFolders('Inbox')/messages", notificationUrl: 'https://orch.example/api/graph-webhook?idType=immutable-v1', expirationDateTime: 'e' },
+        { id: 'sub-old-sent', resource: "users/old@x.com/mailFolders('SentItems')/messages", notificationUrl: 'https://orch.example/api/graph-webhook-sent?idType=immutable-v1', expirationDateTime: 'e' },
       ],
       creates,
     );

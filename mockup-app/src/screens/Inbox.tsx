@@ -89,6 +89,7 @@ import {
   DataGridSkeleton,
   CasePeekDrawer,
   GLOBAL_TOASTER_ID,
+  OutlookMessageAction,
   useSeverityChipStyles,
   severityClassName,
   useTableTypography,
@@ -2184,16 +2185,17 @@ function EmailPreviewPanel({
           >
             {row.bodyPreview?.trim()
               ? row.bodyPreview
-              : 'No message text was captured for this email. Use “Open in mailbox” to find the original.'}
+              : 'No message text was captured for this email.'}
           </div>
         </div>
 
         <Caption1 className={styles.dialogNote}>
-          This is the saved preview. Use the mailbox reference if you need the original message.
+          This saved preview stays available here.
         </Caption1>
       </div>
 
       <div className={styles.previewActions}>
+        <OutlookMessageAction email={row} />
         {row.caseId ? (
           <Button appearance="primary" icon={<Briefcase size={16} />} onClick={() => onOpenCase(row.caseId!)}>
             View case
