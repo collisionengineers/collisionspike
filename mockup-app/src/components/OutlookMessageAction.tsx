@@ -23,7 +23,7 @@ export function OutlookMessageAction({ email }: { email: InboundEmail }) {
   if (!href) {
     return (
       <Caption1 className={styles.unavailable} role="status">
-        This message isn’t available in Outlook. The saved preview is still available here.
+        This email can’t be opened in Outlook from here. The saved preview is still available.
       </Caption1>
     );
   }

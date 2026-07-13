@@ -1488,12 +1488,12 @@ app.http('internalInboundEmail', {
  * (caseResolve) preserves an earlier classification, and a later classification preserves
  * an earlier case_id. Returns the row id, or null on a (swallowed) failure.
  *
- * rules-engine-v2 Phase 2 SCHEMA TOLERANCE: `body_jobref` (from `classification.bodyJobref`)
- * and `conversation_id` (from `inbound.conversationId`) exist only once the 2026-07-02 DDL
- * delta lands live. Orchestration sends both regardless of migration state, so this probes
- * which of the two columns actually exist (api/src/lib/schema-introspect.ts, cached — one
- * real query per Function-App cold start) and appends ONLY the present ones to the base
- * (always-present-column) INSERT/ON CONFLICT below — never a failed statement.
+ * SCHEMA TOLERANCE: `body_jobref` / `conversation_id` (rules-engine-v2 Phase 2) and
+ * `graph_message_id` / `outlook_web_link` (TKT-009) arrive in additive DDL deltas.
+ * Orchestration sends the corresponding envelope values regardless of migration state,
+ * so this probes which optional columns actually exist (api/src/lib/schema-introspect.ts,
+ * cached — one real query per Function-App cold start) and appends ONLY the present ones
+ * to the base INSERT/ON CONFLICT below — never a failed statement.
  */
 export async function upsertInboundEmail(
   inbound: InboundEnvelope,
@@ -1526,7 +1526,12 @@ export async function upsertInboundEmail(
   const signals = classification ? JSON.stringify(classification.signals ?? []) : null;
   const bodyJobref = clampVarchar(classification?.bodyJobref, 64).value || null;
   const conversationId = (inbound.conversationId ?? '').trim() || null;
-  const graphMessageId = clampVarchar(inbound.graphMessageId, 1_024).value || null;
+  // An identifier must remain byte-for-byte exact. Reject an impossible oversize value
+  // instead of truncating it into a different (and unusable) message identity.
+  const rawGraphMessageId = (inbound.graphMessageId ?? '').trim();
+  const graphMessageId = rawGraphMessageId && rawGraphMessageId.length <= 1_024
+    ? rawGraphMessageId
+    : null;
   const outlookWebLink = normalizeOutlookWebLink(inbound.outlookWebLink) ?? null;
   try {
     // Base statement occupies $1..$18 below (unchanged from before Phase 2) — optional

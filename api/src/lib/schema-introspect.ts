@@ -9,8 +9,8 @@
  * (mappers.ts's upsertInboundEmail caller in internal.ts), this probes
  * `information_schema.columns` ONCE per Function-App cold start (cached per table name) and
  * lets a caller build its INSERT/UPDATE around exactly the columns that exist — no failed
- * statement, no swallowed exception, and the column list is computed the same way whether
- * the probe finds 0, 1, or both optional columns.
+ * statement, no swallowed exception, and the column list is computed consistently for any
+ * subset of optional columns (including later additions such as TKT-009's Outlook target).
  *
  * `tableColumns` touches the DB (a cached Promise; concurrent first-callers share the one
  * in-flight query; any read failure resolves to an EMPTY set — "column absent" is always the

@@ -45,6 +45,6 @@ describe('LinkedEmailsPanel Outlook fallback', () => {
 
     expect(screen.getByText('The saved message text remains readable.')).toBeTruthy();
     expect(screen.queryByRole('link', { name: /View in Outlook/i })).toBeNull();
-    expect(screen.getByText(/saved preview is still available here/i)).toBeTruthy();
+    expect(screen.getByText(/saved preview is still available/i)).toBeTruthy();
   });
 });
