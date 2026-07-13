@@ -1,8 +1,11 @@
 # Changes — TKT-154: Add a constrained MCP path for registration-based image ingestion
 
 ## Status
-Code-complete on the ticket branch; deliberately dark and not deployed. The final reviewed base/head
-pair is recorded in `verification.md` after the branch is rebased and the reciprocal review gate runs.
+Code-complete on the ticket branch; deliberately dark and not deployed.
+
+Fresh post-rebase hardening commit: `946946d` (`fix(mcp): isolate principals and harden ingestion`),
+rebased on `f419e31`. The reciprocal PR markers, rather than this self-referential file, bind the exact
+final PR head and base after all evidence edits.
 
 ## Changes made
 

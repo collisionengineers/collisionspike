@@ -5,24 +5,26 @@ PENDING
 
 ## Evidence
 
-Offline implementation evidence on the ticket branch. Exact reviewed base/head and reciprocal review
-comment links are recorded here only after the final rebase and push.
+Offline implementation evidence on the ticket branch. The implementation plus fresh-review hardening
+commit under test is `946946d`, rebased on `f419e31`. Canonical reciprocal PR comments bind the exact
+final PR head/base after this evidence file is committed; that non-self-referential marker is the
+authority for review freshness.
 
-- API full suite: **76 files / 765 tests passed**, including the published
+- API full suite: **79 files / 778 tests passed**, including the published
   `@modelcontextprotocol/sdk` Streamable HTTP client compatibility test against the registered route
   (initialize/initialized, tools/list and structured tool error). MCP protocol/principal/image-ingest/
   evidence/auth/Box-client/internal-archive coverage, registration TOCTOU refusal, multi-role denial, cumulative preflight,
   sanitized write/readback failures, no public evidence UUID, full initialize lifecycle, Origin/
   Accept/version/body/batch enforcement and Box-scope attestation.
 - API TypeScript build passes.
-- Orchestration full suite: **32 files / 429 tests passed**, including Archive transport/root
+- Orchestration full suite: **34 files / 445 tests passed**, including Archive transport/root
   propagation and the adversarial visible-text image-classification fixture. Orchestration TypeScript
   build passes.
 - Box façade full suite: **257 tests passed**, including unset/wrong/out-of-root refusal and strict
   recheck before upload.
-- Root suite passes: domain **58 files / 1,166 tests**, SPA **48 files / 515 tests**, reciprocal PR
+- Root suite passes: domain **59 files / 1,177 tests**, SPA **50 files / 522 tests**, reciprocal PR
   review hooks **48 tests**, and the session-requiring folder watcher **1 test**.
-- Ticket validator: **164 tickets, 0 failures, 0 warnings**. Documentation links/orphans/live-fact
+- Ticket validator: **167 tickets, 0 failures, 0 warnings**. Documentation links/orphans/live-fact
   leakage check passes (26 known historical absent-link backlog entries remain informational).
 - `git diff --check` passes.
 - Production dependency audit has no high/critical finding. It reports the repository's two inherited
