@@ -729,13 +729,14 @@ export const dataApi = {
   },
 
   /** Run and persist the canonical vehicle lookup through its one Data API owner. */
-  lookupVehicle(caseId: string, idempotencyKey?: string): Promise<{
+  lookupVehicle(caseId: string, registration: string, idempotencyKey?: string): Promise<{
     persisted: { applied: string[]; warning?: string; retryable: boolean; replayed: boolean };
     lookup: { status: string; run_id: string };
     mileage: { status: string; warnings: Array<{ message: string }> };
   }> {
     return request('POST', '/api/vehicle-data/lookup', {
       caseId,
+      registration,
       ...(idempotencyKey ? { idempotencyKey } : {}),
     });
   },

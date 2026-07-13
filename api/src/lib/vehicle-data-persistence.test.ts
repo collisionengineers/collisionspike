@@ -249,7 +249,7 @@ describe('persistVehicleData', () => {
       document_has_mileage: false,
       idempotency_key: 'intake:run-1:case-1',
       request_sha256: requestSha256,
-    })).rejects.toThrow('replay content conflicts');
+    })).resolves.toMatchObject({ replayed: true, applied: [] });
     const replay = await loadVehicleDataReplay('case-1', 'intake:run-1:case-1', requestSha256);
     expect(replay?.result.lookup.run_id).toBe(response.lookup.run_id);
     expect(replay?.persisted).toMatchObject({ replayed: true, applied: [] });

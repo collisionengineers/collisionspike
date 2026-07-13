@@ -1,6 +1,6 @@
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import type { JWTPayload } from 'jose';
-import { isValidEvaMileage } from '@cs/domain';
+import { canonicalizeVrm, isValidEvaMileage } from '@cs/domain';
 import { authenticate, HttpError, toErrorResponse } from '../lib/auth.js';
 import { query } from '../lib/db.js';
 import { callVehicleData } from '../lib/functions-client.js';
@@ -29,8 +29,22 @@ function allowedPrincipal(claims: JWTPayload): boolean {
   const staff = roles.some((role) =>
     ['CollisionSpike.User', 'CollisionSpike.Superuser', 'CollisionSpike.Admin'].includes(role),
   );
+  if (staff) return true;
   const appOnly = claims.idtyp === 'app' || (!claims.scp && !claims.preferred_username);
-  return staff || appOnly;
+  if (!appOnly) return false;
+  const claimBag = claims as Record<string, unknown>;
+  const clientId = typeof claimBag.azp === 'string'
+    ? claimBag.azp
+    : typeof claimBag.appid === 'string'
+      ? claimBag.appid
+      : '';
+  const allowedServiceClients = new Set(
+    (process.env.VEHICLE_DATA_SERVICE_CLIENT_IDS ?? '')
+      .split(/[;,\s]+/)
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  return Boolean(clientId) && allowedServiceClients.has(clientId.toLowerCase());
 }
 
 function withVehicleLookupAuth(
@@ -50,9 +64,19 @@ function withVehicleLookupAuth(
 function isoDate(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const v = value.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  const iso = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   const dmy = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  return dmy ? `${dmy[3]}-${dmy[2]}-${dmy[1]}` : undefined;
+  const year = Number(iso?.[1] ?? dmy?.[3]);
+  const month = Number(iso?.[2] ?? dmy?.[2]);
+  const day = Number(iso?.[3] ?? dmy?.[1]);
+  if (!year || !month || !day) return undefined;
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) return undefined;
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 app.http('vehicleDataLookup', {
@@ -63,8 +87,8 @@ app.http('vehicleDataLookup', {
     const body = (await req.json().catch(() => ({}))) as LookupBody;
     const caseId = typeof body.caseId === 'string' ? body.caseId.trim() : '';
     const previewRegistration = typeof body.registration === 'string' ? body.registration.trim() : '';
-    if ((!caseId && !previewRegistration) || (caseId && previewRegistration)) {
-      return { status: 400, jsonBody: { error: 'supply either caseId or registration' } };
+    if (!caseId && !previewRegistration) {
+      return { status: 400, jsonBody: { error: 'supply caseId or registration' } };
     }
     if (body.targetDate !== undefined && !isoDate(body.targetDate)) {
       return { status: 400, jsonBody: { error: 'targetDate must be YYYY-MM-DD' } };
@@ -83,7 +107,15 @@ app.http('vehicleDataLookup', {
         [caseId],
       );
       if (!rows[0]) return { status: 404, jsonBody: { error: 'case not found' } };
-      registration = rows[0].vrm?.trim() ?? '';
+      const savedRegistration = rows[0].vrm?.trim() ?? '';
+      if (
+        savedRegistration &&
+        previewRegistration &&
+        canonicalizeVrm(savedRegistration) !== canonicalizeVrm(previewRegistration)
+      ) {
+        return { status: 409, jsonBody: { error: 'registration conflicts with the saved case' } };
+      }
+      registration = savedRegistration || previewRegistration;
       documentHasMileage = isValidEvaMileage(rows[0].eva_mileage ?? '');
       targetDate ??= isoDate(rows[0].eva_date_of_loss);
     }
@@ -135,6 +167,12 @@ app.http('vehicleDataLookup', {
       request_sha256: requestSha256,
     });
     await recomputeStatus(caseId);
+    if (persisted.replayed && idempotencyKey) {
+      const replay = await loadVehicleDataReplay(caseId, idempotencyKey, requestSha256);
+      if (!replay) throw new Error('persisted vehicle lookup replay could not be loaded');
+      ctx.log(JSON.stringify({ evt: 'vehicleDataLookupReplay', caseId, runId: replay.result.lookup.run_id }));
+      return { status: 200, jsonBody: { ...replay.result, persisted: replay.persisted } };
+    }
     ctx.log(JSON.stringify({ evt: 'vehicleDataLookup', caseId, runId: result.lookup.run_id, applied: persisted.applied }));
     return { status: 200, jsonBody: { ...result, persisted } };
   }),

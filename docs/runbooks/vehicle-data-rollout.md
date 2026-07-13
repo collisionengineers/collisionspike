@@ -7,7 +7,11 @@ live mutations.
    remediation ledger.
 2. Apply `migration/assets/schema/deltas/2026-07-12-tkt152-vehicle-data.sql`.
 3. Configure `ENRICH_FN_URL` and Key-Vault-referenced `ENRICH_FN_KEY` on the Data
-   API. Keep `ENRICHMENT_ENABLED=true` on the canonical enrichment Function and
+   API. Set `VEHICLE_DATA_SERVICE_CLIENT_IDS=5212d324-4e4a-42c9-b405-69c4928ce7df`
+   on the Data API (the read-only-verified application/client id of the live
+   `cespk-orch-dev` system-assigned identity; re-resolve it if that identity is
+   recreated). This route rejects every unlisted app-only token. Keep
+   `ENRICHMENT_ENABLED=true` on the canonical enrichment Function and
    orchestration gate. The orchestration app no longer needs direct Function
    credentials after the new API deployment is proven.
    Keep `MILEAGE_ESTIMATE_AUTOFILL_ENABLED=false` (or absent). Do not enable it
@@ -26,6 +30,9 @@ live mutations.
    ```powershell
    node scripts/vehicle-enrichment-remediate.mjs --out artifacts/vehicle-remediation-dry.json
    ```
+
+   The script validates the Postgres server certificate unless `PGSSLMODE=disable`
+   is deliberately supplied for a non-production local database.
 
 7. Execute only after the backup and dry-run are accepted:
 

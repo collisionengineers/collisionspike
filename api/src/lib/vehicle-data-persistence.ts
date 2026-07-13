@@ -250,13 +250,17 @@ export async function persistVehicleData(
       [result.lookup.run_id],
     );
     const run = runs[0];
-    if (
-      !run ||
-      run.case_id !== caseId ||
-      run.idempotency_key !== (requestContext.idempotency_key ?? null) ||
-      run.request_sha256 !== requestContext.request_sha256 ||
-      run.response_sha256 !== responseSha256
-    ) {
+    const identityMatches = Boolean(
+      run &&
+      run.case_id === caseId &&
+      run.idempotency_key === (requestContext.idempotency_key ?? null) &&
+      run.request_sha256 === requestContext.request_sha256,
+    );
+    // A caller idempotency key binds the stable request, and the first committed
+    // response wins. Concurrent executions can carry different retrieved_at values;
+    // they must replay that winner rather than turn an at-least-once delivery into 500.
+    const responseMustMatch = !requestContext.idempotency_key;
+    if (!identityMatches || (responseMustMatch && run?.response_sha256 !== responseSha256)) {
       throw new Error('vehicle lookup replay content conflicts with the persisted run');
     }
     if (!insertedRuns[0]) {

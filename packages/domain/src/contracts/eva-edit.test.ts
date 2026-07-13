@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   EVA_EDIT_MAX_LENGTH,
+  normaliseExtractedEvaMileage,
   normaliseEvaEdit,
 } from './eva-edit';
 
@@ -26,6 +27,13 @@ describe('shared EVA edit normalisation', () => {
     expect(normaliseEvaEdit('mileage', '')).toEqual({ value: '' });
     expect(normaliseEvaEdit('mileage', '50,000 miles')).toHaveProperty('error');
     expect(normaliseEvaEdit('mileage', '123456789012345678901')).toHaveProperty('error');
+  });
+
+  it('keeps machine/provider compatibility to an exact standalone unit suffix', () => {
+    expect(normaliseExtractedEvaMileage('50,000 miles')).toBe('50000');
+    expect(normaliseExtractedEvaMileage('50000 km')).toBe('50000');
+    expect(normaliseExtractedEvaMileage('about 50,000 miles')).toBeUndefined();
+    expect(normaliseExtractedEvaMileage('50,000 miles approximately')).toBeUndefined();
   });
 
   it('retains the established clip-at-column-width behavior for ordinary case-page text', () => {

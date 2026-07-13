@@ -47,9 +47,10 @@ df.app.activity('enrich', {
       return { skipped: true, reason: 'no_vrm' };
     }
 
-    // The route re-reads the saved case, so parser/staff mileage precedence is decided
-    // at the write boundary rather than trusted from a replayed activity payload.
-    const result = await dataApi.lookupVehicle(input.caseId, input.idempotencyKey);
+    // The route still re-reads saved case state for mileage precedence. The activity's
+    // resolved VRM is supplied as a fallback for the narrow window before that value is
+    // visible on the case; a conflicting saved VRM fails closed at the API boundary.
+    const result = await dataApi.lookupVehicle(input.caseId, vrm, input.idempotencyKey);
     ctx.log(JSON.stringify({ evt: 'enrich', caseId: input.caseId, applied: result.persisted.applied }));
     return {
       enriched: result.lookup.status === 'found',

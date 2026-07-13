@@ -7,8 +7,10 @@ deployed by this implementation agent.
 
 - Repository: `collisionengineers/dvla-dvsa-connector`
 - Branch: `codex/tkt-152-canonical-mileage-adapter`
-- Commits: `1cb7da9` (`refactor(mcp): retire duplicate vehicle runtimes`) and
-  `dbb57d5` (`fix(mcp): purge retired runtimes and enforce canonical contract`)
+- Reviewed head: `03c7b35ce94b379c6e0fa6efca2e1c61a0d6f008` (PR 3), including
+  `1cb7da9`/`dbb57d5` retirement, fail-closed startup configuration,
+  compatibility-field handling, explicit not-requested provider snapshots and
+  calendar-aware canonical and public tool-input date validation.
 - Removed both direct provider clients, embedded provider credential defaults,
   Firestore/cache/snapshot/evidence-pack/workspace surfaces, all local mileage and
   plausibility rules, and the complete historical Cloudflare runtime.
@@ -20,14 +22,16 @@ deployed by this implementation agent.
   plaintext credential patterns. `SECURITY_ROTATION_REQUIRED.md` records the exact
   historical DVSA application/tenant identifiers and the DVSA/DVLA key names that
   the delivery owner must revoke/rotate without reproducing secret values.
-- `npm run typecheck`, `npm test` (2 files / 4 tests), `npm run build`, and
+- `npm run typecheck`, `npm test` (2 files / 6 tests), `npm run build`, and
   `npm run build:stdio` pass.
 
 ## Windows desktop tool
 
 - Repository: `collisionengineers/mileagetool`
 - Branch: `codex/tkt-152-retire-estimator`
-- Commit: `eb0329f` (`refactor(desktop): retire standalone vehicle lookup`)
+- Reviewed head: `1e9a00e720a03ed0cf576a4a3c95ae7a0f59178a` (PR 1), including
+  the retirement and an explicit compile exclusion for stale gitignored
+  `Secrets.g.cs` files left in older working copies.
 - Removed every direct provider client, embedded-secret generation target, lookup
   service/model/view-model, derived mileage/anomaly rule, and obsolete research.
 - The remaining WinUI shell directs staff to the authenticated Case Intake surface.

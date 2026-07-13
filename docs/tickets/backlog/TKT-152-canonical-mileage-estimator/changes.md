@@ -7,11 +7,13 @@ chronological calibration profile, deployment, controlled remediation and indepe
 live verification still gate completion. TKT-151 application/persistence is now built
 and offline-tested in the same branch, but remains undeployed.
 
-Exact reviewed delivery heads before this evidence-only follow-up:
+Current reviewed sibling delivery heads:
 
-- CollisionSpike: `533003ca9a1587ea8f73705c7cf93660590ceaa8`
-- DVLA/DVSA MCP adapter: `dbb57d52cc15f87fae00249711fa50426724fa5d`
-- Retired Windows mileage tool: `eb0329fd47edda7c7c3700358ef67dc22b751d48`
+- DVLA/DVSA MCP adapter: `03c7b35ce94b379c6e0fa6efca2e1c61a0d6f008` (PR 3)
+- Retired Windows mileage tool: `1e9a00e720a03ed0cf576a4a3c95ae7a0f59178a` (PR 1)
+
+The CollisionSpike delivery is PR 78; its exact passing reciprocal-review head is
+recorded by the PR marker rather than self-referenced inside its own commit.
 
 ## Canonical ownership and contract
 
@@ -60,6 +62,22 @@ Exact reviewed delivery heads before this evidence-only follow-up:
 - Every successful HTTP response now uses the canonical versioned envelope, including
   gate-off and fail-soft outcomes. TypeScript consumers validate the runtime contract before
   persistence; invalid envelopes are rejected/audited rather than trusted through a cast.
+- Exact-head PR review additionally hardened at-least-once delivery: request identity
+  excludes state the lookup itself mutates, the first response committed for an identical
+  caller key wins even if concurrent retrieval timestamps differ, excluded MOT outliers
+  cannot remain selected, and invalid legacy mileage exposes Case Detail retry.
+- App-only vehicle lookup now requires the live orchestration identity in
+  `VEHICLE_DATA_SERVICE_CLIENT_IDS`; staff retain their normal app-role path. The activity
+  forwards its resolved registration as a missing-case fallback and conflicting saved
+  registrations fail closed. The route now has direct auth, validation, preview, fallback,
+  conflict and replay tests.
+- Calendar dates are validated as real dates, not just digit shapes, at both the
+  Data API and sibling MCP boundaries. A concurrent idempotency loser reloads and
+  returns the first committed envelope rather than merely labelling its own response
+  as replayed.
+- Machine/provider mileage retains compatibility with an exact standalone unit suffix,
+  while case edits and arbitrary surrounding prose remain strict. The remediation client
+  verifies the Postgres certificate by default.
 
 ## Estimator behaviour
 
@@ -116,14 +134,14 @@ Exact reviewed delivery heads before this evidence-only follow-up:
 
 - `functions/enrichment`: `python -m pytest -q` → **64 passed**.
 - Python compile/import gate (`compileall`) → pass.
-- Data API: TypeScript build → pass; Vitest → **65 files / 635 tests passed**.
+- Data API: TypeScript build → pass; Vitest → **66 files / 644 tests passed**.
 - Orchestration: TypeScript build → pass; Vitest → **30 files / 418 tests passed**.
-- Domain contract suite → **56 files / 1,144 tests passed** after exhaustive runtime validation and readiness tests.
+- Domain contract suite → **56 files / 1,146 tests passed** after exhaustive runtime validation and readiness tests.
 - SPA: TypeScript/Vite build pass; Vitest → **39 files / 452 tests passed**.
-- Sibling connector: typecheck/build/stdio bundle pass; Vitest → **2 files / 4 tests passed** at
-  commits `1cb7da9` + `dbb57d5` (including the tracked package/runtime purge and
-  strict current canonical contract).
-- Sibling Windows tool: direct `dotnet build` → **0 warnings / 0 errors** at commit `eb0329f`.
+- Sibling connector: typecheck/build/stdio bundle pass; Vitest → **2 files / 6 tests passed** at
+  reviewed head `03c7b35ce94b379c6e0fa6efca2e1c61a0d6f008`.
+- Sibling Windows tool: direct `dotnet build` → **0 warnings / 0 errors** at reviewed head
+  `1e9a00e720a03ed0cf576a4a3c95ae7a0f59178a`.
 - Aggregate `node verify-all.mjs` → **8 passed, 0 failed, 13 expected skips**.
 - `node migration/assets/verify-parity-pg.mjs` → all applicable checks passed.
 - `node scripts/check-doc-links.mjs` → 0 broken links / 0 orphan docs / 0 live-fact leaks.

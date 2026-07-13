@@ -76,6 +76,13 @@ describe('validateProviderApiSubmission — happy path', () => {
     if (!r.ok) return;
     expect(r.value.claimantName.length).toBe(200);
   });
+
+  it('normalises a legacy standalone mileage-unit suffix without accepting prose', () => {
+    const r = validateProviderApiSubmission(base({ mileage: '50,000 miles', mileageUnit: 'Miles' }));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.mileage).toBe('50000');
+  });
 });
 
 describe('validateProviderApiSubmission — rejections (mirror DB CHECKs)', () => {
@@ -89,7 +96,7 @@ describe('validateProviderApiSubmission — rejections (mirror DB CHECKs)', () =
     ['missing accidentCircumstances', { accidentCircumstances: '' }, 'missing_accident_circumstances'],
     ['bad vatStatus', { vatStatus: 'maybe' }, 'invalid_vat_status'],
     ['bad mileageUnit', { mileageUnit: 'furlongs' }, 'invalid_mileage_unit'],
-    ['bad mileage', { mileage: '50,000 miles' }, 'invalid_mileage'],
+    ['bad mileage', { mileage: 'about 50,000 miles' }, 'invalid_mileage'],
     ['bad inspectionAddress type', { inspectionAddress: 123 }, 'invalid_inspection_address'],
     ['instructions not array', { instructions: 'nope' }, 'invalid_instructions'],
     ['images not array', { images: 'nope' }, 'invalid_images'],

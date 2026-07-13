@@ -149,12 +149,13 @@ describe('canonical vehicle lookup contract', () => {
       mileage: { status: 'estimated', warnings: [] },
     }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
 
-    await dataApi.lookupVehicle('case-1', 'intake:instance-1:vehicle-data:case-1');
+    await dataApi.lookupVehicle('case-1', 'AB12CDE', 'intake:instance-1:vehicle-data:case-1');
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe('https://api.example.test/api/vehicle-data/lookup');
     expect(init?.method).toBe('POST');
     expect(JSON.parse(String(init?.body))).toEqual({
       caseId: 'case-1',
+      registration: 'AB12CDE',
       idempotencyKey: 'intake:instance-1:vehicle-data:case-1',
     });
   });

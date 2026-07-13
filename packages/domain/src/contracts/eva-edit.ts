@@ -52,6 +52,19 @@ export function normaliseEvaMileage(value: unknown): string | undefined {
   return digits && EVA_MILEAGE_RE.test(digits) ? digits : undefined;
 }
 
+/**
+ * Compatibility boundary for machine/provider inputs that historically carried
+ * a standalone unit suffix. The persisted value still passes through the strict
+ * digits/grouped-digits normaliser; arbitrary surrounding prose is not stripped.
+ */
+export function normaliseExtractedEvaMileage(value: unknown): string | undefined {
+  const direct = normaliseEvaMileage(value);
+  if (direct) return direct;
+  if (typeof value !== 'string') return undefined;
+  const match = value.trim().match(/^(.+?)\s*(?:miles?|mi|kilometres?|km)$/i);
+  return match ? normaliseEvaMileage(match[1]) : undefined;
+}
+
 export function isValidEvaMileage(value: unknown): value is string {
   return normaliseEvaMileage(value) !== undefined;
 }

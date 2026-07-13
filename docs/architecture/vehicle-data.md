@@ -25,7 +25,7 @@ plain-language warnings and retry. It does not own this algorithm.
 | `functions/enrichment/dvla_client.py` | Provider client and DVLA fallback response | Transport/auth only; registration cleanup delegates to `vehicle_data/registration.py`; no MOT or mileage logic. |
 | `functions/enrichment/analysis.py` | Copied TypeScript cleaner/estimator and response model | Retired to a no-maths import facade over the canonical package. |
 | `functions/enrichment/function_app.py` | Function route and former calculation caller | Sole HTTP service boundary; invokes `VehicleDataService` once and emits the canonical envelope plus its temporary mechanical projection. |
-| `api/src/functions/vehicle-data.ts` and `api/src/lib/vehicle-data-persistence.ts` | Authenticated owner of lookup application | One route serves orchestration, Manual Intake and explicit retry. It validates the canonical response, persists its complete append-only evidence, applies only absent/invalid compatibility fields and stores the current warning/outcome pointer. Durable callers supply one replay key; the route binds it to an exact request and response digest so a retry cannot duplicate the run, audit or field source. |
+| `api/src/functions/vehicle-data.ts` and `api/src/lib/vehicle-data-persistence.ts` | Authenticated owner of lookup application | One route serves orchestration, Manual Intake and explicit retry. It validates the canonical response, persists its complete append-only evidence, applies only absent/invalid compatibility fields and stores the current warning/outcome pointer. Staff need the normal app role; app-only callers must also match `VEHICLE_DATA_SERVICE_CLIENT_IDS`. Durable callers supply one replay key; the route binds it to the operation-stable request, and the first committed response wins, so a concurrent retry cannot duplicate the run, audit or field source. |
 | `orchestration/src/functions/activities/enrich.ts` | Automated intake caller | Calls the one Data API route for every provider automation mode. It has no provider credentials, HTTP client, cleaning or estimation rule. |
 | `api/src/lib/functions-client.ts` and `orchestration/src/lib/functions-client.ts` | Unused legacy enrichment clients (`/api/enrich`) | Obsolete exports removed; they can no longer become a second runtime path. |
 | `packages/domain/src/contracts/vehicle-data.ts` | Shared TypeScript consumer response shape | Mechanical consumer view of the root JSON Schema, guarded by a parity test; no provider or estimator logic. |
@@ -87,5 +87,11 @@ They are forced-RLS, append-only tables for the application login. This lets a l
 case application reference the exact lookup/model versions without rewriting history.
 Each raw observation also stores the provider's original completion timestamp plus its
 episode, segment, selection/rate booleans and exact decision codes. A persisted caller
-replay stores request/response SHA-256 digests and the validated response envelope; the
-same replay key with different content is rejected.
+replay stores request/response SHA-256 digests and the validated response envelope. The
+same key with a different stable request is rejected; concurrent identical requests
+replay the first committed envelope even when their retrieval timestamps differ.
+
+The case field remains strict digits-only (correctly grouped thousands are normalised).
+At the two legacy machine/provider ingress seams only, an exact standalone unit suffix
+such as `50,000 miles` is accepted and reduced to digits. Arbitrary surrounding prose is
+still rejected rather than stripped into an odometer value.

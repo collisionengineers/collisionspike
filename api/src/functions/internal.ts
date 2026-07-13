@@ -54,7 +54,7 @@ import {
   categoryMintsCase,
   describeEvidence,
   markerForMint,
-  normaliseEvaMileage,
+  normaliseExtractedEvaMileage,
   readinessInputForCase,
   statusForReviewCase,
   type CaseStatus,
@@ -399,7 +399,7 @@ export async function applyParserFields(
   });
   const ref = (parserRef ?? '').trim();
   const mileageRaw = parserMileage != null ? String(parserMileage).trim() : '';
-  const mileage = normaliseEvaMileage(mileageRaw) ?? '';
+  const mileage = normaliseExtractedEvaMileage(mileageRaw) ?? '';
   const unitRaw = (parserMileageUnit ?? '').trim();
   const unit = unitRaw === 'Miles' || unitRaw === 'Km' ? unitRaw : '';
   const evaCandidates = selectParserEvaCandidates(parserEva);

@@ -15,7 +15,7 @@ import type {
   ProviderApiImage,
   ProviderApiSubmission,
 } from '@cs/domain';
-import { normaliseEvaMileage } from '@cs/domain';
+import { normaliseExtractedEvaMileage } from '@cs/domain';
 
 /** Machine-readable rejection codes — documented in docs/reference/provider-api-intake-spec.md. */
 export type ProviderIntakeErrorCode =
@@ -145,9 +145,9 @@ export function validateProviderApiSubmission(
     return err('invalid_mileage_unit', "mileageUnit must be '', 'Miles' or 'Km'.");
   }
   const mileage = str(b.mileage).trim();
-  const normalizedMileage = mileage ? normaliseEvaMileage(mileage) : '';
+  const normalizedMileage = mileage ? normaliseExtractedEvaMileage(mileage) : '';
   if (mileage && !normalizedMileage) {
-    return err('invalid_mileage', 'mileage must contain digits only.');
+    return err('invalid_mileage', 'mileage must be numeric, with an optional standalone unit.');
   }
 
   // inspectionAddress: optional; when present must be a string (6-line block or 'Image Based Assessment').
