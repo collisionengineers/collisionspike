@@ -118,7 +118,7 @@ describe('decideTriage — kill-switch invariant (ADR-0019 §4)', () => {
       expect(out.finalCategory).toBe(s.c.category);
       expect(out.finalSubtype).toBe(s.c.subtype);
       expect(out.targetCaseId).toBeUndefined();
-      expect(out.policyVersion).toBe('triage-policy-v1');
+      expect(out.policyVersion).toBe('triage-policy-v2');
     });
   }
 });
@@ -156,6 +156,33 @@ describe('decideTriage — pre-mint duplicate delivery (rung 1)', () => {
       GATES_ALL_ON,
     );
     expect(out.action).toBe('drop_duplicate');
+  });
+});
+
+describe('decideTriage — website enquiries never enter an existing-case lane', () => {
+  it('ignores open-case references, attachments and every promotion gate', () => {
+    const out = decideTriage(
+      classification({
+        category: 'website_enquiry',
+        subtype: 'website_general_enquiry',
+        bodyCaseref: 'QDOS26079',
+        bodyVrm: 'AB12CDE',
+      }),
+      context({
+        openCaseMatches: [match()],
+        hasAttachments: true,
+        imagesOnly: true,
+        attachmentKinds: ['image'],
+      }),
+      GATES_ALL_ON,
+    );
+    expect(out).toMatchObject({
+      action: 'proceed_default',
+      finalCategory: 'website_enquiry',
+      finalSubtype: 'website_general_enquiry',
+      decisionInputs: { rung: 'website_enquiry', openCaseMatchCount: 1, ignoredCaseSignals: true },
+    });
+    expect(out.targetCaseId).toBeUndefined();
   });
 });
 

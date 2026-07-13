@@ -58,6 +58,8 @@ export interface InboundEnvelope {
   inReplyTo: string;
   /** RFC References header (reply detection, ADR-0015 / #3). '' when absent. */
   references: string;
+  /** Recipient-stamped Authentication-Results header. Optional for replay compatibility. */
+  authenticationResults?: string;
   attachments: Array<{
     filename: string;
     contentType: string;
@@ -172,6 +174,7 @@ df.app.activity('fetchMessage', {
       bodyPreview,
       inReplyTo: headers['in-reply-to'] ?? '',
       references: headers['references'] ?? '',
+      authenticationResults: headers['authentication-results'] ?? '',
       attachments: landed,
       ...(rawEml ? { rawEml } : {}),
     };

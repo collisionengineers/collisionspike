@@ -177,6 +177,7 @@ const TRIAGE_LABEL: Record<TriageState, string> = {
 const CATEGORY_ICON: Record<InboundCategory, typeof Briefcase> = {
   receiving_work: Briefcase,
   query: MailQuestion,
+  website_enquiry: Mail,
   case_update: RotateCcw,
   // Taxonomy v3 (TKT-084) — directions held for a later instruction.
   pre_instruction: Hourglass,

@@ -69,10 +69,8 @@ export interface ClassifyEmailResult {
   /** True when the email is a reply about existing work (#3). Default false; the route
    *  derives it from in_reply_to/references when supplied, else a RE:-subject heuristic. */
   is_reply?: boolean;
-  /** The taxonomy generation this row was labelled at (rules-engine-v2 Phase 2 /
-   *  ADR-0019): absent/undefined on TODAY's live v1 parser; 2 once the DDL-gated
-   *  taxonomy-v2 engine tag ships (adds case_update/cancellation). Carried through to the
-   *  triage-policy activity (1.55) for decision telemetry only — never branched on here. */
+  /** The append-only taxonomy generation this row was labelled at. Absent means a
+   *  legacy v1 response. Carried into decision telemetry; never branched on here. */
   taxonomy_version?: number;
 }
 
@@ -88,6 +86,8 @@ export function callClassifyEmail(input: {
   body?: string;
   from?: string;
   senderDomain?: string;
+  /** Recipient-stamped Authentication-Results header for authenticated sender rules. */
+  authenticationResults?: string;
   providerMatchState?: string;
   attachmentKinds?: string[];
   attachmentFilenames?: string[];
@@ -101,6 +101,7 @@ export function callClassifyEmail(input: {
     body: input.body ?? '',
     from: input.from ?? '',
     sender_domain: input.senderDomain ?? '',
+    authentication_results: input.authenticationResults ?? '',
     provider_match_state: input.providerMatchState ?? '',
     attachment_kinds: input.attachmentKinds ?? [],
     attachment_filenames: input.attachmentFilenames ?? [],

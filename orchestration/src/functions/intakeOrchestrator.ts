@@ -43,6 +43,7 @@ import {
 } from '../lib/supplement-parse.js';
 import type { InboundClassification } from './activities/classifyInbound.js';
 import { shouldAttemptPdfVrmMatch } from './activities/imagesReceivedVrmMatch.js';
+import { shouldLinkReplyToCase } from './activities/reply-link-eligibility.js';
 import { shouldAttemptTriageAssist } from './gated/triage-classify.js';
 import { decideCaseType, decideRetro, categoryMintsCase } from '@cs/domain';
 import type { TriagePolicyDecision } from '@cs/domain';
@@ -266,7 +267,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // record-keeping path so its email/attachments/images are evidence and can be mirrored
   // into the archive.
   if (!categoryMintsCase(classification.category)) {
-    if (classification.isReply) {
+    if (shouldLinkReplyToCase(classification)) {
       const inb = inbound as { candidateRef?: string; candidateVrm?: string };
       const ref = ((inb.candidateRef || classification.bodyCaseref) ?? '').trim();
       const vrm = ((inb.candidateVrm || classification.bodyVrm) ?? '').trim();

@@ -1,0 +1,256 @@
+Received: from LO0P123MB4251.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:15f::5)
+ by CWLP123MB1970.GBRP123.PROD.OUTLOOK.COM with HTTPS; Sun, 12 Jul 2026
+ 16:58:47 +0000
+Received: from CWLP123CA0082.GBRP123.PROD.OUTLOOK.COM (2603:10a6:401:5b::22)
+ by LO0P123MB4251.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:15f::5) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.181.23; Sun, 12 Jul
+ 2026 16:58:45 +0000
+Received: from CW2PEPF000056BB.GBRP265.PROD.OUTLOOK.COM
+ (2603:10a6:401:5b:cafe::37) by CWLP123CA0082.outlook.office365.com
+ (2603:10a6:401:5b::22) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.202.19 via Frontend Transport; Sun,
+ 12 Jul 2026 16:58:45 +0000
+Authentication-Results: spf=pass (sender IP is 54.240.3.28)
+ smtp.mailfrom=send.noreply.collisionengineers.co.uk; dkim=pass (signature was
+ verified) header.d=noreply.collisionengineers.co.uk;dkim=pass (signature was
+ verified) header.d=amazonses.com;dmarc=pass action=none
+ header.from=noreply.collisionengineers.co.uk;compauth=pass reason=100
+Received-SPF: Pass (protection.outlook.com: domain of
+ send.noreply.collisionengineers.co.uk designates 54.240.3.28 as permitted
+ sender) receiver=protection.outlook.com; client-ip=54.240.3.28;
+ helo=a3-28.smtp-out.eu-west-1.amazonses.com; pr=C
+Received: from a3-28.smtp-out.eu-west-1.amazonses.com (54.240.3.28) by
+ CW2PEPF000056BB.mail.protection.outlook.com (10.167.240.6) with Microsoft
+ SMTP Server (version=TLS1_3, cipher=TLS_AES_256_GCM_SHA384) id 15.21.223.9
+ via Frontend Transport; Sun, 12 Jul 2026 16:58:45 +0000
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple; s=resend;
+	d=noreply.collisionengineers.co.uk; t=1783875524;
+	h=From:To:Subject:Message-ID:Date:MIME-Version:Content-Type;
+	bh=k2qeHuuxCal7Ojqx3q03xHRlJAoRGGQXcsMRKSQnRdA=;
+	b=4BqQSmitZyI27omHKFhTWEdPShMfG532dZc0xvv7pKP6sN2jhHWHKak5jGQiETJz
+	Ux+RqjtvYnWtBeOWHJYu9x4EEryDGNc5yJ3D/sKlLWIunmbhRV6PcotOW9tqkrAWdj4
+	kTO5toNR0yepeXSiUVk+ccTA5oksN64jxGAr+Ihs=
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple;
+	s=shh3fegwg5fppqsuzphvschd53n6ihuv; d=amazonses.com; t=1783875524;
+	h=From:To:Subject:Message-ID:Date:MIME-Version:Content-Type:Feedback-ID;
+	bh=k2qeHuuxCal7Ojqx3q03xHRlJAoRGGQXcsMRKSQnRdA=;
+	b=ilGndm3xkoIM+jvVW1ZuCa+n76CPPV6Hv/usbOA898Ql2H0sibG9ONsNqxnO2Wei
+	AI+HuzeJoDYT4804a8dXcccuyUhyu0qQTGvLJJmUNKbi4dRYGA4pdZp6vjxWdpkx+34
+	3eyMBeCMp3nI/vfBw3qRkHz2sR1OMyXMCOntxmCE=
+From: Collision Engineers <mail@noreply.collisionengineers.co.uk>
+To: info@collisionengineers.co.uk
+Subject: New General Enquiry - Rachael Yeardley 
+Message-ID: <0102019f574458c5-ec2ee2db-bef7-4fc2-8362-00e9fdeb7742-000000@eu-west-1.amazonses.com>
+Date: Sun, 12 Jul 2026 16:58:44 +0000
+Content-Type: multipart/alternative;
+ boundary="--_NmP-789b52be7f7c5c75-Part_1"
+Feedback-ID: :1.eu-west-1.5xACkXik08e6mLPe5OxwbRA+EJkhZD4Q67tvXBIcD2mCay64/xhCvO6F5fkKGahddWd0ExfFU/YUzEYjY5yLxDx62tAFRxm0eLZgzc9e/kQ5/O6nkJA6pCUyorabV4wchtWeT8g4U4A241v/ttQypenAhJGeMiS63+ZS3ZTiOrI=:1.eu-west-1.xc5b6Z4+0WlftYwtQHAHsTtsfYdZQImSOXWypZD9BdY=:AmazonSES
+X-SES-Outgoing: 2026.07.12-54.240.3.28
+Return-Path: 0102019f574458c5-ec2ee2db-bef7-4fc2-8362-00e9fdeb7742-000000@send.noreply.collisionengineers.co.uk
+X-MS-Exchange-Organization-ExpirationStartTime: 12 Jul 2026 16:58:45.6920
+ (UTC)
+X-MS-Exchange-Organization-ExpirationStartTimeReason: OriginalSubmit
+X-MS-Exchange-Organization-ExpirationInterval: 1:00:00:00.0000000
+X-MS-Exchange-Organization-ExpirationIntervalReason: OriginalSubmit
+X-MS-Exchange-Organization-Network-Message-Id: 066335c3-8b96-4b30-688d-08dee036d608
+X-EOPAttributedMessage: 0
+X-EOPTenantAttributedMessage: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94:0
+X-MS-Exchange-Organization-MessageDirectionality: Incoming
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: CW2PEPF000056BB:EE_|LO0P123MB4251:EE_|CWLP123MB1970:EE_
+X-MS-Exchange-Organization-AuthSource: CW2PEPF000056BB.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Organization-AuthAs: Anonymous
+X-MS-Office365-Filtering-Correlation-Id: 066335c3-8b96-4b30-688d-08dee036d608
+X-MS-Exchange-Organization-SCL: -1
+X-Microsoft-Antispam: BCL:0;ARA:13230040|7149299003|32142699015|3109299003|69100299015|5063699009|56012099006|19002099009|16102099003|18002099003|4113699003|8096899003|4076899003;
+X-Forefront-Antispam-Report: CIP:54.240.3.28;CTRY:US;LANG:en;SCL:-1;SRV:;IPV:NLI;SFV:SFE;H:a3-28.smtp-out.eu-west-1.amazonses.com;PTR:a3-28.smtp-out.eu-west-1.amazonses.com;CAT:NONE;SFS:(13230040)(7149299003)(32142699015)(3109299003)(69100299015)(5063699009)(56012099006)(19002099009)(16102099003)(18002099003)(4113699003)(8096899003)(4076899003);DIR:INB;
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 12 Jul 2026 16:58:45.5391
+ (UTC)
+X-MS-Exchange-CrossTenant-Network-Message-Id: 066335c3-8b96-4b30-688d-08dee036d608
+X-MS-Exchange-CrossTenant-Id: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94
+X-MS-Exchange-CrossTenant-AuthSource: CW2PEPF000056BB.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-CrossTenant-AuthAs: Anonymous
+X-MS-Exchange-CrossTenant-FromEntityHeader: Internet
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: LO0P123MB4251
+X-MS-Exchange-Transport-EndToEndLatency: 00:00:01.8485063
+X-MS-Exchange-Processed-By-BccFoldering: 15.21.0181.017
+X-Microsoft-Antispam-Mailbox-Delivery:
+	wl:1;pcwl:1;ucf:0;jmr:0;auth:0;dest:I;ENG:(910005)(944506478)(944626604)(920097)(811242)(255002)(410001)(930201)(20251009189)(140003);
+X-Microsoft-Antispam-Message-Info:
+	=?utf-8?B?Z2s4L2kvTXpFWFV5Q213dHIwN2s3ZkdEckpneW1WeXgxZ0VlaDRYaGxQbzhW?=
+ =?utf-8?B?Wm1VVWpKZTYyLzN2RHNkNFkzcHNmSEMvS1p3aVYrajIyQ2FhVUFVVnVwNUdB?=
+ =?utf-8?B?SUV2Z3hkTSszR0xCTGNJMDIzSzlZL1VyUjJud3VwQkQ0YkI0cU1WZXN6TU5K?=
+ =?utf-8?B?YmNTVmw5YjA3UE5VMUhkOFZ2ZFRKWVhWSS9IM0ZqYTVIcStVNGl2V0cydSta?=
+ =?utf-8?B?am9lYWlIRVRCTitNK3pocTFoZ1VGWC9DTVFKNXR5VWNtT3QrK01leU1KUGFF?=
+ =?utf-8?B?NGg4UmxhNTB0YzVueDRoeTFWbFdJbEFadWFnYmRnS0xHN29wOVdZQzUveWhr?=
+ =?utf-8?B?bitsR3lKU2dEVU1nNE9Ob2RoUHdkc2pBNDNIRm5IalFOTWUxVXBEbzNEeUMz?=
+ =?utf-8?B?dmdqS0x0T0lGM0hDbkJmQ1VTSnAzTk45QTdCVWRQTDE5NlhVT0lJMExBbVA1?=
+ =?utf-8?B?U0F4UFJpN0VaQmUydTZDcXRqTEFpVzI2cm42K3lUcm9OMjBnVkpTTTRscmlY?=
+ =?utf-8?B?Ry9PTDRyek1HQ3lSOFZXZVZRc01JYktGZkNnWmlhSGRHMlYwQjMzTmdncjVD?=
+ =?utf-8?B?MFpDUjdwL3o2a0diRXllaERsbCtRUHJWcFlSdkJnWmhCVTNsZGRLME9XOEZL?=
+ =?utf-8?B?NDVVc3dtM29kZGRZODZMS1BneG1zSjZubUV2bXNPaS9hS3VUbTNIcEo1cmFm?=
+ =?utf-8?B?VGFxYjIvcUZXeXhQYWx1UTNsTnJVSzR1eGZyQ3FDUUMyZS93WUVqdjFkQlZi?=
+ =?utf-8?B?T2NZd2xqTTM0Y3JPd0xtK3NYRXh0WG0zeGlmRFNxNUlPZGlHR0JBOElCNFA0?=
+ =?utf-8?B?OExEa1FqMDBmRGJJUHNBZWpKbXYrcjVrZmVPbU1nY2VpcThrK1E2MDUxcUox?=
+ =?utf-8?B?WkQzNDcwa2t2ekFtbTY4SUpIdTZyamlXMkpJZFlxeVA4UmU4c1A5aHdhUXBL?=
+ =?utf-8?B?cHEyaS9GV3Q0Z01TVGtBWXJ4MXNraElpTnpSVFZpT09rWmNVVmlaY0R1bkNV?=
+ =?utf-8?B?RCt3QllaUndaWUFQYytTbnhNVzlDLzU2UnUzOHR6UktiUENSeVFGOElMRlUz?=
+ =?utf-8?B?TEx2K3ZrU081Q3E1bjVTcXc3SWhQZTRubzZkd2lCZXpsSjY3aUVkN0YzaFhD?=
+ =?utf-8?B?S3BJZXpTNVZBUHIzYjdFTFJ4ZEc2cjErcnlmaTU4VlhrTWFPZ09JTDZGcjlr?=
+ =?utf-8?B?TFBBUGwwbnA2TTRBTFptLzFjZVNjdVA3YnpycHh0c3VWKytXWmNZZ0hwakpu?=
+ =?utf-8?B?ZW13b2hHME1uODlDVmZGWTBmR0tveFpvbWZBNnZ0MmI4Mm4wczhEelFyN1Zs?=
+ =?utf-8?B?OGEwQWkvMmtQVUhDQWsyWFRWTGZ0QWZKT3pFZnlJQTJ3bkRtYzVXVENjNDNm?=
+ =?utf-8?B?R3pVVHo1TGFpQklWQ1k5RGtaSXBYWW51YVRPR2N4ay9sZERuaWlicGZtY29o?=
+ =?utf-8?B?cENnQ09taFdOUW01eFFuQSs5MXgxdHJUQXJqc3VYclR0VmdIZEJFdGVUV2pH?=
+ =?utf-8?B?U0xBYnNHZ2tvRTJxRUpvOFBKUXh6SlVKT3dwOHZVdG9xNmJJSnZFM0pPcGt4?=
+ =?utf-8?B?cmFxWE1vN2Vqd3JCb3B3OU9JWVZtaVBWTjBHMXNrVURvNncyU29WcUJKNElH?=
+ =?utf-8?B?Y0RpY1R5TlZTRnZyNEpoMlEzZ0w2RW4vbFpNRDdncUdoZFRzSVdCZW52eHM1?=
+ =?utf-8?B?RzRmOEx1RnZPQXRMNkExZExIRlIrWnc4UHlZTzFLKzRCRFpiRHAxRWR3Slcw?=
+ =?utf-8?B?REJjTEd2bzFzRmxDQURrb2xCdXYvRTZuTG5iN2xtTzRwV1oyTU14Qm5idisw?=
+ =?utf-8?B?RG9YeHBMNVhHUFphL3ExTU1rb0oyWlloclZNQkJyWXZtT1lhMGlIdHRhdVh3?=
+ =?utf-8?B?R2hmZERmcGkvZ25DdTdTTnc2V3JvaEJYaU03K3Y3TUNYV1ppQmZkTExiWnMw?=
+ =?utf-8?B?M2RIYWdEa2tEbi93VWFRY21VQ1o5bk5uRWl4dkJXM2s1eEVweVlQUExRYXNz?=
+ =?utf-8?B?aTVzdlpYNFNobll1bnc1ZUF3UDRCNlZDRlBOTE1BVmZ6WEE0VzdCeGYxMExP?=
+ =?utf-8?B?WUxQNE4zZ3RsbkNnc1ZsSFduWU5GQjJVc1ZMV2hyZmhsRkIrQXNtWmdxamsy?=
+ =?utf-8?B?WFdkM3JSSWR4ZlgvS1dvcnVuZHV4bys5Z2p2RVptTUUrS1dmWjJWcVYvVE14?=
+ =?utf-8?B?cXo2ZGE4aTk3MW5WeUhHeTRhZUtobHZvRmwrM3FGcE9UQWZWd0RpY2liU0g1?=
+ =?utf-8?B?VGphOWMyL21RM3dWN1FyNHZNZ0tRa05Mb2IyZlhYTHFZTkdkWWhud1lDQW9G?=
+ =?utf-8?B?RlhuMjlzVXlQOHRZdlhuMmlkTzVoMk41VGZSZDFFRWx4cU8xNXdSVWY0RkJq?=
+ =?utf-8?B?UmJucXk1LzBjWGluZXdHUjlJVk5KLzdDZ2pITFI4UjNISDZhcVoydWZqN2lP?=
+ =?utf-8?B?VE9zcWE5ci9CQXdwN3BrZ1lRL1VFNnZjZHRrWE5xUGprdVN2YXFwcldQUG9L?=
+ =?utf-8?B?Q3VQNUZiVi8rN1FHN1ViS00zTUtKSnVycEhkbm5GYTR1WTNDSWwwQktIZTBu?=
+ =?utf-8?B?c0IvdkQ5NDRPM3BCUG1CNHFWNU40VWo2SzhNbE13ZS95aGlsVDdyRjlETnhT?=
+ =?utf-8?B?TU1BR3NNeHl3NGYyQkNCblRRWjRqcWo4cXBqTU5KZUNFMHZwejQxamNyVUNE?=
+ =?utf-8?B?ZTNFVEVNMWN6S0pUVzlla1I1a1RiZFRCWTdBcUFMWGdHWlhmbnZycCtxdml1?=
+ =?utf-8?B?SVBJZ3dsNHVUSlhtVmh6SXFIL25odjJWa1U4ei94VjRacXdCT3VHTDlzL1hQ?=
+ =?utf-8?B?cFd1MHMwZlhRdTk4T3l4dXVhak4vaWd2RTFVQW5tODBEeWl1eVVTNmlOb0Rs?=
+ =?utf-8?B?ZVBLK3VpUkdpdE9uNHZQYUJERHZZT1Vud2wzYkNmM2RiQk0zcDhOeitRZ2xS?=
+ =?utf-8?B?b29VTkxLbnhDUE9md0FXM01DbGZ6Wm9Ydmhzem5WcnFHbmZ1QzhXYjVROUsz?=
+ =?utf-8?B?Wk5IZ1RtR2dIK1lpMGNseXMxcTNpQmZ6cXBnZnhYaEtMcnpDSjN5YWNrZFBI?=
+ =?utf-8?B?a3J4bnVJakZObklYamNVMU9JWTl3emlxTUlyVksrbFlmdXFuejl2QmJQUnFX?=
+ =?utf-8?B?MmRhTXZIQnZqMDVVc2EwV3B0UXRmSkdQSUhvalpzQXdqZzdveTYyMXpzOXNY?=
+ =?utf-8?B?Mk0vNEg2SDJLY3UvQzkvRDlGMUhZMGU1VTg0WFZBYVVBRk16TGNxRk8rSnVU?=
+ =?utf-8?B?Y1Z4WURkREpDUy96Y1ViaG85SjFJWDVDZnFJS09rSm0rS3JMY0YxaTd2aXhY?=
+ =?utf-8?B?YW1wdDBsRkFLa1JPeWJwWkUyRU9ZMURBPT0=?=
+MIME-Version: 1.0
+
+----_NmP-789b52be7f7c5c75-Part_1
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+General Enquiry from the Website
+
+NameRachael Yeardley Emailrakki89@aol.com=
+ Phone07960021306 MessageHello, I'm looking for an independent automotive =
+engineer to inspect my vehicle and prepare a report for a County Court =
+claim under the Consumer Rights Act 2015. The vehicle is a 2019 Nissan =
+Navara, 26,000 miles, purchased from a dealer on 26 May 2026. The vehicle =
+felt unstable immediately after purchase and was booked into to a mechanic.=
+ The garage found both rear suspension springs broken and rusted, two tyres=
+ below the legal tread limit and a third tyre with significant outer edge =
+wear consistent with a tracking or alignment issue. The dealer disputes =
+that these defects were present when the vehicle was sold and relies on the=
+ MOT, pre-delivery inspection and handover video. I'm not looking for =
+another inspection simply confirming the faults. I'm looking for an =
+independent opinion on: Whether the defects are more likely than not to =
+have been present, or developing, at the time of sale. Whether the =
+condition of the broken rear springs (including the fracture surfaces and =
+any corrosion present) indicates a recent failure or one that had existed =
+before I purchased the vehicle. Whether the tyre wear identified could =
+realistically have developed during approximately 700 miles of normal =
+driving. Whether the combination of defects is consistent with a vehicle =
+that was of satisfactory quality when supplied. Whether, in your opinion, =
+these defects would ordinarily have been identified during a competent MOT =
+or pre-delivery inspection. Whether there is anything about the defects =
+that indicates they arose after the sale, or whether the evidence is more =
+consistent with them having existed beforehand. Whether the vehicle has =
+further damage i am not aware of. Could you let me know: Whether this is =
+something you can assist with. Whether you've prepared reports for court =
+before. The likely cost of an inspection and report. How soon you would be =
+able to inspect the vehicle. The vehicle is parked at my home address and =
+with both suspension coils broken, is not currently driveable Many thanks, =
+Rachael Yeardley
+
+Submitted via the Collision Engineers website contact =
+form.
+----_NmP-789b52be7f7c5c75-Part_1
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dutf-8"><d=
+iv style=3D"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;colo=
+r:#1a1a1a;">
+                <div style=3D"background:#DB0816;padding:24px 32px;">
+                    <img src=3D"https://media.base44.com/images/public/69ae=
+ad05c16b1f0c19d88547/d975dc0cb_LogoWhiteNoMargin.png" alt=3D"Collision Engi=
+neers" style=3D"height:80px;margin-bottom:12px;">
+                    <p style=3D"color:white;margin:0;font-size:14px;font-we=
+ight:700;">General Enquiry from the Website</p>
+                </div>
+                <div style=3D"padding:32px;background:#fff;border:1px solid=
+ #eee;">
+                    <table style=3D"width:100%;border-collapse:collapse;">
+                        <tr style=3D"border-bottom:1px solid #eee;"><td sty=
+le=3D"padding:11px 0;color:#666;font-size:13px;width:40%;">Name</td><td sty=
+le=3D"padding:11px 0;font-weight:600;font-size:13px;">Rachael Yeardley </td=
+></tr>
+                        <tr style=3D"border-bottom:1px solid #eee;"><td sty=
+le=3D"padding:11px 0;color:#666;font-size:13px;">Email</td><td style=3D"pad=
+ding:11px 0;font-weight:600;font-size:13px;"><a href=3D"mailto:rakki89@aol.=
+com" style=3D"color:#DB0816;">rakki89@aol.com</a></td></tr>
+                        <tr style=3D"border-bottom:1px solid #eee;"><td sty=
+le=3D"padding:11px 0;color:#666;font-size:13px;">Phone</td><td style=3D"pad=
+ding:11px 0;font-weight:600;font-size:13px;">07960021306</td></tr>
+                        <tr><td style=3D"padding:11px 0;color:#666;font-siz=
+e:13px;vertical-align:top;">Message</td><td style=3D"padding:11px 0;font-si=
+ze:13px;white-space:pre-wrap;">Hello,
+I'm looking for an independent automotive engineer to inspect my vehicle an=
+d prepare a report for a County Court claim under the Consumer Rights Act 2=
+015.
+The vehicle is a 2019 Nissan Navara, 26,000 miles, purchased from a dealer =
+on 26 May 2026. The vehicle felt unstable immediately after purchase and wa=
+s booked into to a mechanic. The garage found both rear suspension springs =
+broken and rusted, two tyres below the legal tread limit and a third tyre w=
+ith significant outer edge wear consistent with a tracking or alignment iss=
+ue.
+The dealer disputes that these defects were present when the vehicle was so=
+ld and relies on the MOT, pre-delivery inspection and handover video.
+I'm not looking for another inspection simply confirming the faults. I'm lo=
+oking for an independent opinion on:
+Whether the defects are more likely than not to have been present, or devel=
+oping, at the time of sale.
+Whether the condition of the broken rear springs (including the fracture su=
+rfaces and any corrosion present) indicates a recent failure or one that ha=
+d existed before I purchased the vehicle.
+Whether the tyre wear identified could realistically have developed during =
+approximately 700 miles of normal driving.
+Whether the combination of defects is consistent with a vehicle that was of=
+ satisfactory quality when supplied.
+Whether, in your opinion, these defects would ordinarily have been identifi=
+ed during a competent MOT or pre-delivery inspection.
+Whether there is anything about the defects that indicates they arose after=
+ the sale, or whether the evidence is more consistent with them having exis=
+ted beforehand.
+Whether the vehicle has further damage i am not aware of.
+Could you let me know:
+Whether this is something you can assist with.
+Whether you've prepared reports for court before.
+The likely cost of an inspection and report.
+How soon you would be able to inspect the vehicle. The vehicle is parked at=
+ my home address and with both suspension coils broken, is not currently dr=
+iveable
+Many thanks,
+Rachael Yeardley
+</td></tr>
+                    </table>
+                </div>
+                <div style=3D"padding:16px 32px;background:#f5f5f7;border:1=
+px solid #eee;border-top:none;">
+                    <p style=3D"margin:0;font-size:11px;color:#aaa;">Submit=
+ted via the Collision Engineers website contact form.</p>
+                </div>
+            </div>
+        =
+
+----_NmP-789b52be7f7c5c75-Part_1--

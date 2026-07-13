@@ -24,11 +24,15 @@ function envelope(overrides: Partial<InboundEnvelope> = {}): InboundEnvelope {
 
 describe('buildClassifyRequest', () => {
   it('maps the envelope fields onto the classify-email request shape', () => {
-    const req = buildClassifyRequest(envelope(), 'matched');
+    const req = buildClassifyRequest(
+      envelope({ authenticationResults: 'dmarc=pass; compauth=pass' }),
+      'matched',
+    );
 
     expect(req.subject).toBe('New instruction — AB12CDE');
     expect(req.from).toBe('ops@provider.example');
     expect(req.senderDomain).toBe('provider.example');
+    expect(req.authenticationResults).toBe('dmarc=pass; compauth=pass');
     expect(req.providerMatchState).toBe('one');
     expect(req.hasAttachments).toBe(false);
     expect(req.attachmentKinds).toEqual([]);

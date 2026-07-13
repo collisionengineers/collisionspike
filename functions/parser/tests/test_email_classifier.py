@@ -53,14 +53,15 @@ def _load_manifest() -> dict:
         return json.load(fh)
 
 
-def _read_eml(rel_path: str) -> tuple[str, str, str, str]:
-    """Parse a corpus .eml -> (subject, body, from_address, sender_domain)."""
+def _read_eml(rel_path: str) -> tuple[str, str, str, str, str]:
+    """Parse a corpus .eml -> subject, body, sender identity and recipient auth result."""
     path = os.path.join(_CORPUS_DIR, *rel_path.split("/"))
     with open(path, "rb") as fh:
         msg = email.message_from_bytes(fh.read(), policy=email.policy.default)
     subject = msg["subject"] or ""
     from_address = msg["from"] or ""
     sender_domain = from_address.split("@")[-1].strip("> ") if "@" in from_address else ""
+    authentication_results = msg["authentication-results"] or ""
     if msg.is_multipart():
         body = "".join(
             part.get_content()
@@ -69,7 +70,7 @@ def _read_eml(rel_path: str) -> tuple[str, str, str, str]:
         )
     else:
         body = msg.get_content()
-    return subject, body, from_address, sender_domain
+    return subject, body, from_address, sender_domain, authentication_results
 
 
 # --------------------------------------------------------------------------- #
@@ -94,7 +95,7 @@ def _tier1_cases() -> list:
 def _tier2_cases() -> list:
     cases = []
     for entry in _MANIFEST["tier_2_synthetic"]:
-        subject, body, from_address, sender_domain = _read_eml(entry["eml"])
+        subject, body, from_address, sender_domain, authentication_results = _read_eml(entry["eml"])
         # Mirror the route: HTML-strip the body before scanning.
         plain_body = function_app._strip_html(body)
         request = {
@@ -102,6 +103,7 @@ def _tier2_cases() -> list:
             "body": plain_body,
             "from_address": from_address,
             "sender_domain": sender_domain,
+            "authentication_results": authentication_results,
             "provider_match_state": entry["provider_match_state"],
             "has_attachments": entry["has_attachments"],
         }
@@ -164,12 +166,155 @@ def test_corpus_covers_all_subtypes():
         "cancellation_notice",
         "payment_remittance",
         "pre_instruction_directions",
+        "website_general_enquiry",
     }
 
 
 # --------------------------------------------------------------------------- #
 # Pure-function unit checks (independent of the corpus)                       #
 # --------------------------------------------------------------------------- #
+def test_taxonomy_v4_keeps_the_legacy_positional_call_contract():
+    result = classify_email(
+        "New instruction",
+        "Please inspect the vehicle and prepare a report.",
+        "ops@provider.example",
+        "provider.example",
+        "one",
+        ["instruction"],
+        True,
+    )
+    assert result["category"] == "receiving_work"
+    assert result["subtype"] == "existing_provider_instruction"
+
+
+def test_website_general_enquiry_outranks_case_update_tokens():
+    result = classify_email(
+        subject="New General Enquiry - Rachael Yeardley",
+        body=(
+            "General Enquiry from the Website\n"
+            "Name: Rachael Yeardley\n"
+            "Message: Please help with vehicle AB12 CDE and reference QDOS26079.\n"
+            "Submitted via the Collision Engineers website contact form."
+        ),
+        from_address="mail@noreply.collisionengineers.co.uk",
+        sender_domain="noreply.collisionengineers.co.uk",
+        authentication_results=(
+            "spf=pass; dkim=pass header.d=noreply.collisionengineers.co.uk; "
+            "dmarc=pass header.from=noreply.collisionengineers.co.uk; compauth=pass"
+        ),
+        provider_match_state="none",
+        attachment_kinds=["image"],
+        has_attachments=True,
+        open_case_ref_match="one",
+    )
+    assert result["category"] == "website_enquiry"
+    assert result["subtype"] == "website_general_enquiry"
+    assert result["taxonomy_version"] == 4
+    assert "rule:website_general_enquiry" in result["signals"]
+    assert "website_form_authenticated" in result["signals"]
+    assert "website_form_markers:subject,heading,footer" in result["signals"]
+
+
+def test_website_enquiry_requires_exact_sender_and_two_form_markers():
+    common = {
+        "subject": "New General Enquiry - Example",
+        "body": (
+            "General Enquiry from the Website\n"
+            "Submitted via the Collision Engineers website contact form."
+        ),
+        "provider_match_state": "none",
+        "authentication_results": (
+            "dmarc=pass header.from=noreply.collisionengineers.co.uk; compauth=pass"
+        ),
+    }
+    wrong_sender = classify_email(
+        **common,
+        from_address="visitor@example.com",
+        sender_domain="example.com",
+    )
+    one_marker = classify_email(
+        subject="New General Enquiry - Example",
+        body="Hello, I would like some help.",
+        from_address="mail@noreply.collisionengineers.co.uk",
+        sender_domain="noreply.collisionengineers.co.uk",
+        provider_match_state="none",
+        authentication_results=(
+            "dmarc=pass header.from=noreply.collisionengineers.co.uk; compauth=pass"
+        ),
+    )
+    display_name_like = classify_email(
+        **common,
+        from_address="collision-engineers@example.com",
+        sender_domain="example.com",
+    )
+    trusted_address_in_display_name = classify_email(
+        **common,
+        from_address='"mail@noreply.collisionengineers.co.uk" <visitor@example.com>',
+        sender_domain="example.com",
+    )
+    unauthenticated_exact_sender = classify_email(
+        subject="New General Enquiry - Example",
+        body=(
+            "General Enquiry from the Website\n"
+            "Submitted via the Collision Engineers website contact form."
+        ),
+        from_address="mail@noreply.collisionengineers.co.uk",
+        sender_domain="noreply.collisionengineers.co.uk",
+        authentication_results="dmarc=fail; compauth=fail",
+        provider_match_state="none",
+    )
+    missing_authentication = classify_email(
+        **{key: value for key, value in common.items() if key != "authentication_results"},
+        from_address="mail@noreply.collisionengineers.co.uk",
+        sender_domain="noreply.collisionengineers.co.uk",
+    )
+    partial_authentication = classify_email(
+        **{key: value for key, value in common.items() if key != "authentication_results"},
+        from_address="mail@noreply.collisionengineers.co.uk",
+        sender_domain="noreply.collisionengineers.co.uk",
+        authentication_results="dmarc=pass header.from=noreply.collisionengineers.co.uk",
+    )
+    unbound_authentication = classify_email(
+        **{key: value for key, value in common.items() if key != "authentication_results"},
+        from_address="mail@noreply.collisionengineers.co.uk",
+        sender_domain="noreply.collisionengineers.co.uk",
+        authentication_results=(
+            "dmarc=pass header.from=example.com; header.from=noreply.collisionengineers.co.uk; "
+            "compauth=pass"
+        ),
+    )
+    for result in (
+        wrong_sender,
+        one_marker,
+        display_name_like,
+        trusted_address_in_display_name,
+        unauthenticated_exact_sender,
+        missing_authentication,
+        partial_authentication,
+        unbound_authentication,
+    ):
+        assert result["category"] != "website_enquiry"
+
+
+def test_website_enquiry_body_markers_work_without_subject_marker_and_beat_cancellation():
+    result = classify_email(
+        subject="A question",
+        body=(
+            "General Enquiry from the Website\n"
+            "Please cancel my claim for AB12 CDE.\n"
+            "Submitted via the Collision Engineers website contact form."
+        ),
+        from_address="mail@noreply.collisionengineers.co.uk",
+        sender_domain="noreply.collisionengineers.co.uk",
+        authentication_results=(
+            "dmarc=pass header.from=noreply.collisionengineers.co.uk; compauth=pass"
+        ),
+        provider_match_state="none",
+    )
+    assert result["category"] == "website_enquiry"
+    assert "website_form_markers:heading,footer" in result["signals"]
+
+
 def test_instruction_doc_with_audit_phrases_is_audit_subtype():
     result = classify_email(
         subject="Inspection Request to Engineers 2",
@@ -1735,6 +1880,27 @@ def test_route_happy_path_returns_label_and_contract():
     assert data["category"] == "receiving_work"
     assert data["subtype"] == "existing_provider_instruction"
     assert data["contract_version"] == CONTRACT_VERSION
+
+
+def test_route_passes_recipient_authentication_into_website_rule():
+    resp = function_app.classify_email_route(
+        _make_request(
+            {
+                "subject": "New General Enquiry - Example",
+                "body": (
+                    "General Enquiry from the Website\n"
+                    "Submitted via the Collision Engineers website contact form."
+                ),
+                "from": "Collision Engineers <mail@noreply.collisionengineers.co.uk>",
+                "sender_domain": "noreply.collisionengineers.co.uk",
+                "authentication_results": (
+                    "dmarc=pass header.from=noreply.collisionengineers.co.uk; compauth=pass"
+                ),
+            }
+        )
+    )
+    assert resp.status_code == 200
+    assert json.loads(resp.get_body())["category"] == "website_enquiry"
 
 
 def test_route_html_body_is_stripped_before_scanning():

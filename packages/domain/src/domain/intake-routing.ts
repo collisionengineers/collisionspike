@@ -14,7 +14,7 @@ import type { InboundCategory } from '../dto/index.js';
 /**
  * The ONLY inbound category the primary intake path mints a Case from. Every other
  * category (`query`, `billing`, `non_actionable`, `cancellation`, `case_update`,
- * `other`) is record-kept as a triage row, linked/appended to an EXISTING case, or
+ * `website_enquiry`, `other`) is record-kept as a triage row, linked/appended to an EXISTING case, or
  * surfaced as a suggestion — never minted. This is the guard that stops a
  * `non_actionable` acknowledgement from opening a blank Case (the TKT-081 s2 live
  * bug, whose root cause was a Stage-A mislabel now fixed — this constant is the

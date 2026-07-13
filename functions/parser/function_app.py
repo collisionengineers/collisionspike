@@ -376,6 +376,7 @@ def classify_email_route(req: func.HttpRequest) -> func.HttpResponse:
         body                  str   email body, HTML or text (server-side stripped)
         from                  str   sender address (optional)
         sender_domain         str   sender domain (optional)
+        authentication_results str recipient-stamped Authentication-Results header (optional)
         provider_match_state  str   one | none | ambiguous (the flow's match result)
         attachment_kinds      [str] e.g. ["instruction", "image"] (optional)
         attachment_filenames  [str] original attachment filenames (optional) — lets the
@@ -410,6 +411,7 @@ def _classify_email(req: func.HttpRequest) -> func.HttpResponse:
     raw_body = body.get("body", "")
     from_address = body.get("from", "")
     sender_domain = body.get("sender_domain", "")
+    authentication_results = body.get("authentication_results", "")
     provider_match_state = body.get("provider_match_state", "")
     attachment_kinds = body.get("attachment_kinds")
     attachment_filenames = body.get("attachment_filenames")
@@ -422,6 +424,7 @@ def _classify_email(req: func.HttpRequest) -> func.HttpResponse:
         ("body", raw_body),
         ("from", from_address),
         ("sender_domain", sender_domain),
+        ("authentication_results", authentication_results),
         ("provider_match_state", provider_match_state),
         ("in_reply_to", in_reply_to),
         ("references", references),
@@ -440,6 +443,7 @@ def _classify_email(req: func.HttpRequest) -> func.HttpResponse:
         body=plain_body,
         from_address=from_address,
         sender_domain=sender_domain,
+        authentication_results=authentication_results,
         provider_match_state=provider_match_state,
         attachment_kinds=attachment_kinds,
         has_attachments=has_attachments,

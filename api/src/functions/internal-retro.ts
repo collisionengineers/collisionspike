@@ -323,14 +323,15 @@ app.http('internalRetroCreate', {
       // TKT-119 belt-and-braces: the envelope whose message becomes the case's SOURCE must
       // not be an acknowledgement/digest-family email — if the "reconstructed original" was
       // itself ingested and classified non_actionable (acks, case-summary digests), 'other'
-      // (unidentified) or 'pre_instruction' (held lane), refuse rather than build a case on
+      // (unidentified), 'pre_instruction' (held lane), or 'website_enquiry' (prospective
+      // customer contact), refuse rather than build a case on
       // it. The retro TRIGGER family (billing/case_update/cancellation/query) is deliberately
       // NOT blocked here: a stranded update email IS the reconstruction target when no
       // instruction survives, and it lands Held needs_review (never terminal, never a PO).
       const originalCategory = await mintBlockedByCategory(original.internetMessageId);
       const blockedCategory =
         originalCategory &&
-        ['non_actionable', 'other', 'pre_instruction'].includes(originalCategory)
+        ['non_actionable', 'other', 'pre_instruction', 'website_enquiry'].includes(originalCategory)
           ? originalCategory
           : null;
       if (blockedCategory) {

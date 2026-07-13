@@ -93,6 +93,7 @@ describe('GET /api/inbound/counts', () => {
       case_update: 0,
       cancellation: 0,
       pre_instruction: 0,
+      website_enquiry: 0,
       untriaged: 2,
     });
   });

@@ -292,6 +292,10 @@
           "type": "string",
           "description": "The sender's domain (the part after '@'), lower-cased by the caller."
         },
+        "authentication_results": {
+          "type": "string",
+          "description": "The recipient-stamped Authentication-Results header. Security-sensitive sender rules fail closed when it is absent or unaligned."
+        },
         "provider_match_state": {
           "type": "string",
           "description": "The calling flow's sender-domain match result: 'one' | 'none' | 'ambiguous'.",
@@ -335,7 +339,7 @@
       "properties": {
         "category": {
           "type": "string",
-          "description": "The top-level triage category: 'receiving_work' | 'query' | 'billing' | 'non_actionable' | 'other' | 'case_update' | 'cancellation'. The last two are taxonomy v2 (additive; see taxonomy_version).",
+          "description": "The top-level triage category. website_enquiry is the append-only taxonomy-v4 lane for Collision Engineers website contact forms.",
           "enum": [
             "receiving_work",
             "query",
@@ -343,12 +347,14 @@
             "non_actionable",
             "other",
             "case_update",
-            "cancellation"
+            "cancellation",
+            "pre_instruction",
+            "website_enquiry"
           ]
         },
         "subtype": {
           "type": "string",
-          "description": "The triage subtype: 'existing_provider_instruction' | 'existing_provider_audit' | 'new_client_work' | 'query_existing_work' | 'query_new_enquiry' | 'billing_request' | 'case_summary' | 'acknowledgement' | 'other' | 'images_received' | 'update_general' | 'cancellation_notice'. The last three are taxonomy v2 (additive; see taxonomy_version).",
+          "description": "The append-only triage subtype. website_general_enquiry is the taxonomy-v4 website contact-form subtype.",
           "enum": [
             "existing_provider_instruction",
             "existing_provider_audit",
@@ -361,7 +367,10 @@
             "other",
             "images_received",
             "update_general",
-            "cancellation_notice"
+            "cancellation_notice",
+            "payment_remittance",
+            "pre_instruction_directions",
+            "website_general_enquiry"
           ]
         },
         "confidence": {
@@ -394,11 +403,11 @@
         },
         "contract_version": {
           "type": "string",
-          "description": "The classifier contract tag (distinct from the /parse EVA contract tag so a consumer can tell the two envelopes apart). Unchanged by the taxonomy v2 bump — see taxonomy_version for that."
+          "description": "The classifier contract tag (distinct from the /parse EVA contract tag so a consumer can tell the two envelopes apart). Taxonomy additions do not change this tag; see taxonomy_version."
         },
         "taxonomy_version": {
           "type": "integer",
-          "description": "The taxonomy generation this row was labelled at (currently 2: adds the case_update/cancellation categories and their subtypes on top of v1's receiving_work/query/billing/non_actionable/other). A consumer uses this to tell which category/subtype codes a row may carry — existing rows keep their original-generation codes; there is no backfill on a taxonomy bump."
+          "description": "The taxonomy generation this row was labelled at (currently 4; website_enquiry and website_general_enquiry were added in v4). A consumer uses this to tell which category/subtype codes a row may carry. Existing rows keep their original-generation codes; there is no backfill on a taxonomy bump."
         }
       }
     }

@@ -29,6 +29,7 @@ export function suggestedOutlookFolder(subtype: InboundSubtype): string {
     case 'query_existing_work':
       return 'Inbox/Queries/Case queries';
     case 'query_new_enquiry':
+    case 'website_general_enquiry':
       return 'Inbox/Queries/Enquiries';
     case 'billing_request':
     // payment_remittance is the inbound mirror of billing_request (an incoming

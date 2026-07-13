@@ -17,7 +17,7 @@ describe('CASE_MINTING_CATEGORIES', () => {
   });
 
   it.each(
-    ['query', 'billing', 'non_actionable', 'cancellation', 'case_update', 'other'] as const,
+    ['query', 'billing', 'non_actionable', 'cancellation', 'case_update', 'website_enquiry', 'other'] as const,
   )(
     'category %s never mints a Case (a non_actionable acknowledgement must not open a blank case)',
     (category: InboundCategory) => {

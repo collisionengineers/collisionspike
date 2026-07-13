@@ -85,6 +85,8 @@ describe('emailTypeDisplayLabel', () => {
     expect(emailTypeDisplayLabel(EMAIL_TYPE_ALL)).toBe('All types');
     expect(emailTypeDisplayLabel({ kind: 'category', category: 'receiving_work' })).toBe('Receiving work');
     expect(emailTypeDisplayLabel({ kind: 'subtype', subtype: 'query_new_enquiry' })).toBe('New enquiry');
+    expect(emailTypeDisplayLabel({ kind: 'category', category: 'website_enquiry' })).toBe('Website enquiries');
+    expect(emailTypeDisplayLabel({ kind: 'subtype', subtype: 'website_general_enquiry' })).toBe('Website enquiry');
   });
 });
 

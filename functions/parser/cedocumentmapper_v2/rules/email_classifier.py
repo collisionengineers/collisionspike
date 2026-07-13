@@ -19,6 +19,7 @@ v1/v1.1 codes — no backfill on a taxonomy bump):
     category  : receiving_work | query | billing | non_actionable | other
                 | case_update | cancellation                        (v2, additive)
                 | pre_instruction                                    (v3, additive)
+                | website_enquiry                                    (v4, additive)
     subtype   : existing_provider_instruction   (RECEIVING WORK · base instruction)
                 existing_provider_audit          (RECEIVING WORK · audit re-inspection)
                 new_client_work                  (RECEIVING WORK · new client)
@@ -33,6 +34,7 @@ v1/v1.1 codes — no backfill on a taxonomy bump):
                 cancellation_notice                (CANCELLATION · v2 · claim/instruction called off)
                 payment_remittance                 (BILLING · v3 · inbound payment notification)
                 pre_instruction_directions          (PRE_INSTRUCTION · v3 · held directions)
+                website_general_enquiry              (WEBSITE ENQUIRY · v4 · contact form)
 
 Guiding bias — **abstain to ``other``.** A forwarded chain, a signature, an
 out-of-office reply or a bounce can throw a stray keyword or registration-shaped
@@ -75,6 +77,7 @@ Request fields (all optional; missing ones are treated as empty/absent):
     body                  the email body, ALREADY html-stripped to plain text
     from_address          the sender's email address (informational)
     sender_domain         the sender's domain
+    authentication_results  recipient-stamped Authentication-Results header
     provider_match_state  one | none | ambiguous  (the flow's domain match result)
     attachment_kinds      list of attachment kinds, e.g. ["instruction", "image"]
     has_attachments       bool
@@ -108,11 +111,12 @@ Response (a plain dict, JSON-serialisable):
     body_caseref      str   first Case/PO found in subject+body, or ""
     body_jobref       str   first existing-job reference found in subject+body, or ""
     contract_version  str   the engine contract tag (unchanged by the taxonomy bump)
-    taxonomy_version  int   the taxonomy generation this row was labelled at (2)
+    taxonomy_version  int   the taxonomy generation this row was labelled at (4)
 """
 
 from __future__ import annotations
 
+from email.utils import parseaddr
 import re
 from typing import Any
 
@@ -194,6 +198,10 @@ CATEGORY_CANCELLATION = "cancellation"
 #                       job, gated TRIAGE_PRE_INSTRUCTION_ENABLED). The classifier
 #                       only proposes the label; holding/correlating is flow-side.
 CATEGORY_PRE_INSTRUCTION = "pre_instruction"
+# Taxonomy v4 (TKT-170): a prospective customer using CE's website contact form.
+# The transport sender is CE infrastructure, but the business sender is the visitor;
+# this lane is deliberately non-minting and cannot update an existing case.
+CATEGORY_WEBSITE_ENQUIRY = "website_enquiry"
 
 # Subtype constants.
 SUBTYPE_EXISTING_PROVIDER_INSTRUCTION = "existing_provider_instruction"
@@ -212,14 +220,31 @@ SUBTYPE_CANCELLATION_NOTICE = "cancellation_notice"  # CANCELLATION · the only 
 # Taxonomy v3 subtypes (collisionspike TKT-105/TKT-084).
 SUBTYPE_PAYMENT_REMITTANCE = "payment_remittance"    # BILLING · inbound payment notification
 SUBTYPE_PRE_INSTRUCTION_DIRECTIONS = "pre_instruction_directions"  # PRE_INSTRUCTION · held directions
+SUBTYPE_WEBSITE_GENERAL_ENQUIRY = "website_general_enquiry"  # WEBSITE_ENQUIRY · website contact form
 
 # Response envelope taxonomy generation. Bumped only when a category/subtype is
 # ADDED (never on a wording/confidence tweak) so a consumer (SPA filters, the
 # eval-corpus scorer, the DDL choicesets) can tell which codes a row may carry.
 # Existing rows keep their old-generation codes — no backfill.
-# v3 (TKT-084/105): + pre_instruction · pre_instruction_directions,
-# + billing · payment_remittance.
-TAXONOMY_VERSION = 3
+# v4 (TKT-170): + website_enquiry · website_general_enquiry.
+TAXONOMY_VERSION = 4
+
+# Website contact-form fingerprint (TKT-170). Trust is intentionally multi-signal:
+# the exact infrastructure sender/domain AND at least two independent form markers.
+# A display name, one copied phrase or a similar external email cannot claim the lane.
+_WEBSITE_FORM_ADDRESS = "mail@noreply.collisionengineers.co.uk"
+_WEBSITE_FORM_DOMAIN = "noreply.collisionengineers.co.uk"
+_WEBSITE_FORM_SUBJECT_RE = re.compile(r"^\s*new\s+general\s+enquiry\s*[-:]", re.IGNORECASE)
+_WEBSITE_FORM_HEADING_RE = re.compile(r"\bgeneral\s+enquiry\s+from\s+the\s+website\b", re.IGNORECASE)
+_WEBSITE_FORM_FOOTER_RE = re.compile(
+    r"\bsubmitted\s+via\s+the\s+collision\s+engineers\s+website\s+contact\s+form\b",
+    re.IGNORECASE,
+)
+_WEBSITE_FORM_DMARC_PASS_RE = re.compile(
+    r"\bdmarc=pass\b[^;]*\bheader\.from=noreply\.collisionengineers\.co\.uk(?=\s|;|$)",
+    re.IGNORECASE,
+)
+_WEBSITE_FORM_COMPAUTH_PASS_RE = re.compile(r"\bcompauth=pass\b", re.IGNORECASE)
 
 # Provider-match states the flow passes in (mirrors the intake flow's domain
 # match: a known provider domain matched exactly one / none / more than one row).
@@ -851,6 +876,7 @@ def classify_email(
     references: Any = "",
     attachment_filenames: Any = None,
     open_case_ref_match: Any = "",
+    authentication_results: Any = "",
 ) -> dict[str, Any]:
     """Classify one inbound email into the triage taxonomy. PURE — no I/O.
 
@@ -862,7 +888,11 @@ def classify_email(
          work, even when it happens to carry an image — BUT an attached
          instruction doc is the module's strongest positive signal and overrides
          the abstain, so a real provider instruction whose footer says
-         "do not reply" still reaches Rule 1).
+          "do not reply" still reaches Rule 1).
+      0a. (taxonomy v4) An authenticated Collision Engineers website contact form
+          with the expected transport sender plus at least two independent form
+          markers -> website_enquiry · website_general_enquiry. Checked before
+          every case-related rule because visitor free text is never case evidence.
       0c. A cancellation phrase (SENDER-WRITTEN scope, not negated) -> cancellation ·
           cancellation_notice. HIGHEST PRECEDENCE of every rule below this point —
           checked before the instruction-doc promotion (Rule 1) so a forwarded
@@ -937,7 +967,9 @@ def classify_email(
     """
     subject_s = _normalise(subject)
     body_s = _normalise(body)
+    from_s = _normalise(from_address).strip().lower()
     domain_s = _normalise(sender_domain).strip().lower()
+    authentication_s = _normalise(authentication_results).strip().lower()
     state = _normalise(provider_match_state).strip().lower()
     # The flow's OPEN-CASE match result (TKT-043) — a resolved context signal, exactly
     # like ``provider_match_state``; the classifier is TOLD, it never looks a Case up
@@ -970,6 +1002,30 @@ def classify_email(
     #     wants (linkReply).
     sender_text = _sender_written_text(body_s)
     work_scope = sender_text if is_reply else f"{subject_s}\n{sender_text}"
+
+    # ``From`` may be the bare mailbox or RFC 5322 display-name form. Compare the
+    # actual mailbox, never the attacker-controlled display name. ``sender_domain``
+    # is derived from the same Graph address and is therefore a consistency check,
+    # not authentication. The recipient-stamped Authentication-Results result is the
+    # independent trust signal; fail closed when it is absent or unaligned.
+    from_mailbox = parseaddr(from_s)[1].strip().lower()
+    website_form_sender_matches = (
+        from_mailbox == _WEBSITE_FORM_ADDRESS
+        and domain_s == _WEBSITE_FORM_DOMAIN
+    )
+    website_form_authenticated = (
+        bool(_WEBSITE_FORM_DMARC_PASS_RE.search(authentication_s))
+        and bool(_WEBSITE_FORM_COMPAUTH_PASS_RE.search(authentication_s))
+    )
+    website_form_markers = [
+        name
+        for name, present in (
+            ("subject", bool(_WEBSITE_FORM_SUBJECT_RE.search(subject_s))),
+            ("heading", bool(_WEBSITE_FORM_HEADING_RE.search(body_s))),
+            ("footer", bool(_WEBSITE_FORM_FOOTER_RE.search(body_s))),
+        )
+        if present
+    ]
 
     # PROMOTION signals — sender-scoped.
     work_phrases = _match_keywords(work_scope, _WORK_KEYWORDS)
@@ -1075,6 +1131,12 @@ def classify_email(
         signals.append(f"open_case_ref_match:{open_case_state}")
     if kinds:
         signals.append("attachment_kinds:" + ",".join(sorted(kinds)))
+    if website_form_sender_matches:
+        signals.append("website_form_sender")
+    if website_form_authenticated:
+        signals.append("website_form_authenticated")
+    if website_form_markers:
+        signals.append("website_form_markers:" + ",".join(website_form_markers))
 
     def _result(category: str, subtype: str, confidence: float, rule: str) -> dict[str, Any]:
         return {
@@ -1089,6 +1151,18 @@ def classify_email(
             "contract_version": CONTRACT_VERSION,
             "taxonomy_version": TAXONOMY_VERSION,
         }
+
+    # --- Rule 0a (taxonomy v4, TKT-170): CE website general-enquiry form. ---
+    # This precedes every work/update/reference rule because visitor free text may
+    # legitimately contain a registration, claim reference, attachment or words such
+    # as "report". Those are message content, never evidence of an existing CE case.
+    if website_form_sender_matches and website_form_authenticated and len(website_form_markers) >= 2:
+        return _result(
+            CATEGORY_WEBSITE_ENQUIRY,
+            SUBTYPE_WEBSITE_GENERAL_ENQUIRY,
+            _CONFIDENCE_STRONG,
+            "website_general_enquiry",
+        )
 
     # Shared about-existing suppression (used by Rule 1 AND Rule 2). An email that is
     # about EXISTING work is suppressed out of the receiving-work rules and falls through

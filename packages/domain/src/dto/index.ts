@@ -515,7 +515,8 @@ export type InboundCategory =
   | 'other'
   | 'case_update'
   | 'cancellation'
-  | 'pre_instruction';
+  | 'pre_instruction'
+  | 'website_enquiry';
 
 /** Every {@link InboundCategory} name, in declaration/choice-set order — the runtime
  *  companion to the type union (mirrors `CASE_STATUSES` in contracts/case-status.ts),
@@ -529,6 +530,7 @@ export const INBOUND_CATEGORIES: readonly InboundCategory[] = [
   'case_update',
   'cancellation',
   'pre_instruction',
+  'website_enquiry',
 ];
 
 /** cr1bd_inboundsubtype option names. `existing_provider_diminution` (append-only,
@@ -565,7 +567,8 @@ export type InboundSubtype =
   | 'cancellation_notice'
   | 'update_general'
   | 'payment_remittance'
-  | 'pre_instruction_directions';
+  | 'pre_instruction_directions'
+  | 'website_general_enquiry';
 
 /** Every {@link InboundSubtype} name, in declaration/choice-set order — see
  *  {@link INBOUND_CATEGORIES}. */
@@ -585,6 +588,7 @@ export const INBOUND_SUBTYPES: readonly InboundSubtype[] = [
   'update_general',
   'payment_remittance',
   'pre_instruction_directions',
+  'website_general_enquiry',
 ];
 
 /** cr1bd_triagestate: the row's lifecycle in the triage queue. */
@@ -707,6 +711,8 @@ export interface InboundCounts {
   cancellation: number;
   /** Taxonomy v3 (TKT-084) — pre-instruction directions held for a later instruction. */
   pre_instruction: number;
+  /** Taxonomy v4 (TKT-170) — prospective-customer website contact forms. */
+  website_enquiry: number;
   untriaged: number;
 }
 
@@ -720,6 +726,7 @@ export const INBOUND_COUNTS_ZERO: InboundCounts = {
   case_update: 0,
   cancellation: 0,
   pre_instruction: 0,
+  website_enquiry: 0,
   untriaged: 0,
 };
 
