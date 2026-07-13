@@ -163,12 +163,15 @@ import {
   buildExplicitCaseSave,
   canCheckVehicleDetails,
   initialInspectionDraft,
+  inspectionAddressDraftSnapshot,
+  restoreInspectionAddressDraft,
   restorePersistedImageBasedChoice,
   startInspectionAddressDraft,
   persistedSessionSnapshot,
   shouldBlockCaseNavigation,
   validateCaseEdit,
   type CaseEditInspectionDraft,
+  type InspectionAddressDraftSnapshot,
 } from './case-edit-session';
 
 /* ============================================================
@@ -959,11 +962,8 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   >(undefined);
   // Preserve an unsaved physical-address choice while the handler temporarily
   // switches to Image Based Assessment, so switching back before Save is lossless.
-  const [addressDraftSnapshot, setAddressDraftSnapshot] = useState<{
-    field: Case['evaFields']['inspectionAddress'];
-    inspection: CaseEditInspectionDraft;
-    provenance?: { sourceLabel: string; sourceNote: string };
-  }>();
+  const [addressDraftSnapshot, setAddressDraftSnapshot] =
+    useState<InspectionAddressDraftSnapshot>();
   const decisionMode = inspectionDraft.decisionMode;
 
   /** Adopt a complete server-confirmed snapshot after an isolated mutation. Those
@@ -1551,16 +1551,10 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     if (choice === 'address') {
       setOverrideAddr(false);
       if (addressDraftSnapshot) {
-        const snapshot = addressDraftSnapshot;
-        setC((current) => ({
-          ...current,
-          evaFields: {
-            ...current.evaFields,
-            inspectionAddress: snapshot.field,
-          },
-        }));
-        setInspectionDraft(snapshot.inspection);
-        setConfirmedProvenance(snapshot.provenance);
+        const restored = restoreInspectionAddressDraft(c, addressDraftSnapshot);
+        setC(restored.draft);
+        setInspectionDraft(restored.inspection);
+        setConfirmedProvenance(restored.provenance);
         setAddressDraftSnapshot(undefined);
       } else if (inspectionDraft.decisionMode === 'image_based') {
         onTextChange('inspectionAddress', '');
@@ -1573,7 +1567,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
 
     // Returning to the saved image-based decision is a true no-op. Reset only
     // the inspection slice, preserving any unrelated fields in this edit session.
-    const restored = restorePersistedImageBasedChoice(persistedCase, c);
+    const restored = restorePersistedImageBasedChoice(persistedCase, c, inspectionDraft);
     if (restored) {
       setOverrideAddr(true);
       setC(restored.draft);
@@ -1585,11 +1579,9 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     }
 
     if (!overrideAddr) {
-      setAddressDraftSnapshot({
-        field: c.evaFields.inspectionAddress,
-        inspection: inspectionDraft,
-        ...(confirmedProvenance ? { provenance: confirmedProvenance } : {}),
-      });
+      setAddressDraftSnapshot(
+        inspectionAddressDraftSnapshot(c, inspectionDraft, confirmedProvenance),
+      );
     }
     onTextChange('inspectionAddress', 'Image Based Assessment');
     setInspectionDraft({

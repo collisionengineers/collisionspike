@@ -21,8 +21,8 @@ The earlier server-owned provider default remains. The Address tab now presents 
 
 ## Offline evidence
 
-- `npm run test --workspace mockup-app -- --run src/components/InspectionChoice.test.tsx src/screens/case-edit-session.test.ts` — 13/13 passed.
-- `npm run test --workspace mockup-app` — 48 files / 514 tests passed after the review correction.
+- `npm run test --workspace mockup-app -- --run src/components/InspectionChoice.test.tsx src/screens/case-edit-session.test.ts` — 16/16 passed.
+- `npm run test --workspace mockup-app` — 48 files / 515 tests passed after the review corrections.
 - `npm run build --workspace mockup-app` — passed.
 - Source and built-asset scan found zero copies of the removed paragraph and old override labels.
 

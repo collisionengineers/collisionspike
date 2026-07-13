@@ -4,7 +4,9 @@ import {
   buildExplicitCaseSave,
   canCheckVehicleDetails,
   initialInspectionDraft,
+  inspectionAddressDraftSnapshot,
   persistedSessionSnapshot,
+  restoreInspectionAddressDraft,
   restorePersistedImageBasedChoice,
   shouldBlockCaseNavigation,
   startInspectionAddressDraft,
@@ -204,7 +206,11 @@ describe('explicit case edit session', () => {
     const addressDraft = clone(persisted);
     addressDraft.evaFields.inspectionAddress.value = '';
 
-    const restored = restorePersistedImageBasedChoice(persisted, addressDraft);
+    const restored = restorePersistedImageBasedChoice(
+      persisted,
+      addressDraft,
+      startInspectionAddressDraft(),
+    );
     expect(restored).toBeDefined();
     if (!restored) throw new Error('expected the saved image-based choice to be restored');
 
@@ -221,6 +227,33 @@ describe('explicit case edit session', () => {
     );
     expect(save).toBeUndefined();
     expect(shouldBlockCaseNavigation(save !== undefined)).toBe(false);
+  });
+
+  it('retains a selected physical-address draft and its source across an image-based detour', () => {
+    const persisted = caseOf({ inspectionDecision: 'image_based' });
+    persisted.evaFields.inspectionAddress.value = 'Image Based Assessment';
+    const addressDraft = clone(persisted);
+    addressDraft.evaFields.inspectionAddress.value = '10 Example Road\nLondon';
+    const inspection = {
+      decisionMode: 'manual' as const,
+      sourceLabel: 'confirmed:corpus',
+      sourceNote: 'Picked from suggested locations',
+      touched: true,
+    };
+    const provenance = {
+      sourceLabel: 'confirmed:corpus',
+      sourceNote: 'Picked from suggested locations',
+    };
+
+    expect(restorePersistedImageBasedChoice(persisted, addressDraft, inspection)).toBeUndefined();
+    const snapshot = inspectionAddressDraftSnapshot(addressDraft, inspection, provenance);
+    const imageBasedDraft = clone(addressDraft);
+    imageBasedDraft.evaFields.inspectionAddress.value = 'Image Based Assessment';
+    const restored = restoreInspectionAddressDraft(imageBasedDraft, snapshot);
+
+    expect(restored.draft.evaFields.inspectionAddress.value).toBe('10 Example Road\nLondon');
+    expect(restored.inspection).toEqual(inspection);
+    expect(restored.provenance).toEqual(provenance);
   });
 
   it('blocks route/window navigation exactly while a draft is dirty', () => {

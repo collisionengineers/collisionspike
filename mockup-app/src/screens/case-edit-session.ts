@@ -20,6 +20,12 @@ export interface CaseEditValidationIssue {
   message: string;
 }
 
+export interface InspectionAddressDraftSnapshot {
+  field: Case['evaFields']['inspectionAddress'];
+  inspection: CaseEditInspectionDraft;
+  provenance?: { sourceLabel: string; sourceNote: string };
+}
+
 export type ExplicitCaseSaveInput = CaseUpdateInput & { editSession: true };
 
 export function initialInspectionDraft(c: Case): CaseEditInspectionDraft {
@@ -43,15 +49,19 @@ export function startInspectionAddressDraft(): CaseEditInspectionDraft {
 }
 
 /** Return the inspection slice to its saved image-based value when a handler
- * switches to an address and then chooses the saved option again. Other draft
- * fields remain untouched, so unrelated edits still belong to the same session. */
+ * switches to the address option but chooses the saved option again before
+ * selecting an address. Other draft fields remain in the same edit session. */
 export function restorePersistedImageBasedChoice(
   persisted: Case,
   draft: Case,
+  inspection: CaseEditInspectionDraft,
 ): { draft: Case; inspection: CaseEditInspectionDraft } | undefined {
   if (
     persisted.inspectionDecision !== 'image_based' ||
-    persisted.evaFields.inspectionAddress.value !== 'Image Based Assessment'
+    persisted.evaFields.inspectionAddress.value !== 'Image Based Assessment' ||
+    draft.evaFields.inspectionAddress.value.trim() !== '' ||
+    inspection.decisionMode !== 'unknown' ||
+    !inspection.touched
   ) {
     return undefined;
   }
@@ -65,6 +75,39 @@ export function restorePersistedImageBasedChoice(
       },
     },
     inspection: initialInspectionDraft(persisted),
+  };
+}
+
+export function inspectionAddressDraftSnapshot(
+  draft: Case,
+  inspection: CaseEditInspectionDraft,
+  provenance?: { sourceLabel: string; sourceNote: string },
+): InspectionAddressDraftSnapshot {
+  return {
+    field: draft.evaFields.inspectionAddress,
+    inspection,
+    ...(provenance ? { provenance } : {}),
+  };
+}
+
+export function restoreInspectionAddressDraft(
+  draft: Case,
+  snapshot: InspectionAddressDraftSnapshot,
+): {
+  draft: Case;
+  inspection: CaseEditInspectionDraft;
+  provenance?: { sourceLabel: string; sourceNote: string };
+} {
+  return {
+    draft: {
+      ...draft,
+      evaFields: {
+        ...draft.evaFields,
+        inspectionAddress: snapshot.field,
+      },
+    },
+    inspection: snapshot.inspection,
+    ...(snapshot.provenance ? { provenance: snapshot.provenance } : {}),
   };
 }
 
