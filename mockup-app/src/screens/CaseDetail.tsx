@@ -963,7 +963,9 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const vrmEditBtnRef = useRef<HTMLButtonElement>(null);
   const tab = caseDetailTabFromSearch(searchParams);
   const setTab = (next: CaseDetailTab) => {
-    setSearchParams(caseDetailSearchForTab(searchParams, next));
+    // Tab selection belongs to this case page. Replace the query state so Back
+    // leaves the case instead of walking through every tab the handler opened.
+    setSearchParams(caseDetailSearchForTab(searchParams, next), { replace: true });
   };
   const [guidedPhotoLink, setGuidedPhotoLink] = useState<GuidedPhotoLink | undefined>();
   const [noteDraft, setNoteDraft] = useState('');
@@ -1127,7 +1129,13 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     caseVersion.length > 0 &&
     !savingEdits &&
     !saveConflict;
-  const navigationBlocker = useBlocker(shouldBlockCaseNavigation(hasUnsavedChanges));
+  const navigationBlocker = useBlocker(({ currentLocation, nextLocation }) =>
+    shouldBlockCaseNavigation(
+      hasUnsavedChanges,
+      currentLocation.pathname,
+      nextLocation.pathname,
+    ),
+  );
 
   useEffect(() => {
     if (!hasUnsavedChanges) return;

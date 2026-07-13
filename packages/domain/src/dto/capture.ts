@@ -23,8 +23,8 @@ export interface CaptureSessionListResponse {
 }
 
 export interface CreateCaptureSessionRequest {
-  shotPlanId: string;
-  expiresInHours: number;
+  shotPlanId?: string;
+  expiresInHours?: number;
 }
 
 /** Returned only when creating/replacing a link; the URL cannot be recovered later. */
