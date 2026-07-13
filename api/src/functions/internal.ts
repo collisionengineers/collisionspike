@@ -3753,9 +3753,23 @@ app.http('internalCasesEvidence', {
         for (const item of value.replayCleanup ?? []) {
           // A source replay can overwrite the deterministic transient blob before
           // the Data API sees its tombstone. Remove that recreated copy before the
-          // service call settles; a failure returns non-2xx so the source retries.
+          // service call settles; transient failure returns non-2xx so the source retries.
           if (item.boxFileId && item.boxFolderId) {
-            await deleteBoxFile(item.boxFileId, item.boxFolderId);
+            try {
+              await deleteBoxFile(item.boxFileId, item.boxFolderId);
+            } catch (error) {
+              const status = error && typeof error === 'object' && 'status' in error
+                ? Number(error.status)
+                : undefined;
+              if (status !== 400) throw error;
+              // A fresh scope refusal is permanent until an operator fixes the
+              // persisted folder relationship. Keep the replay suppressed and let
+              // legitimate siblings in this committed batch proceed; retrying the
+              // whole batch cannot make an unsafe Box target deletable.
+              ctx.warn(
+                `[evidence-replay] suppressed Box copy ${item.boxFileId} could not be removed safely`,
+              );
+            }
           }
           if (item.blobPath) await deleteEvidenceBytes(item.blobPath);
         }

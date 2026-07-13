@@ -76,7 +76,8 @@ vi.mock('../lib/functions-client.js', () => ({ deleteBoxFile: replayCleanup.box 
 await import('./internal.js'); // registers the routes against the captured app.http
 const evidenceRoute = registrations.get('internalCasesEvidence')!.handler;
 
-const ctx = { log: vi.fn(), error: vi.fn() } as unknown as InvocationContext;
+const ctxWarn = vi.fn();
+const ctx = { log: vi.fn(), error: vi.fn(), warn: ctxWarn } as unknown as InvocationContext;
 
 const SHA = 'a'.repeat(64);
 
@@ -119,6 +120,7 @@ beforeEach(() => {
   replayCleanup.box.mockReset();
   replayCleanup.blob.mockResolvedValue(true);
   replayCleanup.box.mockResolvedValue({ status: 'deleted' });
+  ctxWarn.mockReset();
   txMock.mockImplementation(
     async (
       fn: (
@@ -181,6 +183,62 @@ describe('TKT-160 — deleted automatic sources stay deleted without blocking la
     expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, statusGeneration: 1 });
     expect(inserts()).toHaveLength(1);
     expect(replayCleanup.blob).not.toHaveBeenCalled();
+  });
+
+  it('suppresses and removes a replayed Box file using the tombstoned case folder', async () => {
+    rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
+      if (/FROM evidence_deletion/.test(sql) && p?.[3] === BOX_ROW.boxFileId) {
+        return [{
+          storage_path: null,
+          box_file_id: BOX_ROW.boxFileId,
+          box_folder_id: 'folder-1',
+        }];
+      }
+      return [];
+    });
+
+    const res = await evidenceRoute(req('case-1', [BOX_ROW]), ctx);
+
+    expect(res.jsonBody).toEqual({
+      persisted: 0,
+      updated: 0,
+      merged: 0,
+      suppressed: 1,
+      replayCleanup: [{ boxFileId: BOX_ROW.boxFileId, boxFolderId: 'folder-1' }],
+    });
+    expect(replayCleanup.box).toHaveBeenCalledWith(BOX_ROW.boxFileId, 'folder-1');
+    expect(replayCleanup.blob).not.toHaveBeenCalled();
+  });
+
+  it('does not poison a mixed batch when replay cleanup is permanently scope-refused', async () => {
+    const later = {
+      ...EMAIL_ROW,
+      filename: 'fresh-photo.jpg',
+      blobPath: 'manual-upload/fresh-photo.jpg',
+      sha256: 'b'.repeat(64),
+    };
+    replayCleanup.box.mockRejectedValue(Object.assign(new Error('scope refused'), { status: 400 }));
+    rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
+      if (/FROM evidence_deletion/.test(sql) && p?.[3] === BOX_ROW.boxFileId) {
+        return [{
+          storage_path: null,
+          box_file_id: BOX_ROW.boxFileId,
+          box_folder_id: 'moved-folder',
+        }];
+      }
+      if (/FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(sql)) return [];
+      if (/INSERT INTO evidence/i.test(sql)) return [{ id: 'ev-fresh' }];
+      return [];
+    });
+
+    const res = await evidenceRoute(req('case-1', [BOX_ROW, later]), ctx);
+
+    expect(res.status).toBe(200);
+    expect(res.jsonBody).toMatchObject({ persisted: 1, suppressed: 1, statusGeneration: 1 });
+    expect(ctxWarn).toHaveBeenCalledWith(
+      expect.stringContaining(`suppressed Box copy ${BOX_ROW.boxFileId}`),
+    );
+    expect(inserts()).toHaveLength(1);
   });
 });
 

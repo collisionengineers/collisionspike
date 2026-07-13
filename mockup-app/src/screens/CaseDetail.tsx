@@ -796,8 +796,8 @@ function EvidenceCard({
             size="small"
             icon={<Trash2 size={14} />}
             aria-label={`${ev.deletionPending ? 'Finish deleting' : 'Delete image'} ${ev.fileName}`}
-            title={deleteDisabled ? 'Save or discard the case changes first.' : undefined}
-            disabled={saving || deleting || deleteDisabled}
+            title={deleteDisabled && !ev.deletionPending ? 'Save or discard the case changes first.' : undefined}
+            disabled={saving || deleting || (deleteDisabled && !ev.deletionPending)}
             onClick={() => onDelete(ev)}
           >
             {ev.deletionPending ? 'Finish deleting' : 'Delete image'}
@@ -1878,14 +1878,16 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       setDeleteCandidate(undefined);
       toast(`Image deleted: ${target.fileName}`);
 
-      // No case-field draft can be active while the delete action is enabled, so
-      // a refreshed snapshot can safely adopt the server's recomputed status.
-      try {
-        const updated = await data.caseById(c.id);
-        if (updated) adoptPersistedCase(updated);
-      } catch {
-        // The image list/readiness is already correct locally. A later case refresh
-        // will pick up the server-confirmed status if this secondary read fails.
+      // An already-started deletion may be retried while unrelated case-field
+      // edits remain unsaved. Never replace those drafts with a refreshed case.
+      if (!hasUnsavedChanges) {
+        try {
+          const updated = await data.caseById(c.id);
+          if (updated) adoptPersistedCase(updated);
+        } catch {
+          // The image list/readiness is already correct locally. A later case refresh
+          // will pick up the server-confirmed status if this secondary read fails.
+        }
       }
     } catch (error) {
       const message = serverMessageOf(error) ?? 'The image could not be deleted. It is still on the case; try again.';
