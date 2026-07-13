@@ -187,6 +187,9 @@
 | [TKT-165](./now/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) | Make Add evidence upload the selected files | Discovered 2026-07-12 in source: the action ignores selected files and only navigates. |
 | [TKT-155](./now/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) | Rebuild the dashboard around Not Ready, Review and Held | Distilled 2026-07-12 with screenshots and image-generated design exploration. |
 | [TKT-150](./now/TKT-150-claimant-extraction-held-audit/TKT-150-claimant-extraction-held-audit.md) | Restore claimant-name extraction and remediate affected held cases | Distilled 2026-07-12; includes QDOS26079, full live census, source-to-persistence trace and safe repair. |
+| [TKT-168](./now/TKT-168-unify-not-ready-language/TKT-168-unify-not-ready-language.md) | Make Not Ready status language agree with the queue | Distilled 2026-07-13 from live screenshots; removes the contradictory generic “Needs review” case status. |
+| [TKT-169](./now/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md) | Keep long email previews inside the visible window | Distilled 2026-07-13 from a live inbox screenshot; bounded, scrollable, keyboard-accessible preview. |
+| [TKT-170](./now/TKT-170-website-enquiry-classification/TKT-170-website-enquiry-classification.md) | Classify website contact forms as Website enquiries | Distilled 2026-07-13 from the original webform email; explicit non-minting category and precedence rule. |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
