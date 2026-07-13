@@ -4,6 +4,7 @@
 Code-complete on the ticket branch; deliberately dark and not deployed.
 
 Implementation commit: `47895b0` (`Harden constrained MCP image ingestion`).
+Second-audit hardening commit: `e2a25eb` (`Close TKT-154 second audit gaps`).
 
 ## Changes made
 
@@ -32,9 +33,24 @@ Implementation commit: `47895b0` (`Harden constrained MCP image ingestion`).
 - Updated the architecture and gated runbooks with the Box lock, downstream orchestration gates,
   schema/deploy order and standard-client proof requirements.
 
+## Second audit hardening
+
+- Replaced the strict Box path's cached ancestry reuse with a fresh `path_collection` read on every
+  autonomous attestation, immediately before upload. Regression coverage verifies that a folder first
+  accepted under the test root and then moved outside it is refused without a second byte upload.
+- Replaced `Content-Length`-dependent admission with a byte-counted Web `ReadableStream`. Missing length
+  on chunked/HTTP2 requests cannot bypass the cap; a runtime with no bounded stream is refused.
+- Added official MCP SDK runtime schemas plus a durable `mcp_http_session` table. Initialize mandatory
+  fields, request ids, request/notification/response distinction, initialized notification shape,
+  negotiated protocol and first-interaction ordering are now enforced across Function scale-out.
+- Replaced the SVG prompt-injection fixture with a real accepted PNG and carried it through the mocked
+  classifier HTTP seam. Live-model behavior remains explicitly pending.
+- Made the sample watcher call and verify `tools/list` before its first `tools/call`.
+
 ## Deliberately not done here
 
 - No Entra role/client/service-principal creation or assignment.
 - No live DDL, app-setting change, deployment, Box write, Outlook mutation or ticket status move.
 - No real authenticated standard-client/Box/classification/readiness proof. Those remain the live
   verification gate and are recorded in `verification.md`.
+- No live-model prompt-injection proof; only the deterministic raster/seam regression was run offline.

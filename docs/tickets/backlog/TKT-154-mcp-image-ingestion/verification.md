@@ -7,23 +7,34 @@ PENDING
 
 Offline implementation evidence on the ticket branch:
 
-- Implementation commit under test: `47895b0`.
+- Implementation commits under test: `47895b0` and second-audit hardening `e2a25eb`.
 
-- API full suite: **67 files / 655 tests passed**, including the published
+- API full suite: **68 files / 662 tests passed**, including the published
   `@modelcontextprotocol/sdk` Streamable HTTP client compatibility test against the registered route
   (initialize/initialized, tools/list and structured tool error). MCP protocol/principal/image-ingest/
   evidence/auth/Box-client/internal-archive coverage, registration TOCTOU refusal, multi-role denial, cumulative preflight,
   sanitized write/readback failures, no public evidence UUID, full initialize lifecycle, Origin/
   Accept/version/body/batch enforcement and Box-scope attestation.
 - API TypeScript build passes.
-- Orchestration full suite: **30 files / 420 tests passed**, including Archive transport/root
+- Orchestration full suite: **30 files / 421 tests passed**, including Archive transport/root
   propagation and the adversarial visible-text image-classification fixture. Orchestration TypeScript
   build passes.
-- Box façade full suite: **249 tests passed**, including unset/wrong/out-of-root refusal and strict
+- Box façade full suite: **251 tests passed**, including unset/wrong/out-of-root refusal and strict
   recheck before upload.
 - Ticket validator: **164 tickets, 0 failures, 0 warnings**. Documentation links/orphans/live-fact
   leakage check passes (26 known historical absent-link backlog entries remain informational).
 - `git diff --check` passes.
+
+Second-audit evidence included in the full-suite totals above:
+
+- Published MCP SDK schemas validate every accepted request/notification; the SDK transport test now
+  proves the server-minted session id is returned and reused for initialized/list/call requests.
+- A no-`Content-Length` oversized stream is refused by counted bytes, and a missing bounded stream is
+  refused rather than falling back to unbounded `json()` materialization.
+- Box tests cover both the no-cache “verified then moved” ancestry sequence and the actual autonomous
+  upload route refusing the second upload.
+- The adversarial fixture decodes through Sharp as a 420×50, 344-byte `image/png`; the mocked classifier seam receives its data URL and
+  returns a parsed classification without the visible instruction becoming prompt text.
 
 ## Pending / gaps
 
@@ -40,6 +51,8 @@ Offline implementation evidence on the ticket branch:
   one evidence row, Blob, Box file, image classification, audit/owner row, readiness generations and
   case attachment. Repeat the idempotency key and prove no duplicate.
 - Confirm no Outlook mutation and no Box write outside the designated test root.
+- Run the adversarial-text PNG through the live classifier on the designated test case and prove the
+  visible instruction does not alter the classification contract. Offline mock behavior is not live proof.
 
 ## How to re-verify
 Follow `docs/architecture/mcp-image-ingestion.md` in deploy order. Preserve role/app-setting readbacks,
