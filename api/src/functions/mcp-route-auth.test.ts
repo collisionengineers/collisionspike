@@ -131,27 +131,30 @@ describe('MCP route principal isolation', () => {
     ]);
   });
 
-  it('supports a standard initialize -> initialized notification -> tools/list lifecycle', async () => {
-    auth.principal = 'image_ingest_agent';
-    const initialized = await route(request('initialize', {
-      protocolVersion: '2025-06-18',
-      capabilities: {},
-      clientInfo: { name: 'standard-test-client', version: '1.0.0' },
-    }, { omitSession: true }), ctx);
-    expect(initialized.status).toBe(200);
-    expect(initialized.jsonBody).toMatchObject({
-      result: { protocolVersion: '2025-06-18', capabilities: { tools: {} } },
-    });
-    expect(initialized.headers).toMatchObject({ 'Mcp-Session-Id': SESSION_ID });
+  it.each(['image_ingest_agent', 'readonly_staff'] as const)(
+    'supports a standard initialize -> initialized notification -> tools/list lifecycle for %s',
+    async (principal) => {
+      auth.principal = principal;
+      const initialized = await route(request('initialize', {
+        protocolVersion: '2025-06-18',
+        capabilities: {},
+        clientInfo: { name: 'standard-test-client', version: '1.0.0' },
+      }, { omitSession: true }), ctx);
+      expect(initialized.status).toBe(200);
+      expect(initialized.jsonBody).toMatchObject({
+        result: { protocolVersion: '2025-06-18', capabilities: { tools: {} } },
+      });
+      expect(initialized.headers).toMatchObject({ 'Mcp-Session-Id': SESSION_ID });
 
-    const notification = await route(request('notifications/initialized', undefined, {
-      body: { jsonrpc: '2.0', method: 'notifications/initialized' },
-    }), ctx);
-    expect(notification.status).toBe(202);
+      const notification = await route(request('notifications/initialized', undefined, {
+        body: { jsonrpc: '2.0', method: 'notifications/initialized' },
+      }), ctx);
+      expect(notification.status).toBe(202);
 
-    const list = await route(request('tools/list'), ctx);
-    expect(list.status).toBe(200);
-  });
+      const list = await route(request('tools/list'), ctx);
+      expect(list.status).toBe(200);
+    },
+  );
 
   it('requires initialize as the first session interaction', async () => {
     auth.principal = 'image_ingest_agent';

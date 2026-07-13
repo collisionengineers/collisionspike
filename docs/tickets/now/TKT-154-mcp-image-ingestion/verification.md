@@ -10,7 +10,7 @@ Offline implementation evidence on the ticket branch:
 - Implementation commits under test: `47895b0`, second-audit hardening `e2a25eb`, and third-audit
   hardening `3cd783c`.
 
-- API full suite: **68 files / 667 tests passed**, including the published
+- API full suite: **68 files / 669 tests passed**, including the published
   `@modelcontextprotocol/sdk` Streamable HTTP client compatibility test against the registered route
   (initialize/initialized, tools/list and structured tool error). MCP protocol/principal/image-ingest/
   evidence/auth/Box-client/internal-archive coverage, registration TOCTOU refusal, multi-role denial, cumulative preflight,
@@ -47,6 +47,16 @@ Third-audit evidence included in the full-suite totals above:
   expired, wrong-principal, wrong-version or failed-initialization session state (404).
 - Session-store tests prove principal-scoped advisory locking, expired-own-row reuse, the repeated
   principal/expiry predicate, a configurable hard cap, and retryable 429 route behavior at capacity.
+
+Pull-request review evidence included in the full-suite totals above:
+
+- Staff uploads remain accepted on an `error` case while the autonomous principal receives a 409;
+  removed and other closed case states remain refused for both.
+- The registration-binding test proves the advisory lock and matched-row `FOR UPDATE` are present and
+  the table-wide SHARE lock is absent.
+- The canonical-schema test proves both numbered MCP table files are covered by the shared forced-RLS
+  policy loop, and route tests exercise the standard durable handshake for delegated read-only staff
+  as well as the autonomous principal.
 
 ## Pending / gaps
 

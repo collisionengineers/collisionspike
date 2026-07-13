@@ -49,10 +49,9 @@ const IDEMPOTENCY_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$/;
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const IMAGE_CHECK_PENDING = 'Image check pending';
 
-const TERMINAL_STATUS_CODES = [
+const CLOSED_UPLOAD_STATUS_CODES = [
   statusToInt('eva_submitted'),
   statusToInt('box_synced'),
-  statusToInt('error'),
   statusToInt('removed'),
   statusToInt('done'),
 ];
@@ -200,7 +199,11 @@ function itemIdentity(source: UploadSource, idempotencyKey: string, index: numbe
   return `staff:${source}:${idempotencyKey}:${index}`;
 }
 
-async function assertActiveCase(q: TxQuery, caseId: string): Promise<string> {
+async function assertActiveCase(
+  q: TxQuery,
+  caseId: string,
+  source: UploadSource,
+): Promise<string> {
   const locked = await lockCaseForMutation(q, caseId);
   if (locked.kind === 'missing') throw new UploadRefusal(404, 'This case is no longer available.');
   if (locked.kind === 'retired') {
@@ -214,7 +217,10 @@ async function assertActiveCase(q: TxQuery, caseId: string): Promise<string> {
     'SELECT status_code FROM case_ WHERE id = $1',
     [locked.caseId],
   );
-  if (!rows[0] || TERMINAL_STATUS_CODES.includes(Number(rows[0].status_code))) {
+  const statusCode = Number(rows[0]?.status_code);
+  const closed = CLOSED_UPLOAD_STATUS_CODES.includes(statusCode)
+    || (source === 'mcp_agent' && statusCode === statusToInt('error'));
+  if (!rows[0] || closed) {
     throw new UploadRefusal(409, 'This case is no longer open for evidence.');
   }
   return locked.caseId;
@@ -232,10 +238,9 @@ async function assertImageIngestRegistrationBinding(
   await q('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
     `mcp-image-registration:${registration}`,
   ]);
-  // The advisory lock serialises this lane; the short SHARE lock also blocks a
-  // concurrent case INSERT/VRM update from creating a phantom match between the
-  // exact-match query and the idempotency binding commit.
-  await q('LOCK TABLE case_ IN SHARE MODE');
+  // The advisory lock serialises autonomous uploads for this registration. The
+  // matched case rows are locked below, without blocking unrelated staff case
+  // writes through a table-wide SHARE lock.
   const rows = await q<{
     id: string;
     status_code: number;
@@ -273,7 +278,7 @@ async function bindBatch(input: {
     const registration = input.source === 'mcp_agent'
       ? await assertImageIngestRegistrationBinding(q, input.caseId, input.registration ?? '')
       : input.registration;
-    const caseId = await assertActiveCase(q, input.caseId);
+    const caseId = await assertActiveCase(q, input.caseId, input.source);
     await q(
       `INSERT INTO staff_evidence_upload
          (idempotency_key, case_id, actor, source, registration, manifest_hash)
@@ -450,7 +455,7 @@ async function claimUploadItem(input: {
   file: PreparedFile;
 }): Promise<UploadItemClaim> {
   return tx(async (q) => {
-    const caseId = await assertActiveCase(q, input.caseId);
+    const caseId = await assertActiveCase(q, input.caseId, input.source);
     const items = await q<{
       id: string;
       state: string;
@@ -583,7 +588,7 @@ async function persistFile(input: {
   size: number;
 }): Promise<{ id: string; duplicate: boolean }> {
   return tx(async (q) => {
-    const caseId = await assertActiveCase(q, input.caseId);
+    const caseId = await assertActiveCase(q, input.caseId, input.source);
     const owned = await q<{ id: string; blob_path: string }>(
       `SELECT id, blob_path
          FROM staff_evidence_upload_item

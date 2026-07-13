@@ -18,6 +18,10 @@ CREATE TABLE mcp_http_session (
   created_at        timestamptz NOT NULL DEFAULT now()
 );
 
+-- Canonical forced-RLS policies are applied by 900_constraints.sql after all
+-- numbered table files have been created. The live delta carries the equivalent
+-- explicit policies because it is applied to an already-built database.
+
 CREATE INDEX ix_mcp_http_session_expiry ON mcp_http_session (expires_at);
 CREATE INDEX ix_mcp_http_session_principal_expiry
   ON mcp_http_session (principal_id, expires_at);

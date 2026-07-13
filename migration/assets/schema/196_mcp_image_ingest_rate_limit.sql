@@ -13,6 +13,10 @@ CREATE TABLE mcp_image_ingest_rate_limit (
   updated_at         timestamptz NOT NULL DEFAULT now()
 );
 
+-- Canonical forced-RLS policies are applied by 900_constraints.sql after all
+-- numbered table files have been created. The live delta carries the equivalent
+-- explicit policies because it is applied to an already-built database.
+
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cespk_app') THEN

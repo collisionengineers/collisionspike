@@ -51,9 +51,9 @@ Input:
 ```
 
 The write tool resolves the registration again at call time and repeats the exact-match/eligibility
-test under a registration-scoped advisory lock plus a short `case_` SHARE lock before any Blob write.
-The table lock prevents a concurrent case insert or VRM update from creating a phantom second match
-before the idempotency binding commits. There is intentionally no `caseId`,
+test under a registration-scoped advisory lock plus row locks on every matched case before any Blob
+write. It does not take a table-wide lock, so an autonomous upload cannot stall unrelated staff case
+updates. There is intentionally no `caseId`,
 `folderId` or path field. Supplied filenames are reduced to a basename and control characters are
 removed. The server applies the same content-signature and full image-decode checks as Add evidence:
 JPG, PNG and WebP only; at most 20 files; 15 MB per file; 30 MB decoded per MCP batch (the canonical
@@ -127,6 +127,10 @@ Outlook, general `CollisionSpike.User`, `CollisionSpike.Superuser` or the broade
 `CollisionSpike.Agent` role.
 
 The existing interactive MCP client stays delegated/read-only and never sees `upload_case_images`.
+It now uses the same standards-compliant durable initialize/initialized session handshake as the
+autonomous client. The repository contains no stateless read-only watcher or custom transport to
+preserve; standard MCP clients negotiate this lifecycle automatically. Deploying the API before the
+session-table migration would therefore fail closed for the read-only lane and is prohibited.
 The image client sees exactly the two tools on this page; it cannot call the other assistant reads or
 any other write route.
 
@@ -174,8 +178,12 @@ photo. Offline coverage sends a real accepted PNG bearing adversarial visible te
 classifier HTTP seam; behavioral proof against the live model remains pending and must not be inferred
 from that deterministic test.
 
-Apply `migration/assets/schema/deltas/2026-07-12-tkt154-mcp-image-ingestion.sql` before deploying the
-API. Deploy the Box façade, API and orchestration changes before enabling the gate. The sample one-pass folder scanner is [`tools/mcp-image-folder-watcher.mjs`](../../tools/mcp-image-folder-watcher.mjs).
+Apply `migration/assets/schema/deltas/2026-07-12-tkt154-mcp-image-ingestion.sql` and verify both
+`mcp_http_session` and `mcp_image_ingest_rate_limit` are visible to the API's existing staff-scoped
+database role before deploying the API. This ordering protects the already-live delegated read-only
+MCP lane as well as the new autonomous lane. Deploy the Archive façade, API and orchestration changes
+before enabling the gate. The sample one-pass folder scanner is
+[`tools/mcp-image-folder-watcher.mjs`](../../tools/mcp-image-folder-watcher.mjs).
 It reads its endpoint, bearer and folder from environment variables and contains no secret.
 
 ## Live proof checklist

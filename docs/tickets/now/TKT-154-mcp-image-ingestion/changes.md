@@ -60,10 +60,20 @@ Third-audit hardening commit: `3cd783c` (`Close TKT-154 third audit gaps`).
   transaction advisory lock, reuses only that principal's expired rows, defaults to a hard eight-row
   cap, and returns retryable HTTP 429 at capacity. The schema now indexes principal plus expiry.
 
+## Pull-request review hardening
+
+- Kept `error`-status evidence recovery available to staff while refusing the autonomous image lane
+  on that state. Removed the registration path's table-wide lock; its advisory lock and matched-row
+  locks no longer stall unrelated case writes.
+- Proved the numbered canonical MCP table files run before the shared forced-RLS policy pass in
+  `900_constraints.sql`; the live delta retains equivalent explicit policies.
+- Added the standard initialize/initialized session lifecycle to delegated read-only route coverage
+  and made migration-before-API ordering an explicit protection for the already-live read lane.
+
 ## Deliberately not done here
 
 - No Entra role/client/service-principal creation or assignment.
-- No live DDL, app-setting change, deployment, Box write, Outlook mutation or ticket status move.
+- No live DDL, app-setting change, deployment, Box write or Outlook mutation.
 - No real authenticated standard-client/Box/classification/readiness proof. Those remain the live
   verification gate and are recorded in `verification.md`.
 - No live-model prompt-injection proof; only the deterministic raster/seam regression was run offline.

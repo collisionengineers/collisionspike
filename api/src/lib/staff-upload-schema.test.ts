@@ -98,4 +98,17 @@ describe('staff evidence upload schema', () => {
     expect(delta).not.toContain('bytea');
     expect(delta).toContain("(100000051, 'agent_write'");
   });
+
+  it('creates both canonical MCP tables before the shared forced-RLS policy pass', () => {
+    const policies = schema('900_constraints.sql');
+    for (const [file, table] of [
+      ['196_mcp_image_ingest_rate_limit.sql', 'mcp_image_ingest_rate_limit'],
+      ['197_mcp_http_session.sql', 'mcp_http_session'],
+    ] as const) {
+      expect(schema(file)).toContain(`CREATE TABLE ${table}`);
+      expect(policies).toContain(`'${table}'`);
+    }
+    expect(policies).toContain('CREATE POLICY p_%1$s_rw');
+    expect(policies).toContain('CREATE POLICY p_%1$s_no_delete');
+  });
 });

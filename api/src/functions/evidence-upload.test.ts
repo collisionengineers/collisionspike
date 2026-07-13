@@ -422,7 +422,11 @@ describe('canonical staff evidence upload', () => {
       allowMcpAgentSource: true,
     });
     expect(response.status).toBe(201);
-    expect(db.txQuery.mock.calls.some(([sql]) => String(sql) === 'LOCK TABLE case_ IN SHARE MODE')).toBe(true);
+    expect(db.txQuery.mock.calls.some(([sql]) => String(sql).includes('pg_advisory_xact_lock'))).toBe(true);
+    expect(db.txQuery.mock.calls.some(([sql]) => String(sql) === 'LOCK TABLE case_ IN SHARE MODE')).toBe(false);
+    expect(db.txQuery.mock.calls.some(([sql]) => (
+      String(sql).includes("regexp_replace(upper(vrm)") && String(sql).includes('FOR UPDATE')
+    ))).toBe(true);
     expect(state.evidence[0].source_message_id).toContain('staff:mcp_agent:');
     const audit = db.txQuery.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO audit_event'))!;
     expect(audit[1][3]).toBe(100000051);
@@ -777,14 +781,33 @@ describe('canonical staff evidence upload', () => {
     expect(removed.status).toBe(409);
     expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
 
-    state.statusCode = 100000010; // error
+    state.statusCode = 100000010; // error remains recoverable by staff evidence
     const errorCase = await upload(
       requestWith([new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })]),
       ctx,
       {},
     );
-    expect(errorCase.status).toBe(409);
-    expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
+    expect(errorCase.status).toBe(201);
+    expect(blob.uploadEvidenceBytes).toHaveBeenCalledTimes(1);
+
+    const baseMcpRequest = requestWith(
+      [new File([JPEG], 'agent-photo.jpg', { type: 'image/jpeg' })],
+      { source: 'mcp_agent', key: '00000000-0000-4000-8000-000000000166' },
+    );
+    const mcpRequest = {
+      params: baseMcpRequest.params,
+      headers: baseMcpRequest.headers,
+      formData: async () => {
+        const form = await baseMcpRequest.formData();
+        form.append('registration', 'SP23OBX');
+        return form;
+      },
+    } as unknown as HttpRequest;
+    const refusedAgent = await uploadFromMcp(mcpRequest, ctx, { oid: 'sp-image-agent' }, {
+      allowMcpAgentSource: true,
+    });
+    expect(refusedAgent.status).toBe(409);
+    expect(blob.uploadEvidenceBytes).toHaveBeenCalledTimes(1);
   });
 
   it('uses byte signatures to refuse masquerading content while preserving a valid file in a mixed batch', async () => {
