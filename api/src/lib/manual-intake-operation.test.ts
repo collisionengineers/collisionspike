@@ -6,6 +6,7 @@ import {
   claimManualIntakeRecoveryAudit,
   finishManualIntakeOperation,
   manualIntakeEvidencePending,
+  manualIntakeEvidenceBindingState,
   manualIntakeEvidenceState,
   manualIntakeRequestHash,
   ManualIntakeOperationConflict,
@@ -44,7 +45,8 @@ function memoryQuery(archiveFailed = false) {
       return [];
     }
     if (sql.includes('SELECT upload_idempotency_key') && sql.includes('WHERE case_id = $1')) {
-      const row = [...operations.values()].find((candidate) => candidate.case_id === params[0]);
+      const row = [...operations.values()].find((candidate) =>
+        candidate.case_id === params[0] && candidate.upload_idempotency_key === params[1]);
       return row ? [row] : [];
     }
     if (sql.includes('FOR UPDATE')) {
@@ -212,6 +214,38 @@ describe('manual intake operation', () => {
       caseId: 'case-10', uploadIdempotencyKey: binding.uploadIdempotencyKey,
       fileCount: 2, instructionFileIndex: 1,
     })).toBe(false);
+  });
+
+  it('selects the exact upload binding when a merged survivor owns multiple operations', async () => {
+    const { q } = memoryQuery();
+    const first = {
+      idempotencyKey: 'manual-create-operation-merge-a',
+      actor: 'staff-1', requestHash: '1'.repeat(64),
+      uploadIdempotencyKey: 'manual-upload-operation-merge-a',
+      expectedFileCount: 1, instructionFileIndex: 0,
+    };
+    const second = {
+      ...first,
+      idempotencyKey: 'manual-create-operation-merge-b',
+      requestHash: '2'.repeat(64),
+      uploadIdempotencyKey: 'manual-upload-operation-merge-b',
+    };
+    await beginManualIntakeOperation(q, first);
+    await finishManualIntakeOperation(q, first.idempotencyKey, 'merged-survivor', 1);
+    await beginManualIntakeOperation(q, second);
+    await finishManualIntakeOperation(q, second.idempotencyKey, 'merged-survivor', 1);
+    await completeManualIntakeEvidence(q, {
+      caseId: 'merged-survivor', uploadIdempotencyKey: second.uploadIdempotencyKey,
+      fileCount: 1, instructionFileIndex: 0,
+    });
+    expect(await manualIntakeEvidenceBindingState(q, {
+      caseId: 'merged-survivor', uploadIdempotencyKey: first.uploadIdempotencyKey,
+      fileCount: 1, instructionFileIndex: 0,
+    })).toBe('pending');
+    expect(await manualIntakeEvidenceBindingState(q, {
+      caseId: 'merged-survivor', uploadIdempotencyKey: second.uploadIdempotencyKey,
+      fileCount: 1, instructionFileIndex: 0,
+    })).toBe('already_complete');
   });
 
   it('refuses a retry key reused by a different actor or changed case request', async () => {

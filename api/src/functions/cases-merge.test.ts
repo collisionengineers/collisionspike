@@ -5,6 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { statusToInt } from '@cs/domain/codecs';
+import { EVA_FIELD_ORDER, statusForReviewCase } from '@cs/domain';
 
 interface Registration {
   handler: (req: HttpRequest, ctx: InvocationContext) => Promise<HttpResponseInit>;
@@ -44,15 +45,21 @@ vi.mock('../lib/db.js', () => ({
 }));
 
 await import('./cases.js');
+const { manualIntakeEvidenceState } = await import('../lib/manual-intake-operation.js');
 
 const merge = registrations.get('mergeCases')!.handler;
 const mergeCandidates = registrations.get('mergeCandidates')!.handler;
+const retryManualArchive = registrations.get('retryManualIntakeArchive')!.handler;
 const txSql: string[] = [];
 const txParams: unknown[][] = [];
 const poolSql: string[] = [];
 const cases = new Map<string, Rec>();
 const evidenceRows: Rec[] = [];
 const fileRequestIntents: Rec[] = [];
+const manualOperations: Rec[] = [];
+const staffUploads: Rec[] = [];
+const staffUploadItems: Rec[] = [];
+const archiveOutbox: Rec[] = [];
 const CASE_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const CASE_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const CASE_C = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
@@ -90,6 +97,10 @@ beforeEach(() => {
   cases.clear();
   evidenceRows.length = 0;
   fileRequestIntents.length = 0;
+  manualOperations.length = 0;
+  staffUploads.length = 0;
+  staffUploadItems.length = 0;
+  archiveOutbox.length = 0;
   cases.set(CASE_A, caseRow(CASE_A));
   cases.set(CASE_B, caseRow(CASE_B));
   evidenceRows.push({
@@ -133,6 +144,73 @@ beforeEach(() => {
         box_file_request_id: cases.get(id)?.box_file_request_id ?? null,
         box_file_request_url: cases.get(id)?.box_file_request_url ?? null,
       }));
+    }
+    if (/SELECT id, duplicate_keys FROM case_ WHERE id = \$1 FOR UPDATE/i.test(sql)) {
+      const row = cases.get(params[0] as string);
+      return row ? [{ id: row.id, duplicate_keys: row.duplicate_keys ?? null }] : [];
+    }
+    if (/SELECT case_id, expected_file_count, evidence_completed_at, side_effects_completed_at/i.test(sql)) {
+      const ids = (params[0] as string[]) ?? [];
+      return manualOperations.filter((row) => ids.includes(row.case_id as string));
+    }
+    if (/UPDATE staff_evidence_upload_item[\s\S]*SET evidence_id = \$2, case_id = \$3/i.test(sql)) {
+      const [fromEvidence, toEvidence, toCase] = params as string[];
+      for (const item of staffUploadItems.filter((row) => row.evidence_id === fromEvidence)) {
+        item.evidence_id = toEvidence;
+        item.case_id = toCase;
+      }
+      return [];
+    }
+    if (/UPDATE staff_evidence_upload_item[\s\S]*WHERE evidence_id = ANY/i.test(sql)) {
+      const [ids, toCase] = params as [string[], string];
+      for (const item of staffUploadItems.filter((row) => ids.includes(row.evidence_id as string))) {
+        item.case_id = toCase;
+      }
+      return [];
+    }
+    if (/UPDATE staff_evidence_upload_item[\s\S]*WHERE case_id = \$1/i.test(sql)) {
+      for (const item of staffUploadItems.filter((row) => row.case_id === params[0])) {
+        item.case_id = params[1];
+      }
+      return [];
+    }
+    if (/UPDATE staff_evidence_upload[\s\S]*WHERE case_id = \$1/i.test(sql)) {
+      for (const batch of staffUploads.filter((row) => row.case_id === params[0])) {
+        batch.case_id = params[1];
+      }
+      return [];
+    }
+    if (/UPDATE manual_intake_case_create_operation[\s\S]*WHERE case_id = \$1/i.test(sql)) {
+      for (const operation of manualOperations.filter((row) => row.case_id === params[0])) {
+        operation.case_id = params[1];
+      }
+      return [];
+    }
+    if (/AS "archiveFailed"/i.test(sql)) {
+      const caseId = params[0];
+      const pending = manualOperations.some((row) =>
+        row.case_id === caseId && Number(row.expected_file_count) > 0 && !row.evidence_completed_at);
+      const archiveFailed = staffUploads.some((batch) =>
+        batch.case_id === caseId && batch.source === 'manual_intake'
+        && staffUploadItems.some((item) =>
+          item.idempotency_key === batch.idempotency_key
+          && item.case_id === caseId
+          && archiveOutbox.some((outbox) =>
+            outbox.evidence_id === item.evidence_id && outbox.dead_lettered_at)));
+      return [{ pending, archiveFailed }];
+    }
+    if (/UPDATE archive_mirror_outbox o/i.test(sql) && /staff_evidence_upload_item/i.test(sql)) {
+      const caseId = params[0];
+      const requeued = archiveOutbox.filter((outbox) =>
+        outbox.dead_lettered_at
+        && staffUploadItems.some((item) =>
+          item.evidence_id === outbox.evidence_id && item.case_id === caseId
+          && staffUploads.some((batch) =>
+            batch.idempotency_key === item.idempotency_key
+            && batch.case_id === caseId
+            && batch.source === 'manual_intake')));
+      for (const row of requeued) row.dead_lettered_at = null;
+      return requeued.map((row) => ({ evidence_id: row.evidence_id }));
     }
     if (/SELECT case_id, requested_generation, completed_generation, attempt_count, claim_token/i.test(sql)) {
       const ids = (params[0] as string[]) ?? [];
@@ -344,6 +422,21 @@ describe('mergeCases atomic lock protocol', () => {
     expect(txSql.some((sql) => /UPDATE evidence\s+SET case_id/i.test(sql))).toBe(false);
   });
 
+  it('blocks merge while either Manual Intake operation is incomplete', async () => {
+    manualOperations.push({
+      case_id: CASE_A,
+      expected_file_count: 1,
+      evidence_completed_at: null,
+      side_effects_completed_at: new Date(),
+    });
+    const res = await merge(request(CASE_B, CASE_A), ctx);
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toEqual({
+      error: 'Source files are still being added for one of these cases. Finish or retry them before merging.',
+    });
+    expect(txSql.some((sql) => /UPDATE evidence\s+SET case_id/i.test(sql))).toBe(false);
+  });
+
   it('canonicalises UUID text before self-checks and provider carry-over', async () => {
     cases.set(CASE_A, caseRow(CASE_A, { work_provider_id: 'wp-source' }));
     cases.set(CASE_B, caseRow(CASE_B, { work_provider_id: null }));
@@ -415,6 +508,98 @@ describe('mergeCases atomic lock protocol', () => {
     const requestIndex = txSql.findIndex((sql) => /INSERT INTO archive_mirror_outbox/i.test(sql));
     expect(requestIndex).toBeGreaterThanOrEqual(0);
     expect(txParams[requestIndex]).toEqual([EV_TARGET, CASE_B]);
+  });
+
+  it('moves rebound/content-dedup source ownership so a later survivor dead-letter blocks and retries', async () => {
+    const sha = 'f'.repeat(64);
+    evidenceRows.length = 0;
+    evidenceRows.push(
+      {
+        id: EV_TARGET, case_id: CASE_B, sha256: sha, created_at: '2026-07-01',
+        excluded: false, storage_path: 'target/instruction.pdf', box_file_id: null,
+      },
+      {
+        id: EV_SOURCE_COPY, case_id: CASE_A, sha256: sha, created_at: '2026-07-02',
+        excluded: false, storage_path: 'source/instruction.pdf', box_file_id: null,
+      },
+      {
+        id: EV_SOURCE_UNIQUE, case_id: CASE_A, sha256: 'e'.repeat(64), created_at: '2026-07-03',
+        excluded: false, storage_path: 'source/extra.pdf', box_file_id: null,
+      },
+    );
+    manualOperations.push({
+      case_id: CASE_A,
+      expected_file_count: 1,
+      evidence_completed_at: new Date(),
+      side_effects_completed_at: new Date(),
+      upload_idempotency_key: 'manual-upload-new',
+    });
+    staffUploads.push(
+      { idempotency_key: 'manual-upload-old', case_id: CASE_A, source: 'manual_intake' },
+      { idempotency_key: 'manual-upload-new', case_id: CASE_A, source: 'manual_intake' },
+    );
+    staffUploadItems.push(
+      {
+        idempotency_key: 'manual-upload-old', case_id: CASE_A,
+        evidence_id: EV_SOURCE_COPY,
+      },
+      {
+        idempotency_key: 'manual-upload-new', case_id: CASE_A,
+        evidence_id: EV_SOURCE_UNIQUE,
+      },
+    );
+
+    const merged = await merge(request(CASE_B, CASE_A), ctx);
+    expect(merged.status).toBe(200);
+    expect(manualOperations.every((row) => row.case_id === CASE_B)).toBe(true);
+    expect(staffUploads.every((row) => row.case_id === CASE_B)).toBe(true);
+    expect(staffUploadItems.every((row) => row.case_id === CASE_B)).toBe(true);
+    expect(staffUploadItems.find((row) => row.idempotency_key === 'manual-upload-old')?.evidence_id)
+      .toBe(EV_TARGET);
+
+    // The failure happens after merge. The old/rebound item now resolves through
+    // the survivor evidence and therefore blocks the survivor, not the retired row.
+    archiveOutbox.push({
+      evidence_id: EV_TARGET,
+      case_id: CASE_B,
+      requested_generation: 2,
+      completed_generation: 1,
+      dead_lettered_at: new Date(),
+    });
+    const source = await manualIntakeEvidenceState(db.txQuery, CASE_B);
+    expect(source).toEqual({ pending: false, archiveFailed: true });
+    const evaFields = Object.fromEntries(EVA_FIELD_ORDER.map(({ key }) => [
+      key,
+      { value: key === 'inspectionAddress' ? '1 Test Road' : 'Complete', reviewState: 'reviewed' },
+    ])) as any;
+    expect(statusForReviewCase({
+      status: 'ready_for_eva',
+      evaFields,
+      inspectionDecision: 'confirmed_physical',
+      evidence: [
+        {
+          kind: 'image', imageRole: 'overview', registrationVisible: true,
+          acceptedForEva: true, excluded: false,
+        },
+        {
+          kind: 'image', imageRole: 'damage_closeup', registrationVisible: false,
+          acceptedForEva: true, excluded: false,
+        },
+      ],
+      hasIdentity: true,
+      sourceEvidencePending: source.pending,
+      sourceEvidenceArchiveFailed: source.archiveFailed,
+    })).toBe('needs_review');
+
+    const retried = await retryManualArchive(
+      { params: { id: CASE_B }, json: async () => ({}) } as unknown as HttpRequest,
+      ctx,
+    );
+    expect(retried).toMatchObject({ status: 200, jsonBody: { requeued: 1 } });
+    expect(await manualIntakeEvidenceState(db.txQuery, CASE_B)).toEqual({
+      pending: false,
+      archiveFailed: false,
+    });
   });
 
   it('moves one deterministic source SHA survivor and leaves later source twins retired', async () => {

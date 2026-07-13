@@ -1795,6 +1795,15 @@ async function mergeEvidenceRows(
           AND completed_generation < requested_generation`,
       [row.id],
     );
+    // A staff-upload item may point at the redundant row, including when a
+    // Manual Intake upload deduped onto it. Follow the canonical target evidence
+    // so later archive failure/readiness and retry observe the survivor.
+    await q(
+      `UPDATE staff_evidence_upload_item
+          SET evidence_id = $2, case_id = $3, updated_at = now()
+        WHERE evidence_id = $1`,
+      [row.id, survivorId, targetCaseId],
+    );
   }
 
   const moved = await q<Row>(
@@ -1812,8 +1821,68 @@ async function mergeEvidenceRows(
         WHERE evidence_id = ANY($1::uuid[])`,
       [moved.map((row) => row.id), targetCaseId],
     );
+    await q(
+      `UPDATE staff_evidence_upload_item
+          SET case_id = $2, updated_at = now()
+        WHERE evidence_id = ANY($1::uuid[])`,
+      [moved.map((row) => row.id), targetCaseId],
+    );
   }
   return { movedEvidence: moved.length, collidingEvidence: collisionSourceIds.length };
+}
+
+/** Manual Intake cannot be re-owned while its case-create effects or current
+ * source batch are incomplete. Completed historical operations are transferred
+ * to the survivor (multiple completed operations per survivor are valid after a merge). */
+async function manualIntakeMergeConflict(
+  q: TxQuery,
+  sourceCaseId: string,
+  targetCaseId: string,
+): Promise<string | undefined> {
+  const operations = await q<{
+    case_id: string;
+    expected_file_count: number | string;
+    evidence_completed_at: Date | string | null;
+    side_effects_completed_at: Date | string | null;
+  }>(
+    `SELECT case_id, expected_file_count, evidence_completed_at, side_effects_completed_at
+       FROM manual_intake_case_create_operation
+      WHERE case_id = ANY($1::uuid[])
+      ORDER BY case_id, created_at, idempotency_key
+      FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]],
+  );
+  const incomplete = operations.some((operation) =>
+    operation.side_effects_completed_at == null ||
+    (Number(operation.expected_file_count) > 0 && operation.evidence_completed_at == null));
+  return incomplete
+    ? 'Source files are still being added for one of these cases. Finish or retry them before merging.'
+    : undefined;
+}
+
+async function transferStaffUploadOwnership(
+  q: TxQuery,
+  sourceCaseId: string,
+  targetCaseId: string,
+): Promise<void> {
+  await q(
+    `UPDATE staff_evidence_upload_item
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId],
+  );
+  await q(
+    `UPDATE staff_evidence_upload
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId],
+  );
+  await q(
+    `UPDATE manual_intake_case_create_operation
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId],
+  );
 }
 
 /**
@@ -1975,6 +2044,18 @@ app.http('mergeCases', {
         };
       }
 
+      const manualIntakeConflict = await manualIntakeMergeConflict(
+        q,
+        sourceCaseId,
+        targetCaseId,
+      );
+      if (manualIntakeConflict) {
+        return { kind: 'error' as const, status: 409, error: manualIntakeConflict };
+      }
+
+      // Reconcile the file-request intent only after every fail-fast ownership
+      // check. This helper may cancel or transfer a durable intent, so no later
+      // validation may reject an otherwise uncommitted merge.
       const fileRequestConflict = await reconcileMergeFileRequestIntent(
         q,
         sourceCaseId,
@@ -2005,6 +2086,7 @@ app.http('mergeCases', {
           error: 'Archive work is still finishing for one of these cases. Try the merge again shortly.',
         };
       }
+      await transferStaffUploadOwnership(q, sourceCaseId, targetCaseId);
       const movedEmails = await q<Row>(
         'UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id',
         [sourceCaseId, targetCaseId],

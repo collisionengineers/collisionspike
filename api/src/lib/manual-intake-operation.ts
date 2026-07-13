@@ -147,10 +147,10 @@ export async function completeManualIntakeEvidence(
   }>(
     `SELECT upload_idempotency_key, expected_file_count, instruction_file_index,
             evidence_completed_at
-       FROM manual_intake_case_create_operation
-      WHERE case_id = $1
+      FROM manual_intake_case_create_operation
+      WHERE case_id = $1 AND upload_idempotency_key = $2
       FOR UPDATE`,
-    [input.caseId],
+    [input.caseId, input.uploadIdempotencyKey],
   );
   const binding = bindings[0];
   if (
@@ -185,10 +185,10 @@ export async function manualIntakeEvidenceBindingState(
   }>(
     `SELECT upload_idempotency_key, expected_file_count, instruction_file_index,
             evidence_completed_at
-       FROM manual_intake_case_create_operation
-      WHERE case_id = $1
+      FROM manual_intake_case_create_operation
+      WHERE case_id = $1 AND upload_idempotency_key = $2
       FOR UPDATE`,
-    [input.caseId],
+    [input.caseId, input.uploadIdempotencyKey],
   );
   const binding = rows[0];
   if (

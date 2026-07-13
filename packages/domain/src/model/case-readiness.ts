@@ -31,6 +31,25 @@ export function mergeSourceReadinessIntoCase<T extends Case>(
   return { ...draft, status: server.status, ...sourceReadinessInputForCase(server) };
 }
 
+/** Explicit-save integration seam: refresh canonical source/status state in both
+ * draft and persisted baseline, and advance the optimistic-concurrency version,
+ * without replacing unrelated dirty fields in either copy. */
+export function sourceReadinessRecoverySnapshot<T extends Case>(
+  draft: T,
+  persisted: T,
+  server: Pick<
+    Case,
+    'status' | 'sourceEvidencePending' | 'sourceEvidenceArchiveFailed'
+  > & { version?: string },
+  currentVersion: string,
+): { draft: T; persisted: T; version: string } {
+  return {
+    draft: mergeSourceReadinessIntoCase(draft, server),
+    persisted: mergeSourceReadinessIntoCase(persisted, server),
+    version: server.version ?? currentVersion,
+  };
+}
+
 /**
  * Adapt the shared Case model to the canonical readiness/status input.
  *

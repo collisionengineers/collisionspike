@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS manual_intake_case_create_operation (
   idempotency_key        varchar(128) PRIMARY KEY,
   actor                  varchar(320) NOT NULL,
   request_hash           char(64) NOT NULL,
-  case_id                uuid UNIQUE REFERENCES case_(id) ON DELETE SET NULL,
+  case_id                uuid REFERENCES case_(id) ON DELETE SET NULL,
   upload_idempotency_key varchar(128) UNIQUE,
   expected_file_count    integer NOT NULL DEFAULT 0,
   evidence_completed_at  timestamptz,
@@ -29,6 +29,11 @@ ALTER TABLE manual_intake_case_create_operation
   ADD COLUMN IF NOT EXISTS instruction_file_index integer,
   ADD COLUMN IF NOT EXISTS side_effects_completed_at timestamptz,
   ADD COLUMN IF NOT EXISTS response_loss_recovery_audited_at timestamptz;
+
+-- A merge may legitimately put two completed historical create operations on
+-- one survivor. Operation and upload keys remain unique; case ownership does not.
+ALTER TABLE manual_intake_case_create_operation
+  DROP CONSTRAINT IF EXISTS manual_intake_case_create_operation_case_id_key;
 
 DO $$
 BEGIN
@@ -79,6 +84,9 @@ END $$;
 CREATE INDEX IF NOT EXISTS ix_manual_intake_case_create_pending
   ON manual_intake_case_create_operation (case_id, created_at)
   WHERE expected_file_count > 0 AND evidence_completed_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS ix_manual_intake_case_create_case
+  ON manual_intake_case_create_operation (case_id, created_at);
 
 ALTER TABLE archive_mirror_outbox
   ADD COLUMN IF NOT EXISTS dead_lettered_at timestamptz,

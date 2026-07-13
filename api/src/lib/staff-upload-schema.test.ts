@@ -43,6 +43,7 @@ describe('staff evidence upload schema', () => {
       expect(sql).toContain('side_effects_completed_at');
       expect(sql).toContain('response_loss_recovery_audited_at');
       expect(sql).toContain('ix_manual_intake_case_create_pending');
+      expect(sql).toContain('ix_manual_intake_case_create_case');
     }
     expect(schema('000_enums_lookups.sql')).toContain('evidence_upload_result');
     expect(schema('deltas/2026-07-12-tkt166-manual-intake-case-create.sql'))
@@ -61,6 +62,12 @@ describe('staff evidence upload schema', () => {
     );
     expect(delta).toContain('dead_lettered_at');
     expect(delta).toContain('dead_letter_reason');
+    expect(schema('196_manual_intake_case_create.sql')).not.toContain(
+      'case_id               uuid UNIQUE',
+    );
+    expect(delta).toContain(
+      'DROP CONSTRAINT IF EXISTS manual_intake_case_create_operation_case_id_key',
+    );
   });
 
   it('forces RLS and grants only non-delete app operations', () => {

@@ -3,6 +3,7 @@ import {
   mergeSourceReadinessIntoCase,
   readinessInputForCase,
   sourceReadinessInputForCase,
+  sourceReadinessRecoverySnapshot,
 } from './case-readiness';
 import type { Case } from './types';
 
@@ -35,6 +36,23 @@ describe('readinessInputForCase', () => {
       status: 'needs_review',
       sourceEvidencePending: false,
       sourceEvidenceArchiveFailed: false,
+    });
+    const persisted = { ...value, vrm: 'SAVED' } as Case;
+    const recovery = sourceReadinessRecoverySnapshot(
+      dirtyDraft,
+      persisted,
+      {
+        status: 'needs_review',
+        version: 'server-v2',
+        sourceEvidencePending: false,
+        sourceEvidenceArchiveFailed: false,
+      },
+      'server-v1',
+    );
+    expect(recovery).toMatchObject({
+      draft: { vrm: 'DIRTY-DRAFT', status: 'needs_review', sourceEvidenceArchiveFailed: false },
+      persisted: { vrm: 'SAVED', status: 'needs_review', sourceEvidenceArchiveFailed: false },
+      version: 'server-v2',
     });
     expect(readinessInputForCase({
       ...value,
