@@ -70,7 +70,7 @@ describe('capture auth', () => {
     const request = {
       headers: new Headers({ authorization: `Bearer ${access.token}` }),
     } as unknown as HttpRequest;
-    const claims = await verifyCaptureAccessToken(request);
+    const claims = await verifyCaptureAccessToken(request, now);
     expect(claims.sub).toBe('11111111-1111-4111-8111-111111111111');
     expect(claims.generation).toBe(4);
     expect(access.expiresAt).toBe('2026-07-13T12:15:00.000Z');

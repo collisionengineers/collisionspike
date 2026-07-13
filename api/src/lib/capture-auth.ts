@@ -92,12 +92,19 @@ export async function mintCaptureAccessToken(
   return { token, expiresAt: new Date(expiresAt * 1000).toISOString() };
 }
 
-export async function verifyCaptureAccessToken(req: HttpRequest): Promise<CaptureAccessClaims> {
+export async function verifyCaptureAccessToken(
+  req: HttpRequest,
+  now = new Date(),
+): Promise<CaptureAccessClaims> {
   const header = req.headers.get('authorization') ?? '';
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
   if (!token) throw new Error('missing');
   try {
-    const { payload } = await jwtVerify(token, signingKey(), { issuer: ISSUER, audience: AUDIENCE });
+    const { payload } = await jwtVerify(token, signingKey(), {
+      issuer: ISSUER,
+      audience: AUDIENCE,
+      currentDate: now,
+    });
     if (
       payload.kind !== 'capture'
       || typeof payload.sub !== 'string'
