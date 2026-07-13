@@ -27,6 +27,8 @@ loop still owns the ticket-status move, database delta, deployment and independe
   archive recovery advances the dirty draft, persisted baseline and concurrency version together.
 - `0d33d63` — limit terminal archive dead-lettering to Manual Intake-owned evidence so unrelated
   automated evidence keeps retrying, and preserve the archive-failure distinction in recomputation.
+- `4e7c291` — transfer the durable upload batch before its items during case merge while keeping
+  evidence rebinding ownership-neutral until that ordered transfer.
 
 ## Files touched
 
@@ -171,6 +173,8 @@ values. The TKT-024 form remains deliberately unmerged for its separate layout i
   unrecoverable dead letter during a longer archive outage.
 - Internal status recomputation now carries both pending and archive-failed source state, matching the
   normal case snapshot and preserving the correct recovery guidance.
+- Case merge now rebinds only evidence identities during evidence coalescing, then moves the parent
+  upload batch before its items. The regression pins the ordering and the final survivor ownership.
 
 ## Merge lifecycle follow-up — 2026-07-13
 

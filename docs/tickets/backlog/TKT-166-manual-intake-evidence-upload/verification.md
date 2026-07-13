@@ -35,6 +35,8 @@ Regression coverage includes:
 - merge ownership transfer for operations/batches/items, collision-item rebinding to canonical
   evidence, incomplete-operation refusal and a full merge→later dead-letter→survivor Not Ready→retry
   sequence;
+- merge SQL orders parent upload-batch transfer before item transfer and leaves collision evidence
+  rebinding ownership-neutral until that ordered step;
 - multiple completed operation bindings on a merged survivor remain exact by upload key;
 - explicit-save compatibility snapshot updates draft, persisted baseline and concurrency version while
   preserving dirty field values;
