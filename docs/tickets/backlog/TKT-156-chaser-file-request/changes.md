@@ -5,6 +5,7 @@ Implemented and tested offline on `codex/tkt-156-chaser-file-request`; deploymen
 
 ## Commits
 - `7a2d2eeb1543b25f093e5db29700764549cb030f` — require an active, case-scoped upload link for every image chaser and complete the repair/webhook lifecycle.
+- `cc3562ff37bac5c0e557eb690abbffd4b9417ecc` — align older outstanding image drafts to a repaired/replaced link before logging the next chase.
 
 ## Files changed
 - `api/src/lib/box-file-request-outbox.ts`, `api/src/lib/functions-client.ts`, `api/src/lib/image-chasers.ts` — durable single-request creation, remote validation, expiry/inactive/deleted repair, folder/template drift handling, and selective image-chaser response.
