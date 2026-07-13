@@ -6,6 +6,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EVA_FIELD_ORDER } from '@cs/domain';
 import { statusToInt } from '@cs/domain/codecs';
+import { EVA_COLUMN_BY_KEY } from '../lib/mappers.js';
 
 vi.mock('@azure/functions', () => ({ app: { http: vi.fn() } }));
 vi.mock('../lib/auth.js', () => ({
@@ -163,6 +164,7 @@ describe('EVA submission canonical re-check', () => {
     };
     provenanceRows = EVA_FIELD_ORDER.map((field) => ({
       field_name: field.key,
+      value: lockedRow[EVA_COLUMN_BY_KEY[field.key]],
       review_state_code: 100000002,
       source_label: 'Staff entry',
     }));
