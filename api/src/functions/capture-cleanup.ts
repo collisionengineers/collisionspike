@@ -6,6 +6,7 @@ import {
   isCaptureManagedBlobPath,
 } from '../lib/blob.js';
 import { query } from '../lib/db.js';
+import { withResolvedCaseMutationTarget } from '../lib/case-mutation-target.js';
 
 const CLEANUP_BATCH_SIZE = 100;
 
@@ -18,6 +19,23 @@ export interface CaptureCleanupResult {
   failed: number;
 }
 
+interface CaptureCleanupCandidate extends Record<string, unknown> {
+  id: string;
+  session_id: string;
+  case_id: string;
+  blob_path: string;
+  declared_sha256: string;
+  evidence_id: string | null;
+  evidence_storage_path: string | null;
+  cleanup_attempt_count: number;
+}
+
+interface LockedCaptureCleanupCandidate extends CaptureCleanupCandidate {
+  state: string;
+  materialised_at: Date | string | null;
+  staging_deleted_at: Date | string | null;
+}
+
 function enabled(name: string): boolean {
   return (process.env[name] ?? '').trim().toLowerCase() === 'true';
 }
@@ -27,6 +45,89 @@ export function configuredCaptureRetentionDays(
 ): number | undefined {
   const days = value == null || value.trim() === '' ? 30 : Number(value);
   return Number.isInteger(days) && days >= 1 && days <= 3650 ? days : undefined;
+}
+
+/**
+ * Re-check and delete one candidate while holding the repository-wide case lock,
+ * the capture row, and any linked Evidence row. Keeping those locks across the
+ * storage delete prevents submission, merge, or evidence repair from making the
+ * object canonical between the eligibility read and deletion.
+ */
+async function deleteCaptureCandidate(
+  candidate: CaptureCleanupCandidate,
+  retentionDays: number,
+): Promise<boolean> {
+  const resolved = await withResolvedCaseMutationTarget(candidate.case_id, async (q, target) => {
+    const rows = await q<LockedCaptureCleanupCandidate>(
+      `SELECT a.id, a.session_id, s.case_id, a.blob_path, a.declared_sha256,
+              a.evidence_id, NULL::text AS evidence_storage_path,
+              a.cleanup_attempt_count, a.state, a.materialised_at,
+              a.staging_deleted_at
+         FROM capture_asset a
+         JOIN capture_session s ON s.id = a.session_id
+        WHERE a.id = $1
+          AND s.status IN ('expired','revoked','complete','locked')
+          AND COALESCE(s.expired_at, s.revoked_at, s.submitted_at, s.locked_at, s.expires_at)
+                <= now() - make_interval(days => $2)
+          AND a.blob_deleted_at IS NULL
+          AND (a.cleanup_next_attempt_at IS NULL OR a.cleanup_next_attempt_at <= now())
+          AND (a.blob_path LIKE 'capture/%' OR a.blob_path LIKE 'capture-validated/%')
+        FOR UPDATE OF a, s`,
+      [candidate.id, retentionDays],
+    );
+    const current = rows[0];
+    if (!current || !target.lineage.includes(current.case_id.trim().toLowerCase())) return false;
+
+    let evidenceStoragePath: string | null = null;
+    if (current.evidence_id) {
+      const evidence = await q<{ storage_path: string | null }>(
+        'SELECT storage_path FROM evidence WHERE id = $1 FOR UPDATE',
+        [current.evidence_id],
+      );
+      evidenceStoragePath = evidence[0]?.storage_path ?? null;
+    }
+
+    const unmaterialised = current.evidence_id === null
+      && current.materialised_at === null
+      && current.state !== 'materialised';
+    const linkedOrphan = current.evidence_id !== null
+      && (
+        current.staging_deleted_at === null
+        || (evidenceStoragePath !== null && evidenceStoragePath !== current.blob_path)
+      );
+    if (!unmaterialised && !linkedOrphan) return false;
+
+    const derivedValidatedPath = captureValidatedBlobPath(
+      current.session_id,
+      current.id,
+      current.declared_sha256,
+    );
+    const derivedStagingPath = captureStagingBlobPath(current.session_id, current.id);
+    const possiblePaths = current.evidence_id && !evidenceStoragePath
+      ? [derivedStagingPath]
+      : [derivedStagingPath, current.blob_path, derivedValidatedPath];
+    const paths = [...new Set(possiblePaths)]
+      .filter((path) => isCaptureManagedBlobPath(path))
+      .filter((path) => path !== evidenceStoragePath);
+    if (paths.length === 0) return false;
+
+    for (const path of paths) await deleteCaptureManagedBlob(path);
+    const stamped = await q<{ id: string }>(
+      `UPDATE capture_asset
+          SET blob_deleted_at = now(), cleanup_code = 'retention',
+              staging_deleted_at = COALESCE(staging_deleted_at, now()),
+              cleanup_attempt_count = 0, cleanup_next_attempt_at = NULL,
+              cleanup_last_error_category = NULL, updated_at = now()
+        WHERE id = $1 AND blob_deleted_at IS NULL
+        RETURNING id`,
+      [current.id],
+    );
+    return Boolean(stamped[0]);
+  });
+  if (resolved.kind === 'unresolved') {
+    throw new Error(`capture cleanup case resolution failed: ${resolved.reason}`);
+  }
+  return resolved.value;
 }
 
 export async function runCaptureCleanup(ctx: InvocationContext): Promise<CaptureCleanupResult> {
@@ -63,16 +164,8 @@ export async function runCaptureCleanup(ctx: InvocationContext): Promise<Capture
     [CLEANUP_BATCH_SIZE],
   );
 
-  const candidates = await query<{
-    id: string;
-    session_id: string;
-    blob_path: string;
-    declared_sha256: string;
-    evidence_id: string | null;
-    evidence_storage_path: string | null;
-    cleanup_attempt_count: number;
-  }>(
-    `SELECT a.id, a.session_id, a.blob_path, a.declared_sha256, a.evidence_id,
+  const candidates = await query<CaptureCleanupCandidate>(
+    `SELECT a.id, a.session_id, s.case_id, a.blob_path, a.declared_sha256, a.evidence_id,
             e.storage_path AS evidence_storage_path, a.cleanup_attempt_count
        FROM capture_asset a
        JOIN capture_session s ON s.id = a.session_id
@@ -102,51 +195,7 @@ export async function runCaptureCleanup(ctx: InvocationContext): Promise<Capture
   let failed = 0;
   for (const candidate of candidates) {
     try {
-      const derivedValidatedPath = captureValidatedBlobPath(
-        candidate.session_id,
-        candidate.id,
-        candidate.declared_sha256,
-      );
-      const derivedStagingPath = captureStagingBlobPath(candidate.session_id, candidate.id);
-      const possiblePaths = candidate.evidence_id && !candidate.evidence_storage_path
-        ? [derivedStagingPath]
-        : [derivedStagingPath, candidate.blob_path, derivedValidatedPath];
-      const paths = [...new Set(possiblePaths)]
-        .filter((path) => isCaptureManagedBlobPath(path))
-        .filter((path) => path !== candidate.evidence_storage_path);
-      if (paths.length === 0) continue;
-      for (const path of paths) await deleteCaptureManagedBlob(path);
-      const stamped = await query<{ id: string }>(
-        `UPDATE capture_asset a
-            SET blob_deleted_at = now(), cleanup_code = 'retention',
-                staging_deleted_at = COALESCE(staging_deleted_at, now()),
-                cleanup_attempt_count = 0, cleanup_next_attempt_at = NULL,
-                cleanup_last_error_category = NULL, updated_at = now()
-          WHERE a.id = $1
-            AND a.blob_deleted_at IS NULL
-            AND (a.blob_path LIKE 'capture/%' OR a.blob_path LIKE 'capture-validated/%')
-            AND (
-              (a.evidence_id IS NULL AND a.materialised_at IS NULL AND a.state <> 'materialised')
-              OR EXISTS (
-                SELECT 1 FROM evidence e
-                 WHERE e.id = a.evidence_id
-                   AND (
-                     e.storage_path IS NULL
-                     OR e.storage_path <> ALL($3::text[])
-                   )
-              )
-            )
-            AND EXISTS (
-              SELECT 1 FROM capture_session s
-               WHERE s.id = a.session_id
-                 AND s.status IN ('expired','revoked','complete','locked')
-                 AND COALESCE(s.expired_at, s.revoked_at, s.submitted_at, s.locked_at, s.expires_at)
-                       <= now() - make_interval(days => $2)
-            )
-          RETURNING a.id`,
-        [candidate.id, retentionDays, paths],
-      );
-      if (stamped[0]) deleted++;
+      if (await deleteCaptureCandidate(candidate, retentionDays)) deleted++;
     } catch {
       failed++;
       const currentAttempts = Number(candidate.cleanup_attempt_count) || 0;

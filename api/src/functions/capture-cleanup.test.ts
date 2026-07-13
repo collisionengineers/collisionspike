@@ -14,6 +14,11 @@ vi.mock('@azure/functions', () => ({
 const db = vi.hoisted(() => ({ query: vi.fn() }));
 vi.mock('../lib/db.js', () => ({ query: db.query }));
 
+const mutationTarget = vi.hoisted(() => ({ resolve: vi.fn() }));
+vi.mock('../lib/case-mutation-target.js', () => ({
+  withResolvedCaseMutationTarget: mutationTarget.resolve,
+}));
+
 const blobs = vi.hoisted(() => ({ remove: vi.fn() }));
 vi.mock('../lib/blob.js', () => ({
   captureStagingBlobPath: (sessionId: string, assetId: string) =>
@@ -33,10 +38,42 @@ const ctx = {
   error: vi.fn(),
 } as unknown as InvocationContext;
 
+const CASE_A = '11111111-1111-4111-8111-111111111111';
+const CASE_B = '22222222-2222-4222-8222-222222222222';
+
+function lockedCandidate(overrides: Record<string, unknown>) {
+  return {
+    id: 'asset-1',
+    session_id: 'session-1',
+    case_id: CASE_A,
+    blob_path: 'capture/session-1/asset-1',
+    declared_sha256: 'a'.repeat(64),
+    evidence_id: null,
+    evidence_storage_path: null,
+    cleanup_attempt_count: 0,
+    state: 'uploaded',
+    materialised_at: null,
+    staging_deleted_at: null,
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   delete process.env.CAPTURE_CLEANUP_ENABLED;
   delete process.env.CAPTURE_RETENTION_DAYS;
   db.query.mockReset();
+  mutationTarget.resolve.mockReset();
+  mutationTarget.resolve.mockImplementation(async (
+    caseId: string,
+    work: (
+      q: typeof db.query,
+      target: { caseId: string; statusCode: number; lineage: string[] },
+    ) => Promise<unknown>,
+  ) => ({
+    kind: 'resolved',
+    targetCaseId: caseId,
+    value: await work(db.query, { caseId, statusCode: 100000001, lineage: [caseId] }),
+  }));
   blobs.remove.mockReset();
   vi.mocked(ctx.log).mockReset();
   vi.mocked(ctx.warn).mockReset();
@@ -76,13 +113,16 @@ describe('capture retention cleanup', () => {
       .mockResolvedValueOnce([{
         id: 'asset-1',
         session_id: 'session-1',
+        case_id: CASE_A,
         blob_path: 'capture/session-1/asset-1',
         declared_sha256: sha,
         evidence_id: null,
         evidence_storage_path: null,
         cleanup_attempt_count: 0,
       }])
-      .mockResolvedValueOnce([{ id: 'asset-1' }]);
+      .mockResolvedValueOnce([lockedCandidate({ declared_sha256: sha })])
+      .mockResolvedValueOnce([{ id: 'asset-1' }])
+      .mockResolvedValueOnce([]);
     blobs.remove.mockResolvedValue(undefined);
 
     await expect(runCaptureCleanup(ctx)).resolves.toEqual({
@@ -107,9 +147,11 @@ describe('capture retention cleanup', () => {
     expect(String(db.query.mock.calls[1]?.[0])).toContain('a.cleanup_next_attempt_at <= now()');
     expect(String(db.query.mock.calls[1]?.[0])).toContain('a.materialised_at IS NULL');
     expect(String(db.query.mock.calls[1]?.[0])).toContain('a.staging_deleted_at IS NULL');
-    expect(String(db.query.mock.calls[2]?.[0])).toContain('cleanup_attempt_count = 0');
-    expect(String(db.query.mock.calls[2]?.[0])).toContain('staging_deleted_at = COALESCE');
-    expect(String(db.query.mock.calls[2]?.[0])).toContain('cleanup_last_error_category = NULL');
+    expect(String(db.query.mock.calls[2]?.[0])).toContain('FOR UPDATE OF a, s');
+    expect(String(db.query.mock.calls[3]?.[0])).toContain('cleanup_attempt_count = 0');
+    expect(String(db.query.mock.calls[3]?.[0])).toContain('staging_deleted_at = COALESCE');
+    expect(String(db.query.mock.calls[3]?.[0])).toContain('cleanup_last_error_category = NULL');
+    expect(db.query.mock.calls[3]?.[1]).toEqual(['asset-1']);
     expect(ctx.log).toHaveBeenCalledWith('[capture-cleanup] completed', expect.objectContaining({
       deleted: 1,
     }));
@@ -124,13 +166,28 @@ describe('capture retention cleanup', () => {
       .mockResolvedValueOnce([{
         id: 'asset-2',
         session_id: 'session-2',
+        case_id: CASE_A,
         blob_path: ownPath,
         declared_sha256: sha,
         evidence_id: 'evidence-existing',
         evidence_storage_path: 'capture-validated/other-session/original/hash',
         cleanup_attempt_count: 0,
       }])
-      .mockResolvedValueOnce([{ id: 'asset-2' }]);
+      .mockResolvedValueOnce([lockedCandidate({
+        id: 'asset-2',
+        session_id: 'session-2',
+        blob_path: ownPath,
+        declared_sha256: sha,
+        evidence_id: 'evidence-existing',
+        state: 'materialised',
+        materialised_at: '2026-01-01T00:00:00Z',
+        staging_deleted_at: '2026-01-01T00:00:00Z',
+      })])
+      .mockResolvedValueOnce([{
+        storage_path: 'capture-validated/other-session/original/hash',
+      }])
+      .mockResolvedValueOnce([{ id: 'asset-2' }])
+      .mockResolvedValueOnce([]);
     blobs.remove.mockResolvedValue(undefined);
 
     const result = await runCaptureCleanup(ctx);
@@ -140,8 +197,10 @@ describe('capture retention cleanup', () => {
       'capture/session-2/asset-2',
       ownPath,
     ]);
-    const stampParams = db.query.mock.calls[2]?.[1] as unknown[];
-    expect(stampParams[2]).toEqual(['capture/session-2/asset-2', ownPath]);
+    expect(String(db.query.mock.calls[2]?.[0])).toContain('FOR UPDATE OF a, s');
+    expect(String(db.query.mock.calls[3]?.[0])).toContain('FROM evidence');
+    expect(String(db.query.mock.calls[3]?.[0])).toContain('FOR UPDATE');
+    expect(db.query.mock.calls[4]?.[1]).toEqual(['asset-2']);
   });
 
   it('recovers failed immediate staging cleanup after materialisation without deleting canonical evidence', async () => {
@@ -153,13 +212,25 @@ describe('capture retention cleanup', () => {
       .mockResolvedValueOnce([{
         id: 'asset-3',
         session_id: 'session-3',
+        case_id: CASE_A,
         blob_path: canonicalPath,
         declared_sha256: sha,
         evidence_id: 'evidence-canonical',
         evidence_storage_path: canonicalPath,
         cleanup_attempt_count: 0,
       }])
-      .mockResolvedValueOnce([{ id: 'asset-3' }]);
+      .mockResolvedValueOnce([lockedCandidate({
+        id: 'asset-3',
+        session_id: 'session-3',
+        blob_path: canonicalPath,
+        declared_sha256: sha,
+        evidence_id: 'evidence-canonical',
+        state: 'materialised',
+        materialised_at: '2026-01-01T00:00:00Z',
+      })])
+      .mockResolvedValueOnce([{ storage_path: canonicalPath }])
+      .mockResolvedValueOnce([{ id: 'asset-3' }])
+      .mockResolvedValueOnce([]);
     blobs.remove.mockResolvedValue(undefined);
 
     const result = await runCaptureCleanup(ctx);
@@ -172,8 +243,7 @@ describe('capture retention cleanup', () => {
     expect(candidateSql).toContain('a.staging_deleted_at IS NULL');
     expect(candidateSql).toContain('e.storage_path <> a.blob_path');
     expect(candidateSql).toContain("a.state <> 'materialised'");
-    const stampParams = db.query.mock.calls[2]?.[1] as unknown[];
-    expect(stampParams[2]).toEqual(['capture/session-3/asset-3']);
+    expect(db.query.mock.calls[4]?.[1]).toEqual(['asset-3']);
   });
 
   it('does not resweep canonical materialised assets after immediate staging deletion is marked', async () => {
@@ -200,13 +270,25 @@ describe('capture retention cleanup', () => {
       .mockResolvedValueOnce([{
         id: 'asset-purged',
         session_id: 'session-purged',
+        case_id: CASE_A,
         blob_path: validatedPath,
         declared_sha256: sha,
         evidence_id: 'evidence-purged',
         evidence_storage_path: null,
         cleanup_attempt_count: 0,
       }])
-      .mockResolvedValueOnce([{ id: 'asset-purged' }]);
+      .mockResolvedValueOnce([lockedCandidate({
+        id: 'asset-purged',
+        session_id: 'session-purged',
+        blob_path: validatedPath,
+        declared_sha256: sha,
+        evidence_id: 'evidence-purged',
+        state: 'materialised',
+        materialised_at: '2026-01-01T00:00:00Z',
+      })])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'asset-purged' }])
+      .mockResolvedValueOnce([]);
     blobs.remove.mockResolvedValue(undefined);
 
     const result = await runCaptureCleanup(ctx);
@@ -215,12 +297,8 @@ describe('capture retention cleanup', () => {
     expect(blobs.remove).toHaveBeenCalledOnce();
     expect(blobs.remove).toHaveBeenCalledWith('capture/session-purged/asset-purged');
     expect(blobs.remove).not.toHaveBeenCalledWith(validatedPath);
-    expect(String(db.query.mock.calls[2]?.[0])).toContain('e.storage_path IS NULL');
-    expect(db.query.mock.calls[2]?.[1]).toEqual([
-      'asset-purged',
-      30,
-      ['capture/session-purged/asset-purged'],
-    ]);
+    expect(String(db.query.mock.calls[3]?.[0])).toContain('FROM evidence');
+    expect(db.query.mock.calls[4]?.[1]).toEqual(['asset-purged']);
   });
 
   it('persists bounded retry state after a delete failure and continues the batch', async () => {
@@ -233,6 +311,7 @@ describe('capture retention cleanup', () => {
         {
           id: 'asset-failing',
           session_id: 'session-failing',
+          case_id: CASE_A,
           blob_path: 'capture/session-failing/asset-failing',
           declared_sha256: firstSha,
           evidence_id: null,
@@ -242,6 +321,7 @@ describe('capture retention cleanup', () => {
         {
           id: 'asset-later',
           session_id: 'session-later',
+          case_id: CASE_B,
           blob_path: 'capture/session-later/asset-later',
           declared_sha256: secondSha,
           evidence_id: null,
@@ -249,8 +329,23 @@ describe('capture retention cleanup', () => {
           cleanup_attempt_count: 0,
         },
       ])
+      .mockResolvedValueOnce([lockedCandidate({
+        id: 'asset-failing',
+        session_id: 'session-failing',
+        blob_path: 'capture/session-failing/asset-failing',
+        declared_sha256: firstSha,
+        cleanup_attempt_count: 3,
+      })])
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ id: 'asset-later' }]);
+      .mockResolvedValueOnce([lockedCandidate({
+        id: 'asset-later',
+        session_id: 'session-later',
+        case_id: CASE_B,
+        blob_path: 'capture/session-later/asset-later',
+        declared_sha256: secondSha,
+      })])
+      .mockResolvedValueOnce([{ id: 'asset-later' }])
+      .mockResolvedValueOnce([]);
     blobs.remove
       .mockRejectedValueOnce(new Error('storage unavailable'))
       .mockResolvedValue(undefined);
@@ -264,8 +359,8 @@ describe('capture retention cleanup', () => {
       failed: 1,
     });
 
-    const retrySql = String(db.query.mock.calls[2]?.[0]);
-    const retryParams = db.query.mock.calls[2]?.[1] as unknown[];
+    const retrySql = String(db.query.mock.calls[3]?.[0]);
+    const retryParams = db.query.mock.calls[3]?.[1] as unknown[];
     expect(retrySql).toContain('cleanup_next_attempt_at');
     expect(retrySql).toContain("cleanup_last_error_category = 'blob_delete_failed'");
     expect(retryParams).toEqual(['asset-failing', 4, 480]);
@@ -274,6 +369,44 @@ describe('capture retention cleanup', () => {
       `capture-validated/session-later/asset-later/${secondSha}`,
     );
     expect(ctx.warn).toHaveBeenCalledWith('[capture-cleanup] object delete failed');
+  });
+
+  it('rechecks canonical evidence under locks before deleting a previously orphaned path', async () => {
+    process.env.CAPTURE_CLEANUP_ENABLED = 'true';
+    const sha = '9'.repeat(64);
+    const canonicalPath = `capture-validated/session-race/asset-race/${sha}`;
+    db.query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{
+        id: 'asset-race',
+        session_id: 'session-race',
+        case_id: CASE_A,
+        blob_path: canonicalPath,
+        declared_sha256: sha,
+        evidence_id: 'evidence-race',
+        evidence_storage_path: 'capture-validated/old/orphan/hash',
+        cleanup_attempt_count: 0,
+      }])
+      .mockResolvedValueOnce([lockedCandidate({
+        id: 'asset-race',
+        session_id: 'session-race',
+        blob_path: canonicalPath,
+        declared_sha256: sha,
+        evidence_id: 'evidence-race',
+        state: 'materialised',
+        materialised_at: '2026-01-01T00:00:00Z',
+        staging_deleted_at: '2026-01-01T00:00:00Z',
+      })])
+      .mockResolvedValueOnce([{ storage_path: canonicalPath }])
+      .mockResolvedValueOnce([]);
+
+    const result = await runCaptureCleanup(ctx);
+
+    expect(result).toMatchObject({ candidates: 1, deleted: 0, failed: 0 });
+    expect(blobs.remove).not.toHaveBeenCalled();
+    expect(String(db.query.mock.calls[2]?.[0])).toContain('FOR UPDATE OF a, s');
+    expect(String(db.query.mock.calls[3]?.[0])).toContain('FOR UPDATE');
+    expect(String(db.query.mock.calls[4]?.[0])).toContain('capture_session_resume_token');
   });
 
   it('deletes expired or terminal resume tokens in a bounded skip-locked batch', async () => {

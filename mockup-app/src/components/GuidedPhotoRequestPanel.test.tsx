@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   configureDataAccess,
@@ -91,9 +91,10 @@ describe('GuidedPhotoRequestPanel', () => {
     await user.click(await screen.findByRole('button', { name: 'Replace link' }));
     expect(screen.getByText('The old link will stop working. A new link will be added to the draft.'))
       .toBeTruthy();
-    await user.click(
-      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Replace link' }),
-    );
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: 'Replace link' })).toHaveLength(2);
+    });
+    await user.click(screen.getAllByRole('button', { name: 'Replace link' })[1]!);
 
     await waitFor(() => expect(rotateCaptureSession).toHaveBeenCalledWith('session-1'));
     expect(onLinkReady).toHaveBeenCalledWith(
@@ -114,9 +115,10 @@ describe('GuidedPhotoRequestPanel', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Cancel link' }));
     expect(screen.getByText(/The link will stop working immediately/)).toBeTruthy();
-    await user.click(
-      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel link' }),
-    );
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: 'Cancel link' })).toHaveLength(2);
+    });
+    await user.click(screen.getAllByRole('button', { name: 'Cancel link' })[1]!);
 
     await waitFor(() => expect(revokeCaptureSession).toHaveBeenCalledWith('session-1'));
     expect(onLinkCancelled).toHaveBeenCalledWith('session-1');
