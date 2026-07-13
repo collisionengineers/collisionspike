@@ -101,8 +101,13 @@ describe('GuidedPhotoRequestPanel', () => {
 
   it('requires confirmation before cancelling an open link', async () => {
     const user = userEvent.setup();
+    const onLinkCancelled = vi.fn();
     render(
-      <GuidedPhotoRequestPanel caseId="case-1" onLinkReady={vi.fn()} />,
+      <GuidedPhotoRequestPanel
+        caseId="case-1"
+        onLinkReady={vi.fn()}
+        onLinkCancelled={onLinkCancelled}
+      />,
     );
 
     await user.click(await screen.findByRole('button', { name: 'Cancel link' }));
@@ -110,6 +115,7 @@ describe('GuidedPhotoRequestPanel', () => {
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel link' }));
 
     await waitFor(() => expect(revokeCaptureSession).toHaveBeenCalledWith('session-1'));
+    expect(onLinkCancelled).toHaveBeenCalledWith('session-1');
   });
 
   it('shows existing requests but blocks creation for a closed case', async () => {

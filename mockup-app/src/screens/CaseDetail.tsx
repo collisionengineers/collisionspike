@@ -2834,6 +2834,11 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                     caseId={c.id}
                     disabled={photoRequestsDisabled}
                     onLinkReady={setGuidedPhotoLink}
+                    onLinkCancelled={(sessionId) => {
+                      setGuidedPhotoLink((current) =>
+                        current?.sessionId === sessionId ? undefined : current,
+                      );
+                    }}
                   />
                   <Divider />
                   <ChaserPanel

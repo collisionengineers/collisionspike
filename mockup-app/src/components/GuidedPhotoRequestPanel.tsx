@@ -58,6 +58,7 @@ export interface GuidedPhotoRequestPanelProps {
   caseId: string;
   disabled?: boolean;
   onLinkReady(link: GuidedPhotoLink): void;
+  onLinkCancelled?(sessionId: string): void;
 }
 
 const useStyles = makeStyles({
@@ -162,6 +163,7 @@ export function GuidedPhotoRequestPanel({
   caseId,
   disabled = false,
   onLinkReady,
+  onLinkCancelled,
 }: GuidedPhotoRequestPanelProps) {
   const styles = useStyles();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
@@ -216,6 +218,10 @@ export function GuidedPhotoRequestPanel({
         announceLink(await replaceLink(action.session.sessionId));
       } else {
         await cancelLink(action.session.sessionId);
+        // The one-time URL may still be sitting in the editable chaser draft.
+        // Remove it only when this is the session that supplied that draft, so a
+        // cancelled older request cannot clear a newer replacement.
+        onLinkCancelled?.(action.session.sessionId);
         sessionsQuery.refetch();
         dispatchToast(
           <Toast>
