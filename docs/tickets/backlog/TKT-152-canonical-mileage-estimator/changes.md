@@ -78,6 +78,10 @@ recorded by the PR marker rather than self-referenced inside its own commit.
 - Machine/provider mileage retains compatibility with an exact standalone unit suffix,
   while case edits and arbitrary surrounding prose remain strict. The remediation client
   verifies the Postgres certificate by default.
+- Rebased onto `main` at `eaa31fb` after the manual-source, status-language and website-enquiry deliveries.
+  The semantic merge preserves pending/failed source-evidence readiness, resumable Manual
+  Intake uploads, explicit-save behavior, bounded e-mail previews and the new vehicle checks
+  in the same canonical readiness result. Sparse legacy case fixtures remain safe.
 
 ## Estimator behaviour
 
@@ -134,10 +138,10 @@ recorded by the PR marker rather than self-referenced inside its own commit.
 
 - `functions/enrichment`: `python -m pytest -q` → **64 passed**.
 - Python compile/import gate (`compileall`) → pass.
-- Data API: TypeScript build → pass; Vitest → **66 files / 644 tests passed**.
-- Orchestration: TypeScript build → pass; Vitest → **30 files / 418 tests passed**.
-- Domain contract suite → **56 files / 1,146 tests passed** after exhaustive runtime validation and readiness tests.
-- SPA: TypeScript/Vite build pass; Vitest → **39 files / 452 tests passed**.
+- Data API: TypeScript build → pass; Vitest → **70 files / 705 tests passed**.
+- Orchestration: TypeScript build → pass; Vitest → **31 files / 422 tests passed**.
+- Domain contract suite → **58 files / 1,160 tests passed** after exhaustive runtime validation and readiness tests.
+- SPA: TypeScript/Vite build pass; Vitest → **486 tests passed**.
 - Sibling connector: typecheck/build/stdio bundle pass; Vitest → **2 files / 6 tests passed** at
   reviewed head `03c7b35ce94b379c6e0fa6efca2e1c61a0d6f008`.
 - Sibling Windows tool: direct `dotnet build` → **0 warnings / 0 errors** at reviewed head
