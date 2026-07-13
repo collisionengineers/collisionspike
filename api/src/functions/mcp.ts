@@ -19,6 +19,7 @@ import { app, type HttpRequest, type InvocationContext } from '@azure/functions'
 import { gates } from '@cs/domain/gates';
 import { agentCapabilities, capabilityByName } from '@cs/domain';
 import { authenticate, mcpPrincipalKind, toErrorResponse } from '../lib/auth.js';
+import { assertStaffRlsContext } from '../lib/db.js';
 import { execTool } from './assistant.js';
 import type { ToolExecutor } from '../lib/aoai-chat.js';
 import {
@@ -361,6 +362,10 @@ app.http('mcpServer', {
       if (req.method === 'GET') {
         return { status: 405, headers: { ...responseHeaders(), Allow: 'POST' } };
       }
+      // This route cannot use the single-role withRole wrapper because it admits
+      // two mutually exclusive identities. Prove the shared pool's least-privilege
+      // RLS context explicitly before rate-limit/session/tool queries.
+      await assertStaffRlsContext();
       if (!(req.headers.get('content-type') ?? '').toLowerCase().includes('application/json')) {
         return { status: 415, headers: responseHeaders(), jsonBody: rpcError(null, -32600, 'Content-Type must be application/json') };
       }

@@ -425,16 +425,11 @@ describe('canonical staff evidence upload', () => {
     });
     expect(response.status).toBe(201);
     expect(db.txQuery.mock.calls.some(([sql]) => String(sql).includes('pg_advisory_xact_lock'))).toBe(true);
-    const tableLock = db.txQuery.mock.calls.findIndex(
+    expect(db.txQuery.mock.calls.some(
       ([sql]) => String(sql) === 'LOCK TABLE case_ IN SHARE MODE',
-    );
-    const registrationRead = db.txQuery.mock.calls.findIndex(
-      ([sql]) => String(sql).includes("regexp_replace(upper(vrm)"),
-    );
-    expect(tableLock).toBeGreaterThanOrEqual(0);
-    expect(tableLock).toBeLessThan(registrationRead);
+    )).toBe(false);
     expect(db.txQuery.mock.calls.some(([sql]) => (
-      String(sql).includes("regexp_replace(upper(vrm)") && String(sql).includes('FOR UPDATE')
+      String(sql).includes("regexp_replace(upper(vrm)") && !String(sql).includes('FOR UPDATE')
     ))).toBe(true);
     expect(state.evidence[0].source_message_id).toContain('staff:mcp_agent:');
     const audit = db.txQuery.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO audit_event'))!;

@@ -28,6 +28,49 @@ ALTER TABLE staff_evidence_upload
 ALTER TABLE staff_evidence_upload
   ADD CONSTRAINT ck_staff_evidence_upload_attempt_count CHECK (attempt_count >= 0);
 
+-- Serialize the registration predicate with every Case mutation that can change
+-- autonomous eligibility. The MCP binding takes the same key and intentionally
+-- performs no case_ tuple lock while holding it, avoiding an AB/BA deadlock with
+-- an UPDATE/DELETE that reached this row trigger after locking its tuple.
+CREATE OR REPLACE FUNCTION lock_case_registration_eligibility()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  old_registration text;
+  new_registration text;
+  registration_key text;
+BEGIN
+  IF TG_OP <> 'INSERT' THEN
+    old_registration := regexp_replace(upper(COALESCE(OLD.vrm, '')), '[^A-Z0-9]', '', 'g');
+  END IF;
+  IF TG_OP <> 'DELETE' THEN
+    new_registration := regexp_replace(upper(COALESCE(NEW.vrm, '')), '[^A-Z0-9]', '', 'g');
+  END IF;
+  FOR registration_key IN
+    SELECT DISTINCT candidate
+      FROM (VALUES (old_registration), (new_registration)) AS registrations(candidate)
+     WHERE candidate IS NOT NULL AND candidate <> ''
+     ORDER BY candidate
+  LOOP
+    PERFORM pg_advisory_xact_lock(
+      hashtextextended('mcp-image-registration:' || registration_key, 0)
+    );
+  END LOOP;
+  RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tr_case_registration_insert_delete ON case_;
+CREATE TRIGGER tr_case_registration_insert_delete
+  BEFORE INSERT OR DELETE ON case_
+  FOR EACH ROW EXECUTE FUNCTION lock_case_registration_eligibility();
+
+DROP TRIGGER IF EXISTS tr_case_registration_eligibility_update ON case_;
+CREATE TRIGGER tr_case_registration_eligibility_update
+  BEFORE UPDATE OF vrm, status_code, duplicate_keys ON case_
+  FOR EACH ROW EXECUTE FUNCTION lock_case_registration_eligibility();
+
 DROP INDEX IF EXISTS uq_evidence_staff_upload_item;
 CREATE UNIQUE INDEX uq_evidence_staff_upload_item
   ON evidence (source_message_id)

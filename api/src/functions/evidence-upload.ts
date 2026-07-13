@@ -238,13 +238,12 @@ async function assertImageIngestRegistrationBinding(
   await q('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
     `mcp-image-registration:${registration}`,
   ]);
-  // The advisory lock serialises autonomous uploads for this registration. Staff
-  // case creates and VRM edits do not take that lane-specific lock, so matched row
-  // locks alone cannot prevent a new matching row (a phantom) appearing between
-  // the predicate read and the batch bind. Keep the SHARE lock inside this short,
-  // DB-only binding transaction: it blocks case inserts/updates until the unique
-  // registration decision and idempotency bind commit, but no Blob work is held.
-  await q('LOCK TABLE case_ IN SHARE MODE');
+  // The matching schema trigger takes this SAME key before every insert/delete or
+  // eligibility-changing update. That closes phantoms without a whole-table lock.
+  // Deliberately do not row-lock case_ while holding this key: a staff UPDATE may
+  // already own the tuple and be waiting in its BEFORE trigger for this advisory
+  // key. The trigger supplies the serialization boundary; a tuple lock here would
+  // create the opposite half of an AB/BA deadlock.
   const rows = await q<{
     id: string;
     status_code: number;
@@ -253,8 +252,7 @@ async function assertImageIngestRegistrationBinding(
     `SELECT id, status_code, duplicate_keys
        FROM case_
       WHERE regexp_replace(upper(vrm), '[^A-Z0-9]', '', 'g') = $1
-      ORDER BY created_at, id
-      FOR UPDATE`,
+      ORDER BY created_at, id`,
     [registration],
   );
   const active = rows.filter((row) => {
@@ -280,10 +278,17 @@ async function bindBatch(input: {
   files: readonly PreparedFile[];
 }): Promise<string> {
   return tx(async (q) => {
-    const registration = input.source === 'mcp_agent'
+    const isImageAgent = input.source === 'mcp_agent';
+    const registration = isImageAgent
       ? await assertImageIngestRegistrationBinding(q, input.caseId, input.registration ?? '')
       : input.registration;
-    const caseId = await assertActiveCase(q, input.caseId, input.source);
+    // The registration trigger holds every mutation that can change autonomous
+    // eligibility until this transaction commits. Re-locking the case row here can
+    // deadlock a staff update that reached its BEFORE trigger after locking the row.
+    // Human uploads retain the normal case-mutation lock.
+    const caseId = isImageAgent
+      ? input.caseId
+      : await assertActiveCase(q, input.caseId, input.source);
     await q(
       `INSERT INTO staff_evidence_upload
          (idempotency_key, case_id, actor, source, registration, manifest_hash)

@@ -22,6 +22,7 @@ vi.mock('../lib/auth.js', () => ({
   mcpPrincipalKind: vi.fn(() => 'image_ingest_agent'),
   toErrorResponse: vi.fn(() => ({ status: 500, jsonBody: { error: 'internal' } })),
 }));
+vi.mock('../lib/db.js', () => ({ assertStaffRlsContext: vi.fn(async () => undefined) }));
 vi.mock('@cs/domain/gates', () => ({ gates: { mcpServer: () => true } }));
 vi.mock('@cs/domain', () => ({
   agentCapabilities: () => [],

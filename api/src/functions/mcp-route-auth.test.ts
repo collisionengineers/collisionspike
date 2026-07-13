@@ -12,6 +12,7 @@ interface Registration {
 const registrations = vi.hoisted(() => new Map<string, Registration>());
 const auth = vi.hoisted(() => ({ principal: undefined as 'readonly_staff' | 'image_ingest_agent' | undefined }));
 const lifecycle = vi.hoisted(() => ({ mark: true, touch: true, atCapacity: false }));
+const rls = vi.hoisted(() => ({ assert: vi.fn(async () => undefined) }));
 vi.mock('@azure/functions', () => ({
   app: { http: (name: string, options: Registration) => registrations.set(name, options) },
 }));
@@ -53,6 +54,7 @@ vi.mock('./mcp-image-ingestion.js', () => ({
   consumeImageIngestRateLimit: vi.fn(async () => true),
   executeImageIngestTool: vi.fn(async () => ({ ok: false, code: 'accepted_pending_processing' })),
 }));
+vi.mock('../lib/db.js', () => ({ assertStaffRlsContext: rls.assert }));
 
 await import('./mcp.js');
 const route = registrations.get('mcpServer')!.handler;
@@ -100,17 +102,20 @@ beforeEach(() => {
   lifecycle.mark = true;
   lifecycle.touch = true;
   lifecycle.atCapacity = false;
+  rls.assert.mockClear();
 });
 
 describe('MCP route principal isolation', () => {
   it('refuses a valid-audience principal without an admitted delegated/app-only role', async () => {
     const response = await route(request('tools/list'), ctx);
     expect(response).toEqual({ status: 403, jsonBody: { error: 'forbidden' } });
+    expect(rls.assert).not.toHaveBeenCalled();
   });
 
   it('keeps delegated staff read-only', async () => {
     auth.principal = 'readonly_staff';
     const response = await route(request('tools/list'), ctx);
+    expect(rls.assert).toHaveBeenCalledTimes(1);
     const tools = ((response.jsonBody as { result: { tools: Array<{ name: string }> } }).result.tools);
     expect(tools.map((tool) => tool.name)).toEqual(['lookup_case']);
 
