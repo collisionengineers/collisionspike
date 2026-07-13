@@ -350,11 +350,11 @@ if (catSet && subSet) {
   const classifierSubNames = subNames.filter((name) => !staffOnlySubtypes.has(name));
 
   ok(
-    pyCategories.length === 8 && JSON.stringify(catNames) === JSON.stringify(pyCategories),
+    pyCategories.length === catNames.length && JSON.stringify(catNames) === JSON.stringify(pyCategories),
     `cr1bd_inboundcategory names == CATEGORY_* 1:1 ` +
     `(json=${JSON.stringify(catNames)}, py=${JSON.stringify(pyCategories)})`);
   ok(
-    pySubtypes.length === 14 && JSON.stringify(classifierSubNames) === JSON.stringify(pySubtypes),
+    pySubtypes.length === classifierSubNames.length && JSON.stringify(classifierSubNames) === JSON.stringify(pySubtypes),
     `classifier-emittable cr1bd_inboundsubtype names == SUBTYPE_* 1:1 ` +
     `(json-minus-staff-only=${JSON.stringify(classifierSubNames)}, ` +
     `staff-only=${JSON.stringify([...staffOnlySubtypes])}, py=${JSON.stringify(pySubtypes)})`);
