@@ -75,6 +75,8 @@ CREATE TABLE IF NOT EXISTS mcp_http_session (
   created_at        timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS ix_mcp_http_session_expiry ON mcp_http_session (expires_at);
+CREATE INDEX IF NOT EXISTS ix_mcp_http_session_principal_expiry
+  ON mcp_http_session (principal_id, expires_at);
 ALTER TABLE mcp_http_session ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mcp_http_session FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS p_mcp_http_session_rw ON mcp_http_session;

@@ -11,7 +11,7 @@ interface Registration {
 
 const registrations = vi.hoisted(() => new Map<string, Registration>());
 const auth = vi.hoisted(() => ({ principal: undefined as 'readonly_staff' | 'image_ingest_agent' | undefined }));
-const lifecycle = vi.hoisted(() => ({ mark: true, touch: true }));
+const lifecycle = vi.hoisted(() => ({ mark: true, touch: true, atCapacity: false }));
 vi.mock('@azure/functions', () => ({
   app: { http: (name: string, options: Registration) => registrations.set(name, options) },
 }));
@@ -31,11 +31,18 @@ vi.mock('@cs/domain', () => ({
 }));
 vi.mock('./assistant.js', () => ({ execTool: vi.fn(async () => ({ matches: [] })) }));
 const SESSION_ID = '11111111-1111-4111-8111-111111111111';
-vi.mock('../lib/mcp-session.js', () => ({
-  createMcpSession: vi.fn(async () => SESSION_ID),
-  markMcpSessionInitialized: vi.fn(async () => lifecycle.mark),
-  touchReadyMcpSession: vi.fn(async () => lifecycle.touch),
-}));
+vi.mock('../lib/mcp-session.js', () => {
+  class McpSessionLimitError extends Error {}
+  return {
+    McpSessionLimitError,
+    createMcpSession: vi.fn(async () => {
+      if (lifecycle.atCapacity) throw new McpSessionLimitError('session capacity reached');
+      return SESSION_ID;
+    }),
+    markMcpSessionInitialized: vi.fn(async () => lifecycle.mark),
+    touchReadyMcpSession: vi.fn(async () => lifecycle.touch),
+  };
+});
 vi.mock('./mcp-image-ingestion.js', () => ({
   IMAGE_INGEST_TOOLS: [
     { name: 'lookup_open_case_by_registration', description: 'lookup', inputSchema: { type: 'object' } },
@@ -92,6 +99,7 @@ beforeEach(() => {
   auth.principal = undefined;
   lifecycle.mark = true;
   lifecycle.touch = true;
+  lifecycle.atCapacity = false;
 });
 
 describe('MCP route principal isolation', () => {
@@ -152,12 +160,42 @@ describe('MCP route principal isolation', () => {
     expect(JSON.stringify(response.jsonBody)).toContain('valid initialized MCP session');
   });
 
-  it('refuses tool requests until initialized transitioned the durable session to ready', async () => {
+  it('returns a retryable 429 instead of growing durable sessions beyond the principal cap', async () => {
+    auth.principal = 'image_ingest_agent';
+    lifecycle.atCapacity = true;
+    const response = await route(request('initialize', {
+      protocolVersion: '2025-06-18',
+      capabilities: {},
+      clientInfo: { name: 'capacity-test-client', version: '1.0.0' },
+    }, { omitSession: true }), ctx);
+    expect(response.status).toBe(429);
+    expect(response.headers).toMatchObject({ 'Retry-After': '60' });
+    expect(JSON.stringify(response.jsonBody)).toContain('session capacity reached');
+  });
+
+  it('returns 404 for a valid-format session that is absent, expired or bound to another principal/version', async () => {
     auth.principal = 'image_ingest_agent';
     lifecycle.touch = false;
     const response = await route(request('tools/list'), ctx);
-    expect(response.status).toBe(400);
-    expect(JSON.stringify(response.jsonBody)).toContain('not initialized or has expired');
+    expect(response.status).toBe(404);
+    expect(JSON.stringify(response.jsonBody)).toContain('not found or has expired');
+  });
+
+  it('keeps missing or malformed session identifiers at 400', async () => {
+    auth.principal = 'image_ingest_agent';
+    expect((await route(request('tools/list', undefined, { omitSession: true }), ctx)).status).toBe(400);
+    expect((await route(request('tools/list', undefined, {
+      headers: { 'Mcp-Session-Id': 'not-a-session-id' },
+    }), ctx)).status).toBe(400);
+  });
+
+  it('returns 404 when a valid session cannot make the initialized transition', async () => {
+    auth.principal = 'image_ingest_agent';
+    lifecycle.mark = false;
+    const response = await route(request('notifications/initialized', undefined, {
+      body: { jsonrpc: '2.0', method: 'notifications/initialized' },
+    }), ctx);
+    expect(response.status).toBe(404);
   });
 
   it('rejects batch writes, oversized bodies, invalid origins and unsupported versions', async () => {

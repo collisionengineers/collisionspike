@@ -22,8 +22,12 @@ const contentTypes = new Map([
   ['webp', 'image/webp'],
 ]);
 const protocolVersion = '2025-06-18';
+let mcpSessionId;
 
 async function rpcCall(message, includeVersion = true) {
+  if (message.method !== 'initialize' && !mcpSessionId) {
+    throw new Error('MCP server did not establish a session.');
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60_000);
   let response;
@@ -35,6 +39,7 @@ async function rpcCall(message, includeVersion = true) {
         'content-type': 'application/json',
         accept: 'application/json, text/event-stream',
         ...(includeVersion ? { 'mcp-protocol-version': protocolVersion } : {}),
+        ...(mcpSessionId ? { 'mcp-session-id': mcpSessionId } : {}),
       },
       body: JSON.stringify(message),
       signal: controller.signal,
@@ -43,6 +48,11 @@ async function rpcCall(message, includeVersion = true) {
     clearTimeout(timeout);
   }
   if (!response.ok) throw new Error(`MCP HTTP ${response.status}`);
+  if (message.method === 'initialize') {
+    const issuedSessionId = response.headers.get('mcp-session-id')?.trim();
+    if (!issuedSessionId) throw new Error('MCP server did not issue a session ID.');
+    mcpSessionId = issuedSessionId;
+  }
   if (message.id === undefined) return undefined;
   const rpc = await response.json();
   if (rpc.error) throw new Error(rpc.error.message ?? 'MCP error');

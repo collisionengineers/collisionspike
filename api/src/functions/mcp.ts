@@ -33,6 +33,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import {
   createMcpSession,
+  McpSessionLimitError,
   markMcpSessionInitialized,
   touchReadyMcpSession,
 } from '../lib/mcp-session.js';
@@ -421,7 +422,19 @@ app.http('mcpServer', {
         const negotiatedVersion = SUPPORTED_PROTOCOL_VERSIONS.has(requestedVersion)
           ? requestedVersion
           : MCP_PROTOCOL_VERSION;
-        const sessionId = await createMcpSession(principalId, negotiatedVersion);
+        let sessionId: string;
+        try {
+          sessionId = await createMcpSession(principalId, negotiatedVersion);
+        } catch (error) {
+          if (error instanceof McpSessionLimitError) {
+            return {
+              status: 429,
+              headers: { ...responseHeaders(), 'Retry-After': '60' },
+              jsonBody: rpcError(validated.message.id, -32000, error.message),
+            };
+          }
+          throw error;
+        }
         return { status: 200, headers: responseHeaders(sessionId, negotiatedVersion), jsonBody: result };
       }
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(suppliedSessionId)) {
@@ -432,7 +445,7 @@ app.http('mcpServer', {
         ? await markMcpSessionInitialized(suppliedSessionId, principalId, protocolVersion)
         : await touchReadyMcpSession(suppliedSessionId, principalId, protocolVersion);
       if (!sessionReady) {
-        return { status: 400, headers: responseHeaders(), jsonBody: rpcError(validated.message.id, -32600, 'MCP session is not initialized or has expired') };
+        return { status: 404, headers: responseHeaders(), jsonBody: rpcError(validated.message.id, -32001, 'MCP session was not found or has expired') };
       }
       const result = await handleMcpMessage(validated.message, exec, tools);
       return result

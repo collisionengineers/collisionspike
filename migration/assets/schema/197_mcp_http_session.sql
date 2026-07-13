@@ -19,6 +19,8 @@ CREATE TABLE mcp_http_session (
 );
 
 CREATE INDEX ix_mcp_http_session_expiry ON mcp_http_session (expires_at);
+CREATE INDEX ix_mcp_http_session_principal_expiry
+  ON mcp_http_session (principal_id, expires_at);
 
 DO $$
 BEGIN
