@@ -181,9 +181,6 @@
 
 
 
-
-
-
 ## Now — in flight / not yet confirmed live
 
 | ID | Title | State |
@@ -208,6 +205,7 @@
 | [TKT-199](./now/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) | Make repository data authority explicit without weakening security | **P1 · docs · PLAN-004** — Distilled 2026-07-13; document authority boundaries, secret exclusions and validation against the live architecture. |
 | [TKT-205](./now/TKT-205-repository-worktree-governance/TKT-205-repository-worktree-governance.md) | Make ticketed worktrees and offline checks the repository workflow | **P1 · platform · PLAN-004** — Distilled 2026-07-14 from the recovery plan; establish the governed worktree lifecycle, lane locks, offline CI and hygiene reporting before serial PR reconciliation. |
 | [TKT-206](./now/TKT-206-remove-runtime-data-policy-controls/TKT-206-remove-runtime-data-policy-controls.md) | Remove privacy-driven runtime data restrictions safely | **P0 · platform · PLAN-004** — Distilled 2026-07-14 from the recovery plan; remove runtime omission, opt-out, retention and automatic-disposition policy only through the stated drain, route-removal and migration sequence. |
+| [TKT-154](./now/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) | Add a constrained MCP image-ingestion lane for external agents | **P1 · integration · PLAN-004 — BUILT OFFLINE ON PR #73, REBASED ONTO `main` 2026-07-15, NOT DEPLOYED:** code-complete with API/orchestration/Box-facade/watcher tests; exact VRM lookup and idempotent upload proven offline. Live provisioning, deployment, model-behavior proof and test-root-only upload remain gated. |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
@@ -365,7 +363,6 @@
 | ID | Title | State |
 |---|---|---|
 | [TKT-018](./backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md) | AI total-loss vs repairable categorisation | Deferral RE-AFFIRMED by the operator 2026-07-10 (backlog-drain batch AskUserQuestion: "Keep deferred" over build-dark/blocked). Stays backlog; the 2026-07-09 assessment (deps live, build shape, fresh-DPIA need) remains current. |
-| [TKT-154](./backlog/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) | Add a constrained MCP image-ingestion lane for external agents | **BUILT OFFLINE ON DRAFT PR #73 (`93528ba9`), NOT DEPLOYED:** latest local safety/ticket commits are published in the PR and the redundant backup ref is removed. The PR conflicts with current `main`; rebase/resolve and prove exact VRM lookup, idempotent upload and test-root-only behavior before changing ticket status. |
 | [TKT-157](./backlog/TKT-157-handler-copy-audit/TKT-157-handler-copy-audit.md) | Remove dev copy and unnecessary explanatory text from the app | Distilled 2026-07-12; whole-route rendered-string and built-bundle audit. |
 | [TKT-158](./backlog/TKT-158-case-remediation-rerun/TKT-158-case-remediation-rerun.md) | Rerun and account for every affected case after the fixes deploy | Distilled 2026-07-12; backup-first targeted rerun with field-level residual ledger. |
 | [TKT-160](./backlog/TKT-160-delete-case-image/TKT-160-delete-case-image.md) | Delete an individual case image from every active store | **BUILT OFFLINE ON DRAFT PR #87 (`5ba04004`), NOT DEPLOYED:** the latest cancelled-deletion/UI safety commit is published in the PR and the redundant backup ref is removed. The PR conflicts with current `main`; rebase/resolve, rerun ticket gates and obtain live cross-store deletion proof before changing ticket status. |

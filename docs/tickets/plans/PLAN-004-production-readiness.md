@@ -107,7 +107,7 @@ This plan has **54 members**. It sequences implementation and verification, but 
 
 ### 9. Constrained inbound evidence channels (3)
 
-1. [TKT-154](../backlog/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) — add least-privilege registration-based image ingestion through the canonical evidence seam.
+1. [TKT-154](../now/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) — add least-privilege registration-based image ingestion through the canonical evidence seam.
 2. [TKT-156](../verify/TKT-156-chaser-file-request/TKT-156-chaser-file-request.md) — put an active Archive upload link into every applicable image chaser.
 3. [TKT-200](../now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md) — add a
    tightly scoped guided-photo session that materialises only reviewed submissions through the same
