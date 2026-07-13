@@ -3,30 +3,26 @@ import type { ReactElement } from 'react';
 import type {
   CaptureSessionManifest,
   CaptureShotDefinition,
-  CaptureShotProgress,
-  CaptureUploadRequest
+  CaptureShotProgress
 } from '@collisioncapture/contracts';
 import { validateUploadRequest } from '@collisioncapture/core';
 import { Camera, CheckCircle2, CircleAlert, LoaderCircle } from 'lucide-react';
-import type { CaptureApi, CaptureAuthorization } from '../api/captureApi';
 import { GuidedCamera } from '../camera/GuidedCamera';
 
 interface ShotCaptureCardProps {
-  api: CaptureApi;
-  authorization: CaptureAuthorization;
   manifest: CaptureSessionManifest;
   shot: CaptureShotDefinition;
   progress: CaptureShotProgress | undefined;
   onProgress: (progress: CaptureShotProgress) => void;
+  onPhoto: (file: File, replacesSelected: boolean) => Promise<void>;
 }
 
 export function ShotCaptureCard({
-  api,
-  authorization,
   manifest,
   shot,
   progress,
-  onProgress
+  onProgress,
+  onPhoto
 }: ShotCaptureCardProps): ReactElement {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,8 +30,16 @@ export function ShotCaptureCard({
   const [attemptBusy, setAttemptBusy] = useState(false);
 
   const status = progress?.status ?? 'empty';
-  const isBusy = status === 'uploading' || attemptBusy;
+  const isBusy = status === 'uploading' || status === 'validating' || attemptBusy;
   const isDone = status === 'accepted' || status === 'pending_review';
+  const displayError = error ?? progress?.rejectionReason;
+  const pendingMessage = status === 'queued'
+    ? 'Saved on this device. It will upload when a connection is available.'
+    : status === 'uploading'
+      ? 'Uploading this photo…'
+      : status === 'validating'
+        ? 'Uploaded. Collision Engineers is checking the file.'
+        : null;
 
   const chooseFallbackFile = (): void => {
     inputRef.current?.click();
@@ -77,25 +81,7 @@ export function ShotCaptureCard({
     }
 
     try {
-      const sha256 = await hashFile(file);
-      const request: CaptureUploadRequest = {
-        ...fileDetails,
-        idempotencyKey: crypto.randomUUID(),
-        sha256
-      };
-      const intent = await api.createUpload(authorization, request);
-      await api.uploadFile(intent, file);
-      const completed = await api.completeUpload(authorization, intent.assetId, {
-        sizeBytes: file.size,
-        sha256
-      });
-      onProgress({
-        shotId: shot.id,
-        status: completed.status,
-        uploadId: intent.uploadId,
-        assetId: completed.assetId,
-        fileName: file.name
-      });
+      await onPhoto(file, isDone);
     } catch {
       const message = 'This photo did not upload. Try again.';
       setError(message);
@@ -124,10 +110,11 @@ export function ShotCaptureCard({
             {shot.required ? <span className="required-chip">Required</span> : null}
           </div>
           <p>{shot.prompt}</p>
-          {error ? (
+          {pendingMessage ? <p className="inline-status">{pendingMessage}</p> : null}
+          {displayError ? (
             <p className="inline-error">
               <CircleAlert aria-hidden="true" />
-              {error}
+              {displayError}
             </p>
           ) : null}
         </div>
@@ -155,7 +142,15 @@ export function ShotCaptureCard({
         onClick={() => setCameraOpen(true)}
       >
         {isBusy ? <LoaderCircle aria-hidden="true" className="spin" /> : <Camera aria-hidden="true" />}
-        <span>{isDone ? 'Retake' : 'Take photo'}</span>
+        <span>
+          {isDone
+            ? 'Retake'
+            : status === 'queued'
+              ? 'Replace saved photo'
+              : status === 'validating'
+                ? 'Checking photo'
+                : 'Take photo'}
+        </span>
       </button>
 
       {cameraOpen ? (
@@ -175,28 +170,4 @@ export function ShotCaptureCard({
       ) : null}
     </article>
   );
-}
-
-async function hashFile(file: File): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', await fileBytes(file));
-  return [...new Uint8Array(digest)]
-    .map((value) => value.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-async function fileBytes(file: File): Promise<ArrayBuffer> {
-  if (typeof file.arrayBuffer === 'function') return await file.arrayBuffer();
-
-  return await new Promise<ArrayBuffer>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error('The photo could not be read.'));
-    reader.onload = () => {
-      if (reader.result instanceof ArrayBuffer) {
-        resolve(reader.result);
-      } else {
-        reject(new Error('The photo could not be read.'));
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  });
 }

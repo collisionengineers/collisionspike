@@ -1,9 +1,7 @@
 import { act } from 'react';
-import { webcrypto } from 'node:crypto';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockManifest } from '@collisioncapture/core';
-import type { CaptureApi } from '../api/captureApi';
 import { ShotCaptureCard } from './ShotCaptureCard';
 
 vi.mock('../camera/GuidedCamera', () => ({
@@ -25,7 +23,6 @@ describe('ShotCaptureCard', () => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
-    vi.stubGlobal('crypto', webcrypto);
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   });
 
@@ -40,27 +37,16 @@ describe('ShotCaptureCard', () => {
     const manifest = createMockManifest();
     const shot = manifest.shots[0]!;
     const onProgress = vi.fn();
-    const api = {
-      createUpload: vi.fn().mockRejectedValue(new Error('offline')),
-      uploadFile: vi.fn(),
-      completeUpload: vi.fn(),
-      getManifest: vi.fn(),
-      submit: vi.fn()
-    } as unknown as CaptureApi;
+    const onPhoto = vi.fn().mockRejectedValue(new Error('offline'));
 
     await act(async () => {
       root.render(
         <ShotCaptureCard
-          api={api}
-          authorization={{
-            sessionId: manifest.sessionId,
-            accessToken: 'test-access',
-            accessTokenExpiresAt: manifest.expiresAt
-          }}
           manifest={manifest}
           shot={shot}
           progress={{ shotId: shot.id, status: 'accepted', assetId: 'asset-original' }}
           onProgress={onProgress}
+          onPhoto={onPhoto}
         />
       );
     });
@@ -75,7 +61,7 @@ describe('ShotCaptureCard', () => {
     if (!(accept instanceof HTMLButtonElement)) throw new Error('Replacement button not found');
     await act(async () => {
       accept.click();
-      await vi.waitFor(() => expect(api.createUpload).toHaveBeenCalledOnce());
+      await vi.waitFor(() => expect(onPhoto).toHaveBeenCalledOnce());
     });
 
     expect(onProgress).not.toHaveBeenCalled();

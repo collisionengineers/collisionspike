@@ -5,6 +5,7 @@ export interface DraftPhotoInput {
   shotId: string;
   blob: Blob;
   fileName: string;
+  replacesSelected?: boolean;
   capturedAt?: string;
 }
 
@@ -13,6 +14,7 @@ export interface DraftPhoto {
   shotId: string;
   blob: Blob;
   fileName: string;
+  replacesSelected: boolean;
   contentType: string;
   sizeBytes: number;
   sha256: string;
@@ -71,6 +73,7 @@ export async function createDraftPhoto(
     shotId: input.shotId,
     blob: input.blob,
     fileName: input.fileName,
+    replacesSelected: input.replacesSelected ?? false,
     contentType: input.blob.type || 'application/octet-stream',
     sizeBytes: input.blob.size,
     sha256: toHex(hash),
@@ -87,6 +90,7 @@ export function cloneDraft(draft: DraftPhoto): DraftPhoto {
     shotId: draft.shotId,
     blob: draft.blob,
     fileName: draft.fileName,
+    replacesSelected: draft.replacesSelected,
     contentType: draft.contentType,
     sizeBytes: draft.sizeBytes,
     sha256: draft.sha256,

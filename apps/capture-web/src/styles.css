@@ -334,6 +334,13 @@ h1 {
   font-weight: 700;
 }
 
+.inline-status {
+  margin-top: 8px;
+  color: var(--web-muted) !important;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 .submit-bar {
   position: sticky;
   bottom: max(12px, env(safe-area-inset-bottom));

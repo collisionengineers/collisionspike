@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import type { CaptureSessionManifest, CaptureShotProgress } from '@collisioncapture/contracts';
 import { completionCounts, orderedShots, requiredShotsComplete } from '@collisioncapture/core';
@@ -8,6 +8,7 @@ import type { CaptureApi, CaptureAuthorization } from '../api/captureApi';
 import { HttpCaptureApi } from '../api/httpCaptureApi';
 import { exchangeBootstrapSecret } from '../bootstrap/bootstrapSecret';
 import { ShotCaptureCard } from '../capture/ShotCaptureCard';
+import { useUploadCoordinator } from '../uploads/useUploadCoordinator';
 import { VehicleGuide } from '../ui/VehicleGuide';
 import ceLogo from '../assets/ce-logo.png';
 
@@ -51,7 +52,7 @@ export function CaptureApp(): ReactElement {
     };
   }, []);
 
-  const updateProgress = (progress: CaptureShotProgress): void => {
+  const updateProgress = useCallback((progress: CaptureShotProgress): void => {
     setLoadState((current) => {
       if (current.status !== 'ready') return current;
       const next = current.manifest.progress.filter((item) => item.shotId !== progress.shotId);
@@ -64,7 +65,7 @@ export function CaptureApp(): ReactElement {
         }
       };
     });
-  };
+  }, []);
 
   const submit = async (): Promise<void> => {
     if (loadState.status !== 'ready') return;
@@ -121,6 +122,7 @@ interface CaptureFlowProps {
 
 function CaptureFlow({ api, authorization, manifest, online, onProgress, onSubmit }: CaptureFlowProps): ReactElement {
   const shots = useMemo(() => orderedShots(manifest.shots), [manifest.shots]);
+  const coordinator = useUploadCoordinator(api, authorization, onProgress);
   const counts = completionCounts(manifest);
   const canSubmit = requiredShotsComplete(manifest) && manifest.status === 'open';
 
@@ -128,6 +130,10 @@ function CaptureFlow({ api, authorization, manifest, online, onProgress, onSubmi
     ? Math.round((counts.requiredDone / counts.requiredTotal) * 100)
     : 100;
   const isComplete = manifest.status === 'complete';
+  const submitAndClear = async (): Promise<void> => {
+    await onSubmit();
+    await coordinator.clearSession();
+  };
 
   return (
     <main className="shell">
@@ -168,12 +174,15 @@ function CaptureFlow({ api, authorization, manifest, online, onProgress, onSubmi
           {shots.map((shot) => (
             <ShotCaptureCard
               key={shot.id}
-              api={api}
-              authorization={authorization}
               manifest={manifest}
               shot={shot}
               progress={manifest.progress.find((item) => item.shotId === shot.id)}
               onProgress={onProgress}
+              onPhoto={(file, replacesSelected) => coordinator.queue({
+                shotId: shot.id,
+                file,
+                replacesSelected
+              })}
             />
           ))}
         </div>
@@ -190,7 +199,7 @@ function CaptureFlow({ api, authorization, manifest, online, onProgress, onSubmi
                 : `${counts.requiredTotal - counts.requiredDone} required ${counts.requiredTotal - counts.requiredDone === 1 ? 'photo' : 'photos'} still needed.`}
           </p>
         </div>
-        <button className="primary-action" disabled={!canSubmit} onClick={() => void onSubmit()}>
+        <button className="primary-action" disabled={!canSubmit} onClick={() => void submitAndClear()}>
           {isComplete ? <CheckCircle2 aria-hidden="true" /> : <Camera aria-hidden="true" />}
           {isComplete ? 'Sent' : 'Send photos'}
         </button>
