@@ -10,7 +10,7 @@ export interface FileValidationPolicy {
 }
 
 export function validateUploadRequest(
-  request: CaptureUploadRequest,
+  request: Pick<CaptureUploadRequest, 'fileName' | 'contentType' | 'sizeBytes'>,
   policy: FileValidationPolicy
 ): FileValidationResult {
   if (!request.fileName.trim()) {
@@ -27,4 +27,3 @@ export function validateUploadRequest(
   }
   return { ok: true };
 }
-

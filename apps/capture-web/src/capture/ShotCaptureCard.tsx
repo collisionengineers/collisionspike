@@ -8,11 +8,12 @@ import type {
 } from '@collisioncapture/contracts';
 import { validateUploadRequest } from '@collisioncapture/core';
 import { Camera, CheckCircle2, CircleAlert, LoaderCircle } from 'lucide-react';
-import type { CaptureApi } from '../api/captureApi';
+import type { CaptureApi, CaptureAuthorization } from '../api/captureApi';
 import { GuidedCamera } from '../camera/GuidedCamera';
 
 interface ShotCaptureCardProps {
   api: CaptureApi;
+  authorization: CaptureAuthorization;
   manifest: CaptureSessionManifest;
   shot: CaptureShotDefinition;
   progress: CaptureShotProgress | undefined;
@@ -21,6 +22,7 @@ interface ShotCaptureCardProps {
 
 export function ShotCaptureCard({
   api,
+  authorization,
   manifest,
   shot,
   progress,
@@ -33,7 +35,7 @@ export function ShotCaptureCard({
 
   const status = progress?.status ?? 'empty';
   const isBusy = status === 'uploading' || attemptBusy;
-  const isDone = status === 'uploaded';
+  const isDone = status === 'accepted' || status === 'pending_review';
 
   const chooseFallbackFile = (): void => {
     inputRef.current?.click();
@@ -41,14 +43,14 @@ export function ShotCaptureCard({
 
   const upload = async (file: File): Promise<void> => {
     setError(null);
-    const request: CaptureUploadRequest = {
+    const fileDetails = {
       shotId: shot.id,
       fileName: file.name,
       contentType: file.type.toLowerCase(),
       sizeBytes: file.size
     };
 
-    const check = validateUploadRequest(request, {
+    const check = validateUploadRequest(fileDetails, {
       maxFileBytes: manifest.maxFileBytes,
       acceptedMimeTypes: manifest.acceptedMimeTypes
     });
@@ -75,14 +77,23 @@ export function ShotCaptureCard({
     }
 
     try {
-      const intent = await api.createUpload(manifest.token, request);
+      const sha256 = await hashFile(file);
+      const request: CaptureUploadRequest = {
+        ...fileDetails,
+        idempotencyKey: crypto.randomUUID(),
+        sha256
+      };
+      const intent = await api.createUpload(authorization, request);
       await api.uploadFile(intent, file);
-      const completed = await api.completeUpload(manifest.token, intent.uploadId, file);
+      const completed = await api.completeUpload(authorization, intent.assetId, {
+        sizeBytes: file.size,
+        sha256
+      });
       onProgress({
         shotId: shot.id,
-        status: 'uploaded',
+        status: completed.status,
         uploadId: intent.uploadId,
-        evidenceId: completed.evidenceId,
+        assetId: completed.assetId,
         fileName: file.name
       });
     } catch {
@@ -126,6 +137,8 @@ export function ShotCaptureCard({
         ref={inputRef}
         className="file-input"
         type="file"
+        tabIndex={-1}
+        aria-hidden="true"
         accept="image/*"
         capture="environment"
         onChange={(event) => {
@@ -162,4 +175,28 @@ export function ShotCaptureCard({
       ) : null}
     </article>
   );
+}
+
+async function hashFile(file: File): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', await fileBytes(file));
+  return [...new Uint8Array(digest)]
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function fileBytes(file: File): Promise<ArrayBuffer> {
+  if (typeof file.arrayBuffer === 'function') return await file.arrayBuffer();
+
+  return await new Promise<ArrayBuffer>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error('The photo could not be read.'));
+    reader.onload = () => {
+      if (reader.result instanceof ArrayBuffer) {
+        resolve(reader.result);
+      } else {
+        reject(new Error('The photo could not be read.'));
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
 }

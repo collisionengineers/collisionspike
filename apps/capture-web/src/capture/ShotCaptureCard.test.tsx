@@ -1,4 +1,5 @@
 import { act } from 'react';
+import { webcrypto } from 'node:crypto';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockManifest } from '@collisioncapture/core';
@@ -24,6 +25,7 @@ describe('ShotCaptureCard', () => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
+    vi.stubGlobal('crypto', webcrypto);
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   });
 
@@ -50,9 +52,14 @@ describe('ShotCaptureCard', () => {
       root.render(
         <ShotCaptureCard
           api={api}
+          authorization={{
+            sessionId: manifest.sessionId,
+            accessToken: 'test-access',
+            accessTokenExpiresAt: manifest.expiresAt
+          }}
           manifest={manifest}
           shot={shot}
-          progress={{ shotId: shot.id, status: 'uploaded', evidenceId: 'evidence-original' }}
+          progress={{ shotId: shot.id, status: 'accepted', assetId: 'asset-original' }}
           onProgress={onProgress}
         />
       );
@@ -66,9 +73,11 @@ describe('ShotCaptureCard', () => {
     const accept = [...container.querySelectorAll('button')]
       .find((button) => button.textContent?.includes('Accept replacement'));
     if (!(accept instanceof HTMLButtonElement)) throw new Error('Replacement button not found');
-    await act(async () => accept.click());
+    await act(async () => {
+      accept.click();
+      await vi.waitFor(() => expect(api.createUpload).toHaveBeenCalledOnce());
+    });
 
-    expect(api.createUpload).toHaveBeenCalledOnce();
     expect(onProgress).not.toHaveBeenCalled();
     expect(container.textContent).toContain('This photo did not upload. Try again.');
     expect(container.querySelector('.shot-card.done')).not.toBeNull();

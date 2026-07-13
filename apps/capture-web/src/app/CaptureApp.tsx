@@ -4,27 +4,42 @@ import type { CaptureSessionManifest, CaptureShotProgress } from '@collisioncapt
 import { completionCounts, orderedShots, requiredShotsComplete } from '@collisioncapture/core';
 import { Camera, CheckCircle2, CircleAlert, CloudUpload, RotateCw, ShieldCheck, WifiOff } from 'lucide-react';
 import { MockCaptureApi } from '../api/mockCaptureApi';
+import type { CaptureApi, CaptureAuthorization } from '../api/captureApi';
+import { HttpCaptureApi } from '../api/httpCaptureApi';
+import { exchangeBootstrapSecret } from '../bootstrap/bootstrapSecret';
 import { ShotCaptureCard } from '../capture/ShotCaptureCard';
 import { VehicleGuide } from '../ui/VehicleGuide';
 import ceLogo from '../assets/ce-logo.png';
 
 type LoadState =
   | { status: 'loading' }
-  | { status: 'ready'; manifest: CaptureSessionManifest }
+  | {
+      status: 'ready';
+      manifest: CaptureSessionManifest;
+      authorization: CaptureAuthorization;
+    }
   | { status: 'error'; message: string };
-
-const api = new MockCaptureApi();
 
 export function CaptureApp(): ReactElement {
   const [loadState, setLoadState] = useState<LoadState>({ status: 'loading' });
   const [online, setOnline] = useState(() => navigator.onLine);
+  const api = useMemo<CaptureApi>(() => {
+    const explicitDemo = new URLSearchParams(window.location.hash.slice(1)).get('capture') === 'demo';
+    return import.meta.env.DEV && explicitDemo ? new MockCaptureApi() : new HttpCaptureApi();
+  }, []);
 
   useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get('token') ?? 'demo-token';
-    api.getManifest(token)
-      .then((manifest) => setLoadState({ status: 'ready', manifest }))
-      .catch(() => setLoadState({ status: 'error', message: 'This link cannot be opened.' }));
-  }, []);
+    void exchangeBootstrapSecret(api, window.location, window.history, import.meta.env.DEV)
+      .then(async (exchange) => {
+        const authorization: CaptureAuthorization = exchange;
+        const manifest = await api.getManifest(authorization);
+        setLoadState({ status: 'ready', manifest, authorization });
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : 'This link cannot be opened.';
+        setLoadState({ status: 'error', message });
+      });
+  }, [api]);
 
   useEffect(() => {
     const updateOnline = (): void => setOnline(navigator.onLine);
@@ -42,6 +57,7 @@ export function CaptureApp(): ReactElement {
       const next = current.manifest.progress.filter((item) => item.shotId !== progress.shotId);
       return {
         status: 'ready',
+        authorization: current.authorization,
         manifest: {
           ...current.manifest,
           progress: [...next, progress]
@@ -52,9 +68,10 @@ export function CaptureApp(): ReactElement {
 
   const submit = async (): Promise<void> => {
     if (loadState.status !== 'ready') return;
-    await api.submit(loadState.manifest.token);
+    await api.submit(loadState.authorization, { idempotencyKey: crypto.randomUUID() });
     setLoadState({
       status: 'ready',
+      authorization: loadState.authorization,
       manifest: {
         ...loadState.manifest,
         status: 'complete'
@@ -84,6 +101,8 @@ export function CaptureApp(): ReactElement {
   return (
     <CaptureFlow
       manifest={loadState.manifest}
+      api={api}
+      authorization={loadState.authorization}
       online={online}
       onProgress={updateProgress}
       onSubmit={submit}
@@ -92,13 +111,15 @@ export function CaptureApp(): ReactElement {
 }
 
 interface CaptureFlowProps {
+  api: CaptureApi;
+  authorization: CaptureAuthorization;
   manifest: CaptureSessionManifest;
   online: boolean;
   onProgress: (progress: CaptureShotProgress) => void;
   onSubmit: () => Promise<void>;
 }
 
-function CaptureFlow({ manifest, online, onProgress, onSubmit }: CaptureFlowProps): ReactElement {
+function CaptureFlow({ api, authorization, manifest, online, onProgress, onSubmit }: CaptureFlowProps): ReactElement {
   const shots = useMemo(() => orderedShots(manifest.shots), [manifest.shots]);
   const counts = completionCounts(manifest);
   const canSubmit = requiredShotsComplete(manifest) && manifest.status === 'open';
@@ -148,6 +169,7 @@ function CaptureFlow({ manifest, online, onProgress, onSubmit }: CaptureFlowProp
             <ShotCaptureCard
               key={shot.id}
               api={api}
+              authorization={authorization}
               manifest={manifest}
               shot={shot}
               progress={manifest.progress.find((item) => item.shotId === shot.id)}

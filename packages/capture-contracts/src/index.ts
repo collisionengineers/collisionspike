@@ -1,5 +1,3 @@
-export type CaptureToken = string;
-
 export type CaptureSessionStatus =
   | 'open'
   | 'complete'
@@ -33,38 +31,52 @@ export interface CaptureShotDefinition {
 
 export interface CaptureShotProgress {
   shotId: string;
-  status: 'empty' | 'ready' | 'uploading' | 'uploaded' | 'rejected';
+  status:
+    | 'empty'
+    | 'draft'
+    | 'queued'
+    | 'uploading'
+    | 'validating'
+    | 'accepted'
+    | 'pending_review'
+    | 'retryable'
+    | 'rejected';
   localDraftId?: string;
   uploadId?: string;
-  evidenceId?: string;
+  assetId?: string;
   fileName?: string;
   rejectionReason?: string;
 }
 
 export interface CaptureSessionManifest {
-  token: CaptureToken;
+  contractVersion: '1';
+  sessionId: string;
   status: CaptureSessionStatus;
-  caseId: string;
   caseReference?: string;
   registration?: string;
   vehicleLabel?: string;
   expiresAt: string;
   maxFileBytes: number;
   acceptedMimeTypes: string[];
+  guidanceMode: 'off' | 'shadow' | 'advisory' | 'enforced';
+  rulesVersion: string;
+  modelVersion?: string;
   shots: CaptureShotDefinition[];
   progress: CaptureShotProgress[];
 }
 
 export interface CaptureUploadRequest {
   shotId: string;
+  idempotencyKey: string;
   fileName: string;
   contentType: string;
   sizeBytes: number;
-  sha256?: string;
+  sha256: string;
 }
 
 export interface CaptureUploadIntent {
   uploadId: string;
+  assetId: string;
   method: 'direct' | 'mock';
   uploadUrl?: string;
   headers?: Record<string, string>;
@@ -72,15 +84,28 @@ export interface CaptureUploadIntent {
 }
 
 export interface CaptureUploadCompleteRequest {
-  uploadId: string;
   sizeBytes: number;
-  sha256?: string;
+  sha256: string;
 }
 
 export interface CaptureUploadCompleteResponse {
-  evidenceId: string;
+  assetId: string;
   shotId: string;
-  status: 'uploaded';
+  status: 'validating' | 'accepted' | 'pending_review';
+}
+
+export interface CaptureExchangeRequest {
+  bootstrapSecret: string;
+}
+
+export interface CaptureExchangeResponse {
+  sessionId: string;
+  accessToken: string;
+  accessTokenExpiresAt: string;
+}
+
+export interface CaptureSubmitRequest {
+  idempotencyKey: string;
 }
 
 export interface CaptureSubmitResponse {
@@ -92,4 +117,3 @@ export interface CaptureApiError {
   error: string;
   message: string;
 }
-

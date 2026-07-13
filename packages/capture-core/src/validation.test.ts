@@ -12,7 +12,6 @@ describe('upload validation', () => {
     expect(
       validateUploadRequest(
         {
-          shotId: 'overview',
           fileName: 'overview.jpg',
           contentType: 'image/jpeg',
           sizeBytes: 3_000_000
@@ -26,7 +25,6 @@ describe('upload validation', () => {
     expect(
       validateUploadRequest(
         {
-          shotId: 'overview',
           fileName: 'overview.jpg',
           contentType: 'image/jpeg',
           sizeBytes: DEFAULT_MAX_FILE_BYTES + 1
@@ -36,4 +34,3 @@ describe('upload validation', () => {
     ).toBe(false);
   });
 });
-
