@@ -153,7 +153,9 @@ INSERT INTO choice_audit_action (code, name, label) VALUES
   -- work provider; pairs with the eva_submitted (100000015) export action.
   (100000053, 'report_delivered',            'Report Delivered'),
   -- TKT-148: deterministic draft suggestion, distinct from chaser_sent.
-  (100000054, 'chaser_suggested',            'Chase suggested');
+  (100000054, 'chaser_suggested',            'Chase suggested'),
+  -- TKT-166: one result per Manual Intake source-file attempt.
+  (100000055, 'evidence_upload_result',       'Files Checked');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_auditseverity  (audit-event.json bundle)  -- AuditEvent.severity_code

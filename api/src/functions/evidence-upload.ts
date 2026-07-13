@@ -25,7 +25,7 @@ import {
   type UploadKind,
   type CanonicalUploadType,
 } from '../lib/upload-validate.js';
-import { AUDIT_ACTION, actorFromClaims, writeAuditStrict } from '../lib/audit.js';
+import { AUDIT_ACTION, actorFromClaims, writeAudit, writeAuditStrict } from '../lib/audit.js';
 import { requestStatusRecompute } from '../lib/status-recompute.js';
 import { lockCaseForMutation } from '../lib/case-mutation-locks.js';
 import {
@@ -33,9 +33,15 @@ import {
   requestArchiveMirrorIfEligible,
   type ArchiveMirrorCandidate,
 } from '../lib/archive-mirror-outbox.js';
+import {
+  claimManualIntakeRecoveryAudit,
+  completeManualIntakeEvidence,
+  manualIntakeEvidenceBindingState,
+} from '../lib/manual-intake-operation.js';
 
 const IMAGE_KIND_CODE = 100000000;
-const DOCUMENT_KIND_CODE = 100000002;
+const INSTRUCTION_KIND_CODE = 100000002;
+const OTHER_KIND_CODE = 100000006;
 const IDEMPOTENCY_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$/;
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const IMAGE_CHECK_PENDING = 'Image check pending';
@@ -48,6 +54,7 @@ const TERMINAL_STATUS_CODES = [
 ];
 
 type UploadSource = 'add_evidence' | 'manual_intake' | 'assistant_confirmed' | 'legacy_upload';
+type UploadRole = 'auto' | 'instruction' | 'extra';
 
 const SOURCE_LABEL: Record<UploadSource, string> = {
   add_evidence: 'staff_add_evidence',
@@ -70,6 +77,7 @@ interface PreparedFile {
   sha256: string;
   kind: UploadKind;
   contentType: CanonicalUploadType;
+  role: UploadRole;
 }
 
 interface AddedFile {
@@ -83,6 +91,58 @@ interface RejectedFile {
   fileIndex: number;
   fileName: string;
   reason: string;
+}
+
+type ManualIntakeCompletion = 'completed' | 'already_complete' | 'not_bound';
+
+async function recordManualIntakeResult(input: {
+  source: UploadSource;
+  caseId: string;
+  actor: string;
+  idempotencyKey: string;
+  selectedCount: number;
+  added: readonly AddedFile[];
+  rejected: readonly RejectedFile[];
+  completion?: ManualIntakeCompletion;
+}): Promise<void> {
+  if (input.source !== 'manual_intake') return;
+  const recovered = input.completion === 'completed'
+    && input.added.length === input.selectedCount
+    && input.added.some((item) => item.duplicate);
+  const complete = input.rejected.length === 0
+    && input.added.length === input.selectedCount
+    && input.completion !== 'not_bound';
+  const summary = recovered
+    ? `New case files confirmed after retry (${input.added.length} of ${input.selectedCount})`
+    : complete
+      ? `New case files confirmed (${input.added.length} of ${input.selectedCount})`
+      : input.added.length > 0
+        ? `New case files need attention (${input.added.length} of ${input.selectedCount} confirmed)`
+        : `New case files could not be added (0 of ${input.selectedCount} confirmed)`;
+  await writeAudit({
+    action: AUDIT_ACTION.evidence_upload_result,
+    caseId: input.caseId,
+    actor: input.actor,
+    severity: complete ? 'info' : 'warning',
+    summary,
+    after: {
+      idempotencyKey: input.idempotencyKey,
+      selectedCount: input.selectedCount,
+      completion: input.completion ?? 'not_attempted',
+      recovered,
+      added: input.added.map((item) => ({
+        fileIndex: item.fileIndex,
+        fileName: item.fileName,
+        evidenceId: item.evidenceId,
+        duplicate: item.duplicate,
+      })),
+      rejected: input.rejected.map((item) => ({
+        fileIndex: item.fileIndex,
+        fileName: item.fileName,
+        reason: item.reason,
+      })),
+    },
+  });
 }
 
 class UploadRefusal extends Error {
@@ -114,6 +174,7 @@ function manifestHash(files: readonly PreparedFile[]): string {
     size: file.bytes.length,
     sha256: file.sha256,
     contentType: file.contentType,
+    role: file.role,
   }));
   return createHash('sha256').update(JSON.stringify(manifest), 'utf8').digest('hex');
 }
@@ -238,14 +299,15 @@ async function existingEvidence(
   caseId: string,
   identity: string,
   sha256: string,
-): Promise<{ id: string; duplicate: boolean; storagePath: string | null } | undefined> {
+): Promise<{ id: string; duplicate: boolean; storagePath: string | null; kindCode: number } | undefined> {
   const identityRows = await q<{
     id: string;
     case_id: string;
     sha256: string | null;
     storage_path: string | null;
+    kind_code: number;
   }>(
-    `SELECT id, case_id, sha256, storage_path
+    `SELECT id, case_id, sha256, storage_path, kind_code
        FROM evidence
       WHERE source_message_id = $1
       FOR UPDATE`,
@@ -256,10 +318,15 @@ async function existingEvidence(
     if (row.case_id.toLowerCase() !== caseId || row.sha256 !== sha256) {
       throw new UploadRefusal(409, 'This upload no longer matches the selected case or files.');
     }
-    return { id: row.id, duplicate: true, storagePath: row.storage_path };
+    return {
+      id: row.id,
+      duplicate: true,
+      storagePath: row.storage_path,
+      kindCode: Number(row.kind_code),
+    };
   }
-  const twins = await q<{ id: string; storage_path: string | null }>(
-    `SELECT id, storage_path FROM evidence
+  const twins = await q<{ id: string; storage_path: string | null; kind_code: number }>(
+    `SELECT id, storage_path, kind_code FROM evidence
       WHERE case_id = $1 AND sha256 = $2
       ORDER BY created_at, id
       LIMIT 1
@@ -267,8 +334,26 @@ async function existingEvidence(
     [caseId, sha256],
   );
   return twins[0]
-    ? { id: twins[0].id, duplicate: true, storagePath: twins[0].storage_path }
+    ? {
+        id: twins[0].id,
+        duplicate: true,
+        storagePath: twins[0].storage_path,
+        kindCode: Number(twins[0].kind_code),
+      }
     : undefined;
+}
+
+/** Exact-content dedup preserves the original explicit role. A different batch
+ * may not silently turn an extra PDF into the instruction (or vice versa). */
+function assertExistingRole(existing: { kindCode: number }, file: PreparedFile): void {
+  if (file.kind !== 'document' || file.role === 'auto') return;
+  const expected = file.role === 'extra' ? OTHER_KIND_CODE : INSTRUCTION_KIND_CODE;
+  if (existing.kindCode !== expected) {
+    throw new UploadRefusal(
+      409,
+      'That PDF was already added with a different role. Choose the correct file and try again.',
+    );
+  }
 }
 
 type UploadItemClaim =
@@ -324,6 +409,7 @@ async function claimUploadItem(input: {
     const identity = itemIdentity(input.source, input.idempotencyKey, input.file.index);
     const existing = await existingEvidence(q, caseId, identity, input.file.sha256);
     if (existing) {
+      assertExistingRole(existing, input.file);
       await q(
         `UPDATE staff_evidence_upload_item
             SET state = 'complete', evidence_id = $2,
@@ -434,6 +520,7 @@ async function persistFile(input: {
     const identity = itemIdentity(input.source, input.idempotencyKey, input.file.index);
     const existing = await existingEvidence(q, caseId, identity, input.file.sha256);
     if (existing) {
+      assertExistingRole(existing, input.file);
       const ownsStoredBytes = existing.storagePath === input.blobPath;
       await q(
         `UPDATE staff_evidence_upload_item
@@ -460,7 +547,11 @@ async function persistFile(input: {
       [
         input.file.name,
         caseId,
-        isImage ? IMAGE_KIND_CODE : DOCUMENT_KIND_CODE,
+        isImage
+          ? IMAGE_KIND_CODE
+          : input.file.role === 'extra'
+            ? OTHER_KIND_CODE
+            : INSTRUCTION_KIND_CODE,
         input.file.sha256,
         input.file.contentType,
         input.size,
@@ -478,6 +569,7 @@ async function persistFile(input: {
     if (!row) {
       const raced = await existingEvidence(q, caseId, identity, input.file.sha256);
       if (raced) {
+        assertExistingRole(raced, input.file);
         const ownsStoredBytes = raced.storagePath === input.blobPath;
         await q(
           `UPDATE staff_evidence_upload_item
@@ -550,11 +642,113 @@ app.http('uploadCaseEvidence', {
     if (!legacyRequest && !suppliedSource) {
       return { status: 400, jsonBody: { error: 'Choose where these files are being added from.' } };
     }
+    const actor = actorFromClaims(claims) ?? 'authenticated staff';
+    const source: UploadSource = suppliedSource ?? 'legacy_upload';
 
     const files = form.getAll('file').filter((value): value is File => value instanceof File);
     if (!files.length) return { status: 400, jsonBody: { error: 'Choose at least one file.' } };
+    const operationMarker = form.get('manualIntakeOperation');
+    const manualIntakeOperation = operationMarker === 'true';
+    const rawInstructionIndexes = form.getAll('manualIntakeInstructionIndex');
+    const parsedInstructionIndex = rawInstructionIndexes.length === 1
+      ? Number(rawInstructionIndexes[0])
+      : undefined;
+    const instructionFileIndex = parsedInstructionIndex !== undefined
+      && Number.isInteger(parsedInstructionIndex)
+      && parsedInstructionIndex >= 0
+      && parsedInstructionIndex < files.length
+      ? parsedInstructionIndex
+      : undefined;
+    const rawRoles = form.getAll('fileRole');
+    const suppliedRoles = rawRoles.filter(
+      (value): value is 'instruction' | 'extra' => value === 'instruction' || value === 'extra',
+    );
+    if (
+      (manualIntakeOperation && rawRoles.length !== files.length)
+      || suppliedRoles.length !== rawRoles.length
+      || (rawRoles.length > 0 && suppliedRoles.length !== files.length)
+    ) {
+      await recordManualIntakeResult({
+        source,
+        caseId: req.params.id,
+        actor,
+        idempotencyKey: suppliedIdempotencyKey,
+        selectedCount: files.length,
+        added: [],
+        rejected: files.map((file, fileIndex) => ({
+          fileIndex,
+          fileName: file.name,
+          reason: 'The file role could not be confirmed.',
+        })),
+      });
+      return { status: 400, jsonBody: { error: 'Choose the files again so their roles can be confirmed.' } };
+    }
+    if (
+      (operationMarker != null && operationMarker !== 'true')
+      || (manualIntakeOperation && suppliedSource !== 'manual_intake')
+      || (manualIntakeOperation && rawInstructionIndexes.length > 1)
+      || (manualIntakeOperation && rawInstructionIndexes.length === 1
+        && instructionFileIndex === undefined)
+      || (manualIntakeOperation && suppliedRoles.filter((role) => role === 'instruction').length
+        !== (instructionFileIndex === undefined ? 0 : 1))
+      || (manualIntakeOperation && instructionFileIndex !== undefined
+        && suppliedRoles[instructionFileIndex] !== 'instruction')
+    ) {
+      await recordManualIntakeResult({
+        source,
+        caseId: req.params.id,
+        actor,
+        idempotencyKey: suppliedIdempotencyKey,
+        selectedCount: files.length,
+        added: [],
+        rejected: files.map((file, fileIndex) => ({
+          fileIndex,
+          fileName: file.name,
+          reason: 'The case retry could not be confirmed.',
+        })),
+      });
+      return { status: 400, jsonBody: { error: 'This case upload could not be safely resumed.' } };
+    }
+    if (manualIntakeOperation) {
+      const bindingState = await tx((q) => manualIntakeEvidenceBindingState(q, {
+        caseId: req.params.id,
+        uploadIdempotencyKey: suppliedIdempotencyKey,
+        fileCount: files.length,
+        ...(instructionFileIndex !== undefined ? { instructionFileIndex } : {}),
+      }));
+      if (bindingState === 'not_bound') {
+        return {
+          status: 409,
+          jsonBody: {
+            added: [],
+            rejected: files.map((file, fileIndex) => ({
+              fileIndex,
+              fileName: file.name,
+              reason: 'This retry no longer matches the selected files.',
+            })),
+            manualIntakeCompletion: 'not_bound',
+            error: 'This case upload could not be safely resumed.',
+          },
+        };
+      }
+    }
     const batchRefusal = validateUploadBatch(files);
-    if (batchRefusal) return { status: 400, jsonBody: { error: batchRefusal } };
+    if (batchRefusal) {
+      await recordManualIntakeResult({
+        source,
+        caseId: req.params.id,
+        actor,
+        idempotencyKey: suppliedIdempotencyKey,
+        selectedCount: files.length,
+        added: [],
+        rejected: files.map((file, fileIndex) => ({
+          fileIndex,
+          fileName: file.name,
+          reason: batchRefusal,
+        })),
+      });
+      return { status: 400, jsonBody: { error: batchRefusal } };
+    }
 
     const prepared: PreparedFile[] = [];
     const rejected: RejectedFile[] = [];
@@ -570,6 +764,15 @@ app.http('uploadCaseEvidence', {
         rejected.push({ fileIndex: index, fileName: file.name, reason: content.reason });
         continue;
       }
+      const role: UploadRole = suppliedRoles[index] ?? 'auto';
+      if (role === 'instruction' && content.kind !== 'document') {
+        rejected.push({
+          fileIndex: index,
+          fileName: file.name,
+          reason: 'Choose a PDF for the instruction.',
+        });
+        continue;
+      }
       const sha256 = createHash('sha256').update(bytes).digest('hex');
       if (!SHA256_RE.test(sha256)) throw new Error('unreachable sha256 result');
       prepared.push({
@@ -579,16 +782,26 @@ app.http('uploadCaseEvidence', {
         sha256,
         kind: content.kind,
         contentType: content.contentType,
+        role,
       });
     }
-    if (!prepared.length) return { status: 400, jsonBody: { added: [], rejected } };
+    if (!prepared.length) {
+      await recordManualIntakeResult({
+        source,
+        caseId: req.params.id,
+        actor,
+        idempotencyKey: suppliedIdempotencyKey,
+        selectedCount: files.length,
+        added: [],
+        rejected,
+      });
+      return { status: 400, jsonBody: { added: [], rejected } };
+    }
 
-    const actor = actorFromClaims(claims) ?? 'authenticated staff';
     const batchManifestHash = manifestHash(prepared);
     // API-first rolling compatibility: a cached pre-TKT-165 SPA sends neither the
     // source field nor idempotency header. Derive both from authenticated, target-
     // bound request facts so the legacy replay is still stable and identity-bearing.
-    const source: UploadSource = suppliedSource ?? 'legacy_upload';
     const idempotencyKey = suppliedIdempotencyKey
       || legacyIdempotencyKey(req.params.id, actor, batchManifestHash);
     let caseId: string;
@@ -603,15 +816,25 @@ app.http('uploadCaseEvidence', {
       });
     } catch (error) {
       if (error instanceof UploadRefusal) {
+        const refused = files.map((file, fileIndex) => ({
+          fileIndex,
+          fileName: file.name,
+          reason: error.message,
+        }));
+        await recordManualIntakeResult({
+          source,
+          caseId: req.params.id,
+          actor,
+          idempotencyKey,
+          selectedCount: files.length,
+          added: [],
+          rejected: refused,
+        });
         return {
           status: error.status,
           jsonBody: {
             added: [],
-            rejected: files.map((file, fileIndex) => ({
-              fileIndex,
-              fileName: file.name,
-              reason: error.message,
-            })),
+            rejected: refused,
             ...(error.targetCaseId ? { targetCaseId: error.targetCaseId } : {}),
           },
         };
@@ -687,6 +910,15 @@ app.http('uploadCaseEvidence', {
           reason: refusal?.message ?? 'That file was not added. Try it again.',
         });
         if (refusal?.targetCaseId) {
+          await recordManualIntakeResult({
+            source,
+            caseId,
+            actor,
+            idempotencyKey,
+            selectedCount: files.length,
+            added,
+            rejected,
+          });
           return {
             status: 409,
             jsonBody: { added, rejected, targetCaseId: refusal.targetCaseId },
@@ -695,9 +927,92 @@ app.http('uploadCaseEvidence', {
       }
     }
 
+    const confirmedIndexes = new Set(added.map((item) => item.fileIndex));
+    const batchComplete =
+      rejected.length === 0 &&
+      added.length === files.length &&
+      confirmedIndexes.size === files.length;
+    let manualIntakeCompletion: ManualIntakeCompletion | undefined;
+    if (batchComplete) {
+      await tx(async (q) => {
+        await q(
+          `UPDATE staff_evidence_upload
+              SET completed_at = COALESCE(completed_at, now()), updated_at = now()
+            WHERE idempotency_key = $1 AND case_id = $2`,
+          [idempotencyKey, caseId],
+        );
+        if (source === 'manual_intake' && manualIntakeOperation) {
+          manualIntakeCompletion = await completeManualIntakeEvidence(q, {
+            caseId,
+            uploadIdempotencyKey: idempotencyKey,
+            fileCount: files.length,
+            ...(instructionFileIndex !== undefined ? { instructionFileIndex } : {}),
+          });
+        }
+        if (manualIntakeCompletion === 'completed') {
+          // Each file requested a generation while the manual-source blocker was
+          // still present. Request one more after releasing that blocker.
+          await requestStatusRecompute(q, caseId);
+        }
+        if (
+          manualIntakeCompletion === 'already_complete'
+          && await claimManualIntakeRecoveryAudit(q, {
+            caseId,
+            uploadIdempotencyKey: idempotencyKey,
+            fileCount: files.length,
+            ...(instructionFileIndex !== undefined ? { instructionFileIndex } : {}),
+          })
+        ) {
+          await writeAuditStrict({
+            action: AUDIT_ACTION.evidence_upload_result,
+            caseId,
+            actor,
+            summary: `New case files confirmed after response loss (${added.length} of ${files.length})`,
+            after: {
+              idempotencyKey,
+              selectedCount: files.length,
+              completion: 'already_complete',
+              recovered: true,
+              added,
+              rejected,
+            },
+          }, q);
+        }
+      });
+    }
+
+    if (manualIntakeCompletion !== 'already_complete') {
+      await recordManualIntakeResult({
+        source,
+        caseId,
+        actor,
+        idempotencyKey,
+        selectedCount: files.length,
+        added,
+        rejected,
+        ...(manualIntakeCompletion ? { completion: manualIntakeCompletion } : {}),
+      });
+    }
+
+    if (manualIntakeCompletion === 'not_bound') {
+      return {
+        status: 409,
+        jsonBody: {
+          added,
+          rejected,
+          manualIntakeCompletion,
+          error: 'The files were added, but this case still needs the retry to be confirmed.',
+        },
+      };
+    }
+
     return {
       status: rejected.length ? (added.length ? 207 : 400) : created > 0 ? 201 : 200,
-      jsonBody: { added, rejected },
+      jsonBody: {
+        added,
+        rejected,
+        ...(manualIntakeCompletion ? { manualIntakeCompletion } : {}),
+      },
     };
   }),
 });

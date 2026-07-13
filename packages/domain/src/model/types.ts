@@ -262,6 +262,7 @@ export type MissingItemKind =
   | 'required_field'
   | 'image_rule'
   | 'inspection_address'
+  | 'source_evidence'
   | 'conflict';
 
 export interface MissingItem {
@@ -323,6 +324,10 @@ export interface Case {
   evaFields: EvaFields;
 
   evidence: Evidence[];
+  /** A manually selected source batch has not finished attaching to this case yet. */
+  sourceEvidencePending?: boolean;
+  /** A selected Manual Intake source file exhausted archive retries. */
+  sourceEvidenceArchiveFailed?: boolean;
   notes: Note[];
   chasers: Chaser[];
   overviewFacts: OverviewFacts;

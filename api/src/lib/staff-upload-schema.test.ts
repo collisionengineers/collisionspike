@@ -29,6 +29,47 @@ describe('staff evidence upload schema', () => {
     }
   });
 
+  it('persists one resumable manual case operation and gates incomplete source batches', () => {
+    for (const sql of [
+      schema('196_manual_intake_case_create.sql'),
+      schema('deltas/2026-07-12-tkt166-manual-intake-case-create.sql'),
+    ]) {
+      expect(sql).toContain('manual_intake_case_create_operation');
+      expect(sql).toContain('request_hash');
+      expect(sql).toContain('upload_idempotency_key');
+      expect(sql).toContain('expected_file_count');
+      expect(sql).toContain('evidence_completed_at');
+      expect(sql).toContain('instruction_file_index');
+      expect(sql).toContain('side_effects_completed_at');
+      expect(sql).toContain('response_loss_recovery_audited_at');
+      expect(sql).toContain('ix_manual_intake_case_create_pending');
+      expect(sql).toContain('ix_manual_intake_case_create_case');
+    }
+    expect(schema('000_enums_lookups.sql')).toContain('evidence_upload_result');
+    expect(schema('deltas/2026-07-12-tkt166-manual-intake-case-create.sql'))
+      .toContain('evidence_upload_result');
+    const canonicalPolicies = schema('900_constraints.sql');
+    const delta = schema('deltas/2026-07-12-tkt166-manual-intake-case-create.sql');
+    expect(canonicalPolicies).toContain("'manual_intake_case_create_operation'");
+    expect(delta).toContain(
+      'ALTER TABLE manual_intake_case_create_operation FORCE ROW LEVEL SECURITY',
+    );
+    expect(delta).toContain(
+      'GRANT SELECT, INSERT, UPDATE ON manual_intake_case_create_operation TO cespk_app',
+    );
+    expect(delta).not.toContain(
+      'GRANT DELETE ON manual_intake_case_create_operation TO cespk_app',
+    );
+    expect(delta).toContain('dead_lettered_at');
+    expect(delta).toContain('dead_letter_reason');
+    expect(schema('196_manual_intake_case_create.sql')).not.toContain(
+      'case_id               uuid UNIQUE',
+    );
+    expect(delta).toContain(
+      'DROP CONSTRAINT IF EXISTS manual_intake_case_create_operation_case_id_key',
+    );
+  });
+
   it('forces RLS and grants only non-delete app operations', () => {
     const canonicalPolicies = schema('900_constraints.sql');
     const delta = schema('deltas/2026-07-12-tkt165-staff-evidence-upload.sql');

@@ -7,6 +7,7 @@ import {
   missingRequiredFieldKeys,
   conflictFieldKeys,
   REQUIRED_FIELD_KEYS,
+  evaluateCaseReadiness,
   type CaseStatus,
   type ReviewableField,
   type StatusEvaluationInput,
@@ -151,6 +152,43 @@ describe('statusForReviewCase — merge-retired lock (TKT-141)', () => {
       evidence: [],
     });
     expect(statusForReviewCase(input)).toBe('linked_to_instruction');
+  });
+
+  it('keeps an incomplete manual-intake source batch Not Ready without breaking terminal/merge locks', () => {
+    const complete = caseInput({
+      status: 'ingested',
+      evaFields: fullFields(),
+      evidence: goodEvidence,
+      sourceEvidencePending: true,
+    });
+    expect(statusForReviewCase(complete)).toBe('needs_review');
+    const readiness = evaluateCaseReadiness(complete);
+    expect(readiness.ready).toBe(false);
+    expect(readiness.sourceEvidenceReady).toBe(false);
+    expect(readiness.checks).toContainEqual(expect.objectContaining({
+      id: 'source-evidence',
+      ok: false,
+      group: 'source',
+    }));
+    expect(statusForReviewCase({ ...complete, status: 'done' })).toBe('done');
+    expect(statusForReviewCase({ ...complete, mergedInto: 'survivor-case' })).toBe(
+      'linked_to_instruction',
+    );
+  });
+
+  it('keeps a terminal manual-source archive failure Not Ready with recovery guidance', () => {
+    const complete = caseInput({
+      status: 'ready_for_eva',
+      evaFields: fullFields(),
+      evidence: goodEvidence,
+      sourceEvidenceArchiveFailed: true,
+    });
+    expect(statusForReviewCase(complete)).toBe('needs_review');
+    expect(evaluateCaseReadiness(complete).checks).toContainEqual(expect.objectContaining({
+      id: 'source-evidence',
+      ok: false,
+      detail: expect.stringContaining('Retry it from Evidence'),
+    }));
   });
 
   it('converges a wrongly un-retired marker-bearing case back to linked_to_instruction (self-heal)', () => {

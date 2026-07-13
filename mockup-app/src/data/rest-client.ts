@@ -23,6 +23,7 @@
 import type {
   DataAccess,
   CreateCaseInput,
+  CreateCaseOptions,
   CreateCaseResult,
   CaseUpdateInput,
   SuggestedAddress,
@@ -158,10 +159,17 @@ export interface GlobalSearchResults {
 }
 /** Result of POST /api/cases/{id}/evidence/upload (TKT-068). */
 export type EvidenceUploadSource = 'add_evidence' | 'manual_intake' | 'assistant_confirmed';
+export type EvidenceUploadRole = 'instruction' | 'extra';
 export interface EvidenceUploadOptions {
   source: EvidenceUploadSource;
   /** Stable across a retry of the same case + ordered files. */
   idempotencyKey?: string;
+  /** Manual Intake binds the staff-selected instruction/extra role per file. */
+  fileRoles?: EvidenceUploadRole[];
+  /** This batch is the source batch bound by POST /cases, not images-only intake. */
+  manualIntakeOperation?: boolean;
+  /** Exact instruction position bound by the Manual Intake case operation. */
+  manualIntakeInstructionIndex?: number;
 }
 export interface EvidenceUploadResult {
   added: Array<{ fileIndex: number; fileName: string; evidenceId: string; duplicate: boolean }>;
@@ -169,6 +177,7 @@ export interface EvidenceUploadResult {
   status: number;
   error?: string;
   targetCaseId?: string;
+  manualIntakeCompletion?: 'completed' | 'already_complete' | 'not_bound';
 }
 
 /** A fresh entity snapshot used by the assistant confirmation gate. Existing-target
@@ -236,6 +245,8 @@ export interface DataAccessExt extends DataAccess {
   /** Save one reviewed case-edit session with optimistic concurrency. Every EVA
    *  field plus the inspection address/decision travels in this one PATCH. */
   saveCaseEdits(id: string, patch: CaseUpdateInput, version: string): Promise<Case>;
+  /** Requeue Manual Intake source files that reached a terminal archive failure. */
+  retryManualIntakeArchive(caseId: string): Promise<{ requeued: number }>;
   /** ONE-call amalgamated dashboard (case pipeline + inbound). `now` windows
    *  server aggregates against the CLIENT clock. NOT safe()-wrapped — a failure
    *  surfaces so the dashboard shows its error panel (matches the prior bundle). */
@@ -570,7 +581,21 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       get<Case | undefined>(`/api/cases/${enc(id)}`).catch((e: unknown) =>
         /→ 404\b/.test(String(e)) ? undefined : Promise.reject(e),
       ),
-    createCase: (input: CreateCaseInput) => post<CreateCaseResult>('/api/cases', input),
+    createCase: (input: CreateCaseInput, options?: CreateCaseOptions) =>
+      call<CreateCaseResult>('POST', '/api/cases', input, {
+        ...(options?.idempotencyKey
+          ? { 'Idempotency-Key': options.idempotencyKey }
+          : {}),
+        ...(options?.evidenceUploadKey
+          ? { 'X-Manual-Intake-Upload-Key': options.evidenceUploadKey }
+          : {}),
+        ...(options?.expectedEvidenceCount !== undefined
+          ? { 'X-Manual-Intake-File-Count': String(options.expectedEvidenceCount) }
+          : {}),
+        ...(options?.instructionEvidenceIndex !== undefined
+          ? { 'X-Manual-Intake-Instruction-Index': String(options.instructionEvidenceIndex) }
+          : {}),
+      }),
     // Human-correction write path (issue #12): PATCH the case with a partial body
     // (`{ vrm }`) → 200 + the updated Case JSON. DELIBERATELY NOT safe()-wrapped — a
     // failed VRM correction MUST reach the operator (a silent swallow would let them
@@ -610,6 +635,8 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       post<{ updated: boolean }>(`/api/cases/${enc(caseId)}/eva-submitted`),
     markCaseDone: (caseId) =>
       post<{ updated: boolean }>(`/api/cases/${enc(caseId)}/mark-done`),
+    retryManualIntakeArchive: (caseId) =>
+      post<{ requeued: number }>(`/api/cases/${enc(caseId)}/archive-retry`),
     // E4: the server caps each page (default 200, max 500) and returns a bare
     // Case[] with no total — a single fetch under-counts and hides rows past the
     // first page, so the Completed tab counts (derived from this list) were wrong.
@@ -863,6 +890,11 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
         for (const f of files) fd.append('file', f);
         const source = options?.source ?? 'assistant_confirmed';
         fd.append('source', source);
+        for (const role of options?.fileRoles ?? []) fd.append('fileRole', role);
+        if (options?.manualIntakeOperation) fd.append('manualIntakeOperation', 'true');
+        if (options?.manualIntakeInstructionIndex !== undefined) {
+          fd.append('manualIntakeInstructionIndex', String(options.manualIntakeInstructionIndex));
+        }
         const idempotencyKey = options?.idempotencyKey ?? crypto.randomUUID();
         // NB: no Content-Type header — the browser sets the multipart boundary itself.
         const res = await fetch(`${base}/api/cases/${enc(caseId)}/evidence/upload`, {
@@ -878,6 +910,7 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
           rejected?: Array<{ fileIndex?: number; fileName: string; reason: string }>;
           error?: string;
           targetCaseId?: string;
+          manualIntakeCompletion?: 'completed' | 'already_complete' | 'not_bound';
         };
         return {
           added: (json.added ?? []).flatMap((item, responseIndex) =>
@@ -898,6 +931,9 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
           status: res.status,
           ...(json.error ? { error: json.error } : {}),
           ...(json.targetCaseId ? { targetCaseId: json.targetCaseId } : {}),
+          ...(json.manualIntakeCompletion
+            ? { manualIntakeCompletion: json.manualIntakeCompletion }
+            : {}),
         };
       } catch {
         return {

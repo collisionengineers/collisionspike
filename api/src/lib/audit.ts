@@ -115,6 +115,10 @@ export const AUDIT_ACTION = {
   // TKT-148 — a deterministic draft chase suggestion. Distinct from chaser_sent:
   // no email or message has been sent and staff still decide whether to use the draft.
   chaser_suggested: 100000054,
+  // TKT-166 — one batch-level Manual Intake result, including refusals, partial
+  // outcomes and eventual retry recovery. Per-file evidence_added remains the
+  // immutable success record for every newly persisted evidence row.
+  evidence_upload_result: 100000055,
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

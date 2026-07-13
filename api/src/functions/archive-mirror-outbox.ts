@@ -11,6 +11,7 @@ import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } 
 import { authenticate, toErrorResponse } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
 import { lockCaseForMutation } from '../lib/case-mutation-locks.js';
+import { requestStatusRecompute } from '../lib/status-recompute.js';
 
 interface PendingArchiveMirrorRow extends Record<string, unknown> {
   evidenceId: string;
@@ -33,6 +34,8 @@ interface LockedEvidenceMirrorRow extends Record<string, unknown> {
   storage_path: string | null;
   box_file_id: string | null;
 }
+
+export const ARCHIVE_MIRROR_MAX_ATTEMPTS = 8;
 
 async function withServiceAuth(
   req: HttpRequest,
@@ -78,6 +81,7 @@ app.http('internalArchiveMirrorOutboxPending', {
          FROM archive_mirror_outbox o
          JOIN evidence e ON e.id = o.evidence_id
         WHERE o.requested_generation > o.completed_generation
+          AND o.dead_lettered_at IS NULL
           AND o.next_attempt_at <= now()
         ORDER BY o.next_attempt_at, o.requested_at, o.evidence_id
         LIMIT $1`,
@@ -146,7 +150,7 @@ app.http('internalArchiveMirrorOutboxComplete', {
           }
 
           const rows = await q<Pick<LockedArchiveMirrorRow, 'requested_generation' | 'completed_generation'>>(
-            `SELECT requested_generation, completed_generation
+            `SELECT requested_generation, completed_generation, attempt_count, dead_lettered_at
                FROM archive_mirror_outbox
               WHERE evidence_id = $1
               FOR UPDATE`,
@@ -200,6 +204,8 @@ app.http('internalArchiveMirrorOutboxComplete', {
                     next_attempt_at = now(),
                     last_attempt_at = now(),
                     last_error = NULL,
+                    dead_lettered_at = NULL,
+                    dead_letter_reason = NULL,
                     updated_at = now()
               WHERE evidence_id = $1`,
             [evidenceId, acknowledged],
@@ -257,8 +263,21 @@ app.http('internalArchiveMirrorOutboxDefer', {
         }
         const deferred = await tx(async (q) => {
           const lockedCase = await lockCaseForMutation(q, owner[0].case_id);
-          const evidence = await q<{ case_id: string }>(
-            'SELECT case_id FROM evidence WHERE id = $1 FOR UPDATE',
+          const evidence = await q<{ case_id: string; manual_intake: boolean }>(
+            `SELECT e.case_id,
+                    EXISTS (
+                      SELECT 1
+                        FROM staff_evidence_upload_item item
+                        JOIN staff_evidence_upload batch
+                          ON batch.idempotency_key = item.idempotency_key
+                         AND batch.case_id = item.case_id
+                       WHERE item.evidence_id = e.id
+                         AND item.case_id = e.case_id
+                         AND batch.source = 'manual_intake'
+                    ) AS manual_intake
+               FROM evidence e
+              WHERE e.id = $1
+              FOR UPDATE OF e`,
             [evidenceId],
           );
           if (!evidence[0] || evidence[0].case_id.trim().toLowerCase() !== lockedCase.caseId) {
@@ -267,8 +286,10 @@ app.http('internalArchiveMirrorOutboxDefer', {
           const outbox = await q<{
             requested_generation: string | number;
             completed_generation: string | number;
+            attempt_count: string | number;
+            dead_lettered_at: Date | string | null;
           }>(
-            `SELECT requested_generation, completed_generation
+            `SELECT requested_generation, completed_generation, attempt_count, dead_lettered_at
                FROM archive_mirror_outbox
               WHERE evidence_id = $1
               FOR UPDATE`,
@@ -279,32 +300,60 @@ app.http('internalArchiveMirrorOutboxDefer', {
           }
           const requested = Number(outbox[0].requested_generation);
           const completed = Number(outbox[0].completed_generation);
+          if (outbox[0].dead_lettered_at != null) {
+            return {
+              kind: 'done' as const,
+              value: { deferred: false, pending: false, deadLettered: true },
+            };
+          }
           if (completed >= requested) {
             return { kind: 'done' as const, value: { deferred: false, pending: false } };
           }
           if (lockedCase.kind !== 'active' || requested !== generation) {
             return { kind: 'done' as const, value: { deferred: false, pending: true } };
           }
-          const rows = await q<{ next_attempt_at: Date | string }>(
+          const rows = await q<{
+            next_attempt_at: Date | string;
+            dead_lettered_at: Date | string | null;
+          }>(
             `UPDATE archive_mirror_outbox
                 SET attempt_count = attempt_count + 1,
                     last_attempt_at = now(),
                     last_error = $3,
-                    next_attempt_at = now() + make_interval(
-                      secs => LEAST(3600, (30 * power(2, LEAST(attempt_count, 6)))::integer)
-                    ),
+                    dead_lettered_at = CASE
+                      WHEN $5 AND attempt_count + 1 >= $4 THEN now() ELSE NULL END,
+                    dead_letter_reason = CASE
+                      WHEN $5 AND attempt_count + 1 >= $4 THEN $3 ELSE NULL END,
+                    next_attempt_at = CASE
+                      WHEN $5 AND attempt_count + 1 >= $4 THEN now()
+                      ELSE now() + make_interval(
+                        secs => LEAST(3600, (30 * power(2, LEAST(attempt_count, 6)))::integer)
+                      )
+                    END,
                     updated_at = now()
               WHERE evidence_id = $1
                 AND requested_generation = $2
                 AND completed_generation < requested_generation
-            RETURNING next_attempt_at`,
-            [evidenceId, generation, reason],
+            RETURNING next_attempt_at, dead_lettered_at`,
+            [
+              evidenceId,
+              generation,
+              reason,
+              ARCHIVE_MIRROR_MAX_ATTEMPTS,
+              evidence[0].manual_intake === true,
+            ],
           );
+          if (rows[0]?.dead_lettered_at != null) {
+            // Terminal archive failure changes canonical source readiness. Queue the
+            // status evaluation in this same commit so Review cannot remain stale.
+            await requestStatusRecompute(q, lockedCase.caseId);
+          }
           return {
             kind: 'done' as const,
             value: {
               deferred: rows.length > 0,
-              pending: true,
+              pending: rows[0]?.dead_lettered_at == null,
+              deadLettered: rows[0]?.dead_lettered_at != null,
               ...(rows[0] ? { nextAttemptAt: rows[0].next_attempt_at } : {}),
             },
           };

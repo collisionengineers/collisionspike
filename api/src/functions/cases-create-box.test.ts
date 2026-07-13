@@ -56,11 +56,15 @@ function registration(name: string): Registration {
   return value;
 }
 
-function request(body: unknown, params: Record<string, string> = {}): HttpRequest {
+function request(
+  body: unknown,
+  params: Record<string, string> = {},
+  headers: Record<string, string> = {},
+): HttpRequest {
   return {
     params,
     json: async () => body,
-    headers: { get: () => null },
+    headers: { get: (name: string) => headers[name.toLowerCase()] ?? null },
   } as unknown as HttpRequest;
 }
 
@@ -77,6 +81,16 @@ const callsContaining = (needle: string): unknown[][] =>
 
 let boxRows: Array<Record<string, unknown>>;
 let outboxRow: Record<string, unknown> | undefined;
+let manualOperations: Map<string, {
+  actor: string;
+  request_hash: string;
+  case_id: string | null;
+  upload_idempotency_key: string | null;
+  expected_file_count: number;
+  evidence_completed_at: Date | null;
+  instruction_file_index: number | null;
+  side_effects_completed_at: Date | null;
+}>;
 
 beforeEach(() => {
   vi.unstubAllEnvs();
@@ -88,9 +102,60 @@ beforeEach(() => {
   box.listFolderNames.mockReset();
   boxRows = [];
   outboxRow = undefined;
+  manualOperations = new Map();
 
   db.tx.mockImplementation(async (fn: (q: typeof db.query) => unknown) => fn(db.query));
   db.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
+    if (sql.includes('INSERT INTO manual_intake_case_create_operation')) {
+      const key = String(params[0]);
+      if (!manualOperations.has(key)) {
+        manualOperations.set(key, {
+          actor: String(params[1]),
+          request_hash: String(params[2]),
+          case_id: null,
+          upload_idempotency_key: params[3] == null ? null : String(params[3]),
+          expected_file_count: Number(params[4]),
+          evidence_completed_at: null,
+          instruction_file_index: params[5] == null ? null : Number(params[5]),
+          side_effects_completed_at: null,
+        });
+      }
+      return [];
+    }
+    if (sql.includes('FROM manual_intake_case_create_operation') && sql.includes('FOR UPDATE')) {
+      const operation = manualOperations.get(String(params[0]));
+      return operation ? [operation] : [];
+    }
+    if (sql.includes('SET upload_idempotency_key = $2')) {
+      const operation = manualOperations.get(String(params[0]));
+      if (operation) {
+        operation.upload_idempotency_key = params[1] == null ? null : String(params[1]);
+        operation.expected_file_count = Number(params[2]);
+        operation.instruction_file_index = params[3] == null ? null : Number(params[3]);
+        operation.evidence_completed_at = Number(params[2]) === 0 ? new Date() : null;
+      }
+      return [];
+    }
+    if (sql.includes('SET case_id = $2') && sql.includes('manual_intake_case_create_operation')) {
+      const operation = manualOperations.get(String(params[0]));
+      if (!operation || operation.case_id) return [];
+      operation.case_id = String(params[1]);
+      if (Number(params[2]) === 0) operation.evidence_completed_at = new Date();
+      return [{ idempotency_key: params[0] }];
+    }
+    if (sql.includes('SET side_effects_completed_at = COALESCE')) {
+      const operation = manualOperations.get(String(params[0]));
+      if (operation) operation.side_effects_completed_at = new Date();
+      return [];
+    }
+    if (sql.includes('manual_intake_case_create_operation') && sql.includes('AS pending')) {
+      const pending = [...manualOperations.values()].some(
+        (operation) => operation.case_id === params[0]
+          && operation.expected_file_count > 0
+          && operation.evidence_completed_at === null,
+      );
+      return [{ pending }];
+    }
     if (sql.includes('SELECT id, duplicate_keys FROM case_')) {
       return boxRows.length ? [{ id: params[0], duplicate_keys: null }] : [];
     }
@@ -281,6 +346,115 @@ describe('POST /api/cases — assistant create_case normalization', () => {
     expect(res.status).toBe(400);
     expect(res.jsonBody).toEqual({ error: 'unknown provider principal code' });
     expect(callsContaining('INSERT INTO case_')).toHaveLength(0);
+  });
+
+  it('returns the same case for an exact Manual Intake replay without another mint or create audit', async () => {
+    const body = { vrm: 'AB12CDE', providerCode: 'QDOS', claimantName: 'Jane Driver' };
+    const headers = {
+      'idempotency-key': 'manual-create-operation-0001',
+      'x-manual-intake-upload-key': 'manual-upload-operation-0001',
+      'x-manual-intake-file-count': '1',
+      'x-manual-intake-instruction-index': '0',
+    };
+
+    const first = await registration('createCase').handler(request(body, {}, headers), context());
+    const replay = await registration('createCase').handler(request(body, {}, headers), context());
+
+    expect(first).toEqual({ status: 201, jsonBody: { id: 'case-new' } });
+    expect(replay).toEqual({ status: 200, jsonBody: { id: 'case-new', replayed: true } });
+    expect(callsContaining('INSERT INTO case_')).toHaveLength(1);
+    expect(callsContaining('INSERT INTO audit_event')).toHaveLength(1);
+    expect(callsContaining('INSERT INTO field_level_provenance')).toHaveLength(12);
+  });
+
+  it('reconciles missing post-create effects on response-loss retry without duplicating the case or audit', async () => {
+    const body = { vrm: 'AB12CDE', providerCode: 'QDOS', claimantName: 'Jane Driver' };
+    const headers = {
+      'idempotency-key': 'manual-create-operation-0009',
+      'x-manual-intake-upload-key': 'manual-upload-operation-0009',
+      'x-manual-intake-file-count': '1',
+      'x-manual-intake-instruction-index': '0',
+    };
+    const normal = db.query.getMockImplementation()!;
+    let failSideEffect = true;
+    db.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
+      if (failSideEffect && sql.includes('INSERT INTO field_level_provenance')) {
+        failSideEffect = false;
+        throw new Error('simulated response-loss boundary');
+      }
+      return normal(sql, params);
+    });
+
+    await expect(registration('createCase').handler(request(body, {}, headers), context()))
+      .rejects.toThrow('simulated response-loss boundary');
+    const retry = await registration('createCase').handler(request(body, {}, headers), context());
+
+    expect(retry).toEqual({ status: 200, jsonBody: { id: 'case-new', replayed: true } });
+    expect(callsContaining('INSERT INTO case_')).toHaveLength(1);
+    expect(callsContaining('INSERT INTO audit_event')).toHaveLength(1);
+    expect(callsContaining('INSERT INTO field_level_provenance')).toHaveLength(13);
+    expect(manualOperations.get('manual-create-operation-0009')?.side_effects_completed_at)
+      .toBeInstanceOf(Date);
+  });
+
+  it('refuses one operation key reused for changed case details before another case is inserted', async () => {
+    const headers = {
+      'idempotency-key': 'manual-create-operation-0002',
+      'x-manual-intake-upload-key': 'manual-upload-operation-0002',
+      'x-manual-intake-file-count': '1',
+    };
+    await registration('createCase').handler(
+      request({ vrm: 'AB12CDE', providerCode: 'QDOS', claimantName: 'Jane Driver' }, {}, headers),
+      context(),
+    );
+    const conflict = await registration('createCase').handler(
+      request({ vrm: 'ZZ99ZZZ', providerCode: 'QDOS', claimantName: 'Jane Driver' }, {}, headers),
+      context(),
+    );
+    expect(conflict.status).toBe(409);
+    expect(callsContaining('INSERT INTO case_')).toHaveLength(1);
+  });
+
+  it('rejects malformed operation/file bindings before any database write', async () => {
+    const response = await registration('createCase').handler(
+      request(
+        { vrm: 'AB12CDE', providerCode: 'QDOS', claimantName: 'Jane Driver' },
+        {},
+        {
+          'idempotency-key': 'too-short',
+          'x-manual-intake-file-count': '1',
+        },
+      ),
+      context(),
+    );
+    expect(response.status).toBe(400);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('requeues terminal Manual Intake archive failures and clears their dead-letter state', async () => {
+    boxRows = [{ id: 'case-1' }];
+    const normal = db.query.getMockImplementation()!;
+    db.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
+      if (sql.startsWith('UPDATE archive_mirror_outbox o')) {
+        return [{ evidence_id: 'evidence-1' }, { evidence_id: 'evidence-2' }];
+      }
+      if (sql.includes('status_recompute_requested_generation')) {
+        return [{ status_recompute_requested_generation: 1 }];
+      }
+      return normal(sql, params);
+    });
+
+    const response = await registration('retryManualIntakeArchive').handler(
+      request({}, { id: 'case-1' }),
+      context(),
+    );
+    expect(response).toEqual({ status: 200, jsonBody: { requeued: 2 } });
+    const update = callsContaining('UPDATE archive_mirror_outbox o')[0];
+    expect(String(update[0])).toContain('dead_lettered_at = NULL');
+    expect(String(update[0])).toContain('staff_evidence_upload_item item');
+    expect(String(update[0])).toContain("batch.source = 'manual_intake'");
+    expect(String(update[0])).not.toContain('source_message_id LIKE');
+    expect(callsContaining('INSERT INTO audit_event')).toHaveLength(1);
   });
 });
 

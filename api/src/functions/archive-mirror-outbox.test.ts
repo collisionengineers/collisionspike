@@ -50,7 +50,12 @@ function mockCompletion(row: {
   excluded: boolean;
   storage_path: string | null;
   box_file_id: string | null;
+  attempt_count?: number;
+  dead_lettered_at?: string | null;
+  manual_intake?: boolean;
 }): void {
+  let attemptCount = Number(row.attempt_count ?? 0);
+  let deadLetteredAt = row.dead_lettered_at ?? null;
   db.query.mockResolvedValue([{ case_id: 'case-1' }]);
   db.txQuery.mockImplementation(async (sql: string) => {
     if (sql.includes('pg_advisory_xact_lock')) return [];
@@ -65,15 +70,30 @@ function mockCompletion(row: {
         box_file_id: row.box_file_id,
       }];
     }
+    if (/SELECT e.case_id/.test(sql)) {
+      return [{ case_id: 'case-1', manual_intake: row.manual_intake === true }];
+    }
     if (/SELECT case_id FROM evidence/.test(sql)) return [{ case_id: 'case-1' }];
     if (/SELECT requested_generation, completed_generation/.test(sql)) {
       return [{
         requested_generation: row.requested_generation,
         completed_generation: row.completed_generation,
+        attempt_count: attemptCount,
+        dead_lettered_at: deadLetteredAt,
       }];
     }
     if (/UPDATE archive_mirror_outbox/.test(sql) && /next_attempt_at/.test(sql)) {
-      return [{ next_attempt_at: '2026-07-11T20:00:00Z' }];
+      attemptCount += 1;
+      deadLetteredAt = row.manual_intake === true && attemptCount >= 8
+        ? '2026-07-11T20:00:00Z'
+        : null;
+      return [{
+        next_attempt_at: '2026-07-11T20:00:00Z',
+        dead_lettered_at: deadLetteredAt,
+      }];
+    }
+    if (sql.includes('status_recompute_requested_generation')) {
+      return [{ status_recompute_requested_generation: 1 }];
     }
     return [];
   });
@@ -100,6 +120,7 @@ describe('archive mirror outbox internal routes', () => {
       "NULLIF(btrim(e.box_file_id), '') IS NULL",
     );
     expect(db.query.mock.calls[0][0]).toContain('o.next_attempt_at <= now()');
+    expect(db.query.mock.calls[0][0]).toContain('o.dead_lettered_at IS NULL');
     expect(db.query.mock.calls[0][0]).toContain('ORDER BY o.next_attempt_at');
     expect(db.query.mock.calls[0][1]).toEqual([25]);
   });
@@ -120,9 +141,71 @@ describe('archive mirror outbox internal routes', () => {
     expect(response.jsonBody).toMatchObject({ deferred: true, pending: true });
     const update = db.txQuery.mock.calls.find(([sql]) =>
       String(sql).includes('attempt_count = attempt_count + 1'))!;
-    expect(update[1]).toEqual(['ev-1', 3, 'no_folder']);
+    expect(update[1]).toEqual(['ev-1', 3, 'no_folder', 8, false]);
     expect(String(update[0])).toContain('requested_generation = $2');
     expect(String(update[0])).toContain('power(2, LEAST(attempt_count, 6))');
+  });
+
+  it('dead-letters the eighth failure, queues status recompute once, and ignores stale defer replay', async () => {
+    mockCompletion({
+      requested_generation: 3,
+      completed_generation: 1,
+      attempt_count: 7,
+      manual_intake: true,
+      excluded: false,
+      storage_path: 'msg/photo.jpg',
+      box_file_id: null,
+    });
+    const response = await defer(request({
+      id: 'ev-1', generation: 3, reason: 'archive activity failed',
+    }), ctx);
+    expect(response.jsonBody).toMatchObject({
+      deferred: true,
+      pending: false,
+      deadLettered: true,
+    });
+    expect(db.txQuery.mock.calls.find(([sql]) =>
+      String(sql).includes('SELECT requested_generation, completed_generation'))?.[0])
+      .toContain('attempt_count, dead_lettered_at');
+    expect(db.txQuery.mock.calls.filter(([sql]) =>
+      String(sql).includes('status_recompute_requested_generation'))).toHaveLength(1);
+
+    const replay = await defer(request({
+      id: 'ev-1', generation: 3, reason: 'archive activity failed',
+    }), ctx);
+    expect(replay.jsonBody).toEqual({ deferred: false, pending: false, deadLettered: true });
+    expect(db.txQuery.mock.calls.filter(([sql]) =>
+      String(sql).includes('attempt_count = attempt_count + 1'))).toHaveLength(1);
+    expect(db.txQuery.mock.calls.filter(([sql]) =>
+      String(sql).includes('status_recompute_requested_generation'))).toHaveLength(1);
+  });
+
+  it('keeps non-manual evidence retrying after the Manual Intake terminal threshold', async () => {
+    mockCompletion({
+      requested_generation: 3,
+      completed_generation: 1,
+      attempt_count: 7,
+      excluded: false,
+      storage_path: 'email/photo.jpg',
+      box_file_id: null,
+      manual_intake: false,
+    });
+
+    const response = await defer(request({
+      id: 'ev-1', generation: 3, reason: 'archive activity failed',
+    }), ctx);
+
+    expect(response.jsonBody).toMatchObject({
+      deferred: true,
+      pending: true,
+      deadLettered: false,
+    });
+    const update = db.txQuery.mock.calls.find(([sql]) =>
+      String(sql).includes('attempt_count = attempt_count + 1'))!;
+    expect(update[1]).toEqual(['ev-1', 3, 'archive activity failed', 8, false]);
+    expect(String(update[0])).toContain('WHEN $5 AND attempt_count + 1 >= $4');
+    expect(db.txQuery.mock.calls.some(([sql]) =>
+      String(sql).includes('status_recompute_requested_generation'))).toBe(false);
   });
 
   it('lets eligible work beyond a capped poison page surface after those rows are deferred', async () => {

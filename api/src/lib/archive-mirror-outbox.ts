@@ -52,6 +52,8 @@ async function requestArchiveMirrorGeneration(
            next_attempt_at = now(),
            last_attempt_at = NULL,
            last_error = NULL,
+           dead_lettered_at = NULL,
+           dead_letter_reason = NULL,
            updated_at = now()
      RETURNING requested_generation`,
     [row.id, row.case_id],

@@ -63,7 +63,8 @@
         { "value": 100000051, "name": "agent_write",                  "label": "Agent Write" },
         { "value": 100000052, "name": "image_analysis_generated",     "label": "Image Analysis Generated" },
         { "value": 100000053, "name": "report_delivered",             "label": "Report Delivered" },
-        { "value": 100000054, "name": "chaser_suggested",             "label": "Chase suggested" }
+        { "value": 100000054, "name": "chaser_suggested",             "label": "Chase suggested" },
+        { "value": 100000055, "name": "evidence_upload_result",        "label": "Files Checked" }
       ]
     },
     {

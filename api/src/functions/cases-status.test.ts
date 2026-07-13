@@ -40,6 +40,8 @@ let probeRow: Rec;
 let lockedRow: Rec;
 let provenanceRows: Rec[];
 let evidenceRows: Rec[];
+let manualSourcePending: boolean;
+let manualSourceArchiveFailed: boolean;
 
 function caseRow(status: Parameters<typeof statusToInt>[0], duplicateKeys: unknown = null): Rec {
   return {
@@ -63,6 +65,8 @@ beforeEach(() => {
   lockedRow = caseRow('ingested');
   provenanceRows = [];
   evidenceRows = [];
+  manualSourcePending = false;
+  manualSourceArchiveFailed = false;
 
   db.query.mockReset();
   db.tx.mockReset();
@@ -78,6 +82,9 @@ beforeEach(() => {
     if (/FROM case_ c/i.test(sql) && /FOR UPDATE OF c/i.test(sql)) return [lockedRow];
     if (/FROM field_level_provenance/i.test(sql)) return provenanceRows;
     if (/FROM evidence/i.test(sql)) return evidenceRows;
+    if (/manual_intake_case_create_operation/i.test(sql)) {
+      return [{ pending: manualSourcePending, archiveFailed: manualSourceArchiveFailed }];
+    }
     if (/submitted_at = now\(\)/i.test(sql)) {
       lockedRow.status_code = params[0];
       return [{ id: 'case-1' }];
@@ -132,6 +139,48 @@ describe('recomputeStatus case-row serialization', () => {
     expect(txSql.some((sql) => /UPDATE case_ SET status_code/i.test(sql))).toBe(false);
     expect(chase).toHaveBeenCalledWith('case-1', 'linked_to_instruction', undefined);
   });
+
+  it('demotes stale Review after the archive terminal handoff exposes source failure', async () => {
+    probeRow = caseRow('ready_for_eva');
+    lockedRow = {
+      ...caseRow('ready_for_eva'),
+      eva_work_provider: 'QDOS',
+      eva_vehicle_model: 'Audi A3',
+      eva_claimant_name: 'Jane Driver',
+      eva_claimant_telephone: '07123 456789',
+      eva_claimant_email: 'jane@example.test',
+      eva_date_of_loss: '01/07/2026',
+      eva_date_of_instruction: '02/07/2026',
+      eva_accident_circumstances: 'Rear impact',
+      eva_inspection_address: '1 Test Road',
+      eva_vat_status: 'Yes',
+      eva_mileage: '12000',
+      eva_mileage_unit: 'Miles',
+      inspection_decision_code: 100000000,
+    };
+    provenanceRows = EVA_FIELD_ORDER.map((field) => ({
+      field_name: field.key,
+      review_state_code: 100000002,
+      source_label: 'Staff entry',
+    }));
+    evidenceRows = [
+      {
+        id: 'overview', kind_code: 100000000, image_role_code: 100000000,
+        registration_visible: true, accepted_for_eva: true, excluded: false,
+      },
+      {
+        id: 'damage', kind_code: 100000000, image_role_code: 100000001,
+        registration_visible: false, accepted_for_eva: true, excluded: false,
+      },
+    ];
+    manualSourceArchiveFailed = true;
+
+    await recomputeStatus('case-1', 'archive-monitor');
+
+    expect(lockedRow.status_code).toBe(statusToInt('needs_review'));
+    expect(txParams.find((params) => params[0] === 'case-1' && params.length === 2))
+      .toEqual(['case-1', statusToInt('needs_review')]);
+  });
 });
 
 describe('EVA submission canonical re-check', () => {
@@ -145,7 +194,7 @@ describe('EVA submission canonical re-check', () => {
     expect(lockedRow.status_code).toBe(statusToInt('ready_for_eva'));
   });
 
-  it('submits a genuinely ready, reviewed and unheld case', async () => {
+  it('blocks an incomplete source batch, then submits the same genuinely ready case after completion', async () => {
     lockedRow = {
       ...caseRow('ready_for_eva'),
       eva_work_provider: 'QDOS',
@@ -187,6 +236,11 @@ describe('EVA submission canonical re-check', () => {
       },
     ];
 
+    manualSourcePending = true;
+    await expect(markEvaSubmittedIfReady('case-1', 'staff-1')).resolves.toBe(false);
+    expect(txSql.some((sql) => /submitted_at = now\(\)/i.test(sql))).toBe(false);
+
+    manualSourcePending = false;
     await expect(markEvaSubmittedIfReady('case-1', 'staff-1')).resolves.toBe(true);
 
     expect(txSql[0]).toMatch(/FOR UPDATE OF c/i);

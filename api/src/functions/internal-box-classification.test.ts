@@ -566,6 +566,7 @@ describe('generation-aware status acknowledgement', () => {
       if (/FOR UPDATE OF c/i.test(sql)) return [doneRow];
       if (/FROM field_level_provenance/i.test(sql)) return [];
       if (/FROM evidence/i.test(sql)) return [];
+      if (/manual_intake_case_create_operation/i.test(sql)) return [{ pending: false }];
       if (/status_recompute_completed_generation/i.test(sql)) {
         return [{
           status_recompute_requested_generation: '2',
@@ -604,6 +605,7 @@ describe('generation-aware status acknowledgement', () => {
       if (/FOR UPDATE OF c/i.test(sql)) return [terminal];
       if (/FROM field_level_provenance/i.test(sql)) return [];
       if (/FROM evidence/i.test(sql)) return [];
+      if (/manual_intake_case_create_operation/i.test(sql)) return [{ pending: false }];
       if (/status_recompute_completed_generation/i.test(sql)) {
         return [{
           status_recompute_requested_generation: '3',
@@ -639,6 +641,7 @@ describe('generation-aware status acknowledgement', () => {
       if (/FOR UPDATE OF c/i.test(sql)) return [merged];
       if (/FROM field_level_provenance/i.test(sql)) return [];
       if (/FROM evidence/i.test(sql)) return [];
+      if (/manual_intake_case_create_operation/i.test(sql)) return [{ pending: false }];
       if (/UPDATE case_ SET status_code/i.test(sql)) return [];
       if (/SAVEPOINT|RELEASE SAVEPOINT|INSERT INTO audit_event/i.test(sql)) return [];
       throw new Error(`unexpected SQL: ${sql}`);

@@ -128,6 +128,7 @@ import {
   CASE_PO_SHAPE_RE,
   derivedMarkerCasePo,
   INTAKE_CHANNEL_LABELS,
+  sourceReadinessRecoverySnapshot,
   normalizeCasePo,
   type CaseWorkType,
 } from '@cs/domain';
@@ -139,6 +140,7 @@ import {
 } from './eva-export-zip';
 import { GLOBAL_TOASTER_ID } from '../components';
 import { LinkedEmailsPanel } from '../components/LinkedEmailsPanel';
+import { ManualSourceArchiveRecovery } from '../components/ManualSourceArchiveRecovery';
 // Gated AI "Assistant" surface (TKT-015). Self-contained: renders NOTHING unless
 // AI_ASSIST_ENABLED (checks the gate via its own hook), so this is an honest-off mount.
 import { AiAssistPanel } from '../components/AiAssistPanel';
@@ -580,6 +582,7 @@ function caseStageKey(status: CaseStatus): PipelineStageKey {
    item, the EvaFieldKey to focus. Keeps the deep-link the ONE blocker UI. */
 function checklistTarget(item: ChecklistItem, c: Case): { tab: TabName; fieldKey?: EvaFieldKey } {
   if (item.group === 'images') return { tab: 'evidence' };
+  if (item.group === 'source') return { tab: 'evidence' };
   if (item.group === 'address') return { tab: 'address' };
   if (item.group === 'conflicts') {
     const conflict = EVA_FIELD_ORDER.find((d) => c.evaFields[d.key].reviewState === 'conflict');
@@ -2343,6 +2346,20 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                   <Caption1 className={styles.hint}>
                     Photo choices save as you make them. Use Save changes for case fields and the inspection choice.
                   </Caption1>
+                  <ManualSourceArchiveRecovery
+                    caseValue={c}
+                    onRecovered={(fresh) => {
+                      const snapshot = sourceReadinessRecoverySnapshot(
+                        c,
+                        persistedCase,
+                        fresh,
+                        caseVersion,
+                      );
+                      setC(snapshot.draft);
+                      setPersistedCase(snapshot.persisted);
+                      setCaseVersion(snapshot.version);
+                    }}
+                  />
                   {/* Case archive (Box) — folder deep link at the top. Prefers the
                       stored folder shared-link (works with no live connector, e.g.
                       the free-account demo); falls back to the connector "Open in

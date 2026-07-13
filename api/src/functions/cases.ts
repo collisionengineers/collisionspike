@@ -38,6 +38,7 @@ import {
   isRetiredMerged,
   normalizeCasePo,
   readinessInputForCase,
+  sourceReadinessInputForCase,
   statusForReviewCase,
   type Case,
   type Chaser,
@@ -77,6 +78,16 @@ import { isUniqueViolation } from './internal.js';
 import { ifMatch, versionToken } from '../lib/concurrency.js';
 import { isUuid } from '../lib/uuid.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit, writeAuditStrict } from '../lib/audit.js';
+import {
+  beginManualIntakeOperation,
+  finishManualIntakeSideEffects,
+  finishManualIntakeOperation,
+  MANUAL_INTAKE_OPERATION_KEY_RE,
+  manualIntakeEvidenceState,
+  manualIntakeRequestHash,
+  manualIntakeSideEffectsPending,
+  ManualIntakeOperationConflict,
+} from '../lib/manual-intake-operation.js';
 import { markCaseDoneUsing, markEvaSubmittedUsing } from '../lib/terminal-transition.js';
 import { gates } from '../lib/gates.js';
 import { listBoxFolderNames } from '../lib/functions-client.js';
@@ -180,6 +191,7 @@ async function loadCaseFullSnapshotUsing(
   );
   const notes = await q<Row>('SELECT * FROM note WHERE case_id = $1 ORDER BY occurred_at', [id]);
   const chasers = await q<Row>('SELECT * FROM chaser WHERE case_id = $1 ORDER BY created_at', [id]);
+  const sourceEvidenceState = await manualIntakeEvidenceState(q, id);
   const value = rowToCase(rec, {
     now,
     provenanceRows: prov,
@@ -192,6 +204,8 @@ async function loadCaseFullSnapshotUsing(
     })),
     chasers: chasers.map(rowToChaser),
   });
+  value.sourceEvidencePending = sourceEvidenceState.pending || sourceEvidenceState.archiveFailed;
+  value.sourceEvidenceArchiveFailed = sourceEvidenceState.archiveFailed;
   return { value, version: versionToken(rec.updated_at) };
 }
 
@@ -278,7 +292,11 @@ export async function markEvaSubmittedIfReady(
 ): Promise<boolean> {
   return tx(async (q) => {
     const full = await loadCaseFullUsing(q, caseId, new Date(), true);
-    if (!full || !canSubmitCaseToEva(full)) return false;
+    if (
+      !full ||
+      full.sourceEvidencePending === true ||
+      !canSubmitCaseToEva(full)
+    ) return false;
     return markEvaSubmittedUsing(q, caseId, actor);
   });
 }
@@ -655,6 +673,7 @@ app.http('patchCase', {
             evidence: existing.evidence,
             inspectionDecision: inspection?.decisionMode ?? existing.inspectionDecision,
             instructionCount: existing.evidence.filter((item) => item.kind === 'instruction').length,
+            ...sourceReadinessInputForCase(existing),
             hasIdentity:
               nextVrm.trim().length > 0 ||
               (nextCasePo ?? '').trim().length > 0 ||
@@ -878,7 +897,46 @@ app.http('createCase', {
     const raw = await req.json().catch(() => undefined);
     let input = normalizeCreateCaseInput(raw);
     if (!input) return { status: 400, jsonBody: { error: 'invalid case create payload' } };
-    const actor = actorFromClaims(claims);
+    const actor = actorFromClaims(claims) ?? 'authenticated staff';
+    const suppliedOperationKey = (req.headers?.get('idempotency-key') ?? '').trim();
+    const suppliedUploadKey = (req.headers?.get('x-manual-intake-upload-key') ?? '').trim();
+    const suppliedFileCount = (req.headers?.get('x-manual-intake-file-count') ?? '').trim();
+    const suppliedInstructionIndex = (
+      req.headers?.get('x-manual-intake-instruction-index') ?? ''
+    ).trim();
+    const hasOperationHeaders = Boolean(
+      suppliedOperationKey || suppliedUploadKey || suppliedFileCount || suppliedInstructionIndex,
+    );
+    if (hasOperationHeaders && !MANUAL_INTAKE_OPERATION_KEY_RE.test(suppliedOperationKey)) {
+      return { status: 400, jsonBody: { error: 'invalid manual intake operation key' } };
+    }
+    const expectedFileCount = suppliedFileCount === '' ? 0 : Number(suppliedFileCount);
+    const instructionFileIndex = suppliedInstructionIndex === ''
+      ? undefined
+      : Number(suppliedInstructionIndex);
+    if (
+      !Number.isInteger(expectedFileCount) ||
+      expectedFileCount < 0 ||
+      expectedFileCount > 20 ||
+      (expectedFileCount > 0) !== MANUAL_INTAKE_OPERATION_KEY_RE.test(suppliedUploadKey)
+      || (instructionFileIndex !== undefined && (
+        !Number.isInteger(instructionFileIndex)
+        || instructionFileIndex < 0
+        || instructionFileIndex >= expectedFileCount
+      ))
+    ) {
+      return { status: 400, jsonBody: { error: 'invalid manual intake evidence binding' } };
+    }
+    const operationBinding = suppliedOperationKey
+      ? {
+          idempotencyKey: suppliedOperationKey,
+          actor,
+          requestHash: manualIntakeRequestHash(input),
+          ...(suppliedUploadKey ? { uploadIdempotencyKey: suppliedUploadKey } : {}),
+          expectedFileCount,
+          ...(instructionFileIndex !== undefined ? { instructionFileIndex } : {}),
+        }
+      : undefined;
 
     // Resolve a supplied principal before readiness evaluation or Case/PO minting.
     // A syntactically valid typo is not a provider and must never open a numbering series.
@@ -962,31 +1020,123 @@ app.http('createCase', {
       add(EVA_COLUMN_BY_KEY[desc.key], input.evaFields[desc.key]?.value ?? '');
     }
 
-    const newId = await tx(async (q) => {
-      const insertCols = [...cols];
-      const insertVals = [...vals];
-      let casePo = suppliedCasePo;
-      if (!casePo && principalForAutoMint) {
-        // Shared advisory-locked mint (api/src/lib/case-po.ts) — identical logic to the
-        // automated-intake and provider-API paths; the lock lives on this transaction's `q`.
-        casePo = await mintCasePo(q, principalForAutoMint);
-      }
-      if (casePo) {
-        insertCols.push('case_po');
-        insertVals.push(casePo);
-      }
+    let createOutcome: { id: string; replayed: boolean };
+    try {
+      createOutcome = await tx(async (q) => {
+        if (operationBinding) {
+          const existingId = await beginManualIntakeOperation(q, operationBinding);
+          if (existingId) return { id: existingId, replayed: true };
+        }
+        const insertCols = [...cols];
+        const insertVals = [...vals];
+        let casePo = suppliedCasePo;
+        if (!casePo && principalForAutoMint) {
+          // Shared advisory-locked mint (api/src/lib/case-po.ts) — identical logic to the
+          // automated-intake and provider-API paths; the lock lives on this transaction's `q`.
+          casePo = await mintCasePo(q, principalForAutoMint);
+        }
+        if (casePo) {
+          insertCols.push('case_po');
+          insertVals.push(casePo);
+        }
 
-      const placeholders = insertVals.map((_v, i) => `$${i + 1}`).join(', ');
-      const rows = await q<Row>(
-        `INSERT INTO case_ (${insertCols.join(', ')}) VALUES (${placeholders}) RETURNING id`,
-        insertVals,
-      );
-      return rows[0]?.id as string | undefined;
-    });
-    if (!newId) return { status: 500, jsonBody: { error: 'case create returned no id' } };
+        const placeholders = insertVals.map((_v, i) => `$${i + 1}`).join(', ');
+        const rows = await q<Row>(
+          `INSERT INTO case_ (${insertCols.join(', ')}) VALUES (${placeholders}) RETURNING id`,
+          insertVals,
+        );
+        const id = rows[0]?.id as string | undefined;
+        if (!id) throw new Error('case create returned no id');
+        if (operationBinding) {
+          await finishManualIntakeOperation(
+            q,
+            operationBinding.idempotencyKey,
+            id,
+            operationBinding.expectedFileCount,
+          );
+          await writeAuditStrict({
+            action: AUDIT_ACTION.case_created,
+            caseId: id,
+            summary: `Case created (${name})`,
+            after: {
+              status,
+              vrm: input.vrm,
+              manualIntakeOperation: operationBinding.idempotencyKey,
+            },
+            actor,
+          }, q);
+        }
+        return { id, replayed: false };
+      });
+    } catch (error) {
+      if (
+        error instanceof ManualIntakeOperationConflict ||
+        (operationBinding && isUniqueViolation(error))
+      ) {
+        return {
+          status: 409,
+          jsonBody: { error: 'manual intake operation does not match this case or file selection' },
+        };
+      }
+      throw error;
+    }
+    const newId = createOutcome.id;
+
+    // The case row and create audit commit first. A response may be lost (or the
+    // process may stop) before supplementary create effects run, so the exact
+    // operation replays this all-or-none transaction until its durable marker is set.
+    if (operationBinding) {
+      await tx(async (q) => {
+        if (!await manualIntakeSideEffectsPending(q, operationBinding.idempotencyKey)) return;
+        if (input.writeProvenance) {
+          for (const desc of EVA_FIELD_ORDER) {
+            const field = input.evaFields[desc.key];
+            await q(
+              `INSERT INTO field_level_provenance
+                 (name, case_id, field_name, value, source_type_code, source_label, confidence, review_state_code)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+              [
+                `${newId}:${desc.key}`,
+                newId,
+                desc.key,
+                field.value,
+                sourceTypeCodec.toInt(field.provenance.sourceType) ?? 100000000,
+                field.provenance.sourceLabel,
+                field.provenance.confidence ?? null,
+                reviewStateCodec.toInt(field.reviewState) ?? 100000001,
+              ],
+            );
+          }
+        }
+        const receivedFrom = (input.receivedFrom ?? '').trim();
+        const receivedOn = (input.receivedOn ?? '').trim();
+        if (receivedFrom || receivedOn) {
+          const parts = [
+            receivedFrom ? `Received from ${receivedFrom}` : 'Received',
+            receivedOn ? `on ${receivedOn}` : '',
+          ].filter(Boolean).join(' ');
+          await q(
+            'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
+            ['Images received', newId, actor, `${parts}.`],
+          );
+        }
+        if (input.inspectionDecisionReason?.trim()) {
+          await q(
+            'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
+            [
+              'Inspection decision',
+              newId,
+              'Manual intake',
+              `Inspection decision: image-based - ${input.inspectionDecisionReason.trim()}`,
+            ],
+          );
+        }
+        await finishManualIntakeSideEffects(q, operationBinding.idempotencyKey);
+      });
+    }
 
     // Best-effort: one FieldLevelProvenance row per EVA field.
-    if (input.writeProvenance) {
+    if (!operationBinding && input.writeProvenance) {
       await Promise.all(
         EVA_FIELD_ORDER.map(async (desc) => {
           const field = input.evaFields[desc.key];
@@ -1018,7 +1168,7 @@ app.http('createCase', {
     // artifact). Best-effort — a note failure must not sink the create.
     const receivedFrom = (input.receivedFrom ?? '').trim();
     const receivedOn = (input.receivedOn ?? '').trim();
-    if (receivedFrom || receivedOn) {
+    if (!operationBinding && (receivedFrom || receivedOn)) {
       try {
         const parts = [
           receivedFrom ? `Received from ${receivedFrom}` : 'Received',
@@ -1036,7 +1186,7 @@ app.http('createCase', {
     }
 
     // Persist the image-based reason as a case note (best-effort).
-    if (input.inspectionDecisionReason?.trim()) {
+    if (!operationBinding && input.inspectionDecisionReason?.trim()) {
       try {
         await query(
           'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
@@ -1052,13 +1202,15 @@ app.http('createCase', {
       }
     }
 
-    await writeAudit({
-      action: AUDIT_ACTION.case_created,
-      caseId: newId,
-      summary: `Case created (${name})`,
-      after: { status, vrm: input.vrm },
-      ...(actor ? { actor } : {}),
-    });
+    if (!operationBinding) {
+      await writeAudit({
+        action: AUDIT_ACTION.case_created,
+        caseId: newId,
+        summary: `Case created (${name})`,
+        after: { status, vrm: input.vrm },
+        actor,
+      });
+    }
 
     // TKT-109/129: a manual case for an always_image_based provider pre-fills its
     // inspection field immediately (recomputeStatus runs the guarded pre-fill first,
@@ -1066,7 +1218,66 @@ app.http('createCase', {
     // other provider — the guard persists only on an actual change).
     await recomputeStatus(newId, actor);
 
-    return { status: 201, jsonBody: { id: newId } };
+    return createOutcome.replayed
+      ? { status: 200, jsonBody: { id: newId, replayed: true } }
+      : { status: 201, jsonBody: { id: newId } };
+  }),
+});
+
+app.http('retryManualIntakeArchive', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'cases/{id}/archive-retry',
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+    const caseId = req.params.id;
+    const actor = actorFromClaims(claims) ?? 'authenticated staff';
+    let requeued = 0;
+    try {
+      requeued = await tx(async (q) => {
+        const locked = await lockCaseForMutation(q, caseId);
+        if (locked.kind === 'missing') return -1;
+        if (locked.kind !== 'active') return -2;
+        const rows = await q<{ evidence_id: string }>(
+          `UPDATE archive_mirror_outbox o
+              SET requested_generation = o.requested_generation + 1,
+                  requested_at = now(), attempt_count = 0,
+                  next_attempt_at = now(), last_attempt_at = NULL, last_error = NULL,
+                  dead_lettered_at = NULL, dead_letter_reason = NULL, updated_at = now()
+             FROM evidence e
+             JOIN staff_evidence_upload_item item ON item.evidence_id = e.id
+             JOIN staff_evidence_upload batch
+               ON batch.idempotency_key = item.idempotency_key
+              AND batch.case_id = item.case_id
+            WHERE o.evidence_id = e.id
+              AND e.case_id = $1
+              AND batch.case_id = $1
+              AND batch.source = 'manual_intake'
+              AND o.dead_lettered_at IS NOT NULL
+          RETURNING o.evidence_id`,
+          [caseId],
+        );
+        if (rows.length > 0) {
+          await writeAuditStrict({
+            action: AUDIT_ACTION.evidence_upload_result,
+            caseId,
+            actor,
+            summary: `Manual source archive retry requested (${rows.length})`,
+            after: { requeued: rows.length, evidenceIds: rows.map((row) => row.evidence_id) },
+          }, q);
+          await requestStatusRecompute(q, caseId);
+        }
+        return rows.length;
+      });
+    } catch (error) {
+      if (error instanceof ManualIntakeOperationConflict) {
+        return { status: 409, jsonBody: { error: error.message } };
+      }
+      throw error;
+    }
+    if (requeued === -1) return { status: 404, jsonBody: { error: 'case not found' } };
+    if (requeued === -2) return { status: 409, jsonBody: { error: 'case is not active' } };
+    if (requeued > 0) await recomputeStatus(caseId, actor);
+    return { status: 200, jsonBody: { requeued } };
   }),
 });
 
@@ -1586,6 +1797,15 @@ async function mergeEvidenceRows(
           AND completed_generation < requested_generation`,
       [row.id],
     );
+    // A staff-upload item may point at the redundant row, including when a
+    // Manual Intake upload deduped onto it. Follow the canonical target evidence
+    // so later archive failure/readiness and retry observe the survivor.
+    await q(
+      `UPDATE staff_evidence_upload_item
+          SET evidence_id = $2, updated_at = now()
+        WHERE evidence_id = $1`,
+      [row.id, survivorId],
+    );
   }
 
   const moved = await q<Row>(
@@ -1605,6 +1825,64 @@ async function mergeEvidenceRows(
     );
   }
   return { movedEvidence: moved.length, collidingEvidence: collisionSourceIds.length };
+}
+
+/** Manual Intake cannot be re-owned while its case-create effects or current
+ * source batch are incomplete. Completed historical operations are transferred
+ * to the survivor (multiple completed operations per survivor are valid after a merge). */
+async function manualIntakeMergeConflict(
+  q: TxQuery,
+  sourceCaseId: string,
+  targetCaseId: string,
+): Promise<string | undefined> {
+  const operations = await q<{
+    case_id: string;
+    expected_file_count: number | string;
+    evidence_completed_at: Date | string | null;
+    side_effects_completed_at: Date | string | null;
+  }>(
+    `SELECT case_id, expected_file_count, evidence_completed_at, side_effects_completed_at
+       FROM manual_intake_case_create_operation
+      WHERE case_id = ANY($1::uuid[])
+      ORDER BY case_id, created_at, idempotency_key
+      FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]],
+  );
+  const incomplete = operations.some((operation) =>
+    operation.side_effects_completed_at == null ||
+    (Number(operation.expected_file_count) > 0 && operation.evidence_completed_at == null));
+  return incomplete
+    ? 'Source files are still being added for one of these cases. Finish or retry them before merging.'
+    : undefined;
+}
+
+async function transferStaffUploadOwnership(
+  q: TxQuery,
+  sourceCaseId: string,
+  targetCaseId: string,
+): Promise<void> {
+  // Move the durable parent batch first. Evidence coalescing above may rebind an
+  // item's evidence identity, but ownership stays on the source until its batch
+  // owns the survivor. The following item update then restores the batch/item
+  // case invariant before the transaction becomes visible.
+  await q(
+    `UPDATE staff_evidence_upload
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId],
+  );
+  await q(
+    `UPDATE staff_evidence_upload_item
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId],
+  );
+  await q(
+    `UPDATE manual_intake_case_create_operation
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId],
+  );
 }
 
 /**
@@ -1766,6 +2044,18 @@ app.http('mergeCases', {
         };
       }
 
+      const manualIntakeConflict = await manualIntakeMergeConflict(
+        q,
+        sourceCaseId,
+        targetCaseId,
+      );
+      if (manualIntakeConflict) {
+        return { kind: 'error' as const, status: 409, error: manualIntakeConflict };
+      }
+
+      // Reconcile the file-request intent only after every fail-fast ownership
+      // check. This helper may cancel or transfer a durable intent, so no later
+      // validation may reject an otherwise uncommitted merge.
       const fileRequestConflict = await reconcileMergeFileRequestIntent(
         q,
         sourceCaseId,
@@ -1796,6 +2086,7 @@ app.http('mergeCases', {
           error: 'Archive work is still finishing for one of these cases. Try the merge again shortly.',
         };
       }
+      await transferStaffUploadOwnership(q, sourceCaseId, targetCaseId);
       const movedEmails = await q<Row>(
         'UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id',
         [sourceCaseId, targetCaseId],

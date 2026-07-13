@@ -58,6 +58,7 @@ const baseRow: Record<string, unknown> = {
 const calls: Array<{ sql: string; params: unknown[] }> = [];
 let failInspectionWrite = false;
 let rolledBack = false;
+let manualSourceArchiveFailed = false;
 let currentRow: Record<string, unknown>;
 let evidenceRows: Array<Record<string, unknown>>;
 
@@ -79,6 +80,7 @@ beforeEach(() => {
   calls.length = 0;
   failInspectionWrite = false;
   rolledBack = false;
+  manualSourceArchiveFailed = false;
   currentRow = { ...baseRow };
   evidenceRows = [];
   db.query.mockReset();
@@ -96,6 +98,9 @@ beforeEach(() => {
     if (/FROM case_ c/i.test(sql) && /WHERE c.id = \$1/i.test(sql)) return [{ ...currentRow }];
     if (/FROM field_level_provenance/i.test(sql)) return [];
     if (/FROM evidence/i.test(sql)) return evidenceRows;
+    if (/AS "archiveFailed"/i.test(sql)) {
+      return [{ pending: manualSourceArchiveFailed, archiveFailed: manualSourceArchiveFailed }];
+    }
     if (/FROM note/i.test(sql) || /FROM chaser/i.test(sql)) return [];
     if (/UPDATE field_level_provenance/i.test(sql)) return [{ id: 'prov-1' }];
     if (/INSERT INTO inspection_address/i.test(sql)) {
@@ -286,6 +291,29 @@ describe('explicit case save transaction', () => {
     expect(caseUpdate?.sql).toMatch(/status_code = \$\d+/);
     expect(caseUpdate?.params).toContain(100000010);
     expect(caseUpdate?.params).not.toContain('(cleared)');
+  });
+
+  it('keeps a source-archive failure Not Ready during an explicit save', async () => {
+    manualSourceArchiveFailed = true;
+    currentRow = {
+      ...baseRow,
+      eva_claimant_name: 'Jane Example',
+      eva_inspection_address: 'Image Based Assessment',
+      inspection_decision_code: 100000001,
+    };
+
+    const result = await registrations.get('patchCase')!.handler(
+      request({
+        editSession: true,
+        evaFields: { accidentCircumstances: 'Updated circumstances' },
+      }, VERSION),
+      context(),
+    );
+
+    expect(result.status).toBe(200);
+    const caseUpdate = calls.find(({ sql }) => /UPDATE case_ SET/i.test(sql));
+    expect(caseUpdate?.sql).toMatch(/status_code = \$\d+/);
+    expect(caseUpdate?.params).toContain(100000002);
   });
 
   it('rolls back the complete save when the decision write fails and emits no success audit', async () => {

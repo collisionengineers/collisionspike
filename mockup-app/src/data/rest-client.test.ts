@@ -136,6 +136,68 @@ describe('rest-client — dashboard `now` threading (#4)', () => {
   });
 });
 
+describe('rest-client — resumable Manual Intake create', () => {
+  it('sends case and evidence retry identities as headers without changing the case body', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson({ id: 'case-created' }));
+    const da = clientWith(fetchMock);
+    const body = { vrm: 'AB12CDE' } as Parameters<typeof da.createCase>[0];
+
+    await da.createCase(body, {
+      idempotencyKey: 'manual-create-operation-0001',
+      evidenceUploadKey: 'manual-upload-operation-0001',
+      expectedEvidenceCount: 3,
+      instructionEvidenceIndex: 1,
+    });
+
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases');
+    const init = lastInit(fetchMock);
+    expect(init.method).toBe('POST');
+    expect(init.body).toBe(JSON.stringify(body));
+    expect(init.headers).toMatchObject({
+      Authorization: 'Bearer TOKEN',
+      'Idempotency-Key': 'manual-create-operation-0001',
+      'X-Manual-Intake-Upload-Key': 'manual-upload-operation-0001',
+      'X-Manual-Intake-File-Count': '3',
+      'X-Manual-Intake-Instruction-Index': '1',
+    });
+  });
+
+  it('binds per-file roles and the manual-operation marker into the multipart upload', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson({
+      added: [],
+      rejected: [],
+      manualIntakeCompletion: 'not_bound',
+    }));
+    const da = clientWith(fetchMock);
+    const files = [
+      new File(['instruction'], 'instruction.pdf', { type: 'application/pdf' }),
+      new File(['extra'], 'estimate.pdf', { type: 'application/pdf' }),
+    ];
+
+    const result = await da.uploadEvidence('case-1', files, {
+      source: 'manual_intake',
+      idempotencyKey: 'manual-upload-operation-0001',
+      fileRoles: ['instruction', 'extra'],
+      manualIntakeOperation: true,
+      manualIntakeInstructionIndex: 0,
+    });
+
+    const form = lastInit(fetchMock).body as FormData;
+    expect(form.getAll('fileRole')).toEqual(['instruction', 'extra']);
+    expect(form.get('manualIntakeOperation')).toBe('true');
+    expect(form.get('manualIntakeInstructionIndex')).toBe('0');
+    expect(result.manualIntakeCompletion).toBe('not_bound');
+  });
+
+  it('posts the actionable archive retry for a case', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson({ requeued: 2 }));
+    const da = clientWith(fetchMock);
+    await expect(da.retryManualIntakeArchive('case-1')).resolves.toEqual({ requeued: 2 });
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases/case-1/archive-retry');
+    expect(lastInit(fetchMock).method).toBe('POST');
+  });
+});
+
 describe('rest-client — openCasePoMatches (TKT-068 attach-by-Case/PO)', () => {
   it('GETs /api/cases?case_po=<encoded> and returns the matches', async () => {
     const rows = [{ id: 'c-9', casePo: 'CCPY26050', vrm: 'YT13UTV', status: 'needs_review' }];
