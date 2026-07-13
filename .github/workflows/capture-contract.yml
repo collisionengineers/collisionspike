@@ -1,0 +1,46 @@
+name: capture-contract
+
+on:
+  pull_request:
+    paths:
+      - api/openapi/capture.v1.yaml
+      - api/src/generated/capture-api.ts
+      - api/package.json
+      - api/tsconfig.json
+      - package.json
+      - package-lock.json
+      - scripts/check-capture-contract.mjs
+      - .github/workflows/capture-contract.yml
+  push:
+    branches: [main]
+    paths:
+      - api/openapi/capture.v1.yaml
+      - api/src/generated/capture-api.ts
+      - api/package.json
+      - api/tsconfig.json
+      - package.json
+      - package-lock.json
+      - scripts/check-capture-contract.mjs
+      - .github/workflows/capture-contract.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: validate, generate, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Validate the canonical contract and generated types
+        run: npm run contract:capture:check
+      - name: Build the Data API
+        run: npm run build:api
+      - name: Test the Data API
+        run: npm run test --workspace @cs/api
