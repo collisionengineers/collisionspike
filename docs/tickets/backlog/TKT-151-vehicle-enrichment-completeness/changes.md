@@ -7,8 +7,8 @@ or independently live-verified. Ticket status remains backlog until the dispatch
 loop performs deployment, the controlled remediation, the final census and the
 separate verification verdict.
 
-Exact implementation head before this evidence-only follow-up:
-`533003ca9a1587ea8f73705c7cf93660590ceaa8`.
+The CollisionSpike delivery is PR 78; its exact passing reciprocal-review head is
+recorded by the PR marker rather than self-referenced inside its own commit.
 
 ## Runtime path
 

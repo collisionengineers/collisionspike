@@ -123,7 +123,7 @@ app.http('vehicleDataLookup', {
 
     const requestShape = {
       caseId,
-      registration,
+      registration: canonicalizeVrm(registration),
       targetDate: targetDate ?? null,
     };
     // Bind a Durable retry to caller-controlled, operation-stable identity only.

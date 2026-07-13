@@ -44,6 +44,18 @@ def _clean(value: object) -> str | None:
     return stripped or None
 
 
+def _contract_registration(canonical: str) -> str:
+    """Keep malformed input inside the versioned response contract.
+
+    Provider validation still receives the complete canonical token so an
+    oversized registration cannot be truncated into a different plausible
+    vehicle.  The contract field is evidence for a usable canonical identity;
+    empty is therefore the honest value when the token exceeds its bound.
+    """
+
+    return canonical if len(canonical) <= 16 else ""
+
+
 def _exception_status(exc: Exception) -> str:
     status = getattr(exc, "lookup_status", None)
     if status in {
@@ -111,7 +123,7 @@ def failure_contract(
             "run_id": run_id or str(uuid.uuid4()),
             "status": lookup_status,
             "requested_registration": requested_registration,
-            "canonical_registration": canonical,
+            "canonical_registration": _contract_registration(canonical),
             "target_date": target.isoformat(),
             "retrieved_at": retrieved.isoformat(),
             "provider_statuses": {},
@@ -362,7 +374,7 @@ class VehicleDataService:
             "run_id": run_id,
             "status": "invalid_registration",
             "requested_registration": registration,
-            "canonical_registration": canonical,
+            "canonical_registration": _contract_registration(canonical),
             "target_date": target.isoformat(),
             "retrieved_at": retrieved_at.isoformat(),
             "provider_statuses": {},

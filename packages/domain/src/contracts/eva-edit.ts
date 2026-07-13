@@ -57,12 +57,25 @@ export function normaliseEvaMileage(value: unknown): string | undefined {
  * a standalone unit suffix. The persisted value still passes through the strict
  * digits/grouped-digits normaliser; arbitrary surrounding prose is not stripped.
  */
-export function normaliseExtractedEvaMileage(value: unknown): string | undefined {
+export type ExtractedEvaMileage = {
+  value: string;
+  unit?: 'Miles' | 'Km';
+};
+
+export function parseExtractedEvaMileage(value: unknown): ExtractedEvaMileage | undefined {
   const direct = normaliseEvaMileage(value);
-  if (direct) return direct;
+  if (direct) return { value: direct };
   if (typeof value !== 'string') return undefined;
-  const match = value.trim().match(/^(.+?)\s*(?:miles?|mi|kilometres?|km)$/i);
-  return match ? normaliseEvaMileage(match[1]) : undefined;
+  const match = value.trim().match(/^(.+?)\s*(miles?|mi|kilometres?|km)$/i);
+  if (!match) return undefined;
+  const mileage = normaliseEvaMileage(match[1]);
+  if (!mileage) return undefined;
+  const unit = /^(?:miles?|mi)$/i.test(match[2]) ? 'Miles' : 'Km';
+  return { value: mileage, unit };
+}
+
+export function normaliseExtractedEvaMileage(value: unknown): string | undefined {
+  return parseExtractedEvaMileage(value)?.value;
 }
 
 export function isValidEvaMileage(value: unknown): value is string {

@@ -3,6 +3,7 @@ import {
   EVA_EDIT_MAX_LENGTH,
   normaliseExtractedEvaMileage,
   normaliseEvaEdit,
+  parseExtractedEvaMileage,
 } from './eva-edit';
 
 describe('shared EVA edit normalisation', () => {
@@ -34,6 +35,9 @@ describe('shared EVA edit normalisation', () => {
     expect(normaliseExtractedEvaMileage('50000 km')).toBe('50000');
     expect(normaliseExtractedEvaMileage('about 50,000 miles')).toBeUndefined();
     expect(normaliseExtractedEvaMileage('50,000 miles approximately')).toBeUndefined();
+    expect(parseExtractedEvaMileage('50,000 mi')).toEqual({ value: '50000', unit: 'Miles' });
+    expect(parseExtractedEvaMileage('50000 kilometres')).toEqual({ value: '50000', unit: 'Km' });
+    expect(parseExtractedEvaMileage('50,000')).toEqual({ value: '50000' });
   });
 
   it('retains the established clip-at-column-width behavior for ordinary case-page text', () => {

@@ -15,7 +15,7 @@ import type {
   ProviderApiImage,
   ProviderApiSubmission,
 } from '@cs/domain';
-import { normaliseExtractedEvaMileage } from '@cs/domain';
+import { parseExtractedEvaMileage } from '@cs/domain';
 
 /** Machine-readable rejection codes — documented in docs/reference/provider-api-intake-spec.md. */
 export type ProviderIntakeErrorCode =
@@ -145,10 +145,15 @@ export function validateProviderApiSubmission(
     return err('invalid_mileage_unit', "mileageUnit must be '', 'Miles' or 'Km'.");
   }
   const mileage = str(b.mileage).trim();
-  const normalizedMileage = mileage ? normaliseExtractedEvaMileage(mileage) : '';
-  if (mileage && !normalizedMileage) {
+  const parsedMileage = mileage ? parseExtractedEvaMileage(mileage) : undefined;
+  if (mileage && !parsedMileage) {
     return err('invalid_mileage', 'mileage must be numeric, with an optional standalone unit.');
   }
+  const explicitMileageUnit = mileageUnit as '' | 'Miles' | 'Km';
+  if (parsedMileage?.unit && explicitMileageUnit && parsedMileage.unit !== explicitMileageUnit) {
+    return err('invalid_mileage_unit', 'The mileage unit suffix must match mileageUnit.');
+  }
+  const normalizedMileageUnit = explicitMileageUnit || parsedMileage?.unit || '';
 
   // inspectionAddress: optional; when present must be a string (6-line block or 'Image Based Assessment').
   if (b.inspectionAddress !== undefined && typeof b.inspectionAddress !== 'string') {
@@ -228,8 +233,8 @@ export function validateProviderApiSubmission(
       accidentCircumstances,
       inspectionAddress,
       vatStatus: vatStatus as '' | 'Yes' | 'No',
-      mileage: normalizedMileage ?? '',
-      mileageUnit: mileageUnit as '' | 'Miles' | 'Km',
+      mileage: parsedMileage?.value ?? '',
+      mileageUnit: normalizedMileageUnit,
       instructions,
       images,
     },

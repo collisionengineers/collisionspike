@@ -78,6 +78,10 @@ recorded by the PR marker rather than self-referenced inside its own commit.
 - Machine/provider mileage retains compatibility with an exact standalone unit suffix,
   while case edits and arbitrary surrounding prose remain strict. The remediation client
   verifies the Postgres certificate by default.
+- Invalid oversized registrations now remain fail-soft and schema-valid without truncating
+  into a different plausible vehicle. Durable replay digests use the canonical registration,
+  so an equivalent spaced saved value cannot conflict with its first attempt. Provider
+  mileage suffixes infer their unit when absent and fail closed when an explicit unit conflicts.
 - Rebased onto `main` at `eaa31fb` after the manual-source, status-language and website-enquiry deliveries.
   The semantic merge preserves pending/failed source-evidence readiness, resumable Manual
   Intake uploads, explicit-save behavior, bounded e-mail previews and the new vehicle checks
@@ -136,9 +140,9 @@ recorded by the PR marker rather than self-referenced inside its own commit.
 
 ## Gates run
 
-- `functions/enrichment`: `python -m pytest -q` → **64 passed**.
+- `functions/enrichment`: `python -m pytest -q` → **65 passed**.
 - Python compile/import gate (`compileall`) → pass.
-- Data API: TypeScript build → pass; Vitest → **70 files / 705 tests passed**.
+- Data API: TypeScript build → pass; Vitest → **70 files / 707 tests passed**.
 - Orchestration: TypeScript build → pass; Vitest → **31 files / 422 tests passed**.
 - Domain contract suite → **58 files / 1,160 tests passed** after exhaustive runtime validation and readiness tests.
 - SPA: TypeScript/Vite build pass; Vitest → **486 tests passed**.

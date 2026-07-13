@@ -133,6 +133,40 @@ describe('vehicleDataLookup HTTP boundary', () => {
     expect(status.recomputeStatus).toHaveBeenCalledWith('case-1');
   });
 
+  it('keeps the durable request digest stable when an equivalent saved VRM appears', async () => {
+    db.query
+      .mockResolvedValueOnce([{
+        vrm: null,
+        eva_mileage: null,
+        eva_date_of_loss: '13/07/2026',
+      }])
+      .mockResolvedValueOnce([{
+        vrm: 'AB12CDE',
+        eva_mileage: null,
+        eva_date_of_loss: '13/07/2026',
+      }]);
+    const replay = {
+      result: result(),
+      persisted: { applied: [], retryable: false, replayed: true },
+    };
+    persistence.loadVehicleDataReplay
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(replay);
+    const operation = {
+      caseId: 'case-1',
+      registration: 'AB12 CDE',
+      idempotencyKey: 'intake:instance-1:vehicle-data:case-1',
+    };
+
+    await expect(handler(request(operation), ctx)).resolves.toMatchObject({ status: 200 });
+    await expect(handler(request(operation), ctx)).resolves.toMatchObject({ status: 200 });
+
+    const firstDigest = persistence.loadVehicleDataReplay.mock.calls[0]?.[2];
+    const retryDigest = persistence.loadVehicleDataReplay.mock.calls[1]?.[2];
+    expect(firstDigest).toBe(retryDigest);
+    expect(canonical.callVehicleData).toHaveBeenCalledOnce();
+  });
+
   it('fails closed when the activity registration conflicts with the saved case', async () => {
     db.query.mockResolvedValue([{
       vrm: 'XY99ZZZ',

@@ -83,6 +83,15 @@ describe('validateProviderApiSubmission — happy path', () => {
     if (!r.ok) return;
     expect(r.value.mileage).toBe('50000');
   });
+
+  it('infers a standalone mileage suffix and rejects a conflicting explicit unit', () => {
+    const inferred = validateProviderApiSubmission(base({ mileage: '50,000 km', mileageUnit: '' }));
+    expect(inferred.ok).toBe(true);
+    if (inferred.ok) expect(inferred.value.mileageUnit).toBe('Km');
+
+    const conflict = validateProviderApiSubmission(base({ mileage: '50,000 km', mileageUnit: 'Miles' }));
+    expect(conflict).toMatchObject({ ok: false, code: 'invalid_mileage_unit' });
+  });
 });
 
 describe('validateProviderApiSubmission — rejections (mirror DB CHECKs)', () => {

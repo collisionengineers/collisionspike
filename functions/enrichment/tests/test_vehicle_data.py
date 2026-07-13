@@ -30,6 +30,7 @@ from vehicle_data.registration import canonicalize_registration  # noqa: E402
 from vehicle_data.service import (  # noqa: E402
     VehicleDataService,
     cohort_priors_from_env,
+    failure_contract,
     legacy_enrichment_adapter,
     select_cohort_prior,
 )
@@ -667,6 +668,34 @@ def test_invalid_registration_is_blocked_before_provider_quota_and_warned():
     assert result["lookup"]["status"] == "invalid_registration"
     assert result["provider_snapshots"] == []
     assert result["mileage"]["warnings"][0]["code"] == "invalid_registration"
+
+
+def test_oversized_registration_returns_schema_valid_invalid_contract():
+    service = VehicleDataService(
+        dvsa=StaticDvsa(),
+        clock=lambda: datetime(2026, 7, 12, tzinfo=timezone.utc),
+    )
+    requested = "AB12CDE" * 3
+    result = service.lookup(requested)
+    assert result["lookup"]["status"] == "invalid_registration"
+    assert result["lookup"]["requested_registration"] == requested
+    assert result["lookup"]["canonical_registration"] == ""
+    assert result["provider_snapshots"] == []
+    schema = json.loads(
+        (FN_DIR.parents[1] / "contracts" / "vehicle-data-v1.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    Draft202012Validator(schema, format_checker=FormatChecker()).validate(result)
+    fallback = failure_contract(
+        requested_registration=requested,
+        lookup_status="temporarily_unavailable",
+        warning_code="lookup_failed",
+        message="Vehicle details are temporarily unavailable.",
+        retrieved_at=datetime(2026, 7, 12, tzinfo=timezone.utc),
+    )
+    assert fallback["lookup"]["canonical_registration"] == ""
+    Draft202012Validator(schema, format_checker=FormatChecker()).validate(fallback)
 
 
 def test_uncalibrated_estimate_is_visible_but_never_available_to_legacy_autofill():
