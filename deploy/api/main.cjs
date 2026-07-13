@@ -15858,17 +15858,39 @@ function provenanceRowToEvaField(value, row) {
     }
   };
 }
+function comparableProvenanceValue(key, raw) {
+  if (raw == null) return null;
+  let value = String(raw).replace(/\r\n/g, "\n").trim();
+  if (key === "mileage") value = value.replace(/[^\d]/g, "");
+  if (key === "claimantTelephone") value = value.replace(/[\s().-]+/g, "");
+  return value.toLocaleLowerCase("en-GB");
+}
 function rowToEvaFields(rec, provenanceRows = []) {
   const byField = /* @__PURE__ */ new Map();
   for (const row of provenanceRows) {
-    if (row.field_name) byField.set(String(row.field_name), row);
+    if (!row.field_name) continue;
+    const key = String(row.field_name);
+    byField.set(key, [...byField.get(key) ?? [], row]);
   }
   const out = {};
   for (const desc of EVA_FIELD_ORDER) {
     const value = rec[EVA_COLUMN_BY_KEY[desc.key]] ?? "";
+    const currentComparable = comparableProvenanceValue(desc.key, value);
+    const provenance = (byField.get(desc.key) ?? []).filter((row) => comparableProvenanceValue(desc.key, row.value) === currentComparable).sort((a, b) => {
+      const reviewedA = reviewStateCodec.toName(a.review_state_code) === "reviewed" ? 1 : 0;
+      const reviewedB = reviewStateCodec.toName(b.review_state_code) === "reviewed" ? 1 : 0;
+      if (reviewedA !== reviewedB) return reviewedB - reviewedA;
+      const staffA = sourceTypeCodec.toName(a.source_type_code) === "staff" ? 1 : 0;
+      const staffB = sourceTypeCodec.toName(b.source_type_code) === "staff" ? 1 : 0;
+      if (staffA !== staffB) return staffB - staffA;
+      const timeA = new Date(String(a.updated_at ?? a.created_at ?? 0)).getTime() || 0;
+      const timeB = new Date(String(b.updated_at ?? b.created_at ?? 0)).getTime() || 0;
+      if (timeA !== timeB) return timeB - timeA;
+      return String(a.id ?? "").localeCompare(String(b.id ?? ""));
+    })[0];
     out[desc.key] = provenanceRowToEvaField(
       value,
-      byField.get(desc.key)
+      provenance
     );
   }
   out.vatStatus = { ...out.vatStatus, value: out.vatStatus.value };
@@ -17232,7 +17254,13 @@ function selectParserEvaCandidates(parserEva) {
     const spec = SPEC[key];
     const value = spec.normalize(raw);
     if (!value) continue;
-    out.push({ column: spec.column, provenanceField: spec.provenanceField, value });
+    const sourceType = parserEva.sources?.[key];
+    out.push({
+      column: spec.column,
+      provenanceField: spec.provenanceField,
+      value,
+      ...sourceType === "email_text" ? { sourceType, sourceLabel: "From email body" } : {}
+    });
   }
   return out;
 }
@@ -17573,8 +17601,8 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
       provenance.push({
         field: cand.provenanceField,
         value: cand.value,
-        sourceType: "pdf_extraction",
-        sourceLabel: "From instructions"
+        sourceType: cand.sourceType ?? "pdf_extraction",
+        sourceLabel: cand.sourceLabel ?? "From instructions"
       });
     }
   }
@@ -17700,9 +17728,10 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
     });
   }
   const pdfSourceTypeCode = sourceTypeCodec.toInt("pdf_extraction") ?? 100000001;
+  const emailSourceTypeCode = sourceTypeCodec.toInt("email_text") ?? 100000002;
   const corpusSourceTypeCode = sourceTypeCodec.toInt("corpus") ?? 100000003;
   for (const p of provenance) {
-    const sourceTypeCode = p.sourceType === "corpus" ? corpusSourceTypeCode : pdfSourceTypeCode;
+    const sourceTypeCode = p.sourceType === "corpus" ? corpusSourceTypeCode : p.sourceType === "email_text" ? emailSourceTypeCode : pdfSourceTypeCode;
     await query(
       `INSERT INTO field_level_provenance
          (name, case_id, field_name, value, source_type_code, source_label)
@@ -20947,7 +20976,15 @@ async function upsertManualProvenance(caseId, fieldName, value) {
       `UPDATE field_level_provenance
           SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
               review_state_code = $5, updated_at = now()
-        WHERE case_id = $1 AND field_name = $2
+        WHERE id = (
+          SELECT id
+          FROM field_level_provenance
+          WHERE case_id = $1
+            AND field_name = $2
+            AND source_type_code = $4
+          ORDER BY updated_at DESC, id
+          LIMIT 1
+        )
         RETURNING id`,
       [caseId, fieldName, value, staff, reviewed]
     );
@@ -20956,10 +20993,38 @@ async function upsertManualProvenance(caseId, fieldName, value) {
         `INSERT INTO field_level_provenance
            (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
          VALUES ($1, $2, $3, $4, $5, 'Manual edit (case page)', $6)`,
-        [`${caseId}:${fieldName}`, caseId, fieldName, value, staff, reviewed]
+        [`${caseId}:${fieldName}:staff`, caseId, fieldName, value, staff, reviewed]
       );
     }
   } catch {
+  }
+}
+async function upsertManualProvenanceStrict(q, caseId, fieldName, value) {
+  const staff = sourceTypeCodec.toInt("staff") ?? 1e8;
+  const reviewed = reviewStateCodec.toInt("reviewed") ?? 100000002;
+  const updated = await q(
+    `UPDATE field_level_provenance
+        SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
+            review_state_code = $5, updated_at = now()
+      WHERE id = (
+        SELECT id
+        FROM field_level_provenance
+        WHERE case_id = $1
+          AND field_name = $2
+          AND source_type_code = $4
+        ORDER BY updated_at DESC, id
+        LIMIT 1
+      )
+      RETURNING id`,
+    [caseId, fieldName, value, staff, reviewed]
+  );
+  if (updated.length === 0) {
+    await q(
+      `INSERT INTO field_level_provenance
+         (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
+       VALUES ($1, $2, $3, $4, $5, 'Manual edit (case page)', $6)`,
+      [`${caseId}:${fieldName}:staff`, caseId, fieldName, value, staff, reviewed]
+    );
   }
 }
 import_functions2.app.http("caseById", {
@@ -20987,6 +21052,26 @@ import_functions2.app.http("patchCase", {
   handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
     const id = req.params.id;
     const body2 = await req.json().catch(() => ({}));
+    const explicitSave = body2.editSession === true;
+    const parsedInspection = body2.inspectionDecision === void 0 ? void 0 : SaveInspectionDecisionParams.safeParse({
+      ...body2.inspectionDecision,
+      caseId: id
+    });
+    if (parsedInspection && !parsedInspection.success) {
+      return {
+        status: 400,
+        jsonBody: {
+          error: "invalid inspection decision",
+          message: "Check the inspection choice and try again.",
+          issues: parsedInspection.error.issues
+        }
+      };
+    }
+    const inspection = parsedInspection?.data;
+    const inspectionLines = (inspection?.addressLines ?? []).map((line) => line.trim()).filter(Boolean);
+    const inspectionPostcode = inspection?.postcode?.trim() ?? "";
+    const inspectionAddress = inspection ? inspection.decisionMode === "image_based" ? "Image Based Assessment" : [...inspectionLines, ...inspectionPostcode ? [inspectionPostcode] : []].join("\n").slice(0, 2e3) : void 0;
+    const inspectionModeCode = inspection ? inspectionDecisionCodec.toInt(inspection.decisionMode) : void 0;
     const actor = actorFromClaims(claims);
     let attemptedCasePo;
     let outcome;
@@ -20997,10 +21082,29 @@ import_functions2.app.http("patchCase", {
           return { kind: "response", response: { status: 404, jsonBody: { error: "not found" } } };
         }
         const expected = ifMatch(req);
+        if (explicitSave && !expected) {
+          return {
+            kind: "response",
+            response: {
+              status: 428,
+              jsonBody: {
+                error: "version_required",
+                message: "Reload this case before saving your changes."
+              }
+            }
+          };
+        }
         if (expected && expected !== snapshot2.version) {
           return {
             kind: "response",
-            response: { status: 409, jsonBody: { error: "stale", currentVersion: snapshot2.version } }
+            response: {
+              status: 409,
+              jsonBody: {
+                error: "stale",
+                currentVersion: snapshot2.version,
+                ...explicitSave ? { message: "This case changed while you were editing it. Reload it before saving." } : {}
+              }
+            }
           };
         }
         const existing = snapshot2.value;
@@ -21039,7 +21143,60 @@ import_functions2.app.http("patchCase", {
             if (key === "inspectionAddress") inspectionAddressChanged = true;
           }
         }
-        if (inspectionAddressChanged) sets.push("inspection_decision_code = NULL");
+        if (inspectionAddressChanged && !inspection) {
+          if (explicitSave) {
+            return {
+              kind: "response",
+              response: {
+                status: 400,
+                jsonBody: {
+                  error: "inspection_decision_required",
+                  message: "Choose an inspection address or Image Based Assessment before saving."
+                }
+              }
+            };
+          }
+          sets.push("inspection_decision_code = NULL");
+        }
+        if (inspection) {
+          if (inspectionModeCode == null || inspectionAddress == null) {
+            return {
+              kind: "response",
+              response: { status: 400, jsonBody: { error: "invalid inspection decision mode" } }
+            };
+          }
+          const submittedAddress = body2.evaFields?.inspectionAddress;
+          if (submittedAddress !== void 0 && submittedAddress !== inspectionAddress) {
+            return {
+              kind: "response",
+              response: {
+                status: 400,
+                jsonBody: {
+                  error: "inspection_address_mismatch",
+                  message: "The inspection address and choice do not match. Review them and try again."
+                }
+              }
+            };
+          }
+          if (inspectionAddress !== existing.evaFields.inspectionAddress.value && submittedAddress === void 0) {
+            return {
+              kind: "response",
+              response: {
+                status: 400,
+                jsonBody: {
+                  error: "inspection_address_required",
+                  message: "Include the inspection address with the inspection choice."
+                }
+              }
+            };
+          }
+          sets.push(`inspection_decision_code = $${vals.length + 1}`);
+          vals.push(inspectionModeCode);
+          if (inspection.decisionMode !== existing.inspectionDecision) {
+            before.inspectionDecision = existing.inspectionDecision;
+          }
+          after.inspectionDecision = inspection.decisionMode;
+        }
         if (body2.casePo !== void 0) {
           const raw = String(body2.casePo ?? "").trim();
           const normalized = raw ? normalizeCasePo(raw) : "";
@@ -21080,8 +21237,111 @@ import_functions2.app.http("patchCase", {
           }
         }
         if (sets.length === 0) return { kind: "unchanged", snapshot: snapshot2 };
+        if (explicitSave) {
+          const changedByKey = new Map(changedEvaFields.map((field) => [field.key, field.value]));
+          const nextEvaFields = Object.fromEntries(
+            EVA_FIELD_ORDER.map(({ key }) => {
+              const prior = existing.evaFields[key];
+              return [
+                key,
+                changedByKey.has(key) ? { ...prior, value: changedByKey.get(key), reviewState: "reviewed" } : prior
+              ];
+            })
+          );
+          const nextVrm = typeof after.vrm === "string" ? after.vrm : existing.vrm;
+          const nextCasePo = typeof after.casePo === "string" ? after.casePo === "(cleared)" ? "" : after.casePo : existing.casePo;
+          const evaluated = statusForReviewCase({
+            status: existing.status,
+            evaFields: nextEvaFields,
+            evidence: existing.evidence,
+            inspectionDecision: inspection?.decisionMode ?? existing.inspectionDecision,
+            instructionCount: existing.evidence.filter((item) => item.kind === "instruction").length,
+            hasIdentity: nextVrm.trim().length > 0 || (nextCasePo ?? "").trim().length > 0 || existing.providerCode.trim().length > 0 || nextEvaFields.claimantName.value.trim().length > 0,
+            mergedInto: existing.mergedInto
+          });
+          if (evaluated !== existing.status) {
+            sets.push(`status_code = $${vals.length + 1}`);
+            vals.push(statusToInt(evaluated));
+            before.status = existing.status;
+            after.status = evaluated;
+          }
+        }
         vals.push(id);
         await q(`UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`, vals);
+        if (explicitSave) {
+          for (const field of changedEvaFields) {
+            await upsertManualProvenanceStrict(q, id, field.key, field.value);
+          }
+          if (inspection) {
+            const imageBased = inspection.decisionMode === "image_based";
+            const label = imageBased ? `Image Based Assessment (${id})` : (() => {
+              const suffix = ` (${id})`;
+              const base = [inspectionLines[0], inspectionPostcode].filter(Boolean).join(", ") || "Inspection address";
+              return `${base.slice(0, 200 - suffix.length)}${suffix}`;
+            })();
+            const sourceNote = [
+              `case=${id}`,
+              ...existing.providerCode ? [`provider=${existing.providerCode}`] : [],
+              inspection.sourceNote
+            ].join(" ").trim();
+            await q(
+              `INSERT INTO inspection_address
+                 (label, decision_mode_code, decision_reason, source_label, source_note,
+                  address_line1, address_line2, address_line3, address_line4, address_line5, address_line6, postcode)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+               ON CONFLICT (label) DO UPDATE SET
+                 decision_mode_code = EXCLUDED.decision_mode_code,
+                 decision_reason = EXCLUDED.decision_reason,
+                 source_label = EXCLUDED.source_label,
+                 source_note = EXCLUDED.source_note,
+                 address_line1 = EXCLUDED.address_line1,
+                 address_line2 = EXCLUDED.address_line2,
+                 address_line3 = EXCLUDED.address_line3,
+                 address_line4 = EXCLUDED.address_line4,
+                 address_line5 = EXCLUDED.address_line5,
+                 address_line6 = EXCLUDED.address_line6,
+                 postcode = EXCLUDED.postcode`,
+              [
+                label,
+                inspectionModeCode,
+                imageBased ? inspection.sourceNote : null,
+                inspection.sourceLabel ?? (imageBased ? "image_based" : "manual"),
+                sourceNote,
+                inspectionLines[0] ?? null,
+                inspectionLines[1] ?? null,
+                inspectionLines[2] ?? null,
+                inspectionLines[3] ?? null,
+                inspectionLines[4] ?? null,
+                inspectionLines[5] ?? null,
+                imageBased ? null : inspectionPostcode || null
+              ]
+            );
+          }
+          const fieldLabels = new Map(EVA_FIELD_ORDER.map((field) => [field.key, field.label]));
+          const changedFields = Object.keys(after).map(
+            (key) => fieldLabels.get(key) ?? {
+              vrm: "Registration",
+              casePo: "Case/PO",
+              caseType: "Case type",
+              inspectionDecision: "Inspection choice",
+              status: "Readiness"
+            }[key] ?? key
+          );
+          await writeAuditStrict(
+            {
+              action: AUDIT_ACTION.status_changed,
+              caseId: id,
+              summary: `Case saved: ${changedFields.join(", ")}`,
+              // Record WHAT changed without copying claimant/contact values into the
+              // generic audit payload.
+              before: { changedFields },
+              after: { changedFields },
+              ...actor ? { actor } : {}
+            },
+            q
+          );
+          return { kind: "changed", changedEvaFields, explicitSave: true };
+        }
         await writeAudit({
           action: AUDIT_ACTION.status_changed,
           caseId: id,
@@ -21091,7 +21351,7 @@ import_functions2.app.http("patchCase", {
           ...actor ? { actor } : {}
         }, q);
         const statusGeneration = await requestStatusRecompute(q, id);
-        return { kind: "changed", changedEvaFields, statusGeneration };
+        return { kind: "changed", changedEvaFields, statusGeneration, explicitSave: false };
       });
     } catch (e) {
       if (isUniqueViolation(e) && attemptedCasePo) {
@@ -21118,20 +21378,26 @@ import_functions2.app.http("patchCase", {
         jsonBody: { ...outcome.snapshot.value, version: outcome.snapshot.version }
       };
     }
-    for (const field of outcome.changedEvaFields) {
-      await upsertManualProvenance(id, field.key, field.value);
-    }
-    try {
-      const evaluated = await recomputeStatus2(id, actor);
-      if (!evaluated) throw new Error("case was not available for readiness evaluation");
-      await acknowledgeStatusRecompute(query, id, outcome.statusGeneration);
-    } catch (error) {
-      ctx.warn(
-        `[patch-case] readiness recompute remains pending for ${id} (generation ${outcome.statusGeneration}): ${error instanceof Error ? error.message : String(error)}`
-      );
+    if (!outcome.explicitSave) {
+      for (const field of outcome.changedEvaFields) {
+        await upsertManualProvenance(id, field.key, field.value);
+      }
+      try {
+        const evaluated = await recomputeStatus2(id, actor);
+        if (!evaluated) throw new Error("case was not available for readiness evaluation");
+        await acknowledgeStatusRecompute(query, id, outcome.statusGeneration);
+      } catch (error) {
+        ctx.warn(
+          `[patch-case] readiness recompute remains pending for ${id} (generation ${outcome.statusGeneration}): ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
     }
     const updated = await loadCaseFullSnapshotUsing(query, id, /* @__PURE__ */ new Date());
-    return updated ? { status: 200, jsonBody: { ...updated.value, version: updated.version } } : { status: 404, jsonBody: { error: "not found" } };
+    return updated ? {
+      status: 200,
+      jsonBody: { ...updated.value, version: updated.version },
+      headers: { ETag: `"${updated.version}"`, "Access-Control-Expose-Headers": "ETag" }
+    } : { status: 404, jsonBody: { error: "not found" } };
   })
 });
 function isObjectRecord(value) {
