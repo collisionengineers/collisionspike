@@ -7,6 +7,12 @@ chronological calibration profile, deployment, controlled remediation and indepe
 live verification still gate completion. TKT-151 application/persistence is now built
 and offline-tested in the same branch, but remains undeployed.
 
+Exact reviewed delivery heads before this evidence-only follow-up:
+
+- CollisionSpike: `533003ca9a1587ea8f73705c7cf93660590ceaa8`
+- DVLA/DVSA MCP adapter: `dbb57d52cc15f87fae00249711fa50426724fa5d`
+- Retired Windows mileage tool: `eb0329fd47edda7c7c3700358ef67dc22b751d48`
+
 ## Canonical ownership and contract
 
 - Added `functions/enrichment/vehicle_data/` as the sole CollisionSpike case-workflow

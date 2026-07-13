@@ -7,6 +7,9 @@ or independently live-verified. Ticket status remains backlog until the dispatch
 loop performs deployment, the controlled remediation, the final census and the
 separate verification verdict.
 
+Exact implementation head before this evidence-only follow-up:
+`533003ca9a1587ea8f73705c7cf93660590ceaa8`.
+
 ## Runtime path
 
 - Added one authenticated `POST /api/vehicle-data/lookup` route. `{caseId}` reads
