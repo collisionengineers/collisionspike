@@ -21249,13 +21249,14 @@ import_functions2.app.http("patchCase", {
             })
           );
           const nextVrm = typeof after.vrm === "string" ? after.vrm : existing.vrm;
+          const nextCasePo = typeof after.casePo === "string" ? after.casePo : existing.casePo;
           const evaluated = statusForReviewCase({
             status: existing.status,
             evaFields: nextEvaFields,
             evidence: existing.evidence,
             inspectionDecision: inspection?.decisionMode ?? existing.inspectionDecision,
             instructionCount: existing.evidence.filter((item) => item.kind === "instruction").length,
-            hasIdentity: nextVrm.trim().length > 0 || (existing.casePo ?? "").trim().length > 0 || existing.providerCode.trim().length > 0 || nextEvaFields.claimantName.value.trim().length > 0,
+            hasIdentity: nextVrm.trim().length > 0 || (nextCasePo ?? "").trim().length > 0 || existing.providerCode.trim().length > 0 || nextEvaFields.claimantName.value.trim().length > 0,
             mergedInto: existing.mergedInto
           });
           if (evaluated !== existing.status) {

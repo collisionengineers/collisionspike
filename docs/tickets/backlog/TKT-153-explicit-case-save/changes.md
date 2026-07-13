@@ -13,7 +13,8 @@ Implemented on `codex/tkt-153-explicit-save`; awaiting PR review, deployment and
   versioned PATCH. The API writes fields, address, decision, readiness, manual
   provenance and one redacted audit entry in one transaction.
 - The readiness calculation now receives the saved inspection decision in that
-  transaction, uses Case/PO as an identity on the same terms as the canonical evaluator,
+  transaction, uses the Case/PO being saved (including a value entered by that same
+  request) as an identity on the same terms as the canonical evaluator,
   and isolated registration, Case/PO and accepted-suggestion updates advance the
   edit-session baseline/version together so they cannot create a false dirty state,
   stale-save conflict or erroneous exception status.
@@ -37,6 +38,6 @@ removed after the read-only query.
 
 ## Tests
 - `npm test --workspace @cs/domain` — 1,136 passed.
-- `npm test --workspace @cs/api` — 630 passed.
+- `npm test --workspace @cs/api` — 631 passed.
 - `npm test --workspace mockup-app` — 465 passed.
 - Domain, API and SPA production builds passed.

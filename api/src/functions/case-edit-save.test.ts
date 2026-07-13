@@ -224,6 +224,38 @@ describe('explicit case save transaction', () => {
     expect(caseUpdate?.params).not.toContain(100000010);
   });
 
+  it('uses a Case/PO entered by the same explicit save when recomputing readiness', async () => {
+    currentRow = {
+      ...baseRow,
+      case_po: null,
+      vrm: '',
+      provider_principal: '',
+      eva_claimant_name: '',
+    };
+    evidenceRows = [{
+      id: 'instruction-1',
+      file_name: 'instruction.pdf',
+      kind_code: 100000002,
+      image_role_code: 100000004,
+      registration_visible: false,
+      accepted_for_eva: false,
+      excluded: false,
+      source_label: 'Instruction',
+    }];
+
+    const result = await registrations.get('patchCase')!.handler(
+      request({ editSession: true, casePo: 'QDOS26080' }, VERSION),
+      context(),
+    );
+
+    expect(result.status).toBe(200);
+    const caseUpdate = calls.find(({ sql }) => /UPDATE case_ SET/i.test(sql));
+    expect(caseUpdate?.sql).toMatch(/case_po = \$\d+/);
+    expect(caseUpdate?.sql).toMatch(/status_code = \$\d+/);
+    expect(caseUpdate?.params).toEqual(expect.arrayContaining(['QDOS26080', 100000002]));
+    expect(caseUpdate?.params).not.toContain(100000010);
+  });
+
   it('rolls back the complete save when the decision write fails and emits no success audit', async () => {
     failInspectionWrite = true;
     await expect(
