@@ -63,6 +63,60 @@ describe('IndexedDbDraftStore', () => {
     store.close();
   });
 
+  it('persists and restores the bounded client capture observation', async () => {
+    const store = indexedStore();
+    await store.save({
+      ...draftInput('session-a', 'overview', 'observed'),
+      clientObservation: {
+        route: 'guided',
+        disposition: 'ready',
+        signals: {
+          brightness: 0.5,
+          contrast: 0.4,
+          sharpness: 0.8,
+          motion: 0.1
+        },
+        stableFrames: 4,
+        rulesVersion: 'quality-v1'
+      }
+    });
+
+    expect((await store.get('session-a', 'overview'))?.clientObservation).toEqual({
+      route: 'guided',
+      disposition: 'ready',
+      signals: {
+        brightness: 0.5,
+        contrast: 0.4,
+        sharpness: 0.8,
+        motion: 0.1
+      },
+      stableFrames: 4,
+      rulesVersion: 'quality-v1'
+    });
+    store.close();
+  });
+
+  it('does not let a stale upload transition overwrite a newer photo', async () => {
+    const store = indexedStore();
+    const first = await store.save(draftInput('session-a', 'overview', 'old'));
+    const replacement = await store.save(draftInput('session-a', 'overview', 'new'));
+
+    await expect(store.setUploadState(
+      'session-a',
+      'overview',
+      'uploading',
+      'stale-upload',
+      'stale-asset',
+      first.idempotencyKey
+    )).resolves.toBeUndefined();
+
+    expect(await store.get('session-a', 'overview')).toMatchObject({
+      idempotencyKey: replacement.idempotencyKey,
+      status: 'queued'
+    });
+    store.close();
+  });
+
   it('keys drafts by session and shot, replacing only the matching photo', async () => {
     const store = indexedStore();
     const first = await store.save(draftInput('session-a', 'overview', 'old'));

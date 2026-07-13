@@ -1,3 +1,8 @@
+import {
+  cloneClientCaptureObservation,
+  type ClientCaptureObservation
+} from '../capture/captureObservation';
+
 export type DraftUploadState = 'queued' | 'uploading' | 'uploaded';
 
 export interface DraftPhotoInput {
@@ -5,6 +10,7 @@ export interface DraftPhotoInput {
   shotId: string;
   blob: Blob;
   fileName: string;
+  clientObservation?: ClientCaptureObservation;
   replacesSelected?: boolean;
   capturedAt?: string;
 }
@@ -19,8 +25,10 @@ export interface DraftPhoto {
   sizeBytes: number;
   sha256: string;
   idempotencyKey: string;
+  clientObservation?: ClientCaptureObservation;
   status: DraftUploadState;
   uploadId?: string;
+  assetId?: string;
   capturedAt: string;
   updatedAt: string;
 }
@@ -33,9 +41,15 @@ export interface DraftStore {
     sessionId: string,
     shotId: string,
     status: DraftUploadState,
-    uploadId?: string
+    uploadId?: string,
+    assetId?: string,
+    expectedIdempotencyKey?: string
   ): Promise<DraftPhoto | undefined>;
-  clearShot(sessionId: string, shotId: string): Promise<void>;
+  clearShot(
+    sessionId: string,
+    shotId: string,
+    expectedIdempotencyKey?: string
+  ): Promise<boolean>;
   clearSession(sessionId: string): Promise<void>;
 }
 
@@ -82,6 +96,9 @@ export async function createDraftPhoto(
     sizeBytes: input.blob.size,
     sha256: toHex(hash),
     idempotencyKey: cryptoProvider.randomUUID(),
+    ...(input.clientObservation === undefined
+      ? {}
+      : { clientObservation: cloneClientCaptureObservation(input.clientObservation) }),
     status: 'queued',
     capturedAt,
     updatedAt: now
@@ -99,8 +116,12 @@ export function cloneDraft(draft: DraftPhoto): DraftPhoto {
     sizeBytes: draft.sizeBytes,
     sha256: draft.sha256,
     idempotencyKey: draft.idempotencyKey,
+    ...(draft.clientObservation === undefined
+      ? {}
+      : { clientObservation: cloneClientCaptureObservation(draft.clientObservation) }),
     status: draft.status,
     ...(draft.uploadId === undefined ? {} : { uploadId: draft.uploadId }),
+    ...(draft.assetId === undefined ? {} : { assetId: draft.assetId }),
     capturedAt: draft.capturedAt,
     updatedAt: draft.updatedAt
   };

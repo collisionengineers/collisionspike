@@ -1,12 +1,15 @@
-import type { CaptureSessionManifest, CaptureShotDefinition, CaptureShotProgress } from '@collisioncapture/contracts';
+import type {
+  CaptureSessionManifest,
+  CaptureShotDefinition,
+  CaptureShotProgress,
+  CaptureUploadRequest
+} from '@collisioncapture/contracts';
 
 export const DEFAULT_MAX_FILE_BYTES = 15 * 1024 * 1024;
 
-export const DEFAULT_ACCEPTED_MIME_TYPES = [
+export const DEFAULT_ACCEPTED_MIME_TYPES: CaptureUploadRequest['contentType'][] = [
   'image/jpeg',
   'image/png',
-  'image/heic',
-  'image/heif',
   'image/webp'
 ];
 

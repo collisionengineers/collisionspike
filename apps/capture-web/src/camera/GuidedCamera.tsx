@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { createPortal } from 'react-dom';
+import type { GuidanceMode } from '@collisioncapture/contracts';
 import {
   advanceGuidanceStability,
   analyseFrameQuality,
   containedMediaRect,
   evaluateFrameQuality,
   insetRect,
+  type FrameQualityEvaluation,
+  type FrameQualitySignals,
   type Rect,
   type GuidanceStabilityState
 } from '@collisioncapture/core';
@@ -19,6 +22,11 @@ import {
   X
 } from 'lucide-react';
 import { CameraStartError, startCamera, type CameraSession } from './cameraDevice';
+import {
+  assessedObservation,
+  unassessedObservation,
+  type ClientCaptureObservation
+} from '../capture/captureObservation';
 
 const ANALYSIS_INTERVAL_MS = 200;
 const ANALYSIS_WIDTH = 160;
@@ -26,14 +34,18 @@ const ANALYSIS_WIDTH = 160;
 type CameraPhase = 'starting' | 'live' | 'capturing' | 'review' | 'error';
 
 export interface GuidedCameraProps {
+  guidanceMode: GuidanceMode;
+  rulesVersion: string;
   shotLabel: string;
   prompt: string;
-  onAccept(file: File): void;
+  onAccept(file: File, observation: ClientCaptureObservation): void;
   onClose(): void;
   onFallback(): void;
 }
 
 export function GuidedCamera({
+  guidanceMode,
+  rulesVersion,
   shotLabel,
   prompt,
   onAccept,
@@ -49,6 +61,12 @@ export function GuidedCamera({
   const previousLumaRef = useRef<Float32Array | undefined>(undefined);
   const stabilityRef = useRef<GuidanceStabilityState | undefined>(undefined);
   const analysisBusyRef = useRef(false);
+  const latestAssessmentRef = useRef<{
+    evaluation: FrameQualityEvaluation;
+    signals: FrameQualitySignals;
+    stableFrames: number;
+    ready: boolean;
+  } | undefined>(undefined);
   const previewUrlRef = useRef<string | null>(null);
   const captureOperationRef = useRef(0);
   const captureInFlightRef = useRef(false);
@@ -59,8 +77,14 @@ export function GuidedCamera({
   const [instruction, setInstruction] = useState('Starting the camera…');
   const [ready, setReady] = useState(false);
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
+  const [capturedObservation, setCapturedObservation] = useState<ClientCaptureObservation | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [guideRect, setGuideRect] = useState<Rect | null>(null);
+  const [needsStaffReview, setNeedsStaffReview] = useState(false);
+
+  const showsQualityGuidance = guidanceMode === 'advisory' || guidanceMode === 'enforced';
+  const shutterAvailable = !showsQualityGuidance || ready;
+  const showsReadyState = showsQualityGuidance && ready;
 
   const clearPreview = useCallback((): void => {
     if (previewUrlRef.current) {
@@ -69,6 +93,8 @@ export function GuidedCamera({
     }
     setPreviewUrl(null);
     setCapturedFile(null);
+    setCapturedObservation(null);
+    setNeedsStaffReview(false);
   }, []);
 
   const stopCamera = useCallback((): void => {
@@ -107,6 +133,7 @@ export function GuidedCamera({
     let cancelled = false;
     previousLumaRef.current = undefined;
     stabilityRef.current = undefined;
+    latestAssessmentRef.current = undefined;
     setReady(false);
     setInstruction('Starting the camera…');
     setErrorMessage(null);
@@ -153,7 +180,7 @@ export function GuidedCamera({
   }, [phase, syncGuideRect]);
 
   useEffect(() => {
-    if (phase !== 'live') return;
+    if (phase !== 'live' || guidanceMode === 'off') return;
 
     const timer = window.setInterval(() => {
       if (analysisBusyRef.current) return;
@@ -183,6 +210,12 @@ export function GuidedCamera({
         const evaluation = evaluateFrameQuality(analysis.signals);
         const stability = advanceGuidanceStability(stabilityRef.current, evaluation);
         stabilityRef.current = stability;
+        latestAssessmentRef.current = {
+          evaluation,
+          signals: analysis.signals,
+          stableFrames: stability.stableFrames,
+          ready: stability.ready
+        };
         setReady(stability.ready);
         setInstruction(
           stability.ready
@@ -193,6 +226,7 @@ export function GuidedCamera({
         );
       } catch {
         stabilityRef.current = undefined;
+        latestAssessmentRef.current = undefined;
         setReady(false);
         setInstruction('Live quality guidance is unavailable. You can still take the photo.');
       } finally {
@@ -201,7 +235,7 @@ export function GuidedCamera({
     }, ANALYSIS_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
-  }, [phase]);
+  }, [guidanceMode, phase]);
 
   useEffect(() => () => {
     captureOperationRef.current += 1;
@@ -215,15 +249,27 @@ export function GuidedCamera({
 
     captureInFlightRef.current = true;
     const operation = ++captureOperationRef.current;
+    const latestAssessment = latestAssessmentRef.current;
+    const observation = guidanceMode === 'off' || latestAssessment === undefined
+      ? unassessedObservation('guided', rulesVersion)
+      : assessedObservation({
+          route: 'guided',
+          rulesVersion,
+          ...latestAssessment
+        });
     setPhase('capturing');
     try {
+      const capturedBeforeReady =
+        guidanceMode === 'enforced' && observation.disposition !== 'ready';
       const file = await session.capture();
       if (operation !== captureOperationRef.current) return;
       const url = URL.createObjectURL(file);
       clearPreview();
       previewUrlRef.current = url;
       setCapturedFile(file);
+      setCapturedObservation(observation);
       setPreviewUrl(url);
+      setNeedsStaffReview(capturedBeforeReady);
       stopCamera();
       setPhase('review');
     } catch {
@@ -308,6 +354,34 @@ export function GuidedCamera({
     }
   };
 
+  const guideClassName = !showsQualityGuidance
+    ? 'camera-guide is-neutral'
+    : showsReadyState
+      ? 'camera-guide is-ready'
+      : 'camera-guide';
+
+  let guidanceClassName = 'camera-quality is-neutral';
+  let guidanceIcon: ReactElement = <Camera aria-hidden="true" />;
+  let guidanceHeading = 'Requested photo';
+  let guidanceDetail = prompt;
+
+  if (phase === 'review') {
+    guidanceClassName = needsStaffReview ? 'camera-quality' : 'camera-quality is-ready';
+    guidanceIcon = needsStaffReview
+      ? <CircleAlert aria-hidden="true" />
+      : <CheckCircle2 aria-hidden="true" />;
+    guidanceHeading = needsStaffReview ? 'Staff review needed' : 'Check your photo';
+    guidanceDetail = needsStaffReview
+      ? 'This photo was taken before the quality checks were ready. Retake it or send it for staff review.'
+      : 'Make sure the important detail is clear.';
+  } else if (showsQualityGuidance) {
+    guidanceClassName = showsReadyState ? 'camera-quality is-ready' : 'camera-quality';
+    guidanceIcon = showsReadyState
+      ? <CheckCircle2 aria-hidden="true" />
+      : <CircleAlert aria-hidden="true" />;
+    guidanceHeading = instruction;
+  }
+
   return createPortal(
     <div
       ref={dialogRef}
@@ -319,7 +393,9 @@ export function GuidedCamera({
     >
       <header className="camera-header">
         <div>
-          <span className="camera-eyebrow">Guided capture</span>
+          <span className="camera-eyebrow">
+            {showsQualityGuidance ? 'Guided capture' : 'Photo capture'}
+          </span>
           <h2 id="camera-title">{shotLabel}</h2>
         </div>
         <button ref={closeButtonRef} className="camera-close" type="button" onClick={close} aria-label="Close camera">
@@ -344,7 +420,7 @@ export function GuidedCamera({
 
         {(phase === 'live' || phase === 'capturing') && guideRect ? (
           <div
-            className={ready ? 'camera-guide is-ready' : 'camera-guide'}
+            className={guideClassName}
             style={{
               left: guideRect.x,
               top: guideRect.y,
@@ -378,11 +454,11 @@ export function GuidedCamera({
       </div>
 
       <section className="camera-guidance" aria-live="polite">
-        <div className={ready ? 'camera-quality is-ready' : 'camera-quality'}>
-          {ready ? <CheckCircle2 aria-hidden="true" /> : <CircleAlert aria-hidden="true" />}
+        <div className={guidanceClassName}>
+          {guidanceIcon}
           <div>
-            <strong>{phase === 'review' ? 'Check your photo' : instruction}</strong>
-            <span>{phase === 'review' ? 'Make sure the important detail is clear.' : prompt}</span>
+            <strong>{guidanceHeading}</strong>
+            <span>{guidanceDetail}</span>
           </div>
         </div>
       </section>
@@ -395,15 +471,15 @@ export function GuidedCamera({
               Use phone camera
             </button>
             <button
-              className={ready ? 'camera-shutter is-ready' : 'camera-shutter'}
+              className={showsReadyState ? 'camera-shutter is-ready' : 'camera-shutter'}
               type="button"
               onClick={() => void capture()}
-              disabled={!ready}
+              disabled={!shutterAvailable}
             >
               <Camera aria-hidden="true" />
               Take photo
             </button>
-            {!ready ? (
+            {showsQualityGuidance && !ready ? (
               <button className="camera-text-action" type="button" onClick={() => void capture()}>
                 Take anyway
               </button>
@@ -413,15 +489,19 @@ export function GuidedCamera({
 
         {phase === 'capturing' ? <span className="camera-busy" role="status">Capturing…</span> : null}
 
-        {phase === 'review' && capturedFile ? (
+        {phase === 'review' && capturedFile && capturedObservation ? (
           <>
             <button className="camera-secondary" type="button" onClick={retake}>
               <RotateCcw aria-hidden="true" />
               Retake
             </button>
-            <button className="camera-shutter is-ready" type="button" onClick={() => onAccept(capturedFile)}>
+            <button
+              className="camera-shutter is-ready"
+              type="button"
+              onClick={() => onAccept(capturedFile, capturedObservation)}
+            >
               <CheckCircle2 aria-hidden="true" />
-              Use photo
+              {needsStaffReview ? 'Use photo for staff review' : 'Use photo'}
             </button>
           </>
         ) : null}

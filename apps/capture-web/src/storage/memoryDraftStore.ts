@@ -46,25 +46,41 @@ export class MemoryDraftStore implements DraftStore {
     sessionId: string,
     shotId: string,
     status: DraftUploadState,
-    uploadId?: string
+    uploadId?: string,
+    assetId?: string,
+    expectedIdempotencyKey?: string
   ): Promise<DraftPhoto | undefined> {
     assertDraftKey(sessionId, shotId);
     const stored = this.drafts.get(keyOf(sessionId, shotId));
     if (!stored) return undefined;
+    if (expectedIdempotencyKey && stored.idempotencyKey !== expectedIdempotencyKey) {
+      return undefined;
+    }
 
     const updated: DraftPhoto = {
       ...cloneDraft(stored),
       status,
       ...(uploadId === undefined ? {} : { uploadId }),
+      ...(assetId === undefined ? {} : { assetId }),
       updatedAt: (this.dependencies.now ?? (() => new Date()))().toISOString()
     };
     this.restore(updated);
     return cloneDraft(updated);
   }
 
-  async clearShot(sessionId: string, shotId: string): Promise<void> {
+  async clearShot(
+    sessionId: string,
+    shotId: string,
+    expectedIdempotencyKey?: string
+  ): Promise<boolean> {
     assertDraftKey(sessionId, shotId);
-    this.drafts.delete(keyOf(sessionId, shotId));
+    const key = keyOf(sessionId, shotId);
+    const stored = this.drafts.get(key);
+    if (!stored || (expectedIdempotencyKey && stored.idempotencyKey !== expectedIdempotencyKey)) {
+      return false;
+    }
+    this.drafts.delete(key);
+    return true;
   }
 
   async clearSession(sessionId: string): Promise<void> {

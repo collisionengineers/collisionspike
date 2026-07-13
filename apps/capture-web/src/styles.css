@@ -483,6 +483,10 @@ h1 {
   border-color: #32b45b;
 }
 
+.camera-guide.is-neutral .camera-guide-corner {
+  border-color: rgba(255, 255, 255, 0.82);
+}
+
 .camera-guide-corner.top-left {
   top: 0;
   left: 0;
@@ -556,6 +560,10 @@ h1 {
 
 .camera-quality.is-ready > svg {
   color: #32b45b;
+}
+
+.camera-quality.is-neutral > svg {
+  color: rgba(255, 255, 255, 0.76);
 }
 
 .camera-quality div {

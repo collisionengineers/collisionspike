@@ -12,7 +12,7 @@ export async function submitCaptureSession(
   dependencies: SubmitKeyDependencies = {}
 ): Promise<CaptureSubmitResponse> {
   const idempotencyKey = getOrCreateSubmitKey(authorization.sessionId, dependencies);
-  const response = await api.submit(authorization, { idempotencyKey });
+  const response = await api.submit(authorization, idempotencyKey);
   clearSubmitKey(authorization.sessionId, dependencies);
   return response;
 }

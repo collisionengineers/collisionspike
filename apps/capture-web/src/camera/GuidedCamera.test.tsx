@@ -57,12 +57,14 @@ describe('GuidedCamera', () => {
     vi.unstubAllGlobals();
   });
 
-  it('starts the camera and exposes the native fallback without claiming readiness', async () => {
+  it('keeps advisory mode gated while preserving take-anyway and the native fallback', async () => {
     const onFallback = vi.fn();
 
     await act(async () => {
       root.render(
         <GuidedCamera
+          guidanceMode="advisory"
+          rulesVersion="quality-v1"
           shotLabel="Vehicle overview"
           prompt="Fit the complete vehicle inside the frame."
           onAccept={vi.fn()}
@@ -74,10 +76,59 @@ describe('GuidedCamera', () => {
 
     expect(mockedStartCamera).toHaveBeenCalledOnce();
     expect(buttonByText(document.body, 'Take photo').disabled).toBe(true);
+    expect(buttonByText(document.body, 'Take anyway')).not.toBeNull();
 
     await act(async () => buttonByText(document.body, 'Use phone camera').click());
     expect(stop).toHaveBeenCalledOnce();
     expect(onFallback).toHaveBeenCalledOnce();
+  });
+
+  it('keeps off mode manual, neutral and immediately available', async () => {
+    const prompt = 'Fit the complete vehicle inside the frame.';
+
+    await act(async () => {
+      root.render(
+        <GuidedCamera
+          guidanceMode="off"
+          rulesVersion="quality-v1"
+          shotLabel="Vehicle overview"
+          prompt={prompt}
+          onAccept={vi.fn()}
+          onClose={vi.fn()}
+          onFallback={vi.fn()}
+        />
+      );
+    });
+
+    expect(buttonByText(document.body, 'Take photo').disabled).toBe(false);
+    expect(document.body.textContent).toContain('Requested photo');
+    expect(document.body.textContent).toContain(prompt);
+    expect(document.body.textContent).not.toContain('Take anyway');
+    expect(document.body.textContent).not.toContain('Ready to take photo');
+  });
+
+  it('keeps shadow mode neutral and non-blocking', async () => {
+    const prompt = 'Fill the frame with the damaged area.';
+
+    await act(async () => {
+      root.render(
+        <GuidedCamera
+          guidanceMode="shadow"
+          rulesVersion="quality-v1"
+          shotLabel="Main damage close-up"
+          prompt={prompt}
+          onAccept={vi.fn()}
+          onClose={vi.fn()}
+          onFallback={vi.fn()}
+        />
+      );
+    });
+
+    expect(buttonByText(document.body, 'Take photo').disabled).toBe(false);
+    expect(document.body.textContent).toContain('Requested photo');
+    expect(document.body.textContent).toContain(prompt);
+    expect(document.body.textContent).not.toContain('Take anyway');
+    expect(document.body.textContent).not.toContain('Hold steady');
   });
 
   it('captures through take-anyway, supports review and accepts the resulting file', async () => {
@@ -88,6 +139,8 @@ describe('GuidedCamera', () => {
     await act(async () => {
       root.render(
         <GuidedCamera
+          guidanceMode="advisory"
+          rulesVersion="quality-v1"
           shotLabel="Main damage close-up"
           prompt="Fill the frame with the damaged area."
           onAccept={onAccept}
@@ -103,7 +156,40 @@ describe('GuidedCamera', () => {
     expect(document.body.querySelector('img[alt="Preview of Main damage close-up"]')).not.toBeNull();
 
     await act(async () => buttonByText(document.body, 'Use photo').click());
-    expect(onAccept).toHaveBeenCalledWith(file);
+    expect(onAccept).toHaveBeenCalledWith(file, {
+      route: 'guided',
+      disposition: 'unassessed',
+      stableFrames: 0,
+      rulesVersion: 'quality-v1'
+    });
+  });
+
+  it('marks an enforced take-anyway photo for staff review without removing escape routes', async () => {
+    const file = new File(['photo'], 'capture.jpg', { type: 'image/jpeg' });
+    capture.mockResolvedValue(file);
+
+    await act(async () => {
+      root.render(
+        <GuidedCamera
+          guidanceMode="enforced"
+          rulesVersion="quality-v1"
+          shotLabel="Vehicle overview"
+          prompt="Fit the vehicle inside the frame."
+          onAccept={vi.fn()}
+          onClose={vi.fn()}
+          onFallback={vi.fn()}
+        />
+      );
+    });
+
+    expect(buttonByText(document.body, 'Take photo').disabled).toBe(true);
+    expect(buttonByText(document.body, 'Use phone camera')).not.toBeNull();
+
+    await act(async () => buttonByText(document.body, 'Take anyway').click());
+
+    expect(document.body.textContent).toContain('Staff review needed');
+    expect(document.body.textContent).toContain('before the quality checks were ready');
+    expect(buttonByText(document.body, 'Use photo for staff review')).not.toBeNull();
   });
 
   it('stops the stream and closes cleanly', async () => {
@@ -112,6 +198,8 @@ describe('GuidedCamera', () => {
     await act(async () => {
       root.render(
         <GuidedCamera
+          guidanceMode="advisory"
+          rulesVersion="quality-v1"
           shotLabel="Vehicle overview"
           prompt="Fit the vehicle inside the frame."
           onAccept={vi.fn()}
@@ -139,6 +227,8 @@ describe('GuidedCamera', () => {
     await act(async () => {
       root.render(
         <GuidedCamera
+          guidanceMode="advisory"
+          rulesVersion="quality-v1"
           shotLabel="Vehicle overview"
           prompt="Fit the vehicle inside the frame."
           onAccept={vi.fn()}
@@ -173,6 +263,8 @@ describe('GuidedCamera', () => {
     await act(async () => {
       root.render(
         <GuidedCamera
+          guidanceMode="advisory"
+          rulesVersion="quality-v1"
           shotLabel="Vehicle overview"
           prompt="Fit the vehicle inside the frame."
           onAccept={vi.fn()}

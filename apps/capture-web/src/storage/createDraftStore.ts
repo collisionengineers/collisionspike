@@ -65,27 +65,78 @@ class ResilientDraftStore implements DraftStore {
     sessionId: string,
     shotId: string,
     status: DraftUploadState,
-    uploadId?: string
+    uploadId?: string,
+    assetId?: string,
+    expectedIdempotencyKey?: string
   ): Promise<DraftPhoto | undefined> {
-    if (this.useFallback) return this.fallback.setUploadState(sessionId, shotId, status, uploadId);
+    if (this.useFallback) {
+      return this.fallback.setUploadState(
+        sessionId,
+        shotId,
+        status,
+        uploadId,
+        assetId,
+        expectedIdempotencyKey
+      );
+    }
     try {
-      const draft = await this.primary.setUploadState(sessionId, shotId, status, uploadId);
-      if (draft) this.fallback.restore(draft);
-      return draft;
+      const draft = await this.primary.setUploadState(
+        sessionId,
+        shotId,
+        status,
+        uploadId,
+        assetId,
+        expectedIdempotencyKey
+      );
+      if (draft) {
+        this.fallback.restore(draft);
+        return draft;
+      }
+      return this.fallback.setUploadState(
+        sessionId,
+        shotId,
+        status,
+        uploadId,
+        assetId,
+        expectedIdempotencyKey
+      );
     } catch {
       this.useFallback = true;
-      return this.fallback.setUploadState(sessionId, shotId, status, uploadId);
+      return this.fallback.setUploadState(
+        sessionId,
+        shotId,
+        status,
+        uploadId,
+        assetId,
+        expectedIdempotencyKey
+      );
     }
   }
 
-  async clearShot(sessionId: string, shotId: string): Promise<void> {
-    if (this.useFallback) return this.fallback.clearShot(sessionId, shotId);
+  async clearShot(
+    sessionId: string,
+    shotId: string,
+    expectedIdempotencyKey?: string
+  ): Promise<boolean> {
+    if (this.useFallback) {
+      return this.fallback.clearShot(sessionId, shotId, expectedIdempotencyKey);
+    }
+    let primaryCleared = false;
     try {
-      await this.primary.clearShot(sessionId, shotId);
+      primaryCleared = await this.primary.clearShot(
+        sessionId,
+        shotId,
+        expectedIdempotencyKey
+      );
     } catch {
       this.useFallback = true;
     }
-    await this.fallback.clearShot(sessionId, shotId);
+    const fallbackCleared = await this.fallback.clearShot(
+      sessionId,
+      shotId,
+      expectedIdempotencyKey
+    );
+    return primaryCleared || fallbackCleared;
   }
 
   async clearSession(sessionId: string): Promise<void> {

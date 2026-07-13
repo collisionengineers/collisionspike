@@ -1,16 +1,6 @@
 import type { CaptureApiError } from '@collisioncapture/contracts';
 
-export type CaptureProblemCode =
-  | 'capture_missing'
-  | 'capture_expired'
-  | 'capture_revoked'
-  | 'capture_locked'
-  | 'capture_unsupported'
-  | 'capture_validation'
-  | 'capture_conflict'
-  | 'capture_unauthorized'
-  | 'capture_retryable'
-  | 'capture_unknown';
+export type CaptureProblemCode = CaptureApiError['error'];
 
 const RETRYABLE_CODES = new Set<CaptureProblemCode>(['capture_retryable']);
 

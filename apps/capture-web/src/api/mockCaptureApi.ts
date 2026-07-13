@@ -1,7 +1,6 @@
 import type {
   CaptureExchangeResponse,
   CaptureSessionManifest,
-  CaptureSubmitRequest,
   CaptureSubmitResponse,
   CaptureUploadCompleteRequest,
   CaptureUploadCompleteResponse,
@@ -27,6 +26,15 @@ export class MockCaptureApi implements CaptureApi {
     };
   }
 
+  async renew(): Promise<CaptureExchangeResponse> {
+    await delay(40);
+    return {
+      sessionId: this.manifest.sessionId,
+      accessToken: 'demo-access-token',
+      accessTokenExpiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+    };
+  }
+
   async getManifest(authorization: CaptureAuthorization): Promise<CaptureSessionManifest> {
     await delay(120);
     this.assertSession(authorization);
@@ -35,11 +43,12 @@ export class MockCaptureApi implements CaptureApi {
 
   async createUpload(
     authorization: CaptureAuthorization,
+    idempotencyKey: string,
     request: CaptureUploadRequest
   ): Promise<CaptureUploadIntent> {
     await delay(180);
     this.assertSession(authorization);
-    const existing = this.attempts.get(request.idempotencyKey);
+    const existing = this.attempts.get(idempotencyKey);
     if (existing) return existing;
 
     const intent = {
@@ -49,7 +58,7 @@ export class MockCaptureApi implements CaptureApi {
       method: 'mock' as const,
       expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString()
     };
-    this.attempts.set(request.idempotencyKey, intent);
+    this.attempts.set(idempotencyKey, intent);
     return intent;
   }
 
@@ -81,10 +90,7 @@ export class MockCaptureApi implements CaptureApi {
     return { assetId, shotId: attempt.shotId, status: 'accepted' };
   }
 
-  async submit(
-    authorization: CaptureAuthorization,
-    _request: CaptureSubmitRequest
-  ): Promise<CaptureSubmitResponse> {
+  async submit(authorization: CaptureAuthorization, _idempotencyKey: string): Promise<CaptureSubmitResponse> {
     await delay(200);
     this.assertSession(authorization);
     if (!requiredShotsComplete(this.manifest)) throw new Error('Required photos are missing.');

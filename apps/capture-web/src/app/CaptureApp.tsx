@@ -6,10 +6,11 @@ import { Camera, CheckCircle2, CircleAlert, CloudUpload, RotateCw, ShieldCheck, 
 import { MockCaptureApi } from '../api/mockCaptureApi';
 import type { CaptureApi, CaptureAuthorization } from '../api/captureApi';
 import { HttpCaptureApi } from '../api/httpCaptureApi';
-import { exchangeBootstrapSecret } from '../bootstrap/bootstrapSecret';
+import { authorizeCapture } from '../bootstrap/bootstrapSecret';
 import { ShotCaptureCard } from '../capture/ShotCaptureCard';
 import { submitCaptureSession } from '../submission/submitSession';
 import { useUploadCoordinator } from '../uploads/useUploadCoordinator';
+import type { CaptureSessionUnavailable } from '../uploads/uploadCoordinator';
 import { VehicleGuide } from '../ui/VehicleGuide';
 import ceLogo from '../assets/ce-logo.png';
 
@@ -31,7 +32,7 @@ export function CaptureApp(): ReactElement {
   }, []);
 
   useEffect(() => {
-    void exchangeBootstrapSecret(api, window.location, window.history, import.meta.env.DEV)
+    void authorizeCapture(api, window.location, window.history, import.meta.env.DEV)
       .then(async (exchange) => {
         const authorization: CaptureAuthorization = exchange;
         const manifest = await api.getManifest(authorization);
@@ -64,6 +65,36 @@ export function CaptureApp(): ReactElement {
           ...current.manifest,
           progress: [...next, progress]
         }
+      };
+    });
+  }, []);
+
+  const markSessionUnavailable = useCallback((failure: CaptureSessionUnavailable): void => {
+    setLoadState((current) => {
+      if (current.status !== 'ready') return current;
+      if (failure.status === 'unavailable') {
+        return { status: 'error', message: failure.message };
+      }
+      return {
+        status: 'ready',
+        authorization: current.authorization,
+        manifest: {
+          ...current.manifest,
+          status: failure.status
+        }
+      };
+    });
+  }, []);
+
+  const replaceManifest = useCallback((manifest: CaptureSessionManifest): void => {
+    setLoadState((current) => {
+      if (current.status !== 'ready' || manifest.sessionId !== current.manifest.sessionId) {
+        return current;
+      }
+      return {
+        status: 'ready',
+        authorization: current.authorization,
+        manifest
       };
     });
   }, []);
@@ -107,6 +138,8 @@ export function CaptureApp(): ReactElement {
       authorization={loadState.authorization}
       online={online}
       onProgress={updateProgress}
+      onSessionUnavailable={markSessionUnavailable}
+      onManifest={replaceManifest}
       onSubmit={submit}
     />
   );
@@ -118,18 +151,47 @@ interface CaptureFlowProps {
   manifest: CaptureSessionManifest;
   online: boolean;
   onProgress: (progress: CaptureShotProgress) => void;
+  onSessionUnavailable?: (failure: CaptureSessionUnavailable) => void;
+  onManifest?: (manifest: CaptureSessionManifest) => void;
   onSubmit: () => Promise<void>;
 }
 
 type SubmitState = 'idle' | 'submitting' | 'error';
 
-export function CaptureFlow({ api, authorization, manifest, online, onProgress, onSubmit }: CaptureFlowProps): ReactElement {
+export function CaptureFlow({
+  api,
+  authorization,
+  manifest,
+  online,
+  onProgress,
+  onSessionUnavailable,
+  onManifest,
+  onSubmit
+}: CaptureFlowProps): ReactElement {
   const shots = useMemo(() => orderedShots(manifest.shots), [manifest.shots]);
-  const coordinator = useUploadCoordinator(api, authorization, onProgress);
+  const hasUnsettledServerProgress = manifest.progress.some((progress) =>
+    progress.status === 'queued' ||
+    progress.status === 'uploading' ||
+    progress.status === 'validating' ||
+    progress.status === 'retryable'
+  );
+  const { coordinator, hasUnsettledDrafts, recoveryComplete } = useUploadCoordinator(
+    api,
+    authorization,
+    manifest.rulesVersion,
+    onProgress,
+    onSessionUnavailable,
+    onManifest,
+    hasUnsettledServerProgress
+  );
   const submitInFlight = useRef(false);
   const [submitState, setSubmitState] = useState<SubmitState>('idle');
   const counts = completionCounts(manifest);
-  const canSubmit = requiredShotsComplete(manifest) && manifest.status === 'open';
+  const canSubmit = requiredShotsComplete(manifest) &&
+    manifest.status === 'open' &&
+    recoveryComplete &&
+    !hasUnsettledDrafts &&
+    !hasUnsettledServerProgress;
 
   const progressPercent = counts.requiredTotal > 0
     ? Math.round((counts.requiredDone / counts.requiredTotal) * 100)
@@ -143,8 +205,9 @@ export function CaptureFlow({ api, authorization, manifest, online, onProgress, 
 
     try {
       await onSubmit();
-    } catch {
-      setSubmitState('error');
+    } catch (error: unknown) {
+      const handled = await coordinator.handleApiFailure(error);
+      setSubmitState(handled ? 'idle' : 'error');
       submitInFlight.current = false;
       return;
     }
@@ -211,10 +274,11 @@ export function CaptureFlow({ api, authorization, manifest, online, onProgress, 
               shot={shot}
               progress={manifest.progress.find((item) => item.shotId === shot.id)}
               onProgress={onProgress}
-              onPhoto={(file, replacesSelected) => coordinator.queue({
+              onPhoto={(file, replacesSelected, clientObservation) => coordinator.queue({
                 shotId: shot.id,
                 file,
-                replacesSelected
+                replacesSelected,
+                clientObservation
               })}
             />
           ))}

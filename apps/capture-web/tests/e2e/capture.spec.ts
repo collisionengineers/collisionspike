@@ -76,11 +76,47 @@ test('camera denial retains a working phone-camera file fallback', async ({ page
   await page.getByRole('button', { name: 'Use phone camera' }).click();
   const fileChooser = await fileChooserPromise;
   await fileChooser.setFiles({
-    name: 'vehicle-overview__fallback.jpg',
-    mimeType: 'image/jpeg',
-    buffer: Buffer.from('valid-test-upload')
+    name: 'vehicle-overview__fallback.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64'
+    )
   });
 
-  await expect(page.getByRole('dialog')).toBeHidden();
+  const review = page.getByRole('dialog', { name: 'Check Vehicle overview' });
+  await expect(review).toBeVisible();
+  await expect(review.getByRole('img', { name: 'Preview of Vehicle overview' })).toBeVisible();
+  await expect(review.getByText(/This checks only brightness, contrast and sharpness/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Retake' }).first()).toBeHidden();
+
+  await review.getByRole('button', { name: 'Use photo', exact: true }).click();
+  await expect(review).toBeHidden();
   await expect(page.getByRole('button', { name: 'Retake' }).first()).toBeVisible();
+});
+
+test('phone-camera review can be cancelled without queueing the photo', async ({ page }) => {
+  await denyCameraAccess(page);
+  await openCapture(page);
+
+  await page.getByRole('button', { name: 'Take photo' }).first().click();
+  const fileChooserPromise = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Use phone camera' }).click();
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles({
+    name: 'vehicle-overview__fallback.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64'
+    )
+  });
+
+  const review = page.getByRole('dialog', { name: 'Check Vehicle overview' });
+  await expect(review).toBeVisible();
+  await review.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+  await expect(review).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Take photo' }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Retake' })).toHaveCount(0);
 });

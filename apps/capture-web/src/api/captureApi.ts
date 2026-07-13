@@ -1,7 +1,6 @@
 import type {
   CaptureExchangeResponse,
   CaptureSessionManifest,
-  CaptureSubmitRequest,
   CaptureSubmitResponse,
   CaptureUploadCompleteRequest,
   CaptureUploadCompleteResponse,
@@ -17,9 +16,11 @@ export interface CaptureAuthorization {
 
 export interface CaptureApi {
   exchange(bootstrapSecret: string): Promise<CaptureExchangeResponse>;
+  renew(): Promise<CaptureExchangeResponse>;
   getManifest(authorization: CaptureAuthorization): Promise<CaptureSessionManifest>;
   createUpload(
     authorization: CaptureAuthorization,
+    idempotencyKey: string,
     request: CaptureUploadRequest
   ): Promise<CaptureUploadIntent>;
   uploadFile(intent: CaptureUploadIntent, file: File): Promise<void>;
@@ -28,8 +29,5 @@ export interface CaptureApi {
     assetId: string,
     request: CaptureUploadCompleteRequest
   ): Promise<CaptureUploadCompleteResponse>;
-  submit(
-    authorization: CaptureAuthorization,
-    request: CaptureSubmitRequest
-  ): Promise<CaptureSubmitResponse>;
+  submit(authorization: CaptureAuthorization, idempotencyKey: string): Promise<CaptureSubmitResponse>;
 }

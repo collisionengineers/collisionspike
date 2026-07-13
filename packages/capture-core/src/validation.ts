@@ -1,5 +1,3 @@
-import type { CaptureUploadRequest } from '@collisioncapture/contracts';
-
 export type FileValidationResult =
   | { ok: true }
   | { ok: false; reason: string };
@@ -9,8 +7,14 @@ export interface FileValidationPolicy {
   acceptedMimeTypes: readonly string[];
 }
 
+export interface UploadFileCandidate {
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
 export function validateUploadRequest(
-  request: Pick<CaptureUploadRequest, 'fileName' | 'contentType' | 'sizeBytes'>,
+  request: UploadFileCandidate,
   policy: FileValidationPolicy
 ): FileValidationResult {
   if (!request.fileName.trim()) {

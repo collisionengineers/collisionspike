@@ -2,7 +2,7 @@ import type { CaptureExchangeResponse } from '@collisioncapture/contracts';
 import type { CaptureApi } from '../api/captureApi';
 
 const BOOTSTRAP_PARAMETER = 'capture';
-const SECRET_PATTERN = /^[A-Za-z0-9_-]{43,128}$/;
+const SECRET_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 export class BootstrapSecretError extends Error {
   constructor(message: string) {
@@ -33,7 +33,7 @@ export function clearBootstrapFragment(
 
 /** Exchange once, then remove the bootstrap secret from the address bar/history. */
 export async function exchangeBootstrapSecret(
-  api: CaptureApi,
+  api: Pick<CaptureApi, 'exchange'>,
   location: Pick<Location, 'hash' | 'pathname' | 'search'>,
   history: Pick<History, 'replaceState'>,
   allowDemo = false
@@ -42,4 +42,18 @@ export async function exchangeBootstrapSecret(
   const exchange = await api.exchange(secret);
   clearBootstrapFragment(location, history);
   return exchange;
+}
+
+/** Exchange a new fragment when present, otherwise resume from the HttpOnly cookie. */
+export async function authorizeCapture(
+  api: Pick<CaptureApi, 'exchange' | 'renew'>,
+  location: Pick<Location, 'hash' | 'pathname' | 'search'>,
+  history: Pick<History, 'replaceState'>,
+  allowDemo = false
+): Promise<CaptureExchangeResponse> {
+  const parameters = new URLSearchParams(
+    location.hash.startsWith('#') ? location.hash.slice(1) : location.hash
+  );
+  if (!parameters.has(BOOTSTRAP_PARAMETER)) return api.renew();
+  return exchangeBootstrapSecret(api, location, history, allowDemo);
 }

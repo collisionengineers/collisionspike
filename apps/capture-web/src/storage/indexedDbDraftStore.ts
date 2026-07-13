@@ -76,28 +76,53 @@ export class IndexedDbDraftStore implements DraftStore {
     sessionId: string,
     shotId: string,
     status: DraftUploadState,
-    uploadId?: string
+    uploadId?: string,
+    assetId?: string,
+    expectedIdempotencyKey?: string
   ): Promise<DraftPhoto | undefined> {
     assertDraftKey(sessionId, shotId);
-    const stored = await this.getWithoutRehydrating(sessionId, shotId);
-    if (!stored) return undefined;
+    const database = await this.open();
+    const transaction = database.transaction(DRAFT_STORE, 'readwrite');
+    const store = transaction.objectStore(DRAFT_STORE);
+    const stored = await requestResult<DraftPhoto | undefined>(store.get([sessionId, shotId]));
+    if (!stored) {
+      await transactionDone(transaction);
+      return undefined;
+    }
+    if (expectedIdempotencyKey && stored.idempotencyKey !== expectedIdempotencyKey) {
+      await transactionDone(transaction);
+      return undefined;
+    }
 
     const updated: DraftPhoto = {
       ...cloneDraft(stored),
       status,
       ...(uploadId === undefined ? {} : { uploadId }),
+      ...(assetId === undefined ? {} : { assetId }),
       updatedAt: (this.dependencies.now ?? (() => new Date()))().toISOString()
     };
-    await this.put(updated);
+    store.put(cloneDraft(updated));
+    await transactionDone(transaction);
     return cloneDraft(updated);
   }
 
-  async clearShot(sessionId: string, shotId: string): Promise<void> {
+  async clearShot(
+    sessionId: string,
+    shotId: string,
+    expectedIdempotencyKey?: string
+  ): Promise<boolean> {
     assertDraftKey(sessionId, shotId);
     const database = await this.open();
     const transaction = database.transaction(DRAFT_STORE, 'readwrite');
-    transaction.objectStore(DRAFT_STORE).delete([sessionId, shotId]);
+    const store = transaction.objectStore(DRAFT_STORE);
+    const stored = await requestResult<DraftPhoto | undefined>(store.get([sessionId, shotId]));
+    if (!stored || (expectedIdempotencyKey && stored.idempotencyKey !== expectedIdempotencyKey)) {
+      await transactionDone(transaction);
+      return false;
+    }
+    store.delete([sessionId, shotId]);
     await transactionDone(transaction);
+    return true;
   }
 
   async clearSession(sessionId: string): Promise<void> {
@@ -115,18 +140,6 @@ export class IndexedDbDraftStore implements DraftStore {
     if (!this.databasePromise) return;
     void this.databasePromise.then((database) => database.close());
     this.databasePromise = undefined;
-  }
-
-  private async getWithoutRehydrating(
-    sessionId: string,
-    shotId: string
-  ): Promise<DraftPhoto | undefined> {
-    const database = await this.open();
-    const transaction = database.transaction(DRAFT_STORE, 'readonly');
-    const request = transaction.objectStore(DRAFT_STORE).get([sessionId, shotId]);
-    const stored = await requestResult<DraftPhoto | undefined>(request);
-    await transactionDone(transaction);
-    return stored;
   }
 
   private async put(draft: DraftPhoto): Promise<void> {

@@ -8,13 +8,20 @@ import type {
 import { validateUploadRequest } from '@collisioncapture/core';
 import { Camera, CheckCircle2, CircleAlert, LoaderCircle } from 'lucide-react';
 import { GuidedCamera } from '../camera/GuidedCamera';
+import { UploadCoordinatorError } from '../uploads/uploadCoordinator';
+import { FallbackPhotoReview } from './FallbackPhotoReview';
+import type { ClientCaptureObservation } from './captureObservation';
 
 interface ShotCaptureCardProps {
   manifest: CaptureSessionManifest;
   shot: CaptureShotDefinition;
   progress: CaptureShotProgress | undefined;
   onProgress: (progress: CaptureShotProgress) => void;
-  onPhoto: (file: File, replacesSelected: boolean) => Promise<void>;
+  onPhoto: (
+    file: File,
+    replacesSelected: boolean,
+    observation: ClientCaptureObservation
+  ) => Promise<void>;
 }
 
 export function ShotCaptureCard({
@@ -27,6 +34,7 @@ export function ShotCaptureCard({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [fallbackFile, setFallbackFile] = useState<File | null>(null);
   const [attemptBusy, setAttemptBusy] = useState(false);
 
   const status = progress?.status ?? 'empty';
@@ -45,7 +53,10 @@ export function ShotCaptureCard({
     inputRef.current?.click();
   };
 
-  const upload = async (file: File): Promise<void> => {
+  const upload = async (
+    file: File,
+    observation: ClientCaptureObservation
+  ): Promise<void> => {
     setError(null);
     const fileDetails = {
       shotId: shot.id,
@@ -81,11 +92,14 @@ export function ShotCaptureCard({
     }
 
     try {
-      await onPhoto(file, isDone);
-    } catch {
-      const message = 'This photo did not upload. Try again.';
+      await onPhoto(file, isDone, observation);
+    } catch (uploadError: unknown) {
+      const coordinatorError = uploadError instanceof UploadCoordinatorError
+        ? uploadError
+        : undefined;
+      const message = coordinatorError?.message ?? 'This photo did not upload. Try again.';
       setError(message);
-      if (!isDone) {
+      if (!isDone && coordinatorError?.code !== 'session-unavailable') {
         onProgress({
           shotId: shot.id,
           status: 'rejected',
@@ -124,13 +138,17 @@ export function ShotCaptureCard({
         ref={inputRef}
         className="file-input"
         type="file"
+        disabled={manifest.status !== 'open'}
         tabIndex={-1}
         aria-hidden="true"
         accept="image/*"
         capture="environment"
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
-          if (file) void upload(file);
+          if (file) {
+            setError(null);
+            setFallbackFile(file);
+          }
           event.currentTarget.value = '';
         }}
       />
@@ -138,7 +156,7 @@ export function ShotCaptureCard({
       <button
         className="icon-button"
         type="button"
-        disabled={isBusy}
+        disabled={isBusy || manifest.status !== 'open'}
         onClick={() => setCameraOpen(true)}
       >
         {isBusy ? <LoaderCircle aria-hidden="true" className="spin" /> : <Camera aria-hidden="true" />}
@@ -155,16 +173,36 @@ export function ShotCaptureCard({
 
       {cameraOpen ? (
         <GuidedCamera
+          guidanceMode={manifest.guidanceMode}
+          rulesVersion={manifest.rulesVersion}
           shotLabel={shot.label}
           prompt={shot.prompt}
-          onAccept={(file) => {
+          onAccept={(file, observation) => {
             setCameraOpen(false);
-            void upload(file);
+            void upload(file, observation);
           }}
           onClose={() => setCameraOpen(false)}
           onFallback={() => {
             setCameraOpen(false);
             chooseFallbackFile();
+          }}
+        />
+      ) : null}
+
+      {fallbackFile ? (
+        <FallbackPhotoReview
+          file={fallbackFile}
+          guidanceMode={manifest.guidanceMode}
+          rulesVersion={manifest.rulesVersion}
+          shotLabel={shot.label}
+          onCancel={() => setFallbackFile(null)}
+          onRetake={() => {
+            setFallbackFile(null);
+            chooseFallbackFile();
+          }}
+          onUse={(file, observation) => {
+            setFallbackFile(null);
+            void upload(file, observation);
           }}
         />
       ) : null}

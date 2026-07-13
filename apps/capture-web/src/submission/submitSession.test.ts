@@ -60,7 +60,7 @@ describe('submit session resilience', () => {
       status: 'complete'
     });
 
-    expect(submit.mock.calls.map((call) => call[1].idempotencyKey)).toEqual([retained, retained]);
+    expect(submit.mock.calls.map((call) => call[1])).toEqual([retained, retained]);
     expect(storage.getItem(submitStorageKey(authorization.sessionId))).toBeNull();
     expect(randomUUID).toHaveBeenCalledOnce();
   });
