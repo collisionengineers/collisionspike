@@ -8,7 +8,7 @@ Deployment and the ticket-required disposable live-case proof remain owned by th
 ## Offline evidence
 
 - Domain: **56 files / 1,138 tests passed**.
-- Data API: **64 files / 640 tests passed**.
+- Data API: **64 files / 642 tests passed**.
 - Orchestration: **30 files / 417 tests passed**.
 - SPA: **41 files / 468 tests passed**.
 - Production TypeScript builds passed for Domain and the Data API; the SPA TypeScript/Vite build
@@ -26,6 +26,12 @@ Regression coverage includes:
 - partial, total, stale-binding and already-complete outcomes;
 - batch-result audit records for refusal and partial completion plus exactly one response-loss recovery;
 - terminal archive dead-letter, Not Ready state and staff requeue recovery;
+- one atomic terminal-dead-letter/status-recompute handoff, one canonical Review-to-Not-Ready
+  recompute and no duplicate handoff on a stale defer replay;
+- changed-selection replay retaining an earlier-key/content-dedup evidence dead-letter, with the retry
+  route covering every Manual Intake item binding on the case;
+- source-readiness-only merge helpers that preserve unrelated dirty case-edit values for the audited
+  TKT-153 integration;
 - the canonical source-evidence readiness blocker and locked EVA submission check;
 - picker/server format and size agreement.
 

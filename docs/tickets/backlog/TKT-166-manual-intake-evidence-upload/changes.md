@@ -19,6 +19,8 @@ loop still owns the ticket-status move, database delta, deployment and independe
 - `9b8ca98` — close the second independent audit: durable post-create reconciliation, fixed
   instruction identity, strict role validation, one-time response-loss auditing and terminal archive
   recovery.
+- `0f3f034` — make terminal archive state atomically recompute canonical status and preserve
+  earlier-key/content-dedup source failures across changed-selection rebinds.
 
 ## Files touched
 
@@ -64,7 +66,7 @@ complete while the persisted status is still Not Ready.
 ## Offline checks
 
 - Full Domain suite: **1,138 tests passed**.
-- Full API suite: **640 tests passed**.
+- Full API suite: **642 tests passed**.
 - Full orchestration suite: **417 tests passed**.
 - Full SPA suite: **468 tests passed**.
 - Production TypeScript builds passed for Domain, API, orchestration and the SPA; the Vite bundle was
@@ -121,3 +123,29 @@ complete while the persisted status is still Not Ready.
 - Archive mirror work dead-letters after eight failed attempts and leaves automatic pending pages.
   A terminal failure on a selected Manual Intake source file keeps the case Not Ready with an Evidence
   action that clears the terminal marker, advances the generation and requeues the canonical outbox.
+
+## Fresh audit follow-up — 2026-07-13
+
+- The eighth archive defer now selects and locks the actual attempt/dead-letter fields, writes terminal
+  state and advances the case's durable status-recompute generation in the same transaction. A stale
+  duplicate defer observes the terminal marker and cannot increment attempts or enqueue another
+  recompute. The canonical recompute regression proves a stale Review case becomes Not Ready.
+- Manual source archive readiness no longer derives from the operation row's current upload key.
+  It joins every `manual_intake` upload item for the case to its persisted evidence identity and outbox
+  row. This includes prior keys after changed-selection rebind and evidence identities obtained by
+  content deduplication. The retry route uses the same all-bindings join.
+- `sourceReadinessInputForCase` and `mergeSourceReadinessIntoCase` are exported from the shared domain.
+  The latter updates only server-owned status/source flags on a local draft. The archive recovery UI is
+  isolated in `ManualSourceArchiveRecovery.tsx`, so an explicit-save integration can retain the action
+  without replacing unsaved field values.
+
+### TKT-153 integration contract (audited at head `075a691`)
+
+Do not merge either branch mechanically. TKT-153's current `rest-client.ts` removes TKT-166's
+create-operation headers, per-file roles/completion result and archive retry while adding
+`saveCaseEdits`; the semantic result must contain both contracts. Its `CaseDetail.tsx` removes the
+source recovery surface while adding the explicit draft/save session. Preserve
+`ManualSourceArchiveRecovery` in the Evidence tab and, on recovery, apply
+`mergeSourceReadinessIntoCase` to both the draft and persisted baseline so canonical status/source
+flags refresh without overwriting dirty EVA fields. Keep TKT-153's Save/Discard/concurrency behavior
+unchanged. TKT-024 remains a separate semantic integration for `ManualIntake.tsx` and was not merged.
