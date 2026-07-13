@@ -8,9 +8,9 @@ Deployment and the ticket-required disposable live-case proof remain owned by th
 ## Offline evidence
 
 - Domain: **56 files / 1,138 tests passed**.
-- Data API: **64 files / 645 tests passed**.
+- Data API: **66 files / 655 tests passed**.
 - Orchestration: **30 files / 417 tests passed**.
-- SPA: **41 files / 468 tests passed**.
+- SPA: **42 files / 480 tests passed**.
 - Production TypeScript builds passed for Domain and the Data API; the SPA TypeScript/Vite build
   produced a production bundle.
 - `node verify-all.mjs`: **8 passed / 0 failed / 13 expected skips**.
@@ -38,6 +38,8 @@ Regression coverage includes:
 - multiple completed operation bindings on a merged survivor remain exact by upload key;
 - explicit-save compatibility snapshot updates draft, persisted baseline and concurrency version while
   preserving dirty field values;
+- an explicit Save while a Manual Intake source is dead-lettered remains `needs_review` instead of
+  promoting the case from the stale editable field snapshot;
 - the canonical source-evidence readiness blocker and locked EVA submission check;
 - picker/server format and size agreement.
 
