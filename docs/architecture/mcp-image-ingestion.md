@@ -100,16 +100,23 @@ request ids, tools params and initialized/cancelled notification shapes at runti
 are never accepted as requests. `initialize` must be the first interaction; a Postgres-backed session
 records `initializing → ready`, so scale-out cannot bypass the initialized notification. Tool/business
 refusals are MCP tool results with `isError: true` and `structuredContent`; malformed JSON-RPC remains a
-protocol error. Browser-origin requests are rejected unless their exact Origin is listed in
-`MCP_ALLOWED_ORIGINS` (folder watchers normally send no Origin). The dedicated identity is durably
-limited per minute in Postgres.
+protocol error. A missing or malformed session header is a 400 request error; a syntactically valid
+session that is absent, expired, not ready, or bound to another authenticated principal/protocol
+version returns HTTP 404 as required by the 2025-06-18 transport contract. Browser-origin requests are
+rejected unless their exact Origin is listed in `MCP_ALLOWED_ORIGINS` (folder watchers normally send
+no Origin). The dedicated identity is durably limited per minute in Postgres. Session creation is
+transaction-serialized per authenticated principal, reuses only that principal's expired rows, and
+caps the principal at eight durable rows by default. At capacity, initialization returns retryable
+HTTP 429 rather than growing the table.
 
 The autonomous body is consumed through a byte-counted `ReadableStream` before JSON/Base64
 materialization. `Content-Length` is only an early rejection hint: chunked/HTTP2 requests with no length
 are bounded by the stream counter, and a runtime that supplies neither a stream nor a platform-bounded
 body is refused. Cumulative decoded-size checks then run before image buffers are retained. The sample
 watcher implements the full lifecycle, confirms both required tools via `tools/list`, and sends batches
-sequentially so earlier Base64 batches are released before the next is assembled.
+sequentially so earlier Base64 batches are released before the next is assembled. Its behavioral test
+runs against a session-requiring HTTP server and rejects any initialized/list/call request that omits
+the server-issued session id or negotiated protocol header.
 
 ## Authorization and dark gates
 
@@ -135,7 +142,12 @@ BOX_FOLDER_ROOT_ID=392761581105
 BOX_FN_URL=<box facade host>
 BOX_FN_KEY=<Key Vault referenced function key>
 MCP_IMAGE_INGEST_REQUESTS_PER_MINUTE=60
+MCP_SESSION_LIFETIME_MINUTES=60
+MCP_SESSION_CAP_PER_PRINCIPAL=8
 ```
+
+The session values above are bounded in code (`5..480` minutes and `1..32` rows per principal). Keep
+the defaults unless load testing establishes a reviewed operational reason to change them.
 
 The two independent root settings must both equal programme test root `392761581105`. Before live
 proof, deploy the Box façade change and read back the Box Function's independent

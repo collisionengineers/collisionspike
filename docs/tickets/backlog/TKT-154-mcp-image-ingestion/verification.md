@@ -7,9 +7,10 @@ PENDING
 
 Offline implementation evidence on the ticket branch:
 
-- Implementation commits under test: `47895b0` and second-audit hardening `e2a25eb`.
+- Implementation commits under test: `47895b0`, second-audit hardening `e2a25eb`, and third-audit
+  hardening `3cd783c`.
 
-- API full suite: **68 files / 662 tests passed**, including the published
+- API full suite: **68 files / 667 tests passed**, including the published
   `@modelcontextprotocol/sdk` Streamable HTTP client compatibility test against the registered route
   (initialize/initialized, tools/list and structured tool error). MCP protocol/principal/image-ingest/
   evidence/auth/Box-client/internal-archive coverage, registration TOCTOU refusal, multi-role denial, cumulative preflight,
@@ -21,6 +22,8 @@ Offline implementation evidence on the ticket branch:
   build passes.
 - Box façade full suite: **251 tests passed**, including unset/wrong/out-of-root refusal and strict
   recheck before upload.
+- Root suite passes: domain **54 files / 1,132 tests**, SPA **39 files / 453 tests**, reciprocal PR
+  review hooks **48 tests**, and the session-requiring folder watcher **1 test**.
 - Ticket validator: **164 tickets, 0 failures, 0 warnings**. Documentation links/orphans/live-fact
   leakage check passes (26 known historical absent-link backlog entries remain informational).
 - `git diff --check` passes.
@@ -35,6 +38,15 @@ Second-audit evidence included in the full-suite totals above:
   upload route refusing the second upload.
 - The adversarial fixture decodes through Sharp as a 420×50, 344-byte `image/png`; the mocked classifier seam receives its data URL and
   returns a parsed classification without the visible instruction becoming prompt text.
+
+Third-audit evidence included in the full-suite totals above:
+
+- The folder-watcher behavioral test uses a local session-requiring HTTP server and proves the exact
+  server-issued session id plus MCP version reach initialized, list, lookup and upload requests.
+- Route tests distinguish missing/malformed session headers (400) from valid-format unresolved,
+  expired, wrong-principal, wrong-version or failed-initialization session state (404).
+- Session-store tests prove principal-scoped advisory locking, expired-own-row reuse, the repeated
+  principal/expiry predicate, a configurable hard cap, and retryable 429 route behavior at capacity.
 
 ## Pending / gaps
 

@@ -5,6 +5,7 @@ Code-complete on the ticket branch; deliberately dark and not deployed.
 
 Implementation commit: `47895b0` (`Harden constrained MCP image ingestion`).
 Second-audit hardening commit: `e2a25eb` (`Close TKT-154 second audit gaps`).
+Third-audit hardening commit: `3cd783c` (`Close TKT-154 third audit gaps`).
 
 ## Changes made
 
@@ -46,6 +47,18 @@ Second-audit hardening commit: `e2a25eb` (`Close TKT-154 second audit gaps`).
 - Replaced the SVG prompt-injection fixture with a real accepted PNG and carried it through the mocked
   classifier HTTP seam. Live-model behavior remains explicitly pending.
 - Made the sample watcher call and verify `tools/list` before its first `tools/call`.
+
+## Third audit hardening
+
+- Made the sample watcher capture the server-issued `Mcp-Session-Id` from `initialize` and send it on
+  `notifications/initialized`, `tools/list`, lookup and upload. A wire-level behavioral test runs the
+  watcher against a server that returns 404 when the session or protocol header is missing.
+- Aligned session failure responses with MCP 2025-06-18: missing/malformed headers remain HTTP 400;
+  valid-format session IDs that are absent, expired, not ready, or do not match the authenticated
+  principal/protocol return HTTP 404.
+- Bounded durable lifecycle state per authenticated principal. Creation takes a principal-scoped
+  transaction advisory lock, reuses only that principal's expired rows, defaults to a hard eight-row
+  cap, and returns retryable HTTP 429 at capacity. The schema now indexes principal plus expiry.
 
 ## Deliberately not done here
 
