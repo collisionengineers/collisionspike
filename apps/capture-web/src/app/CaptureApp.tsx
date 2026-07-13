@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import type { CaptureSessionManifest, CaptureShotProgress } from '@collisioncapture/contracts';
 import { completionCounts, orderedShots, requiredShotsComplete } from '@collisioncapture/core';
@@ -8,6 +8,7 @@ import type { CaptureApi, CaptureAuthorization } from '../api/captureApi';
 import { HttpCaptureApi } from '../api/httpCaptureApi';
 import { exchangeBootstrapSecret } from '../bootstrap/bootstrapSecret';
 import { ShotCaptureCard } from '../capture/ShotCaptureCard';
+import { submitCaptureSession } from '../submission/submitSession';
 import { useUploadCoordinator } from '../uploads/useUploadCoordinator';
 import { VehicleGuide } from '../ui/VehicleGuide';
 import ceLogo from '../assets/ce-logo.png';
@@ -69,7 +70,7 @@ export function CaptureApp(): ReactElement {
 
   const submit = async (): Promise<void> => {
     if (loadState.status !== 'ready') return;
-    await api.submit(loadState.authorization, { idempotencyKey: crypto.randomUUID() });
+    await submitCaptureSession(api, loadState.authorization);
     setLoadState({
       status: 'ready',
       authorization: loadState.authorization,
@@ -120,9 +121,13 @@ interface CaptureFlowProps {
   onSubmit: () => Promise<void>;
 }
 
-function CaptureFlow({ api, authorization, manifest, online, onProgress, onSubmit }: CaptureFlowProps): ReactElement {
+type SubmitState = 'idle' | 'submitting' | 'error';
+
+export function CaptureFlow({ api, authorization, manifest, online, onProgress, onSubmit }: CaptureFlowProps): ReactElement {
   const shots = useMemo(() => orderedShots(manifest.shots), [manifest.shots]);
   const coordinator = useUploadCoordinator(api, authorization, onProgress);
+  const submitInFlight = useRef(false);
+  const [submitState, setSubmitState] = useState<SubmitState>('idle');
   const counts = completionCounts(manifest);
   const canSubmit = requiredShotsComplete(manifest) && manifest.status === 'open';
 
@@ -130,10 +135,38 @@ function CaptureFlow({ api, authorization, manifest, online, onProgress, onSubmi
     ? Math.round((counts.requiredDone / counts.requiredTotal) * 100)
     : 100;
   const isComplete = manifest.status === 'complete';
+  const isSubmitting = submitState === 'submitting';
   const submitAndClear = async (): Promise<void> => {
-    await onSubmit();
-    await coordinator.clearSession();
+    if (submitInFlight.current || !canSubmit) return;
+    submitInFlight.current = true;
+    setSubmitState('submitting');
+
+    try {
+      await onSubmit();
+    } catch {
+      setSubmitState('error');
+      submitInFlight.current = false;
+      return;
+    }
+
+    // Drafts are intentionally retained until the server confirms submission.
+    // Cleanup is best effort because a local storage failure must not misreport
+    // a successful send as failed.
+    try {
+      await coordinator.clearSession();
+    } catch {
+      // A later visit can safely clean up the retained local drafts.
+    }
+    setSubmitState('idle');
+    submitInFlight.current = false;
   };
+
+  const footerMessage = captureFooterMessage(
+    manifest.status,
+    canSubmit,
+    counts.requiredTotal - counts.requiredDone,
+    submitState
+  );
 
   return (
     <main className="shell">
@@ -191,19 +224,60 @@ function CaptureFlow({ api, authorization, manifest, online, onProgress, onSubmi
       <footer className="submit-bar">
         <div>
           <span className="eyebrow">Send to Collision Engineers</span>
-          <p>
-            {isComplete
-              ? 'Photos received.'
-              : canSubmit
-                ? 'Required photos are ready.'
-                : `${counts.requiredTotal - counts.requiredDone} required ${counts.requiredTotal - counts.requiredDone === 1 ? 'photo' : 'photos'} still needed.`}
+          <p
+            className={submitState === 'error' ? 'submit-message error' : 'submit-message'}
+            role={submitState === 'error' ? 'alert' : 'status'}
+            aria-live={submitState === 'error' ? 'assertive' : 'polite'}
+          >
+            {footerMessage}
           </p>
         </div>
-        <button className="primary-action" disabled={!canSubmit} onClick={() => void submitAndClear()}>
-          {isComplete ? <CheckCircle2 aria-hidden="true" /> : <Camera aria-hidden="true" />}
-          {isComplete ? 'Sent' : 'Send photos'}
+        <button
+          className="primary-action"
+          disabled={!canSubmit || isSubmitting}
+          aria-busy={isSubmitting}
+          onClick={() => void submitAndClear()}
+        >
+          {isComplete
+            ? <CheckCircle2 aria-hidden="true" />
+            : isSubmitting
+              ? <RotateCw aria-hidden="true" className="spin" />
+              : manifest.status === 'open'
+                ? <Camera aria-hidden="true" />
+                : <CircleAlert aria-hidden="true" />}
+          {submitButtonLabel(manifest.status, submitState)}
         </button>
       </footer>
     </main>
   );
+}
+
+export function captureFooterMessage(
+  status: CaptureSessionManifest['status'],
+  canSubmit: boolean,
+  remainingRequired: number,
+  submitState: SubmitState
+): string {
+  if (status === 'complete') return 'Photos received.';
+  if (status === 'expired') return 'This link has expired. Ask Collision Engineers for a new link.';
+  if (status === 'revoked') return 'This link is no longer active. Ask Collision Engineers for a new link.';
+  if (status === 'locked') return 'This link has been paused. Contact Collision Engineers for help.';
+  if (submitState === 'submitting') return 'Sending photos securely…';
+  if (submitState === 'error') return 'Photos were not sent. They are still saved. Check your connection and try again.';
+  if (canSubmit) return 'Required photos are ready.';
+
+  const remaining = Math.max(0, remainingRequired);
+  if (remaining === 0) return 'Photo checks are still finishing.';
+  return `${remaining} required ${remaining === 1 ? 'photo' : 'photos'} still needed.`;
+}
+
+function submitButtonLabel(
+  status: CaptureSessionManifest['status'],
+  submitState: SubmitState
+): string {
+  if (status === 'complete') return 'Sent';
+  if (status !== 'open') return 'Link unavailable';
+  if (submitState === 'submitting') return 'Sending…';
+  if (submitState === 'error') return 'Try sending again';
+  return 'Send photos';
 }

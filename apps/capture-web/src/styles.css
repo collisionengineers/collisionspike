@@ -363,6 +363,10 @@ h1 {
   font-weight: 700;
 }
 
+.submit-message.error {
+  color: var(--ce-red-dark);
+}
+
 .spin {
   animation: spin 900ms linear infinite;
 }
