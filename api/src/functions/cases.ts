@@ -1854,7 +1854,11 @@ async function mergeEvidenceRows(
     };
   }
   if (locked.some((row) => row.deletion_operation_id != null)) {
-    return { movedEvidence: 0, collidingEvidence: 0, deletionBusy: true };
+    // Both case mutation locks were acquired before the fail-fast probe in the
+    // merge transaction, so the deletion route cannot create a marker between
+    // that probe and this evidence lock. Treat a late marker as an invariant
+    // failure and throw so every earlier merge write is rolled back.
+    throw new Error('image deletion state changed during merge');
   }
   const canonicalSha = (value: string | null): string | null => {
     const trimmed = (value ?? '').trim();
@@ -2355,6 +2359,41 @@ app.http('mergeCases', {
           error: 'Archive folder work is still finishing for one of these cases. Try the merge again shortly.',
         };
       }
+      // Image deletion and archive claiming take the same case mutation lock
+      // before writing evidence work state. With both merge-side locks already
+      // held, this read is a race-free fail-fast check and must precede
+      // reconcileMergeFileRequestIntent: that helper may transfer/cancel a durable
+      // File Request intent, so no later validation may commit a partial mutation.
+      const activeWork = await q<{ deletion_busy: boolean; archive_busy: boolean }>(
+        `SELECT EXISTS (
+           SELECT 1
+             FROM evidence
+            WHERE case_id = ANY($1::uuid[])
+              AND deletion_operation_id IS NOT NULL
+         ) AS deletion_busy,
+         EXISTS (
+           SELECT 1
+             FROM evidence
+            WHERE case_id = ANY($1::uuid[])
+              AND archive_mirror_claim_token IS NOT NULL
+              AND archive_mirror_claim_expires_at > now()
+         ) AS archive_busy`,
+        [[sourceCaseId, targetCaseId]],
+      );
+      if (activeWork[0]?.deletion_busy) {
+        return {
+          kind: 'error' as const,
+          status: 409,
+          error: 'An image is being deleted from one of these cases. Try the merge again shortly.',
+        };
+      }
+      if (activeWork[0]?.archive_busy) {
+        return {
+          kind: 'error' as const,
+          status: 409,
+          error: 'Archive work is still finishing for one of these cases. Try the merge again shortly.',
+        };
+      }
 
       const manualIntakeConflict = await manualIntakeMergeConflict(
         q,
@@ -2392,31 +2431,11 @@ app.http('mergeCases', {
         [sourceCaseId],
       );
 
-      const {
-        movedEvidence,
-        collidingEvidence,
-        evidenceReplacements,
-        archiveBusy,
-        deletionBusy,
-      } = await mergeEvidenceRows(
+      const { movedEvidence, collidingEvidence, evidenceReplacements } = await mergeEvidenceRows(
         q,
         sourceCaseId,
         targetCaseId,
       );
-      if (archiveBusy) {
-        return {
-          kind: 'error' as const,
-          status: 409,
-          error: 'Archive work is still finishing for one of these cases. Try the merge again shortly.',
-        };
-      }
-      if (deletionBusy) {
-        return {
-          kind: 'error' as const,
-          status: 409,
-          error: 'An image is being deleted from one of these cases. Try the merge again shortly.',
-        };
-      }
       await transferStaffUploadOwnership(q, sourceCaseId, targetCaseId);
       await repointLockedCaptureAssetsForMerge(q, captureAssetIds, evidenceReplacements);
       await reparentLockedCaptureSessionsForMerge(
