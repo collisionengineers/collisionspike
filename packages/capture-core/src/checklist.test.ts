@@ -6,7 +6,7 @@ describe('capture checklist', () => {
   it('requires the overview and damage close-up before submission', () => {
     const manifest = createMockManifest({
       progress: [
-        { shotId: 'overview', status: 'uploaded' },
+        { shotId: 'overview', status: 'accepted' },
         { shotId: 'damage-closeup', status: 'empty' }
       ]
     });
@@ -17,9 +17,9 @@ describe('capture checklist', () => {
   it('reports required and total completion counts', () => {
     const manifest = createMockManifest({
       progress: [
-        { shotId: 'overview', status: 'uploaded' },
-        { shotId: 'damage-closeup', status: 'uploaded' },
-        { shotId: 'vin', status: 'uploaded' }
+        { shotId: 'overview', status: 'accepted' },
+        { shotId: 'damage-closeup', status: 'pending_review' },
+        { shotId: 'vin', status: 'accepted' }
       ]
     });
 
@@ -32,4 +32,3 @@ describe('capture checklist', () => {
     });
   });
 });
-

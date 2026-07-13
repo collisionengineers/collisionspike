@@ -1,12 +1,15 @@
-import type { CaptureSessionManifest, CaptureShotDefinition, CaptureShotProgress } from '@collisioncapture/contracts';
+import type {
+  CaptureSessionManifest,
+  CaptureShotDefinition,
+  CaptureShotProgress,
+  CaptureUploadRequest
+} from '@collisioncapture/contracts';
 
 export const DEFAULT_MAX_FILE_BYTES = 15 * 1024 * 1024;
 
-export const DEFAULT_ACCEPTED_MIME_TYPES = [
+export const DEFAULT_ACCEPTED_MIME_TYPES: CaptureUploadRequest['contentType'][] = [
   'image/jpeg',
   'image/png',
-  'image/heic',
-  'image/heif',
   'image/webp'
 ];
 
@@ -124,7 +127,11 @@ export function requiredShotsComplete(manifest: CaptureSessionManifest): boolean
   const byShot = progressByShot(manifest.progress);
   return manifest.shots
     .filter((shot) => shot.required)
-    .every((shot) => byShot.get(shot.id)?.status === 'uploaded');
+    .every((shot) => isSubmittableProgress(byShot.get(shot.id)));
+}
+
+export function isSubmittableProgress(progress: CaptureShotProgress | undefined): boolean {
+  return progress?.status === 'accepted' || progress?.status === 'pending_review';
 }
 
 export function completionCounts(manifest: CaptureSessionManifest): {
@@ -136,7 +143,7 @@ export function completionCounts(manifest: CaptureSessionManifest): {
   const byShot = progressByShot(manifest.progress);
   const required = manifest.shots.filter((shot) => shot.required);
   const isUploaded = (shot: CaptureShotDefinition): boolean =>
-    byShot.get(shot.id)?.status === 'uploaded';
+    isSubmittableProgress(byShot.get(shot.id));
 
   return {
     requiredDone: required.filter(isUploaded).length,
@@ -145,4 +152,3 @@ export function completionCounts(manifest: CaptureSessionManifest): {
     total: manifest.shots.length
   };
 }
-
