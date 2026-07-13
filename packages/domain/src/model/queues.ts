@@ -333,7 +333,8 @@ const REASON_LABELS: Record<ActionReason, string> = {
   missing_instructions: 'Missing instructions',
   duplicate: 'Duplicate',
   conflict: 'Conflict',
-  needs_review: 'Needs review',
+  // The stored reason remains append-only; the handler-facing workflow is Not ready.
+  needs_review: 'Not ready',
 };
 
 export { REASON_LABELS };

@@ -47,7 +47,10 @@ interface StatusStyle {
 const STATUS_STYLES: Record<CaseStatus, StatusStyle> = {
   new_email: { label: 'New email', severity: 'info', icon: Circle },
   ingested: { label: 'Logged', severity: 'info', icon: Clock },
-  needs_review: { label: 'Needs review', severity: 'attention', icon: AlertTriangle },
+  // `needs_review` is the legacy stored name for the generic incomplete state.
+  // TKT-130 makes Review the fully EVA-ready queue, so exposing that storage
+  // name would contradict the queue the case is actually in (TKT-168).
+  needs_review: { label: 'Not ready', severity: 'attention', icon: AlertTriangle },
   missing_required_fields: { label: 'Missing fields', severity: 'blocker', icon: FileWarning },
   missing_images: { label: 'Missing images', severity: 'blocker', icon: ImageOff },
   duplicate_risk: { label: 'Duplicate risk', severity: 'blocker', icon: Copy },

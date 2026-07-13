@@ -93,7 +93,7 @@ Plans cluster related tickets without moving them. A plan lives at `docs/tickets
 | [PLAN-001](./plans/PLAN-001-ai-mcp-hardening.md) | Harden and enhance AI features plus MCP | active | 8/17 done |
 | [PLAN-002](./plans/PLAN-002-case-done-lifecycle.md) | Case done lifecycle | active | 1/3 done |
 | [PLAN-003](./plans/PLAN-003-operator-fixup-wave.md) | Operator fix-up wave 2026-07-08 | active | 35/37 done |
-| [PLAN-004](./plans/PLAN-004-production-readiness.md) | Production readiness and lifecycle completion | active | 0/19 done |
+| [PLAN-004](./plans/PLAN-004-production-readiness.md) | Production readiness and lifecycle completion | active | 0/22 done |
 
 ## Validation
 
@@ -291,6 +291,9 @@ node scripts/check-skills-sync.mjs
 | [TKT-165](./now/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) | Make Add evidence upload the selected files | P0 | evidence | PLAN-004 |
 | [TKT-166](./backlog/TKT-166-manual-intake-evidence-upload/TKT-166-manual-intake-evidence-upload.md) | Persist instruction and extra files from Manual Intake | P0 | intake | PLAN-004 |
 | [TKT-167](./backlog/TKT-167-image-gap-chasers/TKT-167-image-gap-chasers.md) | Keep image chasers available until every image rule passes | P1 | pipeline | PLAN-004 |
+| [TKT-168](./now/TKT-168-unify-not-ready-language/TKT-168-unify-not-ready-language.md) | Make Not Ready status language agree with the queue | P1 | ui | PLAN-004 |
+| [TKT-169](./now/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md) | Keep long email previews inside the visible window | P2 | ui | PLAN-004 |
+| [TKT-170](./now/TKT-170-website-enquiry-classification/TKT-170-website-enquiry-classification.md) | Classify website contact forms as Website enquiries | P1 | email | PLAN-004 |
 
 ### blocked
 
