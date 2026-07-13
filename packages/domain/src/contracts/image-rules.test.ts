@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   evaluateEvaImageRules,
+  evaluateEvaImageReadiness,
   validateEvaImageRules,
   acceptedEvaImages,
   MIN_ACCEPTED_IMAGES,
@@ -82,5 +83,44 @@ describe('evaluateEvaImageRules — failing branches', () => {
   it('reports all three failures for an empty evidence set, in stable order', () => {
     const codes = validateEvaImageRules([]).map((f) => f.code);
     expect(codes).toEqual(['min_count', 'missing_overview', 'missing_damage_closeup']);
+  });
+});
+
+describe('evaluateEvaImageReadiness — canonical chaser gaps', () => {
+  it('keeps every base gap when raw images exist but none are accepted', () => {
+    const result = evaluateEvaImageReadiness([
+      img({ acceptedForEva: false }),
+      img({ excluded: true }),
+    ]);
+    expect(result.ok).toBe(false);
+    expect(result.rules.acceptedCount).toBe(0);
+    expect(result.gaps.map((gap) => gap.code)).toEqual([
+      'min_count',
+      'missing_overview',
+      'missing_damage_closeup',
+    ]);
+  });
+
+  it('adds an unresolved-review gap after the base rules in stable order', () => {
+    const result = evaluateEvaImageReadiness([
+      overview,
+      closeup,
+      img({ excluded: true, reviewRequired: true }),
+    ]);
+    expect(result.rules.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.unresolvedReviewCount).toBe(1);
+    expect(result.gaps).toEqual([
+      expect.objectContaining({ code: 'review_required', count: 1 }),
+    ]);
+  });
+
+  it('does not turn a reflection observation into a gap by itself', () => {
+    const result = evaluateEvaImageReadiness([
+      { ...overview, personReflection: true },
+      closeup,
+    ] as Array<ImageRuleEvidence & { personReflection?: boolean }>);
+    expect(result.ok).toBe(true);
+    expect(result.gaps).toEqual([]);
   });
 });

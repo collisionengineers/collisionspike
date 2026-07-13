@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   Dropdown,
@@ -17,8 +17,8 @@ import {
   useToastController,
 } from '@fluentui/react-components';
 import { Copy, ClipboardCheck } from 'lucide-react';
-import type { Case, Chaser, ChaserChannel, CopyFileRequestTransport, CaseType } from '../data';
-import { caseTypeOf } from '../data';
+import { evaluateEvaImageReadiness } from '@cs/domain';
+import type { Case, Chaser, ChaserChannel, CopyFileRequestTransport } from '../data';
 import { GLOBAL_TOASTER_ID } from './toaster';
 
 const OVERVIEW_PHOTO_REQUEST = 'Overview photo request';
@@ -48,46 +48,87 @@ export function overviewChaserStatusText(chaser: Chaser): string {
    case's held/open state is derived from what it is missing, so there is no
    manual "Mark held" (review #9). */
 
-interface ChaserTemplate {
+export interface ChaserTemplate {
   key: string;
   label: string;
   channels: ChaserChannel[];
-  /** Which case types this chaser is relevant to — gated on what the case is
-   *  MISSING, so an instructions-only case is never offered "Instruction request"
-   *  and an images-only case is never offered "Image request". */
-  applicableTo: (caseType: CaseType) => boolean;
   requiresUploadLink: boolean;
-  body: (c: Case) => string;
+  body: string;
 }
 
-/** Chasing IMAGES — relevant only when the case lacks images. */
-const NEEDS_IMAGES = (ct: CaseType): boolean => ct === 'instructions_only' || ct === 'pending';
-/** Chasing the INSTRUCTION — relevant only when the case lacks an instruction. */
-const NEEDS_INSTRUCTION = (ct: CaseType): boolean => ct === 'images_only' || ct === 'pending';
+type ImageGapCode = ReturnType<typeof evaluateEvaImageReadiness>['gaps'][number]['code'];
 
-const TEMPLATES: ChaserTemplate[] = [
-  {
+const IMAGE_TEMPLATE_BUILDERS: Record<ImageGapCode, (c: Case) => ChaserTemplate> = {
+  min_count: (c) => ({
     key: 'image_request',
     label: 'Image request',
     channels: ['email', 'whatsapp'],
-    applicableTo: NEEDS_IMAGES,
     requiresUploadLink: true,
-    body: (c) =>
-      `Hi,\n\nWe're missing photographs for vehicle ${c.vrm} (${c.vehicleModel}). ` +
-      `Please could you send:\n• A vehicle overview showing the full registration\n• A main-damage closeup\n• Any additional damage photos\n\n` +
+    body:
+      `Hi,\n\nWe do not yet have enough usable photographs for vehicle ${c.vrm} (${c.vehicleModel}). ` +
+      `Please send at least two clear photographs of the vehicle.\n\n` +
       `Many thanks,\nCollision Engineers`,
-  },
-  {
-    key: 'instruction_request',
-    label: 'Instruction request',
-    channels: ['email'],
-    applicableTo: NEEDS_INSTRUCTION,
-    requiresUploadLink: false,
-    body: (c) =>
-      `Hi,\n\nWe have received images for ${c.vrm} but no instruction. ` +
-      `Please could you forward the instruction so we can proceed.\n\nMany thanks,\nCollision Engineers`,
-  },
-];
+  }),
+  missing_overview: (c) => ({
+    key: 'overview_photo_request',
+    label: OVERVIEW_PHOTO_REQUEST,
+    channels: ['email', 'whatsapp'],
+    requiresUploadLink: true,
+    body:
+      `Hi,\n\nPlease send a photo of the whole vehicle ${c.vrm} ` +
+      `with the full registration clearly visible.\n\nMany thanks,\nCollision Engineers`,
+  }),
+  missing_damage_closeup: (c) => ({
+    key: 'damage_closeup_request',
+    label: 'Damage close-up request',
+    channels: ['email', 'whatsapp'],
+    requiresUploadLink: true,
+    body:
+      `Hi,\n\nPlease send a clear close-up photo of the main damage to vehicle ${c.vrm}.\n\n` +
+      `Many thanks,\nCollision Engineers`,
+  }),
+  review_required: (c) => ({
+    key: 'replacement_photo_request',
+    label: 'Replacement photo request',
+    channels: ['email', 'whatsapp'],
+    requiresUploadLink: true,
+    body:
+      `Hi,\n\nOne or more photographs for vehicle ${c.vrm} cannot yet be used. ` +
+      `Please send clear replacement photographs.\n\nMany thanks,\nCollision Engineers`,
+  }),
+};
+
+const instructionTemplate = (c: Case): ChaserTemplate => ({
+  key: 'instruction_request',
+  label: 'Instruction request',
+  channels: ['email'],
+  requiresUploadLink: false,
+  body:
+    `Hi,\n\nWe do not yet have the instruction for ${c.vrm}. ` +
+    `Please could you forward it so we can proceed.\n\nMany thanks,\nCollision Engineers`,
+});
+
+/** Materialise the editable chaser options from the same structured image gaps
+ * that drive canonical readiness. Raw image presence never suppresses a gap. */
+export function chaserTemplatesForCase(c: Case): ChaserTemplate[] {
+  const existingOverviewChaser = overviewChaserForPanel(c.chasers);
+  const imageTemplates = evaluateEvaImageReadiness(c.evidence).gaps.map((gap) => {
+    if (gap.code === 'missing_overview' && existingOverviewChaser) {
+      return {
+        key: EXISTING_OVERVIEW_REQUEST_KEY,
+        label: OVERVIEW_PHOTO_REQUEST,
+        channels: [existingOverviewChaser.channel],
+        requiresUploadLink: true,
+        body:
+          `Hi,\n\nPlease send a photo of the whole vehicle ${c.vrm} ` +
+          `with the full registration clearly visible.\n\nMany thanks,\nCollision Engineers`,
+      } satisfies ChaserTemplate;
+    }
+    return IMAGE_TEMPLATE_BUILDERS[gap.code](c);
+  });
+  const hasInstruction = c.evidence.some((item) => item.kind === 'instruction');
+  return hasInstruction ? imageTemplates : [...imageTemplates, instructionTemplate(c)];
+}
 
 const UPLOAD_LINK_HEADING = 'Upload your photos here:';
 
@@ -136,56 +177,41 @@ export function ChaserPanel({
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
 
   const [channel, setChannel] = useState<ChaserChannel>('email');
-  // What the case currently holds, so chasers are gated by what it is MISSING.
-  const caseType = useMemo(
-    () =>
-      caseTypeOf(c, {
-        hasImages: c.evidence.some((e) => e.kind === 'image'),
-        hasInstructions: c.evidence.some((e) => e.kind === 'instruction'),
-      }),
-    [c],
-  );
   const existingOverviewChaser = useMemo(() => overviewChaserForPanel(c.chasers), [c.chasers]);
-  const existingOverviewTemplate = useMemo<ChaserTemplate | undefined>(
-    () => existingOverviewChaser
-      ? {
-          key: EXISTING_OVERVIEW_REQUEST_KEY,
-          label: OVERVIEW_PHOTO_REQUEST,
-          channels: [existingOverviewChaser.channel],
-          applicableTo: () => true,
-          requiresUploadLink: true,
-          body: (caseRow) =>
-            `Hi,\n\nPlease could you send a photo of the whole vehicle ${caseRow.vrm} ` +
-            `showing the registration plate clearly.\n\nMany thanks,\nCollision Engineers`,
-        }
-      : undefined,
-    [existingOverviewChaser],
-  );
   // Image requests stay visible when link provisioning is unavailable, but their
   // actions are disabled with an honest explanation below. They must never fall
   // back to a linkless message that looks complete.
-  const visibleTemplates = useMemo(
-    () =>
-      [
-        ...(existingOverviewTemplate ? [existingOverviewTemplate] : []),
-        ...TEMPLATES.filter((t) => t.applicableTo(caseType)),
-      ],
-    [existingOverviewTemplate, caseType],
-  );
+  const visibleTemplates = useMemo(() => chaserTemplatesForCase(c), [c]);
   const available = useMemo(
     () => visibleTemplates.filter((t) => t.channels.includes(channel)),
     [visibleTemplates, channel],
   );
   const [templateKey, setTemplateKey] = useState<string>(visibleTemplates[0]?.key ?? '');
   const activeTemplate = available.find((t) => t.key === templateKey) ?? available[0];
-  const [body, setBody] = useState<string>(activeTemplate ? activeTemplate.body(c) : '');
+  const [body, setBody] = useState<string>(activeTemplate?.body ?? '');
   const [linkLoading, setLinkLoading] = useState(false);
   const needsUploadLink = activeTemplate?.requiresUploadLink === true;
+  const previousCaseId = useRef(c.id);
+
+  // Evidence/classification updates can remove the selected gap while this tab
+  // is open. Move to the next still-eligible option immediately, without wiping
+  // handler edits while the same gap remains unresolved.
+  useEffect(() => {
+    const caseChanged = previousCaseId.current !== c.id;
+    if (caseChanged) previousCaseId.current = c.id;
+    const selectedStillVisible = visibleTemplates.some(
+      (item) => item.key === templateKey && item.channels.includes(channel),
+    );
+    if (!caseChanged && selectedStillVisible) return;
+    const fallback = visibleTemplates.find((item) => item.channels.includes(channel));
+    setTemplateKey(fallback?.key ?? '');
+    setBody(fallback?.body ?? '');
+  }, [c.id, channel, templateKey, visibleTemplates]);
 
   const applyTemplate = (key: string) => {
     setTemplateKey(key);
     const t = visibleTemplates.find((x) => x.key === key);
-    if (t) setBody(t.body(c));
+    if (t) setBody(t.body);
   };
 
   const onChannelChange = (next: ChaserChannel) => {
@@ -195,7 +221,7 @@ export function ChaserPanel({
     );
     const chosen = stillValid ?? visibleTemplates.find((t) => t.channels.includes(next));
     setTemplateKey(chosen?.key ?? '');
-    setBody(chosen ? chosen.body(c) : '');
+    setBody(chosen?.body ?? '');
   };
 
   const prepareUploadMessage = async (): Promise<string | undefined> => {
