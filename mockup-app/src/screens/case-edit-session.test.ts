@@ -5,6 +5,7 @@ import {
   canCheckVehicleDetails,
   initialInspectionDraft,
   persistedSessionSnapshot,
+  restorePersistedImageBasedChoice,
   shouldBlockCaseNavigation,
   startInspectionAddressDraft,
   validateCaseEdit,
@@ -195,6 +196,31 @@ describe('explicit case edit session', () => {
         message: 'Choose an inspection address or Image Based Assessment',
       },
     ]));
+  });
+
+  it('restores a saved image-based choice as a true no-op after an address detour', () => {
+    const persisted = caseOf({ inspectionDecision: 'image_based' });
+    persisted.evaFields.inspectionAddress.value = 'Image Based Assessment';
+    const addressDraft = clone(persisted);
+    addressDraft.evaFields.inspectionAddress.value = '';
+
+    const restored = restorePersistedImageBasedChoice(persisted, addressDraft);
+    expect(restored).toBeDefined();
+    if (!restored) throw new Error('expected the saved image-based choice to be restored');
+
+    const save = buildExplicitCaseSave(persisted, restored.draft, restored.inspection);
+    expect(restored.inspection).toMatchObject({
+      decisionMode: 'image_based',
+      sourceNote: '',
+      touched: false,
+    });
+    expect(validateCaseEdit(restored.draft, restored.inspection, persisted)).not.toEqual(
+      expect.arrayContaining([
+        { fieldKey: 'inspectionAddress', message: 'Add the assessment reason' },
+      ]),
+    );
+    expect(save).toBeUndefined();
+    expect(shouldBlockCaseNavigation(save !== undefined)).toBe(false);
   });
 
   it('blocks route/window navigation exactly while a draft is dirty', () => {

@@ -163,6 +163,7 @@ import {
   buildExplicitCaseSave,
   canCheckVehicleDetails,
   initialInspectionDraft,
+  restorePersistedImageBasedChoice,
   startInspectionAddressDraft,
   persistedSessionSnapshot,
   shouldBlockCaseNavigation,
@@ -1570,15 +1571,15 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       return;
     }
 
-    // Returning to an unchanged saved image-based decision is a UI-only switch.
-    // It must not manufacture a new edit or demand a replacement historical reason.
-    if (
-      c.evaFields.inspectionAddress.value === 'Image Based Assessment' &&
-      persistedCase.evaFields.inspectionAddress.value === 'Image Based Assessment' &&
-      !inspectionDraft.touched
-    ) {
+    // Returning to the saved image-based decision is a true no-op. Reset only
+    // the inspection slice, preserving any unrelated fields in this edit session.
+    const restored = restorePersistedImageBasedChoice(persistedCase, c);
+    if (restored) {
       setOverrideAddr(true);
+      setC(restored.draft);
+      setInspectionDraft(restored.inspection);
       setOverrideReason('');
+      setConfirmedProvenance(undefined);
       setAddressDraftSnapshot(undefined);
       return;
     }

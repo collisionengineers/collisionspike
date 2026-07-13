@@ -42,6 +42,32 @@ export function startInspectionAddressDraft(): CaseEditInspectionDraft {
   };
 }
 
+/** Return the inspection slice to its saved image-based value when a handler
+ * switches to an address and then chooses the saved option again. Other draft
+ * fields remain untouched, so unrelated edits still belong to the same session. */
+export function restorePersistedImageBasedChoice(
+  persisted: Case,
+  draft: Case,
+): { draft: Case; inspection: CaseEditInspectionDraft } | undefined {
+  if (
+    persisted.inspectionDecision !== 'image_based' ||
+    persisted.evaFields.inspectionAddress.value !== 'Image Based Assessment'
+  ) {
+    return undefined;
+  }
+
+  return {
+    draft: {
+      ...draft,
+      evaFields: {
+        ...draft.evaFields,
+        inspectionAddress: persisted.evaFields.inspectionAddress,
+      },
+    },
+    inspection: initialInspectionDraft(persisted),
+  };
+}
+
 /** Build the new edit-session baseline after a separately saved server mutation.
  * The caller may adopt this only when the main draft is clean. */
 export function persistedSessionSnapshot(updated: Case) {
