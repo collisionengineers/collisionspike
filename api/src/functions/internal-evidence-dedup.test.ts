@@ -185,9 +185,34 @@ describe('TKT-160 — deleted automatic sources stay deleted without blocking la
     expect(replayCleanup.blob).not.toHaveBeenCalled();
   });
 
+  it('does not suppress a sibling attachment that shares the email Message-ID', async () => {
+    const sibling = {
+      ...EMAIL_ROW,
+      filename: 'sibling.jpg',
+      blobPath: 'cases/case-1/sibling.jpg',
+      sourceMessageId: '<shared-email@example.test>',
+      sha256: 'c'.repeat(64),
+    };
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM evidence_deletion/.test(sql)) {
+        expect(sql).not.toContain('source_message_id =');
+        return [];
+      }
+      if (/FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(sql)) return [];
+      if (/INSERT INTO evidence/i.test(sql)) return [{ id: 'ev-sibling' }];
+      return [];
+    });
+
+    const res = await evidenceRoute(req('case-1', [sibling]), ctx);
+
+    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, statusGeneration: 1 });
+    expect(inserts()).toHaveLength(1);
+    expect(replayCleanup.blob).not.toHaveBeenCalled();
+  });
+
   it('suppresses and removes a replayed Box file using the tombstoned case folder', async () => {
     rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
-      if (/FROM evidence_deletion/.test(sql) && p?.[3] === BOX_ROW.boxFileId) {
+      if (/FROM evidence_deletion/.test(sql) && p?.[2] === BOX_ROW.boxFileId) {
         return [{
           storage_path: null,
           box_file_id: BOX_ROW.boxFileId,
@@ -219,7 +244,7 @@ describe('TKT-160 — deleted automatic sources stay deleted without blocking la
     };
     replayCleanup.box.mockRejectedValue(Object.assign(new Error('scope refused'), { status: 400 }));
     rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
-      if (/FROM evidence_deletion/.test(sql) && p?.[3] === BOX_ROW.boxFileId) {
+      if (/FROM evidence_deletion/.test(sql) && p?.[2] === BOX_ROW.boxFileId) {
         return [{
           storage_path: null,
           box_file_id: BOX_ROW.boxFileId,

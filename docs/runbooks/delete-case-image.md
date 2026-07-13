@@ -18,8 +18,9 @@ whose Archive folder is inside test root `392761581105`; every other Archive loc
   removed only when both stores resolve; partial failure stays visible as **Finish deleting**.
 - Source email/document, sibling evidence, case folder and files outside the configured read-write root
   are never deletion targets.
-- A tombstone suppresses only replay of the same automatic Blob/source-message/Archive-file identity.
-  A later explicit upload with a new identity remains allowed, including identical bytes.
+- A tombstone suppresses only replay of the same per-file Blob path or Archive file ID. An email
+  Message-ID is contextual source evidence, never a replay key by itself, because sibling attachments
+  share it. A later explicit upload with a new identity remains allowed, including identical bytes.
 
 ## Deployment order
 
@@ -81,7 +82,9 @@ race it. The staff member selects **Finish deleting** to retry the same durable 
 resolved stores are not repeated.
 
 Use `evidence_deletion.last_failure_code`, `attempt_count`, per-store outcomes and the
-`image_deletion_failed` (`100000064`) audit to diagnose. An Archive scope mismatch is fail-closed and
+`image_deletion_failed` (`100000064`) audit to diagnose. A `case_update` failure leaves both resolved
+store outcomes unchanged so retry resumes at finalization without misreporting a store failure. An
+Archive scope mismatch is fail-closed and
 non-retryable until the case/evidence identity is corrected; never substitute a name/path lookup or
 broaden the allowed root. A transient 503 is retryable. If stores resolved but finalization did not,
 retry the route; do not manually delete the evidence/tombstone rows.

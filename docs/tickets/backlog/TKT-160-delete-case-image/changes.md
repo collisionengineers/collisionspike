@@ -7,13 +7,14 @@ implemented offline; awaiting independent live verification
 
 - `migration/assets/schema/060_evidence.sql`, `205_evidence_deletion.sql`,
   `900_constraints.sql` and the dated delta add the durable deletion intent/tombstone, per-store
-  outcomes/lease, evidence marker, guarded finalizer, RLS and replay indexes.
+  outcomes/lease, evidence marker, guarded finalizer, RLS and per-file replay indexes.
 - `api/src/functions/evidence-delete.ts` adds the authenticated per-case image DELETE route with
   wrong-case/kind checks, Archive preflight, intent/audit-before-stores, idempotent Archive/Blob cleanup,
   retryable partial outcomes, guarded finalization and durable status recomputation.
 - Evidence review, classification, archive mirroring and case merge now refuse/ignore an image with an
-  active deletion marker. Automatic evidence persistence suppresses an exact deleted source replay and
-  removes any deterministic copy recreated before the tombstone check; a new identity is still accepted.
+  active deletion marker. Automatic evidence persistence suppresses an exact deleted Blob-path/Archive-
+  file replay and removes any deterministic copy recreated before the tombstone check; a shared email
+  Message-ID never suppresses sibling attachments, and a new identity is still accepted.
 - `functions/box-webhook/box_client.py` and `function_app.py` add a file-only validation/deletion route.
   It refreshes read-write scope, verifies the exact direct case-folder parent and rejects read-only,
   sibling or outside-root targets before `DELETE /files/{id}`.
@@ -31,7 +32,8 @@ implemented offline; awaiting independent live verification
 ## Tests added or extended
 
 - Data API: ownership/kind/scope refusal, store ordering, present/missing outcomes, partial failure,
-  repeat completion, Box client contract, exact replay suppression and same-byte/new-identity upload.
+  truthful finalization failure, safe evidence-child FK actions, repeat completion, Box client contract,
+  exact per-file replay suppression, sibling Message-ID isolation and same-byte/new-identity upload.
 - Box Function: exact-folder deletion, missing-file idempotency, sibling and read-only-root refusal,
   validation-only GET and DELETE route arguments.
 - SPA: filename/source-boundary copy, mutation-free cancel, explicit confirmation, visible retry after

@@ -44,8 +44,6 @@ ALTER TABLE evidence ADD CONSTRAINT fk_evidence_deletion_operation
 
 CREATE INDEX ix_evidence_deletion_replay_storage
   ON evidence_deletion (case_id, storage_path) WHERE storage_path IS NOT NULL;
-CREATE INDEX ix_evidence_deletion_replay_message
-  ON evidence_deletion (case_id, source_message_id) WHERE source_message_id IS NOT NULL;
 CREATE INDEX ix_evidence_deletion_replay_box
   ON evidence_deletion (case_id, box_file_id) WHERE box_file_id IS NOT NULL;
 CREATE INDEX ix_evidence_deletion_retry

@@ -205,6 +205,35 @@ describe('DELETE /api/cases/{caseId}/images/{evidenceId}', () => {
     expect(db.txQuery.mock.calls.some(([sql]) => String(sql).includes("state = 'retry_needed'"))).toBe(true);
   });
 
+  it('keeps resolved store outcomes truthful when only case finalization fails', async () => {
+    configureSuccess();
+    status.request.mockRejectedValue(new Error('finalizer transaction failed'));
+
+    const response = await handler(req(), ctx, {});
+
+    expect(response.status).toBe(503);
+    expect(response.jsonBody).toMatchObject({
+      completed: false,
+      retryable: true,
+      deletionPending: true,
+    });
+    const finalizationFailure = db.txQuery.mock.calls
+      .map(([sql]) => String(sql))
+      .find((sql) => sql.includes("last_failure_code = $3") && sql.includes("state = 'retry_needed'"));
+    expect(finalizationFailure).toBeDefined();
+    expect(finalizationFailure).not.toContain("blob_outcome = 'failed'");
+    expect(finalizationFailure).not.toContain("box_outcome = 'failed'");
+    expect(audit.strict).toHaveBeenLastCalledWith(expect.objectContaining({
+      action: 100000057,
+      after: expect.objectContaining({
+        failedStore: 'case_update',
+        failureCode: 'finalization_failed',
+        blobOutcome: 'deleted',
+        archiveOutcome: 'deleted',
+      }),
+    }), expect.any(Function));
+  });
+
   it('returns a completed repeat without touching either store', async () => {
     db.query.mockResolvedValue([{ ...intent, state: 'completed' }]);
     const response = await handler(req(), ctx, {});

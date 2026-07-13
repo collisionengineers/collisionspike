@@ -3466,9 +3466,11 @@ app.http('internalCasesEvidence', {
         const isBoxRow = sourceMessageId != null || boxFileId != null;
         const isBoxImageRow = isBoxRow && suppliedClass === 'image';
 
-        // TKT-160 replay tombstone: suppress only the SAME automatic source identity.
-        // Do not use sha256 here -- a later explicit same-byte upload with a new
-        // path/file identity is legitimate and must create fresh, audited evidence.
+        // TKT-160 replay tombstone: suppress only the SAME per-file automatic identity.
+        // An email Message-ID is deliberately NOT a key here because every sibling
+        // attachment shares it. Blob path and Box file id are the per-file identities.
+        // Do not use sha256 -- a later explicit same-byte upload with a new identity
+        // is legitimate and must create fresh, audited evidence.
         const deleted = await q<{
           storage_path: string | null;
           box_file_id: string | null;
@@ -3479,12 +3481,11 @@ app.http('internalCasesEvidence', {
             WHERE case_id = $1
               AND (
                 ($2::text IS NOT NULL AND storage_path = $2::text)
-                OR ($3::text IS NOT NULL AND source_message_id = $3::text)
-                OR ($4::text IS NOT NULL AND box_file_id = $4::text)
+                OR ($3::text IS NOT NULL AND box_file_id = $3::text)
               )
             ORDER BY requested_at DESC
             LIMIT 1`,
-          [persistCaseId, row.blobPath ?? null, sourceMessageId, boxFileId],
+          [persistCaseId, row.blobPath ?? null, boxFileId],
         );
         if (deleted[0]) {
           suppressed++;

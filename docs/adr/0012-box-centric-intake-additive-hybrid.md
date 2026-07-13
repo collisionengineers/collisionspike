@@ -181,7 +181,8 @@ evidence or an inferred/path-matched file.
 The operation is not fire-and-forget. Postgres records a durable `evidence_deletion` intent and audit
 before either store is changed; partial outcomes remain visible and retryable; the evidence row is
 removed only after Blob and Box are each deleted, already missing, or not required. The originating
-automatic source identity is retained as a tombstone so retries cannot recreate the deliberately
-deleted image. A later explicit upload with a new source identity is still allowed. TKT-160 and
+per-file Blob path and Box file ID are retained as tombstone keys so retries cannot recreate the
+deliberately deleted image. A shared email Message-ID remains provenance only and cannot suppress a
+sibling attachment. A later explicit upload with a new source identity is still allowed. TKT-160 and
 [`docs/runbooks/delete-case-image.md`](../runbooks/delete-case-image.md) are the implementation and
 verification contract.

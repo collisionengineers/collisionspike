@@ -312,6 +312,39 @@ async function recordFailure(
   });
 }
 
+async function recordFinalizationFailure(
+  intent: DeletionIntent,
+  actor: string,
+  code: string,
+): Promise<void> {
+  await tx(async (q) => {
+    const rows = await q<DeletionIntent>(
+      `UPDATE evidence_deletion
+          SET state = 'retry_needed', last_failure_code = $3,
+              claim_token = NULL, claim_expires_at = NULL, updated_at = now()
+        WHERE id = $1 AND claim_token = $2
+        RETURNING *`,
+      [intent.id, intent.claim_token, code],
+    );
+    if (!rows[0]) throw new Error('image deletion claim changed');
+    await writeAuditStrict({
+      action: AUDIT_ACTION.image_deletion_failed,
+      caseId: intent.case_id,
+      summary: `Image deletion needs retry for ${intent.file_name}`,
+      severity: 'warning',
+      actor,
+      after: {
+        operationId: intent.id,
+        evidenceId: intent.evidence_id,
+        failedStore: 'case_update',
+        failureCode: code,
+        blobOutcome: intent.blob_outcome,
+        archiveOutcome: intent.box_outcome,
+      },
+    }, q);
+  });
+}
+
 async function finalizeDeletion(intent: DeletionIntent, actor: string): Promise<number> {
   return tx(async (q) => {
     const caseLock = await lockCaseForMutation(q, intent.case_id);
@@ -475,7 +508,7 @@ app.http('deleteCaseImage', {
       generation = await finalizeDeletion(intent, actor);
     } catch (error) {
       ctx.warn(`[image-delete] finalization pending for ${evidenceId}: ${error instanceof Error ? error.message : String(error)}`);
-      await recordFailure(intent, actor, 'blob', 'finalization_failed').catch(() => undefined);
+      await recordFinalizationFailure(intent, actor, 'finalization_failed').catch(() => undefined);
       return {
         status: 503,
         jsonBody: {

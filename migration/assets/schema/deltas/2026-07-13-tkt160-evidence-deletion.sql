@@ -50,8 +50,6 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS ix_evidence_deletion_replay_storage
   ON evidence_deletion (case_id, storage_path) WHERE storage_path IS NOT NULL;
-CREATE INDEX IF NOT EXISTS ix_evidence_deletion_replay_message
-  ON evidence_deletion (case_id, source_message_id) WHERE source_message_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS ix_evidence_deletion_replay_box
   ON evidence_deletion (case_id, box_file_id) WHERE box_file_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS ix_evidence_deletion_retry
@@ -116,6 +114,7 @@ CREATE POLICY p_evidence_deletion_no_delete ON evidence_deletion AS RESTRICTIVE 
 
 DROP POLICY IF EXISTS p_evidence_no_delete ON evidence;
 DROP POLICY IF EXISTS p_evidence_scoped_delete ON evidence;
+ALTER TABLE evidence FORCE ROW LEVEL SECURITY;
 CREATE POLICY p_evidence_scoped_delete ON evidence AS RESTRICTIVE FOR DELETE
   USING (
     current_setting('app.role', true) = 'admin'

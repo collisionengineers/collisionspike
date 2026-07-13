@@ -154,8 +154,11 @@ lease/attempt state and failure code — never image bytes. Normal evidence read
 visible (the SPA offers **Finish deleting**); review edits, archive mirroring, classification and case
 merge refuse/ignore that marked row. `complete_evidence_deletion(operation, claim)` is the sole guarded
 hard-delete seam and succeeds only after both store outcomes are resolved and the live row still exactly
-matches the snapshot. The tombstone then suppresses only a replay of the same automatic source identity;
-a later explicit upload with a new path/file identity remains valid even if its bytes hash matches.
+matches the snapshot. The tombstone then suppresses only a replay of the same per-file Blob path or Box
+file ID. `source_message_id` remains contextual provenance but is never a replay key by itself because
+email siblings share one Message-ID. A later explicit upload with a new path/file identity remains valid
+even if its bytes hash matches. Every schema FK that targets `evidence(id)` uses `ON DELETE CASCADE` or
+`ON DELETE SET NULL`, so the guarded hard delete cannot be trapped by a persistent child reference.
 
 ### AuditEvent & ImprovementSignal
 - `AuditEvent`: actor, action, severity, before/after, timestamp — every corpus/case change.
