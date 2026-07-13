@@ -133,7 +133,7 @@ mirror** the `box-webhook` Function writes on accept — it is **not** the dedup
 Evidence-existence check on the `box:file:<id>` tag in **`source_message_id`** (see the Box mirror rule
 below).
 
-### Guided capture sessions (TKT-171 candidate — not live)
+### Guided capture sessions (TKT-200 candidate — not live)
 
 `capture_session` belongs to one existing Case and snapshots a finite shot plan, guidance mode/rules
 version, expiry and token generation. Bootstrap secrets are 256-bit values represented at rest only by

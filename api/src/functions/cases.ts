@@ -2601,7 +2601,7 @@ app.http('imagesForCase', {
     const id = req.params.id;
     const rows = await query<Row>(
       // Automatic exclusions and every public guided-capture row stay visible in REVIEW so staff
-      // can make or revisit the evidential decision. TKT-171 explicitly requires an excluded guided
+      // can make or revisit the evidential decision. TKT-200 explicitly requires an excluded guided
       // photo to remain visible after a staff rejection; the DTO distinguishes that state for plain
       // UI copy. Other staff/provider/cleanup/legacy exclusions stay hidden. Every returned excluded
       // row remains acceptedForEva=false and cannot affect readiness/order/export until a staff PATCH
