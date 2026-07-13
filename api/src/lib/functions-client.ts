@@ -20,6 +20,18 @@
  *  instead of holding the HTTP invocation open until the Functions host timeout. */
 export const FN_STAGE_TIMEOUT_MS = 30_000;
 
+/** A dependency response failed after transport retries. Carries status only; the
+ * upstream body can contain customer data and is deliberately not retained. */
+export class FunctionCallError extends Error {
+  constructor(
+    message: string,
+    public readonly status?: number,
+  ) {
+    super(message);
+    this.name = 'FunctionCallError';
+  }
+}
+
 async function callFn(
   baseUrl: string,
   fnKey: string,
@@ -45,7 +57,13 @@ async function callFn(
       ...(controller ? { signal: controller.signal } : {}),
     });
     if (!res.ok) {
-      throw new Error(`[functions-client] ${method} ${path} → ${res.status} ${await res.text().catch(() => '')}`);
+      // Consume the response so the connection can be reused, but never put its
+      // body in an exception (Box/API errors can echo names and identifiers).
+      await res.text().catch(() => '');
+      throw new FunctionCallError(
+        `[functions-client] ${method} ${path} returned HTTP ${res.status}`,
+        res.status,
+      );
     }
     return res.json();
   } catch (e) {
@@ -220,6 +238,15 @@ export interface BoxFileRequestCopyResponse {
   url?: unknown;
   folder?: unknown;
   status?: unknown;
+  expires_at?: unknown;
+}
+
+export type BoxFileRequestResponse = BoxFileRequestCopyResponse;
+
+function boxFileRequestExpiry(): string {
+  const configured = Number(process.env.BOX_FILE_REQUEST_EXPIRY_DAYS ?? '30');
+  const days = Number.isFinite(configured) ? Math.min(90, Math.max(1, configured)) : 30;
+  return new Date(Date.now() + days * 86_400_000).toISOString();
 }
 
 /**
@@ -243,9 +270,53 @@ export async function callBoxCopyFileRequest(
     key,
     'POST',
     `/api/box/file-requests/${encodeURIComponent(templateId)}/copy`,
-    { folder: { id: folderId }, status: 'active' },
+    {
+      folder: { id: folderId },
+      status: 'active',
+      // Never inherit an already-expired template date. A later chaser validates
+      // the request remotely and renews it when this date passes.
+      expires_at: boxFileRequestExpiry(),
+    },
     { timeoutMs },
   ) as Promise<BoxFileRequestCopyResponse>;
+}
+
+/** Read and server-validate a persisted File Request against its case folder. */
+export async function callBoxGetFileRequest(
+  fileRequestId: string,
+  expectedFolderId: string,
+  opts?: { timeoutMs?: number },
+): Promise<BoxFileRequestResponse> {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error('[functions-client] BOX_FN_URL/BOX_FN_KEY not configured');
+  return callFn(
+    base,
+    key,
+    'GET',
+    `/api/box/file-requests/${encodeURIComponent(fileRequestId)}?folderId=${encodeURIComponent(expectedFolderId)}`,
+    undefined,
+    { timeoutMs: opts?.timeoutMs ?? FN_STAGE_TIMEOUT_MS },
+  ) as Promise<BoxFileRequestResponse>;
+}
+
+/** Reactivate an inactive/expired request after the facade re-validates its folder. */
+export async function callBoxReactivateFileRequest(
+  fileRequestId: string,
+  expectedFolderId: string,
+  opts?: { timeoutMs?: number },
+): Promise<BoxFileRequestResponse> {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error('[functions-client] BOX_FN_URL/BOX_FN_KEY not configured');
+  return callFn(
+    base,
+    key,
+    'PUT',
+    `/api/box/file-requests/${encodeURIComponent(fileRequestId)}?folderId=${encodeURIComponent(expectedFolderId)}`,
+    { status: 'active', expires_at: boxFileRequestExpiry() },
+    { timeoutMs: opts?.timeoutMs ?? FN_STAGE_TIMEOUT_MS },
+  ) as Promise<BoxFileRequestResponse>;
 }
 
 interface BoxFileContentResponse {

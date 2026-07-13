@@ -81,9 +81,12 @@ import { markCaseDoneUsing, markEvaSubmittedUsing } from '../lib/terminal-transi
 import { gates } from '../lib/gates.js';
 import { listBoxFolderNames } from '../lib/functions-client.js';
 import {
-  processBoxFileRequestIntent,
-  requestBoxFileRequestIntent,
+  ensureActiveBoxFileRequest,
 } from '../lib/box-file-request-outbox.js';
+import {
+  associateOutstandingImageChasersWithFileRequest,
+  imageChaserRequiresUploadLink,
+} from '../lib/image-chasers.js';
 import {
   requestArchiveMirrorIfEligible,
   type ArchiveMirrorCandidate,
@@ -1216,6 +1219,51 @@ app.http('logChase', {
     const note = typeof body.note === 'string' ? body.note.trim() : '';
 
     const actor = actorFromClaims(claims);
+    const needsUploadLink = imageChaserRequiresUploadLink(templateLabel);
+    let fileRequest: { folderId: string; id: string; url: string } | undefined;
+    if (needsUploadLink) {
+      if (!gates.boxApi() || !gates.boxFileRequest() || !gates.boxFileRequestTemplateId().trim()) {
+        return {
+          status: 503,
+          jsonBody: {
+            error: 'An upload link is required before this image chase can be logged.',
+            retryable: true,
+          },
+        };
+      }
+      const ensured = await ensureActiveBoxFileRequest(
+        id,
+        gates.boxFileRequestTemplateId().trim(),
+        actor,
+      );
+      if (ensured.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
+      if (ensured.kind === 'retired') {
+        return { status: 409, jsonBody: { error: 'case has been merged' } };
+      }
+      if (ensured.kind === 'folder_not_ready') {
+        return {
+          status: 409,
+          jsonBody: {
+            error: 'The case archive folder is not ready yet. Try again shortly.',
+            retryable: true,
+          },
+        };
+      }
+      if (ensured.kind !== 'ok') {
+        return {
+          status: 503,
+          jsonBody: {
+            error: 'The upload link could not be prepared. Try again.',
+            retryable: true,
+          },
+        };
+      }
+      fileRequest = {
+        folderId: ensured.folderId,
+        id: ensured.fileRequestId,
+        url: ensured.fileRequestUrl,
+      };
+    }
     const channelLabel = channel === 'whatsapp' ? 'WhatsApp' : 'email';
     // chaser.name = the queue summary (varchar(400)); mirrors the SPA's "Chased via …"
     // wording so the persisted summary reads identically to the old client-state note.
@@ -1230,6 +1278,10 @@ app.http('logChase', {
       if (!locked[0]) return { kind: 'missing' as const };
       const existing = rowToCase(locked[0]);
       if (isRetiredMerged(existing)) return { kind: 'retired' as const };
+      if (
+        fileRequest &&
+        String(locked[0].box_folder_id ?? '').trim() !== fileRequest.folderId
+      ) return { kind: 'file_request_changed' as const };
       const currentVersion = versionToken(locked[0].updated_at);
       const expected = ifMatch(req);
       if (expected != null && expected !== '' && expected !== currentVersion) {
@@ -1237,8 +1289,9 @@ app.http('logChase', {
       }
       const rows = await q<Row>(
         `INSERT INTO chaser
-           (name, case_id, target_type_code, target_name, channel_code, template_used, drafted_at)
-         VALUES ($1, $2, $3, $4, $5, $6, now())
+           (name, case_id, target_type_code, target_name, channel_code, template_used,
+            box_file_request_id, box_file_request_url, drafted_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
          RETURNING *`,
         [
           summary,
@@ -1247,6 +1300,8 @@ app.http('logChase', {
           existing.provider.slice(0, 200),
           channel === 'whatsapp' ? 100000001 : 100000000,
           templateLabel,
+          fileRequest?.id ?? null,
+          fileRequest?.url ?? null,
         ],
       );
       const created = rows[0];
@@ -1265,7 +1320,16 @@ app.http('logChase', {
         action: AUDIT_ACTION.chaser_sent,
         caseId: id,
         summary: `Chase logged (${channel} · ${templateLabel})`,
-        after: { chaserId: created.id, channel, templateLabel, ...(note ? { note } : {}) },
+        after: {
+          chaserId: created.id,
+          channel,
+          templateLabel,
+          ...(fileRequest ? {
+            boxFileRequestId: fileRequest.id,
+            fileRequestUrl: fileRequest.url,
+          } : {}),
+          ...(note ? { note } : {}),
+        },
         ...(actor ? { actor } : {}),
       }, q);
       return {
@@ -1276,6 +1340,15 @@ app.http('logChase', {
     });
     if (outcome.kind === 'missing') return { status: 404, jsonBody: { error: 'not found' } };
     if (outcome.kind === 'retired') return { status: 409, jsonBody: { error: 'case has been merged' } };
+    if (outcome.kind === 'file_request_changed') {
+      return {
+        status: 409,
+        jsonBody: {
+          error: 'The case archive folder changed. Prepare the upload link again.',
+          retryable: true,
+        },
+      };
+    }
     if (outcome.kind === 'stale') {
       return { status: 409, jsonBody: { error: 'stale', currentVersion: outcome.currentVersion } };
     }
@@ -2115,77 +2188,9 @@ app.http('caseBoxCopyFileRequest', {
     }
     const actor = actorFromClaims(claims);
     try {
-      const prepared = await tx(async (q) => {
-        const lockedCase = await lockCaseForMutation(q, caseId);
-        if (lockedCase.kind === 'missing') return { kind: 'missing' as const };
-        if (lockedCase.kind === 'retired') {
-          return { kind: 'retired' as const, mergedInto: lockedCase.mergedInto };
-        }
-        const rows = await q<{
-          box_folder_id: string | null;
-          box_file_request_id: string | null;
-          box_file_request_url: string | null;
-        }>(
-          `SELECT box_folder_id, box_file_request_id, box_file_request_url
-             FROM case_
-            WHERE id = $1
-            FOR UPDATE`,
-          [lockedCase.caseId],
-        );
-        const row = rows[0];
-        const folderId = row?.box_folder_id?.trim() ?? '';
-        const stampedId = row?.box_file_request_id?.trim() ?? '';
-        const stampedUrl = row?.box_file_request_url?.trim() ?? '';
-        if (!row || !folderId) {
-          return {
-            kind: 'folder_not_ready' as const,
-          };
-        }
-        if (stampedId && stampedUrl) {
-          return { kind: 'ready' as const, fileRequestUrl: stampedUrl };
-        }
-        if (stampedId || stampedUrl) {
-          return { kind: 'invalid_stamp' as const };
-        }
-        const intent = await requestBoxFileRequestIntent(
-          q,
-          lockedCase.caseId,
-          folderId,
-          templateId,
-        );
-        if (intent.alreadyCompleted) return { kind: 'invalid_stamp' as const };
-        return { kind: 'pending' as const, caseId: lockedCase.caseId };
-      });
-      if (prepared.kind === 'missing') {
+      const processed = await ensureActiveBoxFileRequest(caseId, templateId, actor);
+      if (processed.kind === 'missing') {
         return { status: 404, jsonBody: { status: 'error', message: 'Case not found.' } };
-      }
-      if (prepared.kind === 'retired') {
-        return {
-          status: 409,
-          jsonBody: {
-            status: 'error',
-            message: 'This case has been merged. Open the current case and try again.',
-            mergedInto: prepared.mergedInto,
-          },
-        };
-      }
-      if (prepared.kind === 'folder_not_ready') {
-        return {
-          status: 200,
-          jsonBody: { status: 'folder_not_ready', message: 'This case has no archive folder yet.' },
-        };
-      }
-      if (prepared.kind === 'ready') {
-        return { status: 200, jsonBody: { status: 'ok', data: { fileRequestUrl: prepared.fileRequestUrl } } };
-      }
-      if (prepared.kind === 'invalid_stamp') throw new Error('case has an incomplete Box File Request stamp');
-
-      const processed = await processBoxFileRequestIntent(prepared.caseId, actor);
-      if (processed.kind === 'ok') {
-        return {
-          status: 200,
-          jsonBody: { status: 'ok', data: { fileRequestUrl: processed.fileRequestUrl } },
-        };
       }
       if (processed.kind === 'retired') {
         return {
@@ -2194,6 +2199,49 @@ app.http('caseBoxCopyFileRequest', {
             status: 'error',
             message: 'This case has been merged. Open the current case and try again.',
             mergedInto: processed.mergedInto,
+          },
+        };
+      }
+      if (processed.kind === 'folder_not_ready') {
+        return {
+          status: 200,
+          jsonBody: { status: 'folder_not_ready', message: 'This case has no archive folder yet.' },
+        };
+      }
+      if (processed.kind === 'ok') {
+        const associated = await tx(async (q) => {
+          const locked = await lockCaseForMutation(q, caseId);
+          if (locked.kind !== 'active') return false;
+          const current = await q<{ box_folder_id: string | null }>(
+            'SELECT box_folder_id FROM case_ WHERE id = $1 FOR UPDATE',
+            [locked.caseId],
+          );
+          if ((current[0]?.box_folder_id ?? '').trim() !== processed.folderId) return false;
+          await associateOutstandingImageChasersWithFileRequest(
+            q,
+            locked.caseId,
+            processed.fileRequestId,
+            processed.fileRequestUrl,
+          );
+          return true;
+        });
+        if (!associated) {
+          return {
+            status: 200,
+            jsonBody: {
+              status: 'error',
+              message: 'The case archive folder changed. Please try again.',
+            },
+          };
+        }
+        return {
+          status: 200,
+          jsonBody: {
+            status: 'ok',
+            data: {
+              fileRequestUrl: processed.fileRequestUrl,
+              ...(processed.expiresAt ? { expiresAt: processed.expiresAt } : {}),
+            },
           },
         };
       }

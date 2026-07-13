@@ -16,13 +16,11 @@ import {
   tokens,
   useToastController,
 } from '@fluentui/react-components';
-import { Copy, ClipboardCheck, Link2 } from 'lucide-react';
+import { Copy, ClipboardCheck } from 'lucide-react';
 import type { Case, Chaser, ChaserChannel, CopyFileRequestTransport, CaseType } from '../data';
 import { caseTypeOf } from '../data';
 import { GLOBAL_TOASTER_ID } from './toaster';
 
-/** The template key for the Box (Archive) image upload-link action. */
-const COPY_FILE_REQUEST_KEY = 'copy_file_request';
 const OVERVIEW_PHOTO_REQUEST = 'Overview photo request';
 const EXISTING_OVERVIEW_REQUEST_KEY = 'existing_overview_photo_request';
 
@@ -58,6 +56,7 @@ interface ChaserTemplate {
    *  MISSING, so an instructions-only case is never offered "Instruction request"
    *  and an images-only case is never offered "Image request". */
   applicableTo: (caseType: CaseType) => boolean;
+  requiresUploadLink: boolean;
   body: (c: Case) => string;
 }
 
@@ -72,6 +71,7 @@ const TEMPLATES: ChaserTemplate[] = [
     label: 'Image request',
     channels: ['email', 'whatsapp'],
     applicableTo: NEEDS_IMAGES,
+    requiresUploadLink: true,
     body: (c) =>
       `Hi,\n\nWe're missing photographs for vehicle ${c.vrm} (${c.vehicleModel}). ` +
       `Please could you send:\n• A vehicle overview showing the full registration\n• A main-damage closeup\n• Any additional damage photos\n\n` +
@@ -82,26 +82,24 @@ const TEMPLATES: ChaserTemplate[] = [
     label: 'Instruction request',
     channels: ['email'],
     applicableTo: NEEDS_INSTRUCTION,
+    requiresUploadLink: false,
     body: (c) =>
       `Hi,\n\nWe have received images for ${c.vrm} but no instruction. ` +
       `Please could you forward the instruction so we can proceed.\n\nMany thanks,\nCollision Engineers`,
   },
-  {
-    // The image upload-link action. Its body is the covering message; the live
-    // upload link is appended only after it is fetched (so the draft never shows a
-    // placeholder/fake link). Shown only when the upload-link feature is on AND the
-    // case is missing images.
-    key: COPY_FILE_REQUEST_KEY,
-    label: 'Image upload link',
-    channels: ['email', 'whatsapp'],
-    applicableTo: NEEDS_IMAGES,
-    body: (c) =>
-      `Hi,\n\nPlease upload the photographs for vehicle ${c.vrm} (${c.vehicleModel}) ` +
-      `using the secure link below — no account needed. We need:\n` +
-      `• A vehicle overview showing the full registration\n• A main-damage closeup\n• Any additional damage photos\n\n` +
-      `Many thanks,\nCollision Engineers`,
-  },
 ];
+
+const UPLOAD_LINK_HEADING = 'Upload your photos here:';
+
+/** Add or replace the one upload-link block. Repeated copies never accumulate
+ * stale links, while handler edits elsewhere in the draft are preserved. */
+export function messageWithUploadLink(body: string, url: string): string {
+  const withoutExisting = body.replace(
+    /\n*Upload your photos here:\s*\nhttps:\/\/[^\s]+\s*$/i,
+    '',
+  ).trimEnd();
+  return `${withoutExisting}\n\n${UPLOAD_LINK_HEADING}\n${url}`;
+}
 
 const useStyles = makeStyles({
   root: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalM },
@@ -112,7 +110,7 @@ const useStyles = makeStyles({
 export interface ChaserPanelProps {
   case: Case;
   /** Called when the user logs the draft as a chase (the screen adds the note). */
-  onLogChased?: (draft: { channel: ChaserChannel; templateLabel: string }) => void;
+  onLogChased?: (draft: { channel: ChaserChannel; templateLabel: string }) => void | Promise<void>;
   /**
    * Whether the image upload-link action may show. Drive it with BOTH the gate
    * AND a configured template (`fileRequestEnabled && fileRequestTemplateConfigured`)
@@ -155,6 +153,7 @@ export function ChaserPanel({
           label: OVERVIEW_PHOTO_REQUEST,
           channels: [existingOverviewChaser.channel],
           applicableTo: () => true,
+          requiresUploadLink: true,
           body: (caseRow) =>
             `Hi,\n\nPlease could you send a photo of the whole vehicle ${caseRow.vrm} ` +
             `showing the registration plate clearly.\n\nMany thanks,\nCollision Engineers`,
@@ -162,17 +161,16 @@ export function ChaserPanel({
       : undefined,
     [existingOverviewChaser],
   );
-  // A template shows only when (a) it is applicable to THIS case type and (b) —
-  // for the gated upload-link — the feature is on.
+  // Image requests stay visible when link provisioning is unavailable, but their
+  // actions are disabled with an honest explanation below. They must never fall
+  // back to a linkless message that looks complete.
   const visibleTemplates = useMemo(
     () =>
       [
         ...(existingOverviewTemplate ? [existingOverviewTemplate] : []),
-        ...TEMPLATES.filter(
-          (t) => t.applicableTo(caseType) && (t.key !== COPY_FILE_REQUEST_KEY || fileRequestEnabled),
-        ),
+        ...TEMPLATES.filter((t) => t.applicableTo(caseType)),
       ],
-    [existingOverviewTemplate, fileRequestEnabled, caseType],
+    [existingOverviewTemplate, caseType],
   );
   const available = useMemo(
     () => visibleTemplates.filter((t) => t.channels.includes(channel)),
@@ -182,7 +180,7 @@ export function ChaserPanel({
   const activeTemplate = available.find((t) => t.key === templateKey) ?? available[0];
   const [body, setBody] = useState<string>(activeTemplate ? activeTemplate.body(c) : '');
   const [linkLoading, setLinkLoading] = useState(false);
-  const isUploadLinkTemplate = activeTemplate?.key === COPY_FILE_REQUEST_KEY;
+  const needsUploadLink = activeTemplate?.requiresUploadLink === true;
 
   const applyTemplate = (key: string) => {
     setTemplateKey(key);
@@ -200,12 +198,53 @@ export function ChaserPanel({
     setBody(chosen ? chosen.body(c) : '');
   };
 
+  const prepareUploadMessage = async (): Promise<string | undefined> => {
+    if (!fileRequestEnabled) {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>No upload link yet</ToastTitle>
+          <ToastBody>An upload link is required before this image request can be copied or logged.</ToastBody>
+        </Toast>,
+        { intent: 'warning' },
+      );
+      return undefined;
+    }
+    const result = await (onRequestUploadLink
+      ? onRequestUploadLink(c.id)
+      : Promise.resolve({ status: 'not_connected' as const, message: 'Image upload link isn’t available yet.' }));
+    if (result.status === 'ok' && result.data?.fileRequestUrl) {
+      const text = messageWithUploadLink(body, result.data.fileRequestUrl);
+      // Keep the complete message visible even when clipboard permission fails.
+      setBody(text);
+      return text;
+    }
+    const fallback =
+      result.status === 'folder_not_ready'
+        ? 'The case archive folder isn’t ready yet — try again shortly.'
+        : result.message ?? 'Image upload link isn’t available yet.';
+    dispatchToast(
+      <Toast>
+        <ToastTitle>No upload link yet</ToastTitle>
+        <ToastBody>{fallback}</ToastBody>
+      </Toast>,
+      { intent: 'warning' },
+    );
+    return undefined;
+  };
+
   const onCopy = async () => {
+    if (linkLoading) return;
+    setLinkLoading(true);
     try {
-      await navigator.clipboard.writeText(body);
+      const text = needsUploadLink ? await prepareUploadMessage() : body;
+      if (!text) return;
+      await navigator.clipboard.writeText(text);
       dispatchToast(
         <Toast>
           <ToastTitle>Chaser copied to clipboard</ToastTitle>
+          {needsUploadLink ? (
+            <ToastBody>Paste it into your {channel === 'whatsapp' ? 'WhatsApp' : 'email'} to the provider.</ToastBody>
+          ) : null}
         </Toast>,
         { intent: 'success' },
       );
@@ -216,61 +255,17 @@ export function ChaserPanel({
         </Toast>,
         { intent: 'error' },
       );
+    } finally {
+      setLinkLoading(false);
     }
   };
 
-  const onLog = () => {
-    onLogChased?.({ channel, templateLabel: activeTemplate.label });
-  };
-
-  /* Fetch the per-case upload link and copy [message + link] to the clipboard.
-     Honest states only: a not_connected / folder_not_ready / gated_off / error
-     result toasts the reason and copies NOTHING — never a fabricated link. */
-  const onGetUploadLink = async () => {
+  const onLog = async () => {
     if (linkLoading) return;
     setLinkLoading(true);
     try {
-      const result = await (onRequestUploadLink
-        ? onRequestUploadLink(c.id)
-        : Promise.resolve({ status: 'not_connected' as const, message: 'Image upload link isn’t available yet.' }));
-      if (result.status === 'ok' && result.data?.fileRequestUrl) {
-        const text = `${body}\n\nUpload your photos here:\n${result.data.fileRequestUrl}`;
-        // Put the full message + link into the visible textarea BEFORE attempting
-        // the clipboard write, so on a clipboard failure the "select the text
-        // manually" guidance has something to select — the link is never lost.
-        setBody(text);
-        try {
-          await navigator.clipboard.writeText(text);
-          dispatchToast(
-            <Toast>
-              <ToastTitle>Upload link copied to clipboard</ToastTitle>
-              <ToastBody>Paste it into your {channel === 'whatsapp' ? 'WhatsApp' : 'email'} to the provider.</ToastBody>
-            </Toast>,
-            { intent: 'success' },
-          );
-        } catch {
-          dispatchToast(
-            <Toast>
-              <ToastTitle>Couldn’t copy — select the text manually</ToastTitle>
-            </Toast>,
-            { intent: 'error' },
-          );
-        }
-        return;
-      }
-      // folder_not_ready has a specific friendly line; everything else uses the
-      // transport's message (or a generic fallback). Never copies a link.
-      const fallback =
-        result.status === 'folder_not_ready'
-          ? 'The case archive folder isn’t ready yet — try again shortly.'
-          : result.message ?? 'Image upload link isn’t available yet.';
-      dispatchToast(
-        <Toast>
-          <ToastTitle>No upload link yet</ToastTitle>
-          <ToastBody>{fallback}</ToastBody>
-        </Toast>,
-        { intent: 'warning' },
-      );
+      if (needsUploadLink && !await prepareUploadMessage()) return;
+      await onLogChased?.({ channel, templateLabel: activeTemplate.label });
     } finally {
       setLinkLoading(false);
     }
@@ -346,31 +341,26 @@ export function ChaserPanel({
         <Textarea value={body} onChange={(_, d) => setBody(d.value)} resize="vertical" rows={8} />
       </Field>
 
+      {needsUploadLink && !fileRequestEnabled ? (
+        <Text className={styles.empty}>
+          An upload link is required before this image request can be copied or logged.
+        </Text>
+      ) : null}
+
       <div className={styles.actions}>
-        {isUploadLinkTemplate ? (
-          <Button
-            appearance="primary"
-            icon={linkLoading ? <Spinner size="tiny" /> : <Link2 size={16} />}
-            onClick={onGetUploadLink}
-            disabled={linkLoading || !activeTemplate}
-          >
-            {linkLoading ? 'Getting link…' : 'Get upload link & copy'}
-          </Button>
-        ) : (
-          <Button
-            appearance="primary"
-            icon={<Copy size={16} />}
-            onClick={onCopy}
-            disabled={!activeTemplate}
-          >
-            Copy to clipboard
-          </Button>
-        )}
+        <Button
+          appearance="primary"
+          icon={linkLoading ? <Spinner size="tiny" /> : <Copy size={16} />}
+          onClick={onCopy}
+          disabled={linkLoading || !activeTemplate || (needsUploadLink && !fileRequestEnabled)}
+        >
+          {linkLoading ? 'Preparing…' : 'Copy to clipboard'}
+        </Button>
         <Button
           appearance="secondary"
           icon={<ClipboardCheck size={16} />}
           onClick={onLog}
-          disabled={!activeTemplate}
+          disabled={linkLoading || !activeTemplate || (needsUploadLink && !fileRequestEnabled)}
         >
           Log as chased
         </Button>

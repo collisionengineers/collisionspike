@@ -70,14 +70,22 @@ def _no_backoff(monkeypatch):
 def test_copy_file_request_marks_created():
     _mock_token()
     respx.post(f"{API_BASE}/2.0/file_requests/template-1/copy").mock(
-        return_value=httpx.Response(201, json={"id": "9001", "url": "/f/public-token"})
+        return_value=httpx.Response(
+            201,
+            json={
+                "id": "9001",
+                "url": "/f/public-token",
+                "folder": {"id": "folder-1", "type": "folder"},
+                "status": "active",
+            },
+        )
     )
     out = _client().copy_file_request("template-1", "folder-1")
-    assert out == {
-        "id": "9001",
-        "url": "/f/public-token",
-        "outcome": "created",
-    }
+    assert out["id"] == "9001"
+    assert out["url"] == "/f/public-token"
+    assert out["folder"]["id"] == "folder-1"
+    assert out["status"] == "active"
+    assert out["outcome"] == "created"
 
 
 @respx.mock
@@ -90,7 +98,15 @@ def test_copy_file_request_recovers_409_conflict():
         )
     )
     get_existing = respx.get(f"{API_BASE}/2.0/file_requests/9001").mock(
-        return_value=httpx.Response(200, json={"id": "9001", "url": "/f/public-token"})
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "9001",
+                "url": "/f/public-token",
+                "folder": {"id": "folder-1", "type": "folder"},
+                "status": "active",
+            },
+        )
     )
     out = _client().copy_file_request("template-1", "folder-1")
     assert out["id"] == "9001"

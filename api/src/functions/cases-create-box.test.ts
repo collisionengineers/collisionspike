@@ -31,9 +31,19 @@ vi.mock('../lib/db.js', () => ({
   },
 }));
 
-const box = vi.hoisted(() => ({ copyFileRequest: vi.fn(), listFolderNames: vi.fn() }));
+const box = vi.hoisted(() => ({
+  copyFileRequest: vi.fn(),
+  getFileRequest: vi.fn(),
+  reactivateFileRequest: vi.fn(),
+  listFolderNames: vi.fn(),
+}));
 vi.mock('../lib/functions-client.js', () => ({
+  FunctionCallError: class extends Error {
+    constructor(message: string, public readonly status?: number) { super(message); }
+  },
   callBoxCopyFileRequest: box.copyFileRequest,
+  callBoxGetFileRequest: box.getFileRequest,
+  callBoxReactivateFileRequest: box.reactivateFileRequest,
   listBoxFolderNames: box.listFolderNames,
 }));
 
@@ -73,6 +83,8 @@ beforeEach(() => {
   db.query.mockReset();
   db.tx.mockReset();
   box.copyFileRequest.mockReset();
+  box.getFileRequest.mockReset();
+  box.reactivateFileRequest.mockReset();
   box.listFolderNames.mockReset();
   boxRows = [];
   outboxRow = undefined;
@@ -82,6 +94,7 @@ beforeEach(() => {
     if (sql.includes('SELECT id, duplicate_keys FROM case_')) {
       return boxRows.length ? [{ id: params[0], duplicate_keys: null }] : [];
     }
+    if (sql.includes('SELECT box_folder_id FROM case_ WHERE id')) return boxRows;
     if (sql.includes('box_file_request_id') && sql.includes('FOR UPDATE')) return boxRows;
     if (sql.includes('SELECT * FROM box_file_request_outbox')) return outboxRow ? [outboxRow] : [];
     if (sql.includes('INSERT INTO box_file_request_outbox')) {
@@ -95,6 +108,7 @@ beforeEach(() => {
         next_attempt_at: new Date(0),
         claim_token: null,
         claim_expires_at: null,
+        repair_reason: params[3] ?? null,
       };
       return [];
     }
@@ -274,10 +288,10 @@ describe('POST /api/cases/{id}/box/copy-file-request', () => {
   beforeEach(() => {
     vi.stubEnv('BOX_API_ENABLED', 'true');
     vi.stubEnv('BOX_FILEREQUEST_ENABLED', 'true');
-    vi.stubEnv('BOX_FILE_REQUEST_TEMPLATE_ID', 'template-1');
+    vi.stubEnv('BOX_FILE_REQUEST_TEMPLATE_ID', '8001');
     boxRows = [
       {
-        box_folder_id: 'folder-1',
+        box_folder_id: '398564730902',
         box_file_request_id: null,
         box_file_request_url: null,
       },
@@ -294,7 +308,9 @@ describe('POST /api/cases/{id}/box/copy-file-request', () => {
     box.copyFileRequest.mockResolvedValue({
       id: '9001',
       url: '/f/abc',
+      folder: { id: '398564730902', type: 'folder' },
       status: 'active',
+      expires_at: '2026-08-13T12:00:00.000Z',
     });
     const ctx = context();
     const res = await registration('caseBoxCopyFileRequest').handler(
@@ -305,10 +321,13 @@ describe('POST /api/cases/{id}/box/copy-file-request', () => {
     expect(res.status).toBe(200);
     expect(res.jsonBody).toEqual({
       status: 'ok',
-      data: { fileRequestUrl: 'https://app.box.com/f/abc' },
+      data: {
+        fileRequestUrl: 'https://app.box.com/f/abc',
+        expiresAt: '2026-08-13T12:00:00.000Z',
+      },
     });
     expect(box.copyFileRequest).toHaveBeenCalledOnce();
-    expect(box.copyFileRequest).toHaveBeenCalledWith('template-1', 'folder-1');
+    expect(box.copyFileRequest).toHaveBeenCalledWith('8001', '398564730902');
 
     const update = callsContaining('SET box_file_request_id')[0];
     expect(update?.[1]).toEqual([
@@ -322,24 +341,37 @@ describe('POST /api/cases/{id}/box/copy-file-request', () => {
     expect(ctx.error).not.toHaveBeenCalled();
   });
 
-  it('returns an existing stamped link without calling or updating Box', async () => {
+  it('revalidates and returns an existing active link without copying another request', async () => {
     boxRows = [
       {
-        box_folder_id: 'folder-1',
+        box_folder_id: '398564730902',
         box_file_request_id: '9002',
         box_file_request_url: 'https://app.box.com/f/existing',
       },
     ];
+    box.getFileRequest.mockResolvedValue({
+      id: '9002',
+      url: '/f/existing',
+      folder: { id: '398564730902', type: 'folder' },
+      status: 'active',
+      expires_at: '2026-08-13T12:00:00.000Z',
+    });
     const res = await registration('caseBoxCopyFileRequest').handler(
       request({}, { id: 'case-1' }),
       context(),
     );
     expect(res.jsonBody).toEqual({
       status: 'ok',
-      data: { fileRequestUrl: 'https://app.box.com/f/existing' },
+      data: {
+        fileRequestUrl: 'https://app.box.com/f/existing',
+        expiresAt: '2026-08-13T12:00:00.000Z',
+      },
     });
     expect(box.copyFileRequest).not.toHaveBeenCalled();
-    expect(callsContaining('SET box_file_request_id')).toHaveLength(0);
+    expect(box.getFileRequest).toHaveBeenCalledWith('9002', '398564730902');
+    expect(
+      db.query.mock.calls.filter(([sql]) => /UPDATE case_[\s\S]*SET box_file_request_id/.test(String(sql))),
+    ).toHaveLength(0);
     expect(callsContaining('INSERT INTO audit_event')).toHaveLength(0);
   });
 

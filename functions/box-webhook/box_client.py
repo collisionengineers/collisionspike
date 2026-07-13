@@ -567,7 +567,13 @@ class BoxClient:
 
     # -- Layer-2 scope lock ------------------------------------------------
 
-    def _assert_in_scope(self, item_type: str, item_id: str) -> None:
+    def _assert_in_scope(
+        self,
+        item_type: str,
+        item_id: str,
+        *,
+        fresh: bool = False,
+    ) -> None:
         """Refuse any op whose target is outside ``BOX_ALLOWED_ROOT_ID``. No-op when
         the env var is unset (production). The root passes free; a descendant is
         confirmed once via a cached ``path_collection`` lookup. ``item_type`` is the
@@ -576,7 +582,7 @@ class BoxClient:
         if not root:
             return
         sid = str(item_id or "")
-        if not sid or sid == root or sid in _SCOPE_VERIFIED:
+        if not sid or sid == root or (not fresh and sid in _SCOPE_VERIFIED):
             return
         if item_type not in ("folders", "files"):
             raise BoxScopeError(f"scope check: unsupported item_type {item_type!r}")
@@ -1032,7 +1038,15 @@ class BoxClient:
         self, template_id: str, folder_id: str, *, status: str = "active",
         expires_at: str | None = None, title: str | None = None,
     ) -> dict[str, Any]:
-        self._assert_in_scope("folders", folder_id)
+        # The template and destination must both belong to the configured
+        # read-write root. The destination check alone would allow a caller to
+        # reference an arbitrary enterprise File Request as the copy source.
+        if self.config.allowed_root_id:
+            self.get_file_request(template_id)
+        # File Requests can be handed to external uploaders. Re-attest the
+        # destination immediately before the copy instead of trusting a warm
+        # worker's cached path after an administrator moved the folder.
+        self._assert_in_scope("folders", folder_id, fresh=True)
         body: dict[str, Any] = {"folder": {"id": folder_id, "type": "folder"}, "status": status}
         if expires_at:
             body["expires_at"] = expires_at
@@ -1049,7 +1063,7 @@ class BoxClient:
             # the existing request and return it as an idempotent success.
             conflict_id = _conflict_id(resp)
             if conflict_id:
-                existing = self.get_file_request(conflict_id)
+                existing = self.get_file_request(conflict_id, expected_folder_id=folder_id)
                 existing["outcome"] = "reused"
                 return existing
             raise BoxError("Box CopyFileRequest returned 409 with no resolvable conflict id", status=409)
@@ -1196,15 +1210,50 @@ class BoxClient:
             return {"deleted": True, "id": webhook_id}
         raise BoxError(f"Box DeleteWebhook returned HTTP {resp.status_code}", status=resp.status_code)
 
-    def get_file_request(self, file_request_id: str) -> dict[str, Any]:
+    def _validated_file_request(
+        self,
+        value: dict[str, Any],
+        *,
+        expected_folder_id: str | None = None,
+    ) -> dict[str, Any]:
+        folder = value.get("folder")
+        folder_id = str(folder.get("id") or "").strip() if isinstance(folder, dict) else ""
+        if not folder_id:
+            raise BoxScopeError("Box File Request response has no folder identity")
+        if expected_folder_id and folder_id != str(expected_folder_id).strip():
+            raise BoxScopeError("Box File Request is not attached to the expected case folder")
+        # A persisted File Request is reusable only while its current parent is
+        # freshly confirmed under the allowed root. A cached prior ancestry is
+        # not sufficient because Box folders can be moved.
+        self._assert_in_scope("folders", folder_id, fresh=True)
+        return value
+
+    def get_file_request(
+        self,
+        file_request_id: str,
+        *,
+        expected_folder_id: str | None = None,
+    ) -> dict[str, Any]:
         resp = self.request("GET", f"/2.0/file_requests/{file_request_id}")
-        return _json_or_raise(resp, "GetFileRequest")
+        value = _json_or_raise(resp, "GetFileRequest")
+        return self._validated_file_request(value, expected_folder_id=expected_folder_id)
 
-    def update_file_request(self, file_request_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    def update_file_request(
+        self,
+        file_request_id: str,
+        body: dict[str, Any],
+        *,
+        expected_folder_id: str,
+    ) -> dict[str, Any]:
+        # Resolve and validate before mutating. File Request IDs are enterprise-
+        # global and cannot be treated as proof of case/root ownership.
+        self.get_file_request(file_request_id, expected_folder_id=expected_folder_id)
         resp = self.request("PUT", f"/2.0/file_requests/{file_request_id}", json_body=body)
-        return _json_or_raise(resp, "UpdateFileRequest")
+        value = _json_or_raise(resp, "UpdateFileRequest")
+        return self._validated_file_request(value, expected_folder_id=expected_folder_id)
 
-    def delete_file_request(self, file_request_id: str) -> dict[str, Any]:
+    def delete_file_request(self, file_request_id: str, *, expected_folder_id: str) -> dict[str, Any]:
+        self.get_file_request(file_request_id, expected_folder_id=expected_folder_id)
         resp = self.request("DELETE", f"/2.0/file_requests/{file_request_id}")
         if resp.status_code in (200, 204):
             return {"deleted": True, "id": file_request_id}

@@ -108,6 +108,7 @@ import { hasColumn, planOptionalColumns, tableColumns } from '../lib/schema-intr
 import { acquireTriageLocks } from '../lib/triage-locks.js';
 import { lockCaseForMutation } from '../lib/case-mutation-locks.js';
 import { clampVarchar, vrmOrEmpty } from '../lib/varchar-guard.js';
+import { markImageChasersResponded } from '../lib/image-chasers.js';
 import { vrmLinkRefConflict } from '../lib/link-guards.js';
 import { requestStatusRecompute } from '../lib/status-recompute.js';
 import {
@@ -3062,6 +3063,7 @@ app.http('internalCasesEvidence', {
       let updated = 0;
       let merged = 0; // TKT-133: sha256 content twins linked onto an existing row instead of inserted
       let readinessChanged = false;
+      let boxImageArrived = false;
       for (const row of body.rows ?? []) {
         // TKT-124 kind guard: the box-webhook historically hardcoded
         // evidenceClass='image' for EVERY FILE.UPLOADED row, so PDFs/.doc/.eml/
@@ -3130,6 +3132,7 @@ app.http('internalCasesEvidence', {
         const sourceMessageId = (row.sourceMessageId ?? '').trim() || null;
         const boxFileId = (row.boxFileId ?? '').trim() || null;
         const isBoxRow = sourceMessageId != null || boxFileId != null;
+        const isBoxImageRow = isBoxRow && suppliedClass === 'image';
 
         // ---- TKT-133: sha256 write-time dedup/link — an ADDITIONAL check BEFORE the
         // lane INSERTs (all existing per-lane NOT EXISTS dedup below is unchanged).
@@ -3343,6 +3346,10 @@ app.http('internalCasesEvidence', {
           }
         }
         if (inserted) {
+          // Satisfy an image chaser only for a newly persisted upload. A Box
+          // redelivery, classifier re-stamp or cross-lane mirror of bytes that
+          // already existed on the case is not a new provider response.
+          if (isBoxImageRow) boxImageArrived = true;
           persisted++;
           // Any newly committed evidence row can change status inputs: images affect
           // accepted-photo readiness and instruction rows affect the no-evidence branch.
@@ -3355,6 +3362,10 @@ app.http('internalCasesEvidence', {
             row.decisionSource === 'classifier'
           ) readinessChanged = true;
         }
+      }
+
+      if (boxImageArrived) {
+        await markImageChasersResponded(q, persistCaseId, 'archive upload');
       }
 
       const statusGeneration = readinessChanged

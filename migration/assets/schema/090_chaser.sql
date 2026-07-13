@@ -12,6 +12,8 @@ CREATE TABLE chaser (
   target_name       varchar(200),
   channel_code      integer NOT NULL REFERENCES choice_chaser_channel(code),
   template_used     varchar(200),
+  box_file_request_id  varchar(40),           -- active upload request used by an image chase
+  box_file_request_url varchar(400),          -- public upload link copied with the message
   suggested         boolean NOT NULL DEFAULT false, -- system-created draft, not a sent/logged chase
   status_code       integer NOT NULL DEFAULT 100000000 REFERENCES choice_chaser_status(code), -- drafted
   sent_by           varchar(200),
