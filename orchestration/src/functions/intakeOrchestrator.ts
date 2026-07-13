@@ -672,19 +672,16 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // Box folder-create + evidence-archive + image-extraction are RECORD-KEEPING and now run
   // for ANY known-provider case (case_po present) REGARDLESS of mode — they were the cause of
   // "folders not getting made / box sync not working" when every provider resolved to manual.
-  // Only ENRICHMENT (and the reserved EVA-submit) remain gated by automation mode:
+  // Vehicle detail lookup is record completion and runs for every provider mode;
+  // only reserved submission/dispatch steps are gated by automation mode:
   //   • manual      — record + classify + persist evidence + Box folder + Box archive + image
-  //                   extraction, but DO NOT auto-enrich (staff trigger enrichment from the queue).
-  //   • review_auto — the default live path: everything manual does PLUS auto-enrichment, still
+  //                   extraction and vehicle lookup, but no submission.
+  //   • review_auto — the default live path: the same record completion, still
   //                   stopping short of EVA submission (always a staff action).
   //   • full_auto   — RESERVED. Behaves EXACTLY as review_auto today; its aggressive steps
   //                   (auto-EVA, auto-chaser, …) stay behind a default-off flag (FULL_AUTO_ENABLED)
   //                   and are intentionally NOT enabled here (ADR-0015 / am research §full).
   const automationMode = resolved.providerAutomationMode ?? 'review_auto';
-  const autoEnrich = automationMode !== 'manual';
-  if (!autoEnrich && !ctx.df.isReplaying) {
-    ctx.log(`[intake] provider automation mode = manual for case ${resolved.caseId}; record-keeping (Box folder/archive/images) runs, enrichment deferred to staff`);
-  }
 
   // 2.5 — Box folder at intake (#6, ADR-0012: additive one-way mirror). A known-provider case
   // has its Case/PO minted by caseResolve → create the Box folder named with it. A new client
@@ -763,15 +760,13 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
 
   // 6 — enrich (gate ENRICHMENT_ENABLED checked inside; no-op when off). Pass the best VRM
   // (parser PDF VRM preferred over the email sniff) + whether the doc already had mileage;
-  // the activity persists the advisory result onto the case on a 200 (#1). The ONE step still
-  // gated by automation mode: skipped in `manual` (staff trigger enrichment from the queue).
-  if (autoEnrich) {
-    yield ctx.df.callActivityWithRetry('enrich', retry, {
-      caseId: resolved.caseId,
-      vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
-      documentHasMileage,
-    });
-  }
+  // the activity persists the advisory result and recomputes readiness. This is
+  // record completion, so `manual` providers are not silently skipped.
+  yield ctx.df.callActivityWithRetry('enrich', retry, {
+    caseId: resolved.caseId,
+    vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
+    documentHasMileage,
+  });
 
   return { caseId: resolved.caseId, status: status.value, mode: automationMode };
 });

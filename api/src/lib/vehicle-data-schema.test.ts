@@ -77,4 +77,20 @@ describe('TKT-152 vehicle-data schema parity', () => {
       );
     }
   });
+
+  it('adds the typed current lookup projection to cases in fresh and delta paths', () => {
+    for (const sql of [canonical, delta]) {
+      for (const column of [
+        'last_vehicle_lookup_run_id',
+        'vehicle_lookup_status',
+        'vehicle_lookup_warning',
+        'vehicle_lookup_retryable',
+        'vehicle_lookup_attempted_at',
+        'vehicle_mileage_status',
+        'vehicle_mileage_method',
+      ]) expect(sql).toContain(column);
+      expect(sql).toContain('fk_case_last_vehicle_lookup');
+      expect(sql).toContain('REFERENCES vehicle_lookup_run(id) ON DELETE SET NULL');
+    }
+  });
 });

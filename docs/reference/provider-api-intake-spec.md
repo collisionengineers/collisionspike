@@ -143,6 +143,7 @@ The case enters the normal review workflow (a person confirms it before it goes 
 | `400` | `missing_accident_circumstances` | `accidentCircumstances` empty/absent. |
 | `400` | `invalid_vat_status` | `vatStatus` not one of `""`/`Yes`/`No`. |
 | `400` | `invalid_mileage_unit` | `mileageUnit` not one of `""`/`Miles`/`Km`. |
+| `400` | `invalid_mileage` | A supplied `mileage` contains anything other than digits. |
 | `400` | `invalid_inspection_address` | `inspectionAddress` sent but not a string. |
 | `400` | `invalid_instructions` | `instructions` not an array, or an item missing a required file field. |
 | `400` | `invalid_images` | `images` not an array, or an item missing a required file field. |

@@ -294,6 +294,17 @@ export interface CaseLastActivity {
 // canonical union + re-export live in domain/case-type.ts (already on the main
 // barrel via domain/index); imported type-only here for the Case field.
 import type { CaseWorkType } from '../domain/case-type';
+import type { MileageOutcomeStatus, VehicleLookupStatus } from '../contracts/vehicle-data';
+
+export interface VehicleLookupSummary {
+  runId?: string;
+  status: VehicleLookupStatus;
+  mileageStatus?: MileageOutcomeStatus;
+  mileageMethod?: string;
+  warning?: string;
+  retryable: boolean;
+  attemptedAt?: string;
+}
 
 /* ----------  Case (the live work item)  ---------- */
 export interface Case {
@@ -313,6 +324,8 @@ export interface Case {
   providerInspectionPolicy?: InspectionLocationPolicy;
   vehicleModel: string;
   vehicleYear?: number;
+  /** Latest durable vehicle-lookup outcome. Full evidence stays server-side. */
+  vehicleLookup?: VehicleLookupSummary;
 
   /** Claimant postal address captured at intake (cr1bd_evaclaimantaddress). A
    *  Case-identity/intake-capture clue (like vrm/casePo), NOT one of the 12 EVA

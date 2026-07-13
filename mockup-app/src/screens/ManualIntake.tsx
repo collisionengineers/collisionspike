@@ -52,7 +52,6 @@ import {
   fileToBase64,
   getDataAccess,
   useHoldNewCasesDefault,
-  enrichVehicle,
   normaliseAddress,
   type CaseStatus,
   type CaseType,
@@ -650,18 +649,18 @@ export function ManualIntake() {
     setInfo(undefined);
     setEnriching(true);
     try {
-      const res = await enrichVehicle(vrm);
-      if (res.status === 'ok' && res.data) {
-        const d = res.data;
+      const d = await getDataAccess().lookupVehicle({ registration: vrm });
+      if (d.lookup.status === 'found') {
         if (d.make) setMake(d.make);
-        if (d.model) onFieldChange('vehicleModel', d.model);
-        if (d.mileage) onFieldChange('mileage', d.mileage);
-        if (d.mileageUnit) onFieldChange('mileageUnit', d.mileageUnit);
+        if (d.vehicle_model) onFieldChange('vehicleModel', d.vehicle_model);
+        if (d.current_mileage !== undefined) onFieldChange('mileage', String(d.current_mileage));
+        if (d.mileage_unit) onFieldChange('mileageUnit', d.mileage_unit);
         toast('Vehicle details filled in');
       } else {
-        // not_connected / error — show the returned message, never fabricate.
-        setInfo(res.message ?? 'Vehicle lookup isn’t available yet.');
+        setInfo(d.mileage.reason ?? 'Vehicle details could not be found.');
       }
+    } catch {
+      setInfo('Vehicle details are temporarily unavailable. Try again.');
     } finally {
       setEnriching(false);
     }

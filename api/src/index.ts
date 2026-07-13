@@ -30,3 +30,4 @@ import './functions/evidence-backfill-drain.js'; // durable monitor seam for pen
 import './functions/image-analysis.js'; // staged image-analysis suggestion producer (TKT-016; IMAGE_ANALYSIS_ENABLED)
 import './functions/provider-keys.js';
 import './functions/provider-intake.js';
+import './functions/vehicle-data.js'; // canonical vehicle lookup, persistence, and staff retry

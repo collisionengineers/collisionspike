@@ -1104,6 +1104,23 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       </Toast>,
       { intent: 'success' },
     );
+  const [checkingVehicle, setCheckingVehicle] = useState(false);
+  const checkVehicleAgain = async () => {
+    setCheckingVehicle(true);
+    try {
+      await data.lookupVehicle({ caseId: c.id });
+      const updated = await data.caseById(c.id);
+      if (updated) setC(updated);
+      toast('Vehicle details checked');
+    } catch {
+      dispatchToast(
+        <Toast><ToastTitle>Couldn’t check vehicle details — try again</ToastTitle></Toast>,
+        { intent: 'error' },
+      );
+    } finally {
+      setCheckingVehicle(false);
+    }
+  };
 
   const restorePersistedDraft = () => {
     setC(persistedCase);
@@ -2225,6 +2242,24 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
           <MessageBarBody>
             <MessageBarTitle>This case is closed</MessageBarTitle>
             It has left the work queues. Nothing was deleted — every detail is kept for the record.
+          </MessageBarBody>
+        </MessageBar>
+      )}
+
+      {c.vehicleLookup?.warning && !isRemoved && (
+        <MessageBar intent="warning">
+          <MessageBarBody>
+            <MessageBarTitle>Vehicle details need attention</MessageBarTitle>
+            {c.vehicleLookup.warning}{' '}
+            <Button
+              appearance="transparent"
+              size="small"
+              disabled={checkingVehicle || !c.vrm.trim()}
+              icon={checkingVehicle ? <Spinner size="tiny" /> : undefined}
+              onClick={() => void checkVehicleAgain()}
+            >
+              {checkingVehicle ? 'Checking…' : 'Check again'}
+            </Button>
           </MessageBarBody>
         </MessageBar>
       )}

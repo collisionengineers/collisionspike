@@ -692,7 +692,11 @@ def _apply_interval(
     # calibrated probability interval.
     low = hard_low if hard_low is not None else max(0.0, estimate - fallback_spread)
     high = hard_high if hard_high is not None else estimate + fallback_spread
-    result["status"] = "range_only"
+    # A point estimate remains useful without a calibrated probability profile.
+    # Keep it explicitly estimated, publish only the wider non-probabilistic
+    # range, and attach the uncalibrated warning. This preserves normal case
+    # autofill without pretending that the fallback bounds have coverage.
+    result["status"] = "estimated"
     result["range"] = {
         "lower_mileage": _round_hundred(low),
         "upper_mileage": _round_hundred(high),
@@ -740,13 +744,14 @@ def estimate_displayed_mileage(
         )
         return result
 
-    # Bounded interpolation is valid only across a trusted, non-decreasing
-    # interval. A small negative change stays in the same displayed segment for
-    # audit purposes, but it must never create inverted logical bounds.
+    # Bounded interpolation uses two trusted, monotonic observations. The
+    # <90-day and >900-day rules govern annual-rate estimation only: they must
+    # not discard the hard information that the odometer lay between two
+    # observed endpoints on an intervening date.
     for interval in history.intervals:
         left, right = interval.left, interval.right
         if left.date < target_date < right.date and left.segment == right.segment:
-            if not interval.included or interval.delta_miles < 0:
+            if interval.delta_miles < 0:
                 result["reason"] = (
                     "The surrounding MOT interval is not trustworthy enough for interpolation."
                 )
@@ -764,7 +769,7 @@ def estimate_displayed_mileage(
                 estimate=estimate,
                 method="bounded_interpolation",
                 horizon_days=min(elapsed, total - elapsed),
-                clean_intervals=1,
+                clean_intervals=1 if interval.included else 0,
                 history=history,
                 calibration=calibration,
                 hard_low=left.miles,
@@ -777,15 +782,21 @@ def estimate_displayed_mileage(
     if target_date < first.date:
         registration_date = _parse_date(vehicle.get("registrationDate"))
         first_used_date = _parse_date(vehicle.get("firstUsedDate"))
+        # DVSA defines firstUsedDate as first use in GB, NI or abroad. A
+        # near-zero registration anchor is verified only when both official
+        # dates exist and agree; a difference means pre-registration use or an
+        # otherwise ambiguous/imported history.
+        new_at_registration = (
+            registration_date is not None
+            and first_used_date is not None
+            and first_used_date == registration_date
+        )
         previously_used_before_registration = (
             registration_date is not None
             and first_used_date is not None
             and first_used_date < registration_date
         )
-        # A first-use date is not evidence of a near-zero odometer and can be
-        # years earlier for an imported/pre-used vehicle. Only registration can
-        # serve as the guarded new-vehicle anchor.
-        registration_anchor = registration_date
+        registration_anchor = registration_date if new_at_registration else None
         if (
             not cohort_prior
             or not cohort_prior.defensible
@@ -806,14 +817,14 @@ def estimate_displayed_mileage(
             return result
         age_to_first = max(1, (first.date - registration_anchor).days)
         first_life_rate = first.miles * DAYS_PER_YEAR / age_to_first
-        blended_rate = 0.7 * first_life_rate + 0.3 * cohort_prior.annual_rate_miles
-        estimate = max(
-            0.0,
-            first.miles
-            - blended_rate * (first.date - target_date).days / DAYS_PER_YEAR,
-        )
+        # The observed first MOT and verified zero-mile registration anchor are
+        # hard endpoints. Interpolate between them so the curve is exactly zero
+        # at registration and exactly the observed reading at the first MOT;
+        # the cohort contributes uncertainty, never an endpoint-breaking point.
+        elapsed_from_registration = (target_date - registration_anchor).days
+        estimate = first.miles * elapsed_from_registration / age_to_first
         result["method"] = "cohort_assisted_backcast"
-        result["annual_rate_miles"] = round(blended_rate)
+        result["annual_rate_miles"] = round(first_life_rate)
         result["prior"] = cohort_prior.to_contract()
         result["warnings"] = _warnings(history, ["cohort_prior_used"])
         spread = (

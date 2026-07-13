@@ -133,6 +133,13 @@ export interface StatusEvaluationInput {
     | 'manual'
     | 'image_based'
     | 'unknown';
+  /** Registration cases need both lookup-backed model and mileage before Review. */
+  vehicleData?: {
+    hasRegistration: boolean;
+    modelResolved: boolean;
+    mileageResolved: boolean;
+    warning?: string;
+  };
   /**
    * Count of active instruction-kind evidence rows (FIX-3). When omitted it is
    * DERIVED from `evidence` (items whose `kind === 'instruction'`). Lets the tree
@@ -204,7 +211,7 @@ export function unresolvedReviewFieldKeys(
 }
 
 /** Stable groups used by every checklist adapter. */
-export type ReadinessCheckGroup = 'fields' | 'images' | 'address' | 'conflicts' | 'source';
+export type ReadinessCheckGroup = 'fields' | 'images' | 'address' | 'vehicle' | 'conflicts' | 'source';
 
 /** One canonical, handler-facing readiness check. */
 export interface ReadinessCheck {
@@ -221,6 +228,7 @@ export interface CaseReadinessResult {
   ready: boolean;
   requiredFieldsPresent: boolean;
   inspectionReady: boolean;
+  vehicleDetailsReady: boolean;
   /** Base accepted-count/role image contract (before unresolved-review gate). */
   imageRulesPass: boolean;
   imagesReady: boolean;
@@ -242,7 +250,7 @@ export function evaluateCaseReadiness(
   input: Pick<
     StatusEvaluationInput,
     'evaFields' | 'evidence' | 'inspectionDecision' | 'sourceEvidencePending'
-      | 'sourceEvidenceArchiveFailed'
+      | 'sourceEvidenceArchiveFailed' | 'vehicleData'
   >,
 ): CaseReadinessResult {
   const checks: ReadinessCheck[] = [];
@@ -280,6 +288,23 @@ export function evaluateCaseReadiness(
     ok: imagesReady,
     group: 'images',
     ...(imagesReady ? {} : { detail: imageGaps.join('; ') }),
+  });
+
+  const vehicle = input.vehicleData;
+  const vehicleDetailsReady = !vehicle?.hasRegistration ||
+    (vehicle.modelResolved && vehicle.mileageResolved);
+  const missingVehicle = [
+    vehicle?.modelResolved === false ? 'vehicle model' : '',
+    vehicle?.mileageResolved === false ? 'mileage' : '',
+  ].filter(Boolean);
+  checks.push({
+    id: 'vehicle-details',
+    label: 'Vehicle details are complete',
+    ok: vehicleDetailsReady,
+    group: 'vehicle',
+    ...(vehicleDetailsReady
+      ? {}
+      : { detail: vehicle?.warning || `Missing ${missingVehicle.join(' and ')}` }),
   });
 
   const address = (input.evaFields.inspectionAddress?.value ?? '').trim();
@@ -337,6 +362,7 @@ export function evaluateCaseReadiness(
     ready: checks.every((check) => check.ok),
     requiredFieldsPresent,
     inspectionReady,
+    vehicleDetailsReady,
     imageRulesPass: imageRules.ok,
     imagesReady,
     reviewsResolved,
@@ -411,7 +437,7 @@ export function statusForReviewCase(input: StatusEvaluationInput): CaseStatus {
   const readiness = evaluateCaseReadiness(input);
   const baseImagesValid = readiness.imageRulesPass;
   const fieldContractValid =
-    readiness.requiredFieldsPresent && readiness.inspectionReady;
+    readiness.requiredFieldsPresent && readiness.inspectionReady && readiness.vehicleDetailsReady;
 
   if (readiness.ready) return 'ready_for_eva';
   if (fieldContractValid && !baseImagesValid) {

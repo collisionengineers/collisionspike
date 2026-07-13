@@ -55,6 +55,7 @@ import type {
   ProviderApiKey,
   CreateProviderApiKeyInput,
   CreateProviderApiKeyResult,
+  VehicleDataEnrichmentResponse,
 } from '@cs/domain';
 import type { Case, Chaser, Evidence, Provider, ActivityEvent } from '@cs/domain';
 import type {
@@ -241,12 +242,19 @@ export interface OutlookMoveResult {
   folder: string;
 }
 
+export type VehicleLookupResult = VehicleDataEnrichmentResponse & {
+  persisted?: { applied: string[]; warning?: string; retryable: boolean };
+};
+
 export interface DataAccessExt extends DataAccess {
   /** Save one reviewed case-edit session with optimistic concurrency. Every EVA
    *  field plus the inspection address/decision travels in this one PATCH. */
   saveCaseEdits(id: string, patch: CaseUpdateInput, version: string): Promise<Case>;
   /** Requeue Manual Intake source files that reached a terminal archive failure. */
   retryManualIntakeArchive(caseId: string): Promise<{ requeued: number }>;
+  /** The sole authenticated vehicle lookup path. A case id persists evidence;
+   *  a registration alone is a Manual Intake preview. */
+  lookupVehicle(input: { caseId: string } | { registration: string; targetDate?: string }): Promise<VehicleLookupResult>;
   /** ONE-call amalgamated dashboard (case pipeline + inbound). `now` windows
    *  server aggregates against the CLIENT clock. NOT safe()-wrapped — a failure
    *  surfaces so the dashboard shows its error panel (matches the prior bundle). */
@@ -581,6 +589,7 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       get<Case | undefined>(`/api/cases/${enc(id)}`).catch((e: unknown) =>
         /→ 404\b/.test(String(e)) ? undefined : Promise.reject(e),
       ),
+    lookupVehicle: (input) => post<VehicleLookupResult>('/api/vehicle-data/lookup', input),
     createCase: (input: CreateCaseInput, options?: CreateCaseOptions) =>
       call<CreateCaseResult>('POST', '/api/cases', input, {
         ...(options?.idempotencyKey

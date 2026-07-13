@@ -53,7 +53,6 @@ import {
   allowedCaseTypes,
   categoryMintsCase,
   describeEvidence,
-  isVehicleDataEnrichmentResponse,
   markerForMint,
   readinessInputForCase,
   statusForReviewCase,
@@ -63,7 +62,6 @@ import {
   type ImageRole,
   type InboundCategory,
   type InboundSubtype,
-  type VehicleDataEnrichmentResponse,
 } from '@cs/domain';
 import {
   actionReasonCodec,
@@ -262,7 +260,7 @@ interface StatusRecomputeResult {
  * concurrent mutation either commits before this lock (and is visible) or waits and
  * requests a newer still-pending generation after this transaction commits.
  */
-async function recomputeStatus(
+export async function recomputeStatus(
   caseId: string,
   acknowledgeGeneration?: number,
 ): Promise<StatusRecomputeResult> {
@@ -399,7 +397,8 @@ export async function applyParserFields(
     ...(resolvedProviderId ? { resolvedProviderId } : {}),
   });
   const ref = (parserRef ?? '').trim();
-  const mileage = parserMileage != null ? String(parserMileage).replace(/[^\d]/g, '') : '';
+  const mileageRaw = parserMileage != null ? String(parserMileage).trim() : '';
+  const mileage = /^\d+$/.test(mileageRaw) ? mileageRaw : '';
   const unitRaw = (parserMileageUnit ?? '').trim();
   const unit = unitRaw === 'Miles' || unitRaw === 'Km' ? unitRaw : '';
   const evaCandidates = selectParserEvaCandidates(parserEva);
@@ -1642,93 +1641,6 @@ function uniqueConstraintName(e: unknown): string | undefined {
   }
   return undefined;
 }
-
-/* ============================================================
-   POST /api/internal/cases/{id}/enrichment
-   Called by: orchestration enrich activity (#1) AFTER a 200 from the enrichment
-   Function (DVSA MOT + DVLA fallback). Persists the ADVISORY result onto the case's
-   EVA columns — FILL-IF-EMPTY only (never clobbers a staff/parser value; enrichment
-   is advisory per ADR-0006). There is no separate `make` column: make+model fold into
-   the single EVA field #2 (eva_vehicle_model). Mileage + unit move as a pair (the MOT
-   estimate is normalised to Miles). Returns { applied: [...] } — the fields it filled.
-   ============================================================ */
-app.http('internalCasesEnrichment', {
-  methods: ['POST'],
-  authLevel: 'anonymous',
-  route: 'internal/cases/{id}/enrichment',
-  handler: (req, ctx) =>
-    withServiceAuth(req, ctx, async () => {
-      const caseId = req.params.id;
-      // TKT-151 owns persisting the nested evidence/run records; this route
-      // already consumes the canonical envelope and temporarily projects only
-      // its compatibility fields onto empty case columns.
-      const payload: unknown = await req.json();
-      if (!isVehicleDataEnrichmentResponse(payload)) {
-        return { status: 400, jsonBody: { error: 'invalid vehicle data response' } };
-      }
-      const body: VehicleDataEnrichmentResponse = payload;
-
-      const cur = await query<Row>(
-        'SELECT eva_vehicle_model, eva_mileage, eva_mileage_unit FROM case_ WHERE id = $1',
-        [caseId],
-      );
-      if (!cur[0]) return { status: 404, jsonBody: { error: 'case not found' } };
-
-      const vehicleModel = combineMakeModel(
-        String(body.make ?? '').trim(),
-        String(body.vehicle_model ?? '').trim(),
-      );
-      const mileage = body.current_mileage != null ? String(body.current_mileage).replace(/[^\d]/g, '') : '';
-      const mileageUnitRaw = String(body.mileage_unit ?? '').trim();
-      const mileageUnit = mileageUnitRaw === 'Miles' || mileageUnitRaw === 'Km' ? mileageUnitRaw : '';
-
-      const applied: string[] = [];
-      const sets: string[] = [];
-      const vals: unknown[] = [];
-      const isEmpty = (v: unknown): boolean => !String(v ?? '').trim();
-
-      if (vehicleModel && isEmpty(cur[0].eva_vehicle_model)) {
-        sets.push(`eva_vehicle_model = $${sets.length + 1}`);
-        vals.push(vehicleModel.slice(0, 200));
-        applied.push('vehicleModel');
-      }
-      // Mileage + unit are a pair: only fill when the case has no mileage yet (the parsed
-      // document is authoritative — the Function already skips the estimate when the doc had it).
-      if (mileage && isEmpty(cur[0].eva_mileage)) {
-        sets.push(`eva_mileage = $${sets.length + 1}`);
-        vals.push(mileage.slice(0, 20));
-        applied.push('mileage');
-        if (mileageUnit) {
-          sets.push(`eva_mileage_unit = $${sets.length + 1}`);
-          vals.push(mileageUnit);
-          applied.push('mileageUnit');
-        }
-      }
-
-      if (sets.length > 0) {
-        vals.push(caseId);
-        await query(
-          `UPDATE case_ SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}`,
-          vals,
-        );
-        // The orchestrator runs statusEvaluate BEFORE enrich, so a readiness-required field
-        // filled here (e.g. mileage/model) would otherwise leave the status stale (e.g. stuck
-        // in needs_review though now ready). Recompute now that the new fields are persisted —
-        // ONLY when fields were actually applied; recomputeStatus persists only on a change (#680).
-        await recomputeStatus(caseId);
-      }
-
-      await writeAudit({
-        action: AUDIT_ACTION.enrichment_called,
-        caseId,
-        summary: `Enrichment persisted: ${applied.length ? applied.join(', ') : 'no new fields'}`,
-        after: { applied, warnings: body.warnings ?? [] },
-      });
-      ctx.log(JSON.stringify({ evt: 'internalCasesEnrichment', caseId, applied }));
-
-      return { status: 200, jsonBody: { applied } };
-    }),
-});
 
 /* ============================================================
    POST /api/internal/inbound/link-reply

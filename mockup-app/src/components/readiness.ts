@@ -10,7 +10,7 @@ export interface ChecklistItem {
   label: string;
   ok: boolean;
   /** Category, for grouping/iconography. */
-  group: 'fields' | 'images' | 'address' | 'conflicts' | 'source';
+  group: 'fields' | 'images' | 'address' | 'vehicle' | 'conflicts' | 'source';
   /** Optional detail shown when not ok. */
   detail?: string;
 }
@@ -36,7 +36,7 @@ export function computeReadiness(c: Case): ReadinessResult {
     .filter((i) => !i.ok)
     .map((i) => ({
       kind:
-        i.group === 'fields'
+        i.group === 'fields' || i.group === 'vehicle'
           ? 'required_field'
           : i.group === 'images'
             ? 'image_rule'

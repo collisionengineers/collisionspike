@@ -8,14 +8,21 @@
  * App-settings required per Function (set via Azure portal / az CLI, KV-referenced):
  *   PARSER_FN_URL          / PARSER_FN_KEY
  *   LOCATION_SUGGEST_FN_URL / LOCATION_SUGGEST_FN_KEY
+ *   ENRICH_FN_URL          / ENRICH_FN_KEY
  *   (evasentry, evavalidation, box-webhook are called by orchestration, not the API)
  *
- * Vehicle enrichment is deliberately absent: orchestration's enrich activity is
- * the sole caller of the canonical vehicle-data Function.
+ * Vehicle enrichment is owned by the Data API: every automated intake, staff
+ * retry, and manual preview passes through the same authenticated route and this
+ * one validated Function client.
  *
  * TODO (api-build agent): add typed request/response types for each remaining Python Function's
  * HTTP contract once those Function signatures are confirmed.
  */
+
+import {
+  parseVehicleDataEnrichmentResponse,
+  type VehicleDataEnrichmentResponse,
+} from '@cs/domain';
 
 /** Default bound for the latency-sensitive image-analysis stage calls (OCR / location-suggest) —
  *  matches the AOAI adapter timeout so every image-analysis stage degrades on a slow/stuck host
@@ -32,6 +39,33 @@ export class FunctionCallError extends Error {
     super(message);
     this.name = 'FunctionCallError';
   }
+}
+
+export async function callVehicleData(input: {
+  registration: string;
+  documentHasMileage: boolean;
+  targetDate?: string;
+}): Promise<VehicleDataEnrichmentResponse> {
+  const base = process.env.ENRICH_FN_URL;
+  const key = process.env.ENRICH_FN_KEY;
+  if (!base || !key) {
+    throw new Error('[functions-client] ENRICH_FN_URL/ENRICH_FN_KEY not configured');
+  }
+  const raw = await callFn(
+    base,
+    key,
+    'POST',
+    '/api/dvsa-mot/enrich',
+    {
+      vrm: input.registration,
+      document_has_mileage: input.documentHasMileage,
+      ...(input.targetDate ? { target_date: input.targetDate } : {}),
+    },
+    { timeoutMs: FN_STAGE_TIMEOUT_MS },
+  );
+  const parsed = parseVehicleDataEnrichmentResponse(raw);
+  if (!parsed) throw new Error('[functions-client] vehicle-data response failed contract validation');
+  return parsed;
 }
 
 async function callFn(

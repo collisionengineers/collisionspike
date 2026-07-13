@@ -6,6 +6,7 @@ import {
   CASE_STATUSES,
   missingRequiredFieldKeys,
   conflictFieldKeys,
+  evaluateCaseReadiness,
   REQUIRED_FIELD_KEYS,
   evaluateCaseReadiness,
   type CaseStatus,
@@ -130,6 +131,31 @@ describe('statusForReviewCase — terminal lock', () => {
       expect(statusForReviewCase(input)).toBe(status);
     },
   );
+});
+
+describe('registration vehicle-detail readiness', () => {
+  it('keeps an otherwise complete registration case Not Ready when mileage is unresolved', () => {
+    const input = caseInput({
+      vehicleData: {
+        hasRegistration: true,
+        modelResolved: true,
+        mileageResolved: false,
+        warning: 'No usable mileage history was found.',
+      },
+    });
+    const readiness = evaluateCaseReadiness(input);
+    expect(readiness.vehicleDetailsReady).toBe(false);
+    expect(readiness.checks.find((check) => check.id === 'vehicle-details')?.detail)
+      .toBe('No usable mileage history was found.');
+    expect(statusForReviewCase(input)).toBe('missing_required_fields');
+  });
+
+  it('does not invent a vehicle lookup requirement for a case without a registration', () => {
+    const input = caseInput({
+      vehicleData: { hasRegistration: false, modelResolved: false, mileageResolved: false },
+    });
+    expect(statusForReviewCase(input)).toBe('ready_for_eva');
+  });
 });
 
 describe('statusForReviewCase — merge-retired lock (TKT-141)', () => {

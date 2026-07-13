@@ -151,6 +151,7 @@ export type {
   LogChaseInput,
   DetachInboundResult,
   OutlookMoveResult,
+  VehicleLookupResult,
   VersionedRead,
   ProposalExecutionResult,
   EvidenceUploadOptions,
@@ -249,17 +250,13 @@ export {
   notConnectedLocationAssistTransport,
 } from './location-assist-rest-transport';
 
-/* ----------  Vehicle enrichment + address normalisation (gated) ---------- */
+/* ----------  Address normalisation (gated) ---------- */
 export {
-  enrichVehicle,
   normaliseAddress,
-  notConnectedVehicleTransport,
   notConnectedAddressTransport,
-  type VehicleEnrichment,
   type NormalisedAddress,
   type EnrichStatus,
   type EnrichResult,
-  type VehicleEnrichTransport,
   type AddressNormaliseTransport,
 } from './enrichment-client';
 

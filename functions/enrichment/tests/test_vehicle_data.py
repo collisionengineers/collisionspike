@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 import uuid
+from dataclasses import replace
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -96,7 +97,7 @@ def prior() -> CohortPrior:
         annual_rate_miles=8000,
         annual_sigma_miles=2500,
         sample_size=1000,
-        vehicle_type="car",
+        vehicle_type="all",
         age_band="4-7",
         fuel_type="Petrol",
         make_model_family="FORD FOCUS",
@@ -245,6 +246,35 @@ def test_small_negative_interval_is_not_trusted_for_interpolation():
     assert "not trustworthy" in result["reason"]
 
 
+@pytest.mark.parametrize(
+    ("left_date", "right_date", "target"),
+    [
+        ("2024-01-01", "2024-03-01", date(2024, 2, 1)),
+        ("2020-01-01", "2023-01-01", date(2021, 7, 1)),
+    ],
+)
+def test_monotonic_interpolation_is_independent_of_rate_windows(
+    left_date: str,
+    right_date: str,
+    target: date,
+):
+    result = estimate_displayed_mileage(
+        vehicle(
+            mot(left_date, "10000", number="1"),
+            mot(right_date, "20000", number="2"),
+        ),
+        target_date=target,
+    )
+    assert result["status"] == "estimated"
+    assert result["method"] == "bounded_interpolation"
+    assert 10000 <= result["estimated_mileage"] <= 20000
+    assert result["range"] == {
+        "lower_mileage": 10000,
+        "upper_mileage": 20000,
+        "basis": "logical_bounds",
+    }
+
+
 def test_exact_mot_is_exact_and_interpolation_is_logically_bounded():
     record = vehicle(
         mot("2023-01-01", "40001", number="1"),
@@ -256,7 +286,7 @@ def test_exact_mot_is_exact_and_interpolation_is_logically_bounded():
     assert exact["estimated_mileage"] == 50003
 
     middle = estimate_displayed_mileage(record, target_date=date(2023, 7, 2))
-    assert middle["status"] == "range_only"
+    assert middle["status"] == "estimated"
     assert middle["method"] == "bounded_interpolation"
     assert middle["range"]["lower_mileage"] == 40000
     assert middle["range"]["upper_mileage"] == 50000
@@ -303,7 +333,7 @@ def test_cohort_blend_reduces_stale_vehicle_rate_weight():
     assert "historical_gap_context_only" in warning_codes(result)
 
 
-def test_sparse_or_stale_histories_abstain_or_return_range_only_without_fake_probability():
+def test_sparse_or_stale_histories_abstain_or_return_wide_estimate_without_fake_probability():
     sparse = vehicle(mot("2024-01-01", "40000", number="1"))
     no_prior = estimate_displayed_mileage(sparse, target_date=date(2024, 6, 1))
     assert no_prior["status"] == "insufficient"
@@ -314,7 +344,7 @@ def test_sparse_or_stale_histories_abstain_or_return_range_only_without_fake_pro
         target_date=date(2024, 6, 1),
         cohort_prior=prior(),
     )
-    assert with_prior["status"] == "range_only"
+    assert with_prior["status"] == "estimated"
     assert with_prior["prediction_interval"] is None
     assert with_prior["range"]["basis"] == "rate_dispersion_not_calibrated"
 
@@ -334,6 +364,7 @@ def test_pre_first_mot_requires_a_defensible_prior_and_registration_anchor():
         mot("2022-01-01", "24000", number="1"),
         registration_date="2019-01-01",
     )
+    record["firstUsedDate"] = "2019-01-01"
     absent = estimate_displayed_mileage(record, target_date=date(2020, 1, 1))
     assert absent["status"] == "insufficient"
     assisted = estimate_displayed_mileage(
@@ -381,6 +412,41 @@ def test_pre_first_mot_abstains_without_a_registration_anchor():
     assert "registration_anchor_unavailable" in warning_codes(result)
 
 
+def test_verified_registration_backcast_passes_through_zero_and_first_mot():
+    record = vehicle(
+        mot("2022-01-01", "30000", number="1"),
+        registration_date="2019-01-01",
+    )
+    record["firstUsedDate"] = "2019-01-01"
+    at_anchor = estimate_displayed_mileage(
+        record,
+        target_date=date(2019, 1, 1),
+        cohort_prior=prior(),
+    )
+    halfway = estimate_displayed_mileage(
+        record,
+        target_date=date(2020, 7, 2),
+        cohort_prior=prior(),
+    )
+    assert at_anchor["status"] == "estimated"
+    assert at_anchor["estimated_mileage"] == 0
+    assert 14900 <= halfway["estimated_mileage"] <= 15100
+
+
+def test_registration_without_matching_first_used_date_is_not_a_verified_anchor():
+    record = vehicle(
+        mot("2022-01-01", "30000", number="1"),
+        registration_date="2019-01-01",
+    )
+    result = estimate_displayed_mileage(
+        record,
+        target_date=date(2020, 1, 1),
+        cohort_prior=prior(),
+    )
+    assert result["status"] == "insufficient"
+    assert "registration_anchor_unavailable" in warning_codes(result)
+
+
 def test_cohort_selector_never_crosses_labels_and_uses_explicit_generic_fallback(
     monkeypatch,
 ):
@@ -397,8 +463,8 @@ def test_cohort_selector_never_crosses_labels_and_uses_explicit_generic_fallback
         make_model_family="all",
     )
     van = {
-        "vehicleType": "van",
         "registrationDate": "2018-01-01",
+        "firstUsedDate": "2018-01-01",
         "fuelType": "Diesel",
         "make": "MERCEDES",
         "model": "SPRINTER",
@@ -414,6 +480,30 @@ def test_cohort_selector_never_crosses_labels_and_uses_explicit_generic_fallback
     assert [item.version for item in loaded] == ["cohort-test-v1", "generic-v1"]
 
 
+def test_cohort_age_uses_official_first_used_date_and_rejects_unobservable_type():
+    type_specific = replace(prior(), vehicle_type="car")
+    observable = CohortPrior(
+        version="first-used-v1",
+        dataset_digest="d" * 64,
+        annual_rate_miles=8000,
+        annual_sigma_miles=2500,
+        sample_size=1000,
+        vehicle_type="all",
+        age_band="4-7",
+        fuel_type="Petrol",
+        make_model_family="FORD FOCUS",
+    )
+    official = {
+        "registrationDate": "2024-01-01",
+        "firstUsedDate": "2018-01-01",
+        "fuelType": "Petrol",
+        "make": "FORD",
+        "model": "FOCUS",
+    }
+    assert select_cohort_prior((type_specific,), official, date(2024, 1, 1)) is None
+    assert select_cohort_prior((observable,), official, date(2024, 1, 1)) == observable
+
+
 def test_tkt044_projection_is_auditable_but_not_presented_as_calibrated_without_profile():
     record = vehicle(
         mot("2023-06-01", "24000", number="1"),
@@ -421,7 +511,7 @@ def test_tkt044_projection_is_auditable_but_not_presented_as_calibrated_without_
         mot("2025-06-01", "40000", number="3"),
     )
     uncalibrated = estimate_displayed_mileage(record, target_date=date(2026, 7, 9))
-    assert uncalibrated["status"] == "range_only"
+    assert uncalibrated["status"] == "estimated"
     assert uncalibrated["estimated_mileage"] == 48800
     # The exact-date annualisation correctly accounts for the leap-year interval;
     # recency weighting selects the latest 8,005-mile annualised rate.
@@ -468,7 +558,7 @@ def test_malformed_or_undersized_calibration_cannot_create_a_probability_claim()
         target_date=date(2024, 7, 1),
         calibration=invalid,
     )
-    assert result["status"] == "range_only"
+    assert result["status"] == "estimated"
     assert result["prediction_interval"] is None
     assert "uncalibrated_range" in warning_codes(result)
 
@@ -561,7 +651,7 @@ def test_invalid_registration_is_blocked_before_provider_quota_and_warned():
     assert result["mileage"]["warnings"][0]["code"] == "invalid_registration"
 
 
-def test_range_only_never_becomes_a_legacy_point_estimate():
+def test_uncalibrated_estimate_remains_available_to_legacy_autofill_with_wide_range():
     payload = vehicle(
         mot("2023-01-01", "40000", number="1"),
         mot("2024-01-01", "48000", number="2"),
@@ -570,9 +660,11 @@ def test_range_only_never_becomes_a_legacy_point_estimate():
         dvsa=StaticDvsa(payload),
         clock=lambda: datetime(2024, 7, 1, tzinfo=timezone.utc),
     ).lookup("TE57VRM")
-    assert contract["mileage"]["status"] == "range_only"
+    assert contract["mileage"]["status"] == "estimated"
+    assert contract["mileage"]["prediction_interval"] is None
+    assert contract["mileage"]["range"]["basis"] == "rate_dispersion_not_calibrated"
     adapted = legacy_enrichment_adapter(contract)
-    assert "current_mileage" not in adapted
+    assert adapted["current_mileage"] == contract["mileage"]["estimated_mileage"]
     assert "mileage_confidence" not in adapted
 
 

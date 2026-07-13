@@ -89,6 +89,7 @@ describe('validateProviderApiSubmission — rejections (mirror DB CHECKs)', () =
     ['missing accidentCircumstances', { accidentCircumstances: '' }, 'missing_accident_circumstances'],
     ['bad vatStatus', { vatStatus: 'maybe' }, 'invalid_vat_status'],
     ['bad mileageUnit', { mileageUnit: 'furlongs' }, 'invalid_mileage_unit'],
+    ['bad mileage', { mileage: '50,000 miles' }, 'invalid_mileage'],
     ['bad inspectionAddress type', { inspectionAddress: 123 }, 'invalid_inspection_address'],
     ['instructions not array', { instructions: 'nope' }, 'invalid_instructions'],
     ['images not array', { images: 'nope' }, 'invalid_images'],

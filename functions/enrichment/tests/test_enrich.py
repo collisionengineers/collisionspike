@@ -566,9 +566,11 @@ def test_estimate_projects_forward_from_last_mot_by_design_tkt044():
     }
     as_of = date(2026, 7, 9)  # ~13.2 months after the last MOT
     est = estimate_displayed_mileage(v, target_date=as_of)
-    # Without a backtest profile, the point is retained for audit but explicitly
-    # classified as a non-probabilistic range rather than a fake confidence score.
-    assert est["status"] == "range_only"
+    # Without a backtest profile, the point remains available for normal autofill
+    # but carries only a widened non-probabilistic range, never fake coverage.
+    assert est["status"] == "estimated"
+    assert est["prediction_interval"] is None
+    assert est["range"]["basis"] == "rate_dispersion_not_calibrated"
     # Recency weighting uses the latest exact-date annualised interval (8,005/yr).
     assert est["annual_rate_miles"] == 8005
     days_since = (as_of - date(2025, 6, 1)).days  # 403

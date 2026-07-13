@@ -25,7 +25,6 @@
 import type {
   CreateCaseInput,
   CreateCaseResult,
-  VehicleDataEnrichmentResponse,
 } from '@cs/domain';
 import type { ProviderMatchRecord, OpenProviderCase } from '@cs/domain';
 import type { ImageSourceMatchRecord } from '@cs/domain';
@@ -729,15 +728,13 @@ export const dataApi = {
     return request('POST', '/api/internal/cases/lookup', payload);
   },
 
-  /**
-   * Persist the advisory DVSA/DVLA enrichment result onto the case (internal route, #1).
-   * Fill-if-empty on the API side; returns the fields it actually filled.
-   */
-  persistEnrichment(
-    caseId: string,
-    result: VehicleDataEnrichmentResponse,
-  ): Promise<{ applied: string[] }> {
-    return request('POST', `/api/internal/cases/${caseId}/enrichment`, result);
+  /** Run and persist the canonical vehicle lookup through its one Data API owner. */
+  lookupVehicle(caseId: string): Promise<{
+    persisted: { applied: string[]; warning?: string; retryable: boolean };
+    lookup: { status: string; run_id: string };
+    mileage: { status: string; warnings: Array<{ message: string }> };
+  }> {
+    return request('POST', '/api/vehicle-data/lookup', { caseId });
   },
 
   /**

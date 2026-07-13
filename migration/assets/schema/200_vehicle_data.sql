@@ -116,6 +116,36 @@ CREATE INDEX ix_vehicle_lookup_run_case_retrieved
 CREATE INDEX ix_mot_odometer_observation_run_date
   ON mot_odometer_observation (lookup_run_id, test_date, raw_index);
 
+-- The case row keeps only the current operator-facing projection. The complete,
+-- immutable evidence remains in the append-only tables above.
+ALTER TABLE case_
+  ADD COLUMN last_vehicle_lookup_run_id uuid,
+  ADD COLUMN vehicle_lookup_status varchar(32) CHECK (
+    vehicle_lookup_status IS NULL OR vehicle_lookup_status IN
+      ('found','not_found','invalid_registration','temporarily_unavailable','configuration_error')
+  ),
+  ADD COLUMN vehicle_lookup_warning text,
+  ADD COLUMN vehicle_lookup_retryable boolean NOT NULL DEFAULT false,
+  ADD COLUMN vehicle_lookup_attempted_at timestamptz,
+  ADD COLUMN vehicle_mileage_status varchar(20) CHECK (
+    vehicle_mileage_status IS NULL OR vehicle_mileage_status IN
+      ('observed','estimated','range_only','insufficient')
+  ),
+  ADD COLUMN vehicle_mileage_method varchar(40) CHECK (
+    vehicle_mileage_method IS NULL OR vehicle_mileage_method IN
+      ('observed_mot','bounded_interpolation','recent_rate_forecast',
+       'cohort_assisted_forecast','cohort_assisted_backcast',
+       'displayed_segment_only','none')
+  );
+
+ALTER TABLE case_
+  ADD CONSTRAINT fk_case_last_vehicle_lookup
+  FOREIGN KEY (last_vehicle_lookup_run_id)
+  REFERENCES vehicle_lookup_run(id) ON DELETE SET NULL;
+
+CREATE INDEX ix_case_last_vehicle_lookup
+  ON case_ (last_vehicle_lookup_run_id) WHERE last_vehicle_lookup_run_id IS NOT NULL;
+
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cespk_app') THEN

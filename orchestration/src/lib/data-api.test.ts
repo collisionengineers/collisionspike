@@ -141,6 +141,22 @@ describe('generation-aware status evaluation contract', () => {
   });
 });
 
+describe('canonical vehicle lookup contract', () => {
+  it('uses the single Data API owner and sends only the case id', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      persisted: { applied: ['mileage'], retryable: false },
+      lookup: { status: 'found', run_id: 'run-1' },
+      mileage: { status: 'estimated', warnings: [] },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    await dataApi.lookupVehicle('case-1');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe('https://api.example.test/api/vehicle-data/lookup');
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(String(init?.body))).toEqual({ caseId: 'case-1' });
+  });
+});
+
 describe('durable Box classification work contract', () => {
   it('claims capped work with POST rather than the rolling-compatible GET read', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ rows: [] }), {

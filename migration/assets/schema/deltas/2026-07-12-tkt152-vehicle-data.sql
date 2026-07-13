@@ -108,6 +108,47 @@ CREATE INDEX IF NOT EXISTS ix_vehicle_lookup_run_case_retrieved
 CREATE INDEX IF NOT EXISTS ix_mot_odometer_observation_run_date
   ON mot_odometer_observation (lookup_run_id, test_date, raw_index);
 
+ALTER TABLE case_
+  ADD COLUMN IF NOT EXISTS last_vehicle_lookup_run_id uuid,
+  ADD COLUMN IF NOT EXISTS vehicle_lookup_status varchar(32),
+  ADD COLUMN IF NOT EXISTS vehicle_lookup_warning text,
+  ADD COLUMN IF NOT EXISTS vehicle_lookup_retryable boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS vehicle_lookup_attempted_at timestamptz,
+  ADD COLUMN IF NOT EXISTS vehicle_mileage_status varchar(20),
+  ADD COLUMN IF NOT EXISTS vehicle_mileage_method varchar(40);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_case_last_vehicle_lookup') THEN
+    ALTER TABLE case_ ADD CONSTRAINT fk_case_last_vehicle_lookup
+      FOREIGN KEY (last_vehicle_lookup_run_id)
+      REFERENCES vehicle_lookup_run(id) ON DELETE SET NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_case_vehicle_lookup_status') THEN
+    ALTER TABLE case_ ADD CONSTRAINT ck_case_vehicle_lookup_status CHECK (
+      vehicle_lookup_status IS NULL OR vehicle_lookup_status IN
+        ('found','not_found','invalid_registration','temporarily_unavailable','configuration_error')
+    );
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_case_vehicle_mileage_status') THEN
+    ALTER TABLE case_ ADD CONSTRAINT ck_case_vehicle_mileage_status CHECK (
+      vehicle_mileage_status IS NULL OR vehicle_mileage_status IN
+        ('observed','estimated','range_only','insufficient')
+    );
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_case_vehicle_mileage_method') THEN
+    ALTER TABLE case_ ADD CONSTRAINT ck_case_vehicle_mileage_method CHECK (
+      vehicle_mileage_method IS NULL OR vehicle_mileage_method IN
+        ('observed_mot','bounded_interpolation','recent_rate_forecast',
+         'cohort_assisted_forecast','cohort_assisted_backcast',
+         'displayed_segment_only','none')
+    );
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS ix_case_last_vehicle_lookup
+  ON case_ (last_vehicle_lookup_run_id) WHERE last_vehicle_lookup_run_id IS NOT NULL;
+
 -- Reconcile an earlier partial application of this idempotent delta. The
 -- composite relationship prevents an observation from claiming one lookup run
 -- while pointing at a provider snapshot captured by another.

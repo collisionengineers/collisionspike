@@ -1,5 +1,5 @@
 /* ============================================================
-   Collision Engineers — vehicle enrichment + address-normalise client (GATED).
+   Collision Engineers — address-normalise client (GATED).
 
    Mirrors the parser-client seam: a pure transport contract the screens call,
    with a default "not connected" transport. Real vehicle enrichment runs through
@@ -14,14 +14,6 @@
    and a mileage estimate, but NOT VAT status — there is no VAT route. VAT stays a
    manual field (default TBA). See docs/reviews/190626 checklist task 1b.
    ============================================================ */
-
-export interface VehicleEnrichment {
-  make?: string;
-  model?: string;
-  /** Estimated current mileage (DVSA MOT projection) when the doc lacks one. */
-  mileage?: string;
-  mileageUnit?: 'Miles' | 'Km';
-}
 
 export interface NormalisedAddress {
   /** Up to 6 newline-separated lines (EVA inspection-address format). */
@@ -38,31 +30,15 @@ export interface EnrichResult<T> {
   message?: string;
 }
 
-export type VehicleEnrichTransport = (vrm: string) => Promise<EnrichResult<VehicleEnrichment>>;
 export type AddressNormaliseTransport = (text: string) => Promise<EnrichResult<NormalisedAddress>>;
 
-const GATED_VEHICLE_MESSAGE = 'Vehicle lookup isn’t available yet.';
 const GATED_ADDRESS_MESSAGE = 'Address standardisation isn’t available yet.';
 
 /** Default transports — honest "not connected" until the connectors are bound. */
-export const notConnectedVehicleTransport: VehicleEnrichTransport = async () => ({
-  status: 'not_connected',
-  message: GATED_VEHICLE_MESSAGE,
-});
 export const notConnectedAddressTransport: AddressNormaliseTransport = async () => ({
   status: 'not_connected',
   message: GATED_ADDRESS_MESSAGE,
 });
-
-/** Look up vehicle make/model/mileage for a VRM (gated; never returns VAT). */
-export async function enrichVehicle(
-  vrm: string,
-  transport: VehicleEnrichTransport = notConnectedVehicleTransport,
-): Promise<EnrichResult<VehicleEnrichment>> {
-  const v = vrm.trim();
-  if (!v) return { status: 'error', message: 'Enter a VRM first.' };
-  return transport(v);
-}
 
 /** Normalise a free-text inspection address to the 6-line EVA format (gated). */
 export async function normaliseAddress(

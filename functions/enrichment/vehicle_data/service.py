@@ -198,9 +198,10 @@ def _cohort_value(value: object) -> str:
 
 
 def _age_band(vehicle: dict[str, Any], target: date) -> str:
-    anchor = _clean(vehicle.get("registrationDate")) or _clean(
-        vehicle.get("firstUsedDate")
-    )
+    # firstUsedDate is part of the official live VehicleWithMotResponse and is
+    # the vehicle-age field: it covers first use in GB, NI or abroad. Do not
+    # substitute an inferred vehicle type or registration-only age.
+    anchor = _clean(vehicle.get("firstUsedDate"))
     if not anchor:
         return "unknown"
     try:
@@ -230,7 +231,10 @@ def select_cohort_prior(
     """
 
     actual = {
-        "vehicle_type": _cohort_value(vehicle.get("vehicleType")),
+        # The official live response has no vehicleType field. A type-specific
+        # prior is therefore not safely matchable and only an explicit generic
+        # vehicle_type cell may pass compatibility.
+        "vehicle_type": "unknown",
         "age_band": _cohort_value(_age_band(vehicle, target)),
         "fuel_type": _cohort_value(vehicle.get("fuelType")),
         "make_model_family": _cohort_value(

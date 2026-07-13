@@ -74,6 +74,13 @@ const provenanceCall = () =>
 
 const CONNEXUS = 'img-connexus';
 
+describe('applyParserFields — strict mileage boundary', () => {
+  it('does not turn arbitrary mileage text into a different numeric value', async () => {
+    await applyParserFields('case-1', undefined, '50,000 miles', 'Miles');
+    expect(updateCall()).toBeUndefined();
+  });
+});
+
 describe('applyParserFields — 1c single-candidate intermediary fallback (TKT-065)', () => {
   it('fills work_provider_id from a SINGLE-candidate intermediary when content is denylisted', async () => {
     const resolution = await applyParserFields(
