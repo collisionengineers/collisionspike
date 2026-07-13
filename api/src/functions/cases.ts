@@ -38,6 +38,7 @@ import {
   isRetiredMerged,
   normalizeCasePo,
   readinessInputForCase,
+  sourceReadinessInputForCase,
   statusForReviewCase,
   type Case,
   type Chaser,
@@ -672,6 +673,7 @@ app.http('patchCase', {
             evidence: existing.evidence,
             inspectionDecision: inspection?.decisionMode ?? existing.inspectionDecision,
             instructionCount: existing.evidence.filter((item) => item.kind === 'instruction').length,
+            ...sourceReadinessInputForCase(existing),
             hasIdentity:
               nextVrm.trim().length > 0 ||
               (nextCasePo ?? '').trim().length > 0 ||

@@ -128,7 +128,7 @@ import {
   CASE_PO_SHAPE_RE,
   derivedMarkerCasePo,
   INTAKE_CHANNEL_LABELS,
-  mergeSourceReadinessIntoCase,
+  sourceReadinessRecoverySnapshot,
   normalizeCasePo,
   type CaseWorkType,
 } from '@cs/domain';
@@ -2348,8 +2348,17 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                   </Caption1>
                   <ManualSourceArchiveRecovery
                     caseValue={c}
-                    onRecovered={(fresh) =>
-                      setC((draft) => mergeSourceReadinessIntoCase(draft, fresh))}
+                    onRecovered={(fresh) => {
+                      const snapshot = sourceReadinessRecoverySnapshot(
+                        c,
+                        persistedCase,
+                        fresh,
+                        caseVersion,
+                      );
+                      setC(snapshot.draft);
+                      setPersistedCase(snapshot.persisted);
+                      setCaseVersion(snapshot.version);
+                    }}
                   />
                   {/* Case archive (Box) — folder deep link at the top. Prefers the
                       stored folder shared-link (works with no live connector, e.g.
