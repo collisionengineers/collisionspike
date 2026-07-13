@@ -1,7 +1,7 @@
 # Changes — TKT-156: Put an active archive upload link in every image chaser
 
 ## Status
-Merged, configured and deployed. The additive schema and all three runtime surfaces are live; the designated AX26039/P40DLN walkthrough now proves active-link creation/reuse, editable-message copy and chase logging. The remaining live proof is an upload through that request followed through the existing evidence, classification, readiness and response lifecycle.
+Merged, configured, deployed and core-path verified live. The designated AX26039/P40DLN walkthrough proves active-link creation/reuse, editable-message copy, chase logging and two test-root uploads reaching evidence persistence and readiness re-evaluation. The deliberately generic fixtures do not prove correct image-role classification or a case-ready image set; destructive request repair and event-redelivery variants remain offline-only evidence.
 
 ## Commits
 - `7a2d2eeb1543b25f093e5db29700764549cb030f` — require an active, case-scoped upload link for every image chaser and complete the repair/webhook lifecycle.
@@ -29,4 +29,6 @@ Merged, configured and deployed. The additive schema and all three runtime surfa
 - Live safe-setting readback confirms `BOX_FILEREQUEST_ENABLED=true`, `BOX_FOLDER_ROOT_ID=392761581105`, Box Function `BOX_ALLOWED_ROOT_ID=392761581105`, and approved template `BOX_FILE_REQUEST_TEMPLATE_ID=23193724288`. The identifier is non-secret configuration; no File Request share token is recorded in repository documentation.
 - In the signed-in production SPA, AX26039/P40DLN remained **Not ready** with **Missing images** and zero accepted images, while Chasers correctly offered **Image request**. **Copy prepared** produced an editable/copyable message containing exactly one `https://app.box.com/f/[redacted]` link. Repeating the action reused the same single link rather than creating or appending another request.
 - **Log as chased** completed through `logChase` with HTTP `201` at `2026-07-13T07:59:25Z`. This proves the case-scoped active link can be used for a persisted chase without incorrectly moving the zero-image case out of Not ready.
-- No Outlook data was mutated. The File Request operation stayed within test root `392761581105`; no Box content was written outside that root, and no test image was uploaded during this proof.
+- Two deliberately generic image fixtures were then uploaded through the active request inside authorized test root `392761581105`. File `2343931230885` completed the folder-to-case/evidence/readiness path first. At `2026-07-13T08:17:24Z`, file `2343928931602` landed in folder `399042781700`; webhook operation `50af22db26d2afa9689d993c86a81a34` resolved the folder to case `eec464ce-f32f-45ee-92ac-54b8c6d578db`, fetched metadata/content, persisted evidence, wrote the audit, ran status evaluation and returned HTTP `200` in `2820 ms`.
+- This is transport, evidence-persistence and readiness-re-evaluation proof only. The fixtures intentionally do not match the case's required image roles, so they neither demonstrate correct role classification nor justify moving the case to Review.
+- No Outlook data was mutated. Both Box uploads stayed inside test root `392761581105`; no Box content was written outside that root.

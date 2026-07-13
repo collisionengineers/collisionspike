@@ -1,7 +1,7 @@
 # Verification — TKT-156: Put an active archive upload link in every image chaser
 
 ## Verdict
-PENDING — configuration plus live link creation/reuse, message copy and chase logging are proven; upload-to-evidence lifecycle proof remains
+PENDING — the core File Request and upload-to-evidence/readiness path is verified live; correct role classification, live repair variants and redelivery idempotency remain
 
 ## Evidence
 - Implementation commit: `7a2d2eeb1543b25f093e5db29700764549cb030f`; repair follow-up: `cc3562ff37bac5c0e557eb690abbffd4b9417ecc`.
@@ -20,6 +20,11 @@ PENDING — configuration plus live link creation/reuse, message copy and chase 
   - **Copy prepared** produced an editable/copyable message containing exactly one `https://app.box.com/f/[redacted]` link.
   - Repeating **Copy prepared** reused the same single link; it did not create or append a duplicate.
   - **Log as chased** returned HTTP `201` from `logChase` at `2026-07-13T07:59:25Z`.
+- Live upload proof, restricted to authorized Box test root `392761581105`:
+  - File `2343931230885` was the first test-scope upload and completed the same folder-resolution, evidence and readiness path.
+  - At `2026-07-13T08:17:24Z`, the second upload, file `2343928931602`, landed in folder `399042781700` with HTTP `200`.
+  - Box webhook operation `50af22db26d2afa9689d993c86a81a34` returned HTTP `200`. `GET /api/internal/box/case-by-folder/399042781700` returned `200`; metadata and content fetches returned `200`; `POST /api/internal/cases/eec464ce-f32f-45ee-92ac-54b8c6d578db/evidence` returned `200`; the internal audit returned `204`; status evaluation returned `200`; the webhook completed in `2820 ms`.
+  - Both files are deliberately mismatched generic image fixtures. This proves transport, evidence persistence and readiness re-evaluation, not correct image-role classification, accepted role coverage or a case-ready outcome.
 - Focused contracts:
   - `api/src/lib/box-file-request-outbox.test.ts` — first create, concurrent ownership, active reuse, transient retry, inactive/expired reactivation, deleted/invalid/terminal-repair replacement and folder-not-ready.
   - `api/src/functions/cases-chase.test.ts` — image/picture chasers require the link, persist its identity and refuse a link from a superseded folder; non-image chasers remain unaffected.
@@ -27,12 +32,17 @@ PENDING — configuration plus live link creation/reuse, message copy and chase 
   - `functions/box-webhook/tests/test_scope_lock.py` and `test_file_request_routes.py` — template/request folder containment, expected-folder lifecycle calls, restricted reactivation fields and a fresh ancestry read despite a stale warm-worker cache.
   - `api/src/functions/internal-evidence-dedup.test.ts` — only a newly inserted Box image satisfies image chasers; a cross-lane archive mirror and redelivery do not.
 
+## Acceptance status
+- **VERIFIED-LIVE:** approved template configuration; case-folder resolution; one active request/link; repeated copy reuse; exactly one redacted HTTPS link in the editable/copyable message; persisted chase logging; two uploads inside the authorized root; folder-to-case resolution; metadata/content retrieval; evidence persistence; audit write; and readiness re-evaluation.
+- **TESTED (offline):** concurrent creation ownership, fail-closed link provisioning, inactive/expired reactivation, deleted/invalid replacement, transient retry, root/folder containment and webhook redelivery deduplication.
+- **PENDING:** a live upload whose image content genuinely satisfies a required role; a live inactive/deleted repair; and live redelivery/idempotency readback. Generic fixtures cannot be used to claim correct image roles or case readiness.
+
 ## Pending / gaps
-- Acceptance still requires one unique test-image upload through the request and readback of the resulting Box file, evidence/classification/readiness/chaser state, audit rows, redelivery idempotency and confirmation of zero writes outside the test root.
-- Concurrent creation, inactive/expired repair and deleted replacement are covered offline, but those destructive lifecycle variants have not been exercised against the live test request.
-- The existing File Request webhook firing is an empirical integration contract, so offline tests cannot certify the real upload event.
+- The live webhook, evidence and readiness path is proven twice. Because both fixtures are generic and deliberately mismatched, their role-classification outcome cannot prove that a valid required image is accepted or that the case should become Review-ready.
+- Concurrent creation, inactive/expired repair, deleted replacement and redelivery deduplication are covered offline, but those destructive/idempotency variants have not been exercised and read back against the live test request.
 
 ## How to re-verify
-1. Upload a unique test image through AX26039/P40DLN's active request. Confirm `FILE.UPLOADED` writes one evidence row to the correct case, classification runs, readiness is recomputed, and the linked image chaser becomes responded. Redeliver the event and confirm no duplicate evidence/audit/response transition.
+1. Upload controlled fixtures that genuinely satisfy the case's required image roles. Confirm classification/role assignment, accepted-image count, readiness and the relevant chaser response change only when the content warrants it.
 2. In a separate controlled test request, exercise one inactive/expired request and one deleted request; confirm reactivation or one audited replacement generation without exposing either share token.
-3. Read back the Box folder tree and audit records to prove all writes stayed beneath `392761581105`; inspect post-deploy telemetry for failures.
+3. Redeliver one recorded upload event and confirm no duplicate evidence, audit or response transition.
+4. Read back the Box folder tree and audit records to prove every write stayed beneath `392761581105`; inspect post-deploy telemetry for failures.
