@@ -114,8 +114,13 @@ describe('MCP JSON-RPC handler (TKT-110)', () => {
     expect(exec).toHaveBeenCalledTimes(1);
   });
 
-  it('a notification (no id) gets no response', async () => {
+  it('initialized and cancelled notifications get no response', async () => {
     expect(await handleMcpMessage({ jsonrpc: '2.0', method: 'notifications/initialized' }, okExec)).toBeNull();
+    expect(await handleMcpMessage({
+      jsonrpc: '2.0',
+      method: 'notifications/cancelled',
+      params: { requestId: 7, reason: 'caller stopped waiting' },
+    }, okExec)).toBeNull();
   });
 
   it('an unknown method returns a JSON-RPC method-not-found error', async () => {

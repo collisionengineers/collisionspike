@@ -131,6 +131,9 @@ describe('TKT-154 registration resolution', () => {
     expect(await resolveImageIngestCase('SP23OBX', dependencies({
       rows: [{ ...openRow, status_code: statusToInt('done') }],
     }))).toMatchObject({ ok: false, code: 'ineligible_case' });
+    expect(await resolveImageIngestCase('SP23OBX', dependencies({
+      rows: [{ ...openRow, status_code: statusToInt('error') }],
+    }))).toMatchObject({ ok: false, code: 'ineligible_case' });
   });
 
   it('refuses a case without a server-owned Archive target', async () => {

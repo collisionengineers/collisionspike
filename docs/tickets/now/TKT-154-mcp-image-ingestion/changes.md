@@ -69,6 +69,9 @@ Third-audit hardening commit: `3cd783c` (`Close TKT-154 third audit gaps`).
   `900_constraints.sql`; the live delta retains equivalent explicit policies.
 - Added the standard initialize/initialized session lifecycle to delegated read-only route coverage
   and made migration-before-API ordering an explicit protection for the already-live read lane.
+- Kept lookup and upload eligibility aligned by excluding `error` cases from the autonomous lookup,
+  while staff evidence recovery remains available. Added explicit no-response coverage for MCP
+  cancellation notifications (the handler already followed that contract).
 
 ## Deliberately not done here
 

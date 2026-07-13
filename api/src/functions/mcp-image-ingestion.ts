@@ -283,7 +283,10 @@ export async function resolveImageIngestCase(
   const rows = await deps.listCandidates(registration);
   const active = rows.filter((row) => {
     const status = caseStatusCodec.toName(Number(row.status_code));
-    return Boolean(status) && !isTerminalStatus(status as CaseStatus) && !mergedIntoFrom(row.duplicate_keys);
+    return Boolean(status)
+      && status !== 'error'
+      && !isTerminalStatus(status as CaseStatus)
+      && !mergedIntoFrom(row.duplicate_keys);
   });
   if (active.length > 1) {
     return {

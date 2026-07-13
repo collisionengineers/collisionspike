@@ -10,7 +10,7 @@ Offline implementation evidence on the ticket branch:
 - Implementation commits under test: `47895b0`, second-audit hardening `e2a25eb`, and third-audit
   hardening `3cd783c`.
 
-- API full suite: **68 files / 669 tests passed**, including the published
+- API full suite: **68 files / 670 tests passed**, including the published
   `@modelcontextprotocol/sdk` Streamable HTTP client compatibility test against the registered route
   (initialize/initialized, tools/list and structured tool error). MCP protocol/principal/image-ingest/
   evidence/auth/Box-client/internal-archive coverage, registration TOCTOU refusal, multi-role denial, cumulative preflight,
@@ -57,6 +57,8 @@ Pull-request review evidence included in the full-suite totals above:
 - The canonical-schema test proves both numbered MCP table files are covered by the shared forced-RLS
   policy loop, and route tests exercise the standard durable handshake for delegated read-only staff
   as well as the autonomous principal.
+- Autonomous lookup now treats an `error` case as ineligible on the same terms as upload, and the
+  protocol suite proves both initialized and cancelled notifications return no JSON-RPC response.
 
 ## Pending / gaps
 
