@@ -240,6 +240,12 @@ paths:
     post:
       operationId: createCaptureUpload
       summary: Reserve an exact upload object for one shot attempt
+      description: >-
+        A session permits at most 8 distinct reservations for one requested shot and 60 distinct
+        reservations overall. Replaying the same Idempotency-Key with identical input returns the
+        existing reservation and does not consume another attempt. The first fresh reservation beyond
+        either ceiling atomically locks the session, invalidates resume access and returns
+        423 capture_locked.
       tags: [Public capture]
       security:
         - CaptureBearer: []
@@ -272,7 +278,14 @@ paths:
         '410':
           $ref: '#/components/responses/PublicProblem'
         '423':
-          $ref: '#/components/responses/PublicProblem'
+          description: The session is locked because its upload-reservation attempt limit was reached.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaptureApiProblem'
         '413':
           $ref: '#/components/responses/PublicProblem'
         '415':

@@ -11,6 +11,8 @@ This is source evidence only. It does not prove deployment or live behavior.
   public exchange/renew/manifest/create-upload/complete-upload/submit.
 - The status vocabulary is finite (`open`, `complete`, `expired`, `revoked`, `locked`). Upload intent
   and submit require an `Idempotency-Key` header.
+- The upload-intent contract documents the eight-per-shot and sixty-per-session reservation limits,
+  the stable-key replay exception and the `423 capture_locked` exhaustion response.
 - `scripts/check-capture-contract.mjs` and `.github/workflows/capture-contract.yml` validate and
   regenerate `api/src/generated/capture-api.ts` to detect drift.
 - Exchange and submit document their exact `Set-Cookie` headers; renewal is authenticated only by the
@@ -27,8 +29,9 @@ This is source evidence only. It does not prove deployment or live behavior.
   URL or secret field.
 - The Case detail Evidence action routes the handler to the Chasers surface; the terminal-case state
   disables issuing a new request.
-- The staff image query explicitly includes excluded `public_guided_capture` Evidence for review. Its
-  card renders a plain-language pending-review warning without exposing the internal source label;
+- The staff image query explicitly includes excluded `public_guided_capture` Evidence for review even
+  after staff reject it, as required by the ticket acceptance. Its card distinguishes the initial
+  capture hold from a staff exclusion in plain language without exposing the internal source label;
   the ordinary Evidence PATCH remains the only path to include and accept it for EVA.
 
 ## Public boundary and storage
@@ -49,6 +52,10 @@ This is source evidence only. It does not prove deployment or live behavior.
   comparison and stored as untrusted `client_quality`. Separate bounded `server_quality` records the
   structural format/hash/decode/dimension result; a client `ready` claim never bypasses those checks or
   the `pending_review` result.
+- Every fresh upload reservation locks the session row, checks stable-key replay first, then counts and
+  inserts under that lock. Eight attempts per shot or sixty for the session are the hard ceilings. The
+  first over-limit request locks and audits the session and invalidates resume access; same-key recovery
+  remains available without another row or counter increment.
 - Completion validation is synchronous in this pilot. The lease protects concurrent/retried HTTP work;
   a dedicated asynchronous worker remains an explicit rollout gap rather than an implemented claim.
 - Manifest progress prefers the selected asset, otherwise the latest attempt, and maps internal states

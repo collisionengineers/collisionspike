@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Evidence } from '../data';
 import {
   EVIDENCE_SAVE_ERROR,
+  GUIDED_CAPTURE_EXCLUDED_WARNING,
   GUIDED_CAPTURE_REVIEW_WARNING,
   guidedCaptureReviewWarning,
   mergeEvidenceReviewDecision,
@@ -31,6 +32,10 @@ describe('persistEvidenceReview', () => {
     expect(guidedCaptureReviewWarning({ ...submitted, excluded: false })).toBeUndefined();
     expect(guidedCaptureReviewWarning(evidence)).toBeUndefined();
     expect(GUIDED_CAPTURE_REVIEW_WARNING).not.toContain('public_guided_capture');
+    expect(
+      guidedCaptureReviewWarning({ ...submitted, excludedByStaff: true }),
+    ).toBe('This photo was excluded. Review it again before including it for EVA.');
+    expect(GUIDED_CAPTURE_EXCLUDED_WARNING).not.toContain('public_guided_capture');
   });
 
   it('returns only server-confirmed evidence on success', async () => {

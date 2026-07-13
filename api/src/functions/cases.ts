@@ -2600,10 +2600,12 @@ app.http('imagesForCase', {
   handler: withRole('CollisionSpike.User', async (req) => {
     const id = req.params.id;
     const rows = await query<Row>(
-      // Automatic exclusions and pending public guided-capture rows stay visible in REVIEW so
-      // staff can make the evidential decision. Other staff/provider/cleanup/legacy exclusions
-      // stay hidden. Every returned excluded row remains acceptedForEva=false and therefore
-      // cannot affect readiness/order/export until a staff PATCH explicitly accepts it.
+      // Automatic exclusions and every public guided-capture row stay visible in REVIEW so staff
+      // can make or revisit the evidential decision. TKT-171 explicitly requires an excluded guided
+      // photo to remain visible after a staff rejection; the DTO distinguishes that state for plain
+      // UI copy. Other staff/provider/cleanup/legacy exclusions stay hidden. Every returned excluded
+      // row remains acceptedForEva=false and cannot affect readiness/order/export until a staff PATCH
+      // explicitly includes and accepts it.
       "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded = false OR exclusion_decision_source = 'classifier' OR person_reflection = true OR source_label = 'public_guided_capture') ORDER BY sequence_index NULLS LAST, created_at",
       [id],
     );

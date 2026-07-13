@@ -611,7 +611,7 @@ describe('capture route foundation', () => {
     db.tx.mockImplementationOnce(async (fn: (q: (sql: string) => Promise<Record<string, unknown>[]>) => Promise<unknown>) =>
       fn(async (sql: string) => {
         sqls.push(sql);
-        if (sql.includes('SELECT status, token_generation, expires_at')) {
+        if (sql.includes('SELECT case_id, status, token_generation')) {
           return [{
             status: 'open', token_generation: 2, expires_at: new Date(Date.now() + 60_000),
           }];
@@ -636,12 +636,251 @@ describe('capture route foundation', () => {
     expect(blobs.createCaptureUploadSas).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { label: 'shot', shotAttempts: 8, sessionAttempts: 8 },
+    { label: 'session', shotAttempts: 2, sessionAttempts: 60 },
+  ])('atomically locks and audits a session when the $label reservation limit is exhausted', async ({
+    label,
+    shotAttempts,
+    sessionAttempts,
+  }) => {
+    process.env.CAPTURE_DIRECT_UPLOAD_ENABLED = 'true';
+    db.query.mockResolvedValueOnce([sessionRow()]);
+    const sqls: string[] = [];
+    db.tx.mockImplementationOnce(async (fn: (
+      q: (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>,
+    ) => Promise<unknown>) => fn(async (sql: string) => {
+      sqls.push(sql);
+      if (sql.includes('SELECT case_id, status, token_generation')) {
+        return [{
+          case_id: 'case-1', status: 'open', token_generation: 1,
+          expires_at: new Date(Date.now() + 60_000),
+          rules_version: 'deterministic-quality-v1', guidance_mode: 'advisory',
+        }];
+      }
+      if (sql.includes('FROM capture_session_shot')) return [{ shot_id: 'overview' }];
+      if (sql.includes('FROM capture_asset WHERE')) return [];
+      if (sql.includes('COUNT(*) FILTER')) return [{ shot_attempts: shotAttempts, session_attempts: sessionAttempts }];
+      if (sql.includes("SET status = 'locked'")) return [{ case_id: 'case-1' }];
+      return [];
+    }));
+
+    const response = await registrations.get('createCaptureUpload')!.handler(
+      request({
+        params: { id: '11111111-1111-4111-8111-111111111111' },
+        headers: { 'idempotency-key': 'fresh-attempt-123456' },
+        body: {
+          shotId: 'overview', fileName: 'overview.jpg', contentType: 'image/jpeg',
+          sizeBytes: 1024, sha256: 'b'.repeat(64), clientObservation: clientObservation(),
+        },
+      }),
+      ctx,
+    );
+
+    expect(response).toMatchObject({
+      status: 423,
+      headers: { 'Cache-Control': 'no-store' },
+      jsonBody: { error: 'capture_locked' },
+    });
+    expect(sqls.findIndex((sql) => sql.includes('FOR UPDATE')))
+      .toBeLessThan(sqls.findIndex((sql) => sql.includes('COUNT(*) FILTER')));
+    expect(sqls.some((sql) => sql.includes('INSERT INTO capture_asset'))).toBe(false);
+    expect(sqls.some((sql) => sql.includes('DELETE FROM capture_session_resume_token'))).toBe(true);
+    expect(blobs.createCaptureUploadSas).not.toHaveBeenCalled();
+    expect(audit.write).toHaveBeenCalledWith(expect.objectContaining({
+      action: 100000062,
+      caseId: 'case-1',
+      actor: 'System',
+      after: expect.objectContaining({
+        reason: 'upload_reservation_limit',
+        scope: label,
+        shotAttempts,
+        sessionAttempts,
+        perShotLimit: 8,
+        sessionLimit: 60,
+      }),
+    }), expect.any(Function));
+  });
+
+  it('replays a matching stable upload key without consuming another reservation at the limit', async () => {
+    process.env.CAPTURE_DIRECT_UPLOAD_ENABLED = 'true';
+    db.query.mockResolvedValueOnce([sessionRow()]);
+    let transaction = 0;
+    const sqls: string[] = [];
+    db.tx.mockImplementation(async (fn: (
+      q: (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>,
+    ) => Promise<unknown>) => {
+      transaction++;
+      return fn(async (sql: string) => {
+        sqls.push(sql);
+        if (transaction === 1 && sql.includes('SELECT case_id, status, token_generation')) {
+          return [{
+            case_id: 'case-1', status: 'open', token_generation: 1,
+            expires_at: new Date(Date.now() + 60_000),
+            rules_version: 'deterministic-quality-v1', guidance_mode: 'advisory',
+          }];
+        }
+        if (transaction === 1 && sql.includes('FROM capture_session_shot')) return [{ shot_id: 'overview' }];
+        if (transaction === 1 && sql.includes('FROM capture_asset WHERE')) {
+          return [{
+            id: 'asset-existing', shot_id: 'overview', state: 'upload_pending', file_name: 'overview.jpg',
+            declared_content_type: 'image/jpeg', declared_size_bytes: 1024,
+            declared_sha256: 'b'.repeat(64), blob_path: 'capture/session/asset-existing',
+            client_quality: clientObservation(),
+          }];
+        }
+        if (sql.includes('COUNT(*) FILTER')) throw new Error('replay must not read reservation counters');
+        if (transaction === 2 && sql.includes('FROM capture_session s')) {
+          return [{
+            session_status: 'open', token_generation: 1,
+            expires_at: new Date(Date.now() + 60_000), asset_state: 'upload_pending',
+          }];
+        }
+        if (transaction === 2 && sql.includes('UPDATE capture_asset')) return [{ id: 'asset-existing' }];
+        return [];
+      });
+    });
+    blobs.createCaptureUploadSas.mockResolvedValue({
+      uploadUrl: 'https://storage.example.test/evidence/object?retry-sas',
+      headers: { 'x-ms-blob-type': 'BlockBlob' },
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+
+    const response = await registrations.get('createCaptureUpload')!.handler(
+      request({
+        params: { id: '11111111-1111-4111-8111-111111111111' },
+        headers: { 'idempotency-key': 'attempt-1234567890' },
+        body: {
+          shotId: 'overview', fileName: 'overview.jpg', contentType: 'image/jpeg',
+          sizeBytes: 1024, sha256: 'b'.repeat(64), clientObservation: clientObservation(),
+        },
+      }),
+      ctx,
+    );
+
+    expect(response).toMatchObject({
+      status: 201,
+      jsonBody: { uploadId: 'asset-existing', assetId: 'asset-existing' },
+    });
+    expect(sqls.some((sql) => sql.includes('COUNT(*) FILTER'))).toBe(false);
+    expect(sqls.some((sql) => sql.includes('INSERT INTO capture_asset'))).toBe(false);
+    expect(blobs.createCaptureUploadSas).toHaveBeenCalledOnce();
+    expect(audit.write).not.toHaveBeenCalled();
+  });
+
+  it('serialises concurrent fresh keys at the shot ceiling and fails the session closed', async () => {
+    process.env.CAPTURE_DIRECT_UPLOAD_ENABLED = 'true';
+    db.query.mockImplementation(async () => [sessionRow()]);
+
+    type Asset = {
+      id: string; shot_id: string; state: string; file_name: string; declared_content_type: string;
+      declared_size_bytes: number; declared_sha256: string; blob_path: string; client_quality: unknown;
+      idempotency_key: string;
+    };
+    const assets: Asset[] = Array.from({ length: 7 }, (_, index) => ({
+      id: `old-${index}`, shot_id: 'overview', state: 'rejected', file_name: `old-${index}.jpg`,
+      declared_content_type: 'image/jpeg', declared_size_bytes: 1024,
+      declared_sha256: 'a'.repeat(64), blob_path: `capture/session/old-${index}`,
+      client_quality: clientObservation(), idempotency_key: `old-key-${index}`,
+    }));
+    let sessionStatus = 'open';
+    let tail = Promise.resolve();
+    let releaseLocked!: () => void;
+    const locked = new Promise<void>((resolve) => { releaseLocked = resolve; });
+
+    db.tx.mockImplementation(async (fn: (
+      q: (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>,
+    ) => Promise<unknown>) => {
+      const prior = tail;
+      let release!: () => void;
+      tail = new Promise<void>((resolve) => { release = resolve; });
+      await prior;
+      try {
+        return await fn(async (sql: string, params: unknown[] = []) => {
+          if (sql.includes('SELECT case_id, status, token_generation')) {
+            return [{
+              case_id: 'case-1', status: sessionStatus, token_generation: sessionStatus === 'open' ? 1 : 2,
+              expires_at: new Date(Date.now() + 60_000),
+              rules_version: 'deterministic-quality-v1', guidance_mode: 'advisory',
+            }];
+          }
+          if (sql.includes('FROM capture_session_shot')) return [{ shot_id: 'overview' }];
+          if (sql.includes('FROM capture_asset WHERE')) {
+            return assets.filter((asset) => asset.idempotency_key === params[1]);
+          }
+          if (sql.includes('COUNT(*) FILTER')) {
+            return [{
+              shot_attempts: assets.filter((asset) => asset.shot_id === params[1]).length,
+              session_attempts: assets.length,
+            }];
+          }
+          if (sql.includes('INSERT INTO capture_asset')) {
+            const asset: Asset = {
+              id: String(params[0]), shot_id: String(params[2]), state: 'upload_pending',
+              idempotency_key: String(params[3]), file_name: String(params[4]),
+              declared_content_type: String(params[5]), declared_size_bytes: Number(params[6]),
+              declared_sha256: String(params[7]), blob_path: String(params[8]),
+              client_quality: JSON.parse(String(params[9])),
+            };
+            assets.push(asset);
+            return [asset];
+          }
+          if (sql.includes("SET status = 'locked'")) {
+            sessionStatus = 'locked';
+            releaseLocked();
+            return [{ case_id: 'case-1' }];
+          }
+          if (sql.includes('FROM capture_session s')) {
+            return [{
+              session_status: sessionStatus, token_generation: sessionStatus === 'open' ? 1 : 2,
+              expires_at: new Date(Date.now() + 60_000), asset_state: 'upload_pending',
+            }];
+          }
+          if (sql.includes('UPDATE capture_asset')) return [{ id: params[0] }];
+          return [];
+        });
+      } finally {
+        release();
+      }
+    });
+    blobs.createCaptureUploadSas.mockImplementation(async (path: string) => {
+      await locked;
+      return {
+        uploadUrl: `https://storage.example.test/${path}?secret-sas`,
+        headers: { 'x-ms-blob-type': 'BlockBlob' },
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      };
+    });
+
+    const invoke = (key: string) => registrations.get('createCaptureUpload')!.handler(
+      request({
+        params: { id: '11111111-1111-4111-8111-111111111111' },
+        headers: { 'idempotency-key': key },
+        body: {
+          shotId: 'overview', fileName: `${key}.jpg`, contentType: 'image/jpeg',
+          sizeBytes: 1024, sha256: 'b'.repeat(64), clientObservation: clientObservation(),
+        },
+      }),
+      ctx,
+    );
+    const responses = await Promise.all([
+      invoke('fresh-concurrent-key-1'),
+      invoke('fresh-concurrent-key-2'),
+    ]);
+
+    expect(assets).toHaveLength(8);
+    expect(sessionStatus).toBe('locked');
+    expect(responses.map((response) => response.status).sort()).toEqual([409, 423]);
+    expect(JSON.stringify(responses)).not.toContain('secret-sas');
+    expect(audit.write).toHaveBeenCalledOnce();
+  });
+
   it('rejects an idempotent replay when the client observation differs', async () => {
     process.env.CAPTURE_DIRECT_UPLOAD_ENABLED = 'true';
     db.query.mockResolvedValueOnce([sessionRow()]);
     db.tx.mockImplementationOnce(async (fn: (q: (sql: string) => Promise<Record<string, unknown>[]>) => Promise<unknown>) =>
       fn(async (sql: string) => {
-        if (sql.includes('SELECT status, token_generation, expires_at')) {
+        if (sql.includes('SELECT case_id, status, token_generation')) {
           return [{
             status: 'open', token_generation: 1, expires_at: new Date(Date.now() + 60_000),
             rules_version: 'deterministic-quality-v1', guidance_mode: 'advisory',
@@ -685,7 +924,7 @@ describe('capture route foundation', () => {
     db.tx.mockImplementation(async (fn: (q: (sql: string) => Promise<Record<string, unknown>[]>) => Promise<unknown>) => {
       transaction++;
       return fn(async (sql: string) => {
-        if (transaction === 1 && sql.includes('SELECT status, token_generation, expires_at')) {
+        if (transaction === 1 && sql.includes('SELECT case_id, status, token_generation')) {
           return [{
             status: 'open', token_generation: 1, expires_at: new Date(Date.now() + 60_000),
             rules_version: 'deterministic-quality-v1', guidance_mode: 'advisory',
@@ -740,15 +979,17 @@ describe('capture route foundation', () => {
     let persistedObservation: string | undefined;
     db.tx.mockImplementationOnce(async (fn: (q: (sql: string) => Promise<Record<string, unknown>[]>) => Promise<unknown>) =>
       fn(async (sql: string, params: unknown[] = []) => {
-        if (sql.includes('SELECT status, token_generation, expires_at')) {
+        if (sql.includes('SELECT case_id, status, token_generation')) {
           return [{
             status: 'open', token_generation: 1, expires_at: new Date(Date.now() + 60_000),
             rules_version: 'deterministic-quality-v1', guidance_mode: 'advisory',
           }];
         }
         if (sql.includes('FROM capture_session_shot')) return [{ shot_id: 'overview' }];
-        if (sql.includes('INSERT INTO capture_asset')) persistedObservation = String(params[9]);
-        if (sql.includes('FROM capture_asset WHERE')) {
+        if (sql.includes('FROM capture_asset WHERE')) return [];
+        if (sql.includes('COUNT(*) FILTER')) return [{ shot_attempts: 0, session_attempts: 0 }];
+        if (sql.includes('INSERT INTO capture_asset')) {
+          persistedObservation = String(params[9]);
           return [{
             id: 'asset-1', shot_id: 'overview', state: 'upload_pending', file_name: 'overview.jpg',
             declared_content_type: 'image/jpeg', declared_size_bytes: 1024,

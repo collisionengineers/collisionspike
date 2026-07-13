@@ -19,6 +19,11 @@ materialisation.
   strict client-observation bounds and idempotency mismatch, separate server structural observations,
   selected-or-latest manifest recovery, staff visibility/acceptance of pending guided capture and the
   plain-language Evidence-card warning.
+- Upload-reservation tests prove both documented ceilings, lock/audit/resume invalidation on exhaustion,
+  stable-key recovery without another count/row, and two concurrent fresh keys serialising at the final
+  per-shot slot without disclosing a SAS after the session locks.
+- Guided-evidence tests prove that the initial capture hold and a later staff exclusion both stay visible,
+  while the card presents distinct plain-language warnings and excluded rows remain unusable for EVA.
 - Ticket and documentation-link validators pass for this active ticket.
 
 ## Honest gaps
@@ -68,9 +73,12 @@ materialisation.
    explicit staff include/accept; one strict audit; archive outbox work; readiness recomputation; and
    one mirror beneath the designated archive test root.
 9. Replay upload and submit keys, double-submit concurrently and replace one shot. Prove there is one
-   selected asset per non-repeatable shot and no duplicate evidence, archive work or audit. Reuse an
-   upload key with changed client observations and prove it conflicts. Lose upload/completion responses,
-   refresh the manifest and prove selected-first/latest-attempt progress converges with no internal data.
+    selected asset per non-repeatable shot and no duplicate evidence, archive work or audit. Reuse an
+    upload key with changed client observations and prove it conflicts. Lose upload/completion responses,
+    refresh the manifest and prove selected-first/latest-attempt progress converges with no internal data.
+    Fill the eighth reservation for one shot and the sixtieth for a session, then race two fresh keys:
+    prove the first over-limit request locks/audits once and invalidates resume access, while a matching
+    stable-key retry at the ceiling still recovers the existing reservation without another row.
 10. Interrupt validation after claim and after immutable promotion. After the five-minute lease, prove
     a new attempt can reclaim the asset and the old attempt cannot reject, select or audit it. Run the
     retention consumer past its configured cutoff and prove it deletes staging, promoted-orphan and

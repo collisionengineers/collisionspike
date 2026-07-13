@@ -36,9 +36,12 @@ app setting, cloud resource or live data was changed by this branch.
   retaining the existing archive upload link.
 - Rendered and data-client tests cover create, list, replace, cancel, chaser drafting and plain-language
   copy.
-- Excluded `public_guided_capture` Evidence remains visible in the staff image-review list and carries
-  the plain warning “Review this submitted photo before using it for EVA.” The internal source label is
-  not shown. Existing staff PATCH controls explicitly include/accept it before EVA use.
+- Excluded `public_guided_capture` Evidence remains visible in the staff image-review list, including
+  after a staff exclusion, because TKT-171 requires that decision to remain reviewable. The card now
+  distinguishes the initial “Review this submitted photo before using it for EVA” hold from the plain
+  “This photo was excluded. Review it again before including it for EVA” staff-decision state. The
+  internal source label is not shown. Existing staff PATCH controls explicitly include/accept it before
+  EVA use.
 
 ## Public API and data model
 
@@ -61,6 +64,11 @@ app setting, cloud resource or live data was changed by this branch.
   session's pinned rules version and is persisted in `capture_asset.client_quality`; changing it while
   reusing a key is a conflict. Server-side format/hash/decode/dimension outcomes are separately stored
   as bounded `structural-v1` observations in `server_quality` and exclusively drive structural checks.
+- Fresh upload reservations are bounded to eight per shot and sixty per session. The session row is
+  locked before checking an existing idempotency key, counting attempts and inserting, so concurrent
+  fresh keys cannot exceed the ceiling. A matching stable-key replay bypasses the counter and remains
+  resumable; the first over-limit request atomically locks the session, advances its token generation,
+  deletes resume hashes and writes the strict session-lock audit before returning `423 capture_locked`.
 - `api/src/lib/blob.ts` mints managed-identity user-delegation upload permissions for one staged path.
   `upload-validate.ts` is reused for structural image checks before an asset can be selected.
 - Validation claims use a fenced UUID attempt and expiring lease. A crashed worker can be reclaimed

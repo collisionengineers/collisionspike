@@ -44,6 +44,8 @@ const IDEMPOTENCY_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$/;
 const PUBLIC_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const VALIDATION_LEASE_SECONDS = 5 * 60;
 const MAX_RESUME_TOKENS_PER_SESSION = 8;
+const MAX_UPLOAD_RESERVATIONS_PER_SHOT = 8;
+const MAX_UPLOAD_RESERVATIONS_PER_SESSION = 60;
 const MAX_CLIENT_OBSERVATION_BYTES = 1024;
 const MAX_STABLE_FRAMES = 120;
 const CLIENT_CAPTURE_ROUTES = ['guided', 'os_fallback'] as const;
@@ -104,6 +106,18 @@ interface SessionRow extends Record<string, unknown> {
 interface SummaryRow extends SessionRow {
   required_total: string | number;
   required_completed: string | number;
+}
+
+interface CaptureAssetReservationRow extends Record<string, unknown> {
+  id: string;
+  shot_id: string;
+  state: string;
+  file_name: string;
+  declared_content_type: string;
+  declared_size_bytes: string | number;
+  declared_sha256: string;
+  blob_path: string;
+  client_quality: unknown;
 }
 
 class CaptureProblem extends Error {
@@ -1002,15 +1016,16 @@ app.http('createCaptureUpload', {
 
     const candidateId = randomUUID();
     const blobPath = captureStagingBlobPath(sessionId, candidateId);
-    const asset = await tx(async (q) => {
+    const reservation = await tx(async (q) => {
       const sessions = await q<{
+        case_id: string;
         status: string;
         token_generation: number;
         expires_at: Date | string;
         rules_version: string;
         guidance_mode: string;
       }>(
-        `SELECT status, token_generation, expires_at, rules_version, guidance_mode
+        `SELECT case_id, status, token_generation, expires_at, rules_version, guidance_mode
            FROM capture_session WHERE id = $1 FOR UPDATE`,
         [sessionId],
       );
@@ -1026,39 +1041,106 @@ app.http('createCaptureUpload', {
         [sessionId, body.shotId],
       );
       if (!shots[0]) throw new CaptureProblem(400, 'capture_unsupported', 'That requested photo is not in this session.');
-      await q(
-        `INSERT INTO capture_asset
-           (id, session_id, shot_id, idempotency_key, file_name, declared_content_type,
-             declared_size_bytes, declared_sha256, blob_path, upload_expires_at, client_quality)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now() + interval '5 minutes',$10::jsonb)
-         ON CONFLICT (session_id, idempotency_key) DO NOTHING`,
-        [candidateId, sessionId, body.shotId, idempotencyKey, body.fileName, check.contentType,
-          body.sizeBytes, body.sha256, blobPath, clientObservationJson],
-      );
-      const rows = await q<{
-        id: string; shot_id: string; state: string; file_name: string; declared_content_type: string;
-        declared_size_bytes: string | number; declared_sha256: string; blob_path: string;
-        client_quality: unknown;
-      }>(
+
+      // Replays are resolved before the attempt counters. A browser can therefore
+      // resume an interrupted upload with its original key even when the session has
+      // reached the reservation ceiling, without minting another capture_asset row.
+      const existingRows = await q<CaptureAssetReservationRow>(
         `SELECT id, shot_id, state, file_name, declared_content_type, declared_size_bytes,
                 declared_sha256, blob_path, client_quality
            FROM capture_asset WHERE session_id = $1 AND idempotency_key = $2 FOR UPDATE`,
         [sessionId, idempotencyKey],
       );
-      const row = rows[0];
-      if (!row) throw new Error('capture asset reservation disappeared');
-      if (
-        row.shot_id !== body.shotId || row.file_name !== body.fileName
-        || row.declared_content_type !== check.contentType
-        || Number(row.declared_size_bytes) !== body.sizeBytes
-        || row.declared_sha256 !== body.sha256
-        || storedClientObservationFingerprint(row.client_quality, session.rules_version) !== clientObservationJson
-      ) throw new CaptureProblem(409, 'capture_conflict', 'This retry does not match the original photo.');
-      if (row.state !== 'upload_pending') {
-        throw new CaptureProblem(409, 'capture_conflict', 'This upload has already been completed.');
+      const existing = existingRows[0];
+      if (existing) {
+        if (
+          existing.shot_id !== body.shotId || existing.file_name !== body.fileName
+          || existing.declared_content_type !== check.contentType
+          || Number(existing.declared_size_bytes) !== body.sizeBytes
+          || existing.declared_sha256 !== body.sha256
+          || storedClientObservationFingerprint(existing.client_quality, session.rules_version) !== clientObservationJson
+        ) throw new CaptureProblem(409, 'capture_conflict', 'This retry does not match the original photo.');
+        if (existing.state !== 'upload_pending') {
+          throw new CaptureProblem(409, 'capture_conflict', 'This upload has already been completed.');
+        }
+        return { kind: 'reserved' as const, asset: existing };
       }
-      return row;
+
+      // The session row lock serialises every fresh reservation for this session.
+      // The count and insert therefore form one race-safe admission decision even
+      // when concurrent callers deliberately choose different idempotency keys.
+      const counts = await q<{ shot_attempts: string | number; session_attempts: string | number }>(
+        `SELECT COUNT(*) FILTER (WHERE shot_id = $2)::int AS shot_attempts,
+                COUNT(*)::int AS session_attempts
+           FROM capture_asset
+          WHERE session_id = $1`,
+        [sessionId, body.shotId],
+      );
+      const shotAttempts = Number(counts[0]?.shot_attempts);
+      const sessionAttempts = Number(counts[0]?.session_attempts);
+      if (
+        !Number.isSafeInteger(shotAttempts) || shotAttempts < 0
+        || !Number.isSafeInteger(sessionAttempts) || sessionAttempts < 0
+      ) throw new Error('capture asset reservation count is invalid');
+
+      if (
+        shotAttempts >= MAX_UPLOAD_RESERVATIONS_PER_SHOT
+        || sessionAttempts >= MAX_UPLOAD_RESERVATIONS_PER_SESSION
+      ) {
+        const scope = shotAttempts >= MAX_UPLOAD_RESERVATIONS_PER_SHOT ? 'shot' : 'session';
+        const locked = await q<{ case_id: string }>(
+          `UPDATE capture_session
+              SET status = 'locked', locked_at = COALESCE(locked_at, now()),
+                  token_generation = token_generation + 1, updated_at = now()
+            WHERE id = $1 AND status = 'open'
+            RETURNING case_id`,
+          [sessionId],
+        );
+        if (!locked[0]) {
+          throw new CaptureProblem(409, 'capture_conflict', 'This capture session is no longer open.');
+        }
+        await q('DELETE FROM capture_session_resume_token WHERE session_id = $1', [sessionId]);
+        await writeAuditStrict({
+          action: AUDIT_ACTION.capture_session_locked,
+          caseId: locked[0].case_id,
+          actor: 'System',
+          summary: 'Guided capture session locked after too many photo attempts',
+          after: {
+            sessionId,
+            reason: 'upload_reservation_limit',
+            scope,
+            shotAttempts,
+            sessionAttempts,
+            perShotLimit: MAX_UPLOAD_RESERVATIONS_PER_SHOT,
+            sessionLimit: MAX_UPLOAD_RESERVATIONS_PER_SESSION,
+          },
+        }, q);
+        return { kind: 'locked' as const };
+      }
+
+      const inserted = await q<CaptureAssetReservationRow>(
+        `INSERT INTO capture_asset
+           (id, session_id, shot_id, idempotency_key, file_name, declared_content_type,
+             declared_size_bytes, declared_sha256, blob_path, upload_expires_at, client_quality)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now() + interval '5 minutes',$10::jsonb)
+         RETURNING id, shot_id, state, file_name, declared_content_type, declared_size_bytes,
+                   declared_sha256, blob_path, client_quality`,
+        [candidateId, sessionId, body.shotId, idempotencyKey, body.fileName, check.contentType,
+          body.sizeBytes, body.sha256, blobPath, clientObservationJson],
+      );
+      const asset = inserted[0];
+      if (!asset) throw new Error('capture asset reservation was not created');
+      return { kind: 'reserved' as const, asset };
     });
+
+    if (reservation.kind === 'locked') {
+      throw new CaptureProblem(
+        423,
+        'capture_locked',
+        'This photo request has reached its attempt limit. Contact Collision Engineers.',
+      );
+    }
+    const asset = reservation.asset;
 
     let sas;
     try {

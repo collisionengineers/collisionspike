@@ -133,7 +133,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reserve an exact upload object for one shot attempt */
+        /**
+         * Reserve an exact upload object for one shot attempt
+         * @description A session permits at most 8 distinct reservations for one requested shot and 60 distinct reservations overall. Replaying the same Idempotency-Key with identical input returns the existing reservation and does not consume another attempt. The first fresh reservation beyond either ceiling atomically locks the session, invalidates resume access and returns 423 capture_locked.
+         */
         post: operations["createCaptureUpload"];
         delete?: never;
         options?: never;
@@ -646,7 +649,16 @@ export interface operations {
             410: components["responses"]["PublicProblem"];
             413: components["responses"]["PublicProblem"];
             415: components["responses"]["PublicProblem"];
-            423: components["responses"]["PublicProblem"];
+            /** @description The session is locked because its upload-reservation attempt limit was reached. */
+            423: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaptureApiProblem"];
+                };
+            };
             500: components["responses"]["PublicProblem"];
             503: components["responses"]["PublicProblem"];
         };

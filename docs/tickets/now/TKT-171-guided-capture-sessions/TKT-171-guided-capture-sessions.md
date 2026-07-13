@@ -77,6 +77,10 @@ devices.
 - Upload intent and final submission are idempotent. Replaying the same key returns the same outcome;
   reusing it for different bytes, a different shot or a different session fails without creating a
   second asset, evidence row, archive job or audit.
+- Fresh upload reservations are capped at eight per requested shot and sixty per session. The session
+  row lock serialises the count-and-insert decision across fresh keys; a matching stable-key replay
+  remains recoverable without consuming another reservation. Crossing either ceiling invalidates
+  resume access, locks and audits the session once, and returns a finite public locked response.
 - Submission resolves and locks the complete durable merge lineage in the existing global mutation
   order. It transactionally retargets an open session to an active survivor; a missing, malformed or
   terminal lineage persistently locks the session for staff resolution. It requires every mandatory

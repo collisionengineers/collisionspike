@@ -42,13 +42,14 @@ beforeEach(() => {
 });
 
 describe('GET /api/cases/{id}/images', () => {
-  it('keeps excluded guided-capture evidence visible for explicit staff review', async () => {
+  it('keeps capture-held and staff-excluded guided evidence visible for explicit staff review', async () => {
     const response = await imagesForCase({ params: { id: 'case-1' } } as unknown as HttpRequest, ctx);
 
     expect(response).toMatchObject({ status: 200, jsonBody: [] });
     expect(db.query).toHaveBeenCalledOnce();
     const [sql, params] = db.query.mock.calls[0] as [string, unknown[]];
     expect(sql).toContain("OR source_label = 'public_guided_capture'");
+    expect(sql).not.toContain("source_label = 'public_guided_capture' AND exclusion_decision_source = 'capture'");
     expect(sql).toContain('excluded = false');
     expect(params).toEqual(['case-1']);
   });
