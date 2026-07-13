@@ -64,7 +64,11 @@ export async function createDraftPhoto(
   const now = (dependencies.now ?? (() => new Date()))().toISOString();
   const capturedAt = input.capturedAt ?? now;
   const bytes = await readBlob(input.blob);
-  const hash = await cryptoProvider.subtle.digest('SHA-256', bytes);
+  // FileReader can return an ArrayBuffer from a different browser/jsdom realm.
+  // WebCrypto implementations are allowed to reject that object even though it
+  // is structurally valid, so copy it into this realm before hashing.
+  const digestBytes = Uint8Array.from(new Uint8Array(bytes));
+  const hash = await cryptoProvider.subtle.digest('SHA-256', digestBytes);
 
   // Explicit field selection prevents capture tokens or other over-wide caller data
   // from crossing the local persistence boundary.
