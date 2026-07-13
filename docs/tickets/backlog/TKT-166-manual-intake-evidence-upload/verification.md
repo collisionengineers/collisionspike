@@ -7,11 +7,10 @@ Deployment and the ticket-required disposable live-case proof remain owned by th
 
 ## Offline evidence
 
-- Domain: **56 files / 1,136 tests passed**.
-- Data API: **64 files / 634 tests passed**.
+- Domain: **56 files / 1,138 tests passed**.
+- Data API: **64 files / 640 tests passed**.
 - Orchestration: **30 files / 417 tests passed**.
-- SPA: **41 files / 464 tests passed**.
-- Focused independent-review run: Domain **42**, API **62**, SPA **62** tests passed.
+- SPA: **41 files / 468 tests passed**.
 - Production TypeScript builds passed for Domain and the Data API; the SPA TypeScript/Vite build
   produced a production bundle.
 - `node verify-all.mjs`: **8 passed / 0 failed / 13 expected skips**.
@@ -20,11 +19,13 @@ Deployment and the ticket-required disposable live-case proof remain owned by th
 Regression coverage includes:
 
 - retry identity surviving a same-tab reload and rotating only for an intentional new draft;
-- one case/Case-PO under exact replay and response-loss retry;
+- one case/Case-PO plus exactly-once create side effects under exact replay and response-loss retry;
 - instruction/extra/image roles bound into the manifest and persisted distinctly;
-- exact-content dedup plus instruction-role promotion;
+- a stable explicit instruction index, no recovery auto-promotion and conflicting-role refusal;
+- equal filename/size selections retained for server-side hashing and client/server MIME parity;
 - partial, total, stale-binding and already-complete outcomes;
-- batch-result audit records for refusal, partial completion and eventual recovery;
+- batch-result audit records for refusal and partial completion plus exactly one response-loss recovery;
+- terminal archive dead-letter, Not Ready state and staff requeue recovery;
 - the canonical source-evidence readiness blocker and locked EVA submission check;
 - picker/server format and size agreement.
 
@@ -37,7 +38,9 @@ Regression coverage includes:
 3. Prove the exact selected hashes and roles in Postgres/evidence and the exact bytes in Blob.
 4. Prove source readiness remains blocked during an interrupted batch, then clears after retry without
    another case, Case/PO, evidence row or archive folder.
-5. Prove the archive mirror only beneath test root `392761581105`; do not mutate production folders.
-6. Prove the persisted instruction can be fetched through the evidence-content/remediation path.
+5. Force a disposable source mirror through the terminal retry threshold, prove the case remains Not
+   Ready, then use the Evidence retry and prove the same evidence generation resumes.
+6. Prove the archive mirror only beneath test root `392761581105`; do not mutate production folders.
+7. Prove the persisted instruction can be fetched through the evidence-content/remediation path.
 
 No live resources, Outlook mail or Box content were mutated during this implementation/review pass.

@@ -16,6 +16,9 @@ loop still owns the ticket-status move, database delta, deployment and independe
   selection.
 - `9b37310` — close independent-review gaps: reload-safe retry identity, per-file source roles,
   tri-state completion, batch-result audits and truthful recovery controls.
+- `9b8ca98` — close the second independent audit: durable post-create reconciliation, fixed
+  instruction identity, strict role validation, one-time response-loss auditing and terminal archive
+  recovery.
 
 ## Files touched
 
@@ -33,6 +36,9 @@ loop still owns the ticket-status move, database delta, deployment and independe
 - `migration/assets/schema/196_manual_intake_case_create.sql`, its additive live delta, and
   `900_constraints.sql` — durable operation ownership, pending-source index, forced RLS and non-delete
   application grants.
+- `api/src/functions/archive-mirror-outbox.ts`, its request helper, the TKT-166 delta and
+  `mockup-app/src/screens/CaseDetail.tsx` — archive work stops after eight failed attempts, remains a
+  Not Ready blocker for Manual Intake source files, and can be explicitly retried from Evidence.
 - `docs/azure/deploy.md` — binding rollout order: additive TKT-166 delta, API, then SPA.
 
 ## Summary
@@ -45,8 +51,11 @@ upload route cannot validate those formats safely end to end; automated mailbox 
 existing format coverage.
 
 The case-create key is independent from the file-batch key. A lost create response returns the same
-case, a lost upload response replays the same evidence identities, and a handler changing the file
-selection rebinds the unfinished operation without allocating another Case/PO. The shared readiness
+case and transactionally reconciles any missing field-source rows or notes exactly once. A lost upload
+response replays the same evidence identities and writes one distinct recovery audit, and a handler
+changing the file selection rebinds the unfinished operation without allocating another Case/PO. The
+instruction position is an explicit part of both bindings; recovery never promotes the next PDF after
+the chosen instruction is removed. The shared readiness
 contract blocks Review while the selected source batch is incomplete. The recovery view names every
 outstanding file, preserves already-added identities, and does not navigate automatically. The
 single-case response also carries this pending state, so the case-page checklist cannot appear
@@ -54,11 +63,10 @@ complete while the persisted status is still Not Ready.
 
 ## Offline checks
 
-- Full Domain suite: **1,136 tests passed**.
-- Full API suite: **634 tests passed**.
+- Full Domain suite: **1,138 tests passed**.
+- Full API suite: **640 tests passed**.
 - Full orchestration suite: **417 tests passed**.
-- Full SPA suite: **464 tests passed**.
-- Independent-review focused run: Domain **42**, API **62**, SPA **62** tests passed.
+- Full SPA suite: **468 tests passed**.
 - Production TypeScript builds passed for Domain, API, orchestration and the SPA; the Vite bundle was
   produced successfully.
 - `node verify-all.mjs`: **8 passed / 0 failed / 13 expected skips**.
@@ -67,14 +75,18 @@ complete while the persisted status is still Not Ready.
 ## Scope boundaries / overlap
 
 - TKT-024 changes the images-only fields and layout in the same `ManualIntake.tsx`; it does not own
-  this document/manual source-file transaction. Its branch will need a normal rebase conflict review.
+  this document/manual source-file transaction. Do not merge its version of that screen over this
+  branch: it needs a semantic rebase that preserves the explicit instruction object/index and the
+  recovery controls.
 - TKT-153 owns explicit saving on an existing case. This change does not turn the New case form into
-  a general case editor and does not alter its save contract.
+  a general case editor and does not alter its save contract. Its `CaseDetail.tsx` work must preserve
+  the terminal-archive warning/retry action when the branches are integrated.
 - TKT-130's merged canonical readiness evaluator remains authoritative. TKT-166 contributes one
   additional source-file check to that evaluator and to the locked submission re-check; it does not
   reintroduce a parallel readiness predicate.
-- Archive mirroring and image classification remain the canonical TKT-165 outbox/classifier paths;
-  this ticket reuses them rather than introducing another byte or cleanup lifecycle.
+- Archive mirroring and image classification remain the canonical TKT-165 outbox/classifier paths.
+  TKT-166 adds terminal state and a staff retry to that same outbox; it does not introduce another
+  byte or cleanup lifecycle.
 
 ## Independent review follow-up — 2026-07-12
 
@@ -82,8 +94,9 @@ complete while the persisted status is still Not Ready.
   cleared only after confirmed completion or an intentional fresh-draft reset.
 - The multipart contract carries one bound role per selected file. The chosen PDF is persisted as
   the instruction; extra PDFs are persisted as other documents; photos remain classifier-owned
-  images. The role participates in the manifest hash, and exact-content dedup can promote an earlier
-  extra document to the reviewed instruction role without duplicating bytes.
+  images. The role and explicit instruction index participate in the operation binding and manifest
+  hash. Exact-content dedup refuses a conflicting document role instead of silently promoting an
+  earlier extra PDF.
 - Manual source completion now returns `completed`, `already_complete` or `not_bound`. A stale/rebound
   operation returns an honest retry state even when every evidence identity exists; it cannot be
   displayed as finished while the source blocker remains.
@@ -91,3 +104,20 @@ complete while the persisted status is still Not Ready.
   attempts alongside the existing per-evidence success audits.
 - Confirmed files no longer show a remove control in recovery. Outstanding selections remain
   removable, and the add-files label says exactly what the control does.
+
+## Second independent review follow-up — 2026-07-13
+
+- Case creation now commits its field-source rows and intake notes in one marker-guarded transaction.
+  An exact create replay repairs a process stop after the case commit without duplicating the case,
+  Case/PO, create audit, field-source rows or notes.
+- The browser keeps the exact `File` selected as instruction. Removing it leaves the operation without
+  an instruction until staff explicitly chooses “Use as instruction”; another PDF is never promoted
+  because of its position. Equal filenames and sizes are retained for server-side content hashing.
+- The API requires one valid role for every operation-bound file and an exact instruction index when
+  an instruction role is present. Missing, multiple, mismatched and stale bindings fail before Blob
+  persistence. Browser MIME/extension checks now match the server's contradiction rules.
+- An `already_complete` upload claims one durable response-loss audit in the completion transaction;
+  later identical replays return the same result without another recovery audit.
+- Archive mirror work dead-letters after eight failed attempts and leaves automatic pending pages.
+  A terminal failure on a selected Manual Intake source file keeps the case Not Ready with an Evidence
+  action that clears the terminal marker, advances the generation and requeues the canonical outbox.
