@@ -1,8 +1,8 @@
 import { webcrypto } from 'node:crypto';
 import { Blob as NodeBlob } from 'node:buffer';
 import { IDBFactory } from 'fake-indexeddb';
-import { describe, expect, it } from 'vitest';
-import { createDraftStore } from './createDraftStore';
+import { describe, expect, it, vi } from 'vitest';
+import { createDraftStore, ResilientDraftStore } from './createDraftStore';
 import type { DraftPhotoInput } from './draftStore';
 import { IndexedDbDraftStore } from './indexedDbDraftStore';
 import { MemoryDraftStore } from './memoryDraftStore';
@@ -288,5 +288,40 @@ describe('memory fallback', () => {
     saved.status = 'uploaded';
 
     expect(await store.get('session-a', 'overview')).toMatchObject({ status: 'queued' });
+  });
+
+  it('still clears a primary draft after a transient failure activates fallback mode', async () => {
+    const primary = new MemoryDraftStore({ crypto: cryptoProvider });
+    const fallback = new MemoryDraftStore({ crypto: cryptoProvider });
+    const store = new ResilientDraftStore(primary, fallback);
+    const saved = await store.save(draftInput('session-a', 'overview'));
+    vi.spyOn(primary, 'get').mockRejectedValueOnce(new Error('transient primary failure'));
+
+    await expect(store.get('session-a', 'overview')).resolves.toMatchObject({
+      idempotencyKey: saved.idempotencyKey
+    });
+    await expect(store.clearShot(
+      'session-a',
+      'overview',
+      saved.idempotencyKey
+    )).resolves.toBe(true);
+
+    expect(await primary.get('session-a', 'overview')).toBeUndefined();
+    expect(await fallback.get('session-a', 'overview')).toBeUndefined();
+  });
+
+  it('still clears the primary session after fallback mode is active', async () => {
+    const primary = new MemoryDraftStore({ crypto: cryptoProvider });
+    const fallback = new MemoryDraftStore({ crypto: cryptoProvider });
+    const store = new ResilientDraftStore(primary, fallback);
+    await store.save(draftInput('session-a', 'overview'));
+    await store.save(draftInput('session-a', 'damage'));
+    vi.spyOn(primary, 'list').mockRejectedValueOnce(new Error('transient primary failure'));
+
+    await expect(store.list('session-a')).resolves.toHaveLength(2);
+    await store.clearSession('session-a');
+
+    expect(await primary.list('session-a')).toEqual([]);
+    expect(await fallback.list('session-a')).toEqual([]);
   });
 });

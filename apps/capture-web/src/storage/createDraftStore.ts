@@ -15,7 +15,7 @@ export function createDraftStore(options: CreateDraftStoreOptions = {}): DraftSt
   return new ResilientDraftStore(indexed, memory);
 }
 
-class ResilientDraftStore implements DraftStore {
+export class ResilientDraftStore implements DraftStore {
   private useFallback = false;
 
   constructor(
@@ -118,9 +118,6 @@ class ResilientDraftStore implements DraftStore {
     shotId: string,
     expectedIdempotencyKey?: string
   ): Promise<boolean> {
-    if (this.useFallback) {
-      return this.fallback.clearShot(sessionId, shotId, expectedIdempotencyKey);
-    }
     let primaryCleared = false;
     try {
       primaryCleared = await this.primary.clearShot(
@@ -140,7 +137,6 @@ class ResilientDraftStore implements DraftStore {
   }
 
   async clearSession(sessionId: string): Promise<void> {
-    if (this.useFallback) return this.fallback.clearSession(sessionId);
     try {
       await this.primary.clearSession(sessionId);
     } catch {
