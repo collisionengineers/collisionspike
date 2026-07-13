@@ -1285,7 +1285,11 @@ export function ManualIntake() {
             <>
               <span className={styles.clusterHead}>Claimant and vehicle</span>
               <div className={styles.clusterBody}>
-                <div className={styles.imageIdentityGrid}>
+                <div
+                  className={styles.imageIdentityGrid}
+                  role="group"
+                  aria-label="Claimant and vehicle details"
+                >
                   <Field label="Claimant name">
                     <Input
                       value={fields.claimantName.value}
