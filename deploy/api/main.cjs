@@ -69606,10 +69606,10 @@ async function insertProfile(q, kind, version2, digest, profile) {
     [kind, version2, digest, JSON.stringify(profile)]
   );
   const existing = await q(
-    "SELECT profile_kind, dataset_digest FROM mileage_model_profile WHERE profile_kind = $1 AND version = $2",
+    "SELECT profile_kind, dataset_digest, profile FROM mileage_model_profile WHERE profile_kind = $1 AND version = $2",
     [kind, version2]
   );
-  if (!existing[0] || existing[0].profile_kind !== kind || existing[0].dataset_digest !== digest) {
+  if (!existing[0] || existing[0].profile_kind !== kind || existing[0].dataset_digest !== digest || vehicleDataDigest(existing[0].profile) !== vehicleDataDigest(profile)) {
     throw new Error("mileage model profile version conflicts with persisted provenance");
   }
 }
