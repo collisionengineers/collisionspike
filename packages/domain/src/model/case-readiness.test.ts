@@ -12,12 +12,15 @@ describe('readinessInputForCase', () => {
       vrm: 'AB12CDE',
       providerCode: '',
       sourceEvidencePending: true,
+      sourceEvidenceArchiveFailed: true,
     } as unknown as Case;
 
     expect(readinessInputForCase(value).sourceEvidencePending).toBe(true);
+    expect(readinessInputForCase(value).sourceEvidenceArchiveFailed).toBe(true);
     expect(readinessInputForCase({
       ...value,
       sourceEvidencePending: undefined,
+      sourceEvidenceArchiveFailed: undefined,
     }).sourceEvidencePending).toBe(false);
   });
 });

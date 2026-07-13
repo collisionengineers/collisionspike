@@ -74,11 +74,13 @@ import {
   type ManualIntakeUploadOutcome,
 } from './manual-intake-upload';
 import {
+  appendManualIntakeFiles,
   isImageFile,
   isInstructionFile,
   MANUAL_INTAKE_ACCEPT,
   manualIntakeBatchRejection,
   manualIntakeFileRejection,
+  nextManualInstruction,
   partitionManualIntakeFiles,
 } from './manual-intake-files';
 import {
@@ -373,9 +375,9 @@ export function ManualIntake() {
   const navigate = useNavigate();
   const { dispatchToast } = useToastController(GLOBAL_TOASTER_ID);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  /* Identity of the instruction file already auto-parsed (name:size), so adding
-     images afterwards (or a failed parse) does not re-fire the auto-read. */
-  const autoParsedRef = useRef<string | null>(null);
+  /* Exact browser File object already auto-parsed. Metadata is not an identity:
+     two distinct files may legitimately share a name and size. */
+  const autoParsedRef = useRef<File | null>(null);
   const gateAppliedRef = useRef(false);
   const [initialOperationIdentity] = useState(loadManualIntakeOperationIdentity);
   const caseCreateKeyRef = useRef(initialOperationIdentity.caseCreateKey);
@@ -385,6 +387,7 @@ export function ManualIntake() {
   const [phase, setPhase] = useState<Phase>('pick');
   const [mode, setMode] = useState<IntakeMode>('document');
   const [files, setFiles] = useState<File[]>([]);
+  const [instructionFile, setInstructionFile] = useState<File | undefined>();
   const [pendingManualUpload, setPendingManualUpload] = useState<PendingManualUpload | undefined>();
   const [dragging, setDragging] = useState(false);
 
@@ -439,11 +442,6 @@ export function ManualIntake() {
   const filePartition = useMemo(() => partitionManualIntakeFiles(files), [files]);
   const unsupportedFiles = filePartition.rejected;
   const batchRejection = useMemo(() => manualIntakeBatchRejection(files), [files]);
-  /* The first instruction-type file is the parse target; the rest are evidence. */
-  const instructionFile = useMemo(
-    () => filePartition.accepted.find(isInstructionFile),
-    [filePartition.accepted],
-  );
   const hasImages = useMemo(
     () => filePartition.accepted.some(isImageFile),
     [filePartition.accepted],
@@ -459,18 +457,11 @@ export function ManualIntake() {
     if (!list || list.length === 0) return;
     setError(undefined);
     rotateEvidenceUploadKey();
-    setFiles((prev) => {
-      const seen = new Set(prev.map((f) => `${f.name}:${f.size}`));
-      const next = [...prev];
-      for (const f of Array.from(list)) {
-        const key = `${f.name}:${f.size}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          next.push(f);
-        }
-      }
-      return next;
-    });
+    const incoming = Array.from(list);
+    setFiles((prev) => appendManualIntakeFiles(prev, incoming));
+    // Once a case exists, adding another PDF must not silently change its role.
+    setInstructionFile((current) =>
+      nextManualInstruction(current, incoming, !pendingManualUpload));
   };
 
   const removeFile = (index: number) => {
@@ -493,7 +484,17 @@ export function ManualIntake() {
           }
         : pending,
     );
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setFiles((prev) => {
+      const removed = prev[index];
+      if (removed === instructionFile) setInstructionFile(undefined);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const chooseInstruction = (file: File) => {
+    setError(undefined);
+    rotateEvidenceUploadKey();
+    setInstructionFile(file);
   };
 
   /* ---- Drag-and-drop (review #1) ---- */
@@ -593,9 +594,8 @@ export function ManualIntake() {
       autoParsedRef.current = null;
       return;
     }
-    const key = `${instructionFile.name}:${instructionFile.size}`;
-    if (autoParsedRef.current === key) return;
-    autoParsedRef.current = key;
+    if (autoParsedRef.current === instructionFile) return;
+    autoParsedRef.current = instructionFile;
     void runParse();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instructionFile, phase, unsupportedFiles.length, batchRejection]);
@@ -743,6 +743,7 @@ export function ManualIntake() {
       const uploadRoles: EvidenceUploadRole[] = uploadFiles.map((file) =>
         file === instructionFile ? 'instruction' : 'extra',
       );
+      const instructionIndex = instructionFile ? uploadFiles.indexOf(instructionFile) : -1;
       const createInput: CreateCaseInput = {
         evaFields: evaForCreate,
         vrm: vrm.trim(),
@@ -774,6 +775,7 @@ export function ManualIntake() {
                 ? { evidenceUploadKey: evidenceUploadKeyRef.current }
                 : {}),
               expectedEvidenceCount: uploadFiles.length,
+              ...(instructionIndex >= 0 ? { instructionEvidenceIndex: instructionIndex } : {}),
             },
       );
       if (pendingManualUpload && pendingManualUpload.caseId !== id) {
@@ -802,11 +804,14 @@ export function ManualIntake() {
           idempotencyKey: evidenceUploadKeyRef.current,
           fileRoles: uploadRoles,
           manualIntakeOperation: true,
+          ...(instructionIndex >= 0
+            ? { manualIntakeInstructionIndex: instructionIndex }
+            : {}),
         });
         const outcome = manualIntakeUploadOutcome(
           result,
           uploadFiles,
-          instructionFile ? uploadFiles.indexOf(instructionFile) : -1,
+          instructionIndex,
         );
         if (!outcome.complete) {
           setPendingManualUpload({
@@ -838,6 +843,7 @@ export function ManualIntake() {
     setPhase('pick');
     setMode('document');
     setFiles([]);
+    setInstructionFile(undefined);
     setFields(undefined);
     setHasInstructions(false);
     setVrm('');
@@ -926,6 +932,16 @@ export function ManualIntake() {
                       ? isInstruction ? 'Instruction added' : 'File added'
                       : isInstruction ? 'Instruction needs retry' : 'Needs retry'}
                   </Badge>
+                  {result?.state !== 'added' && !isInstruction && isInstructionFile(file) && (
+                    <Button
+                      appearance="subtle"
+                      size="small"
+                      onClick={() => chooseInstruction(file)}
+                      disabled={phase === 'creating'}
+                    >
+                      Use as instruction
+                    </Button>
+                  )}
                   {result?.state !== 'added' && (
                     <Button
                       appearance="subtle"

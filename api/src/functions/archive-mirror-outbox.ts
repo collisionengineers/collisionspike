@@ -34,6 +34,8 @@ interface LockedEvidenceMirrorRow extends Record<string, unknown> {
   box_file_id: string | null;
 }
 
+export const ARCHIVE_MIRROR_MAX_ATTEMPTS = 8;
+
 async function withServiceAuth(
   req: HttpRequest,
   ctx: InvocationContext,
@@ -78,6 +80,7 @@ app.http('internalArchiveMirrorOutboxPending', {
          FROM archive_mirror_outbox o
          JOIN evidence e ON e.id = o.evidence_id
         WHERE o.requested_generation > o.completed_generation
+          AND o.dead_lettered_at IS NULL
           AND o.next_attempt_at <= now()
         ORDER BY o.next_attempt_at, o.requested_at, o.evidence_id
         LIMIT $1`,
@@ -146,7 +149,7 @@ app.http('internalArchiveMirrorOutboxComplete', {
           }
 
           const rows = await q<Pick<LockedArchiveMirrorRow, 'requested_generation' | 'completed_generation'>>(
-            `SELECT requested_generation, completed_generation
+            `SELECT requested_generation, completed_generation, attempt_count, dead_lettered_at
                FROM archive_mirror_outbox
               WHERE evidence_id = $1
               FOR UPDATE`,
@@ -200,6 +203,8 @@ app.http('internalArchiveMirrorOutboxComplete', {
                     next_attempt_at = now(),
                     last_attempt_at = now(),
                     last_error = NULL,
+                    dead_lettered_at = NULL,
+                    dead_letter_reason = NULL,
                     updated_at = now()
               WHERE evidence_id = $1`,
             [evidenceId, acknowledged],
@@ -267,6 +272,8 @@ app.http('internalArchiveMirrorOutboxDefer', {
           const outbox = await q<{
             requested_generation: string | number;
             completed_generation: string | number;
+            attempt_count: string | number;
+            dead_lettered_at: Date | string | null;
           }>(
             `SELECT requested_generation, completed_generation
                FROM archive_mirror_outbox
@@ -279,32 +286,49 @@ app.http('internalArchiveMirrorOutboxDefer', {
           }
           const requested = Number(outbox[0].requested_generation);
           const completed = Number(outbox[0].completed_generation);
+          if (outbox[0].dead_lettered_at != null) {
+            return {
+              kind: 'done' as const,
+              value: { deferred: false, pending: false, deadLettered: true },
+            };
+          }
           if (completed >= requested) {
             return { kind: 'done' as const, value: { deferred: false, pending: false } };
           }
           if (lockedCase.kind !== 'active' || requested !== generation) {
             return { kind: 'done' as const, value: { deferred: false, pending: true } };
           }
-          const rows = await q<{ next_attempt_at: Date | string }>(
+          const rows = await q<{
+            next_attempt_at: Date | string;
+            dead_lettered_at: Date | string | null;
+          }>(
             `UPDATE archive_mirror_outbox
                 SET attempt_count = attempt_count + 1,
                     last_attempt_at = now(),
                     last_error = $3,
-                    next_attempt_at = now() + make_interval(
-                      secs => LEAST(3600, (30 * power(2, LEAST(attempt_count, 6)))::integer)
-                    ),
+                    dead_lettered_at = CASE
+                      WHEN attempt_count + 1 >= $4 THEN now() ELSE NULL END,
+                    dead_letter_reason = CASE
+                      WHEN attempt_count + 1 >= $4 THEN $3 ELSE NULL END,
+                    next_attempt_at = CASE
+                      WHEN attempt_count + 1 >= $4 THEN now()
+                      ELSE now() + make_interval(
+                        secs => LEAST(3600, (30 * power(2, LEAST(attempt_count, 6)))::integer)
+                      )
+                    END,
                     updated_at = now()
               WHERE evidence_id = $1
                 AND requested_generation = $2
                 AND completed_generation < requested_generation
-            RETURNING next_attempt_at`,
-            [evidenceId, generation, reason],
+            RETURNING next_attempt_at, dead_lettered_at`,
+            [evidenceId, generation, reason, ARCHIVE_MIRROR_MAX_ATTEMPTS],
           );
           return {
             kind: 'done' as const,
             value: {
               deferred: rows.length > 0,
-              pending: true,
+              pending: rows[0]?.dead_lettered_at == null,
+              deadLettered: rows[0]?.dead_lettered_at != null,
               ...(rows[0] ? { nextAttemptAt: rows[0].next_attempt_at } : {}),
             },
           };

@@ -375,6 +375,7 @@ export const mockDataAccess: DataAccessExt = {
   // flip must never look recorded); the completed browse reads honest-empty.
   markEvaSubmitted: (_caseId) => Promise.reject(new Error(NOT_CONFIGURED)),
   markCaseDone: (_caseId) => Promise.reject(new Error(NOT_CONFIGURED)),
+  retryManualIntakeArchive: (_caseId) => Promise.reject(new Error(NOT_CONFIGURED)),
   completedCases: (_status) => Promise.resolve([]),
   mergeCandidates: (_caseId) => Promise.resolve([]),
   mergeCases: (_sourceCaseId, _targetCaseId) => Promise.reject(new Error(NOT_CONFIGURED)),

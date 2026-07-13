@@ -168,6 +168,8 @@ export interface EvidenceUploadOptions {
   fileRoles?: EvidenceUploadRole[];
   /** This batch is the source batch bound by POST /cases, not images-only intake. */
   manualIntakeOperation?: boolean;
+  /** Exact instruction position bound by the Manual Intake case operation. */
+  manualIntakeInstructionIndex?: number;
 }
 export interface EvidenceUploadResult {
   added: Array<{ fileIndex: number; fileName: string; evidenceId: string; duplicate: boolean }>;
@@ -243,6 +245,8 @@ export interface DataAccessExt extends DataAccess {
   /** Save one reviewed case-edit session with optimistic concurrency. Every EVA
    *  field plus the inspection address/decision travels in this one PATCH. */
   saveCaseEdits(id: string, patch: CaseUpdateInput, version: string): Promise<Case>;
+  /** Requeue Manual Intake source files that reached a terminal archive failure. */
+  retryManualIntakeArchive(caseId: string): Promise<{ requeued: number }>;
   /** ONE-call amalgamated dashboard (case pipeline + inbound). `now` windows
    *  server aggregates against the CLIENT clock. NOT safe()-wrapped — a failure
    *  surfaces so the dashboard shows its error panel (matches the prior bundle). */
@@ -588,6 +592,9 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
         ...(options?.expectedEvidenceCount !== undefined
           ? { 'X-Manual-Intake-File-Count': String(options.expectedEvidenceCount) }
           : {}),
+        ...(options?.instructionEvidenceIndex !== undefined
+          ? { 'X-Manual-Intake-Instruction-Index': String(options.instructionEvidenceIndex) }
+          : {}),
       }),
     // Human-correction write path (issue #12): PATCH the case with a partial body
     // (`{ vrm }`) → 200 + the updated Case JSON. DELIBERATELY NOT safe()-wrapped — a
@@ -628,6 +635,8 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       post<{ updated: boolean }>(`/api/cases/${enc(caseId)}/eva-submitted`),
     markCaseDone: (caseId) =>
       post<{ updated: boolean }>(`/api/cases/${enc(caseId)}/mark-done`),
+    retryManualIntakeArchive: (caseId) =>
+      post<{ requeued: number }>(`/api/cases/${enc(caseId)}/archive-retry`),
     // E4: the server caps each page (default 200, max 500) and returns a bare
     // Case[] with no total — a single fetch under-counts and hides rows past the
     // first page, so the Completed tab counts (derived from this list) were wrong.
@@ -883,6 +892,9 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
         fd.append('source', source);
         for (const role of options?.fileRoles ?? []) fd.append('fileRole', role);
         if (options?.manualIntakeOperation) fd.append('manualIntakeOperation', 'true');
+        if (options?.manualIntakeInstructionIndex !== undefined) {
+          fd.append('manualIntakeInstructionIndex', String(options.manualIntakeInstructionIndex));
+        }
         const idempotencyKey = options?.idempotencyKey ?? crypto.randomUUID();
         // NB: no Content-Type header — the browser sets the multipart boundary itself.
         const res = await fetch(`${base}/api/cases/${enc(caseId)}/evidence/upload`, {

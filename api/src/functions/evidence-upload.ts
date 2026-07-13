@@ -33,7 +33,11 @@ import {
   requestArchiveMirrorIfEligible,
   type ArchiveMirrorCandidate,
 } from '../lib/archive-mirror-outbox.js';
-import { completeManualIntakeEvidence } from '../lib/manual-intake-operation.js';
+import {
+  claimManualIntakeRecoveryAudit,
+  completeManualIntakeEvidence,
+  manualIntakeEvidenceBindingState,
+} from '../lib/manual-intake-operation.js';
 
 const IMAGE_KIND_CODE = 100000000;
 const INSTRUCTION_KIND_CODE = 100000002;
@@ -295,14 +299,15 @@ async function existingEvidence(
   caseId: string,
   identity: string,
   sha256: string,
-): Promise<{ id: string; duplicate: boolean; storagePath: string | null } | undefined> {
+): Promise<{ id: string; duplicate: boolean; storagePath: string | null; kindCode: number } | undefined> {
   const identityRows = await q<{
     id: string;
     case_id: string;
     sha256: string | null;
     storage_path: string | null;
+    kind_code: number;
   }>(
-    `SELECT id, case_id, sha256, storage_path
+    `SELECT id, case_id, sha256, storage_path, kind_code
        FROM evidence
       WHERE source_message_id = $1
       FOR UPDATE`,
@@ -313,10 +318,15 @@ async function existingEvidence(
     if (row.case_id.toLowerCase() !== caseId || row.sha256 !== sha256) {
       throw new UploadRefusal(409, 'This upload no longer matches the selected case or files.');
     }
-    return { id: row.id, duplicate: true, storagePath: row.storage_path };
+    return {
+      id: row.id,
+      duplicate: true,
+      storagePath: row.storage_path,
+      kindCode: Number(row.kind_code),
+    };
   }
-  const twins = await q<{ id: string; storage_path: string | null }>(
-    `SELECT id, storage_path FROM evidence
+  const twins = await q<{ id: string; storage_path: string | null; kind_code: number }>(
+    `SELECT id, storage_path, kind_code FROM evidence
       WHERE case_id = $1 AND sha256 = $2
       ORDER BY created_at, id
       LIMIT 1
@@ -324,25 +334,26 @@ async function existingEvidence(
     [caseId, sha256],
   );
   return twins[0]
-    ? { id: twins[0].id, duplicate: true, storagePath: twins[0].storage_path }
+    ? {
+        id: twins[0].id,
+        duplicate: true,
+        storagePath: twins[0].storage_path,
+        kindCode: Number(twins[0].kind_code),
+      }
     : undefined;
 }
 
-/** Exact-content dedup never downgrades an instruction. If a PDF first arrived as
- * an extra and a later reviewed selection identifies the same bytes as the source
- * instruction, promote the existing row instead of creating a duplicate. */
-async function preserveInstructionRole(
-  q: TxQuery,
-  evidenceId: string,
-  file: PreparedFile,
-): Promise<void> {
-  if (file.kind !== 'document' || file.role !== 'instruction') return;
-  await q(
-    `UPDATE evidence
-        SET kind_code = $2, updated_at = now()
-      WHERE id = $1 AND kind_code = $3`,
-    [evidenceId, INSTRUCTION_KIND_CODE, OTHER_KIND_CODE],
-  );
+/** Exact-content dedup preserves the original explicit role. A different batch
+ * may not silently turn an extra PDF into the instruction (or vice versa). */
+function assertExistingRole(existing: { kindCode: number }, file: PreparedFile): void {
+  if (file.kind !== 'document' || file.role === 'auto') return;
+  const expected = file.role === 'extra' ? OTHER_KIND_CODE : INSTRUCTION_KIND_CODE;
+  if (existing.kindCode !== expected) {
+    throw new UploadRefusal(
+      409,
+      'That PDF was already added with a different role. Choose the correct file and try again.',
+    );
+  }
 }
 
 type UploadItemClaim =
@@ -398,7 +409,7 @@ async function claimUploadItem(input: {
     const identity = itemIdentity(input.source, input.idempotencyKey, input.file.index);
     const existing = await existingEvidence(q, caseId, identity, input.file.sha256);
     if (existing) {
-      await preserveInstructionRole(q, existing.id, input.file);
+      assertExistingRole(existing, input.file);
       await q(
         `UPDATE staff_evidence_upload_item
             SET state = 'complete', evidence_id = $2,
@@ -509,7 +520,7 @@ async function persistFile(input: {
     const identity = itemIdentity(input.source, input.idempotencyKey, input.file.index);
     const existing = await existingEvidence(q, caseId, identity, input.file.sha256);
     if (existing) {
-      await preserveInstructionRole(q, existing.id, input.file);
+      assertExistingRole(existing, input.file);
       const ownsStoredBytes = existing.storagePath === input.blobPath;
       await q(
         `UPDATE staff_evidence_upload_item
@@ -558,7 +569,7 @@ async function persistFile(input: {
     if (!row) {
       const raced = await existingEvidence(q, caseId, identity, input.file.sha256);
       if (raced) {
-        await preserveInstructionRole(q, raced.id, input.file);
+        assertExistingRole(raced, input.file);
         const ownsStoredBytes = raced.storagePath === input.blobPath;
         await q(
           `UPDATE staff_evidence_upload_item
@@ -636,13 +647,26 @@ app.http('uploadCaseEvidence', {
 
     const files = form.getAll('file').filter((value): value is File => value instanceof File);
     if (!files.length) return { status: 400, jsonBody: { error: 'Choose at least one file.' } };
+    const operationMarker = form.get('manualIntakeOperation');
+    const manualIntakeOperation = operationMarker === 'true';
+    const rawInstructionIndexes = form.getAll('manualIntakeInstructionIndex');
+    const parsedInstructionIndex = rawInstructionIndexes.length === 1
+      ? Number(rawInstructionIndexes[0])
+      : undefined;
+    const instructionFileIndex = parsedInstructionIndex !== undefined
+      && Number.isInteger(parsedInstructionIndex)
+      && parsedInstructionIndex >= 0
+      && parsedInstructionIndex < files.length
+      ? parsedInstructionIndex
+      : undefined;
     const rawRoles = form.getAll('fileRole');
     const suppliedRoles = rawRoles.filter(
       (value): value is 'instruction' | 'extra' => value === 'instruction' || value === 'extra',
     );
     if (
-      rawRoles.length > 0
-      && (suppliedRoles.length !== rawRoles.length || suppliedRoles.length !== files.length)
+      (manualIntakeOperation && rawRoles.length !== files.length)
+      || suppliedRoles.length !== rawRoles.length
+      || (rawRoles.length > 0 && suppliedRoles.length !== files.length)
     ) {
       await recordManualIntakeResult({
         source,
@@ -659,11 +683,16 @@ app.http('uploadCaseEvidence', {
       });
       return { status: 400, jsonBody: { error: 'Choose the files again so their roles can be confirmed.' } };
     }
-    const operationMarker = form.get('manualIntakeOperation');
-    const manualIntakeOperation = operationMarker === 'true';
     if (
       (operationMarker != null && operationMarker !== 'true')
       || (manualIntakeOperation && suppliedSource !== 'manual_intake')
+      || (manualIntakeOperation && rawInstructionIndexes.length > 1)
+      || (manualIntakeOperation && rawInstructionIndexes.length === 1
+        && instructionFileIndex === undefined)
+      || (manualIntakeOperation && suppliedRoles.filter((role) => role === 'instruction').length
+        !== (instructionFileIndex === undefined ? 0 : 1))
+      || (manualIntakeOperation && instructionFileIndex !== undefined
+        && suppliedRoles[instructionFileIndex] !== 'instruction')
     ) {
       await recordManualIntakeResult({
         source,
@@ -679,6 +708,29 @@ app.http('uploadCaseEvidence', {
         })),
       });
       return { status: 400, jsonBody: { error: 'This case upload could not be safely resumed.' } };
+    }
+    if (manualIntakeOperation) {
+      const bindingState = await tx((q) => manualIntakeEvidenceBindingState(q, {
+        caseId: req.params.id,
+        uploadIdempotencyKey: suppliedIdempotencyKey,
+        fileCount: files.length,
+        ...(instructionFileIndex !== undefined ? { instructionFileIndex } : {}),
+      }));
+      if (bindingState === 'not_bound') {
+        return {
+          status: 409,
+          jsonBody: {
+            added: [],
+            rejected: files.map((file, fileIndex) => ({
+              fileIndex,
+              fileName: file.name,
+              reason: 'This retry no longer matches the selected files.',
+            })),
+            manualIntakeCompletion: 'not_bound',
+            error: 'This case upload could not be safely resumed.',
+          },
+        };
+      }
     }
     const batchRefusal = validateUploadBatch(files);
     if (batchRefusal) {
@@ -894,6 +946,7 @@ app.http('uploadCaseEvidence', {
             caseId,
             uploadIdempotencyKey: idempotencyKey,
             fileCount: files.length,
+            ...(instructionFileIndex !== undefined ? { instructionFileIndex } : {}),
           });
         }
         if (manualIntakeCompletion === 'completed') {
@@ -901,19 +954,45 @@ app.http('uploadCaseEvidence', {
           // still present. Request one more after releasing that blocker.
           await requestStatusRecompute(q, caseId);
         }
+        if (
+          manualIntakeCompletion === 'already_complete'
+          && await claimManualIntakeRecoveryAudit(q, {
+            caseId,
+            uploadIdempotencyKey: idempotencyKey,
+            fileCount: files.length,
+            ...(instructionFileIndex !== undefined ? { instructionFileIndex } : {}),
+          })
+        ) {
+          await writeAuditStrict({
+            action: AUDIT_ACTION.evidence_upload_result,
+            caseId,
+            actor,
+            summary: `New case files confirmed after response loss (${added.length} of ${files.length})`,
+            after: {
+              idempotencyKey,
+              selectedCount: files.length,
+              completion: 'already_complete',
+              recovered: true,
+              added,
+              rejected,
+            },
+          }, q);
+        }
       });
     }
 
-    await recordManualIntakeResult({
-      source,
-      caseId,
-      actor,
-      idempotencyKey,
-      selectedCount: files.length,
-      added,
-      rejected,
-      ...(manualIntakeCompletion ? { completion: manualIntakeCompletion } : {}),
-    });
+    if (manualIntakeCompletion !== 'already_complete') {
+      await recordManualIntakeResult({
+        source,
+        caseId,
+        actor,
+        idempotencyKey,
+        selectedCount: files.length,
+        added,
+        rejected,
+        ...(manualIntakeCompletion ? { completion: manualIntakeCompletion } : {}),
+      });
+    }
 
     if (manualIntakeCompletion === 'not_bound') {
       return {

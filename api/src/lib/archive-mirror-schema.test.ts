@@ -42,6 +42,7 @@ describe('TKT-089 rolling schema and archive-outbox parity', () => {
     const canonical = schema('190_archive_mirror_outbox.sql');
     const delta = schema('deltas/2026-07-11-tkt089-archive-mirror-outbox.sql');
     const constraints = schema('900_constraints.sql');
+    const terminal = schema('deltas/2026-07-12-tkt166-manual-intake-case-create.sql');
 
     for (const contract of [canonical, delta]) {
       expect(contract).toContain('CREATE TABLE');
@@ -58,6 +59,11 @@ describe('TKT-089 rolling schema and archive-outbox parity', () => {
     expect(delta).toContain('p_archive_mirror_outbox_rw');
     expect(delta).toContain('p_archive_mirror_outbox_no_delete');
     expect(constraints).toContain("'archive_mirror_outbox'");
+    for (const contract of [canonical, terminal]) {
+      expect(contract).toContain('dead_lettered_at');
+      expect(contract).toContain('dead_letter_reason');
+      expect(contract).toContain('dead_lettered_at IS NULL');
+    }
   });
 
   it('ships archive claims and durable case-link backfill generations in canonical and live schemas', () => {

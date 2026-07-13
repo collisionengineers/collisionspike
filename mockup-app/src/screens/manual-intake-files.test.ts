@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  appendManualIntakeFiles,
   manualIntakeBatchRejection,
   manualIntakeFileRejection,
+  nextManualInstruction,
   partitionManualIntakeFiles,
   type ManualIntakeFileLike,
 } from './manual-intake-files';
@@ -84,5 +86,28 @@ describe('manual intake file partition', () => {
       { name: 'a.pdf', type: 'application/pdf', size: 60 * 1024 * 1024 },
       { name: 'b.pdf', type: 'application/pdf', size: 60 * 1024 * 1024 },
     ])).toContain('too large');
+  });
+
+  it('matches server MIME and extension checks, including contradictions', () => {
+    expect(manualIntakeFileRejection(file('fake.pdf', 'image/jpeg')))
+      .toBe('That file name and format do not match.');
+    expect(manualIntakeFileRejection(file('fake.jpg', 'application/pdf')))
+      .toBe('That file name and format do not match.');
+    expect(manualIntakeFileRejection(file('scan.pdf', 'application/octet-stream')))
+      .toBeUndefined();
+    expect(manualIntakeFileRejection(file('scan', 'application/pdf'))).toBeUndefined();
+    expect(manualIntakeFileRejection(file('scan.txt', 'application/pdf'))).toBeDefined();
+  });
+
+  it('keeps distinct files with identical names and sizes for server-side hashing', () => {
+    const first = { name: 'scan.pdf', type: 'application/pdf', size: 4, bytes: 'aaaa' };
+    const second = { name: 'scan.pdf', type: 'application/pdf', size: 4, bytes: 'bbbb' };
+    expect(appendManualIntakeFiles([first], [second])).toEqual([first, second]);
+  });
+
+  it('never promotes an extra PDF to instruction during recovery', () => {
+    const extra = file('estimate.pdf', 'application/pdf');
+    expect(nextManualInstruction(undefined, [extra], false)).toBeUndefined();
+    expect(nextManualInstruction(undefined, [extra], true)).toBe(extra);
   });
 });

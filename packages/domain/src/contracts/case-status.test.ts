@@ -176,6 +176,21 @@ describe('statusForReviewCase — merge-retired lock (TKT-141)', () => {
     );
   });
 
+  it('keeps a terminal manual-source archive failure Not Ready with recovery guidance', () => {
+    const complete = caseInput({
+      status: 'ready_for_eva',
+      evaFields: fullFields(),
+      evidence: goodEvidence,
+      sourceEvidenceArchiveFailed: true,
+    });
+    expect(statusForReviewCase(complete)).toBe('needs_review');
+    expect(evaluateCaseReadiness(complete).checks).toContainEqual(expect.objectContaining({
+      id: 'source-evidence',
+      ok: false,
+      detail: expect.stringContaining('Retry it from Evidence'),
+    }));
+  });
+
   it('converges a wrongly un-retired marker-bearing case back to linked_to_instruction (self-heal)', () => {
     // The regression population: marker present but status already flipped to
     // needs_review. The next recompute re-retires it rather than perpetuating it.

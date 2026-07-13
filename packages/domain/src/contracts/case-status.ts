@@ -159,6 +159,8 @@ export interface StatusEvaluationInput {
    * been fully persisted. It cannot be Review-ready even if a partial upload made
    * the visible EVA fields/images otherwise look complete. */
   sourceEvidencePending?: boolean;
+  /** Manual source files reached a terminal archive failure and require staff retry. */
+  sourceEvidenceArchiveFailed?: boolean;
 }
 
 /* ----------  Required-field check (re-implements payload validation)  ----------
@@ -240,6 +242,7 @@ export function evaluateCaseReadiness(
   input: Pick<
     StatusEvaluationInput,
     'evaFields' | 'evidence' | 'inspectionDecision' | 'sourceEvidencePending'
+      | 'sourceEvidenceArchiveFailed'
   >,
 ): CaseReadinessResult {
   const checks: ReadinessCheck[] = [];
@@ -319,14 +322,17 @@ export function evaluateCaseReadiness(
         }),
   });
 
-  const sourceEvidenceReady = input.sourceEvidencePending !== true;
+  const sourceEvidenceReady = input.sourceEvidencePending !== true
+    && input.sourceEvidenceArchiveFailed !== true;
   if (!sourceEvidenceReady) {
     checks.push({
       id: 'source-evidence',
       label: 'Source files added',
       ok: false,
       group: 'source',
-      detail: 'The selected instruction or extra files still need to be added',
+      detail: input.sourceEvidenceArchiveFailed
+        ? 'A selected source file could not be archived. Retry it from Evidence'
+        : 'The selected instruction or extra files still need to be added',
     });
   }
 

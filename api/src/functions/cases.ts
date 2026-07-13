@@ -79,10 +79,12 @@ import { isUuid } from '../lib/uuid.js';
 import { AUDIT_ACTION, actorFromClaims, writeAudit, writeAuditStrict } from '../lib/audit.js';
 import {
   beginManualIntakeOperation,
+  finishManualIntakeSideEffects,
   finishManualIntakeOperation,
   MANUAL_INTAKE_OPERATION_KEY_RE,
-  manualIntakeEvidencePending,
+  manualIntakeEvidenceState,
   manualIntakeRequestHash,
+  manualIntakeSideEffectsPending,
   ManualIntakeOperationConflict,
 } from '../lib/manual-intake-operation.js';
 import { markCaseDoneUsing, markEvaSubmittedUsing } from '../lib/terminal-transition.js';
@@ -188,7 +190,7 @@ async function loadCaseFullSnapshotUsing(
   );
   const notes = await q<Row>('SELECT * FROM note WHERE case_id = $1 ORDER BY occurred_at', [id]);
   const chasers = await q<Row>('SELECT * FROM chaser WHERE case_id = $1 ORDER BY created_at', [id]);
-  const sourceEvidencePending = await manualIntakeEvidencePending(q, id);
+  const sourceEvidenceState = await manualIntakeEvidenceState(q, id);
   const value = rowToCase(rec, {
     now,
     provenanceRows: prov,
@@ -201,7 +203,8 @@ async function loadCaseFullSnapshotUsing(
     })),
     chasers: chasers.map(rowToChaser),
   });
-  value.sourceEvidencePending = sourceEvidencePending;
+  value.sourceEvidencePending = sourceEvidenceState.pending || sourceEvidenceState.archiveFailed;
+  value.sourceEvidenceArchiveFailed = sourceEvidenceState.archiveFailed;
   return { value, version: versionToken(rec.updated_at) };
 }
 
@@ -896,18 +899,29 @@ app.http('createCase', {
     const suppliedOperationKey = (req.headers?.get('idempotency-key') ?? '').trim();
     const suppliedUploadKey = (req.headers?.get('x-manual-intake-upload-key') ?? '').trim();
     const suppliedFileCount = (req.headers?.get('x-manual-intake-file-count') ?? '').trim();
+    const suppliedInstructionIndex = (
+      req.headers?.get('x-manual-intake-instruction-index') ?? ''
+    ).trim();
     const hasOperationHeaders = Boolean(
-      suppliedOperationKey || suppliedUploadKey || suppliedFileCount,
+      suppliedOperationKey || suppliedUploadKey || suppliedFileCount || suppliedInstructionIndex,
     );
     if (hasOperationHeaders && !MANUAL_INTAKE_OPERATION_KEY_RE.test(suppliedOperationKey)) {
       return { status: 400, jsonBody: { error: 'invalid manual intake operation key' } };
     }
     const expectedFileCount = suppliedFileCount === '' ? 0 : Number(suppliedFileCount);
+    const instructionFileIndex = suppliedInstructionIndex === ''
+      ? undefined
+      : Number(suppliedInstructionIndex);
     if (
       !Number.isInteger(expectedFileCount) ||
       expectedFileCount < 0 ||
       expectedFileCount > 20 ||
       (expectedFileCount > 0) !== MANUAL_INTAKE_OPERATION_KEY_RE.test(suppliedUploadKey)
+      || (instructionFileIndex !== undefined && (
+        !Number.isInteger(instructionFileIndex)
+        || instructionFileIndex < 0
+        || instructionFileIndex >= expectedFileCount
+      ))
     ) {
       return { status: 400, jsonBody: { error: 'invalid manual intake evidence binding' } };
     }
@@ -918,6 +932,7 @@ app.http('createCase', {
           requestHash: manualIntakeRequestHash(input),
           ...(suppliedUploadKey ? { uploadIdempotencyKey: suppliedUploadKey } : {}),
           expectedFileCount,
+          ...(instructionFileIndex !== undefined ? { instructionFileIndex } : {}),
         }
       : undefined;
 
@@ -1064,13 +1079,62 @@ app.http('createCase', {
       throw error;
     }
     const newId = createOutcome.id;
-    if (createOutcome.replayed) {
-      await recomputeStatus(newId, actor);
-      return { status: 200, jsonBody: { id: newId, replayed: true } };
+
+    // The case row and create audit commit first. A response may be lost (or the
+    // process may stop) before supplementary create effects run, so the exact
+    // operation replays this all-or-none transaction until its durable marker is set.
+    if (operationBinding) {
+      await tx(async (q) => {
+        if (!await manualIntakeSideEffectsPending(q, operationBinding.idempotencyKey)) return;
+        if (input.writeProvenance) {
+          for (const desc of EVA_FIELD_ORDER) {
+            const field = input.evaFields[desc.key];
+            await q(
+              `INSERT INTO field_level_provenance
+                 (name, case_id, field_name, value, source_type_code, source_label, confidence, review_state_code)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+              [
+                `${newId}:${desc.key}`,
+                newId,
+                desc.key,
+                field.value,
+                sourceTypeCodec.toInt(field.provenance.sourceType) ?? 100000000,
+                field.provenance.sourceLabel,
+                field.provenance.confidence ?? null,
+                reviewStateCodec.toInt(field.reviewState) ?? 100000001,
+              ],
+            );
+          }
+        }
+        const receivedFrom = (input.receivedFrom ?? '').trim();
+        const receivedOn = (input.receivedOn ?? '').trim();
+        if (receivedFrom || receivedOn) {
+          const parts = [
+            receivedFrom ? `Received from ${receivedFrom}` : 'Received',
+            receivedOn ? `on ${receivedOn}` : '',
+          ].filter(Boolean).join(' ');
+          await q(
+            'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
+            ['Images received', newId, actor, `${parts}.`],
+          );
+        }
+        if (input.inspectionDecisionReason?.trim()) {
+          await q(
+            'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
+            [
+              'Inspection decision',
+              newId,
+              'Manual intake',
+              `Inspection decision: image-based - ${input.inspectionDecisionReason.trim()}`,
+            ],
+          );
+        }
+        await finishManualIntakeSideEffects(q, operationBinding.idempotencyKey);
+      });
     }
 
     // Best-effort: one FieldLevelProvenance row per EVA field.
-    if (input.writeProvenance) {
+    if (!operationBinding && input.writeProvenance) {
       await Promise.all(
         EVA_FIELD_ORDER.map(async (desc) => {
           const field = input.evaFields[desc.key];
@@ -1102,7 +1166,7 @@ app.http('createCase', {
     // artifact). Best-effort — a note failure must not sink the create.
     const receivedFrom = (input.receivedFrom ?? '').trim();
     const receivedOn = (input.receivedOn ?? '').trim();
-    if (receivedFrom || receivedOn) {
+    if (!operationBinding && (receivedFrom || receivedOn)) {
       try {
         const parts = [
           receivedFrom ? `Received from ${receivedFrom}` : 'Received',
@@ -1120,7 +1184,7 @@ app.http('createCase', {
     }
 
     // Persist the image-based reason as a case note (best-effort).
-    if (input.inspectionDecisionReason?.trim()) {
+    if (!operationBinding && input.inspectionDecisionReason?.trim()) {
       try {
         await query(
           'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
@@ -1152,7 +1216,61 @@ app.http('createCase', {
     // other provider — the guard persists only on an actual change).
     await recomputeStatus(newId, actor);
 
-    return { status: 201, jsonBody: { id: newId } };
+    return createOutcome.replayed
+      ? { status: 200, jsonBody: { id: newId, replayed: true } }
+      : { status: 201, jsonBody: { id: newId } };
+  }),
+});
+
+app.http('retryManualIntakeArchive', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'cases/{id}/archive-retry',
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+    const caseId = req.params.id;
+    const actor = actorFromClaims(claims) ?? 'authenticated staff';
+    let requeued = 0;
+    try {
+      requeued = await tx(async (q) => {
+        const locked = await lockCaseForMutation(q, caseId);
+        if (locked.kind === 'missing') return -1;
+        if (locked.kind !== 'active') return -2;
+        const rows = await q<{ evidence_id: string }>(
+          `UPDATE archive_mirror_outbox o
+              SET requested_generation = o.requested_generation + 1,
+                  requested_at = now(), attempt_count = 0,
+                  next_attempt_at = now(), last_attempt_at = NULL, last_error = NULL,
+                  dead_lettered_at = NULL, dead_letter_reason = NULL, updated_at = now()
+             FROM evidence e
+            WHERE o.evidence_id = e.id
+              AND e.case_id = $1
+              AND e.source_message_id LIKE 'staff:manual_intake:%'
+              AND o.dead_lettered_at IS NOT NULL
+          RETURNING o.evidence_id`,
+          [caseId],
+        );
+        if (rows.length > 0) {
+          await writeAuditStrict({
+            action: AUDIT_ACTION.evidence_upload_result,
+            caseId,
+            actor,
+            summary: `Manual source archive retry requested (${rows.length})`,
+            after: { requeued: rows.length, evidenceIds: rows.map((row) => row.evidence_id) },
+          }, q);
+          await requestStatusRecompute(q, caseId);
+        }
+        return rows.length;
+      });
+    } catch (error) {
+      if (error instanceof ManualIntakeOperationConflict) {
+        return { status: 409, jsonBody: { error: error.message } };
+      }
+      throw error;
+    }
+    if (requeued === -1) return { status: 404, jsonBody: { error: 'case not found' } };
+    if (requeued === -2) return { status: 409, jsonBody: { error: 'case is not active' } };
+    if (requeued > 0) await recomputeStatus(caseId, actor);
+    return { status: 200, jsonBody: { requeued } };
   }),
 });
 

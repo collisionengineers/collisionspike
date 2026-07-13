@@ -3,8 +3,10 @@ import type { TxQuery } from './db.js';
 import {
   beginManualIntakeOperation,
   completeManualIntakeEvidence,
+  claimManualIntakeRecoveryAudit,
   finishManualIntakeOperation,
   manualIntakeEvidencePending,
+  manualIntakeEvidenceState,
   manualIntakeRequestHash,
   ManualIntakeOperationConflict,
 } from './manual-intake-operation.js';
@@ -16,6 +18,8 @@ interface Operation {
   upload_idempotency_key: string | null;
   expected_file_count: number;
   evidence_completed_at: Date | null;
+  instruction_file_index: number | null;
+  response_loss_recovery_audited_at: Date | null;
 }
 
 function memoryQuery() {
@@ -31,6 +35,8 @@ function memoryQuery() {
           upload_idempotency_key: params[3] == null ? null : String(params[3]),
           expected_file_count: Number(params[4]),
           evidence_completed_at: null,
+          instruction_file_index: params[5] == null ? null : Number(params[5]),
+          response_loss_recovery_audited_at: null,
         });
       }
       return [];
@@ -48,7 +54,9 @@ function memoryQuery() {
       if (row) {
         row.upload_idempotency_key = params[1] == null ? null : String(params[1]);
         row.expected_file_count = Number(params[2]);
+        row.instruction_file_index = params[3] == null ? null : Number(params[3]);
         row.evidence_completed_at = row.expected_file_count === 0 ? new Date() : null;
+        row.response_loss_recovery_audited_at = null;
       }
       return [];
     }
@@ -64,10 +72,24 @@ function memoryQuery() {
         (candidate) => candidate.case_id === params[0]
           && candidate.upload_idempotency_key === params[1]
           && candidate.expected_file_count === Number(params[2])
+          && candidate.instruction_file_index === (params[3] == null ? null : Number(params[3]))
           && !candidate.evidence_completed_at,
       );
       if (!row) return [];
       row.evidence_completed_at = new Date();
+      return [{ idempotency_key: 'operation' }];
+    }
+    if (sql.includes('response_loss_recovery_audited_at = now()')) {
+      const row = [...operations.values()].find(
+        (candidate) => candidate.case_id === params[0]
+          && candidate.upload_idempotency_key === params[1]
+          && candidate.expected_file_count === Number(params[2])
+          && candidate.instruction_file_index === (params[3] == null ? null : Number(params[3]))
+          && candidate.evidence_completed_at
+          && !candidate.response_loss_recovery_audited_at,
+      );
+      if (!row) return [];
+      row.response_loss_recovery_audited_at = new Date();
       return [{ idempotency_key: 'operation' }];
     }
     if (sql.includes('AS pending')) {
@@ -99,6 +121,7 @@ describe('manual intake operation', () => {
       requestHash: 'a'.repeat(64),
       uploadIdempotencyKey: 'manual-upload-operation-0001',
       expectedFileCount: 2,
+      instructionFileIndex: 0,
     };
     expect(await beginManualIntakeOperation(q, base)).toBeUndefined();
     await finishManualIntakeOperation(q, base.idempotencyKey, 'case-1', 2);
@@ -109,6 +132,7 @@ describe('manual intake operation', () => {
     expect(operations.get(base.idempotencyKey)).toMatchObject({
       upload_idempotency_key: 'manual-upload-operation-0002',
       expected_file_count: 1,
+      instruction_file_index: 0,
     });
   });
 
@@ -120,6 +144,7 @@ describe('manual intake operation', () => {
       requestHash: 'b'.repeat(64),
       uploadIdempotencyKey: 'manual-upload-operation-0003',
       expectedFileCount: 2,
+      instructionFileIndex: 0,
     };
     await beginManualIntakeOperation(q, binding);
     await finishManualIntakeOperation(q, binding.idempotencyKey, 'case-3', 2);
@@ -128,16 +153,19 @@ describe('manual intake operation', () => {
       caseId: 'case-3',
       uploadIdempotencyKey: binding.uploadIdempotencyKey,
       fileCount: 1,
+      instructionFileIndex: 0,
     })).toBe('not_bound');
     expect(await completeManualIntakeEvidence(q, {
       caseId: 'case-3',
       uploadIdempotencyKey: binding.uploadIdempotencyKey,
       fileCount: 2,
+      instructionFileIndex: 0,
     })).toBe('completed');
     expect(await completeManualIntakeEvidence(q, {
       caseId: 'case-3',
       uploadIdempotencyKey: binding.uploadIdempotencyKey,
       fileCount: 2,
+      instructionFileIndex: 0,
     })).toBe('already_complete');
     expect(await manualIntakeEvidencePending(q, 'case-3')).toBe(false);
 
@@ -148,8 +176,39 @@ describe('manual intake operation', () => {
       ...binding,
       uploadIdempotencyKey: 'manual-upload-operation-0005',
       expectedFileCount: 1,
+      instructionFileIndex: 0,
     })).toBe('case-3');
     expect(await manualIntakeEvidencePending(q, 'case-3')).toBe(true);
+  });
+
+  it('binds the exact instruction index and audits response-loss recovery once', async () => {
+    const { q } = memoryQuery();
+    const binding = {
+      idempotencyKey: 'manual-create-operation-0010',
+      actor: 'staff-1',
+      requestHash: 'e'.repeat(64),
+      uploadIdempotencyKey: 'manual-upload-operation-0010',
+      expectedFileCount: 2,
+      instructionFileIndex: 1,
+    };
+    await beginManualIntakeOperation(q, binding);
+    await finishManualIntakeOperation(q, binding.idempotencyKey, 'case-10', 2);
+    expect(await completeManualIntakeEvidence(q, {
+      caseId: 'case-10', uploadIdempotencyKey: binding.uploadIdempotencyKey,
+      fileCount: 2, instructionFileIndex: 0,
+    })).toBe('not_bound');
+    expect(await completeManualIntakeEvidence(q, {
+      caseId: 'case-10', uploadIdempotencyKey: binding.uploadIdempotencyKey,
+      fileCount: 2, instructionFileIndex: 1,
+    })).toBe('completed');
+    expect(await claimManualIntakeRecoveryAudit(q, {
+      caseId: 'case-10', uploadIdempotencyKey: binding.uploadIdempotencyKey,
+      fileCount: 2, instructionFileIndex: 1,
+    })).toBe(true);
+    expect(await claimManualIntakeRecoveryAudit(q, {
+      caseId: 'case-10', uploadIdempotencyKey: binding.uploadIdempotencyKey,
+      fileCount: 2, instructionFileIndex: 1,
+    })).toBe(false);
   });
 
   it('refuses a retry key reused by a different actor or changed case request', async () => {
@@ -165,5 +224,18 @@ describe('manual intake operation', () => {
       .rejects.toBeInstanceOf(ManualIntakeOperationConflict);
     await expect(beginManualIntakeOperation(q, { ...base, requestHash: 'd'.repeat(64) }))
       .rejects.toBeInstanceOf(ManualIntakeOperationConflict);
+  });
+
+  it('treats a terminal archive failure as a source-readiness blocker', async () => {
+    const q = (async (sql: string) => {
+      expect(sql).toContain('o.dead_lettered_at IS NOT NULL');
+      expect(sql).toContain('starts_with');
+      return [{ pending: false, archiveFailed: true }];
+    }) as TxQuery;
+    expect(await manualIntakeEvidenceState(q, 'case-archive')).toEqual({
+      pending: false,
+      archiveFailed: true,
+    });
+    expect(await manualIntakeEvidencePending(q, 'case-archive')).toBe(true);
   });
 });

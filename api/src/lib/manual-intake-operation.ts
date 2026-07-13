@@ -28,6 +28,7 @@ export interface ManualIntakeOperationBinding {
   requestHash: string;
   uploadIdempotencyKey?: string;
   expectedFileCount: number;
+  instructionFileIndex?: number;
 }
 
 /** Claim one manual case-create operation. A committed case is returned on replay.
@@ -38,12 +39,15 @@ export async function beginManualIntakeOperation(
   input: ManualIntakeOperationBinding,
 ): Promise<string | undefined> {
   const uploadKey = input.uploadIdempotencyKey ?? null;
+  const instructionIndex = input.instructionFileIndex ?? null;
   await q(
     `INSERT INTO manual_intake_case_create_operation
-       (idempotency_key, actor, request_hash, upload_idempotency_key, expected_file_count)
-     VALUES ($1, $2, $3, $4, $5)
+       (idempotency_key, actor, request_hash, upload_idempotency_key, expected_file_count,
+        instruction_file_index)
+     VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (idempotency_key) DO NOTHING`,
-    [input.idempotencyKey, input.actor, input.requestHash, uploadKey, input.expectedFileCount],
+    [input.idempotencyKey, input.actor, input.requestHash, uploadKey, input.expectedFileCount,
+      instructionIndex],
   );
   const rows = await q<{
     actor: string;
@@ -52,9 +56,10 @@ export async function beginManualIntakeOperation(
     upload_idempotency_key: string | null;
     expected_file_count: number | string;
     evidence_completed_at: Date | string | null;
+    instruction_file_index: number | string | null;
   }>(
     `SELECT actor, request_hash, case_id, upload_idempotency_key,
-            expected_file_count, evidence_completed_at
+            expected_file_count, evidence_completed_at, instruction_file_index
        FROM manual_intake_case_create_operation
       WHERE idempotency_key = $1
       FOR UPDATE`,
@@ -73,15 +78,19 @@ export async function beginManualIntakeOperation(
 
   const bindingChanged =
     operation.upload_idempotency_key !== uploadKey ||
-    Number(operation.expected_file_count) !== input.expectedFileCount;
+    Number(operation.expected_file_count) !== input.expectedFileCount ||
+    (operation.instruction_file_index == null ? null : Number(operation.instruction_file_index))
+      !== instructionIndex;
   if (bindingChanged) {
     await q(
       `UPDATE manual_intake_case_create_operation
           SET upload_idempotency_key = $2, expected_file_count = $3,
+              instruction_file_index = $4,
               evidence_completed_at = CASE WHEN $3 = 0 THEN now() ELSE NULL END,
+              response_loss_recovery_audited_at = NULL,
               updated_at = now()
         WHERE idempotency_key = $1`,
-      [input.idempotencyKey, uploadKey, input.expectedFileCount],
+      [input.idempotencyKey, uploadKey, input.expectedFileCount, instructionIndex],
     );
   }
   return operation.case_id ?? undefined;
@@ -109,26 +118,35 @@ export async function finishManualIntakeOperation(
 
 export async function completeManualIntakeEvidence(
   q: TxQuery,
-  input: { caseId: string; uploadIdempotencyKey: string; fileCount: number },
+  input: {
+    caseId: string;
+    uploadIdempotencyKey: string;
+    fileCount: number;
+    instructionFileIndex?: number;
+  },
 ): Promise<'completed' | 'already_complete' | 'not_bound'> {
+  const instructionIndex = input.instructionFileIndex ?? null;
   const rows = await q<{ idempotency_key: string }>(
     `UPDATE manual_intake_case_create_operation
         SET evidence_completed_at = now(), updated_at = now()
       WHERE case_id = $1
         AND upload_idempotency_key = $2
         AND expected_file_count = $3
+        AND instruction_file_index IS NOT DISTINCT FROM $4::integer
         AND evidence_completed_at IS NULL
       RETURNING idempotency_key`,
-    [input.caseId, input.uploadIdempotencyKey, input.fileCount],
+    [input.caseId, input.uploadIdempotencyKey, input.fileCount, instructionIndex],
   );
   if (rows[0]) return 'completed';
 
   const bindings = await q<{
     upload_idempotency_key: string | null;
     expected_file_count: number | string;
+    instruction_file_index: number | string | null;
     evidence_completed_at: Date | string | null;
   }>(
-    `SELECT upload_idempotency_key, expected_file_count, evidence_completed_at
+    `SELECT upload_idempotency_key, expected_file_count, instruction_file_index,
+            evidence_completed_at
        FROM manual_intake_case_create_operation
       WHERE case_id = $1
       FOR UPDATE`,
@@ -139,6 +157,8 @@ export async function completeManualIntakeEvidence(
     binding
     && binding.upload_idempotency_key === input.uploadIdempotencyKey
     && Number(binding.expected_file_count) === input.fileCount
+    && (binding.instruction_file_index == null ? null : Number(binding.instruction_file_index))
+      === instructionIndex
     && binding.evidence_completed_at != null
   ) {
     return 'already_complete';
@@ -146,19 +166,130 @@ export async function completeManualIntakeEvidence(
   return 'not_bound';
 }
 
-export async function manualIntakeEvidencePending(
+/** Check the exact operation binding before any Blob write. */
+export async function manualIntakeEvidenceBindingState(
+  q: TxQuery,
+  input: {
+    caseId: string;
+    uploadIdempotencyKey: string;
+    fileCount: number;
+    instructionFileIndex?: number;
+  },
+): Promise<'pending' | 'already_complete' | 'not_bound'> {
+  const instructionIndex = input.instructionFileIndex ?? null;
+  const rows = await q<{
+    upload_idempotency_key: string | null;
+    expected_file_count: number | string;
+    instruction_file_index: number | string | null;
+    evidence_completed_at: Date | string | null;
+  }>(
+    `SELECT upload_idempotency_key, expected_file_count, instruction_file_index,
+            evidence_completed_at
+       FROM manual_intake_case_create_operation
+      WHERE case_id = $1
+      FOR UPDATE`,
+    [input.caseId],
+  );
+  const binding = rows[0];
+  if (
+    !binding ||
+    binding.upload_idempotency_key !== input.uploadIdempotencyKey ||
+    Number(binding.expected_file_count) !== input.fileCount ||
+    (binding.instruction_file_index == null ? null : Number(binding.instruction_file_index))
+      !== instructionIndex
+  ) return 'not_bound';
+  return binding.evidence_completed_at == null ? 'pending' : 'already_complete';
+}
+
+/** Claim the one audit that explains a completed batch whose first response was lost. */
+export async function claimManualIntakeRecoveryAudit(
+  q: TxQuery,
+  input: {
+    caseId: string;
+    uploadIdempotencyKey: string;
+    fileCount: number;
+    instructionFileIndex?: number;
+  },
+): Promise<boolean> {
+  const rows = await q<{ idempotency_key: string }>(
+    `UPDATE manual_intake_case_create_operation
+        SET response_loss_recovery_audited_at = now(), updated_at = now()
+      WHERE case_id = $1
+        AND upload_idempotency_key = $2
+        AND expected_file_count = $3
+        AND instruction_file_index IS NOT DISTINCT FROM $4::integer
+        AND evidence_completed_at IS NOT NULL
+        AND response_loss_recovery_audited_at IS NULL
+      RETURNING idempotency_key`,
+    [input.caseId, input.uploadIdempotencyKey, input.fileCount,
+      input.instructionFileIndex ?? null],
+  );
+  return rows.length > 0;
+}
+
+export async function manualIntakeSideEffectsPending(
+  q: TxQuery,
+  idempotencyKey: string,
+): Promise<boolean> {
+  const rows = await q<{ side_effects_completed_at: Date | string | null }>(
+    `SELECT side_effects_completed_at
+       FROM manual_intake_case_create_operation
+      WHERE idempotency_key = $1
+      FOR UPDATE`,
+    [idempotencyKey],
+  );
+  return Boolean(rows[0]) && rows[0].side_effects_completed_at == null;
+}
+
+export async function finishManualIntakeSideEffects(
+  q: TxQuery,
+  idempotencyKey: string,
+): Promise<void> {
+  await q(
+    `UPDATE manual_intake_case_create_operation
+        SET side_effects_completed_at = COALESCE(side_effects_completed_at, now()), updated_at = now()
+      WHERE idempotency_key = $1`,
+    [idempotencyKey],
+  );
+}
+
+export async function manualIntakeEvidenceState(
   q: TxQuery,
   caseId: string,
-): Promise<boolean> {
-  const rows = await q<{ pending: boolean }>(
+): Promise<{ pending: boolean; archiveFailed: boolean }> {
+  const rows = await q<{ pending: boolean; archiveFailed: boolean }>(
     `SELECT EXISTS (
        SELECT 1
          FROM manual_intake_case_create_operation
         WHERE case_id = $1
           AND expected_file_count > 0
           AND evidence_completed_at IS NULL
-     ) AS pending`,
+     ) AS pending,
+     EXISTS (
+       SELECT 1
+         FROM manual_intake_case_create_operation op
+         JOIN evidence e
+           ON e.case_id = op.case_id
+          AND starts_with(
+                e.source_message_id,
+                'staff:manual_intake:' || op.upload_idempotency_key || ':'
+              )
+         JOIN archive_mirror_outbox o ON o.evidence_id = e.id
+        WHERE op.case_id = $1
+          AND o.dead_lettered_at IS NOT NULL
+     ) AS "archiveFailed"`,
     [caseId],
   );
-  return rows[0]?.pending === true;
+  return {
+    pending: rows[0]?.pending === true,
+    archiveFailed: rows[0]?.archiveFailed === true,
+  };
+}
+
+export async function manualIntakeEvidencePending(
+  q: TxQuery,
+  caseId: string,
+): Promise<boolean> {
+  const state = await manualIntakeEvidenceState(q, caseId);
+  return state.pending || state.archiveFailed;
 }

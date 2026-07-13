@@ -19,11 +19,18 @@ CREATE TABLE manual_intake_case_create_operation (
     expected_file_count >= 0 AND expected_file_count <= 20
   ),
   evidence_completed_at timestamptz,
+  instruction_file_index integer,
+  side_effects_completed_at timestamptz,
+  response_loss_recovery_audited_at timestamptz,
   created_at            timestamptz NOT NULL DEFAULT now(),
   updated_at            timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT ck_manual_intake_create_upload_binding CHECK (
     (expected_file_count = 0 AND upload_idempotency_key IS NULL) OR
     (expected_file_count > 0 AND upload_idempotency_key IS NOT NULL)
+  ),
+  CONSTRAINT ck_manual_intake_create_instruction_index CHECK (
+    instruction_file_index IS NULL OR
+    (instruction_file_index >= 0 AND instruction_file_index < expected_file_count)
   )
 );
 

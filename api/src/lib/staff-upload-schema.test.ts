@@ -39,6 +39,9 @@ describe('staff evidence upload schema', () => {
       expect(sql).toContain('upload_idempotency_key');
       expect(sql).toContain('expected_file_count');
       expect(sql).toContain('evidence_completed_at');
+      expect(sql).toContain('instruction_file_index');
+      expect(sql).toContain('side_effects_completed_at');
+      expect(sql).toContain('response_loss_recovery_audited_at');
       expect(sql).toContain('ix_manual_intake_case_create_pending');
     }
     expect(schema('000_enums_lookups.sql')).toContain('evidence_upload_result');
@@ -56,6 +59,8 @@ describe('staff evidence upload schema', () => {
     expect(delta).not.toContain(
       'GRANT DELETE ON manual_intake_case_create_operation TO cespk_app',
     );
+    expect(delta).toContain('dead_lettered_at');
+    expect(delta).toContain('dead_letter_reason');
   });
 
   it('forces RLS and grants only non-delete app operations', () => {

@@ -326,6 +326,8 @@ export interface Case {
   evidence: Evidence[];
   /** A manually selected source batch has not finished attaching to this case yet. */
   sourceEvidencePending?: boolean;
+  /** A selected Manual Intake source file exhausted archive retries. */
+  sourceEvidenceArchiveFailed?: boolean;
   notes: Note[];
   chasers: Chaser[];
   overviewFacts: OverviewFacts;

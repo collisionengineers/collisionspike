@@ -86,6 +86,8 @@ export interface CreateCaseOptions {
   idempotencyKey?: string;
   evidenceUploadKey?: string;
   expectedEvidenceCount?: number;
+  /** Zero-based position of the explicitly selected instruction within the bound batch. */
+  instructionEvidenceIndex?: number;
 }
 
 /** The result of a Case write — the new row's id (GUID) the UI navigates to. */

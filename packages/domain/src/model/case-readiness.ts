@@ -21,6 +21,7 @@ export function readinessInputForCase(c: Case): StatusEvaluationInput {
     inspectionDecision: c.inspectionDecision,
     instructionCount: c.evidence.filter((e) => e.kind === 'instruction').length,
     sourceEvidencePending: c.sourceEvidencePending === true,
+    sourceEvidenceArchiveFailed: c.sourceEvidenceArchiveFailed === true,
     hasIdentity:
       c.vrm.trim().length > 0 ||
       (c.casePo ?? '').trim().length > 0 ||

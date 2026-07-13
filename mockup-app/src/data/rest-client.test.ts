@@ -146,6 +146,7 @@ describe('rest-client — resumable Manual Intake create', () => {
       idempotencyKey: 'manual-create-operation-0001',
       evidenceUploadKey: 'manual-upload-operation-0001',
       expectedEvidenceCount: 3,
+      instructionEvidenceIndex: 1,
     });
 
     expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases');
@@ -157,6 +158,7 @@ describe('rest-client — resumable Manual Intake create', () => {
       'Idempotency-Key': 'manual-create-operation-0001',
       'X-Manual-Intake-Upload-Key': 'manual-upload-operation-0001',
       'X-Manual-Intake-File-Count': '3',
+      'X-Manual-Intake-Instruction-Index': '1',
     });
   });
 
@@ -177,12 +179,22 @@ describe('rest-client — resumable Manual Intake create', () => {
       idempotencyKey: 'manual-upload-operation-0001',
       fileRoles: ['instruction', 'extra'],
       manualIntakeOperation: true,
+      manualIntakeInstructionIndex: 0,
     });
 
     const form = lastInit(fetchMock).body as FormData;
     expect(form.getAll('fileRole')).toEqual(['instruction', 'extra']);
     expect(form.get('manualIntakeOperation')).toBe('true');
+    expect(form.get('manualIntakeInstructionIndex')).toBe('0');
     expect(result.manualIntakeCompletion).toBe('not_bound');
+  });
+
+  it('posts the actionable archive retry for a case', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson({ requeued: 2 }));
+    const da = clientWith(fetchMock);
+    await expect(da.retryManualIntakeArchive('case-1')).resolves.toEqual({ requeued: 2 });
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases/case-1/archive-retry');
+    expect(lastInit(fetchMock).method).toBe('POST');
   });
 });
 
