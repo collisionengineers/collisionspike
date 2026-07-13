@@ -23,15 +23,78 @@ subscription CRUD smoke calls) runs from **WSL**, where az is installed and logg
   (public client PKCE, delegated `access_as_user` on the API — TKT-110/ADR-0023);
   tenant `858cf5b3-aa0a-47a6-9b40-4851fd0afa94`. Source: [`live-environment.md`](../architecture/live-environment.md).
 
-## ⚠️ Poll vs push — a known doc conflict; verify against the deployed app
-- [`live-environment.md`](../architecture/live-environment.md) + memory [exchange-rbac-unblocks-graph-intake](../../memory/exchange-rbac-unblocks-graph-intake.md)
-  describe the intake auth model as **delta-POLL** ("poll, don't subscribe") and treat that as canonical.
-- The **deployed `cespk-orch-dev`** ships `graph-renew` + `graph-webhook` (a **push/subscription** design),
-  and [azure-orch-deploy](../../memory/azure-orch-deploy.md) notes the subscription path *does* ride on Exchange RBAC.
-- **Do not assert one over the other from docs.** Check the live app
-  (`az functionapp function list … -n cespk-orch-dev` → is `graph-renew`/`graph-webhook` present and what
-  does it do?) and follow `live-environment.md` per the repo precedence rules. Either way, **mailbox access
-  is Exchange-RBAC-scoped** and the cache gotcha below applies.
+## Deployed transport
+
+The production mailbox set uses Graph **push change-notification subscriptions**, with durable renewal;
+it is not a delta-poll intake. Treat subscription IDs, expiries and mailbox counts as volatile and use
+[`live-environment.md`](../architecture/live-environment.md) for the current registry. Mailbox access is
+Exchange-RBAC-scoped and the cache gotcha below still applies.
+
+## TKT-009 immutable-ID replacement — plan only, execution blocked
+
+This section strengthens the future TKT-009 rollout and TKT-178 final-cutover plan. It does **not**
+authorize or record a deployment, subscription mutation, mailbox mutation, EVA query, database change,
+production Archive write or root retarget. TKT-009 deployment, subscription replacement and signed-in
+Chrome proof remain **PENDING**.
+
+An equivalent legacy subscription and immutable-ID replacement cannot be relied on to coexist. Do not
+promise create-before-delete or claim that a failed replacement leaves the old subscription alive. The
+future approved operation is a controlled, bounded **delete then recreate** sequence with intake paused
+and the notification gap reconciled before intake resumes.
+
+Final production execution must not begin until all of these gates pass:
+
+1. A dated job spreadsheet is signed off, checksum-recorded and mapped to the exact ordered operation.
+2. The production Archive root is independently confirmed and explicit permission is recorded for the
+   proposed production writes and final root retarget. Until then, Archive activity is test-root-only.
+3. A deterministic zero-write dry-run ledger is frozen, its SHA-256 hash is recorded and a named
+   operator approves that exact hash. Changed inputs or output require a new dry-run and approval.
+4. Checksum-verified database and Archive inventories/backups exist, and a non-production restore
+   rehearsal proves the documented recovery path.
+5. The EVA API is currently blocked/unavailable. The dry-run records `not queried` plus the reason and
+   makes no request. Before execution, the API must be available, authenticated and verified against
+   the expected production contract; **the final production cutover remains blocked until EVA passes
+   this gate**.
+6. The operator explicitly approves the frozen job, bounded intake pause, subscription delete/recreate,
+   and every listed database/Archive mutation.
+
+Outlook is read-only throughout this work and the future cutover: reads may establish evidence, but no
+message may be sent, moved, deleted, categorized or marked. This planning pass allows only offline
+fixtures and the approved Archive test root; production Archive retargeting or writes cannot occur now.
+
+### Approved future sequence
+
+After every gate above passes, the runbook must make each step and checkpoint explicit:
+
+1. Record the legacy subscription's mailbox/resource, notification and lifecycle URLs, expiry,
+   client-state reference, request options and last processed intake watermark. Never record a client
+   secret or raw client-state value in the runbook.
+2. Quiesce intake for the approved bounded window and record its start time/watermark.
+3. Delete the legacy subscription, then create the immutable-ID replacement from the reviewed
+   definition. Record the new ID and expiry in the restricted operational evidence store.
+4. Validate the webhook challenge, callback version, renewal path and a permitted read-only delivery
+   sample before resuming intake.
+5. Resume the persisted pre-delete Inbox delta link and reconcile every change in the paused/gap
+   interval through a durable, idempotent outbox. Keep Outlook read-only. Prove the delta endpoint,
+   acknowledged outbox entries and resulting database identities agree before intake resumes; a
+   timestamp/current-folder scan is not sufficient because moved or deleted gap mail can disappear.
+6. Resume intake only after an independent operator accepts the replacement and gap reconciliation.
+
+### Offline rehearsal and rollback
+
+- Rehearse the state machine with production-shaped fixtures only; do not call subscription CRUD.
+  Cover successful replacement, create failure, webhook-validation failure, response loss, renewal
+  failure, duplicate delivery and interruption at every checkpoint.
+- Run the ledger twice from canonical inputs and require identical ordered output and SHA-256 hash.
+  Include duplicated Internet-Message-Ids across mailboxes and an EVA `not queried` fixture, but keep
+  production execution blocked until real EVA authentication and availability are proven.
+- Prove rollback with the Archive test root and a non-production database copy. Compare restored row,
+  relationship and file hashes with the pre-rehearsal manifest; a procedural claim is not restore proof.
+- A deleted Graph subscription ID cannot be restored. If replacement creation or validation fails,
+  keep intake paused, recreate the recorded previous **supported definition**, validate callback and
+  renewal, reconcile the whole gap, and end the cutover as blocked for review.
+- If any spreadsheet, root, deployment, backup manifest, dry-run output or hash changes, invalidate the
+  approval and return to preflight. Do not improvise a production write or silently broaden the ledger.
 
 ## Gotchas (load-bearing)
 - **Exchange-RBAC permission cache — the ~50-min 403.** After the grant, Graph `POST /subscriptions` and
@@ -49,11 +112,15 @@ subscription CRUD smoke calls) runs from **WSL**, where az is installed and logg
 - **`GRAPH_INTAKE_MAILBOXES` is JSON, not CSV** — `[{"mailbox":"…","minIntakeDate":"…Z"}]`; a plain string
   JSON-parse-throws → **zero mailboxes, silently**. Set via `--settings @file`. Ref [azure-orch-deploy](../../memory/azure-orch-deploy.md).
 - **Token audience:** v2 tokens carry `aud` = bare client-id GUID, not `api://…` — see [deploy.md](./deploy.md).
-- **Trigger `graph-renew` on demand:** `POST https://cespk-orch-dev.azurewebsites.net/admin/functions/graph-renew`
-  with `x-functions-key: <masterKey>` (`az functionapp keys list … --query masterKey`), body `{"input":""}` → 202.
+- **Trigger `graph-renew` on demand (operational reference, not authorization):** `POST
+  https://cespk-orch-dev.azurewebsites.net/admin/functions/graph-renew` with
+  `x-functions-key: <masterKey>` (`az functionapp keys list … --query masterKey`), body `{"input":""}` →
+  202. Do not run this as part of a documentation pass, offline rehearsal or unapproved cutover.
 - **Subscription lifetime** (if using push): Outlook `message` = **7 days** (rich/resource-data = 1 day);
   renew before expiry and handle **lifecycle notifications** (`reauthorizationRequired` / `subscriptionRemoved`
-  / `missed` → delta-resync). Don't issue reauthorize POST + PATCH within a 10-min window.
+  / `missed`). There is no persisted delta baseline today, so do not claim automatic delta recovery:
+  keep intake/cutover state fail-closed and run the reviewed bounded catch-up/reconciliation path. Don't
+  issue reauthorize POST + PATCH within a 10-min window.
 
 ## Best-practice refs (Microsoft Learn)
 - Subscription lifetime: <https://learn.microsoft.com/graph/change-notifications-overview#subscription-lifetime>
@@ -69,4 +136,6 @@ Learn limitation before any further attempt.
 ## Verify
 `Test-ServicePrincipalAuthorization -Identity <appId> -Resource <mbx>` → `InScope: True`; after the idle
 window, `graph-renew` returns 202 and the first Graph read 200s; `graph-webhook?validationToken=X` echoes
-`X` (200 `text/plain`).
+`X` (200 `text/plain`). These are operational checks, not evidence that TKT-009 has been deployed or
+that its legacy subscription has been replaced. That verdict also requires the approved sequence above,
+notification-gap reconciliation and signed-in Chrome proof for each production mailbox.

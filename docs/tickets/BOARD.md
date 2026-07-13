@@ -173,12 +173,12 @@
 
 
 
+
 ## Now — in flight / not yet confirmed live
 
 | ID | Title | State |
 |---|---|---|
 | [TKT-107](./now/TKT-107-readonly-archive-assist/TKT-107-readonly-archive-assist.md) | Read-only Box archive assist (suggest-only) | **REOPENED 2026-07-10** (sweep FAILED vs the acceptance as written): line 1's inbox archive-match hint is **unimplemented** (`archiveLookup`'s only consumer is the assistant; the existing inbox hint is TKT-093's open-case one), and the assistant rung is a **live no-op** — the code rides the live api build but `RETRO_BOX_ARCHIVE_ROOT_IDS` is absent on `cespk-api-dev` so `archive_lookup` is never advertised. Guardrails healthy (facade `BOX_READONLY_ROOT_IDS=4077648161`; list/match-only; suggest-only + honest-empty unit-proven). Fix scope: build the email-surface rung + set the root-ids setting (operator-aware flip) → verify → live probe. See [follow-up](./now/TKT-107-readonly-archive-assist/evidence/reopen-followup-100726.md). |
-| [TKT-009](./now/TKT-009-clickable-case-and-email/TKT-009-clickable-case-and-email.md) | Open an associated email in Outlook | **REOPENED 2026-07-12:** add a safe exact-message Outlook link while retaining the internal preview; verify read-only across production mailboxes. |
 | [TKT-020](./now/TKT-020-docs-cleanup/TKT-020-docs-cleanup.md) | Stale-plan cleanup + root-doc reconciliation | **REOPENED 2026-07-12:** perform a fresh whole-repository truth pass after this production-readiness programme lands. |
 | [TKT-024](./now/TKT-024-image-based-new-case/TKT-024-image-based-new-case.md) | Image-only new-case form | **REOPENED 2026-07-12:** remove Insured Name and repair the supplied field-layout failure while retaining correct image-only readiness. |
 | [TKT-034](./now/TKT-034-images-received-routing/TKT-034-images-received-routing.md) | Archive unmatched images by registration and adopt the folder into the case | **REOPENED 2026-07-12:** current code creates an empty VRM folder only; implement image upload plus idempotent Case/PO folder adoption. |
@@ -363,6 +363,7 @@
 
 | ID | Title | State |
 |---|---|---|
+| [TKT-009](./blocked/TKT-009-clickable-case-and-email/TKT-009-clickable-case-and-email.md) | Open an associated email in Outlook | **REOPENED 2026-07-12:** add a safe exact-message Outlook link while retaining the internal preview; verify read-only across production mailboxes. |
 | [TKT-135](./blocked/TKT-135-circumstances-provider-samples/TKT-135-circumstances-provider-samples.md) | Circumstances coverage residual — needs one dropped sample per 0%-coverage provider layout | BLOCKED on operator samples (PCH first — 46/50 empty per the TKT-086 coverage report). |
 | [TKT-057](./blocked/TKT-057-ap-diminution-refinement/TKT-057-ap-diminution-refinement.md) | AP. total-loss review flow + diminution (D.) detection grounding | AP.-half SHIPPED 2026-07-09 (case-type control + derived marker live); D. diminution half stays data-gated (needs a real inbound diminution email). → blocked on that data. |
 | [TKT-004](./blocked/TKT-004-case-po-generation/TKT-004-case-po-generation.md) | Allocate the next Case/PO number reliably | The live/production Box root id for the allocator fallback (not the test folder). DB mint works (`QDOS26001`). |

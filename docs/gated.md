@@ -303,6 +303,36 @@ yourself — no automated live move test will be run.**
    and `audit_event` should carry `outlook_move_requested` → `outlook_moved`. Record the result in
    [tickets/TKT-054-ui-work/verification.md](./tickets/done/TKT-054-ui-work/verification.md).
 
+#### B5. TKT-009 immutable-ID rollout / TKT-178 final cutover  ·  **BLOCKED — plan and rehearse only**
+
+**Current boundary:** PR #86 is merged, but its API deployment was restored to the previous runtime and
+the existing orchestration/SPA deployments remain in service. The additive Phase-A Outlook-link schema
+is present; the final mailbox-key cutover, immutable-ID subscription replacement, historical backfill
+and signed-in Outlook-link proof have not run. No production Archive write/root retarget or EVA query is
+authorised by this work.
+
+The final production cutover cannot execute until one approved input pack contains all of:
+
+1. the dated, signed-off job spreadsheet plus its SHA-256 and named approval;
+2. authenticated and verified production EVA API access — while it is blocked, record `not queried` and
+   keep the cutover blocked;
+3. an independently confirmed production Archive root and explicit authorization for the exact writes
+   and root retarget (ordinary work remains under the test root until then);
+4. checksum-verified database/Archive backups and successful restore proof on a non-production copy;
+5. the deterministic zero-write reconciliation ledger, frozen SHA-256 and named approval of that exact
+   output; and
+6. explicit approval to open the bounded intake pause and run the listed subscription, database and
+   Archive steps.
+
+Before that approval, allowed work is limited to code/runbook hardening and offline rehearsal. Outlook
+remains read-only. Routine maintenance renews legacy subscriptions and reports the blocked rotation; no
+executable rotation endpoint is approved. The future handoff requires a persisted pre-delete Inbox delta
+checkpoint, proven legacy queue/Durable drain, a durable one-mailbox operation ledger, delete then create
+with re-list after ambiguous responses, immediate restoration of coverage on failure, and an idempotent
+per-message outbox with acknowledgements. Intake resumes only after the saved delta, outbox and database
+identities independently reconcile. Any input/hash change invalidates approval and returns the operation
+to dry-run.
+
 ---
 
 ### C. Staff access
