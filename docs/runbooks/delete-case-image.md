@@ -82,7 +82,8 @@ race it. The staff member selects **Finish deleting** to retry the same durable 
 resolved stores are not repeated. If the Archive file or case folder changes before any copy is deleted,
 the API cancels the intent, clears the image marker and returns `deletionPending=false`; refresh before
 starting a new confirmed deletion. A cancelled intent is safely reactivated with a fresh snapshot on a
-later request.
+later request and is not used to suppress source replay. Replay cleanup is enabled per store only after
+that store's outcome is durably recorded as deleted or missing.
 
 Use `evidence_deletion.last_failure_code`, `attempt_count`, per-store outcomes and the
 `image_deletion_failed` (`100000064`) audit to diagnose. A `case_update` failure leaves both resolved

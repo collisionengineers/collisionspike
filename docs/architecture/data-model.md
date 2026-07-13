@@ -152,7 +152,8 @@ delete is incomplete. The append-preserved `evidence_deletion` row snapshots cas
 filename, Blob path, source identity, exact Box file/folder IDs, requesting actor, per-store outcomes,
 lease/attempt state and failure code — never image bytes. A scope/identity change before any successful
 delete moves the intent to `cancelled` and clears the evidence marker; a later confirmation reactivates
-that row with a fresh snapshot. Normal evidence reads keep a pending image
+that row with a fresh snapshot. Cancelled rows are not replay tombstones; automatic replay suppression
+begins per store only after its durable outcome is deleted or missing. Normal evidence reads keep a pending image
 visible (the SPA offers **Finish deleting**); review edits, archive mirroring, classification and case
 merge refuse/ignore that marked row. `complete_evidence_deletion(operation, claim)` is the sole guarded
 hard-delete seam and succeeds only after both store outcomes are resolved and the live row still exactly

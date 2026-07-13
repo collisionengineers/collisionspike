@@ -3477,11 +3477,14 @@ app.http('internalCasesEvidence', {
           box_folder_id: string | null;
         }>(
           `SELECT storage_path, box_file_id, box_folder_id
-             FROM evidence_deletion
+           FROM evidence_deletion
             WHERE case_id = $1
+              AND state <> 'cancelled'
               AND (
-                ($2::text IS NOT NULL AND storage_path = $2::text)
-                OR ($3::text IS NOT NULL AND box_file_id = $3::text)
+                ($2::text IS NOT NULL AND storage_path = $2::text
+                  AND blob_outcome IN ('deleted','missing'))
+                OR ($3::text IS NOT NULL AND box_file_id = $3::text
+                  AND box_outcome IN ('deleted','missing'))
               )
             ORDER BY requested_at DESC
             LIMIT 1`,

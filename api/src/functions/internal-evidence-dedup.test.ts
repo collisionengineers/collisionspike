@@ -146,6 +146,8 @@ describe('TKT-160 — deleted automatic sources stay deleted without blocking la
   it('suppresses an exact source replay, removes the recreated copy, and never inserts', async () => {
     rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
       if (/FROM evidence_deletion/.test(sql) && p?.[1] === EMAIL_ROW.blobPath) {
+        expect(sql).toContain("state <> 'cancelled'");
+        expect(sql).toContain("blob_outcome IN ('deleted','missing')");
         return [{
           storage_path: EMAIL_ROW.blobPath,
           box_file_id: null,
@@ -185,6 +187,35 @@ describe('TKT-160 — deleted automatic sources stay deleted without blocking la
     expect(replayCleanup.blob).not.toHaveBeenCalled();
   });
 
+  it('keeps a cancelled same-identity replay on the normal idempotent path without cleanup', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM evidence_deletion/.test(sql)) {
+        // A cancelled intent may still retain the old identities for audit, but
+        // the SQL must exclude it before returning a replay-cleanup instruction.
+        expect(sql).toContain("state <> 'cancelled'");
+        return [];
+      }
+      if (/FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(sql)) {
+        return [{
+          id: 'ev-live',
+          box_file_id: null,
+          box_file_url: null,
+          storage_path: EMAIL_ROW.blobPath,
+          source_message_id: null,
+          deletion_operation_id: null,
+        }];
+      }
+      return [];
+    });
+
+    const res = await evidenceRoute(req('case-1', [EMAIL_ROW]), ctx);
+
+    expect(res.jsonBody).toEqual({ persisted: 0, updated: 0, merged: 0 });
+    expect(inserts()).toHaveLength(0);
+    expect(replayCleanup.blob).not.toHaveBeenCalled();
+    expect(replayCleanup.box).not.toHaveBeenCalled();
+  });
+
   it('does not suppress a sibling attachment that shares the email Message-ID', async () => {
     const sibling = {
       ...EMAIL_ROW,
@@ -213,6 +244,8 @@ describe('TKT-160 — deleted automatic sources stay deleted without blocking la
   it('suppresses and removes a replayed Box file using the tombstoned case folder', async () => {
     rowsFor.mockImplementation((sql: string, p?: unknown[]) => {
       if (/FROM evidence_deletion/.test(sql) && p?.[2] === BOX_ROW.boxFileId) {
+        expect(sql).toContain("state <> 'cancelled'");
+        expect(sql).toContain("box_outcome IN ('deleted','missing')");
         return [{
           storage_path: null,
           box_file_id: BOX_ROW.boxFileId,
