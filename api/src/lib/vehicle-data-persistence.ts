@@ -200,10 +200,13 @@ async function insertFieldSource(
     `INSERT INTO field_level_provenance
        (name, case_id, field_name, value, source_type_code, source_label,
         source_reference, review_state_code)
-     SELECT $1, $2, $3, $4, 100000005, $5, $6, 100000000
+     SELECT $1::varchar(200), $2::uuid, $3::varchar(100), $4::text,
+            100000005, $5::varchar(400), $6::varchar(400), 100000000
       WHERE NOT EXISTS (
         SELECT 1 FROM field_level_provenance
-         WHERE case_id = $2 AND field_name = $3 AND source_reference = $6
+         WHERE case_id = $2::uuid
+           AND field_name = $3::varchar(100)
+           AND source_reference = $6::varchar(400)
       )`,
     [`${caseId}:${fieldName}:${runId}`.slice(0, 200), caseId, fieldName, value, sourceLabel, runId],
   );

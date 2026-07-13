@@ -174,6 +174,11 @@ describe('persistVehicleData', () => {
     expect(JSON.parse(String(calibrationInsert?.params[3]))).not.toEqual(
       result().mileage.prediction_interval,
     );
+    const sourceInsert = harness.calls.find(
+      (call) => call.sql.includes('INSERT INTO field_level_provenance'),
+    );
+    expect(sourceInsert?.sql).toContain('$3::varchar(100)');
+    expect(sourceInsert?.sql).toContain('$6::varchar(400)');
   });
 
   it('does not replace parser or staff-confirmed vehicle fields', async () => {
