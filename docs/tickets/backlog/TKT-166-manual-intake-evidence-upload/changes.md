@@ -25,6 +25,8 @@ loop still owns the ticket-status move, database delta, deployment and independe
   case merges, including the later dead-letter and survivor retry lifecycle.
 - `7c715d8` — semantically rebase over merged TKT-153 so explicit Save retains the source blocker and
   archive recovery advances the dirty draft, persisted baseline and concurrency version together.
+- `0d33d63` — limit terminal archive dead-lettering to Manual Intake-owned evidence so unrelated
+  automated evidence keeps retrying, and preserve the archive-failure distinction in recomputation.
 
 ## Files touched
 
@@ -70,7 +72,7 @@ complete while the persisted status is still Not Ready.
 ## Offline checks
 
 - Full Domain suite: **1,138 tests passed**.
-- Full API suite: **655 tests passed**.
+- Full API suite: **656 tests passed**.
 - Full orchestration suite: **417 tests passed**.
 - Full SPA suite: **480 tests passed**.
 - Production TypeScript builds passed for Domain, API, orchestration and the SPA; the Vite bundle was
@@ -161,6 +163,14 @@ persisted source readiness flags in its canonical status evaluation, so a dead-l
 source cannot be promoted. Recovery applies the fresh server source/status snapshot to both the dirty
 draft and persisted baseline and advances the latest version token without replacing edited EVA
 values. The TKT-024 form remains deliberately unmerged for its separate layout integration.
+
+## Final reciprocal-review follow-up — 2026-07-13
+
+- The eight-attempt terminal state now applies only when the evidence has a durable Manual Intake
+  upload-item binding. Other evidence retains capped hourly retries instead of becoming an invisible,
+  unrecoverable dead letter during a longer archive outage.
+- Internal status recomputation now carries both pending and archive-failed source state, matching the
+  normal case snapshot and preserving the correct recovery guidance.
 
 ## Merge lifecycle follow-up — 2026-07-13
 

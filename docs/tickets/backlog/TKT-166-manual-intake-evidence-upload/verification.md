@@ -8,7 +8,7 @@ Deployment and the ticket-required disposable live-case proof remain owned by th
 ## Offline evidence
 
 - Domain: **56 files / 1,138 tests passed**.
-- Data API: **66 files / 655 tests passed**.
+- Data API: **66 files / 656 tests passed**.
 - Orchestration: **30 files / 417 tests passed**.
 - SPA: **42 files / 480 tests passed**.
 - Production TypeScript builds passed for Domain and the Data API; the SPA TypeScript/Vite build
@@ -40,6 +40,8 @@ Regression coverage includes:
   preserving dirty field values;
 - an explicit Save while a Manual Intake source is dead-lettered remains `needs_review` instead of
   promoting the case from the stale editable field snapshot;
+- the eighth failure terminally blocks Manual Intake source evidence while a non-manual evidence row
+  at the same attempt count remains pending with capped backoff and no false status recompute;
 - the canonical source-evidence readiness blocker and locked EVA submission check;
 - picker/server format and size agreement.
 
