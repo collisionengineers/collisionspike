@@ -643,7 +643,9 @@ app.http('patchCase', {
             }),
           ) as unknown as EvaFields;
           const nextVrm = typeof after.vrm === 'string' ? after.vrm : existing.vrm;
-          const nextCasePo = typeof after.casePo === 'string' ? after.casePo : existing.casePo;
+          const nextCasePo = typeof after.casePo === 'string'
+            ? (after.casePo === '(cleared)' ? '' : after.casePo)
+            : existing.casePo;
           const evaluated = statusForReviewCase({
             status: existing.status,
             evaFields: nextEvaFields,
