@@ -8,6 +8,8 @@ describe('inbox long-message preview contract', () => {
   it('uses a viewport-aware popover instead of an unbounded text tooltip', () => {
     expect(source).toContain('<Popover');
     expect(source).toContain('openOnHover');
+    expect(source).toContain('<PopoverTrigger>');
+    expect(source).not.toContain('<PopoverTrigger disableButtonEnhancement>');
     expect(source).toContain("position: 'after'");
     expect(source).toContain('aria-label="Preview email text"');
     expect(source).toContain('aria-label="Email text preview"');

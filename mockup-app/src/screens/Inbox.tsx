@@ -1137,7 +1137,7 @@ export function Inbox() {
                 withArrow
                 positioning={{ position: 'after', align: 'center', offset: 8 }}
               >
-                <PopoverTrigger disableButtonEnhancement>
+                <PopoverTrigger>
                   <span
                     className={mergeClasses(tt.cellSecondary, styles.preview)}
                     tabIndex={0}
