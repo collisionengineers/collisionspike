@@ -58,6 +58,8 @@ const baseRow: Record<string, unknown> = {
 const calls: Array<{ sql: string; params: unknown[] }> = [];
 let failInspectionWrite = false;
 let rolledBack = false;
+let currentRow: Record<string, unknown>;
+let evidenceRows: Array<Record<string, unknown>>;
 
 function request(body: unknown, version?: string): HttpRequest {
   return {
@@ -77,6 +79,8 @@ beforeEach(() => {
   calls.length = 0;
   failInspectionWrite = false;
   rolledBack = false;
+  currentRow = { ...baseRow };
+  evidenceRows = [];
   db.query.mockReset();
   db.tx.mockReset();
   db.tx.mockImplementation(async (work: (q: typeof db.query) => unknown) => {
@@ -89,9 +93,10 @@ beforeEach(() => {
   });
   db.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
     calls.push({ sql, params });
-    if (/FROM case_ c/i.test(sql) && /WHERE c.id = \$1/i.test(sql)) return [{ ...baseRow }];
+    if (/FROM case_ c/i.test(sql) && /WHERE c.id = \$1/i.test(sql)) return [{ ...currentRow }];
     if (/FROM field_level_provenance/i.test(sql)) return [];
-    if (/FROM evidence/i.test(sql) || /FROM note/i.test(sql) || /FROM chaser/i.test(sql)) return [];
+    if (/FROM evidence/i.test(sql)) return evidenceRows;
+    if (/FROM note/i.test(sql) || /FROM chaser/i.test(sql)) return [];
     if (/UPDATE field_level_provenance/i.test(sql)) return [{ id: 'prov-1' }];
     if (/INSERT INTO inspection_address/i.test(sql)) {
       if (failInspectionWrite) throw new Error('inspection write failed');
@@ -186,6 +191,37 @@ describe('explicit case save transaction', () => {
     expect(caseUpdate?.params).toContain(100000004);
     const inspectionWrite = calls.find(({ sql }) => /INSERT INTO inspection_address/i.test(sql));
     expect(inspectionWrite?.params).toEqual(expect.arrayContaining(['Confirmed by staff']));
+  });
+
+  it('uses Case/PO as identity when recomputing an instruction-bearing explicit save', async () => {
+    currentRow = {
+      ...baseRow,
+      case_po: 'QDOS26079',
+      vrm: '',
+      provider_principal: '',
+      eva_claimant_name: '',
+    };
+    evidenceRows = [{
+      id: 'instruction-1',
+      file_name: 'instruction.pdf',
+      kind_code: 100000002,
+      image_role_code: 100000004,
+      registration_visible: false,
+      accepted_for_eva: false,
+      excluded: false,
+      source_label: 'Instruction',
+    }];
+
+    const result = await registrations.get('patchCase')!.handler(
+      request({ editSession: true, evaFields: { accidentCircumstances: 'Updated circumstances' } }, VERSION),
+      context(),
+    );
+
+    expect(result.status).toBe(200);
+    const caseUpdate = calls.find(({ sql }) => /UPDATE case_ SET/i.test(sql));
+    expect(caseUpdate?.sql).toMatch(/status_code = \$\d+/);
+    expect(caseUpdate?.params).toContain(100000002);
+    expect(caseUpdate?.params).not.toContain(100000010);
   });
 
   it('rolls back the complete save when the decision write fails and emits no success audit', async () => {

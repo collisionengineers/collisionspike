@@ -651,6 +651,7 @@ app.http('patchCase', {
             instructionCount: existing.evidence.filter((item) => item.kind === 'instruction').length,
             hasIdentity:
               nextVrm.trim().length > 0 ||
+              (existing.casePo ?? '').trim().length > 0 ||
               existing.providerCode.trim().length > 0 ||
               nextEvaFields.claimantName.value.trim().length > 0,
             mergedInto: existing.mergedInto,
