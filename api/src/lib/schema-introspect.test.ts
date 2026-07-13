@@ -10,6 +10,11 @@ import { planOptionalColumns, type OptionalColumnCandidate } from './schema-intr
 const CANDIDATES: OptionalColumnCandidate[] = [
   { column: 'body_jobref', value: 'REF123' },
   { column: 'conversation_id', value: 'CONV456' },
+  { column: 'graph_message_id', value: 'AAMk-immutable' },
+  {
+    column: 'outlook_web_link',
+    value: 'https://outlook.office365.com/owa/?ItemID=AAMk-immutable',
+  },
 ];
 
 describe('planOptionalColumns — pre-DDL vs post-DDL schema tolerance', () => {
@@ -40,20 +45,32 @@ describe('planOptionalColumns — pre-DDL vs post-DDL schema tolerance', () => {
     expect(plan.values).toEqual(['CONV456']);
   });
 
-  it('includes both columns in candidate order, placeholders incrementing from startIndex (post-DDL)', () => {
+  it('includes all columns in candidate order, placeholders incrementing from startIndex (post-DDL)', () => {
     const plan = planOptionalColumns(
       'inbound_email',
       CANDIDATES,
-      new Set(['body_jobref', 'conversation_id']),
+      new Set(['body_jobref', 'conversation_id', 'graph_message_id', 'outlook_web_link']),
       19,
     );
-    expect(plan.cols).toEqual(['body_jobref', 'conversation_id']);
-    expect(plan.placeholders).toEqual(['$19', '$20']);
+    expect(plan.cols).toEqual([
+      'body_jobref',
+      'conversation_id',
+      'graph_message_id',
+      'outlook_web_link',
+    ]);
+    expect(plan.placeholders).toEqual(['$19', '$20', '$21', '$22']);
     expect(plan.updateSets).toEqual([
       'body_jobref = COALESCE(EXCLUDED.body_jobref, inbound_email.body_jobref)',
       'conversation_id = COALESCE(EXCLUDED.conversation_id, inbound_email.conversation_id)',
+      'graph_message_id = COALESCE(EXCLUDED.graph_message_id, inbound_email.graph_message_id)',
+      'outlook_web_link = COALESCE(EXCLUDED.outlook_web_link, inbound_email.outlook_web_link)',
     ]);
-    expect(plan.values).toEqual(['REF123', 'CONV456']);
+    expect(plan.values).toEqual([
+      'REF123',
+      'CONV456',
+      'AAMk-immutable',
+      'https://outlook.office365.com/owa/?ItemID=AAMk-immutable',
+    ]);
   });
 
   it('ignores a presentColumns entry that is not among the candidates', () => {

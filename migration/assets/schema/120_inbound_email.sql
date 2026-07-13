@@ -21,6 +21,12 @@ CREATE TABLE inbound_email (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name              varchar(200) NOT NULL,       -- primaryColumn cr1bd_name (triage label)
   source_message_id varchar(400),                -- DEDUP KEY (alt key); UNIQUE in 900
+  -- Graph identity/open target captured at intake (TKT-009). graph_message_id is
+  -- requested with Prefer: IdType="ImmutableId" so ordinary same-mailbox moves do
+  -- not invalidate it. outlook_web_link is Graph's own message.webLink; clients
+  -- never assemble an Outlook URL from subject/body/Internet-Message-Id text.
+  graph_message_id  varchar(1024),
+  outlook_web_link  varchar(4096),
   -- Graph conversationId (rules-engine-v2 Phase 2): LOCAL thread correlation only, NOT
   -- a dedup key -- many messages share one conversation_id (source_message_id above is
   -- the actual dedup key).

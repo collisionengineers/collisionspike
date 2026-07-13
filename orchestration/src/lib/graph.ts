@@ -104,6 +104,8 @@ export interface GraphAttachment {
 
 export interface GraphMessage {
   id: string;
+  /** Authoritative browser target returned by Microsoft Graph. */
+  webLink?: string;
   internetMessageId?: string;
   subject?: string;
   receivedDateTime?: string;
@@ -140,7 +142,9 @@ export async function getMessageWithAttachments(
   // Prefer the plain-text body representation so message.body.content is text, not HTML
   // (the classifier + the body-as-instruction path want text; Graph defaults to HTML).
   const message = await graphFetch<GraphMessage>(base, {
-    headers: { Prefer: 'outlook.body-content-type="text"' },
+    // Ask Graph to return a message id that survives ordinary same-mailbox folder
+    // moves, while retaining the plain-text body representation intake expects.
+    headers: { Prefer: 'outlook.body-content-type="text", IdType="ImmutableId"' },
   });
   if (!message || typeof message !== 'object') {
     throw new Error('graph message response was null');

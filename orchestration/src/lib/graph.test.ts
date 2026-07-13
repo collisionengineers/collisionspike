@@ -49,6 +49,41 @@ describe('getMessageHeaders recipient-nearest precedence', () => {
 });
 
 describe('getMessageWithAttachments attachment recovery results', () => {
+  it.each([
+    'info@collisionengineers.co.uk',
+    'engineers@collisionengineers.co.uk',
+    'desk@collisionengineers.co.uk',
+  ])('keeps Graph\'s exact Outlook target for the production mailbox %s', async (mailbox) => {
+    const webLink =
+      'https://outlook.office365.com/owa/?ItemID=AAMk-immutable&exvsurl=1&viewmodel=ReadMessageItem';
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/oauth2/v2.0/token')) {
+        return json({ access_token: 'token', expires_in: 3600 });
+      }
+      if (url.endsWith(`/users/${encodeURIComponent(mailbox)}/messages/message-open`)) {
+        return json({
+          id: 'AAMk-immutable',
+          internetMessageId: `<message-open@${mailbox.split('@')[0]}>`,
+          webLink,
+          hasAttachments: false,
+        });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+
+    const result = await getMessageWithAttachments(mailbox, 'message-open');
+
+    expect(result.message).toMatchObject({ id: 'AAMk-immutable', webLink });
+    const messageCall = fetchMock.mock.calls.find(([input]) =>
+      String(input).endsWith(`/users/${encodeURIComponent(mailbox)}/messages/message-open`),
+    );
+    expect(messageCall).toBeDefined();
+    const headers = new Headers(messageCall?.[1]?.headers);
+    expect(headers.get('Prefer')).toContain('outlook.body-content-type="text"');
+    expect(headers.get('Prefer')).toContain('IdType="ImmutableId"');
+  });
+
   it('returns successful siblings and surfaces a failed $value fetch instead of silently dropping it', async () => {
     fetchMock.mockImplementation(async (input) => {
       const url = String(input);

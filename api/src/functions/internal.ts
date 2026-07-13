@@ -55,6 +55,7 @@ import {
   describeEvidence,
   markerForMint,
   normaliseExtractedEvaMileage,
+  normalizeOutlookWebLink,
   readinessInputForCase,
   statusForReviewCase,
   type CaseStatus,
@@ -708,6 +709,11 @@ export async function applyParserFields(
 export interface InboundEnvelope {
   messageId: string;
   internetMessageId: string;
+  /** Immutable message id returned by Graph for same-mailbox move stability. */
+  graphMessageId?: string;
+  /** Graph's authoritative Outlook-on-the-web target. Persisted only after the
+   *  shared safety validator accepts its scheme and host. */
+  outlookWebLink?: string;
   subject: string;
   senderAddress: string;
   receivedAt: string;
@@ -1520,6 +1526,8 @@ export async function upsertInboundEmail(
   const signals = classification ? JSON.stringify(classification.signals ?? []) : null;
   const bodyJobref = clampVarchar(classification?.bodyJobref, 64).value || null;
   const conversationId = (inbound.conversationId ?? '').trim() || null;
+  const graphMessageId = clampVarchar(inbound.graphMessageId, 1_024).value || null;
+  const outlookWebLink = normalizeOutlookWebLink(inbound.outlookWebLink) ?? null;
   try {
     // Base statement occupies $1..$18 below (unchanged from before Phase 2) — optional
     // columns, if present live, are appended starting at $19.
@@ -1529,6 +1537,8 @@ export async function upsertInboundEmail(
       [
         { column: 'body_jobref', value: bodyJobref },
         { column: 'conversation_id', value: conversationId },
+        { column: 'graph_message_id', value: graphMessageId },
+        { column: 'outlook_web_link', value: outlookWebLink },
       ],
       presentCols,
       19,

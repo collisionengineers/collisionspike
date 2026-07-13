@@ -6,15 +6,15 @@ import {
   AccordionPanel,
   Badge,
   Caption1,
-  Link,
   MessageBar,
   MessageBarBody,
   Spinner,
   makeStyles,
   tokens,
 } from '@fluentui/react-components';
-import { ArrowUpRight, Mail, Paperclip } from 'lucide-react';
+import { Mail, Paperclip } from 'lucide-react';
 import { useInbox, type InboundCategory, type InboundEmail } from '../data';
+import { OutlookMessageAction } from './OutlookMessageAction';
 
 /* ============================================================
    LinkedEmailsPanel — the inbound emails linked to a case (work-todo-spike:
@@ -34,12 +34,6 @@ const CATEGORY_LABEL: Record<InboundCategory, string> = {
   non_actionable: 'No action',
   other: 'Other',
 };
-
-/** The stored mailbox web link, when the row carries one. */
-function webLinkOf(email: InboundEmail): string | undefined {
-  const link = (email as { webLink?: string }).webLink;
-  return typeof link === 'string' && link.length > 0 ? link : undefined;
-}
 
 const useStyles = makeStyles({
   root: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalM },
@@ -146,7 +140,6 @@ export function LinkedEmailsPanel({ caseId, emails }: LinkedEmailsPanelProps) {
         onToggle={(_e, data) => setOpenItems(data.openItems as string[])}
       >
         {linked.map((e) => {
-          const webLink = webLinkOf(e);
           return (
             <AccordionItem value={e.id} key={e.id} className={styles.acItem}>
               <AccordionHeader expandIconPosition="end" icon={<Mail size={18} />}>
@@ -192,20 +185,10 @@ export function LinkedEmailsPanel({ caseId, emails }: LinkedEmailsPanelProps) {
                   </div>
 
                   <Caption1 className={styles.hint}>
-                    This is the saved preview. Use the mailbox reference if you need the original
-                    message.
+                    This saved preview stays available here.
                   </Caption1>
 
-                  {webLink && (
-                    // `inline` = rest-state underline: with links demoted to
-                    // ink, a text-adjacent link needs it to read as a link.
-                    <Link inline href={webLink} target="_blank" rel="noopener noreferrer">
-                      <span className={styles.inlineIconText}>
-                        Open in Outlook <ArrowUpRight size={14} />
-                        <span className="ce-sr-only"> (opens in a new window)</span>
-                      </span>
-                    </Link>
-                  )}
+                  <OutlookMessageAction email={e} />
                 </div>
               </AccordionPanel>
             </AccordionItem>

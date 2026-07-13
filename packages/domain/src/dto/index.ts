@@ -602,6 +602,9 @@ export interface InboundEmail {
   id: string;
   name: string;
   sourceMessageId: string;
+  /** Graph's authoritative message.webLink, retained only when it is a safe
+   *  Microsoft 365 Outlook-on-the-web HTTPS target. Older/inaccessible rows omit it. */
+  outlookWebLink?: string;
   subject: string;
   fromAddress: string;
   senderDomain: string;
