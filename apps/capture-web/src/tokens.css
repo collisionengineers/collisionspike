@@ -1,0 +1,17 @@
+/* Production subset of the Collision Engineers web tokens.
+ * Source: .codex/skills/collision-engineers-design/colors_and_type.css
+ */
+:root {
+  --ce-red: #db0816;
+  --ce-red-dark: #8f1422;
+  --ce-red-tint: rgba(219, 8, 22, 0.07);
+  --ce-charcoal: #2c2a27;
+  --ce-ink: #16191d;
+  --web-bg: #ffffff;
+  --web-muted: #6b6b6b;
+  --web-border: #e6e4e1;
+  --web-secondary: #f5f4f2;
+  --web-success: #16833b;
+  --font-web: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --radius-sharp: 2px;
+}

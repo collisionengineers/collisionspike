@@ -3,8 +3,8 @@
   "short_name": "Capture",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f6f8f7",
-  "theme_color": "#18202a",
+  "background_color": "#f5f4f2",
+  "theme_color": "#2c2a27",
   "icons": [
     {
       "src": "/vehicle-mask.svg",
@@ -14,4 +14,3 @@
     }
   ]
 }
-

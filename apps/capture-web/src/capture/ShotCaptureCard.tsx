@@ -9,6 +9,7 @@ import type {
 import { validateUploadRequest } from '@collisioncapture/core';
 import { Camera, CheckCircle2, CircleAlert, LoaderCircle } from 'lucide-react';
 import type { CaptureApi } from '../api/captureApi';
+import { GuidedCamera } from '../camera/GuidedCamera';
 
 interface ShotCaptureCardProps {
   api: CaptureApi;
@@ -27,12 +28,14 @@ export function ShotCaptureCard({
 }: ShotCaptureCardProps): ReactElement {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [attemptBusy, setAttemptBusy] = useState(false);
 
   const status = progress?.status ?? 'empty';
-  const isBusy = status === 'uploading';
+  const isBusy = status === 'uploading' || attemptBusy;
   const isDone = status === 'uploaded';
 
-  const chooseFile = (): void => {
+  const chooseFallbackFile = (): void => {
     inputRef.current?.click();
   };
 
@@ -52,19 +55,24 @@ export function ShotCaptureCard({
 
     if (!check.ok) {
       setError(check.reason);
-      onProgress({
-        shotId: shot.id,
-        status: 'rejected',
-        rejectionReason: check.reason
-      });
+      if (!isDone) {
+        onProgress({
+          shotId: shot.id,
+          status: 'rejected',
+          rejectionReason: check.reason
+        });
+      }
       return;
     }
 
-    onProgress({
-      shotId: shot.id,
-      status: 'uploading',
-      fileName: file.name
-    });
+    setAttemptBusy(true);
+    if (!isDone) {
+      onProgress({
+        shotId: shot.id,
+        status: 'uploading',
+        fileName: file.name
+      });
+    }
 
     try {
       const intent = await api.createUpload(manifest.token, request);
@@ -80,17 +88,21 @@ export function ShotCaptureCard({
     } catch {
       const message = 'This photo did not upload. Try again.';
       setError(message);
-      onProgress({
-        shotId: shot.id,
-        status: 'rejected',
-        fileName: file.name,
-        rejectionReason: message
-      });
+      if (!isDone) {
+        onProgress({
+          shotId: shot.id,
+          status: 'rejected',
+          fileName: file.name,
+          rejectionReason: message
+        });
+      }
+    } finally {
+      setAttemptBusy(false);
     }
   };
 
   return (
-    <article className={`shot-card ${isDone ? 'done' : ''}`}>
+    <article className={`shot-card ${isDone ? 'done' : ''}`} aria-busy={isBusy}>
       <div className="shot-main">
         <div className="shot-index" aria-hidden="true">
           {isDone ? <CheckCircle2 /> : shot.sequence / 10}
@@ -123,10 +135,31 @@ export function ShotCaptureCard({
         }}
       />
 
-      <button className="icon-button" type="button" disabled={isBusy} onClick={chooseFile}>
+      <button
+        className="icon-button"
+        type="button"
+        disabled={isBusy}
+        onClick={() => setCameraOpen(true)}
+      >
         {isBusy ? <LoaderCircle aria-hidden="true" className="spin" /> : <Camera aria-hidden="true" />}
         <span>{isDone ? 'Retake' : 'Take photo'}</span>
       </button>
+
+      {cameraOpen ? (
+        <GuidedCamera
+          shotLabel={shot.label}
+          prompt={shot.prompt}
+          onAccept={(file) => {
+            setCameraOpen(false);
+            void upload(file);
+          }}
+          onClose={() => setCameraOpen(false)}
+          onFallback={() => {
+            setCameraOpen(false);
+            chooseFallbackFile();
+          }}
+        />
+      ) : null}
     </article>
   );
 }

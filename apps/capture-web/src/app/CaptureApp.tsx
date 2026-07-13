@@ -6,6 +6,7 @@ import { Camera, CheckCircle2, CircleAlert, CloudUpload, RotateCw, ShieldCheck, 
 import { MockCaptureApi } from '../api/mockCaptureApi';
 import { ShotCaptureCard } from '../capture/ShotCaptureCard';
 import { VehicleGuide } from '../ui/VehicleGuide';
+import ceLogo from '../assets/ce-logo.png';
 
 type LoadState =
   | { status: 'loading' }
@@ -102,16 +103,21 @@ function CaptureFlow({ manifest, online, onProgress, onSubmit }: CaptureFlowProp
   const counts = completionCounts(manifest);
   const canSubmit = requiredShotsComplete(manifest) && manifest.status === 'open';
 
-  const progressPercent = Math.round((counts.totalDone / counts.total) * 100);
+  const progressPercent = counts.requiredTotal > 0
+    ? Math.round((counts.requiredDone / counts.requiredTotal) * 100)
+    : 100;
   const isComplete = manifest.status === 'complete';
 
   return (
     <main className="shell">
       <header className="topbar" aria-label="Capture summary">
-        <div className="case-lockup">
-          <span className="case-label">Vehicle photos</span>
-          <h1>{manifest.registration ?? 'Registration needed'}</h1>
-          <p>{[manifest.vehicleLabel, manifest.caseReference].filter(Boolean).join(' - ')}</p>
+        <div className="brand-case-lockup">
+          <img className="ce-logo" src={ceLogo} alt="Collision Engineers" />
+          <div className="case-lockup">
+            <span className="case-label">Vehicle photos</span>
+            <h1>{manifest.registration ?? 'Registration needed'}</h1>
+            <p>{[manifest.vehicleLabel, manifest.caseReference].filter(Boolean).join(' · ')}</p>
+          </div>
         </div>
         <div className="status-stack">
           <span className={online ? 'pill ok' : 'pill warn'}>
@@ -154,7 +160,13 @@ function CaptureFlow({ manifest, online, onProgress, onSubmit }: CaptureFlowProp
       <footer className="submit-bar">
         <div>
           <span className="eyebrow">Send to Collision Engineers</span>
-          <p>{isComplete ? 'Photos received.' : canSubmit ? 'Required photos are ready.' : 'Two required photos are needed.'}</p>
+          <p>
+            {isComplete
+              ? 'Photos received.'
+              : canSubmit
+                ? 'Required photos are ready.'
+                : `${counts.requiredTotal - counts.requiredDone} required ${counts.requiredTotal - counts.requiredDone === 1 ? 'photo' : 'photos'} still needed.`}
+          </p>
         </div>
         <button className="primary-action" disabled={!canSubmit} onClick={() => void onSubmit()}>
           {isComplete ? <CheckCircle2 aria-hidden="true" /> : <Camera aria-hidden="true" />}
