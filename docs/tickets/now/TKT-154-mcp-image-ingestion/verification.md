@@ -5,28 +5,28 @@ PENDING
 
 ## Evidence
 
-Offline implementation evidence on the ticket branch:
+Offline implementation evidence on the ticket branch. Exact reviewed base/head and reciprocal review
+comment links are recorded here only after the final rebase and push.
 
-- Implementation commits under test: `47895b0`, second-audit hardening `e2a25eb`, and third-audit
-  hardening `3cd783c`.
-
-- API full suite: **68 files / 670 tests passed**, including the published
+- API full suite: **76 files / 765 tests passed**, including the published
   `@modelcontextprotocol/sdk` Streamable HTTP client compatibility test against the registered route
   (initialize/initialized, tools/list and structured tool error). MCP protocol/principal/image-ingest/
   evidence/auth/Box-client/internal-archive coverage, registration TOCTOU refusal, multi-role denial, cumulative preflight,
   sanitized write/readback failures, no public evidence UUID, full initialize lifecycle, Origin/
   Accept/version/body/batch enforcement and Box-scope attestation.
 - API TypeScript build passes.
-- Orchestration full suite: **30 files / 421 tests passed**, including Archive transport/root
+- Orchestration full suite: **32 files / 429 tests passed**, including Archive transport/root
   propagation and the adversarial visible-text image-classification fixture. Orchestration TypeScript
   build passes.
-- Box façade full suite: **251 tests passed**, including unset/wrong/out-of-root refusal and strict
+- Box façade full suite: **257 tests passed**, including unset/wrong/out-of-root refusal and strict
   recheck before upload.
-- Root suite passes: domain **54 files / 1,132 tests**, SPA **39 files / 453 tests**, reciprocal PR
+- Root suite passes: domain **58 files / 1,166 tests**, SPA **48 files / 515 tests**, reciprocal PR
   review hooks **48 tests**, and the session-requiring folder watcher **1 test**.
 - Ticket validator: **164 tickets, 0 failures, 0 warnings**. Documentation links/orphans/live-fact
   leakage check passes (26 known historical absent-link backlog entries remain informational).
 - `git diff --check` passes.
+- Production dependency audit has no high/critical finding. It reports the repository's two inherited
+  moderate `durable-functions`/`uuid` findings; this branch does not change either dependency.
 
 Second-audit evidence included in the full-suite totals above:
 
@@ -52,13 +52,19 @@ Pull-request review evidence included in the full-suite totals above:
 
 - Staff uploads remain accepted on an `error` case while the autonomous principal receives a 409;
   removed and other closed case states remain refused for both.
-- The registration-binding test proves the advisory lock and matched-row `FOR UPDATE` are present and
-  the table-wide SHARE lock is absent.
+- The registration-binding test proves the shared advisory lock is present, the whole-table SHARE lock
+  is absent, and the predicate deliberately takes no Case tuple lock. Canonical and live-delta schema
+  tests prove all eligibility-changing Case mutations take the same registration key.
 - The canonical-schema test proves both numbered MCP table files are covered by the shared forced-RLS
-  policy loop, and route tests exercise the standard durable handshake for delegated read-only staff
-  as well as the autonomous principal.
+  policy loop, the live delta applies explicit forced policies/grants, and route tests pin the
+  fail-closed assertion before either MCP identity reaches protected state. Its query reads
+  `current_setting('app.role')` from Postgres; the live value remains part of the pending proof below.
 - Autonomous lookup now treats an `error` case as ineligible on the same terms as upload, and the
   protocol suite proves both initialized and cancelled notifications return no JSON-RPC response.
+- Session tests prove delegated users are keyed by user identity, image agents by application identity,
+  and neither lane falls back into the other's namespace. Missing lane-specific identifiers fail closed.
+- Filename and watcher tests prove bidi/zero-width/control sanitisation and that non-file directory
+  entries are not read as images.
 
 ## Pending / gaps
 

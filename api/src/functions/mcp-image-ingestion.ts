@@ -346,7 +346,12 @@ export async function resolveImageIngestCase(
 function normalizeFileName(value: unknown, index: number): string {
   const raw = typeof value === 'string' ? value : '';
   const base = raw.split(/[\\/]/u).pop() ?? '';
-  const clean = base.replace(/[\u0000-\u001f\u007f]/gu, '_').trim();
+  // Strip control and bidi/zero-width formatting characters so an autonomous
+  // filename cannot render a misleading extension or operator-visible label.
+  const clean = base
+    .normalize('NFC')
+    .replace(/[\u0000-\u001f\u007f\u061c\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/gu, '_')
+    .trim();
   return (clean || `image-${index + 1}.jpg`).slice(0, 200);
 }
 

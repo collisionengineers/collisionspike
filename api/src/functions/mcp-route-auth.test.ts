@@ -10,14 +10,23 @@ interface Registration {
 }
 
 const registrations = vi.hoisted(() => new Map<string, Registration>());
-const auth = vi.hoisted(() => ({ principal: undefined as 'readonly_staff' | 'image_ingest_agent' | undefined }));
-const lifecycle = vi.hoisted(() => ({ mark: true, touch: true, atCapacity: false }));
+const auth = vi.hoisted(() => ({
+  principal: undefined as 'readonly_staff' | 'image_ingest_agent' | undefined,
+  claims: { roles: [], oid: 'test-principal', azp: 'test-application' } as Record<string, unknown>,
+}));
+const lifecycle = vi.hoisted(() => ({
+  mark: true,
+  touch: true,
+  atCapacity: false,
+  create: vi.fn(async (_principalId: string, _protocolVersion: string) =>
+    '11111111-1111-4111-8111-111111111111'),
+}));
 const rls = vi.hoisted(() => ({ assert: vi.fn(async () => undefined) }));
 vi.mock('@azure/functions', () => ({
   app: { http: (name: string, options: Registration) => registrations.set(name, options) },
 }));
 vi.mock('../lib/auth.js', () => ({
-  authenticate: vi.fn(async () => ({ roles: [] })),
+  authenticate: vi.fn(async () => auth.claims),
   mcpPrincipalKind: vi.fn(() => auth.principal),
   toErrorResponse: vi.fn(() => ({ status: 500, jsonBody: { error: 'internal' } })),
 }));
@@ -36,9 +45,9 @@ vi.mock('../lib/mcp-session.js', () => {
   class McpSessionLimitError extends Error {}
   return {
     McpSessionLimitError,
-    createMcpSession: vi.fn(async () => {
+    createMcpSession: vi.fn(async (principalId: string, protocolVersion: string) => {
       if (lifecycle.atCapacity) throw new McpSessionLimitError('session capacity reached');
-      return SESSION_ID;
+      return lifecycle.create(principalId, protocolVersion);
     }),
     markMcpSessionInitialized: vi.fn(async () => lifecycle.mark),
     touchReadyMcpSession: vi.fn(async () => lifecycle.touch),
@@ -99,9 +108,11 @@ function request(
 
 beforeEach(() => {
   auth.principal = undefined;
+  auth.claims = { roles: [], oid: 'test-principal', azp: 'test-application' };
   lifecycle.mark = true;
   lifecycle.touch = true;
   lifecycle.atCapacity = false;
+  lifecycle.create.mockClear();
   rls.assert.mockClear();
 });
 
@@ -160,6 +171,68 @@ describe('MCP route principal isolation', () => {
       expect(list.status).toBe(200);
     },
   );
+
+  it('binds delegated sessions to the staff user rather than the shared MCP client', async () => {
+    auth.principal = 'readonly_staff';
+    auth.claims = {
+      oid: 'staff-user-object-id',
+      sub: 'staff-user-subject',
+      azp: 'shared-mcp-client-id',
+      roles: ['CollisionSpike.User'],
+      scp: 'access_as_user',
+    };
+    const initialized = await route(request('initialize', {
+      protocolVersion: '2025-06-18',
+      capabilities: {},
+      clientInfo: { name: 'standard-test-client', version: '1.0.0' },
+    }, { omitSession: true }), ctx);
+    expect(initialized.status).toBe(200);
+    expect(lifecycle.create).toHaveBeenCalledWith('staff-user-object-id', '2025-06-18');
+  });
+
+  it('fails closed when an otherwise admitted token has no stable principal identifier', async () => {
+    auth.principal = 'image_ingest_agent';
+    auth.claims = { roles: ['CollisionSpike.ImageIngest'] };
+    const response = await route(request('tools/list'), ctx);
+    expect(response).toEqual({ status: 403, jsonBody: { error: 'forbidden' } });
+    expect(rls.assert).not.toHaveBeenCalled();
+  });
+
+  it('never falls back across the delegated-user and app-only identity namespaces', async () => {
+    auth.principal = 'readonly_staff';
+    auth.claims = {
+      azp: 'shared-mcp-client-id',
+      roles: ['CollisionSpike.User'],
+      scp: 'access_as_user',
+    };
+    expect((await route(request('tools/list'), ctx)).status).toBe(403);
+
+    auth.principal = 'image_ingest_agent';
+    auth.claims = {
+      oid: 'service-principal-object-id',
+      sub: 'service-principal-subject',
+      roles: ['CollisionSpike.ImageIngest'],
+    };
+    expect((await route(request('tools/list'), ctx)).status).toBe(403);
+    expect(rls.assert).not.toHaveBeenCalled();
+  });
+
+  it('binds app-only image sessions to the calling application', async () => {
+    auth.principal = 'image_ingest_agent';
+    auth.claims = {
+      oid: 'service-principal-object-id',
+      sub: 'service-principal-subject',
+      azp: 'image-ingest-client-id',
+      roles: ['CollisionSpike.ImageIngest'],
+    };
+    const initialized = await route(request('initialize', {
+      protocolVersion: '2025-06-18',
+      capabilities: {},
+      clientInfo: { name: 'image-ingest-agent', version: '1.0.0' },
+    }, { omitSession: true }), ctx);
+    expect(initialized.status).toBe(200);
+    expect(lifecycle.create).toHaveBeenCalledWith('image-ingest-client-id', '2025-06-18');
+  });
 
   it('requires initialize as the first session interaction', async () => {
     auth.principal = 'image_ingest_agent';

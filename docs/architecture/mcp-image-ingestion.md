@@ -51,11 +51,13 @@ Input:
 ```
 
 The write tool resolves the registration again at call time and repeats the exact-match/eligibility
-test under a registration-scoped advisory lock plus row locks on every matched case before any Blob
-write. It does not take a table-wide lock, so an autonomous upload cannot stall unrelated staff case
-updates. There is intentionally no `caseId`,
-`folderId` or path field. Supplied filenames are reduced to a basename and control characters are
-removed. The server applies the same content-signature and full image-decode checks as Add evidence:
+test under a registration-scoped advisory lock before any Blob write. Case INSERT/DELETE and every
+eligibility-changing UPDATE take the same key in a database trigger, closing the phantom-match race.
+The predicate deliberately takes no case-row or table-wide lock while holding that key; this avoids
+an AB/BA deadlock with a staff update that already owns the row and is waiting in its trigger. Normal
+case mutation locks still guard the later evidence transactions. There is intentionally no `caseId`,
+`folderId` or path field. Supplied filenames are reduced to a basename and control, bidirectional and
+zero-width formatting characters are removed. The server applies the same content-signature and full image-decode checks as Add evidence:
 JPG, PNG and WebP only; at most 20 files; 15 MB per file; 30 MB decoded per MCP batch (the canonical
 staff seam remains 100 MB, but Base64 plus image decoding expands the Function's memory use). A MIME/extension mismatch,
 invalid base64, corrupt image, unsafe type or exceeded limit is refused before that file is persisted.
@@ -102,9 +104,13 @@ records `initializing → ready`, so scale-out cannot bypass the initialized not
 refusals are MCP tool results with `isError: true` and `structuredContent`; malformed JSON-RPC remains a
 protocol error. A missing or malformed session header is a 400 request error; a syntactically valid
 session that is absent, expired, not ready, or bound to another authenticated principal/protocol
-version returns HTTP 404 as required by the 2025-06-18 transport contract. Browser-origin requests are
+version returns HTTP 404 as required by the 2025-06-18 transport contract. Delegated sessions are
+bound to the staff user's object id, not the shared interactive MCP client id; app-only image sessions
+are bound to the calling application id. Browser-origin requests are
 rejected unless their exact Origin is listed in `MCP_ALLOWED_ORIGINS` (folder watchers normally send
-no Origin). The dedicated identity is durably limited per minute in Postgres. Session creation is
+no Origin). The two lanes never fall back to each other's identifier type: a delegated token without a user
+object/subject or an app-only token without an application id is refused before database access.
+The dedicated identity is durably limited per minute in Postgres. Session creation is
 transaction-serialized per authenticated principal, reuses only that principal's expired rows, and
 caps the principal at eight durable rows by default. At capacity, initialization returns retryable
 HTTP 429 rather than growing the table.

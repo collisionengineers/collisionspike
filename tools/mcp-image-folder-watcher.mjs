@@ -109,10 +109,12 @@ async function uploadBatch(registration, batch, batchIndex) {
   console.log(JSON.stringify({ registration, batch: batchIndex + 1, result }));
 }
 
-const names = (await readdir(dropFolder)).filter((name) => {
+const names = (await readdir(dropFolder, { withFileTypes: true })).filter((entry) => {
+  if (!entry.isFile()) return false;
+  const name = entry.name;
   const extension = name.split('.').pop()?.toLowerCase() ?? '';
   return contentTypes.has(extension) && name.includes('__');
-});
+}).map((entry) => entry.name);
 const groups = new Map();
 for (const name of names) {
   const registration = name.split('__', 1)[0];

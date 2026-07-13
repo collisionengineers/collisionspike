@@ -283,11 +283,21 @@ function protocolVersionFromHeader(req: HttpRequest): string {
   return req.headers.get('mcp-protocol-version') ?? '2025-03-26';
 }
 
-function principalKey(claims: Record<string, unknown>): string {
-  for (const key of ['azp', 'appid', 'oid', 'sub']) {
+function principalKey(
+  claims: Record<string, unknown>,
+  principal: 'readonly_staff' | 'image_ingest_agent',
+): string | undefined {
+  // Delegated users of the shared MCP client all carry the same `azp`; binding
+  // their durable sessions to that application id would collapse every staff
+  // user into one principal. Require the human object/subject for Flow A and the
+  // calling application id for the app-only image lane; never cross-fall back.
+  const keys = principal === 'readonly_staff'
+    ? ['oid', 'sub']
+    : ['azp', 'appid'];
+  for (const key of keys) {
     if (typeof claims[key] === 'string' && claims[key]) return String(claims[key]);
   }
-  return 'unknown-image-ingest-principal';
+  return undefined;
 }
 
 function responseHeaders(
@@ -353,6 +363,8 @@ app.http('mcpServer', {
       const claims = await authenticate(req);
       const principal = mcpPrincipalKind(claims);
       if (!principal) return { status: 403, jsonBody: { error: 'forbidden' } };
+      const principalId = principalKey(claims as Record<string, unknown>, principal);
+      if (!principalId) return { status: 403, jsonBody: { error: 'forbidden' } };
       if (!gates.mcpServer()) {
         return { status: 404, jsonBody: rpcError(null, -32000, 'MCP server is not enabled') };
       }
@@ -373,7 +385,7 @@ app.http('mcpServer', {
         return { status: 406, headers: responseHeaders(), jsonBody: rpcError(null, -32600, 'Accept must include application/json and text/event-stream') };
       }
       if (principal === 'image_ingest_agent') {
-        if (!await consumeImageIngestRateLimit(principalKey(claims as Record<string, unknown>))) {
+        if (!await consumeImageIngestRateLimit(principalId)) {
           return {
             status: 429,
             headers: { ...responseHeaders(), 'Retry-After': '60' },
@@ -416,7 +428,6 @@ app.http('mcpServer', {
         ? (name, args) => executeImageIngestTool(name, args, { claims, context: ctx })
         : (name, args) => execTool(name, args);
 
-      const principalId = principalKey(claims as Record<string, unknown>);
       const suppliedSessionId = req.headers.get('mcp-session-id') ?? '';
       if (validated.message.method === 'initialize') {
         if (suppliedSessionId) {

@@ -1,11 +1,8 @@
 # Changes — TKT-154: Add a constrained MCP path for registration-based image ingestion
 
 ## Status
-Code-complete on the ticket branch; deliberately dark and not deployed.
-
-Implementation commit: `47895b0` (`Harden constrained MCP image ingestion`).
-Second-audit hardening commit: `e2a25eb` (`Close TKT-154 second audit gaps`).
-Third-audit hardening commit: `3cd783c` (`Close TKT-154 third audit gaps`).
+Code-complete on the ticket branch; deliberately dark and not deployed. The final reviewed base/head
+pair is recorded in `verification.md` after the branch is rebased and the reciprocal review gate runs.
 
 ## Changes made
 
@@ -63,15 +60,32 @@ Third-audit hardening commit: `3cd783c` (`Close TKT-154 third audit gaps`).
 ## Pull-request review hardening
 
 - Kept `error`-status evidence recovery available to staff while refusing the autonomous image lane
-  on that state. Removed the registration path's table-wide lock; its advisory lock and matched-row
-  locks no longer stall unrelated case writes.
+  on that state. Removed the registration path's table-wide lock. The binding predicate now takes the
+  same registration advisory key as Case eligibility-changing triggers and deliberately takes no Case
+  tuple lock while it holds that key, avoiding the row-lock/advisory-lock AB/BA cycle.
 - Proved the numbered canonical MCP table files run before the shared forced-RLS policy pass in
   `900_constraints.sql`; the live delta retains equivalent explicit policies.
+- Restored an explicit live-backend `app.role=staff` assertion before the dual-principal route reaches
+  its rate-limit, session or tool tables; HTTP authorization alone is never treated as a DB role.
 - Added the standard initialize/initialized session lifecycle to delegated read-only route coverage
   and made migration-before-API ordering an explicit protection for the already-live read lane.
 - Kept lookup and upload eligibility aligned by excluding `error` cases from the autonomous lookup,
   while staff evidence recovery remains available. Added explicit no-response coverage for MCP
   cancellation notifications (the handler already followed that contract).
+
+## Fresh post-rebase security and concurrency review
+
+- Bound delegated sessions only to the staff user object/subject and app-only sessions only to the
+  calling application id. The two identity namespaces never fall back to each other; a token missing
+  the identifier required for its lane now fails closed before any database query. This prevents all
+  users of one shared interactive MCP client from sharing a session namespace.
+- Normalised autonomous filenames to NFC and stripped control, bidirectional and zero-width formatting
+  characters so a filename cannot visually disguise its extension or label.
+- Restricted the sample watcher's directory scan to actual regular files. Directory and symlink-shaped
+  entries are ignored rather than followed as candidate images.
+- Re-reviewed the registration serialization, canonical evidence/idempotency seam, forced RLS policies,
+  Box test-root attestation, asynchronous root recheck, classifier prompt boundary and conservative
+  durable/readiness responses after the rebase.
 
 ## Deliberately not done here
 

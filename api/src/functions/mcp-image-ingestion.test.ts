@@ -213,7 +213,7 @@ describe('TKT-154 bounded canonical upload', () => {
     const exec = createImageIngestExecutor(deps);
     const result = await exec(
       'upload_case_images',
-      uploadArgs([{ fileName: '../camera\\photo.jpg', contentType: 'image/jpeg', dataBase64: IMAGE }]),
+      uploadArgs([{ fileName: '../camera\\pho\u202eto.jpg', contentType: 'image/jpeg', dataBase64: IMAGE }]),
       { claims, context: ctx },
     ) as Record<string, unknown>;
 
@@ -221,7 +221,7 @@ describe('TKT-154 bounded canonical upload', () => {
     expect(form.get('source')).toBe('mcp_agent');
     expect(form.get('registration')).toBe('SP23OBX');
     const file = form.get('file') as File;
-    expect(file.name).toBe('photo.jpg');
+    expect(file.name).toBe('pho_to.jpg');
     expect(result).toMatchObject({
       ok: false,
       code: 'accepted_pending_processing',

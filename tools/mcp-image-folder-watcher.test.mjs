@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,6 +16,8 @@ test('propagates the server-issued MCP session through initialized, list and too
   let server;
   try {
     await writeFile(join(folder, 'AB12CDE__photo.jpg'), Buffer.from('test-image'));
+    // A directory or link-shaped entry must never be followed as an image file.
+    await mkdir(join(folder, 'AB12CDE__not-a-file.jpg'));
     server = createServer(async (request, response) => {
       const chunks = [];
       for await (const chunk of request) chunks.push(chunk);
