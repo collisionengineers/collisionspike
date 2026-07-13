@@ -128,6 +128,7 @@ import {
   CASE_PO_SHAPE_RE,
   derivedMarkerCasePo,
   INTAKE_CHANNEL_LABELS,
+  mergeSourceReadinessIntoCase,
   normalizeCasePo,
   type CaseWorkType,
 } from '@cs/domain';
@@ -139,6 +140,7 @@ import {
 } from './eva-export-zip';
 import { GLOBAL_TOASTER_ID } from '../components';
 import { LinkedEmailsPanel } from '../components/LinkedEmailsPanel';
+import { ManualSourceArchiveRecovery } from '../components/ManualSourceArchiveRecovery';
 // Gated AI "Assistant" surface (TKT-015). Self-contained: renders NOTHING unless
 // AI_ASSIST_ENABLED (checks the gate via its own hook), so this is an honest-off mount.
 import { AiAssistPanel } from '../components/AiAssistPanel';
@@ -1005,28 +1007,6 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const archiveEnabled = gates?.apiEnabled ?? false;
   const uploadLinkEnabled = (gates?.fileRequestEnabled ?? false) && (gates?.fileRequestTemplateConfigured ?? false);
   const [openingArchive, setOpeningArchive] = useState(false);
-  const [retryingArchive, setRetryingArchive] = useState(false);
-
-  const onRetryArchive = async () => {
-    if (retryingArchive) return;
-    setRetryingArchive(true);
-    try {
-      const result = await (getDataAccess() as DataAccessExt).retryManualIntakeArchive(c.id);
-      const fresh = await data.caseById(c.id);
-      if (fresh) setC(fresh);
-      dispatchToast(
-        <Toast><ToastTitle>{result.requeued > 0 ? 'Archive retry started' : 'No files needed retrying'}</ToastTitle></Toast>,
-        { intent: result.requeued > 0 ? 'success' : 'info' },
-      );
-    } catch {
-      dispatchToast(
-        <Toast><ToastTitle>Could not retry the archive</ToastTitle></Toast>,
-        { intent: 'error' },
-      );
-    } finally {
-      setRetryingArchive(false);
-    }
-  };
 
   /* "Open in Archive" — fetch the server-minted folder deep link, then open it in
      a new tab (an external navigation, NOT a fetch — CSP `connect-src` is moot).
@@ -2366,21 +2346,11 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                   <Caption1 className={styles.hint}>
                     Photo choices save as you make them. Use Save changes for case fields and the inspection choice.
                   </Caption1>
-                  {c.sourceEvidenceArchiveFailed && (
-                    <MessageBar intent="error">
-                      <MessageBarBody>
-                        <MessageBarTitle>A source file was not archived</MessageBarTitle>
-                        This case stays Not Ready until the source file is archived.
-                      </MessageBarBody>
-                      <Button
-                        appearance="primary"
-                        onClick={onRetryArchive}
-                        disabled={retryingArchive}
-                      >
-                        {retryingArchive ? 'Retrying…' : 'Retry archive'}
-                      </Button>
-                    </MessageBar>
-                  )}
+                  <ManualSourceArchiveRecovery
+                    caseValue={c}
+                    onRecovered={(fresh) =>
+                      setC((draft) => mergeSourceReadinessIntoCase(draft, fresh))}
+                  />
                   {/* Case archive (Box) — folder deep link at the top. Prefers the
                       stored folder shared-link (works with no live connector, e.g.
                       the free-account demo); falls back to the connector "Open in

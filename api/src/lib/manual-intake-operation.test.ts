@@ -22,9 +22,11 @@ interface Operation {
   response_loss_recovery_audited_at: Date | null;
 }
 
-function memoryQuery() {
+function memoryQuery(archiveFailed = false) {
   const operations = new Map<string, Operation>();
+  const sqlSeen: string[] = [];
   const q = (async (sql: string, params: unknown[] = []) => {
+    sqlSeen.push(sql);
     if (sql.includes('INSERT INTO manual_intake_case_create_operation')) {
       const key = String(params[0]);
       if (!operations.has(key)) {
@@ -99,11 +101,12 @@ function memoryQuery() {
             && row.expected_file_count > 0
             && !row.evidence_completed_at,
         ),
+        archiveFailed,
       }];
     }
     return [];
   }) as TxQuery;
-  return { q, operations };
+  return { q, operations, sqlSeen };
 }
 
 describe('manual intake operation', () => {
@@ -229,7 +232,9 @@ describe('manual intake operation', () => {
   it('treats a terminal archive failure as a source-readiness blocker', async () => {
     const q = (async (sql: string) => {
       expect(sql).toContain('o.dead_lettered_at IS NOT NULL');
-      expect(sql).toContain('starts_with');
+      expect(sql).toContain('staff_evidence_upload_item');
+      expect(sql).toContain("batch.source = 'manual_intake'");
+      expect(sql).not.toContain("'staff:manual_intake:' || op.upload_idempotency_key");
       return [{ pending: false, archiveFailed: true }];
     }) as TxQuery;
     expect(await manualIntakeEvidenceState(q, 'case-archive')).toEqual({
@@ -237,5 +242,46 @@ describe('manual intake operation', () => {
       archiveFailed: true,
     });
     expect(await manualIntakeEvidencePending(q, 'case-archive')).toBe(true);
+  });
+
+  it('keeps a dead-lettered, content-deduped item from an earlier upload key after rebind', async () => {
+    const { q, sqlSeen } = memoryQuery(true);
+    const original = {
+      idempotencyKey: 'manual-create-operation-0011',
+      actor: 'staff-1',
+      requestHash: 'f'.repeat(64),
+      uploadIdempotencyKey: 'manual-upload-operation-old',
+      expectedFileCount: 1,
+      instructionFileIndex: 0,
+    };
+    await beginManualIntakeOperation(q, original);
+    await finishManualIntakeOperation(q, original.idempotencyKey, 'case-rebound', 1);
+    await completeManualIntakeEvidence(q, {
+      caseId: 'case-rebound', uploadIdempotencyKey: original.uploadIdempotencyKey,
+      fileCount: 1, instructionFileIndex: 0,
+    });
+    const rebound = {
+      ...original,
+      uploadIdempotencyKey: 'manual-upload-operation-new',
+    };
+    expect(await beginManualIntakeOperation(q, rebound)).toBe('case-rebound');
+    await completeManualIntakeEvidence(q, {
+      caseId: 'case-rebound', uploadIdempotencyKey: rebound.uploadIdempotencyKey,
+      fileCount: 1, instructionFileIndex: 0,
+    });
+    // Exact replay returns the same case, but the earlier item's terminal archive
+    // state remains visible after the operation moved to the new upload key.
+    expect(await beginManualIntakeOperation(q, rebound)).toBe('case-rebound');
+    expect(await manualIntakeEvidenceState(q, 'case-rebound')).toEqual({
+      pending: false,
+      archiveFailed: true,
+    });
+    const sql = sqlSeen.join('\n');
+    expect(sql).toContain('item.evidence_id IS NOT NULL');
+    expect(sql).toContain('o.evidence_id = item.evidence_id');
+    expect(sql).toContain('batch.case_id = $1');
+    // No current operation upload key participates: all earlier/rebound item links
+    // remain visible, including links to evidence deduped from another source.
+    expect(sql).not.toContain('op.upload_idempotency_key');
   });
 });

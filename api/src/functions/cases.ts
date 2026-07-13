@@ -1242,9 +1242,14 @@ app.http('retryManualIntakeArchive', {
                   next_attempt_at = now(), last_attempt_at = NULL, last_error = NULL,
                   dead_lettered_at = NULL, dead_letter_reason = NULL, updated_at = now()
              FROM evidence e
+             JOIN staff_evidence_upload_item item ON item.evidence_id = e.id
+             JOIN staff_evidence_upload batch
+               ON batch.idempotency_key = item.idempotency_key
+              AND batch.case_id = item.case_id
             WHERE o.evidence_id = e.id
               AND e.case_id = $1
-              AND e.source_message_id LIKE 'staff:manual_intake:%'
+              AND batch.case_id = $1
+              AND batch.source = 'manual_intake'
               AND o.dead_lettered_at IS NOT NULL
           RETURNING o.evidence_id`,
           [caseId],

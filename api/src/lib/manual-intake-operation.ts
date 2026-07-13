@@ -267,15 +267,14 @@ export async function manualIntakeEvidenceState(
      ) AS pending,
      EXISTS (
        SELECT 1
-         FROM manual_intake_case_create_operation op
-         JOIN evidence e
-           ON e.case_id = op.case_id
-          AND starts_with(
-                e.source_message_id,
-                'staff:manual_intake:' || op.upload_idempotency_key || ':'
-              )
-         JOIN archive_mirror_outbox o ON o.evidence_id = e.id
-        WHERE op.case_id = $1
+         FROM staff_evidence_upload batch
+         JOIN staff_evidence_upload_item item
+           ON item.idempotency_key = batch.idempotency_key
+          AND item.case_id = batch.case_id
+          AND item.evidence_id IS NOT NULL
+         JOIN archive_mirror_outbox o ON o.evidence_id = item.evidence_id
+        WHERE batch.case_id = $1
+          AND batch.source = 'manual_intake'
           AND o.dead_lettered_at IS NOT NULL
      ) AS "archiveFailed"`,
     [caseId],

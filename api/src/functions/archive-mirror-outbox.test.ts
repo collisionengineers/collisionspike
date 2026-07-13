@@ -53,6 +53,8 @@ function mockCompletion(row: {
   attempt_count?: number;
   dead_lettered_at?: string | null;
 }): void {
+  let attemptCount = Number(row.attempt_count ?? 0);
+  let deadLetteredAt = row.dead_lettered_at ?? null;
   db.query.mockResolvedValue([{ case_id: 'case-1' }]);
   db.txQuery.mockImplementation(async (sql: string) => {
     if (sql.includes('pg_advisory_xact_lock')) return [];
@@ -72,15 +74,20 @@ function mockCompletion(row: {
       return [{
         requested_generation: row.requested_generation,
         completed_generation: row.completed_generation,
+        attempt_count: attemptCount,
+        dead_lettered_at: deadLetteredAt,
       }];
     }
     if (/UPDATE archive_mirror_outbox/.test(sql) && /next_attempt_at/.test(sql)) {
+      attemptCount += 1;
+      deadLetteredAt = attemptCount >= 8 ? '2026-07-11T20:00:00Z' : null;
       return [{
         next_attempt_at: '2026-07-11T20:00:00Z',
-        dead_lettered_at: Number(row.attempt_count ?? 0) + 1 >= 8
-          ? '2026-07-11T20:00:00Z'
-          : null,
+        dead_lettered_at: deadLetteredAt,
       }];
+    }
+    if (sql.includes('status_recompute_requested_generation')) {
+      return [{ status_recompute_requested_generation: 1 }];
     }
     return [];
   });
@@ -133,7 +140,7 @@ describe('archive mirror outbox internal routes', () => {
     expect(String(update[0])).toContain('power(2, LEAST(attempt_count, 6))');
   });
 
-  it('dead-letters the eighth failure so it leaves the automatic pending page', async () => {
+  it('dead-letters the eighth failure, queues status recompute once, and ignores stale defer replay', async () => {
     mockCompletion({
       requested_generation: 3,
       completed_generation: 1,
@@ -150,6 +157,20 @@ describe('archive mirror outbox internal routes', () => {
       pending: false,
       deadLettered: true,
     });
+    expect(db.txQuery.mock.calls.find(([sql]) =>
+      String(sql).includes('SELECT requested_generation, completed_generation'))?.[0])
+      .toContain('attempt_count, dead_lettered_at');
+    expect(db.txQuery.mock.calls.filter(([sql]) =>
+      String(sql).includes('status_recompute_requested_generation'))).toHaveLength(1);
+
+    const replay = await defer(request({
+      id: 'ev-1', generation: 3, reason: 'archive activity failed',
+    }), ctx);
+    expect(replay.jsonBody).toEqual({ deferred: false, pending: false, deadLettered: true });
+    expect(db.txQuery.mock.calls.filter(([sql]) =>
+      String(sql).includes('attempt_count = attempt_count + 1'))).toHaveLength(1);
+    expect(db.txQuery.mock.calls.filter(([sql]) =>
+      String(sql).includes('status_recompute_requested_generation'))).toHaveLength(1);
   });
 
   it('lets eligible work beyond a capped poison page surface after those rows are deferred', async () => {

@@ -11,6 +11,7 @@ import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } 
 import { authenticate, toErrorResponse } from '../lib/auth.js';
 import { query, tx } from '../lib/db.js';
 import { lockCaseForMutation } from '../lib/case-mutation-locks.js';
+import { requestStatusRecompute } from '../lib/status-recompute.js';
 
 interface PendingArchiveMirrorRow extends Record<string, unknown> {
   evidenceId: string;
@@ -275,7 +276,7 @@ app.http('internalArchiveMirrorOutboxDefer', {
             attempt_count: string | number;
             dead_lettered_at: Date | string | null;
           }>(
-            `SELECT requested_generation, completed_generation
+            `SELECT requested_generation, completed_generation, attempt_count, dead_lettered_at
                FROM archive_mirror_outbox
               WHERE evidence_id = $1
               FOR UPDATE`,
@@ -323,6 +324,11 @@ app.http('internalArchiveMirrorOutboxDefer', {
             RETURNING next_attempt_at, dead_lettered_at`,
             [evidenceId, generation, reason, ARCHIVE_MIRROR_MAX_ATTEMPTS],
           );
+          if (rows[0]?.dead_lettered_at != null) {
+            // Terminal archive failure changes canonical source readiness. Queue the
+            // status evaluation in this same commit so Review cannot remain stale.
+            await requestStatusRecompute(q, lockedCase.caseId);
+          }
           return {
             kind: 'done' as const,
             value: {

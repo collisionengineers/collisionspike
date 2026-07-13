@@ -451,7 +451,9 @@ describe('POST /api/cases — assistant create_case normalization', () => {
     expect(response).toEqual({ status: 200, jsonBody: { requeued: 2 } });
     const update = callsContaining('UPDATE archive_mirror_outbox o')[0];
     expect(String(update[0])).toContain('dead_lettered_at = NULL');
-    expect(String(update[0])).toContain("source_message_id LIKE 'staff:manual_intake:%'");
+    expect(String(update[0])).toContain('staff_evidence_upload_item item');
+    expect(String(update[0])).toContain("batch.source = 'manual_intake'");
+    expect(String(update[0])).not.toContain('source_message_id LIKE');
     expect(callsContaining('INSERT INTO audit_event')).toHaveLength(1);
   });
 });
