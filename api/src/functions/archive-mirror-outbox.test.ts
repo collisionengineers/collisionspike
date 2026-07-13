@@ -144,6 +144,11 @@ describe('archive mirror outbox internal routes', () => {
     expect(update[1]).toEqual(['ev-1', 3, 'no_folder', 8, false]);
     expect(String(update[0])).toContain('requested_generation = $2');
     expect(String(update[0])).toContain('power(2, LEAST(attempt_count, 6))');
+    // `$3` is assigned to varchar-backed columns and also participates in a CASE.
+    // Keep every occurrence explicitly text-typed so PostgreSQL does not reject
+    // the prepared statement with 42P08 (text versus character varying).
+    expect(String(update[0]).match(/\$3::text/g)).toHaveLength(2);
+    expect(String(update[0])).not.toMatch(/\$3(?!::text)/);
   });
 
   it('dead-letters the eighth failure, queues status recompute once, and ignores stale defer replay', async () => {

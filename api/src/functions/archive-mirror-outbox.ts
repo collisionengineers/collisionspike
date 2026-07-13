@@ -319,11 +319,11 @@ app.http('internalArchiveMirrorOutboxDefer', {
             `UPDATE archive_mirror_outbox
                 SET attempt_count = attempt_count + 1,
                     last_attempt_at = now(),
-                    last_error = $3,
+                    last_error = $3::text,
                     dead_lettered_at = CASE
                       WHEN $5 AND attempt_count + 1 >= $4 THEN now() ELSE NULL END,
                     dead_letter_reason = CASE
-                      WHEN $5 AND attempt_count + 1 >= $4 THEN $3 ELSE NULL END,
+                      WHEN $5 AND attempt_count + 1 >= $4 THEN $3::text ELSE NULL END,
                     next_attempt_at = CASE
                       WHEN $5 AND attempt_count + 1 >= $4 THEN now()
                       ELSE now() + make_interval(
