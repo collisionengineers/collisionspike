@@ -8,7 +8,7 @@ Deployment and the ticket-required disposable live-case proof remain owned by th
 ## Offline evidence
 
 - Domain: **56 files / 1,138 tests passed**.
-- Data API: **64 files / 642 tests passed**.
+- Data API: **64 files / 645 tests passed**.
 - Orchestration: **30 files / 417 tests passed**.
 - SPA: **41 files / 468 tests passed**.
 - Production TypeScript builds passed for Domain and the Data API; the SPA TypeScript/Vite build
@@ -32,6 +32,12 @@ Regression coverage includes:
   route covering every Manual Intake item binding on the case;
 - source-readiness-only merge helpers that preserve unrelated dirty case-edit values for the audited
   TKT-153 integration;
+- merge ownership transfer for operations/batches/items, collision-item rebinding to canonical
+  evidence, incomplete-operation refusal and a full merge→later dead-letter→survivor Not Ready→retry
+  sequence;
+- multiple completed operation bindings on a merged survivor remain exact by upload key;
+- explicit-save compatibility snapshot updates draft, persisted baseline and concurrency version while
+  preserving dirty field values;
 - the canonical source-evidence readiness blocker and locked EVA submission check;
 - picker/server format and size agreement.
 
@@ -46,7 +52,9 @@ Regression coverage includes:
    another case, Case/PO, evidence row or archive folder.
 5. Force a disposable source mirror through the terminal retry threshold, prove the case remains Not
    Ready, then use the Evidence retry and prove the same evidence generation resumes.
-6. Prove the archive mirror only beneath test root `392761581105`; do not mutate production folders.
-7. Prove the persisted instruction can be fetched through the evidence-content/remediation path.
+6. Merge a disposable source case into a survivor before its canonical evidence later dead-letters;
+   prove the failure and retry remain on the survivor and the retired case owns no active batch/item.
+7. Prove the archive mirror only beneath test root `392761581105`; do not mutate production folders.
+8. Prove the persisted instruction can be fetched through the evidence-content/remediation path.
 
 No live resources, Outlook mail or Box content were mutated during this implementation/review pass.

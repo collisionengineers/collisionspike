@@ -21,6 +21,8 @@ loop still owns the ticket-status move, database delta, deployment and independe
   recovery.
 - `0f3f034` — make terminal archive state atomically recompute canonical status and preserve
   earlier-key/content-dedup source failures across changed-selection rebinds.
+- `a492e18` — preserve Manual Intake operation, batch, item and canonical evidence ownership through
+  case merges, including the later dead-letter and survivor retry lifecycle.
 
 ## Files touched
 
@@ -66,7 +68,7 @@ complete while the persisted status is still Not Ready.
 ## Offline checks
 
 - Full Domain suite: **1,138 tests passed**.
-- Full API suite: **642 tests passed**.
+- Full API suite: **645 tests passed**.
 - Full orchestration suite: **417 tests passed**.
 - Full SPA suite: **468 tests passed**.
 - Production TypeScript builds passed for Domain, API, orchestration and the SPA; the Vite bundle was
@@ -139,13 +141,32 @@ complete while the persisted status is still Not Ready.
   isolated in `ManualSourceArchiveRecovery.tsx`, so an explicit-save integration can retain the action
   without replacing unsaved field values.
 
-### TKT-153 integration contract (audited at head `075a691`)
+### TKT-153 integration contract (audited after merge at `ab2d677`)
 
-Do not merge either branch mechanically. TKT-153's current `rest-client.ts` removes TKT-166's
+Do not merge either implementation mechanically. The merged TKT-153 `rest-client.ts` removes TKT-166's
 create-operation headers, per-file roles/completion result and archive retry while adding
 `saveCaseEdits`; the semantic result must contain both contracts. Its `CaseDetail.tsx` removes the
-source recovery surface while adding the explicit draft/save session. Preserve
-`ManualSourceArchiveRecovery` in the Evidence tab and, on recovery, apply
-`mergeSourceReadinessIntoCase` to both the draft and persisted baseline so canonical status/source
-flags refresh without overwriting dirty EVA fields. Keep TKT-153's Save/Discard/concurrency behavior
+source recovery surface while adding the explicit draft/save session. The API's explicit-save
+`statusForReviewCase` input must spread `sourceReadinessInputForCase(existing)` after the full snapshot
+has restored `manualIntakeEvidenceState`; otherwise Save can promote a source-blocked case. Preserve
+`ManualSourceArchiveRecovery` in the Evidence tab and use `sourceReadinessRecoverySnapshot` after its
+fresh read to update the draft, persisted baseline and `caseVersion` together. This retains dirty EVA
+fields while making the next If-Match current. Keep TKT-153's Save/Discard/concurrency behavior
 unchanged. TKT-024 remains a separate semantic integration for `ManualIntake.tsx` and was not merged.
+
+## Merge lifecycle follow-up — 2026-07-13
+
+- A merge now locks both cases' Manual Intake operations and refuses the merge while either create
+  side effects or selected source batch is incomplete. Completed historical operations are safe to
+  transfer to the survivor.
+- Non-colliding staff upload items, batches and Manual Intake operations move to the survivor with
+  their evidence. For a SHA collision, every item that referenced the redundant source evidence is
+  rebound to the canonical target evidence before the source retires. Content-dedup and rebound
+  identities therefore continue to drive survivor readiness and retry.
+- The operation `case_id` is no longer unique: a merge can legitimately leave multiple completed
+  historical create operations on one survivor. Exact upload-key predicates keep their replay and
+  completion bindings separate; operation/upload keys themselves remain unique.
+- The regression sequence merges a rebound old-key/content-dedup instruction, applies a later archive
+  dead-letter to the canonical survivor evidence, proves the survivor evaluates Not Ready, then proves
+  the survivor retry clears that same outbox row. A separate test proves an incomplete operation blocks
+  the merge before evidence moves.

@@ -53,7 +53,9 @@ readiness recomputes consult the new manual-intake operation row. After the delt
 before the SPA so a cached SPA continues to create cases without the optional retry headers, while
 the new SPA can safely replay one case and its exact source-file batch. The same additive delta adds
 the archive terminal-state columns and replaces the pending index; apply it before publishing the API
-that filters dead-lettered work or exposes the Evidence retry action.
+that filters dead-lettered work or exposes the Evidence retry action. It also removes the operation
+table's one-case/one-operation uniqueness and adds a non-unique case index so completed source
+operations can follow a merge survivor; the API merge transfer depends on that DDL.
 
 ## Procedure — SPA (Static Web App)
 `npm run build` in `mockup-app/` — the four public `VITE_*` values are **committed in
