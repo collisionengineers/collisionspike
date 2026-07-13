@@ -1116,6 +1116,8 @@ export async function handleEvidenceUpload(
           error: 'The files were added, but this case still needs the retry to be confirmed.',
         },
       };
+    }
+
     return {
       status: rejected.length ? (added.length ? 207 : 400) : created > 0 ? 201 : 200,
       jsonBody: {
