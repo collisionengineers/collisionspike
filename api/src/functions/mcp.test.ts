@@ -1,12 +1,21 @@
 import { describe, it, expect, vi } from 'vitest';
-import { handleMcpMessage, MCP_PROTOCOL_VERSION } from './mcp.js';
+import { handleMcpMessage } from './mcp.js';
 import { IMAGE_INGEST_TOOLS } from './mcp-image-ingestion.js';
 
 const okExec = vi.fn(async (_name: string, _args: Record<string, unknown>) => ({ matches: [] }));
 
 describe('MCP JSON-RPC handler (TKT-110)', () => {
   it('initialize echoes the client protocol version + advertises tools capability', async () => {
-    const res = (await handleMcpMessage({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-03-26' } }, okExec))!;
+    const res = (await handleMcpMessage({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-03-26',
+        capabilities: {},
+        clientInfo: { name: 'unit-client', version: '1.0.0' },
+      },
+    }, okExec))!;
     expect(res.result).toMatchObject({
       protocolVersion: '2025-03-26',
       capabilities: { tools: { listChanged: false } },
@@ -14,9 +23,9 @@ describe('MCP JSON-RPC handler (TKT-110)', () => {
     });
   });
 
-  it('initialize falls back to the server default version when the client omits one', async () => {
+  it('initialize requires the protocol version, capabilities and client identity', async () => {
     const res = (await handleMcpMessage({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} }, okExec))!;
-    expect((res.result as { protocolVersion: string }).protocolVersion).toBe(MCP_PROTOCOL_VERSION);
+    expect(res.error).toMatchObject({ code: -32602 });
   });
 
   it('tools/list exposes ONLY read tools — never a write or destructive tool (C1)', async () => {
@@ -127,6 +136,18 @@ describe('MCP JSON-RPC handler (TKT-110)', () => {
       method: 'tools/call',
       params: { name: 'lookup_case', arguments: [] as unknown as Record<string, unknown> },
     }, okExec))?.error).toMatchObject({ code: -32602 });
+  });
+
+  it('strictly distinguishes requests, notifications and responses', async () => {
+    for (const invalid of [
+      { jsonrpc: '2.0', id: 1, result: {} },
+      { jsonrpc: '2.0', id: null, method: 'ping' },
+      { jsonrpc: '2.0', id: 1.5, method: 'ping' },
+      { jsonrpc: '2.0', method: 'tools/list' },
+      { jsonrpc: '2.0', id: 1, method: 'notifications/initialized' },
+    ]) {
+      expect((await handleMcpMessage(invalid, okExec))?.error).toMatchObject({ code: -32600 });
+    }
   });
 
   it('marks business failures as tool errors with structured content and hides thrown details', async () => {

@@ -28,6 +28,12 @@ vi.mock('@cs/domain', () => ({
   capabilityByName: () => undefined,
 }));
 vi.mock('./assistant.js', () => ({ execTool: vi.fn() }));
+const SESSION_ID = '22222222-2222-4222-8222-222222222222';
+vi.mock('../lib/mcp-session.js', () => ({
+  createMcpSession: vi.fn(async () => SESSION_ID),
+  markMcpSessionInitialized: vi.fn(async () => true),
+  touchReadyMcpSession: vi.fn(async () => true),
+}));
 vi.mock('./mcp-image-ingestion.js', () => ({
   IMAGE_INGEST_TOOLS: [
     { name: 'lookup_open_case_by_registration', description: 'lookup', inputSchema: { type: 'object' } },
@@ -40,6 +46,7 @@ vi.mock('./mcp-image-ingestion.js', () => ({
 }));
 
 await import('./mcp.js');
+const sessionMocks = await import('../lib/mcp-session.js');
 const route = registrations.get('mcpServer')!.handler;
 const ctx = { error: vi.fn(), log: vi.fn(), warn: vi.fn() } as unknown as InvocationContext;
 const openServers: Array<ReturnType<typeof createServer>> = [];
@@ -63,6 +70,12 @@ describe('published MCP standard client compatibility', () => {
             .filter((entry): entry is [string, string | string[]] => entry[1] !== undefined)
             .map(([key, value]) => [key, Array.isArray(value) ? value.join(', ') : value]),
         ),
+        body: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(Buffer.concat(chunks));
+            controller.close();
+          },
+        }),
         json: async () => JSON.parse(Buffer.concat(chunks).toString('utf8')),
       } as unknown as HttpRequest;
       const response = await route(request, ctx);
@@ -101,6 +114,17 @@ describe('published MCP standard client compatibility', () => {
         isError: true,
         structuredContent: { ok: false, code: 'no_match', registration: 'SP23OBX' },
       });
+      expect(sessionMocks.createMcpSession).toHaveBeenCalledWith('sdk-test', '2025-06-18');
+      expect(sessionMocks.markMcpSessionInitialized).toHaveBeenCalledWith(
+        SESSION_ID,
+        'sdk-test',
+        '2025-06-18',
+      );
+      expect(sessionMocks.touchReadyMcpSession).toHaveBeenCalledWith(
+        SESSION_ID,
+        'sdk-test',
+        '2025-06-18',
+      );
     } finally {
       await transport.close();
     }

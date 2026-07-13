@@ -1,7 +1,8 @@
 /**
  * api/src/functions/mcp.ts — MCP server for external agents (TKT-110/TKT-154, ADR-0023).
  *
- *   POST /api/mcp   a stateless Streamable-HTTP MCP endpoint (JSON-RPC 2.0).
+ *   POST /api/mcp   a Streamable-HTTP MCP endpoint (JSON-RPC 2.0) with a
+ *                   Postgres-backed initialize -> ready session lifecycle.
  *
  * Hosted ON the existing Data API Function App (no Container App / ACR for the spike). Behind
  * `MCP_SERVER_ENABLED` (default OFF) — while off it 404-gates (dark). The route authenticates once
@@ -21,6 +22,21 @@ import { authenticate, mcpPrincipalKind, toErrorResponse } from '../lib/auth.js'
 import { execTool } from './assistant.js';
 import type { ToolExecutor } from '../lib/aoai-chat.js';
 import {
+  CallToolRequestSchema,
+  CancelledNotificationSchema,
+  InitializedNotificationSchema,
+  InitializeRequestSchema,
+  JSONRPCNotificationSchema,
+  JSONRPCRequestSchema,
+  ListToolsRequestSchema,
+  PingRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js';
+import {
+  createMcpSession,
+  markMcpSessionInitialized,
+  touchReadyMcpSession,
+} from '../lib/mcp-session.js';
+import {
   executeImageIngestTool,
   IMAGE_INGEST_TOOLS,
   MCP_IMAGE_INGEST_MAX_HTTP_BODY_BYTES,
@@ -35,9 +51,92 @@ const SUPPORTED_PROTOCOL_VERSIONS = new Set([MCP_PROTOCOL_VERSION, '2025-03-26']
 
 interface RpcMessage {
   jsonrpc?: string;
-  id?: string | number | null;
+  id?: unknown;
   method?: string;
+  params?: unknown;
+}
+
+type ValidRpcMessage = {
+  jsonrpc: '2.0';
+  id?: string | number;
+  method: string;
   params?: Record<string, unknown>;
+};
+
+type RpcValidation =
+  | { ok: true; message: ValidRpcMessage; notification: boolean }
+  | { ok: false; id: string | number | null; message: string; code?: number };
+
+function plainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function validRequestId(value: unknown): value is string | number {
+  return typeof value === 'string'
+    || (typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value));
+}
+
+/** Runtime twin of the MCP SDK's strict request/notification schemas. */
+export function validateMcpMessage(value: unknown): RpcValidation {
+  if (!plainObject(value)) return { ok: false, id: null, message: 'Invalid JSON-RPC request.' };
+  const hasId = Object.prototype.hasOwnProperty.call(value, 'id');
+  const genericEnvelope = hasId
+    ? JSONRPCRequestSchema.safeParse(value)
+    : JSONRPCNotificationSchema.safeParse(value);
+  if (!genericEnvelope.success) {
+    return {
+      ok: false,
+      id: hasId && validRequestId(value.id) ? value.id : null,
+      message: 'Invalid JSON-RPC request or response envelope.',
+    };
+  }
+  if (typeof value.method !== 'string' || !value.method) {
+    return { ok: false, id: null, message: 'Invalid JSON-RPC request.' };
+  }
+  const params = value.params as Record<string, unknown> | undefined;
+  const notification = !hasId;
+  if (notification && !value.method.startsWith('notifications/')) {
+    return { ok: false, id: null, message: 'Requests require an id.' };
+  }
+  if (!notification && value.method.startsWith('notifications/')) {
+    return { ok: false, id: value.id as string | number, message: 'Notifications must not include an id.' };
+  }
+  if (value.method === 'initialize') {
+    if (notification || !InitializeRequestSchema.safeParse(value).success) {
+      return { ok: false, id: hasId ? value.id as string | number : null, message: 'Invalid initialize request.', code: -32602 };
+    }
+  }
+  if (value.method === 'notifications/initialized') {
+    if (!notification || !InitializedNotificationSchema.safeParse(value).success) {
+      return { ok: false, id: hasId ? value.id as string | number : null, message: 'Invalid initialized notification.' };
+    }
+  }
+  if (value.method === 'notifications/cancelled') {
+    if (!notification || !CancelledNotificationSchema.safeParse(value).success) {
+      return { ok: false, id: null, message: 'Invalid cancelled notification.', code: -32602 };
+    }
+  }
+  if (value.method === 'tools/call') {
+    if (!CallToolRequestSchema.safeParse(value).success) {
+      return { ok: false, id: value.id as string | number, message: 'Tool arguments must be an object.', code: -32602 };
+    }
+  }
+  if (value.method === 'tools/list' && !ListToolsRequestSchema.safeParse(value).success) {
+    return { ok: false, id: value.id as string | number, message: 'Invalid tools/list request.', code: -32602 };
+  }
+  if (value.method === 'ping' && !PingRequestSchema.safeParse(value).success) {
+    return { ok: false, id: value.id as string | number, message: 'Invalid ping request.', code: -32602 };
+  }
+  return {
+    ok: true,
+    message: {
+      jsonrpc: '2.0',
+      ...(hasId ? { id: value.id as string | number } : {}),
+      method: value.method,
+      ...(params ? { params } : {}),
+    },
+    notification,
+  };
 }
 
 function rpcResult(id: unknown, result: unknown): Record<string, unknown> {
@@ -65,11 +164,10 @@ export async function handleMcpMessage(
   exec: ToolExecutor,
   toolDefinitions: readonly McpToolDefinition[] = readonlyToolDefinitions(),
 ): Promise<Record<string, unknown> | null> {
-  if (!msg || typeof msg !== 'object' || msg.jsonrpc !== '2.0') {
-    return rpcError(null, -32600, 'invalid request');
-  }
-  const { id, method, params } = msg;
-  const isNotification = id === undefined;
+  const validation = validateMcpMessage(msg);
+  if (!validation.ok) return rpcError(validation.id, validation.code ?? -32600, validation.message);
+  const { id, method, params } = validation.message;
+  const isNotification = validation.notification;
   if (isNotification && method !== 'notifications/initialized' && method !== 'notifications/cancelled') {
     return null;
   }
@@ -179,15 +277,67 @@ function protocolHeaderValid(req: HttpRequest, body: unknown): boolean {
   return SUPPORTED_PROTOCOL_VERSIONS.has(supplied);
 }
 
-function rateLimitKey(claims: Record<string, unknown>): string {
+function protocolVersionFromHeader(req: HttpRequest): string {
+  return req.headers.get('mcp-protocol-version') ?? '2025-03-26';
+}
+
+function principalKey(claims: Record<string, unknown>): string {
   for (const key of ['azp', 'appid', 'oid', 'sub']) {
     if (typeof claims[key] === 'string' && claims[key]) return String(claims[key]);
   }
   return 'unknown-image-ingest-principal';
 }
 
-function responseHeaders(): Record<string, string> {
-  return { 'MCP-Protocol-Version': MCP_PROTOCOL_VERSION };
+function responseHeaders(
+  sessionId?: string,
+  protocolVersion = MCP_PROTOCOL_VERSION,
+): Record<string, string> {
+  return {
+    'MCP-Protocol-Version': protocolVersion,
+    ...(sessionId ? { 'Mcp-Session-Id': sessionId } : {}),
+  };
+}
+
+type BodyRead =
+  | { ok: true; value: unknown }
+  | { ok: false; reason: 'too_large' | 'parse' | 'unbounded' };
+
+async function readRequestJson(req: HttpRequest, maxBytes?: number): Promise<BodyRead> {
+  if (maxBytes !== undefined) {
+    const suppliedLength = Number(req.headers.get('content-length') ?? 0);
+    if (Number.isFinite(suppliedLength) && suppliedLength > maxBytes) {
+      return { ok: false, reason: 'too_large' };
+    }
+    if (!req.body) return { ok: false, reason: 'unbounded' };
+  }
+  if (maxBytes !== undefined && req.body) {
+    const reader = req.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const bytes = value instanceof Uint8Array ? value : new Uint8Array(value as ArrayBuffer);
+        total += bytes.byteLength;
+        if (total > maxBytes) {
+          await reader.cancel('request body too large').catch(() => undefined);
+          return { ok: false, reason: 'too_large' };
+        }
+        chunks.push(bytes);
+      }
+      return { ok: true, value: JSON.parse(Buffer.concat(chunks, total).toString('utf8')) };
+    } catch {
+      return { ok: false, reason: 'parse' };
+    } finally {
+      reader.releaseLock();
+    }
+  }
+  try {
+    return { ok: true, value: await req.json() };
+  } catch {
+    return { ok: false, reason: 'parse' };
+  }
 }
 
 // GET/POST /api/mcp (GET intentionally returns 405 because this stateless server exposes no SSE stream).
@@ -217,11 +367,7 @@ app.http('mcpServer', {
         return { status: 406, headers: responseHeaders(), jsonBody: rpcError(null, -32600, 'Accept must include application/json and text/event-stream') };
       }
       if (principal === 'image_ingest_agent') {
-        const suppliedLength = Number(req.headers.get('content-length') ?? 0);
-        if (Number.isFinite(suppliedLength) && suppliedLength > MCP_IMAGE_INGEST_MAX_HTTP_BODY_BYTES) {
-          return { status: 413, headers: responseHeaders(), jsonBody: rpcError(null, -32600, 'Request body is too large') };
-        }
-        if (!await consumeImageIngestRateLimit(rateLimitKey(claims as Record<string, unknown>))) {
+        if (!await consumeImageIngestRateLimit(principalKey(claims as Record<string, unknown>))) {
           return {
             status: 429,
             headers: { ...responseHeaders(), 'Retry-After': '60' },
@@ -229,14 +375,30 @@ app.http('mcpServer', {
           };
         }
       }
-      let body: unknown;
-      try {
-        body = await req.json();
-      } catch {
-        return { status: 400, headers: responseHeaders(), jsonBody: rpcError(null, -32700, 'parse error') };
+      const bodyRead = await readRequestJson(
+        req,
+        principal === 'image_ingest_agent' ? MCP_IMAGE_INGEST_MAX_HTTP_BODY_BYTES : undefined,
+      );
+      if (!bodyRead.ok) {
+        const status = bodyRead.reason === 'too_large' ? 413 : bodyRead.reason === 'unbounded' ? 411 : 400;
+        const message = bodyRead.reason === 'too_large'
+          ? 'Request body is too large'
+          : bodyRead.reason === 'unbounded'
+            ? 'A bounded request body stream is required'
+            : 'parse error';
+        return {
+          status,
+          headers: responseHeaders(),
+          jsonBody: rpcError(null, bodyRead.reason === 'parse' ? -32700 : -32600, message),
+        };
       }
+      const body = bodyRead.value;
       if (Array.isArray(body)) {
         return { status: 400, headers: responseHeaders(), jsonBody: rpcError(null, -32600, 'JSON-RPC batches are not supported') };
+      }
+      const validated = validateMcpMessage(body);
+      if (!validated.ok) {
+        return { status: 400, headers: responseHeaders(), jsonBody: rpcError(validated.id, validated.code ?? -32600, validated.message) };
       }
       if (!protocolHeaderValid(req, body)) {
         return { status: 400, headers: responseHeaders(), jsonBody: rpcError(null, -32600, 'Unsupported MCP-Protocol-Version') };
@@ -248,10 +410,34 @@ app.http('mcpServer', {
         ? (name, args) => executeImageIngestTool(name, args, { claims, context: ctx })
         : (name, args) => execTool(name, args);
 
-      const result = await handleMcpMessage(body as RpcMessage, exec, tools);
+      const principalId = principalKey(claims as Record<string, unknown>);
+      const suppliedSessionId = req.headers.get('mcp-session-id') ?? '';
+      if (validated.message.method === 'initialize') {
+        if (suppliedSessionId) {
+          return { status: 400, headers: responseHeaders(), jsonBody: rpcError(validated.message.id, -32600, 'Initialize must be the first session interaction') };
+        }
+        const result = await handleMcpMessage(validated.message, exec, tools);
+        const requestedVersion = String(validated.message.params?.protocolVersion ?? '');
+        const negotiatedVersion = SUPPORTED_PROTOCOL_VERSIONS.has(requestedVersion)
+          ? requestedVersion
+          : MCP_PROTOCOL_VERSION;
+        const sessionId = await createMcpSession(principalId, negotiatedVersion);
+        return { status: 200, headers: responseHeaders(sessionId, negotiatedVersion), jsonBody: result };
+      }
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(suppliedSessionId)) {
+        return { status: 400, headers: responseHeaders(), jsonBody: rpcError(validated.message.id, -32600, 'A valid initialized MCP session is required') };
+      }
+      const protocolVersion = protocolVersionFromHeader(req);
+      const sessionReady = validated.message.method === 'notifications/initialized'
+        ? await markMcpSessionInitialized(suppliedSessionId, principalId, protocolVersion)
+        : await touchReadyMcpSession(suppliedSessionId, principalId, protocolVersion);
+      if (!sessionReady) {
+        return { status: 400, headers: responseHeaders(), jsonBody: rpcError(validated.message.id, -32600, 'MCP session is not initialized or has expired') };
+      }
+      const result = await handleMcpMessage(validated.message, exec, tools);
       return result
-        ? { status: 200, headers: responseHeaders(), jsonBody: result }
-        : { status: 202, headers: responseHeaders() };
+        ? { status: 200, headers: responseHeaders(suppliedSessionId, protocolVersion), jsonBody: result }
+        : { status: 202, headers: responseHeaders(suppliedSessionId, protocolVersion) };
     } catch (error) {
       return toErrorResponse(error, ctx);
     }

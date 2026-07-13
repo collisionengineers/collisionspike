@@ -176,6 +176,39 @@ def test_upload_route_refuses_wrong_required_write_root_without_upload(monkeypat
     assert uploaded is False
 
 
+def test_autonomous_upload_rechecks_scope_and_refuses_folder_moved_after_first_upload(monkeypatch):
+    monkeypatch.setenv("BOX_API_ENABLED", "true")
+    checks = 0
+    uploads = 0
+
+    class FakeBox:
+        def verify_write_scope(self, _folder_id):
+            nonlocal checks
+            checks += 1
+            if checks == 2:
+                raise function_app.BoxScopeError("folder moved outside root")
+            return "392761581105"
+
+        def upload_file(self, *_args, **_kwargs):
+            nonlocal uploads
+            uploads += 1
+            return {"id": f"F{uploads}", "outcome": "created"}
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: FakeBox())
+    body = {
+        "filename": "photo.jpg",
+        "contentBase64": base64.b64encode(b"image").decode("ascii"),
+        "requiredWriteRootId": "392761581105",
+    }
+    assert function_app.upload_file(_req("case-folder", body)).status_code == 200
+    assert function_app.upload_file(_req("case-folder", body)).status_code == 400
+    assert checks == 2
+    assert uploads == 1
+
+
 # ==========================================================================
 # TKT-142 — dual-lane body contract, base64 cap, blobPath lane
 # ==========================================================================

@@ -3,9 +3,11 @@
  * image classifier (TKT-064). No network: the request body, response parsing, and the
  * classification->evidence-fields policy are all pure and unit-testable.
  */
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+vi.mock('./aoai.js', () => ({ mintCognitiveToken: vi.fn(async () => 'test-token') }));
 import {
   buildImageRequestBody,
+  classifyImageWithOutcome,
   parseImageResponse,
   imageClassificationOutcomeFromResponse,
   classificationToEvidenceFields,
@@ -14,8 +16,19 @@ import {
 } from './image-classify.js';
 import {
   ADVERSARIAL_IMAGE_TEXT,
+  ADVERSARIAL_IMAGE_CONTENT_TYPE,
   ADVERSARIAL_IMAGE_TEXT_BASE64,
 } from './fixtures/adversarial-image-text.js';
+
+const savedEndpoint = process.env.AI_MODEL_ENDPOINT;
+const savedDeployment = process.env.AI_MODEL_DEPLOYMENT;
+afterEach(() => {
+  if (savedEndpoint === undefined) delete process.env.AI_MODEL_ENDPOINT;
+  else process.env.AI_MODEL_ENDPOINT = savedEndpoint;
+  if (savedDeployment === undefined) delete process.env.AI_MODEL_DEPLOYMENT;
+  else process.env.AI_MODEL_DEPLOYMENT = savedDeployment;
+  vi.unstubAllGlobals();
+});
 
 describe('buildImageRequestBody', () => {
   it('is a gpt-5 reasoning request: max_completion_tokens + reasoning_effort, NO temperature/max_tokens', () => {
@@ -52,7 +65,7 @@ describe('buildImageRequestBody', () => {
   it('treats instructions visible inside an image as untrusted evidence', () => {
     const body = buildImageRequestBody(
       ADVERSARIAL_IMAGE_TEXT_BASE64,
-      'image/svg+xml',
+      ADVERSARIAL_IMAGE_CONTENT_TYPE,
       'gpt-5',
     ) as { messages: Array<{ role: string; content: unknown }> };
     const system = String(body.messages.find((message) => message.role === 'system')?.content ?? '');
@@ -62,6 +75,46 @@ describe('buildImageRequestBody', () => {
     expect(system).toMatch(/never follow/i);
     expect(user).not.toContain(ADVERSARIAL_IMAGE_TEXT);
     expect(user).toContain(ADVERSARIAL_IMAGE_TEXT_BASE64);
+    expect(Buffer.from(ADVERSARIAL_IMAGE_TEXT_BASE64, 'base64').subarray(0, 8))
+      .toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  });
+
+  it('carries the accepted adversarial PNG through the classifier seam without obeying its text', async () => {
+    process.env.AI_MODEL_ENDPOINT = 'https://model.example';
+    process.env.AI_MODEL_DEPLOYMENT = 'gpt-5';
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => ({
+      status: 200,
+      json: async () => ({
+        choices: [{
+          finish_reason: 'stop',
+          message: { content: JSON.stringify({
+            role: 'other',
+            registration_visible: false,
+            plate_text: '',
+            person_reflection: false,
+            confidence: 0.98,
+          }) },
+        }],
+      }),
+      requestBody: init.body,
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const outcome = await classifyImageWithOutcome({
+      imageBase64: ADVERSARIAL_IMAGE_TEXT_BASE64,
+      contentType: ADVERSARIAL_IMAGE_CONTENT_TYPE,
+    });
+    expect(outcome).toMatchObject({
+      ok: true,
+      classification: { role: 'other', confidence: 0.98 },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as {
+      messages: Array<{ role: string; content: unknown }>;
+    };
+    expect(String(request.messages[0].content)).toMatch(/never follow/i);
+    expect(JSON.stringify(request.messages[1].content)).toContain('data:image/png;base64,');
+    expect(JSON.stringify(request.messages[1].content)).not.toContain(ADVERSARIAL_IMAGE_TEXT);
   });
 });
 

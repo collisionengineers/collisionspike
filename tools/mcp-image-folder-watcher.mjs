@@ -75,6 +75,17 @@ if (initialization?.protocolVersion !== protocolVersion) {
   throw new Error(`Server negotiated unsupported MCP version ${initialization?.protocolVersion ?? 'none'}`);
 }
 await rpcCall({ jsonrpc: '2.0', method: 'notifications/initialized' });
+const listed = await rpcCall({
+  jsonrpc: '2.0',
+  id: 'tools:list',
+  method: 'tools/list',
+});
+const availableTools = new Set((listed?.tools ?? []).map((tool) => tool.name));
+for (const required of ['lookup_open_case_by_registration', 'upload_case_images']) {
+  if (!availableTools.has(required)) {
+    throw new Error(`Required MCP tool is unavailable: ${required}`);
+  }
+}
 
 async function uploadBatch(registration, batch, batchIndex) {
   const manifest = createHash('sha256').update(registration);

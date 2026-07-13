@@ -1006,9 +1006,13 @@ and gates; it does not flip a live gate or create an app-registration.
    `IMAGE_ROLE_CLASSIFY_ENABLED=true`, `BOX_API_ENABLED=true` and
    `BOX_FOLDER_AT_INTAKE_ENABLED=true` on `cespk-orch-dev`. The façade must successfully attest the
    designated case folder under the test root; unset, wrong-root and out-of-root checks must all
-   refuse. Finally run initialize→initialized→tools/list→lookup→upload using a standard MCP client,
+   refuse, including a folder moved after an earlier successful ancestry check. The strict Box check
+   must be a fresh uncached read immediately before upload. Confirm the bounded request stream rejects
+   an oversized request with no `Content-Length`, and apply/read back the new `mcp_http_session` table
+   from the same TKT-154 delta. Finally run initialize→initialized→tools/list→lookup→upload using a standard MCP client,
    not only a raw HTTP probe. Until those reads and the end-to-end evidence are recorded, TKT-154 is
-   code-complete but not live or verified.
+   code-complete but not live or verified. The raster prompt-injection test is offline only; a harmless
+   adversarial-text PNG still requires live-model behavioral proof on the designated test case.
 
 **✅ Vision family — FLIPPED LIVE 2026-07-08 (was "deliberately deferred"):** on your instruction and with
 your **DPIA + `gpt-5` GlobalStandard processing/data-residency-posture sign-off confirmed 2026-07-08** (recorded in

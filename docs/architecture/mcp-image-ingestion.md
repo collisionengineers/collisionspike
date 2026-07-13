@@ -86,19 +86,29 @@ internal id. The response includes the case's current readiness status without e
 
 ## MCP transport contract
 
-The endpoint is a stateless MCP 2025-06-18 Streamable HTTP server. A client must:
+The endpoint uses MCP 2025-06-18 Streamable HTTP with a durable lifecycle session. A client must:
 
 1. `POST` `initialize`, then send `notifications/initialized`;
 2. include `Accept: application/json, text/event-stream` and `Content-Type: application/json`;
-3. send `MCP-Protocol-Version: 2025-06-18` after initialization; and
+3. retain the server-minted `Mcp-Session-Id` and send it with the negotiated
+   `MCP-Protocol-Version` after initialization; and
 4. send one JSON-RPC message per request. JSON-RPC arrays/batches are refused, so uploads cannot run
    concurrently through one HTTP request.
 
-Tool/business refusals are MCP tool results with `isError: true` and `structuredContent`; malformed
-JSON-RPC remains a protocol error. Browser-origin requests are rejected unless their exact Origin is
-listed in `MCP_ALLOWED_ORIGINS` (folder watchers normally send no Origin). The dedicated identity is
-durably limited per minute in Postgres. `Content-Length` and cumulative decoded-size checks run before
-any image buffers are retained. The sample watcher implements the full lifecycle and sends batches
+The published MCP SDK schemas validate request/notification envelopes, initialize fields, integer/string
+request ids, tools params and initialized/cancelled notification shapes at runtime. Response envelopes
+are never accepted as requests. `initialize` must be the first interaction; a Postgres-backed session
+records `initializing → ready`, so scale-out cannot bypass the initialized notification. Tool/business
+refusals are MCP tool results with `isError: true` and `structuredContent`; malformed JSON-RPC remains a
+protocol error. Browser-origin requests are rejected unless their exact Origin is listed in
+`MCP_ALLOWED_ORIGINS` (folder watchers normally send no Origin). The dedicated identity is durably
+limited per minute in Postgres.
+
+The autonomous body is consumed through a byte-counted `ReadableStream` before JSON/Base64
+materialization. `Content-Length` is only an early rejection hint: chunked/HTTP2 requests with no length
+are bounded by the stream counter, and a runtime that supplies neither a stream nor a platform-bounded
+body is refused. Cumulative decoded-size checks then run before image buffers are retained. The sample
+watcher implements the full lifecycle, confirms both required tools via `tools/list`, and sends batches
 sequentially so earlier Base64 batches are released before the next is assembled.
 
 ## Authorization and dark gates
@@ -132,9 +142,10 @@ proof, deploy the Box façade change and read back the Box Function's independen
 `BOX_ALLOWED_ROOT_ID=392761581105` scope lock. The API asks that façade to attest the configured root
 and target-folder ancestry on every lookup/write resolution. Agent-sourced evidence also sends
 `requiredWriteRootId=392761581105` when the asynchronous Archive worker performs the actual upload;
-the façade repeats strict attestation immediately before bytes leave it. An unset lock, wrong lock or
-out-of-root folder therefore fails closed at both points. Do not enable this lane for a different root
-during this programme.
+the façade performs a fresh, uncached `path_collection` read immediately before bytes leave it. The
+strict path never trusts a prior ancestry cache, so a case folder moved after lookup is refused. An
+unset lock, wrong lock, moved folder or other out-of-root folder therefore fails closed at both points.
+Do not enable this lane for a different root during this programme.
 
 The existing downstream path must also be live on orchestration before the MCP gate is enabled:
 
@@ -147,7 +158,9 @@ BOX_FOLDER_AT_INTAKE_ENABLED=true
 Read all three settings back from `cespk-orch-dev`; otherwise durable evidence can remain pending and
 the MCP tool must never claim completion. The image-classifier prompt treats all visible image text,
 QR codes, captions and metadata as untrusted evidence and never follows instructions embedded in a
-photo.
+photo. Offline coverage sends a real accepted PNG bearing adversarial visible text through the mocked
+classifier HTTP seam; behavioral proof against the live model remains pending and must not be inferred
+from that deterministic test.
 
 Apply `migration/assets/schema/deltas/2026-07-12-tkt154-mcp-image-ingestion.sql` before deploying the
 API. Deploy the Box façade, API and orchestration changes before enabling the gate. The sample one-pass folder scanner is [`tools/mcp-image-folder-watcher.mjs`](../../tools/mcp-image-folder-watcher.mjs).

@@ -64,4 +64,33 @@ BEGIN
   END IF;
 END $$;
 
+CREATE TABLE IF NOT EXISTS mcp_http_session (
+  session_id        uuid PRIMARY KEY,
+  principal_id      varchar(200) NOT NULL,
+  protocol_version  varchar(32) NOT NULL,
+  phase             varchar(16) NOT NULL CHECK (phase IN ('initializing', 'ready')),
+  initialized_at    timestamptz,
+  last_seen_at      timestamptz NOT NULL DEFAULT now(),
+  expires_at        timestamptz NOT NULL,
+  created_at        timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_mcp_http_session_expiry ON mcp_http_session (expires_at);
+ALTER TABLE mcp_http_session ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mcp_http_session FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS p_mcp_http_session_rw ON mcp_http_session;
+CREATE POLICY p_mcp_http_session_rw ON mcp_http_session
+  USING (current_setting('app.role', true) IN ('staff','admin'))
+  WITH CHECK (current_setting('app.role', true) IN ('staff','admin'));
+DROP POLICY IF EXISTS p_mcp_http_session_no_delete ON mcp_http_session;
+CREATE POLICY p_mcp_http_session_no_delete ON mcp_http_session
+  AS RESTRICTIVE FOR DELETE
+  USING (current_setting('app.role', true) = 'admin');
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cespk_app') THEN
+    GRANT SELECT, INSERT, UPDATE ON mcp_http_session TO cespk_app;
+  END IF;
+END $$;
+
 COMMIT;

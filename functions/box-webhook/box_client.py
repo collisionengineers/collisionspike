@@ -609,8 +609,10 @@ class BoxClient:
         The generic connector deliberately treats an unset ``BOX_ALLOWED_ROOT_ID`` as
         the production/unlocked posture. Autonomous MCP ingestion has a narrower
         contract: an unset lock is a configuration failure, never permission to write.
-        Return the configured root only after the folder itself has passed the normal
-        descendant check so the caller can also pin the expected test root exactly.
+        Return the configured root only after a FRESH, uncached path_collection read.
+        This deliberately ignores ``_SCOPE_VERIFIED``: a folder can be moved after an
+        earlier check, and the autonomous upload must observe that move immediately
+        before bytes leave the facade.
         """
         root = self.config.allowed_root_id
         if not root:
@@ -618,7 +620,25 @@ class BoxClient:
         sid = str(folder_id or "").strip()
         if not sid:
             raise BoxScopeError("write-scope attestation requires a folder id")
-        self._assert_in_scope("folders", sid)
+        if sid == root:
+            return root
+        resp = self.request(
+            "GET", f"/2.0/folders/{sid}", params={"fields": "id,path_collection"}
+        )
+        if resp.status_code >= 400:
+            raise BoxScopeError(
+                f"fresh write-scope check could not resolve folders/{sid} "
+                f"(HTTP {resp.status_code})",
+                status=resp.status_code,
+            )
+        try:
+            entries = (resp.json().get("path_collection") or {}).get("entries") or []
+        except ValueError:
+            entries = []
+        if not any(str(entry.get("id")) == root for entry in entries):
+            raise BoxScopeError(
+                f"folders/{sid} is outside the allowed Box root on fresh write-scope check"
+            )
         return root
 
     def _readable_roots(self) -> tuple[str, ...]:
