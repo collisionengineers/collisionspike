@@ -129,6 +129,7 @@ import {
   derivedMarkerCasePo,
   INTAKE_CHANNEL_LABELS,
   sourceReadinessRecoverySnapshot,
+  isValidEvaMileage,
   normalizeCasePo,
   type CaseWorkType,
 } from '@cs/domain';
@@ -1070,7 +1071,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const workflowBlocked = readiness.ready && blocked;
   const blockerCount = readiness.missing.length + (workflowBlocked ? 1 : 0);
   const vehicleNeedsAttention = c.vrm.trim().length > 0 && (
-    !c.evaFields.vehicleModel.value.trim() || !c.evaFields.mileage.value.trim()
+    !c.evaFields.vehicleModel.value.trim() || !isValidEvaMileage(c.evaFields.mileage.value)
   );
   const vehicleWarning = c.vehicleLookup?.warning ?? (
     vehicleNeedsAttention ? 'Vehicle model or mileage is missing.' : undefined

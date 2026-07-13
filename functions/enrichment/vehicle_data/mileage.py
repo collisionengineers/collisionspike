@@ -379,10 +379,12 @@ def _exclude_isolated_errors(events: list[Observation]) -> list[Observation]:
                 or c - max(p, n) > max(1000.0, max(p, n) * 0.05)
             )
         ):
+            cur.selected_for_event = False
             cur.decisions.append("isolated_spike_excluded")
             cur.warnings.append("isolated_keying_spike")
             excluded.add(cur.observation_id)
         elif c < min(p, n) and n >= p:
+            cur.selected_for_event = False
             cur.decisions.append("isolated_dip_excluded")
             cur.warnings.append("isolated_keying_dip")
             excluded.add(cur.observation_id)

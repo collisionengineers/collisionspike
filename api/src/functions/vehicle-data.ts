@@ -93,8 +93,11 @@ app.http('vehicleDataLookup', {
       caseId,
       registration,
       targetDate: targetDate ?? null,
-      documentHasMileage,
     };
+    // Bind a Durable retry to caller-controlled, operation-stable identity only.
+    // documentHasMileage is deliberately excluded: a successful first attempt can
+    // fill eva_mileage before its activity result is checkpointed, so including it
+    // would make the at-least-once retry conflict with its own committed result.
     const requestSha256 = vehicleDataDigest(requestShape);
     if (caseId && idempotencyKey) {
       let replay;

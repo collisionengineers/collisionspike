@@ -165,6 +165,7 @@ def test_isolated_keying_spike_is_excluded_but_neighbour_history_survives():
     prepared = prepare_history(record)
     spike = next(obs for obs in prepared.observations if obs.mot_test_number == "3")
     assert "isolated_spike_excluded" in spike.decisions
+    assert spike.selected_for_event is False
     assert len(prepared.events) == 4
     result = estimate_displayed_mileage(
         record, target_date=date(2025, 6, 1), calibration=calibration()
