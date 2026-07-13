@@ -47,6 +47,7 @@ describe('auditActionLabel', () => {
 describe('humanActorName — the internal-id guard', () => {
   it('drops Entra oids (GUIDs) and System', () => {
     expect(humanActorName('a1b2c3d4-e5f6-7890-abcd-ef0123456789')).toBeUndefined();
+    expect(humanActorName('capture-session:a1b2c3d4-e5f6-7890-abcd-ef0123456789')).toBeUndefined();
     expect(humanActorName('System')).toBeUndefined();
     expect(humanActorName('system')).toBeUndefined();
     expect(humanActorName('')).toBeUndefined();

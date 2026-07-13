@@ -93,6 +93,7 @@ const AUDIT_ACTION_CODE_LABELS: Record<number, string> = {
 const DEFAULT_LABEL = 'Updated';
 
 const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const GUID_ANYWHERE_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 /**
  * A human-renderable form of an actor/author string, or undefined when it must not
@@ -102,7 +103,7 @@ const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export function humanActorName(raw: string | null | undefined): string | undefined {
   const s = (raw ?? '').trim();
   if (!s) return undefined;
-  if (GUID_RE.test(s)) return undefined;
+  if (GUID_RE.test(s) || GUID_ANYWHERE_RE.test(s)) return undefined;
   if (s.toLowerCase() === 'system') return undefined;
   const at = s.indexOf('@');
   if (at > 0) return s.slice(0, at);
@@ -126,7 +127,6 @@ export function auditActionLabel(actionCode: number | null | undefined): string 
  *  anything underscored (box_upload_received, missing_required_fields, img_1_1
  *  filename stems), enum-transition arrows (duplicate_risk -> missing_images),
  *  GUIDs anywhere in the text, and code-y key=value pairs (category=case_update). */
-const GUID_ANYWHERE_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const ARROW_RE = /->|→/;
 const KEY_VALUE_RE = /\b\w+=[^\s]/;
 

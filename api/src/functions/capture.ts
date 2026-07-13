@@ -416,7 +416,7 @@ async function lockCaptureSessionInTransaction(
   await writeAuditStrict({
     action: AUDIT_ACTION.capture_session_locked,
     caseId: locked[0].case_id,
-    actor: 'capture-system',
+    actor: 'System',
     summary: 'Guided capture session locked for staff review',
     after: { sessionId, reason },
   }, q);
@@ -463,7 +463,7 @@ async function retargetOpenCaptureSession(
   await writeAuditStrict({
     action: AUDIT_ACTION.capture_session_retargeted,
     caseId: targetCaseId,
-    actor: `capture-session:${sessionId}`,
+    actor: 'System',
     summary: 'Guided capture session moved to merged case survivor',
     before: { caseId: currentCaseId },
     after: { sessionId, caseId: targetCaseId, lineage },
@@ -1358,7 +1358,7 @@ app.http('completeCaptureUpload', {
         await writeAuditStrict({
           action: AUDIT_ACTION.capture_asset_validated,
           caseId: target.caseId,
-          actor: `capture-session:${sessionId}`,
+          actor: 'System',
           summary: 'Guided capture photo validated',
           after: { sessionId, assetId, shotId: claimed.shot_id, status: 'pending_review' },
         }, q);
@@ -1573,7 +1573,7 @@ app.http('submitCaptureSession', {
       await writeAuditStrict({
         action: AUDIT_ACTION.capture_session_completed,
         caseId: target.caseId,
-        actor: `capture-session:${sessionId}`,
+        actor: 'System',
         summary: 'Guided capture photos submitted',
         after: {
           sessionId,
