@@ -142,6 +142,11 @@ import {
 import { GLOBAL_TOASTER_ID } from '../components';
 import { LinkedEmailsPanel } from '../components/LinkedEmailsPanel';
 import { ManualSourceArchiveRecovery } from '../components/ManualSourceArchiveRecovery';
+import {
+  InspectionChoiceControl,
+  inspectionChoiceForCase,
+  type InspectionChoice,
+} from '../components/InspectionChoice';
 // Gated AI "Assistant" surface (TKT-015). Self-contained: renders NOTHING unless
 // AI_ASSIST_ENABLED (checks the gate via its own hook), so this is an honest-off mount.
 import { AiAssistPanel } from '../components/AiAssistPanel';
@@ -938,11 +943,25 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const vrmEditBtnRef = useRef<HTMLButtonElement>(null);
   const [tab, setTab] = useState<TabName>('fields');
   const [noteDraft, setNoteDraft] = useState('');
-  const [overrideAddr, setOverrideAddr] = useState(caseData.inspectionDecision === 'image_based');
+  const [overrideAddr, setOverrideAddr] = useState(
+    inspectionChoiceForCase(caseData) === 'image_based',
+  );
   const [overrideReason, setOverrideReason] = useState('');
   const [inspectionDraft, setInspectionDraft] = useState<CaseEditInspectionDraft>(() =>
     initialInspectionDraft(caseData),
   );
+  // Plain-language source of a confirmed suggestion. It remains part of the
+  // unsaved edit session until Save changes succeeds.
+  const [confirmedProvenance, setConfirmedProvenance] = useState<
+    { sourceLabel: string; sourceNote: string } | undefined
+  >(undefined);
+  // Preserve an unsaved physical-address choice while the handler temporarily
+  // switches to Image Based Assessment, so switching back before Save is lossless.
+  const [addressDraftSnapshot, setAddressDraftSnapshot] = useState<{
+    field: Case['evaFields']['inspectionAddress'];
+    inspection: CaseEditInspectionDraft;
+    provenance?: { sourceLabel: string; sourceNote: string };
+  }>();
   const decisionMode = inspectionDraft.decisionMode;
 
   /** Adopt a complete server-confirmed snapshot after an isolated mutation. Those
@@ -957,6 +976,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     setOverrideAddr(updated.inspectionDecision === 'image_based');
     setOverrideReason('');
     setConfirmedProvenance(undefined);
+    setAddressDraftSnapshot(undefined);
     setSaveError(undefined);
     setSaveConflict(false);
   };
@@ -995,13 +1015,6 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   const [assistCandidates, setAssistCandidates] = useState<SuggestedAddress[]>([]);
   // null = not run yet; true/false = the last run's "no confident location" result.
   const [assistNoResult, setAssistNoResult] = useState<boolean | null>(null);
-  // Plain-language source of a CONFIRMED suggestion. The explicit case save carries
-  // sourceLabel/sourceNote with the address and decision in one transaction. Set only
-  // when the reviewer picks a live-assist candidate; cleared for corpus picks.
-  const [confirmedProvenance, setConfirmedProvenance] = useState<
-    { sourceLabel: string; sourceNote: string } | undefined
-  >(undefined);
-
   // Box (Archive) feature gates — undefined/loading reads as all-off. The chaser
   // upload-link action needs BOTH the gate AND a configured template; the
   // "Open in Archive" deep link needs only the master API gate.
@@ -1141,6 +1154,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     setOverrideAddr(persistedCase.inspectionDecision === 'image_based');
     setOverrideReason('');
     setConfirmedProvenance(undefined);
+    setAddressDraftSnapshot(undefined);
     setSaveError(undefined);
     setSaveConflict(false);
     setDiscardOpen(false);
@@ -1168,6 +1182,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       setOverrideAddr(updated.inspectionDecision === 'image_based');
       setOverrideReason('');
       setConfirmedProvenance(undefined);
+      setAddressDraftSnapshot(undefined);
       toast('Changes saved');
     } catch (error) {
       const status =
@@ -1220,6 +1235,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       setInspectionDraft(
         caseSaveInput.inspectionDecision ? inspectionDraft : initialInspectionDraft(latest),
       );
+      setAddressDraftSnapshot(undefined);
       setSaveConflict(false);
       setSaveError(undefined);
       toast('Latest case loaded — review your changes before saving');
@@ -1498,6 +1514,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     const resolvedMode = decision.decisionMode ?? 'manual';
     onTextChange('inspectionAddress', draft);
     setOverrideAddr(false); // a real address supersedes any image-based override
+    setAddressDraftSnapshot(undefined);
     // Capture the confirmed decision's provenance into local state (rendered as the
     // caption below the draft). The reviewer has just CONFIRMED this pick, so the
     // sourceLabel must NOT start with 'suggested' — that prefix is reserved for the
@@ -1528,27 +1545,62 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
     toast('Address selected — save changes when ready');
   };
 
-  /* Confirm an Image Based Assessment override. The reviewer ticked "Override to
-     Image Based Assessment" and typed a reason; this is the explicit confirm for
-     that path (the SAME ADR-0013 shape as picking a suggested address: writes ONLY
-     on this click, never on load, never auto-resolved, no runtime matcher). It sets
-     the local draft to image_based; Save persists the decision and reason as one change
-     (sourceLabel 'image_based' — not 'suggested', so it is never re-surfaced as a candidate). */
-  const confirmImageBased = () => {
-    const reason = overrideReason.trim();
-    if (!reason) {
-      toast('Add a reason before recording Image Based Assessment');
+  const chooseInspection = (choice: InspectionChoice) => {
+    if (choice === 'address') {
+      setOverrideAddr(false);
+      if (addressDraftSnapshot) {
+        const snapshot = addressDraftSnapshot;
+        setC((current) => ({
+          ...current,
+          evaFields: {
+            ...current.evaFields,
+            inspectionAddress: snapshot.field,
+          },
+        }));
+        setInspectionDraft(snapshot.inspection);
+        setConfirmedProvenance(snapshot.provenance);
+        setAddressDraftSnapshot(undefined);
+      }
       return;
+    }
+
+    // Returning to an unchanged saved image-based decision is a UI-only switch.
+    // It must not manufacture a new edit or demand a replacement historical reason.
+    if (
+      c.evaFields.inspectionAddress.value === 'Image Based Assessment' &&
+      persistedCase.evaFields.inspectionAddress.value === 'Image Based Assessment' &&
+      !inspectionDraft.touched
+    ) {
+      setOverrideAddr(true);
+      setOverrideReason('');
+      setAddressDraftSnapshot(undefined);
+      return;
+    }
+
+    if (!overrideAddr) {
+      setAddressDraftSnapshot({
+        field: c.evaFields.inspectionAddress,
+        inspection: inspectionDraft,
+        ...(confirmedProvenance ? { provenance: confirmedProvenance } : {}),
+      });
     }
     onTextChange('inspectionAddress', 'Image Based Assessment');
     setInspectionDraft({
       decisionMode: 'image_based',
       sourceLabel: 'image_based',
-      sourceNote: reason,
+      sourceNote: overrideReason,
       touched: true,
     });
     setConfirmedProvenance(undefined);
-    toast('Image Based Assessment selected — save changes when ready');
+  };
+
+  const changeImageBasedReason = (reason: string) => {
+    setOverrideReason(reason);
+    setInspectionDraft((current) =>
+      current.decisionMode === 'image_based'
+        ? { ...current, sourceNote: reason, touched: true }
+        : current,
+    );
   };
 
   /* Run the live location-assist (Phase 4a). Builds the request from data ALREADY
@@ -2573,11 +2625,15 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                       action (gated) proposes candidates from the case's photos +
                       text clues; it shows when the corpus has any candidates OR the
                       assist is switched on (so the reviewer can always invoke it). */}
-                  {(suggestions.length > 0 ||
-                    locationAssistEnabled ||
-                    assistCandidates.length > 0 ||
-                    assistNoResult !== null) && (
-                    <>
+                  <InspectionChoiceControl
+                    choice={overrideAddr ? 'image_based' : 'address'}
+                    onChoiceChange={chooseInspection}
+                    reason={overrideReason}
+                    onReasonChange={changeImageBasedReason}
+                    requireReason={
+                      inspectionDraft.decisionMode === 'image_based' && inspectionDraft.touched
+                    }
+                  >
                       <Divider />
                       <div className={styles.assistActionRow}>
                         <span className={styles.suggestHead}>
@@ -2616,20 +2672,6 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                           </Button>
                         )}
                       </div>
-
-                      {/* Provider default (ADR-0016, operator-designated). Since TKT-109/129
-                          (2026-07-08 operator direction, amending ADR-0013) an always_image_based
-                          provider's case is AUTO-completed as "Image Based Assessment" server-side
-                          (fill-if-empty, audited); this note explains the policy in plain English
-                          — the prior wording was inverted (TKT-129). Staff can still pick a
-                          physical address, which overrides the pre-fill. */}
-                      {c.providerInspectionPolicy === 'always_image_based' && (
-                        <Caption1 className={styles.hint}>
-                          This provider works from photos, so the inspection is recorded as Image
-                          Based Assessment for you. Only pick an address below if this vehicle will
-                          be inspected in person.
-                        </Caption1>
-                      )}
 
                       {/* Search the full corpus — the list otherwise shows only the ranked
                           provider shortlist (TKT-062). Typing ≥2 chars queries all ~2,200. */}
@@ -2706,37 +2748,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                           No location could be suggested from the photos.
                         </Caption1>
                       )}
-                    </>
-                  )}
-
-                  <Divider />
-
-                  <Checkbox
-                    checked={overrideAddr}
-                    label="Set as Image Based Assessment"
-                    onChange={(_, d) => setOverrideAddr(!!d.checked)}
-                  />
-                  {overrideAddr && (
-                    <>
-                      <Field label="Override reason" required>
-                        <Textarea
-                          value={overrideReason}
-                          onChange={(_, d) => setOverrideReason(d.value)}
-                          resize="vertical"
-                          rows={3}
-                        />
-                      </Field>
-                      <div>
-                        <Button
-                          appearance="primary"
-                          onClick={confirmImageBased}
-                          disabled={!overrideReason.trim()}
-                        >
-                          Use Image Based Assessment
-                        </Button>
-                      </div>
-                    </>
-                  )}
+                  </InspectionChoiceControl>
                 </div>
               )}
 
