@@ -220,7 +220,8 @@ BEGIN
     'ai_suggestion','provider_api_key','case_po_floor','ai_usage_ledger',
     'archive_mirror_outbox','box_file_request_outbox','staff_evidence_upload',
     'staff_evidence_upload_item','manual_intake_case_create_operation',
-    'mcp_image_ingest_rate_limit','mcp_http_session'
+    'mcp_image_ingest_rate_limit','mcp_http_session',
+    'capture_session','capture_session_shot','capture_asset'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('ALTER TABLE %I FORCE  ROW LEVEL SECURITY;', t);
@@ -232,6 +233,11 @@ BEGIN
     EXECUTE format($p$CREATE POLICY p_%1$s_no_delete ON %1$I AS RESTRICTIVE FOR DELETE
         USING (current_setting('app.role', true) = 'admin');$p$, t);
   END LOOP;
+  EXECUTE 'ALTER TABLE capture_session_resume_token ENABLE ROW LEVEL SECURITY;';
+  EXECUTE 'ALTER TABLE capture_session_resume_token FORCE ROW LEVEL SECURITY;';
+  EXECUTE $p$CREATE POLICY p_capture_session_resume_token_rw ON capture_session_resume_token
+      USING (current_setting('app.role', true) IN ('staff','admin'))
+      WITH CHECK (current_setting('app.role', true) IN ('staff','admin'));$p$;
 END $$;
 
 COMMIT;

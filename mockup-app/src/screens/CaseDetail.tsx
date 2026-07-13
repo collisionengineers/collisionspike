@@ -157,6 +157,7 @@ import { AiAssistPanel } from '../components/AiAssistPanel';
 // (removeCase). The base DataAccess in '@cs/domain' stays the frozen server contract.
 import type { DataAccessExt } from '../data/rest-client';
 import {
+  guidedCaptureReviewWarning,
   mergeEvidenceReviewDecision,
   persistEvidenceReview,
   releaseEvidenceMutation,
@@ -640,6 +641,7 @@ function EvidenceCard({
   saveError,
 }: EvidenceCardProps) {
   const styles = useStyles();
+  const captureReviewWarning = guidedCaptureReviewWarning(ev);
   // Real inline preview (TKT-048): fetch the bytes WITH the bearer -> blob: URL for <img>
   // (an <img src> can't carry the token, and CSP allows blob:). Falls back to the coloured
   // placeholder while loading, or if there is no inline content (Box-only / bytes gone).
@@ -698,6 +700,12 @@ function EvidenceCard({
             ))}
           </Dropdown>
         </Field>
+        {captureReviewWarning && (
+          <div className={styles.reflectionWarning} role="status">
+            <AlertTriangle size={14} strokeWidth={2} aria-hidden />
+            <span className={styles.reflectionWarningText}>{captureReviewWarning}</span>
+          </div>
+        )}
         {ev.reviewRequired && !ev.personReflection && (
           <div className={styles.reflectionWarning} role="status">
             <AlertTriangle size={14} strokeWidth={2} aria-hidden />

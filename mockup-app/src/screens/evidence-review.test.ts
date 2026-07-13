@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Evidence } from '../data';
 import {
   EVIDENCE_SAVE_ERROR,
+  GUIDED_CAPTURE_REVIEW_WARNING,
+  guidedCaptureReviewWarning,
   mergeEvidenceReviewDecision,
   persistEvidenceReview,
   releaseEvidenceMutation,
@@ -20,6 +22,17 @@ const evidence = {
 } as Evidence;
 
 describe('persistEvidenceReview', () => {
+  it('shows a plain-language warning only for excluded submitted capture photos', () => {
+    const submitted = { ...evidence, sourceLabel: 'public_guided_capture', excluded: true };
+
+    expect(guidedCaptureReviewWarning(submitted)).toBe(
+      'Review this submitted photo before using it for EVA.',
+    );
+    expect(guidedCaptureReviewWarning({ ...submitted, excluded: false })).toBeUndefined();
+    expect(guidedCaptureReviewWarning(evidence)).toBeUndefined();
+    expect(GUIDED_CAPTURE_REVIEW_WARNING).not.toContain('public_guided_capture');
+  });
+
   it('returns only server-confirmed evidence on success', async () => {
     const updated = { ...evidence, excluded: true, acceptedForEva: false };
     const save = vi.fn().mockResolvedValue(updated);

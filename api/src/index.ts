@@ -32,3 +32,5 @@ import './functions/image-analysis.js'; // staged image-analysis suggestion prod
 import './functions/provider-keys.js';
 import './functions/provider-intake.js';
 import './functions/vehicle-data.js'; // canonical vehicle lookup, persistence, and staff retry
+import './functions/capture.js'; // guided public capture sessions and staged uploads
+import './functions/capture-cleanup.js'; // gated expiry and unmaterialised capture-object retention

@@ -305,6 +305,27 @@ export async function validateUploadContent(
   };
 }
 
+export async function validatedImageDimensions(
+  bytes: Uint8Array,
+): Promise<{ width: number; height: number } | undefined> {
+  try {
+    const metadata = await sharp(bytes, {
+      failOn: 'warning',
+      limitInputPixels: MAX_UPLOAD_IMAGE_PIXELS,
+      limitInputChannels: 4,
+      sequentialRead: true,
+      unlimited: false,
+    }).metadata();
+    const width = metadata.width ?? 0;
+    const height = metadata.height ?? 0;
+    return width > 0 && height > 0 && width * height <= MAX_UPLOAD_IMAGE_PIXELS
+      ? { width, height }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function validateUploadBatch(files: readonly { size: number }[]): string | undefined {
   if (files.length > MAX_UPLOAD_FILES) return `Choose no more than ${MAX_UPLOAD_FILES} files at once.`;
   const total = files.reduce((sum, file) => sum + (Number.isFinite(file.size) ? file.size : 0), 0);

@@ -155,7 +155,14 @@ INSERT INTO choice_audit_action (code, name, label) VALUES
   -- TKT-148: deterministic draft suggestion, distinct from chaser_sent.
   (100000054, 'chaser_suggested',            'Chase suggested'),
   -- TKT-166: one result per Manual Intake source-file attempt.
-  (100000055, 'evidence_upload_result',       'Files Checked');
+  (100000055, 'evidence_upload_result',       'Files Checked'),
+  (100000056, 'capture_session_created',      'Capture Session Created'),
+  (100000057, 'capture_session_rotated',      'Capture Session Rotated'),
+  (100000058, 'capture_session_revoked',      'Capture Session Revoked'),
+  (100000059, 'capture_asset_validated',      'Capture Asset Validated'),
+  (100000060, 'capture_session_completed',    'Capture Session Completed'),
+  (100000061, 'capture_session_retargeted',   'Capture Session Retargeted'),
+  (100000062, 'capture_session_locked',       'Capture Session Locked');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_auditseverity  (audit-event.json bundle)  -- AuditEvent.severity_code

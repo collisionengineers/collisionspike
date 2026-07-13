@@ -80,6 +80,13 @@ const AUDIT_ACTION_CODE_LABELS: Record<number, string> = {
   100000052: 'Photos analysed', // image_analysis_generated
   100000054: 'Chase suggested', // chaser_suggested
   100000055: 'Files checked', // evidence_upload_result
+  100000056: 'Photo request created', // capture_session_created
+  100000057: 'Photo request link replaced', // capture_session_rotated
+  100000058: 'Photo request cancelled', // capture_session_revoked
+  100000059: 'Photo checked', // capture_asset_validated
+  100000060: 'Photos received', // capture_session_completed
+  100000061: 'Photo request moved', // capture_session_retargeted
+  100000062: 'Photo request secured', // capture_session_locked
 };
 
 /** Safe fallback when an action has no mapping — plain, honest, never an enum. */

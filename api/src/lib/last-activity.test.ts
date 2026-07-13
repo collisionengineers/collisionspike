@@ -36,7 +36,7 @@ describe('auditActionLabel', () => {
 
   it('has no snake_case/engineering tokens in ANY label it can produce', () => {
     // Sweep every code the map can emit for accidental enum-ish output.
-    for (let code = 100000000; code <= 100000060; code++) {
+    for (let code = 100000000; code <= 100000062; code++) {
       const label = auditActionLabel(code);
       expect(label).not.toMatch(/[a-z]_[a-z]/i);
       expect(label).not.toMatch(/^\d/);

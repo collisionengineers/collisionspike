@@ -14,7 +14,7 @@ describe('TKT-089 rolling schema and archive-outbox parity', () => {
     const canonical = schema('060_evidence.sql');
     const delta = schema('deltas/2026-07-11-tkt089-evidence-decision-sources.sql');
 
-    expect(canonical).toContain("exclusion_decision_source IN ('classifier','staff','provider','cleanup','legacy')");
+    expect(canonical).toContain("exclusion_decision_source IN ('classifier','staff','provider','capture','cleanup','legacy')");
     expect(canonical).not.toContain('ck_evidence_exclusion_source');
     expect(delta).toContain('DROP CONSTRAINT IF EXISTS ck_evidence_exclusion_source');
     expect(delta).not.toMatch(/ADD CONSTRAINT ck_evidence_exclusion_source\b/);

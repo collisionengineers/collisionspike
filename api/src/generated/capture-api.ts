@@ -83,6 +83,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/public/capture/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renew short-lived access from the protected resume cookie
+         * @description Uses only the exact HttpOnly resume cookie created during bootstrap exchange. The endpoint has no request body and never returns or rotates the resume secret through JavaScript-readable data.
+         */
+        post: operations["renewCaptureAccess"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/public/capture/sessions/{sessionId}": {
         parameters: {
             query?: never;
@@ -169,12 +189,12 @@ export interface components {
         /** @enum {string} */
         GuidanceMode: "off" | "shadow" | "advisory" | "enforced";
         CreateCaptureSessionRequest: {
-            shotPlanId: components["schemas"]["CaptureShotPlanId"];
+            shotPlanId?: components["schemas"]["CaptureShotPlanId"];
             /**
-             * @default 72
+             * @description Defaults to 72 hours when omitted.
              * @enum {integer}
              */
-            expiresInHours: 24 | 72 | 168;
+            expiresInHours?: 24 | 72 | 168;
         };
         /**
          * @default essential-v1
@@ -260,6 +280,26 @@ export interface components {
             shots: components["schemas"]["CaptureShotDefinition"][];
             progress: components["schemas"]["CaptureShotProgress"][];
         };
+        ClientCaptureSignals: {
+            brightness: number;
+            contrast: number;
+            sharpness: number;
+            motion: number;
+        };
+        /** @description Bounded advisory telemetry from the pinned deterministic browser rules. It is retained for review and evaluation but is never trusted as server acceptance evidence. Unassessed observations omit issue and signals and use zero stable frames. Ready observations include signals and omit issue. */
+        ClientCaptureObservation: {
+            /** @enum {string} */
+            route: "guided" | "os_fallback";
+            /** @enum {string} */
+            disposition: "ready" | "take_anyway" | "unassessed";
+            /** @enum {string} */
+            issue?: "too-dark" | "too-bright" | "camera-moving" | "not-sharp" | "low-contrast";
+            signals?: components["schemas"]["ClientCaptureSignals"];
+            /** @description A passing OS/file fallback may legitimately report zero. */
+            stableFrames: number;
+            /** @description Must exactly match rulesVersion from the session manifest. */
+            rulesVersion: string;
+        };
         CaptureUploadRequest: {
             shotId: string;
             fileName: string;
@@ -267,6 +307,7 @@ export interface components {
             contentType: "image/jpeg" | "image/png" | "image/webp";
             sizeBytes: number;
             sha256: string;
+            clientObservation: components["schemas"]["ClientCaptureObservation"];
         };
         CaptureUploadIntent: {
             /** Format: uuid */
@@ -293,7 +334,7 @@ export interface components {
             assetId: string;
             shotId: string;
             /** @enum {string} */
-            status: "validating" | "accepted" | "pending_review";
+            status: "accepted" | "pending_review";
         };
         CaptureSubmitResponse: {
             /** @constant */
@@ -301,11 +342,19 @@ export interface components {
             /** Format: date-time */
             completedAt: string;
         };
-        /** @enum {string} */
-        CaptureApiProblemCode: "capture_disabled" | "invalid_request" | "unauthorized" | "forbidden" | "not_found" | "expired" | "revoked" | "locked" | "unsupported" | "payload_too_large" | "validation_failed" | "conflict" | "rate_limited" | "retryable" | "internal";
+        /**
+         * @description Stable public error categories; messages may become more specific without changing these codes.
+         * @enum {string}
+         */
+        CaptureApiProblemCode: "capture_missing" | "capture_expired" | "capture_revoked" | "capture_locked" | "capture_unsupported" | "capture_validation" | "capture_conflict" | "capture_unauthorized" | "capture_retryable" | "capture_unknown";
         CaptureApiProblem: {
             error: components["schemas"]["CaptureApiProblemCode"];
             message: string;
+        };
+        StaffApiProblem: components["schemas"]["CaptureApiProblem"] | components["schemas"]["StaffAuthProblem"];
+        StaffAuthProblem: {
+            /** @enum {string} */
+            error: "Missing bearer token" | "Invalid or expired token" | "forbidden" | "internal";
         };
     };
     responses: {
@@ -328,6 +377,15 @@ export interface components {
                 "application/json": components["schemas"]["CaptureApiProblem"];
             };
         };
+        /** @description Staff request refused by authentication, authorization or capture processing. */
+        StaffProblem: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["StaffApiProblem"];
+            };
+        };
     };
     parameters: {
         /** @description Internal case identifier. This parameter exists only on staff routes. */
@@ -341,6 +399,10 @@ export interface components {
     headers: {
         /** @description Public capture responses must not be stored by browsers or intermediaries. */
         NoStore: "no-store";
+        /** @description Sets __Host-collisioncapture-resume with HttpOnly, Secure, SameSite=Strict, Path=/ and an expiry no later than the capture session. */
+        CaptureResumeCookie: string;
+        /** @description Clears __Host-collisioncapture-resume after successful capture submission. */
+        ClearCaptureResumeCookie: string;
     };
     pathItems: never;
 }
@@ -367,9 +429,10 @@ export interface operations {
                     "application/json": components["schemas"]["CaptureSessionListResponse"];
                 };
             };
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
+            401: components["responses"]["StaffProblem"];
+            403: components["responses"]["StaffProblem"];
             404: components["responses"]["Problem"];
+            500: components["responses"]["StaffProblem"];
         };
     };
     createCaptureSession: {
@@ -382,7 +445,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": components["schemas"]["CreateCaptureSessionRequest"];
             };
@@ -398,10 +461,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["Problem"];
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
+            401: components["responses"]["StaffProblem"];
+            403: components["responses"]["StaffProblem"];
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
+            500: components["responses"]["StaffProblem"];
             503: components["responses"]["Problem"];
         };
     };
@@ -425,10 +489,11 @@ export interface operations {
                     "application/json": components["schemas"]["CaptureSessionSecretResponse"];
                 };
             };
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
+            401: components["responses"]["StaffProblem"];
+            403: components["responses"]["StaffProblem"];
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
+            500: components["responses"]["StaffProblem"];
             503: components["responses"]["Problem"];
         };
     };
@@ -452,10 +517,11 @@ export interface operations {
                     "application/json": components["schemas"]["CaptureSessionStaffSummary"];
                 };
             };
-            401: components["responses"]["Problem"];
-            403: components["responses"]["Problem"];
+            401: components["responses"]["StaffProblem"];
+            403: components["responses"]["StaffProblem"];
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
+            500: components["responses"]["StaffProblem"];
         };
     };
     exchangeCaptureBootstrap: {
@@ -475,17 +541,46 @@ export interface operations {
             200: {
                 headers: {
                     "Cache-Control": components["headers"]["NoStore"];
+                    "Set-Cookie": components["headers"]["CaptureResumeCookie"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["CaptureExchangeResponse"];
                 };
             };
-            400: components["responses"]["PublicProblem"];
             401: components["responses"]["PublicProblem"];
+            404: components["responses"]["PublicProblem"];
+            409: components["responses"]["PublicProblem"];
             410: components["responses"]["PublicProblem"];
-            429: components["responses"]["PublicProblem"];
-            503: components["responses"]["PublicProblem"];
+            423: components["responses"]["PublicProblem"];
+            500: components["responses"]["PublicProblem"];
+        };
+    };
+    renewCaptureAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A new short-lived session access token was issued. */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaptureExchangeResponse"];
+                };
+            };
+            401: components["responses"]["PublicProblem"];
+            404: components["responses"]["PublicProblem"];
+            409: components["responses"]["PublicProblem"];
+            410: components["responses"]["PublicProblem"];
+            423: components["responses"]["PublicProblem"];
+            500: components["responses"]["PublicProblem"];
         };
     };
     getPublicCaptureSession: {
@@ -512,8 +607,8 @@ export interface operations {
             401: components["responses"]["PublicProblem"];
             404: components["responses"]["PublicProblem"];
             410: components["responses"]["PublicProblem"];
-            429: components["responses"]["PublicProblem"];
-            503: components["responses"]["PublicProblem"];
+            423: components["responses"]["PublicProblem"];
+            500: components["responses"]["PublicProblem"];
         };
     };
     createCaptureUpload: {
@@ -551,7 +646,8 @@ export interface operations {
             410: components["responses"]["PublicProblem"];
             413: components["responses"]["PublicProblem"];
             415: components["responses"]["PublicProblem"];
-            429: components["responses"]["PublicProblem"];
+            423: components["responses"]["PublicProblem"];
+            500: components["responses"]["PublicProblem"];
             503: components["responses"]["PublicProblem"];
         };
     };
@@ -587,7 +683,8 @@ export interface operations {
             409: components["responses"]["PublicProblem"];
             410: components["responses"]["PublicProblem"];
             422: components["responses"]["PublicProblem"];
-            429: components["responses"]["PublicProblem"];
+            423: components["responses"]["PublicProblem"];
+            500: components["responses"]["PublicProblem"];
             503: components["responses"]["PublicProblem"];
         };
     };
@@ -609,6 +706,7 @@ export interface operations {
             200: {
                 headers: {
                     "Cache-Control": components["headers"]["NoStore"];
+                    "Set-Cookie": components["headers"]["ClearCaptureResumeCookie"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -620,8 +718,8 @@ export interface operations {
             404: components["responses"]["PublicProblem"];
             409: components["responses"]["PublicProblem"];
             410: components["responses"]["PublicProblem"];
-            422: components["responses"]["PublicProblem"];
-            429: components["responses"]["PublicProblem"];
+            423: components["responses"]["PublicProblem"];
+            500: components["responses"]["PublicProblem"];
             503: components["responses"]["PublicProblem"];
         };
     };

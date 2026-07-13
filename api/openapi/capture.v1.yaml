@@ -29,7 +29,6 @@ paths:
       security:
         - StaffBearer: []
       requestBody:
-        required: true
         content:
           application/json:
             schema:
@@ -44,15 +43,17 @@ paths:
         '400':
           $ref: '#/components/responses/Problem'
         '401':
-          $ref: '#/components/responses/Problem'
+          $ref: '#/components/responses/StaffProblem'
         '403':
-          $ref: '#/components/responses/Problem'
+          $ref: '#/components/responses/StaffProblem'
         '404':
           $ref: '#/components/responses/Problem'
         '409':
           $ref: '#/components/responses/Problem'
         '503':
           $ref: '#/components/responses/Problem'
+        '500':
+          $ref: '#/components/responses/StaffProblem'
     get:
       operationId: listCaptureSessions
       summary: List capture sessions for a case
@@ -67,11 +68,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/CaptureSessionListResponse'
         '401':
-          $ref: '#/components/responses/Problem'
+          $ref: '#/components/responses/StaffProblem'
         '403':
-          $ref: '#/components/responses/Problem'
+          $ref: '#/components/responses/StaffProblem'
         '404':
           $ref: '#/components/responses/Problem'
+        '500':
+          $ref: '#/components/responses/StaffProblem'
 
   /api/capture-sessions/{sessionId}/rotate:
     parameters:
@@ -91,15 +94,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/CaptureSessionSecretResponse'
         '401':
-          $ref: '#/components/responses/Problem'
+          $ref: '#/components/responses/StaffProblem'
         '403':
-          $ref: '#/components/responses/Problem'
+          $ref: '#/components/responses/StaffProblem'
         '404':
           $ref: '#/components/responses/Problem'
         '409':
           $ref: '#/components/responses/Problem'
         '503':
           $ref: '#/components/responses/Problem'
+        '500':
+          $ref: '#/components/responses/StaffProblem'
 
   /api/capture-sessions/{sessionId}/revoke:
     parameters:
@@ -118,13 +123,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/CaptureSessionStaffSummary'
         '401':
-          $ref: '#/components/responses/Problem'
+          $ref: '#/components/responses/StaffProblem'
         '403':
-          $ref: '#/components/responses/Problem'
+          $ref: '#/components/responses/StaffProblem'
         '404':
           $ref: '#/components/responses/Problem'
         '409':
           $ref: '#/components/responses/Problem'
+        '500':
+          $ref: '#/components/responses/StaffProblem'
 
   /api/public/capture/exchange:
     post:
@@ -144,19 +151,57 @@ paths:
           headers:
             Cache-Control:
               $ref: '#/components/headers/NoStore'
+            Set-Cookie:
+              $ref: '#/components/headers/CaptureResumeCookie'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CaptureExchangeResponse'
-        '400':
-          $ref: '#/components/responses/PublicProblem'
         '401':
+          $ref: '#/components/responses/PublicProblem'
+        '404':
+          $ref: '#/components/responses/PublicProblem'
+        '409':
           $ref: '#/components/responses/PublicProblem'
         '410':
           $ref: '#/components/responses/PublicProblem'
-        '429':
+        '423':
           $ref: '#/components/responses/PublicProblem'
-        '503':
+        '500':
+          $ref: '#/components/responses/PublicProblem'
+
+  /api/public/capture/renew:
+    post:
+      operationId: renewCaptureAccess
+      summary: Renew short-lived access from the protected resume cookie
+      description: >-
+        Uses only the exact HttpOnly resume cookie created during bootstrap
+        exchange. The endpoint has no request body and never returns or rotates
+        the resume secret through JavaScript-readable data.
+      tags: [Public capture]
+      security:
+        - CaptureResumeCookie: []
+      responses:
+        '200':
+          description: A new short-lived session access token was issued.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaptureExchangeResponse'
+        '401':
+          $ref: '#/components/responses/PublicProblem'
+        '404':
+          $ref: '#/components/responses/PublicProblem'
+        '409':
+          $ref: '#/components/responses/PublicProblem'
+        '410':
+          $ref: '#/components/responses/PublicProblem'
+        '423':
+          $ref: '#/components/responses/PublicProblem'
+        '500':
           $ref: '#/components/responses/PublicProblem'
 
   /api/public/capture/sessions/{sessionId}:
@@ -184,9 +229,9 @@ paths:
           $ref: '#/components/responses/PublicProblem'
         '410':
           $ref: '#/components/responses/PublicProblem'
-        '429':
+        '423':
           $ref: '#/components/responses/PublicProblem'
-        '503':
+        '500':
           $ref: '#/components/responses/PublicProblem'
 
   /api/public/capture/sessions/{sessionId}/uploads:
@@ -226,13 +271,15 @@ paths:
           $ref: '#/components/responses/PublicProblem'
         '410':
           $ref: '#/components/responses/PublicProblem'
+        '423':
+          $ref: '#/components/responses/PublicProblem'
         '413':
           $ref: '#/components/responses/PublicProblem'
         '415':
           $ref: '#/components/responses/PublicProblem'
-        '429':
-          $ref: '#/components/responses/PublicProblem'
         '503':
+          $ref: '#/components/responses/PublicProblem'
+        '500':
           $ref: '#/components/responses/PublicProblem'
 
   /api/public/capture/sessions/{sessionId}/uploads/{assetId}/complete:
@@ -271,11 +318,13 @@ paths:
           $ref: '#/components/responses/PublicProblem'
         '410':
           $ref: '#/components/responses/PublicProblem'
+        '423':
+          $ref: '#/components/responses/PublicProblem'
         '422':
           $ref: '#/components/responses/PublicProblem'
-        '429':
-          $ref: '#/components/responses/PublicProblem'
         '503':
+          $ref: '#/components/responses/PublicProblem'
+        '500':
           $ref: '#/components/responses/PublicProblem'
 
   /api/public/capture/sessions/{sessionId}/submit:
@@ -295,6 +344,8 @@ paths:
           headers:
             Cache-Control:
               $ref: '#/components/headers/NoStore'
+            Set-Cookie:
+              $ref: '#/components/headers/ClearCaptureResumeCookie'
           content:
             application/json:
               schema:
@@ -309,11 +360,11 @@ paths:
           $ref: '#/components/responses/PublicProblem'
         '410':
           $ref: '#/components/responses/PublicProblem'
-        '422':
-          $ref: '#/components/responses/PublicProblem'
-        '429':
+        '423':
           $ref: '#/components/responses/PublicProblem'
         '503':
+          $ref: '#/components/responses/PublicProblem'
+        '500':
           $ref: '#/components/responses/PublicProblem'
 
 components:
@@ -326,8 +377,15 @@ components:
     CaptureBearer:
       type: http
       scheme: bearer
-      bearerFormat: Opaque
-      description: Short-lived access token scoped to exactly one capture session.
+      bearerFormat: JWT
+      description: Short-lived signed access token scoped to exactly one capture session.
+    CaptureResumeCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-collisioncapture-resume
+      description: >-
+        Opaque 256-bit resume secret set only as an HttpOnly, Secure,
+        SameSite=Strict, host-only cookie. Only its SHA-256 hash is stored.
 
   parameters:
     CaseId:
@@ -369,6 +427,17 @@ components:
       schema:
         type: string
         const: no-store
+    CaptureResumeCookie:
+      description: >-
+        Sets __Host-collisioncapture-resume with HttpOnly, Secure,
+        SameSite=Strict, Path=/ and an expiry no later than the capture session.
+      schema:
+        type: string
+    ClearCaptureResumeCookie:
+      description: >-
+        Clears __Host-collisioncapture-resume after successful capture submission.
+      schema:
+        type: string
 
   responses:
     Problem:
@@ -386,6 +455,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/CaptureApiProblem'
+    StaffProblem:
+      description: Staff request refused by authentication, authorization or capture processing.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StaffApiProblem'
 
   schemas:
     CaptureSessionStatus:
@@ -399,14 +474,13 @@ components:
     CreateCaptureSessionRequest:
       type: object
       additionalProperties: false
-      required: [shotPlanId, expiresInHours]
       properties:
         shotPlanId:
           $ref: '#/components/schemas/CaptureShotPlanId'
         expiresInHours:
           type: integer
           enum: [24, 72, 168]
-          default: 72
+          description: Defaults to 72 hours when omitted.
 
     CaptureShotPlanId:
       type: string
@@ -484,8 +558,8 @@ components:
         bootstrapSecret:
           type: string
           minLength: 43
-          maxLength: 128
-          pattern: '^[A-Za-z0-9_-]{43,128}$'
+          maxLength: 43
+          pattern: '^[A-Za-z0-9_-]{43}$'
 
     CaptureExchangeResponse:
       type: object
@@ -605,13 +679,13 @@ components:
           $ref: '#/components/schemas/CaptureSessionStatus'
         caseReference:
           type: string
-          maxLength: 80
+          maxLength: 100
         registration:
           type: string
           maxLength: 20
         vehicleLabel:
           type: string
-          maxLength: 160
+          maxLength: 200
         expiresAt:
           type: string
           format: date-time
@@ -639,10 +713,65 @@ components:
           items:
             $ref: '#/components/schemas/CaptureShotProgress'
 
+    ClientCaptureSignals:
+      type: object
+      additionalProperties: false
+      required: [brightness, contrast, sharpness, motion]
+      properties:
+        brightness:
+          type: number
+          minimum: 0
+          maximum: 1
+        contrast:
+          type: number
+          minimum: 0
+          maximum: 1
+        sharpness:
+          type: number
+          minimum: 0
+          maximum: 1
+        motion:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    ClientCaptureObservation:
+      type: object
+      additionalProperties: false
+      maxProperties: 6
+      required: [route, disposition, stableFrames, rulesVersion]
+      description: >-
+        Bounded advisory telemetry from the pinned deterministic browser rules.
+        It is retained for review and evaluation but is never trusted as server
+        acceptance evidence. Unassessed observations omit issue and signals and
+        use zero stable frames. Ready observations include signals and omit issue.
+      properties:
+        route:
+          type: string
+          enum: [guided, os_fallback]
+        disposition:
+          type: string
+          enum: [ready, take_anyway, unassessed]
+        issue:
+          type: string
+          enum: [too-dark, too-bright, camera-moving, not-sharp, low-contrast]
+        signals:
+          $ref: '#/components/schemas/ClientCaptureSignals'
+        stableFrames:
+          type: integer
+          minimum: 0
+          maximum: 120
+          description: A passing OS/file fallback may legitimately report zero.
+        rulesVersion:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Must exactly match rulesVersion from the session manifest.
+
     CaptureUploadRequest:
       type: object
       additionalProperties: false
-      required: [shotId, fileName, contentType, sizeBytes, sha256]
+      required: [shotId, fileName, contentType, sizeBytes, sha256, clientObservation]
       properties:
         shotId:
           type: string
@@ -658,9 +787,12 @@ components:
         sizeBytes:
           type: integer
           minimum: 1
+          maximum: 15728640
         sha256:
           type: string
           pattern: '^[0-9a-f]{64}$'
+        clientObservation:
+          $ref: '#/components/schemas/ClientCaptureObservation'
 
     CaptureUploadIntent:
       type: object
@@ -696,6 +828,7 @@ components:
         sizeBytes:
           type: integer
           minimum: 1
+          maximum: 15728640
         sha256:
           type: string
           pattern: '^[0-9a-f]{64}$'
@@ -712,7 +845,7 @@ components:
           type: string
         status:
           type: string
-          enum: [validating, accepted, pending_review]
+          enum: [accepted, pending_review]
 
     CaptureSubmitResponse:
       type: object
@@ -728,22 +861,18 @@ components:
 
     CaptureApiProblemCode:
       type: string
+      description: Stable public error categories; messages may become more specific without changing these codes.
       enum:
-        - capture_disabled
-        - invalid_request
-        - unauthorized
-        - forbidden
-        - not_found
-        - expired
-        - revoked
-        - locked
-        - unsupported
-        - payload_too_large
-        - validation_failed
-        - conflict
-        - rate_limited
-        - retryable
-        - internal
+        - capture_missing
+        - capture_expired
+        - capture_revoked
+        - capture_locked
+        - capture_unsupported
+        - capture_validation
+        - capture_conflict
+        - capture_unauthorized
+        - capture_retryable
+        - capture_unknown
 
     CaptureApiProblem:
       type: object
@@ -756,3 +885,21 @@ components:
           type: string
           minLength: 1
           maxLength: 200
+
+    StaffApiProblem:
+      oneOf:
+        - $ref: '#/components/schemas/CaptureApiProblem'
+        - $ref: '#/components/schemas/StaffAuthProblem'
+
+    StaffAuthProblem:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum:
+            - Missing bearer token
+            - Invalid or expired token
+            - forbidden
+            - internal
