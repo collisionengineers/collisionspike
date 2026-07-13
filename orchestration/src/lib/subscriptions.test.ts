@@ -108,7 +108,7 @@ describe('resolveSubscriptionMailbox', () => {
   });
 });
 
-describe('immutable-id subscription creation and rotation', () => {
+describe('immutable-id subscription creation and routine-maintenance safety', () => {
   const OLD_ENV = {
     base: process.env.ORCH_PUBLIC_BASE_URL,
     mbx: process.env.GRAPH_INTAKE_MAILBOXES,
@@ -140,8 +140,8 @@ describe('immutable-id subscription creation and rotation', () => {
     expect(body.notificationUrl).toContain('idType=immutable-v1');
   });
 
-  it('creates the immutable replacement before deleting the legacy subscription', async () => {
-    const order: string[] = [];
+  it('treats a legacy subscription as present, reports controlled rotation, and only renews it', async () => {
+    const methods: string[] = [];
     graphFetchMock.mockImplementation(async (path: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET';
       if (path === '/subscriptions' && method === 'GET') {
@@ -153,22 +153,28 @@ describe('immutable-id subscription creation and rotation', () => {
         }] };
       }
       if (path === '/subscriptions' && method === 'POST') {
-        order.push('create');
-        return { id: 'immutable', expirationDateTime: 'later' };
+        methods.push('POST');
+        throw new Error('graph POST /subscriptions → 409: ExtensionError');
       }
       if (path === '/subscriptions/legacy' && method === 'DELETE') {
-        order.push('delete');
+        methods.push('DELETE');
         return undefined;
       }
-      return { id: 'legacy', expirationDateTime: 'renewed' };
+      if (path === '/subscriptions/legacy' && method === 'PATCH') {
+        methods.push('PATCH');
+        return { id: 'legacy', expirationDateTime: 'renewed' };
+      }
+      return undefined;
     });
     const summary = await runSubscriptionMaintenance(logger);
-    expect(order).toEqual(['create', 'delete']);
-    expect(summary.rotated).toEqual(['info@x.com']);
-    expect(summary.created).toEqual(['info@x.com']);
+    expect(methods).toEqual(['PATCH']);
+    expect(summary.rotated).toEqual([]);
+    expect(summary.rotationRequired).toEqual(['info@x.com']);
+    expect(summary.created).toEqual([]);
+    expect(summary.renewed.map((entry) => entry.subId)).toEqual(['legacy']);
   });
 
-  it('keeps and renews the legacy subscription when replacement creation fails', async () => {
+  it('never attempts the Graph-409 duplicate create while renewing a legacy subscription', async () => {
     graphFetchMock.mockImplementation(async (path: string, init?: { method?: string }) => {
       const method = init?.method ?? 'GET';
       if (path === '/subscriptions' && method === 'GET') {
@@ -187,9 +193,12 @@ describe('immutable-id subscription creation and rotation', () => {
     });
     const summary = await runSubscriptionMaintenance(logger);
     expect(summary.rotated).toEqual([]);
+    expect(summary.rotationRequired).toEqual(['info@x.com']);
     expect(summary.renewed.map((entry) => entry.subId)).toEqual(['legacy']);
+    expect(graphFetchMock).not.toHaveBeenCalledWith('/subscriptions', expect.objectContaining({ method: 'POST' }));
     expect(graphFetchMock).not.toHaveBeenCalledWith('/subscriptions/legacy', { method: 'DELETE' });
   });
+
 });
 
 describe('runSubscriptionMaintenance — prune de-scoped mailboxes', () => {

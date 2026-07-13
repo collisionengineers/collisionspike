@@ -1,7 +1,7 @@
 ---
 id: TKT-009
 title: Open an associated email in Outlook
-status: now
+status: blocked
 priority: P3
 area: ui
 tickets-it-relates-to: [TKT-005, TKT-011]
@@ -29,6 +29,11 @@ Clicking an associated email navigates to it; a "view full email" control opens 
 
 The delivered control opens only the app's own full-message preview. Staff also need a **View in Outlook** action that opens the same mailbox item in Outlook while preserving the internal preview as a fallback.
 
+This follow-up is an input to the TKT-178 final cutover and is blocked from production rollout. It has
+no separate execution window. Production work cannot begin without the dated signed-off job spreadsheet,
+authenticated and verified EVA access, an independently confirmed production Archive root with explicit
+write/retarget authorization, restore proof, a frozen dry-run hash and named operator approval.
+
 ### Acceptance
 - Every associated email with a valid Graph/Outlook identity offers a clearly labelled `View in Outlook` action alongside, not instead of, the internal preview.
 - The target comes from the message's authoritative Outlook web link or a documented stable identifier; the client does not construct an unsafe URL from untrusted subject/body text.
@@ -38,6 +43,9 @@ The delivered control opens only the app's own full-message preview. Staff also 
 - External-link handling prevents opener control and rejects non-HTTPS/unexpected-host targets.
 - Tests cover a valid link, missing link, deleted/inaccessible item, unexpected host, each production shared mailbox and internal-preview fallback.
 - Deployed Chrome proof opens one read-only test/sample message from each available mailbox in the already signed-in Outlook session and records no mailbox mutation.
+- The production rollout remains blocked unless every TKT-178 execution gate above is evidenced; offline
+  tests, fixtures and planning do not waive a missing spreadsheet, blocked EVA API or unavailable
+  production Archive authorization.
 
 ## Research
 - Operator stub: [clickable-case-and-email.md](../../../plans/work-todo-spike/ui-changes/clickable-case-and-email.md)
