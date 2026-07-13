@@ -343,7 +343,7 @@ export function CaseList() {
   // Not-ready reason facet chips — derived CLIENT-SIDE from the loaded Not-ready rows
   // (A3). The chips render only on this queue AND the reason filter runs over the SAME
   // queueCases, so counting the global data.reasonCounts() route (which tallies Review +
-  // Held cases too) put chips like "Needs review (139)" here that filtered to zero rows.
+  // Held cases too) once put generic reason chips here that filtered to zero rows.
   // Tallying c.actionReason over queueCases makes each chip count EXACTLY equal what
   // selecting that reason yields. REASON_LABELS key order is preserved for stable chips.
   const facets = useMemo<ReasonFacet[]>(() => {

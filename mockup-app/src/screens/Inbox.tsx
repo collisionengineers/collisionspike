@@ -34,6 +34,9 @@ import {
   Radio,
   RadioGroup,
   OptionGroup,
+  Popover,
+  PopoverSurface,
+  PopoverTrigger,
   SearchBox,
   Spinner,
   Switch,
@@ -365,6 +368,22 @@ const useStyles = makeStyles({
     overflowY: 'auto',
     flex: 1,
     minHeight: 0,
+  },
+  snippetPreviewSurface: {
+    // TKT-169: the old Tooltip grew to the message's full height and could
+    // start above the viewport. Floating placement keeps this surface inside
+    // the viewport; its own scroll area handles long messages.
+    boxSizing: 'border-box',
+    width: 'min(420px, calc(100vw - 32px))',
+    maxWidth: 'calc(100vw - 32px)',
+    maxHeight: 'min(420px, calc(100vh - 64px))',
+    overflowY: 'auto',
+    overscrollBehavior: 'contain',
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'anywhere',
+    lineHeight: 1.4,
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground1,
   },
   previewActions: {
     display: 'flex',
@@ -1113,11 +1132,28 @@ export function Inbox() {
               </Link>
             </span>
             {e.bodyPreview && (
-              <Tooltip content={e.bodyPreview} relationship="label">
-                <span className={mergeClasses(tt.cellSecondary, styles.preview)}>
+              <Popover
+                openOnHover
+                withArrow
+                positioning={{ position: 'after', align: 'center', offset: 8 }}
+              >
+                <PopoverTrigger disableButtonEnhancement>
+                  <span
+                    className={mergeClasses(tt.cellSecondary, styles.preview)}
+                    tabIndex={0}
+                    aria-label="Preview email text"
+                  >
+                    {e.bodyPreview}
+                  </span>
+                </PopoverTrigger>
+                <PopoverSurface
+                  className={styles.snippetPreviewSurface}
+                  aria-label="Email text preview"
+                  tabIndex={0}
+                >
                   {e.bodyPreview}
-                </span>
-              </Tooltip>
+                </PopoverSurface>
+              </Popover>
             )}
           </span>
         ),
