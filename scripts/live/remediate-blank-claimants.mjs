@@ -52,6 +52,8 @@ const RUNNER_PATH = fileURLToPath(import.meta.url);
 const SHA256_RE = /^[a-f0-9]{64}$/;
 const DOC_EXT = /\.(pdf|docx?|rtf)$/i;
 const EMAIL_EXT = /\.(eml|msg)$/i;
+const BODY_TEXT_FILE_RE = /^email-body-([0-9a-f]{8})\.txt$/;
+const LEGACY_BODY_TEXT_FILE = 'email-body.txt';
 const MAX_SOURCE_DOCUMENTS = 25;
 const PARSER_FINGERPRINT_CONTRACT = 'ce-parser-fingerprint-v1';
 const HTTP_TIMEOUT_MS = 30_000;
@@ -334,25 +336,27 @@ function databaseLocation() {
 }
 
 export function assertSecureDatabaseSettings(env = process.env) {
-  const unsafeModes = new Set(['disable', 'allow', 'prefer', 'no-verify']);
-  if (text(env.PGSSLMODE) && unsafeModes.has(text(env.PGSSLMODE).toLowerCase())) {
+  const verifyingModes = new Set(['verify-ca', 'verify-full']);
+  const pgMode = text(env.PGSSLMODE).toLowerCase();
+  if (pgMode && !verifyingModes.has(pgMode)) {
     throw new Error('PGSSLMODE must verify the server certificate');
   }
   if (text(env.DATABASE_URL)) {
     const url = new URL(env.DATABASE_URL);
     const mode = text(url.searchParams.get('sslmode')).toLowerCase();
-    if (mode && unsafeModes.has(mode)) throw new Error('DATABASE_URL sslmode must verify the server certificate');
+    if (mode && !verifyingModes.has(mode)) throw new Error('DATABASE_URL sslmode must verify the server certificate');
   }
+}
+
+export async function databaseSslOptions(env = process.env, readFileImpl = readFile) {
+  const rootCert = text(env.PGSSLROOTCERT);
+  if (!rootCert || rootCert.toLowerCase() === 'system') return { rejectUnauthorized: true };
+  return { rejectUnauthorized: true, ca: await readFileImpl(resolve(rootCert), 'utf8') };
 }
 
 async function connect() {
   assertSecureDatabaseSettings();
-  const ssl = {
-    rejectUnauthorized: true,
-    ...(text(process.env.PGSSLROOTCERT)
-      ? { ca: await readFile(resolve(process.env.PGSSLROOTCERT), 'utf8') }
-      : {}),
-  };
+  const ssl = await databaseSslOptions();
   let config;
   if (text(process.env.DATABASE_URL)) {
     const url = new URL(process.env.DATABASE_URL);
@@ -438,6 +442,7 @@ export async function loadCanonicalHelpers() {
         export { CASE_SELECT, mergedIntoFrom, rowToCase, rowToEvidence } from './api/src/lib/mappers.ts';
         export { requestStatusRecompute } from './api/src/lib/status-recompute.ts';
         export { supplementClaimantNameFromBody } from './orchestration/src/lib/supplement-parse.ts';
+        export { messageFileToken } from './orchestration/src/lib/evidence-names.ts';
       `,
       resolveDir: REPO_ROOT,
       sourcefile: 'tkt150-v2-canonical-entry.ts',
@@ -460,6 +465,97 @@ function cell(envelope, key) {
 
 function isPdf(doc) {
   return /\.pdf$/i.test(doc.fileName) || /pdf/i.test(doc.contentType ?? '');
+}
+
+function exactFileName(value) {
+  return typeof value === 'string' ? value : '';
+}
+
+function retainedPlainTextSource(row) {
+  const contentType = text(row.content_type).toLowerCase();
+  const fileName = exactFileName(row.file_name);
+  return (BODY_TEXT_FILE_RE.test(fileName) || fileName === LEGACY_BODY_TEXT_FILE)
+    && /^text\/plain(?:\s*;|$)/i.test(contentType);
+}
+
+function plainTextShapedSource(row) {
+  return /\.txt$/i.test(text(row.file_name)) || /^text\/plain(?:\s*;|$)/i.test(text(row.content_type));
+}
+
+function retainedPlainTextError(message) {
+  return Object.assign(new Error(message), { code: 'INVALID_RETAINED_PLAIN_TEXT' });
+}
+
+/**
+ * Decode only an explicitly retained plain-text source. The raw bytes remain
+ * the authority recorded in the plan; this decoder merely exposes those bytes
+ * to the canonical conservative email-text claimant extractor. Charset
+ * guessing and binary/control characters fail closed.
+ */
+export function decodeRetainedPlainText(row, bytes) {
+  if (!retainedPlainTextSource(row)) throw retainedPlainTextError('retained source is not declared plain text');
+  const contentType = text(row.content_type);
+  const declaredCharset = /(?:^|;)\s*charset\s*=\s*"?([^;"\s]+)/i.exec(contentType)?.[1]?.toLowerCase() ?? '';
+  if (declaredCharset && !['utf-8', 'utf8', 'us-ascii', 'ascii'].includes(declaredCharset)) {
+    throw retainedPlainTextError(`retained plain text declares unsupported charset: ${declaredCharset}`);
+  }
+  const raw = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  if (['us-ascii', 'ascii'].includes(declaredCharset) && raw.some((value) => value > 0x7f)) {
+    throw retainedPlainTextError('retained plain text contains bytes outside its declared ASCII charset');
+  }
+  let decoded;
+  try {
+    decoded = new TextDecoder('utf-8', { fatal: true }).decode(raw);
+  } catch {
+    throw retainedPlainTextError('retained plain text is not valid UTF-8');
+  }
+  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(decoded)) {
+    throw retainedPlainTextError('retained plain text contains disallowed control characters');
+  }
+  return decoded;
+}
+
+function sanitizeEvidencePathSegment(value) {
+  return String(value ?? '').replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 200) || 'file';
+}
+
+function retainedBodyPathMatches(storagePath, graphMessageId, fileName) {
+  const expected = `${sanitizeEvidencePathSegment(graphMessageId)}/${sanitizeEvidencePathSegment(fileName)}`;
+  const actual = text(storagePath).replace(/\\/g, '/');
+  return Boolean(actual) && (actual === expected || actual.endsWith(`/${expected}`));
+}
+
+function matchingInboundForRetainedText(row, inboundRows, messageFileToken, legacyBodySourceCount) {
+  if (typeof messageFileToken !== 'function') throw new Error('retained text matching requires the canonical message token helper');
+  const fileName = exactFileName(row.file_name);
+  const tokenized = BODY_TEXT_FILE_RE.exec(fileName);
+  let matches;
+  let bindingMethod = 'graph_storage_path';
+  if (tokenized) {
+    const fileToken = tokenized[1];
+    matches = inboundRows.filter((candidate) =>
+      text(candidate.source_message_id)
+      && messageFileToken(text(candidate.source_message_id)) === fileToken
+      && text(candidate.graph_message_id)
+      && retainedBodyPathMatches(row.storage_path, candidate.graph_message_id, fileName));
+  } else if (fileName === LEGACY_BODY_TEXT_FILE) {
+    matches = inboundRows.filter((candidate) =>
+      text(candidate.graph_message_id)
+      && retainedBodyPathMatches(row.storage_path, candidate.graph_message_id, fileName));
+    if (
+      matches.length === 0
+      && legacyBodySourceCount === 1
+      && inboundRows.length === 1
+    ) {
+      matches = [inboundRows[0]];
+      bindingMethod = 'single_inbound_fallback';
+    }
+  } else {
+    throw new Error('retained text filename is not an exact body-instruction convention');
+  }
+  if (matches.length === 0) throw new Error('retained text token has no matching inbound email row');
+  if (matches.length > 1) throw new Error('retained text token maps to multiple inbound email rows');
+  return { row: matches[0], bindingMethod };
 }
 
 export function orderDocuments(docs) {
@@ -530,12 +626,27 @@ export function chooseClaimant(parsed, bodyInput, supplementClaimantNameFromBody
     return { status: 'conflicting', value: '', source: '', candidates: allCandidates, documentCandidates, bodyCandidates };
   }
   if (documentCandidates.length === 1) {
-    return { status: 'matched', value: documentCandidates[0], source: 'pdf_extraction', candidates: allCandidates };
+    const evidenceIds = [...new Set(parsed
+      .filter(({ envelope }) => normalizedName(cell(envelope, 'claimant_name')) === normalizedName(documentCandidates[0]))
+      .map(({ doc }) => text(doc?.evidenceId))
+      .filter(Boolean))].sort();
+    return {
+      status: 'matched',
+      value: documentCandidates[0],
+      source: 'pdf_extraction',
+      candidates: allCandidates,
+      inboundEmailIds: [],
+      evidenceIds,
+    };
   }
   if (bodyCandidates.length === 1) {
-    const inboundEmailIds = [...new Set(bodyObservations
-      .filter((item) => (item.result.candidates ?? []).some((candidate) => normalizedName(candidate) === normalizedName(bodyCandidates[0])))
+    const matchingBodyObservations = bodyObservations
+      .filter((item) => (item.result.candidates ?? []).some((candidate) => normalizedName(candidate) === normalizedName(bodyCandidates[0])));
+    const inboundEmailIds = [...new Set(matchingBodyObservations
       .map((item) => text(item.inboundEmailId))
+      .filter(Boolean))].sort();
+    const evidenceIds = [...new Set(matchingBodyObservations
+      .map((item) => text(item.evidenceId))
       .filter(Boolean))].sort();
     return {
       status: 'matched',
@@ -543,6 +654,7 @@ export function chooseClaimant(parsed, bodyInput, supplementClaimantNameFromBody
       source: 'email_text',
       candidates: bodyCandidates,
       inboundEmailIds,
+      evidenceIds,
     };
   }
   return { status: 'absent', value: '', source: '', candidates: [] };
@@ -577,7 +689,7 @@ export function coalesceOcr(envelope, ocr) {
 export function sourceMetadata(row) {
   return {
     evidenceId: text(row.id),
-    fileName: text(row.file_name),
+    fileName: exactFileName(row.file_name),
     contentType: text(row.content_type),
     sizeBytes: Number(row.size_bytes ?? 0),
     declaredSha256: text(row.sha256).toLowerCase(),
@@ -599,7 +711,9 @@ export function inboundState(row) {
   return {
     inboundEmailId: text(row.id),
     sourceMessageIdSha256: hashText(row.source_message_id),
+    sourceMessageToken: hashText(row.source_message_id).slice(0, 8),
     sourceMailboxSha256: hashText(row.source_mailbox),
+    graphMessageIdSha256: hashText(row.graph_message_id),
     receivedOn: iso(row.received_on),
     bodyPreviewByteLength: Buffer.byteLength(body, 'utf8'),
     bodyPreviewSha256: rawSha256(Buffer.from(body, 'utf8')),
@@ -779,7 +893,8 @@ const PROVENANCE_SQL = `
   ORDER BY case_id, created_at, id`;
 
 const INBOUND_SQL = `
-  SELECT id, case_id, source_message_id, source_mailbox, received_on, created_at, updated_at, body_preview
+  SELECT id, case_id, source_message_id, source_mailbox, graph_message_id,
+         received_on, created_at, updated_at, body_preview
   FROM inbound_email
   WHERE case_id = ANY($1::uuid[])
   ORDER BY case_id, received_on ASC NULLS LAST, created_at, id`;
@@ -1004,7 +1119,7 @@ export async function planOne(
   blob,
   canonical,
   parserFingerprintSha256,
-  { fetchEvidence = fetchEvidenceBytes } = {},
+  { fetchEvidence = fetchEvidenceBytes, parseSourceDocument = parseDocument } = {},
 ) {
   const sourceRows = allEvidenceRows.filter((row) => row.kind === 'instruction' || row.kind === 'email');
   const preconditions = buildPreconditions(caseRow, allEvidenceRows, provenanceRows, sourceRows, inboundRows, canonical);
@@ -1016,6 +1131,9 @@ export async function planOne(
     .filter((row) => text(row.body_preview))
     .map((row) => ({ text: text(row.body_preview), inboundEmailId: text(row.id) }));
   const bodyInputs = inboundBodyReadRecords(inboundRows);
+  const legacyBodySourceCount = sourceRows.filter((row) =>
+    exactFileName(row.file_name) === LEGACY_BODY_TEXT_FILE
+    && /^text\/plain(?:\s*;|$)/i.test(text(row.content_type))).length;
   const seenSources = new Set();
 
   for (const row of sourceRows) {
@@ -1046,8 +1164,40 @@ export async function planOne(
       continue;
     }
     try {
+      const plainTextLike = retainedPlainTextSource(row);
       const emailLike = row.kind === 'email' || EMAIL_EXT.test(row.file_name) || /rfc822|ms-outlook/i.test(row.content_type ?? '');
-      if (emailLike) {
+      if (plainTextLike) {
+        const retainedBinding = matchingInboundForRetainedText(
+          row,
+          inboundRows,
+          canonical.messageFileToken,
+          legacyBodySourceCount,
+        );
+        const matchingInbound = retainedBinding.row;
+        const decoded = decodeRetainedPlainText(row, bytes);
+        bodySources.push({
+          text: decoded,
+          inboundEmailId: text(matchingInbound.id),
+          evidenceId: text(row.id),
+        });
+        bodyInputs.push({
+          kind: 'retained_plain_text',
+          evidenceId: text(row.id),
+          inboundEmailId: text(matchingInbound.id),
+          sourceMessageIdSha256: hashText(matchingInbound.source_message_id),
+          sourceMailboxSha256: hashText(matchingInbound.source_mailbox),
+          graphMessageIdSha256: hashText(matchingInbound.graph_message_id),
+          bindingMethod: retainedBinding.bindingMethod,
+          storagePath: text(row.storage_path).replace(/\\/g, '/'),
+          graphMessageId: retainedBinding.bindingMethod === 'graph_storage_path'
+            ? text(matchingInbound.graph_message_id)
+            : null,
+          byteLength: bytes.length,
+          byteSha256: actualSha256,
+        });
+      } else if (plainTextShapedSource(row)) {
+        failures.push({ evidenceId: row.id, stage: 'source_type', message: 'unsupported_retained_source' });
+      } else if (emailLike) {
         const exploded = await explodeEmail(row, bytes);
         for (const failure of exploded.integrityFailures) {
           failures.push({
@@ -1064,6 +1214,7 @@ export async function planOne(
           bodySources.push({
             text: exploded.bodyText,
             inboundEmailId: matchingInbound ? text(matchingInbound.id) : '',
+            evidenceId: text(row.id),
           });
           bodyInputs.push({
             kind: 'exploded_email_body',
@@ -1123,7 +1274,7 @@ export async function planOne(
   if (uniqueDocuments.length <= MAX_SOURCE_DOCUMENTS) {
     for (const document of uniqueDocuments) {
       try {
-        const parsedDocument = await parseDocument(document);
+        const parsedDocument = await parseSourceDocument(document);
         parsed.push(parsedDocument);
         if (parsedDocument.ocrError) {
           failures.push({
@@ -1150,12 +1301,14 @@ export async function planOne(
     eligible: eligibleClaimantDocuments,
     ordered: orderedClaimantDocuments,
   } = selectClaimantDocuments(parsed);
-  const claimant = chooseClaimant(orderedClaimantDocuments, bodySources, canonical.supplementClaimantNameFromBody);
-  const sourceEvidenceIds = claimant.source === 'pdf_extraction'
-    ? distinctNames(orderedClaimantDocuments
-        .filter(({ envelope }) => cell(envelope, 'claimant_name'))
-        .map(({ doc }) => doc.evidenceId)).sort()
-    : [];
+  const claimantDecision = chooseClaimant(orderedClaimantDocuments, bodySources, canonical.supplementClaimantNameFromBody);
+  const claimant = claimantDecision.status === 'matched'
+    ? { ...claimantDecision, value: text(claimantDecision.value) }
+    : claimantDecision;
+  if (claimant.status === 'matched' && claimant.value.length > 200) {
+    failures.push({ stage: 'claimant_validation', message: 'claimant_exceeds_200_character_limit' });
+  }
+  const sourceEvidenceIds = claimant.source ? (claimant.evidenceIds ?? []) : [];
   const sourceInboundEmailIds = claimant.source === 'email_text' ? (claimant.inboundEmailIds ?? []) : [];
   if (claimant.source === 'email_text' && sourceInboundEmailIds.length === 0) {
     failures.push({ stage: 'email_provenance', message: 'matched_email_claimant_has_no_inbound_source_id' });
@@ -1168,7 +1321,7 @@ export async function planOne(
     casePo: caseRow.case_po ?? null,
     vrm: caseRow.vrm ?? null,
     outcome,
-    patch: outcome === 'repair' ? { [CLAIMANT_COLUMN]: claimant.value.slice(0, 200) } : {},
+    patch: outcome === 'repair' ? { [CLAIMANT_COLUMN]: claimant.value } : {},
     fieldSource: outcome === 'repair' ? claimant.source : null,
     sourceEvidenceIds,
     sourceInboundEmailIds,
@@ -1186,6 +1339,7 @@ export async function planOne(
     sources: {
       metadata: sourceRows.map(sourceMetadata).sort((a, b) => a.evidenceId.localeCompare(b.evidenceId)),
       reads: sourceReads.sort((a, b) => a.evidenceId.localeCompare(b.evidenceId)),
+      inbound: inboundRows.map(inboundState).sort((a, b) => a.inboundEmailId.localeCompare(b.inboundEmailId)),
       bodyInputs: bodyInputs.sort((a, b) => `${a.kind}:${a.evidenceId ?? ''}`.localeCompare(`${b.kind}:${b.evidenceId ?? ''}`)),
       attachments: attachments.sort((a, b) => `${a.parentEvidenceId}:${a.fileName}`.localeCompare(`${b.parentEvidenceId}:${b.fileName}`)),
       parsedDocuments: parsed.map(({ doc, envelope, ocrAttempted, ocrApplied, ocrError }) => ({
@@ -1323,10 +1477,33 @@ export function assertPlan(plan) {
     if (!['repair', 'absent_in_source', 'conflicting', 'failed'].includes(item.outcome)) {
       throw new Error(`Invalid outcome: ${item.caseId}`);
     }
+    if (classifyPlanOutcome(item.failures ?? [], item.claimant ?? { status: 'absent' }) !== item.outcome) {
+      throw new Error(`Outcome classification mismatch: ${item.caseId}`);
+    }
     const patchKeys = Object.keys(item.patch ?? {});
     if (item.outcome === 'repair') {
-      if (patchKeys.length !== 1 || patchKeys[0] !== CLAIMANT_COLUMN || blank(item.patch[CLAIMANT_COLUMN])) {
+      if (
+        patchKeys.length !== 1
+        || patchKeys[0] !== CLAIMANT_COLUMN
+        || blank(item.patch[CLAIMANT_COLUMN])
+        || item.patch[CLAIMANT_COLUMN] !== text(item.patch[CLAIMANT_COLUMN])
+        || item.patch[CLAIMANT_COLUMN].length > 200
+      ) {
         throw new Error(`Repair is not claimant-only: ${item.caseId}`);
+      }
+      const claimantInboundIds = [...new Set((item.claimant?.inboundEmailIds ?? []).map(text).filter(Boolean))].sort();
+      const claimantEvidenceIds = [...new Set((item.claimant?.evidenceIds ?? []).map(text).filter(Boolean))].sort();
+      const claimantCandidates = Array.isArray(item.claimant?.candidates) ? item.claimant.candidates : [];
+      if (
+        item.claimant?.status !== 'matched'
+        || item.claimant?.source !== item.fieldSource
+        || item.claimant?.value !== item.patch[CLAIMANT_COLUMN]
+        || !claimantCandidates.some((candidate) => normalizedName(candidate) === normalizedName(item.claimant.value))
+        || (item.failures ?? []).length !== 0
+        || !sameValue(item.sourceInboundEmailIds, claimantInboundIds)
+        || !sameValue(item.sourceEvidenceIds, claimantEvidenceIds)
+      ) {
+        throw new Error(`Repair decision is not semantically bound to its claimant and exact sources: ${item.caseId}`);
       }
       if (!ALLOWED_SOURCES.has(item.fieldSource)) throw new Error(`Invalid claimant source: ${item.caseId}`);
       if (!blank(item.preconditions?.claimant)) throw new Error(`Repair would overwrite claimant: ${item.caseId}`);
@@ -1362,9 +1539,20 @@ export function assertPlan(plan) {
     }
     const metadataRows = item.sources?.metadata ?? [];
     const readRows = item.sources?.reads ?? [];
-    if (!Array.isArray(metadataRows) || !Array.isArray(readRows)) {
+    const plannedInboundRows = item.sources?.inbound ?? [];
+    if (!Array.isArray(metadataRows) || !Array.isArray(readRows) || !Array.isArray(plannedInboundRows)) {
       throw new Error(`Retained source observations are missing: ${item.caseId}`);
     }
+    const inboundIds = plannedInboundRows.map((source) => text(source.inboundEmailId)).sort();
+    if (inboundIds.some((id) => !id) || new Set(inboundIds).size !== inboundIds.length) {
+      throw new Error(`Planned inbound identity set is invalid: ${item.caseId}`);
+    }
+    const normalizedInboundRows = [...plannedInboundRows]
+      .sort((left, right) => text(left.inboundEmailId).localeCompare(text(right.inboundEmailId)));
+    if (integrityHash(normalizedInboundRows) !== item.preconditions.inboundStateSha256) {
+      throw new Error(`Planned inbound identities do not match the precondition state: ${item.caseId}`);
+    }
+    const plannedInboundById = new Map(plannedInboundRows.map((source) => [text(source.inboundEmailId), source]));
     const metadataIds = metadataRows.map((source) => text(source.evidenceId)).sort();
     const readIds = readRows.map((source) => text(source.evidenceId)).sort();
     if (
@@ -1442,10 +1630,101 @@ export function assertPlan(plan) {
         throw new Error(`Invalid consumed source byte length: ${item.caseId}`);
       }
     }
+    const retainedTextInputs = (item.sources?.bodyInputs ?? [])
+      .filter((source) => source.kind === 'retained_plain_text');
+    const retainedTextMetadataRows = metadataRows.filter((source) =>
+      (BODY_TEXT_FILE_RE.test(exactFileName(source.fileName)) || exactFileName(source.fileName) === LEGACY_BODY_TEXT_FILE)
+      && /^text\/plain(?:\s*;|$)/i.test(text(source.contentType)));
+    const retainedTextEvidenceIds = new Set();
+    for (const source of retainedTextInputs) {
+      const evidenceId = text(source.evidenceId);
+      if (!evidenceId || retainedTextEvidenceIds.has(evidenceId)) {
+        throw new Error(`Retained plain-text body has invalid evidence identity: ${item.caseId}`);
+      }
+      retainedTextEvidenceIds.add(evidenceId);
+      const read = readRows.find((candidate) => text(candidate.evidenceId) === evidenceId);
+      const metadata = metadataById.get(evidenceId);
+      if (
+        read?.readStatus !== 'readable'
+        || read.byteSha256 !== source.byteSha256
+        || read.byteLength !== source.byteLength
+      ) {
+        throw new Error(`Retained plain-text body is not bound to its exact source bytes: ${item.caseId}`);
+      }
+      sha(source.sourceMessageIdSha256, `retained text sourceMessageIdSha256:${item.caseId}`);
+      sha(source.sourceMailboxSha256, `retained text sourceMailboxSha256:${item.caseId}`);
+      sha(source.graphMessageIdSha256, `retained text graphMessageIdSha256:${item.caseId}`);
+      const inbound = plannedInboundById.get(text(source.inboundEmailId));
+      if (
+        !inbound
+        || inbound.sourceMessageIdSha256 !== source.sourceMessageIdSha256
+        || inbound.sourceMailboxSha256 !== source.sourceMailboxSha256
+        || inbound.graphMessageIdSha256 !== source.graphMessageIdSha256
+      ) {
+        throw new Error(`Retained plain-text body is cross-bound to the wrong inbound identity: ${item.caseId}`);
+      }
+      const fileName = exactFileName(metadata?.fileName);
+      const contentType = text(metadata?.contentType).toLowerCase();
+      const tokenized = BODY_TEXT_FILE_RE.exec(fileName);
+      const storagePath = text(source.storagePath).replace(/\\/g, '/');
+      const graphMessageId = text(source.graphMessageId);
+      if (
+        (!tokenized && fileName !== LEGACY_BODY_TEXT_FILE)
+        || !/^text\/plain(?:\s*;|$)/i.test(contentType)
+        || (tokenized && tokenized[1] !== inbound.sourceMessageToken)
+        || hashText(storagePath) !== metadata.storagePathSha256
+      ) {
+        throw new Error(`Retained plain-text body convention does not match its inbound identity: ${item.caseId}`);
+      }
+      if (source.bindingMethod === 'graph_storage_path') {
+        if (
+          !graphMessageId
+          || hashText(graphMessageId) !== inbound.graphMessageIdSha256
+          || !retainedBodyPathMatches(storagePath, graphMessageId, fileName)
+        ) {
+          throw new Error(`Retained plain-text body path does not match its inbound identity: ${item.caseId}`);
+        }
+      } else if (source.bindingMethod === 'single_inbound_fallback') {
+        const legacyMetadataCount = retainedTextMetadataRows
+          .filter((candidate) => exactFileName(candidate.fileName) === LEGACY_BODY_TEXT_FILE).length;
+        if (
+          fileName !== LEGACY_BODY_TEXT_FILE
+          || source.graphMessageId !== null
+          || plannedInboundRows.length !== 1
+          || legacyMetadataCount !== 1
+          || text(plannedInboundRows[0].inboundEmailId) !== text(source.inboundEmailId)
+        ) {
+          throw new Error(`Legacy retained plain-text fallback is ambiguous: ${item.caseId}`);
+        }
+      } else {
+        throw new Error(`Retained plain-text binding method is invalid: ${item.caseId}`);
+      }
+    }
+    for (const metadata of retainedTextMetadataRows) {
+      const evidenceId = text(metadata.evidenceId);
+      const read = readRows.find((candidate) => text(candidate.evidenceId) === evidenceId);
+      if (read?.readStatus !== 'readable') continue;
+      const consumedCount = retainedTextInputs.filter((source) => text(source.evidenceId) === evidenceId).length;
+      const blockingFailureCount = (item.failures ?? []).filter((failure) =>
+        text(failure.evidenceId) === evidenceId
+        && ['source_integrity', 'source_processing'].includes(failure.stage)).length;
+      if (consumedCount + blockingFailureCount !== 1) {
+        throw new Error(`Readable retained plain-text source lacks exact processing coverage: ${item.caseId}:${evidenceId}`);
+      }
+    }
     if (item.fieldSource === 'email_text') {
       const bodyInboundIds = new Set((item.sources?.bodyInputs ?? []).map((source) => text(source.inboundEmailId)).filter(Boolean));
       if (!item.sourceInboundEmailIds.every((id) => bodyInboundIds.has(text(id)))) {
         throw new Error(`Email repair source is not covered by a consumed body hash: ${item.caseId}`);
+      }
+      const retainedBodyEvidenceIds = new Set((item.sources?.bodyInputs ?? [])
+        .filter((source) => ['retained_plain_text', 'exploded_email_body'].includes(source.kind))
+        .map((source) => text(source.evidenceId))
+        .filter(Boolean));
+      if (!item.sourceEvidenceIds.every((id) =>
+        retainedBodyEvidenceIds.has(text(id))
+        && readRows.find((source) => text(source.evidenceId) === text(id))?.readStatus === 'readable')) {
+        throw new Error(`Email repair evidence is not covered by readable retained body bytes: ${item.caseId}`);
       }
     }
   }
@@ -1660,7 +1939,7 @@ async function currentCaseState(client, caseId, canonical) {
     [caseId],
   )).rows;
   const inbound = (await client.query(
-    `SELECT id, case_id, source_message_id, source_mailbox, received_on,
+    `SELECT id, case_id, source_message_id, source_mailbox, graph_message_id, received_on,
             created_at, updated_at, body_preview
        FROM inbound_email
       WHERE case_id = $1
@@ -1938,8 +2217,14 @@ export async function applyOne(client, item, sourceTypes, canonical, planRawSha2
     let claimantOutcome;
     const appliedFields = [];
     if (item.outcome === 'repair') {
-      claimant = text(item.patch?.[CLAIMANT_COLUMN]).slice(0, 200);
-      if (!claimant || Object.keys(item.patch).length !== 1 || !ALLOWED_SOURCES.has(item.fieldSource)) {
+      claimant = item.patch?.[CLAIMANT_COLUMN];
+      if (
+        typeof claimant !== 'string'
+        || claimant !== text(claimant)
+        || claimant.length > 200
+        || Object.keys(item.patch).length !== 1
+        || !ALLOWED_SOURCES.has(item.fieldSource)
+      ) {
         throw new Error('runtime_allowlist_rejected');
       }
       const update = await client.query(
