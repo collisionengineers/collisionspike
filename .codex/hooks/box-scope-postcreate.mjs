@@ -7,13 +7,15 @@
 // bookkeeping — always exits 0, never blocks.
 import { loadConfig, appendAllowedId } from './box-scope-lib.mjs';
 
+const TEST_ROOT = '392761581105';
+
 let raw = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (c) => (raw += c));
 process.stdin.on('end', () => {
   try {
     const ev = JSON.parse(raw || '{}');
-    if ((ev.tool_name || '') !== 'Bash') process.exit(0);
+    if (!['Bash', 'PowerShell'].includes(ev.tool_name || '')) process.exit(0);
     const cmd = String((ev.tool_input || {}).command || '');
     if (!/box(?:\.cmd)?\s+(?:folders:create|files:upload|file-requests:copy|webhooks:create)\b/i.test(cmd)) {
       process.exit(0);
@@ -36,6 +38,7 @@ process.stdin.on('end', () => {
     // box --json returns an object, an array, or an { entries: [...] } wrapper (uploads/lists)
     const items = Array.isArray(obj) ? obj : Array.isArray(obj.entries) ? obj.entries : [obj];
     const cfg = loadConfig();
+    if (cfg.liveReady || cfg.mode !== 'test_only' || cfg.allowedRoot !== TEST_ROOT) process.exit(0);
     const added = [];
     for (const it of items) {
       const id = it && it.id != null ? String(it.id) : '';

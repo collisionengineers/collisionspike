@@ -8,7 +8,13 @@ import { dirname, resolve } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const cfg = JSON.parse(readFileSync(resolve(HERE, '..', 'box-scope.json'), 'utf8'));
+const TEST_ROOT = '392761581105';
 const ALLOWED_ROOT = String(cfg.allowedRoot);
+
+if (cfg.liveReady === true || cfg.mode !== 'test_only' || ALLOWED_ROOT !== TEST_ROOT) {
+  console.error('BLOCKED: Box probe is permanently test-only; restore mode=test_only and root 392761581105.');
+  process.exit(2);
+}
 
 const clientId = process.env.box_client_id || process.env.BOX_CLIENT_ID;
 const clientSecret = process.env.box_client_secret || process.env.BOX_CLIENT_SECRET;

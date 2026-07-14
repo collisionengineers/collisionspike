@@ -60,8 +60,8 @@ session.
 
 ## Remaining release/live gates
 
-- Claude-first and Codex exact-head PR review, merge, then rebuild the tracked API deployment bundle and
-  SPA artifact from merged `main`.
+- Pass the normal repository and CI checks, merge, then rebuild the tracked API deployment bundle and SPA
+  artifact from merged `main`. The retired reciprocal AI-review workflow is not a release gate.
 - Deploy API + SPA (orchestration source already delegates to the API and has no new local evaluator).
 - Take the ticket-specified backup, idempotently recompute every active case, and retain a residual ledger.
 - Independently compare DB status/queue membership, API counts and deployed SPA counts; specifically prove

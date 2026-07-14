@@ -4,6 +4,13 @@
 gates reconciled. The activation record (before/after, exact commands) is
 **[docs/handoff/02-box-activation.md](../handoff/02-box-activation.md)**.
 
+> **Current production-cutover boundary (TKT-178, 2026-07-13):** this playbook proves authentication
+> against the existing test/mirror scope only. It does not authorize a production root switch, webhook
+> target, write, rename, merge or retarget. Those actions remain blocked until the signed/checksummed job
+> spreadsheet, authenticated contract-verified production EVA API evidence, and exact production Archive
+> root with proven explicit write scope reconcile in the frozen approved ledger and named window. Do not
+> clear a scope lock; test/mirror/Viewer access is not production approval.
+
 > **Intake evidence archive — VERIFIED-LIVE (2026-07-01, [TKT-003](../tickets/done/TKT-003-box-sync/TKT-003-box-sync.md)).**
 > After folder-at-intake, `cespk-orch-dev` runs the `boxArchiveEvidence` durable activity: reads persisted
 > evidence via the Data API internal route and uploads bytes through box-fn `upload_file`. A fresh intake's
@@ -163,9 +170,12 @@ single source of truth: `BOX_API_ENABLED`, `BOX_FOLDER_AT_INTAKE_ENABLED`, `BOX_
 - **`FILE.UPLOADED` webhook.** Subscribe the webhook to the root (or per-case) pointing at
   `https://cespkbox-fn-v76a47.azurewebsites.net/api/box-webhook`; the receiver verifies the dual-key
   HMAC against the two webhook-key secrets (already in the vault, already matching). Exercise an upload →
-  evidence-attach → `box_upload_received` audit → status re-eval.
-- **Scope lock for production.** `BOX_ALLOWED_ROOT_ID=392761581105` pins every op to the test folder.
-  Clear it (or repoint to the production archive root) to lift the lock when going beyond the test folder.
+  evidence-attach → `box_upload_received` audit → status re-eval **within the currently approved test/mirror
+  root only**. A production-root subscription waits for TKT-178.
+- **Scope lock for production — BLOCKED.** `BOX_ALLOWED_ROOT_ID=392761581105` pins every op to the test
+  folder. Keep it fail-closed. A future TKT-178 window may repoint it only to the exact approved production
+  root, after all three global inputs, restore proof, frozen ledger hash and named approval pass; never clear
+  it to broaden access.
 - **Local hygiene.** The secret now lives in Key Vault; the repo-root `941197_re7d6t50_config.json`
   can be deleted. It is gitignored so it will never be committed, but it is cleartext on disk — remove it
   once you are confident KV is the durable home.

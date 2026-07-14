@@ -5,6 +5,19 @@ before staff are told the system is live. Each check names its **exact command/r
 result**, and a **what-if-fail** pointer into [support-playbook.md](./support-playbook.md). Work top to
 bottom; a failure that can't be corrected forward means stop and consider [rollback.md](./rollback.md).
 
+> **Do not run this pack now.** TKT-178 must first hold the signed/checksummed job spreadsheet,
+> authenticated contract-verified production EVA API evidence, the exact production Archive root with
+> proven explicit write/rename/merge/retarget authority, backup/restore proof, the frozen approved ledger
+> hash and a named completed cutover window. Use only the exact ingress and EVA-ready canaries nominated in
+> that ledger for production proof; do not create a disposable case, email or upload. Manual EVA drag-drop and test,
+> mirror, configured-default or Viewer-only Archive roots do not satisfy the cutover gates.
+>
+> **Command text is not mutation authority.** This smoke pack is read-only around the two one-shot canary
+> leases that the named TKT-178 run already authorised. Do not manually renew or
+> change Graph subscriptions, call a retro starter, mutate Outlook, create a case, write database/Archive/
+> configuration state, or submit another EVA operation. The run ID, signed ledger/hash, exact artifact hashes,
+> named window and fence tokens—not this document—authorise the two journaled operations.
+
 Live numbers, gate values, the mailbox set, Box root id and Graph subscription expiries are **not
 re-embedded here** — read them from the registry
 [`architecture/live-environment.md`](../../architecture/live-environment.md) (single source
@@ -25,9 +38,8 @@ re-embedded here** — read them from the registry
   `https://proud-sky-04e318b03.7.azurestaticapps.net`) — read the value off the UI, or copy the request from
   browser DevTools. Raw `curl` needs a real MSAL access token (`aud = api://fa2fb28c…`); an unauthenticated
   `curl` returning `401` only proves the route is fail-closed, not that data is right.
-- **Facade + keyed starters** (`cespkbox-fn-v76a47`, `POST /api/retro-case`) authenticate with a
-  **function key**: `az functionapp keys list -g rg-collisionspike-dev -n <app> --query functionKeys.default -o tsv`,
-  passed as the `x-functions-key` header.
+- **Provider reads** use only the independently verified read-only path named by the approved run. A function
+  key does not itself authorise a provider mutation.
 
 ---
 
@@ -35,21 +47,25 @@ re-embedded here** — read them from the registry
 
 The load-bearing check: a live email lands as an `inbound_email` row and (for new work) a `case_`.
 
-**Do it.** Send one test email to **each** intake mailbox in the production set (registry
-[`live-environment.md`](../../architecture/live-environment.md)) from an address whose domain maps to a
-known provider, with a PDF instruction + one image attached.
+**Do it after the approved window.** Observe the exact journaled ingress canary by its immutable message and
+queue/outbox IDs in the production mailbox set (registry
+[`live-environment.md`](../../architecture/live-environment.md)). Do not select another arrival, send a
+synthetic production email or create a disposable case solely for proof.
 
 **Verify (WSL, `SET ROLE csadmin`):**
 ```sql
 SET ROLE csadmin;
-SELECT source_mailbox, received_on, category_code, case_id
+SELECT id, source_mailbox, source_message_id, graph_message_id, received_on, category_code, case_id
 FROM inbound_email
-WHERE received_on > now() - interval '15 minutes'
-ORDER BY received_on DESC;
+WHERE source_mailbox = '<journaled-mailbox>'
+  AND source_message_id = '<journaled-source-message-id>'
+  AND graph_message_id = '<journaled-graph-message-id>';
 ```
+Cross-check the returned inbound ID against the journaled queue/outbox ID; elapsed time is supporting evidence,
+never the lookup key.
 
-**Expected:** one fresh row per test send (source_mailbox = the mailbox you hit), `category_code` a
-sensible classification, and for the new-work send a non-null `case_id`. Cross-check the case:
+**Expected:** the exact canary has the correct `source_mailbox`, a sensible
+`category_code` and, for new work, a non-null `case_id`. Cross-check the case:
 ```sql
 SELECT case_po, status_code, work_provider_id, box_folder_id
 FROM case_ WHERE id = '<case_id>';
@@ -66,83 +82,85 @@ subscription health in check 2). Zero rows only when **not** `csadmin` = an RLS/
 Intake rides **Graph PUSH change-notification subscriptions**, kept alive by the durable
 `subscriptionMonitorOrchestrator` (a plain timer can't wake the scale-to-zero FC1 app).
 
-**Verify — monitor is Running (WSL):**
-```bash
-curl -s -X POST "https://cespk-orch-dev.azurewebsites.net/api/graph-renew?code=$(az functionapp keys list -g rg-collisionspike-dev -n cespk-orch-dev --query functionKeys.default -o tsv)"
-```
-**Expected:** JSON with `monitor.status = "Running"` and one active subscription per production mailbox,
-each `expirationDateTime` in the future (compare against the expiries in the registry
-[`live-environment.md`](../../architecture/live-environment.md)).
+**Verify — read-only subscription state:** use an approved Graph `GET /subscriptions` reader and retain the
+response hash. It must show exactly the approved subscription set, resource and mailbox mapping, immutable
+IDs and future `expirationDateTime` values from the registry. Do not call `POST`, `PATCH` or `DELETE`, and do
+not call the `graph-renew` endpoint merely to make this check pass.
 
-**Verify — an *unattended* renew has fired (KQL, App Insights component `cespk-orch-dev`):**
+**Verify — a source-bearing *unattended* renew has fired.** This check remains blocked until Precondition 0
+ships the versioned custom event; the current ordinary trace text is shared by manual, timer and durable
+paths and is not certification evidence. Then query App Insights component `cespk-orch-dev`:
 ```kql
-customEvents | where name == "graph-renewal-success" | where timestamp > ago(24h) | order by timestamp desc
+customEvents
+| where name == "graph-renewal-success" and timestamp > ago(24h)
+| where tostring(customDimensions.source) == "durable_monitor"
+| where isnotempty(tostring(customDimensions.durableInstanceId))
+| project timestamp, subscriptionId=tostring(customDimensions.subscriptionId),
+          nextExpiry=todatetime(customDimensions.nextExpiry),
+          durableInstanceId=tostring(customDimensions.durableInstanceId)
+| order by timestamp desc
 ```
-**Expected:** at least one `graph-renewal-success` at the ~6h durable-timer cadence with **no** matching
-manual `graph-renew` HTTP call just before it (the operator watch-item from the renewal fix).
+**Expected:** at least one event from `durable_monitor` at the expected cadence, after the most recent
+source-bearing `manual_http` event, with a future expiry for every approved subscription.
 
-**If it fails:** `monitor.status` not Running, an expiry inside ~24h, or zero unattended renewals →
-[support-playbook.md](./support-playbook.md) § *Graph subscription expiry / renewal*. Backstop lever: the
-retained `graph-renew` timer + the manual `POST /api/graph-renew` above force a renew immediately.
+**If it fails:** a missing/unexpected subscription, an expiry inside ~24h, or zero unattended renewals →
+[support-playbook.md](./support-playbook.md) § *Graph subscription expiry / renewal*. Do not repair it during
+the smoke and then count the same interval as unattended proof. A manual renewal invalidates this evidence;
+fix under separate authority and wait for a fresh source-bearing `durable_monitor` event.
 
-## 3. Box folder-create + `FILE.UPLOADED` path
+## 3. Approved production Archive folder + File Request/webhook configuration
 
-Every new case mints a Case/PO-named Box folder (additive one-way mirror; Postgres stays the record), and
-an upload into its File Request must fire `FILE.UPLOADED` → the `box-webhook` Function → evidence row.
+Every new case mints a Case/PO-named Archive folder. The ingress canary proves exact placement. Separately,
+the production File Request template and destination webhook must already have been staged and independently
+read back before the final root commit through the signed-run exact-target operation while the proved
+Box-event buffer prevented evidence/status writes.
 
-**Verify — folder minted (WSL):** confirm the check-1 case's `box_folder_id` resolves, and it appears under
-the mirror root (the `BOX_FOLDER_ROOT_ID` gate value — registry):
-```bash
-BOXKEY=$(az functionapp keys list -g rg-collisionspike-dev -n cespkbox-fn-v76a47 --query functionKeys.default -o tsv)
-curl -s "https://cespkbox-fn-v76a47.azurewebsites.net/api/box/folders/<BOX_FOLDER_ROOT_ID>/items" -H "x-functions-key: $BOXKEY"
-```
-**Expected:** HTTP 200; the listing contains a folder named exactly the case's `case_po`.
+**Verify — exact folder identity:** read `case_.box_folder_id` for the canary, then use the independently
+verified canonical read-only object-metadata operation for that exact ID. Assert returned object ID equals
+the DB value, `parent.id` equals the exact approved production root, and `name` equals the canary's Case/PO.
+Also read back `BOX_ALLOWED_ROOT_ID` plus both `BOX_FOLDER_ROOT_ID` settings and require the same root. A root
+listing or same-name folder is insufficient. The current facade exposes child listing but no proven metadata
+route; until that capability exists and is independently verified, this check and cutover remain blocked.
 
-**Verify — upload → webhook → evidence:** upload one test image into that case's File Request (Box UI, or the
-facade `POST /api/box/folders/<id>/files`). Then, as `csadmin`:
-```sql
-SET ROLE csadmin;
-SELECT kind, source, created_on FROM evidence WHERE case_id = '<case_id>' ORDER BY created_on DESC LIMIT 5;
-```
-**Expected:** a new `evidence` row within a minute of the upload, an `box_upload_received` `audit_event`,
-the case status re-evaluated, and the image visible on the case in the SPA.
+**Verify — configuration readback:** both apps return the approved template ID; provider metadata returns the
+exact production-target webhook ID, target root and callback; the journal says whether it pre-existed or was
+created by this run; the buffer checkpoint proves no pre-release event mutated a case. The live mirror-root
+webhook is not a substitute. Do not manufacture a claimant upload
+inside the bounded window. Observe the first later ordinary genuine upload under separate post-signoff
+monitoring; a failure then follows [support-playbook.md](./support-playbook.md) § *Box facade / webhook*.
 
-**If it fails:** a 200 folder-list but no evidence row after upload = the `FILE.UPLOADED` webhook isn't
-subscribed or the template File Request id is empty → [support-playbook.md](./support-playbook.md) §
-*Box facade / webhook* (and [runbook.md](./runbook.md) step 6 — `BOX_FILE_REQUEST_TEMPLATE_ID` + the
-webhook subscription). A non-2xx from the facade re-delivers on Box's own retry.
+## 4. Authenticated production EVA API result
 
-## 4. EVA drag-drop export
+This check is impossible while EVA REST remains gated (`EVA_API_ENABLED` absent — Minotaur
+one-principal-code limit), so the smoke pack and cutover remain blocked. A manual drag-drop export can
+support ordinary work but is not authenticated production API proof.
 
-EVA REST stays gated (`EVA_API_ENABLED` absent — Minotaur one-principal-code limit); the live path is
-**drag-drop 12-field JSON**.
+**Do it after the approved window.** Observe the exact journaled EVA-ready case's authenticated production
+API round-trip and retain its redacted request/response correlation with the frozen TKT-178 ledger and
+persisted operation record. A worker recycle or response loss must resume/status-check without resubmission.
 
-**Do it.** Open the check-1 case in the SPA → export the 12-field EVA JSON → drag-drop it into EVA.
-
-**Expected:** EVA accepts the payload. **Photo order is mandatory:** 2 preview photos first (vehicle
+**Expected:** EVA's production API accepts the payload under the verified contract. **Photo order is
+mandatory:** 2 preview photos first (vehicle
 overview + main-damage closeup), then **all** photos in sequence **including those two again**; the overview
 must show the **full registration**; any photo with a person's reflection is excluded.
 
-**If it fails:** EVA rejects the JSON shape or the image set → [support-playbook.md](./support-playbook.md)
-§ *EVA export*. The 12-field contract + photo rules are the [eva-sentry-api](../../adr/) reference; a
-malformed export is a Data-API `parser-eva-fields` issue, not an EVA outage.
+**If it fails before EVA dispatch:** keep the fence and use the approved LIFO inverse journal; do not replace
+the failed API proof with drag-drop. **If the vendor accepted the request or the response is unknown:** query
+by the persisted correlation and recover forward—never blind-resubmit or reverse identity-bearing state as
+if no business event occurred. Use
+[support-playbook.md](./support-playbook.md) § *EVA export* to separate payload-shape defects from vendor
+authentication/contract failures.
 
-## 5. AI chat drawer answers a question
+## 5. Signed-in SPA read paths are healthy
 
-The read-only helper (`AI_CHAT_ENABLED=true`, keyless AOAI gpt-5, three read-only tools) is the Sparkles
-drawer off the SPA AppShell header.
+**Do it read-only.** In a signed-in staff session, load dashboard, queue and both journaled case pages; inspect
+network responses without clicking dismiss/file/merge/remove, opening a chat exchange, or invoking any action
+that writes an audit or triage row.
 
-**Do it.** In a signed-in SPA session open the AI chat drawer and ask a grounded question, e.g. *"How many
-cases are in the not-ready queue?"* and *"What does status ready_for_eva mean?"*
-
-**Expected:** a streamed answer; the queue-count answer matches the dashboard (check 6); the glossary answer
-is correct; the model **refuses** any mutation request (read-only by design). An `assistant_chat`
-`audit_event` is written per exchange (lengths + tool calls, not transcripts).
-
-**If it fails:** 500 or an empty stream → [support-playbook.md](./support-playbook.md) § *AI chat*. The
-common cause is the api-app managed identity missing **Cognitive Services OpenAI User** on
-`digital-3339-resource` (registry `foundry.miGrants`) or `AI_CHAT_ENABLED` not `true`
-(`az functionapp config appsettings list -g rg-collisionspike-dev -n cespk-api-dev`).
+**Expected:** the SPA assets and bearer-protected reads succeed, both canaries show the ledger-approved
+identities/status/evidence, and no CORS/401/403/5xx or mutation request appears. AI chat's live exchange is a
+separately authorised post-signoff check because even a read-only question writes an `assistant_chat` audit
+event; it is not part of TKT-178 smoke.
 
 ## 6. Dashboard counts reconcile
 
@@ -165,42 +183,30 @@ collapsed count chip, not silent duplicate rows.
 [support-playbook.md](./support-playbook.md) § *Dashboard / queue counts* (the `statusToStage` vs
 `filterQueue` single-source contract).
 
-## 7. Retro rung-1 links a billing email
+## 7. Independent ledger, queue and audit reconciliation
 
-`RETRO_CASE_ENABLED=true` — an unmatched billing/case_update/cancellation/query email carrying a provider
-reference or VRM links to its case **whatever the case's status** (terminals included), ambiguity flagged
-never guessed, failures audited `retro_reconstruction_failed`.
+Do not choose an arbitrary historical email or call `/retro-case` for smoke. That would mutate production
+outside the signed ledger. Instead, an independent reader verifies the same frozen run and both canaries.
 
-**Find a candidate (WSL, `csadmin`):**
-```sql
-SET ROLE csadmin;
-SELECT id, source_mailbox, received_on FROM inbound_email
-WHERE case_id IS NULL AND category_code IN (100000005,100000006)  -- case_update / cancellation
-ORDER BY received_on DESC LIMIT 5;
-```
-**Drive it (keyed starter, WSL):**
-```bash
-ORCHKEY=$(az functionapp keys list -g rg-collisionspike-dev -n cespk-orch-dev --query functionKeys.default -o tsv)
-curl -s -X POST "https://cespk-orch-dev.azurewebsites.net/api/retro-case?code=$ORCHKEY" \
-  -H 'content-type: application/json' -d '{"inboundEmailId":"<id>"}'
-```
-**Verify:** re-run the SELECT for that `id` —
+**Verify (read-only):** reproduce the ledger's final category counts; check every typed checkpoint and
+inverse-stack state; prove the ingress canary has one inbound row, one canonical case, one Case/PO and one
+exact Archive folder identity; prove the ready-case canary has one persisted EVA operation; and prove held queue/outbox work resumed once
+in original order with no duplicate allocation, provider submission or evidence bytes. Query audit rows from
+the named window and account for every success, held conflict and failure against the signed ledger.
 
-**Expected:** the row now carries a non-null `case_id` (linked to the case that owns its reference/VRM/thread),
-**or** an honest `retro_reconstruction_failed` / ambiguity-flagged `audit_event` (never a wrong guess).
-
-**If it fails:** the starter 500s, or a clearly-matchable billing email neither links nor records a failure →
-[support-playbook.md](./support-playbook.md) § *Retro reconstruction*. Note the **Box reconstruction rung
-stays dark** until the D11 archive roots + Case/PO sequence alignment land
-([runbook.md](./runbook.md) step 5, [gated.md D11](../../gated.md)) — rung-1 linking does **not** depend on
-it.
+**Expected:** 100% ledger balance, no unexplained source/object, no temporary/NULL committed Case/PO, no
+orphaned relationship, no duplicate canary side effect and no Outlook mutation. An unexplained count or an
+ad hoc retro invocation fails the smoke; use [support-playbook.md](./support-playbook.md) § *Retro
+reconstruction* only for diagnosis under separate authority.
 
 ---
 
 ## Sign-off
 
-All seven green (or each amber explained) = day-0 smoke passed; hand the system to staff and move to
-steady-state [support-playbook.md](./support-playbook.md). Any red that can't be corrected forward →
+All seven checks must be green. The exact Archive ID/parent/root result and authenticated EVA result must be
+green for the same ledger/run and its two designated canaries and cannot be waived or explained amber. Only then hand the system to
+staff and move to steady-state [support-playbook.md](./support-playbook.md). A pre-EVA red follows the
+approved inverse journal; a post-EVA accepted/unknown result follows forward recovery in
 [rollback.md](./rollback.md).
 
 **After any live change made during smoke:** update [`LIVE_FACTS.json`](../../../LIVE_FACTS.json) (bump

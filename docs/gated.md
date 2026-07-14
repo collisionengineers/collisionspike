@@ -1,8 +1,9 @@
 # What still needs you
 
-This is the short list of things the **live Azure system can't finish on its own** — they need you to
+This is the short list of things the **live Azure system can't finish on its own**. Some need you to
 supply a password/key, click a button in a live Azure/Entra account, grant a mailbox role, or make a
-business/legal decision. Everything else has been built and deployed.
+business/legal decision; others still need the engineering implementation and independent proof named
+below. This page does not imply that everything outside the operator inputs has been built or deployed.
 
 Each item below says **what it is**, **why only you can do it**, and the **exact steps**.
 
@@ -177,9 +178,13 @@ implemented**) must run on a **separate** pool opened with `-c app.role=admin`, 
 > wakes the scale-to-zero FC1 app, which a plain NCRONTAB timer can't; the `graph-renew` timer is retained
 > only as a backstop. ✅ **Subscription prune DONE (2026-07-05, P7):** a prune step now deletes the Graph
 > subscription for any mailbox no longer in `GRAPH_INTAKE_MAILBOXES` — the gap that forced digital@ to be
-> removed by hand is closed. **Remaining (finishing items, do not block intake):** confirm an **unattended
-> renew** at the next ~6h durable-timer wake; set **`EVIDENCE_BLOB_CONNECTION`** (prefer MI); assign the
-> **orch MI an app-role on the Data API**; wire **Azure Monitor heartbeat alerts**. Residual `graph-webhook` `499`/cold-start aborts remain (Graph retries absorb the misses). The design
+> removed by hand is closed. **Remaining ordinary-intake finishing items:** set
+> **`EVIDENCE_BLOB_CONNECTION`** (prefer MI); assign the **orch MI an app-role on the Data API**; wire
+> **Azure Monitor heartbeat alerts**. These do not currently stop intake. Separately, TKT-178 cannot open
+> or release its future window without the versioned source-bearing renewal event and a recent
+> `source=durable_monitor` success after the most recent `manual_http` renewal; current shared trace text is
+> not certification evidence. A manual renewal invalidates the gate until a fresh durable-source event. Residual
+> `graph-webhook` `499`/cold-start aborts remain (Graph retries absorb the misses). The design
 > is authorised by **Exchange RBAC for Applications** (resource-scoped, **no Global-Admin consent**) layered
 > with **Graph PUSH subscriptions**.
 
@@ -283,7 +288,9 @@ permission cache clears may still **403** and report `failed` — retry after th
 
 **Why you:** the mover needs **`Application Mail.ReadWrite`** via **Exchange RBAC for Applications**
 on the intake mailboxes — a permission grant only you can make. **You also asked to live-test this
-yourself — no automated live move test will be run.**
+yourself — no automated live move test will be run.** This is a separately approved ordinary-work test:
+complete it before the TKT-178 snapshot or after sign-off. During that window, operators and automation keep
+Outlook strictly read-only—no send, move, delete, category or read-state change.
 
 **Steps:**
 1. ✅ **DONE (2026-07-03)** — `Application Mail.ReadWrite` assigned on **both** read scopes
@@ -325,10 +332,22 @@ The final production cutover cannot execute until one approved input pack contai
    write/rename/merge/retarget capability and explicit authorization for those exact actions (ordinary
    work remains under the test root until then);
 4. checksum-verified database/Archive backups and successful restore proof on a non-production copy;
-5. the deterministic zero-write reconciliation ledger, frozen SHA-256 and named approval of that exact
-   output; and
-6. explicit approval to open the bounded intake pause and run the listed subscription, database and
-   Archive steps.
+5. an immutable dependency/version manifest whose hard-gate tickets are independently verified and whose
+   reviewed commits, migration checksums, deployment packages, configuration and vendor contract version
+   byte-match the rehearsed executor;
+6. the exact File Request template and production-target `FILE.UPLOADED` webhook staged and independently
+   read back before the final root commit through a new signed-run exact-target staging operation plus durable
+   Box-event buffer/fence; the current facade cannot stage outside its mirror root, treats a missing
+   `BOX_ALLOWED_ROOT_ID` as lifted and writes webhook results synchronously, so it is not safe proof;
+7. a versioned source-bearing Graph renewal event and a recent `source=durable_monitor` success after the
+   latest `manual_http` event; current identical ordinary trace text is insufficient;
+8. a deterministic zero-write reconciliation ledger, frozen SHA-256 and named approval of that exact
+   output;
+9. two read-only-nominated, genuine ledger-listed canaries—one pending ingress instruction and one already
+   EVA-ready case—with one-shot leases and a strict maximum window duration;
+10. a fenced high-water/delta read that byte-matches the approved ledger, actions, inverses and artifact
+    hashes, plus explicit approval to open that bounded window and run only the listed database, Archive,
+    configuration and single EVA-canary actions.
 
 Before that approval, allowed work is limited to code/runbook hardening and offline rehearsal. Outlook
 remains read-only. Routine maintenance renews legacy subscriptions and reports the blocked rotation; no
@@ -390,23 +409,36 @@ operator-directed interim set below); **any other staff still gets `403`** until
 
 ### D. Retained integrations & business data (domain unchanged; mechanism is now Azure)
 
-#### D1. Switch on EVA submission  ·  *you supply the login*
+#### D1. Verify production EVA submission  ·  ⛔ **BLOCKED; mandatory for TKT-178**
 
 **What:** the EVA Functions (`evasentry`, `evavalidation`) are deployed but **submission is switched off**
 with no login stored. The current export path is **drag-drop 12-field JSON** into EVA; the **Sentry REST**
 path stays gated because Minotaur's Sentry API accepts only **one principal code** per submission (it can't
 route different work-provider codes) — REST waits on Minotaur's patch.
 
-**Why you:** EVA's **test** Client ID/Secret are yours.
+Drag-drop may continue for ordinary case handling, but it is not authenticated production API evidence and
+cannot substitute for TKT-178 reconciliation. While REST is blocked, the signed-spreadsheet/Archive/Case-PO
+cutover and every production root/write action remain blocked too.
+
+**Why you:** the approved EVA credentials and production authorization are yours.
 
 **Steps:**
-1. Provide the EVA **test** Client ID + Client Secret (or place them in the EVA Function's **Key Vault**
-   yourself — they live in Key Vault, never in code).
-2. Flip the EVA feature flag **on** in the **test** environment only.
+1. After the vendor unblocks REST, provide the approved **test** Client ID + Client Secret (or place them in
+   the EVA Function's **Key Vault** yourself — they live in Key Vault, never in code).
+2. Flip the EVA feature flag **on** in the **test** environment only and pass the contract without weakening
+   the default-off gate.
 3. Submit one test case and confirm EVA accepts it — **photo order** must be **2 preview photos first
    (vehicle overview + main-damage closeup), then all photos in sequence including those two again**, with
    the **full registration visible** on the overview.
-4. Only after the test passes do you point it at **live** EVA.
+4. Obtain a successful authenticated **production contract probe that changes no case**, retain redacted
+   request/response evidence, and reconcile it with the signed spreadsheet and exact approved production
+   Archive inventory in TKT-178's zero-write ledger.
+5. Prove durable operation state plus vendor idempotency/correlation (or status-before-retry) across response
+   loss and worker recycle; the current process-local replay cache is insufficient.
+6. Only after every TKT-178 gate and the named window are approved may the exact predesignated journaled
+   genuine canary round-trip once against production EVA. Accepted/unknown is the irreversible business-event
+   boundary and recovers by persisted correlation, never blind resubmission or pretend rollback. A manual
+   drag-drop result is not a pass.
 
 #### D2. Box filing  ·  ✅ **LIVE (2026-06-28)** — only the template File Request id remains (operator; see #4 / OPERATOR-CHECKLIST)
 
@@ -757,7 +789,7 @@ case creation for audit emails — the deploy-order note is in the delta header)
 **Order with the parser deploy:** parser-first is safe (the new `case_type` envelope is additive and
 ignored until the gate is on); the delta is only mandatory **before the gate flip**.
 
-#### D11. Retro case reconstruction — archive roots + Case/PO sequence alignment (ADR-0022 / TKT-058)  ·  ✅ **STEPS 1–3 DONE (2026-07-04)** — R1 any-status linking is ACTING; the Box rung awaits YOUR inputs below
+#### D11. Retro case reconstruction — archive roots + Case/PO sequence alignment (ADR-0022 / TKT-058)  ·  R1 ACTING; ⛔ **TKT-178 production cutover BLOCKED**
 
 **Done (2026-07-04, user-instructed "apply this delta — deploy anything necessary"):** the
 `2026-07-04-retro-case` delta is **applied live** (VERIFY selects confirmed the 3 audit actions +
@@ -766,14 +798,23 @@ the `retro` channel row), all four surfaces are **deployed at `d91c185`** (count
 apps** (readback true/true; both new routes smoke-tested 401 fail-closed). **Acting now (R1 scope):**
 an unmatched billing/case_update/cancellation/query email with a reference or registration links to
 its case **whatever the case's status** (terminals included — the billing-email fix), ambiguity is
-flagged never guessed, and un-linkable attempts are audited `retro_reconstruction_failed`. The
-existing un-linked pile drains one email at a time via the keyed starter — see
+flagged never guessed, and un-linkable attempts are audited `retro_reconstruction_failed`. Outside a
+TKT-178 window, an incident repair may invoke the keyed starter only for one exact inbound-email ID named
+in an authorized ticket after read-only diagnosis; it must never select an arbitrary candidate from the
+unlinked pile. The starter is prohibited while the TKT-178 fence is held. See
 [TKT-058/verification.md](./tickets/done/TKT-058-retro-case-creation/verification.md) step 4.
 
-**Remaining (the Box reconstruction rung — R2 stays dark until ALL of these):**
+**Remaining:** R1 any-status linking is independent and remains acting. The production Archive/root,
+reconstruction and Case/PO work is one TKT-178 future window, not a menu of independent flips. It requires
+the signed/checksummed job spreadsheet, authenticated contract-verified production EVA API evidence and
+the exact production Archive root with proven explicit write/rename/merge/retarget authority in the same
+approved pack, plus backup/restore proof, the frozen approved zero-write ledger and named approval. Manual
+EVA drag-drop and test, mirror, configured-default or Viewer-only roots do not satisfy it.
 
-1. **⚠️ Case/PO sequence alignment (operator-raised 2026-07-04 — REQUIRED before the Box rung
-   flips). Mechanism BUILT + LIVE-DARK same day; only YOUR numbers are missing.** Background: the
+Beyond the global TKT-178 gates above, retain these technical inputs/history; none is sufficient alone:
+
+1. **⚠️ Case/PO sequence alignment (operator-raised 2026-07-04 — REQUIRED before the Archive rung
+   flips). Partial live mechanics exist; the cutover executor is not built.** Background: the
    live mint restarted from ~001 after the 2026-06-30 reset while the REAL archive numbering is far
    ahead — and the deeper process change is that the old system minted **at EVA-add, by a staff
    member** (pre-EVA cases have NO number), while the new system mints **at intake** (confirmed as
@@ -783,9 +824,16 @@ existing un-linked pile drains one email at a time via the keyed starter — see
    the **`case_po_floor` delta is APPLIED** (empty = dark; mint + next-po preview already allocate
    `GREATEST(db max, floor)+1`), the **Set-Case/PO staff edit is LIVE** on the case page (stamp the
    real number whenever you EVA-add a trial case the old way; conflicts are refused with a pointer
-   to the holding case), and the **floor seeder script** turns an archive folder listing into
-   reviewable seed SQL. **You:** supply the archive folder-name listing (or per-principal
-   next-numbers from EVA) at cutover, and stamp real numbers on trial cases as you EVA-add them.
+   to the holding case), and the existing **floor seeder helper** turns an archive folder listing into
+   advisory seed SQL but is not cutover-ready because it embeds the run date and does not consume the frozen
+   ledger. **Future TKT-178 input:** the signed job spreadsheet alone defines the active roster;
+   authenticated production EVA, approved production Archive inventory and read-only Outlook supply
+   correlation/completion/historical-number evidence in the same closed-world ledger before any floor seed
+   or renumber. A deterministic compiler must hash the exact ledger-derived SQL bytes. Neither an
+   Archive listing nor EVA alone is sufficient. The deterministic compiler, canonical batch mapper,
+   scoped writer/allocator fence, durable inverse journal and permanent/per-prefix fail-closed floor mode
+   still require implementation and independent rehearsal; more than operator numbers is missing.
+   Ordinary trial-case stamping remains separate business work and is not cutover proof.
    *R1 risk while unaligned is LOW*: trigger emails cite external refs/VRMs (matched on
    `case_ref`/`vrm`, unaffected by the numbering overlap), and a quoted Case/PO in a reply thread
    refers to the spike case that genuinely owns that thread.
@@ -800,8 +848,8 @@ existing un-linked pile drains one email at a time via the keyed starter — see
    **`4077648161`** (located via `box search`); **`BOX_READONLY_ROOT_IDS=4077648161` set** on the
    box-webhook fn, and the **Box service-account Viewer grant is CONFIRMED** (operator, 2026-07-07) —
    so the read-only archive is now fully readable via the facade (`box/search`, `box/files/{id}/content`).
-   **The one remaining blocker for the R2 *auto-reconstruction* rung is the step-1 Case/PO
-   sequence-alignment:** `RETRO_BOX_ARCHIVE_ROOT_IDS` stays UNSET **on `cespk-orch-dev`** until then,
+   **Historical 2026-07-07 assessment (superseded by TKT-178):** sequence alignment was then described as
+   the one remaining R2 blocker. `RETRO_BOX_ARCHIVE_ROOT_IDS` stays UNSET **on `cespk-orch-dev`**,
    because `retroCreatePersist` creates the case with the archive folder's OWN Case/PO
    (`discoveredPo`), which would inject far-ahead archive numbers beside the restarted ~001 live
    sequence. ✅ **2026-07-10 (operator-authorized):** `RETRO_BOX_ARCHIVE_ROOT_IDS=4077648161` was SET
@@ -811,15 +859,19 @@ existing un-linked pile drains one email at a time via the keyed starter — see
    **Read-only USES that don't mint are UNBLOCKED now** (archive-match *suggestions*, operator/assistant
    lookup, evidence reference) — they carry no numbering risk. Captured as **TKT-107** (the assistant
    `archive_lookup` rung is live as of the 2026-07-10 config; the inbox-hint half is still open).
+   This existing Viewer/read-only lookup root is **not** the TKT-178 production target/write authorization
+   and does not permit a root retarget, reconstruction run, rename, merge or other production mutation.
 3. Two operator sanity checks that shape R2: eyeball 5–10 archive folders — are they named EXACTLY
    the Case/PO (suffixed variants like `CCPY26050 - Smith` would need a flagged prefix-match arm)?
    And do they reliably contain the original instruction **`.eml`** (if a cohort only holds PDFs,
    the document-pick heuristic carries more weight)?
-4. Optional later: `RETRO_OUTLOOK_SEARCH_ENABLED=true` on orch (the R3 mailbox-search rung — its
-   own kill switch; needs nothing else).
+4. The read-only R3 mailbox-search rung has its own kill switch and may support ordinary investigation.
+   It never satisfies a TKT-178 gate, cannot turn a weak match into cutover authority, and Outlook remains
+   read-only throughout reconciliation.
 
-**Why you:** the archive root ids + the Box Viewer grant + the naming/`.eml` checks + the real-world
-next-numbers need your Box/EVA knowledge. No new Graph grant is needed (the R3 `$search` rides the
+**Why you:** the signed spreadsheet, production EVA authorization, exact production Archive target/write
+scope and named approval are operator inputs. Viewer roots and naming/`.eml` checks are supporting evidence
+only. No new Graph grant is needed (the R3 `$search` rides the
 existing `Mail.Read` RBAC scope on info@/engineers@/desk@; the 30min–2h Exchange permission cache
 only matters if you ever widen the mailbox set).
 
