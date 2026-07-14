@@ -2,20 +2,26 @@
 
 ## Status
 
-The implementation and fail-closed remediation tooling are complete offline. Live deployment, the fresh
-immutable census/plan, the plan-bound backup and named approval, the fill-only apply, and independent live
-verification remain pending. No final cutover, production EVA call, Outlook write, production Archive-root
-switch, or production Archive write is part of this ticket execution.
+The runtime/schema/API/orchestration/Box/parser boundary and initial fail-closed remediation tooling were merged,
+deployed, and verified through PR #93. PRs #94–#96 hardened the offline runner without changing the deployed
+runtime. The latest 156-case v8 read-only plan completed but failed its independent audit, so the runner is not
+complete against all observed live retained-source shapes. V8 is superseded; no current plan authority, backup,
+approval, apply, journal, or ledger exists. No final cutover, production EVA call, Outlook write, production
+Archive-root switch, or production Archive write is part of this ticket execution.
 
 ## Consolidated baseline
 
-- The three historical TKT-150 branches were compared and only the current remediation runner and non-PII
-  evidence were carried onto current `main`.
-- The earlier 134-case `engine-v2.23` plan is explicitly superseded and is not an apply artifact.
+- The historical TKT-150 branches were compared. Current implementation reached `main` through PRs #93–#96.
+  After the handoff was pushed, the exact historical heads were re-verified in the hashed recovery bundle and
+  the stale local/remote branches and merged closeout worktree were removed.
+- Every generated plan so far is explicitly superseded and is not an apply artifact. The initial 151-case plan
+  has the only plan-bound backup/restore proof, but both plan and backup are obsolete and must not be reused.
 - Raw source, plan, backup, approval, journal, and ledger artifacts are rejected when their paths resolve
   inside this repository or any linked worktree.
 - Current parser vendor lock is the immutable sibling tag `engine-v2.24`; the parser Function now exposes a
   function-key-protected content fingerprint for live revision proof.
+- PR #93 deployed the runtime/schema/API/orchestration/Box/parser boundary. PRs #94 (`8f8f31cc`), #95
+  (`72266795`), and #96 (`d62260ca`) changed only the external runner and tests.
 
 ## Claimant source and conflict handling
 
@@ -64,19 +70,23 @@ switch, or production Archive write is part of this ticket execution.
 The [controlled runbook](./remediation-runbook.md) fixes deployment order and the external-artifact/approval
 boundary. The runner cannot perform the blocked final cutover.
 
+The v8 live-plan audit exposed an unresolved source-identity defect despite the checked-in contract suite:
+18 tokenized retained-text rows had no exact raw-email binding, root-level binding remained zero, and QDOS26079
+still failed at `source_processing`. The audit also needs to distinguish legitimate baseline growth from an
+incomplete reference set. No future plan may become authority until a new independent audit passes.
+
 ## Verification so far
 
-- Final current-tree suites pass: API **773**, orchestration **470**, domain **1,196**, SPA **525**, remediation
-  runner **29**, parser **380** with **11 expected skips**, and Box webhook **252** tests.
-- All TypeScript builds pass. The aggregate offline verifier reports **8 passed, 0 failed, 13 skipped**; its
-  per-Function venv skips are covered by the direct parser and Box runs above, while the other skips are
-  retired Power Platform gates or explicitly live/optional gates.
-- The independent diff audit and whole-tree `git diff --check` pass. The audit found no unresolved source, SQL,
-  race, idempotency, personal-data, or fail-closed safety defect.
+- At the PR #93 merge/deployment boundary, the recorded suites passed: API **773**, orchestration **470**,
+  domain **1,196**, SPA **525**, parser **380** with **11 expected skips**, and Box webhook **252** tests.
+- On 2026-07-14, `npm run test:tkt150-remediation` passed **50/50** on current `main`.
+- The previously recorded TypeScript builds and aggregate offline verifier passed. Those offline gates do not
+  overrule the later v8 live-plan audit failure.
 - Coverage includes claimant atomicity and conflicts; merge/source truth; exact replay; provider recovery and
   outbox locking; document/body precedence; pinned-root folder verification; blank-claimant readiness; honest
   unknown-source rendering; Box readback authority; parser fingerprinting; and the plan/backup/apply boundary.
 
-The authoritative acceptance-by-acceptance state is in [verification.md](./verification.md). Live acceptance is
-deliberately still pending until the fresh plan, backup, approval, apply, residual census, and independent proof
-exist.
+The authoritative acceptance-by-acceptance state is in [verification.md](./verification.md). Live acceptance
+remains pending until the source-binding defect is fixed, a brand-new plan passes audit, and a current
+backup/approval, apply, residual census, and independent proof exist. The complete attempt and repository
+handoff is [`05-plan-005-tkt-150-remediation.md`](../../../handoff/05-plan-005-tkt-150-remediation.md).

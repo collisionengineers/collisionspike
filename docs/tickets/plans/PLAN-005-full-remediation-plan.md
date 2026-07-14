@@ -302,6 +302,33 @@ After PR #90 and the safety archive:
 
 &#x20;  - Delete all three old TKT-150 branches/worktrees.
 
+\#### TKT-150 execution checkpoint — 2026-07-14
+
+The ordered safety sequence above remains authoritative, but it is not complete:
+
+\- PR #93 (`cc0d7b52`) merged and deployed the runtime/schema/API/orchestration/Box/parser boundary and initial
+runner. PRs #94 (`8f8f31cc`), #95 (`72266795`), and #96 (`d62260ca`) merged runner-only source-identity
+hardening that did not require redeployment.
+
+\- Seven controlled attempt versions are recorded in the
+[current handoff](../../handoff/05-plan-005-tkt-150-remediation.md): initial/root, retained-text v3, raw-EML v4,
+and launchers v5–v8. Initial and v3 passed obsolete audits; v4 and v8 failed their current audits; v5–v7
+produced no plan.
+
+\- V8 completed a fresh 156-case read-only plan (27 repair, 93 absent, 0 conflict, 36 failed) and cleaned up its
+temporary Azure access. Its independent audit failed: 18 tokenized retained-text bindings remain unresolved,
+root-level raw binding is zero, and QDOS26079 still fails at source processing. V8 is explicitly superseded.
+
+\- No current backup, approval, apply, journal, or residual ledger exists. The only plan-bound backup belongs to
+the superseded initial plan and cannot be reused. No claimant apply or final cutover was attempted.
+
+\- The focused current-main remediation suite passes 50/50, but that offline result does not overrule the failed
+live-plan audit. TKT-150 remains `now`/`PENDING` until the source-binding defect is fixed and a brand-new plan
+passes audit before backup/approval/apply.
+
+\- The open implementation PRs #73, #83, #87, and #89 remain draft/conflicting and are excluded from deployed
+verification. Their latest local heads have been published and the retired reciprocal-review workflow removed.
+
 
 
 \### Phase E — Merge the four implementation PRs serially
@@ -370,7 +397,7 @@ After PR #90 plus TKT-200, the initial ledger is 197 tickets with 95 open. Only 
 
 | Governance/control | TKT-149, 199, 195, 159, 164 |
 
-| Canonical data/save/readiness | TKT-150, 151, 152, 153, 168 |
+| Canonical data/save/readiness | TKT-151, 152, 153, 168 (TKT-150 transferred to PLAN-005) |
 
 | Evidence and Archive foundations | TKT-165, 166, 175, 160, 162, 174 |
 
@@ -511,6 +538,9 @@ Prevent recurrence by enforcing:
 \- No direct pushes to `main`, including docs/demo work.
 
 \- Every branch has a ticket and draft PR from its first push.
+
+\- Use normal GitHub review and ordinary CI. The retired Claude+Codex reciprocal-review workflow from TKT-149
+must not be recreated or required.
 
 \- Auto-delete branches after merge.
 

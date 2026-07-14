@@ -16,6 +16,18 @@ roots, Outlook writes, Graph subscription changes, service pauses, and cutover D
   root `392761581105`; code verifies exact root, Case/PO name, parent, and path before linking a folder.
 - Do not call production EVA during this run.
 
+## Execution checkpoint — 2026-07-14
+
+- PR #93 completed the schema/runtime/API/orchestration/Box/parser deployment and its deployment proof.
+- PRs #94–#96 changed only the offline remediation runner and tests. Repeat the deployment gate below only if
+  reviewed runtime/schema/parser bytes change.
+- The latest v8 read-only plan completed with 156 baseline cases but failed its independent audit. It is
+  superseded and cannot be approved, backed up as current authority, or applied.
+- The initial attempt's dump/restore proof belongs to its superseded plan. V8 has no backup, approval, journal,
+  apply, or ledger.
+- Before continuing to section 4, a newly generated plan must pass the independent redacted audit and account
+  for every exact retained-source binding, including QDOS26079.
+
 Example private PowerShell setup (choose a new timestamped directory):
 
 ```powershell
@@ -63,9 +75,17 @@ write allowlist, exact status-recompute allowlist, source-failure reasons, and d
 Review the complete plan, including QDOS26079 and every `conflicting`, `absent_in_source`, or `failed` row.
 Do not edit or reuse the plan after hashing; rerun planning to create a new artifact instead.
 
+Run the independently reviewed redacted audit helper against that exact raw plan. The audit must prove complete
+one-to-one baseline/status accounting, exact retained-source identity, approved reference-set growth, exact
+hash/fingerprint bindings, and zero unauthorized write surface. An audit failure supersedes the plan
+immediately. Do not proceed to backup or approval.
+
 ## 4. Create and prove the plan-bound backup
 
-After the plan is frozen:
+After the plan is frozen **and its independent audit passes**:
+
+The initial attempt's plan-bound dump is superseded and cannot satisfy this section. V8 did not create a
+plan-bound dump. Always create a new backup/restore proof for the exact newly audited plan.
 
 1. Take a PostgreSQL 16 custom-format dump with `--no-owner --no-acl` from the exact planned database.
 2. Record the dump byte length and SHA-256.
