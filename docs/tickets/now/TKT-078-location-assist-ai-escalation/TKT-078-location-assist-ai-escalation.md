@@ -1,11 +1,11 @@
 ---
 id: TKT-078
 title: Deeper photo-based location suggestion — AI reasoning escalation (gated)
-status: verify
+status: now
 priority: P2
 area: ai
 tickets-it-relates-to: [TKT-077, TKT-015, TKT-016]
-research-link: docs/tickets/verify/TKT-078-location-assist-ai-escalation/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-078-location-assist-ai-escalation/evidence/operator-note.md
 ---
 
 # Deeper photo-based location suggestion — AI reasoning escalation (gated)
@@ -76,4 +76,23 @@ Distilled 2026-07-06 from the operator planning session `PLAN-inspection-address
 
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
+
+## Reopened follow-up — 2026-07-14
+
+Independent PLAN-005 verification found that `MAX_AI_PHOTOS=4` limits images inside one request but no
+durable per-case or per-day invocation caps exist.
+
+### Acceptance
+
+- Durable counters enforce the ticket's per-case and per-day deep-reasoning limits across host restarts
+  and concurrent requests.
+- The N+1 request is refused before model invocation and produces non-sensitive, queryable telemetry.
+- Focused boundary/concurrency/restart tests cover both caps and prove a refused call cannot consume model
+  capacity.
+- Registry tracking includes the location Function's gate state.
+- After deployment, an approved hard-photo session proves the structured candidate, `ai_reasoning`
+  source, Maps re-geocode and usage record; cap-refusal proof occurs only in an approved controlled
+  environment, not by manufacturing production work.
+
+Evidence: [PLAN-005 reopen follow-up](./evidence/reopen-followup-2026-07-14.md).
 - [Operator note (excerpt)](./evidence/operator-note.md)

@@ -1,11 +1,11 @@
 ---
 id: TKT-077
 title: Location assist can't see the case photos — real photo bytes + signage business lookup
-status: verify
+status: now
 priority: P1
 area: ai
 tickets-it-relates-to: [TKT-048, TKT-062, TKT-076, TKT-078]
-research-link: docs/tickets/verify/TKT-077-location-assist-photos/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-077-location-assist-photos/evidence/operator-note.md
 ---
 
 # Location assist can't see the case photos — real photo bytes + signage business lookup
@@ -91,4 +91,24 @@ Distilled 2026-07-06 from the operator planning session `PLAN-inspection-address
 
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
+
+## Reopened follow-up — 2026-07-14
+
+Independent PLAN-005 verification found that the deployed byte/Vision/Maps path works, but the explicit
+provider-corpus proximity branch was never implemented and Azure Maps dependency telemetry records a
+subscription key in the request URL.
+
+### Acceptance
+
+- Trusted provider sites enter the backend request and a nearby provider-site result is emitted as
+  `corpus_match`; the value is produced by backend code, not only declared in UI types/docs.
+- Non-sensitive telemetry distinguishes Blob and Archive byte sources without recording case, file,
+  credential or content identifiers.
+- Maps dependency logging never records credentials or secret-bearing query strings; the exposed Maps key
+  is rotated and all consumers use the replacement through the approved secret path.
+- Focused tests cover provider-site proximity, `corpus_match`, source labels and telemetry redaction.
+- After deployment, one legitimate Blob-backed case and one Archive-only case prove the path through the
+  signed-in SPA; no address is auto-applied, and Image Based Assessment still requires a reason.
+
+Evidence: [PLAN-005 reopen follow-up](./evidence/reopen-followup-2026-07-14.md).
 - [Operator note (excerpt)](./evidence/operator-note.md)

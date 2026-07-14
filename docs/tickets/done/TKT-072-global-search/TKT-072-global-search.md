@@ -1,11 +1,11 @@
 ---
 id: TKT-072
 title: The search box doesn't search — global search across cases, emails, providers
-status: verify
+status: done
 priority: P1
 area: ui
 tickets-it-relates-to: [TKT-066, TKT-071, TKT-009]
-research-link: docs/tickets/verify/TKT-072-global-search/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-072-global-search/evidence/operator-note.md
 plan: PLAN-001
 ---
 

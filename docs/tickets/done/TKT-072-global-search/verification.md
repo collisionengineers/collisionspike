@@ -32,3 +32,51 @@ Verified by: ticket-verifier dispatch, transcribed by the orchestrating session,
 Acceptance-5's DB cross-check CLOSED: `PK20FWT` case count = **3**, exactly matching the 07-09
 rendered grouping "3 cases share registration PK20FWT". Remaining tail: the signed-in re-probe of
 (a) age render on case rows + (b) the email deep-link only.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+**VERIFIED-LIVE** — every acceptance item in `TKT-072-global-search.md:55-73` was demonstrated against
+the deployed SPA/API on 2026-07-14.
+
+## Evidence
+
+1. Spaced VRM `PK20 FWT` returned all three matching cases, each with provider, status context, and age
+   (`11d`, `11d`, `12d`), plus “3 cases share registration PK20FWT.”
+2. Live searches succeeded for:
+   - Case/PO: `PCH26009`
+   - Claimant: `Kimberley Connolly`
+   - Provider: `Performance Car Hire`
+   - Sender: `mray@qdosassist.co.uk`
+
+   Results were grouped by type; the email group was capped at five rows.
+3. Clicking a case opened `/case/68442a2a-998c-4a16-89ba-8fe226303734`. Clicking an email result opened
+   `/inbox` with the exact matching email preview selected.
+4. Duplicate-registration messaging was present for `PK20FWT`.
+5. An unauthenticated `GET /api/search?q=PK20FWT` returned `401 Unauthorized`. `RE 30143` produced the
+   honest empty state.
+6. `q=a` showed “Try a longer search term”; empty `q=` showed the neutral Search screen without returning
+   data.
+7. Existing W7 direct-Postgres evidence records three `PK20FWT` rows, matching the three live rendered
+   rows.
+8. Targeted tests passed:
+   - API search/proxy: **12 passed**
+   - SPA date/deep-link/client: **42 passed**
+
+## Pending / gaps
+
+No acceptance gap. A fresh direct Postgres re-query was unavailable because the server connection had
+already failed twice; no firewall mutation was attempted. Only the required unauthorized branch was
+probed (`401`), not a separately constructed wrong-role `403`.
+
+## How to re-verify
+
+Repeat the signed-in VRM, Case/PO, claimant, provider, and sender searches; click one case and one email
+result; then repeat the unauthenticated API request. When direct DB connectivity is restored, recount
+normalized `PK20FWT` rows and compare them with the rendered count.
+
+## Confidence + unread surfaces
+
+**High confidence.** Fresh deployed-SPA and API evidence covers every acceptance item. Unread surfaces
+are the current direct DB connection and a distinct wrong-role `403` token case.

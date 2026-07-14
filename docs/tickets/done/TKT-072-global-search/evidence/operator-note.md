@@ -2,7 +2,7 @@
 
 > From `PLAN-assistant-intake-search-fixes.md` (planning session 2026-07-06). The full plan is
 > preserved at
-> [TKT-066 evidence](../../TKT-066-assistant-lookup-observability/evidence/operator-note.md).
+> [TKT-066 evidence](../../../verify/TKT-066-assistant-lookup-observability/evidence/operator-note.md).
 
 Diagnostic (verified 06/07): `mockup-app/src/components/AppShell.tsx` line 438–444 — the
 SearchBox only `navigate('/')` on Enter. No search endpoint exists; `openVrmTwins`
