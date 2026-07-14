@@ -1,7 +1,7 @@
 # Verification — TKT-199: Make repository data authority explicit without weakening security
 
 ## Verdict
-PENDING
+TESTED (offline) — independent live/security review remains required
 
 ## Acceptance evidence matrix
 
@@ -21,7 +21,7 @@ PENDING
 | A12 — durable discoverability and precedence | Entry-point/link tests reach the authorization/audit and assert the dated scope/exclusions/precedence are present. | A fresh signed-in agent/reviewer starting from repository entry docs correctly states both authority and retained limits without chat context. | PENDING |
 
 ## Pending / gaps
-The instruction audit, policy rewrites, contradiction check, representative-file proof and independent security review have not started.
+The instruction audit, policy rewrites and contradiction checker are complete offline. A representative live `.eml`, image, PDF and Word proof through the configured multimodal boundary, plus independent security review of retained controls, remains pending.
 
 ## How to re-verify
 Run the inventory and contradiction fixtures/full scan, all repository documentation checks, the representative local raw-format review and authenticated CI/reviewer pass. Attach one concrete artifact to every row and retain `PENDING` until all twelve acceptance lines are independently verified.

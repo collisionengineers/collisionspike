@@ -32,8 +32,9 @@ intake pipeline.
 PROPOSED (not built) — the **model never performs the write**; the write is an explicit,
 user-confirmed SPA action:
 
-- **Drawer attach button** (accepts images/PDF). Attachments are held client-side and described
-  to the model as context ("user attached 2 photos named …") — bytes are never sent to AOAI.
+- **Drawer attach button** (accepts images/PDF). Attachments are held client-side until explicit
+  confirmation; when image understanding is needed, their original bytes are supplied to the configured
+  multimodal assistant in their original order under the repository-data authority.
 - **Target identification** stays conversational: the assistant resolves the case via
   `lookup_case` (fixed by TKT-066); the SPA renders a confirmation card
   ("Add 2 files to CCPY26050?").

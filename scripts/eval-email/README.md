@@ -15,8 +15,9 @@ quoting, real attachment naming quirks).
 
 `run_eval.py`:
 
-1. Loads a labelled corpus from `manifest.json` (tracked; 44 real `.eml`/`.msg`
-   files) plus an optional local-only overlay (see below).
+1. Loads a labelled corpus from `manifest.json` (67 entries: 58 runnable real
+   `.eml`/`.msg` files plus 9 permitted local-only absences) and an optional
+   local-only overlay (see below).
 2. For each item, parses the real email file into `classify_email()`'s request
    fields (subject, body, from/sender-domain, attachment kinds/filenames,
    in-reply-to/references), applies any manifest `context` overrides (always
@@ -202,8 +203,41 @@ harness produces:
 ## Files here
 
 - `run_eval.py` — the scorer (see module docstring for the full CLI).
-- `manifest.json` — the tracked, labelled corpus (44 items).
+- `manifest.json` — the tracked, labelled corpus.
 - `baseline-v1.json` — the v1 baseline (redacted; safe to diff in review).
 - `export-live-labels.md` — operator note for the gated live-export feedback loop
   (E2; not yet built).
 - `README.md` — this file.
+
+## Foundry model matrix (offline by default)
+
+The multi-model evaluation is intentionally separate from `run_eval.py`: it can send
+real email content to Foundry and is therefore never a CI path. The design and gates
+are in [model-evaluation-plan.md](../../docs/workingspace/model-evaluation-plan.md).
+
+1. Complete the privacy, partner-model, deployment, version, and cost preflight.
+   Pin each approved deployment and its GBP price meters in `model-matrix.json`.
+2. Build the local-only normalized cache:
+
+   ```bash
+   python scripts/eval-email/prepare_parsefed_inputs.py
+   ```
+
+3. Inspect the planned billed call count without making a request:
+
+   ```bash
+   python scripts/eval-email/run_model_matrix.py
+   ```
+
+4. Only after the preflight, set `FOUNDRY_EVAL_ENDPOINT` and use
+   `--confirm-billed-run`. Raw requests and responses stay under
+   `scripts/eval-email/local/`, which is gitignored.
+5. Convert local results into an ID-and-label-only aggregate:
+
+   ```bash
+   python scripts/eval-email/score_model_matrix.py --out /tmp/model-summary.json
+   ```
+
+The matrix runner requires an Azure CLI token and uses the Foundry v1 chat-completions
+surface. Structured output is requested with a strict JSON schema; a provider that
+cannot honour it must be recorded as incompatible, not silently adapted.

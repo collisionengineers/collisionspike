@@ -45,9 +45,9 @@ Wired the conversational attach UX to that existing route, entirely SPA-side:
 1. **Attach** — a paperclip in the drawer composer opens a picker constrained to photos + PDFs. Files are
    held CLIENT-SIDE as removable chips; oversized/unsupported files are turned away immediately with a
    plain-language reason (the same wording the server uses) — the server stays the enforcer.
-2. **Describe to the model as context only** — sending a turn with attachments appends "Attached N files:
-   …" (names/counts) to the message so the model can resolve the target case via its existing read-only
-   `lookup_case` tool. **The bytes are never sent to the model.**
+2. **Describe images with their actual content when needed** — the configured multimodal assistant receives
+   the original image bytes in order under the repository-data authority, while its existing read-only
+   `lookup_case` tool still resolves the target case. File names/counts remain useful context for other files.
 3. **Confirm card ALWAYS before any write** — `AttachConfirmCard` resolves the target case independently
    (server truth via `openVrmTwins`), names it + the file count, and requires an explicit "Add N files to
    CCPY26050" click. No upload fires without that confirm.

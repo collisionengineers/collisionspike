@@ -183,6 +183,7 @@
 
 
 
+
 ## Now — in flight / not yet confirmed live
 
 | ID | Title | State |
@@ -204,6 +205,7 @@
 | [TKT-078](./now/TKT-078-location-assist-ai-escalation/TKT-078-location-assist-ai-escalation.md) | Deeper photo-based location suggestion — AI reasoning escalation (gated) | **FLIPPED LIVE 2026-07-07** (operator-instructed AI sign-off): `LOCATION_ASSIST_AI_ENABLED=true` on `cespkloc-fn-a7tzj2`, `AI_MODEL_ENDPOINT`/`gpt-5` wired, and the loc-fn MI granted **Cognitive Services OpenAI User** on `digital-3339-resource` (ARM PUT) so `build_reasoner()` mints a token → returns a reasoner. Was BUILT+DARK 2026-07-06 (`ai_reasoning.py`, keyless gpt-5 vision, `deep=true`, caps + telemetry). Remaining: a live `deep=true` probe on a real photo case. See [verification](./now/TKT-078-location-assist-ai-escalation/verification.md). |
 | [TKT-130](./now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | Review contains only cases that are ready for EVA | **P1 · intake · PLAN-003 — REOPENED:** Review is complete-only, but the 2026-07-13 ruling removes blanket field acknowledgements: populated, valid, non-conflicting values need no separate confirmation; only missing, invalid or genuinely conflicting values block. Offline implementation exists; deployment, recomputation and live parity remain. |
 | [TKT-165](./now/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) | Make Add evidence upload the selected files | **FAILED-LIVE 2026-07-14:** the deployed route accepts the upload but every file rolls back because live `choice_audit_action` lacks `100000049` (`evidence_added`); add/apply the idempotent live delta, then repeat the test-root-only end-to-end proof. |
+| [TKT-199](./now/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) | Make repository data authority explicit without weakening security | **P1 · docs · PLAN-004** — Distilled 2026-07-13; document authority boundaries, secret exclusions and validation against the live architecture. |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
@@ -395,7 +397,6 @@
 | [TKT-196](./backlog/TKT-196-video-frame-evidence-extraction/TKT-196-video-frame-evidence-extraction.md) | Create evidence stills from case videos | **P3 · evidence · no plan** — Distilled 2026-07-13 as standalone future work; deterministic, bounded frame extraction with provenance and duplicate control. |
 | [TKT-197](./backlog/TKT-197-linked-email-identity-display/TKT-197-linked-email-identity-display.md) | Show a trustworthy registration and email reference on linked emails | **P1 · intake · PLAN-004** — Distilled 2026-07-13; keep Ref owned by the email, allow only the VRM case fallback and expose conflicts rather than guessing. |
 | [TKT-198](./backlog/TKT-198-wrong-vehicle-evidence-detection/TKT-198-wrong-vehicle-evidence-detection.md) | Flag photos that show a different vehicle | **P1 · evidence · PLAN-004** — Distilled 2026-07-13; calibrate registration mismatch detection and route decisions through the tri-state Photo use contract without deleting evidence. |
-| [TKT-199](./backlog/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) | Make repository data authority explicit without weakening security | **P1 · docs · PLAN-004** — Distilled 2026-07-13; document authority boundaries, secret exclusions and validation against the live architecture. |
 
 ## Blocked — needs operator
 

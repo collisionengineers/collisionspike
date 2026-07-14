@@ -53,6 +53,21 @@ repeatedly bitten this project.
 Read it before touching the SPA, the API, or the Functions. (Sections below that describe the **Code App**,
 **Dataverse**, **flows**, and **connectors** are **historical** unless they state a domain rule.)
 
+## Repository data authority — 2026-07-14 (binding)
+
+For this project, agents may open, decode, render, extract, compare and analyse the complete bytes of every
+email, image, document and evaluation artifact committed to this repository. This includes full content needed
+for ticket evidence, parsing, classification, AI evaluation and verification; PII, personal data, client data
+or real-case detail never requires a separate per-file permission. When a task needs image understanding, raw
+image bytes may be sent to the configured project multimodal assistant.
+
+This authority is internal project-processing authority, not publication or unrestricted egress authority.
+It does not permit exposing credentials or secrets, sharing material with an unapproved service, making it
+public, bypassing repository/tenant access controls or RLS, widening mailbox/provider scope, or mutating live
+systems without the task's approved production-write authority. Preserve source fidelity and hashes; do not
+silently edit, discard or move supplied evidence. The full decision inventory and checker are in
+[`docs/architecture/repository-data-authority.md`](./docs/architecture/repository-data-authority.md).
+
 ## Environment (never guess)
 > Full ID/resource/flow/connection registry (verified live): [docs/architecture/live-environment.md](./docs/architecture/live-environment.md).
 > The **live** environment is the Azure tier in the banner above (RG `rg-collisionspike-dev`, UK South).
