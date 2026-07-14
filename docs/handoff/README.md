@@ -1,5 +1,12 @@
 # Operator handoff pack
 
+## Current engineering handoff
+
+- [`05-plan-005-tkt-150-remediation.md`](./05-plan-005-tkt-150-remediation.md) — current 2026-07-14
+  repository-reconciliation and TKT-150 attempt history, blockers, PR/worktree state, and safe next sequence.
+
+## Historical onboarding pack
+
 The 2026-06-27 onboarding pack for the operator. **Read [`OPERATOR-CHECKLIST.md`](./OPERATOR-CHECKLIST.md) first.**
 
 - [`OPERATOR-CHECKLIST.md`](./OPERATOR-CHECKLIST.md) — the ordered operator actions (#1 = the Exchange-RBAC mailbox grant).

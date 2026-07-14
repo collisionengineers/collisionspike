@@ -93,7 +93,7 @@ Plans cluster related tickets without moving them. A plan lives at `docs/tickets
 | [PLAN-001](./plans/PLAN-001-ai-mcp-hardening.md) | Harden and enhance AI features plus MCP | active | 8/17 done |
 | [PLAN-002](./plans/PLAN-002-case-done-lifecycle.md) | Case done lifecycle | active | 1/3 done |
 | [PLAN-003](./plans/PLAN-003-operator-fixup-wave.md) | Operator fix-up wave 2026-07-08 | active | 35/37 done |
-| [PLAN-004](./plans/PLAN-004-production-readiness.md) | Production readiness and lifecycle completion | active | 1/53 done |
+| [PLAN-004](./plans/PLAN-004-production-readiness.md) | Production readiness and lifecycle completion | active | 1/52 done |
 | [PLAN-005](./plans/PLAN-005-full-remediation-plan.md) | Full remediation and repository reconciliation | active | 0/1 done |
 
 ## Validation

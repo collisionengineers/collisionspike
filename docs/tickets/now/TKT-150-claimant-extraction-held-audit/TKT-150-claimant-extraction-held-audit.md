@@ -21,10 +21,12 @@ Open cases, including QDOS26079 and cases in Held, are missing claimant names ev
 
 ## Proposed change
 IN PROGRESS: claimant extraction is immutably re-vendored at `engine-v2.24`; conflict visibility,
-source-preserving create/merge/replay/later-document handling, two-phase provider recovery, a deployed-parser
-fingerprint contract, and a claimant-only remediation runner are implemented offline. A fresh live census and
-QDOS26079 trace must now be frozen against the deployed fingerprint, followed by the plan-bound PostgreSQL 16
-backup/restore, named approval, fill-only apply, residual ledger, and independent live verification. This work is
+source-preserving create/merge/replay/later-document handling, two-phase provider recovery, the deployed-parser
+fingerprint contract, and the claimant-only remediation runner are merged. The PR #93 runtime/schema/API/
+orchestration/Box/parser boundary was deployed and verified; PRs #94–#96 hardened only the offline runner.
+The latest 156-case v8 read-only plan then failed its independent audit because 18 tokenized retained-text
+sources still lack an exact raw-email binding, root-level binding remained zero, and QDOS26079 still failed at
+source processing. V8 is superseded. No current backup, approval, apply, journal, or ledger exists. This work is
 not the final operational cutover and does not switch production Archive roots or call production EVA.
 
 ## Acceptance
@@ -53,3 +55,4 @@ Distilled 2026-07-12 from the operator's live-case report; raw wording is in [ev
 - [Dated live census](./evidence/live-census-2026-07-12.md)
 - [Superseded-plan summary](./evidence/remediation-plan-summary-2026-07-13.md)
 - [Controlled remediation runbook](./remediation-runbook.md)
+- [Current PLAN-005/TKT-150 handoff](../../../handoff/05-plan-005-tkt-150-remediation.md)
