@@ -39,3 +39,10 @@ Power Platform checks, Python suites without local virtual environments, opt-in 
 superseded connector/generated-service checks, and opt-in live registry verification. Live verification and
 the ticket-specific Python/live proofs remain owned by their later PLAN-005 stages; this result is the exact
 offline base gate, not production certification.
+
+## Later main checkpoint — 2026-07-14
+
+Before the handoff branch was created, clean local `main`, `origin/main`, and GitHub `main` all matched
+`d62260ca66210d22be2884b862681f9b992f5795`. PRs #93–#96 account for the TKT-150 progression through that
+revision. PR #97 is based directly on that SHA and contains only reconciliation helpers/evidence and truthful
+ticket/plan/handoff updates; it performs no deployment or live cutover.

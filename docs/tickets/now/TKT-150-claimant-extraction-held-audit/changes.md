@@ -11,8 +11,9 @@ Archive-root switch, or production Archive write is part of this ticket executio
 
 ## Consolidated baseline
 
-- The historical TKT-150 branches were compared. Current implementation reached `main` through PRs #93–#96;
-  the remaining branches are preserved only as historical/recovery sources pending final branch cleanup.
+- The historical TKT-150 branches were compared. Current implementation reached `main` through PRs #93–#96.
+  After the handoff was pushed, the exact historical heads were re-verified in the hashed recovery bundle and
+  the stale local/remote branches and merged closeout worktree were removed.
 - Every generated plan so far is explicitly superseded and is not an apply artifact. The initial 151-case plan
   has the only plan-bound backup/restore proof, but both plan and backup are obsolete and must not be reused.
 - Raw source, plan, backup, approval, journal, and ledger artifacts are rejected when their paths resolve

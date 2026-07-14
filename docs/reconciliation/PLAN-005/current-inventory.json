@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-14T12:00:32.382Z",
+  "generatedAt": "2026-07-14T12:20:34.683Z",
   "repository": "C:\\Users\\PC\\Documents\\GitHub\\collisionsuite\\active\\collisionspike-ui-readiness",
   "remoteUrl": "https://github.com/collisionengineers/collisionspike.git",
   "originMain": "d62260ca66210d22be2884b862681f9b992f5795",
-  "currentHead": "d62260ca66210d22be2884b862681f9b992f5795",
+  "currentHead": "b64d0d8861ce57a1a403c67f94e4fba527264ba2",
   "currentBranch": "codex/plan-005-handoff",
   "summary": {
-    "localBranches": 10,
-    "remoteBranches": 11,
-    "worktrees": 6,
+    "localBranches": 6,
+    "remoteBranches": 6,
+    "worktrees": 5,
     "detachedWorktrees": 0,
-    "dirtyWorktrees": 2,
-    "openPullRequests": 4,
-    "totalPullRequests": 96
+    "dirtyWorktrees": 0,
+    "openPullRequests": 5,
+    "totalPullRequests": 97
   },
   "refs": [
     {
@@ -24,38 +24,14 @@
     },
     {
       "ref": "refs/heads/codex/plan-005-handoff",
-      "sha": "d62260ca66210d22be2884b862681f9b992f5795",
-      "upstream": "",
+      "sha": "b64d0d8861ce57a1a403c67f94e4fba527264ba2",
+      "upstream": "origin/codex/plan-005-handoff",
       "tracking": ""
     },
     {
       "ref": "refs/heads/codex/tkt-034-archive-adoption",
       "sha": "3ffe81ec6b66749a0468f52e9ed05ae5f613645b",
       "upstream": "origin/codex/tkt-034-archive-adoption",
-      "tracking": ""
-    },
-    {
-      "ref": "refs/heads/codex/tkt-150-claimant-extraction",
-      "sha": "a2b346406eea961a4f7a41e20acc53df0fa24f5f",
-      "upstream": "origin/main",
-      "tracking": "[ahead 11, behind 87]"
-    },
-    {
-      "ref": "refs/heads/codex/tkt-150-closeout",
-      "sha": "42fe65be4f1209bc90097784755e0bb357e925d1",
-      "upstream": "origin/codex/tkt-150-closeout",
-      "tracking": ""
-    },
-    {
-      "ref": "refs/heads/codex/tkt-150-live-proof",
-      "sha": "80e4868bbb3d54bb1d5fb008e047e842a7a24b26",
-      "upstream": "origin/codex/tkt-150-live-proof",
-      "tracking": ""
-    },
-    {
-      "ref": "refs/heads/codex/tkt-150-live-remediation",
-      "sha": "ed63af703c894d4ce4a2f6d56d24dbaae2b4df85",
-      "upstream": "origin/codex/tkt-150-live-remediation",
       "tracking": ""
     },
     {
@@ -89,32 +65,14 @@
       "tracking": ""
     },
     {
+      "ref": "refs/remotes/origin/codex/plan-005-handoff",
+      "sha": "b64d0d8861ce57a1a403c67f94e4fba527264ba2",
+      "upstream": "",
+      "tracking": ""
+    },
+    {
       "ref": "refs/remotes/origin/codex/tkt-034-archive-adoption",
       "sha": "3ffe81ec6b66749a0468f52e9ed05ae5f613645b",
-      "upstream": "",
-      "tracking": ""
-    },
-    {
-      "ref": "refs/remotes/origin/codex/tkt-150-claimant-extraction",
-      "sha": "a2b346406eea961a4f7a41e20acc53df0fa24f5f",
-      "upstream": "",
-      "tracking": ""
-    },
-    {
-      "ref": "refs/remotes/origin/codex/tkt-150-closeout",
-      "sha": "42fe65be4f1209bc90097784755e0bb357e925d1",
-      "upstream": "",
-      "tracking": ""
-    },
-    {
-      "ref": "refs/remotes/origin/codex/tkt-150-live-proof",
-      "sha": "80e4868bbb3d54bb1d5fb008e047e842a7a24b26",
-      "upstream": "",
-      "tracking": ""
-    },
-    {
-      "ref": "refs/remotes/origin/codex/tkt-150-live-remediation",
-      "sha": "ed63af703c894d4ce4a2f6d56d24dbaae2b4df85",
       "upstream": "",
       "tracking": ""
     },
@@ -125,20 +83,8 @@
       "tracking": ""
     },
     {
-      "ref": "refs/remotes/origin/codex/tkt-154-mcp-image-ingestion-local-20260713",
-      "sha": "f59ae4873b9bbd944308bcb8f98b53c6505fe14d",
-      "upstream": "",
-      "tracking": ""
-    },
-    {
       "ref": "refs/remotes/origin/codex/tkt-160-delete-case-image",
       "sha": "5ba0400493395a4e4ffa10d13b7022361f21f80b",
-      "upstream": "",
-      "tracking": ""
-    },
-    {
-      "ref": "refs/remotes/origin/codex/tkt-160-delete-case-image-local-20260713",
-      "sha": "2681fd25db45a6b1d0ce927c64f07374cea8dfa5",
       "upstream": "",
       "tracking": ""
     },
@@ -158,96 +104,10 @@
       "detached": false,
       "locked": false,
       "prunable": false,
-      "dirty": true,
-      "status": [
-        "?? docs/reconciliation/PLAN-005/archival-tip-dispositions.md",
-        "?? docs/reconciliation/PLAN-005/canonical-main-gate.md",
-        "?? docs/reconciliation/PLAN-005/current-inventory.json",
-        "?? docs/reconciliation/PLAN-005/disposition-ledger.md",
-        "?? docs/reconciliation/PLAN-005/history-retention.md",
-        "?? docs/reconciliation/PLAN-005/initial-inventory.json",
-        "?? docs/reconciliation/PLAN-005/protected-retention.md",
-        "?? docs/reconciliation/PLAN-005/safe-deletion-matrix.md",
-        "?? docs/reconciliation/PLAN-005/tkt009-cutover-boundary-2026-07-13.md",
-        "?? scripts/plan-005-inventory.mjs",
-        "?? scripts/plan-005-preserve-dirty.mjs",
-        "?? scripts/plan-005-recovery.mjs",
-        "?? scripts/plan-005-tkt009-db-window.sh",
-        "?? scripts/plan-005-tkt009-db-window.test.sh"
-      ],
+      "dirty": false,
+      "status": [],
       "trackedDiffSha256": null,
-      "untrackedArtifacts": [
-        {
-          "path": "docs/reconciliation/PLAN-005/archival-tip-dispositions.md",
-          "bytes": 14655,
-          "sha256": "f69edf49930b3dd45888392b8f7c15e5d29f128b1b07a4617dd6ed6610ff3f1e"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/canonical-main-gate.md",
-          "bytes": 1940,
-          "sha256": "aa31746c2c3f662be26daeacfc0c4074bd4bd444b70b33ced7a349919a210008"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/current-inventory.json",
-          "bytes": 70801,
-          "sha256": "870a65420ac2a55a8fb3aade71bcadea6dc34fa5e3513189440303ec329a2bdf"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/disposition-ledger.md",
-          "bytes": 10282,
-          "sha256": "23f369790711f656c2606898b881dbf482c9edfa88125848b9c54138e3b1a816"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/history-retention.md",
-          "bytes": 3303,
-          "sha256": "80460eedcdb7e0ec061f0e7493d206631a884c3b95ff884d48d942a515c342b9"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/initial-inventory.json",
-          "bytes": 98643,
-          "sha256": "5b6cb0a1c71a0947d193524b610c477ea0e98de791eae94df30358643626881c"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/protected-retention.md",
-          "bytes": 5467,
-          "sha256": "997921ef8d94a4d81155fab73af518ed07f9cec92c38b4dc158a06bcd457f90c"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/safe-deletion-matrix.md",
-          "bytes": 9316,
-          "sha256": "109beccf5283c7faa890005eaf0867f7cf072b9b6f5e8b3279606cad825506e2"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/tkt009-cutover-boundary-2026-07-13.md",
-          "bytes": 3449,
-          "sha256": "6c5a4932922792f33479373fa9725407636006e35946192b58fd43d2aa0aaa6c"
-        },
-        {
-          "path": "scripts/plan-005-inventory.mjs",
-          "bytes": 7873,
-          "sha256": "bcf19b4fa2e2cad32afdcda62de133c380ccf136381212bd56f5d3b90481a635"
-        },
-        {
-          "path": "scripts/plan-005-preserve-dirty.mjs",
-          "bytes": 6976,
-          "sha256": "d0cd20f66c5e95fe95b0d7cf430846cb35c0bdac1680676522e94a85ca06656c"
-        },
-        {
-          "path": "scripts/plan-005-recovery.mjs",
-          "bytes": 7953,
-          "sha256": "19174427e2fad9b24578b6fbbc0bcffe200d10faa2cc2fdecbf7c4709ac61c94"
-        },
-        {
-          "path": "scripts/plan-005-tkt009-db-window.sh",
-          "bytes": 6941,
-          "sha256": "08606e60580bc327f7a4fb6ee78912fcda84a09f4c2b671182e9d88a0d58092f"
-        },
-        {
-          "path": "scripts/plan-005-tkt009-db-window.test.sh",
-          "bytes": 1027,
-          "sha256": "35a357b60b438599fc7a272bc5d3fb79e0ffa2dab6f0c879e0d4b8637f5930b6"
-        }
-      ],
+      "untrackedArtifacts": [],
       "intendedDisposition": "retain until its open implementation PR is rebuilt, integrated, verified, and closed"
     },
     {
@@ -263,20 +123,6 @@
       "trackedDiffSha256": null,
       "untrackedArtifacts": [],
       "intendedDisposition": "retain until its open implementation PR is rebuilt, integrated, verified, and closed"
-    },
-    {
-      "path": "C:/Users/PC/Documents/GitHub/collisionsuite/active/collisionspike-tkt-150-remediation",
-      "exists": true,
-      "head": "42fe65be4f1209bc90097784755e0bb357e925d1",
-      "branch": "refs/heads/codex/tkt-150-closeout",
-      "detached": false,
-      "locked": false,
-      "prunable": false,
-      "dirty": false,
-      "status": [],
-      "trackedDiffSha256": null,
-      "untrackedArtifacts": [],
-      "intendedDisposition": "remove after recovery-bundle proof and semantic/ancestry disposition is recorded"
     },
     {
       "path": "C:/Users/PC/Documents/GitHub/collisionsuite/active/collisionspike-tkt-154",
@@ -309,101 +155,15 @@
     {
       "path": "C:/Users/PC/Documents/GitHub/collisionsuite/active/collisionspike-ui-readiness",
       "exists": true,
-      "head": "d62260ca66210d22be2884b862681f9b992f5795",
+      "head": "b64d0d8861ce57a1a403c67f94e4fba527264ba2",
       "branch": "refs/heads/codex/plan-005-handoff",
       "detached": false,
       "locked": false,
       "prunable": false,
-      "dirty": true,
-      "status": [
-        "?? docs/reconciliation/PLAN-005/archival-tip-dispositions.md",
-        "?? docs/reconciliation/PLAN-005/canonical-main-gate.md",
-        "?? docs/reconciliation/PLAN-005/current-inventory.json",
-        "?? docs/reconciliation/PLAN-005/disposition-ledger.md",
-        "?? docs/reconciliation/PLAN-005/history-retention.md",
-        "?? docs/reconciliation/PLAN-005/initial-inventory.json",
-        "?? docs/reconciliation/PLAN-005/protected-retention.md",
-        "?? docs/reconciliation/PLAN-005/safe-deletion-matrix.md",
-        "?? docs/reconciliation/PLAN-005/tkt009-cutover-boundary-2026-07-13.md",
-        "?? scripts/plan-005-inventory.mjs",
-        "?? scripts/plan-005-preserve-dirty.mjs",
-        "?? scripts/plan-005-recovery.mjs",
-        "?? scripts/plan-005-tkt009-db-window.sh",
-        "?? scripts/plan-005-tkt009-db-window.test.sh"
-      ],
+      "dirty": false,
+      "status": [],
       "trackedDiffSha256": null,
-      "untrackedArtifacts": [
-        {
-          "path": "docs/reconciliation/PLAN-005/archival-tip-dispositions.md",
-          "bytes": 14655,
-          "sha256": "f69edf49930b3dd45888392b8f7c15e5d29f128b1b07a4617dd6ed6610ff3f1e"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/canonical-main-gate.md",
-          "bytes": 1940,
-          "sha256": "aa31746c2c3f662be26daeacfc0c4074bd4bd444b70b33ced7a349919a210008"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/current-inventory.json",
-          "bytes": 70801,
-          "sha256": "870a65420ac2a55a8fb3aade71bcadea6dc34fa5e3513189440303ec329a2bdf"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/disposition-ledger.md",
-          "bytes": 10282,
-          "sha256": "23f369790711f656c2606898b881dbf482c9edfa88125848b9c54138e3b1a816"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/history-retention.md",
-          "bytes": 3303,
-          "sha256": "80460eedcdb7e0ec061f0e7493d206631a884c3b95ff884d48d942a515c342b9"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/initial-inventory.json",
-          "bytes": 98643,
-          "sha256": "5b6cb0a1c71a0947d193524b610c477ea0e98de791eae94df30358643626881c"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/protected-retention.md",
-          "bytes": 5467,
-          "sha256": "997921ef8d94a4d81155fab73af518ed07f9cec92c38b4dc158a06bcd457f90c"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/safe-deletion-matrix.md",
-          "bytes": 9316,
-          "sha256": "109beccf5283c7faa890005eaf0867f7cf072b9b6f5e8b3279606cad825506e2"
-        },
-        {
-          "path": "docs/reconciliation/PLAN-005/tkt009-cutover-boundary-2026-07-13.md",
-          "bytes": 3449,
-          "sha256": "6c5a4932922792f33479373fa9725407636006e35946192b58fd43d2aa0aaa6c"
-        },
-        {
-          "path": "scripts/plan-005-inventory.mjs",
-          "bytes": 7873,
-          "sha256": "bcf19b4fa2e2cad32afdcda62de133c380ccf136381212bd56f5d3b90481a635"
-        },
-        {
-          "path": "scripts/plan-005-preserve-dirty.mjs",
-          "bytes": 6976,
-          "sha256": "d0cd20f66c5e95fe95b0d7cf430846cb35c0bdac1680676522e94a85ca06656c"
-        },
-        {
-          "path": "scripts/plan-005-recovery.mjs",
-          "bytes": 7953,
-          "sha256": "19174427e2fad9b24578b6fbbc0bcffe200d10faa2cc2fdecbf7c4709ac61c94"
-        },
-        {
-          "path": "scripts/plan-005-tkt009-db-window.sh",
-          "bytes": 6941,
-          "sha256": "08606e60580bc327f7a4fb6ee78912fcda84a09f4c2b671182e9d88a0d58092f"
-        },
-        {
-          "path": "scripts/plan-005-tkt009-db-window.test.sh",
-          "bytes": 1027,
-          "sha256": "35a357b60b438599fc7a272bc5d3fb79e0ffa2dab6f0c879e0d4b8637f5930b6"
-        }
-      ],
+      "untrackedArtifacts": [],
       "intendedDisposition": "remove after recovery-bundle proof and semantic/ancestry disposition is recorded"
     }
   ],
@@ -2116,6 +1876,22 @@
       "state": "MERGED",
       "title": "TKT-150: support root-level retained email pairs",
       "url": "https://github.com/collisionengineers/collisionspike/pull/96"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": null,
+      "headRefName": "codex/plan-005-handoff",
+      "headRefOid": "b64d0d8861ce57a1a403c67f94e4fba527264ba2",
+      "isDraft": false,
+      "mergeCommit": null,
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "mergedAt": null,
+      "number": 97,
+      "reviewDecision": "",
+      "state": "OPEN",
+      "title": "docs: preserve PLAN-005 and TKT-150 handoff",
+      "url": "https://github.com/collisionengineers/collisionspike/pull/97"
     }
   ]
 }

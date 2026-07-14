@@ -74,3 +74,19 @@ This section supersedes the mutable counts above while retaining their historica
   TKT-150 closeout. The remote has exactly ten branches: `main`, four PR heads, two safety copies and three
   TKT-150 closeout branches. See `phase-c-inventory-2026-07-14.json` generated at
   `2026-07-14T01:03:54.191Z`.
+
+## Handoff cleanup checkpoint — 2026-07-14
+
+This checkpoint supersedes the mutable retention requirement above without changing its historical evidence:
+
+- PRs #93–#96 placed the current TKT-150 implementation on `main`, and PR #97 preserves the complete attempt
+  handoff.
+- The recovery bundle at
+  `C:\Users\PC\Documents\GitHub\collisionsuite-recovery\collisionspike\20260713T200620Z\collisionspike.bundle`
+  was re-hashed and independently verified before branch deletion. It contains the exact claimant-extraction,
+  live-proof, and live-remediation heads.
+- The merged closeout worktree and four TKT-150 local/remote branches are removed. The TKT-154/TKT-160
+  backup-only remote refs are also removed because their exact commits are ancestors of the published PR heads.
+- The current protected set is five clean worktrees: PRs #73, #83, #87, #89 and the temporary PR #97 handoff
+  worktree. The machine snapshot reports six local and six remote branches: `main` plus those five PR heads.
+  PR #97 should be deleted after merge, leaving only `main` and the four still-open implementation PRs.

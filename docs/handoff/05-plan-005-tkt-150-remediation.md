@@ -132,16 +132,34 @@ At the first 2026-07-14 handoff checkpoint:
 | PR #83 / `codex/guided-capture-server` | `df674dcd` | Draft, conflicts with current main | Rebase/resolve semantically, run its ticket gates, merge or close |
 | PR #87 / `codex/tkt-160-delete-case-image` | `5ba04004` | Draft, conflicts with current main | Rebase/resolve semantically, run its ticket gates, merge or close |
 | PR #89 / `codex/tkt-034-archive-adoption` | `3ffe81ec` | Draft, conflicts with current main | Rebase/resolve semantically, run its ticket gates, merge or close |
-| `codex/tkt-150-closeout` | `42fe65be` | PR #93 merged; patch-equivalent/stale worktree | Remove worktree and local/remote branch after this handoff is remote |
-| `codex/tkt-150-claimant-extraction` | `a2b34640` | Historical, remote-preserved, no open PR | Retain only until its patch-unique history is fully represented by this handoff/recovery bundle |
-| `codex/tkt-150-live-proof` | `80e4868b` | Historical, remote-preserved, no open PR | Same semantic disposition requirement |
-| `codex/tkt-150-live-remediation` | `ed63af70` | Historical, remote-preserved, no open PR | Same semantic disposition requirement |
+| `codex/tkt-150-closeout` | `42fe65be` | PR #93 merged; patch-equivalent to main | Worktree and local/remote branch removed after the handoff was pushed |
+| `codex/tkt-150-claimant-extraction` | `a2b34640` | Historical, no open PR | Local/remote branch removed after exact recovery-bundle verification |
+| `codex/tkt-150-live-proof` | `80e4868b` | Historical, no open PR | Local/remote branch removed after exact recovery-bundle verification |
+| `codex/tkt-150-live-remediation` | `ed63af70` | Historical, no open PR | Local/remote branch removed after exact recovery-bundle verification |
+| PR #97 / `codex/plan-005-handoff` | `b64d0d88` at cleanup snapshot | Ready and mergeable | Merge after normal docs CI, then delete its branch and return the canonical worktree to `main` |
 
 The latest TKT-154 and TKT-160 local safety commits were force-published to their existing PR branches under
 exact `--force-with-lease` guards. The PLAN-005 reconciliation documents and scripts that were previously
 untracked in the guided-capture worktree were copied byte-for-byte to the dedicated
 `codex/plan-005-handoff` branch. Its stale untracked PLAN-005 shadow was not copied because it only removed the
 current YAML frontmatter and added blank lines.
+
+## Repository cleanup checkpoint
+
+After PR #97 contained the complete handoff:
+
+- the external recovery bundle was re-hashed as
+  `66745f013834d7f5c038178b66aebadf70b5a76b4928d64e669fca75c401e621` and `git bundle verify` passed;
+- that bundle was proved to contain exact historical heads `a2b34640`, `80e4868b`, and `ed63af70`;
+- PR #93 proved `42fe65be` merged as `cc0d7b52`, and `git cherry` proved it patch-equivalent to current main;
+- the stale TKT-150 worktree and all four TKT-150 local/remote branches were removed;
+- the temporary TKT-154/TKT-160 remote safety branches were removed only after their commits were proved
+  ancestors of their updated PR heads;
+- the 14 untracked PLAN-005 files were removed from the guided-capture worktree only after exact byte/hash
+  preservation in PR #97; the older Phase-C inventory survives separately as
+  `phase-c-inventory-2026-07-14.json`; and
+- the resulting timestamped snapshot has 5 clean worktrees, 6 local branches, 6 remote branches, no detached
+  worktrees, no dirty worktrees, and 5 open PRs (the four implementation PRs plus PR #97).
 
 ## Completion semantics
 
