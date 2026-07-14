@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "endpoint_env": "FOUNDRY_EVAL_ENDPOINT",
+  "default_timeout_seconds": 45,
+  "models": [
+    {"id":"gpt-5","publisher":"OpenAI","model":"gpt-5","version":"2025-08-07","deployment":"gpt-5","profile":"reasoning-strict","input_gbp_per_million":null,"output_gbp_per_million":null},
+    {"id":"gpt-5-nano","publisher":"OpenAI","model":"gpt-5-nano","version":"2025-08-07","deployment":"eval-gpt-5-nano","profile":"reasoning-strict","input_gbp_per_million":null,"output_gbp_per_million":null},
+    {"id":"gpt-5.4-nano","publisher":"OpenAI","model":"gpt-5.4-nano","version":"2026-03-17","deployment":"eval-gpt-54-nano","profile":"reasoning-strict","input_gbp_per_million":null,"output_gbp_per_million":null},
+    {"id":"gpt-5-mini","publisher":"OpenAI","model":"gpt-5-mini","version":"2025-08-07","deployment":"eval-gpt-5-mini","profile":"reasoning-strict","input_gbp_per_million":null,"output_gbp_per_million":null},
+    {"id":"gpt-5.4-mini","publisher":"OpenAI","model":"gpt-5.4-mini","version":"2026-03-17","deployment":"eval-gpt-54-mini","profile":"reasoning-strict","input_gbp_per_million":null,"output_gbp_per_million":null},
+    {"id":"phi-4-mini-instruct","publisher":"Microsoft","model":"Phi-4-mini-instruct","version":"1","deployment":null,"profile":"json-mode","input_gbp_per_million":null,"output_gbp_per_million":null,"availability":"incompatible: HTTP 422 on required strict-schema probe"},
+    {"id":"deepseek-v4-flash","publisher":"DeepSeek","model":"DeepSeek-V4-Flash","version":"2026-04-23","deployment":"eval-deepseek-v4","profile":"json-mode","input_gbp_per_million":null,"output_gbp_per_million":null},
+    {"id":"grok-4-fast-non-reasoning","publisher":"xAI","model":"grok-4-fast-non-reasoning","version":"1","deployment":null,"profile":"json-mode","input_gbp_per_million":null,"output_gbp_per_million":null},
+    {"id":"llama-4-maverick","publisher":"Meta","model":"Llama-4-Maverick-17B-128E-Instruct-FP8","version":"1","deployment":"eval-llama-4-mav","profile":"json-mode","input_gbp_per_million":null,"output_gbp_per_million":null},
+    {"id":"llama-3.3-70b","publisher":"Meta","model":"Llama-3.3-70B-Instruct","version":"9","deployment":"eval-llama-33-70b","profile":"json-mode","input_gbp_per_million":null,"output_gbp_per_million":null},
+    {"id":"mistral-large-3","publisher":"Mistral AI","model":"Mistral-Large-3","version":"1","deployment":null,"profile":"json-mode","input_gbp_per_million":null,"output_gbp_per_million":null},
+    {"id":"cohere-command-a-plus","publisher":"Cohere","model":"Cohere-command-a-plus-05-2026","version":"1","deployment":"eval-cohere-command-a","profile":"json-mode","input_gbp_per_million":null,"output_gbp_per_million":null},
+    {"id":"kimi-k2.5","publisher":"Moonshot AI","model":"Kimi-K2.5","version":"1","deployment":null,"profile":"json-mode","input_gbp_per_million":null,"output_gbp_per_million":null},
+    {"id":"kimi-k2.6","publisher":"Moonshot AI","model":"Kimi-K2.6","version":"2026-04-20","deployment":null,"profile":"json-mode","input_gbp_per_million":null,"output_gbp_per_million":null}
+  ]
+}

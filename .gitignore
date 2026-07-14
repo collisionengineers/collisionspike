@@ -69,6 +69,12 @@ venv/
 # distilled into docs/, but NOT committed. Keep PII out of git history.
 raw/
 
+# Foundry email-evaluation working set. These files contain real email/attachment
+# content or raw model output and must remain local-only.
+scripts/eval-email/local/
+scripts/eval-email/*.local.jsonl
+scripts/eval-email/*.local.json
+
 # Dataverse corpus snapshots (16a-backup-inspectionaddress.ps1) — live cr1bd_inspectionaddress
 # row dumps contain real PII (claimant/site addresses). Local restore points only; NOT committed.
 dataverse/.build/backups/
