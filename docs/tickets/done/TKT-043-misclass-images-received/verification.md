@@ -161,3 +161,49 @@ Two live prerequisites the verifier should confirm hold on the target case:
   Finding C). **orch + parser REDEPLOYED** (engine-v2.9; orch 67 fns). Acceptance "no new case is
   minted" is now met in code + deployed; the remaining PENDING item is the behavioural live proof on a
   real open-case-ref chaser (this section's "How to re-verify"). Full detail: `changes.md` PR#45 section.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+VERIFIED-LIVE
+
+## Evidence
+
+- Acceptance 1: a real arrival at `2026-07-13T15:56:51Z` produced `attach_case`,
+  `case_update/images_received`, `matchTier=job_ref`, `matchCount=1`, `caseUpdateApplied=true`,
+  `imagesOnly=true`, targeting open case `A.PCH26048` (`39822064-5e16-4ef6-b0aa-1f077f4f8ee5`). Offline
+  corroboration passed: parser classifier 182 passed/9 skipped; baseline-v2 reported no regression; domain
+  policy/routing 60/60; orchestration signal tests 12/12.
+- Acceptance 2: API telemetry created case-link suggestion `d6a7688c-702c-400b-9d21-b02207c87d9a` for the
+  matched case with `autoAttached=true`. The exact Durable instance recorded 34 rows and
+  `CaseResolveRows=0`. It then persisted classification evidence, completed evidence backfill, extracted 70
+  images, and archived 72/72 evidence items to folder `399470418892`. The `autoAttached=true` completion is
+  the TKT-093 reversible `inbound_linked` path.
+- Acceptance 3: the fresh eval matched baseline-v2 and `receiving_work` recall was 94.7%. Targeted parser,
+  domain and orchestration suites all passed. Current main's immediately preceding exact-head full verifier
+  checkpoint was 8 passed/0 failed; it was not redundantly rerun in this dispatch.
+- Acceptance 4: the live decision's gate snapshot had ref-gate, images routing, case-update and auto-attach
+  enabled. This is the precise previously missing conjunction: open job-ref plus image-only evidence ->
+  `attach_case` and `case_update/images_received`, with no mint.
+- Acceptance 5: `changes.md`, both ticket sample files, and `evidence/offline-eval-delta.md` are present and
+  were reviewed.
+
+## Pending / gaps
+
+No behavioral gap remains. Direct PostgreSQL readback of the suggestion and audit rows was blocked by the
+firewall; no temporary rule was created. The linked suggestion, no-mint execution and complete
+evidence/archive chain are independently present in telemetry.
+
+## How to re-verify
+
+Query `triage_decision` for `attach_case` + `case_update/images_received`; require one `job_ref` match,
+`caseUpdateApplied=true`, and `imagesOnly=true`. Correlate the Durable instance and require zero
+`caseResolve` rows, an `autoAttached=true` case-link suggestion, and completed evidence/archive events.
+When a firewall-free read path exists, corroborate suggestion `d6a7688c-…` and the matched case's
+`inbound_linked` audit row.
+
+## Confidence + unread surfaces
+
+High confidence from the exact live event and correlated side effects. PostgreSQL rows and a direct Archive
+folder listing were unread; telemetry supplied the behavioral and archive-completion evidence.

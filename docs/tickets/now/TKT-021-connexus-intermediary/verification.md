@@ -110,3 +110,48 @@ records remain historical evidence for the older build; they do not prove the re
   Connexus as an intermediary rather than a new customer.
 - Live proof still required: deploy the repaired API, then observe a new Connexus PCH, SBL and
   unresolved-principal arrival and confirm the case note/audit wording on each branch.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+FAILED
+
+## Evidence
+
+- Acceptance 1: four fresh Connexus arrivals on 2026-07-13 all produced `providerMatch
+  outcome=intermediary`, `candidateCount=2`, proving Connexus is recognized. However, the 12:22:46Z
+  arrival still classified `receiving_work/new_client_work` and created a manual Held case, so the literal
+  "not flagged as a new customer" outcome is not consistently met.
+- Acceptance 2: read-only Outlook evidence for that arrival contains explicit "Performance Car Hire" text
+  and the `performancecarhire.co.uk` domain, from `@connexus.co.uk`, with two attachments. The corresponding
+  telemetry shows both attachments parsed successfully, but `caseResolve` created case
+  `d5c30230-7cca-4d3c-8243-4b44f10ddb68` in `manual` mode; subsequent status was `needs_review`. The explicit
+  PCH signal therefore did not resolve the case to PCH. No qualifying fresh SBL new-instruction occurrence
+  was found.
+- Acceptance 3: the same case was Held for review, but its case note and audit wording could not be read.
+  The read-only PostgreSQL connection was blocked by the live firewall, and no firewall mutation was
+  attempted.
+- Regression follow-up: `api/src/functions/apply-parser-fields.test.ts` passed 22/22, including the
+  source-aware Held-reason paths. The offline tests do not override the fresh live PCH counterexample.
+
+## Pending / gaps
+
+- Real failure: a genuine Connexus instruction with explicit PCH evidence still entered
+  `new_client_work` and manual Held instead of resolving PCH.
+- Expected absence: no fresh qualifying SBL instruction was available to prove that branch.
+- Unread surface: the Held case's note and audit row, including whether the new neutral/source-accurate
+  wording was written.
+
+## How to re-verify
+
+After repairing the live content-resolution seam, observe the next genuine Connexus PCH and SBL
+instructions without sending a synthetic email. Correlate provider-match, triage, parse and case-resolution
+telemetry by message ID, then read the resulting case provider, Case/PO, note and audit rows. For a genuinely
+unresolved arrival, require Held state, no Case/PO, and explicit intermediary/principal-unresolved wording.
+
+## Confidence + unread surfaces
+
+High confidence in the PCH failure: mailbox content and Azure telemetry align to the same 2026-07-13
+arrival. PostgreSQL was unreachable read-only through the firewall, so case-note/audit wording remains
+unread.

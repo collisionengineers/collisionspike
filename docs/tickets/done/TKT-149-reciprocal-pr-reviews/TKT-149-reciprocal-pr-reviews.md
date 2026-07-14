@@ -1,11 +1,11 @@
 ---
 id: TKT-149
 title: Retire mandatory reciprocal Claude and Codex PR reviews
-status: verify
+status: done
 priority: P0
 area: platform
 tickets-it-relates-to: [TKT-074, TKT-114]
-research-link: docs/tickets/verify/TKT-149-reciprocal-pr-reviews/evidence/operator-retirement-2026-07-14.md
+research-link: docs/tickets/done/TKT-149-reciprocal-pr-reviews/evidence/operator-retirement-2026-07-14.md
 plan: PLAN-004
 ---
 

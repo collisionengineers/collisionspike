@@ -1,11 +1,11 @@
 ---
 id: TKT-021
 title: Resolve Connexus claims-manager to the real provider (PCH/SBL)
-status: verify
+status: now
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-001]
-research-link: docs/tickets/verify/TKT-021-connexus-intermediary/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-021-connexus-intermediary/evidence/operator-note.md
 ---
 
 # Resolve Connexus claims-manager to the real provider (PCH/SBL)
@@ -50,3 +50,4 @@ Distilled 2026-06-30 from an operator drop-note; raw material in [evidence/](./e
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator note](./evidence/operator-note.md)
+- [2026-07-14 live-failure follow-up](./evidence/reopen-followup-2026-07-14.md)

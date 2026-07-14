@@ -1,7 +1,7 @@
 ---
 id: TKT-043
 title: Images-received / report-chaser email misrouted (scope to confirm)
-status: verify
+status: done
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-034, TKT-030]

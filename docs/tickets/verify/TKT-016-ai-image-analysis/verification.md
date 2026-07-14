@@ -83,3 +83,36 @@ Registry updated: `LIVE_FACTS.json` (gate + `lastVerified`) + [live-environment.
 ### W7 data-pass result (orchestrator-run, 2026-07-10)
 Confirmed unexercised: **0** staged-kind `ai_suggestion` rows, **0** `image_analysis_generated`
 (100000052) audits. The authenticated `{generated:N}` call remains the sole gap.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+PENDING
+
+## Evidence
+
+- Independent offline suite passed 10/10, covering staged observations, ranked `address_suggestion` with
+  `autoApplied:false`, and graceful degradation.
+- Live `cespk-api-dev` is Running; `IMAGE_ANALYSIS_ENABLED=true`, `AI_MODEL_DEPLOYMENT=gpt-5`, and
+  `generateImageAnalysis` is deployed. A fresh unauthenticated POST returned 401.
+- Seven-day telemetry contains only three unauthenticated 401 probes and zero `[image-analysis]` run traces.
+  No authenticated successful invocation is evidenced.
+
+## Pending / gaps
+
+- No authenticated live sample proves `{generated:N}`, staged pending rows, ranked address output, or live
+  graceful degradation.
+- Current PostgreSQL census was unread because Azure MCP could not reach the server and opening a firewall
+  rule is prohibited.
+
+## How to re-verify
+
+Use an authorized staff session on a naturally occurring case with images. Require a 200 response with
+`generated > 0`, pending staged suggestions including `address_suggestion` with `autoApplied:false`, and
+audit action `100000052`.
+
+## Confidence + unread surfaces
+
+High confidence the ticket remains PENDING. Unread surfaces are authenticated staff invocation and current
+PostgreSQL rows.
