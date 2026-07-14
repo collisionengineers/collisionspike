@@ -41,3 +41,4 @@ Discovered during the 2026-07-12 production-readiness source audit requested by 
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Code audit](./evidence/code-audit.md)
+- [Live failure and reopen follow-up (2026-07-14)](./evidence/reopen-followup-2026-07-14.md)

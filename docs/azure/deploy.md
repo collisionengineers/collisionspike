@@ -78,9 +78,10 @@ the deployed folder). Smoke-check the CSP header on the live URL after every dep
   `aud` = client-id. The wrong form rejected every token as a generic **500**. Ref [azure-api-deploy-and-auth](../../memory/azure-api-deploy-and-auth.md).
 - **An app-setting change recycles the app** (brief restart) — expected; flip gates off-hours.
 - **Counting functions:** `--query "[].name"` then count — **never `length(@)`** (Windows az.cmd parens).
-- **az runs in WSL** (see the [platform routing](./README.md)) — mind the double quoting layer inside
-  `wsl -e bash -lc '…'`. The old "PowerShell, not Git Bash, for resource-id/URL args" rule applies only
-  to a WINDOWS az (none installed as of 2026-07-04).
+- **Azure CLI is installed in Windows and WSL** (see the [platform routing](./README.md)). Prefer Windows
+  PowerShell for read-only `az` inventory/config checks. Use the deployment playbook's selected platform for
+  publishes; if Windows `az` receives resource-id/URL arguments, do not run it through Git Bash because
+  MSYS can rewrite them.
 
 ## Best-practice refs (Microsoft Learn)
 - Reliable Functions: <https://learn.microsoft.com/azure/azure-functions/functions-best-practices>

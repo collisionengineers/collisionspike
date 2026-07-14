@@ -52,3 +52,46 @@ Per-key rate limiting, a `multipart/form-data` transport, and a provider "test m
 Key-table emptiness CERTIFIED: `provider_api_key` **0 keys / 0 active**, 0 key-lifecycle audits
 (100000042–45), 0 `provider_api`-channel cases. The channel has never been used; the operator mint +
 E2E submit remain the only path to close.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+PENDING
+
+## Evidence
+
+- Fresh live function inventory lists `providerIntakeCase`, `createProviderApiKey`,
+  `listProviderApiKeys`, and `revokeProviderApiKey`.
+- Since the 11 July rollout, App Insights records **zero requests** to all four functions.
+- The wider 9–14 July query contains only two `providerIntakeCase` requests, both generic `401` responses
+  on 10 July; there is no observed key mint/list/revoke or successful `201` intake.
+- Targeted API authentication and submission-validation tests passed within the 51/51 API run. They cover
+  SHA-256 hashing, key shape, constant-time matching, generic missing/malformed/unknown/revoked-key `401`s,
+  key-derived provider resolution, valid submissions, and machine-readable validation failures.
+- Current schema/source defines hash-plus-prefix storage, no plaintext column, `revoked_at` soft revocation,
+  no application `DELETE` grant, Superuser-only management routes, server-resolved provider identity, the
+  50 MB guard, shared Case/PO allocation, and Blob evidence upload.
+
+## Pending / gaps
+
+- No legitimate live key or valid-key `201` submission proves case creation, normal review state,
+  key-derived provider/principal, or Blob evidence landing.
+- No live Admin mint/list/revoke lifecycle proves plaintext-once behavior or soft revocation.
+- Live `400` and `413` route responses are not demonstrated; only generic `401` is live-proven.
+- No current database row proves hash-only persistence, prefix storage, `last_used_at`, or `revoked_at`.
+- Direct Postgres verification was unavailable without changing the firewall; no firewall change was made.
+
+## How to re-verify
+
+During genuine provider onboarding, have a Superuser mint the first operational key, confirm plaintext-once
+presentation, and list it without plaintext. Submit one legitimate provider case in the approved test
+window and verify `201`, review state, key-derived identity, Blob evidence, hash-plus-prefix-only storage,
+and audit rows. During a real rotation, revoke the key and verify generic `401` plus retained `revoked_at`;
+also exercise representative `400` and `413` requests.
+
+## Confidence + unread surfaces
+
+High confidence that the routes and offline implementation are present; high confidence that live
+acceptance remains unmet. Unread surfaces: current Postgres key/case/audit rows, Blob objects, signed-in
+Admin behavior, and any sampled-out telemetry.

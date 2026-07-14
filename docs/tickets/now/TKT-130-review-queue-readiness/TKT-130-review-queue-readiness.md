@@ -56,6 +56,7 @@ Distilled 2026-07-08 from the operator workstream note (see Evidence).
 - [evidence/](./evidence)
 - [regression changes](./changes-regression-12-07-26.md)
 - [operator follow-up](./evidence/operator-followup-12-07-26.md)
+- [PLAN-005 reopen follow-up](./evidence/reopen-followup-2026-07-14.md)
 - [code audit](./evidence/readiness-code-audit-12-07-26.md)
 
 ## Field-review ruling — 2026-07-13

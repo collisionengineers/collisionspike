@@ -93,3 +93,95 @@ The focused tests prove:
    reported, the refused file remains visible for retry, and the page does not navigate.
 8. Probe the endpoint without a bearer token (expect 401), with a stale/removed/merged case (expect
    refusal before storage), and at narrow width plus 200% zoom with keyboard-only controls.
+
+## Independent verification update — 2026-07-14
+
+### Verdict
+
+FAILED
+
+### Evidence
+
+1. **Acceptance 1 — TESTED (offline), deployed surface identified; no successful live submission.**
+   `AddEvidence` restricts target search to `not-ready`, `review`, and `held`, resolves one selected
+   case, submits selected files to the staff-evidence upload route, and opens the case only after every
+   returned item has an evidence identity. Live asset `/assets/index-CbUqeEAY.js` contains `Add
+   evidence`, `/evidence/upload`, `held`, the supported file types and upload flow. The live API
+   inventory contains `uploadCaseEvidence`. No signed-in browser replay was performed.
+2. **Acceptance 2 — TESTED (offline); live route reached validation/commit but did not succeed.**
+   Server tests cover staff-role authorization, terminal/merged/stale target rejection before storage,
+   content-signature checks, filename/content mismatches, truncated files, limits and plain-language
+   refusals. The sole authenticated live invocation reached `uploadCaseEvidence` but returned 400 for
+   every item due to the audit lookup failure under Acceptance 7.
+3. **Acceptance 3 — TESTED (offline).** Picker and server accept JPEG/JPG, PNG, WebP and PDF. Decoder
+   tests exercise real bytes plus extension/MIME masquerades and truncated inputs.
+4. **Acceptance 4 — TESTED (offline).** The SPA keeps one stable submission in progress, blocks a
+   second submit, shows progress/results, and navigates only after every file has an evidence ID.
+   Rendered tests cover upload-before-navigation and double-submit protection. No successful live
+   browser proof exists because the deployed API commit fails.
+5. **Acceptance 5 — TESTED (offline), not verified live.** The API binds a stable idempotency key to
+   case and manifest, hashes content, handles exact replay and same-content deduplication, and fences
+   concurrent/stale generations. No successful live replay could be observed.
+6. **Acceptance 6 — TESTED (offline), not verified live.** SPA tests retain target/files after failure
+   and provide truthful retry; API tests cover mixed batches, rollback/cleanup, and partial/total
+   failures. The live request returned 400 and orchestration cleanup completed; no signed-in UI
+   observation confirmed retained form state.
+7. **Acceptance 7 — FAILED live.** At `2026-07-13T11:47:21Z`, authenticated case
+   `a7e923b6-3791-4d3b-afb0-40dd5f5f9287` submitted four files (`fake1.png` through `fake4.png`) to
+   `uploadCaseEvidence`. The request returned 400, and every file logged `insert or update on table
+   "audit_event" violates foreign key constraint "audit_event_action_code_fkey"`. Current source
+   writes strict audit action `AUDIT_ACTION.evidence_added = 100000049` in the same transaction after
+   evidence/archive/readiness work. The canonical fresh schema seeds `100000049`, but deployable live
+   deltas do not: `2026-07-12-tkt165-staff-evidence-upload.sql` creates upload structures but never
+   inserts the lookup, and the only later nearby enum delta inserts `100000052`. The transaction
+   therefore cannot commit evidence, Archive record, readiness transition or its audit. At
+   `11:49:44Z`, cleanup claims and four `internalStaffUploadCleanupComplete` calls returned 200,
+   proving failed-attempt cleanup rather than evidence creation. A seven-day request query found no
+   later successful `uploadCaseEvidence` call.
+8. **Acceptance 8 — TESTED (offline), FAILED live end-to-end.** Source/tests use user-origin label
+   `Add evidence`, not assistant wording. Because the transaction fails, no successful live `Add
+   evidence` audit exists.
+9. **Acceptance 9 — TESTED (offline), not verified live.** Server commit revalidates target and
+   generation; the live request did not commit.
+10. **Acceptance 10 — PENDING.** Keyboard, focus/accessibility, narrow layout and 200% zoom were not
+    independently exercised in a signed-in deployed browser.
+11. **Acceptance 11 — TESTED (offline) from checked-in suites and ticket records, but not rerun in
+    this pass.** A focused rerun could not start because this clean verifier worktree has no local
+    Vitest install; no dependency install or retry was performed.
+12. **Acceptance 12 — FAILED.** The feature is deployed, but the only authenticated natural upload
+    returned 400. There is no successful deployed-Chrome proof, committed database evidence/audit,
+    retained Blob success artifact, Archive mirror under the configured test root, or completed
+    classification/readiness proof. Later 200 cleanup calls prove cleanup only.
+
+### Pending / gaps
+
+- **Blocking live defect:** seed audit action `100000049` (`evidence_added`) through an idempotent,
+  deployable live delta before the API is used again. The canonical bootstrap schema does not update
+  an existing live database.
+- Then prove live JPG/PDF upload, returned evidence identities, post-navigation rendering, database
+  evidence and exact audit, retained Blob, Archive mirror under test root, classification/readiness,
+  replay/double-click deduplication, partial failure/retry, stale/merged/auth refusals and accessibility
+  at keyboard/narrow/200% zoom.
+- Direct PostgreSQL and Blob inventories, signed-in Chrome, and resulting Archive mirror were unread.
+  No synthetic case/upload, firewall change, Archive mutation or production stimulus was introduced.
+
+### How to re-verify
+
+1. Add and apply an idempotent live delta for audit action `100000049`; read it back before using the
+   route.
+2. With explicit authorization, use a designated test case under `BOX_FOLDER_ROOT_ID=392761581105`
+   and upload one valid harmless JPG and PDF through **Add evidence**. Confirm progress, evidence IDs,
+   navigation only after both IDs, and case rendering.
+3. Correlate App Insights; query PostgreSQL for evidence and exact audits; verify retained Blob,
+   Archive mirror paths under the test root, classification and readiness.
+4. Replay/double-click to prove no duplicates; exercise mixed valid/invalid plus retry, then
+   stale/merged/terminal/unauthorized targets with no pre-storage writes.
+5. Complete keyboard, focus, narrow-width and true-200%-zoom deployed-Chrome checks.
+
+### Confidence + unread surfaces
+
+**High confidence in the FAILED verdict.** It is supported by the authenticated live 400, repeated
+foreign-key error, successful cleanup telemetry, absence of later success, and source/schema/delta
+cross-check identifying the missing `100000049` live seed. Unread surfaces are a direct current
+PostgreSQL lookup, Blob inventory, signed-in UI/accessibility run and any Archive mirror; these remain
+necessary after the fix but cannot overturn the observed failed acceptance.

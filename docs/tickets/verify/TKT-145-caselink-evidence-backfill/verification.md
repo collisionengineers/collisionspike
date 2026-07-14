@@ -81,3 +81,70 @@ repair. Earlier staged/live rows prove the old path only.
 - Deployment proof still required: apply both generation/report schema deltas in order, deploy API and
   orchestration, start the singleton monitor, accept a fresh attachment-bearing case link and verify
   one exact generation, all attachments, one status recompute and no false note.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+**PENDING — hardened deployment and natural executions observed; exact post-regression live acceptance
+proof is incomplete.** The 2026-07-10 VERIFIED-LIVE result proves the old path only; the binding
+2026-07-11 block requires a fresh exact-generation/all-attachments/one-recompute/no-false-note proof.
+
+## Evidence
+
+- Deployment/runtime: current live inventory is API 111 / orchestration 87 functions (2026-07-14).
+  Post-hardening telemetry shows the durable publisher path active:
+  `evidence-backfill-publisher-monitor-bootstrap` 103/103 successful executions through 2026-07-14
+  02:00Z; `internalEvidenceBackfillRequestDrain` 618/618 successful through 02:04Z. The initial publisher
+  monitor ran 4/4 successfully. Hardened API/orchestration routes are present in live startup mappings.
+- Natural case-link execution after the hardened deploy: `reviewAiSuggestion` returned 200 at 2026-07-13
+  15:47:52Z. The linked message was validated at 15:48:05Z; telemetry then shows successful
+  evidence/status requests at 15:48:06Z and `internalInboundEvidenceBackfill` 204. The structured report
+  is `outcome=completed`, `requestedOutcome=completed`, `generation=1`, `replay=false`,
+  `protectedCompletion=false` for inbound `b9b60081-fafc-4a2c-959b-f011923a3e22` targeting case
+  `0e5b04d6-45e3-4121-836c-6fcb9a06c472`.
+- A second structured live completion at 15:57:50Z reported generation 1 completed; its orchestration
+  terminal trace recorded `attachments=1`, `persisted=0`, `status=needs_review`, consistent with
+  idempotent dedup on an already-present attachment. This is supportive path evidence, not the clean
+  acceptance fixture.
+- Since deployment, telemetry totals include 75 `evidence-backfill` executions, 76 successful
+  validations, and 37 successful 204 reports; queue-trigger request failures/retries are visible (35
+  success / 40 failed executions), so aggregate health alone is not acceptance proof.
+- The full ticket folder documents offline coverage for stale targets, duplicate names/attachment-id
+  keys, AI permission fail-closed, Graph pagination/fetch failures, partial results, report retries,
+  per-email note idempotency, merge locking, durable generations, exact-result replay, publisher paging,
+  and generated-bundle checks. Those tests are not treated as live proof.
+
+## Pending / gaps
+
+- No clean baseline/after artifact ties the 15:47 natural acceptance to the exact Graph attachment
+  inventory and resulting evidence rows/hash/storage keys.
+- The live report proves generation 1 completed, but without a database read it does not independently
+  expose the stored exact completed result/counts.
+- Two `internalCasesStatusEvaluate` requests appear in the 15:48:06 second while a separate production
+  intake was running concurrently; telemetry cannot unambiguously prove the required **one** recompute for
+  this job.
+- No case-note/audit read proves absence of a false manual-attachment note for that exact inbound email. A
+  completed report makes such a note unlikely by source contract, but inference is insufficient for
+  VERIFIED-LIVE.
+- Failure/race paths remain offline-tested rather than live-exercised; no synthetic stimulus was introduced
+  under the verification scope.
+
+## How to re-verify
+
+On the next naturally occurring attachment-bearing previously-uncased email that staff accepts as a case
+link, capture before-state and the exact Graph attachment IDs/count. After completion, read the inbound row
+and assert one requested generation equals one completed/reported generation with the exact durable
+completed result; assert every listed attachment has one target-case evidence row with unique
+attachment-ID storage identity and hash (or is explicitly partial/incomplete); assert the status
+requested/completed generation advances once after persistence; assert one completed audit and no
+per-email false manual-attachment note. Correlate KQL ordering from accept → validate → persist → status →
+report. Do not synthesize the accept without operator authorization.
+
+## Confidence + unread surfaces
+
+**High** that the correct ticket verdict is PENDING. Every file in the TKT-145 ticket folder was read and
+current live telemetry was queried. Unread live surfaces: PostgreSQL inbound/evidence/audit/note rows (not
+retried after this verifier's two prior connection failures), Graph response bodies, queue message bodies,
+and a deployment artifact hash proving exact source-to-live bundle identity. Focused tests were not rerun
+because this verification worktree has no installed Vitest runtime.

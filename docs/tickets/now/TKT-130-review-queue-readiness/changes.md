@@ -125,7 +125,7 @@ show their REAL blocker (missing images); 23 complete cases reached **Ready for 
 non-zero ready_for_eva count on the live stack**.
 
 Full outputs: [evidence/post-reeval-state-2026-07-08.txt](./evidence/post-reeval-state-2026-07-08.txt)
-and [TKT-129 evidence/delta-apply-output-2026-07-08.txt](../TKT-129-image-based-inspection-done/evidence/delta-apply-output-2026-07-08.txt).
+and [TKT-129 evidence/delta-apply-output-2026-07-08.txt](../../verify/TKT-129-image-based-inspection-done/evidence/delta-apply-output-2026-07-08.txt).
 
 ## Live proof (deployed SPA, staff session)
 - A `needs_review` case (**QDOS26029**, YT13UTV) renders **in the Review queue**:

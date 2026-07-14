@@ -87,3 +87,42 @@ the old statement that the provider-fill path was UI-unreachable.
   reporting a false merge failure.
 - Live proof still required: deploy the repaired API/SPA and perform one provider-bearing →
   providerless merge from the dialog, then verify the survivor provider/provenance and status drain.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+PENDING
+
+## Evidence
+
+- Current clean `main` is `308294c`; the repaired PR 55 release was recorded deployed on 11 July.
+- Fresh live function inventory lists both `mergeCandidates` and `mergeCases`.
+- Post-rollout App Insights evidence shows one successful `mergeCandidates` request on 13 July, but **zero
+  `mergeCases` requests**.
+- Targeted tests passed: 51/51 API tests across merge, key-authentication, and validation files; plus 22/22
+  domain dedup tests. Coverage includes providerless candidates, provider carry-over, UUID canonicalisation,
+  ordered locking, durable status recomputation, and cross-provider refusal.
+- ADR-0010 and the ticket screenshot were reviewed. Current source permits a providerless/provider-bearing
+  pair while still excluding two differing known providers.
+
+## Pending / gaps
+
+- No real post-fix merge proves the survivor retained `work_provider_id`, `eva_work_provider`, and provider
+  provenance.
+- No live `providerFilled: true` audit or completed survivor status recomputation exists.
+- Direct Postgres verification was unavailable without changing the firewall; no firewall change was made.
+- App Insights sampling means zero observed requests is not absolute proof of no execution, but it supplies
+  no positive closure evidence.
+
+## How to re-verify
+
+Wait for a genuine staff-selected provider-bearing/providerless merge. Verify the `mergeCases` 200 request,
+survivor provider fields, provenance row, `providerFilled: true` audit, moved evidence/emails, retired source
+lineage, and drained status-recompute generation. Do not create a disposable case solely for proof.
+
+## Confidence + unread surfaces
+
+High confidence that the repaired code and routes are deployed and offline-covered; high confidence that
+live closure is not currently proven. Unread surfaces: live Postgres rows and any sampled-out request
+telemetry.
