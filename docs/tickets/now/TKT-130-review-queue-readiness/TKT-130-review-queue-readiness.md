@@ -1,11 +1,11 @@
 ---
 id: TKT-130
 title: Review contains only cases that are ready for EVA
-status: verify
+status: now
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-129, TKT-094, TKT-012, TKT-153, TKT-168]
-research-link: docs/tickets/verify/TKT-130-review-queue-readiness/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-130-review-queue-readiness/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-130 — Review contains only cases that are ready for EVA
@@ -56,6 +56,7 @@ Distilled 2026-07-08 from the operator workstream note (see Evidence).
 - [evidence/](./evidence)
 - [regression changes](./changes-regression-12-07-26.md)
 - [operator follow-up](./evidence/operator-followup-12-07-26.md)
+- [PLAN-005 reopen follow-up](./evidence/reopen-followup-2026-07-14.md)
 - [code audit](./evidence/readiness-code-audit-12-07-26.md)
 
 ## Field-review ruling — 2026-07-13
