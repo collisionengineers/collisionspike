@@ -1,11 +1,11 @@
 ---
 id: TKT-167
 title: Keep image chasers available until every image rule passes
-status: backlog
+status: verify
 priority: P1
 area: pipeline
 tickets-it-relates-to: [TKT-089, TKT-123, TKT-130, TKT-131, TKT-148, TKT-156]
-research-link: docs/tickets/backlog/TKT-167-image-gap-chasers/evidence/code-audit.md
+research-link: docs/tickets/verify/TKT-167-image-gap-chasers/evidence/code-audit.md
 plan: PLAN-004
 ---
 

@@ -51,15 +51,15 @@ This plan has **53 members**. It sequences implementation and verification, but 
 ### 2. Canonical data, save and readiness spine (5)
 
 1. [TKT-150](../now/TKT-150-claimant-extraction-held-audit/TKT-150-claimant-extraction-held-audit.md) — restore and account for claimant extraction before broad remediation.
-2. [TKT-151](../backlog/TKT-151-vehicle-enrichment-completeness/TKT-151-vehicle-enrichment-completeness.md) — make vehicle enrichment complete and explicit about unresolved registrations.
-3. [TKT-152](../backlog/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md) — consolidate vehicle lookup/mileage estimation onto one auditable path.
-4. [TKT-153](../backlog/TKT-153-explicit-case-save/TKT-153-explicit-case-save.md) — make staff edits one reviewed, concurrency-safe save rather than competing field writes.
+2. [TKT-151](../verify/TKT-151-vehicle-enrichment-completeness/TKT-151-vehicle-enrichment-completeness.md) — make vehicle enrichment complete and explicit about unresolved registrations.
+3. [TKT-152](../verify/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md) — consolidate vehicle lookup/mileage estimation onto one auditable path.
+4. [TKT-153](../verify/TKT-153-explicit-case-save/TKT-153-explicit-case-save.md) — make staff edits one reviewed, concurrency-safe save rather than competing field writes.
 5. [TKT-168](../now/TKT-168-unify-not-ready-language/TKT-168-unify-not-ready-language.md) — make the visible Not Ready reason agree with the canonical readiness evaluator and field-review ruling.
 
 ### 3. Evidence-write and Archive foundations (6)
 
-1. [TKT-165](../now/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) — remove the live Add evidence false-success P0.
-2. [TKT-166](../backlog/TKT-166-manual-intake-evidence-upload/TKT-166-manual-intake-evidence-upload.md) — persist instruction and extra files through the same resumable evidence lifecycle.
+1. [TKT-165](../verify/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) — remove the live Add evidence false-success P0.
+2. [TKT-166](../verify/TKT-166-manual-intake-evidence-upload/TKT-166-manual-intake-evidence-upload.md) — persist instruction and extra files through the same resumable evidence lifecycle.
 3. [TKT-175](../backlog/TKT-175-archive-deletion-resilience-investigation/TKT-175-archive-deletion-resilience-investigation.md) — establish the evidence-backed failure/threat matrix before designing Archive-side reconciliation.
 4. [TKT-160](../backlog/TKT-160-delete-case-image/TKT-160-delete-case-image.md) — implement intentional image deletion across canonical stores without confusing it with out-of-band loss.
 5. [TKT-162](../backlog/TKT-162-nested-audit-archive/TKT-162-nested-audit-archive.md) — normalize QDOS audit work beneath the standard case Archive identity.
@@ -70,7 +70,7 @@ This plan has **53 members**. It sequences implementation and verification, but 
 1. [TKT-179](../backlog/TKT-179-evidence-image-decision-controls/TKT-179-evidence-image-decision-controls.md) — establish the single tri-state Photo use contract.
 2. [TKT-181](../backlog/TKT-181-truthful-image-analysis-states/TKT-181-truthful-image-analysis-states.md) — give image checking finite, recoverable states distinct from preview loading.
 3. [TKT-161](../backlog/TKT-161-image-based-reflection-policy/TKT-161-image-based-reflection-policy.md) — apply the approved reflection policy through the canonical decision/readiness contract.
-4. [TKT-167](../backlog/TKT-167-image-gap-chasers/TKT-167-image-gap-chasers.md) — retain targeted chasers until every actual photo rule passes.
+4. [TKT-167](../verify/TKT-167-image-gap-chasers/TKT-167-image-gap-chasers.md) — retain targeted chasers until every actual photo rule passes.
 5. [TKT-198](../backlog/TKT-198-wrong-vehicle-evidence-detection/TKT-198-wrong-vehicle-evidence-detection.md) — calibrate and surface different-vehicle evidence through TKT-179 without deletion or unsupported exclusion.
 
 ### 5. Case identity, numbering and duplicate resolution (5)
@@ -91,7 +91,7 @@ This plan has **53 members**. It sequences implementation and verification, but 
 ### 7. Email correlation, taxonomy and required actions (7)
 
 1. [TKT-183](../backlog/TKT-183-name-variant-case-correlation/TKT-183-name-variant-case-correlation.md) — tolerate full-name/initial variants inside the existing strong-key hierarchy without name-only attachment.
-2. [TKT-170](../now/TKT-170-website-enquiry-classification/TKT-170-website-enquiry-classification.md) — keep website enquiries outside the existing-case/new-work lifecycle.
+2. [TKT-170](../verify/TKT-170-website-enquiry-classification/TKT-170-website-enquiry-classification.md) — keep website enquiries outside the existing-case/new-work lifecycle.
 3. [TKT-184](../backlog/TKT-184-out-of-office-no-action/TKT-184-out-of-office-no-action.md) — classify grounded automatic replies as no action and never mint work.
 4. [TKT-186](../backlog/TKT-186-provider-update-chase-category/TKT-186-provider-update-chase-category.md) — give provider progress chases their own never-mint category and precedence.
 5. [TKT-187](../backlog/TKT-187-multi-case-provider-chase-linking/TKT-187-multi-case-provider-chase-linking.md) — associate one canonical chase with every independently resolved case item.
@@ -107,14 +107,14 @@ This plan has **53 members**. It sequences implementation and verification, but 
 ### 9. Constrained inbound evidence channels (3)
 
 1. [TKT-154](../backlog/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) — add least-privilege registration-based image ingestion through the canonical evidence seam.
-2. [TKT-156](../backlog/TKT-156-chaser-file-request/TKT-156-chaser-file-request.md) — put an active Archive upload link into every applicable image chaser.
+2. [TKT-156](../verify/TKT-156-chaser-file-request/TKT-156-chaser-file-request.md) — put an active Archive upload link into every applicable image chaser.
 3. [TKT-200](../now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md) — add a
    tightly scoped guided-photo session that materialises only reviewed submissions through the same
    canonical evidence seam; PR #83 remains offline until its public-ingress, device and live gates pass.
 
 ### 10. Handler-facing convergence and polish (8)
 
-1. [TKT-155](../now/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) — converge the dashboard on Not Ready, Review and Held after the canonical evaluator is stable.
+1. [TKT-155](../verify/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) — converge the dashboard on Not Ready, Review and Held after the canonical evaluator is stable.
 2. [TKT-176](../backlog/TKT-176-dashboard-period-wording/TKT-176-dashboard-period-wording.md) — use the approved period wording without changing counts.
 3. [TKT-169](../now/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md) — keep email hover previews within the viewport.
 4. [TKT-182](../backlog/TKT-182-long-reference-layout/TKT-182-long-reference-layout.md) — contain long references without hiding their complete accessible value.

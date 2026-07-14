@@ -1,11 +1,11 @@
 ---
 id: TKT-166
 title: Persist instruction and extra files from Manual Intake
-status: backlog
+status: verify
 priority: P0
 area: intake
 tickets-it-relates-to: [TKT-001, TKT-003, TKT-023, TKT-024, TKT-165]
-research-link: docs/tickets/backlog/TKT-166-manual-intake-evidence-upload/evidence/code-audit.md
+research-link: docs/tickets/verify/TKT-166-manual-intake-evidence-upload/evidence/code-audit.md
 plan: PLAN-004
 ---
 

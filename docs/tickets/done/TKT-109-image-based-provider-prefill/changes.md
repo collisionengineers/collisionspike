@@ -9,7 +9,7 @@ built + deployed (2026-07-08, branch `feat/readiness-ai-spine`) — awaiting ver
 (`always_image_based` = 100000000), joined onto every case read via `CASE_SELECT`
 (`Case.providerInspectionPolicy`, TKT-079). Live discovery: **172 providers** (including QDOS/PCH/AX/
 SBL) already carry the policy from the corpus seed — no new designation was needed (counts in
-[TKT-129 changes.md](../../now/TKT-129-image-based-inspection-done/changes.md)).
+[TKT-129 changes.md](../../verify/TKT-129-image-based-inspection-done/changes.md)).
 
 **The pre-fill seam** — new `api/src/lib/inspection-prefill.ts`:
 - `isPrefillApplicable(case)` (pure, exported, unit-tested): `always_image_based` provider AND empty

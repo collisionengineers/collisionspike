@@ -1,11 +1,11 @@
 ---
 id: TKT-155
 title: Simplify the dashboard around Not Ready, Review and Held
-status: now
+status: verify
 priority: P2
 area: dashboard
 tickets-it-relates-to: [TKT-007, TKT-012, TKT-026, TKT-054, TKT-122, TKT-130, TKT-164]
-research-link: docs/tickets/now/TKT-155-dashboard-three-state-layout/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-155-dashboard-three-state-layout/evidence/operator-note.md
 plan: PLAN-004
 ---
 

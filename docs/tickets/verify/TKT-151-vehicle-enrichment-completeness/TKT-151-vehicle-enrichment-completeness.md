@@ -1,11 +1,11 @@
 ---
 id: TKT-151
 title: Complete vehicle enrichment and warn when a registration cannot be resolved
-status: backlog
+status: verify
 priority: P1
 area: enrichment
 tickets-it-relates-to: [TKT-044, TKT-102, TKT-147, TKT-150]
-research-link: docs/tickets/backlog/TKT-151-vehicle-enrichment-completeness/evidence/followup-2026-07-13/issue.md
+research-link: docs/tickets/verify/TKT-151-vehicle-enrichment-completeness/evidence/followup-2026-07-13/issue.md
 plan: PLAN-004
 ---
 
@@ -54,7 +54,7 @@ PROPOSED (not built): census the live gaps, make the canonical enrichment outcom
   outcome, resulting fields/warning and audit/telemetry correlation for the same case.
 
 ## Research
-Distilled 2026-07-12 from the operator report; raw wording is in [evidence/](./evidence/).
+Distilled 2026-07-12 from the operator report; raw wording is in [evidence/](./evidence).
 
 ## Artifacts
 - [Changes made](./changes.md)

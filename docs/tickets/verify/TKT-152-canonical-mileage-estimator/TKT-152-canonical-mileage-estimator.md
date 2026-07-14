@@ -1,11 +1,11 @@
 ---
 id: TKT-152
 title: Consolidate vehicle lookups and harden the MOT mileage estimator
-status: backlog
+status: verify
 priority: P1
 area: enrichment
 tickets-it-relates-to: [TKT-044, TKT-151]
-research-link: docs/tickets/backlog/TKT-151-vehicle-enrichment-completeness/evidence/followup-2026-07-13/issue.md
+research-link: docs/tickets/verify/TKT-151-vehicle-enrichment-completeness/evidence/followup-2026-07-13/issue.md
 plan: PLAN-004
 ---
 

@@ -1,11 +1,11 @@
 ---
 id: TKT-170
 title: Classify website contact forms as Website enquiries
-status: now
+status: verify
 priority: P1
 area: email
 tickets-it-relates-to: [TKT-006, TKT-029, TKT-034, TKT-081, TKT-082, TKT-120]
-research-link: docs/tickets/now/TKT-170-website-enquiry-classification/evidence/website-general-enquiry.eml
+research-link: docs/tickets/verify/TKT-170-website-enquiry-classification/evidence/website-general-enquiry.eml
 plan: PLAN-004
 ---
 

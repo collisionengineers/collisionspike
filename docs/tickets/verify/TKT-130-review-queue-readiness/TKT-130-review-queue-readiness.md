@@ -1,11 +1,11 @@
 ---
 id: TKT-130
 title: Review contains only cases that are ready for EVA
-status: now
+status: verify
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-129, TKT-094, TKT-012, TKT-153, TKT-168]
-research-link: docs/tickets/now/TKT-130-review-queue-readiness/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-130-review-queue-readiness/evidence/operator-note.md
 plan: PLAN-003
 ---
 # TKT-130 — Review contains only cases that are ready for EVA

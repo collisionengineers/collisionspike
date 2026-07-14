@@ -1,11 +1,11 @@
 ---
 id: TKT-156
 title: Put an active archive upload link in every image chaser
-status: backlog
+status: verify
 priority: P1
 area: box
 tickets-it-relates-to: [TKT-023, TKT-061, TKT-111, TKT-148]
-research-link: docs/tickets/backlog/TKT-156-chaser-file-request/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-156-chaser-file-request/evidence/operator-note.md
 plan: PLAN-004
 ---
 

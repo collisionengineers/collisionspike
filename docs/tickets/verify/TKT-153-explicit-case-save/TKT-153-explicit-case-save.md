@@ -1,11 +1,11 @@
 ---
 id: TKT-153
 title: Save case edits explicitly as one reviewed change
-status: backlog
+status: verify
 priority: P1
 area: ui
 tickets-it-relates-to: [TKT-011, TKT-128, TKT-130]
-research-link: docs/tickets/backlog/TKT-153-explicit-case-save/evidence/operator-note.md
+research-link: docs/tickets/verify/TKT-153-explicit-case-save/evidence/operator-note.md
 plan: PLAN-004
 ---
 
