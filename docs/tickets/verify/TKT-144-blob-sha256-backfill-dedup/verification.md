@@ -102,3 +102,52 @@ hash/backfill results remain historical evidence; the one-off write window will 
 - No new live mutation is required or claimed. Before retaining the script as a reusable artifact,
   release validation must run its status fragment against a scratch merged row and an ordinary
   control row; production deployment must not re-execute the historical TKT-144 data correction.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+**TESTED (offline) — release validation pending.** The original 2026-07-10 production correction remains
+historically **VERIFIED-LIVE**, but the 2026-07-11 reusable-script regression block explicitly supersedes
+the ticket-level live/done verdict until its scratch-row release check is recorded.
+
+## Evidence
+
+- Original acceptance 1 (historic blob evidence carries SHA-256): the 2026-07-10 W2 evidence records
+  `null_sha=0` across 3,434 blob-lane rows; all 477 worklist rows matched their computed hash and 586 rows
+  shared the exact correction timestamp.
+- Original acceptance 2 (true duplicates only): the evidence pack records 106 same-name groups as
+  byte-identical, 108/108 twins soft-excluded across 3 cases, 3 before/after audit rows, 0 remaining active
+  same-name/same-hash groups, 0 status moves, and a six-group byte spot-check. The distinct-photo bucket
+  was empty by evidence rather than assumption.
+- Regression acceptance 1/2: `evidence/run/write-window.sql` now parses only a valid nonblank
+  `mergedInto` marker and applies `WHEN merged_into IS NOT NULL THEN 100000006`
+  (`linked_to_instruction`) before every ordinary readiness branch; terminals remain excluded.
+- Regression acceptance 3: the ticket records matching domain-contract tests for valid/blank merge
+  markers and release syntax/contract inclusion. This is source/offline evidence only.
+
+## Pending / gaps
+
+- No artifact shows the required release validation of the SQL status fragment against both a scratch
+  merge-retired row and an ordinary control row.
+- The historical data correction must **not** be rerun in production merely to prove this repair.
+- Raw-ledger unread surface: because the verifier concluded after tool-output truncation, it did not
+  independently inspect every remaining row of `backup-before.csv` (roughly lines 101–692) or
+  `hash-run-log.csv` (1–478). It did read the full ticket/changes/regression/verification narrative, all
+  SQL/Python/shell verifier scripts, the complete pair-outcome ledger, status/audit summaries, spot-check
+  output, and the documented live aggregates above.
+
+## How to re-verify
+
+Run only the script's status fragment in a scratch transaction/temporary fixture containing (a) a
+non-terminal case with a valid nonblank `mergedInto` value and (b) an ordinary control case. Assert (a)
+remains status code `100000006` / `linked_to_instruction`, (b) follows the normal readiness contract,
+blank/invalid markers do not retire a case, and rollback. Re-run release SQL syntax/contract validation.
+Do not execute the TKT-144 hash/dedup correction against production.
+
+## Confidence + unread surfaces
+
+**Medium-high** on the verdict: the missing scratch-control artifact is explicit in the binding
+verification block. Confidence in the historical live correction relies partly on its verifier transcript
+and summarized ledgers; the unread raw-ledger ranges are listed above. PostgreSQL was not retried because
+this verifier already hit the two-strikes boundary and firewall changes were forbidden.

@@ -150,3 +150,104 @@ The prior upload and backlog drain remain evidence for the older deployed sweep 
 PENDING — the supplied file-request upload proves case matching but reports no image analysis. Before `done`,
 repeat that exact entry path and capture a terminal result for every image, the role/registration/reflection
 stamps, readiness/chaser recomputation, retry behavior and zero silently unknown residue.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+PENDING
+
+## Evidence
+
+- **Original acceptance 1 — uploaded image gets role + registration visibility shortly after upload:**
+  `evidence/upload-receipt.json:1-84`, `evidence/stamped-row.txt:1-18`, and
+  `evidence/kql-sweep.txt:27-28` form one live chain for Archive file `2338959990817` / evidence
+  `37bbb92a-262c-488c-8347-8e2b0a968324`: registered at 11:28:19Z, stamped `overview` +
+  `registration_visible=true` at 11:30:09Z, latency 1m50s. This original line is VERIFIED-LIVE.
+- **Original acceptance 2 — failures remain unknown without blocking registration:** the historical W1
+  readback records the already-registered residual `f43ff684-dfe6-41f3-aa21-f9a9eecd0502` remaining
+  unknown while classification failed (`verification.md:90-101,118-126`). A fresh read-only 72-hour
+  orchestration query independently shows the repaired live behavior: the same row produced
+  `model_http_400`, `disposition=transient`, `backedOff=1` on 12 and 13 July; later naturally arriving
+  rows produced terminal `model_content_filter` outcomes without stopping the sweep. This line is
+  VERIFIED-LIVE for the general Archive-upload lane.
+- **Regression acceptance 1 — policy uncertainty never reaches the model:**
+  `changes-regression-11-07-26.md:16-21,35-37` identifies the fail-closed policy lookup and its focused
+  `internal-box-classification.test.ts` / `box-classify-sweep.test.ts` artifact. The PR 55 release deployed
+  that code, but no naturally occurring live policy-lookup failure is captured. Artifact status: TESTED
+  (offline).
+- **Regression acceptance 2 — opted-out rows cannot starve the page:** the same focused test artifact
+  pins filtering before the cap and the 26th-row starvation case
+  (`changes-regression-11-07-26.md:16-17,26-28,35-37`; `verification.md:141-144`). Artifact status: TESTED
+  (offline).
+- **Regression acceptance 3 — successful classification has durable status recompute:**
+  `.azure/deployment-plan.md:335-341` records the retry schema applied, orchestration published,
+  classification singleton `Running`, repeated bootstrap idempotent, and a reclaimed classification
+  returning 200. Fresh live telemetry on 13 July shows `recoveredStatusRequests=1` and
+  `casesReEvaluated=1` in both the 08:19Z and 08:49Z sweeps. Artifact status: VERIFIED-LIVE for the durable
+  drain mechanism.
+- **Regression acceptance 4 — regression coverage:** the ticket names the four focused suites and cases
+  (`changes-regression-11-07-26.md:31-38`); the exact released candidate passed orchestration 394 and API
+  578 tests before publish (`.azure/deployment-plan.md:244-249,310-311`). Artifact status: TESTED
+  (offline).
+- **File-request follow-up acceptance 1 — terminal outcome per image within a bound:** the binding
+  operator artifact `evidence/followup-2026-07-13/info.md:1-4` says the chaser link/case match worked but no
+  image analysis was observable. `verification.md:148-152` and `docs/tickets/BOARD.md:224` therefore
+  require a repeat of that exact entry path. No per-image file-request terminal-outcome artifact exists.
+  Status: PENDING.
+- **File-request follow-up acceptance 2 — role/registration plus Image Based Assessment reflection rule:**
+  the original non-IBA Archive-upload artifact proves role, registration and a reflection exclusion, but
+  there is no file-request artifact proving the Image Based Assessment exemption; TKT-161 remains
+  backlog. Status: PENDING.
+- **File-request follow-up acceptance 3 — no silent completion; handler-visible per-image progress; retry
+  without duplicate evidence:** the live KQL proves backend retry/dead-letter counters, but not
+  handler-visible per-image state or batch completion. TKT-181's canonical truthful-state verification
+  remains `PENDING`, and no UI/database reconciliation artifact exists for this entry path. Status:
+  PENDING.
+- **File-request follow-up acceptance 4 — poison/oversize cannot starve later batch items:** the eligible
+  26th-row case is pinned offline, and fresh live telemetry shows five terminal content-filter rows
+  processed in one sweep, but neither artifact is an end-to-end file-request batch containing a
+  poison/oversize item followed by a successful later image. Status: TESTED (offline), live PENDING.
+- **File-request follow-up acceptance 5 — readiness/chaser recompute only after durable stamps:** fresh
+  telemetry proves status-generation recovery (`recoveredStatusRequests=1`, `casesReEvaluated=1`), but no
+  file-request case readback proves readiness and chaser state remained correct across a temporary
+  failure. Status: PENDING.
+- **File-request follow-up acceptance 6 — fail-closed consent and full lineage:** focused tests prove
+  policy lookup fail-closed, but there is no live, reconciled file-request → Archive event → evidence row
+  → analysis attempt/stamp → audit → case lineage artifact. Status: PENDING.
+
+## Pending / gaps
+
+- The 13 July follow-up is superseding and unresolved. General Archive FILE.UPLOADED classification and
+  the PR 55 retry machinery are live, but they do not prove the exact chaser File Request entry path now
+  required by the ticket.
+- Missing artifacts are: terminal outcome for every genuine file-request image within the documented
+  bound; Image Based Assessment reflection exemption; handler-visible progress/failure with no silent
+  unknown residue; a genuine poison/oversize item followed by a later successful item; readiness/chaser
+  before-and-after state; and one complete policy/audit/case lineage.
+- Current telemetry can identify outcomes by evidence ID but does not identify the source File
+  Request/batch, expose handler UI state, or reconcile Archive object counts. No database/firewall or
+  Archive mutation was performed to fill those gaps.
+
+## How to re-verify
+
+1. Observe the next genuine operator-designated chaser File Request batch; do not create a case, upload,
+   malformed file, or failure solely for proof.
+2. Capture the existing File Request/chaser identity, Archive event/object IDs, matched case, evidence IDs
+   and timestamps. Follow each supported image until it reaches a terminal
+   classified/skipped/failed-with-retry state within the documented bound.
+3. For naturally available Image Based Assessment and non-IBA cases, read back role, registration
+   visibility and reflection handling, proving reflection exclusion is applied only to the non-IBA case.
+4. Reconcile per-image handler UI state, evidence rows, analysis attempts/claims, audit entries, case
+   readiness/chaser state and Archive object count. The batch must not show complete while queued/unknown
+   work remains, and a safe retry/duplicate event must not create duplicate evidence.
+5. If a genuine malformed/oversized/transient-failure item occurs, prove a later eligible item in the same
+   batch progresses and that the failed item follows its retry/dead-letter policy. Failure classes that do
+   not naturally occur remain explicitly PENDING.
+
+## Confidence + unread surfaces
+
+High confidence that the original Archive-upload lane and PR 55 durable retry/status drain are live; high
+confidence that the file-request follow-up is not satisfied. Unread/unexercised surfaces: a genuine
+post-13-July File Request batch, current direct Postgres evidence/claim/audit/chaser rows, handler-visible
+progress UI, Archive batch reconciliation, and naturally occurring policy-lookup/oversize/poison examples.

@@ -1,11 +1,11 @@
 ---
 id: TKT-147
 title: Tractable layout: capture vehicle make (two-label rule) + a VIN field slot
-status: verify
+status: done
 priority: P3
 area: parsing
 tickets-it-relates-to: [TKT-102]
-research-link: docs/tickets/verify/TKT-147-tractable-make-vin/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-147-tractable-make-vin/evidence/operator-note.md
 plan: PLAN-003
 ---
 
