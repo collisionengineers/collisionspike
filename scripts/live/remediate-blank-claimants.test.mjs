@@ -20,10 +20,13 @@ import {
   chooseClaimant,
   classifyPlanOutcome,
   coalesceOcr,
+  databaseSslOptions,
+  decodeRetainedPlainText,
   emptyTextParse,
   getParserFingerprint,
   hashFile,
   integrityHash,
+  inboundState,
   loadCanonicalHelpers,
   orderDocuments,
   parseArgs,
@@ -207,11 +210,44 @@ function inboundRow(overrides = {}) {
     case_id: CASE_ID,
     source_message_id: 'inbound-message-1',
     source_mailbox: 'info@example.test',
+    graph_message_id: 'graph-message-1',
     received_on: new Date('2026-07-13T00:00:00.000Z'),
     body_preview: 'Claimant: Ms Jane Example',
     created_at: new Date('2026-07-13T00:00:00.000Z'),
     updated_at: new Date('2026-07-13T00:00:00.000Z'),
     ...overrides,
+  };
+}
+
+function planningCanonical() {
+  return {
+    ...fakeCanonical(),
+    supplementClaimantNameFromBody: sourceBundle.helpers.supplementClaimantNameFromBody,
+    messageFileToken: sourceBundle.helpers.messageFileToken,
+  };
+}
+
+function retainedTextFixture(body, overrides = {}) {
+  const {
+    tokenSourceMessageId = 'inbound-message-1',
+    pathGraphMessageId = 'graph-message-1',
+    ...rowOverrides
+  } = overrides;
+  const bytes = Buffer.from(body, 'utf8');
+  const fileName = rowOverrides.file_name
+    ?? `email-body-${sourceBundle.helpers.messageFileToken(tokenSourceMessageId)}.txt`;
+  const graphPathSegment = String(pathGraphMessageId).replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 200) || 'file';
+  return {
+    bytes,
+    row: evidenceRow({
+      file_name: fileName,
+      content_type: 'text/plain; charset=utf-8',
+      size_bytes: bytes.length,
+      sha256: rawSha256(bytes),
+      storage_path: `${graphPathSegment}/${fileName}`,
+      source_message_id: null,
+      ...rowOverrides,
+    }),
   };
 }
 
@@ -235,6 +271,8 @@ function repairCase(overrides = {}) {
       value: 'Ms Jane Example',
       source: 'pdf_extraction',
       candidates: ['Ms Jane Example'],
+      inboundEmailIds: [],
+      evidenceIds: [EVIDENCE_ID],
     },
     census: {
       provider: { id: row.work_provider_id, principalCode: 'QDOS', displayName: 'QDOS' },
@@ -256,6 +294,7 @@ function repairCase(overrides = {}) {
     sources: {
       metadata: evidence.map(sourceMetadata),
       reads: [sourceReadRecord(evidence[0], bytes)],
+      inbound: [],
       bodyInputs: [],
       attachments: [],
       parsedDocuments: [{
@@ -296,6 +335,7 @@ function emailRepairCase(overrides = {}) {
       source: 'email_text',
       candidates: ['Ms Jane Example'],
       inboundEmailIds: [INBOUND_ID],
+      evidenceIds: [],
     },
     census: {
       ...base.census,
@@ -311,6 +351,7 @@ function emailRepairCase(overrides = {}) {
     sources: {
       metadata: [],
       reads: [],
+      inbound: inbound.map(inboundState),
       bodyInputs: [{
         kind: 'inbound_body_preview',
         inboundEmailId: INBOUND_ID,
@@ -578,7 +619,7 @@ test('an unreadable retained source remains a sealed failed baseline row and aut
     counts: planCounts([mislabeledItem]),
     cases: [mislabeledItem],
   });
-  assert.throws(() => assertPlan(mislabeledPlan), /Unreadable source cannot authorize a write/);
+  assert.throws(() => assertPlan(mislabeledPlan), /Outcome classification mismatch/);
 
   const tamperedItem = sealCase({
     ...item,
@@ -625,6 +666,632 @@ test('an unreadable retained source remains a sealed failed baseline row and aut
     revalidateRetainedSourceBytes(item, [evidenceRow()], [], null, async () => Buffer.from('now readable')),
     /planned_source_unreadable/,
   );
+});
+
+test('retained plain text binds exact bytes and maps message/mailbox to inbound provenance', async () => {
+  const retained = retainedTextFixture('Claimant: Ms Jane Example\r\n');
+  const inbound = inboundRow({ source_mailbox: 'desk@example.test', body_preview: '' });
+  const secondInbound = inboundRow({
+    id: '99999999-9999-4999-8999-999999999999',
+    source_message_id: 'inbound-message-1',
+    source_mailbox: 'info@example.test',
+    graph_message_id: 'graph-message-2',
+    body_preview: '',
+  });
+  const item = await planOne(
+    caseRow(),
+    [retained.row],
+    [],
+    [inbound, secondInbound],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: async () => retained.bytes },
+  );
+
+  assert.equal(item.outcome, 'repair');
+  assert.deepEqual(item.patch, { eva_claimant_name: 'Ms Jane Example' });
+  assert.equal(item.fieldSource, 'email_text');
+  assert.deepEqual(item.sourceInboundEmailIds, [INBOUND_ID]);
+  assert.deepEqual(item.sourceEvidenceIds, [EVIDENCE_ID]);
+  assert.equal(item.failures.some((failure) => failure.message === 'unsupported_retained_source'), false);
+  assert.equal(retained.row.source_message_id, null);
+  const consumed = item.sources.bodyInputs.find((input) => input.kind === 'retained_plain_text');
+  assert.deepEqual(consumed, {
+    kind: 'retained_plain_text',
+    evidenceId: EVIDENCE_ID,
+    inboundEmailId: INBOUND_ID,
+    sourceMessageIdSha256: rawSha256(Buffer.from('inbound-message-1')),
+    sourceMailboxSha256: rawSha256(Buffer.from('desk@example.test')),
+    graphMessageIdSha256: rawSha256(Buffer.from('graph-message-1')),
+    bindingMethod: 'graph_storage_path',
+    storagePath: retained.row.storage_path,
+    graphMessageId: 'graph-message-1',
+    byteLength: retained.bytes.length,
+    byteSha256: rawSha256(retained.bytes),
+  });
+
+  const environment = {
+    label: 'production-readiness-remediation',
+    databaseName: 'collisionspike',
+    host: 'database.example.test',
+    port: 5432,
+  };
+  const allowlist = [{ caseId: item.caseId, caseSha256: item.caseSha256 }];
+  const plan = sealPlan({
+    contract: PLAN_CONTRACT,
+    scope: AUTHORIZED_SCOPE,
+    createdAt: '2026-07-14T00:00:00.000Z',
+    environment,
+    environmentSha256: integrityHash(environment),
+    runnerSha256: HASH_A,
+    parserFingerprint: PARSER_FINGERPRINT,
+    parserFingerprintSha256: PARSER_FINGERPRINT_SHA,
+    selection: { kind: 'full_baseline' },
+    counts: planCounts([item]),
+    writeAllowlist: allowlist,
+    statusRecomputeAllowlist: allowlist,
+    cases: [item],
+  });
+  assert.equal(assertPlan(plan), plan);
+
+  const unbound = sealCase({
+    ...item,
+    sources: {
+      ...item.sources,
+      bodyInputs: item.sources.bodyInputs.map((input) => input.kind === 'retained_plain_text'
+        ? { ...input, byteSha256: HASH_B }
+        : input),
+    },
+  });
+  const unboundAllowlist = [{ caseId: unbound.caseId, caseSha256: unbound.caseSha256 }];
+  assert.throws(() => assertPlan(sealPlan({
+    ...plan,
+    counts: planCounts([unbound]),
+    writeAllowlist: unboundAllowlist,
+    statusRecomputeAllowlist: unboundAllowlist,
+    cases: [unbound],
+  })), /not bound to its exact source bytes/);
+
+  const secondInboundState = inboundState(secondInbound);
+  const crossBound = sealCase({
+    ...item,
+    sourceInboundEmailIds: [secondInbound.id],
+    claimant: { ...item.claimant, inboundEmailIds: [secondInbound.id] },
+    sources: {
+      ...item.sources,
+      bodyInputs: item.sources.bodyInputs.map((input) => input.kind === 'retained_plain_text'
+        ? {
+            ...input,
+            inboundEmailId: secondInbound.id,
+            sourceMessageIdSha256: secondInboundState.sourceMessageIdSha256,
+            sourceMailboxSha256: secondInboundState.sourceMailboxSha256,
+            graphMessageIdSha256: secondInboundState.graphMessageIdSha256,
+            graphMessageId: secondInbound.graph_message_id,
+          }
+        : input),
+    },
+  });
+  const crossBoundAllowlist = [{ caseId: crossBound.caseId, caseSha256: crossBound.caseSha256 }];
+  assert.throws(() => assertPlan(sealPlan({
+    ...plan,
+    counts: planCounts([crossBound]),
+    writeAllowlist: crossBoundAllowlist,
+    statusRecomputeAllowlist: crossBoundAllowlist,
+    cases: [crossBound],
+  })), /path does not match its inbound identity/);
+
+  for (const tampered of [
+    sealCase({ ...item, patch: { eva_claimant_name: 'Mr Changed Claimant' } }),
+    sealCase({
+      ...item,
+      patch: { eva_claimant_name: 'Mr Changed Claimant' },
+      claimant: { ...item.claimant, value: 'Mr Changed Claimant' },
+    }),
+    sealCase({ ...item, sourceEvidenceIds: [] }),
+    sealCase({ ...item, sourceInboundEmailIds: [] }),
+    sealCase({ ...item, failures: [{ stage: 'source_processing', message: 'tampered failure' }] }),
+    sealCase({ ...item, claimant: { ...item.claimant, status: 'conflicting' } }),
+  ]) {
+    const tamperedAllowlist = [{ caseId: tampered.caseId, caseSha256: tampered.caseSha256 }];
+    assert.throws(() => assertPlan(sealPlan({
+      ...plan,
+      counts: planCounts([tampered]),
+      writeAllowlist: tamperedAllowlist,
+      statusRecomputeAllowlist: tamperedAllowlist,
+      cases: [tampered],
+    })), /Outcome classification mismatch|Repair decision is not semantically bound/);
+  }
+
+  const conflict = sealCase({
+    ...item,
+    outcome: 'conflicting',
+    patch: {},
+    fieldSource: null,
+    sourceEvidenceIds: [],
+    sourceInboundEmailIds: [],
+    claimant: {
+      status: 'conflicting',
+      value: '',
+      source: '',
+      candidates: ['Ms Jane Example', 'Mr John Example'],
+      documentCandidates: [],
+      bodyCandidates: ['Ms Jane Example', 'Mr John Example'],
+    },
+    failures: [],
+  });
+  const mislabeledNoWrite = sealCase({ ...conflict, outcome: 'absent_in_source' });
+  const noWriteStatusAllowlist = [{ caseId: mislabeledNoWrite.caseId, caseSha256: mislabeledNoWrite.caseSha256 }];
+  assert.throws(() => assertPlan(sealPlan({
+    ...plan,
+    counts: planCounts([mislabeledNoWrite]),
+    writeAllowlist: [],
+    statusRecomputeAllowlist: noWriteStatusAllowlist,
+    cases: [mislabeledNoWrite],
+  })), /Outcome classification mismatch/);
+});
+
+test('claimant values over the database limit fail closed instead of being truncated', async () => {
+  const overlongName = `Ms ${'Example'.repeat(30)}`;
+  const retained = retainedTextFixture(`Claimant: ${overlongName}\n`);
+  const canonical = {
+    ...planningCanonical(),
+    supplementClaimantNameFromBody: () => ({
+      status: 'matched',
+      value: overlongName,
+      candidates: [overlongName],
+    }),
+  };
+  const item = await planOne(
+    caseRow(),
+    [retained.row],
+    [],
+    [inboundRow({ body_preview: '' })],
+    null,
+    canonical,
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: async () => retained.bytes },
+  );
+
+  assert.equal(item.outcome, 'failed');
+  assert.deepEqual(item.patch, {});
+  assert.equal(item.claimant.value, overlongName);
+  assert.equal(item.failures.length, 1);
+  assert.deepEqual(item.failures[0], {
+    stage: 'claimant_validation',
+    message: 'claimant_exceeds_200_character_limit',
+  });
+});
+
+test('retained plain text without a token/mailbox inbound match fails before claimant authority', async () => {
+  const retained = retainedTextFixture('Claimant: Ms Jane Example\n');
+  const item = await planOne(
+    caseRow(),
+    [retained.row],
+    [],
+    [inboundRow({
+      source_message_id: 'different-message',
+      source_mailbox: 'other@example.test',
+      body_preview: 'Claimant: Ms Jane Example',
+    })],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: async () => retained.bytes },
+  );
+
+  assert.equal(item.outcome, 'failed');
+  assert.deepEqual(item.patch, {});
+  assert.equal(item.fieldSource, null);
+  assert.deepEqual(item.sourceInboundEmailIds, [INBOUND_ID]);
+  assert.equal(item.claimant.status, 'matched');
+  assert.equal(item.sources.bodyInputs.some((input) => input.kind === 'retained_plain_text'), false);
+  assert.equal(item.failures.length, 1);
+  assert.equal(item.failures[0].stage, 'source_processing');
+  assert.match(item.failures[0].message, /no matching inbound email row/);
+});
+
+test('apply-time revalidation locks tokenized retained text bytes and inbound identity', async () => {
+  const retained = retainedTextFixture('Claimant: Ms Jane Example\n');
+  const inbound = inboundRow({ source_mailbox: 'desk@example.test', body_preview: '' });
+  const item = await planOne(
+    caseRow(),
+    [retained.row],
+    [],
+    [inbound],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: async () => retained.bytes },
+  );
+
+  const matched = await revalidateRetainedSourceBytes(
+    item,
+    [retained.row],
+    [inbound],
+    null,
+    async () => retained.bytes,
+  );
+  assert.equal(matched.outcome, 'matched');
+  assert.equal(matched.sourceCount, 1);
+  assert.equal(matched.totalBytes, retained.bytes.length);
+
+  await assert.rejects(
+    revalidateRetainedSourceBytes(item, [retained.row], [inbound], null, async () => Buffer.from('changed')),
+    /source_bytes_changed/,
+  );
+  await assert.rejects(
+    revalidateRetainedSourceBytes(item, [retained.row], [{
+      ...inbound,
+      source_message_id: 'changed-message',
+      source_mailbox: 'changed@example.test',
+      graph_message_id: 'changed-graph-message',
+    }], null, async () => retained.bytes),
+    /inbound_email_state_changed_before_revalidation/,
+  );
+});
+
+test('invalid retained plain text decode fails closed without a consumed-body authority record', async () => {
+  const bytes = Buffer.from([0xc3, 0x28]);
+  const fileName = `email-body-${sourceBundle.helpers.messageFileToken('inbound-message-1')}.txt`;
+  const row = evidenceRow({
+    file_name: fileName,
+    content_type: 'text/plain; charset=utf-8',
+    size_bytes: bytes.length,
+    sha256: rawSha256(bytes),
+    storage_path: `graph-message-1/${fileName}`,
+    source_message_id: null,
+  });
+  const item = await planOne(
+    caseRow(),
+    [row],
+    [],
+    [inboundRow({ body_preview: '' })],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: async () => bytes },
+  );
+
+  assert.equal(item.outcome, 'failed');
+  assert.deepEqual(item.patch, {});
+  assert.equal(item.sources.reads[0].readStatus, 'readable');
+  assert.equal(item.sources.bodyInputs.some((input) => input.kind === 'retained_plain_text'), false);
+  assert.equal(item.failures.length, 1);
+  assert.equal(item.failures[0].stage, 'source_processing');
+  assert.equal(item.failures[0].code, 'INVALID_RETAINED_PLAIN_TEXT');
+  assert.match(item.failures[0].message, /not valid UTF-8/);
+  assert.notEqual(item.failures[0].message, 'unsupported_retained_source');
+});
+
+test('retained plain text requires exact names and rejects unsupported charset, ASCII overflow, and C1 controls', () => {
+  const fileName = `email-body-${sourceBundle.helpers.messageFileToken('inbound-message-1')}.txt`;
+  const row = { file_name: fileName, content_type: 'text/plain; charset=utf-8' };
+  const allowed = 'Claimant:\tMs Jane Example\r\n';
+  assert.equal(decodeRetainedPlainText(row, Buffer.from(allowed, 'utf8')), allowed);
+  assert.throws(
+    () => decodeRetainedPlainText({ ...row, content_type: 'text/plain; charset=iso-8859-1' }, Buffer.from('text')),
+    /unsupported charset/,
+  );
+  assert.throws(
+    () => decodeRetainedPlainText({ ...row, content_type: 'text/plain; charset=us-ascii' }, Buffer.from([0x80])),
+    /outside its declared ASCII charset/,
+  );
+  assert.throws(
+    () => decodeRetainedPlainText(row, Buffer.from('Claimant: Ms Jane Example\u0085', 'utf8')),
+    /disallowed control characters/,
+  );
+  assert.throws(
+    () => decodeRetainedPlainText({ ...row, file_name: ` ${fileName} ` }, Buffer.from('text')),
+    /not declared plain text/,
+  );
+});
+
+test('arbitrary txt, MIME-only, and binary-MIME rows never enter the retained body lane', async () => {
+  const tokenName = `email-body-${sourceBundle.helpers.messageFileToken('inbound-message-1')}.txt`;
+  for (const [fileName, contentType, kind] of [
+    ['instruction.txt', 'text/plain', 'email'],
+    ['body-export.bin', 'text/plain', 'instruction'],
+    [tokenName, 'application/octet-stream', 'instruction'],
+  ]) {
+    const bytes = Buffer.from('Claimant: Ms Jane Example\n');
+    const row = evidenceRow({
+      file_name: fileName,
+      content_type: contentType,
+      size_bytes: bytes.length,
+      sha256: rawSha256(bytes),
+      storage_path: `cases/${fileName}`,
+      source_message_id: null,
+      kind,
+    });
+    const item = await planOne(
+      caseRow(),
+      [row],
+      [],
+      [inboundRow({ body_preview: '' })],
+      null,
+      planningCanonical(),
+      PARSER_FINGERPRINT_SHA,
+      { fetchEvidence: async () => bytes },
+    );
+    assert.equal(item.outcome, 'failed', `${fileName}:${contentType}`);
+    assert.equal(item.sources.bodyInputs.some((input) => input.kind === 'retained_plain_text'), false);
+    assert.equal(item.failures.some((failure) => failure.message === 'unsupported_retained_source'), true);
+  }
+});
+
+test('tokenized retained text fails closed when its inbound token is ambiguous', async () => {
+  const retained = retainedTextFixture('Claimant: Ms Jane Example\n', {
+    pathGraphMessageId: 'graph/message',
+  });
+  const token = /email-body-([0-9a-f]{8})\.txt/.exec(retained.row.file_name)[1];
+  const canonical = { ...planningCanonical(), messageFileToken: () => token };
+  const item = await planOne(
+    caseRow(),
+    [retained.row],
+    [],
+    [
+      inboundRow({ graph_message_id: 'graph/message', body_preview: 'Claimant: Ms Jane Example' }),
+      inboundRow({
+        id: '88888888-8888-4888-8888-888888888888',
+        source_message_id: 'different-message',
+        graph_message_id: 'graph?message',
+        body_preview: 'Claimant: Ms Jane Example',
+      }),
+    ],
+    null,
+    canonical,
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: async () => retained.bytes },
+  );
+  assert.equal(item.outcome, 'failed');
+  assert.deepEqual(item.patch, {});
+  assert.equal(item.sources.bodyInputs.some((input) => input.kind === 'retained_plain_text'), false);
+  assert.equal(item.failures.length, 1);
+  assert.match(item.failures[0].message, /multiple inbound email rows/);
+});
+
+test('tokenized retained text uses its Graph storage path to disambiguate duplicate delivery across mailboxes', async () => {
+  const retained = retainedTextFixture('Claimant: Ms Jane Example\n', {
+    pathGraphMessageId: 'graph-info-copy',
+  });
+  const sourceMessageId = 'shared-internet-message-id';
+  const selected = inboundRow({
+    source_message_id: sourceMessageId,
+    source_mailbox: 'info@example.test',
+    graph_message_id: 'graph-info-copy',
+    body_preview: '',
+  });
+  const otherMailbox = inboundRow({
+    id: '88888888-8888-4888-8888-888888888888',
+    source_message_id: sourceMessageId,
+    source_mailbox: 'desk@example.test',
+    graph_message_id: 'graph-desk-copy',
+    body_preview: '',
+  });
+  retained.row.file_name = `email-body-${sourceBundle.helpers.messageFileToken(sourceMessageId)}.txt`;
+  retained.row.storage_path = `graph-info-copy/${retained.row.file_name}`;
+
+  const item = await planOne(
+    caseRow(),
+    [retained.row],
+    [],
+    [selected, otherMailbox],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: async () => retained.bytes },
+  );
+
+  assert.equal(item.outcome, 'repair');
+  assert.deepEqual(item.sourceInboundEmailIds, [selected.id]);
+  const consumed = item.sources.bodyInputs.find((input) => input.kind === 'retained_plain_text');
+  assert.equal(consumed.inboundEmailId, selected.id);
+  assert.equal(consumed.graphMessageId, selected.graph_message_id);
+  assert.equal(consumed.bindingMethod, 'graph_storage_path');
+});
+
+test('legacy email-body.txt binds by deterministic graph-id path, with one-row fallback only', async () => {
+  const retained = retainedTextFixture('Claimant: Ms Jane Example\n', {
+    file_name: 'email-body.txt',
+    storage_path: 'archive/graph_message_legacy/email-body.txt',
+  });
+  const inbound = inboundRow({
+    source_message_id: 'legacy-internet-message',
+    graph_message_id: 'graph/message:legacy',
+    body_preview: '',
+  });
+  const exact = await planOne(
+    caseRow(),
+    [retained.row],
+    [],
+    [inbound],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: async () => retained.bytes },
+  );
+  assert.equal(exact.outcome, 'repair');
+  assert.deepEqual(exact.sourceInboundEmailIds, [INBOUND_ID]);
+  assert.deepEqual(exact.sourceEvidenceIds, [EVIDENCE_ID]);
+  const exactInput = exact.sources.bodyInputs.find((input) => input.kind === 'retained_plain_text');
+  assert.equal(exactInput.inboundEmailId, INBOUND_ID);
+  assert.equal(exactInput.bindingMethod, 'graph_storage_path');
+  assert.equal(exactInput.graphMessageId, inbound.graph_message_id);
+
+  const fallbackRow = {
+    ...retained.row,
+    storage_path: 'legacy-unknown/email-body.txt',
+  };
+  const fallback = await planOne(
+    caseRow(),
+    [fallbackRow],
+    [],
+    [inbound],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: async () => retained.bytes },
+  );
+  assert.equal(fallback.outcome, 'repair');
+  assert.deepEqual(fallback.sourceInboundEmailIds, [INBOUND_ID]);
+  const fallbackInput = fallback.sources.bodyInputs.find((input) => input.kind === 'retained_plain_text');
+  assert.equal(fallbackInput.bindingMethod, 'single_inbound_fallback');
+  assert.equal(fallbackInput.graphMessageId, null);
+
+  const secondEvidenceId = '77777777-7777-4777-8777-777777777777';
+  const firstMetadata = fallback.sources.metadata[0];
+  const secondMetadata = {
+    ...firstMetadata,
+    evidenceId: secondEvidenceId,
+    storagePathSha256: rawSha256(Buffer.from('another-legacy-path/email-body.txt')),
+  };
+  const metadata = [firstMetadata, secondMetadata]
+    .sort((left, right) => left.evidenceId.localeCompare(right.evidenceId));
+  const secondRead = {
+    ...fallback.sources.reads[0],
+    evidenceId: secondEvidenceId,
+    metadataSha256: integrityHash(secondMetadata),
+  };
+  const reads = [...fallback.sources.reads, secondRead]
+    .sort((left, right) => left.evidenceId.localeCompare(right.evidenceId));
+  const { stateSha256: ignoredStateHash, ...preconditionBody } = fallback.preconditions;
+  const updatedPreconditionBody = {
+    ...preconditionBody,
+    sourceMetadataSha256: integrityHash(metadata),
+  };
+  const crossSourceFallback = sealCase({
+    ...fallback,
+    preconditions: {
+      ...updatedPreconditionBody,
+      stateSha256: integrityHash(updatedPreconditionBody),
+    },
+    sources: { ...fallback.sources, metadata, reads },
+  });
+  const environment = {
+    label: 'production-readiness-remediation',
+    databaseName: 'collisionspike',
+    host: 'database.example.test',
+    port: 5432,
+  };
+  const allowlist = [{ caseId: crossSourceFallback.caseId, caseSha256: crossSourceFallback.caseSha256 }];
+  assert.throws(() => assertPlan(sealPlan({
+    contract: PLAN_CONTRACT,
+    scope: AUTHORIZED_SCOPE,
+    createdAt: '2026-07-14T00:00:00.000Z',
+    environment,
+    environmentSha256: integrityHash(environment),
+    runnerSha256: HASH_A,
+    parserFingerprint: PARSER_FINGERPRINT,
+    parserFingerprintSha256: PARSER_FINGERPRINT_SHA,
+    selection: { kind: 'full_baseline' },
+    counts: planCounts([crossSourceFallback]),
+    writeAllowlist: allowlist,
+    statusRecomputeAllowlist: allowlist,
+    cases: [crossSourceFallback],
+  })), /fallback is ambiguous|lacks exact processing coverage/);
+});
+
+test('legacy email-body.txt path ambiguity fails closed even when previews agree', async () => {
+  const retained = retainedTextFixture('Claimant: Ms Jane Example\n', {
+    file_name: 'email-body.txt',
+    storage_path: 'prefix/a_b/email-body.txt',
+  });
+  const item = await planOne(
+    caseRow(),
+    [retained.row],
+    [],
+    [
+      inboundRow({ graph_message_id: 'a/b', body_preview: 'Claimant: Ms Jane Example' }),
+      inboundRow({
+        id: '88888888-8888-4888-8888-888888888888',
+        source_message_id: 'different-message',
+        graph_message_id: 'a?b',
+        body_preview: 'Claimant: Ms Jane Example',
+      }),
+    ],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: async () => retained.bytes },
+  );
+  assert.equal(item.outcome, 'failed');
+  assert.deepEqual(item.patch, {});
+  assert.equal(item.sources.bodyInputs.some((input) => input.kind === 'retained_plain_text'), false);
+  assert.equal(item.failures.length, 1);
+  assert.match(item.failures[0].message, /multiple inbound email rows/);
+});
+
+test('conflicting retained plain-text claimants remain visible and authorize no claimant write', async () => {
+  const first = retainedTextFixture('Claimant: Ms Jane Example\n');
+  const secondId = '77777777-7777-4777-8777-777777777777';
+  const secondInboundId = '88888888-8888-4888-8888-888888888888';
+  const second = retainedTextFixture('Claimant: Mr John Example\n', {
+    id: secondId,
+    tokenSourceMessageId: 'inbound-message-2',
+  });
+  const item = await planOne(
+    caseRow(),
+    [first.row, second.row],
+    [],
+    [
+      inboundRow({ body_preview: '' }),
+      inboundRow({ id: secondInboundId, source_message_id: 'inbound-message-2', body_preview: '' }),
+    ],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: async (row) => row.id === EVIDENCE_ID ? first.bytes : second.bytes },
+  );
+
+  assert.equal(item.outcome, 'conflicting');
+  assert.deepEqual(item.patch, {});
+  assert.equal(item.fieldSource, null);
+  assert.deepEqual(new Set(item.claimant.bodyCandidates), new Set(['Ms Jane Example', 'Mr John Example']));
+  assert.equal(item.failures.length, 0);
+  assert.equal(item.sources.bodyInputs.filter((input) => input.kind === 'retained_plain_text').length, 2);
+});
+
+test('QDOS-like PDF plus retained text repairs from text when the selected PDF does not conflict', async () => {
+  const pdfBytes = Buffer.from('pdf-bytes');
+  const pdf = evidenceRow({
+    size_bytes: pdfBytes.length,
+    sha256: rawSha256(pdfBytes),
+    source_message_id: 'inbound-message-1',
+  });
+  const textId = '77777777-7777-4777-8777-777777777777';
+  const retained = retainedTextFixture('Claimant: Ms Jane Example\n', {
+    id: textId,
+  });
+  const item = await planOne(
+    caseRow(),
+    [pdf, retained.row],
+    [],
+    [inboundRow({ body_preview: '' })],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    {
+      fetchEvidence: async (row) => row.id === EVIDENCE_ID ? pdfBytes : retained.bytes,
+      parseSourceDocument: async (doc) => ({
+        doc: { ...doc, byteLength: doc.bytes.length, bytes: undefined },
+        envelope: envelope({ claimant: '', provider: 'QDOS', docType: 'instruction' }),
+        ocrAttempted: false,
+        ocrApplied: false,
+        ocrError: '',
+      }),
+    },
+  );
+
+  assert.equal(item.outcome, 'repair');
+  assert.deepEqual(item.patch, { eva_claimant_name: 'Ms Jane Example' });
+  assert.equal(item.fieldSource, 'email_text');
+  assert.deepEqual(item.sourceInboundEmailIds, [INBOUND_ID]);
+  assert.deepEqual(item.sourceEvidenceIds, [textId]);
+  assert.equal(item.sources.selectedInstruction.evidenceId, EVIDENCE_ID);
+  assert.equal(item.sources.parsedDocuments.length, 1);
+  assert.equal(item.sources.bodyInputs.some((input) => input.evidenceId === textId), true);
+  assert.equal(item.failures.length, 0);
 });
 
 test('apply re-reads retained raw bytes and refuses changed content without reparsing', async () => {
@@ -736,6 +1403,8 @@ test('claimant selection abstains on any cross-source conflict and uses canonica
       value: 'Ms Jane Example',
       source: 'pdf_extraction',
       candidates: ['Ms Jane Example'],
+      inboundEmailIds: [],
+      evidenceIds: [],
     },
   );
   assert.equal(chooseClaimant([], 'Claimant: Ms Jane Example', supplement).value, 'Ms Jane Example');
@@ -761,7 +1430,12 @@ test('email claimant provenance binds only the inbound source rows that supplied
   ], supplement);
   assert.equal(result.source, 'email_text');
   assert.deepEqual(result.inboundEmailIds, [INBOUND_ID]);
-  assert.equal(Object.hasOwn(result, 'evidenceIds'), false);
+  assert.deepEqual(result.evidenceIds, []);
+
+  const retained = chooseClaimant([], [
+    { text: 'Claimant: Ms Jane Example', inboundEmailId: INBOUND_ID, evidenceId: EVIDENCE_ID },
+  ], supplement);
+  assert.deepEqual(retained.evidenceIds, [EVIDENCE_ID]);
 });
 
 test('canonical helpers bundle directly from TypeScript sources, never stale dist output', async () => {
@@ -1339,16 +2013,43 @@ test('CLI authority and PII guards reject every Git path, aliases, collisions, a
   }
 });
 
-test('database TLS configuration rejects all non-verifying modes', () => {
-  for (const mode of ['disable', 'allow', 'prefer', 'no-verify']) {
+test('database TLS configuration accepts only certificate-verifying modes and system trust', async () => {
+  for (const mode of ['disable', 'allow', 'prefer', 'require', 'no-verify', 'verify-fll']) {
+    assert.throws(
+      () => assertSecureDatabaseSettings({ PGSSLMODE: mode }),
+      /must verify/,
+    );
     assert.throws(
       () => assertSecureDatabaseSettings({ DATABASE_URL: `postgresql://user:pass@db.example/test?sslmode=${mode}` }),
       /must verify/,
     );
   }
+  assert.doesNotThrow(() => assertSecureDatabaseSettings({ PGSSLMODE: 'verify-ca' }));
   assert.doesNotThrow(() => assertSecureDatabaseSettings({
     DATABASE_URL: 'postgresql://user:pass@db.example/test?sslmode=verify-full',
   }));
+  assert.doesNotThrow(() => assertSecureDatabaseSettings({}));
+
+  let systemReadAttempted = false;
+  assert.deepEqual(
+    await databaseSslOptions({ PGSSLROOTCERT: 'system' }, async () => {
+      systemReadAttempted = true;
+      throw new Error('system must use the Node trust store');
+    }),
+    { rejectUnauthorized: true },
+  );
+  assert.equal(systemReadAttempted, false);
+
+  let customPath;
+  assert.deepEqual(
+    await databaseSslOptions({ PGSSLROOTCERT: 'C:\\certs\\postgres.pem' }, async (path, encoding) => {
+      customPath = { path, encoding };
+      return 'CUSTOM CA';
+    }),
+    { rejectUnauthorized: true, ca: 'CUSTOM CA' },
+  );
+  assert.equal(customPath.encoding, 'utf8');
+  assert.match(customPath.path, /postgres\.pem$/);
 });
 
 test('runner dependencies are declared and the focused suite is part of the normal root test gate', async () => {
