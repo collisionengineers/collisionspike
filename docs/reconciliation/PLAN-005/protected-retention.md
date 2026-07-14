@@ -72,4 +72,5 @@ This section supersedes the mutable counts above while retaining their historica
   `codex/tkt-150-live-remediation` at `ed63af703c894d4ce4a2f6d56d24dbaae2b4df85`.
 - The bounded state is now six worktrees: canonical `main`, four active implementation sources and one
   TKT-150 closeout. The remote has exactly ten branches: `main`, four PR heads, two safety copies and three
-  TKT-150 closeout branches. See `current-inventory.json` generated at `2026-07-14T01:03:54.191Z`.
+  TKT-150 closeout branches. See `phase-c-inventory-2026-07-14.json` generated at
+  `2026-07-14T01:03:54.191Z`.

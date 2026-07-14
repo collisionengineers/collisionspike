@@ -4,6 +4,8 @@ This directory holds the non-sensitive reconciliation record preserved by the 20
 authorise TKT-150 remediation or the final operational cutover.
 
 - [Initial inventory](./initial-inventory.json) — frozen pre-reconciliation machine snapshot.
+- [Phase-C inventory](./phase-c-inventory-2026-07-14.json) — the exact `2026-07-14T01:03:54.191Z`
+  post-cleanup snapshot originally named `current-inventory.json` in the plan-authoring worktree.
 - [Current inventory](./current-inventory.json) — latest timestamped machine snapshot at the documented
   checkpoint.
 - [Archival tip dispositions](./archival-tip-dispositions.md) — semantic audit of archived maximal tips.
