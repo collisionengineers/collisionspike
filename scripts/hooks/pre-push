@@ -1,0 +1,9 @@
+#!/usr/bin/env node
+
+import { execFileSync } from 'node:child_process';
+
+const branch = execFileSync('git', ['symbolic-ref', '--short', '-q', 'HEAD'], { encoding: 'utf8', windowsHide: true }).trim();
+if (branch === 'main') {
+  console.error('Direct pushes to main are blocked. Publish a ticket branch and merge its pull request instead.');
+  process.exit(1);
+}

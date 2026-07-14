@@ -9,3 +9,11 @@ reference without a replacement recovery proof and an explicit recorded disposit
 
 Recovery bundle locations and the 30-day retention window are recorded outside Git under
 `collisionsuite-recovery/collisionspike/`.
+
+## Worktree lifecycle
+
+The canonical checkout is `active/collisionspike` on a clean `main` equal to `origin/main`.
+Run `node scripts/worktree.mjs init` once in that checkout, then use `create`, `adopt`, `doctor`,
+`publish`, `status` and `remove` instead of hand-making feature worktrees. Feature branches are
+ticket branches and may have at most three attached worktrees; the `runtime`, `schema` and `evidence`
+lanes are exclusive. `npm run hygiene` is the read-only repository report.

@@ -47,6 +47,8 @@ jobs:
         run: node scripts/check-tickets.mjs
       - name: Check shared skill sync
         run: node scripts/check-skills-sync.mjs
+      - name: Run complete offline verification
+        run: npm ci && npm install --no-save @rollup/rollup-linux-x64-gnu && npm run verify:offline
 
   parser-vendor-source:
     name: parser-vendor-source (immutable private tag)
