@@ -535,6 +535,10 @@ function storageDirectory(value) {
   return index < 0 ? '' : normalized.slice(0, index);
 }
 
+function storagePathInDirectory(directory, fileName) {
+  return directory ? `${directory}/${fileName}` : fileName;
+}
+
 function inboundRowsRelevantToRetainedPath(row, inboundRows, messageFileToken) {
   const fileName = exactFileName(row.file_name);
   const tokenized = BODY_TEXT_FILE_RE.exec(fileName);
@@ -564,12 +568,11 @@ function rawEmlSiblingForRetainedText(row, sourceRows) {
   if (!tokenized) throw new Error('retained text has no tokenized raw-email sibling convention');
   const bodyStoragePath = normalizedEvidenceStoragePath(row.storage_path);
   const directory = storageDirectory(bodyStoragePath);
-  if (!directory) throw new Error('retained text storage path has no message directory');
-  if (bodyStoragePath !== `${directory}/${exactFileName(row.file_name)}`) {
+  if (bodyStoragePath !== storagePathInDirectory(directory, exactFileName(row.file_name))) {
     throw new Error('retained text storage path does not end with its exact filename');
   }
   const expectedFileName = `message-${tokenized[1]}.eml`;
-  const expectedPath = `${directory}/${expectedFileName}`;
+  const expectedPath = storagePathInDirectory(directory, expectedFileName);
   const matches = sourceRows.filter((candidate) =>
     exactFileName(candidate.file_name) === expectedFileName
     && normalizedEvidenceStoragePath(candidate.storage_path) === expectedPath
@@ -1880,8 +1883,7 @@ export function assertPlan(plan) {
         if (
           !tokenized
           || source.graphMessageId !== null
-          || !bodyStorageDirectory
-          || storagePath !== `${bodyStorageDirectory}/${fileName}`
+          || storagePath !== storagePathInDirectory(bodyStorageDirectory, fileName)
           || !rawEmlEvidenceId
           || rawEmlEvidenceId === evidenceId
           || expectedRawEmlMetadataRows.length !== 1
@@ -1891,7 +1893,7 @@ export function assertPlan(plan) {
           || !/^message\/rfc822(?:\s*;|$)/i.test(text(rawEmlMetadata?.contentType))
           || hashText(rawEmlStoragePath) !== rawEmlMetadata?.storagePathSha256
           || storageDirectory(rawEmlStoragePath) !== bodyStorageDirectory
-          || rawEmlStoragePath !== `${bodyStorageDirectory}/${expectedRawEmlFileName}`
+          || rawEmlStoragePath !== storagePathInDirectory(bodyStorageDirectory, expectedRawEmlFileName)
           || rawEmlRead?.readStatus !== 'readable'
           || rawEmlRead.declaredShaMatches !== true
           || rawEmlRead.byteSha256 !== source.rawEmlByteSha256
