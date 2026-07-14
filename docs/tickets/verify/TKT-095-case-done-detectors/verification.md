@@ -84,3 +84,54 @@ No repaired webhook or terminal transition has been live-proven yet.
 - Deployment proof still required: deploy API and Box webhook, redeliver a report-PDF event through
   one forced terminal-call failure, and verify one evidence row, one done transition and one audit.
   SentItems gate activation/subscription proof is also still pending this release.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+PENDING
+
+## Evidence
+
+1. **Manual bridge acceptance:** A 7-day live `AppRequests` query returned 22 successful
+   `internalCasesMarkDone` calls but no `markCaseDone` staff-route call. The 22 internal calls align with
+   Archive detector traffic and do not prove a manual `eva_submitted → done` transition,
+   `report_delivered` audit, or Completed rendering.
+2. **Archive report detector acceptance:** Live Archive-webhook telemetry contains 22 natural “CE report
+   detected” events from 2026-07-09 through 2026-07-13. Every event recorded
+   `mark-done updated=False`; none proves the required `eva_submitted → done` transition. This does prove
+   classification and guarded no-op behavior, but no redelivery pair was observed.
+3. **Sent-email detector acceptance:** Live orchestration telemetry on 2026-07-13 recorded 128 sent-message
+   notifications, 90 `no_eligible_case` no-ops, 25 `no_provider_recipient` no-ops, and zero
+   `sent-items-mark-done` events. The non-provider negative case is live-proven; the provider-threaded
+   positive transition is not.
+
+## Pending / gaps
+
+- No natural manual transition with its `report_delivered` audit and Completed rendering.
+- No natural report-PDF event against an `eva_submitted` case producing `updated=true`, followed by
+  redelivery `updated=false`.
+- No provider-address threaded send against an eligible case producing `sent-items-mark-done`.
+- Registry text saying the sent-email lane is dark is stale: live telemetry proves subscriptions and
+  processing were active on 2026-07-13.
+- The live database and per-case audit rows were unread because the established PostgreSQL path is
+  unavailable; no firewall change or third retry was attempted.
+- No independently attributable deployment fingerprint proves the 2026-07-11 strict webhook-redelivery
+  repair currently deployed.
+
+## How to re-verify
+
+- Observe the next natural staff use of “Mark report delivered”; read the case activity and Completed
+  surface for `report_delivered` plus `done`.
+- Observe the next natural report PDF uploaded to an `eva_submitted` case; require `updated=true`, then a
+  genuine Archive redelivery with `updated=false`.
+- Observe the next natural threaded provider send for an `eva_submitted` case; require
+  `sent-items-mark-done`. Continue confirming non-provider messages remain no-ops.
+- Refresh `LIVE_FACTS.json`, `docs/gated.md`, and the live-environment mirror after independently reading
+  the current gate and subscription state.
+
+## Confidence + unread surfaces
+
+High confidence that the ticket remains PENDING and that the sent-email registry statement is stale.
+Unread surfaces: Postgres case/audit rows, deployed bundle hash for the 2026-07-11 repair, live SPA case
+rendering, and Graph subscription inventory.

@@ -120,3 +120,75 @@ live twin census remains historical evidence and does not prove the repaired mer
 - Deployment proof still required: deploy the API, merge a prepared same-SHA pair and confirm one
   active survivor photo in evidence/EVA ordering, preserved provenance and no duplicate readiness
   count. No new live merge is claimed here.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+PENDING
+
+## Evidence
+
+- The original three acceptance lines have substantial live evidence. The prior live record reports 571
+  calls through `internalCasesEvidence`, the audited cleanup of 106 byte-identical groups/108 twins, zero
+  active same-name/same-hash duplicates after cleanup, one-photo EVA ordering for the marker case, true
+  Archive kinds at source, and the API guard retained
+  (`docs/tickets/verify/TKT-133-evidence-dedup-box-kind/verification.md:4-80`). The later forward-window
+  queries report zero active same-SHA duplicates since 2026-07-10 and honest Archive-lane kinds: image 266
+  (252 with SHA), email 57 (46), instruction 51 (43), other 18 (15), engineer_report 2 (2)
+  (`verification.md:83-103`).
+- Both supplied pre-cleanup datasets were read and structurally checked in full.
+  `evidence/backup-twins-before.csv` has SHA-256
+  `9518019A026375EDCE457666B2AC02D31AC611186DF0A39F3C15D47A8EF4244E`, 136 data rows forming 68 exact
+  blob/Archive pairs across 18 cases. `evidence/backup-boxbox-before.csv` has SHA-256
+  `281DCBB282F8BD3B88D6E900A606D1914571DF50CBCFB13D4714F0D5FFF4CA89`, 2,801 unique rows across 111
+  cases, comprising 1,369 two-row and 21 three-row valid same-case/file/Archive-id duplicate groups; no
+  malformed or cross-case grouping was found. These support enumeration, not post-repair merge behavior.
+- The later regression correctly supersedes the old overall `VERIFIED-LIVE` verdict: the case-merge route
+  could bulk-reparent two evidence sets that already contained the same SHA, recreating an active
+  duplicate (`changes-regression-11-07-26.md:5-16`; `verification.md:105-122`).
+- The repair is implemented and offline-covered: it locks both evidence sets, canonicalizes usable
+  SHA-256 values, coalesces complementary provenance, keeps one active survivor, preserves null/invalid
+  hash move behavior, and transfers/retires Archive work safely. Focused coverage is recorded in
+  `api/src/functions/cases-merge.test.ts` (`verification.md:112-120`). Commits `057f7a0` and `070a0bf` are
+  ancestors of PR 55's deployed merge `c7e78cc`, the corrected runtime `3cc4705`, and the later deployed
+  tree `54a04d`; `.azure/deployment-plan.md:334-341` proves the API was published.
+
+## Pending / gaps
+
+- There is no post-repair live witness of a legitimate case merge where source and target already hold
+  the same SHA. The historical twin census and normal intake/Archive dedup telemetry do not exercise this
+  superseding merge-path regression.
+- There is consequently no post-merge live readback proving exactly one active survivor photo,
+  complementary provenance retained, the redundant source row still retired, null/invalid hashes still
+  moved normally, pending Archive work neither lost nor duplicated, and EVA/ZIP/readiness counts each
+  photo once.
+- Deployment lineage is proven, but deployment alone cannot restore `VERIFIED-LIVE`. The ticket's own
+  superseding block explicitly requires the live same-SHA merge and post-state count
+  (`verification.md:105-122`).
+- This verification deliberately created no duplicate, performed no merge, changed no database/firewall
+  state, and made no Archive write.
+
+## How to re-verify
+
+1. Wait for or identify an existing legitimate pair of merge-eligible live cases whose evidence sets
+   already share one canonical SHA-256; do not fabricate cases or evidence. Capture read-only pre-state
+   for both evidence sets, provenance fields, Archive work/outbox rows, case status/readiness, and EVA
+   ordering.
+2. Have an authorized staff operator perform the normal live case merge. Capture the signed-in
+   request/response and telemetry for the deployed `mergeCases` route.
+3. Read back the transaction state: exactly one active target evidence row for the shared SHA; the
+   redundant source row remains retired; complementary source/provenance values are retained; source-only
+   non-colliding and null/invalid-hash rows moved normally; no active evidence remains on the retired case.
+4. Confirm pending Archive copy/recovery work exists once for the eligible survivor and no redundant
+   source work can recreate the twin. Read the generated EVA/ZIP and readiness/chase counts to prove the
+   photo appears once.
+5. Re-run the forward-window same-case/SHA census and non-image-as-image kind query; both must remain zero.
+
+## Confidence + unread surfaces
+
+High confidence in the original email/Archive dedup contract, historical cleanup evidence, true-kind
+source/guard, regression implementation, offline coverage, and deployed ancestry. Insufficient confidence
+to certify the superseding merge-path behavior live. Unread/unexercised surfaces: a post-release live
+same-SHA merge transaction, current direct Postgres post-state, signed-in merge response, generated
+EVA/ZIP bytes, and current Archive/outbox readbacks.
