@@ -55,3 +55,56 @@ An input, ledger or hash change invalidates the approval and returns the cutover
    audit shows no read/unread, move, delete, category, reply or other mailbox write.
 5. Independently reconcile the execution ledger, Archive/database before-and-after evidence, all
    notification-gap messages and rollback checkpoints before changing the verdict.
+
+## Independent PLAN-005 sweep update — 2026-07-14
+
+### Verdict
+
+PENDING / BLOCKED — keep blocked. The original internal-preview acceptance is historically
+VERIFIED-LIVE, but the reopened exact-Outlook-link work is merged and tested offline only; it is not
+deployed, cut over or verified live.
+
+### Evidence
+
+- Original internal-preview acceptance remains historically verified by linked live case/email rows.
+- PR 86 merged as `f419e31599cdf25cac3d8b4bc66362683b494a05` on 2026-07-13 with successful
+  recorded checks.
+- Acceptance 1 — PENDING live: PR 86 implements `View in Outlook`, but production
+  `/assets/index-CbUqeEAY.js` does not contain that label. API was restored pre-PR86 and
+  orchestration/SPA stayed unchanged.
+- Acceptances 2–6 — TESTED offline: immutable Graph identity and authoritative `message.webLink`,
+  HTTPS/expected-host validation, `noopener noreferrer`, fresh read-only exact-message check and
+  plain saved-preview fallback are implemented.
+- Acceptance 7 — TESTED offline: focused/full suites include info@, engineers@ and desk@ plus link
+  policy/fallback coverage.
+- Acceptance 8 — PENDING: no deployed signed-in proof for all three mailboxes or
+  deleted/inaccessible outcome.
+- Acceptance 9 — BLOCKED: signed spreadsheet, production Archive authorization, approved frozen
+  dry-run hash, backup/restore proof, authenticated EVA access and final operator approval are absent.
+- Phase-A additive schema exists; final mailbox-key delta, deployment, subscription replacement,
+  historical backfill and signed-in proof have not occurred.
+
+### Pending / gaps
+
+- Every mandatory TKT-178 input/approval gate.
+- Final mailbox-key cutover and approved API/orchestration/SPA rollout.
+- Controlled per-mailbox subscription replacement/reconciliation.
+- Separately approved historical backfill.
+- Signed-in read-only proof for each production mailbox and a deleted/inaccessible item.
+- Independent zero-Outlook-mutation proof.
+
+### How to re-verify
+
+1. Do not begin production work until all ticket gate artifacts and named approvals exist.
+2. After approval, execute only the frozen TKT-178 sequence with checkpoint, drain, operation ledger,
+   outbox, reconciliation and rollback evidence.
+3. Verify one available sample from each production mailbox plus deleted/inaccessible fallback.
+4. Prove host, exact mailbox/message identity, opener protection, fallback and no mailbox mutation.
+5. Independently reconcile ledger, database/Archive evidence, notification gap and rollback before
+   changing verdict.
+
+### Confidence + unread surfaces
+
+**High confidence in the blocked verdict.** Complete ticket, PR metadata, source/tests and current live
+SPA were inspected. PostgreSQL, Graph, Outlook, EVA, production Archive, final DDL and subscription
+state were intentionally untouched.
