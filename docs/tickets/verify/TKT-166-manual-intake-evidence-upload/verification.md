@@ -64,3 +64,79 @@ Regression coverage includes:
 8. Prove the persisted instruction can be fetched through the evidence-content/remediation path.
 
 No live resources, Outlook mail or Box content were mutated during this implementation/review pass.
+
+## Independent verification update — 2026-07-14
+
+### Verdict
+
+PENDING
+
+### Evidence per acceptance
+
+- Acceptance 1 — current source uploads the selected instruction and all accepted extras through the
+  canonical evidence route with explicit `instruction`/`extra` roles and instruction index
+  (`ManualIntake.tsx:776-865`). Server persistence retains filename, hash, content type and
+  instruction/other-document kind (`evidence-upload.ts:537-565`). PR 75 (`6ebfb7ea`) is merged.
+- Acceptance 2 — browser and server accept only PDF/JPG/PNG/WebP with matching count/size limits
+  (`manual-intake-files.ts:1-65`; `upload-validate.ts:12-80,289-312`). Word/email formats were removed.
+  The deployed picker exposes the matching list.
+- Acceptance 3 — same-tab identities persist in session storage
+  (`manual-intake-operation-identity.ts:52-83`). Server binds actor, request hash, upload key, file
+  count and instruction index before creation (`cases.ts:907-945`) and returns the committed case on
+  replay (`:1029-1086`). Evidence manifests include hash/type/role (`evidence-upload.ts:170-179`) with
+  exact-content deduplication and role-conflict refusal (`:300-357`). Live duplicate Case/PO/folder
+  behavior remains unproved.
+- Acceptance 4 — incomplete or terminally failed source evidence adds a readiness blocker
+  (`case-status.ts:345-369`), released only after every selected identity is confirmed
+  (`evidence-upload.ts:930-981`). Archive terminal failure queues status recomputation atomically
+  (`archive-mirror-outbox.ts:315-359`).
+- Acceptance 5 — success reports instruction/extras explicitly; partial failure retains a per-file
+  outstanding ledger and retry without claiming files linked (`manual-intake-upload.ts:23-83`;
+  `ManualIntake.tsx:940-1040`). Those recovery strings/fields occur in the deployed SPA.
+- Acceptance 6 — documents persist as instruction/other-document evidence, images enter
+  classifier-owned pending state, and new rows request archive/status work
+  (`evidence-upload.ts:537-608`). Stored bytes are available through authenticated content route
+  (`evidence.ts:27-61`). Parser/remediation handoff and Archive completion were not exercised.
+- Acceptance 7 — both routes require `CollisionSpike.User` (`cases.ts:898-903`;
+  `evidence-upload.ts:623-628`). Server rejects empty, oversized, mismatched, corrupt and unsupported
+  content before persistence while leaving an already-created case recoverable (`:735-799`).
+- Acceptance 8 — request/manifest hashes, per-item SHA-256, replay fencing and exactly-once recovery
+  audit are implemented (`manual-intake-operation.ts:19-227`;
+  `evidence-upload.ts:98-145,776-816,930-995`).
+- Acceptance 9 — committed tests cover role binding, partial/total failure, response loss, replay,
+  duplicate content, Archive retry/dead-letter, merges and picker/server parity. Recorded suites are
+  Domain 1,138, API 681, orchestration 417 and SPA 483. Independent reruns were unavailable because
+  this clean worktree has no local Vitest. Parser handoff still lacks a live artifact.
+- Acceptance 10 — production asset `/assets/index-CbUqeEAY.js` is deployed (`Last-Modified:
+  2026-07-13 12:48:32 GMT`, SHA-256
+  `CEAE61DFE54EC9072E0AE6A154C0066A05FD495FEDA48D8B0560E54B1F8E4A0F`) and contains the TKT-166
+  client contract. Unique guarded `/api/cases/{id}/archive-retry` returns 401 unauthenticated, proving
+  that API route live. This is not the required disposable-case byte/role/database/Blob/Archive proof.
+
+### Pending / gaps
+
+- No disposable document-led case proved exact selected hashes, roles or bytes through UI,
+  PostgreSQL and Blob.
+- No interrupted batch proved retry without another case, Case/PO, evidence identity or Archive
+  folder.
+- No terminal Archive failure/retry or merge-survivor lifecycle was exercised.
+- No Archive proof beneath test root `392761581105`.
+- No persisted-instruction parser/remediation fetch was exercised.
+- Deployment records still leave API/orchestration/SPA and designated proof pending, so the later
+  live rollout lacks complete artifact provenance.
+
+### How to re-verify
+
+1. Record exact deployed API/SPA/schema artifact identities.
+2. Use one authorized disposable case with PDF instruction, extra PDF and supported photos.
+3. Capture hashes, roles and bytes in UI, PostgreSQL and Blob; verify Archive only below
+   `392761581105`.
+4. Exercise response-loss retry, changed selection, duplicate content, terminal Archive retry and
+   merge-survivor recovery.
+5. Fetch the persisted instruction through the remediation/content path and preserve telemetry/audit.
+
+### Confidence + unread surfaces
+
+HIGH confidence that merged source and TKT-166 SPA/API surfaces are deployed; LOW confidence that all
+end-to-end acceptance is live. Unread surfaces are database schema/state, Blob bytes, Archive objects,
+deployed API artifact fingerprint, parser handoff and failure/recovery stimuli.
