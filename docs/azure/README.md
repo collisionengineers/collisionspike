@@ -43,25 +43,26 @@ hooks (`.claude/hooks/azure-route-guard.mjs` PreToolUse + `azure-churn-guard.mjs
 ## Platform routing — Windows vs WSL/Linux (pick BEFORE you type)
 
 This is a **dual-platform workstation**: Windows 11 (PowerShell / Git Bash) **and** WSL2
-Ubuntu-24.04. The toolchains are SPLIT, so the first move on any task is choosing the platform —
+Ubuntu-24.04. The toolchains overlap but are not identical, so the first move on any task is choosing the platform —
 an agent should **state which platform it is using and why** when the choice isn't obvious, and
-every playbook below carries a *Platform* line. Verified 2026-07-04 (the retro activation session
-re-installed the WSL toolchain after it was found missing):
+every playbook below carries a *Platform* line. Refreshed 2026-07-14: Windows Azure CLI is installed and
+authenticated; the older WSL-only statements below were stale.
 
 | Task | Platform | Why / what lives there |
 |---|---|---|
-| `az` / `func` / `psql` — deploys, Postgres DDL, Graph subs, gate flips | **WSL** | az 2.87 + Functions Core Tools 4.12 + psql 16 are installed **only in WSL** (`wsl -e bash -lc '…'`), with az logged in as the operator. The Windows side has none of them. |
+| `az` inventory/config reads | **Windows PowerShell preferred** | `C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd` is installed and authenticated. PowerShell avoids the WSL double-quoting layer and Git Bash MSYS path rewriting. The Resource Graph extension was installed on 2026-07-14. |
+| `func` / `psql`, deploys, Postgres DDL, Graph subs and gate flips | **Use the task playbook** | WSL still carries the established `func`/`psql` toolchain. Do not infer that a Windows `az` install authorizes deployment or mutation; use the named skill/playbook and the platform it specifies. |
 | node / npm / vitest / esbuild bundle builds / `verify-all.mjs` (offline) | **Windows** | The checkout, Node, and node_modules are Windows-native on `C:\` — build here, then publish the built artefact from WSL via `/mnt/c/...`. Don't run npm installs through `/mnt/c` (slow, and WSL's `npm` resolves to the WINDOWS binary anyway). |
 | Exchange Online admin — RBAC-for-Applications (`New-ManagementScope`, `Test-ServicePrincipalAuthorization`, Mail.Read/ReadWrite scoping) | **Windows PowerShell** | The `ExchangeOnlineManagement` module is PowerShell-only; WSL/bash cannot run these cmdlets. See [entra-graph.md](./entra-graph.md). |
 | Docker / anything needing a Linux daemon or Linux-only binaries | **WSL/Linux** | No Windows-side docker; Linux tooling belongs in WSL. |
-| `VERIFY_LIVE=1 node verify-all.mjs` (live drift diff) | ⚠️ split | Node is Windows-side but the script shells out to `az`, which is WSL-only — the live diff can't run as-is. Until az is installed on Windows (or the script learns to call `wsl az`), run the offline gate on Windows and verify live facts from WSL by hand (the registry's `sourceCommand`s). Known gap, noted 2026-07-04. |
+| `VERIFY_LIVE=1 node verify-all.mjs` (live drift diff) | **Windows** | Node and `az.cmd` are now both available Windows-side. Run the verifier in PowerShell; use WSL only for a sub-check whose own playbook requires it. |
 | Git / file edits / doc gates (`check-doc-links`, `check-tickets`) | **Windows** | Windows-native checkout; Git Bash or PowerShell both fine. |
 
 Cross-platform gotchas: WSL sees the repo at `/mnt/c/Users/PC/Documents/GitHub/…` (slower I/O — fine
 for `func publish`, wrong for npm installs); commands inside `wsl -e bash -lc '…'` carry **two quoting
 layers** — build az `--query` strings carefully; `wsl -u root` is passwordless here (how the toolchain
-was reinstalled). The older "use PowerShell, not Git Bash, for az URL args" note applies only to a
-WINDOWS az (MSYS path-mangling) — with az in WSL, normal bash quoting rules apply instead.
+was reinstalled). For the installed Windows Azure CLI, use PowerShell rather than Git Bash for URL and
+resource-id arguments so MSYS cannot rewrite them.
 
 ## Toolbox map (the full palette)
 
@@ -75,9 +76,9 @@ WINDOWS az (MSYS path-mangling) — with az in WSL, normal bash quoting rules ap
   `resourcehealth`, `monitor`, `applicationinsights`, `kusto`, `storage`, `group_resource_list`, `arm`,
   `get_azure_bestpractices` (`resource=general|azurefunctions|static-web-app` × `action=all|code-generation|deployment`),
   `documentation`. **Call `get_azure_bestpractices` before generating Azure code or deploying.**
-- **CLIs:** `az`, `func`, `psql`, `swa` — **all WSL-side** (see §Platform routing above). The
-  legacy "use PowerShell, not Git Bash, for `az` URL/resource-id args" rule (MSYS mangling — see
-  [AGENTS.md](../../AGENTS.md) §Stack-specific tooling) applies only if a Windows az is ever installed.
+- **CLIs:** `az` is available in both Windows PowerShell and WSL; `func`, `psql` and `swa` remain routed by
+  their task playbooks. For Windows `az` URL/resource-id arguments, use PowerShell rather than Git Bash
+  (MSYS mangling; see [AGENTS.md](../../AGENTS.md) §Stack-specific tooling).
 - **Agents:** `azure-integration-engineer` (build/deploy/wire the live Azure stack),
   `azure-diagnostician` (read-only triage — dispatch live investigations here).
 

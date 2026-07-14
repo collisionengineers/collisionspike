@@ -532,9 +532,10 @@ az resource list -g rg-collisionspike-dev -o table
 # Static Web App (SPA) hostname + status
 az staticwebapp show -g rg-collisionspike-dev -n cespk-spa-dev --query "defaultHostname" -o tsv
 
-# Function Apps — which functions are actually deployed (verified 2026-07-10T17:55Z: api 96, orch 74, parser 4, box-webhook 12)
-az functionapp function list -g rg-collisionspike-dev -n cespk-api-dev  -o table   # expect: 96 functions
-az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o table   # expect: 74 functions (live — 3 push subs)
+# Function Apps — current read-only count (verified 2026-07-14T01:15Z: api 111, orch 87)
+# Parser 4 / box-webhook 12 retain their 2026-07-10 last-known counts; they were not refreshed in this pass.
+az functionapp function list -g rg-collisionspike-dev -n cespk-api-dev  -o json | ConvertFrom-Json  # .Count = 111
+az functionapp function list -g rg-collisionspike-dev -n cespk-orch-dev -o json | ConvertFrom-Json  # .Count = 87
 az functionapp function list -g rg-collisionspike-dev -n cespkbox-fn-v76a47 -o table               # expect: 12
 az functionapp function list -g rg-collisionspike-dev -n cespike-parser-dev-x7xt3d5ovhi7y -o table # expect: 4
 
