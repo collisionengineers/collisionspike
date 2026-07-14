@@ -46,7 +46,7 @@ The guard is **four layers** (`tools/box/README.md`):
 ```
 node tools/box/test-scope-guard.mjs
 ```
-**PASS:** prints `20 passed` (20/20). **FAIL:** any non-pass → STOP; the guard is not armed, do
+**PASS:** prints `30 passed` (30/30). **FAIL:** any non-pass → STOP; the guard is not armed, do
 not issue a single Box command.
 
 > **Business-tenant scope decision — fail closed before Phase B.** This harness may operate only on
@@ -327,7 +327,7 @@ node tools/box/phaseB-livetest.mjs cleanup
 
 | Gate | Condition to proceed |
 |---|---|
-| **Gate-0** | `test-scope-guard.mjs` → 20/20 |
+| **Gate-0** | `test-scope-guard.mjs` → 30/30 |
 | **Gate A (STOP)** | probe → `GATE A PASS`; **`unauthorized_client` = STOP**, fix A1/A2, never proceed past it |
 | **B5** | webhook created on root + File Request copied (anonymous URL printed) |
 | **B7 (BLOCKING)** | anonymous File-Request upload delivers `FILE.UPLOADED` to the verified receiver, `is_upload=true` — or record the negative finding and do **not** flip `BOX_FILEREQUEST_ENABLED` |
