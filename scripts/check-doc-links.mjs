@@ -3,7 +3,7 @@
  * check-doc-links.mjs — documentation-freshness link/orphan/leakage gate.
  *
  *   Usage:
- *     node scripts/check-doc-links.mjs            # run all three checks
+ *     node scripts/check-doc-links.mjs            # run links, orphans, leakage and data authority
  *     node scripts/check-doc-links.mjs --quiet    # only print failures + summary
  *     node scripts/check-doc-links.mjs --only=links     # broken relative links only
  *     node scripts/check-doc-links.mjs --only=orphans   # unreachable docs/**.md only
@@ -24,7 +24,7 @@
  *   conservative on leakage patterns (see LEAKAGE_PATTERNS) to avoid false positives on
  *   prose; tune that array as new volatile-number phrasings appear.
  */
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve, relative } from 'node:path';
@@ -91,7 +91,7 @@ const isFrozenArchive = (rel) => rel.startsWith('docs/HISTORICAL/');
 // regressions this gate should fail on. Surfaced as a separate, NON-FAILING "backlog" list so
 // they stay visible without blocking. Each prefix is decommissioned/out-of-band content:
 const KNOWN_ABSENT_PREFIXES = [
-  'raw/', // gitignored PII dropzone — never tracked
+  'raw/', // historical paths retained in old planning documents; not an evidence-policy exclusion
   'dataverse/', // decommissioned Power-Platform solution artefacts (removed in the Azure migration)
   'flows/', // decommissioned Power Automate flow definitions (removed in the Azure migration)
   'research/automationsresearch/', // separate research repo, not vendored into this tree
@@ -391,6 +391,22 @@ if (wants('leakage')) {
       console.log(`  ${file}:${line}  "${match}"  — ${why}`);
     }
     summary.push({ check: 'leakage', status: 'FAIL', count: f.length });
+  }
+}
+
+if (!ONLY) {
+  header('D. Repository data authority');
+  try {
+    execFileSync(process.execPath, ['scripts/check-repository-data-authority.mjs'], {
+      cwd: ROOT,
+      stdio: QUIET ? 'pipe' : 'inherit',
+    });
+    if (!QUIET) console.log('OK — canonical authority and binding-surface scan pass.');
+    summary.push({ check: 'authority', status: 'PASS', count: 0 });
+  } catch (error) {
+    failed = true;
+    if (QUIET) console.log(String(error.stderr ?? error.message).trim());
+    summary.push({ check: 'authority', status: 'FAIL', count: 1 });
   }
 }
 

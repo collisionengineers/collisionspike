@@ -169,7 +169,7 @@ async function pathExists(path) {
 /**
  * Resolve symlinks/junctions before checking every ancestor for a `.git`
  * directory or worktree pointer. Merely comparing against this checkout is not
- * sufficient: PII artifacts must not land in any repository, linked worktree,
+ * sufficient: recovery artifacts must not land in any repository, linked worktree,
  * or a common Git metadata directory reached through an alias.
  */
 export async function assertOutsideRepository(path, label = 'artifact') {

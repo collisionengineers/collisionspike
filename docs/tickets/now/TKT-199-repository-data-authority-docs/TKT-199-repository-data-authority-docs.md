@@ -1,11 +1,11 @@
 ---
 id: TKT-199
 title: Make repository data authority explicit without weakening security
-status: backlog
+status: now
 priority: P1
 area: docs
 tickets-it-relates-to: [TKT-019, TKT-020, TKT-063, TKT-068, TKT-149]
-research-link: docs/tickets/backlog/TKT-199-repository-data-authority-docs/evidence/operator-ruling-2026-07-13.md
+research-link: docs/tickets/now/TKT-199-repository-data-authority-docs/evidence/operator-ruling-2026-07-13.md
 plan: PLAN-004
 ---
 

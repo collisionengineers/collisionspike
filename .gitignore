@@ -64,14 +64,9 @@ __pycache__/
 venv/
 .pytest_cache/
 
-# raw/ — drop-zone for source material to distill (contains real PII:
-# claimant data in the job sheet, garage/solicitor contacts). Examined and
-# distilled into docs/, but NOT committed. Keep PII out of git history.
-raw/
-
-# Dataverse corpus snapshots (16a-backup-inspectionaddress.ps1) — live cr1bd_inspectionaddress
-# row dumps contain real PII (claimant/site addresses). Local restore points only; NOT committed.
-dataverse/.build/backups/
+# Project evidence, evaluation inputs, responses, logs, hashes, versions and costs may be
+# tracked when they are authorised project material. Recovery bundles and database dumps belong
+# under the external `collisionsuite-recovery` hierarchy, never in a checkout.
 *.pyc
 *.egg-info/
 boxconfig.json

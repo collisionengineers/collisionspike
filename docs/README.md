@@ -33,6 +33,7 @@ playbooks under [azure/README.md](./azure/README.md). _Historical:_ [PLAN.md](./
 - [architecture/integrations.md](./architecture/integrations.md) — EVA, enrichment (DVSA/DVLA), parser, address (postcode.io), Box, and the feature-flag gating model.
 - [architecture/vehicle-data.md](./architecture/vehicle-data.md) — the one vehicle-data service contract, immutable MOT evidence and displayed-mileage estimator.
 - [architecture/live-environment.md](./architecture/live-environment.md) — **canonical live registry — mirrors [`LIVE_FACTS.json`](../LIVE_FACTS.json)** (live Azure resource IDs, counts, connectors). The single source for live numbers.
+- [architecture/repository-data-authority.md](./architecture/repository-data-authority.md) — binding authority for complete internal project evidence processing and retained security boundaries.
 - [architecture/repo-constellation.md](./architecture/repo-constellation.md) — the sibling repos (ideas/prior-art only, none canonical).
 - [architecture/environment.md](./architecture/environment.md) — _historical_ build-environment notes (superseded by `live-environment.md`; kept for context).
 
@@ -114,11 +115,11 @@ playbooks under [azure/README.md](./azure/README.md). _Historical:_ [PLAN.md](./
 ## Reference
 > Index: [reference/README.md](./reference/README.md).
 - [reference/](./reference/) — EVA Sentry API PDFs (v1.2 current) + the over-length-principal-codes note + a superseded provider-corpus snapshot.
+- [workingspace/proposedparserchanges.md](./workingspace/proposedparserchanges.md) — parser restructure planning record.
+- [repository/retained-refs.md](./repository/retained-refs.md) — explicit retained-reference exceptions and dispositions.
 
-## Distilling `raw/`
-`raw/` (gitignored — contains PII) is a drop-zone for source material, distilled into the docs above:
-the CE Job Sheet → [architecture/data-model.md](./architecture/data-model.md); the provider/address
-corpus → [requirements/provider-corpus.md](./requirements/provider-corpus.md) +
-[requirements/inspection-address.md](./requirements/inspection-address.md) (full analysis under
-`raw/principalandrepairersheets/outputs/`); the Sentry API PDF →
-[architecture/eva-sentry-api.md](./architecture/eva-sentry-api.md).
+## Repository evidence and source material
+
+Authorised project email, image, document and evaluation inputs may be tracked and analysed in full. Their
+presence is not publication authority: credentials, unapproved external sharing, tenant access controls and
+production-write approval remain restricted. See the binding [repository data authority](./architecture/repository-data-authority.md).

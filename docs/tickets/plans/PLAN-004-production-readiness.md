@@ -43,7 +43,7 @@ This plan has **52 members**. It sequences implementation and verification, but 
 ### 1. Governance, authority and live control plane (5)
 
 1. [TKT-149](../done/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) — retire the mandatory Claude+Codex PR-review workflow per the 2026-07-14 operator ruling; retain normal checks and unrelated safety hooks.
-2. [TKT-199](../backlog/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) — make repository/raw-image authority and retained security/egress boundaries unambiguous.
+2. [TKT-199](../now/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) — make repository/raw-image authority and retained security/egress boundaries unambiguous.
 3. [TKT-195](../backlog/TKT-195-entra-staff-access-management/TKT-195-entra-staff-access-management.md) — establish named Entra staff identity and explicit User/Superuser assignment before broad signed-in proof.
 4. [TKT-159](../now/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md) — reconcile code, registry and live gates, including conditional EVA use.
 5. [TKT-164](../done/TKT-164-inbound-counts-500/TKT-164-inbound-counts-500.md) — retain the repaired inbound-count path as the live dashboard baseline.

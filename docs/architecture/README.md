@@ -11,6 +11,7 @@ How the system is built. **The canonical live registry is [`live-environment.md`
 - [`vehicle-data.md`](./vehicle-data.md) — the canonical DVLA/DVSA contract, immutable MOT evidence and displayed-mileage estimator.
 - [`inspection-address-corpus.md`](./inspection-address-corpus.md) — the ADR-0013 offline-suggestion model.
 - [`data-protection.md`](./data-protection.md) — controller/processor map, lawful-basis, retention.
+- [`repository-data-authority.md`](./repository-data-authority.md) — binding authority for full internal project evidence processing and retained security boundaries.
 - [`azure-cost-model.md`](./azure-cost-model.md) — the per-service cost model.
 - [`repo-constellation.md`](./repo-constellation.md) — the sibling repos (prior-art only).
 - [`architecture-audit-2026-06-20.md`](./architecture-audit-2026-06-20.md) — a dated point-in-time audit.

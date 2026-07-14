@@ -323,7 +323,7 @@ node scripts/check-skills-sync.mjs
 | [TKT-196](./backlog/TKT-196-video-frame-evidence-extraction/TKT-196-video-frame-evidence-extraction.md) | Create evidence stills from case videos | P3 | evidence | — |
 | [TKT-197](./backlog/TKT-197-linked-email-identity-display/TKT-197-linked-email-identity-display.md) | Show a trustworthy registration and email reference on linked emails | P1 | intake | PLAN-004 |
 | [TKT-198](./backlog/TKT-198-wrong-vehicle-evidence-detection/TKT-198-wrong-vehicle-evidence-detection.md) | Flag photos that show a different vehicle | P1 | evidence | PLAN-004 |
-| [TKT-199](./backlog/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) | Make repository data authority explicit without weakening security | P1 | docs | PLAN-004 |
+| [TKT-199](./now/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) | Make repository data authority explicit without weakening security | P1 | docs | PLAN-004 |
 | [TKT-200](./now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md) | Add secure guided photo capture sessions | P1 | integration | PLAN-004 |
 
 ### blocked
