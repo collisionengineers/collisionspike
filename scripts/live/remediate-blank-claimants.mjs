@@ -525,19 +525,134 @@ function retainedBodyPathMatches(storagePath, graphMessageId, fileName) {
   return Boolean(actual) && (actual === expected || actual.endsWith(`/${expected}`));
 }
 
-function matchingInboundForRetainedText(row, inboundRows, messageFileToken, legacyBodySourceCount) {
+function normalizedEvidenceStoragePath(value) {
+  return text(value).replace(/\\/g, '/');
+}
+
+function storageDirectory(value) {
+  const normalized = normalizedEvidenceStoragePath(value);
+  const index = normalized.lastIndexOf('/');
+  return index < 0 ? '' : normalized.slice(0, index);
+}
+
+function inboundRowsRelevantToRetainedPath(row, inboundRows, messageFileToken) {
+  const fileName = exactFileName(row.file_name);
+  const tokenized = BODY_TEXT_FILE_RE.exec(fileName);
+  if (tokenized) return inboundRows;
+  return fileName === LEGACY_BODY_TEXT_FILE ? inboundRows : [];
+}
+
+function retainedGraphPathProbes(row, inboundRows, messageFileToken) {
+  return inboundRowsRelevantToRetainedPath(row, inboundRows, messageFileToken)
+    .map((candidate) => ({
+      inboundEmailId: text(candidate.id),
+      graphMessageId: text(candidate.graph_message_id) || null,
+    }))
+    .sort((left, right) => left.inboundEmailId.localeCompare(right.inboundEmailId));
+}
+
+function directTokenPathMatches(row, inboundRows, messageFileToken) {
+  const tokenized = BODY_TEXT_FILE_RE.exec(exactFileName(row.file_name));
+  if (!tokenized) return [];
+  return inboundRowsRelevantToRetainedPath(row, inboundRows, messageFileToken).filter((candidate) =>
+    text(candidate.graph_message_id)
+    && retainedBodyPathMatches(row.storage_path, candidate.graph_message_id, exactFileName(row.file_name)));
+}
+
+function rawEmlSiblingForRetainedText(row, sourceRows) {
+  const tokenized = BODY_TEXT_FILE_RE.exec(exactFileName(row.file_name));
+  if (!tokenized) throw new Error('retained text has no tokenized raw-email sibling convention');
+  const bodyStoragePath = normalizedEvidenceStoragePath(row.storage_path);
+  const directory = storageDirectory(bodyStoragePath);
+  if (!directory) throw new Error('retained text storage path has no message directory');
+  if (bodyStoragePath !== `${directory}/${exactFileName(row.file_name)}`) {
+    throw new Error('retained text storage path does not end with its exact filename');
+  }
+  const expectedFileName = `message-${tokenized[1]}.eml`;
+  const expectedPath = `${directory}/${expectedFileName}`;
+  const matches = sourceRows.filter((candidate) =>
+    exactFileName(candidate.file_name) === expectedFileName
+    && normalizedEvidenceStoragePath(candidate.storage_path) === expectedPath
+    && candidate.kind === 'email'
+    && /^message\/rfc822(?:\s*;|$)/i.test(text(candidate.content_type)));
+  if (matches.length === 0) throw new Error('retained text has no exact same-directory raw-email sibling');
+  if (matches.length > 1) throw new Error('retained text has multiple exact same-directory raw-email siblings');
+  return matches[0];
+}
+
+function validRfcMessageId(value) {
+  return typeof value === 'string'
+    && value.length > 2
+    && value.length <= 400
+    && /^<[\x21-\x3b\x3d\x3f-\x7e]+>$/.test(value);
+}
+
+/**
+ * Read the one RFC Message-ID header used as a full-identity bridge between a
+ * retained body-only text file and its exact same-directory raw `.eml` sibling.
+ * Header unfolding is deliberately small and fail-closed: duplicate, malformed,
+ * oversized, or non-ASCII Message-ID values never become remediation authority.
+ */
+export function extractRawEmlMessageId(bytes) {
+  const raw = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  const crlfBoundary = raw.indexOf(Buffer.from('\r\n\r\n', 'ascii'));
+  const lfBoundary = raw.indexOf(Buffer.from('\n\n', 'ascii'));
+  const boundary = crlfBoundary >= 0 && (lfBoundary < 0 || crlfBoundary <= lfBoundary)
+    ? crlfBoundary
+    : lfBoundary;
+  if (boundary < 0 || boundary > 256 * 1024) throw new Error('raw email has no bounded header section');
+  const headerText = raw.subarray(0, boundary).toString('latin1').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const headers = [];
+  let current = null;
+  for (const line of headerText.split('\n')) {
+    if (/^[ \t]/.test(line)) {
+      if (!current) throw new Error('raw email begins with a malformed folded header');
+      current.value += ` ${line.trim()}`;
+      continue;
+    }
+    if (current) headers.push(current);
+    const colon = line.indexOf(':');
+    if (colon <= 0 || !/^[!-9;-~]+$/.test(line.slice(0, colon))) {
+      throw new Error('raw email contains a malformed header line');
+    }
+    current = { name: line.slice(0, colon).toLowerCase(), value: line.slice(colon + 1).trim() };
+  }
+  if (current) headers.push(current);
+  const messageIds = headers.filter((header) => header.name === 'message-id').map((header) => header.value.trim());
+  if (messageIds.length !== 1 || !validRfcMessageId(messageIds[0])) {
+    throw new Error('raw email does not contain exactly one safe Message-ID header');
+  }
+  return messageIds[0];
+}
+
+function matchingInboundForRetainedText(
+  row,
+  inboundRows,
+  messageFileToken,
+  legacyBodySourceCount,
+  rawEmlMessageId = '',
+) {
   if (typeof messageFileToken !== 'function') throw new Error('retained text matching requires the canonical message token helper');
   const fileName = exactFileName(row.file_name);
   const tokenized = BODY_TEXT_FILE_RE.exec(fileName);
   let matches;
   let bindingMethod = 'graph_storage_path';
   if (tokenized) {
-    const fileToken = tokenized[1];
-    matches = inboundRows.filter((candidate) =>
-      text(candidate.source_message_id)
-      && messageFileToken(text(candidate.source_message_id)) === fileToken
-      && text(candidate.graph_message_id)
-      && retainedBodyPathMatches(row.storage_path, candidate.graph_message_id, fileName));
+    const pathMatches = directTokenPathMatches(row, inboundRows, messageFileToken);
+    if (!validRfcMessageId(rawEmlMessageId) || messageFileToken(rawEmlMessageId) !== tokenized[1]) {
+      throw new Error('retained text lacks full raw-email Message-ID corroboration');
+    }
+    matches = inboundRows.filter((candidate) => text(candidate.source_message_id) === rawEmlMessageId);
+    bindingMethod = 'raw_eml_message_id';
+    if (
+      pathMatches.length > 1
+      || (
+        pathMatches.length === 1
+        && (matches.length !== 1 || text(pathMatches[0].id) !== text(matches[0].id))
+      )
+    ) {
+      throw new Error('retained text raw-email identity disagrees with its Graph storage path');
+    }
   } else if (fileName === LEGACY_BODY_TEXT_FILE) {
     matches = inboundRows.filter((candidate) =>
       text(candidate.graph_message_id)
@@ -1119,7 +1234,11 @@ export async function planOne(
   blob,
   canonical,
   parserFingerprintSha256,
-  { fetchEvidence = fetchEvidenceBytes, parseSourceDocument = parseDocument } = {},
+  {
+    fetchEvidence = fetchEvidenceBytes,
+    parseSourceDocument = parseDocument,
+    explodeSourceEmail = explodeEmail,
+  } = {},
 ) {
   const sourceRows = allEvidenceRows.filter((row) => row.kind === 'instruction' || row.kind === 'email');
   const preconditions = buildPreconditions(caseRow, allEvidenceRows, provenanceRows, sourceRows, inboundRows, canonical);
@@ -1135,6 +1254,14 @@ export async function planOne(
     exactFileName(row.file_name) === LEGACY_BODY_TEXT_FILE
     && /^text\/plain(?:\s*;|$)/i.test(text(row.content_type))).length;
   const seenSources = new Set();
+  const sourceLoads = new Map();
+  const loadSourceBytes = (row) => {
+    const evidenceId = text(row.id);
+    if (!sourceLoads.has(evidenceId)) {
+      sourceLoads.set(evidenceId, Promise.resolve().then(() => fetchEvidence(row, blob)));
+    }
+    return sourceLoads.get(evidenceId);
+  };
 
   for (const row of sourceRows) {
     const metadata = sourceMetadata(row);
@@ -1144,7 +1271,7 @@ export async function planOne(
     let bytes;
     let read;
     try {
-      bytes = await fetchEvidence(row, blob);
+      bytes = await loadSourceBytes(row);
       read = sourceReadRecord(row, bytes);
     } catch (error) {
       const unreadable = sourceReadFailureRecord(row, error);
@@ -1167,11 +1294,25 @@ export async function planOne(
       const plainTextLike = retainedPlainTextSource(row);
       const emailLike = row.kind === 'email' || EMAIL_EXT.test(row.file_name) || /rfc822|ms-outlook/i.test(row.content_type ?? '');
       if (plainTextLike) {
+        let rawEmlProof = null;
+        if (BODY_TEXT_FILE_RE.test(exactFileName(row.file_name))) {
+          const rawEmlRow = rawEmlSiblingForRetainedText(row, sourceRows);
+          const rawEmlBytes = await loadSourceBytes(rawEmlRow);
+          const rawEmlRead = sourceReadRecord(rawEmlRow, rawEmlBytes);
+          if (!rawEmlRead.declaredShaMatches) throw new Error('raw-email sibling declared SHA does not match its bytes');
+          rawEmlProof = {
+            row: rawEmlRow,
+            read: rawEmlRead,
+            messageId: extractRawEmlMessageId(rawEmlBytes),
+            storagePath: normalizedEvidenceStoragePath(rawEmlRow.storage_path),
+          };
+        }
         const retainedBinding = matchingInboundForRetainedText(
           row,
           inboundRows,
           canonical.messageFileToken,
           legacyBodySourceCount,
+          rawEmlProof?.messageId,
         );
         const matchingInbound = retainedBinding.row;
         const decoded = decodeRetainedPlainText(row, bytes);
@@ -1192,13 +1333,23 @@ export async function planOne(
           graphMessageId: retainedBinding.bindingMethod === 'graph_storage_path'
             ? text(matchingInbound.graph_message_id)
             : null,
+          graphPathProbes: retainedGraphPathProbes(row, inboundRows, canonical.messageFileToken),
+          ...(retainedBinding.bindingMethod === 'raw_eml_message_id'
+            ? {
+                rawEmlEvidenceId: text(rawEmlProof.row.id),
+                rawEmlStoragePath: rawEmlProof.storagePath,
+                rawEmlMessageId: rawEmlProof.messageId,
+                rawEmlByteLength: rawEmlProof.read.byteLength,
+                rawEmlByteSha256: rawEmlProof.read.byteSha256,
+              }
+            : {}),
           byteLength: bytes.length,
           byteSha256: actualSha256,
         });
       } else if (plainTextShapedSource(row)) {
         failures.push({ evidenceId: row.id, stage: 'source_type', message: 'unsupported_retained_source' });
       } else if (emailLike) {
-        const exploded = await explodeEmail(row, bytes);
+        const exploded = await explodeSourceEmail(row, bytes);
         for (const failure of exploded.integrityFailures) {
           failures.push({
             evidenceId: row.id,
@@ -1646,6 +1797,7 @@ export function assertPlan(plan) {
       const metadata = metadataById.get(evidenceId);
       if (
         read?.readStatus !== 'readable'
+        || read.declaredShaMatches !== true
         || read.byteSha256 !== source.byteSha256
         || read.byteLength !== source.byteLength
       ) {
@@ -1676,13 +1828,83 @@ export function assertPlan(plan) {
       ) {
         throw new Error(`Retained plain-text body convention does not match its inbound identity: ${item.caseId}`);
       }
+      const expectedProbeIds = plannedInboundRows
+        .map((candidate) => text(candidate.inboundEmailId))
+        .sort();
+      const graphPathProbes = Array.isArray(source.graphPathProbes)
+        ? [...source.graphPathProbes].sort((left, right) => text(left.inboundEmailId).localeCompare(text(right.inboundEmailId)))
+        : [];
+      const actualProbeIds = graphPathProbes.map((probe) => text(probe.inboundEmailId));
+      const graphPathProbeInvalid = graphPathProbes.some((probe) => {
+        const probeInbound = plannedInboundById.get(text(probe.inboundEmailId));
+        const probeGraphMessageId = probe.graphMessageId == null ? '' : text(probe.graphMessageId);
+        return !probeInbound || hashText(probeGraphMessageId) !== probeInbound.graphMessageIdSha256;
+      });
+      const graphPathMatchIds = graphPathProbes
+        .filter((probe) =>
+          text(probe.graphMessageId)
+          && retainedBodyPathMatches(storagePath, text(probe.graphMessageId), fileName))
+        .map((probe) => text(probe.inboundEmailId));
+      if (
+        !sameValue(actualProbeIds, expectedProbeIds)
+        || new Set(actualProbeIds).size !== actualProbeIds.length
+        || graphPathProbeInvalid
+      ) throw new Error(`Retained plain-text Graph path probes are incomplete: ${item.caseId}`);
       if (source.bindingMethod === 'graph_storage_path') {
         if (
-          !graphMessageId
+          tokenized
+          || fileName !== LEGACY_BODY_TEXT_FILE
+          || !graphMessageId
           || hashText(graphMessageId) !== inbound.graphMessageIdSha256
           || !retainedBodyPathMatches(storagePath, graphMessageId, fileName)
+          || graphPathMatchIds.length !== 1
+          || graphPathMatchIds[0] !== text(source.inboundEmailId)
         ) {
           throw new Error(`Retained plain-text body path does not match its inbound identity: ${item.caseId}`);
+        }
+      } else if (source.bindingMethod === 'raw_eml_message_id') {
+        const rawEmlEvidenceId = text(source.rawEmlEvidenceId);
+        const rawEmlMetadata = metadataById.get(rawEmlEvidenceId);
+        const rawEmlRead = readRows.find((candidate) => text(candidate.evidenceId) === rawEmlEvidenceId);
+        const rawEmlStoragePath = normalizedEvidenceStoragePath(source.rawEmlStoragePath);
+        const expectedRawEmlFileName = tokenized ? `message-${tokenized[1]}.eml` : '';
+        const bodyStorageDirectory = storageDirectory(storagePath);
+        const expectedRawEmlMetadataRows = metadataRows.filter((candidate) =>
+          exactFileName(candidate.fileName) === expectedRawEmlFileName
+          && candidate.kind === 'email'
+          && /^message\/rfc822(?:\s*;|$)/i.test(text(candidate.contentType))
+          && candidate.storagePathSha256 === hashText(rawEmlStoragePath));
+        const fullMessageIdMatches = validRfcMessageId(source.rawEmlMessageId)
+          ? plannedInboundRows.filter((candidate) => candidate.sourceMessageIdSha256 === hashText(source.rawEmlMessageId))
+          : [];
+        if (
+          !tokenized
+          || source.graphMessageId !== null
+          || !bodyStorageDirectory
+          || storagePath !== `${bodyStorageDirectory}/${fileName}`
+          || !rawEmlEvidenceId
+          || rawEmlEvidenceId === evidenceId
+          || expectedRawEmlMetadataRows.length !== 1
+          || text(expectedRawEmlMetadataRows[0]?.evidenceId) !== rawEmlEvidenceId
+          || exactFileName(rawEmlMetadata?.fileName) !== expectedRawEmlFileName
+          || rawEmlMetadata?.kind !== 'email'
+          || !/^message\/rfc822(?:\s*;|$)/i.test(text(rawEmlMetadata?.contentType))
+          || hashText(rawEmlStoragePath) !== rawEmlMetadata?.storagePathSha256
+          || storageDirectory(rawEmlStoragePath) !== bodyStorageDirectory
+          || rawEmlStoragePath !== `${bodyStorageDirectory}/${expectedRawEmlFileName}`
+          || rawEmlRead?.readStatus !== 'readable'
+          || rawEmlRead.declaredShaMatches !== true
+          || rawEmlRead.byteSha256 !== source.rawEmlByteSha256
+          || rawEmlRead.byteLength !== source.rawEmlByteLength
+          || !validRfcMessageId(source.rawEmlMessageId)
+          || hashText(source.rawEmlMessageId) !== inbound.sourceMessageIdSha256
+          || hashText(source.rawEmlMessageId).slice(0, 8) !== tokenized[1]
+          || fullMessageIdMatches.length !== 1
+          || text(fullMessageIdMatches[0]?.inboundEmailId) !== text(source.inboundEmailId)
+          || graphPathMatchIds.length > 1
+          || (graphPathMatchIds.length === 1 && graphPathMatchIds[0] !== text(source.inboundEmailId))
+        ) {
+          throw new Error(`Retained plain-text raw-email identity is not exactly bound: ${item.caseId}`);
         }
       } else if (source.bindingMethod === 'single_inbound_fallback') {
         const legacyMetadataCount = retainedTextMetadataRows
@@ -1693,6 +1915,7 @@ export function assertPlan(plan) {
           || plannedInboundRows.length !== 1
           || legacyMetadataCount !== 1
           || text(plannedInboundRows[0].inboundEmailId) !== text(source.inboundEmailId)
+          || graphPathMatchIds.length !== 0
         ) {
           throw new Error(`Legacy retained plain-text fallback is ambiguous: ${item.caseId}`);
         }
@@ -1971,8 +2194,9 @@ export async function revalidateRetainedSourceBytes(
 ) {
   // Plan metadata cannot prove that Blob/Archive bytes are still the bytes that
   // were replayed. Re-read and hash the retained raw objects immediately before
-  // any claimant or generation write. Do not reparse here: the frozen plan is
-  // the approved decision and this step is solely a byte-for-byte TOCTOU guard.
+  // any claimant or generation write. Claimant extraction is never rerun here;
+  // the only parsed value is a raw `.eml` Message-ID when that exact header is
+  // the frozen plan's independent identity bridge for a retained body text.
   const plannedUnreadable = unreadableSourceReads(item);
   if (plannedUnreadable.length) {
     throw beforeMismatch(`planned_source_unreadable:${plannedUnreadable.map((source) => source.evidenceId).sort().join(',')}`);
@@ -1992,6 +2216,8 @@ export async function revalidateRetainedSourceBytes(
   }
   const expectedReads = new Map((item.sources?.reads ?? []).map((read) => [read.evidenceId, read]));
   if (expectedReads.size !== currentSourceRows.length) throw beforeMismatch('source_hash_coverage_changed');
+  const currentBytesByEvidenceId = new Map();
+  const currentReadsByEvidenceId = new Map();
   const verified = await Promise.all(currentSourceRows.map(async (row) => {
     const expected = expectedReads.get(text(row.id));
     if (!expected) throw beforeMismatch(`source_hash_missing:${row.id}`);
@@ -2001,8 +2227,79 @@ export async function revalidateRetainedSourceBytes(
     if (actual.byteSha256 !== expected.byteSha256 || actual.byteLength !== expected.byteLength) {
       throw beforeMismatch(`source_bytes_changed:${row.id}`);
     }
+    currentBytesByEvidenceId.set(text(row.id), bytes);
+    currentReadsByEvidenceId.set(text(row.id), actual);
     return { evidenceId: text(row.id), byteLength: actual.byteLength, byteSha256: actual.byteSha256 };
   }));
+  const currentInboundById = new Map(currentInboundRows.map((row) => [text(row.id), row]));
+  const currentSourceById = new Map(currentSourceRows.map((row) => [text(row.id), row]));
+  const retainedTextInputs = (item.sources?.bodyInputs ?? []).filter((source) => source.kind === 'retained_plain_text');
+  for (const input of retainedTextInputs) {
+    if (currentReadsByEvidenceId.get(text(input.evidenceId))?.declaredShaMatches !== true) {
+      throw beforeMismatch('retained_text_declared_sha_mismatch');
+    }
+    const bodyRow = currentSourceById.get(text(input.evidenceId));
+    const fileName = exactFileName(bodyRow?.file_name);
+    const tokenized = BODY_TEXT_FILE_RE.exec(fileName);
+    const expectedInboundRows = tokenized || fileName === LEGACY_BODY_TEXT_FILE ? currentInboundRows : [];
+    const expectedProbeIds = expectedInboundRows.map((row) => text(row.id)).sort();
+    const graphPathProbes = Array.isArray(input.graphPathProbes)
+      ? [...input.graphPathProbes].sort((left, right) => text(left.inboundEmailId).localeCompare(text(right.inboundEmailId)))
+      : [];
+    const actualProbeIds = graphPathProbes.map((probe) => text(probe.inboundEmailId));
+    const invalidProbe = graphPathProbes.some((probe) => {
+      const currentInbound = currentInboundById.get(text(probe.inboundEmailId));
+      return !currentInbound || (text(probe.graphMessageId) || null) !== (text(currentInbound.graph_message_id) || null);
+    });
+    const graphPathMatchIds = graphPathProbes
+      .filter((probe) =>
+        text(probe.graphMessageId)
+        && retainedBodyPathMatches(input.storagePath, text(probe.graphMessageId), fileName))
+      .map((probe) => text(probe.inboundEmailId));
+    const graphBindingValid = input.bindingMethod === 'graph_storage_path'
+      ? !tokenized
+        && fileName === LEGACY_BODY_TEXT_FILE
+        && graphPathMatchIds.length === 1
+        && graphPathMatchIds[0] === text(input.inboundEmailId)
+      : input.bindingMethod === 'raw_eml_message_id'
+        ? Boolean(tokenized)
+          && (
+            graphPathMatchIds.length === 0
+            || (graphPathMatchIds.length === 1 && graphPathMatchIds[0] === text(input.inboundEmailId))
+          )
+        : input.bindingMethod === 'single_inbound_fallback'
+          ? !tokenized && fileName === LEGACY_BODY_TEXT_FILE && graphPathMatchIds.length === 0
+          : false;
+    if (
+      !bodyRow
+      || !sameValue(actualProbeIds, expectedProbeIds)
+      || new Set(actualProbeIds).size !== actualProbeIds.length
+      || invalidProbe
+      || !graphBindingValid
+    ) throw beforeMismatch('retained_text_graph_path_binding_changed');
+  }
+  for (const input of retainedTextInputs.filter((source) => source.bindingMethod === 'raw_eml_message_id')) {
+    const rawEmlBytes = currentBytesByEvidenceId.get(text(input.rawEmlEvidenceId));
+    const inbound = currentInboundById.get(text(input.inboundEmailId));
+    const rawEmlRead = currentReadsByEvidenceId.get(text(input.rawEmlEvidenceId));
+    if (!rawEmlBytes || !inbound || rawEmlRead?.declaredShaMatches !== true) {
+      throw beforeMismatch('raw_eml_identity_source_missing_or_untrusted');
+    }
+    let messageId;
+    try {
+      messageId = extractRawEmlMessageId(rawEmlBytes);
+    } catch {
+      throw beforeMismatch('raw_eml_message_id_invalid');
+    }
+    const fullMessageIdMatches = currentInboundRows.filter((row) => text(row.source_message_id) === messageId);
+    if (
+      messageId !== input.rawEmlMessageId
+      || fullMessageIdMatches.length !== 1
+      || text(fullMessageIdMatches[0]?.id) !== text(input.inboundEmailId)
+      || text(inbound.source_message_id) !== messageId
+      || hashText(messageId) !== input.sourceMessageIdSha256
+    ) throw beforeMismatch('raw_eml_message_id_changed_before_revalidation');
+  }
   const ordered = verified.sort((a, b) => a.evidenceId.localeCompare(b.evidenceId));
   return {
     outcome: 'matched',
