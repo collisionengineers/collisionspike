@@ -1,8 +1,9 @@
 # tools/box — live Box integration tooling (test-folder-scoped)
 
 Everything here is **hard-scoped to the test folder `392761581105`** and its descendants
-via the scope guard. Nothing touches any other Box folder until `tools/box-scope.json`
-sets `liveReady: true`. See the remaining-steps plan: `docs/plans/phase-7-box-integration/REMAINING-STEPS.md`.
+via the scope guard. Nothing here may touch any other Box folder. The former `liveReady` production bypass
+is retired; changing the config mode/root or reintroducing `liveReady=true` blocks Box operations. Production
+cutover requires TKT-178's separately reviewed signed-run exact-object executor, never this test harness.
 
 ## Scope guard (Phase 0) — built, armed, verified
 
@@ -12,15 +13,17 @@ Four layers stop any out-of-scope Box op:
    `box` CLI / `api.box.com` / Box-SDK command referencing folder `0` or an id outside
    the allowlist; webhook creates may only target the root or a tracked child.
 2. **`box_client.py` `BOX_ALLOWED_ROOT_ID`** — the deployed Function refuses any op whose
-   target isn't the root or a path_collection-confirmed descendant (HTTP 400). Opt-in via
-   the app setting (set in bicep); unset = lifted for production.
+   target isn't the root or a path_collection-confirmed descendant (HTTP 400). The live test app setting is
+   populated and must never be cleared. Current code treats absence as lifted, so making absence fail closed
+   is an explicit TKT-178 implementation prerequisite—not a production operating mode.
 3. **CLI/SDK wrappers here** pass literal ids resolved from the allowlist.
 4. **`flows/validate-flows.mjs` `BOX_ID_LITERAL_RE`** — no hard-coded Box ids in flows.
 
-Config: **`tools/box-scope.json`** `{ allowedRoot, allowedIds, liveReady }`. Children
+Config: **`tools/box-scope.json`** `{ allowedRoot, allowedIds, mode: "test_only" }`. The root and mode are
+immutable and the Bash/PowerShell hooks reject drift. Children
 created under an allowed parent are auto-tracked by `.claude/hooks/box-scope-postcreate.mjs`.
 
-**Verify (Gate 0):** `node tools/box/test-scope-guard.mjs` → expect `20 passed`.
+**Verify (Gate 0):** `node tools/box/test-scope-guard.mjs` → expect `30 passed`.
 
 ## Phase A — CCG auth probe
 

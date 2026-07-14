@@ -31,6 +31,8 @@ function deny(reason) {
   process.exit(0);
 }
 
+const TEST_ROOT = '392761581105';
+
 // Watchdog: never let the hook hang the shell. Well under the harness fail-closed deadline.
 // Fail-OPEN, because if this fires we have NOT positively identified a Box command.
 let decided = false;
@@ -99,7 +101,13 @@ async function main() {
   clearTimeout(watchdog);
   try {
     const cfg = lib.loadConfig();
-    if (cfg.liveReady) return allow();
+    if (cfg.liveReady) return deny('the retired liveReady production bypass is set; Box operations remain test-only.');
+    if (cfg.mode !== 'test_only') {
+      return deny(`tools/box-scope.json mode must remain test_only (got ${cfg.mode || 'missing'}).`);
+    }
+    if (cfg.allowedRoot !== TEST_ROOT) {
+      return deny(`the Box test root is immutable (${TEST_ROOT}); configured root ${cfg.allowedRoot} is refused.`);
+    }
     const root = cfg.allowedRoot;
     const allowed = new Set([root, ...cfg.allowedIds]);
     const a = lib.analyze(cmd);
@@ -117,7 +125,7 @@ async function main() {
         `Box id(s) [${bad.join(', ')}] are outside the test folder ${root}.\n` +
           `  In scope: root ${root} + ${cfg.allowedIds.length} tracked descendant id(s).\n` +
           `  A child created under the root is tracked automatically right after creation.\n` +
-          `  To operate beyond the test folder, set liveReady=true in tools/box-scope.json (only when ready for live).`,
+          `  No production bypass exists; TKT-178 requires a separate signed-run exact-object executor.`,
       );
     }
 

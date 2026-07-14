@@ -1,7 +1,8 @@
 # Changes — TKT-167: Keep image chasers available until every image rule passes
 
 ## Status
-Implemented and tested offline on `codex/tkt-167-image-gap-chasers`; reciprocal review, merge, deployment and live Chrome proof remain pending.
+Implemented and tested offline on `codex/tkt-167-image-gap-chasers`; merge, normal repository/CI checks,
+deployment and live Chrome proof remain pending. The retired reciprocal AI-review workflow is not required.
 
 ## Commits
 - `de25c90e547daf6aa9d6135ba9cf158ed28b0ef1` — derive editable image chasers from the same structured gaps used by canonical readiness and recompute them from the case's live evidence working copy.

@@ -34,3 +34,8 @@ PENDING
 VERIFIED-LIVE. Independent live SPA pass: QDOS26029 (needs_review) renders inside the Review queue (1 of 136) with the funnel at REVIEW; the Ready-for-EVA status filter returns exactly the 23 recorded movers (A.QDOS26001, A.PCH26010 et al) — first non-zero population live; every counting surface agrees (nav badges = queue tabs = dashboard pipeline = QUEUES snapshot at 155/136/59; drift from 154/135/59 is live intake); movement summary recorded in changes.md + evidence and corroborated by the orchestrator data pass (140/109/76/23 distribution). No engineering language in queue labels or filters. Expected absence: A.QDOS26029 itself honestly evaluates missing_images (role-unknown backfill residue) — that follow-up IS raised as TKT-131.
 
 Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.
+# Verification addendum — field-review ruling, 2026-07-13
+
+PENDING — no prior verdict proves removal of the blanket `needs_review` blocker or the no-write-on-view
+invariant. Re-verify with the complete field-state matrix, UI network/audit inspection and a backup-first
+live recomputation whose residual ledger explains every remaining blocker.

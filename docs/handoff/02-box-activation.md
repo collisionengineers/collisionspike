@@ -3,6 +3,12 @@
 _Author: **box-activator** (board task #3) · Date: **2026-06-28** · Mode: **APPROVED LIVE Azure changes applied**_
 _Scope: `rg-collisionspike-dev` (uksouth), sub `e6076573-23a5-46a8-acef-7e22d264e5db`._
 
+> **HISTORICAL ACTIVATION RECORD — do not use its remaining-work steps for production cutover.** The
+> authentication proof below is against the test/mirror scope. TKT-178 now blocks any production Archive
+> root switch, webhook target, write, rename, merge or retarget until the signed/checksummed job spreadsheet,
+> authenticated contract-verified production EVA API evidence, exact approved production root/write scope,
+> restore proof, frozen ledger hash and named window all pass. Never clear the scope lock.
+
 **TL;DR — Box is now LIVE.** The live smoke-test `GET /api/box/folders/392761581105/items` returns
 **HTTP 200** listing folder `CCPY26050`. The earlier 502 was **not** simply "vault empty" — it was a
 **stale box-fn deployment** running the old CCG-era `box_client.py`, which ignored `BOX_CONFIG_JSON`.
@@ -126,13 +132,15 @@ provenance and are explicitly **superseded** by the new top banner.)_
    in Box (with the `vehicle_registration` metadata), then set `BOX_FILE_REQUEST_TEMPLATE_ID` on
    `cespk-api-dev` + `cespk-orch-dev` (and box-fn if it mints File Requests). Until then File-Request copy
    no-ops (see fail-soft note above). Owner: `box-integration-architect`.
-2. **`FILE.UPLOADED` webhook subscription.** Subscribe the webhook (per-root or per-case) pointing at
+2. **`FILE.UPLOADED` webhook subscription.** Within the approved test/mirror scope, subscribe the webhook
+   (per-root or per-case) pointing at
    `https://cespkbox-fn-v76a47.azurewebsites.net/api/box-webhook`. The receiver verifies the dual-key HMAC
    against `box-webhook-primary-key` / `-secondary-key` (already in the vault, already matching the config).
    Then run the end-to-end upload → evidence-attach → `box_upload_received` audit → status-re-eval test.
-   This is the BLOCKING live-test for full intake activation.
-3. **Production scope-lock decision (`BOX_ALLOWED_ROOT_ID`).** Currently `392761581105` (test folder) pins
-   every op to that root. Clear it or repoint to the production archive root to go beyond the test folder.
+   This does not authorize a production-root subscription.
+3. **Production scope-lock decision (`BOX_ALLOWED_ROOT_ID`) — BLOCKED by TKT-178.** Currently
+   `392761581105` (test folder) pins every op to that root. Keep it fail-closed and never clear it. Repoint
+   only inside the approved TKT-178 future window to the exact approved production root.
 4. **Local hygiene.** `941197_re7d6t50_config.json` (cleartext, gitignored) can be deleted now that KV holds
    it — left in place per task instruction (do NOT delete the local cred file).
 

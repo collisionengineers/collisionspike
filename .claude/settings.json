@@ -2,19 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|mcp__.*(create_pull_request|create_pr|merge_pull_request|merge_pr|ready_for_review|mark.*ready|enable_auto_merge|auto.*merge).*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node",
-            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/pr-review.mjs"],
-            "timeout": 1800,
-            "statusMessage": "Preparing mandatory Claude and Codex PR reviews"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
@@ -36,7 +24,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",

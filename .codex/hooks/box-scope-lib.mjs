@@ -17,6 +17,7 @@ export function loadConfig() {
   return {
     allowedRoot: String(cfg.allowedRoot),
     allowedIds: (cfg.allowedIds || []).map(String),
+    mode: String(cfg.mode || ''),
     liveReady: cfg.liveReady === true,
   };
 }
@@ -39,9 +40,10 @@ export function appendAllowedId(id) {
 const BOX_CLI_RE = /(^|[\n;&|()`]\s*)(?:npx\s+)?box(?:\.cmd)?\s+[a-z][a-z0-9-]*\s*:\s*[a-z][a-z0-9-]*/i;
 const BOX_REST_RE = /\b(?:api|upload)\.box\.com\b/i;
 const BOX_SDK_RE = /\bbox[-_]sdk[-_]gen\b|\bBoxCCGAuth\b|\bBoxClient\b|\bboxsdk\b/;
+const BOX_TOOL_RE = /\btools[\\/]+box[\\/]+(?:phaseA-probe|phaseB-livetest)\.mjs\b/i;
 
 export function isBoxCommand(cmd) {
-  return BOX_CLI_RE.test(cmd) || BOX_REST_RE.test(cmd) || BOX_SDK_RE.test(cmd);
+  return BOX_CLI_RE.test(cmd) || BOX_REST_RE.test(cmd) || BOX_SDK_RE.test(cmd) || BOX_TOOL_RE.test(cmd);
 }
 
 // Extract every Box object id referenced by the command, plus webhook-create intent.

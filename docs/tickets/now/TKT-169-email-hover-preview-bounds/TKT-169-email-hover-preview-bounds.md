@@ -5,7 +5,7 @@ status: now
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-009, TKT-054, TKT-070, TKT-098]
-research-link: docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/hover-preview-overflow-live.png
+research-link: docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/TKT-to-distill.txt
 plan: PLAN-004
 ---
 
@@ -30,6 +30,19 @@ Replace the unbounded text tooltip with a viewport-aware preview surface. It mus
 - The inline table row stays a concise single-line preview; selecting the email still opens the existing full preview panel.
 - Component or layout-contract tests cover maximum height, overflow, placement boundary and keyboard access.
 - Signed-in live Chrome verification records a long-message preview at desktop and short/mobile viewport sizes with no clipping or console errors.
+- An intentional subject hover opens the preview within 150 ms and leaving both the subject and preview
+  closes it within 100 ms; there is no multi-second lag or stale preview left over another row.
+- Placement chooses above or below from the available space around the pointer/trigger and avoids covering
+  the adjacent Case/PO, registration and action columns when another fitting placement exists.
+- Moving the pointer from the subject into the preview keeps it open for reading/scrolling; rapid transit
+  across rows does not flash a series of previews or show content from the wrong email.
+
+## Validation
+
+- Fake-timer interaction tests assert the open/close thresholds, trigger-to-preview pointer path, rapid row
+  traversal, stale async content cancellation and above/below placement at viewport edges.
+- Signed-in Chrome verification records pointer timestamps and screenshots at top/middle/bottom rows,
+  including a long message and adjacent-column visibility, with keyboard behavior checked separately.
 
 ## Research
 Distilled 2026-07-13 from the supplied live inbox screenshot. The defect is in the compact hover/focus preview, not the existing full email preview panel.

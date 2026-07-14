@@ -1,22 +1,37 @@
 # Rollback procedures
 
-How to **reverse** each go-live action if its verify fails and can't be corrected forward. Every cutover
-action in [runbook.md](./runbook.md) is designed to be **bounded and reversible with no data loss** — a
-gate flips back, a bundle redeploys, a seed clears. This doc is the back-out map: for each thing the
-runbook changes, the exact command to undo it and how to confirm the undo took.
+How to recover when a go-live verify fails. Before EVA dispatch, approved cutover actions use a bounded
+typed inverse journal. EVA acceptance—or a lost response that may have been accepted—is an irreversible
+business-event boundary and requires forward recovery. This doc maps both cases; it does not claim every
+external action can be erased without consequence.
 
 Live numbers, gate values and function counts are **not** re-embedded here — read them from the registry
 [`architecture/live-environment.md`](../../architecture/live-environment.md) (single source
 [`LIVE_FACTS.json`](../../../LIVE_FACTS.json)). Deploy mechanics: [`docs/azure/deploy.md`](../../azure/deploy.md);
 DB mechanics: [`docs/azure/postgres.md`](../../azure/postgres.md).
 
-> **Platform routing.** `az` / `psql` / `pg_restore` run from **WSL2 Ubuntu** (az logged in there);
+> **Future-window material only.** No rollback command here authorises a cutover or compensating production
+> write. TKT-178 must first have all three global inputs (signed/checksummed spreadsheet, authenticated
+> contract-verified production EVA API evidence, and exact production Archive root with proven explicit
+> write/rename/merge/retarget authority), backup/restore proof, the frozen approved ledger hash and a named
+> window. Any Archive compensation must itself be precomputed in that ledger and remain inside the approved
+> scope; while those gates are absent, there is nothing to cut over or roll back.
+>
+> **Command text is not rollback authority.** A compensation write requires the same named run/fence plus a
+> specific pre-approved typed inverse from the signed journal. Do not renew/change Graph subscriptions, call
+> an ad hoc retro starter, mutate Outlook, create a case, write database/Archive/configuration state, or call
+> EVA merely because a command appears here. Outside an active approved inverse, all checks are read-only.
+
+> **Platform routing.** `az` / `psql` run from **WSL2 Ubuntu** (az logged in there);
 > node/npm/esbuild/git + `func publish`'s build steps + `swa deploy` run on **Windows**. State the
 > platform per command.
 
-> **Standing safety net.** **Manual case-create stays available throughout** — if any intake-plane change
-> misbehaves, staff keep working while you roll it back. No rollback below touches the live mailboxes or
-> the real Box archive (the Graph grant is `Mail.Read`; the archive roots are scope-locked read-only).
+> **Standing safety net.** While the TKT-178 fence is held or rollback is incomplete, manual/UI/API/admin
+> case creation and both allocators remain blocked. Graph webhook acknowledgement/enqueue and subscription
+> renewal stay alive so new arrivals wait durably; no rollback touches the live mailboxes. A future
+> TKT-178 production Archive compensation may act only on objects listed in the frozen approved inverse
+> ledger, through the recorded identity and approved write scope; no general or improvised Archive write is
+> permitted.
 
 ---
 
@@ -42,9 +57,10 @@ az functionapp config appsettings delete -g rg-collisionspike-dev -n <app> --set
 
 | Runbook step | Gate(s) set | Reverse with |
 |---|---|---|
+| 5 — production write/mint root | `BOX_ALLOWED_ROOT_ID` (box-webhook) + `BOX_FOLDER_ROOT_ID` (api + orch) | while the write fence is held, restore all three exact checksum-recorded pre-window values; never clear or guess a root id, and abort on mixed readback |
 | 5 — archive roots | `RETRO_BOX_ARCHIVE_ROOT_IDS` (orch), `BOX_READONLY_ROOT_IDS` (box-webhook app) | `delete` both → the retro Box rung goes dark (no archive scanned); `RETRO_CASE_ENABLED` R1 linking is unaffected |
 | 5 — optional R3 | `RETRO_OUTLOOK_SEARCH_ENABLED` (orch) | set `false` or `delete` |
-| 6 — File Request | `BOX_FILE_REQUEST_TEMPLATE_ID` (api + orch) | `delete` on both → the File-Request copy simply **no-ops** (harmless; no error) |
+| 5.6/6 — File Request | `BOX_FILE_REQUEST_TEMPLATE_ID` (api + orch) + production-target webhook | restore each app's exact prior value (delete only when its journal says prior absence); delete only a webhook whose checkpoint proves this run created that exact ID/target from prior absence, otherwise preserve/restore prior state |
 
 **Verify:** `az functionapp config appsettings list -g rg-collisionspike-dev -n <app> --query "[?name=='<KEY>']"`
 readback shows the prior value / empty; the dependent behaviour stops (e.g. a facade `box/search` under a
@@ -112,67 +128,111 @@ the live URL.
 
 ---
 
-## 4. Case/PO floor seed ([runbook step 4](./runbook.md))
+## 4. Case/PO floor seed ([runbook step 5](./runbook.md))
 
-The floor is **additive and non-destructive by construction**: `mintCasePo` / the `next-po` preview
-allocate `GREATEST(db max, floor) + 1` (`api/src/lib/case-po.ts`), so an **empty `case_po_floor` table = the
-original db-max behaviour**. Rolling back the seed is therefore just **clearing the floor rows** — no case
-data is affected.
+The floor influences every future allocation, and prior rows may already exist. Rollback restores each
+ledger-listed prefix's exact prior row/value and the allocator-mode checkpoint; it never clears the table.
 
 ```bash
-# WSL — postgres.md runbook: transient firewall rule → Entra digital@ → SET ROLE csadmin, then:
-DELETE FROM case_po_floor;                          -- clear all seeded floors (reverts to db-max)
--- …or DELETE FROM case_po_floor WHERE marker='…' AND principal_code='…';  -- surgical revert
+# WSL — illustrative typed inverse generated from the journal; never substitute ad hoc values:
+# prior row existed: restore exact floor_seq/note/updated_at under its run-written exact-old predicate
+INSERT INTO case_po_floor(prefix, floor_seq, note, updated_at)
+VALUES ('<prefix>', <prior-floor>, '<prior-note>', '<prior-updated-at>')
+ON CONFLICT (prefix) DO UPDATE SET floor_seq=EXCLUDED.floor_seq, note=EXCLUDED.note,
+  updated_at=EXCLUDED.updated_at
+WHERE case_po_floor.floor_seq=<run-floor> AND case_po_floor.updated_at='<run-updated-at>';
+# prior row was absent: delete only the exact row/version created by this run
+DELETE FROM case_po_floor
+WHERE prefix='<prefix>' AND floor_seq=<run-floor> AND updated_at='<run-updated-at>';
 ```
 
 Follow the full connect/firewall/`SET ROLE csadmin`/drop-rule sequence in
 [`docs/azure/postgres.md`](../../azure/postgres.md) (the app login `cespk_app` can't run this — it doesn't
-own the table). **Placeholder renumbering done in step 4 does not need reverting** — a real Case/PO stamped
-on a case is valid business data; leave it. Only the *floor* comes out.
+own the table). Do not decide ad hoc that a Case/PO renumber is permanent or reversible: the frozen TKT-178
+ledger must name every intended mapping and its approved compensation before the window. Every statement
+must assert the expected row count and stop on mismatch. Restore the allocator-mode entry at its actual LIFO
+position, but never disable fail-closed floor reads while any authoritative floor remains. Leave genuine
+post-window business data untouched unless that exact inverse was approved.
 
-**Verify:** `GET /api/cases/next-po?principal=<X>` no longer reports `source: 'floor'` (it falls back to the
-DB max) for the cleared principals; a fresh mint lands at db-max + 1, not above the archive.
+**Verify:** every listed prefix byte-matches its prior row/absence and allocator health/mode matches the
+approved prior state without exposing a prefix to fallback below an authoritative floor. Do not mint a
+disposable production case for verification.
 
 ---
 
-## 5. Data-correction reprocess ([runbook precondition](./runbook.md))
+## 5. Scoped database + production Archive compensation (TKT-178 future window)
+
+Before the window, the zero-write reconciliation must pair every proposed database Case/PO, merge, status,
+relationship/link or audit-preserving change and every Archive rename, merge, move or root retarget with its
+immutable ids, full before-state, expected post-state and an explicit inverse. Archive rows also retain
+parent/name/checksum or inventory proof. Rehearsal on a non-production copy must prove those scoped inverses
+without treating a Viewer-only or test root as production authorization. A whole-database restore is not the
+normal compensation because unrelated intake may have advanced since the snapshot.
+
+Before EVA dispatch, if a verify fails, keep or reacquire the scoped fence, stop cutover workers and load the
+durable inverse stack for the exact run/ledger hash. Pop one typed checkpoint at a time in strict LIFO order,
+apply only its approved inverse, verify its exact postcondition, then pop the next. Database, Archive and
+configuration checkpoints may be interleaved: never hard-code “DB first” or “Archive first.” Restore the Box
+Function and app roots only when their actual stack entries are reached. Treat an immutable, verified
+`mergedInto` lineage after response loss as idempotent success; do not blind-retry into `409`. On any failed
+inverse, stop with the fence held. Preserve conflicting/newer content and escalate it; never overwrite, merge
+or delete it to make the ledger balance. Restore queues/allocators/manual create last, only after every
+inverse and invariant passes. Record each compensation result against the same ledger hash.
+
+**Genuine canary compensation is preservation, not deletion.** If the ingress lease already created a real
+case/folder/evidence or staff edits before the EVA boundary, never erase them to force snapshot equality.
+Checkpoint every byte and identity, then either requeue/hold the case idempotently at the prior processing
+boundary or rebind/move it to the approved pre-window root/state using its specific inverse, while preserving
+all genuine content and audit. Pre-existing cutover rows return to approved pre-window state; the canary is
+separately balanced as preserved/held/rebound with no lost work.
+
+### EVA irreversible boundary
+
+Before the first production EVA dispatch, the LIFO path above remains available. Once EVA returns accepted,
+or a response is lost and acceptance is unknown, do not reverse identity-bearing Case/PO/Archive state or
+resubmit blindly as though no business event occurred. Query/status-check by the persisted operation and
+vendor correlation, reconcile the existing Case/PO/Archive identity forward, and retain the original
+request/response evidence. A vendor cancellation or business compensation needs separate explicit authority;
+flipping `EVA_API_ENABLED` only prevents another call and does not undo the first one.
+
+**Verify:** pre-existing database/Archive rows match their approved pre-window state; unrelated/newer records
+and objects are unchanged; all three root settings match their prior values; and every genuine canary byte,
+edit and identity is accounted as preserved/held/rebound. Durable queues resume from the saved checkpoint
+without duplication. A failed or incomplete inverse leaves the fence/window stopped and TKT-178 blocked—it
+is not a reason to broaden write scope.
+
+---
+
+## 6. Data-correction reprocess ([runbook precondition](./runbook.md))
 
 The go-live data step is an **in-place reprocess** of existing DB rows through the fixed classifier — **not**
 a mailbox wipe-and-rebuild (that was proven non-viable and abandoned; the DB is the complete record). It is
 designed **non-destructive and idempotent**: it re-derives classification/status on rows in place and can be
 **re-run** — so the first "rollback" for a bad reprocess is usually a **corrected re-run**, not a restore.
 
-**Backstop (only if a re-run can't recover it):** restore from the **pre-cutover `pg_dump`** taken before
-the reprocess (the full `-Fc` dump from the runbook precondition / [P0 rehearsal in the sprint
-plan](./README.md)):
-
-```bash
-# WSL — postgres.md runbook (transient firewall rule + Entra token), restore as the owner:
-pg_restore -l pre-cutover.dump          # confirm tables + row counts first (guards the FORCE-RLS zero-rows trap)
-pg_restore --host=cespk-pg-dev.postgres.database.azure.com --username=<entra-admin> \
-           --dbname=collisionspike --role=csadmin --clean --if-exists pre-cutover.dump
-```
-
-Restore is the **nuclear option** — it rewinds all derived state to the dump instant, discarding anything
-intake wrote since. Prefer the corrected re-run. Whichever you do, keep the pre-cutover dump until go-live
-is signed off. Row-count / RLS caveats (a FORCE-RLS dump can silently carry **zero** rows if taken as the
-wrong role): [`docs/azure/postgres.md`](../../azure/postgres.md).
+**Whole-database disaster recovery is outside TKT-178 authority.** This cutover document intentionally
+contains no executable whole-store restore command: such a restore can discard unrelated work created after
+the snapshot. A separately declared and approved disaster-recovery incident must use its own change freeze,
+impact approval, independently verified snapshot and the governed PostgreSQL procedure in
+[`docs/azure/postgres.md`](../../azure/postgres.md). TKT-178 always uses the exact scoped inverse ledger in
+§5; for a bad reprocess, prefer a corrected idempotent re-run. Keep the pre-cutover dump until independent
+go-live sign-off, but its existence never expands cutover rollback authority.
 
 **Verify:** the SPA shows correct category/status distributions again (match against the pre-reprocess
 baseline saved in P0); queue counts agree; no rows lost vs the dump's counts.
 
 ---
 
-## 6. The rest of the runbook — reversibility at a glance
+## 7. The rest of the runbook — reversibility at a glance
 
 | Runbook step | Rolls back by | Notes |
 |---|---|---|
 | 1 — PAYG upgrade | *not reversed* (and no reason to) | a billing offer change; leave it |
 | 2 — staff app-roles | Entra → **Enterprise applications** → the API app → **Users and groups** → remove the assignment | the person then `403`s again — expected |
 | 3 — provider corpus | additive seed: deactivate the added rows / clear the added `known_email_domains` via the [postgres.md](../../azure/postgres.md) `SET ROLE csadmin` runbook | data-only; matching falls back to the intermediary path |
-| 5 — retro Box rung | § 1 gate table above (`delete` the archive-root settings) | archive is read-only by scope lock — nothing to un-write |
-| 6 — File Request / webhook | clear `BOX_FILE_REQUEST_TEMPLATE_ID` (§ 1); **delete the `FILE.UPLOADED` webhook** via the facade `DELETE box/webhooks/{id}` (id in [LIVE_FACTS](../../../LIVE_FACTS.json)) | copy no-ops without the template id; the webhook stops firing |
-| 7 — EVA drag-drop | nothing to roll back (manual staff action; EVA REST stays gated) | — |
+| 4/5 — scoped database + production Archive/root work | before EVA dispatch, pop the durable typed inverse stack in actual reverse checkpoint order; DB/Archive/config steps may interleave (§5) | preserve unrelated/conflicting/newer content; no whole-DB rewind, improvised write or delete |
+| 5.6/6 — File Request / webhook | restore exact prior template values; delete only the immutable webhook checkpointed `created_by_run=true`, otherwise preserve/restore prior subscription state | registry facts are evidence, never inverse authority |
+| 7 — production EVA API reconciliation | before dispatch, use the approved inverse stack; after accepted/unknown, disable further dispatch if authorised and recover forward by persisted operation/correlation | a gate flip does not undo EVA; never blind-resubmit or replace proof with drag-drop |
 
 ---
 

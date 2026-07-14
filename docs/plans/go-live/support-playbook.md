@@ -16,6 +16,11 @@ not their current values.
 > op fails twice, invoke the matching `azure:*` skill or `microsoft-docs` to learn *why* before a third try.
 > For anything multi-step, dispatch the read-only **azure-diagnostician** agent rather than debugging in the
 > main loop.
+>
+> **Not a TKT-178 window tool.** This playbook starts only after cutover sign-off. While the TKT-178 fence
+> is held, do not use its manual Graph renewal or keyed retro starter: Graph renewal must remain unattended,
+> Outlook is read-only, and every case/database/Archive/EVA mutation is limited to the signed run ledger.
+> After sign-off, each mutating incident command still needs normal operator/incident authority.
 
 ## Before you query — the two traps
 
@@ -50,23 +55,27 @@ by the durable `subscriptionMonitorOrchestrator` (a plain timer can't wake the s
 
 **Symptom.** No `inbound_email` rows for an unusually long window; nothing arriving from any mailbox.
 
-**Confirm — monitor Running + subscriptions in-date (WSL):**
-```bash
-curl -s -X POST "https://cespk-orch-dev.azurewebsites.net/api/graph-renew?code=$(az functionapp keys list -g rg-collisionspike-dev -n cespk-orch-dev --query functionKeys.default -o tsv)"
-```
-Expect JSON `monitor.status = "Running"` and one active subscription per production mailbox, each
-`expirationDateTime` in the future (compare to the expiries in the registry). Then confirm an **unattended**
-renew has fired (`q.kql`, `--app cespk-orch-dev`):
+**Confirm — read only.** Use the approved Graph `GET /subscriptions/{id}` reader for every immutable
+subscription ID in `LIVE_FACTS.json`; require one active subscription per production mailbox with
+`expirationDateTime` in the future. Do not call the renewal endpoint to inspect state. For current operational
+diagnosis, pin the ordinary trace to the durable activity (`q.kql`, `--app cespk-orch-dev`):
 ```kusto
-customEvents | where name == "graph-renewal-success" | where timestamp > ago(24h) | order by timestamp desc
+traces
+| where timestamp > ago(24h) and operation_Name == "subscriptionMaintenance"
+| where message has '"evt":"graph-renewal-success"'
+| order by timestamp desc
 ```
+This distinguishes the current durable activity from `graph-renew-http` and `graph-renew` for incident
+diagnosis, but TKT-178 certification additionally requires the versioned source-bearing custom event in
+[day0-smoke.md](./day0-smoke.md); undifferentiated message text alone never passes that gate.
 
-**Fix.** The `POST /api/graph-renew` above **is** the immediate lever — it runs `runSubscriptionMaintenance`
-(create-missing + renew-all) synchronously. If `monitor.status` is not Running, that call re-bootstraps the
-singleton. Belt-and-braces (cost-flagged, not enabled by default) is the always-ready lever in the registry
-`subscriptionRenewalRisk.note`. **Known gap:** a mailbox *removed* from `GRAPH_INTAKE_MAILBOXES` is **not**
-auto-pruned — its old subscription must be deleted by hand (Graph `DELETE /subscriptions/{id}`) until the
-prune step lands ([gated.md B / GO_LIVE_SPRINT_PLAN P7](../../gated.md)).
+**Fix.** Only after read-only diagnosis and a separately named incident authorization may an operator invoke
+`POST /api/graph-renew`; it runs `runSubscriptionMaintenance` (create-missing + renew-all) synchronously and
+re-bootstraps the singleton if needed. Record the incident, caller, time and result. This manual repair
+invalidates TKT-178's unattended-renewal proof until a later source-bearing `durable_monitor` event succeeds.
+Belt-and-braces (cost-flagged, not enabled by default) is the always-ready lever in the registry
+`subscriptionRenewalRisk.note`. Subscription pruning is implemented; diagnose any unexpected extra
+subscription rather than deleting it ad hoc.
 
 ### Cause B — `graph-webhook` 499 / cold-start aborts
 
@@ -160,8 +169,12 @@ Reference: the `box-rest-api` skill (op contract, HMAC webhook order, limits).
 ## EVA export
 
 EVA **REST stays gated** (`EVA_API_ENABLED` absent — Minotaur's Sentry API routes only **one** principal
-code per submission). The live path is **drag-drop 12-field JSON**, so a failure here is almost never an EVA
-outage — it is the payload we produced.
+code per submission). The current ordinary-work fallback is **drag-drop 12-field JSON**, so a failure here
+is almost never an EVA outage — it is the payload we produced.
+
+This is ordinary-case support only. Drag-drop is not authenticated production API evidence and cannot
+satisfy or bypass TKT-178; the production Archive/root/sequence cutover remains blocked until the verified
+EVA API, signed spreadsheet and approved production Archive root/write scope all reconcile.
 
 **Symptom.** EVA rejects the dragged JSON, or rejects the image set.
 
@@ -287,15 +300,18 @@ number.
 **Symptom.** An unmatched billing / case_update / cancellation / query email that clearly belongs to a case
 neither links nor records a failure. `RETRO_CASE_ENABLED` is on; rung-1 any-status linking is **acting**.
 
-**Confirm / drive (WSL).** Find the candidate, then run the keyed starter:
+**Confirm — read only.** Start from one exact inbound-email ID named in the incident/ticket; never select an
+arbitrary candidate from the unlinked pile:
 ```sql
 SET ROLE csadmin;
 SELECT id, source_mailbox, received_on FROM inbound_email
-WHERE case_id IS NULL AND category_code IN (100000005,100000006) ORDER BY received_on DESC LIMIT 5;
+WHERE id = '<incident-approved-id>' AND case_id IS NULL;
 ```
+If the read-only evidence proves that exact row needs replay, a separately authorized incident repair may
+run the keyed starter for that same ID (never while the TKT-178 fence is held):
 ```bash
 ORCHKEY=$(az functionapp keys list -g rg-collisionspike-dev -n cespk-orch-dev --query functionKeys.default -o tsv)
-curl -s -X POST "https://cespk-orch-dev.azurewebsites.net/api/retro-case?code=$ORCHKEY" -H 'content-type: application/json' -d '{"inboundEmailId":"<id>"}'
+curl -s -X POST "https://cespk-orch-dev.azurewebsites.net/api/retro-case?code=$ORCHKEY" -H 'content-type: application/json' -d '{"inboundEmailId":"<incident-approved-id>"}'
 ```
 
 **Fix / expectation.** The row should gain a non-null `case_id` (matched on `case_ref`/`vrm`/thread,

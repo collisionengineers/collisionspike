@@ -1,7 +1,7 @@
 // box-scope-guard.mjs — BLOCKING PreToolUse guard for the Box integration build.
 //
-// Until tools/box-scope.json sets liveReady=true, every Box CLI/REST/SDK command must stay
-// within the test folder (allowedRoot) and its tracked descendants. Anything that references
+// Every Box CLI/REST/SDK/test-wrapper command must stay within the immutable test folder
+// and its tracked descendants. The former liveReady production bypass is retired. Anything that references
 // Box folder 0 or an id outside the allowlist is BLOCKED (exit 2; stderr is fed back as the
 // reason). Non-Box commands are always allowed (exit 0). For Box commands the guard FAILS
 // CLOSED: if it cannot validate, it blocks.
@@ -14,6 +14,8 @@ function deny(reason) {
   process.stderr.write('[box-scope-guard] BLOCKED — ' + reason + '\n');
   process.exit(2);
 }
+
+const TEST_ROOT = '392761581105';
 
 // Watchdog: never let the hook hang the shell. Well under the harness fail-closed deadline.
 // Fail-OPEN (exit 0), because if this fires we have NOT positively identified a Box command.
@@ -52,7 +54,7 @@ async function main() {
   let cmd = '';
   try {
     const ev = JSON.parse(raw || '{}');
-    if ((ev.tool_name || '') !== 'Bash') {
+    if (!['Bash', 'PowerShell'].includes(ev.tool_name || '')) {
       decided = true;
       clearTimeout(watchdog);
       process.exit(0); // not a Bash tool call — not our concern
@@ -86,8 +88,13 @@ async function main() {
   try {
     const cfg = lib.loadConfig();
     if (cfg.liveReady) {
-      process.stderr.write('[box-scope-guard] liveReady=true — scope guard lifted; Box op allowed.\n');
-      process.exit(0);
+      deny('the retired liveReady production bypass is set; Box operations remain test-only.');
+    }
+    if (cfg.mode !== 'test_only') {
+      deny(`tools/box-scope.json mode must remain test_only (got ${cfg.mode || 'missing'}).`);
+    }
+    if (cfg.allowedRoot !== TEST_ROOT) {
+      deny(`the Box test root is immutable (${TEST_ROOT}); configured root ${cfg.allowedRoot} is refused.`);
     }
     const root = cfg.allowedRoot;
     const allowed = new Set([root, ...cfg.allowedIds]);
@@ -106,7 +113,7 @@ async function main() {
         `Box id(s) [${bad.join(', ')}] are outside the test folder ${root}.\n` +
           `  In scope: root ${root} + ${cfg.allowedIds.length} tracked descendant id(s).\n` +
           `  A child created under the root is tracked automatically right after creation.\n` +
-          `  To operate beyond the test folder, set liveReady=true in tools/box-scope.json (only when ready for live).`,
+          `  No production bypass exists; TKT-178 requires a separate signed-run exact-object executor.`,
       );
     }
 

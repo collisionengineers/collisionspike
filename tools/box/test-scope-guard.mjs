@@ -11,6 +11,9 @@ const HERE = dirname(fileURLToPath(import.meta.url)); // tools/box
 const ROOT = resolve(HERE, '..', '..');
 const GUARD = resolve(ROOT, '.claude', 'hooks', 'box-scope-guard.mjs');
 const POST = resolve(ROOT, '.claude', 'hooks', 'box-scope-postcreate.mjs');
+const CURSOR_GUARD = resolve(ROOT, '.cursor', 'hooks', 'cursor-box-scope-guard.mjs');
+const PHASE_A = resolve(HERE, 'phaseA-probe.mjs');
+const PHASE_B = resolve(HERE, 'phaseB-livetest.mjs');
 const CONFIG = resolve(ROOT, 'tools', 'box-scope.json');
 const TEST_ROOT = '392761581105';
 
@@ -25,6 +28,26 @@ function run(script, ev) {
 }
 function bash(command) {
   return { tool_name: 'Bash', tool_input: { command } };
+}
+function runNode(script, args = []) {
+  return spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
+}
+function cursorPermission(command) {
+  const r = spawnSync(process.execPath, [CURSOR_GUARD], {
+    input: JSON.stringify({ command }),
+    encoding: 'utf8',
+  });
+  try {
+    return JSON.parse(r.stdout || '{}').permission;
+  } catch {
+    return undefined;
+  }
+}
+function powershell(command) {
+  return { tool_name: 'PowerShell', tool_input: { command } };
+}
+function writeConfig(cfg) {
+  writeFileSync(CONFIG, JSON.stringify(cfg, null, 2) + '\n');
 }
 function expect(label, got, want) {
   if (got === want) {
@@ -47,6 +70,8 @@ const deny = [
   ['parent-id 0 flag', 'box files:upload ./a.jpg --parent-id 0'],
 ];
 for (const [label, cmd] of deny) expect(`DENY ${label}`, run(GUARD, bash(cmd)).code, 2);
+expect('DENY PowerShell out-of-scope id', run(GUARD, powershell('box folders:get 999999')).code, 2);
+expect('DENY Cursor out-of-scope id', cursorPermission('box folders:get 999999'), 'deny');
 
 // ---- PreToolUse guard: ALLOW cases (exit 0) ----
 const allow = [
@@ -61,6 +86,21 @@ const allow = [
   ['non-box cat', 'cat box-integration-pivot/README.md'],
 ];
 for (const [label, cmd] of allow) expect(`ALLOW ${label}`, run(GUARD, bash(cmd)).code, 0);
+expect('ALLOW test wrapper under pinned config', run(GUARD, bash('node tools/box/phaseA-probe.mjs')).code, 0);
+expect('ALLOW Cursor test root', cursorPermission(`box folders:get ${TEST_ROOT}`), 'allow');
+
+// ---- Configuration bypasses are retired: any drift blocks every Box op ----
+const pristine = JSON.parse(snapshot);
+writeConfig({ ...pristine, liveReady: true });
+expect('DENY retired liveReady bypass', run(GUARD, bash(`box folders:get ${TEST_ROOT}`)).code, 2);
+expect('DENY Cursor retired liveReady bypass', cursorPermission(`box folders:get ${TEST_ROOT}`), 'deny');
+writeConfig({ ...pristine, mode: 'production' });
+expect('DENY non-test mode', run(GUARD, bash(`box folders:get ${TEST_ROOT}`)).code, 2);
+writeConfig({ ...pristine, allowedRoot: '999999', allowedIds: ['999999'] });
+expect('DENY configured-root drift', run(GUARD, bash('box folders:get 999999')).code, 2);
+expect('DENY phaseA wrapper configured-root drift', runNode(PHASE_A).status, 2);
+expect('DENY phaseB wrapper configured-root drift', runNode(PHASE_B, ['cleanup']).status, 2);
+writeConfig(pristine);
 
 // ---- PostToolUse grower: appends a child created under root ----
 const childId = '555000111222';

@@ -5,7 +5,7 @@ status: now
 priority: P1
 area: ui
 tickets-it-relates-to: [TKT-012, TKT-026, TKT-130, TKT-155, TKT-157]
-research-link: docs/tickets/now/TKT-168-unify-not-ready-language/evidence/not-ready-needs-review-live.png
+research-link: docs/tickets/now/TKT-168-unify-not-ready-language/evidence/followup-2026-07-13/info.md
 plan: PLAN-004
 ---
 
@@ -32,6 +32,18 @@ Keep the stored status value for compatibility, but translate it into the canoni
 - Queue reason counts and filtering continue to use the underlying status value while displaying the corrected label.
 - Component tests cover the shared status label and the Not Ready reason/filter presentation; a rendered-copy test prevents the contradictory phrase returning on case-status surfaces.
 - Live Chrome verification proves the Not Ready queue, affected rows and a case detail no longer show the contradictory status, while Review membership remains unchanged.
+- “Not ready” is a state, not a substitute for the reason. Every affected row and case detail shows the most
+  specific current blocker available (for example “Missing fields”, with the missing fields named when
+  opened); the generic label is used only when no more specific reason exists.
+- When several blockers apply, the summary is deterministic, the full set is discoverable, and filtering by
+  one blocker neither hides nor rewrites the others.
+
+## Validation
+
+- A status/reason matrix covers each canonical blocker alone and in combination, asserting queue label,
+  row badge, detail text, filter membership and accessible name from the same data.
+- Signed-in live proof samples at least one generic legacy row and one row per available specific blocker,
+  confirming the UI names what is actually preventing readiness and contains no contradictory “Needs review”.
 
 ## Research
 Distilled 2026-07-13 from the operator's live screenshots and the binding queue semantics in TKT-130. This is a language-consistency repair, not a new lifecycle state.
@@ -39,4 +51,5 @@ Distilled 2026-07-13 from the operator's live screenshots and the binding queue 
 ## Artifacts
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
+- [Operator Not Ready note](./evidence/followup-2026-07-13/info.md)
 

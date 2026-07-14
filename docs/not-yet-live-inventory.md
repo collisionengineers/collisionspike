@@ -16,6 +16,11 @@ TODO/stub markers.
 > repeat those steps, only indexes them alongside the other four categories gated.md doesn't cover.
 >
 > _Point-in-time snapshot — 2026-07-03. Re-derive from the sources above if this drifts._
+>
+> **Cutover supersession (2026-07-13):** TKT-178 is the authority for production
+> Archive/EVA/Case-PO work. No item in this older snapshot independently permits a root retarget, Archive
+> write or EVA production flip. The signed/checksummed spreadsheet, authenticated contract-verified
+> production EVA API and exact approved production Archive root/write scope are all mandatory.
 
 ## 1. Operator-blocked (needs a human to act)
 
@@ -23,17 +28,26 @@ Full detail and step-by-step instructions: **[gated.md](./gated.md)**. Summary o
 
 - Azure Free-Trial → Pay-As-You-Go upgrade (hard ~30-day deadline) — gated.md A1.
 - Staff app-role assignment incomplete — only one principal assigned, rest get 403 — gated.md C1.
-- Graph subscription-prune step missing (removed mailbox isn't auto-deleted) — gated.md §B.
+- TKT-178 Graph-renewal certification telemetry is missing: current shared trace text does not identify
+  durable vs manual/timer origin; the source-bearing custom event remains an engineering hard gate — gated.md §B.
 - `EVIDENCE_BLOB_CONNECTION` unset, orch MI not app-role-granted on the Data API, Monitor heartbeat alerts not wired — gated.md B3.
 - Outlook "real move" filing (TKT-054) — needs `Mail.ReadWrite` Exchange-RBAC grant + gate flip + manual live test — gated.md B4.
-- EVA test credentials needed before any EVA flag can flip — gated.md D1.
-- Box operator artifacts: template File Request id, `FILE.UPLOADED` webhook subscription, repoint `BOX_ALLOWED_ROOT_ID` off the test folder, delete the local cleartext Box config — gated.md D2 / [azure/box-activation.md](./azure/box-activation.md).
+- EVA REST remains blocked; test credentials are only an early prerequisite. Production activation also
+  requires every TKT-178 global gate and named window — gated.md D1.
+- Box test-scope artifacts may be prepared within the current mirror, but production webhook targeting and
+  any `BOX_ALLOWED_ROOT_ID`/`BOX_FOLDER_ROOT_ID` retarget remain blocked by TKT-178. The current facade cannot
+  pre-stage outside the mirror root, treats a missing scope lock as lifted and writes synchronously;
+  missing-value fail-closed behavior, exact-target staging and durable Box-event buffering are hard gates.
+  Never clear the scope lock — gated.md D2 /
+  [azure/box-activation.md](./azure/box-activation.md).
 - Missing provider email domains (DFD, Fairway, Regent, Castle, Stallion, Relay, NETWORK HD UK, YM Law) — gated.md D3/D4.
 - Rules-engine-v2 activation chain: sibling PR merge/tag, taxonomy DDL delta apply, identification seed delta apply, `EMAIL_AI_ENABLED` production flip (blocked also on an unimplemented `work_provider.ai_allowed` check), Foundry keyless-auth sign-off, live PII export approval — gated.md D6/D7/D8.
 - Parser Function key rotation (old key scrubbed from source but remains in git history) — gated.md D5.
 - Evidence-store hardening (Blob soft-delete/versioning/retention, Key Vault purge-protection) required before any disposition/purge job runs — gated.md E1.
 - Data-governance policy/legal inputs: retention period, anonymise-vs-delete policy, lawful basis, legal-hold rule, ICO registration, per-AI-gate sign-off — gated.md E2 / ADR-0017.
-- Ticket-level blockers: **TKT-004** (needs live/production Box root id), **TKT-010** (needs `Superuser` assignment for delete-case), **TKT-032** (needs an operator routing decision) — [tickets/BOARD.md](./tickets/BOARD.md).
+- Ticket-level blockers: **TKT-004** is now subordinate to TKT-178's complete three-input cutover gate (a
+  root id alone is insufficient); **TKT-010** needs `Superuser` assignment for delete-case; **TKT-032**
+  needs an operator routing decision — [tickets/BOARD.md](./tickets/BOARD.md).
 
 ## 2. Feature-gated-off (built + deployed, default-off flag)
 

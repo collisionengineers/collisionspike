@@ -145,3 +145,8 @@ The prior upload and backlog drain remain evidence for the older deployed sweep 
 - Deployment proof still required: apply the retry schema, deploy API/orchestration, start the monitor,
   upload a fresh eligible photo and force one transient classify/status failure. Verify later retry
   stamps the same row and drains its status generation without starving a newer row.
+# Follow-up verification requirement — 2026-07-13
+
+PENDING — the supplied file-request upload proves case matching but reports no image analysis. Before `done`,
+repeat that exact entry path and capture a terminal result for every image, the role/registration/reflection
+stamps, readiness/chaser recomputation, retry behavior and zero silently unknown residue.

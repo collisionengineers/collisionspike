@@ -31,7 +31,7 @@ step in this runbook ever targets folder `0`. The guard denies it unconditionall
 
 **ABSOLUTE RULE 2 — never outside `392761581105`.** Every folder/file/webhook/File-Request op
 must target `392761581105` or a tracked descendant. Children created under it are auto-appended
-to the allowlist by the post-create hook; nothing else is reachable until `liveReady:true`.
+to the allowlist by the post-create hook. Nothing else is reachable; the former `liveReady` bypass is retired.
 
 The guard is **four layers** (`tools/box/README.md`):
 
@@ -46,16 +46,14 @@ The guard is **four layers** (`tools/box/README.md`):
 ```
 node tools/box/test-scope-guard.mjs
 ```
-**PASS:** prints `20 passed` (20/20). **FAIL:** any non-pass → STOP; the guard is not armed, do
+**PASS:** prints `30 passed` (30/30). **FAIL:** any non-pass → STOP; the guard is not armed, do
 not issue a single Box command.
 
-> **Business-tenant scope decision — settle BEFORE Phase B (open question, [OP]).**
-> `392761581105` is the *free* account's folder. For a real Business test the operator must either
-> **(a)** designate a NEW archive root on the paid tenant and update **both** `tools/box-scope.json`
-> (`allowedRoot` + `allowedIds`) **and** the Function app setting `BOX_ALLOWED_ROOT_ID`, **or**
-> **(b)** keep `392761581105` if it is reachable on the Business tenant. Until that is settled, every
-> id below literally means "the designated test root". Do **not** set `liveReady:true` for this test —
-> that lifts the guard entirely and is reserved for production cutover.
+> **Business-tenant scope decision — fail closed before Phase B.** This harness may operate only on
+> `392761581105`. If that test folder is not reachable on the Business tenant, stop and create a separately
+> reviewed test-only harness change; do not repoint this config ad hoc. The former `liveReady` production
+> bypass is retired and must not be reintroduced. Production work belongs only to TKT-178's future
+> signed-run exact-object executor.
 
 ---
 
@@ -329,7 +327,7 @@ node tools/box/phaseB-livetest.mjs cleanup
 
 | Gate | Condition to proceed |
 |---|---|
-| **Gate-0** | `test-scope-guard.mjs` → 20/20 |
+| **Gate-0** | `test-scope-guard.mjs` → 30/30 |
 | **Gate A (STOP)** | probe → `GATE A PASS`; **`unauthorized_client` = STOP**, fix A1/A2, never proceed past it |
 | **B5** | webhook created on root + File Request copied (anonymous URL printed) |
 | **B7 (BLOCKING)** | anonymous File-Request upload delivers `FILE.UPLOADED` to the verified receiver, `is_upload=true` — or record the negative finding and do **not** flip `BOX_FILEREQUEST_ENABLED` |

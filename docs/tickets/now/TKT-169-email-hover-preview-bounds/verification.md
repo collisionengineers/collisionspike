@@ -12,3 +12,9 @@ TESTED (offline) — implementation, full tests and production build pass; deplo
 - Focused preview layout/interaction contract: PASS.
 - Full SPA: 469 tests PASS.
 - Domain and production SPA builds: PASS.
+
+## Follow-up verdict — 2026-07-13
+
+PENDING for the expanded acceptance. Add fake-timer coverage for the 150 ms open/100 ms close bounds,
+pointer transfer and stale-row cancellation, then record signed-in hover timing and placement at viewport
+edges.

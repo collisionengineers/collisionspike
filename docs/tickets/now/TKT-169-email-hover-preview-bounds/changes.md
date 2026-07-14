@@ -15,3 +15,8 @@ Implemented offline; deployment and independent live verification remain.
 - Focused status/preview regression: 4 tests passed.
 - Full SPA: 42 files / 469 tests passed.
 - Domain and production SPA builds passed; ticket and documentation gates passed.
+
+## Follow-up scope — 2026-07-13
+
+The supplied operator timing report adds measurable open/close responsiveness, cursor-aware placement and
+rapid-row traversal behavior. The earlier layout-only tests do not prove those interactions.
