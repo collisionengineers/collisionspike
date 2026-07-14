@@ -23,6 +23,7 @@ import {
   databaseSslOptions,
   decodeRetainedPlainText,
   emptyTextParse,
+  extractRawEmlMessageId,
   getParserFingerprint,
   hashFile,
   integrityHash,
@@ -51,7 +52,9 @@ const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
 const CASE_ID = '11111111-1111-4111-8111-111111111111';
 const EVIDENCE_ID = '22222222-2222-4222-8222-222222222222';
+const RAW_EML_ID = '22222222-2222-4222-8222-222222222223';
 const INBOUND_ID = '33333333-3333-4333-8333-333333333333';
+const FULL_MESSAGE_ID = '<inbound-message-1@example.test>';
 const PARSER_FINGERPRINT = Object.freeze({
   contract: 'ce-parser-fingerprint-v1',
   repository: 'collisionengineers/cedocumentmapper_v2.0',
@@ -208,7 +211,7 @@ function inboundRow(overrides = {}) {
   return {
     id: INBOUND_ID,
     case_id: CASE_ID,
-    source_message_id: 'inbound-message-1',
+    source_message_id: FULL_MESSAGE_ID,
     source_mailbox: 'info@example.test',
     graph_message_id: 'graph-message-1',
     received_on: new Date('2026-07-13T00:00:00.000Z'),
@@ -229,7 +232,7 @@ function planningCanonical() {
 
 function retainedTextFixture(body, overrides = {}) {
   const {
-    tokenSourceMessageId = 'inbound-message-1',
+    tokenSourceMessageId = FULL_MESSAGE_ID,
     pathGraphMessageId = 'graph-message-1',
     ...rowOverrides
   } = overrides;
@@ -249,6 +252,49 @@ function retainedTextFixture(body, overrides = {}) {
       ...rowOverrides,
     }),
   };
+}
+
+function rawEmlSiblingFixture(retained, messageId = FULL_MESSAGE_ID, overrides = {}) {
+  const token = /^email-body-([0-9a-f]{8})\.txt$/.exec(retained.row.file_name)?.[1];
+  if (!token) throw new Error('test retained body is not tokenized');
+  const directory = String(retained.row.storage_path).replace(/\\/g, '/').split('/').slice(0, -1).join('/');
+  const fileName = `message-${token}.eml`;
+  const bytes = overrides.bytes ?? Buffer.from([
+    'From: claims@example.test',
+    'To: info@example.test',
+    `Message-ID: ${messageId}`,
+    'Subject: Instruction',
+    '',
+    'Please inspect the vehicle.',
+  ].join('\r\n'), 'ascii');
+  return {
+    bytes,
+    row: evidenceRow({
+      id: RAW_EML_ID,
+      file_name: fileName,
+      content_type: 'message/rfc822',
+      size_bytes: bytes.length,
+      sha256: rawSha256(bytes),
+      storage_path: `${directory}/${fileName}`,
+      source_message_id: null,
+      kind: 'email',
+      kind_code: 100000002,
+      ...overrides.row,
+    }),
+  };
+}
+
+function sourceFetcher(fixtures) {
+  const bytesById = new Map(fixtures.map((fixture) => [fixture.row.id, fixture.bytes]));
+  return async (row) => {
+    const bytes = bytesById.get(row.id);
+    if (!bytes) throw new Error(`missing fixture bytes: ${row.id}`);
+    return bytes;
+  };
+}
+
+async function emptyExplodedEmail() {
+  return { bodyText: '', attachments: [], integrityFailures: [] };
 }
 
 function repairCase(overrides = {}) {
@@ -670,23 +716,24 @@ test('an unreadable retained source remains a sealed failed baseline row and aut
 
 test('retained plain text binds exact bytes and maps message/mailbox to inbound provenance', async () => {
   const retained = retainedTextFixture('Claimant: Ms Jane Example\r\n');
+  const rawEml = rawEmlSiblingFixture(retained);
   const inbound = inboundRow({ source_mailbox: 'desk@example.test', body_preview: '' });
   const secondInbound = inboundRow({
     id: '99999999-9999-4999-8999-999999999999',
-    source_message_id: 'inbound-message-1',
+    source_message_id: '<inbound-message-2@example.test>',
     source_mailbox: 'info@example.test',
     graph_message_id: 'graph-message-2',
     body_preview: '',
   });
   const item = await planOne(
     caseRow(),
-    [retained.row],
+    [retained.row, rawEml.row],
     [],
     [inbound, secondInbound],
     null,
     planningCanonical(),
     PARSER_FINGERPRINT_SHA,
-    { fetchEvidence: async () => retained.bytes },
+    { fetchEvidence: sourceFetcher([retained, rawEml]), explodeSourceEmail: emptyExplodedEmail },
   );
 
   assert.equal(item.outcome, 'repair');
@@ -701,12 +748,21 @@ test('retained plain text binds exact bytes and maps message/mailbox to inbound 
     kind: 'retained_plain_text',
     evidenceId: EVIDENCE_ID,
     inboundEmailId: INBOUND_ID,
-    sourceMessageIdSha256: rawSha256(Buffer.from('inbound-message-1')),
+    sourceMessageIdSha256: rawSha256(Buffer.from(FULL_MESSAGE_ID)),
     sourceMailboxSha256: rawSha256(Buffer.from('desk@example.test')),
     graphMessageIdSha256: rawSha256(Buffer.from('graph-message-1')),
-    bindingMethod: 'graph_storage_path',
+    bindingMethod: 'raw_eml_message_id',
     storagePath: retained.row.storage_path,
-    graphMessageId: 'graph-message-1',
+    graphMessageId: null,
+    graphPathProbes: [
+      { inboundEmailId: INBOUND_ID, graphMessageId: 'graph-message-1' },
+      { inboundEmailId: secondInbound.id, graphMessageId: 'graph-message-2' },
+    ],
+    rawEmlEvidenceId: RAW_EML_ID,
+    rawEmlStoragePath: rawEml.row.storage_path,
+    rawEmlMessageId: FULL_MESSAGE_ID,
+    rawEmlByteLength: rawEml.bytes.length,
+    rawEmlByteSha256: rawSha256(rawEml.bytes),
     byteLength: retained.bytes.length,
     byteSha256: rawSha256(retained.bytes),
   });
@@ -767,7 +823,7 @@ test('retained plain text binds exact bytes and maps message/mailbox to inbound 
             sourceMessageIdSha256: secondInboundState.sourceMessageIdSha256,
             sourceMailboxSha256: secondInboundState.sourceMailboxSha256,
             graphMessageIdSha256: secondInboundState.graphMessageIdSha256,
-            graphMessageId: secondInbound.graph_message_id,
+            graphMessageId: null,
           }
         : input),
     },
@@ -779,7 +835,25 @@ test('retained plain text binds exact bytes and maps message/mailbox to inbound 
     writeAllowlist: crossBoundAllowlist,
     statusRecomputeAllowlist: crossBoundAllowlist,
     cases: [crossBound],
-  })), /path does not match its inbound identity/);
+  })), /raw-email identity is not exactly bound|body convention does not match its inbound identity/);
+
+  const inventedGraphBinding = sealCase({
+    ...item,
+    sources: {
+      ...item.sources,
+      bodyInputs: item.sources.bodyInputs.map((input) => input.kind === 'retained_plain_text'
+        ? { ...input, bindingMethod: 'graph_storage_path', graphMessageId: inbound.graph_message_id }
+        : input),
+    },
+  });
+  const inventedGraphAllowlist = [{ caseId: inventedGraphBinding.caseId, caseSha256: inventedGraphBinding.caseSha256 }];
+  assert.throws(() => assertPlan(sealPlan({
+    ...plan,
+    counts: planCounts([inventedGraphBinding]),
+    writeAllowlist: inventedGraphAllowlist,
+    statusRecomputeAllowlist: inventedGraphAllowlist,
+    cases: [inventedGraphBinding],
+  })), /body path does not match its inbound identity/);
 
   for (const tampered of [
     sealCase({ ...item, patch: { eva_claimant_name: 'Mr Changed Claimant' } }),
@@ -834,6 +908,7 @@ test('retained plain text binds exact bytes and maps message/mailbox to inbound 
 test('claimant values over the database limit fail closed instead of being truncated', async () => {
   const overlongName = `Ms ${'Example'.repeat(30)}`;
   const retained = retainedTextFixture(`Claimant: ${overlongName}\n`);
+  const rawEml = rawEmlSiblingFixture(retained);
   const canonical = {
     ...planningCanonical(),
     supplementClaimantNameFromBody: () => ({
@@ -844,13 +919,13 @@ test('claimant values over the database limit fail closed instead of being trunc
   };
   const item = await planOne(
     caseRow(),
-    [retained.row],
+    [retained.row, rawEml.row],
     [],
     [inboundRow({ body_preview: '' })],
     null,
     canonical,
     PARSER_FINGERPRINT_SHA,
-    { fetchEvidence: async () => retained.bytes },
+    { fetchEvidence: sourceFetcher([retained, rawEml]), explodeSourceEmail: emptyExplodedEmail },
   );
 
   assert.equal(item.outcome, 'failed');
@@ -865,19 +940,21 @@ test('claimant values over the database limit fail closed instead of being trunc
 
 test('retained plain text without a token/mailbox inbound match fails before claimant authority', async () => {
   const retained = retainedTextFixture('Claimant: Ms Jane Example\n');
+  const rawEml = rawEmlSiblingFixture(retained);
   const item = await planOne(
     caseRow(),
-    [retained.row],
+    [retained.row, rawEml.row],
     [],
     [inboundRow({
-      source_message_id: 'different-message',
+      source_message_id: '<different-message@example.test>',
       source_mailbox: 'other@example.test',
+      graph_message_id: 'different-graph-message',
       body_preview: 'Claimant: Ms Jane Example',
     })],
     null,
     planningCanonical(),
     PARSER_FINGERPRINT_SHA,
-    { fetchEvidence: async () => retained.bytes },
+    { fetchEvidence: sourceFetcher([retained, rawEml]), explodeSourceEmail: emptyExplodedEmail },
   );
 
   assert.equal(item.outcome, 'failed');
@@ -893,47 +970,56 @@ test('retained plain text without a token/mailbox inbound match fails before cla
 
 test('apply-time revalidation locks tokenized retained text bytes and inbound identity', async () => {
   const retained = retainedTextFixture('Claimant: Ms Jane Example\n');
+  const rawEml = rawEmlSiblingFixture(retained);
   const inbound = inboundRow({ source_mailbox: 'desk@example.test', body_preview: '' });
   const item = await planOne(
     caseRow(),
-    [retained.row],
+    [retained.row, rawEml.row],
     [],
     [inbound],
     null,
     planningCanonical(),
     PARSER_FINGERPRINT_SHA,
-    { fetchEvidence: async () => retained.bytes },
+    { fetchEvidence: sourceFetcher([retained, rawEml]), explodeSourceEmail: emptyExplodedEmail },
   );
+  assert.equal(item.outcome, 'repair');
+  assert.equal(item.sources.bodyInputs.find((input) => input.kind === 'retained_plain_text')?.bindingMethod, 'raw_eml_message_id');
 
   const matched = await revalidateRetainedSourceBytes(
     item,
-    [retained.row],
+    [retained.row, rawEml.row],
     [inbound],
     null,
-    async () => retained.bytes,
+    sourceFetcher([retained, rawEml]),
   );
   assert.equal(matched.outcome, 'matched');
-  assert.equal(matched.sourceCount, 1);
-  assert.equal(matched.totalBytes, retained.bytes.length);
+  assert.equal(matched.sourceCount, 2);
+  assert.equal(matched.totalBytes, retained.bytes.length + rawEml.bytes.length);
 
   await assert.rejects(
-    revalidateRetainedSourceBytes(item, [retained.row], [inbound], null, async () => Buffer.from('changed')),
+    revalidateRetainedSourceBytes(
+      item,
+      [retained.row, rawEml.row],
+      [inbound],
+      null,
+      async (row) => row.id === retained.row.id ? Buffer.from('changed') : rawEml.bytes,
+    ),
     /source_bytes_changed/,
   );
   await assert.rejects(
-    revalidateRetainedSourceBytes(item, [retained.row], [{
+    revalidateRetainedSourceBytes(item, [retained.row, rawEml.row], [{
       ...inbound,
       source_message_id: 'changed-message',
       source_mailbox: 'changed@example.test',
       graph_message_id: 'changed-graph-message',
-    }], null, async () => retained.bytes),
+    }], null, sourceFetcher([retained, rawEml])),
     /inbound_email_state_changed_before_revalidation/,
   );
 });
 
 test('invalid retained plain text decode fails closed without a consumed-body authority record', async () => {
   const bytes = Buffer.from([0xc3, 0x28]);
-  const fileName = `email-body-${sourceBundle.helpers.messageFileToken('inbound-message-1')}.txt`;
+  const fileName = `email-body-${sourceBundle.helpers.messageFileToken(FULL_MESSAGE_ID)}.txt`;
   const row = evidenceRow({
     file_name: fileName,
     content_type: 'text/plain; charset=utf-8',
@@ -942,15 +1028,17 @@ test('invalid retained plain text decode fails closed without a consumed-body au
     storage_path: `graph-message-1/${fileName}`,
     source_message_id: null,
   });
+  const retained = { row, bytes };
+  const rawEml = rawEmlSiblingFixture(retained);
   const item = await planOne(
     caseRow(),
-    [row],
+    [row, rawEml.row],
     [],
     [inboundRow({ body_preview: '' })],
     null,
     planningCanonical(),
     PARSER_FINGERPRINT_SHA,
-    { fetchEvidence: async () => bytes },
+    { fetchEvidence: sourceFetcher([retained, rawEml]), explodeSourceEmail: emptyExplodedEmail },
   );
 
   assert.equal(item.outcome, 'failed');
@@ -987,6 +1075,28 @@ test('retained plain text requires exact names and rejects unsupported charset, 
   );
 });
 
+test('raw email identity extraction accepts one exact folded Message-ID and rejects ambiguous or malformed headers', () => {
+  const folded = Buffer.from([
+    'From: claims@example.test',
+    'Message-ID:',
+    '\t<one@example.test>',
+    'Subject: Instruction',
+    '',
+    'body',
+  ].join('\r\n'), 'ascii');
+  assert.equal(extractRawEmlMessageId(folded), '<one@example.test>');
+
+  for (const bytes of [
+    Buffer.from('From: claims@example.test\r\n\r\nbody', 'ascii'),
+    Buffer.from('Message-ID: <one@example.test>\r\nMessage-ID: <two@example.test>\r\n\r\nbody', 'ascii'),
+    Buffer.from('Message-ID: not-bracketed\r\n\r\nbody', 'ascii'),
+    Buffer.from(' Message-ID: <fold-without-parent@example.test>\r\n\r\nbody', 'ascii'),
+    Buffer.from('Message-ID: <tést@example.test>\r\n\r\nbody', 'utf8'),
+  ]) {
+    assert.throws(() => extractRawEmlMessageId(bytes), /raw email/);
+  }
+});
+
 test('arbitrary txt, MIME-only, and binary-MIME rows never enter the retained body lane', async () => {
   const tokenName = `email-body-${sourceBundle.helpers.messageFileToken('inbound-message-1')}.txt`;
   for (const [fileName, contentType, kind] of [
@@ -1020,29 +1130,28 @@ test('arbitrary txt, MIME-only, and binary-MIME rows never enter the retained bo
   }
 });
 
-test('tokenized retained text fails closed when its inbound token is ambiguous', async () => {
+test('tokenized retained text fails closed when its raw full Message-ID is duplicated', async () => {
   const retained = retainedTextFixture('Claimant: Ms Jane Example\n', {
-    pathGraphMessageId: 'graph/message',
+    pathGraphMessageId: 'historical-graph-message',
   });
-  const token = /email-body-([0-9a-f]{8})\.txt/.exec(retained.row.file_name)[1];
-  const canonical = { ...planningCanonical(), messageFileToken: () => token };
+  const rawEml = rawEmlSiblingFixture(retained);
   const item = await planOne(
     caseRow(),
-    [retained.row],
+    [retained.row, rawEml.row],
     [],
     [
-      inboundRow({ graph_message_id: 'graph/message', body_preview: 'Claimant: Ms Jane Example' }),
+      inboundRow({ graph_message_id: 'current-info-copy', body_preview: 'Claimant: Ms Jane Example' }),
       inboundRow({
         id: '88888888-8888-4888-8888-888888888888',
-        source_message_id: 'different-message',
-        graph_message_id: 'graph?message',
+        source_message_id: FULL_MESSAGE_ID,
+        graph_message_id: 'current-desk-copy',
         body_preview: 'Claimant: Ms Jane Example',
       }),
     ],
     null,
-    canonical,
+    planningCanonical(),
     PARSER_FINGERPRINT_SHA,
-    { fetchEvidence: async () => retained.bytes },
+    { fetchEvidence: sourceFetcher([retained, rawEml]), explodeSourceEmail: emptyExplodedEmail },
   );
   assert.equal(item.outcome, 'failed');
   assert.deepEqual(item.patch, {});
@@ -1051,11 +1160,137 @@ test('tokenized retained text fails closed when its inbound token is ambiguous',
   assert.match(item.failures[0].message, /multiple inbound email rows/);
 });
 
-test('tokenized retained text uses its Graph storage path to disambiguate duplicate delivery across mailboxes', async () => {
+test('a historical Graph path never falls back to the truncated filename token alone', async () => {
+  const retained = retainedTextFixture('Claimant: Ms Jane Example\n', {
+    pathGraphMessageId: 'historical-graph-message',
+  });
+  const item = await planOne(
+    caseRow(),
+    [retained.row],
+    [],
+    [inboundRow({ graph_message_id: 'current-info-copy', body_preview: '' })],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: async () => retained.bytes },
+  );
+
+  assert.equal(item.outcome, 'failed');
+  assert.deepEqual(item.patch, {});
+  assert.equal(item.sources.bodyInputs.some((input) => input.kind === 'retained_plain_text'), false);
+  assert.equal(item.failures.length, 1);
+  assert.match(item.failures[0].message, /no exact same-directory raw-email sibling/);
+});
+
+test('a sole colliding 32-bit token cannot impersonate the raw email full Message-ID', async () => {
+  const retainedMessageId = '<collision-64259@example.test>';
+  const wrongInboundMessageId = '<collision-78167@example.test>';
+  assert.equal(
+    sourceBundle.helpers.messageFileToken(retainedMessageId),
+    sourceBundle.helpers.messageFileToken(wrongInboundMessageId),
+  );
+  const retained = retainedTextFixture('Claimant: Ms Jane Example\n', {
+    tokenSourceMessageId: retainedMessageId,
+    pathGraphMessageId: 'graph/message',
+  });
+  const rawEml = rawEmlSiblingFixture(retained, retainedMessageId);
+  const item = await planOne(
+    caseRow(),
+    [retained.row, rawEml.row],
+    [],
+    [inboundRow({
+      source_message_id: wrongInboundMessageId,
+      graph_message_id: 'graph?message',
+      body_preview: '',
+    })],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: sourceFetcher([retained, rawEml]), explodeSourceEmail: emptyExplodedEmail },
+  );
+
+  assert.equal(item.outcome, 'failed');
+  assert.deepEqual(item.patch, {});
+  assert.equal(item.sources.bodyInputs.some((input) => input.kind === 'retained_plain_text'), false);
+  assert.match(
+    item.failures.find((failure) => failure.evidenceId === retained.row.id)?.message ?? '',
+    /raw-email identity disagrees with its Graph storage path/,
+  );
+});
+
+test('raw-email fallback requires exact body/sibling paths and exact raw MIME typing', async () => {
+  const fullMessageId = '<inbound-message-1@example.test>';
+  for (const variant of ['wrong_body_filename', 'near_mime']) {
+    const retained = retainedTextFixture('Claimant: Ms Jane Example\n', {
+      tokenSourceMessageId: fullMessageId,
+      pathGraphMessageId: 'historical-graph-message',
+    });
+    if (variant === 'wrong_body_filename') retained.row.storage_path = 'historical-graph-message/wrong.txt';
+    const rawEml = rawEmlSiblingFixture(retained, fullMessageId, variant === 'near_mime'
+      ? { row: { content_type: 'application/message/rfc822-ish' } }
+      : {});
+    const item = await planOne(
+      caseRow(),
+      [retained.row, rawEml.row],
+      [],
+      [inboundRow({
+        source_message_id: fullMessageId,
+        graph_message_id: 'current-graph-message',
+        body_preview: '',
+      })],
+      null,
+      planningCanonical(),
+      PARSER_FINGERPRINT_SHA,
+      { fetchEvidence: sourceFetcher([retained, rawEml]), explodeSourceEmail: emptyExplodedEmail },
+    );
+    assert.equal(item.outcome, 'failed', variant);
+    assert.equal(item.sources.bodyInputs.some((input) => input.kind === 'retained_plain_text'), false, variant);
+    assert.match(
+      item.failures.find((failure) => failure.evidenceId === retained.row.id)?.message ?? '',
+      variant === 'wrong_body_filename' ? /does not end with its exact filename/ : /no exact same-directory raw-email sibling/,
+      variant,
+    );
+  }
+});
+
+test('raw-email full identity remains ambiguous across duplicate mailbox deliveries without a path match', async () => {
+  const fullMessageId = '<inbound-message-1@example.test>';
+  const retained = retainedTextFixture('Claimant: Ms Jane Example\n', {
+    tokenSourceMessageId: fullMessageId,
+    pathGraphMessageId: 'historical-graph-message',
+  });
+  const rawEml = rawEmlSiblingFixture(retained, fullMessageId);
+  const duplicate = inboundRow({
+    id: '88888888-8888-4888-8888-888888888888',
+    source_mailbox: 'desk@example.test',
+    graph_message_id: 'current-desk-copy',
+    body_preview: '',
+  });
+  const item = await planOne(
+    caseRow(),
+    [retained.row, rawEml.row],
+    [],
+    [inboundRow({ source_message_id: fullMessageId, graph_message_id: 'current-info-copy', body_preview: '' }), {
+      ...duplicate,
+      source_message_id: fullMessageId,
+    }],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: sourceFetcher([retained, rawEml]), explodeSourceEmail: emptyExplodedEmail },
+  );
+
+  assert.equal(item.outcome, 'failed');
+  assert.deepEqual(item.patch, {});
+  assert.match(item.failures.find((failure) => failure.evidenceId === retained.row.id)?.message ?? '', /multiple inbound email rows/);
+});
+
+test('a Graph path cannot disambiguate duplicate raw full Message-ID deliveries', async () => {
   const retained = retainedTextFixture('Claimant: Ms Jane Example\n', {
     pathGraphMessageId: 'graph-info-copy',
   });
-  const sourceMessageId = 'shared-internet-message-id';
+  const rawEml = rawEmlSiblingFixture(retained);
+  const sourceMessageId = FULL_MESSAGE_ID;
   const selected = inboundRow({
     source_message_id: sourceMessageId,
     source_mailbox: 'info@example.test',
@@ -1069,26 +1304,356 @@ test('tokenized retained text uses its Graph storage path to disambiguate duplic
     graph_message_id: 'graph-desk-copy',
     body_preview: '',
   });
-  retained.row.file_name = `email-body-${sourceBundle.helpers.messageFileToken(sourceMessageId)}.txt`;
-  retained.row.storage_path = `graph-info-copy/${retained.row.file_name}`;
-
   const item = await planOne(
     caseRow(),
-    [retained.row],
+    [retained.row, rawEml.row],
     [],
     [selected, otherMailbox],
     null,
     planningCanonical(),
     PARSER_FINGERPRINT_SHA,
-    { fetchEvidence: async () => retained.bytes },
+    { fetchEvidence: sourceFetcher([retained, rawEml]), explodeSourceEmail: emptyExplodedEmail },
+  );
+
+  assert.equal(item.outcome, 'failed');
+  assert.deepEqual(item.patch, {});
+  assert.equal(item.sources.bodyInputs.some((input) => input.kind === 'retained_plain_text'), false);
+  assert.match(
+    item.failures.find((failure) => failure.evidenceId === retained.row.id)?.message ?? '',
+    /raw-email identity disagrees with its Graph storage path/,
+  );
+});
+
+test('sealed Graph-path bindings reject sanitized path collisions for tokenized and legacy body files', async () => {
+  for (const legacy of [false, true]) {
+    const sourceMessageId = legacy ? '<shared-path@example.test>' : '<collision-64259@example.test>';
+    const collidingMessageId = legacy ? '<other-shared-path@example.test>' : '<collision-78167@example.test>';
+    if (!legacy) {
+      assert.equal(
+        sourceBundle.helpers.messageFileToken(sourceMessageId),
+        sourceBundle.helpers.messageFileToken(collidingMessageId),
+      );
+    }
+    const retained = retainedTextFixture('Claimant: Ms Jane Example\n', legacy
+      ? {
+          file_name: 'email-body.txt',
+          storage_path: 'archive/graph_message/email-body.txt',
+        }
+      : {
+          tokenSourceMessageId: sourceMessageId,
+          pathGraphMessageId: 'graph/message',
+        });
+    const rawEml = legacy ? null : rawEmlSiblingFixture(retained, sourceMessageId);
+    const sourceRows = legacy ? [retained.row] : [retained.row, rawEml.row];
+    const selected = inboundRow({
+      source_message_id: sourceMessageId,
+      graph_message_id: 'graph/message',
+      body_preview: '',
+    });
+    const colliding = inboundRow({
+      id: '88888888-8888-4888-8888-888888888888',
+      source_message_id: collidingMessageId,
+      source_mailbox: 'desk@example.test',
+      graph_message_id: 'graph?message',
+      body_preview: '',
+    });
+    const item = await planOne(
+      caseRow(),
+      sourceRows,
+      [],
+      [selected],
+      null,
+      planningCanonical(),
+      PARSER_FINGERPRINT_SHA,
+      {
+        fetchEvidence: legacy ? async () => retained.bytes : sourceFetcher([retained, rawEml]),
+        explodeSourceEmail: emptyExplodedEmail,
+      },
+    );
+    assert.equal(item.outcome, 'repair', legacy ? 'legacy' : 'tokenized');
+
+    const inboundRows = [selected, colliding];
+    const forged = sealCase({
+      ...item,
+      preconditions: buildPreconditions(caseRow(), sourceRows, [], sourceRows, inboundRows, fakeCanonical()),
+      sources: {
+        ...item.sources,
+        inbound: inboundRows.map(inboundState).sort((left, right) => left.inboundEmailId.localeCompare(right.inboundEmailId)),
+        bodyInputs: item.sources.bodyInputs.map((input) => input.kind === 'retained_plain_text'
+          ? {
+              ...input,
+              graphPathProbes: inboundRows.map((row) => ({
+                inboundEmailId: row.id,
+                graphMessageId: row.graph_message_id,
+              })).sort((left, right) => left.inboundEmailId.localeCompare(right.inboundEmailId)),
+            }
+          : input),
+      },
+    });
+    const environment = {
+      label: 'production-readiness-remediation',
+      databaseName: 'collisionspike',
+      host: 'database.example.test',
+      port: 5432,
+    };
+    const allowlist = [{ caseId: forged.caseId, caseSha256: forged.caseSha256 }];
+    const forgedPlan = sealPlan({
+      contract: PLAN_CONTRACT,
+      scope: AUTHORIZED_SCOPE,
+      createdAt: '2026-07-14T00:00:00.000Z',
+      environment,
+      environmentSha256: integrityHash(environment),
+      runnerSha256: HASH_A,
+      parserFingerprint: PARSER_FINGERPRINT,
+      parserFingerprintSha256: PARSER_FINGERPRINT_SHA,
+      selection: { kind: 'full_baseline' },
+      counts: planCounts([forged]),
+      writeAllowlist: allowlist,
+      statusRecomputeAllowlist: allowlist,
+      cases: [forged],
+    });
+    assert.throws(
+      () => assertPlan(forgedPlan),
+      legacy ? /path does not match its inbound identity/ : /raw-email identity is not exactly bound/,
+      legacy ? 'legacy' : 'tokenized',
+    );
+    await assert.rejects(
+      revalidateRetainedSourceBytes(
+        forged,
+        sourceRows,
+        inboundRows,
+        null,
+        legacy ? async () => retained.bytes : sourceFetcher([retained, rawEml]),
+      ),
+      /retained_text_graph_path_binding_changed/,
+      legacy ? 'legacy' : 'tokenized',
+    );
+  }
+});
+
+test('tokenized retained text uses its same-directory raw email full Message-ID when the Graph path is historical', async () => {
+  const fullMessageId = '<inbound-message-1@example.test>';
+  const retained = retainedTextFixture('Claimant: Ms Jane Example\n', {
+    tokenSourceMessageId: fullMessageId,
+    pathGraphMessageId: 'historical-graph-message',
+  });
+  const rawEml = rawEmlSiblingFixture(retained, fullMessageId);
+  const inbound = inboundRow({
+    source_message_id: fullMessageId,
+    graph_message_id: 'current-graph-message-after-move',
+    body_preview: '',
+  });
+  const item = await planOne(
+    caseRow(),
+    [retained.row, rawEml.row],
+    [],
+    [inbound],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: sourceFetcher([retained, rawEml]), explodeSourceEmail: emptyExplodedEmail },
   );
 
   assert.equal(item.outcome, 'repair');
-  assert.deepEqual(item.sourceInboundEmailIds, [selected.id]);
+  assert.deepEqual(item.sourceInboundEmailIds, [inbound.id]);
+  assert.deepEqual(item.sourceEvidenceIds, [retained.row.id]);
   const consumed = item.sources.bodyInputs.find((input) => input.kind === 'retained_plain_text');
-  assert.equal(consumed.inboundEmailId, selected.id);
-  assert.equal(consumed.graphMessageId, selected.graph_message_id);
-  assert.equal(consumed.bindingMethod, 'graph_storage_path');
+  assert.equal(consumed.bindingMethod, 'raw_eml_message_id');
+  assert.equal(consumed.graphMessageId, null);
+  assert.equal(consumed.storagePath, retained.row.storage_path);
+  assert.equal(consumed.rawEmlEvidenceId, rawEml.row.id);
+  assert.equal(consumed.rawEmlStoragePath, rawEml.row.storage_path);
+  assert.equal(consumed.rawEmlMessageId, inbound.source_message_id);
+  assert.equal(consumed.rawEmlByteSha256, rawSha256(rawEml.bytes));
+  assert.deepEqual(consumed.graphPathProbes, [{
+    inboundEmailId: inbound.id,
+    graphMessageId: inbound.graph_message_id,
+  }]);
+
+  const environment = {
+    label: 'production-readiness-remediation',
+    databaseName: 'collisionspike',
+    host: 'database.example.test',
+    port: 5432,
+  };
+  const allowlist = [{ caseId: item.caseId, caseSha256: item.caseSha256 }];
+  const plan = sealPlan({
+    contract: PLAN_CONTRACT,
+    scope: AUTHORIZED_SCOPE,
+    createdAt: '2026-07-14T00:00:00.000Z',
+    environment,
+    environmentSha256: integrityHash(environment),
+    runnerSha256: HASH_A,
+    parserFingerprint: PARSER_FINGERPRINT,
+    parserFingerprintSha256: PARSER_FINGERPRINT_SHA,
+    selection: { kind: 'full_baseline' },
+    counts: planCounts([item]),
+    writeAllowlist: allowlist,
+    statusRecomputeAllowlist: allowlist,
+    cases: [item],
+  });
+  assert.equal(assertPlan(plan), plan);
+
+  const missingProbe = sealCase({
+    ...item,
+    sources: {
+      ...item.sources,
+      bodyInputs: item.sources.bodyInputs.map((input) => input.kind === 'retained_plain_text'
+        ? { ...input, graphPathProbes: [] }
+        : input),
+    },
+  });
+  const missingProbeAllowlist = [{ caseId: missingProbe.caseId, caseSha256: missingProbe.caseSha256 }];
+  assert.throws(() => assertPlan(sealPlan({
+    ...plan,
+    counts: planCounts([missingProbe]),
+    writeAllowlist: missingProbeAllowlist,
+    statusRecomputeAllowlist: missingProbeAllowlist,
+    cases: [missingProbe],
+  })), /Graph path probes are incomplete/);
+
+  const duplicateInbound = inboundRow({
+    id: '88888888-8888-4888-8888-888888888888',
+    source_message_id: fullMessageId,
+    source_mailbox: 'desk@example.test',
+    graph_message_id: 'current-desk-copy',
+    body_preview: '',
+  });
+  const duplicateInboundRows = [inbound, duplicateInbound];
+  const duplicateInboundStates = duplicateInboundRows
+    .map(inboundState)
+    .sort((left, right) => left.inboundEmailId.localeCompare(right.inboundEmailId));
+  const duplicateCase = sealCase({
+    ...item,
+    preconditions: buildPreconditions(
+      caseRow(),
+      [retained.row, rawEml.row],
+      [],
+      [retained.row, rawEml.row],
+      duplicateInboundRows,
+      fakeCanonical(),
+    ),
+    sources: {
+      ...item.sources,
+      inbound: duplicateInboundStates,
+      bodyInputs: item.sources.bodyInputs.map((input) => input.kind === 'retained_plain_text'
+        ? {
+            ...input,
+            graphPathProbes: duplicateInboundRows.map((row) => ({
+              inboundEmailId: row.id,
+              graphMessageId: row.graph_message_id,
+            })).sort((left, right) => left.inboundEmailId.localeCompare(right.inboundEmailId)),
+          }
+        : input),
+    },
+  });
+  const duplicateAllowlist = [{ caseId: duplicateCase.caseId, caseSha256: duplicateCase.caseSha256 }];
+  assert.throws(() => assertPlan(sealPlan({
+    ...plan,
+    counts: planCounts([duplicateCase]),
+    writeAllowlist: duplicateAllowlist,
+    statusRecomputeAllowlist: duplicateAllowlist,
+    cases: [duplicateCase],
+  })), /raw-email identity is not exactly bound/);
+
+  for (const variant of ['body', 'raw_eml']) {
+    const forgedRows = [
+      variant === 'body' ? { ...retained.row, sha256: HASH_A } : retained.row,
+      variant === 'raw_eml' ? { ...rawEml.row, sha256: HASH_A } : rawEml.row,
+    ];
+    const bytesById = new Map([[retained.row.id, retained.bytes], [rawEml.row.id, rawEml.bytes]]);
+    const forgedReads = forgedRows
+      .map((row) => sourceReadRecord(row, bytesById.get(row.id)))
+      .sort((left, right) => left.evidenceId.localeCompare(right.evidenceId));
+    const forgedDeclaredShaCase = sealCase({
+      ...item,
+      preconditions: buildPreconditions(caseRow(), forgedRows, [], forgedRows, [inbound], fakeCanonical()),
+      sources: {
+        ...item.sources,
+        metadata: forgedRows.map(sourceMetadata).sort((left, right) => left.evidenceId.localeCompare(right.evidenceId)),
+        reads: forgedReads,
+      },
+    });
+    const forgedAllowlist = [{
+      caseId: forgedDeclaredShaCase.caseId,
+      caseSha256: forgedDeclaredShaCase.caseSha256,
+    }];
+    assert.throws(() => assertPlan(sealPlan({
+      ...plan,
+      counts: planCounts([forgedDeclaredShaCase]),
+      writeAllowlist: forgedAllowlist,
+      statusRecomputeAllowlist: forgedAllowlist,
+      cases: [forgedDeclaredShaCase],
+    })), variant === 'body' ? /not bound to its exact source bytes/ : /raw-email identity is not exactly bound/);
+    await assert.rejects(
+      revalidateRetainedSourceBytes(
+        forgedDeclaredShaCase,
+        forgedRows,
+        [inbound],
+        null,
+        async (row) => bytesById.get(row.id),
+      ),
+      variant === 'body' ? /retained_text_declared_sha_mismatch/ : /raw_eml_identity_source_missing_or_untrusted/,
+    );
+  }
+
+  const revalidated = await revalidateRetainedSourceBytes(
+    item,
+    [retained.row, rawEml.row],
+    [inbound],
+    null,
+    sourceFetcher([retained, rawEml]),
+  );
+  assert.equal(revalidated.outcome, 'matched');
+  assert.equal(revalidated.sourceCount, 2);
+
+  await assert.rejects(
+    revalidateRetainedSourceBytes(
+      duplicateCase,
+      [retained.row, rawEml.row],
+      duplicateInboundRows,
+      null,
+      sourceFetcher([retained, rawEml]),
+    ),
+    /raw_eml_message_id_changed_before_revalidation/,
+  );
+
+  const wrongRawEml = rawEmlSiblingFixture(retained, '<wrong@example.test>');
+  const wrongRawRow = {
+    ...wrongRawEml.row,
+    size_bytes: wrongRawEml.bytes.length,
+    sha256: rawSha256(wrongRawEml.bytes),
+  };
+  const wrongRows = [retained.row, wrongRawRow];
+  const wrongRead = sourceReadRecord(wrongRawRow, wrongRawEml.bytes);
+  const forgedItem = {
+    ...item,
+    preconditions: buildPreconditions(caseRow(), wrongRows, [], wrongRows, [inbound], fakeCanonical()),
+    sources: {
+      ...item.sources,
+      metadata: wrongRows.map(sourceMetadata).sort((left, right) => left.evidenceId.localeCompare(right.evidenceId)),
+      reads: item.sources.reads
+        .map((read) => read.evidenceId === rawEml.row.id ? wrongRead : read)
+        .sort((left, right) => left.evidenceId.localeCompare(right.evidenceId)),
+      bodyInputs: item.sources.bodyInputs.map((input) => input.kind === 'retained_plain_text'
+        ? {
+            ...input,
+            rawEmlByteLength: wrongRawEml.bytes.length,
+            rawEmlByteSha256: rawSha256(wrongRawEml.bytes),
+          }
+        : input),
+    },
+  };
+  await assert.rejects(
+    revalidateRetainedSourceBytes(
+      forgedItem,
+      wrongRows,
+      [inbound],
+      null,
+      sourceFetcher([retained, { row: wrongRawRow, bytes: wrongRawEml.bytes }]),
+    ),
+    /raw_eml_message_id_changed_before_revalidation/,
+  );
 });
 
 test('legacy email-body.txt binds by deterministic graph-id path, with one-row fallback only', async () => {
@@ -1224,24 +1789,33 @@ test('legacy email-body.txt path ambiguity fails closed even when previews agree
 
 test('conflicting retained plain-text claimants remain visible and authorize no claimant write', async () => {
   const first = retainedTextFixture('Claimant: Ms Jane Example\n');
+  const firstRawEml = rawEmlSiblingFixture(first);
   const secondId = '77777777-7777-4777-8777-777777777777';
   const secondInboundId = '88888888-8888-4888-8888-888888888888';
+  const secondMessageId = '<inbound-message-2@example.test>';
   const second = retainedTextFixture('Claimant: Mr John Example\n', {
     id: secondId,
-    tokenSourceMessageId: 'inbound-message-2',
+    tokenSourceMessageId: secondMessageId,
+    pathGraphMessageId: 'graph-message-2',
+  });
+  const secondRawEml = rawEmlSiblingFixture(second, secondMessageId, {
+    row: { id: '22222222-2222-4222-8222-222222222224' },
   });
   const item = await planOne(
     caseRow(),
-    [first.row, second.row],
+    [first.row, firstRawEml.row, second.row, secondRawEml.row],
     [],
     [
       inboundRow({ body_preview: '' }),
-      inboundRow({ id: secondInboundId, source_message_id: 'inbound-message-2', body_preview: '' }),
+      inboundRow({ id: secondInboundId, source_message_id: secondMessageId, graph_message_id: 'graph-message-2', body_preview: '' }),
     ],
     null,
     planningCanonical(),
     PARSER_FINGERPRINT_SHA,
-    { fetchEvidence: async (row) => row.id === EVIDENCE_ID ? first.bytes : second.bytes },
+    {
+      fetchEvidence: sourceFetcher([first, firstRawEml, second, secondRawEml]),
+      explodeSourceEmail: emptyExplodedEmail,
+    },
   );
 
   assert.equal(item.outcome, 'conflicting');
@@ -1257,22 +1831,23 @@ test('QDOS-like PDF plus retained text repairs from text when the selected PDF d
   const pdf = evidenceRow({
     size_bytes: pdfBytes.length,
     sha256: rawSha256(pdfBytes),
-    source_message_id: 'inbound-message-1',
+    source_message_id: FULL_MESSAGE_ID,
   });
   const textId = '77777777-7777-4777-8777-777777777777';
   const retained = retainedTextFixture('Claimant: Ms Jane Example\n', {
     id: textId,
   });
+  const rawEml = rawEmlSiblingFixture(retained);
   const item = await planOne(
     caseRow(),
-    [pdf, retained.row],
+    [pdf, retained.row, rawEml.row],
     [],
     [inboundRow({ body_preview: '' })],
     null,
     planningCanonical(),
     PARSER_FINGERPRINT_SHA,
     {
-      fetchEvidence: async (row) => row.id === EVIDENCE_ID ? pdfBytes : retained.bytes,
+      fetchEvidence: sourceFetcher([{ row: pdf, bytes: pdfBytes }, retained, rawEml]),
       parseSourceDocument: async (doc) => ({
         doc: { ...doc, byteLength: doc.bytes.length, bytes: undefined },
         envelope: envelope({ claimant: '', provider: 'QDOS', docType: 'instruction' }),
@@ -1280,6 +1855,7 @@ test('QDOS-like PDF plus retained text repairs from text when the selected PDF d
         ocrApplied: false,
         ocrError: '',
       }),
+      explodeSourceEmail: emptyExplodedEmail,
     },
   );
 
