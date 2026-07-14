@@ -29,6 +29,10 @@ vi.mock('../lib/inspection-prefill.js', () => ({
 }));
 vi.mock('../lib/overview-chase.js', () => ({ maybeSuggestOverviewChase: vi.fn(async () => false) }));
 vi.mock('../lib/functions-client.js', () => ({ listBoxFolderNames: vi.fn(async () => []) }));
+const providerRecovery = vi.hoisted(() => ({ complete: vi.fn() }));
+vi.mock('../lib/provider-recovery.js', () => ({
+  completeProviderRecoveryUsing: providerRecovery.complete,
+}));
 
 type Rec = Record<string, unknown>;
 const db = vi.hoisted(() => ({
@@ -113,6 +117,8 @@ beforeEach(() => {
   db.query.mockReset();
   db.tx.mockReset();
   db.txQuery.mockReset();
+  providerRecovery.complete.mockReset();
+  providerRecovery.complete.mockResolvedValue({ outcome: 'not_needed', holdCleared: false });
   (ctx.warn as ReturnType<typeof vi.fn>).mockClear();
   db.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
     poolSql.push(sql);
@@ -148,6 +154,15 @@ beforeEach(() => {
     if (/SELECT id, duplicate_keys FROM case_ WHERE id = \$1 FOR UPDATE/i.test(sql)) {
       const row = cases.get(params[0] as string);
       return row ? [{ id: row.id, duplicate_keys: row.duplicate_keys ?? null }] : [];
+    }
+    if (/SELECT id[\s\S]*provider_archive_completed_generation < provider_archive_requested_generation/i.test(sql)) {
+      const ids = (params[0] as string[]) ?? [];
+      return ids.filter((id) => {
+        const row = cases.get(id);
+        return Number(row?.provider_archive_requested_generation ?? 0) >
+          Number(row?.provider_archive_completed_generation ?? 0) ||
+          row?.on_hold_reason === 'provider_archive_pending';
+      }).map((id) => ({ id }));
     }
     if (/SELECT case_id, expected_file_count, evidence_completed_at, side_effects_completed_at/i.test(sql)) {
       const ids = (params[0] as string[]) ?? [];
@@ -278,6 +293,9 @@ beforeEach(() => {
     if (/status_recompute_requested_generation = status_recompute_requested_generation \+ 1/i.test(sql)) {
       return [{ status_recompute_requested_generation: '1' }];
     }
+    if (/provider_archive_requested_generation = provider_archive_requested_generation \+ 1/i.test(sql)) {
+      return [{ provider_archive_requested_generation: '1' }];
+    }
     if (/INSERT INTO archive_mirror_outbox/i.test(sql)) {
       return [{ requested_generation: '1' }];
     }
@@ -392,6 +410,139 @@ describe('mergeCases atomic lock protocol', () => {
     expect(
       poolSql.some((s) => /UPDATE case_ SET (work_provider_id|eva_work_provider)|INSERT INTO field_level_provenance/i.test(s)),
     ).toBe(false);
+  });
+
+  it('advances a provider-unresolved survivor to identity-ready and durably queues its Archive folder', async () => {
+    cases.set(CASE_A, caseRow(CASE_A, { work_provider_id: 'wp-source' }));
+    cases.set(CASE_B, caseRow(CASE_B, {
+      work_provider_id: null,
+      on_hold: true,
+      on_hold_reason: 'provider_unresolved',
+      case_po: null,
+      box_folder_id: null,
+    }));
+    providerRecovery.complete.mockResolvedValueOnce({
+      outcome: 'identity_ready',
+      holdCleared: false,
+      casePo: 'P126001',
+      casePoSource: 'minted',
+    });
+
+    const res = await merge(request(CASE_B, CASE_A), ctx);
+
+    expect(res.status).toBe(200);
+    expect(providerRecovery.complete).toHaveBeenCalledWith(db.txQuery, {
+      caseId: CASE_B,
+      resolvedProviderId: 'wp-source',
+      allowCasePoMint: true,
+    });
+    const queued = txSql.findIndex((sql) =>
+      /provider_archive_requested_generation = provider_archive_requested_generation \+ 1/i.test(sql));
+    expect(queued).toBeGreaterThanOrEqual(0);
+    expect(txParams[queued]).toEqual([CASE_B]);
+    const sourceCancelled = txSql.findIndex((sql) =>
+      /provider_archive_completed_generation = provider_archive_requested_generation/i.test(sql));
+    expect(sourceCancelled).toBeGreaterThan(queued);
+    expect(txParams[sourceCancelled]).toEqual([CASE_A]);
+    expect(poolSql.some((sql) => /provider_archive_/i.test(sql))).toBe(false);
+  });
+
+  it('rolls back through a typed conflict when provider recovery cannot safely bind identity', async () => {
+    cases.set(CASE_A, caseRow(CASE_A, { work_provider_id: 'wp-source' }));
+    cases.set(CASE_B, caseRow(CASE_B, { work_provider_id: null }));
+    providerRecovery.complete.mockResolvedValueOnce({
+      outcome: 'blocked',
+      holdCleared: false,
+      blockedReason: 'case_po_provider_mismatch',
+    });
+
+    const res = await merge(request(CASE_B, CASE_A), ctx);
+
+    expect(res).toEqual({
+      status: 409,
+      jsonBody: { error: 'Provider recovery needs review before these cases can be merged.' },
+    });
+    expect(txSql.some((sql) =>
+      /provider_archive_requested_generation = provider_archive_requested_generation \+ 1/i.test(sql))).toBe(false);
+  });
+
+  it('blocks before mutation while either case has remote Archive work in flight', async () => {
+    cases.set(CASE_A, caseRow(CASE_A, {
+      provider_archive_requested_generation: 2,
+      provider_archive_completed_generation: 1,
+    }));
+
+    const res = await merge(request(CASE_B, CASE_A), ctx);
+
+    expect(res).toEqual({
+      status: 409,
+      jsonBody: {
+        error: 'Archive folder work is still finishing for one of these cases. Try the merge again shortly.',
+      },
+    });
+    expect(txSql.some((sql) => /UPDATE evidence\s+SET case_id/i.test(sql))).toBe(false);
+    expect(providerRecovery.complete).not.toHaveBeenCalled();
+  });
+
+  it('blocks a legacy Archive-pending hold even before its durable generation is backfilled', async () => {
+    cases.set(CASE_A, caseRow(CASE_A, {
+      on_hold: true,
+      on_hold_reason: 'provider_archive_pending',
+      provider_archive_requested_generation: 0,
+      provider_archive_completed_generation: 0,
+    }));
+
+    const res = await merge(request(CASE_B, CASE_A), ctx);
+
+    expect(res.status).toBe(409);
+    expect(txSql.some((sql) => /UPDATE evidence\s+SET case_id/i.test(sql))).toBe(false);
+  });
+
+  it('fills a blank survivor claimant and carries the source provenance in the merge transaction', async () => {
+    cases.set(CASE_A, caseRow(CASE_A, { eva_claimant_name: 'Jane Source' }));
+    cases.set(CASE_B, caseRow(CASE_B, { eva_claimant_name: '' }));
+
+    const res = await merge(request(CASE_B, CASE_A), ctx);
+
+    expect(res.status).toBe(200);
+    const fill = txSql.findIndex((sql) => /SET eva_claimant_name = \$2/i.test(sql));
+    expect(fill).toBeGreaterThanOrEqual(0);
+    expect(txParams[fill]).toEqual([CASE_B, 'Jane Source']);
+    expect(txSql.some((sql) => /UPDATE field_level_provenance[\s\S]*SET case_id = \$2/i.test(sql))).toBe(true);
+    const fallback = txSql.findIndex((sql) =>
+      /INSERT INTO field_level_provenance[\s\S]*Source not recorded/i.test(sql));
+    expect(fallback).toBeGreaterThanOrEqual(0);
+    expect(txParams[fallback]).toContain(100000011);
+    expect(txParams[fallback]).not.toContain(100000000);
+    expect(
+      poolSql.some((sql) => /eva_claimant_name =|UPDATE field_level_provenance/i.test(sql)),
+    ).toBe(false);
+  });
+
+  it('preserves a nonblank survivor claimant and carries a differing source as a conflict', async () => {
+    cases.set(CASE_A, caseRow(CASE_A, { eva_claimant_name: 'Jane Source' }));
+    cases.set(CASE_B, caseRow(CASE_B, { eva_claimant_name: 'Alex Survivor' }));
+
+    const res = await merge(request(CASE_B, CASE_A), ctx);
+
+    expect(res.status).toBe(200);
+    expect(txSql.some((sql) => /SET eva_claimant_name = \$2/i.test(sql))).toBe(false);
+    const provenanceMove = txSql.findIndex((sql) =>
+      /UPDATE field_level_provenance[\s\S]*review_state_code = CASE/i.test(sql));
+    expect(provenanceMove).toBeGreaterThanOrEqual(0);
+    expect(txParams[provenanceMove]).toEqual([
+      CASE_A,
+      CASE_B,
+      true,
+      'Jane Source',
+      100000003,
+    ]);
+    const fallback = txSql.findIndex((sql) =>
+      /INSERT INTO field_level_provenance[\s\S]*Source not recorded/i.test(sql));
+    expect(fallback).toBeGreaterThanOrEqual(0);
+    expect(txParams[fallback]).toContain(100000003);
+    expect(txParams[fallback]).toContain(100000011);
+    expect(txParams[fallback]).not.toContain(100000000);
   });
 
   it('uses plain user language for a finalised target', async () => {

@@ -25,8 +25,8 @@
  *                          caseResolve so its PDF VRM/mileage feed case-create + enrichment (#7/#1)
  *   2.   caseResolve     → Data API: ADR-0010 dedup ladder + Case/PO mint / new-client→Held (#11)
  *   2.1  setIngested     → Data API: new_email → ingested (TKT-027 — intake picked up)
- *   2.5  boxFolder (#6)  → callSubOrchestrator boxFolderCreateOrchestrator for a known-provider
- *                          case (case_po present) — Box folder named with the Case/PO (ADR-0012).
+ *   2.5  boxFolder (#6)  → callSubOrchestrator boxFolderCreateOrchestrator for the resolved case;
+ *                          the activity reads its saved Case/PO and skips when none exists.
  *                          Gated + idempotent INSIDE the activity; best-effort (never blocks intake).
  *   3.   classifyPersist → Data API: classify attachments + persist evidence rows
  *   5.   statusEvaluate  → Data API: EVA-readiness + status machine
@@ -38,6 +38,7 @@
 
 import * as df from 'durable-functions';
 import {
+  resolveClaimantInputs,
   supplementAccidentCircumstancesFromBody,
   supplementClaimantNameFromBody,
 } from '../lib/supplement-parse.js';
@@ -52,6 +53,30 @@ import type { TriagePolicyDecision } from '@cs/domain';
 const retry = new df.RetryOptions(/*firstRetryIntervalInMilliseconds*/ 5_000, /*maxNumberOfAttempts*/ 3);
 retry.backoffCoefficient = 2;
 retry.maxRetryIntervalInMilliseconds = 60_000;
+
+export type ProviderRecoveryOutcome =
+  | 'not_needed'
+  | 'blocked'
+  | 'identity_ready'
+  | 'archive_pending'
+  | 'completed';
+
+/** Database provider recovery is only complete after the Case/PO Archive folder is
+ * linked. Gate-off, no-PO, malformed, and failed folder results remain pending. */
+export function providerRecoveryAfterArchive(
+  identityOutcome: 'identity_ready' | 'not_needed' | 'blocked' | undefined,
+  archiveResult: unknown,
+  archiveFailed: boolean,
+): ProviderRecoveryOutcome {
+  if (identityOutcome !== 'identity_ready') return identityOutcome ?? 'not_needed';
+  if (archiveFailed || !archiveResult || typeof archiveResult !== 'object') {
+    return 'archive_pending';
+  }
+  const folderId = String((archiveResult as { folderId?: unknown }).folderId ?? '').trim();
+  const recoveryCompleted =
+    (archiveResult as { providerRecoveryCompleted?: unknown }).providerRecoveryCompleted === true;
+  return folderId && recoveryCompleted ? 'completed' : 'archive_pending';
+}
 
 df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // `resource` (users/<mailbox>/…) is enqueued by graph-webhook so fetchMessage can derive the mailbox.
@@ -559,18 +584,21 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   const bodyClaimant = supplementClaimantNameFromBody(
     String((inbound as { body?: string }).body ?? ''),
   );
-  const claimantName =
-    documentClaimantName || (bodyClaimant.status === 'matched' ? bodyClaimant.value : '');
-  if (!documentClaimantName && bodyClaimant.status === 'conflict' && !ctx.df.isReplaying) {
+  const claimantInputs = resolveClaimantInputs(documentClaimantName, bodyClaimant);
+  const claimantName = claimantInputs.value;
+  if (claimantInputs.conflicts.length > 0 && !ctx.df.isReplaying) {
     ctx.log(
       JSON.stringify({
         evt: 'claimant-body-conflict',
         messageId: (inbound as { messageId?: string }).messageId,
-        candidateCount: bodyClaimant.candidates.length,
+        candidateCount: claimantInputs.conflicts.length,
       }),
     );
   }
   const parserEvaFields = {
+    source_reference:
+      String((inbound as { internetMessageId?: string }).internetMessageId ?? '').trim() ||
+      String((inbound as { messageId?: string }).messageId ?? '').trim(),
     work_provider: exWorkProvider.toUpperCase() === 'UNKNOWN' ? '' : exWorkProvider,
     vehicle_model: exVal('vehicle_model'),
     claimant_name: claimantName,
@@ -582,8 +610,19 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
       exVal('accident_circumstances') ||
       supplementAccidentCircumstancesFromBody(String((inbound as { body?: string }).body ?? '')),
     vat_status: exVal('vat_status'),
-    ...(!documentClaimantName && claimantName
+    ...(claimantInputs.fromEmailBody
       ? { sources: { claimant_name: 'email_text' as const } }
+      : {}),
+    ...(claimantInputs.conflicts.length > 0
+      ? {
+          claimant_conflicts: claimantInputs.conflicts.map((value) => ({
+            value,
+            source: 'email_text' as const,
+            source_reference:
+              String((inbound as { internetMessageId?: string }).internetMessageId ?? '').trim() ||
+              String((inbound as { messageId?: string }).messageId ?? '').trim(),
+          })),
+        }
       : {}),
   };
 
@@ -627,9 +666,14 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     caseId: string;
     casePo?: string | null;
     providerAutomationMode?: 'manual' | 'review_auto' | 'full_auto';
+    providerRecovery?: 'identity_ready' | 'not_needed' | 'blocked';
   };
 
   if (resolved.outcome === 'already_ingested') {
+    // Repairable source-message owners return `replayed` from caseResolve and continue
+    // through the normal idempotent downstream chain. `already_ingested` is now reserved
+    // for terminal exact owners or ownerless payload duplicates, so it must be a strict
+    // no-mutation stop: no Archive ensure, evidence, enrichment, or status work.
     return { skipped: true, caseId: resolved.caseId };
   }
 
@@ -684,27 +728,41 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   //                   and are intentionally NOT enabled here (ADR-0015 / am research §full).
   const automationMode = resolved.providerAutomationMode ?? 'review_auto';
 
-  // 2.5 — Box folder at intake (#6, ADR-0012: additive one-way mirror). A known-provider case
-  // has its Case/PO minted by caseResolve → create the Box folder named with it. A new client
-  // routed to Held has NO case_po → NO folder (the operator sets up the provider/PO first), so
-  // the call is guarded on casePo present. The BOX_API_ENABLED + BOX_FOLDER_AT_INTAKE_ENABLED
-  // gates AND the box_folder_id idempotency check live INSIDE the boxFolderCreate activity —
+  // 2.5 — Box folder at intake (#6, ADR-0012: additive one-way mirror). Every resolved Case id
+  // is offered to the idempotent activity. It reads the saved Case/PO from the Data API and
+  // skips a new client that still has no Case/PO, so a caller can neither choose a folder name
+  // nor suppress recovery because an earlier response omitted casePo. The BOX_API_ENABLED +
+  // BOX_FOLDER_AT_INTAKE_ENABLED gates AND the box_folder_id idempotency check live INSIDE the
+  // boxFolderCreate activity —
   // an orchestrator must stay deterministic across replays, so it never reads env gates itself
   // (the parse/enrich/chaser convention; the recorded activity result is what replays). The
   // mirror is additive: a Box failure must NOT block the core intake (evidence/status/enrich),
   // so it is best-effort here — the manual box-folder-create starter can retry.
-  // Runs for ANY known-provider case (casePo present) regardless of mode (work-todo-spike "Both").
-  if (resolved.casePo) {
+  // Runs for ANY case id regardless of mode (work-todo-spike "Both"); no-PO cases skip inside.
+  let archiveFolderResult: unknown;
+  let archiveFolderFailed = false;
+  if (resolved.caseId) {
     try {
-      yield ctx.df.callSubOrchestratorWithRetry('boxFolderCreateOrchestrator', retry, {
+      archiveFolderResult = yield ctx.df.callSubOrchestratorWithRetry('boxFolderCreateOrchestrator', retry, {
         caseId: resolved.caseId,
-        folderName: resolved.casePo.toUpperCase(),
       });
     } catch (e) {
+      archiveFolderFailed = true;
       if (!ctx.df.isReplaying) {
         ctx.log(`[intake] box folder create failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
       }
+      if (resolved.providerRecovery === 'identity_ready') throw e;
     }
+  }
+  const providerRecovery = providerRecoveryAfterArchive(
+    resolved.providerRecovery,
+    archiveFolderResult,
+    archiveFolderFailed,
+  );
+  if (resolved.providerRecovery === 'identity_ready' && providerRecovery !== 'completed') {
+    throw new Error(
+      `Provider identity is ready but the Archive folder is still pending for case ${resolved.caseId}`,
+    );
   }
 
   // 3 — classify + persist evidence rows (always — recording evidence is not "advancing").
@@ -782,5 +840,10 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     }
   }
 
-  return { caseId: resolved.caseId, status: status.value, mode: automationMode };
+  return {
+    caseId: resolved.caseId,
+    status: status.value,
+    mode: automationMode,
+    providerRecovery,
+  };
 });

@@ -29,6 +29,7 @@ import {
   type CaseStatus,
   type ClassifierMode,
   type EvaField,
+  type EvaFieldConflict,
   type EvaFields,
   type EvaFieldKey,
   type Evidence,
@@ -175,7 +176,7 @@ export const EVA_COLUMN_BY_KEY: Record<EvaFieldKey, string> = {
 
 /** Pair a Case eva_* column value with its provenance row (source + review state). */
 function provenanceRowToEvaField(value: string, row?: Row): EvaField {
-  const sourceType = sourceTypeCodec.toName(row?.source_type_code) ?? 'staff';
+  const sourceType = sourceTypeCodec.toName(row?.source_type_code) ?? 'unknown';
   const reviewState = reviewStateCodec.toName(row?.review_state_code) ?? 'needs_review';
   const confidence = row?.confidence;
   return {
@@ -183,7 +184,7 @@ function provenanceRowToEvaField(value: string, row?: Row): EvaField {
     reviewState,
     provenance: {
       sourceType,
-      sourceLabel: row?.source_label ?? 'Staff entry',
+      sourceLabel: row?.source_label ?? 'Source not recorded',
       ...(confidence != null ? { confidence: Number(confidence) } : {}),
     },
   };
@@ -217,7 +218,8 @@ export function rowToEvaFields(rec: Row, provenanceRows: readonly Row[] = []): E
     // row, then the newest source. The final id tie-break makes the result independent
     // of PostgreSQL row order (which has no guarantee without ORDER BY).
     const currentComparable = comparableProvenanceValue(desc.key, value);
-    const provenance = (byField.get(desc.key) ?? [])
+    const fieldProvenance = byField.get(desc.key) ?? [];
+    const provenance = fieldProvenance
       .filter((row) => comparableProvenanceValue(desc.key, row.value) === currentComparable)
       .sort((a, b) => {
         const reviewedA = reviewStateCodec.toName(a.review_state_code) === 'reviewed' ? 1 : 0;
@@ -231,10 +233,39 @@ export function rowToEvaFields(rec: Row, provenanceRows: readonly Row[] = []): E
         if (timeA !== timeB) return timeB - timeA;
         return String(a.id ?? '').localeCompare(String(b.id ?? ''));
       })[0];
-    (out as Record<EvaFieldKey, EvaField>)[desc.key] = provenanceRowToEvaField(
+    const mapped = provenanceRowToEvaField(
       value,
       provenance,
     );
+    // A differing unresolved source remains visible even though it cannot describe (and
+    // therefore must not replace the provenance of) the current value. Retain every distinct
+    // candidate with its own source so staff can make an informed choice in the case screen.
+    const conflictByValue = new Map<string, EvaFieldConflict>();
+    const unresolvedConflicts = fieldProvenance
+      .filter(
+        (row) =>
+          reviewStateCodec.toName(row.review_state_code) === 'conflict' &&
+          comparableProvenanceValue(desc.key, row.value) !== currentComparable,
+      )
+      .sort((a, b) => {
+        const timeA = new Date(String(a.updated_at ?? a.created_at ?? 0)).getTime() || 0;
+        const timeB = new Date(String(b.updated_at ?? b.created_at ?? 0)).getTime() || 0;
+        if (timeA !== timeB) return timeB - timeA;
+        return String(a.id ?? '').localeCompare(String(b.id ?? ''));
+      });
+    for (const row of unresolvedConflicts) {
+      const comparable = comparableProvenanceValue(desc.key, row.value);
+      if (comparable == null || conflictByValue.has(comparable)) continue;
+      conflictByValue.set(comparable, {
+        candidateValue: String(row.value).trim(),
+        provenance: provenanceRowToEvaField('', row).provenance,
+      });
+    }
+    if (conflictByValue.size > 0) {
+      mapped.reviewState = 'conflict';
+      mapped.conflicts = [...conflictByValue.values()];
+    }
+    (out as Record<EvaFieldKey, EvaField>)[desc.key] = mapped;
   }
   out.vatStatus = { ...out.vatStatus, value: out.vatStatus.value as VatStatus };
   out.mileageUnit = { ...out.mileageUnit, value: out.mileageUnit.value as MileageUnit };

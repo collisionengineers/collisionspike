@@ -26,7 +26,8 @@ export type ProvenanceSourceType =
   | 'azure_vision'
   | 'web_lookup'
   | 'whatsapp'
-  | 'manual_upload';
+  | 'manual_upload'
+  | 'unknown';
 
 // Compact UI marker shown in the provenance badge.
 export type ProvenanceMarker = 'PDF' | 'Corpus' | 'AI' | 'Web' | 'Staff';
@@ -41,11 +42,21 @@ export interface FieldProvenance {
 
 export type ReviewState = 'not_required' | 'needs_review' | 'reviewed' | 'conflict';
 
+/** A retained value that disagrees with the currently saved field value. The
+ * saved value remains authoritative until a staff member resolves the conflict. */
+export interface EvaFieldConflict {
+  candidateValue: string;
+  provenance: FieldProvenance;
+}
+
 /** One EVA-relevant field: its value plus where it came from and its review state. */
 export interface EvaField {
   value: string;
   provenance: FieldProvenance;
   reviewState: ReviewState;
+  /** Unresolved alternatives, kept separate so they can never replace `value`
+   * merely by being included in a read response. */
+  conflicts?: EvaFieldConflict[];
 }
 
 /* ----------  The 12-field EVA contract  ----------

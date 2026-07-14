@@ -13,7 +13,15 @@
     "build:domain": "npm run build --workspace @cs/domain",
     "build:api": "npm run build --workspace @cs/api",
     "build:orch": "npm run build --workspace @cs/orchestration",
-    "test": "npm run test --workspace @cs/domain && npm run test --workspace mockup-app"
+    "test": "npm run test --workspace @cs/domain && npm run test --workspace mockup-app && npm run test:tkt150-remediation",
+    "test:tkt150-remediation": "node --test scripts/live/remediate-blank-claimants.test.mjs"
+  },
+  "dependencies": {
+    "@azure/storage-blob": "12.33.0",
+    "pg": "8.22.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.21.5"
   },
   "engines": {
     "node": ">=20"

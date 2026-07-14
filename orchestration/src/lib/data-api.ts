@@ -72,6 +72,14 @@ export interface ParserEvaFields {
   accident_circumstances?: string;
   vat_status?: string;
   sources?: Partial<Record<ParserEvaFieldKey, 'email_text'>>;
+  /** Defensible alternatives that must be shown for review, never selected silently. */
+  claimant_conflicts?: Array<{
+    value: string;
+    source: 'email_text';
+    source_reference?: string;
+  }>;
+  /** Stable inbound identity used to make retained-source conflict writes replay-safe. */
+  source_reference?: string;
 }
 
 /* ---------- service token ---------- */
@@ -186,6 +194,14 @@ export interface DedupContext {
   openProviderCases: OpenProviderCase[];
   seenMessageIds: string[];
   seenPayloadHashes: string[];
+  /** The sole case that owns this immutable Internet Message-ID, when one exists. */
+  exactSourceOwner?: {
+    caseId: string;
+    casePo: string | null;
+    providerAutomationMode: 'manual' | 'review_auto' | 'full_auto';
+    status: string;
+    replayAllowed: boolean;
+  };
 }
 
 /**
@@ -432,7 +448,7 @@ export const dataApi = {
     /** 'refused_category' (TKT-119): the API's belt-and-braces mint guard refused the
      *  create — the message's own triage row carries a category that never mints
      *  (acknowledgement/query/non_actionable/…). caseId is '' on that outcome. */
-    outcome: 'created' | 'attached' | 'already_ingested' | 'refused_category';
+    outcome: 'created' | 'attached' | 'replayed' | 'already_ingested' | 'refused_category';
     caseId: string;
     casePo?: string | null;
     /**
@@ -442,6 +458,8 @@ export const dataApi = {
      * orchestrator defaults to 'review_auto' (current behaviour preserved).
      */
     providerAutomationMode?: 'manual' | 'review_auto' | 'full_auto';
+    /** Database identity phase only; orchestration reports completion after Archive ensure. */
+    providerRecovery?: 'identity_ready' | 'not_needed' | 'blocked';
   }> {
     return request('POST', '/api/internal/cases/resolve', payload);
   },
@@ -526,6 +544,7 @@ export const dataApi = {
     casePo?: string | null;
     newClient?: boolean;
     candidateCount?: number;
+    providerRecovery?: 'identity_ready' | 'not_needed' | 'blocked';
   }> {
     return request('POST', '/api/internal/retro/create', payload);
   },
@@ -1111,7 +1130,13 @@ export const dataApi = {
   stampCaseBoxFolder(
     caseId: string,
     payload: { boxFolderId: string; boxFolderUrl?: string },
-  ): Promise<{ applied: boolean; boxFolderId: string | null }> {
+  ): Promise<{
+    found: boolean;
+    applied: boolean;
+    boxFolderId: string | null;
+    providerRecoveryCompleted: boolean;
+    statusGeneration?: number;
+  }> {
     return request('POST', `/api/internal/cases/${caseId}/box-folder`, payload);
   },
 };

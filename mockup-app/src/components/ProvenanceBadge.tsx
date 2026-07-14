@@ -3,6 +3,7 @@ import { Tooltip, makeStyles, mergeClasses, tokens } from '@fluentui/react-compo
 import { Check, Circle, AlertTriangle } from 'lucide-react';
 import type {
   FieldProvenance,
+  EvaFieldConflict,
   ProvenanceSourceType,
   ReviewState,
 } from '@cs/domain';
@@ -26,7 +27,7 @@ import type {
    ============================================================ */
 
 /* ----------  Fixed source key  ---------- */
-type SourceKey = 'PDF' | 'AI' | 'Corpus' | 'Manual' | 'DVLA';
+type SourceKey = 'PDF' | 'AI' | 'Corpus' | 'Manual' | 'DVLA' | 'Unknown';
 
 const SOURCE_KEY: Record<ProvenanceSourceType, SourceKey> = {
   pdf_extraction: 'PDF',
@@ -40,6 +41,7 @@ const SOURCE_KEY: Record<ProvenanceSourceType, SourceKey> = {
   whatsapp: 'Manual',
   dvla_dvsa: 'DVLA',
   web_lookup: 'DVLA',
+  unknown: 'Unknown',
 };
 
 /** Fixed colour key per source — used for the pill's left ink swatch. */
@@ -49,6 +51,7 @@ const SOURCE_COLOR: Record<SourceKey, string> = {
   Corpus: '#0f766e', // teal — from saved records
   Manual: '#57534e', // stone — entered by staff
   DVLA: '#b45309', // amber — external lookup
+  Unknown: '#6b7280', // grey — origin not recorded
 };
 
 /** Short, plain-language label shown on the FULL pill (no engineering terms). */
@@ -57,7 +60,8 @@ const KEY_DISPLAY: Record<SourceKey, string> = {
   AI: 'Auto',
   Corpus: 'Records',
   Manual: 'Staff',
-  DVLA: 'DVLA',
+  DVLA: 'Vehicle',
+  Unknown: 'Unknown',
 };
 
 /** Plain-language source description for the tooltip + accessible name. No
@@ -72,9 +76,10 @@ const SOURCE_LABEL: Record<ProvenanceSourceType, string> = {
   corpus: 'From saved records',
   ai: 'Filled in automatically',
   azure_vision: 'Read from the images',
-  dvla_dvsa: 'From DVLA records',
+  dvla_dvsa: 'From vehicle records',
   web_lookup: 'From an online lookup',
   whatsapp: 'From WhatsApp',
+  unknown: 'Source not recorded',
 };
 
 const REVIEW_LABEL: Record<ReviewState, string> = {
@@ -139,10 +144,20 @@ export interface ProvenanceBadgeProps {
   /** 'compact' (default) drops the text label for the busy field grids; 'full'
    *  keeps the short plain-language source word. */
   variant?: 'full' | 'compact';
+  /** Retained alternatives for an unresolved conflict. The busy field grid also
+   * shows these inline; including them here gives the badge a complete accessible
+   * description instead of the former generic "Conflict" label. */
+  conflicts?: EvaFieldConflict[];
 }
 
 /** One provenance token: fixed source-colour key + shape-coded review state, with full plain-language detail in a Tooltip. */
-export function ProvenanceBadge({ provenance, reviewState, fieldKey, variant = 'compact' }: ProvenanceBadgeProps) {
+export function ProvenanceBadge({
+  provenance,
+  reviewState,
+  fieldKey,
+  variant = 'compact',
+  conflicts = [],
+}: ProvenanceBadgeProps) {
   const styles = useStyles();
   const key = SOURCE_KEY[provenance.sourceType];
   // The DVSA mileage estimate (sourceType=dvla_dvsa, field=mileage) reads
@@ -155,6 +170,13 @@ export function ProvenanceBadge({ provenance, reviewState, fieldKey, variant = '
     provenance.confidence != null ? `${Math.round(provenance.confidence * 100)}%` : undefined;
   const reviewLabel = REVIEW_LABEL[reviewState];
   const compact = variant === 'compact';
+  const visibleConflicts = reviewState === 'conflict' ? conflicts : [];
+  const conflictDescription = visibleConflicts
+    .map(
+      (conflict) =>
+        `Another value: ${conflict.candidateValue}. Source: ${SOURCE_LABEL[conflict.provenance.sourceType]}`,
+    )
+    .join('. ');
 
   // Shape-coded review glyph (NOT colour-only): check / dot / triangle / none.
   let glyph: ReactNode = null;
@@ -183,9 +205,14 @@ export function ProvenanceBadge({ provenance, reviewState, fieldKey, variant = '
       <span className={styles.ttLine}>
         <strong>{sourceName}</strong>
       </span>
-      <span className={styles.ttLine}>{provenance.sourceLabel}</span>
       {confidencePct && <span className={styles.ttLine}>Confidence: {confidencePct}</span>}
       <span className={styles.ttLine}>Review: {reviewLabel}</span>
+      {visibleConflicts.map((conflict, index) => (
+        <span className={styles.ttLine} key={`${conflict.candidateValue}-${index}`}>
+          Another value: <strong>{conflict.candidateValue}</strong>. Source:{' '}
+          {SOURCE_LABEL[conflict.provenance.sourceType]}
+        </span>
+      ))}
     </div>
   );
 
@@ -193,7 +220,7 @@ export function ProvenanceBadge({ provenance, reviewState, fieldKey, variant = '
     <Tooltip content={tip} relationship="description" withArrow>
       <span
         className={mergeClasses(styles.pill, compact && styles.pillCompact)}
-        aria-label={`${sourceName} — ${reviewLabel}`}
+        aria-label={`${sourceName} — ${reviewLabel}${conflictDescription ? `. ${conflictDescription}` : ''}`}
       >
         <span className={styles.swatch} style={{ backgroundColor: SOURCE_COLOR[key] }} />
         {!compact && <span className={styles.label}>{pillLabel}</span>}

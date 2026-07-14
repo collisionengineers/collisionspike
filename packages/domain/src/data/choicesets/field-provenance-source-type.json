@@ -16,6 +16,7 @@
     { "value": 100000007, "name": "azure_vision",   "label": "Azure Vision" },
     { "value": 100000008, "name": "web_lookup",     "label": "Web Lookup" },
     { "value": 100000009, "name": "whatsapp",       "label": "WhatsApp" },
-    { "value": 100000010, "name": "manual_upload",  "label": "Manual Upload" }
+    { "value": 100000010, "name": "manual_upload",  "label": "Manual Upload" },
+    { "value": 100000011, "name": "unknown",        "label": "Source Not Recorded" }
   ]
 }

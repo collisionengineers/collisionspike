@@ -3,6 +3,32 @@ import { describe, expect, it } from 'vitest';
 import { rowToEvaFields } from './mappers.js';
 
 describe('rowToEvaFields provenance selection', () => {
+  it('never guesses staff provenance when a stored value has no recorded source', () => {
+    const fields = rowToEvaFields({ eva_claimant_name: 'Legacy Person' });
+    expect(fields.claimantName).toMatchObject({
+      value: 'Legacy Person',
+      reviewState: 'needs_review',
+      provenance: { sourceType: 'unknown', sourceLabel: 'Source not recorded' },
+    });
+  });
+
+  it('maps the explicit legacy-unknown source without claiming staff origin', () => {
+    const fields = rowToEvaFields(
+      { eva_claimant_name: 'Legacy Person' },
+      [{
+        field_name: 'claimantName',
+        value: 'Legacy Person',
+        source_type_code: 100000011,
+        review_state_code: 100000001,
+        source_label: 'Source not recorded — carried over from merged case',
+      }],
+    );
+    expect(fields.claimantName.provenance).toEqual({
+      sourceType: 'unknown',
+      sourceLabel: 'Source not recorded — carried over from merged case',
+    });
+  });
+
   it('is deterministic and keeps a reviewed current-value source over stale/conflicting rows', () => {
     const record = { eva_claimant_name: 'Jane Example' };
     const stale = {

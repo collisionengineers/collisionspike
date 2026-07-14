@@ -102,6 +102,11 @@ import {
   requestArchiveMirrorIfEligible,
   type ArchiveMirrorCandidate,
 } from '../lib/archive-mirror-outbox.js';
+import { completeProviderRecoveryUsing } from '../lib/provider-recovery.js';
+import {
+  cancelProviderArchive,
+  requestProviderArchive,
+} from '../lib/provider-archive-outbox.js';
 import {
   CASE_SELECT,
   CASE_SELECT_WITH_ACTIVITY,
@@ -229,6 +234,99 @@ async function loadCaseLite(id: string, q: TxQuery = query): Promise<Case | unde
   return rows[0] ? rowToCase(rows[0]) : undefined;
 }
 
+interface MergeClaimantResult {
+  filled: boolean;
+  conflict: boolean;
+}
+
+function comparableClaimant(value: unknown): string {
+  return String(value ?? '').trim().toLocaleLowerCase('en-GB');
+}
+
+/**
+ * Carry claimant source history onto the survivor before retiring the source case.
+ * The survivor's nonblank value always wins. A differing source value is retained as
+ * an unresolved conflict instead of being overwritten or silently discarded.
+ */
+async function mergeClaimantProvenance(
+  q: TxQuery,
+  sourceCaseId: string,
+  targetCaseId: string,
+  sourceClaimant: string,
+  targetClaimant: string,
+): Promise<MergeClaimantResult> {
+  const sourceValue = sourceClaimant.trim();
+  const targetValue = targetClaimant.trim();
+  const filled = Boolean(sourceValue) && !targetValue;
+  const conflict = Boolean(sourceValue) && Boolean(targetValue) &&
+    comparableClaimant(sourceValue) !== comparableClaimant(targetValue);
+
+  if (filled) {
+    await q(
+      `UPDATE case_
+          SET eva_claimant_name = $2, updated_at = now()
+        WHERE id = $1
+          AND btrim(COALESCE(eva_claimant_name, '')) = ''`,
+      [targetCaseId, sourceValue.slice(0, 200)],
+    );
+  }
+
+  const conflictCode = reviewStateCodec.toInt('conflict') ?? 100000003;
+  await q(
+    `UPDATE field_level_provenance
+        SET case_id = $2,
+            name = CONCAT($2::text, ':merged:', id::text),
+            source_label = LEFT(
+              CASE
+                WHEN btrim(COALESCE(source_label, '')) = '' THEN 'Carried over from merged case'
+                ELSE source_label || ' — carried over from merged case'
+              END,
+              400
+            ),
+            review_state_code = CASE
+              WHEN $3::boolean
+               AND field_name = 'claimantName'
+               AND lower(btrim(COALESCE(value, ''))) = lower(btrim($4))
+                THEN $5
+              ELSE review_state_code
+            END,
+            updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId, conflict, sourceValue, conflictCode],
+  );
+
+  // Legacy rows can carry a claimant value without provenance. Preserve that value on
+  // the survivor too; it remains review-required (or conflict) until staff confirms it.
+  if (sourceValue) {
+    const unknownCode = sourceTypeCodec.toInt('unknown') ?? 100000011;
+    const needsReviewCode = reviewStateCodec.toInt('needs_review') ?? 100000001;
+    await q(
+      `INSERT INTO field_level_provenance
+         (name, case_id, field_name, value, source_type_code, source_label, review_state_code,
+          source_reference)
+       SELECT $1, $2, 'claimantName', $3, $4,
+              'Source not recorded — carried over from merged case', $5, $6
+       WHERE NOT EXISTS (
+         SELECT 1
+           FROM field_level_provenance
+          WHERE case_id = $2
+            AND field_name = 'claimantName'
+            AND lower(btrim(COALESCE(value, ''))) = lower(btrim($3))
+       )`,
+      [
+        `${targetCaseId}:claimantName:merged:${sourceCaseId}`,
+        targetCaseId,
+        sourceValue.slice(0, 200),
+        unknownCode,
+        conflict ? conflictCode : needsReviewCode,
+        `case:${sourceCaseId}`,
+      ],
+    );
+  }
+
+  return { filled, conflict };
+}
+
 /**
  * Recompute a case's workflow status via the shared @cs/domain guard over its
  * current persisted fields + evidence; persist + audit only when it changes
@@ -303,13 +401,22 @@ export async function markEvaSubmittedIfReady(
 
 /* ----------  Durable case-page EVA-field edits (work-todo-spike: casepage)  ---------- */
 
-/** Upsert the newest staff provenance row for one EVA field without rewriting retained
- *  extraction/conflict rows. Best-effort: this is the compatibility path for isolated
- *  updates; the explicit case-page save uses the strict transactional twin below. */
+/** Upsert the newest staff provenance row for one EVA field without discarding retained
+ *  extraction/conflict rows. A staff edit resolves their review state while preserving
+ *  their original values and source metadata. Best-effort: this is the compatibility path
+ *  for isolated updates; the explicit case-page save uses the strict transactional twin. */
 async function upsertManualProvenance(caseId: string, fieldName: string, value: string): Promise<void> {
   try {
     const staff = sourceTypeCodec.toInt('staff') ?? 100000000;
     const reviewed = reviewStateCodec.toInt('reviewed') ?? 100000002;
+    const conflict = reviewStateCodec.toInt('conflict') ?? 100000003;
+    await query(
+      `UPDATE field_level_provenance
+          SET review_state_code = $4, reviewed_by = 'Manual edit (case page)',
+              reviewed_at = now(), updated_at = now()
+        WHERE case_id = $1 AND field_name = $2 AND review_state_code = $3`,
+      [caseId, fieldName, conflict, reviewed],
+    );
     const upd = await query<{ id: string }>(
       `UPDATE field_level_provenance
           SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
@@ -349,6 +456,14 @@ async function upsertManualProvenanceStrict(
 ): Promise<void> {
   const staff = sourceTypeCodec.toInt('staff') ?? 100000000;
   const reviewed = reviewStateCodec.toInt('reviewed') ?? 100000002;
+  const conflict = reviewStateCodec.toInt('conflict') ?? 100000003;
+  await q(
+    `UPDATE field_level_provenance
+        SET review_state_code = $4, reviewed_by = 'Manual edit (case page)',
+            reviewed_at = now(), updated_at = now()
+      WHERE case_id = $1 AND field_name = $2 AND review_state_code = $3`,
+    [caseId, fieldName, conflict, reviewed],
+  );
   const updated = await q<{ id: string }>(
     `UPDATE field_level_provenance
         SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
@@ -841,6 +956,66 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function requiredSourceTypeCode(sourceType: EvaField['provenance']['sourceType']): number {
+  const code = sourceTypeCodec.toInt(sourceType);
+  if (code == null) throw new Error(`unsupported provenance source type: ${sourceType}`);
+  return code;
+}
+
+function requiredReviewStateCode(reviewState: EvaField['reviewState']): number {
+  const code = reviewStateCodec.toInt(reviewState);
+  if (code == null) throw new Error(`unsupported provenance review state: ${reviewState}`);
+  return code;
+}
+
+/** Persist the current field source and every retained alternative with stable row names.
+ * Conflict rows always carry the conflict review state; they can never masquerade as the
+ * authoritative source merely because the caller supplied a different field review state. */
+async function insertCreateFieldProvenance(
+  q: TxQuery,
+  caseId: string,
+  fieldName: EvaFieldKey,
+  field: EvaField,
+): Promise<void> {
+  const rows = [
+    {
+      name: `${caseId}:${fieldName}`,
+      value: field.value,
+      provenance: field.provenance,
+      reviewStateCode: requiredReviewStateCode(field.reviewState),
+    },
+    ...(field.conflicts ?? []).map((conflict, index) => ({
+      name: `${caseId}:${fieldName}:conflict:${String(index + 1).padStart(2, '0')}`,
+      value: conflict.candidateValue,
+      provenance: conflict.provenance,
+      reviewStateCode: requiredReviewStateCode('conflict'),
+    })),
+  ];
+
+  for (const row of rows) {
+    await q(
+      `INSERT INTO field_level_provenance
+         (name, case_id, field_name, value, source_type_code, source_label, confidence, review_state_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        row.name,
+        caseId,
+        fieldName,
+        row.value,
+        requiredSourceTypeCode(row.provenance.sourceType),
+        row.provenance.sourceLabel,
+        row.provenance.confidence ?? null,
+        row.reviewStateCode,
+      ],
+    );
+  }
+}
+
+/** Explicit conflicts are source truth even if the optional all-field provenance toggle is off. */
+function createFieldProvenanceRequired(input: CreateCaseInput, field: EvaField): boolean {
+  return input.writeProvenance === true || (field.conflicts?.length ?? 0) > 0;
+}
+
 /**
  * Accept either the established, complete Manual Intake DTO or the strict minimal
  * assistant create_case proposal. The minimal form is expanded into the same DTO
@@ -1016,7 +1191,10 @@ app.http('createCase', {
     // per-(principal,year) advisory lock used by automated intake.
     const suppliedCasePo = (input.casePo ?? '').trim().toUpperCase();
     const principalForAutoMint = !suppliedCasePo ? pcode.toUpperCase() : '';
-    if (input.onHold) add('on_hold', true);
+    if (input.onHold) {
+      add('on_hold', true);
+      add('on_hold_reason', 'manual');
+    }
     if (input.insuredName) add('ov_insured_name', input.insuredName);
     if (input.providerReference) add('ov_claim_number', input.providerReference);
     if (input.inspectionDecision && input.inspectionDecision !== 'unknown') {
@@ -1053,6 +1231,12 @@ app.http('createCase', {
         );
         const id = rows[0]?.id as string | undefined;
         if (!id) throw new Error('case create returned no id');
+
+        // Claimant identity and every competing claimant source are one source-of-truth
+        // unit with case_.eva_claimant_name. Persist them before the create operation can
+        // be marked complete so either the entire create commits or none of it does.
+        const claimant = input.evaFields.claimantName;
+        await insertCreateFieldProvenance(q, id, 'claimantName', claimant);
         if (operationBinding) {
           await finishManualIntakeOperation(
             q,
@@ -1094,25 +1278,13 @@ app.http('createCase', {
     if (operationBinding) {
       await tx(async (q) => {
         if (!await manualIntakeSideEffectsPending(q, operationBinding.idempotencyKey)) return;
-        if (input.writeProvenance) {
-          for (const desc of EVA_FIELD_ORDER) {
-            const field = input.evaFields[desc.key];
-            await q(
-              `INSERT INTO field_level_provenance
-                 (name, case_id, field_name, value, source_type_code, source_label, confidence, review_state_code)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-              [
-                `${newId}:${desc.key}`,
-                newId,
-                desc.key,
-                field.value,
-                sourceTypeCodec.toInt(field.provenance.sourceType) ?? 100000000,
-                field.provenance.sourceLabel,
-                field.provenance.confidence ?? null,
-                reviewStateCodec.toInt(field.reviewState) ?? 100000001,
-              ],
-            );
-          }
+        for (const desc of EVA_FIELD_ORDER) {
+          // Claimant provenance committed with the case row. Replaying supplementary
+          // effects must never create a second authoritative/conflict set for it.
+          if (desc.key === 'claimantName') continue;
+          const field = input.evaFields[desc.key];
+          if (!createFieldProvenanceRequired(input, field)) continue;
+          await insertCreateFieldProvenance(q, newId, desc.key, field);
         }
         const receivedFrom = (input.receivedFrom ?? '').trim();
         const receivedOn = (input.receivedOn ?? '').trim();
@@ -1141,27 +1313,16 @@ app.http('createCase', {
       });
     }
 
-    // Best-effort: one FieldLevelProvenance row per EVA field.
-    if (!operationBinding && input.writeProvenance) {
+    // Best-effort supplementary provenance for non-claimant fields. Claimant source
+    // truth already committed atomically above; explicit alternatives on other fields
+    // are retained even when the all-field provenance toggle is off.
+    if (!operationBinding) {
       await Promise.all(
-        EVA_FIELD_ORDER.map(async (desc) => {
+        EVA_FIELD_ORDER.filter((desc) => desc.key !== 'claimantName').map(async (desc) => {
           const field = input.evaFields[desc.key];
+          if (!createFieldProvenanceRequired(input, field)) return;
           try {
-            await query(
-              `INSERT INTO field_level_provenance
-                 (name, case_id, field_name, value, source_type_code, source_label, confidence, review_state_code)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-              [
-                `${newId}:${desc.key}`,
-                newId,
-                desc.key,
-                field.value,
-                sourceTypeCodec.toInt(field.provenance.sourceType) ?? 100000000,
-                field.provenance.sourceLabel,
-                field.provenance.confidence ?? null,
-                reviewStateCodec.toInt(field.reviewState) ?? 100000001,
-              ],
-            );
+            await insertCreateFieldProvenance(query, newId, desc.key, field);
           } catch {
             /* provenance is supplementary — a single-row failure must not sink intake */
           }
@@ -1373,7 +1534,12 @@ app.http('setOnHold', {
         return { kind: 'stale' as const, currentVersion };
       }
       const updated = await q<Row>(
-        'UPDATE case_ SET on_hold = $2, updated_at = now() WHERE id = $1 RETURNING updated_at',
+        `UPDATE case_
+            SET on_hold = $2,
+                on_hold_reason = CASE WHEN $2 THEN 'manual' ELSE NULL END,
+                updated_at = now()
+          WHERE id = $1
+          RETURNING updated_at`,
         [id, body.onHold],
       );
       await writeAudit({
@@ -1630,6 +1796,12 @@ app.http('mergeCandidates', {
 
 const MERGE_SHA256_RE = /^[0-9a-f]{64}$/i;
 const MERGE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+class MergeProviderRecoveryBlocked extends Error {
+  constructor(readonly reason: string) {
+    super(`Provider recovery could not continue: ${reason}`);
+  }
+}
 
 interface MergeEvidenceLockRow extends Record<string, unknown> {
   id: string;
@@ -2006,7 +2178,7 @@ app.http('mergeCases', {
     if (sourceCaseId === targetCaseId) {
       return { status: 400, jsonBody: { error: 'Cannot merge a case into itself.' } };
     }
-    const merged = await tx(async (q) => {
+    const runMerge = () => tx(async (q) => {
       // Merge and guarded backfill share these namespaced advisory locks. Both callers
       // acquire multiple case ids in the same lexical order before taking row locks,
       // so reverse concurrent merges cannot deadlock.
@@ -2047,6 +2219,28 @@ app.http('mergeCases', {
           kind: 'error' as const,
           status: 400,
           error: 'Cannot merge into a finalised case.',
+        };
+      }
+
+      // A remote Archive ensure runs outside Postgres. Never retire or retarget either
+      // case while its durable generation is pending: the worker may already have
+      // created the Case/PO-named folder and be between that response and the stamp.
+      // Both case rows are locked, so no new generation can appear after this check.
+      const providerArchiveBusy = await q<{ id: string }>(
+        `SELECT id
+           FROM case_
+          WHERE id = ANY($1::uuid[])
+            AND (
+              provider_archive_completed_generation < provider_archive_requested_generation
+              OR on_hold_reason = 'provider_archive_pending'
+            )`,
+        [[sourceCaseId, targetCaseId]],
+      );
+      if (providerArchiveBusy.length > 0) {
+        return {
+          kind: 'error' as const,
+          status: 409,
+          error: 'Archive folder work is still finishing for one of these cases. Try the merge again shortly.',
         };
       }
 
@@ -2098,6 +2292,14 @@ app.http('mergeCases', {
         [sourceCaseId, targetCaseId],
       );
 
+      const claimantMerge = await mergeClaimantProvenance(
+        q,
+        sourceCaseId,
+        targetCaseId,
+        src.evaFields.claimantName.value,
+        tgt.evaFields.claimantName.value,
+      );
+
       // Provider preference (TKT-052): preserve the source's resolved provider when
       // the image-led survivor is still empty. Every associated write stays in this tx.
       const fkRows = await q<Row>(
@@ -2108,6 +2310,8 @@ app.http('mergeCases', {
       const tgtFk = (fkRows.find((r) => r.id === targetCaseId)?.work_provider_id as string | null) ?? null;
       const providerDecision = decideMergeProvider(srcFk, tgtFk);
       let providerFilled = false;
+      let providerRecoveryOutcome: 'identity_ready' | 'not_needed' | undefined;
+      let providerArchiveGeneration: number | undefined;
       if (!providerDecision.crossProvider && providerDecision.filledFrom === 'source' && providerDecision.providerId) {
         await q(
           `UPDATE case_ SET work_provider_id = $2, updated_at = now()
@@ -2148,11 +2352,35 @@ app.http('mergeCases', {
           await q('RELEASE SAVEPOINT merge_provider_provenance');
         }
         providerFilled = true;
+
+        // The provider FK alone is not recovery. While both case rows remain locked,
+        // atomically adopt/mint Case/PO and advance only the intake-owned provider hold
+        // to provider_archive_pending. The remote folder is a separate durable phase.
+        const recovery = await completeProviderRecoveryUsing(q, {
+          caseId: targetCaseId,
+          resolvedProviderId: providerDecision.providerId,
+          allowCasePoMint: true,
+        });
+        if (recovery.outcome === 'blocked') {
+          // Throw so the transaction (including evidence/provider carry-over) rolls
+          // back. A normal error return here would commit the partial merge.
+          throw new MergeProviderRecoveryBlocked(recovery.blockedReason ?? 'provider recovery blocked');
+        }
+        providerRecoveryOutcome = recovery.outcome;
+        if (recovery.outcome === 'identity_ready') {
+          providerArchiveGeneration = await requestProviderArchive(q, targetCaseId);
+        }
       }
+
+      // Any Archive continuation owned by the source is obsolete once that row is
+      // retired. When recovery moved to the survivor above, its fresh generation was
+      // already requested in this same transaction.
+      await cancelProviderArchive(q, sourceCaseId);
 
       await q(
         `UPDATE case_
-           SET status_code = $2, duplicate_keys = $3, on_hold = false, updated_at = now()
+           SET status_code = $2, duplicate_keys = $3, on_hold = false,
+               on_hold_reason = NULL, updated_at = now()
          WHERE id = $1`,
         [sourceCaseId, statusToInt('linked_to_instruction'), JSON.stringify({ mergedInto: targetCaseId })],
       );
@@ -2167,7 +2395,10 @@ app.http('mergeCases', {
         caseId: targetCaseId,
         summary:
           `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence, ${movedEmails.length} emails` +
-          `${providerFilled ? ', provider carried over from the merged case' : ''})`,
+          `${providerFilled ? ', provider carried over from the merged case' : ''}` +
+          `${providerRecoveryOutcome === 'identity_ready' ? ', Archive folder queued' : ''}` +
+          `${claimantMerge.filled ? ', claimant carried over from the merged case' : ''}` +
+          `${claimantMerge.conflict ? ', claimant difference kept for review' : ''})`,
         after: {
           sourceCaseId,
           targetCaseId,
@@ -2175,6 +2406,10 @@ app.http('mergeCases', {
           collidingEvidence,
           movedEmails: movedEmails.length,
           providerFilled,
+          providerRecoveryOutcome,
+          providerArchiveGeneration,
+          claimantFilled: claimantMerge.filled,
+          claimantConflict: claimantMerge.conflict,
         },
         ...(actor ? { actor } : {}),
       }, q);
@@ -2185,9 +2420,26 @@ app.http('mergeCases', {
         collidingEvidence,
         movedEmails: movedEmails.length,
         providerFilled,
+        providerRecoveryOutcome,
+        providerArchiveGeneration,
+        claimantFilled: claimantMerge.filled,
+        claimantConflict: claimantMerge.conflict,
         statusGeneration,
       };
     });
+
+    let merged: Awaited<ReturnType<typeof runMerge>>;
+    try {
+      merged = await runMerge();
+    } catch (e) {
+      if (e instanceof MergeProviderRecoveryBlocked) {
+        return {
+          status: 409,
+          jsonBody: { error: 'Provider recovery needs review before these cases can be merged.' },
+        };
+      }
+      throw e;
+    }
 
     if (merged.kind === 'error') {
       return { status: merged.status, jsonBody: { error: merged.error } };
@@ -2312,12 +2564,24 @@ app.http('removeCase', {
 
     // Close: status -> 'removed' (terminal), hold cleared, closed_at stamped.
     // NOTHING is blanked — the record keeps its details for the file.
-    await query(
+    const closed = await query<{ id: string }>(
       `UPDATE case_
-          SET status_code = $2, on_hold = false, closed_at = now(), updated_at = now()
-        WHERE id = $1`,
+          SET status_code = $2, on_hold = false, on_hold_reason = NULL,
+              closed_at = now(), updated_at = now()
+        WHERE id = $1
+          AND on_hold_reason IS DISTINCT FROM 'provider_archive_pending'
+          AND provider_archive_completed_generation >= provider_archive_requested_generation
+      RETURNING id`,
       [id, statusToInt('removed')],
     );
+    if (!closed[0]) {
+      return {
+        status: 409,
+        jsonBody: {
+          error: 'Archive folder work is still finishing for this case. Try again shortly.',
+        },
+      };
+    }
 
     await writeAudit({
       action: AUDIT_ACTION.case_removed,

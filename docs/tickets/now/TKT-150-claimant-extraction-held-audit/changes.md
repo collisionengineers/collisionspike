@@ -1,54 +1,82 @@
 # Changes — TKT-150: Restore claimant-name extraction and remediate affected held cases
 
 ## Status
-Parser extraction slice implemented and immutably re-vendored. The ticket is active in `now`; the
-live census, QDOS26079 trace, deployment, remediation, readiness recomputation, and independent
-verification remain dispatcher-owned follow-up work.
 
-## Commits
+The implementation and fail-closed remediation tooling are complete offline. Live deployment, the fresh
+immutable census/plan, the plan-bound backup and named approval, the fill-only apply, and independent live
+verification remain pending. No final cutover, production EVA call, Outlook write, production Archive-root
+switch, or production Archive write is part of this ticket execution.
 
-- Sibling `cedocumentmapper_v2.0` `f3e780f` / `engine-v2.17` — ordinary claimant prose,
-  explicit-label precedence, and e-mail-signature exclusion.
-- Sibling `c99ca5b` / `engine-v2.18` — preserve claimant evidence across reply/forward boundaries
-  while excluding the current sender's signature.
-- Sibling `f0026d2` / `engine-v2.19` — reduce labelled values to a conservative person-name prefix.
-- Sibling `3809941` / `engine-v2.20` and `8bf8311` / `engine-v2.21` — immediate-only empty-label
-  continuation, safe explicit surnames, organisation rejection, and domain-qualified prose anchors.
-- Sibling `9998284` / `engine-v2.22` — reject claimant absence markers (`TBC`, `TBA`, `N/A`,
-  `None`, `Unknown`, and reviewed long forms); the annotated tag is pushed unchanged.
-- CollisionSpike `14914d9`, `fb7aaa6`, `42a5036`, `b0e1ae1`, and `4c29b26` — pure-mirror cuts
-  through `engine-v2.22`, immutable-lock regeneration, and matching wrapper regressions.
+## Consolidated baseline
 
-## Files touched
+- The three historical TKT-150 branches were compared and only the current remediation runner and non-PII
+  evidence were carried onto current `main`.
+- The earlier 134-case `engine-v2.23` plan is explicitly superseded and is not an apply artifact.
+- Raw source, plan, backup, approval, journal, and ledger artifacts are rejected when their paths resolve
+  inside this repository or any linked worktree.
+- Current parser vendor lock is the immutable sibling tag `engine-v2.24`; the parser Function now exposes a
+  function-key-protected content fingerprint for live revision proof.
 
-- Sibling `src/cedocumentmapper_v2/rules/engine.py`.
-- Sibling `tests/test_claimant_name_extraction.py` and seven non-PII EML/golden fixture pairs.
-- `functions/parser/cedocumentmapper_v2/rules/engine.py`, `VENDOR_LOCK.json`, and `PROVENANCE.md`.
-- Matching Function-wrapper fixtures and `functions/parser/tests/test_claimant_name_extraction.py`.
+## Claimant source and conflict handling
 
-## Summary
+- Document claimant values outrank conservative body-text candidates. Differing retained candidates are
+  persisted as unresolved conflicts instead of overwriting the saved claimant or disappearing.
+- Claimant value plus provenance is atomic. A claimant provenance failure now aborts the transaction; legacy
+  non-claimant provenance remains best-effort but emits a diagnostic instead of failing silently.
+- Create, exact-message replay, retro reconstruction, later-document update, and merge share the same
+  claimant-selection and stable source-reference semantics.
+- Merge carries current claimant provenance to the survivor, fills only a blank survivor, and exposes a
+  differing source value as a conflict. A legacy value whose origin was never recorded uses the explicit
+  `unknown` provenance choice, never a fabricated staff source.
+- The SPA keeps the saved value visible and shows each conflicting value with controlled handler-facing source
+  wording. Stored internal source labels are not used for conflict summaries, and vehicle-source wording does
+  not expose banned implementation/service names.
 
-Claimant-name extraction now ranks explicit claimant/client labels above weaker prose, can recover
-conservative ordinary wording, and does not take a case handler, e-mail signature, repairer, third
-party, insured, organisation, trailing instruction prose, or unrelated later line as the claimant.
-Thread boundaries end only the current signature range, so a quoted original instruction remains
-available. Provider-specific aliases remain authoritative only for their reviewed layouts.
+## Replay and provider recovery
 
-`engine-v2.22` closes the remaining absence-marker hole. A placeholder is rejected at both the
-configured-rule safety boundary and the explicit-label fallback. It therefore remains blank when no
-defensible claimant exists and cannot prevent a later defensible prose candidate from being used.
-The adversarial EML combines `Claimant Name: TBC` with a second claimant label inside the handler's
-signature, proving that neither supplies an invented claimant.
+- Exact Internet Message-ID ownership is the replay authority. Repairable cases replay through the shared
+  parser/provider seam; terminal owners return `already_ingested` with no downstream mutation.
+- Provider recovery is two-phase and idempotent: the database transaction locks the case and provider,
+  adopts or mints a valid Case/PO, moves only an intake-owned hold to `provider_archive_pending`, and requests
+  a durable Archive generation.
+- The eternal orchestration monitor consumes every pending generation through the existing fail-closed folder
+  seam. It always verifies the pinned test root `392761581105`, exact Case/PO folder name, direct parent/path,
+  and first-wins database stamp before acknowledging completion.
+- Merge and remove refuse to mutate a case while a provider-Archive generation or legacy pending hold is in
+  flight. Manual hold/unhold changes cannot suppress pending Archive work. Completion clears only the
+  provider-owned hold and requests canonical status recomputation.
+- Retro reconstruction now applies parser/provider recovery to an already-linked case as well as a newly
+  created one; response-loss retries adopt the same verified folder instead of duplicating it.
 
-Proof recorded during implementation:
+## Remediation runner
 
-- Sibling claimant suite: **72 passed**.
-- Sibling split full suite: **522 passed / 5 skipped / 5 failures identical to the clean
-  `engine-v2.21` Windows legacy-DOC/eval baseline**.
-- Immutable vendor verifier: **PASS, 36 files, official `engine-v2.22` tag verified**.
-- CollisionSpike focused parser slice: **292 passed / 11 environment skips**.
-- CollisionSpike full parser suite: **367 passed / 11 skipped / 1 unchanged ALS legacy-DOC
-  baseline failure**.
+`scripts/live/remediate-blank-claimants.mjs` implements a v2 claimant-only contract:
 
-Payment/remittance classification was deliberately not changed here: it is owned and pinned by
-TKT-105 and TKT-120, outside TKT-150's claimant-extraction acceptance.
+- repeatable-read census across active Held, Not Ready, and Review cases;
+- deployed parser fingerprint binding and byte hashes for every retained document/body actually read;
+- explicit `repair`, `absent_in_source`, `conflicting`, or `failed` classification;
+- raw plan, runner, environment, exact per-case allowlists, backup manifest, actual `pg_dump`, PostgreSQL 16
+  restore proof, and named unexpired approval binding;
+- fill-only claimant writes, source provenance, before/after audit, and durable canonical status-recompute
+  request; and
+- append-only journal plus a complete residual census/ledger, including actionable no-write failures.
+
+The [controlled runbook](./remediation-runbook.md) fixes deployment order and the external-artifact/approval
+boundary. The runner cannot perform the blocked final cutover.
+
+## Verification so far
+
+- Final current-tree suites pass: API **773**, orchestration **470**, domain **1,196**, SPA **525**, remediation
+  runner **29**, parser **380** with **11 expected skips**, and Box webhook **252** tests.
+- All TypeScript builds pass. The aggregate offline verifier reports **8 passed, 0 failed, 13 skipped**; its
+  per-Function venv skips are covered by the direct parser and Box runs above, while the other skips are
+  retired Power Platform gates or explicitly live/optional gates.
+- The independent diff audit and whole-tree `git diff --check` pass. The audit found no unresolved source, SQL,
+  race, idempotency, personal-data, or fail-closed safety defect.
+- Coverage includes claimant atomicity and conflicts; merge/source truth; exact replay; provider recovery and
+  outbox locking; document/body precedence; pinned-root folder verification; blank-claimant readiness; honest
+  unknown-source rendering; Box readback authority; parser fingerprinting; and the plan/backup/apply boundary.
+
+The authoritative acceptance-by-acceptance state is in [verification.md](./verification.md). Live acceptance is
+deliberately still pending until the fresh plan, backup, approval, apply, residual census, and independent proof
+exist.

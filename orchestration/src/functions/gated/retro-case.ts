@@ -60,7 +60,11 @@ import { findMessageByInternetMessageId, kqlPhrase, searchMessages } from '../..
 import { intakeMailboxes } from '../../lib/subscriptions.js';
 import { box, callExplodeEml, type ExplodedEml } from '../../lib/functions-client.js';
 import { uploadEvidenceBytes } from '../../lib/blob.js';
-import { supplementAccidentCircumstancesFromBody } from '../../lib/supplement-parse.js';
+import {
+  resolveClaimantInputs,
+  supplementAccidentCircumstancesFromBody,
+  supplementClaimantNameFromBody,
+} from '../../lib/supplement-parse.js';
 import {
   buildMinimalAnchorEnvelope,
   buildRetroEnvelopeFromDoc,
@@ -87,9 +91,10 @@ interface RetroParseResult {
 /** Pure mapping of a parse envelope onto the create payload's parser fields —
  *  mirrors intakeOrchestrator's forwarding block exactly (fill-if-empty semantics
  *  live in the API). Replay-safe: pure over checkpointed activity results. */
-function mapRetroParse(
+export function mapRetroParse(
   parseResult: RetroParseResult,
   bodyText: string,
+  sourceReference: string,
 ): {
   parserEva: ParserEvaFields;
   parserVrm: string;
@@ -100,11 +105,17 @@ function mapRetroParse(
   const ex = parseResult.extraction ?? {};
   const exVal = (k: string): string => (ex[k]?.value ?? '').trim();
   const exWorkProvider = exVal('work_provider');
+  const claimantInputs = resolveClaimantInputs(
+    exVal('claimant_name'),
+    supplementClaimantNameFromBody(bodyText),
+  );
+  const stableSourceReference = sourceReference.trim().slice(0, 400);
   return {
     parserEva: {
+      source_reference: stableSourceReference,
       work_provider: exWorkProvider.toUpperCase() === 'UNKNOWN' ? '' : exWorkProvider,
       vehicle_model: exVal('vehicle_model'),
-      claimant_name: exVal('claimant_name'),
+      claimant_name: claimantInputs.value,
       claimant_telephone: exVal('claimant_telephone'),
       claimant_email: exVal('claimant_email'),
       date_of_loss: exVal('date_of_loss'),
@@ -112,6 +123,18 @@ function mapRetroParse(
       accident_circumstances:
         exVal('accident_circumstances') || supplementAccidentCircumstancesFromBody(bodyText),
       vat_status: exVal('vat_status'),
+      ...(claimantInputs.fromEmailBody
+        ? { sources: { claimant_name: 'email_text' as const } }
+        : {}),
+      ...(claimantInputs.conflicts.length > 0
+        ? {
+            claimant_conflicts: claimantInputs.conflicts.map((value) => ({
+              value,
+              source: 'email_text' as const,
+              source_reference: stableSourceReference,
+            })),
+          }
+        : {}),
     },
     parserVrm: (parseResult.vrm?.value ?? '').trim(),
     parserRef: (parseResult.reference?.value ?? '').trim(),
@@ -144,6 +167,8 @@ export interface RetroCaseInput {
 const retry = new df.RetryOptions(5_000, 3);
 retry.backoffCoefficient = 2;
 retry.maxRetryIntervalInMilliseconds = 60_000;
+
+export class ProviderArchivePendingError extends Error {}
 
 /* ============================================================
    Manual starter — the operator drain lever (authLevel 'function': this lever
@@ -338,7 +363,11 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
 
         // Pure mappings over checkpointed results — mirrors intake's parser forwarding.
         const { parserEva, parserVrm, parserRef, parserMileage, parserMileageUnit } =
-          mapRetroParse(parseResult, String(original.body ?? ''));
+          mapRetroParse(
+            parseResult,
+            String(original.body ?? ''),
+            original.internetMessageId || original.messageId,
+          );
 
         // Corroboration (pure, logged): with BOTH trigger keys present AND both parsed,
         // a double disagreement means the picked folder is suspect — demote to a Held
@@ -404,7 +433,13 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
           boxFolder: { id: located.folder.id, url: `https://app.box.com/folder/${encodeURIComponent(located.folder.id)}` },
           triggerCategory: category,
           otherFiles: fetched.otherFiles ?? [],
-        })) as { skipped?: string; outcome?: string; caseId?: string; casePo?: string | null };
+        })) as {
+          skipped?: string;
+          outcome?: string;
+          caseId?: string;
+          casePo?: string | null;
+          providerRecovery?: 'identity_ready' | 'not_needed' | 'blocked';
+        };
 
         if (persisted.skipped) return { outcome: 'skipped', reason: persisted.skipped };
         if (persisted.outcome === 'gated_off') return { outcome: 'skipped', reason: 'api_gate_off' };
@@ -414,7 +449,10 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
         if (persisted.outcome === 'refused_category') {
           rungsTried.push('box_refused_category');
         } else {
-          if (persisted.outcome === 'created' && persisted.caseId) {
+          if (
+            (persisted.outcome === 'created' || persisted.outcome === 'already_exists_linked') &&
+            persisted.caseId
+          ) {
             // Record-keeping parity with a linked live arrival: evidence rows for the
             // reconstructed original + status alignment. Best-effort — never unwinds
             // the created case. NO enrich (historical vehicle data adds nothing), NO
@@ -502,7 +540,11 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
         parseResult = {};
       }
       const { parserEva, parserVrm, parserRef, parserMileage, parserMileageUnit } =
-        mapRetroParse(parseResult, String(original.body ?? ''));
+        mapRetroParse(
+          parseResult,
+          String(original.body ?? ''),
+          original.internetMessageId || original.messageId,
+        );
 
       // Corroboration is REQUIRED on this rung ($search relevance can surface thread
       // noise): the trigger's key must literally appear in the found message's
@@ -557,7 +599,13 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
           ],
           triggerCategory: category,
           otherFiles: [],
-        })) as { skipped?: string; outcome?: string; caseId?: string; casePo?: string | null };
+        })) as {
+          skipped?: string;
+          outcome?: string;
+          caseId?: string;
+          casePo?: string | null;
+          providerRecovery?: 'identity_ready' | 'not_needed' | 'blocked';
+        };
 
         if (persisted.skipped) return { outcome: 'skipped', reason: persisted.skipped };
         if (persisted.outcome === 'gated_off') return { outcome: 'skipped', reason: 'api_gate_off' };
@@ -578,6 +626,28 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
                 ctx.log(`[retro] classifyPersist failed (additive, non-blocking): ${String(e)}`);
               }
             }
+            // A create or exact get-or-create replay can finish provider identity. Run the
+            // same idempotent folder ensure for both; the sub-orchestrator proves the exact
+            // Case/PO folder is directly under the pinned test root before stamping it.
+            if (persisted.providerRecovery === 'identity_ready') {
+              let folderResult: { folderId?: string; providerRecoveryCompleted?: boolean };
+              try {
+                folderResult = (yield ctx.df.callSubOrchestratorWithRetry(
+                  'boxFolderCreateOrchestrator',
+                  retry,
+                  { caseId: persisted.caseId },
+                )) as { folderId?: string; providerRecoveryCompleted?: boolean };
+              } catch (e) {
+                throw new ProviderArchivePendingError(
+                  `Archive folder recovery failed for retro case ${persisted.caseId}: ${String(e)}`,
+                );
+              }
+              if (!folderResult?.folderId || folderResult.providerRecoveryCompleted !== true) {
+                throw new ProviderArchivePendingError(
+                  `Provider identity is ready but the Archive folder is still pending for retro case ${persisted.caseId}`,
+                );
+              }
+            }
             try {
               yield ctx.df.callActivityWithRetry('statusEvaluate', retry, { caseId: persisted.caseId });
             } catch (e) {
@@ -591,6 +661,9 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
             caseId: persisted.caseId,
             casePo: persisted.casePo,
             source: 'outlook',
+            providerRecovery: persisted.providerRecovery === 'identity_ready'
+              ? 'completed'
+              : (persisted.providerRecovery ?? 'not_needed'),
           };
         }
       }
@@ -600,6 +673,7 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
       rungsTried.push('outlook_uncorroborated');
     }
   } catch (e) {
+    if (e instanceof ProviderArchivePendingError) throw e;
     if (!ctx.df.isReplaying) {
       ctx.log(`[retro] Outlook rung failed (best-effort, falling through): ${String(e)}`);
     }
@@ -979,7 +1053,7 @@ df.app.activity('retroOutlookLocate', {
           try {
             const hits = await searchMessages(mailbox, kqlPhrase(variant), 25);
             for (const h of hits) {
-              const k = `${mailbox} ${h.id}`;
+              const k = `${mailbox}\u0000${h.id}`;
               if (seen.has(k)) continue;
               seen.add(k);
               candidates.push({ ...h, mailbox });

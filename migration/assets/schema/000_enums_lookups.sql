@@ -309,7 +309,8 @@ INSERT INTO choice_field_provenance_source_type (code, name, label) VALUES
   (100000007, 'azure_vision',   'Azure Vision'),
   (100000008, 'web_lookup',     'Web Lookup'),
   (100000009, 'whatsapp',       'WhatsApp'),
-  (100000010, 'manual_upload',  'Manual Upload');
+  (100000010, 'manual_upload',  'Manual Upload'),
+  (100000011, 'unknown',        'Source Not Recorded');
 
 -- ---------------------------------------------------------------------------
 -- cr1bd_imagerole  (image-role.json)  -- Evidence.image_role_code

@@ -21,9 +21,120 @@ import {
   rowToAiSuggestion,
   rowToCase,
   rowToEvidence,
+  rowToEvaFields,
   rowToInboundEmail,
   tallyActiveInboundCounts,
 } from './mappers';
+
+describe('rowToEvaFields — unresolved claimant conflicts (TKT-150)', () => {
+  const rec = { eva_claimant_name: 'Ms Existing Claimant' };
+
+  it('keeps the current value/source while surfacing a differing conflict for readiness', () => {
+    const fields = rowToEvaFields(rec, [
+      {
+        id: 'staff-1',
+        field_name: 'claimantName',
+        value: 'Ms Existing Claimant',
+        source_type_code: 100000000,
+        source_label: 'Manual edit (case page)',
+        review_state_code: 100000002,
+      },
+      {
+        id: 'conflict-1',
+        field_name: 'claimantName',
+        value: 'Mr Different Candidate',
+        source_type_code: 100000002,
+        source_label: 'From email body — differs from the saved claimant',
+        review_state_code: 100000003,
+      },
+    ]);
+
+    expect(fields.claimantName).toMatchObject({
+      value: 'Ms Existing Claimant',
+      reviewState: 'conflict',
+      provenance: { sourceType: 'staff', sourceLabel: 'Manual edit (case page)' },
+      conflicts: [
+        {
+          candidateValue: 'Mr Different Candidate',
+          provenance: {
+            sourceType: 'email_text',
+            sourceLabel: 'From email body — differs from the saved claimant',
+          },
+        },
+      ],
+    });
+  });
+
+  it('does not let a conflict row for the current value hide a reviewed staff decision', () => {
+    const fields = rowToEvaFields(rec, [
+      {
+        id: 'staff-1',
+        field_name: 'claimantName',
+        value: 'Ms Existing Claimant',
+        source_type_code: 100000000,
+        source_label: 'Manual edit (case page)',
+        review_state_code: 100000002,
+      },
+      {
+        id: 'old-conflict',
+        field_name: 'claimantName',
+        value: ' ms existing claimant ',
+        source_type_code: 100000001,
+        source_label: 'From instructions',
+        review_state_code: 100000003,
+      },
+    ]);
+
+    expect(fields.claimantName.reviewState).toBe('reviewed');
+    expect(fields.claimantName.conflicts).toBeUndefined();
+  });
+
+  it('returns each distinct candidate deterministically without changing the saved value', () => {
+    const fields = rowToEvaFields(rec, [
+      {
+        id: 'staff-1',
+        field_name: 'claimantName',
+        value: 'Ms Existing Claimant',
+        source_type_code: 100000000,
+        source_label: 'Manual edit (case page)',
+        review_state_code: 100000002,
+      },
+      {
+        id: 'conflict-old',
+        field_name: 'claimantName',
+        value: 'Mr Earlier Candidate',
+        source_type_code: 100000001,
+        source_label: 'From instructions — differs from the saved claimant',
+        review_state_code: 100000003,
+        created_at: '2026-07-13T10:00:00Z',
+      },
+      {
+        id: 'conflict-new',
+        field_name: 'claimantName',
+        value: 'Mr Later Candidate',
+        source_type_code: 100000002,
+        source_label: 'From email body — differs from the saved claimant',
+        review_state_code: 100000003,
+        created_at: '2026-07-14T10:00:00Z',
+      },
+      {
+        id: 'conflict-duplicate',
+        field_name: 'claimantName',
+        value: ' mr later candidate ',
+        source_type_code: 100000001,
+        source_label: 'From instructions — differs from the saved claimant',
+        review_state_code: 100000003,
+        created_at: '2026-07-12T10:00:00Z',
+      },
+    ]);
+
+    expect(fields.claimantName.value).toBe('Ms Existing Claimant');
+    expect(fields.claimantName.conflicts?.map((conflict) => conflict.candidateValue)).toEqual([
+      'Mr Later Candidate',
+      'Mr Earlier Candidate',
+    ]);
+  });
+});
 
 describe('rowToEvidence — automatic exclusion review visibility', () => {
   const base = {

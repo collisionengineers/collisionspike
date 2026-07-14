@@ -2,6 +2,9 @@ import {
   Dropdown,
   Field,
   Input,
+  MessageBar,
+  MessageBarBody,
+  MessageBarTitle,
   Option,
   Textarea,
   makeStyles,
@@ -15,6 +18,7 @@ import {
   type EvaField,
   type EvaFieldKey,
   type MileageUnit,
+  type ProvenanceSourceType,
   type VatStatus,
 } from '../data';
 
@@ -61,7 +65,38 @@ const useStyles = makeStyles({
     gap: tokens.spacingHorizontalXS,
     paddingTop: '26px',
   },
+  fieldControl: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalS,
+    minWidth: 0,
+  },
+  conflictDetails: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+  },
+  conflictValue: {
+    overflowWrap: 'anywhere',
+  },
 });
+
+/** Controlled, non-technical source wording for conflict details. Do not render
+ * stored source labels here: older rows can contain internal implementation text. */
+const CONFLICT_SOURCE_LABEL: Record<ProvenanceSourceType, string> = {
+  staff: 'Staff entry',
+  pdf_extraction: 'Instruction document',
+  email_text: 'Email',
+  corpus: 'Saved records',
+  ai: 'Automatic check',
+  dvla_dvsa: 'Vehicle record',
+  document_ai: 'Instruction document',
+  azure_vision: 'Image',
+  web_lookup: 'Online lookup',
+  whatsapp: 'WhatsApp',
+  manual_upload: 'Staff upload',
+  unknown: 'Source not recorded',
+};
 
 /** EvaFieldKey → { label, required }, derived from the contract descriptor so a
  *  contract relabel (e.g. "Date of Incident") flows through every screen. */
@@ -200,15 +235,44 @@ export function EvaFieldRow({
     <div className={styles.fieldRow} id={rowId}>
       {/* Fluent's `required` renders the asterisk AND exposes the required
           semantic to assistive tech (the hand-appended " *" did neither). */}
-      <Field label={label} required={required} {...validation}>
-        {control}
-      </Field>
+      <div className={styles.fieldControl}>
+        <Field label={label} required={required} {...validation}>
+          {control}
+        </Field>
+        {field.reviewState === 'conflict' && field.conflicts && field.conflicts.length > 0 && (
+          <div
+            role="note"
+            aria-label={fieldKey === 'claimantName' ? 'Claimant name conflict' : `${label} conflict`}
+          >
+            <MessageBar intent="warning">
+              <MessageBarBody>
+                <MessageBarTitle>
+                  {fieldKey === 'claimantName'
+                    ? 'Another claimant name was found'
+                    : 'Another value was found'}
+                </MessageBarTitle>
+                <div className={styles.conflictDetails}>
+                  {field.conflicts.map((conflict, index) => (
+                    <div key={`${conflict.candidateValue}-${index}`}>
+                      <div className={styles.conflictValue}>
+                        Other value: <strong>{conflict.candidateValue}</strong>
+                      </div>
+                      <div>Source: {CONFLICT_SOURCE_LABEL[conflict.provenance.sourceType]}</div>
+                    </div>
+                  ))}
+                </div>
+              </MessageBarBody>
+            </MessageBar>
+          </div>
+        )}
+      </div>
       <div className={styles.fieldMeta}>
         <ProvenanceBadge
           variant="compact"
           provenance={field.provenance}
           reviewState={field.reviewState}
           fieldKey={fieldKey}
+          conflicts={field.conflicts}
         />
       </div>
     </div>

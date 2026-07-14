@@ -73,6 +73,7 @@ import {
   evidenceKindCodec,
   imageRoleCodec,
   intakeChannelKindCodec,
+  reviewStateCodec,
   sourceTypeCodec,
   statusToInt,
 } from '@cs/domain/codecs';
@@ -114,6 +115,12 @@ import { clampVarchar, vrmOrEmpty } from '../lib/varchar-guard.js';
 import { markImageChasersResponded } from '../lib/image-chasers.js';
 import { vrmLinkRefConflict } from '../lib/link-guards.js';
 import { requestStatusRecompute } from '../lib/status-recompute.js';
+import {
+  completeProviderRecoveryUsing,
+  stampCaseArchiveFolderUsing,
+  type ProviderRecoveryResult,
+} from '../lib/provider-recovery.js';
+import { requestProviderArchive } from '../lib/provider-archive-outbox.js';
 import {
   listOutlookLinkBackfillCandidates,
   recordOutlookLinkBackfillResult,
@@ -377,11 +384,23 @@ export async function recomputeStatus(
  *  Each field actually filled this run gets a field_level_provenance row. A no-op when every
  *  input is absent, so callers can pass them unconditionally.
  */
-export type ProviderResolutionSource = 'none' | 'instruction_content' | 'single_intermediary';
+export type ProviderResolutionSource =
+  | 'none'
+  | 'instruction_content'
+  | 'sender_domain'
+  | 'single_intermediary';
+
+export interface ProviderRecoveryContext {
+  caseType?: CaseWorkType;
+  caseTypeDual?: boolean;
+  allowCasePoMint?: boolean;
+}
 
 export interface ApplyParserFieldsResult {
   providerResolutionSource: ProviderResolutionSource;
   resolvedProviderId?: string;
+  casePo?: string;
+  providerRecovery?: ProviderRecoveryResult;
 }
 
 export async function applyParserFields(
@@ -395,12 +414,41 @@ export async function applyParserFields(
    *  (orchestration providerMatch activity); its N:N candidate work providers let a
    *  content-detected match be recorded as CORROBORATED rather than a bare guess. */
   intermediary?: { imageSourceId: string; candidateProviderIds: readonly string[] } | null,
+  recoveryContext?: ProviderRecoveryContext,
+): Promise<ApplyParserFieldsResult> {
+  return tx((q) => applyParserFieldsUsing(
+    q,
+    caseId,
+    parserRef,
+    parserMileage,
+    parserMileageUnit,
+    parserEva,
+    workProviderId,
+    intermediary,
+    recoveryContext,
+  ));
+}
+
+export async function applyParserFieldsUsing(
+  q: TxQuery,
+  caseId: string,
+  parserRef?: string,
+  parserMileage?: string,
+  parserMileageUnit?: string,
+  parserEva?: ParserEvaFields,
+  workProviderId?: string | null,
+  intermediary?: { imageSourceId: string; candidateProviderIds: readonly string[] } | null,
+  recoveryContext?: ProviderRecoveryContext,
 ): Promise<ApplyParserFieldsResult> {
   let providerResolutionSource: ProviderResolutionSource = 'none';
   let resolvedProviderId: string | undefined;
+  let effectiveCasePo = '';
+  let providerRecovery: ProviderRecoveryResult | undefined;
   const result = (): ApplyParserFieldsResult => ({
     providerResolutionSource,
     ...(resolvedProviderId ? { resolvedProviderId } : {}),
+    ...(effectiveCasePo ? { casePo: effectiveCasePo } : {}),
+    ...(providerRecovery ? { providerRecovery } : {}),
   });
   const ref = (parserRef ?? '').trim();
   const mileageRaw = parserMileage != null ? String(parserMileage).trim() : '';
@@ -408,6 +456,16 @@ export async function applyParserFields(
   const unitRaw = (parserMileageUnit ?? '').trim();
   const unit = unitRaw === 'Miles' || unitRaw === 'Km' ? unitRaw : '';
   const evaCandidates = selectParserEvaCandidates(parserEva);
+  const explicitClaimantConflicts = (parserEva?.claimant_conflicts ?? [])
+    .map((candidate) => ({
+      value: String(candidate?.value ?? '').trim().slice(0, 200),
+      sourceType: 'email_text' as const,
+      sourceLabel: 'From email body',
+      sourceReference: String(candidate?.source_reference ?? parserEva?.source_reference ?? '')
+        .trim()
+        .slice(0, 400),
+    }))
+    .filter((candidate) => Boolean(candidate.value));
   const matchedProviderId = (workProviderId ?? '').trim();
   const mightFillWorkProviderFromCorpus =
     Boolean(matchedProviderId) &&
@@ -433,6 +491,7 @@ export async function applyParserFields(
     !ref &&
     !mileage &&
     evaCandidates.length === 0 &&
+    explicitClaimantConflicts.length === 0 &&
     !mightFillWorkProviderFromCorpus &&
     !mightMatchWorkProviderIdFromContent &&
     !singleIntermediaryCandidate
@@ -441,16 +500,22 @@ export async function applyParserFields(
   }
 
   // Read every column we might fill so each write is strictly fill-if-empty.
-  const readCols = [
+  const readCols = Array.from(new Set([
     'case_ref',
     'ov_claim_number',
     'eva_mileage',
     'eva_work_provider',
     'work_provider_id',
+    'case_po',
+    'eva_claimant_name',
     ...evaCandidates.map((c) => c.column),
-  ];
-  const cur = await query<Row>(`SELECT ${readCols.join(', ')} FROM case_ WHERE id = $1`, [caseId]);
+  ]));
+  const cur = await q<Row>(
+    `SELECT ${readCols.join(', ')} FROM case_ WHERE id = $1 FOR UPDATE`,
+    [caseId],
+  );
   if (!cur[0]) return result();
+  effectiveCasePo = String(cur[0].case_po ?? '').trim();
   const isEmpty = (v: unknown): boolean => !String(v ?? '').trim();
 
   const sets: string[] = [];
@@ -462,6 +527,13 @@ export async function applyParserFields(
     value: string;
     sourceType: 'pdf_extraction' | 'email_text' | 'corpus';
     sourceLabel: string;
+    sourceReference?: string;
+  }> = [];
+  const claimantConflicts: Array<{
+    value: string;
+    sourceType: 'pdf_extraction' | 'email_text' | 'corpus';
+    sourceLabel: string;
+    sourceReference: string;
   }> = [];
 
   if (ref && isEmpty(cur[0].case_ref)) {
@@ -494,7 +566,78 @@ export async function applyParserFields(
         value: cand.value,
         sourceType: cand.sourceType ?? 'pdf_extraction',
         sourceLabel: cand.sourceLabel ?? 'From instructions',
+        sourceReference: String(parserEva?.source_reference ?? '').trim().slice(0, 400),
       });
+    } else if (
+      cand.provenanceField === 'claimantName' &&
+      String(cur[0][cand.column] ?? '').trim().toLocaleLowerCase('en-GB') !==
+        cand.value.trim().toLocaleLowerCase('en-GB')
+    ) {
+      // TKT-150: a later retained source must never silently disappear when it names a
+      // different claimant. Keep the current case value, retain the candidate as an
+      // unresolved conflict row, and let canonical readiness hold the case for review.
+      claimantConflicts.push({
+        value: cand.value,
+        sourceType: cand.sourceType ?? 'pdf_extraction',
+        sourceLabel: cand.sourceLabel ?? 'From instructions',
+        sourceReference: String(parserEva?.source_reference ?? '').trim().slice(0, 400),
+      });
+    }
+  }
+
+  const selectedClaimant = evaCandidates.find(
+    (candidate) => candidate.provenanceField === 'claimantName',
+  )?.value ?? '';
+  const effectiveClaimant = String(cur[0].eva_claimant_name ?? '').trim() || selectedClaimant;
+  const seenConflictKeys = new Set(
+    claimantConflicts.map((candidate) => candidate.value.trim().toLocaleLowerCase('en-GB')),
+  );
+  for (const candidate of explicitClaimantConflicts) {
+    const key = candidate.value.toLocaleLowerCase('en-GB');
+    if (
+      key === effectiveClaimant.toLocaleLowerCase('en-GB') ||
+      seenConflictKeys.has(key)
+    ) continue;
+    seenConflictKeys.add(key);
+    claimantConflicts.push(candidate);
+  }
+
+  for (const conflict of claimantConflicts) {
+    const sourceCode = sourceTypeCodec.toInt(conflict.sourceType) ?? 100000001;
+    const conflictCode = reviewStateCodec.toInt('conflict') ?? 100000003;
+    const inserted = await q<{ id: string }>(
+      `INSERT INTO field_level_provenance
+         (name, case_id, field_name, value, source_type_code, source_label, source_reference,
+          review_state_code)
+       SELECT $1, $2, 'claimantName', $3, $4, $5, NULLIF($6, ''), $7
+       WHERE NOT EXISTS (
+         SELECT 1
+         FROM field_level_provenance
+         WHERE case_id = $2
+           AND field_name = 'claimantName'
+           AND lower(btrim(COALESCE(value, ''))) = lower(btrim($3))
+           AND COALESCE(source_reference, '') = $6
+       )
+       RETURNING id`,
+      [
+        `${caseId}:claimantName:conflict`,
+        caseId,
+        conflict.value,
+        sourceCode,
+        `${conflict.sourceLabel} — differs from the saved claimant`,
+        conflict.sourceReference,
+        conflictCode,
+      ],
+    );
+    if (inserted.length > 0) {
+      await writeAudit({
+        action: AUDIT_ACTION.parser_called,
+        caseId,
+        severity: 'warning',
+        summary: 'A retained source names a different claimant — kept the saved claimant for review',
+        before: { claimantName: cur[0].eva_claimant_name },
+        after: { candidateClaimantName: conflict.value, provenanceId: inserted[0].id },
+      }, q);
     }
   }
 
@@ -509,26 +652,12 @@ export async function applyParserFields(
   // (non-UNKNOWN) string, regardless of whether work_provider_id is currently empty — a
   // MISMATCH must also surface even when it is already set (never auto-flip).
   //
-  // HELD/on_hold FINDING (verified 2026-07-02 — do not assume this fill un-holds a case):
-  // a "new client" case (no provider matched at case-create — cases/resolve above) is
-  // parked with `on_hold = true` PLUS a Held-queue-only status; `on_hold` is a SEPARATE
-  // boolean column that `recomputeStatus`/statusForReviewCase (packages/domain
-  // case-status.ts) NEVER reads or writes — it only ever recomputes `status_code`. The
-  // ONLY existing writers of `on_hold = false` are the explicit staff "take off hold"
-  // PATCH (cases.ts), the dedup ATTACH path, and case-close/removal — none of which this
-  // fill triggers. So filling work_provider_id here does NOT retroactively unhold the case
-  // or mint a Case/PO (that mint is a one-time, advisory-locked decision taken inside the
-  // cases/resolve transaction, before this function ever runs) — it fills the identity
-  // field (+ provenance) so the correct provider is visible on an otherwise still-Held
-  // case, but a person still confirms/unholds it. Deliberately NOT "fixed" here: doing so
-  // would mean either silently un-holding a case with no Case/PO (worse than leaving it
-  // Held — nothing else in this codebase, including the staff-facing case-edit PATCH,
-  // mints a Case/PO for an already-created case today), or reimplementing the advisory-
-  // locked mint outside its transaction and changing this route's response contract
-  // (Box-folder-creation in intakeOrchestrator.ts keys off THIS request's own casePo) —
-  // both are a genuinely new capability beyond a fill-if-empty field mapping.
+  // TKT-150: this function now owns the complete provider-recovery transaction. A
+  // provider fill/confirmation can clear only a machine-owned `provider_unresolved`
+  // hold; the shared advisory-locked allocator, durable status generation and audit
+  // run on this same `q`. Staff/manual holds remain untouched.
   if (mightMatchWorkProviderIdFromContent) {
-    const providerRows = await query<Row>(
+    const providerRows = await q<Row>(
       'SELECT id, principal_code, display_name FROM work_provider WHERE active = true',
     );
     const contentCandidates: WorkProviderContentMatchRecord[] = providerRows.map((r) => ({
@@ -565,8 +694,13 @@ export async function applyParserFields(
               workProviderId: contentMatch.workProviderId,
               viaIntermediaryImageSourceId: intermediary?.imageSourceId,
             },
-          });
+          }, q);
         }
+      } else if (existingWorkProviderId === contentMatch.workProviderId) {
+        // Replay/late-document agreement is still a resolved-provider signal: an older
+        // run may have filled the FK and crashed before completing the provider hold.
+        providerResolutionSource = 'instruction_content';
+        resolvedProviderId = contentMatch.workProviderId;
       } else if (existingWorkProviderId !== contentMatch.workProviderId) {
         // NEVER overwrite an existing work_provider_id — content is the primary SIGNAL,
         // not an override authority (ADR-0011). A disagreement is surfaced to the audit
@@ -579,28 +713,55 @@ export async function applyParserFields(
             'Instruction content names a different work provider than the one already on the case — kept the existing provider',
           before: { workProviderId: existingWorkProviderId },
           after: { contentDetectedWorkProviderId: contentMatch.workProviderId },
-        });
+        }, q);
       }
-      // else: content agrees with the existing FK already — nothing to change or flag.
     }
     // 'ambiguous' / 'unmatched' — never guess; the free-text eva_work_provider candidate
     // above (or the corpus fallback below) still carries the human-readable string either way.
+  }
+
+  let alreadySettingWorkProviderId = sets.some((s) => s.startsWith('work_provider_id ='));
+
+  // A direct sender-domain match is the conservative fallback when content did not
+  // resolve the provider. Create-time already uses this id; attach/replay must also be
+  // able to fill an older Held case instead of leaving identity split across e-mail/case.
+  const existingWorkProviderId = String(cur[0].work_provider_id ?? '').trim();
+  if (matchedProviderId && !resolvedProviderId && !alreadySettingWorkProviderId) {
+    if (!existingWorkProviderId) {
+      const wpRows = await q<Row>(
+        'SELECT display_name FROM work_provider WHERE id = $1 AND active = true',
+        [matchedProviderId],
+      );
+      if (wpRows[0]) {
+        sets.push(`work_provider_id = $${sets.length + 1}`);
+        vals.push(matchedProviderId);
+        providerResolutionSource = 'sender_domain';
+        resolvedProviderId = matchedProviderId;
+        provenance.push({
+          field: 'workProviderId',
+          value: matchedProviderId,
+          sourceType: 'corpus',
+          sourceLabel: 'Matched sender domain',
+        });
+        alreadySettingWorkProviderId = true;
+      }
+    } else if (existingWorkProviderId === matchedProviderId) {
+      providerResolutionSource = 'sender_domain';
+      resolvedProviderId = matchedProviderId;
+    }
   }
 
   // 1c (TKT-065) — single-candidate intermediary fallback for work_provider_id. Runs when the
   // above content-match did NOT set work_provider_id this run (audit case: the parsed
   // instruction was the audited EVA report, so content is empty/denylisted) and the FK is still
   // empty. A single-provider intermediary link is unambiguous → fill it (fill-if-empty), with an
-  // audit trail. Like the content-match fill, this does NOT un-hold the case or mint a Case/PO
-  // (see the HELD/on_hold finding above) — it fills the identity field so the right provider is
-  // visible while a person still confirms/unholds. >1 candidate is left for a human.
-  const alreadySettingWorkProviderId = sets.some((s) => s.startsWith('work_provider_id ='));
+  // audit trail. >1 candidate is left for a human.
   if (singleIntermediaryCandidate && !alreadySettingWorkProviderId && isEmpty(cur[0].work_provider_id)) {
     // Resolve the candidate's row and REQUIRE it active — the intermediary N:N
     // (candidateProviderIds) is NOT itself active-filtered (the image_source join in the
     // provider-match-records route), so a stale link to a deactivated provider must not
     // resolve, exactly as the direct-domain and content-match paths only match active rows.
-    const wpRows = await query<Row>(
+    const wpRows = await q<Row>(
       'SELECT display_name FROM work_provider WHERE id = $1 AND active = true',
       [singleIntermediaryCandidate],
     );
@@ -643,12 +804,19 @@ export async function applyParserFields(
           workProviderId: singleIntermediaryCandidate,
           viaIntermediaryImageSourceId: intermediary?.imageSourceId,
         },
-      });
+      }, q);
     }
+  } else if (
+    singleIntermediaryCandidate &&
+    !resolvedProviderId &&
+    existingWorkProviderId === singleIntermediaryCandidate
+  ) {
+    providerResolutionSource = 'single_intermediary';
+    resolvedProviderId = singleIntermediaryCandidate;
   }
 
   if (mightFillWorkProviderFromCorpus && isEmpty(cur[0].eva_work_provider)) {
-    const wpRows = await query<Row>(
+    const wpRows = await q<Row>(
       'SELECT display_name FROM work_provider WHERE id = $1',
       [matchedProviderId],
     );
@@ -667,22 +835,25 @@ export async function applyParserFields(
     }
   }
 
-  if (sets.length === 0) return result(); // every candidate already populated — respect existing values
+  if (sets.length > 0) {
+    vals.push(caseId);
+    await q(
+      `UPDATE case_ SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}`,
+      vals,
+    );
+  }
 
-  vals.push(caseId);
-  await query(
-    `UPDATE case_ SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}`,
-    vals,
-  );
-
-  // Provenance (mirror the manual-create field_level_provenance shape). Supplementary — must
-  // never block intake. Written only for fields actually filled this run.
+  // Provenance (mirror the manual-create field_level_provenance shape). Written only for
+  // fields actually filled this run. Claimant provenance is part of the claimant write's
+  // atomic contract: if it cannot be recorded, fail the transaction rather than commit a
+  // source-less claimant. Older non-claimant fields retain their best-effort behaviour.
   if (mileageFilled) {
     provenance.unshift({
       field: 'mileage',
       value: mileage.slice(0, 20),
       sourceType: 'pdf_extraction',
       sourceLabel: 'From instructions',
+      sourceReference: String(parserEva?.source_reference ?? '').trim().slice(0, 400),
     });
   }
   const pdfSourceTypeCode = sourceTypeCodec.toInt('pdf_extraction') ?? 100000001;
@@ -695,12 +866,58 @@ export async function applyParserFields(
         : p.sourceType === 'email_text'
           ? emailSourceTypeCode
           : pdfSourceTypeCode;
-    await query(
+    const insertProvenance = () => q(
       `INSERT INTO field_level_provenance
-         (name, case_id, field_name, value, source_type_code, source_label)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [`${caseId}:${p.field}`, caseId, p.field, p.value, sourceTypeCode, p.sourceLabel],
-    ).catch(() => { /* provenance is supplementary */ });
+         (name, case_id, field_name, value, source_type_code, source_label, source_reference)
+       VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''))`,
+      [
+        `${caseId}:${p.field}`,
+        caseId,
+        p.field,
+        p.value,
+        sourceTypeCode,
+        p.sourceLabel,
+        p.sourceReference ?? '',
+      ],
+    );
+    if (p.field === 'claimantName') {
+      await insertProvenance();
+      continue;
+    }
+
+    // PostgreSQL marks a transaction failed after an error, so a catch alone is
+    // insufficient for the legacy best-effort fields; contain each write in a savepoint.
+    await q('SAVEPOINT parser_provenance_write');
+    try {
+      await insertProvenance();
+      await q('RELEASE SAVEPOINT parser_provenance_write');
+    } catch (error) {
+      await q('ROLLBACK TO SAVEPOINT parser_provenance_write');
+      await q('RELEASE SAVEPOINT parser_provenance_write');
+      console.warn('[applyParserFields] non-claimant provenance write failed', {
+        caseId,
+        field: p.field,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (resolvedProviderId && recoveryContext) {
+    providerRecovery = await completeProviderRecoveryUsing(q, {
+      caseId,
+      resolvedProviderId,
+      ...(recoveryContext.caseType ? { caseType: recoveryContext.caseType } : {}),
+      caseTypeDual: recoveryContext.caseTypeDual === true,
+      allowCasePoMint: recoveryContext.allowCasePoMint !== false,
+    });
+    if (providerRecovery.outcome === 'identity_ready') {
+      // Intake and retro reconstruction share this transaction. Register the
+      // remote Archive continuation before commit so a lost Durable instance is
+      // recovered by the singleton outbox monitor and merge/remove can see the
+      // entire remote-create/stamp window as busy.
+      await requestProviderArchive(q, caseId);
+    }
+    effectiveCasePo = providerRecovery.casePo ?? effectiveCasePo;
   }
   return result();
 }
@@ -735,6 +952,42 @@ export interface InboundEnvelope {
    *  a no-op until the 2026-07-02 DDL delta adds inbound_email.conversation_id. */
   conversationId?: string;
   attachments: Array<{ filename: string; contentType: string; blobPath: string; size: number }>;
+}
+
+export interface ExistingSourceMessageCase {
+  caseId: string;
+  casePo: string | null;
+  providerAutomationMode: 'manual' | 'review_auto' | 'full_auto';
+  status: CaseStatus;
+  replayAllowed: boolean;
+}
+
+/**
+ * Recover a concurrent/replayed create by its immutable source-message key only.
+ * VRM/reference matching is deliberately forbidden here: this is the UNIQUE-key
+ * response-loss seam, not a fuzzy dedup decision.
+ */
+export async function exactCaseForSourceMessage(
+  q: TxQuery,
+  sourceMessageId: string,
+): Promise<ExistingSourceMessageCase | null> {
+  const rows = await q<Row>(
+    `SELECT c.id, c.case_po, c.status_code, wp.provider_automation_mode_code
+       FROM case_ c
+       LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+      WHERE c.source_message_id = $1`,
+    [sourceMessageId],
+  );
+  if (!rows[0]) return null;
+  const status = caseStatusCodec.toName(rows[0].status_code) ?? 'error';
+  return {
+    caseId: rows[0].id as string,
+    casePo: (rows[0].case_po as string | null) ?? null,
+    providerAutomationMode:
+      automationModeCodec.toName(rows[0].provider_automation_mode_code) ?? 'manual',
+    status,
+    replayAllowed: !TERMINAL_STATUSES.includes(status),
+  };
 }
 
 /** Triage classification carried from the orchestration classifyInbound activity (ADR-0015). */
@@ -858,7 +1111,7 @@ app.http('internalWorkProviderAiAllowed', {
 /* ============================================================
    2 — GET /api/internal/dedup-context
    Called by: orchestration caseResolve activity (plan 22 §B §A2).
-   Returns: { openProviderCases, seenMessageIds, seenPayloadHashes }
+   Returns: { openProviderCases, seenMessageIds, seenPayloadHashes, exactSourceOwner? }
    so resolveCase (domain) can run the ADR-0010 ladder client-side.
 
    Scoped to workProviderId + vrm (VRM may be '' when none sniffed yet;
@@ -874,6 +1127,10 @@ app.http('internalDedupContext', {
     withServiceAuth(req, ctx, async () => {
       const workProviderId = req.query.get('workProviderId') ?? '';
       const vrm = req.query.get('vrm') ?? '';
+      const sourceMessageId = (req.query.get('messageId') ?? '').trim();
+      const exactSourceOwner = sourceMessageId
+        ? await exactCaseForSourceMessage(query, sourceMessageId)
+        : null;
 
       // No provider matched (unknown sender, e.g. a non-provider gmail address):
       // there is nothing to dedup on the provider axis, and work_provider_id is a
@@ -883,7 +1140,12 @@ app.http('internalDedupContext', {
       if (!workProviderId) {
         return {
           status: 200,
-          jsonBody: { openProviderCases: [], seenMessageIds: [], seenPayloadHashes: [] },
+          jsonBody: {
+            openProviderCases: [],
+            seenMessageIds: [],
+            seenPayloadHashes: [],
+            ...(exactSourceOwner ? { exactSourceOwner } : {}),
+          },
         };
       }
 
@@ -934,7 +1196,12 @@ app.http('internalDedupContext', {
 
       return {
         status: 200,
-        jsonBody: { openProviderCases, seenMessageIds, seenPayloadHashes },
+        jsonBody: {
+          openProviderCases,
+          seenMessageIds,
+          seenPayloadHashes,
+          ...(exactSourceOwner ? { exactSourceOwner } : {}),
+        },
       };
     }),
 });
@@ -1106,6 +1373,15 @@ app.http('internalCasesResolve', {
       }
       const vrm = vrmGuard.value;
 
+      // Case-type decision (ADR-0021). Resolve it before the attach/create split so
+      // provider recovery on either path uses the same marker decision.
+      const caseType: CaseWorkType = caseTypeCodec.toInt(body.caseType as CaseWorkType) != null
+        ? (body.caseType as CaseWorkType)
+        : 'standard';
+      const caseTypeDual = body.caseTypeDual === true;
+      const caseTypeSignals = Array.isArray(body.caseTypeSignals) ? body.caseTypeSignals : [];
+      const auditGateOn = gates.auditCases();
+
       // The matched provider's automation mode — the SEAM the orchestration worker reads to
       // branch intake (work-todo-spike: automation-mode). No provider (new/unknown client) =>
       // 'manual' (the safest default: do not auto-proceed). A matched provider with an
@@ -1120,32 +1396,80 @@ app.http('internalCasesResolve', {
           automationModeCodec.toName(wpMode[0]?.provider_automation_mode_code) ?? 'review_auto';
       }
 
-      // Attach: link inbound_email to the existing target case; no new case_.
-      if (decision.resolution === 'attach' && decision.targetCaseId) {
-        await upsertInboundEmail(inbound, workProviderId, decision.targetCaseId, undefined, body.parserVrm);
-        // Fill-if-empty parser fields onto the EXISTING case (it may lack a ref/mileage the
-        // parser found on this email); never clobbers a value already there.
-        await applyParserFields(
-          decision.targetCaseId,
+      const persistExistingCase = async (targetCaseId: string, exactReplay: boolean) => {
+        await upsertInboundEmail(inbound, workProviderId, targetCaseId, undefined, body.parserVrm);
+        // Fill-if-empty parser fields onto the EXISTING case. On an exact replay this is
+        // the load-bearing response-loss repair: the first attempt may have committed the
+        // case row before parser fields/provider recovery/downstream work completed.
+        const parserFieldsResult = await applyParserFields(
+          targetCaseId,
           body.parserRef,
           body.parserMileage,
           body.parserMileageUnit,
           body.parserEva,
           workProviderId,
           intermediary,
+          {
+            caseType: auditGateOn ? caseType : 'standard',
+            caseTypeDual,
+            allowCasePoMint: true,
+          },
         );
+        if (parserFieldsResult.resolvedProviderId && parserFieldsResult.resolvedProviderId !== workProviderId) {
+          await upsertInboundEmail(
+            inbound,
+            parserFieldsResult.resolvedProviderId,
+            targetCaseId,
+            undefined,
+            body.parserVrm,
+          );
+        }
+        providerAutomationMode =
+          parserFieldsResult.providerRecovery?.providerAutomationMode ?? providerAutomationMode;
+        const attachedIdentity = await query<Row>(
+          'SELECT case_po FROM case_ WHERE id = $1',
+          [targetCaseId],
+        );
+        const effectiveCasePo =
+          parserFieldsResult.casePo ?? (String(attachedIdentity[0]?.case_po ?? '').trim() || null);
         await writeAudit({
           action: AUDIT_ACTION.case_attached,
-          caseId: decision.targetCaseId,
-          summary: `Email ${inbound.internetMessageId} attached to existing case`,
-          after: { messageId: inbound.internetMessageId, resolution: 'attach' },
+          caseId: targetCaseId,
+          summary: exactReplay
+            ? `Email ${inbound.internetMessageId} replayed against its existing case`
+            : `Email ${inbound.internetMessageId} attached to existing case`,
+          after: {
+            messageId: inbound.internetMessageId,
+            resolution: exactReplay ? 'replay' : 'attach',
+            casePo: effectiveCasePo,
+            providerRecovery: parserFieldsResult.providerRecovery?.outcome ?? 'not_needed',
+          },
         });
-        // TKT-023 — an arriving attachment satisfies any outstanding chaser on the case.
-        await markOutstandingChasersResponded(decision.targetCaseId, 'dedup attach');
+        // A true reply/attachment satisfies a chaser. A transport replay of the same
+        // source message never does: it is recovery, not new correspondence.
+        if (!exactReplay) {
+          await markOutstandingChasersResponded(targetCaseId, 'dedup attach');
+        }
         return {
           status: 200,
-          jsonBody: { outcome: 'attached', caseId: decision.targetCaseId, providerAutomationMode },
+          jsonBody: {
+            outcome: exactReplay ? 'replayed' : 'attached',
+            caseId: targetCaseId,
+            casePo: effectiveCasePo,
+            providerAutomationMode,
+            providerRecovery: parserFieldsResult.providerRecovery?.outcome ?? 'not_needed',
+          },
         };
+      };
+
+      // Attach/replay: link inbound_email to the existing target case; no new case_.
+      // Exact replay reapplies retained parser fields but deliberately skips reply-only
+      // side effects such as satisfying a newer outstanding chaser.
+      if (
+        (decision.resolution === 'attach' || decision.resolution === 'replay') &&
+        decision.targetCaseId
+      ) {
+        return persistExistingCase(decision.targetCaseId, decision.resolution === 'replay');
       }
 
       // TKT-119 belt-and-braces: an acknowledgement / query / non_actionable (or any other
@@ -1182,15 +1506,6 @@ app.http('internalCasesResolve', {
       const subject = (inbound.subject ?? '').trim();
       const name = ([vrm || null, subject || null].filter(Boolean).join(' · ') || 'Email intake').slice(0, 100);
       const emailKindCode = intakeChannelKindCodec.toInt('email') ?? null;
-
-      // Case-type decision (ADR-0021). Validate the wire value against the codec's names so
-      // a malformed/unknown string degrades to 'standard' rather than breaking the INSERT.
-      const caseType: CaseWorkType = caseTypeCodec.toInt(body.caseType as CaseWorkType) != null
-        ? (body.caseType as CaseWorkType)
-        : 'standard';
-      const caseTypeDual = body.caseTypeDual === true;
-      const caseTypeSignals = Array.isArray(body.caseTypeSignals) ? body.caseTypeSignals : [];
-      const auditGateOn = gates.auditCases();
 
       // The create + (for a known provider) the Case/PO mint run in ONE transaction so the
       // advisory lock that serialises the per-(marker,principal,year) sequence spans both the
@@ -1268,6 +1583,7 @@ app.http('internalCasesResolve', {
           // actionReason the SPA surfaces; a note (written after commit) carries the specifics.
           if (newClient) {
             cols.push('on_hold'); vals.push(true);
+            cols.push('on_hold_reason'); vals.push('provider_unresolved');
             cols.push('action_reason_code'); vals.push(actionReasonCodec.toInt('needs_review') ?? null);
           }
 
@@ -1289,6 +1605,27 @@ app.http('internalCasesResolve', {
             ctx.error(`[cases/resolve] case_po unique collision (${constraint})`);
             return { status: 500, jsonBody: { error: 'case_po_collision' } };
           }
+          const replay = await exactCaseForSourceMessage(query, inbound.internetMessageId);
+          if (replay) {
+            ctx.log(JSON.stringify({
+              evt: 'caseResolvePersist',
+              outcome: replay.replayAllowed ? 'replay_recovered' : 'terminal_duplicate_dropped',
+              caseId: replay.caseId,
+              sourceMessageExact: true,
+            }));
+            if (replay.replayAllowed) return persistExistingCase(replay.caseId, true);
+            return {
+              status: 200,
+              jsonBody: {
+                outcome: 'already_ingested',
+                caseId: replay.caseId,
+                casePo: replay.casePo,
+                providerAutomationMode: replay.providerAutomationMode,
+              },
+            };
+          }
+          // Never guess by VRM/reference after a uniqueness error. If the exact source
+          // row is absent, preserve the conflict so the caller retries/investigates.
           return { status: 409, jsonBody: { error: 'conflict', detail: 'source_message_id already exists' } };
         }
         throw e;
@@ -1308,7 +1645,27 @@ app.http('internalCasesResolve', {
         body.parserEva,
         workProviderId,
         intermediary,
+        {
+          caseType: auditGateOn ? caseType : 'standard',
+          caseTypeDual,
+          allowCasePoMint: true,
+        },
       );
+      if (parserFieldsResult.resolvedProviderId && parserFieldsResult.resolvedProviderId !== workProviderId) {
+        await upsertInboundEmail(
+          inbound,
+          parserFieldsResult.resolvedProviderId,
+          newCaseId,
+          undefined,
+          body.parserVrm,
+        );
+      }
+      const providerCompletion = parserFieldsResult.providerRecovery;
+      const effectiveCasePo = parserFieldsResult.casePo ?? created.casePo;
+      const effectivePrincipalCode = providerCompletion?.principalCode ?? created.principalCode;
+      const effectiveMarker = providerCompletion?.casePoMarker ?? created.mintedMarker;
+      const effectiveNewClient = created.newClient && providerCompletion?.holdCleared !== true;
+      providerAutomationMode = providerCompletion?.providerAutomationMode ?? providerAutomationMode;
 
       const auditAction =
         AUDIT_ACTION[decision.auditAction as keyof typeof AUDIT_ACTION] ??
@@ -1317,7 +1674,13 @@ app.http('internalCasesResolve', {
         action: auditAction,
         caseId: newCaseId,
         summary: `Case ${decision.resolution}: ${name}`,
-        after: { resolution: decision.resolution, status: rawStatus, vrm, casePo: created.casePo },
+        after: {
+          resolution: decision.resolution,
+          status: rawStatus,
+          vrm,
+          casePo: effectiveCasePo,
+          providerRecovery: providerCompletion?.outcome ?? 'not_needed',
+        },
       });
 
       // Case-type decision trail (ADR-0021 — every decision is Action-Logged, ADR-0014).
@@ -1327,7 +1690,7 @@ app.http('internalCasesResolve', {
       // provider is not allowlisted for the detected type → warning + best-effort review
       // note (mint stayed standard by design — PCH/QDOS-only for now).
       if (caseType !== 'standard') {
-        const allowlisted = allowedCaseTypes(created.principalCode).includes(caseType);
+        const allowlisted = allowedCaseTypes(effectivePrincipalCode).includes(caseType);
         if (!auditGateOn) {
           await writeAudit({
             action: AUDIT_ACTION.case_created,
@@ -1335,12 +1698,12 @@ app.http('internalCasesResolve', {
             summary: `Case-type '${caseType}' detected (observe-only — AUDIT_CASES_ENABLED off; minted standard)`,
             after: { caseType, dual: caseTypeDual, signals: caseTypeSignals, applied: false },
           });
-        } else if (!allowlisted && !created.newClient) {
+        } else if (!allowlisted && !effectiveNewClient) {
           await writeAudit({
             action: AUDIT_ACTION.case_created,
             caseId: newCaseId,
             severity: 'warning',
-            summary: `Case-type '${caseType}' detected for non-allowlisted provider ${created.principalCode} — minted standard; review case type`,
+            summary: `Case-type '${caseType}' detected for non-allowlisted provider ${effectivePrincipalCode} — minted standard; review case type`,
             after: { caseType, dual: caseTypeDual, signals: caseTypeSignals, applied: false },
           });
           await query(
@@ -1350,7 +1713,7 @@ app.http('internalCasesResolve', {
               newCaseId,
               'Email intake (auto)',
               `${caseType === 'diminution' ? 'Diminution' : 'Audit'} signals detected (${caseTypeSignals.join('; ') || 'see audit log'}) ` +
-                `but ${created.principalCode || 'this provider'} is not in the case-type marker allowlist — ` +
+                `but ${effectivePrincipalCode || 'this provider'} is not in the case-type marker allowlist — ` +
                 `case minted as standard. Confirm the case type.`,
             ],
           ).catch(() => { /* note is supplementary */ });
@@ -1360,8 +1723,8 @@ app.http('internalCasesResolve', {
             caseId: newCaseId,
             summary:
               `Case-type '${caseType}' applied` +
-              (created.mintedMarker
-                ? ` — minted ${created.casePo} from the ${created.mintedMarker} sequence`
+              (effectiveMarker
+                ? ` — minted ${effectiveCasePo} from the ${effectiveMarker} sequence`
                 : caseTypeDual
                   ? ` — dual report+audit letter, standard number kept (audit ID derived at review)`
                   : ''),
@@ -1370,14 +1733,14 @@ app.http('internalCasesResolve', {
               dual: caseTypeDual,
               signals: caseTypeSignals,
               applied: true,
-              marker: created.mintedMarker,
-              casePo: created.casePo,
+              marker: effectiveMarker,
+              casePo: effectiveCasePo,
             },
           });
         }
       }
 
-      if (created.newClient) {
+      if (effectiveNewClient) {
         const domain = senderDomain(inbound.senderAddress ?? '');
         // TKT-021 reopen fix: a sender the provider-match step identified as a KNOWN
         // INTERMEDIARY must not be branded "New client" — its Held reason names the
@@ -1453,7 +1816,13 @@ app.http('internalCasesResolve', {
 
       return {
         status: 200,
-        jsonBody: { outcome: 'created', caseId: newCaseId, casePo: created.casePo, providerAutomationMode },
+        jsonBody: {
+          outcome: 'created',
+          caseId: newCaseId,
+          casePo: effectiveCasePo,
+          providerAutomationMode,
+          providerRecovery: providerCompletion?.outcome ?? 'not_needed',
+        },
       };
     }),
 });
@@ -4781,29 +5150,12 @@ app.http('internalCaseBoxFolderStamp', {
       if (!caseId || !boxFolderId) {
         return { status: 400, jsonBody: { error: 'caseId and boxFolderId required' } };
       }
-      // Conditional UPDATE → only the first stamp wins; a second matches no row.
-      const stamped = await query<Row>(
-        `UPDATE case_
-            SET box_folder_id = $2, box_folder_url = $3, updated_at = now()
-          WHERE id = $1 AND box_folder_id IS NULL
-        RETURNING box_folder_id`,
-        [caseId, boxFolderId, boxFolderUrl],
-      );
-      if (stamped.length > 0) {
-        await writeAudit({
-          action: AUDIT_ACTION.box_folder_created,
-          caseId,
-          summary: `Archive folder ${boxFolderId} linked to case`,
-          after: { boxFolderId, boxFolderUrl },
-        });
-        return { status: 200, jsonBody: { applied: true, boxFolderId } };
-      }
-      // Already linked (or unknown case) — return the current value, no audit.
-      const cur = await query<Row>('SELECT box_folder_id FROM case_ WHERE id = $1', [caseId]);
-      return {
-        status: 200,
-        jsonBody: { applied: false, boxFolderId: (cur[0]?.box_folder_id as string) ?? null },
-      };
+      const result = await tx((q) => stampCaseArchiveFolderUsing(q, {
+        caseId,
+        boxFolderId,
+        boxFolderUrl,
+      }));
+      return { status: 200, jsonBody: result };
     }),
 });
 

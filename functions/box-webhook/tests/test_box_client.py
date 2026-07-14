@@ -387,6 +387,20 @@ def test_create_folder_409_is_idempotent_reuse():
 
 
 @respx.mock
+def test_create_folder_409_without_exact_conflict_id_fails_closed():
+    _mock_token()
+    conflict = {
+        "type": "error", "code": "item_name_in_use",
+        "context_info": {"conflicts": [{"type": "folder", "name": "AX26001"}]},
+    }
+    respx.post(f"{API_BASE}/2.0/folders").mock(return_value=httpx.Response(409, json=conflict))
+    c = _client()
+    with pytest.raises(BoxError, match="no resolvable conflict id"):
+        c.create_folder("AX26001", "0")
+    c.close()
+
+
+@respx.mock
 def test_create_folder_201_tagged_created():
     _mock_token()
     respx.post(f"{API_BASE}/2.0/folders").mock(
@@ -395,6 +409,28 @@ def test_create_folder_201_tagged_created():
     c = _client()
     out = c.create_folder("AX26001", "0")
     assert out["outcome"] == "created"
+    c.close()
+
+
+@respx.mock
+def test_get_folder_returns_fresh_identity_only_after_writable_root_scope_check():
+    _mock_token()
+    body = {
+        "id": "case-folder",
+        "type": "folder",
+        "name": "QDOS26031",
+        "parent": {"id": "test-root", "type": "folder"},
+        "path_collection": {"entries": [{"id": "0"}, {"id": "test-root"}]},
+    }
+    route = respx.get(f"{API_BASE}/2.0/folders/case-folder").mock(
+        return_value=httpx.Response(200, json=body)
+    )
+    c = BoxClient(config=jwt_box_config(allowed_root_id="test-root"))
+    out = c.get_folder("case-folder")
+    assert out["name"] == "QDOS26031"
+    assert out["parent"]["id"] == "test-root"
+    # One uncached scope proof plus one identity read: no cache-only adoption.
+    assert route.call_count == 2
     c.close()
 
 
