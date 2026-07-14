@@ -73,3 +73,62 @@ parity and lifecycle evidence describes the older deployed implementation only.
   the former split between status and audit ownership.
 - Deployment proof still required: deploy the API, export one eligible case, verify the badge/queue/
   throughput change and one `eva_submitted` audit, then replay without a second audit.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+PENDING
+
+## Evidence
+
+- **A1 — Status parity and offline gates:** `evidence/parity-pg-run-100726.txt` records parity §1 at 3/3
+  PASS and §4 at 6/6 PASS, with 13 statuses and five terminals. The live DDL confirmation records
+  `done = 100000012` and `report_delivered = 100000053`. The full parity command exited non-zero only
+  because of out-of-scope classifier drift in §5. Deployment records report the aggregate verification
+  gate passing, but it was not rerun from current `main` in this pass.
+- **A2 — First EVA export:** Existing verification records state that no successful live export request
+  had yet been observed. There is therefore no artifact proving download, badge transition, Review
+  removal and tile increment together.
+- **A3 — Replay:** No live second-export attempt and corresponding single `eva_submitted` activity-row
+  query were observed.
+- **R1 — Atomic terminal transition:** `api/src/lib/terminal-transition.ts:15-45` implements guarded
+  terminal status and required audit insertion within the same transaction. The deployed API bundle
+  contains the same helper.
+- **R2 — Audit failure rollback:** The deployed bundle contains `BEGIN`, `COMMIT` and `ROLLBACK` around
+  the strict transition at `deploy/api/main.cjs:16008-16015`;
+  `api/src/lib/terminal-transition.test.ts:77-99` records injected-failure coverage.
+- **R3 — Replay idempotency:** The terminal helper and regression tests cover terminal replays as no-ops
+  without duplicate required audit activity.
+- **R4 — Shared helper:** Staff-facing case transitions and internal/detector completion routes use the
+  guarded terminal-transition path in `api/src/functions/cases.ts` and `api/src/functions/internal.ts`.
+- **R5 — Failure/retry test:** `api/src/lib/terminal-transition.test.ts:77-99` covers failure rollback,
+  successful retry and one resulting audit record. The July 11 deployment record reports the repaired API
+  published after verification gates passed.
+
+## Pending / gaps
+
+- Acceptance lines A2 and A3 still lack live evidence from a natural staff EVA export.
+- No current live trace proves the UI badge, Review queue, completed tile and activity ledger changed
+  together.
+- No live repeat-export trace proves the request was a no-op with exactly one `eva_submitted` audit row.
+- Transaction failure behavior is source- and offline-tested but was not deliberately induced live.
+- Current `main` is newer than the deployed API, and the current-tree parity and aggregate verification
+  commands were not rerun in this pass.
+
+## How to re-verify
+
+1. On the next ordinary staff export of an existing `ready_for_eva` case, capture the pre-export queue,
+   badge, tile and activity state.
+2. Capture the successful file download and resulting EVA Submitted badge, Review removal, completed-tile
+   increment and single `eva_submitted` activity row.
+3. Repeat the export normally and prove no second state transition or audit row is created.
+4. Run the status-parity sections and aggregate verification gate from current `main`.
+5. Do not inject a production audit failure; retain the focused rollback test as the failure-path
+   artifact.
+
+## Confidence + unread surfaces
+
+High confidence in the parity artifact, transaction implementation, regression tests and deployment
+lineage; low confidence in completion of the live export acceptance. Unread surfaces are a successful
+current live export, its repeat request, associated database/audit rows and signed-in SPA state changes.

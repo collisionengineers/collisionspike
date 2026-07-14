@@ -196,3 +196,74 @@ regression repair. The earlier audit/backfill evidence remains historical eviden
 - Deployment proof still required: apply the additive schema, deploy parser/API/orchestration/SPA,
   rerun the ownership delta after the API cutover, then repeat the letterhead suppression and genuine
   panoramic-photo live probes. No new live result is claimed here.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+PENDING
+
+## Evidence
+
+- **A1 — Written lane audit:** Historical live audit recorded 881 email-lane rows and 4,129 PDF-lane
+  rows, identifying 165 suspect images. Cleanup excluded 163 rows, created 163 backup records and 107
+  per-case audit entries, and left zero residual suspects.
+- **A2 — Email-lane capture:** The July 10 forward window recorded 40 suspects, 38 already mirrored and
+  zero excluded. This predates the July 11 regression repair, so it does not certify current behavior.
+- **A3 — PDF reparse:** Two real `LtrtoEngineerIn.pdf` samples changed from two images to one: the QDOS
+  575×174 logo was removed while the 204×204 MGAA badge remained classifier-owned. The repaired parser
+  v2.16 was subsequently deployed on July 11.
+- **A4 — Backfill:** The recorded decision was evidence-row-only remediation. It updated 163 rows without
+  deleting retained Archive copies, consistent with the one-way-mirror rule.
+- **R1 — Preserve plausible panoramas:** Current parser and orchestration source explicitly retain
+  low-resolution panoramas for classification in
+  `functions/parser/cedocumentmapper_v2/application/service.py:52` and
+  `orchestration/src/lib/image-sniff.ts:15`. Parser v2.16 was deployed after the regression gates passed.
+- **R2 — Conservative automatic exclusion:** Current classification paths carry registration-readability
+  state and restrict automatic non-vehicle exclusion to classifier decisions. This is source/offline
+  evidence only; no current natural input was observed.
+- **R3 — Ownership durability:** Current API persistence records exclusion ownership/source in
+  `api/src/functions/internal.ts:3198-3253`, preventing retries from treating staff, provider, cleanup or
+  legacy decisions as classifier-owned.
+- **R4 — Classifier-owned recovery:** Current API logic distinguishes classifiable and
+  registration-bearing evidence in `api/src/functions/internal.ts:4264-4307`; recorded regression tests
+  cover clearing only classifier-owned exclusions after later vehicle classification.
+- **R5 — Staff review and reload:** The evidence-edit API persists role, registration, acceptance and
+  exclusion ownership in `api/src/functions/evidence.ts:152-334`. The deployment record reports the API
+  and SPA repair deployed, but no signed-in live reload recovery was observed in this pass.
+- **R6 — Retry protection:** Recorded regression tests cover preservation of staff/provider-owned
+  inclusion and exclusion across classifier retries. This remains offline/deployment evidence.
+- **R7 — Accepted vehicle suggestion:** Recorded regression tests cover making an accepted vehicle-role
+  suggestion usable while clearing only classifier-owned exclusion. No current live staff interaction was
+  observed.
+- **R8 — Coverage and deployment:** The July 11 deployment record reports the TKT-089 fixture and
+  aggregate gates passing before API, orchestration, parser and SPA publication; the ownership migration
+  was replayed after API publication.
+
+## Pending / gaps
+
+- No natural post-deployment QDOS/banner or low-resolution panorama intake was observed against the
+  current deployment.
+- No fresh Postgres row trace, App Insights activity trace or read-only Archive listing was gathered for
+  such an event.
+- Staff-owned include/exclude durability, reload recovery and vehicle-suggestion acceptance were not
+  exercised live.
+- The deployed stack contains the TKT-089 repair lineage, but deployed source is not at current `main` SHA
+  `308294c`; exact source/live parity therefore remains unproven.
+
+## How to re-verify
+
+1. Observe the next natural qualifying email or PDF intake without injecting a fixture.
+2. Capture the extraction/classification trace and corresponding evidence rows, including ownership
+   source, registration readability and exclusion reason.
+3. Read the existing Archive folder to confirm suppressed artwork was not newly mirrored and retained
+   vehicle evidence was mirrored; perform no writes or deletions.
+4. For a staff-reviewed case, compare the persisted evidence decision before and after an ordinary retry
+   and page reload.
+5. Refresh the targeted offline regression suite from current `main` before certification.
+
+## Confidence + unread surfaces
+
+High confidence in the historical cleanup, current implementation and deployment lineage; medium
+confidence in current live behavior. Unread surfaces are a fresh natural intake trace, current database
+rows, current Archive contents and signed-in SPA persistence behavior.
