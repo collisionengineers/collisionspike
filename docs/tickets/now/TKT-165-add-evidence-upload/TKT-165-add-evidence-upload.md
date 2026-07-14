@@ -1,11 +1,11 @@
 ---
 id: TKT-165
 title: Make Add evidence upload the selected files
-status: verify
+status: now
 priority: P0
 area: evidence
 tickets-it-relates-to: [TKT-003, TKT-023, TKT-068, TKT-089]
-research-link: docs/tickets/verify/TKT-165-add-evidence-upload/evidence/code-audit.md
+research-link: docs/tickets/now/TKT-165-add-evidence-upload/evidence/code-audit.md
 plan: PLAN-004
 ---
 
@@ -41,3 +41,4 @@ Discovered during the 2026-07-12 production-readiness source audit requested by 
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Code audit](./evidence/code-audit.md)
+- [Live failure and reopen follow-up (2026-07-14)](./evidence/reopen-followup-2026-07-14.md)

@@ -58,7 +58,7 @@ This plan has **53 members**. It sequences implementation and verification, but 
 
 ### 3. Evidence-write and Archive foundations (6)
 
-1. [TKT-165](../verify/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) — remove the live Add evidence false-success P0.
+1. [TKT-165](../now/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) — remove the live Add evidence false-success P0.
 2. [TKT-166](../verify/TKT-166-manual-intake-evidence-upload/TKT-166-manual-intake-evidence-upload.md) — persist instruction and extra files through the same resumable evidence lifecycle.
 3. [TKT-175](../backlog/TKT-175-archive-deletion-resilience-investigation/TKT-175-archive-deletion-resilience-investigation.md) — establish the evidence-backed failure/threat matrix before designing Archive-side reconciliation.
 4. [TKT-160](../backlog/TKT-160-delete-case-image/TKT-160-delete-case-image.md) — implement intentional image deletion across canonical stores without confusing it with out-of-band loss.
