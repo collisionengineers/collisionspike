@@ -259,6 +259,7 @@ function rawEmlSiblingFixture(retained, messageId = FULL_MESSAGE_ID, overrides =
   if (!token) throw new Error('test retained body is not tokenized');
   const directory = String(retained.row.storage_path).replace(/\\/g, '/').split('/').slice(0, -1).join('/');
   const fileName = `message-${token}.eml`;
+  const storagePath = directory ? `${directory}/${fileName}` : fileName;
   const bytes = overrides.bytes ?? Buffer.from([
     'From: claims@example.test',
     'To: info@example.test',
@@ -275,7 +276,7 @@ function rawEmlSiblingFixture(retained, messageId = FULL_MESSAGE_ID, overrides =
       content_type: 'message/rfc822',
       size_bytes: bytes.length,
       sha256: rawSha256(bytes),
-      storage_path: `${directory}/${fileName}`,
+      storage_path: storagePath,
       source_message_id: null,
       kind: 'email',
       kind_code: 100000002,
@@ -1653,6 +1654,57 @@ test('tokenized retained text uses its same-directory raw email full Message-ID 
       sourceFetcher([retained, { row: wrongRawRow, bytes: wrongRawEml.bytes }]),
     ),
     /raw_eml_message_id_changed_before_revalidation/,
+  );
+});
+
+test('tokenized retained text at the storage root binds only its exact root raw-email sibling', async () => {
+  const fullMessageId = '<inbound-message-1@example.test>';
+  const retained = retainedTextFixture('Claimant: Ms Jane Example\n', {
+    tokenSourceMessageId: fullMessageId,
+    pathGraphMessageId: 'historical-graph-message',
+  });
+  retained.row.storage_path = retained.row.file_name;
+  const rawEml = rawEmlSiblingFixture(retained, fullMessageId);
+  const inbound = inboundRow({
+    source_message_id: fullMessageId,
+    graph_message_id: 'current-graph-message-after-move',
+    body_preview: '',
+  });
+  const item = await planOne(
+    caseRow(),
+    [retained.row, rawEml.row],
+    [],
+    [inbound],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: sourceFetcher([retained, rawEml]), explodeSourceEmail: emptyExplodedEmail },
+  );
+
+  assert.equal(item.outcome, 'repair');
+  const consumed = item.sources.bodyInputs.find((input) => input.kind === 'retained_plain_text');
+  assert.equal(consumed.bindingMethod, 'raw_eml_message_id');
+  assert.equal(consumed.storagePath, retained.row.file_name);
+  assert.equal(consumed.rawEmlStoragePath, rawEml.row.file_name);
+
+  const wrongDirectoryRawEml = {
+    ...rawEml,
+    row: { ...rawEml.row, storage_path: `other/${rawEml.row.file_name}` },
+  };
+  const rejected = await planOne(
+    caseRow(),
+    [retained.row, wrongDirectoryRawEml.row],
+    [],
+    [inbound],
+    null,
+    planningCanonical(),
+    PARSER_FINGERPRINT_SHA,
+    { fetchEvidence: sourceFetcher([retained, wrongDirectoryRawEml]), explodeSourceEmail: emptyExplodedEmail },
+  );
+  assert.equal(rejected.outcome, 'failed');
+  assert.match(
+    rejected.failures.find((failure) => failure.evidenceId === retained.row.id)?.message ?? '',
+    /no exact same-directory raw-email sibling/,
   );
 });
 
