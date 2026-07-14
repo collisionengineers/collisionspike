@@ -1,0 +1,133 @@
+# AI-first email understanding with deterministic case resolution
+
+## Summary
+
+Replace the proposed parse-fed rules expansion with a simpler division of responsibility:
+
+`duplicate/provider preflight → whole-email AI understanding → one case lookup → small deterministic action table → durable execution`
+
+The current 1,600-line classifier is competent, but it has reached the limit of rules-based language understanding. The current real-email baseline is 87.9% exact category/subtype accuracy, with only 54.5% recall for existing-work queries, and some incorrect results carry 0.95 confidence. Preserve it as an outage fallback, but stop expanding it with more semantic branches. See [baseline-v2.json](C:/Users/PC/Documents/GitHub/collisionsuite/active/collisionspike-ui-readiness/scripts/eval-email/baseline-v2.json) and [email_classifier.py](C:/Users/PC/Documents/GitHub/collisionsuite/active/collisionspike-ui-readiness/functions/parser/cedocumentmapper_v2/rules/email_classifier.py:1118).
+
+Use AI for fuzzy meaning—what the email and documents are about. Use deterministic code for identity, ambiguity, duplicates, case association, and irreversible actions. Do not let AI select a case ID directly.
+
+Retain from the existing proposal:
+
+- Document contents must be available before semantic classification.
+- Validation must use real-email offline A/B testing.
+- Parsing/model failure must have a safe fallback.
+- Routing decisions must remain checkpointed and auditable.
+
+Discard from the existing proposal:
+
+- Case/PO extraction from inbound content; Case/PO is internal output, not an inbound matching key.
+- The two context lookups and `open_case_ref_match` chicken-and-egg design.
+- Filename/content-type override rules as the main way to understand attachments.
+- One large activity combining parsing, classification, database reads, audit writes, and policy.
+- The claim that retaining old activity registrations makes reordered Durable histories safe.
+- Stale assumptions: the vendor is currently `engine-v2.24`, and the baseline contains 58 evaluated plus 9 skipped items, not 44.
+
+## Implementation changes
+
+### 1. Whole-message AI understanding
+
+Reuse the live Global Standard `gpt-5` deployment, but make it the primary semantic classifier through the Azure OpenAI Responses API:
+
+- Send the raw subject, body, sender/provider context, identifiers, filenames, and supported attachment contents without PII scrubbing, per the chosen posture.
+- Send PDFs directly so the model receives their text and rendered pages; this addresses reports, instructions, scans, and photos embedded in PDFs without more filename heuristics. Use extracted text for DOC/DOCX/RTF and explode MSG/EML attachments first.
+- Bound each request to three documents, 25 MiB per file, 40 MiB total, and four standalone images. When material files are excluded or unreadable, return an ambiguity code and prohibit automatic case minting.
+- Keep bytes out of Durable history: the activity receives immutable Blob paths/hashes, loads the files internally, and returns only structured results.
+
+The current GPT-5 version supports strict JSON-schema outputs, vision, and PDF input through the documented Azure APIs. [Structured outputs](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/structured-outputs), [Responses API file input](https://learn.microsoft.com/en-gb/azure/foundry/openai/how-to/responses?tabs=python-key).
+
+Introduce `EmailUnderstandingV1`:
+
+- `category` and `subtype` from the existing closed taxonomy.
+- `confidenceBand`: `high | medium | low`.
+- Per-attachment role: `instruction | audit_instruction | engineer_report | images | invoice | remittance | irrelevant | unknown`.
+- Candidate identifiers: `provider_job_ref | vrm`, including source attachment/message location.
+- Closed ambiguity and reason codes.
+- Short evidence anchors identifying the supporting subject, body, or attachment passage.
+- No case IDs or routing actions.
+
+### 2. Deterministic identifier validation and one case resolution
+
+Retain the parser/OCR only for exact extraction and validation, not semantic classification:
+
+- Return VRMs and provider job references from every parsed attachment, not only the selected document.
+- Accept an AI-proposed identifier only when it exactly normalizes to text/OCR extracted from the claimed source.
+- An unverified model identifier can support manual review but can never drive automatic association.
+- Remove Case/PO from inbound lookup contracts entirely.
+
+Add a `triage/context-v2` request accepting multiple validated signals and provider identity. It returns matches per signal, eligible active status, and conflicts. Perform this lookup once after understanding/extraction; classification no longer consumes database cardinality.
+
+The action table is:
+
+| Condition | Result |
+|---|---|
+| Exact Internet-Message-Id duplicate | Record the duplicate against the original analysis; skip parsing/model work and drop processing |
+| Recognized provider plus exactly one active same-provider case matched by provider job reference or VRM, with no conflict | Auto-associate the email with that case |
+| Multiple matches, different identifiers resolving to different cases, or provider mismatch | Manual review; never guess |
+| No case match plus high-confidence `receiving_work`, no ambiguity, and instruction evidence | Mint a new case |
+| No match plus query, update, images, or cancellation intent | Hold/review using the existing unmatched/pre-case route |
+| Unknown or ambiguous provider | Never auto-associate or mint |
+| Cancellation with a unique case | Associate the email, but retain the existing human-confirmed cancellation proposal rather than auto-closing |
+
+Amend ADR-0010 explicitly: exact-single VRM matching is eligible for automatic association for all recognized providers when scoped to the same provider and no conflicting identifier exists. This replaces the current permanent VRM-only prohibition rather than disguising VRM as another reference type.
+
+### 3. Reliable activity and fallback boundaries
+
+Create a versioned V2 orchestration sequence:
+
+1. Fetch and land immutable message evidence.
+2. Resolve provider and perform cheap duplicate preflight.
+3. Run `analyzeInboundV2`, containing deterministic extraction plus one structured GPT-5 call and no database/audit writes.
+4. Run `resolveTriageV2`, containing the single case-context read and pure action policy.
+5. Persist the classification, decision, model/prompt/schema/policy versions, evidence hashes, and resolution reasons idempotently.
+6. Execute the existing downstream action.
+
+Use Azure Durable orchestration versioning. Null/V1 instances must replay the exact legacy activity sequence; V2 applies only to new instances. Raise the extension bundle minimum to `4.30.0`, configure a V2 default, and retain the complete V1 branch until old instances drain. [Azure Durable orchestration versioning](https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-orchestration-versioning).
+
+Use two separate gates:
+
+- `AI_TRIAGE_V2_ENABLED`: off means the complete legacy sequence, not merely a legacy classifier payload after early parsing.
+- `AUTO_ATTACH_UNIQUE_VRM_ENABLED`: independently disables the new VRM association rule.
+
+On model timeout, service error, refusal, content-filter response, or invalid schema, retry twice with a 60-second request timeout, then use the frozen current classifier as the semantic fallback. A valid low-confidence or ambiguous model result goes to review; it must not be overridden by the fallback rules.
+
+Freeze the current model version for this workflow instead of allowing `OnceNewDefaultVersionAvailable` to change behaviour automatically. Qualify a new deployment against the corpus before switching configuration. [Azure OpenAI model upgrade options](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/working-with-models).
+
+Keep the existing classifier for at least one release and 500 V2 messages. Stop adding semantic rules to it; retain only reusable deterministic extraction helpers. Removal is considered only after the V2 acceptance and live correction criteria remain green.
+
+## Test and acceptance plan
+
+Expand the corpus from 58 to at least 200 manually adjudicated real messages, with at least 20 examples for each mutating route: auto-associate, mint, and duplicate-drop. Include all existing ticket fixtures, provider variations, quoted chains, misleading filenames, reports typed as instructions, instructions typed as reports, scanned PDFs, photos-in-PDF, conflicting VRMs, and repeated registrations.
+
+Build one offline A/B harness:
+
+- OLD: current classifier plus current policy.
+- NEW: whole-message AI understanding, validated identifiers, context V2, and the new action table.
+- Cache ordinary development calls by content hash plus model/prompt/schema version.
+- Run the final gate with three uncached trials per item to test output stability.
+- Compare category, subtype, association action, target case, mint/no-mint, ambiguity handling, and technical fallback.
+
+Merge/enable only when:
+
+- Zero wrong target-case associations across all trials.
+- Zero false case mints and zero actionable duplicate drops.
+- Every mutating decision is stable across all three trials.
+- At least 95% exact category/subtype accuracy overall.
+- At least 90% recall for `query/query_existing_work`.
+- No current-correct item becomes wrong without explicit label adjudication.
+- No tracked item disappears or becomes skipped.
+- Every unverified AI identifier is rejected by the deterministic validator.
+- The exact TKT-102 fixture auto-associates through unique same-provider VRM, extracts and persists its images once, and cannot report completion while a required evidence stage remains failed.
+
+Deploy V2 default-off, run the complete offline gate, then enable it for new intakes without a live shadow path. Manually inspect the first 50 acting decisions and retain the two kill switches. Every human reclassification or corrected association becomes a new corpus item; use AI to cluster recurring errors and suggest corpus gaps, but do not add another production rule unless an invariant genuinely requires one.
+
+## Assumptions
+
+- This pass concerns automatic identification, categorization, case association, and triage only; broader Azure HA and DPA work is excluded.
+- Case/PO is never treated as an inbound matching signal.
+- Exact-single same-provider VRM matching may auto-associate for every recognized provider.
+- Raw identifiers, email content, and supported attachments may be sent to the current Global Standard model.
+- No fine-tuning is needed now; the immediate gain comes from whole-message model context, strict outputs, deterministic validation, and a stronger feedback corpus.

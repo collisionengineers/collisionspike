@@ -52,6 +52,11 @@ playbooks under [azure/README.md](./azure/README.md). _Historical:_ [PLAN.md](./
     (other agents consume the fixtures); index + done map in
     [plans/work-todo-spike/README.md](./plans/work-todo-spike/README.md), **not** authoritative on live state.
 
+## Working drafts — non-binding
+- [workingspace/model-evaluation-plan.md](./workingspace/model-evaluation-plan.md) — extraction-first
+  Foundry model-comparison plan and links to the related AI-first/parser working notes. These drafts are
+  exploratory and do not supersede accepted ADRs, tickets, or binding reviews.
+
 ## Operator & status
 - [../ROADMAP.md](../ROADMAP.md) — the forward worklist; tickets carry the atomic work items beneath it.
 - [gated.md](./gated.md) — the consolidated **hard/soft blocker** registry (everything that needs the operator).
