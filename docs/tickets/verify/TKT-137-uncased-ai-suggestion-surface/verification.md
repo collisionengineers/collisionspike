@@ -97,3 +97,56 @@ App Insights for the EMAIL_AI producer (out of this ticket's acceptance).
 
 Verdict stands: PENDING — solely on one operator Accept/Ignore click (any of the 63 rows) + the
 post-click audit SQL (query 4 in the verdict block).
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+PENDING
+
+## Evidence
+
+- **Acceptance 1 — pending suggestion renders with Accept/Ignore:** Historical live proof from
+  2026-07-10 records the uncased EREF9 email `84c72717-21b4-44d9-a7ad-a34c8048cf93` rendering “The
+  assistant thinks this is ‘Images received’” with Accept and Ignore controls. The current source still
+  gates this surface to uncased rows in `Inbox.tsx:1849-1852` and selects only pending
+  `triage_category` suggestions in `inbox-suggestions.ts:119-129`.
+- **Acceptance 2 — Accept applies through the audited path; Ignore dismisses:** Offline/source proof
+  exists. `Inbox.tsx:1917-1929` posts the review and only updates the visible type when the server reports
+  `promoted: true`. `ai-suggestions.ts:823-850` applies the validated category/subtype while protecting
+  human classification, and the review path records accepted/rejected audit actions. The focused selector
+  suite previously passed 22/22. No live Accept or Ignore was performed.
+- **Acceptance 3 — verified on a real pending suggestion:** The historical EREF9 observation was a real
+  live suggestion, not seeded data. The subsequent SQL pass found 63 pending `triage_category`
+  suggestions on uncased emails at that time. This is historical proof; no current pending row was
+  independently opened in this pass.
+- **Deployment/current-source proof:** The feature was present in the deployed bundle during the July 10
+  observation. The production SPA was republished again on July 12, and current source still contains the
+  selector, handler-plain banner and audited review wiring.
+
+## Pending / gaps
+
+- A live handler-owned Accept and Ignore round trip remains unverified.
+- There is no current database artifact showing `review_state`, `reviewed_by`, `reviewed_at`, the accepted
+  classification change and corresponding audit row.
+- The previously counted 63 pending uncased suggestions is a July 10 snapshot and was not refreshed.
+- The earlier screenshot identifiers were session-only and were not persisted as repository artifacts.
+- No bug was observed; the remaining gap is deliberately mutation-bearing and was outside this verifier's
+  read-only authority.
+
+## How to re-verify
+
+1. Read-list current uncased emails with pending `triage_category` suggestions.
+2. A handler opens one naturally existing suggestion and confirms the banner, rationale, Accept and Ignore
+   controls.
+3. On separate natural suggestions, the handler performs one Accept and one Ignore.
+4. Read back the relevant `ai_suggestion`, `inbound_email` and `audit_event` rows:
+   - Accept: reviewed/accepted, classification updated unless protected as human, one accepted audit.
+   - Ignore: reviewed/rejected, classification unchanged, one rejected audit.
+5. Reload each inbox row and confirm the reviewed banner remains dismissed.
+
+## Confidence + unread surfaces
+
+High confidence in the deployed UI surface and source/offline wiring; low confidence in the unexercised
+live review mutations. Unread surfaces are current pending-suggestion rows, post-review database/audit
+state and a fresh live Accept/Ignore observation.

@@ -157,3 +157,69 @@ run against live data.
 - This historical one-off data correction is not scheduled to be rerun during deployment. Release
   validation must execute/parse the repaired delta in an isolated Postgres fixture; live verification
   is limited to confirming the already-retired rows remain retired after the new runtime deploy.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+VERIFIED-LIVE
+
+## Evidence
+
+- **Acceptance 1 — PK20FWT active twin count is one:** In a signed-in read-only production-SPA check on
+  2026-07-14, filtering the live Not ready queue for `PK20FWT` returned **1 of 435 cases**, containing only
+  survivor `PCH26009`, with no same-VRM twin chip.
+- **Acceptance 2 — retirees excluded from active work but directly openable:** The same filtered Not ready
+  queue excluded `PCH26018` and `PCH26020`. Global search still returned all three findable PK20FWT
+  records and labelled both retirees “Linked to instruction,” which is the intended search behavior.
+  Direct navigation to live case `19b96214-4770-4ea7-ac56-c63741a4f430` opened `PCH26020` and rendered
+  “Linked to instruction.”
+- **Acceptance 3 — count contract remains single-sourced:** Current source retains one domain predicate,
+  `isRetiredMerged`, at `packages/domain/src/model/queues.ts:117-128`. The API reuses it for active
+  queues/counts, pipeline computation, open-VRM twins and assistant twins in
+  `api/src/functions/dashboard.ts:157`, `api/src/functions/cases.ts:1343-1345` and
+  `api/src/functions/assistant.ts:407-411`. The durable status lock remains before ordinary recomputation
+  in `packages/domain/src/contracts/case-status.ts:428-435`.
+- **Acceptance 4 — current live verification:** The observations above were made against the deployed
+  production SPA and current live data on July 14, four days after the audited re-retirement.
+- **Regression 1 — invalid legacy text cannot abort the delta:** The repaired SQL guards conversion with
+  `pg_input_is_valid` at `2026-07-10-tkt141-re-retire-merged.sql:56-60` and `:73-77`. The July 11 release
+  validation applied and replayed all deltas twice against PostgreSQL 16 successfully.
+- **Regression 2 — only nonblank JSON strings retire:** The SQL requires
+  `jsonb_typeof(...mergedInto) = 'string'` and a nonblank trimmed value at lines 60-61 and 77-78.
+  `api/src/lib/mappers.test.ts:46-64` covers invalid text, blank strings and numeric, boolean, null, object
+  and array markers.
+- **Regression 3 — SQL/runtime parity:** Runtime `mergedIntoFrom` validates the same nonblank-string
+  contract at `api/src/lib/mappers.ts:275-283`; mapper and domain retired-lock tests cover the matching
+  shapes. The repaired API was deployed July 11 and republished in the July 12 dashboard release.
+- **Historical data artifact:** The July 10 postcheck recorded zero un-retired marker rows, PK20FWT and
+  YH13ZSN open-twin counts of one, and one audited re-retirement for each of the three affected rows.
+
+## Pending / gaps
+
+- The old “Check the flagged details” list and pipeline-stage strip no longer exist in the July 12
+  dashboard design. Current proof therefore uses their replacement active-work surface, the Not ready
+  queue, plus direct case access.
+- No fresh Postgres `SELECT` was made because this pass could not alter the firewall. Current UI state
+  nevertheless proves the retirees remain retired and excluded.
+- The historical one-off re-retirement delta was intentionally not rerun during PR55 deployment; its
+  repaired migration-safety behavior is fixture/replay evidence, not a second live mutation.
+- No verifier-triggered recomputation was attempted because that would mutate live case state.
+
+## How to re-verify
+
+1. In the deployed SPA, filter Not ready for `PK20FWT`; expect one row, `PCH26009`, and no twin chip.
+2. Search globally for `PK20FWT`; expect all three findable records, with `PCH26018` and `PCH26020`
+   labelled “Linked to instruction.”
+3. Open each retired case directly and confirm it remains accessible and retired.
+4. With an already-authorized read-only database path, query all nonblank-string `mergedInto` rows; expect
+   the three known retirees at `linked_to_instruction` and zero marker-bearing rows in another nonterminal
+   status.
+5. Re-run the isolated PostgreSQL fixture applying the repaired delta twice with invalid legacy text and
+   non-string JSON marker cases.
+
+## Confidence + unread surfaces
+
+High confidence: fresh signed-in production UI proves the core behavior, while current source and release
+records prove the durability and migration contracts. Unread surfaces are a July 14 direct database query
+and an organic recomputation trace for a retired row.
