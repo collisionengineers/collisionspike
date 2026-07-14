@@ -1,11 +1,11 @@
 ---
 id: TKT-148
 title: Targeted overview-photo chaser for cases whose photo sets genuinely lack a vehicle overview
-status: verify
+status: done
 priority: P2
 area: pipeline
 tickets-it-relates-to: [TKT-131, TKT-130]
-research-link: docs/tickets/verify/TKT-148-overview-photo-chaser/evidence/operator-note.md
+research-link: docs/tickets/done/TKT-148-overview-photo-chaser/evidence/operator-note.md
 plan: PLAN-003
 ---
 

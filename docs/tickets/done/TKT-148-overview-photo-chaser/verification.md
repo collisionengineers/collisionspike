@@ -133,3 +133,63 @@ repair. The earlier A.QDOS26029 live suggestion proves the old build, not this r
 - Deployment proof still required: apply the unique-index delta, deploy API/SPA, rerun concurrent
   evaluation on a prepared overview-less case and confirm one drafted row. Reopen A.QDOS26029 and
   verify its existing suggestion now renders as drafted rather than sent/chased.
+
+## Final independent verification — 2026-07-14
+
+### Verdict
+
+VERIFIED-LIVE
+
+### Evidence
+
+- **Original acceptance 1 — qualifying cases surface a drafted overview chase:** The recorded live
+  data pass found 31 qualifying cases at `N=5`, created 31 drafted suggestions and left zero
+  candidates. A.QDOS26029 had eight accepted close-ups, zero overview candidates and zero
+  unclassified images.
+- **Original acceptance 2 — A.QDOS26029 surfaces one live:** Current signed-in production SPA
+  verification opened A.QDOS26029 (`ac34fae6-1b6f-4af6-b296-660d53631577`). Its readiness still
+  reports no overview with a visible registration. Filtering Not ready for A.QDOS26029 returned
+  exactly one row whose current activity reads **“Chase suggested · 10/07/2026.”**
+- **Regression 1 — concurrent evaluations create at most one active draft:** PR 55 introduced the
+  exact partial unique index and locking/re-read implementation. The July 11 deployment record
+  states all ten PR 55 deltas were applied successfully; index creation therefore also proves no
+  conflicting active duplicates existed when applied. Concurrent/idempotent behavior is covered by
+  the API regression suite.
+- **Regression 2 — suggestions appear drafted, never sent:** The current production queue says
+  **“Chase suggested,”** replacing the former misleading “Chased” label for A.QDOS26029. Historical
+  row `93dfcb3a-695e-421c-ba44-143e27ddce3c` is `drafted`, with `sent_by` and `sent_at` null.
+- **Regression 3 — sent chases remain chased:** Current source keeps separate suggested/drafted and
+  sent wording, with component coverage in `ChaserPanel.test.ts`. No current sent control was opened
+  in this pass.
+- **Regression 4 — database/API coverage:** `overview-chase.test.ts`, `cases-chase.test.ts` and
+  `ChaserPanel.test.ts` cover concurrency, stale-state refusal, idempotency and status-aware wording.
+  The repaired API and SPA were deployed July 11 and republished in the July 12 release.
+- **Current source/live lineage:** `overview-chase.ts` was last changed by the July 11 locking repair.
+  The currently deployed July 12 API is a descendant release containing that repair.
+
+### Pending / gaps
+
+- No production concurrency stimulus was manufactured; the live unique constraint plus offline
+  concurrency test is the safety artifact.
+- No fresh Postgres query counted current A.QDOS26029 chaser rows because firewall changes were
+  prohibited.
+- A current genuinely sent chase was not opened as a wording control.
+- No organic post-one-shot overview-chase mint was identified; this remains an expected absence
+  rather than a failure.
+
+### How to re-verify
+
+1. Open A.QDOS26029 and confirm its existing Overview photo request is labelled suggested/drafted.
+2. Read its chaser rows and expect exactly one active `Overview photo request`, `status=drafted`, with
+   null send fields.
+3. Read the partial unique-index definition and rerun the isolated concurrent-evaluation regression
+   test.
+4. Open an existing genuinely sent chase and confirm it reads “Chased,” not “Chase suggested.”
+5. Watch for the next naturally qualifying case and confirm the deployed detector creates one draft
+   without sending it.
+
+### Confidence + unread surfaces
+
+High confidence in the current live suggestion wording, A.QDOS26029 behavior and deployed database
+safeguard. Unread surfaces are a fresh database row count, a current sent-chase control and an organic
+detector mint.
