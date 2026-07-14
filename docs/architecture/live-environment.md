@@ -98,8 +98,11 @@
 > (TKT-066 canonical-VRM assistant lookups + the TKT-069 six read-only tools; SELECT-only invariant pinned
 > by the assistant tests) and **`GLOBAL_SEARCH_ENABLED=true`** (TKT-072 global search with the TKT-096
 > terminal-scope fold; unauthenticated `GET /api/search` → **401 fail-closed** proven — the authenticated
-> render check needs an operator session). **`ASSISTANT_WRITE_TIER_ENABLED` was NOT flipped** and the
-> **MCP Entra app-registration was NOT created** — both stay operator-only ([gated.md §F4/F6](../gated.md)).
+> render check needs an operator session). That was the 2026-07-09 state: the later validated 2026-07-11
+> release records operator-attested approvals and activated **`ASSISTANT_WRITE_TIER_ENABLED=true`**;
+> the 2026-07-14 PLAN-005 readback confirms it remains true. Its live propose→confirm→execute and stale
+> 409 behavior are still awaiting independent TKT-111 proof. The MCP app-registration was subsequently
+> created and activated on 2026-07-10 ([gated.md §F4/F6](../gated.md)).
 > **api republished — 94 re-verified** (no new routes: the TKT-023 suggestion-accept chaser hook, the
 > TKT-141 retired-merged-twin exclusions, the TKT-134 humanized Action-logs feed, the TKT-138 auth
 > root-cause record); **orch republished — 71 re-verified** (TKT-139 retro `$search` ref-variant union;
@@ -393,6 +396,12 @@
 | Tenant id | read with `az account show --query tenantId -o tsv` |
 
 ## Azure — live components (resource group `rg-collisionspike-dev`)
+
+> **2026-07-14 registry correction:** `LIVE_FACTS.json` is authoritative for current counts and gate
+> values. The current Data API count is **111**, orchestration is **87**, and
+> `ASSISTANT_WRITE_TIER_ENABLED=true` on the Data API. The long historical narratives in the table below
+> retain earlier deployment milestones; any embedded earlier count or “write tier off” statement is
+> superseded by this correction and the machine-readable registry.
 
 | Resource | Name / detail | Status |
 |---|---|---|

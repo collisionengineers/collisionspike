@@ -199,6 +199,7 @@
 | [TKT-169](./now/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md) | Keep long email previews inside the visible window | **P2 · ui · PLAN-004 — TESTED OFFLINE:** viewport bounds are implemented; the expanded 150 ms open/100 ms close contract, cursor-aware placement, rapid-row traversal and signed-in live timing proof remain. |
 | [TKT-200](./now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md) | Add secure guided photo capture sessions | **P1 · integration · PLAN-004 — BUILT OFFLINE ON PR #83:** ticket authority normalized; no live schema, public ingress, storage policy, deployment or device proof yet. |
 | [TKT-021](./now/TKT-021-connexus-intermediary/TKT-021-connexus-intermediary.md) | Resolve Connexus → real provider (PCH/SBL) | **REOPENED 2026-07-11:** make the Held explanation and audit reflect whether the provider came from explicit instruction evidence or the intermediary fallback. |
+| [TKT-159](./now/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md) | Reconcile every feature gate with intended production behavior | Distilled 2026-07-12; complete code/config/live census rather than blindly enabling switches. |
 
 ## Verify — deployed / code-complete, awaiting live proof
 
@@ -363,7 +364,6 @@
 | [TKT-154](./backlog/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) | Add a constrained MCP image-ingestion lane for external agents | Distilled 2026-07-12; exact VRM lookup, idempotent upload and test-root-only live proof. |
 | [TKT-157](./backlog/TKT-157-handler-copy-audit/TKT-157-handler-copy-audit.md) | Remove dev copy and unnecessary explanatory text from the app | Distilled 2026-07-12; whole-route rendered-string and built-bundle audit. |
 | [TKT-158](./backlog/TKT-158-case-remediation-rerun/TKT-158-case-remediation-rerun.md) | Rerun and account for every affected case after the fixes deploy | Distilled 2026-07-12; backup-first targeted rerun with field-level residual ledger. |
-| [TKT-159](./backlog/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md) | Reconcile every feature gate with intended production behavior | Distilled 2026-07-12; complete code/config/live census rather than blindly enabling switches. |
 | [TKT-160](./backlog/TKT-160-delete-case-image/TKT-160-delete-case-image.md) | Delete an individual case image from every active store | Distilled 2026-07-12 from the inbox note; staff-confirmed, audited, idempotent cross-store deletion. |
 | [TKT-161](./backlog/TKT-161-image-based-reflection-policy/TKT-161-image-based-reflection-policy.md) | Allow reflection images for Image Based Assessment cases | Distilled 2026-07-12 from the inbox note; reflection remains an observation but is not a reflection-only blocker for these cases. |
 | [TKT-162](./backlog/TKT-162-nested-audit-archive/TKT-162-nested-audit-archive.md) | Nest QDOS audit work inside the standard case archive folder | Distilled 2026-07-12 with the supplied email/document; canonical parent plus deterministic audit child. |

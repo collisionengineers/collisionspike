@@ -961,11 +961,12 @@ and gates; it does not flip a live gate or create an app-registration.
 3. **`GLOBAL_SEARCH_ENABLED`** (TKT-072) — ✅ **FLIPPED LIVE 2026-07-09** (operator-granted, with the
    TKT-096 terminal-scope fold): `/api/search` is live (unauthenticated probe → 401 fail-closed;
    an authenticated render check from the operator session is the remaining verify item).
-4. **`ASSISTANT_WRITE_TIER_ENABLED`** (TKT-111) — ⛔ **STAYS OFF — OPERATOR-ONLY.** The
-   propose→confirm→execute write tier needs a **per-capability DPIA + E2/G5 sign-off** first (the
-   `scrubPii` output is a precision-over-recall pre-scrub, not "de-identified" — the DPIA must say so).
-   The model never writes; a human confirms every action. **Not flipped in the 2026-07-09 wave by
-   explicit instruction** — only you flip this, after the sign-off is recorded.
+4. **`ASSISTANT_WRITE_TIER_ENABLED`** (TKT-111) — ✅ **ACTIVATED 2026-07-11; READBACK-CONFIRMED
+   2026-07-14.** It was intentionally left off in the 2026-07-09 wave, then the validated 2026-07-11
+   release recorded operator-attested per-capability/DPIA/E2-G5 approvals and enabled it. The model only
+   proposes; a human must confirm before an existing staff route performs a write. Configuration intent
+   is reconciled, but TKT-111 remains PENDING until a signed-in propose→confirm→execute pass and the stale
+   version 409 are independently witnessed.
 5. **Apply `185_ai_usage_ledger.sql`** (TKT-113) — ✅ **DDL APPLIED LIVE (2026-07-08)** via
    [`deltas/2026-07-08-ai-usage-ledger.sql`](../migration/assets/schema/deltas/2026-07-08-ai-usage-ledger.sql)
    (`SET ROLE csadmin` runbook): the `ai_usage_ledger` table + RLS (`p_ai_usage_ledger_rw` /

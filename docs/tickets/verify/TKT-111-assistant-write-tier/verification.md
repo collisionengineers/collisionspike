@@ -28,6 +28,16 @@ a concurrent edit in another tab and confirm the second execute 409s.
 
 **PENDING — record update: deployed DARK (the standing "not deployed" is stale); acceptance line 1 is now live fact.** `propose_action`, `ASSISTANT_WRITE_TIER_ENABLED`, and the `staleVersion`/If-Match concurrency code are in the deployed api bundle (07-09/07-10 publishes; gated.md §F step 1 DONE), and the gate is ABSENT from live app-settings — "assistant writes gated off by default" is live-proven, not just test-asserted. `assistantChat` live; the toolset excludes `propose_action` while off (offline-pinned). Remaining, operator-gated (gated.md §F4 STAYS OFF): per-capability DPIA + E2/G5 sign-off (must state `scrubPii` is precision-over-recall, not de-identification) → flip → live propose→confirm→execute + concurrent-edit 409. Destructive-exclusion (`merge_cases` never proposable) stays offline-proven. Verified by: ticket-verifier dispatch, 2026-07-10.
 
+## Configuration-intent reconciliation — 2026-07-14
+
+PENDING — the 2026-07-10 dark-state note above is historical. The validated 2026-07-11 deployment
+record states that the operator-attested approvals were complete and records
+`ASSISTANT_WRITE_TIER_ENABLED=true`; a fresh 2026-07-14 readback confirms the gate remains true. Source
+inspection confirms `propose_action` captures a proposal rather than executing SQL. This reconciles the
+setting's intent but does **not** close the ticket: no independent current proof captures a signed-in
+propose→structured-diff→human-confirm→existing-route execution or the required stale-version 409, so the
+behavioral acceptance remains PENDING.
+
 ## Regression verification — 2026-07-11
 
 **Verdict: TESTED (offline) — deployment pending.**
