@@ -16,9 +16,10 @@
  *  - HONEST REFUSAL: both routes no-op with outcome 'gated_off' while RETRO_CASE_ENABLED
  *    is not 'true' — defence in depth on top of the orchestration-side gate, so the gate
  *    must be set on BOTH cespk-api-dev and cespk-orch-dev.
- *  - NEVER MINT: the Case/PO is the DISCOVERED archive folder name, stored verbatim —
- *    mintCasePo is never called here, and an unresolved/unknown principal means the cited
- *    value lands in case_ref, NOT case_po (the PO namespace is never guessed into).
+ *  - NEVER FORK ARCHIVE IDENTITY: a DISCOVERED archive folder name is stored verbatim only
+ *    when its principal is verified; an unresolved value lands in case_ref, NOT case_po.
+ *    An Outlook reconstruction with no historical Case/PO or folder may use the normal
+ *    provider-recovery allocator after the instruction itself resolves the provider.
  *  - GET-OR-CREATE under the SAME advisory locks the live mint takes (triage-locks.ts) +
  *    the uq_case_case_po / UNIQUE(source_message_id) backstops: a concurrent duplicate
  *    trigger links instead of double-creating; conflicts are outcomes, never 500s.
@@ -405,6 +406,9 @@ app.http('internalRetroCreate', {
           }
           if (onHold) {
             cols.push('on_hold'); vals.push(true);
+            if (!identityVerified) {
+              cols.push('on_hold_reason'); vals.push('provider_unresolved');
+            }
             cols.push('action_reason_code');
             vals.push(actionReasonCodec.toInt(actionReason ?? 'needs_review') ?? null);
           }
@@ -458,6 +462,25 @@ app.http('internalRetroCreate', {
           // too (the row upsert is keyed on source_message_id, so this is idempotent).
           await linkEnvelopeRow(original, poProviderId, hit.id, retroOriginalClassification(keys, casePo));
         }
+        // A locked get-or-create hit is still a replay seam, not a terminal no-op. The
+        // first attempt may have created or linked the case before parser fields/provider
+        // recovery completed, so re-apply the retained reconstruction idempotently.
+        const parserFieldsResult = await applyParserFields(
+          hit.id,
+          body.parserRef,
+          body.parserMileage,
+          body.parserMileageUnit,
+          body.parserEva,
+          poProviderId,
+          null,
+          {
+            caseType: auditGateOn ? caseType : 'standard',
+            caseTypeDual: false,
+            allowCasePoMint: !casePo && !body.boxFolder?.id,
+          },
+        );
+        const effectiveCasePo =
+          parserFieldsResult.casePo ?? (String(hit.case_po ?? '').trim() || null);
         await writeAudit({
           action: AUDIT_ACTION.retro_case_linked,
           caseId: hit.id,
@@ -466,7 +489,12 @@ app.http('internalRetroCreate', {
         });
         return {
           status: 200,
-          jsonBody: { outcome: 'already_exists_linked', caseId: hit.id, casePo: hit.case_po },
+          jsonBody: {
+            outcome: 'already_exists_linked',
+            caseId: hit.id,
+            casePo: effectiveCasePo,
+            providerRecovery: parserFieldsResult.providerRecovery?.outcome ?? 'not_needed',
+          },
         };
       }
 
@@ -478,7 +506,7 @@ app.http('internalRetroCreate', {
       }
       await linkEnvelopeRow(trigger, triggerProviderId, caseId);
 
-      await applyParserFields(
+      const parserFieldsResult = await applyParserFields(
         caseId,
         body.parserRef,
         body.parserMileage,
@@ -486,16 +514,31 @@ app.http('internalRetroCreate', {
         body.parserEva,
         poProviderId,
         null,
+        {
+          caseType: auditGateOn ? caseType : 'standard',
+          caseTypeDual: false,
+          // A discovered historical PO/folder is never forked. Outlook-only recovery has
+          // neither, so a provider resolved from its instruction may complete normally.
+          allowCasePoMint: !casePo && !body.boxFolder?.id,
+        },
       );
+      const effectiveCasePo =
+        parserFieldsResult.casePo ?? (identityVerified ? (casePo ?? null) : null);
+      const effectiveProviderId = parserFieldsResult.resolvedProviderId ?? poProviderId;
+      const effectivePrincipalResolved = Boolean(effectiveProviderId);
+      const effectiveIdentityVerified = effectivePrincipalResolved && Boolean(effectiveCasePo);
+      const effectiveOnHold = parserFieldsResult.providerRecovery?.holdCleared === true
+        ? false
+        : onHold;
 
       await writeAudit({
         action: AUDIT_ACTION.retro_case_created,
         caseId,
         summary: `Case reconstructed retroactively (${reconstructionSource}): ${name}`,
         after: {
-          casePo: identityVerified ? casePo : null,
+          casePo: effectiveCasePo,
           status,
-          onHold,
+          onHold: effectiveOnHold,
           reconstructionSource,
           boxFolderId: body.boxFolder?.id ?? null,
           keys,
@@ -524,7 +567,7 @@ app.http('internalRetroCreate', {
         });
       }
 
-      if (!identityVerified) {
+      if (!effectiveIdentityVerified) {
         await query(
           `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
           [
@@ -542,18 +585,29 @@ app.http('internalRetroCreate', {
           caseId,
           severity: 'warning',
           summary: 'Retro case held — identity unverified (principal/Case-PO)',
-          after: { principalResolved, casePoKnown: Boolean(casePo), onHold: true },
+          after: {
+            principalResolved: effectivePrincipalResolved,
+            casePoKnown: Boolean(effectiveCasePo),
+            onHold: effectiveOnHold,
+          },
         });
       }
 
-      ctx.log(JSON.stringify({ evt: 'retroCreate', outcome: 'created', caseId, casePo, reconstructionSource }));
+      ctx.log(JSON.stringify({
+        evt: 'retroCreate',
+        outcome: 'created',
+        caseId,
+        casePo: effectiveCasePo,
+        reconstructionSource,
+      }));
       return {
         status: 200,
         jsonBody: {
           outcome: 'created',
           caseId,
-          casePo: identityVerified ? casePo : null,
-          newClient: !principalResolved,
+          casePo: effectiveCasePo,
+          newClient: !effectivePrincipalResolved,
+          providerRecovery: parserFieldsResult.providerRecovery?.outcome ?? 'not_needed',
         },
       };
     }),

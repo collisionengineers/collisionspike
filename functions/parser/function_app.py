@@ -61,6 +61,7 @@ import binascii
 import json
 import logging
 import re
+from pathlib import Path
 from typing import Any
 
 import azure.functions as func
@@ -78,6 +79,41 @@ app = func.FunctionApp()
 _LOG = logging.getLogger("ce.parser")
 
 CONTRACT_VERSION = parser_adapter.CONTRACT_VERSION
+_VENDOR_LOCK_PATH = Path(__file__).resolve().parent / "cedocumentmapper_v2" / "VENDOR_LOCK.json"
+
+
+@app.route(route="fingerprint", methods=["GET"], auth_level=func.AuthLevel.FUNCTION)
+def fingerprint(req: func.HttpRequest) -> func.HttpResponse:
+    """Return the immutable vendored-engine identity of this deployed package.
+
+    This endpoint is deliberately separate from the byte-stable parse envelope. It exposes
+    no secrets or case data, but remains function-key protected so deployment verification
+    uses the same caller boundary as the parser routes.
+    """
+    del req
+    try:
+        lock = json.loads(_VENDOR_LOCK_PATH.read_text(encoding="utf-8"))
+        payload = {
+            "contract": "ce-parser-fingerprint-v1",
+            "repository": lock["repository"],
+            "ref": lock["ref"],
+            "commit": lock["commit"],
+            "vendored_file_count": lock["vendoredFileCount"],
+            "content_sha256": lock["contentSha256"],
+            "providers_sha256": lock["providersSha256"],
+        }
+        return func.HttpResponse(
+            json.dumps(payload, separators=(",", ":")),
+            status_code=200,
+            mimetype="application/json",
+        )
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+        _LOG.exception("Parser vendor fingerprint unavailable")
+        return func.HttpResponse(
+            json.dumps({"error": "fingerprint_unavailable"}),
+            status_code=500,
+            mimetype="application/json",
+        )
 
 # Strip HTML tags + decode the common entities so the deterministic keyword / VRM
 # scan runs over plain text whatever the V3 connector hands us (HTML or text

@@ -167,6 +167,17 @@ def create_folder(req: func.HttpRequest) -> func.HttpResponse:
     return _run_box_op(lambda c: c.create_folder(name, parent_id))
 
 
+@app.route(route="box/folders/{folderId}", methods=["GET"])
+def get_folder(req: func.HttpRequest) -> func.HttpResponse:
+    """Return fresh folder identity only when it is under the writable root."""
+    if not _truthy(os.environ.get("BOX_API_ENABLED")):
+        return _gated_off()
+    folder_id = req.route_params.get("folderId", "")
+    if not folder_id:
+        return _json_response({"error": "folderId is required.", "status": 400}, status=400)
+    return _run_box_op(lambda c: c.get_folder(folder_id))
+
+
 # TKT-142: honest cap on the legacy base64-in-JSON upload lane. ~11 MiB of
 # base64 TEXT ≈ 8 MiB of raw bytes — the orchestration switches to the blobPath
 # variant above 8 MiB raw. Checked on the STRING length BEFORE any decode so an

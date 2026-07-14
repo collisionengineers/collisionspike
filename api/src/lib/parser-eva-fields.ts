@@ -51,6 +51,14 @@ export interface ParserEvaFields {
   /** Source overrides for a field filled from a weaker, non-document lane. Omitted
    *  fields retain the established instruction-document provenance. */
   sources?: Partial<Record<ParserEvaFieldKey, 'email_text'>>;
+  /** Defensible alternatives retained separately from claimant_name. */
+  claimant_conflicts?: Array<{
+    value: string;
+    source: 'email_text';
+    source_reference?: string;
+  }>;
+  /** Stable inbound identity used to make retained-source conflict writes replay-safe. */
+  source_reference?: string;
 }
 
 /** A constraint-validated, length-capped value ready for a fill-if-empty UPDATE. */

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  resolveClaimantInputs,
   supplementAccidentCircumstancesFromBody,
   supplementClaimantNameFromBody,
 } from './supplement-parse.js';
@@ -30,6 +31,44 @@ describe('supplementAccidentCircumstancesFromBody', () => {
     expect(
       supplementAccidentCircumstancesFromBody('Accident Circumstances:\nDamage Description:\nRear'),
     ).toBe('');
+  });
+});
+
+describe('resolveClaimantInputs', () => {
+  it('keeps a document claimant and retains a differing labelled body claimant', () => {
+    expect(resolveClaimantInputs('Ms Document Person', {
+      status: 'matched',
+      value: 'Mr Body Person',
+      candidates: ['Mr Body Person'],
+    })).toEqual({
+      value: 'Ms Document Person',
+      fromEmailBody: false,
+      conflicts: ['Mr Body Person'],
+    });
+  });
+
+  it('retains every ambiguous body candidate without choosing one', () => {
+    expect(resolveClaimantInputs('', {
+      status: 'conflict',
+      value: '',
+      candidates: ['Ms First Person', 'Dr Second Person'],
+    })).toEqual({
+      value: '',
+      fromEmailBody: false,
+      conflicts: ['Ms First Person', 'Dr Second Person'],
+    });
+  });
+
+  it('uses one unambiguous body claimant only when the document is blank', () => {
+    expect(resolveClaimantInputs('', {
+      status: 'matched',
+      value: 'Ms Body Person',
+      candidates: ['Ms Body Person'],
+    })).toEqual({
+      value: 'Ms Body Person',
+      fromEmailBody: true,
+      conflicts: [],
+    });
   });
 });
 

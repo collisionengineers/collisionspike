@@ -275,7 +275,18 @@ export function callLocationSuggest(caseId: string): Promise<unknown> {
 /* ---------- Box facade (box-webhook Function) ---------- */
 
 export const box = {
-  createFolder(name: string, parentId: string): Promise<{ id: string }> {
+  getFolder(folderId: string): Promise<{
+    id: string;
+    name?: string;
+    parent?: { id?: string };
+    path_collection?: { entries?: Array<{ id?: string }> };
+  }> {
+    return callFunction(BOX, 'GET', `box/folders/${folderId}`);
+  },
+  createFolder(
+    name: string,
+    parentId: string,
+  ): Promise<{ id: string; name?: string; outcome?: 'created' | 'reused' }> {
     return callFunction(BOX, 'POST', 'box/folders', { name, parent: { id: parentId } });
   },
   /**

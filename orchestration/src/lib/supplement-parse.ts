@@ -143,6 +143,39 @@ export interface ClaimantBodySupplement {
   candidates: string[];
 }
 
+export interface ResolvedClaimantInputs {
+  value: string;
+  fromEmailBody: boolean;
+  conflicts: string[];
+}
+
+function comparableClaimant(value: string): string {
+  return value.normalize('NFKC').toLocaleLowerCase('en-GB').replace(/[^\p{L}]+/gu, ' ').trim();
+}
+
+/** Document value wins, but every defensible differing body candidate is retained
+ * for staff review. An ambiguous body never supplies an authoritative value. */
+export function resolveClaimantInputs(
+  documentClaimantName: string,
+  bodyClaimant: ClaimantBodySupplement,
+): ResolvedClaimantInputs {
+  const documentValue = documentClaimantName.trim();
+  const bodyCandidates = bodyClaimant.status === 'matched'
+    ? [bodyClaimant.value]
+    : bodyClaimant.status === 'conflict'
+      ? bodyClaimant.candidates
+      : [];
+  const value = documentValue || (bodyClaimant.status === 'matched' ? bodyClaimant.value.trim() : '');
+  const chosenKey = comparableClaimant(value);
+  const conflicts = uniqueClaimants(bodyCandidates)
+    .filter((candidate) => comparableClaimant(candidate) !== chosenKey);
+  return {
+    value,
+    fromEmailBody: !documentValue && bodyClaimant.status === 'matched' && Boolean(value),
+    conflicts,
+  };
+}
+
 function isStandaloneSignoff(line: string): boolean {
   if (MOBILE_SIGNATURE_RE.test(line)) return true;
   const match = SIGN_OFF_RE.exec(line);

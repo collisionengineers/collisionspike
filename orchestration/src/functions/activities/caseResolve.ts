@@ -58,25 +58,81 @@ df.app.activity('caseResolve', {
     casePo?: string | null;
     /** Matched provider's automation mode — drives the orchestrator's intake branch (am ticket). */
     providerAutomationMode?: 'manual' | 'review_auto' | 'full_auto';
+    providerRecovery?: 'identity_ready' | 'not_needed' | 'blocked';
   }> => {
     const { inbound, providerId, matchState } = input;
     // Best known VRM = parser PDF VRM (most reliable) over the email-body sniff; both filtered.
     const bestVrm = ((input.parserVrm || inbound.candidateVrm) ?? '').trim();
+    const sourceMessageId = inbound.internetMessageId || inbound.messageId;
 
     try {
       // Dedup context — open same-provider cases + seen ids/hashes (caller-scoped, re-asserted in resolveCase).
       const context = await dataApi.dedupContext({
         workProviderId: providerId ?? '',
         vrm: bestVrm,
-        messageId: inbound.messageId,
+        messageId: sourceMessageId,
       });
+
+      const replayExactOwner = async (targetCaseId: string) => {
+        const replayed = await dataApi.resolvePersist({
+          inbound,
+          providerId,
+          matchState,
+          parserVrm: input.parserVrm,
+          parserRef: input.parserRef,
+          parserMileage: input.parserMileage,
+          parserMileageUnit: input.parserMileageUnit,
+          parserEva: input.parserEvaFields,
+          intermediaryImageSourceId: input.intermediaryImageSourceId,
+          intermediaryCandidateProviderIds: input.intermediaryCandidateProviderIds,
+          caseType: input.caseType,
+          caseTypeDual: input.caseTypeDual,
+          caseTypeSignals: input.caseTypeSignals,
+          decision: {
+            resolution: 'replay',
+            targetCaseId,
+            setDuplicateRisk: false,
+            caseLinkState: 'none',
+            statusEffect: 'ingested',
+            auditAction: 'case_attached',
+          },
+        });
+        return {
+          outcome: 'replayed',
+          caseId: replayed.caseId,
+          casePo: replayed.casePo ?? null,
+          providerAutomationMode: replayed.providerAutomationMode,
+          providerRecovery: replayed.providerRecovery,
+        };
+      };
+
+      // Resolve immutable ownership before the provider-scoped ladder. This also repairs
+      // redeliveries of a previously Held case whose provider was still NULL, which the
+      // provider-scoped seen-id query cannot contain.
+      if (context.exactSourceOwner) {
+        ctx.log(JSON.stringify({
+          evt: 'caseResolve',
+          resolution: 'exact_source_replay',
+          messageId: sourceMessageId,
+          caseId: context.exactSourceOwner.caseId,
+        }));
+        if (context.exactSourceOwner.replayAllowed) {
+          return replayExactOwner(context.exactSourceOwner.caseId);
+        }
+        return {
+          outcome: 'already_ingested',
+          caseId: context.exactSourceOwner.caseId,
+          casePo: context.exactSourceOwner.casePo,
+          providerAutomationMode: context.exactSourceOwner.providerAutomationMode,
+        };
+      }
 
       const decision = resolveCase({
         // TKT-092: the rung-1 repeat key MUST be the INTERNET Message-Id —
         // `seenMessageIds` comes from case_.source_message_id, which stores the
         // Internet-Message-Id; the Graph `messageId` differs per mailbox/delivery, so
         // passing it here meant the message-id rung could never match a redelivery.
-        messageId: inbound.internetMessageId || inbound.messageId,
+        messageId: sourceMessageId,
         payloadHash: inbound.payloadHash,
         candidateVrm: bestVrm,
         // #100 — fall back to the parser-confirmed reference for dedup when the email
@@ -88,10 +144,21 @@ df.app.activity('caseResolve', {
         seenPayloadHashes: context.seenPayloadHashes,
       });
 
-      // Rung 1 — exact repeat → drop (already ingested; orchestrator short-circuits).
+      // Rung 1 — exact repeat. Re-apply the retained parser result to the exact
+      // source-message owner before resuming the idempotent downstream stages. A prior
+      // attempt can commit the case and fail before parser fields, evidence, Archive, or
+      // readiness are complete; returning early would strand that partial case forever.
       if (decision.resolution === 'drop') {
         ctx.log(JSON.stringify({ evt: 'caseResolve', resolution: 'drop', messageId: inbound.messageId }));
-        return { outcome: 'already_ingested', caseId: decision.targetCaseId ?? '' };
+        if (context.seenMessageIds.includes(sourceMessageId)) {
+          throw new Error(
+            `Exact-repeat decision for ${sourceMessageId} has no immutable source-message owner`,
+          );
+        }
+        // A byte-identical payload delivered under a different Message-ID is the other
+        // ADR-0010 rung-1 case. It has no source-message owner by definition and remains
+        // an idempotent payload-duplicate drop.
+        return { outcome: 'already_ingested', caseId: '' };
       }
 
       const persisted = await dataApi.resolvePersist({
@@ -127,12 +194,14 @@ df.app.activity('caseResolve', {
         caseId: persisted.caseId,
         casePo: persisted.casePo ?? null,
         providerAutomationMode: persisted.providerAutomationMode,
+        providerRecovery: persisted.providerRecovery,
       };
     } catch (e) {
       if (e instanceof ConflictError) {
-        // UNIQUE(sourcemessageid) backstop fired — a concurrent/replayed ingest already landed it.
-        ctx.log(JSON.stringify({ evt: 'caseResolve', outcome: 'already_ingested', messageId: inbound.messageId }));
-        return { outcome: 'already_ingested', caseId: '' };
+        // The API resolves an exact source-message owner as a normal 200 response. A
+        // remaining 409 has no exact owner and must retry/fail visibly; never turn it into
+        // an ownerless "already ingested" result that silently skips downstream work.
+        ctx.log(JSON.stringify({ evt: 'caseResolve', outcome: 'conflict_retry', messageId: inbound.messageId }));
       }
       throw e;
     }

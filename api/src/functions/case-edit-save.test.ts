@@ -161,9 +161,17 @@ describe('explicit case save transaction', () => {
 
     const provenanceUpdates = calls.filter(({ sql }) => /UPDATE field_level_provenance/i.test(sql));
     expect(provenanceUpdates).not.toHaveLength(0);
+    expect(
+      provenanceUpdates.some(({ sql, params }) =>
+        /reviewed_by = 'Manual edit \(case page\)'/i.test(sql) &&
+        params.includes(100000003) &&
+        params.includes(100000002)),
+    ).toBe(true);
     for (const update of provenanceUpdates) {
-      expect(update.sql).toMatch(/WHERE id = \(\s*SELECT id[\s\S]*source_type_code = \$4/i);
-      expect(update.sql).not.toMatch(/WHERE case_id = \$1 AND field_name = \$2\s*RETURNING/i);
+      if (/source_type_code = \$4/i.test(update.sql)) {
+        expect(update.sql).toMatch(/WHERE id = \(\s*SELECT id[\s\S]*source_type_code = \$4/i);
+        expect(update.sql).not.toMatch(/WHERE case_id = \$1 AND field_name = \$2\s*RETURNING/i);
+      }
     }
 
     const audits = calls.filter(({ sql }) => /INSERT INTO audit_event/i.test(sql));

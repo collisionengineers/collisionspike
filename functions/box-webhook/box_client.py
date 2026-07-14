@@ -1080,6 +1080,21 @@ class BoxClient:
         )
         return _json_or_raise(resp, "GetSharedLink")
 
+    def get_folder(self, folder_id: str) -> dict[str, Any]:
+        """Read fresh folder identity after proving it is under the writable root.
+
+        This intentionally uses the write-side scope guard rather than the broader
+        readable-root guard: callers use it before adopting an existing folder as a
+        case's durable Archive link.
+        """
+        self._assert_in_scope("folders", folder_id, fresh=True)
+        resp = self.request(
+            "GET",
+            f"/2.0/folders/{folder_id}",
+            params={"fields": "id,name,parent,path_collection"},
+        )
+        return _json_or_raise(resp, "GetFolder")
+
     def list_folder(self, folder_id: str, *, limit: int | None = None, offset: int | None = None) -> dict[str, Any]:
         # READ op: an RO archive folder may be listed (ADR-0022 R2) — write ops still
         # refuse it via _assert_in_scope. Fields widened additively for the retro

@@ -322,6 +322,202 @@ describe('POST /api/cases — assistant create_case normalization', () => {
     expect(persisted.eva_mileage).toBe('50000');
   });
 
+  it('persists current and conflicting field sources with deterministic names and exact mappings', async () => {
+    const evaFields = Object.fromEntries(
+      EVA_FIELD_ORDER.map((desc) => [
+        desc.key,
+        {
+          value:
+            desc.key === 'vatStatus'
+              ? 'Yes'
+              : desc.key === 'mileageUnit'
+                ? 'Miles'
+                : desc.key === 'mileage'
+                  ? '50000'
+                  : `${desc.key} current`,
+          provenance: {
+            sourceType: desc.key === 'claimantName' ? 'pdf_extraction' : 'corpus',
+            sourceLabel: `${desc.key} current source`,
+            ...(desc.key === 'claimantName' ? { confidence: 0.91 } : {}),
+          },
+          reviewState: 'reviewed',
+          ...(desc.key === 'claimantName'
+            ? {
+                conflicts: [
+                  {
+                    candidateValue: 'Jane from email',
+                    provenance: {
+                      sourceType: 'email_text',
+                      sourceLabel: 'Instruction email body',
+                      confidence: 0.72,
+                    },
+                  },
+                  {
+                    candidateValue: 'Jane from second document',
+                    provenance: {
+                      sourceType: 'manual_upload',
+                      sourceLabel: 'Second instruction',
+                    },
+                  },
+                ],
+              }
+            : desc.key === 'vehicleModel'
+              ? {
+                  conflicts: [{
+                    candidateValue: 'Other model',
+                    provenance: {
+                      sourceType: 'ai',
+                      sourceLabel: 'Vehicle comparison',
+                      confidence: 0.66,
+                    },
+                  }],
+                }
+              : {}),
+        },
+      ]),
+    ) as Record<EvaFieldKey, unknown>;
+
+    const response = await registration('createCase').handler(
+      request({
+        vrm: 'ZX99ZZZ',
+        status: 'ingested',
+        sourceLabel: 'Desk intake',
+        writeProvenance: false,
+        evaFields,
+      }),
+      context(),
+    );
+
+    expect(response).toEqual({ status: 201, jsonBody: { id: 'case-new' } });
+    const provenance = callsContaining('INSERT INTO field_level_provenance');
+    expect(provenance).toHaveLength(5);
+    expect(provenance.map((call) => call[1])).toEqual(expect.arrayContaining([
+      [
+        'case-new:claimantName',
+        'case-new',
+        'claimantName',
+        'claimantName current',
+        100000001,
+        'claimantName current source',
+        0.91,
+        100000002,
+      ],
+      [
+        'case-new:claimantName:conflict:01',
+        'case-new',
+        'claimantName',
+        'Jane from email',
+        100000002,
+        'Instruction email body',
+        0.72,
+        100000003,
+      ],
+      [
+        'case-new:claimantName:conflict:02',
+        'case-new',
+        'claimantName',
+        'Jane from second document',
+        100000010,
+        'Second instruction',
+        null,
+        100000003,
+      ],
+      [
+        'case-new:vehicleModel',
+        'case-new',
+        'vehicleModel',
+        'vehicleModel current',
+        100000003,
+        'vehicleModel current source',
+        null,
+        100000002,
+      ],
+      [
+        'case-new:vehicleModel:conflict:01',
+        'case-new',
+        'vehicleModel',
+        'Other model',
+        100000004,
+        'Vehicle comparison',
+        0.66,
+        100000003,
+      ],
+    ]));
+
+    const sqlCalls = db.query.mock.calls.map(([sql]) => String(sql));
+    const caseInsert = sqlCalls.findIndex((sql) => sql.includes('INSERT INTO case_'));
+    const claimantCurrent = db.query.mock.calls.findIndex(
+      ([sql, params]) => String(sql).includes('INSERT INTO field_level_provenance')
+        && (params as unknown[])[2] === 'claimantName'
+        && (params as unknown[])[0] === 'case-new:claimantName',
+    );
+    const otherField = db.query.mock.calls.findIndex(
+      ([sql, params]) => String(sql).includes('INSERT INTO field_level_provenance')
+        && (params as unknown[])[2] === 'vehicleModel',
+    );
+    expect(caseInsert).toBeGreaterThanOrEqual(0);
+    expect(claimantCurrent).toBeGreaterThan(caseInsert);
+    expect(otherField).toBeGreaterThan(claimantCurrent);
+  });
+
+  it.each([
+    { label: 'without an operation binding', headers: {} },
+    {
+      label: 'with an operation binding',
+      headers: { 'idempotency-key': 'manual-create-claimant-source-only' },
+    },
+  ])('always commits the claimant source with writeProvenance false $label', async ({ headers }) => {
+    const evaFields = Object.fromEntries(
+      EVA_FIELD_ORDER.map((desc) => [
+        desc.key,
+        {
+          value:
+            desc.key === 'claimantName'
+              ? 'Jane Driver'
+              : desc.key === 'mileage'
+                ? '50000'
+              : desc.key === 'vatStatus' || desc.key === 'mileageUnit'
+                ? ''
+                : `${desc.key} value`,
+          provenance: {
+            sourceType: desc.key === 'claimantName' ? 'pdf_extraction' : 'manual_upload',
+            sourceLabel: `${desc.key} source`,
+          },
+          reviewState: 'reviewed',
+        },
+      ]),
+    ) as Record<EvaFieldKey, unknown>;
+
+    const response = await registration('createCase').handler(
+      request(
+        {
+          vrm: 'ZX99ZZZ',
+          status: 'ingested',
+          sourceLabel: 'Desk intake',
+          writeProvenance: false,
+          evaFields,
+        },
+        {},
+        headers as Record<string, string>,
+      ),
+      context(),
+    );
+
+    expect(response.status).toBe(201);
+    const provenance = callsContaining('INSERT INTO field_level_provenance');
+    expect(provenance).toHaveLength(1);
+    expect(provenance[0]?.[1]).toEqual([
+      'case-new:claimantName',
+      'case-new',
+      'claimantName',
+      'Jane Driver',
+      100000001,
+      'claimantName source',
+      null,
+      100000002,
+    ]);
+  });
+
   it('returns 400 for a malformed full body instead of dereferencing missing evaFields', async () => {
     const res = await registration('createCase').handler(
       request({ vrm: 'AB12CDE', status: 'ingested' }),
@@ -381,7 +577,11 @@ describe('POST /api/cases — assistant create_case normalization', () => {
     const normal = db.query.getMockImplementation()!;
     let failSideEffect = true;
     db.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
-      if (failSideEffect && sql.includes('INSERT INTO field_level_provenance')) {
+      if (
+        failSideEffect
+        && sql.includes('INSERT INTO field_level_provenance')
+        && params[2] !== 'claimantName'
+      ) {
         failSideEffect = false;
         throw new Error('simulated response-loss boundary');
       }
@@ -398,6 +598,47 @@ describe('POST /api/cases — assistant create_case normalization', () => {
     expect(callsContaining('INSERT INTO field_level_provenance')).toHaveLength(13);
     expect(manualOperations.get('manual-create-operation-0009')?.side_effects_completed_at)
       .toBeInstanceOf(Date);
+  });
+
+  it.each([
+    { label: 'without an operation binding', headers: {} },
+    {
+      label: 'with an operation binding',
+      headers: {
+        'idempotency-key': 'manual-create-operation-claimant-failure',
+        'x-manual-intake-upload-key': 'manual-upload-operation-claimant-failure',
+        'x-manual-intake-file-count': '1',
+        'x-manual-intake-instruction-index': '0',
+      },
+    },
+  ])('fails the original case transaction when claimant provenance fails $label', async ({ headers }) => {
+    const normal = db.query.getMockImplementation()!;
+    db.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
+      if (
+        sql.includes('INSERT INTO field_level_provenance')
+        && params[2] === 'claimantName'
+      ) {
+        throw new Error('simulated claimant provenance failure');
+      }
+      return normal(sql, params);
+    });
+
+    await expect(registration('createCase').handler(
+      request(
+        { vrm: 'AB12CDE', providerCode: 'QDOS', claimantName: 'Jane Driver' },
+        {},
+        headers as Record<string, string>,
+      ),
+      context(),
+    )).rejects.toThrow('simulated claimant provenance failure');
+
+    expect(callsContaining('INSERT INTO case_')).toHaveLength(1);
+    expect(callsContaining('INSERT INTO field_level_provenance')).toHaveLength(1);
+    expect(callsContaining('SET case_id = $2')).toHaveLength(0);
+    expect(callsContaining('INSERT INTO audit_event')).toHaveLength(0);
+    expect(callsContaining('SET side_effects_completed_at')).toHaveLength(0);
+    const operation = manualOperations.get('manual-create-operation-claimant-failure');
+    if (operation) expect(operation.case_id).toBeNull();
   });
 
   it('refuses one operation key reused for changed case details before another case is inserted', async () => {

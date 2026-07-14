@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { inboundCategoryCodec, inboundSubtypeCodec } from './index';
+import { inboundCategoryCodec, inboundSubtypeCodec, sourceTypeCodec } from './index';
 import { INBOUND_CATEGORIES, INBOUND_SUBTYPES } from '../dto';
 // Import the REAL choice-set artifact (the frozen contract source in src/data/choicesets/),
 // not a copy — mirrors contracts/case-status.parity.test.ts's own import discipline.
@@ -20,6 +20,13 @@ interface ChoiceOption {
   name: string;
   label: string;
 }
+
+describe('field provenance source codec', () => {
+  it('uses an append-only code for a source whose origin was not recorded', () => {
+    expect(sourceTypeCodec.toInt('unknown')).toBe(100000011);
+    expect(sourceTypeCodec.toName(100000011)).toBe('unknown');
+  });
+});
 
 const bundle = inboundEmailClassificationChoiceSet as { choiceSets: Array<{
   logicalName: string;

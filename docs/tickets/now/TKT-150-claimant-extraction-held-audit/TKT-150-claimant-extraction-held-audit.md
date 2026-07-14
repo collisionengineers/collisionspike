@@ -6,7 +6,7 @@ priority: P1
 area: parsing
 tickets-it-relates-to: [TKT-001, TKT-022, TKT-086, TKT-130, TKT-135]
 research-link: docs/tickets/now/TKT-150-claimant-extraction-held-audit/evidence/operator-note.md
-plan: PLAN-004
+plan: PLAN-005
 ---
 
 # Restore claimant-name extraction and remediate affected held cases
@@ -20,7 +20,12 @@ Open cases, including QDOS26079 and cases in Held, are missing claimant names ev
 - TKT-130 — readiness/queue contract that must treat a missing claimant as Not Ready.
 
 ## Proposed change
-IN PROGRESS: the parser/signature failure family is fixed and immutably re-vendored at `engine-v2.22`. The remaining work is the full open-case claimant census, QDOS26079 trace, live parser deployment, safe source-backed remediation, readiness recomputation, and independent verification.
+IN PROGRESS: claimant extraction is immutably re-vendored at `engine-v2.24`; conflict visibility,
+source-preserving create/merge/replay/later-document handling, two-phase provider recovery, a deployed-parser
+fingerprint contract, and a claimant-only remediation runner are implemented offline. A fresh live census and
+QDOS26079 trace must now be frozen against the deployed fingerprint, followed by the plan-bound PostgreSQL 16
+backup/restore, named approval, fill-only apply, residual ledger, and independent live verification. This work is
+not the final operational cutover and does not switch production Archive roots or call production EVA.
 
 ## Acceptance
 - A reproducible census lists every active Held, Not Ready, and Review case whose claimant name is blank, grouped by provider, source format, intake path, parser version, and earliest source message/document.
@@ -44,3 +49,7 @@ Distilled 2026-07-12 from the operator's live-case report; raw wording is in [ev
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator note](./evidence/operator-note.md)
+- [Offline root-cause record](./evidence/offline-root-cause-2026-07-12.md)
+- [Dated live census](./evidence/live-census-2026-07-12.md)
+- [Superseded-plan summary](./evidence/remediation-plan-summary-2026-07-13.md)
+- [Controlled remediation runbook](./remediation-runbook.md)

@@ -115,12 +115,17 @@ const OPEN_CASE_ROW = {
 };
 
 let caseRows: Array<Record<string, unknown>>;
+let providerArchivePending: boolean;
 
 beforeEach(() => {
   db.query.mockReset();
   caseRows = [OPEN_CASE_ROW];
+  providerArchivePending = false;
   db.query.mockImplementation(async (sql: string) => {
     if (sql.includes('FROM case_') && sql.includes('WHERE c.id')) return caseRows;
+    if (sql.includes('UPDATE case_') && sql.includes('provider_archive_completed_generation')) {
+      return providerArchivePending ? [] : [{ id: 'case-1' }];
+    }
     return [];
   });
 });
@@ -213,5 +218,17 @@ describe('closeCase — idempotency + 404', () => {
     caseRows = [];
     const res = await call({ auth: `Bearer ${await mint()}`, body: {} });
     expect(res.status).toBe(404);
+  });
+
+  it('refuses to close a case throughout the provider Archive remote window', async () => {
+    providerArchivePending = true;
+    const res = await call({ auth: `Bearer ${await mint()}`, body: {} });
+    expect(res).toEqual({
+      status: 409,
+      jsonBody: {
+        error: 'Archive folder work is still finishing for this case. Try again shortly.',
+      },
+    });
+    expect(callsMatching('INSERT INTO audit_event')).toHaveLength(0);
   });
 });

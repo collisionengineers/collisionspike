@@ -16,6 +16,7 @@
  * DB (lib/db) fully mocked — no live Postgres; the case read returns a configurable current row.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 
 // auth.ts (imported transitively by internal.ts) reads these at import time.
 vi.hoisted(() => {
@@ -23,9 +24,22 @@ vi.hoisted(() => {
   process.env.API_AUDIENCE = 'fa2fb28c-fef6-40a4-8d3b-ae6725891d72';
 });
 
-/* ----------  @azure/functions: no-op registration capture (no Functions host)  ---------- */
+interface Registration {
+  handler: (req: HttpRequest, ctx: InvocationContext) => Promise<HttpResponseInit>;
+}
+const registrations = vi.hoisted(() => new Map<string, Registration>());
+
+/* ----------  @azure/functions: registration capture (no Functions host)  ---------- */
 vi.mock('@azure/functions', () => ({
-  app: { http: () => {}, timer: () => {} },
+  app: {
+    http: (name: string, registration: Registration) => registrations.set(name, registration),
+    timer: () => {},
+  },
+}));
+
+vi.mock('../lib/auth.js', () => ({
+  authenticate: vi.fn(async () => ({ sub: 'service-test' })),
+  toErrorResponse: vi.fn(() => ({ status: 401, jsonBody: { error: 'unauthorized' } })),
 }));
 
 /* ----------  lib/db: fully mocked (audit.ts's './db.js' resolves here too)  ---------- */
@@ -38,21 +52,32 @@ vi.mock('../lib/db.js', () => ({
   },
 }));
 
-import { applyParserFields, buildHeldReason } from './internal.js';
+import { applyParserFields, buildHeldReason, exactCaseForSourceMessage } from './internal.js';
 
 /** The current case_ row returned by the fill-if-empty read; overridable per test. */
 let caseRow: Record<string, unknown>;
 /** Active work_provider rows for the content-match query. */
 let providerRows: Array<Record<string, unknown>>;
+/** Locked case/provider row used only by provider-recovery regression cases. */
+let recoveryRow: Record<string, unknown> | null;
 
 beforeEach(() => {
   db.query.mockReset();
+  db.tx.mockReset();
+  db.tx.mockImplementation(async (fn: (q: typeof db.query) => Promise<unknown>) => fn(db.query));
   caseRow = { case_ref: null, eva_mileage: null, eva_work_provider: null, work_provider_id: null };
+  recoveryRow = null;
   providerRows = [
     { id: 'wp-pch', principal_code: 'PCH', display_name: 'Performance Car Hire' },
     { id: 'wp-sbl', principal_code: 'SBL', display_name: 'SBL' },
   ];
   db.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+    if (sql.includes('FROM case_ c') && sql.includes('JOIN work_provider wp')) {
+      return recoveryRow ? [recoveryRow] : [];
+    }
+    if (sql.includes('provider_archive_requested_generation = provider_archive_requested_generation + 1')) {
+      return [{ provider_archive_requested_generation: 1 }];
+    }
     if (sql.includes('FROM case_ WHERE id')) return [caseRow];
     if (sql.includes('FROM work_provider WHERE active = true')) return providerRows;
     // The 1c intermediary fallback's active-guard lookup (SELECT display_name ... WHERE id = $1
@@ -61,6 +86,9 @@ beforeEach(() => {
     if (sql.includes('FROM work_provider WHERE id') && sql.includes('active = true')) {
       const row = providerRows.find((p) => p.id === (params?.[0] as string));
       return row ? [{ display_name: row.display_name }] : [];
+    }
+    if (sql.includes('INSERT INTO field_level_provenance') && sql.includes("'claimantName'")) {
+      return [{ id: 'claimant-conflict-1' }];
     }
     return [];
   });
@@ -74,6 +102,41 @@ const provenanceCall = () =>
 
 const CONNEXUS = 'img-connexus';
 
+describe('applyParserFields — durable provider Archive continuation', () => {
+  it('registers a generation before committing intake or retro identity recovery', async () => {
+    caseRow.work_provider_id = 'wp-pch';
+    recoveryRow = {
+      case_po: 'PCH26001',
+      on_hold: true,
+      on_hold_reason: 'provider_archive_pending',
+      work_provider_id: 'wp-pch',
+      case_type_code: 100000000,
+      principal_code: 'PCH',
+      provider_automation_mode_code: 100000002,
+      box_folder_id: null,
+    };
+
+    const result = await applyParserFields(
+      'case-1',
+      undefined,
+      undefined,
+      undefined,
+      { work_provider: 'PCH' },
+      null,
+      null,
+      { allowCasePoMint: true },
+    );
+
+    expect(result.providerRecovery).toMatchObject({
+      outcome: 'identity_ready',
+      casePo: 'PCH26001',
+    });
+    expect(calls().some(([sql, params]) =>
+      sql.includes('provider_archive_requested_generation = provider_archive_requested_generation + 1')
+      && params?.[0] === 'case-1')).toBe(true);
+  });
+});
+
 describe('applyParserFields — strict mileage boundary', () => {
   it('does not turn arbitrary mileage text into a different numeric value', async () => {
     await applyParserFields('case-1', undefined, 'about 50,000 miles', 'Miles');
@@ -83,6 +146,24 @@ describe('applyParserFields — strict mileage boundary', () => {
   it('retains compatibility with an exact standalone unit suffix', async () => {
     await applyParserFields('case-1', undefined, '50,000 miles', 'Miles');
     expect(updateCall()?.[1]).toEqual(['50000', 'Miles', 'case-1']);
+  });
+
+  it('logs a contained best-effort failure for legacy non-claimant provenance', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    db.query
+      .mockImplementationOnce(async () => [caseRow])
+      .mockImplementationOnce(async () => [])
+      .mockImplementationOnce(async () => [])
+      .mockImplementationOnce(async () => { throw new Error('provenance unavailable'); })
+      .mockImplementationOnce(async () => [])
+      .mockImplementationOnce(async () => []);
+
+    await expect(applyParserFields('case-1', undefined, '50000', 'Miles')).resolves.toBeDefined();
+    expect(warning).toHaveBeenCalledWith(
+      '[applyParserFields] non-claimant provenance write failed',
+      expect.objectContaining({ caseId: 'case-1', field: 'mileage' }),
+    );
+    warning.mockRestore();
   });
 });
 
@@ -256,6 +337,7 @@ describe('applyParserFields — e-mail-body claimant provenance (TKT-150)', () =
       {
         claimant_name: 'Ms Jane Example',
         sources: { claimant_name: 'email_text' },
+        source_reference: '<message-fill@example.test>',
       },
     );
 
@@ -273,7 +355,252 @@ describe('applyParserFields — e-mail-body claimant provenance (TKT-150)', () =
       'Ms Jane Example',
       100000002,
       'From email body',
+      '<message-fill@example.test>',
     ]);
+  });
+
+  it('fails the enclosing transaction when a filled claimant cannot retain its source', async () => {
+    db.query
+      .mockImplementationOnce(async () => [caseRow])
+      .mockImplementationOnce(async () => [])
+      .mockImplementationOnce(async () => { throw new Error('claimant provenance unavailable'); });
+
+    await expect(applyParserFields(
+      'case-1',
+      undefined,
+      undefined,
+      undefined,
+      {
+        claimant_name: 'Ms Jane Example',
+        sources: { claimant_name: 'email_text' },
+        source_reference: '<message-fail@example.test>',
+      },
+    )).rejects.toThrow('claimant provenance unavailable');
+
+    expect(db.tx).toHaveBeenCalledTimes(1);
+    expect(calls().some(([sql]) => sql.includes('SAVEPOINT parser_provenance_write'))).toBe(false);
+  });
+
+  it('keeps a saved claimant and records a differing retained-source candidate as a conflict', async () => {
+    caseRow.eva_claimant_name = 'Ms Existing Claimant';
+
+    await applyParserFields(
+      'case-1',
+      undefined,
+      undefined,
+      undefined,
+      {
+        claimant_name: 'Mr Different Candidate',
+        sources: { claimant_name: 'email_text' },
+        source_reference: '<message-1@example.test>',
+      },
+    );
+
+    expect(updateCall()).toBeUndefined();
+    const provenance = provenanceCall();
+    expect(provenance).toBeDefined();
+    expect(provenance![0]).toContain("review_state_code");
+    expect(provenance![1]).toEqual([
+      'case-1:claimantName:conflict',
+      'case-1',
+      'Mr Different Candidate',
+      100000002,
+      'From email body — differs from the saved claimant',
+      '<message-1@example.test>',
+      100000003,
+    ]);
+    const audit = auditCall();
+    expect(audit).toBeDefined();
+    expect(JSON.stringify(audit![1])).toContain('Mr Different Candidate');
+    expect(JSON.stringify(audit![1])).toContain('Ms Existing Claimant');
+  });
+
+  it('does not flag harmless claimant case/whitespace differences', async () => {
+    caseRow.eva_claimant_name = '  Ms Jane Example  ';
+    await applyParserFields(
+      'case-1',
+      undefined,
+      undefined,
+      undefined,
+      { claimant_name: 'ms jane example' },
+    );
+    expect(updateCall()).toBeUndefined();
+    expect(provenanceCall()).toBeUndefined();
+    expect(auditCall()).toBeUndefined();
+  });
+
+  it('retains every differing body candidate alongside a document claimant', async () => {
+    await applyParserFields(
+      'case-1',
+      undefined,
+      undefined,
+      undefined,
+      {
+        claimant_name: 'Ms Document Person',
+        source_reference: '<message-2@example.test>',
+        claimant_conflicts: [
+          { value: 'Mr Body Person', source: 'email_text' },
+          { value: 'Dr Other Person', source: 'email_text' },
+        ],
+      },
+    );
+
+    const conflictWrites = calls().filter(([sql]) =>
+      sql.includes('INTO field_level_provenance') && sql.includes("'claimantName'") &&
+      sql.includes('review_state_code'),
+    );
+    expect(conflictWrites).toHaveLength(2);
+    expect(conflictWrites.map(([, params]) => params?.[2])).toEqual([
+      'Mr Body Person',
+      'Dr Other Person',
+    ]);
+    expect(updateCall()?.[1]).toContain('Ms Document Person');
+  });
+
+  it('persists ambiguous body candidates without selecting a claimant', async () => {
+    await applyParserFields(
+      'case-1',
+      undefined,
+      undefined,
+      undefined,
+      {
+        source_reference: '<message-3@example.test>',
+        claimant_conflicts: [
+          { value: 'Ms First Person', source: 'email_text' },
+          { value: 'Dr Second Person', source: 'email_text' },
+        ],
+      },
+    );
+
+    expect(updateCall()).toBeUndefined();
+    const conflictWrites = calls().filter(([sql]) =>
+      sql.includes('INTO field_level_provenance') && sql.includes("'claimantName'") &&
+      sql.includes('review_state_code'),
+    );
+    expect(conflictWrites).toHaveLength(2);
+  });
+
+  it('does not reopen a reviewed conflict from the same retained source on replay', async () => {
+    caseRow.eva_claimant_name = 'Ms Saved Person';
+    await applyParserFields(
+      'case-1',
+      undefined,
+      undefined,
+      undefined,
+      {
+        claimant_name: 'Mr Other Person',
+        source_reference: '<stable-message@example.test>',
+      },
+    );
+
+    const conflict = provenanceCall();
+    expect(conflict?.[0]).toContain("COALESCE(source_reference, '') = $6");
+    expect(conflict?.[0]).not.toContain('AND review_state_code = $7');
+    expect(conflict?.[1]).toContain('<stable-message@example.test>');
+  });
+});
+
+describe('exact source-message replay recovery', () => {
+  it('returns the existing identity without falling back to VRM or reference guesses', async () => {
+    db.query.mockResolvedValueOnce([{
+      id: 'case-existing',
+      case_po: 'PCH26123',
+      status_code: 100000002,
+      provider_automation_mode_code: 100000002,
+    }]);
+
+    const recovered = await exactCaseForSourceMessage(db.query, '<message-1@example>');
+
+    expect(recovered).toEqual({
+      caseId: 'case-existing',
+      casePo: 'PCH26123',
+      providerAutomationMode: 'full_auto',
+      status: 'needs_review',
+      replayAllowed: true,
+    });
+    const [sql, params] = db.query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain('WHERE c.source_message_id = $1');
+    expect(sql).not.toMatch(/\bOR\b|\bvrm\b|case_ref/i);
+    expect(params).toEqual(['<message-1@example>']);
+  });
+
+  it('marks a terminal exact owner as drop-only so replay cannot mutate it', async () => {
+    db.query.mockResolvedValueOnce([{
+      id: 'case-final',
+      case_po: 'PCH26124',
+      status_code: 100000012,
+      provider_automation_mode_code: 100000002,
+    }]);
+
+    const recovered = await exactCaseForSourceMessage(db.query, '<message-final@example>');
+
+    expect(recovered).toMatchObject({
+      caseId: 'case-final',
+      status: 'done',
+      replayAllowed: false,
+    });
+  });
+
+  it('does not reapply parser work to a terminal owner after a concurrent unique collision', async () => {
+    const unique = Object.assign(new Error('duplicate source message'), {
+      code: '23505',
+      constraint: 'uq_case_source_message_id',
+    });
+    db.tx.mockRejectedValueOnce(unique);
+    db.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('WHERE c.source_message_id = $1')) {
+        return [{
+          id: 'case-final',
+          case_po: 'PCH26124',
+          status_code: 100000012,
+          provider_automation_mode_code: 100000002,
+        }];
+      }
+      return [];
+    });
+    const req = {
+      json: async () => ({
+        inbound: {
+          messageId: 'graph-final',
+          internetMessageId: '<message-final@example>',
+          sourceMailbox: 'intake@example.test',
+          senderAddress: 'sender@example.test',
+          subject: 'Instruction',
+          payloadHash: 'f'.repeat(64),
+          candidateVrm: '',
+          candidateRef: '',
+          attachments: [],
+        },
+        parserEva: { claimant_name: 'Must Not Apply' },
+        decision: {
+          resolution: 'create',
+          setDuplicateRisk: false,
+          statusEffect: 'new_email',
+          auditAction: 'case_created',
+        },
+      }),
+    } as unknown as HttpRequest;
+    const ctx = {
+      log: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    } as unknown as InvocationContext;
+
+    const response = await registrations.get('internalCasesResolve')!.handler(req, ctx);
+
+    expect(response).toEqual({
+      status: 200,
+      jsonBody: {
+        outcome: 'already_ingested',
+        caseId: 'case-final',
+        casePo: 'PCH26124',
+        providerAutomationMode: 'full_auto',
+      },
+    });
+    // One transaction attempt for the failed INSERT; a repairable replay would open a
+    // second transaction through applyParserFields.
+    expect(db.tx).toHaveBeenCalledTimes(1);
+    expect(calls().some(([sql]) => sql.includes('Must Not Apply'))).toBe(false);
   });
 });
 

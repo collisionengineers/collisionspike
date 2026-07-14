@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { CAPABILITIES, capabilityByName } from './registry';
-import { toJsonSchema } from './schemas';
+import { FullCreateCaseParams, toJsonSchema } from './schemas';
 
 /** Recursively collect every (path, value) where key is an exclusive bound. */
 function findExclusiveBounds(
@@ -83,5 +83,46 @@ describe('capability tool schemas are AOAI-acceptable (2026-07-09 incident pin)'
     expect(json.properties.limit.minimum).toBe(1);
     expect(json.properties.limit.maximum).toBe(50);
     expect('exclusiveMinimum' in json.properties.limit).toBe(false);
+  });
+});
+
+const EVA_FIELD_KEYS = [
+  'workProvider', 'vehicleModel', 'claimantName', 'claimantTelephone', 'claimantEmail',
+  'dateOfLoss', 'dateOfInstruction', 'accidentCircumstances', 'inspectionAddress',
+  'vatStatus', 'mileage', 'mileageUnit',
+] as const;
+
+function fullCreateWithConflict(conflict: Record<string, unknown> = {}) {
+  const evaFields = Object.fromEntries(EVA_FIELD_KEYS.map((key) => [key, {
+      value: key === 'claimantName' ? 'Ms Saved Person' : '',
+      provenance: { sourceType: 'unknown', sourceLabel: 'Source not recorded' },
+      reviewState: key === 'claimantName' ? 'conflict' : 'needs_review',
+      ...(key === 'claimantName' ? {
+        conflicts: [{
+          candidateValue: 'Mr Other Person',
+          provenance: { sourceType: 'email_text', sourceLabel: 'From the email' },
+          ...conflict,
+        }],
+      } : {}),
+    }]));
+  return { evaFields, vrm: 'AB12CDE', status: 'ingested' };
+}
+
+describe('full-create EVA conflict contract', () => {
+  it('accepts a strict source-aware conflict array without dropping the saved value', () => {
+    const input = fullCreateWithConflict();
+
+    const parsed = FullCreateCaseParams.parse(input);
+
+    expect(parsed.evaFields.claimantName.value).toBe('Ms Saved Person');
+    expect(parsed.evaFields.claimantName.conflicts).toEqual([{
+      candidateValue: 'Mr Other Person',
+      provenance: { sourceType: 'email_text', sourceLabel: 'From the email' },
+    }]);
+  });
+
+  it('rejects unknown properties inside a conflict candidate', () => {
+    const parsed = FullCreateCaseParams.safeParse(fullCreateWithConflict({ internalPayload: true }));
+    expect(parsed.success).toBe(false);
   });
 });

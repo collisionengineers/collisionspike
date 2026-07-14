@@ -9,7 +9,8 @@ export async function markEvaSubmittedUsing(
   actor?: string,
 ): Promise<boolean> {
   const updated = await q<{ id: string }>(
-    `UPDATE case_ SET status_code = $1, submitted_at = now(), on_hold = false, updated_at = now()
+    `UPDATE case_ SET status_code = $1, submitted_at = now(), on_hold = false,
+                      on_hold_reason = NULL, updated_at = now()
      WHERE id = $2 AND status_code = $3
      RETURNING id`,
     [statusToInt('eva_submitted'), caseId, statusToInt('ready_for_eva')],
@@ -35,7 +36,8 @@ export async function markCaseDoneUsing(
   },
 ): Promise<boolean> {
   const updated = await q<{ id: string }>(
-    `UPDATE case_ SET status_code = $1, on_hold = false, updated_at = now()
+    `UPDATE case_ SET status_code = $1, on_hold = false, on_hold_reason = NULL,
+                      updated_at = now()
      WHERE id = $2 AND status_code = $3
      RETURNING id`,
     [statusToInt('done'), input.caseId, statusToInt('eva_submitted')],

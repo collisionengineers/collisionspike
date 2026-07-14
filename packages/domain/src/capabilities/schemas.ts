@@ -40,6 +40,7 @@ const PROVENANCE_SOURCE_TYPES = [
   'web_lookup',
   'whatsapp',
   'manual_upload',
+  'unknown',
 ] as const;
 const REVIEW_STATES = ['not_required', 'needs_review', 'reviewed', 'conflict'] as const;
 const EVA_FIELD_KEYS = [
@@ -57,17 +58,27 @@ const EVA_FIELD_KEYS = [
   'mileageUnit',
 ] as const;
 
+const FieldProvenanceParam = z
+  .object({
+    sourceType: z.enum(PROVENANCE_SOURCE_TYPES),
+    sourceLabel: z.string().min(1).max(400),
+    confidence: z.number().min(0).max(1).optional(),
+  })
+  .strict();
+
+const EvaFieldConflictParam = z
+  .object({
+    candidateValue: z.string().min(1).max(4000),
+    provenance: FieldProvenanceParam,
+  })
+  .strict();
+
 const EvaFieldParam = z
   .object({
     value: z.string(),
-    provenance: z
-      .object({
-        sourceType: z.enum(PROVENANCE_SOURCE_TYPES),
-        sourceLabel: z.string().min(1).max(400),
-        confidence: z.number().min(0).max(1).optional(),
-      })
-      .strict(),
+    provenance: FieldProvenanceParam,
     reviewState: z.enum(REVIEW_STATES),
+    conflicts: z.array(EvaFieldConflictParam).min(1).max(50).optional(),
   })
   .strict();
 
