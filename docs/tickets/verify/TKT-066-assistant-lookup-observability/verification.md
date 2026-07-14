@@ -35,3 +35,53 @@ Verified by: ticket-verifier dispatch, transcribed by the orchestrating session,
 The ai_usage_ledger shows **4 authenticated assistant calls completed 2026-07-09** (one staff
 actor, gpt-5) — post-re-flip chats ARE completing (the precondition your queued ledger SQL was
 checking). The YT13 UTV probe + forced-tool-failure observability remain.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+PENDING
+
+## Evidence
+
+- Targeted tests passed: `assistant.test.ts` and `aoai-chat.test.ts`, 26/26.
+- Canonical matching is implemented for VRM and Case/PO while claimant/reference retain
+  case-insensitive substring matching: `assistant.ts:261-266,283-289`.
+- Persistent failure handling performs one retry, increments `toolErrors`, and emits the exact warning
+  format: `aoai-chat.ts:210-218`; pinned by `aoai-chat.test.ts:65-66`.
+- Transient first-failure recovery is pinned with no surfaced error and `toolErrors=0`:
+  `aoai-chat.test.ts:85`.
+- Audit-lite records `toolErrors`: `assistant.ts:541`.
+- Live API is Running; `AI_CHAT_ENABLED=true`, `ASSISTANT_TOOLSET_V2=true`, and `assistantChat` is
+  registered.
+- The deployed signed-in SPA loaded successfully and the assistant completed a real read-tool request.
+- Read-only SQL invariant is pinned across all read tools: `assistant.test.ts:45-52`.
+- Repository remained clean; `HEAD` and `origin/main` both equal
+  `308294c45c83cc692873fda2f1e82babb3403618`.
+
+## Pending / gaps
+
+- The required live three-form VRM and spaced/compact Case/PO equivalence matrix was not completed.
+- No live persistent-failure trace was captured. Fresh one-hour App Insights queries returned no
+  `[assistant]`, `assistantChat`, or `toolErrors` rows, so the warning plus `toolErrors>=1` acceptance
+  cannot be certified live.
+- The transient retry behavior is proven offline only, not against the deployed service.
+- `ASSISTANT_WRITE_TIER_ENABLED=true` is now live, contrary to the registry's “absent/off” statement.
+  Source inspection shows `propose_action` only captures a proposal and executes no SQL
+  (`assistant.ts:167-184`), but the registry drift needs reconciliation.
+
+## How to re-verify
+
+- In the signed-in deployed SPA, query `YT13 UTV`, `yt13 utv`, and `YT13UTV`, then repeat with a known
+  spaced/compact Case/PO and capture identical case results.
+- Trigger a controlled read-tool failure and capture both the exact warning trace and the corresponding
+  audit-lite row with `toolErrors>=1`.
+- Trigger a controlled one-shot transient failure and confirm the retry succeeds with no user-visible
+  error and `toolErrors=0`.
+- Reconcile the live write-tier setting with the registry before transcribing a final verdict.
+
+## Confidence + unread surfaces
+
+High confidence in the source, offline retry/error tests, current live gates, registered route, and one
+successful deployed read. Unread live surfaces are the canonical lookup matrix and controlled
+failure/retry telemetry.

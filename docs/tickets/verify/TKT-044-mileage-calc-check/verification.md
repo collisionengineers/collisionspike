@@ -77,3 +77,44 @@ Also noted from the provenance audit: every stored case mileage sampled live is
 `pdf_extraction`-sourced — ADR-0006 suppression is working (the MOT estimate has not overwritten
 any document value). Remaining before done: operator confirms which "expected value" the report
 compared against, and whether follow-up 1/2/3 (changes.md) should be raised as a ticket.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+PENDING
+
+## Evidence
+
+- Acceptance lines 27–28 require either a handful of real cases matching a **manual expectation**, or an
+  identified calculation bug fixed with a unit test. The recorded read-only rerun covers four real VRMs
+  (SD66CVW, Y40SJL, AC14ACE, PK20FWT); fresh estimates differed from stored values by +3,592 / +1,309 /
+  +3,500 / +890 and independently recomputed consistently with the documented projection formula. That
+  proves arithmetic consistency, not the required operator/manual expectation.
+- Fresh offline regression run: `python -B -m pytest -p no:cacheprovider
+  functions/enrichment/tests/test_enrich.py -q` → **31 passed**. This includes the TKT-044 projection pin;
+  no calculation defect was found to satisfy the ticket's alternate "bug identified and fixed" branch.
+- Repository-wide targeted search found no later operator clarification. The sole operator evidence remains
+  `evidence/operator-note.md:1` ("potentially 10,000 over expected values"), while
+  `verification.md:24–25,48–49,78` still records the unanswered expectation source (last MOT vs photographed
+  odometer vs document value).
+
+## Pending / gaps
+
+- One operator answer is still required: what value was treated as "expected" in the original report, and
+  which case exhibited it? Without that, the four arithmetic-consistent reruns cannot be certified as
+  matching manual expectation.
+- No bug was identified, so the alternative acceptance branch is not met merely because a test pins the
+  existing behavior.
+
+## How to re-verify
+
+- Obtain the original case/VRM and expected-value source from the operator; rerun enrichment read-only and
+  compare the estimate against that stated expectation.
+- If it should match a photographed/document odometer rather than a projection from the last MOT, raise/fix
+  the resulting design or calculation defect and rerun the focused suite.
+
+## Confidence + unread surfaces
+
+High confidence in PENDING. Current tests and all ticket/review/plan references were read; the missing
+surface is the operator's original comparison datum, not another code or arithmetic check.

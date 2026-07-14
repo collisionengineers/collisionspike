@@ -81,3 +81,58 @@ FAILED (live) — operator report 2026-07-08: signatures still being picked up a
 many emails. Email-lane floor provably acting (221 skip traces), so the leak pointed at above-floor
 signature images and/or the PDF-extraction lane. Reopened verify->now for the coverage fix.
 Verified by: operator report transcribed by the orchestrating session, 2026-07-08.
+
+## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
+
+## Verdict
+
+PENDING
+
+## Evidence
+
+- Wanted line 25 (extend the inline skip for non-inline raster images): `cespk-orch-dev` is Running;
+  `GRAPH_IMAGE_FLOOR_DISABLED` is absent. Fresh App Insights evidence from **2026-07-10T17:55Z onward**
+  shows **29** real `[graph] skipped attachment` events through 2026-07-13, including `image001.png`
+  140×78, 40×37 images, `image001.jpg` 95×97, and B64image PNG/JPEG files. This is VERIFIED-LIVE for the
+  small-raster floor acting before persistence.
+- Wanted line 26 (pixel-area semantics; unknown dimensions kept): fresh focused run
+  `npm --prefix orchestration test -- image-sniff` → **51/51 passed**. The suite pins area-floor behavior,
+  unknown-dimension retention, and the recall guard. This line is TESTED (offline), with the area-floor arm
+  additionally live-observed.
+- Wanted line 27 (header sniff + byte fallback at message fetch): the same 51-test suite covers PNG/JPEG
+  plus the 2026-07-09 GIF/BMP and banner-aspect follow-up, malformed headers, and dimensions winning over
+  byte fallback. The live 29-event window exercised only the ordinary `dimensions WxH`/area-floor rung:
+  **zero `banner shape`, byte-floor, GIF, or BMP rung fires** were observed.
+- Wanted line 28 (signatures never become evidence or reach Archive): the last readable DB pass on
+  2026-07-10 recorded **0 classic signature-name suspects and 0 such suspects in Archive** among 1,160 new
+  image rows, but also 50 ambiguous size-only suspects / 47 mirrored. A fresh post-10-Jul DB census was
+  attempted twice through the approved read-only Azure PostgreSQL path and stopped under the two-strikes
+  rule: `Failed to connect to 51.142.242.153:5432`. Therefore there is no current data/Archive artifact
+  proving the universal "never reaches" clause after the 29 live skips.
+- The 2026-07-08 operator failure is incorporated: above-floor banners and GIF/BMP gaps were fixed/deployed
+  in v2.15. However, the registry's last relevant live deploy remains v2.15, while TKT-089's current v2.16
+  panoramic-photo regression repair is explicitly `TESTED (offline) — deployment pending`
+  (`verification.md:178–198`), so source/live parity is not current.
+
+## Pending / gaps
+
+- No fresh post-10-Jul evidence/Archive census; direct case-folder descent was intentionally not performed.
+- No live stimulus has exercised the banner, GIF/BMP, or byte-fallback rungs after the Jul-8
+  failure/follow-up.
+- Current main's v2.16 image-filter behavior is not yet the deployed live behavior.
+
+## How to re-verify
+
+- After an allowed DB route is available, rerun the bounded post-`2026-07-10T17:55Z` census for
+  signature-name and size suspects, direct-email provenance, `excluded`, and `box_file_id`; inspect only
+  any returned suspect rows within the explicitly approved Archive scope.
+- Observe a natural real inbound above-floor PNG/JPEG banner or GIF/BMP signature and require a
+  corresponding skip trace plus no evidence row/Archive file. Do not manufacture or send a production test
+  email.
+- Deploy the reviewed v2.16 repair first if main/live parity is required, then repeat the forward check.
+
+## Confidence + unread surfaces
+
+High confidence in PENDING. Live telemetry proves the original area floor is actively skipping
+signature-like attachments, and no fresh evidence contradicts the fix. Unread/unevidenced surfaces are the
+post-10-Jul Postgres/Archive census, the new rungs' natural live behavior, and v2.16 live parity.
