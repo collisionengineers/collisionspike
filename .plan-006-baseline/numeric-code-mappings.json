@@ -1,0 +1,2631 @@
+{
+  "schemaVersion": 1,
+  "choiceSetCount": 22,
+  "choiceOptionCount": 171,
+  "runtimeObjectCount": 7,
+  "sqlTableCount": 22,
+  "semanticSha256": "d26e07d30cfec398c18f89bde2e72abc5faad8f33a5bd83a96e7f3c72b714e66",
+  "choiceSets": [
+    {
+      "key": "action-reason#action-reason",
+      "displayName": "Action Reason",
+      "source": "packages/domain/src/data/choicesets/action-reason.json",
+      "options": [
+        {
+          "name": "missing_images",
+          "value": 100000000,
+          "label": "Missing Images"
+        },
+        {
+          "name": "missing_instructions",
+          "value": 100000001,
+          "label": "Missing Instructions"
+        },
+        {
+          "name": "duplicate",
+          "value": 100000002,
+          "label": "Duplicate"
+        },
+        {
+          "name": "conflict",
+          "value": 100000003,
+          "label": "Conflict"
+        },
+        {
+          "name": "needs_review",
+          "value": 100000004,
+          "label": "Needs Review"
+        }
+      ],
+      "semanticSha256": "012d071ac9384d0efd0dc541a140847ebf51f1674ec7d5027a93bae785ba3b3e"
+    },
+    {
+      "key": "audit-event#audit-action",
+      "displayName": "Audit Action",
+      "source": "packages/domain/src/data/choicesets/audit-event.json",
+      "options": [
+        {
+          "name": "graph_message_ingested",
+          "value": 100000000,
+          "label": "Graph Message Ingested"
+        },
+        {
+          "name": "graph_message_ingest_failed",
+          "value": 100000001,
+          "label": "Graph Message Ingest Failed"
+        },
+        {
+          "name": "attachment_classified",
+          "value": 100000002,
+          "label": "Attachment Classified"
+        },
+        {
+          "name": "case_created",
+          "value": 100000003,
+          "label": "Case Created"
+        },
+        {
+          "name": "case_attached",
+          "value": 100000004,
+          "label": "Case Attached"
+        },
+        {
+          "name": "duplicate_dropped",
+          "value": 100000005,
+          "label": "Duplicate Dropped"
+        },
+        {
+          "name": "duplicate_flagged",
+          "value": 100000006,
+          "label": "Duplicate Flagged"
+        },
+        {
+          "name": "provider_matched",
+          "value": 100000007,
+          "label": "Provider Matched"
+        },
+        {
+          "name": "provider_unmatched",
+          "value": 100000008,
+          "label": "Provider Unmatched"
+        },
+        {
+          "name": "parser_called",
+          "value": 100000009,
+          "label": "Parser Called"
+        },
+        {
+          "name": "parser_failed",
+          "value": 100000010,
+          "label": "Parser Failed"
+        },
+        {
+          "name": "enrichment_called",
+          "value": 100000011,
+          "label": "Enrichment Called"
+        },
+        {
+          "name": "enrichment_failed",
+          "value": 100000012,
+          "label": "Enrichment Failed"
+        },
+        {
+          "name": "status_changed",
+          "value": 100000013,
+          "label": "Status Changed"
+        },
+        {
+          "name": "jobsheet_imported",
+          "value": 100000014,
+          "label": "Job Sheet Imported"
+        },
+        {
+          "name": "eva_submitted",
+          "value": 100000015,
+          "label": "EVA Submitted"
+        },
+        {
+          "name": "box_synced",
+          "value": 100000016,
+          "label": "Archive Synced"
+        },
+        {
+          "name": "corpus_record_changed",
+          "value": 100000017,
+          "label": "Corpus Record Changed"
+        },
+        {
+          "name": "inspection_override",
+          "value": 100000018,
+          "label": "Inspection Override"
+        },
+        {
+          "name": "box_folder_created",
+          "value": 100000019,
+          "label": "Archive Folder Created"
+        },
+        {
+          "name": "box_file_request_copied",
+          "value": 100000020,
+          "label": "Image Upload Link Created"
+        },
+        {
+          "name": "box_upload_received",
+          "value": 100000021,
+          "label": "Archive Upload Received"
+        },
+        {
+          "name": "location_assist_confirmed",
+          "value": 100000022,
+          "label": "Location Assist Confirmed"
+        },
+        {
+          "name": "chaser_sent",
+          "value": 100000023,
+          "label": "Chaser Sent"
+        },
+        {
+          "name": "inbound_classified",
+          "value": 100000024,
+          "label": "Inbound Classified"
+        },
+        {
+          "name": "inbound_routed",
+          "value": 100000025,
+          "label": "Inbound Routed"
+        },
+        {
+          "name": "case_disposed",
+          "value": 100000026,
+          "label": "Case Disposed"
+        },
+        {
+          "name": "inbound_dismissed",
+          "value": 100000027,
+          "label": "Inbound Dismissed"
+        },
+        {
+          "name": "inbound_actioned",
+          "value": 100000028,
+          "label": "Inbound Actioned"
+        },
+        {
+          "name": "inbound_reopened",
+          "value": 100000029,
+          "label": "Inbound Reopened"
+        },
+        {
+          "name": "case_removed",
+          "value": 100000030,
+          "label": "Case Removed"
+        },
+        {
+          "name": "inbound_reclassified",
+          "value": 100000031,
+          "label": "Inbound Reclassified"
+        },
+        {
+          "name": "ai_suggestion_created",
+          "value": 100000032,
+          "label": "AI Suggestion Created"
+        },
+        {
+          "name": "ai_suggestion_accepted",
+          "value": 100000033,
+          "label": "AI Suggestion Accepted"
+        },
+        {
+          "name": "ai_suggestion_rejected",
+          "value": 100000034,
+          "label": "AI Suggestion Rejected"
+        },
+        {
+          "name": "inbound_link_suggested",
+          "value": 100000035,
+          "label": "Inbound Link Suggested"
+        },
+        {
+          "name": "inbound_linked",
+          "value": 100000036,
+          "label": "Inbound Linked"
+        },
+        {
+          "name": "inbound_detached",
+          "value": 100000037,
+          "label": "Inbound Detached"
+        },
+        {
+          "name": "cancellation_proposed",
+          "value": 100000038,
+          "label": "Cancellation Proposed"
+        },
+        {
+          "name": "outlook_move_requested",
+          "value": 100000039,
+          "label": "Outlook Move Requested"
+        },
+        {
+          "name": "outlook_moved",
+          "value": 100000040,
+          "label": "Outlook Moved"
+        },
+        {
+          "name": "outlook_move_failed",
+          "value": 100000041,
+          "label": "Outlook Move Failed"
+        },
+        {
+          "name": "api_key_created",
+          "value": 100000042,
+          "label": "API Key Created"
+        },
+        {
+          "name": "api_key_revoked",
+          "value": 100000043,
+          "label": "API Key Revoked"
+        },
+        {
+          "name": "provider_api_case_created",
+          "value": 100000044,
+          "label": "Provider API Case Created"
+        },
+        {
+          "name": "provider_api_case_rejected",
+          "value": 100000045,
+          "label": "Provider API Case Rejected"
+        },
+        {
+          "name": "retro_case_created",
+          "value": 100000046,
+          "label": "Retro Case Created"
+        },
+        {
+          "name": "retro_case_linked",
+          "value": 100000047,
+          "label": "Retro Case Linked"
+        },
+        {
+          "name": "retro_reconstruction_failed",
+          "value": 100000048,
+          "label": "Retro Reconstruction Failed"
+        },
+        {
+          "name": "evidence_added",
+          "value": 100000049,
+          "label": "Evidence Added"
+        },
+        {
+          "name": "agent_read",
+          "value": 100000050,
+          "label": "Agent Read"
+        },
+        {
+          "name": "agent_write",
+          "value": 100000051,
+          "label": "Agent Write"
+        },
+        {
+          "name": "image_analysis_generated",
+          "value": 100000052,
+          "label": "Image Analysis Generated"
+        },
+        {
+          "name": "report_delivered",
+          "value": 100000053,
+          "label": "Report Delivered"
+        },
+        {
+          "name": "chaser_suggested",
+          "value": 100000054,
+          "label": "Chase suggested"
+        },
+        {
+          "name": "evidence_upload_result",
+          "value": 100000055,
+          "label": "Files Checked"
+        }
+      ],
+      "semanticSha256": "9f3fb3ec0296c740fc3fcaac0319c2414ee23425a47318b0660fbe1ee15eca50"
+    },
+    {
+      "key": "audit-event#audit-severity",
+      "displayName": "Audit Severity",
+      "source": "packages/domain/src/data/choicesets/audit-event.json",
+      "options": [
+        {
+          "name": "info",
+          "value": 100000000,
+          "label": "Info"
+        },
+        {
+          "name": "warning",
+          "value": 100000001,
+          "label": "Warning"
+        },
+        {
+          "name": "error",
+          "value": 100000002,
+          "label": "Error"
+        }
+      ],
+      "semanticSha256": "175a47e47ce9f3e5c258ad8d43f01335050696f30a3f5df5c38b259c2c57927f"
+    },
+    {
+      "key": "case-link-state#case-link-state",
+      "displayName": "Case Link State",
+      "source": "packages/domain/src/data/choicesets/case-link-state.json",
+      "options": [
+        {
+          "name": "none",
+          "value": 100000000,
+          "label": "None"
+        },
+        {
+          "name": "pending",
+          "value": 100000001,
+          "label": "Pending"
+        },
+        {
+          "name": "linked",
+          "value": 100000002,
+          "label": "Linked"
+        }
+      ],
+      "semanticSha256": "7f1001c8569098cf66228ca98e29bd246122726afe0046a86bbb3e4893941d3d"
+    },
+    {
+      "key": "case-status#case-status",
+      "displayName": "Case Status",
+      "source": "packages/domain/src/data/choicesets/case-status.json",
+      "options": [
+        {
+          "name": "new_email",
+          "value": 100000000,
+          "label": "New Email"
+        },
+        {
+          "name": "ingested",
+          "value": 100000001,
+          "label": "Ingested"
+        },
+        {
+          "name": "needs_review",
+          "value": 100000002,
+          "label": "Needs Review"
+        },
+        {
+          "name": "missing_required_fields",
+          "value": 100000003,
+          "label": "Missing Required Fields"
+        },
+        {
+          "name": "missing_images",
+          "value": 100000004,
+          "label": "Missing Images"
+        },
+        {
+          "name": "duplicate_risk",
+          "value": 100000005,
+          "label": "Duplicate Risk"
+        },
+        {
+          "name": "linked_to_instruction",
+          "value": 100000006,
+          "label": "Linked to Instruction"
+        },
+        {
+          "name": "ready_for_eva",
+          "value": 100000007,
+          "label": "Ready for EVA"
+        },
+        {
+          "name": "eva_submitted",
+          "value": 100000008,
+          "label": "EVA Submitted"
+        },
+        {
+          "name": "box_synced",
+          "value": 100000009,
+          "label": "Archive Synced"
+        },
+        {
+          "name": "error",
+          "value": 100000010,
+          "label": "Error"
+        },
+        {
+          "name": "removed",
+          "value": 100000011,
+          "label": "Removed"
+        },
+        {
+          "name": "done",
+          "value": 100000012,
+          "label": "Done"
+        }
+      ],
+      "semanticSha256": "8804da554e53913520d449c2be24f57e1c8575a44fa248a9219c78ba464712dc"
+    },
+    {
+      "key": "case-type#case-type",
+      "displayName": "Case Type",
+      "source": "packages/domain/src/data/choicesets/case-type.json",
+      "options": [
+        {
+          "name": "standard",
+          "value": 100000000,
+          "label": "Standard"
+        },
+        {
+          "name": "audit",
+          "value": 100000001,
+          "label": "Audit"
+        },
+        {
+          "name": "audit_total_loss",
+          "value": 100000002,
+          "label": "Audit (Total Loss)"
+        },
+        {
+          "name": "diminution",
+          "value": 100000003,
+          "label": "Diminution"
+        }
+      ],
+      "semanticSha256": "37eaf259c5575cc59b3004fef0fe020c5d7716988cd6fe94d8113257f8376461"
+    },
+    {
+      "key": "chaser#chaser-channel",
+      "displayName": "Chaser Channel",
+      "source": "packages/domain/src/data/choicesets/chaser.json",
+      "options": [
+        {
+          "name": "email",
+          "value": 100000000,
+          "label": "Email"
+        },
+        {
+          "name": "whatsapp",
+          "value": 100000001,
+          "label": "WhatsApp"
+        }
+      ],
+      "semanticSha256": "ccdbb29262d6e22f595e50f5f2959a2c53b91840ec269199b97e4e214fea72c6"
+    },
+    {
+      "key": "chaser#chaser-status",
+      "displayName": "Chaser Status",
+      "source": "packages/domain/src/data/choicesets/chaser.json",
+      "options": [
+        {
+          "name": "drafted",
+          "value": 100000000,
+          "label": "Drafted"
+        },
+        {
+          "name": "sent",
+          "value": 100000001,
+          "label": "Sent"
+        },
+        {
+          "name": "responded",
+          "value": 100000002,
+          "label": "Responded"
+        },
+        {
+          "name": "overdue",
+          "value": 100000003,
+          "label": "Overdue"
+        }
+      ],
+      "semanticSha256": "09df7a083691118949aacf749fb8866f2a4857fb33b108a1d323b0e73404781c"
+    },
+    {
+      "key": "chaser#chaser-target-type",
+      "displayName": "Chaser Target Type",
+      "source": "packages/domain/src/data/choicesets/chaser.json",
+      "options": [
+        {
+          "name": "image_source",
+          "value": 100000000,
+          "label": "Image Source"
+        },
+        {
+          "name": "repairer",
+          "value": 100000001,
+          "label": "Repairer"
+        },
+        {
+          "name": "work_provider",
+          "value": 100000002,
+          "label": "Work Provider"
+        }
+      ],
+      "semanticSha256": "c1cf893f9063a3e7c787c677a3975aa361595e42ccbc4c803686c0717b82e761"
+    },
+    {
+      "key": "evidence-kind#evidence-kind",
+      "displayName": "Evidence Kind",
+      "source": "packages/domain/src/data/choicesets/evidence-kind.json",
+      "options": [
+        {
+          "name": "image",
+          "value": 100000000,
+          "label": "Image"
+        },
+        {
+          "name": "video",
+          "value": 100000001,
+          "label": "Video"
+        },
+        {
+          "name": "instruction",
+          "value": 100000002,
+          "label": "Instruction"
+        },
+        {
+          "name": "email",
+          "value": 100000003,
+          "label": "Email (.eml)"
+        },
+        {
+          "name": "valuation",
+          "value": 100000004,
+          "label": "Valuation"
+        },
+        {
+          "name": "eva_payload",
+          "value": 100000005,
+          "label": "EVA Payload"
+        },
+        {
+          "name": "other",
+          "value": 100000006,
+          "label": "Other"
+        },
+        {
+          "name": "engineer_report",
+          "value": 100000007,
+          "label": "Engineer Report (audited)"
+        }
+      ],
+      "semanticSha256": "ddcd24175de6bf6f9e19097fb636a546d55ca6ae41afd1360fe9cd71e26c5e05"
+    },
+    {
+      "key": "field-provenance-source-type#field-provenance-source-type",
+      "displayName": "Field Provenance Source Type",
+      "source": "packages/domain/src/data/choicesets/field-provenance-source-type.json",
+      "options": [
+        {
+          "name": "staff",
+          "value": 100000000,
+          "label": "Staff"
+        },
+        {
+          "name": "pdf_extraction",
+          "value": 100000001,
+          "label": "PDF Extraction"
+        },
+        {
+          "name": "email_text",
+          "value": 100000002,
+          "label": "Email Text"
+        },
+        {
+          "name": "corpus",
+          "value": 100000003,
+          "label": "Corpus"
+        },
+        {
+          "name": "ai",
+          "value": 100000004,
+          "label": "AI"
+        },
+        {
+          "name": "dvla_dvsa",
+          "value": 100000005,
+          "label": "DVLA / DVSA"
+        },
+        {
+          "name": "document_ai",
+          "value": 100000006,
+          "label": "Document AI"
+        },
+        {
+          "name": "azure_vision",
+          "value": 100000007,
+          "label": "Azure Vision"
+        },
+        {
+          "name": "web_lookup",
+          "value": 100000008,
+          "label": "Web Lookup"
+        },
+        {
+          "name": "whatsapp",
+          "value": 100000009,
+          "label": "WhatsApp"
+        },
+        {
+          "name": "manual_upload",
+          "value": 100000010,
+          "label": "Manual Upload"
+        },
+        {
+          "name": "unknown",
+          "value": 100000011,
+          "label": "Source Not Recorded"
+        }
+      ],
+      "semanticSha256": "5c3c51638af1dbe46f8ffaacbfb145ee89fed2a81f041f18f993b9444ac87cff"
+    },
+    {
+      "key": "image-role#image-role",
+      "displayName": "Image Role",
+      "source": "packages/domain/src/data/choicesets/image-role.json",
+      "options": [
+        {
+          "name": "overview",
+          "value": 100000000,
+          "label": "Overview"
+        },
+        {
+          "name": "damage_closeup",
+          "value": 100000001,
+          "label": "Damage Closeup"
+        },
+        {
+          "name": "additional",
+          "value": 100000002,
+          "label": "Additional"
+        },
+        {
+          "name": "unknown",
+          "value": 100000003,
+          "label": "Unknown"
+        }
+      ],
+      "semanticSha256": "ffdff7fa01c2b859b2013b514d03d8d05ec98e88ec6c063b7218d276ef4d1492"
+    },
+    {
+      "key": "image-source#image-source-channel",
+      "displayName": "Image Source Channel",
+      "source": "packages/domain/src/data/choicesets/image-source.json",
+      "options": [
+        {
+          "name": "email",
+          "value": 100000000,
+          "label": "Email"
+        },
+        {
+          "name": "whatsapp",
+          "value": 100000001,
+          "label": "WhatsApp"
+        }
+      ],
+      "semanticSha256": "ccdbb29262d6e22f595e50f5f2959a2c53b91840ec269199b97e4e214fea72c6"
+    },
+    {
+      "key": "image-source#image-source-kind",
+      "displayName": "Image Source Kind",
+      "source": "packages/domain/src/data/choicesets/image-source.json",
+      "options": [
+        {
+          "name": "provider_direct",
+          "value": 100000000,
+          "label": "Provider Direct"
+        },
+        {
+          "name": "repairer",
+          "value": 100000001,
+          "label": "Repairer"
+        },
+        {
+          "name": "intermediary",
+          "value": 100000002,
+          "label": "Intermediary"
+        },
+        {
+          "name": "individual",
+          "value": 100000003,
+          "label": "Individual"
+        }
+      ],
+      "semanticSha256": "9465658f68429f65a574d810ee86aae30818d203b261b1307b582f7d0d55ee0f"
+    },
+    {
+      "key": "improvement-signal-classification#improvement-signal-classification",
+      "displayName": "Improvement Signal Classification",
+      "source": "packages/domain/src/data/choicesets/improvement-signal-classification.json",
+      "options": [
+        {
+          "name": "parser_rule_candidate",
+          "value": 100000000,
+          "label": "Parser Rule Candidate"
+        },
+        {
+          "name": "corpus_update_candidate",
+          "value": 100000001,
+          "label": "Corpus Update Candidate"
+        },
+        {
+          "name": "provider_policy_candidate",
+          "value": 100000002,
+          "label": "Provider Policy Candidate"
+        },
+        {
+          "name": "enrichment_issue",
+          "value": 100000003,
+          "label": "Enrichment Issue"
+        },
+        {
+          "name": "one_off_case_issue",
+          "value": 100000004,
+          "label": "One-off Case Issue"
+        }
+      ],
+      "semanticSha256": "3397a7957503e12b0a304d7408c632ebfce4ef6de62ab9083edc00a59fcba801"
+    },
+    {
+      "key": "inbound-email-classification#inbound-category",
+      "displayName": "Inbound Category",
+      "source": "packages/domain/src/data/choicesets/inbound-email-classification.json",
+      "options": [
+        {
+          "name": "receiving_work",
+          "value": 100000000,
+          "label": "Receiving Work"
+        },
+        {
+          "name": "query",
+          "value": 100000001,
+          "label": "Query"
+        },
+        {
+          "name": "other",
+          "value": 100000002,
+          "label": "Other"
+        },
+        {
+          "name": "billing",
+          "value": 100000003,
+          "label": "Billing"
+        },
+        {
+          "name": "non_actionable",
+          "value": 100000004,
+          "label": "Non-actionable"
+        },
+        {
+          "name": "case_update",
+          "value": 100000005,
+          "label": "Case Update"
+        },
+        {
+          "name": "cancellation",
+          "value": 100000006,
+          "label": "Cancellation"
+        },
+        {
+          "name": "pre_instruction",
+          "value": 100000007,
+          "label": "Pre-instruction"
+        },
+        {
+          "name": "website_enquiry",
+          "value": 100000008,
+          "label": "Website Enquiry"
+        }
+      ],
+      "semanticSha256": "3cc0315319b7165126f06917c6e06798b85710440e6ea18f9caabe57dfcac5c0"
+    },
+    {
+      "key": "inbound-email-classification#inbound-subtype",
+      "displayName": "Inbound Subtype",
+      "source": "packages/domain/src/data/choicesets/inbound-email-classification.json",
+      "options": [
+        {
+          "name": "existing_provider_instruction",
+          "value": 100000000,
+          "label": "Existing Provider Instruction"
+        },
+        {
+          "name": "existing_provider_audit",
+          "value": 100000001,
+          "label": "Existing Provider Audit"
+        },
+        {
+          "name": "new_client_work",
+          "value": 100000002,
+          "label": "New Client Work"
+        },
+        {
+          "name": "query_existing_work",
+          "value": 100000003,
+          "label": "Query: Existing Work"
+        },
+        {
+          "name": "query_new_enquiry",
+          "value": 100000004,
+          "label": "Query: New Enquiry"
+        },
+        {
+          "name": "other",
+          "value": 100000005,
+          "label": "Other"
+        },
+        {
+          "name": "existing_provider_diminution",
+          "value": 100000006,
+          "label": "Existing Provider Diminution"
+        },
+        {
+          "name": "billing_request",
+          "value": 100000007,
+          "label": "Billing Request"
+        },
+        {
+          "name": "case_summary",
+          "value": 100000008,
+          "label": "Case Summary"
+        },
+        {
+          "name": "acknowledgement",
+          "value": 100000009,
+          "label": "Acknowledgement"
+        },
+        {
+          "name": "images_received",
+          "value": 100000010,
+          "label": "Images Received"
+        },
+        {
+          "name": "cancellation_notice",
+          "value": 100000011,
+          "label": "Cancellation Notice"
+        },
+        {
+          "name": "update_general",
+          "value": 100000012,
+          "label": "General Update"
+        },
+        {
+          "name": "payment_remittance",
+          "value": 100000013,
+          "label": "Payment Received"
+        },
+        {
+          "name": "pre_instruction_directions",
+          "value": 100000014,
+          "label": "Pre-instruction Directions"
+        },
+        {
+          "name": "website_general_enquiry",
+          "value": 100000015,
+          "label": "Website General Enquiry"
+        }
+      ],
+      "semanticSha256": "b3fe155b68dbdcfd81f9252b6a3911305ae5670ffae5dee563254e50eb8c93d2"
+    },
+    {
+      "key": "inspection-decision-mode#inspection-decision-mode",
+      "displayName": "Inspection Decision Mode",
+      "source": "packages/domain/src/data/choicesets/inspection-decision-mode.json",
+      "options": [
+        {
+          "name": "confirmed_physical",
+          "value": 100000000,
+          "label": "Confirmed Physical"
+        },
+        {
+          "name": "manual",
+          "value": 100000001,
+          "label": "Manual"
+        },
+        {
+          "name": "image_based",
+          "value": 100000002,
+          "label": "Image Based"
+        },
+        {
+          "name": "unknown",
+          "value": 100000003,
+          "label": "Unknown"
+        }
+      ],
+      "semanticSha256": "4f2b9b8741242c87d939229d7712912f2c0a8301ce8f92829eba84d1e8ae3e3e"
+    },
+    {
+      "key": "inspection-location-policy#inspection-location-policy",
+      "displayName": "Inspection Location Policy",
+      "source": "packages/domain/src/data/choicesets/inspection-location-policy.json",
+      "options": [
+        {
+          "name": "always_image_based",
+          "value": 100000000,
+          "label": "Always Image Based"
+        },
+        {
+          "name": "prefer_address",
+          "value": 100000001,
+          "label": "Prefer Address"
+        },
+        {
+          "name": "required_address",
+          "value": 100000002,
+          "label": "Required Address"
+        }
+      ],
+      "semanticSha256": "7fa96a8d9bfbaf10ef0b0ad44e1cab01caf8605845f96563afee4fc7021892a4"
+    },
+    {
+      "key": "intake-channel#intake-channel-kind",
+      "displayName": "Intake Channel Kind",
+      "source": "packages/domain/src/data/choicesets/intake-channel.json",
+      "options": [
+        {
+          "name": "email",
+          "value": 100000000,
+          "label": "Email"
+        },
+        {
+          "name": "whatsapp",
+          "value": 100000001,
+          "label": "WhatsApp"
+        },
+        {
+          "name": "provider_api",
+          "value": 100000002,
+          "label": "Provider API"
+        },
+        {
+          "name": "retro",
+          "value": 100000003,
+          "label": "Retro (reconstructed)"
+        }
+      ],
+      "semanticSha256": "d0cd7a139db8af4365e73eb31c85cb525ae41297e47643a3118b3eb44c9a1b30"
+    },
+    {
+      "key": "provider-automation-mode#provider-automation-mode",
+      "displayName": "Provider Automation Mode",
+      "source": "packages/domain/src/data/choicesets/provider-automation-mode.json",
+      "options": [
+        {
+          "name": "manual",
+          "value": 100000000,
+          "label": "Manual"
+        },
+        {
+          "name": "review_auto",
+          "value": 100000001,
+          "label": "Review Auto"
+        },
+        {
+          "name": "full_auto",
+          "value": 100000002,
+          "label": "Full Auto (deferred)"
+        }
+      ],
+      "semanticSha256": "ed83f8a653dcbc9725daf22f7f1893e14efb70d85dcc9518a78c079382df88c5"
+    },
+    {
+      "key": "review-state#review-state",
+      "displayName": "Review State",
+      "source": "packages/domain/src/data/choicesets/review-state.json",
+      "options": [
+        {
+          "name": "not_required",
+          "value": 100000000,
+          "label": "Not Required"
+        },
+        {
+          "name": "needs_review",
+          "value": 100000001,
+          "label": "Needs Review"
+        },
+        {
+          "name": "reviewed",
+          "value": 100000002,
+          "label": "Reviewed"
+        },
+        {
+          "name": "conflict",
+          "value": 100000003,
+          "label": "Conflict"
+        }
+      ],
+      "semanticSha256": "b4373d72fdb7a5e49f160d202d7c9d0a5f802e479a386dafc0bbb937b213eac8"
+    }
+  ],
+  "runtimeObjects": [
+    {
+      "name": "AUDIT_ACTION_CODE_LABELS",
+      "source": "api/src/lib/last-activity.ts",
+      "line": 68,
+      "mappings": [
+        {
+          "name": "Email match suggested",
+          "value": 100000035
+        },
+        {
+          "name": "Email attached",
+          "value": 100000036
+        },
+        {
+          "name": "Email detached",
+          "value": 100000037
+        },
+        {
+          "name": "Cancellation flagged",
+          "value": 100000038
+        },
+        {
+          "name": "Email filing requested",
+          "value": 100000039
+        },
+        {
+          "name": "Email filed",
+          "value": 100000040
+        },
+        {
+          "name": "Email filing failed",
+          "value": 100000041
+        },
+        {
+          "name": "Case received from the provider",
+          "value": 100000044
+        },
+        {
+          "name": "Case reconstructed",
+          "value": 100000046
+        },
+        {
+          "name": "Email attached",
+          "value": 100000047
+        },
+        {
+          "name": "Files added",
+          "value": 100000049
+        },
+        {
+          "name": "Photos analysed",
+          "value": 100000052
+        },
+        {
+          "name": "Chase suggested",
+          "value": 100000054
+        },
+        {
+          "name": "Files checked",
+          "value": 100000055
+        }
+      ],
+      "semanticSha256": "7fc3944170149d7ca9ff48fd0c4fade332ee624bf9b49813bb9d123fc42f35e8"
+    },
+    {
+      "name": "AUDIT_ACTION",
+      "source": "api/src/lib/audit.ts",
+      "line": 23,
+      "mappings": [
+        {
+          "name": "graph_message_ingested",
+          "value": 100000000
+        },
+        {
+          "name": "graph_message_ingest_failed",
+          "value": 100000001
+        },
+        {
+          "name": "attachment_classified",
+          "value": 100000002
+        },
+        {
+          "name": "case_created",
+          "value": 100000003
+        },
+        {
+          "name": "case_attached",
+          "value": 100000004
+        },
+        {
+          "name": "duplicate_dropped",
+          "value": 100000005
+        },
+        {
+          "name": "duplicate_flagged",
+          "value": 100000006
+        },
+        {
+          "name": "provider_matched",
+          "value": 100000007
+        },
+        {
+          "name": "provider_unmatched",
+          "value": 100000008
+        },
+        {
+          "name": "parser_called",
+          "value": 100000009
+        },
+        {
+          "name": "parser_failed",
+          "value": 100000010
+        },
+        {
+          "name": "enrichment_called",
+          "value": 100000011
+        },
+        {
+          "name": "enrichment_failed",
+          "value": 100000012
+        },
+        {
+          "name": "status_changed",
+          "value": 100000013
+        },
+        {
+          "name": "jobsheet_imported",
+          "value": 100000014
+        },
+        {
+          "name": "eva_submitted",
+          "value": 100000015
+        },
+        {
+          "name": "box_synced",
+          "value": 100000016
+        },
+        {
+          "name": "corpus_record_changed",
+          "value": 100000017
+        },
+        {
+          "name": "inspection_override",
+          "value": 100000018
+        },
+        {
+          "name": "box_folder_created",
+          "value": 100000019
+        },
+        {
+          "name": "box_file_request_copied",
+          "value": 100000020
+        },
+        {
+          "name": "box_upload_received",
+          "value": 100000021
+        },
+        {
+          "name": "location_assist_confirmed",
+          "value": 100000022
+        },
+        {
+          "name": "chaser_sent",
+          "value": 100000023
+        },
+        {
+          "name": "inbound_classified",
+          "value": 100000024
+        },
+        {
+          "name": "inbound_routed",
+          "value": 100000025
+        },
+        {
+          "name": "case_disposed",
+          "value": 100000026
+        },
+        {
+          "name": "inbound_dismissed",
+          "value": 100000027
+        },
+        {
+          "name": "inbound_actioned",
+          "value": 100000028
+        },
+        {
+          "name": "inbound_reopened",
+          "value": 100000029
+        },
+        {
+          "name": "case_removed",
+          "value": 100000030
+        },
+        {
+          "name": "inbound_reclassified",
+          "value": 100000031
+        },
+        {
+          "name": "ai_suggestion_created",
+          "value": 100000032
+        },
+        {
+          "name": "ai_suggestion_accepted",
+          "value": 100000033
+        },
+        {
+          "name": "ai_suggestion_rejected",
+          "value": 100000034
+        },
+        {
+          "name": "inbound_link_suggested",
+          "value": 100000035
+        },
+        {
+          "name": "inbound_linked",
+          "value": 100000036
+        },
+        {
+          "name": "inbound_detached",
+          "value": 100000037
+        },
+        {
+          "name": "cancellation_proposed",
+          "value": 100000038
+        },
+        {
+          "name": "outlook_move_requested",
+          "value": 100000039
+        },
+        {
+          "name": "outlook_moved",
+          "value": 100000040
+        },
+        {
+          "name": "outlook_move_failed",
+          "value": 100000041
+        },
+        {
+          "name": "api_key_created",
+          "value": 100000042
+        },
+        {
+          "name": "api_key_revoked",
+          "value": 100000043
+        },
+        {
+          "name": "provider_api_case_created",
+          "value": 100000044
+        },
+        {
+          "name": "provider_api_case_rejected",
+          "value": 100000045
+        },
+        {
+          "name": "retro_case_created",
+          "value": 100000046
+        },
+        {
+          "name": "retro_case_linked",
+          "value": 100000047
+        },
+        {
+          "name": "retro_reconstruction_failed",
+          "value": 100000048
+        },
+        {
+          "name": "evidence_added",
+          "value": 100000049
+        },
+        {
+          "name": "agent_read",
+          "value": 100000050
+        },
+        {
+          "name": "agent_write",
+          "value": 100000051
+        },
+        {
+          "name": "image_analysis_generated",
+          "value": 100000052
+        },
+        {
+          "name": "report_delivered",
+          "value": 100000053
+        },
+        {
+          "name": "chaser_suggested",
+          "value": 100000054
+        },
+        {
+          "name": "evidence_upload_result",
+          "value": 100000055
+        }
+      ],
+      "semanticSha256": "9f3fb3ec0296c740fc3fcaac0319c2414ee23425a47318b0660fbe1ee15eca50"
+    },
+    {
+      "name": "INBOUND_CATEGORY_BY_INT",
+      "source": "api/src/lib/mappers.ts",
+      "line": 644,
+      "mappings": [
+        {
+          "name": "receiving_work",
+          "value": 100000000
+        },
+        {
+          "name": "query",
+          "value": 100000001
+        },
+        {
+          "name": "other",
+          "value": 100000002
+        },
+        {
+          "name": "billing",
+          "value": 100000003
+        },
+        {
+          "name": "non_actionable",
+          "value": 100000004
+        },
+        {
+          "name": "case_update",
+          "value": 100000005
+        },
+        {
+          "name": "cancellation",
+          "value": 100000006
+        },
+        {
+          "name": "pre_instruction",
+          "value": 100000007
+        },
+        {
+          "name": "website_enquiry",
+          "value": 100000008
+        }
+      ],
+      "semanticSha256": "3cc0315319b7165126f06917c6e06798b85710440e6ea18f9caabe57dfcac5c0"
+    },
+    {
+      "name": "INBOUND_CATEGORY_TO_INT",
+      "source": "api/src/lib/mappers.ts",
+      "line": 656,
+      "mappings": [
+        {
+          "name": "receiving_work",
+          "value": 100000000
+        },
+        {
+          "name": "query",
+          "value": 100000001
+        },
+        {
+          "name": "other",
+          "value": 100000002
+        },
+        {
+          "name": "billing",
+          "value": 100000003
+        },
+        {
+          "name": "non_actionable",
+          "value": 100000004
+        },
+        {
+          "name": "case_update",
+          "value": 100000005
+        },
+        {
+          "name": "cancellation",
+          "value": 100000006
+        },
+        {
+          "name": "pre_instruction",
+          "value": 100000007
+        },
+        {
+          "name": "website_enquiry",
+          "value": 100000008
+        }
+      ],
+      "semanticSha256": "3cc0315319b7165126f06917c6e06798b85710440e6ea18f9caabe57dfcac5c0"
+    },
+    {
+      "name": "INBOUND_SUBTYPE_BY_INT",
+      "source": "api/src/lib/mappers.ts",
+      "line": 667,
+      "mappings": [
+        {
+          "name": "existing_provider_instruction",
+          "value": 100000000
+        },
+        {
+          "name": "existing_provider_audit",
+          "value": 100000001
+        },
+        {
+          "name": "new_client_work",
+          "value": 100000002
+        },
+        {
+          "name": "query_existing_work",
+          "value": 100000003
+        },
+        {
+          "name": "query_new_enquiry",
+          "value": 100000004
+        },
+        {
+          "name": "other",
+          "value": 100000005
+        },
+        {
+          "name": "existing_provider_diminution",
+          "value": 100000006
+        },
+        {
+          "name": "billing_request",
+          "value": 100000007
+        },
+        {
+          "name": "case_summary",
+          "value": 100000008
+        },
+        {
+          "name": "acknowledgement",
+          "value": 100000009
+        },
+        {
+          "name": "images_received",
+          "value": 100000010
+        },
+        {
+          "name": "cancellation_notice",
+          "value": 100000011
+        },
+        {
+          "name": "update_general",
+          "value": 100000012
+        },
+        {
+          "name": "payment_remittance",
+          "value": 100000013
+        },
+        {
+          "name": "pre_instruction_directions",
+          "value": 100000014
+        },
+        {
+          "name": "website_general_enquiry",
+          "value": 100000015
+        }
+      ],
+      "semanticSha256": "b3fe155b68dbdcfd81f9252b6a3911305ae5670ffae5dee563254e50eb8c93d2"
+    },
+    {
+      "name": "INBOUND_SUBTYPE_TO_INT",
+      "source": "api/src/lib/mappers.ts",
+      "line": 686,
+      "mappings": [
+        {
+          "name": "existing_provider_instruction",
+          "value": 100000000
+        },
+        {
+          "name": "existing_provider_audit",
+          "value": 100000001
+        },
+        {
+          "name": "new_client_work",
+          "value": 100000002
+        },
+        {
+          "name": "query_existing_work",
+          "value": 100000003
+        },
+        {
+          "name": "query_new_enquiry",
+          "value": 100000004
+        },
+        {
+          "name": "other",
+          "value": 100000005
+        },
+        {
+          "name": "existing_provider_diminution",
+          "value": 100000006
+        },
+        {
+          "name": "billing_request",
+          "value": 100000007
+        },
+        {
+          "name": "case_summary",
+          "value": 100000008
+        },
+        {
+          "name": "acknowledgement",
+          "value": 100000009
+        },
+        {
+          "name": "images_received",
+          "value": 100000010
+        },
+        {
+          "name": "cancellation_notice",
+          "value": 100000011
+        },
+        {
+          "name": "update_general",
+          "value": 100000012
+        },
+        {
+          "name": "payment_remittance",
+          "value": 100000013
+        },
+        {
+          "name": "pre_instruction_directions",
+          "value": 100000014
+        },
+        {
+          "name": "website_general_enquiry",
+          "value": 100000015
+        }
+      ],
+      "semanticSha256": "b3fe155b68dbdcfd81f9252b6a3911305ae5670ffae5dee563254e50eb8c93d2"
+    },
+    {
+      "name": "SEVERITY_CODE",
+      "source": "api/src/lib/audit.ts",
+      "line": 127,
+      "mappings": [
+        {
+          "name": "info",
+          "value": 100000000
+        },
+        {
+          "name": "warning",
+          "value": 100000001
+        },
+        {
+          "name": "error",
+          "value": 100000002
+        }
+      ],
+      "semanticSha256": "175a47e47ce9f3e5c258ad8d43f01335050696f30a3f5df5c38b259c2c57927f"
+    }
+  ],
+  "sqlTables": [
+    {
+      "table": "choice_action_reason",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "missing_images",
+          "label": "Missing Images"
+        },
+        {
+          "value": 100000001,
+          "name": "missing_instructions",
+          "label": "Missing Instructions"
+        },
+        {
+          "value": 100000002,
+          "name": "duplicate",
+          "label": "Duplicate"
+        },
+        {
+          "value": 100000003,
+          "name": "conflict",
+          "label": "Conflict"
+        },
+        {
+          "value": 100000004,
+          "name": "needs_review",
+          "label": "Needs Review"
+        }
+      ],
+      "semanticSha256": "012d071ac9384d0efd0dc541a140847ebf51f1674ec7d5027a93bae785ba3b3e"
+    },
+    {
+      "table": "choice_audit_action",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql",
+        "migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql",
+        "migration/assets/schema/deltas/2026-07-02-tkt054-outlook-move.sql",
+        "migration/assets/schema/deltas/2026-07-03-provider-api-intake.sql",
+        "migration/assets/schema/deltas/2026-07-04-retro-case.sql",
+        "migration/assets/schema/deltas/2026-07-08-image-analysis-suggestion-types.sql",
+        "migration/assets/schema/deltas/2026-07-09-case-done.sql",
+        "migration/assets/schema/deltas/2026-07-11-tkt148-chaser-suggestions.sql",
+        "migration/assets/schema/deltas/2026-07-12-tkt166-manual-intake-case-create.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "graph_message_ingested",
+          "label": "Graph Message Ingested"
+        },
+        {
+          "value": 100000001,
+          "name": "graph_message_ingest_failed",
+          "label": "Graph Message Ingest Failed"
+        },
+        {
+          "value": 100000002,
+          "name": "attachment_classified",
+          "label": "Attachment Classified"
+        },
+        {
+          "value": 100000003,
+          "name": "case_created",
+          "label": "Case Created"
+        },
+        {
+          "value": 100000004,
+          "name": "case_attached",
+          "label": "Case Attached"
+        },
+        {
+          "value": 100000005,
+          "name": "duplicate_dropped",
+          "label": "Duplicate Dropped"
+        },
+        {
+          "value": 100000006,
+          "name": "duplicate_flagged",
+          "label": "Duplicate Flagged"
+        },
+        {
+          "value": 100000007,
+          "name": "provider_matched",
+          "label": "Provider Matched"
+        },
+        {
+          "value": 100000008,
+          "name": "provider_unmatched",
+          "label": "Provider Unmatched"
+        },
+        {
+          "value": 100000009,
+          "name": "parser_called",
+          "label": "Parser Called"
+        },
+        {
+          "value": 100000010,
+          "name": "parser_failed",
+          "label": "Parser Failed"
+        },
+        {
+          "value": 100000011,
+          "name": "enrichment_called",
+          "label": "Enrichment Called"
+        },
+        {
+          "value": 100000012,
+          "name": "enrichment_failed",
+          "label": "Enrichment Failed"
+        },
+        {
+          "value": 100000013,
+          "name": "status_changed",
+          "label": "Status Changed"
+        },
+        {
+          "value": 100000014,
+          "name": "jobsheet_imported",
+          "label": "Job Sheet Imported"
+        },
+        {
+          "value": 100000015,
+          "name": "eva_submitted",
+          "label": "EVA Submitted"
+        },
+        {
+          "value": 100000016,
+          "name": "box_synced",
+          "label": "Archive Synced"
+        },
+        {
+          "value": 100000017,
+          "name": "corpus_record_changed",
+          "label": "Corpus Record Changed"
+        },
+        {
+          "value": 100000018,
+          "name": "inspection_override",
+          "label": "Inspection Override"
+        },
+        {
+          "value": 100000019,
+          "name": "box_folder_created",
+          "label": "Archive Folder Created"
+        },
+        {
+          "value": 100000020,
+          "name": "box_file_request_copied",
+          "label": "Image Upload Link Created"
+        },
+        {
+          "value": 100000021,
+          "name": "box_upload_received",
+          "label": "Archive Upload Received"
+        },
+        {
+          "value": 100000022,
+          "name": "location_assist_confirmed",
+          "label": "Location Assist Confirmed"
+        },
+        {
+          "value": 100000023,
+          "name": "chaser_sent",
+          "label": "Chaser Sent"
+        },
+        {
+          "value": 100000024,
+          "name": "inbound_classified",
+          "label": "Inbound Classified"
+        },
+        {
+          "value": 100000025,
+          "name": "inbound_routed",
+          "label": "Inbound Routed"
+        },
+        {
+          "value": 100000026,
+          "name": "case_disposed",
+          "label": "Case Disposed"
+        },
+        {
+          "value": 100000027,
+          "name": "inbound_dismissed",
+          "label": "Inbound Dismissed"
+        },
+        {
+          "value": 100000028,
+          "name": "inbound_actioned",
+          "label": "Inbound Actioned"
+        },
+        {
+          "value": 100000029,
+          "name": "inbound_reopened",
+          "label": "Inbound Reopened"
+        },
+        {
+          "value": 100000030,
+          "name": "case_removed",
+          "label": "Case Removed"
+        },
+        {
+          "value": 100000031,
+          "name": "inbound_reclassified",
+          "label": "Inbound Reclassified"
+        },
+        {
+          "value": 100000035,
+          "name": "inbound_link_suggested",
+          "label": "Inbound Link Suggested"
+        },
+        {
+          "value": 100000036,
+          "name": "inbound_linked",
+          "label": "Inbound Linked"
+        },
+        {
+          "value": 100000037,
+          "name": "inbound_detached",
+          "label": "Inbound Detached"
+        },
+        {
+          "value": 100000038,
+          "name": "cancellation_proposed",
+          "label": "Cancellation Proposed"
+        },
+        {
+          "value": 100000039,
+          "name": "outlook_move_requested",
+          "label": "Outlook Move Requested"
+        },
+        {
+          "value": 100000040,
+          "name": "outlook_moved",
+          "label": "Outlook Moved"
+        },
+        {
+          "value": 100000041,
+          "name": "outlook_move_failed",
+          "label": "Outlook Move Failed"
+        },
+        {
+          "value": 100000042,
+          "name": "api_key_created",
+          "label": "API Key Created"
+        },
+        {
+          "value": 100000043,
+          "name": "api_key_revoked",
+          "label": "API Key Revoked"
+        },
+        {
+          "value": 100000044,
+          "name": "provider_api_case_created",
+          "label": "Provider API Case Created"
+        },
+        {
+          "value": 100000045,
+          "name": "provider_api_case_rejected",
+          "label": "Provider API Case Rejected"
+        },
+        {
+          "value": 100000046,
+          "name": "retro_case_created",
+          "label": "Retro Case Created"
+        },
+        {
+          "value": 100000047,
+          "name": "retro_case_linked",
+          "label": "Retro Case Linked"
+        },
+        {
+          "value": 100000048,
+          "name": "retro_reconstruction_failed",
+          "label": "Retro Reconstruction Failed"
+        },
+        {
+          "value": 100000052,
+          "name": "image_analysis_generated",
+          "label": "Image Analysis Generated"
+        },
+        {
+          "value": 100000053,
+          "name": "report_delivered",
+          "label": "Report Delivered"
+        },
+        {
+          "value": 100000054,
+          "name": "chaser_suggested",
+          "label": "Chase suggested"
+        },
+        {
+          "value": 100000055,
+          "name": "evidence_upload_result",
+          "label": "Files Checked"
+        }
+      ],
+      "semanticSha256": "c2c268ce4921e8656f44fc1ede72a12b8cfff03126e27f6cb5cced7726aed419"
+    },
+    {
+      "table": "choice_audit_severity",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "info",
+          "label": "Info"
+        },
+        {
+          "value": 100000001,
+          "name": "warning",
+          "label": "Warning"
+        },
+        {
+          "value": 100000002,
+          "name": "error",
+          "label": "Error"
+        }
+      ],
+      "semanticSha256": "175a47e47ce9f3e5c258ad8d43f01335050696f30a3f5df5c38b259c2c57927f"
+    },
+    {
+      "table": "choice_case_link_state",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "none",
+          "label": "None"
+        },
+        {
+          "value": 100000001,
+          "name": "pending",
+          "label": "Pending"
+        },
+        {
+          "value": 100000002,
+          "name": "linked",
+          "label": "Linked"
+        }
+      ],
+      "semanticSha256": "7f1001c8569098cf66228ca98e29bd246122726afe0046a86bbb3e4893941d3d"
+    },
+    {
+      "table": "choice_case_status",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql",
+        "migration/assets/schema/deltas/2026-07-09-case-done.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "new_email",
+          "label": "New Email"
+        },
+        {
+          "value": 100000001,
+          "name": "ingested",
+          "label": "Ingested"
+        },
+        {
+          "value": 100000002,
+          "name": "needs_review",
+          "label": "Needs Review"
+        },
+        {
+          "value": 100000003,
+          "name": "missing_required_fields",
+          "label": "Missing Required Fields"
+        },
+        {
+          "value": 100000004,
+          "name": "missing_images",
+          "label": "Missing Images"
+        },
+        {
+          "value": 100000005,
+          "name": "duplicate_risk",
+          "label": "Duplicate Risk"
+        },
+        {
+          "value": 100000006,
+          "name": "linked_to_instruction",
+          "label": "Linked to Instruction"
+        },
+        {
+          "value": 100000007,
+          "name": "ready_for_eva",
+          "label": "Ready for EVA"
+        },
+        {
+          "value": 100000008,
+          "name": "eva_submitted",
+          "label": "EVA Submitted"
+        },
+        {
+          "value": 100000009,
+          "name": "box_synced",
+          "label": "Archive Synced"
+        },
+        {
+          "value": 100000010,
+          "name": "error",
+          "label": "Error"
+        },
+        {
+          "value": 100000012,
+          "name": "done",
+          "label": "Done"
+        }
+      ],
+      "semanticSha256": "13f38399796f5145536d3d42c94df30fdafde43062f1541bc4b04fe19b2eee81"
+    },
+    {
+      "table": "choice_case_type",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql",
+        "migration/assets/schema/deltas/2026-07-04-audit-case-type-taxonomy.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "standard",
+          "label": "Standard"
+        },
+        {
+          "value": 100000001,
+          "name": "audit",
+          "label": "Audit"
+        },
+        {
+          "value": 100000002,
+          "name": "audit_total_loss",
+          "label": "Audit (Total Loss)"
+        },
+        {
+          "value": 100000003,
+          "name": "diminution",
+          "label": "Diminution"
+        }
+      ],
+      "semanticSha256": "37eaf259c5575cc59b3004fef0fe020c5d7716988cd6fe94d8113257f8376461"
+    },
+    {
+      "table": "choice_chaser_channel",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "email",
+          "label": "Email"
+        },
+        {
+          "value": 100000001,
+          "name": "whatsapp",
+          "label": "WhatsApp"
+        }
+      ],
+      "semanticSha256": "ccdbb29262d6e22f595e50f5f2959a2c53b91840ec269199b97e4e214fea72c6"
+    },
+    {
+      "table": "choice_chaser_status",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "drafted",
+          "label": "Drafted"
+        },
+        {
+          "value": 100000001,
+          "name": "sent",
+          "label": "Sent"
+        },
+        {
+          "value": 100000002,
+          "name": "responded",
+          "label": "Responded"
+        },
+        {
+          "value": 100000003,
+          "name": "overdue",
+          "label": "Overdue"
+        }
+      ],
+      "semanticSha256": "09df7a083691118949aacf749fb8866f2a4857fb33b108a1d323b0e73404781c"
+    },
+    {
+      "table": "choice_chaser_target_type",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "image_source",
+          "label": "Image Source"
+        },
+        {
+          "value": 100000001,
+          "name": "repairer",
+          "label": "Repairer"
+        },
+        {
+          "value": 100000002,
+          "name": "work_provider",
+          "label": "Work Provider"
+        }
+      ],
+      "semanticSha256": "c1cf893f9063a3e7c787c677a3975aa361595e42ccbc4c803686c0717b82e761"
+    },
+    {
+      "table": "choice_evidence_kind",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql",
+        "migration/assets/schema/deltas/2026-07-04-audit-case-type-taxonomy.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "image",
+          "label": "Image"
+        },
+        {
+          "value": 100000001,
+          "name": "video",
+          "label": "Video"
+        },
+        {
+          "value": 100000002,
+          "name": "instruction",
+          "label": "Instruction"
+        },
+        {
+          "value": 100000003,
+          "name": "email",
+          "label": "Email (.eml)"
+        },
+        {
+          "value": 100000004,
+          "name": "valuation",
+          "label": "Valuation"
+        },
+        {
+          "value": 100000005,
+          "name": "eva_payload",
+          "label": "EVA Payload"
+        },
+        {
+          "value": 100000006,
+          "name": "other",
+          "label": "Other"
+        },
+        {
+          "value": 100000007,
+          "name": "engineer_report",
+          "label": "Engineer Report (audited)"
+        }
+      ],
+      "semanticSha256": "ddcd24175de6bf6f9e19097fb636a546d55ca6ae41afd1360fe9cd71e26c5e05"
+    },
+    {
+      "table": "choice_field_provenance_source_type",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql",
+        "migration/assets/schema/deltas/2026-07-14-tkt150-provider-recovery.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "staff",
+          "label": "Staff"
+        },
+        {
+          "value": 100000001,
+          "name": "pdf_extraction",
+          "label": "PDF Extraction"
+        },
+        {
+          "value": 100000002,
+          "name": "email_text",
+          "label": "Email Text"
+        },
+        {
+          "value": 100000003,
+          "name": "corpus",
+          "label": "Corpus"
+        },
+        {
+          "value": 100000004,
+          "name": "ai",
+          "label": "AI"
+        },
+        {
+          "value": 100000005,
+          "name": "dvla_dvsa",
+          "label": "DVLA / DVSA"
+        },
+        {
+          "value": 100000006,
+          "name": "document_ai",
+          "label": "Document AI"
+        },
+        {
+          "value": 100000007,
+          "name": "azure_vision",
+          "label": "Azure Vision"
+        },
+        {
+          "value": 100000008,
+          "name": "web_lookup",
+          "label": "Web Lookup"
+        },
+        {
+          "value": 100000009,
+          "name": "whatsapp",
+          "label": "WhatsApp"
+        },
+        {
+          "value": 100000010,
+          "name": "manual_upload",
+          "label": "Manual Upload"
+        },
+        {
+          "value": 100000011,
+          "name": "unknown",
+          "label": "Source Not Recorded"
+        }
+      ],
+      "semanticSha256": "5c3c51638af1dbe46f8ffaacbfb145ee89fed2a81f041f18f993b9444ac87cff"
+    },
+    {
+      "table": "choice_image_role",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "overview",
+          "label": "Overview"
+        },
+        {
+          "value": 100000001,
+          "name": "damage_closeup",
+          "label": "Damage Closeup"
+        },
+        {
+          "value": 100000002,
+          "name": "additional",
+          "label": "Additional"
+        },
+        {
+          "value": 100000003,
+          "name": "unknown",
+          "label": "Unknown"
+        }
+      ],
+      "semanticSha256": "ffdff7fa01c2b859b2013b514d03d8d05ec98e88ec6c063b7218d276ef4d1492"
+    },
+    {
+      "table": "choice_image_source_channel",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "email",
+          "label": "Email"
+        },
+        {
+          "value": 100000001,
+          "name": "whatsapp",
+          "label": "WhatsApp"
+        }
+      ],
+      "semanticSha256": "ccdbb29262d6e22f595e50f5f2959a2c53b91840ec269199b97e4e214fea72c6"
+    },
+    {
+      "table": "choice_image_source_kind",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "provider_direct",
+          "label": "Provider Direct"
+        },
+        {
+          "value": 100000001,
+          "name": "repairer",
+          "label": "Repairer"
+        },
+        {
+          "value": 100000002,
+          "name": "intermediary",
+          "label": "Intermediary"
+        },
+        {
+          "value": 100000003,
+          "name": "individual",
+          "label": "Individual"
+        }
+      ],
+      "semanticSha256": "9465658f68429f65a574d810ee86aae30818d203b261b1307b582f7d0d55ee0f"
+    },
+    {
+      "table": "choice_improvement_signal_class",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "parser_rule_candidate",
+          "label": "Parser Rule Candidate"
+        },
+        {
+          "value": 100000001,
+          "name": "corpus_update_candidate",
+          "label": "Corpus Update Candidate"
+        },
+        {
+          "value": 100000002,
+          "name": "provider_policy_candidate",
+          "label": "Provider Policy Candidate"
+        },
+        {
+          "value": 100000003,
+          "name": "enrichment_issue",
+          "label": "Enrichment Issue"
+        },
+        {
+          "value": 100000004,
+          "name": "one_off_case_issue",
+          "label": "One-off Case Issue"
+        }
+      ],
+      "semanticSha256": "3397a7957503e12b0a304d7408c632ebfce4ef6de62ab9083edc00a59fcba801"
+    },
+    {
+      "table": "choice_inbound_category",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql",
+        "migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql",
+        "migration/assets/schema/deltas/2026-07-09-taxonomy-v3-pre-instruction-payments.sql",
+        "migration/assets/schema/deltas/2026-07-13-tkt170-website-enquiry.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "receiving_work",
+          "label": "Receiving Work"
+        },
+        {
+          "value": 100000001,
+          "name": "query",
+          "label": "Query"
+        },
+        {
+          "value": 100000002,
+          "name": "other",
+          "label": "Other"
+        },
+        {
+          "value": 100000003,
+          "name": "billing",
+          "label": "Billing"
+        },
+        {
+          "value": 100000004,
+          "name": "non_actionable",
+          "label": "Non-actionable"
+        },
+        {
+          "value": 100000005,
+          "name": "case_update",
+          "label": "Case update"
+        },
+        {
+          "value": 100000006,
+          "name": "cancellation",
+          "label": "Cancellation"
+        },
+        {
+          "value": 100000007,
+          "name": "pre_instruction",
+          "label": "Pre-instruction"
+        },
+        {
+          "value": 100000008,
+          "name": "website_enquiry",
+          "label": "Website enquiry"
+        }
+      ],
+      "semanticSha256": "3cc0315319b7165126f06917c6e06798b85710440e6ea18f9caabe57dfcac5c0"
+    },
+    {
+      "table": "choice_inbound_subtype",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql",
+        "migration/assets/schema/deltas/2026-07-02-rules-engine-v2-taxonomy.sql",
+        "migration/assets/schema/deltas/2026-07-09-taxonomy-v3-pre-instruction-payments.sql",
+        "migration/assets/schema/deltas/2026-07-13-tkt170-website-enquiry.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "existing_provider_instruction",
+          "label": "Existing Provider Instruction"
+        },
+        {
+          "value": 100000001,
+          "name": "existing_provider_audit",
+          "label": "Existing Provider Audit"
+        },
+        {
+          "value": 100000002,
+          "name": "new_client_work",
+          "label": "New Client Work"
+        },
+        {
+          "value": 100000003,
+          "name": "query_existing_work",
+          "label": "Query: Existing Work"
+        },
+        {
+          "value": 100000004,
+          "name": "query_new_enquiry",
+          "label": "Query: New Enquiry"
+        },
+        {
+          "value": 100000005,
+          "name": "other",
+          "label": "Other"
+        },
+        {
+          "value": 100000006,
+          "name": "existing_provider_diminution",
+          "label": "Existing Provider Diminution"
+        },
+        {
+          "value": 100000007,
+          "name": "billing_request",
+          "label": "Billing Request"
+        },
+        {
+          "value": 100000008,
+          "name": "case_summary",
+          "label": "Case Summary"
+        },
+        {
+          "value": 100000009,
+          "name": "acknowledgement",
+          "label": "Acknowledgement"
+        },
+        {
+          "value": 100000010,
+          "name": "images_received",
+          "label": "Images received"
+        },
+        {
+          "value": 100000011,
+          "name": "cancellation_notice",
+          "label": "Cancellation notice"
+        },
+        {
+          "value": 100000012,
+          "name": "update_general",
+          "label": "Case update — general"
+        },
+        {
+          "value": 100000013,
+          "name": "payment_remittance",
+          "label": "Payment received"
+        },
+        {
+          "value": 100000014,
+          "name": "pre_instruction_directions",
+          "label": "Pre-instruction directions"
+        },
+        {
+          "value": 100000015,
+          "name": "website_general_enquiry",
+          "label": "Website general enquiry"
+        }
+      ],
+      "semanticSha256": "b3fe155b68dbdcfd81f9252b6a3911305ae5670ffae5dee563254e50eb8c93d2"
+    },
+    {
+      "table": "choice_inspection_decision_mode",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "confirmed_physical",
+          "label": "Confirmed Physical"
+        },
+        {
+          "value": 100000001,
+          "name": "manual",
+          "label": "Manual"
+        },
+        {
+          "value": 100000002,
+          "name": "image_based",
+          "label": "Image Based"
+        },
+        {
+          "value": 100000003,
+          "name": "unknown",
+          "label": "Unknown"
+        }
+      ],
+      "semanticSha256": "4f2b9b8741242c87d939229d7712912f2c0a8301ce8f92829eba84d1e8ae3e3e"
+    },
+    {
+      "table": "choice_inspection_location_policy",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "always_image_based",
+          "label": "Always Image Based"
+        },
+        {
+          "value": 100000001,
+          "name": "prefer_address",
+          "label": "Prefer Address"
+        },
+        {
+          "value": 100000002,
+          "name": "required_address",
+          "label": "Required Address"
+        }
+      ],
+      "semanticSha256": "7fa96a8d9bfbaf10ef0b0ad44e1cab01caf8605845f96563afee4fc7021892a4"
+    },
+    {
+      "table": "choice_intake_channel_kind",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql",
+        "migration/assets/schema/deltas/2026-07-03-provider-api-intake.sql",
+        "migration/assets/schema/deltas/2026-07-04-retro-case.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "email",
+          "label": "Email"
+        },
+        {
+          "value": 100000001,
+          "name": "whatsapp",
+          "label": "WhatsApp"
+        },
+        {
+          "value": 100000002,
+          "name": "provider_api",
+          "label": "Provider API"
+        },
+        {
+          "value": 100000003,
+          "name": "retro",
+          "label": "Retro (reconstructed)"
+        }
+      ],
+      "semanticSha256": "d0cd7a139db8af4365e73eb31c85cb525ae41297e47643a3118b3eb44c9a1b30"
+    },
+    {
+      "table": "choice_provider_automation_mode",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "manual",
+          "label": "Manual"
+        },
+        {
+          "value": 100000001,
+          "name": "review_auto",
+          "label": "Review Auto"
+        },
+        {
+          "value": 100000002,
+          "name": "full_auto",
+          "label": "Full Auto (deferred)"
+        }
+      ],
+      "semanticSha256": "ed83f8a653dcbc9725daf22f7f1893e14efb70d85dcc9518a78c079382df88c5"
+    },
+    {
+      "table": "choice_review_state",
+      "sources": [
+        "migration/assets/schema/000_enums_lookups.sql"
+      ],
+      "options": [
+        {
+          "value": 100000000,
+          "name": "not_required",
+          "label": "Not Required"
+        },
+        {
+          "value": 100000001,
+          "name": "needs_review",
+          "label": "Needs Review"
+        },
+        {
+          "value": 100000002,
+          "name": "reviewed",
+          "label": "Reviewed"
+        },
+        {
+          "value": 100000003,
+          "name": "conflict",
+          "label": "Conflict"
+        }
+      ],
+      "semanticSha256": "b4373d72fdb7a5e49f160d202d7c9d0a5f802e479a386dafc0bbb937b213eac8"
+    }
+  ]
+}

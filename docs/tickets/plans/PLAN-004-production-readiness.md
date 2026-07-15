@@ -2,7 +2,7 @@
 id: PLAN-004
 title: Production readiness and lifecycle completion
 status: active
-tickets: [TKT-041, TKT-102, TKT-149, TKT-151, TKT-152, TKT-153, TKT-154, TKT-155, TKT-156, TKT-157, TKT-158, TKT-159, TKT-160, TKT-161, TKT-162, TKT-163, TKT-164, TKT-165, TKT-166, TKT-167, TKT-168, TKT-169, TKT-170, TKT-171, TKT-172, TKT-173, TKT-174, TKT-175, TKT-176, TKT-177, TKT-178, TKT-179, TKT-180, TKT-181, TKT-182, TKT-183, TKT-184, TKT-185, TKT-186, TKT-187, TKT-188, TKT-189, TKT-190, TKT-191, TKT-192, TKT-193, TKT-194, TKT-195, TKT-197, TKT-198, TKT-199, TKT-200]
+tickets: [TKT-041, TKT-102, TKT-149, TKT-151, TKT-152, TKT-153, TKT-154, TKT-155, TKT-156, TKT-157, TKT-158, TKT-159, TKT-160, TKT-161, TKT-162, TKT-163, TKT-164, TKT-165, TKT-166, TKT-167, TKT-168, TKT-169, TKT-170, TKT-171, TKT-172, TKT-173, TKT-174, TKT-175, TKT-176, TKT-177, TKT-178, TKT-179, TKT-180, TKT-181, TKT-182, TKT-183, TKT-184, TKT-185, TKT-186, TKT-187, TKT-188, TKT-189, TKT-190, TKT-191, TKT-192, TKT-193, TKT-194, TKT-195, TKT-197, TKT-198, TKT-199, TKT-200, TKT-216]
 depends-on: []
 ---
 
@@ -11,7 +11,7 @@ depends-on: []
 ## Context
 The operator supplied a production-readiness programme on 2026-07-12 and a large evidence-backed refinement drop on 2026-07-13. Together they cover review discipline, staff access, intake and correlation correctness, vehicle enrichment, case editing, evidence and Archive lifecycle, email taxonomy, pre-case work, constrained agent ingestion, handler-facing usability, production cutover and final remediation. Existing tickets are reused or reopened where they already own the behavior; new material is distilled into atomic members rather than duplicating those owners.
 
-This plan has **52 members**. It sequences implementation and verification, but it does not weaken any member's own acceptance or live-proof boundary. TKT-150 transferred to PLAN-005 for its dedicated claimant-remediation safety sequence; TKT-196 is deliberately not a member.
+This plan has **53 members**. It sequences implementation and verification, but it does not weaken any member's own acceptance or live-proof boundary. TKT-150 transferred to PLAN-005 for its dedicated claimant-remediation safety sequence; TKT-196 is deliberately not a member.
 
 ## Decisions recorded
 - A case belongs in Review only when it could theoretically be submitted to EVA: every required field is present, its accepted image set satisfies the image rules, and no unresolved blocker remains.
@@ -48,12 +48,13 @@ This plan has **52 members**. It sequences implementation and verification, but 
 4. [TKT-159](../now/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md) — reconcile code, registry and live gates, including conditional EVA use.
 5. [TKT-164](../done/TKT-164-inbound-counts-500/TKT-164-inbound-counts-500.md) — retain the repaired inbound-count path as the live dashboard baseline.
 
-### 2. Canonical data, save and readiness spine (4)
+### 2. Canonical data, save and readiness spine (5)
 
 1. [TKT-151](../verify/TKT-151-vehicle-enrichment-completeness/TKT-151-vehicle-enrichment-completeness.md) — make vehicle enrichment complete and explicit about unresolved registrations.
 2. [TKT-152](../verify/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md) — consolidate vehicle lookup/mileage estimation onto one auditable path.
 3. [TKT-153](../verify/TKT-153-explicit-case-save/TKT-153-explicit-case-save.md) — make staff edits one reviewed, concurrency-safe save rather than competing field writes.
 4. [TKT-168](../now/TKT-168-unify-not-ready-language/TKT-168-unify-not-ready-language.md) — make the visible Not Ready reason agree with the canonical readiness evaluator and field-review ruling.
+5. [TKT-216](../now/TKT-216-eva-sentry-route-body-contract/TKT-216-eva-sentry-route-body-contract.md) — preserve the EVA Sentry service and repair the current caller/service route and body mismatch as a production-readiness defect, separate from repository cleanup.
 
 ### 3. Evidence-write and Archive foundations (6)
 
@@ -156,7 +157,7 @@ TKT-130 carries the binding valid/non-conflicting field and view-only-no-mutatio
   outcome-class sample. Cutover is not certified from planning, fixtures, configured defaults,
   Viewer-only access or configuration readback.
 - TKT-158's final residual ledger accounts for every targeted case as repaired, source absent, conflicting, intentionally held or failed with a named follow-up; DB/API/SPA/Archive invariants and retained source evidence agree.
-- The plan becomes `done` only when all 52 members are `done`, the related prerequisite surfaces used by them are verified, and an independent close-out review confirms no unresolved production-readiness blocker was hidden by a deferred or fabricated live test.
+- The plan becomes `done` only when all 53 members are `done`, the related prerequisite surfaces used by them are verified, and an independent close-out review confirms no unresolved production-readiness blocker was hidden by a deferred or fabricated live test.
 
 ## Deferred
 - [TKT-196](../backlog/TKT-196-video-frame-evidence-extraction/TKT-196-video-frame-evidence-extraction.md) is a standalone P3 enhancement and is deliberately deferred outside PLAN-004.

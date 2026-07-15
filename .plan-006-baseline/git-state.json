@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "source": "81ae8fdf68b4fd29648d76dc77c379cd98764dbe",
+  "head": "81ae8fdf68b4fd29648d76dc77c379cd98764dbe",
+  "tree": "73c3a81065aa636f01809f1ed80bef552a221942",
+  "branch": "codex/plan-006-repository-reset",
+  "preMutationCheckout": {
+    "branch": "main",
+    "head": "81ae8fdf68b4fd29648d76dc77c379cd98764dbe",
+    "originMainHead": "81ae8fdf68b4fd29648d76dc77c379cd98764dbe",
+    "headEqualsOriginMain": true,
+    "clean": true,
+    "status": []
+  },
+  "cleanExcludingBaselineFolder": true,
+  "statusExcludingBaselineFolder": [],
+  "preMutationCleanAssertion": true,
+  "observedStatusAtGeneratorRun": null,
+  "originMainComparison": {
+    "headOnly": 0,
+    "originMainOnly": 0
+  },
+  "refs": [
+    {
+      "ref": "refs/heads/codex/guided-capture-server",
+      "objectId": "df674dcd95534fbbaf97f9ca70f28daefc6dbd12",
+      "upstream": "origin/codex/guided-capture-server",
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/heads/codex/plan-006-repository-reset",
+      "objectId": "81ae8fdf68b4fd29648d76dc77c379cd98764dbe",
+      "upstream": null,
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/heads/codex/tkt-034-archive-adoption",
+      "objectId": "3ffe81ec6b66749a0468f52e9ed05ae5f613645b",
+      "upstream": "origin/codex/tkt-034-archive-adoption",
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/heads/codex/tkt-154-mcp-image-ingestion",
+      "objectId": "93528ba924b2106b4630336f229f5be007d2ea9c",
+      "upstream": "origin/codex/tkt-154-mcp-image-ingestion",
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/heads/codex/tkt-160-delete-case-image",
+      "objectId": "5ba0400493395a4e4ffa10d13b7022361f21f80b",
+      "upstream": "origin/codex/tkt-160-delete-case-image",
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/heads/codex/tkt-199-repository-data-authority",
+      "objectId": "cd1ceabeae3e7a2d8f0d4e84501d5e193179b0d7",
+      "upstream": "origin/codex/tkt-199-repository-data-authority",
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/heads/codex/tkt-205-repository-worktree-governance",
+      "objectId": "81cd008a6b65952c89b70f0f9c84c4c648016fdd",
+      "upstream": "origin/codex/tkt-205-repository-worktree-governance",
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/heads/codex/workingspace-ai-plans",
+      "objectId": "765bd19beb3b2623ee38351227d3874d636a6d2b",
+      "upstream": "origin/codex/workingspace-ai-plans",
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/heads/main",
+      "objectId": "81ae8fdf68b4fd29648d76dc77c379cd98764dbe",
+      "upstream": "origin/main",
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/remotes/origin/HEAD",
+      "objectId": "81ae8fdf68b4fd29648d76dc77c379cd98764dbe",
+      "upstream": null,
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/remotes/origin/codex/guided-capture-server",
+      "objectId": "df674dcd95534fbbaf97f9ca70f28daefc6dbd12",
+      "upstream": null,
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/remotes/origin/codex/tkt-034-archive-adoption",
+      "objectId": "3ffe81ec6b66749a0468f52e9ed05ae5f613645b",
+      "upstream": null,
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/remotes/origin/codex/tkt-154-mcp-image-ingestion",
+      "objectId": "93528ba924b2106b4630336f229f5be007d2ea9c",
+      "upstream": null,
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/remotes/origin/codex/tkt-160-delete-case-image",
+      "objectId": "5ba0400493395a4e4ffa10d13b7022361f21f80b",
+      "upstream": null,
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/remotes/origin/codex/tkt-199-repository-data-authority",
+      "objectId": "cd1ceabeae3e7a2d8f0d4e84501d5e193179b0d7",
+      "upstream": null,
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/remotes/origin/codex/tkt-205-repository-worktree-governance",
+      "objectId": "81cd008a6b65952c89b70f0f9c84c4c648016fdd",
+      "upstream": null,
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/remotes/origin/codex/workingspace-ai-plans",
+      "objectId": "765bd19beb3b2623ee38351227d3874d636a6d2b",
+      "upstream": null,
+      "upstreamTrack": null
+    },
+    {
+      "ref": "refs/remotes/origin/main",
+      "objectId": "81ae8fdf68b4fd29648d76dc77c379cd98764dbe",
+      "upstream": null,
+      "upstreamTrack": null
+    }
+  ],
+  "worktrees": [
+    {
+      "path": "C:/Users/PC/Documents/GitHub/collisionsuite/active/collisionspike",
+      "head": "81ae8fdf68b4fd29648d76dc77c379cd98764dbe",
+      "branch": "refs/heads/codex/plan-006-repository-reset"
+    },
+    {
+      "path": "C:/Users/PC/Documents/GitHub/collisionsuite/active/collisionspike-wt-TKT-199-repository-data-authority",
+      "head": "cd1ceabeae3e7a2d8f0d4e84501d5e193179b0d7",
+      "branch": "refs/heads/codex/tkt-199-repository-data-authority"
+    },
+    {
+      "path": "C:/Users/PC/Documents/GitHub/collisionsuite/active/collisionspike-wt-TKT-205-repository-worktree-governance",
+      "head": "81cd008a6b65952c89b70f0f9c84c4c648016fdd",
+      "branch": "refs/heads/codex/tkt-205-repository-worktree-governance"
+    }
+  ],
+  "stashes": []
+}

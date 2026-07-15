@@ -1,14 +1,14 @@
-# Verification — TKT-020: Stale-plan cleanup + root-doc reconciliation
+# Verification — TKT-020: Repository structure and documentation reset
 
 ## Verdict
-TESTED (offline)
+PENDING
 
 ## Evidence
-- `node scripts/check-doc-links.mjs` PASS (broken links / orphans / live-number leakage gate).
-- HISTORICAL banners applied to Power Platform-era plans; root docs reconciled to the live Azure PaaS stack and the 2026-06-29 mailbox cutover.
+- PLAN-006 and member ticket specifications define the locked target structure and bidirectional membership.
+- No repository-cleanup acceptance is claimed from ticket creation alone.
 
 ## Pending / gaps
-Docs reconciliation is point-in-time; the live registry keeps moving — always cross-check ../../architecture/live-environment.md rather than re-embedding numbers.
+All implementation, clean-checkout validation, exact inventory reconciliation, hash proof, CI evidence and independent review remain pending.
 
 ## How to re-verify
-- Run `node scripts/check-doc-links.mjs` → expect PASS.
+Complete TKT-207 through TKT-215 in plan order, attach one concrete artifact to every acceptance line, run TKT-214's clean local and CI gates, and independently reconcile the final tree to the inventory before changing this verdict.
