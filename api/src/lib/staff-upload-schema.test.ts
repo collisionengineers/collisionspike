@@ -83,4 +83,32 @@ describe('staff evidence upload schema', () => {
     expect(delta).not.toContain('GRANT DELETE ON staff_evidence_upload TO cespk_app');
     expect(delta).not.toContain('GRANT DELETE ON staff_evidence_upload_item TO cespk_app');
   });
+
+  it('adds the MCP source, registration and retry audit fields without a new byte store', () => {
+    const canonical = schema('195_staff_evidence_upload.sql');
+    const delta = schema('deltas/2026-07-13-tkt154-mcp-image-ingestion.sql');
+    for (const sql of [canonical, delta]) {
+      expect(sql).toContain("'mcp_agent'");
+      expect(sql).toContain("'agent_image_ingest'");
+      expect(sql).toContain('registration');
+      expect(sql).toContain('attempt_count');
+      expect(sql).toContain('last_attempt_at');
+    }
+    expect(delta).not.toContain('CREATE TABLE evidence');
+    expect(delta).not.toContain('bytea');
+    expect(delta).toContain("(100000051, 'agent_write'");
+  });
+
+  it('creates both canonical MCP tables before the shared forced-RLS policy pass', () => {
+    const policies = schema('900_constraints.sql');
+    for (const [file, table] of [
+      ['196_mcp_image_ingest_rate_limit.sql', 'mcp_image_ingest_rate_limit'],
+      ['197_mcp_http_session.sql', 'mcp_http_session'],
+    ] as const) {
+      expect(schema(file)).toContain(`CREATE TABLE ${table}`);
+      expect(policies).toContain(`'${table}'`);
+    }
+    expect(policies).toContain('CREATE POLICY p_%1$s_rw');
+    expect(policies).toContain('CREATE POLICY p_%1$s_no_delete');
+  });
 });

@@ -75,6 +75,11 @@ export const gates = {
   // DARK. Exposes ONLY registry read tools; needs its own Entra app-registration before a live flip
   // (operator, docs/gated.md). Authorization is still enforced at the Data API, never the MCP layer.
   mcpServer: (): boolean => process.env.MCP_SERVER_ENABLED === 'true',
+  // TKT-154 — autonomous registration-bound IMAGE ingestion. Independent kill switch:
+  // read-only MCP remains available while this write lane is dark. The route also requires
+  // the dedicated app-only role and the exact programme test-root setting below.
+  mcpImageIngest: (): boolean => process.env.MCP_IMAGE_INGEST_ENABLED === 'true',
+  mcpImageIngestBoxRootId: (): string => process.env.MCP_IMAGE_INGEST_BOX_ROOT_ID ?? '',
 
   // Box gates (Phase 7, ADR-0012) — all default off
   boxApi: (): boolean => process.env.BOX_API_ENABLED === 'true',               // #22

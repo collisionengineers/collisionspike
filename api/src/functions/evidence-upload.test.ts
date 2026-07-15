@@ -33,8 +33,9 @@ vi.mock('../lib/audit.js', async (importOriginal) => {
   return { ...actual, actorFromClaims: vi.fn(() => 'staff-1') };
 });
 
-await import('./evidence-upload.js');
+const evidenceUploadModule = await import('./evidence-upload.js');
 const upload = registrations.get('uploadCaseEvidence')!.handler;
+const uploadFromMcp = evidenceUploadModule.handleEvidenceUpload;
 const ctx = { log: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as InvocationContext;
 
 const KEY = '00000000-0000-4000-8000-000000000165';
@@ -57,6 +58,7 @@ interface BatchRow {
   case_id: string;
   actor: string;
   source: string;
+  registration: string | null;
   manifest_hash: string;
 }
 interface EvidenceRow {
@@ -103,6 +105,8 @@ const state = {
   lastManualFileCount: 0,
   recoveryAuditClaimed: false,
   blobPaths: new Set<string>(),
+  registrationCaseIds: ['case-1'] as string[],
+  registrationCaseStatus: new Map<string, number>(),
 };
 
 function restore(snapshot: ReturnType<typeof snapshotState>): void {
@@ -187,6 +191,8 @@ beforeEach(() => {
   state.lastManualFileCount = 1;
   state.recoveryAuditClaimed = false;
   state.blobPaths = new Set();
+  state.registrationCaseIds = ['case-1'];
+  state.registrationCaseStatus = new Map();
   db.query.mockReset();
   db.tx.mockReset();
   db.txQuery.mockReset();
@@ -204,6 +210,13 @@ beforeEach(() => {
   db.txQuery.mockImplementation(async (sqlValue: string, params: unknown[] = []) => {
     const sql = String(sqlValue);
     if (sql.includes('pg_advisory_xact_lock')) return [];
+    if (sql.includes("regexp_replace(upper(vrm)")) {
+      return state.registrationCaseIds.map((id) => ({
+        id,
+        status_code: state.registrationCaseStatus.get(id) ?? state.statusCode,
+        duplicate_keys: null,
+      }));
+    }
     if (sql.startsWith('SELECT id, duplicate_keys FROM case_')) {
       if (state.caseMissing) return [];
       return [{
@@ -239,7 +252,8 @@ beforeEach(() => {
           case_id: String(params[1]),
           actor: String(params[2]),
           source: String(params[3]),
-          manifest_hash: String(params[4]),
+          registration: params[4] == null ? null : String(params[4]),
+          manifest_hash: String(params[5]),
         });
       }
       return [];
@@ -382,6 +396,120 @@ beforeEach(() => {
 describe('canonical staff evidence upload', () => {
   it('is registered behind the staff app role', () => {
     expect(requiredRoles).toContain('CollisionSpike.User');
+  });
+
+  it('accepts the MCP source only through the internal role-checked seam and writes an agent audit', async () => {
+    const staffRequest = requestWith(
+      [new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })],
+      { source: 'mcp_agent' },
+    );
+    const forged = await upload(staffRequest, ctx, {});
+    expect(forged.status).toBe(400);
+    expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
+
+    const baseRequest = requestWith(
+      [new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })],
+      { source: 'mcp_agent' },
+    );
+    const request = {
+      params: baseRequest.params,
+      headers: baseRequest.headers,
+      formData: async () => {
+        const form = await baseRequest.formData();
+        form.append('registration', 'SP23OBX');
+        return form;
+      },
+    } as unknown as HttpRequest;
+    const response = await uploadFromMcp(request, ctx, { oid: 'sp-image-agent' }, {
+      allowMcpAgentSource: true,
+    });
+    expect(response.status).toBe(201);
+    expect(db.txQuery.mock.calls.some(([sql]) => String(sql).includes('pg_advisory_xact_lock'))).toBe(true);
+    expect(db.txQuery.mock.calls.some(
+      ([sql]) => String(sql) === 'LOCK TABLE case_ IN SHARE MODE',
+    )).toBe(false);
+    expect(db.txQuery.mock.calls.some(([sql]) => (
+      String(sql).includes("regexp_replace(upper(vrm)") && !String(sql).includes('FOR UPDATE')
+    ))).toBe(true);
+    expect(state.evidence[0].source_message_id).toContain('staff:mcp_agent:');
+    const audit = db.txQuery.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO audit_event'))!;
+    expect(audit[1][3]).toBe(100000051);
+    expect(audit[1][6]).toContain('"registration":"SP23OBX"');
+    expect(audit[1][6]).toContain('"idempotencyKey"');
+  });
+
+  it('refuses an MCP upload when the registration no longer matches under the transaction lock', async () => {
+    state.registrationCaseIds = [];
+    const baseRequest = requestWith(
+      [new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })],
+      { source: 'mcp_agent' },
+    );
+    const request = {
+      params: baseRequest.params,
+      headers: baseRequest.headers,
+      formData: async () => {
+        const form = await baseRequest.formData();
+        form.append('registration', 'SP23OBX');
+        return form;
+      },
+    } as unknown as HttpRequest;
+
+    const response = await uploadFromMcp(request, ctx, { oid: 'sp-image-agent' }, {
+      allowMcpAgentSource: true,
+    });
+    expect(response.status).toBe(409);
+    expect(response.jsonBody).toMatchObject({
+      added: [],
+      rejected: [{ reason: expect.stringContaining('no longer identifies one current case') }],
+    });
+    expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
+  });
+
+  it('refuses an MCP upload when a second active case appears before binding', async () => {
+    state.registrationCaseIds = ['case-1', 'case-2'];
+    const baseRequest = requestWith(
+      [new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })],
+      { source: 'mcp_agent' },
+    );
+    const request = {
+      params: baseRequest.params,
+      headers: baseRequest.headers,
+      formData: async () => {
+        const form = await baseRequest.formData();
+        form.append('registration', 'SP23OBX');
+        return form;
+      },
+    } as unknown as HttpRequest;
+
+    const response = await uploadFromMcp(request, ctx, { oid: 'sp-image-agent' }, {
+      allowMcpAgentSource: true,
+    });
+    expect(response.status).toBe(409);
+    expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
+  });
+
+  it('ignores error cases during the upload-time registration recheck, matching lookup eligibility', async () => {
+    state.registrationCaseIds = ['case-1', 'case-error'];
+    state.registrationCaseStatus.set('case-error', 100000010); // error (append-only case-status code)
+    const baseRequest = requestWith(
+      [new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })],
+      { source: 'mcp_agent' },
+    );
+    const request = {
+      params: baseRequest.params,
+      headers: baseRequest.headers,
+      formData: async () => {
+        const form = await baseRequest.formData();
+        form.append('registration', 'SP23OBX');
+        return form;
+      },
+    } as unknown as HttpRequest;
+
+    const response = await uploadFromMcp(request, ctx, { oid: 'sp-image-agent' }, {
+      allowMcpAgentSource: true,
+    });
+    expect(response.status).toBe(201);
+    expect(state.evidence).toHaveLength(1);
   });
 
   it('persists an Add evidence photo in a classifier-owned pending state with one audit and readiness request', async () => {
@@ -680,6 +808,34 @@ describe('canonical staff evidence upload', () => {
     );
     expect(removed.status).toBe(409);
     expect(blob.uploadEvidenceBytes).not.toHaveBeenCalled();
+
+    state.statusCode = 100000010; // error remains recoverable by staff evidence
+    const errorCase = await upload(
+      requestWith([new File([JPEG], 'photo.jpg', { type: 'image/jpeg' })]),
+      ctx,
+      {},
+    );
+    expect(errorCase.status).toBe(201);
+    expect(blob.uploadEvidenceBytes).toHaveBeenCalledTimes(1);
+
+    const baseMcpRequest = requestWith(
+      [new File([JPEG], 'agent-photo.jpg', { type: 'image/jpeg' })],
+      { source: 'mcp_agent', key: '00000000-0000-4000-8000-000000000166' },
+    );
+    const mcpRequest = {
+      params: baseMcpRequest.params,
+      headers: baseMcpRequest.headers,
+      formData: async () => {
+        const form = await baseMcpRequest.formData();
+        form.append('registration', 'SP23OBX');
+        return form;
+      },
+    } as unknown as HttpRequest;
+    const refusedAgent = await uploadFromMcp(mcpRequest, ctx, { oid: 'sp-image-agent' }, {
+      allowMcpAgentSource: true,
+    });
+    expect(refusedAgent.status).toBe(409);
+    expect(blob.uploadEvidenceBytes).toHaveBeenCalledTimes(1);
   });
 
   it('uses byte signatures to refuse masquerading content while preserving a valid file in a mixed batch', async () => {

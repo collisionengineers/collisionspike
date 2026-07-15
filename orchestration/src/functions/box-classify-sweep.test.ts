@@ -107,7 +107,7 @@ const dataApiMock = vi.hoisted(() => ({
 }));
 vi.mock('../lib/data-api.js', () => ({ dataApi: dataApiMock }));
 
-const { mimeForClassify, boxDownloadFailure } = await import('./box-classify-sweep.js'); // registers the timer too
+const { mimeForClassify, boxDownloadFailure, isBlobUploadSource } = await import('./box-classify-sweep.js'); // registers the timer too
 const sweep = timerRegs.get('box-classify-sweep')!;
 
 function ctx(): InvocationContext {
@@ -156,6 +156,15 @@ const ROW_STAFF = {
   workProviderId: 'wp-1',
   claimToken: '00000000-0000-4000-8000-000000000099',
   attemptCount: 1,
+};
+const ROW_AGENT = {
+  ...ROW_STAFF,
+  evidenceId: 'ev-agent',
+  caseId: 'case-agent',
+  storagePath: 'staff-key/agent-photo.jpg',
+  sourceLabel: 'agent_image_ingest',
+  sourceMessageId: 'staff:mcp_agent:key:0',
+  claimToken: '00000000-0000-4000-8000-000000000098',
 };
 
 const CLS_OVERVIEW = {
@@ -368,6 +377,23 @@ describe('box-classify-sweep — (d) gate + 0-row fast paths', () => {
       imageRole: 'overview',
     });
     expect(stamp).not.toHaveProperty('boxFileId');
+  });
+
+  it('routes the MCP image source through the identical Blob classifier lane', async () => {
+    expect(isBlobUploadSource(ROW_AGENT.sourceLabel)).toBe(true);
+    dataApiMock.claimUnclassifiedBoxEvidence.mockResolvedValue({ rows: [ROW_AGENT] });
+    classifyImageMock.mockResolvedValue(classified(CLS_OVERVIEW));
+
+    await sweep.handler(TIMER, ctx());
+
+    expect(blobMock.downloadEvidenceBytes).toHaveBeenCalledWith(ROW_AGENT.storagePath);
+    expect(boxMock.downloadFile).not.toHaveBeenCalled();
+    expect(dataApiMock.stampBoxEvidenceClassification).toHaveBeenCalledWith(
+      ROW_AGENT.evidenceId,
+      ROW_AGENT.caseId,
+      expect.objectContaining({ storagePath: ROW_AGENT.storagePath }),
+      ROW_AGENT.claimToken,
+    );
   });
 
   it('uses only the Box locator for a Box-owned cross-lane row carrying both locators', async () => {

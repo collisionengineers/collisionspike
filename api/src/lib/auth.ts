@@ -164,6 +164,8 @@ export function withRole(
 /** The autonomous-agent app-role (Flow B, client-credentials / app-only). Recognized but granted
  *  NO write today — an agent write route is a Phase-3b deliverable, gated on a signed-commit token. */
 export const AGENT_ROLE = 'CollisionSpike.Agent';
+/** Dedicated app-only role for the TKT-154 registration-bound image-ingest lane. */
+export const IMAGE_INGEST_AGENT_ROLE = 'CollisionSpike.ImageIngest';
 
 /**
  * True when the principal is an AUTONOMOUS agent: an app-only token (no `scp`/`preferred_username`
@@ -176,6 +178,36 @@ export function isAgentPrincipal(claims: JWTPayload): boolean {
     typeof (claims as Record<string, unknown>).scp === 'string' ||
     typeof (claims as Record<string, unknown>).preferred_username === 'string';
   return roles.includes(AGENT_ROLE) && !hasUserIdentity;
+}
+
+function hasDelegatedUserIdentity(claims: JWTPayload): boolean {
+  return (
+    typeof (claims as Record<string, unknown>).scp === 'string'
+    || typeof (claims as Record<string, unknown>).preferred_username === 'string'
+  );
+}
+
+/** The image-ingest role is valid only on an app-only token. A delegated staff token that
+ * happens to carry the role is never promoted into the autonomous write lane. */
+export function isImageIngestAgentPrincipal(claims: JWTPayload): boolean {
+  const roles = (claims.roles as string[] | undefined) ?? [];
+  return roles.length === 1
+    && roles[0] === IMAGE_INGEST_AGENT_ROLE
+    && !hasDelegatedUserIdentity(claims);
+}
+
+export type McpPrincipalKind = 'readonly_staff' | 'image_ingest_agent';
+
+/** Resolve the only two principals admitted to the MCP route. Staff must be delegated and
+ * stay read-only; the dedicated app-only role sees only registration lookup + image ingest. */
+export function mcpPrincipalKind(claims: JWTPayload): McpPrincipalKind | undefined {
+  if (isImageIngestAgentPrincipal(claims)) return 'image_ingest_agent';
+  const roles = (claims.roles as string[] | undefined) ?? [];
+  if (
+    hasDelegatedUserIdentity(claims)
+    && (roles.includes('CollisionSpike.User') || hasSuperuser(roles))
+  ) return 'readonly_staff';
+  return undefined;
 }
 
 export interface CapabilityAuthzInput {

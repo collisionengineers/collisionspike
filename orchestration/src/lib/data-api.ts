@@ -697,6 +697,7 @@ export const dataApi = {
     blobPath: string;
     claimToken: string;
     decisionGeneration: number;
+    sourceLabel: string;
   }> }> {
     return request('GET', `/api/internal/cases/${caseId}/archive-evidence`);
   },

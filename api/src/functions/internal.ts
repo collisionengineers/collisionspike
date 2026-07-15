@@ -3938,6 +3938,7 @@ app.http('internalCasesArchiveEvidence', {
         blobPath: string;
         claimToken: string;
         decisionGeneration: string | number;
+        sourceLabel: string;
       }>(
           `UPDATE evidence
               SET archive_mirror_claim_token = gen_random_uuid(),
@@ -3957,7 +3958,8 @@ app.http('internalCasesArchiveEvidence', {
                     content_type AS "contentType",
                     storage_path AS "blobPath",
                     archive_mirror_claim_token::text AS "claimToken",
-                    archive_mirror_decision_generation AS "decisionGeneration"`,
+                    archive_mirror_decision_generation AS "decisionGeneration",
+                    source_label AS "sourceLabel"`,
           [lockedCase.caseId],
         );
         rows.sort((a, b) => a.filename.localeCompare(b.filename));
@@ -4667,7 +4669,7 @@ app.http('internalEvidenceUnclassifiedBox', {
                 NULLIF(btrim(e.storage_path), '') IS NOT NULL
                 AND e.source_label IN (
                   'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                  'staff_legacy_upload'
+                  'staff_legacy_upload', 'agent_image_ingest'
                 )
               )
             )
@@ -4679,7 +4681,7 @@ app.http('internalEvidenceUnclassifiedBox', {
               OR (
                 e.source_label IN (
                   'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                  'staff_legacy_upload'
+                  'staff_legacy_upload', 'agent_image_ingest'
                 )
                 AND e.excluded = true
                 AND e.exclusion_decision_source = 'classifier'
@@ -4691,7 +4693,7 @@ app.http('internalEvidenceUnclassifiedBox', {
               OR e.created_at > now() - interval '14 days'
               OR e.source_label IN (
                 'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                'staff_legacy_upload'
+                'staff_legacy_upload', 'agent_image_ingest'
               )
             )
             AND e.box_classify_dead_lettered_at IS NULL
@@ -4701,7 +4703,7 @@ app.http('internalEvidenceUnclassifiedBox', {
               wp.ai_allowed IS DISTINCT FROM false
               OR e.source_label IN (
                 'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                'staff_legacy_upload'
+                'staff_legacy_upload', 'agent_image_ingest'
               )
             )`;
       const rows = req.method?.toUpperCase() === 'POST'
@@ -4848,7 +4850,7 @@ app.http('internalEvidenceBoxClassification', {
                      AND excluded = true
                      AND source_label IN (
                        'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                       'staff_legacy_upload'
+                       'staff_legacy_upload', 'agent_image_ingest'
                      )
                     THEN 'Image needs staff review'
                     ELSE exclusion_reason
@@ -4864,7 +4866,7 @@ app.http('internalEvidenceBoxClassification', {
                 OR (
                   source_label IN (
                     'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                    'staff_legacy_upload'
+                    'staff_legacy_upload', 'agent_image_ingest'
                   )
                   AND excluded = true
                   AND exclusion_decision_source = 'classifier'
@@ -4945,7 +4947,7 @@ app.http('internalEvidenceBoxClassification', {
                   $4::text <> '' AND storage_path = $4
                   AND source_label IN (
                     'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                    'staff_legacy_upload'
+                    'staff_legacy_upload', 'agent_image_ingest'
                   )
                 )
               )

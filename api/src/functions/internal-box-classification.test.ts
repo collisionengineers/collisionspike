@@ -384,6 +384,7 @@ describe('Box classification failure scheduling', () => {
     const sql = String(db.query.mock.calls[0][0]);
     expect(sql).toContain("THEN 'Image needs staff review'");
     expect(sql).toContain("'staff_legacy_upload'");
+    expect(sql).toContain("'agent_image_ingest'");
   });
 });
 
@@ -421,6 +422,7 @@ describe('exact Box classification stamp', () => {
     const lockParams = db.txQuery.mock.calls[0][1] as unknown[];
     expect(lockSql).toContain('storage_path = $4');
     expect(lockSql).toContain("'staff_add_evidence'");
+    expect(lockSql).toContain("'agent_image_ingest'");
     expect(lockParams).toContain('staff-key/photo.jpg');
   });
 

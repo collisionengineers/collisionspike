@@ -126,6 +126,60 @@ COMMIT;
 -- It connects as a non-owner login mapped from its managed identity (see
 -- 31-auth-migration.md) and sets the caller's app role per request/transaction:
 --     SET LOCAL app.role = 'admin';   -- or 'staff'
+-- TKT-154: serialize the autonomous registration decision with every Case change
+-- that can alter its eligibility. The MCP transaction takes the same advisory key
+-- before its predicate read. Two triggers keep UPDATE OF syntax separate from
+-- INSERT/DELETE and acquire old/new registration keys in a stable order.
+CREATE OR REPLACE FUNCTION lock_case_registration_eligibility()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  old_registration text;
+  new_registration text;
+  registration_key text;
+BEGIN
+  IF TG_OP <> 'INSERT' THEN
+    old_registration := regexp_replace(upper(COALESCE(OLD.vrm, '')), '[^A-Z0-9]', '', 'g');
+  END IF;
+  IF TG_OP <> 'DELETE' THEN
+    new_registration := regexp_replace(upper(COALESCE(NEW.vrm, '')), '[^A-Z0-9]', '', 'g');
+  END IF;
+
+  FOR registration_key IN
+    SELECT DISTINCT candidate
+      FROM (VALUES (old_registration), (new_registration)) AS registrations(candidate)
+     WHERE candidate IS NOT NULL AND candidate <> ''
+     ORDER BY candidate
+  LOOP
+    PERFORM pg_advisory_xact_lock(
+      hashtextextended('mcp-image-registration:' || registration_key, 0)
+    );
+  END LOOP;
+  RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$;
+
+-- LOCK BUDGET (TKT-207): this BEFORE INSERT OR DELETE trigger fires per row and
+-- takes a per-row pg_advisory_xact_lock for EVERY case_ INSERT/DELETE. The lock is
+-- REQUIRED for phantom-case protection (it serialises the autonomous registration
+-- decision with case mutation) and must not be removed. Its operational cost: one
+-- very large SINGLE-TRANSACTION bulk case_ purge/insert (ADR-0017 disposition tooling
+-- or bulk intake) accumulates one advisory lock slot per row and can approach
+-- max_locks_per_transaction and abort the whole transaction. Bulk writers MUST batch
+-- (chunk each COMMIT to a bounded row count) rather than mutating all case_ rows in one
+-- transaction. Follow-up TKT-207 tracks the batching requirement in the disposition/
+-- bulk-writer tooling.
+DROP TRIGGER IF EXISTS tr_case_registration_insert_delete ON case_;
+CREATE TRIGGER tr_case_registration_insert_delete
+  BEFORE INSERT OR DELETE ON case_
+  FOR EACH ROW EXECUTE FUNCTION lock_case_registration_eligibility();
+
+DROP TRIGGER IF EXISTS tr_case_registration_eligibility_update ON case_;
+CREATE TRIGGER tr_case_registration_eligibility_update
+  BEFORE UPDATE OF vrm, status_code, duplicate_keys ON case_
+  FOR EACH ROW EXECUTE FUNCTION lock_case_registration_eligibility();
+
 -- RLS here is NOT multi-tenant row filtering (there are no tenants); its single job
 -- is to make the AUDIT TRAIL tamper-evident (append-only) and to gate destructive
 -- deletes to the admin role. Owners bypass RLS unless FORCE is set, hence FORCE +
@@ -165,7 +219,8 @@ BEGIN
     'improvement_signal','inbound_email','repairer_workprovider','imagesource_workprovider',
     'ai_suggestion','provider_api_key','case_po_floor','ai_usage_ledger',
     'archive_mirror_outbox','box_file_request_outbox','staff_evidence_upload',
-    'staff_evidence_upload_item','manual_intake_case_create_operation'
+    'staff_evidence_upload_item','manual_intake_case_create_operation',
+    'mcp_image_ingest_rate_limit','mcp_http_session'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('ALTER TABLE %I FORCE  ROW LEVEL SECURITY;', t);

@@ -49,6 +49,32 @@ def _shared_link_req(folder_id: str, body_obj: dict | None) -> "function_app.fun
     )
 
 
+def _scope_req(folder_id: str) -> "function_app.func.HttpRequest":
+    return function_app.func.HttpRequest(
+        method="POST",
+        url="/api/box/scope/write-check",
+        body=json.dumps({"folderId": folder_id}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+
+
+def test_write_scope_route_returns_the_facade_root(monkeypatch):
+    monkeypatch.setenv("BOX_API_ENABLED", "true")
+
+    class FakeBox:
+        def verify_write_scope(self, folder_id):
+            assert folder_id == "case-folder"
+            return "392761581105"
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: FakeBox())
+    resp = function_app.verify_write_scope(_scope_req("case-folder"))
+    assert resp.status_code == 200
+    assert json.loads(resp.get_body()) == {"writable": True, "rootId": "392761581105"}
+
+
 def test_upload_route_gated_off_returns_503(monkeypatch):
     monkeypatch.delenv("BOX_API_ENABLED", raising=False)
     resp = function_app.upload_file(_req("777", {"filename": "a.eml", "contentBase64": "QQ=="}))
@@ -95,6 +121,92 @@ def test_upload_route_happy_path_delegates_decoded_bytes(monkeypatch):
     assert captured["filename"] == "message.eml"
     assert captured["content"] == b"raw-eml-bytes"
     assert captured["content_type"] == "message/rfc822"
+
+
+def test_upload_route_enforces_required_write_root_before_bytes_leave(monkeypatch):
+    monkeypatch.setenv("BOX_API_ENABLED", "true")
+    captured: dict = {}
+
+    class FakeBox:
+        def verify_write_scope(self, folder_id):
+            captured["verified"] = folder_id
+            return "392761581105"
+
+        def upload_file(self, folder_id, filename, content, content_type=None):
+            captured["uploaded"] = folder_id
+            return {"id": "F1", "outcome": "created"}
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: FakeBox())
+    resp = function_app.upload_file(_req("case-folder", {
+        "filename": "photo.jpg",
+        "contentBase64": base64.b64encode(b"image").decode("ascii"),
+        "contentType": "image/jpeg",
+        "requiredWriteRootId": "392761581105",
+    }))
+    assert resp.status_code == 200
+    assert captured == {"verified": "case-folder", "uploaded": "case-folder"}
+
+
+def test_upload_route_refuses_wrong_required_write_root_without_upload(monkeypatch):
+    monkeypatch.setenv("BOX_API_ENABLED", "true")
+    uploaded = False
+
+    class FakeBox:
+        def verify_write_scope(self, _folder_id):
+            return "wrong-root"
+
+        def upload_file(self, *_args, **_kwargs):
+            nonlocal uploaded
+            uploaded = True
+            return {"id": "unexpected"}
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: FakeBox())
+    resp = function_app.upload_file(_req("case-folder", {
+        "filename": "photo.jpg",
+        "contentBase64": base64.b64encode(b"image").decode("ascii"),
+        "requiredWriteRootId": "392761581105",
+    }))
+    assert resp.status_code == 400
+    assert uploaded is False
+
+
+def test_autonomous_upload_rechecks_scope_and_refuses_folder_moved_after_first_upload(monkeypatch):
+    monkeypatch.setenv("BOX_API_ENABLED", "true")
+    checks = 0
+    uploads = 0
+
+    class FakeBox:
+        def verify_write_scope(self, _folder_id):
+            nonlocal checks
+            checks += 1
+            if checks == 2:
+                raise function_app.BoxScopeError("folder moved outside root")
+            return "392761581105"
+
+        def upload_file(self, *_args, **_kwargs):
+            nonlocal uploads
+            uploads += 1
+            return {"id": f"F{uploads}", "outcome": "created"}
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: FakeBox())
+    body = {
+        "filename": "photo.jpg",
+        "contentBase64": base64.b64encode(b"image").decode("ascii"),
+        "requiredWriteRootId": "392761581105",
+    }
+    assert function_app.upload_file(_req("case-folder", body)).status_code == 200
+    assert function_app.upload_file(_req("case-folder", body)).status_code == 400
+    assert checks == 2
+    assert uploads == 1
 
 
 # ==========================================================================

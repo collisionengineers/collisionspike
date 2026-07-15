@@ -69,6 +69,25 @@ export async function query<T extends Record<string, unknown>>(
   return result.rows;
 }
 
+/**
+ * Fail closed before the dual-principal MCP route reaches any RLS-protected table.
+ * Unlike `withRole`, the MCP route admits either a delegated staff role or the
+ * dedicated app-only image role, so it performs its own auth split. Both identities
+ * deliberately share the API's least-privilege staff pool; neither may widen it.
+ *
+ * The startup option on every pooled connection remains the authority. Reading the
+ * setting here proves the live backend actually received it, rather than trusting an
+ * environment value or assuming that HTTP authorization established a DB role.
+ */
+export async function assertStaffRlsContext(): Promise<void> {
+  const rows = await query<{ app_role: string | null }>(
+    "SELECT current_setting('app.role', true) AS app_role",
+  );
+  if (rows[0]?.app_role !== 'staff') {
+    throw new Error('The least-privilege database context is unavailable.');
+  }
+}
+
 /** A `query`-shaped function bound to a single transaction's client. */
 export type TxQuery = <R extends Record<string, unknown>>(
   sql: string,

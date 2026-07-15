@@ -38,13 +38,23 @@ performs writes on an agent's behalf) is unbuildable/unsafe as-is:
    - **Flow B (deferred, Phase 3b)** — autonomous **client-credentials** agents (app-only `roles`, no
      user, OBO impossible). An agent principal carries the `CollisionSpike.Agent` app-role and **no user
      identity**; the Data API tells it from a human via `isAgentPrincipal`.
-4. **Agent authorization is DESIGNED here as the write prerequisite (not shipped):** the pure
+4. **General agent authorization is DESIGNED here as the write prerequisite (not shipped):** the pure
    `authorizeAgentCapability` in `api/src/lib/auth.ts` enforces that an agent may invoke **only
    non-destructive, non-`humanOnly` READ** capabilities — every write and every destructive/humanOnly
    capability is rejected for an agent. Autonomous agent WRITES additionally require a **KeyVault-signed
    commit token** (single-use `jti`/nonce; the **Data API** — not just MCP — verifies) + ETag optimistic
    concurrency, and stamp the agent SP identity + `autonomous:true` into a dedicated audit action
-   (`agent_read`/`agent_write`, reserved in `AUDIT_ACTION`). None of this is wired to a live write route.
+   (`agent_read`/`agent_write`, reserved in `AUDIT_ACTION`). None of this is wired to a general live
+   agent-write route.
+5. **One constrained exception is built DARK by TKT-154:** an app-only principal carrying only
+   `CollisionSpike.ImageIngest` sees exactly `lookup_open_case_by_registration` and
+   `upload_case_images`. The write has no client-selected case id, row version, Archive folder or
+   arbitrary write descriptor: the server re-resolves one active case from the canonical registration,
+   then invokes the existing target-locking, content-hash/idempotency-bound evidence seam. This narrow
+   contract uses the stable idempotency key + ordered content manifest in place of the proposed generic
+   signed-commit token; the route cannot express any other mutation. It remains independently dark
+   behind `MCP_IMAGE_INGEST_ENABLED` plus an exact test-root setting. The full contract is
+   [mcp-image-ingestion.md](../architecture/mcp-image-ingestion.md).
 
 ## Consequences
 
@@ -53,6 +63,8 @@ performs writes on an agent's behalf) is unbuildable/unsafe as-is:
   scopes for Flow A) and sets `MCP_SERVER_ENABLED=true`.
 - Autonomous agent writes are a **separate, later rung** behind a designed bar (agent-authz impl +
   signed-commit token + ETag + per-agent SP program). We do NOT ship a half-safe agent write path.
+- TKT-154 does not weaken that bar for general writes: its dedicated identity has no Outlook/Graph
+  permission, no staff/general Agent role, and no tool capable of selecting another case/folder/action.
 - Hosting on the Function App means MCP shares the API's cold-start/scale characteristics; a Container
   App is the documented scale path, deferred until load justifies it post-PAYG.
 

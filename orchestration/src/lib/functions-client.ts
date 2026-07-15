@@ -302,11 +302,13 @@ export const box = {
     filename: string,
     contentBase64: string,
     contentType?: string,
+    requiredWriteRootId?: string,
   ): Promise<{ id: string; name?: string; sha1?: string; outcome?: string }> {
     return callFunction(BOX, 'POST', `box/folders/${folderId}/files`, {
       filename,
       contentBase64,
       ...(contentType ? { contentType } : {}),
+      ...(requiredWriteRootId ? { requiredWriteRootId } : {}),
     });
   },
   /**
@@ -326,11 +328,13 @@ export const box = {
     filename: string,
     blobPath: string,
     contentType?: string,
+    requiredWriteRootId?: string,
   ): Promise<{ id: string; name?: string; sha1?: string; outcome?: string }> {
     return callFunction(BOX, 'POST', `box/folders/${folderId}/files`, {
       filename,
       blobPath,
       ...(contentType ? { contentType } : {}),
+      ...(requiredWriteRootId ? { requiredWriteRootId } : {}),
     });
   },
   listFolderItems(

@@ -989,7 +989,30 @@ and gates; it does not flip a live gate or create an app-registration.
    fail-closed (`Missing bearer token`). **Remaining:** the live **Flow A client probe** — an
    interactive MCP client signing in as an assigned staff user, listing + calling a read tool
    (record it on [TKT-110](./tickets/verify/TKT-110-mcp-readonly-server/verification.md)).
-   Autonomous agent **writes** stay a separate, later rung (ADR-0023 Phase 3b) — not shipped.
+   General autonomous-agent writes stay a separate later rung. **TKT-154's constrained image lane is
+   code-complete but remains DARK**: before it can be proven live, add the API app role
+   `CollisionSpike.ImageIngest`, create/assign one dedicated app-only client with **no Graph/Outlook or
+   staff/general-Agent role**, apply
+   [`2026-07-13-tkt154-mcp-image-ingestion.sql`](../migration/assets/schema/deltas/2026-07-13-tkt154-mcp-image-ingestion.sql),
+   deploy the API, and set `MCP_IMAGE_INGEST_ENABLED=true` plus
+   `MCP_IMAGE_INGEST_BOX_ROOT_ID=392761581105`. The existing `BOX_FOLDER_ROOT_ID` must independently
+   remain the same test root. Contract and proof steps:
+   [mcp-image-ingestion.md](./architecture/mcp-image-ingestion.md). Do not flip the new gate until the
+   dedicated role assignment has been read back. The dedicated service principal must carry
+   **exactly** `CollisionSpike.ImageIngest` (no staff, Superuser or general-Agent role). Deploy the
+   Box façade and orchestration changes as well as the API; configure/read back `BOX_FN_URL` + the
+   KV-referenced `BOX_FN_KEY` on the API; and read back
+   `BOX_ALLOWED_ROOT_ID=392761581105` on the Box Function. Before the MCP gate is enabled, also prove
+   `IMAGE_ROLE_CLASSIFY_ENABLED=true`, `BOX_API_ENABLED=true` and
+   `BOX_FOLDER_AT_INTAKE_ENABLED=true` on `cespk-orch-dev`. The façade must successfully attest the
+   designated case folder under the test root; unset, wrong-root and out-of-root checks must all
+   refuse, including a folder moved after an earlier successful ancestry check. The strict Box check
+   must be a fresh uncached read immediately before upload. Confirm the bounded request stream rejects
+   an oversized request with no `Content-Length`, and apply/read back the new `mcp_http_session` table
+   from the same TKT-154 delta. Finally run initialize→initialized→tools/list→lookup→upload using a standard MCP client,
+   not only a raw HTTP probe. Until those reads and the end-to-end evidence are recorded, TKT-154 is
+   code-complete but not live or verified. The raster prompt-injection test is offline only; a harmless
+   adversarial-text PNG still requires live-model behavioral proof on the designated test case.
 
 **✅ Vision family — FLIPPED LIVE 2026-07-08 (was "deliberately deferred"):** on your instruction and with
 your **DPIA + `gpt-5` GlobalStandard processing/data-residency-posture sign-off confirmed 2026-07-08** (recorded in

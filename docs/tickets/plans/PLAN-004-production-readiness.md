@@ -2,7 +2,7 @@
 id: PLAN-004
 title: Production readiness and lifecycle completion
 status: active
-tickets: [TKT-041, TKT-102, TKT-149, TKT-151, TKT-152, TKT-153, TKT-154, TKT-155, TKT-156, TKT-157, TKT-158, TKT-159, TKT-160, TKT-161, TKT-162, TKT-163, TKT-164, TKT-165, TKT-166, TKT-167, TKT-168, TKT-169, TKT-170, TKT-171, TKT-172, TKT-173, TKT-174, TKT-175, TKT-176, TKT-177, TKT-178, TKT-179, TKT-180, TKT-181, TKT-182, TKT-183, TKT-184, TKT-185, TKT-186, TKT-187, TKT-188, TKT-189, TKT-190, TKT-191, TKT-192, TKT-193, TKT-194, TKT-195, TKT-197, TKT-198, TKT-199, TKT-200, TKT-205, TKT-206]
+tickets: [TKT-041, TKT-102, TKT-149, TKT-151, TKT-152, TKT-153, TKT-154, TKT-155, TKT-156, TKT-157, TKT-158, TKT-159, TKT-160, TKT-161, TKT-162, TKT-163, TKT-164, TKT-165, TKT-166, TKT-167, TKT-168, TKT-169, TKT-170, TKT-171, TKT-172, TKT-173, TKT-174, TKT-175, TKT-176, TKT-177, TKT-178, TKT-179, TKT-180, TKT-181, TKT-182, TKT-183, TKT-184, TKT-185, TKT-186, TKT-187, TKT-188, TKT-189, TKT-190, TKT-191, TKT-192, TKT-193, TKT-194, TKT-195, TKT-197, TKT-198, TKT-199, TKT-200, TKT-205, TKT-206, TKT-207, TKT-208]
 depends-on: []
 ---
 
@@ -107,7 +107,7 @@ This plan has **54 members**. It sequences implementation and verification, but 
 
 ### 9. Constrained inbound evidence channels (3)
 
-1. [TKT-154](../backlog/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) — add least-privilege registration-based image ingestion through the canonical evidence seam.
+1. [TKT-154](../now/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) — add least-privilege registration-based image ingestion through the canonical evidence seam.
 2. [TKT-156](../verify/TKT-156-chaser-file-request/TKT-156-chaser-file-request.md) — put an active Archive upload link into every applicable image chaser.
 3. [TKT-200](../now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md) — add a
    tightly scoped guided-photo session that materialises only reviewed submissions through the same
