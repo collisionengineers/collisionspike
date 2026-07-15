@@ -110,6 +110,7 @@ import {
   useLogChase,
   useInspectionAddressSuggestions,
   useLocationAssistGate,
+  useDeleteCaseImageGate,
   activeCopyFileRequestTransport,
   activeGetSharedLinkTransport,
   activeLocationAssistTransport,
@@ -643,6 +644,9 @@ interface EvidenceCardProps {
   deleting?: boolean;
   /** Case-field drafts must be saved/discarded before a deletion refreshes truth. */
   deleteDisabled?: boolean;
+  /** TKT-160 feature gate (DELETE_CASE_IMAGE_ENABLED). Ships DARK: when false the
+   *  destructive Delete-image control is hidden entirely. */
+  deleteEnabled?: boolean;
 }
 
 function EvidenceCard({
@@ -658,6 +662,7 @@ function EvidenceCard({
   onDelete,
   deleting,
   deleteDisabled,
+  deleteEnabled,
 }: EvidenceCardProps) {
   const styles = useStyles();
   const captureReviewWarning = guidedCaptureReviewWarning(ev);
@@ -791,17 +796,22 @@ function EvidenceCard({
               <span className={styles.inlineIconText}>Open in Archive <ArrowUpRight size={12} /></span>
             </Link>
           ) : <span />}
-          <Button
-            appearance="subtle"
-            size="small"
-            icon={<Trash2 size={14} />}
-            aria-label={`${ev.deletionPending ? 'Finish deleting' : 'Delete image'} ${ev.fileName}`}
-            title={deleteDisabled && !ev.deletionPending ? 'Save or discard the case changes first.' : undefined}
-            disabled={saving || deleting || (deleteDisabled && !ev.deletionPending)}
-            onClick={() => onDelete(ev)}
-          >
-            {ev.deletionPending ? 'Finish deleting' : 'Delete image'}
-          </Button>
+          {/* TKT-160 ships DARK: the destructive Delete-image control appears only when the
+              DELETE_CASE_IMAGE_ENABLED gate is on (server-authoritative). A placeholder keeps the
+              thumbActions row's space-between layout while hidden. */}
+          {deleteEnabled ? (
+            <Button
+              appearance="subtle"
+              size="small"
+              icon={<Trash2 size={14} />}
+              aria-label={`${ev.deletionPending ? 'Finish deleting' : 'Delete image'} ${ev.fileName}`}
+              title={deleteDisabled && !ev.deletionPending ? 'Save or discard the case changes first.' : undefined}
+              disabled={saving || deleting || (deleteDisabled && !ev.deletionPending)}
+              onClick={() => onDelete(ev)}
+            >
+              {ev.deletionPending ? 'Finish deleting' : 'Delete image'}
+            </Button>
+          ) : <span />}
         </div>
       </div>
     </div>
@@ -1082,6 +1092,10 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
   // "Open in Archive" deep link needs only the master API gate.
   const { data: gates } = useBoxGates();
   const archiveEnabled = gates?.apiEnabled ?? false;
+  // Destructive image-deletion gate (TKT-160). Ships DARK — undefined/loading reads as OFF,
+  // so the Delete-image control stays hidden until DELETE_CASE_IMAGE_ENABLED is flipped live.
+  const { data: deleteImageGate } = useDeleteCaseImageGate();
+  const deleteImageEnabled = deleteImageGate?.enabled ?? false;
   const uploadLinkEnabled = (gates?.fileRequestEnabled ?? false) && (gates?.fileRequestTemplateConfigured ?? false);
   const [openingArchive, setOpeningArchive] = useState(false);
 
@@ -2720,6 +2734,7 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
                             onDelete={openImageDeletion}
                             deleting={deletingImageId === ev.id}
                             deleteDisabled={hasUnsavedChanges}
+                            deleteEnabled={deleteImageEnabled}
                           />
                         ))}
                       </div>

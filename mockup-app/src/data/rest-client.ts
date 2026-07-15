@@ -52,6 +52,7 @@ import type {
   AssistantReply,
   ProposedAction,
   OutlookMoveGate,
+  DeleteCaseImageGate,
   OutlookMessageLinkResolution,
   ProviderApiKey,
   CreateProviderApiKeyInput,
@@ -76,6 +77,7 @@ import {
   LOCATION_ASSIST_GATE_ALL_OFF,
   AI_ASSIST_GATE_ALL_OFF,
   OUTLOOK_MOVE_GATE_ALL_OFF,
+  DELETE_CASE_IMAGE_GATE_ALL_OFF,
 } from '@cs/domain';
 
 export interface RestClientOptions {
@@ -380,6 +382,9 @@ export interface DataAccessExt extends DataAccess {
   /** Permanently delete one image from its case and required stores. The server
    *  owns scope checks, retries, audit and readiness recomputation. */
   deleteCaseImage(caseId: string, evidenceId: string): Promise<DeleteCaseImageResult>;
+  /** The destructive image-deletion gate (TKT-160, honest all-off on failure) — the
+   *  Delete-image control renders only when `enabled`. Ships DARK, so false live today. */
+  getDeleteCaseImageGate(): Promise<DeleteCaseImageGate>;
 
   /* ----- Inbound suggestion affordance — ref-gate (rules-engine-v2 Phase 2) -----
      Distinct from `aiSuggestions` above (case-scoped): keyed by the INBOUND EMAIL
@@ -1035,6 +1040,13 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       call<DeleteCaseImageResult>(
         'DELETE',
         `/api/cases/${enc(caseId)}/images/${enc(evidenceId)}`,
+      ),
+    // Destructive-delete gate (TKT-160) — honest all-off on failure, so the Delete-image
+    // control never appears by accident when the gate read fails or the feature is dark.
+    getDeleteCaseImageGate: () =>
+      safe(
+        () => get<DeleteCaseImageGate>('/api/gates/delete-case-image'),
+        { ...DELETE_CASE_IMAGE_GATE_ALL_OFF },
       ),
 
     /* ----- Inbound suggestions — ref-gate affordance (rules-engine-v2 Phase 2) ----- */

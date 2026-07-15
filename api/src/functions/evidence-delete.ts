@@ -11,6 +11,7 @@
 import { app, type InvocationContext } from '@azure/functions';
 import { evidenceKindCodec } from '@cs/domain/codecs';
 import { withRole } from '../lib/auth.js';
+import { gates } from '../lib/gates.js';
 import { query, tx, type TxQuery } from '../lib/db.js';
 import { actorFromClaims, AUDIT_ACTION, writeAuditStrict } from '../lib/audit.js';
 import { lockCaseForMutation } from '../lib/case-mutation-locks.js';
@@ -480,6 +481,14 @@ app.http('deleteCaseImage', {
   authLevel: 'anonymous',
   route: 'cases/{caseId}/images/{evidenceId}',
   handler: withRole('CollisionSpike.User', async (req, ctx: InvocationContext, claims) => {
+    // TKT-160 ships DARK: this is the ONLY destructive hard-delete of case evidence. It stays
+    // gated OFF (DELETE_CASE_IMAGE_ENABLED) until an operator flips it live. While OFF, return an
+    // honest disabled no-op BEFORE any snapshot / claim / store work — nothing is ever deleted.
+    // Matches the gated-off shape the peer routes use (image-analysis / globalSearch): a 200 with
+    // a `disabled` marker so the SPA (which also hides the control) degrades gracefully.
+    if (!gates.deleteCaseImage()) {
+      return { status: 200, jsonBody: { disabled: true, completed: false, reason: 'disabled' } };
+    }
     const caseId = (req.params.caseId ?? '').trim().toLowerCase();
     const evidenceId = (req.params.evidenceId ?? '').trim().toLowerCase();
     if (!caseId || !evidenceId) {

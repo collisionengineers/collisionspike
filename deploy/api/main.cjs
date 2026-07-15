@@ -12541,6 +12541,9 @@ var AI_ASSIST_GATE_ALL_OFF = {
 var OUTLOOK_MOVE_GATE_ALL_OFF = {
   enabled: false
 };
+var DELETE_CASE_IMAGE_GATE_ALL_OFF = {
+  enabled: false
+};
 var INBOUND_ATTENTION_REASONS = [
   "unable_to_locate",
   "images_no_match"
@@ -14574,7 +14577,10 @@ var audit_event_default = {
         { value: 100000059, name: "capture_asset_validated", label: "Capture Asset Validated" },
         { value: 100000060, name: "capture_session_completed", label: "Capture Session Completed" },
         { value: 100000061, name: "capture_session_retargeted", label: "Capture Session Retargeted" },
-        { value: 100000062, name: "capture_session_locked", label: "Capture Session Locked" }
+        { value: 100000062, name: "capture_session_locked", label: "Capture Session Locked" },
+        { value: 100000063, name: "image_deletion_requested", label: "Image Deletion Requested" },
+        { value: 100000064, name: "image_deletion_failed", label: "Image Deletion Needs Retry" },
+        { value: 100000065, name: "image_deleted", label: "Image Deleted" }
       ]
     },
     {
@@ -16500,8 +16506,11 @@ var AUDIT_ACTION_CODE_LABELS = {
   // capture_session_completed
   100000061: "Photo request moved",
   // capture_session_retargeted
-  100000062: "Photo request secured"
+  100000062: "Photo request secured",
   // capture_session_locked
+  100000063: "Image deletion requested",
+  100000064: "Image deletion needs retry",
+  100000065: "Image deleted"
 };
 var DEFAULT_LABEL = "Updated";
 var GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -16788,7 +16797,8 @@ function rowToEvidence(rec) {
     ...rec.reflection_dismissed === true ? { reflectionDismissed: true } : {},
     sourceLabel: rec.source_label ?? "",
     ...rec.box_file_id ? { boxFileId: rec.box_file_id } : {},
-    ...rec.box_file_url ? { boxFileUrl: rec.box_file_url } : {}
+    ...rec.box_file_url ? { boxFileUrl: rec.box_file_url } : {},
+    ...rec.deletion_operation_id ? { deletionPending: true } : {}
   };
 }
 function parseDomains(raw) {
@@ -17343,7 +17353,11 @@ var AUDIT_ACTION = {
   capture_asset_validated: 100000059,
   capture_session_completed: 100000060,
   capture_session_retargeted: 100000061,
-  capture_session_locked: 100000062
+  capture_session_locked: 100000062,
+  // TKT-160 — durable single-image delete request, retry outcome and completion.
+  image_deletion_requested: 100000063,
+  image_deletion_failed: 100000064,
+  image_deleted: 100000065
 };
 var SEVERITY_CODE = {
   info: 1e8,
@@ -17678,6 +17692,12 @@ var gates = {
   // scene-understanding stages carry image bytes off-region (GlobalStandard) — the live flip is
   // DPIA-gated (docs/gated.md; PLAN-001 Phase 4).
   imageAnalysis: () => process.env.IMAGE_ANALYSIS_ENABLED === "true",
+  // Destructive case-image deletion (TKT-160) — DELETE /api/cases/{caseId}/images/{evidenceId}.
+  // Default OFF; ships DARK. Guards the ONLY hard-delete of case evidence (cross-store: Archive +
+  // Blob + the active evidence row). While OFF the route is an honest disabled no-op BEFORE any
+  // snapshot/claim/store work — nothing is ever deleted — and the SPA hides the Delete-image
+  // control (GET /api/gates/delete-case-image). Live flip is operator-gated.
+  deleteCaseImage: () => process.env.DELETE_CASE_IMAGE_ENABLED === "true",
   // ---- PLAN-001 (AI hardening + MCP) gates — ALL default OFF, ship DARK ----
   // TKT-066/069 — the registry-driven read adapter for the assistant. When OFF the assistant
   // uses the original hand-written `execTool` (fast rollback); when ON it derives its tool set
@@ -18758,7 +18778,7 @@ async function recordOutlookLinkBackfillResult(result) {
 async function requestArchiveMirrorIfEligible(q, row) {
   const storagePath = typeof row.storage_path === "string" ? row.storage_path.trim() : "";
   const boxFileId = typeof row.box_file_id === "string" ? row.box_file_id.trim() : "";
-  if (row.excluded !== false || !row.id || !row.case_id || !storagePath || boxFileId) {
+  if (row.excluded !== false || !row.id || !row.case_id || !storagePath || boxFileId || row.deletion_operation_id != null) {
     return void 0;
   }
   return requestArchiveMirrorGeneration(
@@ -18793,7627 +18813,6 @@ async function requestArchiveMirror(q, row) {
   if (generation === void 0) throw new Error("archive mirror request returned no generation");
   return generation;
 }
-
-// api/src/functions/internal.ts
-async function withServiceAuth(req, ctx, fn) {
-  try {
-    await authenticate(req);
-  } catch (e) {
-    return toErrorResponse(e, ctx);
-  }
-  try {
-    return await fn(req, ctx);
-  } catch (e) {
-    ctx.error(e);
-    return { status: 500, jsonBody: { error: "internal" } };
-  }
-}
-var TERMINAL_INT_CODES = TERMINAL_STATUSES.map((s) => caseStatusCodec.toInt(s)).filter((v) => v != null);
-var AUDIT_ACTION_BY_NAME = Object.fromEntries(
-  Object.entries(AUDIT_ACTION).map(([name, code]) => [name, code])
-);
-function senderDomain(address) {
-  const at = address.lastIndexOf("@");
-  if (at < 0 || at === address.length - 1) return "";
-  return address.slice(at + 1).toLowerCase().trim();
-}
-async function mintBlockedByCategory(internetMessageId) {
-  const id = (internetMessageId ?? "").trim();
-  if (!id) return null;
-  try {
-    const rows = await query(
-      `SELECT c.name AS category
-         FROM inbound_email ie
-         JOIN choice_inbound_category c ON c.code = ie.category_code
-        WHERE ie.source_message_id = $1`,
-      [id]
-    );
-    const category = rows[0]?.category ?? "";
-    if (!category) return null;
-    return categoryMintsCase(category) ? null : category;
-  } catch {
-    return null;
-  }
-}
-var CHASER_STATUS_RESPONDED2 = 100000002;
-var CHASER_OUTSTANDING_CODES = [1e8, 100000001, 100000003];
-async function markOutstandingChasersResponded(caseId, via) {
-  try {
-    const rows = await query(
-      `UPDATE chaser SET status_code = $2, updated_at = now()
-        WHERE case_id = $1 AND status_code IN (${CHASER_OUTSTANDING_CODES.join(",")})
-        RETURNING id`,
-      [caseId, CHASER_STATUS_RESPONDED2]
-    );
-    if (rows.length > 0) {
-      await writeAudit({
-        action: AUDIT_ACTION.chaser_sent,
-        caseId,
-        summary: `Chaser marked responded \u2014 the requested item arrived (${via})`,
-        after: { chaserIds: rows.map((r) => r.id), via }
-      });
-    }
-    return rows.length;
-  } catch {
-    return 0;
-  }
-}
-async function recomputeStatus(caseId, acknowledgeGeneration) {
-  const previewRows = await query(`${CASE_SELECT} WHERE c.id = $1`, [caseId]);
-  const preview = previewRows[0];
-  if (preview && isPrefillApplicable(rowToCase(preview))) {
-    await prefillImageBasedInspection(caseId);
-  }
-  const result = await tx(async (q) => {
-    const rows = await q(
-      `${CASE_SELECT} WHERE c.id = $1 FOR UPDATE OF c`,
-      [caseId]
-    );
-    const rec = rows[0];
-    if (!rec) return { found: false, value: "error" };
-    const provenanceRows = await q(
-      "SELECT * FROM field_level_provenance WHERE case_id = $1",
-      [caseId]
-    );
-    const evidenceRows = await q("SELECT * FROM evidence WHERE case_id = $1", [caseId]);
-    const evidence = evidenceRows.map(rowToEvidence);
-    const full = rowToCase(rec, { evidence, provenanceRows });
-    const sourceEvidence = await manualIntakeEvidenceState(q, caseId);
-    const next = statusForReviewCase({
-      ...readinessInputForCase(full),
-      sourceEvidencePending: sourceEvidence.pending || sourceEvidence.archiveFailed,
-      sourceEvidenceArchiveFailed: sourceEvidence.archiveFailed
-    });
-    if (next !== full.status) {
-      await q("UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1", [
-        caseId,
-        statusToInt(next)
-      ]);
-      await writeAudit({
-        action: AUDIT_ACTION.status_changed,
-        caseId,
-        summary: `Status ${full.status} -> ${next} (internal recompute)`,
-        before: { status: full.status },
-        after: { status: next }
-      }, q);
-    }
-    if (acknowledgeGeneration != null) {
-      const ack = await q(
-        `UPDATE case_
-            SET status_recompute_completed_generation = GREATEST(
-                  status_recompute_completed_generation,
-                  LEAST($2::bigint, status_recompute_requested_generation)
-                )
-          WHERE id = $1
-          RETURNING status_recompute_requested_generation,
-                    status_recompute_completed_generation`,
-        [caseId, acknowledgeGeneration]
-      );
-      const requested = Number(ack[0].status_recompute_requested_generation);
-      const completedGeneration = Number(ack[0].status_recompute_completed_generation);
-      return {
-        found: true,
-        value: next,
-        completed: completedGeneration >= acknowledgeGeneration,
-        pending: completedGeneration < requested
-      };
-    }
-    return { found: true, value: next };
-  });
-  if (result.found) {
-    await maybeSuggestOverviewChase(caseId, result.value);
-  }
-  return result;
-}
-async function applyParserFields(caseId, parserRef, parserMileage, parserMileageUnit, parserEva, workProviderId, intermediary, recoveryContext) {
-  return tx((q) => applyParserFieldsUsing(
-    q,
-    caseId,
-    parserRef,
-    parserMileage,
-    parserMileageUnit,
-    parserEva,
-    workProviderId,
-    intermediary,
-    recoveryContext
-  ));
-}
-async function applyParserFieldsUsing(q, caseId, parserRef, parserMileage, parserMileageUnit, parserEva, workProviderId, intermediary, recoveryContext) {
-  let providerResolutionSource = "none";
-  let resolvedProviderId;
-  let effectiveCasePo = "";
-  let providerRecovery;
-  const result = () => ({
-    providerResolutionSource,
-    ...resolvedProviderId ? { resolvedProviderId } : {},
-    ...effectiveCasePo ? { casePo: effectiveCasePo } : {},
-    ...providerRecovery ? { providerRecovery } : {}
-  });
-  const ref = (parserRef ?? "").trim();
-  const mileageRaw = parserMileage != null ? String(parserMileage).trim() : "";
-  const mileage = normaliseExtractedEvaMileage(mileageRaw) ?? "";
-  const unitRaw = (parserMileageUnit ?? "").trim();
-  const unit = unitRaw === "Miles" || unitRaw === "Km" ? unitRaw : "";
-  const evaCandidates = selectParserEvaCandidates(parserEva);
-  const explicitClaimantConflicts = (parserEva?.claimant_conflicts ?? []).map((candidate) => ({
-    value: String(candidate?.value ?? "").trim().slice(0, 200),
-    sourceType: "email_text",
-    sourceLabel: "From email body",
-    sourceReference: String(candidate?.source_reference ?? parserEva?.source_reference ?? "").trim().slice(0, 400)
-  })).filter((candidate) => Boolean(candidate.value));
-  const matchedProviderId = (workProviderId ?? "").trim();
-  const mightFillWorkProviderFromCorpus = Boolean(matchedProviderId) && !evaCandidates.some((c) => c.column === "eva_work_provider");
-  const rawContentProvider = (parserEva?.work_provider ?? "").toString().trim();
-  const mightMatchWorkProviderIdFromContent = Boolean(rawContentProvider) && !isUnknownWorkProviderSentinel(rawContentProvider) && // TKT-051: an engineer-report layout name ("EVA (Engineers)") is the audited
-  // firm's report, never the instructing provider — skip the corpus match entirely.
-  !isEngineerReportLayoutSentinel(rawContentProvider);
-  const singleIntermediaryCandidate = intermediary && intermediary.candidateProviderIds.length === 1 ? intermediary.candidateProviderIds[0] : null;
-  if (!ref && !mileage && evaCandidates.length === 0 && explicitClaimantConflicts.length === 0 && !mightFillWorkProviderFromCorpus && !mightMatchWorkProviderIdFromContent && !singleIntermediaryCandidate) {
-    return result();
-  }
-  const readCols = Array.from(/* @__PURE__ */ new Set([
-    "case_ref",
-    "ov_claim_number",
-    "eva_mileage",
-    "eva_work_provider",
-    "work_provider_id",
-    "case_po",
-    "eva_claimant_name",
-    ...evaCandidates.map((c) => c.column)
-  ]));
-  const cur = await q(
-    `SELECT ${readCols.join(", ")} FROM case_ WHERE id = $1 FOR UPDATE`,
-    [caseId]
-  );
-  if (!cur[0]) return result();
-  effectiveCasePo = String(cur[0].case_po ?? "").trim();
-  const isEmpty = (v) => !String(v ?? "").trim();
-  const sets = [];
-  const vals = [];
-  let mileageFilled = false;
-  const provenance = [];
-  const claimantConflicts = [];
-  if (ref && isEmpty(cur[0].case_ref)) {
-    sets.push(`case_ref = $${sets.length + 1}`);
-    vals.push(ref.slice(0, 100));
-  }
-  if (ref && isEmpty(cur[0].ov_claim_number)) {
-    sets.push(`ov_claim_number = $${sets.length + 1}`);
-    vals.push(ref.slice(0, 100));
-  }
-  if (mileage && isEmpty(cur[0].eva_mileage)) {
-    sets.push(`eva_mileage = $${sets.length + 1}`);
-    vals.push(mileage.slice(0, 20));
-    mileageFilled = true;
-    if (unit) {
-      sets.push(`eva_mileage_unit = $${sets.length + 1}`);
-      vals.push(unit);
-    }
-  }
-  for (const cand of evaCandidates) {
-    if (isEmpty(cur[0][cand.column])) {
-      sets.push(`${cand.column} = $${sets.length + 1}`);
-      vals.push(cand.value);
-      provenance.push({
-        field: cand.provenanceField,
-        value: cand.value,
-        sourceType: cand.sourceType ?? "pdf_extraction",
-        sourceLabel: cand.sourceLabel ?? "From instructions",
-        sourceReference: String(parserEva?.source_reference ?? "").trim().slice(0, 400)
-      });
-    } else if (cand.provenanceField === "claimantName" && String(cur[0][cand.column] ?? "").trim().toLocaleLowerCase("en-GB") !== cand.value.trim().toLocaleLowerCase("en-GB")) {
-      claimantConflicts.push({
-        value: cand.value,
-        sourceType: cand.sourceType ?? "pdf_extraction",
-        sourceLabel: cand.sourceLabel ?? "From instructions",
-        sourceReference: String(parserEva?.source_reference ?? "").trim().slice(0, 400)
-      });
-    }
-  }
-  const selectedClaimant = evaCandidates.find(
-    (candidate) => candidate.provenanceField === "claimantName"
-  )?.value ?? "";
-  const effectiveClaimant = String(cur[0].eva_claimant_name ?? "").trim() || selectedClaimant;
-  const seenConflictKeys = new Set(
-    claimantConflicts.map((candidate) => candidate.value.trim().toLocaleLowerCase("en-GB"))
-  );
-  for (const candidate of explicitClaimantConflicts) {
-    const key = candidate.value.toLocaleLowerCase("en-GB");
-    if (key === effectiveClaimant.toLocaleLowerCase("en-GB") || seenConflictKeys.has(key)) continue;
-    seenConflictKeys.add(key);
-    claimantConflicts.push(candidate);
-  }
-  for (const conflict of claimantConflicts) {
-    const sourceCode = sourceTypeCodec.toInt(conflict.sourceType) ?? 100000001;
-    const conflictCode = reviewStateCodec.toInt("conflict") ?? 100000003;
-    const inserted = await q(
-      `INSERT INTO field_level_provenance
-         (name, case_id, field_name, value, source_type_code, source_label, source_reference,
-          review_state_code)
-       SELECT $1, $2, 'claimantName', $3, $4, $5, NULLIF($6, ''), $7
-       WHERE NOT EXISTS (
-         SELECT 1
-         FROM field_level_provenance
-         WHERE case_id = $2
-           AND field_name = 'claimantName'
-           AND lower(btrim(COALESCE(value, ''))) = lower(btrim($3))
-           AND COALESCE(source_reference, '') = $6
-       )
-       RETURNING id`,
-      [
-        `${caseId}:claimantName:conflict`,
-        caseId,
-        conflict.value,
-        sourceCode,
-        `${conflict.sourceLabel} \u2014 differs from the saved claimant`,
-        conflict.sourceReference,
-        conflictCode
-      ]
-    );
-    if (inserted.length > 0) {
-      await writeAudit({
-        action: AUDIT_ACTION.parser_called,
-        caseId,
-        severity: "warning",
-        summary: "A retained source names a different claimant \u2014 kept the saved claimant for review",
-        before: { claimantName: cur[0].eva_claimant_name },
-        after: { candidateClaimantName: conflict.value, provenanceId: inserted[0].id }
-      }, q);
-    }
-  }
-  if (mightMatchWorkProviderIdFromContent) {
-    const providerRows = await q(
-      "SELECT id, principal_code, display_name FROM work_provider WHERE active = true"
-    );
-    const contentCandidates = providerRows.map((r) => ({
-      workProviderId: r.id,
-      principalCode: r.principal_code ?? "",
-      displayName: r.display_name ?? ""
-    }));
-    const contentMatch = matchWorkProviderByContentString(rawContentProvider, contentCandidates);
-    if (contentMatch.outcome === "matched") {
-      const existingWorkProviderId2 = cur[0].work_provider_id ?? null;
-      const corroborated = Boolean(
-        intermediary?.candidateProviderIds?.includes(contentMatch.workProviderId)
-      );
-      if (isEmpty(existingWorkProviderId2)) {
-        sets.push(`work_provider_id = $${sets.length + 1}`);
-        vals.push(contentMatch.workProviderId);
-        providerResolutionSource = "instruction_content";
-        resolvedProviderId = contentMatch.workProviderId;
-        provenance.push({
-          field: "workProviderId",
-          value: contentMatch.workProviderId,
-          sourceType: "pdf_extraction",
-          sourceLabel: corroborated ? "From instructions \u2014 provider identified (confirmed by intermediary sender)" : "From instructions \u2014 provider identified"
-        });
-        if (corroborated) {
-          await writeAudit({
-            action: AUDIT_ACTION.provider_matched,
-            caseId,
-            summary: "Instruction content confirms the work provider the intermediary sender routes for",
-            after: {
-              workProviderId: contentMatch.workProviderId,
-              viaIntermediaryImageSourceId: intermediary?.imageSourceId
-            }
-          }, q);
-        }
-      } else if (existingWorkProviderId2 === contentMatch.workProviderId) {
-        providerResolutionSource = "instruction_content";
-        resolvedProviderId = contentMatch.workProviderId;
-      } else if (existingWorkProviderId2 !== contentMatch.workProviderId) {
-        await writeAudit({
-          action: AUDIT_ACTION.provider_matched,
-          caseId,
-          severity: "warning",
-          summary: "Instruction content names a different work provider than the one already on the case \u2014 kept the existing provider",
-          before: { workProviderId: existingWorkProviderId2 },
-          after: { contentDetectedWorkProviderId: contentMatch.workProviderId }
-        }, q);
-      }
-    }
-  }
-  let alreadySettingWorkProviderId = sets.some((s) => s.startsWith("work_provider_id ="));
-  const existingWorkProviderId = String(cur[0].work_provider_id ?? "").trim();
-  if (matchedProviderId && !resolvedProviderId && !alreadySettingWorkProviderId) {
-    if (!existingWorkProviderId) {
-      const wpRows = await q(
-        "SELECT display_name FROM work_provider WHERE id = $1 AND active = true",
-        [matchedProviderId]
-      );
-      if (wpRows[0]) {
-        sets.push(`work_provider_id = $${sets.length + 1}`);
-        vals.push(matchedProviderId);
-        providerResolutionSource = "sender_domain";
-        resolvedProviderId = matchedProviderId;
-        provenance.push({
-          field: "workProviderId",
-          value: matchedProviderId,
-          sourceType: "corpus",
-          sourceLabel: "Matched sender domain"
-        });
-        alreadySettingWorkProviderId = true;
-      }
-    } else if (existingWorkProviderId === matchedProviderId) {
-      providerResolutionSource = "sender_domain";
-      resolvedProviderId = matchedProviderId;
-    }
-  }
-  if (singleIntermediaryCandidate && !alreadySettingWorkProviderId && isEmpty(cur[0].work_provider_id)) {
-    const wpRows = await q(
-      "SELECT display_name FROM work_provider WHERE id = $1 AND active = true",
-      [singleIntermediaryCandidate]
-    );
-    if (wpRows[0]) {
-      sets.push(`work_provider_id = $${sets.length + 1}`);
-      vals.push(singleIntermediaryCandidate);
-      providerResolutionSource = "single_intermediary";
-      resolvedProviderId = singleIntermediaryCandidate;
-      provenance.push({
-        field: "workProviderId",
-        value: singleIntermediaryCandidate,
-        sourceType: "corpus",
-        sourceLabel: "From intermediary sender \u2014 routes for a single provider"
-      });
-      const corpusCandidate = corpusWorkProviderCandidate(wpRows[0].display_name);
-      if (corpusCandidate && isEmpty(cur[0].eva_work_provider) && !sets.some((s) => s.startsWith("eva_work_provider ="))) {
-        sets.push(`eva_work_provider = $${sets.length + 1}`);
-        vals.push(corpusCandidate.value);
-        provenance.push({
-          field: corpusCandidate.provenanceField,
-          value: corpusCandidate.value,
-          sourceType: "corpus",
-          sourceLabel: "From intermediary sender \u2014 routes for a single provider"
-        });
-      }
-      await writeAudit({
-        action: AUDIT_ACTION.provider_matched,
-        caseId,
-        summary: "Intermediary sender routes for exactly one work provider \u2014 provider resolved from the intermediary link",
-        after: {
-          workProviderId: singleIntermediaryCandidate,
-          viaIntermediaryImageSourceId: intermediary?.imageSourceId
-        }
-      }, q);
-    }
-  } else if (singleIntermediaryCandidate && !resolvedProviderId && existingWorkProviderId === singleIntermediaryCandidate) {
-    providerResolutionSource = "single_intermediary";
-    resolvedProviderId = singleIntermediaryCandidate;
-  }
-  if (mightFillWorkProviderFromCorpus && isEmpty(cur[0].eva_work_provider)) {
-    const wpRows = await q(
-      "SELECT display_name FROM work_provider WHERE id = $1",
-      [matchedProviderId]
-    );
-    const corpusCandidate = corpusWorkProviderCandidate(
-      wpRows[0]?.display_name
-    );
-    if (corpusCandidate) {
-      sets.push(`eva_work_provider = $${sets.length + 1}`);
-      vals.push(corpusCandidate.value);
-      provenance.push({
-        field: corpusCandidate.provenanceField,
-        value: corpusCandidate.value,
-        sourceType: "corpus",
-        sourceLabel: "Matched provider"
-      });
-    }
-  }
-  if (sets.length > 0) {
-    vals.push(caseId);
-    await q(
-      `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
-      vals
-    );
-  }
-  if (mileageFilled) {
-    provenance.unshift({
-      field: "mileage",
-      value: mileage.slice(0, 20),
-      sourceType: "pdf_extraction",
-      sourceLabel: "From instructions",
-      sourceReference: String(parserEva?.source_reference ?? "").trim().slice(0, 400)
-    });
-  }
-  const pdfSourceTypeCode = sourceTypeCodec.toInt("pdf_extraction") ?? 100000001;
-  const emailSourceTypeCode = sourceTypeCodec.toInt("email_text") ?? 100000002;
-  const corpusSourceTypeCode = sourceTypeCodec.toInt("corpus") ?? 100000003;
-  for (const p of provenance) {
-    const sourceTypeCode = p.sourceType === "corpus" ? corpusSourceTypeCode : p.sourceType === "email_text" ? emailSourceTypeCode : pdfSourceTypeCode;
-    const insertProvenance = () => q(
-      `INSERT INTO field_level_provenance
-         (name, case_id, field_name, value, source_type_code, source_label, source_reference)
-       VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''))`,
-      [
-        `${caseId}:${p.field}`,
-        caseId,
-        p.field,
-        p.value,
-        sourceTypeCode,
-        p.sourceLabel,
-        p.sourceReference ?? ""
-      ]
-    );
-    if (p.field === "claimantName") {
-      await insertProvenance();
-      continue;
-    }
-    await q("SAVEPOINT parser_provenance_write");
-    try {
-      await insertProvenance();
-      await q("RELEASE SAVEPOINT parser_provenance_write");
-    } catch (error2) {
-      await q("ROLLBACK TO SAVEPOINT parser_provenance_write");
-      await q("RELEASE SAVEPOINT parser_provenance_write");
-      console.warn("[applyParserFields] non-claimant provenance write failed", {
-        caseId,
-        field: p.field,
-        error: error2 instanceof Error ? error2.message : String(error2)
-      });
-    }
-  }
-  if (resolvedProviderId && recoveryContext) {
-    providerRecovery = await completeProviderRecoveryUsing(q, {
-      caseId,
-      resolvedProviderId,
-      ...recoveryContext.caseType ? { caseType: recoveryContext.caseType } : {},
-      caseTypeDual: recoveryContext.caseTypeDual === true,
-      allowCasePoMint: recoveryContext.allowCasePoMint !== false
-    });
-    if (providerRecovery.outcome === "identity_ready") {
-      await requestProviderArchive(q, caseId);
-    }
-    effectiveCasePo = providerRecovery.casePo ?? effectiveCasePo;
-  }
-  return result();
-}
-async function exactCaseForSourceMessage(q, sourceMessageId) {
-  const rows = await q(
-    `SELECT c.id, c.case_po, c.status_code, wp.provider_automation_mode_code
-       FROM case_ c
-       LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
-      WHERE c.source_message_id = $1`,
-    [sourceMessageId]
-  );
-  if (!rows[0]) return null;
-  const status = caseStatusCodec.toName(rows[0].status_code) ?? "error";
-  return {
-    caseId: rows[0].id,
-    casePo: rows[0].case_po ?? null,
-    providerAutomationMode: automationModeCodec.toName(rows[0].provider_automation_mode_code) ?? "manual",
-    status,
-    replayAllowed: !TERMINAL_STATUSES.includes(status)
-  };
-}
-import_functions.app.http("internalProviderMatchRecords", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "internal/provider-match-records",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const rows = await query(
-      "SELECT id, principal_code, known_email_domains, known_email_addresses, active, provider_automation_mode_code FROM work_provider ORDER BY display_name"
-    );
-    const providers = rows.map((r) => ({
-      workProviderId: r.id,
-      principalCode: r.principal_code,
-      knownEmailDomains: parseDomains2(r.known_email_domains),
-      knownEmailAddresses: parseDomains2(r.known_email_addresses),
-      active: Boolean(r.active),
-      // Lets the orchestrator branch on the matched provider's automation mode
-      // (work-todo-spike: automation-mode). Default review_auto (the live default).
-      providerAutomationMode: automationModeCodec.toName(r.provider_automation_mode_code) ?? "review_auto"
-    }));
-    const imageSourceRows = await query(
-      `SELECT img.id, img.name, img.email_domain,
-                COALESCE(array_agg(iw.work_provider_id) FILTER (WHERE iw.work_provider_id IS NOT NULL), '{}') AS candidate_provider_ids
-           FROM image_source img
-           LEFT JOIN imagesource_workprovider iw ON iw.image_source_id = img.id
-          WHERE img.kind_code = 100000002
-          GROUP BY img.id, img.name, img.email_domain
-          ORDER BY img.name`
-    );
-    const imageSources = imageSourceRows.map((r) => ({
-      imageSourceId: r.id,
-      name: r.name,
-      emailDomain: r.email_domain ?? "",
-      kind: "intermediary",
-      candidateProviderIds: r.candidate_provider_ids ?? []
-    }));
-    return { status: 200, jsonBody: { providers, imageSources } };
-  })
-});
-function parseDomains2(raw) {
-  if (!raw) return [];
-  const s = raw.trim();
-  if (s.startsWith("[")) {
-    try {
-      const arr = JSON.parse(s);
-      if (Array.isArray(arr)) return arr.map((d) => String(d).trim()).filter(Boolean);
-    } catch {
-    }
-  }
-  return s.split(/[\r\n,]+/).map((d) => d.trim()).filter(Boolean);
-}
-import_functions.app.http("internalWorkProviderAiAllowed", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "internal/work-provider/{id}/ai-allowed",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const workProviderId = req.params.id;
-    if (!await hasColumn("work_provider", "ai_allowed")) {
-      return { status: 200, jsonBody: { aiAllowed: null } };
-    }
-    const rows = await query("SELECT ai_allowed FROM work_provider WHERE id = $1", [
-      workProviderId
-    ]);
-    const raw = rows[0]?.ai_allowed;
-    const aiAllowed = raw == null ? null : Boolean(raw);
-    return { status: 200, jsonBody: { aiAllowed } };
-  })
-});
-import_functions.app.http("internalDedupContext", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "internal/dedup-context",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const workProviderId = req.query.get("workProviderId") ?? "";
-    const vrm = req.query.get("vrm") ?? "";
-    const sourceMessageId = (req.query.get("messageId") ?? "").trim();
-    const exactSourceOwner = sourceMessageId ? await exactCaseForSourceMessage(query, sourceMessageId) : null;
-    if (!workProviderId) {
-      return {
-        status: 200,
-        jsonBody: {
-          openProviderCases: [],
-          seenMessageIds: [],
-          seenPayloadHashes: [],
-          ...exactSourceOwner ? { exactSourceOwner } : {}
-        }
-      };
-    }
-    const caseRows = vrm ? await query(
-      `SELECT id, case_ref, status_code, work_provider_id
-               FROM case_
-              WHERE work_provider_id = $1
-                AND (vrm = $2 OR vrm IS NULL OR vrm = '')
-                AND status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
-              ORDER BY created_at`,
-      [workProviderId, vrm]
-    ) : await query(
-      `SELECT id, case_ref, status_code, work_provider_id
-               FROM case_
-              WHERE work_provider_id = $1
-                AND status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
-              ORDER BY created_at`,
-      [workProviderId]
-    );
-    const openProviderCases = caseRows.map((r) => ({
-      caseId: r.id,
-      caseRef: r.case_ref ?? void 0,
-      status: caseStatusCodec.toName(r.status_code) ?? "error",
-      workProviderId: r.work_provider_id ?? void 0
-    }));
-    const msgRows = await query(
-      `SELECT source_message_id FROM case_
-          WHERE work_provider_id = $1 AND source_message_id IS NOT NULL`,
-      [workProviderId]
-    );
-    const seenMessageIds = msgRows.map((r) => r.source_message_id);
-    const hashRows = await query(
-      `SELECT payload_hash FROM case_
-          WHERE work_provider_id = $1 AND payload_hash IS NOT NULL`,
-      [workProviderId]
-    );
-    const seenPayloadHashes = hashRows.map((r) => r.payload_hash);
-    return {
-      status: 200,
-      jsonBody: {
-        openProviderCases,
-        seenMessageIds,
-        seenPayloadHashes,
-        ...exactSourceOwner ? { exactSourceOwner } : {}
-      }
-    };
-  })
-});
-function buildHeldReason(input) {
-  const { senderDomain: domain, intermediary } = input;
-  if (!intermediary) {
-    return {
-      noteName: "New client",
-      noteText: `New client \u2014 no work provider matched for sender${domain ? ` @${domain}` : ""}. No Case/PO has been created. Set up the work provider and confirm before EVA.`,
-      auditSummary: "New client routed to Held (no work provider matched)"
-    };
-  }
-  const who = intermediary.name.trim() ? `Intermediary sender (${intermediary.name.trim()})` : "Intermediary sender";
-  const resolvedName = intermediary.resolvedProviderName.trim();
-  if (intermediary.resolutionSource === "instruction_content") {
-    return {
-      noteName: "Held \u2014 intermediary sender",
-      noteText: `${who}: ${resolvedName ? `the instructions identify ${resolvedName} as the provider` : "the instructions identify the provider"}. No Case/PO has been created. Confirm the provider before EVA.`,
-      auditSummary: "Intermediary sender routed to Held (provider found in the instructions)"
-    };
-  }
-  if (intermediary.resolutionSource === "single_intermediary") {
-    return {
-      noteName: "Held \u2014 intermediary sender",
-      noteText: `${who}: This intermediary routes work to one provider` + (resolvedName ? `, ${resolvedName},` : ",") + ` which has been selected. No Case/PO has been created. Confirm the provider before EVA.`,
-      auditSummary: "Intermediary sender routed to Held (single provider selected)"
-    };
-  }
-  const candidates = intermediary.candidateNames.map((n) => n.trim()).filter(Boolean);
-  return {
-    noteName: "Held \u2014 intermediary sender",
-    noteText: `${who}: the instructing provider could not be determined from the instruction.` + (candidates.length ? ` Possible providers: ${candidates.join(", ")}.` : "") + ` No Case/PO has been created. Pick the provider and confirm before EVA.`,
-    auditSummary: "Intermediary sender routed to Held (provider not yet confirmed)"
-  };
-}
-import_functions.app.http("internalCasesResolve", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/cases/resolve",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json();
-    const { inbound, providerId, decision } = body2;
-    const workProviderId = providerId ?? null;
-    const intermediary = body2.intermediaryImageSourceId ? {
-      imageSourceId: body2.intermediaryImageSourceId,
-      candidateProviderIds: body2.intermediaryCandidateProviderIds ?? []
-    } : null;
-    const vrmGuard = vrmOrEmpty(body2.parserVrm || inbound.candidateVrm);
-    if (vrmGuard.dropped) {
-      ctx.warn(
-        `[cases/resolve] over-length VRM candidate dropped (junk sniff > varchar(16)) for ${inbound.internetMessageId}`
-      );
-    }
-    const vrm = vrmGuard.value;
-    const caseType = caseTypeCodec.toInt(body2.caseType) != null ? body2.caseType : "standard";
-    const caseTypeDual = body2.caseTypeDual === true;
-    const caseTypeSignals = Array.isArray(body2.caseTypeSignals) ? body2.caseTypeSignals : [];
-    const auditGateOn = gates.auditCases();
-    let providerAutomationMode = "manual";
-    if (workProviderId) {
-      const wpMode = await query(
-        "SELECT provider_automation_mode_code FROM work_provider WHERE id = $1",
-        [workProviderId]
-      );
-      providerAutomationMode = automationModeCodec.toName(wpMode[0]?.provider_automation_mode_code) ?? "review_auto";
-    }
-    const persistExistingCase = async (targetCaseId, exactReplay) => {
-      await upsertInboundEmail(inbound, workProviderId, targetCaseId, void 0, body2.parserVrm);
-      const parserFieldsResult2 = await applyParserFields(
-        targetCaseId,
-        body2.parserRef,
-        body2.parserMileage,
-        body2.parserMileageUnit,
-        body2.parserEva,
-        workProviderId,
-        intermediary,
-        {
-          caseType: auditGateOn ? caseType : "standard",
-          caseTypeDual,
-          allowCasePoMint: true
-        }
-      );
-      if (parserFieldsResult2.resolvedProviderId && parserFieldsResult2.resolvedProviderId !== workProviderId) {
-        await upsertInboundEmail(
-          inbound,
-          parserFieldsResult2.resolvedProviderId,
-          targetCaseId,
-          void 0,
-          body2.parserVrm
-        );
-      }
-      providerAutomationMode = parserFieldsResult2.providerRecovery?.providerAutomationMode ?? providerAutomationMode;
-      const attachedIdentity = await query(
-        "SELECT case_po FROM case_ WHERE id = $1",
-        [targetCaseId]
-      );
-      const effectiveCasePo2 = parserFieldsResult2.casePo ?? (String(attachedIdentity[0]?.case_po ?? "").trim() || null);
-      await writeAudit({
-        action: AUDIT_ACTION.case_attached,
-        caseId: targetCaseId,
-        summary: exactReplay ? `Email ${inbound.internetMessageId} replayed against its existing case` : `Email ${inbound.internetMessageId} attached to existing case`,
-        after: {
-          messageId: inbound.internetMessageId,
-          resolution: exactReplay ? "replay" : "attach",
-          casePo: effectiveCasePo2,
-          providerRecovery: parserFieldsResult2.providerRecovery?.outcome ?? "not_needed"
-        }
-      });
-      if (!exactReplay) {
-        await markOutstandingChasersResponded(targetCaseId, "dedup attach");
-      }
-      return {
-        status: 200,
-        jsonBody: {
-          outcome: exactReplay ? "replayed" : "attached",
-          caseId: targetCaseId,
-          casePo: effectiveCasePo2,
-          providerAutomationMode,
-          providerRecovery: parserFieldsResult2.providerRecovery?.outcome ?? "not_needed"
-        }
-      };
-    };
-    if ((decision.resolution === "attach" || decision.resolution === "replay") && decision.targetCaseId) {
-      return persistExistingCase(decision.targetCaseId, decision.resolution === "replay");
-    }
-    const blockedCategory = await mintBlockedByCategory(inbound.internetMessageId);
-    if (blockedCategory) {
-      await writeAudit({
-        action: AUDIT_ACTION.inbound_routed,
-        severity: "warning",
-        summary: `Create refused \u2014 '${blockedCategory}' emails never open a case (kept in the inbox for review)`,
-        after: { messageId: inbound.internetMessageId, category: blockedCategory, seam: "cases/resolve" }
-      });
-      ctx.log(JSON.stringify({ evt: "caseResolvePersist", outcome: "refused_category", category: blockedCategory }));
-      return { status: 200, jsonBody: { outcome: "refused_category", category: blockedCategory } };
-    }
-    const rawStatus = decision.statusEffect;
-    const statusCode = caseStatusCodec.toInt(rawStatus) ?? statusToInt("new_email");
-    const caseRefGuard = clampVarchar(inbound.candidateRef, 100);
-    if (caseRefGuard.clamped) {
-      ctx.warn(
-        `[cases/resolve] candidateRef clamped to 100 chars (was ${caseRefGuard.originalLength}) for ${inbound.internetMessageId}`
-      );
-    }
-    const caseRef = caseRefGuard.value;
-    const subject = (inbound.subject ?? "").trim();
-    const name = ([vrm || null, subject || null].filter(Boolean).join(" \xB7 ") || "Email intake").slice(0, 100);
-    const emailKindCode = intakeChannelKindCodec.toInt("email") ?? null;
-    let created;
-    try {
-      created = await tx(async (q) => {
-        await acquireTriageLocks(q, { caseref: caseRef, vrm });
-        let principalCode = "";
-        if (workProviderId) {
-          const wp = await q("SELECT principal_code FROM work_provider WHERE id = $1", [workProviderId]);
-          principalCode = String(wp[0]?.principal_code ?? "").trim();
-        }
-        const newClient = !workProviderId || !principalCode;
-        const mintedMarker = auditGateOn && !newClient ? markerForMint(caseType, principalCode, caseTypeDual) : "";
-        let casePo = null;
-        if (!newClient) {
-          casePo = await mintCasePo(q, principalCode, void 0, mintedMarker);
-        }
-        const cols = [
-          "name",
-          "vrm",
-          "status_code",
-          "intake_channel_kind_code",
-          "intake_channel_manual",
-          "source_mailbox",
-          "source_message_id",
-          "payload_hash",
-          "work_provider_id"
-        ];
-        const vals = [
-          name,
-          vrm || null,
-          statusCode,
-          emailKindCode,
-          false,
-          inbound.sourceMailbox ?? null,
-          inbound.internetMessageId ?? null,
-          inbound.payloadHash ?? null,
-          workProviderId
-        ];
-        if (caseRef) {
-          cols.push("case_ref");
-          vals.push(caseRef);
-        }
-        if (caseRef) {
-          cols.push("ov_claim_number");
-          vals.push(caseRef.slice(0, 100));
-        }
-        if (casePo) {
-          cols.push("case_po");
-          vals.push(casePo);
-        }
-        if (auditGateOn && caseType !== "standard") {
-          cols.push("case_type_code");
-          vals.push(caseTypeCodec.toInt(caseType) ?? null);
-        }
-        if (newClient) {
-          cols.push("on_hold");
-          vals.push(true);
-          cols.push("on_hold_reason");
-          vals.push("provider_unresolved");
-          cols.push("action_reason_code");
-          vals.push(actionReasonCodec.toInt("needs_review") ?? null);
-        }
-        const placeholders = vals.map((_, i) => `$${i + 1}`).join(", ");
-        const rows = await q(
-          `INSERT INTO case_ (${cols.join(", ")}) VALUES (${placeholders}) RETURNING id`,
-          vals
-        );
-        const caseId = rows[0]?.id;
-        if (!caseId) throw new Error("case insert returned no id");
-        return { caseId, casePo, newClient, principalCode, mintedMarker };
-      });
-    } catch (e) {
-      if (isUniqueViolation(e)) {
-        const constraint = uniqueConstraintName(e);
-        if (constraint === "uq_case_case_po") {
-          ctx.error(`[cases/resolve] case_po unique collision (${constraint})`);
-          return { status: 500, jsonBody: { error: "case_po_collision" } };
-        }
-        const replay = await exactCaseForSourceMessage(query, inbound.internetMessageId);
-        if (replay) {
-          ctx.log(JSON.stringify({
-            evt: "caseResolvePersist",
-            outcome: replay.replayAllowed ? "replay_recovered" : "terminal_duplicate_dropped",
-            caseId: replay.caseId,
-            sourceMessageExact: true
-          }));
-          if (replay.replayAllowed) return persistExistingCase(replay.caseId, true);
-          return {
-            status: 200,
-            jsonBody: {
-              outcome: "already_ingested",
-              caseId: replay.caseId,
-              casePo: replay.casePo,
-              providerAutomationMode: replay.providerAutomationMode
-            }
-          };
-        }
-        return { status: 409, jsonBody: { error: "conflict", detail: "source_message_id already exists" } };
-      }
-      throw e;
-    }
-    const newCaseId = created.caseId;
-    await upsertInboundEmail(inbound, workProviderId, newCaseId, void 0, body2.parserVrm);
-    const parserFieldsResult = await applyParserFields(
-      newCaseId,
-      body2.parserRef,
-      body2.parserMileage,
-      body2.parserMileageUnit,
-      body2.parserEva,
-      workProviderId,
-      intermediary,
-      {
-        caseType: auditGateOn ? caseType : "standard",
-        caseTypeDual,
-        allowCasePoMint: true
-      }
-    );
-    if (parserFieldsResult.resolvedProviderId && parserFieldsResult.resolvedProviderId !== workProviderId) {
-      await upsertInboundEmail(
-        inbound,
-        parserFieldsResult.resolvedProviderId,
-        newCaseId,
-        void 0,
-        body2.parserVrm
-      );
-    }
-    const providerCompletion = parserFieldsResult.providerRecovery;
-    const effectiveCasePo = parserFieldsResult.casePo ?? created.casePo;
-    const effectivePrincipalCode = providerCompletion?.principalCode ?? created.principalCode;
-    const effectiveMarker = providerCompletion?.casePoMarker ?? created.mintedMarker;
-    const effectiveNewClient = created.newClient && providerCompletion?.holdCleared !== true;
-    providerAutomationMode = providerCompletion?.providerAutomationMode ?? providerAutomationMode;
-    const auditAction = AUDIT_ACTION[decision.auditAction] ?? AUDIT_ACTION.case_created;
-    await writeAudit({
-      action: auditAction,
-      caseId: newCaseId,
-      summary: `Case ${decision.resolution}: ${name}`,
-      after: {
-        resolution: decision.resolution,
-        status: rawStatus,
-        vrm,
-        casePo: effectiveCasePo,
-        providerRecovery: providerCompletion?.outcome ?? "not_needed"
-      }
-    });
-    if (caseType !== "standard") {
-      const allowlisted = allowedCaseTypes(effectivePrincipalCode).includes(caseType);
-      if (!auditGateOn) {
-        await writeAudit({
-          action: AUDIT_ACTION.case_created,
-          caseId: newCaseId,
-          summary: `Case-type '${caseType}' detected (observe-only \u2014 AUDIT_CASES_ENABLED off; minted standard)`,
-          after: { caseType, dual: caseTypeDual, signals: caseTypeSignals, applied: false }
-        });
-      } else if (!allowlisted && !effectiveNewClient) {
-        await writeAudit({
-          action: AUDIT_ACTION.case_created,
-          caseId: newCaseId,
-          severity: "warning",
-          summary: `Case-type '${caseType}' detected for non-allowlisted provider ${effectivePrincipalCode} \u2014 minted standard; review case type`,
-          after: { caseType, dual: caseTypeDual, signals: caseTypeSignals, applied: false }
-        });
-        await query(
-          `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
-          [
-            "Case-type review",
-            newCaseId,
-            "Email intake (auto)",
-            `${caseType === "diminution" ? "Diminution" : "Audit"} signals detected (${caseTypeSignals.join("; ") || "see audit log"}) but ${effectivePrincipalCode || "this provider"} is not in the case-type marker allowlist \u2014 case minted as standard. Confirm the case type.`
-          ]
-        ).catch(() => {
-        });
-      } else {
-        await writeAudit({
-          action: AUDIT_ACTION.case_created,
-          caseId: newCaseId,
-          summary: `Case-type '${caseType}' applied` + (effectiveMarker ? ` \u2014 minted ${effectiveCasePo} from the ${effectiveMarker} sequence` : caseTypeDual ? ` \u2014 dual report+audit letter, standard number kept (audit ID derived at review)` : ""),
-          after: {
-            caseType,
-            dual: caseTypeDual,
-            signals: caseTypeSignals,
-            applied: true,
-            marker: effectiveMarker,
-            casePo: effectiveCasePo
-          }
-        });
-      }
-    }
-    if (effectiveNewClient) {
-      const domain = senderDomain(inbound.senderAddress ?? "");
-      let heldIntermediary = null;
-      if (intermediary) {
-        heldIntermediary = {
-          name: "",
-          candidateNames: [],
-          resolvedProviderName: "",
-          resolutionSource: parserFieldsResult.providerResolutionSource
-        };
-        try {
-          const src = await query(
-            "SELECT name FROM image_source WHERE id = $1",
-            [intermediary.imageSourceId]
-          );
-          heldIntermediary.name = String(src[0]?.name ?? "").trim();
-          if (intermediary.candidateProviderIds.length > 0) {
-            const wps = await query(
-              "SELECT display_name FROM work_provider WHERE id = ANY($1::uuid[]) ORDER BY display_name",
-              [intermediary.candidateProviderIds]
-            );
-            heldIntermediary.candidateNames = wps.map((r) => String(r.display_name ?? "").trim()).filter(Boolean);
-          }
-          if (parserFieldsResult.resolvedProviderId) {
-            const resolved = await query(
-              "SELECT display_name FROM work_provider WHERE id = $1",
-              [parserFieldsResult.resolvedProviderId]
-            );
-            heldIntermediary.resolvedProviderName = String(
-              resolved[0]?.display_name ?? ""
-            ).trim();
-          }
-        } catch {
-        }
-      }
-      const reason = buildHeldReason({ senderDomain: domain, intermediary: heldIntermediary });
-      await query(
-        `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
-        [reason.noteName, newCaseId, "Email intake (auto)", reason.noteText]
-      ).catch(() => {
-      });
-      await writeAudit({
-        action: AUDIT_ACTION.inbound_routed,
-        caseId: newCaseId,
-        severity: "warning",
-        summary: reason.auditSummary,
-        after: intermediary ? {
-          intermediary: true,
-          onHold: true,
-          senderDomain: domain,
-          imageSourceId: intermediary.imageSourceId,
-          candidateProviderIds: intermediary.candidateProviderIds,
-          ...heldIntermediary?.resolvedProviderName ? { resolvedProvider: heldIntermediary.resolvedProviderName } : {},
-          providerResolutionSource: heldIntermediary?.resolutionSource ?? "none"
-        } : { newClient: true, onHold: true, senderDomain: domain }
-      });
-    }
-    return {
-      status: 200,
-      jsonBody: {
-        outcome: "created",
-        caseId: newCaseId,
-        casePo: effectiveCasePo,
-        providerAutomationMode,
-        providerRecovery: providerCompletion?.outcome ?? "not_needed"
-      }
-    };
-  })
-});
-import_functions.app.http("internalInboundEmail", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/inbound-email",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json();
-    const inboundEmailId = await upsertInboundEmail(
-      body2.inbound,
-      body2.providerId ?? null,
-      null,
-      body2.classification
-    );
-    return { status: 200, jsonBody: { inboundEmailId } };
-  })
-});
-async function upsertInboundEmail(inbound, workProviderId, caseId, classification, parserVrm, triageState) {
-  const subject = (inbound.subject ?? "").trim();
-  const name = clampVarchar(`Email: ${subject || inbound.internetMessageId}`, 200).value;
-  const categoryCode = classification ? INBOUND_CATEGORY_TO_INT[classification.category] ?? null : null;
-  const subtypeCode = classification ? INBOUND_SUBTYPE_TO_INT[classification.subtype] ?? null : null;
-  const bodyVrm = vrmOrEmpty(parserVrm || classification?.bodyVrm || inbound.candidateVrm).value || null;
-  const bodyCaseref = clampVarchar(classification?.bodyCaseref || inbound.candidateRef || "", 32).value || null;
-  const bodyPreview = (inbound.bodyPreview ?? "") || null;
-  const confidence = classification ? classification.confidence : null;
-  const signals = classification ? JSON.stringify(classification.signals ?? []) : null;
-  const bodyJobref = clampVarchar(classification?.bodyJobref, 64).value || null;
-  const conversationId = (inbound.conversationId ?? "").trim() || null;
-  const rawGraphMessageId = (inbound.graphMessageId ?? "").trim();
-  const normalizedOutlookWebLink = normalizeOutlookWebLink(inbound.outlookWebLink) ?? null;
-  const hasCompleteOutlookTuple = rawGraphMessageId.length > 0 && rawGraphMessageId.length <= 1024 && normalizedOutlookWebLink !== null;
-  const graphMessageId = hasCompleteOutlookTuple ? rawGraphMessageId : null;
-  const outlookWebLink = hasCompleteOutlookTuple ? normalizedOutlookWebLink : null;
-  try {
-    const presentCols = await tableColumns("inbound_email");
-    const optional2 = planOptionalColumns(
-      "inbound_email",
-      [
-        { column: "body_jobref", value: bodyJobref },
-        { column: "conversation_id", value: conversationId },
-        { column: "graph_message_id", value: graphMessageId },
-        { column: "outlook_web_link", value: outlookWebLink }
-      ],
-      presentCols,
-      19
-    );
-    const optionalColsFragment = optional2.cols.length ? `, ${optional2.cols.join(", ")}` : "";
-    const optionalValsFragment = optional2.placeholders.length ? `, ${optional2.placeholders.join(", ")}` : "";
-    const optionalUpdateFragment = optional2.updateSets.length ? `${optional2.updateSets.join(",\n         ")},
-         ` : "";
-    const rows = await query(
-      `INSERT INTO inbound_email
-         (name, source_message_id, subject, from_address, sender_domain,
-          source_mailbox, received_on, has_attachments, category_code, subtype_code,
-          confidence, classifier_mode, signals, triage_state, body_vrm, body_caseref,
-          body_preview, case_id, work_provider_id${optionalColsFragment})
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,COALESCE($18, 'new'),$13,$14,$15,$16,$17${optionalValsFragment})
-       ON CONFLICT (source_mailbox, source_message_id) DO UPDATE SET
-         case_id          = COALESCE(EXCLUDED.case_id, inbound_email.case_id),
-         category_code    = CASE
-                              WHEN inbound_email.classifier_mode = 'human'
-                                THEN inbound_email.category_code
-                              ELSE COALESCE(EXCLUDED.category_code, inbound_email.category_code)
-                            END,
-         subtype_code     = CASE
-                              WHEN inbound_email.classifier_mode = 'human'
-                                THEN inbound_email.subtype_code
-                              ELSE COALESCE(EXCLUDED.subtype_code, inbound_email.subtype_code)
-                            END,
-         confidence       = CASE
-                              WHEN inbound_email.classifier_mode = 'human'
-                                THEN inbound_email.confidence
-                              ELSE COALESCE(EXCLUDED.confidence, inbound_email.confidence)
-                            END,
-         signals          = CASE
-                              WHEN inbound_email.classifier_mode = 'human'
-                                THEN inbound_email.signals
-                              ELSE COALESCE(EXCLUDED.signals, inbound_email.signals)
-                            END,
-         body_vrm         = COALESCE(EXCLUDED.body_vrm, inbound_email.body_vrm),
-         body_caseref     = COALESCE(EXCLUDED.body_caseref, inbound_email.body_caseref),
-         body_preview     = COALESCE(EXCLUDED.body_preview, inbound_email.body_preview),
-         work_provider_id = COALESCE(EXCLUDED.work_provider_id, inbound_email.work_provider_id),
-         ${optionalUpdateFragment}triage_state     = CASE
-                              WHEN inbound_email.triage_state IN ('actioned','dismissed')
-                                THEN inbound_email.triage_state
-                              ELSE COALESCE($18, inbound_email.triage_state)
-                            END,
-         updated_at       = now()
-       RETURNING id`,
-      [
-        name,
-        inbound.internetMessageId ?? null,
-        subject || null,
-        inbound.senderAddress ?? null,
-        senderDomain(inbound.senderAddress ?? ""),
-        (inbound.sourceMailbox ?? "").trim().toLowerCase() || null,
-        inbound.receivedAt ?? null,
-        (inbound.attachments?.length ?? 0) > 0,
-        categoryCode,
-        subtypeCode,
-        confidence,
-        signals,
-        bodyVrm,
-        bodyCaseref,
-        bodyPreview,
-        caseId,
-        workProviderId,
-        triageState ?? null,
-        ...optional2.values
-      ]
-    );
-    const inboundEmailId = rows[0]?.id ?? null;
-    if (inboundEmailId && classification && (categoryCode != null || subtypeCode != null)) {
-      await query(
-        `UPDATE inbound_email
-            SET suggested_category_code = COALESCE(suggested_category_code, $2),
-                suggested_subtype_code  = COALESCE(suggested_subtype_code, $3)
-          WHERE id = $1`,
-        [inboundEmailId, categoryCode, subtypeCode]
-      ).catch(() => {
-      });
-    }
-    return inboundEmailId;
-  } catch {
-    return null;
-  }
-}
-function isUniqueViolation(e) {
-  return e != null && typeof e === "object" && "code" in e && e.code === "23505";
-}
-function uniqueConstraintName(e) {
-  if (e != null && typeof e === "object" && "constraint" in e) {
-    const c = e.constraint;
-    return typeof c === "string" ? c : void 0;
-  }
-  return void 0;
-}
-import_functions.app.http("internalInboundLinkReply", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/inbound/link-reply",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json();
-    const { inbound } = body2;
-    const workProviderId = body2.providerId ?? null;
-    const ref = (body2.ref ?? "").trim();
-    const vrm = (body2.vrm ?? "").trim();
-    const jobref = (body2.jobref ?? "").trim();
-    const { candidates, refConflict } = await tx(async (q) => {
-      await acquireTriageLocks(q, { caseref: ref, vrm });
-      let rows = [];
-      let vrmArm = false;
-      if (ref) {
-        rows = await q(
-          `SELECT id, case_ref, case_po, vrm FROM case_
-              WHERE (upper(case_ref) = upper($1) OR upper(case_po) = upper($1))
-                AND status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
-              ORDER BY created_at`,
-          [ref]
-        );
-      }
-      if (rows.length === 0 && vrm) {
-        vrmArm = true;
-        rows = await q(
-          `SELECT id, case_ref, case_po, vrm FROM case_
-              WHERE vrm = $1
-                AND status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
-              ORDER BY created_at`,
-          [vrm]
-        );
-      }
-      let conflict = false;
-      if (vrmArm && rows.length === 1 && (jobref || ref)) {
-        const hit = rows[0];
-        const sibs = await q(
-          `SELECT DISTINCT body_jobref FROM inbound_email
-              WHERE case_id = $1 AND body_jobref IS NOT NULL AND body_jobref <> ''`,
-          [hit.id]
-        );
-        const known = [
-          hit.case_ref,
-          hit.case_po,
-          ...sibs.map((s) => s.body_jobref)
-        ];
-        conflict = vrmLinkRefConflict(jobref, known) || vrmLinkRefConflict(ref, known);
-      }
-      return { candidates: conflict ? [] : rows, refConflict: conflict };
-    });
-    if (refConflict) {
-      await upsertInboundEmail(inbound, workProviderId, null);
-      await writeAudit({
-        action: AUDIT_ACTION.duplicate_flagged,
-        severity: "warning",
-        summary: `Reply matched a case by registration only (vrm ${vrm}) but cites a different reference (${jobref || ref}); held for manual linking`,
-        after: { vrm, jobref: jobref || ref, messageId: inbound.internetMessageId }
-      });
-      ctx.log(JSON.stringify({ evt: "linkReply", outcome: "no_match", reason: "vrm_ref_conflict", jobref }));
-      return { status: 200, jsonBody: { outcome: "no_match", candidateCount: 0 } };
-    }
-    const linkCaseId = candidates.length === 1 ? candidates[0].id : null;
-    await upsertInboundEmail(
-      inbound,
-      workProviderId,
-      linkCaseId,
-      void 0,
-      void 0,
-      linkCaseId ? "routed" : void 0
-    );
-    if (linkCaseId) {
-      await writeAudit({
-        action: AUDIT_ACTION.inbound_routed,
-        caseId: linkCaseId,
-        summary: `Reply linked to existing case (${ref ? `ref ${ref}` : `vrm ${vrm}`})`,
-        after: { matchedBy: ref ? "caseref" : "vrm", messageId: inbound.internetMessageId }
-      });
-      await markOutstandingChasersResponded(linkCaseId, "reply linked");
-      ctx.log(JSON.stringify({ evt: "linkReply", outcome: "linked", caseId: linkCaseId }));
-      return { status: 200, jsonBody: { outcome: "linked", caseId: linkCaseId, candidateCount: 1 } };
-    }
-    if (candidates.length > 1) {
-      await writeAudit({
-        action: AUDIT_ACTION.duplicate_flagged,
-        severity: "warning",
-        summary: `Reply matched ${candidates.length} open cases (${ref ? `ref ${ref}` : `vrm ${vrm}`}); held for manual linking`,
-        after: { candidateCount: candidates.length, candidateIds: candidates.map((c) => c.id) }
-      });
-      ctx.log(JSON.stringify({ evt: "linkReply", outcome: "ambiguous", count: candidates.length }));
-      return { status: 200, jsonBody: { outcome: "ambiguous", candidateCount: candidates.length } };
-    }
-    ctx.log(JSON.stringify({ evt: "linkReply", outcome: "no_match" }));
-    return { status: 200, jsonBody: { outcome: "no_match", candidateCount: 0 } };
-  })
-});
-import_functions.app.http("internalTriageContext", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/triage/context",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json().catch(() => ({}));
-    const caseref = (body2.caseref ?? "").trim();
-    const jobref = (body2.jobref ?? "").trim();
-    const vrm = (body2.vrm ?? "").trim();
-    const internetMessageId = (body2.internetMessageId ?? "").trim();
-    const conversationId = (body2.conversationId ?? "").trim();
-    const hasConversationCol = await hasColumn("inbound_email", "conversation_id");
-    const result = await tx(async (q) => {
-      await acquireTriageLocks(q, { caseref, jobref, vrm });
-      let openCaseMatches = [];
-      if (caseref || jobref || vrm) {
-        const rows = await q(
-          `SELECT id, case_po, status_code, duplicate_keys,
-                    CASE
-                      WHEN $1 <> '' AND (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)) THEN 'case_po'
-                      WHEN $2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)) THEN 'job_ref'
-                      WHEN $3 <> '' AND upper(vrm) = upper($3) THEN 'vrm'
-                    END AS matched_on
-               FROM case_
-              WHERE status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
-                AND (
-                  ($1 <> '' AND (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)))
-                  OR ($2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)))
-                  OR ($3 <> '' AND upper(vrm) = upper($3))
-                )
-              ORDER BY created_at`,
-          [caseref, jobref, vrm]
-        );
-        openCaseMatches = rows.filter((r) => {
-          const status = caseStatusCodec.toName(r.status_code) ?? "error";
-          return !(status === "linked_to_instruction" && mergedIntoFrom(r.duplicate_keys));
-        }).map((r) => ({
-          caseId: r.id,
-          casePo: r.case_po ?? "",
-          matchedOn: r.matched_on,
-          status: caseStatusCodec.toName(r.status_code) ?? "error"
-        }));
-      }
-      let duplicateInternetMessageId = false;
-      if (internetMessageId) {
-        const dupRows = await q(
-          `SELECT EXISTS (
-                SELECT 1 FROM case_ WHERE source_message_id = $1
-              ) AS found`,
-          [internetMessageId]
-        );
-        duplicateInternetMessageId = Boolean(dupRows[0]?.found);
-      }
-      let conversationSiblingCaseIds = [];
-      if (hasConversationCol && conversationId) {
-        const sibRows = await q(
-          `SELECT DISTINCT case_id FROM inbound_email
-              WHERE conversation_id = $1 AND case_id IS NOT NULL`,
-          [conversationId]
-        );
-        conversationSiblingCaseIds = sibRows.map((r) => r.case_id);
-      }
-      return { openCaseMatches, duplicateInternetMessageId, conversationSiblingCaseIds };
-    });
-    return { status: 200, jsonBody: result };
-  })
-});
-import_functions.app.http("internalTriageSuggestLink", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/triage/suggest-link",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json().catch(() => ({}));
-    const suggestionType = body2.suggestionType;
-    if (suggestionType !== "case_link" && suggestionType !== "cancellation" && suggestionType !== "triage_category") {
-      return {
-        status: 400,
-        jsonBody: { error: "suggestionType must be 'case_link', 'cancellation' or 'triage_category'" }
-      };
-    }
-    const sourceMessageId = (body2.sourceMessageId ?? "").trim() || null;
-    const targetCaseId = suggestionType === "triage_category" ? null : (body2.targetCaseId ?? "").trim() || null;
-    const rationale = (body2.rationale ?? "").trim() || null;
-    const confidence = typeof body2.confidence === "number" ? body2.confidence : null;
-    const decisionInputs = body2.decisionInputs ?? {};
-    let triageCategory = null;
-    let triageSubtype = null;
-    if (suggestionType === "triage_category") {
-      const cat = (body2.category ?? "").trim();
-      const sub = (body2.subtype ?? "").trim();
-      if (!cat || !(cat in INBOUND_CATEGORY_TO_INT)) {
-        return { status: 400, jsonBody: { error: "category must be a known inbound category" } };
-      }
-      if (!sub || !(sub in INBOUND_SUBTYPE_TO_INT)) {
-        return { status: 400, jsonBody: { error: "subtype must be a known inbound subtype" } };
-      }
-      triageCategory = cat;
-      triageSubtype = sub;
-    }
-    let inboundEmailId = (body2.inboundEmailId ?? "").trim() || null;
-    if (!inboundEmailId && sourceMessageId) {
-      const rows = await query(
-        "SELECT id FROM inbound_email WHERE source_message_id = $1",
-        [sourceMessageId]
-      );
-      inboundEmailId = rows[0]?.id ?? null;
-    }
-    const idemKey = deriveSuggestionIdempotencyKey({
-      suggestionType,
-      inboundEmailId,
-      sourceMessageId,
-      targetCaseId
-    });
-    let existing = [];
-    if (idemKey) {
-      existing = idemKey.subjectKind === "inbound_email_id" ? await query(
-        `SELECT id FROM ai_suggestion
-                  WHERE suggestion_type = $1 AND review_state = 'pending' AND inbound_email_id = $2
-                    AND (suggested_value->>'targetCaseId') IS NOT DISTINCT FROM $3
-                  LIMIT 1`,
-        [idemKey.suggestionType, idemKey.subject, idemKey.targetCaseId]
-      ) : await query(
-        `SELECT id FROM ai_suggestion
-                  WHERE suggestion_type = $1 AND review_state = 'pending' AND inbound_email_id IS NULL
-                    AND (suggested_value->>'sourceMessageId') IS NOT DISTINCT FROM $2
-                    AND (suggested_value->>'targetCaseId') IS NOT DISTINCT FROM $3
-                  LIMIT 1`,
-        [idemKey.suggestionType, idemKey.subject, idemKey.targetCaseId]
-      );
-    }
-    if (existing[0]) {
-      return { status: 200, jsonBody: { suggestionId: existing[0].id, created: false } };
-    }
-    let casePo = null;
-    if (targetCaseId) {
-      const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [targetCaseId]);
-      casePo = caseRows[0]?.case_po ?? null;
-    }
-    const suggestedValue = suggestionType === "triage_category" ? {
-      category: triageCategory,
-      subtype: triageSubtype,
-      // Carry sourceMessageId so the source_message_id-subject idempotency SELECT (used
-      // when the inbound_email row isn't resolvable yet — inboundEmailId null) can match a
-      // prior PENDING copy on a Durable at-least-once retry. Without it the dedup filters
-      // on `suggested_value->>'sourceMessageId'`, a field this branch never wrote, so it
-      // never matches and inserts a duplicate 'AI suggested category' banner.
-      ...sourceMessageId ? { sourceMessageId } : {}
-    } : {
-      ...targetCaseId ? { targetCaseId } : {},
-      ...casePo ? { casePo } : {},
-      ...sourceMessageId ? { sourceMessageId } : {},
-      decisionInputs
-    };
-    const modelVersion = suggestionType === "triage_category" ? (body2.modelVersion ?? "").trim() || "unknown" : TRIAGE_POLICY_VERSION;
-    const inserted = await query(
-      `INSERT INTO ai_suggestion
-           (inbound_email_id, suggestion_type, suggested_value, rationale, confidence, model_version)
-         VALUES ($1, $2, $3::jsonb, $4, $5, $6)
-         RETURNING id`,
-      [inboundEmailId, suggestionType, JSON.stringify(suggestedValue), rationale, confidence, modelVersion]
-    );
-    const suggestionId = inserted[0]?.id;
-    if (!suggestionId) {
-      return { status: 500, jsonBody: { error: "suggestion insert returned no id" } };
-    }
-    let autoAttached = false;
-    if (suggestionType === "case_link") {
-      await writeAudit({
-        action: AUDIT_ACTION.inbound_link_suggested,
-        ...targetCaseId ? { caseId: targetCaseId } : {},
-        summary: "A message was suggested for linking to an existing case",
-        after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId }
-      });
-      if (body2.autoAttach === true && targetCaseId && inboundEmailId) {
-        const linked = await query(
-          `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
-               WHERE id = $1 AND case_id IS NULL RETURNING id`,
-          [inboundEmailId, targetCaseId]
-        );
-        if (linked[0]) {
-          await query(
-            `UPDATE ai_suggestion SET review_state = 'accepted', reviewed_by = 'auto-attach', reviewed_at = now()
-                 WHERE id = $1 AND review_state = 'pending'`,
-            [suggestionId]
-          );
-          await writeAudit({
-            action: AUDIT_ACTION.inbound_linked,
-            caseId: targetCaseId,
-            summary: "Inbound email linked to case (auto-attach)",
-            before: { caseId: null },
-            after: { caseId: targetCaseId, inboundEmailId, suggestionId, auto: true },
-            actor: "auto-attach"
-          });
-          await markOutstandingChasersResponded(targetCaseId, "auto-attach");
-          autoAttached = true;
-        }
-      }
-    } else if (suggestionType === "cancellation") {
-      await writeAudit({
-        action: AUDIT_ACTION.cancellation_proposed,
-        ...targetCaseId ? { caseId: targetCaseId } : {},
-        summary: "A message reported a case cancelled or closed \u2014 flagged for review",
-        after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId }
-      });
-    } else {
-      await writeAudit({
-        action: AUDIT_ACTION.ai_suggestion_created,
-        summary: "An AI-suggested category was proposed for a message",
-        after: { suggestionId, sourceMessageId, inboundEmailId, category: triageCategory, subtype: triageSubtype }
-      });
-    }
-    ctx.log(JSON.stringify({ evt: "triageSuggestLink", suggestionType, suggestionId, targetCaseId, autoAttached }));
-    return { status: 200, jsonBody: { suggestionId, created: true, ...autoAttached ? { autoAttached: true } : {} } };
-  })
-});
-import_functions.app.http("internalTriageHeldPreInstruction", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/triage/held-pre-instruction",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json().catch(() => ({}));
-    const vrm = (body2.vrm ?? "").trim();
-    const caseRef = (body2.caseRef ?? "").trim();
-    const jobRef = (body2.jobRef ?? "").trim();
-    if (!vrm && !caseRef && !jobRef) {
-      return { status: 400, jsonBody: { error: "at least one of vrm, caseRef, jobRef is required" } };
-    }
-    const rows = await query(
-      `SELECT ie.id, ie.source_message_id, ie.body_vrm, ie.body_caseref, ie.body_jobref
-           FROM inbound_email ie
-           JOIN choice_inbound_category c ON c.code = ie.category_code
-          WHERE c.name = 'pre_instruction'
-            AND ie.case_id IS NULL
-            AND ie.triage_state = 'new'
-            AND (
-                  ($1 <> '' AND upper(ie.body_vrm) = upper($1))
-               OR ($2 <> '' AND upper(ie.body_caseref) = upper($2))
-               OR ($3 <> '' AND upper(ie.body_jobref) = upper($3))
-            )
-          ORDER BY ie.created_at DESC
-          LIMIT 5`,
-      [vrm, caseRef, jobRef]
-    );
-    const held = rows.map((r) => ({
-      inboundEmailId: r.id,
-      sourceMessageId: r.source_message_id ?? null,
-      matchedOn: vrm && r.body_vrm?.toUpperCase() === vrm.toUpperCase() ? "vrm" : caseRef && r.body_caseref?.toUpperCase() === caseRef.toUpperCase() ? "case_ref" : "job_ref"
-    }));
-    ctx.log(JSON.stringify({ evt: "heldPreInstruction", matches: held.length }));
-    return { status: 200, jsonBody: { held } };
-  })
-});
-import_functions.app.http("internalInboundOutlookMoved", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/inbound/{id}/outlook-moved",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const outcome = body2.outcome;
-    if (outcome !== "moved" && outcome !== "failed") {
-      return { status: 400, jsonBody: { error: "outcome must be 'moved' or 'failed'" } };
-    }
-    const existing = await query(
-      "SELECT id, case_id FROM inbound_email WHERE id = $1",
-      [id]
-    );
-    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const folder = typeof body2.folder === "string" && body2.folder ? body2.folder : null;
-    const detail = typeof body2.detail === "string" ? body2.detail.slice(0, 300) : null;
-    if (outcome === "moved") {
-      await query(
-        `UPDATE inbound_email
-              SET outlook_move_state = 'moved',
-                  outlook_moved_folder = COALESCE($2, outlook_moved_folder),
-                  outlook_moved_at = now(),
-                  triage_state = CASE
-                                   WHEN triage_state IS NULL OR triage_state = 'new' THEN 'actioned'
-                                   ELSE triage_state
-                                 END,
-                  updated_at = now()
-            WHERE id = $1`,
-        [id, folder]
-      );
-    } else {
-      await query(
-        `UPDATE inbound_email
-              SET outlook_move_state = 'failed', outlook_moved_at = now(), updated_at = now()
-            WHERE id = $1`,
-        [id]
-      );
-    }
-    await writeAudit({
-      action: outcome === "moved" ? AUDIT_ACTION.outlook_moved : AUDIT_ACTION.outlook_move_failed,
-      ...existing[0].case_id ? { caseId: existing[0].case_id } : {},
-      summary: outcome === "moved" ? `Outlook filing completed${folder ? ` -> ${folder}` : ""}` : "Outlook filing failed",
-      severity: outcome === "moved" ? "info" : "warning",
-      after: { inboundEmailId: id, ...folder ? { folder } : {}, ...detail ? { detail } : {} },
-      actor: "orchestration"
-    });
-    ctx.log(JSON.stringify({ evt: "outlookMoved", inboundEmailId: id, outcome, folder }));
-    return { status: 204 };
-  })
-});
-function parseEvidenceBackfillCommittedResult(value) {
-  let candidate = value;
-  if (typeof candidate === "string") {
-    try {
-      candidate = JSON.parse(candidate);
-    } catch {
-      return null;
-    }
-  }
-  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return null;
-  const row = candidate;
-  if (row.outcome !== "completed" && row.outcome !== "partial") return null;
-  const persisted = Number(row.persisted);
-  if (!Number.isSafeInteger(persisted) || persisted < 0) return null;
-  const result = { outcome: row.outcome, persisted };
-  const merged = Number(row.merged);
-  if (Number.isSafeInteger(merged) && merged >= 0) result.merged = merged;
-  const failedAttachments = Number(row.failedAttachments);
-  if (Number.isSafeInteger(failedAttachments) && failedAttachments >= 0) {
-    result.failedAttachments = failedAttachments;
-  }
-  if (typeof row.detail === "string" && row.detail.trim()) result.detail = row.detail.slice(0, 300);
-  return result;
-}
-import_functions.app.http("internalInboundEvidenceBackfillValidate", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/inbound/{id}/evidence-backfill/validate",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json().catch(() => ({}));
-    const targetCaseId = typeof body2.targetCaseId === "string" ? body2.targetCaseId.trim() : "";
-    if (!targetCaseId) return { status: 400, jsonBody: { error: "targetCaseId is required" } };
-    const suppliedGeneration = body2.generation == null ? null : Number(body2.generation);
-    if (suppliedGeneration != null && (!Number.isSafeInteger(suppliedGeneration) || suppliedGeneration < 1)) {
-      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
-    }
-    const resolved = await withResolvedEvidenceBackfillTarget(
-      req.params.id,
-      targetCaseId,
-      async (q) => {
-        const rows = await q(
-          `SELECT evidence_backfill_requested_generation,
-                    evidence_backfill_completed_generation,
-                    evidence_backfill_completed_result
-               FROM inbound_email
-              WHERE id = $1`,
-          [req.params.id]
-        );
-        const requested = Number(
-          rows[0]?.evidence_backfill_requested_generation ?? suppliedGeneration ?? 1
-        );
-        const completed = Number(rows[0]?.evidence_backfill_completed_generation ?? 0);
-        const generation = suppliedGeneration ?? requested;
-        if (generation < 1 || generation > requested) {
-          return { kind: "generation_mismatch", requested };
-        }
-        if (suppliedGeneration != null && generation < requested && completed < generation) {
-          return { kind: "superseded", generation };
-        }
-        const committedGeneration = completed >= generation ? completed : generation;
-        const committedResult = completed >= generation ? parseEvidenceBackfillCommittedResult(rows[0]?.evidence_backfill_completed_result) : null;
-        return {
-          kind: "validated",
-          generation: committedGeneration,
-          completed: completed >= generation,
-          ...committedResult ? { committedResult } : {}
-        };
-      }
-    );
-    if (resolved.kind === "stale") {
-      return {
-        status: 409,
-        jsonBody: { error: "evidence backfill target changed", code: "evidence_backfill_target_changed" }
-      };
-    }
-    if (resolved.value.kind === "generation_mismatch") {
-      return {
-        status: 409,
-        jsonBody: {
-          error: "evidence backfill generation changed",
-          code: "evidence_backfill_generation_changed",
-          requestedGeneration: resolved.value.requested
-        }
-      };
-    }
-    if (resolved.value.kind === "superseded") {
-      return {
-        status: 200,
-        jsonBody: {
-          targetCaseId: resolved.targetCaseId,
-          generation: resolved.value.generation,
-          completed: false,
-          superseded: true
-        }
-      };
-    }
-    return {
-      status: 200,
-      jsonBody: {
-        targetCaseId: resolved.targetCaseId,
-        generation: resolved.value.generation,
-        completed: resolved.value.completed,
-        ...resolved.value.committedResult ? { committedResult: resolved.value.committedResult } : {}
-      }
-    };
-  })
-});
-import_functions.app.http("internalInboundEvidenceBackfill", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/inbound/{id}/evidence-backfill",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const outcome = body2.outcome;
-    if (outcome !== "completed" && outcome !== "partial" && outcome !== "failed") {
-      return { status: 400, jsonBody: { error: "outcome must be 'completed', 'partial' or 'failed'" } };
-    }
-    const targetCaseId = typeof body2.targetCaseId === "string" ? body2.targetCaseId.trim() : "";
-    if (!targetCaseId) return { status: 400, jsonBody: { error: "targetCaseId is required" } };
-    const suppliedGeneration = body2.generation == null ? null : Number(body2.generation);
-    if (suppliedGeneration != null && (!Number.isSafeInteger(suppliedGeneration) || suppliedGeneration < 1)) {
-      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
-    }
-    const requestedDetail = typeof body2.detail === "string" ? body2.detail.slice(0, 300) : null;
-    const requestedPersisted = typeof body2.persisted === "number" ? body2.persisted : null;
-    const requestedMerged = typeof body2.merged === "number" ? body2.merged : null;
-    const requestedFailedAttachments = typeof body2.failedAttachments === "number" ? Math.max(0, Math.trunc(body2.failedAttachments)) : null;
-    const report = await tx(async (q) => {
-      const locked = await q(
-        `SELECT case_id, evidence_backfill_report_outcome,
-                  evidence_backfill_requested_generation,
-                  evidence_backfill_completed_generation,
-                  evidence_backfill_completed_result,
-                  evidence_backfill_reported_generation
-             FROM inbound_email
-            WHERE id = $1
-            FOR UPDATE`,
-        [id]
-      );
-      if (!locked[0]) return { kind: "missing" };
-      if ((locked[0].case_id ?? null) !== targetCaseId) return { kind: "stale" };
-      const requestedGeneration = Number(
-        locked[0].evidence_backfill_requested_generation ?? suppliedGeneration ?? 1
-      );
-      const completedGeneration = Number(locked[0].evidence_backfill_completed_generation ?? 0);
-      const reportedGeneration = Number(locked[0].evidence_backfill_reported_generation ?? 0);
-      const generation = suppliedGeneration ?? requestedGeneration;
-      if (generation < 1 || generation > requestedGeneration) {
-        return { kind: "generation_mismatch", requestedGeneration };
-      }
-      if (completedGeneration > generation) {
-        return {
-          kind: "replay",
-          generation,
-          effectiveOutcome: outcome,
-          protectedCompletion: true
-        };
-      }
-      const committedResult = completedGeneration === generation ? parseEvidenceBackfillCommittedResult(locked[0].evidence_backfill_completed_result) : null;
-      if (suppliedGeneration != null && completedGeneration === generation && !committedResult) {
-        return { kind: "missing_committed_result", completedGeneration };
-      }
-      const protectedCompletion = committedResult != null && outcome !== committedResult.outcome;
-      const effectiveOutcome = committedResult?.outcome ?? outcome;
-      const persisted = committedResult?.persisted ?? requestedPersisted;
-      const merged = committedResult?.merged ?? requestedMerged;
-      const failedAttachments = committedResult?.failedAttachments ?? requestedFailedAttachments;
-      const detail = committedResult?.detail ?? requestedDetail;
-      if (suppliedGeneration != null && (effectiveOutcome === "completed" || effectiveOutcome === "partial") && completedGeneration < generation) {
-        return { kind: "not_committed", completedGeneration };
-      }
-      const rank = {
-        failed: 0,
-        partial: 1,
-        completed: 2
-      };
-      const currentOutcome = locked[0].evidence_backfill_report_outcome;
-      if (generation < reportedGeneration || generation === reportedGeneration && currentOutcome != null && rank[currentOutcome] >= rank[effectiveOutcome]) {
-        return {
-          kind: "replay",
-          generation,
-          effectiveOutcome,
-          protectedCompletion
-        };
-      }
-      await writeEvidenceBackfillNote(
-        { caseId: targetCaseId, inboundEmailId: id, kind: effectiveOutcome },
-        q
-      );
-      const updated = await q(
-        `UPDATE inbound_email
-              SET evidence_backfill_report_outcome = $2,
-                  evidence_backfill_reported_generation = $3,
-                  evidence_backfill_reported_at = now(),
-                  updated_at = now()
-            WHERE id = $1
-              AND evidence_backfill_reported_generation <= $3
-          RETURNING id`,
-        [id, effectiveOutcome, generation]
-      );
-      if (!updated[0] && suppliedGeneration != null) {
-        return { kind: "replay", generation, effectiveOutcome, protectedCompletion };
-      }
-      if (effectiveOutcome === "completed") {
-        await writeAudit({
-          action: AUDIT_ACTION.attachment_classified,
-          caseId: targetCaseId,
-          summary: `Attachments added from the linked email (${persisted ?? "?"} new${merged ? `, ${merged} matched` : ""})`,
-          after: {
-            inboundEmailId: id,
-            generation,
-            persisted,
-            merged,
-            ...protectedCompletion ? { protectedFromOutcome: outcome } : {}
-          },
-          actor: "orchestration"
-        }, q);
-      } else {
-        await writeAudit({
-          action: AUDIT_ACTION.graph_message_ingest_failed,
-          caseId: targetCaseId,
-          summary: effectiveOutcome === "partial" ? "Some attachments from the linked email could not be added" : "Attachments from the linked email could not be added \u2014 staff must add them",
-          severity: "warning",
-          after: {
-            inboundEmailId: id,
-            generation,
-            ...failedAttachments != null ? { failedAttachments } : {},
-            ...detail ? { detail } : {}
-          },
-          actor: "orchestration"
-        }, q);
-      }
-      return {
-        kind: "transition",
-        generation,
-        effectiveOutcome,
-        protectedCompletion
-      };
-    });
-    if (report.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
-    if (report.kind === "stale") {
-      return {
-        status: 409,
-        jsonBody: { error: "evidence backfill target changed", code: "evidence_backfill_target_changed" }
-      };
-    }
-    if (report.kind === "generation_mismatch") {
-      return {
-        status: 409,
-        jsonBody: {
-          error: "evidence backfill generation changed",
-          code: "evidence_backfill_generation_changed",
-          requestedGeneration: report.requestedGeneration
-        }
-      };
-    }
-    if (report.kind === "not_committed") {
-      return {
-        status: 409,
-        jsonBody: {
-          error: "evidence backfill persistence is not committed",
-          code: "evidence_backfill_not_committed",
-          completedGeneration: report.completedGeneration
-        }
-      };
-    }
-    if (report.kind === "missing_committed_result") {
-      return {
-        status: 409,
-        jsonBody: {
-          error: "evidence backfill committed result is unavailable",
-          code: "evidence_backfill_committed_result_missing",
-          completedGeneration: report.completedGeneration
-        }
-      };
-    }
-    ctx.log(
-      JSON.stringify({
-        evt: "evidenceBackfillReport",
-        inboundEmailId: id,
-        outcome: report.effectiveOutcome,
-        requestedOutcome: outcome,
-        generation: report.generation,
-        targetCaseId,
-        replay: report.kind === "replay",
-        protectedCompletion: report.protectedCompletion
-      })
-    );
-    return { status: 204 };
-  })
-});
-var ATTENTION_REASONS = /* @__PURE__ */ new Set(["unable_to_locate", "images_no_match"]);
-import_functions.app.http("internalInboundAttention", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/inbound/attention",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json().catch(() => ({}));
-    const sourceMessageId = typeof body2.sourceMessageId === "string" ? body2.sourceMessageId.trim() : "";
-    const reason = typeof body2.reason === "string" ? body2.reason.trim() : "";
-    if (!sourceMessageId) {
-      return { status: 400, jsonBody: { error: "sourceMessageId is required" } };
-    }
-    if (!ATTENTION_REASONS.has(reason)) {
-      return { status: 400, jsonBody: { error: "reason must be a known attention reason" } };
-    }
-    if (!await hasColumn("inbound_email", "attention_reason")) {
-      ctx.log(JSON.stringify({ evt: "inboundAttention", stamped: false, reason: "column_absent" }));
-      return { status: 200, jsonBody: { stamped: false, detail: "column_absent" } };
-    }
-    const rows = await query(
-      `UPDATE inbound_email SET attention_reason = $2, updated_at = now()
-          WHERE source_message_id = $1 RETURNING id`,
-      [sourceMessageId, reason]
-    );
-    ctx.log(JSON.stringify({ evt: "inboundAttention", stamped: Boolean(rows[0]), reason }));
-    return { status: 200, jsonBody: { stamped: Boolean(rows[0]) } };
-  })
-});
-async function applyEvidenceMetadata(_ctx, whereClause, whereVals, row, computed, q = query) {
-  const changedIds = /* @__PURE__ */ new Set();
-  let readinessChanged = false;
-  const ownedSets = [];
-  const ownedChanges = [];
-  const ownedVals = [...whereVals];
-  const pushOwned = (column, sourceColumn, value) => {
-    ownedVals.push(value);
-    const p = `$${ownedVals.length}`;
-    const allowed = `(${sourceColumn} IS NULL OR ${sourceColumn} = 'classifier')`;
-    ownedSets.push(
-      `${column} = CASE WHEN ${allowed} THEN ${p} ELSE ${column} END`,
-      `${sourceColumn} = CASE WHEN ${allowed} THEN 'classifier' ELSE ${sourceColumn} END`
-    );
-    ownedChanges.push(
-      `(${allowed} AND (${column} IS DISTINCT FROM ${p} OR ${sourceColumn} IS DISTINCT FROM 'classifier'))`
-    );
-  };
-  if (row.decisionSource === "classifier" && (row.imageRoleCode != null || row.imageRole != null)) {
-    pushOwned("image_role_code", "image_role_source", computed.imageRoleCode);
-  }
-  if (row.decisionSource === "classifier" && typeof row.registrationVisible === "boolean") {
-    pushOwned("registration_visible", "registration_visible_source", computed.registrationVisible);
-  }
-  if (row.decisionSource === "classifier" && typeof row.acceptedForEva === "boolean") {
-    pushOwned("accepted_for_eva", "accepted_for_eva_source", row.acceptedForEva);
-  }
-  const legacyExplicitExclusion = row.decisionSource == null && row.excluded === true;
-  if ((row.decisionSource === "classifier" || legacyExplicitExclusion) && row.excluded != null) {
-    ownedVals.push(computed.excluded, computed.exclusionReason);
-    const excludedP = `$${ownedVals.length - 1}`;
-    const reasonP = `$${ownedVals.length}`;
-    const allowed = `(
-      (exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')
-      AND (
-        NOT ${excludedP}
-        OR archive_mirror_claim_token IS NULL
-        OR archive_mirror_claim_expires_at <= now()
-      )
-    )`;
-    ownedSets.push(
-      `excluded = CASE WHEN ${allowed} THEN ${excludedP} ELSE excluded END`,
-      `exclusion_reason = CASE WHEN ${allowed} THEN ${reasonP} ELSE exclusion_reason END`,
-      `exclusion_decision_source = CASE WHEN ${allowed} THEN 'classifier' ELSE exclusion_decision_source END`,
-      `archive_mirror_decision_generation = archive_mirror_decision_generation +
-        CASE WHEN ${allowed} AND excluded IS DISTINCT FROM ${excludedP} THEN 1 ELSE 0 END`
-    );
-    ownedChanges.push(
-      `(${allowed} AND (excluded IS DISTINCT FROM ${excludedP} OR exclusion_reason IS DISTINCT FROM ${reasonP} OR exclusion_decision_source IS DISTINCT FROM 'classifier'))`
-    );
-  }
-  if (ownedSets.length > 0) {
-    const res = await q(
-      `UPDATE evidence
-            SET ${ownedSets.join(", ")}, updated_at = now()
-          WHERE ${whereClause}
-            AND (${ownedChanges.join(" OR ")})
-          RETURNING id, case_id, excluded, storage_path, box_file_id`,
-      ownedVals
-    );
-    for (const item of res) changedIds.add(item.id);
-    if (row.decisionSource === "classifier" && row.excluded === false) {
-      for (const item of res) await requestArchiveMirrorIfEligible(q, item);
-    }
-    readinessChanged = res.length > 0;
-  }
-  const simpleSets = [];
-  const simpleChanges = [];
-  const simpleVals = [...whereVals];
-  const pushSimple = (column, value) => {
-    simpleVals.push(value);
-    const p = `$${simpleVals.length}`;
-    simpleSets.push(`${column} = ${p}`);
-    simpleChanges.push(`${column} IS DISTINCT FROM ${p}`);
-  };
-  if (typeof row.personReflection === "boolean") pushSimple("person_reflection", row.personReflection);
-  if (row.excluded == null && typeof row.exclusionReason === "string" && row.exclusionReason.trim()) {
-    pushSimple("exclusion_reason", row.exclusionReason.trim());
-  }
-  if (row.sha256 != null) pushSimple("sha256", computed.sha256);
-  if (row.sequenceIndex != null) pushSimple("sequence_index", computed.sequenceIndex);
-  if (simpleSets.length > 0) {
-    const res = await q(
-      `UPDATE evidence
-            SET ${simpleSets.join(", ")}, updated_at = now()
-          WHERE ${whereClause}
-            AND (${simpleChanges.join(" OR ")})
-          RETURNING id`,
-      simpleVals
-    );
-    for (const item of res) changedIds.add(item.id);
-  }
-  return { updated: changedIds.size, readinessChanged };
-}
-var SHA256_HEX_RE = /^[0-9a-f]{64}$/i;
-import_functions.app.http("internalCasesEvidence", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/cases/{id}/evidence",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const caseId = req.params.id;
-    const body2 = await req.json();
-    if (!Array.isArray(body2.rows) || body2.rows.some(
-      (row) => row.decisionSource != null && row.decisionSource !== "classifier"
-    )) {
-      return { status: 400, jsonBody: { error: "unsupported evidence decision source" } };
-    }
-    const persistRows = async (q, persistCaseId) => {
-      let persisted = 0;
-      let updated = 0;
-      let merged = 0;
-      let readinessChanged = false;
-      let boxImageArrived = false;
-      for (const row of body2.rows ?? []) {
-        let suppliedClass = row.evidenceClass ?? "other";
-        if (suppliedClass === "image") {
-          const derived = describeEvidence(row.filename, row.contentType).evidenceClass;
-          const mimeIsImage = (row.contentType ?? "").toLowerCase().startsWith("image/");
-          suppliedClass = derived === "image" || mimeIsImage ? "image" : derived;
-        }
-        const kindCode = evidenceKindCodec.toInt(suppliedClass) ?? null;
-        const imageRoleCode = (typeof row.imageRoleCode === "number" ? row.imageRoleCode : void 0) ?? imageRoleCodec.toInt(row.imageRole) ?? 100000003;
-        const registrationVisible = typeof row.registrationVisible === "boolean" ? row.registrationVisible : null;
-        const excluded = row.excluded === true;
-        const exclusionReason = excluded ? (row.exclusionReason ?? "").trim() || "Excluded" : (row.exclusionReason ?? "").trim() || null;
-        const personReflection = row.personReflection === true;
-        const sha256 = (row.sha256 ?? "").trim() || null;
-        const sequenceIndex = Number.isInteger(row.sequenceIndex) ? row.sequenceIndex : null;
-        const hasMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || typeof row.acceptedForEva === "boolean" || row.excluded != null || row.exclusionReason != null || row.personReflection != null || row.sha256 != null || row.sequenceIndex != null;
-        const hasReadinessMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || typeof row.acceptedForEva === "boolean" || typeof row.excluded === "boolean";
-        const decisionSource = row.decisionSource === "classifier" ? "classifier" : null;
-        const insertionExclusionDecisionSource = typeof row.excluded === "boolean" && row.excluded ? decisionSource ?? "classifier" : decisionSource;
-        const sourceMessageId = (row.sourceMessageId ?? "").trim() || null;
-        const boxFileId = (row.boxFileId ?? "").trim() || null;
-        const isBoxRow = sourceMessageId != null || boxFileId != null;
-        const isBoxImageRow = isBoxRow && suppliedClass === "image";
-        if (sha256 && SHA256_HEX_RE.test(sha256)) {
-          const twin = await q(
-            `SELECT id, box_file_id, box_file_url, storage_path, source_message_id
-               FROM evidence WHERE case_id = $1 AND sha256 = $2 LIMIT 1`,
-            [persistCaseId, sha256]
-          );
-          const ex = twin[0];
-          if (ex) {
-            const sameIdentity = isBoxRow ? boxFileId != null && ex.box_file_id === boxFileId || sourceMessageId != null && ex.source_message_id === sourceMessageId : row.blobPath != null && ex.storage_path === row.blobPath;
-            const hasMergeMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || typeof row.acceptedForEva === "boolean" || row.excluded != null || row.exclusionReason != null || row.personReflection != null || row.sequenceIndex != null;
-            if (!sameIdentity) {
-              if (isBoxRow && ex.box_file_id == null && boxFileId != null) {
-                await q(
-                  `UPDATE evidence
-                      SET box_file_id = $2,
-                          box_file_url = COALESCE($3, box_file_url),
-                          updated_at = now()
-                    WHERE id = $1 AND box_file_id IS NULL`,
-                  [ex.id, boxFileId, (row.boxFileUrl ?? "").trim() || null]
-                );
-              } else if (!isBoxRow && ex.storage_path == null && row.blobPath) {
-                await q(
-                  `UPDATE evidence
-                      SET storage_path = $2::text, updated_at = now()
-                    WHERE id = $1 AND storage_path IS NULL`,
-                  [ex.id, row.blobPath]
-                );
-              }
-              if (hasMergeMetadata) {
-                const applied = await applyEvidenceMetadata(ctx, "id = $1", [ex.id], row, {
-                  imageRoleCode,
-                  registrationVisible,
-                  excluded,
-                  exclusionReason,
-                  sha256,
-                  sequenceIndex
-                }, q);
-                updated += applied.updated;
-                readinessChanged ||= applied.readinessChanged;
-              }
-              merged++;
-              continue;
-            }
-            if (hasMergeMetadata) {
-              const applied = await applyEvidenceMetadata(ctx, "id = $1", [ex.id], row, {
-                imageRoleCode,
-                registrationVisible,
-                excluded,
-                exclusionReason,
-                sha256,
-                sequenceIndex
-              }, q);
-              updated += applied.updated;
-              readinessChanged ||= applied.readinessChanged;
-            }
-            continue;
-          }
-        }
-        let inserted = false;
-        if (isBoxRow) {
-          const dedupCol = sourceMessageId != null ? "source_message_id" : "box_file_id";
-          const dedupVal = sourceMessageId ?? boxFileId;
-          const result2 = await q(
-            `INSERT INTO evidence
-               (file_name, case_id, kind_code, content_type, size_bytes,
-                source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label,
-                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index,
-                image_role_source, registration_visible_source, accepted_for_eva_source, exclusion_decision_source)
-             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
-                    $18, $19, $20, $21
-             WHERE NOT EXISTS (
-               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $22
-             )
-             RETURNING id`,
-            [
-              row.filename,
-              persistCaseId,
-              kindCode,
-              row.contentType || null,
-              row.size ?? null,
-              sourceMessageId,
-              boxFileId,
-              (row.boxFileUrl ?? "").trim() || null,
-              row.acceptedForEva ?? true,
-              (row.sourceLabel ?? "").trim() || "box_upload",
-              imageRoleCode,
-              registrationVisible,
-              excluded,
-              exclusionReason,
-              personReflection,
-              sha256,
-              sequenceIndex,
-              row.imageRoleCode != null || row.imageRole != null ? decisionSource : null,
-              typeof row.registrationVisible === "boolean" ? decisionSource : null,
-              typeof row.acceptedForEva === "boolean" ? decisionSource : null,
-              typeof row.excluded === "boolean" ? insertionExclusionDecisionSource : null,
-              dedupVal
-            ]
-          );
-          inserted = result2.length > 0;
-          if (!inserted && hasMetadata) {
-            const applied = await applyEvidenceMetadata(
-              ctx,
-              `case_id = $1 AND ${dedupCol} = $2`,
-              [persistCaseId, dedupVal],
-              row,
-              { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
-              q
-            );
-            updated += applied.updated;
-            readinessChanged ||= applied.readinessChanged;
-          }
-        } else {
-          const acceptedForEva = row.acceptedForEva ?? true;
-          const result2 = await q(
-            `INSERT INTO evidence
-               (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label,
-                accepted_for_eva,
-                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index,
-                image_role_source, registration_visible_source, accepted_for_eva_source, exclusion_decision_source)
-             SELECT $1, $2, $3, $4, $5, $6::text, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-                    $16, $17, $18, $19
-             WHERE NOT EXISTS (
-               SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6::text
-             )
-             RETURNING id`,
-            [
-              row.filename,
-              persistCaseId,
-              kindCode,
-              row.contentType || null,
-              row.size ?? null,
-              row.blobPath ?? null,
-              (row.sourceLabel ?? "").trim() || "auto-intake",
-              acceptedForEva,
-              imageRoleCode,
-              registrationVisible,
-              excluded,
-              exclusionReason,
-              personReflection,
-              sha256,
-              sequenceIndex,
-              row.imageRoleCode != null || row.imageRole != null ? decisionSource : null,
-              typeof row.registrationVisible === "boolean" ? decisionSource : null,
-              typeof row.acceptedForEva === "boolean" ? decisionSource : null,
-              typeof row.excluded === "boolean" ? insertionExclusionDecisionSource : null
-            ]
-          );
-          inserted = result2.length > 0;
-          if (!inserted && hasMetadata && row.blobPath) {
-            const applied = await applyEvidenceMetadata(
-              ctx,
-              "case_id = $1 AND storage_path = $2::text",
-              [persistCaseId, row.blobPath],
-              row,
-              { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
-              q
-            );
-            updated += applied.updated;
-            readinessChanged ||= applied.readinessChanged;
-          }
-        }
-        if (inserted) {
-          if (isBoxImageRow) boxImageArrived = true;
-          persisted++;
-          readinessChanged = true;
-          if (suppliedClass === "image" && hasReadinessMetadata && row.decisionSource === "classifier") readinessChanged = true;
-        }
-      }
-      if (boxImageArrived) {
-        await markImageChasersResponded(q, persistCaseId, "archive upload");
-      }
-      const statusGeneration = readinessChanged ? await requestStatusRecompute(q, persistCaseId) : void 0;
-      return {
-        persisted,
-        updated,
-        merged,
-        ...statusGeneration == null ? {} : { statusGeneration }
-      };
-    };
-    const expectedInboundEmailId = typeof body2.expectedInboundEmailId === "string" ? body2.expectedInboundEmailId.trim() : "";
-    if (expectedInboundEmailId) {
-      const suppliedBackfillGeneration = body2.evidenceBackfillGeneration == null ? null : Number(body2.evidenceBackfillGeneration);
-      if (suppliedBackfillGeneration != null && (!Number.isSafeInteger(suppliedBackfillGeneration) || suppliedBackfillGeneration < 1)) {
-        return { status: 400, jsonBody: { error: "evidenceBackfillGeneration must be a positive integer" } };
-      }
-      const suppliedBackfillOutcome = body2.evidenceBackfillOutcome;
-      if (suppliedBackfillGeneration != null && suppliedBackfillOutcome !== "completed" && suppliedBackfillOutcome !== "partial") {
-        return {
-          status: 400,
-          jsonBody: { error: "evidenceBackfillOutcome must be 'completed' or 'partial'" }
-        };
-      }
-      const backfillOutcome = suppliedBackfillOutcome === "partial" ? "partial" : "completed";
-      const backfillFailedAttachments = typeof body2.evidenceBackfillFailedAttachments === "number" ? Math.max(0, Math.trunc(body2.evidenceBackfillFailedAttachments)) : void 0;
-      const backfillDetail = typeof body2.evidenceBackfillDetail === "string" && body2.evidenceBackfillDetail.trim() ? body2.evidenceBackfillDetail.slice(0, 300) : void 0;
-      const guarded = await withResolvedEvidenceBackfillTarget(
-        expectedInboundEmailId,
-        caseId,
-        async (q, resolvedCaseId) => {
-          if (resolvedCaseId.trim().toLowerCase() !== caseId.trim().toLowerCase()) {
-            return { kind: "reclassification_required" };
-          }
-          if (suppliedBackfillGeneration == null) {
-            return {
-              kind: "persisted",
-              value: await persistRows(q, resolvedCaseId)
-            };
-          }
-          const progress = await q(
-            `SELECT evidence_backfill_requested_generation,
-                      evidence_backfill_completed_generation,
-                      evidence_backfill_completed_result
-                 FROM inbound_email
-                WHERE id = $1`,
-            [expectedInboundEmailId]
-          );
-          const requestedGeneration = Number(
-            progress[0]?.evidence_backfill_requested_generation ?? suppliedBackfillGeneration ?? 1
-          );
-          const completedGeneration = Number(
-            progress[0]?.evidence_backfill_completed_generation ?? 0
-          );
-          const backfillGeneration = suppliedBackfillGeneration ?? requestedGeneration;
-          if (backfillGeneration < 1 || backfillGeneration > requestedGeneration) {
-            return {
-              kind: "generation_mismatch",
-              requestedGeneration
-            };
-          }
-          if (completedGeneration >= backfillGeneration) {
-            const completedResult2 = parseEvidenceBackfillCommittedResult(
-              progress[0]?.evidence_backfill_completed_result
-            );
-            if (suppliedBackfillGeneration != null && !completedResult2) {
-              throw new Error("evidence backfill completion marker has no durable result");
-            }
-            return {
-              kind: "persisted",
-              value: {
-                persisted: completedResult2?.persisted ?? 0,
-                updated: 0,
-                merged: completedResult2?.merged ?? 0,
-                backfillGeneration,
-                alreadyCompleted: true,
-                ...completedResult2 ? { completedResult: completedResult2 } : {}
-              }
-            };
-          }
-          const value = await persistRows(q, resolvedCaseId);
-          const completedResult = {
-            outcome: backfillOutcome,
-            persisted: value.persisted,
-            merged: value.merged,
-            ...backfillFailedAttachments == null ? {} : { failedAttachments: backfillFailedAttachments },
-            ...backfillDetail ? { detail: backfillDetail } : {}
-          };
-          const marked = await q(
-            `UPDATE inbound_email
-                  SET evidence_backfill_completed_generation = $2,
-                      evidence_backfill_completed_result = $4::jsonb,
-                      evidence_backfill_completed_at = now(),
-                      updated_at = now()
-                WHERE id = $1
-                  AND case_id = $3
-                  AND evidence_backfill_requested_generation = $2
-                  AND evidence_backfill_completed_generation < $2
-              RETURNING evidence_backfill_completed_generation,
-                        evidence_backfill_completed_result`,
-            [
-              expectedInboundEmailId,
-              backfillGeneration,
-              resolvedCaseId,
-              JSON.stringify(completedResult)
-            ]
-          );
-          if (!marked[0]) {
-            throw new Error("evidence backfill completion marker target disappeared");
-          }
-          return {
-            kind: "persisted",
-            value: {
-              ...value,
-              backfillGeneration,
-              alreadyCompleted: false,
-              completedResult
-            }
-          };
-        }
-      );
-      if (guarded.kind === "stale") {
-        return {
-          status: 409,
-          jsonBody: { error: "evidence backfill target changed", code: "evidence_backfill_target_changed" }
-        };
-      }
-      if (guarded.value.kind === "reclassification_required") {
-        return {
-          status: 409,
-          jsonBody: {
-            error: "evidence backfill must be reclassified for the merged case",
-            code: "evidence_backfill_reclassification_required",
-            targetCaseId: guarded.targetCaseId
-          }
-        };
-      }
-      if (guarded.value.kind === "generation_mismatch") {
-        return {
-          status: 409,
-          jsonBody: {
-            error: "evidence backfill generation changed",
-            code: "evidence_backfill_generation_changed",
-            requestedGeneration: guarded.value.requestedGeneration
-          }
-        };
-      }
-      return {
-        status: 200,
-        jsonBody: { ...guarded.value.value, targetCaseId: guarded.targetCaseId }
-      };
-    }
-    const result = await tx(async (q) => {
-      const lockedCase = await lockCaseForMutation(q, caseId);
-      if (lockedCase.kind !== "active") return lockedCase;
-      return { kind: "persisted", value: await persistRows(q, lockedCase.caseId) };
-    });
-    if (result.kind === "missing") {
-      return { status: 404, jsonBody: { error: "case not found" } };
-    }
-    if (result.kind === "retired") {
-      return {
-        status: 409,
-        jsonBody: {
-          error: "case has been merged",
-          code: "case_merged",
-          targetCaseId: result.mergedInto
-        }
-      };
-    }
-    return { status: 200, jsonBody: result.value };
-  })
-});
-import_functions.app.http("internalCasesArchiveEvidence", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "internal/cases/{id}/archive-evidence",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const caseId = req.params.id;
-    if (!caseId) return { status: 400, jsonBody: { error: "caseId required" } };
-    const result = await tx(async (q) => {
-      const lockedCase = await lockCaseForMutation(q, caseId);
-      if (lockedCase.kind !== "active") return { kind: lockedCase.kind };
-      const rows = await q(
-        `UPDATE evidence
-              SET archive_mirror_claim_token = gen_random_uuid(),
-                  archive_mirror_claimed_at = now(),
-                  archive_mirror_claim_expires_at = now() + interval '30 minutes',
-                  updated_at = now()
-            WHERE case_id = $1
-              AND storage_path IS NOT NULL
-              AND box_file_id IS NULL
-              AND excluded = false
-              AND (
-                archive_mirror_claim_token IS NULL
-                OR archive_mirror_claim_expires_at <= now()
-              )
-          RETURNING id,
-                    file_name AS filename,
-                    content_type AS "contentType",
-                    storage_path AS "blobPath",
-                    archive_mirror_claim_token::text AS "claimToken",
-                    archive_mirror_decision_generation AS "decisionGeneration",
-                    source_label AS "sourceLabel"`,
-        [lockedCase.caseId]
-      );
-      rows.sort((a, b) => a.filename.localeCompare(b.filename));
-      return { kind: "claimed", rows };
-    });
-    return { status: 200, jsonBody: { rows: result.kind === "claimed" ? result.rows : [] } };
-  })
-});
-import_functions.app.http("internalCasesArchiveEvidenceStamp", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/cases/{id}/archive-evidence/stamp",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const caseId = req.params.id;
-    if (!caseId) return { status: 400, jsonBody: { error: "caseId required" } };
-    const body2 = await req.json();
-    const evidenceId = typeof body2.evidenceId === "string" ? body2.evidenceId.trim() : "";
-    const blobPath = typeof body2.blobPath === "string" ? body2.blobPath.trim() : "";
-    const boxFileId = typeof body2.boxFileId === "string" ? body2.boxFileId.trim() : "";
-    const boxFileUrl = typeof body2.boxFileUrl === "string" ? body2.boxFileUrl.trim() : "";
-    const claimToken = typeof body2.claimToken === "string" ? body2.claimToken.trim() : "";
-    const decisionGeneration = Number(body2.decisionGeneration);
-    if (!evidenceId || !blobPath || !boxFileId || !claimToken || !Number.isSafeInteger(decisionGeneration) || decisionGeneration < 0) {
-      return {
-        status: 400,
-        jsonBody: {
-          error: "evidenceId, blobPath, boxFileId, claimToken and decisionGeneration required"
-        }
-      };
-    }
-    const result = await tx(async (q) => {
-      const lockedCase = await lockCaseForMutation(q, caseId);
-      if (lockedCase.kind !== "active") return { kind: lockedCase.kind };
-      const updated = await q(
-        `UPDATE evidence
-              SET box_file_id = $4,
-                  box_file_url = COALESCE($5, box_file_url),
-                  archive_mirror_claim_token = NULL,
-                  archive_mirror_claimed_at = NULL,
-                  archive_mirror_claim_expires_at = NULL,
-                  updated_at = now()
-            WHERE case_id = $1
-              AND id = $2
-              AND storage_path = $3
-              AND excluded = false
-              AND archive_mirror_claim_token = $6::uuid
-              AND archive_mirror_claim_expires_at > now()
-              AND archive_mirror_decision_generation = $7
-            RETURNING id`,
-        [
-          lockedCase.caseId,
-          evidenceId,
-          blobPath,
-          boxFileId,
-          boxFileUrl || null,
-          claimToken,
-          decisionGeneration
-        ]
-      );
-      return { kind: "updated", updated: updated.length > 0 };
-    });
-    return { status: 200, jsonBody: { updated: result.kind === "updated" && result.updated } };
-  })
-});
-import_functions.app.http("internalCasesStatusEvaluate", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/cases/{id}/status-evaluate",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const caseId = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const generation = body2.generation == null ? void 0 : Number(body2.generation);
-    if (generation != null && (!Number.isSafeInteger(generation) || generation < 1)) {
-      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
-    }
-    const result = await recomputeStatus(caseId, generation);
-    return {
-      status: 200,
-      jsonBody: {
-        value: result.value,
-        ...result.completed == null ? {} : { completed: result.completed },
-        ...result.pending == null ? {} : { pending: result.pending }
-      }
-    };
-  })
-});
-import_functions.app.http("internalCasesArchiveEvidenceRelease", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/cases/{id}/archive-evidence/release",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const caseId = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const evidenceId = typeof body2.evidenceId === "string" ? body2.evidenceId.trim() : "";
-    const claimToken = typeof body2.claimToken === "string" ? body2.claimToken.trim() : "";
-    if (!caseId || !evidenceId || !claimToken) {
-      return { status: 400, jsonBody: { error: "caseId, evidenceId and claimToken required" } };
-    }
-    const released = await tx(async (q) => {
-      const lockedCase = await lockCaseForMutation(q, caseId);
-      if (lockedCase.kind !== "active") return false;
-      const rows = await q(
-        `UPDATE evidence
-              SET archive_mirror_claim_token = NULL,
-                  archive_mirror_claimed_at = NULL,
-                  archive_mirror_claim_expires_at = NULL,
-                  updated_at = now()
-            WHERE id = $1
-              AND case_id = $2
-              AND archive_mirror_claim_token = $3::uuid
-            RETURNING id`,
-        [evidenceId, lockedCase.caseId, claimToken]
-      );
-      return rows.length > 0;
-    });
-    return { status: 200, jsonBody: { released } };
-  })
-});
-import_functions.app.http("internalCasesSetIngested", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/cases/{id}/set-ingested",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const caseId = req.params.id;
-    const ingestedCode = statusToInt("ingested");
-    const newEmailCode = statusToInt("new_email");
-    const updated = await query(
-      `UPDATE case_ SET status_code = $1
-         WHERE id = $2 AND status_code = $3
-         RETURNING id`,
-      [ingestedCode, caseId, newEmailCode]
-    );
-    if (updated.length > 0) {
-      await writeAudit({
-        action: AUDIT_ACTION.status_changed,
-        caseId,
-        summary: "Status set to ingested (intake pipeline picked up)",
-        after: { status: "ingested" }
-      });
-    }
-    return { status: 200, jsonBody: { updated: updated.length > 0 } };
-  })
-});
-import_functions.app.http("internalCasesMarkDone", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/cases/{id}/mark-done",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const caseId = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const signal = ["sent_email", "box_pdf", "eva_poll", "manual"].includes(body2.signal ?? "") ? body2.signal : "unknown";
-    const updated = await tx((q) => markCaseDoneUsing(q, {
-      caseId,
-      signal,
-      ...body2.detail ? { detail: String(body2.detail) } : {}
-    }));
-    return { status: 200, jsonBody: { updated } };
-  })
-});
-import_functions.app.http("internalCasesLookup", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/cases/lookup",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json().catch(() => ({}));
-    const caseIds = (Array.isArray(body2.caseIds) ? body2.caseIds : []).map((s) => String(s).trim()).filter(Boolean).slice(0, 20);
-    const casePo = (body2.casePo ?? "").trim();
-    const vrm = (body2.vrm ?? "").trim();
-    if (caseIds.length === 0 && !casePo && !vrm) {
-      return { status: 200, jsonBody: { cases: [] } };
-    }
-    const rows = await query(
-      // The VRM arm canonicalises BOTH sides (strip spaces/punctuation): the caller passes a
-      // compacted subject VRM (extractVrm -> "MX17PNL") but a stored registration may hold
-      // spaces ("MX17 PNL"), so a verbatim upper() compare would miss it — the same fix the
-      // search/assistant routes already use. (PR51-E2)
-      `SELECT id, case_po, status_code, work_provider_id, vrm
-           FROM case_
-          WHERE (cardinality($1::text[]) > 0 AND id::text = ANY($1::text[]))
-             OR ($2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)))
-             OR ($3 <> '' AND regexp_replace(upper(vrm), '[^A-Z0-9]', '', 'g') = regexp_replace(upper($3), '[^A-Z0-9]', '', 'g'))
-          ORDER BY created_at DESC
-          LIMIT 25`,
-      [caseIds, casePo, vrm]
-    );
-    return {
-      status: 200,
-      jsonBody: {
-        cases: rows.map((r) => ({
-          caseId: r.id,
-          casePo: r.case_po ?? "",
-          status: caseStatusCodec.toName(r.status_code) ?? "error",
-          workProviderId: r.work_provider_id ?? "",
-          vrm: r.vrm ?? ""
-        }))
-      }
-    };
-  })
-});
-import_functions.app.http("internalAudit", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/audit",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json();
-    const code = AUDIT_ACTION_BY_NAME[body2.action];
-    await writeAudit({
-      action: code ?? AUDIT_ACTION.graph_message_ingested,
-      caseId: body2.caseId,
-      summary: body2.summary,
-      severity: body2.severity ?? "info",
-      before: body2.before,
-      after: body2.after
-    });
-    return { status: 204 };
-  })
-});
-import_functions.app.http("internalPrincipals", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "internal/principals",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const rows = await query(
-      "SELECT principal_code FROM work_provider WHERE active = true ORDER BY principal_code"
-    );
-    return {
-      status: 200,
-      jsonBody: rows.map((r) => ({ principalCode: r.principal_code }))
-    };
-  })
-});
-import_functions.app.http("internalDispositionDue", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "internal/disposition/due",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const rows = await query(
-      `SELECT id FROM case_
-          WHERE retention_expires_at IS NOT NULL
-            AND retention_expires_at < now()
-            AND legal_hold IS NOT TRUE
-          ORDER BY retention_expires_at
-          LIMIT 500`
-    );
-    return {
-      status: 200,
-      jsonBody: rows.map((r) => ({ caseId: r.id }))
-    };
-  })
-});
-import_functions.app.http("internalDispositionCase", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/disposition/{id}",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const caseId = req.params.id;
-    const evaCols = EVA_FIELD_ORDER.map((d) => `${EVA_COLUMN_BY_KEY[d.key]} = ''`).join(", ");
-    await query(
-      `UPDATE case_
-            SET ${evaCols},
-                vrm = '', case_ref = '', name = '[disposed]',
-                ov_insured_name = NULL, ov_claimant_name = NULL,
-                ov_third_party_name = NULL, ov_claim_number = NULL,
-                ov_policy_reference = NULL, ov_incident_date = NULL,
-                ov_insurer_name = NULL, ov_repairer_name = NULL,
-                closed_at = now(), updated_at = now()
-          WHERE id = $1`,
-      [caseId]
-    );
-    await writeAudit({
-      action: AUDIT_ACTION.case_disposed,
-      caseId,
-      summary: "Retention disposition: PII fields cleared",
-      severity: "warning"
-    });
-    return { status: 204 };
-  })
-});
-import_functions.app.http("internalBoxCaseByFolder", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "internal/box/case-by-folder/{folderId}",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const folderId = (req.params.folderId ?? "").trim();
-    if (!folderId) return { status: 200, jsonBody: { caseId: null, casePo: null } };
-    const rows = await query(
-      "SELECT id, case_po FROM case_ WHERE box_folder_id = $1 LIMIT 1",
-      [folderId]
-    );
-    const caseId = rows.length > 0 ? rows[0].id : null;
-    const casePo = rows.length > 0 ? rows[0].case_po ?? null : null;
-    return { status: 200, jsonBody: { caseId, casePo } };
-  })
-});
-import_functions.app.http("internalBoxPurgeCandidates", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "internal/box/purge-candidates",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const rows = await query(
-      `SELECT case_id, storage_path
-           FROM evidence
-          WHERE box_file_id IS NOT NULL
-            AND storage_path IS NOT NULL
-          ORDER BY created_at
-          LIMIT 1000`
-    );
-    return {
-      status: 200,
-      jsonBody: rows.map((r) => ({
-        caseId: r.case_id,
-        blobPath: r.storage_path
-      }))
-    };
-  })
-});
-import_functions.app.http("internalBoxMarkPurged", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/box/mark-purged",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json();
-    await tx(async (q) => {
-      const lockedCase = await lockCaseForMutation(q, body2.caseId);
-      if (lockedCase.kind !== "active") return;
-      await q(
-        `UPDATE evidence
-              SET storage_path = NULL, updated_at = now()
-            WHERE case_id = $1 AND storage_path = $2`,
-        [lockedCase.caseId, body2.blobPath]
-      );
-    });
-    return { status: 204 };
-  })
-});
-import_functions.app.http("internalStaffUploadCleanupClaim", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/staff-upload-cleanup/claim",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const limitRaw = Number(req.query.get("limit") ?? "25");
-    const limit = Math.min(100, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25));
-    const rows = await tx(async (q) => {
-      await q(
-        `UPDATE staff_evidence_upload_item item
-              SET state = 'complete', evidence_id = e.id,
-                  upload_claim_token = NULL, upload_claim_expires_at = NULL,
-                  cleanup_claim_token = NULL, cleanup_claim_expires_at = NULL,
-                  cleanup_next_attempt_at = NULL, updated_at = now()
-             FROM evidence e
-            WHERE e.storage_path = item.blob_path
-              AND item.state IN ('uploading', 'cleanup_pending')`
-      );
-      await q(
-        `UPDATE staff_evidence_upload_item item
-              SET state = 'cleanup_pending',
-                  upload_claim_token = NULL, upload_claim_expires_at = NULL,
-                  cleanup_next_attempt_at = now() + interval '15 minutes',
-                  cleanup_last_error = COALESCE(cleanup_last_error, 'upload lease expired'),
-                  updated_at = now()
-            WHERE item.state = 'uploading'
-              AND (item.upload_claim_expires_at IS NULL OR item.upload_claim_expires_at <= now())
-              AND NOT EXISTS (
-                SELECT 1 FROM evidence e WHERE e.storage_path = item.blob_path
-              )`
-      );
-      return q(
-        `WITH candidates AS (
-             SELECT item.id
-               FROM staff_evidence_upload_item item
-              WHERE item.state = 'cleanup_pending'
-                AND (item.cleanup_next_attempt_at IS NULL OR item.cleanup_next_attempt_at <= now())
-                AND (item.cleanup_claim_expires_at IS NULL OR item.cleanup_claim_expires_at <= now())
-                AND NOT EXISTS (
-                  SELECT 1 FROM evidence e WHERE e.storage_path = item.blob_path
-                )
-              ORDER BY item.created_at, item.id
-              LIMIT $1
-              FOR UPDATE SKIP LOCKED
-           )
-           UPDATE staff_evidence_upload_item item
-              SET state = 'cleanup_pending',
-                  upload_claim_token = NULL, upload_claim_expires_at = NULL,
-                  cleanup_claim_token = gen_random_uuid(),
-                  cleanup_claim_expires_at = now() + interval '15 minutes',
-                  cleanup_attempt_count = cleanup_attempt_count + 1,
-                  updated_at = now()
-             FROM candidates candidate
-            WHERE item.id = candidate.id
-        RETURNING item.id, item.blob_path, item.cleanup_claim_token,
-                  item.cleanup_attempt_count`,
-        [limit]
-      );
-    });
-    return {
-      status: 200,
-      jsonBody: {
-        rows: rows.map((row) => ({
-          itemId: row.id,
-          blobPath: row.blob_path,
-          claimToken: row.cleanup_claim_token,
-          attemptCount: Number(row.cleanup_attempt_count ?? 0)
-        }))
-      }
-    };
-  })
-});
-import_functions.app.http("internalStaffUploadCleanupComplete", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/staff-upload-cleanup/{id}/complete",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const itemId = (req.params.id ?? "").trim();
-    const body2 = await req.json();
-    const claimToken = (body2.claimToken ?? "").trim();
-    if (!itemId || !claimToken || !["deleted", "missing", "failed"].includes(body2.outcome ?? "")) {
-      return { status: 400, jsonBody: { error: "cleanup claim and outcome are required" } };
-    }
-    const result = await tx(async (q) => {
-      const items = await q(
-        `SELECT blob_path, cleanup_attempt_count
-             FROM staff_evidence_upload_item
-            WHERE id = $1 AND state = 'cleanup_pending'
-              AND cleanup_claim_token = $2::uuid
-            FOR UPDATE`,
-        [itemId, claimToken]
-      );
-      const item = items[0];
-      if (!item) return { updated: false, stale: true };
-      const linked = await q(
-        `SELECT id FROM evidence WHERE storage_path = $1 ORDER BY created_at, id LIMIT 1 FOR UPDATE`,
-        [item.blob_path]
-      );
-      if (linked[0]) {
-        await q(
-          `UPDATE staff_evidence_upload_item
-                SET state = 'complete', evidence_id = $2,
-                    cleanup_claim_token = NULL, cleanup_claim_expires_at = NULL,
-                    cleanup_next_attempt_at = NULL, updated_at = now()
-              WHERE id = $1`,
-          [itemId, linked[0].id]
-        );
-        return { updated: true, cleaned: false, referenced: true };
-      }
-      if (body2.outcome === "failed") {
-        const delayMinutes = Math.min(1440, 5 * 2 ** Math.min(8, item.cleanup_attempt_count));
-        await q(
-          `UPDATE staff_evidence_upload_item
-                SET cleanup_claim_token = NULL, cleanup_claim_expires_at = NULL,
-                    cleanup_next_attempt_at = now() + make_interval(mins => $2),
-                    cleanup_last_error = $3, updated_at = now()
-              WHERE id = $1`,
-          [itemId, delayMinutes, (body2.detail ?? "").trim().slice(0, 400)]
-        );
-        return { updated: true, cleaned: false, retry: true };
-      }
-      await q(
-        `UPDATE staff_evidence_upload_item
-              SET state = 'cleaned', cleanup_claim_token = NULL,
-                  cleanup_claim_expires_at = NULL, cleanup_next_attempt_at = NULL,
-                  cleanup_last_error = NULL, updated_at = now()
-            WHERE id = $1`,
-        [itemId]
-      );
-      return { updated: true, cleaned: true };
-    });
-    return { status: 200, jsonBody: result };
-  })
-});
-import_functions.app.http("internalEvidenceUnclassifiedBox", {
-  methods: ["GET", "POST"],
-  authLevel: "anonymous",
-  route: "internal/evidence/unclassified-box",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const limitRaw = Number(req.query.get("limit") ?? "25");
-    const limit = Math.min(100, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25));
-    const includeBoxRaw = req.query.get("includeBox");
-    if (includeBoxRaw != null && includeBoxRaw !== "true" && includeBoxRaw !== "false") {
-      return { status: 400, jsonBody: { error: "includeBox must be true or false" } };
-    }
-    const includeBox = includeBoxRaw !== "false";
-    const imageKind = evidenceKindCodec.toInt("image") ?? 1e8;
-    const unknownRole = imageRoleCodec.toInt("unknown") ?? 100000003;
-    const duePredicate = `(
-              ($4::boolean AND e.box_file_id IS NOT NULL AND e.source_label LIKE 'box_upload%')
-              OR (
-                NULLIF(btrim(e.storage_path), '') IS NOT NULL
-                AND e.source_label IN (
-                  'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                  'staff_legacy_upload', 'agent_image_ingest'
-                )
-              )
-            )
-            AND e.kind_code = $1
-            AND e.image_role_code = $2
-            AND e.registration_visible IS NULL
-            AND (
-              e.excluded = false
-              OR (
-                e.source_label IN (
-                  'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                  'staff_legacy_upload', 'agent_image_ingest'
-                )
-                AND e.excluded = true
-                AND e.exclusion_decision_source = 'classifier'
-                AND e.exclusion_reason = 'Image check pending'
-              )
-            )
-            AND (
-              COALESCE(e.box_classify_attempt_count, 0) > 0
-              OR e.created_at > now() - interval '14 days'
-              OR e.source_label IN (
-                'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                'staff_legacy_upload', 'agent_image_ingest'
-              )
-            )
-            AND e.box_classify_dead_lettered_at IS NULL
-            AND (e.box_classify_next_attempt_at IS NULL OR e.box_classify_next_attempt_at <= now())
-            AND (e.box_classify_claim_expires_at IS NULL OR e.box_classify_claim_expires_at <= now())
-            AND (
-              wp.ai_allowed IS DISTINCT FROM false
-              OR e.source_label IN (
-                'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                'staff_legacy_upload', 'agent_image_ingest'
-              )
-            )`;
-    const rows = req.method?.toUpperCase() === "POST" ? await query(
-      `WITH candidates AS (
-               SELECT e.id
-                 FROM evidence e
-                 JOIN case_ c ON c.id = e.case_id
-                 LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
-                WHERE ${duePredicate}
-                ORDER BY e.created_at DESC, e.id
-                LIMIT $3
-                FOR UPDATE OF e SKIP LOCKED
-             ), claimed AS (
-               UPDATE evidence e
-                  SET box_classify_claim_token = gen_random_uuid(),
-                      box_classify_claim_expires_at = now() + interval '30 minutes',
-                      box_classify_attempt_count = e.box_classify_attempt_count + 1,
-                      updated_at = now()
-                 FROM candidates candidate
-                WHERE e.id = candidate.id
-               RETURNING e.*
-             )
-             SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id, e.storage_path,
-                    e.source_label, e.source_message_id, e.box_classify_claim_token,
-                    e.box_classify_attempt_count, c.vrm, c.work_provider_id
-               FROM claimed e
-               JOIN case_ c ON c.id = e.case_id
-              ORDER BY e.created_at DESC, e.id`,
-      [imageKind, unknownRole, limit, includeBox]
-    ) : await query(
-      `SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id, e.storage_path,
-                    e.source_label, e.source_message_id, NULL::uuid AS box_classify_claim_token,
-                    e.box_classify_attempt_count, c.vrm, c.work_provider_id
-               FROM evidence e
-               JOIN case_ c ON c.id = e.case_id
-               LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
-              WHERE ${duePredicate}
-              ORDER BY e.created_at DESC, e.id
-              LIMIT $3`,
-      [imageKind, unknownRole, limit, includeBox]
-    );
-    return {
-      status: 200,
-      jsonBody: {
-        rows: rows.map((r) => ({
-          evidenceId: r.id,
-          caseId: r.case_id,
-          filename: r.file_name ?? "",
-          contentType: r.content_type ?? null,
-          boxFileId: r.box_file_id ?? null,
-          storagePath: r.storage_path ?? null,
-          sourceLabel: r.source_label ?? "",
-          sourceMessageId: r.source_message_id ?? null,
-          caseVrm: r.vrm ?? "",
-          workProviderId: r.work_provider_id ?? "",
-          claimToken: r.box_classify_claim_token ?? null,
-          attemptCount: Number(r.box_classify_attempt_count ?? 0)
-        }))
-      }
-    };
-  })
-});
-import_functions.app.http("internalEvidenceBoxClassification", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/evidence/{id}/box-classification",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const evidenceId = (req.params.id ?? "").trim();
-    const body2 = await req.json();
-    const imageKind = evidenceKindCodec.toInt("image") ?? 1e8;
-    const unknownRole = imageRoleCodec.toInt("unknown") ?? 100000003;
-    const claimToken = (body2.claimToken ?? "").trim();
-    if (body2.failure != null) {
-      const disposition = body2.failure.disposition;
-      const code = (body2.failure.code ?? "").trim().toLowerCase();
-      const detail = (body2.failure.detail ?? "").trim().slice(0, 400);
-      if (!evidenceId || !claimToken || disposition !== "transient" && disposition !== "terminal" || !/^[a-z0-9][a-z0-9_.:-]{0,79}$/.test(code)) {
-        return {
-          status: 400,
-          jsonBody: { error: "claimToken and a valid failure disposition/code are required" }
-        };
-      }
-      const terminal = disposition === "terminal";
-      const failed = await query(
-        `UPDATE evidence
-              SET box_classify_claim_token = NULL,
-                  box_classify_claim_expires_at = NULL,
-                  box_classify_last_failure_code = $3::text,
-                  box_classify_next_attempt_at = CASE
-                    WHEN $4::boolean THEN NULL
-                    WHEN box_classify_attempt_count <= 1 THEN now() + interval '15 minutes'
-                    WHEN box_classify_attempt_count = 2 THEN now() + interval '1 hour'
-                    WHEN box_classify_attempt_count = 3 THEN now() + interval '6 hours'
-                    ELSE now() + interval '24 hours'
-                  END,
-                  box_classify_dead_lettered_at = CASE WHEN $4::boolean THEN now() ELSE NULL END,
-                  box_classify_dead_letter_reason = CASE
-                    WHEN $4::boolean THEN left(COALESCE(NULLIF($5, ''), $3), 400)
-                    ELSE NULL
-                  END,
-                  exclusion_reason = CASE
-                    WHEN $4::boolean
-                     AND $3 = 'provider_ai_opted_out_manual_review'
-                     AND excluded = true
-                     AND source_label IN (
-                       'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                       'staff_legacy_upload', 'agent_image_ingest'
-                     )
-                    THEN 'Image needs staff review'
-                    ELSE exclusion_reason
-                  END,
-                  updated_at = now()
-            WHERE id = $1
-              AND box_classify_claim_token::text = $2
-              AND kind_code = $6
-              AND image_role_code = $7
-              AND registration_visible IS NULL
-              AND (
-                excluded = false
-                OR (
-                  source_label IN (
-                    'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                    'staff_legacy_upload', 'agent_image_ingest'
-                  )
-                  AND excluded = true
-                  AND exclusion_decision_source = 'classifier'
-                  AND exclusion_reason = 'Image check pending'
-                )
-              )
-          RETURNING box_classify_attempt_count,
-                    box_classify_next_attempt_at,
-                    box_classify_dead_lettered_at`,
-        [evidenceId, claimToken, code, terminal, detail, imageKind, unknownRole]
-      );
-      const row = failed[0];
-      return {
-        status: 200,
-        jsonBody: row ? {
-          updated: true,
-          disposition,
-          attemptCount: Number(row.box_classify_attempt_count ?? 0),
-          nextAttemptAt: row.box_classify_next_attempt_at ?? null,
-          deadLettered: row.box_classify_dead_lettered_at != null
-        } : { updated: false, stale: true }
-      };
-    }
-    const caseId = (body2.caseId ?? "").trim();
-    const boxFileId = (body2.boxFileId ?? "").trim();
-    const storagePath = (body2.storagePath ?? "").trim();
-    if (!evidenceId || !caseId || Boolean(boxFileId) === Boolean(storagePath)) {
-      return {
-        status: 400,
-        jsonBody: { error: "evidence id, caseId and exactly one file locator are required" }
-      };
-    }
-    if (typeof body2.registrationVisible !== "boolean" || typeof body2.acceptedForEva !== "boolean" || typeof body2.excluded !== "boolean" || typeof body2.personReflection !== "boolean" || body2.decisionSource !== "classifier") {
-      return { status: 400, jsonBody: { error: "classification booleans are required" } };
-    }
-    const imageRoleCode = body2.imageRole === "other" ? unknownRole : imageRoleCodec.toInt(body2.imageRole);
-    if (imageRoleCode == null) {
-      return { status: 400, jsonBody: { error: "imageRole is not recognised" } };
-    }
-    const excluded = body2.excluded === true;
-    const exclusionReason = excluded ? (body2.exclusionReason ?? "").trim() || "Excluded" : null;
-    const result = await tx(async (q) => {
-      const lockedCase = await lockCaseForMutation(q, caseId);
-      if (lockedCase.kind === "retired") {
-        return { kind: "retired", targetCaseId: lockedCase.mergedInto };
-      }
-      if (lockedCase.kind === "missing") return { kind: "missing" };
-      const current = await q(
-        `SELECT id FROM evidence
-            WHERE id = $1
-              AND case_id = $2
-              AND (
-                ($3::text <> '' AND box_file_id = $3 AND source_label LIKE 'box_upload%')
-                OR (
-                  $4::text <> '' AND storage_path = $4
-                  AND source_label IN (
-                    'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                    'staff_legacy_upload', 'agent_image_ingest'
-                  )
-                )
-              )
-              AND kind_code = $5
-              AND ($6::text = '' OR box_classify_claim_token::text = $6)
-            FOR UPDATE`,
-        [evidenceId, lockedCase.caseId, boxFileId, storagePath, imageKind, claimToken]
-      );
-      if (!current[0]) {
-        return claimToken ? { kind: "stale" } : { kind: "missing" };
-      }
-      const identityWhere = boxFileId ? "id = $1 AND case_id = $2 AND box_file_id = $3" : "id = $1 AND case_id = $2 AND storage_path = $3";
-      const applied = await applyEvidenceMetadata(
-        ctx,
-        identityWhere,
-        [evidenceId, lockedCase.caseId, boxFileId || storagePath],
-        {
-          imageRole: body2.imageRole,
-          registrationVisible: body2.registrationVisible,
-          acceptedForEva: body2.acceptedForEva,
-          excluded: body2.excluded,
-          exclusionReason,
-          decisionSource: "classifier",
-          personReflection: body2.personReflection
-        },
-        {
-          imageRoleCode,
-          registrationVisible: body2.registrationVisible,
-          excluded,
-          exclusionReason,
-          sha256: null,
-          sequenceIndex: null
-        },
-        q
-      );
-      if (applied.updated === 0) return { kind: "stale" };
-      await q(
-        `UPDATE evidence
-              SET box_classify_attempt_count = 0,
-                  box_classify_next_attempt_at = NULL,
-                  box_classify_claim_token = NULL,
-                  box_classify_claim_expires_at = NULL,
-                  box_classify_last_failure_code = NULL,
-                  box_classify_dead_lettered_at = NULL,
-                  box_classify_dead_letter_reason = NULL,
-                  updated_at = now()
-            WHERE id = $1
-              AND ($2::text = '' OR box_classify_claim_token::text = $2)`,
-        [evidenceId, claimToken]
-      );
-      const generation = applied.readinessChanged ? await requestStatusRecompute(q, lockedCase.caseId) : null;
-      return { kind: "updated", generation };
-    });
-    if (result.kind === "missing") {
-      return { status: 404, jsonBody: { error: "evidence row not found" } };
-    }
-    if (result.kind === "retired") {
-      return {
-        status: 409,
-        jsonBody: { error: "case has been merged", code: "case_merged", targetCaseId: result.targetCaseId }
-      };
-    }
-    if (result.kind === "stale") {
-      return { status: 200, jsonBody: { updated: false, stale: true } };
-    }
-    return {
-      status: 200,
-      jsonBody: {
-        updated: true,
-        ...result.generation == null ? {} : { statusGeneration: result.generation }
-      }
-    };
-  })
-});
-import_functions.app.http("internalStatusRecomputePending", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "internal/status-recompute/pending",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const limitRaw = Number(req.query.get("limit") ?? "25");
-    const limit = Math.min(
-      100,
-      Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25)
-    );
-    const rows = await query(
-      `SELECT id, status_recompute_requested_generation
-           FROM case_
-          WHERE status_recompute_completed_generation < status_recompute_requested_generation
-          ORDER BY status_recompute_requested_at ASC NULLS FIRST, id
-          LIMIT $1`,
-      [limit]
-    );
-    return {
-      status: 200,
-      jsonBody: {
-        rows: rows.map((r) => ({
-          caseId: r.id,
-          generation: Number(r.status_recompute_requested_generation)
-        }))
-      }
-    };
-  })
-});
-import_functions.app.http("internalStatusRecomputeComplete", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/status-recompute/{id}/complete",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const caseId = (req.params.id ?? "").trim();
-    const body2 = await req.json();
-    const generation = Number(body2.generation);
-    if (!caseId || !Number.isSafeInteger(generation) || generation < 1) {
-      return {
-        status: 400,
-        jsonBody: { error: "case id and a positive generation are required" }
-      };
-    }
-    const result = await recomputeStatus(caseId, generation);
-    if (!result.found) return { status: 404, jsonBody: { error: "case not found" } };
-    return {
-      status: 200,
-      jsonBody: { completed: result.completed, pending: result.pending }
-    };
-  })
-});
-import_functions.app.http("internalCaseBoxFolderGet", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "internal/cases/{id}/box-folder",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const caseId = (req.params.id ?? "").trim();
-    if (!caseId) return { status: 200, jsonBody: { boxFolderId: null, boxFolderUrl: null, casePo: null } };
-    const rows = await query(
-      "SELECT box_folder_id, box_folder_url, case_po FROM case_ WHERE id = $1",
-      [caseId]
-    );
-    const r = rows[0];
-    return {
-      status: 200,
-      jsonBody: {
-        boxFolderId: r?.box_folder_id ?? null,
-        boxFolderUrl: r?.box_folder_url ?? null,
-        casePo: r?.case_po ?? null
-      }
-    };
-  })
-});
-import_functions.app.http("internalCaseBoxFolderStamp", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/cases/{id}/box-folder",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const caseId = (req.params.id ?? "").trim();
-    const body2 = await req.json();
-    const boxFolderId = (body2.boxFolderId ?? "").trim();
-    const boxFolderUrl = (body2.boxFolderUrl ?? "").trim() || null;
-    if (!caseId || !boxFolderId) {
-      return { status: 400, jsonBody: { error: "caseId and boxFolderId required" } };
-    }
-    const result = await tx((q) => stampCaseArchiveFolderUsing(q, {
-      caseId,
-      boxFolderId,
-      boxFolderUrl
-    }));
-    return { status: 200, jsonBody: result };
-  })
-});
-import_functions.app.http("internalOutlookLinkBackfillCandidates", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "internal/outlook-links/backfill-candidates",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const limit = Number(req.query.get("limit") ?? "25");
-    const rows = await listOutlookLinkBackfillCandidates(limit);
-    return { status: 200, jsonBody: { rows } };
-  })
-});
-import_functions.app.http("internalOutlookLinkBackfillResult", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/outlook-links/backfill-result",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json().catch(() => ({}));
-    const text = (key) => typeof body2[key] === "string" ? String(body2[key]).trim() : "";
-    const attemptId = text("attemptId");
-    const inboundEmailId = text("inboundEmailId");
-    const sourceMailbox = text("sourceMailbox");
-    const sourceMessageId = text("sourceMessageId");
-    const outcome = text("outcome");
-    const allowed = [
-      "resolved",
-      "not_found",
-      "not_accessible",
-      "ambiguous",
-      "unavailable"
-    ];
-    if (!attemptId || !inboundEmailId || !sourceMailbox || !sourceMessageId || !allowed.includes(outcome)) {
-      return { status: 400, jsonBody: { error: "invalid backfill result" } };
-    }
-    const result = await recordOutlookLinkBackfillResult({
-      attemptId,
-      inboundEmailId,
-      sourceMailbox,
-      sourceMessageId,
-      outcome,
-      reason: text("reason") || outcome,
-      ...text("graphMessageId") ? { graphMessageId: text("graphMessageId") } : {},
-      ...text("outlookWebLink") ? { outlookWebLink: text("outlookWebLink") } : {}
-    });
-    return { status: result.recorded ? 200 : 404, jsonBody: result };
-  })
-});
-
-// api/src/lib/concurrency.ts
-function versionToken(updatedAt) {
-  if (updatedAt == null) return "";
-  const d = updatedAt instanceof Date ? updatedAt : new Date(String(updatedAt));
-  return Number.isNaN(d.getTime()) ? String(updatedAt) : String(d.getTime());
-}
-function ifMatch(req) {
-  const raw = req.headers.get("if-match");
-  return raw == null ? null : raw.replace(/"/g, "").trim();
-}
-
-// api/src/lib/uuid.ts
-var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function isUuid(value) {
-  return typeof value === "string" && UUID_RE.test(value);
-}
-
-// api/src/lib/functions-client.ts
-var FN_STAGE_TIMEOUT_MS = 3e4;
-var FunctionCallError = class extends Error {
-  constructor(message2, status) {
-    super(message2);
-    this.status = status;
-    this.name = "FunctionCallError";
-  }
-};
-async function callVehicleData(input) {
-  const base = process.env.ENRICH_FN_URL;
-  const key = process.env.ENRICH_FN_KEY;
-  if (!base || !key) {
-    throw new Error("[functions-client] ENRICH_FN_URL/ENRICH_FN_KEY not configured");
-  }
-  const raw = await callFn(
-    base,
-    key,
-    "POST",
-    "/api/dvsa-mot/enrich",
-    {
-      vrm: input.registration,
-      document_has_mileage: input.documentHasMileage,
-      ...input.targetDate ? { target_date: input.targetDate } : {},
-      ...input.idempotencyKey ? { idempotency_key: input.idempotencyKey } : {}
-    },
-    { timeoutMs: FN_STAGE_TIMEOUT_MS }
-  );
-  const parsed = parseVehicleDataEnrichmentResponse(raw);
-  if (!parsed) throw new Error("[functions-client] vehicle-data response failed contract validation");
-  return parsed;
-}
-async function callFn(baseUrl, fnKey, method, path, body2, opts) {
-  const timeoutMs = opts?.timeoutMs;
-  const controller = timeoutMs != null ? new AbortController() : void 0;
-  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : void 0;
-  try {
-    const res = await fetch(`${baseUrl}${path}`, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        "x-functions-key": fnKey
-      },
-      ...body2 !== void 0 ? { body: JSON.stringify(body2) } : {},
-      ...controller ? { signal: controller.signal } : {}
-    });
-    if (!res.ok) {
-      await res.text().catch(() => "");
-      throw new FunctionCallError(
-        `[functions-client] ${method} ${path} returned HTTP ${res.status}`,
-        res.status
-      );
-    }
-    return res.json();
-  } catch (e) {
-    if (controller?.signal.aborted) {
-      throw new Error(`[functions-client] ${method} ${path} \u2192 timed out after ${timeoutMs}ms`);
-    }
-    throw e;
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
-async function callParser(body2) {
-  return callFn(
-    process.env.PARSER_FN_URL,
-    process.env.PARSER_FN_KEY,
-    "POST",
-    "/api/parse",
-    body2
-  );
-}
-async function callLocationSuggest(body2, opts) {
-  return callFn(
-    process.env.LOCATION_SUGGEST_FN_URL,
-    process.env.LOCATION_SUGGEST_FN_KEY,
-    "POST",
-    "/api/location-suggest",
-    body2,
-    opts
-  );
-}
-async function callPlateOcr(input) {
-  const base = process.env.OCR_FN_URL;
-  const key = process.env.OCR_FN_KEY;
-  if (!base || !key) throw new Error("[functions-client] OCR_FN_URL/OCR_FN_KEY not configured");
-  return callFn(
-    base,
-    key,
-    "POST",
-    "/api/plate-ocr",
-    {
-      image: input.imageBase64,
-      filename: input.filename,
-      ...input.caseVrm ? { case_vrm: input.caseVrm } : {}
-    },
-    { timeoutMs: FN_STAGE_TIMEOUT_MS }
-  );
-}
-async function callBoxListFolder(folderId, limit = 1e3, offset = 0) {
-  const base = process.env.BOX_FN_URL;
-  const key = process.env.BOX_FN_KEY;
-  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
-  return callFn(
-    base,
-    key,
-    "GET",
-    `/api/box/folders/${encodeURIComponent(folderId)}/items?limit=${limit}&offset=${offset}`
-  );
-}
-async function verifyBoxWriteScope(folderId) {
-  const base = process.env.BOX_FN_URL;
-  const key = process.env.BOX_FN_KEY;
-  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
-  return callFn(
-    base,
-    key,
-    "POST",
-    "/api/box/scope/write-check",
-    { folderId },
-    { timeoutMs: FN_STAGE_TIMEOUT_MS }
-  );
-}
-async function listBoxFolderNames(folderId) {
-  const names = [];
-  const limit = 1e3;
-  let offset = 0;
-  for (let page = 0; page < 20; page++) {
-    const res = await callBoxListFolder(folderId, limit, offset);
-    const entries = res.entries ?? [];
-    for (const e of entries) if (e?.name) names.push(String(e.name));
-    if (entries.length < limit) break;
-    offset += limit;
-  }
-  return names;
-}
-async function listBoxFolderEntries(folderId) {
-  const out = [];
-  const limit = 1e3;
-  let offset = 0;
-  for (let page = 0; page < 20; page++) {
-    const res = await callBoxListFolder(folderId, limit, offset);
-    const entries = res.entries ?? [];
-    for (const e of entries) {
-      if (e?.type === "folder" && e.id && e.name) out.push({ id: String(e.id), name: String(e.name) });
-    }
-    if (entries.length < limit) break;
-    offset += limit;
-  }
-  return out;
-}
-function boxFileRequestExpiry() {
-  const configured = Number(process.env.BOX_FILE_REQUEST_EXPIRY_DAYS ?? "30");
-  const days = Number.isFinite(configured) ? Math.min(90, Math.max(1, configured)) : 30;
-  return new Date(Date.now() + days * 864e5).toISOString();
-}
-async function callBoxCopyFileRequest(templateId, folderId, opts) {
-  const base = process.env.BOX_FN_URL;
-  const key = process.env.BOX_FN_KEY;
-  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
-  const configured = Number(process.env.BOX_FILE_REQUEST_COPY_TIMEOUT_MS ?? FN_STAGE_TIMEOUT_MS);
-  const timeoutMs = opts?.timeoutMs ?? (Number.isFinite(configured) ? Math.min(6e4, Math.max(5e3, configured)) : FN_STAGE_TIMEOUT_MS);
-  return callFn(
-    base,
-    key,
-    "POST",
-    `/api/box/file-requests/${encodeURIComponent(templateId)}/copy`,
-    {
-      folder: { id: folderId },
-      status: "active",
-      // Never inherit an already-expired template date. A later chaser validates
-      // the request remotely and renews it when this date passes.
-      expires_at: boxFileRequestExpiry()
-    },
-    { timeoutMs }
-  );
-}
-async function callBoxGetFileRequest(fileRequestId, expectedFolderId, opts) {
-  const base = process.env.BOX_FN_URL;
-  const key = process.env.BOX_FN_KEY;
-  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
-  return callFn(
-    base,
-    key,
-    "GET",
-    `/api/box/file-requests/${encodeURIComponent(fileRequestId)}?folderId=${encodeURIComponent(expectedFolderId)}`,
-    void 0,
-    { timeoutMs: opts?.timeoutMs ?? FN_STAGE_TIMEOUT_MS }
-  );
-}
-async function callBoxReactivateFileRequest(fileRequestId, expectedFolderId, opts) {
-  const base = process.env.BOX_FN_URL;
-  const key = process.env.BOX_FN_KEY;
-  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
-  return callFn(
-    base,
-    key,
-    "PUT",
-    `/api/box/file-requests/${encodeURIComponent(fileRequestId)}?folderId=${encodeURIComponent(expectedFolderId)}`,
-    { status: "active", expires_at: boxFileRequestExpiry() },
-    { timeoutMs: opts?.timeoutMs ?? FN_STAGE_TIMEOUT_MS }
-  );
-}
-async function downloadBoxFileContent(fileId) {
-  const base = process.env.BOX_FN_URL;
-  const key = process.env.BOX_FN_KEY;
-  if (!base || !key) return void 0;
-  try {
-    const res = await callFn(
-      base,
-      key,
-      "GET",
-      `/api/box/files/${encodeURIComponent(fileId)}/content`
-    );
-    if (!res?.contentBase64) return void 0;
-    return { bytes: Buffer.from(res.contentBase64, "base64"), filename: res.filename };
-  } catch {
-    return void 0;
-  }
-}
-
-// api/src/lib/box-file-request-outbox.ts
-var import_node_crypto7 = require("node:crypto");
-function allowedBoxHost(hostname2) {
-  const host = hostname2.toLowerCase();
-  return host === "app.box.com" || host.endsWith(".app.box.com");
-}
-function publicBoxOrigin() {
-  const raw = (process.env.BOX_FILE_REQUEST_PUBLIC_ORIGIN ?? "https://app.box.com").trim();
-  try {
-    const url2 = new URL(raw);
-    if (url2.protocol === "https:" && allowedBoxHost(url2.hostname)) return url2.origin;
-  } catch {
-  }
-  return "https://app.box.com";
-}
-function normalizeBoxFileRequest(value, expectedFolderId, now = Date.now()) {
-  if (!value || typeof value !== "object") return void 0;
-  const rec = value;
-  const folder = rec.folder;
-  const id = typeof rec.id === "string" ? rec.id.trim() : "";
-  const rawUrl = typeof rec.url === "string" ? rec.url.trim() : "";
-  const folderId = typeof folder?.id === "string" ? folder.id.trim() : "";
-  const status = rec.status === "active" || rec.status === "inactive" ? rec.status : void 0;
-  const rawExpiry = typeof rec.expires_at === "string" ? rec.expires_at.trim() : "";
-  if (!/^\d{1,40}$/.test(id) || !/^\d{1,40}$/.test(folderId) || folderId !== expectedFolderId.trim() || !status || rawUrl.length === 0 || rawUrl.length > 400) return void 0;
-  if (rawUrl.startsWith("/") && !/^\/f\/[A-Za-z0-9_-]+\/?$/.test(rawUrl)) return void 0;
-  let url2;
-  try {
-    url2 = new URL(rawUrl, `${publicBoxOrigin()}/`);
-  } catch {
-    return void 0;
-  }
-  if (url2.protocol !== "https:" || !allowedBoxHost(url2.hostname) || !/^\/f\/[A-Za-z0-9_-]+\/?$/.test(url2.pathname) || url2.username || url2.password || url2.search || url2.hash) return void 0;
-  let expiresAt;
-  let expired = false;
-  if (rawExpiry) {
-    const expiryMs = new Date(rawExpiry).getTime();
-    if (!Number.isFinite(expiryMs)) return void 0;
-    expiresAt = new Date(expiryMs).toISOString();
-    expired = expiryMs <= now;
-  }
-  return {
-    id,
-    url: url2.toString(),
-    folderId,
-    status,
-    ...expiresAt ? { expiresAt } : {},
-    active: status === "active" && !expired
-  };
-}
-async function requestBoxFileRequestIntent(q, caseId, folderId, templateId, options = {}) {
-  const rows = await q(
-    "SELECT * FROM box_file_request_outbox WHERE case_id = $1 FOR UPDATE",
-    [caseId]
-  );
-  const current = rows[0];
-  if (!current) {
-    await q(
-      `INSERT INTO box_file_request_outbox
-         (case_id, folder_id, template_id, requested_generation, completed_generation,
-          requested_at, next_attempt_at, repair_reason, updated_at)
-       VALUES ($1, $2, $3, 1, 0, now(), now(), $4, now())`,
-      [caseId, folderId, templateId, options.replaceReason ?? null]
-    );
-    return { generation: 1, alreadyCompleted: false };
-  }
-  const requested = Number(current.requested_generation);
-  const completed = Number(current.completed_generation);
-  if (options.replaceReason) {
-    const generation = Math.max(requested, completed) + 1;
-    await q(
-      `UPDATE box_file_request_outbox
-          SET folder_id = $2,
-              template_id = $3,
-              requested_generation = $4,
-              requested_at = now(),
-              attempt_count = 0,
-              next_attempt_at = now(),
-              claim_token = NULL,
-              claimed_at = NULL,
-              claim_expires_at = NULL,
-              last_error = NULL,
-              repair_reason = $5,
-              updated_at = now()
-        WHERE case_id = $1`,
-      [caseId, folderId, templateId, generation, options.replaceReason.slice(0, 100)]
-    );
-    return { generation, alreadyCompleted: false };
-  }
-  if (completed >= requested) {
-    await q(
-      `UPDATE box_file_request_outbox
-          SET folder_id = $2, template_id = $3, updated_at = now()
-        WHERE case_id = $1`,
-      [caseId, folderId, templateId]
-    );
-    return { generation: requested, alreadyCompleted: true };
-  }
-  await q(
-    `UPDATE box_file_request_outbox
-        SET folder_id = CASE WHEN attempt_count = 0 THEN $2 ELSE folder_id END,
-            template_id = CASE WHEN attempt_count = 0 THEN $3 ELSE template_id END,
-            next_attempt_at = CASE
-              WHEN claim_expires_at IS NULL OR claim_expires_at <= now() THEN now()
-              ELSE next_attempt_at
-            END,
-            updated_at = now()
-      WHERE case_id = $1`,
-    [caseId, folderId, templateId]
-  );
-  return { generation: requested, alreadyCompleted: false };
-}
-async function deferClaim(caseId, claimToken, error2) {
-  const reason = (error2 instanceof Error ? error2.message : String(error2)).slice(0, 200);
-  try {
-    await tx(async (q) => {
-      await lockCaseForMutation(q, caseId);
-      await q(
-        `UPDATE box_file_request_outbox
-            SET next_attempt_at = now() + make_interval(
-                  secs => LEAST(3600, (30 * power(2, LEAST(attempt_count, 6)))::integer)
-                ),
-                last_error = $3,
-                claim_token = NULL,
-                claimed_at = NULL,
-                claim_expires_at = NULL,
-                updated_at = now()
-          WHERE case_id = $1
-            AND claim_token = $2
-            AND completed_generation < requested_generation`,
-        [caseId, claimToken, reason]
-      );
-    });
-  } catch (deferError) {
-    console.error("[box-file-request] could not defer claimed work", deferError);
-  }
-}
-function replacementReason(error2) {
-  if (!(error2 instanceof FunctionCallError)) return void 0;
-  if (error2.status === 404) return "remote_request_deleted";
-  if (error2.status === 400 || error2.status === 403) return "request_folder_mismatch";
-  return void 0;
-}
-async function queueReplacement(caseId, expected, templateId, reason, actor) {
-  return tx(async (q) => {
-    const locked = await lockCaseForMutation(q, caseId);
-    if (locked.kind === "missing") return "missing";
-    if (locked.kind === "retired") return "retired";
-    const rows = await q(
-      `SELECT box_folder_id, box_file_request_id, box_file_request_url
-         FROM case_ WHERE id = $1 FOR UPDATE`,
-      [locked.caseId]
-    );
-    const row = rows[0];
-    const id = row?.box_file_request_id?.trim() ?? "";
-    const url2 = row?.box_file_request_url?.trim() ?? "";
-    if (id !== expected.id || url2 !== expected.url) return "changed";
-    const folderId = row?.box_folder_id?.trim() ?? "";
-    if (!folderId) return "changed";
-    await q(
-      `UPDATE case_
-          SET box_file_request_id = NULL,
-              box_file_request_url = NULL,
-              updated_at = now()
-        WHERE id = $1`,
-      [locked.caseId]
-    );
-    await requestBoxFileRequestIntent(q, locked.caseId, folderId, templateId, {
-      replaceReason: reason
-    });
-    await writeAudit({
-      action: AUDIT_ACTION.box_file_request_copied,
-      caseId: locked.caseId,
-      summary: "Image-upload link repair queued",
-      before: { boxFileRequestId: id, fileRequestUrl: url2 },
-      after: { repairReason: reason, boxFolderId: folderId },
-      ...actor ? { actor } : {}
-    }, q);
-    return "queued";
-  });
-}
-async function stampValidatedRequest(caseId, expected, state3, summary2, reason, actor) {
-  return tx(async (q) => {
-    const locked = await lockCaseForMutation(q, caseId);
-    if (locked.kind !== "active") return false;
-    const rows = await q(
-      `SELECT box_folder_id, box_file_request_id, box_file_request_url
-         FROM case_ WHERE id = $1 FOR UPDATE`,
-      [locked.caseId]
-    );
-    const row = rows[0];
-    if (row?.box_file_request_id?.trim() !== expected.id || row?.box_file_request_url?.trim() !== expected.url || row?.box_folder_id?.trim() !== state3.folderId) return false;
-    if (state3.url !== expected.url) {
-      await q(
-        "UPDATE case_ SET box_file_request_url = $2, updated_at = now() WHERE id = $1",
-        [locked.caseId, state3.url]
-      );
-    }
-    await q(
-      `UPDATE box_file_request_outbox
-          SET completed_generation = requested_generation,
-              completed_at = COALESCE(completed_at, now()),
-              claim_token = NULL, claimed_at = NULL, claim_expires_at = NULL,
-              last_error = NULL, updated_at = now()
-        WHERE case_id = $1`,
-      [locked.caseId]
-    );
-    if (summary2) {
-      await writeAudit({
-        action: AUDIT_ACTION.box_file_request_copied,
-        caseId: locked.caseId,
-        summary: summary2,
-        before: { status: "inactive", fileRequestUrl: expected.url },
-        after: {
-          status: "active",
-          boxFileRequestId: state3.id,
-          fileRequestUrl: state3.url,
-          ...state3.expiresAt ? { expiresAt: state3.expiresAt } : {},
-          ...reason ? { repairReason: reason } : {}
-        },
-        ...actor ? { actor } : {}
-      }, q);
-    }
-    return true;
-  });
-}
-async function validateStampedRequest(caseId, folderId, templateId, stamped, actor) {
-  let raw;
-  try {
-    raw = await callBoxGetFileRequest(stamped.id, folderId);
-  } catch (error2) {
-    const reason = replacementReason(error2);
-    if (!reason) {
-      return { kind: "pending", reason: error2 instanceof Error ? error2.message : String(error2) };
-    }
-    const queued = await queueReplacement(caseId, stamped, templateId, reason, actor);
-    if (queued === "missing") return { kind: "missing" };
-    if (queued === "retired") return { kind: "error", reason: "case_retired_during_repair" };
-    return processBoxFileRequestIntent(caseId, actor);
-  }
-  const state3 = normalizeBoxFileRequest(raw, folderId);
-  if (!state3 || state3.id !== stamped.id) {
-    const queued = await queueReplacement(
-      caseId,
-      stamped,
-      templateId,
-      "remote_request_invalid",
-      actor
-    );
-    if (queued === "missing") return { kind: "missing" };
-    if (queued === "retired") return { kind: "error", reason: "case_retired_during_repair" };
-    return processBoxFileRequestIntent(caseId, actor);
-  }
-  if (state3.active) {
-    const stampedOk = await stampValidatedRequest(caseId, stamped, state3);
-    if (!stampedOk) return processBoxFileRequestIntent(caseId, actor);
-    return {
-      kind: "ok",
-      folderId: state3.folderId,
-      fileRequestId: state3.id,
-      fileRequestUrl: state3.url,
-      ...state3.expiresAt ? { expiresAt: state3.expiresAt } : {},
-      reused: true
-    };
-  }
-  try {
-    const reactivated = normalizeBoxFileRequest(
-      await callBoxReactivateFileRequest(stamped.id, folderId),
-      folderId
-    );
-    if (!reactivated?.active || reactivated.id !== stamped.id) {
-      const queued = await queueReplacement(
-        caseId,
-        stamped,
-        templateId,
-        "reactivation_returned_inactive",
-        actor
-      );
-      if (queued === "missing") return { kind: "missing" };
-      if (queued === "retired") return { kind: "error", reason: "case_retired_during_repair" };
-      return processBoxFileRequestIntent(caseId, actor);
-    }
-    const stampedOk = await stampValidatedRequest(
-      caseId,
-      stamped,
-      reactivated,
-      "Image-upload link reactivated",
-      state3.expiresAt && new Date(state3.expiresAt).getTime() <= Date.now() ? "expired_request" : "inactive_request",
-      actor
-    );
-    if (!stampedOk) return processBoxFileRequestIntent(caseId, actor);
-    return {
-      kind: "ok",
-      folderId: reactivated.folderId,
-      fileRequestId: reactivated.id,
-      fileRequestUrl: reactivated.url,
-      ...reactivated.expiresAt ? { expiresAt: reactivated.expiresAt } : {},
-      reused: true
-    };
-  } catch (error2) {
-    const reason = replacementReason(error2);
-    if (reason) {
-      const queued = await queueReplacement(
-        caseId,
-        stamped,
-        templateId,
-        reason === "remote_request_deleted" ? "remote_request_deleted_during_reactivation" : "reactivation_rejected",
-        actor
-      );
-      if (queued === "missing") return { kind: "missing" };
-      if (queued === "retired") return { kind: "error", reason: "case_retired_during_repair" };
-      return processBoxFileRequestIntent(caseId, actor);
-    }
-    return { kind: "pending", reason: error2 instanceof Error ? error2.message : String(error2) };
-  }
-}
-async function processBoxFileRequestIntent(requestedCaseId, actor) {
-  const claimToken = (0, import_node_crypto7.randomUUID)();
-  const claim = await tx(async (q) => {
-    const lockedCase = await lockCaseForMutation(q, requestedCaseId);
-    if (lockedCase.kind === "missing") return { kind: "missing" };
-    if (lockedCase.kind === "retired") {
-      return { kind: "retired", mergedInto: lockedCase.mergedInto };
-    }
-    const caseRows = await q(
-      `SELECT box_folder_id, box_file_request_id, box_file_request_url
-         FROM case_ WHERE id = $1 FOR UPDATE`,
-      [lockedCase.caseId]
-    );
-    const caseRow = caseRows[0];
-    if (!caseRow) return { kind: "missing" };
-    const folderId = caseRow.box_folder_id?.trim() ?? "";
-    if (!folderId) return { kind: "folder_not_ready" };
-    const stampedId = caseRow.box_file_request_id?.trim() ?? "";
-    const stampedUrl = caseRow.box_file_request_url?.trim() ?? "";
-    const outboxRows = await q(
-      "SELECT * FROM box_file_request_outbox WHERE case_id = $1 FOR UPDATE",
-      [lockedCase.caseId]
-    );
-    const outbox = outboxRows[0];
-    if (stampedId && stampedUrl) {
-      return {
-        kind: "validate",
-        caseId: lockedCase.caseId,
-        folderId,
-        templateId: outbox?.template_id?.trim() ?? "",
-        stamped: { id: stampedId, url: stampedUrl }
-      };
-    }
-    if (stampedId || stampedUrl) return { kind: "invalid_stamp" };
-    if (!outbox) return { kind: "no_intent" };
-    if (Number(outbox.completed_generation) >= Number(outbox.requested_generation)) {
-      return { kind: "completed_without_stamp" };
-    }
-    const now = Date.now();
-    const nextAttempt = new Date(outbox.next_attempt_at).getTime();
-    const claimExpires = outbox.claim_expires_at ? new Date(outbox.claim_expires_at).getTime() : 0;
-    if (Number.isFinite(nextAttempt) && nextAttempt > now || claimExpires > now) {
-      return { kind: "busy" };
-    }
-    if (folderId !== outbox.folder_id.trim()) return { kind: "folder_changed" };
-    const claimed = await q(
-      `UPDATE box_file_request_outbox
-          SET claim_token = $2,
-              claimed_at = now(),
-              claim_expires_at = now() + interval '2 minutes',
-              attempt_count = attempt_count + 1,
-              updated_at = now()
-        WHERE case_id = $1
-        RETURNING *`,
-      [lockedCase.caseId, claimToken]
-    );
-    return {
-      kind: "claimed",
-      caseId: lockedCase.caseId,
-      folderId,
-      templateId: claimed[0].template_id.trim(),
-      generation: Number(claimed[0].requested_generation),
-      repairReason: claimed[0].repair_reason?.trim() || void 0
-    };
-  });
-  if (claim.kind === "missing") return { kind: "missing" };
-  if (claim.kind === "retired") return { kind: "retired", mergedInto: claim.mergedInto };
-  if (claim.kind === "folder_not_ready") return { kind: "folder_not_ready" };
-  if (claim.kind === "validate") {
-    if (!claim.templateId) return { kind: "error", reason: "missing_template_identity" };
-    return validateStampedRequest(
-      claim.caseId,
-      claim.folderId,
-      claim.templateId,
-      claim.stamped,
-      actor
-    );
-  }
-  if (claim.kind === "busy") return { kind: "pending" };
-  if (claim.kind !== "claimed") return { kind: "error", reason: claim.kind };
-  try {
-    const copied = normalizeBoxFileRequest(
-      await callBoxCopyFileRequest(claim.templateId, claim.folderId),
-      claim.folderId
-    );
-    if (!copied?.active) throw new Error("CopyFileRequest returned no active upload link");
-    const stamped = await tx(async (q) => {
-      const lockedCase = await lockCaseForMutation(q, claim.caseId);
-      if (lockedCase.kind !== "active") return false;
-      const outbox = await q(
-        "SELECT * FROM box_file_request_outbox WHERE case_id = $1 FOR UPDATE",
-        [claim.caseId]
-      );
-      const current = outbox[0];
-      if (!current || current.claim_token !== claimToken || Number(current.requested_generation) !== claim.generation) return false;
-      await q(
-        `UPDATE case_
-            SET box_file_request_id = $2,
-                box_file_request_url = $3,
-                updated_at = now()
-          WHERE id = $1`,
-        [claim.caseId, copied.id, copied.url]
-      );
-      await q(
-        `UPDATE box_file_request_outbox
-            SET completed_generation = $2,
-                completed_at = now(),
-                next_attempt_at = now(),
-                claim_token = NULL, claimed_at = NULL, claim_expires_at = NULL,
-                last_error = NULL, updated_at = now()
-          WHERE case_id = $1`,
-        [claim.caseId, claim.generation]
-      );
-      await writeAudit({
-        action: AUDIT_ACTION.box_file_request_copied,
-        caseId: claim.caseId,
-        summary: claim.repairReason ? "Image-upload link replaced" : "Image-upload link created",
-        after: {
-          boxFileRequestId: copied.id,
-          fileRequestUrl: copied.url,
-          boxFolderId: claim.folderId,
-          ...copied.expiresAt ? { expiresAt: copied.expiresAt } : {},
-          ...claim.repairReason ? { repairReason: claim.repairReason } : {}
-        },
-        ...actor ? { actor } : {}
-      }, q);
-      return true;
-    });
-    if (!stamped) throw new Error("File Request intent changed before it could be stamped");
-    return {
-      kind: "ok",
-      folderId: copied.folderId,
-      fileRequestId: copied.id,
-      fileRequestUrl: copied.url,
-      ...copied.expiresAt ? { expiresAt: copied.expiresAt } : {},
-      reused: false
-    };
-  } catch (error2) {
-    await deferClaim(claim.caseId, claimToken, error2);
-    return { kind: "pending", reason: error2 instanceof Error ? error2.message : String(error2) };
-  }
-}
-async function ensureActiveBoxFileRequest(requestedCaseId, templateId, actor) {
-  const prepared = await tx(async (q) => {
-    const locked = await lockCaseForMutation(q, requestedCaseId);
-    if (locked.kind === "missing") return { kind: "missing" };
-    if (locked.kind === "retired") return { kind: "retired", mergedInto: locked.mergedInto };
-    const rows = await q(
-      `SELECT box_folder_id, box_file_request_id, box_file_request_url
-         FROM case_ WHERE id = $1 FOR UPDATE`,
-      [locked.caseId]
-    );
-    const row = rows[0];
-    const folderId = row?.box_folder_id?.trim() ?? "";
-    if (!folderId) return { kind: "folder_not_ready" };
-    const id = row?.box_file_request_id?.trim() ?? "";
-    const url2 = row?.box_file_request_url?.trim() ?? "";
-    if (!!id !== !!url2) {
-      await q(
-        `UPDATE case_
-            SET box_file_request_id = NULL, box_file_request_url = NULL, updated_at = now()
-          WHERE id = $1`,
-        [locked.caseId]
-      );
-      await requestBoxFileRequestIntent(q, locked.caseId, folderId, templateId, {
-        replaceReason: "incomplete_persisted_identity"
-      });
-    } else if (!id) {
-      await requestBoxFileRequestIntent(q, locked.caseId, folderId, templateId);
-    } else {
-      await requestBoxFileRequestIntent(q, locked.caseId, folderId, templateId);
-    }
-    return { kind: "ready", caseId: locked.caseId };
-  });
-  if (prepared.kind === "missing") return { kind: "missing" };
-  if (prepared.kind === "retired") return { kind: "retired", mergedInto: prepared.mergedInto };
-  if (prepared.kind === "folder_not_ready") return { kind: "folder_not_ready" };
-  return processBoxFileRequestIntent(prepared.caseId, actor);
-}
-async function pendingBoxFileRequestCaseIds(limit = 20) {
-  const bounded = Math.max(1, Math.min(100, Math.trunc(limit)));
-  const rows = await query(
-    `SELECT case_id
-       FROM box_file_request_outbox
-      WHERE requested_generation > completed_generation
-        AND next_attempt_at <= now()
-        AND (claim_expires_at IS NULL OR claim_expires_at <= now())
-      ORDER BY next_attempt_at, requested_at, case_id
-      LIMIT $1`,
-    [bounded]
-  );
-  return rows.map((row) => row.case_id);
-}
-
-// api/src/functions/cases.ts
-var pad2 = (n) => String(n).padStart(2, "0");
-function fmtTimestamp(v) {
-  if (v == null || v === "") return "";
-  const d = v instanceof Date ? v : new Date(String(v));
-  if (Number.isNaN(d.getTime())) return String(v);
-  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-function chaserTargetType(code) {
-  if (code === 1e8) return "image_source";
-  if (code === 100000001) return "repairer";
-  return "work_provider";
-}
-function chaserStatusName(code) {
-  if (code === 100000001) return "sent";
-  if (code === 100000002) return "responded";
-  if (code === 100000003) return "overdue";
-  return "drafted";
-}
-function rowToChaser(ch) {
-  return {
-    id: ch.id ?? "",
-    targetType: chaserTargetType(ch.target_type_code),
-    targetName: ch.target_name ?? "",
-    channel: ch.channel_code === 100000001 ? "whatsapp" : "email",
-    templateUsed: ch.template_used ?? "",
-    status: chaserStatusName(ch.status_code),
-    summary: ch.name ?? "",
-    createdAt: fmtTimestamp(ch.drafted_at ?? ch.created_at),
-    ...ch.sent_by ? { sentBy: ch.sent_by } : {},
-    ...ch.sent_at ? { sentAt: fmtTimestamp(ch.sent_at) } : {}
-  };
-}
-async function loadAllCases(now) {
-  const rows = await query(`${CASE_SELECT_WITH_ACTIVITY} ORDER BY c.created_at DESC`);
-  return rows.map((r) => rowToCase(r, { now }));
-}
-async function loadCaseFullSnapshotUsing(q, id, now, lockCase = false) {
-  const rows = await q(
-    `${CASE_SELECT} WHERE c.id = $1${lockCase ? " FOR UPDATE OF c" : ""}`,
-    [id]
-  );
-  const rec = rows[0];
-  if (!rec) return void 0;
-  const prov = await q("SELECT * FROM field_level_provenance WHERE case_id = $1", [id]);
-  const ev = await q(
-    "SELECT * FROM evidence WHERE case_id = $1 ORDER BY sequence_index NULLS LAST, created_at",
-    [id]
-  );
-  const notes = await q("SELECT * FROM note WHERE case_id = $1 ORDER BY occurred_at", [id]);
-  const chasers = await q("SELECT * FROM chaser WHERE case_id = $1 ORDER BY created_at", [id]);
-  const sourceEvidenceState = await manualIntakeEvidenceState(q, id);
-  const value = rowToCase(rec, {
-    now,
-    provenanceRows: prov,
-    evidence: ev.map(rowToEvidence),
-    notes: notes.map((n) => ({
-      id: n.id ?? "",
-      author: n.author ?? "",
-      timestamp: fmtTimestamp(n.occurred_at ?? n.created_at),
-      text: n.text ?? ""
-    })),
-    chasers: chasers.map(rowToChaser)
-  });
-  value.sourceEvidencePending = sourceEvidenceState.pending || sourceEvidenceState.archiveFailed;
-  value.sourceEvidenceArchiveFailed = sourceEvidenceState.archiveFailed;
-  return { value, version: versionToken(rec.updated_at) };
-}
-async function loadCaseFullUsing(q, id, now, lockCase = false) {
-  return (await loadCaseFullSnapshotUsing(q, id, now, lockCase))?.value;
-}
-async function loadCaseFull(id, now) {
-  return loadCaseFullUsing(query, id, now);
-}
-async function loadCaseLite(id, q = query) {
-  const rows = await q(`${CASE_SELECT} WHERE c.id = $1`, [id]);
-  return rows[0] ? rowToCase(rows[0]) : void 0;
-}
-function comparableClaimant(value) {
-  return String(value ?? "").trim().toLocaleLowerCase("en-GB");
-}
-async function mergeClaimantProvenance(q, sourceCaseId, targetCaseId, sourceClaimant, targetClaimant) {
-  const sourceValue = sourceClaimant.trim();
-  const targetValue = targetClaimant.trim();
-  const filled = Boolean(sourceValue) && !targetValue;
-  const conflict = Boolean(sourceValue) && Boolean(targetValue) && comparableClaimant(sourceValue) !== comparableClaimant(targetValue);
-  if (filled) {
-    await q(
-      `UPDATE case_
-          SET eva_claimant_name = $2, updated_at = now()
-        WHERE id = $1
-          AND btrim(COALESCE(eva_claimant_name, '')) = ''`,
-      [targetCaseId, sourceValue.slice(0, 200)]
-    );
-  }
-  const conflictCode = reviewStateCodec.toInt("conflict") ?? 100000003;
-  await q(
-    `UPDATE field_level_provenance
-        SET case_id = $2,
-            name = CONCAT($2::text, ':merged:', id::text),
-            source_label = LEFT(
-              CASE
-                WHEN btrim(COALESCE(source_label, '')) = '' THEN 'Carried over from merged case'
-                ELSE source_label || ' \u2014 carried over from merged case'
-              END,
-              400
-            ),
-            review_state_code = CASE
-              WHEN $3::boolean
-               AND field_name = 'claimantName'
-               AND lower(btrim(COALESCE(value, ''))) = lower(btrim($4))
-                THEN $5
-              ELSE review_state_code
-            END,
-            updated_at = now()
-      WHERE case_id = $1`,
-    [sourceCaseId, targetCaseId, conflict, sourceValue, conflictCode]
-  );
-  if (sourceValue) {
-    const unknownCode = sourceTypeCodec.toInt("unknown") ?? 100000011;
-    const needsReviewCode = reviewStateCodec.toInt("needs_review") ?? 100000001;
-    await q(
-      `INSERT INTO field_level_provenance
-         (name, case_id, field_name, value, source_type_code, source_label, review_state_code,
-          source_reference)
-       SELECT $1, $2, 'claimantName', $3, $4,
-              'Source not recorded \u2014 carried over from merged case', $5, $6
-       WHERE NOT EXISTS (
-         SELECT 1
-           FROM field_level_provenance
-          WHERE case_id = $2
-            AND field_name = 'claimantName'
-            AND lower(btrim(COALESCE(value, ''))) = lower(btrim($3))
-       )`,
-      [
-        `${targetCaseId}:claimantName:merged:${sourceCaseId}`,
-        targetCaseId,
-        sourceValue.slice(0, 200),
-        unknownCode,
-        conflict ? conflictCode : needsReviewCode,
-        `case:${sourceCaseId}`
-      ]
-    );
-  }
-  return { filled, conflict };
-}
-async function recomputeStatus2(caseId, actor) {
-  const prefillProbe = await loadCaseFull(caseId, /* @__PURE__ */ new Date());
-  if (!prefillProbe) return false;
-  if (isPrefillApplicable(prefillProbe)) {
-    await prefillImageBasedInspection(caseId, actor);
-  }
-  const next = await tx(async (q) => {
-    const full = await loadCaseFullUsing(q, caseId, /* @__PURE__ */ new Date(), true);
-    if (!full) return null;
-    const evaluated = statusForReviewCase(readinessInputForCase(full));
-    if (evaluated !== full.status) {
-      await q("UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1", [
-        caseId,
-        statusToInt(evaluated)
-      ]);
-      await writeAudit({
-        action: AUDIT_ACTION.status_changed,
-        caseId,
-        summary: `Status ${full.status} -> ${evaluated}`,
-        before: { status: full.status },
-        after: { status: evaluated },
-        ...actor ? { actor } : {}
-      }, q);
-    }
-    return evaluated;
-  });
-  if (!next) return false;
-  await maybeSuggestOverviewChase(caseId, next, actor);
-  return true;
-}
-async function markEvaSubmittedIfReady(caseId, actor) {
-  return tx(async (q) => {
-    const full = await loadCaseFullUsing(q, caseId, /* @__PURE__ */ new Date(), true);
-    if (!full || full.sourceEvidencePending === true || !canSubmitCaseToEva(full)) return false;
-    return markEvaSubmittedUsing(q, caseId, actor);
-  });
-}
-async function upsertManualProvenance(caseId, fieldName, value) {
-  try {
-    const staff = sourceTypeCodec.toInt("staff") ?? 1e8;
-    const reviewed = reviewStateCodec.toInt("reviewed") ?? 100000002;
-    const conflict = reviewStateCodec.toInt("conflict") ?? 100000003;
-    await query(
-      `UPDATE field_level_provenance
-          SET review_state_code = $4, reviewed_by = 'Manual edit (case page)',
-              reviewed_at = now(), updated_at = now()
-        WHERE case_id = $1 AND field_name = $2 AND review_state_code = $3`,
-      [caseId, fieldName, conflict, reviewed]
-    );
-    const upd = await query(
-      `UPDATE field_level_provenance
-          SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
-              review_state_code = $5, updated_at = now()
-        WHERE id = (
-          SELECT id
-          FROM field_level_provenance
-          WHERE case_id = $1
-            AND field_name = $2
-            AND source_type_code = $4
-          ORDER BY updated_at DESC, id
-          LIMIT 1
-        )
-        RETURNING id`,
-      [caseId, fieldName, value, staff, reviewed]
-    );
-    if (upd.length === 0) {
-      await query(
-        `INSERT INTO field_level_provenance
-           (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
-         VALUES ($1, $2, $3, $4, $5, 'Manual edit (case page)', $6)`,
-        [`${caseId}:${fieldName}:staff`, caseId, fieldName, value, staff, reviewed]
-      );
-    }
-  } catch {
-  }
-}
-async function upsertManualProvenanceStrict(q, caseId, fieldName, value) {
-  const staff = sourceTypeCodec.toInt("staff") ?? 1e8;
-  const reviewed = reviewStateCodec.toInt("reviewed") ?? 100000002;
-  const conflict = reviewStateCodec.toInt("conflict") ?? 100000003;
-  await q(
-    `UPDATE field_level_provenance
-        SET review_state_code = $4, reviewed_by = 'Manual edit (case page)',
-            reviewed_at = now(), updated_at = now()
-      WHERE case_id = $1 AND field_name = $2 AND review_state_code = $3`,
-    [caseId, fieldName, conflict, reviewed]
-  );
-  const updated = await q(
-    `UPDATE field_level_provenance
-        SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
-            review_state_code = $5, updated_at = now()
-      WHERE id = (
-        SELECT id
-        FROM field_level_provenance
-        WHERE case_id = $1
-          AND field_name = $2
-          AND source_type_code = $4
-        ORDER BY updated_at DESC, id
-        LIMIT 1
-      )
-      RETURNING id`,
-    [caseId, fieldName, value, staff, reviewed]
-  );
-  if (updated.length === 0) {
-    await q(
-      `INSERT INTO field_level_provenance
-         (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
-       VALUES ($1, $2, $3, $4, $5, 'Manual edit (case page)', $6)`,
-      [`${caseId}:${fieldName}:staff`, caseId, fieldName, value, staff, reviewed]
-    );
-  }
-}
-import_functions2.app.http("caseById", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  // Keep the literal `/cases/next-po` allocator outside the parameter route even if host
-  // registration order changes.
-  route: "cases/{id:guid}",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const id = req.params.id;
-    if (!isUuid(id)) return { status: 400, jsonBody: { error: "invalid id" } };
-    const snapshot2 = await loadCaseFullSnapshotUsing(query, id, /* @__PURE__ */ new Date());
-    if (!snapshot2) return { status: 404, jsonBody: { error: "not found" } };
-    return {
-      status: 200,
-      jsonBody: { ...snapshot2.value, version: snapshot2.version },
-      headers: { ETag: `"${snapshot2.version}"`, "Access-Control-Expose-Headers": "ETag" }
-    };
-  })
-});
-import_functions2.app.http("patchCase", {
-  methods: ["PATCH"],
-  authLevel: "anonymous",
-  route: "cases/{id}",
-  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
-    const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const explicitSave = body2.editSession === true;
-    const parsedInspection = body2.inspectionDecision === void 0 ? void 0 : SaveInspectionDecisionParams.safeParse({
-      ...body2.inspectionDecision,
-      caseId: id
-    });
-    if (parsedInspection && !parsedInspection.success) {
-      return {
-        status: 400,
-        jsonBody: {
-          error: "invalid inspection decision",
-          message: "Check the inspection choice and try again.",
-          issues: parsedInspection.error.issues
-        }
-      };
-    }
-    const inspection = parsedInspection?.data;
-    const inspectionLines = (inspection?.addressLines ?? []).map((line) => line.trim()).filter(Boolean);
-    const inspectionPostcode = inspection?.postcode?.trim() ?? "";
-    const inspectionAddress = inspection ? inspection.decisionMode === "image_based" ? "Image Based Assessment" : [...inspectionLines, ...inspectionPostcode ? [inspectionPostcode] : []].join("\n").slice(0, 2e3) : void 0;
-    const inspectionModeCode = inspection ? inspectionDecisionCodec.toInt(inspection.decisionMode) : void 0;
-    const actor = actorFromClaims(claims);
-    let attemptedCasePo;
-    let outcome;
-    try {
-      outcome = await tx(async (q) => {
-        const snapshot2 = await loadCaseFullSnapshotUsing(q, id, /* @__PURE__ */ new Date(), true);
-        if (!snapshot2) {
-          return { kind: "response", response: { status: 404, jsonBody: { error: "not found" } } };
-        }
-        const expected = ifMatch(req);
-        if (explicitSave && !expected) {
-          return {
-            kind: "response",
-            response: {
-              status: 428,
-              jsonBody: {
-                error: "version_required",
-                message: "Reload this case before saving your changes."
-              }
-            }
-          };
-        }
-        if (expected && expected !== snapshot2.version) {
-          return {
-            kind: "response",
-            response: {
-              status: 409,
-              jsonBody: {
-                error: "stale",
-                currentVersion: snapshot2.version,
-                ...explicitSave ? { message: "This case changed while you were editing it. Reload it before saving." } : {}
-              }
-            }
-          };
-        }
-        const existing = snapshot2.value;
-        const sets = [];
-        const vals = [];
-        const before = {};
-        const after = {};
-        const changedEvaFields = [];
-        if (body2.vrm !== void 0) {
-          const raw = String(body2.vrm ?? "").trim();
-          const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
-          const newVrm = raw ? extractVrm(raw) || cleaned : "";
-          if (newVrm !== existing.vrm) {
-            sets.push(`vrm = $${vals.length + 1}`);
-            vals.push(newVrm);
-            before.vrm = existing.vrm;
-            after.vrm = newVrm;
-          }
-        }
-        let inspectionAddressChanged = false;
-        if (body2.evaFields && typeof body2.evaFields === "object") {
-          for (const [k, rawVal] of Object.entries(body2.evaFields)) {
-            if (rawVal === void 0 || !(k in EVA_COLUMN_BY_KEY)) continue;
-            const key = k;
-            const norm = normaliseEvaEdit(key, String(rawVal ?? ""));
-            if ("error" in norm) {
-              return { kind: "response", response: { status: 400, jsonBody: { error: norm.error } } };
-            }
-            const oldVal = existing.evaFields[key]?.value ?? "";
-            if (norm.value === oldVal) continue;
-            sets.push(`${EVA_COLUMN_BY_KEY[key]} = $${vals.length + 1}`);
-            vals.push(norm.value);
-            before[key] = oldVal;
-            after[key] = norm.value;
-            changedEvaFields.push({ key, value: norm.value });
-            if (key === "inspectionAddress") inspectionAddressChanged = true;
-          }
-        }
-        if (inspectionAddressChanged && !inspection) {
-          if (explicitSave) {
-            return {
-              kind: "response",
-              response: {
-                status: 400,
-                jsonBody: {
-                  error: "inspection_decision_required",
-                  message: "Choose an inspection address or Image Based Assessment before saving."
-                }
-              }
-            };
-          }
-          sets.push("inspection_decision_code = NULL");
-        }
-        if (inspection) {
-          if (inspectionModeCode == null || inspectionAddress == null) {
-            return {
-              kind: "response",
-              response: { status: 400, jsonBody: { error: "invalid inspection decision mode" } }
-            };
-          }
-          const submittedAddress = body2.evaFields?.inspectionAddress;
-          if (submittedAddress !== void 0 && submittedAddress !== inspectionAddress) {
-            return {
-              kind: "response",
-              response: {
-                status: 400,
-                jsonBody: {
-                  error: "inspection_address_mismatch",
-                  message: "The inspection address and choice do not match. Review them and try again."
-                }
-              }
-            };
-          }
-          if (inspectionAddress !== existing.evaFields.inspectionAddress.value && submittedAddress === void 0) {
-            return {
-              kind: "response",
-              response: {
-                status: 400,
-                jsonBody: {
-                  error: "inspection_address_required",
-                  message: "Include the inspection address with the inspection choice."
-                }
-              }
-            };
-          }
-          sets.push(`inspection_decision_code = $${vals.length + 1}`);
-          vals.push(inspectionModeCode);
-          if (inspection.decisionMode !== existing.inspectionDecision) {
-            before.inspectionDecision = existing.inspectionDecision;
-          }
-          after.inspectionDecision = inspection.decisionMode;
-        }
-        if (body2.casePo !== void 0) {
-          const raw = String(body2.casePo ?? "").trim();
-          const normalized = raw ? normalizeCasePo(raw) : "";
-          if (normalized && !CASE_PO_SHAPE_RE.test(normalized)) {
-            return {
-              kind: "response",
-              response: { status: 400, jsonBody: { error: `casePo '${raw}' is not Case/PO-shaped` } }
-            };
-          }
-          const oldPo = (existing.casePo ?? "").toUpperCase();
-          if (normalized !== oldPo) {
-            attemptedCasePo = normalized || void 0;
-            sets.push(`case_po = $${vals.length + 1}`);
-            vals.push(normalized || null);
-            before.casePo = oldPo || "(none)";
-            after.casePo = normalized || "(cleared)";
-          }
-        }
-        if (body2.caseType !== void 0) {
-          const rawType = String(body2.caseType ?? "").trim();
-          const validName = rawType === "" || caseTypeCodec.toInt(rawType) != null;
-          if (!validName) {
-            return {
-              kind: "response",
-              response: {
-                status: 400,
-                jsonBody: { error: `caseType must be one of ${caseTypeCodec.names().join(", ")}` }
-              }
-            };
-          }
-          const newCode = rawType === "" || rawType === "standard" ? null : caseTypeCodec.toInt(rawType);
-          const oldCode = caseTypeCodec.toInt(existing.caseType) ?? null;
-          if (newCode !== oldCode) {
-            sets.push(`case_type_code = $${vals.length + 1}`);
-            vals.push(newCode);
-            before.caseType = existing.caseType ?? "standard";
-            after.caseType = rawType || "standard";
-          }
-        }
-        if (sets.length === 0) return { kind: "unchanged", snapshot: snapshot2 };
-        if (explicitSave) {
-          const changedByKey = new Map(changedEvaFields.map((field) => [field.key, field.value]));
-          const nextEvaFields = Object.fromEntries(
-            EVA_FIELD_ORDER.map(({ key }) => {
-              const prior = existing.evaFields[key];
-              return [
-                key,
-                changedByKey.has(key) ? { ...prior, value: changedByKey.get(key), reviewState: "reviewed" } : prior
-              ];
-            })
-          );
-          const nextVrm = typeof after.vrm === "string" ? after.vrm : existing.vrm;
-          const nextCasePo = typeof after.casePo === "string" ? after.casePo === "(cleared)" ? "" : after.casePo : existing.casePo;
-          const evaluated = statusForReviewCase({
-            status: existing.status,
-            evaFields: nextEvaFields,
-            evidence: existing.evidence,
-            inspectionDecision: inspection?.decisionMode ?? existing.inspectionDecision,
-            instructionCount: existing.evidence.filter((item) => item.kind === "instruction").length,
-            ...sourceReadinessInputForCase(existing),
-            hasIdentity: nextVrm.trim().length > 0 || (nextCasePo ?? "").trim().length > 0 || existing.providerCode.trim().length > 0 || nextEvaFields.claimantName.value.trim().length > 0,
-            mergedInto: existing.mergedInto
-          });
-          if (evaluated !== existing.status) {
-            sets.push(`status_code = $${vals.length + 1}`);
-            vals.push(statusToInt(evaluated));
-            before.status = existing.status;
-            after.status = evaluated;
-          }
-        }
-        vals.push(id);
-        await q(`UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`, vals);
-        if (explicitSave) {
-          for (const field of changedEvaFields) {
-            await upsertManualProvenanceStrict(q, id, field.key, field.value);
-          }
-          if (inspection) {
-            const imageBased = inspection.decisionMode === "image_based";
-            const label = imageBased ? `Image Based Assessment (${id})` : (() => {
-              const suffix = ` (${id})`;
-              const base = [inspectionLines[0], inspectionPostcode].filter(Boolean).join(", ") || "Inspection address";
-              return `${base.slice(0, 200 - suffix.length)}${suffix}`;
-            })();
-            const sourceNote = [
-              `case=${id}`,
-              ...existing.providerCode ? [`provider=${existing.providerCode}`] : [],
-              inspection.sourceNote
-            ].join(" ").trim();
-            await q(
-              `INSERT INTO inspection_address
-                 (label, decision_mode_code, decision_reason, source_label, source_note,
-                  address_line1, address_line2, address_line3, address_line4, address_line5, address_line6, postcode)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-               ON CONFLICT (label) DO UPDATE SET
-                 decision_mode_code = EXCLUDED.decision_mode_code,
-                 decision_reason = EXCLUDED.decision_reason,
-                 source_label = EXCLUDED.source_label,
-                 source_note = EXCLUDED.source_note,
-                 address_line1 = EXCLUDED.address_line1,
-                 address_line2 = EXCLUDED.address_line2,
-                 address_line3 = EXCLUDED.address_line3,
-                 address_line4 = EXCLUDED.address_line4,
-                 address_line5 = EXCLUDED.address_line5,
-                 address_line6 = EXCLUDED.address_line6,
-                 postcode = EXCLUDED.postcode`,
-              [
-                label,
-                inspectionModeCode,
-                imageBased ? inspection.sourceNote : null,
-                inspection.sourceLabel ?? (imageBased ? "image_based" : "manual"),
-                sourceNote,
-                inspectionLines[0] ?? null,
-                inspectionLines[1] ?? null,
-                inspectionLines[2] ?? null,
-                inspectionLines[3] ?? null,
-                inspectionLines[4] ?? null,
-                inspectionLines[5] ?? null,
-                imageBased ? null : inspectionPostcode || null
-              ]
-            );
-          }
-          const fieldLabels = new Map(EVA_FIELD_ORDER.map((field) => [field.key, field.label]));
-          const changedFields = Object.keys(after).map(
-            (key) => fieldLabels.get(key) ?? {
-              vrm: "Registration",
-              casePo: "Case/PO",
-              caseType: "Case type",
-              inspectionDecision: "Inspection choice",
-              status: "Readiness"
-            }[key] ?? key
-          );
-          await writeAuditStrict(
-            {
-              action: AUDIT_ACTION.status_changed,
-              caseId: id,
-              summary: `Case saved: ${changedFields.join(", ")}`,
-              // Record WHAT changed without copying claimant/contact values into the
-              // generic audit payload.
-              before: { changedFields },
-              after: { changedFields },
-              ...actor ? { actor } : {}
-            },
-            q
-          );
-          return { kind: "changed", changedEvaFields, explicitSave: true };
-        }
-        await writeAudit({
-          action: AUDIT_ACTION.status_changed,
-          caseId: id,
-          summary: `Case edited: ${Object.keys(after).join(", ")}`,
-          before,
-          after,
-          ...actor ? { actor } : {}
-        }, q);
-        const statusGeneration = await requestStatusRecompute(q, id);
-        return { kind: "changed", changedEvaFields, statusGeneration, explicitSave: false };
-      });
-    } catch (e) {
-      if (isUniqueViolation(e) && attemptedCasePo) {
-        const holder = await query(
-          "SELECT id, vrm FROM case_ WHERE upper(case_po) = $1 AND id <> $2",
-          [attemptedCasePo.toUpperCase(), id]
-        );
-        return {
-          status: 409,
-          jsonBody: {
-            error: "case_po_in_use",
-            message: `Case/PO ${attemptedCasePo} is already assigned to another case.`,
-            conflictCaseId: holder[0]?.id ?? null,
-            conflictVrm: holder[0]?.vrm ?? null
-          }
-        };
-      }
-      throw e;
-    }
-    if (outcome.kind === "response") return outcome.response;
-    if (outcome.kind === "unchanged") {
-      return {
-        status: 200,
-        jsonBody: { ...outcome.snapshot.value, version: outcome.snapshot.version }
-      };
-    }
-    if (!outcome.explicitSave) {
-      for (const field of outcome.changedEvaFields) {
-        await upsertManualProvenance(id, field.key, field.value);
-      }
-      try {
-        const evaluated = await recomputeStatus2(id, actor);
-        if (!evaluated) throw new Error("case was not available for readiness evaluation");
-        await acknowledgeStatusRecompute(query, id, outcome.statusGeneration);
-      } catch (error2) {
-        ctx.warn(
-          `[patch-case] readiness recompute remains pending for ${id} (generation ${outcome.statusGeneration}): ${error2 instanceof Error ? error2.message : String(error2)}`
-        );
-      }
-    }
-    const updated = await loadCaseFullSnapshotUsing(query, id, /* @__PURE__ */ new Date());
-    return updated ? {
-      status: 200,
-      jsonBody: { ...updated.value, version: updated.version },
-      headers: { ETag: `"${updated.version}"`, "Access-Control-Expose-Headers": "ETag" }
-    } : { status: 404, jsonBody: { error: "not found" } };
-  })
-});
-function isObjectRecord(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function requiredSourceTypeCode(sourceType) {
-  const code = sourceTypeCodec.toInt(sourceType);
-  if (code == null) throw new Error(`unsupported provenance source type: ${sourceType}`);
-  return code;
-}
-function requiredReviewStateCode(reviewState) {
-  const code = reviewStateCodec.toInt(reviewState);
-  if (code == null) throw new Error(`unsupported provenance review state: ${reviewState}`);
-  return code;
-}
-async function insertCreateFieldProvenance(q, caseId, fieldName, field) {
-  const rows = [
-    {
-      name: `${caseId}:${fieldName}`,
-      value: field.value,
-      provenance: field.provenance,
-      reviewStateCode: requiredReviewStateCode(field.reviewState)
-    },
-    ...(field.conflicts ?? []).map((conflict, index) => ({
-      name: `${caseId}:${fieldName}:conflict:${String(index + 1).padStart(2, "0")}`,
-      value: conflict.candidateValue,
-      provenance: conflict.provenance,
-      reviewStateCode: requiredReviewStateCode("conflict")
-    }))
-  ];
-  for (const row of rows) {
-    await q(
-      `INSERT INTO field_level_provenance
-         (name, case_id, field_name, value, source_type_code, source_label, confidence, review_state_code)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [
-        row.name,
-        caseId,
-        fieldName,
-        row.value,
-        requiredSourceTypeCode(row.provenance.sourceType),
-        row.provenance.sourceLabel,
-        row.provenance.confidence ?? null,
-        row.reviewStateCode
-      ]
-    );
-  }
-}
-function createFieldProvenanceRequired(input, field) {
-  return input.writeProvenance === true || (field.conflicts?.length ?? 0) > 0;
-}
-function normalizeCreateCaseInput(raw) {
-  if (!isObjectRecord(raw)) return void 0;
-  if ("evaFields" in raw || "status" in raw) {
-    const full = FullCreateCaseParams.safeParse(raw);
-    if (!full.success) return void 0;
-    const mileage = normaliseEvaEdit("mileage", full.data.evaFields.mileage.value);
-    if ("error" in mileage) return void 0;
-    return {
-      ...full.data,
-      evaFields: {
-        ...full.data.evaFields,
-        mileage: { ...full.data.evaFields.mileage, value: mileage.value }
-      },
-      sourceLabel: full.data.sourceLabel?.trim() || "Manual intake"
-    };
-  }
-  const parsed = CreateCaseParams.safeParse(raw);
-  if (!parsed.success) return void 0;
-  const vrm = canonicalizeVrm(parsed.data.vrm);
-  if (!vrm) return void 0;
-  const claimantName = parsed.data.claimantName?.trim() ?? "";
-  const evaFieldsRecord = {};
-  for (const desc of EVA_FIELD_ORDER) {
-    const fieldValue = desc.key === "claimantName" ? claimantName : "";
-    const supplied = fieldValue.length > 0;
-    evaFieldsRecord[desc.key] = {
-      value: fieldValue,
-      provenance: supplied ? { sourceType: "staff", sourceLabel: "Confirmed by staff" } : { sourceType: "manual_upload", sourceLabel: "Not supplied" },
-      reviewState: supplied ? "reviewed" : "needs_review"
-    };
-  }
-  const evaFields = evaFieldsRecord;
-  const providerCode = parsed.data.providerCode?.trim().toUpperCase();
-  return {
-    evaFields,
-    vrm,
-    ...providerCode ? { providerCode } : {},
-    status: "ingested",
-    sourceLabel: "Staff-confirmed case creation",
-    writeProvenance: true
-  };
-}
-import_functions2.app.http("createCase", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const raw = await req.json().catch(() => void 0);
-    let input = normalizeCreateCaseInput(raw);
-    if (!input) return { status: 400, jsonBody: { error: "invalid case create payload" } };
-    const actor = actorFromClaims(claims) ?? "authenticated staff";
-    const suppliedOperationKey = (req.headers?.get("idempotency-key") ?? "").trim();
-    const suppliedUploadKey = (req.headers?.get("x-manual-intake-upload-key") ?? "").trim();
-    const suppliedFileCount = (req.headers?.get("x-manual-intake-file-count") ?? "").trim();
-    const suppliedInstructionIndex = (req.headers?.get("x-manual-intake-instruction-index") ?? "").trim();
-    const hasOperationHeaders = Boolean(
-      suppliedOperationKey || suppliedUploadKey || suppliedFileCount || suppliedInstructionIndex
-    );
-    if (hasOperationHeaders && !MANUAL_INTAKE_OPERATION_KEY_RE.test(suppliedOperationKey)) {
-      return { status: 400, jsonBody: { error: "invalid manual intake operation key" } };
-    }
-    const expectedFileCount = suppliedFileCount === "" ? 0 : Number(suppliedFileCount);
-    const instructionFileIndex = suppliedInstructionIndex === "" ? void 0 : Number(suppliedInstructionIndex);
-    if (!Number.isInteger(expectedFileCount) || expectedFileCount < 0 || expectedFileCount > 20 || expectedFileCount > 0 !== MANUAL_INTAKE_OPERATION_KEY_RE.test(suppliedUploadKey) || instructionFileIndex !== void 0 && (!Number.isInteger(instructionFileIndex) || instructionFileIndex < 0 || instructionFileIndex >= expectedFileCount)) {
-      return { status: 400, jsonBody: { error: "invalid manual intake evidence binding" } };
-    }
-    const operationBinding = suppliedOperationKey ? {
-      idempotencyKey: suppliedOperationKey,
-      actor,
-      requestHash: manualIntakeRequestHash(input),
-      ...suppliedUploadKey ? { uploadIdempotencyKey: suppliedUploadKey } : {},
-      expectedFileCount,
-      ...instructionFileIndex !== void 0 ? { instructionFileIndex } : {}
-    } : void 0;
-    const pcode = (input.providerCode ?? "").trim().toUpperCase();
-    let providerRow;
-    if (pcode) {
-      const providers = await query(
-        `SELECT id, display_name
-           FROM work_provider
-          WHERE upper(principal_code) = $1
-          LIMIT 1`,
-        [pcode]
-      );
-      providerRow = providers[0];
-      if (!providerRow) {
-        return { status: 400, jsonBody: { error: "unknown provider principal code" } };
-      }
-      if (!input.evaFields.workProvider.value.trim()) {
-        input = {
-          ...input,
-          provider: input.provider?.trim() || providerRow.display_name,
-          providerCode: pcode,
-          evaFields: {
-            ...input.evaFields,
-            workProvider: {
-              value: providerRow.display_name,
-              provenance: { sourceType: "corpus", sourceLabel: "Matched provider principal" },
-              reviewState: "reviewed"
-            }
-          }
-        };
-      }
-    }
-    const evalInput = {
-      status: input.status,
-      evaFields: input.evaFields,
-      evidence: [],
-      inspectionDecision: input.inspectionDecision ?? "unknown",
-      instructionCount: 0,
-      hasIdentity: (input.vrm ?? "").trim().length > 0 || (input.providerCode ?? "").trim().length > 0 || input.evaFields.claimantName.value.trim().length > 0
-    };
-    const status = statusForReviewCase(evalInput);
-    const name = ([input.vrm, input.provider].filter((v) => v && v.trim()).join(" \xB7 ") || "Manual case").slice(0, 100);
-    const cols = ["name", "vrm", "status_code", "intake_channel_kind_code", "intake_channel_manual", "source_mailbox"];
-    const vals = [
-      name,
-      input.vrm ?? "",
-      statusToInt(status),
-      intakeChannelKindCodec.toInt("email") ?? null,
-      true,
-      input.sourceLabel ?? "Manual intake"
-    ];
-    const add = (col, value) => {
-      cols.push(col);
-      vals.push(value);
-    };
-    if (providerRow) add("work_provider_id", providerRow.id);
-    const suppliedCasePo = (input.casePo ?? "").trim().toUpperCase();
-    const principalForAutoMint = !suppliedCasePo ? pcode.toUpperCase() : "";
-    if (input.onHold) {
-      add("on_hold", true);
-      add("on_hold_reason", "manual");
-    }
-    if (input.insuredName) add("ov_insured_name", input.insuredName);
-    if (input.providerReference) add("ov_claim_number", input.providerReference);
-    if (input.inspectionDecision && input.inspectionDecision !== "unknown") {
-      add("inspection_decision_code", inspectionDecisionCodec.toInt(input.inspectionDecision) ?? null);
-    }
-    for (const desc of EVA_FIELD_ORDER) {
-      add(EVA_COLUMN_BY_KEY[desc.key], input.evaFields[desc.key]?.value ?? "");
-    }
-    let createOutcome;
-    try {
-      createOutcome = await tx(async (q) => {
-        if (operationBinding) {
-          const existingId = await beginManualIntakeOperation(q, operationBinding);
-          if (existingId) return { id: existingId, replayed: true };
-        }
-        const insertCols = [...cols];
-        const insertVals = [...vals];
-        let casePo = suppliedCasePo;
-        if (!casePo && principalForAutoMint) {
-          casePo = await mintCasePo(q, principalForAutoMint);
-        }
-        if (casePo) {
-          insertCols.push("case_po");
-          insertVals.push(casePo);
-        }
-        const placeholders = insertVals.map((_v, i) => `$${i + 1}`).join(", ");
-        const rows = await q(
-          `INSERT INTO case_ (${insertCols.join(", ")}) VALUES (${placeholders}) RETURNING id`,
-          insertVals
-        );
-        const id = rows[0]?.id;
-        if (!id) throw new Error("case create returned no id");
-        const claimant = input.evaFields.claimantName;
-        await insertCreateFieldProvenance(q, id, "claimantName", claimant);
-        if (operationBinding) {
-          await finishManualIntakeOperation(
-            q,
-            operationBinding.idempotencyKey,
-            id,
-            operationBinding.expectedFileCount
-          );
-          await writeAuditStrict({
-            action: AUDIT_ACTION.case_created,
-            caseId: id,
-            summary: `Case created (${name})`,
-            after: {
-              status,
-              vrm: input.vrm,
-              manualIntakeOperation: operationBinding.idempotencyKey
-            },
-            actor
-          }, q);
-        }
-        return { id, replayed: false };
-      });
-    } catch (error2) {
-      if (error2 instanceof ManualIntakeOperationConflict || operationBinding && isUniqueViolation(error2)) {
-        return {
-          status: 409,
-          jsonBody: { error: "manual intake operation does not match this case or file selection" }
-        };
-      }
-      throw error2;
-    }
-    const newId = createOutcome.id;
-    if (operationBinding) {
-      await tx(async (q) => {
-        if (!await manualIntakeSideEffectsPending(q, operationBinding.idempotencyKey)) return;
-        for (const desc of EVA_FIELD_ORDER) {
-          if (desc.key === "claimantName") continue;
-          const field = input.evaFields[desc.key];
-          if (!createFieldProvenanceRequired(input, field)) continue;
-          await insertCreateFieldProvenance(q, newId, desc.key, field);
-        }
-        const receivedFrom2 = (input.receivedFrom ?? "").trim();
-        const receivedOn2 = (input.receivedOn ?? "").trim();
-        if (receivedFrom2 || receivedOn2) {
-          const parts = [
-            receivedFrom2 ? `Received from ${receivedFrom2}` : "Received",
-            receivedOn2 ? `on ${receivedOn2}` : ""
-          ].filter(Boolean).join(" ");
-          await q(
-            "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
-            ["Images received", newId, actor, `${parts}.`]
-          );
-        }
-        if (input.inspectionDecisionReason?.trim()) {
-          await q(
-            "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
-            [
-              "Inspection decision",
-              newId,
-              "Manual intake",
-              `Inspection decision: image-based - ${input.inspectionDecisionReason.trim()}`
-            ]
-          );
-        }
-        await finishManualIntakeSideEffects(q, operationBinding.idempotencyKey);
-      });
-    }
-    if (!operationBinding) {
-      await Promise.all(
-        EVA_FIELD_ORDER.filter((desc) => desc.key !== "claimantName").map(async (desc) => {
-          const field = input.evaFields[desc.key];
-          if (!createFieldProvenanceRequired(input, field)) return;
-          try {
-            await insertCreateFieldProvenance(query, newId, desc.key, field);
-          } catch {
-          }
-        })
-      );
-    }
-    const receivedFrom = (input.receivedFrom ?? "").trim();
-    const receivedOn = (input.receivedOn ?? "").trim();
-    if (!operationBinding && (receivedFrom || receivedOn)) {
-      try {
-        const parts = [
-          receivedFrom ? `Received from ${receivedFrom}` : "Received",
-          receivedOn ? `on ${receivedOn}` : ""
-        ].filter(Boolean).join(" ");
-        await query(
-          "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
-          ["Images received", newId, actor ?? "Manual intake", `${parts}.`]
-        );
-      } catch {
-      }
-    }
-    if (!operationBinding && input.inspectionDecisionReason?.trim()) {
-      try {
-        await query(
-          "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
-          [
-            "Inspection decision",
-            newId,
-            "Manual intake",
-            `Inspection decision: image-based - ${input.inspectionDecisionReason.trim()}`
-          ]
-        );
-      } catch {
-      }
-    }
-    if (!operationBinding) {
-      await writeAudit({
-        action: AUDIT_ACTION.case_created,
-        caseId: newId,
-        summary: `Case created (${name})`,
-        after: { status, vrm: input.vrm },
-        actor
-      });
-    }
-    await recomputeStatus2(newId, actor);
-    return createOutcome.replayed ? { status: 200, jsonBody: { id: newId, replayed: true } } : { status: 201, jsonBody: { id: newId } };
-  })
-});
-import_functions2.app.http("retryManualIntakeArchive", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{id}/archive-retry",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const caseId = req.params.id;
-    const actor = actorFromClaims(claims) ?? "authenticated staff";
-    let requeued = 0;
-    try {
-      requeued = await tx(async (q) => {
-        const locked = await lockCaseForMutation(q, caseId);
-        if (locked.kind === "missing") return -1;
-        if (locked.kind !== "active") return -2;
-        const rows = await q(
-          `UPDATE archive_mirror_outbox o
-              SET requested_generation = o.requested_generation + 1,
-                  requested_at = now(), attempt_count = 0,
-                  next_attempt_at = now(), last_attempt_at = NULL, last_error = NULL,
-                  dead_lettered_at = NULL, dead_letter_reason = NULL, updated_at = now()
-             FROM evidence e
-             JOIN staff_evidence_upload_item item ON item.evidence_id = e.id
-             JOIN staff_evidence_upload batch
-               ON batch.idempotency_key = item.idempotency_key
-              AND batch.case_id = item.case_id
-            WHERE o.evidence_id = e.id
-              AND e.case_id = $1
-              AND batch.case_id = $1
-              AND batch.source = 'manual_intake'
-              AND o.dead_lettered_at IS NOT NULL
-          RETURNING o.evidence_id`,
-          [caseId]
-        );
-        if (rows.length > 0) {
-          await writeAuditStrict({
-            action: AUDIT_ACTION.evidence_upload_result,
-            caseId,
-            actor,
-            summary: `Manual source archive retry requested (${rows.length})`,
-            after: { requeued: rows.length, evidenceIds: rows.map((row) => row.evidence_id) }
-          }, q);
-          await requestStatusRecompute(q, caseId);
-        }
-        return rows.length;
-      });
-    } catch (error2) {
-      if (error2 instanceof ManualIntakeOperationConflict) {
-        return { status: 409, jsonBody: { error: error2.message } };
-      }
-      throw error2;
-    }
-    if (requeued === -1) return { status: 404, jsonBody: { error: "case not found" } };
-    if (requeued === -2) return { status: 409, jsonBody: { error: "case is not active" } };
-    if (requeued > 0) await recomputeStatus2(caseId, actor);
-    return { status: 200, jsonBody: { requeued } };
-  })
-});
-import_functions2.app.http("casesForQueue", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "queues/{name}/cases",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const name = req.params.name;
-    const now = nowParam(req);
-    const all = await loadAllCases(now);
-    return { status: 200, jsonBody: filterQueue(all, name) };
-  })
-});
-import_functions2.app.http("openVrmTwins", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const exclude = req.query.get("exclude") ?? void 0;
-    const casePo = (req.query.get("case_po") ?? "").trim();
-    if (casePo) {
-      const rows2 = await query(`${CASE_SELECT} WHERE upper(c.case_po) = $1`, [
-        casePo.toUpperCase()
-      ]);
-      const matches = rows2.map((r) => rowToCase(r)).filter((c) => !TWIN_TERMINAL.has(c.status) && c.id !== exclude);
-      return { status: 200, jsonBody: matches };
-    }
-    const vrm = canonicalizeVrm(req.query.get("vrm") ?? "");
-    if (!vrm) return { status: 200, jsonBody: [] };
-    const rows = await query(
-      `${CASE_SELECT} WHERE regexp_replace(upper(c.vrm), '[^A-Z0-9]', '', 'g') = $1`,
-      [vrm]
-    );
-    const twins = rows.map((r) => rowToCase(r)).filter((c) => !TWIN_TERMINAL.has(c.status) && !isRetiredMerged(c) && c.id !== exclude);
-    return { status: 200, jsonBody: twins };
-  })
-});
-import_functions2.app.http("setOnHold", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{id}/hold",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = req.params.id;
-    const body2 = await req.json();
-    if (typeof body2.onHold !== "boolean") {
-      return { status: 400, jsonBody: { error: "onHold must be a boolean" } };
-    }
-    const actor = actorFromClaims(claims);
-    const outcome = await tx(async (q) => {
-      const current = await q(
-        "SELECT updated_at FROM case_ WHERE id = $1 FOR UPDATE",
-        [id]
-      );
-      if (!current[0]) return { kind: "missing" };
-      const currentVersion = versionToken(current[0].updated_at);
-      const expected = ifMatch(req);
-      if (expected != null && expected !== "" && expected !== currentVersion) {
-        return { kind: "stale", currentVersion };
-      }
-      const updated = await q(
-        `UPDATE case_
-            SET on_hold = $2,
-                on_hold_reason = CASE WHEN $2 THEN 'manual' ELSE NULL END,
-                updated_at = now()
-          WHERE id = $1
-          RETURNING updated_at`,
-        [id, body2.onHold]
-      );
-      await writeAudit({
-        action: AUDIT_ACTION.status_changed,
-        caseId: id,
-        summary: body2.onHold ? "Case put on hold" : "Case taken off hold",
-        after: { onHold: body2.onHold },
-        ...actor ? { actor } : {}
-      }, q);
-      return { kind: "updated", version: versionToken(updated[0]?.updated_at) };
-    });
-    if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
-    if (outcome.kind === "stale") {
-      return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
-    }
-    return {
-      status: 204,
-      headers: { ETag: `"${outcome.version}"`, "Access-Control-Expose-Headers": "ETag" }
-    };
-  })
-});
-import_functions2.app.http("logChase", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{id}/chase",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const channel = body2.channel;
-    if (channel !== "email" && channel !== "whatsapp") {
-      return { status: 400, jsonBody: { error: "channel must be 'email' or 'whatsapp'" } };
-    }
-    if (typeof body2.templateLabel !== "string" || !body2.templateLabel.trim()) {
-      return { status: 400, jsonBody: { error: "templateLabel is required" } };
-    }
-    const templateLabel = body2.templateLabel.trim();
-    if (templateLabel.length > 200) {
-      return { status: 400, jsonBody: { error: "templateLabel must be 200 characters or fewer" } };
-    }
-    if (body2.note !== void 0 && typeof body2.note !== "string") {
-      return { status: 400, jsonBody: { error: "note must be a string" } };
-    }
-    if (typeof body2.note === "string" && body2.note.length > 2e3) {
-      return { status: 400, jsonBody: { error: "note must be 2000 characters or fewer" } };
-    }
-    const note = typeof body2.note === "string" ? body2.note.trim() : "";
-    const actor = actorFromClaims(claims);
-    const needsUploadLink = imageChaserRequiresUploadLink(templateLabel);
-    let fileRequest;
-    if (needsUploadLink) {
-      if (!gates.boxApi() || !gates.boxFileRequest() || !gates.boxFileRequestTemplateId().trim()) {
-        return {
-          status: 503,
-          jsonBody: {
-            error: "An upload link is required before this image chase can be logged.",
-            retryable: true
-          }
-        };
-      }
-      const ensured = await ensureActiveBoxFileRequest(
-        id,
-        gates.boxFileRequestTemplateId().trim(),
-        actor
-      );
-      if (ensured.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
-      if (ensured.kind === "retired") {
-        return { status: 409, jsonBody: { error: "case has been merged" } };
-      }
-      if (ensured.kind === "folder_not_ready") {
-        return {
-          status: 409,
-          jsonBody: {
-            error: "The case archive folder is not ready yet. Try again shortly.",
-            retryable: true
-          }
-        };
-      }
-      if (ensured.kind !== "ok") {
-        return {
-          status: 503,
-          jsonBody: {
-            error: "The upload link could not be prepared. Try again.",
-            retryable: true
-          }
-        };
-      }
-      fileRequest = {
-        folderId: ensured.folderId,
-        id: ensured.fileRequestId,
-        url: ensured.fileRequestUrl
-      };
-    }
-    const channelLabel = channel === "whatsapp" ? "WhatsApp" : "email";
-    const summary2 = `Chased via ${channelLabel} \u2014 ${templateLabel}.`.slice(0, 400);
-    const outcome = await tx(async (q) => {
-      const locked = await q(
-        `${CASE_SELECT} WHERE c.id = $1 FOR UPDATE OF c`,
-        [id]
-      );
-      if (!locked[0]) return { kind: "missing" };
-      const existing = rowToCase(locked[0]);
-      if (isRetiredMerged(existing)) return { kind: "retired" };
-      if (fileRequest && String(locked[0].box_folder_id ?? "").trim() !== fileRequest.folderId) return { kind: "file_request_changed" };
-      if (fileRequest) {
-        await associateOutstandingImageChasersWithFileRequest(
-          q,
-          id,
-          fileRequest.id,
-          fileRequest.url
-        );
-      }
-      const currentVersion = versionToken(locked[0].updated_at);
-      const expected = ifMatch(req);
-      if (expected != null && expected !== "" && expected !== currentVersion) {
-        return { kind: "stale", currentVersion };
-      }
-      const rows = await q(
-        `INSERT INTO chaser
-           (name, case_id, target_type_code, target_name, channel_code, template_used,
-            box_file_request_id, box_file_request_url, drafted_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
-         RETURNING *`,
-        [
-          summary2,
-          id,
-          100000002,
-          existing.provider.slice(0, 200),
-          channel === "whatsapp" ? 100000001 : 1e8,
-          templateLabel,
-          fileRequest?.id ?? null,
-          fileRequest?.url ?? null
-        ]
-      );
-      const created = rows[0];
-      if (!created) throw new Error("chaser insert returned no row");
-      if (note) {
-        await q(
-          "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
-          ["Chase note", id, actor ?? "Staff", note]
-        );
-      }
-      const updated = await q(
-        "UPDATE case_ SET updated_at = now() WHERE id = $1 RETURNING updated_at",
-        [id]
-      );
-      await writeAudit({
-        action: AUDIT_ACTION.chaser_sent,
-        caseId: id,
-        summary: `Chase logged (${channel} \xB7 ${templateLabel})`,
-        after: {
-          chaserId: created.id,
-          channel,
-          templateLabel,
-          ...fileRequest ? {
-            boxFileRequestId: fileRequest.id,
-            fileRequestUrl: fileRequest.url
-          } : {},
-          ...note ? { note } : {}
-        },
-        ...actor ? { actor } : {}
-      }, q);
-      return {
-        kind: "created",
-        value: rowToChaser(created),
-        version: versionToken(updated[0]?.updated_at)
-      };
-    });
-    if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
-    if (outcome.kind === "retired") return { status: 409, jsonBody: { error: "case has been merged" } };
-    if (outcome.kind === "file_request_changed") {
-      return {
-        status: 409,
-        jsonBody: {
-          error: "The case archive folder changed. Prepare the upload link again.",
-          retryable: true
-        }
-      };
-    }
-    if (outcome.kind === "stale") {
-      return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
-    }
-    return {
-      status: 201,
-      jsonBody: outcome.value,
-      headers: { ETag: `"${outcome.version}"`, "Access-Control-Expose-Headers": "ETag" }
-    };
-  })
-});
-function mergeProvidersCompatible(leftProviderCode, rightProviderCode) {
-  const left = (leftProviderCode ?? "").trim().toUpperCase();
-  const right = (rightProviderCode ?? "").trim().toUpperCase();
-  return !left || !right || left === right;
-}
-import_functions2.app.http("mergeCandidates", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases/{id}/merge-candidates",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const id = req.params.id;
-    const self2 = await loadCaseLite(id);
-    if (!self2) return { status: 200, jsonBody: [] };
-    const rows = await query(`${CASE_SELECT} ORDER BY c.created_at DESC`);
-    const candidates = rows.map((r) => rowToCase(r)).filter(
-      (cc) => cc.id !== id && !TWIN_TERMINAL.has(cc.status) && cc.status !== "linked_to_instruction" && mergeProvidersCompatible(cc.providerCode, self2.providerCode)
-    );
-    return { status: 200, jsonBody: candidates };
-  })
-});
-var MERGE_SHA256_RE = /^[0-9a-f]{64}$/i;
-var MERGE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-var MergeProviderRecoveryBlocked = class extends Error {
-  constructor(reason) {
-    super(`Provider recovery could not continue: ${reason}`);
-    this.reason = reason;
-  }
-};
-async function mergeEvidenceRows(q, sourceCaseId, targetCaseId) {
-  const locked = await q(
-    `SELECT id, case_id, sha256, created_at,
-            archive_mirror_claim_token, archive_mirror_claim_expires_at
-       FROM evidence
-      WHERE case_id = ANY($1::uuid[])
-      ORDER BY case_id, created_at, id
-      FOR UPDATE`,
-    [[sourceCaseId, targetCaseId]]
-  );
-  const now = Date.now();
-  if (locked.some((row) => {
-    if (!row.archive_mirror_claim_token || !row.archive_mirror_claim_expires_at) return false;
-    const expires = new Date(row.archive_mirror_claim_expires_at).getTime();
-    return Number.isFinite(expires) && expires > now;
-  })) {
-    return {
-      movedEvidence: 0,
-      collidingEvidence: 0,
-      evidenceReplacements: /* @__PURE__ */ new Map(),
-      archiveBusy: true
-    };
-  }
-  const canonicalSha = (value) => {
-    const trimmed = (value ?? "").trim();
-    return MERGE_SHA256_RE.test(trimmed) ? trimmed.toLowerCase() : null;
-  };
-  const survivorBySha = /* @__PURE__ */ new Map();
-  for (const row of locked) {
-    if (row.case_id.toLowerCase() !== targetCaseId) continue;
-    const sha = canonicalSha(row.sha256);
-    if (sha && !survivorBySha.has(sha)) survivorBySha.set(sha, row.id);
-  }
-  const collisionSourceIds = [];
-  const evidenceReplacements = /* @__PURE__ */ new Map();
-  for (const row of locked) {
-    if (row.case_id.toLowerCase() !== sourceCaseId) continue;
-    const sha = canonicalSha(row.sha256);
-    if (!sha) continue;
-    const survivorId = survivorBySha.get(sha);
-    if (!survivorId) {
-      survivorBySha.set(sha, row.id);
-      continue;
-    }
-    collisionSourceIds.push(row.id);
-    evidenceReplacements.set(row.id, survivorId);
-    const survivors = await q(
-      `UPDATE evidence AS survivor
-          SET storage_path = COALESCE(survivor.storage_path, redundant.storage_path),
-              source_message_id = COALESCE(survivor.source_message_id, redundant.source_message_id),
-              box_file_id = COALESCE(survivor.box_file_id, redundant.box_file_id),
-              box_file_url = COALESCE(survivor.box_file_url, redundant.box_file_url),
-              content_type = COALESCE(NULLIF(btrim(survivor.content_type), ''), redundant.content_type),
-              size_bytes = COALESCE(survivor.size_bytes, redundant.size_bytes),
-              source_label = COALESCE(NULLIF(btrim(survivor.source_label), ''), redundant.source_label),
-              sequence_index = COALESCE(survivor.sequence_index, redundant.sequence_index),
-              image_role_code = CASE
-                WHEN survivor.image_role_source IS NULL
-                 AND survivor.image_role_code = 100000003
-                 AND redundant.image_role_code <> 100000003
-                  THEN redundant.image_role_code
-                ELSE survivor.image_role_code
-              END,
-              image_role_source = CASE
-                WHEN survivor.image_role_source IS NULL
-                 AND survivor.image_role_code = 100000003
-                 AND redundant.image_role_code <> 100000003
-                  THEN redundant.image_role_source
-                ELSE survivor.image_role_source
-              END,
-              registration_visible = CASE
-                WHEN survivor.registration_visible_source IS NULL
-                 AND survivor.registration_visible IS NULL
-                 AND redundant.registration_visible IS NOT NULL
-                  THEN redundant.registration_visible
-                ELSE survivor.registration_visible
-              END,
-              registration_visible_source = CASE
-                WHEN survivor.registration_visible_source IS NULL
-                 AND survivor.registration_visible IS NULL
-                 AND redundant.registration_visible IS NOT NULL
-                  THEN redundant.registration_visible_source
-                ELSE survivor.registration_visible_source
-              END,
-              accepted_for_eva = CASE
-                WHEN survivor.accepted_for_eva_source IS NULL
-                 AND redundant.accepted_for_eva_source IS NOT NULL
-                  THEN redundant.accepted_for_eva
-                ELSE survivor.accepted_for_eva
-              END,
-              accepted_for_eva_source = COALESCE(
-                survivor.accepted_for_eva_source,
-                redundant.accepted_for_eva_source
-              ),
-              excluded = CASE
-                WHEN survivor.exclusion_decision_source IS NULL
-                 AND redundant.exclusion_decision_source IS NOT NULL
-                 AND (
-                   survivor.archive_mirror_claim_token IS NULL
-                   OR survivor.archive_mirror_claim_expires_at <= now()
-                 )
-                  THEN redundant.excluded
-                ELSE survivor.excluded
-              END,
-              exclusion_reason = CASE
-                WHEN survivor.exclusion_decision_source IS NULL
-                 AND redundant.exclusion_decision_source IS NOT NULL
-                 AND (
-                   survivor.archive_mirror_claim_token IS NULL
-                   OR survivor.archive_mirror_claim_expires_at <= now()
-                 )
-                  THEN redundant.exclusion_reason
-                ELSE survivor.exclusion_reason
-              END,
-              exclusion_decision_source = COALESCE(
-                survivor.exclusion_decision_source,
-                CASE
-                  WHEN survivor.archive_mirror_claim_token IS NULL
-                    OR survivor.archive_mirror_claim_expires_at <= now()
-                    THEN redundant.exclusion_decision_source
-                  ELSE NULL
-                END
-              ),
-              person_reflection = survivor.person_reflection OR redundant.person_reflection,
-              reflection_dismissed = survivor.reflection_dismissed OR redundant.reflection_dismissed,
-              updated_at = now()
-         FROM evidence AS redundant
-        WHERE survivor.id = $1
-          AND redundant.id = $2
-      RETURNING survivor.id,
-                survivor.case_id,
-                survivor.excluded,
-                survivor.storage_path,
-                survivor.box_file_id`,
-      [survivorId, row.id]
-    );
-    if (survivors[0]) {
-      await requestArchiveMirrorIfEligible(q, survivors[0]);
-    }
-    await q(
-      `UPDATE archive_mirror_outbox
-          SET completed_generation = requested_generation,
-              completed_at = now(),
-              updated_at = now()
-        WHERE evidence_id = $1
-          AND completed_generation < requested_generation`,
-      [row.id]
-    );
-    await q(
-      `UPDATE staff_evidence_upload_item
-          SET evidence_id = $2, updated_at = now()
-        WHERE evidence_id = $1`,
-      [row.id, survivorId]
-    );
-  }
-  const moved = await q(
-    `UPDATE evidence
-        SET case_id = $2, updated_at = now()
-      WHERE case_id = $1
-        AND NOT (id = ANY($3::uuid[]))
-      RETURNING id`,
-    [sourceCaseId, targetCaseId, collisionSourceIds]
-  );
-  if (moved.length > 0) {
-    await q(
-      `UPDATE archive_mirror_outbox
-          SET case_id = $2, updated_at = now()
-        WHERE evidence_id = ANY($1::uuid[])`,
-      [moved.map((row) => row.id), targetCaseId]
-    );
-  }
-  return {
-    movedEvidence: moved.length,
-    collidingEvidence: collisionSourceIds.length,
-    evidenceReplacements
-  };
-}
-async function manualIntakeMergeConflict(q, sourceCaseId, targetCaseId) {
-  const operations = await q(
-    `SELECT case_id, expected_file_count, evidence_completed_at, side_effects_completed_at
-       FROM manual_intake_case_create_operation
-      WHERE case_id = ANY($1::uuid[])
-      ORDER BY case_id, created_at, idempotency_key
-      FOR UPDATE`,
-    [[sourceCaseId, targetCaseId]]
-  );
-  const incomplete = operations.some((operation) => operation.side_effects_completed_at == null || Number(operation.expected_file_count) > 0 && operation.evidence_completed_at == null);
-  return incomplete ? "Source files are still being added for one of these cases. Finish or retry them before merging." : void 0;
-}
-async function transferStaffUploadOwnership(q, sourceCaseId, targetCaseId) {
-  await q(
-    `UPDATE staff_evidence_upload
-        SET case_id = $2, updated_at = now()
-      WHERE case_id = $1`,
-    [sourceCaseId, targetCaseId]
-  );
-  await q(
-    `UPDATE staff_evidence_upload_item
-        SET case_id = $2, updated_at = now()
-      WHERE case_id = $1`,
-    [sourceCaseId, targetCaseId]
-  );
-  await q(
-    `UPDATE manual_intake_case_create_operation
-        SET case_id = $2, updated_at = now()
-      WHERE case_id = $1`,
-    [sourceCaseId, targetCaseId]
-  );
-}
-async function reconcileMergeFileRequestIntent(q, sourceCaseId, targetCaseId) {
-  const cases = await q(
-    `SELECT id, box_folder_id, box_file_request_id, box_file_request_url
-       FROM case_ WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE`,
-    [[sourceCaseId, targetCaseId]]
-  );
-  const source = cases.find((row) => row.id.toLowerCase() === sourceCaseId);
-  const target = cases.find((row) => row.id.toLowerCase() === targetCaseId);
-  if (!source || !target) return "Source or target case not found.";
-  if ((source.box_file_request_id ?? "").trim() || (source.box_file_request_url ?? "").trim()) {
-    return "The source case already has an image-upload link. Move or close that link before merging.";
-  }
-  const intents = await q(
-    `SELECT case_id, requested_generation, completed_generation, attempt_count, claim_token
-       FROM box_file_request_outbox
-      WHERE case_id = ANY($1::uuid[])
-      ORDER BY case_id
-      FOR UPDATE`,
-    [[sourceCaseId, targetCaseId]]
-  );
-  const sourceIntent = intents.find((row) => row.case_id.toLowerCase() === sourceCaseId);
-  if (!sourceIntent) return void 0;
-  const sourcePending = Number(sourceIntent.requested_generation) > Number(sourceIntent.completed_generation);
-  if (!sourcePending) {
-    return "The source case has completed image-upload-link work that cannot be transferred safely.";
-  }
-  if (sourceIntent.attempt_count > 0 || sourceIntent.claim_token) {
-    return "Image-upload link creation may already have started for the source case. Try the merge after it finishes.";
-  }
-  const targetIntent = intents.find((row) => row.case_id.toLowerCase() === targetCaseId);
-  const targetHasPartialLink = !!(target.box_file_request_id ?? "").trim() !== !!(target.box_file_request_url ?? "").trim();
-  if (targetHasPartialLink) {
-    return "The survivor has an incomplete image-upload-link record. Resolve it before merging.";
-  }
-  const targetHasLink = !!(target.box_file_request_id ?? "").trim() && !!(target.box_file_request_url ?? "").trim();
-  if (targetIntent && Number(targetIntent.completed_generation) >= Number(targetIntent.requested_generation) && !targetHasLink) {
-    return "The survivor has completed image-upload-link work with no saved link. Resolve it before merging.";
-  }
-  if (targetIntent || targetHasLink) {
-    await q(
-      `UPDATE box_file_request_outbox
-          SET completed_generation = requested_generation,
-              completed_at = now(),
-              last_error = 'superseded by merge target',
-              updated_at = now()
-        WHERE case_id = $1`,
-      [sourceCaseId]
-    );
-    return void 0;
-  }
-  const targetFolder = (target.box_folder_id ?? "").trim();
-  if (!targetFolder) {
-    return "The survivor has no archive folder for the pending image-upload link.";
-  }
-  await q(
-    `UPDATE box_file_request_outbox
-        SET case_id = $2,
-            folder_id = $3,
-            next_attempt_at = now(),
-            updated_at = now()
-      WHERE case_id = $1`,
-    [sourceCaseId, targetCaseId, targetFolder]
-  );
-  return void 0;
-}
-async function lockCaptureSessionsForMerge(q, sourceCaseId) {
-  const relations = await q(
-    "SELECT to_regclass('public.capture_session')::text AS capture_session_regclass"
-  );
-  if (!relations[0]?.capture_session_regclass) return [];
-  const locked = await q(
-    `SELECT id FROM capture_session
-      WHERE case_id = $1
-      ORDER BY id
-      FOR UPDATE`,
-    [sourceCaseId]
-  );
-  return locked.map((row) => row.id);
-}
-async function lockCaptureAssetsForMerge(q, sessionIds) {
-  if (sessionIds.length === 0) return [];
-  const locked = await q(
-    `SELECT id FROM capture_asset
-      WHERE session_id = ANY($1::uuid[])
-      ORDER BY id
-      FOR UPDATE`,
-    [sessionIds]
-  );
-  return locked.map((row) => row.id);
-}
-async function repointLockedCaptureAssetsForMerge(q, assetIds, evidenceReplacements) {
-  if (assetIds.length === 0 || evidenceReplacements.size === 0) return;
-  for (const [redundantEvidenceId, survivorEvidenceId] of [...evidenceReplacements].sort()) {
-    await q(
-      `UPDATE capture_asset
-          SET evidence_id = $2, updated_at = now()
-        WHERE evidence_id = $1 AND id = ANY($3::uuid[])`,
-      [redundantEvidenceId, survivorEvidenceId, assetIds]
-    );
-  }
-}
-async function reparentLockedCaptureSessionsForMerge(q, sessionIds, sourceCaseId, targetCaseId, actor) {
-  if (sessionIds.length === 0) return;
-  const moved = await q(
-    `UPDATE capture_session
-        SET case_id = $2, updated_at = now()
-      WHERE case_id = $1 AND id = ANY($3::uuid[])
-      RETURNING id`,
-    [sourceCaseId, targetCaseId, sessionIds]
-  );
-  if (moved.length !== sessionIds.length) {
-    throw new Error("capture session ownership changed while case merge locks were held");
-  }
-  for (const sessionId of [...sessionIds].sort()) {
-    await writeAuditStrict({
-      action: AUDIT_ACTION.capture_session_retargeted,
-      caseId: targetCaseId,
-      actor: actor ?? "staff",
-      summary: "Guided capture session moved to merged case survivor",
-      before: { caseId: sourceCaseId },
-      after: {
-        sessionId,
-        caseId: targetCaseId,
-        lineage: [sourceCaseId, targetCaseId],
-        reason: "case_merge"
-      }
-    }, q);
-  }
-}
-import_functions2.app.http("mergeCases", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{tgt}/merge",
-  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
-    const targetCaseId = (req.params.tgt ?? "").trim().toLowerCase();
-    const body2 = await req.json();
-    const sourceCaseId = typeof body2.sourceCaseId === "string" ? body2.sourceCaseId.trim().toLowerCase() : "";
-    const actor = actorFromClaims(claims);
-    if (!MERGE_UUID_RE.test(sourceCaseId) || !MERGE_UUID_RE.test(targetCaseId)) {
-      return { status: 400, jsonBody: { error: "Case identifiers are invalid." } };
-    }
-    if (sourceCaseId === targetCaseId) {
-      return { status: 400, jsonBody: { error: "Cannot merge a case into itself." } };
-    }
-    const runMerge = () => tx(async (q) => {
-      await acquireCaseMutationLocks(q, [sourceCaseId, targetCaseId]);
-      const orderedIds = orderedCaseMutationIds([sourceCaseId, targetCaseId]);
-      const lockedCases = await q(
-        "SELECT id FROM case_ WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE",
-        [orderedIds]
-      );
-      if (lockedCases.length !== 2) {
-        return { kind: "error", status: 404, error: "Source or target case not found." };
-      }
-      const src = await loadCaseLite(sourceCaseId, q);
-      const tgt = await loadCaseLite(targetCaseId, q);
-      if (!src || !tgt) {
-        return { kind: "error", status: 404, error: "Source or target case not found." };
-      }
-      if (isRetiredMerged(src) || isRetiredMerged(tgt)) {
-        return {
-          kind: "error",
-          status: 409,
-          error: "One of these cases has already been merged. Refresh and try again."
-        };
-      }
-      if (src.providerCode && tgt.providerCode && src.providerCode !== tgt.providerCode) {
-        return {
-          kind: "error",
-          status: 400,
-          error: "Refusing to merge across different work providers."
-        };
-      }
-      if (TWIN_TERMINAL.has(tgt.status)) {
-        return {
-          kind: "error",
-          status: 400,
-          error: "Cannot merge into a finalised case."
-        };
-      }
-      const providerArchiveBusy = await q(
-        `SELECT id
-           FROM case_
-          WHERE id = ANY($1::uuid[])
-            AND (
-              provider_archive_completed_generation < provider_archive_requested_generation
-              OR on_hold_reason = 'provider_archive_pending'
-            )`,
-        [[sourceCaseId, targetCaseId]]
-      );
-      if (providerArchiveBusy.length > 0) {
-        return {
-          kind: "error",
-          status: 409,
-          error: "Archive folder work is still finishing for one of these cases. Try the merge again shortly."
-        };
-      }
-      const manualIntakeConflict = await manualIntakeMergeConflict(
-        q,
-        sourceCaseId,
-        targetCaseId
-      );
-      if (manualIntakeConflict) {
-        return { kind: "error", status: 409, error: manualIntakeConflict };
-      }
-      const captureSessionIds = await lockCaptureSessionsForMerge(q, sourceCaseId);
-      const captureAssetIds = await lockCaptureAssetsForMerge(q, captureSessionIds);
-      const fileRequestConflict = await reconcileMergeFileRequestIntent(
-        q,
-        sourceCaseId,
-        targetCaseId
-      );
-      if (fileRequestConflict) {
-        return { kind: "error", status: 409, error: fileRequestConflict };
-      }
-      await q(
-        "SELECT id FROM inbound_email WHERE case_id = $1 ORDER BY id FOR UPDATE",
-        [sourceCaseId]
-      );
-      const {
-        movedEvidence,
-        collidingEvidence,
-        evidenceReplacements,
-        archiveBusy
-      } = await mergeEvidenceRows(
-        q,
-        sourceCaseId,
-        targetCaseId
-      );
-      if (archiveBusy) {
-        return {
-          kind: "error",
-          status: 409,
-          error: "Archive work is still finishing for one of these cases. Try the merge again shortly."
-        };
-      }
-      await transferStaffUploadOwnership(q, sourceCaseId, targetCaseId);
-      await repointLockedCaptureAssetsForMerge(q, captureAssetIds, evidenceReplacements);
-      await reparentLockedCaptureSessionsForMerge(
-        q,
-        captureSessionIds,
-        sourceCaseId,
-        targetCaseId,
-        actor
-      );
-      const movedEmails = await q(
-        "UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id",
-        [sourceCaseId, targetCaseId]
-      );
-      const claimantMerge = await mergeClaimantProvenance(
-        q,
-        sourceCaseId,
-        targetCaseId,
-        src.evaFields.claimantName.value,
-        tgt.evaFields.claimantName.value
-      );
-      const fkRows = await q(
-        "SELECT id, work_provider_id FROM case_ WHERE id = ANY($1::uuid[])",
-        [[sourceCaseId, targetCaseId]]
-      );
-      const srcFk = fkRows.find((r) => r.id === sourceCaseId)?.work_provider_id ?? null;
-      const tgtFk = fkRows.find((r) => r.id === targetCaseId)?.work_provider_id ?? null;
-      const providerDecision = decideMergeProvider(srcFk, tgtFk);
-      let providerFilled = false;
-      let providerRecoveryOutcome;
-      let providerArchiveGeneration;
-      if (!providerDecision.crossProvider && providerDecision.filledFrom === "source" && providerDecision.providerId) {
-        await q(
-          `UPDATE case_ SET work_provider_id = $2, updated_at = now()
-            WHERE id = $1 AND work_provider_id IS NULL`,
-          [targetCaseId, providerDecision.providerId]
-        );
-        const wp = await q("SELECT display_name FROM work_provider WHERE id = $1", [
-          providerDecision.providerId
-        ]);
-        const displayName = (wp[0]?.display_name ?? "").trim();
-        if (displayName) {
-          await q(
-            `UPDATE case_ SET eva_work_provider = $2, updated_at = now()
-              WHERE id = $1 AND (eva_work_provider IS NULL OR eva_work_provider = '')`,
-            [targetCaseId, displayName.slice(0, 200)]
-          );
-        }
-        await q("SAVEPOINT merge_provider_provenance");
-        try {
-          await q(
-            `INSERT INTO field_level_provenance
-               (name, case_id, field_name, value, source_type_code, source_label)
-             VALUES ($1, $2, 'workProviderId', $3, $4, $5)`,
-            [
-              `${targetCaseId}:workProviderId`,
-              targetCaseId,
-              providerDecision.providerId,
-              sourceTypeCodec.toInt("corpus") ?? 100000003,
-              "Carried over from the merged case"
-            ]
-          );
-          await q("RELEASE SAVEPOINT merge_provider_provenance");
-        } catch {
-          await q("ROLLBACK TO SAVEPOINT merge_provider_provenance");
-          await q("RELEASE SAVEPOINT merge_provider_provenance");
-        }
-        providerFilled = true;
-        const recovery = await completeProviderRecoveryUsing(q, {
-          caseId: targetCaseId,
-          resolvedProviderId: providerDecision.providerId,
-          allowCasePoMint: true
-        });
-        if (recovery.outcome === "blocked") {
-          throw new MergeProviderRecoveryBlocked(recovery.blockedReason ?? "provider recovery blocked");
-        }
-        providerRecoveryOutcome = recovery.outcome;
-        if (recovery.outcome === "identity_ready") {
-          providerArchiveGeneration = await requestProviderArchive(q, targetCaseId);
-        }
-      }
-      await cancelProviderArchive(q, sourceCaseId);
-      await q(
-        `UPDATE case_
-           SET status_code = $2, duplicate_keys = $3, on_hold = false,
-               on_hold_reason = NULL, updated_at = now()
-         WHERE id = $1`,
-        [sourceCaseId, statusToInt("linked_to_instruction"), JSON.stringify({ mergedInto: targetCaseId })]
-      );
-      const statusGeneration = await requestStatusRecompute(q, targetCaseId);
-      await writeAudit({
-        action: AUDIT_ACTION.case_attached,
-        caseId: targetCaseId,
-        summary: `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence, ${movedEmails.length} emails${providerFilled ? ", provider carried over from the merged case" : ""}${providerRecoveryOutcome === "identity_ready" ? ", Archive folder queued" : ""}${claimantMerge.filled ? ", claimant carried over from the merged case" : ""}${claimantMerge.conflict ? ", claimant difference kept for review" : ""})`,
-        after: {
-          sourceCaseId,
-          targetCaseId,
-          movedEvidence,
-          collidingEvidence,
-          movedEmails: movedEmails.length,
-          providerFilled,
-          providerRecoveryOutcome,
-          providerArchiveGeneration,
-          claimantFilled: claimantMerge.filled,
-          claimantConflict: claimantMerge.conflict,
-          captureSessionsRetargeted: captureSessionIds.length
-        },
-        ...actor ? { actor } : {}
-      }, q);
-      return {
-        kind: "merged",
-        movedEvidence,
-        collidingEvidence,
-        movedEmails: movedEmails.length,
-        providerFilled,
-        providerRecoveryOutcome,
-        providerArchiveGeneration,
-        claimantFilled: claimantMerge.filled,
-        claimantConflict: claimantMerge.conflict,
-        statusGeneration
-      };
-    });
-    let merged;
-    try {
-      merged = await runMerge();
-    } catch (e) {
-      if (e instanceof MergeProviderRecoveryBlocked) {
-        return {
-          status: 409,
-          jsonBody: { error: "Provider recovery needs review before these cases can be merged." }
-        };
-      }
-      throw e;
-    }
-    if (merged.kind === "error") {
-      return { status: merged.status, jsonBody: { error: merged.error } };
-    }
-    try {
-      const evaluated = await recomputeStatus2(targetCaseId, actor);
-      if (!evaluated) throw new Error("target case was not available for readiness evaluation");
-      await acknowledgeStatusRecompute(query, targetCaseId, merged.statusGeneration);
-    } catch (e) {
-      ctx.warn(
-        `[merge] readiness recompute remains pending for ${targetCaseId} (generation ${merged.statusGeneration}): ${e instanceof Error ? e.message : String(e)}`
-      );
-    }
-    const result = { targetCaseId, movedEvidence: merged.movedEvidence };
-    return { status: 200, jsonBody: result };
-  })
-});
-import_functions2.app.http("imagesForCase", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases/{id}/images",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const id = req.params.id;
-    const rows = await query(
-      // Automatic exclusions and every public guided-capture row stay visible in REVIEW so staff
-      // can make or revisit the evidential decision. TKT-200 explicitly requires an excluded guided
-      // photo to remain visible after a staff rejection; the DTO distinguishes that state for plain
-      // UI copy. Other staff/provider/cleanup/legacy exclusions stay hidden. Every returned excluded
-      // row remains acceptedForEva=false and cannot affect readiness/order/export until a staff PATCH
-      // explicitly includes and accepts it.
-      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded = false OR exclusion_decision_source = 'classifier' OR person_reflection = true OR source_label = 'public_guided_capture') ORDER BY sequence_index NULLS LAST, created_at",
-      [id]
-    );
-    return { status: 200, jsonBody: rows.map(rowToEvidence) };
-  })
-});
-import_functions2.app.http("recentActivity", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "activity",
-  handler: withRole("CollisionSpike.User", async () => {
-    const rows = await query("SELECT * FROM audit_event ORDER BY occurred_at DESC LIMIT 200");
-    return { status: 200, jsonBody: rows.map(rowToActivityEvent) };
-  })
-});
-import_functions2.app.http("activityForCase", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases/{id}/activity",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const id = req.params.id;
-    const rows = await query(
-      "SELECT * FROM audit_event WHERE case_id = $1 ORDER BY occurred_at DESC",
-      [id]
-    );
-    return { status: 200, jsonBody: rows.map(rowToActivityEvent) };
-  })
-});
-import_functions2.app.http("removeCase", {
-  methods: ["DELETE"],
-  authLevel: "anonymous",
-  route: "cases/{id}",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const actor = actorFromClaims(claims);
-    const existing = await loadCaseLite(id);
-    if (!existing) return { status: 404, jsonBody: { error: "not found" } };
-    if (existing.status === "removed") {
-      const done = {
-        id,
-        status: "removed",
-        alreadyRemoved: true,
-        ...existing.boxFolderUrl ? { boxFolderUrl: existing.boxFolderUrl } : {}
-      };
-      return { status: 200, jsonBody: done };
-    }
-    const before = {
-      status: existing.status,
-      vrm: existing.vrm,
-      casePo: existing.casePo ?? null,
-      provider: existing.provider
-    };
-    const closed = await query(
-      `UPDATE case_
-          SET status_code = $2, on_hold = false, on_hold_reason = NULL,
-              closed_at = now(), updated_at = now()
-        WHERE id = $1
-          AND on_hold_reason IS DISTINCT FROM 'provider_archive_pending'
-          AND provider_archive_completed_generation >= provider_archive_requested_generation
-      RETURNING id`,
-      [id, statusToInt("removed")]
-    );
-    if (!closed[0]) {
-      return {
-        status: 409,
-        jsonBody: {
-          error: "Archive folder work is still finishing for this case. Try again shortly."
-        }
-      };
-    }
-    await writeAudit({
-      action: AUDIT_ACTION.case_removed,
-      caseId: id,
-      summary: `Case closed: ${before.vrm || before.casePo || id}`,
-      before,
-      after: {
-        status: "removed",
-        // The archive tickbox is an INTENT FLAG only — no automated Box deletion (ADR-0017).
-        archiveFolderAcknowledged: body2.acknowledgeArchiveFolderHandled === true || body2.acknowledgeBoxFolderHandled === true,
-        boxFolderId: existing.boxFolderId ?? null,
-        boxFolderUrl: existing.boxFolderUrl ?? null,
-        ...typeof body2.reason === "string" && body2.reason.trim() ? { reason: body2.reason.trim() } : {}
-      },
-      ...actor ? { actor } : {}
-    });
-    const result = {
-      id,
-      status: "removed",
-      alreadyRemoved: false,
-      ...existing.boxFolderUrl ? { boxFolderUrl: existing.boxFolderUrl } : {}
-    };
-    return { status: 200, jsonBody: result };
-  })
-});
-import_functions2.app.http("nextCasePo", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases/next-po",
-  handler: withRole("CollisionSpike.User", async (req, ctx) => {
-    const principalRaw = (req.query.get("principal") ?? "").trim();
-    if (!principalRaw) return { status: 400, jsonBody: { error: "principal is required" } };
-    const principal = principalRaw.toUpperCase();
-    if (!/^[A-Z][A-Z0-9]{0,7}$/.test(principal)) {
-      return { status: 400, jsonBody: { error: "invalid principal code" } };
-    }
-    const yearParam = (req.query.get("year") ?? "").trim();
-    const yy = /^\d{2}$/.test(yearParam) ? yearParam : /^\d{4}$/.test(yearParam) ? yearParam.slice(-2) : casePoYear();
-    const prefix2 = `${principal}${yy}`;
-    const seqRows = await query(
-      `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) AS max_seq
-         FROM case_
-        WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
-      [`${prefix2}%`, casePoSequenceRegex(principal, yy), prefix2]
-    );
-    let maxSeq = Number(seqRows[0]?.max_seq ?? 0);
-    let source = "db";
-    if (maxSeq === 0 && gates.boxApi() && gates.boxFolderRootId() && process.env.BOX_FN_URL) {
-      try {
-        const names = await listBoxFolderNames(gates.boxFolderRootId());
-        const boxMax = maxCasePoSeqFromNames(names, principal, yy);
-        if (boxMax > 0) {
-          maxSeq = boxMax;
-          source = "box";
-        }
-      } catch (e) {
-        ctx.error(`[next-po] Box fallback failed: ${String(e)}`);
-      }
-    }
-    const floor = await casePoFloor(query, prefix2);
-    if (floor > maxSeq) {
-      maxSeq = floor;
-      source = "floor";
-    }
-    const nextSeq = maxSeq + 1;
-    const casePo = formatCasePo(principal, yy, nextSeq);
-    const result = {
-      principal,
-      yy,
-      seq: String(nextSeq).padStart(3, "0"),
-      nextSeq,
-      evaLower: casePo.toLowerCase(),
-      boxUpper: casePo,
-      source
-    };
-    return { status: 200, jsonBody: result };
-  })
-});
-async function readCaseBoxFolder(caseId) {
-  const rows = await query(
-    "SELECT box_folder_id, box_folder_url FROM case_ WHERE id = $1",
-    [caseId]
-  );
-  return {
-    boxFolderId: rows[0]?.box_folder_id ?? null,
-    boxFolderUrl: rows[0]?.box_folder_url ?? null
-  };
-}
-import_functions2.app.http("caseBoxSharedLink", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases/{id}/box/shared-link",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    if (!gates.boxApi()) {
-      return { status: 200, jsonBody: { status: "gated_off", message: "The archive is not available yet." } };
-    }
-    const caseId = (req.params.id ?? "").trim();
-    if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
-    const { boxFolderId, boxFolderUrl } = await readCaseBoxFolder(caseId);
-    if (!boxFolderId) {
-      return {
-        status: 200,
-        jsonBody: { status: "folder_not_ready", message: "This case has no archive folder yet." }
-      };
-    }
-    const folderUrl = boxFolderUrl && boxFolderUrl.trim() || `https://app.box.com/folder/${encodeURIComponent(boxFolderId)}`;
-    return { status: 200, jsonBody: { status: "ok", data: { folderUrl } } };
-  })
-});
-import_functions2.app.http("caseBoxCopyFileRequest", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{id}/box/copy-file-request",
-  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
-    if (!gates.boxApi() || !gates.boxFileRequest()) {
-      return { status: 200, jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." } };
-    }
-    const caseId = (req.params.id ?? "").trim();
-    if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
-    const templateId = gates.boxFileRequestTemplateId().trim();
-    if (!templateId) {
-      return {
-        status: 200,
-        jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." }
-      };
-    }
-    const actor = actorFromClaims(claims);
-    try {
-      const processed = await ensureActiveBoxFileRequest(caseId, templateId, actor);
-      if (processed.kind === "missing") {
-        return { status: 404, jsonBody: { status: "error", message: "Case not found." } };
-      }
-      if (processed.kind === "retired") {
-        return {
-          status: 409,
-          jsonBody: {
-            status: "error",
-            message: "This case has been merged. Open the current case and try again.",
-            mergedInto: processed.mergedInto
-          }
-        };
-      }
-      if (processed.kind === "folder_not_ready") {
-        return {
-          status: 200,
-          jsonBody: { status: "folder_not_ready", message: "This case has no archive folder yet." }
-        };
-      }
-      if (processed.kind === "ok") {
-        const associated = await tx(async (q) => {
-          const locked = await lockCaseForMutation(q, caseId);
-          if (locked.kind !== "active") return false;
-          const current = await q(
-            "SELECT box_folder_id FROM case_ WHERE id = $1 FOR UPDATE",
-            [locked.caseId]
-          );
-          if ((current[0]?.box_folder_id ?? "").trim() !== processed.folderId) return false;
-          await associateOutstandingImageChasersWithFileRequest(
-            q,
-            locked.caseId,
-            processed.fileRequestId,
-            processed.fileRequestUrl
-          );
-          return true;
-        });
-        if (!associated) {
-          return {
-            status: 200,
-            jsonBody: {
-              status: "error",
-              message: "The case archive folder changed. Please try again."
-            }
-          };
-        }
-        return {
-          status: 200,
-          jsonBody: {
-            status: "ok",
-            data: {
-              fileRequestUrl: processed.fileRequestUrl,
-              ...processed.expiresAt ? { expiresAt: processed.expiresAt } : {}
-            }
-          }
-        };
-      }
-      return {
-        status: 200,
-        jsonBody: {
-          status: "error",
-          message: "The image-upload link is still being created. Please try again shortly."
-        }
-      };
-    } catch (error2) {
-      ctx.error("[caseBoxCopyFileRequest] failed", error2);
-      return {
-        status: 200,
-        jsonBody: {
-          status: "error",
-          message: "The image-upload link could not be created. Please try again."
-        }
-      };
-    }
-  })
-});
-import_functions2.app.http("caseBoxFinalize", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{id}/box/finalize",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const caseId = (req.params.id ?? "").trim();
-    if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
-    return {
-      status: 200,
-      jsonBody: { status: "gated_off", message: 'Direct submit is not available yet. Use "Export for EVA".' }
-    };
-  })
-});
-import_functions2.app.http("markEvaSubmitted", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{id}/eva-submitted",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = (req.params.id ?? "").trim();
-    if (!id) return { status: 400, jsonBody: { message: "A case is required." } };
-    const updated = await markEvaSubmittedIfReady(id, actorFromClaims(claims));
-    return { status: 200, jsonBody: { updated } };
-  })
-});
-import_functions2.app.http("markCaseDone", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{id}/mark-done",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = (req.params.id ?? "").trim();
-    if (!id) return { status: 400, jsonBody: { message: "A case is required." } };
-    const updated = await tx((q) => markCaseDoneUsing(q, {
-      caseId: id,
-      signal: "manual",
-      actor: actorFromClaims(claims)
-    }));
-    return { status: 200, jsonBody: { updated } };
-  })
-});
-var COMPLETED_STATUSES = ["eva_submitted", "done", "box_synced"];
-import_functions2.app.http("completedCases", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "completed/cases",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const statusFilter = (req.query.get("status") ?? "").trim();
-    const wanted = COMPLETED_STATUSES.filter(
-      (s) => !statusFilter || s === statusFilter
-    );
-    if (wanted.length === 0) return { status: 200, jsonBody: [] };
-    const codes = wanted.map((s) => statusToInt(s));
-    const limit = Math.min(Math.max(parseInt(req.query.get("limit") ?? "200", 10) || 200, 1), 500);
-    const offset = Math.max(parseInt(req.query.get("offset") ?? "0", 10) || 0, 0);
-    const rows = await query(
-      `${CASE_SELECT}
-       WHERE c.status_code = ANY($1::int[])
-       ORDER BY c.submitted_at DESC NULLS LAST, c.updated_at DESC
-       LIMIT $2 OFFSET $3`,
-      [codes, limit, offset]
-    );
-    const now = nowParam(req);
-    return { status: 200, jsonBody: rows.map((r) => rowToCase(r, { now })) };
-  })
-});
-function nowParam(req) {
-  const raw = req.query.get("now");
-  if (!raw) return /* @__PURE__ */ new Date();
-  const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? /* @__PURE__ */ new Date() : d;
-}
-
-// api/src/functions/providers.ts
-var import_functions3 = require("@azure/functions");
-import_functions3.app.http("providers", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "providers",
-  handler: withRole("CollisionSpike.User", async () => {
-    const rows = await query("SELECT * FROM work_provider ORDER BY display_name");
-    return { status: 200, jsonBody: rows.map(rowToProvider) };
-  })
-});
-import_functions3.app.http("providerByCode", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "providers/{code}",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const code = req.params.code;
-    const rows = await query("SELECT * FROM work_provider WHERE principal_code = $1 LIMIT 1", [
-      code
-    ]);
-    if (!rows[0]) return { status: 404, jsonBody: { error: "not found" } };
-    return { status: 200, jsonBody: rowToProvider(rows[0]) };
-  })
-});
-var UUID_RE2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function normaliseDomains(input) {
-  if (!Array.isArray(input)) return void 0;
-  const seen = /* @__PURE__ */ new Set();
-  const out = [];
-  for (const d of input) {
-    const v = String(d ?? "").trim().toLowerCase();
-    if (v && !seen.has(v)) {
-      seen.add(v);
-      out.push(v);
-    }
-  }
-  return out;
-}
-import_functions3.app.http("updateProvider", {
-  methods: ["PATCH"],
-  authLevel: "anonymous",
-  route: "providers/{id}",
-  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
-    const idOrCode = (req.params.id ?? "").trim();
-    if (!idOrCode) return { status: 400, jsonBody: { error: "id is required" } };
-    const body2 = await req.json().catch(() => ({}));
-    let modeCode;
-    if (body2.providerAutomationMode !== void 0) {
-      const mode = String(body2.providerAutomationMode);
-      const code = automationModeCodec.toInt(mode);
-      if (code == null) return { status: 400, jsonBody: { error: "invalid providerAutomationMode" } };
-      modeCode = code;
-    }
-    let domains;
-    if (body2.knownEmailDomains !== void 0) {
-      domains = normaliseDomains(body2.knownEmailDomains);
-      if (domains === void 0) {
-        return { status: 400, jsonBody: { error: "knownEmailDomains must be an array of strings" } };
-      }
-    }
-    if (modeCode === void 0 && domains === void 0) {
-      return { status: 400, jsonBody: { error: "nothing to update" } };
-    }
-    const where2 = UUID_RE2.test(idOrCode) ? "id = $1" : "principal_code = $1";
-    const existing = await query(`SELECT * FROM work_provider WHERE ${where2} LIMIT 1`, [idOrCode]);
-    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const beforeRow = existing[0];
-    const sets = [];
-    const vals = [];
-    const before = {};
-    const after = {};
-    if (modeCode !== void 0) {
-      vals.push(modeCode);
-      sets.push(`provider_automation_mode_code = $${vals.length}`);
-      before.providerAutomationMode = automationModeCodec.toName(beforeRow.provider_automation_mode_code) ?? null;
-      after.providerAutomationMode = automationModeCodec.toName(modeCode);
-    }
-    if (domains !== void 0) {
-      vals.push(domains.join("\n"));
-      sets.push(`known_email_domains = $${vals.length}`);
-      before.knownEmailDomains = beforeRow.known_email_domains ?? null;
-      after.knownEmailDomains = domains;
-    }
-    vals.push(beforeRow.id);
-    const updated = await query(
-      `UPDATE work_provider SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}
-       RETURNING *`,
-      vals
-    );
-    if (!updated[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const actor = actorFromClaims(claims);
-    await writeAudit({
-      action: AUDIT_ACTION.corpus_record_changed,
-      summary: `Provider ${beforeRow.principal_code ?? beforeRow.id} updated: ${Object.keys(after).join(", ")}`,
-      before,
-      after: { ...after, principalCode: beforeRow.principal_code ?? null },
-      ...actor ? { actor } : {}
-    });
-    return { status: 200, jsonBody: rowToProvider(updated[0]) };
-  })
-});
-
-// api/src/functions/inspection.ts
-var import_functions4 = require("@azure/functions");
-
-// api/src/lib/maps.ts
-var MAPS_HOST = "https://atlas.microsoft.com/search/address/json";
-var UK_POSTCODE = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i;
-var cache = /* @__PURE__ */ new Map();
-function extractPostcode(text) {
-  if (!text) return null;
-  const m = text.match(UK_POSTCODE);
-  if (!m) return null;
-  return `${m[1].toUpperCase()} ${m[2].toUpperCase()}`;
-}
-function haversineMiles(a, b) {
-  const R = 3958.7613;
-  const toRad = (d) => d * Math.PI / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLon = toRad(b.lon - a.lon);
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
-}
-async function geocodePostcode(postcode) {
-  const pc = extractPostcode(postcode);
-  if (!pc) return null;
-  if (cache.has(pc)) return cache.get(pc) ?? null;
-  const key = process.env.AZURE_MAPS_KEY ?? "";
-  if (!key) {
-    cache.set(pc, null);
-    return null;
-  }
-  try {
-    const url2 = `${MAPS_HOST}?api-version=1.0&countrySet=GB&limit=1&subscription-key=${encodeURIComponent(key)}&query=${encodeURIComponent(pc)}`;
-    const res = await fetch(url2, { signal: AbortSignal.timeout(4e3) });
-    if (!res.ok) {
-      cache.set(pc, null);
-      return null;
-    }
-    const body2 = await res.json();
-    const pos = body2.results?.[0]?.position;
-    const geo = pos && typeof pos.lat === "number" && typeof pos.lon === "number" ? { lat: pos.lat, lon: pos.lon } : null;
-    cache.set(pc, geo);
-    return geo;
-  } catch {
-    cache.set(pc, null);
-    return null;
-  }
-}
-
-// api/src/functions/inspection.ts
-var CONFIRMED_PHYSICAL = inspectionDecisionCodec.toInt("confirmed_physical");
-var SHORTLIST_LIMIT = 8;
-var SEARCH_LIMIT = 25;
-function addressMatches(a, needle) {
-  const hay = `${a.lines.join(" ")} ${a.postcode}`.toLowerCase();
-  return hay.includes(needle);
-}
-import_functions4.app.http("inspectionAddressSuggestions", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "cases/{id}/inspection-suggestions",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    try {
-      const id = req.params.id;
-      const q = (req.query.get("q") ?? "").trim().toLowerCase();
-      const rows = await query(
-        "SELECT * FROM inspection_address WHERE source_label LIKE 'suggested%'"
-      );
-      const suggestedRows = rows.filter(isSuggestedAddressRow);
-      const caseRows = await query(
-        "SELECT case_po, eva_accident_circumstances, eva_claimant_address FROM case_ WHERE id = $1",
-        [id]
-      );
-      const caseRow = caseRows[0];
-      const casePostcode = extractPostcode(caseRow?.eva_accident_circumstances) ?? extractPostcode(caseRow?.eva_claimant_address);
-      const centroid = await geocodePostcode(casePostcode);
-      const withDistance = (r) => {
-        const a = rowToSuggestedAddress(r);
-        if (centroid && r.latitude != null && r.longitude != null) {
-          a.distanceMiles = Math.round(haversineMiles(centroid, { lat: Number(r.latitude), lon: Number(r.longitude) }) * 10) / 10;
-        }
-        return a;
-      };
-      const all = suggestedRows.map(withDistance);
-      if (q.length >= 2) {
-        return {
-          status: 200,
-          jsonBody: sortSuggestions(all.filter((a) => addressMatches(a, q)), {
-            byDistance: !!centroid
-          }).slice(0, SEARCH_LIMIT)
-        };
-      }
-      const providerCode = principalFromCasePo(caseRow?.case_po);
-      const { list, usingFallback } = scopeSuggestions(all, providerCode);
-      const shortlist = sortSuggestions(list, { byDistance: !!centroid }).slice(0, SHORTLIST_LIMIT).map((s) => usingFallback ? { ...s, scopeFallback: true } : s);
-      return { status: 200, jsonBody: shortlist };
-    } catch {
-      return { status: 200, jsonBody: [] };
-    }
-  })
-});
-import_functions4.app.http("inspectionAddressCounts", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "inspection-addresses/counts",
-  handler: withRole("CollisionSpike.User", async () => {
-    try {
-      const rows = await query(
-        "SELECT source_label, decision_mode_code FROM inspection_address"
-      );
-      let confirmed = 0;
-      let suggested = 0;
-      for (const r of rows) {
-        if (isSuggestedAddressRow(r)) suggested += 1;
-        else if (r.decision_mode_code === CONFIRMED_PHYSICAL) confirmed += 1;
-      }
-      const counts = { confirmed, suggested };
-      return { status: 200, jsonBody: counts };
-    } catch {
-      return { status: 200, jsonBody: { confirmed: 0, suggested: 0 } };
-    }
-  })
-});
-import_functions4.app.http("saveInspectionDecision", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{id}/inspection-decision",
-  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
-    const caseId = req.params.id;
-    const parsed = SaveInspectionDecisionParams.safeParse({
-      ...await req.json().catch(() => ({})),
-      caseId
-    });
-    if (!parsed.success) {
-      return { status: 400, jsonBody: { error: "invalid inspection decision", issues: parsed.error.issues } };
-    }
-    const decision = parsed.data;
-    const lines = (decision.addressLines ?? []).map((line) => line.trim()).filter(Boolean);
-    const postcode = decision.postcode?.trim() ?? "";
-    const isImageBased = decision.decisionMode === "image_based";
-    const label = (isImageBased ? `Image Based Assessment (${caseId})` : [lines[0], postcode].filter(Boolean).join(", ") || "Inspection address").slice(0, 200);
-    const evaAddress = isImageBased ? "Image Based Assessment" : [...lines, ...postcode ? [postcode] : []].join("\n").slice(0, 2e3);
-    const decisionModeCode = inspectionDecisionCodec.toInt(decision.decisionMode);
-    if (decisionModeCode == null) {
-      return { status: 400, jsonBody: { error: "invalid inspection decision mode" } };
-    }
-    const actor = actorFromClaims(claims);
-    const outcome = await tx(async (q) => {
-      const caseRows = await q(
-        `SELECT case_po, eva_inspection_address, inspection_decision_code, updated_at
-           FROM case_ WHERE id = $1 FOR UPDATE`,
-        [caseId]
-      );
-      const caseRow = caseRows[0];
-      if (!caseRow) return { kind: "missing" };
-      const currentVersion2 = versionToken(caseRow.updated_at);
-      const expected = ifMatch(req);
-      if (expected != null && expected !== "" && expected !== currentVersion2) {
-        return { kind: "stale", currentVersion: currentVersion2 };
-      }
-      const providerCode = principalFromCasePo(caseRow.case_po);
-      const sourceNote = [
-        `case=${caseId}`,
-        ...providerCode ? [`provider=${providerCode}`] : [],
-        decision.sourceNote
-      ].join(" ").trim();
-      const decisionReason = isImageBased ? decision.sourceNote : null;
-      const rows = await q(
-        `INSERT INTO inspection_address
-           (label, decision_mode_code, decision_reason, source_label, source_note,
-            address_line1, address_line2, address_line3, address_line4, address_line5, address_line6, postcode)
-         VALUES ($1, COALESCE($2, 100000003), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-         ON CONFLICT (label) DO UPDATE SET
-           decision_mode_code = EXCLUDED.decision_mode_code,
-           decision_reason    = EXCLUDED.decision_reason,
-           source_label       = EXCLUDED.source_label,
-           source_note        = EXCLUDED.source_note,
-           address_line1      = EXCLUDED.address_line1,
-           address_line2      = EXCLUDED.address_line2,
-           address_line3      = EXCLUDED.address_line3,
-           address_line4      = EXCLUDED.address_line4,
-           address_line5      = EXCLUDED.address_line5,
-           address_line6      = EXCLUDED.address_line6,
-           postcode           = EXCLUDED.postcode
-         RETURNING id`,
-        [
-          label,
-          decisionModeCode ?? null,
-          decisionReason,
-          decision.sourceLabel,
-          sourceNote,
-          lines[0] ?? null,
-          lines[1] ?? null,
-          lines[2] ?? null,
-          lines[3] ?? null,
-          lines[4] ?? null,
-          lines[5] ?? null,
-          isImageBased ? null : decision.postcode?.trim() ?? null
-        ]
-      );
-      const id = rows[0]?.id;
-      const updated = await q(
-        `UPDATE case_
-            SET eva_inspection_address = $2,
-                inspection_decision_code = $3,
-                updated_at = now()
-          WHERE id = $1
-          RETURNING updated_at`,
-        [caseId, evaAddress, decisionModeCode]
-      );
-      const statusGeneration = await requestStatusRecompute(q, caseId);
-      await writeAudit({
-        action: AUDIT_ACTION.inspection_override,
-        caseId,
-        summary: `Inspection decision confirmed (${decision.decisionMode})`,
-        before: {
-          inspectionAddress: caseRow.eva_inspection_address ?? null,
-          decisionModeCode: caseRow.inspection_decision_code ?? null
-        },
-        after: { decisionMode: decision.decisionMode, label, inspectionAddress: evaAddress },
-        ...actor ? { actor } : {}
-      }, q);
-      return {
-        kind: "saved",
-        id,
-        version: versionToken(updated[0]?.updated_at),
-        statusGeneration
-      };
-    });
-    if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
-    if (outcome.kind === "stale") {
-      return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
-    }
-    try {
-      const evaluated = await recomputeStatus2(caseId, actor);
-      if (!evaluated) throw new Error("case was not available for readiness evaluation");
-      await acknowledgeStatusRecompute(query, caseId, outcome.statusGeneration);
-    } catch (error2) {
-      ctx.warn(
-        `[inspection-decision] readiness recompute remains pending for ${caseId} (generation ${outcome.statusGeneration}): ${error2 instanceof Error ? error2.message : String(error2)}`
-      );
-    }
-    const current = await query("SELECT updated_at FROM case_ WHERE id = $1", [caseId]);
-    const currentVersion = current[0] ? versionToken(current[0].updated_at) : outcome.version;
-    const result = {
-      persisted: true,
-      ...outcome.id ? { id: outcome.id } : {},
-      version: currentVersion
-    };
-    return {
-      status: 200,
-      jsonBody: result,
-      headers: { ETag: `"${currentVersion}"`, "Access-Control-Expose-Headers": "ETag" }
-    };
-  })
-});
-
-// api/src/functions/dashboard.ts
-var import_functions5 = require("@azure/functions");
-function nowParam2(req) {
-  const raw = req.query.get("now");
-  if (!raw) return /* @__PURE__ */ new Date();
-  const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? /* @__PURE__ */ new Date() : d;
-}
-async function loadAllCases2(now) {
-  const rows = await query(`${CASE_SELECT} ORDER BY c.created_at DESC`);
-  return rows.map((r) => rowToCase(r, { now }));
-}
-function computeLiveCounts(all) {
-  return {
-    notReady: filterQueue(all, "not-ready").length,
-    review: filterQueue(all, "review").length,
-    held: filterQueue(all, "held").length
-  };
-}
-function computeThroughput(all, now) {
-  const today = startOfDay(now);
-  const weekStart = startOfWeek(now);
-  let inToday = 0;
-  let submittedToday = 0;
-  let clearedThisWeek = 0;
-  let submittedTotal = 0;
-  for (const c of all) {
-    if (isSameDay(parseDmy(c.createdAt), today)) inToday += 1;
-    if (statusToStage(c.status) === "submitted") submittedTotal += 1;
-    const sub = parseDmy(c.submittedAt);
-    if (sub) {
-      if (isSameDay(sub, today)) submittedToday += 1;
-      if (startOfDay(sub).getTime() >= weekStart.getTime()) clearedThisWeek += 1;
-    }
-  }
-  return { inToday, submittedToday, clearedThisWeek, submittedTotal };
-}
-function computeAgingExceptions(all, now) {
-  const today = startOfDay(now);
-  const rows = actionableCases(all).map((c) => {
-    const due = parseDmy(c.dateDue);
-    const daysToDue = due ? daysBetween(today, due) : Number.POSITIVE_INFINITY;
-    return {
-      case: c,
-      daysToDue,
-      pastDue: due ? daysToDue < 0 : false,
-      ...c.actionReason ? { reason: c.actionReason } : {}
-    };
-  }).sort((a, b) => a.daysToDue - b.daysToDue);
-  return {
-    rows,
-    pastDueCount: rows.filter((r) => r.pastDue).length,
-    duplicateCount: rows.filter((r) => r.reason === "duplicate").length,
-    conflictCount: rows.filter((r) => r.reason === "conflict").length
-  };
-}
-function computeQueueCounts(all) {
-  return {
-    "not-ready": filterQueue(all, "not-ready").length,
-    review: filterQueue(all, "review").length,
-    held: filterQueue(all, "held").length
-  };
-}
-function computeReasonFacets(all) {
-  const tally = /* @__PURE__ */ new Map();
-  for (const c of actionableCases(all)) {
-    if (!c.actionReason) continue;
-    tally.set(c.actionReason, (tally.get(c.actionReason) ?? 0) + 1);
-  }
-  return Object.keys(REASON_LABELS).map((reason) => ({ reason, label: REASON_LABELS[reason], count: tally.get(reason) ?? 0 })).filter((f) => f.count > 0);
-}
-function computePipelineStages(all) {
-  const defs = [
-    { key: "not_ready", label: "Not ready" },
-    { key: "review", label: "Review" },
-    { key: "submitted", label: "Submitted" }
-  ];
-  const counts = new Map(defs.map((d) => [d.key, 0]));
-  for (const c of all) {
-    if (c.onHold) continue;
-    if (isRetiredMerged(c)) continue;
-    const stage = statusToStage(c.status);
-    if (stage === void 0) continue;
-    const k = stage === "new" ? "not_ready" : stage;
-    counts.set(k, (counts.get(k) ?? 0) + 1);
-  }
-  return defs.map((d) => ({
-    key: d.key,
-    label: d.label,
-    count: counts.get(d.key) ?? 0,
-    tone: d.key === "not_ready" ? "stuck" : "normal"
-  }));
-}
-import_functions5.app.http("liveCounts", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "dashboard/live-counts",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const all = await loadAllCases2(nowParam2(req));
-    return { status: 200, jsonBody: computeLiveCounts(all) };
-  })
-});
-import_functions5.app.http("throughput", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "dashboard/throughput",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const now = nowParam2(req);
-    const all = await loadAllCases2(now);
-    return { status: 200, jsonBody: computeThroughput(all, now) };
-  })
-});
-import_functions5.app.http("agingExceptions", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "dashboard/aging-exceptions",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const now = nowParam2(req);
-    const all = await loadAllCases2(now);
-    return { status: 200, jsonBody: computeAgingExceptions(all, now) };
-  })
-});
-import_functions5.app.http("queueCounts", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "dashboard/queue-counts",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const all = await loadAllCases2(nowParam2(req));
-    return { status: 200, jsonBody: computeQueueCounts(all) };
-  })
-});
-import_functions5.app.http("reasonCounts", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "dashboard/reason-counts",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const all = await loadAllCases2(nowParam2(req));
-    return { status: 200, jsonBody: computeReasonFacets(all) };
-  })
-});
-import_functions5.app.http("pipelineStages", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "dashboard/pipeline-stages",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const all = await loadAllCases2(nowParam2(req));
-    return { status: 200, jsonBody: computePipelineStages(all) };
-  })
-});
-import_functions5.app.http("dashboardSummary", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "dashboard",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const now = nowParam2(req);
-    const all = await loadAllCases2(now);
-    let inbound = { ...INBOUND_COUNTS_ZERO };
-    try {
-      const inboundRows = await query("SELECT category_code, triage_state FROM inbound_email");
-      inbound = tallyActiveInboundCounts(inboundRows);
-    } catch {
-    }
-    const summary2 = {
-      liveCounts: computeLiveCounts(all),
-      throughput: computeThroughput(all, now),
-      queueCounts: computeQueueCounts(all),
-      pipelineStages: computePipelineStages(all),
-      reasonFacets: computeReasonFacets(all),
-      agingExceptions: computeAgingExceptions(all, now),
-      inbound
-    };
-    return { status: 200, jsonBody: summary2 };
-  })
-});
-
-// api/src/functions/gates.ts
-var import_functions6 = require("@azure/functions");
-import_functions6.app.http("getBoxGates", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "gates/box",
-  handler: withRole("CollisionSpike.User", async () => {
-    try {
-      const result = {
-        apiEnabled: gates.boxApi(),
-        folderAtIntakeEnabled: gates.boxFolderAtIntake(),
-        fileRequestEnabled: gates.boxFileRequest(),
-        fileRequestTemplateConfigured: gates.boxFileRequestTemplateId() !== ""
-      };
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: { ...BOX_GATES_ALL_FALSE } };
-    }
-  })
-});
-import_functions6.app.http("getBoxFileRequestTemplateId", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "gates/box/file-request-template",
-  handler: withRole("CollisionSpike.User", async () => {
-    try {
-      const id = gates.boxFileRequestTemplateId();
-      return { status: 200, jsonBody: { templateId: id !== "" ? id : null } };
-    } catch {
-      return { status: 200, jsonBody: { templateId: null } };
-    }
-  })
-});
-import_functions6.app.http("getLocationAssistGate", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "gates/location-assist",
-  handler: withRole("CollisionSpike.User", async () => {
-    try {
-      const result = {
-        assistEnabled: gates.locationAssist(),
-        mapsEnabled: gates.azureMaps(),
-        apiBaseConfigured: gates.locationAssistApiBase() !== "",
-        enabled: gates.locationAssistEnabled(),
-        aiEnabled: gates.locationAssistAiEnabled()
-      };
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: { ...LOCATION_ASSIST_GATE_ALL_OFF } };
-    }
-  })
-});
-import_functions6.app.http("getAiAssistGate", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "gates/ai-assist",
-  handler: withRole("CollisionSpike.User", async () => {
-    try {
-      const result = {
-        enabled: gates.aiAssist(),
-        modelConfigured: gates.aiAssistConfigured()
-      };
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: { ...AI_ASSIST_GATE_ALL_OFF } };
-    }
-  })
-});
-import_functions6.app.http("getOutlookMoveGate", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "gates/outlook-move",
-  handler: withRole("CollisionSpike.User", async () => {
-    try {
-      const result = { enabled: gates.outlookMoveEnabled() };
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: { ...OUTLOOK_MOVE_GATE_ALL_OFF } };
-    }
-  })
-});
-
-// api/src/functions/settings.ts
-var import_functions7 = require("@azure/functions");
-var HOLD_KEY = "hold_new_cases_by_default";
-import_functions7.app.http("getHoldNewCasesDefault", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "settings/hold-new-cases",
-  handler: withRole("CollisionSpike.User", async () => {
-    try {
-      const rows = await query("SELECT value FROM app_setting WHERE key = $1", [HOLD_KEY]);
-      return { status: 200, jsonBody: { value: (rows[0]?.value ?? "false") === "true" } };
-    } catch {
-      return { status: 200, jsonBody: { value: false } };
-    }
-  })
-});
-import_functions7.app.http("setHoldNewCasesDefault", {
-  methods: ["PUT"],
-  authLevel: "anonymous",
-  route: "settings/hold-new-cases",
-  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
-    const body2 = await req.json();
-    const actor = actorFromClaims(claims);
-    const valueStr = body2.value ? "true" : "false";
-    try {
-      await query(
-        `INSERT INTO app_setting (key, value, updated_at, updated_by)
-         VALUES ($1, $2, now(), $3)
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now(), updated_by = EXCLUDED.updated_by`,
-        [HOLD_KEY, valueStr, actor ?? null]
-      );
-    } catch {
-      return { status: 503, jsonBody: { error: "settings store unavailable" } };
-    }
-    await writeAudit({
-      action: AUDIT_ACTION.corpus_record_changed,
-      summary: `Set hold-new-cases-by-default = ${valueStr}`,
-      after: { key: HOLD_KEY, value: valueStr },
-      ...actor ? { actor } : {}
-    });
-    return { status: 204 };
-  })
-});
-
-// api/src/functions/inbound.ts
-var import_node_crypto8 = require("node:crypto");
-var import_functions8 = require("@azure/functions");
-
-// api/src/lib/outlook-queue.ts
-var OUTLOOK_MOVE_QUEUE_NAME = "outlook-move";
-var STORAGE_RESOURCE = "https://storage.azure.com";
-var STORAGE_API_VERSION = "2021-12-02";
-var cachedToken = null;
-async function getStorageToken() {
-  const now = Date.now();
-  if (cachedToken && cachedToken.expiresAt > now + 6e4) return cachedToken.value;
-  const idEndpoint = process.env.IDENTITY_ENDPOINT;
-  const idHeader = process.env.IDENTITY_HEADER;
-  if (!idEndpoint || !idHeader) {
-    throw new Error("missing IDENTITY_ENDPOINT/IDENTITY_HEADER for storage-queue auth (no managed identity off-Azure)");
-  }
-  const url2 = `${idEndpoint}?resource=${encodeURIComponent(STORAGE_RESOURCE)}&api-version=2019-08-01`;
-  const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
-  if (!res.ok) throw new Error(`MSI token (storage) ${res.status}`);
-  const json = await res.json();
-  cachedToken = {
-    value: json.access_token,
-    expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
-  };
-  return cachedToken.value;
-}
-function xmlEscape(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-async function enqueueQueueMessage(serviceUrlRaw, queueName, payload) {
-  const serviceUrl = serviceUrlRaw.replace(/\/$/, "");
-  if (!serviceUrl) throw new Error("queue service URL not configured");
-  const token = await getStorageToken();
-  const messageText = Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
-  const res = await fetch(`${serviceUrl}/${queueName}/messages`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "x-ms-version": STORAGE_API_VERSION,
-      "Content-Type": "application/xml"
-    },
-    body: `<QueueMessage><MessageText>${xmlEscape(messageText)}</MessageText></QueueMessage>`
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`${queueName} enqueue \u2192 ${res.status}: ${detail.slice(0, 300)}`);
-  }
-}
-async function enqueueOutlookMove(job) {
-  const serviceUrl = gates.outlookMoveQueueServiceUrl();
-  if (!serviceUrl) throw new Error("OUTLOOK_MOVE_QUEUE_SERVICE_URL not configured");
-  await enqueueQueueMessage(serviceUrl, OUTLOOK_MOVE_QUEUE_NAME, job);
-}
-function classifyEnqueueFailure(e) {
-  const text = e instanceof Error ? e.message : String(e ?? "");
-  if (/QueueNotFound|→ 404/.test(text)) {
-    return {
-      reason: "queue_missing",
-      message: "Outlook filing is not fully set up yet \u2014 the filing queue is missing. Ask the administrator."
-    };
-  }
-  if (/AuthorizationFailure|AuthorizationPermissionMismatch|→ 403/.test(text)) {
-    return {
-      reason: "not_authorised",
-      message: "Outlook filing is not fully set up yet \u2014 a permission is missing. Ask the administrator."
-    };
-  }
-  if (/not configured/.test(text)) {
-    return {
-      reason: "not_configured",
-      message: "Outlook filing is not fully set up yet \u2014 ask the administrator."
-    };
-  }
-  if (/IDENTITY_ENDPOINT/.test(text)) {
-    return {
-      reason: "no_identity",
-      message: "Outlook filing is unavailable in this environment."
-    };
-  }
-  return {
-    reason: "unavailable",
-    message: "Outlook filing is temporarily unavailable \u2014 try again in a moment."
-  };
-}
-
-// api/src/lib/outlook-link-resolver.ts
-var TIMEOUT_MS = 1e4;
-async function resolveCurrentOutlookLink(input) {
-  const url2 = (process.env.OUTLOOK_LINK_RESOLVER_URL ?? "").trim();
-  const key = (process.env.OUTLOOK_LINK_RESOLVER_KEY ?? "").trim();
-  if (!url2 || !key) return { status: "unavailable" };
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  try {
-    const response = await fetch(url2, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-functions-key": key
-      },
-      body: JSON.stringify(input),
-      signal: controller.signal
-    });
-    if (!response.ok) return { status: "unavailable" };
-    const payload = await response.json().catch(() => ({}));
-    if (payload.status === "available") {
-      const outlookWebLink = normalizeOutlookWebLink(payload.outlookWebLink);
-      return outlookWebLink ? { status: "available", outlookWebLink } : { status: "unavailable" };
-    }
-    if (payload.status === "not_found" || payload.status === "not_accessible" || payload.status === "missing_identity" || payload.status === "unavailable") {
-      return { status: payload.status };
-    }
-    return { status: "unavailable" };
-  } catch {
-    return { status: "unavailable" };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-// api/src/functions/inbound.ts
-var TRIAGE_AUDIT_ACTION = {
-  dismissed: AUDIT_ACTION.inbound_dismissed,
-  actioned: AUDIT_ACTION.inbound_actioned,
-  new: AUDIT_ACTION.inbound_reopened,
-  routed: AUDIT_ACTION.inbound_routed
-};
-var CATEGORY_FOR_SUBTYPE = {
-  existing_provider_instruction: "receiving_work",
-  existing_provider_audit: "receiving_work",
-  existing_provider_diminution: "receiving_work",
-  new_client_work: "receiving_work",
-  query_existing_work: "query",
-  query_new_enquiry: "query",
-  billing_request: "billing",
-  payment_remittance: "billing",
-  case_summary: "non_actionable",
-  acknowledgement: "non_actionable",
-  other: "other",
-  images_received: "case_update",
-  update_general: "case_update",
-  cancellation_notice: "cancellation",
-  pre_instruction_directions: "pre_instruction",
-  website_general_enquiry: "website_enquiry"
-};
-var DEFAULT_SUBTYPE_FOR_CATEGORY = {
-  receiving_work: "existing_provider_instruction",
-  query: "query_existing_work",
-  other: "other",
-  billing: "billing_request",
-  non_actionable: "case_summary",
-  case_update: "update_general",
-  cancellation: "cancellation_notice",
-  pre_instruction: "pre_instruction_directions",
-  website_enquiry: "website_general_enquiry"
-};
-import_functions8.app.http("inboundEmails", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "inbound",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    try {
-      const category = req.query.get("category");
-      const subtype = req.query.get("subtype");
-      const view = req.query.get("view");
-      const clauses = [];
-      const params = [];
-      if (category && category in INBOUND_CATEGORY_TO_INT) {
-        params.push(INBOUND_CATEGORY_TO_INT[category]);
-        clauses.push(`inbound_email.category_code = $${params.length}`);
-      }
-      const viewClause = inboundViewWhere(view);
-      if (viewClause) clauses.push(viewClause);
-      const where2 = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-      const rows = await query(
-        `SELECT inbound_email.*, c.case_po AS case_po, ls.case_po AS link_suggestion_case_po
-           FROM inbound_email
-           LEFT JOIN case_ c ON c.id = inbound_email.case_id
-           LEFT JOIN LATERAL (
-             SELECT s.suggested_value->>'casePo' AS case_po
-               FROM ai_suggestion s
-              WHERE s.inbound_email_id = inbound_email.id
-                AND s.suggestion_type = 'case_link'
-                AND s.review_state = 'pending'
-                AND s.suggested_value->>'casePo' IS NOT NULL
-              ORDER BY s.created_at DESC
-              LIMIT 1
-           ) ls ON true
-           ${where2} ORDER BY inbound_email.received_on DESC`,
-        params
-      );
-      let result = rows.map(rowToInboundEmail);
-      if (subtype) result = result.filter((r) => r.subtype === subtype);
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: [] };
-    }
-  })
-});
-import_functions8.app.http("inboundEmailCounts", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "inbound/counts",
-  handler: withRole("CollisionSpike.User", async (_req, ctx) => {
-    try {
-      const rows = await query("SELECT category_code, triage_state FROM inbound_email");
-      const counts = tallyActiveInboundCounts(rows);
-      return { status: 200, jsonBody: counts };
-    } catch (error2) {
-      const correlationId = ctx.invocationId || (0, import_node_crypto8.randomUUID)();
-      ctx.error(
-        JSON.stringify({
-          evt: "inboundCountsFailed",
-          correlationId,
-          errorName: error2 instanceof Error ? error2.name : "UnknownError",
-          detail: error2 instanceof Error ? error2.message : String(error2)
-        })
-      );
-      return {
-        status: 500,
-        jsonBody: { error: "internal", correlationId },
-        headers: { "x-correlation-id": correlationId }
-      };
-    }
-  })
-});
-import_functions8.app.http("inboundEmailById", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  // The guid constraint prevents this parameter route from ever consuming the literal
-  // `/inbound/counts` route in the Functions host.
-  route: "inbound/{id:guid}",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const id = req.params.id;
-    if (!isUuid(id)) return { status: 400, jsonBody: { error: "invalid id" } };
-    const rows = await query(
-      `SELECT inbound_email.*, c.case_po AS case_po
-         FROM inbound_email
-         LEFT JOIN case_ c ON c.id = inbound_email.case_id
-        WHERE inbound_email.id = $1`,
-      [id]
-    );
-    const row = rows[0];
-    if (!row) return { status: 404, jsonBody: { error: "not found" } };
-    const version3 = versionToken(row.updated_at);
-    return {
-      status: 200,
-      jsonBody: { ...rowToInboundEmail(row), version: version3 },
-      headers: { ETag: `"${version3}"`, "Access-Control-Expose-Headers": "ETag" }
-    };
-  })
-});
-import_functions8.app.http("inboundOutlookLink", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "inbound/{id:guid}/outlook-link",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    const id = req.params.id;
-    if (!isUuid(id)) return { status: 400, jsonBody: { error: "invalid id" } };
-    const rows = await query(
-      `SELECT source_mailbox, graph_message_id
-         FROM inbound_email
-        WHERE id = $1`,
-      [id]
-    );
-    const row = rows[0];
-    if (!row) return { status: 404, jsonBody: { error: "not found" } };
-    const sourceMailbox = typeof row.source_mailbox === "string" ? row.source_mailbox.trim() : "";
-    const graphMessageId = typeof row.graph_message_id === "string" ? row.graph_message_id.trim() : "";
-    if (!sourceMailbox || !graphMessageId) {
-      const result2 = { status: "missing_identity" };
-      return { status: 200, jsonBody: result2 };
-    }
-    const result = await resolveCurrentOutlookLink({ sourceMailbox, graphMessageId });
-    return { status: 200, jsonBody: result };
-  })
-});
-import_functions8.app.http("setTriageState", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "inbound/{id}/triage",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const state3 = body2.state;
-    if (!isValidTriageState(state3)) {
-      return { status: 400, jsonBody: { error: "invalid triage state" } };
-    }
-    const actor = actorFromClaims(claims);
-    const outcome = await tx(async (q) => {
-      const existing = await q(
-        `SELECT id, triage_state, case_id, source_message_id, updated_at
-           FROM inbound_email WHERE id = $1 FOR UPDATE`,
-        [id]
-      );
-      const row = existing[0];
-      if (!row) return { kind: "missing" };
-      const currentVersion = versionToken(row.updated_at);
-      const expected = ifMatch(req);
-      if (expected != null && expected !== "" && expected !== currentVersion) {
-        return { kind: "stale", currentVersion };
-      }
-      const before = row.triage_state ?? "new";
-      const updated = await q(
-        `UPDATE inbound_email SET triage_state = $2, updated_at = now()
-          WHERE id = $1 RETURNING updated_at`,
-        [id, state3]
-      );
-      await writeAudit({
-        action: TRIAGE_AUDIT_ACTION[state3],
-        ...row.case_id ? { caseId: row.case_id } : {},
-        summary: `Inbound email ${before} -> ${state3}`,
-        before: { triageState: before },
-        after: {
-          triageState: state3,
-          inboundEmailId: id,
-          sourceMessageId: row.source_message_id ?? null
-        },
-        ...actor ? { actor } : {}
-      }, q);
-      return { kind: "updated", version: versionToken(updated[0]?.updated_at) };
-    });
-    if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
-    if (outcome.kind === "stale") {
-      return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
-    }
-    return {
-      status: 204,
-      headers: { ETag: `"${outcome.version}"`, "Access-Control-Expose-Headers": "ETag" }
-    };
-  })
-});
-import_functions8.app.http("moveInboundToOutlook", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "inbound/{id}/outlook-move",
-  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
-    if (!gates.outlookMoveEnabled()) {
-      return {
-        status: 409,
-        jsonBody: {
-          error: "outlook filing is not enabled",
-          reason: "gated_off",
-          message: "Outlook filing is switched off \u2014 ask the administrator to enable it."
-        }
-      };
-    }
-    const id = req.params.id;
-    const existing = await query(
-      `SELECT id, source_message_id, source_mailbox, subtype_code, suggested_subtype_code,
-              case_id, outlook_move_state
-         FROM inbound_email WHERE id = $1`,
-      [id]
-    );
-    const row = existing[0];
-    if (!row) return { status: 404, jsonBody: { error: "not found" } };
-    if (row.outlook_move_state === "moved") {
-      return { status: 409, jsonBody: { error: "already filed" } };
-    }
-    if (!row.source_message_id || !row.source_mailbox) {
-      return { status: 409, jsonBody: { error: "no mailbox provenance to act on" } };
-    }
-    const subtype = inboundSubtypeFromInt(row.subtype_code) ?? inboundSubtypeFromInt(row.suggested_subtype_code) ?? "other";
-    const folder = suggestedOutlookFolder(subtype);
-    await query(
-      `UPDATE inbound_email
-          SET outlook_move_state = 'queued', outlook_moved_folder = $2, updated_at = now()
-        WHERE id = $1`,
-      [id, folder]
-    );
-    const actor = actorFromClaims(claims);
-    try {
-      await enqueueOutlookMove({
-        inboundEmailId: id,
-        sourceMailbox: String(row.source_mailbox),
-        sourceMessageId: String(row.source_message_id),
-        targetFolderPath: folder
-      });
-    } catch (e) {
-      const failure = classifyEnqueueFailure(e);
-      ctx.error(
-        `[outlook-move] enqueue failed (${failure.reason}) for inbound ${id}: ${e instanceof Error ? e.message : String(e)}`
-      );
-      await query(
-        `UPDATE inbound_email
-            SET outlook_move_state = 'failed', outlook_moved_at = now(), updated_at = now()
-          WHERE id = $1`,
-        [id]
-      );
-      await writeAudit({
-        action: AUDIT_ACTION.outlook_move_failed,
-        ...row.case_id ? { caseId: row.case_id } : {},
-        summary: `Outlook filing could not be queued (${folder})`,
-        severity: "warning",
-        after: {
-          inboundEmailId: id,
-          folder,
-          reason: failure.reason,
-          detail: e instanceof Error ? e.message.slice(0, 300) : String(e)
-        },
-        ...actor ? { actor } : {}
-      });
-      return {
-        status: 503,
-        jsonBody: { error: "filing queue unavailable", reason: failure.reason, message: failure.message }
-      };
-    }
-    await writeAudit({
-      action: AUDIT_ACTION.outlook_move_requested,
-      ...row.case_id ? { caseId: row.case_id } : {},
-      summary: `Outlook filing requested -> ${folder}`,
-      after: { inboundEmailId: id, folder, sourceMessageId: row.source_message_id },
-      ...actor ? { actor } : {}
-    });
-    return { status: 202, jsonBody: { queued: true, folder } };
-  })
-});
-import_functions8.app.http("reclassifyInbound", {
-  methods: ["PATCH"],
-  authLevel: "anonymous",
-  route: "inbound/{id}/classification",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    let category;
-    let subtype;
-    if (typeof body2.tag === "string") {
-      const mapped = richTagToClassification(body2.tag);
-      if (!mapped) return { status: 400, jsonBody: { error: "unknown tag" } };
-      category = mapped.category;
-      subtype = mapped.subtype;
-    } else {
-      if (typeof body2.category === "string") {
-        if (!(body2.category in INBOUND_CATEGORY_TO_INT)) {
-          return { status: 400, jsonBody: { error: "invalid category" } };
-        }
-        category = body2.category;
-      }
-      if (typeof body2.subtype === "string") {
-        if (!(body2.subtype in INBOUND_SUBTYPE_TO_INT)) {
-          return { status: 400, jsonBody: { error: "invalid subtype" } };
-        }
-        subtype = body2.subtype;
-      }
-    }
-    if (!category && !subtype) {
-      return { status: 400, jsonBody: { error: "category, subtype or tag required" } };
-    }
-    const actor = actorFromClaims(claims);
-    const reason = typeof body2.reason === "string" ? body2.reason.trim() : "";
-    const outcome = await tx(async (q) => {
-      const existing = await q(
-        `SELECT *, updated_at FROM inbound_email WHERE id = $1 FOR UPDATE`,
-        [id]
-      );
-      const cur = existing[0];
-      if (!cur) return { kind: "missing" };
-      const currentVersion = versionToken(cur.updated_at);
-      const expected = ifMatch(req);
-      if (expected != null && expected !== "" && expected !== currentVersion) {
-        return { kind: "stale", currentVersion };
-      }
-      let chosenCategory = category;
-      let chosenSubtype = subtype;
-      if (chosenSubtype && !chosenCategory) chosenCategory = CATEGORY_FOR_SUBTYPE[chosenSubtype];
-      if (chosenCategory && !chosenSubtype) {
-        const currentSubtype = inboundSubtypeFromInt(cur.subtype_code);
-        chosenSubtype = currentSubtype && CATEGORY_FOR_SUBTYPE[currentSubtype] === chosenCategory ? currentSubtype : DEFAULT_SUBTYPE_FOR_CATEGORY[chosenCategory];
-      }
-      if (!chosenCategory || !chosenSubtype || CATEGORY_FOR_SUBTYPE[chosenSubtype] !== chosenCategory) {
-        return { kind: "invalid_pair" };
-      }
-      const suggestedCat = inboundCategoryFromInt(
-        cur.suggested_category_code ?? cur.category_code
-      );
-      const suggestedSub = inboundSubtypeFromInt(
-        cur.suggested_subtype_code ?? cur.subtype_code
-      );
-      const updated = await q(
-        `UPDATE inbound_email
-            SET classifier_mode = 'human', category_code = $2, subtype_code = $3, updated_at = now()
-          WHERE id = $1
-          RETURNING *`,
-        [id, INBOUND_CATEGORY_TO_INT[chosenCategory], INBOUND_SUBTYPE_TO_INT[chosenSubtype]]
-      );
-      await writeAudit({
-        action: AUDIT_ACTION.inbound_reclassified,
-        ...cur.case_id ? { caseId: cur.case_id } : {},
-        summary: `Inbound reclassified category=${chosenCategory} subtype=${chosenSubtype}`,
-        before: { category: suggestedCat ?? null, subtype: suggestedSub ?? null },
-        after: {
-          category: chosenCategory,
-          subtype: chosenSubtype,
-          inboundEmailId: id,
-          sourceMessageId: cur.source_message_id ?? null,
-          ...reason ? { reason } : {}
-        },
-        ...actor ? { actor } : {}
-      }, q);
-      return {
-        kind: "updated",
-        cur,
-        value: rowToInboundEmail(updated[0]),
-        chosenCategory,
-        chosenSubtype,
-        suggestedCat,
-        suggestedSub,
-        version: versionToken(updated[0].updated_at)
-      };
-    });
-    if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
-    if (outcome.kind === "invalid_pair") {
-      return { status: 400, jsonBody: { error: "category and subtype do not match" } };
-    }
-    if (outcome.kind === "stale") {
-      return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
-    }
-    if (outcome.chosenCategory !== outcome.suggestedCat) {
-      await writeImprovementSignal(
-        outcome.cur,
-        "category",
-        outcome.suggestedCat ?? "(none)",
-        outcome.chosenCategory,
-        actor,
-        reason
-      );
-    }
-    if (outcome.chosenSubtype !== outcome.suggestedSub) {
-      await writeImprovementSignal(
-        outcome.cur,
-        "subtype",
-        outcome.suggestedSub ?? "(none)",
-        outcome.chosenSubtype,
-        actor,
-        reason
-      );
-    }
-    return {
-      status: 200,
-      jsonBody: { ...outcome.value, version: outcome.version },
-      headers: { ETag: `"${outcome.version}"`, "Access-Control-Expose-Headers": "ETag" }
-    };
-  })
-});
-import_functions8.app.http("inboundEmailSuggestions", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "inbound/{id}/suggestions",
-  handler: withRole("CollisionSpike.User", async (req) => {
-    try {
-      const id = req.params.id;
-      const rows = await query(
-        `SELECT * FROM ai_suggestion
-          WHERE inbound_email_id = $1
-          ORDER BY (review_state = 'pending') DESC, created_at DESC
-          LIMIT 100`,
-        [id]
-      );
-      const result = rows.map(rowToAiSuggestion);
-      return { status: 200, jsonBody: result };
-    } catch {
-      return { status: 200, jsonBody: [] };
-    }
-  })
-});
-import_functions8.app.http("detachInboundEmail", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "inbound/{id}/detach",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = req.params.id;
-    const existing = await query("SELECT id, case_id FROM inbound_email WHERE id = $1", [id]);
-    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const oldCaseId = existing[0].case_id ?? null;
-    if (!oldCaseId) {
-      return { status: 200, jsonBody: { ok: false, reason: "not_linked" } };
-    }
-    const updated = await query(
-      `UPDATE inbound_email SET case_id = NULL, triage_state = 'new', updated_at = now()
-         WHERE id = $1 AND case_id IS NOT NULL
-       RETURNING id`,
-      [id]
-    );
-    if (!updated[0]) {
-      return { status: 200, jsonBody: { ok: false, reason: "not_linked" } };
-    }
-    const actor = actorFromClaims(claims);
-    await writeAudit({
-      action: AUDIT_ACTION.inbound_detached,
-      caseId: oldCaseId,
-      summary: "Inbound email unlinked from case",
-      before: { caseId: oldCaseId },
-      after: {
-        caseId: null,
-        inboundEmailId: id,
-        note: "Archive folder is a one-way mirror \u2014 any archive cleanup for this email is manual (ADR-0012/0017)."
-      },
-      ...actor ? { actor } : {}
-    });
-    return { status: 200, jsonBody: { ok: true } };
-  })
-});
-async function writeImprovementSignal(row, fieldName, originalValue, correctedValue, actor, reason) {
-  try {
-    await query(
-      `INSERT INTO improvement_signal
-         (name, case_id, work_provider_id, field_name, original_value, corrected_value,
-          original_provenance, actor, occurred_at, affects_eva_readiness, classification_code)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), false, 100000000)`,
-      [
-        `Inbound ${fieldName} override: ${originalValue || "(none)"} -> ${correctedValue}`,
-        row.case_id ?? null,
-        row.work_provider_id ?? null,
-        `inbound.${fieldName}`,
-        originalValue || null,
-        correctedValue,
-        reason || "classifier suggestion",
-        actor ?? null
-      ]
-    );
-  } catch {
-  }
-}
-
-// api/src/functions/proxy.ts
-var import_functions9 = require("@azure/functions");
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/abort-controller/AbortError.js
 var AbortError = class extends Error {
@@ -26773,7 +19172,7 @@ function createHttpHeaders(rawHeaders) {
 }
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/util/uuidUtils.js
-function randomUUID3() {
+function randomUUID() {
   return crypto.randomUUID();
 }
 
@@ -26813,7 +19212,7 @@ var PipelineRequestImpl = class {
     this.abortSignal = options.abortSignal;
     this.onUploadProgress = options.onUploadProgress;
     this.onDownloadProgress = options.onDownloadProgress;
-    this.requestId = options.requestId || randomUUID3();
+    this.requestId = options.requestId || randomUUID();
     this.allowInsecureConnection = options.allowInsecureConnection ?? false;
     this.enableBrowserStreams = options.enableBrowserStreams ?? false;
     this.requestOverrides = options.requestOverrides;
@@ -28182,7 +20581,7 @@ async function concat2(sources) {
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/policies/multipartPolicy.js
 function generateBoundary() {
-  return `----AzSDKFormBoundary${randomUUID3()}`;
+  return `----AzSDKFormBoundary${randomUUID()}`;
 }
 function encodeHeaders(headers) {
   let result = "";
@@ -28494,8 +20893,8 @@ function getErrorMessage(e) {
 function isError2(e) {
   return isError(e);
 }
-function randomUUID4() {
-  return randomUUID3();
+function randomUUID2() {
+  return randomUUID();
 }
 var isNodeLike2 = isNodeLike;
 function uint8ArrayToString2(bytes, format) {
@@ -30820,7 +23219,7 @@ var Constants = {
     AUTHORIZATION: "authorization"
   }
 };
-function isUuid2(text) {
+function isUuid(text) {
   return /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/.test(text);
 }
 var authorizeRequestOnTenantChallenge = async (challengeOptions) => {
@@ -30849,7 +23248,7 @@ function extractTenantId(challengeInfo) {
   const parsedAuthUri = new URL(challengeInfo.authorization_uri);
   const pathSegments = parsedAuthUri.pathname.split("/");
   const tenantId = pathSegments[1];
-  if (tenantId && isUuid2(tenantId)) {
+  if (tenantId && isUuid(tenantId)) {
     return tenantId;
   }
   return void 0;
@@ -40511,7 +32910,7 @@ var AnonymousCredential = class extends Credential {
 };
 
 // node_modules/@azure/storage-common/dist/esm/credentials/StorageSharedKeyCredential.js
-var import_node_crypto9 = require("node:crypto");
+var import_node_crypto7 = require("node:crypto");
 
 // node_modules/@azure/storage-common/dist/esm/utils/constants.js
 var URLConstants = {
@@ -41212,7 +33611,7 @@ var StorageSharedKeyCredential = class extends Credential {
    * @param stringToSign -
    */
   computeHMACSHA256(stringToSign) {
-    return (0, import_node_crypto9.createHmac)("sha256", this.accountKey).update(stringToSign, "utf8").digest("base64");
+    return (0, import_node_crypto7.createHmac)("sha256", this.accountKey).update(stringToSign, "utf8").digest("base64");
   }
 };
 
@@ -41578,7 +33977,7 @@ function storageRetryPolicy(options = {}) {
 }
 
 // node_modules/@azure/storage-common/dist/esm/policies/StorageSharedKeyCredentialPolicyV2.js
-var import_node_crypto10 = require("node:crypto");
+var import_node_crypto8 = require("node:crypto");
 var storageSharedKeyCredentialPolicyName = "storageSharedKeyCredentialPolicy";
 function storageSharedKeyCredentialPolicy(options) {
   function signRequest(request) {
@@ -41600,7 +33999,7 @@ function storageSharedKeyCredentialPolicy(options) {
       getHeaderValueToSign(request, HeaderConstants.IF_UNMODIFIED_SINCE),
       getHeaderValueToSign(request, HeaderConstants.RANGE)
     ].join("\n") + "\n" + getCanonicalizedHeadersString(request) + getCanonicalizedResourceString(request);
-    const signature = (0, import_node_crypto10.createHmac)("sha256", options.accountKey).update(stringToSign, "utf8").digest("base64");
+    const signature = (0, import_node_crypto8.createHmac)("sha256", options.accountKey).update(stringToSign, "utf8").digest("base64");
     request.headers.set(HeaderConstants.AUTHORIZATION, `SharedKey ${options.accountName}:${signature}`);
   }
   function getHeaderValueToSign(request, headerName) {
@@ -41690,7 +34089,7 @@ function storageRequestFailureDetailsParserPolicy() {
 }
 
 // node_modules/@azure/storage-common/dist/esm/credentials/UserDelegationKeyCredential.js
-var import_node_crypto11 = require("node:crypto");
+var import_node_crypto9 = require("node:crypto");
 var UserDelegationKeyCredential = class {
   /**
    * Azure Storage account name; readonly.
@@ -41720,7 +34119,7 @@ var UserDelegationKeyCredential = class {
    * @param stringToSign -
    */
   computeHMACSHA256(stringToSign) {
-    return (0, import_node_crypto11.createHmac)("sha256", this.key).update(stringToSign, "utf8").digest("base64");
+    return (0, import_node_crypto9.createHmac)("sha256", this.key).update(stringToSign, "utf8").digest("base64");
   }
 };
 
@@ -51632,7 +44031,7 @@ var encryptionAlgorithm = {
     }
   }
 };
-var ifMatch2 = {
+var ifMatch = {
   parameterPath: ["options", "modifiedAccessConditions", "ifMatch"],
   mapper: {
     serializedName: "If-Match",
@@ -53946,7 +46345,7 @@ var downloadOperationSpec = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags
   ],
@@ -53981,7 +46380,7 @@ var getPropertiesOperationSpec3 = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags
   ],
@@ -54014,7 +46413,7 @@ var deleteOperationSpec2 = {
     leaseId,
     ifModifiedSince,
     ifUnmodifiedSince,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     deleteSnapshots,
@@ -54091,7 +46490,7 @@ var setHttpHeadersOperationSpec = {
     leaseId,
     ifModifiedSince,
     ifUnmodifiedSince,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     blobCacheControl,
@@ -54214,7 +46613,7 @@ var setMetadataOperationSpec2 = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     encryptionScope
@@ -54245,7 +46644,7 @@ var acquireLeaseOperationSpec2 = {
     action,
     duration,
     proposedLeaseId,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags
   ],
@@ -54274,7 +46673,7 @@ var releaseLeaseOperationSpec2 = {
     ifUnmodifiedSince,
     action1,
     leaseId1,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags
   ],
@@ -54303,7 +46702,7 @@ var renewLeaseOperationSpec2 = {
     ifUnmodifiedSince,
     leaseId1,
     action2,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags
   ],
@@ -54333,7 +46732,7 @@ var changeLeaseOperationSpec2 = {
     leaseId1,
     action4,
     proposedLeaseId1,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags
   ],
@@ -54362,7 +46761,7 @@ var breakLeaseOperationSpec2 = {
     ifUnmodifiedSince,
     action3,
     breakPeriod,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags
   ],
@@ -54394,7 +46793,7 @@ var createSnapshotOperationSpec = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     encryptionScope
@@ -54424,7 +46823,7 @@ var startCopyFromURLOperationSpec = {
     leaseId,
     ifModifiedSince,
     ifUnmodifiedSince,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     immutabilityPolicyExpiry,
@@ -54466,7 +46865,7 @@ var copyFromURLOperationSpec = {
     leaseId,
     ifModifiedSince,
     ifUnmodifiedSince,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     immutabilityPolicyExpiry,
@@ -54618,7 +47017,7 @@ var queryOperationSpec = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags
   ],
@@ -54833,7 +47232,7 @@ var createOperationSpec2 = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     blobCacheControl,
@@ -54882,7 +47281,7 @@ var uploadPagesOperationSpec = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     encryptionScope,
@@ -54927,7 +47326,7 @@ var clearPagesOperationSpec = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     encryptionScope,
@@ -54964,7 +47363,7 @@ var uploadPagesFromURLOperationSpec = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     encryptionScope,
@@ -55019,7 +47418,7 @@ var getPageRangesOperationSpec = {
     ifModifiedSince,
     ifUnmodifiedSince,
     range,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags
   ],
@@ -55056,7 +47455,7 @@ var getPageRangesDiffOperationSpec = {
     ifModifiedSince,
     ifUnmodifiedSince,
     range,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     prevSnapshotUrl
@@ -55088,7 +47487,7 @@ var resizeOperationSpec = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     encryptionScope,
@@ -55118,7 +47517,7 @@ var updateSequenceNumberOperationSpec = {
     leaseId,
     ifModifiedSince,
     ifUnmodifiedSince,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     blobSequenceNumber,
@@ -55147,7 +47546,7 @@ var copyIncrementalOperationSpec = {
     accept1,
     ifModifiedSince,
     ifUnmodifiedSince,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     copySource
@@ -55237,7 +47636,7 @@ var createOperationSpec3 = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     blobCacheControl,
@@ -55282,7 +47681,7 @@ var appendBlockOperationSpec = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     encryptionScope,
@@ -55324,7 +47723,7 @@ var appendBlockFromUrlOperationSpec = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     encryptionScope,
@@ -55369,7 +47768,7 @@ var sealOperationSpec = {
     leaseId,
     ifModifiedSince,
     ifUnmodifiedSince,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     appendPosition
   ],
@@ -55497,7 +47896,7 @@ var uploadOperationSpec = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     blobCacheControl,
@@ -55550,7 +47949,7 @@ var putBlobFromUrlOperationSpec = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     blobCacheControl,
@@ -55694,7 +48093,7 @@ var commitBlockListOperationSpec = {
     encryptionKey,
     encryptionKeySha256,
     encryptionAlgorithm,
-    ifMatch2,
+    ifMatch,
     ifNoneMatch,
     ifTags,
     blobCacheControl,
@@ -57802,7 +50201,7 @@ var BlobLeaseClient = class {
       this._containerOrBlobOperation = clientContext.blob;
     }
     if (!leaseId2) {
-      leaseId2 = randomUUID4();
+      leaseId2 = randomUUID2();
     }
     this._leaseId = leaseId2;
   }
@@ -62007,7 +54406,7 @@ var BlockBlobClient = class _BlockBlobClient extends BlobClient {
         throw new RangeError(`The buffer's size is too big or the BlockSize is too small;the number of blocks must be <= ${BLOCK_BLOB_MAX_BLOCKS}`);
       }
       const blockList = [];
-      const blockIDPrefix = randomUUID4();
+      const blockIDPrefix = randomUUID2();
       let transferProgress = 0;
       const batch = new Batch(options.concurrency);
       for (let i = 0; i < numBlocks; i++) {
@@ -62089,7 +54488,7 @@ var BlockBlobClient = class _BlockBlobClient extends BlobClient {
     }
     return tracingClient.withSpan("BlockBlobClient-uploadStream", options, async (updatedOptions) => {
       let blockNum = 0;
-      const blockIDPrefix = randomUUID4();
+      const blockIDPrefix = randomUUID2();
       let transferProgress = 0;
       const blockList = [];
       const scheduler = new BufferScheduler(
@@ -63149,7 +55548,7 @@ var InnerBatchRequest = class {
   constructor() {
     this.operationCount = 0;
     this.body = "";
-    const tempGuid = randomUUID4();
+    const tempGuid = randomUUID2();
     this.boundary = `batch_${tempGuid}`;
     this.subRequestPrefix = `--${this.boundary}${HTTP_LINE_ENDING}${HeaderConstants2.CONTENT_TYPE}: application/http${HTTP_LINE_ENDING}${HeaderConstants2.CONTENT_TRANSFER_ENCODING}: binary`;
     this.multipartContentType = `multipart/mixed; boundary=${this.boundary}`;
@@ -65893,6 +58292,7753 @@ async function downloadEvidenceBytes(blobPath) {
   const props = await block.getProperties();
   return { bytes: buf, contentType: props.contentType ?? "application/octet-stream" };
 }
+async function deleteEvidenceBytes(blobPath) {
+  const container = client().getContainerClient(containerName());
+  const block = container.getBlockBlobClient(blobPath);
+  const result = await block.deleteIfExists();
+  return result.succeeded;
+}
+
+// api/src/lib/functions-client.ts
+var FN_STAGE_TIMEOUT_MS = 3e4;
+var FunctionCallError = class extends Error {
+  constructor(message2, status) {
+    super(message2);
+    this.status = status;
+    this.name = "FunctionCallError";
+  }
+};
+async function callVehicleData(input) {
+  const base = process.env.ENRICH_FN_URL;
+  const key = process.env.ENRICH_FN_KEY;
+  if (!base || !key) {
+    throw new Error("[functions-client] ENRICH_FN_URL/ENRICH_FN_KEY not configured");
+  }
+  const raw = await callFn(
+    base,
+    key,
+    "POST",
+    "/api/dvsa-mot/enrich",
+    {
+      vrm: input.registration,
+      document_has_mileage: input.documentHasMileage,
+      ...input.targetDate ? { target_date: input.targetDate } : {},
+      ...input.idempotencyKey ? { idempotency_key: input.idempotencyKey } : {}
+    },
+    { timeoutMs: FN_STAGE_TIMEOUT_MS }
+  );
+  const parsed = parseVehicleDataEnrichmentResponse(raw);
+  if (!parsed) throw new Error("[functions-client] vehicle-data response failed contract validation");
+  return parsed;
+}
+async function callFn(baseUrl, fnKey, method, path, body2, opts) {
+  const timeoutMs = opts?.timeoutMs;
+  const controller = timeoutMs != null ? new AbortController() : void 0;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : void 0;
+  try {
+    const res = await fetch(`${baseUrl}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        "x-functions-key": fnKey
+      },
+      ...body2 !== void 0 ? { body: JSON.stringify(body2) } : {},
+      ...controller ? { signal: controller.signal } : {}
+    });
+    if (!res.ok) {
+      await res.text().catch(() => "");
+      throw new FunctionCallError(
+        `[functions-client] ${method} ${path} returned HTTP ${res.status}`,
+        res.status
+      );
+    }
+    return res.json();
+  } catch (e) {
+    if (controller?.signal.aborted) {
+      throw new Error(`[functions-client] ${method} ${path} \u2192 timed out after ${timeoutMs}ms`);
+    }
+    throw e;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+async function callParser(body2) {
+  return callFn(
+    process.env.PARSER_FN_URL,
+    process.env.PARSER_FN_KEY,
+    "POST",
+    "/api/parse",
+    body2
+  );
+}
+async function callLocationSuggest(body2, opts) {
+  return callFn(
+    process.env.LOCATION_SUGGEST_FN_URL,
+    process.env.LOCATION_SUGGEST_FN_KEY,
+    "POST",
+    "/api/location-suggest",
+    body2,
+    opts
+  );
+}
+async function callPlateOcr(input) {
+  const base = process.env.OCR_FN_URL;
+  const key = process.env.OCR_FN_KEY;
+  if (!base || !key) throw new Error("[functions-client] OCR_FN_URL/OCR_FN_KEY not configured");
+  return callFn(
+    base,
+    key,
+    "POST",
+    "/api/plate-ocr",
+    {
+      image: input.imageBase64,
+      filename: input.filename,
+      ...input.caseVrm ? { case_vrm: input.caseVrm } : {}
+    },
+    { timeoutMs: FN_STAGE_TIMEOUT_MS }
+  );
+}
+async function callBoxListFolder(folderId, limit = 1e3, offset = 0) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
+  return callFn(
+    base,
+    key,
+    "GET",
+    `/api/box/folders/${encodeURIComponent(folderId)}/items?limit=${limit}&offset=${offset}`
+  );
+}
+async function verifyBoxWriteScope(folderId) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
+  return callFn(
+    base,
+    key,
+    "POST",
+    "/api/box/scope/write-check",
+    { folderId },
+    { timeoutMs: FN_STAGE_TIMEOUT_MS }
+  );
+}
+async function listBoxFolderNames(folderId) {
+  const names = [];
+  const limit = 1e3;
+  let offset = 0;
+  for (let page = 0; page < 20; page++) {
+    const res = await callBoxListFolder(folderId, limit, offset);
+    const entries = res.entries ?? [];
+    for (const e of entries) if (e?.name) names.push(String(e.name));
+    if (entries.length < limit) break;
+    offset += limit;
+  }
+  return names;
+}
+async function listBoxFolderEntries(folderId) {
+  const out = [];
+  const limit = 1e3;
+  let offset = 0;
+  for (let page = 0; page < 20; page++) {
+    const res = await callBoxListFolder(folderId, limit, offset);
+    const entries = res.entries ?? [];
+    for (const e of entries) {
+      if (e?.type === "folder" && e.id && e.name) out.push({ id: String(e.id), name: String(e.name) });
+    }
+    if (entries.length < limit) break;
+    offset += limit;
+  }
+  return out;
+}
+function boxFileRequestExpiry() {
+  const configured = Number(process.env.BOX_FILE_REQUEST_EXPIRY_DAYS ?? "30");
+  const days = Number.isFinite(configured) ? Math.min(90, Math.max(1, configured)) : 30;
+  return new Date(Date.now() + days * 864e5).toISOString();
+}
+async function callBoxCopyFileRequest(templateId, folderId, opts) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
+  const configured = Number(process.env.BOX_FILE_REQUEST_COPY_TIMEOUT_MS ?? FN_STAGE_TIMEOUT_MS);
+  const timeoutMs = opts?.timeoutMs ?? (Number.isFinite(configured) ? Math.min(6e4, Math.max(5e3, configured)) : FN_STAGE_TIMEOUT_MS);
+  return callFn(
+    base,
+    key,
+    "POST",
+    `/api/box/file-requests/${encodeURIComponent(templateId)}/copy`,
+    {
+      folder: { id: folderId },
+      status: "active",
+      // Never inherit an already-expired template date. A later chaser validates
+      // the request remotely and renews it when this date passes.
+      expires_at: boxFileRequestExpiry()
+    },
+    { timeoutMs }
+  );
+}
+async function callBoxGetFileRequest(fileRequestId, expectedFolderId, opts) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
+  return callFn(
+    base,
+    key,
+    "GET",
+    `/api/box/file-requests/${encodeURIComponent(fileRequestId)}?folderId=${encodeURIComponent(expectedFolderId)}`,
+    void 0,
+    { timeoutMs: opts?.timeoutMs ?? FN_STAGE_TIMEOUT_MS }
+  );
+}
+async function callBoxReactivateFileRequest(fileRequestId, expectedFolderId, opts) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
+  return callFn(
+    base,
+    key,
+    "PUT",
+    `/api/box/file-requests/${encodeURIComponent(fileRequestId)}?folderId=${encodeURIComponent(expectedFolderId)}`,
+    { status: "active", expires_at: boxFileRequestExpiry() },
+    { timeoutMs: opts?.timeoutMs ?? FN_STAGE_TIMEOUT_MS }
+  );
+}
+async function downloadBoxFileContent(fileId) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) return void 0;
+  try {
+    const res = await callFn(
+      base,
+      key,
+      "GET",
+      `/api/box/files/${encodeURIComponent(fileId)}/content`
+    );
+    if (!res?.contentBase64) return void 0;
+    return { bytes: Buffer.from(res.contentBase64, "base64"), filename: res.filename };
+  } catch {
+    return void 0;
+  }
+}
+async function validateBoxFileDeletion(fileId, expectedFolderId) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
+  return callFn(
+    base,
+    key,
+    "GET",
+    `/api/box/files/${encodeURIComponent(fileId)}?folderId=${encodeURIComponent(expectedFolderId)}`,
+    void 0,
+    { timeoutMs: FN_STAGE_TIMEOUT_MS }
+  );
+}
+async function deleteBoxFile(fileId, expectedFolderId) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
+  return callFn(
+    base,
+    key,
+    "DELETE",
+    `/api/box/files/${encodeURIComponent(fileId)}?folderId=${encodeURIComponent(expectedFolderId)}`,
+    void 0,
+    { timeoutMs: FN_STAGE_TIMEOUT_MS }
+  );
+}
+
+// api/src/functions/internal.ts
+async function withServiceAuth(req, ctx, fn) {
+  try {
+    await authenticate(req);
+  } catch (e) {
+    return toErrorResponse(e, ctx);
+  }
+  try {
+    return await fn(req, ctx);
+  } catch (e) {
+    ctx.error(e);
+    return { status: 500, jsonBody: { error: "internal" } };
+  }
+}
+var TERMINAL_INT_CODES = TERMINAL_STATUSES.map((s) => caseStatusCodec.toInt(s)).filter((v) => v != null);
+var AUDIT_ACTION_BY_NAME = Object.fromEntries(
+  Object.entries(AUDIT_ACTION).map(([name, code]) => [name, code])
+);
+function senderDomain(address) {
+  const at = address.lastIndexOf("@");
+  if (at < 0 || at === address.length - 1) return "";
+  return address.slice(at + 1).toLowerCase().trim();
+}
+async function mintBlockedByCategory(internetMessageId) {
+  const id = (internetMessageId ?? "").trim();
+  if (!id) return null;
+  try {
+    const rows = await query(
+      `SELECT c.name AS category
+         FROM inbound_email ie
+         JOIN choice_inbound_category c ON c.code = ie.category_code
+        WHERE ie.source_message_id = $1`,
+      [id]
+    );
+    const category = rows[0]?.category ?? "";
+    if (!category) return null;
+    return categoryMintsCase(category) ? null : category;
+  } catch {
+    return null;
+  }
+}
+var CHASER_STATUS_RESPONDED2 = 100000002;
+var CHASER_OUTSTANDING_CODES = [1e8, 100000001, 100000003];
+async function markOutstandingChasersResponded(caseId, via) {
+  try {
+    const rows = await query(
+      `UPDATE chaser SET status_code = $2, updated_at = now()
+        WHERE case_id = $1 AND status_code IN (${CHASER_OUTSTANDING_CODES.join(",")})
+        RETURNING id`,
+      [caseId, CHASER_STATUS_RESPONDED2]
+    );
+    if (rows.length > 0) {
+      await writeAudit({
+        action: AUDIT_ACTION.chaser_sent,
+        caseId,
+        summary: `Chaser marked responded \u2014 the requested item arrived (${via})`,
+        after: { chaserIds: rows.map((r) => r.id), via }
+      });
+    }
+    return rows.length;
+  } catch {
+    return 0;
+  }
+}
+async function recomputeStatus(caseId, acknowledgeGeneration) {
+  const previewRows = await query(`${CASE_SELECT} WHERE c.id = $1`, [caseId]);
+  const preview = previewRows[0];
+  if (preview && isPrefillApplicable(rowToCase(preview))) {
+    await prefillImageBasedInspection(caseId);
+  }
+  const result = await tx(async (q) => {
+    const rows = await q(
+      `${CASE_SELECT} WHERE c.id = $1 FOR UPDATE OF c`,
+      [caseId]
+    );
+    const rec = rows[0];
+    if (!rec) return { found: false, value: "error" };
+    const provenanceRows = await q(
+      "SELECT * FROM field_level_provenance WHERE case_id = $1",
+      [caseId]
+    );
+    const evidenceRows = await q("SELECT * FROM evidence WHERE case_id = $1", [caseId]);
+    const evidence = evidenceRows.map(rowToEvidence);
+    const full = rowToCase(rec, { evidence, provenanceRows });
+    const sourceEvidence = await manualIntakeEvidenceState(q, caseId);
+    const next = statusForReviewCase({
+      ...readinessInputForCase(full),
+      sourceEvidencePending: sourceEvidence.pending || sourceEvidence.archiveFailed,
+      sourceEvidenceArchiveFailed: sourceEvidence.archiveFailed
+    });
+    if (next !== full.status) {
+      await q("UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1", [
+        caseId,
+        statusToInt(next)
+      ]);
+      await writeAudit({
+        action: AUDIT_ACTION.status_changed,
+        caseId,
+        summary: `Status ${full.status} -> ${next} (internal recompute)`,
+        before: { status: full.status },
+        after: { status: next }
+      }, q);
+    }
+    if (acknowledgeGeneration != null) {
+      const ack = await q(
+        `UPDATE case_
+            SET status_recompute_completed_generation = GREATEST(
+                  status_recompute_completed_generation,
+                  LEAST($2::bigint, status_recompute_requested_generation)
+                )
+          WHERE id = $1
+          RETURNING status_recompute_requested_generation,
+                    status_recompute_completed_generation`,
+        [caseId, acknowledgeGeneration]
+      );
+      const requested = Number(ack[0].status_recompute_requested_generation);
+      const completedGeneration = Number(ack[0].status_recompute_completed_generation);
+      return {
+        found: true,
+        value: next,
+        completed: completedGeneration >= acknowledgeGeneration,
+        pending: completedGeneration < requested
+      };
+    }
+    return { found: true, value: next };
+  });
+  if (result.found) {
+    await maybeSuggestOverviewChase(caseId, result.value);
+  }
+  return result;
+}
+async function applyParserFields(caseId, parserRef, parserMileage, parserMileageUnit, parserEva, workProviderId, intermediary, recoveryContext) {
+  return tx((q) => applyParserFieldsUsing(
+    q,
+    caseId,
+    parserRef,
+    parserMileage,
+    parserMileageUnit,
+    parserEva,
+    workProviderId,
+    intermediary,
+    recoveryContext
+  ));
+}
+async function applyParserFieldsUsing(q, caseId, parserRef, parserMileage, parserMileageUnit, parserEva, workProviderId, intermediary, recoveryContext) {
+  let providerResolutionSource = "none";
+  let resolvedProviderId;
+  let effectiveCasePo = "";
+  let providerRecovery;
+  const result = () => ({
+    providerResolutionSource,
+    ...resolvedProviderId ? { resolvedProviderId } : {},
+    ...effectiveCasePo ? { casePo: effectiveCasePo } : {},
+    ...providerRecovery ? { providerRecovery } : {}
+  });
+  const ref = (parserRef ?? "").trim();
+  const mileageRaw = parserMileage != null ? String(parserMileage).trim() : "";
+  const mileage = normaliseExtractedEvaMileage(mileageRaw) ?? "";
+  const unitRaw = (parserMileageUnit ?? "").trim();
+  const unit = unitRaw === "Miles" || unitRaw === "Km" ? unitRaw : "";
+  const evaCandidates = selectParserEvaCandidates(parserEva);
+  const explicitClaimantConflicts = (parserEva?.claimant_conflicts ?? []).map((candidate) => ({
+    value: String(candidate?.value ?? "").trim().slice(0, 200),
+    sourceType: "email_text",
+    sourceLabel: "From email body",
+    sourceReference: String(candidate?.source_reference ?? parserEva?.source_reference ?? "").trim().slice(0, 400)
+  })).filter((candidate) => Boolean(candidate.value));
+  const matchedProviderId = (workProviderId ?? "").trim();
+  const mightFillWorkProviderFromCorpus = Boolean(matchedProviderId) && !evaCandidates.some((c) => c.column === "eva_work_provider");
+  const rawContentProvider = (parserEva?.work_provider ?? "").toString().trim();
+  const mightMatchWorkProviderIdFromContent = Boolean(rawContentProvider) && !isUnknownWorkProviderSentinel(rawContentProvider) && // TKT-051: an engineer-report layout name ("EVA (Engineers)") is the audited
+  // firm's report, never the instructing provider — skip the corpus match entirely.
+  !isEngineerReportLayoutSentinel(rawContentProvider);
+  const singleIntermediaryCandidate = intermediary && intermediary.candidateProviderIds.length === 1 ? intermediary.candidateProviderIds[0] : null;
+  if (!ref && !mileage && evaCandidates.length === 0 && explicitClaimantConflicts.length === 0 && !mightFillWorkProviderFromCorpus && !mightMatchWorkProviderIdFromContent && !singleIntermediaryCandidate) {
+    return result();
+  }
+  const readCols = Array.from(/* @__PURE__ */ new Set([
+    "case_ref",
+    "ov_claim_number",
+    "eva_mileage",
+    "eva_work_provider",
+    "work_provider_id",
+    "case_po",
+    "eva_claimant_name",
+    ...evaCandidates.map((c) => c.column)
+  ]));
+  const cur = await q(
+    `SELECT ${readCols.join(", ")} FROM case_ WHERE id = $1 FOR UPDATE`,
+    [caseId]
+  );
+  if (!cur[0]) return result();
+  effectiveCasePo = String(cur[0].case_po ?? "").trim();
+  const isEmpty = (v) => !String(v ?? "").trim();
+  const sets = [];
+  const vals = [];
+  let mileageFilled = false;
+  const provenance = [];
+  const claimantConflicts = [];
+  if (ref && isEmpty(cur[0].case_ref)) {
+    sets.push(`case_ref = $${sets.length + 1}`);
+    vals.push(ref.slice(0, 100));
+  }
+  if (ref && isEmpty(cur[0].ov_claim_number)) {
+    sets.push(`ov_claim_number = $${sets.length + 1}`);
+    vals.push(ref.slice(0, 100));
+  }
+  if (mileage && isEmpty(cur[0].eva_mileage)) {
+    sets.push(`eva_mileage = $${sets.length + 1}`);
+    vals.push(mileage.slice(0, 20));
+    mileageFilled = true;
+    if (unit) {
+      sets.push(`eva_mileage_unit = $${sets.length + 1}`);
+      vals.push(unit);
+    }
+  }
+  for (const cand of evaCandidates) {
+    if (isEmpty(cur[0][cand.column])) {
+      sets.push(`${cand.column} = $${sets.length + 1}`);
+      vals.push(cand.value);
+      provenance.push({
+        field: cand.provenanceField,
+        value: cand.value,
+        sourceType: cand.sourceType ?? "pdf_extraction",
+        sourceLabel: cand.sourceLabel ?? "From instructions",
+        sourceReference: String(parserEva?.source_reference ?? "").trim().slice(0, 400)
+      });
+    } else if (cand.provenanceField === "claimantName" && String(cur[0][cand.column] ?? "").trim().toLocaleLowerCase("en-GB") !== cand.value.trim().toLocaleLowerCase("en-GB")) {
+      claimantConflicts.push({
+        value: cand.value,
+        sourceType: cand.sourceType ?? "pdf_extraction",
+        sourceLabel: cand.sourceLabel ?? "From instructions",
+        sourceReference: String(parserEva?.source_reference ?? "").trim().slice(0, 400)
+      });
+    }
+  }
+  const selectedClaimant = evaCandidates.find(
+    (candidate) => candidate.provenanceField === "claimantName"
+  )?.value ?? "";
+  const effectiveClaimant = String(cur[0].eva_claimant_name ?? "").trim() || selectedClaimant;
+  const seenConflictKeys = new Set(
+    claimantConflicts.map((candidate) => candidate.value.trim().toLocaleLowerCase("en-GB"))
+  );
+  for (const candidate of explicitClaimantConflicts) {
+    const key = candidate.value.toLocaleLowerCase("en-GB");
+    if (key === effectiveClaimant.toLocaleLowerCase("en-GB") || seenConflictKeys.has(key)) continue;
+    seenConflictKeys.add(key);
+    claimantConflicts.push(candidate);
+  }
+  for (const conflict of claimantConflicts) {
+    const sourceCode = sourceTypeCodec.toInt(conflict.sourceType) ?? 100000001;
+    const conflictCode = reviewStateCodec.toInt("conflict") ?? 100000003;
+    const inserted = await q(
+      `INSERT INTO field_level_provenance
+         (name, case_id, field_name, value, source_type_code, source_label, source_reference,
+          review_state_code)
+       SELECT $1, $2, 'claimantName', $3, $4, $5, NULLIF($6, ''), $7
+       WHERE NOT EXISTS (
+         SELECT 1
+         FROM field_level_provenance
+         WHERE case_id = $2
+           AND field_name = 'claimantName'
+           AND lower(btrim(COALESCE(value, ''))) = lower(btrim($3))
+           AND COALESCE(source_reference, '') = $6
+       )
+       RETURNING id`,
+      [
+        `${caseId}:claimantName:conflict`,
+        caseId,
+        conflict.value,
+        sourceCode,
+        `${conflict.sourceLabel} \u2014 differs from the saved claimant`,
+        conflict.sourceReference,
+        conflictCode
+      ]
+    );
+    if (inserted.length > 0) {
+      await writeAudit({
+        action: AUDIT_ACTION.parser_called,
+        caseId,
+        severity: "warning",
+        summary: "A retained source names a different claimant \u2014 kept the saved claimant for review",
+        before: { claimantName: cur[0].eva_claimant_name },
+        after: { candidateClaimantName: conflict.value, provenanceId: inserted[0].id }
+      }, q);
+    }
+  }
+  if (mightMatchWorkProviderIdFromContent) {
+    const providerRows = await q(
+      "SELECT id, principal_code, display_name FROM work_provider WHERE active = true"
+    );
+    const contentCandidates = providerRows.map((r) => ({
+      workProviderId: r.id,
+      principalCode: r.principal_code ?? "",
+      displayName: r.display_name ?? ""
+    }));
+    const contentMatch = matchWorkProviderByContentString(rawContentProvider, contentCandidates);
+    if (contentMatch.outcome === "matched") {
+      const existingWorkProviderId2 = cur[0].work_provider_id ?? null;
+      const corroborated = Boolean(
+        intermediary?.candidateProviderIds?.includes(contentMatch.workProviderId)
+      );
+      if (isEmpty(existingWorkProviderId2)) {
+        sets.push(`work_provider_id = $${sets.length + 1}`);
+        vals.push(contentMatch.workProviderId);
+        providerResolutionSource = "instruction_content";
+        resolvedProviderId = contentMatch.workProviderId;
+        provenance.push({
+          field: "workProviderId",
+          value: contentMatch.workProviderId,
+          sourceType: "pdf_extraction",
+          sourceLabel: corroborated ? "From instructions \u2014 provider identified (confirmed by intermediary sender)" : "From instructions \u2014 provider identified"
+        });
+        if (corroborated) {
+          await writeAudit({
+            action: AUDIT_ACTION.provider_matched,
+            caseId,
+            summary: "Instruction content confirms the work provider the intermediary sender routes for",
+            after: {
+              workProviderId: contentMatch.workProviderId,
+              viaIntermediaryImageSourceId: intermediary?.imageSourceId
+            }
+          }, q);
+        }
+      } else if (existingWorkProviderId2 === contentMatch.workProviderId) {
+        providerResolutionSource = "instruction_content";
+        resolvedProviderId = contentMatch.workProviderId;
+      } else if (existingWorkProviderId2 !== contentMatch.workProviderId) {
+        await writeAudit({
+          action: AUDIT_ACTION.provider_matched,
+          caseId,
+          severity: "warning",
+          summary: "Instruction content names a different work provider than the one already on the case \u2014 kept the existing provider",
+          before: { workProviderId: existingWorkProviderId2 },
+          after: { contentDetectedWorkProviderId: contentMatch.workProviderId }
+        }, q);
+      }
+    }
+  }
+  let alreadySettingWorkProviderId = sets.some((s) => s.startsWith("work_provider_id ="));
+  const existingWorkProviderId = String(cur[0].work_provider_id ?? "").trim();
+  if (matchedProviderId && !resolvedProviderId && !alreadySettingWorkProviderId) {
+    if (!existingWorkProviderId) {
+      const wpRows = await q(
+        "SELECT display_name FROM work_provider WHERE id = $1 AND active = true",
+        [matchedProviderId]
+      );
+      if (wpRows[0]) {
+        sets.push(`work_provider_id = $${sets.length + 1}`);
+        vals.push(matchedProviderId);
+        providerResolutionSource = "sender_domain";
+        resolvedProviderId = matchedProviderId;
+        provenance.push({
+          field: "workProviderId",
+          value: matchedProviderId,
+          sourceType: "corpus",
+          sourceLabel: "Matched sender domain"
+        });
+        alreadySettingWorkProviderId = true;
+      }
+    } else if (existingWorkProviderId === matchedProviderId) {
+      providerResolutionSource = "sender_domain";
+      resolvedProviderId = matchedProviderId;
+    }
+  }
+  if (singleIntermediaryCandidate && !alreadySettingWorkProviderId && isEmpty(cur[0].work_provider_id)) {
+    const wpRows = await q(
+      "SELECT display_name FROM work_provider WHERE id = $1 AND active = true",
+      [singleIntermediaryCandidate]
+    );
+    if (wpRows[0]) {
+      sets.push(`work_provider_id = $${sets.length + 1}`);
+      vals.push(singleIntermediaryCandidate);
+      providerResolutionSource = "single_intermediary";
+      resolvedProviderId = singleIntermediaryCandidate;
+      provenance.push({
+        field: "workProviderId",
+        value: singleIntermediaryCandidate,
+        sourceType: "corpus",
+        sourceLabel: "From intermediary sender \u2014 routes for a single provider"
+      });
+      const corpusCandidate = corpusWorkProviderCandidate(wpRows[0].display_name);
+      if (corpusCandidate && isEmpty(cur[0].eva_work_provider) && !sets.some((s) => s.startsWith("eva_work_provider ="))) {
+        sets.push(`eva_work_provider = $${sets.length + 1}`);
+        vals.push(corpusCandidate.value);
+        provenance.push({
+          field: corpusCandidate.provenanceField,
+          value: corpusCandidate.value,
+          sourceType: "corpus",
+          sourceLabel: "From intermediary sender \u2014 routes for a single provider"
+        });
+      }
+      await writeAudit({
+        action: AUDIT_ACTION.provider_matched,
+        caseId,
+        summary: "Intermediary sender routes for exactly one work provider \u2014 provider resolved from the intermediary link",
+        after: {
+          workProviderId: singleIntermediaryCandidate,
+          viaIntermediaryImageSourceId: intermediary?.imageSourceId
+        }
+      }, q);
+    }
+  } else if (singleIntermediaryCandidate && !resolvedProviderId && existingWorkProviderId === singleIntermediaryCandidate) {
+    providerResolutionSource = "single_intermediary";
+    resolvedProviderId = singleIntermediaryCandidate;
+  }
+  if (mightFillWorkProviderFromCorpus && isEmpty(cur[0].eva_work_provider)) {
+    const wpRows = await q(
+      "SELECT display_name FROM work_provider WHERE id = $1",
+      [matchedProviderId]
+    );
+    const corpusCandidate = corpusWorkProviderCandidate(
+      wpRows[0]?.display_name
+    );
+    if (corpusCandidate) {
+      sets.push(`eva_work_provider = $${sets.length + 1}`);
+      vals.push(corpusCandidate.value);
+      provenance.push({
+        field: corpusCandidate.provenanceField,
+        value: corpusCandidate.value,
+        sourceType: "corpus",
+        sourceLabel: "Matched provider"
+      });
+    }
+  }
+  if (sets.length > 0) {
+    vals.push(caseId);
+    await q(
+      `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
+      vals
+    );
+  }
+  if (mileageFilled) {
+    provenance.unshift({
+      field: "mileage",
+      value: mileage.slice(0, 20),
+      sourceType: "pdf_extraction",
+      sourceLabel: "From instructions",
+      sourceReference: String(parserEva?.source_reference ?? "").trim().slice(0, 400)
+    });
+  }
+  const pdfSourceTypeCode = sourceTypeCodec.toInt("pdf_extraction") ?? 100000001;
+  const emailSourceTypeCode = sourceTypeCodec.toInt("email_text") ?? 100000002;
+  const corpusSourceTypeCode = sourceTypeCodec.toInt("corpus") ?? 100000003;
+  for (const p of provenance) {
+    const sourceTypeCode = p.sourceType === "corpus" ? corpusSourceTypeCode : p.sourceType === "email_text" ? emailSourceTypeCode : pdfSourceTypeCode;
+    const insertProvenance = () => q(
+      `INSERT INTO field_level_provenance
+         (name, case_id, field_name, value, source_type_code, source_label, source_reference)
+       VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''))`,
+      [
+        `${caseId}:${p.field}`,
+        caseId,
+        p.field,
+        p.value,
+        sourceTypeCode,
+        p.sourceLabel,
+        p.sourceReference ?? ""
+      ]
+    );
+    if (p.field === "claimantName") {
+      await insertProvenance();
+      continue;
+    }
+    await q("SAVEPOINT parser_provenance_write");
+    try {
+      await insertProvenance();
+      await q("RELEASE SAVEPOINT parser_provenance_write");
+    } catch (error2) {
+      await q("ROLLBACK TO SAVEPOINT parser_provenance_write");
+      await q("RELEASE SAVEPOINT parser_provenance_write");
+      console.warn("[applyParserFields] non-claimant provenance write failed", {
+        caseId,
+        field: p.field,
+        error: error2 instanceof Error ? error2.message : String(error2)
+      });
+    }
+  }
+  if (resolvedProviderId && recoveryContext) {
+    providerRecovery = await completeProviderRecoveryUsing(q, {
+      caseId,
+      resolvedProviderId,
+      ...recoveryContext.caseType ? { caseType: recoveryContext.caseType } : {},
+      caseTypeDual: recoveryContext.caseTypeDual === true,
+      allowCasePoMint: recoveryContext.allowCasePoMint !== false
+    });
+    if (providerRecovery.outcome === "identity_ready") {
+      await requestProviderArchive(q, caseId);
+    }
+    effectiveCasePo = providerRecovery.casePo ?? effectiveCasePo;
+  }
+  return result();
+}
+async function exactCaseForSourceMessage(q, sourceMessageId) {
+  const rows = await q(
+    `SELECT c.id, c.case_po, c.status_code, wp.provider_automation_mode_code
+       FROM case_ c
+       LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+      WHERE c.source_message_id = $1`,
+    [sourceMessageId]
+  );
+  if (!rows[0]) return null;
+  const status = caseStatusCodec.toName(rows[0].status_code) ?? "error";
+  return {
+    caseId: rows[0].id,
+    casePo: rows[0].case_po ?? null,
+    providerAutomationMode: automationModeCodec.toName(rows[0].provider_automation_mode_code) ?? "manual",
+    status,
+    replayAllowed: !TERMINAL_STATUSES.includes(status)
+  };
+}
+import_functions.app.http("internalProviderMatchRecords", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/provider-match-records",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const rows = await query(
+      "SELECT id, principal_code, known_email_domains, known_email_addresses, active, provider_automation_mode_code FROM work_provider ORDER BY display_name"
+    );
+    const providers = rows.map((r) => ({
+      workProviderId: r.id,
+      principalCode: r.principal_code,
+      knownEmailDomains: parseDomains2(r.known_email_domains),
+      knownEmailAddresses: parseDomains2(r.known_email_addresses),
+      active: Boolean(r.active),
+      // Lets the orchestrator branch on the matched provider's automation mode
+      // (work-todo-spike: automation-mode). Default review_auto (the live default).
+      providerAutomationMode: automationModeCodec.toName(r.provider_automation_mode_code) ?? "review_auto"
+    }));
+    const imageSourceRows = await query(
+      `SELECT img.id, img.name, img.email_domain,
+                COALESCE(array_agg(iw.work_provider_id) FILTER (WHERE iw.work_provider_id IS NOT NULL), '{}') AS candidate_provider_ids
+           FROM image_source img
+           LEFT JOIN imagesource_workprovider iw ON iw.image_source_id = img.id
+          WHERE img.kind_code = 100000002
+          GROUP BY img.id, img.name, img.email_domain
+          ORDER BY img.name`
+    );
+    const imageSources = imageSourceRows.map((r) => ({
+      imageSourceId: r.id,
+      name: r.name,
+      emailDomain: r.email_domain ?? "",
+      kind: "intermediary",
+      candidateProviderIds: r.candidate_provider_ids ?? []
+    }));
+    return { status: 200, jsonBody: { providers, imageSources } };
+  })
+});
+function parseDomains2(raw) {
+  if (!raw) return [];
+  const s = raw.trim();
+  if (s.startsWith("[")) {
+    try {
+      const arr = JSON.parse(s);
+      if (Array.isArray(arr)) return arr.map((d) => String(d).trim()).filter(Boolean);
+    } catch {
+    }
+  }
+  return s.split(/[\r\n,]+/).map((d) => d.trim()).filter(Boolean);
+}
+import_functions.app.http("internalWorkProviderAiAllowed", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/work-provider/{id}/ai-allowed",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const workProviderId = req.params.id;
+    if (!await hasColumn("work_provider", "ai_allowed")) {
+      return { status: 200, jsonBody: { aiAllowed: null } };
+    }
+    const rows = await query("SELECT ai_allowed FROM work_provider WHERE id = $1", [
+      workProviderId
+    ]);
+    const raw = rows[0]?.ai_allowed;
+    const aiAllowed = raw == null ? null : Boolean(raw);
+    return { status: 200, jsonBody: { aiAllowed } };
+  })
+});
+import_functions.app.http("internalDedupContext", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/dedup-context",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const workProviderId = req.query.get("workProviderId") ?? "";
+    const vrm = req.query.get("vrm") ?? "";
+    const sourceMessageId = (req.query.get("messageId") ?? "").trim();
+    const exactSourceOwner = sourceMessageId ? await exactCaseForSourceMessage(query, sourceMessageId) : null;
+    if (!workProviderId) {
+      return {
+        status: 200,
+        jsonBody: {
+          openProviderCases: [],
+          seenMessageIds: [],
+          seenPayloadHashes: [],
+          ...exactSourceOwner ? { exactSourceOwner } : {}
+        }
+      };
+    }
+    const caseRows = vrm ? await query(
+      `SELECT id, case_ref, status_code, work_provider_id
+               FROM case_
+              WHERE work_provider_id = $1
+                AND (vrm = $2 OR vrm IS NULL OR vrm = '')
+                AND status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
+              ORDER BY created_at`,
+      [workProviderId, vrm]
+    ) : await query(
+      `SELECT id, case_ref, status_code, work_provider_id
+               FROM case_
+              WHERE work_provider_id = $1
+                AND status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
+              ORDER BY created_at`,
+      [workProviderId]
+    );
+    const openProviderCases = caseRows.map((r) => ({
+      caseId: r.id,
+      caseRef: r.case_ref ?? void 0,
+      status: caseStatusCodec.toName(r.status_code) ?? "error",
+      workProviderId: r.work_provider_id ?? void 0
+    }));
+    const msgRows = await query(
+      `SELECT source_message_id FROM case_
+          WHERE work_provider_id = $1 AND source_message_id IS NOT NULL`,
+      [workProviderId]
+    );
+    const seenMessageIds = msgRows.map((r) => r.source_message_id);
+    const hashRows = await query(
+      `SELECT payload_hash FROM case_
+          WHERE work_provider_id = $1 AND payload_hash IS NOT NULL`,
+      [workProviderId]
+    );
+    const seenPayloadHashes = hashRows.map((r) => r.payload_hash);
+    return {
+      status: 200,
+      jsonBody: {
+        openProviderCases,
+        seenMessageIds,
+        seenPayloadHashes,
+        ...exactSourceOwner ? { exactSourceOwner } : {}
+      }
+    };
+  })
+});
+function buildHeldReason(input) {
+  const { senderDomain: domain, intermediary } = input;
+  if (!intermediary) {
+    return {
+      noteName: "New client",
+      noteText: `New client \u2014 no work provider matched for sender${domain ? ` @${domain}` : ""}. No Case/PO has been created. Set up the work provider and confirm before EVA.`,
+      auditSummary: "New client routed to Held (no work provider matched)"
+    };
+  }
+  const who = intermediary.name.trim() ? `Intermediary sender (${intermediary.name.trim()})` : "Intermediary sender";
+  const resolvedName = intermediary.resolvedProviderName.trim();
+  if (intermediary.resolutionSource === "instruction_content") {
+    return {
+      noteName: "Held \u2014 intermediary sender",
+      noteText: `${who}: ${resolvedName ? `the instructions identify ${resolvedName} as the provider` : "the instructions identify the provider"}. No Case/PO has been created. Confirm the provider before EVA.`,
+      auditSummary: "Intermediary sender routed to Held (provider found in the instructions)"
+    };
+  }
+  if (intermediary.resolutionSource === "single_intermediary") {
+    return {
+      noteName: "Held \u2014 intermediary sender",
+      noteText: `${who}: This intermediary routes work to one provider` + (resolvedName ? `, ${resolvedName},` : ",") + ` which has been selected. No Case/PO has been created. Confirm the provider before EVA.`,
+      auditSummary: "Intermediary sender routed to Held (single provider selected)"
+    };
+  }
+  const candidates = intermediary.candidateNames.map((n) => n.trim()).filter(Boolean);
+  return {
+    noteName: "Held \u2014 intermediary sender",
+    noteText: `${who}: the instructing provider could not be determined from the instruction.` + (candidates.length ? ` Possible providers: ${candidates.join(", ")}.` : "") + ` No Case/PO has been created. Pick the provider and confirm before EVA.`,
+    auditSummary: "Intermediary sender routed to Held (provider not yet confirmed)"
+  };
+}
+import_functions.app.http("internalCasesResolve", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/resolve",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json();
+    const { inbound, providerId, decision } = body2;
+    const workProviderId = providerId ?? null;
+    const intermediary = body2.intermediaryImageSourceId ? {
+      imageSourceId: body2.intermediaryImageSourceId,
+      candidateProviderIds: body2.intermediaryCandidateProviderIds ?? []
+    } : null;
+    const vrmGuard = vrmOrEmpty(body2.parserVrm || inbound.candidateVrm);
+    if (vrmGuard.dropped) {
+      ctx.warn(
+        `[cases/resolve] over-length VRM candidate dropped (junk sniff > varchar(16)) for ${inbound.internetMessageId}`
+      );
+    }
+    const vrm = vrmGuard.value;
+    const caseType = caseTypeCodec.toInt(body2.caseType) != null ? body2.caseType : "standard";
+    const caseTypeDual = body2.caseTypeDual === true;
+    const caseTypeSignals = Array.isArray(body2.caseTypeSignals) ? body2.caseTypeSignals : [];
+    const auditGateOn = gates.auditCases();
+    let providerAutomationMode = "manual";
+    if (workProviderId) {
+      const wpMode = await query(
+        "SELECT provider_automation_mode_code FROM work_provider WHERE id = $1",
+        [workProviderId]
+      );
+      providerAutomationMode = automationModeCodec.toName(wpMode[0]?.provider_automation_mode_code) ?? "review_auto";
+    }
+    const persistExistingCase = async (targetCaseId, exactReplay) => {
+      await upsertInboundEmail(inbound, workProviderId, targetCaseId, void 0, body2.parserVrm);
+      const parserFieldsResult2 = await applyParserFields(
+        targetCaseId,
+        body2.parserRef,
+        body2.parserMileage,
+        body2.parserMileageUnit,
+        body2.parserEva,
+        workProviderId,
+        intermediary,
+        {
+          caseType: auditGateOn ? caseType : "standard",
+          caseTypeDual,
+          allowCasePoMint: true
+        }
+      );
+      if (parserFieldsResult2.resolvedProviderId && parserFieldsResult2.resolvedProviderId !== workProviderId) {
+        await upsertInboundEmail(
+          inbound,
+          parserFieldsResult2.resolvedProviderId,
+          targetCaseId,
+          void 0,
+          body2.parserVrm
+        );
+      }
+      providerAutomationMode = parserFieldsResult2.providerRecovery?.providerAutomationMode ?? providerAutomationMode;
+      const attachedIdentity = await query(
+        "SELECT case_po FROM case_ WHERE id = $1",
+        [targetCaseId]
+      );
+      const effectiveCasePo2 = parserFieldsResult2.casePo ?? (String(attachedIdentity[0]?.case_po ?? "").trim() || null);
+      await writeAudit({
+        action: AUDIT_ACTION.case_attached,
+        caseId: targetCaseId,
+        summary: exactReplay ? `Email ${inbound.internetMessageId} replayed against its existing case` : `Email ${inbound.internetMessageId} attached to existing case`,
+        after: {
+          messageId: inbound.internetMessageId,
+          resolution: exactReplay ? "replay" : "attach",
+          casePo: effectiveCasePo2,
+          providerRecovery: parserFieldsResult2.providerRecovery?.outcome ?? "not_needed"
+        }
+      });
+      if (!exactReplay) {
+        await markOutstandingChasersResponded(targetCaseId, "dedup attach");
+      }
+      return {
+        status: 200,
+        jsonBody: {
+          outcome: exactReplay ? "replayed" : "attached",
+          caseId: targetCaseId,
+          casePo: effectiveCasePo2,
+          providerAutomationMode,
+          providerRecovery: parserFieldsResult2.providerRecovery?.outcome ?? "not_needed"
+        }
+      };
+    };
+    if ((decision.resolution === "attach" || decision.resolution === "replay") && decision.targetCaseId) {
+      return persistExistingCase(decision.targetCaseId, decision.resolution === "replay");
+    }
+    const blockedCategory = await mintBlockedByCategory(inbound.internetMessageId);
+    if (blockedCategory) {
+      await writeAudit({
+        action: AUDIT_ACTION.inbound_routed,
+        severity: "warning",
+        summary: `Create refused \u2014 '${blockedCategory}' emails never open a case (kept in the inbox for review)`,
+        after: { messageId: inbound.internetMessageId, category: blockedCategory, seam: "cases/resolve" }
+      });
+      ctx.log(JSON.stringify({ evt: "caseResolvePersist", outcome: "refused_category", category: blockedCategory }));
+      return { status: 200, jsonBody: { outcome: "refused_category", category: blockedCategory } };
+    }
+    const rawStatus = decision.statusEffect;
+    const statusCode = caseStatusCodec.toInt(rawStatus) ?? statusToInt("new_email");
+    const caseRefGuard = clampVarchar(inbound.candidateRef, 100);
+    if (caseRefGuard.clamped) {
+      ctx.warn(
+        `[cases/resolve] candidateRef clamped to 100 chars (was ${caseRefGuard.originalLength}) for ${inbound.internetMessageId}`
+      );
+    }
+    const caseRef = caseRefGuard.value;
+    const subject = (inbound.subject ?? "").trim();
+    const name = ([vrm || null, subject || null].filter(Boolean).join(" \xB7 ") || "Email intake").slice(0, 100);
+    const emailKindCode = intakeChannelKindCodec.toInt("email") ?? null;
+    let created;
+    try {
+      created = await tx(async (q) => {
+        await acquireTriageLocks(q, { caseref: caseRef, vrm });
+        let principalCode = "";
+        if (workProviderId) {
+          const wp = await q("SELECT principal_code FROM work_provider WHERE id = $1", [workProviderId]);
+          principalCode = String(wp[0]?.principal_code ?? "").trim();
+        }
+        const newClient = !workProviderId || !principalCode;
+        const mintedMarker = auditGateOn && !newClient ? markerForMint(caseType, principalCode, caseTypeDual) : "";
+        let casePo = null;
+        if (!newClient) {
+          casePo = await mintCasePo(q, principalCode, void 0, mintedMarker);
+        }
+        const cols = [
+          "name",
+          "vrm",
+          "status_code",
+          "intake_channel_kind_code",
+          "intake_channel_manual",
+          "source_mailbox",
+          "source_message_id",
+          "payload_hash",
+          "work_provider_id"
+        ];
+        const vals = [
+          name,
+          vrm || null,
+          statusCode,
+          emailKindCode,
+          false,
+          inbound.sourceMailbox ?? null,
+          inbound.internetMessageId ?? null,
+          inbound.payloadHash ?? null,
+          workProviderId
+        ];
+        if (caseRef) {
+          cols.push("case_ref");
+          vals.push(caseRef);
+        }
+        if (caseRef) {
+          cols.push("ov_claim_number");
+          vals.push(caseRef.slice(0, 100));
+        }
+        if (casePo) {
+          cols.push("case_po");
+          vals.push(casePo);
+        }
+        if (auditGateOn && caseType !== "standard") {
+          cols.push("case_type_code");
+          vals.push(caseTypeCodec.toInt(caseType) ?? null);
+        }
+        if (newClient) {
+          cols.push("on_hold");
+          vals.push(true);
+          cols.push("on_hold_reason");
+          vals.push("provider_unresolved");
+          cols.push("action_reason_code");
+          vals.push(actionReasonCodec.toInt("needs_review") ?? null);
+        }
+        const placeholders = vals.map((_, i) => `$${i + 1}`).join(", ");
+        const rows = await q(
+          `INSERT INTO case_ (${cols.join(", ")}) VALUES (${placeholders}) RETURNING id`,
+          vals
+        );
+        const caseId = rows[0]?.id;
+        if (!caseId) throw new Error("case insert returned no id");
+        return { caseId, casePo, newClient, principalCode, mintedMarker };
+      });
+    } catch (e) {
+      if (isUniqueViolation(e)) {
+        const constraint = uniqueConstraintName(e);
+        if (constraint === "uq_case_case_po") {
+          ctx.error(`[cases/resolve] case_po unique collision (${constraint})`);
+          return { status: 500, jsonBody: { error: "case_po_collision" } };
+        }
+        const replay = await exactCaseForSourceMessage(query, inbound.internetMessageId);
+        if (replay) {
+          ctx.log(JSON.stringify({
+            evt: "caseResolvePersist",
+            outcome: replay.replayAllowed ? "replay_recovered" : "terminal_duplicate_dropped",
+            caseId: replay.caseId,
+            sourceMessageExact: true
+          }));
+          if (replay.replayAllowed) return persistExistingCase(replay.caseId, true);
+          return {
+            status: 200,
+            jsonBody: {
+              outcome: "already_ingested",
+              caseId: replay.caseId,
+              casePo: replay.casePo,
+              providerAutomationMode: replay.providerAutomationMode
+            }
+          };
+        }
+        return { status: 409, jsonBody: { error: "conflict", detail: "source_message_id already exists" } };
+      }
+      throw e;
+    }
+    const newCaseId = created.caseId;
+    await upsertInboundEmail(inbound, workProviderId, newCaseId, void 0, body2.parserVrm);
+    const parserFieldsResult = await applyParserFields(
+      newCaseId,
+      body2.parserRef,
+      body2.parserMileage,
+      body2.parserMileageUnit,
+      body2.parserEva,
+      workProviderId,
+      intermediary,
+      {
+        caseType: auditGateOn ? caseType : "standard",
+        caseTypeDual,
+        allowCasePoMint: true
+      }
+    );
+    if (parserFieldsResult.resolvedProviderId && parserFieldsResult.resolvedProviderId !== workProviderId) {
+      await upsertInboundEmail(
+        inbound,
+        parserFieldsResult.resolvedProviderId,
+        newCaseId,
+        void 0,
+        body2.parserVrm
+      );
+    }
+    const providerCompletion = parserFieldsResult.providerRecovery;
+    const effectiveCasePo = parserFieldsResult.casePo ?? created.casePo;
+    const effectivePrincipalCode = providerCompletion?.principalCode ?? created.principalCode;
+    const effectiveMarker = providerCompletion?.casePoMarker ?? created.mintedMarker;
+    const effectiveNewClient = created.newClient && providerCompletion?.holdCleared !== true;
+    providerAutomationMode = providerCompletion?.providerAutomationMode ?? providerAutomationMode;
+    const auditAction = AUDIT_ACTION[decision.auditAction] ?? AUDIT_ACTION.case_created;
+    await writeAudit({
+      action: auditAction,
+      caseId: newCaseId,
+      summary: `Case ${decision.resolution}: ${name}`,
+      after: {
+        resolution: decision.resolution,
+        status: rawStatus,
+        vrm,
+        casePo: effectiveCasePo,
+        providerRecovery: providerCompletion?.outcome ?? "not_needed"
+      }
+    });
+    if (caseType !== "standard") {
+      const allowlisted = allowedCaseTypes(effectivePrincipalCode).includes(caseType);
+      if (!auditGateOn) {
+        await writeAudit({
+          action: AUDIT_ACTION.case_created,
+          caseId: newCaseId,
+          summary: `Case-type '${caseType}' detected (observe-only \u2014 AUDIT_CASES_ENABLED off; minted standard)`,
+          after: { caseType, dual: caseTypeDual, signals: caseTypeSignals, applied: false }
+        });
+      } else if (!allowlisted && !effectiveNewClient) {
+        await writeAudit({
+          action: AUDIT_ACTION.case_created,
+          caseId: newCaseId,
+          severity: "warning",
+          summary: `Case-type '${caseType}' detected for non-allowlisted provider ${effectivePrincipalCode} \u2014 minted standard; review case type`,
+          after: { caseType, dual: caseTypeDual, signals: caseTypeSignals, applied: false }
+        });
+        await query(
+          `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
+          [
+            "Case-type review",
+            newCaseId,
+            "Email intake (auto)",
+            `${caseType === "diminution" ? "Diminution" : "Audit"} signals detected (${caseTypeSignals.join("; ") || "see audit log"}) but ${effectivePrincipalCode || "this provider"} is not in the case-type marker allowlist \u2014 case minted as standard. Confirm the case type.`
+          ]
+        ).catch(() => {
+        });
+      } else {
+        await writeAudit({
+          action: AUDIT_ACTION.case_created,
+          caseId: newCaseId,
+          summary: `Case-type '${caseType}' applied` + (effectiveMarker ? ` \u2014 minted ${effectiveCasePo} from the ${effectiveMarker} sequence` : caseTypeDual ? ` \u2014 dual report+audit letter, standard number kept (audit ID derived at review)` : ""),
+          after: {
+            caseType,
+            dual: caseTypeDual,
+            signals: caseTypeSignals,
+            applied: true,
+            marker: effectiveMarker,
+            casePo: effectiveCasePo
+          }
+        });
+      }
+    }
+    if (effectiveNewClient) {
+      const domain = senderDomain(inbound.senderAddress ?? "");
+      let heldIntermediary = null;
+      if (intermediary) {
+        heldIntermediary = {
+          name: "",
+          candidateNames: [],
+          resolvedProviderName: "",
+          resolutionSource: parserFieldsResult.providerResolutionSource
+        };
+        try {
+          const src = await query(
+            "SELECT name FROM image_source WHERE id = $1",
+            [intermediary.imageSourceId]
+          );
+          heldIntermediary.name = String(src[0]?.name ?? "").trim();
+          if (intermediary.candidateProviderIds.length > 0) {
+            const wps = await query(
+              "SELECT display_name FROM work_provider WHERE id = ANY($1::uuid[]) ORDER BY display_name",
+              [intermediary.candidateProviderIds]
+            );
+            heldIntermediary.candidateNames = wps.map((r) => String(r.display_name ?? "").trim()).filter(Boolean);
+          }
+          if (parserFieldsResult.resolvedProviderId) {
+            const resolved = await query(
+              "SELECT display_name FROM work_provider WHERE id = $1",
+              [parserFieldsResult.resolvedProviderId]
+            );
+            heldIntermediary.resolvedProviderName = String(
+              resolved[0]?.display_name ?? ""
+            ).trim();
+          }
+        } catch {
+        }
+      }
+      const reason = buildHeldReason({ senderDomain: domain, intermediary: heldIntermediary });
+      await query(
+        `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
+        [reason.noteName, newCaseId, "Email intake (auto)", reason.noteText]
+      ).catch(() => {
+      });
+      await writeAudit({
+        action: AUDIT_ACTION.inbound_routed,
+        caseId: newCaseId,
+        severity: "warning",
+        summary: reason.auditSummary,
+        after: intermediary ? {
+          intermediary: true,
+          onHold: true,
+          senderDomain: domain,
+          imageSourceId: intermediary.imageSourceId,
+          candidateProviderIds: intermediary.candidateProviderIds,
+          ...heldIntermediary?.resolvedProviderName ? { resolvedProvider: heldIntermediary.resolvedProviderName } : {},
+          providerResolutionSource: heldIntermediary?.resolutionSource ?? "none"
+        } : { newClient: true, onHold: true, senderDomain: domain }
+      });
+    }
+    return {
+      status: 200,
+      jsonBody: {
+        outcome: "created",
+        caseId: newCaseId,
+        casePo: effectiveCasePo,
+        providerAutomationMode,
+        providerRecovery: providerCompletion?.outcome ?? "not_needed"
+      }
+    };
+  })
+});
+import_functions.app.http("internalInboundEmail", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/inbound-email",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json();
+    const inboundEmailId = await upsertInboundEmail(
+      body2.inbound,
+      body2.providerId ?? null,
+      null,
+      body2.classification
+    );
+    return { status: 200, jsonBody: { inboundEmailId } };
+  })
+});
+async function upsertInboundEmail(inbound, workProviderId, caseId, classification, parserVrm, triageState) {
+  const subject = (inbound.subject ?? "").trim();
+  const name = clampVarchar(`Email: ${subject || inbound.internetMessageId}`, 200).value;
+  const categoryCode = classification ? INBOUND_CATEGORY_TO_INT[classification.category] ?? null : null;
+  const subtypeCode = classification ? INBOUND_SUBTYPE_TO_INT[classification.subtype] ?? null : null;
+  const bodyVrm = vrmOrEmpty(parserVrm || classification?.bodyVrm || inbound.candidateVrm).value || null;
+  const bodyCaseref = clampVarchar(classification?.bodyCaseref || inbound.candidateRef || "", 32).value || null;
+  const bodyPreview = (inbound.bodyPreview ?? "") || null;
+  const confidence = classification ? classification.confidence : null;
+  const signals = classification ? JSON.stringify(classification.signals ?? []) : null;
+  const bodyJobref = clampVarchar(classification?.bodyJobref, 64).value || null;
+  const conversationId = (inbound.conversationId ?? "").trim() || null;
+  const rawGraphMessageId = (inbound.graphMessageId ?? "").trim();
+  const normalizedOutlookWebLink = normalizeOutlookWebLink(inbound.outlookWebLink) ?? null;
+  const hasCompleteOutlookTuple = rawGraphMessageId.length > 0 && rawGraphMessageId.length <= 1024 && normalizedOutlookWebLink !== null;
+  const graphMessageId = hasCompleteOutlookTuple ? rawGraphMessageId : null;
+  const outlookWebLink = hasCompleteOutlookTuple ? normalizedOutlookWebLink : null;
+  try {
+    const presentCols = await tableColumns("inbound_email");
+    const optional2 = planOptionalColumns(
+      "inbound_email",
+      [
+        { column: "body_jobref", value: bodyJobref },
+        { column: "conversation_id", value: conversationId },
+        { column: "graph_message_id", value: graphMessageId },
+        { column: "outlook_web_link", value: outlookWebLink }
+      ],
+      presentCols,
+      19
+    );
+    const optionalColsFragment = optional2.cols.length ? `, ${optional2.cols.join(", ")}` : "";
+    const optionalValsFragment = optional2.placeholders.length ? `, ${optional2.placeholders.join(", ")}` : "";
+    const optionalUpdateFragment = optional2.updateSets.length ? `${optional2.updateSets.join(",\n         ")},
+         ` : "";
+    const rows = await query(
+      `INSERT INTO inbound_email
+         (name, source_message_id, subject, from_address, sender_domain,
+          source_mailbox, received_on, has_attachments, category_code, subtype_code,
+          confidence, classifier_mode, signals, triage_state, body_vrm, body_caseref,
+          body_preview, case_id, work_provider_id${optionalColsFragment})
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,COALESCE($18, 'new'),$13,$14,$15,$16,$17${optionalValsFragment})
+       ON CONFLICT (source_mailbox, source_message_id) DO UPDATE SET
+         case_id          = COALESCE(EXCLUDED.case_id, inbound_email.case_id),
+         category_code    = CASE
+                              WHEN inbound_email.classifier_mode = 'human'
+                                THEN inbound_email.category_code
+                              ELSE COALESCE(EXCLUDED.category_code, inbound_email.category_code)
+                            END,
+         subtype_code     = CASE
+                              WHEN inbound_email.classifier_mode = 'human'
+                                THEN inbound_email.subtype_code
+                              ELSE COALESCE(EXCLUDED.subtype_code, inbound_email.subtype_code)
+                            END,
+         confidence       = CASE
+                              WHEN inbound_email.classifier_mode = 'human'
+                                THEN inbound_email.confidence
+                              ELSE COALESCE(EXCLUDED.confidence, inbound_email.confidence)
+                            END,
+         signals          = CASE
+                              WHEN inbound_email.classifier_mode = 'human'
+                                THEN inbound_email.signals
+                              ELSE COALESCE(EXCLUDED.signals, inbound_email.signals)
+                            END,
+         body_vrm         = COALESCE(EXCLUDED.body_vrm, inbound_email.body_vrm),
+         body_caseref     = COALESCE(EXCLUDED.body_caseref, inbound_email.body_caseref),
+         body_preview     = COALESCE(EXCLUDED.body_preview, inbound_email.body_preview),
+         work_provider_id = COALESCE(EXCLUDED.work_provider_id, inbound_email.work_provider_id),
+         ${optionalUpdateFragment}triage_state     = CASE
+                              WHEN inbound_email.triage_state IN ('actioned','dismissed')
+                                THEN inbound_email.triage_state
+                              ELSE COALESCE($18, inbound_email.triage_state)
+                            END,
+         updated_at       = now()
+       RETURNING id`,
+      [
+        name,
+        inbound.internetMessageId ?? null,
+        subject || null,
+        inbound.senderAddress ?? null,
+        senderDomain(inbound.senderAddress ?? ""),
+        (inbound.sourceMailbox ?? "").trim().toLowerCase() || null,
+        inbound.receivedAt ?? null,
+        (inbound.attachments?.length ?? 0) > 0,
+        categoryCode,
+        subtypeCode,
+        confidence,
+        signals,
+        bodyVrm,
+        bodyCaseref,
+        bodyPreview,
+        caseId,
+        workProviderId,
+        triageState ?? null,
+        ...optional2.values
+      ]
+    );
+    const inboundEmailId = rows[0]?.id ?? null;
+    if (inboundEmailId && classification && (categoryCode != null || subtypeCode != null)) {
+      await query(
+        `UPDATE inbound_email
+            SET suggested_category_code = COALESCE(suggested_category_code, $2),
+                suggested_subtype_code  = COALESCE(suggested_subtype_code, $3)
+          WHERE id = $1`,
+        [inboundEmailId, categoryCode, subtypeCode]
+      ).catch(() => {
+      });
+    }
+    return inboundEmailId;
+  } catch {
+    return null;
+  }
+}
+function isUniqueViolation(e) {
+  return e != null && typeof e === "object" && "code" in e && e.code === "23505";
+}
+function uniqueConstraintName(e) {
+  if (e != null && typeof e === "object" && "constraint" in e) {
+    const c = e.constraint;
+    return typeof c === "string" ? c : void 0;
+  }
+  return void 0;
+}
+import_functions.app.http("internalInboundLinkReply", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/inbound/link-reply",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json();
+    const { inbound } = body2;
+    const workProviderId = body2.providerId ?? null;
+    const ref = (body2.ref ?? "").trim();
+    const vrm = (body2.vrm ?? "").trim();
+    const jobref = (body2.jobref ?? "").trim();
+    const { candidates, refConflict } = await tx(async (q) => {
+      await acquireTriageLocks(q, { caseref: ref, vrm });
+      let rows = [];
+      let vrmArm = false;
+      if (ref) {
+        rows = await q(
+          `SELECT id, case_ref, case_po, vrm FROM case_
+              WHERE (upper(case_ref) = upper($1) OR upper(case_po) = upper($1))
+                AND status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
+              ORDER BY created_at`,
+          [ref]
+        );
+      }
+      if (rows.length === 0 && vrm) {
+        vrmArm = true;
+        rows = await q(
+          `SELECT id, case_ref, case_po, vrm FROM case_
+              WHERE vrm = $1
+                AND status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
+              ORDER BY created_at`,
+          [vrm]
+        );
+      }
+      let conflict = false;
+      if (vrmArm && rows.length === 1 && (jobref || ref)) {
+        const hit = rows[0];
+        const sibs = await q(
+          `SELECT DISTINCT body_jobref FROM inbound_email
+              WHERE case_id = $1 AND body_jobref IS NOT NULL AND body_jobref <> ''`,
+          [hit.id]
+        );
+        const known = [
+          hit.case_ref,
+          hit.case_po,
+          ...sibs.map((s) => s.body_jobref)
+        ];
+        conflict = vrmLinkRefConflict(jobref, known) || vrmLinkRefConflict(ref, known);
+      }
+      return { candidates: conflict ? [] : rows, refConflict: conflict };
+    });
+    if (refConflict) {
+      await upsertInboundEmail(inbound, workProviderId, null);
+      await writeAudit({
+        action: AUDIT_ACTION.duplicate_flagged,
+        severity: "warning",
+        summary: `Reply matched a case by registration only (vrm ${vrm}) but cites a different reference (${jobref || ref}); held for manual linking`,
+        after: { vrm, jobref: jobref || ref, messageId: inbound.internetMessageId }
+      });
+      ctx.log(JSON.stringify({ evt: "linkReply", outcome: "no_match", reason: "vrm_ref_conflict", jobref }));
+      return { status: 200, jsonBody: { outcome: "no_match", candidateCount: 0 } };
+    }
+    const linkCaseId = candidates.length === 1 ? candidates[0].id : null;
+    await upsertInboundEmail(
+      inbound,
+      workProviderId,
+      linkCaseId,
+      void 0,
+      void 0,
+      linkCaseId ? "routed" : void 0
+    );
+    if (linkCaseId) {
+      await writeAudit({
+        action: AUDIT_ACTION.inbound_routed,
+        caseId: linkCaseId,
+        summary: `Reply linked to existing case (${ref ? `ref ${ref}` : `vrm ${vrm}`})`,
+        after: { matchedBy: ref ? "caseref" : "vrm", messageId: inbound.internetMessageId }
+      });
+      await markOutstandingChasersResponded(linkCaseId, "reply linked");
+      ctx.log(JSON.stringify({ evt: "linkReply", outcome: "linked", caseId: linkCaseId }));
+      return { status: 200, jsonBody: { outcome: "linked", caseId: linkCaseId, candidateCount: 1 } };
+    }
+    if (candidates.length > 1) {
+      await writeAudit({
+        action: AUDIT_ACTION.duplicate_flagged,
+        severity: "warning",
+        summary: `Reply matched ${candidates.length} open cases (${ref ? `ref ${ref}` : `vrm ${vrm}`}); held for manual linking`,
+        after: { candidateCount: candidates.length, candidateIds: candidates.map((c) => c.id) }
+      });
+      ctx.log(JSON.stringify({ evt: "linkReply", outcome: "ambiguous", count: candidates.length }));
+      return { status: 200, jsonBody: { outcome: "ambiguous", candidateCount: candidates.length } };
+    }
+    ctx.log(JSON.stringify({ evt: "linkReply", outcome: "no_match" }));
+    return { status: 200, jsonBody: { outcome: "no_match", candidateCount: 0 } };
+  })
+});
+import_functions.app.http("internalTriageContext", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/triage/context",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json().catch(() => ({}));
+    const caseref = (body2.caseref ?? "").trim();
+    const jobref = (body2.jobref ?? "").trim();
+    const vrm = (body2.vrm ?? "").trim();
+    const internetMessageId = (body2.internetMessageId ?? "").trim();
+    const conversationId = (body2.conversationId ?? "").trim();
+    const hasConversationCol = await hasColumn("inbound_email", "conversation_id");
+    const result = await tx(async (q) => {
+      await acquireTriageLocks(q, { caseref, jobref, vrm });
+      let openCaseMatches = [];
+      if (caseref || jobref || vrm) {
+        const rows = await q(
+          `SELECT id, case_po, status_code, duplicate_keys,
+                    CASE
+                      WHEN $1 <> '' AND (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)) THEN 'case_po'
+                      WHEN $2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)) THEN 'job_ref'
+                      WHEN $3 <> '' AND upper(vrm) = upper($3) THEN 'vrm'
+                    END AS matched_on
+               FROM case_
+              WHERE status_code NOT IN (${TERMINAL_INT_CODES.join(",")})
+                AND (
+                  ($1 <> '' AND (upper(case_po) = upper($1) OR upper(case_ref) = upper($1)))
+                  OR ($2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)))
+                  OR ($3 <> '' AND upper(vrm) = upper($3))
+                )
+              ORDER BY created_at`,
+          [caseref, jobref, vrm]
+        );
+        openCaseMatches = rows.filter((r) => {
+          const status = caseStatusCodec.toName(r.status_code) ?? "error";
+          return !(status === "linked_to_instruction" && mergedIntoFrom(r.duplicate_keys));
+        }).map((r) => ({
+          caseId: r.id,
+          casePo: r.case_po ?? "",
+          matchedOn: r.matched_on,
+          status: caseStatusCodec.toName(r.status_code) ?? "error"
+        }));
+      }
+      let duplicateInternetMessageId = false;
+      if (internetMessageId) {
+        const dupRows = await q(
+          `SELECT EXISTS (
+                SELECT 1 FROM case_ WHERE source_message_id = $1
+              ) AS found`,
+          [internetMessageId]
+        );
+        duplicateInternetMessageId = Boolean(dupRows[0]?.found);
+      }
+      let conversationSiblingCaseIds = [];
+      if (hasConversationCol && conversationId) {
+        const sibRows = await q(
+          `SELECT DISTINCT case_id FROM inbound_email
+              WHERE conversation_id = $1 AND case_id IS NOT NULL`,
+          [conversationId]
+        );
+        conversationSiblingCaseIds = sibRows.map((r) => r.case_id);
+      }
+      return { openCaseMatches, duplicateInternetMessageId, conversationSiblingCaseIds };
+    });
+    return { status: 200, jsonBody: result };
+  })
+});
+import_functions.app.http("internalTriageSuggestLink", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/triage/suggest-link",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json().catch(() => ({}));
+    const suggestionType = body2.suggestionType;
+    if (suggestionType !== "case_link" && suggestionType !== "cancellation" && suggestionType !== "triage_category") {
+      return {
+        status: 400,
+        jsonBody: { error: "suggestionType must be 'case_link', 'cancellation' or 'triage_category'" }
+      };
+    }
+    const sourceMessageId = (body2.sourceMessageId ?? "").trim() || null;
+    const targetCaseId = suggestionType === "triage_category" ? null : (body2.targetCaseId ?? "").trim() || null;
+    const rationale = (body2.rationale ?? "").trim() || null;
+    const confidence = typeof body2.confidence === "number" ? body2.confidence : null;
+    const decisionInputs = body2.decisionInputs ?? {};
+    let triageCategory = null;
+    let triageSubtype = null;
+    if (suggestionType === "triage_category") {
+      const cat = (body2.category ?? "").trim();
+      const sub = (body2.subtype ?? "").trim();
+      if (!cat || !(cat in INBOUND_CATEGORY_TO_INT)) {
+        return { status: 400, jsonBody: { error: "category must be a known inbound category" } };
+      }
+      if (!sub || !(sub in INBOUND_SUBTYPE_TO_INT)) {
+        return { status: 400, jsonBody: { error: "subtype must be a known inbound subtype" } };
+      }
+      triageCategory = cat;
+      triageSubtype = sub;
+    }
+    let inboundEmailId = (body2.inboundEmailId ?? "").trim() || null;
+    if (!inboundEmailId && sourceMessageId) {
+      const rows = await query(
+        "SELECT id FROM inbound_email WHERE source_message_id = $1",
+        [sourceMessageId]
+      );
+      inboundEmailId = rows[0]?.id ?? null;
+    }
+    const idemKey = deriveSuggestionIdempotencyKey({
+      suggestionType,
+      inboundEmailId,
+      sourceMessageId,
+      targetCaseId
+    });
+    let existing = [];
+    if (idemKey) {
+      existing = idemKey.subjectKind === "inbound_email_id" ? await query(
+        `SELECT id FROM ai_suggestion
+                  WHERE suggestion_type = $1 AND review_state = 'pending' AND inbound_email_id = $2
+                    AND (suggested_value->>'targetCaseId') IS NOT DISTINCT FROM $3
+                  LIMIT 1`,
+        [idemKey.suggestionType, idemKey.subject, idemKey.targetCaseId]
+      ) : await query(
+        `SELECT id FROM ai_suggestion
+                  WHERE suggestion_type = $1 AND review_state = 'pending' AND inbound_email_id IS NULL
+                    AND (suggested_value->>'sourceMessageId') IS NOT DISTINCT FROM $2
+                    AND (suggested_value->>'targetCaseId') IS NOT DISTINCT FROM $3
+                  LIMIT 1`,
+        [idemKey.suggestionType, idemKey.subject, idemKey.targetCaseId]
+      );
+    }
+    if (existing[0]) {
+      return { status: 200, jsonBody: { suggestionId: existing[0].id, created: false } };
+    }
+    let casePo = null;
+    if (targetCaseId) {
+      const caseRows = await query("SELECT case_po FROM case_ WHERE id = $1", [targetCaseId]);
+      casePo = caseRows[0]?.case_po ?? null;
+    }
+    const suggestedValue = suggestionType === "triage_category" ? {
+      category: triageCategory,
+      subtype: triageSubtype,
+      // Carry sourceMessageId so the source_message_id-subject idempotency SELECT (used
+      // when the inbound_email row isn't resolvable yet — inboundEmailId null) can match a
+      // prior PENDING copy on a Durable at-least-once retry. Without it the dedup filters
+      // on `suggested_value->>'sourceMessageId'`, a field this branch never wrote, so it
+      // never matches and inserts a duplicate 'AI suggested category' banner.
+      ...sourceMessageId ? { sourceMessageId } : {}
+    } : {
+      ...targetCaseId ? { targetCaseId } : {},
+      ...casePo ? { casePo } : {},
+      ...sourceMessageId ? { sourceMessageId } : {},
+      decisionInputs
+    };
+    const modelVersion = suggestionType === "triage_category" ? (body2.modelVersion ?? "").trim() || "unknown" : TRIAGE_POLICY_VERSION;
+    const inserted = await query(
+      `INSERT INTO ai_suggestion
+           (inbound_email_id, suggestion_type, suggested_value, rationale, confidence, model_version)
+         VALUES ($1, $2, $3::jsonb, $4, $5, $6)
+         RETURNING id`,
+      [inboundEmailId, suggestionType, JSON.stringify(suggestedValue), rationale, confidence, modelVersion]
+    );
+    const suggestionId = inserted[0]?.id;
+    if (!suggestionId) {
+      return { status: 500, jsonBody: { error: "suggestion insert returned no id" } };
+    }
+    let autoAttached = false;
+    if (suggestionType === "case_link") {
+      await writeAudit({
+        action: AUDIT_ACTION.inbound_link_suggested,
+        ...targetCaseId ? { caseId: targetCaseId } : {},
+        summary: "A message was suggested for linking to an existing case",
+        after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId }
+      });
+      if (body2.autoAttach === true && targetCaseId && inboundEmailId) {
+        const linked = await query(
+          `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
+               WHERE id = $1 AND case_id IS NULL RETURNING id`,
+          [inboundEmailId, targetCaseId]
+        );
+        if (linked[0]) {
+          await query(
+            `UPDATE ai_suggestion SET review_state = 'accepted', reviewed_by = 'auto-attach', reviewed_at = now()
+                 WHERE id = $1 AND review_state = 'pending'`,
+            [suggestionId]
+          );
+          await writeAudit({
+            action: AUDIT_ACTION.inbound_linked,
+            caseId: targetCaseId,
+            summary: "Inbound email linked to case (auto-attach)",
+            before: { caseId: null },
+            after: { caseId: targetCaseId, inboundEmailId, suggestionId, auto: true },
+            actor: "auto-attach"
+          });
+          await markOutstandingChasersResponded(targetCaseId, "auto-attach");
+          autoAttached = true;
+        }
+      }
+    } else if (suggestionType === "cancellation") {
+      await writeAudit({
+        action: AUDIT_ACTION.cancellation_proposed,
+        ...targetCaseId ? { caseId: targetCaseId } : {},
+        summary: "A message reported a case cancelled or closed \u2014 flagged for review",
+        after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId }
+      });
+    } else {
+      await writeAudit({
+        action: AUDIT_ACTION.ai_suggestion_created,
+        summary: "An AI-suggested category was proposed for a message",
+        after: { suggestionId, sourceMessageId, inboundEmailId, category: triageCategory, subtype: triageSubtype }
+      });
+    }
+    ctx.log(JSON.stringify({ evt: "triageSuggestLink", suggestionType, suggestionId, targetCaseId, autoAttached }));
+    return { status: 200, jsonBody: { suggestionId, created: true, ...autoAttached ? { autoAttached: true } : {} } };
+  })
+});
+import_functions.app.http("internalTriageHeldPreInstruction", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/triage/held-pre-instruction",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json().catch(() => ({}));
+    const vrm = (body2.vrm ?? "").trim();
+    const caseRef = (body2.caseRef ?? "").trim();
+    const jobRef = (body2.jobRef ?? "").trim();
+    if (!vrm && !caseRef && !jobRef) {
+      return { status: 400, jsonBody: { error: "at least one of vrm, caseRef, jobRef is required" } };
+    }
+    const rows = await query(
+      `SELECT ie.id, ie.source_message_id, ie.body_vrm, ie.body_caseref, ie.body_jobref
+           FROM inbound_email ie
+           JOIN choice_inbound_category c ON c.code = ie.category_code
+          WHERE c.name = 'pre_instruction'
+            AND ie.case_id IS NULL
+            AND ie.triage_state = 'new'
+            AND (
+                  ($1 <> '' AND upper(ie.body_vrm) = upper($1))
+               OR ($2 <> '' AND upper(ie.body_caseref) = upper($2))
+               OR ($3 <> '' AND upper(ie.body_jobref) = upper($3))
+            )
+          ORDER BY ie.created_at DESC
+          LIMIT 5`,
+      [vrm, caseRef, jobRef]
+    );
+    const held = rows.map((r) => ({
+      inboundEmailId: r.id,
+      sourceMessageId: r.source_message_id ?? null,
+      matchedOn: vrm && r.body_vrm?.toUpperCase() === vrm.toUpperCase() ? "vrm" : caseRef && r.body_caseref?.toUpperCase() === caseRef.toUpperCase() ? "case_ref" : "job_ref"
+    }));
+    ctx.log(JSON.stringify({ evt: "heldPreInstruction", matches: held.length }));
+    return { status: 200, jsonBody: { held } };
+  })
+});
+import_functions.app.http("internalInboundOutlookMoved", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/inbound/{id}/outlook-moved",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const id = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const outcome = body2.outcome;
+    if (outcome !== "moved" && outcome !== "failed") {
+      return { status: 400, jsonBody: { error: "outcome must be 'moved' or 'failed'" } };
+    }
+    const existing = await query(
+      "SELECT id, case_id FROM inbound_email WHERE id = $1",
+      [id]
+    );
+    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const folder = typeof body2.folder === "string" && body2.folder ? body2.folder : null;
+    const detail = typeof body2.detail === "string" ? body2.detail.slice(0, 300) : null;
+    if (outcome === "moved") {
+      await query(
+        `UPDATE inbound_email
+              SET outlook_move_state = 'moved',
+                  outlook_moved_folder = COALESCE($2, outlook_moved_folder),
+                  outlook_moved_at = now(),
+                  triage_state = CASE
+                                   WHEN triage_state IS NULL OR triage_state = 'new' THEN 'actioned'
+                                   ELSE triage_state
+                                 END,
+                  updated_at = now()
+            WHERE id = $1`,
+        [id, folder]
+      );
+    } else {
+      await query(
+        `UPDATE inbound_email
+              SET outlook_move_state = 'failed', outlook_moved_at = now(), updated_at = now()
+            WHERE id = $1`,
+        [id]
+      );
+    }
+    await writeAudit({
+      action: outcome === "moved" ? AUDIT_ACTION.outlook_moved : AUDIT_ACTION.outlook_move_failed,
+      ...existing[0].case_id ? { caseId: existing[0].case_id } : {},
+      summary: outcome === "moved" ? `Outlook filing completed${folder ? ` -> ${folder}` : ""}` : "Outlook filing failed",
+      severity: outcome === "moved" ? "info" : "warning",
+      after: { inboundEmailId: id, ...folder ? { folder } : {}, ...detail ? { detail } : {} },
+      actor: "orchestration"
+    });
+    ctx.log(JSON.stringify({ evt: "outlookMoved", inboundEmailId: id, outcome, folder }));
+    return { status: 204 };
+  })
+});
+function parseEvidenceBackfillCommittedResult(value) {
+  let candidate = value;
+  if (typeof candidate === "string") {
+    try {
+      candidate = JSON.parse(candidate);
+    } catch {
+      return null;
+    }
+  }
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return null;
+  const row = candidate;
+  if (row.outcome !== "completed" && row.outcome !== "partial") return null;
+  const persisted = Number(row.persisted);
+  if (!Number.isSafeInteger(persisted) || persisted < 0) return null;
+  const result = { outcome: row.outcome, persisted };
+  const merged = Number(row.merged);
+  if (Number.isSafeInteger(merged) && merged >= 0) result.merged = merged;
+  const failedAttachments = Number(row.failedAttachments);
+  if (Number.isSafeInteger(failedAttachments) && failedAttachments >= 0) {
+    result.failedAttachments = failedAttachments;
+  }
+  if (typeof row.detail === "string" && row.detail.trim()) result.detail = row.detail.slice(0, 300);
+  return result;
+}
+import_functions.app.http("internalInboundEvidenceBackfillValidate", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/inbound/{id}/evidence-backfill/validate",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json().catch(() => ({}));
+    const targetCaseId = typeof body2.targetCaseId === "string" ? body2.targetCaseId.trim() : "";
+    if (!targetCaseId) return { status: 400, jsonBody: { error: "targetCaseId is required" } };
+    const suppliedGeneration = body2.generation == null ? null : Number(body2.generation);
+    if (suppliedGeneration != null && (!Number.isSafeInteger(suppliedGeneration) || suppliedGeneration < 1)) {
+      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
+    }
+    const resolved = await withResolvedEvidenceBackfillTarget(
+      req.params.id,
+      targetCaseId,
+      async (q) => {
+        const rows = await q(
+          `SELECT evidence_backfill_requested_generation,
+                    evidence_backfill_completed_generation,
+                    evidence_backfill_completed_result
+               FROM inbound_email
+              WHERE id = $1`,
+          [req.params.id]
+        );
+        const requested = Number(
+          rows[0]?.evidence_backfill_requested_generation ?? suppliedGeneration ?? 1
+        );
+        const completed = Number(rows[0]?.evidence_backfill_completed_generation ?? 0);
+        const generation = suppliedGeneration ?? requested;
+        if (generation < 1 || generation > requested) {
+          return { kind: "generation_mismatch", requested };
+        }
+        if (suppliedGeneration != null && generation < requested && completed < generation) {
+          return { kind: "superseded", generation };
+        }
+        const committedGeneration = completed >= generation ? completed : generation;
+        const committedResult = completed >= generation ? parseEvidenceBackfillCommittedResult(rows[0]?.evidence_backfill_completed_result) : null;
+        return {
+          kind: "validated",
+          generation: committedGeneration,
+          completed: completed >= generation,
+          ...committedResult ? { committedResult } : {}
+        };
+      }
+    );
+    if (resolved.kind === "stale") {
+      return {
+        status: 409,
+        jsonBody: { error: "evidence backfill target changed", code: "evidence_backfill_target_changed" }
+      };
+    }
+    if (resolved.value.kind === "generation_mismatch") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "evidence backfill generation changed",
+          code: "evidence_backfill_generation_changed",
+          requestedGeneration: resolved.value.requested
+        }
+      };
+    }
+    if (resolved.value.kind === "superseded") {
+      return {
+        status: 200,
+        jsonBody: {
+          targetCaseId: resolved.targetCaseId,
+          generation: resolved.value.generation,
+          completed: false,
+          superseded: true
+        }
+      };
+    }
+    return {
+      status: 200,
+      jsonBody: {
+        targetCaseId: resolved.targetCaseId,
+        generation: resolved.value.generation,
+        completed: resolved.value.completed,
+        ...resolved.value.committedResult ? { committedResult: resolved.value.committedResult } : {}
+      }
+    };
+  })
+});
+import_functions.app.http("internalInboundEvidenceBackfill", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/inbound/{id}/evidence-backfill",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const id = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const outcome = body2.outcome;
+    if (outcome !== "completed" && outcome !== "partial" && outcome !== "failed") {
+      return { status: 400, jsonBody: { error: "outcome must be 'completed', 'partial' or 'failed'" } };
+    }
+    const targetCaseId = typeof body2.targetCaseId === "string" ? body2.targetCaseId.trim() : "";
+    if (!targetCaseId) return { status: 400, jsonBody: { error: "targetCaseId is required" } };
+    const suppliedGeneration = body2.generation == null ? null : Number(body2.generation);
+    if (suppliedGeneration != null && (!Number.isSafeInteger(suppliedGeneration) || suppliedGeneration < 1)) {
+      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
+    }
+    const requestedDetail = typeof body2.detail === "string" ? body2.detail.slice(0, 300) : null;
+    const requestedPersisted = typeof body2.persisted === "number" ? body2.persisted : null;
+    const requestedMerged = typeof body2.merged === "number" ? body2.merged : null;
+    const requestedFailedAttachments = typeof body2.failedAttachments === "number" ? Math.max(0, Math.trunc(body2.failedAttachments)) : null;
+    const report = await tx(async (q) => {
+      const locked = await q(
+        `SELECT case_id, evidence_backfill_report_outcome,
+                  evidence_backfill_requested_generation,
+                  evidence_backfill_completed_generation,
+                  evidence_backfill_completed_result,
+                  evidence_backfill_reported_generation
+             FROM inbound_email
+            WHERE id = $1
+            FOR UPDATE`,
+        [id]
+      );
+      if (!locked[0]) return { kind: "missing" };
+      if ((locked[0].case_id ?? null) !== targetCaseId) return { kind: "stale" };
+      const requestedGeneration = Number(
+        locked[0].evidence_backfill_requested_generation ?? suppliedGeneration ?? 1
+      );
+      const completedGeneration = Number(locked[0].evidence_backfill_completed_generation ?? 0);
+      const reportedGeneration = Number(locked[0].evidence_backfill_reported_generation ?? 0);
+      const generation = suppliedGeneration ?? requestedGeneration;
+      if (generation < 1 || generation > requestedGeneration) {
+        return { kind: "generation_mismatch", requestedGeneration };
+      }
+      if (completedGeneration > generation) {
+        return {
+          kind: "replay",
+          generation,
+          effectiveOutcome: outcome,
+          protectedCompletion: true
+        };
+      }
+      const committedResult = completedGeneration === generation ? parseEvidenceBackfillCommittedResult(locked[0].evidence_backfill_completed_result) : null;
+      if (suppliedGeneration != null && completedGeneration === generation && !committedResult) {
+        return { kind: "missing_committed_result", completedGeneration };
+      }
+      const protectedCompletion = committedResult != null && outcome !== committedResult.outcome;
+      const effectiveOutcome = committedResult?.outcome ?? outcome;
+      const persisted = committedResult?.persisted ?? requestedPersisted;
+      const merged = committedResult?.merged ?? requestedMerged;
+      const failedAttachments = committedResult?.failedAttachments ?? requestedFailedAttachments;
+      const detail = committedResult?.detail ?? requestedDetail;
+      if (suppliedGeneration != null && (effectiveOutcome === "completed" || effectiveOutcome === "partial") && completedGeneration < generation) {
+        return { kind: "not_committed", completedGeneration };
+      }
+      const rank = {
+        failed: 0,
+        partial: 1,
+        completed: 2
+      };
+      const currentOutcome = locked[0].evidence_backfill_report_outcome;
+      if (generation < reportedGeneration || generation === reportedGeneration && currentOutcome != null && rank[currentOutcome] >= rank[effectiveOutcome]) {
+        return {
+          kind: "replay",
+          generation,
+          effectiveOutcome,
+          protectedCompletion
+        };
+      }
+      await writeEvidenceBackfillNote(
+        { caseId: targetCaseId, inboundEmailId: id, kind: effectiveOutcome },
+        q
+      );
+      const updated = await q(
+        `UPDATE inbound_email
+              SET evidence_backfill_report_outcome = $2,
+                  evidence_backfill_reported_generation = $3,
+                  evidence_backfill_reported_at = now(),
+                  updated_at = now()
+            WHERE id = $1
+              AND evidence_backfill_reported_generation <= $3
+          RETURNING id`,
+        [id, effectiveOutcome, generation]
+      );
+      if (!updated[0] && suppliedGeneration != null) {
+        return { kind: "replay", generation, effectiveOutcome, protectedCompletion };
+      }
+      if (effectiveOutcome === "completed") {
+        await writeAudit({
+          action: AUDIT_ACTION.attachment_classified,
+          caseId: targetCaseId,
+          summary: `Attachments added from the linked email (${persisted ?? "?"} new${merged ? `, ${merged} matched` : ""})`,
+          after: {
+            inboundEmailId: id,
+            generation,
+            persisted,
+            merged,
+            ...protectedCompletion ? { protectedFromOutcome: outcome } : {}
+          },
+          actor: "orchestration"
+        }, q);
+      } else {
+        await writeAudit({
+          action: AUDIT_ACTION.graph_message_ingest_failed,
+          caseId: targetCaseId,
+          summary: effectiveOutcome === "partial" ? "Some attachments from the linked email could not be added" : "Attachments from the linked email could not be added \u2014 staff must add them",
+          severity: "warning",
+          after: {
+            inboundEmailId: id,
+            generation,
+            ...failedAttachments != null ? { failedAttachments } : {},
+            ...detail ? { detail } : {}
+          },
+          actor: "orchestration"
+        }, q);
+      }
+      return {
+        kind: "transition",
+        generation,
+        effectiveOutcome,
+        protectedCompletion
+      };
+    });
+    if (report.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+    if (report.kind === "stale") {
+      return {
+        status: 409,
+        jsonBody: { error: "evidence backfill target changed", code: "evidence_backfill_target_changed" }
+      };
+    }
+    if (report.kind === "generation_mismatch") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "evidence backfill generation changed",
+          code: "evidence_backfill_generation_changed",
+          requestedGeneration: report.requestedGeneration
+        }
+      };
+    }
+    if (report.kind === "not_committed") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "evidence backfill persistence is not committed",
+          code: "evidence_backfill_not_committed",
+          completedGeneration: report.completedGeneration
+        }
+      };
+    }
+    if (report.kind === "missing_committed_result") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "evidence backfill committed result is unavailable",
+          code: "evidence_backfill_committed_result_missing",
+          completedGeneration: report.completedGeneration
+        }
+      };
+    }
+    ctx.log(
+      JSON.stringify({
+        evt: "evidenceBackfillReport",
+        inboundEmailId: id,
+        outcome: report.effectiveOutcome,
+        requestedOutcome: outcome,
+        generation: report.generation,
+        targetCaseId,
+        replay: report.kind === "replay",
+        protectedCompletion: report.protectedCompletion
+      })
+    );
+    return { status: 204 };
+  })
+});
+var ATTENTION_REASONS = /* @__PURE__ */ new Set(["unable_to_locate", "images_no_match"]);
+import_functions.app.http("internalInboundAttention", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/inbound/attention",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json().catch(() => ({}));
+    const sourceMessageId = typeof body2.sourceMessageId === "string" ? body2.sourceMessageId.trim() : "";
+    const reason = typeof body2.reason === "string" ? body2.reason.trim() : "";
+    if (!sourceMessageId) {
+      return { status: 400, jsonBody: { error: "sourceMessageId is required" } };
+    }
+    if (!ATTENTION_REASONS.has(reason)) {
+      return { status: 400, jsonBody: { error: "reason must be a known attention reason" } };
+    }
+    if (!await hasColumn("inbound_email", "attention_reason")) {
+      ctx.log(JSON.stringify({ evt: "inboundAttention", stamped: false, reason: "column_absent" }));
+      return { status: 200, jsonBody: { stamped: false, detail: "column_absent" } };
+    }
+    const rows = await query(
+      `UPDATE inbound_email SET attention_reason = $2, updated_at = now()
+          WHERE source_message_id = $1 RETURNING id`,
+      [sourceMessageId, reason]
+    );
+    ctx.log(JSON.stringify({ evt: "inboundAttention", stamped: Boolean(rows[0]), reason }));
+    return { status: 200, jsonBody: { stamped: Boolean(rows[0]) } };
+  })
+});
+async function applyEvidenceMetadata(_ctx, whereClause, whereVals, row, computed, q = query) {
+  const changedIds = /* @__PURE__ */ new Set();
+  let readinessChanged = false;
+  const ownedSets = [];
+  const ownedChanges = [];
+  const ownedVals = [...whereVals];
+  const pushOwned = (column, sourceColumn, value) => {
+    ownedVals.push(value);
+    const p = `$${ownedVals.length}`;
+    const allowed = `(${sourceColumn} IS NULL OR ${sourceColumn} = 'classifier')`;
+    ownedSets.push(
+      `${column} = CASE WHEN ${allowed} THEN ${p} ELSE ${column} END`,
+      `${sourceColumn} = CASE WHEN ${allowed} THEN 'classifier' ELSE ${sourceColumn} END`
+    );
+    ownedChanges.push(
+      `(${allowed} AND (${column} IS DISTINCT FROM ${p} OR ${sourceColumn} IS DISTINCT FROM 'classifier'))`
+    );
+  };
+  if (row.decisionSource === "classifier" && (row.imageRoleCode != null || row.imageRole != null)) {
+    pushOwned("image_role_code", "image_role_source", computed.imageRoleCode);
+  }
+  if (row.decisionSource === "classifier" && typeof row.registrationVisible === "boolean") {
+    pushOwned("registration_visible", "registration_visible_source", computed.registrationVisible);
+  }
+  if (row.decisionSource === "classifier" && typeof row.acceptedForEva === "boolean") {
+    pushOwned("accepted_for_eva", "accepted_for_eva_source", row.acceptedForEva);
+  }
+  const legacyExplicitExclusion = row.decisionSource == null && row.excluded === true;
+  if ((row.decisionSource === "classifier" || legacyExplicitExclusion) && row.excluded != null) {
+    ownedVals.push(computed.excluded, computed.exclusionReason);
+    const excludedP = `$${ownedVals.length - 1}`;
+    const reasonP = `$${ownedVals.length}`;
+    const allowed = `(
+      (exclusion_decision_source IS NULL OR exclusion_decision_source = 'classifier')
+      AND (
+        NOT ${excludedP}
+        OR archive_mirror_claim_token IS NULL
+        OR archive_mirror_claim_expires_at <= now()
+      )
+    )`;
+    ownedSets.push(
+      `excluded = CASE WHEN ${allowed} THEN ${excludedP} ELSE excluded END`,
+      `exclusion_reason = CASE WHEN ${allowed} THEN ${reasonP} ELSE exclusion_reason END`,
+      `exclusion_decision_source = CASE WHEN ${allowed} THEN 'classifier' ELSE exclusion_decision_source END`,
+      `archive_mirror_decision_generation = archive_mirror_decision_generation +
+        CASE WHEN ${allowed} AND excluded IS DISTINCT FROM ${excludedP} THEN 1 ELSE 0 END`
+    );
+    ownedChanges.push(
+      `(${allowed} AND (excluded IS DISTINCT FROM ${excludedP} OR exclusion_reason IS DISTINCT FROM ${reasonP} OR exclusion_decision_source IS DISTINCT FROM 'classifier'))`
+    );
+  }
+  if (ownedSets.length > 0) {
+    const res = await q(
+      `UPDATE evidence
+            SET ${ownedSets.join(", ")}, updated_at = now()
+          WHERE ${whereClause}
+            AND deletion_operation_id IS NULL
+            AND (${ownedChanges.join(" OR ")})
+          RETURNING id, case_id, excluded, storage_path, box_file_id, deletion_operation_id`,
+      ownedVals
+    );
+    for (const item of res) changedIds.add(item.id);
+    if (row.decisionSource === "classifier" && row.excluded === false) {
+      for (const item of res) await requestArchiveMirrorIfEligible(q, item);
+    }
+    readinessChanged = res.length > 0;
+  }
+  const simpleSets = [];
+  const simpleChanges = [];
+  const simpleVals = [...whereVals];
+  const pushSimple = (column, value) => {
+    simpleVals.push(value);
+    const p = `$${simpleVals.length}`;
+    simpleSets.push(`${column} = ${p}`);
+    simpleChanges.push(`${column} IS DISTINCT FROM ${p}`);
+  };
+  if (typeof row.personReflection === "boolean") pushSimple("person_reflection", row.personReflection);
+  if (row.excluded == null && typeof row.exclusionReason === "string" && row.exclusionReason.trim()) {
+    pushSimple("exclusion_reason", row.exclusionReason.trim());
+  }
+  if (row.sha256 != null) pushSimple("sha256", computed.sha256);
+  if (row.sequenceIndex != null) pushSimple("sequence_index", computed.sequenceIndex);
+  if (simpleSets.length > 0) {
+    const res = await q(
+      `UPDATE evidence
+            SET ${simpleSets.join(", ")}, updated_at = now()
+          WHERE ${whereClause}
+            AND deletion_operation_id IS NULL
+            AND (${simpleChanges.join(" OR ")})
+          RETURNING id`,
+      simpleVals
+    );
+    for (const item of res) changedIds.add(item.id);
+  }
+  return { updated: changedIds.size, readinessChanged };
+}
+var SHA256_HEX_RE = /^[0-9a-f]{64}$/i;
+import_functions.app.http("internalCasesEvidence", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/evidence",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = req.params.id;
+    const body2 = await req.json();
+    if (!Array.isArray(body2.rows) || body2.rows.some(
+      (row) => row.decisionSource != null && row.decisionSource !== "classifier"
+    )) {
+      return { status: 400, jsonBody: { error: "unsupported evidence decision source" } };
+    }
+    const persistRows = async (q, persistCaseId) => {
+      let persisted = 0;
+      let updated = 0;
+      let merged = 0;
+      let suppressed = 0;
+      const replayCleanup = [];
+      let readinessChanged = false;
+      let boxImageArrived = false;
+      for (const row of body2.rows ?? []) {
+        let suppliedClass = row.evidenceClass ?? "other";
+        if (suppliedClass === "image") {
+          const derived = describeEvidence(row.filename, row.contentType).evidenceClass;
+          const mimeIsImage = (row.contentType ?? "").toLowerCase().startsWith("image/");
+          suppliedClass = derived === "image" || mimeIsImage ? "image" : derived;
+        }
+        const kindCode = evidenceKindCodec.toInt(suppliedClass) ?? null;
+        const imageRoleCode = (typeof row.imageRoleCode === "number" ? row.imageRoleCode : void 0) ?? imageRoleCodec.toInt(row.imageRole) ?? 100000003;
+        const registrationVisible = typeof row.registrationVisible === "boolean" ? row.registrationVisible : null;
+        const excluded = row.excluded === true;
+        const exclusionReason = excluded ? (row.exclusionReason ?? "").trim() || "Excluded" : (row.exclusionReason ?? "").trim() || null;
+        const personReflection = row.personReflection === true;
+        const sha256 = (row.sha256 ?? "").trim() || null;
+        const sequenceIndex = Number.isInteger(row.sequenceIndex) ? row.sequenceIndex : null;
+        const hasMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || typeof row.acceptedForEva === "boolean" || row.excluded != null || row.exclusionReason != null || row.personReflection != null || row.sha256 != null || row.sequenceIndex != null;
+        const hasReadinessMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || typeof row.acceptedForEva === "boolean" || typeof row.excluded === "boolean";
+        const decisionSource = row.decisionSource === "classifier" ? "classifier" : null;
+        const insertionExclusionDecisionSource = typeof row.excluded === "boolean" && row.excluded ? decisionSource ?? "classifier" : decisionSource;
+        const sourceMessageId = (row.sourceMessageId ?? "").trim() || null;
+        const boxFileId = (row.boxFileId ?? "").trim() || null;
+        const isBoxRow = sourceMessageId != null || boxFileId != null;
+        const isBoxImageRow = isBoxRow && suppliedClass === "image";
+        const deleted = await q(
+          `SELECT storage_path, box_file_id, box_folder_id
+           FROM evidence_deletion
+            WHERE case_id = $1
+              AND state <> 'cancelled'
+              AND (
+                ($2::text IS NOT NULL AND storage_path = $2::text
+                  AND blob_outcome IN ('deleted','missing'))
+                OR ($3::text IS NOT NULL AND box_file_id = $3::text
+                  AND box_outcome IN ('deleted','missing'))
+              )
+            ORDER BY requested_at DESC
+            LIMIT 1`,
+          [persistCaseId, row.blobPath ?? null, boxFileId]
+        );
+        if (deleted[0]) {
+          suppressed++;
+          replayCleanup.push({
+            ...row.blobPath ? { blobPath: row.blobPath } : {},
+            ...boxFileId ? { boxFileId } : {},
+            ...deleted[0].box_folder_id ? { boxFolderId: deleted[0].box_folder_id } : {}
+          });
+          continue;
+        }
+        if (sha256 && SHA256_HEX_RE.test(sha256)) {
+          const twin = await q(
+            `SELECT id, box_file_id, box_file_url, storage_path, source_message_id,
+                    deletion_operation_id
+               FROM evidence WHERE case_id = $1 AND sha256 = $2
+                AND deletion_operation_id IS NULL
+              LIMIT 1`,
+            [persistCaseId, sha256]
+          );
+          const ex = twin[0];
+          if (ex) {
+            const sameIdentity = isBoxRow ? boxFileId != null && ex.box_file_id === boxFileId || sourceMessageId != null && ex.source_message_id === sourceMessageId : row.blobPath != null && ex.storage_path === row.blobPath;
+            const hasMergeMetadata = row.imageRoleCode != null || row.imageRole != null || typeof row.registrationVisible === "boolean" || typeof row.acceptedForEva === "boolean" || row.excluded != null || row.exclusionReason != null || row.personReflection != null || row.sequenceIndex != null;
+            if (!sameIdentity) {
+              if (isBoxRow && ex.box_file_id == null && boxFileId != null) {
+                await q(
+                  `UPDATE evidence
+                      SET box_file_id = $2,
+                          box_file_url = COALESCE($3, box_file_url),
+                          updated_at = now()
+                    WHERE id = $1 AND box_file_id IS NULL`,
+                  [ex.id, boxFileId, (row.boxFileUrl ?? "").trim() || null]
+                );
+              } else if (!isBoxRow && ex.storage_path == null && row.blobPath) {
+                await q(
+                  `UPDATE evidence
+                      SET storage_path = $2::text, updated_at = now()
+                    WHERE id = $1 AND storage_path IS NULL`,
+                  [ex.id, row.blobPath]
+                );
+              }
+              if (hasMergeMetadata) {
+                const applied = await applyEvidenceMetadata(ctx, "id = $1", [ex.id], row, {
+                  imageRoleCode,
+                  registrationVisible,
+                  excluded,
+                  exclusionReason,
+                  sha256,
+                  sequenceIndex
+                }, q);
+                updated += applied.updated;
+                readinessChanged ||= applied.readinessChanged;
+              }
+              merged++;
+              continue;
+            }
+            if (hasMergeMetadata) {
+              const applied = await applyEvidenceMetadata(ctx, "id = $1", [ex.id], row, {
+                imageRoleCode,
+                registrationVisible,
+                excluded,
+                exclusionReason,
+                sha256,
+                sequenceIndex
+              }, q);
+              updated += applied.updated;
+              readinessChanged ||= applied.readinessChanged;
+            }
+            continue;
+          }
+        }
+        let inserted = false;
+        if (isBoxRow) {
+          const dedupCol = sourceMessageId != null ? "source_message_id" : "box_file_id";
+          const dedupVal = sourceMessageId ?? boxFileId;
+          const result2 = await q(
+            `INSERT INTO evidence
+               (file_name, case_id, kind_code, content_type, size_bytes,
+                source_message_id, box_file_id, box_file_url, accepted_for_eva, source_label,
+                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index,
+                image_role_source, registration_visible_source, accepted_for_eva_source, exclusion_decision_source)
+             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+                    $18, $19, $20, $21
+             WHERE NOT EXISTS (
+               SELECT 1 FROM evidence WHERE case_id = $2 AND ${dedupCol} = $22
+             )
+             RETURNING id`,
+            [
+              row.filename,
+              persistCaseId,
+              kindCode,
+              row.contentType || null,
+              row.size ?? null,
+              sourceMessageId,
+              boxFileId,
+              (row.boxFileUrl ?? "").trim() || null,
+              row.acceptedForEva ?? true,
+              (row.sourceLabel ?? "").trim() || "box_upload",
+              imageRoleCode,
+              registrationVisible,
+              excluded,
+              exclusionReason,
+              personReflection,
+              sha256,
+              sequenceIndex,
+              row.imageRoleCode != null || row.imageRole != null ? decisionSource : null,
+              typeof row.registrationVisible === "boolean" ? decisionSource : null,
+              typeof row.acceptedForEva === "boolean" ? decisionSource : null,
+              typeof row.excluded === "boolean" ? insertionExclusionDecisionSource : null,
+              dedupVal
+            ]
+          );
+          inserted = result2.length > 0;
+          if (!inserted && hasMetadata) {
+            const applied = await applyEvidenceMetadata(
+              ctx,
+              `case_id = $1 AND ${dedupCol} = $2`,
+              [persistCaseId, dedupVal],
+              row,
+              { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
+              q
+            );
+            updated += applied.updated;
+            readinessChanged ||= applied.readinessChanged;
+          }
+        } else {
+          const acceptedForEva = row.acceptedForEva ?? true;
+          const result2 = await q(
+            `INSERT INTO evidence
+               (file_name, case_id, kind_code, content_type, size_bytes, storage_path, source_label,
+                accepted_for_eva,
+                image_role_code, registration_visible, excluded, exclusion_reason, person_reflection, sha256, sequence_index,
+                image_role_source, registration_visible_source, accepted_for_eva_source, exclusion_decision_source)
+             SELECT $1, $2, $3, $4, $5, $6::text, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+                    $16, $17, $18, $19
+             WHERE NOT EXISTS (
+               SELECT 1 FROM evidence WHERE case_id = $2 AND storage_path = $6::text
+             )
+             RETURNING id`,
+            [
+              row.filename,
+              persistCaseId,
+              kindCode,
+              row.contentType || null,
+              row.size ?? null,
+              row.blobPath ?? null,
+              (row.sourceLabel ?? "").trim() || "auto-intake",
+              acceptedForEva,
+              imageRoleCode,
+              registrationVisible,
+              excluded,
+              exclusionReason,
+              personReflection,
+              sha256,
+              sequenceIndex,
+              row.imageRoleCode != null || row.imageRole != null ? decisionSource : null,
+              typeof row.registrationVisible === "boolean" ? decisionSource : null,
+              typeof row.acceptedForEva === "boolean" ? decisionSource : null,
+              typeof row.excluded === "boolean" ? insertionExclusionDecisionSource : null
+            ]
+          );
+          inserted = result2.length > 0;
+          if (!inserted && hasMetadata && row.blobPath) {
+            const applied = await applyEvidenceMetadata(
+              ctx,
+              "case_id = $1 AND storage_path = $2::text",
+              [persistCaseId, row.blobPath],
+              row,
+              { imageRoleCode, registrationVisible, excluded, exclusionReason, sha256, sequenceIndex },
+              q
+            );
+            updated += applied.updated;
+            readinessChanged ||= applied.readinessChanged;
+          }
+        }
+        if (inserted) {
+          if (isBoxImageRow) boxImageArrived = true;
+          persisted++;
+          readinessChanged = true;
+          if (suppliedClass === "image" && hasReadinessMetadata && row.decisionSource === "classifier") readinessChanged = true;
+        }
+      }
+      if (boxImageArrived) {
+        await markImageChasersResponded(q, persistCaseId, "archive upload");
+      }
+      const statusGeneration = readinessChanged ? await requestStatusRecompute(q, persistCaseId) : void 0;
+      return {
+        persisted,
+        updated,
+        merged,
+        ...suppressed > 0 ? { suppressed, replayCleanup } : {},
+        ...statusGeneration == null ? {} : { statusGeneration }
+      };
+    };
+    const cleanupSuppressedReplay = async (value) => {
+      for (const item of value.replayCleanup ?? []) {
+        if (item.boxFileId && item.boxFolderId) {
+          try {
+            await deleteBoxFile(item.boxFileId, item.boxFolderId);
+          } catch (error2) {
+            const status = error2 && typeof error2 === "object" && "status" in error2 ? Number(error2.status) : void 0;
+            if (status !== 400) throw error2;
+            ctx.warn(
+              `[evidence-replay] suppressed Box copy ${item.boxFileId} could not be removed safely`
+            );
+          }
+        }
+        if (item.blobPath) await deleteEvidenceBytes(item.blobPath);
+      }
+    };
+    const expectedInboundEmailId = typeof body2.expectedInboundEmailId === "string" ? body2.expectedInboundEmailId.trim() : "";
+    if (expectedInboundEmailId) {
+      const suppliedBackfillGeneration = body2.evidenceBackfillGeneration == null ? null : Number(body2.evidenceBackfillGeneration);
+      if (suppliedBackfillGeneration != null && (!Number.isSafeInteger(suppliedBackfillGeneration) || suppliedBackfillGeneration < 1)) {
+        return { status: 400, jsonBody: { error: "evidenceBackfillGeneration must be a positive integer" } };
+      }
+      const suppliedBackfillOutcome = body2.evidenceBackfillOutcome;
+      if (suppliedBackfillGeneration != null && suppliedBackfillOutcome !== "completed" && suppliedBackfillOutcome !== "partial") {
+        return {
+          status: 400,
+          jsonBody: { error: "evidenceBackfillOutcome must be 'completed' or 'partial'" }
+        };
+      }
+      const backfillOutcome = suppliedBackfillOutcome === "partial" ? "partial" : "completed";
+      const backfillFailedAttachments = typeof body2.evidenceBackfillFailedAttachments === "number" ? Math.max(0, Math.trunc(body2.evidenceBackfillFailedAttachments)) : void 0;
+      const backfillDetail = typeof body2.evidenceBackfillDetail === "string" && body2.evidenceBackfillDetail.trim() ? body2.evidenceBackfillDetail.slice(0, 300) : void 0;
+      const guarded = await withResolvedEvidenceBackfillTarget(
+        expectedInboundEmailId,
+        caseId,
+        async (q, resolvedCaseId) => {
+          if (resolvedCaseId.trim().toLowerCase() !== caseId.trim().toLowerCase()) {
+            return { kind: "reclassification_required" };
+          }
+          if (suppliedBackfillGeneration == null) {
+            return {
+              kind: "persisted",
+              value: await persistRows(q, resolvedCaseId)
+            };
+          }
+          const progress = await q(
+            `SELECT evidence_backfill_requested_generation,
+                      evidence_backfill_completed_generation,
+                      evidence_backfill_completed_result
+                 FROM inbound_email
+                WHERE id = $1`,
+            [expectedInboundEmailId]
+          );
+          const requestedGeneration = Number(
+            progress[0]?.evidence_backfill_requested_generation ?? suppliedBackfillGeneration ?? 1
+          );
+          const completedGeneration = Number(
+            progress[0]?.evidence_backfill_completed_generation ?? 0
+          );
+          const backfillGeneration = suppliedBackfillGeneration ?? requestedGeneration;
+          if (backfillGeneration < 1 || backfillGeneration > requestedGeneration) {
+            return {
+              kind: "generation_mismatch",
+              requestedGeneration
+            };
+          }
+          if (completedGeneration >= backfillGeneration) {
+            const completedResult2 = parseEvidenceBackfillCommittedResult(
+              progress[0]?.evidence_backfill_completed_result
+            );
+            if (suppliedBackfillGeneration != null && !completedResult2) {
+              throw new Error("evidence backfill completion marker has no durable result");
+            }
+            return {
+              kind: "persisted",
+              value: {
+                persisted: completedResult2?.persisted ?? 0,
+                updated: 0,
+                merged: completedResult2?.merged ?? 0,
+                backfillGeneration,
+                alreadyCompleted: true,
+                ...completedResult2 ? { completedResult: completedResult2 } : {}
+              }
+            };
+          }
+          const value = await persistRows(q, resolvedCaseId);
+          const completedResult = {
+            outcome: backfillOutcome,
+            persisted: value.persisted,
+            merged: value.merged,
+            ...backfillFailedAttachments == null ? {} : { failedAttachments: backfillFailedAttachments },
+            ...backfillDetail ? { detail: backfillDetail } : {}
+          };
+          const marked = await q(
+            `UPDATE inbound_email
+                  SET evidence_backfill_completed_generation = $2,
+                      evidence_backfill_completed_result = $4::jsonb,
+                      evidence_backfill_completed_at = now(),
+                      updated_at = now()
+                WHERE id = $1
+                  AND case_id = $3
+                  AND evidence_backfill_requested_generation = $2
+                  AND evidence_backfill_completed_generation < $2
+              RETURNING evidence_backfill_completed_generation,
+                        evidence_backfill_completed_result`,
+            [
+              expectedInboundEmailId,
+              backfillGeneration,
+              resolvedCaseId,
+              JSON.stringify(completedResult)
+            ]
+          );
+          if (!marked[0]) {
+            throw new Error("evidence backfill completion marker target disappeared");
+          }
+          return {
+            kind: "persisted",
+            value: {
+              ...value,
+              backfillGeneration,
+              alreadyCompleted: false,
+              completedResult
+            }
+          };
+        }
+      );
+      if (guarded.kind === "stale") {
+        return {
+          status: 409,
+          jsonBody: { error: "evidence backfill target changed", code: "evidence_backfill_target_changed" }
+        };
+      }
+      if (guarded.value.kind === "reclassification_required") {
+        return {
+          status: 409,
+          jsonBody: {
+            error: "evidence backfill must be reclassified for the merged case",
+            code: "evidence_backfill_reclassification_required",
+            targetCaseId: guarded.targetCaseId
+          }
+        };
+      }
+      if (guarded.value.kind === "generation_mismatch") {
+        return {
+          status: 409,
+          jsonBody: {
+            error: "evidence backfill generation changed",
+            code: "evidence_backfill_generation_changed",
+            requestedGeneration: guarded.value.requestedGeneration
+          }
+        };
+      }
+      await cleanupSuppressedReplay(
+        "replayCleanup" in guarded.value.value ? guarded.value.value : {}
+      );
+      return {
+        status: 200,
+        jsonBody: { ...guarded.value.value, targetCaseId: guarded.targetCaseId }
+      };
+    }
+    const result = await tx(async (q) => {
+      const lockedCase = await lockCaseForMutation(q, caseId);
+      if (lockedCase.kind !== "active") return lockedCase;
+      return { kind: "persisted", value: await persistRows(q, lockedCase.caseId) };
+    });
+    if (result.kind === "missing") {
+      return { status: 404, jsonBody: { error: "case not found" } };
+    }
+    if (result.kind === "retired") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "case has been merged",
+          code: "case_merged",
+          targetCaseId: result.mergedInto
+        }
+      };
+    }
+    await cleanupSuppressedReplay(result.value);
+    return { status: 200, jsonBody: result.value };
+  })
+});
+import_functions.app.http("internalCasesArchiveEvidence", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/archive-evidence",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = req.params.id;
+    if (!caseId) return { status: 400, jsonBody: { error: "caseId required" } };
+    const result = await tx(async (q) => {
+      const lockedCase = await lockCaseForMutation(q, caseId);
+      if (lockedCase.kind !== "active") return { kind: lockedCase.kind };
+      const rows = await q(
+        `UPDATE evidence
+              SET archive_mirror_claim_token = gen_random_uuid(),
+                  archive_mirror_claimed_at = now(),
+                  archive_mirror_claim_expires_at = now() + interval '30 minutes',
+                  updated_at = now()
+            WHERE case_id = $1
+              AND storage_path IS NOT NULL
+              AND box_file_id IS NULL
+              AND excluded = false
+              AND deletion_operation_id IS NULL
+              AND (
+                archive_mirror_claim_token IS NULL
+                OR archive_mirror_claim_expires_at <= now()
+              )
+          RETURNING id,
+                    file_name AS filename,
+                    content_type AS "contentType",
+                    storage_path AS "blobPath",
+                    archive_mirror_claim_token::text AS "claimToken",
+                    archive_mirror_decision_generation AS "decisionGeneration",
+                    source_label AS "sourceLabel"`,
+        [lockedCase.caseId]
+      );
+      rows.sort((a, b) => a.filename.localeCompare(b.filename));
+      return { kind: "claimed", rows };
+    });
+    return { status: 200, jsonBody: { rows: result.kind === "claimed" ? result.rows : [] } };
+  })
+});
+import_functions.app.http("internalCasesArchiveEvidenceStamp", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/archive-evidence/stamp",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = req.params.id;
+    if (!caseId) return { status: 400, jsonBody: { error: "caseId required" } };
+    const body2 = await req.json();
+    const evidenceId = typeof body2.evidenceId === "string" ? body2.evidenceId.trim() : "";
+    const blobPath = typeof body2.blobPath === "string" ? body2.blobPath.trim() : "";
+    const boxFileId = typeof body2.boxFileId === "string" ? body2.boxFileId.trim() : "";
+    const boxFileUrl = typeof body2.boxFileUrl === "string" ? body2.boxFileUrl.trim() : "";
+    const claimToken = typeof body2.claimToken === "string" ? body2.claimToken.trim() : "";
+    const decisionGeneration = Number(body2.decisionGeneration);
+    if (!evidenceId || !blobPath || !boxFileId || !claimToken || !Number.isSafeInteger(decisionGeneration) || decisionGeneration < 0) {
+      return {
+        status: 400,
+        jsonBody: {
+          error: "evidenceId, blobPath, boxFileId, claimToken and decisionGeneration required"
+        }
+      };
+    }
+    const result = await tx(async (q) => {
+      const lockedCase = await lockCaseForMutation(q, caseId);
+      if (lockedCase.kind !== "active") return { kind: lockedCase.kind };
+      const updated = await q(
+        `UPDATE evidence
+              SET box_file_id = $4,
+                  box_file_url = COALESCE($5, box_file_url),
+                  archive_mirror_claim_token = NULL,
+                  archive_mirror_claimed_at = NULL,
+                  archive_mirror_claim_expires_at = NULL,
+                  updated_at = now()
+            WHERE case_id = $1
+              AND id = $2
+              AND storage_path = $3
+              AND excluded = false
+              AND archive_mirror_claim_token = $6::uuid
+              AND archive_mirror_claim_expires_at > now()
+              AND archive_mirror_decision_generation = $7
+              AND deletion_operation_id IS NULL
+            RETURNING id`,
+        [
+          lockedCase.caseId,
+          evidenceId,
+          blobPath,
+          boxFileId,
+          boxFileUrl || null,
+          claimToken,
+          decisionGeneration
+        ]
+      );
+      return { kind: "updated", updated: updated.length > 0 };
+    });
+    return { status: 200, jsonBody: { updated: result.kind === "updated" && result.updated } };
+  })
+});
+import_functions.app.http("internalCasesStatusEvaluate", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/status-evaluate",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const generation = body2.generation == null ? void 0 : Number(body2.generation);
+    if (generation != null && (!Number.isSafeInteger(generation) || generation < 1)) {
+      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
+    }
+    const result = await recomputeStatus(caseId, generation);
+    return {
+      status: 200,
+      jsonBody: {
+        value: result.value,
+        ...result.completed == null ? {} : { completed: result.completed },
+        ...result.pending == null ? {} : { pending: result.pending }
+      }
+    };
+  })
+});
+import_functions.app.http("internalCasesArchiveEvidenceRelease", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/archive-evidence/release",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const evidenceId = typeof body2.evidenceId === "string" ? body2.evidenceId.trim() : "";
+    const claimToken = typeof body2.claimToken === "string" ? body2.claimToken.trim() : "";
+    if (!caseId || !evidenceId || !claimToken) {
+      return { status: 400, jsonBody: { error: "caseId, evidenceId and claimToken required" } };
+    }
+    const released = await tx(async (q) => {
+      const lockedCase = await lockCaseForMutation(q, caseId);
+      if (lockedCase.kind !== "active") return false;
+      const rows = await q(
+        `UPDATE evidence
+              SET archive_mirror_claim_token = NULL,
+                  archive_mirror_claimed_at = NULL,
+                  archive_mirror_claim_expires_at = NULL,
+                  updated_at = now()
+            WHERE id = $1
+              AND case_id = $2
+              AND archive_mirror_claim_token = $3::uuid
+            RETURNING id`,
+        [evidenceId, lockedCase.caseId, claimToken]
+      );
+      return rows.length > 0;
+    });
+    return { status: 200, jsonBody: { released } };
+  })
+});
+import_functions.app.http("internalCasesSetIngested", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/set-ingested",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = req.params.id;
+    const ingestedCode = statusToInt("ingested");
+    const newEmailCode = statusToInt("new_email");
+    const updated = await query(
+      `UPDATE case_ SET status_code = $1
+         WHERE id = $2 AND status_code = $3
+         RETURNING id`,
+      [ingestedCode, caseId, newEmailCode]
+    );
+    if (updated.length > 0) {
+      await writeAudit({
+        action: AUDIT_ACTION.status_changed,
+        caseId,
+        summary: "Status set to ingested (intake pipeline picked up)",
+        after: { status: "ingested" }
+      });
+    }
+    return { status: 200, jsonBody: { updated: updated.length > 0 } };
+  })
+});
+import_functions.app.http("internalCasesMarkDone", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/mark-done",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const signal = ["sent_email", "box_pdf", "eva_poll", "manual"].includes(body2.signal ?? "") ? body2.signal : "unknown";
+    const updated = await tx((q) => markCaseDoneUsing(q, {
+      caseId,
+      signal,
+      ...body2.detail ? { detail: String(body2.detail) } : {}
+    }));
+    return { status: 200, jsonBody: { updated } };
+  })
+});
+import_functions.app.http("internalCasesLookup", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/lookup",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json().catch(() => ({}));
+    const caseIds = (Array.isArray(body2.caseIds) ? body2.caseIds : []).map((s) => String(s).trim()).filter(Boolean).slice(0, 20);
+    const casePo = (body2.casePo ?? "").trim();
+    const vrm = (body2.vrm ?? "").trim();
+    if (caseIds.length === 0 && !casePo && !vrm) {
+      return { status: 200, jsonBody: { cases: [] } };
+    }
+    const rows = await query(
+      // The VRM arm canonicalises BOTH sides (strip spaces/punctuation): the caller passes a
+      // compacted subject VRM (extractVrm -> "MX17PNL") but a stored registration may hold
+      // spaces ("MX17 PNL"), so a verbatim upper() compare would miss it — the same fix the
+      // search/assistant routes already use. (PR51-E2)
+      `SELECT id, case_po, status_code, work_provider_id, vrm
+           FROM case_
+          WHERE (cardinality($1::text[]) > 0 AND id::text = ANY($1::text[]))
+             OR ($2 <> '' AND (upper(case_po) = upper($2) OR upper(case_ref) = upper($2)))
+             OR ($3 <> '' AND regexp_replace(upper(vrm), '[^A-Z0-9]', '', 'g') = regexp_replace(upper($3), '[^A-Z0-9]', '', 'g'))
+          ORDER BY created_at DESC
+          LIMIT 25`,
+      [caseIds, casePo, vrm]
+    );
+    return {
+      status: 200,
+      jsonBody: {
+        cases: rows.map((r) => ({
+          caseId: r.id,
+          casePo: r.case_po ?? "",
+          status: caseStatusCodec.toName(r.status_code) ?? "error",
+          workProviderId: r.work_provider_id ?? "",
+          vrm: r.vrm ?? ""
+        }))
+      }
+    };
+  })
+});
+import_functions.app.http("internalAudit", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/audit",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json();
+    const code = AUDIT_ACTION_BY_NAME[body2.action];
+    await writeAudit({
+      action: code ?? AUDIT_ACTION.graph_message_ingested,
+      caseId: body2.caseId,
+      summary: body2.summary,
+      severity: body2.severity ?? "info",
+      before: body2.before,
+      after: body2.after
+    });
+    return { status: 204 };
+  })
+});
+import_functions.app.http("internalPrincipals", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/principals",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const rows = await query(
+      "SELECT principal_code FROM work_provider WHERE active = true ORDER BY principal_code"
+    );
+    return {
+      status: 200,
+      jsonBody: rows.map((r) => ({ principalCode: r.principal_code }))
+    };
+  })
+});
+import_functions.app.http("internalDispositionDue", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/disposition/due",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const rows = await query(
+      `SELECT id FROM case_
+          WHERE retention_expires_at IS NOT NULL
+            AND retention_expires_at < now()
+            AND legal_hold IS NOT TRUE
+          ORDER BY retention_expires_at
+          LIMIT 500`
+    );
+    return {
+      status: 200,
+      jsonBody: rows.map((r) => ({ caseId: r.id }))
+    };
+  })
+});
+import_functions.app.http("internalDispositionCase", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/disposition/{id}",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = req.params.id;
+    const evaCols = EVA_FIELD_ORDER.map((d) => `${EVA_COLUMN_BY_KEY[d.key]} = ''`).join(", ");
+    await query(
+      `UPDATE case_
+            SET ${evaCols},
+                vrm = '', case_ref = '', name = '[disposed]',
+                ov_insured_name = NULL, ov_claimant_name = NULL,
+                ov_third_party_name = NULL, ov_claim_number = NULL,
+                ov_policy_reference = NULL, ov_incident_date = NULL,
+                ov_insurer_name = NULL, ov_repairer_name = NULL,
+                closed_at = now(), updated_at = now()
+          WHERE id = $1`,
+      [caseId]
+    );
+    await writeAudit({
+      action: AUDIT_ACTION.case_disposed,
+      caseId,
+      summary: "Retention disposition: PII fields cleared",
+      severity: "warning"
+    });
+    return { status: 204 };
+  })
+});
+import_functions.app.http("internalBoxCaseByFolder", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/box/case-by-folder/{folderId}",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const folderId = (req.params.folderId ?? "").trim();
+    if (!folderId) return { status: 200, jsonBody: { caseId: null, casePo: null } };
+    const rows = await query(
+      "SELECT id, case_po FROM case_ WHERE box_folder_id = $1 LIMIT 1",
+      [folderId]
+    );
+    const caseId = rows.length > 0 ? rows[0].id : null;
+    const casePo = rows.length > 0 ? rows[0].case_po ?? null : null;
+    return { status: 200, jsonBody: { caseId, casePo } };
+  })
+});
+import_functions.app.http("internalBoxPurgeCandidates", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/box/purge-candidates",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const rows = await query(
+      `SELECT case_id, storage_path
+           FROM evidence
+          WHERE box_file_id IS NOT NULL
+            AND storage_path IS NOT NULL
+            AND deletion_operation_id IS NULL
+          ORDER BY created_at
+          LIMIT 1000`
+    );
+    return {
+      status: 200,
+      jsonBody: rows.map((r) => ({
+        caseId: r.case_id,
+        blobPath: r.storage_path
+      }))
+    };
+  })
+});
+import_functions.app.http("internalBoxMarkPurged", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/box/mark-purged",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json();
+    await tx(async (q) => {
+      const lockedCase = await lockCaseForMutation(q, body2.caseId);
+      if (lockedCase.kind !== "active") return;
+      await q(
+        `UPDATE evidence
+              SET storage_path = NULL, updated_at = now()
+            WHERE case_id = $1 AND storage_path = $2
+              AND deletion_operation_id IS NULL`,
+        [lockedCase.caseId, body2.blobPath]
+      );
+    });
+    return { status: 204 };
+  })
+});
+import_functions.app.http("internalStaffUploadCleanupClaim", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/staff-upload-cleanup/claim",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const limitRaw = Number(req.query.get("limit") ?? "25");
+    const limit = Math.min(100, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25));
+    const rows = await tx(async (q) => {
+      await q(
+        `UPDATE staff_evidence_upload_item item
+              SET state = 'complete', evidence_id = e.id,
+                  upload_claim_token = NULL, upload_claim_expires_at = NULL,
+                  cleanup_claim_token = NULL, cleanup_claim_expires_at = NULL,
+                  cleanup_next_attempt_at = NULL, updated_at = now()
+             FROM evidence e
+            WHERE e.storage_path = item.blob_path
+              AND item.state IN ('uploading', 'cleanup_pending')`
+      );
+      await q(
+        `UPDATE staff_evidence_upload_item item
+              SET state = 'cleanup_pending',
+                  upload_claim_token = NULL, upload_claim_expires_at = NULL,
+                  cleanup_next_attempt_at = now() + interval '15 minutes',
+                  cleanup_last_error = COALESCE(cleanup_last_error, 'upload lease expired'),
+                  updated_at = now()
+            WHERE item.state = 'uploading'
+              AND (item.upload_claim_expires_at IS NULL OR item.upload_claim_expires_at <= now())
+              AND NOT EXISTS (
+                SELECT 1 FROM evidence e WHERE e.storage_path = item.blob_path
+              )`
+      );
+      return q(
+        `WITH candidates AS (
+             SELECT item.id
+               FROM staff_evidence_upload_item item
+              WHERE item.state = 'cleanup_pending'
+                AND (item.cleanup_next_attempt_at IS NULL OR item.cleanup_next_attempt_at <= now())
+                AND (item.cleanup_claim_expires_at IS NULL OR item.cleanup_claim_expires_at <= now())
+                AND NOT EXISTS (
+                  SELECT 1 FROM evidence e WHERE e.storage_path = item.blob_path
+                )
+              ORDER BY item.created_at, item.id
+              LIMIT $1
+              FOR UPDATE SKIP LOCKED
+           )
+           UPDATE staff_evidence_upload_item item
+              SET state = 'cleanup_pending',
+                  upload_claim_token = NULL, upload_claim_expires_at = NULL,
+                  cleanup_claim_token = gen_random_uuid(),
+                  cleanup_claim_expires_at = now() + interval '15 minutes',
+                  cleanup_attempt_count = cleanup_attempt_count + 1,
+                  updated_at = now()
+             FROM candidates candidate
+            WHERE item.id = candidate.id
+        RETURNING item.id, item.blob_path, item.cleanup_claim_token,
+                  item.cleanup_attempt_count`,
+        [limit]
+      );
+    });
+    return {
+      status: 200,
+      jsonBody: {
+        rows: rows.map((row) => ({
+          itemId: row.id,
+          blobPath: row.blob_path,
+          claimToken: row.cleanup_claim_token,
+          attemptCount: Number(row.cleanup_attempt_count ?? 0)
+        }))
+      }
+    };
+  })
+});
+import_functions.app.http("internalStaffUploadCleanupComplete", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/staff-upload-cleanup/{id}/complete",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const itemId = (req.params.id ?? "").trim();
+    const body2 = await req.json();
+    const claimToken = (body2.claimToken ?? "").trim();
+    if (!itemId || !claimToken || !["deleted", "missing", "failed"].includes(body2.outcome ?? "")) {
+      return { status: 400, jsonBody: { error: "cleanup claim and outcome are required" } };
+    }
+    const result = await tx(async (q) => {
+      const items = await q(
+        `SELECT blob_path, cleanup_attempt_count
+             FROM staff_evidence_upload_item
+            WHERE id = $1 AND state = 'cleanup_pending'
+              AND cleanup_claim_token = $2::uuid
+            FOR UPDATE`,
+        [itemId, claimToken]
+      );
+      const item = items[0];
+      if (!item) return { updated: false, stale: true };
+      const linked = await q(
+        `SELECT id FROM evidence WHERE storage_path = $1 ORDER BY created_at, id LIMIT 1 FOR UPDATE`,
+        [item.blob_path]
+      );
+      if (linked[0]) {
+        await q(
+          `UPDATE staff_evidence_upload_item
+                SET state = 'complete', evidence_id = $2,
+                    cleanup_claim_token = NULL, cleanup_claim_expires_at = NULL,
+                    cleanup_next_attempt_at = NULL, updated_at = now()
+              WHERE id = $1`,
+          [itemId, linked[0].id]
+        );
+        return { updated: true, cleaned: false, referenced: true };
+      }
+      if (body2.outcome === "failed") {
+        const delayMinutes = Math.min(1440, 5 * 2 ** Math.min(8, item.cleanup_attempt_count));
+        await q(
+          `UPDATE staff_evidence_upload_item
+                SET cleanup_claim_token = NULL, cleanup_claim_expires_at = NULL,
+                    cleanup_next_attempt_at = now() + make_interval(mins => $2),
+                    cleanup_last_error = $3, updated_at = now()
+              WHERE id = $1`,
+          [itemId, delayMinutes, (body2.detail ?? "").trim().slice(0, 400)]
+        );
+        return { updated: true, cleaned: false, retry: true };
+      }
+      await q(
+        `UPDATE staff_evidence_upload_item
+              SET state = 'cleaned', cleanup_claim_token = NULL,
+                  cleanup_claim_expires_at = NULL, cleanup_next_attempt_at = NULL,
+                  cleanup_last_error = NULL, updated_at = now()
+            WHERE id = $1`,
+        [itemId]
+      );
+      return { updated: true, cleaned: true };
+    });
+    return { status: 200, jsonBody: result };
+  })
+});
+import_functions.app.http("internalEvidenceUnclassifiedBox", {
+  methods: ["GET", "POST"],
+  authLevel: "anonymous",
+  route: "internal/evidence/unclassified-box",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const limitRaw = Number(req.query.get("limit") ?? "25");
+    const limit = Math.min(100, Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25));
+    const includeBoxRaw = req.query.get("includeBox");
+    if (includeBoxRaw != null && includeBoxRaw !== "true" && includeBoxRaw !== "false") {
+      return { status: 400, jsonBody: { error: "includeBox must be true or false" } };
+    }
+    const includeBox = includeBoxRaw !== "false";
+    const imageKind = evidenceKindCodec.toInt("image") ?? 1e8;
+    const unknownRole = imageRoleCodec.toInt("unknown") ?? 100000003;
+    const duePredicate = `(
+              ($4::boolean AND e.box_file_id IS NOT NULL AND e.source_label LIKE 'box_upload%')
+              OR (
+                NULLIF(btrim(e.storage_path), '') IS NOT NULL
+                AND e.source_label IN (
+                  'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                  'staff_legacy_upload', 'agent_image_ingest'
+                )
+              )
+            )
+            AND e.kind_code = $1
+            AND e.deletion_operation_id IS NULL
+            AND e.image_role_code = $2
+            AND e.registration_visible IS NULL
+            AND (
+              e.excluded = false
+              OR (
+                e.source_label IN (
+                  'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                  'staff_legacy_upload', 'agent_image_ingest'
+                )
+                AND e.excluded = true
+                AND e.exclusion_decision_source = 'classifier'
+                AND e.exclusion_reason = 'Image check pending'
+              )
+            )
+            AND (
+              COALESCE(e.box_classify_attempt_count, 0) > 0
+              OR e.created_at > now() - interval '14 days'
+              OR e.source_label IN (
+                'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                'staff_legacy_upload', 'agent_image_ingest'
+              )
+            )
+            AND e.box_classify_dead_lettered_at IS NULL
+            AND (e.box_classify_next_attempt_at IS NULL OR e.box_classify_next_attempt_at <= now())
+            AND (e.box_classify_claim_expires_at IS NULL OR e.box_classify_claim_expires_at <= now())
+            AND (
+              wp.ai_allowed IS DISTINCT FROM false
+              OR e.source_label IN (
+                'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                'staff_legacy_upload', 'agent_image_ingest'
+              )
+            )`;
+    const rows = req.method?.toUpperCase() === "POST" ? await query(
+      `WITH candidates AS (
+               SELECT e.id
+                 FROM evidence e
+                 JOIN case_ c ON c.id = e.case_id
+                 LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+                WHERE ${duePredicate}
+                ORDER BY e.created_at DESC, e.id
+                LIMIT $3
+                FOR UPDATE OF e SKIP LOCKED
+             ), claimed AS (
+               UPDATE evidence e
+                  SET box_classify_claim_token = gen_random_uuid(),
+                      box_classify_claim_expires_at = now() + interval '30 minutes',
+                      box_classify_attempt_count = e.box_classify_attempt_count + 1,
+                      updated_at = now()
+                 FROM candidates candidate
+                WHERE e.id = candidate.id
+               RETURNING e.*
+             )
+             SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id, e.storage_path,
+                    e.source_label, e.source_message_id, e.box_classify_claim_token,
+                    e.box_classify_attempt_count, c.vrm, c.work_provider_id
+               FROM claimed e
+               JOIN case_ c ON c.id = e.case_id
+              ORDER BY e.created_at DESC, e.id`,
+      [imageKind, unknownRole, limit, includeBox]
+    ) : await query(
+      `SELECT e.id, e.case_id, e.file_name, e.content_type, e.box_file_id, e.storage_path,
+                    e.source_label, e.source_message_id, NULL::uuid AS box_classify_claim_token,
+                    e.box_classify_attempt_count, c.vrm, c.work_provider_id
+               FROM evidence e
+               JOIN case_ c ON c.id = e.case_id
+               LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+              WHERE ${duePredicate}
+              ORDER BY e.created_at DESC, e.id
+              LIMIT $3`,
+      [imageKind, unknownRole, limit, includeBox]
+    );
+    return {
+      status: 200,
+      jsonBody: {
+        rows: rows.map((r) => ({
+          evidenceId: r.id,
+          caseId: r.case_id,
+          filename: r.file_name ?? "",
+          contentType: r.content_type ?? null,
+          boxFileId: r.box_file_id ?? null,
+          storagePath: r.storage_path ?? null,
+          sourceLabel: r.source_label ?? "",
+          sourceMessageId: r.source_message_id ?? null,
+          caseVrm: r.vrm ?? "",
+          workProviderId: r.work_provider_id ?? "",
+          claimToken: r.box_classify_claim_token ?? null,
+          attemptCount: Number(r.box_classify_attempt_count ?? 0)
+        }))
+      }
+    };
+  })
+});
+import_functions.app.http("internalEvidenceBoxClassification", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/evidence/{id}/box-classification",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const evidenceId = (req.params.id ?? "").trim();
+    const body2 = await req.json();
+    const imageKind = evidenceKindCodec.toInt("image") ?? 1e8;
+    const unknownRole = imageRoleCodec.toInt("unknown") ?? 100000003;
+    const claimToken = (body2.claimToken ?? "").trim();
+    if (body2.failure != null) {
+      const disposition = body2.failure.disposition;
+      const code = (body2.failure.code ?? "").trim().toLowerCase();
+      const detail = (body2.failure.detail ?? "").trim().slice(0, 400);
+      if (!evidenceId || !claimToken || disposition !== "transient" && disposition !== "terminal" || !/^[a-z0-9][a-z0-9_.:-]{0,79}$/.test(code)) {
+        return {
+          status: 400,
+          jsonBody: { error: "claimToken and a valid failure disposition/code are required" }
+        };
+      }
+      const terminal = disposition === "terminal";
+      const failed = await query(
+        `UPDATE evidence
+              SET box_classify_claim_token = NULL,
+                  box_classify_claim_expires_at = NULL,
+                  box_classify_last_failure_code = $3::text,
+                  box_classify_next_attempt_at = CASE
+                    WHEN $4::boolean THEN NULL
+                    WHEN box_classify_attempt_count <= 1 THEN now() + interval '15 minutes'
+                    WHEN box_classify_attempt_count = 2 THEN now() + interval '1 hour'
+                    WHEN box_classify_attempt_count = 3 THEN now() + interval '6 hours'
+                    ELSE now() + interval '24 hours'
+                  END,
+                  box_classify_dead_lettered_at = CASE WHEN $4::boolean THEN now() ELSE NULL END,
+                  box_classify_dead_letter_reason = CASE
+                    WHEN $4::boolean THEN left(COALESCE(NULLIF($5, ''), $3), 400)
+                    ELSE NULL
+                  END,
+                  exclusion_reason = CASE
+                    WHEN $4::boolean
+                     AND $3 = 'provider_ai_opted_out_manual_review'
+                     AND excluded = true
+                     AND source_label IN (
+                       'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                       'staff_legacy_upload', 'agent_image_ingest'
+                     )
+                    THEN 'Image needs staff review'
+                    ELSE exclusion_reason
+                  END,
+                  updated_at = now()
+            WHERE id = $1
+              AND box_classify_claim_token::text = $2
+              AND deletion_operation_id IS NULL
+              AND kind_code = $6
+              AND image_role_code = $7
+              AND registration_visible IS NULL
+              AND (
+                excluded = false
+                OR (
+                  source_label IN (
+                    'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                    'staff_legacy_upload', 'agent_image_ingest'
+                  )
+                  AND excluded = true
+                  AND exclusion_decision_source = 'classifier'
+                  AND exclusion_reason = 'Image check pending'
+                )
+              )
+          RETURNING box_classify_attempt_count,
+                    box_classify_next_attempt_at,
+                    box_classify_dead_lettered_at`,
+        [evidenceId, claimToken, code, terminal, detail, imageKind, unknownRole]
+      );
+      const row = failed[0];
+      return {
+        status: 200,
+        jsonBody: row ? {
+          updated: true,
+          disposition,
+          attemptCount: Number(row.box_classify_attempt_count ?? 0),
+          nextAttemptAt: row.box_classify_next_attempt_at ?? null,
+          deadLettered: row.box_classify_dead_lettered_at != null
+        } : { updated: false, stale: true }
+      };
+    }
+    const caseId = (body2.caseId ?? "").trim();
+    const boxFileId = (body2.boxFileId ?? "").trim();
+    const storagePath = (body2.storagePath ?? "").trim();
+    if (!evidenceId || !caseId || Boolean(boxFileId) === Boolean(storagePath)) {
+      return {
+        status: 400,
+        jsonBody: { error: "evidence id, caseId and exactly one file locator are required" }
+      };
+    }
+    if (typeof body2.registrationVisible !== "boolean" || typeof body2.acceptedForEva !== "boolean" || typeof body2.excluded !== "boolean" || typeof body2.personReflection !== "boolean" || body2.decisionSource !== "classifier") {
+      return { status: 400, jsonBody: { error: "classification booleans are required" } };
+    }
+    const imageRoleCode = body2.imageRole === "other" ? unknownRole : imageRoleCodec.toInt(body2.imageRole);
+    if (imageRoleCode == null) {
+      return { status: 400, jsonBody: { error: "imageRole is not recognised" } };
+    }
+    const excluded = body2.excluded === true;
+    const exclusionReason = excluded ? (body2.exclusionReason ?? "").trim() || "Excluded" : null;
+    const result = await tx(async (q) => {
+      const lockedCase = await lockCaseForMutation(q, caseId);
+      if (lockedCase.kind === "retired") {
+        return { kind: "retired", targetCaseId: lockedCase.mergedInto };
+      }
+      if (lockedCase.kind === "missing") return { kind: "missing" };
+      const current = await q(
+        `SELECT id FROM evidence
+            WHERE id = $1
+              AND case_id = $2
+              AND deletion_operation_id IS NULL
+              AND (
+                ($3::text <> '' AND box_file_id = $3 AND source_label LIKE 'box_upload%')
+                OR (
+                  $4::text <> '' AND storage_path = $4
+                  AND source_label IN (
+                    'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
+                    'staff_legacy_upload', 'agent_image_ingest'
+                  )
+                )
+              )
+              AND kind_code = $5
+              AND ($6::text = '' OR box_classify_claim_token::text = $6)
+            FOR UPDATE`,
+        [evidenceId, lockedCase.caseId, boxFileId, storagePath, imageKind, claimToken]
+      );
+      if (!current[0]) {
+        return claimToken ? { kind: "stale" } : { kind: "missing" };
+      }
+      const identityWhere = boxFileId ? "id = $1 AND case_id = $2 AND box_file_id = $3" : "id = $1 AND case_id = $2 AND storage_path = $3";
+      const applied = await applyEvidenceMetadata(
+        ctx,
+        identityWhere,
+        [evidenceId, lockedCase.caseId, boxFileId || storagePath],
+        {
+          imageRole: body2.imageRole,
+          registrationVisible: body2.registrationVisible,
+          acceptedForEva: body2.acceptedForEva,
+          excluded: body2.excluded,
+          exclusionReason,
+          decisionSource: "classifier",
+          personReflection: body2.personReflection
+        },
+        {
+          imageRoleCode,
+          registrationVisible: body2.registrationVisible,
+          excluded,
+          exclusionReason,
+          sha256: null,
+          sequenceIndex: null
+        },
+        q
+      );
+      if (applied.updated === 0) return { kind: "stale" };
+      await q(
+        `UPDATE evidence
+              SET box_classify_attempt_count = 0,
+                  box_classify_next_attempt_at = NULL,
+                  box_classify_claim_token = NULL,
+                  box_classify_claim_expires_at = NULL,
+                  box_classify_last_failure_code = NULL,
+                  box_classify_dead_lettered_at = NULL,
+                  box_classify_dead_letter_reason = NULL,
+                  updated_at = now()
+            WHERE id = $1
+              AND ($2::text = '' OR box_classify_claim_token::text = $2)`,
+        [evidenceId, claimToken]
+      );
+      const generation = applied.readinessChanged ? await requestStatusRecompute(q, lockedCase.caseId) : null;
+      return { kind: "updated", generation };
+    });
+    if (result.kind === "missing") {
+      return { status: 404, jsonBody: { error: "evidence row not found" } };
+    }
+    if (result.kind === "retired") {
+      return {
+        status: 409,
+        jsonBody: { error: "case has been merged", code: "case_merged", targetCaseId: result.targetCaseId }
+      };
+    }
+    if (result.kind === "stale") {
+      return { status: 200, jsonBody: { updated: false, stale: true } };
+    }
+    return {
+      status: 200,
+      jsonBody: {
+        updated: true,
+        ...result.generation == null ? {} : { statusGeneration: result.generation }
+      }
+    };
+  })
+});
+import_functions.app.http("internalStatusRecomputePending", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/status-recompute/pending",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const limitRaw = Number(req.query.get("limit") ?? "25");
+    const limit = Math.min(
+      100,
+      Math.max(1, Number.isFinite(limitRaw) ? Math.trunc(limitRaw) : 25)
+    );
+    const rows = await query(
+      `SELECT id, status_recompute_requested_generation
+           FROM case_
+          WHERE status_recompute_completed_generation < status_recompute_requested_generation
+          ORDER BY status_recompute_requested_at ASC NULLS FIRST, id
+          LIMIT $1`,
+      [limit]
+    );
+    return {
+      status: 200,
+      jsonBody: {
+        rows: rows.map((r) => ({
+          caseId: r.id,
+          generation: Number(r.status_recompute_requested_generation)
+        }))
+      }
+    };
+  })
+});
+import_functions.app.http("internalStatusRecomputeComplete", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/status-recompute/{id}/complete",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = (req.params.id ?? "").trim();
+    const body2 = await req.json();
+    const generation = Number(body2.generation);
+    if (!caseId || !Number.isSafeInteger(generation) || generation < 1) {
+      return {
+        status: 400,
+        jsonBody: { error: "case id and a positive generation are required" }
+      };
+    }
+    const result = await recomputeStatus(caseId, generation);
+    if (!result.found) return { status: 404, jsonBody: { error: "case not found" } };
+    return {
+      status: 200,
+      jsonBody: { completed: result.completed, pending: result.pending }
+    };
+  })
+});
+import_functions.app.http("internalCaseBoxFolderGet", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/box-folder",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = (req.params.id ?? "").trim();
+    if (!caseId) return { status: 200, jsonBody: { boxFolderId: null, boxFolderUrl: null, casePo: null } };
+    const rows = await query(
+      "SELECT box_folder_id, box_folder_url, case_po FROM case_ WHERE id = $1",
+      [caseId]
+    );
+    const r = rows[0];
+    return {
+      status: 200,
+      jsonBody: {
+        boxFolderId: r?.box_folder_id ?? null,
+        boxFolderUrl: r?.box_folder_url ?? null,
+        casePo: r?.case_po ?? null
+      }
+    };
+  })
+});
+import_functions.app.http("internalCaseBoxFolderStamp", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/cases/{id}/box-folder",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = (req.params.id ?? "").trim();
+    const body2 = await req.json();
+    const boxFolderId = (body2.boxFolderId ?? "").trim();
+    const boxFolderUrl = (body2.boxFolderUrl ?? "").trim() || null;
+    if (!caseId || !boxFolderId) {
+      return { status: 400, jsonBody: { error: "caseId and boxFolderId required" } };
+    }
+    const result = await tx((q) => stampCaseArchiveFolderUsing(q, {
+      caseId,
+      boxFolderId,
+      boxFolderUrl
+    }));
+    return { status: 200, jsonBody: result };
+  })
+});
+import_functions.app.http("internalOutlookLinkBackfillCandidates", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/outlook-links/backfill-candidates",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const limit = Number(req.query.get("limit") ?? "25");
+    const rows = await listOutlookLinkBackfillCandidates(limit);
+    return { status: 200, jsonBody: { rows } };
+  })
+});
+import_functions.app.http("internalOutlookLinkBackfillResult", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/outlook-links/backfill-result",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json().catch(() => ({}));
+    const text = (key) => typeof body2[key] === "string" ? String(body2[key]).trim() : "";
+    const attemptId = text("attemptId");
+    const inboundEmailId = text("inboundEmailId");
+    const sourceMailbox = text("sourceMailbox");
+    const sourceMessageId = text("sourceMessageId");
+    const outcome = text("outcome");
+    const allowed = [
+      "resolved",
+      "not_found",
+      "not_accessible",
+      "ambiguous",
+      "unavailable"
+    ];
+    if (!attemptId || !inboundEmailId || !sourceMailbox || !sourceMessageId || !allowed.includes(outcome)) {
+      return { status: 400, jsonBody: { error: "invalid backfill result" } };
+    }
+    const result = await recordOutlookLinkBackfillResult({
+      attemptId,
+      inboundEmailId,
+      sourceMailbox,
+      sourceMessageId,
+      outcome,
+      reason: text("reason") || outcome,
+      ...text("graphMessageId") ? { graphMessageId: text("graphMessageId") } : {},
+      ...text("outlookWebLink") ? { outlookWebLink: text("outlookWebLink") } : {}
+    });
+    return { status: result.recorded ? 200 : 404, jsonBody: result };
+  })
+});
+
+// api/src/lib/concurrency.ts
+function versionToken(updatedAt) {
+  if (updatedAt == null) return "";
+  const d = updatedAt instanceof Date ? updatedAt : new Date(String(updatedAt));
+  return Number.isNaN(d.getTime()) ? String(updatedAt) : String(d.getTime());
+}
+function ifMatch2(req) {
+  const raw = req.headers.get("if-match");
+  return raw == null ? null : raw.replace(/"/g, "").trim();
+}
+
+// api/src/lib/uuid.ts
+var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isUuid2(value) {
+  return typeof value === "string" && UUID_RE.test(value);
+}
+
+// api/src/lib/box-file-request-outbox.ts
+var import_node_crypto10 = require("node:crypto");
+function allowedBoxHost(hostname2) {
+  const host = hostname2.toLowerCase();
+  return host === "app.box.com" || host.endsWith(".app.box.com");
+}
+function publicBoxOrigin() {
+  const raw = (process.env.BOX_FILE_REQUEST_PUBLIC_ORIGIN ?? "https://app.box.com").trim();
+  try {
+    const url2 = new URL(raw);
+    if (url2.protocol === "https:" && allowedBoxHost(url2.hostname)) return url2.origin;
+  } catch {
+  }
+  return "https://app.box.com";
+}
+function normalizeBoxFileRequest(value, expectedFolderId, now = Date.now()) {
+  if (!value || typeof value !== "object") return void 0;
+  const rec = value;
+  const folder = rec.folder;
+  const id = typeof rec.id === "string" ? rec.id.trim() : "";
+  const rawUrl = typeof rec.url === "string" ? rec.url.trim() : "";
+  const folderId = typeof folder?.id === "string" ? folder.id.trim() : "";
+  const status = rec.status === "active" || rec.status === "inactive" ? rec.status : void 0;
+  const rawExpiry = typeof rec.expires_at === "string" ? rec.expires_at.trim() : "";
+  if (!/^\d{1,40}$/.test(id) || !/^\d{1,40}$/.test(folderId) || folderId !== expectedFolderId.trim() || !status || rawUrl.length === 0 || rawUrl.length > 400) return void 0;
+  if (rawUrl.startsWith("/") && !/^\/f\/[A-Za-z0-9_-]+\/?$/.test(rawUrl)) return void 0;
+  let url2;
+  try {
+    url2 = new URL(rawUrl, `${publicBoxOrigin()}/`);
+  } catch {
+    return void 0;
+  }
+  if (url2.protocol !== "https:" || !allowedBoxHost(url2.hostname) || !/^\/f\/[A-Za-z0-9_-]+\/?$/.test(url2.pathname) || url2.username || url2.password || url2.search || url2.hash) return void 0;
+  let expiresAt;
+  let expired = false;
+  if (rawExpiry) {
+    const expiryMs = new Date(rawExpiry).getTime();
+    if (!Number.isFinite(expiryMs)) return void 0;
+    expiresAt = new Date(expiryMs).toISOString();
+    expired = expiryMs <= now;
+  }
+  return {
+    id,
+    url: url2.toString(),
+    folderId,
+    status,
+    ...expiresAt ? { expiresAt } : {},
+    active: status === "active" && !expired
+  };
+}
+async function requestBoxFileRequestIntent(q, caseId, folderId, templateId, options = {}) {
+  const rows = await q(
+    "SELECT * FROM box_file_request_outbox WHERE case_id = $1 FOR UPDATE",
+    [caseId]
+  );
+  const current = rows[0];
+  if (!current) {
+    await q(
+      `INSERT INTO box_file_request_outbox
+         (case_id, folder_id, template_id, requested_generation, completed_generation,
+          requested_at, next_attempt_at, repair_reason, updated_at)
+       VALUES ($1, $2, $3, 1, 0, now(), now(), $4, now())`,
+      [caseId, folderId, templateId, options.replaceReason ?? null]
+    );
+    return { generation: 1, alreadyCompleted: false };
+  }
+  const requested = Number(current.requested_generation);
+  const completed = Number(current.completed_generation);
+  if (options.replaceReason) {
+    const generation = Math.max(requested, completed) + 1;
+    await q(
+      `UPDATE box_file_request_outbox
+          SET folder_id = $2,
+              template_id = $3,
+              requested_generation = $4,
+              requested_at = now(),
+              attempt_count = 0,
+              next_attempt_at = now(),
+              claim_token = NULL,
+              claimed_at = NULL,
+              claim_expires_at = NULL,
+              last_error = NULL,
+              repair_reason = $5,
+              updated_at = now()
+        WHERE case_id = $1`,
+      [caseId, folderId, templateId, generation, options.replaceReason.slice(0, 100)]
+    );
+    return { generation, alreadyCompleted: false };
+  }
+  if (completed >= requested) {
+    await q(
+      `UPDATE box_file_request_outbox
+          SET folder_id = $2, template_id = $3, updated_at = now()
+        WHERE case_id = $1`,
+      [caseId, folderId, templateId]
+    );
+    return { generation: requested, alreadyCompleted: true };
+  }
+  await q(
+    `UPDATE box_file_request_outbox
+        SET folder_id = CASE WHEN attempt_count = 0 THEN $2 ELSE folder_id END,
+            template_id = CASE WHEN attempt_count = 0 THEN $3 ELSE template_id END,
+            next_attempt_at = CASE
+              WHEN claim_expires_at IS NULL OR claim_expires_at <= now() THEN now()
+              ELSE next_attempt_at
+            END,
+            updated_at = now()
+      WHERE case_id = $1`,
+    [caseId, folderId, templateId]
+  );
+  return { generation: requested, alreadyCompleted: false };
+}
+async function deferClaim(caseId, claimToken, error2) {
+  const reason = (error2 instanceof Error ? error2.message : String(error2)).slice(0, 200);
+  try {
+    await tx(async (q) => {
+      await lockCaseForMutation(q, caseId);
+      await q(
+        `UPDATE box_file_request_outbox
+            SET next_attempt_at = now() + make_interval(
+                  secs => LEAST(3600, (30 * power(2, LEAST(attempt_count, 6)))::integer)
+                ),
+                last_error = $3,
+                claim_token = NULL,
+                claimed_at = NULL,
+                claim_expires_at = NULL,
+                updated_at = now()
+          WHERE case_id = $1
+            AND claim_token = $2
+            AND completed_generation < requested_generation`,
+        [caseId, claimToken, reason]
+      );
+    });
+  } catch (deferError) {
+    console.error("[box-file-request] could not defer claimed work", deferError);
+  }
+}
+function replacementReason(error2) {
+  if (!(error2 instanceof FunctionCallError)) return void 0;
+  if (error2.status === 404) return "remote_request_deleted";
+  if (error2.status === 400 || error2.status === 403) return "request_folder_mismatch";
+  return void 0;
+}
+async function queueReplacement(caseId, expected, templateId, reason, actor) {
+  return tx(async (q) => {
+    const locked = await lockCaseForMutation(q, caseId);
+    if (locked.kind === "missing") return "missing";
+    if (locked.kind === "retired") return "retired";
+    const rows = await q(
+      `SELECT box_folder_id, box_file_request_id, box_file_request_url
+         FROM case_ WHERE id = $1 FOR UPDATE`,
+      [locked.caseId]
+    );
+    const row = rows[0];
+    const id = row?.box_file_request_id?.trim() ?? "";
+    const url2 = row?.box_file_request_url?.trim() ?? "";
+    if (id !== expected.id || url2 !== expected.url) return "changed";
+    const folderId = row?.box_folder_id?.trim() ?? "";
+    if (!folderId) return "changed";
+    await q(
+      `UPDATE case_
+          SET box_file_request_id = NULL,
+              box_file_request_url = NULL,
+              updated_at = now()
+        WHERE id = $1`,
+      [locked.caseId]
+    );
+    await requestBoxFileRequestIntent(q, locked.caseId, folderId, templateId, {
+      replaceReason: reason
+    });
+    await writeAudit({
+      action: AUDIT_ACTION.box_file_request_copied,
+      caseId: locked.caseId,
+      summary: "Image-upload link repair queued",
+      before: { boxFileRequestId: id, fileRequestUrl: url2 },
+      after: { repairReason: reason, boxFolderId: folderId },
+      ...actor ? { actor } : {}
+    }, q);
+    return "queued";
+  });
+}
+async function stampValidatedRequest(caseId, expected, state3, summary2, reason, actor) {
+  return tx(async (q) => {
+    const locked = await lockCaseForMutation(q, caseId);
+    if (locked.kind !== "active") return false;
+    const rows = await q(
+      `SELECT box_folder_id, box_file_request_id, box_file_request_url
+         FROM case_ WHERE id = $1 FOR UPDATE`,
+      [locked.caseId]
+    );
+    const row = rows[0];
+    if (row?.box_file_request_id?.trim() !== expected.id || row?.box_file_request_url?.trim() !== expected.url || row?.box_folder_id?.trim() !== state3.folderId) return false;
+    if (state3.url !== expected.url) {
+      await q(
+        "UPDATE case_ SET box_file_request_url = $2, updated_at = now() WHERE id = $1",
+        [locked.caseId, state3.url]
+      );
+    }
+    await q(
+      `UPDATE box_file_request_outbox
+          SET completed_generation = requested_generation,
+              completed_at = COALESCE(completed_at, now()),
+              claim_token = NULL, claimed_at = NULL, claim_expires_at = NULL,
+              last_error = NULL, updated_at = now()
+        WHERE case_id = $1`,
+      [locked.caseId]
+    );
+    if (summary2) {
+      await writeAudit({
+        action: AUDIT_ACTION.box_file_request_copied,
+        caseId: locked.caseId,
+        summary: summary2,
+        before: { status: "inactive", fileRequestUrl: expected.url },
+        after: {
+          status: "active",
+          boxFileRequestId: state3.id,
+          fileRequestUrl: state3.url,
+          ...state3.expiresAt ? { expiresAt: state3.expiresAt } : {},
+          ...reason ? { repairReason: reason } : {}
+        },
+        ...actor ? { actor } : {}
+      }, q);
+    }
+    return true;
+  });
+}
+async function validateStampedRequest(caseId, folderId, templateId, stamped, actor) {
+  let raw;
+  try {
+    raw = await callBoxGetFileRequest(stamped.id, folderId);
+  } catch (error2) {
+    const reason = replacementReason(error2);
+    if (!reason) {
+      return { kind: "pending", reason: error2 instanceof Error ? error2.message : String(error2) };
+    }
+    const queued = await queueReplacement(caseId, stamped, templateId, reason, actor);
+    if (queued === "missing") return { kind: "missing" };
+    if (queued === "retired") return { kind: "error", reason: "case_retired_during_repair" };
+    return processBoxFileRequestIntent(caseId, actor);
+  }
+  const state3 = normalizeBoxFileRequest(raw, folderId);
+  if (!state3 || state3.id !== stamped.id) {
+    const queued = await queueReplacement(
+      caseId,
+      stamped,
+      templateId,
+      "remote_request_invalid",
+      actor
+    );
+    if (queued === "missing") return { kind: "missing" };
+    if (queued === "retired") return { kind: "error", reason: "case_retired_during_repair" };
+    return processBoxFileRequestIntent(caseId, actor);
+  }
+  if (state3.active) {
+    const stampedOk = await stampValidatedRequest(caseId, stamped, state3);
+    if (!stampedOk) return processBoxFileRequestIntent(caseId, actor);
+    return {
+      kind: "ok",
+      folderId: state3.folderId,
+      fileRequestId: state3.id,
+      fileRequestUrl: state3.url,
+      ...state3.expiresAt ? { expiresAt: state3.expiresAt } : {},
+      reused: true
+    };
+  }
+  try {
+    const reactivated = normalizeBoxFileRequest(
+      await callBoxReactivateFileRequest(stamped.id, folderId),
+      folderId
+    );
+    if (!reactivated?.active || reactivated.id !== stamped.id) {
+      const queued = await queueReplacement(
+        caseId,
+        stamped,
+        templateId,
+        "reactivation_returned_inactive",
+        actor
+      );
+      if (queued === "missing") return { kind: "missing" };
+      if (queued === "retired") return { kind: "error", reason: "case_retired_during_repair" };
+      return processBoxFileRequestIntent(caseId, actor);
+    }
+    const stampedOk = await stampValidatedRequest(
+      caseId,
+      stamped,
+      reactivated,
+      "Image-upload link reactivated",
+      state3.expiresAt && new Date(state3.expiresAt).getTime() <= Date.now() ? "expired_request" : "inactive_request",
+      actor
+    );
+    if (!stampedOk) return processBoxFileRequestIntent(caseId, actor);
+    return {
+      kind: "ok",
+      folderId: reactivated.folderId,
+      fileRequestId: reactivated.id,
+      fileRequestUrl: reactivated.url,
+      ...reactivated.expiresAt ? { expiresAt: reactivated.expiresAt } : {},
+      reused: true
+    };
+  } catch (error2) {
+    const reason = replacementReason(error2);
+    if (reason) {
+      const queued = await queueReplacement(
+        caseId,
+        stamped,
+        templateId,
+        reason === "remote_request_deleted" ? "remote_request_deleted_during_reactivation" : "reactivation_rejected",
+        actor
+      );
+      if (queued === "missing") return { kind: "missing" };
+      if (queued === "retired") return { kind: "error", reason: "case_retired_during_repair" };
+      return processBoxFileRequestIntent(caseId, actor);
+    }
+    return { kind: "pending", reason: error2 instanceof Error ? error2.message : String(error2) };
+  }
+}
+async function processBoxFileRequestIntent(requestedCaseId, actor) {
+  const claimToken = (0, import_node_crypto10.randomUUID)();
+  const claim = await tx(async (q) => {
+    const lockedCase = await lockCaseForMutation(q, requestedCaseId);
+    if (lockedCase.kind === "missing") return { kind: "missing" };
+    if (lockedCase.kind === "retired") {
+      return { kind: "retired", mergedInto: lockedCase.mergedInto };
+    }
+    const caseRows = await q(
+      `SELECT box_folder_id, box_file_request_id, box_file_request_url
+         FROM case_ WHERE id = $1 FOR UPDATE`,
+      [lockedCase.caseId]
+    );
+    const caseRow = caseRows[0];
+    if (!caseRow) return { kind: "missing" };
+    const folderId = caseRow.box_folder_id?.trim() ?? "";
+    if (!folderId) return { kind: "folder_not_ready" };
+    const stampedId = caseRow.box_file_request_id?.trim() ?? "";
+    const stampedUrl = caseRow.box_file_request_url?.trim() ?? "";
+    const outboxRows = await q(
+      "SELECT * FROM box_file_request_outbox WHERE case_id = $1 FOR UPDATE",
+      [lockedCase.caseId]
+    );
+    const outbox = outboxRows[0];
+    if (stampedId && stampedUrl) {
+      return {
+        kind: "validate",
+        caseId: lockedCase.caseId,
+        folderId,
+        templateId: outbox?.template_id?.trim() ?? "",
+        stamped: { id: stampedId, url: stampedUrl }
+      };
+    }
+    if (stampedId || stampedUrl) return { kind: "invalid_stamp" };
+    if (!outbox) return { kind: "no_intent" };
+    if (Number(outbox.completed_generation) >= Number(outbox.requested_generation)) {
+      return { kind: "completed_without_stamp" };
+    }
+    const now = Date.now();
+    const nextAttempt = new Date(outbox.next_attempt_at).getTime();
+    const claimExpires = outbox.claim_expires_at ? new Date(outbox.claim_expires_at).getTime() : 0;
+    if (Number.isFinite(nextAttempt) && nextAttempt > now || claimExpires > now) {
+      return { kind: "busy" };
+    }
+    if (folderId !== outbox.folder_id.trim()) return { kind: "folder_changed" };
+    const claimed = await q(
+      `UPDATE box_file_request_outbox
+          SET claim_token = $2,
+              claimed_at = now(),
+              claim_expires_at = now() + interval '2 minutes',
+              attempt_count = attempt_count + 1,
+              updated_at = now()
+        WHERE case_id = $1
+        RETURNING *`,
+      [lockedCase.caseId, claimToken]
+    );
+    return {
+      kind: "claimed",
+      caseId: lockedCase.caseId,
+      folderId,
+      templateId: claimed[0].template_id.trim(),
+      generation: Number(claimed[0].requested_generation),
+      repairReason: claimed[0].repair_reason?.trim() || void 0
+    };
+  });
+  if (claim.kind === "missing") return { kind: "missing" };
+  if (claim.kind === "retired") return { kind: "retired", mergedInto: claim.mergedInto };
+  if (claim.kind === "folder_not_ready") return { kind: "folder_not_ready" };
+  if (claim.kind === "validate") {
+    if (!claim.templateId) return { kind: "error", reason: "missing_template_identity" };
+    return validateStampedRequest(
+      claim.caseId,
+      claim.folderId,
+      claim.templateId,
+      claim.stamped,
+      actor
+    );
+  }
+  if (claim.kind === "busy") return { kind: "pending" };
+  if (claim.kind !== "claimed") return { kind: "error", reason: claim.kind };
+  try {
+    const copied = normalizeBoxFileRequest(
+      await callBoxCopyFileRequest(claim.templateId, claim.folderId),
+      claim.folderId
+    );
+    if (!copied?.active) throw new Error("CopyFileRequest returned no active upload link");
+    const stamped = await tx(async (q) => {
+      const lockedCase = await lockCaseForMutation(q, claim.caseId);
+      if (lockedCase.kind !== "active") return false;
+      const outbox = await q(
+        "SELECT * FROM box_file_request_outbox WHERE case_id = $1 FOR UPDATE",
+        [claim.caseId]
+      );
+      const current = outbox[0];
+      if (!current || current.claim_token !== claimToken || Number(current.requested_generation) !== claim.generation) return false;
+      await q(
+        `UPDATE case_
+            SET box_file_request_id = $2,
+                box_file_request_url = $3,
+                updated_at = now()
+          WHERE id = $1`,
+        [claim.caseId, copied.id, copied.url]
+      );
+      await q(
+        `UPDATE box_file_request_outbox
+            SET completed_generation = $2,
+                completed_at = now(),
+                next_attempt_at = now(),
+                claim_token = NULL, claimed_at = NULL, claim_expires_at = NULL,
+                last_error = NULL, updated_at = now()
+          WHERE case_id = $1`,
+        [claim.caseId, claim.generation]
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.box_file_request_copied,
+        caseId: claim.caseId,
+        summary: claim.repairReason ? "Image-upload link replaced" : "Image-upload link created",
+        after: {
+          boxFileRequestId: copied.id,
+          fileRequestUrl: copied.url,
+          boxFolderId: claim.folderId,
+          ...copied.expiresAt ? { expiresAt: copied.expiresAt } : {},
+          ...claim.repairReason ? { repairReason: claim.repairReason } : {}
+        },
+        ...actor ? { actor } : {}
+      }, q);
+      return true;
+    });
+    if (!stamped) throw new Error("File Request intent changed before it could be stamped");
+    return {
+      kind: "ok",
+      folderId: copied.folderId,
+      fileRequestId: copied.id,
+      fileRequestUrl: copied.url,
+      ...copied.expiresAt ? { expiresAt: copied.expiresAt } : {},
+      reused: false
+    };
+  } catch (error2) {
+    await deferClaim(claim.caseId, claimToken, error2);
+    return { kind: "pending", reason: error2 instanceof Error ? error2.message : String(error2) };
+  }
+}
+async function ensureActiveBoxFileRequest(requestedCaseId, templateId, actor) {
+  const prepared = await tx(async (q) => {
+    const locked = await lockCaseForMutation(q, requestedCaseId);
+    if (locked.kind === "missing") return { kind: "missing" };
+    if (locked.kind === "retired") return { kind: "retired", mergedInto: locked.mergedInto };
+    const rows = await q(
+      `SELECT box_folder_id, box_file_request_id, box_file_request_url
+         FROM case_ WHERE id = $1 FOR UPDATE`,
+      [locked.caseId]
+    );
+    const row = rows[0];
+    const folderId = row?.box_folder_id?.trim() ?? "";
+    if (!folderId) return { kind: "folder_not_ready" };
+    const id = row?.box_file_request_id?.trim() ?? "";
+    const url2 = row?.box_file_request_url?.trim() ?? "";
+    if (!!id !== !!url2) {
+      await q(
+        `UPDATE case_
+            SET box_file_request_id = NULL, box_file_request_url = NULL, updated_at = now()
+          WHERE id = $1`,
+        [locked.caseId]
+      );
+      await requestBoxFileRequestIntent(q, locked.caseId, folderId, templateId, {
+        replaceReason: "incomplete_persisted_identity"
+      });
+    } else if (!id) {
+      await requestBoxFileRequestIntent(q, locked.caseId, folderId, templateId);
+    } else {
+      await requestBoxFileRequestIntent(q, locked.caseId, folderId, templateId);
+    }
+    return { kind: "ready", caseId: locked.caseId };
+  });
+  if (prepared.kind === "missing") return { kind: "missing" };
+  if (prepared.kind === "retired") return { kind: "retired", mergedInto: prepared.mergedInto };
+  if (prepared.kind === "folder_not_ready") return { kind: "folder_not_ready" };
+  return processBoxFileRequestIntent(prepared.caseId, actor);
+}
+async function pendingBoxFileRequestCaseIds(limit = 20) {
+  const bounded = Math.max(1, Math.min(100, Math.trunc(limit)));
+  const rows = await query(
+    `SELECT case_id
+       FROM box_file_request_outbox
+      WHERE requested_generation > completed_generation
+        AND next_attempt_at <= now()
+        AND (claim_expires_at IS NULL OR claim_expires_at <= now())
+      ORDER BY next_attempt_at, requested_at, case_id
+      LIMIT $1`,
+    [bounded]
+  );
+  return rows.map((row) => row.case_id);
+}
+
+// api/src/functions/cases.ts
+var pad2 = (n) => String(n).padStart(2, "0");
+function fmtTimestamp(v) {
+  if (v == null || v === "") return "";
+  const d = v instanceof Date ? v : new Date(String(v));
+  if (Number.isNaN(d.getTime())) return String(v);
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+function chaserTargetType(code) {
+  if (code === 1e8) return "image_source";
+  if (code === 100000001) return "repairer";
+  return "work_provider";
+}
+function chaserStatusName(code) {
+  if (code === 100000001) return "sent";
+  if (code === 100000002) return "responded";
+  if (code === 100000003) return "overdue";
+  return "drafted";
+}
+function rowToChaser(ch) {
+  return {
+    id: ch.id ?? "",
+    targetType: chaserTargetType(ch.target_type_code),
+    targetName: ch.target_name ?? "",
+    channel: ch.channel_code === 100000001 ? "whatsapp" : "email",
+    templateUsed: ch.template_used ?? "",
+    status: chaserStatusName(ch.status_code),
+    summary: ch.name ?? "",
+    createdAt: fmtTimestamp(ch.drafted_at ?? ch.created_at),
+    ...ch.sent_by ? { sentBy: ch.sent_by } : {},
+    ...ch.sent_at ? { sentAt: fmtTimestamp(ch.sent_at) } : {}
+  };
+}
+async function loadAllCases(now) {
+  const rows = await query(`${CASE_SELECT_WITH_ACTIVITY} ORDER BY c.created_at DESC`);
+  return rows.map((r) => rowToCase(r, { now }));
+}
+async function loadCaseFullSnapshotUsing(q, id, now, lockCase = false) {
+  const rows = await q(
+    `${CASE_SELECT} WHERE c.id = $1${lockCase ? " FOR UPDATE OF c" : ""}`,
+    [id]
+  );
+  const rec = rows[0];
+  if (!rec) return void 0;
+  const prov = await q("SELECT * FROM field_level_provenance WHERE case_id = $1", [id]);
+  const ev = await q(
+    "SELECT * FROM evidence WHERE case_id = $1 ORDER BY sequence_index NULLS LAST, created_at",
+    [id]
+  );
+  const notes = await q("SELECT * FROM note WHERE case_id = $1 ORDER BY occurred_at", [id]);
+  const chasers = await q("SELECT * FROM chaser WHERE case_id = $1 ORDER BY created_at", [id]);
+  const sourceEvidenceState = await manualIntakeEvidenceState(q, id);
+  const value = rowToCase(rec, {
+    now,
+    provenanceRows: prov,
+    evidence: ev.map(rowToEvidence),
+    notes: notes.map((n) => ({
+      id: n.id ?? "",
+      author: n.author ?? "",
+      timestamp: fmtTimestamp(n.occurred_at ?? n.created_at),
+      text: n.text ?? ""
+    })),
+    chasers: chasers.map(rowToChaser)
+  });
+  value.sourceEvidencePending = sourceEvidenceState.pending || sourceEvidenceState.archiveFailed;
+  value.sourceEvidenceArchiveFailed = sourceEvidenceState.archiveFailed;
+  return { value, version: versionToken(rec.updated_at) };
+}
+async function loadCaseFullUsing(q, id, now, lockCase = false) {
+  return (await loadCaseFullSnapshotUsing(q, id, now, lockCase))?.value;
+}
+async function loadCaseFull(id, now) {
+  return loadCaseFullUsing(query, id, now);
+}
+async function loadCaseLite(id, q = query) {
+  const rows = await q(`${CASE_SELECT} WHERE c.id = $1`, [id]);
+  return rows[0] ? rowToCase(rows[0]) : void 0;
+}
+function comparableClaimant(value) {
+  return String(value ?? "").trim().toLocaleLowerCase("en-GB");
+}
+async function mergeClaimantProvenance(q, sourceCaseId, targetCaseId, sourceClaimant, targetClaimant) {
+  const sourceValue = sourceClaimant.trim();
+  const targetValue = targetClaimant.trim();
+  const filled = Boolean(sourceValue) && !targetValue;
+  const conflict = Boolean(sourceValue) && Boolean(targetValue) && comparableClaimant(sourceValue) !== comparableClaimant(targetValue);
+  if (filled) {
+    await q(
+      `UPDATE case_
+          SET eva_claimant_name = $2, updated_at = now()
+        WHERE id = $1
+          AND btrim(COALESCE(eva_claimant_name, '')) = ''`,
+      [targetCaseId, sourceValue.slice(0, 200)]
+    );
+  }
+  const conflictCode = reviewStateCodec.toInt("conflict") ?? 100000003;
+  await q(
+    `UPDATE field_level_provenance
+        SET case_id = $2,
+            name = CONCAT($2::text, ':merged:', id::text),
+            source_label = LEFT(
+              CASE
+                WHEN btrim(COALESCE(source_label, '')) = '' THEN 'Carried over from merged case'
+                ELSE source_label || ' \u2014 carried over from merged case'
+              END,
+              400
+            ),
+            review_state_code = CASE
+              WHEN $3::boolean
+               AND field_name = 'claimantName'
+               AND lower(btrim(COALESCE(value, ''))) = lower(btrim($4))
+                THEN $5
+              ELSE review_state_code
+            END,
+            updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId, conflict, sourceValue, conflictCode]
+  );
+  if (sourceValue) {
+    const unknownCode = sourceTypeCodec.toInt("unknown") ?? 100000011;
+    const needsReviewCode = reviewStateCodec.toInt("needs_review") ?? 100000001;
+    await q(
+      `INSERT INTO field_level_provenance
+         (name, case_id, field_name, value, source_type_code, source_label, review_state_code,
+          source_reference)
+       SELECT $1, $2, 'claimantName', $3, $4,
+              'Source not recorded \u2014 carried over from merged case', $5, $6
+       WHERE NOT EXISTS (
+         SELECT 1
+           FROM field_level_provenance
+          WHERE case_id = $2
+            AND field_name = 'claimantName'
+            AND lower(btrim(COALESCE(value, ''))) = lower(btrim($3))
+       )`,
+      [
+        `${targetCaseId}:claimantName:merged:${sourceCaseId}`,
+        targetCaseId,
+        sourceValue.slice(0, 200),
+        unknownCode,
+        conflict ? conflictCode : needsReviewCode,
+        `case:${sourceCaseId}`
+      ]
+    );
+  }
+  return { filled, conflict };
+}
+async function recomputeStatus2(caseId, actor) {
+  const prefillProbe = await loadCaseFull(caseId, /* @__PURE__ */ new Date());
+  if (!prefillProbe) return false;
+  if (isPrefillApplicable(prefillProbe)) {
+    await prefillImageBasedInspection(caseId, actor);
+  }
+  const next = await tx(async (q) => {
+    const full = await loadCaseFullUsing(q, caseId, /* @__PURE__ */ new Date(), true);
+    if (!full) return null;
+    const evaluated = statusForReviewCase(readinessInputForCase(full));
+    if (evaluated !== full.status) {
+      await q("UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1", [
+        caseId,
+        statusToInt(evaluated)
+      ]);
+      await writeAudit({
+        action: AUDIT_ACTION.status_changed,
+        caseId,
+        summary: `Status ${full.status} -> ${evaluated}`,
+        before: { status: full.status },
+        after: { status: evaluated },
+        ...actor ? { actor } : {}
+      }, q);
+    }
+    return evaluated;
+  });
+  if (!next) return false;
+  await maybeSuggestOverviewChase(caseId, next, actor);
+  return true;
+}
+async function markEvaSubmittedIfReady(caseId, actor) {
+  return tx(async (q) => {
+    const full = await loadCaseFullUsing(q, caseId, /* @__PURE__ */ new Date(), true);
+    if (!full || full.sourceEvidencePending === true || !canSubmitCaseToEva(full)) return false;
+    return markEvaSubmittedUsing(q, caseId, actor);
+  });
+}
+async function upsertManualProvenance(caseId, fieldName, value) {
+  try {
+    const staff = sourceTypeCodec.toInt("staff") ?? 1e8;
+    const reviewed = reviewStateCodec.toInt("reviewed") ?? 100000002;
+    const conflict = reviewStateCodec.toInt("conflict") ?? 100000003;
+    await query(
+      `UPDATE field_level_provenance
+          SET review_state_code = $4, reviewed_by = 'Manual edit (case page)',
+              reviewed_at = now(), updated_at = now()
+        WHERE case_id = $1 AND field_name = $2 AND review_state_code = $3`,
+      [caseId, fieldName, conflict, reviewed]
+    );
+    const upd = await query(
+      `UPDATE field_level_provenance
+          SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
+              review_state_code = $5, updated_at = now()
+        WHERE id = (
+          SELECT id
+          FROM field_level_provenance
+          WHERE case_id = $1
+            AND field_name = $2
+            AND source_type_code = $4
+          ORDER BY updated_at DESC, id
+          LIMIT 1
+        )
+        RETURNING id`,
+      [caseId, fieldName, value, staff, reviewed]
+    );
+    if (upd.length === 0) {
+      await query(
+        `INSERT INTO field_level_provenance
+           (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
+         VALUES ($1, $2, $3, $4, $5, 'Manual edit (case page)', $6)`,
+        [`${caseId}:${fieldName}:staff`, caseId, fieldName, value, staff, reviewed]
+      );
+    }
+  } catch {
+  }
+}
+async function upsertManualProvenanceStrict(q, caseId, fieldName, value) {
+  const staff = sourceTypeCodec.toInt("staff") ?? 1e8;
+  const reviewed = reviewStateCodec.toInt("reviewed") ?? 100000002;
+  const conflict = reviewStateCodec.toInt("conflict") ?? 100000003;
+  await q(
+    `UPDATE field_level_provenance
+        SET review_state_code = $4, reviewed_by = 'Manual edit (case page)',
+            reviewed_at = now(), updated_at = now()
+      WHERE case_id = $1 AND field_name = $2 AND review_state_code = $3`,
+    [caseId, fieldName, conflict, reviewed]
+  );
+  const updated = await q(
+    `UPDATE field_level_provenance
+        SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
+            review_state_code = $5, updated_at = now()
+      WHERE id = (
+        SELECT id
+        FROM field_level_provenance
+        WHERE case_id = $1
+          AND field_name = $2
+          AND source_type_code = $4
+        ORDER BY updated_at DESC, id
+        LIMIT 1
+      )
+      RETURNING id`,
+    [caseId, fieldName, value, staff, reviewed]
+  );
+  if (updated.length === 0) {
+    await q(
+      `INSERT INTO field_level_provenance
+         (name, case_id, field_name, value, source_type_code, source_label, review_state_code)
+       VALUES ($1, $2, $3, $4, $5, 'Manual edit (case page)', $6)`,
+      [`${caseId}:${fieldName}:staff`, caseId, fieldName, value, staff, reviewed]
+    );
+  }
+}
+import_functions2.app.http("caseById", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  // Keep the literal `/cases/next-po` allocator outside the parameter route even if host
+  // registration order changes.
+  route: "cases/{id:guid}",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const id = req.params.id;
+    if (!isUuid2(id)) return { status: 400, jsonBody: { error: "invalid id" } };
+    const snapshot2 = await loadCaseFullSnapshotUsing(query, id, /* @__PURE__ */ new Date());
+    if (!snapshot2) return { status: 404, jsonBody: { error: "not found" } };
+    return {
+      status: 200,
+      jsonBody: { ...snapshot2.value, version: snapshot2.version },
+      headers: { ETag: `"${snapshot2.version}"`, "Access-Control-Expose-Headers": "ETag" }
+    };
+  })
+});
+import_functions2.app.http("patchCase", {
+  methods: ["PATCH"],
+  authLevel: "anonymous",
+  route: "cases/{id}",
+  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
+    const id = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const explicitSave = body2.editSession === true;
+    const parsedInspection = body2.inspectionDecision === void 0 ? void 0 : SaveInspectionDecisionParams.safeParse({
+      ...body2.inspectionDecision,
+      caseId: id
+    });
+    if (parsedInspection && !parsedInspection.success) {
+      return {
+        status: 400,
+        jsonBody: {
+          error: "invalid inspection decision",
+          message: "Check the inspection choice and try again.",
+          issues: parsedInspection.error.issues
+        }
+      };
+    }
+    const inspection = parsedInspection?.data;
+    const inspectionLines = (inspection?.addressLines ?? []).map((line) => line.trim()).filter(Boolean);
+    const inspectionPostcode = inspection?.postcode?.trim() ?? "";
+    const inspectionAddress = inspection ? inspection.decisionMode === "image_based" ? "Image Based Assessment" : [...inspectionLines, ...inspectionPostcode ? [inspectionPostcode] : []].join("\n").slice(0, 2e3) : void 0;
+    const inspectionModeCode = inspection ? inspectionDecisionCodec.toInt(inspection.decisionMode) : void 0;
+    const actor = actorFromClaims(claims);
+    let attemptedCasePo;
+    let outcome;
+    try {
+      outcome = await tx(async (q) => {
+        const snapshot2 = await loadCaseFullSnapshotUsing(q, id, /* @__PURE__ */ new Date(), true);
+        if (!snapshot2) {
+          return { kind: "response", response: { status: 404, jsonBody: { error: "not found" } } };
+        }
+        const expected = ifMatch2(req);
+        if (explicitSave && !expected) {
+          return {
+            kind: "response",
+            response: {
+              status: 428,
+              jsonBody: {
+                error: "version_required",
+                message: "Reload this case before saving your changes."
+              }
+            }
+          };
+        }
+        if (expected && expected !== snapshot2.version) {
+          return {
+            kind: "response",
+            response: {
+              status: 409,
+              jsonBody: {
+                error: "stale",
+                currentVersion: snapshot2.version,
+                ...explicitSave ? { message: "This case changed while you were editing it. Reload it before saving." } : {}
+              }
+            }
+          };
+        }
+        const existing = snapshot2.value;
+        const sets = [];
+        const vals = [];
+        const before = {};
+        const after = {};
+        const changedEvaFields = [];
+        if (body2.vrm !== void 0) {
+          const raw = String(body2.vrm ?? "").trim();
+          const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
+          const newVrm = raw ? extractVrm(raw) || cleaned : "";
+          if (newVrm !== existing.vrm) {
+            sets.push(`vrm = $${vals.length + 1}`);
+            vals.push(newVrm);
+            before.vrm = existing.vrm;
+            after.vrm = newVrm;
+          }
+        }
+        let inspectionAddressChanged = false;
+        if (body2.evaFields && typeof body2.evaFields === "object") {
+          for (const [k, rawVal] of Object.entries(body2.evaFields)) {
+            if (rawVal === void 0 || !(k in EVA_COLUMN_BY_KEY)) continue;
+            const key = k;
+            const norm = normaliseEvaEdit(key, String(rawVal ?? ""));
+            if ("error" in norm) {
+              return { kind: "response", response: { status: 400, jsonBody: { error: norm.error } } };
+            }
+            const oldVal = existing.evaFields[key]?.value ?? "";
+            if (norm.value === oldVal) continue;
+            sets.push(`${EVA_COLUMN_BY_KEY[key]} = $${vals.length + 1}`);
+            vals.push(norm.value);
+            before[key] = oldVal;
+            after[key] = norm.value;
+            changedEvaFields.push({ key, value: norm.value });
+            if (key === "inspectionAddress") inspectionAddressChanged = true;
+          }
+        }
+        if (inspectionAddressChanged && !inspection) {
+          if (explicitSave) {
+            return {
+              kind: "response",
+              response: {
+                status: 400,
+                jsonBody: {
+                  error: "inspection_decision_required",
+                  message: "Choose an inspection address or Image Based Assessment before saving."
+                }
+              }
+            };
+          }
+          sets.push("inspection_decision_code = NULL");
+        }
+        if (inspection) {
+          if (inspectionModeCode == null || inspectionAddress == null) {
+            return {
+              kind: "response",
+              response: { status: 400, jsonBody: { error: "invalid inspection decision mode" } }
+            };
+          }
+          const submittedAddress = body2.evaFields?.inspectionAddress;
+          if (submittedAddress !== void 0 && submittedAddress !== inspectionAddress) {
+            return {
+              kind: "response",
+              response: {
+                status: 400,
+                jsonBody: {
+                  error: "inspection_address_mismatch",
+                  message: "The inspection address and choice do not match. Review them and try again."
+                }
+              }
+            };
+          }
+          if (inspectionAddress !== existing.evaFields.inspectionAddress.value && submittedAddress === void 0) {
+            return {
+              kind: "response",
+              response: {
+                status: 400,
+                jsonBody: {
+                  error: "inspection_address_required",
+                  message: "Include the inspection address with the inspection choice."
+                }
+              }
+            };
+          }
+          sets.push(`inspection_decision_code = $${vals.length + 1}`);
+          vals.push(inspectionModeCode);
+          if (inspection.decisionMode !== existing.inspectionDecision) {
+            before.inspectionDecision = existing.inspectionDecision;
+          }
+          after.inspectionDecision = inspection.decisionMode;
+        }
+        if (body2.casePo !== void 0) {
+          const raw = String(body2.casePo ?? "").trim();
+          const normalized = raw ? normalizeCasePo(raw) : "";
+          if (normalized && !CASE_PO_SHAPE_RE.test(normalized)) {
+            return {
+              kind: "response",
+              response: { status: 400, jsonBody: { error: `casePo '${raw}' is not Case/PO-shaped` } }
+            };
+          }
+          const oldPo = (existing.casePo ?? "").toUpperCase();
+          if (normalized !== oldPo) {
+            attemptedCasePo = normalized || void 0;
+            sets.push(`case_po = $${vals.length + 1}`);
+            vals.push(normalized || null);
+            before.casePo = oldPo || "(none)";
+            after.casePo = normalized || "(cleared)";
+          }
+        }
+        if (body2.caseType !== void 0) {
+          const rawType = String(body2.caseType ?? "").trim();
+          const validName = rawType === "" || caseTypeCodec.toInt(rawType) != null;
+          if (!validName) {
+            return {
+              kind: "response",
+              response: {
+                status: 400,
+                jsonBody: { error: `caseType must be one of ${caseTypeCodec.names().join(", ")}` }
+              }
+            };
+          }
+          const newCode = rawType === "" || rawType === "standard" ? null : caseTypeCodec.toInt(rawType);
+          const oldCode = caseTypeCodec.toInt(existing.caseType) ?? null;
+          if (newCode !== oldCode) {
+            sets.push(`case_type_code = $${vals.length + 1}`);
+            vals.push(newCode);
+            before.caseType = existing.caseType ?? "standard";
+            after.caseType = rawType || "standard";
+          }
+        }
+        if (sets.length === 0) return { kind: "unchanged", snapshot: snapshot2 };
+        if (explicitSave) {
+          const changedByKey = new Map(changedEvaFields.map((field) => [field.key, field.value]));
+          const nextEvaFields = Object.fromEntries(
+            EVA_FIELD_ORDER.map(({ key }) => {
+              const prior = existing.evaFields[key];
+              return [
+                key,
+                changedByKey.has(key) ? { ...prior, value: changedByKey.get(key), reviewState: "reviewed" } : prior
+              ];
+            })
+          );
+          const nextVrm = typeof after.vrm === "string" ? after.vrm : existing.vrm;
+          const nextCasePo = typeof after.casePo === "string" ? after.casePo === "(cleared)" ? "" : after.casePo : existing.casePo;
+          const evaluated = statusForReviewCase({
+            status: existing.status,
+            evaFields: nextEvaFields,
+            evidence: existing.evidence,
+            inspectionDecision: inspection?.decisionMode ?? existing.inspectionDecision,
+            instructionCount: existing.evidence.filter((item) => item.kind === "instruction").length,
+            ...sourceReadinessInputForCase(existing),
+            hasIdentity: nextVrm.trim().length > 0 || (nextCasePo ?? "").trim().length > 0 || existing.providerCode.trim().length > 0 || nextEvaFields.claimantName.value.trim().length > 0,
+            mergedInto: existing.mergedInto
+          });
+          if (evaluated !== existing.status) {
+            sets.push(`status_code = $${vals.length + 1}`);
+            vals.push(statusToInt(evaluated));
+            before.status = existing.status;
+            after.status = evaluated;
+          }
+        }
+        vals.push(id);
+        await q(`UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`, vals);
+        if (explicitSave) {
+          for (const field of changedEvaFields) {
+            await upsertManualProvenanceStrict(q, id, field.key, field.value);
+          }
+          if (inspection) {
+            const imageBased = inspection.decisionMode === "image_based";
+            const label = imageBased ? `Image Based Assessment (${id})` : (() => {
+              const suffix = ` (${id})`;
+              const base = [inspectionLines[0], inspectionPostcode].filter(Boolean).join(", ") || "Inspection address";
+              return `${base.slice(0, 200 - suffix.length)}${suffix}`;
+            })();
+            const sourceNote = [
+              `case=${id}`,
+              ...existing.providerCode ? [`provider=${existing.providerCode}`] : [],
+              inspection.sourceNote
+            ].join(" ").trim();
+            await q(
+              `INSERT INTO inspection_address
+                 (label, decision_mode_code, decision_reason, source_label, source_note,
+                  address_line1, address_line2, address_line3, address_line4, address_line5, address_line6, postcode)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+               ON CONFLICT (label) DO UPDATE SET
+                 decision_mode_code = EXCLUDED.decision_mode_code,
+                 decision_reason = EXCLUDED.decision_reason,
+                 source_label = EXCLUDED.source_label,
+                 source_note = EXCLUDED.source_note,
+                 address_line1 = EXCLUDED.address_line1,
+                 address_line2 = EXCLUDED.address_line2,
+                 address_line3 = EXCLUDED.address_line3,
+                 address_line4 = EXCLUDED.address_line4,
+                 address_line5 = EXCLUDED.address_line5,
+                 address_line6 = EXCLUDED.address_line6,
+                 postcode = EXCLUDED.postcode`,
+              [
+                label,
+                inspectionModeCode,
+                imageBased ? inspection.sourceNote : null,
+                inspection.sourceLabel ?? (imageBased ? "image_based" : "manual"),
+                sourceNote,
+                inspectionLines[0] ?? null,
+                inspectionLines[1] ?? null,
+                inspectionLines[2] ?? null,
+                inspectionLines[3] ?? null,
+                inspectionLines[4] ?? null,
+                inspectionLines[5] ?? null,
+                imageBased ? null : inspectionPostcode || null
+              ]
+            );
+          }
+          const fieldLabels = new Map(EVA_FIELD_ORDER.map((field) => [field.key, field.label]));
+          const changedFields = Object.keys(after).map(
+            (key) => fieldLabels.get(key) ?? {
+              vrm: "Registration",
+              casePo: "Case/PO",
+              caseType: "Case type",
+              inspectionDecision: "Inspection choice",
+              status: "Readiness"
+            }[key] ?? key
+          );
+          await writeAuditStrict(
+            {
+              action: AUDIT_ACTION.status_changed,
+              caseId: id,
+              summary: `Case saved: ${changedFields.join(", ")}`,
+              // Record WHAT changed without copying claimant/contact values into the
+              // generic audit payload.
+              before: { changedFields },
+              after: { changedFields },
+              ...actor ? { actor } : {}
+            },
+            q
+          );
+          return { kind: "changed", changedEvaFields, explicitSave: true };
+        }
+        await writeAudit({
+          action: AUDIT_ACTION.status_changed,
+          caseId: id,
+          summary: `Case edited: ${Object.keys(after).join(", ")}`,
+          before,
+          after,
+          ...actor ? { actor } : {}
+        }, q);
+        const statusGeneration = await requestStatusRecompute(q, id);
+        return { kind: "changed", changedEvaFields, statusGeneration, explicitSave: false };
+      });
+    } catch (e) {
+      if (isUniqueViolation(e) && attemptedCasePo) {
+        const holder = await query(
+          "SELECT id, vrm FROM case_ WHERE upper(case_po) = $1 AND id <> $2",
+          [attemptedCasePo.toUpperCase(), id]
+        );
+        return {
+          status: 409,
+          jsonBody: {
+            error: "case_po_in_use",
+            message: `Case/PO ${attemptedCasePo} is already assigned to another case.`,
+            conflictCaseId: holder[0]?.id ?? null,
+            conflictVrm: holder[0]?.vrm ?? null
+          }
+        };
+      }
+      throw e;
+    }
+    if (outcome.kind === "response") return outcome.response;
+    if (outcome.kind === "unchanged") {
+      return {
+        status: 200,
+        jsonBody: { ...outcome.snapshot.value, version: outcome.snapshot.version }
+      };
+    }
+    if (!outcome.explicitSave) {
+      for (const field of outcome.changedEvaFields) {
+        await upsertManualProvenance(id, field.key, field.value);
+      }
+      try {
+        const evaluated = await recomputeStatus2(id, actor);
+        if (!evaluated) throw new Error("case was not available for readiness evaluation");
+        await acknowledgeStatusRecompute(query, id, outcome.statusGeneration);
+      } catch (error2) {
+        ctx.warn(
+          `[patch-case] readiness recompute remains pending for ${id} (generation ${outcome.statusGeneration}): ${error2 instanceof Error ? error2.message : String(error2)}`
+        );
+      }
+    }
+    const updated = await loadCaseFullSnapshotUsing(query, id, /* @__PURE__ */ new Date());
+    return updated ? {
+      status: 200,
+      jsonBody: { ...updated.value, version: updated.version },
+      headers: { ETag: `"${updated.version}"`, "Access-Control-Expose-Headers": "ETag" }
+    } : { status: 404, jsonBody: { error: "not found" } };
+  })
+});
+function isObjectRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function requiredSourceTypeCode(sourceType) {
+  const code = sourceTypeCodec.toInt(sourceType);
+  if (code == null) throw new Error(`unsupported provenance source type: ${sourceType}`);
+  return code;
+}
+function requiredReviewStateCode(reviewState) {
+  const code = reviewStateCodec.toInt(reviewState);
+  if (code == null) throw new Error(`unsupported provenance review state: ${reviewState}`);
+  return code;
+}
+async function insertCreateFieldProvenance(q, caseId, fieldName, field) {
+  const rows = [
+    {
+      name: `${caseId}:${fieldName}`,
+      value: field.value,
+      provenance: field.provenance,
+      reviewStateCode: requiredReviewStateCode(field.reviewState)
+    },
+    ...(field.conflicts ?? []).map((conflict, index) => ({
+      name: `${caseId}:${fieldName}:conflict:${String(index + 1).padStart(2, "0")}`,
+      value: conflict.candidateValue,
+      provenance: conflict.provenance,
+      reviewStateCode: requiredReviewStateCode("conflict")
+    }))
+  ];
+  for (const row of rows) {
+    await q(
+      `INSERT INTO field_level_provenance
+         (name, case_id, field_name, value, source_type_code, source_label, confidence, review_state_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        row.name,
+        caseId,
+        fieldName,
+        row.value,
+        requiredSourceTypeCode(row.provenance.sourceType),
+        row.provenance.sourceLabel,
+        row.provenance.confidence ?? null,
+        row.reviewStateCode
+      ]
+    );
+  }
+}
+function createFieldProvenanceRequired(input, field) {
+  return input.writeProvenance === true || (field.conflicts?.length ?? 0) > 0;
+}
+function normalizeCreateCaseInput(raw) {
+  if (!isObjectRecord(raw)) return void 0;
+  if ("evaFields" in raw || "status" in raw) {
+    const full = FullCreateCaseParams.safeParse(raw);
+    if (!full.success) return void 0;
+    const mileage = normaliseEvaEdit("mileage", full.data.evaFields.mileage.value);
+    if ("error" in mileage) return void 0;
+    return {
+      ...full.data,
+      evaFields: {
+        ...full.data.evaFields,
+        mileage: { ...full.data.evaFields.mileage, value: mileage.value }
+      },
+      sourceLabel: full.data.sourceLabel?.trim() || "Manual intake"
+    };
+  }
+  const parsed = CreateCaseParams.safeParse(raw);
+  if (!parsed.success) return void 0;
+  const vrm = canonicalizeVrm(parsed.data.vrm);
+  if (!vrm) return void 0;
+  const claimantName = parsed.data.claimantName?.trim() ?? "";
+  const evaFieldsRecord = {};
+  for (const desc of EVA_FIELD_ORDER) {
+    const fieldValue = desc.key === "claimantName" ? claimantName : "";
+    const supplied = fieldValue.length > 0;
+    evaFieldsRecord[desc.key] = {
+      value: fieldValue,
+      provenance: supplied ? { sourceType: "staff", sourceLabel: "Confirmed by staff" } : { sourceType: "manual_upload", sourceLabel: "Not supplied" },
+      reviewState: supplied ? "reviewed" : "needs_review"
+    };
+  }
+  const evaFields = evaFieldsRecord;
+  const providerCode = parsed.data.providerCode?.trim().toUpperCase();
+  return {
+    evaFields,
+    vrm,
+    ...providerCode ? { providerCode } : {},
+    status: "ingested",
+    sourceLabel: "Staff-confirmed case creation",
+    writeProvenance: true
+  };
+}
+import_functions2.app.http("createCase", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const raw = await req.json().catch(() => void 0);
+    let input = normalizeCreateCaseInput(raw);
+    if (!input) return { status: 400, jsonBody: { error: "invalid case create payload" } };
+    const actor = actorFromClaims(claims) ?? "authenticated staff";
+    const suppliedOperationKey = (req.headers?.get("idempotency-key") ?? "").trim();
+    const suppliedUploadKey = (req.headers?.get("x-manual-intake-upload-key") ?? "").trim();
+    const suppliedFileCount = (req.headers?.get("x-manual-intake-file-count") ?? "").trim();
+    const suppliedInstructionIndex = (req.headers?.get("x-manual-intake-instruction-index") ?? "").trim();
+    const hasOperationHeaders = Boolean(
+      suppliedOperationKey || suppliedUploadKey || suppliedFileCount || suppliedInstructionIndex
+    );
+    if (hasOperationHeaders && !MANUAL_INTAKE_OPERATION_KEY_RE.test(suppliedOperationKey)) {
+      return { status: 400, jsonBody: { error: "invalid manual intake operation key" } };
+    }
+    const expectedFileCount = suppliedFileCount === "" ? 0 : Number(suppliedFileCount);
+    const instructionFileIndex = suppliedInstructionIndex === "" ? void 0 : Number(suppliedInstructionIndex);
+    if (!Number.isInteger(expectedFileCount) || expectedFileCount < 0 || expectedFileCount > 20 || expectedFileCount > 0 !== MANUAL_INTAKE_OPERATION_KEY_RE.test(suppliedUploadKey) || instructionFileIndex !== void 0 && (!Number.isInteger(instructionFileIndex) || instructionFileIndex < 0 || instructionFileIndex >= expectedFileCount)) {
+      return { status: 400, jsonBody: { error: "invalid manual intake evidence binding" } };
+    }
+    const operationBinding = suppliedOperationKey ? {
+      idempotencyKey: suppliedOperationKey,
+      actor,
+      requestHash: manualIntakeRequestHash(input),
+      ...suppliedUploadKey ? { uploadIdempotencyKey: suppliedUploadKey } : {},
+      expectedFileCount,
+      ...instructionFileIndex !== void 0 ? { instructionFileIndex } : {}
+    } : void 0;
+    const pcode = (input.providerCode ?? "").trim().toUpperCase();
+    let providerRow;
+    if (pcode) {
+      const providers = await query(
+        `SELECT id, display_name
+           FROM work_provider
+          WHERE upper(principal_code) = $1
+          LIMIT 1`,
+        [pcode]
+      );
+      providerRow = providers[0];
+      if (!providerRow) {
+        return { status: 400, jsonBody: { error: "unknown provider principal code" } };
+      }
+      if (!input.evaFields.workProvider.value.trim()) {
+        input = {
+          ...input,
+          provider: input.provider?.trim() || providerRow.display_name,
+          providerCode: pcode,
+          evaFields: {
+            ...input.evaFields,
+            workProvider: {
+              value: providerRow.display_name,
+              provenance: { sourceType: "corpus", sourceLabel: "Matched provider principal" },
+              reviewState: "reviewed"
+            }
+          }
+        };
+      }
+    }
+    const evalInput = {
+      status: input.status,
+      evaFields: input.evaFields,
+      evidence: [],
+      inspectionDecision: input.inspectionDecision ?? "unknown",
+      instructionCount: 0,
+      hasIdentity: (input.vrm ?? "").trim().length > 0 || (input.providerCode ?? "").trim().length > 0 || input.evaFields.claimantName.value.trim().length > 0
+    };
+    const status = statusForReviewCase(evalInput);
+    const name = ([input.vrm, input.provider].filter((v) => v && v.trim()).join(" \xB7 ") || "Manual case").slice(0, 100);
+    const cols = ["name", "vrm", "status_code", "intake_channel_kind_code", "intake_channel_manual", "source_mailbox"];
+    const vals = [
+      name,
+      input.vrm ?? "",
+      statusToInt(status),
+      intakeChannelKindCodec.toInt("email") ?? null,
+      true,
+      input.sourceLabel ?? "Manual intake"
+    ];
+    const add = (col, value) => {
+      cols.push(col);
+      vals.push(value);
+    };
+    if (providerRow) add("work_provider_id", providerRow.id);
+    const suppliedCasePo = (input.casePo ?? "").trim().toUpperCase();
+    const principalForAutoMint = !suppliedCasePo ? pcode.toUpperCase() : "";
+    if (input.onHold) {
+      add("on_hold", true);
+      add("on_hold_reason", "manual");
+    }
+    if (input.insuredName) add("ov_insured_name", input.insuredName);
+    if (input.providerReference) add("ov_claim_number", input.providerReference);
+    if (input.inspectionDecision && input.inspectionDecision !== "unknown") {
+      add("inspection_decision_code", inspectionDecisionCodec.toInt(input.inspectionDecision) ?? null);
+    }
+    for (const desc of EVA_FIELD_ORDER) {
+      add(EVA_COLUMN_BY_KEY[desc.key], input.evaFields[desc.key]?.value ?? "");
+    }
+    let createOutcome;
+    try {
+      createOutcome = await tx(async (q) => {
+        if (operationBinding) {
+          const existingId = await beginManualIntakeOperation(q, operationBinding);
+          if (existingId) return { id: existingId, replayed: true };
+        }
+        const insertCols = [...cols];
+        const insertVals = [...vals];
+        let casePo = suppliedCasePo;
+        if (!casePo && principalForAutoMint) {
+          casePo = await mintCasePo(q, principalForAutoMint);
+        }
+        if (casePo) {
+          insertCols.push("case_po");
+          insertVals.push(casePo);
+        }
+        const placeholders = insertVals.map((_v, i) => `$${i + 1}`).join(", ");
+        const rows = await q(
+          `INSERT INTO case_ (${insertCols.join(", ")}) VALUES (${placeholders}) RETURNING id`,
+          insertVals
+        );
+        const id = rows[0]?.id;
+        if (!id) throw new Error("case create returned no id");
+        const claimant = input.evaFields.claimantName;
+        await insertCreateFieldProvenance(q, id, "claimantName", claimant);
+        if (operationBinding) {
+          await finishManualIntakeOperation(
+            q,
+            operationBinding.idempotencyKey,
+            id,
+            operationBinding.expectedFileCount
+          );
+          await writeAuditStrict({
+            action: AUDIT_ACTION.case_created,
+            caseId: id,
+            summary: `Case created (${name})`,
+            after: {
+              status,
+              vrm: input.vrm,
+              manualIntakeOperation: operationBinding.idempotencyKey
+            },
+            actor
+          }, q);
+        }
+        return { id, replayed: false };
+      });
+    } catch (error2) {
+      if (error2 instanceof ManualIntakeOperationConflict || operationBinding && isUniqueViolation(error2)) {
+        return {
+          status: 409,
+          jsonBody: { error: "manual intake operation does not match this case or file selection" }
+        };
+      }
+      throw error2;
+    }
+    const newId = createOutcome.id;
+    if (operationBinding) {
+      await tx(async (q) => {
+        if (!await manualIntakeSideEffectsPending(q, operationBinding.idempotencyKey)) return;
+        for (const desc of EVA_FIELD_ORDER) {
+          if (desc.key === "claimantName") continue;
+          const field = input.evaFields[desc.key];
+          if (!createFieldProvenanceRequired(input, field)) continue;
+          await insertCreateFieldProvenance(q, newId, desc.key, field);
+        }
+        const receivedFrom2 = (input.receivedFrom ?? "").trim();
+        const receivedOn2 = (input.receivedOn ?? "").trim();
+        if (receivedFrom2 || receivedOn2) {
+          const parts = [
+            receivedFrom2 ? `Received from ${receivedFrom2}` : "Received",
+            receivedOn2 ? `on ${receivedOn2}` : ""
+          ].filter(Boolean).join(" ");
+          await q(
+            "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
+            ["Images received", newId, actor, `${parts}.`]
+          );
+        }
+        if (input.inspectionDecisionReason?.trim()) {
+          await q(
+            "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
+            [
+              "Inspection decision",
+              newId,
+              "Manual intake",
+              `Inspection decision: image-based - ${input.inspectionDecisionReason.trim()}`
+            ]
+          );
+        }
+        await finishManualIntakeSideEffects(q, operationBinding.idempotencyKey);
+      });
+    }
+    if (!operationBinding) {
+      await Promise.all(
+        EVA_FIELD_ORDER.filter((desc) => desc.key !== "claimantName").map(async (desc) => {
+          const field = input.evaFields[desc.key];
+          if (!createFieldProvenanceRequired(input, field)) return;
+          try {
+            await insertCreateFieldProvenance(query, newId, desc.key, field);
+          } catch {
+          }
+        })
+      );
+    }
+    const receivedFrom = (input.receivedFrom ?? "").trim();
+    const receivedOn = (input.receivedOn ?? "").trim();
+    if (!operationBinding && (receivedFrom || receivedOn)) {
+      try {
+        const parts = [
+          receivedFrom ? `Received from ${receivedFrom}` : "Received",
+          receivedOn ? `on ${receivedOn}` : ""
+        ].filter(Boolean).join(" ");
+        await query(
+          "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
+          ["Images received", newId, actor ?? "Manual intake", `${parts}.`]
+        );
+      } catch {
+      }
+    }
+    if (!operationBinding && input.inspectionDecisionReason?.trim()) {
+      try {
+        await query(
+          "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
+          [
+            "Inspection decision",
+            newId,
+            "Manual intake",
+            `Inspection decision: image-based - ${input.inspectionDecisionReason.trim()}`
+          ]
+        );
+      } catch {
+      }
+    }
+    if (!operationBinding) {
+      await writeAudit({
+        action: AUDIT_ACTION.case_created,
+        caseId: newId,
+        summary: `Case created (${name})`,
+        after: { status, vrm: input.vrm },
+        actor
+      });
+    }
+    await recomputeStatus2(newId, actor);
+    return createOutcome.replayed ? { status: 200, jsonBody: { id: newId, replayed: true } } : { status: 201, jsonBody: { id: newId } };
+  })
+});
+import_functions2.app.http("retryManualIntakeArchive", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/archive-retry",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const caseId = req.params.id;
+    const actor = actorFromClaims(claims) ?? "authenticated staff";
+    let requeued = 0;
+    try {
+      requeued = await tx(async (q) => {
+        const locked = await lockCaseForMutation(q, caseId);
+        if (locked.kind === "missing") return -1;
+        if (locked.kind !== "active") return -2;
+        const rows = await q(
+          `UPDATE archive_mirror_outbox o
+              SET requested_generation = o.requested_generation + 1,
+                  requested_at = now(), attempt_count = 0,
+                  next_attempt_at = now(), last_attempt_at = NULL, last_error = NULL,
+                  dead_lettered_at = NULL, dead_letter_reason = NULL, updated_at = now()
+             FROM evidence e
+             JOIN staff_evidence_upload_item item ON item.evidence_id = e.id
+             JOIN staff_evidence_upload batch
+               ON batch.idempotency_key = item.idempotency_key
+              AND batch.case_id = item.case_id
+            WHERE o.evidence_id = e.id
+              AND e.case_id = $1
+              AND batch.case_id = $1
+              AND batch.source = 'manual_intake'
+              AND o.dead_lettered_at IS NOT NULL
+          RETURNING o.evidence_id`,
+          [caseId]
+        );
+        if (rows.length > 0) {
+          await writeAuditStrict({
+            action: AUDIT_ACTION.evidence_upload_result,
+            caseId,
+            actor,
+            summary: `Manual source archive retry requested (${rows.length})`,
+            after: { requeued: rows.length, evidenceIds: rows.map((row) => row.evidence_id) }
+          }, q);
+          await requestStatusRecompute(q, caseId);
+        }
+        return rows.length;
+      });
+    } catch (error2) {
+      if (error2 instanceof ManualIntakeOperationConflict) {
+        return { status: 409, jsonBody: { error: error2.message } };
+      }
+      throw error2;
+    }
+    if (requeued === -1) return { status: 404, jsonBody: { error: "case not found" } };
+    if (requeued === -2) return { status: 409, jsonBody: { error: "case is not active" } };
+    if (requeued > 0) await recomputeStatus2(caseId, actor);
+    return { status: 200, jsonBody: { requeued } };
+  })
+});
+import_functions2.app.http("casesForQueue", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "queues/{name}/cases",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const name = req.params.name;
+    const now = nowParam(req);
+    const all = await loadAllCases(now);
+    return { status: 200, jsonBody: filterQueue(all, name) };
+  })
+});
+import_functions2.app.http("openVrmTwins", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const exclude = req.query.get("exclude") ?? void 0;
+    const casePo = (req.query.get("case_po") ?? "").trim();
+    if (casePo) {
+      const rows2 = await query(`${CASE_SELECT} WHERE upper(c.case_po) = $1`, [
+        casePo.toUpperCase()
+      ]);
+      const matches = rows2.map((r) => rowToCase(r)).filter((c) => !TWIN_TERMINAL.has(c.status) && c.id !== exclude);
+      return { status: 200, jsonBody: matches };
+    }
+    const vrm = canonicalizeVrm(req.query.get("vrm") ?? "");
+    if (!vrm) return { status: 200, jsonBody: [] };
+    const rows = await query(
+      `${CASE_SELECT} WHERE regexp_replace(upper(c.vrm), '[^A-Z0-9]', '', 'g') = $1`,
+      [vrm]
+    );
+    const twins = rows.map((r) => rowToCase(r)).filter((c) => !TWIN_TERMINAL.has(c.status) && !isRetiredMerged(c) && c.id !== exclude);
+    return { status: 200, jsonBody: twins };
+  })
+});
+import_functions2.app.http("setOnHold", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/hold",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body2 = await req.json();
+    if (typeof body2.onHold !== "boolean") {
+      return { status: 400, jsonBody: { error: "onHold must be a boolean" } };
+    }
+    const actor = actorFromClaims(claims);
+    const outcome = await tx(async (q) => {
+      const current = await q(
+        "SELECT updated_at FROM case_ WHERE id = $1 FOR UPDATE",
+        [id]
+      );
+      if (!current[0]) return { kind: "missing" };
+      const currentVersion = versionToken(current[0].updated_at);
+      const expected = ifMatch2(req);
+      if (expected != null && expected !== "" && expected !== currentVersion) {
+        return { kind: "stale", currentVersion };
+      }
+      const updated = await q(
+        `UPDATE case_
+            SET on_hold = $2,
+                on_hold_reason = CASE WHEN $2 THEN 'manual' ELSE NULL END,
+                updated_at = now()
+          WHERE id = $1
+          RETURNING updated_at`,
+        [id, body2.onHold]
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.status_changed,
+        caseId: id,
+        summary: body2.onHold ? "Case put on hold" : "Case taken off hold",
+        after: { onHold: body2.onHold },
+        ...actor ? { actor } : {}
+      }, q);
+      return { kind: "updated", version: versionToken(updated[0]?.updated_at) };
+    });
+    if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+    if (outcome.kind === "stale") {
+      return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
+    }
+    return {
+      status: 204,
+      headers: { ETag: `"${outcome.version}"`, "Access-Control-Expose-Headers": "ETag" }
+    };
+  })
+});
+import_functions2.app.http("logChase", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/chase",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const channel = body2.channel;
+    if (channel !== "email" && channel !== "whatsapp") {
+      return { status: 400, jsonBody: { error: "channel must be 'email' or 'whatsapp'" } };
+    }
+    if (typeof body2.templateLabel !== "string" || !body2.templateLabel.trim()) {
+      return { status: 400, jsonBody: { error: "templateLabel is required" } };
+    }
+    const templateLabel = body2.templateLabel.trim();
+    if (templateLabel.length > 200) {
+      return { status: 400, jsonBody: { error: "templateLabel must be 200 characters or fewer" } };
+    }
+    if (body2.note !== void 0 && typeof body2.note !== "string") {
+      return { status: 400, jsonBody: { error: "note must be a string" } };
+    }
+    if (typeof body2.note === "string" && body2.note.length > 2e3) {
+      return { status: 400, jsonBody: { error: "note must be 2000 characters or fewer" } };
+    }
+    const note = typeof body2.note === "string" ? body2.note.trim() : "";
+    const actor = actorFromClaims(claims);
+    const needsUploadLink = imageChaserRequiresUploadLink(templateLabel);
+    let fileRequest;
+    if (needsUploadLink) {
+      if (!gates.boxApi() || !gates.boxFileRequest() || !gates.boxFileRequestTemplateId().trim()) {
+        return {
+          status: 503,
+          jsonBody: {
+            error: "An upload link is required before this image chase can be logged.",
+            retryable: true
+          }
+        };
+      }
+      const ensured = await ensureActiveBoxFileRequest(
+        id,
+        gates.boxFileRequestTemplateId().trim(),
+        actor
+      );
+      if (ensured.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+      if (ensured.kind === "retired") {
+        return { status: 409, jsonBody: { error: "case has been merged" } };
+      }
+      if (ensured.kind === "folder_not_ready") {
+        return {
+          status: 409,
+          jsonBody: {
+            error: "The case archive folder is not ready yet. Try again shortly.",
+            retryable: true
+          }
+        };
+      }
+      if (ensured.kind !== "ok") {
+        return {
+          status: 503,
+          jsonBody: {
+            error: "The upload link could not be prepared. Try again.",
+            retryable: true
+          }
+        };
+      }
+      fileRequest = {
+        folderId: ensured.folderId,
+        id: ensured.fileRequestId,
+        url: ensured.fileRequestUrl
+      };
+    }
+    const channelLabel = channel === "whatsapp" ? "WhatsApp" : "email";
+    const summary2 = `Chased via ${channelLabel} \u2014 ${templateLabel}.`.slice(0, 400);
+    const outcome = await tx(async (q) => {
+      const locked = await q(
+        `${CASE_SELECT} WHERE c.id = $1 FOR UPDATE OF c`,
+        [id]
+      );
+      if (!locked[0]) return { kind: "missing" };
+      const existing = rowToCase(locked[0]);
+      if (isRetiredMerged(existing)) return { kind: "retired" };
+      if (fileRequest && String(locked[0].box_folder_id ?? "").trim() !== fileRequest.folderId) return { kind: "file_request_changed" };
+      if (fileRequest) {
+        await associateOutstandingImageChasersWithFileRequest(
+          q,
+          id,
+          fileRequest.id,
+          fileRequest.url
+        );
+      }
+      const currentVersion = versionToken(locked[0].updated_at);
+      const expected = ifMatch2(req);
+      if (expected != null && expected !== "" && expected !== currentVersion) {
+        return { kind: "stale", currentVersion };
+      }
+      const rows = await q(
+        `INSERT INTO chaser
+           (name, case_id, target_type_code, target_name, channel_code, template_used,
+            box_file_request_id, box_file_request_url, drafted_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+         RETURNING *`,
+        [
+          summary2,
+          id,
+          100000002,
+          existing.provider.slice(0, 200),
+          channel === "whatsapp" ? 100000001 : 1e8,
+          templateLabel,
+          fileRequest?.id ?? null,
+          fileRequest?.url ?? null
+        ]
+      );
+      const created = rows[0];
+      if (!created) throw new Error("chaser insert returned no row");
+      if (note) {
+        await q(
+          "INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())",
+          ["Chase note", id, actor ?? "Staff", note]
+        );
+      }
+      const updated = await q(
+        "UPDATE case_ SET updated_at = now() WHERE id = $1 RETURNING updated_at",
+        [id]
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.chaser_sent,
+        caseId: id,
+        summary: `Chase logged (${channel} \xB7 ${templateLabel})`,
+        after: {
+          chaserId: created.id,
+          channel,
+          templateLabel,
+          ...fileRequest ? {
+            boxFileRequestId: fileRequest.id,
+            fileRequestUrl: fileRequest.url
+          } : {},
+          ...note ? { note } : {}
+        },
+        ...actor ? { actor } : {}
+      }, q);
+      return {
+        kind: "created",
+        value: rowToChaser(created),
+        version: versionToken(updated[0]?.updated_at)
+      };
+    });
+    if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+    if (outcome.kind === "retired") return { status: 409, jsonBody: { error: "case has been merged" } };
+    if (outcome.kind === "file_request_changed") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "The case archive folder changed. Prepare the upload link again.",
+          retryable: true
+        }
+      };
+    }
+    if (outcome.kind === "stale") {
+      return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
+    }
+    return {
+      status: 201,
+      jsonBody: outcome.value,
+      headers: { ETag: `"${outcome.version}"`, "Access-Control-Expose-Headers": "ETag" }
+    };
+  })
+});
+function mergeProvidersCompatible(leftProviderCode, rightProviderCode) {
+  const left = (leftProviderCode ?? "").trim().toUpperCase();
+  const right = (rightProviderCode ?? "").trim().toUpperCase();
+  return !left || !right || left === right;
+}
+import_functions2.app.http("mergeCandidates", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}/merge-candidates",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const id = req.params.id;
+    const self2 = await loadCaseLite(id);
+    if (!self2) return { status: 200, jsonBody: [] };
+    const rows = await query(`${CASE_SELECT} ORDER BY c.created_at DESC`);
+    const candidates = rows.map((r) => rowToCase(r)).filter(
+      (cc) => cc.id !== id && !TWIN_TERMINAL.has(cc.status) && cc.status !== "linked_to_instruction" && mergeProvidersCompatible(cc.providerCode, self2.providerCode)
+    );
+    return { status: 200, jsonBody: candidates };
+  })
+});
+var MERGE_SHA256_RE = /^[0-9a-f]{64}$/i;
+var MERGE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+var MergeProviderRecoveryBlocked = class extends Error {
+  constructor(reason) {
+    super(`Provider recovery could not continue: ${reason}`);
+    this.reason = reason;
+  }
+};
+async function mergeEvidenceRows(q, sourceCaseId, targetCaseId) {
+  const locked = await q(
+    `SELECT id, case_id, sha256, created_at,
+            archive_mirror_claim_token, archive_mirror_claim_expires_at,
+            deletion_operation_id
+       FROM evidence
+      WHERE case_id = ANY($1::uuid[])
+      ORDER BY case_id, created_at, id
+      FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]]
+  );
+  const now = Date.now();
+  if (locked.some((row) => {
+    if (!row.archive_mirror_claim_token || !row.archive_mirror_claim_expires_at) return false;
+    const expires = new Date(row.archive_mirror_claim_expires_at).getTime();
+    return Number.isFinite(expires) && expires > now;
+  })) {
+    return {
+      movedEvidence: 0,
+      collidingEvidence: 0,
+      evidenceReplacements: /* @__PURE__ */ new Map(),
+      archiveBusy: true
+    };
+  }
+  if (locked.some((row) => row.deletion_operation_id != null)) {
+    throw new Error("image deletion state changed during merge");
+  }
+  const canonicalSha = (value) => {
+    const trimmed = (value ?? "").trim();
+    return MERGE_SHA256_RE.test(trimmed) ? trimmed.toLowerCase() : null;
+  };
+  const survivorBySha = /* @__PURE__ */ new Map();
+  for (const row of locked) {
+    if (row.case_id.toLowerCase() !== targetCaseId) continue;
+    const sha = canonicalSha(row.sha256);
+    if (sha && !survivorBySha.has(sha)) survivorBySha.set(sha, row.id);
+  }
+  const collisionSourceIds = [];
+  const evidenceReplacements = /* @__PURE__ */ new Map();
+  for (const row of locked) {
+    if (row.case_id.toLowerCase() !== sourceCaseId) continue;
+    const sha = canonicalSha(row.sha256);
+    if (!sha) continue;
+    const survivorId = survivorBySha.get(sha);
+    if (!survivorId) {
+      survivorBySha.set(sha, row.id);
+      continue;
+    }
+    collisionSourceIds.push(row.id);
+    evidenceReplacements.set(row.id, survivorId);
+    const survivors = await q(
+      `UPDATE evidence AS survivor
+          SET storage_path = COALESCE(survivor.storage_path, redundant.storage_path),
+              source_message_id = COALESCE(survivor.source_message_id, redundant.source_message_id),
+              box_file_id = COALESCE(survivor.box_file_id, redundant.box_file_id),
+              box_file_url = COALESCE(survivor.box_file_url, redundant.box_file_url),
+              content_type = COALESCE(NULLIF(btrim(survivor.content_type), ''), redundant.content_type),
+              size_bytes = COALESCE(survivor.size_bytes, redundant.size_bytes),
+              source_label = COALESCE(NULLIF(btrim(survivor.source_label), ''), redundant.source_label),
+              sequence_index = COALESCE(survivor.sequence_index, redundant.sequence_index),
+              image_role_code = CASE
+                WHEN survivor.image_role_source IS NULL
+                 AND survivor.image_role_code = 100000003
+                 AND redundant.image_role_code <> 100000003
+                  THEN redundant.image_role_code
+                ELSE survivor.image_role_code
+              END,
+              image_role_source = CASE
+                WHEN survivor.image_role_source IS NULL
+                 AND survivor.image_role_code = 100000003
+                 AND redundant.image_role_code <> 100000003
+                  THEN redundant.image_role_source
+                ELSE survivor.image_role_source
+              END,
+              registration_visible = CASE
+                WHEN survivor.registration_visible_source IS NULL
+                 AND survivor.registration_visible IS NULL
+                 AND redundant.registration_visible IS NOT NULL
+                  THEN redundant.registration_visible
+                ELSE survivor.registration_visible
+              END,
+              registration_visible_source = CASE
+                WHEN survivor.registration_visible_source IS NULL
+                 AND survivor.registration_visible IS NULL
+                 AND redundant.registration_visible IS NOT NULL
+                  THEN redundant.registration_visible_source
+                ELSE survivor.registration_visible_source
+              END,
+              accepted_for_eva = CASE
+                WHEN survivor.accepted_for_eva_source IS NULL
+                 AND redundant.accepted_for_eva_source IS NOT NULL
+                  THEN redundant.accepted_for_eva
+                ELSE survivor.accepted_for_eva
+              END,
+              accepted_for_eva_source = COALESCE(
+                survivor.accepted_for_eva_source,
+                redundant.accepted_for_eva_source
+              ),
+              excluded = CASE
+                WHEN survivor.exclusion_decision_source IS NULL
+                 AND redundant.exclusion_decision_source IS NOT NULL
+                 AND (
+                   survivor.archive_mirror_claim_token IS NULL
+                   OR survivor.archive_mirror_claim_expires_at <= now()
+                 )
+                  THEN redundant.excluded
+                ELSE survivor.excluded
+              END,
+              exclusion_reason = CASE
+                WHEN survivor.exclusion_decision_source IS NULL
+                 AND redundant.exclusion_decision_source IS NOT NULL
+                 AND (
+                   survivor.archive_mirror_claim_token IS NULL
+                   OR survivor.archive_mirror_claim_expires_at <= now()
+                 )
+                  THEN redundant.exclusion_reason
+                ELSE survivor.exclusion_reason
+              END,
+              exclusion_decision_source = COALESCE(
+                survivor.exclusion_decision_source,
+                CASE
+                  WHEN survivor.archive_mirror_claim_token IS NULL
+                    OR survivor.archive_mirror_claim_expires_at <= now()
+                    THEN redundant.exclusion_decision_source
+                  ELSE NULL
+                END
+              ),
+              person_reflection = survivor.person_reflection OR redundant.person_reflection,
+              reflection_dismissed = survivor.reflection_dismissed OR redundant.reflection_dismissed,
+              updated_at = now()
+         FROM evidence AS redundant
+        WHERE survivor.id = $1
+          AND redundant.id = $2
+      RETURNING survivor.id,
+                survivor.case_id,
+                survivor.excluded,
+                survivor.storage_path,
+                survivor.box_file_id`,
+      [survivorId, row.id]
+    );
+    if (survivors[0]) {
+      await requestArchiveMirrorIfEligible(q, survivors[0]);
+    }
+    await q(
+      `UPDATE archive_mirror_outbox
+          SET completed_generation = requested_generation,
+              completed_at = now(),
+              updated_at = now()
+        WHERE evidence_id = $1
+          AND completed_generation < requested_generation`,
+      [row.id]
+    );
+    await q(
+      `UPDATE staff_evidence_upload_item
+          SET evidence_id = $2, updated_at = now()
+        WHERE evidence_id = $1`,
+      [row.id, survivorId]
+    );
+  }
+  const moved = await q(
+    `UPDATE evidence
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1
+        AND NOT (id = ANY($3::uuid[]))
+      RETURNING id`,
+    [sourceCaseId, targetCaseId, collisionSourceIds]
+  );
+  if (moved.length > 0) {
+    await q(
+      `UPDATE archive_mirror_outbox
+          SET case_id = $2, updated_at = now()
+        WHERE evidence_id = ANY($1::uuid[])`,
+      [moved.map((row) => row.id), targetCaseId]
+    );
+  }
+  return {
+    movedEvidence: moved.length,
+    collidingEvidence: collisionSourceIds.length,
+    evidenceReplacements
+  };
+}
+async function manualIntakeMergeConflict(q, sourceCaseId, targetCaseId) {
+  const operations = await q(
+    `SELECT case_id, expected_file_count, evidence_completed_at, side_effects_completed_at
+       FROM manual_intake_case_create_operation
+      WHERE case_id = ANY($1::uuid[])
+      ORDER BY case_id, created_at, idempotency_key
+      FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]]
+  );
+  const incomplete = operations.some((operation) => operation.side_effects_completed_at == null || Number(operation.expected_file_count) > 0 && operation.evidence_completed_at == null);
+  return incomplete ? "Source files are still being added for one of these cases. Finish or retry them before merging." : void 0;
+}
+async function transferStaffUploadOwnership(q, sourceCaseId, targetCaseId) {
+  await q(
+    `UPDATE staff_evidence_upload
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId]
+  );
+  await q(
+    `UPDATE staff_evidence_upload_item
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId]
+  );
+  await q(
+    `UPDATE manual_intake_case_create_operation
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId]
+  );
+}
+async function reconcileMergeFileRequestIntent(q, sourceCaseId, targetCaseId) {
+  const cases = await q(
+    `SELECT id, box_folder_id, box_file_request_id, box_file_request_url
+       FROM case_ WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]]
+  );
+  const source = cases.find((row) => row.id.toLowerCase() === sourceCaseId);
+  const target = cases.find((row) => row.id.toLowerCase() === targetCaseId);
+  if (!source || !target) return "Source or target case not found.";
+  if ((source.box_file_request_id ?? "").trim() || (source.box_file_request_url ?? "").trim()) {
+    return "The source case already has an image-upload link. Move or close that link before merging.";
+  }
+  const intents = await q(
+    `SELECT case_id, requested_generation, completed_generation, attempt_count, claim_token
+       FROM box_file_request_outbox
+      WHERE case_id = ANY($1::uuid[])
+      ORDER BY case_id
+      FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]]
+  );
+  const sourceIntent = intents.find((row) => row.case_id.toLowerCase() === sourceCaseId);
+  if (!sourceIntent) return void 0;
+  const sourcePending = Number(sourceIntent.requested_generation) > Number(sourceIntent.completed_generation);
+  if (!sourcePending) {
+    return "The source case has completed image-upload-link work that cannot be transferred safely.";
+  }
+  if (sourceIntent.attempt_count > 0 || sourceIntent.claim_token) {
+    return "Image-upload link creation may already have started for the source case. Try the merge after it finishes.";
+  }
+  const targetIntent = intents.find((row) => row.case_id.toLowerCase() === targetCaseId);
+  const targetHasPartialLink = !!(target.box_file_request_id ?? "").trim() !== !!(target.box_file_request_url ?? "").trim();
+  if (targetHasPartialLink) {
+    return "The survivor has an incomplete image-upload-link record. Resolve it before merging.";
+  }
+  const targetHasLink = !!(target.box_file_request_id ?? "").trim() && !!(target.box_file_request_url ?? "").trim();
+  if (targetIntent && Number(targetIntent.completed_generation) >= Number(targetIntent.requested_generation) && !targetHasLink) {
+    return "The survivor has completed image-upload-link work with no saved link. Resolve it before merging.";
+  }
+  if (targetIntent || targetHasLink) {
+    await q(
+      `UPDATE box_file_request_outbox
+          SET completed_generation = requested_generation,
+              completed_at = now(),
+              last_error = 'superseded by merge target',
+              updated_at = now()
+        WHERE case_id = $1`,
+      [sourceCaseId]
+    );
+    return void 0;
+  }
+  const targetFolder = (target.box_folder_id ?? "").trim();
+  if (!targetFolder) {
+    return "The survivor has no archive folder for the pending image-upload link.";
+  }
+  await q(
+    `UPDATE box_file_request_outbox
+        SET case_id = $2,
+            folder_id = $3,
+            next_attempt_at = now(),
+            updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId, targetFolder]
+  );
+  return void 0;
+}
+async function lockCaptureSessionsForMerge(q, sourceCaseId) {
+  const relations = await q(
+    "SELECT to_regclass('public.capture_session')::text AS capture_session_regclass"
+  );
+  if (!relations[0]?.capture_session_regclass) return [];
+  const locked = await q(
+    `SELECT id FROM capture_session
+      WHERE case_id = $1
+      ORDER BY id
+      FOR UPDATE`,
+    [sourceCaseId]
+  );
+  return locked.map((row) => row.id);
+}
+async function lockCaptureAssetsForMerge(q, sessionIds) {
+  if (sessionIds.length === 0) return [];
+  const locked = await q(
+    `SELECT id FROM capture_asset
+      WHERE session_id = ANY($1::uuid[])
+      ORDER BY id
+      FOR UPDATE`,
+    [sessionIds]
+  );
+  return locked.map((row) => row.id);
+}
+async function repointLockedCaptureAssetsForMerge(q, assetIds, evidenceReplacements) {
+  if (assetIds.length === 0 || evidenceReplacements.size === 0) return;
+  for (const [redundantEvidenceId, survivorEvidenceId] of [...evidenceReplacements].sort()) {
+    await q(
+      `UPDATE capture_asset
+          SET evidence_id = $2, updated_at = now()
+        WHERE evidence_id = $1 AND id = ANY($3::uuid[])`,
+      [redundantEvidenceId, survivorEvidenceId, assetIds]
+    );
+  }
+}
+async function reparentLockedCaptureSessionsForMerge(q, sessionIds, sourceCaseId, targetCaseId, actor) {
+  if (sessionIds.length === 0) return;
+  const moved = await q(
+    `UPDATE capture_session
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1 AND id = ANY($3::uuid[])
+      RETURNING id`,
+    [sourceCaseId, targetCaseId, sessionIds]
+  );
+  if (moved.length !== sessionIds.length) {
+    throw new Error("capture session ownership changed while case merge locks were held");
+  }
+  for (const sessionId of [...sessionIds].sort()) {
+    await writeAuditStrict({
+      action: AUDIT_ACTION.capture_session_retargeted,
+      caseId: targetCaseId,
+      actor: actor ?? "staff",
+      summary: "Guided capture session moved to merged case survivor",
+      before: { caseId: sourceCaseId },
+      after: {
+        sessionId,
+        caseId: targetCaseId,
+        lineage: [sourceCaseId, targetCaseId],
+        reason: "case_merge"
+      }
+    }, q);
+  }
+}
+import_functions2.app.http("mergeCases", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{tgt}/merge",
+  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
+    const targetCaseId = (req.params.tgt ?? "").trim().toLowerCase();
+    const body2 = await req.json();
+    const sourceCaseId = typeof body2.sourceCaseId === "string" ? body2.sourceCaseId.trim().toLowerCase() : "";
+    const actor = actorFromClaims(claims);
+    if (!MERGE_UUID_RE.test(sourceCaseId) || !MERGE_UUID_RE.test(targetCaseId)) {
+      return { status: 400, jsonBody: { error: "Case identifiers are invalid." } };
+    }
+    if (sourceCaseId === targetCaseId) {
+      return { status: 400, jsonBody: { error: "Cannot merge a case into itself." } };
+    }
+    const runMerge = () => tx(async (q) => {
+      await acquireCaseMutationLocks(q, [sourceCaseId, targetCaseId]);
+      const orderedIds = orderedCaseMutationIds([sourceCaseId, targetCaseId]);
+      const lockedCases = await q(
+        "SELECT id FROM case_ WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE",
+        [orderedIds]
+      );
+      if (lockedCases.length !== 2) {
+        return { kind: "error", status: 404, error: "Source or target case not found." };
+      }
+      const src = await loadCaseLite(sourceCaseId, q);
+      const tgt = await loadCaseLite(targetCaseId, q);
+      if (!src || !tgt) {
+        return { kind: "error", status: 404, error: "Source or target case not found." };
+      }
+      if (isRetiredMerged(src) || isRetiredMerged(tgt)) {
+        return {
+          kind: "error",
+          status: 409,
+          error: "One of these cases has already been merged. Refresh and try again."
+        };
+      }
+      if (src.providerCode && tgt.providerCode && src.providerCode !== tgt.providerCode) {
+        return {
+          kind: "error",
+          status: 400,
+          error: "Refusing to merge across different work providers."
+        };
+      }
+      if (TWIN_TERMINAL.has(tgt.status)) {
+        return {
+          kind: "error",
+          status: 400,
+          error: "Cannot merge into a finalised case."
+        };
+      }
+      const providerArchiveBusy = await q(
+        `SELECT id
+           FROM case_
+          WHERE id = ANY($1::uuid[])
+            AND (
+              provider_archive_completed_generation < provider_archive_requested_generation
+              OR on_hold_reason = 'provider_archive_pending'
+            )`,
+        [[sourceCaseId, targetCaseId]]
+      );
+      if (providerArchiveBusy.length > 0) {
+        return {
+          kind: "error",
+          status: 409,
+          error: "Archive folder work is still finishing for one of these cases. Try the merge again shortly."
+        };
+      }
+      const activeWork = await q(
+        `SELECT EXISTS (
+           SELECT 1
+             FROM evidence
+            WHERE case_id = ANY($1::uuid[])
+              AND deletion_operation_id IS NOT NULL
+         ) AS deletion_busy,
+         EXISTS (
+           SELECT 1
+             FROM evidence
+            WHERE case_id = ANY($1::uuid[])
+              AND archive_mirror_claim_token IS NOT NULL
+              AND archive_mirror_claim_expires_at > now()
+         ) AS archive_busy`,
+        [[sourceCaseId, targetCaseId]]
+      );
+      if (activeWork[0]?.deletion_busy) {
+        return {
+          kind: "error",
+          status: 409,
+          error: "An image is being deleted from one of these cases. Try the merge again shortly."
+        };
+      }
+      if (activeWork[0]?.archive_busy) {
+        return {
+          kind: "error",
+          status: 409,
+          error: "Archive work is still finishing for one of these cases. Try the merge again shortly."
+        };
+      }
+      const manualIntakeConflict = await manualIntakeMergeConflict(
+        q,
+        sourceCaseId,
+        targetCaseId
+      );
+      if (manualIntakeConflict) {
+        return { kind: "error", status: 409, error: manualIntakeConflict };
+      }
+      const captureSessionIds = await lockCaptureSessionsForMerge(q, sourceCaseId);
+      const captureAssetIds = await lockCaptureAssetsForMerge(q, captureSessionIds);
+      const fileRequestConflict = await reconcileMergeFileRequestIntent(
+        q,
+        sourceCaseId,
+        targetCaseId
+      );
+      if (fileRequestConflict) {
+        return { kind: "error", status: 409, error: fileRequestConflict };
+      }
+      await q(
+        "SELECT id FROM inbound_email WHERE case_id = $1 ORDER BY id FOR UPDATE",
+        [sourceCaseId]
+      );
+      const { movedEvidence, collidingEvidence, evidenceReplacements } = await mergeEvidenceRows(
+        q,
+        sourceCaseId,
+        targetCaseId
+      );
+      await transferStaffUploadOwnership(q, sourceCaseId, targetCaseId);
+      await repointLockedCaptureAssetsForMerge(q, captureAssetIds, evidenceReplacements);
+      await reparentLockedCaptureSessionsForMerge(
+        q,
+        captureSessionIds,
+        sourceCaseId,
+        targetCaseId,
+        actor
+      );
+      const movedEmails = await q(
+        "UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id",
+        [sourceCaseId, targetCaseId]
+      );
+      const claimantMerge = await mergeClaimantProvenance(
+        q,
+        sourceCaseId,
+        targetCaseId,
+        src.evaFields.claimantName.value,
+        tgt.evaFields.claimantName.value
+      );
+      const fkRows = await q(
+        "SELECT id, work_provider_id FROM case_ WHERE id = ANY($1::uuid[])",
+        [[sourceCaseId, targetCaseId]]
+      );
+      const srcFk = fkRows.find((r) => r.id === sourceCaseId)?.work_provider_id ?? null;
+      const tgtFk = fkRows.find((r) => r.id === targetCaseId)?.work_provider_id ?? null;
+      const providerDecision = decideMergeProvider(srcFk, tgtFk);
+      let providerFilled = false;
+      let providerRecoveryOutcome;
+      let providerArchiveGeneration;
+      if (!providerDecision.crossProvider && providerDecision.filledFrom === "source" && providerDecision.providerId) {
+        await q(
+          `UPDATE case_ SET work_provider_id = $2, updated_at = now()
+            WHERE id = $1 AND work_provider_id IS NULL`,
+          [targetCaseId, providerDecision.providerId]
+        );
+        const wp = await q("SELECT display_name FROM work_provider WHERE id = $1", [
+          providerDecision.providerId
+        ]);
+        const displayName = (wp[0]?.display_name ?? "").trim();
+        if (displayName) {
+          await q(
+            `UPDATE case_ SET eva_work_provider = $2, updated_at = now()
+              WHERE id = $1 AND (eva_work_provider IS NULL OR eva_work_provider = '')`,
+            [targetCaseId, displayName.slice(0, 200)]
+          );
+        }
+        await q("SAVEPOINT merge_provider_provenance");
+        try {
+          await q(
+            `INSERT INTO field_level_provenance
+               (name, case_id, field_name, value, source_type_code, source_label)
+             VALUES ($1, $2, 'workProviderId', $3, $4, $5)`,
+            [
+              `${targetCaseId}:workProviderId`,
+              targetCaseId,
+              providerDecision.providerId,
+              sourceTypeCodec.toInt("corpus") ?? 100000003,
+              "Carried over from the merged case"
+            ]
+          );
+          await q("RELEASE SAVEPOINT merge_provider_provenance");
+        } catch {
+          await q("ROLLBACK TO SAVEPOINT merge_provider_provenance");
+          await q("RELEASE SAVEPOINT merge_provider_provenance");
+        }
+        providerFilled = true;
+        const recovery = await completeProviderRecoveryUsing(q, {
+          caseId: targetCaseId,
+          resolvedProviderId: providerDecision.providerId,
+          allowCasePoMint: true
+        });
+        if (recovery.outcome === "blocked") {
+          throw new MergeProviderRecoveryBlocked(recovery.blockedReason ?? "provider recovery blocked");
+        }
+        providerRecoveryOutcome = recovery.outcome;
+        if (recovery.outcome === "identity_ready") {
+          providerArchiveGeneration = await requestProviderArchive(q, targetCaseId);
+        }
+      }
+      await cancelProviderArchive(q, sourceCaseId);
+      await q(
+        `UPDATE case_
+           SET status_code = $2, duplicate_keys = $3, on_hold = false,
+               on_hold_reason = NULL, updated_at = now()
+         WHERE id = $1`,
+        [sourceCaseId, statusToInt("linked_to_instruction"), JSON.stringify({ mergedInto: targetCaseId })]
+      );
+      const statusGeneration = await requestStatusRecompute(q, targetCaseId);
+      await writeAudit({
+        action: AUDIT_ACTION.case_attached,
+        caseId: targetCaseId,
+        summary: `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence, ${movedEmails.length} emails${providerFilled ? ", provider carried over from the merged case" : ""}${providerRecoveryOutcome === "identity_ready" ? ", Archive folder queued" : ""}${claimantMerge.filled ? ", claimant carried over from the merged case" : ""}${claimantMerge.conflict ? ", claimant difference kept for review" : ""})`,
+        after: {
+          sourceCaseId,
+          targetCaseId,
+          movedEvidence,
+          collidingEvidence,
+          movedEmails: movedEmails.length,
+          providerFilled,
+          providerRecoveryOutcome,
+          providerArchiveGeneration,
+          claimantFilled: claimantMerge.filled,
+          claimantConflict: claimantMerge.conflict,
+          captureSessionsRetargeted: captureSessionIds.length
+        },
+        ...actor ? { actor } : {}
+      }, q);
+      return {
+        kind: "merged",
+        movedEvidence,
+        collidingEvidence,
+        movedEmails: movedEmails.length,
+        providerFilled,
+        providerRecoveryOutcome,
+        providerArchiveGeneration,
+        claimantFilled: claimantMerge.filled,
+        claimantConflict: claimantMerge.conflict,
+        statusGeneration
+      };
+    });
+    let merged;
+    try {
+      merged = await runMerge();
+    } catch (e) {
+      if (e instanceof MergeProviderRecoveryBlocked) {
+        return {
+          status: 409,
+          jsonBody: { error: "Provider recovery needs review before these cases can be merged." }
+        };
+      }
+      throw e;
+    }
+    if (merged.kind === "error") {
+      return { status: merged.status, jsonBody: { error: merged.error } };
+    }
+    try {
+      const evaluated = await recomputeStatus2(targetCaseId, actor);
+      if (!evaluated) throw new Error("target case was not available for readiness evaluation");
+      await acknowledgeStatusRecompute(query, targetCaseId, merged.statusGeneration);
+    } catch (e) {
+      ctx.warn(
+        `[merge] readiness recompute remains pending for ${targetCaseId} (generation ${merged.statusGeneration}): ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+    const result = { targetCaseId, movedEvidence: merged.movedEvidence };
+    return { status: 200, jsonBody: result };
+  })
+});
+import_functions2.app.http("imagesForCase", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}/images",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const id = req.params.id;
+    const rows = await query(
+      // Automatic exclusions and every public guided-capture row stay visible in REVIEW so staff
+      // can make or revisit the evidential decision. TKT-200 explicitly requires an excluded guided
+      // photo to remain visible after a staff rejection; the DTO distinguishes that state for plain
+      // UI copy. Other staff/provider/cleanup/legacy exclusions stay hidden. Every returned excluded
+      // row remains acceptedForEva=false and cannot affect readiness/order/export until a staff PATCH
+      // explicitly includes and accepts it.
+      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded = false OR exclusion_decision_source = 'classifier' OR person_reflection = true OR source_label = 'public_guided_capture') ORDER BY sequence_index NULLS LAST, created_at",
+      [id]
+    );
+    return { status: 200, jsonBody: rows.map(rowToEvidence) };
+  })
+});
+import_functions2.app.http("recentActivity", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "activity",
+  handler: withRole("CollisionSpike.User", async () => {
+    const rows = await query("SELECT * FROM audit_event ORDER BY occurred_at DESC LIMIT 200");
+    return { status: 200, jsonBody: rows.map(rowToActivityEvent) };
+  })
+});
+import_functions2.app.http("activityForCase", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}/activity",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const id = req.params.id;
+    const rows = await query(
+      "SELECT * FROM audit_event WHERE case_id = $1 ORDER BY occurred_at DESC",
+      [id]
+    );
+    return { status: 200, jsonBody: rows.map(rowToActivityEvent) };
+  })
+});
+import_functions2.app.http("removeCase", {
+  methods: ["DELETE"],
+  authLevel: "anonymous",
+  route: "cases/{id}",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const actor = actorFromClaims(claims);
+    const existing = await loadCaseLite(id);
+    if (!existing) return { status: 404, jsonBody: { error: "not found" } };
+    if (existing.status === "removed") {
+      const done = {
+        id,
+        status: "removed",
+        alreadyRemoved: true,
+        ...existing.boxFolderUrl ? { boxFolderUrl: existing.boxFolderUrl } : {}
+      };
+      return { status: 200, jsonBody: done };
+    }
+    const before = {
+      status: existing.status,
+      vrm: existing.vrm,
+      casePo: existing.casePo ?? null,
+      provider: existing.provider
+    };
+    const closed = await query(
+      `UPDATE case_
+          SET status_code = $2, on_hold = false, on_hold_reason = NULL,
+              closed_at = now(), updated_at = now()
+        WHERE id = $1
+          AND on_hold_reason IS DISTINCT FROM 'provider_archive_pending'
+          AND provider_archive_completed_generation >= provider_archive_requested_generation
+      RETURNING id`,
+      [id, statusToInt("removed")]
+    );
+    if (!closed[0]) {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "Archive folder work is still finishing for this case. Try again shortly."
+        }
+      };
+    }
+    await writeAudit({
+      action: AUDIT_ACTION.case_removed,
+      caseId: id,
+      summary: `Case closed: ${before.vrm || before.casePo || id}`,
+      before,
+      after: {
+        status: "removed",
+        // The archive tickbox is an INTENT FLAG only — no automated Box deletion (ADR-0017).
+        archiveFolderAcknowledged: body2.acknowledgeArchiveFolderHandled === true || body2.acknowledgeBoxFolderHandled === true,
+        boxFolderId: existing.boxFolderId ?? null,
+        boxFolderUrl: existing.boxFolderUrl ?? null,
+        ...typeof body2.reason === "string" && body2.reason.trim() ? { reason: body2.reason.trim() } : {}
+      },
+      ...actor ? { actor } : {}
+    });
+    const result = {
+      id,
+      status: "removed",
+      alreadyRemoved: false,
+      ...existing.boxFolderUrl ? { boxFolderUrl: existing.boxFolderUrl } : {}
+    };
+    return { status: 200, jsonBody: result };
+  })
+});
+import_functions2.app.http("nextCasePo", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/next-po",
+  handler: withRole("CollisionSpike.User", async (req, ctx) => {
+    const principalRaw = (req.query.get("principal") ?? "").trim();
+    if (!principalRaw) return { status: 400, jsonBody: { error: "principal is required" } };
+    const principal = principalRaw.toUpperCase();
+    if (!/^[A-Z][A-Z0-9]{0,7}$/.test(principal)) {
+      return { status: 400, jsonBody: { error: "invalid principal code" } };
+    }
+    const yearParam = (req.query.get("year") ?? "").trim();
+    const yy = /^\d{2}$/.test(yearParam) ? yearParam : /^\d{4}$/.test(yearParam) ? yearParam.slice(-2) : casePoYear();
+    const prefix2 = `${principal}${yy}`;
+    const seqRows = await query(
+      `SELECT COALESCE(MAX(SUBSTRING(upper(case_po) FROM length($3) + 1)::int), 0) AS max_seq
+         FROM case_
+        WHERE upper(case_po) LIKE $1 AND upper(case_po) ~ $2`,
+      [`${prefix2}%`, casePoSequenceRegex(principal, yy), prefix2]
+    );
+    let maxSeq = Number(seqRows[0]?.max_seq ?? 0);
+    let source = "db";
+    if (maxSeq === 0 && gates.boxApi() && gates.boxFolderRootId() && process.env.BOX_FN_URL) {
+      try {
+        const names = await listBoxFolderNames(gates.boxFolderRootId());
+        const boxMax = maxCasePoSeqFromNames(names, principal, yy);
+        if (boxMax > 0) {
+          maxSeq = boxMax;
+          source = "box";
+        }
+      } catch (e) {
+        ctx.error(`[next-po] Box fallback failed: ${String(e)}`);
+      }
+    }
+    const floor = await casePoFloor(query, prefix2);
+    if (floor > maxSeq) {
+      maxSeq = floor;
+      source = "floor";
+    }
+    const nextSeq = maxSeq + 1;
+    const casePo = formatCasePo(principal, yy, nextSeq);
+    const result = {
+      principal,
+      yy,
+      seq: String(nextSeq).padStart(3, "0"),
+      nextSeq,
+      evaLower: casePo.toLowerCase(),
+      boxUpper: casePo,
+      source
+    };
+    return { status: 200, jsonBody: result };
+  })
+});
+async function readCaseBoxFolder(caseId) {
+  const rows = await query(
+    "SELECT box_folder_id, box_folder_url FROM case_ WHERE id = $1",
+    [caseId]
+  );
+  return {
+    boxFolderId: rows[0]?.box_folder_id ?? null,
+    boxFolderUrl: rows[0]?.box_folder_url ?? null
+  };
+}
+import_functions2.app.http("caseBoxSharedLink", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}/box/shared-link",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    if (!gates.boxApi()) {
+      return { status: 200, jsonBody: { status: "gated_off", message: "The archive is not available yet." } };
+    }
+    const caseId = (req.params.id ?? "").trim();
+    if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
+    const { boxFolderId, boxFolderUrl } = await readCaseBoxFolder(caseId);
+    if (!boxFolderId) {
+      return {
+        status: 200,
+        jsonBody: { status: "folder_not_ready", message: "This case has no archive folder yet." }
+      };
+    }
+    const folderUrl = boxFolderUrl && boxFolderUrl.trim() || `https://app.box.com/folder/${encodeURIComponent(boxFolderId)}`;
+    return { status: 200, jsonBody: { status: "ok", data: { folderUrl } } };
+  })
+});
+import_functions2.app.http("caseBoxCopyFileRequest", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/box/copy-file-request",
+  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
+    if (!gates.boxApi() || !gates.boxFileRequest()) {
+      return { status: 200, jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." } };
+    }
+    const caseId = (req.params.id ?? "").trim();
+    if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
+    const templateId = gates.boxFileRequestTemplateId().trim();
+    if (!templateId) {
+      return {
+        status: 200,
+        jsonBody: { status: "gated_off", message: "Image-upload links aren't available yet." }
+      };
+    }
+    const actor = actorFromClaims(claims);
+    try {
+      const processed = await ensureActiveBoxFileRequest(caseId, templateId, actor);
+      if (processed.kind === "missing") {
+        return { status: 404, jsonBody: { status: "error", message: "Case not found." } };
+      }
+      if (processed.kind === "retired") {
+        return {
+          status: 409,
+          jsonBody: {
+            status: "error",
+            message: "This case has been merged. Open the current case and try again.",
+            mergedInto: processed.mergedInto
+          }
+        };
+      }
+      if (processed.kind === "folder_not_ready") {
+        return {
+          status: 200,
+          jsonBody: { status: "folder_not_ready", message: "This case has no archive folder yet." }
+        };
+      }
+      if (processed.kind === "ok") {
+        const associated = await tx(async (q) => {
+          const locked = await lockCaseForMutation(q, caseId);
+          if (locked.kind !== "active") return false;
+          const current = await q(
+            "SELECT box_folder_id FROM case_ WHERE id = $1 FOR UPDATE",
+            [locked.caseId]
+          );
+          if ((current[0]?.box_folder_id ?? "").trim() !== processed.folderId) return false;
+          await associateOutstandingImageChasersWithFileRequest(
+            q,
+            locked.caseId,
+            processed.fileRequestId,
+            processed.fileRequestUrl
+          );
+          return true;
+        });
+        if (!associated) {
+          return {
+            status: 200,
+            jsonBody: {
+              status: "error",
+              message: "The case archive folder changed. Please try again."
+            }
+          };
+        }
+        return {
+          status: 200,
+          jsonBody: {
+            status: "ok",
+            data: {
+              fileRequestUrl: processed.fileRequestUrl,
+              ...processed.expiresAt ? { expiresAt: processed.expiresAt } : {}
+            }
+          }
+        };
+      }
+      return {
+        status: 200,
+        jsonBody: {
+          status: "error",
+          message: "The image-upload link is still being created. Please try again shortly."
+        }
+      };
+    } catch (error2) {
+      ctx.error("[caseBoxCopyFileRequest] failed", error2);
+      return {
+        status: 200,
+        jsonBody: {
+          status: "error",
+          message: "The image-upload link could not be created. Please try again."
+        }
+      };
+    }
+  })
+});
+import_functions2.app.http("caseBoxFinalize", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/box/finalize",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const caseId = (req.params.id ?? "").trim();
+    if (!caseId) return { status: 400, jsonBody: { status: "error", message: "caseId is required" } };
+    return {
+      status: 200,
+      jsonBody: { status: "gated_off", message: 'Direct submit is not available yet. Use "Export for EVA".' }
+    };
+  })
+});
+import_functions2.app.http("markEvaSubmitted", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/eva-submitted",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = (req.params.id ?? "").trim();
+    if (!id) return { status: 400, jsonBody: { message: "A case is required." } };
+    const updated = await markEvaSubmittedIfReady(id, actorFromClaims(claims));
+    return { status: 200, jsonBody: { updated } };
+  })
+});
+import_functions2.app.http("markCaseDone", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/mark-done",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = (req.params.id ?? "").trim();
+    if (!id) return { status: 400, jsonBody: { message: "A case is required." } };
+    const updated = await tx((q) => markCaseDoneUsing(q, {
+      caseId: id,
+      signal: "manual",
+      actor: actorFromClaims(claims)
+    }));
+    return { status: 200, jsonBody: { updated } };
+  })
+});
+var COMPLETED_STATUSES = ["eva_submitted", "done", "box_synced"];
+import_functions2.app.http("completedCases", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "completed/cases",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const statusFilter = (req.query.get("status") ?? "").trim();
+    const wanted = COMPLETED_STATUSES.filter(
+      (s) => !statusFilter || s === statusFilter
+    );
+    if (wanted.length === 0) return { status: 200, jsonBody: [] };
+    const codes = wanted.map((s) => statusToInt(s));
+    const limit = Math.min(Math.max(parseInt(req.query.get("limit") ?? "200", 10) || 200, 1), 500);
+    const offset = Math.max(parseInt(req.query.get("offset") ?? "0", 10) || 0, 0);
+    const rows = await query(
+      `${CASE_SELECT}
+       WHERE c.status_code = ANY($1::int[])
+       ORDER BY c.submitted_at DESC NULLS LAST, c.updated_at DESC
+       LIMIT $2 OFFSET $3`,
+      [codes, limit, offset]
+    );
+    const now = nowParam(req);
+    return { status: 200, jsonBody: rows.map((r) => rowToCase(r, { now })) };
+  })
+});
+function nowParam(req) {
+  const raw = req.query.get("now");
+  if (!raw) return /* @__PURE__ */ new Date();
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? /* @__PURE__ */ new Date() : d;
+}
+
+// api/src/functions/providers.ts
+var import_functions3 = require("@azure/functions");
+import_functions3.app.http("providers", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "providers",
+  handler: withRole("CollisionSpike.User", async () => {
+    const rows = await query("SELECT * FROM work_provider ORDER BY display_name");
+    return { status: 200, jsonBody: rows.map(rowToProvider) };
+  })
+});
+import_functions3.app.http("providerByCode", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "providers/{code}",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const code = req.params.code;
+    const rows = await query("SELECT * FROM work_provider WHERE principal_code = $1 LIMIT 1", [
+      code
+    ]);
+    if (!rows[0]) return { status: 404, jsonBody: { error: "not found" } };
+    return { status: 200, jsonBody: rowToProvider(rows[0]) };
+  })
+});
+var UUID_RE2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function normaliseDomains(input) {
+  if (!Array.isArray(input)) return void 0;
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const d of input) {
+    const v = String(d ?? "").trim().toLowerCase();
+    if (v && !seen.has(v)) {
+      seen.add(v);
+      out.push(v);
+    }
+  }
+  return out;
+}
+import_functions3.app.http("updateProvider", {
+  methods: ["PATCH"],
+  authLevel: "anonymous",
+  route: "providers/{id}",
+  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
+    const idOrCode = (req.params.id ?? "").trim();
+    if (!idOrCode) return { status: 400, jsonBody: { error: "id is required" } };
+    const body2 = await req.json().catch(() => ({}));
+    let modeCode;
+    if (body2.providerAutomationMode !== void 0) {
+      const mode = String(body2.providerAutomationMode);
+      const code = automationModeCodec.toInt(mode);
+      if (code == null) return { status: 400, jsonBody: { error: "invalid providerAutomationMode" } };
+      modeCode = code;
+    }
+    let domains;
+    if (body2.knownEmailDomains !== void 0) {
+      domains = normaliseDomains(body2.knownEmailDomains);
+      if (domains === void 0) {
+        return { status: 400, jsonBody: { error: "knownEmailDomains must be an array of strings" } };
+      }
+    }
+    if (modeCode === void 0 && domains === void 0) {
+      return { status: 400, jsonBody: { error: "nothing to update" } };
+    }
+    const where2 = UUID_RE2.test(idOrCode) ? "id = $1" : "principal_code = $1";
+    const existing = await query(`SELECT * FROM work_provider WHERE ${where2} LIMIT 1`, [idOrCode]);
+    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const beforeRow = existing[0];
+    const sets = [];
+    const vals = [];
+    const before = {};
+    const after = {};
+    if (modeCode !== void 0) {
+      vals.push(modeCode);
+      sets.push(`provider_automation_mode_code = $${vals.length}`);
+      before.providerAutomationMode = automationModeCodec.toName(beforeRow.provider_automation_mode_code) ?? null;
+      after.providerAutomationMode = automationModeCodec.toName(modeCode);
+    }
+    if (domains !== void 0) {
+      vals.push(domains.join("\n"));
+      sets.push(`known_email_domains = $${vals.length}`);
+      before.knownEmailDomains = beforeRow.known_email_domains ?? null;
+      after.knownEmailDomains = domains;
+    }
+    vals.push(beforeRow.id);
+    const updated = await query(
+      `UPDATE work_provider SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}
+       RETURNING *`,
+      vals
+    );
+    if (!updated[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const actor = actorFromClaims(claims);
+    await writeAudit({
+      action: AUDIT_ACTION.corpus_record_changed,
+      summary: `Provider ${beforeRow.principal_code ?? beforeRow.id} updated: ${Object.keys(after).join(", ")}`,
+      before,
+      after: { ...after, principalCode: beforeRow.principal_code ?? null },
+      ...actor ? { actor } : {}
+    });
+    return { status: 200, jsonBody: rowToProvider(updated[0]) };
+  })
+});
+
+// api/src/functions/inspection.ts
+var import_functions4 = require("@azure/functions");
+
+// api/src/lib/maps.ts
+var MAPS_HOST = "https://atlas.microsoft.com/search/address/json";
+var UK_POSTCODE = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i;
+var cache = /* @__PURE__ */ new Map();
+function extractPostcode(text) {
+  if (!text) return null;
+  const m = text.match(UK_POSTCODE);
+  if (!m) return null;
+  return `${m[1].toUpperCase()} ${m[2].toUpperCase()}`;
+}
+function haversineMiles(a, b) {
+  const R = 3958.7613;
+  const toRad = (d) => d * Math.PI / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+async function geocodePostcode(postcode) {
+  const pc = extractPostcode(postcode);
+  if (!pc) return null;
+  if (cache.has(pc)) return cache.get(pc) ?? null;
+  const key = process.env.AZURE_MAPS_KEY ?? "";
+  if (!key) {
+    cache.set(pc, null);
+    return null;
+  }
+  try {
+    const url2 = `${MAPS_HOST}?api-version=1.0&countrySet=GB&limit=1&subscription-key=${encodeURIComponent(key)}&query=${encodeURIComponent(pc)}`;
+    const res = await fetch(url2, { signal: AbortSignal.timeout(4e3) });
+    if (!res.ok) {
+      cache.set(pc, null);
+      return null;
+    }
+    const body2 = await res.json();
+    const pos = body2.results?.[0]?.position;
+    const geo = pos && typeof pos.lat === "number" && typeof pos.lon === "number" ? { lat: pos.lat, lon: pos.lon } : null;
+    cache.set(pc, geo);
+    return geo;
+  } catch {
+    cache.set(pc, null);
+    return null;
+  }
+}
+
+// api/src/functions/inspection.ts
+var CONFIRMED_PHYSICAL = inspectionDecisionCodec.toInt("confirmed_physical");
+var SHORTLIST_LIMIT = 8;
+var SEARCH_LIMIT = 25;
+function addressMatches(a, needle) {
+  const hay = `${a.lines.join(" ")} ${a.postcode}`.toLowerCase();
+  return hay.includes(needle);
+}
+import_functions4.app.http("inspectionAddressSuggestions", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}/inspection-suggestions",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    try {
+      const id = req.params.id;
+      const q = (req.query.get("q") ?? "").trim().toLowerCase();
+      const rows = await query(
+        "SELECT * FROM inspection_address WHERE source_label LIKE 'suggested%'"
+      );
+      const suggestedRows = rows.filter(isSuggestedAddressRow);
+      const caseRows = await query(
+        "SELECT case_po, eva_accident_circumstances, eva_claimant_address FROM case_ WHERE id = $1",
+        [id]
+      );
+      const caseRow = caseRows[0];
+      const casePostcode = extractPostcode(caseRow?.eva_accident_circumstances) ?? extractPostcode(caseRow?.eva_claimant_address);
+      const centroid = await geocodePostcode(casePostcode);
+      const withDistance = (r) => {
+        const a = rowToSuggestedAddress(r);
+        if (centroid && r.latitude != null && r.longitude != null) {
+          a.distanceMiles = Math.round(haversineMiles(centroid, { lat: Number(r.latitude), lon: Number(r.longitude) }) * 10) / 10;
+        }
+        return a;
+      };
+      const all = suggestedRows.map(withDistance);
+      if (q.length >= 2) {
+        return {
+          status: 200,
+          jsonBody: sortSuggestions(all.filter((a) => addressMatches(a, q)), {
+            byDistance: !!centroid
+          }).slice(0, SEARCH_LIMIT)
+        };
+      }
+      const providerCode = principalFromCasePo(caseRow?.case_po);
+      const { list, usingFallback } = scopeSuggestions(all, providerCode);
+      const shortlist = sortSuggestions(list, { byDistance: !!centroid }).slice(0, SHORTLIST_LIMIT).map((s) => usingFallback ? { ...s, scopeFallback: true } : s);
+      return { status: 200, jsonBody: shortlist };
+    } catch {
+      return { status: 200, jsonBody: [] };
+    }
+  })
+});
+import_functions4.app.http("inspectionAddressCounts", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "inspection-addresses/counts",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const rows = await query(
+        "SELECT source_label, decision_mode_code FROM inspection_address"
+      );
+      let confirmed = 0;
+      let suggested = 0;
+      for (const r of rows) {
+        if (isSuggestedAddressRow(r)) suggested += 1;
+        else if (r.decision_mode_code === CONFIRMED_PHYSICAL) confirmed += 1;
+      }
+      const counts = { confirmed, suggested };
+      return { status: 200, jsonBody: counts };
+    } catch {
+      return { status: 200, jsonBody: { confirmed: 0, suggested: 0 } };
+    }
+  })
+});
+import_functions4.app.http("saveInspectionDecision", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/inspection-decision",
+  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
+    const caseId = req.params.id;
+    const parsed = SaveInspectionDecisionParams.safeParse({
+      ...await req.json().catch(() => ({})),
+      caseId
+    });
+    if (!parsed.success) {
+      return { status: 400, jsonBody: { error: "invalid inspection decision", issues: parsed.error.issues } };
+    }
+    const decision = parsed.data;
+    const lines = (decision.addressLines ?? []).map((line) => line.trim()).filter(Boolean);
+    const postcode = decision.postcode?.trim() ?? "";
+    const isImageBased = decision.decisionMode === "image_based";
+    const label = (isImageBased ? `Image Based Assessment (${caseId})` : [lines[0], postcode].filter(Boolean).join(", ") || "Inspection address").slice(0, 200);
+    const evaAddress = isImageBased ? "Image Based Assessment" : [...lines, ...postcode ? [postcode] : []].join("\n").slice(0, 2e3);
+    const decisionModeCode = inspectionDecisionCodec.toInt(decision.decisionMode);
+    if (decisionModeCode == null) {
+      return { status: 400, jsonBody: { error: "invalid inspection decision mode" } };
+    }
+    const actor = actorFromClaims(claims);
+    const outcome = await tx(async (q) => {
+      const caseRows = await q(
+        `SELECT case_po, eva_inspection_address, inspection_decision_code, updated_at
+           FROM case_ WHERE id = $1 FOR UPDATE`,
+        [caseId]
+      );
+      const caseRow = caseRows[0];
+      if (!caseRow) return { kind: "missing" };
+      const currentVersion2 = versionToken(caseRow.updated_at);
+      const expected = ifMatch2(req);
+      if (expected != null && expected !== "" && expected !== currentVersion2) {
+        return { kind: "stale", currentVersion: currentVersion2 };
+      }
+      const providerCode = principalFromCasePo(caseRow.case_po);
+      const sourceNote = [
+        `case=${caseId}`,
+        ...providerCode ? [`provider=${providerCode}`] : [],
+        decision.sourceNote
+      ].join(" ").trim();
+      const decisionReason = isImageBased ? decision.sourceNote : null;
+      const rows = await q(
+        `INSERT INTO inspection_address
+           (label, decision_mode_code, decision_reason, source_label, source_note,
+            address_line1, address_line2, address_line3, address_line4, address_line5, address_line6, postcode)
+         VALUES ($1, COALESCE($2, 100000003), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         ON CONFLICT (label) DO UPDATE SET
+           decision_mode_code = EXCLUDED.decision_mode_code,
+           decision_reason    = EXCLUDED.decision_reason,
+           source_label       = EXCLUDED.source_label,
+           source_note        = EXCLUDED.source_note,
+           address_line1      = EXCLUDED.address_line1,
+           address_line2      = EXCLUDED.address_line2,
+           address_line3      = EXCLUDED.address_line3,
+           address_line4      = EXCLUDED.address_line4,
+           address_line5      = EXCLUDED.address_line5,
+           address_line6      = EXCLUDED.address_line6,
+           postcode           = EXCLUDED.postcode
+         RETURNING id`,
+        [
+          label,
+          decisionModeCode ?? null,
+          decisionReason,
+          decision.sourceLabel,
+          sourceNote,
+          lines[0] ?? null,
+          lines[1] ?? null,
+          lines[2] ?? null,
+          lines[3] ?? null,
+          lines[4] ?? null,
+          lines[5] ?? null,
+          isImageBased ? null : decision.postcode?.trim() ?? null
+        ]
+      );
+      const id = rows[0]?.id;
+      const updated = await q(
+        `UPDATE case_
+            SET eva_inspection_address = $2,
+                inspection_decision_code = $3,
+                updated_at = now()
+          WHERE id = $1
+          RETURNING updated_at`,
+        [caseId, evaAddress, decisionModeCode]
+      );
+      const statusGeneration = await requestStatusRecompute(q, caseId);
+      await writeAudit({
+        action: AUDIT_ACTION.inspection_override,
+        caseId,
+        summary: `Inspection decision confirmed (${decision.decisionMode})`,
+        before: {
+          inspectionAddress: caseRow.eva_inspection_address ?? null,
+          decisionModeCode: caseRow.inspection_decision_code ?? null
+        },
+        after: { decisionMode: decision.decisionMode, label, inspectionAddress: evaAddress },
+        ...actor ? { actor } : {}
+      }, q);
+      return {
+        kind: "saved",
+        id,
+        version: versionToken(updated[0]?.updated_at),
+        statusGeneration
+      };
+    });
+    if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+    if (outcome.kind === "stale") {
+      return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
+    }
+    try {
+      const evaluated = await recomputeStatus2(caseId, actor);
+      if (!evaluated) throw new Error("case was not available for readiness evaluation");
+      await acknowledgeStatusRecompute(query, caseId, outcome.statusGeneration);
+    } catch (error2) {
+      ctx.warn(
+        `[inspection-decision] readiness recompute remains pending for ${caseId} (generation ${outcome.statusGeneration}): ${error2 instanceof Error ? error2.message : String(error2)}`
+      );
+    }
+    const current = await query("SELECT updated_at FROM case_ WHERE id = $1", [caseId]);
+    const currentVersion = current[0] ? versionToken(current[0].updated_at) : outcome.version;
+    const result = {
+      persisted: true,
+      ...outcome.id ? { id: outcome.id } : {},
+      version: currentVersion
+    };
+    return {
+      status: 200,
+      jsonBody: result,
+      headers: { ETag: `"${currentVersion}"`, "Access-Control-Expose-Headers": "ETag" }
+    };
+  })
+});
+
+// api/src/functions/dashboard.ts
+var import_functions5 = require("@azure/functions");
+function nowParam2(req) {
+  const raw = req.query.get("now");
+  if (!raw) return /* @__PURE__ */ new Date();
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? /* @__PURE__ */ new Date() : d;
+}
+async function loadAllCases2(now) {
+  const rows = await query(`${CASE_SELECT} ORDER BY c.created_at DESC`);
+  return rows.map((r) => rowToCase(r, { now }));
+}
+function computeLiveCounts(all) {
+  return {
+    notReady: filterQueue(all, "not-ready").length,
+    review: filterQueue(all, "review").length,
+    held: filterQueue(all, "held").length
+  };
+}
+function computeThroughput(all, now) {
+  const today = startOfDay(now);
+  const weekStart = startOfWeek(now);
+  let inToday = 0;
+  let submittedToday = 0;
+  let clearedThisWeek = 0;
+  let submittedTotal = 0;
+  for (const c of all) {
+    if (isSameDay(parseDmy(c.createdAt), today)) inToday += 1;
+    if (statusToStage(c.status) === "submitted") submittedTotal += 1;
+    const sub = parseDmy(c.submittedAt);
+    if (sub) {
+      if (isSameDay(sub, today)) submittedToday += 1;
+      if (startOfDay(sub).getTime() >= weekStart.getTime()) clearedThisWeek += 1;
+    }
+  }
+  return { inToday, submittedToday, clearedThisWeek, submittedTotal };
+}
+function computeAgingExceptions(all, now) {
+  const today = startOfDay(now);
+  const rows = actionableCases(all).map((c) => {
+    const due = parseDmy(c.dateDue);
+    const daysToDue = due ? daysBetween(today, due) : Number.POSITIVE_INFINITY;
+    return {
+      case: c,
+      daysToDue,
+      pastDue: due ? daysToDue < 0 : false,
+      ...c.actionReason ? { reason: c.actionReason } : {}
+    };
+  }).sort((a, b) => a.daysToDue - b.daysToDue);
+  return {
+    rows,
+    pastDueCount: rows.filter((r) => r.pastDue).length,
+    duplicateCount: rows.filter((r) => r.reason === "duplicate").length,
+    conflictCount: rows.filter((r) => r.reason === "conflict").length
+  };
+}
+function computeQueueCounts(all) {
+  return {
+    "not-ready": filterQueue(all, "not-ready").length,
+    review: filterQueue(all, "review").length,
+    held: filterQueue(all, "held").length
+  };
+}
+function computeReasonFacets(all) {
+  const tally = /* @__PURE__ */ new Map();
+  for (const c of actionableCases(all)) {
+    if (!c.actionReason) continue;
+    tally.set(c.actionReason, (tally.get(c.actionReason) ?? 0) + 1);
+  }
+  return Object.keys(REASON_LABELS).map((reason) => ({ reason, label: REASON_LABELS[reason], count: tally.get(reason) ?? 0 })).filter((f) => f.count > 0);
+}
+function computePipelineStages(all) {
+  const defs = [
+    { key: "not_ready", label: "Not ready" },
+    { key: "review", label: "Review" },
+    { key: "submitted", label: "Submitted" }
+  ];
+  const counts = new Map(defs.map((d) => [d.key, 0]));
+  for (const c of all) {
+    if (c.onHold) continue;
+    if (isRetiredMerged(c)) continue;
+    const stage = statusToStage(c.status);
+    if (stage === void 0) continue;
+    const k = stage === "new" ? "not_ready" : stage;
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  return defs.map((d) => ({
+    key: d.key,
+    label: d.label,
+    count: counts.get(d.key) ?? 0,
+    tone: d.key === "not_ready" ? "stuck" : "normal"
+  }));
+}
+import_functions5.app.http("liveCounts", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "dashboard/live-counts",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const all = await loadAllCases2(nowParam2(req));
+    return { status: 200, jsonBody: computeLiveCounts(all) };
+  })
+});
+import_functions5.app.http("throughput", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "dashboard/throughput",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const now = nowParam2(req);
+    const all = await loadAllCases2(now);
+    return { status: 200, jsonBody: computeThroughput(all, now) };
+  })
+});
+import_functions5.app.http("agingExceptions", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "dashboard/aging-exceptions",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const now = nowParam2(req);
+    const all = await loadAllCases2(now);
+    return { status: 200, jsonBody: computeAgingExceptions(all, now) };
+  })
+});
+import_functions5.app.http("queueCounts", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "dashboard/queue-counts",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const all = await loadAllCases2(nowParam2(req));
+    return { status: 200, jsonBody: computeQueueCounts(all) };
+  })
+});
+import_functions5.app.http("reasonCounts", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "dashboard/reason-counts",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const all = await loadAllCases2(nowParam2(req));
+    return { status: 200, jsonBody: computeReasonFacets(all) };
+  })
+});
+import_functions5.app.http("pipelineStages", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "dashboard/pipeline-stages",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const all = await loadAllCases2(nowParam2(req));
+    return { status: 200, jsonBody: computePipelineStages(all) };
+  })
+});
+import_functions5.app.http("dashboardSummary", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "dashboard",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const now = nowParam2(req);
+    const all = await loadAllCases2(now);
+    let inbound = { ...INBOUND_COUNTS_ZERO };
+    try {
+      const inboundRows = await query("SELECT category_code, triage_state FROM inbound_email");
+      inbound = tallyActiveInboundCounts(inboundRows);
+    } catch {
+    }
+    const summary2 = {
+      liveCounts: computeLiveCounts(all),
+      throughput: computeThroughput(all, now),
+      queueCounts: computeQueueCounts(all),
+      pipelineStages: computePipelineStages(all),
+      reasonFacets: computeReasonFacets(all),
+      agingExceptions: computeAgingExceptions(all, now),
+      inbound
+    };
+    return { status: 200, jsonBody: summary2 };
+  })
+});
+
+// api/src/functions/gates.ts
+var import_functions6 = require("@azure/functions");
+import_functions6.app.http("getBoxGates", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "gates/box",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const result = {
+        apiEnabled: gates.boxApi(),
+        folderAtIntakeEnabled: gates.boxFolderAtIntake(),
+        fileRequestEnabled: gates.boxFileRequest(),
+        fileRequestTemplateConfigured: gates.boxFileRequestTemplateId() !== ""
+      };
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { ...BOX_GATES_ALL_FALSE } };
+    }
+  })
+});
+import_functions6.app.http("getBoxFileRequestTemplateId", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "gates/box/file-request-template",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const id = gates.boxFileRequestTemplateId();
+      return { status: 200, jsonBody: { templateId: id !== "" ? id : null } };
+    } catch {
+      return { status: 200, jsonBody: { templateId: null } };
+    }
+  })
+});
+import_functions6.app.http("getLocationAssistGate", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "gates/location-assist",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const result = {
+        assistEnabled: gates.locationAssist(),
+        mapsEnabled: gates.azureMaps(),
+        apiBaseConfigured: gates.locationAssistApiBase() !== "",
+        enabled: gates.locationAssistEnabled(),
+        aiEnabled: gates.locationAssistAiEnabled()
+      };
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { ...LOCATION_ASSIST_GATE_ALL_OFF } };
+    }
+  })
+});
+import_functions6.app.http("getAiAssistGate", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "gates/ai-assist",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const result = {
+        enabled: gates.aiAssist(),
+        modelConfigured: gates.aiAssistConfigured()
+      };
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { ...AI_ASSIST_GATE_ALL_OFF } };
+    }
+  })
+});
+import_functions6.app.http("getDeleteCaseImageGate", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "gates/delete-case-image",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const result = { enabled: gates.deleteCaseImage() };
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { ...DELETE_CASE_IMAGE_GATE_ALL_OFF } };
+    }
+  })
+});
+import_functions6.app.http("getOutlookMoveGate", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "gates/outlook-move",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const result = { enabled: gates.outlookMoveEnabled() };
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { ...OUTLOOK_MOVE_GATE_ALL_OFF } };
+    }
+  })
+});
+
+// api/src/functions/settings.ts
+var import_functions7 = require("@azure/functions");
+var HOLD_KEY = "hold_new_cases_by_default";
+import_functions7.app.http("getHoldNewCasesDefault", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "settings/hold-new-cases",
+  handler: withRole("CollisionSpike.User", async () => {
+    try {
+      const rows = await query("SELECT value FROM app_setting WHERE key = $1", [HOLD_KEY]);
+      return { status: 200, jsonBody: { value: (rows[0]?.value ?? "false") === "true" } };
+    } catch {
+      return { status: 200, jsonBody: { value: false } };
+    }
+  })
+});
+import_functions7.app.http("setHoldNewCasesDefault", {
+  methods: ["PUT"],
+  authLevel: "anonymous",
+  route: "settings/hold-new-cases",
+  handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
+    const body2 = await req.json();
+    const actor = actorFromClaims(claims);
+    const valueStr = body2.value ? "true" : "false";
+    try {
+      await query(
+        `INSERT INTO app_setting (key, value, updated_at, updated_by)
+         VALUES ($1, $2, now(), $3)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now(), updated_by = EXCLUDED.updated_by`,
+        [HOLD_KEY, valueStr, actor ?? null]
+      );
+    } catch {
+      return { status: 503, jsonBody: { error: "settings store unavailable" } };
+    }
+    await writeAudit({
+      action: AUDIT_ACTION.corpus_record_changed,
+      summary: `Set hold-new-cases-by-default = ${valueStr}`,
+      after: { key: HOLD_KEY, value: valueStr },
+      ...actor ? { actor } : {}
+    });
+    return { status: 204 };
+  })
+});
+
+// api/src/functions/inbound.ts
+var import_node_crypto11 = require("node:crypto");
+var import_functions8 = require("@azure/functions");
+
+// api/src/lib/outlook-queue.ts
+var OUTLOOK_MOVE_QUEUE_NAME = "outlook-move";
+var STORAGE_RESOURCE = "https://storage.azure.com";
+var STORAGE_API_VERSION = "2021-12-02";
+var cachedToken = null;
+async function getStorageToken() {
+  const now = Date.now();
+  if (cachedToken && cachedToken.expiresAt > now + 6e4) return cachedToken.value;
+  const idEndpoint = process.env.IDENTITY_ENDPOINT;
+  const idHeader = process.env.IDENTITY_HEADER;
+  if (!idEndpoint || !idHeader) {
+    throw new Error("missing IDENTITY_ENDPOINT/IDENTITY_HEADER for storage-queue auth (no managed identity off-Azure)");
+  }
+  const url2 = `${idEndpoint}?resource=${encodeURIComponent(STORAGE_RESOURCE)}&api-version=2019-08-01`;
+  const res = await fetch(url2, { headers: { "X-IDENTITY-HEADER": idHeader } });
+  if (!res.ok) throw new Error(`MSI token (storage) ${res.status}`);
+  const json = await res.json();
+  cachedToken = {
+    value: json.access_token,
+    expiresAt: json.expires_on ? Number(json.expires_on) * 1e3 : now + 33e5
+  };
+  return cachedToken.value;
+}
+function xmlEscape(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+async function enqueueQueueMessage(serviceUrlRaw, queueName, payload) {
+  const serviceUrl = serviceUrlRaw.replace(/\/$/, "");
+  if (!serviceUrl) throw new Error("queue service URL not configured");
+  const token = await getStorageToken();
+  const messageText = Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
+  const res = await fetch(`${serviceUrl}/${queueName}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "x-ms-version": STORAGE_API_VERSION,
+      "Content-Type": "application/xml"
+    },
+    body: `<QueueMessage><MessageText>${xmlEscape(messageText)}</MessageText></QueueMessage>`
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`${queueName} enqueue \u2192 ${res.status}: ${detail.slice(0, 300)}`);
+  }
+}
+async function enqueueOutlookMove(job) {
+  const serviceUrl = gates.outlookMoveQueueServiceUrl();
+  if (!serviceUrl) throw new Error("OUTLOOK_MOVE_QUEUE_SERVICE_URL not configured");
+  await enqueueQueueMessage(serviceUrl, OUTLOOK_MOVE_QUEUE_NAME, job);
+}
+function classifyEnqueueFailure(e) {
+  const text = e instanceof Error ? e.message : String(e ?? "");
+  if (/QueueNotFound|→ 404/.test(text)) {
+    return {
+      reason: "queue_missing",
+      message: "Outlook filing is not fully set up yet \u2014 the filing queue is missing. Ask the administrator."
+    };
+  }
+  if (/AuthorizationFailure|AuthorizationPermissionMismatch|→ 403/.test(text)) {
+    return {
+      reason: "not_authorised",
+      message: "Outlook filing is not fully set up yet \u2014 a permission is missing. Ask the administrator."
+    };
+  }
+  if (/not configured/.test(text)) {
+    return {
+      reason: "not_configured",
+      message: "Outlook filing is not fully set up yet \u2014 ask the administrator."
+    };
+  }
+  if (/IDENTITY_ENDPOINT/.test(text)) {
+    return {
+      reason: "no_identity",
+      message: "Outlook filing is unavailable in this environment."
+    };
+  }
+  return {
+    reason: "unavailable",
+    message: "Outlook filing is temporarily unavailable \u2014 try again in a moment."
+  };
+}
+
+// api/src/lib/outlook-link-resolver.ts
+var TIMEOUT_MS = 1e4;
+async function resolveCurrentOutlookLink(input) {
+  const url2 = (process.env.OUTLOOK_LINK_RESOLVER_URL ?? "").trim();
+  const key = (process.env.OUTLOOK_LINK_RESOLVER_KEY ?? "").trim();
+  if (!url2 || !key) return { status: "unavailable" };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const response = await fetch(url2, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-functions-key": key
+      },
+      body: JSON.stringify(input),
+      signal: controller.signal
+    });
+    if (!response.ok) return { status: "unavailable" };
+    const payload = await response.json().catch(() => ({}));
+    if (payload.status === "available") {
+      const outlookWebLink = normalizeOutlookWebLink(payload.outlookWebLink);
+      return outlookWebLink ? { status: "available", outlookWebLink } : { status: "unavailable" };
+    }
+    if (payload.status === "not_found" || payload.status === "not_accessible" || payload.status === "missing_identity" || payload.status === "unavailable") {
+      return { status: payload.status };
+    }
+    return { status: "unavailable" };
+  } catch {
+    return { status: "unavailable" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// api/src/functions/inbound.ts
+var TRIAGE_AUDIT_ACTION = {
+  dismissed: AUDIT_ACTION.inbound_dismissed,
+  actioned: AUDIT_ACTION.inbound_actioned,
+  new: AUDIT_ACTION.inbound_reopened,
+  routed: AUDIT_ACTION.inbound_routed
+};
+var CATEGORY_FOR_SUBTYPE = {
+  existing_provider_instruction: "receiving_work",
+  existing_provider_audit: "receiving_work",
+  existing_provider_diminution: "receiving_work",
+  new_client_work: "receiving_work",
+  query_existing_work: "query",
+  query_new_enquiry: "query",
+  billing_request: "billing",
+  payment_remittance: "billing",
+  case_summary: "non_actionable",
+  acknowledgement: "non_actionable",
+  other: "other",
+  images_received: "case_update",
+  update_general: "case_update",
+  cancellation_notice: "cancellation",
+  pre_instruction_directions: "pre_instruction",
+  website_general_enquiry: "website_enquiry"
+};
+var DEFAULT_SUBTYPE_FOR_CATEGORY = {
+  receiving_work: "existing_provider_instruction",
+  query: "query_existing_work",
+  other: "other",
+  billing: "billing_request",
+  non_actionable: "case_summary",
+  case_update: "update_general",
+  cancellation: "cancellation_notice",
+  pre_instruction: "pre_instruction_directions",
+  website_enquiry: "website_general_enquiry"
+};
+import_functions8.app.http("inboundEmails", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "inbound",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    try {
+      const category = req.query.get("category");
+      const subtype = req.query.get("subtype");
+      const view = req.query.get("view");
+      const clauses = [];
+      const params = [];
+      if (category && category in INBOUND_CATEGORY_TO_INT) {
+        params.push(INBOUND_CATEGORY_TO_INT[category]);
+        clauses.push(`inbound_email.category_code = $${params.length}`);
+      }
+      const viewClause = inboundViewWhere(view);
+      if (viewClause) clauses.push(viewClause);
+      const where2 = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+      const rows = await query(
+        `SELECT inbound_email.*, c.case_po AS case_po, ls.case_po AS link_suggestion_case_po
+           FROM inbound_email
+           LEFT JOIN case_ c ON c.id = inbound_email.case_id
+           LEFT JOIN LATERAL (
+             SELECT s.suggested_value->>'casePo' AS case_po
+               FROM ai_suggestion s
+              WHERE s.inbound_email_id = inbound_email.id
+                AND s.suggestion_type = 'case_link'
+                AND s.review_state = 'pending'
+                AND s.suggested_value->>'casePo' IS NOT NULL
+              ORDER BY s.created_at DESC
+              LIMIT 1
+           ) ls ON true
+           ${where2} ORDER BY inbound_email.received_on DESC`,
+        params
+      );
+      let result = rows.map(rowToInboundEmail);
+      if (subtype) result = result.filter((r) => r.subtype === subtype);
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: [] };
+    }
+  })
+});
+import_functions8.app.http("inboundEmailCounts", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "inbound/counts",
+  handler: withRole("CollisionSpike.User", async (_req, ctx) => {
+    try {
+      const rows = await query("SELECT category_code, triage_state FROM inbound_email");
+      const counts = tallyActiveInboundCounts(rows);
+      return { status: 200, jsonBody: counts };
+    } catch (error2) {
+      const correlationId = ctx.invocationId || (0, import_node_crypto11.randomUUID)();
+      ctx.error(
+        JSON.stringify({
+          evt: "inboundCountsFailed",
+          correlationId,
+          errorName: error2 instanceof Error ? error2.name : "UnknownError",
+          detail: error2 instanceof Error ? error2.message : String(error2)
+        })
+      );
+      return {
+        status: 500,
+        jsonBody: { error: "internal", correlationId },
+        headers: { "x-correlation-id": correlationId }
+      };
+    }
+  })
+});
+import_functions8.app.http("inboundEmailById", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  // The guid constraint prevents this parameter route from ever consuming the literal
+  // `/inbound/counts` route in the Functions host.
+  route: "inbound/{id:guid}",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const id = req.params.id;
+    if (!isUuid2(id)) return { status: 400, jsonBody: { error: "invalid id" } };
+    const rows = await query(
+      `SELECT inbound_email.*, c.case_po AS case_po
+         FROM inbound_email
+         LEFT JOIN case_ c ON c.id = inbound_email.case_id
+        WHERE inbound_email.id = $1`,
+      [id]
+    );
+    const row = rows[0];
+    if (!row) return { status: 404, jsonBody: { error: "not found" } };
+    const version3 = versionToken(row.updated_at);
+    return {
+      status: 200,
+      jsonBody: { ...rowToInboundEmail(row), version: version3 },
+      headers: { ETag: `"${version3}"`, "Access-Control-Expose-Headers": "ETag" }
+    };
+  })
+});
+import_functions8.app.http("inboundOutlookLink", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "inbound/{id:guid}/outlook-link",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const id = req.params.id;
+    if (!isUuid2(id)) return { status: 400, jsonBody: { error: "invalid id" } };
+    const rows = await query(
+      `SELECT source_mailbox, graph_message_id
+         FROM inbound_email
+        WHERE id = $1`,
+      [id]
+    );
+    const row = rows[0];
+    if (!row) return { status: 404, jsonBody: { error: "not found" } };
+    const sourceMailbox = typeof row.source_mailbox === "string" ? row.source_mailbox.trim() : "";
+    const graphMessageId = typeof row.graph_message_id === "string" ? row.graph_message_id.trim() : "";
+    if (!sourceMailbox || !graphMessageId) {
+      const result2 = { status: "missing_identity" };
+      return { status: 200, jsonBody: result2 };
+    }
+    const result = await resolveCurrentOutlookLink({ sourceMailbox, graphMessageId });
+    return { status: 200, jsonBody: result };
+  })
+});
+import_functions8.app.http("setTriageState", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "inbound/{id}/triage",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    const state3 = body2.state;
+    if (!isValidTriageState(state3)) {
+      return { status: 400, jsonBody: { error: "invalid triage state" } };
+    }
+    const actor = actorFromClaims(claims);
+    const outcome = await tx(async (q) => {
+      const existing = await q(
+        `SELECT id, triage_state, case_id, source_message_id, updated_at
+           FROM inbound_email WHERE id = $1 FOR UPDATE`,
+        [id]
+      );
+      const row = existing[0];
+      if (!row) return { kind: "missing" };
+      const currentVersion = versionToken(row.updated_at);
+      const expected = ifMatch2(req);
+      if (expected != null && expected !== "" && expected !== currentVersion) {
+        return { kind: "stale", currentVersion };
+      }
+      const before = row.triage_state ?? "new";
+      const updated = await q(
+        `UPDATE inbound_email SET triage_state = $2, updated_at = now()
+          WHERE id = $1 RETURNING updated_at`,
+        [id, state3]
+      );
+      await writeAudit({
+        action: TRIAGE_AUDIT_ACTION[state3],
+        ...row.case_id ? { caseId: row.case_id } : {},
+        summary: `Inbound email ${before} -> ${state3}`,
+        before: { triageState: before },
+        after: {
+          triageState: state3,
+          inboundEmailId: id,
+          sourceMessageId: row.source_message_id ?? null
+        },
+        ...actor ? { actor } : {}
+      }, q);
+      return { kind: "updated", version: versionToken(updated[0]?.updated_at) };
+    });
+    if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+    if (outcome.kind === "stale") {
+      return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
+    }
+    return {
+      status: 204,
+      headers: { ETag: `"${outcome.version}"`, "Access-Control-Expose-Headers": "ETag" }
+    };
+  })
+});
+import_functions8.app.http("moveInboundToOutlook", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "inbound/{id}/outlook-move",
+  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
+    if (!gates.outlookMoveEnabled()) {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "outlook filing is not enabled",
+          reason: "gated_off",
+          message: "Outlook filing is switched off \u2014 ask the administrator to enable it."
+        }
+      };
+    }
+    const id = req.params.id;
+    const existing = await query(
+      `SELECT id, source_message_id, source_mailbox, subtype_code, suggested_subtype_code,
+              case_id, outlook_move_state
+         FROM inbound_email WHERE id = $1`,
+      [id]
+    );
+    const row = existing[0];
+    if (!row) return { status: 404, jsonBody: { error: "not found" } };
+    if (row.outlook_move_state === "moved") {
+      return { status: 409, jsonBody: { error: "already filed" } };
+    }
+    if (!row.source_message_id || !row.source_mailbox) {
+      return { status: 409, jsonBody: { error: "no mailbox provenance to act on" } };
+    }
+    const subtype = inboundSubtypeFromInt(row.subtype_code) ?? inboundSubtypeFromInt(row.suggested_subtype_code) ?? "other";
+    const folder = suggestedOutlookFolder(subtype);
+    await query(
+      `UPDATE inbound_email
+          SET outlook_move_state = 'queued', outlook_moved_folder = $2, updated_at = now()
+        WHERE id = $1`,
+      [id, folder]
+    );
+    const actor = actorFromClaims(claims);
+    try {
+      await enqueueOutlookMove({
+        inboundEmailId: id,
+        sourceMailbox: String(row.source_mailbox),
+        sourceMessageId: String(row.source_message_id),
+        targetFolderPath: folder
+      });
+    } catch (e) {
+      const failure = classifyEnqueueFailure(e);
+      ctx.error(
+        `[outlook-move] enqueue failed (${failure.reason}) for inbound ${id}: ${e instanceof Error ? e.message : String(e)}`
+      );
+      await query(
+        `UPDATE inbound_email
+            SET outlook_move_state = 'failed', outlook_moved_at = now(), updated_at = now()
+          WHERE id = $1`,
+        [id]
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.outlook_move_failed,
+        ...row.case_id ? { caseId: row.case_id } : {},
+        summary: `Outlook filing could not be queued (${folder})`,
+        severity: "warning",
+        after: {
+          inboundEmailId: id,
+          folder,
+          reason: failure.reason,
+          detail: e instanceof Error ? e.message.slice(0, 300) : String(e)
+        },
+        ...actor ? { actor } : {}
+      });
+      return {
+        status: 503,
+        jsonBody: { error: "filing queue unavailable", reason: failure.reason, message: failure.message }
+      };
+    }
+    await writeAudit({
+      action: AUDIT_ACTION.outlook_move_requested,
+      ...row.case_id ? { caseId: row.case_id } : {},
+      summary: `Outlook filing requested -> ${folder}`,
+      after: { inboundEmailId: id, folder, sourceMessageId: row.source_message_id },
+      ...actor ? { actor } : {}
+    });
+    return { status: 202, jsonBody: { queued: true, folder } };
+  })
+});
+import_functions8.app.http("reclassifyInbound", {
+  methods: ["PATCH"],
+  authLevel: "anonymous",
+  route: "inbound/{id}/classification",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const body2 = await req.json().catch(() => ({}));
+    let category;
+    let subtype;
+    if (typeof body2.tag === "string") {
+      const mapped = richTagToClassification(body2.tag);
+      if (!mapped) return { status: 400, jsonBody: { error: "unknown tag" } };
+      category = mapped.category;
+      subtype = mapped.subtype;
+    } else {
+      if (typeof body2.category === "string") {
+        if (!(body2.category in INBOUND_CATEGORY_TO_INT)) {
+          return { status: 400, jsonBody: { error: "invalid category" } };
+        }
+        category = body2.category;
+      }
+      if (typeof body2.subtype === "string") {
+        if (!(body2.subtype in INBOUND_SUBTYPE_TO_INT)) {
+          return { status: 400, jsonBody: { error: "invalid subtype" } };
+        }
+        subtype = body2.subtype;
+      }
+    }
+    if (!category && !subtype) {
+      return { status: 400, jsonBody: { error: "category, subtype or tag required" } };
+    }
+    const actor = actorFromClaims(claims);
+    const reason = typeof body2.reason === "string" ? body2.reason.trim() : "";
+    const outcome = await tx(async (q) => {
+      const existing = await q(
+        `SELECT *, updated_at FROM inbound_email WHERE id = $1 FOR UPDATE`,
+        [id]
+      );
+      const cur = existing[0];
+      if (!cur) return { kind: "missing" };
+      const currentVersion = versionToken(cur.updated_at);
+      const expected = ifMatch2(req);
+      if (expected != null && expected !== "" && expected !== currentVersion) {
+        return { kind: "stale", currentVersion };
+      }
+      let chosenCategory = category;
+      let chosenSubtype = subtype;
+      if (chosenSubtype && !chosenCategory) chosenCategory = CATEGORY_FOR_SUBTYPE[chosenSubtype];
+      if (chosenCategory && !chosenSubtype) {
+        const currentSubtype = inboundSubtypeFromInt(cur.subtype_code);
+        chosenSubtype = currentSubtype && CATEGORY_FOR_SUBTYPE[currentSubtype] === chosenCategory ? currentSubtype : DEFAULT_SUBTYPE_FOR_CATEGORY[chosenCategory];
+      }
+      if (!chosenCategory || !chosenSubtype || CATEGORY_FOR_SUBTYPE[chosenSubtype] !== chosenCategory) {
+        return { kind: "invalid_pair" };
+      }
+      const suggestedCat = inboundCategoryFromInt(
+        cur.suggested_category_code ?? cur.category_code
+      );
+      const suggestedSub = inboundSubtypeFromInt(
+        cur.suggested_subtype_code ?? cur.subtype_code
+      );
+      const updated = await q(
+        `UPDATE inbound_email
+            SET classifier_mode = 'human', category_code = $2, subtype_code = $3, updated_at = now()
+          WHERE id = $1
+          RETURNING *`,
+        [id, INBOUND_CATEGORY_TO_INT[chosenCategory], INBOUND_SUBTYPE_TO_INT[chosenSubtype]]
+      );
+      await writeAudit({
+        action: AUDIT_ACTION.inbound_reclassified,
+        ...cur.case_id ? { caseId: cur.case_id } : {},
+        summary: `Inbound reclassified category=${chosenCategory} subtype=${chosenSubtype}`,
+        before: { category: suggestedCat ?? null, subtype: suggestedSub ?? null },
+        after: {
+          category: chosenCategory,
+          subtype: chosenSubtype,
+          inboundEmailId: id,
+          sourceMessageId: cur.source_message_id ?? null,
+          ...reason ? { reason } : {}
+        },
+        ...actor ? { actor } : {}
+      }, q);
+      return {
+        kind: "updated",
+        cur,
+        value: rowToInboundEmail(updated[0]),
+        chosenCategory,
+        chosenSubtype,
+        suggestedCat,
+        suggestedSub,
+        version: versionToken(updated[0].updated_at)
+      };
+    });
+    if (outcome.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+    if (outcome.kind === "invalid_pair") {
+      return { status: 400, jsonBody: { error: "category and subtype do not match" } };
+    }
+    if (outcome.kind === "stale") {
+      return { status: 409, jsonBody: { error: "stale", currentVersion: outcome.currentVersion } };
+    }
+    if (outcome.chosenCategory !== outcome.suggestedCat) {
+      await writeImprovementSignal(
+        outcome.cur,
+        "category",
+        outcome.suggestedCat ?? "(none)",
+        outcome.chosenCategory,
+        actor,
+        reason
+      );
+    }
+    if (outcome.chosenSubtype !== outcome.suggestedSub) {
+      await writeImprovementSignal(
+        outcome.cur,
+        "subtype",
+        outcome.suggestedSub ?? "(none)",
+        outcome.chosenSubtype,
+        actor,
+        reason
+      );
+    }
+    return {
+      status: 200,
+      jsonBody: { ...outcome.value, version: outcome.version },
+      headers: { ETag: `"${outcome.version}"`, "Access-Control-Expose-Headers": "ETag" }
+    };
+  })
+});
+import_functions8.app.http("inboundEmailSuggestions", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "inbound/{id}/suggestions",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    try {
+      const id = req.params.id;
+      const rows = await query(
+        `SELECT * FROM ai_suggestion
+          WHERE inbound_email_id = $1
+          ORDER BY (review_state = 'pending') DESC, created_at DESC
+          LIMIT 100`,
+        [id]
+      );
+      const result = rows.map(rowToAiSuggestion);
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: [] };
+    }
+  })
+});
+import_functions8.app.http("detachInboundEmail", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "inbound/{id}/detach",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    const existing = await query("SELECT id, case_id FROM inbound_email WHERE id = $1", [id]);
+    if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const oldCaseId = existing[0].case_id ?? null;
+    if (!oldCaseId) {
+      return { status: 200, jsonBody: { ok: false, reason: "not_linked" } };
+    }
+    const updated = await query(
+      `UPDATE inbound_email SET case_id = NULL, triage_state = 'new', updated_at = now()
+         WHERE id = $1 AND case_id IS NOT NULL
+       RETURNING id`,
+      [id]
+    );
+    if (!updated[0]) {
+      return { status: 200, jsonBody: { ok: false, reason: "not_linked" } };
+    }
+    const actor = actorFromClaims(claims);
+    await writeAudit({
+      action: AUDIT_ACTION.inbound_detached,
+      caseId: oldCaseId,
+      summary: "Inbound email unlinked from case",
+      before: { caseId: oldCaseId },
+      after: {
+        caseId: null,
+        inboundEmailId: id,
+        note: "Archive folder is a one-way mirror \u2014 any archive cleanup for this email is manual (ADR-0012/0017)."
+      },
+      ...actor ? { actor } : {}
+    });
+    return { status: 200, jsonBody: { ok: true } };
+  })
+});
+async function writeImprovementSignal(row, fieldName, originalValue, correctedValue, actor, reason) {
+  try {
+    await query(
+      `INSERT INTO improvement_signal
+         (name, case_id, work_provider_id, field_name, original_value, corrected_value,
+          original_provenance, actor, occurred_at, affects_eva_readiness, classification_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), false, 100000000)`,
+      [
+        `Inbound ${fieldName} override: ${originalValue || "(none)"} -> ${correctedValue}`,
+        row.case_id ?? null,
+        row.work_provider_id ?? null,
+        `inbound.${fieldName}`,
+        originalValue || null,
+        correctedValue,
+        reason || "classifier suggestion",
+        actor ?? null
+      ]
+    );
+  } catch {
+  }
+}
+
+// api/src/functions/proxy.ts
+var import_functions9 = require("@azure/functions");
 
 // api/src/lib/evidence-bytes.ts
 async function resolveBytesForRow(row) {
@@ -73858,8 +74004,8 @@ async function resolveImageIngestCase(supplied, deps = productionDependencies) {
 function normalizeFileName(value, index) {
   const raw = typeof value === "string" ? value : "";
   const base = raw.split(/[\\/]/u).pop() ?? "";
-  const clean = base.normalize("NFC").replace(/[\u0000-\u001f\u007f\u061c\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/gu, "_").trim();
-  return (clean || `image-${index + 1}.jpg`).slice(0, 200);
+  const clean2 = base.normalize("NFC").replace(/[\u0000-\u001f\u007f\u061c\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/gu, "_").trim();
+  return (clean2 || `image-${index + 1}.jpg`).slice(0, 200);
 }
 function strictBase64(value) {
   if (typeof value !== "string" || value.length < 4 || value.length > BASE64_MAX_CHARS) return void 0;
@@ -74584,6 +74730,7 @@ import_functions15.app.http("patchEvidence", {
       );
       const current = currentRows[0];
       if (!current) return { kind: "moved" };
+      if (current.deletion_operation_id) return { kind: "deletion_busy" };
       let nextRole = current.image_role_code;
       let nextRoleSource = current.image_role_source;
       let nextRegistration = current.registration_visible;
@@ -74650,6 +74797,7 @@ import_functions15.app.http("patchEvidence", {
                   CASE WHEN excluded IS DISTINCT FROM $8 THEN 1 ELSE 0 END,
                 updated_at = now()
           WHERE id = $1 AND kind_code = $12
+            AND deletion_operation_id IS NULL
             AND (
               NOT $13
               OR archive_mirror_claim_token IS NULL
@@ -74693,6 +74841,12 @@ import_functions15.app.http("patchEvidence", {
         }
       };
     }
+    if (mutation.kind === "deletion_busy") {
+      return {
+        status: 409,
+        jsonBody: { message: "This image is being deleted and can\u2019t be changed." }
+      };
+    }
     if (mutation.kind === "retired" || mutation.kind === "moved") {
       return {
         status: 409,
@@ -74730,8 +74884,512 @@ import_functions15.app.http("patchEvidence", {
   })
 });
 
-// api/src/functions/archive-mirror-outbox.ts
+// api/src/functions/evidence-delete.ts
 var import_functions16 = require("@azure/functions");
+function deletionStoreResolved(outcome) {
+  return outcome === "deleted" || outcome === "missing" || outcome === "not_required";
+}
+function claimIsActive(token, expiresAt) {
+  if (!token || !expiresAt) return false;
+  const expiry = new Date(expiresAt).getTime();
+  return Number.isFinite(expiry) && expiry > Date.now();
+}
+function clean(value) {
+  const trimmed = value?.trim() ?? "";
+  return trimmed || null;
+}
+function snapshotMatchesIntent(row, intent, allowFolderChange = false) {
+  return row.id === intent.evidence_id && row.case_id.toLowerCase() === intent.case_id.toLowerCase() && row.kind_code === intent.kind_code && clean(row.storage_path) === clean(intent.storage_path) && clean(row.source_message_id) === clean(intent.source_message_id) && clean(row.box_file_id) === clean(intent.box_file_id) && (allowFolderChange || clean(row.box_folder_id) === clean(intent.box_folder_id));
+}
+async function readIntent(caseId, evidenceId) {
+  const rows = await query(
+    "SELECT * FROM evidence_deletion WHERE case_id = $1 AND evidence_id = $2 LIMIT 1",
+    [caseId, evidenceId]
+  );
+  return rows[0];
+}
+async function readSnapshot(caseId, evidenceId) {
+  const rows = await query(
+    `SELECT e.id, e.case_id, e.file_name, e.kind_code, e.storage_path,
+            e.source_message_id, e.box_file_id, c.box_folder_id,
+            e.deletion_operation_id, e.archive_mirror_claim_token,
+            e.archive_mirror_claim_expires_at
+       FROM evidence e
+       JOIN case_ c ON c.id = e.case_id
+      WHERE e.id = $1 AND e.case_id = $2`,
+    [evidenceId, caseId]
+  );
+  return rows[0];
+}
+function completeBody(intent, repeated = false) {
+  return {
+    completed: true,
+    repeated,
+    evidenceId: intent.evidence_id,
+    fileName: intent.file_name
+  };
+}
+async function preflightBox(intentOrSnapshot) {
+  if (!clean(intentOrSnapshot.box_file_id)) return "not_required";
+  if (deletionStoreResolved(intentOrSnapshot.box_outcome)) {
+    return intentOrSnapshot.box_outcome === "missing" ? "missing" : "pending";
+  }
+  const folderId = clean(intentOrSnapshot.box_folder_id);
+  if (!folderId) throw Object.assign(new Error("archive folder unavailable"), { code: "archive_target_invalid" });
+  const result = await validateBoxFileDeletion(clean(intentOrSnapshot.box_file_id), folderId);
+  return result.status === "missing" ? "missing" : "pending";
+}
+async function claimDeletion(q, caseId, evidenceId, actor, imageKind, expected, preflight) {
+  const lockedCase = await lockCaseForMutation(q, caseId);
+  if (lockedCase.kind === "missing") return { kind: "missing" };
+  if (lockedCase.kind === "retired") return { kind: "retired", mergedInto: lockedCase.mergedInto };
+  const currentRows = await q(
+    `SELECT e.id, e.case_id, e.file_name, e.kind_code, e.storage_path,
+            e.source_message_id, e.box_file_id, c.box_folder_id,
+            e.deletion_operation_id, e.archive_mirror_claim_token,
+            e.archive_mirror_claim_expires_at
+       FROM evidence e
+       JOIN case_ c ON c.id = e.case_id
+      WHERE e.id = $1 AND e.case_id = $2
+      FOR UPDATE OF e, c`,
+    [evidenceId, lockedCase.caseId]
+  );
+  const current = currentRows[0];
+  if (!current || current.kind_code !== imageKind) return { kind: "changed" };
+  const expectedLike = {
+    id: "",
+    evidence_id: expected.id,
+    case_id: expected.case_id,
+    file_name: expected.file_name,
+    kind_code: expected.kind_code,
+    storage_path: expected.storage_path,
+    source_message_id: expected.source_message_id,
+    box_file_id: expected.box_file_id,
+    box_folder_id: expected.box_folder_id,
+    requested_by: actor,
+    state: "pending",
+    blob_outcome: "pending",
+    box_outcome: "pending",
+    claim_token: null,
+    claim_expires_at: null,
+    attempt_count: 0
+  };
+  if (!snapshotMatchesIntent(current, expectedLike)) return { kind: "changed" };
+  if (claimIsActive(current.archive_mirror_claim_token, current.archive_mirror_claim_expires_at)) {
+    return { kind: "archive_busy" };
+  }
+  let inserted = await q(
+    `INSERT INTO evidence_deletion
+       (evidence_id, case_id, file_name, kind_code, storage_path, source_message_id,
+        box_file_id, box_folder_id, requested_by, blob_outcome, box_outcome)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+     ON CONFLICT (evidence_id) DO NOTHING
+     RETURNING *`,
+    [
+      evidenceId,
+      lockedCase.caseId,
+      current.file_name,
+      imageKind,
+      clean(current.storage_path),
+      clean(current.source_message_id),
+      clean(current.box_file_id),
+      clean(current.box_folder_id),
+      actor,
+      clean(current.storage_path) ? "pending" : "not_required",
+      preflight
+    ]
+  );
+  if (!inserted[0] && current.deletion_operation_id == null) {
+    inserted = await q(
+      `UPDATE evidence_deletion
+          SET case_id = $2, file_name = $3, kind_code = $4, storage_path = $5,
+              source_message_id = $6, box_file_id = $7, box_folder_id = $8,
+              requested_by = $9, state = 'pending', blob_outcome = $10,
+              box_outcome = $11, attempt_count = 0, claim_token = NULL,
+              claim_expires_at = NULL, last_failure_code = NULL,
+              requested_at = now(), last_attempt_at = NULL, completed_at = NULL,
+              updated_at = now()
+        WHERE evidence_id = $1 AND state = 'cancelled'
+        RETURNING *`,
+      [
+        evidenceId,
+        lockedCase.caseId,
+        current.file_name,
+        imageKind,
+        clean(current.storage_path),
+        clean(current.source_message_id),
+        clean(current.box_file_id),
+        clean(current.box_folder_id),
+        actor,
+        clean(current.storage_path) ? "pending" : "not_required",
+        preflight
+      ]
+    );
+  }
+  if (inserted[0]) {
+    const marker2 = await q(
+      `UPDATE evidence
+          SET deletion_operation_id = $3, updated_at = now()
+        WHERE id = $1 AND case_id = $2 AND deletion_operation_id IS NULL
+        RETURNING id`,
+      [evidenceId, lockedCase.caseId, inserted[0].id]
+    );
+    if (!marker2[0]) throw new Error("image deletion marker was not applied");
+    current.deletion_operation_id = inserted[0].id;
+    await writeAuditStrict({
+      action: AUDIT_ACTION.image_deletion_requested,
+      caseId: lockedCase.caseId,
+      summary: `Image deletion requested for ${current.file_name}`,
+      actor,
+      after: {
+        operationId: inserted[0].id,
+        evidenceId,
+        storagePath: clean(current.storage_path),
+        sourceMessageId: clean(current.source_message_id),
+        archiveFileId: clean(current.box_file_id),
+        archiveFolderId: clean(current.box_folder_id)
+      }
+    }, q);
+  }
+  const intentRows = inserted[0] ? inserted : await q(
+    "SELECT * FROM evidence_deletion WHERE evidence_id = $1 AND case_id = $2 FOR UPDATE",
+    [evidenceId, lockedCase.caseId]
+  );
+  const intent = intentRows[0];
+  if (!intent || !snapshotMatchesIntent(
+    current,
+    intent,
+    deletionStoreResolved(intent.box_outcome)
+  )) return { kind: "changed" };
+  if (intent.state === "completed") return { kind: "completed", intent };
+  if (current.deletion_operation_id !== intent.id) return { kind: "changed" };
+  const claimed = await q(
+    `UPDATE evidence_deletion
+        SET state = 'pending',
+            blob_outcome = CASE WHEN blob_outcome = 'failed' THEN 'pending' ELSE blob_outcome END,
+            box_outcome = CASE
+              WHEN $2::text = 'missing' THEN 'missing'
+              WHEN box_outcome = 'failed' THEN 'pending'
+              ELSE box_outcome
+            END,
+            claim_token = gen_random_uuid(),
+            claim_expires_at = now() + interval '5 minutes',
+            attempt_count = attempt_count + 1,
+            last_attempt_at = now(), last_failure_code = NULL, updated_at = now()
+      WHERE id = $1
+        AND state IN ('pending','retry_needed')
+        AND (claim_token IS NULL OR claim_expires_at <= now())
+      RETURNING *`,
+    [intent.id, preflight]
+  );
+  return claimed[0] ? { kind: "claimed", intent: claimed[0] } : { kind: "busy" };
+}
+async function stampStoreOutcome(operationId, claimToken, store, outcome) {
+  const column = store === "blob" ? "blob_outcome" : "box_outcome";
+  const rows = await query(
+    `UPDATE evidence_deletion SET ${column} = $3, updated_at = now()
+      WHERE id = $1 AND claim_token = $2 RETURNING id`,
+    [operationId, claimToken, outcome]
+  );
+  if (!rows[0]) throw new Error("image deletion claim changed");
+}
+async function recordFailure(intent, actor, store, code) {
+  await tx(async (q) => {
+    const column = store === "blob" ? "blob_outcome" : "box_outcome";
+    const rows = await q(
+      `UPDATE evidence_deletion
+          SET ${column} = 'failed', state = 'retry_needed', last_failure_code = $3,
+              claim_token = NULL, claim_expires_at = NULL, updated_at = now()
+        WHERE id = $1 AND claim_token = $2
+        RETURNING *`,
+      [intent.id, intent.claim_token, code]
+    );
+    if (!rows[0]) throw new Error("image deletion claim changed");
+    await writeAuditStrict({
+      action: AUDIT_ACTION.image_deletion_failed,
+      caseId: intent.case_id,
+      summary: `Image deletion needs retry for ${intent.file_name}`,
+      severity: "warning",
+      actor,
+      after: {
+        operationId: intent.id,
+        evidenceId: intent.evidence_id,
+        failedStore: store === "box" ? "archive" : "temporary_copy",
+        failureCode: code
+      }
+    }, q);
+  });
+}
+async function recordFinalizationFailure(intent, actor, code) {
+  await tx(async (q) => {
+    const rows = await q(
+      `UPDATE evidence_deletion
+          SET state = 'retry_needed', last_failure_code = $3,
+              claim_token = NULL, claim_expires_at = NULL, updated_at = now()
+        WHERE id = $1 AND claim_token = $2
+        RETURNING *`,
+      [intent.id, intent.claim_token, code]
+    );
+    if (!rows[0]) throw new Error("image deletion claim changed");
+    await writeAuditStrict({
+      action: AUDIT_ACTION.image_deletion_failed,
+      caseId: intent.case_id,
+      summary: `Image deletion needs retry for ${intent.file_name}`,
+      severity: "warning",
+      actor,
+      after: {
+        operationId: intent.id,
+        evidenceId: intent.evidence_id,
+        failedStore: "case_update",
+        failureCode: code,
+        blobOutcome: intent.blob_outcome,
+        archiveOutcome: intent.box_outcome
+      }
+    }, q);
+  });
+}
+function cancellationIsSafe(intent) {
+  return intent.blob_outcome !== "deleted" && intent.box_outcome !== "deleted";
+}
+async function cancelDeletion(intent, actor, code, ownedClaimToken) {
+  return tx(async (q) => {
+    const caseLock = await lockCaseForMutation(q, intent.case_id);
+    if (caseLock.kind !== "active") return false;
+    const rows = await q(
+      `SELECT d.*
+         FROM evidence_deletion d
+         JOIN evidence e ON e.id = d.evidence_id AND e.case_id = d.case_id
+        WHERE d.id = $1 AND e.deletion_operation_id = d.id
+        FOR UPDATE OF d, e`,
+      [intent.id]
+    );
+    const current = rows[0];
+    if (!current || !cancellationIsSafe(current)) return false;
+    const ownsClaim = ownedClaimToken ? current.claim_token === ownedClaimToken : !claimIsActive(current.claim_token, current.claim_expires_at);
+    if (!ownsClaim || !["pending", "retry_needed"].includes(current.state)) return false;
+    const marker2 = await q(
+      `UPDATE evidence
+          SET deletion_operation_id = NULL, updated_at = now()
+        WHERE id = $1 AND case_id = $2 AND deletion_operation_id = $3
+        RETURNING id`,
+      [current.evidence_id, current.case_id, current.id]
+    );
+    if (!marker2[0]) return false;
+    const cancelled = await q(
+      `UPDATE evidence_deletion
+          SET state = 'cancelled', last_failure_code = $2,
+              claim_token = NULL, claim_expires_at = NULL, updated_at = now()
+        WHERE id = $1
+        RETURNING id`,
+      [current.id, code]
+    );
+    if (!cancelled[0]) throw new Error("image deletion cancellation changed");
+    await writeAuditStrict({
+      action: AUDIT_ACTION.image_deletion_failed,
+      caseId: current.case_id,
+      summary: `Image deletion cancelled for ${current.file_name}`,
+      severity: "warning",
+      actor,
+      after: {
+        operationId: current.id,
+        evidenceId: current.evidence_id,
+        failedStore: "archive",
+        failureCode: code,
+        cancelled: true
+      }
+    }, q);
+    return true;
+  });
+}
+async function finalizeDeletion(intent, actor) {
+  return tx(async (q) => {
+    const caseLock = await lockCaseForMutation(q, intent.case_id);
+    if (caseLock.kind !== "active") throw new Error("image deletion case changed");
+    const completed = await q(
+      "SELECT * FROM complete_evidence_deletion($1::uuid, $2::uuid)",
+      [intent.id, intent.claim_token]
+    );
+    if (!completed[0]) throw new Error("image deletion was not finalized");
+    const generation = await requestStatusRecompute(q, intent.case_id);
+    await writeAuditStrict({
+      action: AUDIT_ACTION.image_deleted,
+      caseId: intent.case_id,
+      summary: `Image deleted: ${intent.file_name}`,
+      actor,
+      before: {
+        evidenceId: intent.evidence_id,
+        storagePath: intent.storage_path,
+        sourceMessageId: intent.source_message_id,
+        archiveFileId: intent.box_file_id
+      },
+      after: {
+        operationId: intent.id,
+        blobOutcome: intent.blob_outcome,
+        archiveOutcome: intent.box_outcome
+      }
+    }, q);
+    return generation;
+  });
+}
+import_functions16.app.http("deleteCaseImage", {
+  methods: ["DELETE"],
+  authLevel: "anonymous",
+  route: "cases/{caseId}/images/{evidenceId}",
+  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
+    if (!gates.deleteCaseImage()) {
+      return { status: 200, jsonBody: { disabled: true, completed: false, reason: "disabled" } };
+    }
+    const caseId = (req.params.caseId ?? "").trim().toLowerCase();
+    const evidenceId = (req.params.evidenceId ?? "").trim().toLowerCase();
+    if (!caseId || !evidenceId) {
+      return { status: 400, jsonBody: { error: "case and image identifiers are required" } };
+    }
+    const actor = actorFromClaims(claims) ?? "authenticated staff";
+    const imageKind = evidenceKindCodec.toInt("image") ?? 1e8;
+    let existing = await readIntent(caseId, evidenceId);
+    if (existing?.state === "completed") {
+      return { status: 200, jsonBody: completeBody(existing, true) };
+    }
+    if (existing?.state === "cancelled") existing = void 0;
+    let snapshot2 = await readSnapshot(caseId, evidenceId);
+    if (!snapshot2) return { status: 404, jsonBody: { error: "image not found" } };
+    if (snapshot2.kind_code !== imageKind) {
+      return { status: 409, jsonBody: { error: "Only case images can be deleted here." } };
+    }
+    if (existing && !snapshotMatchesIntent(snapshot2, existing) && !(deletionStoreResolved(existing.box_outcome) && snapshotMatchesIntent(snapshot2, existing, true))) {
+      const cancelled = await cancelDeletion(existing, actor, "deletion_target_changed").catch(() => false);
+      return {
+        status: cancelled ? 409 : 503,
+        jsonBody: {
+          message: cancelled ? "This image or its Archive folder changed. The unfinished deletion was cancelled; refresh before trying again." : "This image changed while deletion was being prepared. Refresh and try again.",
+          retryable: !cancelled,
+          deletionPending: !cancelled
+        }
+      };
+    }
+    if (claimIsActive(snapshot2.archive_mirror_claim_token, snapshot2.archive_mirror_claim_expires_at)) {
+      return {
+        status: 409,
+        jsonBody: { message: "This image is still being added to the Archive. Try again shortly." }
+      };
+    }
+    let preflight;
+    try {
+      preflight = await preflightBox(existing ?? {
+        box_file_id: snapshot2.box_file_id,
+        box_folder_id: snapshot2.box_folder_id,
+        box_outcome: snapshot2.box_file_id ? "pending" : "not_required"
+      });
+    } catch (error2) {
+      const invalid = error2 instanceof FunctionCallError && error2.status === 400 || error2 && typeof error2 === "object" && "code" in error2 && error2.code === "archive_target_invalid";
+      return {
+        status: invalid ? 409 : 503,
+        jsonBody: {
+          message: invalid ? "This image could not be matched safely to this case\u2019s Archive folder. Nothing was deleted." : "The Archive copy could not be checked. Nothing was deleted; try again.",
+          retryable: !invalid
+        }
+      };
+    }
+    const claim = await tx(
+      (q) => claimDeletion(q, caseId, evidenceId, actor, imageKind, snapshot2, preflight)
+    );
+    if (claim.kind === "missing") return { status: 404, jsonBody: { error: "image not found" } };
+    if (claim.kind === "retired") {
+      return {
+        status: 409,
+        jsonBody: { message: "This case was merged. Open the current case and try again.", targetCaseId: claim.mergedInto }
+      };
+    }
+    if (claim.kind === "archive_busy") {
+      return { status: 409, jsonBody: { message: "This image is still being added to the Archive. Try again shortly." } };
+    }
+    if (claim.kind === "changed") {
+      return { status: 409, jsonBody: { message: "This image changed. Refresh and try again." } };
+    }
+    if (claim.kind === "busy") {
+      return { status: 409, jsonBody: { message: "This image is already being deleted. Refresh shortly." } };
+    }
+    if (claim.kind === "completed") {
+      return { status: 200, jsonBody: completeBody(claim.intent, true) };
+    }
+    const intent = claim.intent;
+    const claimToken = intent.claim_token;
+    try {
+      if (!deletionStoreResolved(intent.box_outcome)) {
+        const result = await deleteBoxFile(intent.box_file_id, intent.box_folder_id);
+        intent.box_outcome = result.status === "missing" ? "missing" : "deleted";
+        await stampStoreOutcome(intent.id, claimToken, "box", intent.box_outcome);
+      }
+    } catch (error2) {
+      const unsafe = error2 instanceof FunctionCallError && error2.status === 400;
+      const cancelled = unsafe ? await cancelDeletion(intent, actor, "archive_target_changed", claimToken).catch(() => false) : false;
+      if (!cancelled) {
+        await recordFailure(intent, actor, "box", unsafe ? "archive_target_changed" : "archive_delete_failed");
+      }
+      return {
+        status: cancelled ? 409 : 503,
+        jsonBody: {
+          completed: false,
+          retryable: !cancelled,
+          evidenceId,
+          fileName: intent.file_name,
+          message: cancelled ? "The Archive copy moved or no longer belongs to this case. Nothing was deleted; refresh before trying again." : "The Archive copy could not be removed. The image is still on the case; try again.",
+          deletionPending: !cancelled
+        }
+      };
+    }
+    try {
+      if (!deletionStoreResolved(intent.blob_outcome)) {
+        const removed = await deleteEvidenceBytes(intent.storage_path);
+        intent.blob_outcome = removed ? "deleted" : "missing";
+        await stampStoreOutcome(intent.id, claimToken, "blob", intent.blob_outcome);
+      }
+    } catch {
+      await recordFailure(intent, actor, "blob", "temporary_copy_delete_failed");
+      return {
+        status: 503,
+        jsonBody: {
+          completed: false,
+          retryable: true,
+          evidenceId,
+          fileName: intent.file_name,
+          message: "One stored copy could not be removed. The image is still on the case; try again.",
+          deletionPending: true
+        }
+      };
+    }
+    let generation;
+    try {
+      generation = await finalizeDeletion(intent, actor);
+    } catch (error2) {
+      ctx.warn(`[image-delete] finalization pending for ${evidenceId}: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      await recordFinalizationFailure(intent, actor, "finalization_failed").catch(() => void 0);
+      return {
+        status: 503,
+        jsonBody: {
+          completed: false,
+          retryable: true,
+          evidenceId,
+          fileName: intent.file_name,
+          message: "The stored copies were removed, but the case still needs updating. Try again.",
+          deletionPending: true
+        }
+      };
+    }
+    try {
+      const evaluated = await recomputeStatus2(caseId, actor);
+      if (!evaluated) throw new Error("case unavailable");
+      await acknowledgeStatusRecompute(query, caseId, generation);
+    } catch (error2) {
+      ctx.warn(`[image-delete] readiness recompute remains pending for ${caseId}: ${error2 instanceof Error ? error2.message : String(error2)}`);
+    }
+    existing = { ...intent, state: "completed" };
+    return { status: 200, jsonBody: completeBody(existing) };
+  })
+});
+
+// api/src/functions/archive-mirror-outbox.ts
+var import_functions17 = require("@azure/functions");
 var ARCHIVE_MIRROR_MAX_ATTEMPTS = 8;
 async function withServiceAuth2(req, ctx, fn) {
   try {
@@ -74743,9 +75401,9 @@ async function withServiceAuth2(req, ctx, fn) {
 }
 function isMirrorEligible(row) {
   const boxFileId = typeof row.box_file_id === "string" ? row.box_file_id.trim() : "";
-  return row.excluded === false && typeof row.storage_path === "string" && row.storage_path.trim().length > 0 && !boxFileId;
+  return row.excluded === false && typeof row.storage_path === "string" && row.storage_path.trim().length > 0 && !boxFileId && row.deletion_operation_id == null;
 }
-import_functions16.app.http("internalArchiveMirrorOutboxPending", {
+import_functions17.app.http("internalArchiveMirrorOutboxPending", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "internal/archive-mirror-outbox/pending",
@@ -74759,7 +75417,8 @@ import_functions16.app.http("internalArchiveMirrorOutboxPending", {
            o.requested_generation AS generation,
            (e.excluded = false
              AND NULLIF(btrim(e.storage_path), '') IS NOT NULL
-             AND NULLIF(btrim(e.box_file_id), '') IS NULL) AS "mirrorEligible"
+             AND NULLIF(btrim(e.box_file_id), '') IS NULL
+             AND e.deletion_operation_id IS NULL) AS "mirrorEligible"
          FROM archive_mirror_outbox o
          JOIN evidence e ON e.id = o.evidence_id
         WHERE o.requested_generation > o.completed_generation
@@ -74782,7 +75441,7 @@ import_functions16.app.http("internalArchiveMirrorOutboxPending", {
     };
   })
 });
-import_functions16.app.http("internalArchiveMirrorOutboxComplete", {
+import_functions17.app.http("internalArchiveMirrorOutboxComplete", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/archive-mirror-outbox/{id}/complete",
@@ -74807,7 +75466,7 @@ import_functions16.app.http("internalArchiveMirrorOutboxComplete", {
       const resolved = await tx(async (q) => {
         const lockedCase = await lockCaseForMutation(q, owner[0].case_id);
         const evidence = await q(
-          `SELECT case_id, excluded, storage_path, box_file_id
+          `SELECT case_id, excluded, storage_path, box_file_id, deletion_operation_id
                FROM evidence
               WHERE id = $1
               FOR UPDATE`,
@@ -74845,7 +75504,8 @@ import_functions16.app.http("internalArchiveMirrorOutboxComplete", {
           ...outbox,
           excluded: evidenceRow.excluded,
           storage_path: evidenceRow.storage_path,
-          box_file_id: evidenceRow.box_file_id
+          box_file_id: evidenceRow.box_file_id,
+          deletion_operation_id: evidenceRow.deletion_operation_id
         };
         if (isMirrorEligible(mirrorState)) {
           return {
@@ -74888,7 +75548,7 @@ import_functions16.app.http("internalArchiveMirrorOutboxComplete", {
     return { status: 200, jsonBody: result };
   })
 });
-import_functions16.app.http("internalArchiveMirrorOutboxDefer", {
+import_functions17.app.http("internalArchiveMirrorOutboxDefer", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/archive-mirror-outbox/{id}/defer",
@@ -75006,8 +75666,8 @@ import_functions16.app.http("internalArchiveMirrorOutboxDefer", {
 });
 
 // api/src/functions/provider-archive-outbox.ts
-var import_functions17 = require("@azure/functions");
-import_functions17.app.http("internalProviderArchiveOutboxPending", {
+var import_functions18 = require("@azure/functions");
+import_functions18.app.http("internalProviderArchiveOutboxPending", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "internal/provider-archive-outbox/pending",
@@ -75037,13 +75697,13 @@ import_functions17.app.http("internalProviderArchiveOutboxPending", {
     };
   })
 });
-import_functions17.app.http("internalProviderArchiveOutboxComplete", {
+import_functions18.app.http("internalProviderArchiveOutboxComplete", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/provider-archive-outbox/{id}/complete",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const caseId = (req.params.id ?? "").trim().toLowerCase();
-    if (!isUuid(caseId)) return { status: 400, jsonBody: { error: "valid caseId required" } };
+    if (!isUuid2(caseId)) return { status: 400, jsonBody: { error: "valid caseId required" } };
     const body2 = await req.json().catch(() => ({}));
     const generation = Number(body2.generation);
     if (!Number.isSafeInteger(generation) || generation < 1) {
@@ -75112,13 +75772,13 @@ import_functions17.app.http("internalProviderArchiveOutboxComplete", {
     return { status: 200, jsonBody: result };
   })
 });
-import_functions17.app.http("internalProviderArchiveOutboxDefer", {
+import_functions18.app.http("internalProviderArchiveOutboxDefer", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/provider-archive-outbox/{id}/defer",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const caseId = (req.params.id ?? "").trim().toLowerCase();
-    if (!isUuid(caseId)) return { status: 400, jsonBody: { error: "valid caseId required" } };
+    if (!isUuid2(caseId)) return { status: 400, jsonBody: { error: "valid caseId required" } };
     const body2 = await req.json().catch(() => ({}));
     const generation = Number(body2.generation);
     if (!Number.isSafeInteger(generation) || generation < 1) {
@@ -75155,7 +75815,7 @@ import_functions17.app.http("internalProviderArchiveOutboxDefer", {
 });
 
 // api/src/functions/box-file-request-outbox.ts
-var import_functions18 = require("@azure/functions");
+var import_functions19 = require("@azure/functions");
 async function drainBoxFileRequestOutbox() {
   if (!gates.boxApi() || !gates.boxFileRequest()) return { processed: 0, completed: 0 };
   const caseIds = await pendingBoxFileRequestCaseIds();
@@ -75166,7 +75826,7 @@ async function drainBoxFileRequestOutbox() {
   }
   return { processed: caseIds.length, completed };
 }
-import_functions18.app.timer("box-file-request-outbox-drain", {
+import_functions19.app.timer("box-file-request-outbox-drain", {
   schedule: "30 * * * * *",
   handler: async () => {
     try {
@@ -75176,7 +75836,7 @@ import_functions18.app.timer("box-file-request-outbox-drain", {
     }
   }
 });
-import_functions18.app.http("internalBoxFileRequestOutboxDrain", {
+import_functions19.app.http("internalBoxFileRequestOutboxDrain", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/box-file-request-outbox/drain",
@@ -75187,7 +75847,7 @@ import_functions18.app.http("internalBoxFileRequestOutboxDrain", {
 });
 
 // api/src/functions/ai-suggestions.ts
-var import_functions19 = require("@azure/functions");
+var import_functions20 = require("@azure/functions");
 
 // api/src/lib/aoai-suggestions.ts
 var CASE_ASSESSMENT_SUGGESTION_TYPES = {
@@ -75552,7 +76212,7 @@ async function drainEvidenceBackfillRequests(inboundEmailId, limit = 50) {
   }
   return { published, failed };
 }
-import_functions19.app.http("caseAiSuggestions", {
+import_functions20.app.http("caseAiSuggestions", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "cases/{id}/ai-suggestions",
@@ -75573,7 +76233,7 @@ import_functions19.app.http("caseAiSuggestions", {
     }
   })
 });
-import_functions19.app.http("reviewAiSuggestion", {
+import_functions20.app.http("reviewAiSuggestion", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "ai-suggestions/{id}/review",
@@ -76066,7 +76726,7 @@ function coerceJsonValue(v) {
     return v;
   }
 }
-import_functions19.app.http("generateAiSuggestions", {
+import_functions20.app.http("generateAiSuggestions", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/ai-suggestions/generate",
@@ -76198,8 +76858,8 @@ async function callModelForSuggestions(input) {
 }
 
 // api/src/functions/evidence-backfill-drain.ts
-var import_functions20 = require("@azure/functions");
-import_functions20.app.http("internalEvidenceBackfillRequestDrain", {
+var import_functions21 = require("@azure/functions");
+import_functions21.app.http("internalEvidenceBackfillRequestDrain", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/evidence-backfill-requests/drain",
@@ -76211,7 +76871,7 @@ import_functions20.app.http("internalEvidenceBackfillRequestDrain", {
 });
 
 // api/src/functions/image-analysis.ts
-var import_functions21 = require("@azure/functions");
+var import_functions22 = require("@azure/functions");
 
 // api/src/lib/image-analysis.ts
 var IMAGE_ANALYSIS_SUGGESTION_TYPES = {
@@ -76698,7 +77358,7 @@ function rasterFilename(fileName, contentType2) {
   const base = name.replace(/\.[^.]*$/, "") || "image";
   return `${base}${ext}`;
 }
-import_functions21.app.http("generateImageAnalysis", {
+import_functions22.app.http("generateImageAnalysis", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/image-analysis/generate",
@@ -76729,6 +77389,7 @@ import_functions21.app.http("generateImageAnalysis", {
           WHERE case_id = $1
             AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image')
             AND excluded <> true
+            AND deletion_operation_id IS NULL
           ORDER BY sequence_index NULLS LAST, created_at
           LIMIT ${MAX_IMAGES_PER_RUN}`,
         [caseId]
@@ -76825,7 +77486,7 @@ async function persistDraft(caseId, d) {
 }
 
 // api/src/functions/provider-keys.ts
-var import_functions22 = require("@azure/functions");
+var import_functions23 = require("@azure/functions");
 
 // api/src/lib/api-key-auth.ts
 var import_node_crypto15 = require("node:crypto");
@@ -76907,7 +77568,7 @@ function rowToApiKey(r) {
     lastUsedAt: iso(r.last_used_at)
   };
 }
-import_functions22.app.http("createProviderApiKey", {
+import_functions23.app.http("createProviderApiKey", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "providers/{id}/api-keys",
@@ -76942,7 +77603,7 @@ import_functions22.app.http("createProviderApiKey", {
     return { status: 201, jsonBody: result };
   })
 });
-import_functions22.app.http("listProviderApiKeys", {
+import_functions23.app.http("listProviderApiKeys", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "providers/{id}/api-keys",
@@ -76959,7 +77620,7 @@ import_functions22.app.http("listProviderApiKeys", {
     return { status: 200, jsonBody: rows.map(rowToApiKey) };
   })
 });
-import_functions22.app.http("revokeProviderApiKey", {
+import_functions23.app.http("revokeProviderApiKey", {
   methods: ["DELETE"],
   authLevel: "anonymous",
   route: "providers/{id}/api-keys/{keyId}",
@@ -76991,7 +77652,7 @@ import_functions22.app.http("revokeProviderApiKey", {
 });
 
 // api/src/functions/provider-intake.ts
-var import_functions23 = require("@azure/functions");
+var import_functions24 = require("@azure/functions");
 var import_node_crypto16 = require("node:crypto");
 
 // api/src/lib/provider-intake-validate.ts
@@ -77215,7 +77876,7 @@ async function persistEvidence(ctx, caseId, kind, att, sequenceIndex) {
     return false;
   }
 }
-import_functions23.app.http("providerIntakeCase", {
+import_functions24.app.http("providerIntakeCase", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "provider-intake/cases",
@@ -77364,7 +78025,7 @@ import_functions23.app.http("providerIntakeCase", {
 });
 
 // api/src/functions/vehicle-data.ts
-var import_functions24 = require("@azure/functions");
+var import_functions25 = require("@azure/functions");
 
 // api/src/lib/vehicle-data-persistence.ts
 var import_node_crypto17 = require("node:crypto");
@@ -77782,7 +78443,7 @@ function isoDate(value) {
   if (parsed.getUTCFullYear() !== year2 || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day2) return void 0;
   return `${String(year2).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day2).padStart(2, "0")}`;
 }
-import_functions24.app.http("vehicleDataLookup", {
+import_functions25.app.http("vehicleDataLookup", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "vehicle-data/lookup",
@@ -77869,7 +78530,7 @@ import_functions24.app.http("vehicleDataLookup", {
 });
 
 // api/src/functions/capture.ts
-var import_functions25 = require("@azure/functions");
+var import_functions26 = require("@azure/functions");
 var import_node_crypto19 = require("node:crypto");
 
 // api/src/lib/capture-auth.ts
@@ -78461,7 +79122,7 @@ async function publicHandler(_req, ctx, handler) {
     return problem(500, "capture_unknown", "Capture could not be completed.");
   }
 }
-import_functions25.app.http("createCaptureSession", {
+import_functions26.app.http("createCaptureSession", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/capture-sessions",
@@ -78546,7 +79207,7 @@ import_functions25.app.http("createCaptureSession", {
     }
   })
 });
-import_functions25.app.http("listCaptureSessions", {
+import_functions26.app.http("listCaptureSessions", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "cases/{id}/capture-sessions",
@@ -78560,7 +79221,7 @@ import_functions25.app.http("listCaptureSessions", {
     return noStore({ status: 200, jsonBody: { sessions: rows.map(summary) } });
   })
 });
-import_functions25.app.http("rotateCaptureSession", {
+import_functions26.app.http("rotateCaptureSession", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "capture-sessions/{id}/rotate",
@@ -78604,7 +79265,7 @@ import_functions25.app.http("rotateCaptureSession", {
     }
   })
 });
-import_functions25.app.http("revokeCaptureSession", {
+import_functions26.app.http("revokeCaptureSession", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "capture-sessions/{id}/revoke",
@@ -78647,7 +79308,7 @@ import_functions25.app.http("revokeCaptureSession", {
     }
   })
 });
-import_functions25.app.http("exchangeCaptureSecret", {
+import_functions26.app.http("exchangeCaptureSecret", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "public/capture/exchange",
@@ -78700,7 +79361,7 @@ import_functions25.app.http("exchangeCaptureSecret", {
     };
   })
 });
-import_functions25.app.http("renewCaptureAccess", {
+import_functions26.app.http("renewCaptureAccess", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "public/capture/renew",
@@ -78773,7 +79434,7 @@ import_functions25.app.http("renewCaptureAccess", {
     };
   })
 });
-import_functions25.app.http("captureManifest", {
+import_functions26.app.http("captureManifest", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "public/capture/sessions/{id}",
@@ -78841,7 +79502,7 @@ import_functions25.app.http("captureManifest", {
     };
   })
 });
-import_functions25.app.http("createCaptureUpload", {
+import_functions26.app.http("createCaptureUpload", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "public/capture/sessions/{id}/uploads",
@@ -79015,7 +79676,7 @@ import_functions25.app.http("createCaptureUpload", {
     };
   })
 });
-import_functions25.app.http("completeCaptureUpload", {
+import_functions26.app.http("completeCaptureUpload", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "public/capture/sessions/{id}/uploads/{assetId}/complete",
@@ -79258,7 +79919,7 @@ import_functions25.app.http("completeCaptureUpload", {
     return { status: 200, jsonBody: { assetId, shotId: claimed.shot_id, status: "pending_review" } };
   })
 });
-import_functions25.app.http("submitCaptureSession", {
+import_functions26.app.http("submitCaptureSession", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "public/capture/sessions/{id}/submit",
@@ -79447,7 +80108,7 @@ import_functions25.app.http("submitCaptureSession", {
 });
 
 // api/src/functions/capture-cleanup.ts
-var import_functions26 = require("@azure/functions");
+var import_functions27 = require("@azure/functions");
 var CLEANUP_BATCH_SIZE = 100;
 function enabled3(name) {
   return (process.env[name] ?? "").trim().toLowerCase() === "true";
@@ -79630,7 +80291,7 @@ async function runCaptureCleanup(ctx) {
   ctx.log("[capture-cleanup] completed", result);
   return result;
 }
-import_functions26.app.timer("capture-retention-cleanup", {
+import_functions27.app.timer("capture-retention-cleanup", {
   schedule: "0 17 3 * * *",
   handler: async (_timer, ctx) => {
     try {

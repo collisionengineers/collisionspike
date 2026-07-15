@@ -37,6 +37,7 @@ import type {
   GenerateAiSuggestionsResult,
   AiAssistGate,
   OutlookMoveGate,
+  DeleteCaseImageGate,
   CaptureSessionStaffSummary,
   CreateCaptureSessionRequest,
   CaptureSessionSecretResponse,
@@ -566,6 +567,17 @@ export function useDetachInbound(): DetachInboundState {
  */
 export function useOutlookMoveGate(): QueryState<OutlookMoveGate> {
   const run = useCallback(() => getDataAccess().getOutlookMoveGate(), []);
+  return useAsync(run, []);
+}
+
+/**
+ * The destructive image-deletion gate (TKT-160). CaseDetail reads
+ * `const { data: deleteGate } = useDeleteCaseImageGate()` and treats undefined/loading as
+ * OFF (the Delete-image control stays hidden). Defaults all-off on failure, so the feature
+ * is never switched on by accident. Ships DARK — false live today.
+ */
+export function useDeleteCaseImageGate(): QueryState<DeleteCaseImageGate> {
+  const run = useCallback(() => getDataAccess().getDeleteCaseImageGate(), []);
   return useAsync(run, []);
 }
 

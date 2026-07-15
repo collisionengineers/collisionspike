@@ -18,10 +18,12 @@ import { app } from '@azure/functions';
 import {
   AI_ASSIST_GATE_ALL_OFF,
   BOX_GATES_ALL_FALSE,
+  DELETE_CASE_IMAGE_GATE_ALL_OFF,
   LOCATION_ASSIST_GATE_ALL_OFF,
   OUTLOOK_MOVE_GATE_ALL_OFF,
   type AiAssistGate,
   type BoxGates,
+  type DeleteCaseImageGate,
   type LocationAssistGate,
   type OutlookMoveGate,
 } from '@cs/domain';
@@ -100,6 +102,23 @@ app.http('getAiAssistGate', {
       return { status: 200, jsonBody: result };
     } catch {
       return { status: 200, jsonBody: { ...AI_ASSIST_GATE_ALL_OFF } };
+    }
+  }),
+});
+
+// GET /api/gates/delete-case-image — the destructive image-deletion gate (TKT-160). `enabled`
+// is DELETE_CASE_IMAGE_ENABLED, the master switch the SPA Delete-image control keys on. Ships
+// DARK, so this reads false live today. Honest all-off on failure.
+app.http('getDeleteCaseImageGate', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'gates/delete-case-image',
+  handler: withRole('CollisionSpike.User', async () => {
+    try {
+      const result: DeleteCaseImageGate = { enabled: gates.deleteCaseImage() };
+      return { status: 200, jsonBody: result };
+    } catch {
+      return { status: 200, jsonBody: { ...DELETE_CASE_IMAGE_GATE_ALL_OFF } };
     }
   }),
 });

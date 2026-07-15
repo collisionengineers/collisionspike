@@ -171,7 +171,9 @@ export {
   INBOUND_COUNTS_ZERO,
   AI_ASSIST_GATE_ALL_OFF,
   OUTLOOK_MOVE_GATE_ALL_OFF,
+  DELETE_CASE_IMAGE_GATE_ALL_OFF,
 } from '@cs/domain';
+export type { DeleteCaseImageGate } from '@cs/domain';
 
 /* ----------  Box affordances: gates + gated transports  ----------
    Gates are read via the REST API (/api/gates/box); the transports
@@ -355,6 +357,8 @@ export {
   // Outlook filing (TKT-054 / 020726 E6) — gate + queue-move mutation.
   useOutlookMoveGate,
   useOutlookMove,
+  // Destructive image deletion (TKT-160) — feature gate (ships DARK).
+  useDeleteCaseImageGate,
   type QueryState,
   type CaseUpdateState,
   type TriageMutationState,

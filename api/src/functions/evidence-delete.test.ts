@@ -138,6 +138,9 @@ function configureSuccess(overrides?: {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The route is DARK by default (TKT-160). Every behavioural test below exercises the LIVE
+  // path, so switch the gate on here; the dedicated gated-off test unsets it.
+  process.env.DELETE_CASE_IMAGE_ENABLED = 'true';
   locks.lock.mockResolvedValue({ kind: 'active', caseId: 'case-1' });
   status.request.mockResolvedValue(1);
   status.recompute.mockResolvedValue(true);
@@ -145,6 +148,18 @@ beforeEach(() => {
 });
 
 describe('DELETE /api/cases/{caseId}/images/{evidenceId}', () => {
+  it('is gated OFF by default — an honest disabled no-op, no snapshot/claim/store work', async () => {
+    delete process.env.DELETE_CASE_IMAGE_ENABLED;
+    const response = await handler(req(), ctx, {});
+    expect(response.status).toBe(200);
+    expect(response.jsonBody).toMatchObject({ disabled: true, completed: false });
+    expect(db.query).not.toHaveBeenCalled();
+    expect(db.tx).not.toHaveBeenCalled();
+    expect(stores.validate).not.toHaveBeenCalled();
+    expect(stores.box).not.toHaveBeenCalled();
+    expect(stores.blob).not.toHaveBeenCalled();
+  });
+
   it('fails a wrong-case target before intent or store work', async () => {
     db.query.mockImplementation(async (sql: string) =>
       sql.includes('FROM evidence_deletion') ? [] : []);
@@ -373,7 +388,7 @@ describe('DELETE /api/cases/{caseId}/images/{evidenceId}', () => {
     expect(finalizationFailure).not.toContain("blob_outcome = 'failed'");
     expect(finalizationFailure).not.toContain("box_outcome = 'failed'");
     expect(audit.strict).toHaveBeenLastCalledWith(expect.objectContaining({
-      action: 100000057,
+      action: 100000064,
       after: expect.objectContaining({
         failedStore: 'case_update',
         failureCode: 'finalization_failed',

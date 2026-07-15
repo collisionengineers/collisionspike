@@ -2224,6 +2224,12 @@ var gates = {
   // scene-understanding stages carry image bytes off-region (GlobalStandard) — the live flip is
   // DPIA-gated (docs/gated.md; PLAN-001 Phase 4).
   imageAnalysis: () => process.env.IMAGE_ANALYSIS_ENABLED === "true",
+  // Destructive case-image deletion (TKT-160) — DELETE /api/cases/{caseId}/images/{evidenceId}.
+  // Default OFF; ships DARK. Guards the ONLY hard-delete of case evidence (cross-store: Archive +
+  // Blob + the active evidence row). While OFF the route is an honest disabled no-op BEFORE any
+  // snapshot/claim/store work — nothing is ever deleted — and the SPA hides the Delete-image
+  // control (GET /api/gates/delete-case-image). Live flip is operator-gated.
+  deleteCaseImage: () => process.env.DELETE_CASE_IMAGE_ENABLED === "true",
   // ---- PLAN-001 (AI hardening + MCP) gates — ALL default OFF, ship DARK ----
   // TKT-066/069 — the registry-driven read adapter for the assistant. When OFF the assistant
   // uses the original hand-written `execTool` (fast rollback); when ON it derives its tool set
