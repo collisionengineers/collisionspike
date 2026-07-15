@@ -1,0 +1,26 @@
+[
+  {
+    "evaCode": "Create for each",
+    "name": "Arianna Autos",
+    "derivedPolicy": "PreferAddress",
+    "notes": "Non-standard evaCode 'Create for each' (per-VRM, boxCode VRM ARIANNA): no single live WorkProvider row."
+  },
+  {
+    "evaCode": "Check Instructions",
+    "name": "FRAZ",
+    "derivedPolicy": "RequiredAddress",
+    "notes": "Non-standard evaCode 'Check Instructions' (boxCode FRZ, search by Case ID not Principal; multiple sub-principals Focus/Pebble/Swade): no single live WorkProvider row."
+  },
+  {
+    "evaCode": "",
+    "name": "Graham Coffey (GGP)",
+    "derivedPolicy": "RequiredAddress",
+    "notes": "Second GGP channel (Raja/Fraz/On-Track) with blank evaCode - shares GG principal (workproviderId aa6611dc-...). Named storage OL2 6HW / OL1 3QR -> RequiredAddress for this sub-channel; merge notes into GG."
+  },
+  {
+    "evaCode": "N/A",
+    "name": "Questgates or Brownsword",
+    "derivedPolicy": "Unknown",
+    "notes": "evaCode N/A - valuation-only workflow (Glass's/Percayso), not a standard inspection provider; no live WorkProvider row and no inspection policy applies."
+  }
+]
