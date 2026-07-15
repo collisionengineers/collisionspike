@@ -33,7 +33,7 @@ function ticket(id) {
   const title = text.match(/^title:\s*(.+)$/m)?.[1]?.trim() || id;
   return { file: matches[0], title, slug: basename(dirname(matches[0])).replace(new RegExp(`^${id}-`), ''), lanes: field('worktree-lanes'), components: field('worktree-components') };
 }
-function assertCanonical() { if (git(['symbolic-ref', '--short', '-q', 'HEAD']) !== 'main') fail('Run this only from the canonical main checkout.'); if (!clean()) fail('Canonical main is dirty. Commit or preserve its work before creating a worktree.'); if (!current()) fail('Canonical main is not equal to origin/main. Fast-forward it first.'); }
+function assertCanonical() { if (git(['symbolic-ref', '--short', '-q', 'HEAD']) !== 'main') fail('Run this only from the canonical main checkout.'); if (!clean()) fail('Canonical main is dirty. Commit or preserve its work before creating a worktree.'); git(['fetch', 'origin', 'main'], repo, true); if (!current()) fail('Canonical main is not equal to origin/main. Fast-forward it first.'); }
 function laneOwners() {
   const result = new Map();
   // First writer wins so a lane owned by the SAME ticket id (e.g. a branch that is
