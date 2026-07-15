@@ -3,9 +3,10 @@
 ## Status
 Code-complete on the ticket branch; deliberately dark and not deployed.
 
-Fresh post-rebase hardening commit: `946946d` (`fix(mcp): isolate principals and harden ingestion`),
-rebased on `f419e31`. The reciprocal PR markers, rather than this self-referential file, bind the exact
-final PR head and base after all evidence edits.
+Rebased onto post-#99 `main` (base `ae3bdb48`) on 2026-07-15 and remediated against a four-lane review
+(see "Rebase + review remediation" below). Head/base bind to the actual PR #73 branch tip and base
+`ae3bdb48`; the retired reciprocal-AI PR-review workflow (removed on `main` by TKT-149) is not the
+review authority.
 
 ## Changes made
 
@@ -89,6 +90,33 @@ final PR head and base after all evidence edits.
 - Re-reviewed the registration serialization, canonical evidence/idempotency seam, forced RLS policies,
   Box test-root attestation, asynchronous root recheck, classifier prompt boundary and conservative
   durable/readiness responses after the rebase.
+
+## Rebase + review remediation (2026-07-15)
+
+Rebased onto post-#99 `main`; the redundant "remove reciprocal-AI review workflow" commit was dropped
+because `main` already retired it (TKT-149). A four-lane review then drove these fixes:
+
+- **Session/body robustness (api).** `initializing` MCP sessions now get a short distinct TTL
+  (`MCP_SESSION_INIT_TTL_MINUTES`, default 2) and the per-principal cap evicts the oldest
+  initializing/expired slot, so an agent crash-loop can no longer wedge the ingest lane at HTTP 429.
+  The `readonly_staff` MCP path now uses a bounded body reader (`MCP_READONLY_MAX_HTTP_BODY_BYTES`,
+  default 1 MiB) instead of an unbounded `json()`.
+- **Classifier plate-OCR preservation (orchestration).** The shared classifier prompt's
+  untrusted-in-image-text guard is now scoped to instruction/command/request text with an explicit
+  carve-out requiring legible number plates to still be transcribed; a prompt-content lock and a
+  clean-plate seam regression guard against silent OCR suppression. Live-model proof stays gated.
+- **Schema/migration hygiene.** The tkt154 delta was renamed to `2026-07-13-…` so it sorts after its
+  `tkt165` dependency; canonical `195` CHECK constraints are named to match the delta; the per-row
+  `case_` registration advisory-lock budget is documented beside the trigger and in the architecture
+  doc (bulk-writer batching follow-up **TKT-207**), with an API-before-orchestration deploy-order note
+  (**TKT-208**).
+- **Ticket-evidence integrity.** Removed the reciprocal-marker head/base binding and the phantom
+  reciprocal-review test suite from the evidence, and refreshed every count against a full offline
+  gate re-run on the rebased-and-remediated head.
+
+Note: the `staff_evidence_upload.attempt_count` / `last_attempt_at` increment added by this PR runs on
+the shared bind path for **all** upload sources (not only `mcp_agent`) — an intentional, low-cost
+observability change to existing staff uploads, not scoped narrowly.
 
 ## Deliberately not done here
 

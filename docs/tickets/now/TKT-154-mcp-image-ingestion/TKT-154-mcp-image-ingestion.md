@@ -3,7 +3,7 @@ id: TKT-154
 title: Add a constrained MCP path for registration-based image ingestion
 status: now
 priority: P1
-area: ai
+area: integration
 tickets-it-relates-to: [TKT-034, TKT-061, TKT-064, TKT-068, TKT-110, TKT-111, TKT-146]
 research-link: docs/tickets/now/TKT-154-mcp-image-ingestion/evidence/operator-note.md
 plan: PLAN-004

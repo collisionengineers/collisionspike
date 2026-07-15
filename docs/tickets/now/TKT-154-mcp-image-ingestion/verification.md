@@ -5,27 +5,31 @@ PENDING
 
 ## Evidence
 
-Offline implementation evidence on the ticket branch. The implementation plus fresh-review hardening
-commit under test is `946946d`, rebased on `f419e31`. Canonical reciprocal PR comments bind the exact
-final PR head/base after this evidence file is committed; that non-self-referential marker is the
-authority for review freshness.
+Offline implementation evidence on the ticket branch (PR #73, `codex/tkt-154-mcp-image-ingestion`).
+The branch was rebased onto post-#99 `main` (base `ae3bdb48`) on 2026-07-15, its five rebase conflicts
+resolved, and the four review lanes below remediated; the counts in this file are from a full offline
+gate re-run on that rebased-and-remediated head. Head/base bind to the actual PR #73 branch tip and
+base `ae3bdb48` directly (the retired reciprocal-AI PR-review workflow — removed on `main` by TKT-149 —
+is no longer the review authority and is not referenced as live).
 
-- API full suite: **79 files / 778 tests passed**, including the published
+- API full suite: **82 files / 835 tests passed**, including the published
   `@modelcontextprotocol/sdk` Streamable HTTP client compatibility test against the registered route
   (initialize/initialized, tools/list and structured tool error). MCP protocol/principal/image-ingest/
   evidence/auth/Box-client/internal-archive coverage, registration TOCTOU refusal, multi-role denial, cumulative preflight,
   sanitized write/readback failures, no public evidence UUID, full initialize lifecycle, Origin/
   Accept/version/body/batch enforcement and Box-scope attestation.
 - API TypeScript build passes.
-- Orchestration full suite: **34 files / 445 tests passed**, including Archive transport/root
-  propagation and the adversarial visible-text image-classification fixture. Orchestration TypeScript
-  build passes.
-- Box façade full suite: **257 tests passed**, including unset/wrong/out-of-root refusal and strict
-  recheck before upload.
-- Root suite passes: domain **59 files / 1,177 tests**, SPA **50 files / 522 tests**, reciprocal PR
-  review hooks **48 tests**, and the session-requiring folder watcher **1 test**.
-- Ticket validator: **167 tickets, 0 failures, 0 warnings**. Documentation links/orphans/live-fact
-  leakage check passes (26 known historical absent-link backlog entries remain informational).
+- Orchestration full suite: **40 files / 476 tests passed**, including Archive transport/root
+  propagation, the adversarial visible-text image-classification fixture, and the new plate-OCR
+  preservation regression (Lane B). Orchestration TypeScript build passes.
+- Box façade (Python `box-webhook`) suite: **not re-run in this offline convergence** (requires the
+  pytest venv, unavailable on this build box). Unchanged by the rebase/remediation, which touched no
+  Python files; the box-webhook scope-lock/upload tests added by this PR were green at authoring.
+- Root suite passes: domain **62 files / 1,196 tests**, SPA **51 files / 525 tests**, and the
+  session-requiring folder watcher **1 test**. (There is no reciprocal-PR-review test suite — TKT-149
+  removed it from the tree; it is not counted here.)
+- Ticket validator: **199 tickets, 0 failures, 0 warnings**. Documentation links/orphans/live-fact
+  leakage check passes (24 known historical absent-link backlog entries remain informational).
 - `git diff --check` passes.
 - Production dependency audit has no high/critical finding. It reports the repository's two inherited
   moderate `durable-functions`/`uuid` findings; this branch does not change either dependency.
@@ -50,7 +54,7 @@ Third-audit evidence included in the full-suite totals above:
 - Session-store tests prove principal-scoped advisory locking, expired-own-row reuse, the repeated
   principal/expiry predicate, a configurable hard cap, and retryable 429 route behavior at capacity.
 
-Pull-request review evidence included in the full-suite totals above:
+Review-hardening evidence included in the full-suite totals above:
 
 - Staff uploads remain accepted on an `error` case while the autonomous principal receives a 409;
   removed and other closed case states remain refused for both.
@@ -71,7 +75,7 @@ Pull-request review evidence included in the full-suite totals above:
 ## Pending / gaps
 
 - Apply `2026-07-12-tkt165-staff-evidence-upload.sql`, then
-  `2026-07-12-tkt154-mcp-image-ingestion.sql` to live Postgres and prove table/RLS/grants as `cespk_app`.
+  `2026-07-13-tkt154-mcp-image-ingestion.sql` to live Postgres and prove table/RLS/grants as `cespk_app`.
 - Deploy the Box façade, Data API and orchestration builds from the reviewed/merged commit.
 - Create/read back the API role and one client assignment carrying exactly
   `CollisionSpike.ImageIngest`, with no delegated scope, staff/general-Agent role or Graph permission.
@@ -85,6 +89,9 @@ Pull-request review evidence included in the full-suite totals above:
 - Confirm no Outlook mutation and no Box write outside the designated test root.
 - Run the adversarial-text PNG through the live classifier on the designated test case and prove the
   visible instruction does not alter the classification contract. Offline mock behavior is not live proof.
+- Prove on a real clean-plate photo that the Lane-B hardened classifier prompt still yields
+  `registration_visible: true` and the correct `plate_text` (the offline prompt-content + seam
+  regression locks the wording, but live-model plate OCR under the hardened prompt is not yet proven).
 
 ## How to re-verify
 Follow `docs/architecture/mcp-image-ingestion.md` in deploy order. Preserve role/app-setting readbacks,
