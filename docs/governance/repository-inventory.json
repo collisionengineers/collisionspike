@@ -17,7 +17,7 @@
     "files": 2889,
     "entries": 3792
   },
-  "totalFileBytes": 495952916,
+  "totalFileBytes": 495954258,
   "entries": [
     {
       "path": ".",
@@ -22739,7 +22739,7 @@
       "path": "docs/tickets/verify/TKT-207-repository-inventory-disposition-ledger/verification.md",
       "mediaType": "text/markdown",
       "size": 2266,
-      "sha256": "57906c3e50da99dc20500a98d40571cf1c1ee2efd164a59162a25e47036dc6a3",
+      "sha256": "7855550cc2c8d20922d91669eaa760c6add9c81e7c7d7d72455026bb49f41b79",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22972,8 +22972,8 @@
     {
       "path": "docs/tickets/verify/TKT-214-repository-gates-ci-closeout/changes.md",
       "mediaType": "text/markdown",
-      "size": 2020,
-      "sha256": "23be74ad656d1017713c49efef20959fa92f0f858b47f565e9b1b25a40003289",
+      "size": 2101,
+      "sha256": "badc3d77f5f30cc0d2bff092ab0f49dcefd18c5dc9fe27ea6946ff402f5f9b37",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -23089,8 +23089,8 @@
     {
       "path": "package-lock.json",
       "mediaType": "application/json",
-      "size": 146052,
-      "sha256": "9cebe94560c1535974823388bb4689d6081d6093d6e639304d2b7a0b4742f48d",
+      "size": 147275,
+      "sha256": "379067fe188c704ad9ffeaeed0ade29a7890ea869971407bae9d8f704718e43b",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -23098,8 +23098,8 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 2994,
-      "sha256": "73425422fe5b0d5ebaea523bc398bb8d68e2c5962eecebf4154a48859321f22b",
+      "size": 3032,
+      "sha256": "b57534d43e3e5803a114709c93bb0f15bded75aff40686ebedd5bcbefb02295f",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"

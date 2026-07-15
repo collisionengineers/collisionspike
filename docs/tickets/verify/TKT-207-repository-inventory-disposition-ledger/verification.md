@@ -6,7 +6,7 @@ TESTED (offline)
 ## Evidence
 - Commit 70a3bb57 fixes the pre-mutation baseline and move/delete/preserve boundary.
 - The current generated inventory is scoped to stage-0 Git index files and contains 2,889 files, 903
-  directories and 3,792 total entries, representing 495,952,916 file bytes.
+  directories and 3,792 total entries, representing 495,954,258 file bytes.
 - Every file row records path, media type, size, SHA-256, category, owner and lifecycle. Directory hashes
   and the inventory's self-hash are null under explicit policies.
 - Evidence hashing groups identical bytes while retaining 550 path-level usages; the separate
