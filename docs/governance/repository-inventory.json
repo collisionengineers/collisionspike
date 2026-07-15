@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 903,
-    "files": 2889,
-    "entries": 3792
+    "directories": 913,
+    "files": 2901,
+    "entries": 3814
   },
-  "totalFileBytes": 495954258,
+  "totalFileBytes": 496013024,
   "entries": [
     {
       "path": ".",
@@ -1074,6 +1074,96 @@
     },
     {
       "path": "docs/reviews/020726",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "documentation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/reviews/150726",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "documentation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/reviews/150726/agents-ci",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "documentation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/reviews/150726/docs-integrity",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "documentation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/reviews/150726/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "documentation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/reviews/150726/purge-outputs",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "documentation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/reviews/150726/python-vendor",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "documentation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/reviews/150726/reconciliation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "documentation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/reviews/150726/runtime-surface",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "documentation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/reviews/150726/spa-database",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "documentation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/reviews/150726/tickets-board",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -13279,7 +13369,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1181619,
+      "size": 1187631,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -13493,6 +13583,114 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/reviews/150726/agents-ci/review.md",
+      "mediaType": "text/markdown",
+      "size": 4514,
+      "sha256": "042270a9fcf8d380d53b5c3c0601e0416f45a7bd8402a12d91b45a827a5b3880",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/150726/checklist.md",
+      "mediaType": "text/markdown",
+      "size": 5344,
+      "sha256": "37a3ecccc073a60a62ab081052e44172435fbc2fae9f9ca908a6b2819d5c9c17",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/150726/docs-integrity/review.md",
+      "mediaType": "text/markdown",
+      "size": 4810,
+      "sha256": "97a9c45614a0e1666ffeefd3d6c788a3debf70fef1f6160db45e40b6cddd852e",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/150726/evidence/gate-battery.md",
+      "mediaType": "text/markdown",
+      "size": 3924,
+      "sha256": "6ecccdf845b1ca06202124d61a76ed0a10d206eb8e69efe299ccc279147492f2",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/150726/overview.md",
+      "mediaType": "text/markdown",
+      "size": 5883,
+      "sha256": "000960fb024fb8666b2f8cb189839f158766e6aa076cd44502e73b3a2b002231",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/150726/process.md",
+      "mediaType": "text/markdown",
+      "size": 3514,
+      "sha256": "9b70fd3e74867d7ebe336322779643b8ef186ec92df32b04f3fa44c1886cea06",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/150726/purge-outputs/review.md",
+      "mediaType": "text/markdown",
+      "size": 3659,
+      "sha256": "36f3eeca046911e29b4c3d644df8084d8bce35bd67a33be74cc2493ea9250210",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/150726/python-vendor/review.md",
+      "mediaType": "text/markdown",
+      "size": 3977,
+      "sha256": "ea105319572e1acdcfeffc375fa5c1d81a13a78526d82cde4523acdcb32adce3",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/150726/reconciliation/review.md",
+      "mediaType": "text/markdown",
+      "size": 5069,
+      "sha256": "31e98a26d160a7a8f32ab53db5e340fb37796ab8f037233adabc538c29728d26",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/150726/runtime-surface/review.md",
+      "mediaType": "text/markdown",
+      "size": 4364,
+      "sha256": "9c31db471bb673e7e42ccf30786226545e9441f35ae2a9e856abeb2d2f11ea28",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/150726/spa-database/review.md",
+      "mediaType": "text/markdown",
+      "size": 3749,
+      "sha256": "ca82b165ac0a0671be09921ca0d3d75a90f38b096bb334522bc871d76070a8dc",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/150726/tickets-board/review.md",
+      "mediaType": "text/markdown",
+      "size": 3740,
+      "sha256": "9b5489cefc3f5d528f93d4fa994827fe1e86a183d83a244939672fe86acd34f6",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/reviews/190626/broad-review/review.md",
       "mediaType": "text/markdown",
       "size": 429,
@@ -13594,8 +13792,8 @@
     {
       "path": "docs/reviews/README.md",
       "mediaType": "text/markdown",
-      "size": 1738,
-      "sha256": "83719b3bd59368f3dbf68cff45d04ce8120d6a6102b1c724f58a77e604960b9f",
+      "size": 1945,
+      "sha256": "03ec1f6db781ad200a4fa0c128a425713e27de48a2a0978b02f3f6eb61d25dee",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
