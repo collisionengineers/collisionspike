@@ -1,5 +1,28 @@
 # Verification — TKT-034: Inbound images: match to case / create Box folder by reg / flag
 
+## Reopened lifecycle verification — 2026-07-13
+
+**PENDING LIVE PROOF.** The earlier VERIFIED-LIVE ruling below covered classification, the visible flag and an empty gated registration-folder create. It does not verify the reopened 2026-07-12 lifecycle acceptance.
+
+Offline implementation evidence now covers:
+
+- persisted registration/message/file ledger and claim checkpoints;
+- real image-byte upload, not empty-folder success;
+- exact adoption by rename or merge, content deduplication and deterministic name collision handling;
+- ambiguity/hold behavior, replay claims and partial-failure recovery;
+- fresh Box scope checks and non-recursive empty-folder retirement;
+- merge preservation/refusal when two different archive folders would be stranded.
+
+Remaining verifier work after merge/deploy:
+
+1. apply `2026-07-13-tkt034-archive-holding.sql` before the code deployment;
+2. under Box test root `392761581105` only, ingest an unmatched image set with a defensible registration and prove the folder contains every accepted byte plus persisted ledger rows;
+3. ingest later instructions for exactly one active case and prove the same identity is renamed or the files are moved/deduplicated into the Case/PO folder;
+4. prove the old holding folder is absent only after the complete merge, evidence is linked once, the audit is present and no write occurred outside the test root;
+5. repeat one delivery and one adoption trigger, then force a checkpoint failure/retry and confirm folder/file/evidence cardinalities remain one.
+
+This section supersedes the earlier verdict for the reopened acceptance only. The historical verification remains below.
+
 ## Verdict
 **VERIFIED-LIVE** (2026-07-10, ticket-verifier dispatch — final ruling after the W6 data pass; two
 declared residuals, neither a defect: step-2 Box-by-reg **re-scoped-to-gate** behind the operator's

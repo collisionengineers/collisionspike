@@ -7473,6 +7473,8 @@ function statusForReviewCase(input) {
     return input.status;
   if ((input.mergedInto ?? "").trim().length > 0)
     return "linked_to_instruction";
+  if (input.archiveHoldingPending === true)
+    return "missing_images";
   const readiness = evaluateCaseReadiness(input);
   const baseImagesValid = readiness.imageRulesPass;
   const fieldContractValid = readiness.requiredFieldsPresent && readiness.inspectionReady && readiness.vehicleDetailsReady;
@@ -12369,15 +12371,15 @@ function parseCasePoMarker(po) {
   return { marker: "", body: token };
 }
 function matchPrincipalByCasePo(po, principals) {
-  const { marker: marker2, body: body2 } = parseCasePoMarker(po);
-  if (!body2)
+  const { marker: marker2, body: body3 } = parseCasePoMarker(po);
+  if (!body3)
     return null;
   let best = null;
   for (const raw of principals) {
     const code = (raw ?? "").trim().toUpperCase();
-    if (!code || !body2.startsWith(code))
+    if (!code || !body3.startsWith(code))
       continue;
-    if (!/^\d{5,6}$/.test(body2.slice(code.length)))
+    if (!/^\d{5,6}$/.test(body3.slice(code.length)))
       continue;
     if (!best || code.length > best.length)
       best = code;
@@ -12394,6 +12396,17 @@ function markerToCaseType(marker2) {
 var CASE_MINTING_CATEGORIES = ["receiving_work"];
 function categoryMintsCase(category) {
   return CASE_MINTING_CATEGORIES.includes(category);
+}
+
+// packages/domain/dist/domain/archive-holding.js
+function decideArchiveHoldingOwner(candidates) {
+  const unique = [...new Map(candidates.map((candidate) => [candidate.caseId, candidate])).values()];
+  if (unique.length === 0)
+    return { kind: "none" };
+  if (unique.length === 1 && unique[0].casePo?.trim()) {
+    return { kind: "exact", candidate: unique[0] };
+  }
+  return { kind: "ambiguous", candidates: unique };
 }
 
 // packages/domain/dist/model/queues.js
@@ -12505,6 +12518,7 @@ function readinessInputForCase(c) {
       ...c.vehicleLookup?.warning ? { warning: c.vehicleLookup.warning } : {}
     },
     instructionCount: c.evidence.filter((e) => e.kind === "instruction").length,
+    archiveHoldingPending: c.archiveHoldingPending === true,
     ...sourceReadinessInputForCase(c),
     hasIdentity: c.vrm.trim().length > 0 || (c.casePo ?? "").trim().length > 0 || c.providerCode.trim().length > 0 || c.evaFields.claimantName.value.trim().length > 0,
     mergedInto: c.mergedInto
@@ -14289,11 +14303,11 @@ function routeBody(cap2, params) {
   if (cap2.route)
     for (const m of cap2.route.path.matchAll(/\{(\w+)\}/g))
       pathKeys.add(m[1]);
-  const body2 = {};
+  const body3 = {};
   for (const [k, v] of Object.entries(params))
     if (!pathKeys.has(k))
-      body2[k] = v;
-  return body2;
+      body3[k] = v;
+  return body3;
 }
 
 // packages/domain/dist/data/choicesets/case-status.json
@@ -16748,6 +16762,7 @@ function rowToCase(rec, opts = {}) {
     missing: [],
     ...actionReason ? { actionReason } : {},
     ...rec.on_hold ? { onHold: true } : {},
+    ...rec.archive_holding_pending ? { archiveHoldingPending: true } : {},
     channel: {
       kind: channelKind,
       mode: rec.intake_channel_manual ? "manual" : "auto",
@@ -19646,8 +19661,8 @@ var logger = createClientLogger("ts-http-runtime");
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/nodeHttpClient.js
 var DEFAULT_TLS_SETTINGS = {};
-function isReadableStream(body2) {
-  return body2 && typeof body2.pipe === "function";
+function isReadableStream(body3) {
+  return body3 && typeof body3.pipe === "function";
 }
 function isStreamComplete(stream) {
   if (stream.readable === false) {
@@ -19665,8 +19680,8 @@ function isStreamComplete(stream) {
     stream.on("error", handler);
   });
 }
-function isArrayBuffer(body2) {
-  return body2 && typeof body2.byteLength === "number";
+function isArrayBuffer(body3) {
+  return body3 && typeof body3.byteLength === "number";
 }
 var ReportTransform = class extends import_node_stream.Transform {
   loadedBytes = 0;
@@ -19718,29 +19733,29 @@ var NodeHttpClient = class {
     }
     const acceptEncoding = request.headers.get("Accept-Encoding");
     const shouldDecompress = acceptEncoding?.includes("gzip") || acceptEncoding?.includes("deflate");
-    let body2 = typeof request.body === "function" ? request.body() : request.body;
-    if (body2 && !request.headers.has("Content-Length")) {
-      const bodyLength = getBodyLength(body2);
+    let body3 = typeof request.body === "function" ? request.body() : request.body;
+    if (body3 && !request.headers.has("Content-Length")) {
+      const bodyLength = getBodyLength(body3);
       if (bodyLength !== null) {
         request.headers.set("Content-Length", bodyLength);
       }
     }
     let responseStream;
     try {
-      if (body2 && request.onUploadProgress) {
+      if (body3 && request.onUploadProgress) {
         const onUploadProgress = request.onUploadProgress;
         const uploadReportStream = new ReportTransform(onUploadProgress);
         uploadReportStream.on("error", (e) => {
           logger.error("Error in upload progress", e);
         });
-        if (isReadableStream(body2)) {
-          body2.pipe(uploadReportStream);
+        if (isReadableStream(body3)) {
+          body3.pipe(uploadReportStream);
         } else {
-          uploadReportStream.end(body2);
+          uploadReportStream.end(body3);
         }
-        body2 = uploadReportStream;
+        body3 = uploadReportStream;
       }
-      const res = await this.makeRequest(request, abortController, body2);
+      const res = await this.makeRequest(request, abortController, body3);
       if (timeoutId !== void 0) {
         clearTimeout(timeoutId);
       }
@@ -19777,8 +19792,8 @@ var NodeHttpClient = class {
     } finally {
       if (request.abortSignal && abortListener) {
         let uploadStreamDone = Promise.resolve();
-        if (isReadableStream(body2)) {
-          uploadStreamDone = isStreamComplete(body2);
+        if (isReadableStream(body3)) {
+          uploadStreamDone = isStreamComplete(body3);
         }
         let downloadStreamDone = Promise.resolve();
         if (isReadableStream(responseStream)) {
@@ -19794,7 +19809,7 @@ var NodeHttpClient = class {
       }
     }
   }
-  makeRequest(request, abortController, body2) {
+  makeRequest(request, abortController, body3) {
     const url2 = new URL(request.url);
     const isInsecure = url2.protocol !== "https:";
     if (isInsecure && !request.allowInsecureConnection) {
@@ -19820,15 +19835,15 @@ var NodeHttpClient = class {
         req.destroy(abortError);
         reject(abortError);
       });
-      if (body2 && isReadableStream(body2)) {
-        body2.pipe(req);
-      } else if (body2) {
-        if (typeof body2 === "string" || Buffer.isBuffer(body2)) {
-          req.end(body2);
-        } else if (isArrayBuffer(body2)) {
-          req.end(ArrayBuffer.isView(body2) ? Buffer.from(body2.buffer, body2.byteOffset, body2.byteLength) : Buffer.from(body2));
+      if (body3 && isReadableStream(body3)) {
+        body3.pipe(req);
+      } else if (body3) {
+        if (typeof body3 === "string" || Buffer.isBuffer(body3)) {
+          req.end(body3);
+        } else if (isArrayBuffer(body3)) {
+          req.end(ArrayBuffer.isView(body3) ? Buffer.from(body3.buffer, body3.byteOffset, body3.byteLength) : Buffer.from(body3));
         } else {
-          logger.error("Unrecognized body type", body2);
+          logger.error("Unrecognized body type", body3);
           reject(new RestError("Unrecognized body type"));
         }
       } else {
@@ -19918,17 +19933,17 @@ function streamToText(stream) {
     });
   });
 }
-function getBodyLength(body2) {
-  if (!body2) {
+function getBodyLength(body3) {
+  if (!body3) {
     return 0;
-  } else if (Buffer.isBuffer(body2)) {
-    return body2.length;
-  } else if (isReadableStream(body2)) {
+  } else if (Buffer.isBuffer(body3)) {
+    return body3.length;
+  } else if (isReadableStream(body3)) {
     return null;
-  } else if (isArrayBuffer(body2)) {
-    return body2.byteLength;
-  } else if (typeof body2 === "string") {
-    return Buffer.from(body2).length;
+  } else if (isArrayBuffer(body3)) {
+    return body3.byteLength;
+  } else if (typeof body3 === "string") {
+    return Buffer.from(body3).length;
   } else {
     return null;
   }
@@ -20215,10 +20230,10 @@ function defaultRetryPolicy(options = {}) {
 }
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/formData.js
-function convertBodyToFormDataMap(body2) {
-  if (typeof FormData !== "undefined" && body2 instanceof FormData) {
+function convertBodyToFormDataMap(body3) {
+  if (typeof FormData !== "undefined" && body3 instanceof FormData) {
     const formDataMap = {};
-    for (const [key, value] of body2.entries()) {
+    for (const [key, value] of body3.entries()) {
       const existing = formDataMap[key];
       if (Array.isArray(existing)) {
         existing.push(value);
@@ -22676,8 +22691,8 @@ async function parse2(jsonContentTypes, xmlContentTypes, operationResponse, opts
         if (!parseXML2) {
           throw new Error("Parsing XML not supported.");
         }
-        const body2 = await parseXML2(text, opts.xml);
-        operationResponse.parsedBody = body2;
+        const body3 = await parseXML2(text, opts.xml);
+        operationResponse.parsedBody = body3;
         return operationResponse;
       }
     } catch (err2) {
@@ -32214,9 +32229,9 @@ var StorageCRC64Calculator = class _StorageCRC64Calculator {
    * @param body - content to be append
    * @param length - length of the content
    */
-  append(body2, length) {
+  append(body3, length) {
     const ptr = _StorageCRC64Calculator.nativeInstance._malloc(length);
-    _StorageCRC64Calculator.nativeInstance.HEAPU8.set(body2, ptr);
+    _StorageCRC64Calculator.nativeInstance.HEAPU8.set(body3, ptr);
     this.nativeCrc64Hash.OnAppend(ptr, length);
     _StorageCRC64Calculator.nativeInstance._free(ptr);
   }
@@ -32226,9 +32241,9 @@ var StorageCRC64Calculator = class _StorageCRC64Calculator {
    * @param length -
    * @returns
    */
-  final(body2, length) {
+  final(body3, length) {
     const ptr = _StorageCRC64Calculator.nativeInstance._malloc(length);
-    _StorageCRC64Calculator.nativeInstance.HEAPU8.set(body2, ptr);
+    _StorageCRC64Calculator.nativeInstance.HEAPU8.set(body3, ptr);
     const result = _StorageCRC64Calculator.nativeInstance._malloc(8);
     this.nativeCrc64Hash.OnFinal(ptr, length, result);
     _StorageCRC64Calculator.nativeInstance._free(ptr);
@@ -45114,8 +45129,8 @@ var ServiceImpl = class {
    * @param body Initial data
    * @param options The options parameters.
    */
-  submitBatch(contentLength2, multipartContentType2, body2, options) {
-    return this.client.sendOperationRequest({ contentLength: contentLength2, multipartContentType: multipartContentType2, body: body2, options }, submitBatchOperationSpec);
+  submitBatch(contentLength2, multipartContentType2, body3, options) {
+    return this.client.sendOperationRequest({ contentLength: contentLength2, multipartContentType: multipartContentType2, body: body3, options }, submitBatchOperationSpec);
   }
   /**
    * The Filter Blobs operation enables callers to list blobs across all containers whose tags match a
@@ -45444,8 +45459,8 @@ var ContainerImpl = class {
    * @param body Initial data
    * @param options The options parameters.
    */
-  submitBatch(contentLength2, multipartContentType2, body2, options) {
-    return this.client.sendOperationRequest({ contentLength: contentLength2, multipartContentType: multipartContentType2, body: body2, options }, submitBatchOperationSpec2);
+  submitBatch(contentLength2, multipartContentType2, body3, options) {
+    return this.client.sendOperationRequest({ contentLength: contentLength2, multipartContentType: multipartContentType2, body: body3, options }, submitBatchOperationSpec2);
   }
   /**
    * The Filter Blobs operation enables callers to list blobs in a container whose tags match a given
@@ -47125,8 +47140,8 @@ var PageBlobImpl = class {
    * @param body Initial data
    * @param options The options parameters.
    */
-  uploadPages(contentLength2, body2, options) {
-    return this.client.sendOperationRequest({ contentLength: contentLength2, body: body2, options }, uploadPagesOperationSpec);
+  uploadPages(contentLength2, body3, options) {
+    return this.client.sendOperationRequest({ contentLength: contentLength2, body: body3, options }, uploadPagesOperationSpec);
   }
   /**
    * The Clear Pages operation clears a set of pages from a page blob
@@ -47581,8 +47596,8 @@ var AppendBlobImpl = class {
    * @param body Initial data
    * @param options The options parameters.
    */
-  appendBlock(contentLength2, body2, options) {
-    return this.client.sendOperationRequest({ contentLength: contentLength2, body: body2, options }, appendBlockOperationSpec);
+  appendBlock(contentLength2, body3, options) {
+    return this.client.sendOperationRequest({ contentLength: contentLength2, body: body3, options }, appendBlockOperationSpec);
   }
   /**
    * The Append Block operation commits a new block of data to the end of an existing append blob where
@@ -47795,8 +47810,8 @@ var BlockBlobImpl = class {
    * @param body Initial data
    * @param options The options parameters.
    */
-  upload(contentLength2, body2, options) {
-    return this.client.sendOperationRequest({ contentLength: contentLength2, body: body2, options }, uploadOperationSpec);
+  upload(contentLength2, body3, options) {
+    return this.client.sendOperationRequest({ contentLength: contentLength2, body: body3, options }, uploadOperationSpec);
   }
   /**
    * The Put Blob from URL operation creates a new Block Blob where the contents of the blob are read
@@ -47823,8 +47838,8 @@ var BlockBlobImpl = class {
    * @param body Initial data
    * @param options The options parameters.
    */
-  stageBlock(blockId2, contentLength2, body2, options) {
-    return this.client.sendOperationRequest({ blockId: blockId2, contentLength: contentLength2, body: body2, options }, stageBlockOperationSpec);
+  stageBlock(blockId2, contentLength2, body3, options) {
+    return this.client.sendOperationRequest({ blockId: blockId2, contentLength: contentLength2, body: body3, options }, stageBlockOperationSpec);
   }
   /**
    * The Stage Block operation creates a new block to be committed as part of a blob where the contents
@@ -48651,7 +48666,7 @@ function assertResponse(response) {
   }
   throw new TypeError(`Unexpected response object ${response}`);
 }
-async function setUploadChecksumParameters(body2, contentLength2, parameters, uploadOptions, configContentChecksumAlgorithm) {
+async function setUploadChecksumParameters(body3, contentLength2, parameters, uploadOptions, configContentChecksumAlgorithm) {
   let contentChecksumAlgorithm = uploadOptions.contentChecksumAlgorithm ?? configContentChecksumAlgorithm;
   if (contentChecksumAlgorithm === void 0) {
     contentChecksumAlgorithm = "Customized";
@@ -48665,12 +48680,12 @@ async function setUploadChecksumParameters(body2, contentLength2, parameters, up
     parameters.transactionalContentCrc64 = uploadOptions.transactionalContentCrc64;
   } else if (contentChecksumAlgorithm === "StorageCrc64") {
     await StorageCRC64Calculator.init();
-    bodyInfo = await structuredMessageEncoding(body2, contentLength2);
+    bodyInfo = await structuredMessageEncoding(body3, contentLength2);
     parameters.structuredBodyType = "XSM/1.0; properties=crc64";
     parameters.structuredContentLength = contentLength2;
   }
   return {
-    body: contentChecksumAlgorithm === "StorageCrc64" ? bodyInfo.body : body2,
+    body: contentChecksumAlgorithm === "StorageCrc64" ? bodyInfo.body : body3,
     contentLength: contentChecksumAlgorithm === "StorageCrc64" ? bodyInfo.encodedContentLength : contentLength2,
     contentChecksumAlgorithm
   };
@@ -53829,7 +53844,7 @@ var AppendBlobClient = class _AppendBlobClient extends BlobClient {
    * await existingAppendBlobClient.appendBlock(content, content.length);
    * ```
    */
-  async appendBlock(body2, contentLength2, options = {}) {
+  async appendBlock(body3, contentLength2, options = {}) {
     options.conditions = options.conditions || {};
     ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
     return tracingClient.withSpan("AppendBlobClient-appendBlock", options, async (updatedOptions) => {
@@ -53848,7 +53863,7 @@ var AppendBlobClient = class _AppendBlobClient extends BlobClient {
         encryptionScope: options.encryptionScope,
         tracingOptions: updatedOptions.tracingOptions
       };
-      const uploadBodyParameters = await setUploadChecksumParameters(body2, contentLength2, parameters, options, this.blobClientConfig?.uploadContentChecksumAlgorithm);
+      const uploadBodyParameters = await setUploadChecksumParameters(body3, contentLength2, parameters, options, this.blobClientConfig?.uploadContentChecksumAlgorithm);
       return assertResponse(await this.appendBlobContext.appendBlock(uploadBodyParameters.contentLength, uploadBodyParameters.body, parameters));
     });
   }
@@ -54078,7 +54093,7 @@ var BlockBlobClient = class _BlockBlobClient extends BlobClient {
    * const uploadBlobResponse = await blockBlobClient.upload(content, content.length);
    * ```
    */
-  async upload(body2, contentLength2, options = {}) {
+  async upload(body3, contentLength2, options = {}) {
     options.conditions = options.conditions || {};
     ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
     return tracingClient.withSpan("BlockBlobClient-upload", options, async (updatedOptions) => {
@@ -54103,7 +54118,7 @@ var BlockBlobClient = class _BlockBlobClient extends BlobClient {
         blobTagsString: toBlobTagsString(options.tags),
         tracingOptions: updatedOptions.tracingOptions
       };
-      const uploadBodyParameters = await setUploadChecksumParameters(body2, contentLength2, parameters, options, this.blobClientConfig?.uploadContentChecksumAlgorithm);
+      const uploadBodyParameters = await setUploadChecksumParameters(body3, contentLength2, parameters, options, this.blobClientConfig?.uploadContentChecksumAlgorithm);
       return assertResponse(await this.blockBlobContext.upload(uploadBodyParameters.contentLength, uploadBodyParameters.body, parameters));
     });
   }
@@ -54170,7 +54185,7 @@ var BlockBlobClient = class _BlockBlobClient extends BlobClient {
    * @param options - Options to the Block Blob Stage Block operation.
    * @returns Response data for the Block Blob Stage Block operation.
    */
-  async stageBlock(blockId2, body2, contentLength2, options = {}) {
+  async stageBlock(blockId2, body3, contentLength2, options = {}) {
     ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
     return tracingClient.withSpan("BlockBlobClient-stageBlock", options, async (updatedOptions) => {
       const parameters = {
@@ -54183,7 +54198,7 @@ var BlockBlobClient = class _BlockBlobClient extends BlobClient {
         encryptionScope: options.encryptionScope,
         tracingOptions: updatedOptions.tracingOptions
       };
-      const uploadBodyParameters = await setUploadChecksumParameters(body2, contentLength2, parameters, options, this.blobClientConfig?.uploadContentChecksumAlgorithm);
+      const uploadBodyParameters = await setUploadChecksumParameters(body3, contentLength2, parameters, options, this.blobClientConfig?.uploadContentChecksumAlgorithm);
       return assertResponse(await this.blockBlobContext.stageBlock(blockId2, uploadBodyParameters.contentLength, uploadBodyParameters.body, parameters));
     });
   }
@@ -54495,11 +54510,11 @@ var BlockBlobClient = class _BlockBlobClient extends BlobClient {
         stream,
         bufferSize,
         maxConcurrency,
-        async (body2, length) => {
+        async (body3, length) => {
           const blockID = generateBlockID(blockIDPrefix, blockNum);
           blockList.push(blockID);
           blockNum++;
-          await this.stageBlock(blockID, body2, length, {
+          await this.stageBlock(blockID, body3, length, {
             customerProvidedKey: options.customerProvidedKey,
             conditions: options.conditions,
             encryptionScope: options.encryptionScope,
@@ -54665,7 +54680,7 @@ var PageBlobClient = class _PageBlobClient extends BlobClient {
    * @param options - Options to the Page Blob Upload Pages operation.
    * @returns Response data for the Page Blob Upload Pages operation.
    */
-  async uploadPages(body2, offset, count, options = {}) {
+  async uploadPages(body3, offset, count, options = {}) {
     options.conditions = options.conditions || {};
     ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
     return tracingClient.withSpan("PageBlobClient-uploadPages", options, async (updatedOptions) => {
@@ -54685,7 +54700,7 @@ var PageBlobClient = class _PageBlobClient extends BlobClient {
         encryptionScope: options.encryptionScope,
         tracingOptions: updatedOptions.tracingOptions
       };
-      const uploadBodyParameters = await setUploadChecksumParameters(body2, count, parameters, options, this.blobClientConfig?.uploadContentChecksumAlgorithm);
+      const uploadBodyParameters = await setUploadChecksumParameters(body3, count, parameters, options, this.blobClientConfig?.uploadContentChecksumAlgorithm);
       return assertResponse(await this.pageBlobContext.uploadPages(uploadBodyParameters.contentLength, uploadBodyParameters.body, parameters));
     });
   }
@@ -56227,10 +56242,10 @@ var ContainerClient = class extends StorageClient2 {
    * @param options - Options to configure the Block Blob Upload operation.
    * @returns Block Blob upload response data and the corresponding BlockBlobClient instance.
    */
-  async uploadBlockBlob(blobName, body2, contentLength2, options = {}) {
+  async uploadBlockBlob(blobName, body3, contentLength2, options = {}) {
     return tracingClient.withSpan("ContainerClient-uploadBlockBlob", options, async (updatedOptions) => {
       const blockBlobClient = this.getBlockBlobClient(blobName);
-      const response = await blockBlobClient.upload(body2, contentLength2, updatedOptions);
+      const response = await blockBlobClient.upload(body3, contentLength2, updatedOptions);
       return {
         blockBlobClient,
         response
@@ -58331,7 +58346,7 @@ async function callVehicleData(input) {
   if (!parsed) throw new Error("[functions-client] vehicle-data response failed contract validation");
   return parsed;
 }
-async function callFn(baseUrl, fnKey, method, path, body2, opts) {
+async function callFn(baseUrl, fnKey, method, path, body3, opts) {
   const timeoutMs = opts?.timeoutMs;
   const controller = timeoutMs != null ? new AbortController() : void 0;
   const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : void 0;
@@ -58342,7 +58357,7 @@ async function callFn(baseUrl, fnKey, method, path, body2, opts) {
         "Content-Type": "application/json",
         "x-functions-key": fnKey
       },
-      ...body2 !== void 0 ? { body: JSON.stringify(body2) } : {},
+      ...body3 !== void 0 ? { body: JSON.stringify(body3) } : {},
       ...controller ? { signal: controller.signal } : {}
     });
     if (!res.ok) {
@@ -58362,22 +58377,22 @@ async function callFn(baseUrl, fnKey, method, path, body2, opts) {
     if (timer) clearTimeout(timer);
   }
 }
-async function callParser(body2) {
+async function callParser(body3) {
   return callFn(
     process.env.PARSER_FN_URL,
     process.env.PARSER_FN_KEY,
     "POST",
     "/api/parse",
-    body2
+    body3
   );
 }
-async function callLocationSuggest(body2, opts) {
+async function callLocationSuggest(body3, opts) {
   return callFn(
     process.env.LOCATION_SUGGEST_FN_URL,
     process.env.LOCATION_SUGGEST_FN_KEY,
     "POST",
     "/api/location-suggest",
-    body2,
+    body3,
     opts
   );
 }
@@ -59225,23 +59240,23 @@ import_functions.app.http("internalCasesResolve", {
   authLevel: "anonymous",
   route: "internal/cases/resolve",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json();
-    const { inbound, providerId, decision } = body2;
+    const body3 = await req.json();
+    const { inbound, providerId, decision } = body3;
     const workProviderId = providerId ?? null;
-    const intermediary = body2.intermediaryImageSourceId ? {
-      imageSourceId: body2.intermediaryImageSourceId,
-      candidateProviderIds: body2.intermediaryCandidateProviderIds ?? []
+    const intermediary = body3.intermediaryImageSourceId ? {
+      imageSourceId: body3.intermediaryImageSourceId,
+      candidateProviderIds: body3.intermediaryCandidateProviderIds ?? []
     } : null;
-    const vrmGuard = vrmOrEmpty(body2.parserVrm || inbound.candidateVrm);
+    const vrmGuard = vrmOrEmpty(body3.parserVrm || inbound.candidateVrm);
     if (vrmGuard.dropped) {
       ctx.warn(
         `[cases/resolve] over-length VRM candidate dropped (junk sniff > varchar(16)) for ${inbound.internetMessageId}`
       );
     }
     const vrm = vrmGuard.value;
-    const caseType = caseTypeCodec.toInt(body2.caseType) != null ? body2.caseType : "standard";
-    const caseTypeDual = body2.caseTypeDual === true;
-    const caseTypeSignals = Array.isArray(body2.caseTypeSignals) ? body2.caseTypeSignals : [];
+    const caseType = caseTypeCodec.toInt(body3.caseType) != null ? body3.caseType : "standard";
+    const caseTypeDual = body3.caseTypeDual === true;
+    const caseTypeSignals = Array.isArray(body3.caseTypeSignals) ? body3.caseTypeSignals : [];
     const auditGateOn = gates.auditCases();
     let providerAutomationMode = "manual";
     if (workProviderId) {
@@ -59252,13 +59267,13 @@ import_functions.app.http("internalCasesResolve", {
       providerAutomationMode = automationModeCodec.toName(wpMode[0]?.provider_automation_mode_code) ?? "review_auto";
     }
     const persistExistingCase = async (targetCaseId, exactReplay) => {
-      await upsertInboundEmail(inbound, workProviderId, targetCaseId, void 0, body2.parserVrm);
+      await upsertInboundEmail(inbound, workProviderId, targetCaseId, void 0, body3.parserVrm);
       const parserFieldsResult2 = await applyParserFields(
         targetCaseId,
-        body2.parserRef,
-        body2.parserMileage,
-        body2.parserMileageUnit,
-        body2.parserEva,
+        body3.parserRef,
+        body3.parserMileage,
+        body3.parserMileageUnit,
+        body3.parserEva,
         workProviderId,
         intermediary,
         {
@@ -59273,7 +59288,7 @@ import_functions.app.http("internalCasesResolve", {
           parserFieldsResult2.resolvedProviderId,
           targetCaseId,
           void 0,
-          body2.parserVrm
+          body3.parserVrm
         );
       }
       providerAutomationMode = parserFieldsResult2.providerRecovery?.providerAutomationMode ?? providerAutomationMode;
@@ -59434,13 +59449,13 @@ import_functions.app.http("internalCasesResolve", {
       throw e;
     }
     const newCaseId = created.caseId;
-    await upsertInboundEmail(inbound, workProviderId, newCaseId, void 0, body2.parserVrm);
+    await upsertInboundEmail(inbound, workProviderId, newCaseId, void 0, body3.parserVrm);
     const parserFieldsResult = await applyParserFields(
       newCaseId,
-      body2.parserRef,
-      body2.parserMileage,
-      body2.parserMileageUnit,
-      body2.parserEva,
+      body3.parserRef,
+      body3.parserMileage,
+      body3.parserMileageUnit,
+      body3.parserEva,
       workProviderId,
       intermediary,
       {
@@ -59455,7 +59470,7 @@ import_functions.app.http("internalCasesResolve", {
         parserFieldsResult.resolvedProviderId,
         newCaseId,
         void 0,
-        body2.parserVrm
+        body3.parserVrm
       );
     }
     const providerCompletion = parserFieldsResult.providerRecovery;
@@ -59594,12 +59609,12 @@ import_functions.app.http("internalInboundEmail", {
   authLevel: "anonymous",
   route: "internal/inbound-email",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json();
+    const body3 = await req.json();
     const inboundEmailId = await upsertInboundEmail(
-      body2.inbound,
-      body2.providerId ?? null,
+      body3.inbound,
+      body3.providerId ?? null,
       null,
-      body2.classification
+      body3.classification
     );
     return { status: 200, jsonBody: { inboundEmailId } };
   })
@@ -59731,12 +59746,12 @@ import_functions.app.http("internalInboundLinkReply", {
   authLevel: "anonymous",
   route: "internal/inbound/link-reply",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json();
-    const { inbound } = body2;
-    const workProviderId = body2.providerId ?? null;
-    const ref = (body2.ref ?? "").trim();
-    const vrm = (body2.vrm ?? "").trim();
-    const jobref = (body2.jobref ?? "").trim();
+    const body3 = await req.json();
+    const { inbound } = body3;
+    const workProviderId = body3.providerId ?? null;
+    const ref = (body3.ref ?? "").trim();
+    const vrm = (body3.vrm ?? "").trim();
+    const jobref = (body3.jobref ?? "").trim();
     const { candidates, refConflict } = await tx(async (q) => {
       await acquireTriageLocks(q, { caseref: ref, vrm });
       let rows = [];
@@ -59827,12 +59842,12 @@ import_functions.app.http("internalTriageContext", {
   authLevel: "anonymous",
   route: "internal/triage/context",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json().catch(() => ({}));
-    const caseref = (body2.caseref ?? "").trim();
-    const jobref = (body2.jobref ?? "").trim();
-    const vrm = (body2.vrm ?? "").trim();
-    const internetMessageId = (body2.internetMessageId ?? "").trim();
-    const conversationId = (body2.conversationId ?? "").trim();
+    const body3 = await req.json().catch(() => ({}));
+    const caseref = (body3.caseref ?? "").trim();
+    const jobref = (body3.jobref ?? "").trim();
+    const vrm = (body3.vrm ?? "").trim();
+    const internetMessageId = (body3.internetMessageId ?? "").trim();
+    const conversationId = (body3.conversationId ?? "").trim();
     const hasConversationCol = await hasColumn("inbound_email", "conversation_id");
     const result = await tx(async (q) => {
       await acquireTriageLocks(q, { caseref, jobref, vrm });
@@ -59894,24 +59909,24 @@ import_functions.app.http("internalTriageSuggestLink", {
   authLevel: "anonymous",
   route: "internal/triage/suggest-link",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json().catch(() => ({}));
-    const suggestionType = body2.suggestionType;
+    const body3 = await req.json().catch(() => ({}));
+    const suggestionType = body3.suggestionType;
     if (suggestionType !== "case_link" && suggestionType !== "cancellation" && suggestionType !== "triage_category") {
       return {
         status: 400,
         jsonBody: { error: "suggestionType must be 'case_link', 'cancellation' or 'triage_category'" }
       };
     }
-    const sourceMessageId = (body2.sourceMessageId ?? "").trim() || null;
-    const targetCaseId = suggestionType === "triage_category" ? null : (body2.targetCaseId ?? "").trim() || null;
-    const rationale = (body2.rationale ?? "").trim() || null;
-    const confidence = typeof body2.confidence === "number" ? body2.confidence : null;
-    const decisionInputs = body2.decisionInputs ?? {};
+    const sourceMessageId = (body3.sourceMessageId ?? "").trim() || null;
+    const targetCaseId = suggestionType === "triage_category" ? null : (body3.targetCaseId ?? "").trim() || null;
+    const rationale = (body3.rationale ?? "").trim() || null;
+    const confidence = typeof body3.confidence === "number" ? body3.confidence : null;
+    const decisionInputs = body3.decisionInputs ?? {};
     let triageCategory = null;
     let triageSubtype = null;
     if (suggestionType === "triage_category") {
-      const cat = (body2.category ?? "").trim();
-      const sub = (body2.subtype ?? "").trim();
+      const cat = (body3.category ?? "").trim();
+      const sub = (body3.subtype ?? "").trim();
       if (!cat || !(cat in INBOUND_CATEGORY_TO_INT)) {
         return { status: 400, jsonBody: { error: "category must be a known inbound category" } };
       }
@@ -59921,7 +59936,7 @@ import_functions.app.http("internalTriageSuggestLink", {
       triageCategory = cat;
       triageSubtype = sub;
     }
-    let inboundEmailId = (body2.inboundEmailId ?? "").trim() || null;
+    let inboundEmailId = (body3.inboundEmailId ?? "").trim() || null;
     if (!inboundEmailId && sourceMessageId) {
       const rows = await query(
         "SELECT id FROM inbound_email WHERE source_message_id = $1",
@@ -59975,7 +59990,7 @@ import_functions.app.http("internalTriageSuggestLink", {
       ...sourceMessageId ? { sourceMessageId } : {},
       decisionInputs
     };
-    const modelVersion = suggestionType === "triage_category" ? (body2.modelVersion ?? "").trim() || "unknown" : TRIAGE_POLICY_VERSION;
+    const modelVersion = suggestionType === "triage_category" ? (body3.modelVersion ?? "").trim() || "unknown" : TRIAGE_POLICY_VERSION;
     const inserted = await query(
       `INSERT INTO ai_suggestion
            (inbound_email_id, suggestion_type, suggested_value, rationale, confidence, model_version)
@@ -59995,7 +60010,7 @@ import_functions.app.http("internalTriageSuggestLink", {
         summary: "A message was suggested for linking to an existing case",
         after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId }
       });
-      if (body2.autoAttach === true && targetCaseId && inboundEmailId) {
+      if (body3.autoAttach === true && targetCaseId && inboundEmailId) {
         const linked = await query(
           `UPDATE inbound_email SET case_id = $2, triage_state = 'routed', updated_at = now()
                WHERE id = $1 AND case_id IS NULL RETURNING id`,
@@ -60042,10 +60057,10 @@ import_functions.app.http("internalTriageHeldPreInstruction", {
   authLevel: "anonymous",
   route: "internal/triage/held-pre-instruction",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json().catch(() => ({}));
-    const vrm = (body2.vrm ?? "").trim();
-    const caseRef = (body2.caseRef ?? "").trim();
-    const jobRef = (body2.jobRef ?? "").trim();
+    const body3 = await req.json().catch(() => ({}));
+    const vrm = (body3.vrm ?? "").trim();
+    const caseRef = (body3.caseRef ?? "").trim();
+    const jobRef = (body3.jobRef ?? "").trim();
     if (!vrm && !caseRef && !jobRef) {
       return { status: 400, jsonBody: { error: "at least one of vrm, caseRef, jobRef is required" } };
     }
@@ -60080,8 +60095,8 @@ import_functions.app.http("internalInboundOutlookMoved", {
   route: "internal/inbound/{id}/outlook-moved",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const outcome = body2.outcome;
+    const body3 = await req.json().catch(() => ({}));
+    const outcome = body3.outcome;
     if (outcome !== "moved" && outcome !== "failed") {
       return { status: 400, jsonBody: { error: "outcome must be 'moved' or 'failed'" } };
     }
@@ -60090,8 +60105,8 @@ import_functions.app.http("internalInboundOutlookMoved", {
       [id]
     );
     if (!existing[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const folder = typeof body2.folder === "string" && body2.folder ? body2.folder : null;
-    const detail = typeof body2.detail === "string" ? body2.detail.slice(0, 300) : null;
+    const folder = typeof body3.folder === "string" && body3.folder ? body3.folder : null;
+    const detail = typeof body3.detail === "string" ? body3.detail.slice(0, 300) : null;
     if (outcome === "moved") {
       await query(
         `UPDATE inbound_email
@@ -60155,10 +60170,10 @@ import_functions.app.http("internalInboundEvidenceBackfillValidate", {
   authLevel: "anonymous",
   route: "internal/inbound/{id}/evidence-backfill/validate",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json().catch(() => ({}));
-    const targetCaseId = typeof body2.targetCaseId === "string" ? body2.targetCaseId.trim() : "";
+    const body3 = await req.json().catch(() => ({}));
+    const targetCaseId = typeof body3.targetCaseId === "string" ? body3.targetCaseId.trim() : "";
     if (!targetCaseId) return { status: 400, jsonBody: { error: "targetCaseId is required" } };
-    const suppliedGeneration = body2.generation == null ? null : Number(body2.generation);
+    const suppliedGeneration = body3.generation == null ? null : Number(body3.generation);
     if (suppliedGeneration != null && (!Number.isSafeInteger(suppliedGeneration) || suppliedGeneration < 1)) {
       return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
     }
@@ -60239,21 +60254,21 @@ import_functions.app.http("internalInboundEvidenceBackfill", {
   route: "internal/inbound/{id}/evidence-backfill",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const outcome = body2.outcome;
+    const body3 = await req.json().catch(() => ({}));
+    const outcome = body3.outcome;
     if (outcome !== "completed" && outcome !== "partial" && outcome !== "failed") {
       return { status: 400, jsonBody: { error: "outcome must be 'completed', 'partial' or 'failed'" } };
     }
-    const targetCaseId = typeof body2.targetCaseId === "string" ? body2.targetCaseId.trim() : "";
+    const targetCaseId = typeof body3.targetCaseId === "string" ? body3.targetCaseId.trim() : "";
     if (!targetCaseId) return { status: 400, jsonBody: { error: "targetCaseId is required" } };
-    const suppliedGeneration = body2.generation == null ? null : Number(body2.generation);
+    const suppliedGeneration = body3.generation == null ? null : Number(body3.generation);
     if (suppliedGeneration != null && (!Number.isSafeInteger(suppliedGeneration) || suppliedGeneration < 1)) {
       return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
     }
-    const requestedDetail = typeof body2.detail === "string" ? body2.detail.slice(0, 300) : null;
-    const requestedPersisted = typeof body2.persisted === "number" ? body2.persisted : null;
-    const requestedMerged = typeof body2.merged === "number" ? body2.merged : null;
-    const requestedFailedAttachments = typeof body2.failedAttachments === "number" ? Math.max(0, Math.trunc(body2.failedAttachments)) : null;
+    const requestedDetail = typeof body3.detail === "string" ? body3.detail.slice(0, 300) : null;
+    const requestedPersisted = typeof body3.persisted === "number" ? body3.persisted : null;
+    const requestedMerged = typeof body3.merged === "number" ? body3.merged : null;
+    const requestedFailedAttachments = typeof body3.failedAttachments === "number" ? Math.max(0, Math.trunc(body3.failedAttachments)) : null;
     const report = await tx(async (q) => {
       const locked = await q(
         `SELECT case_id, evidence_backfill_report_outcome,
@@ -60424,9 +60439,9 @@ import_functions.app.http("internalInboundAttention", {
   authLevel: "anonymous",
   route: "internal/inbound/attention",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json().catch(() => ({}));
-    const sourceMessageId = typeof body2.sourceMessageId === "string" ? body2.sourceMessageId.trim() : "";
-    const reason = typeof body2.reason === "string" ? body2.reason.trim() : "";
+    const body3 = await req.json().catch(() => ({}));
+    const sourceMessageId = typeof body3.sourceMessageId === "string" ? body3.sourceMessageId.trim() : "";
+    const reason = typeof body3.reason === "string" ? body3.reason.trim() : "";
     if (!sourceMessageId) {
       return { status: 400, jsonBody: { error: "sourceMessageId is required" } };
     }
@@ -60549,8 +60564,8 @@ import_functions.app.http("internalCasesEvidence", {
   route: "internal/cases/{id}/evidence",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const caseId = req.params.id;
-    const body2 = await req.json();
-    if (!Array.isArray(body2.rows) || body2.rows.some(
+    const body3 = await req.json();
+    if (!Array.isArray(body3.rows) || body3.rows.some(
       (row) => row.decisionSource != null && row.decisionSource !== "classifier"
     )) {
       return { status: 400, jsonBody: { error: "unsupported evidence decision source" } };
@@ -60563,7 +60578,7 @@ import_functions.app.http("internalCasesEvidence", {
       const replayCleanup = [];
       let readinessChanged = false;
       let boxImageArrived = false;
-      for (const row of body2.rows ?? []) {
+      for (const row of body3.rows ?? []) {
         let suppliedClass = row.evidenceClass ?? "other";
         if (suppliedClass === "image") {
           const derived = describeEvidence(row.filename, row.contentType).evidenceClass;
@@ -60810,13 +60825,13 @@ import_functions.app.http("internalCasesEvidence", {
         if (item.blobPath) await deleteEvidenceBytes(item.blobPath);
       }
     };
-    const expectedInboundEmailId = typeof body2.expectedInboundEmailId === "string" ? body2.expectedInboundEmailId.trim() : "";
+    const expectedInboundEmailId = typeof body3.expectedInboundEmailId === "string" ? body3.expectedInboundEmailId.trim() : "";
     if (expectedInboundEmailId) {
-      const suppliedBackfillGeneration = body2.evidenceBackfillGeneration == null ? null : Number(body2.evidenceBackfillGeneration);
+      const suppliedBackfillGeneration = body3.evidenceBackfillGeneration == null ? null : Number(body3.evidenceBackfillGeneration);
       if (suppliedBackfillGeneration != null && (!Number.isSafeInteger(suppliedBackfillGeneration) || suppliedBackfillGeneration < 1)) {
         return { status: 400, jsonBody: { error: "evidenceBackfillGeneration must be a positive integer" } };
       }
-      const suppliedBackfillOutcome = body2.evidenceBackfillOutcome;
+      const suppliedBackfillOutcome = body3.evidenceBackfillOutcome;
       if (suppliedBackfillGeneration != null && suppliedBackfillOutcome !== "completed" && suppliedBackfillOutcome !== "partial") {
         return {
           status: 400,
@@ -60824,8 +60839,8 @@ import_functions.app.http("internalCasesEvidence", {
         };
       }
       const backfillOutcome = suppliedBackfillOutcome === "partial" ? "partial" : "completed";
-      const backfillFailedAttachments = typeof body2.evidenceBackfillFailedAttachments === "number" ? Math.max(0, Math.trunc(body2.evidenceBackfillFailedAttachments)) : void 0;
-      const backfillDetail = typeof body2.evidenceBackfillDetail === "string" && body2.evidenceBackfillDetail.trim() ? body2.evidenceBackfillDetail.slice(0, 300) : void 0;
+      const backfillFailedAttachments = typeof body3.evidenceBackfillFailedAttachments === "number" ? Math.max(0, Math.trunc(body3.evidenceBackfillFailedAttachments)) : void 0;
+      const backfillDetail = typeof body3.evidenceBackfillDetail === "string" && body3.evidenceBackfillDetail.trim() ? body3.evidenceBackfillDetail.slice(0, 300) : void 0;
       const guarded = await withResolvedEvidenceBackfillTarget(
         expectedInboundEmailId,
         caseId,
@@ -61023,13 +61038,13 @@ import_functions.app.http("internalCasesArchiveEvidenceStamp", {
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const caseId = req.params.id;
     if (!caseId) return { status: 400, jsonBody: { error: "caseId required" } };
-    const body2 = await req.json();
-    const evidenceId = typeof body2.evidenceId === "string" ? body2.evidenceId.trim() : "";
-    const blobPath = typeof body2.blobPath === "string" ? body2.blobPath.trim() : "";
-    const boxFileId = typeof body2.boxFileId === "string" ? body2.boxFileId.trim() : "";
-    const boxFileUrl = typeof body2.boxFileUrl === "string" ? body2.boxFileUrl.trim() : "";
-    const claimToken = typeof body2.claimToken === "string" ? body2.claimToken.trim() : "";
-    const decisionGeneration = Number(body2.decisionGeneration);
+    const body3 = await req.json();
+    const evidenceId = typeof body3.evidenceId === "string" ? body3.evidenceId.trim() : "";
+    const blobPath = typeof body3.blobPath === "string" ? body3.blobPath.trim() : "";
+    const boxFileId = typeof body3.boxFileId === "string" ? body3.boxFileId.trim() : "";
+    const boxFileUrl = typeof body3.boxFileUrl === "string" ? body3.boxFileUrl.trim() : "";
+    const claimToken = typeof body3.claimToken === "string" ? body3.claimToken.trim() : "";
+    const decisionGeneration = Number(body3.decisionGeneration);
     if (!evidenceId || !blobPath || !boxFileId || !claimToken || !Number.isSafeInteger(decisionGeneration) || decisionGeneration < 0) {
       return {
         status: 400,
@@ -61079,8 +61094,8 @@ import_functions.app.http("internalCasesStatusEvaluate", {
   route: "internal/cases/{id}/status-evaluate",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const caseId = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const generation = body2.generation == null ? void 0 : Number(body2.generation);
+    const body3 = await req.json().catch(() => ({}));
+    const generation = body3.generation == null ? void 0 : Number(body3.generation);
     if (generation != null && (!Number.isSafeInteger(generation) || generation < 1)) {
       return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
     }
@@ -61101,9 +61116,9 @@ import_functions.app.http("internalCasesArchiveEvidenceRelease", {
   route: "internal/cases/{id}/archive-evidence/release",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const caseId = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const evidenceId = typeof body2.evidenceId === "string" ? body2.evidenceId.trim() : "";
-    const claimToken = typeof body2.claimToken === "string" ? body2.claimToken.trim() : "";
+    const body3 = await req.json().catch(() => ({}));
+    const evidenceId = typeof body3.evidenceId === "string" ? body3.evidenceId.trim() : "";
+    const claimToken = typeof body3.claimToken === "string" ? body3.claimToken.trim() : "";
     if (!caseId || !evidenceId || !claimToken) {
       return { status: 400, jsonBody: { error: "caseId, evidenceId and claimToken required" } };
     }
@@ -61158,12 +61173,12 @@ import_functions.app.http("internalCasesMarkDone", {
   route: "internal/cases/{id}/mark-done",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const caseId = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const signal = ["sent_email", "box_pdf", "eva_poll", "manual"].includes(body2.signal ?? "") ? body2.signal : "unknown";
+    const body3 = await req.json().catch(() => ({}));
+    const signal = ["sent_email", "box_pdf", "eva_poll", "manual"].includes(body3.signal ?? "") ? body3.signal : "unknown";
     const updated = await tx((q) => markCaseDoneUsing(q, {
       caseId,
       signal,
-      ...body2.detail ? { detail: String(body2.detail) } : {}
+      ...body3.detail ? { detail: String(body3.detail) } : {}
     }));
     return { status: 200, jsonBody: { updated } };
   })
@@ -61173,10 +61188,10 @@ import_functions.app.http("internalCasesLookup", {
   authLevel: "anonymous",
   route: "internal/cases/lookup",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json().catch(() => ({}));
-    const caseIds = (Array.isArray(body2.caseIds) ? body2.caseIds : []).map((s) => String(s).trim()).filter(Boolean).slice(0, 20);
-    const casePo = (body2.casePo ?? "").trim();
-    const vrm = (body2.vrm ?? "").trim();
+    const body3 = await req.json().catch(() => ({}));
+    const caseIds = (Array.isArray(body3.caseIds) ? body3.caseIds : []).map((s) => String(s).trim()).filter(Boolean).slice(0, 20);
+    const casePo = (body3.casePo ?? "").trim();
+    const vrm = (body3.vrm ?? "").trim();
     if (caseIds.length === 0 && !casePo && !vrm) {
       return { status: 200, jsonBody: { cases: [] } };
     }
@@ -61213,15 +61228,15 @@ import_functions.app.http("internalAudit", {
   authLevel: "anonymous",
   route: "internal/audit",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json();
-    const code = AUDIT_ACTION_BY_NAME[body2.action];
+    const body3 = await req.json();
+    const code = AUDIT_ACTION_BY_NAME[body3.action];
     await writeAudit({
       action: code ?? AUDIT_ACTION.graph_message_ingested,
-      caseId: body2.caseId,
-      summary: body2.summary,
-      severity: body2.severity ?? "info",
-      before: body2.before,
-      after: body2.after
+      caseId: body3.caseId,
+      summary: body3.summary,
+      severity: body3.severity ?? "info",
+      before: body3.before,
+      after: body3.after
     });
     return { status: 204 };
   })
@@ -61331,16 +61346,16 @@ import_functions.app.http("internalBoxMarkPurged", {
   authLevel: "anonymous",
   route: "internal/box/mark-purged",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json();
+    const body3 = await req.json();
     await tx(async (q) => {
-      const lockedCase = await lockCaseForMutation(q, body2.caseId);
+      const lockedCase = await lockCaseForMutation(q, body3.caseId);
       if (lockedCase.kind !== "active") return;
       await q(
         `UPDATE evidence
               SET storage_path = NULL, updated_at = now()
             WHERE case_id = $1 AND storage_path = $2
               AND deletion_operation_id IS NULL`,
-        [lockedCase.caseId, body2.blobPath]
+        [lockedCase.caseId, body3.blobPath]
       );
     });
     return { status: 204 };
@@ -61424,9 +61439,9 @@ import_functions.app.http("internalStaffUploadCleanupComplete", {
   route: "internal/staff-upload-cleanup/{id}/complete",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const itemId = (req.params.id ?? "").trim();
-    const body2 = await req.json();
-    const claimToken = (body2.claimToken ?? "").trim();
-    if (!itemId || !claimToken || !["deleted", "missing", "failed"].includes(body2.outcome ?? "")) {
+    const body3 = await req.json();
+    const claimToken = (body3.claimToken ?? "").trim();
+    if (!itemId || !claimToken || !["deleted", "missing", "failed"].includes(body3.outcome ?? "")) {
       return { status: 400, jsonBody: { error: "cleanup claim and outcome are required" } };
     }
     const result = await tx(async (q) => {
@@ -61455,7 +61470,7 @@ import_functions.app.http("internalStaffUploadCleanupComplete", {
         );
         return { updated: true, cleaned: false, referenced: true };
       }
-      if (body2.outcome === "failed") {
+      if (body3.outcome === "failed") {
         const delayMinutes = Math.min(1440, 5 * 2 ** Math.min(8, item.cleanup_attempt_count));
         await q(
           `UPDATE staff_evidence_upload_item
@@ -61463,7 +61478,7 @@ import_functions.app.http("internalStaffUploadCleanupComplete", {
                     cleanup_next_attempt_at = now() + make_interval(mins => $2),
                     cleanup_last_error = $3, updated_at = now()
               WHERE id = $1`,
-          [itemId, delayMinutes, (body2.detail ?? "").trim().slice(0, 400)]
+          [itemId, delayMinutes, (body3.detail ?? "").trim().slice(0, 400)]
         );
         return { updated: true, cleaned: false, retry: true };
       }
@@ -61604,14 +61619,14 @@ import_functions.app.http("internalEvidenceBoxClassification", {
   route: "internal/evidence/{id}/box-classification",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const evidenceId = (req.params.id ?? "").trim();
-    const body2 = await req.json();
+    const body3 = await req.json();
     const imageKind = evidenceKindCodec.toInt("image") ?? 1e8;
     const unknownRole = imageRoleCodec.toInt("unknown") ?? 100000003;
-    const claimToken = (body2.claimToken ?? "").trim();
-    if (body2.failure != null) {
-      const disposition = body2.failure.disposition;
-      const code = (body2.failure.code ?? "").trim().toLowerCase();
-      const detail = (body2.failure.detail ?? "").trim().slice(0, 400);
+    const claimToken = (body3.claimToken ?? "").trim();
+    if (body3.failure != null) {
+      const disposition = body3.failure.disposition;
+      const code = (body3.failure.code ?? "").trim().toLowerCase();
+      const detail = (body3.failure.detail ?? "").trim().slice(0, 400);
       if (!evidenceId || !claimToken || disposition !== "transient" && disposition !== "terminal" || !/^[a-z0-9][a-z0-9_.:-]{0,79}$/.test(code)) {
         return {
           status: 400,
@@ -61683,24 +61698,24 @@ import_functions.app.http("internalEvidenceBoxClassification", {
         } : { updated: false, stale: true }
       };
     }
-    const caseId = (body2.caseId ?? "").trim();
-    const boxFileId = (body2.boxFileId ?? "").trim();
-    const storagePath = (body2.storagePath ?? "").trim();
+    const caseId = (body3.caseId ?? "").trim();
+    const boxFileId = (body3.boxFileId ?? "").trim();
+    const storagePath = (body3.storagePath ?? "").trim();
     if (!evidenceId || !caseId || Boolean(boxFileId) === Boolean(storagePath)) {
       return {
         status: 400,
         jsonBody: { error: "evidence id, caseId and exactly one file locator are required" }
       };
     }
-    if (typeof body2.registrationVisible !== "boolean" || typeof body2.acceptedForEva !== "boolean" || typeof body2.excluded !== "boolean" || typeof body2.personReflection !== "boolean" || body2.decisionSource !== "classifier") {
+    if (typeof body3.registrationVisible !== "boolean" || typeof body3.acceptedForEva !== "boolean" || typeof body3.excluded !== "boolean" || typeof body3.personReflection !== "boolean" || body3.decisionSource !== "classifier") {
       return { status: 400, jsonBody: { error: "classification booleans are required" } };
     }
-    const imageRoleCode = body2.imageRole === "other" ? unknownRole : imageRoleCodec.toInt(body2.imageRole);
+    const imageRoleCode = body3.imageRole === "other" ? unknownRole : imageRoleCodec.toInt(body3.imageRole);
     if (imageRoleCode == null) {
       return { status: 400, jsonBody: { error: "imageRole is not recognised" } };
     }
-    const excluded = body2.excluded === true;
-    const exclusionReason = excluded ? (body2.exclusionReason ?? "").trim() || "Excluded" : null;
+    const excluded = body3.excluded === true;
+    const exclusionReason = excluded ? (body3.exclusionReason ?? "").trim() || "Excluded" : null;
     const result = await tx(async (q) => {
       const lockedCase = await lockCaseForMutation(q, caseId);
       if (lockedCase.kind === "retired") {
@@ -61736,17 +61751,17 @@ import_functions.app.http("internalEvidenceBoxClassification", {
         identityWhere,
         [evidenceId, lockedCase.caseId, boxFileId || storagePath],
         {
-          imageRole: body2.imageRole,
-          registrationVisible: body2.registrationVisible,
-          acceptedForEva: body2.acceptedForEva,
-          excluded: body2.excluded,
+          imageRole: body3.imageRole,
+          registrationVisible: body3.registrationVisible,
+          acceptedForEva: body3.acceptedForEva,
+          excluded: body3.excluded,
           exclusionReason,
           decisionSource: "classifier",
-          personReflection: body2.personReflection
+          personReflection: body3.personReflection
         },
         {
           imageRoleCode,
-          registrationVisible: body2.registrationVisible,
+          registrationVisible: body3.registrationVisible,
           excluded,
           exclusionReason,
           sha256: null,
@@ -61828,8 +61843,8 @@ import_functions.app.http("internalStatusRecomputeComplete", {
   route: "internal/status-recompute/{id}/complete",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const caseId = (req.params.id ?? "").trim();
-    const body2 = await req.json();
-    const generation = Number(body2.generation);
+    const body3 = await req.json();
+    const generation = Number(body3.generation);
     if (!caseId || !Number.isSafeInteger(generation) || generation < 1) {
       return {
         status: 400,
@@ -61872,9 +61887,9 @@ import_functions.app.http("internalCaseBoxFolderStamp", {
   route: "internal/cases/{id}/box-folder",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const caseId = (req.params.id ?? "").trim();
-    const body2 = await req.json();
-    const boxFolderId = (body2.boxFolderId ?? "").trim();
-    const boxFolderUrl = (body2.boxFolderUrl ?? "").trim() || null;
+    const body3 = await req.json();
+    const boxFolderId = (body3.boxFolderId ?? "").trim();
+    const boxFolderUrl = (body3.boxFolderUrl ?? "").trim() || null;
     if (!caseId || !boxFolderId) {
       return { status: 400, jsonBody: { error: "caseId and boxFolderId required" } };
     }
@@ -61901,8 +61916,8 @@ import_functions.app.http("internalOutlookLinkBackfillResult", {
   authLevel: "anonymous",
   route: "internal/outlook-links/backfill-result",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
-    const body2 = await req.json().catch(() => ({}));
-    const text = (key) => typeof body2[key] === "string" ? String(body2[key]).trim() : "";
+    const body3 = await req.json().catch(() => ({}));
+    const text = (key) => typeof body3[key] === "string" ? String(body3[key]).trim() : "";
     const attemptId = text("attemptId");
     const inboundEmailId = text("inboundEmailId");
     const sourceMailbox = text("sourceMailbox");
@@ -62459,6 +62474,565 @@ async function pendingBoxFileRequestCaseIds(limit = 20) {
   return rows.map((row) => row.case_id);
 }
 
+// api/src/lib/archive-holding.ts
+var terminalCodes = TERMINAL_STATUSES.map((status) => caseStatusCodec.toInt(status)).filter(Boolean);
+async function refreshArchiveHoldingBlockers(q, caseIds, requestRecompute = true) {
+  const ids = [...new Set(caseIds.filter(Boolean))];
+  if (!ids.length) return;
+  await q(`WITH desired AS (
+      SELECT c.id,EXISTS(SELECT 1 FROM archive_holding_folder h WHERE h.state<>'adopted' AND
+        (h.resolved_case_id=c.id OR (h.resolved_case_id IS NULL AND
+          (h.candidate_case_ids ? c.id::text OR (h.candidate_case_ids='[]'::jsonb AND
+            h.normalized_vrm=regexp_replace(upper(coalesce(c.vrm,'')),'[^A-Z0-9]','','g')))))) AS pending
+      FROM case_ c WHERE c.id=ANY($1::uuid[])
+    ) UPDATE case_ c SET archive_holding_pending=d.pending,updated_at=now()
+      FROM desired d WHERE c.id=d.id AND c.archive_holding_pending IS DISTINCT FROM d.pending`, [ids]);
+  if (requestRecompute) for (const id of ids) await requestStatusRecompute(q, id);
+}
+async function reserveArchiveHoldingIntake(input) {
+  return tx(async (q) => {
+    const [completed] = await q(`SELECT i.id FROM archive_holding_intake i
+      JOIN archive_holding_folder h ON h.id=i.holding_folder_id
+      WHERE i.source_message_id=$1 AND h.state='adopted' LIMIT 1`, [input.sourceMessageId]);
+    if (completed) {
+      const [ledger] = await q(
+        `INSERT INTO archive_holding_deferred_intake
+        (source_message_id,normalized_vrm,root_folder_id,file_manifest,state,completed_at)
+        VALUES ($1,$2,$3,$4::jsonb,'completed',now())
+        ON CONFLICT (source_message_id) DO UPDATE SET state='completed',completed_at=coalesce(archive_holding_deferred_intake.completed_at,now()),
+          claim_token=NULL,claim_expires_at=NULL,last_error=NULL,updated_at=now() RETURNING id`,
+        [input.sourceMessageId, input.vrm, input.rootFolderId, JSON.stringify(input.files)]
+      );
+      return { id: ledger.id, acquired: false, completed: true, busy: false };
+    }
+    const [inserted] = await q(
+      `INSERT INTO archive_holding_deferred_intake
+      (source_message_id,normalized_vrm,root_folder_id,file_manifest,state,claim_token,claim_expires_at,attempt_count)
+      VALUES ($1,$2,$3,$4::jsonb,'processing',$5::uuid,now()+interval '10 minutes',1)
+      ON CONFLICT (source_message_id) DO NOTHING RETURNING id`,
+      [input.sourceMessageId, input.vrm, input.rootFolderId, JSON.stringify(input.files), input.claimToken]
+    );
+    if (inserted) return { id: inserted.id, acquired: true, completed: false, busy: false };
+    const [current] = await q(`
+      SELECT id,state,claim_token AS "claimToken",claim_token IS NOT NULL AND claim_expires_at>now() AS "claimActive"
+      FROM archive_holding_deferred_intake WHERE source_message_id=$1 FOR UPDATE`, [input.sourceMessageId]);
+    if (!current) throw new Error("archive holding intake reservation disappeared");
+    if (current.state === "completed") return { id: current.id, acquired: false, completed: true, busy: false };
+    if (current.claimActive && current.claimToken !== input.claimToken)
+      return { id: current.id, acquired: false, completed: false, busy: true };
+    const rows = await q(
+      `UPDATE archive_holding_deferred_intake SET state='processing',
+      normalized_vrm=$2,root_folder_id=$3,file_manifest=$4::jsonb,claim_token=$5::uuid,
+      claim_expires_at=now()+interval '10 minutes',attempt_count=attempt_count+1,last_error=NULL,updated_at=now()
+      WHERE id=$1 AND state<>'completed' RETURNING id`,
+      [current.id, input.vrm, input.rootFolderId, JSON.stringify(input.files), input.claimToken]
+    );
+    return { id: current.id, acquired: rows.length === 1, completed: false, busy: rows.length === 0 };
+  });
+}
+async function registerArchiveHolding(input) {
+  return tx(async (q) => {
+    await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`archive-holding:${input.vrm}`]);
+    const defer = async (holding2) => {
+      await q(
+        `INSERT INTO archive_holding_deferred_intake
+        (source_message_id,normalized_vrm,root_folder_id,file_manifest)
+        VALUES ($1,$2,$3,$4::jsonb)
+        ON CONFLICT (source_message_id) DO UPDATE SET
+          file_manifest=EXCLUDED.file_manifest,normalized_vrm=EXCLUDED.normalized_vrm,
+          root_folder_id=EXCLUDED.root_folder_id,
+          state=CASE WHEN archive_holding_deferred_intake.state='completed' THEN 'completed' ELSE 'pending' END,
+          claim_token=NULL,claim_expires_at=NULL,next_attempt_at=now(),last_error=NULL,updated_at=now()`,
+        [input.sourceMessageId, input.vrm, input.rootFolderId, JSON.stringify(input.files)]
+      );
+      return { holdingId: holding2.id, boxFolderId: holding2.boxFolderId, files: [], deferred: true, replayed: false };
+    };
+    const [prior] = await q(`
+      SELECT h.id,h.box_folder_id AS "boxFolderId",h.state,h.normalized_vrm AS vrm,
+        h.claim_token IS NOT NULL AND h.claim_expires_at>now() AS "claimActive"
+      FROM archive_holding_intake i JOIN archive_holding_folder h ON h.id=i.holding_folder_id
+      WHERE i.source_message_id=$1 ORDER BY h.created_at,h.id LIMIT 1 FOR UPDATE OF h`, [input.sourceMessageId]);
+    if (prior?.state === "adopted" || prior && prior.vrm !== input.vrm)
+      return { holdingId: prior.id, boxFolderId: prior.boxFolderId, files: [], deferred: false, replayed: true };
+    let holding = prior ?? (await q(`
+      SELECT id,box_folder_id AS "boxFolderId",state,
+        claim_token IS NOT NULL AND claim_expires_at>now() AS "claimActive"
+      FROM archive_holding_folder
+      WHERE normalized_vrm=$1 AND root_folder_id=$2 AND state<>'adopted'
+      ORDER BY created_at,id LIMIT 1 FOR UPDATE`, [input.vrm, input.rootFolderId]))[0];
+    if (!holding) {
+      const [retiredFolder] = await q(`SELECT id,box_folder_id AS "boxFolderId"
+        FROM archive_holding_folder WHERE box_folder_id=$1 FOR UPDATE`, [input.boxFolderId]);
+      if (retiredFolder) return defer(retiredFolder);
+      [holding] = await q(
+        `
+        INSERT INTO archive_holding_folder (normalized_vrm,root_folder_id,box_folder_id,box_folder_url)
+        VALUES ($1,$2,$3,$4) RETURNING id,box_folder_id AS "boxFolderId",state,false AS "claimActive"`,
+        [input.vrm, input.rootFolderId, input.boxFolderId, `https://app.box.com/folder/${input.boxFolderId}`]
+      );
+    } else if (holding.state === "adopting" && holding.claimActive || holding.boxFolderId !== input.boxFolderId) {
+      return defer(holding);
+    }
+    await q(`INSERT INTO archive_holding_intake (holding_folder_id, source_message_id, inbound_email_id)
+      VALUES ($1,$2,(SELECT id FROM inbound_email WHERE source_message_id=$2 LIMIT 1))
+      ON CONFLICT (source_message_id) DO UPDATE SET
+        inbound_email_id=coalesce(archive_holding_intake.inbound_email_id,EXCLUDED.inbound_email_id)`, [holding.id, input.sourceMessageId]);
+    for (const file of input.files) {
+      await q(
+        `INSERT INTO archive_holding_file
+        (holding_folder_id,source_message_id,file_name,content_type,size_bytes,blob_path,sha256)
+        VALUES ($1,$2,$3,$4,$5,$6,$7)
+        ON CONFLICT (holding_folder_id,sha256) DO NOTHING`,
+        [holding.id, input.sourceMessageId, file.filename, file.contentType, file.size, file.blobPath, file.sha256]
+      );
+    }
+    const matchingCases = await q(
+      `SELECT id AS "caseId" FROM case_
+      WHERE regexp_replace(upper(coalesce(vrm,'')),'[^A-Z0-9]','','g')=$1
+        AND status_code<>ALL($2::int[]) AND NOT (coalesce(duplicate_keys,'{}'::jsonb) ? 'mergedInto')`,
+      [input.vrm, terminalCodes]
+    );
+    await refreshArchiveHoldingBlockers(q, matchingCases.map((row) => row.caseId));
+    await q(`UPDATE archive_holding_folder SET next_attempt_at=now(),updated_at=now() WHERE id=$1`, [holding.id]);
+    const files = await q(`
+      UPDATE archive_holding_file SET state='uploading', claim_token=$2::uuid,
+        claim_expires_at=now()+interval '10 minutes', attempt_count=attempt_count+1,
+        last_error=NULL, updated_at=now()
+      WHERE holding_folder_id=$1 AND (
+        box_file_id IS NULL AND (claim_token IS NULL OR claim_expires_at<=now() OR claim_token=$2::uuid)
+      )
+      RETURNING id,file_name AS filename,content_type AS "contentType",size_bytes::int AS size,
+        blob_path AS "blobPath",sha256,box_file_id AS "boxFileId",box_file_url AS "boxFileUrl",
+        box_sha1 AS "boxSha1",canonical_box_file_id AS "canonicalBoxFileId",state`, [holding.id, input.claimToken]);
+    return { holdingId: holding.id, boxFolderId: holding.boxFolderId, files, deferred: false, replayed: false };
+  });
+}
+async function claimDeferredArchiveHoldingIntakes(claimToken, limit = 10) {
+  const bounded = Math.max(1, Math.min(50, Math.trunc(limit) || 10));
+  return tx((q) => q(`WITH picked AS (
+      SELECT id FROM archive_holding_deferred_intake
+      WHERE state<>'completed' AND next_attempt_at<=now()
+        AND (claim_token IS NULL OR claim_expires_at<=now() OR claim_token=$1::uuid)
+      ORDER BY next_attempt_at,created_at,id FOR UPDATE SKIP LOCKED LIMIT $2
+    ) UPDATE archive_holding_deferred_intake d SET state='processing',claim_token=$1::uuid,
+      claim_expires_at=now()+interval '10 minutes',attempt_count=attempt_count+1,last_error=NULL,updated_at=now()
+    FROM picked WHERE d.id=picked.id
+    RETURNING d.id,d.source_message_id AS "sourceMessageId",d.normalized_vrm AS vrm,
+      d.root_folder_id AS "rootFolderId",d.file_manifest AS files,$1::text AS "claimToken"`, [claimToken, bounded]));
+}
+async function completeDeferredArchiveHoldingIntake(id, claimToken) {
+  const rows = await tx((q) => q(`UPDATE archive_holding_deferred_intake SET state='completed',
+    claim_token=NULL,claim_expires_at=NULL,last_error=NULL,completed_at=now(),updated_at=now()
+    WHERE id=$1 AND claim_token=$2::uuid RETURNING id`, [id, claimToken]));
+  return rows.length === 1;
+}
+async function failDeferredArchiveHoldingIntake(id, claimToken, error2) {
+  await tx((q) => q(
+    `UPDATE archive_holding_deferred_intake SET state='failed',claim_token=NULL,
+    claim_expires_at=NULL,
+    next_attempt_at=now()+make_interval(secs=>least(3600,(30*power(2,least(attempt_count,7)))::int)),
+    last_error=$3,updated_at=now() WHERE id=$1 AND claim_token=$2::uuid`,
+    [id, claimToken, error2.slice(0, 400)]
+  ));
+}
+async function stampArchiveHoldingUpload(input) {
+  const rows = await tx((q) => q(
+    `UPDATE archive_holding_file SET
+    box_file_id=$3,box_file_url=$4,box_sha1=NULLIF($5,''),state='uploaded',claim_token=NULL,
+    claim_expires_at=NULL,last_error=NULL,updated_at=now()
+    WHERE id=$1 AND claim_token=$2::uuid AND box_file_id IS NULL RETURNING id`,
+    [input.fileId, input.claimToken, input.boxFileId, input.boxFileUrl, input.boxSha1 ?? ""]
+  ));
+  return rows.length === 1;
+}
+async function failArchiveHoldingUpload(fileId, claimToken, error2) {
+  await tx((q) => q(`UPDATE archive_holding_file SET state='failed',claim_token=NULL,claim_expires_at=NULL,
+    next_attempt_at=now()+make_interval(secs=>least(3600,(30*power(2,least(attempt_count,7)))::int)),
+    last_error=$3,updated_at=now() WHERE id=$1 AND claim_token=$2::uuid`, [fileId, claimToken, error2.slice(0, 400)]));
+}
+async function claimArchiveHoldingUploads(claimToken, limit = 25) {
+  const bounded = Math.max(1, Math.min(100, Math.trunc(limit) || 25));
+  return tx((q) => q(`WITH picked AS (
+      SELECT f.id FROM archive_holding_file f
+      JOIN archive_holding_folder h ON h.id=f.holding_folder_id
+      WHERE f.box_file_id IS NULL AND h.state<>'adopted'
+        AND NOT (h.state='adopting' AND h.claim_token IS NOT NULL AND h.claim_expires_at>now())
+        AND f.next_attempt_at<=now()
+        AND (f.claim_token IS NULL OR f.claim_expires_at<=now() OR f.claim_token=$1::uuid)
+      ORDER BY f.next_attempt_at,f.created_at,f.id FOR UPDATE OF f SKIP LOCKED LIMIT $2
+    ), claimed AS (
+      UPDATE archive_holding_file f SET state='uploading',claim_token=$1::uuid,
+        claim_expires_at=now()+interval '10 minutes',attempt_count=attempt_count+1,
+        last_error=NULL,updated_at=now()
+      FROM picked WHERE f.id=picked.id
+      RETURNING f.*
+    ) SELECT c.id,c.holding_folder_id AS "holdingId",h.box_folder_id AS "boxFolderId",
+      $1::text AS "claimToken",c.file_name AS filename,c.content_type AS "contentType",
+      c.size_bytes::int AS size,c.blob_path AS "blobPath",c.sha256,c.box_file_id AS "boxFileId",
+      c.box_file_url AS "boxFileUrl",c.box_sha1 AS "boxSha1",
+      c.canonical_box_file_id AS "canonicalBoxFileId",c.state
+    FROM claimed c JOIN archive_holding_folder h ON h.id=c.holding_folder_id
+    ORDER BY c.created_at,c.id`, [claimToken, bounded]));
+}
+async function listArchiveHoldingAdoptionCaseIds(limit = 50) {
+  const bounded = Math.max(1, Math.min(200, Math.trunc(limit) || 50));
+  return tx(async (q) => {
+    const rows = await q(`WITH eligible AS (
+      SELECT DISTINCT ON (h.normalized_vrm) h.id,h.normalized_vrm,h.resolved_case_id,h.next_attempt_at
+      FROM archive_holding_folder h
+      WHERE h.state<>'adopted'
+        AND h.next_attempt_at<=now()
+        AND NOT (h.claim_token IS NOT NULL AND h.claim_expires_at>now())
+        AND NOT EXISTS (SELECT 1 FROM archive_holding_file f
+          WHERE f.holding_folder_id=h.id AND f.box_file_id IS NULL)
+      ORDER BY h.normalized_vrm,h.next_attempt_at,h.created_at,h.id
+    ) SELECT picked.id AS "caseId" FROM eligible e
+      JOIN LATERAL (SELECT c.id FROM case_ c
+        WHERE ((e.resolved_case_id IS NOT NULL AND c.id=e.resolved_case_id)
+          OR (e.resolved_case_id IS NULL
+            AND regexp_replace(upper(coalesce(c.vrm,'')),'[^A-Z0-9]','','g')=e.normalized_vrm))
+          AND c.case_po IS NOT NULL
+          AND c.status_code<>ALL($1::int[])
+          AND NOT (coalesce(c.duplicate_keys,'{}'::jsonb) ? 'mergedInto')
+        ORDER BY c.created_at,c.id LIMIT 1) picked ON true
+      ORDER BY e.next_attempt_at,e.id LIMIT $2`, [terminalCodes, bounded]);
+    const ids = rows.map((row) => row.caseId);
+    await refreshArchiveHoldingBlockers(q, ids);
+    return ids;
+  });
+}
+async function readArchiveHoldingResolution(caseId) {
+  return tx(async (q) => {
+    const [target] = await q(`SELECT vrm FROM case_ WHERE id=$1
+      AND NOT (coalesce(duplicate_keys,'{}'::jsonb) ? 'mergedInto')`, [caseId]);
+    const vrm = canonicalizeVrm(target?.vrm);
+    if (!vrm) return { state: "none", holdingIds: [], folderIds: [], candidateCaseIds: [], candidateCases: [], sources: [], canSelect: false, hasFailure: false };
+    const rows = await q(`
+      SELECT id,box_folder_id AS "folderId",state,candidate_case_ids AS "candidateCaseIds",
+        resolved_case_id AS "resolvedCaseId"
+      FROM archive_holding_folder WHERE normalized_vrm=$1
+        AND state IN ('ambiguous','failed')
+      ORDER BY created_at,id`, [vrm]);
+    const relevant = rows.filter((row) => {
+      const ids = Array.isArray(row.candidateCaseIds) ? row.candidateCaseIds.filter((id) => typeof id === "string") : [];
+      return row.resolvedCaseId === caseId || ids.includes(caseId);
+    });
+    if (!relevant.length) return { state: "none", holdingIds: [], folderIds: [], candidateCaseIds: [], candidateCases: [], sources: [], canSelect: false, hasFailure: false };
+    const candidates = [...new Set(relevant.flatMap((row) => Array.isArray(row.candidateCaseIds) ? row.candidateCaseIds.filter((id) => typeof id === "string") : []))];
+    const candidateCases = candidates.length ? await q(`
+      SELECT c.id AS "caseId",c.case_po AS "casePo",NULLIF(btrim(c.eva_claimant_name),'') AS "claimantName",
+        wp.display_name AS "providerName"
+      FROM case_ c LEFT JOIN work_provider wp ON wp.id=c.work_provider_id
+      WHERE c.id=ANY($1::uuid[]) ORDER BY c.created_at,c.id`, [candidates]) : [];
+    const sources = await q(`
+      SELECT h.id AS "holdingId",h.box_folder_id AS "folderId",h.box_folder_url AS "folderUrl",
+        i.source_message_id AS "sourceMessageId",ie.id AS "inboundEmailId",ie.subject,
+        ie.from_address AS "fromAddress",ie.received_on AS "receivedOn",ie.body_preview AS "bodyPreview",
+        coalesce(jsonb_agg(DISTINCT f.file_name) FILTER (WHERE f.id IS NOT NULL),'[]'::jsonb) AS filenames
+      FROM archive_holding_folder h
+      LEFT JOIN archive_holding_intake i ON i.holding_folder_id=h.id
+      LEFT JOIN inbound_email ie ON ie.source_message_id=i.source_message_id
+      LEFT JOIN archive_holding_file f ON f.holding_folder_id=h.id
+      WHERE h.id=ANY($1::uuid[])
+      GROUP BY h.id,h.box_folder_id,h.box_folder_url,i.source_message_id,i.created_at,
+        ie.id,ie.subject,ie.from_address,ie.received_on,ie.body_preview
+      ORDER BY h.created_at,i.created_at`, [relevant.map((row) => row.id)]);
+    const sourceConflicts = await q(
+      `SELECT DISTINCT ie.case_id AS "caseId"
+      FROM archive_holding_intake i JOIN inbound_email ie ON ie.source_message_id=i.source_message_id
+      WHERE i.holding_folder_id=ANY($1::uuid[]) AND ie.case_id IS NOT NULL AND ie.case_id<>$2`,
+      [relevant.map((row) => row.id), caseId]
+    );
+    const selected = relevant.every((row) => row.resolvedCaseId === caseId);
+    const conflicting = relevant.some((row) => row.resolvedCaseId !== null && row.resolvedCaseId !== caseId);
+    return {
+      state: selected ? "selected" : "needs_choice",
+      holdingIds: relevant.map((row) => row.id),
+      folderIds: relevant.map((row) => row.folderId),
+      candidateCaseIds: candidates,
+      candidateCases,
+      sources: sources.map((source) => ({ ...source, filenames: Array.isArray(source.filenames) ? source.filenames.filter((name) => typeof name === "string") : [] })),
+      ...selected ? { selectedCaseId: caseId } : {},
+      canSelect: !selected && !conflicting && !sourceConflicts.length && candidates.includes(caseId),
+      hasFailure: relevant.some((row) => row.state === "failed")
+    };
+  });
+}
+async function resolveArchiveHolding(caseId, actor) {
+  return tx(async (q) => {
+    const [probe] = await q(`SELECT vrm FROM case_ WHERE id=$1`, [caseId]);
+    const vrm = canonicalizeVrm(probe?.vrm);
+    if (!vrm) throw new Error("case registration is unavailable");
+    await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`archive-holding:${vrm}`]);
+    const target = await q(`SELECT id FROM case_ WHERE id=$1
+      AND status_code<>ALL($2::int[]) AND NOT (coalesce(duplicate_keys,'{}'::jsonb) ? 'mergedInto')
+      FOR UPDATE`, [caseId, terminalCodes]);
+    if (!target.length) throw new Error("case is not available for registration image filing");
+    const holdings = await q(`SELECT id,resolved_case_id AS "resolvedCaseId",
+        candidate_case_ids AS "candidateCaseIds",
+        claim_token IS NOT NULL AND claim_expires_at>now() AS "claimActive"
+      FROM archive_holding_folder WHERE normalized_vrm=$1 AND state IN ('ambiguous','failed')
+        AND candidate_case_ids ? $2 ORDER BY created_at,id FOR UPDATE`, [vrm, caseId]);
+    if (!holdings.length) throw new Error("no registration image folder is awaiting this case choice");
+    if (holdings.some((row) => row.claimActive)) throw new Error("registration image folder is currently being filed");
+    const sourceConflicts = await q(
+      `SELECT DISTINCT ie.case_id AS "caseId"
+      FROM archive_holding_intake i JOIN inbound_email ie ON ie.source_message_id=i.source_message_id
+      WHERE i.holding_folder_id=ANY($1::uuid[]) AND ie.case_id IS NOT NULL AND ie.case_id<>$2`,
+      [holdings.map((row) => row.id), caseId]
+    );
+    if (sourceConflicts.length) throw new Error("a source email is linked to another case");
+    if (holdings.some((row) => row.resolvedCaseId && row.resolvedCaseId !== caseId))
+      throw new Error("registration image folder was already assigned to another case");
+    const ids = holdings.map((row) => row.id);
+    const changed = await q(
+      `UPDATE archive_holding_folder SET resolved_case_id=$2,
+      resolved_by=$3,resolved_at=coalesce(resolved_at,now()),next_attempt_at=now(),updated_at=now()
+      WHERE id=ANY($1::uuid[]) AND resolved_case_id IS NULL RETURNING id`,
+      [ids, caseId, actor]
+    );
+    if (!changed.length) return { resolved: 0, holdingIds: [] };
+    await q(`UPDATE case_ SET on_hold=true,updated_at=now() WHERE id=$1`, [caseId]);
+    await refreshArchiveHoldingBlockers(q, [caseId, ...holdings.flatMap((row) => Array.isArray(row.candidateCaseIds) ? row.candidateCaseIds.filter((id) => typeof id === "string") : [])]);
+    await writeAuditStrict({
+      action: AUDIT_ACTION.box_synced,
+      caseId,
+      actor,
+      summary: "Registration image folder assigned to this case",
+      after: { holdingIds: changed.map((row) => row.id), registration: vrm }
+    }, q);
+    return { resolved: changed.length, holdingIds: changed.map((row) => row.id) };
+  });
+}
+async function claimArchiveHolding(caseId, claimToken) {
+  return tx(async (q) => {
+    const [probe] = await q(`SELECT vrm FROM case_ WHERE id=$1`, [caseId]);
+    if (!probe?.vrm) return { kind: "none" };
+    const vrm = canonicalizeVrm(probe.vrm);
+    await q(`SELECT pg_advisory_xact_lock(hashtext($1)::bigint)`, [`triage:vrm:${vrm}`]);
+    await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`archive-holding:${vrm}`]);
+    const [target] = await q(
+      `SELECT id,vrm,case_po AS "casePo",box_folder_id AS "boxFolderId" FROM case_
+       WHERE id=$1 AND status_code<>ALL($2::int[])
+         AND NOT (coalesce(duplicate_keys,'{}'::jsonb) ? 'mergedInto') FOR UPDATE`,
+      [caseId, terminalCodes]
+    );
+    if (!target?.vrm || !target.casePo || canonicalizeVrm(target.vrm) !== vrm) return { kind: "none" };
+    const holdings = await q(`
+      SELECT id,box_folder_id AS "boxFolderId",state,adopted_case_id AS "adoptedCaseId",claim_token AS "claimToken",
+        resolved_case_id AS "resolvedCaseId",
+        claim_token IS NOT NULL AND claim_expires_at>now() AS "claimActive",
+        next_attempt_at>now() AS "retryDeferred",
+        candidate_case_ids AS "candidateCaseIds",candidate_folder_ids AS "candidateFolderIds"
+      FROM archive_holding_folder WHERE normalized_vrm=$1 ORDER BY created_at,id FOR UPDATE`, [vrm]);
+    if (!holdings.length) return { kind: "none" };
+    const currentAlreadyAdopted = holdings.some((item) => item.state === "adopted" && item.adoptedCaseId === caseId);
+    const unresolved = holdings.filter((item) => item.state !== "adopted");
+    if (!unresolved.length) return { kind: currentAlreadyAdopted ? "complete" : "none" };
+    if (unresolved.some((item) => item.claimActive && item.claimToken !== claimToken)) return { kind: "busy" };
+    const explicitlySelected = unresolved.every((item) => item.resolvedCaseId === caseId);
+    const explicitlyOwnedElsewhere = unresolved.some((item) => typeof item.resolvedCaseId === "string" && item.resolvedCaseId !== caseId);
+    if (explicitlyOwnedElsewhere) {
+      const candidateIds = [...new Set(unresolved.flatMap((item) => Array.isArray(item.candidateCaseIds) ? item.candidateCaseIds.filter((id) => typeof id === "string") : []))];
+      return { kind: "ambiguous", candidates: candidateIds, folders: unresolved.map((item) => item.boxFolderId), changed: false };
+    }
+    if (!explicitlySelected && unresolved.some((item) => item.retryDeferred)) return { kind: "busy" };
+    const holding = unresolved[0];
+    const candidates = await q(`
+      SELECT id AS "caseId",case_po AS "casePo" FROM case_
+      WHERE regexp_replace(upper(coalesce(vrm,'')),'[^A-Z0-9]','','g')=$1
+        AND status_code <> ALL($2::int[])
+        AND NOT (coalesce(duplicate_keys,'{}'::jsonb) ? 'mergedInto')
+      ORDER BY created_at,id`, [vrm, terminalCodes]);
+    const linkedElsewhere = await q(
+      `SELECT DISTINCT ie.case_id AS "caseId"
+      FROM archive_holding_intake i JOIN inbound_email ie ON ie.source_message_id=i.source_message_id
+      WHERE i.holding_folder_id=ANY($1::uuid[]) AND ie.case_id IS NOT NULL AND ie.case_id<>$2`,
+      [unresolved.map((item) => item.id), caseId]
+    );
+    if (linkedElsewhere.length) {
+      const ids = [.../* @__PURE__ */ new Set([...candidates.map((candidate) => candidate.caseId), ...linkedElsewhere.map((row) => row.caseId)])];
+      const folders = unresolved.map((item) => item.boxFolderId);
+      const changed = unresolved.some((item) => item.state !== "ambiguous" || JSON.stringify(
+        Array.isArray(item.candidateCaseIds) ? item.candidateCaseIds : []
+      ) !== JSON.stringify(ids));
+      await q(`UPDATE archive_holding_folder SET state='ambiguous',candidate_case_ids=$2::jsonb,
+        candidate_folder_ids=$3::jsonb,claim_token=NULL,claim_expires_at=NULL,
+        last_error='A source email is linked to another case',next_attempt_at=now()+interval '15 minutes',updated_at=now()
+        WHERE id=ANY($1::uuid[])`, [unresolved.map((item) => item.id), JSON.stringify(ids), JSON.stringify(folders)]);
+      if (candidates.length) await q(
+        `UPDATE case_ SET on_hold=true,updated_at=now() WHERE id=ANY($1::uuid[])`,
+        [candidates.map((candidate) => candidate.caseId)]
+      );
+      await refreshArchiveHoldingBlockers(q, ids);
+      return { kind: "ambiguous", candidates: ids, folders, changed };
+    }
+    const owner = decideArchiveHoldingOwner(candidates);
+    const exactOwner = unresolved.length === 1 && owner.kind === "exact" && owner.candidate.caseId === caseId;
+    if (!explicitlySelected && exactOwner) {
+      const previous = Array.isArray(holding.candidateCaseIds) ? holding.candidateCaseIds.filter((id) => typeof id === "string") : [];
+      if (previous.length !== 1 || previous[0] !== caseId) {
+        await q(`UPDATE archive_holding_folder SET state='open',candidate_case_ids=$2::jsonb,candidate_folder_ids=$3::jsonb,
+          claim_token=NULL,claim_expires_at=NULL,next_attempt_at=now()+interval '2 minutes',updated_at=now()
+          WHERE id=$1`, [holding.id, JSON.stringify([caseId]), JSON.stringify([holding.boxFolderId])]);
+        await refreshArchiveHoldingBlockers(q, [caseId]);
+        return { kind: "busy" };
+      }
+    }
+    if (!explicitlySelected && (unresolved.length !== 1 || owner.kind !== "exact" || owner.candidate.caseId !== caseId)) {
+      const ids = candidates.map((candidate) => candidate.caseId);
+      const folders = unresolved.map((item) => item.boxFolderId);
+      const changed = unresolved.some((item) => {
+        const previousIds = Array.isArray(item.candidateCaseIds) ? item.candidateCaseIds.filter((id) => typeof id === "string") : [];
+        const previousFolders = Array.isArray(item.candidateFolderIds) ? item.candidateFolderIds.filter((id) => typeof id === "string") : [];
+        return !["ambiguous", "adopted"].includes(item.state) || JSON.stringify(previousIds) !== JSON.stringify(ids) || JSON.stringify(previousFolders) !== JSON.stringify(folders);
+      });
+      await q(`UPDATE archive_holding_folder SET state=CASE WHEN state='adopted' THEN state ELSE 'ambiguous' END,
+        candidate_case_ids=$2::jsonb,candidate_folder_ids=$3::jsonb,claim_token=NULL,claim_expires_at=NULL,
+        attempt_count=attempt_count+1,next_attempt_at=now()+interval '15 minutes',updated_at=now()
+        WHERE id=ANY($1::uuid[])`, [unresolved.map((item) => item.id), JSON.stringify(ids), JSON.stringify(folders)]);
+      if (ids.length) await q(`UPDATE case_ SET on_hold=true,updated_at=now() WHERE id=ANY($1::uuid[])`, [ids]);
+      await refreshArchiveHoldingBlockers(q, ids);
+      return { kind: "ambiguous", candidates: ids, folders, changed };
+    }
+    const [pendingUpload] = await q(`SELECT count(*)::text AS count FROM archive_holding_file
+      WHERE holding_folder_id=$1 AND box_file_id IS NULL`, [holding.id]);
+    if (Number(pendingUpload?.count ?? 0) > 0) return { kind: "busy" };
+    const claimed = await q(`UPDATE archive_holding_folder SET state='adopting',claim_token=$2::uuid,
+      claim_expires_at=now()+interval '10 minutes',attempt_count=attempt_count+1,last_error=NULL,updated_at=now()
+      WHERE id=$1 AND (claim_token IS NULL OR claim_expires_at<=now() OR claim_token=$2::uuid) RETURNING id`, [holding.id, claimToken]);
+    if (!claimed.length) return { kind: "busy" };
+    const mode = !target.boxFolderId || target.boxFolderId === holding.boxFolderId ? "rename" : "merge";
+    const canonicalFolderId = target.boxFolderId ?? holding.boxFolderId;
+    await q(
+      `UPDATE archive_holding_folder SET adoption_mode=$2,adopted_case_id=$3,canonical_folder_id=$4 WHERE id=$1`,
+      [holding.id, mode, caseId, canonicalFolderId]
+    );
+    await refreshArchiveHoldingBlockers(q, [caseId]);
+    const files = await q(`SELECT id,file_name AS filename,content_type AS "contentType",
+      size_bytes::int AS size,blob_path AS "blobPath",sha256,box_file_id AS "boxFileId",
+      box_file_url AS "boxFileUrl",box_sha1 AS "boxSha1",canonical_box_file_id AS "canonicalBoxFileId",state
+      FROM archive_holding_file WHERE holding_folder_id=$1 AND box_file_id IS NOT NULL ORDER BY created_at,id`, [holding.id]);
+    return {
+      kind: "claimed",
+      holdingId: holding.id,
+      claimToken,
+      mode,
+      holdingFolderId: holding.boxFolderId,
+      canonicalFolderId,
+      casePo: target.casePo,
+      files
+    };
+  });
+}
+async function checkpointArchiveHoldingFile(input) {
+  const rows = await tx((q) => q(`WITH stamped AS (
+    UPDATE archive_holding_file f SET state=$4,canonical_box_file_id=$5,
+      canonical_box_file_url=$6,source_retired=$7,updated_at=now()
+    FROM archive_holding_folder h WHERE f.id=$2 AND f.holding_folder_id=h.id AND h.id=$1
+      AND h.claim_token=$3::uuid AND h.claim_expires_at>now() RETURNING f.id
+  ), renewed AS (
+    UPDATE archive_holding_folder h SET claim_expires_at=now()+interval '10 minutes',updated_at=now()
+    WHERE h.id=$1 AND h.claim_token=$3::uuid AND EXISTS(SELECT 1 FROM stamped) RETURNING h.id
+  ) SELECT stamped.id FROM stamped JOIN renewed ON true`, [input.holdingId, input.fileId, input.claimToken, input.kind, input.canonicalFileId, input.canonicalFileUrl, input.sourceRetired]));
+  return rows.length === 1;
+}
+async function finalizeArchiveHolding(input) {
+  return tx(async (q) => {
+    const [holdingProbe] = await q(`SELECT normalized_vrm AS vrm FROM archive_holding_folder
+      WHERE id=$1 AND adopted_case_id=$2`, [input.holdingId, input.caseId]);
+    if (!holdingProbe?.vrm) throw new Error("archive holding identity is unavailable during adoption");
+    await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`archive-holding:${holdingProbe.vrm}`]);
+    const lockedCase = await q(`SELECT id,vrm FROM case_ WHERE id=$1
+      AND NOT (coalesce(duplicate_keys,'{}'::jsonb) ? 'mergedInto') FOR UPDATE`, [input.caseId]);
+    if (!lockedCase.length) throw new Error("case was merged during archive adoption");
+    const lockedVrm = canonicalizeVrm(lockedCase[0].vrm);
+    const [holding] = await q(`SELECT adoption_mode AS mode,
+      box_folder_id AS "holdingFolderId",normalized_vrm AS vrm FROM archive_holding_folder
+      WHERE id=$1 AND adopted_case_id=$2 AND claim_token=$3::uuid AND claim_expires_at>now() FOR UPDATE`, [input.holdingId, input.caseId, input.claimToken]);
+    if (!holding) throw new Error("archive holding claim is no longer current");
+    if (!lockedVrm || lockedVrm !== holding.vrm || holding.vrm !== holdingProbe.vrm)
+      throw new Error("case registration changed during archive adoption");
+    const sourceRows = await q(`SELECT ie.id,ie.case_id AS "caseId"
+      FROM archive_holding_intake i JOIN inbound_email ie ON ie.source_message_id=i.source_message_id
+      WHERE i.holding_folder_id=$1 ORDER BY ie.created_at,ie.id FOR UPDATE OF ie`, [input.holdingId]);
+    if (sourceRows.some((row) => row.caseId !== null && row.caseId !== input.caseId))
+      throw new Error("a source email was linked to another case during archive adoption");
+    const promotedInPlace = holding.mode === "rename" && input.folderId === holding.holdingFolderId;
+    const incomplete = await q(`SELECT count(*)::text AS count FROM archive_holding_file WHERE holding_folder_id=$1
+      AND (box_file_id IS NULL OR ($2=false AND (state NOT IN ('moved','deduplicated','adopted') OR source_retired=false)))`, [input.holdingId, promotedInPlace]);
+    if (Number(incomplete[0]?.count ?? 0) > 0) throw new Error("archive holding transfer is incomplete");
+    const stamped = await q(`UPDATE case_ SET box_folder_id=$2,box_folder_url=$3,updated_at=now() WHERE id=$1
+      AND (box_folder_id IS NULL OR box_folder_id=$2) RETURNING id`, [input.caseId, input.folderId, input.folderUrl]);
+    if (!stamped.length) throw new Error("case archive folder changed during adoption");
+    await q(
+      `UPDATE evidence e SET
+      box_file_id=coalesce(e.box_file_id,coalesce(f.canonical_box_file_id,f.box_file_id)),
+      box_file_url=coalesce(e.box_file_url,coalesce(f.canonical_box_file_url,f.box_file_url)),
+      storage_path=coalesce(e.storage_path,f.blob_path),updated_at=now()
+      FROM archive_holding_file f WHERE f.holding_folder_id=$1 AND e.case_id=$2 AND e.sha256=f.sha256`,
+      [input.holdingId, input.caseId]
+    );
+    const rows = await q(`INSERT INTO evidence
+      (file_name,case_id,kind_code,image_role_code,accepted_for_eva,excluded,sha256,content_type,size_bytes,
+       storage_path,source_message_id,source_label,box_file_id,box_file_url)
+      SELECT f.file_name,$2,100000000,100000003,false,false,f.sha256,f.content_type,f.size_bytes,f.blob_path,
+       f.source_message_id,'box_upload_archive_holding',coalesce(f.canonical_box_file_id,f.box_file_id),
+       coalesce(f.canonical_box_file_url,f.box_file_url)
+      FROM archive_holding_file f WHERE f.holding_folder_id=$1
+        AND NOT EXISTS (SELECT 1 FROM evidence e WHERE e.case_id=$2 AND e.sha256=f.sha256)
+      RETURNING id`, [input.holdingId, input.caseId]);
+    await q(`UPDATE archive_holding_file f SET evidence_id=e.id,state='adopted',updated_at=now()
+      FROM evidence e WHERE f.holding_folder_id=$1 AND e.case_id=$2 AND e.sha256=f.sha256`, [input.holdingId, input.caseId]);
+    const transferred = await q(
+      `UPDATE archive_holding_folder SET state='transferred',updated_at=now()
+      WHERE id=$1 AND adopted_case_id=$2 AND claim_token=$3::uuid AND claim_expires_at>now() RETURNING id`,
+      [input.holdingId, input.caseId, input.claimToken]
+    );
+    if (!transferred.length) throw new Error("archive holding claim changed before source email reconciliation");
+    const linkedInbound = await q(`UPDATE inbound_email ie SET case_id=$2,
+      triage_state=CASE WHEN ie.triage_state IN ('actioned','dismissed') THEN ie.triage_state ELSE 'routed' END,
+      attention_reason=NULL,updated_at=now()
+      FROM archive_holding_intake i WHERE i.holding_folder_id=$1 AND ie.source_message_id=i.source_message_id
+        AND (ie.case_id IS NULL OR ie.case_id=$2) RETURNING ie.id`, [input.holdingId, input.caseId]);
+    await q(
+      `UPDATE archive_holding_folder SET state='adopted',canonical_folder_id=$4,retired_at=now(),
+      claim_token=NULL,claim_expires_at=NULL,last_error=NULL,updated_at=now() WHERE id=$1 AND adopted_case_id=$2 AND claim_token=$3::uuid`,
+      [input.holdingId, input.caseId, input.claimToken, input.folderId]
+    );
+    await refreshArchiveHoldingBlockers(q, [input.caseId], false);
+    const newlyLinked = sourceRows.filter((row) => row.caseId === null).map((row) => row.id);
+    if (newlyLinked.length) await writeAuditStrict({
+      action: AUDIT_ACTION.inbound_linked,
+      caseId: input.caseId,
+      actor: "archive-holding-adopt",
+      summary: "Image email linked to this case after its photos were filed",
+      before: { caseId: null },
+      after: { caseId: input.caseId, inboundEmailIds: newlyLinked }
+    }, q);
+    await writeAuditStrict({
+      action: AUDIT_ACTION.box_synced,
+      caseId: input.caseId,
+      actor: "archive-holding-adopt",
+      summary: "Registration image folder filed into the case archive",
+      after: {
+        holdingId: input.holdingId,
+        mode: holding.mode,
+        folderId: input.folderId,
+        adopted: rows.length,
+        inboundEmailIds: linkedInbound.map((row) => row.id)
+      }
+    }, q);
+    await requestStatusRecompute(q, input.caseId);
+    return { adopted: rows.length };
+  });
+}
+async function failArchiveHoldingAdoption(holdingId, claimToken, error2) {
+  await tx((q) => q(`UPDATE archive_holding_folder SET state='failed',claim_token=NULL,claim_expires_at=NULL,
+    next_attempt_at=now()+make_interval(secs=>least(3600,(30*power(2,least(attempt_count,7)))::int)),
+    last_error=$3,updated_at=now() WHERE id=$1 AND claim_token=$2::uuid`, [holdingId, claimToken, error2.slice(0, 400)]));
+}
+
 // api/src/functions/cases.ts
 var pad2 = (n) => String(n).padStart(2, "0");
 function fmtTimestamp(v) {
@@ -62741,10 +63315,10 @@ import_functions2.app.http("patchCase", {
   route: "cases/{id}",
   handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
     const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const explicitSave = body2.editSession === true;
-    const parsedInspection = body2.inspectionDecision === void 0 ? void 0 : SaveInspectionDecisionParams.safeParse({
-      ...body2.inspectionDecision,
+    const body3 = await req.json().catch(() => ({}));
+    const explicitSave = body3.editSession === true;
+    const parsedInspection = body3.inspectionDecision === void 0 ? void 0 : SaveInspectionDecisionParams.safeParse({
+      ...body3.inspectionDecision,
       caseId: id
     });
     if (parsedInspection && !parsedInspection.success) {
@@ -62762,11 +63336,26 @@ import_functions2.app.http("patchCase", {
     const inspectionPostcode = inspection?.postcode?.trim() ?? "";
     const inspectionAddress = inspection ? inspection.decisionMode === "image_based" ? "Image Based Assessment" : [...inspectionLines, ...inspectionPostcode ? [inspectionPostcode] : []].join("\n").slice(0, 2e3) : void 0;
     const inspectionModeCode = inspection ? inspectionDecisionCodec.toInt(inspection.decisionMode) : void 0;
+    const requestedVrm = body3.vrm === void 0 ? void 0 : (() => {
+      const raw = String(body3.vrm ?? "").trim();
+      const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
+      return raw ? extractVrm(raw) || cleaned : "";
+    })();
     const actor = actorFromClaims(claims);
     let attemptedCasePo;
     let outcome;
     try {
+      const identityEditRequested = requestedVrm !== void 0 || body3.casePo !== void 0;
+      const [vrmProbe] = !identityEditRequested ? [] : await query(
+        "SELECT vrm FROM case_ WHERE id=$1",
+        [id]
+      );
+      const observedVrm = (vrmProbe?.vrm ?? "").toUpperCase().replace(/\s+/g, "");
+      const archiveVrmLocks = !identityEditRequested ? [] : [...new Set([observedVrm, requestedVrm].filter(Boolean))].sort();
       outcome = await tx(async (q) => {
+        for (const vrm of archiveVrmLocks) {
+          await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`archive-holding:${vrm}`]);
+        }
         const snapshot2 = await loadCaseFullSnapshotUsing(q, id, /* @__PURE__ */ new Date(), true);
         if (!snapshot2) {
           return { kind: "response", response: { status: 404, jsonBody: { error: "not found" } } };
@@ -62803,11 +63392,28 @@ import_functions2.app.http("patchCase", {
         const before = {};
         const after = {};
         const changedEvaFields = [];
-        if (body2.vrm !== void 0) {
-          const raw = String(body2.vrm ?? "").trim();
-          const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
-          const newVrm = raw ? extractVrm(raw) || cleaned : "";
-          if (newVrm !== existing.vrm) {
+        if (requestedVrm !== void 0) {
+          const actualVrm = existing.vrm.toUpperCase().replace(/\s+/g, "");
+          if (actualVrm && !archiveVrmLocks.includes(actualVrm)) {
+            return { kind: "response", response: { status: 409, jsonBody: {
+              error: "stale",
+              currentVersion: snapshot2.version,
+              message: "This case changed while you were editing it. Reload it before saving."
+            } } };
+          }
+          const newVrm = requestedVrm;
+          if (newVrm !== actualVrm) {
+            const activeHolding = await q(`SELECT id FROM archive_holding_folder
+              WHERE (state='adopting' AND claim_token IS NOT NULL AND claim_expires_at>now()
+                  AND (adopted_case_id=$1 OR normalized_vrm=ANY($2::text[])))
+                OR (state<>'adopted' AND resolved_case_id=$1)
+              LIMIT 1`, [id, [actualVrm, newVrm].filter(Boolean)]);
+            if (activeHolding.length) {
+              return { kind: "response", response: { status: 409, jsonBody: {
+                error: "archive_holding_active",
+                message: "Registration images are being filed for this case. Try the change again shortly."
+              } } };
+            }
             sets.push(`vrm = $${vals.length + 1}`);
             vals.push(newVrm);
             before.vrm = existing.vrm;
@@ -62815,8 +63421,8 @@ import_functions2.app.http("patchCase", {
           }
         }
         let inspectionAddressChanged = false;
-        if (body2.evaFields && typeof body2.evaFields === "object") {
-          for (const [k, rawVal] of Object.entries(body2.evaFields)) {
+        if (body3.evaFields && typeof body3.evaFields === "object") {
+          for (const [k, rawVal] of Object.entries(body3.evaFields)) {
             if (rawVal === void 0 || !(k in EVA_COLUMN_BY_KEY)) continue;
             const key = k;
             const norm = normaliseEvaEdit(key, String(rawVal ?? ""));
@@ -62855,7 +63461,7 @@ import_functions2.app.http("patchCase", {
               response: { status: 400, jsonBody: { error: "invalid inspection decision mode" } }
             };
           }
-          const submittedAddress = body2.evaFields?.inspectionAddress;
+          const submittedAddress = body3.evaFields?.inspectionAddress;
           if (submittedAddress !== void 0 && submittedAddress !== inspectionAddress) {
             return {
               kind: "response",
@@ -62887,8 +63493,8 @@ import_functions2.app.http("patchCase", {
           }
           after.inspectionDecision = inspection.decisionMode;
         }
-        if (body2.casePo !== void 0) {
-          const raw = String(body2.casePo ?? "").trim();
+        if (body3.casePo !== void 0) {
+          const raw = String(body3.casePo ?? "").trim();
           const normalized = raw ? normalizeCasePo(raw) : "";
           if (normalized && !CASE_PO_SHAPE_RE.test(normalized)) {
             return {
@@ -62898,6 +63504,24 @@ import_functions2.app.http("patchCase", {
           }
           const oldPo = (existing.casePo ?? "").toUpperCase();
           if (normalized !== oldPo) {
+            const activeHolding = await q(`SELECT id FROM archive_holding_folder
+              WHERE state='adopting' AND claim_token IS NOT NULL AND claim_expires_at>now()
+                AND (adopted_case_id=$1 OR normalized_vrm=$2)
+              LIMIT 1`, [id, existing.vrm.toUpperCase().replace(/\s+/g, "")]);
+            if (activeHolding.length) {
+              return { kind: "response", response: { status: 409, jsonBody: {
+                error: "archive_holding_active",
+                message: "Registration images are being filed for this case. Try the change again shortly."
+              } } };
+            }
+            const adoptedHolding = await q(`SELECT id FROM archive_holding_folder
+              WHERE state='adopted' AND adopted_case_id=$1 LIMIT 1`, [id]);
+            if (adoptedHolding.length) {
+              return { kind: "response", response: { status: 409, jsonBody: {
+                error: "archive_folder_name_locked",
+                message: "This Case/PO names the existing Archive folder and cannot be changed."
+              } } };
+            }
             attemptedCasePo = normalized || void 0;
             sets.push(`case_po = $${vals.length + 1}`);
             vals.push(normalized || null);
@@ -62905,8 +63529,8 @@ import_functions2.app.http("patchCase", {
             after.casePo = normalized || "(cleared)";
           }
         }
-        if (body2.caseType !== void 0) {
-          const rawType = String(body2.caseType ?? "").trim();
+        if (body3.caseType !== void 0) {
+          const rawType = String(body3.caseType ?? "").trim();
           const validName = rawType === "" || caseTypeCodec.toInt(rawType) != null;
           if (!validName) {
             return {
@@ -62947,6 +63571,7 @@ import_functions2.app.http("patchCase", {
             inspectionDecision: inspection?.decisionMode ?? existing.inspectionDecision,
             instructionCount: existing.evidence.filter((item) => item.kind === "instruction").length,
             ...sourceReadinessInputForCase(existing),
+            archiveHoldingPending: existing.archiveHoldingPending === true,
             hasIdentity: nextVrm.trim().length > 0 || (nextCasePo ?? "").trim().length > 0 || existing.providerCode.trim().length > 0 || nextEvaFields.claimantName.value.trim().length > 0,
             mergedInto: existing.mergedInto
           });
@@ -63525,8 +64150,8 @@ import_functions2.app.http("setOnHold", {
   route: "cases/{id}/hold",
   handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
     const id = req.params.id;
-    const body2 = await req.json();
-    if (typeof body2.onHold !== "boolean") {
+    const body3 = await req.json();
+    if (typeof body3.onHold !== "boolean") {
       return { status: 400, jsonBody: { error: "onHold must be a boolean" } };
     }
     const actor = actorFromClaims(claims);
@@ -63548,13 +64173,13 @@ import_functions2.app.http("setOnHold", {
                 updated_at = now()
           WHERE id = $1
           RETURNING updated_at`,
-        [id, body2.onHold]
+        [id, body3.onHold]
       );
       await writeAudit({
         action: AUDIT_ACTION.status_changed,
         caseId: id,
-        summary: body2.onHold ? "Case put on hold" : "Case taken off hold",
-        after: { onHold: body2.onHold },
+        summary: body3.onHold ? "Case put on hold" : "Case taken off hold",
+        after: { onHold: body3.onHold },
         ...actor ? { actor } : {}
       }, q);
       return { kind: "updated", version: versionToken(updated[0]?.updated_at) };
@@ -63569,31 +64194,58 @@ import_functions2.app.http("setOnHold", {
     };
   })
 });
+import_functions2.app.http("caseArchiveHoldingResolution", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}/archive-holding",
+  handler: withRole("CollisionSpike.User", async (req) => ({
+    status: 200,
+    jsonBody: await readArchiveHoldingResolution(req.params.id)
+  }))
+});
+import_functions2.app.http("selectCaseArchiveHolding", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/archive-holding/select",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    try {
+      const result = await resolveArchiveHolding(id, actorFromClaims(claims) ?? "staff");
+      return { status: 200, jsonBody: result };
+    } catch (error2) {
+      const detail = error2 instanceof Error ? error2.message : String(error2);
+      return { status: 409, jsonBody: {
+        error: "archive_holding_choice_rejected",
+        message: detail.includes("already assigned") ? "These registration images were already assigned to another case." : detail.includes("no registration image folder") ? "There are no registration images waiting for this case." : "These registration images cannot be assigned to this case."
+      } };
+    }
+  })
+});
 import_functions2.app.http("logChase", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/chase",
   handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
     const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const channel = body2.channel;
+    const body3 = await req.json().catch(() => ({}));
+    const channel = body3.channel;
     if (channel !== "email" && channel !== "whatsapp") {
       return { status: 400, jsonBody: { error: "channel must be 'email' or 'whatsapp'" } };
     }
-    if (typeof body2.templateLabel !== "string" || !body2.templateLabel.trim()) {
+    if (typeof body3.templateLabel !== "string" || !body3.templateLabel.trim()) {
       return { status: 400, jsonBody: { error: "templateLabel is required" } };
     }
-    const templateLabel = body2.templateLabel.trim();
+    const templateLabel = body3.templateLabel.trim();
     if (templateLabel.length > 200) {
       return { status: 400, jsonBody: { error: "templateLabel must be 200 characters or fewer" } };
     }
-    if (body2.note !== void 0 && typeof body2.note !== "string") {
+    if (body3.note !== void 0 && typeof body3.note !== "string") {
       return { status: 400, jsonBody: { error: "note must be a string" } };
     }
-    if (typeof body2.note === "string" && body2.note.length > 2e3) {
+    if (typeof body3.note === "string" && body3.note.length > 2e3) {
       return { status: 400, jsonBody: { error: "note must be 2000 characters or fewer" } };
     }
-    const note = typeof body2.note === "string" ? body2.note.trim() : "";
+    const note = typeof body3.note === "string" ? body3.note.trim() : "";
     const actor = actorFromClaims(claims);
     const needsUploadLink = imageChaserRequiresUploadLink(templateLabel);
     let fileRequest;
@@ -63762,6 +64414,13 @@ var MergeProviderRecoveryBlocked = class extends Error {
   constructor(reason) {
     super(`Provider recovery could not continue: ${reason}`);
     this.reason = reason;
+  }
+};
+var MergeTransactionRefusal = class extends Error {
+  constructor(status, message2) {
+    super(message2);
+    this.status = status;
+    this.name = "MergeTransactionRefusal";
   }
 };
 async function mergeEvidenceRows(q, sourceCaseId, targetCaseId) {
@@ -64106,14 +64765,84 @@ async function reparentLockedCaptureSessionsForMerge(q, sessionIds, sourceCaseId
     }, q);
   }
 }
+async function reconcileMergeArchiveHolding(q, sourceCaseId, targetCaseId) {
+  const folders = await q(
+    `SELECT id,vrm,box_folder_id,box_folder_url FROM case_
+      WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE`,
+    [[sourceCaseId, targetCaseId]]
+  );
+  const source = folders.find((row) => row.id.toLowerCase() === sourceCaseId);
+  const target = folders.find((row) => row.id.toLowerCase() === targetCaseId);
+  if (!source || !target) return "Source or target case not found.";
+  const sourceVrm = canonicalizeVrm(source.vrm);
+  const targetVrm = canonicalizeVrm(target.vrm);
+  const mergeVrms = [...new Set([sourceVrm, targetVrm].filter(Boolean))];
+  const holdings = await q(
+    `SELECT id,adopted_case_id,resolved_case_id,box_folder_id,canonical_folder_id,normalized_vrm,state,
+        claim_token IS NOT NULL AND claim_expires_at>now() AS claim_active
+      FROM archive_holding_folder
+      WHERE adopted_case_id=ANY($1::uuid[]) OR resolved_case_id=ANY($1::uuid[])
+        OR (state<>'adopted' AND resolved_case_id IS NULL AND adopted_case_id IS NULL
+          AND (candidate_case_ids ? $2::text OR candidate_case_ids ? $3::text
+          OR normalized_vrm=ANY($4::text[])))
+      ORDER BY id FOR UPDATE`,
+    [[sourceCaseId, targetCaseId], sourceCaseId, targetCaseId, mergeVrms]
+  );
+  if (!holdings.length) return void 0;
+  if (holdings.some((row) => row.state === "adopting" && row.claim_active)) {
+    return "A registration image folder is still being filed. Try the merge again when it finishes.";
+  }
+  const waitingVrms = [...new Set(holdings.filter((row) => row.state !== "adopted").map((row) => row.normalized_vrm))];
+  if (waitingVrms.some((vrm) => vrm !== targetVrm)) {
+    return "The survivor uses a different registration from the waiting images. Correct the registration before merging.";
+  }
+  const sourceFolder = (source.box_folder_id ?? "").trim();
+  const targetFolder = (target.box_folder_id ?? "").trim();
+  const identities = [sourceFolder, targetFolder, ...holdings.map((row) => (row.canonical_folder_id ?? (row.state === "adopted" ? row.box_folder_id : "") ?? "").trim())].filter(Boolean);
+  const distinctIdentities = [...new Set(identities)];
+  if (distinctIdentities.length > 1) {
+    return "These cases use different archive folders. Reconcile the archive folders before merging.";
+  }
+  const canonicalFolder = distinctIdentities[0] ?? "";
+  const canonicalUrl = target.box_folder_url ?? source.box_folder_url ?? (canonicalFolder ? `https://app.box.com/folder/${canonicalFolder}` : null);
+  if (canonicalFolder && targetFolder !== canonicalFolder) {
+    await q(
+      `UPDATE case_ SET box_folder_id=$2,box_folder_url=$3,updated_at=now() WHERE id=$1`,
+      [targetCaseId, canonicalFolder, canonicalUrl]
+    );
+  }
+  await q(`UPDATE archive_holding_folder SET adopted_case_id=$2,
+      canonical_folder_id=coalesce(nullif($3,''),canonical_folder_id),updated_at=now()
+    WHERE adopted_case_id=$1`, [sourceCaseId, targetCaseId, canonicalFolder]);
+  await q(`UPDATE archive_holding_folder SET resolved_case_id=$2,updated_at=now()
+    WHERE resolved_case_id=$1 AND state<>'adopted'`, [sourceCaseId, targetCaseId]);
+  await q(`UPDATE archive_holding_folder SET
+      candidate_case_ids=(candidate_case_ids-$1::text) ||
+        CASE WHEN candidate_case_ids ? $2::text THEN '[]'::jsonb ELSE jsonb_build_array($2::text) END,
+      updated_at=now()
+    WHERE state<>'adopted' AND candidate_case_ids ? $1::text`, [sourceCaseId, targetCaseId]);
+  await q(
+    `WITH desired AS (
+      SELECT c.id,EXISTS(SELECT 1 FROM archive_holding_folder h WHERE h.state<>'adopted' AND
+        (h.resolved_case_id=c.id OR (h.resolved_case_id IS NULL AND
+          (h.candidate_case_ids ? c.id::text OR (h.candidate_case_ids='[]'::jsonb AND
+            h.normalized_vrm=regexp_replace(upper(coalesce(c.vrm,'')),'[^A-Z0-9]','','g')))))) AS pending
+      FROM case_ c WHERE c.id=ANY($1::uuid[])
+    ) UPDATE case_ c SET archive_holding_pending=d.pending,updated_at=now()
+      FROM desired d WHERE c.id=d.id AND c.archive_holding_pending IS DISTINCT FROM d.pending`,
+    [[sourceCaseId, targetCaseId]]
+  );
+  await q(`UPDATE case_ SET box_folder_id=NULL,box_folder_url=NULL,updated_at=now() WHERE id=$1`, [sourceCaseId]);
+  return void 0;
+}
 import_functions2.app.http("mergeCases", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{tgt}/merge",
   handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
     const targetCaseId = (req.params.tgt ?? "").trim().toLowerCase();
-    const body2 = await req.json();
-    const sourceCaseId = typeof body2.sourceCaseId === "string" ? body2.sourceCaseId.trim().toLowerCase() : "";
+    const body3 = await req.json();
+    const sourceCaseId = typeof body3.sourceCaseId === "string" ? body3.sourceCaseId.trim().toLowerCase() : "";
     const actor = actorFromClaims(claims);
     if (!MERGE_UUID_RE.test(sourceCaseId) || !MERGE_UUID_RE.test(targetCaseId)) {
       return { status: 400, jsonBody: { error: "Case identifiers are invalid." } };
@@ -64214,23 +64943,29 @@ import_functions2.app.http("mergeCases", {
       }
       const captureSessionIds = await lockCaptureSessionsForMerge(q, sourceCaseId);
       const captureAssetIds = await lockCaptureAssetsForMerge(q, captureSessionIds);
+      const holdingConflict = await reconcileMergeArchiveHolding(q, sourceCaseId, targetCaseId);
+      if (holdingConflict) {
+        return { kind: "error", status: 409, error: holdingConflict };
+      }
       const fileRequestConflict = await reconcileMergeFileRequestIntent(
         q,
         sourceCaseId,
         targetCaseId
       );
       if (fileRequestConflict) {
-        return { kind: "error", status: 409, error: fileRequestConflict };
+        throw new MergeTransactionRefusal(409, fileRequestConflict);
       }
       await q(
         "SELECT id FROM inbound_email WHERE case_id = $1 ORDER BY id FOR UPDATE",
         [sourceCaseId]
       );
-      const { movedEvidence, collidingEvidence, evidenceReplacements } = await mergeEvidenceRows(
-        q,
-        sourceCaseId,
-        targetCaseId
-      );
+      const { movedEvidence, collidingEvidence, evidenceReplacements, archiveBusy } = await mergeEvidenceRows(q, sourceCaseId, targetCaseId);
+      if (archiveBusy) {
+        throw new MergeTransactionRefusal(
+          409,
+          "Archive work is still finishing for one of these cases. Try the merge again shortly."
+        );
+      }
       await transferStaffUploadOwnership(q, sourceCaseId, targetCaseId);
       await repointLockedCaptureAssetsForMerge(q, captureAssetIds, evidenceReplacements);
       await reparentLockedCaptureSessionsForMerge(
@@ -64351,6 +65086,11 @@ import_functions2.app.http("mergeCases", {
         claimantConflict: claimantMerge.conflict,
         statusGeneration
       };
+    }).catch((error2) => {
+      if (error2 instanceof MergeTransactionRefusal) {
+        return { kind: "error", status: error2.status, error: error2.message };
+      }
+      throw error2;
     });
     let merged;
     try {
@@ -64427,7 +65167,7 @@ import_functions2.app.http("removeCase", {
   route: "cases/{id}",
   handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
     const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
+    const body3 = await req.json().catch(() => ({}));
     const actor = actorFromClaims(claims);
     const existing = await loadCaseLite(id);
     if (!existing) return { status: 404, jsonBody: { error: "not found" } };
@@ -64472,10 +65212,10 @@ import_functions2.app.http("removeCase", {
       after: {
         status: "removed",
         // The archive tickbox is an INTENT FLAG only — no automated Box deletion (ADR-0017).
-        archiveFolderAcknowledged: body2.acknowledgeArchiveFolderHandled === true || body2.acknowledgeBoxFolderHandled === true,
+        archiveFolderAcknowledged: body3.acknowledgeArchiveFolderHandled === true || body3.acknowledgeBoxFolderHandled === true,
         boxFolderId: existing.boxFolderId ?? null,
         boxFolderUrl: existing.boxFolderUrl ?? null,
-        ...typeof body2.reason === "string" && body2.reason.trim() ? { reason: body2.reason.trim() } : {}
+        ...typeof body3.reason === "string" && body3.reason.trim() ? { reason: body3.reason.trim() } : {}
       },
       ...actor ? { actor } : {}
     });
@@ -64783,17 +65523,17 @@ import_functions3.app.http("updateProvider", {
   handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
     const idOrCode = (req.params.id ?? "").trim();
     if (!idOrCode) return { status: 400, jsonBody: { error: "id is required" } };
-    const body2 = await req.json().catch(() => ({}));
+    const body3 = await req.json().catch(() => ({}));
     let modeCode;
-    if (body2.providerAutomationMode !== void 0) {
-      const mode = String(body2.providerAutomationMode);
+    if (body3.providerAutomationMode !== void 0) {
+      const mode = String(body3.providerAutomationMode);
       const code = automationModeCodec.toInt(mode);
       if (code == null) return { status: 400, jsonBody: { error: "invalid providerAutomationMode" } };
       modeCode = code;
     }
     let domains;
-    if (body2.knownEmailDomains !== void 0) {
-      domains = normaliseDomains(body2.knownEmailDomains);
+    if (body3.knownEmailDomains !== void 0) {
+      domains = normaliseDomains(body3.knownEmailDomains);
       if (domains === void 0) {
         return { status: 400, jsonBody: { error: "knownEmailDomains must be an array of strings" } };
       }
@@ -64879,8 +65619,8 @@ async function geocodePostcode(postcode) {
       cache.set(pc, null);
       return null;
     }
-    const body2 = await res.json();
-    const pos = body2.results?.[0]?.position;
+    const body3 = await res.json();
+    const pos = body3.results?.[0]?.position;
     const geo = pos && typeof pos.lat === "number" && typeof pos.lon === "number" ? { lat: pos.lat, lon: pos.lon } : null;
     cache.set(pc, geo);
     return geo;
@@ -65389,9 +66129,9 @@ import_functions7.app.http("setHoldNewCasesDefault", {
   authLevel: "anonymous",
   route: "settings/hold-new-cases",
   handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
-    const body2 = await req.json();
+    const body3 = await req.json();
     const actor = actorFromClaims(claims);
-    const valueStr = body2.value ? "true" : "false";
+    const valueStr = body3.value ? "true" : "false";
     try {
       await query(
         `INSERT INTO app_setting (key, value, updated_at, updated_by)
@@ -65696,8 +66436,8 @@ import_functions8.app.http("setTriageState", {
   route: "inbound/{id}/triage",
   handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
     const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const state3 = body2.state;
+    const body3 = await req.json().catch(() => ({}));
+    const state3 = body3.state;
     if (!isValidTriageState(state3)) {
       return { status: 400, jsonBody: { error: "invalid triage state" } };
     }
@@ -65836,33 +66576,33 @@ import_functions8.app.http("reclassifyInbound", {
   route: "inbound/{id}/classification",
   handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
     const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
+    const body3 = await req.json().catch(() => ({}));
     let category;
     let subtype;
-    if (typeof body2.tag === "string") {
-      const mapped = richTagToClassification(body2.tag);
+    if (typeof body3.tag === "string") {
+      const mapped = richTagToClassification(body3.tag);
       if (!mapped) return { status: 400, jsonBody: { error: "unknown tag" } };
       category = mapped.category;
       subtype = mapped.subtype;
     } else {
-      if (typeof body2.category === "string") {
-        if (!(body2.category in INBOUND_CATEGORY_TO_INT)) {
+      if (typeof body3.category === "string") {
+        if (!(body3.category in INBOUND_CATEGORY_TO_INT)) {
           return { status: 400, jsonBody: { error: "invalid category" } };
         }
-        category = body2.category;
+        category = body3.category;
       }
-      if (typeof body2.subtype === "string") {
-        if (!(body2.subtype in INBOUND_SUBTYPE_TO_INT)) {
+      if (typeof body3.subtype === "string") {
+        if (!(body3.subtype in INBOUND_SUBTYPE_TO_INT)) {
           return { status: 400, jsonBody: { error: "invalid subtype" } };
         }
-        subtype = body2.subtype;
+        subtype = body3.subtype;
       }
     }
     if (!category && !subtype) {
       return { status: 400, jsonBody: { error: "category, subtype or tag required" } };
     }
     const actor = actorFromClaims(claims);
-    const reason = typeof body2.reason === "string" ? body2.reason.trim() : "";
+    const reason = typeof body3.reason === "string" ? body3.reason.trim() : "";
     const outcome = await tx(async (q) => {
       const existing = await q(
         `SELECT *, updated_at FROM inbound_email WHERE id = $1 FOR UPDATE`,
@@ -66084,10 +66824,10 @@ async function resolveAssistImageBase64(evidenceIds) {
 }
 
 // api/src/functions/proxy.ts
-async function enrichLocationRequest(body2) {
-  if (!body2 || typeof body2 !== "object") return body2;
-  const b = body2;
-  if (!Array.isArray(b.photo_refs) || b.photo_refs.length === 0) return body2;
+async function enrichLocationRequest(body3) {
+  if (!body3 || typeof body3 !== "object") return body3;
+  const b = body3;
+  if (!Array.isArray(b.photo_refs) || b.photo_refs.length === 0) return body3;
   const refs = b.photo_refs;
   const ids = refs.map((r) => r?.evidence_id).filter((s) => typeof s === "string");
   const bytesById = await resolveAssistImageBase64(ids);
@@ -66107,8 +66847,8 @@ import_functions9.app.http("locationAssistSuggest", {
       return { status: 200, jsonBody: [] };
     }
     try {
-      const body2 = await req.json();
-      const enriched = await enrichLocationRequest(body2);
+      const body3 = await req.json();
+      const enriched = await enrichLocationRequest(body3);
       const result = await callLocationSuggest(enriched);
       return { status: 200, jsonBody: result };
     } catch {
@@ -66125,8 +66865,8 @@ import_functions9.app.http("parserParse", {
       return { status: 200, jsonBody: { skipped: true } };
     }
     try {
-      const body2 = await req.json();
-      const result = await callParser(body2);
+      const body3 = await req.json();
+      const result = await callParser(body3);
       return { status: 200, jsonBody: result };
     } catch {
       return { status: 200, jsonBody: { skipped: true, error: true } };
@@ -66134,8 +66874,94 @@ import_functions9.app.http("parserParse", {
   })
 });
 
-// api/src/functions/internal-retro.ts
+// api/src/functions/internal-archive-holding.ts
 var import_functions10 = require("@azure/functions");
+var body2 = async (req) => await req.json();
+var bad = (error2) => ({ status: 400, jsonBody: { error: error2 } });
+var wrap = (fn) => (req, ctx) => withServiceAuth(req, ctx, fn);
+import_functions10.app.http("internalArchiveHoldingReserve", { methods: ["POST"], authLevel: "anonymous", route: "internal/archive-holding/reserve", handler: wrap(async (req) => {
+  const b = await body2(req);
+  const vrm = String(b.vrm ?? "").toUpperCase().replace(/\s+/g, "");
+  if (!/^[A-Z0-9]{2,16}$/.test(vrm) || !b.rootFolderId || !b.sourceMessageId || !b.claimToken || !Array.isArray(b.files)) return bad("valid vrm, root, message, claim and files are required");
+  const files = b.files.map((f) => ({ filename: String(f.filename ?? ""), contentType: String(f.contentType ?? "application/octet-stream"), size: Number(f.size ?? 0), blobPath: String(f.blobPath ?? ""), sha256: String(f.sha256 ?? "").toLowerCase() }));
+  if (!files.length || files.some((f) => !f.filename || !f.blobPath || !Number.isFinite(f.size) || f.size < 0 || !/^[0-9a-f]{64}$/.test(f.sha256))) return bad("every image needs a filename, blob path, size and sha256");
+  return { status: 200, jsonBody: await reserveArchiveHoldingIntake({
+    sourceMessageId: String(b.sourceMessageId),
+    vrm,
+    rootFolderId: String(b.rootFolderId),
+    claimToken: String(b.claimToken),
+    files
+  }) };
+}) });
+import_functions10.app.http("internalArchiveHoldingRegister", { methods: ["POST"], authLevel: "anonymous", route: "internal/archive-holding/register", handler: wrap(async (req) => {
+  const b = await body2(req);
+  const vrm = String(b.vrm ?? "").toUpperCase().replace(/\s+/g, "");
+  if (!/^[A-Z0-9]{2,16}$/.test(vrm) || !b.rootFolderId || !b.boxFolderId || !b.sourceMessageId || !b.claimToken || !Array.isArray(b.files)) return bad("valid vrm, folder, message, claim and files are required");
+  const manifest = b.files;
+  const files = manifest.map((f) => ({ filename: String(f.filename ?? ""), contentType: String(f.contentType ?? "application/octet-stream"), size: Number(f.size ?? 0), blobPath: String(f.blobPath ?? ""), sha256: String(f.sha256 ?? "").toLowerCase() }));
+  if (!files.length || files.some((f) => !f.filename || !f.blobPath || !Number.isFinite(f.size) || f.size < 0 || !/^[0-9a-f]{64}$/.test(f.sha256))) return bad("every image needs a filename, blob path, size and sha256");
+  return { status: 200, jsonBody: await registerArchiveHolding({ vrm, rootFolderId: String(b.rootFolderId), boxFolderId: String(b.boxFolderId), sourceMessageId: String(b.sourceMessageId), claimToken: String(b.claimToken), files }) };
+}) });
+import_functions10.app.http("internalArchiveHoldingUploaded", { methods: ["POST"], authLevel: "anonymous", route: "internal/archive-holding/files/{id}/uploaded", handler: wrap(async (req) => {
+  const b = await body2(req);
+  if (!req.params.id || !b.claimToken || !b.boxFileId) return bad("file, claim and Box file are required");
+  return { status: 200, jsonBody: { updated: await stampArchiveHoldingUpload({ fileId: req.params.id, claimToken: String(b.claimToken), boxFileId: String(b.boxFileId), boxFileUrl: String(b.boxFileUrl ?? ""), boxSha1: b.boxSha1 ? String(b.boxSha1) : void 0 }) } };
+}) });
+import_functions10.app.http("internalArchiveHoldingUploadFailed", { methods: ["POST"], authLevel: "anonymous", route: "internal/archive-holding/files/{id}/failed", handler: wrap(async (req) => {
+  const b = await body2(req);
+  if (!req.params.id || !b.claimToken) return bad("file and claim are required");
+  await failArchiveHoldingUpload(req.params.id, String(b.claimToken), String(b.error ?? "upload failed"));
+  return { status: 204 };
+}) });
+import_functions10.app.http("internalArchiveHoldingUploadClaim", { methods: ["POST"], authLevel: "anonymous", route: "internal/archive-holding/uploads/claim", handler: wrap(async (req) => {
+  const b = await body2(req);
+  if (!b.claimToken) return bad("claim is required");
+  return { status: 200, jsonBody: { files: await claimArchiveHoldingUploads(String(b.claimToken), Number(b.limit ?? 25)) } };
+}) });
+import_functions10.app.http("internalArchiveHoldingAdoptionCandidates", { methods: ["GET"], authLevel: "anonymous", route: "internal/archive-holding/adoption-candidates", handler: wrap(async (req) => {
+  const limit = Number(req.query.get("limit") ?? 50);
+  return { status: 200, jsonBody: { caseIds: await listArchiveHoldingAdoptionCaseIds(limit) } };
+}) });
+import_functions10.app.http("internalArchiveHoldingDeferredClaim", { methods: ["POST"], authLevel: "anonymous", route: "internal/archive-holding/deferred/claim", handler: wrap(async (req) => {
+  const b = await body2(req);
+  if (!b.claimToken) return bad("claim is required");
+  return { status: 200, jsonBody: { intakes: await claimDeferredArchiveHoldingIntakes(String(b.claimToken), Number(b.limit ?? 10)) } };
+}) });
+import_functions10.app.http("internalArchiveHoldingDeferredComplete", { methods: ["POST"], authLevel: "anonymous", route: "internal/archive-holding/deferred/{id}/complete", handler: wrap(async (req) => {
+  const b = await body2(req);
+  if (!req.params.id || !b.claimToken) return bad("intake and claim are required");
+  return { status: 200, jsonBody: { updated: await completeDeferredArchiveHoldingIntake(req.params.id, String(b.claimToken)) } };
+}) });
+import_functions10.app.http("internalArchiveHoldingDeferredFailed", { methods: ["POST"], authLevel: "anonymous", route: "internal/archive-holding/deferred/{id}/failed", handler: wrap(async (req) => {
+  const b = await body2(req);
+  if (!req.params.id || !b.claimToken) return bad("intake and claim are required");
+  await failDeferredArchiveHoldingIntake(req.params.id, String(b.claimToken), String(b.error ?? "deferred intake failed"));
+  return { status: 204 };
+}) });
+import_functions10.app.http("internalArchiveHoldingClaim", { methods: ["POST"], authLevel: "anonymous", route: "internal/cases/{id}/archive-holding/claim", handler: wrap(async (req) => {
+  const b = await body2(req);
+  if (!req.params.id || !b.claimToken) return bad("case and claim are required");
+  return { status: 200, jsonBody: await claimArchiveHolding(req.params.id, String(b.claimToken)) };
+}) });
+import_functions10.app.http("internalArchiveHoldingCheckpoint", { methods: ["POST"], authLevel: "anonymous", route: "internal/archive-holding/{id}/files/{fileId}/checkpoint", handler: wrap(async (req) => {
+  const b = await body2(req);
+  if (!req.params.id || !req.params.fileId || !b.claimToken || !["moved", "deduplicated"].includes(String(b.kind)) || !b.canonicalFileId || b.sourceRetired !== true) return bad("holding, file, claim, canonical file and completed source retirement are required");
+  return { status: 200, jsonBody: { updated: await checkpointArchiveHoldingFile({ holdingId: req.params.id, fileId: req.params.fileId, claimToken: String(b.claimToken), kind: String(b.kind), canonicalFileId: String(b.canonicalFileId ?? ""), canonicalFileUrl: String(b.canonicalFileUrl ?? ""), sourceRetired: Boolean(b.sourceRetired) }) } };
+}) });
+import_functions10.app.http("internalArchiveHoldingFinalize", { methods: ["POST"], authLevel: "anonymous", route: "internal/archive-holding/{id}/finalize", handler: wrap(async (req) => {
+  const b = await body2(req);
+  if (!req.params.id || !b.caseId || !b.claimToken || !b.folderId) return bad("holding, case, claim and folder are required");
+  return { status: 200, jsonBody: await finalizeArchiveHolding({ holdingId: req.params.id, caseId: String(b.caseId), claimToken: String(b.claimToken), folderId: String(b.folderId), folderUrl: String(b.folderUrl ?? "") }) };
+}) });
+import_functions10.app.http("internalArchiveHoldingAdoptionFailed", { methods: ["POST"], authLevel: "anonymous", route: "internal/archive-holding/{id}/failed", handler: wrap(async (req) => {
+  const b = await body2(req);
+  if (!req.params.id || !b.claimToken) return bad("holding and claim are required");
+  await failArchiveHoldingAdoption(req.params.id, String(b.claimToken), String(b.error ?? "adoption failed"));
+  return { status: 204 };
+}) });
+
+// api/src/functions/internal-retro.ts
+var import_functions11 = require("@azure/functions");
 
 // api/src/lib/retro-validate.ts
 var RETRO_ALLOWED_STATUSES = ["eva_submitted", "needs_review"];
@@ -66163,11 +66989,11 @@ function normalizeRetroKeys(keys) {
   if (vrm) out.vrm = vrm;
   return out;
 }
-function validateRetroResolveExisting(body2) {
-  if (body2 == null || typeof body2 !== "object") {
+function validateRetroResolveExisting(body3) {
+  if (body3 == null || typeof body3 !== "object") {
     return { ok: false, code: "invalid_body", message: "body must be a JSON object" };
   }
-  const b = body2;
+  const b = body3;
   if (!hasEnvelopeIdentity(b.trigger)) {
     return { ok: false, code: "missing_trigger", message: "trigger envelope (internetMessageId) required" };
   }
@@ -66178,11 +67004,11 @@ function validateRetroResolveExisting(body2) {
   }
   return { ok: true, value: { keys } };
 }
-function validateRetroCreate(body2) {
-  if (body2 == null || typeof body2 !== "object") {
+function validateRetroCreate(body3) {
+  if (body3 == null || typeof body3 !== "object") {
     return { ok: false, code: "invalid_body", message: "body must be a JSON object" };
   }
-  const b = body2;
+  const b = body3;
   if (!hasEnvelopeIdentity(b.original)) {
     return { ok: false, code: "missing_original", message: "original envelope (internetMessageId) required" };
   }
@@ -66280,7 +67106,7 @@ async function linkEnvelopeRow(envelope, providerId, caseId, classification) {
   await upsertInboundEmail(envelope, providerId, caseId, classification, void 0, "routed");
   return true;
 }
-import_functions10.app.http("internalRetroResolveExisting", {
+import_functions11.app.http("internalRetroResolveExisting", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/retro/resolve-existing",
@@ -66288,12 +67114,12 @@ import_functions10.app.http("internalRetroResolveExisting", {
     if (!gates.retroCase()) {
       return { status: 200, jsonBody: { outcome: "gated_off", candidateCount: 0 } };
     }
-    const body2 = await req.json();
-    const v = validateRetroResolveExisting(body2);
+    const body3 = await req.json();
+    const v = validateRetroResolveExisting(body3);
     if (!v.ok) return { status: 400, jsonBody: { error: v.code, message: v.message } };
     const { keys } = v.value;
-    const providerId = body2.providerId ?? null;
-    const already = await currentInboundCaseId(body2.trigger.internetMessageId);
+    const providerId = body3.providerId ?? null;
+    const already = await currentInboundCaseId(body3.trigger.internetMessageId);
     if (already) {
       return { status: 200, jsonBody: { outcome: "linked", caseId: already, candidateCount: 1 } };
     }
@@ -66308,19 +67134,19 @@ import_functions10.app.http("internalRetroResolveExisting", {
     if (rows.length === 1) {
       const hit = rows[0];
       const statusName3 = caseStatusCodec.toName(hit.status_code) ?? String(hit.status_code);
-      await upsertInboundEmail(body2.trigger, providerId, hit.id, void 0, void 0, "routed");
+      await upsertInboundEmail(body3.trigger, providerId, hit.id, void 0, void 0, "routed");
       await writeAudit({
         action: AUDIT_ACTION.retro_case_linked,
         caseId: hit.id,
         // 'removed' is matched ON PURPOSE (a soft-removed case must still swallow its
         // mail rather than let a duplicate be reconstructed) but staff should see it.
         severity: statusName3 === "removed" ? "warning" : "info",
-        summary: `Retro: ${body2.triggerCategory ?? "update"} email linked to existing ${statusName3} case (${matchedBy})`,
+        summary: `Retro: ${body3.triggerCategory ?? "update"} email linked to existing ${statusName3} case (${matchedBy})`,
         after: {
           matchedBy,
           keys,
           status: statusName3,
-          messageId: body2.trigger.internetMessageId
+          messageId: body3.trigger.internetMessageId
         }
       });
       ctx.log(JSON.stringify({ evt: "retroResolveExisting", outcome: "linked", caseId: hit.id, matchedBy }));
@@ -66330,7 +67156,7 @@ import_functions10.app.http("internalRetroResolveExisting", {
       await writeAudit({
         action: AUDIT_ACTION.duplicate_flagged,
         severity: "warning",
-        summary: `Retro: ${body2.triggerCategory ?? "update"} email matched ${rows.length} cases (${matchedBy}); held for manual linking`,
+        summary: `Retro: ${body3.triggerCategory ?? "update"} email matched ${rows.length} cases (${matchedBy}); held for manual linking`,
         after: { candidateCount: rows.length, matchedBy, keys, candidateIds: rows.map((r) => r.id) }
       });
       ctx.log(JSON.stringify({ evt: "retroResolveExisting", outcome: "ambiguous", count: rows.length }));
@@ -66340,7 +67166,7 @@ import_functions10.app.http("internalRetroResolveExisting", {
     return { status: 200, jsonBody: { outcome: "none", candidateCount: 0 } };
   })
 });
-import_functions10.app.http("internalRetroCreate", {
+import_functions11.app.http("internalRetroCreate", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/retro/create",
@@ -66348,13 +67174,13 @@ import_functions10.app.http("internalRetroCreate", {
     if (!gates.retroCase()) {
       return { status: 200, jsonBody: { outcome: "gated_off" } };
     }
-    const body2 = await req.json();
-    const v = validateRetroCreate(body2);
+    const body3 = await req.json();
+    const v = validateRetroCreate(body3);
     if (!v.ok) return { status: 400, jsonBody: { error: v.code, message: v.message } };
     const { keys, casePo, reconstructionSource } = v.value;
-    const { original, trigger } = body2;
-    const triggerProviderId = body2.providerId ?? null;
-    const vrmGuard = vrmOrEmpty(body2.parserVrm || body2.vrm || keys.vrm || original.candidateVrm);
+    const { original, trigger } = body3;
+    const triggerProviderId = body3.providerId ?? null;
+    const vrmGuard = vrmOrEmpty(body3.parserVrm || body3.vrm || keys.vrm || original.candidateVrm);
     if (vrmGuard.dropped) {
       ctx.warn(
         `[retro/create] over-length VRM candidate dropped (junk sniff > varchar(16)) for ${trigger?.internetMessageId ?? "unknown trigger"}`
@@ -66390,9 +67216,9 @@ import_functions10.app.http("internalRetroCreate", {
       onHold = true;
       actionReason = "needs_review";
     }
-    const contentCaseType = caseTypeCodec.toInt(body2.caseType) != null ? body2.caseType : "standard";
+    const contentCaseType = caseTypeCodec.toInt(body3.caseType) != null ? body3.caseType : "standard";
     const caseType = marker2 ? markerToCaseType(marker2) : contentCaseType;
-    const caseTypeSignals = Array.isArray(body2.caseTypeSignals) ? body2.caseTypeSignals : [];
+    const caseTypeSignals = Array.isArray(body3.caseTypeSignals) ? body3.caseTypeSignals : [];
     const auditGateOn = gates.auditCases();
     const originalCategory = await mintBlockedByCategory(original.internetMessageId);
     const blockedCategory = originalCategory && ["non_actionable", "other", "pre_instruction", "website_enquiry"].includes(originalCategory) ? originalCategory : null;
@@ -66409,7 +67235,7 @@ import_functions10.app.http("internalRetroCreate", {
     const subject = (original.subject ?? "").trim();
     const name = ([vrm || null, subject || null].filter(Boolean).join(" \xB7 ") || "Retro case").slice(0, 100);
     const caseRefValue = clampVarchar(
-      keys.externalRef || (body2.parserRef ?? "").trim() || (!identityVerified && casePo ? casePo : "") || "",
+      keys.externalRef || (body3.parserRef ?? "").trim() || (!identityVerified && casePo ? casePo : "") || "",
       100
     ).value;
     const statusCode = caseStatusCodec.toInt(status) ?? statusToInt("needs_review");
@@ -66473,12 +67299,12 @@ import_functions10.app.http("internalRetroCreate", {
           cols.push("action_reason_code");
           vals.push(actionReasonCodec.toInt(actionReason ?? "needs_review") ?? null);
         }
-        if (body2.boxFolder?.id) {
+        if (body3.boxFolder?.id) {
           cols.push("box_folder_id");
-          vals.push(body2.boxFolder.id);
-          if (body2.boxFolder.url) {
+          vals.push(body3.boxFolder.id);
+          if (body3.boxFolder.url) {
             cols.push("box_folder_url");
-            vals.push(body2.boxFolder.url);
+            vals.push(body3.boxFolder.url);
           }
         }
         const placeholders = vals.map((_, i) => `$${i + 1}`).join(", ");
@@ -66523,16 +67349,16 @@ import_functions10.app.http("internalRetroCreate", {
       }
       const parserFieldsResult2 = await applyParserFields(
         hit.id,
-        body2.parserRef,
-        body2.parserMileage,
-        body2.parserMileageUnit,
-        body2.parserEva,
+        body3.parserRef,
+        body3.parserMileage,
+        body3.parserMileageUnit,
+        body3.parserEva,
         poProviderId,
         null,
         {
           caseType: auditGateOn ? caseType : "standard",
           caseTypeDual: false,
-          allowCasePoMint: !casePo && !body2.boxFolder?.id
+          allowCasePoMint: !casePo && !body3.boxFolder?.id
         }
       );
       const effectiveCasePo2 = parserFieldsResult2.casePo ?? (String(hit.case_po ?? "").trim() || null);
@@ -66559,10 +67385,10 @@ import_functions10.app.http("internalRetroCreate", {
     await linkEnvelopeRow(trigger, triggerProviderId, caseId);
     const parserFieldsResult = await applyParserFields(
       caseId,
-      body2.parserRef,
-      body2.parserMileage,
-      body2.parserMileageUnit,
-      body2.parserEva,
+      body3.parserRef,
+      body3.parserMileage,
+      body3.parserMileageUnit,
+      body3.parserEva,
       poProviderId,
       null,
       {
@@ -66570,7 +67396,7 @@ import_functions10.app.http("internalRetroCreate", {
         caseTypeDual: false,
         // A discovered historical PO/folder is never forked. Outlook-only recovery has
         // neither, so a provider resolved from its instruction may complete normally.
-        allowCasePoMint: !casePo && !body2.boxFolder?.id
+        allowCasePoMint: !casePo && !body3.boxFolder?.id
       }
     );
     const effectiveCasePo = parserFieldsResult.casePo ?? (identityVerified ? casePo ?? null : null);
@@ -66587,9 +67413,9 @@ import_functions10.app.http("internalRetroCreate", {
         status,
         onHold: effectiveOnHold,
         reconstructionSource,
-        boxFolderId: body2.boxFolder?.id ?? null,
+        boxFolderId: body3.boxFolder?.id ?? null,
         keys,
-        triggerCategory: body2.triggerCategory ?? null,
+        triggerCategory: body3.triggerCategory ?? null,
         triggerMessageId: trigger.internetMessageId
       }
     });
@@ -66651,7 +67477,7 @@ import_functions10.app.http("internalRetroCreate", {
 });
 
 // api/src/functions/assistant.ts
-var import_functions11 = require("@azure/functions");
+var import_functions12 = require("@azure/functions");
 
 // api/src/lib/ai-usage.ts
 async function recordAiUsage(u) {
@@ -66721,20 +67547,20 @@ async function chatCompletion(endpoint, deployment, messages, tools, onUsage) {
   try {
     const token = await mintCognitiveToken();
     const url2 = `${endpoint.replace(/\/$/, "")}/openai/v1/chat/completions`;
-    const body2 = {
+    const body3 = {
       model: deployment,
       messages,
       max_completion_tokens: MAX_COMPLETION_TOKENS,
       reasoning_effort: "low"
     };
     if (tools.length) {
-      body2.tools = tools;
-      body2.tool_choice = "auto";
+      body3.tools = tools;
+      body3.tool_choice = "auto";
     }
     const res = await fetch(url2, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body2),
+      body: JSON.stringify(body3),
       signal: controller.signal
     });
     if (!res.ok) {
@@ -67215,7 +68041,7 @@ async function execTool(name, args) {
       return { error: `unknown tool ${name}` };
   }
 }
-import_functions11.app.http("assistantChat", {
+import_functions12.app.http("assistantChat", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "assistant/chat",
@@ -67229,13 +68055,13 @@ import_functions11.app.http("assistantChat", {
         }
       };
     }
-    let body2;
+    let body3;
     try {
-      body2 = await req.json();
+      body3 = await req.json();
     } catch {
       return { status: 400, jsonBody: { error: "invalid JSON body" } };
     }
-    const rawMessages = Array.isArray(body2?.messages) ? body2.messages : [];
+    const rawMessages = Array.isArray(body3?.messages) ? body3.messages : [];
     const history = rawMessages.filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-MAX_HISTORY).map((m) => ({ role: m.role, content: (m.content ?? "").slice(0, MAX_MSG_CHARS) }));
     if (!history.length || history[history.length - 1].role !== "user") {
       return { status: 400, jsonBody: { error: "messages must end with a user turn" } };
@@ -67290,7 +68116,7 @@ import_functions11.app.http("assistantChat", {
     }
   })
 });
-import_functions11.app.http("aiChatGate", {
+import_functions12.app.http("aiChatGate", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "gates/ai-chat",
@@ -67304,7 +68130,7 @@ import_functions11.app.http("aiChatGate", {
 });
 
 // api/src/functions/search.ts
-var import_functions12 = require("@azure/functions");
+var import_functions13 = require("@azure/functions");
 var MIN_QUERY_CHARS = 2;
 var CASE_CAP = 25;
 var EMAIL_CAP = 15;
@@ -67413,7 +68239,7 @@ async function runSearch(qRaw) {
     truncated: { cases: casesTruncated, emails: emailsTruncated, providers: providersTruncated }
   };
 }
-import_functions12.app.http("globalSearch", {
+import_functions13.app.http("globalSearch", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "search",
@@ -67428,7 +68254,7 @@ import_functions12.app.http("globalSearch", {
 });
 
 // api/src/functions/mcp.ts
-var import_functions14 = require("@azure/functions");
+var import_functions15 = require("@azure/functions");
 
 // node_modules/zod/v4/core/core.js
 var NEVER2 = Object.freeze({
@@ -72983,7 +73809,7 @@ function validateUploadBatch(files) {
 }
 
 // api/src/functions/evidence-upload.ts
-var import_functions13 = require("@azure/functions");
+var import_functions14 = require("@azure/functions");
 var import_node_crypto13 = require("node:crypto");
 var IMAGE_KIND_CODE2 = 1e8;
 var INSTRUCTION_KIND_CODE = 100000002;
@@ -73802,7 +74628,7 @@ async function handleEvidenceUpload(req, ctx, claims, options = {}) {
     }
   };
 }
-import_functions13.app.http("uploadCaseEvidence", {
+import_functions14.app.http("uploadCaseEvidence", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/evidence/upload",
@@ -74196,8 +75022,8 @@ function createImageIngestExecutor(deps = productionDependencies) {
         note: "Retry the same batch with the same idempotency key. The server will not duplicate a completed write."
       };
     }
-    const body2 = response.jsonBody ?? {};
-    if (Number(response.status ?? 500) >= 500 || !Array.isArray(body2.added) && !Array.isArray(body2.rejected)) {
+    const body3 = response.jsonBody ?? {};
+    if (Number(response.status ?? 500) >= 500 || !Array.isArray(body3.added) && !Array.isArray(body3.rejected)) {
       session.context.error(`[mcp-image-ingest] canonical upload returned an unconfirmed response (${response.status ?? 500})`);
       return {
         ok: false,
@@ -74217,7 +75043,7 @@ function createImageIngestExecutor(deps = productionDependencies) {
         note: "Retry the same batch with the same idempotency key. The server will not duplicate a completed write."
       };
     }
-    const added = (body2.added ?? []).map((item) => {
+    const added = (body3.added ?? []).map((item) => {
       const source = accepted[item.fileIndex];
       return {
         fileIndex: source?.originalIndex ?? item.fileIndex,
@@ -74229,7 +75055,7 @@ function createImageIngestExecutor(deps = productionDependencies) {
     });
     const rejected = [
       ...earlyRejected,
-      ...(body2.rejected ?? []).map((item) => {
+      ...(body3.rejected ?? []).map((item) => {
         const source = accepted[item.fileIndex];
         return {
           fileIndex: source?.originalIndex ?? item.fileIndex,
@@ -74477,8 +75303,8 @@ function originAllowed(req) {
   );
   return allowed.has(origin);
 }
-function protocolHeaderValid(req, body2) {
-  const method = body2 && typeof body2 === "object" && !Array.isArray(body2) ? body2.method : void 0;
+function protocolHeaderValid(req, body3) {
+  const method = body3 && typeof body3 === "object" && !Array.isArray(body3) ? body3.method : void 0;
   if (method === "initialize") return true;
   const supplied = req.headers.get("mcp-protocol-version") ?? "2025-03-26";
   return SUPPORTED_PROTOCOL_VERSIONS.has(supplied);
@@ -74536,7 +75362,7 @@ async function readRequestJson(req, maxBytes) {
     return { ok: false, reason: "parse" };
   }
 }
-import_functions14.app.http("mcpServer", {
+import_functions15.app.http("mcpServer", {
   methods: ["GET", "POST"],
   authLevel: "anonymous",
   route: "mcp",
@@ -74586,15 +75412,15 @@ import_functions14.app.http("mcpServer", {
           jsonBody: rpcError(null, bodyRead.reason === "parse" ? -32700 : -32600, message2)
         };
       }
-      const body2 = bodyRead.value;
-      if (Array.isArray(body2)) {
+      const body3 = bodyRead.value;
+      if (Array.isArray(body3)) {
         return { status: 400, headers: responseHeaders(), jsonBody: rpcError(null, -32600, "JSON-RPC batches are not supported") };
       }
-      const validated = validateMcpMessage(body2);
+      const validated = validateMcpMessage(body3);
       if (!validated.ok) {
         return { status: 400, headers: responseHeaders(), jsonBody: rpcError(validated.id, validated.code ?? -32600, validated.message) };
       }
-      if (!protocolHeaderValid(req, body2)) {
+      if (!protocolHeaderValid(req, body3)) {
         return { status: 400, headers: responseHeaders(), jsonBody: rpcError(null, -32600, "Unsupported MCP-Protocol-Version") };
       }
       const tools = principal === "image_ingest_agent" ? IMAGE_INGEST_TOOLS : readonlyToolDefinitions();
@@ -74639,8 +75465,8 @@ import_functions14.app.http("mcpServer", {
 });
 
 // api/src/functions/evidence.ts
-var import_functions15 = require("@azure/functions");
-import_functions15.app.http("evidenceContent", {
+var import_functions16 = require("@azure/functions");
+import_functions16.app.http("evidenceContent", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "evidence/{id}/content",
@@ -74672,15 +75498,15 @@ import_functions15.app.http("evidenceContent", {
     }
   })
 });
-import_functions15.app.http("patchEvidence", {
+import_functions16.app.http("patchEvidence", {
   methods: ["PATCH"],
   authLevel: "anonymous",
   route: "evidence/{id}",
   handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
     const id = req.params.id;
     if (!id) return { status: 400, jsonBody: { error: "evidence id required" } };
-    const body2 = await req.json().catch(() => ({}));
-    const supplied = (key) => Object.prototype.hasOwnProperty.call(body2, key);
+    const body3 = await req.json().catch(() => ({}));
+    const supplied = (key) => Object.prototype.hasOwnProperty.call(body3, key);
     const supported = [
       "imageRole",
       "registrationVisible",
@@ -74691,25 +75517,25 @@ import_functions15.app.http("patchEvidence", {
     if (!supported.some(supplied)) {
       return { status: 400, jsonBody: { error: "at least one review field is required" } };
     }
-    if (supplied("imageRole") && typeof body2.imageRole !== "string") {
+    if (supplied("imageRole") && typeof body3.imageRole !== "string") {
       return { status: 400, jsonBody: { error: "imageRole is not recognised" } };
     }
-    const roleCode = supplied("imageRole") ? imageRoleCodec.toInt(body2.imageRole) : void 0;
+    const roleCode = supplied("imageRole") ? imageRoleCodec.toInt(body3.imageRole) : void 0;
     if (supplied("imageRole") && roleCode == null) {
       return { status: 400, jsonBody: { error: "imageRole is not recognised" } };
     }
     for (const key of ["registrationVisible", "acceptedForEva", "excluded", "reflectionDismissed"]) {
-      if (supplied(key) && typeof body2[key] !== "boolean") {
+      if (supplied(key) && typeof body3[key] !== "boolean") {
         return { status: 400, jsonBody: { error: `${key} must be boolean` } };
       }
     }
     if (supplied("exclusionReason") && !supplied("excluded")) {
       return { status: 400, jsonBody: { error: "exclusionReason requires excluded" } };
     }
-    if (supplied("exclusionReason") && body2.exclusionReason !== null && typeof body2.exclusionReason !== "string") {
+    if (supplied("exclusionReason") && body3.exclusionReason !== null && typeof body3.exclusionReason !== "string") {
       return { status: 400, jsonBody: { error: "exclusionReason must be text or null" } };
     }
-    if (typeof body2.exclusionReason === "string" && body2.exclusionReason.trim().length > 400) {
+    if (typeof body3.exclusionReason === "string" && body3.exclusionReason.trim().length > 400) {
       return { status: 400, jsonBody: { error: "exclusionReason must be 400 characters or fewer" } };
     }
     const imageKind = evidenceKindCodec.toInt("image") ?? 1e8;
@@ -74745,27 +75571,27 @@ import_functions15.app.http("patchEvidence", {
         nextRole = roleCode;
         nextRoleSource = "staff";
       }
-      if (typeof body2.registrationVisible === "boolean") {
-        nextRegistration = body2.registrationVisible;
+      if (typeof body3.registrationVisible === "boolean") {
+        nextRegistration = body3.registrationVisible;
         nextRegistrationSource = "staff";
       }
-      if (typeof body2.acceptedForEva === "boolean") {
-        nextAccepted = body2.acceptedForEva;
+      if (typeof body3.acceptedForEva === "boolean") {
+        nextAccepted = body3.acceptedForEva;
         nextAcceptedSource = "staff";
       }
-      const usableRole = body2.imageRole === "overview" || body2.imageRole === "damage_closeup" || body2.imageRole === "additional";
-      if (usableRole && body2.acceptedForEva === true && current.person_reflection !== true && (nextExclusionSource == null || nextExclusionSource === "classifier")) {
+      const usableRole = body3.imageRole === "overview" || body3.imageRole === "damage_closeup" || body3.imageRole === "additional";
+      if (usableRole && body3.acceptedForEva === true && current.person_reflection !== true && (nextExclusionSource == null || nextExclusionSource === "classifier")) {
         nextExcluded = false;
         nextReason = null;
         nextExclusionSource = "staff";
       }
-      if (typeof body2.excluded === "boolean") {
-        nextExcluded = body2.excluded;
-        nextReason = body2.excluded ? (typeof body2.exclusionReason === "string" ? body2.exclusionReason.trim() : "") || "Excluded by reviewer" : null;
+      if (typeof body3.excluded === "boolean") {
+        nextExcluded = body3.excluded;
+        nextReason = body3.excluded ? (typeof body3.exclusionReason === "string" ? body3.exclusionReason.trim() : "") || "Excluded by reviewer" : null;
         nextExclusionSource = "staff";
       }
-      if (typeof body2.reflectionDismissed === "boolean") {
-        nextReflectionDismissed = body2.reflectionDismissed;
+      if (typeof body3.reflectionDismissed === "boolean") {
+        nextReflectionDismissed = body3.reflectionDismissed;
       }
       const readinessChanged = nextRole !== current.image_role_code || nextRegistration !== current.registration_visible || nextAccepted !== current.accepted_for_eva || nextExcluded !== current.excluded;
       const changed = readinessChanged || nextReason !== current.exclusion_reason || nextRoleSource !== current.image_role_source || nextRegistrationSource !== current.registration_visible_source || nextAcceptedSource !== current.accepted_for_eva_source || nextExclusionSource !== current.exclusion_decision_source || nextReflectionDismissed !== current.reflection_dismissed;
@@ -74885,7 +75711,7 @@ import_functions15.app.http("patchEvidence", {
 });
 
 // api/src/functions/evidence-delete.ts
-var import_functions16 = require("@azure/functions");
+var import_functions17 = require("@azure/functions");
 function deletionStoreResolved(outcome) {
   return outcome === "deleted" || outcome === "missing" || outcome === "not_required";
 }
@@ -75231,7 +76057,7 @@ async function finalizeDeletion(intent, actor) {
     return generation;
   });
 }
-import_functions16.app.http("deleteCaseImage", {
+import_functions17.app.http("deleteCaseImage", {
   methods: ["DELETE"],
   authLevel: "anonymous",
   route: "cases/{caseId}/images/{evidenceId}",
@@ -75389,7 +76215,7 @@ import_functions16.app.http("deleteCaseImage", {
 });
 
 // api/src/functions/archive-mirror-outbox.ts
-var import_functions17 = require("@azure/functions");
+var import_functions18 = require("@azure/functions");
 var ARCHIVE_MIRROR_MAX_ATTEMPTS = 8;
 async function withServiceAuth2(req, ctx, fn) {
   try {
@@ -75403,7 +76229,7 @@ function isMirrorEligible(row) {
   const boxFileId = typeof row.box_file_id === "string" ? row.box_file_id.trim() : "";
   return row.excluded === false && typeof row.storage_path === "string" && row.storage_path.trim().length > 0 && !boxFileId && row.deletion_operation_id == null;
 }
-import_functions17.app.http("internalArchiveMirrorOutboxPending", {
+import_functions18.app.http("internalArchiveMirrorOutboxPending", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "internal/archive-mirror-outbox/pending",
@@ -75441,15 +76267,15 @@ import_functions17.app.http("internalArchiveMirrorOutboxPending", {
     };
   })
 });
-import_functions17.app.http("internalArchiveMirrorOutboxComplete", {
+import_functions18.app.http("internalArchiveMirrorOutboxComplete", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/archive-mirror-outbox/{id}/complete",
   handler: (req, ctx) => withServiceAuth2(req, ctx, async () => {
     const evidenceId = req.params.id?.trim();
     if (!evidenceId) return { status: 400, jsonBody: { error: "evidenceId required" } };
-    const body2 = await req.json().catch(() => ({}));
-    const generation = Number(body2.generation);
+    const body3 = await req.json().catch(() => ({}));
+    const generation = Number(body3.generation);
     if (!Number.isSafeInteger(generation) || generation < 1) {
       return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
     }
@@ -75548,19 +76374,19 @@ import_functions17.app.http("internalArchiveMirrorOutboxComplete", {
     return { status: 200, jsonBody: result };
   })
 });
-import_functions17.app.http("internalArchiveMirrorOutboxDefer", {
+import_functions18.app.http("internalArchiveMirrorOutboxDefer", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/archive-mirror-outbox/{id}/defer",
   handler: (req, ctx) => withServiceAuth2(req, ctx, async () => {
     const evidenceId = req.params.id?.trim();
     if (!evidenceId) return { status: 400, jsonBody: { error: "evidenceId required" } };
-    const body2 = await req.json().catch(() => ({}));
-    const generation = Number(body2.generation);
+    const body3 = await req.json().catch(() => ({}));
+    const generation = Number(body3.generation);
     if (!Number.isSafeInteger(generation) || generation < 1) {
       return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
     }
-    const reason = typeof body2.reason === "string" ? body2.reason.trim().slice(0, 200) || "archive pass incomplete" : "archive pass incomplete";
+    const reason = typeof body3.reason === "string" ? body3.reason.trim().slice(0, 200) || "archive pass incomplete" : "archive pass incomplete";
     for (let attempt = 0; attempt < 4; attempt++) {
       const owner = await query(
         "SELECT case_id FROM evidence WHERE id = $1",
@@ -75666,8 +76492,8 @@ import_functions17.app.http("internalArchiveMirrorOutboxDefer", {
 });
 
 // api/src/functions/provider-archive-outbox.ts
-var import_functions18 = require("@azure/functions");
-import_functions18.app.http("internalProviderArchiveOutboxPending", {
+var import_functions19 = require("@azure/functions");
+import_functions19.app.http("internalProviderArchiveOutboxPending", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "internal/provider-archive-outbox/pending",
@@ -75697,15 +76523,15 @@ import_functions18.app.http("internalProviderArchiveOutboxPending", {
     };
   })
 });
-import_functions18.app.http("internalProviderArchiveOutboxComplete", {
+import_functions19.app.http("internalProviderArchiveOutboxComplete", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/provider-archive-outbox/{id}/complete",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const caseId = (req.params.id ?? "").trim().toLowerCase();
     if (!isUuid2(caseId)) return { status: 400, jsonBody: { error: "valid caseId required" } };
-    const body2 = await req.json().catch(() => ({}));
-    const generation = Number(body2.generation);
+    const body3 = await req.json().catch(() => ({}));
+    const generation = Number(body3.generation);
     if (!Number.isSafeInteger(generation) || generation < 1) {
       return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
     }
@@ -75772,19 +76598,19 @@ import_functions18.app.http("internalProviderArchiveOutboxComplete", {
     return { status: 200, jsonBody: result };
   })
 });
-import_functions18.app.http("internalProviderArchiveOutboxDefer", {
+import_functions19.app.http("internalProviderArchiveOutboxDefer", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/provider-archive-outbox/{id}/defer",
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const caseId = (req.params.id ?? "").trim().toLowerCase();
     if (!isUuid2(caseId)) return { status: 400, jsonBody: { error: "valid caseId required" } };
-    const body2 = await req.json().catch(() => ({}));
-    const generation = Number(body2.generation);
+    const body3 = await req.json().catch(() => ({}));
+    const generation = Number(body3.generation);
     if (!Number.isSafeInteger(generation) || generation < 1) {
       return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
     }
-    const reason = typeof body2.reason === "string" ? body2.reason.trim().slice(0, 200) || "Archive folder ensure incomplete" : "Archive folder ensure incomplete";
+    const reason = typeof body3.reason === "string" ? body3.reason.trim().slice(0, 200) || "Archive folder ensure incomplete" : "Archive folder ensure incomplete";
     const rows = await query(
       `UPDATE case_
           SET provider_archive_attempt_count = provider_archive_attempt_count + 1,
@@ -75815,7 +76641,7 @@ import_functions18.app.http("internalProviderArchiveOutboxDefer", {
 });
 
 // api/src/functions/box-file-request-outbox.ts
-var import_functions19 = require("@azure/functions");
+var import_functions20 = require("@azure/functions");
 async function drainBoxFileRequestOutbox() {
   if (!gates.boxApi() || !gates.boxFileRequest()) return { processed: 0, completed: 0 };
   const caseIds = await pendingBoxFileRequestCaseIds();
@@ -75826,7 +76652,7 @@ async function drainBoxFileRequestOutbox() {
   }
   return { processed: caseIds.length, completed };
 }
-import_functions19.app.timer("box-file-request-outbox-drain", {
+import_functions20.app.timer("box-file-request-outbox-drain", {
   schedule: "30 * * * * *",
   handler: async () => {
     try {
@@ -75836,7 +76662,7 @@ import_functions19.app.timer("box-file-request-outbox-drain", {
     }
   }
 });
-import_functions19.app.http("internalBoxFileRequestOutboxDrain", {
+import_functions20.app.http("internalBoxFileRequestOutboxDrain", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/box-file-request-outbox/drain",
@@ -75847,7 +76673,7 @@ import_functions19.app.http("internalBoxFileRequestOutboxDrain", {
 });
 
 // api/src/functions/ai-suggestions.ts
-var import_functions20 = require("@azure/functions");
+var import_functions21 = require("@azure/functions");
 
 // api/src/lib/aoai-suggestions.ts
 var CASE_ASSESSMENT_SUGGESTION_TYPES = {
@@ -75928,8 +76754,8 @@ function suggestedValueFor(type, value) {
   }
 }
 function parseSuggestionsResponse(json, deployment) {
-  const body2 = json;
-  const choice = body2?.choices?.[0];
+  const body3 = json;
+  const choice = body3?.choices?.[0];
   if (!choice || choice.finish_reason === "content_filter") return null;
   const content = choice.message?.content;
   if (typeof content !== "string" || content.trim() === "") return null;
@@ -75942,7 +76768,7 @@ function parseSuggestionsResponse(json, deployment) {
   if (typeof parsed !== "object" || parsed === null) return null;
   const items = parsed.suggestions;
   if (!Array.isArray(items)) return null;
-  const modelVersion = `${deployment}:${body2?.model ?? body2?.system_fingerprint ?? "unknown"}`;
+  const modelVersion = `${deployment}:${body3?.model ?? body3?.system_fingerprint ?? "unknown"}`;
   const drafts = [];
   for (const raw of items) {
     if (drafts.length >= MAX_DRAFTS) break;
@@ -76014,18 +76840,18 @@ function capText(s, max) {
 }
 function buildGenerateInputs(caseRow, extras = {}) {
   const sections = [];
-  const section = (name, label, body2) => {
-    if (body2) sections.push({ name, text: `${label}
-${capText(body2, SECTION_CHAR_CAP)}` });
+  const section = (name, label, body3) => {
+    if (body3) sections.push({ name, text: `${label}
+${capText(body3, SECTION_CHAR_CAP)}` });
   };
   section("circumstances", "Accident circumstances:", scrubbed(caseRow.eva_accident_circumstances));
   section("claimant_address", "Claimant address (personal details removed):", scrubbed(caseRow.eva_claimant_address));
   const emailBits = [];
   for (const e of extras.instructionEmails ?? []) {
     const subject = scrubbed(e.subject);
-    const body2 = scrubbed(e.bodyPreview);
-    if (!subject && !body2) continue;
-    emailBits.push([subject ? `Subject: ${subject}` : "", body2].filter(Boolean).join("\n"));
+    const body3 = scrubbed(e.bodyPreview);
+    if (!subject && !body3) continue;
+    emailBits.push([subject ? `Subject: ${subject}` : "", body3].filter(Boolean).join("\n"));
   }
   section("instruction_email", "Instruction email text (personal details removed):", emailBits.join("\n---\n"));
   const facts = [];
@@ -76212,7 +77038,7 @@ async function drainEvidenceBackfillRequests(inboundEmailId, limit = 50) {
   }
   return { published, failed };
 }
-import_functions20.app.http("caseAiSuggestions", {
+import_functions21.app.http("caseAiSuggestions", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "cases/{id}/ai-suggestions",
@@ -76233,14 +77059,14 @@ import_functions20.app.http("caseAiSuggestions", {
     }
   })
 });
-import_functions20.app.http("reviewAiSuggestion", {
+import_functions21.app.http("reviewAiSuggestion", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "ai-suggestions/{id}/review",
   handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
     const id = req.params.id;
-    const body2 = await req.json().catch(() => ({}));
-    const decision = body2.decision;
+    const body3 = await req.json().catch(() => ({}));
+    const decision = body3.decision;
     if (!isAiReviewState(decision) || decision !== "accepted" && decision !== "rejected") {
       return { status: 400, jsonBody: { error: "decision must be 'accepted' or 'rejected'" } };
     }
@@ -76726,7 +77552,7 @@ function coerceJsonValue(v) {
     return v;
   }
 }
-import_functions20.app.http("generateAiSuggestions", {
+import_functions21.app.http("generateAiSuggestions", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/ai-suggestions/generate",
@@ -76858,8 +77684,8 @@ async function callModelForSuggestions(input) {
 }
 
 // api/src/functions/evidence-backfill-drain.ts
-var import_functions21 = require("@azure/functions");
-import_functions21.app.http("internalEvidenceBackfillRequestDrain", {
+var import_functions22 = require("@azure/functions");
+import_functions22.app.http("internalEvidenceBackfillRequestDrain", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/evidence-backfill-requests/drain",
@@ -76871,7 +77697,7 @@ import_functions21.app.http("internalEvidenceBackfillRequestDrain", {
 });
 
 // api/src/functions/image-analysis.ts
-var import_functions22 = require("@azure/functions");
+var import_functions23 = require("@azure/functions");
 
 // api/src/lib/image-analysis.ts
 var IMAGE_ANALYSIS_SUGGESTION_TYPES = {
@@ -77141,8 +77967,8 @@ function buildSceneResponseSchema() {
 }
 var VISIBILITY_VALUES = /* @__PURE__ */ new Set(["visible_readable", "visible_unreadable", "not_visible"]);
 function parseSceneResponse(json) {
-  const body2 = json;
-  const choice = body2?.choices?.[0];
+  const body3 = json;
+  const choice = body3?.choices?.[0];
   if (!choice || choice.finish_reason === "content_filter") return null;
   const content = choice.message?.content;
   if (typeof content !== "string" || content.trim() === "") return null;
@@ -77184,8 +78010,8 @@ function buildSameVehicleResponseSchema() {
   };
 }
 function parseSameVehicleResponse(json) {
-  const body2 = json;
-  const choice = body2?.choices?.[0];
+  const body3 = json;
+  const choice = body3?.choices?.[0];
   if (!choice || choice.finish_reason === "content_filter") return null;
   const content = choice.message?.content;
   if (typeof content !== "string" || content.trim() === "") return null;
@@ -77250,7 +78076,7 @@ ${list}` }
     reasoning_effort: "low"
   };
 }
-async function postAoai(body2) {
+async function postAoai(body3) {
   const endpoint = gates.aiModelEndpoint();
   if (!endpoint) return null;
   const controller = new AbortController();
@@ -77261,7 +78087,7 @@ async function postAoai(body2) {
     const res = await fetch(url2, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body2),
+      body: JSON.stringify(body3),
       signal: controller.signal
     });
     if (!res.ok) return null;
@@ -77323,14 +78149,14 @@ function makeImageAnalysisAdapters() {
           // Feed the VLM's landmark/signage clues as extra geocode text (business names, road names).
           ...hints.length ? { photo_location_hints: hints.map((h) => h.detail).join("; ") } : {}
         };
-        const body2 = {
+        const body3 = {
           case_id: ctx.caseId,
           ...ctx.casePo ? { case_po: ctx.casePo } : {},
           photo_refs,
           ...Object.keys(text_clues).length ? { text_clues } : {},
           max_candidates: 5
         };
-        const resp = await callLocationSuggest(body2, { timeoutMs: FN_STAGE_TIMEOUT_MS });
+        const resp = await callLocationSuggest(body3, { timeoutMs: FN_STAGE_TIMEOUT_MS });
         const candidates = resp?.candidates ?? [];
         return candidates.map((c) => ({
           label: c.label,
@@ -77358,7 +78184,7 @@ function rasterFilename(fileName, contentType2) {
   const base = name.replace(/\.[^.]*$/, "") || "image";
   return `${base}${ext}`;
 }
-import_functions22.app.http("generateImageAnalysis", {
+import_functions23.app.http("generateImageAnalysis", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/image-analysis/generate",
@@ -77486,7 +78312,7 @@ async function persistDraft(caseId, d) {
 }
 
 // api/src/functions/provider-keys.ts
-var import_functions23 = require("@azure/functions");
+var import_functions24 = require("@azure/functions");
 
 // api/src/lib/api-key-auth.ts
 var import_node_crypto15 = require("node:crypto");
@@ -77568,15 +78394,15 @@ function rowToApiKey(r) {
     lastUsedAt: iso(r.last_used_at)
   };
 }
-import_functions23.app.http("createProviderApiKey", {
+import_functions24.app.http("createProviderApiKey", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "providers/{id}/api-keys",
   handler: withRole("CollisionSpike.Superuser", async (req, _ctx, claims) => {
     const idOrCode = (req.params.id ?? "").trim();
     if (!idOrCode) return { status: 400, jsonBody: { error: "id is required" } };
-    const body2 = await req.json().catch(() => ({}));
-    const label = String(body2.label ?? "").trim();
+    const body3 = await req.json().catch(() => ({}));
+    const label = String(body3.label ?? "").trim();
     if (!label) return { status: 400, jsonBody: { error: "label is required" } };
     if (label.length > 200) {
       return { status: 400, jsonBody: { error: "label must be 200 characters or fewer" } };
@@ -77603,7 +78429,7 @@ import_functions23.app.http("createProviderApiKey", {
     return { status: 201, jsonBody: result };
   })
 });
-import_functions23.app.http("listProviderApiKeys", {
+import_functions24.app.http("listProviderApiKeys", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "providers/{id}/api-keys",
@@ -77620,7 +78446,7 @@ import_functions23.app.http("listProviderApiKeys", {
     return { status: 200, jsonBody: rows.map(rowToApiKey) };
   })
 });
-import_functions23.app.http("revokeProviderApiKey", {
+import_functions24.app.http("revokeProviderApiKey", {
   methods: ["DELETE"],
   authLevel: "anonymous",
   route: "providers/{id}/api-keys/{keyId}",
@@ -77652,7 +78478,7 @@ import_functions23.app.http("revokeProviderApiKey", {
 });
 
 // api/src/functions/provider-intake.ts
-var import_functions24 = require("@azure/functions");
+var import_functions25 = require("@azure/functions");
 var import_node_crypto16 = require("node:crypto");
 
 // api/src/lib/provider-intake-validate.ts
@@ -77876,7 +78702,7 @@ async function persistEvidence(ctx, caseId, kind, att, sequenceIndex) {
     return false;
   }
 }
-import_functions24.app.http("providerIntakeCase", {
+import_functions25.app.http("providerIntakeCase", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "provider-intake/cases",
@@ -78025,7 +78851,7 @@ import_functions24.app.http("providerIntakeCase", {
 });
 
 // api/src/functions/vehicle-data.ts
-var import_functions25 = require("@azure/functions");
+var import_functions26 = require("@azure/functions");
 
 // api/src/lib/vehicle-data-persistence.ts
 var import_node_crypto17 = require("node:crypto");
@@ -78443,27 +79269,27 @@ function isoDate(value) {
   if (parsed.getUTCFullYear() !== year2 || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day2) return void 0;
   return `${String(year2).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day2).padStart(2, "0")}`;
 }
-import_functions25.app.http("vehicleDataLookup", {
+import_functions26.app.http("vehicleDataLookup", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "vehicle-data/lookup",
   handler: withVehicleLookupAuth(async (req, ctx) => {
-    const body2 = await req.json().catch(() => ({}));
-    const caseId = typeof body2.caseId === "string" ? body2.caseId.trim() : "";
-    const previewRegistration = typeof body2.registration === "string" ? body2.registration.trim() : "";
+    const body3 = await req.json().catch(() => ({}));
+    const caseId = typeof body3.caseId === "string" ? body3.caseId.trim() : "";
+    const previewRegistration = typeof body3.registration === "string" ? body3.registration.trim() : "";
     if (!caseId && !previewRegistration) {
       return { status: 400, jsonBody: { error: "supply caseId or registration" } };
     }
-    if (body2.targetDate !== void 0 && !isoDate(body2.targetDate)) {
+    if (body3.targetDate !== void 0 && !isoDate(body3.targetDate)) {
       return { status: 400, jsonBody: { error: "targetDate must be YYYY-MM-DD" } };
     }
-    const idempotencyKey = typeof body2.idempotencyKey === "string" ? body2.idempotencyKey.trim() : "";
+    const idempotencyKey = typeof body3.idempotencyKey === "string" ? body3.idempotencyKey.trim() : "";
     if (idempotencyKey && (!caseId || idempotencyKey.length > 200)) {
       return { status: 400, jsonBody: { error: "idempotencyKey requires caseId and must be at most 200 characters" } };
     }
     let registration = previewRegistration;
     let documentHasMileage = false;
-    let targetDate = isoDate(body2.targetDate);
+    let targetDate = isoDate(body3.targetDate);
     if (caseId) {
       const rows = await query(
         "SELECT vrm, eva_mileage, eva_date_of_loss FROM case_ WHERE id = $1",
@@ -78530,7 +79356,7 @@ import_functions25.app.http("vehicleDataLookup", {
 });
 
 // api/src/functions/capture.ts
-var import_functions26 = require("@azure/functions");
+var import_functions27 = require("@azure/functions");
 var import_node_crypto19 = require("node:crypto");
 
 // api/src/lib/capture-auth.ts
@@ -79122,7 +79948,7 @@ async function publicHandler(_req, ctx, handler) {
     return problem(500, "capture_unknown", "Capture could not be completed.");
   }
 }
-import_functions26.app.http("createCaptureSession", {
+import_functions27.app.http("createCaptureSession", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/capture-sessions",
@@ -79130,9 +79956,9 @@ import_functions26.app.http("createCaptureSession", {
     const off = staffCaptureFeature();
     if (off) return off;
     const caseId = req.params.id ?? "";
-    const body2 = await req.json().catch(() => ({}));
-    const plan = captureShotPlan(body2.shotPlanId);
-    const expiryHours = captureExpiryHours(body2.expiresInHours);
+    const body3 = await req.json().catch(() => ({}));
+    const plan = captureShotPlan(body3.shotPlanId);
+    const expiryHours = captureExpiryHours(body3.expiresInHours);
     const guidanceMode = configuredCaptureGuidanceMode();
     if (!plan) return problem(400, "capture_unsupported", "Choose a supported photo plan.");
     if (!expiryHours) return problem(400, "capture_validation", "Choose a 24, 72 or 168 hour expiry.");
@@ -79207,7 +80033,7 @@ import_functions26.app.http("createCaptureSession", {
     }
   })
 });
-import_functions26.app.http("listCaptureSessions", {
+import_functions27.app.http("listCaptureSessions", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "cases/{id}/capture-sessions",
@@ -79221,7 +80047,7 @@ import_functions26.app.http("listCaptureSessions", {
     return noStore({ status: 200, jsonBody: { sessions: rows.map(summary) } });
   })
 });
-import_functions26.app.http("rotateCaptureSession", {
+import_functions27.app.http("rotateCaptureSession", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "capture-sessions/{id}/rotate",
@@ -79265,7 +80091,7 @@ import_functions26.app.http("rotateCaptureSession", {
     }
   })
 });
-import_functions26.app.http("revokeCaptureSession", {
+import_functions27.app.http("revokeCaptureSession", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "capture-sessions/{id}/revoke",
@@ -79308,16 +80134,16 @@ import_functions26.app.http("revokeCaptureSession", {
     }
   })
 });
-import_functions26.app.http("exchangeCaptureSecret", {
+import_functions27.app.http("exchangeCaptureSecret", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "public/capture/exchange",
   handler: async (req, ctx) => publicHandler(req, ctx, async () => {
-    const body2 = await req.json().catch(() => ({}));
-    if (typeof body2.bootstrapSecret !== "string" || !BOOTSTRAP_SECRET_RE.test(body2.bootstrapSecret)) {
+    const body3 = await req.json().catch(() => ({}));
+    if (typeof body3.bootstrapSecret !== "string" || !BOOTSTRAP_SECRET_RE.test(body3.bootstrapSecret)) {
       throw new CaptureProblem(401, "capture_unauthorized", "This capture link is not authorized.");
     }
-    const bootstrapSecret = body2.bootstrapSecret;
+    const bootstrapSecret = body3.bootstrapSecret;
     const issued = await tx(async (q) => {
       const rows = await q(
         `SELECT id, case_id, status, shot_plan_id, shot_plan_label, guidance_mode,
@@ -79361,7 +80187,7 @@ import_functions26.app.http("exchangeCaptureSecret", {
     };
   })
 });
-import_functions26.app.http("renewCaptureAccess", {
+import_functions27.app.http("renewCaptureAccess", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "public/capture/renew",
@@ -79434,7 +80260,7 @@ import_functions26.app.http("renewCaptureAccess", {
     };
   })
 });
-import_functions26.app.http("captureManifest", {
+import_functions27.app.http("captureManifest", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "public/capture/sessions/{id}",
@@ -79502,7 +80328,7 @@ import_functions26.app.http("captureManifest", {
     };
   })
 });
-import_functions26.app.http("createCaptureUpload", {
+import_functions27.app.http("createCaptureUpload", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "public/capture/sessions/{id}/uploads",
@@ -79514,17 +80340,17 @@ import_functions26.app.http("createCaptureUpload", {
     if (!IDEMPOTENCY_RE2.test(idempotencyKey)) {
       throw new CaptureProblem(400, "capture_validation", "This upload cannot be safely retried.");
     }
-    const body2 = await req.json().catch(() => ({}));
-    if (typeof body2.shotId !== "string" || body2.shotId.length < 1 || body2.shotId.length > 80 || typeof body2.fileName !== "string" || body2.fileName.length < 1 || body2.fileName.length > 255 || typeof body2.contentType !== "string" || typeof body2.sizeBytes !== "number" || !Number.isInteger(body2.sizeBytes) || body2.sizeBytes < 1 || typeof body2.sha256 !== "string" || !SHA256_RE2.test(body2.sha256)) throw new CaptureProblem(400, "capture_validation", "Check the selected photo and try again.");
-    if (body2.sizeBytes > MAX_UPLOAD_BYTES) {
+    const body3 = await req.json().catch(() => ({}));
+    if (typeof body3.shotId !== "string" || body3.shotId.length < 1 || body3.shotId.length > 80 || typeof body3.fileName !== "string" || body3.fileName.length < 1 || body3.fileName.length > 255 || typeof body3.contentType !== "string" || typeof body3.sizeBytes !== "number" || !Number.isInteger(body3.sizeBytes) || body3.sizeBytes < 1 || typeof body3.sha256 !== "string" || !SHA256_RE2.test(body3.sha256)) throw new CaptureProblem(400, "capture_validation", "Check the selected photo and try again.");
+    if (body3.sizeBytes > MAX_UPLOAD_BYTES) {
       throw new CaptureProblem(413, "capture_validation", "This photo is too large. Choose a smaller photo.");
     }
     const clientObservation = normalizedClientCaptureObservation(
-      body2.clientObservation,
+      body3.clientObservation,
       session.rules_version
     );
     const clientObservationJson = JSON.stringify(clientObservation);
-    const check2 = classifyUpload(body2.contentType, body2.sizeBytes, body2.fileName);
+    const check2 = classifyUpload(body3.contentType, body3.sizeBytes, body3.fileName);
     if (!check2.ok || check2.kind !== "image" || !PUBLIC_MIME_TYPES.includes(check2.contentType)) {
       throw new CaptureProblem(415, "capture_unsupported", "Use a JPG, PNG or WebP photo.");
     }
@@ -79542,7 +80368,7 @@ import_functions26.app.http("createCaptureUpload", {
       if (sessions[0]?.status !== "open" || new Date(sessions[0].expires_at).getTime() <= Date.now() || Number(sessions[0].token_generation) !== Number(session.token_generation) || sessions[0].rules_version !== clientObservation.rulesVersion || sessions[0].guidance_mode !== session.guidance_mode) throw new CaptureProblem(409, "capture_conflict", "This capture session is no longer open.");
       const shots = await q(
         "SELECT shot_id FROM capture_session_shot WHERE session_id = $1 AND shot_id = $2",
-        [sessionId, body2.shotId]
+        [sessionId, body3.shotId]
       );
       if (!shots[0]) throw new CaptureProblem(400, "capture_unsupported", "That requested photo is not in this session.");
       const existingRows = await q(
@@ -79553,7 +80379,7 @@ import_functions26.app.http("createCaptureUpload", {
       );
       const existing = existingRows[0];
       if (existing) {
-        if (existing.shot_id !== body2.shotId || existing.file_name !== body2.fileName || existing.declared_content_type !== check2.contentType || Number(existing.declared_size_bytes) !== body2.sizeBytes || existing.declared_sha256 !== body2.sha256 || storedClientObservationFingerprint(existing.client_quality, session.rules_version) !== clientObservationJson) throw new CaptureProblem(409, "capture_conflict", "This retry does not match the original photo.");
+        if (existing.shot_id !== body3.shotId || existing.file_name !== body3.fileName || existing.declared_content_type !== check2.contentType || Number(existing.declared_size_bytes) !== body3.sizeBytes || existing.declared_sha256 !== body3.sha256 || storedClientObservationFingerprint(existing.client_quality, session.rules_version) !== clientObservationJson) throw new CaptureProblem(409, "capture_conflict", "This retry does not match the original photo.");
         if (existing.state !== "upload_pending") {
           throw new CaptureProblem(409, "capture_conflict", "This upload has already been completed.");
         }
@@ -79564,7 +80390,7 @@ import_functions26.app.http("createCaptureUpload", {
                 COUNT(*)::int AS session_attempts
            FROM capture_asset
           WHERE session_id = $1`,
-        [sessionId, body2.shotId]
+        [sessionId, body3.shotId]
       );
       const shotAttempts = Number(counts[0]?.shot_attempts);
       const sessionAttempts = Number(counts[0]?.session_attempts);
@@ -79610,12 +80436,12 @@ import_functions26.app.http("createCaptureUpload", {
         [
           candidateId,
           sessionId,
-          body2.shotId,
+          body3.shotId,
           idempotencyKey,
-          body2.fileName,
+          body3.fileName,
           check2.contentType,
-          body2.sizeBytes,
-          body2.sha256,
+          body3.sizeBytes,
+          body3.sha256,
           blobPath,
           clientObservationJson
         ]
@@ -79676,7 +80502,7 @@ import_functions26.app.http("createCaptureUpload", {
     };
   })
 });
-import_functions26.app.http("completeCaptureUpload", {
+import_functions27.app.http("completeCaptureUpload", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "public/capture/sessions/{id}/uploads/{assetId}/complete",
@@ -79685,8 +80511,8 @@ import_functions26.app.http("completeCaptureUpload", {
     const assetId = req.params.assetId ?? "";
     const session = await activePublicSession(req, sessionId);
     if (session.status !== "open") throw new CaptureProblem(409, "capture_conflict", "This capture is already complete.");
-    const body2 = await req.json().catch(() => ({}));
-    if (typeof body2.sizeBytes !== "number" || !Number.isInteger(body2.sizeBytes) || body2.sizeBytes < 1 || body2.sizeBytes > MAX_UPLOAD_BYTES || typeof body2.sha256 !== "string" || !SHA256_RE2.test(body2.sha256)) {
+    const body3 = await req.json().catch(() => ({}));
+    if (typeof body3.sizeBytes !== "number" || !Number.isInteger(body3.sizeBytes) || body3.sizeBytes < 1 || body3.sizeBytes > MAX_UPLOAD_BYTES || typeof body3.sha256 !== "string" || !SHA256_RE2.test(body3.sha256)) {
       throw new CaptureProblem(400, "capture_validation", "The uploaded photo details are invalid.");
     }
     const validationAttempt = (0, import_node_crypto19.randomUUID)();
@@ -79705,7 +80531,7 @@ import_functions26.app.http("completeCaptureUpload", {
       const row = rows[0];
       if (!row) throw new CaptureProblem(404, "capture_missing", "This upload was not found.");
       if (row.session_status !== "open" || new Date(row.session_expires_at).getTime() <= Date.now() || Number(row.session_token_generation) !== Number(session.token_generation)) throw new CaptureProblem(409, "capture_conflict", "This capture session is no longer open.");
-      if (Number(row.declared_size_bytes) !== body2.sizeBytes || row.declared_sha256 !== body2.sha256) {
+      if (Number(row.declared_size_bytes) !== body3.sizeBytes || row.declared_sha256 !== body3.sha256) {
         throw new CaptureProblem(409, "capture_conflict", "The uploaded photo does not match the upload request.");
       }
       if (row.state === "accepted" || row.state === "pending_review" || row.state === "materialised") {
@@ -79919,7 +80745,7 @@ import_functions26.app.http("completeCaptureUpload", {
     return { status: 200, jsonBody: { assetId, shotId: claimed.shot_id, status: "pending_review" } };
   })
 });
-import_functions26.app.http("submitCaptureSession", {
+import_functions27.app.http("submitCaptureSession", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "public/capture/sessions/{id}/submit",
@@ -80108,7 +80934,7 @@ import_functions26.app.http("submitCaptureSession", {
 });
 
 // api/src/functions/capture-cleanup.ts
-var import_functions27 = require("@azure/functions");
+var import_functions28 = require("@azure/functions");
 var CLEANUP_BATCH_SIZE = 100;
 function enabled3(name) {
   return (process.env[name] ?? "").trim().toLowerCase() === "true";
@@ -80291,7 +81117,7 @@ async function runCaptureCleanup(ctx) {
   ctx.log("[capture-cleanup] completed", result);
   return result;
 }
-import_functions27.app.timer("capture-retention-cleanup", {
+import_functions28.app.timer("capture-retention-cleanup", {
   schedule: "0 17 3 * * *",
   handler: async (_timer, ctx) => {
     try {

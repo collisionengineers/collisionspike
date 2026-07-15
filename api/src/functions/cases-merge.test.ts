@@ -67,6 +67,7 @@ const archiveOutbox: Rec[] = [];
 const captureSessions: Rec[] = [];
 const captureAssets: Rec[] = [];
 let captureSchemaPresent = false;
+const archiveHoldings: Rec[] = [];
 const CASE_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const CASE_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const CASE_C = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
@@ -111,6 +112,7 @@ beforeEach(() => {
   captureSessions.length = 0;
   captureAssets.length = 0;
   captureSchemaPresent = false;
+  archiveHoldings.length = 0;
   cases.set(CASE_A, caseRow(CASE_A));
   cases.set(CASE_B, caseRow(CASE_B));
   evidenceRows.push({
@@ -188,6 +190,46 @@ beforeEach(() => {
         box_file_request_id: cases.get(id)?.box_file_request_id ?? null,
         box_file_request_url: cases.get(id)?.box_file_request_url ?? null,
       }));
+    }
+    if (/SELECT id,adopted_case_id,resolved_case_id,box_folder_id,canonical_folder_id,normalized_vrm,state,/i.test(sql)) {
+      const ids=(params[0] as string[])??[];
+      const sourceId=String(params[1]??'');
+      const targetId=String(params[2]??'');
+      const vrms=(params[3] as string[])??[];
+      return archiveHoldings.filter((row)=>ids.includes(row.adopted_case_id as string)
+        ||ids.includes(row.resolved_case_id as string)
+        ||(row.state!=='adopted'&&!row.resolved_case_id&&!row.adopted_case_id&&(
+          ((row.candidate_case_ids as string[]|undefined)??[]).some((id)=>id===sourceId||id===targetId)
+          ||vrms.includes(String(row.normalized_vrm??'')))));
+    }
+    if (/SELECT id,vrm,box_folder_id,box_folder_url FROM case_/i.test(sql)) {
+      return ((params[0] as string[])??[]).filter((id)=>cases.has(id)).map((id)=>({
+        id,vrm:cases.get(id)?.vrm??null,box_folder_id:cases.get(id)?.box_folder_id??null,box_folder_url:cases.get(id)?.box_folder_url??null,
+      }));
+    }
+    if (/UPDATE archive_holding_folder SET adopted_case_id=/i.test(sql)) {
+      for(const holding of archiveHoldings.filter((row)=>row.adopted_case_id===params[0])){
+        holding.adopted_case_id=params[1];holding.canonical_folder_id=params[2]||holding.canonical_folder_id;
+      }
+      return [];
+    }
+    if (/UPDATE archive_holding_folder SET resolved_case_id=/i.test(sql)) {
+      for(const holding of archiveHoldings.filter((row)=>row.resolved_case_id===params[0]&&row.state!=='adopted'))holding.resolved_case_id=params[1];
+      return [];
+    }
+    if (/candidate_case_ids=\(candidate_case_ids-\$1::text\)/i.test(sql)) {
+      for(const holding of archiveHoldings.filter((row)=>row.state!=='adopted'
+        &&((row.candidate_case_ids as string[]|undefined)??[]).includes(params[0] as string))){
+        holding.candidate_case_ids=[...new Set(((holding.candidate_case_ids as string[])??[])
+          .map((id)=>id===params[0]?params[1] as string:id))];
+      }
+      return [];
+    }
+    if (/UPDATE case_ SET box_folder_id=\$2,box_folder_url=\$3/i.test(sql)) {
+      const row=cases.get(params[0] as string);if(row){row.box_folder_id=params[1];row.box_folder_url=params[2];}return [];
+    }
+    if (/UPDATE case_ SET box_folder_id=NULL,box_folder_url=NULL/i.test(sql)) {
+      const row=cases.get(params[0] as string);if(row){row.box_folder_id=null;row.box_folder_url=null;}return [];
     }
     if (/SELECT id, duplicate_keys FROM case_ WHERE id = \$1 FOR UPDATE/i.test(sql)) {
       const row = cases.get(params[0] as string);
@@ -394,6 +436,62 @@ describe('mergeCases atomic lock protocol', () => {
     expect(txParams.filter((params) => params.includes(100000061))).toHaveLength(2);
   });
 
+  it('blocks different archive identities when only the survivor owns an adopted holding',async()=>{
+    cases.set(CASE_A,caseRow(CASE_A,{box_folder_id:'source-folder',box_folder_url:'source-url'}));
+    cases.set(CASE_B,caseRow(CASE_B,{box_folder_id:'target-folder',box_folder_url:'target-url'}));
+    archiveHoldings.push({id:'holding-b',adopted_case_id:CASE_B,box_folder_id:'old-held',canonical_folder_id:'target-folder',normalized_vrm:'AB12CDE',state:'adopted'});
+    const res=await merge(request(CASE_B,CASE_A),ctx);
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toMatchObject({error:expect.stringContaining('different archive folders')});
+    expect(txSql.some((sql)=>/UPDATE evidence\s+SET case_id/i.test(sql))).toBe(false);
+  });
+
+  it('preserves one shared adopted archive identity regardless of merge direction',async()=>{
+    cases.set(CASE_A,caseRow(CASE_A,{box_folder_id:'shared-folder',box_folder_url:'shared-url'}));
+    cases.set(CASE_B,caseRow(CASE_B,{box_folder_id:'shared-folder',box_folder_url:'shared-url'}));
+    archiveHoldings.push({id:'holding-b',adopted_case_id:CASE_B,box_folder_id:'old-held',canonical_folder_id:'shared-folder',normalized_vrm:'AB12CDE',state:'adopted'});
+    const res=await merge(request(CASE_B,CASE_A),ctx);
+    expect(res.status).toBe(200);
+    expect(cases.get(CASE_A)?.box_folder_id).toBeNull();
+    expect(archiveHoldings[0].adopted_case_id).toBe(CASE_B);
+  });
+
+  it('does not race a merge through an active folder adoption claim',async()=>{
+    cases.set(CASE_A,caseRow(CASE_A,{box_folder_id:'shared-folder'}));
+    archiveHoldings.push({id:'holding-a',adopted_case_id:CASE_A,box_folder_id:'held',canonical_folder_id:'shared-folder',state:'adopting',claim_active:true});
+    const res=await merge(request(CASE_B,CASE_A),ctx);
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toMatchObject({error:expect.stringContaining('still being filed')});
+  });
+  it('transfers an unresolved staff-selected registration folder to the survivor',async()=>{
+    cases.set(CASE_A,caseRow(CASE_A,{vrm:'AB12 CDE'}));
+    cases.set(CASE_B,caseRow(CASE_B,{vrm:'AB12CDE'}));
+    archiveHoldings.push({id:'holding-a',adopted_case_id:null,resolved_case_id:CASE_A,
+      box_folder_id:'vrm-folder',canonical_folder_id:null,normalized_vrm:'AB12CDE',state:'ambiguous',claim_active:false});
+    const res=await merge(request(CASE_B,CASE_A),ctx);
+    expect(res.status).toBe(200);
+    expect(archiveHoldings[0].resolved_case_id).toBe(CASE_B);
+  });
+  it('refuses to strand a waiting registration folder on a survivor with another registration',async()=>{
+    cases.set(CASE_A,caseRow(CASE_A,{vrm:'AB12CDE'}));
+    cases.set(CASE_B,caseRow(CASE_B,{vrm:'XY99ZZZ'}));
+    archiveHoldings.push({id:'holding-a',adopted_case_id:null,resolved_case_id:CASE_A,
+      box_folder_id:'vrm-folder',canonical_folder_id:null,normalized_vrm:'AB12CDE',state:'ambiguous',claim_active:false});
+    const res=await merge(request(CASE_B,CASE_A),ctx);
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toMatchObject({error:expect.stringContaining('different registration')});
+    expect(archiveHoldings[0].resolved_case_id).toBe(CASE_A);
+  });
+  it('rekeys an unresolved candidate-only holding to the same-registration survivor',async()=>{
+    cases.set(CASE_A,caseRow(CASE_A,{vrm:'AB12CDE'}));
+    cases.set(CASE_B,caseRow(CASE_B,{vrm:'AB12 CDE'}));
+    archiveHoldings.push({id:'holding-a',adopted_case_id:null,resolved_case_id:null,
+      candidate_case_ids:[CASE_A,CASE_B],box_folder_id:'vrm-folder',canonical_folder_id:null,
+      normalized_vrm:'AB12CDE',state:'ambiguous',claim_active:false});
+    const res=await merge(request(CASE_B,CASE_A),ctx);
+    expect(res.status).toBe(200);
+    expect(archiveHoldings[0].candidate_case_ids).toEqual([CASE_B]);
+  });
   it('offers a providerless twin but excludes a case with a different known provider', async () => {
     cases.set(CASE_A, caseRow(CASE_A, { provider_principal: 'P1' }));
     cases.set(CASE_B, caseRow(CASE_B, { provider_principal: '', work_provider_id: null }));
@@ -421,6 +519,15 @@ describe('mergeCases atomic lock protocol', () => {
   });
 
   it('blocks merge when source image-upload link creation may already have run remotely', async () => {
+    archiveHoldings.push({
+      id: 'holding-a',
+      adopted_case_id: CASE_A,
+      resolved_case_id: null,
+      box_folder_id: 'folder-archive-a',
+      canonical_folder_id: `folder-${CASE_A}`,
+      state: 'adopted',
+      claim_active: false,
+    });
     fileRequestIntents.push({
       case_id: CASE_A,
       requested_generation: 1,
@@ -433,6 +540,9 @@ describe('mergeCases atomic lock protocol', () => {
     expect(res.jsonBody).toMatchObject({
       error: expect.stringContaining('may already have started'),
     });
+    // The raw transaction callback rejects so the real tx helper executes
+    // ROLLBACK; a normal error return here would commit the holding re-key above.
+    await expect(db.tx.mock.results[0]?.value).rejects.toThrow('may already have started');
     expect(txSql.some((sql) => /UPDATE evidence\s+SET case_id/i.test(sql))).toBe(false);
   });
 
@@ -642,6 +752,15 @@ describe('mergeCases atomic lock protocol', () => {
   });
 
   it('does not move a case while an archive upload claim is active', async () => {
+    archiveHoldings.push({
+      id: 'holding-a',
+      adopted_case_id: CASE_A,
+      resolved_case_id: null,
+      box_folder_id: 'folder-archive-a',
+      canonical_folder_id: `folder-${CASE_A}`,
+      state: 'adopted',
+      claim_active: false,
+    });
     evidenceRows[0].archive_mirror_claim_token = '11111111-1111-4111-8111-111111111111';
     evidenceRows[0].archive_mirror_claim_expires_at = new Date(Date.now() + 60_000).toISOString();
     fileRequestIntents.push({

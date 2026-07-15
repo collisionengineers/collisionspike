@@ -35,6 +35,8 @@ import './functions/evidence-backfill.js';
 import './functions/box-classify-sweep.js';
 import './functions/box-maintenance-monitor.js'; // durable FC1 wake path for File Request + classification retries
 import './functions/intakeOrchestrator.js';
+import './functions/archiveHolding.js'; // registration holding folder adoption + manual retry
+import './functions/archive-holding-monitor.js'; // durable upload recovery + instruction-first convergence
 import './functions/activities/fetchMessage.js';
 import './functions/activities/providerMatch.js';
 import './functions/activities/classifyInbound.js';

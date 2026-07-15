@@ -171,9 +171,9 @@ describe('mirrorArchiveItems — row-specific stamping', () => {
     expect(ctx.warn).toHaveBeenCalledWith(expect.stringContaining('was not stamped'));
   });
 
-  it('releases a claim when upload fails before any irreversible archive write', async () => {
+  it('releases a claim when Box fails closed on an unverifiable conflict', async () => {
     const deps: ArchiveMirrorItemDeps = {
-      upload: vi.fn(async () => { throw new Error('upload failed'); }),
+      upload: vi.fn(async () => { throw new Error('fn POST box upload → 502: identity unverifiable'); }),
       stamp: vi.fn(async () => ({ updated: true })),
       release: vi.fn(async () => ({ released: true })),
     };

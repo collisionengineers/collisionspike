@@ -276,6 +276,8 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
         internetMessageId: (inbound as { internetMessageId?: string }).internetMessageId,
         vrm:
           ((inbound as { candidateVrm?: string }).candidateVrm || classification.bodyVrm || '').trim(),
+        attachments: (inbound as { attachments?: unknown }).attachments,
+        claimToken: ctx.df.newGuid('images-unmatched-body'),
       });
     } catch (e) {
       if (!ctx.df.isReplaying) {
@@ -448,6 +450,15 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
             ((inbound as { candidateVrm?: string }).candidateVrm || classification.bodyVrm || '').trim(),
         })) as { outcome: string };
         pdfVrmMatch = vrmMatch.outcome;
+        const parsedVrm=(laneParse.vrm?.value??'').trim();
+        if(parsedVrm && ['flagged:no_open_case','flagged:multiple_open_cases'].includes(vrmMatch.outcome)){
+          yield ctx.df.callActivityWithRetry('imagesUnmatched',retry,{
+            internetMessageId:(inbound as {internetMessageId?:string}).internetMessageId,
+            vrm:parsedVrm,
+            attachments:(inbound as {attachments?:unknown}).attachments,
+            claimToken:ctx.df.newGuid('images-unmatched-pdf'),
+          });
+        }
       } catch (e) {
         if (!ctx.df.isReplaying) {
           ctx.log(
@@ -738,7 +749,12 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // (the parse/enrich/chaser convention; the recorded activity result is what replays). The
   // mirror is additive: a Box failure must NOT block the core intake (evidence/status/enrich),
   // so it is best-effort here — the manual box-folder-create starter can retry.
-  // Runs for ANY case id regardless of mode (work-todo-spike "Both"); no-PO cases skip inside.
+  // Runs for ANY case id regardless of mode (work-todo-spike "Both"); no-PO cases skip inside
+  // (gating on resolved.casePo here would wrongly suppress recovery when an earlier response
+  // omitted the Case/PO — the activity re-reads the saved Case/PO from the Data API instead).
+  // Registration-folder ADOPTION is deliberately NOT decided inline with the mint: the recovery
+  // monitor observes the candidate set, waits through a settling window, then re-reads it under
+  // the same VRM mint lock, so two concurrent instructions can't have one win by committing first.
   let archiveFolderResult: unknown;
   let archiveFolderFailed = false;
   if (resolved.caseId) {

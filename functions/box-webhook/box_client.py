@@ -708,6 +708,49 @@ class BoxClient:
             raise BoxError("Box returned 409 with no resolvable conflict id", status=409)
         raise BoxError(f"Box CreateFolder returned HTTP {resp.status_code}", status=resp.status_code)
 
+    def rename_folder(self, folder_id: str, name: str) -> dict[str, Any]:
+        """Rename one in-scope folder. The fresh ancestry check prevents a stale
+        cache entry authorising a folder that has since moved outside the write root."""
+        self._assert_in_scope("folders", folder_id, fresh=True)
+        resp = self.request("PUT", f"/2.0/folders/{folder_id}", json_body={"name": name})
+        if resp.status_code == 409:
+            conflict_id = _conflict_id(resp)
+            if conflict_id:
+                self._assert_in_scope("folders", conflict_id, fresh=True)
+                return {"id": conflict_id, "type": "folder", "name": name, "outcome": "conflict"}
+        return _json_or_raise(resp, "RenameFolder")
+
+    def move_file(self, file_id: str, folder_id: str, name: str | None = None) -> dict[str, Any]:
+        """Move a file between two folders inside the configured write root."""
+        self._assert_in_scope("files", file_id, fresh=True)
+        self._assert_in_scope("folders", folder_id, fresh=True)
+        body: dict[str, Any] = {"parent": {"id": folder_id}}
+        if name:
+            body["name"] = name
+        resp = self.request(
+            "PUT", f"/2.0/files/{file_id}", params={"fields": "id,name,sha1,parent"}, json_body=body
+        )
+        return _json_or_raise(resp, "MoveFile")
+
+    def delete_empty_folder(self, folder_id: str) -> dict[str, Any]:
+        """Retire only an empty holding folder; never recursive-delete evidence."""
+        try:
+            self._assert_in_scope("folders", folder_id, fresh=True)
+        except BoxScopeError as exc:
+            if exc.status == 404:
+                return {"deleted": True, "alreadyMissing": True}
+            raise
+        listing = self.request("GET", f"/2.0/folders/{folder_id}/items", params={"limit": 1, "fields": "id"})
+        if listing.status_code == 404:
+            return {"deleted": True, "alreadyMissing": True}
+        body = _json_or_raise(listing, "ListFolderBeforeDelete")
+        if body.get("entries"):
+            raise BoxError("Refusing to delete a non-empty holding folder", status=409)
+        resp = self.request("DELETE", f"/2.0/folders/{folder_id}", params={"recursive": "false"})
+        if resp.status_code in (204, 404):
+            return {"deleted": True, "alreadyMissing": resp.status_code == 404}
+        raise BoxError(f"Box DeleteFolder returned HTTP {resp.status_code}", status=resp.status_code)
+
     def upload_file(
         self,
         folder_id: str,
@@ -731,8 +774,9 @@ class BoxClient:
         row got the earlier email's Box file id and its bytes never reached Box.
         Now: sha1 match -> outcome='reused'; sha1 MISMATCH -> re-upload once under a
         content-disambiguated name (`<stem>-<sha1[:8]>.<ext>`), outcome='created'
-        under the new name; sha1 unverifiable -> legacy reuse at WARNING level (never
-        block an archive on a missing hash)."""
+        under the new name; sha1 unverifiable -> the same disambiguated retry and then
+        fail closed if identity still cannot be proved. Accepted image bytes are never
+        pointed at an older same-name file on faith."""
         self._assert_in_scope("folders", folder_id)
         _validate_box_base(self.config.upload_base, "upload base")
         attributes = json.dumps({"name": filename, "parent": {"id": folder_id}})
@@ -747,6 +791,7 @@ class BoxClient:
         if resp.status_code == 201:
             body = resp.json()
             entry = (body.get("entries") or [{}])[0] if isinstance(body, dict) else {}
+            entry["sha1"] = entry.get("sha1") or hashlib.sha1(content).hexdigest()
             entry["outcome"] = "created"
             return entry
         if resp.status_code == 409:
@@ -768,8 +813,7 @@ class BoxClient:
         streamed multipart, upload-session create, upload-session commit).
 
         Returns ``("reused", entry)`` when the conflicting file provably holds the
-        SAME bytes (Box sha1 == local sha1) — or unverifiably (legacy warn-level
-        reuse; never block an archive on a missing hash) — and ``("retry",
+        SAME bytes (Box sha1 == local sha1) and ``("retry",
         alt_filename)`` when the bytes DIFFER and one content-disambiguated retry
         is still allowed. Raises BoxError when the conflict id is unresolvable or
         the disambiguated name ITSELF conflicted with different bytes."""
@@ -780,7 +824,18 @@ class BoxClient:
         remote_sha1 = conflict.get("sha1") if conflict else None
         if not remote_sha1:
             remote_sha1 = self._file_sha1(conflict_id)
-        if remote_sha1 and str(remote_sha1).lower() != str(local_sha1).lower():
+        if not remote_sha1:
+            if disambiguated:
+                raise BoxError(
+                    "Box 409 content identity remained unverifiable after disambiguation",
+                    status=409,
+                )
+            logger.warning(
+                "box 409 name-conflict content identity UNVERIFIABLE; "
+                "re-uploading under a content-disambiguated name"
+            )
+            return "retry", _disambiguate_filename(filename, str(local_sha1)[:8])
+        if str(remote_sha1).lower() != str(local_sha1).lower():
             # Same NAME, DIFFERENT bytes — blind reuse would mis-link the evidence
             # row (TKT-087). Retry ONCE under a content-derived name; a 409 on THAT
             # name can only be the same bytes (sha1-slice in the name), which the
@@ -795,21 +850,17 @@ class BoxClient:
                 "re-uploading under a content-disambiguated name"
             )
             return "retry", _disambiguate_filename(filename, str(local_sha1)[:8])
-        if remote_sha1:
-            logger.info(
-                "box file already exists in folder (409) with matching content; reusing id"
-            )
-        else:
-            logger.warning(
-                "box file already exists in folder (409); content match UNVERIFIABLE "
-                "(no sha1) — reusing id (legacy behaviour)"
-            )
-        return "reused", {"id": conflict_id, "type": "file", "name": filename, "outcome": "reused"}
+        logger.info(
+            "box file already exists in folder (409) with matching content; reusing id"
+        )
+        payload = {"id": conflict_id, "type": "file", "name": filename, "outcome": "reused"}
+        payload["sha1"] = str(remote_sha1).lower()
+        return "reused", payload
 
     def _file_sha1(self, file_id: str) -> str | None:
         """Best-effort sha1 of an existing Box file (the 409 conflict target). A
-        failure returns None — the caller degrades to the legacy warn-level reuse
-        rather than blocking an archive on a hash read."""
+        failure returns None — the caller disambiguates and ultimately fails closed
+        rather than linking evidence to unverified remote bytes."""
         try:
             self._assert_readable_scope("files", file_id)
             resp = self.request("GET", f"/2.0/files/{file_id}", params={"fields": "sha1"})
@@ -876,6 +927,7 @@ class BoxClient:
         if resp.status_code == 201:
             body = resp.json()
             entry = (body.get("entries") or [{}])[0] if isinstance(body, dict) else {}
+            entry["sha1"] = entry.get("sha1") or local_sha1
             entry["outcome"] = "created"
             entry["lane"] = "direct"
             return entry
@@ -973,6 +1025,7 @@ class BoxClient:
         if resp.status_code == 201:
             body = resp.json()
             entry = (body.get("entries") or [{}])[0] if isinstance(body, dict) else {}
+            entry["sha1"] = entry.get("sha1") or local_sha1
             entry["outcome"] = "created"
             entry["lane"] = "chunked"
             return entry

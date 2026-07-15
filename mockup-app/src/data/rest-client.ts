@@ -262,12 +262,44 @@ export type VehicleLookupResult = VehicleDataEnrichmentResponse & {
   persisted?: { applied: string[]; warning?: string; retryable: boolean };
 };
 
+export interface ArchiveHoldingResolution {
+  state: 'none' | 'needs_choice' | 'selected';
+  holdingIds: string[];
+  folderIds: string[];
+  candidateCaseIds: string[];
+  candidateCases: Array<{
+    caseId: string;
+    casePo: string | null;
+    claimantName: string | null;
+    providerName: string | null;
+  }>;
+  sources: Array<{
+    holdingId: string;
+    folderId: string;
+    folderUrl: string | null;
+    sourceMessageId: string | null;
+    inboundEmailId: string | null;
+    subject: string | null;
+    fromAddress: string | null;
+    receivedOn: string | null;
+    bodyPreview: string | null;
+    filenames: string[];
+  }>;
+  selectedCaseId?: string;
+  canSelect: boolean;
+  hasFailure?:boolean;
+}
+
 export interface DataAccessExt extends DataAccess {
   /** Save one reviewed case-edit session with optimistic concurrency. Every EVA
    *  field plus the inspection address/decision travels in this one PATCH. */
   saveCaseEdits(id: string, patch: CaseUpdateInput, version: string): Promise<Case>;
   /** Requeue Manual Intake source files that reached a terminal archive failure. */
   retryManualIntakeArchive(caseId: string): Promise<{ requeued: number }>;
+  /** Registration-keyed images that need an explicit case choice before filing. */
+  archiveHoldingResolution(caseId: string): Promise<ArchiveHoldingResolution>;
+  /** Assign the waiting registration images to this case; remote filing is durable. */
+  selectArchiveHolding(caseId: string): Promise<{ resolved: number; holdingIds: string[] }>;
   /** The sole authenticated vehicle lookup path. A case id persists evidence;
    *  a registration alone is a Manual Intake preview. */
   lookupVehicle(input: { caseId: string } | { registration: string; targetDate?: string }): Promise<VehicleLookupResult>;
@@ -714,6 +746,10 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       post<{ updated: boolean }>(`/api/cases/${enc(caseId)}/mark-done`),
     retryManualIntakeArchive: (caseId) =>
       post<{ requeued: number }>(`/api/cases/${enc(caseId)}/archive-retry`),
+    archiveHoldingResolution: (caseId) =>
+      get<ArchiveHoldingResolution>(`/api/cases/${enc(caseId)}/archive-holding`),
+    selectArchiveHolding: (caseId) =>
+      post<{resolved:number;holdingIds:string[]}>(`/api/cases/${enc(caseId)}/archive-holding/select`),
     // E4: the server caps each page (default 200, max 500) and returns a bare
     // Case[] with no total — a single fetch under-counts and hides rows past the
     // first page, so the Completed tab counts (derived from this list) were wrong.

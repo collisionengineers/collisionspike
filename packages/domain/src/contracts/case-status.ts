@@ -168,6 +168,9 @@ export interface StatusEvaluationInput {
   sourceEvidencePending?: boolean;
   /** Manual source files reached a terminal archive failure and require staff retry. */
   sourceEvidenceArchiveFailed?: boolean;
+  /** Registration-keyed images are known but their durable archive adoption has
+   * not completed. Any such image problem keeps the case Not Ready. */
+  archiveHoldingPending?: boolean;
 }
 
 /* ----------  Required-field check (re-implements payload validation)  ----------
@@ -433,6 +436,8 @@ export function statusForReviewCase(input: StatusEvaluationInput): CaseStatus {
   // marker never rewrites `removed`/`done`); a plain `linked_to_instruction`
   // case WITHOUT the marker keeps recomputing as before.
   if ((input.mergedInto ?? '').trim().length > 0) return 'linked_to_instruction';
+
+  if(input.archiveHoldingPending===true)return 'missing_images';
 
   const readiness = evaluateCaseReadiness(input);
   const baseImagesValid = readiness.imageRulesPass;

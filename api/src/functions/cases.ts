@@ -94,6 +94,7 @@ import { listBoxFolderNames } from '../lib/functions-client.js';
 import {
   ensureActiveBoxFileRequest,
 } from '../lib/box-file-request-outbox.js';
+import { readArchiveHoldingResolution, resolveArchiveHolding } from '../lib/archive-holding.js';
 import {
   associateOutstandingImageChasersWithFileRequest,
   imageChaserRequiresUploadLink,
@@ -574,6 +575,11 @@ app.http('patchCase', {
     const inspectionModeCode = inspection
       ? inspectionDecisionCodec.toInt(inspection.decisionMode)
       : undefined;
+    const requestedVrm=body.vrm===undefined?undefined:(()=>{
+      const raw=String(body.vrm??'').trim();
+      const cleaned=raw.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,16);
+      return raw?extractVrm(raw)||cleaned:'';
+    })();
     const actor = actorFromClaims(claims);
     let attemptedCasePo: string | undefined;
     let outcome:
@@ -586,7 +592,18 @@ app.http('patchCase', {
           explicitSave: boolean;
         };
     try {
+      const identityEditRequested=requestedVrm!==undefined||body.casePo!==undefined;
+      const [vrmProbe]=!identityEditRequested?[]:await query<{vrm:string|null}>(
+        'SELECT vrm FROM case_ WHERE id=$1',[id]);
+      const observedVrm=(vrmProbe?.vrm??'').toUpperCase().replace(/\s+/g,'');
+      const archiveVrmLocks=!identityEditRequested?[]:[...new Set([observedVrm,requestedVrm].filter(Boolean))].sort();
       outcome = await tx(async (q) => {
+        // Remote registration-folder adoption locks archive registration(s) before
+        // the case row. Take the same ordered locks before the snapshot's FOR UPDATE
+        // so a correction cannot race files already moving for the old identity.
+        for(const vrm of archiveVrmLocks){
+          await q(`SELECT pg_advisory_xact_lock(hashtext($1))`,[`archive-holding:${vrm}`]);
+        }
         const snapshot = await loadCaseFullSnapshotUsing(q, id, new Date(), true);
         if (!snapshot) {
           return { kind: 'response' as const, response: { status: 404, jsonBody: { error: 'not found' } } };
@@ -626,11 +643,23 @@ app.http('patchCase', {
         const after: Record<string, unknown> = {};
         const changedEvaFields: Array<{ key: EvaFieldKey; value: string }> = [];
 
-        if (body.vrm !== undefined) {
-          const raw = String(body.vrm ?? '').trim();
-          const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
-          const newVrm = raw ? extractVrm(raw) || cleaned : '';
-          if (newVrm !== existing.vrm) {
+        if (requestedVrm !== undefined) {
+          const actualVrm=existing.vrm.toUpperCase().replace(/\s+/g,'');
+          if(actualVrm&&!archiveVrmLocks.includes(actualVrm)){
+            return {kind:'response' as const,response:{status:409,jsonBody:{error:'stale',
+              currentVersion:snapshot.version,message:'This case changed while you were editing it. Reload it before saving.'}}};
+          }
+          const newVrm = requestedVrm;
+          if (newVrm !== actualVrm) {
+            const activeHolding=await q<{id:string}>(`SELECT id FROM archive_holding_folder
+              WHERE (state='adopting' AND claim_token IS NOT NULL AND claim_expires_at>now()
+                  AND (adopted_case_id=$1 OR normalized_vrm=ANY($2::text[])))
+                OR (state<>'adopted' AND resolved_case_id=$1)
+              LIMIT 1`,[id,[actualVrm,newVrm].filter(Boolean)]);
+            if(activeHolding.length){
+              return {kind:'response' as const,response:{status:409,jsonBody:{error:'archive_holding_active',
+                message:'Registration images are being filed for this case. Try the change again shortly.'}}};
+            }
             sets.push(`vrm = $${vals.length + 1}`);
             vals.push(newVrm);
             before.vrm = existing.vrm;
@@ -728,6 +757,20 @@ app.http('patchCase', {
           }
           const oldPo = (existing.casePo ?? '').toUpperCase();
           if (normalized !== oldPo) {
+            const activeHolding=await q<{id:string}>(`SELECT id FROM archive_holding_folder
+              WHERE state='adopting' AND claim_token IS NOT NULL AND claim_expires_at>now()
+                AND (adopted_case_id=$1 OR normalized_vrm=$2)
+              LIMIT 1`,[id,existing.vrm.toUpperCase().replace(/\s+/g,'')]);
+            if(activeHolding.length){
+              return {kind:'response' as const,response:{status:409,jsonBody:{error:'archive_holding_active',
+                message:'Registration images are being filed for this case. Try the change again shortly.'}}};
+            }
+            const adoptedHolding=await q<{id:string}>(`SELECT id FROM archive_holding_folder
+              WHERE state='adopted' AND adopted_case_id=$1 LIMIT 1`,[id]);
+            if(adoptedHolding.length){
+              return {kind:'response' as const,response:{status:409,jsonBody:{error:'archive_folder_name_locked',
+                message:'This Case/PO names the existing Archive folder and cannot be changed.'}}};
+            }
             attemptedCasePo = normalized || undefined;
             sets.push(`case_po = $${vals.length + 1}`);
             vals.push(normalized || null);
@@ -789,6 +832,7 @@ app.http('patchCase', {
             inspectionDecision: inspection?.decisionMode ?? existing.inspectionDecision,
             instructionCount: existing.evidence.filter((item) => item.kind === 'instruction').length,
             ...sourceReadinessInputForCase(existing),
+            archiveHoldingPending:existing.archiveHoldingPending===true,
             hasIdentity:
               nextVrm.trim().length > 0 ||
               (nextCasePo ?? '').trim().length > 0 ||
@@ -1562,6 +1606,39 @@ app.http('setOnHold', {
   }),
 });
 
+/* Registration-image ambiguity. Reading is passive; the write is an explicit staff
+ * choice on the current case. Remote archive work is left to the durable monitor. */
+app.http('caseArchiveHoldingResolution', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'cases/{id}/archive-holding',
+  handler: withRole('CollisionSpike.User', async (req) => ({
+    status: 200,
+    jsonBody: await readArchiveHoldingResolution(req.params.id),
+  })),
+});
+
+app.http('selectCaseArchiveHolding', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'cases/{id}/archive-holding/select',
+  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+    const id=req.params.id;
+    try{
+      const result=await resolveArchiveHolding(id,actorFromClaims(claims)??'staff');
+      return {status:200,jsonBody:result};
+    }catch(error){
+      const detail=error instanceof Error?error.message:String(error);
+      return {status:409,jsonBody:{error:'archive_holding_choice_rejected',
+        message:detail.includes('already assigned')
+          ? 'These registration images were already assigned to another case.'
+          : detail.includes('no registration image folder')
+            ? 'There are no registration images waiting for this case.'
+            : 'These registration images cannot be assigned to this case.'}};
+    }
+  }),
+});
+
 /* ============================================================
    5b — POST /api/cases/{id}/chase   (M-E2: durable chaser log)
    The SPA chaser log was CLIENT-STATE ONLY — the case-detail read pulls from the
@@ -1800,6 +1877,21 @@ const MERGE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 class MergeProviderRecoveryBlocked extends Error {
   constructor(readonly reason: string) {
     super(`Provider recovery could not continue: ${reason}`);
+  }
+}
+
+/**
+ * A refusal discovered after a merge reconciliation has started must unwind the
+ * whole transaction. Returning an ordinary error value would make `tx` commit
+ * earlier archive/file-request ownership writes even though the merge was refused.
+ */
+class MergeTransactionRefusal extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'MergeTransactionRefusal';
   }
 }
 
@@ -2273,6 +2365,82 @@ async function reparentLockedCaptureSessionsForMerge(
   }
 }
 
+/** A registration holding folder is one durable archive identity. A merge may transfer
+ * that identity to a folderless survivor, but it must never strand two different Box
+ * folders or guess which one wins. The whole decision runs under the merge row locks. */
+export async function reconcileMergeArchiveHolding(
+  q: TxQuery,
+  sourceCaseId: string,
+  targetCaseId: string,
+): Promise<string | undefined> {
+  const folders = await q<{ id:string;vrm:string|null;box_folder_id:string|null;box_folder_url:string|null }>(
+    `SELECT id,vrm,box_folder_id,box_folder_url FROM case_
+      WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE`,
+    [[sourceCaseId,targetCaseId]],
+  );
+  const source=folders.find((row)=>row.id.toLowerCase()===sourceCaseId);
+  const target=folders.find((row)=>row.id.toLowerCase()===targetCaseId);
+  if(!source||!target)return 'Source or target case not found.';
+  const sourceVrm=canonicalizeVrm(source.vrm);
+  const targetVrm=canonicalizeVrm(target.vrm);
+  const mergeVrms=[...new Set([sourceVrm,targetVrm].filter(Boolean))];
+  const holdings = await q<{ id:string;adopted_case_id:string|null;resolved_case_id:string|null;box_folder_id:string;canonical_folder_id:string|null;normalized_vrm:string;state:string;claim_active:boolean }>(
+    `SELECT id,adopted_case_id,resolved_case_id,box_folder_id,canonical_folder_id,normalized_vrm,state,
+        claim_token IS NOT NULL AND claim_expires_at>now() AS claim_active
+      FROM archive_holding_folder
+      WHERE adopted_case_id=ANY($1::uuid[]) OR resolved_case_id=ANY($1::uuid[])
+        OR (state<>'adopted' AND resolved_case_id IS NULL AND adopted_case_id IS NULL
+          AND (candidate_case_ids ? $2::text OR candidate_case_ids ? $3::text
+          OR normalized_vrm=ANY($4::text[])))
+      ORDER BY id FOR UPDATE`,
+    [[sourceCaseId,targetCaseId],sourceCaseId,targetCaseId,mergeVrms],
+  );
+  if (!holdings.length) return undefined;
+  if(holdings.some((row)=>row.state==='adopting'&&row.claim_active)){
+    return 'A registration image folder is still being filed. Try the merge again when it finishes.';
+  }
+  const waitingVrms=[...new Set(holdings
+    .filter((row)=>row.state!=='adopted')
+    .map((row)=>row.normalized_vrm))];
+  if(waitingVrms.some((vrm)=>vrm!==targetVrm)){
+    return 'The survivor uses a different registration from the waiting images. Correct the registration before merging.';
+  }
+  const sourceFolder=(source.box_folder_id??'').trim();
+  const targetFolder=(target.box_folder_id??'').trim();
+  const identities=[sourceFolder,targetFolder,...holdings.map((row)=>(row.canonical_folder_id??(row.state==='adopted'?row.box_folder_id:'')??'').trim())].filter(Boolean);
+  const distinctIdentities=[...new Set(identities)];
+  if(distinctIdentities.length>1){
+    return 'These cases use different archive folders. Reconcile the archive folders before merging.';
+  }
+  const canonicalFolder=distinctIdentities[0]??'';
+  const canonicalUrl=target.box_folder_url??source.box_folder_url??(canonicalFolder?`https://app.box.com/folder/${canonicalFolder}`:null);
+  if(canonicalFolder&&targetFolder!==canonicalFolder){
+    await q(`UPDATE case_ SET box_folder_id=$2,box_folder_url=$3,updated_at=now() WHERE id=$1`,
+      [targetCaseId,canonicalFolder,canonicalUrl]);
+  }
+  await q(`UPDATE archive_holding_folder SET adopted_case_id=$2,
+      canonical_folder_id=coalesce(nullif($3,''),canonical_folder_id),updated_at=now()
+    WHERE adopted_case_id=$1`,[sourceCaseId,targetCaseId,canonicalFolder]);
+  await q(`UPDATE archive_holding_folder SET resolved_case_id=$2,updated_at=now()
+    WHERE resolved_case_id=$1 AND state<>'adopted'`,[sourceCaseId,targetCaseId]);
+  await q(`UPDATE archive_holding_folder SET
+      candidate_case_ids=(candidate_case_ids-$1::text) ||
+        CASE WHEN candidate_case_ids ? $2::text THEN '[]'::jsonb ELSE jsonb_build_array($2::text) END,
+      updated_at=now()
+    WHERE state<>'adopted' AND candidate_case_ids ? $1::text`,[sourceCaseId,targetCaseId]);
+  await q(`WITH desired AS (
+      SELECT c.id,EXISTS(SELECT 1 FROM archive_holding_folder h WHERE h.state<>'adopted' AND
+        (h.resolved_case_id=c.id OR (h.resolved_case_id IS NULL AND
+          (h.candidate_case_ids ? c.id::text OR (h.candidate_case_ids='[]'::jsonb AND
+            h.normalized_vrm=regexp_replace(upper(coalesce(c.vrm,'')),'[^A-Z0-9]','','g')))))) AS pending
+      FROM case_ c WHERE c.id=ANY($1::uuid[])
+    ) UPDATE case_ c SET archive_holding_pending=d.pending,updated_at=now()
+      FROM desired d WHERE c.id=d.id AND c.archive_holding_pending IS DISTINCT FROM d.pending`,
+    [[sourceCaseId,targetCaseId]]);
+  await q(`UPDATE case_ SET box_folder_id=NULL,box_folder_url=NULL,updated_at=now() WHERE id=$1`,[sourceCaseId]);
+  return undefined;
+}
+
 /* ============================================================
    7 — POST /api/cases/{tgt}/merge   ({tgt} = target/survivor)
    ============================================================ */
@@ -2410,6 +2578,14 @@ app.http('mergeCases', {
       const captureSessionIds = await lockCaptureSessionsForMerge(q, sourceCaseId);
       const captureAssetIds = await lockCaptureAssetsForMerge(q, captureSessionIds);
 
+      // A registration holding folder must transfer to the survivor (or refuse)
+      // before any file-request/evidence mutation. Its guards return before it
+      // mutates, so a conflict here is a clean pre-mutation refusal.
+      const holdingConflict = await reconcileMergeArchiveHolding(q, sourceCaseId, targetCaseId);
+      if (holdingConflict) {
+        return { kind: 'error' as const, status: 409, error: holdingConflict };
+      }
+
       // Reconcile the file-request intent only after every fail-fast ownership
       // check. This helper may cancel or transfer a durable intent, so no later
       // validation may reject an otherwise uncommitted merge.
@@ -2419,7 +2595,7 @@ app.http('mergeCases', {
         targetCaseId,
       );
       if (fileRequestConflict) {
-        return { kind: 'error' as const, status: 409, error: fileRequestConflict };
+        throw new MergeTransactionRefusal(409, fileRequestConflict);
       }
 
       // Lock every source inbound row before touching evidence. Guarded backfill takes
@@ -2431,11 +2607,16 @@ app.http('mergeCases', {
         [sourceCaseId],
       );
 
-      const { movedEvidence, collidingEvidence, evidenceReplacements } = await mergeEvidenceRows(
-        q,
-        sourceCaseId,
-        targetCaseId,
-      );
+      const { movedEvidence, collidingEvidence, evidenceReplacements, archiveBusy } =
+        await mergeEvidenceRows(q, sourceCaseId, targetCaseId);
+      // Authoritative under-lock re-check: if an archive mirror claim is live we
+      // must throw (not return) so every earlier merge write in this tx rolls back.
+      if (archiveBusy) {
+        throw new MergeTransactionRefusal(
+          409,
+          'Archive work is still finishing for one of these cases. Try the merge again shortly.',
+        );
+      }
       await transferStaffUploadOwnership(q, sourceCaseId, targetCaseId);
       await repointLockedCaptureAssetsForMerge(q, captureAssetIds, evidenceReplacements);
       await reparentLockedCaptureSessionsForMerge(
@@ -2585,6 +2766,11 @@ app.http('mergeCases', {
         claimantConflict: claimantMerge.conflict,
         statusGeneration,
       };
+    }).catch((error: unknown) => {
+      if (error instanceof MergeTransactionRefusal) {
+        return { kind: 'error' as const, status: error.status, error: error.message };
+      }
+      throw error;
     });
 
     let merged: Awaited<ReturnType<typeof runMerge>>;

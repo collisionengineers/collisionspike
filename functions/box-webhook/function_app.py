@@ -188,15 +188,40 @@ def create_folder(req: func.HttpRequest) -> func.HttpResponse:
     return _run_box_op(lambda c: c.create_folder(name, parent_id))
 
 
-@app.route(route="box/folders/{folderId}", methods=["GET"])
-def get_folder(req: func.HttpRequest) -> func.HttpResponse:
-    """Return fresh folder identity only when it is under the writable root."""
+@app.route(route="box/folders/{folderId}", methods=["GET", "PATCH", "DELETE"])
+def folder_lifecycle(req: func.HttpRequest) -> func.HttpResponse:
+    """One handler for the folder resource, dispatching on method (house
+    convention, like file_request_lifecycle). GET returns fresh folder identity
+    under the writable root; PATCH renames one in-scope folder; DELETE retires an
+    empty holding folder (never recursive). Merged from the GET-only get_folder
+    and the PATCH/DELETE mutate_folder so the same route template is bound once."""
     if not _truthy(os.environ.get("BOX_API_ENABLED")):
         return _gated_off()
     folder_id = req.route_params.get("folderId", "")
     if not folder_id:
         return _json_response({"error": "folderId is required.", "status": 400}, status=400)
-    return _run_box_op(lambda c: c.get_folder(folder_id))
+    method = req.method.upper()
+    if method == "GET":
+        return _run_box_op(lambda c: c.get_folder(folder_id))
+    if method == "DELETE":
+        return _run_box_op(lambda c: c.delete_empty_folder(folder_id))
+    body = _body(req)
+    if not body or not isinstance(body.get("name"), str) or not body["name"].strip():
+        return _json_response({"error": "Body must be { name }.", "status": 400}, status=400)
+    return _run_box_op(lambda c: c.rename_folder(folder_id, body["name"].strip()))
+
+
+@app.route(route="box/files/{fileId}/move", methods=["POST"])
+def move_file(req: func.HttpRequest) -> func.HttpResponse:
+    if not _truthy(os.environ.get("BOX_API_ENABLED")):
+        return _gated_off()
+    file_id = req.route_params.get("fileId", "")
+    body = _body(req)
+    parent = body.get("parent") if body else None
+    if not file_id or not isinstance(parent, dict) or not parent.get("id"):
+        return _json_response({"error": "fileId and body parent.id are required.", "status": 400}, status=400)
+    name = body.get("name") if isinstance(body.get("name"), str) else None
+    return _run_box_op(lambda c: c.move_file(file_id, str(parent["id"]), name))
 
 
 # TKT-142: honest cap on the legacy base64-in-JSON upload lane. ~11 MiB of
