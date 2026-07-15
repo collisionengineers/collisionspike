@@ -31,7 +31,7 @@ try {
     const dir = join(repo, 'functions', name);
     const py = process.platform === 'win32' ? join(dir, '.venv', 'Scripts', 'python.exe') : join(dir, '.venv', 'bin', 'python');
     if (!existsSync(py)) {
-      process.stdout.write(`\n=== ${name} pytest ===\nSKIP — no provisioned virtualenv (worktree-only; provision via scripts/worktree.mjs create).\n`);
+      process.stdout.write(`\n=== ${name} pytest ===\nSKIP — no provisioned virtualenv for ${name}.\n`);
       skipped.push(name);
       continue;
     }
@@ -40,12 +40,12 @@ try {
   const ocr = join(repo, 'ocr');
   const ocrPy = process.platform === 'win32' ? join(ocr, '.venv', 'Scripts', 'python.exe') : join(ocr, '.venv', 'bin', 'python');
   if (!existsSync(ocrPy)) {
-    process.stdout.write('\n=== ocr pytest ===\nSKIP — no provisioned virtualenv (worktree-only; provision via scripts/worktree.mjs create).\n');
+    process.stdout.write('\n=== ocr pytest ===\nSKIP — no provisioned virtualenv for ocr.\n');
     skipped.push('ocr');
   } else {
     run('ocr pytest', ocrPy, ['-m', 'pytest', 'tests', '-q'], ocr);
   }
-  const note = skipped.length ? ` (skipped pytest: ${skipped.join(', ')} — no provisioned venv; run inside a ticket worktree for full Python coverage)` : '';
+  const note = skipped.length ? ` (skipped pytest: ${skipped.join(', ')} — no provisioned venv; provision each function's .venv for full Python coverage)` : '';
   console.log(`\nPASS — offline verification completed without Azure credentials.${note}`);
 } catch (error) {
   console.error(`\nFAIL — ${error.message}`);

@@ -1,9 +1,41 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
+const BLOCK_MESSAGE =
+  'Direct pushes to main are blocked. Publish a ticket branch and merge its pull request instead.';
+
+// Git feeds a pre-push hook the ref updates on stdin, one per line:
+//   <local_ref> SP <local_sha> SP <remote_ref> SP <remote_sha>
+// Reading fd 0 can throw (EAGAIN/ENOENT/EOF) or yield '' when nothing is piped.
+let stdin = '';
+try {
+  stdin = readFileSync(0, 'utf8');
+} catch {
+  stdin = '';
+}
+
+if (stdin.trim() !== '') {
+  // Refspec-aware guard: block if ANY update targets refs/heads/main on the
+  // remote, regardless of the local branch (HEAD) or the remote name.
+  const lines = stdin.split('\n');
+  for (const line of lines) {
+    if (line.trim() === '') continue;
+    const remoteRef = line.trim().split(/\s+/)[2];
+    if (remoteRef === 'refs/heads/main') {
+      console.error(BLOCK_MESSAGE);
+      process.exit(1);
+    }
+  }
+  // No update targeted main — allow the push.
+  process.exit(0);
+}
+
+// Fallback: stdin was empty/unavailable. Keep the original behavior and block
+// pushes made while the checked-out branch is main.
 const branch = execFileSync('git', ['symbolic-ref', '--short', '-q', 'HEAD'], { encoding: 'utf8', windowsHide: true }).trim();
 if (branch === 'main') {
-  console.error('Direct pushes to main are blocked. Publish a ticket branch and merge its pull request instead.');
+  console.error(BLOCK_MESSAGE);
   process.exit(1);
 }

@@ -47,8 +47,35 @@ jobs:
         run: node scripts/check-tickets.mjs
       - name: Check shared skill sync
         run: node scripts/check-skills-sync.mjs
+      - name: Install Node dependencies
+        run: npm ci && npm install --no-save @rollup/rollup-linux-x64-gnu
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Provision Python virtualenvs for retained functions
+        # verify-offline.mjs runs each function's pytest ONLY when a
+        # <dir>/.venv/bin/python interpreter exists (it otherwise SKIPs). The CI
+        # runner has no worktree-provisioned venv, so create one per function and
+        # install its locked requirements here — this is what makes acceptance A6
+        # ("relevant Python suites without skipping") actually hold in CI. A
+        # missing requirements.txt is a deliberate skip; a real pip failure fails
+        # the job (no continue-on-error).
+        run: |
+          set -e
+          for d in functions/parser functions/enrichment functions/evasentry functions/evavalidation functions/location-suggest functions/box-webhook ocr; do
+            if [ -f "$d/requirements.txt" ]; then
+              echo "provision venv: $d"
+              python -m venv "$d/.venv"
+              "$d/.venv/bin/python" -m pip install -r "$d/requirements.txt"
+              if [ -f "$d/requirements-dev.txt" ]; then
+                "$d/.venv/bin/python" -m pip install -r "$d/requirements-dev.txt"
+              fi
+            else
+              echo "skip: no requirements ($d)"
+            fi
+          done
       - name: Run complete offline verification
-        run: npm ci && npm install --no-save @rollup/rollup-linux-x64-gnu && npm run verify:offline
+        run: npm run verify:offline
 
   parser-vendor-source:
     name: parser-vendor-source (immutable private tag)
