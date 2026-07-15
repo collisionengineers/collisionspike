@@ -25,7 +25,7 @@ built + deployed + live-proven (2026-07-08, branch `feat/readiness-ai-spine`) �
 
 ## What changed
 
-**API (`api/src/functions/ai-suggestions.ts`)**
+**API (`services/data-api/src/features/assistant/register-suggestion-routes.ts`)**
 - Every zero-generated outcome now carries an **explicit reason**: `disabled` (gate/model off),
   **`no_input`** (NEW — no usable case notes; fast path, **no model call, no cost**), **`empty`**
   (NEW — the model ran cleanly and had nothing to add), `error` (model/persist failure).
@@ -37,25 +37,25 @@ built + deployed + live-proven (2026-07-08, branch `feat/readiness-ai-spine`) �
 with `'empty'`; documented that a zero result always carries a reason.
 
 **SPA**
-- `mockup-app/src/components/AiAssistPanel.tsx` — one plain-language toast per reason:
+- `apps/web/src/features/assistant/AiAssistPanel.tsx` — one plain-language toast per reason:
   `error` → "Couldn't generate suggestions — try again"; `no_input` → "Nothing for the assistant to
   read yet / Add the accident circumstances…"; `disabled` → "The assistant isn't switched on for live
   use yet" (now only for that case); `empty` → "Nothing to suggest / The assistant reviewed the case
   and found nothing new to add." Also added plain labels + renderers for the case-assessment
   suggestion kinds (`damage_area` → "Damaged area", `damage_severity` → "Damage severity",
   `accident_summary` → "What happened") so generated rows never render as raw JSON.
-- `mockup-app/src/data/rest-client.ts` — `generateAiSuggestions` defensively maps a body-less 2xx
+- `apps/web/src/data/rest-client.ts` — `generateAiSuggestions` defensively maps a body-less 2xx
   (the 204→`undefined` seam in `call()`) to `{ generated: 0, reason: 'error' }` so an unexpected
   empty response is **explained, never silent** (and never crashes `result.generated`).
 
-**Docs** — `docs/azure/logs-kql.md` corrected: `cespk-api-dev` / `cespk-orch-dev` have their **own**
+**Docs** — `docs/operations/diagnostics.md` corrected: `cespk-api-dev` / `cespk-orch-dev` have their **own**
 App Insights components (`DefaultWorkspace-…-SUK`), not the shared parser instance (the stale claim
 cost the triage its first queries; `LIVE_FACTS.json appInsightsComponents` already had it right).
 
 ## Tests
-- `api/src/functions/ai-suggestions.test.ts` — new cases: `no_input` fast path (no model call, no
+- `services/data-api/src/features/assistant/suggestion-generation-routes.test.ts` — new cases: `no_input` fast path (no model call, no
   insert), clean-empty → `reason:'empty'`, success carries no reason, error path is logged.
-- Suites green: domain 962 / api 279 / mockup-app 312 / orch 170.
+- Suites green: domain 962 / api 279 / @cs/web 312 / orch 170.
 
 ## Live actions taken
 - `cespk-api-dev` republished (Windows `func`; **86 functions re-verified** via
@@ -64,7 +64,7 @@ cost the triage its first queries; `LIVE_FACTS.json appInsightsComponents` alrea
   (env production, `staticwebapp.config.json` in `dist/`); live **200 + CSP header** re-verified.
 - No gate/app-setting changes. `cespk-orch-dev` untouched.
 - Registry updated: `LIVE_FACTS.json` (verifiedBy entry + `functionCounts.api` 82→86 stale-fix) +
-  `docs/architecture/live-environment.md`.
+  `docs/operations/live-environment.md`.
 
 ## Live proof (deployed stack, staff session digital@)
 - SPA Generate on **A.QDOS26029** (`ac34fae6…`, real accident-circumstances text) →
@@ -74,7 +74,7 @@ cost the triage its first queries; `LIVE_FACTS.json appInsightsComponents` alrea
   + **5 `ai_suggestion_created` audit rows** (actor = digital@ oid) —
   [evidence/ai-suggestion-rows-postgres-2026-07-08.txt](./evidence/ai-suggestion-rows-postgres-2026-07-08.txt).
 - All 5 render in the Assistant panel with Accept/Reject —
-  [evidence/live-generate-5-suggestions-2026-07-08.png](./evidence/live-generate-5-suggestions-2026-07-08.png).
+  [evidence/live-generate-5-suggestions-2026-07-08.png](./evidence-manifest.json).
 
 ## Honest remaining / follow-ups
 - The `no_input`/`empty`/`error` toasts are **code-proven + unit-tested** but not individually

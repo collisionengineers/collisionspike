@@ -13,12 +13,12 @@ PENDING
 | A4 — truthful preview and EVA entry | SPA and isolated deployed tests prove a four-digit value renders, submits unchanged and no visible copy says “3 digits”. | Signed-in browser proof waits for a naturally occurring four-digit case and remains PENDING until then. | PENDING |
 | A5 — search and correlation identity | Domain/API and isolated deployed fixtures resolve the same four-digit Case/PO through exact search, email matching, retro lookup and Archive-name parsing, with false-prefix negatives. | Signed-in search/correlation proof uses a naturally existing four-digit case only; otherwise it remains PENDING. | PENDING |
 | A6 — numeric ordering | Unit/integration and isolated deployed tests prove parsed ordering 998, 999, 1000, 1001 and correct latest-sequence selection inside one scope. | Live list/database ordering is recorded only after real 1000 exists; no live boundary is manufactured. | PENDING |
-| A7 — scope and legacy stability | Regression fixtures prove existing three-digit strings are unchanged and marker/principal/year sequences remain independent. | Read-only live comparison of representative existing Case/POs and sequence counters shows no cross-scope movement. | PENDING |
+| A7 — scope and earlier stability | Regression fixtures prove existing three-digit strings are unchanged and marker/principal/year sequences remain independent. | Read-only live comparison of representative existing Case/POs and sequence counters shows no cross-scope movement. | PENDING |
 | A8 — full-value persistence and safe upper bound | Schema, serialization, audit, filename/export and Archive-name tests in an isolated production-shaped deployment preserve four digits; 10000 is refused without reuse or truncation. | Live persistence/export/archive proof waits for a naturally occurring four-digit case; no production item is created or renamed for proof. | PENDING |
-| A9 — complete regression and approved deployed proof | All named domain, allocator, API, orchestration, SPA and isolated deployment suites pass with the boundary matrix. | Signed-in proof records deployed legacy stability now and the real boundary later; evidence confirms no provider was advanced solely for testing. | PENDING |
+| A9 — complete regression and approved deployed proof | All named domain, allocator, API, orchestration, SPA and isolated deployment suites pass with the boundary matrix. | Signed-in proof records deployed earlier stability now and the real boundary later; evidence confirms no provider was advanced solely for testing. | PENDING |
 
 ## Pending / gaps
 Implementation and all offline and signed-in/live proof are pending.
 
 ## How to re-verify
-Run the offline and isolated non-live boundary suites, gather read-only signed-in legacy proof, and retain the boundary-dependent live rows as PENDING until real work naturally reaches 1000.
+Run the offline and isolated non-live boundary suites, gather read-only signed-in earlier proof, and retain the boundary-dependent live rows as PENDING until real work naturally reaches 1000.

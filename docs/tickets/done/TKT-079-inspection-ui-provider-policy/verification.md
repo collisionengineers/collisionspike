@@ -18,7 +18,7 @@ staff-MSAL only). Build + tests green; the SPA is live on `cespk-spa-dev` (CSP h
   candidates always shown in full; hidden while searching the full corpus).
 
 ## Tests / build
-- domain 886 / api 183 / mockup-app 275 all pass; SPA `tsc -b` + vite build clean.
+- domain 886 / api 183 / @cs/web 275 all pass; SPA `tsc -b` + vite build clean.
 - The IBA-requires-a-reason invariant is unchanged (the override flow + `ck_inspection_address_image_based_reason`
   CHECK still enforce it) — the chip is informational only.
 

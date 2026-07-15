@@ -26,10 +26,10 @@ multi-line preview needs no schema or SPA change.
 - [evidence/operator-note-2026-07-08.md](./evidence/operator-note-2026-07-08.md) — 2026-07-08 operator re-report (workstream item 5): QDOS signature/link garbage fills the preview — strip boilerplate, show the typed body first.
 - `evidence/operator-note.md` — plan § 5 + diagnostic (2026-07-06 planning session, verified
   live 06/07).
-- `orchestration/src/functions/activities/fetchMessage.ts` ~line 137 — the whitespace collapse
+- `services/orchestration/src/workflows/intake/fetchMessage.ts` ~line 137 — the whitespace collapse
   (`BODY_PREVIEW_CAP` 3,500 chars).
-- `orchestration/src/lib/retro-envelope.ts` — the retro path builds previews the same way.
-- Real sample emails for fixtures: `test-cases-and-data/`.
+- `services/orchestration/src/workflows/retro/retro-envelope.ts` — the retro path builds previews the same way.
+- Real sample emails for fixtures: `tests/fixtures/manifests/evidence.json#`.
 
 ## Proposed change
 
@@ -53,13 +53,13 @@ PROPOSED (not built):
 - [ ] The Inbox panel renders the cleaned preview with visible line structure (no run-on wall).
 - [ ] The VRM sniff and parser inputs are unaffected — cleaning applies to the stored preview,
       not to the `body` used for extraction.
-- [ ] The util is pure (no I/O) and unit-tested on real samples from `test-cases-and-data/`.
+- [ ] The util is pure (no I/O) and unit-tested on real samples from `tests/fixtures/manifests/evidence.json#`.
 
 ## Verification requirements (proof standard)
 
 1. **Offline tests** — `packages/domain` vitest suite for `email-body-clean` covering: newline
    preservation, blank-line collapse, URL shortening, `From:/Sent:` chain cut, `On … wrote:`
-   chain cut, signature-marker drop — each pinned on a real sample from `test-cases-and-data/`.
+   chain cut, signature-marker drop — each pinned on a real sample from `tests/fixtures/manifests/evidence.json#`.
 2. **Gate** — `node verify-all.mjs` green; orch deploy recorded in [changes.md](./changes.md).
 3. **Live probe** — after deploy, send/await one real email and capture the stored
    `body_preview` from Postgres showing multi-line structure + cleaned noise; screenshot the

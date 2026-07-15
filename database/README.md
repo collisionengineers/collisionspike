@@ -1,5 +1,14 @@
-# migration — MOVED (cutover COMPLETE)
+# Database
 
-> The Power-Platform→Azure cutover is **executed + complete** (2026-06-27). The narrative plans moved to [docs/HISTORICAL/migration/](../docs/HISTORICAL/migration/). Live state: [CURRENT_STATUS.md](../CURRENT_STATUS.md); registry: [docs/architecture/live-environment.md](../docs/architecture/live-environment.md).
->
-> **Note:** `migration/assets/` is **deliberately kept in place** — `migration/assets/schema/*.sql` is the **live, canonical Postgres DDL** still cited by [docs/architecture/live-environment.md](../docs/architecture/live-environment.md), [docs/architecture/data-model.md](../docs/architecture/data-model.md), and [docs/azure/postgres.md](../docs/azure/postgres.md). It is not historical and was not moved.
+This directory owns the PostgreSQL definition and its offline verification.
+
+- `baseline/` is the ordered full-build definition for a new database.
+- `migrations/` contains append-only, idempotent changes for an existing database.
+- `seeds/` contains deterministic current reference data.
+- `tests/` verifies code-table values and schema-facing contracts.
+- `operations/` contains controlled provisioning and read-only operational helpers.
+
+Persisted table names, column names, and numeric codes are public data contracts. Change them only
+through an approved ticket and an additive migration. PLAN-006 performs no live schema write.
+
+Operational procedure is documented in [Database operations](../docs/operations/database.md).

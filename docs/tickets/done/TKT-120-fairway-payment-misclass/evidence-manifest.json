@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-120",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/synthetic-fairway-transfer.eml",
+      "originalFilename": "synthetic-fairway-transfer.eml",
+      "sha256": "96a22487d45d25fa73d4f8ca3efbce7c14da125eca8cb7453521437b56cdddc0",
+      "storagePath": "tests/fixtures/evidence/sha256/96/96a22487d45d25fa73d4f8ca3efbce7c14da125eca8cb7453521437b56cdddc0.eml"
+    }
+  ]
+}

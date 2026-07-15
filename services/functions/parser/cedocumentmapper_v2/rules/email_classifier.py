@@ -4,11 +4,11 @@ A single PURE function — :func:`classify_email` — that reads an inbound emai
 already-decoded fields and returns the operator's triage label. It is the Python
 engine behind the parser Function's ``POST /classify-email`` route (the strong
 signals already live in :mod:`cedocumentmapper_v2.rules.engine`, so re-deriving
-them in Power Fx would duplicate and drift). No Dataverse, no network, no LLM —
+them elsewhere would duplicate and drift). No persistence, network, or LLM —
 just the same keyword / phrase / regex matching the rest of the engine uses, so
 it is trivially unit-testable.
 
-Taxonomy (two stable, append-only choicesets; see collisionspike ADR-0015 + the
+Taxonomy (two stable, append-only code tables; see collisionspike ADR-0015 + the
 Phase-2 rules-engine-v2 plan). This block documents the CURRENT taxonomy — v1
 (receiving_work/query/other, six subtypes) plus the ADDITIVE categories layered on
 since: billing + non_actionable (three more subtypes), and now case_update +
@@ -47,10 +47,10 @@ pre-filter: spam, newsletters and auto-replies are simply categorised as
 What the classifier can and cannot see
 --------------------------------------
 The classifier is pure, so the open-Case lookup (does this Case/PO or VRM hit an
-OPEN Case with no instruction doc?) stays on the flow side, exactly as the open
-question of "which Case does this belong to" stays out of ``/parse``. The
-classifier surfaces ``body_caseref`` and ``body_vrm`` so the flow can run that
-Dataverse lookup itself and, on a match, keep the ``query_existing_work`` label
+OPEN Case with no instruction doc?) belongs to the orchestration service, exactly
+as the open question of "which Case does this belong to" stays out of ``/parse``.
+The classifier surfaces ``body_caseref`` and ``body_vrm`` so orchestration can run
+that case lookup and, on a match, keep the ``query_existing_work`` label
 the classifier already proposes. The classifier NEVER auto-links and NEVER
 guesses a Case — it only reports what it found in the text.
 
@@ -78,16 +78,17 @@ Request fields (all optional; missing ones are treated as empty/absent):
     from_address          the sender's email address (informational)
     sender_domain         the sender's domain
     authentication_results  recipient-stamped Authentication-Results header
-    provider_match_state  one | none | ambiguous  (the flow's domain match result)
+    provider_match_state  one | none | ambiguous  (orchestration's domain match result)
     attachment_kinds      list of attachment kinds, e.g. ["instruction", "image"]
     has_attachments       bool
     in_reply_to           the RFC-5322 In-Reply-To header, if the caller passes it
     references            the RFC-5322 References header, if the caller passes it
-    open_case_ref_match   one | none | ambiguous  (the flow's OPEN-CASE match result —
+    open_case_ref_match   one | none | ambiguous  (orchestration's OPEN-CASE match result —
                           did the email's named Case/PO / job ref hit an already-open
-                          Case?). Like ``provider_match_state`` this is a FLOW-RESOLVED
-                          context signal the classifier is TOLD, never a lookup it makes
-                          itself (the open-Case query stays on the flow side, per
+                          Case?). Like ``provider_match_state`` this is an
+                          orchestration-resolved context signal the classifier is TOLD,
+                          never a lookup it makes itself (the open-Case query remains
+                          workflow-service-owned, per
                           ADR-0019). Default absent = ``none`` = "not matched / not
                           resolved". When it is ``one``/``ambiguous`` — the ref names an
                           OPEN case — a work-shaped delivery on that ref is an UPDATE to
@@ -96,7 +97,7 @@ Request fields (all optional; missing ones are treated as empty/absent):
                           lane (TKT-043). The definitive open-case ACTION (attach /
                           suggest) is still the context-aware triage-policy layer's
                           (@cs/domain ``decideTriage``); this input lets the classifier
-                          PROPOSE the same label when the flow has already resolved the
+                          PROPOSE the same label when orchestration has already resolved the
                           match (the eval harness feeds it exactly as it feeds
                           ``provider_match_state``).
 
@@ -194,9 +195,10 @@ CATEGORY_CANCELLATION = "cancellation"
 #                       instruction from RJ please hold off obtaining images").
 #                       Not yet an instruction (NO case may be minted), not noise
 #                       (the directions must be held and surfaced on the case the
-#                       later instruction mints — the orchestrator's correlation
+#                       later instruction mints — the workflow service's correlation
 #                       job, gated TRIAGE_PRE_INSTRUCTION_ENABLED). The classifier
-#                       only proposes the label; holding/correlating is flow-side.
+#                       only proposes the label; the workflow service owns holding
+#                       and correlation.
 CATEGORY_PRE_INSTRUCTION = "pre_instruction"
 # Taxonomy v4 (TKT-170): a prospective customer using CE's website contact form.
 # The transport sender is CE infrastructure, but the business sender is the visitor;
@@ -224,7 +226,7 @@ SUBTYPE_WEBSITE_GENERAL_ENQUIRY = "website_general_enquiry"  # WEBSITE_ENQUIRY �
 
 # Response envelope taxonomy generation. Bumped only when a category/subtype is
 # ADDED (never on a wording/confidence tweak) so a consumer (SPA filters, the
-# eval-corpus scorer, the DDL choicesets) can tell which codes a row may carry.
+# eval-corpus scorer, the DDL code tables) can tell which codes a row may carry.
 # Existing rows keep their old-generation codes — no backfill.
 # v4 (TKT-170): + website_enquiry · website_general_enquiry.
 TAXONOMY_VERSION = 4
@@ -246,8 +248,8 @@ _WEBSITE_FORM_DMARC_PASS_RE = re.compile(
 )
 _WEBSITE_FORM_COMPAUTH_PASS_RE = re.compile(r"\bcompauth=pass\b", re.IGNORECASE)
 
-# Provider-match states the flow passes in (mirrors the intake flow's domain
-# match: a known provider domain matched exactly one / none / more than one row).
+# Provider-match states orchestration passes in (a known provider domain matched
+# exactly one / none / more than one row).
 PROVIDER_ONE = "one"
 PROVIDER_NONE = "none"
 PROVIDER_AMBIGUOUS = "ambiguous"
@@ -688,7 +690,7 @@ _AUTO_REPLY_MARKERS: tuple[str, ...] = _RULES.auto_reply_markers
 # emoji. Identity alone does not fire (a Tractable support/billing email must
 # not read as an image delivery). Routed to the EXISTING taxonomy lane
 # case_update · images_received (the photos ride in the attached summary PDF;
-# no taxonomy extension needed). Case-matching stays flow-side, exactly like
+# no taxonomy extension needed). The workflow service owns case matching, as with
 # every other case_update proposal.
 _IMAGE_SERVICE_SENDER_DOMAINS: tuple[str, ...] = _RULES.image_service_sender_domains
 _IMAGE_SERVICE_IDENTITY_PHRASES: tuple[str, ...] = _RULES.image_service_identity_phrases
@@ -910,8 +912,8 @@ def classify_email(
       0e. (taxonomy v3) A pre-instruction phrase (directions for WHEN the later
           official instruction arrives) + an identifier, with NO instruction doc,
           <2 work phrases and no question -> pre_instruction ·
-          pre_instruction_directions (TKT-084; no case minted — the orchestrator
-          holds + correlates, gated TRIAGE_PRE_INSTRUCTION_ENABLED flow-side).
+          pre_instruction_directions (TKT-084; no case minted — the workflow
+          service holds + correlates, gated TRIAGE_PRE_INSTRUCTION_ENABLED).
       0f. (TKT-102) An image-capture service CE commissions (Tractable)
           delivering a completed capture — an identity anchor (tractable.ai
           sender domain / "powered by tractable") AND delivery wording
@@ -947,7 +949,7 @@ def classify_email(
       3. No attachment, >=2 work keywords + a body Case/PO or VRM -> receiving_work
          (an instruction typed into the email body).
       4. A query keyword OR a reply (``is_reply``) + a body Case/PO or VRM -> query /
-         query_existing_work (the flow confirms the open-Case link; the classifier
+         query_existing_work (orchestration confirms the open-Case link; the classifier
          proposes it — a reply naming a Case/PO or registration is about work we did).
       4d. (taxonomy v2) An existing-job reference (body_caseref/body_jobref, full
           haystack) + new evidence (a non-report attachment, or an image attachment
@@ -971,9 +973,10 @@ def classify_email(
     domain_s = _normalise(sender_domain).strip().lower()
     authentication_s = _normalise(authentication_results).strip().lower()
     state = _normalise(provider_match_state).strip().lower()
-    # The flow's OPEN-CASE match result (TKT-043) — a resolved context signal, exactly
-    # like ``provider_match_state``; the classifier is TOLD, it never looks a Case up
-    # (the open-Case query stays on the flow side, per ADR-0019). ``one``/``ambiguous`` =
+    # Orchestration's OPEN-CASE match result (TKT-043) — a resolved context signal,
+    # exactly like ``provider_match_state``; the classifier is TOLD, it never looks a
+    # Case up (the workflow service owns the open-Case query, per ADR-0019).
+    # ``one``/``ambiguous`` =
     # the named ref hit an OPEN case, so a work-shaped delivery on it is an update, not
     # fresh work. Default absent = ``none`` = "not matched / not resolved".
     open_case_state = _normalise(open_case_ref_match).strip().lower()
@@ -1210,7 +1213,7 @@ def classify_email(
         # attached") is delivering a document onto an existing matter, not instructing new
         # work — the inherited subject's work cue must not promote it.
         or (is_forward and not new_work_phrases)
-        # TKT-043: the flow resolved the email's named ref to an ALREADY-OPEN case
+        # TKT-043: orchestration resolved the email's named ref to an ALREADY-OPEN case
         # (``open_case_ref_match`` one/ambiguous). A work-shaped delivery on an open case
         # is an UPDATE to it, not fresh work — suppress the fresh-work promotion (Rules
         # 1-3) so it routes into the case_update lane (Rule 4a2/4d). Requires an existing
@@ -1330,9 +1333,9 @@ def classify_email(
     # The sender is telling us what to do WHEN the official instruction later
     # arrives ("when you receive an instruction from RJ on this one please hold
     # off from obtaining images"). Not yet an instruction — NO case may be minted
-    # — but not noise: the orchestrator holds the row and correlates it onto the
-    # case the later instruction mints (gated TRIAGE_PRE_INSTRUCTION_ENABLED,
-    # flow-side; the pure classifier only proposes the label). Precision guards:
+    # — but not noise: the workflow service holds the row and correlates it onto the
+    # case the later instruction mints (gated TRIAGE_PRE_INSTRUCTION_ENABLED; the
+    # pure classifier only proposes the label). Precision guards:
     #   * every phrase is anchored to a FUTURE-instruction reference (see
     #     _PRE_INSTRUCTION_PHRASES) — a bare "hold off" never fires;
     #   * an attached instruction doc disqualifies (the instruction IS here);
@@ -1380,8 +1383,8 @@ def classify_email(
     # update to a matter CE already knows about — case_update · images_received —
     # and must NEVER mint fresh work: its PDF's extension-derived kind is
     # "instruction", so this rule sits BEFORE the Rule-1 instruction-doc
-    # promotion (exactly like Rule 0d's payment lane). Which case it belongs to
-    # stays a flow-side lookup (the classifier surfaces body_vrm/body_jobref as
+    # promotion (exactly like Rule 0d's payment lane). The workflow service owns
+    # the case lookup (the classifier surfaces body_vrm/body_jobref as
     # usual — for these emails typically empty: the identifiers live in the PDF,
     # parsed later by /parse). KNOWN LIMIT (mirrors Rule 0d): a variant whose
     # footer trips an auto-reply marker abstains at Rule 0 first.
@@ -1543,7 +1546,7 @@ def classify_email(
         )
 
     # --- Rule 4a: a question/chase naming a Case/PO, job ref or VRM — about work we did
-    # The classifier proposes query_existing_work; the flow confirms the open-Case link
+    # The classifier proposes query_existing_work; orchestration confirms the open-Case link
     # (Case/PO first, then job ref, then VRM; it never auto-links on ambiguity). A chase
     # for a report we owe (TKT-030/031/033) reaches here via ``query_or_chase``.
     if query_or_chase and (has_existing_ref or body_vrm):

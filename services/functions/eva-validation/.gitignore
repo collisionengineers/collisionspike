@@ -1,9 +1,0 @@
-.venv/
-.venv_headless/
-__pycache__/
-*.pyc
-.pytest_cache/
-local.settings.json
-.python_packages/
-bin/
-obj/

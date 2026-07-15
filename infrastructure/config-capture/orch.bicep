@@ -3,7 +3,7 @@
 //
 // Captures the live, hand-applied config of the orchestration app (Durable +
 // Graph change-notification intake). Live function count + subscription/RBAC state
-// live in the registry (LIVE_FACTS.json / docs/architecture/live-environment.md),
+// live in the registry (LIVE_FACTS.json / docs/operations/live-environment.md),
 // never embedded here. Same CAPTURE rules as api.bicep:
 //   * Existing plan/storage/KV are referenced, not recreated.
 //   * Secrets are KV REFERENCES from secret NAMES only — never literals.
@@ -37,8 +37,8 @@ param graphClientId string = '5d37a155-2af8-4878-b96a-6faad5207137'
 // token echoed back on every push). Captured as a KV REFERENCE (secret name only,
 // see graphClientStateSecretName below) — NEVER a literal, per the secret rule above.
 
-@description('Configured intake mailboxes. engineers@ + digital@ today; production target is info@ + engineers@ + desk@ (digital@ is the operator dev mailbox, test-only).')
-param graphIntakeMailboxes string = '[{"mailbox":"engineers@collisionengineers.co.uk","minIntakeDate":"2026-06-27T00:00:00Z"},{"mailbox":"digital@collisionengineers.co.uk","minIntakeDate":"2026-06-27T00:00:00Z"}]'
+@description('Configured intake mailboxes.')
+param graphIntakeMailboxes string = '[{"mailbox":"info@collisionengineers.co.uk","minIntakeDate":"2026-06-29T00:00:00Z"},{"mailbox":"engineers@collisionengineers.co.uk","minIntakeDate":"2026-06-27T00:00:00Z"},{"mailbox":"desk@collisionengineers.co.uk","minIntakeDate":"2026-06-29T00:00:00Z"}]'
 
 param missedResyncLookbackHours string = '48'
 param parserFnUrl string = 'https://cespike-parser-dev-x7xt3d5ovhi7y.azurewebsites.net'

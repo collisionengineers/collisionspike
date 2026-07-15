@@ -26,11 +26,11 @@ PENDING — the core File Request and upload-to-evidence/readiness path is verif
   - Box webhook operation `50af22db26d2afa9689d993c86a81a34` returned HTTP `200`. `GET /api/internal/box/case-by-folder/399042781700` returned `200`; metadata and content fetches returned `200`; `POST /api/internal/cases/eec464ce-f32f-45ee-92ac-54b8c6d578db/evidence` returned `200`; the internal audit returned `204`; status evaluation returned `200`; the webhook completed in `2820 ms`.
   - Both files are deliberately mismatched generic image fixtures. This proves transport, evidence persistence and readiness re-evaluation, not correct image-role classification, accepted role coverage or a case-ready outcome.
 - Focused contracts:
-  - `api/src/lib/box-file-request-outbox.test.ts` — first create, concurrent ownership, active reuse, transient retry, inactive/expired reactivation, deleted/invalid/terminal-repair replacement and folder-not-ready.
-  - `api/src/functions/cases-chase.test.ts` — image/picture chasers require the link, persist its identity and refuse a link from a superseded folder; non-image chasers remain unaffected.
-  - `mockup-app/src/components/ChaserPanel-copy.test.tsx` — the editable message and active HTTPS link copy together; a failed link copies/logs nothing.
-  - `functions/box-webhook/tests/test_scope_lock.py` and `test_file_request_routes.py` — template/request folder containment, expected-folder lifecycle calls, restricted reactivation fields and a fresh ancestry read despite a stale warm-worker cache.
-  - `api/src/functions/internal-evidence-dedup.test.ts` — only a newly inserted Box image satisfies image chasers; a cross-lane archive mirror and redelivery do not.
+  - `services/data-api/src/features/archive/file-request-outbox.test.ts` — first create, concurrent ownership, active reuse, transient retry, inactive/expired reactivation, deleted/invalid/terminal-repair replacement and folder-not-ready.
+  - `services/data-api/src/features/cases/chase-route.test.ts` — image/picture chasers require the link, persist its identity and refuse a link from a superseded folder; non-image chasers remain unaffected.
+  - `apps/web/src/shared/ui/ChaserPanel-copy.test.tsx` — the editable message and active HTTPS link copy together; a failed link copies/logs nothing.
+  - `services/functions/box-webhook/tests/test_scope_lock.py` and `test_file_request_routes.py` — template/request folder containment, expected-folder lifecycle calls, restricted reactivation fields and a fresh ancestry read despite a stale warm-worker cache.
+  - `services/data-api/src/features/evidence/internal-persist-routes.test.ts` — only a newly inserted Box image satisfies image chasers; a cross-lane archive mirror and redelivery do not.
 
 ## Acceptance status
 - **VERIFIED-LIVE:** approved template configuration; case-folder resolution; one active request/link; repeated copy reuse; exactly one redacted HTTPS link in the editable/copyable message; persisted chase logging; two uploads inside the authorized root; folder-to-case resolution; metadata/content retrieval; evidence persistence; audit write; and readiness re-evaluation.

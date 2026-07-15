@@ -9,9 +9,9 @@ deployment and live Chrome proof remain pending. The retired reciprocal AI-revie
 
 ## Files changed
 - `packages/domain/src/contracts/image-rules.ts`, `packages/domain/src/contracts/case-status.ts` — expose one complete image-readiness result (accepted count, role gaps and unresolved image decisions) and make case status consume it.
-- `mockup-app/src/components/ChaserPanel.tsx` — replace raw-image/case-type gating with one editable template per unresolved canonical gap; keep the active File Request requirement for every image request.
-- `mockup-app/src/screens/CaseDetail.tsx` — feed the composer the current server-confirmed image working copy used by readiness, so saved classifications and include/exclude changes apply immediately.
-- `packages/domain/src/contracts/image-rules.test.ts`, `mockup-app/src/components/ChaserPanel.test.ts`, `mockup-app/src/components/ChaserPanel-copy.test.tsx`, `mockup-app/src/screens/case-detail-chaser-contract.test.ts` — regression coverage for all image-gap branches, independent instruction chasing, link enforcement and live recomputation.
+- `apps/web/src/shared/ui/ChaserPanel.tsx` — replace raw-image/case-type gating with one editable template per unresolved canonical gap; keep the active File Request requirement for every image request.
+- `apps/web/src/features/cases/CaseDetail.tsx` — feed the composer the current server-confirmed image working copy used by readiness, so saved classifications and include/exclude changes apply immediately.
+- `packages/domain/src/contracts/image-rules.test.ts`, `apps/web/src/shared/ui/ChaserPanel.test.ts`, `apps/web/src/shared/ui/ChaserPanel-copy.test.tsx`, `apps/web/src/features/cases/case-detail-chaser-contract.test.ts` — regression coverage for all image-gap branches, independent instruction chasing, link enforcement and live recomputation.
 
 ## Summary
 - The presence of a raw image can no longer hide image chasers. Zero accepted images, all-excluded sets, missing overview/visible registration, missing damage close-up and unresolved automatic decisions each retain an appropriate draft.

@@ -1,4 +1,4 @@
-"""Unit tests for the Box photo seam (stub default; activation marker)."""
+"""Unit tests for location-assist photo-byte sources."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def test_stub_unknown_ref_raises():
         src.fetch_bytes(PhotoRef(evidence_id="nope"))
 
 
-def test_factory_defaults_to_stub_when_box_dormant(monkeypatch):
+def test_factory_defaults_to_stub_when_archive_read_disabled(monkeypatch):
     monkeypatch.delenv("BOX_API_ENABLED", raising=False)
     src = get_photo_source({"ev1": b"x"})
     assert isinstance(src, StubPhotoSource)
@@ -47,9 +47,8 @@ def test_factory_selects_box_when_enabled(monkeypatch):
     assert isinstance(src, BoxPhotoSource)
 
 
-def test_box_source_is_unwired_activation_step():
-    """BoxPhotoSource is present but NOT wired in v1: it must raise rather than
-    silently no-op, so a premature flip of BOX_API_ENABLED is loud."""
+def test_box_source_fails_until_direct_archive_read_exists():
+    """The unimplemented direct read must raise instead of silently doing nothing."""
     with pytest.raises(PhotoUnavailableError):
         BoxPhotoSource().fetch_bytes(PhotoRef(evidence_id="ev1", box_file_id="123"))
 

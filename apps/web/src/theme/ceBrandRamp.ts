@@ -14,7 +14,7 @@ import type { BrandVariants } from '@fluentui/react-components';
  * blue-violet. The dark end deepens toward near-black maroon.
  *
  * NOTE: these are screen tokens. The PRINT brand red is deliberately NOT used
- * anywhere under mockup-app/src (guarded by theme/contrast.test.ts; the hex
+ * anywhere under apps/web/src (guarded by theme/contrast.test.ts; the hex
  * itself lives only in docs/design/THEME-MAPPING.md).
  */
 export const ceBrandRamp: BrandVariants = {

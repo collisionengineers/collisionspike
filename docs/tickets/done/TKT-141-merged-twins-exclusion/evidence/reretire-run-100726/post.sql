@@ -22,7 +22,7 @@ SELECT id, case_po, case_ref, vrm, status_code, on_hold,
  ORDER BY vrm, case_po NULLS LAST;
 
 \echo ===== openVrmTwins SQL parity: PK20FWT open twins (expected 1 = survivor PCH26009) =====
--- TWIN_TERMINAL (api/src/lib/mappers.ts) = eva_submitted 100000008, box_synced
+-- TWIN_TERMINAL (services/data-api/src/shared/mapping/) = eva_submitted 100000008, box_synced
 -- 100000009, removed 100000011, done 100000012 (error stays an open twin);
 -- retired-merged (linked_to_instruction + marker) excluded exactly like the
 -- terminal set (cases.ts openVrmTwins + isRetiredMerged).

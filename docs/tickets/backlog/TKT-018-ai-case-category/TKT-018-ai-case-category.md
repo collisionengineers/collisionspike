@@ -5,7 +5,7 @@ status: backlog
 priority: P3
 area: ai
 tickets-it-relates-to: [TKT-015]
-research-link: docs/plans/work-todo-spike/ai-assistant/ai-tools/research/defer-ai-case-category.md
+research-link: docs/tickets/backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md
 plan: PLAN-001
 ---
 
@@ -27,8 +27,8 @@ repairable as an observation for handler confirmation.
 Deferred; revisit after the core pipeline + AI suggestion layer land.
 
 ## Research
-- Operator stub: [defer-ai-case-category.md](../../../plans/work-todo-spike/ai-assistant/ai-tools/defer-ai-case-category.md)
-- Research pack: [research/defer-ai-case-category.md](../../../plans/work-todo-spike/ai-assistant/ai-tools/research/defer-ai-case-category.md)
+- Operator stub: [defer-ai-case-category.md](TKT-018-ai-case-category.md)
+- Research pack: [research/defer-ai-case-category.md](TKT-018-ai-case-category.md)
 
 ## Artifacts
 - [Changes made](./changes.md)

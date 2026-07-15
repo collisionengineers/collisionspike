@@ -1,23 +1,6 @@
-/* ============================================================
-   Collision Engineers — app bootstrap (plan 30 + 31).
-
-   Replaces the Power Platform SDK bootstrap + PowerProvider wrap with:
-     1. MSAL initialization + sign-in gate (plan 31)
-     2. REST DataAccess injection (plan 30)
-     3. REST transport injection for parser, location-assist, Box
-
-   Identity flow: staff hit the SWA URL → MSAL redirects to Entra sign-in
-   → returns authenticated → SPA acquires an API token silently → all
-   fetch calls in rest-client.ts carry a Bearer token → the API validates
-   the Entra JWT and enforces role-based access (CollisionSpike.User /
-   CollisionSpike.Admin — plan 31).
-
-   Config (all PUBLIC values — no secrets in the bundle):
-     VITE_ENTRA_CLIENT_ID  — cespk-spa Application (client) ID
-     VITE_ENTRA_TENANT_ID  — workforce tenant id
-     VITE_API_SCOPE        — e.g. api://<API_APPID>/access_as_user
-     VITE_API_BASE_URL     — e.g. https://cespk-api-dev.azurewebsites.net
-   ============================================================ */
+/* Application bootstrap: sign-in, authenticated REST data, focused service
+   transports, theme, and the global notification surface. Browser settings are
+   public build-time values; secrets never belong in this bundle. */
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -37,9 +20,9 @@ import {
   acquireApiToken,
   API_SCOPES,
 } from './auth/msalConfig';
-import App from './App';
+import App from './app/App';
 import { ceTheme } from './theme/ceTheme';
-import { GLOBAL_TOASTER_ID } from './components';
+import { GLOBAL_TOASTER_ID } from './shared/ui';
 import { configureDataAccess } from './data';
 import { createRestDataAccess } from './data/rest-client';
 import {

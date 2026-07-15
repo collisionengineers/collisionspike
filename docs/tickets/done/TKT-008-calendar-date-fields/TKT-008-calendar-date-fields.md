@@ -5,7 +5,7 @@ status: done
 priority: P3
 area: ui
 tickets-it-relates-to: [TKT-011]
-research-link: docs/plans/work-todo-spike/ui-changes/research/calendar-box-on-date-fields.md
+research-link: docs/tickets/done/TKT-008-calendar-date-fields/TKT-008-calendar-date-fields.md
 ---
 
 # Calendar picker on the date-of-incident / instruction fields
@@ -24,8 +24,8 @@ Attach a calendar/date-picker control to both date fields, keeping the stored fo
 Both fields offer a calendar picker; the selected value is stored in the expected date format.
 
 ## Research
-- Operator stub: [calendar-box-on-date-fields.md](../../../plans/work-todo-spike/ui-changes/calendar-box-on-date-fields.md)
-- Research pack: [research/calendar-box-on-date-fields.md](../../../plans/work-todo-spike/ui-changes/research/calendar-box-on-date-fields.md)
+- Operator stub: [calendar-box-on-date-fields.md](TKT-008-calendar-date-fields.md)
+- Research pack: [research/calendar-box-on-date-fields.md](TKT-008-calendar-date-fields.md)
 
 ## Artifacts
 - [Changes made](./changes.md)

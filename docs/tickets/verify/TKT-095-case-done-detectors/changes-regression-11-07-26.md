@@ -27,7 +27,8 @@ flight; if the owner then failed, Box had already observed a false success.
   fail.
 - Evidence persistence remains durable and idempotent before the terminal call, so a Box redelivery
   retries `mark-done` without creating a second engineer-report row.
-- `functions/box-webhook/tests/test_data_api_client.py` covers success, guarded no-op, transport and
-  HTTP failure. `tests/test_webhook.py` covers fresh-evidence failure, deduplicated recovery and a
+- `services/functions/box-webhook/tests/test_data_api_client.py` covers success, guarded no-op, transport and
+  HTTP failure. `services/functions/box-webhook/tests/test_webhook.py` covers fresh-evidence failure,
+  deduplicated recovery and a
   concurrent duplicate arriving before the first request fails. The shared API transition is also
-  rollback-tested in `api/src/lib/terminal-transition.test.ts`.
+  rollback-tested in `services/data-api/src/features/cases/terminal-transition.test.ts`.

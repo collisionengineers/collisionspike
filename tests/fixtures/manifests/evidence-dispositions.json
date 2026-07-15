@@ -1,0 +1,553 @@
+{
+  "version": 1,
+  "policy": "Only reproducible output, obsolete exported assistant state, and transcribed prototype images are listed here. None is retained in the evidence store.",
+  "groups": [
+    {
+      "category": "obsolete-assistant-export",
+      "sourceLocation": "test-cases-and-data/e-mail-examinations/mems/",
+      "reason": "Exported assistant state is not source evidence and has no current consumer.",
+      "logicalOccurrences": 57,
+      "bytes": 130052,
+      "itemPathsOmitted": true,
+      "items": [
+        {
+          "sha256": "d865b855fda2a4b1ddf152a142f8efa02166054313df6cb2281ecb329b0bbcd1",
+          "size": 3136,
+          "extension": ".md"
+        },
+        {
+          "sha256": "702b5a9154a5ff5c326cc154ffba4e414b035f73a3a0b377fcf8617f0b26e9e5",
+          "size": 1595,
+          "extension": ".md"
+        },
+        {
+          "sha256": "2f0f1eab8b6f024194e736f9186cc45151c524ecee57ab4bcc46184032dc8f6f",
+          "size": 1057,
+          "extension": ".md"
+        },
+        {
+          "sha256": "5890464c636640203f519335d44c7fbe1d20747e78e4fefec3ea9baa36952f0a",
+          "size": 4086,
+          "extension": ".md"
+        },
+        {
+          "sha256": "e07ec2616399d7b98bf7622c74a45d76cf3d43aac788790e5d9ffa1f04b4a658",
+          "size": 4634,
+          "extension": ".md"
+        },
+        {
+          "sha256": "010051b3b279ab59af46efaa91f3e3fd5845ee52f7e16e41c7e18786ec8ce327",
+          "size": 2089,
+          "extension": ".md"
+        },
+        {
+          "sha256": "f502e2461c954e63e523e008faba0866d23e61a275bc3f7efa1712f66a991a44",
+          "size": 3090,
+          "extension": ".md"
+        },
+        {
+          "sha256": "5ceecacf226caab7f0bc5976c45f652fa02f1887971f17efc7a05e733abd9b90",
+          "size": 5787,
+          "extension": ".md"
+        },
+        {
+          "sha256": "26e0ba17ca287b774dc9f181f7c8789a5626dbdd5ecbcf4329e96056aaaa1e09",
+          "size": 2684,
+          "extension": ".md"
+        },
+        {
+          "sha256": "834e3e3ce04d8d3e0f0368233b5d601cb696f28ef7ee9f341ee71574709d0678",
+          "size": 1914,
+          "extension": ".md"
+        },
+        {
+          "sha256": "38c909c25720e2e2a6f534cfcc980835dc70c01d9214f60f156634cd52503e14",
+          "size": 3382,
+          "extension": ".md"
+        },
+        {
+          "sha256": "6724913255937598632addb4ad19daaf3f4e3b0ab1d15802010667ec96dd7c5c",
+          "size": 2203,
+          "extension": ".md"
+        },
+        {
+          "sha256": "b38b7ec74a97a0df7667331654ca970f406775007a43da02202b77f2a237327a",
+          "size": 2038,
+          "extension": ".md"
+        },
+        {
+          "sha256": "c3b45d7998f181428e74d418d7e639562e5422be9e3e333e0416841ebfff0d3e",
+          "size": 2338,
+          "extension": ".md"
+        },
+        {
+          "sha256": "0b5acd4562dece5c183c2035ad7319b95076ffbdaf95486b2d5ded79ed44836e",
+          "size": 1828,
+          "extension": ".md"
+        },
+        {
+          "sha256": "bd5214739351b4c2ecdb1ef38721d4eef86c34d75d5ac67812a0ed7b044259d6",
+          "size": 3646,
+          "extension": ".md"
+        },
+        {
+          "sha256": "ea491daa3fbf7c4eebec308d3a5ba8db637d6fd7e9e56776aecdda9093c09be8",
+          "size": 3030,
+          "extension": ".md"
+        },
+        {
+          "sha256": "9c4683e71ee751be7074b5fc63d27250793dce4c1cc2e54bc88ca2acede1ab68",
+          "size": 2036,
+          "extension": ".md"
+        },
+        {
+          "sha256": "26ec1ddf7d8ddcef50d24ba37f4d2365452efffa263e77b5a73339be4fe68567",
+          "size": 1603,
+          "extension": ".md"
+        },
+        {
+          "sha256": "40522048bccdb16669092a9c1c523d9015d0deebaa5dc56e4f03d92b43b3416d",
+          "size": 3292,
+          "extension": ".md"
+        },
+        {
+          "sha256": "8fbabd2f11b5f5491fc054af70ef5d5e2b0791f7f4169d0bb5c8a6eda5380bf8",
+          "size": 1962,
+          "extension": ".md"
+        },
+        {
+          "sha256": "1f3967ca7515088510bac66f0479723148c64d0b8bb5d3388d669c0cd91f3bcd",
+          "size": 2412,
+          "extension": ".md"
+        },
+        {
+          "sha256": "32e6d03a6bac335572dbe70afb5068a14f4915aec55aa265bb39fbbb80ae2f68",
+          "size": 1647,
+          "extension": ".md"
+        },
+        {
+          "sha256": "f5b4e0b7b74b394ecd8db905e65369ece99751500ca5b61bd1f1ee8101c288cc",
+          "size": 4204,
+          "extension": ".md"
+        },
+        {
+          "sha256": "a04248fc831ae87c297f09fabce46b116b6b4dc3452e9dfb6bd54c0d2d3bda4b",
+          "size": 2700,
+          "extension": ".md"
+        },
+        {
+          "sha256": "6b88cccabbbbffef4f51aedc2125a8f14f09fa0c941f2d14984b1e819bffb6e7",
+          "size": 2527,
+          "extension": ".md"
+        },
+        {
+          "sha256": "019cbd6e3fd21f2ec145af161b8cc2a688ef2a24765b8b28d59137d1c78b76b4",
+          "size": 1248,
+          "extension": ".md"
+        },
+        {
+          "sha256": "0c7012adb61a09eb5ed99fc84f501a238d75f2240080b3d1e283da4808433fca",
+          "size": 838,
+          "extension": ".md"
+        },
+        {
+          "sha256": "fafedf5ec85e74a0a1f54b31edd0c8d4bfd68a23ea07ca6bff14961a65901dd9",
+          "size": 144,
+          "extension": ".md"
+        },
+        {
+          "sha256": "eb21d0327fee9e2554507cde6fe0eb0eaa219f06508190f23501b880dcea3fed",
+          "size": 1840,
+          "extension": ".md"
+        },
+        {
+          "sha256": "a5e0365a6357db4c779ee7900a3d7384d5194aebf4c128add4abc7743048982f",
+          "size": 158,
+          "extension": ".md"
+        },
+        {
+          "sha256": "0c119ba79e4cd64db8b812f4236385a6604cbbe1f5857ccfddae52dcb1be4c63",
+          "size": 341,
+          "extension": ".md"
+        },
+        {
+          "sha256": "118b5b3ccd6249d26ca0fb50f15a040d7ee8ec22582933bf076e4438d05648d0",
+          "size": 329,
+          "extension": ".md"
+        },
+        {
+          "sha256": "700a90f3027ced43b8e08666810208e147104c4a2a252924bd5deef5986926ae",
+          "size": 160,
+          "extension": ".md"
+        },
+        {
+          "sha256": "8bfcb57adb1c045b8439a3174978671f039fb3c9f1835c05dd88ff06cb6bea47",
+          "size": 6177,
+          "extension": ".md"
+        },
+        {
+          "sha256": "a6a3ef08f71903610dcbda76674bf27b58e4fc5b83ab0ebbf566f15f4b9f9bb9",
+          "size": 164,
+          "extension": ".md"
+        },
+        {
+          "sha256": "006db3cc5e3550d28ec73e997482e77c879027bc3a3a22e8b187e222724c1101",
+          "size": 330,
+          "extension": ".md"
+        },
+        {
+          "sha256": "c98ad4ca71d7dc4b5adfa1abd460d74304e77f25f6899dd5eaa7ffd97855e55c",
+          "size": 355,
+          "extension": ".md"
+        },
+        {
+          "sha256": "195795afe60858bdf4ed914abfa96f9f0b57ad47911f272e2a484614933cd4eb",
+          "size": 2078,
+          "extension": ".md"
+        },
+        {
+          "sha256": "502fb3ca19e0acc43fdbdb789ceb2736257b4786f28663c13d98309ca0b9e658",
+          "size": 3557,
+          "extension": ".md"
+        },
+        {
+          "sha256": "27e8dd4b392cddf59040fdd83919f68331b4e4ebc8618f42f5c9c6c26d518175",
+          "size": 1610,
+          "extension": ".md"
+        },
+        {
+          "sha256": "5b5c0e91c19079454f7ba8dd214a2ca65767b0e2cddcff9989e0c997a58a770e",
+          "size": 1703,
+          "extension": ".md"
+        },
+        {
+          "sha256": "fea397c9b729793f15222783c31572061954c562504f3ac57bf67e697403fd00",
+          "size": 1048,
+          "extension": ".md"
+        },
+        {
+          "sha256": "331146e0d30600ef289f38ccd49af48c5bdadbf52255b56273f8d16da0b89a43",
+          "size": 1945,
+          "extension": ".md"
+        },
+        {
+          "sha256": "6ccccf4a1718edce1073951d46b3ae387bcacfe70be6565e72f25b991e00d840",
+          "size": 5016,
+          "extension": ".md"
+        },
+        {
+          "sha256": "a3735bcd960e1a7a62e8fbece9958c3c369c89b4cfc273e26c14479e8518ee6a",
+          "size": 2281,
+          "extension": ".md"
+        },
+        {
+          "sha256": "cb86967c8e4182110a4b8a8965dddae361f2db7b841f95f621e1af91648e53aa",
+          "size": 3110,
+          "extension": ".md"
+        },
+        {
+          "sha256": "08371ab17f2f9777b064ea5beec310fbd430add00a52387ba236f8bd38311f4e",
+          "size": 3470,
+          "extension": ".md"
+        },
+        {
+          "sha256": "c36c61fe0d3603f9ed379456bd735d425a7552290085f2f782567588a0ced91f",
+          "size": 2778,
+          "extension": ".md"
+        },
+        {
+          "sha256": "d0e5f0e8b2cfbf168532bafddc2f21a17f4933213afb77cf11c85cef49fb7d88",
+          "size": 882,
+          "extension": ".md"
+        },
+        {
+          "sha256": "f6680b82f63bf86c3ac7246e48071c9221b8b9f134358aecbafbab910dd0b378",
+          "size": 2670,
+          "extension": ".md"
+        },
+        {
+          "sha256": "efc84d9ac567e5a835f3f15e4d61eab3544766cc9400ad9236639eef5da54d53",
+          "size": 1332,
+          "extension": ".md"
+        },
+        {
+          "sha256": "a6ec5906866d8f254591912fec5bc2e12480f715842b36d5a20c397e0f24f701",
+          "size": 1181,
+          "extension": ".md"
+        },
+        {
+          "sha256": "8e7744c9ea6a39b189d3f4f951b6e338633fe38446251643e72f0196358c477f",
+          "size": 2676,
+          "extension": ".md"
+        },
+        {
+          "sha256": "f9f7fe64568a5fc80b3d5ae2f2b972ef05427cbf22feab11ab46012edc527bd4",
+          "size": 4109,
+          "extension": ".md"
+        },
+        {
+          "sha256": "abc59c277a53b90d38af41f0dbac21aaa929f99043f81fe84e13a8e4a24a7fd4",
+          "size": 4424,
+          "extension": ".md"
+        },
+        {
+          "sha256": "1edcaa7657b4c9285f982272d644ee1b94ab67d11af253e0776a3ffc827a4ec6",
+          "size": 1178,
+          "extension": ".md"
+        }
+      ]
+    },
+    {
+      "category": "generated-evaluation-output",
+      "sourceLocation": "docs/tickets/done/TKT-017-ai-reg-ocr/evidence/harness/results/",
+      "reason": "Reproducible harness output is regenerated when the benchmark runs.",
+      "logicalOccurrences": 2,
+      "bytes": 9365,
+      "itemPathsOmitted": false,
+      "items": [
+        {
+          "path": "docs/tickets/done/TKT-017-ai-reg-ocr/evidence/harness/results/decision-layer-run.json",
+          "sha256": "ca337b9fb6df61b67ee20e674eee52e50e1148b2a23efb6164221448ddd4abc2",
+          "size": 7285,
+          "extension": ".json"
+        },
+        {
+          "path": "docs/tickets/done/TKT-017-ai-reg-ocr/evidence/harness/results/decision-layer-run.txt",
+          "sha256": "2cc318f470a08bd945495033a8067084337f74034691df7ed0d3f0526bcd1a63",
+          "size": 2080,
+          "extension": ".txt"
+        }
+      ]
+    },
+    {
+      "category": "generated-demo-output",
+      "sourceLocation": "project-demo/task-output/",
+      "reason": "Reproducible presentation output is not retained as source evidence.",
+      "logicalOccurrences": 2,
+      "bytes": 4161706,
+      "itemPathsOmitted": false,
+      "items": [
+        {
+          "path": "project-demo/task-output/case-intake-overview.pptx",
+          "sha256": "1372498fbe262dd1fabcd01757e4f3528e8a9ddf0e051cce7f7b16692adda237",
+          "size": 4128209,
+          "extension": ".pptx"
+        },
+        {
+          "path": "project-demo/task-output/demo.pptx",
+          "sha256": "e02f4979025dc152c868fd05ffb2cf24dc374d5e58a9c343ed99e994d194b01f",
+          "size": 33497,
+          "extension": ".pptx"
+        }
+      ]
+    },
+    {
+      "category": "requirements-transcribed-obsolete-prototype",
+      "sourceLocation": "docs/reviews/190626/",
+      "reason": "The adjacent review text preserves the requirements; obsolete prototype images are removed.",
+      "logicalOccurrences": 33,
+      "bytes": 4719576,
+      "itemPathsOmitted": false,
+      "items": [
+        {
+          "path": "docs/reviews/190626/corpus-admin/assisted-import.png",
+          "sha256": "28422cf12e98785cd513719cd73b9b527f97573b1309144be5323a9f0f5c545a",
+          "size": 122380,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/corpus-admin/other-corpora.png",
+          "sha256": "7c036805363837b38a25f5f35de2315f51acd75c34f558025175b097e59240ae",
+          "size": 105472,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/corpus-admin/workprovider-1.png",
+          "sha256": "e28914fda981d930c1653b70f93c55022972604f42850fc84e318651bfb4f35e",
+          "size": 147535,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/corpus-admin/workprovider-2.png",
+          "sha256": "4f0cf4b35589c16b3c5768668b37ab0a2251814e6fbb6563d558645e1e46c913",
+          "size": 143069,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/dashboard/dashboardannotated.png",
+          "sha256": "b007716189a990200c08331476b6573ccb78f5ed0f7092b8a2962c419a39a55e",
+          "size": 70478,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/dashboard/dashboardraw.png",
+          "sha256": "c9a1a17f7b8509489123c708085e68886015fb90812ab15b6e3dc9d55c0a2b5f",
+          "size": 110033,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/evacreation/step1.png",
+          "sha256": "2262b88543b4eec5b42ebb139cace00da11c2a3d88be69a21c2a56a8dfd429e6",
+          "size": 248592,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/evacreation/step2.png",
+          "sha256": "64f7f2e1f16ef4afb095ace43d74b6418c8ae1773498c1e4a6d4455eadaf45e7",
+          "size": 51212,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/evacreation/step3.png",
+          "sha256": "387a9be936173a29341dfd263f6bc0267436f849dca2e42c3f4f1305db451b41",
+          "size": 264720,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/evacreation/step4.png",
+          "sha256": "30d334dc4720ea0272e5ed749abb4e09b15b954085081cce7eb5ec8d194d6919",
+          "size": 264378,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/evacreation/step5.png",
+          "sha256": "d99bbb4a12f654da95b85772f1ab749165fad493ae34334a5b054a57d3afc560",
+          "size": 263086,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/evacreation/step6.png",
+          "sha256": "de39112dc76061184f86fa9640b8ec42e85c261ec7de567ccf7bf422f8232170",
+          "size": 270885,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/evacreation/step7.png",
+          "sha256": "561154726ecdcce645d532d0c8ae7b3680b90795bb72ea0b6069eeae3394b6aa",
+          "size": 261940,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/evacreation/step8.png",
+          "sha256": "5a935808540b8978df343e5982fa96de98dcb3d894c434d8c200f947f626e1eb",
+          "size": 257429,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/nav-bar/navbar.png",
+          "sha256": "01967e3aa37fc359d37a7ff3bfd6972baef58ccc96c19de7b4c78f78b3c2615f",
+          "size": 13970,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/new-case/new-case-afterupload1.png",
+          "sha256": "8a1bcf24f5a926552b469af6938fff5a4b189f3c9765ac462849a5b29de4ba76",
+          "size": 113504,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/new-case/new-case-afterupload2.png",
+          "sha256": "48d2bd7a74ecc7f68de687685805330fdb27125c8cbf76c50046f2aae2564e9d",
+          "size": 103898,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/new-case/new-case-nofile.png",
+          "sha256": "222ed7a829e856d16c05695f15a13708579c96d304d4467245f166463852a35f",
+          "size": 98876,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/new-case/new-case-withfile.png",
+          "sha256": "f2725f7b90c1c3db8d67505f0ffdd2a1dd2cef41aab66b684801ac0f8754d177",
+          "size": 105101,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/new-case/parsebutton.png",
+          "sha256": "5215af3c583ff90d63859600a7e94c281053ab1eb388cc9cfeb7b63e03f2a3ba",
+          "size": 2219,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/queues-cases/caseview/caseview-1-fields.png",
+          "sha256": "781293e3328536b46b72e266deb2258303cac65bad18f2de00f17534415748d4",
+          "size": 161975,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/queues-cases/caseview/caseview-2-fields.png",
+          "sha256": "4916c15b3ceaae01e462bc8d913b6ce0a0ff962ca2d2b6a16e905ac6c6ab3b38",
+          "size": 160692,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/queues-cases/caseview/caseview-3-evidence.png",
+          "sha256": "8a6c7ffceb65790d401f61fe23c132d4371366007ecc5c95addcac890492737f",
+          "size": 154297,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/queues-cases/caseview/caseview-4-inspection.png",
+          "sha256": "a7a7768d023c6ee4eb797a1f329b141865265cb15c7ab3e9319739ff18d38e21",
+          "size": 151394,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/queues-cases/caseview/caseview-5-notes.png",
+          "sha256": "8e8a291eb181e71e51606aa8d765d4d34fb083f90960c983f98df7b8defa03e0",
+          "size": 149358,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/queues-cases/caseview/caseview-6-chasers.png",
+          "sha256": "70f68bc577e856cd57fb16538fb44d340c04c312a3ec181c77e4d62fc052dca3",
+          "size": 177539,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/queues-cases/caseview/caseview-7-chasers.png",
+          "sha256": "1e632b8da8974cb5b58858d85ad553b00004f80ef408274f94620f22b264fa93",
+          "size": 172060,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/queues-cases/caseview/caseview.png",
+          "sha256": "660a377f42bccda6b966e1d3f7b1128ba01fe7d5738da7ee258f16c6d019b44e",
+          "size": 161863,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/queues-cases/caseview/inspectionoverride.png",
+          "sha256": "380811895792415d9952d9ef2fd1601031e7532ae1d835c0262b5e2de0738a2a",
+          "size": 4983,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/queues-cases/queues/donetodayqueue.png",
+          "sha256": "d5fbc06baa997a180e543a5760cf63c455f5d033e854e546c8f8bf8d4c1c958c",
+          "size": 101007,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/queues-cases/queues/inprogressqueue.png",
+          "sha256": "b23250716fd16f4308aa6c10a8d80ff381e8386b44c51f5d1d20fd8821a60ef6",
+          "size": 104346,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/queues-cases/queues/needsactionqueue.png",
+          "sha256": "f39133c2c413b82e51300f5da006b0a529df6b06ceeacb094469c59ae38bde80",
+          "size": 99883,
+          "extension": ".png"
+        },
+        {
+          "path": "docs/reviews/190626/queues-cases/queues/readyforevaqueue.png",
+          "sha256": "50143cd3a6a8d67e05d99bc0ff0b57d8ff2198e5008ae6ab839e7f6ccc027f06",
+          "size": 101402,
+          "extension": ".png"
+        }
+      ]
+    }
+  ]
+}

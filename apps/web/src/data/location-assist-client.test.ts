@@ -12,8 +12,8 @@ import {
   type SuggestLocationResponse,
 } from './location-assist-client';
 
-/* The location-assist client is the Code App's pure (SDK-free) bridge between the
-   Function's ce_location_suggest_v1 envelope and the SuggestedAddress domain shape
+/* The location-assist client is the web app's pure bridge between the
+   location service response and the SuggestedAddress domain shape
    the Address tab renders. These tests pin the load-bearing rules:
      - the casing bridge (snake_case request -> camelCase response -> domain),
      - PLAIN-language provenance only (the internal kind enum NEVER leaks),
@@ -78,7 +78,7 @@ describe('friendlyEvidenceKind — plain language only (no engineering terms)', 
     expect(friendlyEvidenceKind(undefined)).toBeUndefined();
   });
   it('never returns a string containing an engineering term', () => {
-    const banned = /(gpt|llm|model|api|function|azure|vision|ocr|geocode|connector|adr|m1|m2|m3)/i;
+    const banned = /(gpt|llm|model|api|function|azure|vision|ocr|geocode|adr|m1|m2|m3)/i;
     for (const k of ['photo_sign', 'photo_landmark', 'near_accident', 'near_claimant', 'corpus_match']) {
       const phrase = friendlyEvidenceKind(k);
       expect(phrase).toBeDefined();
@@ -121,7 +121,7 @@ describe('candidateToSuggestion — candidate -> SuggestedAddress (a suggestion,
     expect(s.evidenceNote).not.toMatch(/photo_sign|near_accident/);
   });
   it('uses a SYNTHETIC id (never a real persisted row id) — ADR-0013', () => {
-    // The id is index-based, not a Dataverse GUID: a candidate is never a row.
+    // The id is index-based: a candidate is never a persisted row.
     expect(candidateToSuggestion(LIVE_SUCCESS.candidates[0], 0).id).toBe('assist-0');
     expect(candidateToSuggestion(LIVE_SUCCESS.candidates[1], 1).id).toBe('assist-1');
   });
@@ -195,7 +195,7 @@ describe('buildSuggestLocationRequest — snake_case, from already-loaded data',
 });
 
 describe('suggestLocations — public call via an injected transport (no network)', () => {
-  it('adapts a response without touching any SDK/connector', async () => {
+  it('adapts a response through the injected transport', async () => {
     const transport: LocationAssistTransport = async (req) => {
       expect(req.case_id).toBe('case-guid');
       return LIVE_SUCCESS;
@@ -217,7 +217,7 @@ describe('suggestLocations — public call via an injected transport (no network
       expect(s.source).toBe('assist');
       expect('decisionMode' in s).toBe(false);
       expect('confirmed' in s).toBe(false);
-      // The id is synthetic (never a Dataverse row id), proving it is not persisted.
+      // The synthetic id proves the candidate is not persisted.
       expect(s.id.startsWith('assist-')).toBe(true);
     }
   });

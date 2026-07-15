@@ -68,7 +68,7 @@ Time: 22.103 ms
 (40 rows)
 
 Time: 24.088 ms
-=== AFTER: retro audit action totals (compare enum-retro-audit-history.csv) ===
+=== AFTER: retro audit action totals (compare enum-retro-audit-events.csv) ===
            action            | events | last_12h 
 -----------------------------+--------+----------
  retro_case_created          |    125 |       67

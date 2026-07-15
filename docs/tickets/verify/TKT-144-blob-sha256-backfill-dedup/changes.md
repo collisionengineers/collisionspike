@@ -5,7 +5,7 @@ EXECUTED LIVE (2026-07-10) — all 477 null-sha blob rows hashed + stamped (blob
 0 null of 3,186), all 106 same-name groups proved byte-identical and collapsed (108 twins
 soft-merged across 3 cases, audited), 0 status moves. Verification transcription PENDING.
 
-## What ran (data-only — NO deploys, NO api/orch code changes)
+## What ran (data-only — NO deploys, NO Data API/orchestration code changes)
 
 Three transient Postgres windows (WSL Entra-admin `digital@` + `SET ROLE csadmin`,
 per-window firewall rule trap-deleted — only `AllowAzureServices` remained after each;
@@ -14,7 +14,7 @@ Exact artifacts: [evidence/run/](./evidence/run) — `read-window.sql`,
 `write-window.sql` (one transaction), `confirm-window.sql`, `window-runner.sh`,
 `hash.py`, `spotcheck.py`.
 
-1. **Enumerate + backup first** (`read-window.sql`, read-only): enumerated ALL historic
+1. **Enumerate + backup first** (`read-window.sql`, read-only): enumerated ALL prior
    blob-lane rows lacking sha256 — **477** (any kind, active + excluded; 1.24 GiB,
    max 31 MiB, none over the 100 MiB cap) — and the same-name class: image-kind active
    blob rows sharing (case_id, file_name) = **214 rows / 106 groups / 110 pairs**

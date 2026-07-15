@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-129",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/aqdos26029-case-page-live-2026-07-08.png",
+      "originalFilename": "aqdos26029-case-page-live-2026-07-08.png",
+      "sha256": "cdfc0e4d4095e7893fecf55a1faabdf4044e84fc9700304b41e8e0fdcfba4378",
+      "storagePath": "tests/fixtures/evidence/sha256/cd/cdfc0e4d4095e7893fecf55a1faabdf4044e84fc9700304b41e8e0fdcfba4378.png"
+    }
+  ]
+}

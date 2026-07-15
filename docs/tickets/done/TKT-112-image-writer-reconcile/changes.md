@@ -12,14 +12,14 @@ No code changes — the invariant the ticket feared broken is real in code; this
 ## The two writers, verified in source (2026-07-09)
 
 **Writer A — orchestration auto-classifier (authoritative intake stamps).**
-`orchestration/src/lib/image-classify.ts` (gate `IMAGE_ROLE_CLASSIFY_ENABLED`, live `true` on
+`services/orchestration/src/platform/image-classify.ts` (gate `IMAGE_ROLE_CLASSIFY_ENABLED`, live `true` on
 `cespk-orch-dev`): classifies at intake and STAMPS evidence columns — `image_role_code`,
 `registration_visible`, `person_reflection`, `accepted_for_eva`, `excluded`/`exclusion_reason`
 (person-reflection exclusion rule) — via `POST /api/internal/cases/{id}/evidence`
 (`classifyPersist.ts` + `extractImages.ts` → `data-api.ts persistEvidence/persistImageEvidence`).
 
 **Writer B — api image-analysis route (suggestions only).**
-`api/src/functions/image-analysis.ts` (route `cases/{id}/image-analysis/generate`, gate
+`services/data-api/src/features/assistant/image-analysis-routes.ts` (route `cases/{id}/image-analysis/generate`, gate
 `IMAGE_ANALYSIS_ENABLED`, live `true`): its ONLY DB write is `persistDraft` →
 `INSERT INTO ai_suggestion …` (idempotent NOT-EXISTS on a same-target pending row). Its reads of
 `evidence` and `case_` are SELECT-only; it never UPDATEs `evidence.image_role_code`,
@@ -28,7 +28,7 @@ the invariant ("this route ONLY inserts ai_suggestion rows…"), and the TKT-016
 invariant HOLDS in the deployed source.
 
 **The only path from a suggestion to an evidence column is human accept**:
-`api/src/functions/ai-suggestions.ts reviewAiSuggestion` → `promoteAcceptedSuggestion`, which
+`services/data-api/src/features/assistant/register-suggestion-routes.ts reviewAiSuggestion` → `promoteAcceptedSuggestion`, which
 applies `image_role`/`registration` suggestions onto `evidence` (audited,
 `ai_suggestion_accepted`) — a reviewer action, not a second autonomous writer.
 
@@ -42,7 +42,7 @@ applies `image_role`/`registration` suggestions onto `evidence` (audited,
    manual re-roling via the SPA remains the override layer.
 3. **One-shot backfills** (TKT-064's original pass; TKT-131's retry run in this batch) are
    admin-driven passes that mirror Writer A's exact policy mapping
-   (`classificationToEvidenceFields`) — they act FOR the orch writer over historic rows, they do
+   (`classificationToEvidenceFields`) — they act FOR the orch writer over prior rows, they do
    not constitute a third model.
 4. **No path is deleted or disabled** — the ticket's "delete or permanently disable the losing
    path" clause is satisfied by there being no losing path: the two writers write DISJOINT

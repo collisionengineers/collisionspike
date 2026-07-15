@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-038",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/RE Client Mrs Ruby Wiggett, Vehicle VOLKSWAGEN T-ROC LIFE TSI S-A DF72LVV, Our Ref 45391_1.eml",
+      "originalFilename": "RE Client Mrs Ruby Wiggett, Vehicle VOLKSWAGEN T-ROC LIFE TSI S-A DF72LVV, Our Ref 45391_1.eml",
+      "sha256": "00aef915ce0585624504c56558c9921c856ea989d774b4d135f1fdc671890ce8",
+      "storagePath": "tests/fixtures/evidence/sha256/00/00aef915ce0585624504c56558c9921c856ea989d774b4d135f1fdc671890ce8.eml"
+    }
+  ]
+}

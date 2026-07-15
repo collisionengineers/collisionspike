@@ -19,9 +19,8 @@
 //     The endpoints/versions are NON-SECRET app settings.
 //   * Identity-based storage (no account keys): host uses
 //     AzureWebJobsStorage__accountName + the MI's Storage Blob Data Owner role.
-//   * Gating note: cr1bd_LOCATION_ASSIST_ENABLED + cr1bd_AZURE_MAPS_ENABLED are
-//     Dataverse env vars checked UPSTREAM (Code App / flow), NOT app settings
-//     consumed by this Function. BOX_API_ENABLED defaults false so the Function
+//   * Feature availability is checked by the calling API, not this function.
+//     BOX_API_ENABLED defaults false so the function
 //     uses the stubbed photo source until Box is activated.
 // ============================================================================
 
@@ -287,7 +286,7 @@ resource storageBlobOwner 'Microsoft.Authorization/roleAssignments@2022-04-01' =
 @description('The deployed Function App name.')
 output functionAppName string = functionApp.name
 
-@description('The Function App default host (the /location-suggest route lives under this; set as the connector host + cr1bd_LOCATION_ASSIST_API_BASE).')
+@description('The Function App default host for the /location-suggest route.')
 output functionAppHostname string = functionApp.properties.defaultHostName
 
 @description('Key Vault name holding the azure-vision-key / azure-maps-key references.')

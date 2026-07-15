@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "ticket": "TKT-022",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/1.png",
+      "originalFilename": "1.png",
+      "sha256": "0cf298a34d584d76a9b32b887c9b87abc99cb4d8b2061ccf5fa3b710b0436c54",
+      "storagePath": "tests/fixtures/evidence/sha256/0c/0cf298a34d584d76a9b32b887c9b87abc99cb4d8b2061ccf5fa3b710b0436c54.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/2.png",
+      "originalFilename": "2.png",
+      "sha256": "02980662e2822fe862aea7f72d170a774a9b375522cc1f2c4ab663594e3ba24f",
+      "storagePath": "tests/fixtures/evidence/sha256/02/02980662e2822fe862aea7f72d170a774a9b375522cc1f2c4ab663594e3ba24f.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/3.png",
+      "originalFilename": "3.png",
+      "sha256": "f104b9887f5fb97dd344e0cfb8c3225fd6543371fdc8ed996bf2abbed2b7b583",
+      "storagePath": "tests/fixtures/evidence/sha256/f1/f104b9887f5fb97dd344e0cfb8c3225fd6543371fdc8ed996bf2abbed2b7b583.png"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/A Cheema Claim Form docx.docx",
+      "originalFilename": "A Cheema Claim Form docx.docx",
+      "sha256": "f5ef2047e92bb24a311f389e1c184eb4f0a6a80d677d81121afd1ef81ab7c13b",
+      "storagePath": "tests/fixtures/evidence/sha256/f5/f5ef2047e92bb24a311f389e1c184eb4f0a6a80d677d81121afd1ef81ab7c13b.docx"
+    }
+  ]
+}

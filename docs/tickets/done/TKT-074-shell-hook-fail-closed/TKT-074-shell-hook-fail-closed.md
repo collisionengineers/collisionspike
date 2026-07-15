@@ -19,7 +19,7 @@ deadline (observed: 60s timeout / "returned no output") — so the harness block
 call, Box-related or not. Confirmed live twice on 2026-07-06 (the inspection-repair
 investigation session, and again during this distillation session on a trivial directory
 listing). Until fixed, nothing can build, test, deploy, or even run `node
-scripts/check-tickets.mjs` — this ticket gates all implementation work.
+scripts/checks/check-tickets.mjs` — this ticket gates all implementation work.
 
 ## Evidence
 

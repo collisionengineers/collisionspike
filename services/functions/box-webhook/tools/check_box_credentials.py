@@ -1,14 +1,14 @@
 """Offline Box JWT credential check — mirrors ``box_client.py``'s token mint.
 
 Run this to verify a downloaded Box ``Config.JSON`` actually authenticates BEFORE
-wiring it into Key Vault (see ``docs/azure/box-activation.md``). It contacts ONLY
+wiring it into the approved secret store (see ``docs/operations/archive.md``). It contacts ONLY
 ``api.box.com`` — no Azure, no tenant. It is **read-only**: it mints a Service-Account
 token and reads one folder; it mutates nothing in Box. It prints only non-secret
 signal (status codes, the folder name/id, token length) — never the token, key, or
 secret value.
 
 Usage:
-    python functions/box-webhook/tools/check_box_credentials.py [path-to-config.json] [allowed-root-id]
+    python services/functions/box-webhook/tools/check_box_credentials.py [path-to-config.json] [allowed-root-id]
 
 Defaults: the gitignored repo-root drop ``941197__config.json`` and root ``392761581105``.
 Requires: httpx, pyjwt, cryptography (already in requirements.txt).

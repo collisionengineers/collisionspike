@@ -1,19 +1,18 @@
 """function_app — Collision Engineers OCR host (Azure Functions Python v2).
 
-The **OCR fallback host** (ROADMAP 5a / "B-full"). This is a SEPARATE Azure
+The OCR fallback host. This is a separate Azure
 Functions app from the live FC1 parser (`cespike-parser-dev-x7xt3d5ovhi7y`):
 FC1 (Flex Consumption) runs a Microsoft-managed runtime and structurally
 **cannot supply the `tesseract` binary**, so scanned / image-only PDFs degrade to
 a no-op there. This host is built as a **container** (Azure Functions on Azure
 Container Apps, scale-to-zero) so the one missing OS binary — `tesseract` — is
-present, lighting up the engine's already-written, already-tested OCR fallback
-with *zero engine-code change*. See docs/plans/phase-5-ocr-and-scale/ocr-strategy.md.
+present, lighting up the engine's tested OCR fallback without changing the engine.
 
 It is invoked **only as a fallback**: the parser Function calls `/api/ocr-pdf`
 only when its own text extraction yields ~no text (an image-only PDF). Text
 PDFs / DOCX / DOC / EML / MSG keep running on FC1 untouched and never reach here.
 
-Two HTTP routes (one container, one cold-start to amortise — docs/plans/phase-5-ocr-and-scale/ocr-strategy §5):
+Two HTTP routes in one container so they share cold-start cost:
 
     POST /api/ocr-pdf    image-only instruction PDF  -> OCR text (+ optional 12-field EVA
                          extraction when the vendored engine is present)
@@ -24,16 +23,11 @@ Two HTTP routes (one container, one cold-start to amortise — docs/plans/phase-
 adapter seams (`ocr_pdf_adapter.run_ocr` / `plate_adapter.read_plate`) so the
 suite runs WITHOUT Tesseract, ONNX, `fast-alpr`, or PyMuPDF installed.
 
-AUTH: FUNCTION-level (a function key is required) on both routes — defence in
-depth behind the Power Platform custom connector, exactly like the parser. The
-connector passes the key as the ``x-functions-key`` header (stored on the
-connection, never in the connector definition). A request without a valid key
-returns 401.
+AUTH: function-level; a function key is required on both routes and a request
+without a valid key returns 401.
 
-GATING: the Dataverse env-var gates ``OCR_SCANNED_PDF_ENABLED`` /
-``PLATE_OCR_ENABLED`` are enforced UPSTREAM (the calling flow / Code App reads the
-env var and only calls the route when enabled). This host does not read those
-gates — it just works when called. ``OCR_PROVIDER`` (``tesseract`` | ``docintel``)
+Feature availability is enforced by the calling service. This host does not read
+those gates. ``OCR_PROVIDER`` (``tesseract`` | ``docintel``)
 IS read here: it selects the document-OCR engine inside the container.
 
 Doc-OCR response envelope (mirrors the parser envelope so callers parse one shape):
@@ -83,19 +77,16 @@ _STRICT_B64 = re.compile(rb"^[A-Za-z0-9+/]+={0,2}$")
 
 
 def _peel_double_base64(first: bytes, looks_right) -> bytes:
-    """Tolerate a redundant 2nd base64 layer the Power Platform gateway can add.
+    """Tolerate one redundant base64 wrapper added by an upstream transport.
 
-    Mirrors the parser's load-bearing ``_decode_document`` (functions/parser):
-    the connector gateway intermittently re-encodes a base64 body a SECOND time
-    (a ``format: byte``-class behaviour we could NOT reliably suppress; declaring
-    ``format: byte`` made it worse — memory ``powerplatform-connector-base64-double-encode``).
-    So a single decode sometimes yields the real bytes and sometimes the
+    Mirrors the parser's defensive ``_decode_document``: a single decode can
+    yield the real bytes or the
     base64-ASCII OF the real bytes.
 
     ``first`` is the result of the FIRST ``b64decode``. If it already sniffs as the
     expected payload (``looks_right(first)`` true) we return it. Otherwise, if it is
     itself strict base64, we decode EXACTLY once more and accept that only if it
-    THEN sniffs right — logging a warning so the double-encode is observable, not
+    then sniffs right, logging a warning so the redundant wrapper is observable, not
     hidden. Anything else returns ``first`` unchanged (the caller's downstream
     validation/engine then rejects genuinely bad bytes).
     """
@@ -150,9 +141,8 @@ def ocr_pdf(req: func.HttpRequest) -> func.HttpResponse:
         document_bytes = base64.b64decode(document_b64, validate=True)
     except (binascii.Error, ValueError):
         return _doc_error(400, "bad_base64", "'document' is not valid base64.")
-    # Defence-in-depth against the connector gateway double-encoding the body
-    # (memory powerplatform-connector-base64-double-encode): if the first decode
-    # is not a PDF but is itself base64 of a PDF, peel one more layer.
+    # Some upstream transports wrap an already encoded payload. If the first
+    # decode is not a PDF but is itself base64 of a PDF, peel one more layer.
     document_bytes = _peel_double_base64(document_bytes, _looks_like_pdf)
     if not document_bytes:
         return _doc_error(400, "empty_document", "Decoded 'document' is empty.")
@@ -219,9 +209,8 @@ def plate_ocr(req: func.HttpRequest) -> func.HttpResponse:
         image_bytes = base64.b64decode(image_b64, validate=True)
     except (binascii.Error, ValueError):
         return _plate_error(400, "bad_base64", "'image' is not valid base64.")
-    # Defence-in-depth against the connector gateway double-encoding the body
-    # (memory powerplatform-connector-base64-double-encode): if the first decode
-    # is not a recognised image but is itself base64 of one, peel one more layer.
+    # Some upstream transports wrap an already encoded payload. If the first
+    # decode is not a recognised image but is itself base64 of one, peel one more layer.
     image_bytes = _peel_double_base64(image_bytes, looks_like_supported_image)
     if not image_bytes:
         return _plate_error(400, "empty_image", "Decoded 'image' is empty.")
@@ -238,7 +227,7 @@ def plate_ocr(req: func.HttpRequest) -> func.HttpResponse:
     response: dict[str, Any] = {
         "plate_text": result.get("plate_text", ""),
         "confidence": result.get("confidence"),
-        # `registration_visible` is what the flow / Code App writes to Evidence
+        # `registration_visible` is what the caller writes to Evidence
         # `registrationVisible` (the field the overview image-rule consumes).
         "registration_visible": bool(result.get("registration_visible", False)),
         # `vrm_match` drives the ADR-0007 WhatsApp bulk-match / image-to-Case correlation.

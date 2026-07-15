@@ -7,10 +7,10 @@ whole list).
 
 ## What was built
 
-**Edited — `mockup-app/src/screens/CaseList.tsx`**:
+**Edited — `apps/web/src/features/cases/CaseList.tsx`**:
 - Reuses the TKT-098 helpers **unchanged**: `pageWindow`/`slicePage`/`clampPage` from
-  `src/screens/inbox-pagination.ts` (15/page) and the generic `<Pager>` from
-  `src/components/Pager.tsx` (`itemNoun="cases"`) — no new pagination code was written.
+  `src/shared/navigation/inbox-pagination.ts` (15/page) and the generic `<Pager>` from
+  `src/shared/ui/Pager.tsx` (`itemNoun="cases"`) — no new pagination code was written.
 - **Per-queue page state**: `pageByQueue: Partial<Record<QueueName, number>>` — switching tabs keeps
   each queue's own page (the ticket's "switching queues does not reset unexpectedly").
 - **Filter-change reset**: a `filterSignature` (search/provider/status/channel/age/reason) with a
@@ -26,7 +26,7 @@ whole list).
   filtered-out rows. Counts consistency: the pager's `total` and the "N of M cases" text are the
   UNPAGED filtered/queue counts, so they agree with the dashboard tallies.
 
-**New — `mockup-app/src/screens/queue-pagination.test.ts`**: pins the queue-side reuse contract —
+**New — `apps/web/src/shared/navigation/queue-pagination.test.ts`**: pins the queue-side reuse contract —
 15/page cap, slice-vs-label single-sourcing, per-queue clamp on shrink, pager total = unpaged count.
 
 ## Deploy + live proof

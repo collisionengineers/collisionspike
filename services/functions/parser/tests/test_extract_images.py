@@ -22,7 +22,7 @@ import pytest
 
 HERE = Path(__file__).resolve().parent
 INSTRUCTIONS = HERE / "fixtures" / "instructions"
-REPO_ROOT = HERE.parents[2]
+REPO_ROOT = HERE.parents[3]
 sys.path.insert(0, str(HERE.parent))
 
 import function_app  # noqa: E402
@@ -240,7 +240,7 @@ def test_square_badge_stays_engine_kept_for_the_classifier():
     """TKT-089 reopen: the 204x204 MGAA square badge is DELIBERATELY engine-kept
     (shape-indistinguishable from a small genuine photo). The orchestration's
     vision classifier excludes it at persist (extraction-lane `nonVehicleExcluded`,
-    orchestration/src/lib/image-classify.ts) — this pin documents the division of
+    services/orchestration/src/platform/image-classify.ts) — this pin documents the division of
     labour. Mirrors the sibling's tests/test_extract_images.py."""
     pdf_bytes = _make_pdf_with_image(204, 204)
     res = parser_adapter.run_image_extraction(pdf_bytes, "LtrtoEngineerIn.pdf")

@@ -18,23 +18,23 @@ fails — the assistant reports it can't find the case, or claims an "internal e
 root causes (verified live 2026-07-06; both `POST /api/assistant/chat` calls returned **200**,
 and App Insights showed **no DB errors** at the lookup times — the failure is silent):
 
-1. **Lookup normalization gap.** `lookup_case` in `api/src/functions/assistant.ts` (~line 88)
+1. **Lookup normalization gap.** `lookup_case` in `services/data-api/src/features/assistant/chat-routes.ts` (~line 88)
    matches `c.vrm ILIKE '%YT13 UTV%'`, but intake stores VRMs **compacted** (`YT13UTV` —
    `extractVrm` strips spaces), so a spaced-VRM query can never match. Case/PO queries have the
    same weakness.
-2. **Tool failures are swallowed unlogged.** `runChat` in `api/src/lib/aoai-chat.ts` (~line 174)
+2. **Tool failures are swallowed unlogged.** `runChat` in `services/data-api/src/features/assistant/chat-client.ts` (~line 174)
    catches any tool exception and feeds `{error}` back to the model **without logging** — the
    model then tells the user "internal error" while telemetry shows nothing. There is also no
    retry, so a one-off Postgres cold-connect (5s `connectionTimeoutMillis` in
-   `api/src/lib/db.ts`) surfaces straight to the user.
+   `services/data-api/src/platform/db/client.ts`) surfaces straight to the user.
 
 ## Evidence
 
 - `evidence/operator-note.md` — the full 2026-07-06 diagnostics & fix plan (this ticket =
   section 1; the diagnostic summary at the top records the live verification).
-- `api/src/functions/assistant.ts` ~line 88 — the `ILIKE` four-way match with no
+- `services/data-api/src/features/assistant/chat-routes.ts` ~line 88 — the `ILIKE` four-way match with no
   space/format normalization.
-- `api/src/lib/aoai-chat.ts` ~lines 171–176 — `catch (e) { result = { error: … } }` with no
+- `services/data-api/src/features/assistant/chat-client.ts` ~lines 171–176 — `catch (e) { result = { error: … } }` with no
   logger in scope.
 - Live behaviour: assistant lookups for a spaced VRM return "not found"; App Insights
   (workspace `DefaultWorkspace-…SUK`) has no correlated failure record.
@@ -68,7 +68,7 @@ PROPOSED (not built):
 1. **Offline tests** — api unit tests for the normalization (spaced/compact/lower-case VRM +
    Case/PO in, same match set out) and for the retry + `toolErrors` counting in `runChat`
    (injected `complete`/tool mocks). All existing suites stay green.
-2. **Gate** — `node verify-all.mjs` green; deploy per `docs/azure/deploy.md` recorded in
+2. **Gate** — `node verify-all.mjs` green; deploy per `docs/operations/deployment.md` recorded in
    [changes.md](./changes.md) with commit ids.
 3. **Live probe (behaviour)** — call the deployed `POST /api/assistant/chat` with a real spaced
    VRM (e.g. `YT13 UTV`) and record the reply naming the correct case in

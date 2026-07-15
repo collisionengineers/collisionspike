@@ -23,7 +23,7 @@ Verified by: ticket-verifier dispatch, 10-07-26.
   (0 detected-but-unwritten cases observed) — additive corroboration per changes.md, not an
   acceptance line; Q2b provenance labels prove/disprove firings at the next data pass.
 - **Corpus-coverage note (not this ticket's bug):** qdoslaw.co.uk (1 unmatched in 26h) is a
-  QDOS-adjacent domain absent from the corpus — feeds the gated.md D3 domain list.
+  QDOS-adjacent domain absent from the corpus — feeds the ticket board D3 domain list.
 
 Queued SQL Q1–Q6 (sharpen, not decide): per-day population rate; per-provider resolved counts;
 second-signal provenance labels; the KV64EHB row; the detected-then-dropped probe (expect 0);

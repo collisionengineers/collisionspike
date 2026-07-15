@@ -3,10 +3,10 @@
 ## Verdict
 BUILT + DEPLOYED DARK (2026-07-06). The escalation is off by default (`LOCATION_ASSIST_AI_ENABLED`
 unset) and the UI button is hidden. Live gate-on flip is operator-blocked on production AI sign-off
-(gated.md E2) — deliberately not flipped.
+(ticket board E2) — deliberately not flipped.
 
 ## Offline tests (python — part of the 75 pass)
-`tests/test_ai_reasoning.py`:
+`services/functions/location-assist/tests/test_ai_reasoning.py`:
 - `parse_ai_response`: parses valid guesses, clamps confidence to ≤1.0, skips entries with no query,
   returns `[]` on malformed / non-JSON / empty content.
 - `build_reasoner` returns **None** (honest no-op) when the gate is off, when endpoint/deployment are
@@ -29,12 +29,12 @@ Location fn + api + SPA all carry the code, gate OFF. `LIVE_FACTS.json` gate set
 `LOCATION_ASSIST_AI_ENABLED` (dark).
 
 ## Pending (operator)
-Production AI sign-off (gated.md E2), then flip `LOCATION_ASSIST_AI_ENABLED=true` on the location fn; then
+Production AI sign-off (ticket board E2), then flip `LOCATION_ASSIST_AI_ENABLED=true` on the location fn; then
 a live gate-on probe (structured candidate + spend telemetry row + re-geocode) and a cap-exceed refusal.
 
 ## Verdict update — 2026-07-10 (final sweep, ticket-verifier dispatch; transcribed verbatim)
 
-**PENDING — and the verdict above is STALE: the gate is LIVE, not dark.** Live-verified this sweep (matching BOARD/gated.md E2): `LOCATION_ASSIST_AI_ENABLED=true` on `cespkloc-fn-a7tzj2`; `AI_MODEL_ENDPOINT=digital-3339-resource` + `AI_MODEL_DEPLOYMENT=gpt-5`; the loc-fn MI holds Cognitive Services OpenAI User on that resource (ARM read); host Running. Acceptance line 5 (flip recorded with operator sign-off) is SATISFIED — gated.md records the 2026-07-07 sign-off + flip. Line 1 (gate-off byte-identical) was proven during the dark period — now historical. Remaining (operator SPA session): a live `deep=true` probe on a hard photo case (structured candidates, `ai_reasoning` provenance, Maps re-geocode, spend telemetry) + the cap-exceed refusal probe. Registry nuance: LIVE_FACTS `gates` only tracks api/orch apps, so this flipped loc-fn gate lives nowhere in the machine registry — add loc-fn gate tracking on reconcile. Verified by: ticket-verifier dispatch, 2026-07-10.
+**PENDING — and the verdict above is STALE: the gate is LIVE, not dark.** Live-verified this sweep (matching BOARD/ticket board E2): `LOCATION_ASSIST_AI_ENABLED=true` on `cespkloc-fn-a7tzj2`; `AI_MODEL_ENDPOINT=digital-3339-resource` + `AI_MODEL_DEPLOYMENT=gpt-5`; the loc-fn MI holds Cognitive Services OpenAI User on that resource (ARM read); host Running. Acceptance line 5 (flip recorded with operator sign-off) is SATISFIED — ticket board records the 2026-07-07 sign-off + flip. Line 1 (gate-off byte-identical) was proven during the dark period — now prior. Remaining (operator SPA session): a live `deep=true` probe on a hard photo case (structured candidates, `ai_reasoning` provenance, Maps re-geocode, spend telemetry) + the cap-exceed refusal probe. Registry nuance: LIVE_FACTS `gates` only tracks Data API/orchestration apps, so this flipped loc-fn gate lives nowhere in the machine registry — add loc-fn gate tracking on reconcile. Verified by: ticket-verifier dispatch, 2026-07-10.
 
 ## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
 
@@ -44,8 +44,8 @@ FAILED
 
 ## Evidence
 
-1. Gate-off behavior is covered offline: `functions/location-suggest/tests/test_ai_reasoning.py` passed
-   10/10 tests, including disabled/unconfigured/MSI-unavailable short-circuits. Historical ticket evidence
+1. Gate-off behavior is covered offline: `services/functions/location-assist/tests/test_ai_reasoning.py` passed
+   10/10 tests, including disabled/unconfigured/MSI-unavailable short-circuits. prior ticket evidence
    records the earlier dark deployment. I did not flip the live gate off.
 2. The deep branch can parse structured model output, re-geocode guesses through Maps, and label evidence
    `ai_reasoning`. However, no hard-photo deep invocation is proven live. Since the 2026-07-07 flip,
@@ -57,7 +57,7 @@ FAILED
 4. Reviewer control is correctly implemented offline: the deeper attempt requires an explicit button
    click, candidates require explicit selection, and persistence requires the normal save action. The
    location function does not write case state.
-5. Operator sign-off and the production flip are recorded at `docs/gated.md:909-914`. Fresh read-only
+5. Operator sign-off and the production flip are recorded at `docs/tickets/BOARD.md:909-914`. Fresh read-only
    app-setting checks found both `cespkloc-fn-a7tzj2` and `cespk-api-dev` set to
    `LOCATION_ASSIST_AI_ENABLED=true`; the location function reports model deployment `gpt-5`.
 

@@ -26,7 +26,7 @@ which is Postgres-gated from this workstation.)
    (dimensions 140x78)` at 2026-07-10T15:48:29Z — real inbound mail, today.
 2. **Above-floor banner heuristic + GIF/BMP sniff (the 2026-07-08 FAILED-live coverage fix) is
    deployed** — image-sniff.ts carries BANNER_ASPECT_RATIO=3.5 / BANNER_MAX_SHORT_SIDE=240 + GIF/BMP
-   sniffers; committed 9fee9f6 (2026-07-09); deploy/orch/main.cjs contains `banner shape` (2 hits),
+   sniffers; committed 9fee9f6 (2026-07-09); .artifacts/deploy/orchestration/main.cjs contains `banner shape` (2 hits),
    republished 2026-07-09 + 2026-07-10 (orch 74 fns per registry) — the live build carries the rung.
 3. **Skip traces distinguish rungs / heuristic pins** — verifier re-ran the orch suite: 284/284
    passed, incl. the banner matrix (600x150/900x180/150x800/840x240 flagged; photo shapes kept) and
@@ -34,7 +34,7 @@ which is Postgres-gated from this workstation.)
 4. **Parser/PDF lane** — the vendored engine carries the identical heuristic constants; live parser
    runs engine-v2.13 (heuristic entered at v2.11) — included. (Repo vendored at v2.14, not yet
    deployed — expected, not a gap here.)
-5. **Historical cleanup** — recorded live-verified in TKT-089's verification.md 2026-07-09 (163 rows
+5. **prior cleanup** — recorded live-verified in TKT-089's verification.md 2026-07-09 (163 rows
    excluded, residual suspects 0).
 6. **New rungs not yet exercised live** — KQL 2026-07-09T06:30Z→now: zero `banner shape` /
    `byte-size` / .gif/.bmp skips; all 98 post-07-07 skips are area-floor. Absence of stimulus, not
@@ -49,7 +49,7 @@ allowlist. No real bugs observed on any readable surface.
 ### How to re-verify
 Rung breakdown KQL (AppTraces, rung = banner-shape / byte-floor / area-floor by day); the banner
 watch (`Message contains "banner shape"`) — or a real email carrying a ~600x150 PNG signature to an
-intake mailbox; the kill-switch read; Q1–Q5 as csadmin; `npm --prefix orchestration test` (284/284).
+intake mailbox; the kill-switch read; Q1–Q5 as csadmin; `npm --prefix services/orchestration test` (284/284).
 
 ### Confidence + unread surfaces
 High confidence the coverage fix is deployed and the floor is live. Medium on forward behavior
@@ -96,7 +96,7 @@ PENDING
   140×78, 40×37 images, `image001.jpg` 95×97, and B64image PNG/JPEG files. This is VERIFIED-LIVE for the
   small-raster floor acting before persistence.
 - Wanted line 26 (pixel-area semantics; unknown dimensions kept): fresh focused run
-  `npm --prefix orchestration test -- image-sniff` → **51/51 passed**. The suite pins area-floor behavior,
+  `npm --prefix services/orchestration test -- image-sniff` → **51/51 passed**. The suite pins area-floor behavior,
   unknown-dimension retention, and the recall guard. This line is TESTED (offline), with the area-floor arm
   additionally live-observed.
 - Wanted line 27 (header sniff + byte fallback at message fetch): the same 51-test suite covers PNG/JPEG

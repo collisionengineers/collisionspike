@@ -1,21 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import { inboundCategoryCodec, inboundSubtypeCodec, sourceTypeCodec } from './index';
 import { INBOUND_CATEGORIES, INBOUND_SUBTYPES } from '../dto';
-// Import the REAL choice-set artifact (the frozen contract source in src/data/choicesets/),
+// Import the canonical code-table artifact (the frozen contract source in src/data/code-tables/),
 // not a copy — mirrors contracts/case-status.parity.test.ts's own import discipline.
-import inboundEmailClassificationChoiceSet from '../data/choicesets/inbound-email-classification.json';
+import inboundEmailClassificationCodeTable from '../data/code-tables/inbound-email-classification.json';
 
 /* ============================================================
-   inboundCategoryCodec / inboundSubtypeCodec — round-trip + choice-set parity.
+   inboundCategoryCodec / inboundSubtypeCodec — round-trip + code-table parity.
 
    Round-trip: codec.toName(codec.toInt(name)) === name for every option (the codecs/
-   module doc's own stated contract). Parity: the JSON choice-set options reconcile 1:1
+   module doc's own stated contract). Parity: the JSON code-table options reconcile 1:1
    against the InboundCategory/InboundSubtype unions, same discipline as
    contracts/case-status.parity.test.ts — keeps the taxonomy the triage-policy module
-   (domain/triage-policy.ts) emits in lockstep with the persisted choice-set contract.
+   (domain/triage-policy.ts) emits in lockstep with the persisted code-table contract.
    ============================================================ */
 
-interface ChoiceOption {
+interface CodeTableOption {
   value: number;
   name: string;
   label: string;
@@ -28,12 +28,12 @@ describe('field provenance source codec', () => {
   });
 });
 
-const bundle = inboundEmailClassificationChoiceSet as { choiceSets: Array<{
-  logicalName: string;
-  options: ChoiceOption[];
+const bundle = inboundEmailClassificationCodeTable as { codeTables: Array<{
+  codeTableId: string;
+  options: CodeTableOption[];
 }> };
-const categoryOptions = bundle.choiceSets.find((s) => s.logicalName === 'cr1bd_inboundcategory')!.options;
-const subtypeOptions = bundle.choiceSets.find((s) => s.logicalName === 'cr1bd_inboundsubtype')!.options;
+const categoryOptions = bundle.codeTables.find((table) => table.codeTableId === 'inbound_category')!.options;
+const subtypeOptions = bundle.codeTables.find((table) => table.codeTableId === 'inbound_subtype')!.options;
 
 describe('inboundCategoryCodec — round-trip', () => {
   it('round-trips every known category name, including the Phase-2 additions', () => {
@@ -105,10 +105,10 @@ describe('inboundSubtypeCodec — round-trip', () => {
 });
 
 describe('inbound-email-classification.json <-> InboundCategory/InboundSubtype parity', () => {
-  it('targets the cr1bd_inboundcategory / cr1bd_inboundsubtype global choice sets', () => {
-    expect(bundle.choiceSets.map((s) => s.logicalName)).toEqual([
-      'cr1bd_inboundcategory',
-      'cr1bd_inboundsubtype',
+  it('targets the canonical inbound category and subtype code tables', () => {
+    expect(bundle.codeTables.map((table) => table.codeTableId)).toEqual([
+      'inbound_category',
+      'inbound_subtype',
     ]);
   });
 

@@ -1,6 +1,6 @@
 """Guard: the OCR host's EVA field map MUST stay byte-identical to the parser's.
 
-The OCR host (``ocr_pdf_adapter``) and the FC1 parser (``functions/parser/
+The OCR host (``ocr_pdf_adapter``) and the FC1 parser (``services/functions/parser/
 parser_adapter``) both project the engine's native fields onto the settled
 12-field EVA contract. When the OCR host bakes the vendored engine and OCRs an
 image-only PDF, its ``extraction``/``vrm``/``reference`` envelope is meant to be
@@ -10,7 +10,7 @@ native field the OCR host does not map), a scanned case and a text case would
 silently produce different payloads for the same document.
 
 This test fails the moment ``EVA_FIELD_ORDER`` or ``EVA_KEY_FROM_PARSER_KEY``
-diverge across the two adapters, mirroring functions/parser/tests/
+diverge across the two adapters, mirroring services/functions/parser/tests/
 test_schema_vendored_in_sync.py (which guards the vendored JSON schema the same
 way). It imports the parser adapter by file path so it needs nothing installed
 beyond the two pure modules.
@@ -25,13 +25,13 @@ from types import ModuleType
 # OCR host root (conftest already puts it on sys.path so this is a plain import).
 import ocr_pdf_adapter
 
-# functions/parser/parser_adapter.py — three levels up from ocr/tests/.
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_PARSER_ADAPTER_PATH = _REPO_ROOT / "functions" / "parser" / "parser_adapter.py"
+# services/functions/parser/parser_adapter.py — reached from this service's tests.
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+_PARSER_ADAPTER_PATH = _REPO_ROOT / "services" / "functions" / "parser" / "parser_adapter.py"
 
 
 def _load_parser_adapter() -> ModuleType:
-    """Load functions/parser/parser_adapter.py as a standalone module.
+    """Load services/functions/parser/parser_adapter.py as a standalone module.
 
     Loaded by path (not import) so this test does not depend on the parser dir
     being on sys.path, and imports nothing heavy (parser_adapter's deps are lazy).

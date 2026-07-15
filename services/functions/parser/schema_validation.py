@@ -40,13 +40,13 @@ def _default_schema_path() -> Path:
 
     Resolution order:
       1. EVA_PAYLOAD_SCHEMA_PATH env var (app setting), if set.
-      2. The PACKAGE-LOCAL vendored copy: functions/parser/contracts/. This is the
+      2. The package-local copy: services/functions/parser/contracts/. This is the
          one that ships in the FC1 deployment package (.funcignore cannot include a
-         file from OUTSIDE functions/parser/, so the repo-root copy is unreachable
+         file from outside the service root, so the repo-root copy is unreachable
          once deployed to /home/site/wwwroot). Kept identical to the repo-root
          keystone by tests/test_schema_vendored_in_sync.py.
       3. The repo-root contracts/ dir, walking up from this file (local dev/tests
-         run from the source tree). functions/parser/ -> repo root is parents[2].
+         run from the source tree). The repository root is ``here.parents[3]``.
     """
     override = os.environ.get("EVA_PAYLOAD_SCHEMA_PATH")
     if override:
@@ -55,7 +55,7 @@ def _default_schema_path() -> Path:
     packaged = here.parent / "contracts" / "eva-payload.schema.json"
     if packaged.exists():
         return packaged
-    return here.parents[2] / "contracts" / "eva-payload.schema.json"
+    return here.parents[3] / "contracts" / "eva-payload.schema.json"
 
 
 # Load + compile once at import. The schema is small and never changes at runtime.

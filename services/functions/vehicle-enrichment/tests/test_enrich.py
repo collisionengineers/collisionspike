@@ -38,10 +38,9 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 from dvsa_client import DvsaClient, DvsaConfig  # noqa: E402
 from dvla_client import DvlaClient, DvlaConfig  # noqa: E402
-import analysis  # noqa: E402
 import function_app  # noqa: E402
 from vehicle_data.contracts import CalibrationBucket, CalibrationProfile  # noqa: E402
-from vehicle_data.mileage import estimate_displayed_mileage  # noqa: E402
+from vehicle_data.mileage import estimate_displayed_mileage, prepare_history  # noqa: E402
 
 TENANT = "11111111-2222-3333-4444-555555555555"
 TOKEN_URL = f"https://login.microsoftonline.com/{TENANT}/oauth2/v2.0/token"
@@ -60,11 +59,11 @@ AS_OF = date(2024, 3, 14)
 
 
 def _calibration() -> CalibrationProfile:
-    """Small deterministic holdout profile for compatibility-path tests.
+    """Small deterministic holdout profile for case-response tests.
 
     Production never invents this profile: it must be injected from a dated,
     versioned chronological backtest artifact. These values retain the fixture's
-    historical 60,300–64,500 interval without reviving the removed confidence
+    established 60,300–64,500 interval without reviving the removed confidence
     label heuristic.
     """
 
@@ -94,7 +93,7 @@ def _load(name: str) -> dict:
 
 def _assert_canonical_response(payload: dict) -> None:
     schema = json.loads(
-        (FN_DIR.parents[1] / "contracts" / "vehicle-data-v1.schema.json").read_text(
+        (FN_DIR.parents[2] / "contracts" / "vehicle-data-v1.schema.json").read_text(
             encoding="utf-8"
         )
     )
@@ -197,7 +196,7 @@ def test_mileage_guard_never_overwrites_document_value(monkeypatch):
     )
 
     # The document is authoritative: NONE of the mileage fields may be present,
-    # so there is nothing for the flow to write over cr1bd_evamileage.
+    # so there is no value for the caller to overwrite.
     assert "current_mileage" not in result
     assert "mileage_unit" not in result
     assert "mileage_confidence" not in result
@@ -521,8 +520,11 @@ def test_clocking_decrease_excluded_from_rate():
             {"completedDate": "2023-01-01", "odometerValue": "20000", "odometerUnit": "mi", "odometerResultType": "READ", "testResult": "PASSED"},
         ]
     }
-    anomalies = analysis.detect_mileage_anomalies(v)["anomalies"]
-    assert any(a["type"] == "ODOMETER_SEGMENT_STARTED" for a in anomalies)
+    prepared = prepare_history(v)
+    assert any(
+        "odometer_segment_started" in observation.warnings
+        for observation in prepared.observations
+    )
     est = estimate_displayed_mileage(v, target_date=date(2023, 6, 1), calibration=_calibration())
     # A latest unresolved decrease is an abstention, never a guessed lifetime mileage.
     assert est["status"] == "insufficient"

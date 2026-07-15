@@ -512,8 +512,8 @@ def test_upload_file_409_different_content_reuploads_under_disambiguated_name():
 
 
 @respx.mock
-def test_upload_file_409_sha1_unverifiable_falls_back_to_legacy_reuse(monkeypatch):
-    # Conflict mini WITHOUT sha1 and the sha1 read failing -> legacy reuse (never
+def test_upload_file_409_sha1_unverifiable_uses_warning_level_reuse(monkeypatch):
+    # Conflict mini WITHOUT sha1 and the sha1 read failing -> cautious reuse (never
     # block an archive on a missing hash), logged at warning level.
     _no_backoff(monkeypatch)
     _mock_token()

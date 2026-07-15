@@ -14,15 +14,8 @@ import {
   type CopyFileRequestTransport,
 } from './box-transport';
 
-/* The Box transports must degrade HONESTLY: a not_connected / folder_not_ready /
-   gated_off result never yields a usable link, and the default (unbound) state is
-   always not_connected. These tests pin that contract without any network.
-
-   Note: the connector-specific transport tests (makeConnectorCopyFileRequestTransport,
-   makeConnectorGetSharedLinkTransport, makeDataverseFinalizeTransport) were removed
-   in the Power Platform → Azure PaaS migration (plan 30). The connector module
-   (box-connector-transport.ts) was replaced by box-rest-transport.ts; the REST
-   transport contract is exercised by integration tests against the live API. */
+/* Archive transports degrade honestly: unavailable states never yield a usable
+   link. These tests pin the offline contract without network access. */
 
 afterEach(() => resetBoxTransports());
 

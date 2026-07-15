@@ -2,12 +2,10 @@
    Collision Engineers — DATA SEAM: domain DTOs.
 
    The DataAccess interface (29 methods) + every input/result type.
-   Lifted from mockup-app/src/data/types.ts.
+   Shared request and response contracts used by the web app and services.
 
-   EXCLUDED:
-     - cr1bd_* Record shapes (Dataverse physical schema — stay in the Code App)
-     - GeneratedServices (Power Apps SDK boundary — stays in the Code App)
-     - OperationResult / GetAllOptions / GeneratedTableService (SDK boundary)
+   EXCLUDED: persistence records, generated service wrappers, and transport
+   implementation details.
 
    IMPORTS: from '../model/types' and '../model/queues' (NOT from '../mock/...').
 
@@ -92,7 +90,7 @@ export interface CreateCaseOptions {
 
 /** The result of a Case write — the new row's id (GUID) the UI navigates to. */
 export interface CreateCaseResult {
-  /** The created Case's id (cr1bd_caseid GUID), used by `/case/:caseId`. */
+  /** The created Case's id (GUID), used by `/case/:caseId`. */
   id: string;
   /** True when the server returned the case created by an earlier delivery of the
    * same operation instead of minting another case. */
@@ -136,17 +134,15 @@ export interface CaseUpdateInput {
   casePo?: string;
 }
 
-/* ----------  Superuser case soft-remove (work-todo-spike: ui-changes/delete-case)  ----------
+/* ----------  Superuser case soft-remove  ----------
    ADR-0017 + data-protection.md: a SOFT remove only — status -> terminal 'removed',
    PII anonymised, the case row + append-only audit trail KEPT. Works under the
    least-privilege staff grant (an UPDATE, never a hard DELETE). The Box folder is
-   NEVER auto-deleted: `acknowledgeBoxFolderHandled` records the operator's intent in
+   NEVER auto-deleted: `acknowledgeArchiveFolderHandled` records the operator's intent in
    the audit `after` only (the human follows the archive runbook separately). */
 export interface RemoveCaseInput {
   /** The archive folder has been handled separately (audit-only flag). */
   acknowledgeArchiveFolderHandled?: boolean;
-  /** Legacy request field accepted for older clients. */
-  acknowledgeBoxFolderHandled?: boolean;
   /** Free-text reason captured in the audit trail. */
   reason?: string;
 }
@@ -216,13 +212,13 @@ export interface InspectionDecisionInput {
   /** The decision the reviewer confirmed (e.g. 'manual' for a picked address,
    *  'image_based' for an explicit IBA, 'confirmed_physical' under required_address). */
   decisionMode: Case['inspectionDecision'];
-  /** Origin of the CONFIRMED pick (-> cr1bd_sourcelabel). MUST NOT start with
+  /** Origin of the confirmed pick. MUST NOT start with
    *  'suggested' (that prefix marks the unconfirmed corpus candidates that
    *  isSuggestedAddressRecord + the suggestions query key on). Confirm-path values:
    *  'confirmed:assist' (a live-assist pick the reviewer accepted), 'confirmed:corpus'
    *  (a catalogue row the reviewer accepted), 'manual', or 'image_based'. */
   sourceLabel: string;
-  /** Plain-language provenance note (-> cr1bd_sourcenote): "Suggested from the photos",
+  /** Plain-language source note: "Suggested from the photos",
    *  the image-based reason, etc. Free text the reviewer's action produced. */
   sourceNote: string;
   /** The confirmed address lines (physical-address decisions only; omitted for IBA). */
@@ -238,13 +234,13 @@ export interface InspectionDecisionInput {
 export interface SaveInspectionDecisionResult {
   /** True only when the decision was durably written to the corpus table. */
   persisted: boolean;
-  /** The upserted cr1bd_inspectionaddress row id, when a write happened. */
+  /** The upserted inspection-address row id, when a write happened. */
   id?: string;
 }
 
 /* ----------  Inspection-address SUGGESTIONS (always a suggestion)  ---------- */
 export interface SuggestedAddress {
-  /** Catalogue row id (cr1bd_inspectionaddressid GUID). */
+  /** Catalogue row id (GUID). */
   id: string;
   /** The candidate address as up-to-6 lines (already split; blanks trimmed). */
   lines: string[];
@@ -348,7 +344,8 @@ export type AiSuggestionType =
   | 'triage_category'
   // TKT-016 staged image-analysis observations (all observation-only; only 'registration' and
   // 'inspection_address' have a fill-if-empty promote target — the rest are informational and
-  // are accepted WITHOUT auto-promotion). See api/src/lib/image-analysis.ts.
+  // are accepted WITHOUT auto-promotion). See
+  // services/data-api/src/features/assistant/image-analysis.ts.
   | 'vehicle_present'
   | 'same_vehicle'
   | 'background_text'
@@ -356,7 +353,8 @@ export type AiSuggestionType =
   | 'address_suggestion'
   // TKT-015 case/damage-assessment consumer (the generic generate route). All observation-only —
   // NONE has a fill-if-empty promote branch, so a human accept records/audits but never auto-writes
-  // a case/evidence column. See api/src/lib/aoai-suggestions.ts.
+  // a case/evidence column. See
+  // services/data-api/src/features/assistant/suggestion-review-routes.ts.
   | 'damage_area'
   | 'damage_severity'
   | 'accident_summary'
@@ -485,10 +483,10 @@ export const OUTLOOK_MOVE_GATE_ALL_OFF: OutlookMoveGate = {
 };
 
 /* ============================================================
-   Phase 8 — Inbox / Triage domain types (cr1bd_inboundemail).
+   Inbox and triage domain types.
    ============================================================ */
 
-/** cr1bd_inboundcategory option names. APPEND-ONLY (collisionspike TKT-029/037/038):
+/** Inbound-category option names. APPEND-ONLY (collisionspike TKT-029/037/038):
  *  the original receiving_work | query | other are joined by `billing` (an invoice/fee
  *  request — TKT-037) and `non_actionable` (a case-summary digest or bare acknowledgement
  *  — TKT-029/038; distinct from `other`, which is genuinely unidentified). The
@@ -500,7 +498,7 @@ export const OUTLOOK_MOVE_GATE_ALL_OFF: OutlookMoveGate = {
  *  is an inbound belonging to an existing open Case (attach-to-case, suggest-first —
  *  CONTEXT.md "Case Update"); `cancellation` is a claim/case reported cancelled or closed
  *  (a staff-confirmed close/hold proposal, never automatic — CONTEXT.md "Cancellation").
- *  Per the Phase-2 deploy order, the DDL/choicesets land before the engine tag that emits
+ *  Per the Phase-2 deploy order, the DDL/code tables land before the engine tag that emits
  *  these live — existing rows keep their v1 codes (no backfill).
  *
  *  `pre_instruction` (append-only, taxonomy v3 — TKT-084, operator-signed-off 2026-07-09)
@@ -518,7 +516,7 @@ export type InboundCategory =
   | 'pre_instruction'
   | 'website_enquiry';
 
-/** Every {@link InboundCategory} name, in declaration/choice-set order — the runtime
+/** Every {@link InboundCategory} name, in declaration/code-table order — the runtime
  *  companion to the type union (mirrors `CASE_STATUSES` in contracts/case-status.ts),
  *  used by the codec parity test + anywhere a caller needs to enumerate/validate. */
 export const INBOUND_CATEGORIES: readonly InboundCategory[] = [
@@ -533,7 +531,7 @@ export const INBOUND_CATEGORIES: readonly InboundCategory[] = [
   'website_enquiry',
 ];
 
-/** cr1bd_inboundsubtype option names. `existing_provider_diminution` (append-only,
+/** Inbound-subtype option names. `existing_provider_diminution` (append-only,
  *  work-todo-spike: suggested-tags-and-folders) is the staff-applicable Diminution tag
  *  in the richer Inspection/Audit/Diminution/Query taxonomy; the deterministic classifier
  *  may not emit it yet (staff set it via the reclassify route). `billing_request`,
@@ -570,7 +568,7 @@ export type InboundSubtype =
   | 'pre_instruction_directions'
   | 'website_general_enquiry';
 
-/** Every {@link InboundSubtype} name, in declaration/choice-set order — see
+/** Every {@link InboundSubtype} name, in declaration/code-table order — see
  *  {@link INBOUND_CATEGORIES}. */
 export const INBOUND_SUBTYPES: readonly InboundSubtype[] = [
   'existing_provider_instruction',
@@ -591,10 +589,10 @@ export const INBOUND_SUBTYPES: readonly InboundSubtype[] = [
   'website_general_enquiry',
 ];
 
-/** cr1bd_triagestate: the row's lifecycle in the triage queue. */
+/** The row's lifecycle in the triage queue. */
 export type TriageState = 'new' | 'routed' | 'actioned' | 'dismissed';
 
-/** cr1bd_classifiermode: which engine settled the label. */
+/** Which classifier settled the label. */
 export type ClassifierMode = 'deterministic' | 'llm' | 'human';
 
 /** One inbound-email triage row. */
@@ -813,7 +811,7 @@ export interface DataAccess {
   getHoldNewCasesDefault(): Promise<boolean>;
   setHoldNewCasesDefault(value: boolean): Promise<void>;
 
-  /* ----- Inbox / Triage (Phase 8 — cr1bd_inboundemail) ----- */
+  /* ----- Inbox / Triage ----- */
   inboundEmails(facet?: InboundFacet): Promise<InboundEmail[]>;
   inboundEmailCounts(): Promise<InboundCounts>;
   setTriageState(id: string, state: TriageState): Promise<void>;

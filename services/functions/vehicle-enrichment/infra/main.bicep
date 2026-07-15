@@ -55,7 +55,7 @@ param dvlaApiKeySecretName string = 'dvla-api-key'
 // This Function no longer self-declares Log Analytics + App Insights. It consumes
 // the SHARED App Insights connection string (the parser's cespike-parser-ai-dev),
 // threaded in by the orchestrating deploy from the parser stack's
-// appInsightsConnectionString output. See functions/parser/infra/main.bicep.
+// appInsightsConnectionString output. See services/functions/parser/infra/main.bicep.
 @secure()
 @description('Shared App Insights connection string (the parser App Insights). Consumed by APPLICATIONINSIGHTS_CONNECTION_STRING. Mark @secure() so the ikey embedded in it is not echoed to deployment logs.')
 param sharedAppInsightsConnectionString string = ''

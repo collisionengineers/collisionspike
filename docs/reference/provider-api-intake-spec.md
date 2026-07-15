@@ -7,7 +7,7 @@
 > **Status.** Backed by [ADR-0020](../adr/0020-provider-api-intake-channel.md) and ticket
 > [TKT-055](../tickets/verify/TKT-055-provider-api-intake/TKT-055-provider-api-intake.md). The
 > live gate values / environment facts are in the registry
-> ([live-environment.md](../architecture/live-environment.md)), never re-embedded here.
+> ([live-environment.md](../operations/live-environment.md)), never re-embedded here.
 
 ## 1. Base URL & endpoint
 

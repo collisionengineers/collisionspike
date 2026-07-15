@@ -4,7 +4,7 @@
 Built + deployed live (2026-07-09, PLAN-003 UI-wave batch).
 
 ## What was built
-**`mockup-app/src/screens/Inbox.tsx`**: the E-mail type `<Dropdown>` now passes
+**`apps/web/src/features/inbox/Inbox.tsx`**: the E-mail type `<Dropdown>` now passes
 `listbox={{ className: styles.typeListbox }}` with `maxHeight: '320px !important'` (~10 option rows)
 + `overflowY: auto`. The `!important` is load-bearing: Fluent's popover positioning (autoSize)
 writes an INLINE viewport-height max-height on open (measured 713px on a 949px viewport — the

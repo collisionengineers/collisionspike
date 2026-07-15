@@ -1,0 +1,49 @@
+# Live environment
+
+This is the readable view of [LIVE_FACTS.json](../../LIVE_FACTS.json), last verified there on
+2026-07-14. The JSON registry wins if values differ. Verify live before making a decision that depends on
+current state.
+
+## Core resources
+
+| Surface | Resource | Source |
+| --- | --- | --- |
+| Staff web app | `cespk-spa-dev` | `apps/web` |
+| Data API | `cespk-api-dev` | `services/data-api` |
+| Orchestration | `cespk-orch-dev` | `services/orchestration` |
+| PostgreSQL | `cespk-pg-dev` / `collisionspike` | `database` |
+| Parser | `cespike-parser-dev-x7xt3d5ovhi7y` | `services/functions/parser` |
+| Vehicle enrichment | `cespkenrich-fn-gi62sd` | `services/functions/vehicle-enrichment` |
+| EVA Sentry | `cespkeva-fn-ufa3ci` | `services/functions/eva-sentry` |
+| EVA validation | `cespkeval-fn-6c6fxd` | No repository source; retirement is separate production work |
+| OCR | `cespkocr-fn-dev-glju3v` | `services/functions/ocr` |
+| Archive events | `cespkbox-fn-v76a47` | `services/functions/box-webhook` |
+| Location assistance | `cespkloc-fn-a7tzj2` | `services/functions/location-assist` |
+
+The resource group is `rg-collisionspike-dev`; the primary region is UK South and the web app is in
+West Europe.
+
+## Active paths
+
+- The web app authenticates staff with Microsoft Entra ID and calls the Data API over REST.
+- The Data API validates the bearer audience and enforces `CollisionSpike.User` or
+  `CollisionSpike.Superuser` before setting PostgreSQL request context.
+- Mail intake is live for `info@`, `engineers@`, and `desk@` using Microsoft Graph push notifications.
+- A durable monitor renews mail subscriptions.
+- PostgreSQL uses the non-owner `cespk_app` login with row-level security enabled and forced.
+- Document parsing, vehicle enrichment, OCR, Archive filing, location assistance, mail triage, and the
+  approved AI/assistant capabilities listed in `LIVE_FACTS.json` are enabled.
+- EVA REST submission and valuation lookup remain deliberately unavailable.
+- The EVA validation resource remains running but had no repository caller, caller configuration, or
+  request telemetry in the focused 90-day read-only audit on 2026-07-15. Its duplicate repository
+  implementation was removed; the shared domain readiness evaluator remains canonical.
+
+## Operating constraints
+
+- The subscription remains on the Azure Free Trial tier and requires an operator-owned upgrade.
+- Keep proof of unattended mail-subscription renewal.
+- New staff accounts need an explicit application-role assignment before they can use the app.
+- Legal and data-protection records remain open ticketed work; do not infer completion from enabled code.
+
+No secrets, tokens, object IDs, subscription GUIDs, transient URLs, or connection strings belong on this
+page.

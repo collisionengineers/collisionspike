@@ -1,0 +1,15 @@
+From: case.handler@provider.example
+To: intake@example.invalid
+Date: Sun, 12 Jul 2026 17:30:00 +0100
+Subject: Vehicle assessment XY12 ZZZ
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+Claimant Name: TBC
+Vehicle Registration: XY12 ZZZ
+Please assess the vehicle and provide a report.
+
+Kind regards,
+Alex Handler
+Senior Case Handler
+Claimant Name: Alex Handler

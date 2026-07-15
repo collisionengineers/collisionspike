@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-158",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/instruction-lifecycle-sketch.png",
+      "originalFilename": "instruction-lifecycle-sketch.png",
+      "sha256": "525c1f9aa0c84d54c286d79404133cf635de65bc348204b788915942782bac9e",
+      "storagePath": "tests/fixtures/evidence/sha256/52/525c1f9aa0c84d54c286d79404133cf635de65bc348204b788915942782bac9e.png"
+    }
+  ]
+}

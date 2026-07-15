@@ -3,7 +3,7 @@
 The document-parsing ticket reported extraction "only really getting registration".
 The root cause was the orchestration contract (fixed in parse.ts), NOT the engine —
 the engine extracts the full identity set from real provider instruction documents.
-This test pins that: over REAL provider samples (PDF + legacy .DOC), the production
+This test pins that: over real provider samples (PDF + binary .DOC), the production
 parser seam (``run_parser`` -> ``to_eva_extraction``, exactly what the Function calls)
 must return the work-provider, the VRM, AND at least two further EVA/identity fields.
 A regression back to "only registration" fails this loudly.
@@ -11,7 +11,7 @@ A regression back to "only registration" fails this loudly.
 Tolerant by design (non-empty / provider-match assertions, not brittle exact goldens —
 that is ``test_engine_smoke``'s job) so minor rule tweaks don't false-fail. Individual
 fixtures skip cleanly where a reader's deps are absent (PyMuPDF for PDF). Word 97+
-legacy `.DOC` text uses the in-process piece-table reader and is not dependency-gated.
+binary `.DOC` text uses the in-process piece-table reader and is not dependency-gated.
 """
 
 from __future__ import annotations
@@ -23,7 +23,11 @@ import pytest
 
 HERE = Path(__file__).resolve().parent
 INSTRUCTIONS = HERE / "fixtures" / "instructions"
-REPO_ROOT = HERE.parents[2]  # functions/parser/tests -> collisionspike
+REPO_ROOT = HERE.parents[3]
+sys.path.insert(0, str(REPO_ROOT / "tests" / "fixtures" / "resolvers"))
+from evidence_resolver import resolve_evidence  # noqa: E402
+
+INSTRUCTION_LOGICAL_ROOT = "services/functions/parser/tests/fixtures/instructions"
 
 # Import the production adapter seam (same module the Function's /parse route uses).
 sys.path.insert(0, str(HERE.parent))
@@ -54,8 +58,9 @@ def test_qdos_binary_doc_uses_piece_table_and_retains_claimant_and_narrative() -
     proves the assertion did not silently pass through the scrape/desktop
     fallbacks, while the two field-bearing phrases pin its table-cell text.
     """
-    src = INSTRUCTIONS / "QDOS_TRIAGE_01.doc"
-    assert src.exists(), "binary QDOS regression fixture is required"
+    src = resolve_evidence(
+        original_path=f"{INSTRUCTION_LOGICAL_ROOT}/QDOS_TRIAGE_01.doc"
+    )
 
     document = get_reader_for_path(src).read(src)
 

@@ -2,8 +2,8 @@
    Collision Engineers — EVA export contract (CANONICAL serializer).
 
    Re-implements collisioncc `src/lib/eva-export.ts` for the SETTLED 12-field
-   EVA set. THIS IS THE ONE SERIALIZER the Code App and the Power Automate flow
-   both target, so their drag-drop JSON is byte-identical. The Python parser
+   EVA set. This is the one serializer used by every export and submission path,
+   so generated JSON stays byte-identical. The Python parser
    Function validates its output against the sibling JSON Schema
    (`contracts/eva-payload.schema.json`). NOTE: that schema is the MEMBERSHIP +
    FORMAT gate (exactly these 12 keys, date/enum/address shapes) — JSON Schema
@@ -131,8 +131,8 @@ export function buildEvaPayload(input: EvaPayloadInput): EvaPayload {
 }
 
 /**
- * Deterministically serialize a payload to the JSON string both the Code App
- * and the flow emit. Re-projects through `EVA_FIELD_ORDER` so key order is
+ * Deterministically serialize a payload to the JSON string every client emits.
+ * Re-projects through `EVA_FIELD_ORDER` so key order is
  * guaranteed regardless of how the caller built the object.
  */
 export function serializeEvaPayload(payload: EvaPayload): string {

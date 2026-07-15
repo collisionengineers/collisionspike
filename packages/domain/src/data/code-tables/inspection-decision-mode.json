@@ -1,0 +1,14 @@
+{
+  "$schema": "../schema/_code-table.schema.json",
+  "kind": "code-table",
+  "codeTableId": "inspection_decision_mode",
+  "displayName": "Inspection Decision Mode",
+  "description": "InspectionAddress.decisionMode (and Case.inspectionDecision mirror) — how the inspection location was decided. `image_based` ALWAYS requires an explicit reviewer decision + reason (never a silent pass); enforced in the M1 policy gate (§5.9).",
+  "default": "unknown",
+  "options": [
+    { "value": 100000000, "name": "confirmed_physical", "label": "Confirmed Physical" },
+    { "value": 100000001, "name": "manual",             "label": "Manual" },
+    { "value": 100000002, "name": "image_based",        "label": "Image Based" },
+    { "value": 100000003, "name": "unknown",            "label": "Unknown" }
+  ]
+}

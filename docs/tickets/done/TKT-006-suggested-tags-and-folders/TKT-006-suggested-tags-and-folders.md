@@ -5,7 +5,7 @@ status: done
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-005, TKT-015]
-research-link: docs/plans/work-todo-spike/email-management/research/suggested-tags-and-folders.md
+research-link: docs/tickets/done/TKT-006-suggested-tags-and-folders/TKT-006-suggested-tags-and-folders.md
 ---
 
 # Suggest email categories/tags + Outlook folders, log overrides
@@ -33,8 +33,8 @@ Each email shows a suggested tag + folder; an override is recorded with before/a
 auto-applied without confirmation in suggestion mode.
 
 ## Research
-- Operator stub: [suggested-tags-and-folders.md](../../../plans/work-todo-spike/email-management/suggested-tags-and-folders.md)
-- Research pack: [research/suggested-tags-and-folders.md](../../../plans/work-todo-spike/email-management/research/suggested-tags-and-folders.md)
+- Operator stub: [suggested-tags-and-folders.md](TKT-006-suggested-tags-and-folders.md)
+- Research pack: [research/suggested-tags-and-folders.md](TKT-006-suggested-tags-and-folders.md)
 
 ## Artifacts
 - [Changes made](./changes.md)

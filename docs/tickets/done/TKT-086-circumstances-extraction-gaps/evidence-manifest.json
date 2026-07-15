@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-086",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/Instructions.DOC",
+      "originalFilename": "Instructions.DOC",
+      "sha256": "6078d5a632ee30774ad82f109f2fbff00ec3f5a5cbd34d2fc43de0010a8c83f5",
+      "storagePath": "tests/fixtures/evidence/sha256/60/6078d5a632ee30774ad82f109f2fbff00ec3f5a5cbd34d2fc43de0010a8c83f5.doc"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/message.eml",
+      "originalFilename": "message.eml",
+      "sha256": "0a99d585e84f02a5a81233e009aac0f88fbf9aaa6a89416afe0eee20cfd9cee6",
+      "storagePath": "tests/fixtures/evidence/sha256/0a/0a99d585e84f02a5a81233e009aac0f88fbf9aaa6a89416afe0eee20cfd9cee6.eml"
+    }
+  ]
+}

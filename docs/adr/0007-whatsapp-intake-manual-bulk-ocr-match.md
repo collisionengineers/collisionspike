@@ -1,11 +1,19 @@
-# WhatsApp intake is manual (Business app); bulk media OCR→VRM matching as a timesaver
+# ADR-0007 — WhatsApp intake is manual with assisted matching
 
 **Status:** Accepted (2026-06-17).
 
-Collision Engineers use the **WhatsApp Business app** (not the Platform/Cloud API), so there is no
-programmatic inbound webhook: WhatsApp-sourced images/instructions are **manually attached** to Cases
-by staff, and the Image Source records the group/contact for tracking. As a timesaver, a **bulk
-import** path is planned: staff export WhatsApp chats, drop the media into a folder, and a batch
-process runs **OCR/vision** over each image to read the registration and **auto-match it to the open
-Case by VRM** (ADR-0002), attaching or suggesting matches. This reuses the M1 OCR registration check
-and the VRM correlation. (Outbound WhatsApp is likewise draft-only — ADR-0003.)
+## Decision
+
+WhatsApp-sourced instructions and images are attached by staff because the business uses the WhatsApp
+Business app without a programmatic inbound channel. A bulk-assist path may process a staff export, read
+registration text from media, and propose an open-Case match under ADR-0002/0010.
+
+## Rationale
+
+Manual source handling reflects the available business channel. OCR and bulk grouping can remove clerical
+effort without pretending there is an automated receipt or accepting an uncertain match.
+
+## Consequences
+
+Every attachment records WhatsApp as its source channel. Proposed matches are reviewable, ambiguous media
+stays visible, and outbound WhatsApp chasers remain manual under ADR-0003.

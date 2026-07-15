@@ -65,7 +65,7 @@ repair. Earlier staged/live rows prove the old path only.
 
 - Accepting a case link commits the link, review decision and a durable recovery generation together.
   The publisher pages beyond lineage-ineligible poison rows, binds later generations to their accepted
-  target and follows only verified merge lineage. `api/src/functions/ai-suggestions.test.ts` covers
+  target and follows only verified merge lineage. `services/data-api/src/features/assistant/suggestion-generation-routes.test.ts` covers
   enqueue failure, a full poison page, later-generation relink refusal and a real merge redirect.
 - Graph attachment/search pagination is bounded and cycle-safe; same-named files use attachment-id-
   unique Blob keys; permission lookup fails closed; relocation, 404/null and managed-identity/storage

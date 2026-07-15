@@ -1,107 +1,35 @@
-# Canonical vehicle-data enrichment service
+# Vehicle enrichment
 
-`functions/enrichment/` is the sole vehicle-data owner for the CollisionSpike case
-workflow. The retained Python Function holds provider authentication and HTTP details,
-normalises registrations once, calls DVSA/DVLA, and returns the versioned
-[`vehicle-data.v1`](../../contracts/vehicle-data-v1.schema.json) contract.
+## Ownership
 
-The existing orchestration/Data API case writer is a temporary thin consumer of the
-top-level compatibility fields. It does not own lookup, cleaning, or mileage maths;
-TKT-151 will persist and apply the nested contract without reimplementing it.
+This service owns registration normalization, vehicle-provider authentication, MOT-history cleaning,
+mileage estimation, and the versioned [`vehicle-data.v1`](../../../contracts/vehicle-data-v1.schema.json)
+response. Other services consume that contract and do not duplicate its rules.
 
-## Runtime boundary
+## Public contract
 
-```text
-orchestration / explicit retry
-          |
-          v
-POST /api/dvsa-mot/enrich
-          |
-          v
-vehicle_data.VehicleDataService
-  |-- dvsa_client.py  (provider transport/auth only)
-  |-- dvla_client.py  (provider transport/auth only)
-  `-- vehicle_data/mileage.py (the one handwritten estimator)
-          |
-          v
-vehicle-data.v1 + temporary compatibility projection
-```
+`POST /api/dvsa-mot/enrich` accepts a registration plus optional target date, instruction-mileage flag,
+and idempotency key. Provider calls are made server-side. The response distinguishes observed,
+estimated, range-only, and insufficient mileage results and retains the supporting observations.
 
-`analysis.py` contains no rules; it is a deprecated import facade over
-`vehicle_data.mileage`. The standalone `dvla-dvsa-connector` and `mileagetool`
-repositories are not case-workflow dependencies and must delegate to this service
-contract before their local estimator copies can be treated as equivalent.
+Instruction mileage remains authoritative. Estimated values are display-only unless the matching
+calibration profile and the explicit autofill gate both qualify them. Observed odometer readings remain
+exact; forecast points are rounded to 100 miles.
 
-## Request
+## Callers and persistence
 
-```json
-{
-  "vrm": "TE57 VRM",
-  "document_has_mileage": false,
-  "target_date": "2026-07-12",
-  "idempotency_key": "intake:<durable-instance>:vehicle-data:<case-id>"
-}
-```
+Orchestration requests enrichment during intake and explicit retry. Lookup runs, provider snapshots,
+raw MOT observations, results, and model profiles are append-only. Database definitions live in
+[`database/baseline/200_vehicle_data.sql`](../../../database/baseline/200_vehicle_data.sql) and
+[`database/migrations/2026-07-12-tkt152-vehicle-data.sql`](../../../database/migrations/2026-07-12-tkt152-vehicle-data.sql).
 
-- `target_date` is optional and defaults to the lookup date.
-- `idempotency_key` is optional for interactive lookups; durable callers reuse
-  one opaque key so retries share the same run identity.
-- `document_has_mileage` defaults to `true`; instruction mileage remains
-  authoritative under ADR-0006.
-- `dry_run: true` still returns presence-only configuration health without a
-  provider call.
+## Configuration
 
-## Mileage result semantics
+Provider credentials remain server-side. Optional JSON settings provide versioned cohort priors and
+calibration profiles. `MILEAGE_ESTIMATE_AUTOFILL_ENABLED` fails closed unless explicitly enabled.
 
-- `observed`: exact trusted MOT-date reading; exact value is retained.
-- `estimated`: a bounded interpolation or forecast point. `auto_fill_eligible`
-  remains false unless an empirical holdout profile and the explicit rollout
-  gate both qualify it; an uncalibrated point is display-only.
-- `range_only`: a useful logical range exists without a safe point.
-- `insufficient`: ambiguity, stale horizon, or evidence scarcity makes even a
-  range unsafe.
+## Tests and deployment
 
-The output always means **displayed odometer**, never unknowable lifetime mileage
-after a reset/replacement/rollover. Forecast points are rounded to 100 miles.
-Observed readings remain exact.
-
-Cleaning preserves every raw MOT row and its source/test number/date/result,
-original odometer value/unit/result type, registration-at-test and stable identity
-when present. Decisions are recorded alongside the row: dedup, fail/retest episode,
-short interval, isolated spike/dip, segment boundary, unit ambiguity, zero movement,
-extreme usage and historical-only gap.
-
-## Versioned priors and calibration
-
-There is no hard-coded probability score. Optional JSON app settings supply
-versioned artefacts:
-
-- `MILEAGE_COHORT_PRIOR_JSON`
-- `MILEAGE_CALIBRATION_PROFILE_JSON`
-- `MILEAGE_ESTIMATE_AUTOFILL_ENABLED` (fail-closed rollout gate)
-
-Without a defensible prior the estimator does not cohort-assist. Without a matching
-calibration bucket it publishes only a non-probabilistic range and never defaults the
-point into a case. Even a matching bucket cannot auto-fill until the profile records at
-least 1,000 chronological holdouts, observed coverage meets the declared target, and
-the explicit rollout gate is enabled. The chronological
-holdout harness in `vehicle_data/backtest.py` reports MAE, median absolute error,
-range coverage and useful-tolerance coverage by horizon, vehicle type/age, clean
-interval count, volatility and anomaly class.
-
-## Persistence contract
-
-Fresh-build DDL is [`200_vehicle_data.sql`](../../migration/assets/schema/200_vehicle_data.sql);
-the idempotent rolling delta is
-[`2026-07-12-tkt152-vehicle-data.sql`](../../migration/assets/schema/deltas/2026-07-12-tkt152-vehicle-data.sql).
-Lookup runs, provider snapshots, raw MOT observations, results and model profiles are
-append-only (`SELECT`/`INSERT`; forced RLS, no app update/delete).
-
-## Offline gates
-
-```powershell
-python -m pytest -q
-```
-
-All token/provider calls are mocked. No live provider, database or Azure mutation is
-part of this test path.
+Run `python -m pytest -q` from this directory. All provider calls are mocked. Deployment uses the normal
+Python Function packaging path documented in [`docs/operations/deployment.md`](../../../docs/operations/deployment.md);
+this directory is the deployment source for `cespkenrich-fn-gi62sd`.

@@ -15,8 +15,8 @@ findings:
   `{uploaded:1, total:1}` where the case held TWO unmirrored blob rows: the excluded logo was not
   offered, the legit 19.1MB .eml mirrored. Pre-fix total would have been 2. Filter + recall in one
   run.
-- **Bundles + ordering verified:** deploy/api/main.cjs:18396 `AND excluded = false` in the
-  archive-evidence selection; deploy/orch/main.cjs 49988–52400 (role other + nonVehicleExcluded →
+- **Bundles + ordering verified:** .artifacts/deploy/data-api/main.cjs:18396 `AND excluded = false` in the
+  archive-evidence selection; .artifacts/deploy/orchestration/main.cjs 49988–52400 (role other + nonVehicleExcluded →
   excluded + auto-classified reason; extractImages passes the flag; excludedNonVehicle on the
   summary event); all three orchestrator lanes sequence classifyPersist → extractImages →
   boxArchiveEvidence (intakeOrchestrator.ts:134→141→156 / 283→291→307 / 694→708→728); both persist
@@ -89,7 +89,7 @@ PARTIAL — the PDF-lane suppression BUILT + DEPLOYED (offline-proven); the live
 proof remained. Superseded by the FAILED probe above.
 
 ## Evidence (what is proven)
-- **Offline test green:** `functions/parser/tests/test_extract_images.py:161`
+- **Offline test green:** `services/functions/parser/tests/test_extract_images.py:161`
   `test_small_decorative_image_is_filtered_out` — an 80×40 logo-sized raster yields `count == 0`
   ("must be filtered, not stored as evidence"); the docstring cites the exact QDOS26004 /
   `LtrtoEngineerIn__RJS_UnknownVRM_img_1_3` bug from this ticket's screenshot. Companion large-image
@@ -178,22 +178,22 @@ Verified by: operator report transcribed by the orchestrating session, 2026-07-0
 **Verdict: TESTED (offline) — deployment pending.**
 
 This block supersedes every stale `done`, `VERIFIED-LIVE` or deployed verdict for the PR 55
-regression repair. The earlier audit/backfill evidence remains historical evidence only.
+regression repair. The earlier audit/backfill evidence remains prior evidence only.
 
 - Parser engine `v2.16` and the email image-sniff path retain plausible panoramic vehicle photos.
   Automatic non-vehicle exclusion now requires high confidence and no readable registration signal;
   parser extraction and orchestration image-sniff regressions cover the recall guard.
 - The evidence schema records decision ownership. Classifier retries may clear only a matching
-  classifier-owned exclusion and restore acceptance; staff/provider/cleanup/legacy decisions remain
+  classifier-owned exclusion and restore acceptance; staff/provider/cleanup/earlier decisions remain
   protected. `internal-box-classification.test.ts`, `evidence.test.ts` and
   `evidence-review.test.ts` cover automatic recovery, durable staff edits and reload-safe review.
-- The ownership delta safely interprets historical audit before/after snapshots and gives explicit
-  staff decisions precedence. `migration/assets/schema/tests/tkt089-staff-ownership-fixture.sql`
-  covers staff, classifier, reflection-only and legacy exclusion-reason cases.
+- The ownership delta safely interprets prior audit before/after snapshots and gives explicit
+  staff decisions precedence. `database/tests/tkt089-staff-ownership-fixture.sql`
+  covers staff, classifier, reflection-only and earlier exclusion-reason cases.
 - Staff changes, accepted suggestions and classifier recovery request exact Archive-mirror and status
   generations. API/orchestration archive-mirror tests cover stale claims, retries, merge collisions,
   exact-row acknowledgement and a recovered photo becoming eligible for Archive/EVA again.
-- Deployment proof still required: apply the additive schema, deploy parser/API/orchestration/SPA,
+- Deployment proof still required: apply the additive schema, deploy parser/API/services/orchestration/SPA,
   rerun the ownership delta after the API cutover, then repeat the letterhead suppression and genuine
   panoramic-photo live probes. No new live result is claimed here.
 
@@ -205,7 +205,7 @@ PENDING
 
 ## Evidence
 
-- **A1 — Written lane audit:** Historical live audit recorded 881 email-lane rows and 4,129 PDF-lane
+- **A1 — Written lane audit:** prior live audit recorded 881 email-lane rows and 4,129 PDF-lane
   rows, identifying 165 suspect images. Cleanup excluded 163 rows, created 163 backup records and 107
   per-case audit entries, and left zero residual suspects.
 - **A2 — Email-lane capture:** The July 10 forward window recorded 40 suspects, 38 already mirrored and
@@ -217,19 +217,19 @@ PENDING
   deleting retained Archive copies, consistent with the one-way-mirror rule.
 - **R1 — Preserve plausible panoramas:** Current parser and orchestration source explicitly retain
   low-resolution panoramas for classification in
-  `functions/parser/cedocumentmapper_v2/application/service.py:52` and
-  `orchestration/src/lib/image-sniff.ts:15`. Parser v2.16 was deployed after the regression gates passed.
+  `services/functions/parser/cedocumentmapper_v2/application/service.py:52` and
+  `services/orchestration/src/platform/image-sniff.ts`. Parser v2.16 was deployed after the regression gates passed.
 - **R2 — Conservative automatic exclusion:** Current classification paths carry registration-readability
   state and restrict automatic non-vehicle exclusion to classifier decisions. This is source/offline
   evidence only; no current natural input was observed.
 - **R3 — Ownership durability:** Current API persistence records exclusion ownership/source in
-  `api/src/functions/internal.ts:3198-3253`, preventing retries from treating staff, provider, cleanup or
-  legacy decisions as classifier-owned.
+  `services/data-api/src/features/`, preventing retries from treating staff, provider, cleanup or
+  earlier decisions as classifier-owned.
 - **R4 — Classifier-owned recovery:** Current API logic distinguishes classifiable and
-  registration-bearing evidence in `api/src/functions/internal.ts:4264-4307`; recorded regression tests
+  registration-bearing evidence in `services/data-api/src/features/`; recorded regression tests
   cover clearing only classifier-owned exclusions after later vehicle classification.
 - **R5 — Staff review and reload:** The evidence-edit API persists role, registration, acceptance and
-  exclusion ownership in `api/src/functions/evidence.ts:152-334`. The deployment record reports the API
+  exclusion ownership in `services/data-api/src/features/evidence/`. The deployment record reports the API
   and SPA repair deployed, but no signed-in live reload recovery was observed in this pass.
 - **R6 — Retry protection:** Recorded regression tests cover preservation of staff/provider-owned
   inclusion and exclusion across classifier retries. This remains offline/deployment evidence.
@@ -264,6 +264,6 @@ PENDING
 
 ## Confidence + unread surfaces
 
-High confidence in the historical cleanup, current implementation and deployment lineage; medium
+High confidence in the prior cleanup, current implementation and deployment lineage; medium
 confidence in current live behavior. Unread surfaces are a fresh natural intake trace, current database
 rows, current Archive contents and signed-in SPA persistence behavior.

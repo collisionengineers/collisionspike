@@ -9,11 +9,11 @@ the Function inventory and an independent RLS-shaped Postgres read.
 - `1fb580a` — constrain UUID detail routes, make inbound-count failures observable, and add API regressions.
 
 ## Files touched
-- `api/src/functions/inbound.ts`
-- `api/src/functions/inbound-counts.test.ts`
-- `api/src/functions/cases.ts`
-- `api/src/functions/cases-create-box.test.ts`
-- `api/src/lib/uuid.ts`
+- `services/data-api/src/features/inbound/`
+- `services/data-api/src/features/inbound/counts.test.ts`
+- `services/data-api/src/features/cases/`
+- `services/data-api/src/features/cases/create-archive.test.ts`
+- `services/data-api/src/shared/validation/uuid.ts`
 
 ## What changed
 - Constrained `GET inbound/{id}` to a GUID route so the literal `GET inbound/counts` endpoint cannot
@@ -39,4 +39,4 @@ the Function inventory and an independent RLS-shaped Postgres read.
 - A read-only Postgres query under `app.role=staff` returned the same values.
 - Application Insights proved the former parameter-route/UUID collision and shows no post-release
   5xx, `22P02`, correlated count failure or API exception.
-- The focused health/diagnostic procedure is recorded in `docs/azure/postgres.md`.
+- The focused health/diagnostic procedure is recorded in `docs/operations/database.md`.

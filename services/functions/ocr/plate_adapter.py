@@ -18,7 +18,8 @@ Two engines, one switch (``PLATE_PROVIDER`` -> ``provider`` here):
       the case VRM in the returned text. No plate localisation -> lower precision,
       but managed and adequate for M1's "does the image's OCR text contain the
       case VRM?" check (image-rules.ts / data-model.md). Do NOT use Azure AI Vision
-      Image Analysis Read — DEPRECATED, retires 2028-09-25 (docs/plans/phase-5-ocr-and-scale/ocr-strategy §0).
+      Image Analysis Read; the current OCR boundary is documented in
+      ``docs/architecture/integrations.md``.
 
 M1 SCOPE (ADR-0009): read the plate well enough to set Evidence
 ``registrationVisible`` and VRM-match images to the open Case (ADR-0002/0007).
@@ -170,7 +171,7 @@ def _build_result(
 # Engine: fast-alpr (primary)                                                  #
 # --------------------------------------------------------------------------- #
 # Lazy singleton so the (cold) model load happens once per warm worker, not per
-# request — material for ACA cold-start (docs/plans/phase-5-ocr-and-scale/ocr-strategy §10.5).
+# request so model load is paid once per warm worker.
 _ALPR_SINGLETON: Any = None
 
 
@@ -298,9 +299,8 @@ def looks_like_supported_image(data: bytes) -> bool:
 
     The single magic-byte authority for the plate route (the doc route uses the
     %PDF magic in function_app). Used by the handler's TOLERANT base64 decode to
-    decide whether a once-decoded payload is already image bytes, or whether the
-    Power Platform gateway double-encoded it and a second base64 peel is needed
-    (memory ``powerplatform-connector-base64-double-encode``). Reuses the same
+    decide whether a once-decoded payload is already image bytes or needs one
+    defensive base64 peel. Reuses the same
     magic-byte table as ``_content_type_for`` (anything it can name a type for is
     a supported image).
     """

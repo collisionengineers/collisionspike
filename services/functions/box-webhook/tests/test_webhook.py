@@ -174,10 +174,10 @@ def test_verify_no_keys_configured_fails_closed():
 # 3. BOX-DELIVERY-ID dedup
 # ==========================================================================
 
-def test_dedup_first_seen_is_false_then_true():
+def test_dedup_first_begin_is_new_then_in_flight():
     d = DeliveryDedup()
-    assert d.seen("delivery-1") is False
-    assert d.seen("delivery-1") is True  # repeat -> deduped
+    assert d.begin("delivery-1") == "new"
+    assert d.begin("delivery-1") == "in_flight"
 
 
 def test_dedup_distinguishes_in_flight_from_settled():
@@ -190,36 +190,36 @@ def test_dedup_distinguishes_in_flight_from_settled():
 
 def test_dedup_distinct_ids_independent():
     d = DeliveryDedup()
-    assert d.seen("a") is False
-    assert d.seen("b") is False
-    assert d.seen("a") is True
+    assert d.begin("a") == "new"
+    assert d.begin("b") == "new"
+    assert d.begin("a") == "in_flight"
 
 
 def test_dedup_missing_id_never_swallowed():
     d = DeliveryDedup()
-    assert d.seen(None) is False
-    assert d.seen(None) is False  # no id -> never reported as duplicate
+    assert d.begin(None) == "new"
+    assert d.begin(None) == "new"  # no id -> never reported as duplicate
 
 
 def test_dedup_ttl_eviction():
     d = DeliveryDedup(ttl_s=100.0)
-    assert d.seen("x", now=0.0) is False
-    # After the TTL the entry is evicted -> seen again as not-duplicate.
-    assert d.seen("x", now=200.0) is False
+    assert d.begin("x", now=0.0) == "new"
+    # After the TTL the entry is evicted and can be claimed again.
+    assert d.begin("x", now=200.0) == "new"
 
 
 def test_dedup_forget_allows_reprocessing():
     d = DeliveryDedup()
-    assert d.seen("y") is False  # provisionally marked
+    assert d.begin("y") == "new"  # provisionally marked
     d.forget("y")               # transient failure -> un-mark
-    assert d.seen("y") is False  # retry is treated as fresh, not a duplicate
+    assert d.begin("y") == "new"  # retry is treated as fresh, not a duplicate
 
 
 def test_dedup_forget_missing_or_none_is_noop():
     d = DeliveryDedup()
     d.forget(None)       # no id -> nothing to do
     d.forget("never")    # absent id -> no error
-    assert d.seen("z") is False
+    assert d.begin("z") == "new"
 
 
 # ==========================================================================

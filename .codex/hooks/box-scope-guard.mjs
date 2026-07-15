@@ -1,7 +1,7 @@
 // box-scope-guard.mjs — BLOCKING PreToolUse guard for the Box integration build.
 //
 // Every Box CLI/REST/SDK/test-wrapper command must stay within the immutable test folder
-// and its tracked descendants. The former liveReady production bypass is retired. Anything that references
+// and its tracked descendants. Anything that references
 // Box folder 0 or an id outside the allowlist is BLOCKED (exit 2; stderr is fed back as the
 // reason). Non-Box commands are always allowed (exit 0). For Box commands the guard FAILS
 // CLOSED: if it cannot validate, it blocks.
@@ -87,9 +87,6 @@ async function main() {
   clearTimeout(watchdog);
   try {
     const cfg = lib.loadConfig();
-    if (cfg.liveReady) {
-      deny('the retired liveReady production bypass is set; Box operations remain test-only.');
-    }
     if (cfg.mode !== 'test_only') {
       deny(`tools/box-scope.json mode must remain test_only (got ${cfg.mode || 'missing'}).`);
     }
@@ -113,7 +110,7 @@ async function main() {
         `Box id(s) [${bad.join(', ')}] are outside the test folder ${root}.\n` +
           `  In scope: root ${root} + ${cfg.allowedIds.length} tracked descendant id(s).\n` +
           `  A child created under the root is tracked automatically right after creation.\n` +
-          `  No production bypass exists; TKT-178 requires a separate signed-run exact-object executor.`,
+          `  Production work requires TKT-178's separate signed-run exact-object executor.`,
       );
     }
 

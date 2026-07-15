@@ -5,7 +5,7 @@ status: done
 priority: P2
 area: platform
 tickets-it-relates-to: [TKT-006, TKT-004]
-research-link: docs/plans/work-todo-spike/automation-mode/research/am.md
+research-link: docs/tickets/done/TKT-013-automation-mode/TKT-013-automation-mode.md
 ---
 
 # Define + enforce the per-provider automation modes
@@ -28,8 +28,8 @@ The modes are documented with precise semantics; a provider's mode is settable; 
 changes per the provider's mode.
 
 ## Research
-- Operator stub: [am.md](../../../plans/work-todo-spike/automation-mode/am.md)
-- Research pack: [research/am.md](../../../plans/work-todo-spike/automation-mode/research/am.md)
+- Operator stub: [am.md](TKT-013-automation-mode.md)
+- Research pack: [research/am.md](TKT-013-automation-mode.md)
 
 ## Artifacts
 - [Changes made](./changes.md)

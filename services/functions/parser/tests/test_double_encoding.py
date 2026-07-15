@@ -1,30 +1,14 @@
-"""Regression suite for the parser Function's TOLERANT base64 decode.
+"""Regression suite for the parser Function's tolerant base64 decode.
 
-Why tolerant
-------------
-The Power Platform custom connector that fronts ``/api/parse`` re-encodes a
-base64 ``document`` value UNPREDICTABLY: declaring the param ``format: byte`` (or
-``x-ms-media-kind: File``) makes the gateway base64-encode it a SECOND time, and
-even a plain ``type: string`` param is byte-encoded by this runtime. The flow
-sends the RAW base64 string (NOT ``base64ToBinary(...)`` — with the plain-string
-connector that feeds the gateway BINARY and it returns HTTP 400, proven live
-2026-06-20). Because the gateway's behaviour drifts (a connector-definition change
-does not reliably propagate), the Function MUST tolerate a redundant second
-base64 layer. ``function_app._decode_document`` decodes once; if the result is
-not a known document but is itself strict base64, it decodes exactly once more,
-accepting it only if THAT yields a known document magic — and logs a warning on
-every recovery so the double-encode stays observable.
-
-History: a 2026-06-19 attempt to make this STRICT (and add ``format: byte`` to
-the connector) broke live intake with a burst of CS Parse 422s; and a 2026-06-20
-``base64ToBinary`` flow attempt 400'd live intake (test34 -> Exceptions). Both
-reverted to the working config: plain ``type: string`` connector + RAW base64
-string flow + tolerant decode. See memory ``powerplatform-connector-base64-double-encode``.
+An upstream transport may wrap an already base64-encoded ``document`` value.
+``function_app._decode_document`` therefore decodes once and, only when the result
+is itself strict base64, decodes exactly once more. The second result is accepted
+only when it has a known document signature, and every recovery is logged.
 
 These tests pin the tolerant contract:
 
   1. unit — ``_decode_document`` returns the real bytes for a SINGLE-encoded
-     PDF/.docx/legacy-.doc, RECOVERS a DOUBLE-encoded binary doc, single-decodes
+     PDF/.docx/.doc, RECOVERS a DOUBLE-encoded binary doc, single-decodes
      text (never spuriously double-decoded), and still raises on corrupt base64;
   2. end-to-end — ``function_app.parse`` returns 200 and hands the parser the
      REAL document bytes for both single- and double-encoded input.
@@ -54,7 +38,7 @@ import parser_adapter
 # Locate the real instruction corpus (sibling repo), overridable via env.      #
 # --------------------------------------------------------------------------- #
 _DEFAULT_INSTRUCTIONS = (
-    Path(__file__).resolve().parents[4]
+    Path(__file__).resolve().parents[5]
     / "cedocumentmapper_v2.0"
     / "docs"
     / "Instructions"
@@ -72,7 +56,7 @@ def _fixture(name: str) -> bytes:
 # Representative real documents — one per reader/magic.
 _PDF_NAME = "BLACK 01.pdf"          # %PDF
 _DOCX_NAME = "ALISON WORD 01.docx"  # PK\x03\x04 (OOXML ZIP)
-_DOC_NAME = "ALS 01.DOC"            # \xd0\xcf\x11\xe0 (OLE legacy .doc)
+_DOC_NAME = "ALS 01.DOC"            # \xd0\xcf\x11\xe0 (OLE binary .doc)
 
 
 def _single(data: bytes) -> str:

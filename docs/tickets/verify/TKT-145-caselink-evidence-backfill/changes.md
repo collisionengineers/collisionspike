@@ -19,7 +19,7 @@ is **inverted**: the note is now written only on **enqueue failure / missing mai
 (API-side) or **terminal backfill failure** (consumer report-back) — never on a successful queue.
 
 ### api side (`cespk-api-dev`)
-- **`api/src/functions/ai-suggestions.ts`** — `promoteAcceptedSuggestion`'s case_link branch: the
+- **`services/data-api/src/features/assistant/register-suggestion-routes.ts`** — `promoteAcceptedSuggestion`'s case_link branch: the
   FILL-IF-EMPTY link UPDATE now also RETURNS `source_mailbox, source_message_id, subject`; when
   `has_attachments=true` it enqueues `{inboundEmailId, sourceMailbox, sourceMessageId, targetCaseId,
   subject}` (subject = the $search-fallback key) AFTER the UPDATE returned (each `query()` is its own
@@ -27,13 +27,13 @@ is **inverted**: the note is now written only on **enqueue failure / missing mai
   the pre-existing note text is written instead. All of it inside its own try/catch: **a backfill
   failure can never unwind or fail the accept** (the `return {promoted:true}` is unconditional on the
   link having committed).
-- **`api/src/lib/evidence-backfill-queue.ts`** (new) — `enqueueEvidenceBackfill` + the shared
+- **`services/data-api/src/features/evidence/backfill-queue.ts`** (new) — `enqueueEvidenceBackfill` + the shared
   `EvidenceBackfillJob` shape.
-- **`api/src/lib/outlook-queue.ts`** — extracted the MI-token + Queue-REST POST into an exported
+- **`services/data-api/src/features/inbound/outlook-queue.ts`** — extracted the MI-token + Queue-REST POST into an exported
   `enqueueQueueMessage(serviceUrl, queueName, payload)`; `enqueueOutlookMove` delegates to it
   (error text `<queue> enqueue → <status>: …` preserved — `classifyEnqueueFailure` + its tests
   unchanged and green).
-- **`api/src/functions/internal.ts`** — new `POST /api/internal/inbound/{id}/evidence-backfill`
+- **`services/data-api/src/features/`** — new `POST /api/internal/inbound/{id}/evidence-backfill`
   (withServiceAuth, the outlook-moved pattern): `completed` → case-scoped
   `attachment_classified` (100000002) audit, actor `orchestration`; `failed` → the durable
   **"Attachments to add"** note (same name/text as the mitigation, duplicate-guarded with
@@ -44,7 +44,7 @@ is **inverted**: the note is now written only on **enqueue failure / missing mai
   queues live on the same account) — **no new live app-setting required**.
 
 ### orchestration side (`cespk-orch-dev`)
-- **`orchestration/src/functions/evidence-backfill.ts`** (new queue trigger, cloned from
+- **`services/orchestration/src/workflows/evidence/evidence-backfill.ts`** (new queue trigger, cloned from
   outlook-move.ts semantics):
   1. resolve the CURRENT Graph id via `findMessageByInternetMessageId` ($filter);
   2. fallback: whole-mailbox `$search` on the subject (gated **`RETRO_OUTLOOK_SEARCH_ENABLED`**,
@@ -68,9 +68,9 @@ is **inverted**: the note is now written only on **enqueue failure / missing mai
      split reuses `isRetryableGraphError` (5xx/429/network rethrow → queue redelivery, max 5
      dequeues; 4xx/not-found/last-attempt → terminal `failed` report → the note). A malformed job
      is logged + dropped (never poison-loops).
-- **`orchestration/src/lib/data-api.ts`** — `reportEvidenceBackfill` client (the reportOutlookMove
+- **`services/orchestration/src/adapters/data-api.ts`** — `reportEvidenceBackfill` client (the reportOutlookMove
   pattern).
-- **`orchestration/src/index.ts`** — registers the new module.
+- **`services/orchestration/src/index.ts`** — registers the new module.
 
 ### Which gate governs what
 - The enqueue + consumer are **ungated by design** (the accept itself is the human decision;
@@ -88,14 +88,14 @@ is **inverted**: the note is now written only on **enqueue failure / missing mai
 - Report-back rides the existing orch-MI → Data-API audience token (`withServiceAuth`).
 
 ## Regression tests (all green: api 38 files/395 · orch 18 files/271 · domain 50/1076; `tsc -b` green ×3)
-- `api/src/functions/ai-suggestions.test.ts` (+6): enqueue-after-commit ordering (the enqueue
+- `services/data-api/src/features/assistant/suggestion-generation-routes.test.ts` (+6): enqueue-after-commit ordering (the enqueue
   observes the inbound_email UPDATE already issued); exact job payload; **no note on successful
   enqueue**; note on enqueue failure (accept still succeeds); note when provenance is missing;
   nothing when `has_attachments=false`; **double-accept ⇒ no second enqueue** (idempotent re-review);
   FILL-IF-EMPTY miss ⇒ neither.
-- `api/src/functions/internal-evidence-backfill.test.ts` (new, +8): failed → duplicate-guarded note
+- `services/data-api/src/features/evidence/internal-backfill-routes.test.ts` (new, +8): failed → duplicate-guarded note
   + warning audit; completed → attachment_classified audit, no note; 400/404 contract edges.
-- `orchestration/src/functions/evidence-backfill.test.ts` (new, +9): happy path (rows all carry
+- `services/orchestration/src/workflows/evidence/evidence-backfill.test.ts` (new, +9): happy path (rows all carry
   sha256 — the TKT-133 dedup key that makes double-accepts/replays yield **no duplicate evidence
   rows**; **status recompute ordered strictly after persist**; report completed); not-found →
   `failed` report, no throw; transient 503 rethrows for redelivery, terminal on last attempt; 403 is
@@ -112,7 +112,7 @@ is **inverted**: the note is now written only on **enqueue failure / missing mai
   (Graph subscriptions 3 confirmed); the single suite FAIL is the pre-existing Windows-environmental
   parser pytest (untouched by this ticket).
 - `LIVE_FACTS.json` (counts 73/95, new `storageQueues` fact, lastVerified 2026-07-10T10:25Z) +
-  `docs/architecture/live-environment.md` mirror updated.
+  `docs/operations/live-environment.md` mirror updated.
 
 ## Staged live proof (operator step — NOT performed by the implementer)
 
@@ -174,7 +174,7 @@ accept, if clicked anyway, is a harmless no-op — see Findings (c).)
   evidence — and the detach which sets NULL). The TKT-084 pre-instruction correlations also land as
   case_link suggestions → the same covered accept seam.
 - **Orphan evidence rows class: does not exist — no dead code built.** `evidence.case_id` is
-  `NOT NULL` (migration/assets/schema/060_evidence.sql), so no evidence row can exist unattached;
+  `NOT NULL` (database/baseline/060_evidence.sql), so no evidence row can exist unattached;
   the non-minting lanes skip classifyPersist entirely (no rows are ever created uncased), and an
   email already on a Held/placeholder case cannot re-link through this seam (the accept's
   FILL-IF-EMPTY `WHERE case_id IS NULL` guard). Re-pointing logic was therefore deliberately not built.
@@ -211,15 +211,15 @@ accept, if clicked anyway, is a harmless no-op — see Findings (c).)
   `properties.state` (recorded in the deploy evidence; worth a memory/playbook line).
 
 ## Files touched
-- `api/src/functions/ai-suggestions.ts` · `api/src/functions/internal.ts`
-- `api/src/lib/evidence-backfill-queue.ts` (new) · `api/src/lib/outlook-queue.ts`
+- `services/data-api/src/features/assistant/register-suggestion-routes.ts` · `services/data-api/src/features/`
+- `services/data-api/src/features/evidence/backfill-queue.ts` (new) · `services/data-api/src/features/inbound/outlook-queue.ts`
 - `packages/domain/src/gates.ts`
-- `orchestration/src/functions/evidence-backfill.ts` (new) · `orchestration/src/lib/data-api.ts`
-  · `orchestration/src/index.ts`
-- Tests: `api/src/functions/ai-suggestions.test.ts` ·
-  `api/src/functions/internal-evidence-backfill.test.ts` (new) ·
-  `orchestration/src/functions/evidence-backfill.test.ts` (new)
-- Registry: `LIVE_FACTS.json` · `docs/architecture/live-environment.md`
+- `services/orchestration/src/workflows/evidence/evidence-backfill.ts` (new) · `services/orchestration/src/adapters/data-api.ts`
+  · `services/orchestration/src/index.ts`
+- Tests: `services/data-api/src/features/assistant/suggestion-generation-routes.test.ts` ·
+  `services/data-api/src/features/evidence/internal-backfill-routes.test.ts` (new) ·
+  `services/orchestration/src/workflows/evidence/evidence-backfill.test.ts` (new)
+- Registry: `LIVE_FACTS.json` · `docs/operations/live-environment.md`
 - Ticket: this file · `verification.md` (non-verdict sections) · `evidence/live-proof-staging.md`
   · `evidence/deploy-2026-07-10.md`
 

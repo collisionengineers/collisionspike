@@ -48,7 +48,7 @@ import respx
 FN_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(FN_DIR))
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-REPO_ROOT = FN_DIR.parent.parent  # collisionspike/
+REPO_ROOT = FN_DIR.parents[2]
 
 from eva_client import EvaClient, EvaConfig, EvaAuthError  # noqa: E402
 import function_app  # noqa: E402
@@ -293,18 +293,6 @@ def test_split_preview_and_rest():
     assert [im["content"] for im in previews] == ["p0", "p1"]
     # the full sequence begins with the previews and continues in order.
     assert [im["content"] for im in all_in_seq] == ["p0", "p1", "c2", "c3"]
-
-
-def test_order_impact_images_backcompat():
-    images = [
-        {"sequenceIndex": 2, "content": "c2"},
-        {"sequenceIndex": 0, "content": "p0"},
-        {"sequenceIndex": 1, "content": "p1"},
-        {"sequenceIndex": 3, "content": "c3"},
-    ]
-    contents = [im["content"] for im in payload_mod.order_impact_images(images)]
-    # previews (0,1) first, then the full ascending sequence incl. those two.
-    assert contents == ["p0", "p1", "p0", "p1", "c2", "c3"]
 
 
 def test_split_single_image_no_full_prefix():

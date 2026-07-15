@@ -793,7 +793,7 @@ describe('decideTriage — conversationSiblingCaseIds is SECONDARY ONLY (never m
   });
 });
 
-/* ----------  Baseline-corpus-inspired scenarios (scripts/eval-email/baseline-v1.json)  ---------- */
+/* ----------  Baseline-corpus-inspired scenarios (scripts/evaluation/email/baseline-v1.json)  ---------- */
 
 describe('decideTriage — eval-corpus baseline misses, policy-addressable subset', () => {
   // Of the 10 category-incorrect rows in the v1 baseline, 5 are POLICY-addressable

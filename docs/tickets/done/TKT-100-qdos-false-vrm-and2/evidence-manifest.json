@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "ticket": "TKT-100",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/46533_1 - Barry Pavlou..eml",
+      "originalFilename": "46533_1 - Barry Pavlou..eml",
+      "sha256": "b41a0ca80131a9e552774a16ea30c785476e971f7020d7f23cc68528b29b791d",
+      "storagePath": "tests/fixtures/evidence/sha256/b4/b41a0ca80131a9e552774a16ea30c785476e971f7020d7f23cc68528b29b791d.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/46640_1 - Andy Smith.eml",
+      "originalFilename": "46640_1 - Andy Smith.eml",
+      "sha256": "5c94fa528e8f86c3a0e8469994936adc392de9772d844ab91eb40efdb9d78b0f",
+      "storagePath": "tests/fixtures/evidence/sha256/5c/5c94fa528e8f86c3a0e8469994936adc392de9772d844ab91eb40efdb9d78b0f.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/46670_1 - Mohammed Jameel.eml",
+      "originalFilename": "46670_1 - Mohammed Jameel.eml",
+      "sha256": "83e1c295a23970070f5b8c144e5b6116d387c27b0e71f8489a8f922941c4a538",
+      "storagePath": "tests/fixtures/evidence/sha256/83/83e1c295a23970070f5b8c144e5b6116d387c27b0e71f8489a8f922941c4a538.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/46671_1 - Michael McCarthy.eml",
+      "originalFilename": "46671_1 - Michael McCarthy.eml",
+      "sha256": "49d2cbf260f8c80feb6140476910be14580cf9d29f6227b4ceee1f810476631f",
+      "storagePath": "tests/fixtures/evidence/sha256/49/49d2cbf260f8c80feb6140476910be14580cf9d29f6227b4ceee1f810476631f.eml"
+    }
+  ]
+}

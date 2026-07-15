@@ -1,34 +1,26 @@
-# Review Task 1a
+# Review 190626
 
-Update repo documentation regarding the new review folder. These are manual user reviews. These correct any drift and set specified requirements. The only thing that can supersede a review is a later review.
+This review established binding requirements for:
 
-Review folder works by having a dated folder, e.g. 190626 (19th June 2026). Within the folder there will be subfolders for specific areas to address, often with screenshots.
+1. repository review handling and broad capability checks;
+2. dashboard information architecture;
+3. navigation;
+4. manual case intake;
+5. the case workspace and queues; and
+6. provider settings.
 
-# Review Task 1b
+The adjacent area review files contain the transcribed findings. `checklist.md` records their action
+state. Later dated reviews supersede only the decisions they explicitly replace.
 
-broad-review folder
+## Review contents
 
-# Review Task 2
-
-dashboard folder
-
-# Review Task 3:
-
-nav-bar folder
-
-# Review Task 4:
-
-new-case folder
-
-# Review Task 5a:
-
-queues-cases/queues
-
-# Review Task 5b:
-
-queues-cases/caseview
-
-# Review Task 6:
-
-corpus-admin folder (possibly renamed in app by now)
-
+- [Action checklist](./checklist.md)
+- [Review action method](./process.md)
+- [Broad product review](./broad-review/review.md)
+- [Dashboard review](./dashboard/review.md)
+- [Navigation review](./nav-bar/review.md)
+- [Manual case intake review](./new-case/review.md.md)
+- [Case workspace review](./queues-cases/caseview/review.md)
+- [Queues review](./queues-cases/queues/review.md)
+- [Provider settings review](./corpus-admin/review.md)
+- [EVA creation review](./evacreation/evacreation.md)

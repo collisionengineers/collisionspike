@@ -15,7 +15,7 @@ NEXT parser deploy (live /parse stays engine-v2.13 until then).
   `engine-v2.14` per the PROVENANCE.md procedure INCLUDING the deliberate providers.json seed update;
   PROVENANCE.md history/pin entry (also trues up the stale "engine-v2.13 commit+tag PENDING" note —
   v2.13 was subsequently committed as sibling `05494a9` + tag pushed);
-  `functions/parser/tests/test_eva_export.py` updated to the EVA_EXPORT_FIELD_ORDER contract
+  `services/functions/parser/tests/test_eva_export.py` updated to the EVA_EXPORT_FIELD_ORDER contract
   (+ VIN-cannot-leak assertion); ticket artifacts.
 
 ## Files touched
@@ -32,16 +32,16 @@ Sibling (authoring source of truth — commit `2609b1a`):
 - `src/cedocumentmapper_v2/config/migration.py` — v1 method `two_label_join`
   (config `First||Second`, comma alternates per side) → the new kind; distinct from v1 `two_labels`
   (→ between_labels)
-- `docs/contracts/extraction-rule.schema.json` + `resources/extraction-rule.schema.json` — kind enum
-  + `first_labels`/`second_labels`/`separator` (docs copy also picks up the `label_pairs` block that
-  had drifted resources-only)
-- `docs/contracts/provider-config.schema.json` + `resources/provider-config.schema.json` —
-  `suppress_fallback_fields` enum gains `vin`
+- The sibling's documentation and runtime extraction-rule schema copies — kind enum plus
+  `first_labels`/`second_labels`/`separator`; the documentation copy also picked up the
+  `label_pairs` block that had existed only in the runtime copy.
+- The sibling's documentation and runtime provider-configuration schema copies —
+  `suppress_fallback_fields` enum gains `vin`.
 - `providers.json` (seed) — Tractable: `vehicle_model` → `two_label_join` `Producer||Model`; NEW
   `vin` ← single_label `VIN`; `vin` fallback-suppressed
-- Fixtures: `tests/fixtures/expected/TRACTABLE_01.expected.json` re-pinned (vehicle_model
-  `Volkswagen Touran`, vin `WVGZZZ1TZFW030347`); NEW `tests/fixtures/instructions/TRACTABLE 02.pdf`
-  (= TKT-102 evidence `tractable2.pdf`) + `TRACTABLE_02.expected.json` — THE NO-VIN SAMPLE (vin ""
+- Sibling fixtures: `TRACTABLE_01.expected.json` re-pinned (vehicle_model
+  `Volkswagen Touran`, vin `WVGZZZ1TZFW030347`); new `TRACTABLE 02.pdf`
+  (= TKT-102 evidence `tractable2.pdf`) plus `TRACTABLE_02.expected.json` — THE NO-VIN SAMPLE (vin ""
   from the `-` placeholder; absence is not an error)
 - Tests: `tests/test_rules.py` (5 two_label_join + 3 vin), `tests/test_normalization.py`
   (normalize_vin), `tests/test_migration.py` (2 mapping), `tests/test_exporters.py`
@@ -49,12 +49,12 @@ Sibling (authoring source of truth — commit `2609b1a`):
 - `src/cedocumentmapper_v2/eval/baseline.json` — deliberately regenerated (isolated seeded engine)
 
 This repo:
-- `functions/parser/cedocumentmapper_v2/` — re-cut @ `engine-v2.14`: `domain/models.py`,
+- `services/functions/parser/cedocumentmapper_v2/` — re-cut @ `engine-v2.14`: `domain/models.py`,
   `rules/engine.py`, `config/migration.py`, `exporters/eva_json.py`,
   `normalization/normalizers.py`, `normalization/__init__.py`, `providers.json` (deliberate seed
   update); all other shared files byte-identical
-- `functions/parser/cedocumentmapper_v2/PROVENANCE.md` — v2.14 history entry + Source pin
-- `functions/parser/tests/test_eva_export.py` — EVA_EXPORT_FIELD_ORDER contract + VIN-leak pin
+- `services/functions/parser/cedocumentmapper_v2/PROVENANCE.md` — v2.14 history entry + Source pin
+- `services/functions/parser/tests/test_eva_export.py` — EVA_EXPORT_FIELD_ORDER contract + VIN-leak pin
 - Ticket folder: this file, `verification.md` (verdict stays PENDING; re-verify steps),
   `evidence/fixture-extractions.txt`
 

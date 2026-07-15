@@ -16,6 +16,6 @@ The authoritative live Case/PO mint is currently pure DB MAX+1 over the provider
 has an Archive-listing helper, but neither it nor a “latest folder + 1” result is cutover authority.
 Production activation now fails closed behind TKT-178: signed/checksummed spreadsheet, authenticated
 production EVA API, exact approved production Archive root/write scope, restore proof, frozen ledger hash,
-version-locked executor and named window. Historical floors derive from the complete closed-world ledger and
+version-locked executor and named window. prior floors derive from the complete closed-world ledger and
 include every valid allocation per prefix; floor reads fail closed; exact canary object+parent metadata—not
 a root listing—proves placement. Test/mirror/Viewer access and a bare root id are insufficient.

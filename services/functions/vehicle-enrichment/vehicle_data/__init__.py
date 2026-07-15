@@ -13,7 +13,7 @@ from .contracts import (
     CalibrationProfile,
     CohortPrior,
 )
-from .service import VehicleDataService, legacy_enrichment_adapter
+from .service import VehicleDataService, case_enrichment_projection
 
 __all__ = [
     "ALGORITHM_VERSION",
@@ -22,5 +22,5 @@ __all__ = [
     "CalibrationProfile",
     "CohortPrior",
     "VehicleDataService",
-    "legacy_enrichment_adapter",
+    "case_enrichment_projection",
 ]

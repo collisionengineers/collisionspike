@@ -8,7 +8,7 @@
 // PLATE_PROVIDER=docintel). DI is an OPT-IN FALLBACK, never the default: the
 // host ships Tesseract (scanned PDFs) + fast-alpr (plates) in-container, and
 // provisioning this resource does NOT by itself change OCR behaviour. See
-// docs/plans/phase-5-ocr-and-scale/ocr-strategy.md and the OCR README.
+// docs/architecture/integrations.md and the OCR README.
 //
 // VERIFIED against microsoft-docs + the Bicep resource schema (2026-06-20):
 //   * resource  Microsoft.CognitiveServices/accounts (stable API 2023-05-01)

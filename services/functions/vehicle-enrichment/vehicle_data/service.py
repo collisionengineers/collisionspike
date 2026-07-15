@@ -171,8 +171,8 @@ def _cohort_prior(payload: dict[str, Any]) -> CohortPrior:
 def cohort_priors_from_env() -> tuple[CohortPrior, ...]:
     """Load a deterministic set of versioned cohort priors.
 
-    The setting accepts the legacy single-prior object, a JSON array, or
-    ``{"priors": [...]}``. Selection happens only after vehicle identity is
+    The setting accepts a single prior object, a JSON array, or ``{"priors": [...]}``.
+    Selection happens only after vehicle identity is
     known; loading a labelled prior never makes it applicable by itself.
     """
 
@@ -196,13 +196,6 @@ def cohort_priors_from_env() -> tuple[CohortPrior, ...]:
         )
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
         return ()
-
-
-def cohort_prior_from_env() -> CohortPrior | None:
-    """Compatibility loader for callers that still expect one generic prior."""
-
-    priors = cohort_priors_from_env()
-    return priors[0] if len(priors) == 1 else None
 
 
 _GENERIC_COHORT_VALUES = {"", "*", "all", "any", "unknown"}
@@ -238,7 +231,7 @@ def select_cohort_prior(
     vehicle: dict[str, Any],
     target: date,
 ) -> CohortPrior | None:
-    """Select the most-specific compatible prior, then a generic fallback.
+    """Select the most-specific eligible prior, then a generic fallback.
 
     A labelled prior never crosses vehicle type, age, fuel, or make/model
     boundaries. Fully/partially generic values remain explicit fallback cells.
@@ -248,7 +241,7 @@ def select_cohort_prior(
     actual = {
         # The official live response has no vehicleType field. A type-specific
         # prior is therefore not safely matchable and only an explicit generic
-        # vehicle_type cell may pass compatibility.
+        # vehicle_type cell may match.
         "vehicle_type": "unknown",
         "age_band": _cohort_value(_age_band(vehicle, target)),
         "fuel_type": _cohort_value(vehicle.get("fuelType")),
@@ -264,7 +257,7 @@ def select_cohort_prior(
         ),
     }
 
-    def compatible(prior: CohortPrior) -> bool:
+    def matches_vehicle(prior: CohortPrior) -> bool:
         for field in actual:
             expected = _cohort_value(getattr(prior, field))
             if expected in _GENERIC_COHORT_VALUES:
@@ -275,7 +268,7 @@ def select_cohort_prior(
                 return False
         return prior.defensible
 
-    candidates = [prior for prior in priors if compatible(prior)]
+    candidates = [prior for prior in priors if matches_vehicle(prior)]
     if not candidates:
         return None
 
@@ -559,8 +552,8 @@ class VehicleDataService:
         return contract
 
 
-def legacy_enrichment_adapter(contract: dict[str, object]) -> dict[str, object]:
-    """Temporary compatibility fields for the existing case-persistence caller.
+def case_enrichment_projection(contract: dict[str, object]) -> dict[str, object]:
+    """Project the versioned result into the case-persistence response fields.
 
     This is a mechanical projection only. TKT-151 can consume/persist the nested
     contract without duplicating provider or estimator rules.

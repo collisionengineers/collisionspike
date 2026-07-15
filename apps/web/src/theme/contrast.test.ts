@@ -175,7 +175,7 @@ describe('red budget guards', () => {
   // Built in pieces so this file passes its own source sweep below.
   const PRINT_RED = ['c80a', '32'].join('');
 
-  it('the print red never appears anywhere under mockup-app/src', () => {
+  it('the print red never appears anywhere under apps/web/src', () => {
     const srcRoot = fileURLToPath(new URL('..', import.meta.url));
     const offenders = readdirSync(srcRoot, { recursive: true })
       .map(String)

@@ -31,7 +31,7 @@ from vehicle_data.service import (  # noqa: E402
     VehicleDataService,
     cohort_priors_from_env,
     failure_contract,
-    legacy_enrichment_adapter,
+    case_enrichment_projection,
     select_cohort_prior,
 )
 
@@ -635,7 +635,7 @@ class StaticDvla:
         return self.payload
 
 
-def test_service_emits_one_versioned_contract_raw_snapshot_and_thin_legacy_projection():
+def test_service_emits_one_versioned_contract_raw_snapshot_and_case_projection():
     payload = vehicle(
         mot("2023-01-01", "40000", number="1"),
         mot("2024-01-01", "48000", number="2"),
@@ -655,12 +655,12 @@ def test_service_emits_one_versioned_contract_raw_snapshot_and_thin_legacy_proje
     assert contract["provider_snapshots"][0]["raw_payload"] == payload
     assert len(contract["provider_snapshots"][0]["payload_sha256"]) == 64
     schema = json.loads(
-        (FN_DIR.parents[1] / "contracts" / "vehicle-data-v1.schema.json").read_text(
+        (FN_DIR.parents[2] / "contracts" / "vehicle-data-v1.schema.json").read_text(
             encoding="utf-8"
         )
     )
     Draft202012Validator(schema, format_checker=FormatChecker()).validate(contract)
-    adapted = legacy_enrichment_adapter(contract)
+    adapted = case_enrichment_projection(contract)
     assert adapted["vehicle_model"] == "FOCUS"
     assert adapted["make"] == "FORD"
     assert "current_mileage" not in adapted
@@ -728,7 +728,7 @@ def test_oversized_registration_returns_schema_valid_invalid_contract():
     assert result["lookup"]["canonical_registration"] == ""
     assert result["provider_snapshots"] == []
     schema = json.loads(
-        (FN_DIR.parents[1] / "contracts" / "vehicle-data-v1.schema.json").read_text(
+        (FN_DIR.parents[2] / "contracts" / "vehicle-data-v1.schema.json").read_text(
             encoding="utf-8"
         )
     )
@@ -744,7 +744,7 @@ def test_oversized_registration_returns_schema_valid_invalid_contract():
     Draft202012Validator(schema, format_checker=FormatChecker()).validate(fallback)
 
 
-def test_uncalibrated_estimate_is_visible_but_never_available_to_legacy_autofill():
+def test_uncalibrated_estimate_is_visible_but_never_available_to_case_autofill():
     payload = vehicle(
         mot("2023-01-01", "40000", number="1"),
         mot("2024-01-01", "48000", number="2"),
@@ -756,7 +756,7 @@ def test_uncalibrated_estimate_is_visible_but_never_available_to_legacy_autofill
     assert contract["mileage"]["status"] == "estimated"
     assert contract["mileage"]["prediction_interval"] is None
     assert contract["mileage"]["range"]["basis"] == "rate_dispersion_not_calibrated"
-    adapted = legacy_enrichment_adapter(contract)
+    adapted = case_enrichment_projection(contract)
     assert contract["mileage"]["estimated_mileage"] is not None
     assert contract["mileage"]["auto_fill_eligible"] is False
     assert "current_mileage" not in adapted
@@ -780,7 +780,7 @@ def test_estimate_autofill_requires_empirical_profile_and_explicit_rollout_gate(
         estimate_autofill_enabled=True,
     ).lookup("TE57VRM")
     assert contract["mileage"]["auto_fill_eligible"] is True
-    adapted = legacy_enrichment_adapter(contract)
+    adapted = case_enrichment_projection(contract)
     assert adapted["current_mileage"] == contract["mileage"]["estimated_mileage"]
 
 

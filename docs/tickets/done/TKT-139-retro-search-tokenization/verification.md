@@ -5,7 +5,7 @@ VERIFIED-LIVE
 
 Verified by: ticket-verifier dispatch, 10-07-26 (verdict block transcribed 1:1 below; orchestrator
 data-pass W1 results appended). The live proof this ticket was waiting for was captured by the
-TKT-140 dry-run (2026-07-10): docs/tickets/now/TKT-140-retro-backlog-drain/evidence/tkt139-search-pair.json.
+TKT-140 dry-run (2026-07-10): docs/tickets/done/TKT-140-retro-backlog-drain/evidence/tkt139-search-pair.json.
 
 ## Evidence
 - Offline: `retro-envelope.test.ts` `refSearchVariants` suite pins both measured miss
@@ -36,7 +36,7 @@ VERIFIED-LIVE
 **Acceptance line 1 — "A ref stored spaced is located by a compact-ref retro request (and vice
 versa) — proven by a live drain or a recorded Graph query pair":**
 - The acceptance's named proof form exists and is genuine:
-  `docs/tickets/now/TKT-140-retro-backlog-drain/evidence/tkt139-search-pair.json` (captured
+  `docs/tickets/done/TKT-140-retro-backlog-drain/evidence/tkt139-search-pair.json` (captured
   2026-07-10T09:26:34Z, read-only, intake app client-credentials token). Same ref, same whole mailbox
   (engineers@): compact "PHA5007" → 0 hits; spaced "PHA 5007" → 2 hits (raw Graph responses verbatim;
   subjects `RE: Our ref: PHA 5007 - Reg: MT25 FXW`, 2026-05-20 + 2026-07-08, both hasAttachments true).
@@ -48,7 +48,7 @@ versa) — proven by a live drain or a recorded Graph query pair":**
   character-for-character. The rung `retroOutlookLocate` (retro-case.ts:954-1012) loops mailbox ×
   refSearchVariants (line 974), unions deduped by (mailbox, message id), per-variant failures
   warn+continue.
-- Deployed + enabled + executing: `deploy/orch/main.cjs` contains refSearchVariants (grep count 2);
+- Deployed + enabled + executing: `.artifacts/deploy/orchestration/main.cjs` contains refSearchVariants (grep count 2);
   registry shows RETRO_CASE_ENABLED=true + RETRO_OUTLOOK_SEARCH_ENABLED=true and engineers@ in the
   mailbox set. Verifier's own KQL: 2026-07-10T12:45:41Z `Executed 'Functions.retroOutlookLocate'
   (Succeeded, 135ms)` emitting `{"evt":"retroOutlookLocate","found":true,"mailbox":"desk@…",
@@ -58,8 +58,8 @@ versa) — proven by a live drain or a recorded Graph query pair":**
   10 probed keys hit only via a variant.
 
 **Acceptance line 2 — "Variant generation unit-tested":**
-- `orchestration/src/lib/retro-envelope.test.ts:141-170` — the 6-test refSearchVariants suite.
-  Executed by the verifier today: `npx vitest run src/lib/retro-envelope.test.ts` → 20/20 passed.
+- `services/orchestration/src/workflows/retro/retro-envelope.test.ts` — the 6-test refSearchVariants suite.
+  Executed by the verifier today: `npx vitest run src/workflows/retro/retro-envelope.test.ts` → 20/20 passed.
 
 ### Pending / gaps
 - The recorded pair captures ONE live direction (stored spaced, missed compact, recovered by the

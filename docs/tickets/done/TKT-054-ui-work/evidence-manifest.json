@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "ticket": "TKT-054",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "inbox-simplification/{1DCCE574-EDF3-4A2F-897E-C0D3E9EB91DB}.png",
+      "originalFilename": "{1DCCE574-EDF3-4A2F-897E-C0D3E9EB91DB}.png",
+      "sha256": "5bc166e6c6aee86f18ab83f0a157857e57f76f94adf69055ab0b8961378afdd7",
+      "storagePath": "tests/fixtures/evidence/sha256/5b/5bc166e6c6aee86f18ab83f0a157857e57f76f94adf69055ab0b8961378afdd7.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "regressions/1.png",
+      "originalFilename": "1.png",
+      "sha256": "377533592629a8cad22713e30c89b16d567b839d45368aa0fcaf66464fcb5742",
+      "storagePath": "tests/fixtures/evidence/sha256/37/377533592629a8cad22713e30c89b16d567b839d45368aa0fcaf66464fcb5742.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "regressions/2.png",
+      "originalFilename": "2.png",
+      "sha256": "dce415b204cc47b83416f0c9a589cf094c012ff5d3cfa1ba89a9abd712fb99ba",
+      "storagePath": "tests/fixtures/evidence/sha256/dc/dce415b204cc47b83416f0c9a589cf094c012ff5d3cfa1ba89a9abd712fb99ba.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "regressions/3-operator-1280-window.png",
+      "originalFilename": "3-operator-1280-window.png",
+      "sha256": "c220f8885d873acd3d924ed261d79e0e2f628bacc0fe73e1bc44b156cb24196b",
+      "storagePath": "tests/fixtures/evidence/sha256/c2/c220f8885d873acd3d924ed261d79e0e2f628bacc0fe73e1bc44b156cb24196b.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "seperate-vrm-and-case-po/1.png",
+      "originalFilename": "1.png",
+      "sha256": "926341131468100c163cd959ae1b329d329a50fed0e76844420602949427a262",
+      "storagePath": "tests/fixtures/evidence/sha256/92/926341131468100c163cd959ae1b329d329a50fed0e76844420602949427a262.png"
+    }
+  ]
+}

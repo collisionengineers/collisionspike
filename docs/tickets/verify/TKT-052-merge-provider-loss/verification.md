@@ -13,7 +13,7 @@ cross-provider refusal):
 
 - **A1 — survivor ends with whichever side carries a resolved provider:**
   `packages/domain/src/domain/dedup.ts:255-265` `decideMergeProvider` (source-only → fill survivor;
-  target-known → keep; neither → null) wired into `api/src/functions/cases.ts:940-979` (guarded
+  target-known → keep; neither → null) wired into `services/data-api/src/features/cases/` (guarded
   `UPDATE … WHERE work_provider_id IS NULL`, `eva_work_provider` fill-if-empty, audit `after`
   records `movedEmails` + `providerFilled`). Offline: dedup.test.ts **22/22** (re-run this session,
   incl. the 4 TKT-052 branches). Deployed since `39133ff` (2026-07-09); live app lists `mergeCases`
@@ -81,7 +81,7 @@ the old statement that the provider-fill path was UI-unreachable.
   and response construction. The provider and its provenance are carried inside the merge
   transaction; the survivor's status generation is requested there as well, while immediate
   recomputation is an optional fast path.
-- `api/src/functions/cases-merge.test.ts` covers providerless candidate reachability, exclusion of a
+- `services/data-api/src/features/cases/merge-routes.test.ts` covers providerless candidate reachability, exclusion of a
   different known provider, mixed-case UUID carry-over, case-insensitive self-merge refusal, ordered
   locking and a post-commit fast-path failure that leaves the durable generation pending without
   reporting a false merge failure.

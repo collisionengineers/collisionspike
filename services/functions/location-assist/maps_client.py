@@ -1,35 +1,8 @@
-"""maps_client — Azure Maps Search / Geocode wrapper.
+"""Bounded Azure Maps geocoding client for location assistance.
 
-[BUILD] — authored offline, exercised only by mocked pytest (httpx transport
-mocking). No live Azure, no key, no tenant contact. The real Maps endpoint is
-reached ONLY at runtime inside the deployed Function.
-
-What it does
-------------
-Geocodes a free-text query (a business name read off a photo sign, an accident
-place/postcode parsed from the circumstances, or the claimant address) to a small
-set of candidate addresses via the Azure Maps **Search Address (Geocoding)**
-endpoint, UK-biased.
-
-    GET {endpoint}/search/address/json
-        ?api-version=1.0&query={q}&countrySet=GB&limit={n}
-        &subscription-key={key}
-      -> { "results": [ { "address": { "freeformAddress", "postalCode", ... },
-                          "position": {"lat","lon"}, "score": float } ] }
-
-(The Maps subscription key is passed as the ``subscription-key`` query parameter,
-which is the documented shared-key auth for Search; it never appears in code — it
-is a Key Vault reference app setting resolved by the Function's managed identity.)
-
-Standalone Azure Maps ONLY (v1 scope). The ``AZURE_MAPS_ENABLED`` gate is read
-UPSTREAM (Code App / flow), never by this Function.
-
-Secret handling
----------------
-``AZURE_MAPS_KEY`` comes from an environment variable which, in the deployed
-Function, is a **Key Vault reference** resolved by the Function's managed
-identity. It is NEVER logged, echoed, or written to a fixture. ``__repr__`` is
-redacted.
+Free-text signage, place, postcode, and claimant-address clues are geocoded with
+a UK bias. Credentials come from runtime configuration and are never logged or
+returned. Tests replace the HTTP transport and perform no network calls.
 """
 
 from __future__ import annotations

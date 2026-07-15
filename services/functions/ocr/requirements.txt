@@ -2,7 +2,7 @@
 # Azure Functions on Azure Container Apps). Installed into the image by the
 # Dockerfile `pip install`. Unlike the FC1 parser, this host runs as a CONTAINER,
 # so it CAN carry the tesseract OS binary (added in the Dockerfile via apt-get) —
-# that one binary is the whole reason this host exists (docs/plans/phase-5-ocr-and-scale/ocr-strategy.md).
+# that one binary is the reason this host uses a custom container.
 
 # Azure Functions Python worker API.
 azure-functions>=1.21.0

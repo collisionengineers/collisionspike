@@ -6,7 +6,7 @@ activates once the D8 seed delta (Connexus → PCH/SBL) is applied — see [veri
 ## 2026-07-10 — Reopen fix: explicit intermediary/unresolved-principal Held reason
 
 **Why.** The 2026-07-10 verify-sweep (W5) proved acceptance arms 1–2 live but failed arm 3 as
-written: the Held lane in `api/src/functions/internal.ts` (cases/resolve `newClient` branch) wrote
+written: the Held lane in `services/data-api/src/features/` (cases/resolve `newClient` branch) wrote
 the generic *"New client — no work provider matched for sender @connexus.co.uk"* note + *"New client
 routed to Held (no work provider matched)"* audit for EVERY unmatched sender — branding a
 known-intermediary sender (Connexus) as a new client, the exact misframing this ticket removes.
@@ -14,7 +14,7 @@ Scope per [evidence/reopen-followup-100726.md](./evidence/reopen-followup-100726
 only, forward-only (the 9 existing cases' notes stay as-is).
 
 **What.**
-- New exported pure function `buildHeldReason` in `api/src/functions/internal.ts` (placed above the
+- New exported pure function `buildHeldReason` in `services/data-api/src/features/` (placed above the
   cases/resolve route) — display names in, staff-plain strings out. Three shapes:
   - **True unknown sender** (no intermediary match) → the existing New-client note/audit wording
     **verbatim** (unchanged).
@@ -35,26 +35,26 @@ only, forward-only (the 9 existing cases' notes stay as-is).
   No hardcoded Connexus strings. The intermediary audit `after` carries
   `intermediary: true` + `imageSourceId` + `candidateProviderIds` (+ `resolvedProvider` when set)
   instead of `newClient: true`.
-- Unit tests: 6 new cases in `api/src/functions/apply-parser-fields.test.ts`
+- Unit tests: 6 new cases in `services/data-api/src/features/inbound/internal/parser-fields.test.ts`
   (`buildHeldReason` describe) pinning BOTH branches' exact strings, the resolved-provider shape,
   the no-domain/new-client edge, empty-candidates tolerance, and name-lookup-failure degradation.
 
 **Files.**
-- `api/src/functions/internal.ts` — `buildHeldReason` + `HeldReason` (new, above the cases/resolve
+- `services/data-api/src/features/` — `buildHeldReason` + `HeldReason` (new, above the cases/resolve
   route block); the `created.newClient` note/audit seam rewritten to branch + name-lookup.
-- `api/src/functions/apply-parser-fields.test.ts` — header note + new `buildHeldReason` describe
+- `services/data-api/src/features/inbound/internal/parser-fields.test.ts` — header note + new `buildHeldReason` describe
   block (6 tests).
 
 **Gates run (Windows).**
-- `npm --prefix api run build` — clean.
-- `npm --prefix api run test` — 40 files / **421 passed** (415 pre-existing + 6 new).
+- `npm --prefix services/data-api run build` — clean.
+- `npm --prefix services/data-api run test` — 40 files / **421 passed** (415 pre-existing + 6 new).
 - `node verify-all.mjs` — 11 passed, 1 failed, 9 skipped; the single FAIL is the known
   environmental parser-pytest gate on this box (root cause `No module named 'fitz'` — PyMuPDF absent
-  from `functions/parser/.venv`; 3 tests fail with that one import error vs the memory-baselined 1 —
-  venv drift, Python-side, unreachable by this TS-only diff).
+  from the local parser environment; 3 tests fail with that one import error versus the recorded
+  baseline of 1 — local Python dependency drift, unreachable by this TypeScript-only diff).
 
 **Deploy (cespk-api-dev, 2026-07-10).**
-- `node build-api.cjs` → "api bundle OK"; `npm install --prefix deploy/api --omit=dev` (node_modules
+- `node scripts/build/build-api.cjs` → "api bundle OK"; `npm install --prefix .artifacts/deploy/data-api --omit=dev` (node_modules
   shipped); smoke `node -e "require('./main.cjs')"` → test-mode listing of **96** registered
   functions (no `import.meta.url` crash).
 - `func azure functionapp publish cespk-api-dev --javascript` from **Windows** (per memory; WSL func
@@ -70,7 +70,7 @@ arrival (note "Held — intermediary sender" + audit "…principal unresolved" o
   work_provider_id mapping (ADR-0011). `matchSenderIdentity` now resolves address-level provider >
   intermediary > domain-level provider, and provider-match records carry the intermediary `image_source`
   + its N:N provider candidates. The Connexus→{PCH,SBL} seed row itself rides the operator-gated D8 delta
-  ([`2026-07-02-rules-engine-v2-identification.sql`](../../../../migration/assets/schema/deltas/2026-07-02-rules-engine-v2-identification.sql)),
+  ([`2026-07-02-rules-engine-v2-identification.sql`](../../../../database/migrations/2026-07-02-rules-engine-v2-identification.sql)),
   not yet applied live.
 ## Summary
 Captures the operator's ask to treat Connexus as an intermediary and resolve the

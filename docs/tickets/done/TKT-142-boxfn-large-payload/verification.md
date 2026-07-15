@@ -21,7 +21,7 @@ lane live, not base64 — → Box `POST /2.0/files/content` (409-idempotent-reso
 rule) → facade request `upload_file 200` (4219 ms) to folder `396125774315`. Box read (keyed facade GET
 `…/api/box/folders/396125774315/items`, inside allowed root `392761581105`): `message.eml |
 size=17684171 | id=2323068184378 | sha1=ecaa3fd3…` present; root lookup resolves `396125774315 →
-name=QDOS26029`. (Cap path also honest: legacy base64 lane retained with a 413-before-decode cap —
+name=QDOS26029`. (Cap path also honest: earlier base64 lane retained with a 413-before-decode cap —
 offline-tested; nothing live sends oversized base64 anymore since orch routes >8 MiB via blobPath.)
 
 **Acceptance 2 — the stranded ae1c0c84/QDOS26029 archive completes 4/4.**
@@ -49,7 +49,7 @@ principal = box fn MI, role Storage Blob Data Reader — all match changes.md. B
 - The **≥20 MiB Box chunked-session lane is offline-mocked only** (no live file that size exists; the
   Acceptance does not require a ≥20 MiB live proof — the subject 17.6 MB file correctly exercised the
   direct-stream lane). Matches changes.md's Remainders.
-- The legacy-lane 413-before-decode cap has no live occurrence to observe — offline-tested.
+- The earlier-lane 413-before-decode cap has no live occurrence to observe — offline-tested.
 - DB stamp check queued for the orchestrator data pass:
   `SELECT c.case_po, c.box_folder_id, e.file_name, e.size_bytes, e.box_file_id FROM case_ c JOIN
   evidence e ON e.case_id = c.id WHERE c.id = 'ae1c0c84-ba0c-4049-be73-c149b46c2ffa' ORDER BY

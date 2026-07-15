@@ -7,7 +7,7 @@ Tractable-email proof PENDING
 ## Changes — engine parts (sibling-first, ADR-0018)
 
 **Sibling commit `ab5f8d2`, annotated tag `engine-v2.12`, pushed to origin. Re-vendored into
-`functions/parser/cedocumentmapper_v2` INCLUDING a deliberate vendored providers.json seed bump
+`services/functions/parser/cedocumentmapper_v2` INCLUDING a deliberate vendored providers.json seed bump
 (the cloud parser reads the vendored seed via `parser_adapter._VENDORED_PROVIDERS_JSON` — same
 pattern as the engine-v2.10 CDQ cut). No DDL dependency: the classifier emits only existing
 taxonomy codes (`case_update`/`images_received`, live since taxonomy v2).**
@@ -50,7 +50,7 @@ holds on the AI-quote figures), `body_vrm=''` (no junk from the portal-URL/UUID 
 The Tractable email body carries NO VRM/reference — the match key lives inside the PDF, so a new
 additive rung runs ONLY for image-delivery emails the subject/body machinery could NOT match:
 
-- `orchestration/src/functions/activities/imagesReceivedVrmMatch.ts` (NEW): pure
+- `services/orchestration/src/workflows/evidence/imagesReceivedVrmMatch.ts` (NEW): pure
   `shouldAttemptPdfVrmMatch(classification, triage, attachments)` — category `case_update` +
   subtype `images_received`, triage produced no case and no case_link suggestion, and a PDF
   attachment exists; plus the `imagesReceivedVrmMatch` activity: canonicalises the /parse-returned
@@ -61,7 +61,7 @@ additive rung runs ONLY for image-delivery emails the subject/body machinery cou
   auto-attach stays reference-corroborated only); (b) none/several → the existing TKT-034
   attention flag (`unmatched_images`) so the email is VISIBLY parked, with several-matches noted
   in the flag detail. No case is ever minted here.
-- `orchestration/src/functions/intakeOrchestrator.ts`: the rung slots after the existing triage
+- `services/orchestration/src/workflows/intake/intakeOrchestrator.ts`: the rung slots after the existing triage
   block for uncased non-new-work emails — re-uses the EXISTING `parse` activity over the
   attachments (gated `PDF_MAPPER_ENABLED` inside, exactly like the instruction lane), then the
   match activity; checkpointed-value predicate, additive try/catch (a parse/match failure never

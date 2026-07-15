@@ -1,12 +1,12 @@
 {
-  "name": "collisionspike-mockup",
+  "name": "@cs/web",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "description": "Collision Engineers case-intake SPA — React 18 + Fluent UI v9 + Vite, hosted on Azure Static Web Apps, backed by the @cs/api BFF.",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b --force && vite build",
     "preview": "vite preview",
     "test": "vitest run"
   },

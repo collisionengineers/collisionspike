@@ -19,12 +19,11 @@
 
      3. The React hooks (./hooks) over the async fetchers.
 
-   This barrel imports NO '@azure/msal-*', NO '@microsoft/power-apps', NO
-   fetch — those are confined to rest-client.ts (+ main.tsx).
+   Authentication and fetch stay in rest-client.ts and main.tsx.
    ============================================================ */
 
 import type { DataAccessExt } from './rest-client';
-import { mockDataAccess } from './mock-source';
+import { emptyDataAccess } from './empty-source';
 
 /* ============================================================
    1. PURE SYNC helpers + types — re-exported from '@cs/domain'.
@@ -269,7 +268,7 @@ export {
    startup; screens just read `getDataAccess()` / use the hooks.
    ============================================================ */
 
-let active: DataAccessExt = mockDataAccess;
+let active: DataAccessExt = emptyDataAccess;
 
 /**
  * Switch the seam to the REST-backed source.  Called once at app startup
@@ -281,8 +280,8 @@ export function configureDataAccess(source: DataAccessExt): void {
 }
 
 /** Reset the seam to the empty default source (tests / storybook). */
-export function useMockDataAccess(): void {
-  active = mockDataAccess;
+export function useEmptyDataAccess(): void {
+  active = emptyDataAccess;
 }
 
 /** The currently-selected DataAccess (empty default until configured). */
@@ -302,7 +301,7 @@ export const data: DataAccessExt = new Proxy({} as DataAccessExt, {
   },
 }) as DataAccessExt;
 
-export { mockDataAccess, createMockDataAccess } from './mock-source';
+export { emptyDataAccess, createEmptyDataAccess } from './empty-source';
 export { createRestDataAccess, serverMessageOf } from './rest-client';
 
 /* ============================================================

@@ -1,0 +1,14 @@
+{
+  "$schema": "../schema/_code-table.schema.json",
+  "kind": "code-table",
+  "codeTableId": "review_state",
+  "displayName": "Review State",
+  "description": "FieldLevelProvenance.reviewState — the review lifecycle of a single field value. Matches the prototype ReviewState union (mock/types.ts) 1:1. Conflict rule: when an enrichment value differs from an existing non-empty value, set `conflict` and never overwrite silently (mileage: document authoritative).",
+  "default": "needs_review",
+  "options": [
+    { "value": 100000000, "name": "not_required", "label": "Not Required" },
+    { "value": 100000001, "name": "needs_review", "label": "Needs Review" },
+    { "value": 100000002, "name": "reviewed",     "label": "Reviewed" },
+    { "value": 100000003, "name": "conflict",     "label": "Conflict" }
+  ]
+}

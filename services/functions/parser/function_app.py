@@ -10,14 +10,10 @@ and returns a structured envelope.
 
 [BUILD] — authored offline; no Azure/tenant contact (tests mock the parser seam).
 
-AUTH: FUNCTION-level (a function key is required) for defence-in-depth — the
-Power Platform custom connector / API gateway also fronts the endpoint, but the
-host is never left open. The connector passes the key as the ``x-functions-key``
-header. (See README "Auth boundary".)
+AUTH: function-level; a function key is required and the host is never left open.
 
-GATING: ``PDF_MAPPER_ENABLED`` is enforced UPSTREAM, in the Power Automate flow
-branch (the flow checks the Dataverse env var and only calls this route when
-enabled). The Function just works when called; it does not read the gate.
+Feature availability is enforced by the calling service. The function does not
+read the gate.
 
 Response envelope:
     {
@@ -48,10 +44,10 @@ Status codes:
     200  parsed + schema-valid (or schema-invalid surfaced in issues, see below)
     400  bad request (missing/!base64 document, missing/unsupported filename, bad JSON)
     422  the document itself is unreadable (corrupt/truncated/not a real PDF/etc.) —
-         a CLIENT problem the parser cannot fix; the flow routes the case to review
+         a client problem the parser cannot fix; the caller routes the case to review
     500  unexpected internal error (defensive; should never escape as a raw 502)
     502  parser DEPENDENCY failed — engine not importable / reader binary missing
-         (ParserError); a genuine server-side fault, safe for the flow to retry
+         (ParserError); a genuine server-side fault, safe for the caller to retry
 """
 
 from __future__ import annotations
@@ -116,7 +112,7 @@ def fingerprint(req: func.HttpRequest) -> func.HttpResponse:
         )
 
 # Strip HTML tags + decode the common entities so the deterministic keyword / VRM
-# scan runs over plain text whatever the V3 connector hands us (HTML or text
+# scan runs over plain text whether the caller sends HTML or text
 # body). Deliberately tiny + dependency-free: no bs4 on the FC1 worker.
 _TAG_RE = re.compile(r"<[^>]+>")
 _HTML_ENTITIES = {
@@ -160,17 +156,14 @@ def _has_doc_magic(b: bytes) -> bool:
 def _decode_document(document_b64: str) -> bytes:
     """Decode the request ``document`` (base64), tolerating a redundant 2nd layer.
 
-    The Power Platform connector gateway intermittently re-encodes a base64
-    ``document`` value (a ``format: byte``-class behaviour we could NOT reliably
-    suppress — removing/recreating the connector definition did not stop it, and
-    declaring ``format: byte`` made it worse). So a single decode sometimes yields
-    the real bytes and sometimes yields the base64-ASCII OF the real bytes.
+    Some upstream transports redundantly wrap an already-base64 document. A single
+    decode therefore sometimes yields the real bytes and sometimes yields the
+    base64-ASCII representation of those bytes.
 
     We decode once; if the result is a known document (PDF/OOXML/OLE/RTF) we use
     it. Otherwise, if the result is itself strict base64, we decode EXACTLY once
     more and accept it only if THAT yields a known document — and we LOG a warning
-    so the double-encode is observable, not hidden. This makes the parser correct
-    whether the gateway single- or double-encodes.
+    so the redundant wrapper is observable, not hidden.
 
     A genuinely non-base64 ``document`` raises ``binascii.Error`` -> 400
     ``bad_base64``; bytes that decode but are not a parseable document reach the
@@ -247,7 +240,7 @@ def _parse(req: func.HttpRequest) -> func.HttpResponse:
         parser_result = parser_adapter.run_parser(document_bytes, filename, provider_hint)
     except DocumentUnreadableError as exc:
         # The bytes are not a parseable document (corrupt / truncated / empty /
-        # not a real PDF). NOT a server fault — return 422 so the flow routes the
+        # not a real PDF). NOT a server fault — return 422 so the workflow service routes the
         # case to needs_review instead of retrying a 5xx. (This is the fix for the
         # 502 burst: an unreadable instruction.pdf used to escape as a 502.)
         _LOG.warning("unreadable document %r: %s", filename, exc)
@@ -273,7 +266,7 @@ def _parse(req: func.HttpRequest) -> func.HttpResponse:
     except SchemaValidationError as exc:
         # Not a hard failure: an incomplete extraction is normal (parser pre-fills,
         # staff complete the case). We return 200 but surface each schema issue so
-        # the flow / Code App can route the case to needs_review / missing fields.
+        # the caller can route the case to review or missing fields.
         for issue in exc.issues:
             issues.append(
                 {
@@ -398,10 +391,10 @@ def classify_email_route(req: func.HttpRequest) -> func.HttpResponse:
     """POST /classify-email — deterministic inbound-email triage (Phase 8 / ADR-0015).
 
     Runs the email through the engine's pure ``classify_email`` (keyword / phrase /
-    regex only — no LLM, no Dataverse, no network) and returns the triage label.
+    regex only — no LLM, persistence, or network) and returns the triage label.
     The open-Case lookup (does the body Case/PO or VRM hit an OPEN Case?) stays on
-    the flow side, exactly as the Case-identity question stays out of ``/parse`` —
-    the route surfaces ``body_caseref`` / ``body_vrm`` so the flow can run it.
+    the orchestration side, exactly as the Case-identity question stays out of
+    ``/parse``. The route surfaces ``body_caseref`` / ``body_vrm`` for that lookup.
 
     AUTH + guard mirror ``/parse``: FUNCTION-level key, every expected condition
     returns a structured envelope, and any unexpected exception becomes a 500 so
@@ -413,7 +406,7 @@ def classify_email_route(req: func.HttpRequest) -> func.HttpResponse:
         from                  str   sender address (optional)
         sender_domain         str   sender domain (optional)
         authentication_results str recipient-stamped Authentication-Results header (optional)
-        provider_match_state  str   one | none | ambiguous (the flow's match result)
+        provider_match_state  str   one | none | ambiguous (the caller's match result)
         attachment_kinds      [str] e.g. ["instruction", "image"] (optional)
         attachment_filenames  [str] original attachment filenames (optional) — lets the
                                     classifier spot an engineer's REPORT (existing-work

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-043",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-document",
+      "originalPath": "images - cvd.pdf",
+      "originalFilename": "images - cvd.pdf",
+      "sha256": "d1de502a55c3d8ad91a09533a3fd12590ac44271a09cfea2831b9441c911151a",
+      "storagePath": "tests/fixtures/evidence/sha256/d1/d1de502a55c3d8ad91a09533a3fd12590ac44271a09cfea2831b9441c911151a.pdf"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "RE Ref160404_GN14GBE_Nissan Qashqai Tekna_Mr Louis Cannell - Chaser for engineers report.eml",
+      "originalFilename": "RE Ref160404_GN14GBE_Nissan Qashqai Tekna_Mr Louis Cannell - Chaser for engineers report.eml",
+      "sha256": "fef111d07085111af7a831eecb112f9c448734690465a41779daa0743d29039e",
+      "storagePath": "tests/fixtures/evidence/sha256/fe/fef111d07085111af7a831eecb112f9c448734690465a41779daa0743d29039e.eml"
+    }
+  ]
+}

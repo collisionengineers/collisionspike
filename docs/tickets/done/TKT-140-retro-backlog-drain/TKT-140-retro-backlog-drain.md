@@ -1,6 +1,6 @@
 ---
 id: TKT-140
-title: Bulk retro backlog drain — reconstitute historical un-cased emails from Deleted Items
+title: Bulk retro backlog drain — reconstitute prior un-cased emails from Deleted Items
 status: done
 priority: P2
 area: intake
@@ -9,11 +9,11 @@ research-link: docs/tickets/done/TKT-140-retro-backlog-drain/evidence/operator-n
 plan: PLAN-003
 ---
 
-# TKT-140 — Bulk retro backlog drain — reconstitute historical un-cased emails from Deleted Items
+# TKT-140 — Bulk retro backlog drain — reconstitute prior un-cased emails from Deleted Items
 
 ## Problem
 
-The feasibility memo proved Deleted Items (7.1k/9.5k/7.2k messages) are reachable by the live whole-mailbox $search with no new build, and the PHA5007 drain recovered a real case. A deliberate, operator-paced bulk drain could reconstitute the historical un-cased backlog (refs/VRMs with no case) instead of waiting for chance triggers.
+The feasibility memo proved Deleted Items (7.1k/9.5k/7.2k messages) are reachable by the live whole-mailbox $search with no new build, and the PHA5007 drain recovered a real case. A deliberate, operator-paced bulk drain could reconstitute the prior un-cased backlog (refs/VRMs with no case) instead of waiting for chance triggers.
 
 ## Evidence
 

@@ -8,15 +8,15 @@ TESTED (offline), GATED OFF — the two model lanes are now BOTH wired: the live
 `callModelForSuggestions` (case/damage-assessment consumer) behind default-off `AI_ASSIST_ENABLED`. The
 generic path is offline-proven (verifier ran the 18 + 269 tests green) but never run live — its
 `AI_ASSIST_ENABLED` production flip is DPIA/capacity/residency-gated. Ticket **stays in `verify`** for that
-deferred live tail. (Historical detail on the email-triage lane is preserved below.)
+deferred live tail. (prior detail on the email-triage lane is preserved below.)
 
 ## Evidence
 - Commit `eaa809e` provided the coherent, correctly gated-OFF `ai_suggestion` foundation.
 - Commit `b62b0df` (2026-07-02) replaced the dormant `triageClassify` stub in
-  `orchestration/src/functions/gated/triage-classify.ts` with a real Azure OpenAI structured-output call
+  `services/orchestration/src/workflows/intake/triage-classify.ts` with a real Azure OpenAI structured-output call
   (keyless via the orch managed identity, which now holds **Cognitive Services OpenAI User** on
   `digital-3339-resource` — role assignment `d695d697-…`, applied + verified). A live 3-item A/B smoke
-  test against `gpt-5` (`scripts/eval-email/run_ab.py`) returned 0 abstains, all strict-JSON-valid,
+  test against `gpt-5` (`scripts/evaluation/email/run_ab.py`) returned 0 abstains, all strict-JSON-valid,
   2026-07-02 — this is real, working inference, run under the pre-authorised "AI testing on repo data"
   allowance (G5), not merely code that compiles.
 - (At the time of writing, 2026-07-02) `EMAIL_AI_ENABLED` and `AI_ASSIST_ENABLED` were both absent from live
@@ -26,10 +26,10 @@ deferred live tail. (Historical detail on the email-triage lane is preserved bel
 
 ## Pending / gaps
 - 🔒 `EMAIL_AI_ENABLED` production flip — needs the **G5 per-AI-gate sign-off**
-  ([docs/gated.md](../../../gated.md) §D6 item 3 / §E2); testing on repo data is already authorised (used for
+  ([docs/tickets/BOARD.md](../../BOARD.md) §D6 item 3 / §E2); testing on repo data is already authorised (used for
   the A/B smoke above).
 - 🔒 Foundry local-auth (keyless) flip — separate operator confirmation, not required to flip
-  `EMAIL_AI_ENABLED` itself ([docs/gated.md](../../../gated.md) §D6 item 5).
+  `EMAIL_AI_ENABLED` itself ([docs/tickets/BOARD.md](../../BOARD.md) §D6 item 5).
 - No live probe yet against a genuine live inbound email (the gate has never been on in production).
 - (Superseded 08-07-26) The **case/damage-assessment** consumer (generic
   `POST /api/cases/{id}/ai-suggestions/generate`) is now WIRED DARK — see the 2026-07-08 section below.
@@ -37,7 +37,7 @@ deferred live tail. (Historical detail on the email-triage lane is preserved bel
   benchmark, done); TKT-018 (total-loss, P3) remains backlog.
 
 ## How to re-verify
-- Confirm the gate state and model deployment in the live registry: ../../architecture/live-environment.md.
+- Confirm the gate state and model deployment in the live registry: ../../operations/live-environment.md.
 - Once `EMAIL_AI_ENABLED` is flipped (post G5 sign-off): send a real inbound email that lands as
   abstain/`uncorroborated_*`, confirm a `triage_category` row appears via
   `GET /api/inbound/{id}/suggestions`, and that accepting it (not the model itself) is what changes
@@ -47,7 +47,7 @@ deferred live tail. (Historical detail on the email-triage lane is preserved bel
 
 Status: **TESTED (offline), build-dark; not live** (verifier ran the suites below green, 08-07-26). The one remaining gap — the dormant
 `callModelForSuggestions` stub — is now a real keyless AOAI structured-output call
-(`api/src/lib/aoai-suggestions.ts`; `api/src/functions/ai-suggestions.ts`). It stays a permanent live
+(`services/data-api/src/features/assistant/suggestion-client.ts`; `services/data-api/src/features/assistant/register-suggestion-routes.ts`). It stays a permanent live
 no-op because `AI_ASSIST_ENABLED` is still absent from app-settings (route front-gates on it) — no
 deploy, no gate flip this pass.
 
@@ -61,15 +61,15 @@ partial write), (d) the generate path issues only `INSERT ai_suggestion` — no 
 case/evidence column, so promotion stays human-review-only.
 
 Verifier — offline checks to run:
-- `cd api && npx vitest run src/lib/aoai-suggestions.test.ts src/functions/ai-suggestions.test.ts`
+- `cd services/data-api && npx vitest run src/features/assistant/suggestion-client.test.ts src/features/assistant/suggestion-generation-routes.test.ts`
   → 18 passed.
-- `cd api && npx tsc -b` and `npx tsc -b packages/domain` → exit 0.
+- `cd services/data-api && npx tsc -b` and `npx tsc -b packages/domain` → exit 0.
 - Audit the no-silent-mutation invariant: grep the generate handler + `aoai-suggestions.ts` — the
   only state write reachable from generate is `INSERT INTO ai_suggestion`; the three minted kinds
   (`damage_area`/`damage_severity`/`accident_summary`) have no branch in `promoteAcceptedSuggestion`.
 
 Live (deferred, operator-gated): once `AI_ASSIST_ENABLED` + `AI_MODEL_ENDPOINT`/`AI_MODEL_DEPLOYMENT`
-are set on `cespk-api-dev` (post DPIA/G5 sign-off, docs/gated.md §F / §D6), POST the generate route
+are set on `cespk-api-dev` (post DPIA/G5 sign-off, docs/tickets/BOARD.md §F / §D6), POST the generate route
 for a repo/sample case and confirm `ai_suggestion` rows appear with a `gpt-5:*` model_version and
 `review_state = 'pending'`, and that nothing on the case/evidence changed until a human accepts.
 
@@ -92,7 +92,7 @@ Executed (azure-integration-engineer dispatch):
   **AiAssistPanel → Generate** action on the deployed SPA (operator/staff session).
 - **Provisional:** subscription still FreeTrial (PAYG/A1). Capacity: gpt-5 shared 50K-TPM (watch 429).
 
-Registry updated: `LIVE_FACTS.json` (gate + `lastVerified`) + [live-environment.md](../../../architecture/live-environment.md).
+Registry updated: `LIVE_FACTS.json` (gate + `lastVerified`) + [live-environment.md](../../../operations/live-environment.md).
 
 ## Verdict update — 2026-07-08
 

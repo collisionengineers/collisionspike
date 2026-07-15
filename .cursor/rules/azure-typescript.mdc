@@ -1,14 +1,15 @@
 ---
-description: Azure Data API and orchestration TypeScript conventions
-globs: api/**/*.{ts,tsx},orchestration/**/*.{ts,tsx}
+description: Data API and orchestration TypeScript conventions
+globs: services/{data-api,orchestration}/**/*.{ts,tsx}
 alwaysApply: false
 ---
 
-# Azure TypeScript (api/ + orchestration/)
+# Service TypeScript
 
-- **Auth:** Entra JWT via `jose`; app roles `CollisionSpike.User` / `CollisionSpike.Superuser` (legacy `CollisionSpike.Admin` still accepted).
-- **Postgres:** connect as non-owner `cespk_app` (RLS enforced); per-connection role via libpq `-c app.role=staff`.
-- **Deploy:** esbuild bundles to `deploy/api/main.cjs` and `deploy/orch/main.cjs`. Keep the **import.meta.url** banner or the host registers 0 functions. Ship `node_modules`. See [docs/azure/deploy.md](docs/azure/deploy.md).
-- **CORS:** platform setting on the Function App (`az functionapp cors`), not `host.json`.
-- **Feature gates:** Function app-settings (`PDF_MAPPER_ENABLED`, `ENRICHMENT_ENABLED`, `BOX_*`, etc.) — live values in the registry only.
-- **Read-only triage:** dispatch **azure-diagnostician** before mutating live resources. Mutations → **azure-integration-engineer** + playbooks.
+- Preserve JWT validation and all currently accepted app roles.
+- Connect to Postgres with the non-owner application login and keep RLS enforced.
+- Build deployment bundles into ignored `.artifacts/deploy/`; preserve the
+  import-meta bootstrap required for function registration.
+- Keep CORS on the Function App and configuration in app settings.
+- Read `docs/operations/live-environment.md` before live reads. Diagnosis is
+  read-only; production changes require the implementation owner and approval.

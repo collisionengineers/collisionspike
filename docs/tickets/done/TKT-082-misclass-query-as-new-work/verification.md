@@ -6,7 +6,7 @@
 ## Final sweep verdict (transcribed verbatim, 2026-07-10)
 
 - **Acceptance 1 — both sample threads classify query/update in the eval corpus (PROVEN, fresh run
-  this session):** all three pins in `scripts/eval-email/manifest.json`
+  this session):** all three pins in `scripts/evaluation/email/manifest.json`
   (`tkt082-query-your-report` → query/query_existing_work; `tkt082-query-reply-eref1` →
   query/query_existing_work; `tkt082-caseupdate-reply-images` → case_update/images_received). Fresh
   `run_eval.py` against the current tree (same lineage as live engine-v2.15): all three pass;
@@ -66,7 +66,7 @@ Verified by: ticket-verifier dispatch, 2026-07-10.
 ### S1 adjudication (post-W6, same verifier — the 40-row result explained; VERIFIED-LIVE stands)
 W6's S1 returned 40 rows against an "expect 0". Adjudicated **hypothesis (b), confirmed with code +
 telemetry**: the rows are the **ADR-0022 retro reconstruction lane** (`RETRO_CASE_ENABLED`, live
-since ~07-07) — `retroCreate` (`api/src/functions/internal-retro.ts:385-419`) deliberately inserts
+since ~07-07) — `retroCreate` (`services/data-api/src/features/inbound/retro-routes.ts`) deliberately inserts
 `case_.source_message_id = original.internetMessageId`, and "a stranded update email IS the
 reconstruction target when no instruction survives, and it lands Held needs_review (never terminal,
 never a PO)" (`internal-retro.ts:323-329`). Empty `case_po` on all 40 is the confirming NEVER-MINT
@@ -113,7 +113,7 @@ Real classifier run on the samples:
 - sample-2 eml1 (Tasker reply) → `query/query_existing_work`; eml2 (image-delivery reply) →
   `case_update/images_received`. Neither is `new_client_work`.
 
-Pinned in `scripts/eval-email/manifest.json` (baseline-v2 regenerated, `--check` clean) + an
+Pinned in `scripts/evaluation/email/manifest.json` (baseline-v2 regenerated, `--check` clean) + an
 enforced unit test (`test_tkt082_question_about_your_report_is_query_not_new_work`). Full prior
 corpus green.
 

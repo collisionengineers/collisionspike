@@ -1,76 +1,36 @@
-# EVA field model — required fields, reconciled
+# EVA field model
 
-Authority for the EVA field set the intake UI captures and validates. Reconciles the **EVA Sentry API**
-requirements, the **Collision Engineers process** requirements, and the **M1 drag-drop** wire contract.
-Set by review [`190626/broad-review`](../reviews/190626/broad-review/review.md) (issue 1) +
-[`190626/new-case`](../reviews/190626/new-case/review.md.md) (issues 7 & 15); source detail in
-[`190626/evacreation`](../reviews/190626/evacreation/evacreation.md).
+The settled JSON export contract is [contracts/eva-payload.schema.json](../../contracts/eva-payload.schema.json).
+It contains exactly these keys in order:
 
-## Two EVA paths (unchanged by this review)
+1. `work_provider`
+2. `vehicle_model`
+3. `claimant_name`
+4. `claimant_telephone`
+5. `claimant_email`
+6. `date_of_loss`
+7. `date_of_instruction`
+8. `accident_circumstances`
+9. `inspection_address`
+10. `vat_status`
+11. `mileage`
+12. `mileage_unit`
 
-- **M1 — JSON drag-drop.** The settled **12-field** payload (snake_case) is the byte-stable wire
-  contract shared by the Code App serializer (`mockup-app/src/contracts/eva-export.ts`), the Power
-  Automate finalise flow, and the Python parser's EVA exporter (validated against
-  `contracts/eva-payload.schema.json`). **This review does not re-cut those 12 wire keys** — changing
-  them would ripple the parser, flow, schema, Dataverse choice set and parity tests. Only the **display
-  label** `Date of Loss → Date of Incident` changed (new-case #13); the payload key stays `date_of_loss`.
-- **Sentry REST API — M2+ (gated; blocked by Minotaur's one-principal-code limit, pending vendor patch + parity — see [eva-sentry-api.md](./eva-sentry-api.md)).** Carries a broader, differently-named field set (below). The
-  UI now captures the **superset** so the case row is API-ready when that path lands.
+The canonical wire key is `date_of_loss`; the handler-facing label is “Date of incident.” VRM and
+Case/PO are case-identity fields and are intentionally outside this payload. Engineer allocation is also
+outside the payload and happens in EVA.
 
-## EVA Sentry **API** required fields (a call fails without these, in a valid format)
+## Readiness
 
-| API field | Meaning | UI source |
-|---|---|---|
-| `RequestFrom` | Principal (4-char provider code) | Principal |
-| `ExternalRef` | **our** Case/PO (despite the name, it is internal) | Case/PO |
-| `VehReg` | Vehicle registration | VRM |
-| `ClmNo` | Claim number (provider's own reference) | Claim No / provider's ref |
-| `InsName` | Insured / claimant name | Insured Name |
-| `InspType` | Inspection type — **always "Vehicle Damage Inspection"** (desktop) | constant, not shown |
-| `InUse` | Vehicle in use — Yes / No / Not Known | (not used today — see relaxation) |
-| `ClmAddr` | Claimant address | (not used today — see relaxation) |
-| `CoverType` | Cover type — prefill **"TBA"** | constant TBA |
-| `InstEmail` | Email to send the instruction to | (not used today — see relaxation) |
+The app requires valid case identity, Principal/Work Provider, insured name, provider reference, incident
+date, inspection date, inspection-address decision, accident circumstances, vehicle model, and the image
+rules before handoff. Provider-specific requirements may add fields.
 
-**Manual creation in EVA** is blocked by only **VRM + Principal**; no other field blocks *manual*
-creation. The full list above blocks the *API* call only.
+Make and mileage can be suggested from vehicle facts only when the instruction does not provide an
+authoritative value. VAT is a staff value. Inspection type is the constant “Vehicle Damage Inspection.”
 
-## Collision Engineers **process** required fields
+The inspection address is either six newline-separated lines or the exact `Image Based Assessment`
+choice. Staff choose or edit it; runtime code never derives it from `Loc`.
 
-Provider Name / Principal · VRM · **Make** + Model · Claimant Name · Their Ref (`ClmNo`) · **Incident
-Date** (blocked if future) · Instruction Date · **Inspection Date** (defaults to today if absent) ·
-Inspection Address (EVA 6-line format) · Accident Circumstances · VAT Status · Mileage · Mileage Unit.
-
-**Required files (process, to complete a report — not all needed to create the case):** vehicle photos
-(image-rules), valuation evidence (the "Companion Report" PDF — automation TBD), the instruction
-document, and a copy of the intake email when email was the channel.
-
-## What the intake UI now enforces (the readiness/required set)
-
-VRM · Principal · Work provider · Case/PO · Insured Name · Claim No · Incident Date · Inspection Date
-(default today) · Inspection Address · Accident Circumstances · Vehicle Model. Images are **process-
-required** (image-rules gate at submit), **not** required to create the case.
-
-`Make`, `Mileage`/`Mileage Unit`, claimant phone/email are **optional/enrichable**. `Inspection Type`
-is recorded as the constant "Vehicle Damage Inspection".
-
-## Verified enrichment + VAT reality (2026-06-19 capability review)
-
-- **DVLA/DVSA give make, model and a mileage estimate — NOT VAT.** There is no VAT route on the
-  enrichment Function. So **VAT is a manual field** (consider defaulting display to TBA); **`n%` is
-  unconfirmed** with EVA and is left as a follow-up to test. The intake "Look up vehicle" button fills
-  Make/Model/Mileage only.
-- Enrichment is **live in Dev** — `ENRICHMENT_ENABLED` is flipped on (default `false`, current
-  `true`) and the enrichment Function is bound, so the "Look up vehicle" client returns real
-  Make/Model/Mileage. (It remains gate-guarded: where the gate is off the UI clients return an
-  honest "not connected".) The inspection address is an **offline-derived full-address
-  suggestion** (from case history, in `cr1bd_inspectionaddress`) that staff **manually pick** (or
-  fall back to "Image Based Assessment" with a reason); there is **no runtime matcher**. Postcode
-  normalisation uses **postcodes.io**; partials/bare postcodes are a future-investigation backlog
-  (ADR-0013, see [inspection-address-corpus.md](./inspection-address-corpus.md)).
-
-## Follow-up to EVA devs (Minotaur)
-
-Ask whether the API-required `CoverType`, `InstEmail`, `InUse` can be **relaxed** — Collision doesn't
-currently capture them. Until then they are sent as constants/blanks (`CoverType=TBA`) and are **not**
-gated in the UI readiness.
+Changes to key names, ordering, validation, or semantics require synchronized schema, TypeScript, Python,
+and snapshot updates.

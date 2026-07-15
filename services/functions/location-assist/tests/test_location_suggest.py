@@ -1,6 +1,6 @@
 """Offline pytest suite for the location-suggest Function.
 
-Run from functions/location-suggest/:
+Run from services/functions/location-assist/:
     python -m pytest
 
 Vision / Maps / the Box photo seam are all FAKED (tests/fakes.py) — no Azure key,
@@ -338,7 +338,7 @@ def test_http_happy_path_returns_200_envelope(monkeypatch):
     assert data["noConfidentLocation"] is False
     assert len(data["candidates"]) == 1
     cand = data["candidates"][0]
-    # camelCase response shape threads into the Code App domain types.
+    # camelCase response shape matches the shared domain types.
     assert cand["label"] == "Smith Recovery, Acton"
     assert cand["postcode"] == "W3 7QE"
     assert isinstance(cand["addressLines"], list)

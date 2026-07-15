@@ -4,14 +4,12 @@
 an injected token provider). No live Data API, no Azure. The real API + token are
 reached ONLY at runtime inside the deployed Function.
 
-This REPLACES the old ``dataverse_client.py``: the box-webhook receiver no longer
-talks to the Dataverse Web API or a Power Automate flow URL. The system of record
-is now **Postgres**, fronted by the **Data API** (Function App ``cespk-api-dev``),
+The system of record is Postgres, fronted by the Data API
+(Function App ``cespk-api-dev``),
 which exposes service-only ``/api/internal/*`` routes (auth = a JWT for the API
 audience, no app role required — a client-credentials MI token is accepted).
 
-What it does (the receiver's step 6-7) — SAME method names + signatures as the old
-``DataverseClient`` so ``function_app.py`` changes are minimal:
+What it does (the receiver's steps 6-7):
 * ``resolve_case_by_folder(folder_id)`` — GET ``/api/internal/box/case-by-folder/
   {folderId}`` (Box folder id -> ``case_.box_folder_id`` -> Case id). An
   unresolved folder returns None (the handler routes to triage / Held).
@@ -30,7 +28,7 @@ What it does (the receiver's step 6-7) — SAME method names + signatures as the
 * ``write_audit(action, case_id, name, detail)`` — POST ``/api/internal/audit``
   with the audit-action NAME string (``box_upload_received``). Best-effort.
 * ``reinvoke_status_evaluate(case_id)`` — POST ``/api/internal/cases/{id}/
-  status-evaluate`` (replaces the old Power Automate flow URL entirely). Unset
+  status-evaluate``. Unset
   ``DATA_API_URL`` -> logged no-op (returns False); a genuine call failure ->
   raises ``DataApiError`` (so the receiver treats it as transient and Box retries).
 * ``mark_case_done(case_id, signal, detail)`` — POST ``/api/internal/cases/{id}/
@@ -60,19 +58,18 @@ import httpx
 
 logger = logging.getLogger("boxwebhook.dataapi")
 
-# Audit-action NAME the Data API maps to its integer code (api/src/lib/audit.ts
+# Audit-action NAME the Data API maps to its integer code (services/data-api/src/shared/audit.ts
 # AUDIT_ACTION.box_upload_received = 100000021). The receiver passes this name;
 # the API owns the name->code lookup, so the Function never hard-codes the int.
 AUDIT_BOX_UPLOAD_RECEIVED = "box_upload_received"
 
-# Kept for signature-compat with the old DataverseClient.create_evidence(kind=...).
 # The Data API derives kind_code from evidenceClass='image' (this is the Box
 # File-Request image path), so this value is accepted but not sent on the wire.
 EVIDENCE_KIND_IMAGE = 100000000
 
 _DEFAULT_TIMEOUT_S = 20.0
 
-# Transient-status backoff (mirrors the old dataverse_client + box_client). A Data
+# Transient-status backoff. A Data
 # API 429/5xx during an upload burst is absorbed in-process so a single blip does
 # not drop the whole delivery to the receiver's warning/retry path. Non-transient
 # 4xx (auth, 404) fall through to raise at once.
@@ -100,11 +97,6 @@ class DataApiConfigError(DataApiError):
     """DATA_API_URL is not configured."""
 
 
-# Back-compat alias so any lingering ``from data_api_client import DataverseError``
-# (or test imports) keep resolving to the same exception type.
-DataverseError = DataApiError
-
-
 def _normalise_audience(raw: str) -> str:
     """Accept either an ``api://<guid>`` URI or a bare GUID; return the api:// form
     (the scope the MI client-credentials flow expects)."""
@@ -129,10 +121,7 @@ def _default_token_provider(audience: str) -> TokenProvider:
 
 
 class DataApiClient:
-    """Thin Data API client (MI client-credentials bearer). Lazy + mockable.
-
-    Exposes the SAME surface as the retired DataverseClient so the receiver's call
-    sequence is unchanged."""
+    """Thin Data API client using a managed-identity bearer. Lazy and mockable."""
 
     def __init__(
         self,

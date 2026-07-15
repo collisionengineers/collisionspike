@@ -22,7 +22,7 @@ ticket-verifier and is transcribed into `verification.md` 1:1.
 
 ## Live facts
 Verify every live fact (gates, counts, mailbox set, function/route names) against LIVE_FACTS.json /
-docs/architecture/live-environment.md before acting. Research packs and the ticket body are advisory
+docs/operations/live-environment.md before acting. Research packs and the ticket body are advisory
 point-in-time snapshots.
 
 ## Area hard rules
@@ -31,14 +31,14 @@ engineering language in rendered strings (AGENTS.md); Fluent v9 + CE tokens; bui
 hard refresh">
 
 ## Obligations
-- Scope strictly to the Acceptance above — no unrelated ROADMAP work.
+- Scope strictly to the Acceptance above — no unrelated planned work.
 - Draft `docs/tickets/now/TKT-NNN-<slug>/changes.md` per the ticket-implement template
   (status line, commits hash + why, files touched, summary).
 - Record any new sample material under the ticket's `evidence/`.
 - Commit as work progresses; the pre-commit doc gate must pass — fix, don't bypass.
 
 ## Prohibitions
-- Never run scripts/ticket-move.mjs or hand-edit ticket status/folders/BOARD/index.
+- Never run scripts/maintenance/ticket-move.mjs or hand-edit ticket status/folders/BOARD/index.
 - Never write a verification.md verdict beyond PENDING.
 - Never dispatch other agents — return unmet needs to me instead.
 - Two identical failures → stop and consult the matching skill/docs; no third identical attempt.
@@ -57,7 +57,7 @@ discovered out of scope (candidate follow-ups), not acted on.
 Ticket folder: docs/tickets/verify/TKT-NNN-<slug>/
 Read the spec, changes.md, verification.md, and evidence/. The Acceptance section is your checklist —
 one concrete evidence artifact per acceptance line. Registry (LIVE_FACTS.json /
-docs/architecture/live-environment.md) over research packs. Read-only throughout; return the verdict
+docs/operations/live-environment.md) over research packs. Read-only throughout; return the verdict
 block below — do not write any file.
 
 <optional: known context — what changes.md claims, what verification.md already lists as pending>

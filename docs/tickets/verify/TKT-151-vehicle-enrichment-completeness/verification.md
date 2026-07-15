@@ -7,7 +7,7 @@ PENDING
 
 - Implementation record: [changes.md](./changes.md)
 - Read-only census: [evidence/missing-vehicle-census.sql](./evidence/missing-vehicle-census.sql)
-- Rollout/remediation procedure: [../../../runbooks/vehicle-data-rollout.md](../../../runbooks/vehicle-data-rollout.md)
+- Rollout/remediation procedure: [vehicle-data rollout](../../../operations/vehicle-data-rollout.md)
 - Offline suites prove the shared numeric-mileage boundary, Manual Intake
   make/model persistence, partial-provider warning preservation and caller-stable
   retry replay without duplicate audit or field-source writes. Exact counts are in

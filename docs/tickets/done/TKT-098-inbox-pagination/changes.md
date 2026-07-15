@@ -7,16 +7,16 @@ Data API / seam change (the inbox seam already returns the whole list; `GET /api
 
 ## What was built
 
-**New — `mockup-app/src/screens/inbox-pagination.ts`** (pure, framework-free, unit-tested — mirrors the
+**New — `apps/web/src/shared/navigation/inbox-pagination.ts`** (pure, framework-free, unit-tested — mirrors the
 `inbox-mailbox-filter.ts` convention): `INBOX_PAGE_SIZE = 15`, `pageCount`, `clampPage`, `pageWindow`
 (clamped page + `start/end/from/to/hasPrev/hasNext`), `slicePage<T>` (derives its window from
 `pageWindow` so the shown rows and the "N–M of T" label can never disagree), and `pageOf`.
 
-**New — `mockup-app/src/screens/inbox-pagination.test.ts`**: Vitest cases for the page-count /
+**New — `apps/web/src/shared/navigation/inbox-pagination.test.ts`**: Vitest cases for the page-count /
 clamp / window boundaries (empty, <15, exactly 15, 16, over-range clamp, mid-list) + `slicePage` /
 `pageOf`.
 
-**New — `mockup-app/src/components/Pager.tsx`**: a generic, purely-presentational pager (parent owns
+**New — `apps/web/src/shared/ui/Pager.tsx`**: a generic, purely-presentational pager (parent owns
 the page — no internal state) so TKT-096's second list can reuse it. First / Prev / Next / Last
 `subtle` icon buttons + an en-dash "N–M of T {noun}" range. Renders **nothing** when `pageCount <= 1`
 (no clutter under a short list). a11y: `nav[aria-label]`, range as `role="status" aria-live="polite"`,
@@ -24,7 +24,7 @@ per-button `aria-label`s, disabled bounds out of the tab order, and **boundary-f
 the activated button disables at an edge (e.g. Next onto the last page) focus moves to the still-enabled
 sibling instead of dropping to `<body>`.
 
-**Edited — `mockup-app/src/screens/Inbox.tsx`**:
+**Edited — `apps/web/src/features/inbox/Inbox.tsx`**:
 - `page` state; `win = pageWindow(filtered.length, page)` + `pageItems = slicePage(filtered, page)`
   after the `filtered` memo; the DataGrid now renders `items={pageItems}` (the ONLY switch to the paged
   view — `setTriage` next-row math, `linkedIdsRef`, the empty-state guard, and the "All (N)" badge all

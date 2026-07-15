@@ -24,7 +24,7 @@ ceiling and is sufficient to close.
 - Prints `10/10 scenarios match the layer's DOCUMENTED contract` and all three findings
   `[F1_scene_text_false_positive]`, `[F2_split_line_recall_gap]`, `[F3_no_visible_but_unreadable_tristate]`
   — identical to the captured `results/decision-layer-run.txt`.
-- Scores the **real shipped production code**: `import plate_adapter` from `ocr/plate_adapter.py`;
+- Scores the **real shipped production code**: `import plate_adapter` from `services/functions/ocr/plate_adapter.py`;
   `normalise_vrm`, `_looks_like_plate`, `_build_result` confirmed present; `_looks_like_plate` is
   `len∈[MIN,MAX]` + `letters>=2 and digits>=1`, exactly matching the F1 "MAX 30 → MAX30 passes the lenient
   gate" claim. Not a mock. (Only difference: mean latency ~34 µs vs captured ~17 µs — expected per-machine
@@ -46,8 +46,8 @@ scene-understanding (axis-C visibility tri-state F3, role, reflection, location)
 TKT-016. The ADR-0013 invariant (a detected VRM is a suggestion, never `case_.vrm`) is upheld across all
 candidates.
 
-**Ticket-integrity gates:** `node scripts/check-tickets.mjs` → 0 failures / 0 warnings;
-`node scripts/check-doc-links.mjs` → PASS links / orphans / leakage.
+**Ticket-integrity gates:** `node scripts/checks/check-tickets.mjs` → 0 failures / 0 warnings;
+`node scripts/checks/check-doc-links.mjs` → PASS links / orphans / leakage.
 
 ## Pending / gaps
 
@@ -68,13 +68,13 @@ candidates.
   files are present under `verify/`).
 
 ## How to re-verify
-1. From repo root: `python docs/tickets/verify/TKT-017-ai-reg-ocr/evidence/harness/plate_bench.py` — expect
-   `10/10 scenarios match` + the F1/F2/F3 findings block (exit 0). It imports the real `ocr/plate_adapter.py`.
+1. From repo root: `python docs/tickets/done/TKT-017-ai-reg-ocr/evidence/harness/plate_bench.py` — expect
+   `10/10 scenarios match` + the F1/F2/F3 findings block (exit 0). It imports the real `services/functions/ocr/plate_adapter.py`.
 2. Registry cross-check in `LIVE_FACTS.json`: `gates.cespk-orch-dev.PLATE_OCR_ENABLED`,
    `.OCR_FN_URL` (cespkocr-fn-dev-glju3v); `foundry.value.deployments[].name` (gpt-5, GlobalStandard);
    `resourceInventory` contains `cespkdocintel-dev`. IMAGE_ROLE_CLASSIFY_ENABLED is in the `verifiedBy`
    narrative — grep for it.
-3. Gates: `node scripts/check-tickets.mjs` and `node scripts/check-doc-links.mjs` — both exit 0.
+3. Gates: `node scripts/checks/check-tickets.mjs` and `node scripts/checks/check-doc-links.mjs` — both exit 0.
 4. Read `evidence/reg-ocr-benchmark.md` §Recommendation + §8 for the fast-alpr(+DI Read)/no-VLM-egress-for-reg
    call and §9 for the TKT-016 hand-off.
 

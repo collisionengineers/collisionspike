@@ -8,7 +8,7 @@ pre-deploy against the real `Inbox` component. Status: `done`.
 
 ## Live deployment (2026-07-08)
 - **Merged:** PR #44 → `main` (merge commit `001a2f7`).
-- **Built (Windows):** `npm run build` in `mockup-app/` → clean; `.env.production` values confirmed baked
+- **Built (Windows):** `npm run build` in `apps/web/` → clean; `.env.production` values confirmed baked
   into the bundle (API host + Entra client-id present — guards the 2026-07-02 blank-first-paint class).
 - **Staged:** `staticwebapp.config.json` copied into `dist/` (ships the strict CSP + SPA nav fallback).
 - **Deployed (WSL):** `swa deploy ./dist --env production` → `cespk-spa-dev` → "Project deployed 🚀".
@@ -19,8 +19,8 @@ pre-deploy against the real `Inbox` component. Status: `done`.
     tenant `858cf5b3…`, scope `api://fa2fb28c…/access_as_user`) — no blank crash.
 
 ## Offline gates (2026-07-08, worktree `feat/tkt-098-inbox-pagination`)
-- `npm --prefix mockup-app test` → **293 passed / 20 files** (incl. the new `inbox-pagination.test.ts`).
-- `npm --prefix mockup-app run build` (`tsc -b && vite build`) → **clean** (only the pre-existing
+- `npm --prefix apps/web test` → **293 passed / 20 files** (incl. the new `inbox-pagination.test.ts`).
+- `npm --prefix apps/web run build` (`tsc -b && vite build`) → **clean** (only the pre-existing
   >500 kB single-chunk warning, unrelated to this change).
 
 ## Functional acceptance (browser, chrome-devtools-mcp)

@@ -22,7 +22,7 @@ Every plate-OCR and scanned-PDF-OCR call from **cespk-orch-dev** fails at the fe
 (`kind: functionapp,linux,container,azurecontainerapps`), whose only ingress FQDN is
 `cespkocr-fn-dev-glju3v.proudwave-aa00ada9.uksouth.azurecontainerapps.io`. An ACA-hosted Function
 App is **not** reachable at `*.azurewebsites.net` — that hostname does not exist (NXDOMAIN). So the
-native `fetch()` in `orchestration/src/lib/functions-client.ts` (`callFunction(OCR, …)`) rejects at
+native `fetch()` in `services/orchestration/src/adapters/functions-client.ts` (`callFunction(OCR, …)`) rejects at
 DNS resolution (`ENOTFOUND`), which Node surfaces as the generic `TypeError: fetch failed`. The
 orchestration catches it best-effort and logs `e.message` only, so the real cause never reached the
 trace.
@@ -36,11 +36,11 @@ matching the 2026-07-04 onset.
 
 **Two live paths are broken by this one setting** (both read the `OCR` target
 `OCR_FN_URL`/`OCR_FN_KEY`):
-1. **Plate OCR** — `orchestration/src/functions/activities/extractImages.ts:155-166` `callPlateOcr`.
+1. **Plate OCR** — `services/orchestration/src/workflows/evidence/extractImages.ts` `callPlateOcr`.
    The OCR fallback that sets `registration_visible` when the gpt-5 image classifier abstains/returns
    null (TKT-064) is silently lost, so extracted images can be wrongly held as "still needs a photo
    showing the registration."
-2. **Scanned-PDF OCR** — `orchestration/src/functions/activities/parse.ts:369-375` `callOcrPdf`
+2. **Scanned-PDF OCR** — `services/orchestration/src/workflows/intake/parse.ts` `callOcrPdf`
    (gate `OCR_SCANNED_PDF_ENABLED=true`). Its `if (!process.env.OCR_FN_URL)` guard passes (the URL is
    set), then the fetch fails, so image-only/scanned instruction PDFs never get OCR'd.
 
@@ -63,7 +63,7 @@ matching the 2026-07-04 onset.
 
 ## Proposed change
 
-- **Correct the app-setting** on `cespk-orch-dev` (the fix; per docs/azure/deploy.md + secrets — a
+- **Correct the app-setting** on `cespk-orch-dev` (the fix; per docs/operations/deployment.md + secrets — a
   config-only change, no redeploy):
   `OCR_FN_URL=https://cespkocr-fn-dev-glju3v.proudwave-aa00ada9.uksouth.azurecontainerapps.io`
   (leave `OCR_FN_KEY` KV ref `cespk-pg-kv-dev/ocr-fn-key` unchanged; `functions-client.ts` appends
@@ -76,7 +76,7 @@ matching the 2026-07-04 onset.
   this footgun can't recur silently.
 - **Doc maintenance (required by the change):** update `LIVE_FACTS.json`
   (`gates.cespk-orch-dev.OCR_FN_URL`, bump `lastVerified`) + the human mirror
-  `docs/architecture/live-environment.md`, then `VERIFY_LIVE=1 node verify-all.mjs`.
+  `docs/operations/live-environment.md`, then `VERIFY_LIVE=1 node verify-all.mjs`.
 
 ## Acceptance
 
@@ -87,7 +87,7 @@ matching the 2026-07-04 onset.
 - [ ] A scanned/image-only instruction PDF routes through `/api/ocr-pdf` and coalesces an extraction
       (no `fetch failed` in the parse activity).
 - [ ] `cespkocr-ai-dev` App Insights shows incoming `/api/plate-ocr` requests after the fix.
-- [ ] `LIVE_FACTS.json` + `docs/architecture/live-environment.md` updated; `VERIFY_LIVE=1 node
+- [ ] `LIVE_FACTS.json` + `docs/operations/live-environment.md` updated; `VERIFY_LIVE=1 node
       verify-all.mjs` green.
 
 ## Research

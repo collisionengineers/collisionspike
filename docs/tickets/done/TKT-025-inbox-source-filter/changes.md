@@ -4,7 +4,7 @@ now — built + shipped in the live SPA bundle (rules-engine-v2 Phase 5, 2026-07
 click-through verification pending (see [verification.md](./verification.md) for the runbook).
 ## Commits
 - 2026-07-02 — rules-engine-v2 Phase 5: source-mailbox facet-chip row added to the Inbox toolbar
-  (`mockup-app/src/screens/Inbox.tsx` + new `mockup-app/src/screens/inbox-mailbox-filter.ts`,
+  (`apps/web/src/features/inbox/Inbox.tsx` + new `apps/web/src/features/inbox/inbox-mailbox-filter.ts`,
   unit-tested) — multi-select filter by distinct `sourceMailbox` values present in the loaded rows,
   wired into the existing search/subtype/triage-state filter pipeline. `tsc -b` / `vitest` / `npm run
   build` all green; SPA redeployed live 2026-07-02.
@@ -20,6 +20,6 @@ The chip filter is deployed, but the operator's inbox-simplification review
 ([020726 E7](../../../reviews/020726/decisions.md)) identified a data bug underneath it:
 intake currently stores the subscribed mailbox's object-id GUID in `source_mailbox`
 rather than the address, so every chip renders the "Other source" fallback. The
-intake-side UPN fix + historical backfill are being handled under
+intake-side UPN fix + prior backfill are being handled under
 [TKT-054](../TKT-054-ui-work/TKT-054-ui-work.md); re-run this ticket's verification
 runbook after that lands — the chips should then name info@/engineers@/desk@.

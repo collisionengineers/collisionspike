@@ -127,7 +127,7 @@ class DvsaTransientError(DvsaError):
 
 
 def normalize_registration(reg: str) -> str:
-    """Compatibility alias; canonical logic lives in vehicle_data.registration."""
+    """Delegate registration normalization to the canonical vehicle-data boundary."""
     return canonicalize_registration(reg)
 
 

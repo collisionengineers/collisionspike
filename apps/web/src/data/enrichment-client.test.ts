@@ -4,9 +4,8 @@ import {
   type AddressNormaliseTransport,
 } from './enrichment-client';
 
-/* The gated default transports are unbound until the operator binds the
-   ENRICHMENT_ENABLED connector, so the seam stays offline here. These mirror
-   the plain-language messages the UI shows instead of fabricating values. */
+/* The default transport stays offline and returns the same plain-language
+   message the interface shows instead of fabricating values. */
 const GATED_ADDRESS_MESSAGE = 'Address standardisation isn’t available yet.';
 
 describe('normaliseAddress', () => {

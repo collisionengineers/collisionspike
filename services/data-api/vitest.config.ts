@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const domainSrc = (relative: string): string => resolve(here, '..', 'packages/domain/src', relative);
+const domainSrc = (relative: string): string => resolve(here, '..', '..', 'packages/domain/src', relative);
 
 // `tsc -b` emits compiled copies of the *.test.ts files into dist/ (declaration:true,
 // project convention). Exclude dist so vitest runs each suite ONCE from src/ — not also

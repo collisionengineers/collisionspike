@@ -1,39 +1,9 @@
-"""vision_client — Azure AI Vision wrapper (Image Analysis + Read OCR).
+"""Bounded Azure AI Vision client for location-clue extraction.
 
-[BUILD] — authored offline, exercised only by mocked pytest (httpx transport
-mocking). No live Azure, no key, no tenant contact. The real Vision endpoint is
-reached ONLY at runtime inside the deployed Function.
-
-What it does
-------------
-Calls the Azure AI Vision **Image Analysis 4.0** ``analyze`` endpoint over a
-single photo's bytes, requesting the ``read`` (OCR) and ``tags`` features, and
-returns the textual clues a location can be inferred from:
-
-  * ``ocr_lines``  — text read off the image (signage / business names / a road
-    name on a sign), each with a confidence;
-  * ``tags``       — scene/object tags (e.g. "garage", "forecourt", "building")
-    with a confidence, used only as weak corroboration.
-
-    POST {endpoint}/computervision/imageanalysis:analyze
-         ?api-version=2024-02-01&features=read,tags
-        Ocp-Apim-Subscription-Key: {key}
-        Content-Type: application/octet-stream
-        <raw image bytes>
-      -> { "readResult": { "blocks": [ { "lines": [ {"text","confidence?"} ] } ] },
-           "tagsResult": { "values": [ {"name","confidence"} ] } }
-
-Standalone Azure AI Vision ONLY (per the spike's v1 scope): NO Azure OpenAI /
-Foundry model. Custom Vision / Image Analysis 3.x are not used (retiring).
-
-Secret handling
----------------
-``AZURE_VISION_KEY`` / ``AZURE_VISION_ENDPOINT`` come from environment variables
-which, in the deployed Function, are **Azure Key Vault references**
-(``@Microsoft.KeyVault(SecretUri=...)`` for the key) resolved by the platform via
-the Function's managed identity. They are NEVER logged, echoed, or written to a
-fixture. ``__repr__`` is redacted. The Function does not read the gate
-(``LOCATION_ASSIST_ENABLED`` is enforced upstream); it just works when called.
+The client submits one image for read-text and tag analysis, then returns only
+the textual clues and confidence values needed by location ranking. Credentials
+come from runtime configuration and are never logged or returned. Tests replace
+the HTTP transport and perform no network calls.
 """
 
 from __future__ import annotations

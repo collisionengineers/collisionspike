@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://collisionengineers.example/contracts/eva-payload.schema.json",
   "title": "EVA payload (12-field, settled contract)",
-  "description": "VENDORED COPY (ships inside the parser deployment package). Source of truth is the repo-root contracts/eva-payload.schema.json; this copy exists because .funcignore can only ship files INSIDE functions/parser/, and the FC1 deployment package therefore cannot reach the repo-root contracts/ dir. schema_validation._default_schema_path() resolves this package-local copy when deployed, the repo-root copy in local dev/tests. Kept identical by tests/test_schema_vendored_in_sync.py. Cross-language keystone for the Collision Engineers EVA drag-drop JSON payload. Exactly the 12 settled snake_case fields in contract order; vrm and reference are Case-identity fields and are intentionally NOT part of this payload.",
+  "description": "Packaged copy of the root contracts/eva-payload.schema.json file. The parser bundle cannot include files outside services/functions/parser, so schema_validation resolves this copy at runtime and the root copy in local development. Tests keep validation semantics identical. Defines the twelve settled snake_case EVA fields in contract order; vrm and reference are Case identity fields and are intentionally outside this payload.",
   "type": "object",
   "additionalProperties": false,
   "required": [

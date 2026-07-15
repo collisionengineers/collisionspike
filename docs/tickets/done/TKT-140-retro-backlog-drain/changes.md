@@ -1,4 +1,4 @@
-# Changes — TKT-140: Bulk retro backlog drain — reconstitute historical un-cased emails from Deleted Items
+# Changes — TKT-140: Bulk retro backlog drain — reconstitute prior un-cased emails from Deleted Items
 
 ## Status
 BOTH phases executed 2026-07-10. The dry-run (read-only — no writes of any kind) ran in the
@@ -43,9 +43,9 @@ Verification verdict stays PENDING for the verifier.
    `digital@` → `SET ROLE csadmin` (SELECT-only), behind a transient firewall rule created and
    trap-deleted in the same script (verified: only `AllowAzureServices` remains). Key semantics
    mirror the live ladder — `decideRetro` (packages/domain/src/domain/retro-case.ts) for
-   eligibility + key derivation, `findExistingCases` (api/src/functions/internal-retro.ts) for
+   eligibility + key derivation, `findExistingCases` (services/data-api/src/features/inbound/retro-routes.ts) for
    the rung-1 existence flags. Outputs: enum-context.txt, enum-backlog-rows.csv (118 rows),
-   enum-backlog-keys.csv (109 key/kind pairs → 107 distinct strings), enum-retro-audit-history.csv.
+   enum-backlog-keys.csv (109 key/kind pairs → 107 distinct strings), enum-retro-audit-events.csv.
 2. **Probe drive (read-only Graph via the deployed route)** —
    [evidence/drive-probe.mjs](./evidence/drive-probe.mjs) drove
    `POST /api/retro-deleted-probe` (cespk-orch-dev, function-keyed; key sourced via
@@ -75,7 +75,7 @@ criteria all satisfied (would-mint 75 ≤ 500; mint guards evidenced incl. a liv
 ## Files touched
 
 - evidence/ (dry-run): enumeration.sql, enum-context.txt, enum-backlog-rows.csv,
-  enum-backlog-keys.csv, enum-retro-audit-history.csv, drive-probe.mjs, probe-raw.jsonl,
+  enum-backlog-keys.csv, enum-retro-audit-events.csv, drive-probe.mjs, probe-raw.jsonl,
   probe-run-log.txt, probe-summary.json, dryrun-ledger.jsonl, dryrun-summary.md,
   tkt139-search-pair.json
 - evidence/ (drain): drive-drain.mjs, drain-ledger.jsonl, drain-run-log.txt, gen-after-sql.mjs,

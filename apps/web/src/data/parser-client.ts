@@ -1,5 +1,5 @@
 /* ============================================================
-   Collision Engineers — Code App: PARSER response adapter + transport contract.
+   Collision Engineers — parser response adapter + transport contract.
 
    Adapts the cespike-parser `cedocumentparser_v2.0_eva_json` response into the
    prototype domain shapes the review UI renders:
@@ -9,11 +9,8 @@
      - vrm + reference + vin -> identity values outside the EVA field set;
      - issues[]           -> surfaced to the user as request/parse errors.
 
-   PURE OF SDK: this module imports NO '@microsoft/power-apps' — only the response
-   mapping + the injectable `ParserTransport` contract, so it stays inside the seam's
-   offline boundary and the unit test maps a canned response with zero network. The
-   LIVE transport (CSP-safe, via the CE Parser custom connector) lives in
-   `parser-connector-transport.ts` and is passed to `parseDocument(req, transport)`.
+   The response mapping and injectable `ParserTransport` contract are network
+   independent. Unit tests map canned responses with a fake transport.
 
    The parser response field `source` is a FREE-FORM provenance string
    (`pdf_extraction`, `fallback_*`, `absent`, …) — NOT the prototype
@@ -220,15 +217,13 @@ export function parserErrors(resp: ParserResponse): ParserIssue[] {
 }
 
 /* ============================================================
-   5. The public call. The live transport (CSP-safe, via the CE Parser connector)
-      is injected by the caller (ManualIntake, from parser-connector-transport.ts);
-      the unit test injects a fake. There is no raw-fetch transport — the deployed
-      Code App CSP (`connect-src 'none'`) forbids it.
+   5. The public call. Manual Intake injects the authenticated transport; unit
+      tests inject a fake.
    ============================================================ */
 
 /**
  * Parse a document and adapt the result. `transport` is REQUIRED: the app passes
- * the connector-backed transport; the unit test injects a fake. Throws on transport
+ * the authenticated transport; the unit test injects a fake. Throws on transport
  * failure; parser-level errors are carried in the returned `issues`.
  */
 export async function parseDocument(

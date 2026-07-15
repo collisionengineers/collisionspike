@@ -20,7 +20,7 @@ Verified by: ticket-verifier dispatch, 10-07-26.
   suite pins the mint arm — verifier's own run: **108/108 across 6 files**. (Note transcribed: the
   changes.md claim of a QCL-shaped dedup fixture is inaccurate — dedup fixtures are PCH/QDOS-shaped;
   line 2 is satisfied by the provider-match + case-po suites, the actual allocator path.)
-- **Expected absences (by design):** the 11 pre-fix Held QCL cases keep no Case/PO (gated.md D3
+- **Expected absences (by design):** the 11 pre-fix Held QCL cases keep no Case/PO (ticket board D3
   recorded operator decision — staff confirm each, then mint via Set Case/PO); retro-drain creates
   log casePo:null even for matched providers (the ADR-0022 NEVER-MINT contract) — not defects.
 

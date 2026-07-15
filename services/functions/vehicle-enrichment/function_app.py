@@ -22,8 +22,8 @@ Route
 Returns (HTTP 200, always — enrichment is advisory and must never block intake)
 the authoritative ``vehicle-data.v1`` lookup, vehicle, provider-snapshot and
 mileage contract. Temporary top-level ``vehicle_model``/``make`` and calibrated
-``current_mileage`` fields keep the existing case caller compatible. Range-only
-or insufficient mileage never becomes a legacy point value.
+``current_mileage`` fields remain the case caller's established response shape.
+Range-only or insufficient mileage never becomes a case point value.
 
 Design rules honoured here
 --------------------------
@@ -53,7 +53,7 @@ from dvla_client import (
     DEFAULT_DVLA_API_BASE,
     DvlaClient,
 )
-from vehicle_data import VehicleDataService, legacy_enrichment_adapter
+from vehicle_data import VehicleDataService, case_enrichment_projection
 from vehicle_data.contracts import CalibrationProfile, CohortPrior
 from vehicle_data.service import (
     calibration_profile_from_env,
@@ -147,7 +147,7 @@ def enrich(
     calibration: CalibrationProfile | None = None,
     idempotency_key: str | None = None,
 ) -> dict:
-    """Invoke the sole vehicle-data service and project its compatibility fields.
+    """Invoke the sole vehicle-data service and project case response fields.
 
     The nested ``vehicle-data.v1`` contract is authoritative. Top-level
     ``vehicle_model``/``make``/``current_mileage`` fields are a mechanical bridge
@@ -174,7 +174,7 @@ def enrich(
         include_mileage=not document_has_mileage,
         idempotency_key=idempotency_key,
     )
-    return legacy_enrichment_adapter(contract)
+    return case_enrichment_projection(contract)
 
 
 def _clean_str(value: object) -> str | None:
@@ -208,7 +208,7 @@ def dvsa_mot_enrich(req: func.HttpRequest) -> func.HttpResponse:
 
     # Gate at the edge as well as in the flow — defence in depth.
     if not _truthy(os.environ.get("ENRICHMENT_ENABLED")):
-        result = legacy_enrichment_adapter(
+        result = case_enrichment_projection(
             failure_contract(
                 requested_registration=(
                     _clean_str(body.get("vrm")) if isinstance(body, dict) else None
@@ -270,7 +270,7 @@ def dvsa_mot_enrich(req: func.HttpRequest) -> func.HttpResponse:
         # Never bubble: enrichment is advisory. Return a canonical insufficient
         # envelope so typed callers never receive a structurally different 200.
         logger.warning("enrichment hard-failed: %s", type(exc).__name__)
-        result = legacy_enrichment_adapter(
+        result = case_enrichment_projection(
             failure_contract(
                 requested_registration=vrm,
                 lookup_status="temporarily_unavailable",

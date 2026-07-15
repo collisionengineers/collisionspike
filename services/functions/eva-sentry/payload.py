@@ -5,9 +5,8 @@
 
 Contract alignment
 ------------------
-The **12-field core** is the SAME settled contract the Code App serializer
-(``mockup-app/src/contracts/eva-export.ts``) and the Python parser
-(``cedocumentmapper_v2.0``) target, validated against
+The twelve-field core is the settled contract the web serializer and Python
+parser target, validated against
 ``contracts/eva-payload.schema.json``. To keep the deployment package
 self-contained (the repo-root ``contracts/`` dir does not ship in the Function
 zip — see ``.funcignore``), the 12-key order + the membership/format rules are
@@ -190,29 +189,13 @@ def split_preview_and_rest(
       up with "the 2 previews first, then all photos including those two again".
 
     If fewer than :data:`PREVIEW_COUNT` images are supplied the previews list is
-    whatever exists and the rest is the full (sorted) list; the readiness gate in
-    the evavalidation Function already blocks a case with <2 accepted images, so
-    this is defence-in-depth, not the primary check.
+    whatever exists and the rest is the full (sorted) list; the submission
+    readiness gate blocks a case with fewer than two accepted images, so this is
+    defence-in-depth, not the primary check.
     """
     ordered = sort_images(images)
     previews = ordered[:PREVIEW_COUNT]
     return previews, ordered
-
-
-def order_impact_images(
-    images: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """DEPRECATED single-list ordering kept for back-compat / the connector's
-    optional pre-ordered array. Returns ``[*previews, *all_in_sequence]`` — the
-    same bytes the two requests carry, concatenated, i.e.
-    ``[preview0, preview1, img0, img1, img2, …]``.
-
-    Prefer :func:`split_preview_and_rest` for the real two-request submission.
-    """
-    previews, ordered = split_preview_and_rest(images)
-    if len(previews) < PREVIEW_COUNT:
-        return list(ordered)
-    return [*previews, *ordered]
 
 
 # --------------------------------------------------------------------------
@@ -224,9 +207,8 @@ def overview_registration_warnings(images: list[dict[str, Any]]) -> list[str]:
 
     The domain rule (skill ``eva-sentry-api``; image-rules.ts): the first preview
     must be a vehicle **overview** whose **full registration is visible**. We
-    cannot OCR here, so we trust the upstream classification/redaction flags the
-    Code App + evavalidation Function stamp on each Evidence and surface a WARNING
-    (never a hard block — readiness is the evavalidation Function's job) when:
+    cannot inspect the registration here, so we trust the upstream classification
+    flags and surface a warning when:
 
     * there is no image tagged ``role == "overview"`` in the preview prefix, or
     * the chosen overview is explicitly flagged ``registrationVisible == False``.
@@ -283,8 +265,7 @@ def _file_name_of(image: dict[str, Any], index: int) -> str:
 def build_files(images: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Map image entries to EVA ``Files`` entries ``{Name, Extension, Data}``.
 
-    ``Data`` is the base-64 content the caller supplies under ``content`` (the
-    flow reads the bytes from Box/Dataverse and base-64-encodes them). Images
+    ``Data`` is the base-64 content the caller supplies under ``content``. Images
     without ``content`` are skipped (a metadata-only Evidence row can't be sent).
     Order is preserved (the caller sorts first).
     """

@@ -9,7 +9,7 @@ source.
 
 Mirrors the api's shared domain mapping EXACTLY (packages/domain/src/domain/
 classification.ts ``classifyAttachment`` + the TKT-124 re-kind delta
-migration/assets/schema/deltas/2026-07-09-tkt124-rekind-box-evidence.sql):
+database/migrations/2026-07-09-tkt124-rekind-box-evidence.sql):
 extension PRIMARY, MIME fallback only when the extension is absent/unknown.
 
     .jpg / .jpeg / .png                  -> image

@@ -41,7 +41,7 @@ PROPOSED (not built):
 - Add domain tests for all three mappings, every transition between them, the forbidden accepted-and-excluded state and Overview’s one-way implication.
 - Add component tests for selection, reason capture/clearing, failed and concurrent saves, reload, keyboard operation and accessible naming.
 - Run readiness, photo-order and EVA-export suites against accepted, excluded and undecided fixtures.
-- Produce a read-only inventory of impossible historic combinations before migration; preserve them for explicit remediation instead of coercing them.
+- Produce a read-only inventory of impossible prior combinations before migration; preserve them for explicit remediation instead of coercing them.
 - After deployment, observe and record genuine operator-designated photo decisions. Exercise only transitions
   required for that case, reload the page, and reconcile visible state with the stored record and audit event;
   keep unavailable live transitions PENDING and prove them in isolation rather than changing live evidence

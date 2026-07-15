@@ -1,11 +1,20 @@
-# Repairer is a first-class entity, distinct from Inspection Address
+# ADR-0001 — Repairer is a first-class entity
 
 **Status:** Accepted (2026-06-17).
 
-A repairer/garage is modelled as its own directory entity (name, address, contacts, "Figures"
-status), **many-to-many with Work Provider**, rather than as a label on a per-case Inspection
-Address. Chosen because the job sheet's `Garages` list is a reusable business directory that
-Collision Engineers chase images and figures from, one garage serves multiple providers, and
-contact details + Figures status must persist and be reused across cases. A Case's Inspection
-Address *references* a Repairer (or holds an ad-hoc location / the `Image Based Assessment` marker).
-Trade-off: an extra entity + join versus a single labelled address — accepted for fidelity and reuse.
+## Decision
+
+Model a Repairer as a reusable directory entity with name, full address, contacts, and figures status.
+Work Providers and Repairers have a many-to-many relationship. A Case's inspection address may reference
+a Repairer or contain an approved ad-hoc address or `Image Based Assessment` decision.
+
+## Rationale
+
+Repairers recur across providers and cases. Their contacts and figures policy need a stable identity for
+reuse, chasing, and audit. Treating the repairer as a label on each address would duplicate facts and lose
+the provider relationships.
+
+## Consequences
+
+The model requires a directory table and joins, but preserves business identity and allows address/contact
+updates without rewriting historical evidence.

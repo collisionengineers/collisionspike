@@ -2,7 +2,7 @@
 // CONFIG-CAPTURE — Static Web App `cespk-spa-dev` (OPEN_ITEMS A3).
 //
 // Captures the SPA front-end resource. It serves the React/Vite app from
-// mockup-app/ and calls the Data API over plain REST + MSAL/Entra workforce
+// apps/web/ and calls the Data API over plain REST + MSAL/Entra workforce
 // sign-in (staff-only). Verified live 2026-06-28:
 //   * SKU: Free.   * Host: proud-sky-04e318b03.7.azurestaticapps.net.
 //   * NO SWA app-settings are set (the appsettings collection is empty) — the

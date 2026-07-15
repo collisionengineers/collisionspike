@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-067",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/followup-2026-07-13/1.png",
+      "originalFilename": "1.png",
+      "sha256": "24b8e45163d4551e861beb68e46aa7f99106318a80d10ed56263dea316fdade1",
+      "storagePath": "tests/fixtures/evidence/sha256/24/24b8e45163d4551e861beb68e46aa7f99106318a80d10ed56263dea316fdade1.png"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-010",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/live-close-case-dialog.png",
+      "originalFilename": "live-close-case-dialog.png",
+      "sha256": "f0bda80bf773822a95f6425f21148c1dd55b3236db5b278112106970997230ef",
+      "storagePath": "tests/fixtures/evidence/sha256/f0/f0bda80bf773822a95f6425f21148c1dd55b3236db5b278112106970997230ef.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/live-closed-case-non-destructive.png",
+      "originalFilename": "live-closed-case-non-destructive.png",
+      "sha256": "241da1643d55306ed7189c9370c7e3c3441100f5d220e03f1ea82aa729c49212",
+      "storagePath": "tests/fixtures/evidence/sha256/24/241da1643d55306ed7189c9370c7e3c3441100f5d220e03f1ea82aa729c49212.png"
+    }
+  ]
+}

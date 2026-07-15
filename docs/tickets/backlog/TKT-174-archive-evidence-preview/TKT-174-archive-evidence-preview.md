@@ -16,7 +16,7 @@ Evidence images sourced from the Archive can take long enough to appear that the
 
 ## Evidence
 - [Operator note](./evidence/info.md) — reports slow previews and asks for a visible loading state plus a larger image view.
-- [Screenshot](./evidence/evidencepreview.png) — supplied example of the evidence-preview surface.
+- [Screenshot](./evidence-manifest.json) — supplied example of the evidence-preview surface.
 - TKT-048 restored basic inbox/case image rendering, but does not specify the Archive-specific loading, retry or large-view lifecycle required here.
 
 ## Proposed change
@@ -47,4 +47,4 @@ Distilled 2026-07-13 from the [operator note and screenshot](./evidence/). Imple
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator note](./evidence/info.md)
-- [Screenshot](./evidence/evidencepreview.png)
+- [Screenshot](./evidence-manifest.json)

@@ -1,24 +1,26 @@
 #!/usr/bin/env python3
-"""Verify the deployed parser engine against its immutable sibling-repo pin.
+"""Verify the deployed parser engine against its immutable authoring-repo pin.
 
 The check has two layers:
 
 * Always: hash the complete vendored engine boundary and compare it with
   ``cedocumentmapper_v2/VENDOR_LOCK.json``.  This is dependency-free and runs in
   CollisionSpike CI even though the private sibling repository is unavailable.
-* When the sibling clone is present: resolve the locked tag/commit with Git,
+* When the authoring clone is present: resolve the locked tag/commit with Git,
   enumerate the source boundary in both directions, and compare every source
-  blob plus ``providers.json`` directly with the locked commit.  The sibling's
-  currently checked-out branch is deliberately irrelevant.
+  blob plus ``providers.json`` directly with the locked commit. A schema-v2 lock
+  may name documentation-only Python files whose executable AST must remain
+  identical after repository wording normalisation.
 
 Use ``--write --ref engine-vX.Y`` only after re-vendoring from a committed,
-pushed tag.  The command refuses to write a lock unless the vendored files match
-that tag exactly.
+pushed tag. The command writes an empty ``normalisedFiles`` list and refuses to
+write unless the vendored files match that tag exactly.
 """
 
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -29,7 +31,7 @@ from typing import Any
 
 
 PARSER_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = PARSER_ROOT.parents[1]
+REPO_ROOT = PARSER_ROOT.parents[2]
 VENDOR_ROOT = PARSER_ROOT / "cedocumentmapper_v2"
 LOCK_PATH = VENDOR_ROOT / "VENDOR_LOCK.json"
 PROVENANCE_PATH = VENDOR_ROOT / "PROVENANCE.md"
@@ -52,7 +54,7 @@ class PinError(RuntimeError):
 
 
 def _normalise(data: bytes) -> bytes:
-    """Match the historical drift guard while remaining cross-platform."""
+    """Match the established drift guard while remaining cross-platform."""
 
     text = data.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
     return "\n".join(line.rstrip() for line in text.split("\n")).encode("utf-8")
@@ -176,13 +178,15 @@ def _load_lock() -> dict[str, Any]:
         "omittedFiles",
         "omittedPrefixes",
         "vendoredFileCount",
+        "sourceContentSha256",
         "contentSha256",
+        "normalisedFiles",
         "providersSha256",
     }
     missing = sorted(required - set(lock))
     if missing:
         raise PinError(f"vendor lock is missing keys: {missing}")
-    if lock["schemaVersion"] != 1:
+    if lock["schemaVersion"] != 2:
         raise PinError(f"unsupported vendor-lock schema: {lock['schemaVersion']!r}")
     if lock["repository"] != EXPECTED_REPOSITORY:
         raise PinError(f"unexpected source repository: {lock['repository']!r}")
@@ -197,7 +201,60 @@ def _load_lock() -> dict[str, Any]:
     commit = str(lock["commit"])
     if len(commit) != 40 or any(ch not in "0123456789abcdef" for ch in commit.lower()):
         raise PinError(f"vendor commit is not a full Git SHA: {commit!r}")
+    normalised = lock["normalisedFiles"]
+    if not isinstance(normalised, list) or normalised != sorted(set(normalised)):
+        raise PinError("normalisedFiles must be a sorted list of unique paths")
+    vendored = set(_vendored_paths())
+    invalid = [
+        path
+        for path in normalised
+        if not isinstance(path, str)
+        or path not in vendored
+        or not path.endswith(".py")
+    ]
+    if invalid:
+        raise PinError(f"normalisedFiles contains invalid paths: {invalid}")
+    source_digest = str(lock["sourceContentSha256"]).upper()
+    content_digest = str(lock["contentSha256"]).upper()
+    for label, digest in (
+        ("sourceContentSha256", source_digest),
+        ("contentSha256", content_digest),
+    ):
+        if len(digest) != 64 or any(ch not in "0123456789ABCDEF" for ch in digest):
+            raise PinError(f"{label} is not a SHA-256 digest")
+    if not normalised and source_digest != content_digest:
+        raise PinError("an exact vendor lock must use identical source and worktree digests")
     return lock
+
+
+def _executable_ast(data: bytes, path: str) -> str:
+    """Return a Python AST with module/class/function docstrings removed.
+
+    Comments do not enter the AST. Equality therefore proves a declared
+    normalisation changed wording only and left executable code, annotations,
+    decorators, defaults, and non-docstring literals untouched.
+    """
+
+    try:
+        tree = ast.parse(_normalise(data).decode("utf-8"), filename=path)
+    except (SyntaxError, UnicodeDecodeError) as exc:
+        raise PinError(f"cannot parse normalised Python file {path}: {exc}") from exc
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None)
+        if (
+            isinstance(body, list)
+            and body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        ):
+            del body[0]
+    return ast.dump(tree, annotate_fields=True, include_attributes=False)
+
+
+def _verify_wording_normalisation(path: str, source: bytes, worktree: bytes) -> None:
+    if _executable_ast(source, path) != _executable_ast(worktree, path):
+        raise PinError(f"normalised file changes executable Python structure: {path}")
 
 
 def _source_path(rel: str, source_root: str) -> str:
@@ -282,13 +339,25 @@ def _verify_sibling(sibling: Path, lock: dict[str, Any], worktree: dict[str, byt
         )
 
     source = _tag_entries(sibling, lock)
-    if _aggregate(source) != _aggregate(worktree):
-        drifted = sorted(
-            rel
-            for rel in worktree
-            if _normalise(worktree[rel]) != _normalise(source[rel])
+    source_digest = _aggregate(source)
+    if source_digest != str(lock["sourceContentSha256"]).upper():
+        raise PinError(
+            f"locked tag content digest changed: lock={lock['sourceContentSha256']}, "
+            f"tag={source_digest}"
         )
-        raise PinError(f"vendored content differs from locked tag {lock['ref']}: {drifted}")
+    drifted = sorted(
+        rel
+        for rel in worktree
+        if _normalise(worktree[rel]) != _normalise(source[rel])
+    )
+    expected_normalised = list(lock["normalisedFiles"])
+    if drifted != expected_normalised:
+        raise PinError(
+            "authoring/worktree drift does not match normalisedFiles: "
+            f"expected={expected_normalised}, actual={drifted}"
+        )
+    for rel in expected_normalised:
+        _verify_wording_normalisation(rel, source[rel], worktree[rel])
     if _sha256(_normalise(source["providers.json"])) != str(lock["providersSha256"]).upper():
         raise PinError(f"locked tag's providers.json does not match {lock['providersSha256']}")
 
@@ -296,7 +365,7 @@ def _verify_sibling(sibling: Path, lock: dict[str, Any], worktree: dict[str, byt
 def _lock_payload(sibling: Path, ref: str) -> dict[str, Any]:
     _tag_object, commit = _verify_pushed_tag(sibling, ref)
     payload: dict[str, Any] = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "repository": EXPECTED_REPOSITORY,
         "ref": ref,
         "commit": commit,
@@ -304,7 +373,9 @@ def _lock_payload(sibling: Path, ref: str) -> dict[str, Any]:
         "omittedFiles": sorted(EXPECTED_OMITTED_FILES),
         "omittedPrefixes": sorted(EXPECTED_OMITTED_PREFIXES),
         "vendoredFileCount": 0,
+        "sourceContentSha256": "",
         "contentSha256": "",
+        "normalisedFiles": [],
         "providersSha256": "",
     }
     worktree = _worktree_entries()
@@ -317,6 +388,7 @@ def _lock_payload(sibling: Path, ref: str) -> dict[str, Any]:
         )
         raise PinError(f"refusing to pin a non-matching vendor tree: {drifted}")
     payload["vendoredFileCount"] = len(worktree)
+    payload["sourceContentSha256"] = _aggregate(source)
     payload["contentSha256"] = _aggregate(worktree)
     payload["providersSha256"] = _sha256(_normalise(worktree["providers.json"]))
     return payload

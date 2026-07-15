@@ -5,7 +5,7 @@ status: verify
 priority: P2
 area: ai
 tickets-it-relates-to: [TKT-002, TKT-017, TKT-015]
-research-link: docs/plans/work-todo-spike/ai-assistant/ai-tools/research/image-analysis.md
+research-link: docs/tickets/verify/TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md
 plan: PLAN-001
 ---
 
@@ -33,8 +33,8 @@ For a sample image set the sequence returns the staged observations + a ranked a
 suggestions (not auto-confirmed); failures degrade gracefully.
 
 ## Research
-- Operator stub: [image-analysis.md](../../../plans/work-todo-spike/ai-assistant/ai-tools/image-analysis.md)
-- Research pack: [research/image-analysis.md](../../../plans/work-todo-spike/ai-assistant/ai-tools/research/image-analysis.md)
+- Operator stub: [image-analysis.md](TKT-016-ai-image-analysis.md)
+- Research pack: [research/image-analysis.md](TKT-016-ai-image-analysis.md)
 
 ## Artifacts
 - [Changes made](./changes.md)

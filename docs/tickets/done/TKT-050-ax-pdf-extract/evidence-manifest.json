@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-050",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/new-inspection-request-ax-ref1074398.eml",
+      "originalFilename": "new-inspection-request-ax-ref1074398.eml",
+      "sha256": "342718e48739c8e58782c09547756b0530463db057bf45871a3d91747e648f9a",
+      "storagePath": "tests/fixtures/evidence/sha256/34/342718e48739c8e58782c09547756b0530463db057bf45871a3d91747e648f9a.eml"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "InspectionRequest_1074398.pdf",
+      "originalFilename": "InspectionRequest_1074398.pdf",
+      "sha256": "ed02f122e339fc1fe9a4afbb4bd5779b52d5ab48943356fdfc788bd419ff8c58",
+      "storagePath": "tests/fixtures/evidence/sha256/ed/ed02f122e339fc1fe9a4afbb4bd5779b52d5ab48943356fdfc788bd419ff8c58.pdf"
+    }
+  ]
+}

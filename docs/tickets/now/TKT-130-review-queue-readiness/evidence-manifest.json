@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-130",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/review-queue-live-2026-07-08.png",
+      "originalFilename": "review-queue-live-2026-07-08.png",
+      "sha256": "f0caea250f85da182043f76cf1afe46f27b76dded9db3227e7ba9bb269332de5",
+      "storagePath": "tests/fixtures/evidence/sha256/f0/f0caea250f85da182043f76cf1afe46f27b76dded9db3227e7ba9bb269332de5.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/review-queue-needs-review-case-2026-07-08.png",
+      "originalFilename": "review-queue-needs-review-case-2026-07-08.png",
+      "sha256": "3e4bdef7158e79be171152cc6fbded4976e418d6ae5a30c78303af60321b8f7a",
+      "storagePath": "tests/fixtures/evidence/sha256/3e/3e4bdef7158e79be171152cc6fbded4976e418d6ae5a30c78303af60321b8f7a.png"
+    }
+  ]
+}

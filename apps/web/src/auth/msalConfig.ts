@@ -6,7 +6,7 @@
    URI) — no secret reaches the browser bundle. The only secret is the
    API itself, which validates the Entra JWT on every request.
 
-   Entra app registrations (created in P1 — see docs/gated.md):
+   Entra app registrations (see docs/operations/identity-and-access.md):
      - cespk-spa      : the SPA public client (PKCE+CORS redirect)
      - cespk-api      : the protected resource (access_as_user scope)
    ============================================================ */

@@ -1,6 +1,6 @@
 """Offline pytest suite for the OCR host.
 
-Run from ocr/:
+Run from services/functions/ocr/:
     python -m pytest
 
 These tests monkeypatch the two adapter seams (``ocr_pdf_adapter.run_ocr`` and
@@ -362,16 +362,15 @@ def test_build_result_no_case_vrm_returns_best_candidate():
 
 
 # --------------------------------------------------------------------------- #
-# tolerant decode — the connector gateway double-encode landmine               #
-# (memory powerplatform-connector-base64-double-encode)                        #
+# tolerant decode for redundantly encoded transport payloads                    #
 # --------------------------------------------------------------------------- #
 def test_ocr_pdf_recovers_double_base64_encoded_document(monkeypatch):
-    # The Power Platform gateway can re-encode the base64 body a SECOND time. A
+    # An upstream transport can wrap the base64 body a second time. A
     # naive single decode would hand the engine base64-ASCII, not a PDF. The
     # handler must peel the redundant layer and pass real %PDF bytes to the seam.
     real_pdf = b"%PDF-1.4 scanned image only\n%%EOF"
-    once = _b64(real_pdf)                       # what the flow SENDS
-    twice = base64.b64encode(once.encode("ascii")).decode("ascii")  # gateway re-encodes
+    once = _b64(real_pdf)
+    twice = base64.b64encode(once.encode("ascii")).decode("ascii")
 
     seen = {}
 

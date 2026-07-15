@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const domainSrc = (relative: string): string => resolve(here, '..', 'packages/domain/src', relative);
+const domainSrc = (relative: string): string => resolve(here, '..', '..', 'packages/domain/src', relative);
 
 export default defineConfig({
   test: {

@@ -23,9 +23,8 @@ Two engines, one switch (``OCR_PROVIDER`` -> ``provider`` here):
       accuracy on real provider scans disappoints. We render each page to PNG
       with PyMuPDF and POST it to DI Read (async analyze -> poll -> text). DI
       Read is called SERVER-SIDE here (Function -> DI Read over HTTPS, key from a
-      Key Vault reference app setting); the Code App/flows only ever see OUR
-      connector (CSP-safe), never DI Read. Image Analysis 4.0 is DEPRECATED
-      (retires 2028-09-25) — DI Read is the managed survivor (docs/plans/phase-5-ocr-and-scale/ocr-strategy §0).
+      Key Vault reference app setting); callers only see this function, never the
+      recognition provider directly.
 
 ------------------------------------------------------------------------------
 Two output modes:
@@ -55,7 +54,7 @@ from pathlib import Path
 from typing import Any
 
 # The 12 EVA payload keys in contract order + the parser->EVA rename map, kept
-# BYTE-IDENTICAL to functions/parser/parser_adapter.py so the OCR host's
+# BYTE-IDENTICAL to services/functions/parser/parser_adapter.py so the OCR host's
 # extraction envelope is indistinguishable from the FC1 parser's. (If the parser
 # map changes, change it here too — they are the same contract.)
 EVA_FIELD_ORDER: tuple[str, ...] = (
@@ -401,7 +400,7 @@ def _di_read_text(analyze_result: dict[str, Any]) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Envelope projection (identical to functions/parser/parser_adapter.py)         #
+# Envelope projection (identical to services/functions/parser/parser_adapter.py) #
 # --------------------------------------------------------------------------- #
 def _to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:
     """Map a ``record_to_dict`` result -> the 12-field EVA extraction + identity."""

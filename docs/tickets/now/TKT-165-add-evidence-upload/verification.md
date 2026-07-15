@@ -17,11 +17,11 @@ a ticket-level verification verdict.
 - The claim-boundary review regression runs passed API **27** and orchestration **33** focused tests.
   They prove Archive gate-off excludes Box-backed rows before lease/attempt accounting while
   Blob-backed staff rows continue to classify.
-- Production builds passed for `@cs/api`, `@cs/orchestration`, `@cs/domain`, and `mockup-app` (Vite).
+- Production builds passed for `@cs/api`, `@cs/orchestration`, `@cs/domain`, and `@cs/web` (Vite).
 - `node verify-all.mjs`: **8 passed / 0 failed / 13 explicitly skipped**; its compiled suites include
   Domain **1,102**, API **610**, orchestration **399**, and SPA **437** passing tests.
 - Ticket, documentation-link, shared-skill and Postgres migration-parity validators passed.
-- `build-api.cjs` produced a syntax-valid bundle with Sharp externalised. A clean Linux-targeted
+- `scripts/build/build-api.cjs` produced a syntax-valid bundle with Sharp externalised. A clean Linux-targeted
   production install supplied `sharp-linux-x64-0.35.3.node` and `libvips-cpp.so.8.18.3`; `file`
   identified both as x86-64 ELF shared objects.
 
@@ -38,8 +38,8 @@ The focused tests prove:
 - evidence, strict audit, archive outbox and readiness generation roll back together when durable work
   fails; stale-target and rollback paths leave the exact Blob path discoverable for leased,
   reference-checked cleanup;
-- a cached legacy request with no new source/header gets one stable server-derived batch identity and
-  identity-bearing replay response; rollout order is API before orchestration/SPA;
+- a cached earlier request with no new source/header gets one stable server-derived batch identity and
+  identity-bearing replay response; rollout order is API before services/orchestration/SPA;
 - JPG/PNG/WebP/PDF validation rejects MIME/extension disagreement, HEIC/HEIF, masquerades and
   header-only/truncated containers. Real 2×2 JPEG, PNG and WebP fixtures pass a full pixel decode;
   structurally plausible fake containers fail. Decode work is sequential per request file and is
@@ -77,7 +77,7 @@ The focused tests prove:
 
 1. Apply the TKT-165 delta, then verify `staff_evidence_upload` and
    `staff_evidence_upload_item` have forced RLS and `uq_evidence_staff_upload_item` exists.
-2. Deploy in the compatibility-safe order: API first, orchestration second, SPA last. Smoke each
+2. Deploy in the continuity-safe order: API first, orchestration second, SPA last. Smoke each
    surface before continuing.
 3. In Chrome, use Add evidence on a designated test case whose archive folder is beneath test root
    `392761581105`: select Held as well as a normal open case; upload one harmless JPG and one PDF.

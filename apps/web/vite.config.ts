@@ -4,14 +4,9 @@ import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
-// Absolute paths to the @cs/domain SOURCE, resolved relative to THIS config file
-// (mockup-app/) and up one level ('..') to the monorepo root.
+// Absolute paths to the @cs/domain source, resolved from apps/web/.
 const here = dirname(fileURLToPath(import.meta.url));
-const domainSrc = (rel: string): string => resolve(here, '..', 'packages/domain/src', rel);
-
-// Off Power Platform: powerApps() plugin removed (it emitted the deploy manifest
-// + SDK runtime bootstrap for `pac code push`; the app now deploys to Azure
-// Static Web Apps via `@azure/static-web-apps-cli`).
+const domainSrc = (rel: string): string => resolve(here, '..', '..', 'packages/domain/src', rel);
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -19,7 +14,7 @@ export default defineConfig({
     open: false,
     // Local dev: forward /api to the live dev Data API server-side, so the browser
     // stays same-origin (no Function-App CORS change needed). Pairs with
-    // mockup-app/.env.local (VITE_API_BASE_URL=http://localhost:5173) and the
+    // apps/web/.env.local (VITE_API_BASE_URL=http://localhost:5173) and the
     // localhost:5173 spa redirectUri on the CollisionSpike SPA app registration.
     proxy: {
       '/api': {

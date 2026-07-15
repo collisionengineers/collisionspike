@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-186",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/Re100290.012_The Car Hire Specialists.eml",
+      "originalFilename": "Re100290.012_The Car Hire Specialists.eml",
+      "sha256": "f41effeadb10b1ae4212ffe1883791702b36080b2357deb299de6e1be4382b6c",
+      "storagePath": "tests/fixtures/evidence/sha256/f4/f41effeadb10b1ae4212ffe1883791702b36080b2357deb299de6e1be4382b6c.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/REPORT.eml",
+      "originalFilename": "REPORT.eml",
+      "sha256": "963682e05a24f1a892e18b0498877a277a1039cc33c0ef9f297b0e7210e05bb0",
+      "storagePath": "tests/fixtures/evidence/sha256/96/963682e05a24f1a892e18b0498877a277a1039cc33c0ef9f297b0e7210e05bb0.eml"
+    }
+  ]
+}

@@ -5,7 +5,7 @@
 # This image exists for ONE reason: to carry the `tesseract` OS binary that
 # Flex Consumption (FC1) structurally cannot provide, lighting up the parser
 # engine's already-written OCR fallback with zero engine-code change, and to
-# co-host the fast-alpr registration-plate OCR (docs/plans/phase-5-ocr-and-scale/ocr-strategy.md §5).
+# co-host the fast-alpr registration-plate OCR (see docs/architecture/integrations.md).
 #
 # Base image: the official Azure Functions Python 4.x image (Python 3.12). KEEP
 # THIS PINNED + UPDATE MONTHLY — Microsoft publishes monthly base-image security

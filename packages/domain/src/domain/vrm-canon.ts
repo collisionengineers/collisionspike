@@ -9,8 +9,8 @@
    the same token as storage ("YT13UTV") before any comparison.
 
    Consolidated call-sites (previously three divergent local copies):
-     - orchestration/src/lib/image-classify.ts  (was local `normalizeVrm`)
-     - packages/domain/src/domain/vrm-filter.ts  (was `replace(/\s+/g,'')` outputs)
+     - services/orchestration/src/platform/image-classify.ts
+     - packages/domain/src/domain/vrm-filter.ts
      - api openVrmTwins / assistant lookup / global search  (new call-sites)
 
    PURE + DETERMINISTIC + FRAMEWORK-FREE. No I/O, no live calls.

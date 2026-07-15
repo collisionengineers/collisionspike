@@ -32,18 +32,18 @@ engineers@ **Deleted Items** (see (d)).
 
 ## (b) Ack-mint belt-and-braces at the Data API create seam
 
-- `api/src/functions/internal.ts`: new exported **`mintBlockedByCategory(internetMessageId)`** —
+- `services/data-api/src/features/`: new exported **`mintBlockedByCategory(internetMessageId)`** —
   reads the message's OWN triage row (written by classifyInbound before any create; carries staff
   reclassifies) and blocks the create when the category is not in `CASE_MINTING_CATEGORIES`
   (receiving_work-only). Wired into **`POST /api/internal/cases/resolve`**'s create path → returns
   `{outcome: 'refused_category'}` + a warning audit; the orchestrator handles the outcome.
-- `api/src/functions/internal-retro.ts`: **`POST /api/internal/retro/create`** refuses when the
+- `services/data-api/src/features/inbound/retro-routes.ts`: **`POST /api/internal/retro/create`** refuses when the
   located "original" is itself an **ack/digest-family** email (`non_actionable`/`other`/
   `pre_instruction`); the retro TRIGGER family (billing/case_update/cancellation/query) is
   deliberately allowed as reconstruction material (lands Held, never terminal, never a PO). The
   orchestrator treats `refused_category` as fall-through to the failure record (both rungs), so a
   refusal still ends in a VISIBLE "Unable to locate".
-- Unit tests: `api/src/functions/internal-guards.test.ts` (mocked DB — every category
+- Unit tests: `services/data-api/src/features/` (mocked DB — every category
   blocked/allowed; missing-row + read-failure tolerance).
 
 ## (c) "Unable to Locate" visible outcome
@@ -81,6 +81,6 @@ api 89 fns / orch 70 fns / SPA redeployed (registry: live-environment.md / LIVE_
 - The `unable_to_locate` stamp has not yet fired live (both drains this session SUCCEEDED); the next
   genuine retro failure exercises it end-to-end — verifier item.
 - The reconstructed PHA5007 case (`87e79f62…`) is Held `needs_review` with NO Case/PO by design —
-  staff confirm the provider (Parkhouse has no confirmed principal, docs/gated.md D3) and set the PO.
+  staff confirm the provider (Parkhouse has no confirmed principal, docs/tickets/BOARD.md D3) and set the PO.
 - New-ticket candidates: the spaced-ref `$search` variant (memo finding 4); a bulk retro drain sweep
   over the un-linked triage backlog.

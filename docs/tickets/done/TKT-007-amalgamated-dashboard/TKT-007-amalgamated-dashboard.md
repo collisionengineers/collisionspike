@@ -5,7 +5,7 @@ status: done
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-012, TKT-005]
-research-link: docs/plans/work-todo-spike/ui-changes/research/amalgamated-dashboard.md
+research-link: docs/tickets/done/TKT-007-amalgamated-dashboard/TKT-007-amalgamated-dashboard.md
 ---
 
 # Combine email + intake overviews into one compact dashboard
@@ -27,8 +27,8 @@ A single dashboard shows both email and intake state compactly; specific actions
 counts agree with the contract from TKT-012.
 
 ## Research
-- Operator stub: [amalgamated-dashboard.md](../../../plans/work-todo-spike/ui-changes/amalgamated-dashboard.md)
-- Research pack: [research/amalgamated-dashboard.md](../../../plans/work-todo-spike/ui-changes/research/amalgamated-dashboard.md)
+- Operator stub: [amalgamated-dashboard.md](TKT-007-amalgamated-dashboard.md)
+- Research pack: [research/amalgamated-dashboard.md](TKT-007-amalgamated-dashboard.md)
 
 ## Artifacts
 - [Changes made](./changes.md)

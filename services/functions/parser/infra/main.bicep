@@ -19,8 +19,7 @@
 //     parameter or derived from the deployment scope.
 //   * Identity-based storage (no account keys in app settings): the host uses
 //     AzureWebJobsStorage__accountName + the MI's Storage Blob Data Owner role.
-//   * Gating note: PDF_MAPPER_ENABLED is a Dataverse env var checked in the
-//     Power Automate flow UPSTREAM, NOT an app setting consumed by this Function.
+//   * Feature availability is checked by the calling service, not this function.
 // ============================================================================
 
 @description('Azure region for all resources.')

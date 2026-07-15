@@ -1,5 +1,5 @@
 {
-  "_comment": "Fixture: a record_to_dict() result from cedocumentmapper_v2 where the parser DERIVED claimant_telephone + claimant_email from the document text (ROADMAP B2). Maps to a SCHEMA-VALID 12-field EVA payload with those two fields populated and provenanced. Synthetic data only — NO real PII, NO secrets. The phone (07700 9xxxxx) and email (example.co.uk) use reserved/example ranges.",
+  "_comment": "Fixture: a record_to_dict() result from cedocumentmapper_v2 where the parser DERIVED claimant_telephone + claimant_email from the document text. Maps to a SCHEMA-VALID 12-field EVA payload with those two fields populated and provenanced. Synthetic data only — NO real PII, NO secrets. The phone (07700 9xxxxx) and email (example.co.uk) use reserved/example ranges.",
   "provider": {
     "provider_id": "demo",
     "provider_name": "Demo Provider",

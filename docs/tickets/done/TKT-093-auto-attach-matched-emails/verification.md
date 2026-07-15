@@ -23,7 +23,7 @@ Verdict: **VERIFIED-LIVE** (with two declared residuals — neither blocks the l
 - **Line 2 — suggest lane still visible from the inbox list:** live pending `autoAttached:false`
   suggestions exist alongside (07-10T07:42:44Z, 08:31:04Z), and the served SPA bundle
   (`/assets/index-D-JoRJ9H.js`) contains `may belong to ·` / `Linked to case ·` /
-  `linkSuggestionCasePo` — matching `mockup-app/src/screens/Inbox.tsx:680-682`.
+  `linkSuggestionCasePo` — matching `apps/web/src/features/inbox/Inbox.tsx:680-682`.
 - **Line 3 — misclass pinned both ways:** eval pin `tkt093-forward-audatex-caseupdate`
   (manifest + baselines) + both parser tests; live `POST /api/classify-email` probe →
   `case_update/update_general` (2026-07-07).
@@ -56,7 +56,7 @@ api + **SPA DEPLOYED 2026-07-07**. Only the gated live auto-attach flip (operato
 
 ## 1. Offline eval + unit tests
 - **Misclass:** real classifier run on the sample forward → **`case_update/update_general`**
-  (was `receiving_work/existing_provider_audit`). Pinned in `scripts/eval-email/manifest.json`
+  (was `receiving_work/existing_provider_audit`). Pinned in `scripts/evaluation/email/manifest.json`
   + `test_tkt093_forward_delivering_document_is_case_update_not_new_work`.
 - **Auto-attach:** 7 new `triage-policy.test.ts` cases — gate ON + exact case_po/job_ref single
   → `attach_case`; VRM-only → stays `suggest_attach`; ambiguous → `suggest_attach`; gate OFF →
@@ -93,5 +93,5 @@ and the audit-subtype tests pass).
   general TRIAGE_* live-occurrence probes).
 
 ## How to re-verify
-`npm --prefix packages/domain test` (triage-policy auto-attach) + api/orch tests + the live
+`npm --prefix packages/domain test` (triage-policy auto-attach) + Data API/orchestration tests + the live
 `POST /api/classify-email` misclass probe.

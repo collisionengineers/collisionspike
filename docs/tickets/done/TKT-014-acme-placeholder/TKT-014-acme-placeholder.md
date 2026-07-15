@@ -5,7 +5,7 @@ status: done
 priority: P3
 area: ui
 tickets-it-relates-to: []
-research-link: docs/plans/work-todo-spike/ui-changes/acme/research/acme.md
+research-link: docs/tickets/done/TKT-014-acme-placeholder/TKT-014-acme-placeholder.md
 ---
 
 # Remove the acme.co.uk placeholder from provider fields
@@ -26,8 +26,8 @@ the provider field.
 No provider field shows `acme.co.uk`; the field renders the real value or a neutral empty state.
 
 ## Research
-- Operator stub: [acme.md](../../../plans/work-todo-spike/ui-changes/acme/acme.md) (see `acme.png` alongside it)
-- Research pack: [research/acme.md](../../../plans/work-todo-spike/ui-changes/acme/research/acme.md)
+- Operator stub: [acme.md](TKT-014-acme-placeholder.md) (see `acme.png` alongside it)
+- Research pack: [research/acme.md](TKT-014-acme-placeholder.md)
 
 ## Artifacts
 - [Changes made](./changes.md)

@@ -1,4 +1,4 @@
-"""Offline unit tests for the ROADMAP B2 claimant telephone / email extraction.
+"""Offline unit tests for claimant telephone / email extraction.
 
 These exercise the REAL engine logic (no monkeypatch): the normalizers and the
 ``RuleEngine`` fallback rules that derive ``claimant_telephone`` /
@@ -6,7 +6,7 @@ These exercise the REAL engine logic (no monkeypatch): the normalizers and the
 provenance, leaving them empty when absent. ``DocumentModel`` is built directly
 in-memory, so PyMuPDF / Tesseract are NOT required.
 
-Run from functions/parser/:
+Run from services/functions/parser/:
     python -m pytest tests/test_contact_extraction.py
 """
 

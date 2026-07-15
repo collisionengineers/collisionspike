@@ -1,44 +1,9 @@
-"""function_app — Collision Engineers location-suggest Function (Functions v2).
+"""HTTP entry point for full-address location suggestions.
 
-HTTP trigger ``POST /location-suggest``. Accepts photo references + verbatim text
-clues for a case under review, runs Azure AI Vision (Image Analysis + Read OCR)
-over the case's OWN photos and Azure Maps geocode over the textual clues, ranks
-the geocoded results, and returns CANDIDATE location suggestions — never a
-decision.
-
-[BUILD] — authored offline; no Azure/tenant contact (tests mock Vision / Maps /
-the Box photo seam). Box is dormant: photo bytes are read through the stubbed
-``PhotoSource`` seam, so the whole route is built + unit-tested with zero live
-Box / Azure.
-
-AUTH: FUNCTION-level (a function key is required) — the connector passes the key
-as the ``x-functions-key`` header, exactly like the parser Function. The key
-lives on the CONNECTION, never in code.
-
-GATING: ``cr1bd_LOCATION_ASSIST_ENABLED`` (paired with ``cr1bd_AZURE_MAPS_ENABLED``)
-is enforced UPSTREAM — the Code App / flow checks the Dataverse env vars and only
-calls this route when both are true. The Function itself does NOT read the gate,
-exactly like ``PDF_MAPPER_ENABLED`` for the parser.
-
-ADR-0013: every candidate is a SUGGESTION a reviewer must confirm. This Function
-never reads or writes a Case row; ``case_id`` is correlation only.
-
-Response envelope (camelCase body so it threads into the Code App domain types):
-    {
-      "candidates":         [ {label, addressLines, postcode?, confidence,
-                               evidence:[{kind, detail, sourcePhotoRef?}],
-                               sourcePhotoRef?} ],
-      "noConfidentLocation": bool,
-      "issues":             [ {field, severity, code, message} ],
-      "contract_version":   "ce_location_suggest_v1"
-    }
-
-Status codes (mirror the parser's classification):
-    200  ok — including the zero-candidate case (noConfidentLocation=true)
-    400  bad request (non-JSON body, missing/!list photo_refs, bad field types)
-    422  photos unreadable — every supplied photo was unavailable AND no text clue
-    500  unexpected internal error (defensive; never let a raw 502 escape)
-    502  Vision / Maps dependency failed (not configured / unreachable)
+``POST /location-suggest`` accepts case photo references and text clues, invokes
+the suggestion core, and returns reviewable address candidates. The calling Data
+API owns feature availability and supplies photo bytes; this service does not
+read or write Case records.
 """
 
 from __future__ import annotations
@@ -124,9 +89,9 @@ def _handle(req: func.HttpRequest) -> func.HttpResponse:
     ai_reasoner = build_reasoner() if deep else None
 
     # --- 2. Build dependencies (inline bytes preferred; Vision/Maps lazy) -----
-    # select_photo_source() uses InlinePhotoSource when the Data API enriched the
-    # photo_refs with inline bytes (TKT-077 — the live path), else the Stub/Box
-    # factory. The Vision/Maps clients read their Key Vault references lazily on
+    # Inline bytes from the Data API use InlinePhotoSource. Tests without inline
+    # bytes use the configured fixture source; direct Archive reads fail closed.
+    # The Vision/Maps clients read their secret references lazily on
     # first use. None of this touches the network here.
     photo_source = select_photo_source(photo_refs)
     vision = VisionClient()

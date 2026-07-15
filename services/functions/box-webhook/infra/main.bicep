@@ -1,24 +1,22 @@
-// Box-webhook Function — infrastructure (Phase 7 / ADR-0012, build-plan 03).
+// Archive-webhook Function infrastructure.
 //
-// [BUILD] — this Bicep is authored and `az bicep build`-able OFFLINE. Deploying
-// it (az deployment / azd up) is [DEPLOY-WITH-LOGIN]. Injecting the real Box
-// client_secret + the two webhook signature key VALUES into the Key Vault is
-// [RESERVED-FOR-USER] — this template only declares the secret *references*; it
-// never contains a literal secret. Claude never holds a Box credential.
+// This Bicep can be compiled offline. Deployment and secret injection require a
+// separately authorized live operation. The template declares secret references
+// only and never contains literal credentials.
 //
-// Shape: an FC1 clone of functions/enrichment/infra/main.bicep — Linux Flex
+// Linux Flex Consumption service with the shared monitoring and network shape.
 // Consumption (FC1) Function App + Storage + Log Analytics + workspace-based
 // App Insights + Key Vault, with a system-assigned managed identity granted
 // "Key Vault Secrets User" (resolves the @Microsoft.KeyVault(...) refs) AND
 // "Storage Blob Data Owner" (FC1 identity-based deployment storage).
 //
-// Two surfaces share this one app: the CCG token-mint connector facade and the
+// Two surfaces share this one app: Archive REST operations and the
 // webhook receiver. The Box CCG token is minted INSIDE the Function from the
-// Key Vault client_secret (a custom connector cannot run client-credentials).
+// Key Vault client secret used only by the server-side archive client.
 //
 // NOTE: NO `api.box.com` CORS rule — Box -> Function is server-to-server (no
 // browser preflight). Add `az functionapp cors` later only if a browser ever
-// calls it directly. (See box-custom-connector-and-webhook.md §B.3.)
+// calls it directly.
 
 @description('Azure region for all resources.')
 param location string = resourceGroup().location
@@ -42,7 +40,7 @@ param boxUploadBase string = 'https://upload.box.com'
 @description('Layer-2 scope lock: the only Box folder (and its descendants) ops may target. Set to the test folder id (392761581105) for the scoped phase; empty lifts the lock for production.')
 param boxAllowedRootId string = ''
 
-@description('Data API base URL the webhook receiver writes Evidence/audit + re-evaluates status through (Function MI client-credentials token; no key). Replaces the retired Dataverse + Power Automate path.')
+@description('Data API base URL used by the webhook receiver for evidence, audit, and status evaluation (managed-identity token; no key).')
 param dataApiUrl string = 'https://cespk-api-dev.azurewebsites.net'
 
 @description('Data API audience for the MI client-credentials token (api://<api-client-id> URI, or a bare GUID — the Function normalises it).')
@@ -62,7 +60,7 @@ param boxWebhookSecondaryKeySecretName string = 'box-webhook-secondary-key'
 // This Function no longer self-declares Log Analytics + App Insights. It consumes
 // the SHARED App Insights connection string (the parser's cespike-parser-ai-dev),
 // threaded in by the orchestrating deploy from the parser stack's
-// appInsightsConnectionString output. See functions/parser/infra/main.bicep.
+// appInsightsConnectionString output. See services/functions/parser/infra/main.bicep.
 @secure()
 @description('Shared App Insights connection string (the parser App Insights). Consumed by APPLICATIONINSIGHTS_CONNECTION_STRING. Mark @secure() so the ikey embedded in it is not echoed to deployment logs.')
 param sharedAppInsightsConnectionString string = ''
@@ -234,7 +232,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         }
         // ---- Data API (Function MI client-credentials; no key). The receiver
         // resolves the case, writes Evidence/audit, and re-evaluates status via
-        // the Data API's /api/internal/* routes — NOT Dataverse / Power Automate. ----
+        // the Data API's /api/internal/* routes. -------------------------------
         {
           name: 'DATA_API_URL'
           value: dataApiUrl

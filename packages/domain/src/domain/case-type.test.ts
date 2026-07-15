@@ -51,11 +51,6 @@ describe('decideCaseType', () => {
     expect(d.caseType).toBe('diminution');
   });
 
-  it('falls back to the legacy audit boolean envelope (not-yet-redeployed parser)', () => {
-    const d = decideCaseType({ parserAudit: { value: true, signals: ['audit report'] } });
-    expect(d).toEqual({ caseType: 'audit', dual: false, signals: ['audit report'] });
-  });
-
   it('falls back to the classifier subtype when the parser saw nothing', () => {
     const d = decideCaseType({ classifierSubtype: 'existing_provider_audit' });
     expect(d.caseType).toBe('audit');

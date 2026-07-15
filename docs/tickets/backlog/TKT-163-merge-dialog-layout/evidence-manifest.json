@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-163",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/source-evidence/screenshot-highlighted.png",
+      "originalFilename": "screenshot-highlighted.png",
+      "sha256": "ad85ec877f99cce963a8f007ac291736fa929461bcd8b51cf2ba27026ee0aa95",
+      "storagePath": "tests/fixtures/evidence/sha256/ad/ad85ec877f99cce963a8f007ac291736fa929461bcd8b51cf2ba27026ee0aa95.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/source-evidence/screenshot.png",
+      "originalFilename": "screenshot.png",
+      "sha256": "232bc053a79ccba4c9bf9483cff622e9040682fb2276c0c41cf6525627045837",
+      "storagePath": "tests/fixtures/evidence/sha256/23/232bc053a79ccba4c9bf9483cff622e9040682fb2276c0c41cf6525627045837.png"
+    }
+  ]
+}

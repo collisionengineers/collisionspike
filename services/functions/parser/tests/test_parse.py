@@ -1,6 +1,6 @@
 """Offline pytest suite for the parser Function.
 
-Run from functions/parser/:
+Run from services/functions/parser/:
     python -m pytest
 
 These tests monkeypatch ``parser_adapter.run_parser`` so the sibling
@@ -100,7 +100,7 @@ def test_happy_path_returns_valid_ordered_12_field_payload(monkeypatch):
 
 
 def test_claimant_telephone_and_email_populate_when_derivable(monkeypatch):
-    """ROADMAP B2: when the parser DERIVES claimant telephone/email from the
+    """When the parser DERIVES claimant telephone/email from the
     document text, they flow through to the EVA fields (populated + provenanced),
     and the 12-field contract order/membership is unchanged."""
     record = _load_fixture("parser_record_with_contact.json")
@@ -255,7 +255,7 @@ def test_parser_dependency_failure_returns_502(monkeypatch):
 def test_unreadable_document_returns_422(monkeypatch):
     """A corrupt / truncated / non-PDF attachment makes the engine raise
     ReaderError, which the adapter surfaces as DocumentUnreadableError. The
-    handler MUST return 422 (not 502) so the flow routes the case to review and
+    handler MUST return 422 (not 502) so the workflow service routes the case to review and
     does not retry. This is the regression guard for the 16:49 UTC 502 burst,
     where an unreadable 'instruction.pdf' (FzErrorFormat 'no objects found')
     escaped as an unhandled 502 across every FC1 instance."""

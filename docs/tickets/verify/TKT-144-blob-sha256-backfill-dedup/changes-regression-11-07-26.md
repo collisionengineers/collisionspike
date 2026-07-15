@@ -12,7 +12,7 @@ merged row could reopen it.
 
 ## Implementation
 
-- The reusable write-window SQL safely parses legacy `duplicate_keys` and applies the nonblank
+- The reusable write-window SQL safely parses earlier `duplicate_keys` and applies the nonblank
   `mergedInto` retirement rung before every ordinary readiness rule.
 - A merge-retired case therefore remains `linked_to_instruction`; unrelated rows continue through the
   existing status calculation.

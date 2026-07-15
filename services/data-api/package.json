@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "dist/src/index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b --force",
     "test": "vitest run",
     "start": "func start",
     "dev": "func start"

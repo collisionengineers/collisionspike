@@ -5,7 +5,7 @@ status: blocked
 priority: P3
 area: ui
 tickets-it-relates-to: [TKT-005, TKT-011]
-research-link: docs/plans/work-todo-spike/ui-changes/research/clickable-case-and-email.md
+research-link: docs/tickets/blocked/TKT-009-clickable-case-and-email/TKT-009-clickable-case-and-email.md
 ---
 
 # Make associated emails clickable + view-full-email link
@@ -48,8 +48,8 @@ write/retarget authorization, restore proof, a frozen dry-run hash and named ope
   production Archive authorization.
 
 ## Research
-- Operator stub: [clickable-case-and-email.md](../../../plans/work-todo-spike/ui-changes/clickable-case-and-email.md)
-- Research pack: [research/clickable-case-and-email.md](../../../plans/work-todo-spike/ui-changes/research/clickable-case-and-email.md)
+- Operator stub: [clickable-case-and-email.md](TKT-009-clickable-case-and-email.md)
+- Research pack: [research/clickable-case-and-email.md](TKT-009-clickable-case-and-email.md)
 
 ## Artifacts
 - [Changes made](./changes.md)

@@ -4,11 +4,11 @@
 TESTED (offline)
 
 ## Evidence
-- `api/src/lib/concurrency.test.ts` — `If-Match` present → 409 on stale version; absent → skipped
-  (back-compat).
+- `services/data-api/src/platform/http/concurrency.test.ts` — `If-Match` present → 409 on stale version; absent → skipped
+  (stable existing behavior).
 - `packages/domain/src/capabilities/registry.test.ts` — `merge_cases`/destructive are never proposable;
   proposable set is write ∧ not-humanOnly.
-- `api/src/functions/assistant.test.ts` — `propose_action` performs no mutation.
+- `services/data-api/src/features/assistant/chat-routes.test.ts` — `propose_action` performs no mutation.
 - SPA suite covers `ConfirmActionCard` re-fetch + diff + 409 handling. `node verify-all.mjs` green.
 
 ## Pending / gaps
@@ -16,21 +16,21 @@ TESTED (offline)
   until flipped.
 - **Not deployed, and the flip is DPIA-gated.** Live proof (propose→confirm→execute end to end, with a
   concurrent-edit 409) requires deploy + per-capability **E2/G5 sign-off + DPIA** — see
-  [docs/gated.md](../../../gated.md) (§F). `scrubPii` is a precision-over-recall pre-scrub, not
+  [docs/tickets/BOARD.md](../../BOARD.md) (§F). `scrubPii` is a precision-over-recall pre-scrub, not
   "de-identified" — the DPIA must reflect that.
 
 ## How to re-verify
-Offline: `npm --prefix api test`, `npm --prefix mockup-app test`. Live (after flip + DPIA): from the
+Offline: `npm --prefix services/data-api test`, `npm --prefix apps/web test`. Live (after flip + DPIA): from the
 assistant, propose a `set_on_hold`; confirm the card diff matches a fresh DB read; execute; then repeat with
 a concurrent edit in another tab and confirm the second execute 409s.
 
 ## Verdict update — 2026-07-10 (final sweep, ticket-verifier dispatch; transcribed verbatim)
 
-**PENDING — record update: deployed DARK (the standing "not deployed" is stale); acceptance line 1 is now live fact.** `propose_action`, `ASSISTANT_WRITE_TIER_ENABLED`, and the `staleVersion`/If-Match concurrency code are in the deployed api bundle (07-09/07-10 publishes; gated.md §F step 1 DONE), and the gate is ABSENT from live app-settings — "assistant writes gated off by default" is live-proven, not just test-asserted. `assistantChat` live; the toolset excludes `propose_action` while off (offline-pinned). Remaining, operator-gated (gated.md §F4 STAYS OFF): per-capability DPIA + E2/G5 sign-off (must state `scrubPii` is precision-over-recall, not de-identification) → flip → live propose→confirm→execute + concurrent-edit 409. Destructive-exclusion (`merge_cases` never proposable) stays offline-proven. Verified by: ticket-verifier dispatch, 2026-07-10.
+**PENDING — record update: deployed DARK (the standing "not deployed" is stale); acceptance line 1 is now live fact.** `propose_action`, `ASSISTANT_WRITE_TIER_ENABLED`, and the `staleVersion`/If-Match concurrency code are in the deployed api bundle (07-09/07-10 publishes; ticket board §F step 1 DONE), and the gate is ABSENT from live app-settings — "assistant writes gated off by default" is live-proven, not just test-asserted. `assistantChat` live; the toolset excludes `propose_action` while off (offline-pinned). Remaining, operator-gated (ticket board §F4 STAYS OFF): per-capability DPIA + E2/G5 sign-off (must state `scrubPii` is precision-over-recall, not de-identification) → flip → live propose→confirm→execute + concurrent-edit 409. Destructive-exclusion (`merge_cases` never proposable) stays offline-proven. Verified by: ticket-verifier dispatch, 2026-07-10.
 
 ## Configuration-intent reconciliation — 2026-07-14
 
-PENDING — the 2026-07-10 dark-state note above is historical. The validated 2026-07-11 deployment
+PENDING — the 2026-07-10 dark-state note above is prior. The validated 2026-07-11 deployment
 record states that the operator-attested approvals were complete and records
 `ASSISTANT_WRITE_TIER_ENABLED=true`; a fresh 2026-07-14 readback confirms the gate remains true. Source
 inspection confirms `propose_action` captures a proposal rather than executing SQL. This reconciles the
@@ -60,7 +60,7 @@ still off in the deployed stack; no repaired confirmed write is claimed live.
 - `attach-validate.test.ts` proves an unresolved attachment batch cannot be replaced by a second
   selection or retargeted by later conversation. Shared EVA edit tests pin the case route's lengths,
   dates, VAT and mileage-unit semantics.
-- Deployment proof still required: apply the outbox schema, deploy API/orchestration/SPA, start the
+- Deployment proof still required: apply the outbox schema, deploy API/services/orchestration/SPA, start the
   singleton monitor, smoke every advertised capability with a signed-in user, then enable the write
   gate and repeat a stale-version refusal. No destructive/model-issued write has been added.
 
@@ -74,25 +74,25 @@ PENDING
 
 - The implementation is deny-by-default in source: `packages/domain/src/gates.ts:70-73` enables the tier
   only when `ASSISTANT_WRITE_TIER_ENABLED === 'true'`. The current live configuration is no longer dark:
-  `docs/gated.md:964-969`, `LIVE_FACTS.json:185-198`, and
-  `docs/architecture/live-environment.md:101-104` record activation in the validated 2026-07-11 release
+  `docs/tickets/BOARD.md:964-969`, `LIVE_FACTS.json:185-198`, and
+  `docs/operations/live-environment.md:101-104` record activation in the validated 2026-07-11 release
   and a fresh 2026-07-14 readback of `true`. This reconciles the stale dark-state wording in the older
   verification block; configuration presence is not behavioral proof.
 - The 2026-07-11 release record shows PR 55 merged as
   `c7e78cc49e4c5f626bb3ade2b4b653ddecd45241`, the corrected API runtime as
-  `3cc4705041766afdeb70b07c1e097b76f5ec8097`, all API/orchestration/SPA areas published, and the
-  write-tier setting true (`.azure/deployment-plan.md:334-341`). The later deployed dashboard tree
+  `3cc4705041766afdeb70b07c1e097b76f5ec8097`, all API/services/orchestration/SPA areas published, and the
+  write-tier setting true (`docs/operations/live-environment.md:334-341`). The later deployed dashboard tree
   `54a04d131c0ee8051e354ebfe8ba1f6656db9947` also contains that lineage
-  (`.azure/deployment-plan.md:71-120`).
-- The model cannot execute the write: `api/src/functions/assistant.ts:114-192` exposes one
+  (`docs/operations/live-environment.md:71-120`).
+- The model cannot execute the write: `services/data-api/src/features/assistant/chat-routes.ts` exposes one
   `propose_action` tool whose executor validates and returns a proposal for the SPA; it does not dispatch
-  a mutation. `mockup-app/src/components/ConfirmActionCard.tsx:576-615` executes only after explicit
+  a mutation. `apps/web/src/features/assistant/ConfirmActionCard.tsx:576-615` executes only after explicit
   confirmation, and retains distinct stale/unknown outcomes.
 - Confirmed actions reuse the registered staff routes.
   `packages/domain/src/capabilities/registry.ts:216-316` maps each capability to an existing method/path;
-  `mockup-app/src/data/rest-client.ts:328-436,623` independently fetches the target, denies existing-target
+  `apps/web/src/data/rest-client.ts:328-436,623` independently fetches the target, denies existing-target
   execution without a version, and sends that version in `If-Match`.
-  `api/src/lib/concurrency.ts:4-29` defines stale-version refusal as HTTP 409.
+  `services/data-api/src/platform/http/concurrency.ts` defines stale-version refusal as HTTP 409.
 - Destructive/direct model writes remain excluded: `merge_cases` is `humanOnly`
   (`packages/domain/src/capabilities/registry.ts:307-316`), while the proposable set filters out every
   `humanOnly` capability and validation rejects one
@@ -108,7 +108,7 @@ PENDING
 - No independent witness exists for the required live stale-state case: a target changes after the card
   snapshot and confirmation of the old proposal returns 409 without overwriting the newer state.
 - `ASSISTANT_WRITE_TIER_ENABLED=true` proves only exposure/configuration. It cannot satisfy either
-  behavioral acceptance item. Per `docs/gated.md:968-969` and the reconciled ticket record at
+  behavioral acceptance item. Per `docs/tickets/BOARD.md:968-969` and the reconciled ticket record at
   `verification.md:31-39`, the ticket must remain pending.
 - This verification deliberately performed no write, fabricated stimulus, firewall change, or signed-in
   operator action.

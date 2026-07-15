@@ -14,7 +14,7 @@ plan: PLAN-001
 ## Problem
 
 The assistant can only look up a case summary, count cases by queue, and search inbound emails
-(the three tools in `api/src/functions/assistant.ts`). Natural handler questions — "what's
+(the three tools in `services/data-api/src/features/assistant/chat-routes.ts`). Natural handler questions — "what's
 outstanding on CCPY26050?", "what happened on this case recently?", "are there other cases with
 this registration?", "what are the oldest cases in Held?", "which emails came in for this
 case?", "what's overdue?" — cannot be answered, so the assistant deflects or guesses.
@@ -22,7 +22,7 @@ case?", "what's overdue?" — cannot be answered, so the assistant deflects or g
 ## Evidence
 
 - `evidence/operator-note.md` — plan § 4 (2026-07-06 planning session).
-- `api/src/functions/assistant.ts` — current `TOOLS` array: `lookup_case`,
+- `services/data-api/src/features/assistant/chat-routes.ts` — current `TOOLS` array: `lookup_case`,
   `count_cases_by_status`, `search_inbound` only.
 - Reusable queries already exist: `openVrmTwins` (`GET /api/cases?vrm=`), the dashboard's
   overdue/aging list, the audit read path.

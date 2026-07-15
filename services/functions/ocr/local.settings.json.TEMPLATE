@@ -1,5 +1,5 @@
 {
-  "_comment": "TEMPLATE ONLY. Copy to local.settings.json (gitignored) for local `func start` / `docker run`. NO SECRET VALUES here. The Document Intelligence Read key (DOCINTEL_KEY) is only needed when OCR_PROVIDER/PLATE_PROVIDER is 'docintel'; in Azure it is a Key Vault reference resolved by the container's managed identity. The two Dataverse feature gates (OCR_SCANNED_PDF_ENABLED / PLATE_OCR_ENABLED) are enforced UPSTREAM in the flow/Code App and are NOT read by this host.",
+  "_comment": "TEMPLATE ONLY. Copy to local.settings.json (gitignored) for local runs. No secret values belong here. DOCINTEL_KEY is needed only for the docintel provider and is supplied as a secret reference. Feature availability is enforced by the calling service.",
   "IsEncrypted": false,
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",

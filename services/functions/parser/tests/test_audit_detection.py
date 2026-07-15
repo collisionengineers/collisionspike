@@ -14,7 +14,7 @@ from cedocumentmapper_v2.rules.engine import detect_audit_signals
 
 
 def test_genuine_audit_instruction_is_detected_with_signals():
-    # Phrasing mirrors the real PCH audit instructions in test-cases-and-data
+    # Phrasing mirrors the real PCH audit instructions in the fixture catalog.
     # (A.PCH261269 / A.PCH261272): "Engineers 2", "audit report", "original engineer".
     text = (
         "Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd).\n"

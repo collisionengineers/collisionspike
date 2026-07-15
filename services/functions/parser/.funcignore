@@ -12,6 +12,5 @@ local.settings.json
 local.settings.json.TEMPLATE
 requirements-dev.txt
 infra/
-openapi/
 README.md
 .gitignore

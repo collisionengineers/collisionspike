@@ -18,7 +18,7 @@ PENDING
 Implementation is offline-tested but not deployed. The production chronological
 holdout corpus, declared-coverage proof, default rollout decision, live TKT-044
 comparisons and live observed/interpolated/forecast/insufficient probes remain
-pending. Historical provider credentials identified in the sibling repository
+pending. prior provider credentials identified in the sibling repository
 still require owner-side rotation/revocation; no secret value is reproduced here.
 
 ## How to re-verify
@@ -39,7 +39,7 @@ PENDING
 ### Evidence
 
 - PR 78 merged as `695b85853e12719c834075f8db914361d2db3e63`; the canonical route is deployed.
-- One estimator owner remains at `functions/enrichment/vehicle_data/mileage.py`; `analysis.py` is
+- One estimator owner remains at `services/functions/vehicle-enrichment/vehicle_data/mileage.py`; `analysis.py` is
   deprecated and contains no estimator maths.
 - The 24-row synthetic holdout reports MAE 379.167, median absolute error 300 and 100% within ±2500.
   It is not a production calibration artifact.
@@ -62,7 +62,7 @@ PENDING
   exist.
 - No A.QDOS26088 source-precedence proof exists.
 - No deployed MCP configuration/runtime evidence exists.
-- Provider-side historical credential rotation/revocation is unproved.
+- Provider-side prior credential rotation/revocation is unproved.
 - `active/mileagetool` is clean on main but retains a stale remote-tracking ref until fetch/prune; the
   expected local connector clone was not present in this verification environment.
 

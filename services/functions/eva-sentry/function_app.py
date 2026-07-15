@@ -8,19 +8,16 @@ tenant; EVA test/prod credentials are injected by the operator ([RESERVED-FOR-US
 
 What this Function is
 ---------------------
-The server-side home of the EVA token lifecycle. The ``cr1bd_evasentry`` custom
-connector (function-key auth, NO OAuth security definition) fronts this Function;
-``finalize-eva-box.definition.json`` calls operation ``InstructionInspection`` on
-that connector, guarded by the ``EVA_API_ENABLED`` Dataverse gate. See
-``eva_client.py`` for WHY the token cannot live on the connector (Microsoft Learn:
-custom connectors do not support the client-credentials grant).
+The server-side home of the EVA token lifecycle. The orchestration service calls
+this function with function-key authentication when ``EVA_API_ENABLED`` permits
+submission.
 
 Route
 -----
 ``POST /api/eva/instruction-inspection``
     body: {
       "evaPayload12":  str | object,   # the 12-field core (JSON string OR object)
-      "payloadHash"?:  str,            # idempotency key (the flow's latch is primary)
+      "payloadHash"?:  str,            # idempotency key supplied by the caller
       "casePo"?:       str,            # lowercase Case/PO -> Instruction ExternalRef
       "vrm"?:          str,            # vehicle registration -> VehReg (claim key)
       "clmNo"?:        str,            # claim number -> ClmNo (claim key)
@@ -42,14 +39,14 @@ request degrades to a warning (claim exists; photos are archived in Box).
 
 Design rules honoured here
 --------------------------
-* **Gate at the edge** as well as in the flow (defence in depth): when
+* **Gate at the edge** as well as in the caller (defence in depth): when
   ``EVA_API_ENABLED`` is false the Function refuses to submit and returns
-  ``submitted=false`` with a warning — the drag-drop path is the flow's fallback.
+  ``submitted=false`` with a warning.
 * **12-field core validated** against the embedded contract (``payload.py``,
   parity-tested against ``contracts/eva-payload.schema.json``) before any token
   is minted — a malformed payload never reaches EVA.
-* **Idempotency**: the primary guard is the flow's ``cr1bd_finalizedpayloadhash``
-  latch; this Function is stateless and simply echoes the ``payloadHash`` back so
+* **Idempotency**: the caller supplies the finalized-payload hash; this Function
+  echoes the ``payloadHash`` back so
   the caller can correlate. (A server-side hash cache is intentionally omitted to
   keep the Function stateless — plan §7.2.)
 * **Secrets** are never read here and never logged; they live only inside
@@ -81,8 +78,8 @@ logger = logging.getLogger("evasentry.function")
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
-# In-process idempotency cache: payload-hash -> last result. The PRIMARY guard is
-# the flow's cr1bd_finalizedpayloadhash latch (survives restarts); this is a
+# In-process idempotency cache: payload-hash -> last result. The durable guard is
+# maintained by the caller; this is a
 # cheap defensive layer so a duplicate call WITHIN a warm worker never
 # double-submits to EVA. Bounded to avoid unbounded growth.
 _IDEMPOTENCY: "dict[str, dict[str, Any]]" = {}
@@ -95,9 +92,8 @@ def _truthy(value: str | None) -> bool:
 
 
 def compute_payload_hash(core: dict[str, Any]) -> str:
-    """Deterministic SHA-256 over the 12-field core in CONTRACT order — the same
-    hash the flow stamps in ``cr1bd_finalizedpayloadhash``. Used to dedup when the
-    caller omits ``payloadHash``."""
+    """Deterministic SHA-256 over the twelve-field core, used when the caller
+    omits ``payloadHash``."""
     canonical = json.dumps(core, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 

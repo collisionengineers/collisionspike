@@ -16,5 +16,5 @@ supplied the real note later the same day (raw file:
 Key facts: the failing call is `POST /api/inbound/{id}/outlook-move` on the **Data API app**
 (`cespk-api-dev`), inbound-email id `a137d98f-bda5-4e09-bdac-c306a2fd3f7a`, and the observed
 status is **503 Service Unavailable** — NOT the 403 the pending Exchange `Mail.ReadWrite` grant
-([docs/gated.md B4](../../../../gated.md)) would produce at the Graph layer. Root cause must be
+([docs/tickets/BOARD.md B4](../../../BOARD.md)) would produce at the Graph layer. Root cause must be
 established from App Insights, not assumed.

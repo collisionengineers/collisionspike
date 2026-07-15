@@ -1,88 +1,14 @@
-"""parser_adapter — the ONLY seam to the sibling ``cedocumentmapper_v2`` package.
+"""Translate the vendored parser result into the canonical EVA extraction.
 
-This module is the single place where the Collision Engineers parser Function
-touches ``cedocumentmapper_v2``. Everything else in this Function (the HTTP
-handler, schema validation) speaks the settled 12-field EVA contract and never
-imports the sibling package directly. Keeping the coupling in one file means:
+This is the only runtime module that imports ``cedocumentmapper_v2``. It persists
+the supplied bytes under their real suffix, invokes ``DocumentMapperService``,
+maps the parser record into the settled twelve-field payload, and keeps Case
+identity fields outside that payload.
 
-* tests can monkeypatch ``run_parser`` to return a fixture extraction WITHOUT
-  the heavy parser deps (PyMuPDF / Tesseract / python-docx) installed, and
-* a future change to the sibling API is a one-file edit here.
-
-------------------------------------------------------------------------------
-The exact sibling API this adapter targets (confirmed by reading the source on
-2026-06-17 — ``src/cedocumentmapper_v2/application/service.py`` +
-``domain/models.py``):
-
-    from cedocumentmapper_v2.application import DocumentMapperService
-
-    svc = DocumentMapperService()
-    document, record = svc.process_document(path)        # path = str | Path
-    payload = svc.record_to_dict(record)                 # -> dict (below)
-
-``DocumentMapperService.process_document(path, provider_selector=None,
-engineer_report=None)`` returns ``tuple[DocumentModel, ExtractedRecord]``. It
-dispatches a reader by FILE-SUFFIX (``readers.get_reader_for_path`` — .pdf /
-.docx / .doc / .eml / .msg), so the adapter must persist the decoded bytes to a
-temp file carrying the real extension before calling it. There is currently no
-bytes-in public entry point; if the document-parser-engineer adds one
-(e.g. ``process_bytes(data, filename)``) this adapter is where it plugs in.
-
-``record_to_dict(record)`` yields:
-
-    {
-      "provider": {"provider_id", "provider_name", "confidence", ...},
-      "fields": {
-        "<field_key>": {
-          "value": str, "raw_value": str, "rule_id": str|None,
-          "confidence": float|None, "source_span": {...}|None,
-          "issues": [{"field","severity","code","message"}, ...],
-        }, ...
-      },
-      "issues": [{"field","severity","code","message"}, ...],
-    }
-
-------------------------------------------------------------------------------
-CONTRACT MISMATCH (deliberate; this adapter reconciles it).
-
-The sibling parser's native field set (``domain/models.FieldKey``) is the
-LEGACY set and is NOT the settled EVA 12. The differences this adapter bridges:
-
-  parser native key        -> EVA contract key            note
-  -----------------------     ------------------            ----
-  work_provider            -> work_provider               same
-  vehicle_model            -> vehicle_model               same
-  claimant_name            -> claimant_name               same
-  incident_date            -> date_of_loss                RENAMED
-  instruction_date         -> date_of_instruction         RENAMED
-  inspection_address       -> inspection_address          same
-  accident_circumstances   -> accident_circumstances      same
-  vat_status               -> vat_status                  same
-  mileage                  -> mileage                     same
-  mileage_unit             -> mileage_unit                same
-  vrm                      -> (Case-identity)             NOT in EVA payload
-  reference                -> (Case-identity)             NOT in EVA payload
-  inspection_date          -> (dropped from EVA payload)  not an EVA field
-
-  claimant_telephone       -> claimant_telephone         same (ROADMAP B2)
-  claimant_email           -> claimant_email             same (ROADMAP B2)
-
-  As of ROADMAP B2 the parser emits claimant_telephone / claimant_email
-  NATIVELY (UK phone + email regex scoped to claimant/insured context, with
-  provenance). They map identity. When the document text has no derivable
-  number/address they stay EMPTY for staff to fill — never invented.
-
-  (Engineer allocation is NOT an EVA submission field — it is left blank and
-  assigned inside EVA AFTER submission, so it is excluded from the contract.)
-
-``vrm`` and ``reference`` are surfaced SEPARATELY (Case-identity, for 5.3
-correlation/dedup) and are intentionally excluded from the 12-field payload.
-
-OPEN ITEM to confirm with document-parser-engineer:
-  * Whether the sibling will rename its native keys to the EVA set (which would
-    let the rename map below collapse to identity), or add the two missing
-    EVA fields, or expose a bytes-in entry point. Until then this adapter is the
-    authoritative reconciliation and the rename map is the contract.
+The native record uses ``incident_date`` and ``instruction_date`` while the EVA
+contract uses ``date_of_loss`` and ``date_of_instruction``. The explicit map below
+owns that translation. Claimant contact fields map directly and remain empty when
+the source document does not support a value.
 """
 
 from __future__ import annotations
@@ -95,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 # The settled 12 EVA payload keys, in contract order. Mirrors
-# contracts/eva-payload.schema.json and mockup-app/src/contracts/eva-export.ts
+# contracts/eva-payload.schema.json and apps/web/src/contracts/eva-export.ts
 # EVA_FIELD_ORDER. (Engineer allocation is NOT an EVA submission field — it is
 # left blank and assigned inside EVA after submission, so it is excluded.)
 EVA_FIELD_ORDER: tuple[str, ...] = (
@@ -115,8 +41,8 @@ EVA_FIELD_ORDER: tuple[str, ...] = (
 
 # Map an EVA contract key -> the sibling parser's native field key that supplies
 # it. The parser now also emits claimant_telephone / claimant_email natively
-# (ROADMAP B2 — derived from document text near claimant/insured context, left
-# empty when absent). Both map identity. Any EVA key absent from this map (none
+# (derived from document text near claimant/insured context and left empty when
+# absent). Both map identity. Any EVA key absent from this map (none
 # today) would default empty in to_eva_extraction.
 EVA_KEY_FROM_PARSER_KEY: dict[str, str] = {
     "work_provider": "work_provider",
@@ -180,7 +106,7 @@ class DocumentUnreadableError(ValueError):
     page objects, password-protected, or otherwise not a parseable document of
     the claimed type. It is the expected outcome for a junk attachment and MUST
     NOT be treated as a server failure. The HTTP handler maps this to 422
-    (Unprocessable Entity) so the Power Automate flow routes the case to
+    (Unprocessable Entity) so the caller routes the case to
     needs_review rather than retrying a 5xx.
 
     Subclasses ``ValueError`` so any caller that only distinguishes
@@ -427,7 +353,7 @@ def to_eva_extraction(parser_result: dict[str, Any]) -> dict[str, Any]:
     audit = {"value": is_audit, "signals": audit_signals, "source": "instruction_text"}
 
     # case_type (ADR-0021) — the full case-type decision, superset of ``audit``
-    # (which is retained verbatim for envelope compatibility). ``value`` is
+    # (which remains verbatim as part of the response contract). ``value`` is
     # 'audit' | 'diminution' | None from content, or additionally
     # 'audit_total_loss' when read back from an explicitly AP.-marked reference
     # (never content-inferred). ``dual`` marks the QDOS "REPORT + AUDIT REPORT"

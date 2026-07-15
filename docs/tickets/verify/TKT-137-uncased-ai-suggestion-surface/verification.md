@@ -49,7 +49,7 @@ ai-suggestions.ts L103); the review writes the ai_suggestion_accepted/rejected a
 triage_category promote branch (L335-365) relabels inbound_email.category_code/subtype_code guarded
 by `classifier_mode IS DISTINCT FROM 'human'`; the SPA only claims the new type when the server
 reported promoted:true (Inbox.tsx L1891). Verifier's own offline run: `npx vitest run
-src/screens/inbox-suggestions.test.ts` → **22/22 passed**. The triage_category ACCEPT branch has
+src/features/inbox/inbox-suggestions.test.ts` → **22/22 passed**. The triage_category ACCEPT branch has
 plausibly never executed live (pre-TKT-137 nothing rendered these).
 
 **Line 3 — verified live on a real pending suggestion: half-met.** The surface was verified live on
@@ -106,7 +106,7 @@ PENDING
 
 ## Evidence
 
-- **Acceptance 1 — pending suggestion renders with Accept/Ignore:** Historical live proof from
+- **Acceptance 1 — pending suggestion renders with Accept/Ignore:** prior live proof from
   2026-07-10 records the uncased EREF9 email `84c72717-21b4-44d9-a7ad-a34c8048cf93` rendering “The
   assistant thinks this is ‘Images received’” with Accept and Ignore controls. The current source still
   gates this surface to uncased rows in `Inbox.tsx:1849-1852` and selects only pending
@@ -116,9 +116,9 @@ PENDING
   `promoted: true`. `ai-suggestions.ts:823-850` applies the validated category/subtype while protecting
   human classification, and the review path records accepted/rejected audit actions. The focused selector
   suite previously passed 22/22. No live Accept or Ignore was performed.
-- **Acceptance 3 — verified on a real pending suggestion:** The historical EREF9 observation was a real
+- **Acceptance 3 — verified on a real pending suggestion:** The prior EREF9 observation was a real
   live suggestion, not seeded data. The subsequent SQL pass found 63 pending `triage_category`
-  suggestions on uncased emails at that time. This is historical proof; no current pending row was
+  suggestions on uncased emails at that time. This is prior proof; no current pending row was
   independently opened in this pass.
 - **Deployment/current-source proof:** The feature was present in the deployed bundle during the July 10
   observation. The production SPA was republished again on July 12, and current source still contains the

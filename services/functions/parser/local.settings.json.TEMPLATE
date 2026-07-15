@@ -6,7 +6,7 @@
     "FUNCTIONS_WORKER_RUNTIME": "python",
     "FUNCTIONS_EXTENSION_VERSION": "~4",
 
-    "_comment_schema": "Optional override for the EVA payload schema path. If unset, the Function resolves ../../contracts/eva-payload.schema.json relative to itself. In the deployed package the schema is bundled and this points at it.",
+    "_comment_schema": "Optional override for the EVA payload schema path. If unset, the Function resolves ../../../contracts/eva-payload.schema.json relative to itself. In the deployed package the schema is bundled and this points at it.",
     "EVA_PAYLOAD_SCHEMA_PATH": "",
 
     "_comment_gating": "PDF_MAPPER_ENABLED gates this parser, but the gate is enforced UPSTREAM in the orchestration Function App (an Azure app-setting), NOT read by this Function. Listed here for documentation only.",

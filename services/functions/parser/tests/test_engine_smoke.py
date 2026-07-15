@@ -15,8 +15,8 @@ Heavy and dependency-bearing by design:
   * the DOCX fixtures additionally need ``python-docx``; those cases skip
     individually when it is missing, while the PDF case still runs.
 
-Goldens live in ``tests/fixtures/expected/*.expected.json`` and reference their
-source document via ``source_file`` (relative to ``tests/fixtures/instructions``).
+Goldens live in ``tests/fixtures/expected/*.expected.json`` and reference each
+source document's original logical filename through the repository evidence manifest.
 They use the parser's NATIVE field keys (e.g. ``incident_date``), not the EVA
 contract keys — this guards the engine, not the EVA mapping (that is
 ``test_parse`` / the adapter tests).
@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
@@ -39,8 +40,12 @@ from cedocumentmapper_v2.domain.models import FieldKey
 
 HERE = Path(__file__).resolve().parent
 FIXTURES = HERE / "fixtures"
-INSTRUCTIONS = FIXTURES / "instructions"
 EXPECTED = FIXTURES / "expected"
+REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(REPOSITORY_ROOT / "tests" / "fixtures" / "resolvers"))
+from evidence_resolver import resolve_evidence  # noqa: E402
+
+INSTRUCTION_LOGICAL_ROOT = "services/functions/parser/tests/fixtures/instructions"
 
 # Pin the service to the VENDORED provider seed and a writable temp app-data dir,
 # exactly as parser_adapter does on FC1 (no desktop-home writes).
@@ -104,9 +109,12 @@ def _fixtures() -> list[tuple[str, Path, Path]]:
     out: list[tuple[str, Path, Path]] = []
     for golden in sorted(EXPECTED.glob("*.expected.json")):
         data = json.loads(golden.read_text(encoding="utf-8"))
-        src = INSTRUCTIONS / data["source_file"]
-        if src.exists():
-            out.append((data.get("fixture_id", golden.stem), src, golden))
+        logical_path = f"{INSTRUCTION_LOGICAL_ROOT}/{data['source_file']}"
+        try:
+            src = resolve_evidence(original_path=logical_path)
+        except FileNotFoundError:
+            continue
+        out.append((data.get("fixture_id", golden.stem), src, golden))
     return out
 
 

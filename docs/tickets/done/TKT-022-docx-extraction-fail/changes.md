@@ -11,8 +11,8 @@ the sample .docx in evidence/.
 
 ## Reconciliation note (2026-07-07) — stays backlog, re-check before building
 `.docx`/`.doc` are now **first-class readers** in the sibling/vendored engine
-(`functions/parser/cedocumentmapper_v2/readers/docx.py` + `doc.py`) with a committed fixture
-(`functions/parser/tests/fixtures/expected/ACSP_DOCX_01.expected.json`). The extraction path this ticket
+(`services/functions/parser/cedocumentmapper_v2/readers/docx.py` + `doc.py`) with a committed fixture
+(`services/functions/parser/tests/fixtures/expected/ACSP_DOCX_01.expected.json`). The extraction path this ticket
 reported as failing has materially changed since distillation (2026-06-30). **Re-run the Cheema
 `A Cheema Claim Form docx.docx` sample against the current engine before assuming the field mis-mapping
 still reproduces** — the residual (if any) may be narrower than the original drop-note. Stays backlog

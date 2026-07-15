@@ -3,7 +3,7 @@
 ## Status
 now — the SPA attach-UX slice is code-complete + offline-green on the `feat/plan-001-vision-family` branch
 (BUILD-DARK; not deployed), ready for the verify sweep once the operator deploys. The server path landed
-earlier. The model still gets **NO upload capability** (TKT-060 invariant; `api/` untouched this slice).
+earlier. The model still gets **NO upload capability** (TKT-060 invariant; `services/data-api/` untouched this slice).
 Under [PLAN-001](../../plans/PLAN-001-ai-mcp-hardening.md) Phase 2; ADR-0024.
 
 ## Commits
@@ -12,24 +12,24 @@ Under [PLAN-001](../../plans/PLAN-001-ai-mcp-hardening.md) Phase 2; ADR-0024.
 
 ## Files touched
 ### Server groundwork (commit `754c38a` — DO NOT re-touch)
-- `api/src/functions/evidence-upload.ts` — `POST /api/cases/{id}/evidence/upload` (multipart, staff role,
-  size/type guard, blob + `evidence` row + audit `evidence_added`). Route in `api/src/index.ts`.
-- `api/src/lib/upload-validate.ts` (+ `upload-validate.test.ts`) — `classifyUpload` (images + PDFs, ≤15MB).
-- `api/src/lib/audit.ts` + `migration/assets/schema/000_enums_lookups.sql` — `evidence_added` action code
+- `services/data-api/src/features/evidence/upload-route.ts` — `POST /api/cases/{id}/evidence/upload` (multipart, staff role,
+  size/type guard, blob + `evidence` row + audit `evidence_added`). Route in `services/data-api/src/index.ts`.
+- `services/data-api/src/features/evidence/upload-validate.ts` (+ `upload-validate.test.ts`) — `classifyUpload` (images + PDFs, ≤15MB).
+- `services/data-api/src/shared/audit.ts` + `database/baseline/000_enums_lookups.sql` — `evidence_added` action code
   (`100000049`) + its `choice_audit_action` row.
-- `mockup-app/src/data/rest-client.ts` + `data/index.ts` — `uploadEvidence` data method.
+- `apps/web/src/data/rest-client.ts` + `data/index.ts` — `uploadEvidence` data method.
 
 ### SPA attach-UX slice (2026-07-08 — this session, SPA only)
-- `mockup-app/src/components/attach-validate.ts` (+ `.test.ts`, 19 cases) — pure client helpers:
+- `apps/web/src/shared/ui/attach-validate.ts` (+ `.test.ts`, 19 cases) — pure client helpers:
   `classifyAttachment` / `partitionAttachments` (client-side mirror of the server size/type gate, same
   plain-language reasons), `detectCaseRef` (sniff a registration / Case/PO from the conversation to
   pre-fill the confirm card), `attachmentNote` / `fileCountLabel` (the names-only context text + plural
   labels). No I/O — unit-testable.
-- `mockup-app/src/components/AttachConfirmCard.tsx` — the human-confirm gate. Resolves the target case
+- `apps/web/src/features/assistant/AttachConfirmCard.tsx` — the human-confirm gate. Resolves the target case
   INDEPENDENTLY against the server via `openVrmTwins` (registration → open cases; ungated), names the
   case + file count, and only on an explicit confirm calls `getDataAccess().uploadEvidence`. Mirrors
   `ConfirmActionCard`'s re-fetch/render/confirm shape. Success / partial-rejection feedback in-card.
-- `mockup-app/src/components/AssistantDrawer.tsx` — a paperclip attach button + hidden `image/*,
+- `apps/web/src/features/assistant/AssistantDrawer.tsx` — a paperclip attach button + hidden `image/*,
   application/pdf` picker; held files shown as removable chips; a picked turn appends a names-only
   context note to the model message (bytes never sent); the confirm card surfaces after the turn.
 
@@ -61,7 +61,7 @@ ungated `openVrmTwins` (the assistant surfaces the registration even when the ha
 the human confirming/correcting the registration in the card. This keeps the slice honest and independent of
 any gated feature.
 
-**TKT-060 invariant intact:** `api/src/functions/assistant.ts` was NOT touched this slice — `toolsForRequest()`
+**TKT-060 invariant intact:** `services/data-api/src/features/assistant/chat-routes.ts` was NOT touched this slice — `toolsForRequest()`
 still derives from `readCapabilities()` (SELECT-only) + the dark-gated `propose_action`; the write is a pure
 SPA action a human triggers.
 

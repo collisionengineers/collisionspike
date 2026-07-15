@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "ticket": "TKT-193",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/(EREF5) RTA on 09_07_2026  Mr Lee Hirst (Our Ref REB_46774_1, Vehicle CE18FOM).eml",
+      "originalFilename": "(EREF5) RTA on 09_07_2026  Mr Lee Hirst (Our Ref REB_46774_1, Vehicle CE18FOM).eml",
+      "sha256": "1d0d49563cfce5550fee47878a572b4998807788ea873b13f1147ef053f069aa",
+      "storagePath": "tests/fixtures/evidence/sha256/1d/1d0d49563cfce5550fee47878a572b4998807788ea873b13f1147ef053f069aa.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/(EREF8) RTA on 03_07_2026  Mrs Caroline Reynolds (Our Ref SAB_46737_1, Vehicle L100 YDR).eml",
+      "originalFilename": "(EREF8) RTA on 03_07_2026  Mrs Caroline Reynolds (Our Ref SAB_46737_1, Vehicle L100 YDR).eml",
+      "sha256": "2227e53bec9bef18afcc0ce3ebdf2177c48f7aea5988d5bccc636a818219135a",
+      "storagePath": "tests/fixtures/evidence/sha256/22/2227e53bec9bef18afcc0ce3ebdf2177c48f7aea5988d5bccc636a818219135a.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/Engineer Triage - Our Claim Reference  46246_1 - Vehicle Registration  VO75DFJ.eml",
+      "originalFilename": "Engineer Triage - Our Claim Reference  46246_1 - Vehicle Registration  VO75DFJ.eml",
+      "sha256": "13870b7219cce438e697a638aafca33ed97d5561c43fd8c8bff5f58c17fd08a9",
+      "storagePath": "tests/fixtures/evidence/sha256/13/13870b7219cce438e697a638aafca33ed97d5561c43fd8c8bff5f58c17fd08a9.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/Engineer Triage – Our Claim Reference 46783_1 - Vehicle Registration VN62YRE.eml",
+      "originalFilename": "Engineer Triage – Our Claim Reference 46783_1 - Vehicle Registration VN62YRE.eml",
+      "sha256": "ec64bff876c3f60edf10b1745409b33f30179ba8c0f41789dbf7b15d948b2017",
+      "storagePath": "tests/fixtures/evidence/sha256/ec/ec64bff876c3f60edf10b1745409b33f30179ba8c0f41789dbf7b15d948b2017.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/Engineer Triage – Our Claim Reference 46839_1 - Vehicle Registration WG63ZTO.eml",
+      "originalFilename": "Engineer Triage – Our Claim Reference 46839_1 - Vehicle Registration WG63ZTO.eml",
+      "sha256": "ac645799ea6aa285070e7c2db639f6d8e3dac8808eb10dc4d6413508b8c55c40",
+      "storagePath": "tests/fixtures/evidence/sha256/ac/ac645799ea6aa285070e7c2db639f6d8e3dac8808eb10dc4d6413508b8c55c40.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/Engineer Triage – Our Claim Reference 46841_1  Vehicle Registration DG12ZTH.eml",
+      "originalFilename": "Engineer Triage – Our Claim Reference 46841_1  Vehicle Registration DG12ZTH.eml",
+      "sha256": "b213872b967fb64ef6cbcffdcbcb0b7909bb56549daf0e0bd94df71e753b351d",
+      "storagePath": "tests/fixtures/evidence/sha256/b2/b213872b967fb64ef6cbcffdcbcb0b7909bb56549daf0e0bd94df71e753b351d.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/Engineer Triage – Our Claim Reference 46842_1  Vehicle Registration HK17CZZ.eml",
+      "originalFilename": "Engineer Triage – Our Claim Reference 46842_1  Vehicle Registration HK17CZZ.eml",
+      "sha256": "725b7c1dcaad3b502de6c1b851bd52f2a8bc47088bc6086aaeb23cee59520435",
+      "storagePath": "tests/fixtures/evidence/sha256/72/725b7c1dcaad3b502de6c1b851bd52f2a8bc47088bc6086aaeb23cee59520435.eml"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/LtrtoEngineerSendvehicleimagestoengineerfortriageCollisionEngineersLtd-V1.doc",
+      "originalFilename": "LtrtoEngineerSendvehicleimagestoengineerfortriageCollisionEngineersLtd-V1.doc",
+      "sha256": "bfd2aee3b6ef0bb1edfad6353a5144027ce104c44f2c029ff5a330b6399548bc",
+      "storagePath": "tests/fixtures/evidence/sha256/bf/bfd2aee3b6ef0bb1edfad6353a5144027ce104c44f2c029ff5a330b6399548bc.doc"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/RE (EREF5) RTA on 09_07_2026  Mr Michael Smith (Our Ref REB_46789_1, Vehicle YM16EGU).eml",
+      "originalFilename": "RE (EREF5) RTA on 09_07_2026  Mr Michael Smith (Our Ref REB_46789_1, Vehicle YM16EGU).eml",
+      "sha256": "ace76dcb06b52dd84e233eb268fb00285ab6091aa864a004a6f7bd8cfb4bfe87",
+      "storagePath": "tests/fixtures/evidence/sha256/ac/ace76dcb06b52dd84e233eb268fb00285ab6091aa864a004a6f7bd8cfb4bfe87.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/RE Engineer Triage - Our Claim Reference  46246_1 - Vehicle Registration  VO75DFJ.eml",
+      "originalFilename": "RE Engineer Triage - Our Claim Reference  46246_1 - Vehicle Registration  VO75DFJ.eml",
+      "sha256": "c1ba28afa29633aee810b8c5ec138f05ce5a7098712dd18d60aecd176266cc67",
+      "storagePath": "tests/fixtures/evidence/sha256/c1/c1ba28afa29633aee810b8c5ec138f05ce5a7098712dd18d60aecd176266cc67.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/RE Engineer Triage – Our Claim Reference 46783_1 - Vehicle Registration VN62YRE.eml",
+      "originalFilename": "RE Engineer Triage – Our Claim Reference 46783_1 - Vehicle Registration VN62YRE.eml",
+      "sha256": "c250a578c1a7b100771d311a8f461f44e53497d28817b0aad86dd440ba6eae5c",
+      "storagePath": "tests/fixtures/evidence/sha256/c2/c250a578c1a7b100771d311a8f461f44e53497d28817b0aad86dd440ba6eae5c.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/RE Engineer Triage – Our Claim Reference 46841_1  Vehicle Registration DG12ZTH.eml",
+      "originalFilename": "RE Engineer Triage – Our Claim Reference 46841_1  Vehicle Registration DG12ZTH.eml",
+      "sha256": "4e573424660582cca7fa640d4f1002756c29b7e6989a078f823ba19062a7052c",
+      "storagePath": "tests/fixtures/evidence/sha256/4e/4e573424660582cca7fa640d4f1002756c29b7e6989a078f823ba19062a7052c.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/RE Engineer Triage – Our Claim Reference 46842_1  Vehicle Registration HK17CZZ.eml",
+      "originalFilename": "RE Engineer Triage – Our Claim Reference 46842_1  Vehicle Registration HK17CZZ.eml",
+      "sha256": "835b23c659e2b96ff07cb1dd63a240bba22022ebdda5cd4c179b5c1261d8074d",
+      "storagePath": "tests/fixtures/evidence/sha256/83/835b23c659e2b96ff07cb1dd63a240bba22022ebdda5cd4c179b5c1261d8074d.eml"
+    }
+  ]
+}

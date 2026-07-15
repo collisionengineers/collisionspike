@@ -5,7 +5,7 @@
  * $search reads only; this driver only reads enum-backlog-keys.csv and writes
  * local evidence files.
  *
- * Usage (Windows node, per docs/azure/README.md platform routing):
+ * Usage (Windows node, per docs/operations/README.md platform routing):
  *   ORCH_FN_KEY_FILE=<path-to-key-file> node drive-probe.mjs
  * The function key is sourced via `az functionapp keys list` into a scratchpad
  * file OUTSIDE the repo (never hardcoded, never committed, never echoed).
@@ -16,7 +16,7 @@
  * call error rate exceeds 5%.
  *
  * Variant fidelity: each key is expanded with refSearchVariants() EXACTLY as
- * the live retroOutlookLocate rung does (orchestration/src/lib/retro-envelope.ts,
+ * the live retroOutlookLocate rung does (services/orchestration/src/workflows/retro/retro-envelope.ts,
  * TKT-139) — compact + spaced-at-alpha/digit-boundaries, deduped — and hits are
  * unioned per parent key, so "locatable" here means locatable BY THE LIVE LADDER.
  */
@@ -38,7 +38,7 @@ if (!keyFile || !existsSync(keyFile)) {
 const FN_KEY = readFileSync(keyFile, 'utf8').trim();
 if (!FN_KEY) { console.error('empty function key'); process.exit(2); }
 
-/* ---------- exact port of orchestration/src/lib/retro-envelope.ts refSearchVariants ---------- */
+/* ---------- exact port of services/orchestration/src/workflows/retro/retro-envelope.ts refSearchVariants ---------- */
 function refSearchVariants(key) {
   const given = String(key ?? '').replace(/\s+/g, ' ').trim();
   if (!given) return [];

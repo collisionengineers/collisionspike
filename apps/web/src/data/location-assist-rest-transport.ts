@@ -1,19 +1,4 @@
-/* ============================================================
-   Collision Engineers — REST location-assist transport (plan 30 §3).
-
-   Replaces `location-assist-connector-transport.ts`. Off Power Platform
-   the SPA legitimately fetch-es the API origin (CORS-allowed), so the
-   live transport is a straight POST carrying the Bearer token.
-
-   This module preserves the SELECTOR MACHINERY (configureLocationAssist
-   Transport / resetLocationAssistTransport / activeLocationAssistTransport)
-   that was previously in location-assist-connector-transport.ts. Screens
-   and index.ts import those from here after the connector module is gone.
-
-   The injectable `LocationAssistTransport` contract (location-assist-
-   client.ts) is unchanged; `suggestLocations(req, activeLocationAssist
-   Transport)` in CaseDetail continues to work as before.
-   ============================================================ */
+/* Authenticated location-suggestion transport and its injectable selector. */
 
 import {
   type LocationAssistTransport,

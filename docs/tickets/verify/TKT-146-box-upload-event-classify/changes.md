@@ -25,10 +25,10 @@ gap per the TKT-112 ownership model (orch owns autonomous stamps):
    (+ KV-ref key), the read op the retro reconstruction already uses; server-side
    `BOX_DOWNLOAD_MAX_BYTES` (~25 MiB) cap → an over-cap 413 is absorbed per-row. No Box REST from
    new code.
-3. **Classify via `orchestration/src/lib/image-classify.ts` (TKT-064) verbatim** — never-throws;
+3. **Classify via `services/orchestration/src/platform/image-classify.ts` (TKT-064) verbatim** — never-throws;
    case-VRM-constrained `registration_visible` (a legible but *mismatched* plate stays false);
    non-vehicle `other` → role coalesces to the `unknown` code (no `other` option in the image-role
-   choice set) + `accepted_for_eva=false`; person reflection → `excluded` + reason + the TKT-123
+   code table) + `accepted_for_eva=false`; person reflection → `excluded` + reason + the TKT-123
    advisory flag. The **per-provider `ai_allowed` opt-out** is honoured exactly like
    classifyPersist/evidence-backfill (explicit `false` skips; lookup error fails open; cached per
    sweep per provider).
@@ -73,20 +73,20 @@ before anything else: `gates.imageRoleClassifyEnabled()` (the **TKT-064** gate �
   window; the per-sweep cost is bounded by the cap and the gate is the kill switch.
 
 ## Files touched
-- `api/src/functions/internal.ts` — NEW route `internalEvidenceUnclassifiedBox`
+- `services/data-api/src/features/` — NEW route `internalEvidenceUnclassifiedBox`
   (`GET /api/internal/evidence/unclassified-box`, withServiceAuth, limit clamped 1..100) + header
   route list entry.
-- `orchestration/src/lib/data-api.ts` — NEW `unclassifiedBoxEvidence(limit)` +
+- `services/orchestration/src/adapters/data-api.ts` — NEW `unclassifiedBoxEvidence(limit)` +
   `stampBoxEvidenceClassification(caseId, row)` client methods + `UnclassifiedBoxEvidenceRow`.
-- `orchestration/src/functions/box-classify-sweep.ts` — NEW: the timer sweep (schedule/cap
+- `services/orchestration/src/workflows/archive/box-classify-sweep.ts` — NEW: the timer sweep (schedule/cap
   constants, `mimeForClassify`, `buildStampRow`, the handler).
-- `orchestration/src/functions/box-classify-sweep.test.ts` — NEW: offline pins (a) happy path +
+- `services/orchestration/src/workflows/archive/box-classify-sweep.test.ts` — NEW: offline pins (a) happy path +
   identity mirroring + **never-a-sha256**, (b) untagged-row identity, (c) never-throws row
   isolation, (d) gate/0-row fast paths, (e) ai_allowed opt-out + fail-open, (f) TKT-064 policy
   verbatim (other→not-accepted, reflection→excluded, case-VRM constraint), mime fallback.
-- `orchestration/src/index.ts` — side-effect import of the new module.
-- `deploy/orch/main.cjs`, `deploy/api/main.cjs` — rebuilt esbuild bundles (import.meta.url banner).
-- `LIVE_FACTS.json` + `docs/architecture/live-environment.md` — counts 74/96, narrative, the
+- `services/orchestration/src/index.ts` — side-effect import of the new module.
+- `.artifacts/deploy/orchestration/main.cjs`, `.artifacts/deploy/data-api/main.cjs` — rebuilt esbuild bundles (import.meta.url banner).
+- `LIVE_FACTS.json` + `docs/operations/live-environment.md` — counts 74/96, narrative, the
   IMAGE_ROLE_CLASSIFY_ENABLED gates-block drift fix.
 - This folder: `changes.md`, `verification.md` (evidence pointers; verdict stays PENDING for the
   dispatching loop), `evidence/upload-receipt.json`, `evidence/stamped-row.txt`,
@@ -96,9 +96,9 @@ before anything else: `gates.imageRoleClassifyEnabled()` (the **TKT-064** gate �
 - One implementation commit on `feat/backlog-drain` (this commit — hash in the dispatch return
   report): api read route + orch sweep + tests + bundles + registry + ticket artifacts.
 
-## Deploys (docs/azure/deploy.md; func from Windows, az from WSL)
+## Deploys (docs/operations/deployment.md; func from Windows, az from WSL)
 - Build: `npm run build` (orch + api, tsc clean), vitest **284/284 (orch)** + **395/395 (api)**,
-  `node build-orch.cjs` / `node build-api.cjs`, `npm install --prefix deploy/* --omit=dev`, local
+  `node scripts/build/build-orchestration.cjs` / `node scripts/build/build-api.cjs`, `npm install --prefix deploy/* --omit=dev`, local
   bundle smoke (orch registers 74, api 96 — no import.meta.url crash).
 - `func azure functionapp publish cespk-orch-dev --javascript` → **74 functions**
   (`box-classify-sweep` present), app **Running** (ARM `properties.state`).

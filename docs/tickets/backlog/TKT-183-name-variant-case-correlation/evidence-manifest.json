@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-183",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/128199.001  Saira Khurshid.eml",
+      "originalFilename": "128199.001  Saira Khurshid.eml",
+      "sha256": "4db34dd766d2422f4f45b6da01febbab580a71cfdc29c1a9f24564d502790c3b",
+      "storagePath": "tests/fixtures/evidence/sha256/4d/4db34dd766d2422f4f45b6da01febbab580a71cfdc29c1a9f24564d502790c3b.eml"
+    }
+  ]
+}

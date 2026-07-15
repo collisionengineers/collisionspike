@@ -12,7 +12,7 @@ plan: PLAN-003
 
 ## Problem
 
-Clicking "Generate Suggestions" produces nothing; devtools shows a 204 no-content response. The 2026-07-07 dark-gate audit recorded callModelForSuggestions in api/src/functions/ai-suggestions.ts as a stub returning [] (TODO TKT-015); AI_ASSIST_ENABLED was flipped true at the 2026-07-08 go-live. Examine whether the deployed build still carries the stub, or the model call fails/returns empty silently.
+Clicking "Generate Suggestions" produces nothing; devtools shows a 204 no-content response. The 2026-07-07 dark-gate audit recorded callModelForSuggestions in services/data-api/src/features/assistant/register-suggestion-routes.ts as a stub returning [] (TODO TKT-015); AI_ASSIST_ENABLED was flipped true at the 2026-07-08 go-live. Examine whether the deployed build still carries the stub, or the model call fails/returns empty silently.
 
 ## Evidence
 

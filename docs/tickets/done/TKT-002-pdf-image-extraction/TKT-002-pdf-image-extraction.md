@@ -5,7 +5,7 @@ status: done
 priority: P1
 area: evidence
 tickets-it-relates-to: [TKT-001, TKT-016]
-research-link: docs/plans/work-todo-spike/pdf-image-extraction/research/pdf-image-extraction.md
+research-link: docs/tickets/done/TKT-002-pdf-image-extraction/TKT-002-pdf-image-extraction.md
 ---
 
 # Auto-extract vehicle images from PDFs + flag unsuitable
@@ -29,9 +29,9 @@ The sample PDF's embedded images are extracted as evidence; the no-registration 
 unsuitable; a case with only unsuitable images does not reach `ready_for_eva` on image grounds.
 
 ## Research
-- Operator stub: [pdf-image-extraction.md](../../../plans/work-todo-spike/pdf-image-extraction/pdf-image-extraction.md)
-- Research pack: [research/pdf-image-extraction.md](../../../plans/work-todo-spike/pdf-image-extraction/research/pdf-image-extraction.md)
-- Sample data: `IMAGES - CVD.pdf`, `New Inspection Instruction.eml` in [pdf-image-extraction/](../../../plans/work-todo-spike/pdf-image-extraction).
+- Operator stub: [pdf-image-extraction.md](TKT-002-pdf-image-extraction.md)
+- Research pack: [research/pdf-image-extraction.md](TKT-002-pdf-image-extraction.md)
+- Sample data: `IMAGES - CVD.pdf`, `New Inspection Instruction.eml` in [pdf-image-extraction/](TKT-002-pdf-image-extraction.md).
 
 ## Artifacts
 - [Changes made](./changes.md)

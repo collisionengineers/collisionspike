@@ -1,30 +1,29 @@
 import { describe, it, expect } from 'vitest';
 import { CASE_STATUSES, type CaseStatus } from './case-status';
-// Import the REAL choice-set artifact (the frozen contract source in src/data/choicesets/), not a copy.
+// Import the canonical code-table artifact from src/data/code-tables, not a copy.
 // resolveJsonModule is on.
-import caseStatusChoiceSet from '../data/choicesets/case-status.json';
+import caseStatusCodeTable from '../data/code-tables/case-status.json';
 
 /* ============================================================
-   Schema parity — the Dataverse `cr1bd_casestatus` global choice set MUST
+   Schema parity — the `case_status` code table MUST
    reconcile 1:1 against the canonical `CaseStatus` union. This is the gate that
    keeps the deployed status state machine and the app/contract in lockstep:
    if anyone adds/removes/renames a status on either side, this test fails.
    ============================================================ */
 
-interface ChoiceOption {
+interface CodeTableOption {
   value: number;
   name: string;
   label: string;
 }
-const options = caseStatusChoiceSet.options as ChoiceOption[];
+const options = caseStatusCodeTable.options as CodeTableOption[];
 const DISPLAY_LABEL_WORD_ALIASES: Partial<Record<CaseStatus, string[]>> = {
   box_synced: ['archive', 'synced'],
 };
 
-describe('Dataverse case-status choice set <-> CaseStatus union parity', () => {
-  it('targets the cr1bd_casestatus global choice set', () => {
-    expect(caseStatusChoiceSet.logicalName).toBe('cr1bd_casestatus');
-    expect(caseStatusChoiceSet.isGlobal).toBe(true);
+describe('case-status code table <-> CaseStatus union parity', () => {
+  it('targets the canonical case_status code table', () => {
+    expect(caseStatusCodeTable.codeTableId).toBe('case_status');
   });
 
   it('has exactly one option per CaseStatus value (same count)', () => {
@@ -38,14 +37,14 @@ describe('Dataverse case-status choice set <-> CaseStatus union parity', () => {
     expect(optionNames).toEqual(unionNames);
   });
 
-  it('every CaseStatus value has a matching choice-set option', () => {
+  it('every CaseStatus value has a matching code-table option', () => {
     const optionNameSet = new Set(options.map((o) => o.name));
     for (const status of CASE_STATUSES) {
       expect(optionNameSet.has(status)).toBe(true);
     }
   });
 
-  it('every choice-set option name is a valid CaseStatus (no orphan options)', () => {
+  it('every code-table option name is a valid CaseStatus (no orphan options)', () => {
     const unionSet = new Set<string>(CASE_STATUSES);
     for (const opt of options) {
       expect(unionSet.has(opt.name)).toBe(true);

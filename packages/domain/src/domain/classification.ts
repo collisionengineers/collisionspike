@@ -2,10 +2,8 @@
    Collision Engineers — Attachment classification (DOMAIN LOGIC, M1).
 
    Re-implements collisioncc `graph-intake.ts` attachment classification on the
-   collisionspike domain model (Phase-1 plan §5.2). The Power Automate
-   `Flow_Intake` Apply-to-each branch mirrors THIS table; the flow never
-   re-derives the mapping in Power Fx — it is verified here as a pure decision
-   table and the flow branch is lint-checked against it.
+   collisionspike domain model. The orchestration intake path consumes this
+   pure decision table rather than re-deriving the mapping.
 
    Mapping (deterministic, mirrors graph-intake):
      .jpg / .jpeg / .png            -> 'image'
@@ -148,7 +146,7 @@ export interface EvidenceDescriptor {
   contentType: string;
   /** Lower-cased extension (no dot), or '' when the filename has none. */
   extension: string;
-  /** Classification class (drives the Dataverse Evidence `kind`). */
+  /** Classification class (drives the Evidence `kind`). */
   evidenceClass: EvidenceClass;
   /** Convenience flag: image-class evidence participates in the EVA upload set. */
   isImage: boolean;

@@ -13,7 +13,7 @@ research-link: docs/architecture/inspection-address-corpus.md
 ## Problem
 
 The suggestions endpoint returns **every** catalogue row with no cut. `inspectionAddressSuggestions`
-(`api/src/functions/inspection.ts`, route `cases/{id}/inspection-suggestions`) runs
+(`services/data-api/src/features/cases/inspection-routes.ts`, route `cases/{id}/inspection-suggestions`) runs
 `SELECT * FROM inspection_address WHERE source_label LIKE 'suggested%'` with **no `LIMIT`** and, after
 provider scoping, returns `sortSuggestions(scoped.length > 0 ? scoped : all)` — so an **empty
 provider-scoped set silently falls back to the ENTIRE corpus** (line 61), and when the Case/PO has no
@@ -28,10 +28,9 @@ there is no case-postcode signal in the ranking at all.
 Server-side **rank + cap**, no runtime matcher (ADR-0013 — pure string ranking, ordering only):
 
 - Rank suggestions by, in order: **case-postcode outward-code match** (the case's own postcode's outward
-  code equals the row's) > **provider-scoped** (via `repairer_id` / the `provider=` token already parsed
-  from `source_note` into `SuggestedAddress.providerCode`) > `suggestion_rank` > `suggestion_frequency` >
+  code equals the row's) > **provider-scoped** (via the canonical `provider_code`) > `suggestion_rank` > `suggestion_frequency` >
   `last_seen_on` — extending the existing `sortSuggestions` tie-break, using the ADR-0016 metadata already
-  in the schema (`migration/assets/schema/040_inspection_address.sql`).
+  in the schema (`database/baseline/040_inspection_address.sql`).
 - `LIMIT` the returned shortlist to **~8** rows.
 - **Replace the empty-scope → ALL fallback** (line 61) with a labelled **top-N global** set (clearly
   marked as unscoped, not silently dumping the corpus); same treatment for the no-principal path.

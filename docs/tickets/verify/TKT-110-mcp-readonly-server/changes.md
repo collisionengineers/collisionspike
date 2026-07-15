@@ -8,12 +8,12 @@ offline, not yet deployed. Under [PLAN-001](../../plans/PLAN-001-ai-mcp-hardenin
 - `3f7ffc7` — ai: PLAN-001 Phase 3 — read-only MCP server + agent-authz design.
 
 ## Files touched
-- `api/src/functions/mcp.ts` (+ `mcp.test.ts`) — `POST /api/mcp` (JSON-RPC 2.0 / Streamable-HTTP) hosted on
+- `services/data-api/src/features/assistant/mcp-routes.ts` (+ `mcp.test.ts`) — `POST /api/mcp` (JSON-RPC 2.0 / Streamable-HTTP) hosted on
   `cespk-api-dev`; `handleMcpMessage` handles initialize / tools/list / tools/call / ping / notifications.
   Exposes **only** `agentCapabilities()` (read ∧ not humanOnly ∧ not destructive); `tools/call` refuses any
   write/destructive/unknown tool **without executing it**. Reuses the assistant's SELECT-only `execTool`.
-  Route in `api/src/index.ts`.
-- `api/src/lib/auth.ts` (+ `auth-agent.test.ts`) — `AGENT_ROLE` (`CollisionSpike.Agent`),
+  Route in `services/data-api/src/index.ts`.
+- `services/data-api/src/platform/auth/staff-auth.ts` (+ `auth-agent.test.ts`) — `AGENT_ROLE` (`CollisionSpike.Agent`),
   `isAgentPrincipal` (app-only, no `scp`/`preferred_username`), `authorizeAgentCapability` (agents →
   non-destructive reads only) — the **designed** write prerequisite bar (not wired to any write route).
 - `packages/domain/src/gates.ts` — `MCP_SERVER_ENABLED` gate (default off).

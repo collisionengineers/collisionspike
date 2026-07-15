@@ -13,7 +13,7 @@
 
     Credentials proven working end-to-end against api.box.com on 2026-06-28 (token
     mint HTTP 200 + authenticated GET of the allowed root folder 392761581105). See
-    docs/azure/box-activation.md.
+    docs/operations/archive.md.
 
 .NOTES
     Prereq: an authenticated Azure CLI session (`az login`) with rights on

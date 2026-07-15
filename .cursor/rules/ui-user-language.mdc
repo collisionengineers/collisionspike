@@ -1,17 +1,19 @@
 ---
-description: Ban engineering and meta language in user-facing SPA strings
-globs: mockup-app/**/*.{tsx,ts}
+description: Keep every rendered web string in plain handler-facing language
+globs: apps/web/**/*.{tsx,ts}
 alwaysApply: false
 ---
 
-# UI user language (binding)
+# UI user language
 
-The SPA is for **non-technical case handlers**. Never put implementation, cloud, or spec language in **rendered strings** (labels, headings, buttons, toasts, tooltips, placeholders, validation messages, badges, empty states).
+The web app is for case handlers. Render only terms they recognize from their
+work and describe actions from their point of view.
 
-**Banned examples:** Azure, Postgres, MSAL, Entra, JWT, Function, API, webhook, Key Vault, Dataverse, Power Automate, flow, connector, OCR, JSON (say "file"/"export"), operator-gated, deploy, mock, seed, schema, payload, provenance (→ "source"), ADR, milestone, Box (→ **"Archive"**).
+Never expose infrastructure, authentication, storage, configuration, transport,
+schema, development, deployment, test-data, specification, or internal lifecycle
+terminology in labels, headings, buttons, toasts, tooltips, placeholders,
+validation messages, badges, or empty states.
 
-**Keep domain words handlers use:** EVA, VRM/registration, Case/PO, Principal, work provider, claimant, inspection, chaser, photo, evidence, queue.
-
-Gated features: plain user terms ("Vehicle lookup isn't available yet.") — never env-var or gate names.
-
-Code comments may use engineering terms freely. When delegating UI work, pass this rule.
+Keep domain words such as EVA, registration, Case/PO, Principal, work provider,
+claimant, inspection, chaser, photo, evidence, and queue. If a feature is
+unavailable, say what the handler cannot do and what they can do next.

@@ -4,22 +4,11 @@
 EVA, no Azure/tenant contact. The real ``/Connect/token`` + ``/Instruction/Inspection``
 endpoints are reached ONLY at runtime inside the deployed Function.
 
-Why this is a Function and not the connector's OAuth security (decisive)
------------------------------------------------------------------------
-Microsoft Learn (verified 2026-06-18) states:
-
-* connection-parameters — *"Currently, client credentials grant type is not
-  supported by custom connectors."*
-* verify-oauth-configuration — *"Custom connectors use the authorization code
-  flow. The implicit and client credentials flows don't issue refresh tokens…"*
-
+Authentication
+--------------
 EVA's ``POST /Connect/token`` is a ``Client_Id``/``Client_Secret`` body exchange
-returning a **5-minute** JWT (a client-credentials-style flow with no
-authorization-code / refresh-token story). A Power Platform custom connector
-therefore **cannot** perform EVA auth at the connector layer. The token MUST be
-minted, cached (with a ~30s refresh buffer), and attached as
-``Authorization: Bearer`` **inside this Azure Function**; the ``cr1bd_evasentry``
-connector that fronts it is **function-key only** (no OAuth security definition).
+returning a short-lived JWT. The token is minted, cached with a refresh buffer,
+and attached as ``Authorization: Bearer`` inside this server-side function.
 
     POST {EVA_BASE_URL}Connect/token
         Content-Type: application/x-www-form-urlencoded
@@ -49,7 +38,7 @@ Function's managed identity. They are NEVER logged, echoed in a response, or
 written to a fixture. ``__repr__`` is redacted, and the bearer token is never
 logged.
 
-Patterned on ``functions/enrichment/dvsa_client.py`` (same token-cache + 401
+Patterned on ``services/functions/vehicle-enrichment/dvsa_client.py`` (same token-cache + 401
 refresh-once-then-retry shape) so the two wrappers read alike.
 """
 

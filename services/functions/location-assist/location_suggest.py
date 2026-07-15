@@ -1,32 +1,9 @@
-"""location_suggest — the importable CORE of the location-suggest Function.
+"""Rank full-address suggestions from case photos and supplied text clues.
 
-Pure orchestration, separated from the HTTP handler (``function_app.py``) so
-tests drive it with mocked Vision / Maps / Photo clients and assert ranking +
-the ADR-0013 invariants WITHOUT constructing an HttpRequest, exactly the way
-``functions/enrichment``'s ``enrich()`` is split from its handler.
-
-What it does
-------------
-1. Fetch each selected photo's bytes via the injected ``PhotoSource`` (the Box
-   seam — stubbed in v1). A per-photo fetch failure is a WARNING, not a stop.
-2. Run Azure AI Vision (Image Analysis + Read OCR) over each fetched photo to get
-   signage / scene clues.
-3. Geocode, via Azure Maps:
-     * each signage line       -> ``photo_sign`` candidates,
-     * the accident place/postcode parsed from the circumstances -> ``near_accident``,
-     * the claimant address    -> ``near_claimant``.
-4. Rank the geocoded candidates (confidence + evidence count) and return the top
-   ``max_candidates``, with PLAIN-language provenance.
-
-ADR-0013 invariants this core upholds:
-  * it receives clues in the request and returns CANDIDATES only — it never reads
-    or writes a Case row (no Dataverse client is even imported);
-  * a candidate is a SUGGESTION, never a decision — confidence drives ORDERING
-    only, nothing is auto-selected;
-  * every human-visible string (``label`` / ``evidence[].detail``) is plain
-    business language — no engineering terms.
-
-Contract version stamped on the response: ``ce_location_suggest_v1``.
+The core receives bytes through an injected ``PhotoSource``, extracts signage
+and scene clues, geocodes candidate addresses, and returns a ranked list for
+staff review. It never reads or writes a Case. Confidence affects ordering only;
+nothing is selected automatically.
 """
 
 from __future__ import annotations

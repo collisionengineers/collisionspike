@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-184",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/Automatic reply RTA136072.001  -  Mr S H Azimi-Sayad.eml",
+      "originalFilename": "Automatic reply RTA136072.001  -  Mr S H Azimi-Sayad.eml",
+      "sha256": "fec08a012bf2536b029b228143b3896025082416d417e6202d1e245197cbff88",
+      "storagePath": "tests/fixtures/evidence/sha256/fe/fec08a012bf2536b029b228143b3896025082416d417e6202d1e245197cbff88.eml"
+    }
+  ]
+}

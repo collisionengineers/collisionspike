@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "ticket": "TKT-093",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/AJB14044.AudatexMS.pdf",
+      "originalFilename": "AJB14044.AudatexMS.pdf",
+      "sha256": "a8ca0aa7dcca6ddff9bb05b3b08e3f682b3ef6c88c4f986d77f215ce173bb493",
+      "storagePath": "tests/fixtures/evidence/sha256/a8/a8ca0aa7dcca6ddff9bb05b3b08e3f682b3ef6c88c4f986d77f215ce173bb493.pdf"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/FW RE Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)   577298.eml",
+      "originalFilename": "FW RE Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)   577298.eml",
+      "sha256": "e4a4ee5d248e134396ba89120900748399c99d677d2f11ffa4e8a21197a566b2",
+      "storagePath": "tests/fixtures/evidence/sha256/e4/e4a4ee5d248e134396ba89120900748399c99d677d2f11ffa4e8a21197a566b2.eml"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/suggest-attach-card.png",
+      "originalFilename": "suggest-attach-card.png",
+      "sha256": "eae5118158fdfe66f87e8ff57f02ea98f1e233ae4971ac9ea3aa02c32cebf5bb",
+      "storagePath": "tests/fixtures/evidence/sha256/ea/eae5118158fdfe66f87e8ff57f02ea98f1e233ae4971ac9ea3aa02c32cebf5bb.png"
+    }
+  ]
+}

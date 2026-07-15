@@ -27,7 +27,7 @@ pypdf[image]>=5.0.0    # pure-python PDF text fallback (+ Pillow extra for image
 Pillow>=10.0.0         # manylinux wheels — image handling for OCR render + pypdf images
 python-docx>=1.1.0     # pure-python — .docx reader + RJS docx exporter (import: docx)
 extract-msg>=0.45.0    # pure-python — .msg reader
-olefile>=0.47          # pure-python — legacy .doc OLE stream scrape (.doc fallback)
+olefile>=0.47          # pure-python OLE stream support for binary .doc fallback
 pytesseract>=0.3.10    # pure-python WRAPPER only; OCR is a no-op without the tesseract
                        # binary, which FC1 cannot provide. Import is safe; scanned-image
                        # PDFs degrade gracefully (see README "OCR on FC1").

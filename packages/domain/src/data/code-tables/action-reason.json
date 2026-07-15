@@ -1,0 +1,14 @@
+{
+  "$schema": "../schema/_code-table.schema.json",
+  "kind": "code-table",
+  "codeTableId": "action_reason",
+  "displayName": "Action Reason",
+  "description": "Case.actionReason — why a PERSON must act on a case (needs-action cases only; null otherwise). Matches the prototype ActionReason union (mock/types.ts) 1:1. Stored (not derived) per Phase-1 Risk #9 so the dashboard facet chips + aging tallies can group server-side.",
+  "options": [
+    { "value": 100000000, "name": "missing_images",       "label": "Missing Images" },
+    { "value": 100000001, "name": "missing_instructions", "label": "Missing Instructions" },
+    { "value": 100000002, "name": "duplicate",            "label": "Duplicate" },
+    { "value": 100000003, "name": "conflict",             "label": "Conflict" },
+    { "value": 100000004, "name": "needs_review",         "label": "Needs Review" }
+  ]
+}

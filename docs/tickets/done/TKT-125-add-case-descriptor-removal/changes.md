@@ -4,7 +4,7 @@
 Built + deployed live (2026-07-09, PLAN-003 UI-wave batch).
 
 ## What was built
-**`mockup-app/src/screens/ManualIntake.tsx`**:
+**`apps/web/src/features/intake/ManualIntake.tsx`**:
 - Removed every `hint=` descriptor under the Add Case inputs: "The vehicle's number plate.",
   "4-char principal code, e.g. KBS." (also factually wrong — codes are 2–5 chars), the Work
   provider / Case-PO ("Assigned when the case is created.") / Provider's reference / Make ("Filled

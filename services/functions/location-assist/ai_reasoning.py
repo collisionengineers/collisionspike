@@ -9,7 +9,8 @@ like signage — so the AI never returns a final address, only a query a reviewe
 
 SHIPS DARK. Gated by ``LOCATION_ASSIST_AI_ENABLED`` (default off) + a configured model endpoint +
 deployment; ``build_reasoner()`` returns ``None`` unless all are present, so the escalation is an
-honest no-op today. Live flip is operator-blocked on production AI sign-off (docs/gated.md E2).
+honest no-op today. Live activation awaits the production AI sign-off recorded in
+``docs/operations/operator-actions.md``.
 
 Discipline:
   * reasoning model -> ``max_completion_tokens`` + ``reasoning_effort``; NO ``temperature`` / ``max_tokens``;

@@ -12,7 +12,7 @@ is enforced in ``function_app.py``; this module supplies the primitives:
   3. (respond 2xx in the handler)
   4. dedup                -> DeliveryDedup
   5. UPLOADED vs MOVED    -> classify_trigger()
-  6. resolve the case     -> (folder id) extract_folder_id()  [-> Dataverse, elsewhere]
+  6. resolve the case     -> (folder id) extract_folder_id()  [through the Data API]
 
 Box signature spec (verified, developer.box.com/guides/webhooks/handle/setup-signatures):
   BOX-SIGNATURE-PRIMARY / BOX-SIGNATURE-SECONDARY are base64( HMAC-SHA256(
@@ -145,7 +145,7 @@ class DeliveryDedup:
     is the event body), so this in-process set only catches a same-worker,
     same-id RAPID duplicate — it resets on worker recycle and cannot see a retry
     that arrives with a fresh id. The DURABLE, authoritative dedup is the
-    Evidence-existence check the receiver does against Dataverse before writing
+    idempotent Evidence write the receiver performs through the Data API
     (case folder id + Box file id, idempotent regardless of the delivery id).
     ``begin()`` distinguishes a settled duplicate from one that is still being
     processed. An in-flight duplicate must never receive a settled 200 because
@@ -190,12 +190,8 @@ class DeliveryDedup:
             if delivery_id in self._store:
                 self._store[delivery_id] = (now, "settled")
 
-    def seen(self, delivery_id: str | None, *, now: float | None = None) -> bool:
-        """Backward-compatible duplicate probe used by older callers/tests."""
-        return self.begin(delivery_id, now=now) != "new"
-
     def forget(self, delivery_id: str | None) -> None:
-        """Un-mark a previously-``seen()`` id so a Box retry that reuses the SAME
+        """Un-mark an in-flight id so a Box retry that reuses the SAME
         delivery id is processed again rather than hitting the fast-path no-op.
         Call this when the receiver returns a non-2xx after a transient failure
         (the signal that makes Box retry). A retry arriving with a NEW delivery id
@@ -255,7 +251,7 @@ def extract_file_sha1(body: Mapping[str, Any]) -> str | None:
 
 
 def extract_folder_id(body: Mapping[str, Any]) -> str | None:
-    """The folder the event concerns -> resolves the case via cr1bd_boxfolderid.
+    """The folder the event concerns; its id resolves the owning case.
 
     For a FILE.UPLOADED the parent folder is source.parent.id; the webhook may be
     folder-scoped (then the watched folder is the parent). Falls back to the

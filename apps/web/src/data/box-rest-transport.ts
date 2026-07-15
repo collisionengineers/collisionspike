@@ -1,28 +1,5 @@
-/* ============================================================
-   Collision Engineers — REST Box transports (plan 30 §3).
-
-   Replaces `box-connector-transport.ts`. Off Power Platform the SPA
-   legitimately fetch-es the API origin (CORS-allowed), so the live
-   transports are straight fetch calls carrying the Bearer token.
-
-   The seam-status contract is preserved exactly:
-     ok / gated_off / folder_not_ready / error / not_connected
-   The gate-check and folder-readiness decisions move INTO the API
-   (it reads the app-settings gates + the case's box_folder_id column),
-   so the client just GETs/POSTs and maps the API's JSON status back
-   onto the existing BoxResult union.  No `cr1bd_*` columns on the
-   client; no connector ops.
-
-   The Box affordance functions (`copyFileRequest`, `getSharedLink`,
-   `requestFinalize`) remain in `box-transport.ts` (pure, unchanged).
-   These transports implement the injectable transport contracts those
-   functions delegate to.
-
-   HTTP mapping:
-     copyFileRequest  → POST /api/cases/{id}/box/copy-file-request
-     getSharedLink    → GET  /api/cases/{id}/box/shared-link
-     requestFinalize  → POST /api/cases/{id}/box/finalize
-   ============================================================ */
+/* Authenticated Archive transports. Server decisions map to the stable
+   `BoxResult` union; the browser never calls Archive storage directly. */
 
 import type {
   BoxResult,

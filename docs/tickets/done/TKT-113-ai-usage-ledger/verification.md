@@ -40,27 +40,27 @@ Verified by: ticket-verifier dispatch (final ruling), 2026-07-10.
 TESTED (offline)
 
 ## Evidence
-- `api/src/lib/ai-usage.test.ts` — atomic upsert increments `calls` + accumulates tokens on conflict;
+- `services/data-api/src/features/assistant/usage.test.ts` — atomic upsert increments `calls` + accumulates tokens on conflict;
   `recordAiUsage` never throws on a DB error.
 - `node verify-all.mjs` API gate green; the schema file parses in the migration set.
 
 ## Pending / gaps
 - **Schema APPLIED LIVE (2026-07-08); writer not yet deployed.** The table is now live on `cespk-pg-dev`
-  via [`deltas/2026-07-08-ai-usage-ledger.sql`](../../../../migration/assets/schema/deltas/2026-07-08-ai-usage-ledger.sql)
+  via [`deltas/2026-07-08-ai-usage-ledger.sql`](../../../../database/migrations/2026-07-08-ai-usage-ledger.sql)
   (`SET ROLE csadmin` runbook; transient FW rule added+removed). Live-verified: `ai_usage_ledger` exists,
   RLS `ENABLE`+`FORCE`, policies `p_ai_usage_ledger_rw` + `p_ai_usage_ledger_no_delete`, unique
   `uq_ai_usage_ledger_day_actor_surface`, `cespk_app` = `SELECT/INSERT/UPDATE`, 0 rows. Applied **ahead of**
   the ungated `recordAiUsage()` writer (App Insights: 0 `[ai-usage] ledger write failed` traces over the
   prior 72h → the live api build predates the writer, so no log-spam window). **Remaining:** the
-  `main`→`cespk-api-dev` redeploy that ships the writer (folds into [docs/gated.md](../../../gated.md)
+  `main`→`cespk-api-dev` redeploy that ships the writer (folds into [docs/tickets/BOARD.md](../../BOARD.md)
   step 1), after which rows accrue.
 - Best-effort by design — an overshoot of one call is accepted; this is a measurement ledger, not a hard
   cap.
 
 ## How to re-verify
-Offline: `npm --prefix api test`. Live (after apply + deploy): exercise the assistant a few times, then
+Offline: `npm --prefix services/data-api test`. Live (after apply + deploy): exercise the assistant a few times, then
 `SELECT * FROM ai_usage_ledger` and confirm `calls` + token totals increment for today's actor/surface.
 
 ## Verdict update — 2026-07-10 (final sweep, ticket-verifier dispatch; transcribed verbatim)
 
-**PENDING — record update: the writer IS deployed (the standing "writer not yet deployed" is stale); organic rows = queued SQL.** `recordAiUsage` + `ai_usage_ledger` in the deployed api bundle; the sole live call-site is `assistant.ts:519` (surface `assistant`) — the orch email-AI/image-classify lanes that ran hard this week do NOT write this ledger (future call sites per the DDL comment; expected absence). Rows exist only if a successful authenticated assistant chat ran after ~07-09. Schema/RLS/grants live-verified 07-08. Registry staleness flagged: LIVE_FACTS `_ai_usage_ledger_note` + gated.md §F5 still say the writer awaits the redeploy — overtaken by events (fixed by the orchestrating loop this session). Queued SQL (decisive): `SELECT usage_day, actor, surface, model, calls … FROM ai_usage_ledger` + row count — rows > 0 with surface `assistant` closes acceptance line 1 organically; else one staff chat closes it. Verified by: ticket-verifier dispatch, 2026-07-10.
+**PENDING — record update: the writer IS deployed (the standing "writer not yet deployed" is stale); organic rows = queued SQL.** `recordAiUsage` + `ai_usage_ledger` in the deployed api bundle; the sole live call-site is `assistant.ts:519` (surface `assistant`) — the orch email-AI/image-classify lanes that ran hard this week do NOT write this ledger (future call sites per the DDL comment; expected absence). Rows exist only if a successful authenticated assistant chat ran after ~07-09. Schema/RLS/grants live-verified 07-08. Registry staleness flagged: LIVE_FACTS `_ai_usage_ledger_note` + ticket board §F5 still say the writer awaits the redeploy — overtaken by events (fixed by the orchestrating loop this session). Queued SQL (decisive): `SELECT usage_day, actor, surface, model, calls … FROM ai_usage_ledger` + row count — rows > 0 with surface `assistant` closes acceptance line 1 organically; else one staff chat closes it. Verified by: ticket-verifier dispatch, 2026-07-10.

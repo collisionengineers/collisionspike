@@ -1,8 +1,8 @@
 /* ============================================================
    Collision Engineers — M1 prototype global styles.
    Brand @font-face blocks copied verbatim from the design system
-   (colors_and_type.css), pointed at ../fonts so Vite fingerprints them
-   and they resolve under the Code App's subpath base. Plus CE display/eyebrow
+   (colors_and_type.css), pointed at ../fonts so Vite fingerprints them.
+   Includes CE display/eyebrow
    helpers and a couple of CSS custom properties the shell reuses.
    ============================================================ */
 

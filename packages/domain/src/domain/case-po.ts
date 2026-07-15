@@ -10,7 +10,8 @@
 
    This module owns ONLY the deterministic STRING SHAPE. The ACID-safe sequence
    allocation (advisory-lock-serialised MAX+1 over committed case_po rows) lives in
-   the Data API's intake persist (api/src/functions/internal.ts) where it has the DB
+   the Data API's intake persist
+   (services/data-api/src/features/cases/internal-resolution-routes.ts) where it has the DB
    connection; keeping the format here makes it a single shared, tested contract that
    the API mints to and any later reader can parse.
 

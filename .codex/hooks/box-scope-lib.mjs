@@ -14,11 +14,14 @@ export const CONFIG_PATH = resolve(HERE, '..', '..', 'tools', 'box-scope.json');
 
 export function loadConfig() {
   const cfg = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
+  const allowedKeys = new Set(['allowedRoot', 'allowedIds', 'mode', '_comment']);
+  const unexpected = Object.keys(cfg).filter((key) => !allowedKeys.has(key));
+  if (unexpected.length) throw new Error(`unexpected Box scope setting(s): ${unexpected.join(', ')}`);
+  if (!Array.isArray(cfg.allowedIds)) throw new Error('allowedIds must be an array');
   return {
     allowedRoot: String(cfg.allowedRoot),
-    allowedIds: (cfg.allowedIds || []).map(String),
+    allowedIds: cfg.allowedIds.map(String),
     mode: String(cfg.mode || ''),
-    liveReady: cfg.liveReady === true,
   };
 }
 
@@ -36,11 +39,11 @@ export function appendAllowedId(id) {
 
 // A command is a Box op if it invokes the box CLI (topic:action syntax), hits a Box
 // REST host, or references a Box SDK entrypoint. Paths that merely contain "box"
-// (e.g. functions/box-webhook/, box-integration-pivot/) are NOT matched.
+// (e.g. services/functions/box-webhook/) are NOT matched.
 const BOX_CLI_RE = /(^|[\n;&|()`]\s*)(?:npx\s+)?box(?:\.cmd)?\s+[a-z][a-z0-9-]*\s*:\s*[a-z][a-z0-9-]*/i;
 const BOX_REST_RE = /\b(?:api|upload)\.box\.com\b/i;
 const BOX_SDK_RE = /\bbox[-_]sdk[-_]gen\b|\bBoxCCGAuth\b|\bBoxClient\b|\bboxsdk\b/;
-const BOX_TOOL_RE = /\btools[\\/]+box[\\/]+(?:phaseA-probe|phaseB-livetest)\.mjs\b/i;
+const BOX_TOOL_RE = /\btools[\\/]+box[\\/]+(?:identity-probe|webhook-smoke)\.mjs\b/i;
 
 export function isBoxCommand(cmd) {
   return BOX_CLI_RE.test(cmd) || BOX_REST_RE.test(cmd) || BOX_SDK_RE.test(cmd) || BOX_TOOL_RE.test(cmd);

@@ -7,7 +7,7 @@ GUI's ``export_json`` path DOES, and ``export()`` ALWAYS validates the
 (which is ``additionalProperties: false``).
 
 This is the regression these tests lock down (PR #24 review finding #1): the
-VENDORED ``FIELD_ORDER`` carries the ROADMAP-B2 ``Claimant Telephone`` /
+VENDORED ``FIELD_ORDER`` carries the ``Claimant Telephone`` /
 ``Claimant Email`` keys, but the bundled schema originally omitted them, so every
 ``export()`` call raised a ``jsonschema.ValidationError`` ("Claimant Email,
 Claimant Telephone were unexpected"). No test exercised ``export()`` against the
@@ -18,7 +18,7 @@ a future schema/field-set drift fails loudly here.
 Pure: ``DocumentModel`` / ``ExtractedRecord`` are built in-memory, no PyMuPDF or
 Tesseract needed.
 
-Run from functions/parser/:
+Run from services/functions/parser/:
     python -m pytest tests/test_eva_export.py
 """
 
@@ -79,7 +79,7 @@ def _full_record() -> ExtractedRecord:
 
 def test_export_full_record_does_not_raise_schema_validation_error():
     """The desktop crash regression: a record populating EVERY FIELD_ORDER key —
-    including the vendored ROADMAP-B2 Claimant Telephone / Claimant Email — must
+    including the vendored Claimant Telephone / Claimant Email — must
     pass ``export()``'s bundled-schema validation. Pre-fix this raised a
     ValidationError because the schema's ``additionalProperties: false`` rejected
     the two claimant-contact keys the FIELD_ORDER emits.

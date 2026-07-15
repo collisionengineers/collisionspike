@@ -1,6 +1,6 @@
 """Guard: the package-local vendored EVA schema must stay identical to the keystone.
 
-functions/parser/contracts/eva-payload.schema.json is a VENDORED copy that ships
+services/functions/parser/contracts/eva-payload.schema.json is a packaged copy that ships
 inside the FC1 deployment package (the repo-root contracts/ dir is unreachable
 from /home/site/wwwroot once deployed). The repo-root copy remains the single
 source of truth; this test fails if the two drift apart, so a schema change in one
@@ -14,7 +14,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 VENDORED = HERE.parent / "contracts" / "eva-payload.schema.json"
-KEYSTONE = HERE.parents[2] / "contracts" / "eva-payload.schema.json"
+KEYSTONE = HERE.parents[3] / "contracts" / "eva-payload.schema.json"
 
 
 def test_vendored_schema_exists_and_ships() -> None:

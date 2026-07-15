@@ -4,5 +4,5 @@
     "392761581105"
   ],
   "mode": "test_only",
-  "_comment": "Fail-closed Box scope guard. EVERY Box CLI/REST/SDK or tools/box wrapper operation must stay within test folder 392761581105 and tracked descendants. Folder 0 is always denied. The former liveReady production bypass is retired; changing mode/root or adding liveReady=true makes the guard deny Box operations. A future production cutover requires TKT-178's separately reviewed signed-run exact-object executor, never this generic test harness."
+  "_comment": "Fail-closed Box scope guard. Every Box CLI, REST, SDK, or tools/box operation must stay within test folder 392761581105 and tracked descendants. Folder 0 is always denied. Configuration keys, mode, and root are fixed. Production work requires TKT-178's separately reviewed signed-run exact-object executor."
 }

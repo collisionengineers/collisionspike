@@ -7,10 +7,10 @@ incorrect image stored on that case (`LtrtoEngineerIn__RJS_UnknownVRM_img_1_3`).
 ## Root cause A — box sync 500s on every case since the 493433e/781f02b deploy
 `493433e` ("fix(pr30): address review feedback", 2026-06-30 13:53) reworked the orchestration's
 `boxArchiveEvidence` activity to read persisted evidence via a new Data API route,
-`GET /api/internal/cases/{id}/archive-evidence` (`api/src/functions/internal.ts`) — the correct
+`GET /api/internal/cases/{id}/archive-evidence` (`services/data-api/src/features/`) — the correct
 design (it's what makes images + `box_file_id`/`box_synced_at` stamping possible). That query
 included `AND blob_purged_at IS NULL`, referencing a column that was **never migrated** onto the
-`evidence` table (`migration/assets/schema/060_evidence.sql` has no such column) and doesn't exist
+`evidence` table (`database/baseline/060_evidence.sql` has no such column) and doesn't exist
 on live Postgres either. Confirmed live via a read-only azure-diagnostician pass: every call to the
 route 500ed with Postgres `42703 column "blob_purged_at" does not exist`, and `boxArchive.ts`
 swallowed the 500 as `{skipped:'evidence_unreadable'}` — the Durable activity still reported
@@ -25,9 +25,9 @@ purged; `storage_path IS NOT NULL` already excludes purged rows. `blob_purged_at
 redundant logic.
 
 ### Fix
-- `api/src/functions/internal.ts` — removed the dead `AND blob_purged_at IS NULL` predicate. No
+- `services/data-api/src/features/` — removed the dead `AND blob_purged_at IS NULL` predicate. No
   schema migration needed.
-- `orchestration/src/functions/activities/boxArchive.ts` — added a manual backfill lever
+- `services/orchestration/src/workflows/archive/boxArchive.ts` — added a manual backfill lever
   (`box-archive-start`, `POST /api/box-archive {caseId}`, mirroring the existing
   `box-folder-create-start` pattern) so an operator can re-run the archive for one case without a
   full re-intake. **Auth:** set to `authLevel: 'function'` (not `'anonymous'` like the other manual
@@ -44,7 +44,7 @@ redundant logic.
   hit during the outage window (2026-06-30 13:53 → 2026-07-01 fix deploy).
 
 ## Root cause B — decorative images extracted from instruction PDFs (co-discovered, separate bug)
-`extractImages` (`orchestration/src/functions/activities/extractImages.ts`) runs on any PDF/DOC/DOCX
+`extractImages` (`services/orchestration/src/workflows/evidence/extractImages.ts`) runs on any PDF/DOC/DOCX
 attachment, including plain-text instruction letters with no vehicle photos. The underlying engine
 (`cedocumentmapper_v2`'s `extract_images()`) extracted **every** embedded raster on every page with
 no filtering — letterhead logos, signature stamps, etc. — persisted as `imageRoleCode:'unknown'`,
@@ -56,18 +56,18 @@ Fix A shipped — would also get faithfully mirrored into Box.
 Added a minimum-pixel-area filter (200×200 floor) to `extract_images()` in the `cedocumentmapper_v2.0`
 sibling (`application/service.py`, both the PyMuPDF/`fitz` path and the `pypdf` fallback — the DOCX
 media path is unchanged, lower-risk/out of scope), then re-vendored into
-`functions/parser/cedocumentmapper_v2/`. Two new regression tests added to
-`functions/parser/tests/test_extract_images.py`
+`services/functions/parser/cedocumentmapper_v2/`. Two new regression tests added to
+`services/functions/parser/tests/test_extract_images.py`
 (`test_small_decorative_image_is_filtered_out`, `test_large_embedded_image_is_kept`) using
 synthetic PDFs built with PyMuPDF, so the fix doesn't depend on a specific fixture file. Full parser
 suite: 232 passed, 2 skipped (unrelated, missing dev-only fixtures).
 
 ## Files touched
-- `api/src/functions/internal.ts`
-- `orchestration/src/functions/activities/boxArchive.ts`
-- `functions/parser/tests/test_extract_images.py`
+- `services/data-api/src/features/`
+- `services/orchestration/src/workflows/archive/boxArchive.ts`
+- `services/functions/parser/tests/test_extract_images.py`
 - `../cedocumentmapper_v2.0/src/cedocumentmapper_v2/application/service.py` (sibling, authoring
-  source of truth) → re-vendored to `functions/parser/cedocumentmapper_v2/application/service.py`
+  source of truth) → re-vendored to `services/functions/parser/cedocumentmapper_v2/application/service.py`
 
 ## Status of this follow-up
 Deployed live 2026-07-01. Not yet git-committed. Live runtime confirmation (a real intake producing

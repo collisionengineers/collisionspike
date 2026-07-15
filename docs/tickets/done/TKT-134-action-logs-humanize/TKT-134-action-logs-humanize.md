@@ -25,7 +25,7 @@ plain English in one place; the logs page bypasses that mapping.
 
 ## Proposed change
 
-PROPOSED (not built): reuse the TKT-117 last-activity label map (api/src/lib/last-activity.ts) for
+PROPOSED (not built): reuse the TKT-117 last-activity label map (services/data-api/src/shared/last-activity.ts) for
 the Action-logs rendering, with a detail line that stays specific but plain; keep raw payloads
 behind an expandable "technical details" affordance if needed for support.
 

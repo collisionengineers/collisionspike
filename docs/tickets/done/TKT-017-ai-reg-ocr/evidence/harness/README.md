@@ -2,7 +2,7 @@
 
 A reproducible yardstick for the registration-recognition comparison in
 [`../reg-ocr-benchmark.md`](../reg-ocr-benchmark.md). Deliberately shaped like the
-email-classifier eval harness (`scripts/eval-email/`): a labelled corpus
+email-classifier eval harness (`scripts/evaluation/email/`): a labelled corpus
 ([`bench-manifest.json`](./bench-manifest.json)) + a scorer
 ([`plate_bench.py`](./plate_bench.py)) + a redacted results file, with the same
 PII discipline.
@@ -13,13 +13,13 @@ PII discipline.
 Every candidate engine (fast-alpr, Document Intelligence Read, gpt-5 vision)
 eventually hands raw OCR candidate strings to the *same* production code that
 decides `registration_visible` / `vrm_match` / `plate_text`:
-`ocr/plate_adapter.py` (`normalise_vrm`, `_looks_like_plate`, `_build_result`).
+`services/functions/ocr/plate_adapter.py` (`normalise_vrm`, `_looks_like_plate`, `_build_result`).
 Those functions are pure and import nothing heavy, so the harness scores them
 directly over a labelled set of candidate scenarios and reports the metrics that
 are **identical across engines** (exact normalised-VRM match, VRM normalisation,
-one-char misread, scene-text false positive, split-across-lines, empty). The
-captured run is in [`results/decision-layer-run.txt`](./results/decision-layer-run.txt)
-(+ `.json`).
+one-char misread, scene-text false positive, split-across-lines, empty). Run
+[`plate_bench.py`](./plate_bench.py) to regenerate local text and JSON output; generated evaluation
+output is intentionally not tracked.
 
 ```bash
 python plate_bench.py                                # TIER A (real run, no deps)
@@ -32,25 +32,25 @@ Turning an actual JPEG into candidate strings is the engine-specific part.
 are **stubbed** because this box cannot run them:
 
 - `fast_alpr` — needs `onnxruntime` + `fast-alpr` (no cp314 wheels; this box is
-  Python 3.14 with no numpy). Wire it to `ocr/plate_adapter.read_plate(provider="fast_alpr")`.
+  Python 3.14 with no numpy). Wire it to `services/functions/ocr/plate_adapter.read_plate(provider="fast_alpr")`.
 - `docintel` — needs a live `cespkdocintel-dev` credential. Wire to
-  `ocr/plate_adapter.read_plate(provider="docintel")`.
+  `services/functions/ocr/plate_adapter.read_plate(provider="docintel")`.
 - `gpt5_vision` — needs a Cognitive Services token for `digital-3339-resource`.
-  Reuse the semantics of `orchestration/src/lib/image-classify.ts`.
+  Reuse the semantics of `services/orchestration/src/platform/image-classify.ts`.
 
 ```bash
 # once an adapter + a labelled photo corpus exist:
 python plate_bench.py --engine fast_alpr --corpus <photo-manifest.json>
 ```
 
-## PII rules (same as `scripts/eval-email/README.md`)
+## PII rules (same as `scripts/evaluation/email/README.md`)
 
 The real evidence photos carry customer registrations. Therefore:
 
 1. **`bench-manifest.json` (committed)** carries **no ground-truth registration** —
    only file paths, axis, and a PII-safe `shape_note`. Ground-truth VRMs go in a
    **gitignored overlay** keyed by `overlayKey` (put it under
-   `test-cases-and-data/e-mail-examinations/` or another `.gitignore`d path).
+   `tests/fixtures/manifests/evidence.json#e-mail-examinations/` or another `.gitignore`d path).
 2. **`results/*.json|txt` (committed)** for TIER A are synthetic-only (fake VRMs).
    A TIER B results file MUST be redacted (aggregate accuracy + per-metric counts,
    **no** detected/ground-truth VRM tokens) before it is committed — prefer keeping

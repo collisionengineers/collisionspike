@@ -1,6 +1,6 @@
 {
   "schema": "tkt017-reg-ocr-bench/v1",
-  "description": "Labelling schema for the reg-OCR photo benchmark (TIER B). The committed manifest carries NO ground-truth registrations (PII). Ground-truth VRM labels live in a gitignored overlay keyed by item id (see overlayKey + harness/README.md). Mirrors scripts/eval-email/manifest.json + its eval-overlay split.",
+  "description": "Labelling schema for the reg-OCR photo benchmark (TIER B). The committed manifest carries NO ground-truth registrations (PII). Ground-truth VRM labels live in a gitignored overlay keyed by item id (see overlayKey + harness/README.md). Mirrors scripts/evaluation/email/manifest.json + its eval-overlay split.",
   "axes": {
     "crop": "OCR accuracy on a clean, pre-cropped plate region",
     "full-photo": "end-to-end accuracy on a full vehicle photo (detector must find the plate)",
@@ -25,6 +25,7 @@
     {
       "id": "tkt040-clvdamage5",
       "file": "docs/tickets/done/TKT-040-misclass-roadworthy-request/evidence/CLVDamage5-V1.jpg",
+      "evidence_sha256": "37c3820f98e9000ecd42a589668f7463dfca384c809ad5533e9731f5d141e6c8",
       "source": "ticket:TKT-040",
       "tracked": true,
       "axis": "full-photo",
@@ -34,6 +35,7 @@
     {
       "id": "tkt040-clvdamage4",
       "file": "docs/tickets/done/TKT-040-misclass-roadworthy-request/evidence/2_CLVDamage4-V1.jpg",
+      "evidence_sha256": "65d42d8fd824ad012aa92fa888c3badc33db9060fd4fef6c677348cc33ba358e",
       "source": "ticket:TKT-040",
       "tracked": true,
       "axis": "full-photo",
@@ -43,6 +45,7 @@
     {
       "id": "tkt040-clvdamage3",
       "file": "docs/tickets/done/TKT-040-misclass-roadworthy-request/evidence/3_CLVDamage3-V1.jpg",
+      "evidence_sha256": "d620bc3f57490758374c8bc8a391260ff34db33e36d39a73b855bc93c2238411",
       "source": "ticket:TKT-040",
       "tracked": true,
       "axis": "full-photo",
@@ -52,6 +55,7 @@
     {
       "id": "tkt040-clvdamage2",
       "file": "docs/tickets/done/TKT-040-misclass-roadworthy-request/evidence/4_CLVDamage2-V1.jpg",
+      "evidence_sha256": "3ec2e3999a817b8abdb008e0e1a22f405d12049f2a5c8b49698f7b9b8cb5f889",
       "source": "ticket:TKT-040",
       "tracked": true,
       "axis": "full-photo",

@@ -30,7 +30,7 @@ inspection-address-corpus work, not image classification.
 
 ## Live pipeline — DONE (deployed 2026-07-06)
 
-`orchestration/src/lib/image-classify.ts` (gpt-5-vision, reusing `aoai.ts`'s managed-identity
+`services/orchestration/src/platform/image-classify.ts` (gpt-5-vision, reusing `aoai.ts`'s managed-identity
 `mintCognitiveToken`) is wired into **`extractImages`** (PDF-embedded images) and
 **`classifyPersist`** (direct email attachments) behind the new default-off
 `IMAGE_ROLE_CLASSIFY_ENABLED` gate, and the orchestration app was rebuilt + republished with the

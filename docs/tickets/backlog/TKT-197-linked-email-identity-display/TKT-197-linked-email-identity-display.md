@@ -25,8 +25,8 @@ are blank.
 
 ## Evidence
 - [Operator note](./evidence/info.md) — reports linked emails with blank registration/reference, frequent AX inconsistency and the MP26010 example.
-- [Inbox screenshot](./evidence/1.png) — a linked row showing reference 128295.001 while the registration position is blank.
-- [Supplied instruction email](<./evidence/New Instruction - RA6458909.eml>) — Montreal Prestige message with source reference RA6458909, vehicle images and an attached document.
+- [Inbox screenshot](./evidence-manifest.json) — a linked row showing reference 128295.001 while the registration position is blank.
+- [Supplied instruction email](./evidence-manifest.json) — Montreal Prestige message with source reference RA6458909, vehicle images and an attached document.
 - TKT-054 split VRM and Ref columns; TKT-093 owns case attachment; TKT-190 owns full Case/PO in Status; TKT-143 owns resolved identity through image extraction.
 
 ## Proposed change
@@ -65,5 +65,5 @@ to hide missing attachment extraction.
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator note](./evidence/info.md)
-- [Inbox screenshot](./evidence/1.png)
-- [Supplied instruction email](<./evidence/New Instruction - RA6458909.eml>)
+- [Inbox screenshot](./evidence-manifest.json)
+- [Supplied instruction email](./evidence-manifest.json)

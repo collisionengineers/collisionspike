@@ -18,7 +18,7 @@ The TKT-086 live coverage report shows 51.1% of 348 active cases carry circumsta
 ## Evidence
 
 - [evidence/operator-note.md](./evidence/operator-note.md) — batch-B workflow finding, 2026-07-09.
-- docs/tickets/now/TKT-086-circumstances-extraction-gaps/evidence/circumstances-coverage-2026-07-09.md — the per-provider residual table.
+- docs/tickets/done/TKT-086-circumstances-extraction-gaps/evidence/circumstances-coverage-2026-07-09.md — the per-provider residual table.
 
 ## Proposed change
 

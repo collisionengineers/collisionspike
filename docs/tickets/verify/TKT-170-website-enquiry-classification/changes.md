@@ -5,7 +5,7 @@ Implemented on `codex/tkt-170-website-enquiry`; deployment and live read-only ve
 
 ## Changes made
 - Added the append-only `website_enquiry` category (`100000008`) and
-  `website_general_enquiry` subtype (`100000015`) across the canonical choiceset,
+  `website_general_enquiry` subtype (`100000015`) across the canonical code table,
   database baseline/delta, DTO/codecs, API maps/counts, assisted-classifier vocabulary,
   and inbox labels/filters.
 - Added a taxonomy-v4 deterministic parser rule which requires the exact webform mailbox
@@ -31,4 +31,3 @@ Implemented on `codex/tkt-170-website-enquiry`; deployment and live read-only ve
   `collisionengineers/cedocumentmapper_v2.0` PR 10, merged after exact-head Claude and
   Codex PASS; tagged the reviewed commit as immutable `engine-v2.24`, re-cut the cloud
   mirror, and regenerated/verified the vendor lock.
-

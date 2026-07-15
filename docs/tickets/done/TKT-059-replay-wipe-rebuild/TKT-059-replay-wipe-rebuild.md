@@ -5,7 +5,7 @@ status: done
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-058, TKT-027, TKT-012, TKT-026]
-research-link: docs/plans/go-live/README.md
+research-link: docs/tickets/done/TKT-059-replay-wipe-rebuild/TKT-059-replay-wipe-rebuild.md
 ---
 
 # Replay: wipe & rebuild derived data from full mailbox history
@@ -33,7 +33,7 @@ triage states/stamps since go-live, mitigated by a pre-wipe export + re-stamp.
 Phases **P1 / P3 / P3V** of GO_LIVE_SPRINT_PLAN.md. Build once (rehearsed read-only in P1), execute
 once (P3), verify once (P3V):
 
-- **Extended pager** — `orchestration/src/lib/graph.ts` gains `listMessagesSince(mailbox, sinceIso, untilIso, pageUrl?)`:
+- **Extended pager** — `services/orchestration/src/adapters/graph.ts` gains `listMessagesSince(mailbox, sinceIso, untilIso, pageUrl?)`:
   `$filter` receivedDateTime range, `$orderby` asc, `@odata.nextLink` loop, scoped to **Inbox +
   descendants** (client-filter by `parentFolderId`, excluding Sent/Deleted/Junk/Drafts) so
   staff-filed mail — moved out of Inbox since `OUTLOOK_MOVE_ENABLED=true` — is not missed. Leave the
@@ -46,7 +46,7 @@ once (P3), verify once (P3V):
   try/catch (the un-wrapped `enrich` tail must not fail the run — record and continue),
   `continueAsNew` batching + `setCustomStatus` progress, and a **dry-run** mode (Graph metadata +
   parser classify only, zero DB writes) that emits a per-message manifest NDJSON as P3's ground truth.
-- **Wipe delta** — a new idempotent, single-transaction `migration/assets/schema/deltas/` file:
+- **Wipe delta** — a new idempotent, single-transaction `database/migrations/` file:
   seeds `case_po_floor` (table already live, `deltas/2026-07-04-case-po-floor.sql`) from **pre-wipe
   `case_` maxima** per marker prefix so folder-name reuse is impossible by construction (Box
   `create_folder` silently *adopts* an existing folder on `item_name_in_use`), writes a `replay_epoch`
@@ -74,30 +74,28 @@ once (P3), verify once (P3V):
 
 ## Research
 
-[GO_LIVE_SPRINT_PLAN.md](../../../plans/go-live/README.md) — phases P0 (preflight), P1 (pager + dry-run
-driver), P3 (wipe & rebuild runbook), P3V (verification + relink); §"Critical code-verified traps".
+[Verification](./verification.md) retains the read-only experiment and the evidence that made the
+proposed wipe-and-rebuild path non-viable.
 
 ## Artifacts
 
 Change-by-change audit trail: [changes.md](./changes.md) · smoke/verification steps:
 [verification.md](./verification.md).
 
-## Status update — 2026-07-08 (blocked — RETIRED AS SUPERSEDED, operator decision)
+## Status update — 2026-07-08 (superseded and closed after removal)
 
-**Disposition: superseded, moved to `blocked`.** The wipe-&-rebuild-from-mailbox premise is
+**Disposition: superseded.** The wipe-and-rebuild-from-mailbox premise is
 **abandoned** — the P1 dry-run proved the live Inboxes retain only ~88 of 390 ingested emails (staff
 file/delete processed mail into Deleted Items), so a wipe would have destroyed ~150 cases it could not
 rebuild, and an eval proved the deployed classifier is sound (~94% `receiving_work` recall), so the
 existing derived data is largely correct. See [verification.md](./verification.md) Findings 1 & 2 + the
-P2 resolution, and the memory `[[replay-mailboxes-do-not-retain-history]]`.
+P2 resolution.
 
 The operator was offered the one residual candidate — an **optional** full-`.eml` reprocess of the
 ~212 case-linked emails (safe but low-value) — and **declined it** (ticket-orchestrate batch,
 2026-07-08). Nothing in this ticket's Acceptance is needed for go-live.
 
-**The Acceptance section above is therefore moot** (it describes the abandoned wipe path) and is not
-being pursued. The P1 driver (`listMessagesSince` pager + keyed `POST /api/replay-backfill` +
-`replay-manifest.ts`) remains **built, deployed, and shipped dark** (`REPLAY_BACKFILL_ENABLED=false`);
-its **removal is tracked by [TKT-106](../TKT-106-remove-replay-backfill/TKT-106-remove-replay-backfill.md)**.
-This ticket is `blocked` pending that removal — once TKT-106 lands, close both. The non-viability
-**finding is preserved** here and in TKT-106 (do not lose it with the code).
+**The Acceptance section above is therefore moot** because it describes the abandoned wipe path.
+[TKT-106](../TKT-106-remove-replay-backfill/TKT-106-remove-replay-backfill.md) subsequently removed
+the unused driver and gate. The non-viability finding remains here and in TKT-106, while this ticket's
+`done` state reflects the accepted no-rebuild decision and completed cleanup.

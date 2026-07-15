@@ -10,15 +10,17 @@ assist got zero photo bytes and ran on text clues only. Fixed by resolving bytes
 (chosen approach) and passing them inline — no Box grant on the location function.
 
 ## Offline tests (python location-suggest — 75 pass)
-- `tests/test_photo_source.py`: `InlinePhotoSource` decodes base64 / raises on missing or bad base64;
+- `services/functions/location-assist/tests/test_photo_source.py`: `InlinePhotoSource` decodes base64 /
+  raises on missing or bad base64;
   `select_photo_source` prefers inline bytes over the (raising) Box source even with `BOX_API_ENABLED=true`,
   falls back to the Stub/Box factory without inline bytes.
-- `tests/test_vision_maps_clients.py`: `MapsClient.search_poi` hits the `/search/fuzzy/json` endpoint
+- `services/functions/location-assist/tests/test_vision_maps_clients.py`: `MapsClient.search_poi` hits
+  the `/search/fuzzy/json` endpoint
   (business names off signage), UK-biased.
 - The full existing suite (handler happy path, 422/502, ranking) re-passes with the new `select_photo_source`.
 
 ## api (183 pass) + build
-- `api/src/lib/evidence-bytes.ts` (shared blob→Box-facade resolver, extracted from `evidence.ts` and reused
+- `services/data-api/src/features/evidence/bytes.ts` (shared blob→Box-facade resolver, extracted from `evidence.ts` and reused
   in `proxy.ts`), `resolveAssistImageBase64` (capped 4 photos / 4.5MB each). `evidence.ts` refactored to the
   shared resolver (TKT-048 previews unchanged). tsc clean; SPA build clean.
 
@@ -35,7 +37,7 @@ read real bytes (Vision OCR ran) + a candidate returned; a Postgres check that n
 ## Deferred (noted follow-up)
 `corpus_match` (cross-referencing an AI/POI hit against the provider's corpus sites) needs the provider's
 sites passed into the request — a larger contract change; the `corpus_match` evidence kind already exists
-for forward-compat. Full narrative: `LIVE_FACTS.json` `verifiedBy`.
+for future-safe behavior. Full narrative: `LIVE_FACTS.json` `verifiedBy`.
 
 ## Verdict update — 2026-07-10 (final sweep, ticket-verifier dispatch; transcribed verbatim)
 
@@ -67,15 +69,15 @@ corpus sites enter the request or Function, and no backend path can emit `corpus
 
    This proves the deployed Function has processed image bytes through Vision and POI lookup, but
    telemetry cannot attribute those bytes specifically to blob versus Box.
-3. Current main implements blob-first then Box-facade fallback in `api/src/lib/evidence-bytes.ts:35-80`,
-   injects trusted `image_base64` in `api/src/functions/proxy.ts:27-51`, and selects
-   `InlinePhotoSource` in `functions/location-suggest/photo_source.py:127-180`.
+3. Current main implements blob-first then Box-facade fallback in `services/data-api/src/features/evidence/bytes.ts`,
+   injects trusted `image_base64` in `services/data-api/src/platform/http/proxy-routes.ts`, and selects
+   `InlinePhotoSource` in `services/functions/location-assist/photo_source.py:127-180`.
 4. Current orchestration accepts only photos and two text clues at
-   `functions/location-suggest/location_suggest.py:132-143`. Its evidence constants at lines 62-68 omit
+   `services/functions/location-assist/location_suggest.py:132-143`. Its evidence constants at lines 62-68 omit
    `corpus_match`; signage goes directly from OCR to fuzzy search at lines 164-220. Repository-wide search
    found `corpus_match` only in UI contract/docs, never in backend production.
 5. The ticket's existing verification explicitly acknowledges this deferral at
-   `docs/tickets/verify/TKT-077-location-assist-photos/verification.md:36-40`.
+   `docs/tickets/now/TKT-077-location-assist-photos/verification.md:36-40`.
 6. SPA source auto-runs assist once only on corpus miss with usable photos at
    `CaseDetail.tsx:1656-1682`; candidates remain confirm-only at lines 2711-2733. Image Based Assessment
    requires a touched reason at lines 2627-2634.

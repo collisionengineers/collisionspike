@@ -7,18 +7,16 @@ node_modules/
 dist/
 dist-ssr/
 build/
+!scripts/build/
+!scripts/build/**
 out/
+.artifacts/
 *.local
+scripts/evaluation/**/local/
 
 # Vite / React
 .vite/
 *.tsbuildinfo
-
-# Power Platform / Power Apps code app
-.power/
-.powerplatform/
-*.pac
-.pac/
 
 # Environment & secrets
 .env
@@ -87,7 +85,5 @@ boxconfig.json
 # core.protectNTFS then refuses such a path in ANY index or working tree on Windows — not just
 # checkout, but even via plumbing (git read-tree, update-index --cacheinfo). No config toggle
 # around this. A colon-bearing path reaching a shared branch permanently blocks every Windows
-# clone (hit 2026-07-03: 3 Outlook .eml:OECustomProperty exports on main, fixed via a full
-# git-filter-repo history rewrite — see docs/plans/runbooks/ntfs-path-history-purge.md).
-# Block all colon-bearing filenames, not just known suffixes.
+# clone. Block all colon-bearing filenames, not just known suffixes.
 *:*

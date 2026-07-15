@@ -6,7 +6,7 @@
     "FUNCTIONS_WORKER_RUNTIME": "python",
     "FUNCTIONS_EXTENSION_VERSION": "~4",
 
-    "_comment_gating": "cr1bd_LOCATION_ASSIST_ENABLED (paired with cr1bd_AZURE_MAPS_ENABLED) gates this Function, but the gate is enforced UPSTREAM in the Code App / flow (Dataverse env vars), NOT read by this Function. Listed here for documentation only.",
+    "_comment_gating": "Feature availability is enforced by the calling API and is not read by this function.",
 
     "_comment_box": "Box is dormant in v1. BOX_API_ENABLED=false selects the StubPhotoSource (no Box read). Set true only at activation, AFTER the Box CCG content read (BoxPhotoSource) is implemented and the Box secrets are in Key Vault.",
     "BOX_API_ENABLED": "false",

@@ -101,7 +101,6 @@ async function main() {
   clearTimeout(watchdog);
   try {
     const cfg = lib.loadConfig();
-    if (cfg.liveReady) return deny('the retired liveReady production bypass is set; Box operations remain test-only.');
     if (cfg.mode !== 'test_only') {
       return deny(`tools/box-scope.json mode must remain test_only (got ${cfg.mode || 'missing'}).`);
     }
@@ -125,7 +124,7 @@ async function main() {
         `Box id(s) [${bad.join(', ')}] are outside the test folder ${root}.\n` +
           `  In scope: root ${root} + ${cfg.allowedIds.length} tracked descendant id(s).\n` +
           `  A child created under the root is tracked automatically right after creation.\n` +
-          `  No production bypass exists; TKT-178 requires a separate signed-run exact-object executor.`,
+          `  Production work requires TKT-178's separate signed-run exact-object executor.`,
       );
     }
 

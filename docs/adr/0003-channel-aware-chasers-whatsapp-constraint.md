@@ -1,12 +1,20 @@
-# Chasers are channel-aware; WhatsApp outbound is draft-only (WhatsApp Business constraint)
+# ADR-0003 — Chasers are channel-aware
 
 **Status:** Accepted (2026-06-17).
 
-Chasing a Case's Missing items is **assisted and tracked**, but constrained by channel. Collision
-Engineers use **WhatsApp Business only** and will not change this, so the tool cannot freely
-auto-send WhatsApp messages: for WhatsApp Image Sources a chaser is **drafted for the staff member
-to send manually** in WhatsApp (the tool prepares the message, shows the contact/group, and logs the
-chase). Email chasers may be drafted and (later) sent via the Outlook connector; Audatex sources are
-await-only. In every channel, staff can also add free-text **Notes** to a Case, which stay
-first-class alongside structured chaser tracking. This constraint is invisible in code but shapes the
-whole outbound design, so it is recorded here.
+## Decision
+
+Chasers are assisted, tracked requests for missing case information. Email may be drafted and sent through
+the approved mail path. WhatsApp Business chasers are drafted for a staff member to send manually.
+Audatex sources are await-only unless a separately accepted integration changes that boundary. Staff can
+always add free-text Notes alongside structured chasers.
+
+## Rationale
+
+The business uses the WhatsApp Business app and does not expose a programmatic send path. Pretending the
+system can send would create false completion and an unaudited communication gap.
+
+## Consequences
+
+The Case records channel, recipient, draft, staff disposition, and timestamps. UI copy distinguishes a
+prepared message from one actually sent.

@@ -1,4 +1,4 @@
-"""Box-webhook Azure Function (Python v2) — CCG token-mint facade + webhook receiver.
+"""Archive REST operations and event receiver (Python v2).
 
 [BUILD] — authored offline; verified by ``pytest`` with the Box token/REST
 endpoints, the webhook signatures, and the Data API all mocked. No
@@ -7,13 +7,13 @@ exercised directly via a fake HttpRequest. NOTHING here contacts live Box,
 Azure, or any tenant. The Box ``client_secret`` + webhook signature keys are
 operator-injected Key Vault references; Claude never holds a Box credential.
 
-Two surfaces, one FC1 app (functions/box-webhook/, ADR-0012 / build-plan 03):
+Two surfaces, one service (`services/functions/box-webhook`):
 
-A. **Connector facade** — thin routes the custom Box REST connector binds to
-   (operationIds CreateFolder, CopyFileRequest, GetSharedLink (+ folder variant),
+A. **Archive routes** — operations used by the current services
+   (CreateFolder, CopyFileRequest, GetSharedLink plus folder variant,
    ListFolder, CreateWebhook + webhook lifecycle + File-Request lifecycle). Each
    mints the Box CCG bearer server-side (box_client) and injects it. Gated by
-   ``BOX_API_ENABLED`` (defence in depth; the flow reads the Dataverse gate too).
+   ``BOX_API_ENABLED`` (defence in depth).
 
 B. **Webhook receiver** — POST /api/box-webhook, the load-bearing order
    (box-rest-api/references/webhook-receiver.md):
@@ -98,9 +98,8 @@ def _json_response(payload: dict[str, Any], status: int = 200) -> func.HttpRespo
 
 def _gated_off() -> func.HttpResponse:
     # Return a NON-2xx so a gated-off Box op can NEVER be mistaken for a success.
-    # The flows read the Dataverse gate first and skip the call when off (defence
-    # in depth), so this only fires on a Function/Dataverse gate MISMATCH — which
-    # must fail loudly (503), not return 200 with an empty body the caller would
+    # The calling API reads the gate first, so this only fires on a configuration
+    # mismatch. It must fail loudly (503), not return 200 with an empty body that
     # coalesce into a phantom "created/sent" outcome.
     return _json_response(
         {"error": "BOX_API_ENABLED is false; Box call skipped.", "status": 0}, status=503
@@ -116,7 +115,7 @@ def _body(req: func.HttpRequest) -> dict[str, Any] | None:
 
 
 def _run_box_op(fn: Callable[[BoxClient], dict[str, Any]]) -> func.HttpResponse:
-    """Mint a client, run a single Box op, map errors to the connector's
+    """Mint a client, run a single Box op, map errors to the route's
     {error,status} shape. Never leaks a Box body/token; logs the class only."""
     client = BoxClient()
     try:
@@ -150,7 +149,7 @@ def _run_box_op(fn: Callable[[BoxClient], dict[str, Any]]) -> func.HttpResponse:
 
 
 # ===========================================================================
-# A. Connector facade routes
+# A. Archive routes
 # ===========================================================================
 
 @app.route(route="box/folders", methods=["POST"])
@@ -178,7 +177,7 @@ def get_folder(req: func.HttpRequest) -> func.HttpResponse:
     return _run_box_op(lambda c: c.get_folder(folder_id))
 
 
-# TKT-142: honest cap on the legacy base64-in-JSON upload lane. ~11 MiB of
+# TKT-142: bounded cap on the base64-in-JSON upload lane. ~11 MiB of
 # base64 TEXT ≈ 8 MiB of raw bytes — the orchestration switches to the blobPath
 # variant above 8 MiB raw. Checked on the STRING length BEFORE any decode so an
 # oversized body can never reach b64decode and kill the worker (the 17.6 MB
@@ -201,8 +200,8 @@ def upload_file(req: func.HttpRequest) -> func.HttpResponse:
     archive mirror (ADR-0012; box-sync ticket; TKT-142 large-payload lanes).
     TWO mutually exclusive body variants (400 if both/neither):
 
-    * ``{ filename, contentBase64, contentType? }`` — the legacy base64-in-JSON
-      lane, kept for compatibility but capped (~11 MiB of base64 ≈ 8 MiB raw;
+    * ``{ filename, contentBase64, contentType? }`` — the bounded base64-in-JSON
+      lane, capped at ~11 MiB of base64 (about 8 MiB raw;
       length-checked BEFORE decoding) -> 413 naming the blobPath alternative.
     * ``{ filename, blobPath, contentType? }`` — the facade downloads the blob
       ITSELF from the evidence storage account (managed-identity bearer;

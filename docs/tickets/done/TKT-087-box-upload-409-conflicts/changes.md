@@ -6,8 +6,8 @@ targeted fix on `feat/lifecycle-wave`; deploy + live re-check pending.
 
 ## Reconciliation note (2026-07-07) — stays backlog, rescoped to investigation-only
 The idempotent-409 behaviour this ticket contemplates **already exists server-side**: the Box archive path
-treats a 409 name-conflict as an idempotent reuse — `orchestration/src/functions/activities/boxArchive.ts:19`
-("Idempotent: a Box 409 name-conflict is …") and `orchestration/src/lib/functions-client.ts:280`
+treats a 409 name-conflict as an idempotent reuse — `services/orchestration/src/workflows/archive/boxArchive.ts`
+("Idempotent: a Box 409 name-conflict is …") and `services/orchestration/src/adapters/functions-client.ts`
 ("409 name-conflict is an idempotent reuse server-side, so a replayed archive …"). So there is **no fix to
 build**; the outstanding work is purely the **forensic verdict** on the 18×409 in the operator's Box report
 (2026-07-03): confirm they are benign replay/idempotency vs a double-processing vector, correlating with
@@ -33,26 +33,26 @@ Two real defects surfaced:
 ## Fix (small + obvious, per the wave's investigation-only-unless rule)
 Prevention (orchestration — names unique per message, stable across replays so a genuine replay's
 409 stays a CORRECT reuse):
-- NEW `orchestration/src/lib/evidence-names.ts` — `messageFileToken` (8-hex SHA-256 of the
+- NEW `services/orchestration/src/platform/evidence-names.ts` — `messageFileToken` (8-hex SHA-256 of the
   internetMessageId) + `rawEmlFileName` / `bodyInstructionFileName`; unit-tested
   (`evidence-names.test.ts`, 7 tests green).
-- `orchestration/src/functions/activities/fetchMessage.ts` — raw MIME lands as
+- `services/orchestration/src/workflows/intake/fetchMessage.ts` — raw MIME lands as
   `message-<token>.eml` (was `message.eml`).
-- `orchestration/src/functions/activities/classifyPersist.ts` — body-only instruction lands as
+- `services/orchestration/src/workflows/evidence/classifyPersist.ts` — body-only instruction lands as
   `email-body-<token>.txt` (was `email-body.txt`).
 - Classification is extension/content-type-keyed (`.eml`/`message/rfc822`, `.txt`), so renamed
   stems classify identically; no code consumer parses these literal names (verified by grep).
 
 Cure (box-webhook facade — reuse only when it is REALLY the same bytes):
-- `functions/box-webhook/box_client.py` `upload_file` — on 409, verify the conflicting file's
+- `services/functions/box-webhook/box_client.py` `upload_file` — on 409, verify the conflicting file's
   `sha1` (from `context_info.conflicts`, else a best-effort `GET /2.0/files/{id}?fields=sha1`)
   against `sha1(content)`:
   - match → `outcome='reused'` (info trace, as before);
   - **mismatch → re-upload ONCE under `<stem>-<sha1[:8]>.<ext>`** (warn trace,
     `outcome='created'` under the disambiguated name) — no more mis-linkage;
-  - unverifiable → legacy reuse at WARN level (never block an archive on a missing hash).
+  - unverifiable → earlier reuse at WARN level (never block an archive on a missing hash).
   Helpers `_conflict_entry` / `_disambiguate_filename`; `_conflict_id` now delegates.
-- Tests: `functions/box-webhook/tests/test_box_client.py` — same-content reuse, mismatch →
+- Tests: `services/functions/box-webhook/tests/test_box_client.py` — same-content reuse, mismatch →
   disambiguated re-upload (asserts the second POST + name), unverifiable-sha1 fallback.
   **30 passed.**
 

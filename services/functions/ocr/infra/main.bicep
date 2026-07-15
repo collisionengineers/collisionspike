@@ -3,16 +3,16 @@
 //
 // Azure Functions (Python) running on **Azure Container Apps** (scale-to-zero),
 // which — unlike the parser's Flex Consumption (FC1) plan — lets the image carry
-// the `tesseract` OS binary. This is "B-full" (ROADMAP 5a): a SEPARATE host from
+// the `tesseract` OS binary. This is a separate host from
 // the FC1 parser, invoked only as an OCR fallback for image-only PDFs, plus the
-// fast-alpr registration-plate route. See docs/plans/phase-5-ocr-and-scale/ocr-strategy.md.
+// fast-alpr registration-plate route.
 //
 // Authored OFFLINE; `az bicep build`-able with no tenant contact. Deploying it
 // (az deployment / azd) is [DEPLOY-WITH-LOGIN]. Injecting the real Document
 // Intelligence Read key VALUE into Key Vault is [RESERVED-FOR-USER] — this
 // template only declares the secret *reference*; it never contains a literal.
 //
-// PRINCIPLES (mirroring functions/parser + functions/enrichment Bicep):
+// PRINCIPLES (shared with the parser and vehicle-enrichment service definitions):
 //   * NO secret literals. The only outbound secret (DI Read key, needed solely
 //     for OCR_PROVIDER=docintel) is a @Microsoft.KeyVault(...) reference resolved
 //     by the Function's system-assigned managed identity.
@@ -22,8 +22,7 @@
 //   * Identity-based ACR pull — no registry username/password. The pulling
 //     identity holds AcrPull: either the system-assigned MI (useUami=false) or a
 //     PRE-GRANTED user-assigned identity (useUami=true, acrPullIdentityId set).
-//   * Gating note: OCR_SCANNED_PDF_ENABLED / PLATE_OCR_ENABLED are Dataverse env
-//     vars checked UPSTREAM in the flow/Code App, NOT app settings here.
+//   * Feature availability is checked by the calling service, not this host.
 //   * Canonical Functions-on-ACA shape (Microsoft Learn,
 //     functions-infrastructure-as-code, pivot=container-apps):
 //       kind: 'functionapp,linux,container,azurecontainerapps'
@@ -48,7 +47,7 @@ param imageName string = 'ce-ocr:latest'
 @description('Use an EXISTING Azure Container Registry instead of creating one. When empty, a new Basic ACR is created.')
 param existingAcrName string = ''
 
-@description('Minimum Container Apps replicas. 0 = scale-to-zero (~GBP0 idle). Raise to 1 during business hours if cold-start latency on synchronous Code App calls is intrusive (docs/plans/phase-5-ocr-and-scale/ocr-strategy section 10.5).')
+@description('Minimum Container Apps replicas. 0 = scale-to-zero. Raise to 1 during business hours if synchronous cold-start latency is intrusive.')
 @minValue(0)
 @maxValue(5)
 param minReplicas int = 0
@@ -90,9 +89,8 @@ param docintelApiVersion string = '2024-11-30'
 // fallback engine. Default false keeps DI UNPROVISIONED and the host on its
 // in-container Tesseract/fast-alpr defaults — provisioning DI is a deliberate
 // spend decision and is gated OFF until the operator opts in. Distinct from the
-// Dataverse env-var gates (OCR_SCANNED_PDF_ENABLED / PLATE_OCR_ENABLED), which
-// are checked UPSTREAM and decide whether scanned PDFs/photos route here AT ALL;
-// this gate is purely about creating the DI resource + wiring its endpoint/key.
+// Caller-owned availability gates decide whether scanned PDFs/photos route here;
+// this setting only controls resource creation and endpoint/key wiring.
 @description('NEW gate (default OFF). When true, provision a managed Azure AI Document Intelligence account (docintel.bicep) and self-wire its endpoint + the DOCINTEL_ENABLED app setting. Default false = DI unprovisioned; host stays on in-container Tesseract/fast-alpr. Provisioning DI is a spend decision — keep OFF until opted in.')
 param deployDocIntel bool = false
 
@@ -118,7 +116,7 @@ param tags object = {
 // EXISTING resource (customerId + listKeys() both work on an existing ref) and
 // keeps its appLogsConfiguration shape unchanged — only WHICH workspace it reads
 // changes. Application telemetry still flows to the shared App Insights via the
-// connection-string param below. See functions/parser/infra/main.bicep.
+// connection-string param below. See services/functions/parser/infra/main.bicep.
 @description('Name of the SHARED Log Analytics workspace (the parser workspace) the ACA managed environment ships container logs to. customerId + primarySharedKey are read from this EXISTING workspace.')
 param sharedLogAnalyticsName string = 'cespike-parser-law-dev'
 
@@ -336,7 +334,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
             name: 'DOCKER_REGISTRY_SERVER_URL'
             value: acr.properties.loginServer
           }
-          // Engine selectors (read by the container, NOT the Dataverse gates).
+          // Engine selectors read by the container.
           {
             name: 'OCR_PROVIDER'
             value: ocrProvider

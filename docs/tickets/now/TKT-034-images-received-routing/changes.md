@@ -32,10 +32,10 @@ redeployed. Gate NOT flipped (operator item — needs the folder-semantics appro
 - Live proof of the flag: the next unmatched image-bearing email (with the triage images gate on,
   which it is) should show the chip — verifier item; no synthetic email was injected.
 - The reg-keyed folder rung stays dark until the operator approves + flips
-  `BOX_REG_FOLDER_ENABLED` (suggest adding to docs/gated.md at distillation).
+  `BOX_REG_FOLDER_ENABLED` (suggest adding to docs/tickets/BOARD.md at distillation).
 
 ## Reconciliation note (2026-07-07) — stays backlog, rescoped
 Half of this is **already shipped**: the Enquiries-vs-Case-Queries category split exists on `main` —
 `query_existing_work` (100000003) + `query_new_enquiry` (100000004) in
-`packages/domain/src/data/choicesets/inbound-email-classification.json:32-33`, with the DTO/outlook-folder
+`packages/domain/src/data/code-tables/inbound-email-classification.json:32-33`, with the DTO/outlook-folder
 plumbing. What remained was the **image-received fallback chain** — built this wave as above.

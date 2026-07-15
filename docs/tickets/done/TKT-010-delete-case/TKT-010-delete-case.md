@@ -5,7 +5,7 @@ status: done
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-003]
-research-link: docs/plans/work-todo-spike/ui-changes/research/delete-case.md
+research-link: docs/tickets/done/TKT-010-delete-case/evidence-manifest.json
 plan: PLAN-003
 ---
 
@@ -37,8 +37,8 @@ Deleting a case requires explicit confirmation; ticking the box also removes the
 is audited; nothing is deleted from Box without the explicit tick.
 
 ## Research
-- Operator stub: [delete-case.md](../../../plans/work-todo-spike/ui-changes/delete-case.md)
-- Research pack: [research/delete-case.md](../../../plans/work-todo-spike/ui-changes/research/delete-case.md)
+- Operator stub: [delete-case.md](TKT-010-delete-case.md)
+- Research pack: [research/delete-case.md](TKT-010-delete-case.md)
 
 ## Artifacts
 - [Changes made](./changes.md)

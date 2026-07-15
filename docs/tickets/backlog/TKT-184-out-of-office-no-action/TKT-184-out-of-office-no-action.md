@@ -18,7 +18,7 @@ The classifier must distinguish a genuine automatic reply from a human message t
 
 ## Evidence
 - [Operator note](./evidence/info.md) — asks for easy identification of automatic/out-of-office mail and a no-action outcome.
-- [Supplied automatic reply](<./evidence/Automatic reply RTA136072.001  -  Mr S H Azimi-Sayad.eml>) — subject begins “Automatic reply”, header Auto-Submitted is auto-generated, X-Auto-Response-Suppress is All, and the body states that the sender is out of the office.
+- [Supplied automatic reply](./evidence-manifest.json) — subject begins “Automatic reply”, header Auto-Submitted is auto-generated, X-Auto-Response-Suppress is All, and the body states that the sender is out of the office.
 - The repeated RTA136072.001 reference is inherited thread context, not new work. Existing non_actionable/acknowledgement handling provides the never-mint safety boundary but has no grounded out-of-office subtype.
 
 ## Proposed change
@@ -48,4 +48,4 @@ Distilled 2026-07-13 from the [operator note and original email](./evidence/). T
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator note](./evidence/info.md)
-- [Supplied automatic reply](<./evidence/Automatic reply RTA136072.001  -  Mr S H Azimi-Sayad.eml>)
+- [Supplied automatic reply](./evidence-manifest.json)

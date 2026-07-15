@@ -6,11 +6,11 @@ DONE (built + deployed 2026-07-06) — awaiting the operator live SPA click-thro
 (2026-07-06 inspection-address repair).
 
 ## Summary
-`api/src/functions/inspection.ts` + `api/src/lib/mappers.ts` read `provider_code` (legacy note fallback), scope server-side, and killed the `!s.providerCode ||` firehose (unknown provider → a LABELLED global top-N). `api/src/lib/maps.ts` adds postcode extraction + Azure Maps geocode + haversine for nearest-first `distanceMiles` ordering (degrades to frequency ordering until `AZURE_MAPS_KEY` is on the api app). Pure helpers `principalFromCasePo`/`scopeSuggestions` extracted + unit-tested. Deployed to `cespk-api-dev` (82 fns).
+`services/data-api/src/features/cases/inspection-routes.ts` + `services/data-api/src/shared/mapping/` read canonical `provider_code`, scope server-side, and killed the `!s.providerCode ||` firehose (unknown provider → a LABELLED global top-N). `services/data-api/src/shared/maps.ts` adds postcode extraction + Azure Maps geocode + haversine for nearest-first `distanceMiles` ordering (degrades to frequency ordering until `AZURE_MAPS_KEY` is on the api app). Pure helpers `principalFromCasePo`/`scopeSuggestions` extracted + unit-tested. Deployed to `cespk-api-dev` (82 fns).
 
 ## 2026-07-09 — scopeFallback consumed in the SPA (the verifier's FAILED line; shared with TKT-079)
 
-`mockup-app/src/screens/CaseDetail.tsx`: fallback rows (`scopeFallback: true`, already sent by the
+`apps/web/src/features/cases/CaseDetail.tsx`: fallback rows (`scopeFallback: true`, already sent by the
 API) no longer render the misleading foreign "Provider XXX" chip — each shows **"Common location —
 not specific to this provider"**, and a banner renders above the shortlist whenever any row is a
 fallback: **"Showing common locations — none saved for this provider yet."** (plain English, no

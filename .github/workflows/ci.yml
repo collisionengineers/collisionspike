@@ -1,0 +1,123 @@
+name: repository-ci
+
+on:
+  pull_request:
+  push:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  typescript:
+    name: TypeScript build, test, and package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npm run bundle
+      - name: Smoke-load generated function bundles
+        run: |
+          node -e "require('./.artifacts/deploy/data-api/main.cjs')"
+          node -e "require('./.artifacts/deploy/orchestration/main.cjs')"
+
+  python:
+    name: Python ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - box-webhook
+          - eva-sentry
+          - location-assist
+          - ocr
+          - parser
+          - vehicle-enrichment
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/functions/${{ matrix.service }}/requirements*.txt
+      - name: Install service dependencies
+        working-directory: services/functions/${{ matrix.service }}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          if [ -f requirements-dev.txt ]; then python -m pip install -r requirements-dev.txt; fi
+      - name: Run service tests
+        working-directory: services/functions/${{ matrix.service }}
+        run: |
+          test -d tests || { echo "Required test suite is missing" >&2; exit 1; }
+          python -m pytest tests -q
+      - name: Run email evaluation checks
+        if: matrix.service == 'parser'
+        run: |
+          python -m pytest scripts/evaluation/email/tests -q
+          python scripts/evaluation/email/run_ab.py --limit 1
+
+  hygiene:
+    name: Repository contracts and hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm ci
+      - name: Install document-scanner dependencies
+        run: python -m pip install -r scripts/checks/requirements.txt
+      - name: Verify parser vendor pin
+        run: python services/functions/parser/scripts/verify_vendor_pin.py
+      - name: Verify database code tables
+        run: node database/tests/code-table-parity.mjs
+      - name: Verify runtime contracts
+        run: npm run check:runtime-contract
+      - name: Verify repository data authority
+        run: |
+          npm run check:data-authority
+          npm run test:checks
+      - name: Verify documentation and ticket indexes
+        run: |
+          npm run check:docs
+          npm run check:tickets
+      - name: Verify generated tool adapters
+        run: npm run check:adapters
+      - name: Verify evidence and reviewed images
+        run: |
+          npm run check:evidence
+          npm run check:image-review
+      - name: Scan decoded documents and messages
+        run: npm run check:binary-content
+      - name: Verify source size and repository inventory
+        run: |
+          npm run check:layout
+          npm run check:production-dependencies
+          npm run check:source-size
+          npm run check:inventory
+          npm run check:reconciliation
+          npm run inventory:checkout
+          npm run check:line-endings
+      - name: Reject tracked build output
+        run: npm run check:outputs
+      - name: Reject forbidden terminology and artifacts
+        run: npm run check:forbidden
+      - name: Publish repository audit ledgers
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-audit-ledgers
+          path: .artifacts/audit/*.json
+          if-no-files-found: error

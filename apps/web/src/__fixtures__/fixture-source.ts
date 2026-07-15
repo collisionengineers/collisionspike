@@ -1,21 +1,5 @@
-/* ============================================================
-   Collision Engineers — SPA DATA SEAM: empty default source.
-
-   The seam's DEFAULT DataAccess, used until `configureDataAccess(restClient)`
-   injects the live Data API (REST) source at startup (src/main.tsx). It
-   carries NO fabricated case data — the app renders only real API rows.
-   Every method resolves to an empty/zero result (or rejects, for writes) so:
-
-     - the offline build + unit tests stay green and network-free (no
-       fetch calls here), and
-     - if the REST-client injection is ever reverted or races, screens fall
-       back to honest EMPTY states (not fabricated claimant data, and not a crash).
-
-   The fabricated rows that used to back this source were removed from the
-   shipped app (moved to src/__fixtures__, test-only). createCase rejects with a
-   clear "not configured" error so a write attempt before injection is loud
-   rather than silently echoing a synthetic id.
-   ============================================================ */
+/* Test-only data source for scenarios that need realistic inbound-email rows.
+   Production modules are forbidden from importing anything under __fixtures__. */
 
 import type {
   InboundEmail,
@@ -47,8 +31,8 @@ import {
   LOCATION_ASSIST_GATE_ALL_OFF,
   AI_ASSIST_GATE_ALL_OFF,
 } from '@cs/domain';
-import type { DataAccessExt, DetachInboundResult, OutlookMoveResult } from './rest-client';
-import { EMPTY_SEARCH } from './rest-client';
+import type { DataAccessExt, DetachInboundResult, OutlookMoveResult } from '../data/rest-client';
+import { EMPTY_SEARCH } from '../data/rest-client';
 
 const NOT_CONFIGURED =
   'Data source not configured — call configureDataAccess(restClient) in main.tsx before writes.';
@@ -81,18 +65,11 @@ function emptyPipelineStages(): PipelineStage[] {
 }
 
 /* ============================================================
-   Phase 8 — Inbox / Triage demo seed (cr1bd_inboundemail).
+   Inbox / Triage test fixture rows.
 
-   UNLIKE the Case data above — which is deliberately NOT fabricated in the
-   shipped source — the Inbox screen is a NEW, dark-gated surface, and a small
-   realistic seed makes the faceted triage queue demonstrable in dev / tests /
-   storybook. This is SAFE for the deployed app: main.tsx always injects the
-   REST (Data API / Postgres) source, whose `inboundEmails*` methods return
-   HONEST-EMPTY if the inbound-email route is ever unwired — so these rows
-   surface ONLY when the mock source is active, never in production
-   data. Field shapes mirror the camelCase `InboundEmail` domain type 1:1; the
-   `category`/`subtype` strings equal the choiceset option names (§2.3). The array
-   is mutable so `setTriageState` flips a row in place for the demo.
+   These rows exist only for tests. Field shapes mirror the camelCase
+   `InboundEmail` domain type 1:1. The array is mutable so `setTriageState`
+   can exercise an in-place transition.
    ============================================================ */
 const inboundRows: InboundEmail[] = [
   {
@@ -110,7 +87,7 @@ const inboundRows: InboundEmail[] = [
     confidence: 0.95,
     classifierMode: 'deterministic',
     // Real vendored-engine token shapes (rules-engine-v2 Phase 0/5 —
-    // functions/parser/cedocumentmapper_v2/rules/email_classifier.py), so the
+    // services/functions/parser/cedocumentmapper_v2/rules/email_classifier.py), so the
     // "Why this label?" mapping (why-classified.ts) has something real to
     // translate in dev/tests, not the pre-Phase-0 shorthand this seed used to
     // carry.
@@ -358,7 +335,7 @@ function countInbound(rows: InboundEmail[]): InboundCounts {
  * The empty/unconfigured DataAccess. Reads return empty; the only write
  * (createCase) rejects until the live source is injected.
  */
-export const mockDataAccess: DataAccessExt = {
+export const fixtureDataAccess: DataAccessExt = {
   lookupVehicle: (_input) => Promise.reject(new Error(NOT_CONFIGURED)),
   /* ----- Cases ----- */
   caseById: (_id) => Promise.resolve(undefined),
@@ -544,6 +521,6 @@ export const mockDataAccess: DataAccessExt = {
 };
 
 /** Factory form, for symmetry with `createRestDataAccess`. */
-export function createMockDataAccess(): DataAccessExt {
-  return mockDataAccess;
+export function createFixtureDataAccess(): DataAccessExt {
+  return fixtureDataAccess;
 }

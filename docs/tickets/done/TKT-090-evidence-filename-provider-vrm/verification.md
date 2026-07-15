@@ -6,7 +6,7 @@ VERIFIED-LIVE
 Verified by: ticket-verifier dispatch, 10-07-26, finalized after the W2b + W3 data passes and the
 orchestrator's Box spot-check. **Final verdict: VERIFIED-LIVE** — "the 67 advisory-band
 RJS_UnknownVRM rows (A.PCH26021, 2026-07-09T12:12–12:14Z) predate the fix-serving deploy and simply
-join the historical LEAVE backlog (all-time now 5,760) — forward-clean holds unbroken from the
+join the prior LEAVE backlog (all-time now 5,760) — forward-clean holds unbroken from the
 active deploy (2026-07-09T15:52:47Z), with identity/neutral stems and the Box mirror all correct."
 
 Closure artifacts:
@@ -52,7 +52,7 @@ short — see materiality.)
   deployed-parser re-parse returns correct names (probe); evidence-row half = queued Q3; Box-folder
   half needs an orchestrator/operator pass (root-only allowlist).
 - **Acceptance line 4 (rename-or-leave recorded) — VERIFIED as a record:** changes.md §2026-07-09
-  records LEAVE for the 5,693 historical rows with ADR-0012/0017 rationale + an opt-in-relabel
+  records LEAVE for the 5,693 prior rows with ADR-0012/0017 rationale + an opt-in-relabel
   follow-up path.
 - **Materiality of the forward window:** parser extract_images requests 66 on 07-09 + 92 on 07-10,
   all 2xx; orch extractImages events after the strict cutoff include batches of 48/32/23/70/61/41
@@ -83,7 +83,7 @@ High confidence the generator is fixed live. Unread: live Postgres (queued); Box
 - **Q2 (forward-window offenders):** exactly those **67 rows**, ALL created 2026-07-09
   12:12–12:14Z on case A.PCH26021 (`…__RJS_UnknownVRM_…`, provider PCH) — squarely inside the
   verifier's banded window (after the 08:50Z deploy, before the 15:51Z one), confirming the fix
-  landed with the LATER 07-09 deploy. Zero offenders post-cutoff. These 67 join the historical
+  landed with the LATER 07-09 deploy. Zero offenders post-cutoff. These 67 join the prior
   LEAVE class.
 - **Q3 (healthy sample post-cutoff): 0 rows returned** — a predicate artifact, not a failure: no
   evidence rows with `source_label LIKE 'extracted from %'` were CREATED after 15:52:47Z (the KQL

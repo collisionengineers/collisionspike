@@ -48,7 +48,7 @@ import type {
   InboundFacet,
   InboundView,
   InboundCounts,
-} from './types';
+} from '@cs/domain';
 
 /** The shape every query hook returns. */
 export interface QueryState<T> {

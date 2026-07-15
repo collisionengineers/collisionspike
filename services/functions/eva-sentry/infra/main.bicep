@@ -5,18 +5,15 @@
 // secret VALUES into the Key Vault is [RESERVED-FOR-USER] — this template only
 // declares the secret *references*; it never contains a literal secret.
 //
-// Why a Function (not connector OAuth): Power Platform custom connectors do not
-// support the OAuth2 client-credentials grant (Microsoft Learn), and EVA's
-// /Connect/token is a 5-minute client-credentials-style exchange. The token is
-// therefore minted + cached + attached INSIDE this Function; the cr1bd_evasentry
-// connector that fronts it is function-key only.
+// EVA's short-lived client-credentials token is minted, cached, and attached
+// inside this server-side function.
 //
 // Shape: Linux Flex Consumption (FC1) Function App + Storage + Key Vault, with a
 // system-assigned managed identity granted "Key Vault Secrets User" via RBAC.
 // The EVA client id/secret are wired as app settings that are Key Vault
 // references (@Microsoft.KeyVault(SecretUri=...)) resolved by the platform.
 //
-// Mirrors functions/enrichment/infra/main.bicep so the two wrappers deploy alike.
+// Follows the focused Python-service deployment shape used across services/functions.
 
 @description('Azure region for all resources.')
 param location string = resourceGroup().location
@@ -24,7 +21,7 @@ param location string = resourceGroup().location
 @description('Short name stem used to derive resource names.')
 param namePrefix string = 'cespkeva'
 
-@description('Feature gate (edge defence-in-depth). Keep false until EVA test creds are injected AND the parity test passes. The Dataverse EVA_API_ENABLED gate is the source of truth for the flow.')
+@description('Feature gate (edge defence-in-depth). Keep false until EVA test credentials are injected and contract tests pass.')
 param evaApiEnabled bool = false
 
 // ---- Non-secret EVA setting (app setting, not a secret) ----
@@ -35,9 +32,7 @@ param evaBaseUrl string = 'https://sentry.evasoftware.co.uk/api/'
 param evaRequestFrom string = ''
 
 // ---- Key Vault secret NAMES (values injected out-of-band, RESERVED-FOR-USER) ----
-// These names match dataverse/environment-variables.json (EVA_CLIENT_ID/SECRET
-// secret references) so the Dataverse secret env-vars and this Function point at
-// the same vault entries.
+// These names point the function at the approved vault entries.
 @description('KV secret name holding the EVA Sentry Client_Id.')
 param evaClientIdSecretName string = 'eva-client-id'
 
@@ -48,7 +43,7 @@ param evaClientSecretSecretName string = 'eva-client-secret'
 // This Function no longer self-declares Log Analytics + App Insights. It consumes
 // the SHARED App Insights connection string (the parser's cespike-parser-ai-dev),
 // threaded in by the orchestrating deploy from the parser stack's
-// appInsightsConnectionString output. See functions/parser/infra/main.bicep.
+// appInsightsConnectionString output. See services/functions/parser/infra/main.bicep.
 @secure()
 @description('Shared App Insights connection string (the parser App Insights). Consumed by APPLICATIONINSIGHTS_CONNECTION_STRING. Mark @secure() so the ikey embedded in it is not echoed to deployment logs.')
 param sharedAppInsightsConnectionString string = ''

@@ -1,6 +1,7 @@
 """Claimant-name precision and recall regressions for collisionspike TKT-150."""
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,11 @@ from cedocumentmapper_v2.rules import RuleEngine
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
+REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(REPOSITORY_ROOT / "tests" / "fixtures" / "resolvers"))
+from evidence_resolver import resolve_evidence  # noqa: E402
+
+INSTRUCTION_LOGICAL_ROOT = "services/functions/parser/tests/fixtures/instructions"
 # The sibling test reads its repository-root providers.json. This wrapper runs
 # against the deployed, immutably pinned seed inside the vendored package.
 PROVIDERS_JSON = Path(__file__).resolve().parents[1] / "cedocumentmapper_v2" / "providers.json"
@@ -70,7 +76,9 @@ def _provider(provider_id: str) -> dict:
 )
 def test_non_pii_claimant_fixture(golden_name: str):
     golden = json.loads((FIXTURES / "expected" / golden_name).read_text(encoding="utf-8"))
-    source = FIXTURES / "instructions" / golden["source_file"]
+    source = resolve_evidence(
+        original_path=f"{INSTRUCTION_LOGICAL_ROOT}/{golden['source_file']}"
+    )
     document = get_reader_for_path(source).read(source)
     record = RuleEngine().extract_record(document, _UNKNOWN_PROVIDER)
 

@@ -1,6 +1,6 @@
 Deferred items for future integration:
 
-Tractable has API compatibility.
+Tractable has API continuity.
 
 This means:
 1. Tractable links can be generated in app and sent to a customer either by button or automatically.

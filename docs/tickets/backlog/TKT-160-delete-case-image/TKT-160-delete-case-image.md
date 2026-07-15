@@ -38,7 +38,7 @@ PROPOSED (not built): add a staff-confirmed per-image deletion workflow with ser
 - Live proof uses only a designated test case/folder and records before/after Blob, Box, database, UI, readiness and audit evidence.
 
 ## Research
-Distilled 2026-07-12 from `docs/tickets/to-distill/delete-image.button.md`; the raw note is preserved in this ticket's evidence folder.
+Distilled 2026-07-12 from the supplied operator note, now preserved in this ticket's evidence folder.
 
 ## Artifacts
 - [Changes made](./changes.md)

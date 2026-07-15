@@ -1,37 +1,8 @@
-/* ============================================================
-   Collision Engineers — Code App: LOCATION-ASSIST response adapter + transport.
+/* Location-suggestion response adapter and injectable transport. Candidates are
+   proposals only: a person must confirm one before it enters the case draft.
+   Internal evidence kinds are always translated into handler-facing phrases. */
 
-   Phase 4a (live-location-suggestion-assist.md). A reviewer-invoked assist that
-   PROPOSES candidate inspection locations from the case's own photos + text
-   clues. It is an extension of the suggestion model — NOT a resolver:
-
-     - the assist NEVER auto-applies a location and NEVER writes a Case;
-     - every returned candidate is a `SuggestedAddress` the reviewer must confirm
-       (which copies it into the manual 6-line draft + sets decision=manual), or
-       discards (ADR-0013 — clarified 2026-06-24: live human-confirmed suggestions
-       permitted; runtime AUTO-resolution forbidden).
-
-   PURE OF SDK: this module imports NO '@microsoft/power-apps' — only the wire
-   contract, the response→`SuggestedAddress` mapping, and the injectable
-   `LocationAssistTransport` contract. So it stays inside the seam's offline
-   boundary and the unit test maps a canned response with zero network. The LIVE
-   transport (CSP-safe, via the CE Location Assist custom connector) lives in
-   `location-assist-connector-transport.ts` and is passed to
-   `suggestLocations(req, transport)`.
-
-   Casing boundary (mirrors parser-client / parser-connector-transport): the
-   Function speaks snake_case on the REQUEST (case_id, photo_refs, text_clues) and
-   camelCase in the RESPONSE body (candidates[].addressLines/confidence/evidence/
-   sourcePhotoRef, noConfidentLocation) so the response threads straight into the
-   domain `SuggestedAddress` with only a structural bridge.
-
-   PLAIN-LANGUAGE RULE: the response `evidence[].kind` enum is INTERNAL. The UI
-   never renders a raw kind — `friendlyEvidenceKind` maps it to a plain business
-   phrase ("Suggested from the photos", "Near the accident location", …). No
-   rendered string contains engineering terms.
-   ============================================================ */
-
-import type { SuggestedAddress } from './types';
+import type { SuggestedAddress } from '@cs/domain';
 
 /* ============================================================
    1. The wire contract (ce_location_suggest_v1).
@@ -40,13 +11,11 @@ import type { SuggestedAddress } from './types';
 /** The pinned contract version stamped on every Function response (success + error). */
 export const LOCATION_ASSIST_CONTRACT_VERSION = 'ce_location_suggest_v1';
 
-/** One photo reference the Code App passes to the Function (request, snake_case).
- *  The Function reads bytes for these via its Box seam (stubbed while Box is
- *  dormant); the Code App never enumerates Box itself. */
+/** One photo reference supplied with a suggestion request. */
 export interface PhotoRef {
-  /** cr1bd_evidenceid GUID. */
+  /** Stable evidence identifier. */
   evidence_id: string;
-  /** cr1bd_boxfileid — the dormant Box read key; absent until Box is live. */
+  /** Archive file identifier when available. */
   box_file_id?: string;
   filename?: string;
   /** 'overview' | 'damage_closeup' | other. */
@@ -55,15 +24,15 @@ export interface PhotoRef {
 
 /** Free-text geolocation clues drawn from the case (request, snake_case). */
 export interface TextClues {
-  /** Verbatim cr1bd_evaaccidentcircumstances (EVA field 8) — best-effort place/postcode parse. */
+  /** Accident circumstances used for a best-effort place or postcode clue. */
   accident_circumstances?: string;
-  /** Verbatim cr1bd_evaclaimantaddress (the new field) — used as a geocode text clue. */
+  /** Claimant address used as a location clue. */
   claimant_address?: string;
 }
 
-/** The location-suggest request (snake_case, mirrors functions/parser wire style). */
+/** The location-suggest request (snake_case, matching the parser service wire style). */
 export interface SuggestLocationRequest {
-  /** cr1bd_caseid GUID — correlation only; the Function NEVER reads/writes the Case row. */
+  /** Case identifier used only for correlation. */
   case_id: string;
   /** UPPERCASE Case/PO (e.g. CCPY26050) — log correlation + Box folder hint only. */
   case_po?: string;
@@ -207,7 +176,7 @@ export function candidateToSuggestion(
   // 'assist' maps to "Suggested from the photos" via friendlyBand in the screen.
   return {
     // The candidate is NOT a persisted row; this synthetic id only keys the React
-    // list + de-dups picks. It is never written to Dataverse.
+    // list and de-duplicates picks. It is never persisted automatically.
     id: `assist-${index}`,
     lines,
     postcode: (candidate.postcode ?? '').trim(),
@@ -312,15 +281,12 @@ export function buildSuggestLocationRequest(
 
 /* ============================================================
    5. The public call. The live transport (CSP-safe, via the CE Location Assist
-      connector) is injected by the caller (CaseDetail, from
-      location-assist-connector-transport.ts); the unit test injects a fake. There
-      is no raw-fetch transport — the deployed Code App CSP (`connect-src 'none'`)
-      forbids it.
+      transport) is injected by the caller; the unit test injects a fake.
    ============================================================ */
 
 /**
  * Request candidate locations and adapt the result. `transport` is REQUIRED: the
- * app passes the connector-backed transport; the unit test injects a fake. Throws
+ * app passes the authenticated transport; the unit test injects a fake. Throws
  * on transport failure; Function-level errors are carried in the returned `issues`
  * (with `noConfidentLocation: true`). NOTHING here applies a candidate — the
  * reviewer confirms in the UI (ADR-0013).

@@ -1,22 +1,9 @@
-# Tool Instructions
+# Review action method
 
-- Available tools: mslearn, Azure MCP, Azure CLI, Power Platform CLI, Azure Skills, Power Platform Skills, playwright, chrome dev tools, react dev tools
-
-- ALWAYS use mslearn when implementing / changing code
-
-- Examine all skills, subagents, MCPs before planning an approach. Determine best skills, subagents, and MCP tools to invoke
-
-
-# Task Instructions
-
-Start with overview.md and checklist.md
-
-overview.md starts with a single task, then will direct to subfolders for each task.
-
-For each subfolder:
-
-view all images, set all steps on review.md as todo items, complete all requirements, then complete the "Changes made and actions taken: * enter here * " section of the checklist for the appropriate task. Proceed through all tasks until checklist.md is complete and no issues are detected
-
-
-
+1. Start with `overview.md` and `checklist.md`.
+2. Read every area review and turn each numbered finding into a tracked action.
+3. Confirm current implementation facts from source, tests and the live registry before changing code.
+4. Use the repository's current specialist skills and operations playbooks for the affected surface.
+5. Complete all offline work, then state any operator or live-only verification honestly.
+6. Update the checklist with the files changed, tests run and remaining gaps.
 
