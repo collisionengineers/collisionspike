@@ -126,6 +126,10 @@ export const AUDIT_ACTION = {
   capture_session_completed: 100000060,
   capture_session_retargeted: 100000061,
   capture_session_locked: 100000062,
+  // TKT-160 — durable single-image delete request, retry outcome and completion.
+  image_deletion_requested: 100000063,
+  image_deletion_failed: 100000064,
+  image_deleted: 100000065,
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

@@ -53,6 +53,9 @@ CREATE TABLE evidence (
   archive_mirror_claim_token uuid,
   archive_mirror_claimed_at timestamptz,
   archive_mirror_claim_expires_at timestamptz,
+  -- TKT-160: non-null while one explicit staff-confirmed delete owns this row.
+  -- The FK is added after evidence_deletion is created (205_evidence_deletion.sql).
+  deletion_operation_id uuid,
   created_at            timestamptz NOT NULL DEFAULT now(),
   updated_at            timestamptz NOT NULL DEFAULT now(),
   -- exclusion_reason required when excluded=true (schema invariant)

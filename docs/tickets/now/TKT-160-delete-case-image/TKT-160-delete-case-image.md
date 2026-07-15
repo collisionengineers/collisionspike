@@ -1,11 +1,11 @@
 ---
 id: TKT-160
 title: Delete an individual case image from every active store
-status: backlog
+status: now
 priority: P2
 area: evidence
 tickets-it-relates-to: [TKT-003, TKT-010, TKT-089]
-research-link: docs/tickets/backlog/TKT-160-delete-case-image/evidence/operator-note.md
+research-link: docs/tickets/now/TKT-160-delete-case-image/evidence/operator-note.md
 plan: PLAN-004
 ---
 

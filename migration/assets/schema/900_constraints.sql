@@ -214,11 +214,11 @@ DO $$
 DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
-    'case_','evidence','field_level_provenance','chaser','note',
+    'case_','field_level_provenance','chaser','note',
     'work_provider','repairer','image_source','inspection_address',
     'improvement_signal','inbound_email','repairer_workprovider','imagesource_workprovider',
     'ai_suggestion','provider_api_key','case_po_floor','ai_usage_ledger',
-    'archive_mirror_outbox','box_file_request_outbox','staff_evidence_upload',
+    'archive_mirror_outbox','box_file_request_outbox','evidence_deletion','staff_evidence_upload',
     'staff_evidence_upload_item','manual_intake_case_create_operation',
     'mcp_image_ingest_rate_limit','mcp_http_session',
     'capture_session','capture_session_shot','capture_asset'
@@ -239,6 +239,33 @@ BEGIN
       USING (current_setting('app.role', true) IN ('staff','admin'))
       WITH CHECK (current_setting('app.role', true) IN ('staff','admin'));$p$;
 END $$;
+
+-- Evidence keeps the generic read/write posture. The PRIMARY control on the staff
+-- delete path is that cespk_app holds NO table DELETE grant on evidence and never
+-- issues a direct DELETE — the only delete seam is the guarded SECURITY DEFINER
+-- complete_evidence_deletion() function (claim-token + resolved store outcomes +
+-- identity match). p_evidence_scoped_delete below is DEFENSE-IN-DEPTH: on the live
+-- DB the function's BYPASSRLS owner means this RESTRICTIVE policy is not on the live
+-- delete path, so it must NOT be relied on as the control (see TKT-160 review). It
+-- still bounds any future direct grant to the exact ready_to_finalize row; generic
+-- staff deletes fail; admins retain the existing retention/disposition capability.
+ALTER TABLE evidence ENABLE ROW LEVEL SECURITY;
+ALTER TABLE evidence FORCE ROW LEVEL SECURITY;
+CREATE POLICY p_evidence_rw ON evidence
+  USING (current_setting('app.role', true) IN ('staff','admin'))
+  WITH CHECK (current_setting('app.role', true) IN ('staff','admin'));
+CREATE POLICY p_evidence_scoped_delete ON evidence AS RESTRICTIVE FOR DELETE
+  USING (
+    current_setting('app.role', true) = 'admin'
+    OR EXISTS (
+      SELECT 1
+        FROM evidence_deletion d
+       WHERE d.id = evidence.deletion_operation_id
+         AND d.evidence_id = evidence.id
+         AND d.case_id = evidence.case_id
+         AND d.state = 'ready_to_finalize'
+    )
+  );
 
 COMMIT;
 

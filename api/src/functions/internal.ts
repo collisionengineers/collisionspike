@@ -130,6 +130,8 @@ import {
   requestArchiveMirrorIfEligible,
   type ArchiveMirrorCandidate,
 } from '../lib/archive-mirror-outbox.js';
+import { deleteEvidenceBytes } from '../lib/blob.js';
+import { deleteBoxFile } from '../lib/functions-client.js';
 
 /* ============================================================
    Service auth — validate the JWT (sig + iss + aud + exp) without
@@ -3252,8 +3254,9 @@ async function applyEvidenceMetadata(
       `UPDATE evidence
             SET ${ownedSets.join(', ')}, updated_at = now()
           WHERE ${whereClause}
+            AND deletion_operation_id IS NULL
             AND (${ownedChanges.join(' OR ')})
-          RETURNING id, case_id, excluded, storage_path, box_file_id`,
+          RETURNING id, case_id, excluded, storage_path, box_file_id, deletion_operation_id`,
       ownedVals,
     );
     for (const item of res) changedIds.add(item.id);
@@ -3284,6 +3287,7 @@ async function applyEvidenceMetadata(
       `UPDATE evidence
             SET ${simpleSets.join(', ')}, updated_at = now()
           WHERE ${whereClause}
+            AND deletion_operation_id IS NULL
             AND (${simpleChanges.join(' OR ')})
           RETURNING id`,
       simpleVals,
@@ -3377,10 +3381,19 @@ app.http('internalCasesEvidence', {
       const persistRows = async (
         q: TxQuery,
         persistCaseId: string,
-      ): Promise<{ persisted: number; updated: number; merged: number; statusGeneration?: number }> => {
+      ): Promise<{
+        persisted: number;
+        updated: number;
+        merged: number;
+        suppressed?: number;
+        replayCleanup?: Array<{ blobPath?: string; boxFileId?: string; boxFolderId?: string }>;
+        statusGeneration?: number;
+      }> => {
       let persisted = 0;
       let updated = 0;
       let merged = 0; // TKT-133: sha256 content twins linked onto an existing row instead of inserted
+      let suppressed = 0;
+      const replayCleanup: Array<{ blobPath?: string; boxFileId?: string; boxFolderId?: string }> = [];
       let readinessChanged = false;
       let boxImageArrived = false;
       for (const row of body.rows ?? []) {
@@ -3453,6 +3466,40 @@ app.http('internalCasesEvidence', {
         const isBoxRow = sourceMessageId != null || boxFileId != null;
         const isBoxImageRow = isBoxRow && suppliedClass === 'image';
 
+        // TKT-160 replay tombstone: suppress only the SAME per-file automatic identity.
+        // An email Message-ID is deliberately NOT a key here because every sibling
+        // attachment shares it. Blob path and Box file id are the per-file identities.
+        // Do not use sha256 -- a later explicit same-byte upload with a new identity
+        // is legitimate and must create fresh, audited evidence.
+        const deleted = await q<{
+          storage_path: string | null;
+          box_file_id: string | null;
+          box_folder_id: string | null;
+        }>(
+          `SELECT storage_path, box_file_id, box_folder_id
+           FROM evidence_deletion
+            WHERE case_id = $1
+              AND state <> 'cancelled'
+              AND (
+                ($2::text IS NOT NULL AND storage_path = $2::text
+                  AND blob_outcome IN ('deleted','missing'))
+                OR ($3::text IS NOT NULL AND box_file_id = $3::text
+                  AND box_outcome IN ('deleted','missing'))
+              )
+            ORDER BY requested_at DESC
+            LIMIT 1`,
+          [persistCaseId, row.blobPath ?? null, boxFileId],
+        );
+        if (deleted[0]) {
+          suppressed++;
+          replayCleanup.push({
+            ...(row.blobPath ? { blobPath: row.blobPath } : {}),
+            ...(boxFileId ? { boxFileId } : {}),
+            ...(deleted[0].box_folder_id ? { boxFolderId: deleted[0].box_folder_id } : {}),
+          });
+          continue;
+        }
+
         // ---- TKT-133: sha256 write-time dedup/link — an ADDITIONAL check BEFORE the
         // lane INSERTs (all existing per-lane NOT EXISTS dedup below is unchanged).
         // Keyed STRICTLY on (case_id, sha256): identical bytes on a DIFFERENT case are
@@ -3465,9 +3512,13 @@ app.http('internalCasesEvidence', {
             box_file_url: string | null;
             storage_path: string | null;
             source_message_id: string | null;
+            deletion_operation_id: string | null;
           }>(
-            `SELECT id, box_file_id, box_file_url, storage_path, source_message_id
-               FROM evidence WHERE case_id = $1 AND sha256 = $2 LIMIT 1`,
+            `SELECT id, box_file_id, box_file_url, storage_path, source_message_id,
+                    deletion_operation_id
+               FROM evidence WHERE case_id = $1 AND sha256 = $2
+                AND deletion_operation_id IS NULL
+              LIMIT 1`,
             [persistCaseId, sha256],
           );
           const ex = twin[0];
@@ -3695,8 +3746,37 @@ app.http('internalCasesEvidence', {
         persisted,
         updated,
         merged,
+        ...(suppressed > 0 ? { suppressed, replayCleanup } : {}),
         ...(statusGeneration == null ? {} : { statusGeneration }),
       };
+      };
+
+      const cleanupSuppressedReplay = async (value: {
+        replayCleanup?: Array<{ blobPath?: string; boxFileId?: string; boxFolderId?: string }>;
+      }): Promise<void> => {
+        for (const item of value.replayCleanup ?? []) {
+          // A source replay can overwrite the deterministic transient blob before
+          // the Data API sees its tombstone. Remove that recreated copy before the
+          // service call settles; transient failure returns non-2xx so the source retries.
+          if (item.boxFileId && item.boxFolderId) {
+            try {
+              await deleteBoxFile(item.boxFileId, item.boxFolderId);
+            } catch (error) {
+              const status = error && typeof error === 'object' && 'status' in error
+                ? Number(error.status)
+                : undefined;
+              if (status !== 400) throw error;
+              // A fresh scope refusal is permanent until an operator fixes the
+              // persisted folder relationship. Keep the replay suppressed and let
+              // legitimate siblings in this committed batch proceed; retrying the
+              // whole batch cannot make an unsafe Box target deletable.
+              ctx.warn(
+                `[evidence-replay] suppressed Box copy ${item.boxFileId} could not be removed safely`,
+              );
+            }
+          }
+          if (item.blobPath) await deleteEvidenceBytes(item.blobPath);
+        }
       };
 
       const expectedInboundEmailId = typeof body.expectedInboundEmailId === 'string'
@@ -3869,6 +3949,9 @@ app.http('internalCasesEvidence', {
             },
           };
         }
+        await cleanupSuppressedReplay(
+          'replayCleanup' in guarded.value.value ? guarded.value.value : {},
+        );
         return {
           status: 200,
           jsonBody: { ...guarded.value.value, targetCaseId: guarded.targetCaseId },
@@ -3892,6 +3975,7 @@ app.http('internalCasesEvidence', {
           },
         };
       }
+      await cleanupSuppressedReplay(result.value);
       return { status: 200, jsonBody: result.value };
     }),
 });
@@ -3949,6 +4033,7 @@ app.http('internalCasesArchiveEvidence', {
               AND storage_path IS NOT NULL
               AND box_file_id IS NULL
               AND excluded = false
+              AND deletion_operation_id IS NULL
               AND (
                 archive_mirror_claim_token IS NULL
                 OR archive_mirror_claim_expires_at <= now()
@@ -4028,6 +4113,7 @@ app.http('internalCasesArchiveEvidenceStamp', {
               AND archive_mirror_claim_token = $6::uuid
               AND archive_mirror_claim_expires_at > now()
               AND archive_mirror_decision_generation = $7
+              AND deletion_operation_id IS NULL
             RETURNING id`,
           [
             lockedCase.caseId,
@@ -4420,6 +4506,7 @@ app.http('internalBoxPurgeCandidates', {
            FROM evidence
           WHERE box_file_id IS NOT NULL
             AND storage_path IS NOT NULL
+            AND deletion_operation_id IS NULL
           ORDER BY created_at
           LIMIT 1000`,
       );
@@ -4453,7 +4540,8 @@ app.http('internalBoxMarkPurged', {
         await q(
           `UPDATE evidence
               SET storage_path = NULL, updated_at = now()
-            WHERE case_id = $1 AND storage_path = $2`,
+            WHERE case_id = $1 AND storage_path = $2
+              AND deletion_operation_id IS NULL`,
           [lockedCase.caseId, body.blobPath],
         );
       });
@@ -4674,6 +4762,7 @@ app.http('internalEvidenceUnclassifiedBox', {
               )
             )
             AND e.kind_code = $1
+            AND e.deletion_operation_id IS NULL
             AND e.image_role_code = $2
             AND e.registration_visible IS NULL
             AND (
@@ -4858,6 +4947,7 @@ app.http('internalEvidenceBoxClassification', {
                   updated_at = now()
             WHERE id = $1
               AND box_classify_claim_token::text = $2
+              AND deletion_operation_id IS NULL
               AND kind_code = $6
               AND image_role_code = $7
               AND registration_visible IS NULL
@@ -4941,6 +5031,7 @@ app.http('internalEvidenceBoxClassification', {
           `SELECT id FROM evidence
             WHERE id = $1
               AND case_id = $2
+              AND deletion_operation_id IS NULL
               AND (
                 ($3::text <> '' AND box_file_id = $3 AND source_label LIKE 'box_upload%')
                 OR (

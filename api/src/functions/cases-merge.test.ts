@@ -206,6 +206,18 @@ beforeEach(() => {
       const ids = (params[0] as string[]) ?? [];
       return manualOperations.filter((row) => ids.includes(row.case_id as string));
     }
+    if (/SELECT EXISTS[\s\S]*deletion_operation_id IS NOT NULL/i.test(sql)) {
+      const ids = (params[0] as string[]) ?? [];
+      return [{
+        deletion_busy: evidenceRows.some((row) =>
+          ids.includes(row.case_id as string) && row.deletion_operation_id != null),
+        archive_busy: evidenceRows.some((row) => {
+          if (!ids.includes(row.case_id as string) || !row.archive_mirror_claim_token) return false;
+          const expiry = new Date(String(row.archive_mirror_claim_expires_at ?? '')).getTime();
+          return Number.isFinite(expiry) && expiry > Date.now();
+        }),
+      }];
+    }
     if (/UPDATE staff_evidence_upload_item[\s\S]*SET evidence_id = \$2/i.test(sql)) {
       const [fromEvidence, toEvidence] = params as string[];
       for (const item of staffUploadItems.filter((row) => row.evidence_id === fromEvidence)) {
@@ -632,6 +644,13 @@ describe('mergeCases atomic lock protocol', () => {
   it('does not move a case while an archive upload claim is active', async () => {
     evidenceRows[0].archive_mirror_claim_token = '11111111-1111-4111-8111-111111111111';
     evidenceRows[0].archive_mirror_claim_expires_at = new Date(Date.now() + 60_000).toISOString();
+    fileRequestIntents.push({
+      case_id: CASE_A,
+      requested_generation: 1,
+      completed_generation: 0,
+      attempt_count: 0,
+      claim_token: null,
+    });
 
     const res = await merge(request(CASE_B, CASE_A), ctx);
 
@@ -639,6 +658,29 @@ describe('mergeCases atomic lock protocol', () => {
     expect(res.jsonBody).toEqual({
       error: 'Archive work is still finishing for one of these cases. Try the merge again shortly.',
     });
+    expect(fileRequestIntents[0].case_id).toBe(CASE_A);
+    expect(txSql.some((sql) => /UPDATE box_file_request_outbox[\s\S]*SET case_id = \$2/i.test(sql))).toBe(false);
+    expect(txSql.some((sql) => /UPDATE evidence\s+SET case_id/i.test(sql))).toBe(false);
+  });
+
+  it('rejects an active image deletion before an upload-link intent can be transferred', async () => {
+    evidenceRows[0].deletion_operation_id = '66666666-6666-4666-8666-666666666666';
+    fileRequestIntents.push({
+      case_id: CASE_A,
+      requested_generation: 1,
+      completed_generation: 0,
+      attempt_count: 0,
+      claim_token: null,
+    });
+
+    const res = await merge(request(CASE_B, CASE_A), ctx);
+
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toEqual({
+      error: 'An image is being deleted from one of these cases. Try the merge again shortly.',
+    });
+    expect(fileRequestIntents[0].case_id).toBe(CASE_A);
+    expect(txSql.some((sql) => /UPDATE box_file_request_outbox[\s\S]*SET case_id = \$2/i.test(sql))).toBe(false);
     expect(txSql.some((sql) => /UPDATE evidence\s+SET case_id/i.test(sql))).toBe(false);
   });
 

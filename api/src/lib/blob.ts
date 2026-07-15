@@ -288,3 +288,11 @@ export async function downloadEvidenceBytes(blobPath: string): Promise<Downloade
   const props = await block.getProperties();
   return { bytes: buf, contentType: props.contentType ?? 'application/octet-stream' };
 }
+
+/** Delete one transient evidence blob. Idempotent: false means it was already absent. */
+export async function deleteEvidenceBytes(blobPath: string): Promise<boolean> {
+  const container = client().getContainerClient(containerName());
+  const block = container.getBlockBlobClient(blobPath);
+  const result = await block.deleteIfExists();
+  return result.succeeded;
+}

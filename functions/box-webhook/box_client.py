@@ -1244,6 +1244,62 @@ class BoxClient:
             "content": content,
         }
 
+    def validate_file_deletion(self, file_id: str, *, expected_folder_id: str) -> dict[str, Any]:
+        """Freshly prove one file is directly inside the expected case folder and
+        that both sit under the READ-WRITE allowed root. A missing file is an
+        idempotent success only after the expected folder itself has passed the
+        fresh write-scope check. READ-ONLY archive roots never satisfy this path."""
+        folder_id = str(expected_folder_id or "").strip()
+        file_id = str(file_id or "").strip()
+        if not folder_id or not file_id:
+            raise BoxScopeError("file deletion requires a file id and expected case folder")
+        root = str(self.config.allowed_root_id or "").strip()
+        if not root:
+            # Unlike legacy reads, destructive file deletion is never allowed to
+            # run with the layer-2 root lock lifted. Exact case-folder identity is
+            # necessary but not sufficient protection against a bad persisted id.
+            raise BoxScopeError("file deletion requires a configured read-write root")
+
+        # Always refresh the folder ancestry: a persisted case folder may have been
+        # moved since it was first linked, and a warm-worker cache is not deletion proof.
+        self._assert_in_scope("folders", folder_id, fresh=True)
+        resp = self.request(
+            "GET",
+            f"/2.0/files/{file_id}",
+            params={"fields": "id,name,parent,path_collection,trashed_at"},
+        )
+        if resp.status_code in (404, 410):
+            return {"id": file_id, "status": "missing"}
+        value = _json_or_raise(resp, "GetFileForDeletion")
+        parent = value.get("parent")
+        parent_id = str(parent.get("id") or "").strip() if isinstance(parent, dict) else ""
+        if parent_id != folder_id:
+            raise BoxScopeError("file is not directly inside the expected case folder")
+
+        entries = (value.get("path_collection") or {}).get("entries") or []
+        if not any(str(entry.get("id") or "") == root for entry in entries):
+            raise BoxScopeError("file is outside the allowed Box root")
+        # The metadata above is the fresh file-scope proof; cache it only in the RW set.
+        _SCOPE_VERIFIED.add(file_id)
+        return {
+            "id": str(value.get("id") or file_id),
+            "name": str(value.get("name") or ""),
+            "status": "present",
+        }
+
+    def delete_file(self, file_id: str, *, expected_folder_id: str) -> dict[str, Any]:
+        """Delete exactly one freshly revalidated file. Missing is idempotent;
+        folders, siblings, moved files and read-only-root files are never targeted."""
+        validated = self.validate_file_deletion(file_id, expected_folder_id=expected_folder_id)
+        if validated["status"] == "missing":
+            return {"id": str(file_id), "status": "missing"}
+        resp = self.request("DELETE", f"/2.0/files/{file_id}")
+        if resp.status_code in (200, 204):
+            return {"id": str(file_id), "status": "deleted"}
+        if resp.status_code in (404, 410):
+            return {"id": str(file_id), "status": "missing"}
+        raise BoxError(f"Box DeleteFile returned HTTP {resp.status_code}", status=resp.status_code)
+
     def create_webhook(self, target: dict[str, Any], address: str, triggers: list[str]) -> dict[str, Any]:
         t_type = str(target.get("type") or "folder")
         self._assert_in_scope("files" if t_type == "file" else "folders", str(target.get("id") or ""))

@@ -480,6 +480,28 @@ def download_file(req: func.HttpRequest) -> func.HttpResponse:
     return _run_box_op(run)
 
 
+@app.route(route="box/files/{fileId}", methods=["GET", "DELETE"])
+def file_deletion(req: func.HttpRequest) -> func.HttpResponse:
+    """TKT-160: validate or delete one exact file from its persisted case folder.
+    Both methods perform fresh RW-root + exact-parent checks; DELETE revalidates
+    immediately before mutating and treats an already-missing file as success."""
+    if not _truthy(os.environ.get("BOX_API_ENABLED")):
+        return _gated_off()
+    file_id = (req.route_params.get("fileId") or "").strip()
+    expected_folder_id = (req.params.get("folderId") or "").strip()
+    if not file_id or not expected_folder_id:
+        return _json_response(
+            {"error": "fileId and folderId are required.", "status": 400}, status=400
+        )
+    if req.method == "DELETE":
+        return _run_box_op(
+            lambda c: c.delete_file(file_id, expected_folder_id=expected_folder_id)
+        )
+    return _run_box_op(
+        lambda c: c.validate_file_deletion(file_id, expected_folder_id=expected_folder_id)
+    )
+
+
 @app.route(route="box/webhooks", methods=["POST"])
 def create_webhook(req: func.HttpRequest) -> func.HttpResponse:
     if not _truthy(os.environ.get("BOX_API_ENABLED")):

@@ -147,6 +147,22 @@ Only a selected structurally valid asset can be materialised. Materialised rows 
 `public_guided_capture` image Evidence pending an explicit staff include/accept decision; they do not
 become EVA-ready from client guidance claims.
 
+**Staff-confirmed image deletion (TKT-160):** `evidence.deletion_operation_id` marks an image while a
+delete is incomplete. The append-preserved `evidence_deletion` row snapshots case/evidence identity,
+filename, Blob path, source identity, exact Box file/folder IDs, requesting actor, per-store outcomes,
+lease/attempt state and failure code — never image bytes. A scope/identity change before any successful
+delete moves the intent to `cancelled` and clears the evidence marker; a later confirmation reactivates
+that row with a fresh snapshot. Cancelled rows are not replay tombstones; automatic replay suppression
+begins per store only after its durable outcome is deleted or missing. Normal evidence reads keep a pending image
+visible (the SPA offers **Finish deleting**); review edits, archive mirroring, classification and case
+merge refuse/ignore that marked row. `complete_evidence_deletion(operation, claim)` is the sole guarded
+hard-delete seam and succeeds only after both store outcomes are resolved and the live row still exactly
+matches the snapshot. The tombstone then suppresses only a replay of the same per-file Blob path or Box
+file ID. `source_message_id` remains contextual provenance but is never a replay key by itself because
+email siblings share one Message-ID. A later explicit upload with a new path/file identity remains valid
+even if its bytes hash matches. Every schema FK that targets `evidence(id)` uses `ON DELETE CASCADE` or
+`ON DELETE SET NULL`, so the guarded hard delete cannot be trapped by a persistent child reference.
+
 ### AuditEvent & ImprovementSignal
 - `AuditEvent`: actor, action, severity, before/after, timestamp — every corpus/case change.
 - `ImprovementSignal`: staff corrections captured during review (never auto-change rules) →

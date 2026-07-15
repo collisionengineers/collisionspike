@@ -145,6 +145,8 @@ export interface Evidence {
   boxFileId?: string;
   /** Box per-file shared-link URL — a direct "open in Box" link for this artifact. */
   boxFileUrl?: string;
+  /** A staff-confirmed deletion is recorded and still reconciling its stored copies. */
+  deletionPending?: boolean;
 }
 
 /* ----------  Chaser & Note  ---------- */

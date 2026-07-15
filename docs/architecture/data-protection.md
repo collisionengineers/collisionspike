@@ -226,11 +226,16 @@ branch. Anonymise-vs-hard-delete is an operator policy choice.
 
 ### 8a. The absolute Box principle
 
-**NO AUTOMATED DELETION FROM BOX, EVER.** The only automated delete in the system is `box-blob-purge`,
+**NO AUTOMATED RETENTION OR DISPOSITION DELETION FROM BOX, EVER.** The only automated retention delete in the system is `box-blob-purge`,
 which removes **transient Azure Blob image bytes that have already been archived to Box** — it
 **never** deletes anything in Box itself. Box content is removed by a **human only**; no flow,
 schedule, or disposition job deletes from Box (consistent with the ADR-0012 one-way mirror). This
 holds even for a DSAR erasure — see the [cross-store erasure runbook](../plans/runbooks/dsar-erasure-cross-store.md).
+The sole operational exception is TKT-160: a human explicitly confirms deletion of one named case
+image, after which the server may remove only that persisted Box file ID under the exact case folder
+and configured read-write root. It does not delete a folder, source document, sibling evidence, or run
+from a schedule/disposition job; durable intent, audit and retry state are required first. See
+[`delete-case-image.md`](../runbooks/delete-case-image.md).
 
 ### 8b. Store-hardening pre-step (before any purge is armed)
 

@@ -87,6 +87,9 @@ const AUDIT_ACTION_CODE_LABELS: Record<number, string> = {
   100000060: 'Photos received', // capture_session_completed
   100000061: 'Photo request moved', // capture_session_retargeted
   100000062: 'Photo request secured', // capture_session_locked
+  100000063: 'Image deletion requested',
+  100000064: 'Image deletion needs retry',
+  100000065: 'Image deleted',
 };
 
 /** Safe fallback when an action has no mapping — plain, honest, never an enum. */
