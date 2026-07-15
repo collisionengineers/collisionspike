@@ -48,7 +48,7 @@ jobs:
       - name: Check shared skill sync
         run: node scripts/check-skills-sync.mjs
       - name: Install Node dependencies
-        run: npm ci && npm install --no-save @rollup/rollup-linux-x64-gnu
+        run: npm ci && npm install --no-save @rollup/rollup-linux-x64-gnu@4.62.0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"

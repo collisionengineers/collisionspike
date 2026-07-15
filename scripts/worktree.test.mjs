@@ -157,3 +157,31 @@ test('remove reports when the ticket has no attached worktree', () => {
     fx.cleanup();
   }
 });
+
+test('create refuses a pre-existing standard branch and does not delete it', () => {
+  const fx = makeFixture();
+  try {
+    // A pre-existing standard branch (possibly unmerged) must block create and survive it.
+    git(['branch', 'codex/tkt-777-fixture'], fx.cs);
+    const r = runWorktree(fx, ['create', 'TKT-777']);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /Branch codex\/tkt-777-fixture already exists/);
+    // The pre-existing branch was NOT force-deleted by the catch.
+    const branches = git(['branch', '--list', 'codex/tkt-777-fixture'], fx.cs);
+    assert.match(branches, /codex\/tkt-777-fixture/);
+  } finally {
+    fx.cleanup();
+  }
+});
+
+test('adopt refuses a branch that is not the ticket codex/tkt-NNN- branch', () => {
+  const fx = makeFixture();
+  try {
+    git(['branch', 'some-other-branch'], fx.cs);
+    const r = runWorktree(fx, ['adopt', 'TKT-777', 'some-other-branch']);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /is not a codex\/tkt-777-\* branch for TKT-777/);
+  } finally {
+    fx.cleanup();
+  }
+});

@@ -34,9 +34,31 @@ const stashes = git(['stash', 'list'], repo, true);
 const main = git(['rev-parse', 'main'], repo, true);
 const originMain = git(['rev-parse', 'origin/main'], repo, true);
 const branchNames = branches.map((line) => line.split('\t')[0]);
-const tktBranches = branchNames.filter((branch) => branch.startsWith('codex/tkt-'));
 const problems = [];
 const notes = [];
+
+// Fix 2: enumerate ticket branches from BOTH local refs/heads AND remote refs/remotes/origin, so
+// a branch that exists only as origin/codex/tkt-* (pushed, not checked out locally — the normal
+// case when CI or another checkout runs this report) is still stale/PR/lane-checked.
+// Best-effort, time-bounded remote refresh: never throw or hang the offline/CI report — a
+// network-unreachable remote fails fast, and a slow remote is capped by the timeout, after which
+// we proceed with the (possibly stale) local view.
+try {
+  execFileSync('git', ['fetch', '--prune', 'origin'], { cwd: repo, stdio: 'ignore', windowsHide: true, timeout: 15000 });
+} catch { notes.push('git fetch origin skipped/failed (offline or timed out): remote-branch view may be stale'); }
+
+const remoteBranchNames = git(['for-each-ref', '--format=%(refname:short)', 'refs/remotes/origin'], repo, true)
+  .split(/\r?\n/).filter(Boolean)
+  .map((ref) => ref.replace(/^origin\//, ''))
+  .filter((name) => name && name !== 'HEAD');
+const localTktSet = new Set(branchNames.filter((branch) => branch.startsWith('codex/tkt-')));
+const remoteTktSet = new Set(remoteBranchNames.filter((branch) => branch.startsWith('codex/tkt-')));
+const remoteOnlyBranches = [...remoteTktSet].filter((branch) => !localTktSet.has(branch));
+const remoteOnlySet = new Set(remoteOnlyBranches);
+// Union of ticket branches (local + remote-only), deduped. Read commit-time from the local ref
+// when present, else from origin/<branch>.
+const tktBranches = [...new Set([...localTktSet, ...remoteTktSet])];
+const branchRef = (branch) => (localTktSet.has(branch) ? branch : `origin/${branch}`);
 
 // Existing: main == origin/main parity (empty-main-safe).
 if (main !== originMain) problems.push(`main diverges from origin/main (${(main || 'missing').slice(0, 12)} != ${(originMain || 'missing').slice(0, 12)})`);
@@ -51,9 +73,16 @@ for (const branch of branchNames) {
 const orphanWorktrees = [];
 for (const wt of worktrees) {
   const branch = (wt.branch || '').replace('refs/heads/', '');
-  if (typeof wt.worktree === 'string' && !existsSync(wt.worktree)) {
+  // Fix 3: treat BOTH a path missing on disk AND a git-reported `prunable <reason>` line as an
+  // orphan (deduped — one report per worktree even when both hold).
+  const pathMissing = typeof wt.worktree === 'string' && !existsSync(wt.worktree);
+  const gitPrunable = Boolean(wt.prunable);
+  if (wt.worktree && (pathMissing || gitPrunable)) {
     orphanWorktrees.push(wt.worktree);
-    problems.push(`prunable orphan worktree (path missing on disk, run 'git worktree prune'): ${wt.worktree}`);
+    const reason = pathMissing
+      ? "path missing on disk, run 'git worktree prune'"
+      : `git reports prunable${typeof wt.prunable === 'string' ? `: ${wt.prunable}` : ''}, run 'git worktree prune'`;
+    problems.push(`prunable orphan worktree (${reason}): ${wt.worktree}`);
     continue;
   }
   const dirty = wt.worktree && git(['status', '--porcelain'], wt.worktree, true);
@@ -73,40 +102,59 @@ if (main && originMain && main !== originMain) {
 const staleBranches = [];
 const nowSeconds = Date.now() / 1000;
 for (const branch of tktBranches) {
-  const raw = git(['log', '-1', '--format=%ct', branch], repo, true);
+  const raw = git(['log', '-1', '--format=%ct', branchRef(branch)], repo, true);
   const commitTime = Number(raw);
   if (!raw || Number.isNaN(commitTime)) continue;
   const ageDays = Math.floor((nowSeconds - commitTime) / 86400);
   if (ageDays < 7) continue;
   const idMatch = branch.match(/^codex\/tkt-(\d{3})-/);
   const laneList = idMatch ? ticketLanes(`TKT-${idMatch[1]}`) : [];
-  staleBranches.push({ branch, ageDays, lanes: laneList });
+  staleBranches.push({ branch, ageDays, lanes: laneList, remoteOnly: remoteOnlySet.has(branch) });
   if (ageDays >= 14) problems.push(`stale branch ${branch} (${ageDays}d >= 14) — treat lane(s) [${laneList.join(', ') || 'unknown'}] as blocked until a recorded resolution`);
 }
 
-// Branches lacking a PR (best-effort gh) and lacking a retained-refs.md record.
+// Branches lacking a PR (best-effort gh) and lacking a retained-refs.md record; plus (Fix 1)
+// merged ticket branches that still exist > 24h after their most-recent PR merged.
 const unrecordedBranches = [];
+const mergedSurviving = [];
 let ghUnavailable = false;
 for (const branch of tktBranches) {
   if (ghUnavailable) continue;
-  let prCount;
+  let prs;
   try {
-    const parsed = JSON.parse(gh(['pr', 'list', '--head', branch, '--state', 'all', '--json', 'number']) || '[]');
-    prCount = Array.isArray(parsed) ? parsed.length : 0;
+    const parsed = JSON.parse(gh(['pr', 'list', '--head', branch, '--state', 'all', '--json', 'number,state,mergedAt']) || '[]');
+    prs = Array.isArray(parsed) ? parsed : [];
   } catch {
     ghUnavailable = true;
     notes.push('gh unavailable or unauthenticated: skipped PR-existence check for codex/tkt-* branches');
     continue;
   }
-  if (prCount === 0 && !retained.includes(`\`${branch}\``)) {
-    unrecordedBranches.push(branch);
-    problems.push(`codex/tkt branch ${branch} has no PR and no retained-refs.md record`);
+  if (prs.length === 0) {
+    if (!retained.includes(`\`${branch}\``)) {
+      unrecordedBranches.push(branch);
+      problems.push(`codex/tkt branch ${branch} has no PR and no retained-refs.md record`);
+    }
+    continue;
+  }
+  // Fix 1: the most-recent PR (highest number) is MERGED but the branch still exists — if that
+  // merge is > 24h old, the branch should have been removed or recorded by now.
+  const mostRecent = prs.reduce((a, b) => (b.number > a.number ? b : a), prs[0]);
+  if (mostRecent && mostRecent.state === 'MERGED' && mostRecent.mergedAt) {
+    const mergedMs = Date.parse(mostRecent.mergedAt); // mergedAt is ISO8601
+    if (!Number.isNaN(mergedMs)) {
+      const hours = Math.floor((Date.now() - mergedMs) / 3600000);
+      if (hours > 24) {
+        problems.push(`merged ticket branch ${branch} still present ${hours}h after merge (>24h) — remove or record it`);
+        mergedSurviving.push({ branch, hours, mergedAt: mostRecent.mergedAt, remoteOnly: remoteOnlySet.has(branch) });
+      }
+    }
   }
 }
 
 // Lane ownership map for active codex/tkt-NNN-* branches; exclusive lanes may have only one owner.
 const lanes = {};
-for (const branch of branchNames) {
+// Fix 2: include remote-only ticket branches in the lane-ownership map, not just local ones.
+for (const branch of [...new Set([...branchNames, ...remoteOnlyBranches])]) {
   const idMatch = branch.match(/^codex\/tkt-(\d{3})-/);
   if (!idMatch) continue;
   for (const lane of ticketLanes(`TKT-${idMatch[1]}`)) (lanes[lane] ||= []).push(branch);
@@ -125,6 +173,8 @@ console.log(JSON.stringify({
   directMainCommits,
   staleBranches,
   unrecordedBranches,
+  mergedSurviving,
+  remoteOnlyBranches,
   lanes,
   orphanWorktrees,
   notes,

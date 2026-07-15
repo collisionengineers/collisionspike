@@ -14,7 +14,9 @@ const checks = [
   ['API build', ['run', 'build:api']],
   ['orchestration build', ['run', 'build:orch']],
   ['SPA build', ['run', 'build', '--workspace', 'collisionspike-mockup']],
-  ['domain/API/SPA tests', ['test']],
+  ['domain/SPA tests', ['test']],
+  ['API tests', ['run', 'test', '--workspace', '@cs/api']],
+  ['orchestration tests', ['run', 'test', '--workspace', '@cs/orchestration']],
 ];
 
 function run(label, command, args, cwd = repo) {
