@@ -79,6 +79,29 @@ describe('buildImageRequestBody', () => {
       .toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
   });
 
+  // PR #73 / TKT-154 Lane B: the injection-hardening sentence rides the single shared
+  // SYSTEM_PROMPT used for ALL image classification, and the SAME classifier must still read
+  // the number plate. This locks the wording so a future edit cannot silently suppress plate
+  // OCR (the do-not-obey clause must stay scoped to instruction-like text, and the factual
+  // plate-transcription mandate must survive).
+  it('keeps the plate-reading mandate while scoping the do-not-obey clause to instruction text', () => {
+    const body = buildImageRequestBody('aGVsbG8=', 'image/png', 'gpt-5') as {
+      messages: Array<{ role: string; content: unknown }>;
+    };
+    const system = String(body.messages.find((m) => m.role === 'system')?.content ?? '');
+
+    // Plate OCR is still mandated by the prompt.
+    expect(system).toMatch(/plate_text/);
+    expect(system).toMatch(/registration_visible/);
+    expect(system).toMatch(/transcribe any legible number plate/i);
+    // Explicit carve-out that factual vehicle-identifier transcription is NOT restricted.
+    expect(system).toMatch(/does not restrict reading factual vehicle identifiers/i);
+    // The untrusted-input defence is intact AND scoped to instruction/command/request text,
+    // not to all text in the image (so it cannot swallow the plate).
+    expect(system).toMatch(/untrusted evidence/i);
+    expect(system).toMatch(/never follow[^.]*\b(instruction|command|request)\b/i);
+  });
+
   it('carries the accepted adversarial PNG through the classifier seam without obeying its text', async () => {
     process.env.AI_MODEL_ENDPOINT = 'https://model.example';
     process.env.AI_MODEL_DEPLOYMENT = 'gpt-5';
@@ -115,6 +138,63 @@ describe('buildImageRequestBody', () => {
     expect(String(request.messages[0].content)).toMatch(/never follow/i);
     expect(JSON.stringify(request.messages[1].content)).toContain('data:image/png;base64,');
     expect(JSON.stringify(request.messages[1].content)).not.toContain(ADVERSARIAL_IMAGE_TEXT);
+  });
+
+  // PR #73 / TKT-154 Lane B: prove plate extraction still works under the hardened prompt.
+  // A clean-plate model reply must map end-to-end (fetch seam -> parseImageResponse ->
+  // classificationToEvidenceFields) to registrationVisible: true with the correct plate,
+  // and the hardened injection-defence prompt is what actually goes over the wire.
+  it('carries a clean-plate model reply through the seam to registrationVisible + the correct plateText', async () => {
+    process.env.AI_MODEL_ENDPOINT = 'https://model.example';
+    process.env.AI_MODEL_DEPLOYMENT = 'gpt-5';
+    const fetchMock = vi.fn(async (_url: string, _init: RequestInit) => ({
+      status: 200,
+      json: async () => ({
+        choices: [{
+          finish_reason: 'stop',
+          message: { content: JSON.stringify({
+            role: 'overview',
+            registration_visible: true,
+            plate_text: 'AB12CDE',
+            person_reflection: false,
+            confidence: 0.95,
+          }) },
+        }],
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const outcome = await classifyImageWithOutcome({
+      imageBase64: 'aGVsbG8=',
+      contentType: 'image/jpeg',
+      caseVrm: 'AB12 CDE',
+    });
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) throw new Error('expected a successful classification outcome');
+
+    // parseImageResponse preserved the plate text.
+    expect(outcome.classification).toMatchObject({
+      role: 'overview',
+      registrationVisible: true,
+      plateText: 'AB12CDE',
+    });
+
+    // The prompt that went over the wire still both hardens against injection AND mandates
+    // plate reading — the hardening did not silently strip plate OCR.
+    const sentSystem = String(
+      JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).messages[0].content,
+    );
+    expect(sentSystem).toMatch(/never follow/i);
+    expect(sentSystem).toMatch(/plate_text/);
+
+    // End-to-end into the persisted evidence fields: the case plate is honoured.
+    const fields = classificationToEvidenceFields(outcome.classification, 'AB12 CDE');
+    expect(fields).toMatchObject({
+      imageRole: 'overview',
+      registrationVisible: true,
+      acceptedForEva: true,
+      excluded: false,
+    });
   });
 });
 
