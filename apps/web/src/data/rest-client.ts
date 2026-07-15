@@ -1,11 +1,11 @@
 /* Authenticated REST data source for the staff web app. */
 
 /* Authenticated REST data source for the staff web app. */
-import type { CreateCaseInput, CreateCaseOptions, CreateCaseResult, SuggestedAddress, InspectionDecisionInput, SaveInspectionDecisionResult, BoxGates, LocationAssistGate, InboundEmail, InboundFacet, InboundCounts, TriageState, InspectionAddressCounts, MergeCasesResult, DashboardSummary, RemoveCaseInput, RemoveCaseResult, NextCasePoResult, ProviderUpdateInput, ReclassifyInboundInput, AiSuggestion, AiSuggestionReviewInput, AiSuggestionReviewResult, GenerateAiSuggestionsResult, AiAssistGate, AssistantReply, ProposedAction, OutlookMoveGate, OutlookMessageLinkResolution, ProviderApiKey, CreateProviderApiKeyInput, CreateProviderApiKeyResult } from '@cs/domain';
+import type { CreateCaseInput, CreateCaseOptions, CreateCaseResult, SuggestedAddress, InspectionDecisionInput, SaveInspectionDecisionResult, BoxGates, LocationAssistGate, InboundEmail, InboundFacet, InboundCounts, TriageState, InspectionAddressCounts, MergeCasesResult, DashboardSummary, RemoveCaseInput, RemoveCaseResult, NextCasePoResult, ProviderUpdateInput, ReclassifyInboundInput, AiSuggestion, AiSuggestionReviewInput, AiSuggestionReviewResult, GenerateAiSuggestionsResult, AiAssistGate, AssistantReply, ProposedAction, OutlookMoveGate, OutlookMessageLinkResolution, ProviderApiKey, CreateProviderApiKeyInput, CreateProviderApiKeyResult, CaptureSessionListResponse, CaptureSessionSecretResponse, CaptureSessionStaffSummary, DeleteCaseImageGate } from '@cs/domain';
 import type { Case, Chaser, Evidence, Provider, ActivityEvent } from '@cs/domain';
 import type { QueueName, LiveCounts, Throughput, AgingExceptions, PipelineStage, ReasonFacet } from '@cs/domain';
-import { BOX_GATES_ALL_FALSE, LOCATION_ASSIST_GATE_ALL_OFF, AI_ASSIST_GATE_ALL_OFF, OUTLOOK_MOVE_GATE_ALL_OFF } from '@cs/domain';
-import type { AiChatGate, ApiCall, DataAccessExt, DetachInboundResult, GlobalSearchResults, OutlookMoveResult, ProposalExecutionResult, RestClientOptions, VersionedRead, VehicleLookupResult } from './rest-client.types';
+import { BOX_GATES_ALL_FALSE, LOCATION_ASSIST_GATE_ALL_OFF, AI_ASSIST_GATE_ALL_OFF, OUTLOOK_MOVE_GATE_ALL_OFF, DELETE_CASE_IMAGE_GATE_ALL_OFF } from '@cs/domain';
+import type { AiChatGate, ApiCall, ArchiveHoldingResolution, DataAccessExt, DeleteCaseImageResult, DetachInboundResult, GlobalSearchResults, OutlookMoveResult, ProposalExecutionResult, RestClientOptions, VersionedRead, VehicleLookupResult } from './rest-client.types';
 import { EMPTY_SEARCH } from './rest-client.types';
 
 export * from './rest-client.types';
@@ -20,6 +20,12 @@ export function serverMessageOf(err: unknown): string | undefined {
     if (typeof m === 'string' && m) return m;
   }
   return undefined;
+}
+
+export function imageDeletionPendingOf(err: unknown): boolean | undefined {
+  if (!err || typeof err !== 'object' || !('deletionPending' in err)) return undefined;
+  const value = (err as { deletionPending?: unknown }).deletionPending;
+  return typeof value === 'boolean' ? value : undefined;
 }
 
 const ASSISTANT_REQUEST_TIMEOUT_MS = 20_000;
@@ -84,13 +90,15 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       const err = new Error(`${method} ${path} → ${res.status} ${text}`) as Error & {
         status?: number;
         serverMessage?: string;
+        deletionPending?: boolean;
       };
       err.status = res.status;
       // TKT-091 — when the server sent a staff-facing `message` (plain English), carry
       // it so the UI can render THAT instead of the technical line above.
       try {
-        const parsed = JSON.parse(text) as { message?: unknown };
+        const parsed = JSON.parse(text) as { message?: unknown; deletionPending?: unknown };
         if (typeof parsed.message === 'string' && parsed.message) err.serverMessage = parsed.message;
+        if (typeof parsed.deletionPending === 'boolean') err.deletionPending = parsed.deletionPending;
       } catch {
         /* non-JSON body — no server message */
       }
@@ -263,6 +271,16 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
     // Record a chase (M-E2) — 201 + the created chaser row. NOT safe()-wrapped:
     // a chase that failed to persist must surface (never a fake "logged").
     logChase: (caseId, input) => post<Chaser>(`/api/cases/${enc(caseId)}/chase`, input),
+    captureSessions: (caseId) =>
+      get<CaptureSessionListResponse>(`/api/cases/${enc(caseId)}/capture-sessions`).then(
+        (result) => result.sessions,
+      ),
+    createCaptureSession: (caseId, input) =>
+      post<CaptureSessionSecretResponse>(`/api/cases/${enc(caseId)}/capture-sessions`, input),
+    rotateCaptureSession: (sessionId) =>
+      post<CaptureSessionSecretResponse>(`/api/capture-sessions/${enc(sessionId)}/rotate`),
+    revokeCaptureSession: (sessionId) =>
+      post<CaptureSessionStaffSummary>(`/api/capture-sessions/${enc(sessionId)}/revoke`),
     // Case done lifecycle (TKT-094/095/096). The two writes are NOT safe()-wrapped —
     // a status flip that failed must reach the operator; the completed list is a
     // browse read, safe()-empty on failure.
@@ -272,6 +290,12 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       post<{ updated: boolean }>(`/api/cases/${enc(caseId)}/mark-done`),
     retryManualIntakeArchive: (caseId) =>
       post<{ requeued: number }>(`/api/cases/${enc(caseId)}/archive-retry`),
+    archiveHoldingResolution: (caseId) =>
+      get<ArchiveHoldingResolution>(`/api/cases/${enc(caseId)}/archive-holding`),
+    selectArchiveHolding: (caseId) =>
+      post<{ resolved: number; holdingIds: string[] }>(
+        `/api/cases/${enc(caseId)}/archive-holding/select`,
+      ),
     // E4: the server caps each page (default 200, max 500) and returns a bare
     // Case[] with no total — a single fetch under-counts and hides rows past the
     // first page, so the Completed tab counts (derived from this list) were wrong.
@@ -594,6 +618,13 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       }),
     updateEvidenceReview: (evidenceId, input) =>
       call<Evidence>('PATCH', `/api/evidence/${enc(evidenceId)}`, input),
+    deleteCaseImage: (caseId, evidenceId) =>
+      call<DeleteCaseImageResult>('DELETE', `/api/cases/${enc(caseId)}/images/${enc(evidenceId)}`),
+    getDeleteCaseImageGate: () =>
+      safe(
+        () => get<DeleteCaseImageGate>('/api/gates/delete-case-image'),
+        { ...DELETE_CASE_IMAGE_GATE_ALL_OFF },
+      ),
 
     /* ----- Inbound suggestions — ref-gate affordance (rules-engine-v2 Phase 2) ----- */
     inboundSuggestions: (id) =>

@@ -1,0 +1,16 @@
+﻿garage_name,garage_postcode,garage_email,garage_phone,repairer_code,repairer_name,repairer_postcode,name_jaccard,pc_full_match,pc_outward_match
+Bothwell ARC,ML3 0DW,,07925721388,BOTH,Bothwell Accident Repair Centre,ML3 0DW,0.5,True,True
+CS Auto Repair,PA15 2TQ,csgarage365@gmail.com,07375648880,CSAUTO,C S Auto Repair Ltd,PA15 2TQ,0.0,True,True
+G M Bodyshop,PA15 4TW,gordon@gmbodyshop.co.uk,07875420289 (Gordon),GMB,G M Bodyshop,PA15 4TW,1.0,True,True
+Gibbys Spraying Services,ML7 5QW,gibbys_spraying_services@yahoo.com,07818026955,GIBBY,Gibbys Spraying Services,ML7 5QW,1.0,True,True
+Glasgow Smart Repair,G52 4LT,info@glasgowsmartrepaircentreltd.co.uk,07973791343 (Stephen),GLASSR,Glasgow Smart Repair,G52 4LT,1.0,True,True
+Hollandhurst Body Repair Ltd,ML5 2EG,,07803748663,HOLLAND,Hollandhurst Body Repair,ML5 2EG,1.0,True,True
+Level Up Autobody,EH48 2RX,,07720315785,LEVEL,Level Up Autobody,EH48 2RX,1.0,True,True
+Leven Coachworks,KY8 5HD,,07563573149 (Kevin),LEVEN,Leven Coachworks,KY8 5HD,1.0,True,True
+LPB Body Repairs,G11 7SU,lpbcarrepairs@gmail.com,07391608547 (Lloyd),LPB,LPB Body Repairs,G11 7SU,1.0,True,True
+McShanes Car Body Repair,EH22 3LL,markmcshane1@hotmail.com,07712180259 (Mark),MCSH,McShanes Car Body Repair,EH22 3LL,1.0,True,True
+MFS Design,TD9 9HN,,07926756694 (Michael),MFS,MFS Design,TD9 9HN,1.0,True,True
+RTA Storage & Recovery,G42,,07724541096,RTA,RTA Recovery & Storage,G42 0GG,1.0,False,True
+Scott Gibson,KY1 2HE,scottgibsonbodyshop@outlook.com,07974373610 (Scott),SCOTT,Scott Gibson Bodyshop Ltd,KY1 2HE,1.0,True,True
+Ultimate Car Body Repair LTD,ML4 2RS,,07564090038,ULTIMATE,Ultimate Car Body Repairs Ltd,G72 0YS,1.0,False,False
+Undentit Ltd,G5 8NB,undentit@yahoo.com,07402749141 (Kevin),UNDENTIT,Undentit Ltd,G5 8NB,1.0,True,True

@@ -15,10 +15,17 @@
 POST  https://cespk-api-dev.azurewebsites.net/api/provider-intake/cases
 Content-Type: application/json
 X-Api-Key: cspk_………………………………
+Idempotency-Key: provider-system-request-000001
 ```
 
 One request creates **one case**. The provider identity and the internal Case/PO prefix
 are resolved **server-side from the API key** — they are never taken from the body.
+
+Every submission also requires one stable **`Idempotency-Key`** of 16–128 characters
+(`A–Z`, `a–z`, digits, `.`, `_`, `:`, or `-`, beginning with a letter or digit). Generate
+it once in your system and reuse it only when retrying that exact ordered request. A retry
+after a lost response returns the original case; the same key with different content is
+refused with `409`. If file storage is incomplete, retry the unchanged request and key.
 
 ## 2. Authentication
 
@@ -150,11 +157,14 @@ The case enters the normal review workflow (a person confirms it before it goes 
 | `400` | `invalid_image_role` | An `imageRole` value outside the allowed set. |
 | `400` | `missing_exclusion_reason` | An `excluded: true` image without `exclusionReason`. |
 | `400` | `empty_submission` | Neither instructions nor images supplied. |
+| `400` | `invalid_idempotency_key` | The required `Idempotency-Key` is missing or malformed. |
 | `401` | `Invalid API key` | Missing/malformed/unknown/revoked key. |
+| `409` | `idempotency_conflict` | This provider already used the key for different request content. Use a new key for a new submission. |
 | `413` | `payload_too_large` | Body exceeds 50 MB. |
+| `503` | `evidence_incomplete` | The case is reserved but one or more files did not finish storing. Retry the unchanged request with the same key. |
 
 Every response body is JSON: `{ "error": "<code>", "message": "<human text>" }` for the
-4xx/413 cases above (the `message` is advisory; branch on `error`).
+error cases above (the `message` is advisory; branch on `error`).
 
 ## 6. Versioning
 

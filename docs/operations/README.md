@@ -13,6 +13,7 @@ Every live write requires explicit task scope, the relevant checks, and a record
 - [Archive operations](./archive.md)
 - [Vehicle-data rollout](./vehicle-data-rollout.md)
 - [Data-subject rights](./data-subject-rights.md)
+- [Delete one case image](./delete-case-image.md)
 
 Exact dated values belong in [LIVE_FACTS.json](../../LIVE_FACTS.json). Open work remains authoritative
 in [tickets](../tickets/README.md); the operator-actions page is a generated view of that authority.

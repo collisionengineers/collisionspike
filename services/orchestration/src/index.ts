@@ -35,6 +35,8 @@ import './workflows/evidence/evidence-backfill.js';
 import './workflows/archive/box-classify-sweep.js';
 import './workflows/archive/box-maintenance-monitor.js'; // durable FC1 wake path for File Request + classification retries
 import './workflows/intake/intakeOrchestrator.js';
+import './workflows/mailbox/archiveHolding.js';
+import './workflows/mailbox/archive-holding-monitor.js';
 import './workflows/intake/fetchMessage.js';
 import './workflows/intake/providerMatch.js';
 import './workflows/intake/classifyInbound.js';

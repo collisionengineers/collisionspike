@@ -142,6 +142,12 @@ export type {
   AssistantChatTurn,
   AssistantReply,
   ProposedAction,
+  CaptureSessionStatus,
+  CaptureGuidanceMode,
+  CaptureSessionStaffSummary,
+  CaptureSessionListResponse,
+  CreateCaptureSessionRequest,
+  CaptureSessionSecretResponse,
 } from '@cs/domain';
 // The seam's EXTENDED DataAccess (frozen @cs/domain DataAccess + the work-todo-spike
 // methods). `getDataAccess()` returns this; screens that type-annotate use it.
@@ -151,11 +157,13 @@ export type {
   DetachInboundResult,
   OutlookMoveResult,
   VehicleLookupResult,
+  ArchiveHoldingResolution,
   VersionedRead,
   ProposalExecutionResult,
   EvidenceUploadOptions,
   EvidenceUploadResult,
   EvidenceUploadSource,
+  DeleteCaseImageResult,
 } from './rest-client';
 // The all-false Box-gate baseline + the all-off location-assist baseline (values).
 export {
@@ -313,6 +321,7 @@ export {
   useCompletedCases,
   useDashboard,
   useImages,
+  useCaptureSessions,
   useProviders,
   useInspectionAddressSuggestions,
   useInspectionAddressCounts,
@@ -342,6 +351,7 @@ export {
   // Outlook filing (TKT-054 / 020726 E6) — gate + queue-move mutation.
   useOutlookMoveGate,
   useOutlookMove,
+  useCaptureSessionMutations,
   type QueryState,
   type CaseUpdateState,
   type TriageMutationState,
@@ -353,6 +363,7 @@ export {
   type GenerateAiSuggestionsState,
   type DetachInboundState,
   type OutlookMoveState,
+  type CaptureSessionMutationState,
 } from './hooks';
 
 /* ============================================================

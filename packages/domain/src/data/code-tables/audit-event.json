@@ -63,7 +63,17 @@
         { "value": 100000052, "name": "image_analysis_generated",     "label": "Image Analysis Generated" },
         { "value": 100000053, "name": "report_delivered",             "label": "Report Delivered" },
         { "value": 100000054, "name": "chaser_suggested",             "label": "Chase suggested" },
-        { "value": 100000055, "name": "evidence_upload_result",        "label": "Files Checked" }
+        { "value": 100000055, "name": "evidence_upload_result",        "label": "Files Checked" },
+        { "value": 100000056, "name": "capture_session_created",       "label": "Capture Session Created" },
+        { "value": 100000057, "name": "capture_session_rotated",       "label": "Capture Session Rotated" },
+        { "value": 100000058, "name": "capture_session_revoked",       "label": "Capture Session Revoked" },
+        { "value": 100000059, "name": "capture_asset_validated",       "label": "Capture Asset Validated" },
+        { "value": 100000060, "name": "capture_session_completed",     "label": "Capture Session Completed" },
+        { "value": 100000061, "name": "capture_session_retargeted",    "label": "Capture Session Retargeted" },
+        { "value": 100000062, "name": "capture_session_locked",        "label": "Capture Session Locked" },
+        { "value": 100000063, "name": "image_deletion_requested",      "label": "Image Deletion Requested" },
+        { "value": 100000064, "name": "image_deletion_failed",         "label": "Image Deletion Needs Retry" },
+        { "value": 100000065, "name": "image_deleted",                 "label": "Image Deleted" }
       ]
     },
     {

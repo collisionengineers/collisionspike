@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import url from 'node:url';
 
@@ -7,6 +8,33 @@ const root = path.resolve(here, '..', '..');
 const sourcePath = path.join(root, '.agents', 'agents', 'roles.json');
 const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
 const checkOnly = process.argv.includes('--check');
+
+function verifySkillLock() {
+  const lockPath = path.join(root, 'skills-lock.json');
+  const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+  if (lock.version !== 1 || !lock.skills || Array.isArray(lock.skills)) {
+    throw new Error('Unsupported vendored skill lock schema');
+  }
+
+  for (const [skillName, record] of Object.entries(lock.skills)) {
+    if (record.sourceType !== 'github' || !record.source || !record.skillPath
+      || !/^[a-f0-9]{64}$/.test(record.computedHash)
+      || !/^[a-f0-9]{64}$/.test(record.vendoredSha256)) {
+      throw new Error(`Invalid vendored skill lock entry: ${skillName}`);
+    }
+    const skillPath = path.join(root, '.agents', 'skills', skillName, 'SKILL.md');
+    if (!fs.existsSync(skillPath)) throw new Error(`Locked vendored skill is missing: ${skillName}`);
+    const actual = crypto.createHash('sha256').update(fs.readFileSync(skillPath)).digest('hex');
+    if (actual !== record.vendoredSha256) {
+      throw new Error(
+        `Vendored skill bytes differ from skills-lock.json: ${skillName} ` +
+        `(expected ${record.vendoredSha256}, received ${actual})`,
+      );
+    }
+  }
+}
+
+verifySkillLock();
 
 if (source.schemaVersion !== 1 || !Array.isArray(source.roles)) {
   throw new Error('Unsupported canonical agent-role schema');

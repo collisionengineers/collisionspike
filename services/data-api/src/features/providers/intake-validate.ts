@@ -99,6 +99,18 @@ function attachmentInvalid(a: unknown): boolean {
   return !str(o.filename).trim() || !str(o.contentType).trim() || !str(o.base64Data).trim();
 }
 
+/** Node's Base64 decoder is deliberately permissive. Provider input is not: reject
+ * malformed/non-canonical bytes before any case, Blob, evidence, note, or audit write. */
+function hasStrictBase64Bytes(value: string): boolean {
+  const encoded = value.trim();
+  if (!encoded || encoded.length % 4 !== 0) return false;
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)) {
+    return false;
+  }
+  const bytes = Buffer.from(encoded, 'base64');
+  return bytes.length > 0 && bytes.toString('base64') === encoded;
+}
+
 /**
  * Validate + normalise a raw provider submission body.
  * Returns `{ ok: true, value }` or `{ ok: false, code, message }`.
@@ -181,6 +193,9 @@ export function validateProviderApiSubmission(
       return err('invalid_instructions', 'Each instruction needs filename, contentType and base64Data.');
     }
     const o = a as ProviderApiAttachment;
+    if (!hasStrictBase64Bytes(o.base64Data)) {
+      return err('invalid_instructions', 'Each instruction base64Data must contain valid Base64 file bytes.');
+    }
     instructions.push({
       filename: o.filename.trim().slice(0, 400),
       contentType: o.contentType.trim().slice(0, 200),
@@ -194,6 +209,9 @@ export function validateProviderApiSubmission(
       return err('invalid_images', 'Each image needs filename, contentType and base64Data.');
     }
     const o = a as ProviderApiImage;
+    if (!hasStrictBase64Bytes(o.base64Data)) {
+      return err('invalid_images', 'Each image base64Data must contain valid Base64 file bytes.');
+    }
     const roleRaw = str(o.imageRole).trim();
     if (roleRaw && !IMAGE_ROLES.has(roleRaw)) {
       return err('invalid_image_role', "imageRole must be 'overview', 'damage_closeup' or 'additional'.");

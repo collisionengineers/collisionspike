@@ -5,10 +5,18 @@ PENDING
 
 ## Evidence
 - The operator assigned the route/body mismatch to PLAN-004 and required the retained EVA Sentry service to be preserved.
-- No offline contract test or deployed trace is claimed by ticket creation.
+- `services/data-api/src/features/cases/internal-eva-submission.test.ts` passes three contract-boundary
+  cases: ordered payload construction, missing-case refusal before evidence reads, and missing-blob refusal.
+- `python -m pytest services/functions/eva-sentry/tests -q` passes 43 tests, including exact six-line
+  inspection-location and Image Based Assessment mappings.
+- The full TypeScript build and all four workspace suites pass on the reconciled branch.
+- No deployed trace or real external EVA submission is claimed.
 
 ## Pending / gaps
-Exact read-only mismatch evidence, implementation, contract tests, authorized deployment and deployed telemetry proof remain pending.
+Authorized deployment plus read-only route/telemetry proof remain pending. The external-submission gate
+must remain off because this review does not authorize a live cutover or a real EVA write.
 
 ## How to re-verify
-Capture the caller and service contracts read-only, implement the smallest supported seam fix, run the shared contract suite, then attach an authorized deployed trace and independent verification for every acceptance line.
+Deploy the three retained services, confirm the registered route and a non-mutating health/registration
+trace, then attach independent verification for every acceptance line. Do not enable the external
+submission gate or send a real instruction as part of that proof.

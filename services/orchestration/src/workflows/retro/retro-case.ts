@@ -375,6 +375,9 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
           parserCaseType: (parseResult as {
             case_type?: { value?: string | null; dual?: boolean; signals?: string[] };
           }).case_type,
+          parserAudit: (parseResult as {
+            audit?: { value?: boolean; signals?: string[] };
+          }).audit,
           classifierSubtype: input.subtype,
         });
         const caseType = located.marker ? markerToCaseType(located.marker) : contentType.caseType;
@@ -544,6 +547,9 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx) {
           parserCaseType: (parseResult as {
             case_type?: { value?: string | null; dual?: boolean; signals?: string[] };
           }).case_type,
+          parserAudit: (parseResult as {
+            audit?: { value?: boolean; signals?: string[] };
+          }).audit,
           classifierSubtype: input.subtype,
         });
         const statusDecision = decideRetroStatus({

@@ -6,6 +6,7 @@ export interface ArchiveMirrorCandidate extends Record<string, unknown> {
   excluded: boolean;
   storage_path: string | null;
   box_file_id: string | null;
+  deletion_operation_id?: string | null;
 }
 
 /**
@@ -25,7 +26,8 @@ export async function requestArchiveMirrorIfEligible(
     !row.id ||
     !row.case_id ||
     !storagePath ||
-    boxFileId
+    boxFileId ||
+    row.deletion_operation_id != null
   ) {
     return undefined;
   }

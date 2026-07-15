@@ -10,3 +10,4 @@ import '../../features/archive/internal-evidence-routes.js';
 import '../../features/cases/internal-operations-routes.js';
 import '../../features/archive/internal-classification-routes.js';
 import '../../features/cases/internal-maintenance-routes.js';
+import '../../features/cases/internal-archive-holding.js';

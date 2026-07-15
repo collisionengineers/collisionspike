@@ -23,7 +23,7 @@ scripts/hooks/* text eol=lf
 # Keep the immutable working files byte-stable in Windows checkouts while preserving rename-equivalent Git blobs.
 workingspace/** text eol=crlf -diff
 # Binary source evidence must never be line-ending converted.
-tests/fixtures/evidence/** -text
+tests/fixtures/evidence/** -text -diff
 *.png   binary
 *.jpg   binary
 *.jpeg  binary

@@ -12,7 +12,7 @@ import './platform/http/register-internal-routes.js';
 import './features/inbound/retro-routes.js';
 import './features/assistant/chat-routes.js'; // AI chat helper (TKT-060; AI_CHAT_ENABLED)
 import './features/cases/search-route.js'; // global search (TKT-072; GLOBAL_SEARCH_ENABLED)
-import './features/assistant/mcp-routes.js'; // read-only MCP server for external agents (TKT-110; MCP_SERVER_ENABLED)
+import './features/assistant/mcp-routes.js'; // read-only MCP plus constrained image ingestion (TKT-110/154)
 import './features/evidence/routes.js'; // evidence byte preview (TKT-048)
 import './features/archive/mirror-outbox-routes.js'; // durable staff un-exclusion archive mirror
 import './features/archive/provider-outbox-routes.js'; // durable provider-recovery Archive continuation

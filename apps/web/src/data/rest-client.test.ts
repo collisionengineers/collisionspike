@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { createRestDataAccess } from './rest-client';
+import { createRestDataAccess, imageDeletionPendingOf } from './rest-client';
 
 /* ============================================================
    rest-client — the inbox error-surfacing + dashboard `now`-threading
@@ -64,6 +64,78 @@ function lastInit(fetchMock: ReturnType<typeof vi.fn>): RequestInit {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+});
+
+describe('rest-client — guided photo requests', () => {
+  const session = {
+    sessionId: 'session-1',
+    status: 'open',
+    shotPlanId: 'essential-v1',
+    shotPlanLabel: 'Essential photos',
+    guidanceMode: 'advisory',
+    expiresAt: '2026-07-16T12:00:00.000Z',
+    createdAt: '2026-07-13T12:00:00.000Z',
+    requiredTotal: 2,
+    requiredCompleted: 0,
+  };
+
+  it('lists safe summaries without inventing a public link', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson({ sessions: [session] }));
+    const da = clientWith(fetchMock);
+
+    const result = await da.captureSessions('case/1');
+
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases/case%2F1/capture-sessions');
+    expect(result).toEqual([session]);
+    expect(result[0]).not.toHaveProperty('captureUrl');
+  });
+
+  it('creates a request with the selected photo set and lifetime', async () => {
+    const response = { session, captureUrl: 'https://capture.test/#one-time' };
+    const fetchMock = vi.fn().mockResolvedValue(okJson(response));
+    const da = clientWith(fetchMock);
+
+    await expect(
+      da.createCaptureSession('case-1', {
+        shotPlanId: 'essential-v1',
+        expiresInHours: 72,
+      }),
+    ).resolves.toEqual(response);
+
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases/case-1/capture-sessions');
+    expect(lastInit(fetchMock).method).toBe('POST');
+    expect(lastInit(fetchMock).body).toBe(
+      JSON.stringify({ shotPlanId: 'essential-v1', expiresInHours: 72 }),
+    );
+  });
+
+  it('replaces and cancels links through the dedicated actions', async () => {
+    const replacement = { session, captureUrl: 'https://capture.test/#replacement' };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(okJson(replacement))
+      .mockResolvedValueOnce(okJson({ ...session, status: 'revoked' }));
+    const da = clientWith(fetchMock);
+
+    await expect(da.rotateCaptureSession('session/1')).resolves.toEqual(replacement);
+    expect(lastUrl(fetchMock)).toBe(
+      'https://api.test/api/capture-sessions/session%2F1/rotate',
+    );
+    expect(lastInit(fetchMock).method).toBe('POST');
+
+    await expect(da.revokeCaptureSession('session/1')).resolves.toMatchObject({
+      status: 'revoked',
+    });
+    expect(lastUrl(fetchMock)).toBe(
+      'https://api.test/api/capture-sessions/session%2F1/revoke',
+    );
+  });
+
+  it('surfaces failures instead of showing a false success', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(409, '{"message":"That link can no longer be changed."}'));
+    const da = clientWith(fetchMock);
+    await expect(da.rotateCaptureSession('session-1')).rejects.toThrow(/409/);
+  });
 });
 
 describe('rest-client — inbox list error surfacing (#4)', () => {
@@ -504,6 +576,56 @@ describe('rest-client — durable evidence review', () => {
     const fetchMock = vi.fn().mockResolvedValue(errStatus(503));
     const da = clientWith(fetchMock);
     await expect(da.updateEvidenceReview('ev-1', { excluded: true })).rejects.toThrow(/503/);
+  });
+});
+
+describe('rest-client — confirmed case-image deletion', () => {
+  it('DELETEs the encoded case/image route and returns completion truth', async () => {
+    const result = {
+      completed: true as const,
+      evidenceId: 'ev/1',
+      fileName: 'damage.jpg',
+    };
+    const fetchMock = vi.fn().mockResolvedValue(okJson(result));
+    const da = clientWith(fetchMock);
+
+    await expect(da.deleteCaseImage('case/1', 'ev/1')).resolves.toEqual(result);
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases/case%2F1/images/ev%2F1');
+    expect(lastInit(fetchMock).method).toBe('DELETE');
+    expect(lastInit(fetchMock).body).toBeUndefined();
+  });
+
+  it('rejects a partial failure so the image remains visible for retry', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(
+      503,
+      JSON.stringify({
+        completed: false,
+        retryable: true,
+        deletionPending: true,
+        message: 'The Archive copy could not be removed. The image is still on the case; try again.',
+      }),
+    ));
+    const da = clientWith(fetchMock);
+    const failure = await da.deleteCaseImage('case-1', 'ev-1').catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as { deletionPending?: boolean }).deletionPending).toBe(true);
+  });
+
+  it('preserves explicit cancellation truth so a pending card can be cleared', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(
+      409,
+      JSON.stringify({
+        completed: false,
+        retryable: false,
+        deletionPending: false,
+        message: 'The unfinished deletion was cancelled; refresh before trying again.',
+      }),
+    ));
+    const da = clientWith(fetchMock);
+    const failure = await da.deleteCaseImage('case-1', 'ev-1').catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(Error);
+    expect(imageDeletionPendingOf(failure)).toBe(false);
   });
 });
 

@@ -259,6 +259,8 @@ describe('explicit case edit session', () => {
   it('blocks route/window navigation exactly while a draft is dirty', () => {
     expect(shouldBlockCaseNavigation(false)).toBe(false);
     expect(shouldBlockCaseNavigation(true)).toBe(true);
+    expect(shouldBlockCaseNavigation(true, '/cases/case-1', '/cases/case-1')).toBe(false);
+    expect(shouldBlockCaseNavigation(true, '/cases/case-1', '/cases/case-2')).toBe(true);
   });
 
   it('allows a vehicle refresh only for a clean versioned edit session', () => {

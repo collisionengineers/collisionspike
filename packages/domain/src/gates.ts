@@ -59,6 +59,13 @@ export const gates = {
   // DPIA-gated; activation is tracked in docs/operations/operator-actions.md.
   imageAnalysis: (): boolean => process.env.IMAGE_ANALYSIS_ENABLED === 'true',
 
+  // Destructive case-image deletion (TKT-160) — DELETE /api/cases/{caseId}/images/{evidenceId}.
+  // Default OFF; ships DARK. Guards the ONLY hard-delete of case evidence (cross-store: Archive +
+  // Blob + the active evidence row). While OFF the route is an honest disabled no-op BEFORE any
+  // snapshot/claim/store work — nothing is ever deleted — and the SPA hides the Delete-image
+  // control (GET /api/gates/delete-case-image). Live flip is operator-gated.
+  deleteCaseImage: (): boolean => process.env.DELETE_CASE_IMAGE_ENABLED === 'true',
+
   // ---- PLAN-001 (AI hardening + MCP) gates — ALL default OFF, ship DARK ----
   // TKT-066/069 — the registry-driven read adapter for the assistant. When OFF the assistant
   // uses the original hand-written `execTool` (fast rollback); when ON it derives its tool set
@@ -77,6 +84,11 @@ export const gates = {
   // (see docs/operations/operator-actions.md). Authorization is still enforced at the Data API,
   // never the MCP layer.
   mcpServer: (): boolean => process.env.MCP_SERVER_ENABLED === 'true',
+  // TKT-154 — autonomous registration-bound IMAGE ingestion. Independent kill switch:
+  // read-only MCP remains available while this write lane is dark. The route also requires
+  // the dedicated app-only role and the exact programme test-root setting below.
+  mcpImageIngest: (): boolean => process.env.MCP_IMAGE_INGEST_ENABLED === 'true',
+  mcpImageIngestBoxRootId: (): string => process.env.MCP_IMAGE_INGEST_BOX_ROOT_ID ?? '',
 
   // Box gates (Phase 7, ADR-0012) — all default off
   boxApi: (): boolean => process.env.BOX_API_ENABLED === 'true',               // #22

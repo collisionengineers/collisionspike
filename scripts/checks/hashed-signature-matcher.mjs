@@ -20,9 +20,13 @@ function signatureIndex(document) {
   if (!Number.isSafeInteger(document.maxAdjacentTokens) || document.maxAdjacentTokens < 1) {
     throw new Error("Signature document requires a positive maxAdjacentTokens");
   }
+  if (!Array.isArray(document.signatures) || document.signatures.length === 0) {
+    throw new Error("Signature document requires at least one forbidden signature");
+  }
 
   const byLength = new Map();
-  for (const signature of document.signatures ?? []) {
+  const identifiers = new Set();
+  for (const signature of document.signatures) {
     if (!/^S\d{3}$/.test(signature.id)
       || !/^[a-f0-9]{8}$/.test(signature.fnv1a32)
       || !/^[a-f0-9]{64}$/.test(signature.sha256)
@@ -30,6 +34,8 @@ function signatureIndex(document) {
       || signature.normalizedLength < 1) {
       throw new Error(`Invalid hashed signature: ${JSON.stringify(signature)}`);
     }
+    if (identifiers.has(signature.id)) throw new Error(`Duplicate hashed signature identifier: ${signature.id}`);
+    identifiers.add(signature.id);
     const byPrefilter = byLength.get(signature.normalizedLength) ?? new Map();
     const candidates = byPrefilter.get(signature.fnv1a32) ?? [];
     candidates.push({ sha256: signature.sha256, id: signature.id });

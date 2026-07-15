@@ -1,4 +1,4 @@
-import type { DataAccess, CaseUpdateInput, InboundEmail, DashboardSummary, RemoveCaseInput, RemoveCaseResult, NextCasePoResult, ProviderUpdateInput, ReclassifyInboundInput, AiSuggestion, AiSuggestionReviewInput, AiSuggestionReviewResult, GenerateAiSuggestionsResult, AiAssistGate, AssistantChatTurn, AssistantReply, ProposedAction, OutlookMoveGate, OutlookMessageLinkResolution, ProviderApiKey, CreateProviderApiKeyInput, CreateProviderApiKeyResult, VehicleDataEnrichmentResponse } from '@cs/domain';
+import type { DataAccess, CaseUpdateInput, InboundEmail, DashboardSummary, RemoveCaseInput, RemoveCaseResult, NextCasePoResult, ProviderUpdateInput, ReclassifyInboundInput, AiSuggestion, AiSuggestionReviewInput, AiSuggestionReviewResult, GenerateAiSuggestionsResult, AiAssistGate, AssistantChatTurn, AssistantReply, ProposedAction, OutlookMoveGate, OutlookMessageLinkResolution, ProviderApiKey, CreateProviderApiKeyInput, CreateProviderApiKeyResult, VehicleDataEnrichmentResponse, CaptureSessionStaffSummary, CreateCaptureSessionRequest, CaptureSessionSecretResponse, DeleteCaseImageGate } from '@cs/domain';
 import type { Case, Chaser, Evidence, Provider } from '@cs/domain';
 
 export interface RestClientOptions {
@@ -174,12 +174,49 @@ export type VehicleLookupResult = VehicleDataEnrichmentResponse & {
   persisted?: { applied: string[]; warning?: string; retryable: boolean };
 };
 
+export interface DeleteCaseImageResult {
+  completed: true;
+  repeated?: boolean;
+  evidenceId: string;
+  fileName: string;
+}
+
+export interface ArchiveHoldingResolution {
+  state: 'none' | 'needs_choice' | 'selected';
+  holdingIds: string[];
+  folderIds: string[];
+  candidateCaseIds: string[];
+  candidateCases: Array<{
+    caseId: string;
+    casePo: string | null;
+    claimantName: string | null;
+    providerName: string | null;
+  }>;
+  sources: Array<{
+    holdingId: string;
+    folderId: string;
+    folderUrl: string | null;
+    sourceMessageId: string | null;
+    inboundEmailId: string | null;
+    subject: string | null;
+    fromAddress: string | null;
+    receivedOn: string | null;
+    bodyPreview: string | null;
+    filenames: string[];
+  }>;
+  selectedCaseId?: string;
+  canSelect: boolean;
+  hasFailure?: boolean;
+}
+
 export interface DataAccessExt extends DataAccess {
   /** Save one reviewed case-edit session with optimistic concurrency. Every EVA
    *  field plus the inspection address/decision travels in this one PATCH. */
   saveCaseEdits(id: string, patch: CaseUpdateInput, version: string): Promise<Case>;
   /** Requeue Manual Intake source files that reached a terminal archive failure. */
   retryManualIntakeArchive(caseId: string): Promise<{ requeued: number }>;
+  archiveHoldingResolution(caseId: string): Promise<ArchiveHoldingResolution>;
+  selectArchiveHolding(caseId: string): Promise<{ resolved: number; holdingIds: string[] }>;
   /** The sole authenticated vehicle lookup path. A case id persists evidence;
    *  a registration alone is a Manual Intake preview. */
   lookupVehicle(input: { caseId: string } | { registration: string; targetDate?: string }): Promise<VehicleLookupResult>;
@@ -205,6 +242,14 @@ export interface DataAccessExt extends DataAccess {
    *  chaser row in the SAME shape the case-detail read returns. Throws on
    *  non-2xx — a chase that didn't persist must never look logged. */
   logChase(caseId: string, input: LogChaseInput): Promise<Chaser>;
+
+  captureSessions(caseId: string): Promise<CaptureSessionStaffSummary[]>;
+  createCaptureSession(
+    caseId: string,
+    input: CreateCaptureSessionRequest,
+  ): Promise<CaptureSessionSecretResponse>;
+  rotateCaptureSession(sessionId: string): Promise<CaptureSessionSecretResponse>;
+  revokeCaptureSession(sessionId: string): Promise<CaptureSessionStaffSummary>;
 
   /* ----- Case done lifecycle (TKT-094/095/096, ADR-0023) ----- */
   /** Mark a case EVA Submitted after a successful Export-for-EVA download
@@ -278,6 +323,8 @@ export interface DataAccessExt extends DataAccess {
   setReflectionDismissed(evidenceId: string, dismissed: boolean): Promise<Evidence>;
   /** Persist role, registration, EVA-use, and include/exclude decisions. */
   updateEvidenceReview(evidenceId: string, input: EvidenceReviewInput): Promise<Evidence>;
+  deleteCaseImage(caseId: string, evidenceId: string): Promise<DeleteCaseImageResult>;
+  getDeleteCaseImageGate(): Promise<DeleteCaseImageGate>;
 
   /* ----- Inbound suggestion affordance — ref-gate (rules-engine-v2 Phase 2) -----
      Distinct from `aiSuggestions` above (case-scoped): keyed by the INBOUND EMAIL

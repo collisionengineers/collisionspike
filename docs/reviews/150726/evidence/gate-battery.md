@@ -1,7 +1,19 @@
-# Evidence — offline gate battery (reproduced locally)
+# Evidence — preliminary offline gate battery (historical snapshot)
 
-Reproduced on the branch tip (`ba675336`) in an isolated worktree after `npm ci`. Every offline gate the
+This file records the Stage-2 run on branch tip `ba675336`. It is retained as preliminary-review evidence,
+not as evidence for the reconciled release commit. Reproduced in an isolated worktree after `npm ci`, every offline gate the
 reset ships **passed**. This is the objective floor; the lane reviews audit whether each gate is *meaningful*.
+
+The current Stage-3 disposition and release gates are in [`../final-review.md`](../final-review.md).
+
+## Stage-3 final local result
+
+The reconciled staged tree completed `node verify-all.mjs` with **34 passed, 0 failed** after a clean
+dependency install. The current gate counts are 3,085 tracked paths, 189 routes, 56 DTO declarations,
+7 JSON schemas, 64 Postgres tables, 22 numeric code tables, 881 owned source files, 1,121 Markdown files,
+211 tickets, 6 plans, 3,268 baseline files and 3,083 non-recursive final files with zero unexplained.
+The forbidden-reference check scanned 2,467 tracked files with no match. Component results and the release
+decision are recorded in the final review.
 
 ## Structural / doc / reconciliation gates (no build required)
 
@@ -36,6 +48,11 @@ detect that the branch is 57 commits behind main and is missing #73/#83/#87/#89'
 `spa-database/review.md`, `reconciliation/review.md`, `runtime-surface/review.md`). **Green ≠ complete.** The
 `capture_session` / `archive_holding` / `evidence_deletion` / `mcp_http_session` tables were confirmed ABSENT at
 merge-base `81ae8fdf` and present on `origin/main` — i.e. added after the base, and reverted by this branch.
+
+Stage 3 resolved this caveat by merging current main, reconciling every later feature against the new layout,
+and strengthening the reconciliation from labels to byte-checked dispositions anchored to the immutable
+pre-reset main commit. The final release run is recorded in the final review rather than overwriting these
+historical numbers.
 
 ## Notes for the lane audits
 - `check:forbidden` printing *"No configured signatures found"* is the one gate output that reads as possibly

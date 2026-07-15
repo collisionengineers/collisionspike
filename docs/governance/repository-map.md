@@ -47,12 +47,18 @@ stage-0 index file and ancestor directory. Tracked sizes and hashes come from st
 manifest is independent of checkout filters and host line endings. Untracked rows, when explicitly
 requested, use physical checkout bytes. The four immutable `workingspace` files are the deliberate
 exception: their separately locked physical sizes and hashes preserve the user-owned byte contract.
-`npm run check:reconciliation` maps every immutable pre-reset
+[`repository-reconciliation.json`](./repository-reconciliation.json) maps every immutable pre-reset
 tracked row to its final keep, move, rewrite, or deletion disposition and proves every final row has an
-origin and ticket owner. It reconstructs that baseline from the locked pre-reset main commit's Git tree,
-so the proof survives any merge strategy without retaining the removed-path ledger at final HEAD.
+origin and ticket owner. Keep and move rows are byte-checked against their staged destinations, rewrites
+must actually differ, and every deletion carries an explicit PLAN-006 retirement reason. The checker
+reconstructs the baseline from the locked pre-reset main commit's Git tree and requires the committed
+ledger to match exactly, so the proof survives merge strategy and cannot be replaced by a locally generated
+summary. A historical string that matches the retired-vocabulary policy is represented in the committed
+ledger by an irreversible SHA-256 reference; validation still uses the exact Git-tree value before that
+policy-safe serialization. The inventory and reconciliation files are omitted from the reconciliation content map to avoid a
+mutual hash cycle; the independent layout and inventory gates still require and record both artifacts.
 `npm run inventory:checkout` separately enumerates every physical checkout
 item, including ignored dependencies, generated output, empty directories, symlinks, and repository
-metadata. The two large path-level ledgers are ephemeral locally and uploaded by CI under
-`repository-audit-ledgers`; they are not retained at final HEAD because the reconciliation necessarily
-contains removed path names and checkout-local dependency material.
+metadata. The checkout inventory is ephemeral and uploaded by CI under `repository-audit-ledgers`; it is
+not retained because it contains checkout-local dependency and metadata paths. The staged repository
+inventory and reset reconciliation are retained and gated at final HEAD.

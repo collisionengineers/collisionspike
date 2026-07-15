@@ -67,6 +67,8 @@ export function allowedCaseTypes(principalCode: string | null | undefined): read
 export interface CaseTypeSignals {
   /** The parser envelope's `case_type` field ({value, dual, signals}) when present. */
   parserCaseType?: { value?: string | null; dual?: boolean; signals?: readonly string[] } | null;
+  /** The legacy parser `audit` envelope retained for independently deployed parser workers. */
+  parserAudit?: { value?: boolean; signals?: readonly string[] } | null;
   /** The email classifier's subtype (e.g. 'existing_provider_audit') — corroboration only. */
   classifierSubtype?: string | null;
 }
@@ -88,13 +90,18 @@ export interface CaseTypeDecision {
  */
 export function decideCaseType(signals: CaseTypeSignals): CaseTypeDecision {
   const parserValue = (signals.parserCaseType?.value ?? '').toString().trim();
-  const parserSignals = [...(signals.parserCaseType?.signals ?? [])];
+  const parserSignals = [
+    ...(signals.parserCaseType?.signals ?? signals.parserAudit?.signals ?? []),
+  ];
   if (parserValue === 'audit' || parserValue === 'audit_total_loss' || parserValue === 'diminution') {
     return {
       caseType: parserValue,
       dual: signals.parserCaseType?.dual === true,
       signals: parserSignals,
     };
+  }
+  if (signals.parserAudit?.value === true) {
+    return { caseType: 'audit', dual: false, signals: parserSignals };
   }
   // Classifier-only corroboration: the email body/subject signalled an audit even though
   // the parsed document did not (e.g. images-only audit follow-up). Still an audit.

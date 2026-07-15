@@ -14,12 +14,12 @@ authoring release digest is
 
 ## Repository wording normalisation
 
-`rules/email_classifier.py` has documentation-only wording normalisation so the
-checked-out repository describes the current system. Its executable Python
-structure is unchanged. Lock schema 2 records both the immutable source digest
-and the checked-out digest,
-`C47775FBAFA3D66B5F1279193A2573C9017AC9E28E7E68CEDECD134BF6F396CA`, together
-with the exact one-file normalisation list.
+`detection/attachment_typing.py`, `rules/email_classifier.py`, and
+`rules/engine.py` have documentation-only wording normalisation so the checked-out
+repository describes the current system. Their executable Python structures are
+unchanged. Lock schema 2 records both the immutable source digest and the checked-out
+digest, `DF943A1FDA08AE46439D1AB22A8F494CF18E35F7B3D11AEF732B993E52D71690`, together
+with the exact three-file normalisation list.
 
 The verifier resolves `engine-v2.24`, proves the source aggregate, requires the
 source/worktree drift set to equal that list, and compares Python ASTs after
@@ -52,4 +52,3 @@ python services/functions/parser/scripts/verify_vendor_pin.py --write --ref engi
 
 That command requires exact source equality and writes an empty
 `normalisedFiles` list.
-

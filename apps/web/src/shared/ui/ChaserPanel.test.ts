@@ -3,6 +3,7 @@ import type { Case, Chaser, Evidence } from '../../data';
 import { cases } from '../../__fixtures__/cases';
 import {
   chaserTemplatesForCase,
+  guidedPhotoRequestBody,
   messageWithUploadLink,
   overviewChaserForPanel,
   overviewChaserStatusText,
@@ -205,5 +206,24 @@ describe('canonical image-gap chaser eligibility', () => {
       ['existing_overview_photo_request', ['whatsapp']],
       ['instruction_request', ['email']],
     ]);
+  });
+});
+
+describe('guided photo request draft', () => {
+  it('puts the one-time link into a plain-language editable message', () => {
+    const body = guidedPhotoRequestBody(
+      { vrm: 'AB12 CDE', vehicleModel: 'Ford Focus' } as Case,
+      {
+        sessionId: 'session-1',
+        captureUrl: 'https://capture.collisionengineers.co.uk/#capture=secret',
+        shotPlanLabel: 'Essential photos',
+        expiresAt: '2026-07-16T12:00:00.000Z',
+      },
+    );
+
+    expect(body).toContain('AB12 CDE');
+    expect(body).toContain('https://capture.collisionengineers.co.uk/#capture=secret');
+    expect(body).toContain('No account is needed.');
+    expect(body).not.toMatch(/token|session|endpoint|Azure|API/i);
   });
 });

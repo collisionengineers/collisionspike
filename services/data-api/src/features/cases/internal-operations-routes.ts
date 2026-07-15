@@ -2,12 +2,87 @@
 
 import { app } from '@azure/functions';
 import { EVA_FIELD_ORDER } from '@cs/domain';
-import { caseStatusCodec } from '@cs/domain/codecs';
+import { createHash } from 'node:crypto';
+import { caseStatusCodec, imageRoleCodec } from '@cs/domain/codecs';
 import { query, tx } from '../../platform/db/client.js';
+import { downloadEvidenceBytes } from '../evidence/blob-store.js';
 import { AUDIT_ACTION, writeAudit } from '../../shared/audit.js';
 import { EVA_COLUMN_BY_KEY, type Row } from '../../shared/mapping/index.js';
 import { lockCaseForMutation } from './mutation-locks.js';
 import { AUDIT_ACTION_BY_NAME, withServiceAuth } from '../inbound/internal/service-support.js';
+
+app.http('internalEvaSubmission', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'internal/cases/{id}/eva-submission',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      const caseId = (req.params.id ?? '').trim();
+      const evaColumns = EVA_FIELD_ORDER.map((field) => EVA_COLUMN_BY_KEY[field.key]);
+      const cases = await query<Row>(
+        `SELECT case_po, case_ref, ov_claim_number, vrm, ${evaColumns.join(', ')}
+           FROM case_ WHERE id = $1 LIMIT 1`,
+        [caseId],
+      );
+      const row = cases[0];
+      if (!row) return { status: 404, jsonBody: { error: 'case not found' } };
+
+      const evaPayload12 = Object.fromEntries(EVA_FIELD_ORDER.map((field) => [
+        field.payloadKey,
+        String(row[EVA_COLUMN_BY_KEY[field.key]] ?? ''),
+      ]));
+      const imageRows = await query<Row>(
+        `SELECT file_name, image_role_code, registration_visible, sequence_index, storage_path
+           FROM evidence
+          WHERE case_id = $1
+            AND kind_code = 100000000
+            AND accepted_for_eva = true
+            AND excluded = false
+          ORDER BY sequence_index NULLS LAST, created_at, id`,
+        [caseId],
+      );
+      const images = [] as Array<{
+        filename: string;
+        role: string;
+        registrationVisible: boolean | null;
+        sequenceIndex: number;
+        content: string;
+      }>;
+      for (const [index, image] of imageRows.entries()) {
+        const storagePath = String(image.storage_path ?? '').trim();
+        if (!storagePath) {
+          return { status: 409, jsonBody: { error: 'accepted image bytes are not available in evidence storage' } };
+        }
+        const downloaded = await downloadEvidenceBytes(storagePath);
+        if (!downloaded) {
+          return { status: 409, jsonBody: { error: 'accepted image bytes are missing from evidence storage' } };
+        }
+        images.push({
+          filename: String(image.file_name ?? `image-${index + 1}.jpg`),
+          role: imageRoleCodec.toName(image.image_role_code as number | null) ?? 'unknown',
+          registrationVisible: image.registration_visible == null
+            ? null
+            : image.registration_visible === true,
+          sequenceIndex: image.sequence_index == null ? index : Number(image.sequence_index),
+          content: downloaded.bytes.toString('base64'),
+        });
+      }
+      const body = {
+        evaPayload12,
+        images,
+        casePo: String(row.case_po ?? ''),
+        vrm: String(row.vrm ?? ''),
+        clmNo: String(row.ov_claim_number ?? row.case_ref ?? ''),
+      };
+      return {
+        status: 200,
+        jsonBody: {
+          ...body,
+          payloadHash: createHash('sha256').update(JSON.stringify(body), 'utf8').digest('hex'),
+        },
+      };
+    }),
+});
 
 app.http('internalCasesLookup', {
   methods: ['POST'],

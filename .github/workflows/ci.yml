@@ -125,3 +125,59 @@ jobs:
           name: repository-audit-ledgers
           path: .artifacts/audit/*.json
           if-no-files-found: error
+
+  parser-vendor-source:
+    name: Parser vendor source (immutable private tag)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # Secrets are unavailable to fork PRs. Never use pull_request_target because
+    # this job executes the branch verifier.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out the read-only parser authoring source
+        uses: actions/checkout@v4
+        with:
+          repository: collisionengineers/cedocumentmapper_v2.0
+          path: .ci/cedocumentmapper_v2.0
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+          ssh-key: ${{ secrets.CEDOCUMENTMAPPER_DEPLOY_KEY }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify immutable tag, source boundary, and vendored content
+        run: python services/functions/parser/scripts/verify_vendor_pin.py
+        env:
+          CEDOCUMENTMAPPER_REPO: ${{ github.workspace }}/.ci/cedocumentmapper_v2.0
+
+  verify-live:
+    name: Verify live registry drift (gated)
+    runs-on: ubuntu-latest
+    needs: [typescript, hygiene]
+    env:
+      HAVE_AZURE: ${{ secrets.AZURE_CREDENTIALS != '' }}
+    if: ${{ needs.typescript.result == 'success' && needs.hygiene.result == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip notice
+        if: env.HAVE_AZURE != 'true'
+        run: echo "AZURE_CREDENTIALS is not configured; live registry-drift verification is skipped."
+      - uses: actions/setup-node@v4
+        if: env.HAVE_AZURE == 'true'
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install dependencies
+        if: env.HAVE_AZURE == 'true'
+        run: npm ci
+      - name: Azure login
+        if: env.HAVE_AZURE == 'true'
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Verify LIVE_FACTS.json against Azure
+        if: env.HAVE_AZURE == 'true'
+        run: VERIFY_LIVE=1 node verify-all.mjs

@@ -71,6 +71,10 @@ ALTER TABLE ai_suggestion ADD CONSTRAINT fk_ai_suggestion_inbound_email
 -- owned by its provider -- a purged provider takes its keys with it).
 ALTER TABLE provider_api_key ADD CONSTRAINT fk_provider_api_key_work_provider
   FOREIGN KEY (work_provider_id) REFERENCES work_provider(id) ON DELETE CASCADE;
+ALTER TABLE provider_intake_operation ADD CONSTRAINT fk_provider_intake_operation_work_provider
+  FOREIGN KEY (work_provider_id) REFERENCES work_provider(id) ON DELETE CASCADE;
+ALTER TABLE provider_intake_operation ADD CONSTRAINT fk_provider_intake_operation_case
+  FOREIGN KEY (case_id) REFERENCES case_(id) ON DELETE SET NULL;
 
 -- ---- N:N intersect FKs (2 junction tables; CASCADE from either side) --------
 ALTER TABLE repairer_workprovider ADD CONSTRAINT fk_rwp_repairer
@@ -126,6 +130,60 @@ COMMIT;
 -- It connects as a non-owner login mapped from its managed identity (see
 -- 31-auth-migration.md) and sets the caller's app role per request/transaction:
 --     SET LOCAL app.role = 'admin';   -- or 'staff'
+-- TKT-154: serialize the autonomous registration decision with every Case change
+-- that can alter its eligibility. The MCP transaction takes the same advisory key
+-- before its predicate read. Two triggers keep UPDATE OF syntax separate from
+-- INSERT/DELETE and acquire old/new registration keys in a stable order.
+CREATE OR REPLACE FUNCTION lock_case_registration_eligibility()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  old_registration text;
+  new_registration text;
+  registration_key text;
+BEGIN
+  IF TG_OP <> 'INSERT' THEN
+    old_registration := regexp_replace(upper(COALESCE(OLD.vrm, '')), '[^A-Z0-9]', '', 'g');
+  END IF;
+  IF TG_OP <> 'DELETE' THEN
+    new_registration := regexp_replace(upper(COALESCE(NEW.vrm, '')), '[^A-Z0-9]', '', 'g');
+  END IF;
+
+  FOR registration_key IN
+    SELECT DISTINCT candidate
+      FROM (VALUES (old_registration), (new_registration)) AS registrations(candidate)
+     WHERE candidate IS NOT NULL AND candidate <> ''
+     ORDER BY candidate
+  LOOP
+    PERFORM pg_advisory_xact_lock(
+      hashtextextended('mcp-image-registration:' || registration_key, 0)
+    );
+  END LOOP;
+  RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$;
+
+-- LOCK BUDGET (TKT-217): this BEFORE INSERT OR DELETE trigger fires per row and
+-- takes a per-row pg_advisory_xact_lock for EVERY case_ INSERT/DELETE. The lock is
+-- REQUIRED for phantom-case protection (it serialises the autonomous registration
+-- decision with case mutation) and must not be removed. Its operational cost: one
+-- very large SINGLE-TRANSACTION bulk case_ purge/insert (ADR-0017 disposition tooling
+-- or bulk intake) accumulates one advisory lock slot per row and can approach
+-- max_locks_per_transaction and abort the whole transaction. Bulk writers MUST batch
+-- (chunk each COMMIT to a bounded row count) rather than mutating all case_ rows in one
+-- transaction. Follow-up TKT-217 tracks the batching requirement in the disposition/
+-- bulk-writer tooling.
+DROP TRIGGER IF EXISTS tr_case_registration_insert_delete ON case_;
+CREATE TRIGGER tr_case_registration_insert_delete
+  BEFORE INSERT OR DELETE ON case_
+  FOR EACH ROW EXECUTE FUNCTION lock_case_registration_eligibility();
+
+DROP TRIGGER IF EXISTS tr_case_registration_eligibility_update ON case_;
+CREATE TRIGGER tr_case_registration_eligibility_update
+  BEFORE UPDATE OF vrm, status_code, duplicate_keys ON case_
+  FOR EACH ROW EXECUTE FUNCTION lock_case_registration_eligibility();
+
 -- RLS here is NOT multi-tenant row filtering (there are no tenants); its single job
 -- is to make the AUDIT TRAIL tamper-evident (append-only) and to gate destructive
 -- deletes to the admin role. Owners bypass RLS unless FORCE is set, hence FORCE +
@@ -160,12 +218,15 @@ DO $$
 DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
-    'case_','evidence','field_level_provenance','chaser','note',
+    'case_','field_level_provenance','chaser','note',
     'work_provider','repairer','image_source','inspection_address',
     'improvement_signal','inbound_email','repairer_workprovider','imagesource_workprovider',
-    'ai_suggestion','provider_api_key','case_po_floor','ai_usage_ledger',
-    'archive_mirror_outbox','box_file_request_outbox','staff_evidence_upload',
-    'staff_evidence_upload_item','manual_intake_case_create_operation'
+    'ai_suggestion','provider_api_key','provider_intake_operation','case_po_floor','ai_usage_ledger',
+    'archive_mirror_outbox','box_file_request_outbox','evidence_deletion','staff_evidence_upload',
+    'staff_evidence_upload_item','manual_intake_case_create_operation',
+    'mcp_image_ingest_rate_limit','mcp_http_session',
+    'capture_session','capture_session_shot','capture_asset',
+    'archive_holding_folder','archive_holding_intake','archive_holding_file','archive_holding_deferred_intake'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('ALTER TABLE %I FORCE  ROW LEVEL SECURITY;', t);
@@ -177,7 +238,39 @@ BEGIN
     EXECUTE format($p$CREATE POLICY p_%1$s_no_delete ON %1$I AS RESTRICTIVE FOR DELETE
         USING (current_setting('app.role', true) = 'admin');$p$, t);
   END LOOP;
+  EXECUTE 'ALTER TABLE capture_session_resume_token ENABLE ROW LEVEL SECURITY;';
+  EXECUTE 'ALTER TABLE capture_session_resume_token FORCE ROW LEVEL SECURITY;';
+  EXECUTE $p$CREATE POLICY p_capture_session_resume_token_rw ON capture_session_resume_token
+      USING (current_setting('app.role', true) IN ('staff','admin'))
+      WITH CHECK (current_setting('app.role', true) IN ('staff','admin'));$p$;
 END $$;
+
+-- Evidence keeps the generic read/write posture. The PRIMARY control on the staff
+-- delete path is that cespk_app holds NO table DELETE grant on evidence and never
+-- issues a direct DELETE — the only delete seam is the guarded SECURITY DEFINER
+-- complete_evidence_deletion() function (claim-token + resolved store outcomes +
+-- identity match). p_evidence_scoped_delete below is DEFENSE-IN-DEPTH: on the live
+-- DB the function's BYPASSRLS owner means this RESTRICTIVE policy is not on the live
+-- delete path, so it must NOT be relied on as the control (see TKT-160 review). It
+-- still bounds any future direct grant to the exact ready_to_finalize row; generic
+-- staff deletes fail; admins retain the existing retention/disposition capability.
+ALTER TABLE evidence ENABLE ROW LEVEL SECURITY;
+ALTER TABLE evidence FORCE ROW LEVEL SECURITY;
+CREATE POLICY p_evidence_rw ON evidence
+  USING (current_setting('app.role', true) IN ('staff','admin'))
+  WITH CHECK (current_setting('app.role', true) IN ('staff','admin'));
+CREATE POLICY p_evidence_scoped_delete ON evidence AS RESTRICTIVE FOR DELETE
+  USING (
+    current_setting('app.role', true) = 'admin'
+    OR EXISTS (
+      SELECT 1
+        FROM evidence_deletion d
+       WHERE d.id = evidence.deletion_operation_id
+         AND d.evidence_id = evidence.id
+         AND d.case_id = evidence.case_id
+         AND d.state = 'ready_to_finalize'
+    )
+  );
 
 COMMIT;
 

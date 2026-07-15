@@ -1,6 +1,7 @@
 # Checklist — Review 150726 (PR #100 `PLAN-006` repository reset)
 
-Sign-off sheet. **Overall verdict: REQUEST CHANGES.** Reproduce the gates with `node verify-all.mjs` +
+Preliminary sign-off sheet for `bfb3fa408e`. **Historical verdict: REQUEST CHANGES.** The current Stage-3
+state is in the [final review](./final-review.md). Reproduce the gates with `node verify-all.mjs` +
 `node scripts/checks/*.mjs` in a worktree of the branch tip; evidence in [`evidence/`](./evidence/).
 
 ## Hard merge blockers

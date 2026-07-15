@@ -105,6 +105,96 @@ def test_shared_link_out_of_scope_file_raises():
 
 
 @respx.mock
+def test_delete_file_revalidates_exact_case_folder_and_rw_root():
+    _mock_token()
+    folder = "case-1"
+    respx.get(f"{API_BASE}/2.0/folders/{folder}").mock(
+        return_value=httpx.Response(
+            200, json={"id": folder, "path_collection": {"entries": [{"id": "0"}, {"id": ROOT}]}}
+        )
+    )
+    file_get = respx.get(f"{API_BASE}/2.0/files/photo-1").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "photo-1",
+                "name": "photo.jpg",
+                "parent": {"id": folder},
+                "path_collection": {"entries": [{"id": "0"}, {"id": ROOT}, {"id": folder}]},
+            },
+        )
+    )
+    deleted = respx.delete(f"{API_BASE}/2.0/files/photo-1").mock(
+        return_value=httpx.Response(204)
+    )
+    assert _client().delete_file("photo-1", expected_folder_id=folder)["status"] == "deleted"
+    assert file_get.call_count == 1
+    assert deleted.call_count == 1
+
+
+def test_delete_file_fails_closed_when_rw_root_is_unset():
+    with pytest.raises(BoxScopeError, match="configured read-write root"):
+        _client("").validate_file_deletion("photo-1", expected_folder_id="case-1")
+
+
+@respx.mock
+def test_delete_file_refuses_sibling_before_delete():
+    _mock_token()
+    folder = "case-1"
+    respx.get(f"{API_BASE}/2.0/folders/{folder}").mock(
+        return_value=httpx.Response(
+            200, json={"id": folder, "path_collection": {"entries": [{"id": ROOT}]}}
+        )
+    )
+    respx.get(f"{API_BASE}/2.0/files/photo-1").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "photo-1",
+                "parent": {"id": "different-case"},
+                "path_collection": {"entries": [{"id": ROOT}, {"id": "different-case"}]},
+            },
+        )
+    )
+    deleted = respx.delete(f"{API_BASE}/2.0/files/photo-1").mock(return_value=httpx.Response(204))
+    with pytest.raises(BoxScopeError):
+        _client().delete_file("photo-1", expected_folder_id=folder)
+    assert not deleted.called
+
+
+@respx.mock
+def test_delete_file_missing_is_idempotent_after_folder_scope_validation():
+    _mock_token()
+    folder = "case-1"
+    respx.get(f"{API_BASE}/2.0/folders/{folder}").mock(
+        return_value=httpx.Response(
+            200, json={"id": folder, "path_collection": {"entries": [{"id": ROOT}]}}
+        )
+    )
+    respx.get(f"{API_BASE}/2.0/files/missing").mock(return_value=httpx.Response(404))
+    deleted = respx.delete(f"{API_BASE}/2.0/files/missing").mock(return_value=httpx.Response(204))
+    assert _client().delete_file("missing", expected_folder_id=folder)["status"] == "missing"
+    assert not deleted.called
+
+
+@respx.mock
+def test_delete_file_never_accepts_readonly_archive_root():
+    _mock_token()
+    readonly = "legacy-root"
+    folder = "legacy-case"
+    respx.get(f"{API_BASE}/2.0/folders/{folder}").mock(
+        return_value=httpx.Response(
+            200, json={"id": folder, "path_collection": {"entries": [{"id": readonly}]}}
+        )
+    )
+    client = BoxClient(
+        config=jwt_box_config(allowed_root_id=ROOT, readonly_root_ids=(readonly,))
+    )
+    with pytest.raises(BoxScopeError):
+        client.delete_file("photo-1", expected_folder_id=folder)
+
+
+@respx.mock
 def test_webhook_off_root_target_raises():
     _mock_token()
     respx.get(f"{API_BASE}/2.0/folders/888").mock(
@@ -206,6 +296,60 @@ def test_lock_disabled_when_root_unset():
     assert out["id"] == "c"
 
 
+def test_strict_write_scope_refuses_when_root_unset():
+    with pytest.raises(BoxScopeError, match="requires BOX_ALLOWED_ROOT_ID"):
+        _client(allowed_root="").verify_write_scope("999")
+
+
+@respx.mock
+def test_strict_write_scope_attests_root_and_descendant_but_refuses_outside():
+    assert _client().verify_write_scope(ROOT) == ROOT
+
+    _mock_token()
+    respx.get(f"{API_BASE}/2.0/folders/555").mock(
+        return_value=httpx.Response(
+            200, json={"id": "555", "path_collection": {"entries": [{"id": ROOT}]}}
+        )
+    )
+    assert _client().verify_write_scope("555") == ROOT
+
+    respx.get(f"{API_BASE}/2.0/folders/999").mock(
+        return_value=httpx.Response(
+            200, json={"id": "999", "path_collection": {"entries": [{"id": "0"}]}}
+        )
+    )
+    with pytest.raises(BoxScopeError):
+        _client().verify_write_scope("999")
+
+
+@respx.mock
+def test_strict_write_scope_rechecks_cached_folder_and_observes_a_move_outside_root():
+    """Regression: a folder verified under the root and then moved must be refused.
+
+    The ordinary guard may cache the first ancestry result; the autonomous strict
+    attestation must bypass that cache immediately before every upload.
+    """
+    _mock_token()
+    scope_get = respx.get(f"{API_BASE}/2.0/folders/557").mock(
+        side_effect=[
+            httpx.Response(
+                200,
+                json={"id": "557", "path_collection": {"entries": [{"id": ROOT}]}},
+            ),
+            httpx.Response(
+                200,
+                json={"id": "557", "path_collection": {"entries": [{"id": "0"}]}},
+            ),
+        ]
+    )
+    client = _client()
+    assert client.verify_write_scope("557") == ROOT
+    bc._SCOPE_VERIFIED.add("557")  # prove the strict path does not trust this cache
+    with pytest.raises(BoxScopeError):
+        client.verify_write_scope("557")
+    assert scope_get.call_count == 2
+
+
 # --- UploadFile is scope-locked too (the archive mirror must stay in the test root) ---
 
 UPLOAD_URL = "https://upload.box.com/api/2.0/files/content"
@@ -232,6 +376,101 @@ def test_upload_out_of_scope_folder_raises_and_does_not_upload():
     with pytest.raises(BoxScopeError):
         _client().upload_file("999", "a.pdf", b"bytes")
     assert not up.called  # refused before the bytes reach Box
+
+
+@respx.mock
+def test_move_requires_fresh_source_and_destination_scope_checks():
+    _mock_token()
+    for kind, item_id in (("files", "file-1"), ("folders", "case-folder")):
+        respx.get(f"{API_BASE}/2.0/{kind}/{item_id}").mock(
+            return_value=httpx.Response(200, json={"id": item_id, "path_collection": {"entries": [{"id": ROOT}]}})
+        )
+    moved = respx.put(f"{API_BASE}/2.0/files/file-1").mock(
+        return_value=httpx.Response(200, json={"id": "file-1", "name": "front.jpg"})
+    )
+    assert _client().move_file("file-1", "case-folder", "front.jpg")["id"] == "file-1"
+    assert moved.called
+
+
+@respx.mock
+def test_move_refuses_an_off_root_destination_before_write():
+    _mock_token()
+    respx.get(f"{API_BASE}/2.0/files/file-1").mock(
+        return_value=httpx.Response(200, json={"id": "file-1", "path_collection": {"entries": [{"id": ROOT}]}})
+    )
+    respx.get(f"{API_BASE}/2.0/folders/outside").mock(
+        return_value=httpx.Response(200, json={"id": "outside", "path_collection": {"entries": [{"id": "0"}]}})
+    )
+    moved = respx.put(f"{API_BASE}/2.0/files/file-1").mock(return_value=httpx.Response(200, json={}))
+    with pytest.raises(BoxScopeError):
+        _client().move_file("file-1", "outside")
+    assert not moved.called
+
+
+@respx.mock
+def test_delete_folder_refuses_non_empty_and_never_uses_recursive_delete():
+    _mock_token()
+    respx.get(f"{API_BASE}/2.0/folders/held").mock(
+        return_value=httpx.Response(200, json={"id": "held", "path_collection": {"entries": [{"id": ROOT}]}})
+    )
+    respx.get(f"{API_BASE}/2.0/folders/held/items").mock(
+        return_value=httpx.Response(200, json={"entries": [{"id": "still-here"}]})
+    )
+    deleted = respx.delete(f"{API_BASE}/2.0/folders/held").mock(return_value=httpx.Response(204))
+    with pytest.raises(bc.BoxError, match="non-empty"):
+        _client().delete_empty_folder("held")
+    assert not deleted.called
+
+
+@respx.mock
+def test_replayed_delete_is_idempotent_when_source_is_already_missing():
+    # Adoption dedup retires a held source, then the activity replays: the source
+    # is already gone. The canonical (pinned) delete fresh-validates the holding
+    # folder, sees the file 404, and returns an idempotent "missing".
+    _mock_token()
+    folder = "held"
+    respx.get(f"{API_BASE}/2.0/folders/{folder}").mock(
+        return_value=httpx.Response(
+            200, json={"id": folder, "path_collection": {"entries": [{"id": ROOT}]}}
+        )
+    )
+    respx.get(f"{API_BASE}/2.0/files/gone").mock(return_value=httpx.Response(404))
+    deleted = respx.delete(f"{API_BASE}/2.0/files/gone").mock(return_value=httpx.Response(204))
+    assert _client().delete_file("gone", expected_folder_id=folder)["status"] == "missing"
+    assert not deleted.called
+
+
+@respx.mock
+def test_rename_name_conflict_returns_existing_canonical_folder():
+    _mock_token()
+    respx.get(f"{API_BASE}/2.0/folders/held").mock(
+        return_value=httpx.Response(200, json={"id": "held", "path_collection": {"entries": [{"id": ROOT}]}})
+    )
+    respx.put(f"{API_BASE}/2.0/folders/held").mock(return_value=httpx.Response(409, json={
+        "context_info": {"conflicts": [{"id": "case-folder"}]}
+    }))
+    respx.get(f"{API_BASE}/2.0/folders/case-folder").mock(
+        return_value=httpx.Response(200, json={"id": "case-folder", "path_collection": {"entries": [{"id": ROOT}]}})
+    )
+    assert _client().rename_folder("held", "QDOS26079") == {
+        "id": "case-folder", "type": "folder", "name": "QDOS26079", "outcome": "conflict"
+    }
+
+
+@respx.mock
+def test_rename_refuses_an_out_of_scope_conflict_target():
+    _mock_token()
+    respx.get(f"{API_BASE}/2.0/folders/held").mock(
+        return_value=httpx.Response(200, json={"id": "held", "path_collection": {"entries": [{"id": ROOT}]}})
+    )
+    respx.put(f"{API_BASE}/2.0/folders/held").mock(return_value=httpx.Response(409, json={
+        "context_info": {"conflicts": [{"id": "outside-folder"}]}
+    }))
+    respx.get(f"{API_BASE}/2.0/folders/outside-folder").mock(
+        return_value=httpx.Response(200, json={"id": "outside-folder", "path_collection": {"entries": [{"id": "0"}]}})
+    )
+    with pytest.raises(BoxScopeError):
+        _client().rename_folder("held", "QDOS26079")
 
 
 @respx.mock

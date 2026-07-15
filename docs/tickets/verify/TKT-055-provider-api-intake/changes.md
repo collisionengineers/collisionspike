@@ -4,6 +4,19 @@
 > [provider-api-intake-spec.md](../../../reference/provider-api-intake-spec.md). Live state:
 > [the registry](../../../operations/live-environment.md).
 
+## 2026-07-15 — final-review remediation
+
+- Added a provider-scoped durable operation ledger. `Idempotency-Key` is now required, exact retries
+  return the original Case/PO, different-content reuse returns `409`, and an incomplete file landing
+  returns retryable `503` without minting another case.
+- Bound the operation reservation, Case/PO mint, case insert, operation link and creation audit in one
+  transaction. File evidence and Archive-mirror requests are replay-safe; same-named attachments use
+  distinct deterministic object paths.
+- Tightened Base64 validation before any case, Blob, evidence, note or audit write.
+- Added `database/baseline/198_provider_intake_operation.sql`, the matching constraints/RLS baseline,
+  and `database/migrations/2026-07-15-provider-intake-idempotency.sql`.
+- Added focused operation/validation regression tests and updated the publishable provider contract.
+
 ## 2026-07-03 — built (NOT yet deployed; delta NOT yet applied)
 
 ### Schema (`database/baseline/`)

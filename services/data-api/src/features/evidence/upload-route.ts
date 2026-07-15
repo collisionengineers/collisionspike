@@ -1,7 +1,8 @@
 /** upload-route — cohesive Data API module. */
 
-import { app, type HttpRequest, type InvocationContext } from '@azure/functions';
+import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import { createHash } from 'node:crypto';
+import type { JWTPayload } from 'jose';
 import { withRole } from '../../platform/auth/staff-auth.js';
 import { tx } from '../../platform/db/client.js';
 import { uploadEvidenceBytes } from './blob-store.js';
@@ -9,13 +10,19 @@ import { classifyUpload, validateUploadBatch, validateUploadContent } from './up
 import { AUDIT_ACTION, actorFromClaims, writeAuditStrict } from '../../shared/audit.js';
 import { requestStatusRecompute } from '../cases/status-recompute.js';
 import { claimManualIntakeRecoveryAudit, completeManualIntakeEvidence, manualIntakeEvidenceBindingState } from '../cases/manual-intake-operation.js';
-import { type AddedFile, bindBatch, claimUploadItem, IDEMPOTENCY_RE, manifestHash, type ManualIntakeCompletion, persistFile, type PreparedFile, recordManualIntakeResult, type RejectedFile, scheduleItemCleanup, SHA256_RE, sourceOf, type UploadItemClaim, UploadRefusal, type UploadRole, type UploadSource } from './upload-support.js';
+import { type AddedFile, bindBatch, claimUploadItem, IDEMPOTENCY_RE, legacyIdempotencyKey, manifestHash, type ManualIntakeCompletion, persistFile, type PreparedFile, recordManualIntakeResult, type RejectedFile, scheduleItemCleanup, SHA256_RE, sourceOf, type UploadItemClaim, UploadRefusal, type UploadRole, type UploadSource } from './upload-support.js';
 
-app.http('uploadCaseEvidence', {
-  methods: ['POST'],
-  authLevel: 'anonymous',
-  route: 'cases/{id}/evidence/upload',
-  handler: withRole('CollisionSpike.User', async (req: HttpRequest, ctx: InvocationContext, claims) => {
+export interface EvidenceUploadHandlerOptions {
+  /** Internal-only: the MCP route already authenticated the dedicated app-only role. */
+  allowMcpAgentSource?: boolean;
+}
+
+export async function handleEvidenceUpload(
+  req: HttpRequest,
+  ctx: InvocationContext,
+  claims: JWTPayload,
+  options: EvidenceUploadHandlerOptions = {},
+): Promise<HttpResponseInit> {
     let form: FormData;
     try {
       form = await req.formData();
@@ -25,15 +32,16 @@ app.http('uploadCaseEvidence', {
 
     const suppliedIdempotencyKey = (req.headers?.get('idempotency-key') ?? '').trim();
     const suppliedSourceValue = form.get('source');
-    const suppliedSource = sourceOf(suppliedSourceValue);
-    if (!IDEMPOTENCY_RE.test(suppliedIdempotencyKey)) {
+    const suppliedSource = sourceOf(suppliedSourceValue, options.allowMcpAgentSource === true);
+    const legacyRequest = !suppliedIdempotencyKey && suppliedSourceValue == null;
+    if (!legacyRequest && !IDEMPOTENCY_RE.test(suppliedIdempotencyKey)) {
       return { status: 400, jsonBody: { error: 'This upload could not be safely retried. Choose the files again.' } };
     }
-    if (!suppliedSource) {
+    if (!legacyRequest && !suppliedSource) {
       return { status: 400, jsonBody: { error: 'Choose where these files are being added from.' } };
     }
     const actor = actorFromClaims(claims) ?? 'authenticated staff';
-    const source: UploadSource = suppliedSource;
+    const source: UploadSource = suppliedSource ?? 'legacy_upload';
 
     const files = form.getAll('file').filter((value): value is File => value instanceof File);
     if (!files.length) return { status: 400, jsonBody: { error: 'Choose at least one file.' } };
@@ -189,7 +197,8 @@ app.http('uploadCaseEvidence', {
     }
 
     const batchManifestHash = manifestHash(prepared);
-    const idempotencyKey = suppliedIdempotencyKey;
+    const idempotencyKey = suppliedIdempotencyKey
+      || legacyIdempotencyKey(req.params.id, actor, batchManifestHash);
     let caseId: string;
     try {
       caseId = await bindBatch({
@@ -197,6 +206,8 @@ app.http('uploadCaseEvidence', {
         idempotencyKey,
         actor,
         source,
+        registration:
+          source === 'mcp_agent' ? String(form.get('registration') ?? '').trim() : undefined,
         manifestHash: batchManifestHash,
         files: prepared,
       });
@@ -257,6 +268,8 @@ app.http('uploadCaseEvidence', {
           source,
           idempotencyKey,
           actor,
+          registration:
+            source === 'mcp_agent' ? String(form.get('registration') ?? '').trim() : undefined,
           file,
           itemId: claim.itemId,
           claimToken: claim.claimToken,
@@ -400,5 +413,12 @@ app.http('uploadCaseEvidence', {
         ...(manualIntakeCompletion ? { manualIntakeCompletion } : {}),
       },
     };
-  }),
+}
+
+app.http('uploadCaseEvidence', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'cases/{id}/evidence/upload',
+  handler: withRole('CollisionSpike.User', async (req: HttpRequest, ctx: InvocationContext, claims) =>
+    handleEvidenceUpload(req, ctx, claims)),
 });

@@ -11,8 +11,8 @@
  *
  *   Exit code 0 = all selected checks passed; nonzero = at least one failed.
  *
- *   Zero npm dependencies — pure Node built-ins. Scans every git-tracked *.md
- *   (node_modules / .venv / .git / dist excluded). The three checks:
+ *   Zero npm dependencies — pure Node built-ins. Scans every project-documentation *.md
+ *   (tooling and content-addressed evidence bytes excluded). The three checks:
  *
  *     a. LINKS    — every relative [text](path.md[#anchor]) resolves to a real file.
  *     b. ORPHANS  — every docs/**.md is reachable by BFS from CLAUDE.md + docs/README.md.
@@ -114,7 +114,11 @@ function trackedMarkdown() {
     .map((l) => l.trim())
     .filter(Boolean)
     .filter((rel) => existsSync(join(ROOT, rel)))
-    .filter((rel) => !EXCLUDE.test(rel));
+    .filter((rel) => !EXCLUDE.test(rel))
+    // Evidence-store Markdown is an immutable source byte, not current repository
+    // documentation. Its original relative links are preserved deliberately and are
+    // navigated through evidence manifests rather than from the hash-addressed blob.
+    .filter((rel) => !rel.startsWith('tests/fixtures/evidence/sha256/'));
 }
 
 const MD_FILES = trackedMarkdown();

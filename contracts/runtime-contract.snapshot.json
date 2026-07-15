@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "httpRoutes": {
-    "count": 158,
-    "typeScriptCount": 135,
-    "pythonCount": 23,
+    "count": 189,
+    "typeScriptCount": 163,
+    "pythonCount": 26,
     "routes": [
       {
         "runtime": "typescript",
@@ -30,6 +30,17 @@
           "role:CollisionSpike.User"
         ],
         "source": "services/data-api/src/features/assistant/suggestion-review-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "archive-holding-adopt-start",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/archive-holding-adopt/{caseId}",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/mailbox/archiveHolding.ts"
       },
       {
         "runtime": "typescript",
@@ -125,11 +136,34 @@
       },
       {
         "runtime": "python",
+        "functionName": "move_file",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/box/files/{fileId}/move",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
         "functionName": "get_shared_link_file",
         "methods": [
           "PUT"
         ],
         "publicPath": "/api/box/files/{fileId}/shared-link",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "file_deletion",
+        "methods": [
+          "DELETE",
+          "GET"
+        ],
+        "publicPath": "/api/box/files/{fileId}",
         "authLevel": "function",
         "policyIdentifiers": [],
         "source": "services/functions/box-webhook/function_app.py"
@@ -169,9 +203,11 @@
       },
       {
         "runtime": "python",
-        "functionName": "get_folder",
+        "functionName": "folder_lifecycle",
         "methods": [
-          "GET"
+          "DELETE",
+          "GET",
+          "PATCH"
         ],
         "publicPath": "/api/box/folders/{folderId}",
         "authLevel": "function",
@@ -185,6 +221,17 @@
           "POST"
         ],
         "publicPath": "/api/box/folders",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "verify_write_scope",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/box/scope/write-check",
         "authLevel": "function",
         "policyIdentifiers": [],
         "source": "services/functions/box-webhook/function_app.py"
@@ -222,6 +269,45 @@
         "authLevel": "function",
         "policyIdentifiers": [],
         "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "revokeCaptureSession",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/capture-sessions/{id}/revoke",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "rotateCaptureSession",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/capture-sessions/{id}/rotate",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "deleteCaseImage",
+        "methods": [
+          "DELETE"
+        ],
+        "publicPath": "/api/cases/{caseId}/images/{evidenceId}",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/evidence-delete.ts"
       },
       {
         "runtime": "typescript",
@@ -326,6 +412,32 @@
           "role:CollisionSpike.User"
         ],
         "source": "services/data-api/src/features/cases/archive-completion-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "listCaptureSessions",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/cases/{id}/capture-sessions",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "createCaptureSession",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/cases/{id}/capture-sessions",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/capture.ts"
       },
       {
         "runtime": "typescript",
@@ -818,6 +930,19 @@
       },
       {
         "runtime": "typescript",
+        "functionName": "getDeleteCaseImageGate",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/gates/delete-case-image",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/settings/gate-routes.ts"
+      },
+      {
+        "runtime": "typescript",
         "functionName": "getLocationAssistGate",
         "methods": [
           "GET"
@@ -1029,6 +1154,138 @@
       },
       {
         "runtime": "typescript",
+        "functionName": "internalArchiveHoldingAdoptionFailed",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/{id}/failed",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingCheckpoint",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/{id}/files/{fileId}/checkpoint",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingFinalize",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/{id}/finalize",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingAdoptionCandidates",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/archive-holding/adoption-candidates",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingDeferredComplete",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/deferred/{id}/complete",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingDeferredFailed",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/deferred/{id}/failed",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingDeferredClaim",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/deferred/claim",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingUploadFailed",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/files/{id}/failed",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingUploaded",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/files/{id}/uploaded",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingRegister",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/register",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingReserve",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/reserve",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingUploadClaim",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/uploads/claim",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
         "functionName": "internalArchiveMirrorOutboxComplete",
         "methods": [
           "POST"
@@ -1172,6 +1429,17 @@
       },
       {
         "runtime": "typescript",
+        "functionName": "internalArchiveHoldingClaim",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/cases/{id}/archive-holding/claim",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
         "functionName": "internalCaseBoxFolderGet",
         "methods": [
           "GET"
@@ -1195,6 +1463,19 @@
           "service-bearer"
         ],
         "source": "services/data-api/src/features/cases/internal-maintenance-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalEvaSubmission",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/cases/{id}/eva-submission",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-operations-routes.ts"
       },
       {
         "runtime": "typescript",
@@ -1689,6 +1970,18 @@
       },
       {
         "runtime": "typescript",
+        "functionName": "archive-holding-monitor",
+        "methods": [
+          "GET",
+          "POST"
+        ],
+        "publicPath": "/api/maintenance/archive-holding-monitor",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/mailbox/archive-holding-monitor.ts"
+      },
+      {
+        "runtime": "typescript",
         "functionName": "box-maintenance-monitors",
         "methods": [
           "GET",
@@ -1715,12 +2008,13 @@
         "runtime": "typescript",
         "functionName": "mcpServer",
         "methods": [
+          "GET",
           "POST"
         ],
         "publicPath": "/api/mcp",
         "authLevel": "anonymous",
         "policyIdentifiers": [
-          "role:CollisionSpike.User"
+          "staff-bearer"
         ],
         "source": "services/data-api/src/features/assistant/mcp-routes.ts"
       },
@@ -1885,6 +2179,72 @@
       },
       {
         "runtime": "typescript",
+        "functionName": "exchangeCaptureSecret",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/public/capture/exchange",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "renewCaptureAccess",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/public/capture/renew",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "submitCaptureSession",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/public/capture/sessions/{id}/submit",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "completeCaptureUpload",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/public/capture/sessions/{id}/uploads/{assetId}/complete",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "createCaptureUpload",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/public/capture/sessions/{id}/uploads",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "captureManifest",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/public/capture/sessions/{id}",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
         "functionName": "casesForQueue",
         "methods": [
           "GET"
@@ -1984,7 +2344,7 @@
     ]
   },
   "domainDtos": {
-    "count": 49,
+    "count": 56,
     "declarations": [
       {
         "name": "AiAssistGate",
@@ -2057,6 +2417,41 @@
         "sha256": "59f7f0e689650ef8541741f6a67f77c8d4b3ad9115bdddf399ed9a0246822a60"
       },
       {
+        "name": "CaptureGuidanceMode",
+        "kind": "TypeAliasDeclaration",
+        "source": "packages/domain/src/dto/capture.ts",
+        "signature": "export type CaptureGuidanceMode = 'off' | 'shadow' | 'advisory' | 'enforced';",
+        "sha256": "0a79b13b074fcbdad5560b8e053e025d4751486a80359ee80cafa9363ce2d1f7"
+      },
+      {
+        "name": "CaptureSessionListResponse",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/capture.ts",
+        "signature": "export interface CaptureSessionListResponse {\n    sessions: CaptureSessionStaffSummary[];\n}",
+        "sha256": "05c22e5256cfc19719c5f6b361548d9c25557ebbc4392d4d31da9e68b46566bb"
+      },
+      {
+        "name": "CaptureSessionSecretResponse",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/capture.ts",
+        "signature": "export interface CaptureSessionSecretResponse {\n    session: CaptureSessionStaffSummary;\n    captureUrl: string;\n}",
+        "sha256": "2dc327fca75ca956e0eecd93d0183c0d30e34e05d12065b9b7da20546b757c2f"
+      },
+      {
+        "name": "CaptureSessionStaffSummary",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/capture.ts",
+        "signature": "export interface CaptureSessionStaffSummary {\n    sessionId: string;\n    status: CaptureSessionStatus;\n    shotPlanId: string;\n    shotPlanLabel: string;\n    guidanceMode: CaptureGuidanceMode;\n    expiresAt: string;\n    createdAt: string;\n    submittedAt?: string;\n    requiredTotal: number;\n    requiredCompleted: number;\n}",
+        "sha256": "f61369b1d55107372bdad3e736826a8329cf19d1c277cb4aa497ada7c0084c6b"
+      },
+      {
+        "name": "CaptureSessionStatus",
+        "kind": "TypeAliasDeclaration",
+        "source": "packages/domain/src/dto/capture.ts",
+        "signature": "export type CaptureSessionStatus = 'open' | 'complete' | 'expired' | 'revoked' | 'locked';",
+        "sha256": "2536c2df0ee7f44905002c325731f2bfb7bbf3f79a30235ba04f8c07a45492aa"
+      },
+      {
         "name": "CaseUpdateInput",
         "kind": "InterfaceDeclaration",
         "source": "packages/domain/src/dto/index.ts",
@@ -2069,6 +2464,13 @@
         "source": "packages/domain/src/dto/index.ts",
         "signature": "export type ClassifierMode = 'deterministic' | 'llm' | 'human';",
         "sha256": "b5399d43937304f399c33bb21f2312cdefb6a11e31f282944f9eb45c7d421957"
+      },
+      {
+        "name": "CreateCaptureSessionRequest",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/capture.ts",
+        "signature": "export interface CreateCaptureSessionRequest {\n    shotPlanId?: string;\n    expiresInHours?: number;\n}",
+        "sha256": "9f90865a35851d38ed9d79be08ebd34089bca68fba7bfb309e8af75eca3e8fa1"
       },
       {
         "name": "CreateCaseInput",
@@ -2118,6 +2520,13 @@
         "source": "packages/domain/src/dto/index.ts",
         "signature": "export interface DataAccess {\n    caseById(id: string): Promise<Case | undefined>;\n    createCase(input: CreateCaseInput, options?: CreateCaseOptions): Promise<CreateCaseResult>;\n    updateCase(id: string, patch: CaseUpdateInput): Promise<Case>;\n    casesForQueue(name: QueueName, now?: Date): Promise<Case[]>;\n    openVrmTwins(vrm: string, excludeCaseId?: string): Promise<Case[]>;\n    openCasePoMatches(casePo: string, excludeCaseId?: string): Promise<Case[]>;\n    setOnHold(caseId: string, onHold: boolean): Promise<void>;\n    mergeCandidates(caseId: string): Promise<Case[]>;\n    mergeCases(sourceCaseId: string, targetCaseId: string): Promise<MergeCasesResult>;\n    imagesForCase(caseId: string): Promise<Evidence[]>;\n    providers(): Promise<Provider[]>;\n    providerByCode(code: string): Promise<Provider | undefined>;\n    inspectionAddressSuggestions(caseId: string, q?: string): Promise<SuggestedAddress[]>;\n    inspectionAddressCounts(): Promise<InspectionAddressCounts>;\n    saveInspectionDecision(caseId: string, decision: InspectionDecisionInput): Promise<SaveInspectionDecisionResult>;\n    liveCounts(now?: Date): Promise<LiveCounts>;\n    throughput(now?: Date): Promise<Throughput>;\n    agingExceptions(now?: Date): Promise<AgingExceptions>;\n    queueCounts(now?: Date): Promise<Record<QueueName, number>>;\n    reasonCounts(now?: Date): Promise<ReasonFacet[]>;\n    pipelineStages(): Promise<PipelineStage[]>;\n    recentActivity(): Promise<ActivityEvent[]>;\n    activityForCase(caseId: string): Promise<ActivityEvent[]>;\n    getBoxGates(): Promise<BoxGates>;\n    getBoxFileRequestTemplateId(): Promise<string | undefined>;\n    getLocationAssistGate(): Promise<LocationAssistGate>;\n    getHoldNewCasesDefault(): Promise<boolean>;\n    setHoldNewCasesDefault(value: boolean): Promise<void>;\n    inboundEmails(facet?: InboundFacet): Promise<InboundEmail[]>;\n    inboundEmailCounts(): Promise<InboundCounts>;\n    setTriageState(id: string, state: TriageState): Promise<void>;\n}",
         "sha256": "2ebcd3cf3934ca8e33627c367d30f36e2321ad1b8ea3ae3cc37a5cbb302fc819"
+      },
+      {
+        "name": "DeleteCaseImageGate",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface DeleteCaseImageGate {\n    enabled: boolean;\n}",
+        "sha256": "636ea0d44161000feae9041c093ae7f6a151c2769693c37c05c2e895984d30b7"
       },
       {
         "name": "GenerateAiSuggestionsResult",
@@ -2382,6 +2791,7 @@
     "acceptedRoleClaims": [
       "CollisionSpike.Admin",
       "CollisionSpike.Agent",
+      "CollisionSpike.ImageIngest",
       "CollisionSpike.Superuser",
       "CollisionSpike.User"
     ],
@@ -2394,6 +2804,7 @@
       "role:CollisionSpike.Superuser",
       "role:CollisionSpike.User",
       "service-bearer",
+      "staff-bearer",
       "vehicle-lookup"
     ]
   },
@@ -2468,7 +2879,7 @@
     "files": [
       {
         "path": "database/baseline/000_enums_lookups.sql",
-        "sha256": "e7b76494e37a96546e7792c49a6c03ad025e41ae1b0362f82cc3a922cef4976e"
+        "sha256": "74ff783fc1900b1f6ac1746cb9ee46211af7e6930d7f45dfd64922bac7947778"
       },
       {
         "path": "database/baseline/010_work_provider.sql",
@@ -2488,11 +2899,11 @@
       },
       {
         "path": "database/baseline/050_case.sql",
-        "sha256": "3713c9a33b13359159fd9c6063189bccc71bd77550c2bed52b802b04b4483065"
+        "sha256": "38bcc4fd3483bf2ae2ad65de1b6bfec19323accbb01bbf5019f63e4efe1c7a63"
       },
       {
         "path": "database/baseline/060_evidence.sql",
-        "sha256": "4250e89ce38fd8d3331ff4bf7e411fe8062c003e332a5fe4cf07bf5c8c4d321a"
+        "sha256": "a4537a03b4eb710ba077a2aec60af3a510d77fec56f9c3963f3e7773f100955b"
       },
       {
         "path": "database/baseline/070_field_level_provenance.sql",
@@ -2556,15 +2967,39 @@
       },
       {
         "path": "database/baseline/195_staff_evidence_upload.sql",
-        "sha256": "cba6894f460d09edf97cfb911a6e8952f3679b351dd09811914d934b7d42dbdc"
+        "sha256": "2737692f99186d30a9c2833993ded7a02ebb0f00b3f930c00c701ad6e6256ff6"
+      },
+      {
+        "path": "database/baseline/196_capture_session.sql",
+        "sha256": "ad78be775a8bc0c51798fc334dc613d1dfde4776b764d514279ebeae1dbc8dd5"
       },
       {
         "path": "database/baseline/196_manual_intake_case_create.sql",
         "sha256": "a7364b2c93b85032eef9c31ed1dcdfef174c616ba2829cc9c5838edb9373b63d"
       },
       {
+        "path": "database/baseline/196_mcp_image_ingest_rate_limit.sql",
+        "sha256": "70748a1a726670305a87b9bee69df273751c5c6ede24c19f3e8f182b089ff969"
+      },
+      {
+        "path": "database/baseline/197_archive_holding.sql",
+        "sha256": "253013d208df087ed99fba5c05dc43aad9dbbf9695823bf96142bf0f419bae10"
+      },
+      {
+        "path": "database/baseline/197_mcp_http_session.sql",
+        "sha256": "dd9ec444043922fd8228a4e38dade066f2db0e01cd60dafbf7b4ab8ea83b1549"
+      },
+      {
+        "path": "database/baseline/198_provider_intake_operation.sql",
+        "sha256": "dfd5a812bbb573dd269c71c4276ccb6539bca4aefd7658abad848ea51227db41"
+      },
+      {
         "path": "database/baseline/200_vehicle_data.sql",
         "sha256": "b1c788981555853c544d953f8588fde922dd0fecceabf9c92fc44f64b366a70e"
+      },
+      {
+        "path": "database/baseline/205_evidence_deletion.sql",
+        "sha256": "fec0f68a430f50303421f2929f94af8032adbd6ff5803a8ee194f99d9e81a427"
       },
       {
         "path": "database/baseline/205_outlook_link_backfill.sql",
@@ -2572,7 +3007,7 @@
       },
       {
         "path": "database/baseline/900_constraints.sql",
-        "sha256": "8b347595d8d358b31b73891559f4bde3ca5c379dd1fbbf519a45cd6f21758e76"
+        "sha256": "83fccdb9c22901fcc76ced6ef804863875c069ba0a0500ecbc3f7647c83df21e"
       }
     ],
     "tables": [
@@ -2620,6 +3055,94 @@
           "updated_by"
         ],
         "source": "database/baseline/150_app_setting.sql"
+      },
+      {
+        "name": "archive_holding_deferred_intake",
+        "columns": [
+          "id",
+          "source_message_id",
+          "normalized_vrm",
+          "root_folder_id",
+          "file_manifest",
+          "state",
+          "claim_token",
+          "claim_expires_at",
+          "attempt_count",
+          "next_attempt_at",
+          "last_error",
+          "completed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/197_archive_holding.sql"
+      },
+      {
+        "name": "archive_holding_file",
+        "columns": [
+          "id",
+          "holding_folder_id",
+          "source_message_id",
+          "file_name",
+          "content_type",
+          "size_bytes",
+          "blob_path",
+          "sha256",
+          "box_file_id",
+          "box_file_url",
+          "box_sha1",
+          "canonical_box_file_id",
+          "canonical_box_file_url",
+          "state",
+          "claim_token",
+          "claim_expires_at",
+          "attempt_count",
+          "next_attempt_at",
+          "last_error",
+          "evidence_id",
+          "source_retired",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/197_archive_holding.sql"
+      },
+      {
+        "name": "archive_holding_folder",
+        "columns": [
+          "id",
+          "normalized_vrm",
+          "root_folder_id",
+          "box_folder_id",
+          "box_folder_url",
+          "state",
+          "adoption_mode",
+          "adopted_case_id",
+          "canonical_folder_id",
+          "candidate_case_ids",
+          "candidate_folder_ids",
+          "resolved_case_id",
+          "resolved_by",
+          "resolved_at",
+          "claim_token",
+          "claim_expires_at",
+          "attempt_count",
+          "next_attempt_at",
+          "last_error",
+          "retired_at",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/197_archive_holding.sql"
+      },
+      {
+        "name": "archive_holding_intake",
+        "columns": [
+          "id",
+          "holding_folder_id",
+          "source_message_id",
+          "inbound_email_id",
+          "created_at"
+        ],
+        "source": "database/baseline/197_archive_holding.sql"
       },
       {
         "name": "archive_mirror_outbox",
@@ -2678,6 +3201,97 @@
         "source": "database/baseline/195_box_file_request_outbox.sql"
       },
       {
+        "name": "capture_asset",
+        "columns": [
+          "id",
+          "session_id",
+          "shot_id",
+          "idempotency_key",
+          "state",
+          "selected",
+          "file_name",
+          "declared_content_type",
+          "declared_size_bytes",
+          "declared_sha256",
+          "server_content_type",
+          "server_size_bytes",
+          "server_sha256",
+          "width",
+          "height",
+          "blob_path",
+          "upload_expires_at",
+          "validation_attempt",
+          "validation_lease_expires_at",
+          "validation_code",
+          "client_quality",
+          "server_quality",
+          "evidence_id",
+          "materialised_at",
+          "staging_deleted_at",
+          "blob_deleted_at",
+          "cleanup_code",
+          "cleanup_attempt_count",
+          "cleanup_next_attempt_at",
+          "cleanup_last_error_category",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/196_capture_session.sql"
+      },
+      {
+        "name": "capture_session_resume_token",
+        "columns": [
+          "token_hash",
+          "session_id",
+          "token_generation",
+          "expires_at",
+          "created_at",
+          "last_used_at"
+        ],
+        "source": "database/baseline/196_capture_session.sql"
+      },
+      {
+        "name": "capture_session_shot",
+        "columns": [
+          "session_id",
+          "shot_id",
+          "role",
+          "evidence_role",
+          "label",
+          "prompt",
+          "required",
+          "sequence",
+          "guidance_profile"
+        ],
+        "source": "database/baseline/196_capture_session.sql"
+      },
+      {
+        "name": "capture_session",
+        "columns": [
+          "id",
+          "case_id",
+          "status",
+          "shot_plan_id",
+          "shot_plan_label",
+          "guidance_mode",
+          "rules_version",
+          "model_version",
+          "bootstrap_token_hash",
+          "token_generation",
+          "expires_at",
+          "created_by",
+          "submitted_at",
+          "submit_idempotency_key",
+          "revoked_at",
+          "locked_at",
+          "expired_at",
+          "last_exchanged_at",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/196_capture_session.sql"
+      },
+      {
         "name": "case_",
         "columns": [
           "id",
@@ -2687,6 +3301,7 @@
           "case_po",
           "on_hold",
           "on_hold_reason",
+          "archive_holding_pending",
           "source_message_id",
           "payload_hash",
           "finalized_payload_hash",
@@ -2987,6 +3602,33 @@
         "source": "database/baseline/000_enums_lookups.sql"
       },
       {
+        "name": "evidence_deletion",
+        "columns": [
+          "id",
+          "evidence_id",
+          "case_id",
+          "file_name",
+          "kind_code",
+          "storage_path",
+          "source_message_id",
+          "box_file_id",
+          "box_folder_id",
+          "requested_by",
+          "state",
+          "blob_outcome",
+          "box_outcome",
+          "attempt_count",
+          "claim_token",
+          "claim_expires_at",
+          "last_failure_code",
+          "requested_at",
+          "last_attempt_at",
+          "completed_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/205_evidence_deletion.sql"
+      },
+      {
         "name": "evidence",
         "columns": [
           "id",
@@ -3024,6 +3666,7 @@
           "archive_mirror_claim_token",
           "archive_mirror_claimed_at",
           "archive_mirror_claim_expires_at",
+          "deletion_operation_id",
           "created_at",
           "updated_at"
         ],
@@ -3192,6 +3835,30 @@
         "source": "database/baseline/196_manual_intake_case_create.sql"
       },
       {
+        "name": "mcp_http_session",
+        "columns": [
+          "session_id",
+          "principal_id",
+          "protocol_version",
+          "phase",
+          "initialized_at",
+          "last_seen_at",
+          "expires_at",
+          "created_at"
+        ],
+        "source": "database/baseline/197_mcp_http_session.sql"
+      },
+      {
+        "name": "mcp_image_ingest_rate_limit",
+        "columns": [
+          "principal_id",
+          "window_started_at",
+          "request_count",
+          "updated_at"
+        ],
+        "source": "database/baseline/196_mcp_image_ingest_rate_limit.sql"
+      },
+      {
         "name": "mileage_estimate_result",
         "columns": [
           "lookup_run_id",
@@ -3301,6 +3968,20 @@
         "source": "database/baseline/170_provider_api_key.sql"
       },
       {
+        "name": "provider_intake_operation",
+        "columns": [
+          "work_provider_id",
+          "idempotency_key",
+          "request_hash",
+          "case_id",
+          "case_po",
+          "completed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/198_provider_intake_operation.sql"
+      },
+      {
         "name": "repairer_workprovider",
         "columns": [
           "repairer_id",
@@ -3362,7 +4043,10 @@
           "case_id",
           "actor",
           "source",
+          "registration",
           "manifest_hash",
+          "attempt_count",
+          "last_attempt_at",
           "completed_at",
           "created_at",
           "updated_at"
@@ -3432,12 +4116,12 @@
         "source": "database/baseline/010_work_provider.sql"
       }
     ],
-    "sha256": "bb95486edb682f22a9c834ab85a0d103d1440f96b53cfe9095f30f5d9f33a06d"
+    "sha256": "260a964b81c716eab1132b0f278fe98e8d8685e81b67d947c1473bcf21c5fd90"
   },
   "numericCodes": {
     "tableCount": 22,
-    "optionCount": 171,
-    "sha256": "1160403a90e21a333a68d4c492a75ba54c699f8b368ea14e620eba2ce647951b",
+    "optionCount": 181,
+    "sha256": "b9becc00d5dc0c75a9e865e74b7f6e214abada66152464c2de5fbb570c5bf069",
     "tables": [
       {
         "id": "action_reason",
@@ -3690,6 +4374,46 @@
           {
             "value": 100000055,
             "name": "evidence_upload_result"
+          },
+          {
+            "value": 100000056,
+            "name": "capture_session_created"
+          },
+          {
+            "value": 100000057,
+            "name": "capture_session_rotated"
+          },
+          {
+            "value": 100000058,
+            "name": "capture_session_revoked"
+          },
+          {
+            "value": 100000059,
+            "name": "capture_asset_validated"
+          },
+          {
+            "value": 100000060,
+            "name": "capture_session_completed"
+          },
+          {
+            "value": 100000061,
+            "name": "capture_session_retargeted"
+          },
+          {
+            "value": 100000062,
+            "name": "capture_session_locked"
+          },
+          {
+            "value": 100000063,
+            "name": "image_deletion_requested"
+          },
+          {
+            "value": 100000064,
+            "name": "image_deletion_failed"
+          },
+          {
+            "value": 100000065,
+            "name": "image_deleted"
           }
         ]
       },

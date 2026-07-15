@@ -482,6 +482,19 @@ export const OUTLOOK_MOVE_GATE_ALL_OFF: OutlookMoveGate = {
   enabled: false,
 };
 
+/** The destructive case-image deletion gate (TKT-160), read by the SPA via
+ *  GET /api/gates/delete-case-image. `enabled` is DELETE_CASE_IMAGE_ENABLED — the master
+ *  switch the Delete-image control keys on. Ships DARK (default off); while false the SPA hides
+ *  the affordance and the route itself is an honest disabled no-op. */
+export interface DeleteCaseImageGate {
+  enabled: boolean;
+}
+
+/** All-off default — the honest "image deletion not switched on / unreadable" baseline. */
+export const DELETE_CASE_IMAGE_GATE_ALL_OFF: DeleteCaseImageGate = {
+  enabled: false,
+};
+
 /* ============================================================
    Inbox and triage domain types.
    ============================================================ */

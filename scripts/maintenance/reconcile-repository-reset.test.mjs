@@ -9,7 +9,10 @@ import { afterEach, test } from "node:test";
 
 import {
   buildReconciliation,
+  COMMITTED_RECONCILIATION,
+  CURRENT_INVENTORY,
   collectPreResetInventory,
+  policySafeReference,
   PRE_RESET_COMMIT,
   validateReconciliation,
 } from "./reconcile-repository-reset.mjs";
@@ -42,6 +45,47 @@ test("accounts for retained, moved, deleted and created paths", () => {
   assert.equal(result.summary.unexplained, 0);
   assert.deepEqual(result.baselineEntries.map((item) => item.disposition), ["keep", "move", "delete"]);
   assert.deepEqual(result.finalEntries.map((item) => item.state), ["retained", "moved", "created"]);
+});
+
+test("fails byte assertions for a falsely declared keep or move", () => {
+  const keep = buildReconciliation(
+    { entries: [entry("README.md", "a")] },
+    { entries: [entry("README.md", "a")] },
+  );
+  keep.finalEntries[0].sha256 = "different";
+  assert.ok(validateReconciliation(keep).some((issue) => issue.includes("kept bytes changed")));
+
+  const move = buildReconciliation(
+    { entries: [entry("api/a.ts", "a")] },
+    { entries: [entry("services/data-api/a.ts", "a")] },
+  );
+  move.finalEntries[0].size = 2;
+  assert.ok(validateReconciliation(move).some((issue) => issue.includes("moved bytes changed")));
+});
+
+test("fails a deletion without a per-entry retirement rationale", () => {
+  const document = buildReconciliation({ entries: [entry("gone.txt", "a")] }, { entries: [] });
+  document.baselineEntries[0].reason = "No bytes remain.";
+  assert.ok(validateReconciliation(document).some((issue) => issue.includes("explicit retirement rationale")));
+});
+
+test("excludes both mutually recursive governance artifacts from the final-entry map", () => {
+  const result = buildReconciliation(
+    { entries: [] },
+    {
+      entries: [
+        entry(CURRENT_INVENTORY, "inventory"),
+        entry(COMMITTED_RECONCILIATION, "reconciliation"),
+        entry("README.md", "a"),
+      ],
+    },
+  );
+  assert.deepEqual(result.finalEntries.map((item) => item.path), ["README.md"]);
+});
+
+test("replaces a policy-blocked ledger string with an irreversible digest", () => {
+  const matcher = () => ["S001"];
+  assert.match(policySafeReference("legacy/example", matcher), /^policy-redacted:sha256:[a-f0-9]{64}$/);
 });
 
 test("fails an unowned final row", () => {

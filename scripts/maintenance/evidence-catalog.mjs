@@ -15,6 +15,7 @@ const ROOT = path.resolve(HERE, "../..");
 if (ROOT !== REPOSITORY_ROOT) throw new Error("Repository-root resolution disagrees.");
 
 const SOURCE_ROOTS = [
+  "raw",
   "docs/tickets",
   "docs/reference",
   "tests/fixtures/cases",
@@ -38,16 +39,35 @@ const RAW_EXTENSIONS = new Set([
   ".xlsx",
   ".zip",
 ]);
+const RAW_IMPORT_EXTENSIONS = new Set([
+  ...RAW_EXTENSIONS,
+  ".csv",
+  ".json",
+  ".md",
+  ".ps1",
+  ".py",
+  ".txt",
+  ".xls",
+  ".xlsm",
+]);
 const MEDIA_TYPES = {
+  ".csv": "text/csv",
   ".doc": "application/msword",
   ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ".eml": "message/rfc822",
   ".jpeg": "image/jpeg",
   ".jpg": "image/jpeg",
+  ".json": "application/json",
+  ".md": "text/markdown",
   ".msg": "application/vnd.ms-outlook",
   ".pdf": "application/pdf",
   ".png": "image/png",
+  ".ps1": "text/x-powershell",
   ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".py": "text/x-python",
+  ".txt": "text/plain",
+  ".xls": "application/vnd.ms-excel",
+  ".xlsm": "application/vnd.ms-excel.sheet.macroEnabled.12",
   ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   ".zip": "application/zip",
 };
@@ -147,12 +167,16 @@ function dispositionRows() {
 function retainedRows() {
   return SOURCE_ROOTS.flatMap(walkFiles)
     .filter((repositoryPath) => !matchingDispositionRule(repositoryPath))
-    .filter((repositoryPath) => RAW_EXTENSIONS.has(path.extname(repositoryPath).toLowerCase()))
+    .filter((repositoryPath) => {
+      const extensions = repositoryPath.startsWith("raw/") ? RAW_IMPORT_EXTENSIONS : RAW_EXTENSIONS;
+      return extensions.has(path.extname(repositoryPath).toLowerCase());
+    })
     .sort((a, b) => a.localeCompare(b, "en"))
     .map(fileRow);
 }
 
 function ownerFor(repositoryPath) {
+  if (repositoryPath.startsWith("raw/")) return "repository-source:raw-import";
   const ticket = repositoryPath.match(/^docs\/tickets\/[^/]+\/(TKT-\d+)[^/]*/i)?.[1];
   if (ticket) return ticket.toUpperCase();
   if (repositoryPath.startsWith("docs/reference/")) return "reference";
@@ -178,9 +202,10 @@ function roleFor(repositoryPath, extension) {
       ? "image"
       : extension === ".zip"
         ? "archive"
-        : extension === ".xlsx"
+        : extension === ".csv" || extension === ".xls" || extension === ".xlsm" || extension === ".xlsx"
           ? "dataset"
           : "document";
+  if (repositoryPath.startsWith("raw/")) return `raw-source-${kind}`;
   if (repositoryPath.startsWith("project-demo/")) return `demo-${kind}`;
   if (repositoryPath.startsWith("docs/reference/")) return `reference-${kind}`;
   if (repositoryPath.startsWith("docs/tickets/")) return `ticket-${kind}`;
@@ -431,14 +456,42 @@ function localTicketManifest(ticketRoot, usages, blobsBySha) {
   };
 }
 
-function writeLocalTicketManifests(manifest) {
+function currentTicketRoots() {
+  const rootsById = new Map();
+  const ticketRoot = absolute("docs/tickets");
+  for (const status of fs.readdirSync(ticketRoot, { withFileTypes: true })) {
+    if (!status.isDirectory()) continue;
+    const statusPath = path.join(ticketRoot, status.name);
+    for (const ticket of fs.readdirSync(statusPath, { withFileTypes: true })) {
+      if (!ticket.isDirectory()) continue;
+      const id = ticket.name.match(/^(TKT-\d+)/i)?.[1]?.toUpperCase();
+      if (!id) continue;
+      const repositoryPath = posix(path.relative(ROOT, path.join(statusPath, ticket.name)));
+      const previous = rootsById.get(id);
+      if (previous && previous !== repositoryPath) {
+        throw new Error(`Duplicate ticket roots for ${id}: ${previous} / ${repositoryPath}`);
+      }
+      rootsById.set(id, repositoryPath);
+    }
+  }
+  return rootsById;
+}
+
+function usagesByCurrentTicketRoot(manifest) {
+  const rootsById = currentTicketRoots();
   const byTicketRoot = new Map();
   for (const usage of manifest.usages) {
-    const match = usage.originalPath.match(/^(docs\/tickets\/[^/]+\/TKT-\d+[^/]*)\//i);
-    if (!match) continue;
-    if (!byTicketRoot.has(match[1])) byTicketRoot.set(match[1], []);
-    byTicketRoot.get(match[1]).push(usage);
+    const historicalRoot = usage.originalPath.match(/^(docs\/tickets\/[^/]+\/(TKT-\d+)[^/]*)\//i);
+    if (!historicalRoot) continue;
+    const ticketRoot = rootsById.get(historicalRoot[2].toUpperCase()) ?? historicalRoot[1];
+    if (!byTicketRoot.has(ticketRoot)) byTicketRoot.set(ticketRoot, []);
+    byTicketRoot.get(ticketRoot).push(usage);
   }
+  return byTicketRoot;
+}
+
+function writeLocalTicketManifests(manifest) {
+  const byTicketRoot = usagesByCurrentTicketRoot(manifest);
   const blobsBySha = new Map(manifest.blobs.map((blob) => [blob.sha256, blob]));
   for (const [ticketRoot, usages] of [...byTicketRoot].sort(([a], [b]) => a.localeCompare(b, "en"))) {
     usages.sort((a, b) => a.originalPath.localeCompare(b.originalPath, "en"));
@@ -478,13 +531,7 @@ function pruneEmptyDirectories(repositoryDirectories) {
 }
 
 function expectedLocalManifests(manifest) {
-  const byTicketRoot = new Map();
-  for (const usage of manifest.usages) {
-    const match = usage.originalPath.match(/^(docs\/tickets\/[^/]+\/TKT-\d+[^/]*)\//i);
-    if (!match) continue;
-    if (!byTicketRoot.has(match[1])) byTicketRoot.set(match[1], []);
-    byTicketRoot.get(match[1]).push(usage);
-  }
+  const byTicketRoot = usagesByCurrentTicketRoot(manifest);
   const blobsBySha = new Map(manifest.blobs.map((blob) => [blob.sha256, blob]));
   return new Map(
     [...byTicketRoot].map(([ticketRoot, usages]) => {

@@ -336,6 +336,8 @@ def test_core_to_instruction_pascalcase_mapping():
     assert body["Cause"] == "Rear-ended at a junction."  # accident_circumstances
     assert body["VatStat"] == "No"                    # vat_status
     assert body["DtIncident"] == "2026-05-01T00:00:00Z"  # date_of_loss DD/MM/YYYY -> ISO
+    assert body["InspLocName"] == "Image Based Assessment"
+    assert body["InspType"] == "Vehicle Damage Inspection"
     assert body["VehReg"] == "AB12CDE"
     assert body["ClmNo"] == "CLM1"
     assert body["ExternalRef"] == "test26001"
@@ -353,6 +355,26 @@ def test_core_to_instruction_omits_empty_values():
     body = payload_mod.core_to_instruction(core)
     assert "ClmEmail" not in body
     assert "VatStat" not in body  # empty VAT is omitted, not sent as ""
+
+
+def test_core_to_instruction_maps_six_line_inspection_address():
+    core = _valid_core()
+    core["inspection_address"] = "Repairer name\n1 Test Road\nWatford\nLondon\nHertfordshire\nWD17 1AA"
+    body = payload_mod.core_to_instruction(core)
+    assert {
+        key: body[key]
+        for key in (
+            "InspLocName", "InspLocAdd", "InspLocTown", "InspLocCity",
+            "InspLocCounty", "InspLocPCode",
+        )
+    } == {
+        "InspLocName": "Repairer name",
+        "InspLocAdd": "1 Test Road",
+        "InspLocTown": "Watford",
+        "InspLocCity": "London",
+        "InspLocCounty": "Hertfordshire",
+        "InspLocPCode": "WD17 1AA",
+    }
 
 
 def test_build_note_targets_claim_by_vehreg_clmno():
@@ -527,6 +549,35 @@ def test_idempotent_repeat_does_not_resubmit():
     assert r2["submitted"] is True
     assert r2.get("idempotent") is True
     assert any("duplicate payload hash" in w for w in r2["warnings"])
+    assert instr.call_count == 1  # the second call did NOT hit EVA
+
+
+@respx.mock
+def test_idempotent_repeat_preserves_manual_photo_follow_up_warning():
+    _mock_token()
+    instr = _mock_instruction()
+    respx.post(NOTE_URL).mock(return_value=httpx.Response(404))
+    images = [
+        {"filename": "overview.jpg", "role": "overview", "registrationVisible": True,
+         "sequenceIndex": 0, "content": "YQ=="},
+        {"filename": "damage.jpg", "role": "damage_closeup", "sequenceIndex": 1,
+         "content": "Yg=="},
+        {"filename": "extra.jpg", "role": "additional", "sequenceIndex": 2,
+         "content": "Yw=="},
+    ]
+
+    first = function_app.submit(
+        _valid_core(), images=images, vrm="AB12CDE", clm_no="CLM1",
+        payload_hash="warning-replay", client=_eva_client()
+    )
+    replay = function_app.submit(
+        _valid_core(), images=images, vrm="AB12CDE", clm_no="CLM1",
+        payload_hash="warning-replay", client=_eva_client()
+    )
+
+    warning = "instruction accepted but the remaining photos failed to attach"
+    assert any(warning in item for item in first["warnings"])
+    assert any(warning in item for item in replay["warnings"])
     assert instr.call_count == 1  # the second call did NOT hit EVA
 
 

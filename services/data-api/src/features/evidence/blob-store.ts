@@ -12,7 +12,12 @@
  * Connection-string fallback: EVIDENCE_BLOB_CONNECTION when no account is set.
  */
 
-import { BlobServiceClient } from '@azure/storage-blob';
+import {
+  BlobSASPermissions,
+  BlobServiceClient,
+  SASProtocol,
+  generateBlobSASQueryParameters,
+} from '@azure/storage-blob';
 import type { AccessToken, TokenCredential } from '@azure/core-auth';
 
 let cachedClient: BlobServiceClient | null = null;
@@ -55,6 +60,20 @@ function client(): BlobServiceClient {
   if (!conn) throw new Error('missing EVIDENCE_BLOB_ACCOUNT (MI) or EVIDENCE_BLOB_CONNECTION');
   cachedClient = BlobServiceClient.fromConnectionString(conn);
   return cachedClient;
+}
+
+function managedIdentityClient(): { account: string; service: BlobServiceClient } {
+  const account = process.env.EVIDENCE_BLOB_ACCOUNT;
+  if (!account) {
+    throw new Error('EVIDENCE_BLOB_ACCOUNT is required for user-delegation SAS');
+  }
+  if (!process.env.IDENTITY_ENDPOINT || !process.env.IDENTITY_HEADER) {
+    throw new Error('managed identity is required for user-delegation SAS');
+  }
+  return {
+    account,
+    service: new BlobServiceClient(`https://${account}.blob.core.windows.net`, miCredential),
+  };
 }
 
 function containerName(): string {
@@ -102,6 +121,162 @@ export interface DownloadedBlob {
   contentType: string;
 }
 
+export interface CaptureUploadSas {
+  uploadUrl: string;
+  headers: Record<string, string>;
+  expiresAt: string;
+}
+
+export interface CaptureBlobProperties {
+  contentLength: number;
+  contentType: string;
+}
+
+/**
+ * Mint an exact-object, HTTPS-only, five-minute user-delegation SAS. This path is
+ * intentionally managed-identity-only: it never falls back to a storage account
+ * key or connection string. The API identity needs the user-delegation-key data
+ * action plus create/write access on the evidence container.
+ */
+export async function createCaptureUploadSas(
+  blobPath: string,
+  contentType: string,
+  now = new Date(),
+): Promise<CaptureUploadSas> {
+  const { account, service } = managedIdentityClient();
+  const startsOn = new Date(now.getTime() - 60_000);
+  const expiresOn = new Date(now.getTime() + (5 * 60_000));
+  const key = await service.getUserDelegationKey(startsOn, expiresOn);
+  const sas = generateBlobSASQueryParameters(
+    {
+      containerName: containerName(),
+      blobName: blobPath,
+      permissions: BlobSASPermissions.parse('cw'),
+      protocol: SASProtocol.Https,
+      startsOn,
+      expiresOn,
+      contentType,
+    },
+    key,
+    account,
+  ).toString();
+  const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
+  return {
+    uploadUrl: `${block.url}?${sas}`,
+    headers: {
+      'x-ms-blob-type': 'BlockBlob',
+      'Content-Type': contentType,
+    },
+    expiresAt: expiresOn.toISOString(),
+  };
+}
+
+/** HEAD-only preflight for an untrusted staging object. */
+export async function getCaptureBlobProperties(blobPath: string): Promise<CaptureBlobProperties | undefined> {
+  const { service } = managedIdentityClient();
+  const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
+  try {
+    const properties = await block.getProperties();
+    return {
+      contentLength: properties.contentLength ?? -1,
+      contentType: properties.contentType ?? 'application/octet-stream',
+    };
+  } catch (error) {
+    if ((error as { statusCode?: number }).statusCode === 404) return undefined;
+    throw error;
+  }
+}
+
+/**
+ * Bounded staging download. Even if a client races the preceding HEAD with an
+ * overwrite, the range is capped at maxBytes + 1 so untrusted content can never
+ * allocate an unbounded buffer. The caller rejects the sentinel extra byte.
+ */
+export async function downloadCaptureBlobBytes(blobPath: string, maxBytes: number): Promise<Buffer> {
+  const { service } = managedIdentityClient();
+  const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
+  return block.downloadToBuffer(0, maxBytes + 1);
+}
+
+/**
+ * Copy validated bytes to a browser-inaccessible, content-addressed object. The
+ * upload SAS is scoped only to the staging path, so it cannot mutate this object.
+ * if-none-match makes the promotion immutable and replay-safe.
+ */
+export async function promoteCaptureBlob(
+  sessionId: string,
+  assetId: string,
+  sha256: string,
+  bytes: Buffer,
+  contentType: string,
+): Promise<string> {
+  const { service } = managedIdentityClient();
+  const blobPath = captureValidatedBlobPath(sessionId, assetId, sha256);
+  const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
+  try {
+    await block.uploadData(bytes, {
+      conditions: { ifNoneMatch: '*' },
+      blobHTTPHeaders: { blobContentType: contentType },
+      metadata: { sha256 },
+    });
+  } catch (error) {
+    const storageError = error as { statusCode?: number; code?: string };
+    const replayConflict = storageError.statusCode === 409
+      || storageError.statusCode === 412
+      || storageError.code === 'BlobAlreadyExists'
+      || storageError.code === 'ConditionNotMet';
+    if (!replayConflict) throw error;
+    const existing = await block.getProperties();
+    if (
+      existing.contentLength !== bytes.length
+      || existing.contentType !== contentType
+      || existing.metadata?.sha256 !== sha256
+    ) {
+      throw new Error('validated capture object conflicts with existing content');
+    }
+  }
+  return blobPath;
+}
+
+/** Canonical deterministic path used both by promotion and orphan cleanup. */
+export function captureValidatedBlobPath(
+  sessionId: string,
+  assetId: string,
+  sha256: string,
+): string {
+  return `capture-validated/${sanitize(sessionId)}/${sanitize(assetId)}/${sha256}`;
+}
+
+/** Canonical staging path used by upload intent and delayed orphan cleanup. */
+export function captureStagingBlobPath(sessionId: string, assetId: string): string {
+  return `capture/${sanitize(sessionId)}/${sanitize(assetId)}`;
+}
+
+export function isCaptureManagedBlobPath(blobPath: string): boolean {
+  return blobPath.startsWith('capture/') || blobPath.startsWith('capture-validated/');
+}
+
+/**
+ * Remove one capture-owned object through managed identity only. The prefix
+ * guard prevents retention code from ever deleting a canonical evidence path.
+ */
+export async function deleteCaptureManagedBlob(blobPath: string): Promise<void> {
+  if (!isCaptureManagedBlobPath(blobPath)) {
+    throw new Error('refusing to delete a non-capture blob path');
+  }
+  const { service } = managedIdentityClient();
+  const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
+  await block.deleteIfExists({ deleteSnapshots: 'include' });
+}
+
+/** Best-effort removal of the now-unreferenced staging object. */
+export async function deleteCaptureStagingBlob(blobPath: string): Promise<void> {
+  if (!blobPath.startsWith('capture/')) {
+    throw new Error('refusing to delete a non-staging capture blob path');
+  }
+  await deleteCaptureManagedBlob(blobPath);
+}
+
 /** Download an evidence blob's bytes by its container-relative path (Evidence.storage_path).
  *  Returns undefined when the blob is absent (deleted / never landed). */
 export async function downloadEvidenceBytes(blobPath: string): Promise<DownloadedBlob | undefined> {
@@ -111,4 +286,12 @@ export async function downloadEvidenceBytes(blobPath: string): Promise<Downloade
   const buf = await block.downloadToBuffer();
   const props = await block.getProperties();
   return { bytes: buf, contentType: props.contentType ?? 'application/octet-stream' };
+}
+
+/** Delete one transient evidence blob. Idempotent: false means it was already absent. */
+export async function deleteEvidenceBytes(blobPath: string): Promise<boolean> {
+  const container = client().getContainerClient(containerName());
+  const block = container.getBlockBlobClient(blobPath);
+  const result = await block.deleteIfExists();
+  return result.succeeded;
 }

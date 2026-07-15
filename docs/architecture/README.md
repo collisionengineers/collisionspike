@@ -13,6 +13,7 @@ focused Python services, a shared domain package, and PostgreSQL as the system o
 - [Inspection-address corpus](./inspection-address-corpus.md)
 - [Vehicle data](./vehicle-data.md)
 - [Data protection](./data-protection.md)
+- [MCP image ingestion](./mcp-image-ingestion.md)
 
 Exact live resources and flags are not architecture. Read
 [LIVE_FACTS.json](../../LIVE_FACTS.json) and the [live environment summary](../operations/live-environment.md)

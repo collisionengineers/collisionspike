@@ -4,7 +4,13 @@ This folder is a **code-review record of PR #100** (`PLAN-006: reset repository 
 documentation`), captured in the `docs/reviews/` house format. It is a review *of a pull request*, not a
 user-authored requirements spec — read [`process.md`](./process.md) for method and the staged-verdict model.
 
-## Verdict: **REQUEST CHANGES** — do not merge as-is
+## Stage-3 remediation
+
+The preliminary findings below are the starting verdict at commit `bfb3fa408e`. Their current disposition,
+additional findings and release gates are maintained in the [final review](./final-review.md). Do not infer
+the final merge decision from this historical section alone.
+
+## Preliminary verdict: **REQUEST CHANGES** — do not merge `bfb3fa408e` as-is
 
 The reset's core structural work is, on inspection, **genuinely sound** — the public runtime surface is
 provably invariant (modulo two disclosed deltas), the evidence relocation is lossless, and most gates are

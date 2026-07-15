@@ -50,6 +50,41 @@ def _chunked_upload_min_bytes() -> int:
 
 
 class _BoxOperationsMixin:
+    def verify_write_scope(self, folder_id: str) -> str:
+        """Freshly attest a folder before an autonomous write is allowed.
+
+        Unlike the legacy connector posture, an unset write root is a
+        configuration failure here. The lookup deliberately bypasses the warm
+        worker scope cache so a folder moved out of the test root is observed
+        immediately before bytes leave the facade.
+        """
+        root = self.config.allowed_root_id
+        if not root:
+            raise _box_scope_error("write-scope attestation requires BOX_ALLOWED_ROOT_ID")
+        folder = str(folder_id or "").strip()
+        if not folder:
+            raise _box_scope_error("write-scope attestation requires a folder id")
+        if folder == root:
+            return root
+        resp = self.request(
+            "GET", f"/2.0/folders/{folder}", params={"fields": "id,path_collection"}
+        )
+        if resp.status_code >= 400:
+            raise _box_scope_error(
+                f"fresh write-scope check could not resolve folders/{folder} "
+                f"(HTTP {resp.status_code})",
+                status=resp.status_code,
+            )
+        try:
+            entries = (resp.json().get("path_collection") or {}).get("entries") or []
+        except ValueError:
+            entries = []
+        if not any(str(entry.get("id")) == root for entry in entries):
+            raise _box_scope_error(
+                f"folders/{folder} is outside the allowed Box root on fresh write-scope check"
+            )
+        return root
+
     def create_folder(self, name: str, parent_id: str) -> dict[str, Any]:
         """POST /2.0/folders. 409 item_name_in_use (case-insensitive) is an
         idempotent success: read the conflicting id back out of
@@ -70,6 +105,68 @@ class _BoxOperationsMixin:
                 return {"id": conflict_id, "type": "folder", "name": name, "outcome": "reused"}
             raise _box_error("Box returned 409 with no resolvable conflict id", status=409)
         raise _box_error(f"Box CreateFolder returned HTTP {resp.status_code}", status=resp.status_code)
+
+    def rename_folder(self, folder_id: str, name: str) -> dict[str, Any]:
+        """Rename one freshly revalidated folder inside the write root."""
+        self._assert_in_scope("folders", folder_id, fresh=True)
+        resp = self.request("PUT", f"/2.0/folders/{folder_id}", json_body={"name": name})
+        if resp.status_code == 409:
+            conflict_id = _conflict_id(resp)
+            if conflict_id:
+                self._assert_in_scope("folders", conflict_id, fresh=True)
+                return {
+                    "id": conflict_id,
+                    "type": "folder",
+                    "name": name,
+                    "outcome": "conflict",
+                }
+        return _json_or_raise(resp, "RenameFolder")
+
+    def move_file(
+        self, file_id: str, folder_id: str, name: str | None = None
+    ) -> dict[str, Any]:
+        """Move a file only after fresh source and destination scope checks."""
+        self._assert_in_scope("files", file_id, fresh=True)
+        self._assert_in_scope("folders", folder_id, fresh=True)
+        body: dict[str, Any] = {"parent": {"id": folder_id}}
+        if name:
+            body["name"] = name
+        resp = self.request(
+            "PUT",
+            f"/2.0/files/{file_id}",
+            params={"fields": "id,name,sha1,parent"},
+            json_body=body,
+        )
+        return _json_or_raise(resp, "MoveFile")
+
+    def delete_empty_folder(self, folder_id: str) -> dict[str, Any]:
+        """Retire only an empty in-scope folder; never recurse."""
+        try:
+            self._assert_in_scope("folders", folder_id, fresh=True)
+        except Exception as exc:
+            from box_client import BoxScopeError
+
+            if isinstance(exc, BoxScopeError) and exc.status == 404:
+                return {"deleted": True, "alreadyMissing": True}
+            raise
+        listing = self.request(
+            "GET",
+            f"/2.0/folders/{folder_id}/items",
+            params={"limit": 1, "fields": "id"},
+        )
+        if listing.status_code == 404:
+            return {"deleted": True, "alreadyMissing": True}
+        body = _json_or_raise(listing, "ListFolderBeforeDelete")
+        if body.get("entries"):
+            raise _box_error("Refusing to delete a non-empty holding folder", status=409)
+        resp = self.request(
+            "DELETE", f"/2.0/folders/{folder_id}", params={"recursive": "false"}
+        )
+        if resp.status_code in (204, 404):
+            return {"deleted": True, "alreadyMissing": resp.status_code == 404}
+        raise _box_error(
+            f"Box DeleteFolder returned HTTP {resp.status_code}", status=resp.status_code
+        )
 
     def upload_file(
         self,
@@ -606,6 +703,66 @@ class _BoxOperationsMixin:
             "sha1": str(meta.get("sha1") or ""),
             "content": content,
         }
+
+    def validate_file_deletion(
+        self, file_id: str, *, expected_folder_id: str
+    ) -> dict[str, Any]:
+        """Freshly prove one file belongs directly to the expected test-root folder."""
+        folder = str(expected_folder_id or "").strip()
+        file = str(file_id or "").strip()
+        if not folder or not file:
+            raise _box_scope_error(
+                "file deletion requires a file id and expected case folder"
+            )
+        root = str(self.config.allowed_root_id or "").strip()
+        if not root:
+            raise _box_scope_error(
+                "file deletion requires a configured read-write root"
+            )
+
+        self._assert_in_scope("folders", folder, fresh=True)
+        resp = self.request(
+            "GET",
+            f"/2.0/files/{file}",
+            params={"fields": "id,name,parent,path_collection,trashed_at"},
+        )
+        if resp.status_code in (404, 410):
+            return {"id": file, "status": "missing"}
+        value = _json_or_raise(resp, "GetFileForDeletion")
+        parent = value.get("parent")
+        parent_id = str(parent.get("id") or "").strip() if isinstance(parent, dict) else ""
+        if parent_id != folder:
+            raise _box_scope_error(
+                "file is not directly inside the expected case folder"
+            )
+        entries = (value.get("path_collection") or {}).get("entries") or []
+        if not any(str(entry.get("id") or "") == root for entry in entries):
+            raise _box_scope_error("file is outside the allowed Box root")
+
+        from box_client import _SCOPE_VERIFIED
+
+        _SCOPE_VERIFIED.add(file)
+        return {
+            "id": str(value.get("id") or file),
+            "name": str(value.get("name") or ""),
+            "status": "present",
+        }
+
+    def delete_file(self, file_id: str, *, expected_folder_id: str) -> dict[str, Any]:
+        """Delete exactly one freshly revalidated file; missing is idempotent."""
+        validated = self.validate_file_deletion(
+            file_id, expected_folder_id=expected_folder_id
+        )
+        if validated["status"] == "missing":
+            return {"id": str(file_id), "status": "missing"}
+        resp = self.request("DELETE", f"/2.0/files/{file_id}")
+        if resp.status_code in (200, 204):
+            return {"id": str(file_id), "status": "deleted"}
+        if resp.status_code in (404, 410):
+            return {"id": str(file_id), "status": "missing"}
+        raise _box_error(
+            f"Box DeleteFile returned HTTP {resp.status_code}", status=resp.status_code
+        )
 
     def create_webhook(self, target: dict[str, Any], address: str, triggers: list[str]) -> dict[str, Any]:
         t_type = str(target.get("type") or "folder")

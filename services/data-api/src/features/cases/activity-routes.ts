@@ -22,7 +22,7 @@ app.http('imagesForCase', {
       // Automatic exclusions stay visible in the REVIEW list so staff can recover a false
       // positive. Non-classifier exclusions stay hidden. Every returned excluded
       // row remains acceptedForEva=false and therefore cannot affect readiness/order/export.
-      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded = false OR exclusion_decision_source = 'classifier' OR person_reflection = true) ORDER BY sequence_index NULLS LAST, created_at",
+      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded = false OR exclusion_decision_source = 'classifier' OR person_reflection = true OR source_label = 'public_guided_capture') ORDER BY sequence_index NULLS LAST, created_at",
       [id],
     );
     return { status: 200, jsonBody: rows.map(rowToEvidence) };

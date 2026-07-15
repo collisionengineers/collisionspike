@@ -71,6 +71,7 @@ export function readinessInputForCase(c: Case): StatusEvaluationInput {
       ...(c.vehicleLookup?.warning ? { warning: c.vehicleLookup.warning } : {}),
     },
     instructionCount: c.evidence.filter((e) => e.kind === 'instruction').length,
+    archiveHoldingPending:c.archiveHoldingPending===true,
     ...sourceReadinessInputForCase(c),
     hasIdentity:
       c.vrm.trim().length > 0 ||

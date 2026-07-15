@@ -95,6 +95,18 @@ describe('validateProviderApiSubmission — happy path', () => {
 });
 
 describe('validateProviderApiSubmission — rejections (mirror DB CHECKs)', () => {
+  it('rejects malformed Base64 file bytes before the route can write a case', () => {
+    const instruction = validateProviderApiSubmission(base({
+      instructions: [{ filename: 'bad.pdf', contentType: 'application/pdf', base64Data: 'not-base64!' }],
+    }));
+    expect(instruction).toMatchObject({ ok: false, code: 'invalid_instructions' });
+
+    const image = validateProviderApiSubmission(base({
+      instructions: [],
+      images: [{ filename: 'bad.jpg', contentType: 'image/jpeg', base64Data: 'AA=A' }],
+    }));
+    expect(image).toMatchObject({ ok: false, code: 'invalid_images' });
+  });
   const cases: Array<[string, Record<string, unknown>, string]> = [
     ['non-object body', { __replace: true } as never, 'invalid_body'],
     ['missing providerReference', { providerReference: '  ' }, 'missing_provider_reference'],

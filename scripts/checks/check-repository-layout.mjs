@@ -49,6 +49,7 @@ const requiredPaths = [
   "database/README.md",
   "docs/README.md",
   "docs/governance/repository-inventory.json",
+  "docs/governance/repository-reconciliation.json",
   "infrastructure/README.md",
   "packages/domain/package.json",
   "scripts/build/build-api.cjs",

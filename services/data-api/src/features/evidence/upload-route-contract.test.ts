@@ -57,6 +57,7 @@ interface BatchRow {
   case_id: string;
   actor: string;
   source: string;
+  registration: string | null;
   manifest_hash: string;
 }
 interface EvidenceRow {
@@ -238,7 +239,8 @@ beforeEach(() => {
           case_id: String(params[1]),
           actor: String(params[2]),
           source: String(params[3]),
-          manifest_hash: String(params[4]),
+          registration: params[4] == null ? null : String(params[4]),
+          manifest_hash: String(params[5]),
         });
       }
       return [];

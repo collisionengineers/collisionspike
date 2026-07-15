@@ -12,6 +12,7 @@ const registrations = vi.hoisted(() => new Map<string, unknown>());
 vi.mock('@azure/functions', () => ({
   app: {
     http: (name: string, opts: unknown) => registrations.set(name, opts),
+    timer: vi.fn(),
   },
 }));
 

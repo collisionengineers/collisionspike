@@ -119,8 +119,10 @@ def clear_idempotency_cache() -> None:
 
 
 def _coerce_core(raw: Any) -> dict[str, Any] | None:
-    """Accept the 12-field core as either a JSON string (how the flow passes
-    ``evaPayload12``) or an already-parsed object. Returns None if un-parseable."""
+    """Accept ``evaPayload12`` as a JSON string or an already-parsed object.
+
+    Returns ``None`` when the supplied value cannot represent the twelve-field core.
+    """
     if isinstance(raw, dict):
         return raw
     if isinstance(raw, str):
@@ -158,7 +160,7 @@ def submit(
         # Caller-side contract violation: do NOT contact EVA.
         return {"submitted": False, "transport": "sentry_rest", "warnings": errors}
 
-    # Idempotency by payload hash (defensive in-process layer; the flow latch is
+    # Idempotency by payload hash (defensive in-process layer; the orchestration latch is
     # primary). A repeat of an already-submitted hash short-circuits — no second
     # EVA submission.
     key = payload_hash or compute_payload_hash(core)
@@ -227,7 +229,9 @@ def submit(
         out["evaRef"] = eva_ref
     if payload_hash:
         out["payloadHash"] = payload_hash
-    _idem_put(key, {k: v for k, v in out.items() if k != "warnings"} | {"warnings": []})
+    # Preserve the exact first committed outcome. A response-loss retry must still
+    # tell staff when the accepted instruction needs manual photo follow-up.
+    _idem_put(key, dict(out))
     return out
 
 
@@ -245,7 +249,7 @@ def _extract_ref(resp: dict[str, Any]) -> str | None:
 
 @app.route(route="eva/instruction-inspection", methods=["POST"])
 def eva_instruction_inspection(req: func.HttpRequest) -> func.HttpResponse:
-    # Gate at the edge as well as in the flow — defence in depth. M1 default is
+    # Gate at the edge as well as in orchestration — defence in depth. Default is
     # false (drag-drop is the path); only a TEST/PROD env with the gate flipped
     # reaches EVA.
     if not _truthy(os.environ.get("EVA_API_ENABLED")):
@@ -316,7 +320,7 @@ def eva_instruction_inspection(req: func.HttpRequest) -> func.HttpResponse:
 
     # A clean validation failure is a 400 (caller contract error); a soft
     # EVA/auth failure is a 200 with submitted=false (advisory, like enrichment)
-    # so the flow can fall back without the action itself erroring.
+    # so orchestration can fall back without the activity itself erroring.
     if result.get("submitted") is False and result.get("warnings") and any(
         "required field" in w or "must be" in w or "unexpected field" in w
         for w in result["warnings"]

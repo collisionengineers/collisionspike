@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 913,
-    "files": 2901,
-    "entries": 3814
+    "directories": 933,
+    "files": 3085,
+    "entries": 4018
   },
-  "totalFileBytes": 496013024,
+  "totalFileBytes": 508561418,
   "entries": [
     {
       "path": ".",
@@ -1289,24 +1289,6 @@
       "lifecycle": "structural"
     },
     {
-      "path": "docs/tickets/backlog/TKT-154-mcp-image-ingestion",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-154-mcp-image-ingestion/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
       "path": "docs/tickets/backlog/TKT-157-handler-copy-audit",
       "mediaType": "inode/directory",
       "size": 0,
@@ -1335,33 +1317,6 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-158-case-remediation-rerun/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-160-delete-case-image",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-160-delete-case-image/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-160-delete-case-image/evidence/source-evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -2037,6 +1992,42 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-198-wrong-vehicle-evidence-detection/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-217-bulk-case-registration-lock-budget",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-217-bulk-case-registration-lock-budget/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-218-mcp-box-root-single-source",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-218-mcp-box-root-single-source/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4277,6 +4268,24 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/now/TKT-154-mcp-image-ingestion",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-154-mcp-image-ingestion/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/now/TKT-159-feature-gate-intent-audit",
       "mediaType": "inode/directory",
       "size": 0,
@@ -4287,6 +4296,33 @@
     },
     {
       "path": "docs/tickets/now/TKT-159-feature-gate-intent-audit/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-160-delete-case-image",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-160-delete-case-image/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-160-delete-case-image/evidence/source-evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4395,6 +4431,60 @@
     },
     {
       "path": "docs/tickets/now/TKT-200-guided-capture-sessions/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-205-repository-worktree-governance",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-205-repository-worktree-governance/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-206-remove-runtime-data-policy-controls",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-206-remove-runtime-data-policy-controls/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -5024,24 +5114,6 @@
       "lifecycle": "structural"
     },
     {
-      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
       "path": "docs/tickets/verify/TKT-211-forbidden-reference-gate",
       "mediaType": "inode/directory",
       "size": 0,
@@ -5492,6 +5564,15 @@
       "lifecycle": "structural"
     },
     {
+      "path": "services/data-api/src/generated",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "data-api",
+      "lifecycle": "structural"
+    },
+    {
       "path": "services/data-api/src/platform",
       "mediaType": "inode/directory",
       "size": 0,
@@ -5933,6 +6014,15 @@
       "lifecycle": "structural"
     },
     {
+      "path": "services/orchestration/src/platform/fixtures",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "orchestration",
+      "lifecycle": "structural"
+    },
+    {
       "path": "services/orchestration/src/workflows",
       "mediaType": "inode/directory",
       "size": 0,
@@ -6185,7 +6275,25 @@
       "lifecycle": "structural"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/06",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "structural"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/07",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/08",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -6545,6 +6653,15 @@
       "lifecycle": "structural"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/33",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "structural"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/34",
       "mediaType": "inode/directory",
       "size": 0,
@@ -6600,6 +6717,15 @@
     },
     {
       "path": "tests/fixtures/evidence/sha256/3a",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/3b",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -7148,6 +7274,15 @@
       "lifecycle": "structural"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/7b",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "structural"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/7d",
       "mediaType": "inode/directory",
       "size": 0,
@@ -7382,6 +7517,15 @@
       "lifecycle": "structural"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/9a",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "structural"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/9b",
       "mediaType": "inode/directory",
       "size": 0,
@@ -7419,6 +7563,15 @@
     },
     {
       "path": "tests/fixtures/evidence/sha256/9f",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/a0",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -7670,6 +7823,15 @@
       "lifecycle": "structural"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/bd",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "structural"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/be",
       "mediaType": "inode/directory",
       "size": 0,
@@ -7743,6 +7905,15 @@
     },
     {
       "path": "tests/fixtures/evidence/sha256/c7",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/c8",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -7833,6 +8004,15 @@
     },
     {
       "path": "tests/fixtures/evidence/sha256/d3",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/d4",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -10273,17 +10453,35 @@
     {
       "path": ".gitattributes",
       "mediaType": "text/plain",
-      "size": 1081,
-      "sha256": "eaef0c88074ce1486f5ca62544929aee42a9f7e155d7cd5ce748b5bb9bd5b836",
+      "size": 1087,
+      "sha256": "bb6e51de2f82f241bfeec95f603f73e08cf5cd8aa6021f810601462d4df42a84",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
     },
     {
+      "path": ".github/pull_request_template.md",
+      "mediaType": "text/markdown",
+      "size": 394,
+      "sha256": "bf610cd16c5d90bf53cd0eeeaae656875b05bfe9395d11d76240120f9883ade0",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": ".github/workflows/capture-contract.yml",
+      "mediaType": "application/yaml",
+      "size": 1349,
+      "sha256": "c4ecb584b90b733aa834a692818c59523a31c1a704f850f224293b0cd57a665d",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
       "path": ".github/workflows/ci.yml",
       "mediaType": "application/yaml",
-      "size": 4248,
-      "sha256": "31c67f1b4efb64cfb1aec4985a405d77dab6b92e0594558ac0bf19b06858acc2",
+      "size": 6372,
+      "sha256": "04fe6567462ff6c44baaafb21f676d89dad8bcc695302befac191a859914557f",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -10291,8 +10489,8 @@
     {
       "path": ".gitignore",
       "mediaType": "text/plain",
-      "size": 2157,
-      "sha256": "887e5fe7430c9883c30284682cd0c738da42b7a9422095ef094da6e2708bc3b5",
+      "size": 2186,
+      "sha256": "4d6c2172338eb68e66cda2044317f54a711dfb77bf8064dde983b6fd8ca77058",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -10370,6 +10568,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "apps/web/.env.development",
+      "mediaType": "application/octet-stream",
+      "size": 317,
+      "sha256": "32eb70d58956995d8d52a9766e2e1494fdb743c67dee749b6a2b0518a1c374d3",
+      "category": "source",
+      "owner": "web-app",
+      "lifecycle": "active"
+    },
+    {
       "path": "apps/web/.env.production",
       "mediaType": "application/octet-stream",
       "size": 806,
@@ -10408,8 +10615,8 @@
     {
       "path": "apps/web/package.json",
       "mediaType": "application/json",
-      "size": 1208,
-      "sha256": "540b79ebeaa93bbdeb66c3a18a5b2a4702fbaf256abaf47b591a5ee7aa4f44fc",
+      "size": 1207,
+      "sha256": "7f771855ab645c6136297c3e19c0520f6c14269ffb9711e326b92fcbc8307c41",
       "category": "configuration",
       "owner": "web-app",
       "lifecycle": "active"
@@ -10453,8 +10660,8 @@
     {
       "path": "apps/web/src/__fixtures__/fixture-source.ts",
       "mediaType": "text/typescript",
-      "size": 23165,
-      "sha256": "551cc912573e83dc6cb5fa3664f378bfc1589c331935d56e1b987df158e39b0e",
+      "size": 24101,
+      "sha256": "11bd6ca07c9d53b83cf08416027a02a20932afac2ad9d34cab2f3ac27df38012",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -10561,8 +10768,8 @@
     {
       "path": "apps/web/src/data/empty-source.ts",
       "mediaType": "text/typescript",
-      "size": 5732,
-      "sha256": "6e2792b7843b070c2d48b7ef9d0c54e50ee3dfb5442045534e303148835e701a",
+      "size": 6272,
+      "sha256": "662e50a7fd8a88db9fedf6375676f63933f4bd62cafd190ea21356811cf9ccfb",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -10588,8 +10795,8 @@
     {
       "path": "apps/web/src/data/hooks.ts",
       "mediaType": "text/typescript",
-      "size": 22080,
-      "sha256": "c875d5c644defaa36fa57ccb89f196def2a34be81aab2172c7ee63fb710c5491",
+      "size": 24184,
+      "sha256": "c75d94565792da6642d0a56b335eaa0b6cebba77960dfcb7d7c323b2ec4bb338",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -10597,8 +10804,8 @@
     {
       "path": "apps/web/src/data/index.ts",
       "mediaType": "text/typescript",
-      "size": 11130,
-      "sha256": "b21faa71984b6e6187935c5926007988aacda220ed12a37f4dd60aac5fc70a4c",
+      "size": 11441,
+      "sha256": "a619898bc6b16b3fb945f5d7e288003d6ae9a742d64a9f4925edde2685d690f2",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -10687,8 +10894,8 @@
     {
       "path": "apps/web/src/data/rest-client.test.ts",
       "mediaType": "text/typescript",
-      "size": 30349,
-      "sha256": "16d8dd2403fd00f95d58a859f973f6296ff8eaf7610fb9539adbfe7439a0ed82",
+      "size": 34997,
+      "sha256": "87aa901ded78c99cb40da38d5f997d5cf3b8d0f5f258029b61a99f6136dfb46d",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -10696,8 +10903,8 @@
     {
       "path": "apps/web/src/data/rest-client.ts",
       "mediaType": "text/typescript",
-      "size": 29825,
-      "sha256": "086f40f1f9bf2f8778953192bfd2c6528549562d94d1c632a3f02c2ee481da01",
+      "size": 31653,
+      "sha256": "9d5dcc8b17abe2d737845c8a9cd287089b13bff40643c708850b16fdf8764658",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -10705,8 +10912,8 @@
     {
       "path": "apps/web/src/data/rest-client.types.ts",
       "mediaType": "text/typescript",
-      "size": 17238,
-      "sha256": "2ee4d48f1fed960253a2ec2a961caa81fb6c6e85512f5a03d3a6928896811d84",
+      "size": 18863,
+      "sha256": "5f953f82a0558c59175161f36e4e3b04d74737b1eced261fe9eafc810f0fc96d",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -10991,6 +11198,24 @@
       "lifecycle": "active"
     },
     {
+      "path": "apps/web/src/features/cases/case-detail-tab.test.ts",
+      "mediaType": "text/typescript",
+      "size": 778,
+      "sha256": "33330417db04e791c66c77b4b300114514eedcd058330a8833b418fe09a6883c",
+      "category": "source",
+      "owner": "web-app",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/web/src/features/cases/case-detail-tab.ts",
+      "mediaType": "text/typescript",
+      "size": 1013,
+      "sha256": "12672ba433ef0ca2473df251ee7a3a06c05770bcccf43290d1abbb1cfbfbc795",
+      "category": "source",
+      "owner": "web-app",
+      "lifecycle": "active"
+    },
+    {
       "path": "apps/web/src/features/cases/case-detail.controller.tsx",
       "mediaType": "text/tsx",
       "size": 34193,
@@ -11038,8 +11263,8 @@
     {
       "path": "apps/web/src/features/cases/case-edit-session.test.ts",
       "mediaType": "text/typescript",
-      "size": 10421,
-      "sha256": "2cb466d944cd605123ded21087abf4f710778abdd89709c047c0bf597acffd0b",
+      "size": 10602,
+      "sha256": "2d4134b7c7e470a656b5201cd7e838f3ffe1efce921e564750e71891477a1a6a",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -11047,8 +11272,8 @@
     {
       "path": "apps/web/src/features/cases/case-edit-session.ts",
       "mediaType": "text/typescript",
-      "size": 8704,
-      "sha256": "4138b107f36d6ce5347ae6736505b16e669bbdc324d684ec466b1babf8c62abf",
+      "size": 9147,
+      "sha256": "83a26c9008e5a42ab922301fb8015080908d2b4c7a5baefefe71a3edff6de7d0",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -11119,8 +11344,8 @@
     {
       "path": "apps/web/src/features/cases/evidence-review.test.ts",
       "mediaType": "text/typescript",
-      "size": 2490,
-      "sha256": "d0df1926747cd6f7b6a4e586e195083968aea62c519bf8ca6a06e2689a610011",
+      "size": 3399,
+      "sha256": "f6d498e260ec7d2e799cb3acbd9e7a63e936658005d1cd24e5d23c6184667cab",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -11128,8 +11353,8 @@
     {
       "path": "apps/web/src/features/cases/evidence-review.ts",
       "mediaType": "text/typescript",
-      "size": 1205,
-      "sha256": "2181d6b5754b656841813713334ee4f27512de2fd715996dff8705b35855b830",
+      "size": 1780,
+      "sha256": "4868db8b00568ecc3731cb1fd5cccaaaaa525d810d48e078accdd7638328a278",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -11713,8 +11938,8 @@
     {
       "path": "apps/web/src/shared/ui/ChaserPanel.test.ts",
       "mediaType": "text/typescript",
-      "size": 7119,
-      "sha256": "ec7792f77608047e8a06aca4312a81b954af0d1c8e6e1d397b098d4d8803999b",
+      "size": 7860,
+      "sha256": "738f3187e670ce889b3dee7ad1cba35d993c7ca056578ad211acc6e14a3676fd",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -11722,8 +11947,8 @@
     {
       "path": "apps/web/src/shared/ui/ChaserPanel.tsx",
       "mediaType": "text/tsx",
-      "size": 14890,
-      "sha256": "5e58ce80e0c3114a446b64a802fe53fff8ae3e1cb9f969c293ad3da04c0be748",
+      "size": 16655,
+      "sha256": "116ac5918cfe86dabd518e26f9597cb537a037ff8524878b90e411dccab4266f",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -11751,6 +11976,42 @@
       "mediaType": "text/tsx",
       "size": 10002,
       "sha256": "306b71cb109bf171657c1260efc9a4beb2abcc64714944bb25623a6fa8799cfb",
+      "category": "source",
+      "owner": "web-app",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/web/src/shared/ui/GuidedPhotoRequestPanel.test.tsx",
+      "mediaType": "text/tsx",
+      "size": 4739,
+      "sha256": "e58081df5322833e41d3ae5c6f9bbd1f1577332a986e4c183a0255f97954df26",
+      "category": "source",
+      "owner": "web-app",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/web/src/shared/ui/GuidedPhotoRequestPanel.tsx",
+      "mediaType": "text/tsx",
+      "size": 12253,
+      "sha256": "b7abad053b84dd13524539af438e1c69e01a609df43c298cdc85d34dd864d1d6",
+      "category": "source",
+      "owner": "web-app",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/web/src/shared/ui/ImageDeleteDialog.test.tsx",
+      "mediaType": "text/tsx",
+      "size": 2370,
+      "sha256": "6142057d300db9437d977a47138af042feda2d7fa014b529c8ba7e3757458e34",
+      "category": "source",
+      "owner": "web-app",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/web/src/shared/ui/ImageDeleteDialog.tsx",
+      "mediaType": "text/tsx",
+      "size": 2277,
+      "sha256": "4966b174e1893a2190c56888081d1bfa0d6e38fd33059402c088555bd6b067da",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -11983,8 +12244,8 @@
     {
       "path": "apps/web/src/shared/ui/index.ts",
       "mediaType": "text/typescript",
-      "size": 1869,
-      "sha256": "3af35ed095013c6e8a7dc56565f4f0085bc69a39595f4d103bf337af71e6989b",
+      "size": 2002,
+      "sha256": "2fe6f25a79fadea3f880694e74322d976c49b1ad3f237316104938c2b62495fc",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -12152,6 +12413,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "contracts/capture.v1.yaml",
+      "mediaType": "application/yaml",
+      "size": 27104,
+      "sha256": "608b7db2f10f30fcec5092766028d50a6f75fd5bbf317875515ae9c63ce9fd0e",
+      "category": "contract",
+      "owner": "contracts",
+      "lifecycle": "active"
+    },
+    {
       "path": "contracts/eva-payload.schema.json",
       "mediaType": "application/json",
       "size": 3014,
@@ -12172,8 +12442,8 @@
     {
       "path": "contracts/runtime-contract.snapshot.json",
       "mediaType": "application/json",
-      "size": 132545,
-      "sha256": "2e9c2b5b5c8811bad459019ab9eb9653dcd4f3e3fde8289698aba52b13f9dcb0",
+      "size": 155430,
+      "sha256": "ae93e3137fbe7159fb0c0a50bd377803fdf829db2431595bc3fd880be79fbcf6",
       "category": "contract",
       "owner": "contracts",
       "lifecycle": "active"
@@ -12199,8 +12469,8 @@
     {
       "path": "database/baseline/000_enums_lookups.sql",
       "mediaType": "application/sql",
-      "size": 28382,
-      "sha256": "35decbab1cbf556c6c6f855d559b4ff9791cf431176c243cf0cbc5b0f17cfd39",
+      "size": 29254,
+      "sha256": "107b1e073402ca556189df90a361a74120374ee1bace18c6d6f60bd09f3718b1",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -12244,8 +12514,8 @@
     {
       "path": "database/baseline/050_case.sql",
       "mediaType": "application/sql",
-      "size": 9760,
-      "sha256": "35c0144fbbb650c7b5e80662203b6712b7f0529a67da11aa3d399c6ace33eb34",
+      "size": 9822,
+      "sha256": "79c01b1022a6f470637f558a2fcc28b32f41eb16ca02747eff671c6272eb9b9e",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -12253,8 +12523,8 @@
     {
       "path": "database/baseline/060_evidence.sql",
       "mediaType": "application/sql",
-      "size": 4658,
-      "sha256": "a7f34f7c78221d5081b90a3f176854533f72b0bb6343410a0e6dd20ca7c66133",
+      "size": 5189,
+      "sha256": "20ba0fc1ba7040b985060b9745fd9aa8444baaefb0be9f43fdee07925dacaee8",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -12397,8 +12667,17 @@
     {
       "path": "database/baseline/195_staff_evidence_upload.sql",
       "mediaType": "application/sql",
-      "size": 3803,
-      "sha256": "b80d4621a4b8203a55d3f89fa3962b381af5c8657e68e081310ab60c54455313",
+      "size": 4094,
+      "sha256": "45d394b6adaef291a4148e4f2e25af45595d5e14e69f304b42cf8da213e44f2a",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "path": "database/baseline/196_capture_session.sql",
+      "mediaType": "application/sql",
+      "size": 6975,
+      "sha256": "f3fcba01bd7935bf6ed67852685106e4f2fd55a98301f2d4de92abf26fa8772b",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -12413,10 +12692,55 @@
       "lifecycle": "active"
     },
     {
+      "path": "database/baseline/196_mcp_image_ingest_rate_limit.sql",
+      "mediaType": "application/sql",
+      "size": 1143,
+      "sha256": "330d5f419836fa125d2bb42a93e0e6a17ccb66342e07f6c63b587e6512b9f433",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "path": "database/baseline/197_archive_holding.sql",
+      "mediaType": "application/sql",
+      "size": 6387,
+      "sha256": "32d8ef8903b3573536e33e19eb6f3b89c83c48ad5274c6354867a0b2408d9c41",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "path": "database/baseline/197_mcp_http_session.sql",
+      "mediaType": "application/sql",
+      "size": 1561,
+      "sha256": "72e529b29302ad74350b2ce9d011d16b873ec87fd5205d1aba91d51b61b145b0",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "path": "database/baseline/198_provider_intake_operation.sql",
+      "mediaType": "application/sql",
+      "size": 613,
+      "sha256": "48cfb5e0db784f4e9ae25f0c5b881589d7556d6456f0bd34c469bef888c45bc8",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
       "path": "database/baseline/200_vehicle_data.sql",
       "mediaType": "application/sql",
       "size": 9446,
       "sha256": "3a9ddbc3cfa90525925cd576b1d7b7bea753a748f1fc8a45b5a3b18eba9f4566",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "path": "database/baseline/205_evidence_deletion.sql",
+      "mediaType": "application/sql",
+      "size": 5150,
+      "sha256": "a8515b9af978a4d6693189c396488df0e36b302bb750cfd501292bc41eba36f3",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -12433,8 +12757,8 @@
     {
       "path": "database/baseline/900_constraints.sql",
       "mediaType": "application/sql",
-      "size": 12955,
-      "sha256": "46615f7f869d7d909ec9d8619927842541fdc2db1a2bfec121d5d948620330dc",
+      "size": 17823,
+      "sha256": "6c13805f7fa5e39e88afc2ace90d9cd9b201750b115b0e4cb462a24d7102c026",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -12809,6 +13133,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "database/migrations/2026-07-13-guided-capture.sql",
+      "mediaType": "application/sql",
+      "size": 11079,
+      "sha256": "22bf2cd5732e9a595a10e912a88afaeca532bbc9f6bccb23fcd76bbbc1e33083",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
       "path": "database/migrations/2026-07-13-tkt009-mailbox-dedup-cutover.sql",
       "mediaType": "application/sql",
       "size": 651,
@@ -12836,10 +13169,37 @@
       "lifecycle": "active"
     },
     {
+      "path": "database/migrations/2026-07-13-tkt034-archive-holding.sql",
+      "mediaType": "application/sql",
+      "size": 7334,
+      "sha256": "37ec629c723180ae7a43c33dd10c364bc435e9d65be482a0c6b4c008360f0319",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "path": "database/migrations/2026-07-13-tkt154-mcp-image-ingestion.sql",
+      "mediaType": "application/sql",
+      "size": 5859,
+      "sha256": "2ac1cebf35fc817df2a7934bba991b7150223266bfd7a4974544c2601a75b074",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
       "path": "database/migrations/2026-07-13-tkt156-chaser-file-request.sql",
       "mediaType": "application/sql",
       "size": 612,
       "sha256": "ed60e108528f78b7da8ad313af3d6b7de48f9ecb2c4ef38b7574a5fa5314b600",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "path": "database/migrations/2026-07-13-tkt160-evidence-deletion.sql",
+      "mediaType": "application/sql",
+      "size": 6722,
+      "sha256": "4c6d9022842d9308dc02d151b13a413466ee74aa377b4ebc6421f202a9dac60c",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -12858,6 +13218,15 @@
       "mediaType": "application/sql",
       "size": 4030,
       "sha256": "d2a3c7e8c67e0b1374163d9050271527d8669a5ee59f965213efa00e959bf03d",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "path": "database/migrations/2026-07-15-provider-intake-idempotency.sql",
+      "mediaType": "application/sql",
+      "size": 1555,
+      "sha256": "f59ab83808d722bd99c8c34910afa27fb5f083d2fe438861de257eaa8ab6a455",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -12899,6 +13268,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "database/seeds/910_seed_corpus.sql",
+      "mediaType": "application/sql",
+      "size": 13762,
+      "sha256": "0af10686bb3b6bde0713043eacfe8bbf6908b1fef00b86da1cc70d4ac0676b9d",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
       "path": "database/seeds/915_corpus_email_address_match.sql",
       "mediaType": "application/sql",
       "size": 2916,
@@ -12928,9 +13306,18 @@
     {
       "path": "database/seeds/README.md",
       "mediaType": "text/markdown",
-      "size": 773,
-      "sha256": "5169228fa55e2d13b73c41a800ed4485cbe0344f8182f0ce38d672d92ef62ce9",
+      "size": 1066,
+      "sha256": "39cb7f2e09dd60427dce189253b41690ddb2e414e2d0ec23d27a0a56298aa027",
       "category": "documentation",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "path": "database/seeds/data/confirmed-inspection-postcodes.csv",
+      "mediaType": "text/csv",
+      "size": 10708,
+      "sha256": "538758556381e3a8655588b1e68159132435ab3accaabda38effaa625400e0c6",
+      "category": "source",
       "owner": "data-platform",
       "lifecycle": "active"
     },
@@ -12944,10 +13331,37 @@
       "lifecycle": "active"
     },
     {
+      "path": "database/seeds/data/inspection-yards.csv",
+      "mediaType": "text/csv",
+      "size": 3820,
+      "sha256": "dfddcd21c27f76df7daf826ef42ccdb5da71d014c2d87358d15e394390f39b83",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "path": "database/seeds/data/provider-corpus.csv",
+      "mediaType": "text/csv",
+      "size": 52283,
+      "sha256": "0ee2844bb343b51666c97be0239c102a97a3222fa28c7c82096766b9082666da",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "path": "database/seeds/data/repairer-matches.csv",
+      "mediaType": "text/csv",
+      "size": 1765,
+      "sha256": "e1ffa0fceaba438fb8894e0ca1678931b680a66fe020e97434e8312a268ea4c1",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
       "path": "database/tests/code-table-parity.mjs",
       "mediaType": "text/javascript",
-      "size": 8173,
-      "sha256": "e1899174775fdafedacdbfbee3703a3f7f80092dca99f9ca4fe56f68d4f8f0a2",
+      "size": 8358,
+      "sha256": "8c8c6536e9fbfc799a156608394778454a1ac9425bd8c3aaf0f8c3e684d5b837",
       "category": "test",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -13081,8 +13495,8 @@
     {
       "path": "docs/adr/0013-loc-export-artifact-no-runtime-address-matching.md",
       "mediaType": "text/markdown",
-      "size": 937,
-      "sha256": "2e6d394aca359d7f9babbe1870b4efac7e2b3a1c294bdaf3a075bf5b1ab6d297",
+      "size": 2340,
+      "sha256": "e16b50809f53f0e81d783062086fc4207f34099baae61c062a9159ead9932cb3",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -13207,8 +13621,8 @@
     {
       "path": "docs/architecture/README.md",
       "mediaType": "text/markdown",
-      "size": 756,
-      "sha256": "bd650509362a604f7399f022d07d07973b5c3fe97aae4ced0b3acdb4ece28f0f",
+      "size": 806,
+      "sha256": "88a140a6a98e89bbbcd46c245fc4e5062fad70feeb77aeca5fd37db6251cf3b0",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -13263,6 +13677,15 @@
       "mediaType": "text/markdown",
       "size": 2245,
       "sha256": "270f5dbc968060e5a7e14a91f580822d70c8abf0e38299b65d822d72e00aacb0",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/architecture/mcp-image-ingestion.md",
+      "mediaType": "text/markdown",
+      "size": 14421,
+      "sha256": "a1ceb39a9cd2d992e2ad138a29a665b99d8818d4a407cfedca8a7bdc044cb34d",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -13333,8 +13756,8 @@
     {
       "path": "docs/governance/README.md",
       "mediaType": "text/markdown",
-      "size": 669,
-      "sha256": "f8da480cdc7127e0b2b89861658ebc611cda444f0fd7447952e62447f19c5d98",
+      "size": 735,
+      "sha256": "4edff5461c0466a427960dc391399364d5dba54a7c85e13ef9fe65e4e033e449",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -13369,7 +13792,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1187631,
+      "size": 1255796,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -13378,8 +13801,17 @@
     {
       "path": "docs/governance/repository-map.md",
       "mediaType": "text/markdown",
-      "size": 3392,
-      "sha256": "12862810b1a85a46477dcf384cd1eb89899b6980c87b0857475418ce987a6a08",
+      "size": 4097,
+      "sha256": "de6bfd66d1ddaa4fee683c09f9266ee42613a88ac01b996821eb75437b724072",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/governance/repository-reconciliation.json",
+      "mediaType": "application/json",
+      "size": 3882288,
+      "sha256": "a94adda42b05251b0d3201e0fa0bf265748aabaad5e44b5aed92cf4d384fa735",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -13387,8 +13819,8 @@
     {
       "path": "docs/operations/README.md",
       "mediaType": "text/markdown",
-      "size": 820,
-      "sha256": "7084f99bef9e7ba046d6b410be5cabd0038da922476fd8400b1f20ffd23434cc",
+      "size": 870,
+      "sha256": "b2749dabd60f5d611dc8024d0bc73c585f7bfda983d8f9740a222bfa4645e7f6",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -13416,6 +13848,15 @@
       "mediaType": "text/markdown",
       "size": 1427,
       "sha256": "67fe9e02b0bf95d0e219c7d1ff3778ed3e863e5f4cebc6c5ee221aabe38f0cc5",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/operations/delete-case-image.md",
+      "mediaType": "text/markdown",
+      "size": 6373,
+      "sha256": "9c5b5ed71dc017b71ddef7cb06fcfdace990ac45f58945ce55663824b626f514",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -13549,8 +13990,8 @@
     {
       "path": "docs/reference/provider-api-intake-spec.md",
       "mediaType": "text/markdown",
-      "size": 7878,
-      "sha256": "856b222bb31fbf595514151f69d784149d503710de4cb86c55100e95d10a9f50",
+      "size": 8758,
+      "sha256": "b7dda9ce76203c200f6cdc9bf2309b839b1828ee791f00d83b5aef40cf5c5783",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -13594,8 +14035,8 @@
     {
       "path": "docs/reviews/150726/checklist.md",
       "mediaType": "text/markdown",
-      "size": 5344,
-      "sha256": "37a3ecccc073a60a62ab081052e44172435fbc2fae9f9ca908a6b2819d5c9c17",
+      "size": 5447,
+      "sha256": "a39661c65305d0fbe58187c7656f1e33b4a8d90e0be163737ff6001fd0d0e8a3",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -13612,8 +14053,17 @@
     {
       "path": "docs/reviews/150726/evidence/gate-battery.md",
       "mediaType": "text/markdown",
-      "size": 3924,
-      "sha256": "6ecccdf845b1ca06202124d61a76ed0a10d206eb8e69efe299ccc279147492f2",
+      "size": 5102,
+      "sha256": "073f2779b1171dc6af5d0da8a9c20eab9f68c3d269229f8df7aca55d7cc4d536",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/150726/final-review.md",
+      "mediaType": "text/markdown",
+      "size": 7153,
+      "sha256": "e1d4c7f1e6371bc0633fd5abe2f6e4ddff1b38e3f9602a50e893790233842813",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -13621,8 +14071,8 @@
     {
       "path": "docs/reviews/150726/overview.md",
       "mediaType": "text/markdown",
-      "size": 5883,
-      "sha256": "000960fb024fb8666b2f8cb189839f158766e6aa076cd44502e73b3a2b002231",
+      "size": 6209,
+      "sha256": "a766ad9a57e047783508563f5b3d160e663ca455f754129b5157641c87a1001e",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -13792,8 +14242,8 @@
     {
       "path": "docs/reviews/README.md",
       "mediaType": "text/markdown",
-      "size": 1945,
-      "sha256": "03ec1f6db781ad200a4fa0c128a425713e27de48a2a0978b02f3f6eb61d25dee",
+      "size": 1958,
+      "sha256": "cf5575e2bda87093e7c8d20db954c7a4da019b8fdd221678961b1786b2ddf60c",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -13801,8 +14251,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 37244,
-      "sha256": "4a6af2af34b1362b4280077d7370b6f67cd89b60a8dd6c68940e84cde37dc4d1",
+      "size": 38063,
+      "sha256": "c52b16cad2f23033400a02c255bee46ae2bfdc320dd7f7669bc9864907c27986",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -13810,8 +14260,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 39345,
-      "sha256": "15d453e8af43e0f9ea3994ba47ac552ff085e95599c3540996a45fe56ef0ffee",
+      "size": 40156,
+      "sha256": "cf920b85e0f10267af8b7c53d5f63718db15f7b8a8c3d01edc39e7a5c29126ba",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -13839,51 +14289,6 @@
       "mediaType": "text/markdown",
       "size": 496,
       "sha256": "6e1310e4b57ad5c16644f39bc4194ee788d3a86236424cb56a9c26d7e71965ca",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md",
-      "mediaType": "text/markdown",
-      "size": 4026,
-      "sha256": "be2509281ac0bf534ace62d0f0fe7545fe7abbbb99508628b6baa84a6becfd5b",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-154-mcp-image-ingestion/changes.md",
-      "mediaType": "text/markdown",
-      "size": 112,
-      "sha256": "4544babb9fed4e41ce4723b93cb872246491eedf439e808ac31ef2b47d476e33",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-154-mcp-image-ingestion/evidence-manifest.json",
-      "mediaType": "application/json",
-      "size": 504,
-      "sha256": "80760f56d4e096da051511d65532dbd9c6a99b3e36fc15e133178e36e27154df",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-154-mcp-image-ingestion/evidence/operator-note.md",
-      "mediaType": "text/markdown",
-      "size": 462,
-      "sha256": "86e5de0011a3d6369568a3a9272e3c86f7836e7dfa8c667bd9ed298d1841aeac",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-154-mcp-image-ingestion/verification.md",
-      "mediaType": "text/markdown",
-      "size": 412,
-      "sha256": "8b3af6150ca6acc0751c4918864d46a2c8923d6ef8a0538a4b13bea28fe60056",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -13965,51 +14370,6 @@
       "mediaType": "text/markdown",
       "size": 494,
       "sha256": "92de0819d413fde9e8f27ffc950e9e2aaa07b55e3a91d24628693238d73baa94",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-160-delete-case-image/TKT-160-delete-case-image.md",
-      "mediaType": "text/markdown",
-      "size": 3606,
-      "sha256": "f997f1af8eea0fbf699d63a7a5afe00f7363c2f09e424960e21885e3441402b5",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-160-delete-case-image/changes.md",
-      "mediaType": "text/markdown",
-      "size": 102,
-      "sha256": "50a0722079b2399f187ee97aff93e23edf3090a839ae6373ab7cba885698f248",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-160-delete-case-image/evidence/operator-note.md",
-      "mediaType": "text/markdown",
-      "size": 255,
-      "sha256": "25c2407ae39fcbb7dc85c37b40407c1cfb50a2cf48422c67c9c0ffe55a3696cd",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-160-delete-case-image/evidence/source-evidence/delete-image.button.md",
-      "mediaType": "text/markdown",
-      "size": 129,
-      "sha256": "79c5bf7e202befc0b72ff8700acbe43d27745161764f3350f1c13383b28e29d4",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-160-delete-case-image/verification.md",
-      "mediaType": "text/markdown",
-      "size": 430,
-      "sha256": "71c024835dbdb57064d57ae39abb3e2fa6d32ceaf92367c2a454e7f8a73cb6be",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -15378,6 +15738,78 @@
       "mediaType": "text/markdown",
       "size": 3704,
       "sha256": "fcde0e09e2ad0e28bb5f69ce2302c57317d2289150a7a887d604ebe45cca25d0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-217-bulk-case-registration-lock-budget/TKT-217-bulk-case-registration-lock-budget.md",
+      "mediaType": "text/markdown",
+      "size": 2383,
+      "sha256": "2af846c05be0205fbded5e5167af6a114c27f287683e4e62e0ca57b619adb847",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-217-bulk-case-registration-lock-budget/changes.md",
+      "mediaType": "text/markdown",
+      "size": 142,
+      "sha256": "1a1e70782893fa127e261dbe17c3445421a0629c5467ce5790f53888e55097a3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-217-bulk-case-registration-lock-budget/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 542,
+      "sha256": "844457d3357a2be22c4bc00b485f125c03a9e7ea9251ad3115ca803b8c484155",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-217-bulk-case-registration-lock-budget/verification.md",
+      "mediaType": "text/markdown",
+      "size": 193,
+      "sha256": "ee5fac99c5a737c919e3ccf092068f20e467455bec384872a89d51688b64c477",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-218-mcp-box-root-single-source/TKT-218-mcp-box-root-single-source.md",
+      "mediaType": "text/markdown",
+      "size": 2464,
+      "sha256": "5ce81bf61191707001a45510d811be248e2f458aa715e81641f10e7f14c875b0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-218-mcp-box-root-single-source/changes.md",
+      "mediaType": "text/markdown",
+      "size": 142,
+      "sha256": "d52b2a2e8df7d9bae1806bd1e6b4a5c6e96f953346c328b5f263813f479651b3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-218-mcp-box-root-single-source/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 531,
+      "sha256": "6a429c71b63e8c08c7b0664bd9c0760087f0b2d6e9c20926850ff4eebaae490d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-218-mcp-box-root-single-source/verification.md",
+      "mediaType": "text/markdown",
+      "size": 286,
+      "sha256": "03b729d4e203c92f0a39a3b8c7b47fcaecc592356ee537af88bd6a2342b87546",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -20434,8 +20866,8 @@
     {
       "path": "docs/tickets/now/TKT-034-images-received-routing/changes-regression-12-07-26.md",
       "mediaType": "text/markdown",
-      "size": 324,
-      "sha256": "e6c1480e6cdf0966aeeed1ad5db017f31e216e75995414d31fe63ca34294944e",
+      "size": 6181,
+      "sha256": "efef1d11d01eff3fd7f2f3a4742d15e77f0f68a39f06ae4dd2ba65b6bb5d4b41",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -20479,8 +20911,8 @@
     {
       "path": "docs/tickets/now/TKT-034-images-received-routing/verification.md",
       "mediaType": "text/markdown",
-      "size": 8447,
-      "sha256": "632124cf5cc11e9eadfdb71bbace44addc90a703c08e3e84992183eaa6975160",
+      "size": 10743,
+      "sha256": "6759d0500d721e66e203fa3ae3d30bd9facefc05bcf296532236e4c91741ae87",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21035,6 +21467,51 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/now/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md",
+      "mediaType": "text/markdown",
+      "size": 4157,
+      "sha256": "da3ea5c4f3a000f0d1b8ff910e88e6a3d5cb5d7151463cedbfd03a2f4a455153",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-154-mcp-image-ingestion/changes.md",
+      "mediaType": "text/markdown",
+      "size": 9236,
+      "sha256": "32afa06193e11e7d4f42a79c0b535e81ecc32424ec0decf7354eabbf51b55c81",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-154-mcp-image-ingestion/evidence-manifest.json",
+      "mediaType": "application/json",
+      "size": 546,
+      "sha256": "19aedb1bf8d2519e7d6b175069034061d3a42a865bb7567ae8a7bd89ec7cbe17",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-154-mcp-image-ingestion/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 462,
+      "sha256": "86e5de0011a3d6369568a3a9272e3c86f7836e7dfa8c667bd9ed298d1841aeac",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-154-mcp-image-ingestion/verification.md",
+      "mediaType": "text/markdown",
+      "size": 7391,
+      "sha256": "5ad366c3d0ab70e5b34adc0ba39506f84bd372d2b679a5e36893d76ac98c45f3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/now/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md",
       "mediaType": "text/markdown",
       "size": 3405,
@@ -21066,6 +21543,51 @@
       "mediaType": "text/markdown",
       "size": 899,
       "sha256": "3b880032445ee94447ea2b92807eb6f801efcbe66964983cd461e3f68777e559",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-160-delete-case-image/TKT-160-delete-case-image.md",
+      "mediaType": "text/markdown",
+      "size": 3598,
+      "sha256": "5baf753b6c503b0641b2c6cdfeb4399e7ca6fb776c19c6c82a64f29ae12609c0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-160-delete-case-image/changes.md",
+      "mediaType": "text/markdown",
+      "size": 4246,
+      "sha256": "b4601644d190f4659691cca8c25c067bff7f972aa00be7797160791b18e09052",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-160-delete-case-image/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 255,
+      "sha256": "25c2407ae39fcbb7dc85c37b40407c1cfb50a2cf48422c67c9c0ffe55a3696cd",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-160-delete-case-image/evidence/source-evidence/delete-image.button.md",
+      "mediaType": "text/markdown",
+      "size": 129,
+      "sha256": "79c5bf7e202befc0b72ff8700acbe43d27745161764f3350f1c13383b28e29d4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-160-delete-case-image/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3724,
+      "sha256": "522a22052149d2f920f74b276d179b29a80187d8447403b65b5896eb3ac7a92a",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21271,8 +21793,116 @@
     {
       "path": "docs/tickets/now/TKT-200-guided-capture-sessions/verification.md",
       "mediaType": "text/markdown",
-      "size": 1254,
-      "sha256": "754d347fe7694b33d06e7bc858bec70fe9cb8718988dc093b994d03416ca095b",
+      "size": 3593,
+      "sha256": "15f4565461ba6d07374773318442cbbf10347fb612c645feb78a5eb84607b58e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-205-repository-worktree-governance/TKT-205-repository-worktree-governance.md",
+      "mediaType": "text/markdown",
+      "size": 4668,
+      "sha256": "c80f7e78a6f17e157093ba9d979c58ba29f0f052e36aeefa8e44a2ac22885168",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-205-repository-worktree-governance/changes.md",
+      "mediaType": "text/markdown",
+      "size": 3537,
+      "sha256": "12c65ca06aeffed2f8584bc84c0ff4357a458e79b2f99c8505d5bc8b0030831b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-205-repository-worktree-governance/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 603,
+      "sha256": "db14f43b9d627462db7a6022fd3dc7b39c758f38640bcbffa5d5158d4ffc9a49",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-205-repository-worktree-governance/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1721,
+      "sha256": "956d813dbcda12e45b5e4776bbc0e2dcb9278284db11beabf8c836a9e633aa15",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-206-remove-runtime-data-policy-controls/TKT-206-remove-runtime-data-policy-controls.md",
+      "mediaType": "text/markdown",
+      "size": 4325,
+      "sha256": "c959c7b4a322d04f60656585a27a9e4df45f2f981fada417640b35b5d4b1e5ba",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-206-remove-runtime-data-policy-controls/changes.md",
+      "mediaType": "text/markdown",
+      "size": 129,
+      "sha256": "9a88d3a11df501001f4b7d74cfcd18abcbc5641bb57740c2084278c04f999db8",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-206-remove-runtime-data-policy-controls/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 727,
+      "sha256": "102e86c60756199eed627ede4beb6ef14e2d40fb776c2a26044c86415312667f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-206-remove-runtime-data-policy-controls/verification.md",
+      "mediaType": "text/markdown",
+      "size": 327,
+      "sha256": "3a6885e36128e80cbbf57c4a1b9dbccea1e55d06c5d5300f0ba28e2616bef78e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md",
+      "mediaType": "text/markdown",
+      "size": 3394,
+      "sha256": "18d2fdab69da464ed58f00b74245016720be68c994d7d2ca785a862ed6721aa6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1905,
+      "sha256": "0036e2b5e87ab6fefb8ed2b001803ffd0d659cee6ed474b6f069324f322ecb2e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 256,
+      "sha256": "4e879a6b034eede51d20815a030555c25c3d4048d9ffc14fd6a43b705696853a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3069,
+      "sha256": "45dd145a7831349e77a621aefe42362fce8afae299f5d17fbfe4735f6d58276b",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21289,8 +21919,8 @@
     {
       "path": "docs/tickets/now/TKT-216-eva-sentry-route-body-contract/changes.md",
       "mediaType": "text/markdown",
-      "size": 420,
-      "sha256": "887bf155fa4b1c0261fd12bd0a75b1d58b8d001c9e4b5b8cf2fd54f4069f66d4",
+      "size": 1102,
+      "sha256": "83dc81f01fd00220712ed8b0804d0b6bd2268e52bd622bb65abc2e6b4c8bfc2a",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21307,8 +21937,8 @@
     {
       "path": "docs/tickets/now/TKT-216-eva-sentry-route-body-contract/verification.md",
       "mediaType": "text/markdown",
-      "size": 702,
-      "sha256": "04914e60f289b4e16281ff204a3a6231d336940f5ae33475fa7ffbfd544eb64a",
+      "size": 1259,
+      "sha256": "6ffccbdd58b423708176fdafa20620abce31a7f14900fc581ab675f9678df4c6",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21343,8 +21973,8 @@
     {
       "path": "docs/tickets/plans/PLAN-004-production-readiness.md",
       "mediaType": "text/markdown",
-      "size": 10892,
-      "sha256": "2cd1b0cab32005d9f177d2bd1ecf43c737d34a5a8282b37e68c39d8a3d2ef703",
+      "size": 11651,
+      "sha256": "d5f2740b68d2ed90310c1904407d0fd4ba0492d7ec0f3e59fd402025ba3ebcb8",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21361,8 +21991,8 @@
     {
       "path": "docs/tickets/plans/PLAN-006-repository-structure-documentation-reset.md",
       "mediaType": "text/markdown",
-      "size": 5128,
-      "sha256": "b9dae40cc61d5f1d29ac61271bfe0962cc64aa37942d38888835062f66ac6c51",
+      "size": 5121,
+      "sha256": "7f17f5c2f8dc7a5355b5d8e7dbbfbad27e1d506f5db6e02d8bb2cbe6bd0744db",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21685,8 +22315,8 @@
     {
       "path": "docs/tickets/verify/TKT-055-provider-api-intake/changes.md",
       "mediaType": "text/markdown",
-      "size": 4090,
-      "sha256": "d6335bc9157140545a63595de6f86ff004c2410d913100faa76ebc898ba6b7e1",
+      "size": 4995,
+      "sha256": "5341fc5664ed151b8476f7a890737a35a7e47c81d67ee4157087648e7aeaa6c8",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21694,8 +22324,8 @@
     {
       "path": "docs/tickets/verify/TKT-055-provider-api-intake/verification.md",
       "mediaType": "text/markdown",
-      "size": 7141,
-      "sha256": "2baea81322c6230c970c4f3ef49e767cf900aece2d5042b0dc39a5c45b7091ee",
+      "size": 7986,
+      "sha256": "e2d11e8576e9137a624dbce9c45e5a0e760d26e75f4dcc1b46a8831ffbe2163a",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -23015,42 +23645,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md",
-      "mediaType": "text/markdown",
-      "size": 3400,
-      "sha256": "3a5d158dff7015eb10a432ebadbd9d96caeb4b7ead6123a206a558a2aaa75c77",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/changes.md",
-      "mediaType": "text/markdown",
-      "size": 1421,
-      "sha256": "19b03d9346dfa35dfc99e37327a3cd1d64dde64ff8e0b55f02a816d56b464533",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/evidence/operator-note.md",
-      "mediaType": "text/markdown",
-      "size": 256,
-      "sha256": "4e879a6b034eede51d20815a030555c25c3d4048d9ffc14fd6a43b705696853a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/verification.md",
-      "mediaType": "text/markdown",
-      "size": 2387,
-      "sha256": "5cf419e2bd4637dde55f6bb02f742902b537e3f731eb2783ed0fa314cac1b980",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
       "path": "docs/tickets/verify/TKT-211-forbidden-reference-gate/TKT-211-forbidden-reference-gate.md",
       "mediaType": "text/markdown",
       "size": 3849,
@@ -23287,8 +23881,8 @@
     {
       "path": "package-lock.json",
       "mediaType": "application/json",
-      "size": 147275,
-      "sha256": "379067fe188c704ad9ffeaeed0ade29a7890ea869971407bae9d8f704718e43b",
+      "size": 207351,
+      "sha256": "4f985d52dcf72df940352dfb9d165610751bff61e23a6d056d9311eaaccab94c",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -23296,8 +23890,8 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 3032,
-      "sha256": "b57534d43e3e5803a114709c93bb0f15bded75aff40686ebedd5bcbefb02295f",
+      "size": 3628,
+      "sha256": "c9c39ef95fb92935226f0d907d570d9a79a67efc71a6902460d658dba475db7d",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -23413,8 +24007,8 @@
     {
       "path": "packages/domain/src/contracts/case-status.test.ts",
       "mediaType": "text/typescript",
-      "size": 16442,
-      "sha256": "712b44527ed7b1f49200f6fd2a959d39e6d9bfb600d7454ca0ee35713d29ce1d",
+      "size": 16845,
+      "sha256": "7c426afdd00a1cf08cc7c2350b4557a8a305bc0d7c26a2337f195058c575826e",
       "category": "contract",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -23422,8 +24016,8 @@
     {
       "path": "packages/domain/src/contracts/case-status.ts",
       "mediaType": "text/typescript",
-      "size": 19855,
-      "sha256": "76d7b5953dfbf9b0d134e1143708c8d4b354ccdcdb0d2a63e8438ea5df8f7e60",
+      "size": 20109,
+      "sha256": "af580cc863acfc0f70ffdbacb02446841c2207d868272bd3ff9eb00c863a08c6",
       "category": "contract",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -23521,8 +24115,8 @@
     {
       "path": "packages/domain/src/data/code-tables/audit-event.json",
       "mediaType": "application/json",
-      "size": 6938,
-      "sha256": "adc61973aee0eb7ece9318824e8f930a379de56bed2eac15acacab96c9aa9b4f",
+      "size": 8026,
+      "sha256": "e0703a7dcba497027af9e52e79d7d2f810d0613c511b2e2a4775695c6cf73629",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -23699,6 +24293,24 @@
       "lifecycle": "active"
     },
     {
+      "path": "packages/domain/src/domain/archive-holding.test.ts",
+      "mediaType": "text/typescript",
+      "size": 1253,
+      "sha256": "2cdb19b287fa16d7e3c9b32f481690d64d0fe190b521b221e41e86760815933b",
+      "category": "source",
+      "owner": "domain-model",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/domain/src/domain/archive-holding.ts",
+      "mediaType": "text/typescript",
+      "size": 2135,
+      "sha256": "756f5f0aa36c91970fd6a272f30e645c9fc757e8881a8177dcd01a203fe49056",
+      "category": "source",
+      "owner": "domain-model",
+      "lifecycle": "active"
+    },
+    {
       "path": "packages/domain/src/domain/case-po.test.ts",
       "mediaType": "text/typescript",
       "size": 3894,
@@ -23719,8 +24331,8 @@
     {
       "path": "packages/domain/src/domain/case-type.test.ts",
       "mediaType": "text/typescript",
-      "size": 5812,
-      "sha256": "065eb1131cc36fc4a737899d8a71acef1abf9b5170af93259b8f4404964f73e9",
+      "size": 6097,
+      "sha256": "925c1725de4be5e8fa8315871a17e1d52cdff20f80aaa15b36253e5adc0ce78d",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -23728,8 +24340,8 @@
     {
       "path": "packages/domain/src/domain/case-type.ts",
       "mediaType": "text/typescript",
-      "size": 7804,
-      "sha256": "ed05936d2e9d4a3abff1ace7dd8d342cd41a456cf852b312c5bdf0e4c09d6625",
+      "size": 8134,
+      "sha256": "10ee3f9fba063f7957f6c133c4c035dd6ff4a3cba3da75d144484c5a7bf1f7a6",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -23791,8 +24403,8 @@
     {
       "path": "packages/domain/src/domain/index.ts",
       "mediaType": "text/typescript",
-      "size": 1078,
-      "sha256": "a8285712f7d70008136e6f313563fd3c38db7fb3d2bbd06281763ce50bdedbf0",
+      "size": 1113,
+      "sha256": "6e624deaf3ab8c231a1e9ddf0e0cef0cfdff545ab8714ba0b2ffd7bd259f47ad",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -23987,10 +24599,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "packages/domain/src/dto/capture.ts",
+      "mediaType": "text/typescript",
+      "size": 1089,
+      "sha256": "4b47456aaa1ed1ad094d6201cba1303a8b7a7fe1c6f1ea7073cfaf97b8bdb459",
+      "category": "source",
+      "owner": "domain-model",
+      "lifecycle": "active"
+    },
+    {
       "path": "packages/domain/src/dto/index.ts",
       "mediaType": "text/typescript",
-      "size": 36847,
-      "sha256": "f459f3674c64a6f88886943f2b91cbba21867be2771ea206ad4c03be1be42e35",
+      "size": 37431,
+      "sha256": "4c498847047cca4522818bc3068a09ca7b1f48a86e34421a21de45a5f529f6f8",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -24007,8 +24628,8 @@
     {
       "path": "packages/domain/src/gates.ts",
       "mediaType": "text/typescript",
-      "size": 16370,
-      "sha256": "b3ad7e4cc93896e2bfcf3def9ee5d58502348d3f6f05e5b262b82c543897ad51",
+      "size": 17360,
+      "sha256": "16439d8f3e79dd623ab6f49851825c25f0f6c3086a73252d0586e7aa21757ece",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -24016,8 +24637,8 @@
     {
       "path": "packages/domain/src/index.ts",
       "mediaType": "text/typescript",
-      "size": 1287,
-      "sha256": "a21a0bbdca1999c7680e1f4bfc68555283353bb85268ab35e486b99c379ca8c4",
+      "size": 1403,
+      "sha256": "f52eb814a5bc0cbdc3dc43a9e01761546d36354089aa516279e10dcaf0dd8be2",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -24043,8 +24664,8 @@
     {
       "path": "packages/domain/src/model/case-readiness.ts",
       "mediaType": "text/typescript",
-      "size": 3785,
-      "sha256": "710fdce18f43c45cfb92e0afd62355713e3d1f557edf0ee980d1c85b1f7cc887",
+      "size": 3843,
+      "sha256": "dd094b4993875e29725207047ec573aa7bd3d3019c0c5a7242d31bfef97451d9",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -24097,8 +24718,8 @@
     {
       "path": "packages/domain/src/model/types.ts",
       "mediaType": "text/typescript",
-      "size": 15929,
-      "sha256": "7d45e09b1d9e5e1ff3e72a2e106b733f8a2d21b8356a6606df721e32974ee9c8",
+      "size": 16278,
+      "sha256": "9e5c7b3f9dbf4a1032e512ca7d31036dd2211d4654d398df69262e54c685e2f9",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -24167,10 +24788,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "scripts/checks/check-capture-contract.mjs",
+      "mediaType": "text/javascript",
+      "size": 865,
+      "sha256": "b4ecf88dc15a0a9be1515a3c3234c462dff4d4abe3c8906c830a40b54638afd7",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
       "path": "scripts/checks/check-doc-links.mjs",
       "mediaType": "text/javascript",
-      "size": 14020,
-      "sha256": "ad809c80ff14efddd224cf1dadc91a10638b2e440541aed519fb2130b06e09e9",
+      "size": 14367,
+      "sha256": "33b6a3964a4da4b328d1d832975ef06e4e5293cc2ad39adf194949833f47f051",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -24178,8 +24808,8 @@
     {
       "path": "scripts/checks/check-forbidden-references.mjs",
       "mediaType": "text/javascript",
-      "size": 8314,
-      "sha256": "7ea4f3b6cfb73f68bb5004dbc2fe314af99a61e09b4c5277eb893f60f71fc754",
+      "size": 8416,
+      "sha256": "dd48b0514065ed61e27efddb8c76bf95686e552862e7d892ce9e78db6eb8c1a4",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -24232,8 +24862,8 @@
     {
       "path": "scripts/checks/check-repository-layout.mjs",
       "mediaType": "text/javascript",
-      "size": 3221,
-      "sha256": "ffd0c37f047ea757e9df723e3aef69fe4c0e5c46413b2c9605bfa7f847537c5b",
+      "size": 3273,
+      "sha256": "a1f301ec29e1e8d67fb5abfba994924767c091c159774b68de0a2656b5359ffd",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -24241,8 +24871,8 @@
     {
       "path": "scripts/checks/check-repository-layout.test.mjs",
       "mediaType": "text/javascript",
-      "size": 1921,
-      "sha256": "395b1be4b2e64ce6c23f8c08205844c4d3e1b0f9d1b5062b01b1322c29327e79",
+      "size": 1973,
+      "sha256": "a91b538ea5dac6297ae00907319339c283193e128787a0f109355c289a5ac2d6",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -24259,8 +24889,8 @@
     {
       "path": "scripts/checks/check-source-size.mjs",
       "mediaType": "text/javascript",
-      "size": 1761,
-      "sha256": "736788d691969f960d853234c20293de256fb0475ced771b832a413816ae2b2e",
+      "size": 3130,
+      "sha256": "71d13b9b5eee4b59384e22e590686e4e30079ad3b307d89932da6bcd46179f60",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -24295,8 +24925,8 @@
     {
       "path": "scripts/checks/hashed-signature-matcher.mjs",
       "mediaType": "text/javascript",
-      "size": 3579,
-      "sha256": "405d9bbdf2889614badb69f51d2922f287e895ab5c77a842da2f1ee307607617",
+      "size": 3925,
+      "sha256": "093916bb35a8ed9bf273180cc84a413e590b15f003ca3f069d1f3f101e511138",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -24304,8 +24934,8 @@
     {
       "path": "scripts/checks/hashed-signature-matcher.test.mjs",
       "mediaType": "text/javascript",
-      "size": 1482,
-      "sha256": "d018e7a368a6177a443a41499299a1d42d6f742f7dd90399cb570c21ef6e0963",
+      "size": 2146,
+      "sha256": "489f9f8a44c1423b2b2cd97f56161b151bf317b5700ee970fde555485a0a0b13",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -24360,6 +24990,15 @@
       "mediaType": "text/javascript",
       "size": 8488,
       "sha256": "286401e040b89eab81fb71d3ff7fc30f1932f203f841bf8bc39eae861fb54b86",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/source-size-budget.json",
+      "mediaType": "application/json",
+      "size": 422,
+      "sha256": "70402bde4798b38faa3f71e22d72c1e0b2e0902ea9bc1a366a449d37a8526f08",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -24581,10 +25220,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "scripts/hooks/pre-push",
+      "mediaType": "application/octet-stream",
+      "size": 1383,
+      "sha256": "b2f9f112c89af4c60f2ac885e93c49182ce2ef286b6980f67c5ae65c0c27f2d9",
+      "category": "automation",
+      "owner": "engineering-automation",
+      "lifecycle": "active"
+    },
+    {
       "path": "scripts/maintenance/evidence-catalog.mjs",
       "mediaType": "text/javascript",
-      "size": 24249,
-      "sha256": "1a4e84d9bfaed9f326abf4713112cff60d52af4b1db2f452638b947080cf7019",
+      "size": 25922,
+      "sha256": "2e87e3b029fdc71a80646ae9dc5f310e750c05ad2ee86da705e215920a74b538",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -24592,8 +25240,8 @@
     {
       "path": "scripts/maintenance/generate-agent-adapters.mjs",
       "mediaType": "text/javascript",
-      "size": 5562,
-      "sha256": "8a5d59b31283e8595beea9aafd5c22be8d6518e24d71988a641e05bd74334a42",
+      "size": 6756,
+      "sha256": "eb4b6f3946d858c7d96b8520ca383b9406e40feeb2e3ce77af9e5a6ccff974f6",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -24637,8 +25285,8 @@
     {
       "path": "scripts/maintenance/reconcile-repository-reset.mjs",
       "mediaType": "text/javascript",
-      "size": 17253,
-      "sha256": "cf7897b68c8bd40e2ceda4b01c42367a67071e6d6cf70bb0c54befdcd26ae787",
+      "size": 22103,
+      "sha256": "bafc368016c13be7ebd8335b2e263d5d5cf577dd81087a85c92469f12618697e",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -24646,8 +25294,8 @@
     {
       "path": "scripts/maintenance/reconcile-repository-reset.test.mjs",
       "mediaType": "text/javascript",
-      "size": 5795,
-      "sha256": "dc88012dde170620430edf946ccab12217a8fc044ea164cbb7a926479792a695",
+      "size": 7487,
+      "sha256": "5141295ce3103279f0d34579650ec5fe44c2e094d1357bc4b63521dd2ea00acf",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -24680,6 +25328,51 @@
       "lifecycle": "active"
     },
     {
+      "path": "scripts/pre-push.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 2467,
+      "sha256": "2cdd460068d511feec927221af625075993efe62f528fc0d38353abe8ad378ab",
+      "category": "automation",
+      "owner": "engineering-automation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/repository-hygiene.mjs",
+      "mediaType": "text/javascript",
+      "size": 9953,
+      "sha256": "c82d99df583955a005649979fe836764b8c992ec2c6729121a71a01a298827f4",
+      "category": "automation",
+      "owner": "engineering-automation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/verify-offline.mjs",
+      "mediaType": "text/javascript",
+      "size": 1897,
+      "sha256": "e3a2ef24ee0ff2445f8c685c12ed34f45c9b1fc749f84715cdcdfcc0bc8793ae",
+      "category": "automation",
+      "owner": "engineering-automation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/worktree.mjs",
+      "mediaType": "text/javascript",
+      "size": 13051,
+      "sha256": "ea3b36ea8943dadcf7f693415b2c98e7ad4cf58d2a4509fd6d1952d74b918939",
+      "category": "automation",
+      "owner": "engineering-automation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/worktree.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 7127,
+      "sha256": "407e8e0fc0829df6e3a74038f9e7c857fdebffa9fe0bbb6e9e4f7cba17f0d308",
+      "category": "automation",
+      "owner": "engineering-automation",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/.funcignore",
       "mediaType": "application/octet-stream",
       "size": 99,
@@ -24709,8 +25402,8 @@
     {
       "path": "services/data-api/package.json",
       "mediaType": "application/json",
-      "size": 535,
-      "sha256": "5fd3e3f05d0086d2b1871ec7db0c7f69f970f9260ed95262fcf79b9c5120799c",
+      "size": 579,
+      "sha256": "ea285bd1fb7fc0c1d208b9adf3b8917fe89a592d8c7532571ff72b9e959e7a5a",
       "category": "configuration",
       "owner": "data-api",
       "lifecycle": "active"
@@ -24826,8 +25519,8 @@
     {
       "path": "services/data-api/src/features/archive/mirror-outbox-routes.ts",
       "mediaType": "text/typescript",
-      "size": 14667,
-      "sha256": "685adb27e731063514dc278c6190ca3a5bf8c0dcaf6613d501bf805be5cb0796",
+      "size": 14930,
+      "sha256": "facb03a94a6cb74b56660a174941b6bb195700a7a0a08dd90ed6116fe3332905",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -24835,8 +25528,8 @@
     {
       "path": "services/data-api/src/features/archive/mirror-outbox.ts",
       "mediaType": "text/typescript",
-      "size": 2813,
-      "sha256": "7eef31c3535aef909e886665c9cf5f40a0bf364042b878ae88a006e5caa1610b",
+      "size": 2895,
+      "sha256": "06a440634b14f08a6e5dbabfb86d208b21e88533219c7d2eecf4fd8840496cb7",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -24844,8 +25537,8 @@
     {
       "path": "services/data-api/src/features/archive/mirror-schema.test.ts",
       "mediaType": "text/typescript",
-      "size": 5114,
-      "sha256": "7a106f61eaea15bec444208004122f34b57323b3c56bdbc52e92c2f695d8e4a5",
+      "size": 5124,
+      "sha256": "e699bbcd34134594eebea15cdb57b6fb64b276cd3570b88b35923625c781ba6b",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -24952,8 +25645,8 @@
     {
       "path": "services/data-api/src/features/assistant/image-analysis-routes.ts",
       "mediaType": "text/typescript",
-      "size": 10889,
-      "sha256": "526118bf1379645d48e7f2b98070bc384c77f1bb546817d6e0f1e40015740882",
+      "size": 10935,
+      "sha256": "b7dbe5140d62af5730043a848fe9b080cd2822e2a338a37d91e6bee38fd411ce",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -24977,10 +25670,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/assistant/mcp-route-auth.test.ts",
+      "mediaType": "text/typescript",
+      "size": 13619,
+      "sha256": "564a8fef44cb8e0f83091e773c0adccc48501fd0f882ca9c211e0b4d7c95bfb9",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/assistant/mcp-routes.test.ts",
       "mediaType": "text/typescript",
-      "size": 3529,
-      "sha256": "5f190ac6f9d9e4974335ab9b7212fb29fa23539a9cbe08a90449d0eb491a38be",
+      "size": 3832,
+      "sha256": "7e72a004d33d757b51de33e0c434010e161a8ed07a6a87fe7dcf279db5e7ea54",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -24988,8 +25690,17 @@
     {
       "path": "services/data-api/src/features/assistant/mcp-routes.ts",
       "mediaType": "text/typescript",
-      "size": 5890,
-      "sha256": "fbbc7d7be3f53424d186eb188cade3a1484205677d19bee504d7741eff9873a2",
+      "size": 20771,
+      "sha256": "5d1811e4415cb7bc1028a4483dd2e8a028c1366e081e49e7c2cb4d0838a64a87",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/assistant/mcp-standard-client.test.ts",
+      "mediaType": "text/typescript",
+      "size": 5609,
+      "sha256": "4880cc5fc9fed6b701f540ca25815bbb23535c1b5db30e82ef862a5810102355",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25078,8 +25789,8 @@
     {
       "path": "services/data-api/src/features/assistant/write-concurrency.test.ts",
       "mediaType": "text/typescript",
-      "size": 7329,
-      "sha256": "52555da2e2f9c1fccd1e21935bea8ec4de413a723ce842805b92c15bcf9dbfb8",
+      "size": 10568,
+      "sha256": "0b54a71b566d4202269be6ca7dc0e3b00a63c9e407e93c2c45104e3c0fc67f7a",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25087,8 +25798,8 @@
     {
       "path": "services/data-api/src/features/cases/activity-routes.ts",
       "mediaType": "text/typescript",
-      "size": 7799,
-      "sha256": "f53cf3076b912d85031a1f53bf3766e93b9c0f652cd4a637a72f85329161027f",
+      "size": 7841,
+      "sha256": "9c9d9db055ad9665909a24360843177600f0e5b1bc9827ba54b1996c7ac1350e",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25098,6 +25809,141 @@
       "mediaType": "text/typescript",
       "size": 8152,
       "sha256": "f732c2e483d2c81ed02c36640e082b406917f91ba896990cdef5509e6186226d",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/archive-holding-schema.test.ts",
+      "mediaType": "text/typescript",
+      "size": 1759,
+      "sha256": "af0190b119b36699b12ad92b9b08d1910c4c196a735d2de5b2cb41774c77d235",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/archive-holding.test.ts",
+      "mediaType": "text/typescript",
+      "size": 33731,
+      "sha256": "0c536b7efc8e1aaa871e23588cde358c24ac6e501d538797b99ea3012cf61dc6",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/archive-holding.ts",
+      "mediaType": "text/typescript",
+      "size": 42292,
+      "sha256": "5d2aba7e3972a267bd99d532036fffc7ed6e19559755e07f26a6d644c7ac4494",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-auth.test.ts",
+      "mediaType": "text/typescript",
+      "size": 3664,
+      "sha256": "d692a2f36090d34cba07c54f3228e576adb01f3e351f6ff09ed9c0fc8e13d6f7",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-auth.ts",
+      "mediaType": "text/typescript",
+      "size": 3875,
+      "sha256": "7daa07e5167e1c2fde23558c7938babe2a2c77c8bba2d379a51619e16f5a8ddc",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-blob-security.test.ts",
+      "mediaType": "text/typescript",
+      "size": 2563,
+      "sha256": "02e2cc6e5bb0508e9db14b27188ab8074fa97156ea52372be9d7d1136362ea02",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-cleanup.test.ts",
+      "mediaType": "text/typescript",
+      "size": 16498,
+      "sha256": "32b3fc1af8aa35ec2dfb04a45f65d29dd89efbc2cc53dcdf1b888f0692157ad2",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-cleanup.ts",
+      "mediaType": "text/typescript",
+      "size": 9568,
+      "sha256": "c4af888bfa4d12042398569cf9a59e6d3a43b3c072a3ebc64eefb707c33a0728",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-plans.test.ts",
+      "mediaType": "text/typescript",
+      "size": 1594,
+      "sha256": "b43de37502e35a08ae2cc0f6a2dbc4eac654fce4b7e74d50bc8cecc4e296908a",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-plans.ts",
+      "mediaType": "text/typescript",
+      "size": 3887,
+      "sha256": "0efd88e9677e2a1bb176933bb606b9fb59cc2dc7a7d2d45413c45415efcb6d8d",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-schema.test.ts",
+      "mediaType": "text/typescript",
+      "size": 6051,
+      "sha256": "fccdadf9d10f16148d41c3623b2f0acc41050b523ed01a1443a52adcd3fbbb31",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture.test.ts",
+      "mediaType": "text/typescript",
+      "size": 84989,
+      "sha256": "f055c1853fa8509eaf647da997e3064bedfd3e3144f5c3ae9e27e31817d47284",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture.ts",
+      "mediaType": "text/typescript",
+      "size": 71617,
+      "sha256": "1354766dc7012b2b13d8b9e4ea009bc1093ac82653de44fd0a43f8a6c5d733ae",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/case-mutation-target.test.ts",
+      "mediaType": "text/typescript",
+      "size": 4132,
+      "sha256": "c33da27e87cebde4fad6d701282984bf2b05d466e1774297ffbf30c1c30b4c7b",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/case-mutation-target.ts",
+      "mediaType": "text/typescript",
+      "size": 4174,
+      "sha256": "9e16116e9244c4f41967d20236f5fc3ad2ed4adb8ceeb4bd21529663aa526fd8",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25116,6 +25962,15 @@
       "mediaType": "text/typescript",
       "size": 13150,
       "sha256": "5ebbd2fca259d011a68b41d78755ba7eb73c952539e0f8e2d3ef8dadd13f83ae",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/cases-images.test.ts",
+      "mediaType": "text/typescript",
+      "size": 2346,
+      "sha256": "9a84e5be311b04212945da5e7f9ecd01fa115f855e6a705648483c95bfdc6f37",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25141,8 +25996,8 @@
     {
       "path": "services/data-api/src/features/cases/create-archive.test.ts",
       "mediaType": "text/typescript",
-      "size": 30501,
-      "sha256": "da8fd8d979bde832afdbd3fd729b16feea22524c15896dd8304faefe2050b8b8",
+      "size": 30521,
+      "sha256": "4a8cbec293f1326ec46275e6bb5773f2a806d3552a04350b1a24276c5cfc41d9",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25188,6 +26043,33 @@
       "mediaType": "text/typescript",
       "size": 12702,
       "sha256": "3a0b7e1ad5b878e366c2f6698ba97c32a9054a9800f716e99705f655653477ab",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/evidence-delete.test.ts",
+      "mediaType": "text/typescript",
+      "size": 17849,
+      "sha256": "1bf0337a8980c161c2c25123b7f4f2d7ebb9d6fc59467033093bda1019f928d4",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/evidence-delete.ts",
+      "mediaType": "text/typescript",
+      "size": 25428,
+      "sha256": "b666ce38213af8d96f8169eef0933e62801526e3c62a6a5f996778a3032b5e44",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/evidence-deletion-schema.test.ts",
+      "mediaType": "text/typescript",
+      "size": 2219,
+      "sha256": "fe38d893bf1cf1cd6bea304e15afe40a4979a9403b274f4d6804a836a3d6bb7a",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25265,6 +26147,33 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/cases/internal-archive-holding.test.ts",
+      "mediaType": "text/typescript",
+      "size": 4982,
+      "sha256": "757d7885eb613b3d4dc928cf20ffb59605214f20ed74c201567cb888c8c60daf",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/internal-archive-holding.ts",
+      "mediaType": "text/typescript",
+      "size": 8020,
+      "sha256": "3b0568ec7fdcae64ae7e1e793253e637f08f7930653e9935a4d59c0cff7940da",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/internal-eva-submission.test.ts",
+      "mediaType": "text/typescript",
+      "size": 4484,
+      "sha256": "1d1e4a20f9b5740af29e33d9483bdac12f5bb73063b8b84a1dc4b68a52ab28c7",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/cases/internal-maintenance-routes.ts",
       "mediaType": "text/typescript",
       "size": 6163,
@@ -25276,8 +26185,8 @@
     {
       "path": "services/data-api/src/features/cases/internal-operations-routes.ts",
       "mediaType": "text/typescript",
-      "size": 14616,
-      "sha256": "0fa53e612ab8fdbbb193d386072ced1e03d34e4f0cbc0d6b3b00c5c0877de985",
+      "size": 17548,
+      "sha256": "d88849183ffc4a2a19178e15ac26bd1433c0f8db9bc066c364260dbafa039ee9",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25310,10 +26219,64 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/cases/mcp-image-ingestion.test.ts",
+      "mediaType": "text/typescript",
+      "size": 13597,
+      "sha256": "542f245ca316d2f6ecd39741af6a118f2f1491a4bbc11f6223aa5a3aefadde0a",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/mcp-image-ingestion.ts",
+      "mediaType": "text/typescript",
+      "size": 27240,
+      "sha256": "574acc8eb2423f98e2b52dd31d246d759d35ed30d0bbe3d55e8254ff0a3d92c3",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/mcp-rate-limit.test.ts",
+      "mediaType": "text/typescript",
+      "size": 1228,
+      "sha256": "118477eaa436bd53d801327cce307f7f295f326b8da3b709a0689d510ec6fa71",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/mcp-registration-lock-schema.test.ts",
+      "mediaType": "text/typescript",
+      "size": 1010,
+      "sha256": "371568cb5976a57f5541f4e03e123a4a6f459e985bd3e4fd8d9d6c9b4668e0d1",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/mcp-session.test.ts",
+      "mediaType": "text/typescript",
+      "size": 7843,
+      "sha256": "670fe565b464df67400c097f8299b24a538e2f2bcbdc637b3e9286d90731a703",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/mcp-session.ts",
+      "mediaType": "text/typescript",
+      "size": 6560,
+      "sha256": "4aa2b0121a31b5bbe74196d50a1cdc2338b18908487cf9b4296d92290724e667",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/cases/merge-routes.test.ts",
       "mediaType": "text/typescript",
-      "size": 34655,
-      "sha256": "cc9df684fc4049d55bb18aaa01047ab6e7d6b5382ccd008762f1a65411ee47ae",
+      "size": 49111,
+      "sha256": "5a1c9280d7c347ef43f2f6b87d76a3baa1a88ceaa48fb9118c716e855b5379ab",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25321,8 +26284,8 @@
     {
       "path": "services/data-api/src/features/cases/merge-routes.ts",
       "mediaType": "text/typescript",
-      "size": 29716,
-      "sha256": "433d1bc2f99e78232661989a140bd5b0487d7dfbd9766b097bef2d1bcfc8e83d",
+      "size": 39665,
+      "sha256": "0005c749454219dd71bbe52c15a97a123211aeaa0d85143de17c47c967a3c1aa",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25375,8 +26338,8 @@
     {
       "path": "services/data-api/src/features/cases/read-edit-routes.ts",
       "mediaType": "text/typescript",
-      "size": 19856,
-      "sha256": "f4268a51507f368197dc503ee5ba5e03ce6a1eb52cdbcb059c79870de32ac776",
+      "size": 23511,
+      "sha256": "ac69c4451f2cfad46ae7ef6b868588e0f31cff07953ed43995c73a945ff0fa92",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25384,8 +26347,8 @@
     {
       "path": "services/data-api/src/features/cases/register.ts",
       "mediaType": "text/typescript",
-      "size": 244,
-      "sha256": "ae1b6e0b633499f53bb4160c0794bbaf0a3e8efe6f1a49038489d69dddfcb238",
+      "size": 329,
+      "sha256": "470113815143c2f4857073e137043675e31b019c5c6761f2b32889b6f1856e5b",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25528,8 +26491,8 @@
     {
       "path": "services/data-api/src/features/evidence/blob-store.ts",
       "mediaType": "text/typescript",
-      "size": 5094,
-      "sha256": "c5eac6f29b0d928c1a8fa7f85fb339c149a4699ad0408143bf8f8192e1597962",
+      "size": 11704,
+      "sha256": "f33d13026e846df5486695f1e1e6222555e34187e3aa7ff2472318c7396e76b4",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25591,8 +26554,8 @@
     {
       "path": "services/data-api/src/features/evidence/routes.test.ts",
       "mediaType": "text/typescript",
-      "size": 9921,
-      "sha256": "3e105a01f5c73eedfdadb4245b7f0f98c1e3ab812b3d20ee11430e6e8c81344a",
+      "size": 11720,
+      "sha256": "09bc6eefa2ba7c5ca2834a74efa74fa5767a04717061c0e7a9fa54c9c7fd406d",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25600,8 +26563,8 @@
     {
       "path": "services/data-api/src/features/evidence/routes.ts",
       "mediaType": "text/typescript",
-      "size": 15009,
-      "sha256": "fdc206a68247dad7ba2e0b7473b855f343b72f15d3c9a0d851e553a9254cb2bc",
+      "size": 15321,
+      "sha256": "40e6489011fc9a3b23a4121facba662c70771af7532ac54b7c9fcfff17c73b13",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25609,8 +26572,8 @@
     {
       "path": "services/data-api/src/features/evidence/staff-upload-schema.test.ts",
       "mediaType": "text/typescript",
-      "size": 4393,
-      "sha256": "e56d8481572c9449061ad80f4aadad0d1efead40dd4b149316401da943066dde",
+      "size": 5661,
+      "sha256": "9352601110c8794e260f16036fb2f9d2eb914ab4adf9fef38b6c11d83c9c3385",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25618,8 +26581,8 @@
     {
       "path": "services/data-api/src/features/evidence/upload-route-contract.test.ts",
       "mediaType": "text/typescript",
-      "size": 26516,
-      "sha256": "0d29303633399246b7339213bf06a9498dfe15a6138f0b1d7be443641f49cbc1",
+      "size": 26617,
+      "sha256": "4988ed0b0a5b18591f44d0bff765f28eaf0ec42abe1696ba9c9f2f047e782b9b",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25627,8 +26590,8 @@
     {
       "path": "services/data-api/src/features/evidence/upload-route-recovery.test.ts",
       "mediaType": "text/typescript",
-      "size": 18874,
-      "sha256": "7dd95098dc74c63efc41ff64cebf0bf0eb3356a6b03de80488474bafd3816cf8",
+      "size": 18975,
+      "sha256": "496f4f717ec6482dcc506516f6797644c95bebbe55887aebff2ca32e6bb6c434",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25636,8 +26599,8 @@
     {
       "path": "services/data-api/src/features/evidence/upload-route.ts",
       "mediaType": "text/typescript",
-      "size": 14697,
-      "sha256": "be07818628ca40031b5521aef81b8e034ac4b6692a9bab2c92cf0f49e21af3c2",
+      "size": 15666,
+      "sha256": "f8e99a3e6e3e2f998706132485dd701b558a528753b35fde0771f318e2c4444f",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25645,8 +26608,8 @@
     {
       "path": "services/data-api/src/features/evidence/upload-support.ts",
       "mediaType": "text/typescript",
-      "size": 20041,
-      "sha256": "7a3355063e8b922050701f642bf1229e9b9d61edf32c469912501ba58462cb1f",
+      "size": 23374,
+      "sha256": "4d8579e0bee21b5e32c6f5b211e20e8b90e8265ec086a567fbaa451cc06e5e39",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25663,8 +26626,8 @@
     {
       "path": "services/data-api/src/features/evidence/upload-validate.ts",
       "mediaType": "text/typescript",
-      "size": 12199,
-      "sha256": "800299ff8d88077928843513f18725cc218c1225bf17c8857f6c3eff02c6d585",
+      "size": 12798,
+      "sha256": "d69089612a47a605e3a495660b71bede5efcf27fd81d8f973dea5d4a0c5ef91c",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25949,10 +26912,28 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/providers/intake-operation.test.ts",
+      "mediaType": "text/typescript",
+      "size": 2959,
+      "sha256": "c47c264e3d94167641ad42eeb4a9400645278f2301a4c4f7908287d25d566235",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/providers/intake-operation.ts",
+      "mediaType": "text/typescript",
+      "size": 3454,
+      "sha256": "f0c456242bb9b77735aa8a758eb69b497a7df42ef7dd77abf14f1db0d7b379fd",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/providers/intake-route.ts",
       "mediaType": "text/typescript",
-      "size": 12715,
-      "sha256": "1c0280b9b63c9fab001ef50d97e556e3da25bf89ecec67f15aed63d423b10e41",
+      "size": 15505,
+      "sha256": "ef03c7b6b1fa454f5117f34f8debb51620e18160ae8d45fcea33469fa137928f",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25960,8 +26941,8 @@
     {
       "path": "services/data-api/src/features/providers/intake-validate.test.ts",
       "mediaType": "text/typescript",
-      "size": 6244,
-      "sha256": "2397909d4e937191e815941ead69b1b569872c48e946ac29170cc8d46bf4a851",
+      "size": 6845,
+      "sha256": "cbb840857ad86aea142684cc4c5d514bdc6f85e1729e96fc6cd7fb5fe4ff274e",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -25969,8 +26950,8 @@
     {
       "path": "services/data-api/src/features/providers/intake-validate.ts",
       "mediaType": "text/typescript",
-      "size": 9116,
-      "sha256": "1b1d316b9dc1b930fb720123ac6b47d7f09672f52930b10a31ec830686e190a5",
+      "size": 9984,
+      "sha256": "c55715ceda9a08865e6388da34319fdc569e9566a8c394ee429bf8e669c7fe70",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -26023,8 +27004,8 @@
     {
       "path": "services/data-api/src/features/settings/gate-routes.ts",
       "mediaType": "text/typescript",
-      "size": 4520,
-      "sha256": "21ac7c7a50979de4b29977a99e7b73b426398f2815c27e9618095eec36d96889",
+      "size": 5266,
+      "sha256": "ecdbb10f95f8a05240018a3e8bc3b5915e5660a7746f69d7ba916ea6118792cb",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -26111,10 +27092,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/generated/capture-api.ts",
+      "mediaType": "text/typescript",
+      "size": 27599,
+      "sha256": "daa05791663222108949e0b508d11547989f3766cedacd04f769eeacfe598e0c",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/index.ts",
       "mediaType": "text/typescript",
-      "size": 1740,
-      "sha256": "cd65a0cad862d8b9e7b87e9f3dacded053b57a8945c4c993d2e6c52a7ecd331d",
+      "size": 1730,
+      "sha256": "cf0ccade109b785240de05b3127831cf3a599af45b13f64f6c43b217f0bd9ee8",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -26149,8 +27139,8 @@
     {
       "path": "services/data-api/src/platform/auth/staff-auth.test.ts",
       "mediaType": "text/typescript",
-      "size": 8600,
-      "sha256": "b5f57b040718b77ff8357b38c37979b4cb19dec82c215f8af7090bbd06421115",
+      "size": 8862,
+      "sha256": "13f84b28b69483cec1713ac747cdd9971099323379bdd929bfb6b492c4741243",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -26158,8 +27148,8 @@
     {
       "path": "services/data-api/src/platform/auth/staff-auth.ts",
       "mediaType": "text/typescript",
-      "size": 9604,
-      "sha256": "2212f045f75426b3f1e429dd92a937cd9bfbb49be92cc1b0fa6169b52a902acc",
+      "size": 11060,
+      "sha256": "2b65d49ad9b7ccc751f2ff7e9c0a39f74102f9813890fdd0ccc8817ab806ce94",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -26167,8 +27157,8 @@
     {
       "path": "services/data-api/src/platform/db/client.ts",
       "mediaType": "text/typescript",
-      "size": 4410,
-      "sha256": "e5e7aeaf3dcd051ea9f8706dbd396734d72ab46f276c70c7351190cf3a5674d4",
+      "size": 5310,
+      "sha256": "14a4c83f58e8982555f1ac32c725a70543cfad8739b3709d9d137578f1752c1a",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -26230,8 +27220,8 @@
     {
       "path": "services/data-api/src/platform/http/register-internal-routes.ts",
       "mediaType": "text/typescript",
-      "size": 662,
-      "sha256": "2c6d57a6629a824abfe2ed977a914e5c6c33ed9c5ef3f8b38a18878da411a014",
+      "size": 721,
+      "sha256": "a5867b9e99a23859e1881fbce694360aec68bb31c372c6ef8e10a203f99b3ef6",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -26248,8 +27238,8 @@
     {
       "path": "services/data-api/src/platform/http/service-client.ts",
       "mediaType": "text/typescript",
-      "size": 14039,
-      "sha256": "7e687b0a4d9e40ea25aabf33ef6881e52a9f779d8a26ed21b8cd26cfda71a37a",
+      "size": 16170,
+      "sha256": "b6cb7a7934a3bcd85acc2a90d6ed7388bf9bfed9d6880927769e7fc0139d7562",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -26257,8 +27247,8 @@
     {
       "path": "services/data-api/src/shared/audit.ts",
       "mediaType": "text/typescript",
-      "size": 9696,
-      "sha256": "02a717d0c8e64a671b9d2e2ac29ee119ea82802253e7166c2b0092eecdec20e4",
+      "size": 10153,
+      "sha256": "1632e8f05a24bc66163f8672f2354cd03b80f110bd9702898121ac03509b9f6a",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -26275,8 +27265,8 @@
     {
       "path": "services/data-api/src/shared/last-activity.test.ts",
       "mediaType": "text/typescript",
-      "size": 6097,
-      "sha256": "01cd8582acb6179d76fdc1abc42a4891f59b5e2e577c19c6279b1f256d2b5825",
+      "size": 6197,
+      "sha256": "7b7b62b432eeffcc8b0889f07a0c591314b528e509fca7cfb6253287484ea4a8",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -26284,8 +27274,8 @@
     {
       "path": "services/data-api/src/shared/last-activity.ts",
       "mediaType": "text/typescript",
-      "size": 7752,
-      "sha256": "90456106ad587c548d4c2308ed53743d1a98312614e7eeddc019e2871fb895bd",
+      "size": 8345,
+      "sha256": "92aadb007eea28e3c1684e217f84dcc78f07616847047b5165b8d0d4a9db25bf",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -26302,8 +27292,8 @@
     {
       "path": "services/data-api/src/shared/mapping/evidence.ts",
       "mediaType": "text/typescript",
-      "size": 7941,
-      "sha256": "f2716fe468a24e34a2cd0ed51192295b764267cd025eb8bca254625cb31bd661",
+      "size": 8063,
+      "sha256": "d6bb67c9caee21f06986a7e512066fcce805aaaf9dc1ba800056176ddf75cde6",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -26320,8 +27310,8 @@
     {
       "path": "services/data-api/src/shared/mapping/index.test.ts",
       "mediaType": "text/typescript",
-      "size": 22343,
-      "sha256": "943afa06f6eedf60d1c77c129780248e8322dc0a07f2d90d3306c2beef374730",
+      "size": 22438,
+      "sha256": "c7069f08bc97447d383bebe3b5619aa286b3d6cc4ae9cd87314f5c469fdbbc0e",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -26473,8 +27463,8 @@
     {
       "path": "services/functions/box-webhook/box_operations.py",
       "mediaType": "text/x-python",
-      "size": 36614,
-      "sha256": "1a2db1e5cfb7499a4e418c28894596913206d09f011ca46edd19b9dc81fbeccb",
+      "size": 43398,
+      "sha256": "0f0cc450f56dba82540d2a3493ef5c231be208257b52abd59aea3d06388ddb86",
       "category": "source",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -26500,8 +27490,8 @@
     {
       "path": "services/functions/box-webhook/function_app.py",
       "mediaType": "text/x-python",
-      "size": 35970,
-      "sha256": "d558d64dabb58ca07158c77637f41cd7543b4540ab37f4eb516abc888a0b8eab",
+      "size": 40074,
+      "sha256": "84f7bded3eed3392230b2b1044d8516a89c3cab34a9479291a7164b22a36c639",
       "category": "source",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -26615,6 +27605,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/functions/box-webhook/tests/test_file_deletion_routes.py",
+      "mediaType": "text/x-python",
+      "size": 2192,
+      "sha256": "e6b35a5e8d57613029d79e49cb749763756adced24475d51f2a0782e82edd633",
+      "category": "test",
+      "owner": "archive-integration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/functions/box-webhook/tests/test_file_request_routes.py",
       "mediaType": "text/x-python",
       "size": 2905,
@@ -26635,8 +27634,8 @@
     {
       "path": "services/functions/box-webhook/tests/test_scope_lock.py",
       "mediaType": "text/x-python",
-      "size": 13863,
-      "sha256": "d604c4cc9e684a9141a0898aaa25dc7fa13eed7f12545264a5c1688a42686dd2",
+      "size": 23292,
+      "sha256": "ed1bd6c770fb75d9eaae4c57ed3c787c7c0ef89eaf162e2700132a3f05a56ce4",
       "category": "test",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -26644,8 +27643,8 @@
     {
       "path": "services/functions/box-webhook/tests/test_upload_route.py",
       "mediaType": "text/x-python",
-      "size": 10496,
-      "sha256": "fbad33e78ca6a70eeecacb25e262a87d107dcb0a8846598f956e1ce61590a839",
+      "size": 15241,
+      "sha256": "32a2a448aff841d139b236a62d4fdc6f0dc1c49a11d67a902be626cc32e6b426",
       "category": "test",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -26725,8 +27724,8 @@
     {
       "path": "services/functions/eva-sentry/function_app.py",
       "mediaType": "text/x-python",
-      "size": 13450,
-      "sha256": "ed0f0531b362cb7f99844d73e2b79505bee4dcd77e4f512f5d22f55be8617393",
+      "size": 13579,
+      "sha256": "5884bfcc7b2899beab7faaa0ab55d170279e4837fc6152b847665c68b574f88f",
       "category": "source",
       "owner": "eva-integration",
       "lifecycle": "active"
@@ -26761,8 +27760,8 @@
     {
       "path": "services/functions/eva-sentry/payload.py",
       "mediaType": "text/x-python",
-      "size": 16826,
-      "sha256": "b02c4e521901e19e0652b54470fd81936576cbe3cc5afff44e1d6fc6a12b346e",
+      "size": 17843,
+      "sha256": "23672481db77e5c692cb18513e3f302875b4d1fc3be5d028f0bd550869acd792",
       "category": "source",
       "owner": "eva-integration",
       "lifecycle": "active"
@@ -26824,8 +27823,8 @@
     {
       "path": "services/functions/eva-sentry/tests/test_evasentry.py",
       "mediaType": "text/x-python",
-      "size": 25865,
-      "sha256": "d28e6ad313405fad7e683c27407f46a0b5c5b3a92916e381d70775c0400cbdb1",
+      "size": 27829,
+      "sha256": "cc924e4da1efd49db11b1d9770cdd5b43d02c9614cec98d805d18f9f11d9b6a0",
       "category": "test",
       "owner": "eva-integration",
       "lifecycle": "active"
@@ -27238,8 +28237,8 @@
     {
       "path": "services/functions/parser/cedocumentmapper_v2/PROVENANCE.md",
       "mediaType": "text/markdown",
-      "size": 2050,
-      "sha256": "fd6eadff662a0c3b4138ffb81fa5a6498506d2ba24b6c338b48ba00b69ee4718",
+      "size": 2113,
+      "sha256": "88b89bbfeb838a1b7bb74ee9ba68ce820bc85fc889f0a146bb04f5cc20751d83",
       "category": "documentation",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -28318,8 +29317,8 @@
     {
       "path": "services/orchestration/src/adapters/data-api.ts",
       "mediaType": "text/typescript",
-      "size": 33155,
-      "sha256": "35b40548c6d9c816ae5ca8711e9a7e815477a5683ec1e6fcd783ee1aff5fa53c",
+      "size": 38591,
+      "sha256": "6472848c722196d3f1702a34f5785668a43fbf44dea5120e0b443b0e1dc16601",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -28327,8 +29326,8 @@
     {
       "path": "services/orchestration/src/adapters/functions-client.ts",
       "mediaType": "text/typescript",
-      "size": 14673,
-      "sha256": "5f7bb7bceef4a9d998b284d4d4dc7a31b3023c7ad57c36fc1234b5f3b67d6e5c",
+      "size": 16577,
+      "sha256": "e5dbf052814aebca401a2ca9137e90273abdd6d99d9685c8f0bac2c7d4caf187",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -28363,8 +29362,8 @@
     {
       "path": "services/orchestration/src/index.ts",
       "mediaType": "text/typescript",
-      "size": 4345,
-      "sha256": "6c9931a4887226715643d455db521af6ec6dc80b9e98001111aac96e6eb9c2ee",
+      "size": 4450,
+      "sha256": "ceb479621f2a8a932e13e035959db589cf9dbb985af43aaa2c6ce0cb46c8ea67",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -28397,10 +29396,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/platform/fixtures/adversarial-image-text.ts",
+      "mediaType": "text/typescript",
+      "size": 902,
+      "sha256": "92dc0c93a680d1c451ef70d554b729c77763c069dae6f1bafd4bc3a6cc41cb40",
+      "category": "fixture",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/platform/image-classify.test.ts",
       "mediaType": "text/typescript",
-      "size": 9643,
-      "sha256": "1849d2e1b07000062661b5eaee7ec218917c506db95f0612c6d324fda16bac24",
+      "size": 16357,
+      "sha256": "f2e1dbd0819059d5bbb3aa4ba801fa51a5fd945d096de31dc2179d976072c65b",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -28408,8 +29416,8 @@
     {
       "path": "services/orchestration/src/platform/image-classify.ts",
       "mediaType": "text/typescript",
-      "size": 13562,
-      "sha256": "c963d06f4bc3c7627df38dcfc815db172080cb577c8dc160126ee09dd5e956c4",
+      "size": 14040,
+      "sha256": "242c476c4864294b75452d94f16cf8425156361305672552f144c7f7f41dfa4b",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -28588,8 +29596,8 @@
     {
       "path": "services/orchestration/src/workflows/archive/box-classify-sweep.test.ts",
       "mediaType": "text/typescript",
-      "size": 28097,
-      "sha256": "65837d0f25f3abfbd83069aaebb61d1490fac0be4e7ef7322ab8034498cff691",
+      "size": 29126,
+      "sha256": "5fe6a1674e02f6cb5de8d170049f4518138bcc8b9288823d26eb4e74afb276a7",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -28597,8 +29605,8 @@
     {
       "path": "services/orchestration/src/workflows/archive/box-classify-sweep.ts",
       "mediaType": "text/typescript",
-      "size": 20256,
-      "sha256": "c5061648c37cbed81aef4be94aef4d1393e02a47845f100087f53bb108cb92e8",
+      "size": 20571,
+      "sha256": "6dbc641b124e3848714a1d5c16dfb42601bd6c9710d23ed9a8e3864e2cbca16d",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -28660,8 +29668,8 @@
     {
       "path": "services/orchestration/src/workflows/archive/boxArchive.test.ts",
       "mediaType": "text/typescript",
-      "size": 6547,
-      "sha256": "7aaae7f0102d553b7f558936c153be0b324009612389f5e59837583fe84f566c",
+      "size": 7056,
+      "sha256": "b22bf479f8b0751646dc5607db6895e5435e2bee8a0e8f9320ebbc1ef8700b8f",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -28669,8 +29677,8 @@
     {
       "path": "services/orchestration/src/workflows/archive/boxArchive.ts",
       "mediaType": "text/typescript",
-      "size": 12703,
-      "sha256": "903914eac2cc47c0ad5f4747bd7010c6260a39949bde7aa0b4e91cf08bf0c5ce",
+      "size": 13385,
+      "sha256": "86064b052f0ca391e1469522729a404b536ecfe0f62ee3515eec1e6f6aab1973",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -28678,8 +29686,8 @@
     {
       "path": "services/orchestration/src/workflows/archive/finalize-eva-box.ts",
       "mediaType": "text/typescript",
-      "size": 3236,
-      "sha256": "82f356ecabc02f97b05860bf3a7e6dffd2439dbc6d8ae36054f890b98b377e27",
+      "size": 3365,
+      "sha256": "7c8d4054b1ee9b63b1fb883784037c046b138c52e304ce7f458d965294bbdd44",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -28802,10 +29810,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/workflows/evidence/imagesUnmatched.test.ts",
+      "mediaType": "text/typescript",
+      "size": 7364,
+      "sha256": "e759a552bc57f0bcd0703f3e88f6cb31ca5472c7d866ad3f67d72d0353decc43",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/workflows/evidence/imagesUnmatched.ts",
       "mediaType": "text/typescript",
-      "size": 3042,
-      "sha256": "3d0dcaa28d0a76fa8033a0c8c7d181c6269d8ddd24e1e1d8428e88e3e693cf95",
+      "size": 8793,
+      "sha256": "ae46cd4d6ee55a047bc61c29edad16e4ca053568bbbcdf5b3bcdfd77fe14fd7a",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -28939,8 +29956,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/intakeOrchestrator.ts",
       "mediaType": "text/typescript",
-      "size": 41538,
-      "sha256": "a867a5c6ed67d1e561d1b0c98dd1d01c053dafbcd3a913e49b84fe5723d11a5f",
+      "size": 42775,
+      "sha256": "ad3043509b9bd0d4ef2f724ed5ba13a1ca5cf824ba68f953dc4f7c1beaeca4f3",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -29058,6 +30075,42 @@
       "mediaType": "text/typescript",
       "size": 16739,
       "sha256": "9287e34542d7c86c625aae2f47acb465be0a751eb303565f07f971f75e227446",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/mailbox/archive-holding-monitor.test.ts",
+      "mediaType": "text/typescript",
+      "size": 5674,
+      "sha256": "9cc1b4fb84dc6e3bfe1cafded086b952f807f03fd689e9aacd52dc16224ca75f",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/mailbox/archive-holding-monitor.ts",
+      "mediaType": "text/typescript",
+      "size": 9721,
+      "sha256": "70b91a8b3ed1a06be3aa6cb6d8d69094cbe31e73f64bc80207ec2751b3f36e29",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/mailbox/archiveHolding.test.ts",
+      "mediaType": "text/typescript",
+      "size": 12226,
+      "sha256": "52562ccaf7991b9147c73f0e6f26d09394c31f3d818e5db240511d9175b43e25",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/mailbox/archiveHolding.ts",
+      "mediaType": "text/typescript",
+      "size": 8291,
+      "sha256": "98bb1fb38d0873860fa476e651818a41daafd78aa033adc317d16f1366ee2681",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -29191,8 +30244,8 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-case.ts",
       "mediaType": "text/typescript",
-      "size": 29146,
-      "sha256": "986afbd1f454e632c95cb26e06357a6fcd299ae36e91b1fca2e1505bd2e69f24",
+      "size": 29390,
+      "sha256": "eae1fc9c2cd57d389fbc6ddb21033e114ff575b0fdff9b7fe2f1bce1836af3d8",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -29245,8 +30298,8 @@
     {
       "path": "skills-lock.json",
       "mediaType": "application/json",
-      "size": 583,
-      "sha256": "d2ca6f80b47cab469169270f71779317e13c5b6e8d65eeccec60cdd867679261",
+      "size": 767,
+      "sha256": "ccfe0c60a25c0347976224fc230c023eb48f7f346d9896bd54b343a7ed767579",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -29441,6 +30494,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/02/02a67bcd0ecb25aff6329547bcee3a6b7aecb5bea2bda05b7a3bc133a5663eb8.json",
+      "mediaType": "application/json",
+      "size": 27938,
+      "sha256": "02a67bcd0ecb25aff6329547bcee3a6b7aecb5bea2bda05b7a3bc133a5663eb8",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/02/02e418ad0708813d70b6ae524f3524b39a067b2c3d70ed1220623d32551361ef.jpg",
       "mediaType": "image/jpeg",
       "size": 127233,
@@ -29468,6 +30530,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/04/04a466ccf4017f14ed563c0a43459592c3672daa35c04adaa1cacea605301d0a.md",
+      "mediaType": "text/markdown",
+      "size": 1286,
+      "sha256": "04a466ccf4017f14ed563c0a43459592c3672daa35c04adaa1cacea605301d0a",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/05/058b72c5ed3c3019a5d42452532f7cf8dc2b9088b2fffa68e42498611a309e37.pdf",
       "mediaType": "application/pdf",
       "size": 167460,
@@ -29486,6 +30557,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/06/06c2657865e0dbd73baf4c2d5e194ece41056e85f9169f79b68f4d7bce405a09.md",
+      "mediaType": "text/markdown",
+      "size": 1505,
+      "sha256": "06c2657865e0dbd73baf4c2d5e194ece41056e85f9169f79b68f4d7bce405a09",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/07/07bc19d2708137d29066c12ccb01683d50094930b284cff430860111b67d83f8.eml",
       "mediaType": "message/rfc822",
       "size": 2904735,
@@ -29499,6 +30579,15 @@
       "mediaType": "image/jpeg",
       "size": 223243,
       "sha256": "07d5dce592cc137c1e28a82913d20b064233bf1724270083813ebfcb6672bef4",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/08/0806374cd2dbc5159bef59926127adc35520c7a65cad0e0677c57b5d3225ebff.xlsx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "size": 12324,
+      "sha256": "0806374cd2dbc5159bef59926127adc35520c7a65cad0e0677c57b5d3225ebff",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -29589,6 +30678,15 @@
       "mediaType": "image/png",
       "size": 6058,
       "sha256": "0cf298a34d584d76a9b32b887c9b87abc99cb4d8b2061ccf5fa3b710b0436c54",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/0d/0d77f4e319f254fa50c1d7f3f800b3c1d09a8aa33e2b6af6a9dbc581b98dba8e.csv",
+      "mediaType": "text/csv",
+      "size": 27289,
+      "sha256": "0d77f4e319f254fa50c1d7f3f800b3c1d09a8aa33e2b6af6a9dbc581b98dba8e",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -29724,6 +30822,15 @@
       "mediaType": "application/pdf",
       "size": 211311,
       "sha256": "1479c259748c42a9a1ebc4e0994649eef7276a75b41e5d1644e672eb9cde6698",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/15/151762c39428f08cf7db83d4e1d60f219a84be50d6bb636d6227099cd912b66b.md",
+      "mediaType": "text/markdown",
+      "size": 1419,
+      "sha256": "151762c39428f08cf7db83d4e1d60f219a84be50d6bb636d6227099cd912b66b",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -29891,6 +30998,24 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/1e/1e10f2553cd032d9020a9717b869cab0d0fc9ce2adc87b554dbf9406a8ec02ab.py",
+      "mediaType": "text/x-python",
+      "size": 9269,
+      "sha256": "1e10f2553cd032d9020a9717b869cab0d0fc9ce2adc87b554dbf9406a8ec02ab",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/1e/1e3daed81c8f5e1984cc15449593cd01bc8883b9aa0d6e0563ec4ef3515b11e1.xls",
+      "mediaType": "application/vnd.ms-excel",
+      "size": 79349,
+      "sha256": "1e3daed81c8f5e1984cc15449593cd01bc8883b9aa0d6e0563ec4ef3515b11e1",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/1e/1e5c41a77985731982d6ec7e6af291984ecf1c96ab75c836b489fde676a20b4d.pdf",
       "mediaType": "application/pdf",
       "size": 1022458,
@@ -29945,6 +31070,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/1f/1fdda30f73f276d19308d0d5bec8f52dac29216605f198c29b6010b828400210.xls",
+      "mediaType": "application/vnd.ms-excel",
+      "size": 310,
+      "sha256": "1fdda30f73f276d19308d0d5bec8f52dac29216605f198c29b6010b828400210",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/1f/1fe830f87c3050fb6a79acbd6830872725f0a0fa0f58cf1080d83326d571ea69.pdf",
       "mediaType": "application/pdf",
       "size": 3879912,
@@ -29994,6 +31128,15 @@
       "mediaType": "image/jpeg",
       "size": 424651,
       "sha256": "2257db909d8cfed4dd0d282909b416ec4c703bece1606879ed88333ed6c2b509",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/22/22f9036385d5e4d67df24db313f67a58c2ae7aefaef811aa4158dac27e73dbc7.py",
+      "mediaType": "text/x-python",
+      "size": 12848,
+      "sha256": "22f9036385d5e4d67df24db313f67a58c2ae7aefaef811aa4158dac27e73dbc7",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -30080,10 +31223,28 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/25/25c11f5d3064cb86f25aa50ce6fbfa02912e174fa9c46a93e7206a4e225675c3.md",
+      "mediaType": "text/markdown",
+      "size": 36900,
+      "sha256": "25c11f5d3064cb86f25aa50ce6fbfa02912e174fa9c46a93e7206a4e225675c3",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/26/261ca1ff97758ed228c8c6d3e82ad4d74be7e2dfab372ed45299ac925654935a.eml",
       "mediaType": "message/rfc822",
       "size": 3304167,
       "sha256": "261ca1ff97758ed228c8c6d3e82ad4d74be7e2dfab372ed45299ac925654935a",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/26/265a7cc4d8211efe89b376aba8a83a04fb37b670c4f6259cdb348a8b95f1d258.csv",
+      "mediaType": "text/csv",
+      "size": 50736,
+      "sha256": "265a7cc4d8211efe89b376aba8a83a04fb37b670c4f6259cdb348a8b95f1d258",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -30134,10 +31295,28 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/28/28e45a3d26f10273a658debcb7ea06cf7ba4a34007e916cbe59cc71496d55294.csv",
+      "mediaType": "text/csv",
+      "size": 75747,
+      "sha256": "28e45a3d26f10273a658debcb7ea06cf7ba4a34007e916cbe59cc71496d55294",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/29/2945a939a84c82b3c4cfdca7421a8ea1dee2c8ebf242a46e76cde8133094297f.msg",
       "mediaType": "application/octet-stream",
       "size": 7015936,
       "sha256": "2945a939a84c82b3c4cfdca7421a8ea1dee2c8ebf242a46e76cde8133094297f",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/2a/2a58964b603aac816e3695f28c6cca6704209693d8b494d469dc4c3149c77a12.csv",
+      "mediaType": "text/csv",
+      "size": 6774,
+      "sha256": "2a58964b603aac816e3695f28c6cca6704209693d8b494d469dc4c3149c77a12",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -30260,6 +31439,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/32/327d6b272244571047f70f2a400a4ddff0093ce367376470f368a1dc8243d53e.csv",
+      "mediaType": "text/csv",
+      "size": 2766,
+      "sha256": "327d6b272244571047f70f2a400a4ddff0093ce367376470f368a1dc8243d53e",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/32/328e082c30ed3ccb1d3ce1dc79c9f2a97c3c215f02f6a733c923aad4a9b6267e.jpeg",
       "mediaType": "image/jpeg",
       "size": 133936,
@@ -30278,10 +31466,46 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/33/3369ec35576ebfe0215771f270fc489ff848d424bb438182e35a8fe56e2b196b.md",
+      "mediaType": "text/markdown",
+      "size": 13480,
+      "sha256": "3369ec35576ebfe0215771f270fc489ff848d424bb438182e35a8fe56e2b196b",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/33/33f24758ff04312d14e3b96df8f8996ee151000503faf19e27544cca8d9c96d0.csv",
+      "mediaType": "text/csv",
+      "size": 9816,
+      "sha256": "33f24758ff04312d14e3b96df8f8996ee151000503faf19e27544cca8d9c96d0",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/34/342718e48739c8e58782c09547756b0530463db057bf45871a3d91747e648f9a.eml",
       "mediaType": "message/rfc822",
       "size": 255167,
       "sha256": "342718e48739c8e58782c09547756b0530463db057bf45871a3d91747e648f9a",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/34/344481466a3fffc8f064c7022c045cd17900065629dc90cfbb14cd5b067e73c1.csv",
+      "mediaType": "text/csv",
+      "size": 33240,
+      "sha256": "344481466a3fffc8f064c7022c045cd17900065629dc90cfbb14cd5b067e73c1",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/34/346bf06c3544d50d6482b84e80ca55c862fc400ba30478ea3b3e0430aa8db859.json",
+      "mediaType": "application/json",
+      "size": 29413,
+      "sha256": "346bf06c3544d50d6482b84e80ca55c862fc400ba30478ea3b3e0430aa8db859",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -30449,6 +31673,24 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/3b/3b26a4bf9e50785f805a01af17dc143b9d12fc5ba761b2c69796a2744c403a35.xlsx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "size": 21399,
+      "sha256": "3b26a4bf9e50785f805a01af17dc143b9d12fc5ba761b2c69796a2744c403a35",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/3b/3b2752d688827e61d160ad908626693cf1fa462102d48e12915c52ec404d591f.md",
+      "mediaType": "text/markdown",
+      "size": 910,
+      "sha256": "3b2752d688827e61d160ad908626693cf1fa462102d48e12915c52ec404d591f",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/3c/3cc9f3fc4ad3292d10f0d799fac596722db4d70b109e9d0e52bc08786b0bca0b.jpeg",
       "mediaType": "image/jpeg",
       "size": 720341,
@@ -30494,6 +31736,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/3f/3f78697510b4558fb1546b11dd54849803bb5b29982104fd077ccb67e24a2d0e.xls",
+      "mediaType": "application/vnd.ms-excel",
+      "size": 13522,
+      "sha256": "3f78697510b4558fb1546b11dd54849803bb5b29982104fd077ccb67e24a2d0e",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/3f/3fc535c557df9a26786d3f33f33e1f3b3fcf98e5e6eedd8bd07bcefd5dbdb2f9.jpg",
       "mediaType": "image/jpeg",
       "size": 150034,
@@ -30507,6 +31758,24 @@
       "mediaType": "message/rfc822",
       "size": 66778,
       "sha256": "408cfc33c7a635087596386a7d2994d8fb8bf35e3bcbf72649b992db0249d79d",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/40/4090c674eca65bfb63397e685799696652489b05effb0f2e2fbb1b3c4f486aa3.md",
+      "mediaType": "text/markdown",
+      "size": 1953,
+      "sha256": "4090c674eca65bfb63397e685799696652489b05effb0f2e2fbb1b3c4f486aa3",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/40/40b327518301f9e879578e7617bff45b6a38ac2feb7e769787bf06961f7069ca.xls",
+      "mediaType": "application/vnd.ms-excel",
+      "size": 584,
+      "sha256": "40b327518301f9e879578e7617bff45b6a38ac2feb7e769787bf06961f7069ca",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -30629,6 +31898,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/47/47237e200cdedc33775d13fdcd0ffa323d369e8407fffbc18a8718ff8a24b6dd.csv",
+      "mediaType": "text/csv",
+      "size": 6348,
+      "sha256": "47237e200cdedc33775d13fdcd0ffa323d369e8407fffbc18a8718ff8a24b6dd",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/47/47eb5c5a39da194edff7c4e517ba162d695509c77a393cd873fe72bbd5308562.pdf",
       "mediaType": "application/pdf",
       "size": 238506,
@@ -30710,6 +31988,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/4a/4a9214a4de6879440182163af397c89c98a274d0218bd1e272cd6c288b30a311.csv",
+      "mediaType": "text/csv",
+      "size": 1203,
+      "sha256": "4a9214a4de6879440182163af397c89c98a274d0218bd1e272cd6c288b30a311",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/4a/4ae8e94c21c4e6049be6edc5d0fb06ae46bd1190b70a0ff7829366de895a5b50.jpg",
       "mediaType": "image/jpeg",
       "size": 83969,
@@ -30737,10 +32024,28 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/4d/4d1ab11d59b6242c3d0e025fc599ada3b707e89ea949fc6518e11ced4ed3fae5.py",
+      "mediaType": "text/x-python",
+      "size": 942,
+      "sha256": "4d1ab11d59b6242c3d0e025fc599ada3b707e89ea949fc6518e11ced4ed3fae5",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/4d/4db34dd766d2422f4f45b6da01febbab580a71cfdc29c1a9f24564d502790c3b.eml",
       "mediaType": "message/rfc822",
       "size": 107592,
       "sha256": "4db34dd766d2422f4f45b6da01febbab580a71cfdc29c1a9f24564d502790c3b",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/4d/4de663adbf0694d3bf0aea571ce3ba3b4f83b326c3d1c596d3016c54fa96fcec.md",
+      "mediaType": "text/markdown",
+      "size": 15015,
+      "sha256": "4de663adbf0694d3bf0aea571ce3ba3b4f83b326c3d1c596d3016c54fa96fcec",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -30863,6 +32168,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/54/547ca2f211e625bf9efac963294ed4cd50dd117428fa34d3aa5a6446a5e0e836.csv",
+      "mediaType": "text/csv",
+      "size": 4318,
+      "sha256": "547ca2f211e625bf9efac963294ed4cd50dd117428fa34d3aa5a6446a5e0e836",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/54/54b9d68f23f6361d86786dab752ebf9963666032c696ebd0672b6b1e8c3d7001.png",
       "mediaType": "image/png",
       "size": 170228,
@@ -30908,6 +32222,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/55/55bd5935eecf7b91f2699fa338bc0285b6701af8e5b3e58f52ee8977759aa307.py",
+      "mediaType": "text/x-python",
+      "size": 5192,
+      "sha256": "55bd5935eecf7b91f2699fa338bc0285b6701af8e5b3e58f52ee8977759aa307",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/56/564ceb10d0bd447c2a7744936eabb3e938075717fdb88671f76a838b37092ee5.jpg",
       "mediaType": "image/jpeg",
       "size": 101028,
@@ -30948,6 +32271,15 @@
       "mediaType": "application/pdf",
       "size": 1090540,
       "sha256": "59484364a568bb072e7fdf98b08b95144460be1ee1255045d0a22e01253684a9",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/59/5962c65def0599b56dcac737e9972f275eaa3795d208437ddfd42bd3511f794c.md",
+      "mediaType": "text/markdown",
+      "size": 6271,
+      "sha256": "5962c65def0599b56dcac737e9972f275eaa3795d208437ddfd42bd3511f794c",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -31029,6 +32361,15 @@
       "mediaType": "image/png",
       "size": 64497,
       "sha256": "5ce380a6989999ae40db9b7105b2f6fc3613144a97bcb5b06523f24cb1c363ff",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/5d/5d1eb61c27941e1c772de62d050eaff86b186cc022cbaf51da35d8909caa7232.csv",
+      "mediaType": "text/csv",
+      "size": 196,
+      "sha256": "5d1eb61c27941e1c772de62d050eaff86b186cc022cbaf51da35d8909caa7232",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -31142,6 +32483,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/61/618cc681e6702d6ddbeaa7105459e33dbd3189201ce62643ac63881c68da6f11.md",
+      "mediaType": "text/markdown",
+      "size": 86027,
+      "sha256": "618cc681e6702d6ddbeaa7105459e33dbd3189201ce62643ac63881c68da6f11",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/61/61d5eb8cbc420580552a8d282c54c6224e0777434c9706b8c972ed83df150ac7.png",
       "mediaType": "image/png",
       "size": 177098,
@@ -31232,6 +32582,24 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/65/659451a2e47bacbba261fcf6f62e5df28910017f394a2d2a0e0414b2d5946269.csv",
+      "mediaType": "text/csv",
+      "size": 18938,
+      "sha256": "659451a2e47bacbba261fcf6f62e5df28910017f394a2d2a0e0414b2d5946269",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/65/659dd1e72493be231295aafb88d87107716efe6e8011d05298a099fabb9acc23.csv",
+      "mediaType": "text/csv",
+      "size": 804,
+      "sha256": "659dd1e72493be231295aafb88d87107716efe6e8011d05298a099fabb9acc23",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/65/65d42d8fd824ad012aa92fa888c3badc33db9060fd4fef6c677348cc33ba358e.jpg",
       "mediaType": "image/jpeg",
       "size": 164049,
@@ -31295,10 +32663,28 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/6a/6aadf504d51cdf12b9b8689e4b54a0ad3689a7bb593b962813ad938a6024e0fc.md",
+      "mediaType": "text/markdown",
+      "size": 844,
+      "sha256": "6aadf504d51cdf12b9b8689e4b54a0ad3689a7bb593b962813ad938a6024e0fc",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/6a/6abc3c9f58f7a25ba1c114463cb0d784342fc7fc53d74d7ea7d5d5c47ab18f3e.png",
       "mediaType": "image/png",
       "size": 44654,
       "sha256": "6abc3c9f58f7a25ba1c114463cb0d784342fc7fc53d74d7ea7d5d5c47ab18f3e",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/6a/6ade4c5a772e5fa4c7a033719fe6a5d1cb35f44b6266dfc81830bb3d0c776990.json",
+      "mediaType": "application/json",
+      "size": 1114,
+      "sha256": "6ade4c5a772e5fa4c7a033719fe6a5d1cb35f44b6266dfc81830bb3d0c776990",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -31326,6 +32712,15 @@
       "mediaType": "message/rfc822",
       "size": 98449,
       "sha256": "6bcfb9072aa6690018b2f40218f60551be458a4f8171594f6a5ecfa83db03fd9",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/6b/6be73b20467423caf4ad4ac9d09bc6398bb8356fc59de9fc884070b6fb23d28e.py",
+      "mediaType": "text/x-python",
+      "size": 8682,
+      "sha256": "6be73b20467423caf4ad4ac9d09bc6398bb8356fc59de9fc884070b6fb23d28e",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -31448,6 +32843,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/71/719c4d0364a064a484828f1d7ddf8a83f6e1185cf36039d3eaf21259033ce153.csv",
+      "mediaType": "text/csv",
+      "size": 11354,
+      "sha256": "719c4d0364a064a484828f1d7ddf8a83f6e1185cf36039d3eaf21259033ce153",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/71/71d5803bffe1098db154db3b65026514cd5d800eed7233affdc748d46d0412ed.eml",
       "mediaType": "message/rfc822",
       "size": 76838,
@@ -31538,6 +32942,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/76/7617f9e4aa12ce2fdfc1bbdadb4ceec6118434a37df8ce5febf786be47ce92ed.py",
+      "mediaType": "text/x-python",
+      "size": 2287,
+      "sha256": "7617f9e4aa12ce2fdfc1bbdadb4ceec6118434a37df8ce5febf786be47ce92ed",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/76/766d49c2440aed13fb1a189d972e9bbfb4f3e06ebcf752f2595f33f48364d810.png",
       "mediaType": "image/png",
       "size": 167992,
@@ -31560,6 +32973,15 @@
       "mediaType": "message/rfc822",
       "size": 48576,
       "sha256": "770e20cc052cbe90fcc2feea773bba75624ceb3598901bbc761d8d8f50652cb1",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/77/77165c095edb0b1edddd575857c8c2ddcfae0576ce4bd493ca16c3affa867084.xls",
+      "mediaType": "application/vnd.ms-excel",
+      "size": 311,
+      "sha256": "77165c095edb0b1edddd575857c8c2ddcfae0576ce4bd493ca16c3affa867084",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -31592,6 +33014,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/79/792c883137f40b519046decaf14860ed70d0f6edda7122eb08c65580a49e89be.xlsx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "size": 2391908,
+      "sha256": "792c883137f40b519046decaf14860ed70d0f6edda7122eb08c65580a49e89be",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/79/793e23a4b24135dbdce0e7063cf8b92fde61eb6753c1cb1d1e78f632daae4182.jpeg",
       "mediaType": "image/jpeg",
       "size": 408117,
@@ -31614,6 +33045,15 @@
       "mediaType": "image/jpeg",
       "size": 223041,
       "sha256": "7a8ee934fda626755114e6f90d489235732267275d9c7d18ccdb41826c583884",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/7b/7b33be54fb5de0ebc5bdd8f2fcb0a64b18cdb821b55aa151497b28cf5122eab0.txt",
+      "mediaType": "text/plain",
+      "size": 95,
+      "sha256": "7b33be54fb5de0ebc5bdd8f2fcb0a64b18cdb821b55aa151497b28cf5122eab0",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -31889,6 +33329,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/8f/8f9c1bd61d1e5cf27d34db95efbf302bbe999a42708a2a7be96af21823d8f0ff.csv",
+      "mediaType": "text/csv",
+      "size": 16103,
+      "sha256": "8f9c1bd61d1e5cf27d34db95efbf302bbe999a42708a2a7be96af21823d8f0ff",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/8f/8fa3ea31d2610844bc0f13ec48714924141cf141ad4f373d75404900d4013e4e.pdf",
       "mediaType": "application/pdf",
       "size": 143221,
@@ -31947,6 +33396,15 @@
       "mediaType": "image/png",
       "size": 175733,
       "sha256": "939e983eb0d99e3cc9f255ac1da844c7cf4199a9f7d87b76c858d40d77af0516",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/94/9405d578082fec5671ca2c2d0492c5956a922687acd8e996503068c404284362.csv",
+      "mediaType": "text/csv",
+      "size": 4908,
+      "sha256": "9405d578082fec5671ca2c2d0492c5956a922687acd8e996503068c404284362",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -32015,10 +33473,28 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/98/98174fe5c70892bdf192b9d3c5a7985d20347a5292bcb474d3bf6699c2a17556.md",
+      "mediaType": "text/markdown",
+      "size": 1192,
+      "sha256": "98174fe5c70892bdf192b9d3c5a7985d20347a5292bcb474d3bf6699c2a17556",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/98/98375ee5b154433ca40ec6d64d13235212c0c84907a191b90bb30712b1fec147.eml",
       "mediaType": "message/rfc822",
       "size": 51263,
       "sha256": "98375ee5b154433ca40ec6d64d13235212c0c84907a191b90bb30712b1fec147",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/98/98ad015a9fbdfa9d50b2f30cac714d4abaf671767e4442b83e4cdde7925230bd.xls",
+      "mediaType": "application/vnd.ms-excel",
+      "size": 13475,
+      "sha256": "98ad015a9fbdfa9d50b2f30cac714d4abaf671767e4442b83e4cdde7925230bd",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -32069,6 +33545,24 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/9a/9a14e80c7c44c2706ce49c3effed2d7a5978cc636cd5dee0a0d112be1c3b3f64.csv",
+      "mediaType": "text/csv",
+      "size": 10196,
+      "sha256": "9a14e80c7c44c2706ce49c3effed2d7a5978cc636cd5dee0a0d112be1c3b3f64",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/9a/9aa55341792d3e42d97ecf9e5397791e8b54f799535215962c45d441e8037ad5.csv",
+      "mediaType": "text/csv",
+      "size": 487,
+      "sha256": "9aa55341792d3e42d97ecf9e5397791e8b54f799535215962c45d441e8037ad5",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/9b/9b2ae69619408be5bd7b9a844f6dff0b191e88c7a64cc911f39ca5626300859e.jpeg",
       "mediaType": "image/jpeg",
       "size": 291378,
@@ -32109,6 +33603,15 @@
       "mediaType": "application/pdf",
       "size": 1154046,
       "sha256": "9c1d93133dff5999603b14fb4265f4caa8f485c3c4f5e31797a7d1318cb75dcc",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/9c/9ca559171190871c10e6d7a8a3445522d8cad76dca7183a68f1b15947a7e0149.md",
+      "mediaType": "text/markdown",
+      "size": 2901,
+      "sha256": "9ca559171190871c10e6d7a8a3445522d8cad76dca7183a68f1b15947a7e0149",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -32172,6 +33675,15 @@
       "mediaType": "image/jpeg",
       "size": 151125,
       "sha256": "9f2a5d02750d180b6cfa43cefb7a0d53f078189c41f68223047d458e1ec8425e",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/a0/a004b527ca288e77581a4362ac60a6da4ad39701f97f683cb03ea6c9c320504d.csv",
+      "mediaType": "text/csv",
+      "size": 41566,
+      "sha256": "a004b527ca288e77581a4362ac60a6da4ad39701f97f683cb03ea6c9c320504d",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -32258,6 +33770,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/a5/a52b5df2a131c1b00866f478ebba20150070a3af25915acd8c05a41b2d0b983b.xlsm",
+      "mediaType": "application/octet-stream",
+      "size": 434882,
+      "sha256": "a52b5df2a131c1b00866f478ebba20150070a3af25915acd8c05a41b2d0b983b",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/a5/a55eef7e6d6147c4253b294f033f54e5ef6268a3473c9c5e221b319b2d786053.pdf",
       "mediaType": "application/pdf",
       "size": 66788,
@@ -32271,6 +33792,24 @@
       "mediaType": "image/png",
       "size": 102743,
       "sha256": "a570200e0d3d95d9d99526e6070107f534e676df6594afc7cf59930606bf8c24",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/a5/a58e5d281000b482023e4dd81719e62c935a6bd055862342dcdeaf0b1edf593f.md",
+      "mediaType": "text/markdown",
+      "size": 22936,
+      "sha256": "a58e5d281000b482023e4dd81719e62c935a6bd055862342dcdeaf0b1edf593f",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/a5/a5957d4517adf6c630feb60fed9793feded2551243e3427cee81e40a5beead41.py",
+      "mediaType": "text/x-python",
+      "size": 7767,
+      "sha256": "a5957d4517adf6c630feb60fed9793feded2551243e3427cee81e40a5beead41",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -32321,6 +33860,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/a6/a6f8eb62d77108b1854dae4f4fdf106a601817d3ae7bafa1ce9f65a22423be17.md",
+      "mediaType": "text/markdown",
+      "size": 1504,
+      "sha256": "a6f8eb62d77108b1854dae4f4fdf106a601817d3ae7bafa1ce9f65a22423be17",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/a7/a727815175a9cfefb484796de7bb2ef411b74113709e01c6371382eab6db0b86.jpg",
       "mediaType": "image/jpeg",
       "size": 105879,
@@ -32343,6 +33891,15 @@
       "mediaType": "application/pdf",
       "size": 339320,
       "sha256": "a7f60981065f28feee709b2d77b0a1fcee117837fa25fe8e2c688cf8420f0882",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/a7/a7f83a7a68f1c793fb4d717c8fe55524a3709b08ae93f5a0e09ea970c3ad7525.csv",
+      "mediaType": "text/csv",
+      "size": 786,
+      "sha256": "a7f83a7a68f1c793fb4d717c8fe55524a3709b08ae93f5a0e09ea970c3ad7525",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -32465,6 +34022,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/ac/ac1666c85c1e34df183a95bac1285a5dd1ac23377e4daedc059d1eab86c259ab.csv",
+      "mediaType": "text/csv",
+      "size": 3463,
+      "sha256": "ac1666c85c1e34df183a95bac1285a5dd1ac23377e4daedc059d1eab86c259ab",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/ac/ac4700971876b2537ece3a88e6e2dcc487b2b7103b8353301d390230bccc7ac0.jpeg",
       "mediaType": "image/jpeg",
       "size": 130159,
@@ -32573,6 +34139,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/b1/b1e9b0f53e24d3c46cef01971ff367bee89af2a75b101677ee0609e0deb04110.csv",
+      "mediaType": "text/csv",
+      "size": 41655,
+      "sha256": "b1e9b0f53e24d3c46cef01971ff367bee89af2a75b101677ee0609e0deb04110",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/b2/b213872b967fb64ef6cbcffdcbcb0b7909bb56549daf0e0bd94df71e753b351d.eml",
       "mediaType": "message/rfc822",
       "size": 6776942,
@@ -32613,6 +34188,15 @@
       "mediaType": "message/rfc822",
       "size": 721902,
       "sha256": "b3664ce49c2decb41d7ceb188867a68c63673ed03ba31bbeaab3c933e0341ca1",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/b3/b3c7f8adb4e03f56d9a00ebf3899e99821c6176194f714b3ddb892b856d31e8f.md",
+      "mediaType": "text/markdown",
+      "size": 47636,
+      "sha256": "b3c7f8adb4e03f56d9a00ebf3899e99821c6176194f714b3ddb892b856d31e8f",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -32663,6 +34247,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/b6/b65ee3adf813b702193a3dd9a91cfa9938ccd09ff718597d8037ccd490a17328.csv",
+      "mediaType": "text/csv",
+      "size": 14001,
+      "sha256": "b65ee3adf813b702193a3dd9a91cfa9938ccd09ff718597d8037ccd490a17328",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/b6/b6798786728218db782326c340e2b66b9f38f212f4ac049f003f819fcfc9e653.docx",
       "mediaType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "size": 1635180,
@@ -32699,10 +34292,28 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/b9/b9a213c201b02022456c9c1c69f43b061a874cf8578c9f7207be6b286893a423.csv",
+      "mediaType": "text/csv",
+      "size": 210,
+      "sha256": "b9a213c201b02022456c9c1c69f43b061a874cf8578c9f7207be6b286893a423",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/b9/b9e393fb7f0fca3017dba27f1f11da3f37182f68c32580aab2f9ee992a9b4bdf.msg",
       "mediaType": "application/octet-stream",
       "size": 1150976,
       "sha256": "b9e393fb7f0fca3017dba27f1f11da3f37182f68c32580aab2f9ee992a9b4bdf",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/bb/bb29cd1f7cecb7819e06544b19a3aaf7a17296399f05542e404c0f6de12484fe.csv",
+      "mediaType": "text/csv",
+      "size": 571,
+      "sha256": "bb29cd1f7cecb7819e06544b19a3aaf7a17296399f05542e404c0f6de12484fe",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -32744,10 +34355,28 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/bc/bcac587cd53b31a00cbbc163e7642666768b1d7da11cc67f8e3433811a184c71.xlsx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "size": 3366986,
+      "sha256": "bcac587cd53b31a00cbbc163e7642666768b1d7da11cc67f8e3433811a184c71",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/bc/bcf5814a37c72298343dfe3a683b38f8517db977046f0b09c3afcf9bd75c85c6.pdf",
       "mediaType": "application/pdf",
       "size": 2459634,
       "sha256": "bcf5814a37c72298343dfe3a683b38f8517db977046f0b09c3afcf9bd75c85c6",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/bd/bd666fc737eb619c87673d8126f9cdc03f8f255123c0474ded1f80beb40d8be2.py",
+      "mediaType": "text/x-python",
+      "size": 16004,
+      "sha256": "bd666fc737eb619c87673d8126f9cdc03f8f255123c0474ded1f80beb40d8be2",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -32775,6 +34404,15 @@
       "mediaType": "application/msword",
       "size": 44032,
       "sha256": "bfd2aee3b6ef0bb1edfad6353a5144027ce104c44f2c029ff5a330b6399548bc",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/bf/bfe3d819ab16f20792d3df6a92da158068e487bdbfbb8f7cff960068ec75faa5.csv",
+      "mediaType": "text/csv",
+      "size": 25289,
+      "sha256": "bfe3d819ab16f20792d3df6a92da158068e487bdbfbb8f7cff960068ec75faa5",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -32811,6 +34449,15 @@
       "mediaType": "message/rfc822",
       "size": 262,
       "sha256": "c0c7919f4ab3002e59eeb88cbdfd27a63c48747c5bbf5a5286bae361acd1d9e4",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/c1/c15127d12f00d69885793a66198e403812152430d073e582c88814f86ba62890.xls",
+      "mediaType": "application/vnd.ms-excel",
+      "size": 1800,
+      "sha256": "c15127d12f00d69885793a66198e403812152430d073e582c88814f86ba62890",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -32933,6 +34580,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/c4/c4ea2960eb65b5c7895cbdf1829d2a3b94db76badcdb240504bbf70d955780c4.csv",
+      "mediaType": "text/csv",
+      "size": 2389,
+      "sha256": "c4ea2960eb65b5c7895cbdf1829d2a3b94db76badcdb240504bbf70d955780c4",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/c6/c691c5cfb6c02a685a09f741fe2c41d034951501fbbed43ef80081ace43a8704.jpeg",
       "mediaType": "image/jpeg",
       "size": 235927,
@@ -32946,6 +34602,15 @@
       "mediaType": "image/jpeg",
       "size": 102167,
       "sha256": "c7b2bf13c282e2535340a86fcd10400330de1b830dbde3e8cb835046e209e9f6",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/c8/c8ccbe2657503db983a9429e47c844d23cb659a523d81c5ced277a470d43b31a.csv",
+      "mediaType": "text/csv",
+      "size": 684,
+      "sha256": "c8ccbe2657503db983a9429e47c844d23cb659a523d81c5ced277a470d43b31a",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -33023,6 +34688,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/cb/cb8122cd375f20c3c11888fa85ae53b22b1ed5b38b4a5154e5b3fddc8dde2e6c.md",
+      "mediaType": "text/markdown",
+      "size": 5608,
+      "sha256": "cb8122cd375f20c3c11888fa85ae53b22b1ed5b38b4a5154e5b3fddc8dde2e6c",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/cb/cbf54445941a1bbb54ae49be96af7ecc4452b49d29ceda6c91d91a6f80738fe6.eml",
       "mediaType": "message/rfc822",
       "size": 9480,
@@ -33050,6 +34724,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/cd/cd9c5bd9a38ec96fdc67d0f3d6afc868d690d7285b276cd5a6fa52275d02a931.csv",
+      "mediaType": "text/csv",
+      "size": 3549,
+      "sha256": "cd9c5bd9a38ec96fdc67d0f3d6afc868d690d7285b276cd5a6fa52275d02a931",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/cd/cd9dd7a24c3b19cd876125473b5e8aa0fe57c57d7b32c125ac16e2858dbc7686.png",
       "mediaType": "image/png",
       "size": 700433,
@@ -33072,6 +34755,15 @@
       "mediaType": "message/rfc822",
       "size": 585,
       "sha256": "ce1d1dedf00a0179ae967f41e6b1bca6fe1d105d82388b311ffca160861a17ff",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/ce/ce55f590300e10167faa46db71d611f99add9466cf3b62144bb3aa2f55c45751.csv",
+      "mediaType": "text/csv",
+      "size": 116,
+      "sha256": "ce55f590300e10167faa46db71d611f99add9466cf3b62144bb3aa2f55c45751",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -33117,6 +34809,15 @@
       "mediaType": "application/pdf",
       "size": 4504862,
       "sha256": "d0c77da9b0b156eb47ee369583b73fe91b07f01f5996a1cc0a923046897b5368",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/d1/d102558c72b14b9215bd4165c5ab6c55558b7c24ea12e9ffc20705718697ebe4.md",
+      "mediaType": "text/markdown",
+      "size": 39753,
+      "sha256": "d102558c72b14b9215bd4165c5ab6c55558b7c24ea12e9ffc20705718697ebe4",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -33180,6 +34881,15 @@
       "mediaType": "image/jpeg",
       "size": 427810,
       "sha256": "d3dea023884367193b34e7d986ba780190e28db9ff5d579a20c222d23b076a73",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/d4/d47fec466fc217644b193d42ee305616c49cb0dea5c7b38a4174abef0cf7cc48.csv",
+      "mediaType": "text/csv",
+      "size": 39814,
+      "sha256": "d47fec466fc217644b193d42ee305616c49cb0dea5c7b38a4174abef0cf7cc48",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -33338,6 +35048,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/dd/dd50e5da3a3a4a5c368fb503779c25b059ce0e09059949d037f0c1ab1f66f41c.py",
+      "mediaType": "text/x-python",
+      "size": 5731,
+      "sha256": "dd50e5da3a3a4a5c368fb503779c25b059ce0e09059949d037f0c1ab1f66f41c",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/dd/dd5e745309dd73077b60f253024c41fa3e7064c2a3d9d0b5637ad8b52404857d.jpg",
       "mediaType": "image/jpeg",
       "size": 136721,
@@ -33446,6 +35165,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/e0/e07ea481772fe38e66eef59ebbda61600b98f23ba5e9ffe6faef47ff3cabbeed.py",
+      "mediaType": "text/x-python",
+      "size": 13045,
+      "sha256": "e07ea481772fe38e66eef59ebbda61600b98f23ba5e9ffe6faef47ff3cabbeed",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/e0/e09ad2dd8112d6910acba1fd7b7d95b393c52787b1e415899de708a0b52aecd3.jpeg",
       "mediaType": "image/jpeg",
       "size": 151501,
@@ -33527,6 +35255,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/e4/e42cb58edee485bf75cff39b550a57d6b4ecab3ed213a4aa185762dba18aaff6.csv",
+      "mediaType": "text/csv",
+      "size": 33161,
+      "sha256": "e42cb58edee485bf75cff39b550a57d6b4ecab3ed213a4aa185762dba18aaff6",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/e4/e4607677b7472360fb184d0a76c1b36a1586e91cf6cd470fed4a3db83ae551e7.msg",
       "mediaType": "application/octet-stream",
       "size": 9695232,
@@ -33599,10 +35336,28 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/e7/e7083911d71e559bb86ce2cb467396995fa3c685ab9f9e9a25bc793bd0ebc89c.ps1",
+      "mediaType": "text/x-powershell",
+      "size": 4386,
+      "sha256": "e7083911d71e559bb86ce2cb467396995fa3c685ab9f9e9a25bc793bd0ebc89c",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/e7/e74b9a0bafd165d3870a2fe9f403147559d16998e688475ff8a6ff08f4395e1a.jpg",
       "mediaType": "image/jpeg",
       "size": 106322,
       "sha256": "e74b9a0bafd165d3870a2fe9f403147559d16998e688475ff8a6ff08f4395e1a",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/e7/e760e8837e3cc7052b128661ede5d2f600b8c54ce9ce497c9aeca0fb5fd7e566.xls",
+      "mediaType": "application/vnd.ms-excel",
+      "size": 650,
+      "sha256": "e760e8837e3cc7052b128661ede5d2f600b8c54ce9ce497c9aeca0fb5fd7e566",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -33734,6 +35489,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/f0/f06b925088d511d63a63e364c017c15b542f4852b3943b7ea6e8db61ce368899.csv",
+      "mediaType": "text/csv",
+      "size": 1075,
+      "sha256": "f06b925088d511d63a63e364c017c15b542f4852b3943b7ea6e8db61ce368899",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/f0/f0bda80bf773822a95f6425f21148c1dd55b3236db5b278112106970997230ef.png",
       "mediaType": "image/png",
       "size": 175353,
@@ -33797,6 +35561,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/f1/f1ca4f4ed6f5f002c1e0fb99a7ffe7dc950454fb3ba482c5a5b0218211bfba58.py",
+      "mediaType": "text/x-python",
+      "size": 10639,
+      "sha256": "f1ca4f4ed6f5f002c1e0fb99a7ffe7dc950454fb3ba482c5a5b0218211bfba58",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/f2/f2135fb32ffd65fcb8907832686dd97480798f445fee314fc6c0a76af55f0fa5.jpeg",
       "mediaType": "image/jpeg",
       "size": 202806,
@@ -33810,6 +35583,15 @@
       "mediaType": "application/pdf",
       "size": 3879690,
       "sha256": "f238fa9425d63bb00d1649e7da0cee3a26ddce6dd21ce499a576f0d006c715d9",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/f2/f25813b0a2e51b02b01a7def4d5b1e37d08b1dc610d2af265c69a969e1e04d6f.py",
+      "mediaType": "text/x-python",
+      "size": 6616,
+      "sha256": "f25813b0a2e51b02b01a7def4d5b1e37d08b1dc610d2af265c69a969e1e04d6f",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -33869,6 +35651,15 @@
       "lifecycle": "evidence"
     },
     {
+      "path": "tests/fixtures/evidence/sha256/f4/f466b4ddc89ec4c6cd16fef9b25b0f7d00c3db8986307f902e2ae41c481631e2.csv",
+      "mediaType": "text/csv",
+      "size": 146792,
+      "sha256": "f466b4ddc89ec4c6cd16fef9b25b0f7d00c3db8986307f902e2ae41c481631e2",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
       "path": "tests/fixtures/evidence/sha256/f5/f5112b955b77c0e85618e1cf6bd9b68e50a2db685eebb4c179c3a9dcf0af7c99.eml",
       "mediaType": "message/rfc822",
       "size": 3335612,
@@ -33882,6 +35673,15 @@
       "mediaType": "application/pdf",
       "size": 57451,
       "sha256": "f51c966ece87a6a594ba313de035735d2e5c6020c9888e3208d9636c6b47d4bc",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/f5/f5260a914a7cb15145c9adf144d77487286ae5c2bea19b5421602e2f4ac08dd4.md",
+      "mediaType": "text/markdown",
+      "size": 2000,
+      "sha256": "f5260a914a7cb15145c9adf144d77487286ae5c2bea19b5421602e2f4ac08dd4",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -33963,6 +35763,24 @@
       "mediaType": "application/pdf",
       "size": 1090463,
       "sha256": "f7b36ffb00f4439ab5a697ac7957a8cedc4f67bc464bcfabd14f2bdeef276d11",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/f7/f7e1bffc55d2f31ab1d45a91cde8bdb63be7f8f1c40d4d60f3986c85e143cc45.csv",
+      "mediaType": "text/csv",
+      "size": 761,
+      "sha256": "f7e1bffc55d2f31ab1d45a91cde8bdb63be7f8f1c40d4d60f3986c85e143cc45",
+      "category": "evidence",
+      "owner": "quality-and-evaluation",
+      "lifecycle": "evidence"
+    },
+    {
+      "path": "tests/fixtures/evidence/sha256/f8/f8910da3309c93b3a219fd44fcf662d970db6a6288cd337dc448d0ad393cedc4.csv",
+      "mediaType": "text/csv",
+      "size": 8528,
+      "sha256": "f8910da3309c93b3a219fd44fcf662d970db6a6288cd337dc448d0ad393cedc4",
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence"
@@ -34168,8 +35986,8 @@
     {
       "path": "tests/fixtures/manifests/evidence.json",
       "mediaType": "application/json",
-      "size": 379365,
-      "sha256": "f9eff5483b222434af4483da08a0dda2c3a0274a1c4f14357629d3a11dd779fc",
+      "size": 438066,
+      "sha256": "8df16971b92ec2570239caf392ede5c8cc705be936eb64ed2721b80639ef03dc",
       "category": "fixture",
       "owner": "quality-and-evaluation",
       "lifecycle": "active"
@@ -34287,6 +36105,24 @@
       "mediaType": "text/javascript",
       "size": 6302,
       "sha256": "858a620cb94c071685a94e22d7c4bba478811131479ba0f2c9f054570b5f1bab",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "tools/mcp-image-folder-watcher.mjs",
+      "mediaType": "text/javascript",
+      "size": 5754,
+      "sha256": "94d6ee80d160df08b36fc83faefe541ad3ed9e225029231ec06651406ee15a32",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "tools/mcp-image-folder-watcher.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 3703,
+      "sha256": "9ac9fa64d714ece2b05e87a175101a5f63b1c95c9a8096eb57f51c999197e1c4",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"

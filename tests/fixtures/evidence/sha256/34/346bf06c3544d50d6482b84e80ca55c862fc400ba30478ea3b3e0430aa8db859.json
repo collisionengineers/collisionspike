@@ -1,0 +1,682 @@
+[
+  {
+    "evaCode": "ABRAHAMS",
+    "name": "Abrahams Solicitors",
+    "workproviderId": "101b8183-0a6b-f111-ab0c-002248c6a038",
+    "fieldUpdates": {
+      "cr1bd_instructionnotes": "Attached to email",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "ACSP",
+    "name": "Accident Specialists (Direct jobs)",
+    "workproviderId": "3e6bde84-0a6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Accident Specialist group or request from client\nLocation/storage: Storage - RH10 9NT (Priestley Way Crawley) \n Office RH10 6AE \n Direct - ask whoever provides images to confirm",
+      "cr1bd_instructionnotes": "Direct they will confirm if in Storage or not - check board",
+      "cr1bd_reportreturnnotes": "Return to file handler copy in admin@accidentspecialist.co.uk",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "ASLS",
+    "name": "Affinity Seven Law Solicitors",
+    "workproviderId": "121b8183-0a6b-f111-ab0c-002248c6a038",
+    "fieldUpdates": {
+      "cr1bd_imagessourcenotes": "Customer Whatsapp",
+      "cr1bd_instructionnotes": "Word doc in Email",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "ALISON",
+    "name": "Alison Law",
+    "workproviderId": "8fdc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Whats App group with Alison Law",
+      "cr1bd_instructionnotes": "Usually get a message in whats app",
+      "cr1bd_reportreturnnotes": "Return to file handler copy in marya.sheikh@alisonlaw.co.uk & Bradford@alison-law.co.uk",
+      "cr1bd_defaultmailbox": "Andrew/Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "ALL",
+    "name": "Alliance &Cooper",
+    "workproviderId": "111b8183-0a6b-f111-ab0c-002248c6a038",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Contact client",
+      "cr1bd_reportreturnnotes": "Fee note separate return to file handler and lamiaa.fadl@ac-solicitors.co.uk",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "AS",
+    "name": "Aman Solicitors Advocates",
+    "workproviderId": "406bde84-0a6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Details should be in the email",
+      "cr1bd_instructionnotes": "Instructions in email",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "AMS",
+    "name": "AMS Solicitors",
+    "workproviderId": "3f6bde84-0a6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "Raja or Ontrack\nLocation/storage: If Higginshaw Lane - then OL2 6HW",
+      "cr1bd_instructionnotes": "PDF in email",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "ALS",
+    "name": "Auto Logistic Solutions Ltd",
+    "workproviderId": "90dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000000,
+      "cr1bd_imagessourcenotes": "Image Based - Images with email or from garage",
+      "cr1bd_instructionnotes": "Usually say if they wat rw/unr and rep or total loss",
+      "cr1bd_reportreturnnotes": "Send back to handler and claims@autologistic.co.uk with fee separate \n Copy in Paul Mandy",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "AVI",
+    "name": "Avisons Solicitors",
+    "workproviderId": "426bde84-0a6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000000,
+      "cr1bd_imagessourcenotes": "Image Based -  images on separate email",
+      "cr1bd_instructionnotes": "PDF/Word doc in email",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "AX",
+    "name": "AX",
+    "workproviderId": "131b8183-0a6b-f111-ab0c-002248c6a038",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000000,
+      "cr1bd_imagessourcenotes": "Always from the garage",
+      "cr1bd_instructionnotes": "Usually always repairable - occasion TL have to use AX Salvage Matrix",
+      "cr1bd_reportreturnnotes": "Fee note not separate - Copy in engineersreports@ax.com and p.mandy@oakwoodscotland.co.uk (except if request is Easdons and mentions Guardian or mentions James Claims) \n ALSO send pages 1-4 back to garage - authority will come from AX",
+      "cr1bd_defaultmailbox": "Info",
+      "cr1bd_dragintoeva": true
+    }
+  },
+  {
+    "evaCode": "BC",
+    "name": "Baker Coleman",
+    "workproviderId": "141b8183-0a6b-f111-ab0c-002248c6a038",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Usually with instruction if not sufficient ask Ehjaz (Rapid Claims) via Whatsapp \n Complete Injury Claims - Whats app group or images directly from Waseem (Complete Injury Claims)",
+      "cr1bd_instructionnotes": "Rapid Claims (Huddersfield) \n Sometimes instructions state PHYSICAL if so need to instruct Service Certainty \n Complete Injury Claims (Wolverhampton)",
+      "cr1bd_reportreturnnotes": "Fee note needs to be separate if complete injury claims job copy in completeinjuryclaims@hotmail.com",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "BAKER",
+    "name": "Baker Hardman",
+    "workproviderId": "436bde84-0a6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "Omar WhatsApp chat\nLocation/storage: Storage - Berkstone Motors RG10 9UR",
+      "cr1bd_instructionnotes": "Most jobs come through Omar",
+      "cr1bd_reportreturnnotes": "Fee note separately. Send Omar a copy via Whatsapp",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "BLACK",
+    "name": "BlackStone",
+    "workproviderId": "91dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Foyez: If through Foyez he will provide address. \n Javad/Samore Cars: Also sends direct jobs. \n Client: Contact direct \n Solicitors: Provide images with instruction - ask for location\nLocation/storage: Confirm address with client/source \n If Javad/Samore then 30 Brewery Street, Aston Bham B6 4JB \n Sixways = Somstar Recovery B5 6JX",
+      "cr1bd_instructionnotes": "Instructions usually come in from Shazad",
+      "cr1bd_reportreturnnotes": "Fee note separate return to file handler",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "CASTLE",
+    "name": "Castle",
+    "workproviderId": "446bde84-0a6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000000,
+      "cr1bd_imagessourcenotes": "Castle Accident Management - Whats App",
+      "cr1bd_instructionnotes": "Always received in Whatsapp",
+      "cr1bd_reportreturnnotes": "Send back to Castle on Whats app group",
+      "cr1bd_defaultmailbox": "Whatsapp",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "CW",
+    "name": "Countrywide",
+    "workproviderId": "92dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_imagessourcenotes": "Usually in email \n If the vehicle is at Dickson St Liverpool contact Rich Morrison on Whatsapp for images",
+      "cr1bd_instructionnotes": "Details usually in email body",
+      "cr1bd_defaultmailbox": "Andrew/Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "DFD",
+    "name": "DFD (Richard or Joshua) \n Also Car Claims",
+    "workproviderId": "93dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "SMC (they email estimate and images to engineers) Tarran way Moreton.\nLocation/storage: Address in Email \n If images from Nabeel -  219 Slade Lane, M19 2EX",
+      "cr1bd_instructionnotes": "PDF in email \n If SMC, images/instruction may arrive separately. \n If so, log separately and wait - don't chase for images or instructions \n Car2Go - as above don't need to chase until after 7 days",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "FW",
+    "name": "Fairway Solicitors",
+    "workproviderId": "94dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Sixways/Fairways WhatsApp chat or images from Solicitors (If so image based)\nLocation/storage: Storage - Somstar Recovery and Storage B5 6JX if not in their yard ask them to confirm address \n Solicitors Images - Image based",
+      "cr1bd_instructionnotes": "Sixways - Most jobs come through Sixways \n Veetec Motor Group - Images usually come with instruction",
+      "cr1bd_reportreturnnotes": "Fee note does not need to be separate",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "GG",
+    "name": "Graham Coffey (GGP)",
+    "workproviderId": "aa6611dc-2f6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Direct - request images and inspection location from Client (occasionaly solicitors will send)",
+      "cr1bd_instructionnotes": "Graham Coffey",
+      "cr1bd_reportreturnnotes": "Fee note separate",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "HTU",
+    "name": "HTU Assessors Ltd",
+    "workproviderId": "95dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "Always in the email",
+      "cr1bd_instructionnotes": "Body of email",
+      "cr1bd_defaultmailbox": "Ben",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "KERR",
+    "name": "Kerr Brown Partnership",
+    "workproviderId": "97dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Varies",
+      "cr1bd_instructionnotes": "In body of email",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "KMR",
+    "name": "KMR",
+    "workproviderId": "98dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "Images usually with instruction\nLocation/storage: Usually listed in instruction \n Street Cars, 16 Chorlton Street, M1 3HW \n Storage Yard - Winders Way Salford M6 6BU",
+      "cr1bd_instructionnotes": "Street Cars - usually jobs are Streetrax Ltd jobs",
+      "cr1bd_reportreturnnotes": "Fee note separate return to file handler",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "KMR",
+    "name": "KMR",
+    "workproviderId": "98dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "Images with email\nLocation/storage: Storage - Unit 3 Broughton Road East, Salford Ind Estate, M6 6AQ \n 16 Chorlton Street, Manchester, M1 3HW",
+      "cr1bd_instructionnotes": "Usually have everything with instruction",
+      "cr1bd_reportreturnnotes": "Send back with fee note separate",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "KBS",
+    "name": "Knightsbridge (KBS)",
+    "workproviderId": "96dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Direct - request images and inspection location from Client (occasionaly solicitors will send)",
+      "cr1bd_instructionnotes": "Direct",
+      "cr1bd_reportreturnnotes": "Fee note separate - Copy in info@knightsbridgesolicitors.co.uk",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "KBS",
+    "name": "Knightsbridge (KBS)",
+    "workproviderId": "96dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_imagessourcenotes": "Kabir Jobs - whats app",
+      "cr1bd_instructionnotes": "Kabir",
+      "cr1bd_reportreturnnotes": "Fee note separate - Copy in info@knightsbridgesolicitors.co.uk",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "KBS",
+    "name": "Knightsbridge (KBS)",
+    "workproviderId": "96dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "Expert Claims (most of the time)\nLocation/storage: Expert Claims Whatsapp - if address is in stoke ask Expert claims for images first \n Uttoxeter Road, Stoke on Trent, Staffordshire ST3 5LQ",
+      "cr1bd_instructionnotes": "Expert Claims",
+      "cr1bd_reportreturnnotes": "Fee note separate",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "KBS",
+    "name": "Knightsbridge (KBS)",
+    "workproviderId": "96dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_imagessourcenotes": "Apex Hire - whats app\nLocation/storage: 25 Camelot Way Birmingham B10 OND",
+      "cr1bd_instructionnotes": "Apex Hire",
+      "cr1bd_reportreturnnotes": "Fee note separate - Copy in info@knightsbridgesolicitors.co.uk",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "LEX",
+    "name": "LEX Solicitors",
+    "workproviderId": "99dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "Hackney Solutions\nLocation/storage: Storage \n HS Recovery & Storage LTD William St M12 5FX \n Not in Storage \n Claim 3000 M12 4AH",
+      "cr1bd_instructionnotes": "All jobs come from Hackney Solutions",
+      "cr1bd_reportreturnnotes": "Fee note does not need to be separate but copy in credithire@hackneysolutions.co.uk",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "LPS",
+    "name": "LPS Solicitors",
+    "workproviderId": "9adc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "Omar WhatsApp chat\nLocation/storage: Storage - Berkstone Motors RG10 9UR",
+      "cr1bd_instructionnotes": "Don't do many jobs for them - jobs come via Omar",
+      "cr1bd_reportreturnnotes": "Fee note separately. Send Omar a copy via Whatsapp",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "MATT",
+    "name": "Matt Rowland Solicitors",
+    "workproviderId": "161b8183-0a6b-f111-ab0c-002248c6a038",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000000,
+      "cr1bd_imagessourcenotes": "Castle accident management whatsapp",
+      "cr1bd_instructionnotes": "Letter of instruction by email",
+      "cr1bd_reportreturnnotes": "Check with Castle first if they are ok for us to disclose report before sending to solicitors. Also send fee separate",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "MBH",
+    "name": "MBH Solicitors",
+    "workproviderId": "9bdc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "Nabeel- whats app group\nLocation/storage: Storage - Parkers Autobodies, 4 Chapel Street, Manchester. M19 3QA",
+      "cr1bd_instructionnotes": "Most jobs come from Nabeel",
+      "cr1bd_reportreturnnotes": "Fee does not need sending separately - copy in Alisonnorris@wigansolicitors.com",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "MP",
+    "name": "Montreal Prestige",
+    "workproviderId": "9cdc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "With instruction - if not, email them straight back.",
+      "cr1bd_instructionnotes": "Images should come with instruction",
+      "cr1bd_reportreturnnotes": "Report without images on 1 document \n Copy in mdakri@montrealprestige.co.uk",
+      "cr1bd_defaultmailbox": "Desk",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "YML",
+    "name": "NETWORK HD UK / YM Law",
+    "workproviderId": "4c6bde84-0a6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "Whatsapp Mark Wilson \n Whatsapp Y M Law\nLocation/storage: If Mark Wilson then Swinton Recovery and Storage, Hurlbutts Drive Queensferry, Deeside CH5 1SF",
+      "cr1bd_instructionnotes": "PDF in email",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "OAK",
+    "name": "Oakwoods Solicitors",
+    "workproviderId": "466bde84-0a6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Request from garage if one is listed on instruction if not request from client",
+      "cr1bd_instructionnotes": "Paul Mandy Garages",
+      "cr1bd_reportreturnnotes": "Fee note does not need to be separate - copy in p.mandy@oakwoodscotland.co.uk",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "QCL",
+    "name": "QCL (QCL)",
+    "workproviderId": "476bde84-0a6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "Hackney Solutions\nLocation/storage: Storage \n HS Recovery & Storage LTD William St M12 5FX \n Not in Storage \n Claim 3000 Cariocca Business Park, Hellidon Close, Manchester. M12 4AH",
+      "cr1bd_instructionnotes": "QCL/Hackney solutions \n Email from vd@complexreports.com",
+      "cr1bd_reportreturnnotes": "Fee note does not need to be separate but copy in credithire@hackneysolutions.co.uk",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": true
+    }
+  },
+  {
+    "evaCode": "QCL",
+    "name": "QCL (QCL)",
+    "workproviderId": "476bde84-0a6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "Direct - usually attached to email if need to chase we have a group on whats app - QC Law VD",
+      "cr1bd_instructionnotes": "Direct \n Email from vd@complexreports.com",
+      "cr1bd_reportreturnnotes": "Fee note does not need to be separate",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": true
+    }
+  },
+  {
+    "evaCode": "QDOS",
+    "name": "QDOS",
+    "workproviderId": "171b8183-0a6b-f111-ab0c-002248c6a038",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000000,
+      "cr1bd_defaultmailbox": "Desk",
+      "cr1bd_dragintoeva": true
+    }
+  },
+  {
+    "evaCode": "R1AM/MOTORX",
+    "name": "R1AM/MOTORX",
+    "workproviderId": "55d410e2-2f6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "R1AM- whats app group\nLocation/storage: Clients address \n 300 Biscot Road, Luton, LU3 1AZ \n 47-49 Park Street, Luton, LU1 3JX",
+      "cr1bd_instructionnotes": "Do not message customer for images. Whatsapp R1AM/MOTORX",
+      "cr1bd_reportreturnnotes": "Fee note does not need to be separate",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "RL",
+    "name": "Regent Law  Ltd",
+    "workproviderId": "4a6bde84-0a6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Usually for Bicycles - will come with phone number for storage company",
+      "cr1bd_reportreturnnotes": "Fee note separate return to file handler",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "RELAY",
+    "name": "Relay Motor Group",
+    "workproviderId": "496bde84-0a6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000000,
+      "cr1bd_imagessourcenotes": "Whatsapp Relay",
+      "cr1bd_instructionnotes": "No instructions - Customers name and accident date",
+      "cr1bd_defaultmailbox": "Whatsapp",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "RJS",
+    "name": "Robert James Solicitors",
+    "workproviderId": "9ddc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Direct - request images and inspection location from Client",
+      "cr1bd_instructionnotes": "Direct",
+      "cr1bd_reportreturnnotes": "Fee note separate - copy in engreport@robertjameslaw.co.uk",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": true
+    },
+    "policyOverriddenByRecentData": false,
+    "correction_2026_06_21": "RJS is address-based, not image-based (operator ruling). Desktop-pct is the report-TYPE, not modality. AlwaysImageBased override WITHDRAWN; live row already PreferAddress."
+  },
+  {
+    "evaCode": "RJS",
+    "name": "Robert James Solicitors",
+    "workproviderId": "9ddc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Accident Specialist/Jazy - check board\nLocation/storage: Storage - RH10 9NT (Priestley Way, Crawley) \n Not in storage - ask Jazy",
+      "cr1bd_instructionnotes": "Accident Specialist",
+      "cr1bd_reportreturnnotes": "Fee note separate - copy in engreport@robertjameslaw.co.uk and admin@accidentspecialist.co.uk",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    },
+    "policyOverriddenByRecentData": false,
+    "correction_2026_06_21": "RJS is address-based, not image-based (operator ruling). Desktop-pct is the report-TYPE, not modality. AlwaysImageBased override WITHDRAWN; live row already PreferAddress."
+  },
+  {
+    "evaCode": "RJS",
+    "name": "Robert James Solicitors",
+    "workproviderId": "9ddc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Claim Specialists - images in whats app claim specialist group\nLocation/storage: Claim Specialist HQ - Kenilworth Road Luton LU1 1DQ",
+      "cr1bd_instructionnotes": "Claim Specialists",
+      "cr1bd_reportreturnnotes": "Fee note separate - copy in engreport@robertjameslaw.co.uk",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    },
+    "policyOverriddenByRecentData": false,
+    "correction_2026_06_21": "RJS is address-based, not image-based (operator ruling). Desktop-pct is the report-TYPE, not modality. AlwaysImageBased override WITHDRAWN; live row already PreferAddress."
+  },
+  {
+    "evaCode": "ROZZII",
+    "name": "ROZZII/Green Destinations",
+    "workproviderId": "a0dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "With instruction",
+      "cr1bd_instructionnotes": "Images with instruction",
+      "cr1bd_reportreturnnotes": "Fee note separately",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "SS",
+    "name": "Savas & Savage",
+    "workproviderId": "a1dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Instruction will come from Andy usually with images sometimes we contact client",
+      "cr1bd_instructionnotes": "Instructions come via Andy",
+      "cr1bd_reportreturnnotes": "Email back to solicitors and copy in mw@savasandsavage.co.uk",
+      "cr1bd_defaultmailbox": "Andrew",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "SBL",
+    "name": "Smart Business Link",
+    "workproviderId": "1a1b8183-0a6b-f111-ab0c-002248c6a038",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000000,
+      "cr1bd_imagessourcenotes": "Normally Audatex?",
+      "cr1bd_instructionnotes": "PDF in Email",
+      "cr1bd_defaultmailbox": "Info",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "STALLION",
+    "name": "Stallion",
+    "workproviderId": "a2dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "In Stallion Whatsapp\nLocation/storage: Address provided in Whatsapp",
+      "cr1bd_instructionnotes": "In Whatsapp - Stallion Bodyworks",
+      "cr1bd_reportreturnnotes": "Via Whatsapp - fee is paid prior to report writing",
+      "cr1bd_defaultmailbox": "Not Applicable",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "SWAN",
+    "name": "Swan",
+    "workproviderId": "1c1b8183-0a6b-f111-ab0c-002248c6a038",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Claim Specialists - images in whats app claim specialist group\nLocation/storage: Confirm with sources. Claims Specialists HQ is LU1 1BW",
+      "cr1bd_instructionnotes": "Claim Specialists or Accident Specialist",
+      "cr1bd_reportreturnnotes": "Fee note separate return to file handler",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "TP",
+    "name": "Taylor Price",
+    "workproviderId": "1d1b8183-0a6b-f111-ab0c-002248c6a038",
+    "fieldUpdates": {
+      "cr1bd_imagessourcenotes": "Contained in email",
+      "cr1bd_instructionnotes": "PDF in email",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "TEN",
+    "name": "Ten Legal",
+    "workproviderId": "4b6bde84-0a6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Andy whats app or client direct",
+      "cr1bd_instructionnotes": "Sometimes images go to Andy on Whats App",
+      "cr1bd_reportreturnnotes": "Fee note separate return to file handler",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "TA",
+    "name": "Turnams",
+    "workproviderId": "a3dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Image based - images with email",
+      "cr1bd_instructionnotes": "Go direct to Andy usually image based but Andy will tell you",
+      "cr1bd_reportreturnnotes": "Send back with fee note separate",
+      "cr1bd_defaultmailbox": "Andrew",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "WIL",
+    "name": "Williams & Co",
+    "workproviderId": "1e1b8183-0a6b-f111-ab0c-002248c6a038",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "Requested from claimant via Whatsapp",
+      "cr1bd_instructionnotes": "Word doc in Email",
+      "cr1bd_defaultmailbox": "Andy to Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "WLS",
+    "name": "Woodlands",
+    "workproviderId": "a4dc5c83-0a6b-f111-ab0c-0022481b614c",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000001,
+      "cr1bd_imagessourcenotes": "Complete Injury Claims - Whats App group or direct from Waseem",
+      "cr1bd_instructionnotes": "Complete Injury Claims",
+      "cr1bd_reportreturnnotes": "Fee note separate send back to handler if it is a complete injury claims job copy in completeinjuryclaims@hotmail.com",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "YML",
+    "name": "YM Law/ NETWORK HD UK",
+    "workproviderId": "4c6bde84-0a6b-f111-ab0c-002248c739a7",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "Whatsapp Mark Wilson or Whatsapp Y M Law\nLocation/storage: If Mark Wilson then Swinton Recovery and Storage, Hurlbutts Drive Queensferry, Deeside CH5 1SF",
+      "cr1bd_instructionnotes": "PDF in email",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  },
+  {
+    "evaCode": "ZEN",
+    "name": "Zenith Lawyers",
+    "workproviderId": "1f1b8183-0a6b-f111-ab0c-002248c6a038",
+    "fieldUpdates": {
+      "cr1bd_inspectionlocationpolicy": 100000002,
+      "cr1bd_imagessourcenotes": "Foyez on WhatsApp - confirm location, may be Road Solutions Yard 2 Kiln Lane Bham B25 8HF",
+      "cr1bd_reportreturnnotes": "Fee note separately",
+      "cr1bd_defaultmailbox": "Engineers",
+      "cr1bd_dragintoeva": false
+    }
+  }
+]

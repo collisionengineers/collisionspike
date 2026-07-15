@@ -58,6 +58,23 @@ describe('uploadArchiveItem — TKT-142 size-based branch selection', () => {
     expect(calls.fromBlob).not.toHaveBeenCalled();
   });
 
+  it('requires the programme test root again at the Box upload for agent images', async () => {
+    const { deps, calls } = fakeDeps(120_000);
+    await uploadArchiveItem(
+      'folder-1',
+      { ...ITEM, sourceLabel: 'agent_image_ingest' },
+      EIGHT_MIB,
+      deps,
+    );
+    expect(calls.inline).toHaveBeenCalledWith(
+      'folder-1',
+      ITEM.filename,
+      Buffer.from('small-bytes').toString('base64'),
+      ITEM.contentType,
+      '392761581105',
+    );
+  });
+
   it('a file EXACTLY at the cap stays inline (only "exceeds" goes by blob reference)', async () => {
     const { deps, calls } = fakeDeps(EIGHT_MIB);
     await uploadArchiveItem('folder-1', ITEM, EIGHT_MIB, deps);
@@ -154,9 +171,9 @@ describe('mirrorArchiveItems — row-specific stamping', () => {
     expect(ctx.warn).toHaveBeenCalledWith(expect.stringContaining('was not stamped'));
   });
 
-  it('releases a claim when upload fails before any irreversible archive write', async () => {
+  it('releases a claim when Box fails closed on an unverifiable conflict', async () => {
     const deps: ArchiveMirrorItemDeps = {
-      upload: vi.fn(async () => { throw new Error('upload failed'); }),
+      upload: vi.fn(async () => { throw new Error('fn POST box upload → 502: identity unverifiable'); }),
       stamp: vi.fn(async () => ({ updated: true })),
       release: vi.fn(async () => ({ released: true })),
     };

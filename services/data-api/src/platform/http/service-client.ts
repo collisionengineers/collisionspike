@@ -9,7 +9,7 @@
  *   PARSER_FN_URL          / PARSER_FN_KEY
  *   LOCATION_SUGGEST_FN_URL / LOCATION_SUGGEST_FN_KEY
  *   ENRICH_FN_URL          / ENRICH_FN_KEY
- *   (evasentry, evavalidation, box-webhook are called by orchestration, not the API)
+ *   (EVA Sentry and box-webhook are called by orchestration, not the API)
  *
  * Vehicle enrichment is owned by the Data API: every automated intake, staff
  * retry, and manual preview passes through the same authenticated route and this
@@ -216,6 +216,30 @@ export async function callBoxListFolder(
   ) as Promise<BoxListFolderResponse>;
 }
 
+export interface BoxWriteScopeAttestation {
+  writable?: unknown;
+  rootId?: unknown;
+}
+
+/**
+ * Ask the Box facade to prove that its WRITE lock is configured and that the
+ * candidate folder is the lock root or a descendant. This is read-only, but it
+ * intentionally fails when BOX_ALLOWED_ROOT_ID is unset.
+ */
+export async function verifyBoxWriteScope(folderId: string): Promise<BoxWriteScopeAttestation> {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error('[functions-client] BOX_FN_URL/BOX_FN_KEY not configured');
+  return callFn(
+    base,
+    key,
+    'POST',
+    '/api/box/scope/write-check',
+    { folderId },
+    { timeoutMs: FN_STAGE_TIMEOUT_MS },
+  ) as Promise<BoxWriteScopeAttestation>;
+}
+
 /**
  * Page through a Box folder and return ALL entry names (sub-folders + files). Box paginates,
  * so this loops on offset until a short page (capped at 20 pages / ~20k entries as a safety
@@ -377,4 +401,45 @@ export async function downloadBoxFileContent(
   } catch {
     return undefined;
   }
+}
+
+export interface BoxFileDeletionResponse {
+  id?: string;
+  status?: 'present' | 'deleted' | 'missing';
+}
+
+/** Fresh, non-mutating exact-folder/RW-root validation for a pending image delete. */
+export async function validateBoxFileDeletion(
+  fileId: string,
+  expectedFolderId: string,
+): Promise<BoxFileDeletionResponse> {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error('[functions-client] BOX_FN_URL/BOX_FN_KEY not configured');
+  return callFn(
+    base,
+    key,
+    'GET',
+    `/api/box/files/${encodeURIComponent(fileId)}?folderId=${encodeURIComponent(expectedFolderId)}`,
+    undefined,
+    { timeoutMs: FN_STAGE_TIMEOUT_MS },
+  ) as Promise<BoxFileDeletionResponse>;
+}
+
+/** Delete one exact, freshly revalidated file; already missing is successful. */
+export async function deleteBoxFile(
+  fileId: string,
+  expectedFolderId: string,
+): Promise<BoxFileDeletionResponse> {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error('[functions-client] BOX_FN_URL/BOX_FN_KEY not configured');
+  return callFn(
+    base,
+    key,
+    'DELETE',
+    `/api/box/files/${encodeURIComponent(fileId)}?folderId=${encodeURIComponent(expectedFolderId)}`,
+    undefined,
+    { timeoutMs: FN_STAGE_TIMEOUT_MS },
+  ) as Promise<BoxFileDeletionResponse>;
 }

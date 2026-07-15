@@ -48,7 +48,9 @@ df.app.orchestration('finalizeEvaBoxOrchestrator', function* (ctx) {
 df.app.activity('evaSubmit', {
   handler: async (input: { caseId: string }, ctx): Promise<unknown> => {
     if (!gates.evaApi()) return { skipped: true };
-    const res = await callEvaSubmit(input.caseId);
+    const payload = await dataApi.evaSubmission(input.caseId);
+    const res = await callEvaSubmit(payload) as { submitted?: boolean };
+    if (res.submitted !== true) return res;
     await dataApi.recordAudit({ action: 'eva_submitted', caseId: input.caseId, summary: 'EVA Sentry submit' });
     ctx.log(JSON.stringify({ evt: 'evaSubmit', caseId: input.caseId }));
     return res;

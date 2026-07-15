@@ -152,6 +152,27 @@ def _run_box_op(fn: Callable[[BoxClient], dict[str, Any]]) -> func.HttpResponse:
 # A. Archive routes
 # ===========================================================================
 
+@app.route(route="box/scope/write-check", methods=["POST"])
+def verify_write_scope(req: func.HttpRequest) -> func.HttpResponse:
+    """Fail-closed write-scope attestation for autonomous image ingestion.
+
+    Unlike the generic Box operations, this route never treats an unset scope
+    lock as an unrestricted production posture. It validates the configured
+    root and the candidate folder without changing Box.
+    """
+    if not _truthy(os.environ.get("BOX_API_ENABLED")):
+        return _gated_off()
+    body = _body(req)
+    folder_id = str(body.get("folderId") or "") if body else ""
+    if not folder_id:
+        return _json_response({"error": "folderId is required.", "status": 400}, status=400)
+
+    def attest(client: BoxClient) -> dict[str, Any]:
+        root_id = client.verify_write_scope(folder_id)
+        return {"writable": True, "rootId": root_id}
+
+    return _run_box_op(attest)
+
 @app.route(route="box/folders", methods=["POST"])
 def create_folder(req: func.HttpRequest) -> func.HttpResponse:
     if not _truthy(os.environ.get("BOX_API_ENABLED")):
@@ -166,15 +187,40 @@ def create_folder(req: func.HttpRequest) -> func.HttpResponse:
     return _run_box_op(lambda c: c.create_folder(name, parent_id))
 
 
-@app.route(route="box/folders/{folderId}", methods=["GET"])
-def get_folder(req: func.HttpRequest) -> func.HttpResponse:
-    """Return fresh folder identity only when it is under the writable root."""
+@app.route(route="box/folders/{folderId}", methods=["GET", "PATCH", "DELETE"])
+def folder_lifecycle(req: func.HttpRequest) -> func.HttpResponse:
+    """One handler for the folder resource, dispatching on method (house
+    convention, like file_request_lifecycle). GET returns fresh folder identity
+    under the writable root; PATCH renames one in-scope folder; DELETE retires an
+    empty holding folder (never recursive). Merged from the GET-only get_folder
+    and the PATCH/DELETE mutate_folder so the same route template is bound once."""
     if not _truthy(os.environ.get("BOX_API_ENABLED")):
         return _gated_off()
     folder_id = req.route_params.get("folderId", "")
     if not folder_id:
         return _json_response({"error": "folderId is required.", "status": 400}, status=400)
-    return _run_box_op(lambda c: c.get_folder(folder_id))
+    method = req.method.upper()
+    if method == "GET":
+        return _run_box_op(lambda c: c.get_folder(folder_id))
+    if method == "DELETE":
+        return _run_box_op(lambda c: c.delete_empty_folder(folder_id))
+    body = _body(req)
+    if not body or not isinstance(body.get("name"), str) or not body["name"].strip():
+        return _json_response({"error": "Body must be { name }.", "status": 400}, status=400)
+    return _run_box_op(lambda c: c.rename_folder(folder_id, body["name"].strip()))
+
+
+@app.route(route="box/files/{fileId}/move", methods=["POST"])
+def move_file(req: func.HttpRequest) -> func.HttpResponse:
+    if not _truthy(os.environ.get("BOX_API_ENABLED")):
+        return _gated_off()
+    file_id = req.route_params.get("fileId", "")
+    body = _body(req)
+    parent = body.get("parent") if body else None
+    if not file_id or not isinstance(parent, dict) or not parent.get("id"):
+        return _json_response({"error": "fileId and body parent.id are required.", "status": 400}, status=400)
+    name = body.get("name") if isinstance(body.get("name"), str) else None
+    return _run_box_op(lambda c: c.move_file(file_id, str(parent["id"]), name))
 
 
 # TKT-142: bounded cap on the base64-in-JSON upload lane. ~11 MiB of
@@ -232,6 +278,16 @@ def upload_file(req: func.HttpRequest) -> func.HttpResponse:
             {"error": "Provide exactly ONE of contentBase64 or blobPath.", "status": 400}, status=400
         )
     content_type = body.get("contentType") if isinstance(body.get("contentType"), str) else None
+    required_root = body.get("requiredWriteRootId")
+    if required_root is not None and not isinstance(required_root, str):
+        return _json_response({"error": "requiredWriteRootId must be a string.", "status": 400}, status=400)
+
+    def assert_required_scope(client: BoxClient) -> None:
+        if required_root is None:
+            return
+        attested_root = client.verify_write_scope(folder_id)
+        if attested_root != required_root:
+            raise BoxScopeError("configured write root does not match the required root")
 
     if has_base64:
         raw_b64 = body["contentBase64"]
@@ -256,7 +312,11 @@ def upload_file(req: func.HttpRequest) -> func.HttpResponse:
             return _json_response({"error": "contentBase64 is not valid base64.", "status": 400}, status=400)
         if not content:
             return _json_response({"error": "Decoded content is empty.", "status": 400}, status=400)
-        return _run_box_op(lambda c: c.upload_file(folder_id, body["filename"], content, content_type))
+        def upload_inline(client: BoxClient) -> dict[str, Any]:
+            assert_required_scope(client)
+            return client.upload_file(folder_id, body["filename"], content, content_type)
+
+        return _run_box_op(upload_inline)
 
     # blobPath lane: the facade fetches the bytes itself (streamed, hashed) and
     # streams them on to Box — no base64, no whole-payload bytes object.
@@ -278,6 +338,7 @@ def upload_file(req: func.HttpRequest) -> func.HttpResponse:
 
     try:
         def run(c: BoxClient) -> dict[str, Any]:
+            assert_required_scope(c)
             entry = c.upload_file_stream(
                 folder_id, body["filename"], payload.file,
                 size=payload.size, sha1_hex=payload.sha1, content_type=content_type,
@@ -441,6 +502,28 @@ def download_file(req: func.HttpRequest) -> func.HttpResponse:
         }
 
     return _run_box_op(run)
+
+
+@app.route(route="box/files/{fileId}", methods=["GET", "DELETE"])
+def file_deletion(req: func.HttpRequest) -> func.HttpResponse:
+    """TKT-160: validate or delete one exact file from its persisted case folder.
+    Both methods perform fresh RW-root + exact-parent checks; DELETE revalidates
+    immediately before mutating and treats an already-missing file as success."""
+    if not _truthy(os.environ.get("BOX_API_ENABLED")):
+        return _gated_off()
+    file_id = (req.route_params.get("fileId") or "").strip()
+    expected_folder_id = (req.params.get("folderId") or "").strip()
+    if not file_id or not expected_folder_id:
+        return _json_response(
+            {"error": "fileId and folderId are required.", "status": 400}, status=400
+        )
+    if req.method == "DELETE":
+        return _run_box_op(
+            lambda c: c.delete_file(file_id, expected_folder_id=expected_folder_id)
+        )
+    return _run_box_op(
+        lambda c: c.validate_file_deletion(file_id, expected_folder_id=expected_folder_id)
+    )
 
 
 @app.route(route="box/webhooks", methods=["POST"])

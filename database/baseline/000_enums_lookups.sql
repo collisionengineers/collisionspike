@@ -155,7 +155,19 @@ INSERT INTO choice_audit_action (code, name, label) VALUES
   -- TKT-148: deterministic draft suggestion, distinct from chaser_sent.
   (100000054, 'chaser_suggested',            'Chase suggested'),
   -- TKT-166: one result per Manual Intake source-file attempt.
-  (100000055, 'evidence_upload_result',       'Files Checked');
+  (100000055, 'evidence_upload_result',       'Files Checked'),
+  (100000056, 'capture_session_created',      'Capture Session Created'),
+  (100000057, 'capture_session_rotated',      'Capture Session Rotated'),
+  (100000058, 'capture_session_revoked',      'Capture Session Revoked'),
+  (100000059, 'capture_asset_validated',      'Capture Asset Validated'),
+  (100000060, 'capture_session_completed',    'Capture Session Completed'),
+  (100000061, 'capture_session_retargeted',   'Capture Session Retargeted'),
+  (100000062, 'capture_session_locked',       'Capture Session Locked'),
+  -- TKT-160: explicit, staff-confirmed single-image deletion lifecycle
+  -- (renumbered to 63-65 at rebase; #83/TKT-200 took 56-62).
+  (100000063, 'image_deletion_requested',     'Image Deletion Requested'),
+  (100000064, 'image_deletion_failed',        'Image Deletion Needs Retry'),
+  (100000065, 'image_deleted',                'Image Deleted');
 
 -- ---------------------------------------------------------------------------
 -- audit_severity  (audit-event.json bundle)  -- AuditEvent.severity_code

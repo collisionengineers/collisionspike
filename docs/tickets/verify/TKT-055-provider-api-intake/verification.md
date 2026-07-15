@@ -1,7 +1,19 @@
 # TKT-055 — verification
 
-> `done` means **live and proven**. This ticket is **built + offline-tested**, NOT yet
-> deployed and NOT yet applied to the live DB — the orchestrator applies the delta + deploys.
+> `done` means **live and proven**. The original provider intake channel is deployed, but this ticket
+> remains `verify`: no legitimate provider key/submission lifecycle is live-proven, and the 2026-07-15
+> idempotency migration and code require the deployment proof recorded below before they are claimed live.
+
+## 2026-07-15 final-review evidence
+
+- The complete domain, Data API, orchestration and web suites passed before final deployment.
+- Focused tests prove strict Base64 rejection before writes, provider-scoped content binding, exact
+  replay, different-content conflict, and durable completion state.
+- The publishable contract now requires `Idempotency-Key` and documents `409` conflict and retryable
+  `503` incomplete-evidence behavior.
+- Live application of `2026-07-15-provider-intake-idempotency.sql`, deployment and read-only route/schema
+  confirmation are still pending at this point in the review. No legitimate provider key is minted and
+  no fabricated provider case is used merely to close verification.
 
 ## Proven offline (this session)
 

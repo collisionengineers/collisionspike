@@ -106,6 +106,7 @@ app.http('generateImageAnalysis', {
           WHERE case_id = $1
             AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image')
             AND excluded <> true
+            AND deletion_operation_id IS NULL
           ORDER BY sequence_index NULLS LAST, created_at
           LIMIT ${MAX_IMAGES_PER_RUN}`,
         [caseId],

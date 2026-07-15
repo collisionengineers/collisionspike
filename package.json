@@ -14,11 +14,17 @@
     "build:api": "npm run build --workspace @cs/api",
     "build:orch": "npm run build --workspace @cs/orchestration",
     "build:web": "npm run build --workspace @cs/web",
+    "contract:capture:lint": "redocly lint contracts/capture.v1.yaml",
+    "contract:capture:generate": "openapi-typescript contracts/capture.v1.yaml -o services/data-api/src/generated/capture-api.ts",
+    "contract:capture:check": "npm run contract:capture:lint && node scripts/checks/check-capture-contract.mjs",
     "bundle": "npm run bundle:api && npm run bundle:orchestration",
     "bundle:api": "node scripts/build/build-api.cjs",
     "bundle:orchestration": "node scripts/build/build-orchestration.cjs",
     "test": "npm run test --workspace @cs/domain && npm run test --workspace @cs/api && npm run test --workspace @cs/orchestration && npm run test --workspace @cs/web",
     "generate:runtime-contract": "node scripts/checks/check-runtime-contract.mjs --write",
+    "verify:offline": "node scripts/verify-offline.mjs",
+    "test:worktree-governance": "node --test scripts/worktree.test.mjs scripts/pre-push.test.mjs",
+    "hygiene": "node scripts/repository-hygiene.mjs",
     "verify": "node verify-all.mjs",
     "check:docs": "node scripts/checks/check-doc-links.mjs",
     "check:tickets": "node scripts/checks/check-tickets.mjs",
@@ -46,7 +52,9 @@
     "pg": "8.22.0"
   },
   "devDependencies": {
-    "esbuild": "0.21.5"
+    "@redocly/cli": "^2.38.0",
+    "esbuild": "0.28.1",
+    "openapi-typescript": "^7.13.0"
   },
   "optionalDependencies": {
     "@img/sharp-linux-x64": "0.35.3",
@@ -54,6 +62,6 @@
     "@rollup/rollup-linux-x64-gnu": "4.62.2"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19"
   }
 }

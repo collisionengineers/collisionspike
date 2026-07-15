@@ -1,13 +1,15 @@
 /** upload-support — cohesive Data API module. */
 
 import { createHash, randomUUID } from 'node:crypto';
-import { statusToInt } from '@cs/domain/codecs';
+import { canonicalizeVrm, isTerminalStatus, type CaseStatus } from '@cs/domain';
+import { caseStatusCodec, statusToInt } from '@cs/domain/codecs';
 import { tx, type TxQuery } from '../../platform/db/client.js';
 import { evidenceBlobPath } from './blob-store.js';
 import { type UploadKind, type CanonicalUploadType } from './upload-validate.js';
 import { AUDIT_ACTION, writeAudit, writeAuditStrict } from '../../shared/audit.js';
 import { requestStatusRecompute } from '../cases/status-recompute.js';
 import { lockCaseForMutation } from '../cases/mutation-locks.js';
+import { mergedIntoFrom } from '../../shared/mapping/index.js';
 import { requestArchiveMirror, requestArchiveMirrorIfEligible, type ArchiveMirrorCandidate } from '../archive/mirror-outbox.js';
 
 const IMAGE_KIND_CODE = 100000000;
@@ -29,7 +31,12 @@ const TERMINAL_STATUS_CODES = [
   statusToInt('done'),
 ];
 
-export type UploadSource = 'add_evidence' | 'manual_intake' | 'assistant_confirmed';
+export type UploadSource =
+  | 'add_evidence'
+  | 'manual_intake'
+  | 'assistant_confirmed'
+  | 'legacy_upload'
+  | 'mcp_agent';
 
 export type UploadRole = 'auto' | 'instruction' | 'extra';
 
@@ -37,12 +44,16 @@ const SOURCE_LABEL: Record<UploadSource, string> = {
   add_evidence: 'staff_add_evidence',
   manual_intake: 'staff_manual_intake',
   assistant_confirmed: 'staff_assistant_confirmed',
+  legacy_upload: 'staff_legacy_upload',
+  mcp_agent: 'agent_image_ingest',
 };
 
 const SOURCE_SUMMARY: Record<UploadSource, string> = {
   add_evidence: 'Add evidence',
   manual_intake: 'New case',
   assistant_confirmed: 'Assistant confirmation',
+  legacy_upload: 'Staff upload',
+  mcp_agent: 'image ingest',
 };
 
 export interface PreparedFile {
@@ -130,10 +141,22 @@ export class UploadRefusal extends Error {
   }
 }
 
-export function sourceOf(value: string | File | null): UploadSource | undefined {
+export function sourceOf(value: string | File | null, allowMcpAgent = false): UploadSource | undefined {
   return value === 'add_evidence' || value === 'manual_intake' || value === 'assistant_confirmed'
     ? value
-    : undefined;
+    : allowMcpAgent && value === 'mcp_agent'
+      ? value
+      : undefined;
+}
+
+export function validUploadIdempotencyKey(value: string): boolean {
+  return IDEMPOTENCY_RE.test(value);
+}
+
+export function legacyIdempotencyKey(caseId: string, actor: string, manifest: string): string {
+  return `legacy-${createHash('sha256')
+    .update(JSON.stringify({ caseId: caseId.toLowerCase(), actor, manifest }), 'utf8')
+    .digest('hex')}`;
 }
 
 export function manifestHash(files: readonly PreparedFile[]): string {
@@ -152,7 +175,7 @@ function itemIdentity(source: UploadSource, idempotencyKey: string, index: numbe
   return `staff:${source}:${idempotencyKey}:${index}`;
 }
 
-async function assertActiveCase(q: TxQuery, caseId: string): Promise<string> {
+async function assertActiveCase(q: TxQuery, caseId: string, source: UploadSource): Promise<string> {
   const locked = await lockCaseForMutation(q, caseId);
   if (locked.kind === 'missing') throw new UploadRefusal(404, 'This case is no longer available.');
   if (locked.kind === 'retired') {
@@ -166,10 +189,45 @@ async function assertActiveCase(q: TxQuery, caseId: string): Promise<string> {
     'SELECT status_code FROM case_ WHERE id = $1',
     [locked.caseId],
   );
-  if (!rows[0] || TERMINAL_STATUS_CODES.includes(Number(rows[0].status_code))) {
+  const statusCode = Number(rows[0]?.status_code);
+  const closed = TERMINAL_STATUS_CODES.includes(statusCode)
+    || (source === 'mcp_agent' && statusCode === statusToInt('error'));
+  if (!rows[0] || closed) {
     throw new UploadRefusal(409, 'This case is no longer open for evidence.');
   }
   return locked.caseId;
+}
+
+async function assertImageIngestRegistrationBinding(
+  q: TxQuery,
+  expectedCaseId: string,
+  suppliedRegistration: string,
+): Promise<string> {
+  const registration = canonicalizeVrm(suppliedRegistration);
+  if (!registration || registration !== suppliedRegistration) {
+    throw new UploadRefusal(409, 'The registration no longer identifies one current case. Try the lookup again.');
+  }
+  await q('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+    `mcp-image-registration:${registration}`,
+  ]);
+  const rows = await q<{ id: string; status_code: number; duplicate_keys: unknown }>(
+    `SELECT id, status_code, duplicate_keys
+       FROM case_
+      WHERE regexp_replace(upper(vrm), '[^A-Z0-9]', '', 'g') = $1
+      ORDER BY created_at, id`,
+    [registration],
+  );
+  const active = rows.filter((row) => {
+    const status = caseStatusCodec.toName(Number(row.status_code));
+    return Boolean(status)
+      && !isTerminalStatus(status as CaseStatus)
+      && status !== 'error'
+      && !mergedIntoFrom(row.duplicate_keys);
+  });
+  if (active.length !== 1 || active[0].id.toLowerCase() !== expectedCaseId.toLowerCase()) {
+    throw new UploadRefusal(409, 'The registration no longer identifies one current case. Try the lookup again.');
+  }
+  return registration;
 }
 
 export async function bindBatch(input: {
@@ -177,25 +235,33 @@ export async function bindBatch(input: {
   idempotencyKey: string;
   actor: string;
   source: UploadSource;
+  registration?: string;
   manifestHash: string;
   files: readonly PreparedFile[];
 }): Promise<string> {
   return tx(async (q) => {
-    const caseId = await assertActiveCase(q, input.caseId);
+    const isImageAgent = input.source === 'mcp_agent';
+    const registration = isImageAgent
+      ? await assertImageIngestRegistrationBinding(q, input.caseId, input.registration ?? '')
+      : input.registration;
+    const caseId = isImageAgent
+      ? input.caseId
+      : await assertActiveCase(q, input.caseId, input.source);
     await q(
       `INSERT INTO staff_evidence_upload
-         (idempotency_key, case_id, actor, source, manifest_hash)
-       VALUES ($1, $2, $3, $4, $5)
+         (idempotency_key, case_id, actor, source, registration, manifest_hash)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (idempotency_key) DO NOTHING`,
-      [input.idempotencyKey, caseId, input.actor, input.source, input.manifestHash],
+      [input.idempotencyKey, caseId, input.actor, input.source, registration ?? null, input.manifestHash],
     );
     const batches = await q<{
       case_id: string;
       actor: string;
       source: string;
+      registration: string | null;
       manifest_hash: string;
     }>(
-      `SELECT case_id, actor, source, manifest_hash
+      `SELECT case_id, actor, source, registration, manifest_hash
          FROM staff_evidence_upload
         WHERE idempotency_key = $1
         FOR UPDATE`,
@@ -207,6 +273,7 @@ export async function bindBatch(input: {
       batch.case_id.toLowerCase() !== caseId ||
       batch.actor !== input.actor ||
       batch.source !== input.source ||
+      (batch.registration ?? '') !== (registration ?? '') ||
       batch.manifest_hash !== input.manifestHash
     ) {
       throw new UploadRefusal(
@@ -214,6 +281,13 @@ export async function bindBatch(input: {
         'This upload no longer matches the selected case or files. Choose them again.',
       );
     }
+    await q(
+      `UPDATE staff_evidence_upload
+          SET attempt_count = attempt_count + 1,
+              last_attempt_at = now(), updated_at = now()
+        WHERE idempotency_key = $1`,
+      [input.idempotencyKey],
+    );
     for (const file of input.files) {
       const prefix = `staff-${input.idempotencyKey}-${file.index}-${file.sha256.slice(0, 16)}`;
       const blobPath = evidenceBlobPath(prefix, file.name);
@@ -340,7 +414,7 @@ export async function claimUploadItem(input: {
   file: PreparedFile;
 }): Promise<UploadItemClaim> {
   return tx(async (q) => {
-    const caseId = await assertActiveCase(q, input.caseId);
+    const caseId = await assertActiveCase(q, input.caseId, input.source);
     const items = await q<{
       id: string;
       state: string;
@@ -465,6 +539,7 @@ export async function persistFile(input: {
   source: UploadSource;
   idempotencyKey: string;
   actor: string;
+  registration?: string;
   file: PreparedFile;
   itemId: string;
   claimToken: string;
@@ -472,7 +547,7 @@ export async function persistFile(input: {
   size: number;
 }): Promise<{ id: string; duplicate: boolean }> {
   return tx(async (q) => {
-    const caseId = await assertActiveCase(q, input.caseId);
+    const caseId = await assertActiveCase(q, input.caseId, input.source);
     const owned = await q<{ id: string; blob_path: string }>(
       `SELECT id, blob_path
          FROM staff_evidence_upload_item
@@ -560,15 +635,23 @@ export async function persistFile(input: {
     await requestStatusRecompute(q, caseId);
     await writeAuditStrict(
       {
-        action: AUDIT_ACTION.evidence_added,
+        action: input.source === 'mcp_agent' ? AUDIT_ACTION.agent_write : AUDIT_ACTION.evidence_added,
         caseId,
         actor: input.actor,
-        summary: `Staff added ${input.file.name} through ${SOURCE_SUMMARY[input.source]}`.slice(0, 400),
+        summary: `${input.source === 'mcp_agent' ? 'Image ingest added' : 'Staff added'} ${input.file.name} through ${SOURCE_SUMMARY[input.source]}`.slice(0, 400),
         after: {
           evidenceId: row.id,
           fileName: input.file.name,
           source: input.source,
           sha256: input.file.sha256,
+          ...(input.source === 'mcp_agent'
+            ? {
+                autonomous: true,
+                registration: input.registration,
+                idempotencyKey: input.idempotencyKey,
+                outcome: 'created',
+              }
+            : {}),
         },
       },
       q,

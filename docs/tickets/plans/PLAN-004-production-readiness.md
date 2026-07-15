@@ -2,7 +2,7 @@
 id: PLAN-004
 title: Production readiness and lifecycle completion
 status: active
-tickets: [TKT-041, TKT-102, TKT-149, TKT-151, TKT-152, TKT-153, TKT-154, TKT-155, TKT-156, TKT-157, TKT-158, TKT-159, TKT-160, TKT-161, TKT-162, TKT-163, TKT-164, TKT-165, TKT-166, TKT-167, TKT-168, TKT-169, TKT-170, TKT-171, TKT-172, TKT-173, TKT-174, TKT-175, TKT-176, TKT-177, TKT-178, TKT-179, TKT-180, TKT-181, TKT-182, TKT-183, TKT-184, TKT-185, TKT-186, TKT-187, TKT-188, TKT-189, TKT-190, TKT-191, TKT-192, TKT-193, TKT-194, TKT-195, TKT-197, TKT-198, TKT-199, TKT-200, TKT-216]
+tickets: [TKT-041, TKT-102, TKT-149, TKT-151, TKT-152, TKT-153, TKT-154, TKT-155, TKT-156, TKT-157, TKT-158, TKT-159, TKT-160, TKT-161, TKT-162, TKT-163, TKT-164, TKT-165, TKT-166, TKT-167, TKT-168, TKT-169, TKT-170, TKT-171, TKT-172, TKT-173, TKT-174, TKT-175, TKT-176, TKT-177, TKT-178, TKT-179, TKT-180, TKT-181, TKT-182, TKT-183, TKT-184, TKT-185, TKT-186, TKT-187, TKT-188, TKT-189, TKT-190, TKT-191, TKT-192, TKT-193, TKT-194, TKT-195, TKT-197, TKT-198, TKT-199, TKT-200, TKT-205, TKT-206, TKT-216, TKT-217, TKT-218]
 depends-on: []
 ---
 
@@ -42,11 +42,11 @@ or authorization named; they are never treated as complete by plan aggregation.
 <!-- GENERATED:PROGRESS -->
 ## Computed progress
 
-**2/53 done (3%).**
+**2/57 done (3%).**
 
 | Status | Count |
 |---|---:|
-| Now | 9 |
+| Now | 13 |
 | Verify | 8 |
 | Done | 2 |
 | Next | 0 |
@@ -61,13 +61,13 @@ or authorization named; they are never treated as complete by plan aggregation.
 | [TKT-151](../verify/TKT-151-vehicle-enrichment-completeness/TKT-151-vehicle-enrichment-completeness.md) | verify | Complete vehicle enrichment and warn when a registration cannot be resolved |
 | [TKT-152](../verify/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md) | verify | Consolidate vehicle lookups and harden the MOT mileage estimator |
 | [TKT-153](../verify/TKT-153-explicit-case-save/TKT-153-explicit-case-save.md) | verify | Save case edits explicitly as one reviewed change |
-| [TKT-154](../backlog/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) | backlog | Add a constrained MCP path for registration-based image ingestion |
+| [TKT-154](../now/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) | now | Add a constrained MCP path for registration-based image ingestion |
 | [TKT-155](../verify/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) | verify | Simplify the dashboard around Not Ready, Review and Held |
 | [TKT-156](../verify/TKT-156-chaser-file-request/TKT-156-chaser-file-request.md) | verify | Put an active archive upload link in every image chaser |
 | [TKT-157](../backlog/TKT-157-handler-copy-audit/TKT-157-handler-copy-audit.md) | backlog | Remove internal and unnecessary explanatory copy from the app |
 | [TKT-158](../backlog/TKT-158-case-remediation-rerun/TKT-158-case-remediation-rerun.md) | backlog | Rerun affected cases safely and account for every residual issue |
 | [TKT-159](../now/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md) | now | Reconcile every live feature gate with intended production behavior |
-| [TKT-160](../backlog/TKT-160-delete-case-image/TKT-160-delete-case-image.md) | backlog | Delete an individual case image from every active store |
+| [TKT-160](../now/TKT-160-delete-case-image/TKT-160-delete-case-image.md) | now | Delete an individual case image from every active store |
 | [TKT-161](../backlog/TKT-161-image-based-reflection-policy/TKT-161-image-based-reflection-policy.md) | backlog | Allow reflection images for Image Based Assessment cases |
 | [TKT-162](../backlog/TKT-162-nested-audit-archive/TKT-162-nested-audit-archive.md) | backlog | Nest QDOS audit work inside the standard case archive folder |
 | [TKT-163](../backlog/TKT-163-merge-dialog-layout/TKT-163-merge-dialog-layout.md) | backlog | Repair the merge-case dialog layout |
@@ -107,5 +107,9 @@ or authorization named; they are never treated as complete by plan aggregation.
 | [TKT-198](../backlog/TKT-198-wrong-vehicle-evidence-detection/TKT-198-wrong-vehicle-evidence-detection.md) | backlog | Flag photos that show a different vehicle |
 | [TKT-199](../now/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) | now | Make repository data authority explicit without weakening security |
 | [TKT-200](../now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md) | now | Add secure guided photo capture sessions |
+| [TKT-205](../now/TKT-205-repository-worktree-governance/TKT-205-repository-worktree-governance.md) | now | Make ticketed worktrees and offline checks the repository workflow |
+| [TKT-206](../now/TKT-206-remove-runtime-data-policy-controls/TKT-206-remove-runtime-data-policy-controls.md) | now | Remove privacy-driven runtime data restrictions safely |
 | [TKT-216](../now/TKT-216-eva-sentry-route-body-contract/TKT-216-eva-sentry-route-body-contract.md) | now | Repair the EVA Sentry route and body contract |
+| [TKT-217](../backlog/TKT-217-bulk-case-registration-lock-budget/TKT-217-bulk-case-registration-lock-budget.md) | backlog | Batch bulk case_ mutations under the registration advisory-lock budget |
+| [TKT-218](../backlog/TKT-218-mcp-box-root-single-source/TKT-218-mcp-box-root-single-source.md) | backlog | Consolidate the MCP image-ingest Box test-root to a single source of truth |
 <!-- /GENERATED:PROGRESS -->

@@ -11,8 +11,9 @@
  * computation (statusForReviewCase), the Blob evidence landing (lib/blob.ts), and the
  * append-only audit trail.
  *
- * Returns 201 { caseId, casePo } on success; 400 (validation, with a machine-readable
- * error code), 401 (bad/missing/revoked key), or 413 (body over the size cap).
+ * Returns 201 { caseId, casePo } on success; exact Idempotency-Key retries replay it.
+ * Validation is 400, key-content reuse is 409, auth is 401, incomplete evidence is
+ * retryable 503, and a body over the size cap is 413.
  */
 
 import { app, type HttpResponseInit, type InvocationContext } from '@azure/functions';
@@ -32,7 +33,7 @@ import { withApiKey, type ApiKeyContext } from '../../platform/auth/api-key-auth
 import { mintCasePo } from '../cases/case-po.js';
 import { uploadEvidenceBytes } from '../evidence/blob-store.js';
 import { query, tx } from '../../platform/db/client.js';
-import { AUDIT_ACTION, writeAudit } from '../../shared/audit.js';
+import { AUDIT_ACTION, writeAudit, writeAuditStrict } from '../../shared/audit.js';
 import { EVA_COLUMN_BY_KEY, type Row } from '../../shared/mapping/index.js';
 import { lockCaseForMutation } from '../cases/mutation-locks.js';
 import {
@@ -45,6 +46,14 @@ import {
   type NormalisedImage,
   type NormalisedSubmission,
 } from './intake-validate.js';
+import {
+  PROVIDER_INTAKE_OPERATION_KEY_RE,
+  ProviderIntakeOperationConflict,
+  beginProviderIntakeOperation,
+  bindProviderIntakeCase,
+  completeProviderIntakeOperation,
+  providerIntakeRequestHash,
+} from './intake-operation.js';
 
 /** ~50 MB guard on the JSON body (Base64 inflates ~33%, so this ~= 37 MB of files). */
 const MAX_BODY_BYTES = 50 * 1024 * 1024;
@@ -89,12 +98,24 @@ async function persistEvidence(
     const bytes = Buffer.from(att.base64Data, 'base64');
     if (bytes.length === 0) return false; // undecodable / empty — nothing to store
     const sha256 = createHash('sha256').update(bytes).digest('hex');
-    const { blobPath, size } = await uploadEvidenceBytes(caseId, att.filename, bytes, att.contentType);
+    // Include the stable attachment position and kind in the object name. Providers may send
+    // two different files with the same filename; without this prefix the later upload would
+    // overwrite bytes referenced by the earlier evidence row. Exact request retries still
+    // address the same objects because the request hash binds the ordered attachment arrays.
+    const storageFilename = `${String(sequenceIndex).padStart(4, '0')}-${kind}-${att.filename}`;
+    const { blobPath, size } = await uploadEvidenceBytes(caseId, storageFilename, bytes, att.contentType);
 
     const kindCode = evidenceKindCodec.toInt(kind) ?? (kind === 'image' ? 100000000 : 100000002);
     return await tx(async (q) => {
       const caseLock = await lockCaseForMutation(q, caseId);
       if (caseLock.kind !== 'active') return false;
+      const existing = await q<{ id: string }>(
+        `SELECT id FROM evidence
+          WHERE case_id = $1 AND storage_path = $2 AND sha256 = $3 AND source_label = 'provider_api'
+          LIMIT 1`,
+        [caseLock.caseId, blobPath, sha256],
+      );
+      if (existing[0]) return true;
       let inserted: ArchiveMirrorCandidate[];
       if (kind === 'image') {
         const img = att as NormalisedImage;
@@ -199,6 +220,17 @@ app.http('providerIntakeCase', {
       return { status: 400, jsonBody: { error: validated.code, message: validated.message } };
     }
     const v = validated.value;
+    const idempotencyKey = (req.headers.get('idempotency-key') ?? '').trim();
+    if (!PROVIDER_INTAKE_OPERATION_KEY_RE.test(idempotencyKey)) {
+      return {
+        status: 400,
+        jsonBody: {
+          error: 'invalid_idempotency_key',
+          message: 'Send one stable 16–128 character Idempotency-Key for this submission.',
+        },
+      };
+    }
+    const requestHash = providerIntakeRequestHash(v);
 
     // --- status (shared computation): fields present; images not OCR-confirmed yet, so
     //     an overview's registration is not visible at intake → the case lands in
@@ -243,9 +275,15 @@ app.http('providerIntakeCase', {
       vals.push(evaValues[desc.key]);
     }
 
-    let created: { caseId: string; casePo: string | null };
+    let created: { caseId: string; casePo: string | null; replayed: boolean; completed: boolean };
     try {
       created = await tx(async (q) => {
+        const replay = await beginProviderIntakeOperation(q, {
+          workProviderId: provider.id as string,
+          idempotencyKey,
+          requestHash,
+        });
+        if (replay) return { ...replay, replayed: true };
         const insertCols = [...cols];
         const insertVals = [...vals];
         const casePo = principalCode ? await mintCasePo(q, principalCode) : null;
@@ -260,9 +298,37 @@ app.http('providerIntakeCase', {
         );
         const caseId = rows[0]?.id as string | undefined;
         if (!caseId) throw new Error('case insert returned no id');
-        return { caseId, casePo };
+        await bindProviderIntakeCase(q, {
+          workProviderId: provider.id as string,
+          idempotencyKey,
+          caseId,
+          casePo,
+        });
+        await writeAuditStrict({
+          action: AUDIT_ACTION.provider_api_case_created,
+          caseId,
+          summary: `Case created via provider API: ${name}`,
+          after: {
+            status,
+            vrm: v.vrm,
+            casePo,
+            workProviderId: provider.id,
+            principalCode: principalCode || null,
+            keyId: apiKey.keyId,
+            idempotencyKey,
+            instructions: v.instructions.length,
+            images: v.images.length,
+          },
+        }, q);
+        return { caseId, casePo, replayed: false, completed: false };
       });
     } catch (e) {
+      if (e instanceof ProviderIntakeOperationConflict) {
+        return {
+          status: 409,
+          jsonBody: { error: 'idempotency_conflict', message: e.message },
+        };
+      }
       ctx.error(`[provider-intake] case create failed: ${String(e)}`);
       return { status: 500, jsonBody: { error: 'internal' } };
     }
@@ -272,37 +338,41 @@ app.http('providerIntakeCase', {
     // --- evidence (outside the tx — slow Blob I/O must not hold the advisory lock). ---
     let seq = 0;
     let persisted = 0;
-    for (const ins of v.instructions) {
-      if (await persistEvidence(ctx, caseId, 'instruction', ins, seq)) persisted += 1;
-      seq += 1;
-    }
-    for (const img of v.images) {
-      if (await persistEvidence(ctx, caseId, 'image', img, seq)) persisted += 1;
-      seq += 1;
-    }
+    if (!created.completed) {
+      for (const ins of v.instructions) {
+        if (await persistEvidence(ctx, caseId, 'instruction', ins, seq)) persisted += 1;
+        seq += 1;
+      }
+      for (const img of v.images) {
+        if (await persistEvidence(ctx, caseId, 'image', img, seq)) persisted += 1;
+        seq += 1;
+      }
+      if (persisted !== v.instructions.length + v.images.length) {
+        return {
+          status: 503,
+          jsonBody: {
+            error: 'evidence_incomplete',
+            message: 'The case is reserved, but not every file was stored. Retry with the same Idempotency-Key.',
+          },
+        };
+      }
 
-    // Human-readable channel note (best-effort — must not sink the create).
-    await query(
-      'INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())',
-      ['Provider API intake', caseId, 'Provider API', `Lodged via the provider API (key ${apiKey.keyId}); ${persisted} file(s) stored.`],
-    ).catch(() => { /* note is supplementary */ });
+      await query(
+        `INSERT INTO note (name, case_id, author, text, occurred_at)
+         SELECT $1, $2, $3, $4, now()
+          WHERE NOT EXISTS (
+            SELECT 1 FROM note WHERE case_id = $2 AND name = $1 AND text = $4
+          )`,
+        ['Provider API intake', caseId, 'Provider API',
+          `Lodged via the provider API (key ${apiKey.keyId}); ${persisted} file(s) stored.`],
+      ).catch(() => { /* note is supplementary */ });
 
-    await writeAudit({
-      action: AUDIT_ACTION.provider_api_case_created,
-      caseId,
-      summary: `Case created via provider API: ${name}`,
-      after: {
-        status,
-        vrm: v.vrm,
-        casePo: created.casePo,
-        workProviderId: provider.id,
-        principalCode: principalCode || null,
-        keyId: apiKey.keyId,
-        instructions: v.instructions.length,
-        images: v.images.length,
-        evidencePersisted: persisted,
-      },
-    });
+      await tx((q) => completeProviderIntakeOperation(q, {
+        workProviderId: provider.id as string,
+        idempotencyKey,
+        caseId,
+      }));
+    }
 
     const result: ProviderApiSubmissionResult = { caseId, casePo: created.casePo };
     return { status: 201, jsonBody: result };

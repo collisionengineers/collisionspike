@@ -73,8 +73,8 @@ EVA_PAYLOAD_KEYS: tuple[str, ...] = (
 )
 
 # Required non-empty fields (schema `required` set is all 12 keys present, but
-# only these two are minLength>=1 in the schema; the readiness gate lives in the
-# evavalidation Function, not here).
+# only these two are minLength>=1 in the schema; complete case readiness is
+# enforced by the shared domain contract and Data API before this adapter runs).
 _REQUIRED_NONEMPTY = ("work_provider", "vehicle_model")
 
 _DATE_RE = re.compile(r"^(\d{2}/\d{2}/\d{4})?$")
@@ -84,7 +84,7 @@ _VAT_ENUM = ("", "Yes", "No")
 _MILEAGE_UNIT_ENUM = ("", "Miles", "Km")
 
 # How many leading images form the EVA "preview" prefix (overview + damage
-# closeup). Domain rule; the readiness gate (evavalidation) already requires >=2.
+# closeup). The shared domain readiness rule already requires at least two.
 PREVIEW_COUNT = 2
 
 
@@ -168,7 +168,7 @@ def _seq(image: dict[str, Any]) -> int:
 def sort_images(images: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Return the images sorted by ``sequenceIndex`` ascending (stable).
 
-    The flow already orders accepted, non-excluded Evidence by ``sequenceindex``
+    The orchestration caller already orders accepted, non-excluded evidence by ``sequenceIndex``
     and seeds the 2 previews at index 0,1; this is the **server-side authority**
     for the same ordering so the Function is correct even if called with an
     unordered array.
@@ -294,7 +294,7 @@ def build_files(images: list[dict[str, Any]]) -> list[dict[str, Any]]:
 #   date_of_loss           -> DtIncident    (Date of the incident; DD/MM/YYYY in)
 #   date_of_instruction    -> (no direct field; carried in NotesStr provenance)
 #   accident_circumstances -> Cause         (Cause of incident)
-#   inspection_address     -> (multi-line; mapped to InspLoc* by the flow later)
+#   inspection_address     -> InspLocName/Add/Town/City/County/PCode
 #   vat_status             -> VatStat       (VAT status; Yes/No/n%)
 #   mileage / mileage_unit -> (no Instruction field; carried in NotesStr)
 def core_to_instruction(
@@ -310,7 +310,7 @@ def core_to_instruction(
     request body (PascalCase), attaching ``Files`` for the preview photos.
 
     Identity helpers (``external_ref`` = Case/PO, ``veh_reg``, ``clm_no``) are
-    passed by the handler from the flow; ``request_from`` is the EVA-supplied
+    passed by the orchestration caller; ``request_from`` is the EVA-supplied
     contact code (a non-secret app setting ``EVA_REQUEST_FROM`` /
     ``[RESERVED-FOR-USER]``). Only non-empty values are emitted so EVA sees a
     clean body.
@@ -339,6 +339,10 @@ def core_to_instruction(
     put("ClmEmail", core.get("claimant_email"))
     put("Cause", core.get("accident_circumstances"))
 
+    for key, value in _inspection_location_fields(core.get("inspection_address")).items():
+        put(key, value)
+    put("InspType", "Vehicle Damage Inspection")
+
     dol = _to_eva_datetime(core.get("date_of_loss"))
     put("DtIncident", dol)
 
@@ -350,6 +354,31 @@ def core_to_instruction(
     if files:
         out["Files"] = files
     return out
+
+
+def _inspection_location_fields(value: Any) -> dict[str, str]:
+    """Map the canonical six-line address to the Sentry v1.2 inspection fields.
+
+    The settled core fixes the line order as name, address, town, city, county,
+    postcode. ``Image Based Assessment`` is an explicit staff choice, so it is
+    retained as the location name and no fabricated address parts are emitted.
+    """
+    if not isinstance(value, str) or not value:
+        return {}
+    if value == "Image Based Assessment":
+        return {"InspLocName": value}
+    lines = value.split("\n")
+    if len(lines) != 6:
+        return {}
+    keys = (
+        "InspLocName",
+        "InspLocAdd",
+        "InspLocTown",
+        "InspLocCity",
+        "InspLocCounty",
+        "InspLocPCode",
+    )
+    return dict(zip(keys, lines, strict=True))
 
 
 def _vat_to_eva(value: Any) -> str:

@@ -80,12 +80,23 @@ const AUDIT_ACTION_CODE_LABELS: Record<number, string> = {
   100000052: 'Photos analysed', // image_analysis_generated
   100000054: 'Chase suggested', // chaser_suggested
   100000055: 'Files checked', // evidence_upload_result
+  100000056: 'Photo request created', // capture_session_created
+  100000057: 'Photo request link replaced', // capture_session_rotated
+  100000058: 'Photo request cancelled', // capture_session_revoked
+  100000059: 'Photo checked', // capture_asset_validated
+  100000060: 'Photos received', // capture_session_completed
+  100000061: 'Photo request moved', // capture_session_retargeted
+  100000062: 'Photo request secured', // capture_session_locked
+  100000063: 'Image deletion requested',
+  100000064: 'Image deletion needs retry',
+  100000065: 'Image deleted',
 };
 
 /** Safe fallback when an action has no mapping — plain, honest, never an enum. */
 const DEFAULT_LABEL = 'Updated';
 
 const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const GUID_ANYWHERE_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 /**
  * A human-renderable form of an actor/author string, or undefined when it must not
@@ -95,7 +106,7 @@ const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export function humanActorName(raw: string | null | undefined): string | undefined {
   const s = (raw ?? '').trim();
   if (!s) return undefined;
-  if (GUID_RE.test(s)) return undefined;
+  if (GUID_RE.test(s) || GUID_ANYWHERE_RE.test(s)) return undefined;
   if (s.toLowerCase() === 'system') return undefined;
   const at = s.indexOf('@');
   if (at > 0) return s.slice(0, at);
@@ -119,7 +130,6 @@ export function auditActionLabel(actionCode: number | null | undefined): string 
  *  anything underscored (box_upload_received, missing_required_fields, img_1_1
  *  filename stems), enum-transition arrows (duplicate_risk -> missing_images),
  *  GUIDs anywhere in the text, and code-y key=value pairs (category=case_update). */
-const GUID_ANYWHERE_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const ARROW_RE = /->|→/;
 const KEY_VALUE_RE = /\b\w+=[^\s]/;
 

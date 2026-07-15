@@ -22,6 +22,7 @@ scripts/evaluation/**/local/
 .env
 .env.*
 !.env.example
+!mockup-app/.env.development
 *.pem
 *.key
 secrets.json

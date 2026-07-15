@@ -36,7 +36,7 @@ describe('auditActionLabel', () => {
 
   it('has no snake_case/engineering tokens in ANY label it can produce', () => {
     // Sweep every code the map can emit for accidental enum-ish output.
-    for (let code = 100000000; code <= 100000060; code++) {
+    for (let code = 100000000; code <= 100000062; code++) {
       const label = auditActionLabel(code);
       expect(label).not.toMatch(/[a-z]_[a-z]/i);
       expect(label).not.toMatch(/^\d/);
@@ -47,6 +47,7 @@ describe('auditActionLabel', () => {
 describe('humanActorName — the internal-id guard', () => {
   it('drops Entra oids (GUIDs) and System', () => {
     expect(humanActorName('a1b2c3d4-e5f6-7890-abcd-ef0123456789')).toBeUndefined();
+    expect(humanActorName('capture-session:a1b2c3d4-e5f6-7890-abcd-ef0123456789')).toBeUndefined();
     expect(humanActorName('System')).toBeUndefined();
     expect(humanActorName('system')).toBeUndefined();
     expect(humanActorName('')).toBeUndefined();

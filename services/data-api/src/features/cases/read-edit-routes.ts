@@ -86,6 +86,13 @@ app.http('patchCase', {
     const inspectionModeCode = inspection
       ? inspectionDecisionCodec.toInt(inspection.decisionMode)
       : undefined;
+    const requestedVrm = body.vrm === undefined
+      ? undefined
+      : (() => {
+          const raw = String(body.vrm ?? '').trim();
+          const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
+          return raw ? extractVrm(raw) || cleaned : '';
+        })();
     const actor = actorFromClaims(claims);
     let attemptedCasePo: string | undefined;
     let outcome:
@@ -98,7 +105,18 @@ app.http('patchCase', {
           explicitSave: boolean;
         };
     try {
+      const identityEditRequested = requestedVrm !== undefined || body.casePo !== undefined;
+      const [vrmProbe] = !identityEditRequested
+        ? []
+        : await query<{ vrm: string | null }>('SELECT vrm FROM case_ WHERE id=$1', [id]);
+      const observedVrm = (vrmProbe?.vrm ?? '').toUpperCase().replace(/\s+/g, '');
+      const archiveVrmLocks = !identityEditRequested
+        ? []
+        : [...new Set([observedVrm, requestedVrm].filter((value): value is string => Boolean(value)))].sort();
       outcome = await tx(async (q) => {
+        for (const vrm of archiveVrmLocks) {
+          await q('SELECT pg_advisory_xact_lock(hashtext($1))', [`archive-holding:${vrm}`]);
+        }
         const snapshot = await loadCaseFullSnapshotUsing(q, id, new Date(), true);
         if (!snapshot) {
           return { kind: 'response' as const, response: { status: 404, jsonBody: { error: 'not found' } } };
@@ -138,11 +156,43 @@ app.http('patchCase', {
         const after: Record<string, unknown> = {};
         const changedEvaFields: Array<{ key: EvaFieldKey; value: string }> = [];
 
-        if (body.vrm !== undefined) {
-          const raw = String(body.vrm ?? '').trim();
-          const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
-          const newVrm = raw ? extractVrm(raw) || cleaned : '';
-          if (newVrm !== existing.vrm) {
+        if (requestedVrm !== undefined) {
+          const actualVrm = existing.vrm.toUpperCase().replace(/\s+/g, '');
+          if (actualVrm && !archiveVrmLocks.includes(actualVrm)) {
+            return {
+              kind: 'response' as const,
+              response: {
+                status: 409,
+                jsonBody: {
+                  error: 'stale',
+                  currentVersion: snapshot.version,
+                  message: 'This case changed while you were editing it. Reload it before saving.',
+                },
+              },
+            };
+          }
+          const newVrm = requestedVrm;
+          if (newVrm !== actualVrm) {
+            const activeHolding = await q<{ id: string }>(
+              `SELECT id FROM archive_holding_folder
+                WHERE (state='adopting' AND claim_token IS NOT NULL AND claim_expires_at>now()
+                    AND (adopted_case_id=$1 OR normalized_vrm=ANY($2::text[])))
+                  OR (state<>'adopted' AND resolved_case_id=$1)
+                LIMIT 1`,
+              [id, [actualVrm, newVrm].filter(Boolean)],
+            );
+            if (activeHolding.length) {
+              return {
+                kind: 'response' as const,
+                response: {
+                  status: 409,
+                  jsonBody: {
+                    error: 'archive_holding_active',
+                    message: 'Registration images are being filed for this case. Try the change again shortly.',
+                  },
+                },
+              };
+            }
             sets.push(`vrm = $${vals.length + 1}`);
             vals.push(newVrm);
             before.vrm = existing.vrm;
@@ -240,6 +290,42 @@ app.http('patchCase', {
           }
           const oldPo = (existing.casePo ?? '').toUpperCase();
           if (normalized !== oldPo) {
+            const activeHolding = await q<{ id: string }>(
+              `SELECT id FROM archive_holding_folder
+                WHERE state='adopting' AND claim_token IS NOT NULL AND claim_expires_at>now()
+                  AND (adopted_case_id=$1 OR normalized_vrm=$2)
+                LIMIT 1`,
+              [id, existing.vrm.toUpperCase().replace(/\s+/g, '')],
+            );
+            if (activeHolding.length) {
+              return {
+                kind: 'response' as const,
+                response: {
+                  status: 409,
+                  jsonBody: {
+                    error: 'archive_holding_active',
+                    message: 'Registration images are being filed for this case. Try the change again shortly.',
+                  },
+                },
+              };
+            }
+            const adoptedHolding = await q<{ id: string }>(
+              `SELECT id FROM archive_holding_folder
+                WHERE state='adopted' AND adopted_case_id=$1 LIMIT 1`,
+              [id],
+            );
+            if (adoptedHolding.length) {
+              return {
+                kind: 'response' as const,
+                response: {
+                  status: 409,
+                  jsonBody: {
+                    error: 'archive_folder_name_locked',
+                    message: 'This Case/PO names the existing Archive folder and cannot be changed.',
+                  },
+                },
+              };
+            }
             attemptedCasePo = normalized || undefined;
             sets.push(`case_po = $${vals.length + 1}`);
             vals.push(normalized || null);

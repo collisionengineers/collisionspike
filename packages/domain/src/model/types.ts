@@ -128,6 +128,8 @@ export interface Evidence {
   exclusionReason?: string;
   /** An automatic exclusion that staff can review and recover from on the case page. */
   reviewRequired?: boolean;
+  /** The current exclusion was an explicit staff decision, rather than the initial capture hold. */
+  excludedByStaff?: boolean;
   /** The vision classifier saw a person's reflection in this photo (TKT-123).
    *  ADVISORY flag only — exclusion stays a staff decision. */
   personReflection?: boolean;
@@ -141,6 +143,8 @@ export interface Evidence {
   boxFileId?: string;
   /** Box per-file shared-link URL — a direct "open in Box" link for this artifact. */
   boxFileUrl?: string;
+  /** A staff-confirmed deletion is recorded and still reconciling its stored copies. */
+  deletionPending?: boolean;
 }
 
 /* ----------  Chaser & Note  ---------- */
@@ -349,6 +353,8 @@ export interface Case {
   sourceEvidencePending?: boolean;
   /** A selected Manual Intake source file exhausted archive retries. */
   sourceEvidenceArchiveFailed?: boolean;
+  /** Registration image intake/adoption is pending or failed. */
+  archiveHoldingPending?: boolean;
   notes: Note[];
   chasers: Chaser[];
   overviewFacts: OverviewFacts;

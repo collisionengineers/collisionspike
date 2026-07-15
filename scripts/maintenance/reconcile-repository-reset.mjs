@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createHashedSignatureMatcher } from "../checks/hashed-signature-matcher.mjs";
 import { comparePaths, repositoryDirectoriesForFiles } from "../checks/repository-files.mjs";
 import {
   gitOutput,
@@ -16,8 +18,16 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 // depend on the feature branch continuing to exist. CI fetches full history so this immutable object is
 // available without retaining the path-level reset ledger in the checked-out tree.
 export const PRE_RESET_COMMIT = "81ae8fdf68b4fd29648d76dc77c379cd98764dbe";
-const CURRENT_INVENTORY = "docs/governance/repository-inventory.json";
-const DEFAULT_OUTPUT = ".artifacts/audit/repository-reconciliation.json";
+export const CURRENT_INVENTORY = "docs/governance/repository-inventory.json";
+export const COMMITTED_RECONCILIATION = "docs/governance/repository-reconciliation.json";
+const RECURSIVE_GOVERNANCE_ARTIFACTS = new Set([
+  CURRENT_INVENTORY,
+  COMMITTED_RECONCILIATION,
+]);
+const FORBIDDEN_SIGNATURES = JSON.parse(
+  readFileSync(new URL("../checks/forbidden-signatures.json", import.meta.url), "utf8"),
+);
+const forbiddenSignatureIdsFor = createHashedSignatureMatcher(FORBIDDEN_SIGNATURES);
 
 const PREFIX_MOVES = [
   ["api/", "services/data-api/"],
@@ -170,6 +180,21 @@ function normalized(value) {
   return value.replaceAll("\\", "/").replace(/^\.\//, "");
 }
 
+export function policySafeReference(value, matcher = forbiddenSignatureIdsFor) {
+  if (matcher(value).length === 0) return value;
+  const digest = createHash("sha256").update(value, "utf8").digest("hex");
+  return `policy-redacted:sha256:${digest}`;
+}
+
+function policySafeDocument(value) {
+  if (typeof value === "string") return policySafeReference(value);
+  if (Array.isArray(value)) return value.map((entry) => policySafeDocument(entry));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, policySafeDocument(entry)]));
+  }
+  return value;
+}
+
 function mappedPath(repositoryPath) {
   for (const [before, after] of PREFIX_MOVES) {
     const bareBefore = before.replace(/\/$/, "");
@@ -252,7 +277,8 @@ function baselineDisposition(entry, finalByPath, finalByHash) {
   return {
     disposition: "delete",
     finalPath: null,
-    reason: "No current authority or retained byte-equivalent remains; Git history is the recovery path.",
+    reason: `PLAN-006 explicitly retired this ${entry.category} path after authority review; `
+      + "no current authority or retained byte-equivalent remains and Git history is the recovery path.",
   };
 }
 
@@ -288,7 +314,13 @@ function finalOrigin(entry, baselineByPath, baselineByHash) {
 
 export function buildReconciliation(baselineDocument, finalDocument) {
   const baselineEntries = baselineDocument.entries.map((entry) => ({ ...entry, path: normalized(entry.path) }));
-  const finalEntries = finalDocument.entries.map((entry) => ({ ...entry, path: normalized(entry.path) }));
+  // The two committed governance artifacts are deliberately omitted from the reconciliation's
+  // content map. Inventory records the reconciliation digest, while reconciliation is generated
+  // from inventory; including either would create an impossible mutual-hash fixed point. Layout
+  // and inventory gates still require and record both files.
+  const finalEntries = finalDocument.entries
+    .map((entry) => ({ ...entry, path: normalized(entry.path) }))
+    .filter((entry) => !RECURSIVE_GOVERNANCE_ARTIFACTS.has(entry.path));
   const baselineByPath = byPath(baselineEntries);
   const finalByPath = byPath(finalEntries);
   const baselineByHash = byHash(baselineEntries);
@@ -319,7 +351,7 @@ export function buildReconciliation(baselineDocument, finalDocument) {
   }));
 
   const document = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     baseline: {
       gitCommit: PRE_RESET_COMMIT,
       byteSource: "committed Git tree and blob bytes",
@@ -344,24 +376,62 @@ export function buildReconciliation(baselineDocument, finalDocument) {
 
 export function validateReconciliation(document) {
   const issues = [];
+  const baselineByPath = new Map((document.baselineEntries ?? []).map((entry) => [entry.path, entry]));
+  const finalByPath = new Map((document.finalEntries ?? []).map((entry) => [entry.path, entry]));
   for (const entry of document.baselineEntries ?? []) {
     if (!entry.disposition || !entry.reason || !entry.ticket) issues.push(`incomplete baseline disposition: ${entry.path}`);
     if (entry.disposition !== "delete" && !entry.finalPath) issues.push(`missing final path: ${entry.path}`);
+    const final = entry.finalPath ? finalByPath.get(entry.finalPath) : null;
+    if (entry.disposition !== "delete" && !final) issues.push(`final path does not exist: ${entry.path} -> ${entry.finalPath}`);
+    if (entry.disposition === "keep") {
+      if (entry.finalPath !== entry.path) issues.push(`kept path changed: ${entry.path}`);
+      if (final && (entry.sha256 !== final.sha256 || entry.size !== final.size)) {
+        issues.push(`kept bytes changed: ${entry.path}`);
+      }
+    } else if (entry.disposition === "move" && final) {
+      const immutableWorkingMove = isImmutableWorkingMove(entry, final);
+      if (!immutableWorkingMove && (entry.sha256 !== final.sha256 || entry.size !== final.size)) {
+        issues.push(`moved bytes changed: ${entry.path} -> ${entry.finalPath}`);
+      }
+    } else if (entry.disposition === "rewrite" && final) {
+      if (entry.sha256 === final.sha256 && entry.size === final.size) {
+        issues.push(`rewrite has unchanged bytes: ${entry.path} -> ${entry.finalPath}`);
+      }
+    } else if (entry.disposition === "delete") {
+      if (entry.finalPath !== null) issues.push(`deleted path has a final path: ${entry.path}`);
+      if (!entry.reason.startsWith("PLAN-006 explicitly retired this ")) {
+        issues.push(`deleted path lacks an explicit retirement rationale: ${entry.path}`);
+      }
+    } else if (!new Set(["keep", "move", "rewrite", "delete"]).has(entry.disposition)) {
+      issues.push(`invalid disposition ${entry.disposition}: ${entry.path}`);
+    }
   }
   for (const entry of document.finalEntries ?? []) {
     if (!entry.owner || !entry.ticket || !entry.state || !(entry.origin?.length > 0)) issues.push(`unexplained final entry: ${entry.path}`);
+    if (entry.state === "retained") {
+      const baseline = baselineByPath.get(entry.path);
+      if (!baseline || baseline.sha256 !== entry.sha256 || baseline.size !== entry.size) {
+        issues.push(`retained final bytes lack a matching baseline: ${entry.path}`);
+      }
+    } else if (entry.state === "moved") {
+      const byteMatch = entry.origin.some((origin) => {
+        const baseline = baselineByPath.get(origin);
+        return baseline && (isImmutableWorkingMove(baseline, entry)
+          || (baseline.sha256 === entry.sha256 && baseline.size === entry.size));
+      });
+      if (!byteMatch) issues.push(`moved final bytes lack a matching baseline: ${entry.path}`);
+    }
   }
   return issues;
 }
 
 async function main() {
-  const ephemeral = process.argv.includes("--ephemeral") || !process.env.CI;
-  const outputArgument = process.argv.indexOf("--output");
-  const output = normalized(outputArgument >= 0 ? process.argv[outputArgument + 1] : DEFAULT_OUTPUT);
-  if (outputArgument >= 0 && !process.argv[outputArgument + 1]) throw new Error("--output requires a path");
+  const write = process.argv.includes("--write");
+  const unknown = process.argv.slice(2).filter((argument) => argument !== "--write");
+  if (unknown.length) throw new Error(`Unknown option: ${unknown[0]}`);
   const final = JSON.parse(readFileSync(path.join(ROOT, CURRENT_INVENTORY), "utf8"));
-  const document = buildReconciliation(await collectPreResetInventory(), final);
-  const issues = validateReconciliation(document);
+  const internalDocument = buildReconciliation(await collectPreResetInventory(), final);
+  const issues = validateReconciliation(internalDocument);
   if (issues.length) {
     console.error(`Repository reconciliation failed with ${issues.length} issue(s):`);
     for (const issue of issues.slice(0, 100)) console.error(`- ${issue}`);
@@ -369,14 +439,36 @@ async function main() {
     return;
   }
 
-  const destination = path.join(ROOT, ...output.split("/"));
-  mkdirSync(path.dirname(destination), { recursive: true });
-  writeFileSync(destination, `${JSON.stringify(document, null, 2)}\n`, "utf8");
+  const destination = path.join(ROOT, ...COMMITTED_RECONCILIATION.split("/"));
+  // The immutable baseline commit remains the audit source of truth. Clear text that matches the
+  // repository's retired-vocabulary policy is represented only by an irreversible digest in the
+  // committed ledger, so the ledger cannot reintroduce a prohibited reference merely by naming a
+  // deleted historical path. Generation and validation still operate on the exact Git tree first.
+  const document = policySafeDocument(internalDocument);
+  const serialized = `${JSON.stringify(document, null, 2)}\n`;
+  if (write) {
+    mkdirSync(path.dirname(destination), { recursive: true });
+    writeFileSync(destination, serialized, "utf8");
+  } else {
+    let committed = null;
+    try {
+      committed = readFileSync(destination, "utf8");
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+    if (committed !== serialized) {
+      console.error(
+        `${COMMITTED_RECONCILIATION} is missing or stale; regenerate it with `
+          + "node scripts/maintenance/reconcile-repository-reset.mjs --write.",
+      );
+      process.exitCode = 1;
+      return;
+    }
+  }
   console.log(
-    `Repository reconciliation passed: ${document.summary.baselineFiles} baseline files, `
+    `Repository reconciliation ${write ? "written" : "passed"}: ${document.summary.baselineFiles} baseline files, `
       + `${document.summary.finalFiles} final files, ${document.summary.unexplained} unexplained.`,
   );
-  if (ephemeral) unlinkSync(destination);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

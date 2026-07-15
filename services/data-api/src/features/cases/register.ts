@@ -6,3 +6,6 @@ import './queue-action-routes.js';
 import './merge-routes.js';
 import './activity-routes.js';
 import './archive-completion-routes.js';
+import './capture.js';
+import './capture-cleanup.js';
+import './evidence-delete.js';

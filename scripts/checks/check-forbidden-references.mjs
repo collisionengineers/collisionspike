@@ -146,7 +146,9 @@ async function main() {
   const options = parseOptions(process.argv.slice(2));
   const matches = [];
   const errors = [];
-  const files = listRepositoryFiles();
+  const files = listRepositoryFiles().filter(
+    (repositoryPath) => !repositoryPath.startsWith("tests/fixtures/evidence/sha256/"),
+  );
 
   for (const repositoryPath of files) {
     const extension = path.posix.extname(repositoryPath).toLowerCase();
@@ -189,8 +191,8 @@ async function main() {
   if (options.json) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } else {
-  process.stdout.write(`Forbidden-reference check: ${files.length} tracked files scanned.\n`);
-    if (matches.length === 0) process.stdout.write("No configured signatures found.\n");
+    process.stdout.write(`Forbidden-reference check: ${files.length} tracked files scanned.\n`);
+    if (matches.length === 0) process.stdout.write("No forbidden signatures matched.\n");
     else {
       process.stderr.write(`${matches.length} location(s) in ${matchedFiles} file(s) matched.\n`);
       for (const match of matches.slice(0, options.limit)) {

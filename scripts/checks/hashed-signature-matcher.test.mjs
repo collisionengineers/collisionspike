@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createHashedSignatureMatcher } from "./hashed-signature-matcher.mjs";
 
@@ -42,4 +43,23 @@ test("matches URL-encoded and double-encoded variants", () => {
 
 test("does not expose or match unrelated text", () => {
   assert.deepEqual(matcher("blue marker"), []);
+});
+
+test("fails closed when the signature corpus is empty", () => {
+  assert.throws(
+    () => createHashedSignatureMatcher({
+      version: 2,
+      prefilter: "fnv1a32",
+      digest: "sha256",
+      maxAdjacentTokens: 4,
+      signatures: [],
+    }),
+    /at least one forbidden signature/,
+  );
+});
+
+test("the committed forbidden-signature corpus is non-empty and valid", async () => {
+  const document = JSON.parse(await readFile(new URL("./forbidden-signatures.json", import.meta.url), "utf8"));
+  assert.ok(document.signatures.length >= 35);
+  assert.doesNotThrow(() => createHashedSignatureMatcher(document));
 });
