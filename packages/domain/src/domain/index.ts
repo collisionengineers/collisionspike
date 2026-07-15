@@ -24,3 +24,4 @@ export * from './outlook-folder';
 export * from './outlook-link';
 export * from './retro-case';
 export * from './intake-routing';
+export * from './archive-holding';

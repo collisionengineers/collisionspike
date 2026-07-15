@@ -379,6 +379,101 @@ def test_upload_out_of_scope_folder_raises_and_does_not_upload():
 
 
 @respx.mock
+def test_move_requires_fresh_source_and_destination_scope_checks():
+    _mock_token()
+    for kind, item_id in (("files", "file-1"), ("folders", "case-folder")):
+        respx.get(f"{API_BASE}/2.0/{kind}/{item_id}").mock(
+            return_value=httpx.Response(200, json={"id": item_id, "path_collection": {"entries": [{"id": ROOT}]}})
+        )
+    moved = respx.put(f"{API_BASE}/2.0/files/file-1").mock(
+        return_value=httpx.Response(200, json={"id": "file-1", "name": "front.jpg"})
+    )
+    assert _client().move_file("file-1", "case-folder", "front.jpg")["id"] == "file-1"
+    assert moved.called
+
+
+@respx.mock
+def test_move_refuses_an_off_root_destination_before_write():
+    _mock_token()
+    respx.get(f"{API_BASE}/2.0/files/file-1").mock(
+        return_value=httpx.Response(200, json={"id": "file-1", "path_collection": {"entries": [{"id": ROOT}]}})
+    )
+    respx.get(f"{API_BASE}/2.0/folders/outside").mock(
+        return_value=httpx.Response(200, json={"id": "outside", "path_collection": {"entries": [{"id": "0"}]}})
+    )
+    moved = respx.put(f"{API_BASE}/2.0/files/file-1").mock(return_value=httpx.Response(200, json={}))
+    with pytest.raises(BoxScopeError):
+        _client().move_file("file-1", "outside")
+    assert not moved.called
+
+
+@respx.mock
+def test_delete_folder_refuses_non_empty_and_never_uses_recursive_delete():
+    _mock_token()
+    respx.get(f"{API_BASE}/2.0/folders/held").mock(
+        return_value=httpx.Response(200, json={"id": "held", "path_collection": {"entries": [{"id": ROOT}]}})
+    )
+    respx.get(f"{API_BASE}/2.0/folders/held/items").mock(
+        return_value=httpx.Response(200, json={"entries": [{"id": "still-here"}]})
+    )
+    deleted = respx.delete(f"{API_BASE}/2.0/folders/held").mock(return_value=httpx.Response(204))
+    with pytest.raises(bc.BoxError, match="non-empty"):
+        _client().delete_empty_folder("held")
+    assert not deleted.called
+
+
+@respx.mock
+def test_replayed_delete_is_idempotent_when_source_is_already_missing():
+    # Adoption dedup retires a held source, then the activity replays: the source
+    # is already gone. The canonical (pinned) delete fresh-validates the holding
+    # folder, sees the file 404, and returns an idempotent "missing".
+    _mock_token()
+    folder = "held"
+    respx.get(f"{API_BASE}/2.0/folders/{folder}").mock(
+        return_value=httpx.Response(
+            200, json={"id": folder, "path_collection": {"entries": [{"id": ROOT}]}}
+        )
+    )
+    respx.get(f"{API_BASE}/2.0/files/gone").mock(return_value=httpx.Response(404))
+    deleted = respx.delete(f"{API_BASE}/2.0/files/gone").mock(return_value=httpx.Response(204))
+    assert _client().delete_file("gone", expected_folder_id=folder)["status"] == "missing"
+    assert not deleted.called
+
+
+@respx.mock
+def test_rename_name_conflict_returns_existing_canonical_folder():
+    _mock_token()
+    respx.get(f"{API_BASE}/2.0/folders/held").mock(
+        return_value=httpx.Response(200, json={"id": "held", "path_collection": {"entries": [{"id": ROOT}]}})
+    )
+    respx.put(f"{API_BASE}/2.0/folders/held").mock(return_value=httpx.Response(409, json={
+        "context_info": {"conflicts": [{"id": "case-folder"}]}
+    }))
+    respx.get(f"{API_BASE}/2.0/folders/case-folder").mock(
+        return_value=httpx.Response(200, json={"id": "case-folder", "path_collection": {"entries": [{"id": ROOT}]}})
+    )
+    assert _client().rename_folder("held", "QDOS26079") == {
+        "id": "case-folder", "type": "folder", "name": "QDOS26079", "outcome": "conflict"
+    }
+
+
+@respx.mock
+def test_rename_refuses_an_out_of_scope_conflict_target():
+    _mock_token()
+    respx.get(f"{API_BASE}/2.0/folders/held").mock(
+        return_value=httpx.Response(200, json={"id": "held", "path_collection": {"entries": [{"id": ROOT}]}})
+    )
+    respx.put(f"{API_BASE}/2.0/folders/held").mock(return_value=httpx.Response(409, json={
+        "context_info": {"conflicts": [{"id": "outside-folder"}]}
+    }))
+    respx.get(f"{API_BASE}/2.0/folders/outside-folder").mock(
+        return_value=httpx.Response(200, json={"id": "outside-folder", "path_collection": {"entries": [{"id": "0"}]}})
+    )
+    with pytest.raises(BoxScopeError):
+        _client().rename_folder("held", "QDOS26079")
+
+
+@respx.mock
 def test_upload_descendant_passes_via_path_collection():
     _mock_token()
     respx.get(f"{API_BASE}/2.0/folders/555").mock(

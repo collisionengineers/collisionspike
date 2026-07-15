@@ -356,6 +356,8 @@ export interface Case {
   sourceEvidencePending?: boolean;
   /** A selected Manual Intake source file exhausted archive retries. */
   sourceEvidenceArchiveFailed?: boolean;
+  /** Registration image intake/adoption is pending or failed. */
+  archiveHoldingPending?: boolean;
   notes: Note[];
   chasers: Chaser[];
   overviewFacts: OverviewFacts;

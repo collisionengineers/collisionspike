@@ -158,6 +158,7 @@ export type {
   DetachInboundResult,
   OutlookMoveResult,
   VehicleLookupResult,
+  ArchiveHoldingResolution,
   VersionedRead,
   ProposalExecutionResult,
   EvidenceUploadOptions,

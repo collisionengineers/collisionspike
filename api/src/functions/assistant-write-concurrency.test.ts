@@ -72,12 +72,18 @@ const ctx = { warn: vi.fn(), error: vi.fn() } as unknown as InvocationContext;
 let activeCaseRow: Record<string, unknown>;
 let inTx = false;
 let failNextOutsideCaseRead = false;
+let activeHoldingClaim = false;
+let selectedHoldingForCase = false;
+let adoptedHoldingForCase = false;
 
 beforeEach(() => {
   sqlLog.length = 0;
   activeCaseRow = { ...baseCaseRow };
   inTx = false;
   failNextOutsideCaseRead = false;
+  activeHoldingClaim = false;
+  selectedHoldingForCase = false;
+  adoptedHoldingForCase = false;
   (ctx.warn as ReturnType<typeof vi.fn>).mockClear();
   db.query.mockReset();
   db.tx.mockReset();
@@ -91,6 +97,12 @@ beforeEach(() => {
   });
   db.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
     sqlLog.push(sql);
+    if (/SELECT vrm FROM case_ WHERE id=\$1/i.test(sql)) return [{vrm:activeCaseRow.vrm}];
+    if (/pg_advisory_xact_lock/i.test(sql)) return [];
+    if (/FROM archive_holding_folder[\s\S]*state='adopting'/i.test(sql))
+      return activeHoldingClaim||selectedHoldingForCase?[{id:'holding-1'}]:[];
+    if(/FROM archive_holding_folder[\s\S]*state='adopted'/i.test(sql))
+      return adoptedHoldingForCase?[{id:'holding-1'}]:[];
     if (/FROM case_ c/i.test(sql) && /WHERE c.id = \$1/i.test(sql)) {
       if (!inTx && failNextOutsideCaseRead) {
         failNextOutsideCaseRead = false;
@@ -132,6 +144,56 @@ describe('assistant write concurrency contracts', () => {
     expect(activeCaseRow.vrm).toBe('ZZ99ZZZ');
     expect(sqlLog.some((sql) => /status_recompute_requested_generation = status_recompute_requested_generation \+ 1/i.test(sql))).toBe(true);
     expect(ctx.warn).toHaveBeenCalledWith(expect.stringContaining('remains pending'));
+  });
+
+  it('rejects a registration correction while held images are mid-transfer',async()=>{
+    activeHoldingClaim=true;
+    const res=await registrations.get('patchCase')!.handler(
+      request({id:CASE_ID},{vrm:'ZZ99ZZZ'},VERSION),ctx,
+    );
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toMatchObject({error:'archive_holding_active'});
+    expect(activeCaseRow.vrm).toBe('AB12CDE');
+    const archiveLock=sqlLog.findIndex((sql)=>/pg_advisory_xact_lock/i.test(sql));
+    const caseLock=sqlLog.findIndex((sql)=>/FROM case_ c/i.test(sql)&&/FOR UPDATE/i.test(sql));
+    expect(archiveLock).toBeGreaterThanOrEqual(0);expect(caseLock).toBeGreaterThan(archiveLock);
+    expect(sqlLog.some((sql)=>/UPDATE case_ SET/i.test(sql))).toBe(false);
+  });
+
+  it('rejects a registration correction after staff selection and before the monitor claims it',async()=>{
+    selectedHoldingForCase=true;
+    const res=await registrations.get('patchCase')!.handler(
+      request({id:CASE_ID},{vrm:'ZZ99ZZZ'},VERSION),ctx,
+    );
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toMatchObject({error:'archive_holding_active'});
+    expect(activeCaseRow.vrm).toBe('AB12CDE');
+    const guardSql=sqlLog.find((sql)=>/FROM archive_holding_folder[\s\S]*state='adopting'/i.test(sql));
+    expect(guardSql).toMatch(/state<>'adopted' AND resolved_case_id=\$1/i);
+    expect(sqlLog.some((sql)=>/UPDATE case_ SET/i.test(sql))).toBe(false);
+  });
+
+  it('rejects a Case/PO correction while registration images are being renamed',async()=>{
+    activeHoldingClaim=true;
+    const res=await registrations.get('patchCase')!.handler(
+      request({id:CASE_ID},{casePo:'QDOS26080'},VERSION),ctx,
+    );
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toMatchObject({error:'archive_holding_active'});
+    const archiveLock=sqlLog.findIndex((sql)=>/pg_advisory_xact_lock/i.test(sql));
+    const caseLock=sqlLog.findIndex((sql)=>/FROM case_ c/i.test(sql)&&/FOR UPDATE/i.test(sql));
+    expect(archiveLock).toBeGreaterThanOrEqual(0);expect(caseLock).toBeGreaterThan(archiveLock);
+    expect(sqlLog.some((sql)=>/UPDATE case_ SET/i.test(sql))).toBe(false);
+  });
+
+  it('rejects a Case/PO correction after adoption so the canonical folder name cannot drift',async()=>{
+    adoptedHoldingForCase=true;
+    const res=await registrations.get('patchCase')!.handler(
+      request({id:CASE_ID},{casePo:'QDOS26080'},VERSION),ctx,
+    );
+    expect(res.status).toBe(409);
+    expect(res.jsonBody).toMatchObject({error:'archive_folder_name_locked'});
+    expect(sqlLog.some((sql)=>/UPDATE case_ SET/i.test(sql))).toBe(false);
   });
 
   it('keeps SQL placeholders aligned when an inspection edit is combined with later fields', async () => {

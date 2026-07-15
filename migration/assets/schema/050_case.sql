@@ -24,6 +24,7 @@ CREATE TABLE case_ (
   -- reason automated provider recovery may advance; it stays Held as
   -- `provider_archive_pending` until its Archive folder is durably linked.
   on_hold_reason              varchar(40),
+  archive_holding_pending     boolean NOT NULL DEFAULT false,
 
   -- ---- Dedup keys ----------------------------------------------------------
   source_message_id           varchar(400),   -- DEDUP KEY (alt key); UNIQUE in 900

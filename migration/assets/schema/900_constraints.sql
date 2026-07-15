@@ -221,7 +221,8 @@ BEGIN
     'archive_mirror_outbox','box_file_request_outbox','evidence_deletion','staff_evidence_upload',
     'staff_evidence_upload_item','manual_intake_case_create_operation',
     'mcp_image_ingest_rate_limit','mcp_http_session',
-    'capture_session','capture_session_shot','capture_asset'
+    'capture_session','capture_session_shot','capture_asset',
+    'archive_holding_folder','archive_holding_intake','archive_holding_file','archive_holding_deferred_intake'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('ALTER TABLE %I FORCE  ROW LEVEL SECURITY;', t);

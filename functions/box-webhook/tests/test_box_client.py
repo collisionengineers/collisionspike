@@ -482,6 +482,7 @@ def test_upload_file_409_same_content_is_idempotent_reuse():
     out = c.upload_file("0", "message.eml", b"x")
     assert out["id"] == "999"
     assert out["outcome"] == "reused"
+    assert out["sha1"] == SHA1_X
     c.close()
 
 
@@ -512,24 +513,43 @@ def test_upload_file_409_different_content_reuploads_under_disambiguated_name():
 
 
 @respx.mock
-def test_upload_file_409_sha1_unverifiable_falls_back_to_legacy_reuse(monkeypatch):
-    # Conflict mini WITHOUT sha1 and the sha1 read failing -> legacy reuse (never
-    # block an archive on a missing hash), logged at warning level.
+def test_upload_file_409_sha1_unverifiable_disambiguates_instead_of_blind_reuse(monkeypatch):
+    # Conflict mini WITHOUT sha1 and the sha1 read failing: the older file is never
+    # accepted as this upload. A content-derived name lands the new bytes instead.
     _no_backoff(monkeypatch)
     _mock_token()
     conflict = {
         "type": "error", "code": "item_name_in_use",
         "context_info": {"conflicts": {"type": "file", "id": "999", "name": "message.eml"}},
     }
-    respx.post(UPLOAD_URL).mock(return_value=httpx.Response(409, json=conflict))
+    route = respx.post(UPLOAD_URL)
+    route.side_effect = [
+        httpx.Response(409, json=conflict),
+        httpx.Response(201, json={"entries": [{"id": "new", "type": "file", "name": f"message-{SHA1_X[:8]}.eml"}]}),
+    ]
     # The best-effort sha1 read (scope check + fields=sha1) errors out — swallowed.
     respx.get(url__regex=r"https://api\.box\.com/2\.0/files/999.*").mock(
         return_value=httpx.Response(500)
     )
     c = _client()
     out = c.upload_file("0", "message.eml", b"x")
-    assert out["id"] == "999"
-    assert out["outcome"] == "reused"
+    assert out["id"] == "new"
+    assert out["outcome"] == "created"
+    assert route.call_count == 2
+    assert f"message-{SHA1_X[:8]}.eml".encode() in route.calls[1].request.content
+    c.close()
+
+
+@respx.mock
+def test_upload_file_409_sha1_unverifiable_twice_fails_closed(monkeypatch):
+    _no_backoff(monkeypatch)
+    _mock_token()
+    conflict = {"type": "error", "code": "item_name_in_use", "context_info": {"conflicts": {"type": "file", "id": "999", "name": "message.eml"}}}
+    respx.post(UPLOAD_URL).mock(return_value=httpx.Response(409, json=conflict))
+    respx.get(url__regex=r"https://api\.box\.com/2\.0/files/999.*").mock(return_value=httpx.Response(500))
+    c = _client()
+    with pytest.raises(BoxError, match="identity remained unverifiable"):
+        c.upload_file("0", "message.eml", b"x")
     c.close()
 
 

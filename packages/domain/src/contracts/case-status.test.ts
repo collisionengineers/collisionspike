@@ -118,6 +118,15 @@ describe('CaseStatus union authority', () => {
 
 /* ----------  Guard order  ---------- */
 
+describe('registration image adoption blocker',()=>{
+  it('keeps an otherwise complete case Not Ready until held images finish filing',()=>{
+    expect(statusForReviewCase(caseInput({archiveHoldingPending:true}))).toBe('missing_images');
+  });
+  it('does not override a terminal case',()=>{
+    expect(statusForReviewCase(caseInput({status:'done',archiveHoldingPending:true}))).toBe('done');
+  });
+});
+
 describe('statusForReviewCase — terminal lock', () => {
   it.each<CaseStatus>(['eva_submitted', 'box_synced', 'error', 'done'])(
     'returns %s unchanged even when fields/images would otherwise fail',

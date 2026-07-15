@@ -371,6 +371,7 @@ export function rowToCase(rec: Row, opts: CaseAssembly = {}): Case {
     missing: [],
     ...(actionReason ? { actionReason } : {}),
     ...(rec.on_hold ? { onHold: true } : {}),
+    ...(rec.archive_holding_pending?{archiveHoldingPending:true}:{}),
     channel: {
       kind: channelKind,
       mode: rec.intake_channel_manual ? 'manual' : 'auto',

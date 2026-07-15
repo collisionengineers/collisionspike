@@ -201,6 +201,37 @@ import {
 
 const useStyles = makeStyles({
   page: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalL },
+  holdingChoiceDetails: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalS,
+    marginTop: tokens.spacingVerticalS,
+  },
+  holdingCandidateList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacingVerticalXS,
+    margin: 0,
+    paddingLeft: tokens.spacingHorizontalL,
+  },
+  holdingSource: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+    padding: tokens.spacingVerticalS,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: tokens.borderRadiusMedium,
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  holdingPreview: {
+    maxHeight: '120px',
+    overflowY: 'auto',
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    padding: tokens.spacingVerticalXS,
+    backgroundColor: tokens.colorNeutralBackground2,
+    borderRadius: tokens.borderRadiusSmall,
+  },
   backRow: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalXS },
   /* Back-arrow lockup inside the "Dashboard" link (icon + label, baseline). */
   backLink: { display: 'inline-flex', alignItems: 'center', gap: '4px' },
@@ -1207,6 +1238,32 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
       </Toast>,
       { intent: 'success' },
     );
+  const [holdingResolution,setHoldingResolution]=useState<Awaited<ReturnType<DataAccessExt['archiveHoldingResolution']>>>({
+    state:'none',holdingIds:[],folderIds:[],candidateCaseIds:[],candidateCases:[],sources:[],canSelect:false,
+  });
+  const [selectingHolding,setSelectingHolding]=useState(false);
+  const [holdingResolutionError,setHoldingResolutionError]=useState(false);
+  const [holdingResolutionReload,setHoldingResolutionReload]=useState(0);
+  useEffect(()=>{
+    let current=true;
+    setHoldingResolutionError(false);
+    void data.archiveHoldingResolution(c.id)
+      .then((value)=>{if(current)setHoldingResolution(value);})
+      .catch(()=>{if(current)setHoldingResolutionError(true);});
+    return()=>{current=false;};
+  },[c.id,holdingResolutionReload]);
+  const selectRegistrationImages=async()=>{
+    if(selectingHolding||!holdingResolution.canSelect)return;
+    setSelectingHolding(true);
+    try{
+      await data.selectArchiveHolding(c.id);
+      setHoldingResolution((value)=>({...value,state:'selected',selectedCaseId:c.id,canSelect:false}));
+      toast('Registration images assigned to this case');
+    }catch(error){
+      dispatchToast(<Toast><ToastTitle>Couldn’t assign the registration images</ToastTitle>
+        <ToastBody>{serverMessageOf(error)??'Check the case and try again.'}</ToastBody></Toast>,{intent:'error'});
+    }finally{setSelectingHolding(false);}
+  };
   const [checkingVehicle, setCheckingVehicle] = useState(false);
   const checkVehicleAgain = async () => {
     if (!canCheckVehicleDetails(hasUnsavedChanges, checkingVehicle, c.vrm)) return;
@@ -2484,6 +2541,81 @@ function CaseDetailView({ caseData, images, imagesLoading, onRefreshImages }: Ca
             >
               {checkingVehicle ? 'Checking…' : 'Check again'}
             </Button>
+          </MessageBarBody>
+        </MessageBar>
+      )}
+
+      {holdingResolutionError&&!isRemoved&&(
+        <MessageBar intent="warning">
+          <MessageBarBody>
+            <MessageBarTitle>Couldn’t check waiting registration images</MessageBarTitle>
+            Check again before taking this case off hold.{' '}
+            <Button appearance="transparent" size="small" onClick={()=>setHoldingResolutionReload((value)=>value+1)}>
+              Check again
+            </Button>
+          </MessageBarBody>
+        </MessageBar>
+      )}
+
+      {holdingResolution.state!=='none'&&!isRemoved&&(
+        <MessageBar intent={holdingResolution.state==='needs_choice'||holdingResolution.hasFailure?'warning':'info'}>
+          <MessageBarBody>
+            <MessageBarTitle>{holdingResolution.hasFailure
+              ? 'Registration images could not be filed'
+              : holdingResolution.state==='needs_choice'?'Registration images need a case'
+              : 'Registration images assigned'}</MessageBarTitle>
+            {holdingResolution.hasFailure
+              ? 'The images are still waiting. Check the email and Archive folder, then assign them here if they belong to this case.'
+              : holdingResolution.state==='needs_choice'?`Images were received for ${c.vrm}. Assign them here only if they belong to this case.`
+              : 'The images will be filed with this case. Keep it on hold until filing is complete.'}{' '}
+            {holdingResolution.state==='needs_choice'&&(
+              <div className={styles.holdingChoiceDetails}>
+                <Text weight="semibold">Compare the possible cases</Text>
+                {holdingResolution.candidateCases.length>0?(
+                  <ul className={styles.holdingCandidateList}>
+                    {holdingResolution.candidateCases.map((candidate)=>(
+                      <li key={candidate.caseId}>
+                        <Link inline href={`/case/${encodeURIComponent(candidate.caseId)}`} target="_blank" rel="noopener noreferrer">
+                          {candidate.casePo??'Case without a Case/PO'}
+                          <span className="ce-sr-only"> (opens in a new window)</span>
+                        </Link>
+                        {candidate.caseId===c.id?' — this case':''}
+                        {candidate.claimantName?` · ${candidate.claimantName}`:''}
+                        {candidate.providerName?` · ${candidate.providerName}`:''}
+                      </li>
+                    ))}
+                  </ul>
+                ):<Caption1>Case details are not available yet. Check the waiting email before assigning.</Caption1>}
+                {holdingResolution.sources.map((source,index)=>(
+                  <div className={styles.holdingSource} key={`${source.holdingId}:${source.sourceMessageId??index}`}>
+                    <Text weight="semibold">{source.subject?.trim()||'Email with registration images'}</Text>
+                    <Caption1>
+                      {[source.fromAddress,source.receivedOn?new Date(source.receivedOn).toLocaleString():null]
+                        .filter(Boolean).join(' · ')||'Email details unavailable'}
+                    </Caption1>
+                    {source.bodyPreview?.trim()&&(
+                      <div className={styles.holdingPreview} tabIndex={0} role="region" aria-label="Waiting email preview">
+                        {source.bodyPreview}
+                      </div>
+                    )}
+                    {source.filenames.length>0&&<Caption1>Images: {source.filenames.join(', ')}</Caption1>}
+                    {source.folderUrl&&(
+                      <Link inline href={source.folderUrl} target="_blank" rel="noopener noreferrer">
+                        Open waiting images in Archive <ArrowUpRight size={14}/>
+                        <span className="ce-sr-only"> (opens in a new window)</span>
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {holdingResolution.state==='needs_choice'&&holdingResolution.canSelect&&(
+              <Button appearance="transparent" size="small" disabled={selectingHolding}
+                icon={selectingHolding?<Spinner size="tiny"/>:undefined}
+                onClick={()=>void selectRegistrationImages()}>
+                {selectingHolding?'Assigning…':'Assign to this case'}
+              </Button>
+            )}
           </MessageBarBody>
         </MessageBar>
       )}

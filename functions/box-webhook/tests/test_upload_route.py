@@ -209,6 +209,30 @@ def test_autonomous_upload_rechecks_scope_and_refuses_folder_moved_after_first_u
     assert uploads == 1
 
 
+def test_upload_route_unverifiable_conflict_returns_retryable_502(monkeypatch):
+    """Fail-closed identity errors remain a transient facade failure: existing
+    archive callers release their claim and retry instead of linking unknown bytes."""
+    monkeypatch.setenv("BOX_API_ENABLED", "true")
+
+    class FakeBox:
+        def upload_file(self, folder_id, filename, content, content_type=None):
+            raise function_app.BoxError(
+                "Box 409 content identity remained unverifiable after disambiguation",
+                status=409,
+            )
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: FakeBox())
+    payload = base64.b64encode(b"raw-eml-bytes").decode("ascii")
+    resp = function_app.upload_file(
+        _req("777", {"filename": "message.eml", "contentBase64": payload})
+    )
+    assert resp.status_code == 502
+    assert json.loads(resp.get_body())["status"] == 409
+
+
 # ==========================================================================
 # TKT-142 — dual-lane body contract, base64 cap, blobPath lane
 # ==========================================================================

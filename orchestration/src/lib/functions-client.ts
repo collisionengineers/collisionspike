@@ -289,6 +289,31 @@ export const box = {
   ): Promise<{ id: string; name?: string; outcome?: 'created' | 'reused' }> {
     return callFunction(BOX, 'POST', 'box/folders', { name, parent: { id: parentId } });
   },
+  renameFolder(folderId: string, name: string): Promise<{ id: string; name?: string; outcome?: string }> {
+    return callFunction(BOX, 'PATCH', `box/folders/${folderId}`, { name });
+  },
+  moveFile(fileId: string, folderId: string, name?: string): Promise<{ id: string; name?: string; sha1?: string }> {
+    return callFunction(BOX, 'POST', `box/files/${fileId}/move`, {
+      parent: { id: folderId }, ...(name ? { name } : {}),
+    });
+  },
+  deleteFile(
+    fileId: string,
+    expectedFolderId: string,
+  ): Promise<{ id: string; status: 'deleted' | 'missing' }> {
+    // TKT-160's file_deletion route is the single canonical file-delete: it
+    // fresh-revalidates that the file is a direct child of expectedFolderId and
+    // under the RW root before mutating (400 without folderId). The adoption
+    // caller always knows the holding folder, so the pin costs nothing.
+    return callFunction(
+      BOX,
+      'DELETE',
+      `box/files/${fileId}?folderId=${encodeURIComponent(expectedFolderId)}`,
+    );
+  },
+  deleteEmptyFolder(folderId: string): Promise<{ deleted: boolean; alreadyMissing?: boolean }> {
+    return callFunction(BOX, 'DELETE', `box/folders/${folderId}`);
+  },
   /**
    * Archive one evidence byte-stream into a case Box folder — the one-way
    * Blob -> Box mirror (ADR-0012; box-sync ticket). The bytes ride as base64 in a
@@ -339,6 +364,8 @@ export const box = {
   },
   listFolderItems(
     folderId: string,
+    limit?: number,
+    offset?: number,
   ): Promise<{
     entries: Array<{
       id: string;
@@ -351,8 +378,15 @@ export const box = {
       created_at?: string;
       modified_at?: string;
     }>;
+    total_count?: number;
+    offset?: number;
+    limit?: number;
   }> {
-    return callFunction(BOX, 'GET', `box/folders/${folderId}/items`);
+    const query = new URLSearchParams();
+    if (limit !== undefined) query.set('limit', String(limit));
+    if (offset !== undefined) query.set('offset', String(offset));
+    const suffix = query.size ? `?${query.toString()}` : '';
+    return callFunction(BOX, 'GET', `box/folders/${folderId}/items${suffix}`);
   },
   /**
    * READ-ONLY content/name search under the configured archive roots (ADR-0022 R2 —

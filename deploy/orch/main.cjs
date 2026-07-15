@@ -3262,10 +3262,10 @@ df3.app.activity("archiveMirrorOutboxList", {
   handler: async () => archiveMirrorApi.pending(250)
 });
 df3.app.activity("archiveMirrorOutboxComplete", {
-  handler: async (input17) => archiveMirrorApi.complete(input17.evidenceId, input17.generation)
+  handler: async (input19) => archiveMirrorApi.complete(input19.evidenceId, input19.generation)
 });
 df3.app.activity("archiveMirrorOutboxDefer", {
-  handler: async (input17) => archiveMirrorApi.defer(input17.evidenceId, input17.generation, input17.reason)
+  handler: async (input19) => archiveMirrorApi.defer(input19.evidenceId, input19.generation, input19.reason)
 });
 df3.app.orchestration("archiveMirrorMonitorOrchestrator", function* (ctx) {
   try {
@@ -3472,10 +3472,10 @@ df4.app.activity("providerArchiveOutboxList", {
   handler: async () => providerArchiveApi.pending(250)
 });
 df4.app.activity("providerArchiveOutboxComplete", {
-  handler: async (input17) => providerArchiveApi.complete(input17.caseId, input17.generation)
+  handler: async (input19) => providerArchiveApi.complete(input19.caseId, input19.generation)
 });
 df4.app.activity("providerArchiveOutboxDefer", {
-  handler: async (input17) => providerArchiveApi.defer(input17.caseId, input17.generation, input17.reason)
+  handler: async (input19) => providerArchiveApi.defer(input19.caseId, input19.generation, input19.reason)
 });
 df4.app.orchestration("providerArchiveMonitorOrchestrator", function* (ctx) {
   try {
@@ -3702,8 +3702,8 @@ var dataApi = {
     return request3("GET", `/api/internal/dedup-context?${q.toString()}`);
   },
   /** Create a Case (frozen §21.1 #2). 409 → ConflictError (already ingested). */
-  createCase(input17) {
-    return request3("POST", "/api/cases", input17);
+  createCase(input19) {
+    return request3("POST", "/api/cases", input19);
   },
   /**
    * Persist the result of the in-activity dedup decision (internal route). The orchestration
@@ -3755,6 +3755,45 @@ var dataApi = {
    */
   markInboundAttention(payload) {
     return request3("POST", "/api/internal/inbound/attention", payload);
+  },
+  reserveArchiveHoldingIntake(payload) {
+    return request3("POST", "/api/internal/archive-holding/reserve", payload);
+  },
+  registerArchiveHolding(payload) {
+    return request3("POST", "/api/internal/archive-holding/register", payload);
+  },
+  stampArchiveHoldingUpload(fileId, payload) {
+    return request3("POST", `/api/internal/archive-holding/files/${encodeURIComponent(fileId)}/uploaded`, payload);
+  },
+  failArchiveHoldingUpload(fileId, payload) {
+    return request3("POST", `/api/internal/archive-holding/files/${encodeURIComponent(fileId)}/failed`, payload);
+  },
+  claimArchiveHoldingUploads(claimToken, limit = 25) {
+    return request3("POST", "/api/internal/archive-holding/uploads/claim", { claimToken, limit });
+  },
+  archiveHoldingAdoptionCandidates(limit = 50) {
+    return request3("GET", `/api/internal/archive-holding/adoption-candidates?limit=${encodeURIComponent(String(limit))}`);
+  },
+  claimDeferredArchiveHoldingIntakes(claimToken, limit = 10) {
+    return request3("POST", "/api/internal/archive-holding/deferred/claim", { claimToken, limit });
+  },
+  completeDeferredArchiveHoldingIntake(id, claimToken) {
+    return request3("POST", `/api/internal/archive-holding/deferred/${encodeURIComponent(id)}/complete`, { claimToken });
+  },
+  failDeferredArchiveHoldingIntake(id, payload) {
+    return request3("POST", `/api/internal/archive-holding/deferred/${encodeURIComponent(id)}/failed`, payload);
+  },
+  claimArchiveHolding(caseId, claimToken) {
+    return request3("POST", `/api/internal/cases/${encodeURIComponent(caseId)}/archive-holding/claim`, { claimToken });
+  },
+  checkpointArchiveHoldingFile(holdingId, fileId, payload) {
+    return request3("POST", `/api/internal/archive-holding/${encodeURIComponent(holdingId)}/files/${encodeURIComponent(fileId)}/checkpoint`, payload);
+  },
+  finalizeArchiveHolding(holdingId, payload) {
+    return request3("POST", `/api/internal/archive-holding/${encodeURIComponent(holdingId)}/finalize`, payload);
+  },
+  failArchiveHoldingAdoption(holdingId, payload) {
+    return request3("POST", `/api/internal/archive-holding/${encodeURIComponent(holdingId)}/failed`, payload);
   },
   /**
    * ADR-0022 R2 — register archive files as BYTE-LESS Box evidence rows (id + link
@@ -5021,41 +5060,41 @@ var ZodType = class {
   get description() {
     return this._def.description;
   }
-  _getType(input17) {
-    return getParsedType(input17.data);
+  _getType(input19) {
+    return getParsedType(input19.data);
   }
-  _getOrReturnCtx(input17, ctx) {
+  _getOrReturnCtx(input19, ctx) {
     return ctx || {
-      common: input17.parent.common,
-      data: input17.data,
-      parsedType: getParsedType(input17.data),
+      common: input19.parent.common,
+      data: input19.data,
+      parsedType: getParsedType(input19.data),
       schemaErrorMap: this._def.errorMap,
-      path: input17.path,
-      parent: input17.parent
+      path: input19.path,
+      parent: input19.parent
     };
   }
-  _processInputParams(input17) {
+  _processInputParams(input19) {
     return {
       status: new ParseStatus(),
       ctx: {
-        common: input17.parent.common,
-        data: input17.data,
-        parsedType: getParsedType(input17.data),
+        common: input19.parent.common,
+        data: input19.data,
+        parsedType: getParsedType(input19.data),
         schemaErrorMap: this._def.errorMap,
-        path: input17.path,
-        parent: input17.parent
+        path: input19.path,
+        parent: input19.parent
       }
     };
   }
-  _parseSync(input17) {
-    const result = this._parse(input17);
+  _parseSync(input19) {
+    const result = this._parse(input19);
     if (isAsync(result)) {
       throw new Error("Synchronous parse encountered promise.");
     }
     return result;
   }
-  _parseAsync(input17) {
-    const result = this._parse(input17);
+  _parseAsync(input19) {
+    const result = this._parse(input19);
     return Promise.resolve(result);
   }
   parse(data, params) {
@@ -5381,13 +5420,13 @@ function isValidCidr(ip, version2) {
   return false;
 }
 var ZodString = class _ZodString extends ZodType {
-  _parse(input17) {
+  _parse(input19) {
     if (this._def.coerce) {
-      input17.data = String(input17.data);
+      input19.data = String(input19.data);
     }
-    const parsedType = this._getType(input17);
+    const parsedType = this._getType(input19);
     if (parsedType !== ZodParsedType.string) {
-      const ctx2 = this._getOrReturnCtx(input17);
+      const ctx2 = this._getOrReturnCtx(input19);
       addIssueToContext(ctx2, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.string,
@@ -5399,8 +5438,8 @@ var ZodString = class _ZodString extends ZodType {
     let ctx = void 0;
     for (const check of this._def.checks) {
       if (check.kind === "min") {
-        if (input17.data.length < check.value) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (input19.data.length < check.value) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_small,
             minimum: check.value,
@@ -5412,8 +5451,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "max") {
-        if (input17.data.length > check.value) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (input19.data.length > check.value) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_big,
             maximum: check.value,
@@ -5425,10 +5464,10 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "length") {
-        const tooBig = input17.data.length > check.value;
-        const tooSmall = input17.data.length < check.value;
+        const tooBig = input19.data.length > check.value;
+        const tooSmall = input19.data.length < check.value;
         if (tooBig || tooSmall) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+          ctx = this._getOrReturnCtx(input19, ctx);
           if (tooBig) {
             addIssueToContext(ctx, {
               code: ZodIssueCode.too_big,
@@ -5451,8 +5490,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "email") {
-        if (!emailRegex.test(input17.data)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!emailRegex.test(input19.data)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             validation: "email",
             code: ZodIssueCode.invalid_string,
@@ -5464,8 +5503,8 @@ var ZodString = class _ZodString extends ZodType {
         if (!emojiRegex) {
           emojiRegex = new RegExp(_emojiRegex, "u");
         }
-        if (!emojiRegex.test(input17.data)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!emojiRegex.test(input19.data)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             validation: "emoji",
             code: ZodIssueCode.invalid_string,
@@ -5474,8 +5513,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "uuid") {
-        if (!uuidRegex.test(input17.data)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!uuidRegex.test(input19.data)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             validation: "uuid",
             code: ZodIssueCode.invalid_string,
@@ -5484,8 +5523,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "nanoid") {
-        if (!nanoidRegex.test(input17.data)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!nanoidRegex.test(input19.data)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             validation: "nanoid",
             code: ZodIssueCode.invalid_string,
@@ -5494,8 +5533,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "cuid") {
-        if (!cuidRegex.test(input17.data)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!cuidRegex.test(input19.data)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             validation: "cuid",
             code: ZodIssueCode.invalid_string,
@@ -5504,8 +5543,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "cuid2") {
-        if (!cuid2Regex.test(input17.data)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!cuid2Regex.test(input19.data)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             validation: "cuid2",
             code: ZodIssueCode.invalid_string,
@@ -5514,8 +5553,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "ulid") {
-        if (!ulidRegex.test(input17.data)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!ulidRegex.test(input19.data)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             validation: "ulid",
             code: ZodIssueCode.invalid_string,
@@ -5525,9 +5564,9 @@ var ZodString = class _ZodString extends ZodType {
         }
       } else if (check.kind === "url") {
         try {
-          new URL(input17.data);
+          new URL(input19.data);
         } catch {
-          ctx = this._getOrReturnCtx(input17, ctx);
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             validation: "url",
             code: ZodIssueCode.invalid_string,
@@ -5537,9 +5576,9 @@ var ZodString = class _ZodString extends ZodType {
         }
       } else if (check.kind === "regex") {
         check.regex.lastIndex = 0;
-        const testResult = check.regex.test(input17.data);
+        const testResult = check.regex.test(input19.data);
         if (!testResult) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             validation: "regex",
             code: ZodIssueCode.invalid_string,
@@ -5548,10 +5587,10 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "trim") {
-        input17.data = input17.data.trim();
+        input19.data = input19.data.trim();
       } else if (check.kind === "includes") {
-        if (!input17.data.includes(check.value, check.position)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!input19.data.includes(check.value, check.position)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
             validation: { includes: check.value, position: check.position },
@@ -5560,12 +5599,12 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "toLowerCase") {
-        input17.data = input17.data.toLowerCase();
+        input19.data = input19.data.toLowerCase();
       } else if (check.kind === "toUpperCase") {
-        input17.data = input17.data.toUpperCase();
+        input19.data = input19.data.toUpperCase();
       } else if (check.kind === "startsWith") {
-        if (!input17.data.startsWith(check.value)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!input19.data.startsWith(check.value)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
             validation: { startsWith: check.value },
@@ -5574,8 +5613,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "endsWith") {
-        if (!input17.data.endsWith(check.value)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!input19.data.endsWith(check.value)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
             validation: { endsWith: check.value },
@@ -5585,8 +5624,8 @@ var ZodString = class _ZodString extends ZodType {
         }
       } else if (check.kind === "datetime") {
         const regex = datetimeRegex(check);
-        if (!regex.test(input17.data)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!regex.test(input19.data)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
             validation: "datetime",
@@ -5596,8 +5635,8 @@ var ZodString = class _ZodString extends ZodType {
         }
       } else if (check.kind === "date") {
         const regex = dateRegex;
-        if (!regex.test(input17.data)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!regex.test(input19.data)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
             validation: "date",
@@ -5607,8 +5646,8 @@ var ZodString = class _ZodString extends ZodType {
         }
       } else if (check.kind === "time") {
         const regex = timeRegex(check);
-        if (!regex.test(input17.data)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!regex.test(input19.data)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
             validation: "time",
@@ -5617,8 +5656,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "duration") {
-        if (!durationRegex.test(input17.data)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!durationRegex.test(input19.data)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             validation: "duration",
             code: ZodIssueCode.invalid_string,
@@ -5627,8 +5666,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "ip") {
-        if (!isValidIP(input17.data, check.version)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!isValidIP(input19.data, check.version)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             validation: "ip",
             code: ZodIssueCode.invalid_string,
@@ -5637,8 +5676,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "jwt") {
-        if (!isValidJWT(input17.data, check.alg)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!isValidJWT(input19.data, check.alg)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             validation: "jwt",
             code: ZodIssueCode.invalid_string,
@@ -5647,8 +5686,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "cidr") {
-        if (!isValidCidr(input17.data, check.version)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!isValidCidr(input19.data, check.version)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             validation: "cidr",
             code: ZodIssueCode.invalid_string,
@@ -5657,8 +5696,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "base64") {
-        if (!base64Regex.test(input17.data)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!base64Regex.test(input19.data)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             validation: "base64",
             code: ZodIssueCode.invalid_string,
@@ -5667,8 +5706,8 @@ var ZodString = class _ZodString extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "base64url") {
-        if (!base64urlRegex.test(input17.data)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!base64urlRegex.test(input19.data)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             validation: "base64url",
             code: ZodIssueCode.invalid_string,
@@ -5680,7 +5719,7 @@ var ZodString = class _ZodString extends ZodType {
         util.assertNever(check);
       }
     }
-    return { status: status.value, value: input17.data };
+    return { status: status.value, value: input19.data };
   }
   _regex(regex, validation, message) {
     return this.refinement((data) => regex.test(data), {
@@ -5941,13 +5980,13 @@ var ZodNumber = class _ZodNumber extends ZodType {
     this.max = this.lte;
     this.step = this.multipleOf;
   }
-  _parse(input17) {
+  _parse(input19) {
     if (this._def.coerce) {
-      input17.data = Number(input17.data);
+      input19.data = Number(input19.data);
     }
-    const parsedType = this._getType(input17);
+    const parsedType = this._getType(input19);
     if (parsedType !== ZodParsedType.number) {
-      const ctx2 = this._getOrReturnCtx(input17);
+      const ctx2 = this._getOrReturnCtx(input19);
       addIssueToContext(ctx2, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.number,
@@ -5959,8 +5998,8 @@ var ZodNumber = class _ZodNumber extends ZodType {
     const status = new ParseStatus();
     for (const check of this._def.checks) {
       if (check.kind === "int") {
-        if (!util.isInteger(input17.data)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!util.isInteger(input19.data)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_type,
             expected: "integer",
@@ -5970,9 +6009,9 @@ var ZodNumber = class _ZodNumber extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "min") {
-        const tooSmall = check.inclusive ? input17.data < check.value : input17.data <= check.value;
+        const tooSmall = check.inclusive ? input19.data < check.value : input19.data <= check.value;
         if (tooSmall) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_small,
             minimum: check.value,
@@ -5984,9 +6023,9 @@ var ZodNumber = class _ZodNumber extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "max") {
-        const tooBig = check.inclusive ? input17.data > check.value : input17.data >= check.value;
+        const tooBig = check.inclusive ? input19.data > check.value : input19.data >= check.value;
         if (tooBig) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_big,
             maximum: check.value,
@@ -5998,8 +6037,8 @@ var ZodNumber = class _ZodNumber extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "multipleOf") {
-        if (floatSafeRemainder(input17.data, check.value) !== 0) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (floatSafeRemainder(input19.data, check.value) !== 0) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.not_multiple_of,
             multipleOf: check.value,
@@ -6008,8 +6047,8 @@ var ZodNumber = class _ZodNumber extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "finite") {
-        if (!Number.isFinite(input17.data)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (!Number.isFinite(input19.data)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.not_finite,
             message: check.message
@@ -6020,7 +6059,7 @@ var ZodNumber = class _ZodNumber extends ZodType {
         util.assertNever(check);
       }
     }
-    return { status: status.value, value: input17.data };
+    return { status: status.value, value: input19.data };
   }
   gte(value, message) {
     return this.setLimit("min", value, true, errorUtil.toString(message));
@@ -6172,25 +6211,25 @@ var ZodBigInt = class _ZodBigInt extends ZodType {
     this.min = this.gte;
     this.max = this.lte;
   }
-  _parse(input17) {
+  _parse(input19) {
     if (this._def.coerce) {
       try {
-        input17.data = BigInt(input17.data);
+        input19.data = BigInt(input19.data);
       } catch {
-        return this._getInvalidInput(input17);
+        return this._getInvalidInput(input19);
       }
     }
-    const parsedType = this._getType(input17);
+    const parsedType = this._getType(input19);
     if (parsedType !== ZodParsedType.bigint) {
-      return this._getInvalidInput(input17);
+      return this._getInvalidInput(input19);
     }
     let ctx = void 0;
     const status = new ParseStatus();
     for (const check of this._def.checks) {
       if (check.kind === "min") {
-        const tooSmall = check.inclusive ? input17.data < check.value : input17.data <= check.value;
+        const tooSmall = check.inclusive ? input19.data < check.value : input19.data <= check.value;
         if (tooSmall) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_small,
             type: "bigint",
@@ -6201,9 +6240,9 @@ var ZodBigInt = class _ZodBigInt extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "max") {
-        const tooBig = check.inclusive ? input17.data > check.value : input17.data >= check.value;
+        const tooBig = check.inclusive ? input19.data > check.value : input19.data >= check.value;
         if (tooBig) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_big,
             type: "bigint",
@@ -6214,8 +6253,8 @@ var ZodBigInt = class _ZodBigInt extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "multipleOf") {
-        if (input17.data % check.value !== BigInt(0)) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (input19.data % check.value !== BigInt(0)) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.not_multiple_of,
             multipleOf: check.value,
@@ -6227,10 +6266,10 @@ var ZodBigInt = class _ZodBigInt extends ZodType {
         util.assertNever(check);
       }
     }
-    return { status: status.value, value: input17.data };
+    return { status: status.value, value: input19.data };
   }
-  _getInvalidInput(input17) {
-    const ctx = this._getOrReturnCtx(input17);
+  _getInvalidInput(input19) {
+    const ctx = this._getOrReturnCtx(input19);
     addIssueToContext(ctx, {
       code: ZodIssueCode.invalid_type,
       expected: ZodParsedType.bigint,
@@ -6339,13 +6378,13 @@ ZodBigInt.create = (params) => {
   });
 };
 var ZodBoolean = class extends ZodType {
-  _parse(input17) {
+  _parse(input19) {
     if (this._def.coerce) {
-      input17.data = Boolean(input17.data);
+      input19.data = Boolean(input19.data);
     }
-    const parsedType = this._getType(input17);
+    const parsedType = this._getType(input19);
     if (parsedType !== ZodParsedType.boolean) {
-      const ctx = this._getOrReturnCtx(input17);
+      const ctx = this._getOrReturnCtx(input19);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.boolean,
@@ -6353,7 +6392,7 @@ var ZodBoolean = class extends ZodType {
       });
       return INVALID;
     }
-    return OK(input17.data);
+    return OK(input19.data);
   }
 };
 ZodBoolean.create = (params) => {
@@ -6364,13 +6403,13 @@ ZodBoolean.create = (params) => {
   });
 };
 var ZodDate = class _ZodDate extends ZodType {
-  _parse(input17) {
+  _parse(input19) {
     if (this._def.coerce) {
-      input17.data = new Date(input17.data);
+      input19.data = new Date(input19.data);
     }
-    const parsedType = this._getType(input17);
+    const parsedType = this._getType(input19);
     if (parsedType !== ZodParsedType.date) {
-      const ctx2 = this._getOrReturnCtx(input17);
+      const ctx2 = this._getOrReturnCtx(input19);
       addIssueToContext(ctx2, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.date,
@@ -6378,8 +6417,8 @@ var ZodDate = class _ZodDate extends ZodType {
       });
       return INVALID;
     }
-    if (Number.isNaN(input17.data.getTime())) {
-      const ctx2 = this._getOrReturnCtx(input17);
+    if (Number.isNaN(input19.data.getTime())) {
+      const ctx2 = this._getOrReturnCtx(input19);
       addIssueToContext(ctx2, {
         code: ZodIssueCode.invalid_date
       });
@@ -6389,8 +6428,8 @@ var ZodDate = class _ZodDate extends ZodType {
     let ctx = void 0;
     for (const check of this._def.checks) {
       if (check.kind === "min") {
-        if (input17.data.getTime() < check.value) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (input19.data.getTime() < check.value) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_small,
             message: check.message,
@@ -6402,8 +6441,8 @@ var ZodDate = class _ZodDate extends ZodType {
           status.dirty();
         }
       } else if (check.kind === "max") {
-        if (input17.data.getTime() > check.value) {
-          ctx = this._getOrReturnCtx(input17, ctx);
+        if (input19.data.getTime() > check.value) {
+          ctx = this._getOrReturnCtx(input19, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_big,
             message: check.message,
@@ -6420,7 +6459,7 @@ var ZodDate = class _ZodDate extends ZodType {
     }
     return {
       status: status.value,
-      value: new Date(input17.data.getTime())
+      value: new Date(input19.data.getTime())
     };
   }
   _addCheck(check) {
@@ -6473,10 +6512,10 @@ ZodDate.create = (params) => {
   });
 };
 var ZodSymbol = class extends ZodType {
-  _parse(input17) {
-    const parsedType = this._getType(input17);
+  _parse(input19) {
+    const parsedType = this._getType(input19);
     if (parsedType !== ZodParsedType.symbol) {
-      const ctx = this._getOrReturnCtx(input17);
+      const ctx = this._getOrReturnCtx(input19);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.symbol,
@@ -6484,7 +6523,7 @@ var ZodSymbol = class extends ZodType {
       });
       return INVALID;
     }
-    return OK(input17.data);
+    return OK(input19.data);
   }
 };
 ZodSymbol.create = (params) => {
@@ -6494,10 +6533,10 @@ ZodSymbol.create = (params) => {
   });
 };
 var ZodUndefined = class extends ZodType {
-  _parse(input17) {
-    const parsedType = this._getType(input17);
+  _parse(input19) {
+    const parsedType = this._getType(input19);
     if (parsedType !== ZodParsedType.undefined) {
-      const ctx = this._getOrReturnCtx(input17);
+      const ctx = this._getOrReturnCtx(input19);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.undefined,
@@ -6505,7 +6544,7 @@ var ZodUndefined = class extends ZodType {
       });
       return INVALID;
     }
-    return OK(input17.data);
+    return OK(input19.data);
   }
 };
 ZodUndefined.create = (params) => {
@@ -6515,10 +6554,10 @@ ZodUndefined.create = (params) => {
   });
 };
 var ZodNull = class extends ZodType {
-  _parse(input17) {
-    const parsedType = this._getType(input17);
+  _parse(input19) {
+    const parsedType = this._getType(input19);
     if (parsedType !== ZodParsedType.null) {
-      const ctx = this._getOrReturnCtx(input17);
+      const ctx = this._getOrReturnCtx(input19);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.null,
@@ -6526,7 +6565,7 @@ var ZodNull = class extends ZodType {
       });
       return INVALID;
     }
-    return OK(input17.data);
+    return OK(input19.data);
   }
 };
 ZodNull.create = (params) => {
@@ -6540,8 +6579,8 @@ var ZodAny = class extends ZodType {
     super(...arguments);
     this._any = true;
   }
-  _parse(input17) {
-    return OK(input17.data);
+  _parse(input19) {
+    return OK(input19.data);
   }
 };
 ZodAny.create = (params) => {
@@ -6555,8 +6594,8 @@ var ZodUnknown = class extends ZodType {
     super(...arguments);
     this._unknown = true;
   }
-  _parse(input17) {
-    return OK(input17.data);
+  _parse(input19) {
+    return OK(input19.data);
   }
 };
 ZodUnknown.create = (params) => {
@@ -6566,8 +6605,8 @@ ZodUnknown.create = (params) => {
   });
 };
 var ZodNever = class extends ZodType {
-  _parse(input17) {
-    const ctx = this._getOrReturnCtx(input17);
+  _parse(input19) {
+    const ctx = this._getOrReturnCtx(input19);
     addIssueToContext(ctx, {
       code: ZodIssueCode.invalid_type,
       expected: ZodParsedType.never,
@@ -6583,10 +6622,10 @@ ZodNever.create = (params) => {
   });
 };
 var ZodVoid = class extends ZodType {
-  _parse(input17) {
-    const parsedType = this._getType(input17);
+  _parse(input19) {
+    const parsedType = this._getType(input19);
     if (parsedType !== ZodParsedType.undefined) {
-      const ctx = this._getOrReturnCtx(input17);
+      const ctx = this._getOrReturnCtx(input19);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.void,
@@ -6594,7 +6633,7 @@ var ZodVoid = class extends ZodType {
       });
       return INVALID;
     }
-    return OK(input17.data);
+    return OK(input19.data);
   }
 };
 ZodVoid.create = (params) => {
@@ -6604,8 +6643,8 @@ ZodVoid.create = (params) => {
   });
 };
 var ZodArray = class _ZodArray extends ZodType {
-  _parse(input17) {
-    const { ctx, status } = this._processInputParams(input17);
+  _parse(input19) {
+    const { ctx, status } = this._processInputParams(input19);
     const def = this._def;
     if (ctx.parsedType !== ZodParsedType.array) {
       addIssueToContext(ctx, {
@@ -6745,10 +6784,10 @@ var ZodObject = class _ZodObject extends ZodType {
     this._cached = { shape, keys };
     return this._cached;
   }
-  _parse(input17) {
-    const parsedType = this._getType(input17);
+  _parse(input19) {
+    const parsedType = this._getType(input19);
     if (parsedType !== ZodParsedType.object) {
-      const ctx2 = this._getOrReturnCtx(input17);
+      const ctx2 = this._getOrReturnCtx(input19);
       addIssueToContext(ctx2, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.object,
@@ -6756,7 +6795,7 @@ var ZodObject = class _ZodObject extends ZodType {
       });
       return INVALID;
     }
-    const { status, ctx } = this._processInputParams(input17);
+    const { status, ctx } = this._processInputParams(input19);
     const { shape, keys: shapeKeys } = this._getCached();
     const extraKeys = [];
     if (!(this._def.catchall instanceof ZodNever && this._def.unknownKeys === "strip")) {
@@ -7069,8 +7108,8 @@ ZodObject.lazycreate = (shape, params) => {
   });
 };
 var ZodUnion = class extends ZodType {
-  _parse(input17) {
-    const { ctx } = this._processInputParams(input17);
+  _parse(input19) {
+    const { ctx } = this._processInputParams(input19);
     const options = this._def.options;
     function handleResults(results) {
       for (const result of results) {
@@ -7191,8 +7230,8 @@ var getDiscriminator = (type) => {
   }
 };
 var ZodDiscriminatedUnion = class _ZodDiscriminatedUnion extends ZodType {
-  _parse(input17) {
-    const { ctx } = this._processInputParams(input17);
+  _parse(input19) {
+    const { ctx } = this._processInputParams(input19);
     if (ctx.parsedType !== ZodParsedType.object) {
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -7305,8 +7344,8 @@ function mergeValues(a, b) {
   }
 }
 var ZodIntersection = class extends ZodType {
-  _parse(input17) {
-    const { status, ctx } = this._processInputParams(input17);
+  _parse(input19) {
+    const { status, ctx } = this._processInputParams(input19);
     const handleParsed = (parsedLeft, parsedRight) => {
       if (isAborted(parsedLeft) || isAborted(parsedRight)) {
         return INVALID;
@@ -7358,8 +7397,8 @@ ZodIntersection.create = (left, right, params) => {
   });
 };
 var ZodTuple = class _ZodTuple extends ZodType {
-  _parse(input17) {
-    const { status, ctx } = this._processInputParams(input17);
+  _parse(input19) {
+    const { status, ctx } = this._processInputParams(input19);
     if (ctx.parsedType !== ZodParsedType.array) {
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -7431,8 +7470,8 @@ var ZodRecord = class _ZodRecord extends ZodType {
   get valueSchema() {
     return this._def.valueType;
   }
-  _parse(input17) {
-    const { status, ctx } = this._processInputParams(input17);
+  _parse(input19) {
+    const { status, ctx } = this._processInputParams(input19);
     if (ctx.parsedType !== ZodParsedType.object) {
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -7484,8 +7523,8 @@ var ZodMap = class extends ZodType {
   get valueSchema() {
     return this._def.valueType;
   }
-  _parse(input17) {
-    const { status, ctx } = this._processInputParams(input17);
+  _parse(input19) {
+    const { status, ctx } = this._processInputParams(input19);
     if (ctx.parsedType !== ZodParsedType.map) {
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -7544,8 +7583,8 @@ ZodMap.create = (keyType, valueType, params) => {
   });
 };
 var ZodSet = class _ZodSet extends ZodType {
-  _parse(input17) {
-    const { status, ctx } = this._processInputParams(input17);
+  _parse(input19) {
+    const { status, ctx } = this._processInputParams(input19);
     if (ctx.parsedType !== ZodParsedType.set) {
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -7633,8 +7672,8 @@ var ZodFunction = class _ZodFunction extends ZodType {
     super(...arguments);
     this.validate = this.implement;
   }
-  _parse(input17) {
-    const { ctx } = this._processInputParams(input17);
+  _parse(input19) {
+    const { ctx } = this._processInputParams(input19);
     if (ctx.parsedType !== ZodParsedType.function) {
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -7737,8 +7776,8 @@ var ZodLazy = class extends ZodType {
   get schema() {
     return this._def.getter();
   }
-  _parse(input17) {
-    const { ctx } = this._processInputParams(input17);
+  _parse(input19) {
+    const { ctx } = this._processInputParams(input19);
     const lazySchema = this._def.getter();
     return lazySchema._parse({ data: ctx.data, path: ctx.path, parent: ctx });
   }
@@ -7751,9 +7790,9 @@ ZodLazy.create = (getter, params) => {
   });
 };
 var ZodLiteral = class extends ZodType {
-  _parse(input17) {
-    if (input17.data !== this._def.value) {
-      const ctx = this._getOrReturnCtx(input17);
+  _parse(input19) {
+    if (input19.data !== this._def.value) {
+      const ctx = this._getOrReturnCtx(input19);
       addIssueToContext(ctx, {
         received: ctx.data,
         code: ZodIssueCode.invalid_literal,
@@ -7761,7 +7800,7 @@ var ZodLiteral = class extends ZodType {
       });
       return INVALID;
     }
-    return { status: "valid", value: input17.data };
+    return { status: "valid", value: input19.data };
   }
   get value() {
     return this._def.value;
@@ -7782,9 +7821,9 @@ function createZodEnum(values, params) {
   });
 }
 var ZodEnum = class _ZodEnum extends ZodType {
-  _parse(input17) {
-    if (typeof input17.data !== "string") {
-      const ctx = this._getOrReturnCtx(input17);
+  _parse(input19) {
+    if (typeof input19.data !== "string") {
+      const ctx = this._getOrReturnCtx(input19);
       const expectedValues = this._def.values;
       addIssueToContext(ctx, {
         expected: util.joinValues(expectedValues),
@@ -7796,8 +7835,8 @@ var ZodEnum = class _ZodEnum extends ZodType {
     if (!this._cache) {
       this._cache = new Set(this._def.values);
     }
-    if (!this._cache.has(input17.data)) {
-      const ctx = this._getOrReturnCtx(input17);
+    if (!this._cache.has(input19.data)) {
+      const ctx = this._getOrReturnCtx(input19);
       const expectedValues = this._def.values;
       addIssueToContext(ctx, {
         received: ctx.data,
@@ -7806,7 +7845,7 @@ var ZodEnum = class _ZodEnum extends ZodType {
       });
       return INVALID;
     }
-    return OK(input17.data);
+    return OK(input19.data);
   }
   get options() {
     return this._def.values;
@@ -7847,9 +7886,9 @@ var ZodEnum = class _ZodEnum extends ZodType {
 };
 ZodEnum.create = createZodEnum;
 var ZodNativeEnum = class extends ZodType {
-  _parse(input17) {
+  _parse(input19) {
     const nativeEnumValues = util.getValidEnumValues(this._def.values);
-    const ctx = this._getOrReturnCtx(input17);
+    const ctx = this._getOrReturnCtx(input19);
     if (ctx.parsedType !== ZodParsedType.string && ctx.parsedType !== ZodParsedType.number) {
       const expectedValues = util.objectValues(nativeEnumValues);
       addIssueToContext(ctx, {
@@ -7862,7 +7901,7 @@ var ZodNativeEnum = class extends ZodType {
     if (!this._cache) {
       this._cache = new Set(util.getValidEnumValues(this._def.values));
     }
-    if (!this._cache.has(input17.data)) {
+    if (!this._cache.has(input19.data)) {
       const expectedValues = util.objectValues(nativeEnumValues);
       addIssueToContext(ctx, {
         received: ctx.data,
@@ -7871,7 +7910,7 @@ var ZodNativeEnum = class extends ZodType {
       });
       return INVALID;
     }
-    return OK(input17.data);
+    return OK(input19.data);
   }
   get enum() {
     return this._def.values;
@@ -7888,8 +7927,8 @@ var ZodPromise = class extends ZodType {
   unwrap() {
     return this._def.type;
   }
-  _parse(input17) {
-    const { ctx } = this._processInputParams(input17);
+  _parse(input19) {
+    const { ctx } = this._processInputParams(input19);
     if (ctx.parsedType !== ZodParsedType.promise && ctx.common.async === false) {
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -7921,8 +7960,8 @@ var ZodEffects = class extends ZodType {
   sourceType() {
     return this._def.schema._def.typeName === ZodFirstPartyTypeKind.ZodEffects ? this._def.schema.sourceType() : this._def.schema;
   }
-  _parse(input17) {
-    const { status, ctx } = this._processInputParams(input17);
+  _parse(input19) {
+    const { status, ctx } = this._processInputParams(input19);
     const effect = this._def.effect || null;
     const checkCtx = {
       addIssue: (arg) => {
@@ -8054,12 +8093,12 @@ ZodEffects.createWithPreprocess = (preprocess, schema, params) => {
   });
 };
 var ZodOptional = class extends ZodType {
-  _parse(input17) {
-    const parsedType = this._getType(input17);
+  _parse(input19) {
+    const parsedType = this._getType(input19);
     if (parsedType === ZodParsedType.undefined) {
       return OK(void 0);
     }
-    return this._def.innerType._parse(input17);
+    return this._def.innerType._parse(input19);
   }
   unwrap() {
     return this._def.innerType;
@@ -8073,12 +8112,12 @@ ZodOptional.create = (type, params) => {
   });
 };
 var ZodNullable = class extends ZodType {
-  _parse(input17) {
-    const parsedType = this._getType(input17);
+  _parse(input19) {
+    const parsedType = this._getType(input19);
     if (parsedType === ZodParsedType.null) {
       return OK(null);
     }
-    return this._def.innerType._parse(input17);
+    return this._def.innerType._parse(input19);
   }
   unwrap() {
     return this._def.innerType;
@@ -8092,8 +8131,8 @@ ZodNullable.create = (type, params) => {
   });
 };
 var ZodDefault = class extends ZodType {
-  _parse(input17) {
-    const { ctx } = this._processInputParams(input17);
+  _parse(input19) {
+    const { ctx } = this._processInputParams(input19);
     let data = ctx.data;
     if (ctx.parsedType === ZodParsedType.undefined) {
       data = this._def.defaultValue();
@@ -8117,8 +8156,8 @@ ZodDefault.create = (type, params) => {
   });
 };
 var ZodCatch = class extends ZodType {
-  _parse(input17) {
-    const { ctx } = this._processInputParams(input17);
+  _parse(input19) {
+    const { ctx } = this._processInputParams(input19);
     const newCtx = {
       ...ctx,
       common: {
@@ -8170,10 +8209,10 @@ ZodCatch.create = (type, params) => {
   });
 };
 var ZodNaN = class extends ZodType {
-  _parse(input17) {
-    const parsedType = this._getType(input17);
+  _parse(input19) {
+    const parsedType = this._getType(input19);
     if (parsedType !== ZodParsedType.nan) {
-      const ctx = this._getOrReturnCtx(input17);
+      const ctx = this._getOrReturnCtx(input19);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
         expected: ZodParsedType.nan,
@@ -8181,7 +8220,7 @@ var ZodNaN = class extends ZodType {
       });
       return INVALID;
     }
-    return { status: "valid", value: input17.data };
+    return { status: "valid", value: input19.data };
   }
 };
 ZodNaN.create = (params) => {
@@ -8192,8 +8231,8 @@ ZodNaN.create = (params) => {
 };
 var BRAND = Symbol("zod_brand");
 var ZodBranded = class extends ZodType {
-  _parse(input17) {
-    const { ctx } = this._processInputParams(input17);
+  _parse(input19) {
+    const { ctx } = this._processInputParams(input19);
     const data = ctx.data;
     return this._def.type._parse({
       data,
@@ -8206,8 +8245,8 @@ var ZodBranded = class extends ZodType {
   }
 };
 var ZodPipeline = class _ZodPipeline extends ZodType {
-  _parse(input17) {
-    const { status, ctx } = this._processInputParams(input17);
+  _parse(input19) {
+    const { status, ctx } = this._processInputParams(input19);
     if (ctx.common.async) {
       const handleAsync = async () => {
         const inResult = await this._def.in._parseAsync({
@@ -8261,8 +8300,8 @@ var ZodPipeline = class _ZodPipeline extends ZodType {
   }
 };
 var ZodReadonly = class extends ZodType {
-  _parse(input17) {
-    const result = this._def.innerType._parse(input17);
+  _parse(input19) {
+    const result = this._def.innerType._parse(input19);
     const freeze = (data) => {
       if (isValid(data)) {
         data.value = Object.freeze(data.value);
@@ -8709,9 +8748,9 @@ function refEquals(a, b) {
     return false;
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
-function eligibleCases(input17) {
-  return input17.openProviderCases.filter((c) => {
-    if (c.workProviderId !== void 0 && c.workProviderId !== input17.workProviderId) {
+function eligibleCases(input19) {
+  return input19.openProviderCases.filter((c) => {
+    if (c.workProviderId !== void 0 && c.workProviderId !== input19.workProviderId) {
       return false;
     }
     if (isTerminalStatus(c.status))
@@ -8719,8 +8758,8 @@ function eligibleCases(input17) {
     return true;
   });
 }
-function resolveCase(input17) {
-  if (input17.seenMessageIds.includes(input17.messageId) || input17.seenPayloadHashes.includes(input17.payloadHash)) {
+function resolveCase(input19) {
+  if (input19.seenMessageIds.includes(input19.messageId) || input19.seenPayloadHashes.includes(input19.payloadHash)) {
     return {
       resolution: "drop",
       setDuplicateRisk: false,
@@ -8728,9 +8767,9 @@ function resolveCase(input17) {
       auditAction: "duplicate_dropped"
     };
   }
-  const candidates = eligibleCases(input17);
-  if (hasRef(input17.candidateRef)) {
-    const matched = candidates.find((c) => refEquals(c.caseRef, input17.candidateRef));
+  const candidates = eligibleCases(input19);
+  if (hasRef(input19.candidateRef)) {
+    const matched = candidates.find((c) => refEquals(c.caseRef, input19.candidateRef));
     if (matched) {
       return {
         resolution: "attach",
@@ -8751,7 +8790,7 @@ function resolveCase(input17) {
       };
     }
   }
-  if (!hasRef(input17.candidateRef) && candidates.length > 0) {
+  if (!hasRef(input19.candidateRef) && candidates.length > 0) {
     return {
       resolution: "propose_attach",
       targetCaseId: candidates[0].caseId,
@@ -9258,16 +9297,16 @@ var RULES = [
   { kind: "name", re: NAME_RE, enabled: (o) => o.redactNames },
   { kind: "vrm", re: VRM_RE, enabled: (o) => o.redactVrm }
 ];
-function scrubPii(input17, opts = {}) {
+function scrubPii(input19, opts = {}) {
   const cfg = {
     redactVrm: opts.redactVrm ?? false,
     redactNames: opts.redactNames ?? true
   };
   const placeholderFor = (kind) => opts.placeholders?.[kind] ?? DEFAULT_PLACEHOLDERS[kind];
-  if (typeof input17 !== "string" || input17.length === 0) {
-    return { text: typeof input17 === "string" ? input17 : "", redactions: [], totalRedactions: 0 };
+  if (typeof input19 !== "string" || input19.length === 0) {
+    return { text: typeof input19 === "string" ? input19 : "", redactions: [], totalRedactions: 0 };
   }
-  let text = input17;
+  let text = input19;
   const redactions = [];
   for (const rule of RULES) {
     if (!rule.enabled(cfg))
@@ -9478,16 +9517,16 @@ var CASE_PO_SHAPE_RE = /^(?:(?:AP|A|D)\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{
 function normalizeCasePo(raw) {
   return (raw ?? "").trim().toUpperCase().replace(/^((?:AP|A|D)\.)\s+/, "$1");
 }
-function decideRetro(input17) {
+function decideRetro(input19) {
   const reasons = [];
   const keys = {};
-  const ackEligible = input17.category === "non_actionable" && (input17.subtype ?? "").trim() === RETRO_TRIGGER_ACK_SUBTYPE;
-  if (!RETRO_TRIGGER_CATEGORIES.includes(input17.category) && !ackEligible) {
-    return { attempt: false, keys, reasons: [`category_not_eligible:${input17.category}`] };
+  const ackEligible = input19.category === "non_actionable" && (input19.subtype ?? "").trim() === RETRO_TRIGGER_ACK_SUBTYPE;
+  if (!RETRO_TRIGGER_CATEGORIES.includes(input19.category) && !ackEligible) {
+    return { attempt: false, keys, reasons: [`category_not_eligible:${input19.category}`] };
   }
   if (ackEligible)
     reasons.push("ack_subtype_eligible");
-  const refCandidates = [input17.bodyCaseref, input17.candidateRef];
+  const refCandidates = [input19.bodyCaseref, input19.candidateRef];
   for (const raw of refCandidates) {
     const token = normalizeCasePo(raw);
     if (!token)
@@ -9500,12 +9539,12 @@ function decideRetro(input17) {
       reasons.push("key:external_ref_from_subject");
     }
   }
-  const jobref = (input17.bodyJobref ?? "").trim().toUpperCase();
+  const jobref = (input19.bodyJobref ?? "").trim().toUpperCase();
   if (jobref && !keys.externalRef) {
     keys.externalRef = jobref;
     reasons.push("key:external_ref");
   }
-  const vrm = ((input17.bodyVrm || input17.candidateVrm) ?? "").trim().toUpperCase().replace(/\s+/g, "");
+  const vrm = ((input19.bodyVrm || input19.candidateVrm) ?? "").trim().toUpperCase().replace(/\s+/g, "");
   if (vrm) {
     keys.vrm = vrm;
     reasons.push("key:vrm");
@@ -9513,39 +9552,39 @@ function decideRetro(input17) {
   if (!keys.casePo && !keys.externalRef && !keys.vrm) {
     return { attempt: false, keys, reasons: [...reasons, "no_usable_key"] };
   }
-  if (input17.isReply && input17.linkReplyOutcome !== void 0 && input17.linkReplyOutcome !== "no_match") {
+  if (input19.isReply && input19.linkReplyOutcome !== void 0 && input19.linkReplyOutcome !== "no_match") {
     return {
       attempt: false,
       keys,
-      reasons: [...reasons, `reply_outcome_not_no_match:${input17.linkReplyOutcome}`]
+      reasons: [...reasons, `reply_outcome_not_no_match:${input19.linkReplyOutcome}`]
     };
   }
   return { attempt: true, keys, reasons };
 }
-function decideRetroStatus(input17) {
-  if (!input17.principalResolved || !input17.casePoKnown) {
+function decideRetroStatus(input19) {
+  if (!input19.principalResolved || !input19.casePoKnown) {
     return {
       status: "needs_review",
       onHold: true,
       actionReason: "needs_review",
       signals: [
-        input17.casePoKnown ? "retro_principal_unresolved" : "retro_case_po_unknown",
-        `retro_source:${input17.reconstruction}`
+        input19.casePoKnown ? "retro_principal_unresolved" : "retro_case_po_unknown",
+        `retro_source:${input19.reconstruction}`
       ]
     };
   }
-  if (input17.triggerCategory === "billing" && input17.reconstruction !== "minimal") {
+  if (input19.triggerCategory === "billing" && input19.reconstruction !== "minimal") {
     return {
       status: "eva_submitted",
       onHold: false,
-      signals: ["retro_billing_implies_submitted", `retro_source:${input17.reconstruction}`]
+      signals: ["retro_billing_implies_submitted", `retro_source:${input19.reconstruction}`]
     };
   }
   return {
     status: "needs_review",
     onHold: true,
     actionReason: "needs_review",
-    signals: [`retro_trigger:${input17.triggerCategory}`, `retro_source:${input17.reconstruction}`]
+    signals: [`retro_trigger:${input19.triggerCategory}`, `retro_source:${input19.reconstruction}`]
   };
 }
 function parseCasePoMarker(po) {
@@ -9607,6 +9646,23 @@ function selectBoxInstructionCandidate(entries) {
 var CASE_MINTING_CATEGORIES = ["receiving_work"];
 function categoryMintsCase(category) {
   return CASE_MINTING_CATEGORIES.includes(category);
+}
+
+// packages/domain/dist/domain/archive-holding.js
+function decideArchiveHoldingTransfer(filename, sourceSha1, sourceSha256, destinationEntries) {
+  const files = destinationEntries.filter((entry) => !entry.type || entry.type === "file");
+  if (sourceSha1) {
+    const sameContent = files.find((entry) => entry.sha1?.toLowerCase() === sourceSha1.toLowerCase());
+    if (sameContent)
+      return { kind: "deduplicate", existingFileId: sameContent.id };
+  }
+  const occupied = new Set(files.map((entry) => entry.name.toLowerCase()));
+  if (!occupied.has(filename.toLowerCase()))
+    return { kind: "move", name: filename };
+  const dot = filename.lastIndexOf(".");
+  const stem = dot > 0 ? filename.slice(0, dot) : filename;
+  const extension = dot > 0 ? filename.slice(dot) : "";
+  return { kind: "move", name: `${stem}-${sourceSha256.slice(0, 8)}${extension}` };
 }
 
 // packages/domain/dist/dto/index.js
@@ -12309,8 +12365,8 @@ function createEmptyPipeline() {
 }
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/util/object.js
-function isObject(input17) {
-  return typeof input17 === "object" && input17 !== null && !Array.isArray(input17) && !(input17 instanceof RegExp) && !(input17 instanceof Date);
+function isObject(input19) {
+  return typeof input19 === "object" && input19 !== null && !Array.isArray(input19) && !(input19 instanceof RegExp) && !(input19 instanceof Date);
 }
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/util/error.js
@@ -15791,8 +15847,8 @@ function getRequestUrl(baseUri, operationSpec, operationArguments, fallbackObjec
   requestUrl = appendQueryParams(requestUrl, queryParams, sequenceParams, isAbsolutePath);
   return requestUrl;
 }
-function replaceAll(input17, replacements) {
-  let result = input17;
+function replaceAll(input19, replacements) {
+  let result = input19;
   for (const [searchValue, replaceValue] of replacements) {
     result = result.split(searchValue).join(replaceValue);
   }
@@ -25264,19 +25320,19 @@ var StructuredMessageEncoding = class {
     signalStreamEnd(this.pushData);
     this.state = SMRegion.Completed;
   }
-  fillInt64(buffer2, offset, input17) {
+  fillInt64(buffer2, offset, input19) {
     if (buffer2.length < offset + 8) {
       throw new Error("Uint8Array length is not expected.");
     }
     const view = new DataView(buffer2.buffer, buffer2.byteOffset + offset, 8);
-    view.setBigUint64(0, BigInt(input17), true);
+    view.setBigUint64(0, BigInt(input19), true);
   }
-  fillInt16(buffer2, offset, input17) {
+  fillInt16(buffer2, offset, input19) {
     if (buffer2.length < offset + 2) {
       throw new Error("Uint8Array length is not expected.");
     }
     const view = new DataView(buffer2.buffer, buffer2.byteOffset + offset, 2);
-    view.setUint16(0, input17, true);
+    view.setUint16(0, input19, true);
   }
 };
 
@@ -25591,18 +25647,18 @@ var StructuredMessageDecoding = class {
       this.pushData(null);
     }
   }
-  toInt64(input17, offset) {
-    if (input17.length < offset + 8) {
+  toInt64(input19, offset) {
+    if (input19.length < offset + 8) {
       throw new Error("CRC64 buffer error, something wrong with crc64 calculator");
     }
-    const view = new DataView(input17.buffer, input17.byteOffset + offset, 8);
+    const view = new DataView(input19.buffer, input19.byteOffset + offset, 8);
     return Number(view.getBigUint64(0, true));
   }
-  toInt16(input17) {
-    if (input17.length !== 2) {
+  toInt16(input19) {
+    if (input19.length !== 2) {
       throw new Error("CRC64 buffer error, something wrong with crc64 calculator");
     }
-    return input17[0] + input17[1] * 256;
+    return input19[0] + input19[1] * 256;
   }
   checkCrc64CheckSum(first, second) {
     if (first.length !== 8 || second.length !== 8) {
@@ -51209,18 +51265,18 @@ ${INBOUND_SUBTYPES.map(subtypeLine).join("\n")}`,
     `Pick the subtype that belongs with your chosen category; if none fits well, use that category's "other" or general subtype.`
   ].join("\n\n");
 }
-function buildUserPrompt(input17) {
-  const attachments = input17.attachmentFilenames.length ? input17.attachmentFilenames.join(", ") : "(none)";
-  const signals = input17.deterministicSignals.length ? input17.deterministicSignals.join(", ") : "(none)";
+function buildUserPrompt(input19) {
+  const attachments = input19.attachmentFilenames.length ? input19.attachmentFilenames.join(", ") : "(none)";
+  const signals = input19.deterministicSignals.length ? input19.deterministicSignals.join(", ") : "(none)";
   return [
-    `Sender domain: ${input17.senderDomain || "(unknown)"}`,
+    `Sender domain: ${input19.senderDomain || "(unknown)"}`,
     `Attachment filenames: ${attachments}`,
-    `Subject: ${input17.subjectScrubbed || "(none)"}`,
+    `Subject: ${input19.subjectScrubbed || "(none)"}`,
     `Body:
-${input17.bodyScrubbed || "(none)"}`,
+${input19.bodyScrubbed || "(none)"}`,
     "---",
     "The deterministic rule pass proposed (but did not confidently commit to):",
-    `category=${input17.deterministicCategory || "(none)"} subtype=${input17.deterministicSubtype || "(none)"} signals=${signals}`
+    `category=${input19.deterministicCategory || "(none)"} subtype=${input19.deterministicSubtype || "(none)"} signals=${signals}`
   ].join("\n");
 }
 var MAX_COMPLETION_TOKENS = 2e3;
@@ -51239,12 +51295,12 @@ function buildTriageResponseSchema() {
     additionalProperties: false
   };
 }
-function buildTriageRequestBody(input17, deployment) {
+function buildTriageRequestBody(input19, deployment) {
   return {
     model: deployment,
     messages: [
       { role: "system", content: buildSystemPrompt() },
-      { role: "user", content: buildUserPrompt(input17) }
+      { role: "user", content: buildUserPrompt(input19) }
     ],
     response_format: {
       type: "json_schema",
@@ -51304,7 +51360,7 @@ function parseTriageModelResponse(json) {
     ...typeof body2?.system_fingerprint === "string" ? { systemFingerprint: body2.system_fingerprint } : {}
   };
 }
-async function callTriageModel(input17) {
+async function callTriageModel(input19) {
   const endpoint = gates.aiModelEndpoint();
   const deployment = gates.aiModelDeployment();
   if (!endpoint || !deployment) {
@@ -51321,7 +51377,7 @@ async function callTriageModel(input17) {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(buildTriageRequestBody(input17, deployment)),
+      body: JSON.stringify(buildTriageRequestBody(input19, deployment)),
       signal: controller.signal
     });
     const json = await res.json().catch(() => void 0);
@@ -51441,7 +51497,7 @@ function imageClassificationOutcomeFromResponse(status, result) {
     failure: { disposition: "transient", code: "model_malformed_response" }
   };
 }
-async function classifyImageWithOutcome(input17) {
+async function classifyImageWithOutcome(input19) {
   const endpoint = gates.aiModelEndpoint();
   const deployment = gates.aiModelDeployment();
   if (!endpoint || !deployment) {
@@ -51459,7 +51515,7 @@ async function classifyImageWithOutcome(input17) {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify(
-        buildImageRequestBody(input17.imageBase64, input17.contentType ?? "image/jpeg", deployment, input17.caseVrm)
+        buildImageRequestBody(input19.imageBase64, input19.contentType ?? "image/jpeg", deployment, input19.caseVrm)
       ),
       signal: controller.signal
     });
@@ -51478,8 +51534,8 @@ async function classifyImageWithOutcome(input17) {
     clearTimeout(timer);
   }
 }
-async function classifyImage(input17) {
-  const outcome = await classifyImageWithOutcome(input17);
+async function classifyImage(input19) {
+  const outcome = await classifyImageWithOutcome(input19);
   return outcome.ok ? outcome.classification : null;
 }
 function caseRegistrationVisible(c, caseVrm) {
@@ -51560,13 +51616,13 @@ function buildBaseEvidenceRows(inbound) {
   return rows;
 }
 df7.app.activity("classifyPersist", {
-  handler: async (input17, ctx) => {
-    const { caseId, inbound } = input17;
+  handler: async (input19, ctx) => {
+    const { caseId, inbound } = input19;
     const rows = buildBaseEvidenceRows(inbound);
     let classifyAllowed = gates.imageRoleClassifyEnabled();
-    if (classifyAllowed && input17.workProviderId) {
+    if (classifyAllowed && input19.workProviderId) {
       try {
-        const { aiAllowed } = await dataApi.workProviderAiAllowed(input17.workProviderId);
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input19.workProviderId);
         if (aiAllowed === false) {
           classifyAllowed = false;
           ctx.log("[classifyPersist] image classify skipped \u2014 work provider opted out of AI (ai_allowed=false)");
@@ -51580,9 +51636,9 @@ df7.app.activity("classifyPersist", {
         if (!r.isImage) continue;
         try {
           const bytes = await downloadEvidenceBytes(r.blobPath);
-          const cls = await classifyImage({ imageBase64: bytes.toString("base64"), contentType: r.contentType, caseVrm: input17.caseVrm });
+          const cls = await classifyImage({ imageBase64: bytes.toString("base64"), contentType: r.contentType, caseVrm: input19.caseVrm });
           if (cls) {
-            const f = classificationToEvidenceFields(cls, input17.caseVrm);
+            const f = classificationToEvidenceFields(cls, input19.caseVrm);
             r.imageRole = f.imageRole;
             r.registrationVisible = f.registrationVisible;
             r.acceptedForEva = f.acceptedForEva;
@@ -51596,9 +51652,9 @@ df7.app.activity("classifyPersist", {
         }
       }
     }
-    if (gates.auditCases() && (input17.typings?.length ?? 0) > 0) {
+    if (gates.auditCases() && (input19.typings?.length ?? 0) > 0) {
       const reportBlobPaths = new Set(
-        (input17.typings ?? []).filter((t) => isEngineerReportLayoutName(t.providerName)).map((t) => t.blobPath)
+        (input19.typings ?? []).filter((t) => isEngineerReportLayoutName(t.providerName)).map((t) => t.blobPath)
       );
       if (reportBlobPaths.size > 0) {
         const wouldRemain = rows.some(
@@ -52047,47 +52103,47 @@ async function callFunction(target, method, route, body2) {
   if (res.status === 204) return void 0;
   return await res.json();
 }
-function callClassifyEmail(input17) {
+function callClassifyEmail(input19) {
   return callFunction(PARSER, "POST", "classify-email", {
-    subject: input17.subject ?? "",
-    body: input17.body ?? "",
-    from: input17.from ?? "",
-    sender_domain: input17.senderDomain ?? "",
-    authentication_results: input17.authenticationResults ?? "",
-    provider_match_state: input17.providerMatchState ?? "",
-    attachment_kinds: input17.attachmentKinds ?? [],
-    attachment_filenames: input17.attachmentFilenames ?? [],
-    has_attachments: input17.hasAttachments ?? false,
-    in_reply_to: input17.inReplyTo ?? "",
-    references: input17.references ?? ""
+    subject: input19.subject ?? "",
+    body: input19.body ?? "",
+    from: input19.from ?? "",
+    sender_domain: input19.senderDomain ?? "",
+    authentication_results: input19.authenticationResults ?? "",
+    provider_match_state: input19.providerMatchState ?? "",
+    attachment_kinds: input19.attachmentKinds ?? [],
+    attachment_filenames: input19.attachmentFilenames ?? [],
+    has_attachments: input19.hasAttachments ?? false,
+    in_reply_to: input19.inReplyTo ?? "",
+    references: input19.references ?? ""
   });
 }
-function callExtractImages(input17) {
+function callExtractImages(input19) {
   return callFunction(PARSER, "POST", "extract-images", {
-    document: input17.documentBase64,
-    filename: input17.filename,
-    ...input17.provider ? { provider: input17.provider } : {},
-    ...input17.vrm ? { vrm: input17.vrm } : {}
+    document: input19.documentBase64,
+    filename: input19.filename,
+    ...input19.provider ? { provider: input19.provider } : {},
+    ...input19.vrm ? { vrm: input19.vrm } : {}
   });
 }
-function callPlateOcr(input17) {
+function callPlateOcr(input19) {
   return callFunction(OCR, "POST", "plate-ocr", {
-    image: input17.imageBase64,
-    filename: input17.filename,
-    ...input17.caseVrm ? { case_vrm: input17.caseVrm } : {}
+    image: input19.imageBase64,
+    filename: input19.filename,
+    ...input19.caseVrm ? { case_vrm: input19.caseVrm } : {}
   });
 }
-function callOcrPdf(input17) {
+function callOcrPdf(input19) {
   return callFunction(OCR, "POST", "ocr-pdf", {
-    document: input17.documentBase64,
-    filename: input17.filename,
-    ...input17.providerHint ? { provider_hint: input17.providerHint } : {}
+    document: input19.documentBase64,
+    filename: input19.filename,
+    ...input19.providerHint ? { provider_hint: input19.providerHint } : {}
   });
 }
-function callExplodeEml(input17) {
+function callExplodeEml(input19) {
   return callFunction(PARSER, "POST", "explode-eml", {
-    document: input17.documentBase64,
-    ...input17.filename ? { filename: input17.filename } : {}
+    document: input19.documentBase64,
+    ...input19.filename ? { filename: input19.filename } : {}
   });
 }
 function callEvaSubmit(caseId) {
@@ -52099,6 +52155,25 @@ var box = {
   },
   createFolder(name, parentId) {
     return callFunction(BOX, "POST", "box/folders", { name, parent: { id: parentId } });
+  },
+  renameFolder(folderId, name) {
+    return callFunction(BOX, "PATCH", `box/folders/${folderId}`, { name });
+  },
+  moveFile(fileId, folderId, name) {
+    return callFunction(BOX, "POST", `box/files/${fileId}/move`, {
+      parent: { id: folderId },
+      ...name ? { name } : {}
+    });
+  },
+  deleteFile(fileId, expectedFolderId) {
+    return callFunction(
+      BOX,
+      "DELETE",
+      `box/files/${fileId}?folderId=${encodeURIComponent(expectedFolderId)}`
+    );
+  },
+  deleteEmptyFolder(folderId) {
+    return callFunction(BOX, "DELETE", `box/folders/${folderId}`);
   },
   /**
    * Archive one evidence byte-stream into a case Box folder — the one-way
@@ -52136,8 +52211,12 @@ var box = {
       ...requiredWriteRootId ? { requiredWriteRootId } : {}
     });
   },
-  listFolderItems(folderId) {
-    return callFunction(BOX, "GET", `box/folders/${folderId}/items`);
+  listFolderItems(folderId, limit, offset) {
+    const query = new URLSearchParams();
+    if (limit !== void 0) query.set("limit", String(limit));
+    if (offset !== void 0) query.set("offset", String(offset));
+    const suffix = query.size ? `?${query.toString()}` : "";
+    return callFunction(BOX, "GET", `box/folders/${folderId}/items${suffix}`);
   },
   /**
    * READ-ONLY content/name search under the configured archive roots (ADR-0022 R2 —
@@ -52146,13 +52225,13 @@ var box = {
    * every hit to provable root ancestry; each hit carries its resolved caseFolder
    * (the ancestor directly under the matched root).
    */
-  searchContent(input17) {
+  searchContent(input19) {
     return callFunction(BOX, "POST", "box/search", {
-      query: input17.query,
-      ...input17.rootIds && input17.rootIds.length ? { rootIds: input17.rootIds } : {},
-      ...input17.type ? { type: input17.type } : {},
-      ...input17.contentTypes ? { contentTypes: input17.contentTypes } : {},
-      ...input17.limit != null ? { limit: input17.limit } : {}
+      query: input19.query,
+      ...input19.rootIds && input19.rootIds.length ? { rootIds: input19.rootIds } : {},
+      ...input19.type ? { type: input19.type } : {},
+      ...input19.contentTypes ? { contentTypes: input19.contentTypes } : {},
+      ...input19.limit != null ? { limit: input19.limit } : {}
     });
   },
   /**
@@ -53059,14 +53138,14 @@ function shouldAttemptPdfVrmMatch(classification, triage, attachments) {
     (a) => PDF_NAME_RE.test(a.filename ?? "") || PDF_CTYPE_RE.test(a.contentType ?? "")
   );
 }
-function planVrmMatch(input17) {
-  if (!input17.refGate && !input17.imagesRouting) return { step: "skip", reason: "gate_off" };
-  const flagOr = (reason) => input17.imagesRouting ? { step: "flag", reason } : { step: "skip", reason: "flag_gate_off" };
-  const vrm = canonicalizeVrm(input17.vrm ?? "");
+function planVrmMatch(input19) {
+  if (!input19.refGate && !input19.imagesRouting) return { step: "skip", reason: "gate_off" };
+  const flagOr = (reason) => input19.imagesRouting ? { step: "flag", reason } : { step: "skip", reason: "flag_gate_off" };
+  const vrm = canonicalizeVrm(input19.vrm ?? "");
   if (!vrm) return flagOr("no_registration");
-  const tried = canonicalizeVrm(input17.triedVrm ?? "");
+  const tried = canonicalizeVrm(input19.triedVrm ?? "");
   if (tried && vrm === tried) return flagOr("already_tried");
-  if (!input17.refGate) return flagOr("suggest_gate_off");
+  if (!input19.refGate) return flagOr("suggest_gate_off");
   return { step: "lookup", vrm };
 }
 function resolveVrmMatches(matches) {
@@ -53083,14 +53162,14 @@ function resolveVrmMatches(matches) {
   };
 }
 df9.app.activity("imagesReceivedVrmMatch", {
-  handler: async (input17, ctx) => {
-    const internetMessageId = (input17.internetMessageId ?? "").trim();
+  handler: async (input19, ctx) => {
+    const internetMessageId = (input19.internetMessageId ?? "").trim();
     if (!internetMessageId) {
       return { outcome: "skipped:no_message_id" };
     }
     const plan = planVrmMatch({
-      vrm: input17.vrm ?? "",
-      triedVrm: input17.triedVrm ?? "",
+      vrm: input19.vrm ?? "",
+      triedVrm: input19.triedVrm ?? "",
       refGate: gates.triageRefGate(),
       imagesRouting: gates.triageImagesRouting()
     });
@@ -53129,7 +53208,7 @@ df9.app.activity("imagesReceivedVrmMatch", {
             decisionInputs: {
               rung: "images_received_pdf_vrm",
               vrm: plan.vrm,
-              triedVrm: input17.triedVrm ?? "",
+              triedVrm: input19.triedVrm ?? "",
               matchCount: 1
             }
           });
@@ -53258,28 +53337,28 @@ import_functions17.app.http("triage-classify-start", {
   route: "triage-classify",
   extraInputs: [df10.input.durableClient()],
   handler: async (req, ctx) => {
-    const input17 = await req.json();
+    const input19 = await req.json();
     const client2 = df10.getClient(ctx);
-    const instanceId = await client2.startNew("triageClassifyOrchestrator", { input: input17 });
+    const instanceId = await client2.startNew("triageClassifyOrchestrator", { input: input19 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
 var retry4 = new df10.RetryOptions(5e3, 3);
 retry4.backoffCoefficient = 2;
 df10.app.orchestration("triageClassifyOrchestrator", function* (ctx) {
-  const input17 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("triageClassify", retry4, input17);
+  const input19 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("triageClassify", retry4, input19);
   return result;
 });
 df10.app.activity("triageClassify", {
-  handler: async (input17, ctx) => {
+  handler: async (input19, ctx) => {
     if (!gates.emailAi() || !gates.aiAssistConfigured()) {
       ctx.log("[triageClassify] skipped \u2014 EMAIL_AI_ENABLED off or model endpoint/deployment not configured");
       return { skipped: true };
     }
-    if (input17.workProviderId) {
+    if (input19.workProviderId) {
       try {
-        const { aiAllowed } = await dataApi.workProviderAiAllowed(input17.workProviderId);
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input19.workProviderId);
         if (providerAiOptedOut(aiAllowed)) {
           ctx.log("[triageClassify] skipped \u2014 work provider opted out of AI (ai_allowed=false)");
           return { skipped: true, reason: "provider_ai_opt_out" };
@@ -53290,24 +53369,24 @@ df10.app.activity("triageClassify", {
         );
       }
     }
-    const subjectScrub = scrubPii(input17.subject ?? "");
-    const bodyScrub = scrubPii(input17.body ?? "");
+    const subjectScrub = scrubPii(input19.subject ?? "");
+    const bodyScrub = scrubPii(input19.body ?? "");
     const result = await callTriageModel({
       subjectScrubbed: subjectScrub.text,
       bodyScrubbed: bodyScrub.text,
-      senderDomain: input17.senderDomain || domainOf2(input17.senderAddress ?? ""),
-      attachmentFilenames: input17.attachmentFilenames ?? [],
-      deterministicCategory: input17.deterministicCategory ?? "",
-      deterministicSubtype: input17.deterministicSubtype ?? "",
-      deterministicSignals: input17.deterministicSignals ?? []
+      senderDomain: input19.senderDomain || domainOf2(input19.senderAddress ?? ""),
+      attachmentFilenames: input19.attachmentFilenames ?? [],
+      deterministicCategory: input19.deterministicCategory ?? "",
+      deterministicSubtype: input19.deterministicSubtype ?? "",
+      deterministicSignals: input19.deterministicSignals ?? []
     });
     await trackEvent("triage_llm_assist", {
       abstain: "abstain" in result,
       reason: "abstain" in result ? result.reason : void 0,
       subjectRedactions: subjectScrub.totalRedactions,
       bodyRedactions: bodyScrub.totalRedactions,
-      deterministicCategory: input17.deterministicCategory,
-      deterministicSubtype: input17.deterministicSubtype
+      deterministicCategory: input19.deterministicCategory,
+      deterministicSubtype: input19.deterministicSubtype
     });
     if ("abstain" in result) {
       ctx.log(JSON.stringify({ evt: "triageClassify", abstain: true, reason: result.reason }));
@@ -53316,8 +53395,8 @@ df10.app.activity("triageClassify", {
     const modelVersion = `${gates.aiModelDeployment()}:${result.responseModel ?? result.systemFingerprint ?? "unknown"}`;
     try {
       await dataApi.triageSuggestClassification({
-        ...input17.sourceMessageId ? { sourceMessageId: input17.sourceMessageId } : {},
-        ...input17.inboundEmailId ? { inboundEmailId: input17.inboundEmailId } : {},
+        ...input19.sourceMessageId ? { sourceMessageId: input19.sourceMessageId } : {},
+        ...input19.inboundEmailId ? { inboundEmailId: input19.inboundEmailId } : {},
         category: result.category,
         subtype: result.subtype,
         rationale: result.rationale,
@@ -53365,8 +53444,8 @@ function providerRecoveryAfterArchive(identityOutcome, archiveResult, archiveFai
   return folderId && recoveryCompleted ? "completed" : "archive_pending";
 }
 df11.app.orchestration("intakeOrchestrator", function* (ctx) {
-  const input17 = ctx.df.getInput();
-  const inbound = yield ctx.df.callActivityWithRetry("fetchMessage", retry5, input17);
+  const input19 = ctx.df.getInput();
+  const inbound = yield ctx.df.callActivityWithRetry("fetchMessage", retry5, input19);
   const provider = yield ctx.df.callActivityWithRetry("providerMatch", retry5, inbound);
   const workProviderId = provider.workProviderId;
   const matchState = provider.matchState;
@@ -53459,7 +53538,9 @@ df11.app.orchestration("intakeOrchestrator", function* (ctx) {
     try {
       yield ctx.df.callActivityWithRetry("imagesUnmatched", retry5, {
         internetMessageId: inbound.internetMessageId,
-        vrm: (inbound.candidateVrm || classification.bodyVrm || "").trim()
+        vrm: (inbound.candidateVrm || classification.bodyVrm || "").trim(),
+        attachments: inbound.attachments,
+        claimToken: ctx.df.newGuid("images-unmatched-body")
       });
     } catch (e) {
       if (!ctx.df.isReplaying) {
@@ -53592,6 +53673,15 @@ df11.app.orchestration("intakeOrchestrator", function* (ctx) {
           triedVrm: (inbound.candidateVrm || classification.bodyVrm || "").trim()
         });
         pdfVrmMatch = vrmMatch.outcome;
+        const parsedVrm = (laneParse.vrm?.value ?? "").trim();
+        if (parsedVrm && ["flagged:no_open_case", "flagged:multiple_open_cases"].includes(vrmMatch.outcome)) {
+          yield ctx.df.callActivityWithRetry("imagesUnmatched", retry5, {
+            internetMessageId: inbound.internetMessageId,
+            vrm: parsedVrm,
+            attachments: inbound.attachments,
+            claimToken: ctx.df.newGuid("images-unmatched-pdf")
+          });
+        }
       } catch (e) {
         if (!ctx.df.isReplaying) {
           ctx.log(
@@ -53831,37 +53921,465 @@ df11.app.orchestration("intakeOrchestrator", function* (ctx) {
   };
 });
 
-// orchestration/src/functions/activities/fetchMessage.ts
-var import_node_crypto8 = require("node:crypto");
+// orchestration/src/functions/archiveHolding.ts
+var import_functions18 = require("@azure/functions");
 var df12 = __toESM(require("durable-functions"), 1);
+var import_node_crypto8 = require("node:crypto");
+var realDeps = {
+  claim: (caseId, claimToken) => dataApi.claimArchiveHolding(caseId, claimToken),
+  rename: (folderId, name) => box.renameFolder(folderId, name),
+  list: (folderId, limit, offset) => box.listFolderItems(folderId, limit, offset),
+  move: (fileId, folderId, name) => box.moveFile(fileId, folderId, name),
+  deleteFile: (fileId, expectedFolderId) => box.deleteFile(fileId, expectedFolderId),
+  deleteFolder: (folderId) => box.deleteEmptyFolder(folderId),
+  checkpoint: (holdingId, fileId, payload) => dataApi.checkpointArchiveHoldingFile(holdingId, fileId, payload),
+  finalize: (holdingId, payload) => dataApi.finalizeArchiveHolding(holdingId, payload),
+  fail: (holdingId, payload) => dataApi.failArchiveHoldingAdoption(holdingId, payload),
+  audit: (payload) => dataApi.recordAudit(payload)
+};
+async function listAllFolderItems(deps, folderId) {
+  const entries = [];
+  const pageSize = 1e3;
+  let offset = 0;
+  for (; ; ) {
+    const page = await deps.list(folderId, pageSize, offset);
+    entries.push(...page.entries);
+    offset += page.entries.length;
+    const total = Number(page.total_count);
+    if (page.entries.length === 0 || (Number.isFinite(total) ? offset >= total : page.entries.length < pageSize)) break;
+  }
+  return entries;
+}
+async function adoptArchiveHolding(caseId, deps = realDeps, stableClaimToken) {
+  if (!gates.boxApi() || !gates.boxFolderAtIntake() || !gates.boxRegFolder()) return { outcome: "gated_off" };
+  const claimToken = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(stableClaimToken ?? "") ? stableClaimToken : (0, import_node_crypto8.randomUUID)();
+  const claim = await deps.claim(caseId, claimToken);
+  if (claim.kind === "none" || claim.kind === "complete") return { outcome: claim.kind };
+  if (claim.kind === "ambiguous") {
+    if (claim.changed) await deps.audit({ action: "box_synced", caseId, summary: "Registration image folder needs a case choice before it can be filed", severity: "warning", after: { candidateCaseIds: claim.candidates ?? [], candidateFolderIds: claim.folders ?? [] } }).catch(() => void 0);
+    return { outcome: "ambiguous", candidates: claim.candidates, ...claim.folders ? { folders: claim.folders } : {} };
+  }
+  if (claim.kind === "busy") throw new Error("archive holding adoption is already claimed");
+  const activeClaimToken = claim.claimToken;
+  try {
+    let finalFolderId = claim.canonicalFolderId;
+    let transferRequired = claim.mode === "merge";
+    if (claim.mode === "rename") {
+      const renamed = await deps.rename(claim.holdingFolderId, claim.casePo.toUpperCase());
+      if (!renamed.id) throw new Error("archive holding rename returned no folder id");
+      if (renamed.id !== claim.holdingFolderId) {
+        finalFolderId = renamed.id;
+        transferRequired = true;
+      }
+    }
+    if (transferRequired) {
+      const destination = await listAllFolderItems(deps, finalFolderId);
+      for (const file of claim.files) {
+        if (["moved", "deduplicated", "adopted"].includes(file.state)) continue;
+        if (!file.boxFileId) throw new Error(`held image ${file.id} has no archive file id`);
+        const decision = decideArchiveHoldingTransfer(file.filename, file.boxSha1 ?? void 0, file.sha256, destination);
+        if (decision.kind === "deduplicate") {
+          const recoveredMove = decision.existingFileId === file.boxFileId;
+          if (!recoveredMove) await deps.deleteFile(file.boxFileId, claim.holdingFolderId);
+          const stamped = await deps.checkpoint(claim.holdingId, file.id, { claimToken: activeClaimToken, kind: recoveredMove ? "moved" : "deduplicated", canonicalFileId: decision.existingFileId, canonicalFileUrl: `https://app.box.com/file/${encodeURIComponent(decision.existingFileId)}`, sourceRetired: true });
+          if (!stamped.updated) throw new Error("archive holding dedup checkpoint lost its claim");
+        } else {
+          const moved = await deps.move(file.boxFileId, finalFolderId, decision.name);
+          if (!moved.id) throw new Error("archive holding move returned no file id");
+          const stamped = await deps.checkpoint(claim.holdingId, file.id, { claimToken: activeClaimToken, kind: "moved", canonicalFileId: moved.id, canonicalFileUrl: `https://app.box.com/file/${encodeURIComponent(moved.id)}`, sourceRetired: true });
+          if (!stamped.updated) throw new Error("archive holding move checkpoint lost its claim");
+          destination.push({ id: moved.id, name: moved.name ?? decision.name, type: "file", sha1: moved.sha1 });
+        }
+      }
+      await deps.deleteFolder(claim.holdingFolderId);
+    }
+    const folderUrl = `https://app.box.com/folder/${encodeURIComponent(finalFolderId)}`;
+    const finalized = await deps.finalize(claim.holdingId, { caseId, claimToken: activeClaimToken, folderId: finalFolderId, folderUrl });
+    return { outcome: "adopted", folderId: finalFolderId, adopted: finalized.adopted };
+  } catch (error) {
+    await deps.fail(claim.holdingId, { claimToken: activeClaimToken, error: error instanceof Error ? error.message : String(error) }).catch(() => void 0);
+    throw error;
+  }
+}
+df12.app.activity("archiveHoldingAdopt", { handler: async (input19, ctx) => {
+  const result = await adoptArchiveHolding(input19.caseId, realDeps, input19.claimToken);
+  ctx.log(JSON.stringify({ evt: "archiveHoldingAdopt", caseId: input19.caseId, ...result }));
+  return result;
+} });
+var retry6 = new df12.RetryOptions(5e3, 3);
+retry6.backoffCoefficient = 2;
+df12.app.orchestration("archiveHoldingAdoptOrchestrator", function* (ctx) {
+  const input19 = ctx.df.getInput();
+  return yield ctx.df.callActivityWithRetry("archiveHoldingAdopt", retry6, { ...input19, claimToken: ctx.df.newGuid("archive-holding-adopt") });
+});
+import_functions18.app.http("archive-holding-adopt-start", { methods: ["POST"], authLevel: "function", route: "archive-holding-adopt/{caseId}", extraInputs: [df12.input.durableClient()], handler: async (req, ctx) => {
+  const caseId = req.params.caseId;
+  if (!caseId) return { status: 400, jsonBody: { error: "caseId is required" } };
+  const client2 = df12.getClient(ctx);
+  const instanceId = `archive-holding-adopt-${caseId}`;
+  await client2.startNew("archiveHoldingAdoptOrchestrator", { instanceId, input: { caseId } });
+  return client2.createCheckStatusResponse(req, instanceId);
+} });
+
+// orchestration/src/functions/archive-holding-monitor.ts
+var import_functions20 = require("@azure/functions");
+var df14 = __toESM(require("durable-functions"), 1);
+
+// orchestration/src/functions/activities/boxArchive.ts
+var import_functions19 = require("@azure/functions");
+var df13 = __toESM(require("durable-functions"), 1);
+var DEFAULT_INLINE_UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
+var MCP_IMAGE_INGEST_TEST_ROOT_ID = "392761581105";
+function boxInlineUploadMaxBytes() {
+  const raw = Number(process.env.BOX_INLINE_UPLOAD_MAX_BYTES ?? "");
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_INLINE_UPLOAD_MAX_BYTES;
+}
+var realUploadDeps = {
+  sizeOf: getEvidenceBlobSize,
+  download: downloadEvidenceBytes,
+  uploadInline: (folderId, filename, contentBase64, contentType2, requiredWriteRootId) => box.uploadFile(folderId, filename, contentBase64, contentType2, requiredWriteRootId),
+  uploadFromBlob: (folderId, filename, blobPath, contentType2, requiredWriteRootId) => box.uploadFileFromBlob(folderId, filename, blobPath, contentType2, requiredWriteRootId)
+};
+async function uploadArchiveItem(folderId, item, maxInlineBytes = boxInlineUploadMaxBytes(), deps = realUploadDeps) {
+  const size = await deps.sizeOf(item.blobPath);
+  const requiredWriteRootId = item.sourceLabel === "agent_image_ingest" ? MCP_IMAGE_INGEST_TEST_ROOT_ID : void 0;
+  if (size > maxInlineBytes) {
+    return requiredWriteRootId ? deps.uploadFromBlob(folderId, item.filename, item.blobPath, item.contentType, requiredWriteRootId) : deps.uploadFromBlob(folderId, item.filename, item.blobPath, item.contentType);
+  }
+  const bytes = await deps.download(item.blobPath);
+  return requiredWriteRootId ? deps.uploadInline(folderId, item.filename, bytes.toString("base64"), item.contentType, requiredWriteRootId) : deps.uploadInline(folderId, item.filename, bytes.toString("base64"), item.contentType);
+}
+import_functions19.app.http("box-archive-start", {
+  methods: ["POST"],
+  authLevel: "function",
+  route: "box-archive",
+  extraInputs: [df13.input.durableClient()],
+  handler: async (req, ctx) => {
+    if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
+      ctx.log("[box-archive] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
+      return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
+    }
+    const input19 = await req.json();
+    const client2 = df13.getClient(ctx);
+    const instanceId = await client2.startNew("boxArchiveEvidenceOrchestrator", { input: input19 });
+    return client2.createCheckStatusResponse(req, instanceId);
+  }
+});
+var manualRetry = new df13.RetryOptions(5e3, 3);
+manualRetry.backoffCoefficient = 2;
+df13.app.orchestration("boxArchiveEvidenceOrchestrator", function* (ctx) {
+  const input19 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("boxArchiveEvidence", manualRetry, input19);
+  return result;
+});
+var realMirrorItemDeps = {
+  upload: (folderId, item) => uploadArchiveItem(folderId, item),
+  stamp: (payload) => dataApi.stampArchivedEvidence(payload),
+  release: (payload) => dataApi.releaseArchiveEvidenceClaim(payload)
+};
+async function mirrorArchiveItems(caseId, folderId, items, ctx, deps = realMirrorItemDeps) {
+  const uploadByBlobPath = /* @__PURE__ */ new Map();
+  let uploaded = 0;
+  const fileIds = [];
+  for (const item of items) {
+    let result = uploadByBlobPath.get(item.blobPath);
+    if (!result) {
+      try {
+        result = await deps.upload(folderId, item);
+      } catch (e) {
+        ctx.warn(
+          `[boxArchive] upload failed for ${item.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`
+        );
+        await deps.release?.({
+          caseId,
+          evidenceId: item.id,
+          claimToken: item.claimToken
+        }).catch(() => void 0);
+        continue;
+      }
+      if (!result.id) {
+        ctx.warn(`[boxArchive] upload returned no file id for ${item.filename} (case ${caseId})`);
+        await deps.release?.({
+          caseId,
+          evidenceId: item.id,
+          claimToken: item.claimToken
+        }).catch(() => void 0);
+        continue;
+      }
+      uploadByBlobPath.set(item.blobPath, result);
+    }
+    if (!result.id) continue;
+    const boxFileUrl = `https://app.box.com/file/${encodeURIComponent(result.id)}`;
+    try {
+      const stamped = await deps.stamp({
+        caseId,
+        evidenceId: item.id,
+        blobPath: item.blobPath,
+        boxFileId: result.id,
+        boxFileUrl,
+        claimToken: item.claimToken,
+        decisionGeneration: item.decisionGeneration
+      });
+      if (!stamped.updated) {
+        ctx.warn(`[boxArchive] evidence row was not stamped for ${item.filename} (case ${caseId})`);
+        continue;
+      }
+    } catch (e) {
+      ctx.warn(
+        `[boxArchive] upload succeeded but evidence stamp failed for ${item.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`
+      );
+      throw e;
+    }
+    uploaded++;
+    fileIds.push(result.id);
+  }
+  return { uploaded, total: items.length, fileIds };
+}
+df13.app.activity("boxArchiveEvidence", {
+  handler: async (input19, ctx) => {
+    if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
+      return { uploaded: 0, total: 0, skipped: "gated_off" };
+    }
+    const { caseId } = input19;
+    let folderId = null;
+    try {
+      const cf = await dataApi.getCaseBoxFolder(caseId);
+      folderId = cf.boxFolderId;
+    } catch (e) {
+      ctx.warn(`[boxArchive] could not read case box folder for ${caseId}: ${String(e)}`);
+      return { uploaded: 0, total: 0, skipped: "folder_unreadable" };
+    }
+    if (!folderId) {
+      ctx.log(`[boxArchive] case ${caseId} has no archive folder yet; nothing to archive`);
+      return { uploaded: 0, total: 0, skipped: "no_folder" };
+    }
+    let items;
+    try {
+      const persisted = await dataApi.archiveEvidenceRows(caseId);
+      items = persisted.rows.map((row) => ({
+        id: row.id,
+        filename: row.filename,
+        blobPath: row.blobPath,
+        contentType: row.contentType || "application/octet-stream",
+        claimToken: row.claimToken,
+        decisionGeneration: Number(row.decisionGeneration),
+        sourceLabel: row.sourceLabel
+      }));
+    } catch (e) {
+      ctx.warn(`[boxArchive] could not read evidence rows for ${caseId}: ${String(e)}`);
+      return { uploaded: 0, total: 0, skipped: "evidence_unreadable" };
+    }
+    const { uploaded, total, fileIds } = await mirrorArchiveItems(
+      caseId,
+      folderId,
+      items,
+      ctx
+    );
+    try {
+      await dataApi.recordAudit({
+        action: "box_synced",
+        caseId,
+        summary: `archived ${uploaded}/${total} evidence file(s) to archive folder ${folderId}`,
+        after: { folderId, uploaded, fileIds }
+      });
+    } catch {
+    }
+    ctx.log(JSON.stringify({ evt: "boxArchiveEvidence", caseId, folderId, uploaded, total }));
+    return { uploaded, total };
+  }
+});
+
+// orchestration/src/functions/archive-holding-monitor.ts
+var realDeps2 = {
+  claim: (token, limit) => dataApi.claimArchiveHoldingUploads(token, limit),
+  claimDeferred: (token, limit) => dataApi.claimDeferredArchiveHoldingIntakes(token, limit),
+  createFolder: (name, parentId) => box.createFolder(name, parentId),
+  register: (payload) => dataApi.registerArchiveHolding(payload),
+  completeDeferred: (id, token) => dataApi.completeDeferredArchiveHoldingIntake(id, token),
+  failDeferred: (id, payload) => dataApi.failDeferredArchiveHoldingIntake(id, payload),
+  upload: (folderId, item) => uploadArchiveItem(folderId, item),
+  stamp: (fileId, payload) => dataApi.stampArchiveHoldingUpload(fileId, payload),
+  fail: (fileId, payload) => dataApi.failArchiveHoldingUpload(fileId, payload),
+  candidates: (limit) => dataApi.archiveHoldingAdoptionCandidates(limit)
+};
+async function recoverArchiveHoldingUploads(claimToken, deps = realDeps2) {
+  if (!gates.boxApi() || !gates.boxFolderAtIntake() || !gates.boxRegFolder())
+    return { uploaded: 0, failed: 0, caseIds: [], skipped: "gated_off" };
+  let uploaded = 0;
+  const failures = [];
+  const uploadFiles = async (files2) => {
+    for (const file of files2) {
+      try {
+        const result = await deps.upload(file.boxFolderId, { filename: file.filename, blobPath: file.blobPath, contentType: file.contentType });
+        if (!result.id) throw new Error("archive upload returned no file id");
+        const stamped = await deps.stamp(file.id, {
+          claimToken: file.claimToken,
+          boxFileId: result.id,
+          boxFileUrl: `https://app.box.com/file/${encodeURIComponent(result.id)}`,
+          ...result.sha1 ? { boxSha1: result.sha1 } : {}
+        });
+        if (!stamped.updated) throw new Error("archive upload ledger claim changed before stamp");
+        uploaded++;
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        await deps.fail(file.id, { claimToken: file.claimToken, error: detail }).catch(() => void 0);
+        failures.push(`${file.filename}: ${detail}`);
+      }
+    }
+  };
+  const { intakes } = await deps.claimDeferred(claimToken, 10);
+  for (const intake of intakes) {
+    try {
+      const folder = await deps.createFolder(intake.vrm, intake.rootFolderId);
+      const reservation = await deps.register({
+        vrm: intake.vrm,
+        rootFolderId: intake.rootFolderId,
+        boxFolderId: folder.id,
+        sourceMessageId: intake.sourceMessageId,
+        claimToken: intake.claimToken,
+        files: intake.files
+      });
+      if (reservation.deferred) throw new Error("registration folder is still being filed");
+      const beforeFailures = failures.length;
+      await uploadFiles(reservation.files.map((file) => ({ ...file, boxFolderId: reservation.boxFolderId, claimToken: intake.claimToken })));
+      if (failures.length !== beforeFailures) throw new Error("one or more deferred images could not be uploaded");
+      const completed = await deps.completeDeferred(intake.id, intake.claimToken);
+      if (!completed.updated) throw new Error("deferred intake claim changed before completion");
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      await deps.failDeferred(intake.id, { claimToken: intake.claimToken, error: detail }).catch(() => void 0);
+      failures.push(`deferred ${intake.sourceMessageId}: ${detail}`);
+    }
+  }
+  const { files } = await deps.claim(claimToken, 25);
+  await uploadFiles(files);
+  const { caseIds } = await deps.candidates(50);
+  return { uploaded, failed: failures.length, caseIds };
+}
+df14.app.activity("archiveHoldingRecoverUploads", { handler: async (input19, ctx) => {
+  const result = await recoverArchiveHoldingUploads(input19.claimToken);
+  ctx.log(JSON.stringify({ evt: "archiveHoldingRecoverUploads", ...result }));
+  return result;
+} });
+var ARCHIVE_HOLDING_MONITOR_INSTANCE_ID = "archive-holding-recovery-monitor-singleton";
+var intervalMinutes = Number(process.env.ARCHIVE_HOLDING_MONITOR_INTERVAL_MINUTES ?? "5");
+var intervalMs = (Number.isFinite(intervalMinutes) && intervalMinutes > 0 ? intervalMinutes : 5) * 6e4;
+var recoveryRetry = new df14.RetryOptions(15e3, 4);
+recoveryRetry.backoffCoefficient = 2;
+recoveryRetry.maxRetryIntervalInMilliseconds = 12e4;
+var adoptionRetry = new df14.RetryOptions(5e3, 3);
+adoptionRetry.backoffCoefficient = 2;
+df14.app.orchestration("archiveHoldingRecoveryMonitorOrchestrator", function* (ctx) {
+  try {
+    const recovered = yield ctx.df.callActivityWithRetry(
+      "archiveHoldingRecoverUploads",
+      recoveryRetry,
+      { claimToken: ctx.df.newGuid("archive-holding-upload-recovery") }
+    );
+    const caseIds = [...new Set(recovered.caseIds ?? [])];
+    for (let index = 0; index < caseIds.length; index++) {
+      try {
+        yield ctx.df.callActivityWithRetry(
+          "archiveHoldingAdopt",
+          adoptionRetry,
+          { caseId: caseIds[index], claimToken: ctx.df.newGuid(`archive-holding-adopt-${index}`) }
+        );
+      } catch (error) {
+        if (!ctx.df.isReplaying) ctx.log(`[archiveHoldingMonitor] adoption failed for ${caseIds[index]}: ${String(error)}`);
+      }
+    }
+  } catch (error) {
+    if (!ctx.df.isReplaying) ctx.log(`[archiveHoldingMonitor] recovery failed after retries; rescheduling: ${String(error)}`);
+  }
+  const next = new Date(ctx.df.currentUtcDateTime.getTime() + intervalMs);
+  yield ctx.df.createTimer(next);
+  ctx.df.continueAsNew(void 0);
+});
+async function readMonitor2(client2) {
+  try {
+    const status = await client2.getStatus(ARCHIVE_HOLDING_MONITOR_INSTANCE_ID);
+    const runtimeStatus = String(status?.runtimeStatus ?? "Unknown");
+    return { runtimeStatus, running: ["Running", "Pending", "ContinuedAsNew"].includes(runtimeStatus) };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    if (!/\b404\b|not found|could not find any data/i.test(detail)) throw error;
+    return { runtimeStatus: "NotFound", running: false };
+  }
+}
+async function ensureArchiveHoldingMonitor(client2) {
+  const current = await readMonitor2(client2);
+  if (current.running) return { started: false, runtimeStatus: current.runtimeStatus };
+  try {
+    await client2.startNew("archiveHoldingRecoveryMonitorOrchestrator", { instanceId: ARCHIVE_HOLDING_MONITOR_INSTANCE_ID });
+  } catch (error) {
+    const raced = await readMonitor2(client2).catch(() => void 0);
+    if (raced?.running) return { started: false, runtimeStatus: raced.runtimeStatus };
+    throw error;
+  }
+  return { started: true, runtimeStatus: "Pending" };
+}
+import_functions20.app.http("archive-holding-monitor", {
+  methods: ["GET", "POST"],
+  authLevel: "function",
+  route: "maintenance/archive-holding-monitor",
+  extraInputs: [df14.input.durableClient()],
+  handler: async (req, ctx) => {
+    const client2 = df14.getClient(ctx);
+    try {
+      const monitor = req.method.toUpperCase() === "POST" ? await ensureArchiveHoldingMonitor(client2) : await readMonitor2(client2);
+      const running = "running" in monitor ? monitor.running : true;
+      return { status: running ? 200 : 503, jsonBody: { ok: running, instanceId: ARCHIVE_HOLDING_MONITOR_INSTANCE_ID, ...monitor } };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      ctx.error(`[archiveHoldingMonitor] ${detail}`);
+      return { status: 503, jsonBody: { ok: false, error: detail } };
+    }
+  }
+});
+import_functions20.app.timer("archive-holding-monitor-bootstrap", {
+  schedule: "0 0 * * * *",
+  runOnStartup: true,
+  extraInputs: [df14.input.durableClient()],
+  handler: async (_timer, ctx) => {
+    try {
+      await ensureArchiveHoldingMonitor(df14.getClient(ctx));
+    } catch (error) {
+      ctx.warn(`[archiveHoldingMonitor] bootstrap failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+});
+
+// orchestration/src/functions/activities/fetchMessage.ts
+var import_node_crypto9 = require("node:crypto");
+var df15 = __toESM(require("durable-functions"), 1);
 var BODY_CAP = 2e4;
 var BODY_PREVIEW_CAP = 3500;
-df12.app.activity("fetchMessage", {
-  handler: async (input17, ctx) => {
-    const parsedMailbox = mailboxOfResource(input17.resource ?? "");
+df15.app.activity("fetchMessage", {
+  handler: async (input19, ctx) => {
+    const parsedMailbox = mailboxOfResource(input19.resource ?? "");
     let mailbox = parsedMailbox;
     let mailboxVia = "resource";
-    if (!looksLikeMailboxAddress(parsedMailbox) && input17.subscriptionId) {
-      const resolved = await resolveSubscriptionMailbox(input17.subscriptionId);
+    if (!looksLikeMailboxAddress(parsedMailbox) && input19.subscriptionId) {
+      const resolved = await resolveSubscriptionMailbox(input19.subscriptionId);
       if (resolved) {
         mailbox = resolved;
         mailboxVia = "subscription";
       }
     }
-    if (!mailbox) throw new Error(`fetchMessage: cannot derive mailbox from resource "${input17.resource}"`);
-    const { message, attachments } = await getMessageWithAttachments(mailbox, input17.messageId);
-    const headers = await getMessageHeaders(mailbox, input17.messageId);
+    if (!mailbox) throw new Error(`fetchMessage: cannot derive mailbox from resource "${input19.resource}"`);
+    const { message, attachments } = await getMessageWithAttachments(mailbox, input19.messageId);
+    const headers = await getMessageHeaders(mailbox, input19.messageId);
     const landed = [];
     for (const a of attachments) {
       const bytes = Buffer.from(a.contentBytes ?? "", "base64");
-      const up = await uploadEvidenceBytes(input17.messageId, a.name, bytes, a.contentType);
+      const up = await uploadEvidenceBytes(input19.messageId, a.name, bytes, a.contentType);
       landed.push({ filename: a.name, contentType: a.contentType, blobPath: up.blobPath, size: up.size, sha256: up.sha256 });
     }
     let rawEml;
     try {
-      const mime = await getMessageRawMime(mailbox, input17.messageId);
-      const emlName = rawEmlFileName(message.internetMessageId ?? input17.messageId);
-      const emlUp = await uploadEvidenceBytes(input17.messageId, emlName, mime, "message/rfc822");
+      const mime = await getMessageRawMime(mailbox, input19.messageId);
+      const emlName = rawEmlFileName(message.internetMessageId ?? input19.messageId);
+      const emlUp = await uploadEvidenceBytes(input19.messageId, emlName, mime, "message/rfc822");
       rawEml = {
         filename: emlName,
         contentType: "message/rfc822",
@@ -53870,7 +54388,7 @@ df12.app.activity("fetchMessage", {
         sha256: emlUp.sha256
       };
     } catch (e) {
-      ctx.warn(`[fetchMessage] raw .eml capture failed for ${input17.messageId}: ${e instanceof Error ? e.message : String(e)}`);
+      ctx.warn(`[fetchMessage] raw .eml capture failed for ${input19.messageId}: ${e instanceof Error ? e.message : String(e)}`);
     }
     const subject = message.subject ?? "";
     const senderAddress = message.from?.emailAddress?.address ?? "";
@@ -53881,14 +54399,14 @@ df12.app.activity("fetchMessage", {
 ${body2}`);
     const outlookWebLink = normalizeOutlookWebLink(message.webLink);
     const envelope = {
-      messageId: input17.messageId,
-      internetMessageId: message.internetMessageId ?? input17.messageId,
+      messageId: input19.messageId,
+      internetMessageId: message.internetMessageId ?? input19.messageId,
       ...(message.id ?? "").trim() ? { graphMessageId: message.id.trim() } : {},
       ...outlookWebLink ? { outlookWebLink } : {},
       conversationId: message.conversationId ?? "",
       subject,
       senderAddress,
-      receivedAt: message.receivedDateTime ?? input17.receivedAt ?? (/* @__PURE__ */ new Date()).toISOString(),
+      receivedAt: message.receivedDateTime ?? input19.receivedAt ?? (/* @__PURE__ */ new Date()).toISOString(),
       sourceMailbox: mailbox,
       payloadHash,
       candidateVrm,
@@ -53902,18 +54420,18 @@ ${body2}`);
       attachments: landed,
       ...rawEml ? { rawEml } : {}
     };
-    ctx.log(JSON.stringify({ evt: "fetchMessage", messageId: input17.messageId, mailbox, mailboxVia, attachments: landed.length, eml: Boolean(rawEml) }));
+    ctx.log(JSON.stringify({ evt: "fetchMessage", messageId: input19.messageId, mailbox, mailboxVia, attachments: landed.length, eml: Boolean(rawEml) }));
     return envelope;
   }
 });
 function hashPayload(subject, from, attachments) {
   const norm = subject.trim().toLowerCase() + "|" + from.trim().toLowerCase() + "|" + attachments.map((a) => `${a.filename.toLowerCase()}:${a.size}`).sort().join(",");
-  return (0, import_node_crypto8.createHash)("sha256").update(norm).digest("hex");
+  return (0, import_node_crypto9.createHash)("sha256").update(norm).digest("hex");
 }
 
 // orchestration/src/functions/activities/providerMatch.ts
-var df13 = __toESM(require("durable-functions"), 1);
-df13.app.activity("providerMatch", {
+var df16 = __toESM(require("durable-functions"), 1);
+df16.app.activity("providerMatch", {
   handler: async (inbound, ctx) => {
     const { providers, imageSources } = await dataApi.providerMatchRecords();
     const identity = matchSenderIdentity(inbound.senderAddress, providers, imageSources);
@@ -53960,7 +54478,7 @@ df13.app.activity("providerMatch", {
 });
 
 // orchestration/src/functions/activities/classifyInbound.ts
-var df14 = __toESM(require("durable-functions"), 1);
+var df17 = __toESM(require("durable-functions"), 1);
 var MATCH_STATE_TO_CLASSIFIER = {
   matched: "one",
   unmatched: "none",
@@ -53999,9 +54517,9 @@ function buildClassifyRequest(inbound, matchState) {
     references: inbound.references
   };
 }
-df14.app.activity("classifyInbound", {
-  handler: async (input17, ctx) => {
-    const { inbound, workProviderId, matchState } = input17;
+df17.app.activity("classifyInbound", {
+  handler: async (input19, ctx) => {
+    const { inbound, workProviderId, matchState } = input19;
     const res = await callClassifyEmail(buildClassifyRequest(inbound, matchState));
     const acting = resolveActingClassification(
       res.category ?? "",
@@ -54047,7 +54565,7 @@ df14.app.activity("classifyInbound", {
 });
 
 // orchestration/src/functions/activities/triagePolicy.ts
-var df15 = __toESM(require("durable-functions"), 1);
+var df18 = __toESM(require("durable-functions"), 1);
 var GATES_ALL_ON = {
   refGate: true,
   cancellation: true,
@@ -54122,9 +54640,9 @@ function toPolicyClassification(classification) {
     taxonomyVersion: classification.taxonomyVersion
   };
 }
-df15.app.activity("triagePolicy", {
-  handler: async (input17, ctx) => {
-    const { inbound, classification } = input17;
+df18.app.activity("triagePolicy", {
+  handler: async (input19, ctx) => {
+    const { inbound, classification } = input19;
     let resolvedContext;
     try {
       resolvedContext = await dataApi.triageContext(buildTriageContextRequest(inbound, classification));
@@ -54140,7 +54658,7 @@ df15.app.activity("triagePolicy", {
       openCaseMatches: resolvedContext.openCaseMatches,
       duplicateInternetMessageId: resolvedContext.duplicateInternetMessageId,
       conversationSiblingCaseIds: resolvedContext.conversationSiblingCaseIds,
-      providerMatchState: normaliseMatchState(input17.matchState),
+      providerMatchState: normaliseMatchState(input19.matchState),
       hasAttachments,
       attachmentKinds,
       imagesOnly
@@ -54148,9 +54666,9 @@ df15.app.activity("triagePolicy", {
     const actingGateValues = actingGates();
     const shadow = decideTriage(policyClassification, policyContext, GATES_ALL_ON);
     const acting = decideTriage(policyClassification, policyContext, actingGateValues);
-    const intermediaryDecisionInputs = input17.intermediaryImageSourceId ? {
-      intermediaryImageSourceId: input17.intermediaryImageSourceId,
-      intermediaryCandidateProviderIds: input17.intermediaryCandidateProviderIds ?? []
+    const intermediaryDecisionInputs = input19.intermediaryImageSourceId ? {
+      intermediaryImageSourceId: input19.intermediaryImageSourceId,
+      intermediaryCandidateProviderIds: input19.intermediaryCandidateProviderIds ?? []
     } : {};
     await trackEvent("triage_decision", {
       actingAction: acting.action,
@@ -54196,19 +54714,19 @@ df15.app.activity("triagePolicy", {
 });
 
 // orchestration/src/functions/activities/correlatePreInstruction.ts
-var df16 = __toESM(require("durable-functions"), 1);
+var df19 = __toESM(require("durable-functions"), 1);
 function preInstructionRationale(casePo) {
   const target = casePo ? `case ${casePo}` : "this case";
   return `Directions received before the instruction arrived appear to relate to ${target} \u2014 review and attach so they are not missed.`;
 }
-df16.app.activity("correlatePreInstruction", {
-  handler: async (input17, ctx) => {
+df19.app.activity("correlatePreInstruction", {
+  handler: async (input19, ctx) => {
     if (!gates.triagePreInstruction()) {
       return { skipped: true, matches: 0, suggested: 0 };
     }
-    const vrm = (input17.vrm ?? "").trim();
-    const caseRef = (input17.caseRef ?? "").trim();
-    const jobRef = (input17.jobRef ?? "").trim();
+    const vrm = (input19.vrm ?? "").trim();
+    const caseRef = (input19.caseRef ?? "").trim();
+    const jobRef = (input19.jobRef ?? "").trim();
     if (!vrm && !caseRef && !jobRef) {
       return { skipped: true, matches: 0, suggested: 0 };
     }
@@ -54222,9 +54740,9 @@ df16.app.activity("correlatePreInstruction", {
       const res = await dataApi.triageSuggestLink({
         inboundEmailId: row.inboundEmailId,
         ...row.sourceMessageId ? { sourceMessageId: row.sourceMessageId } : {},
-        targetCaseId: input17.caseId,
+        targetCaseId: input19.caseId,
         suggestionType: "case_link",
-        rationale: preInstructionRationale(input17.casePo),
+        rationale: preInstructionRationale(input19.casePo),
         confidence: 0.6,
         decisionInputs: {
           lane: "pre_instruction",
@@ -54237,7 +54755,7 @@ df16.app.activity("correlatePreInstruction", {
     ctx.log(
       JSON.stringify({
         evt: "correlatePreInstruction",
-        caseId: input17.caseId,
+        caseId: input19.caseId,
         matches: held.length,
         suggested
       })
@@ -54247,20 +54765,20 @@ df16.app.activity("correlatePreInstruction", {
 });
 
 // orchestration/src/functions/activities/linkReply.ts
-var df17 = __toESM(require("durable-functions"), 1);
-df17.app.activity("linkReply", {
-  handler: async (input17, ctx) => {
+var df20 = __toESM(require("durable-functions"), 1);
+df20.app.activity("linkReply", {
+  handler: async (input19, ctx) => {
     const result = await dataApi.linkReplyToOpenCase({
-      inbound: input17.inbound,
-      providerId: input17.providerId,
-      ref: input17.ref,
-      vrm: input17.vrm,
-      jobref: input17.jobref
+      inbound: input19.inbound,
+      providerId: input19.providerId,
+      ref: input19.ref,
+      vrm: input19.vrm,
+      jobref: input19.jobref
     });
     ctx.log(
       JSON.stringify({
         evt: "linkReply",
-        messageId: input17.inbound.messageId,
+        messageId: input19.inbound.messageId,
         outcome: result.outcome,
         candidateCount: result.candidateCount
       })
@@ -54270,11 +54788,11 @@ df17.app.activity("linkReply", {
 });
 
 // orchestration/src/functions/activities/caseResolve.ts
-var df18 = __toESM(require("durable-functions"), 1);
-df18.app.activity("caseResolve", {
-  handler: async (input17, ctx) => {
-    const { inbound, providerId, matchState } = input17;
-    const bestVrm = ((input17.parserVrm || inbound.candidateVrm) ?? "").trim();
+var df21 = __toESM(require("durable-functions"), 1);
+df21.app.activity("caseResolve", {
+  handler: async (input19, ctx) => {
+    const { inbound, providerId, matchState } = input19;
+    const bestVrm = ((input19.parserVrm || inbound.candidateVrm) ?? "").trim();
     const sourceMessageId = inbound.internetMessageId || inbound.messageId;
     try {
       const context3 = await dataApi.dedupContext({
@@ -54287,16 +54805,16 @@ df18.app.activity("caseResolve", {
           inbound,
           providerId,
           matchState,
-          parserVrm: input17.parserVrm,
-          parserRef: input17.parserRef,
-          parserMileage: input17.parserMileage,
-          parserMileageUnit: input17.parserMileageUnit,
-          parserEva: input17.parserEvaFields,
-          intermediaryImageSourceId: input17.intermediaryImageSourceId,
-          intermediaryCandidateProviderIds: input17.intermediaryCandidateProviderIds,
-          caseType: input17.caseType,
-          caseTypeDual: input17.caseTypeDual,
-          caseTypeSignals: input17.caseTypeSignals,
+          parserVrm: input19.parserVrm,
+          parserRef: input19.parserRef,
+          parserMileage: input19.parserMileage,
+          parserMileageUnit: input19.parserMileageUnit,
+          parserEva: input19.parserEvaFields,
+          intermediaryImageSourceId: input19.intermediaryImageSourceId,
+          intermediaryCandidateProviderIds: input19.intermediaryCandidateProviderIds,
+          caseType: input19.caseType,
+          caseTypeDual: input19.caseTypeDual,
+          caseTypeSignals: input19.caseTypeSignals,
           decision: {
             resolution: "replay",
             targetCaseId,
@@ -54341,7 +54859,7 @@ df18.app.activity("caseResolve", {
         candidateVrm: bestVrm,
         // #100 — fall back to the parser-confirmed reference for dedup when the email
         // subject/body did not yield a Case/PO (a ref that lives only in the PDF).
-        candidateRef: inbound.candidateRef || input17.parserRef || "",
+        candidateRef: inbound.candidateRef || input19.parserRef || "",
         workProviderId: providerId ?? "",
         openProviderCases: context3.openProviderCases,
         seenMessageIds: context3.seenMessageIds,
@@ -54360,16 +54878,16 @@ df18.app.activity("caseResolve", {
         inbound,
         providerId,
         matchState,
-        parserVrm: input17.parserVrm,
-        parserRef: input17.parserRef,
-        parserMileage: input17.parserMileage,
-        parserMileageUnit: input17.parserMileageUnit,
-        parserEva: input17.parserEvaFields,
-        intermediaryImageSourceId: input17.intermediaryImageSourceId,
-        intermediaryCandidateProviderIds: input17.intermediaryCandidateProviderIds,
-        caseType: input17.caseType,
-        caseTypeDual: input17.caseTypeDual,
-        caseTypeSignals: input17.caseTypeSignals,
+        parserVrm: input19.parserVrm,
+        parserRef: input19.parserRef,
+        parserMileage: input19.parserMileage,
+        parserMileageUnit: input19.parserMileageUnit,
+        parserEva: input19.parserEvaFields,
+        intermediaryImageSourceId: input19.intermediaryImageSourceId,
+        intermediaryCandidateProviderIds: input19.intermediaryCandidateProviderIds,
+        caseType: input19.caseType,
+        caseTypeDual: input19.caseTypeDual,
+        caseTypeSignals: input19.caseTypeSignals,
         decision: {
           resolution: decision.resolution,
           targetCaseId: decision.targetCaseId,
@@ -54397,17 +54915,17 @@ df18.app.activity("caseResolve", {
 });
 
 // orchestration/src/functions/activities/setIngested.ts
-var df19 = __toESM(require("durable-functions"), 1);
-df19.app.activity("setIngested", {
-  handler: async (input17, ctx) => {
-    const result = await dataApi.setIngested(input17.caseId);
-    ctx.log(JSON.stringify({ evt: "setIngested", caseId: input17.caseId, updated: result.updated }));
+var df22 = __toESM(require("durable-functions"), 1);
+df22.app.activity("setIngested", {
+  handler: async (input19, ctx) => {
+    const result = await dataApi.setIngested(input19.caseId);
+    ctx.log(JSON.stringify({ evt: "setIngested", caseId: input19.caseId, updated: result.updated }));
     return result;
   }
 });
 
 // orchestration/src/functions/activities/parse.ts
-var df20 = __toESM(require("durable-functions"), 1);
+var df23 = __toESM(require("durable-functions"), 1);
 var hasValue = (cell) => (cell?.value ?? "").trim() !== "";
 function shouldAttemptScannedPdfOcr(parsed, filename) {
   if (parsed.skipped) return false;
@@ -54472,14 +54990,14 @@ function resolveWorkProviderAcrossDocs(parsed) {
   }
   return "";
 }
-df20.app.activity("parse", {
-  handler: async (input17, ctx) => {
-    const corr = input17.caseId || input17.messageId || "(pre-resolve)";
+df23.app.activity("parse", {
+  handler: async (input19, ctx) => {
+    const corr = input19.caseId || input19.messageId || "(pre-resolve)";
     if (!gates.pdfMapper()) {
       ctx.log("[parse] skipped \u2014 PDF_MAPPER_ENABLED=false");
       return { skipped: true, reason: "gate_off" };
     }
-    const candidates = orderParseCandidates(input17.attachments ?? []);
+    const candidates = orderParseCandidates(input19.attachments ?? []);
     if (!candidates.length) {
       ctx.log(`[parse] no instruction document attachment for ${corr}; skipping`);
       return { skipped: true, reason: "no_document" };
@@ -54514,7 +55032,7 @@ df20.app.activity("parse", {
         body: JSON.stringify({
           document: documentB642,
           filename: att.filename,
-          ...input17.providerHint ? { provider_hint: input17.providerHint } : {}
+          ...input19.providerHint ? { provider_hint: input19.providerHint } : {}
         })
       });
       if (!res.ok) {
@@ -54581,7 +55099,7 @@ df20.app.activity("parse", {
         const ocr = await callOcrPdf({
           documentBase64: documentB64,
           filename: doc.filename,
-          ...input17.providerHint ? { providerHint: input17.providerHint } : {}
+          ...input19.providerHint ? { providerHint: input19.providerHint } : {}
         });
         const merged = coalesceOcrIntoParse(parsed, ocr);
         const filled = Object.keys(merged.extraction ?? {}).filter(
@@ -54609,37 +55127,37 @@ df20.app.activity("parse", {
 });
 
 // orchestration/src/functions/activities/statusEvaluate.ts
-var df21 = __toESM(require("durable-functions"), 1);
-df21.app.activity("statusEvaluate", {
-  handler: async (input17, ctx) => {
-    const result = await dataApi.evaluateStatus(input17.caseId);
-    ctx.log(JSON.stringify({ evt: "statusEvaluate", caseId: input17.caseId, status: result.value }));
+var df24 = __toESM(require("durable-functions"), 1);
+df24.app.activity("statusEvaluate", {
+  handler: async (input19, ctx) => {
+    const result = await dataApi.evaluateStatus(input19.caseId);
+    ctx.log(JSON.stringify({ evt: "statusEvaluate", caseId: input19.caseId, status: result.value }));
     return result;
   }
 });
 
 // orchestration/src/functions/activities/enrich.ts
-var df22 = __toESM(require("durable-functions"), 1);
-df22.app.activity("enrich", {
-  handler: async (input17, ctx) => {
+var df25 = __toESM(require("durable-functions"), 1);
+df25.app.activity("enrich", {
+  handler: async (input19, ctx) => {
     if (!gates.enrichment()) {
       ctx.log("[enrich] skipped \u2014 ENRICHMENT_ENABLED=false");
       return { skipped: true, reason: "gate_off" };
     }
-    const vrm = (input17.vrm ?? "").trim();
+    const vrm = (input19.vrm ?? "").trim();
     if (!vrm) {
-      ctx.log(`[enrich] no VRM resolved for case ${input17.caseId}; nothing to enrich \u2014 skipping`);
+      ctx.log(`[enrich] no VRM resolved for case ${input19.caseId}; nothing to enrich \u2014 skipping`);
       return { skipped: true, reason: "no_vrm" };
     }
     let result;
     try {
-      result = await dataApi.lookupVehicle(input17.caseId, vrm, input17.idempotencyKey);
+      result = await dataApi.lookupVehicle(input19.caseId, vrm, input19.idempotencyKey);
     } catch (error) {
       if (isRetryableVehicleLookupFailure(error)) throw error;
-      ctx.error(`[enrich] advisory vehicle lookup rejected for case ${input17.caseId}: ${String(error)}`);
+      ctx.error(`[enrich] advisory vehicle lookup rejected for case ${input19.caseId}: ${String(error)}`);
       return { enriched: false, skipped: true, reason: "advisory_lookup_rejected" };
     }
-    ctx.log(JSON.stringify({ evt: "enrich", caseId: input17.caseId, applied: result.persisted.applied }));
+    ctx.log(JSON.stringify({ evt: "enrich", caseId: input19.caseId, applied: result.persisted.applied }));
     return {
       enriched: result.lookup.status === "found",
       applied: result.persisted.applied,
@@ -54648,190 +55166,26 @@ df22.app.activity("enrich", {
   }
 });
 
-// orchestration/src/functions/activities/boxArchive.ts
-var import_functions18 = require("@azure/functions");
-var df23 = __toESM(require("durable-functions"), 1);
-var DEFAULT_INLINE_UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
-var MCP_IMAGE_INGEST_TEST_ROOT_ID = "392761581105";
-function boxInlineUploadMaxBytes() {
-  const raw = Number(process.env.BOX_INLINE_UPLOAD_MAX_BYTES ?? "");
-  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_INLINE_UPLOAD_MAX_BYTES;
-}
-var realUploadDeps = {
-  sizeOf: getEvidenceBlobSize,
-  download: downloadEvidenceBytes,
-  uploadInline: (folderId, filename, contentBase64, contentType2, requiredWriteRootId) => box.uploadFile(folderId, filename, contentBase64, contentType2, requiredWriteRootId),
-  uploadFromBlob: (folderId, filename, blobPath, contentType2, requiredWriteRootId) => box.uploadFileFromBlob(folderId, filename, blobPath, contentType2, requiredWriteRootId)
-};
-async function uploadArchiveItem(folderId, item, maxInlineBytes = boxInlineUploadMaxBytes(), deps = realUploadDeps) {
-  const size = await deps.sizeOf(item.blobPath);
-  const requiredWriteRootId = item.sourceLabel === "agent_image_ingest" ? MCP_IMAGE_INGEST_TEST_ROOT_ID : void 0;
-  if (size > maxInlineBytes) {
-    return requiredWriteRootId ? deps.uploadFromBlob(folderId, item.filename, item.blobPath, item.contentType, requiredWriteRootId) : deps.uploadFromBlob(folderId, item.filename, item.blobPath, item.contentType);
-  }
-  const bytes = await deps.download(item.blobPath);
-  return requiredWriteRootId ? deps.uploadInline(folderId, item.filename, bytes.toString("base64"), item.contentType, requiredWriteRootId) : deps.uploadInline(folderId, item.filename, bytes.toString("base64"), item.contentType);
-}
-import_functions18.app.http("box-archive-start", {
-  methods: ["POST"],
-  authLevel: "function",
-  route: "box-archive",
-  extraInputs: [df23.input.durableClient()],
-  handler: async (req, ctx) => {
-    if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
-      ctx.log("[box-archive] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
-      return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
-    }
-    const input17 = await req.json();
-    const client2 = df23.getClient(ctx);
-    const instanceId = await client2.startNew("boxArchiveEvidenceOrchestrator", { input: input17 });
-    return client2.createCheckStatusResponse(req, instanceId);
-  }
-});
-var manualRetry = new df23.RetryOptions(5e3, 3);
-manualRetry.backoffCoefficient = 2;
-df23.app.orchestration("boxArchiveEvidenceOrchestrator", function* (ctx) {
-  const input17 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("boxArchiveEvidence", manualRetry, input17);
-  return result;
-});
-var realMirrorItemDeps = {
-  upload: (folderId, item) => uploadArchiveItem(folderId, item),
-  stamp: (payload) => dataApi.stampArchivedEvidence(payload),
-  release: (payload) => dataApi.releaseArchiveEvidenceClaim(payload)
-};
-async function mirrorArchiveItems(caseId, folderId, items, ctx, deps = realMirrorItemDeps) {
-  const uploadByBlobPath = /* @__PURE__ */ new Map();
-  let uploaded = 0;
-  const fileIds = [];
-  for (const item of items) {
-    let result = uploadByBlobPath.get(item.blobPath);
-    if (!result) {
-      try {
-        result = await deps.upload(folderId, item);
-      } catch (e) {
-        ctx.warn(
-          `[boxArchive] upload failed for ${item.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`
-        );
-        await deps.release?.({
-          caseId,
-          evidenceId: item.id,
-          claimToken: item.claimToken
-        }).catch(() => void 0);
-        continue;
-      }
-      if (!result.id) {
-        ctx.warn(`[boxArchive] upload returned no file id for ${item.filename} (case ${caseId})`);
-        await deps.release?.({
-          caseId,
-          evidenceId: item.id,
-          claimToken: item.claimToken
-        }).catch(() => void 0);
-        continue;
-      }
-      uploadByBlobPath.set(item.blobPath, result);
-    }
-    if (!result.id) continue;
-    const boxFileUrl = `https://app.box.com/file/${encodeURIComponent(result.id)}`;
-    try {
-      const stamped = await deps.stamp({
-        caseId,
-        evidenceId: item.id,
-        blobPath: item.blobPath,
-        boxFileId: result.id,
-        boxFileUrl,
-        claimToken: item.claimToken,
-        decisionGeneration: item.decisionGeneration
-      });
-      if (!stamped.updated) {
-        ctx.warn(`[boxArchive] evidence row was not stamped for ${item.filename} (case ${caseId})`);
-        continue;
-      }
-    } catch (e) {
-      ctx.warn(
-        `[boxArchive] upload succeeded but evidence stamp failed for ${item.filename} (case ${caseId}): ${e instanceof Error ? e.message : String(e)}`
-      );
-      throw e;
-    }
-    uploaded++;
-    fileIds.push(result.id);
-  }
-  return { uploaded, total: items.length, fileIds };
-}
-df23.app.activity("boxArchiveEvidence", {
-  handler: async (input17, ctx) => {
-    if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
-      return { uploaded: 0, total: 0, skipped: "gated_off" };
-    }
-    const { caseId } = input17;
-    let folderId = null;
-    try {
-      const cf = await dataApi.getCaseBoxFolder(caseId);
-      folderId = cf.boxFolderId;
-    } catch (e) {
-      ctx.warn(`[boxArchive] could not read case box folder for ${caseId}: ${String(e)}`);
-      return { uploaded: 0, total: 0, skipped: "folder_unreadable" };
-    }
-    if (!folderId) {
-      ctx.log(`[boxArchive] case ${caseId} has no archive folder yet; nothing to archive`);
-      return { uploaded: 0, total: 0, skipped: "no_folder" };
-    }
-    let items;
-    try {
-      const persisted = await dataApi.archiveEvidenceRows(caseId);
-      items = persisted.rows.map((row) => ({
-        id: row.id,
-        filename: row.filename,
-        blobPath: row.blobPath,
-        contentType: row.contentType || "application/octet-stream",
-        claimToken: row.claimToken,
-        decisionGeneration: Number(row.decisionGeneration),
-        sourceLabel: row.sourceLabel
-      }));
-    } catch (e) {
-      ctx.warn(`[boxArchive] could not read evidence rows for ${caseId}: ${String(e)}`);
-      return { uploaded: 0, total: 0, skipped: "evidence_unreadable" };
-    }
-    const { uploaded, total, fileIds } = await mirrorArchiveItems(
-      caseId,
-      folderId,
-      items,
-      ctx
-    );
-    try {
-      await dataApi.recordAudit({
-        action: "box_synced",
-        caseId,
-        summary: `archived ${uploaded}/${total} evidence file(s) to archive folder ${folderId}`,
-        after: { folderId, uploaded, fileIds }
-      });
-    } catch {
-    }
-    ctx.log(JSON.stringify({ evt: "boxArchiveEvidence", caseId, folderId, uploaded, total }));
-    return { uploaded, total };
-  }
-});
-
 // orchestration/src/functions/activities/extractImages.ts
-var df24 = __toESM(require("durable-functions"), 1);
+var df26 = __toESM(require("durable-functions"), 1);
 var IMG_SOURCE_EXT = /\.(pdf|docx?)$/i;
 var IMG_SOURCE_CTYPE = /pdf|msword|officedocument/i;
 var OCR_OK_EXT = /\.(jpe?g|png|bmp|tiff?|webp|heic|heif)$/i;
-df24.app.activity("extractImages", {
-  handler: async (input17, ctx) => {
+df26.app.activity("extractImages", {
+  handler: async (input19, ctx) => {
     if (!gates.pdfMapper()) return { extracted: 0, registrationVisible: false, skipped: "gate_off" };
-    const docs = (input17.attachments ?? []).filter(
+    const docs = (input19.attachments ?? []).filter(
       (a) => IMG_SOURCE_EXT.test(a.filename ?? "") || IMG_SOURCE_CTYPE.test(a.contentType ?? "")
     );
     if (!docs.length) return { extracted: 0, registrationVisible: false, skipped: "no_source" };
-    const messageId = input17.messageId || input17.caseId;
+    const messageId = input19.messageId || input19.caseId;
     let totalExtracted = 0;
     let anyRegVisible = false;
     let excludedNonVehicle = 0;
     let classifyAllowed = gates.imageRoleClassifyEnabled();
-    if (classifyAllowed && input17.workProviderId) {
+    if (classifyAllowed && input19.workProviderId) {
       try {
-        const { aiAllowed } = await dataApi.workProviderAiAllowed(input17.workProviderId);
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input19.workProviderId);
         if (aiAllowed === false) {
           classifyAllowed = false;
           ctx.log("[extractImages] image classify skipped \u2014 work provider opted out of AI (ai_allowed=false)");
@@ -54848,8 +55202,8 @@ df24.app.activity("extractImages", {
         ctx.warn(`[extractImages] could not read ${doc.blobPath}: ${e instanceof Error ? e.message : String(e)}`);
         continue;
       }
-      const stemProvider = (input17.providerPrincipal ?? "").trim().toUpperCase();
-      const stemVrm = canonicalizeVrm(input17.caseVrm ?? "");
+      const stemProvider = (input19.providerPrincipal ?? "").trim().toUpperCase();
+      const stemVrm = canonicalizeVrm(input19.caseVrm ?? "");
       let extracted;
       try {
         extracted = await callExtractImages({
@@ -54892,10 +55246,10 @@ df24.app.activity("extractImages", {
           const cls = await classifyImage({
             imageBase64: img.content_base64,
             contentType: img.content_type,
-            caseVrm: input17.caseVrm
+            caseVrm: input19.caseVrm
           });
           if (cls) {
-            const f = classificationToEvidenceFields(cls, input17.caseVrm);
+            const f = classificationToEvidenceFields(cls, input19.caseVrm);
             imageRole = f.imageRole;
             registrationVisible = f.registrationVisible;
             acceptedForEva = f.acceptedForEva;
@@ -54912,7 +55266,7 @@ df24.app.activity("extractImages", {
             const ocr = await callPlateOcr({
               imageBase64: img.content_base64,
               filename: img.filename,
-              caseVrm: input17.caseVrm
+              caseVrm: input19.caseVrm
             });
             registrationVisible = Boolean(ocr.registration_visible);
             if (registrationVisible) anyRegVisible = true;
@@ -54940,9 +55294,9 @@ df24.app.activity("extractImages", {
       }
       if (rows.length) {
         try {
-          const res = await dataApi.persistImageEvidence(input17.caseId, rows);
+          const res = await dataApi.persistImageEvidence(input19.caseId, rows);
           totalExtracted += res.persisted;
-          await settlePersistedStatusGeneration(input17.caseId, res, ctx);
+          await settlePersistedStatusGeneration(input19.caseId, res, ctx);
         } catch (e) {
           ctx.warn(`[extractImages] persist failed for ${doc.filename}: ${e instanceof Error ? e.message : String(e)}`);
         }
@@ -54952,14 +55306,14 @@ df24.app.activity("extractImages", {
       try {
         await dataApi.recordAudit({
           action: "attachment_classified",
-          caseId: input17.caseId,
+          caseId: input19.caseId,
           severity: anyRegVisible ? "info" : "warning",
           summary: anyRegVisible ? `extracted ${totalExtracted} image(s) from instruction docs; at least one shows the registration` : `extracted ${totalExtracted} image(s) from instruction docs, but a photo showing the registration is still needed`
         });
       } catch {
       }
     }
-    ctx.log(JSON.stringify({ evt: "extractImages", caseId: input17.caseId, extracted: totalExtracted, registrationVisible: anyRegVisible, excludedNonVehicle }));
+    ctx.log(JSON.stringify({ evt: "extractImages", caseId: input19.caseId, extracted: totalExtracted, registrationVisible: anyRegVisible, excludedNonVehicle }));
     return { extracted: totalExtracted, registrationVisible: anyRegVisible };
   }
 });
@@ -54968,139 +55322,209 @@ function stripExt(name) {
 }
 
 // orchestration/src/functions/activities/imagesUnmatched.ts
-var df25 = __toESM(require("durable-functions"), 1);
-df25.app.activity("imagesUnmatched", {
-  handler: async (input17, ctx) => {
-    const internetMessageId = (input17.internetMessageId ?? "").trim();
-    const vrm = (input17.vrm ?? "").trim().toUpperCase().replace(/\s+/g, "");
-    let stamped = false;
-    if (internetMessageId) {
-      try {
-        const res = await dataApi.markInboundAttention({
-          sourceMessageId: internetMessageId,
-          reason: "images_no_match"
-        });
-        stamped = res.stamped;
-      } catch (e) {
-        ctx.warn(`[imagesUnmatched] attention stamp failed (best-effort): ${String(e)}`);
-      }
-    }
-    let boxFolderId;
-    let boxSkipped;
-    if (!gates.boxRegFolder()) {
-      boxSkipped = "reg_folder_gate_off";
-    } else if (!gates.boxApi()) {
-      boxSkipped = "box_gate_off";
-    } else if (!vrm) {
-      boxSkipped = "no_registration";
-    } else if (!gates.boxFolderRootId()) {
-      boxSkipped = "no_root_id";
-    } else {
-      try {
-        const folder = await box.createFolder(vrm, gates.boxFolderRootId());
-        boxFolderId = folder.id;
-      } catch (e) {
-        boxSkipped = "create_failed";
-        ctx.warn(`[imagesUnmatched] reg-keyed Box folder create failed (best-effort): ${String(e)}`);
-      }
-    }
-    ctx.log(JSON.stringify({ evt: "imagesUnmatched", stamped, boxFolderId, boxSkipped, vrm: vrm || void 0 }));
-    return { stamped, ...boxFolderId ? { boxFolderId } : {}, ...boxSkipped ? { boxSkipped } : {} };
+var df27 = __toESM(require("durable-functions"), 1);
+var import_node_crypto10 = require("node:crypto");
+var IMAGE_DOCUMENT_RE = /(?:images?|photos?|damage|\bimg[\W_]|vd\s*image).*\.pdf$/i;
+async function expandImageDocument(document2, vrm, sourceMessageId) {
+  const bytes = await downloadEvidenceBytes(document2.blobPath);
+  const extracted = await callExtractImages({ documentBase64: bytes.toString("base64"), filename: document2.filename, vrm });
+  const stem = document2.filename.replace(/\.pdf$/i, "");
+  const images = [];
+  for (const image of extracted.images ?? []) {
+    const content = Buffer.from(image.content_base64, "base64");
+    if (!content.length) continue;
+    const filename = `${stem}__${image.filename}`;
+    const landed = await uploadEvidenceBytes(sourceMessageId, filename, content, image.content_type);
+    images.push({
+      filename,
+      contentType: image.content_type,
+      blobPath: landed.blobPath,
+      size: landed.size,
+      sha256: (0, import_node_crypto10.createHash)("sha256").update(content).digest("hex")
+    });
   }
-});
+  return images;
+}
+var realDeps3 = {
+  markAttention: (sourceMessageId) => dataApi.markInboundAttention({ sourceMessageId, reason: "images_no_match" }),
+  createFolder: (name, parentId) => box.createFolder(name, parentId),
+  hash: async (blobPath) => (0, import_node_crypto10.createHash)("sha256").update(await downloadEvidenceBytes(blobPath)).digest("hex"),
+  // Graph already applies this byte/dimension verdict before blob landing. Keep the
+  // same content-based check here as replay/import defence; never discard a genuine
+  // vehicle photo merely because Outlook called it image001.jpg.
+  isSignature: async (item) => assessSignatureImage(
+    item.filename,
+    item.contentType,
+    await downloadEvidenceBytes(item.blobPath)
+  ).flagged,
+  reserve: (payload) => dataApi.reserveArchiveHoldingIntake(payload),
+  register: (payload) => dataApi.registerArchiveHolding(payload),
+  complete: (id, claimToken) => dataApi.completeDeferredArchiveHoldingIntake(id, claimToken),
+  upload: (folderId, item) => uploadArchiveItem(folderId, item),
+  stamp: (fileId, payload) => dataApi.stampArchiveHoldingUpload(fileId, payload),
+  fail: (fileId, payload) => dataApi.failArchiveHoldingUpload(fileId, payload),
+  expand: expandImageDocument
+};
+async function holdUnmatchedImages(input19, deps = realDeps3) {
+  const sourceMessageId = (input19.internetMessageId ?? "").trim();
+  const vrm = (input19.vrm ?? "").trim().toUpperCase().replace(/\s+/g, "");
+  let stamped = false;
+  if (sourceMessageId) {
+    const attention = await deps.markAttention(sourceMessageId);
+    if (!attention.stamped) throw new Error("inbox attention marker was not saved");
+    stamped = true;
+  }
+  const attachments = input19.attachments ?? [];
+  const rasterImages = [];
+  for (const item of attachments.filter((candidate) => describeEvidence(candidate.filename, candidate.contentType).isImage)) {
+    if (!await deps.isSignature(item)) rasterImages.push(item);
+  }
+  const imageDocuments = gates.pdfMapper() ? attachments.filter((item) => IMAGE_DOCUMENT_RE.test(item.filename)) : [];
+  if (!gates.boxRegFolder()) return { stamped, uploaded: 0, boxSkipped: "reg_folder_gate_off" };
+  if (!gates.boxApi()) return { stamped, uploaded: 0, boxSkipped: "box_gate_off" };
+  if (!vrm) return { stamped, uploaded: 0, boxSkipped: "no_registration" };
+  const rootFolderId = gates.boxFolderRootId();
+  if (!rootFolderId) return { stamped, uploaded: 0, boxSkipped: "no_root_id" };
+  if (!sourceMessageId) return { stamped, uploaded: 0, boxSkipped: "no_message_id" };
+  const images = [...rasterImages];
+  for (const document2 of imageDocuments) images.push(...await deps.expand(document2, vrm, sourceMessageId));
+  if (!images.length) return { stamped, uploaded: 0, boxSkipped: "no_images" };
+  const files = [];
+  for (const image of images) {
+    const supplied = (image.sha256 ?? "").toLowerCase();
+    const sha256 = /^[0-9a-f]{64}$/.test(supplied) ? supplied : await deps.hash(image.blobPath);
+    files.push({ ...image, sha256 });
+  }
+  const claimToken = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input19.claimToken ?? "") ? input19.claimToken : (0, import_node_crypto10.randomUUID)();
+  const intake = await deps.reserve({ vrm, rootFolderId, sourceMessageId, claimToken, files });
+  if (intake.completed) return { stamped, uploaded: 0, boxSkipped: "message_replay" };
+  if (!intake.acquired) throw new Error("registration image intake is already being processed");
+  const folder = await deps.createFolder(vrm, rootFolderId);
+  const reservation = await deps.register({ vrm, rootFolderId, boxFolderId: folder.id, sourceMessageId, claimToken, files });
+  if (reservation.deferred) throw new Error("registration image upload queued while folder filing is in progress");
+  if (reservation.replayed) {
+    const completed2 = await deps.complete(intake.id, claimToken);
+    if (!completed2.updated) throw new Error("registration image replay could not be completed");
+    return { stamped, boxFolderId: reservation.boxFolderId, uploaded: 0, boxSkipped: "message_replay" };
+  }
+  let uploaded = 0;
+  const failures = [];
+  for (const file of reservation.files) {
+    try {
+      const result = await deps.upload(reservation.boxFolderId, { filename: file.filename, blobPath: file.blobPath, contentType: file.contentType });
+      if (!result.id) throw new Error("archive upload returned no file id");
+      const stampedUpload = await deps.stamp(file.id, { claimToken, boxFileId: result.id, boxFileUrl: `https://app.box.com/file/${encodeURIComponent(result.id)}`, ...result.sha1 ? { boxSha1: result.sha1 } : {} });
+      if (!stampedUpload.updated) throw new Error("archive upload ledger claim changed before stamp");
+      uploaded++;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      await deps.fail(file.id, { claimToken, error: detail }).catch(() => void 0);
+      failures.push(`${file.filename}: ${detail}`);
+    }
+  }
+  if (failures.length) throw new Error(`unmatched image holding incomplete: ${failures.join("; ")}`);
+  const completed = await deps.complete(intake.id, claimToken);
+  if (!completed.updated) throw new Error("registration image intake completion was not saved");
+  return { stamped, boxFolderId: reservation.boxFolderId, uploaded };
+}
+df27.app.activity("imagesUnmatched", { handler: async (input19, ctx) => {
+  const result = await holdUnmatchedImages(input19);
+  ctx.log(JSON.stringify({ evt: "imagesUnmatched", ...result, vrm: (input19.vrm ?? "").replace(/\s+/g, "").toUpperCase() || void 0 }));
+  return result;
+} });
 
 // orchestration/src/functions/gated/finalize-eva-box.ts
-var import_functions19 = require("@azure/functions");
-var df26 = __toESM(require("durable-functions"), 1);
-import_functions19.app.http("finalize-eva-box-start", {
+var import_functions21 = require("@azure/functions");
+var df28 = __toESM(require("durable-functions"), 1);
+import_functions21.app.http("finalize-eva-box-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "finalize-eva-box",
-  extraInputs: [df26.input.durableClient()],
+  extraInputs: [df28.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.evaApi() || !gates.boxApi()) {
       ctx.log("[finalize-eva-box] skipped \u2014 EVA_API_ENABLED and/or BOX_API_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
     const { caseId } = await req.json();
-    const client2 = df26.getClient(ctx);
+    const client2 = df28.getClient(ctx);
     const instanceId = await client2.startNew("finalizeEvaBoxOrchestrator", { input: { caseId } });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry6 = new df26.RetryOptions(5e3, 3);
-retry6.backoffCoefficient = 2;
-retry6.maxRetryIntervalInMilliseconds = 6e4;
-df26.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
+var retry7 = new df28.RetryOptions(5e3, 3);
+retry7.backoffCoefficient = 2;
+retry7.maxRetryIntervalInMilliseconds = 6e4;
+df28.app.orchestration("finalizeEvaBoxOrchestrator", function* (ctx) {
   const { caseId } = ctx.df.getInput();
-  const eva = yield ctx.df.callActivityWithRetry("evaSubmit", retry6, { caseId });
-  const boxResult = yield ctx.df.callActivityWithRetry("boxFolderAugment", retry6, { caseId });
+  const eva = yield ctx.df.callActivityWithRetry("evaSubmit", retry7, { caseId });
+  const boxResult = yield ctx.df.callActivityWithRetry("boxFolderAugment", retry7, { caseId });
   return { caseId, eva, box: boxResult };
 });
-df26.app.activity("evaSubmit", {
-  handler: async (input17, ctx) => {
+df28.app.activity("evaSubmit", {
+  handler: async (input19, ctx) => {
     if (!gates.evaApi()) return { skipped: true };
-    const res = await callEvaSubmit(input17.caseId);
-    await dataApi.recordAudit({ action: "eva_submitted", caseId: input17.caseId, summary: "EVA Sentry submit" });
-    ctx.log(JSON.stringify({ evt: "evaSubmit", caseId: input17.caseId }));
+    const res = await callEvaSubmit(input19.caseId);
+    await dataApi.recordAudit({ action: "eva_submitted", caseId: input19.caseId, summary: "EVA Sentry submit" });
+    ctx.log(JSON.stringify({ evt: "evaSubmit", caseId: input19.caseId }));
     return res;
   }
 });
-df26.app.activity("boxFolderAugment", {
-  handler: async (input17, ctx) => {
+df28.app.activity("boxFolderAugment", {
+  handler: async (input19, ctx) => {
     if (!gates.boxApi()) return { skipped: true };
-    const folder = await box.createFolder(input17.caseId, gates.boxFolderRootId());
+    const folder = await box.createFolder(input19.caseId, gates.boxFolderRootId());
     const folderUrl = `https://app.box.com/folder/${encodeURIComponent(folder.id)}`;
-    await dataApi.recordAudit({ action: "box_synced", caseId: input17.caseId, summary: `Archive folder ${folder.id} augmented` });
-    ctx.log(JSON.stringify({ evt: "boxFolderAugment", caseId: input17.caseId, folderId: folder.id }));
+    await dataApi.recordAudit({ action: "box_synced", caseId: input19.caseId, summary: `Archive folder ${folder.id} augmented` });
+    ctx.log(JSON.stringify({ evt: "boxFolderAugment", caseId: input19.caseId, folderId: folder.id }));
     return { folderId: folder.id, folderUrl };
   }
 });
 
 // orchestration/src/functions/gated/chaser.ts
-var import_functions20 = require("@azure/functions");
-var df27 = __toESM(require("durable-functions"), 1);
-import_functions20.app.http("chaser-start", {
+var import_functions22 = require("@azure/functions");
+var df29 = __toESM(require("durable-functions"), 1);
+import_functions22.app.http("chaser-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "chaser",
-  extraInputs: [df27.input.durableClient()],
+  extraInputs: [df29.input.durableClient()],
   handler: async (req, ctx) => {
-    const input17 = await req.json();
-    const client2 = df27.getClient(ctx);
-    const instanceId = await client2.startNew("chaserOrchestrator", { input: input17 });
+    const input19 = await req.json();
+    const client2 = df29.getClient(ctx);
+    const instanceId = await client2.startNew("chaserOrchestrator", { input: input19 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry7 = new df27.RetryOptions(5e3, 3);
-retry7.backoffCoefficient = 2;
-df27.app.orchestration("chaserOrchestrator", function* (ctx) {
-  const input17 = ctx.df.getInput();
-  const draft = yield ctx.df.callActivityWithRetry("chaserDraft", retry7, input17);
-  const sent = yield ctx.df.callActivityWithRetry("chaserSend", retry7, { caseId: input17.caseId, draft });
-  return { caseId: input17.caseId, draft, sent };
+var retry8 = new df29.RetryOptions(5e3, 3);
+retry8.backoffCoefficient = 2;
+df29.app.orchestration("chaserOrchestrator", function* (ctx) {
+  const input19 = ctx.df.getInput();
+  const draft = yield ctx.df.callActivityWithRetry("chaserDraft", retry8, input19);
+  const sent = yield ctx.df.callActivityWithRetry("chaserSend", retry8, { caseId: input19.caseId, draft });
+  return { caseId: input19.caseId, draft, sent };
 });
-df27.app.activity("chaserDraft", {
-  handler: async (input17, ctx) => {
-    ctx.log(JSON.stringify({ evt: "chaserDraft", caseId: input17.caseId, targetType: input17.targetType }));
-    return { drafted: true, targetType: input17.targetType };
+df29.app.activity("chaserDraft", {
+  handler: async (input19, ctx) => {
+    ctx.log(JSON.stringify({ evt: "chaserDraft", caseId: input19.caseId, targetType: input19.targetType }));
+    return { drafted: true, targetType: input19.targetType };
   }
 });
-df27.app.activity("chaserSend", {
-  handler: async (input17, ctx) => {
+df29.app.activity("chaserSend", {
+  handler: async (input19, ctx) => {
     if (!gates.chaserSend()) {
       ctx.log("[chaserSend] skipped \u2014 CHASER_SEND_ENABLED=false (draft-only)");
       return { sent: false };
     }
-    await dataApi.recordAudit({ action: "chaser_sent", caseId: input17.caseId, summary: "chaser sent" });
-    ctx.log(JSON.stringify({ evt: "chaserSend", caseId: input17.caseId }));
+    await dataApi.recordAudit({ action: "chaser_sent", caseId: input19.caseId, summary: "chaser sent" });
+    ctx.log(JSON.stringify({ evt: "chaserSend", caseId: input19.caseId }));
     return { sent: true };
   }
 });
 
 // orchestration/src/functions/gated/box-folder-create.ts
-var import_functions21 = require("@azure/functions");
-var df28 = __toESM(require("durable-functions"), 1);
+var import_functions23 = require("@azure/functions");
+var df30 = __toESM(require("durable-functions"), 1);
 var PINNED_TEST_ARCHIVE_ROOT_ID = "392761581105";
 var defaultDeps = {
   archiveRootId: gates.boxFolderRootId,
@@ -55123,8 +55547,8 @@ async function verifyFolderIdentity(deps, folderId, expectedName, expectedRootId
     );
   }
 }
-async function ensureCaseArchiveFolder(input17, ctx, deps = defaultDeps) {
-  const caseId = (input17.caseId ?? "").trim();
+async function ensureCaseArchiveFolder(input19, ctx, deps = defaultDeps) {
+  const caseId = (input19.caseId ?? "").trim();
   if (!caseId) throw new Error("caseId is required");
   const archiveRootId = deps.archiveRootId().trim();
   assertPinnedTestArchiveRoot(archiveRootId);
@@ -55202,11 +55626,11 @@ async function ensureCaseArchiveFolder(input17, ctx, deps = defaultDeps) {
     ...stamp.statusGeneration != null ? { statusGeneration: stamp.statusGeneration } : {}
   };
 }
-import_functions21.app.http("box-folder-create-start", {
+import_functions23.app.http("box-folder-create-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "box-folder-create",
-  extraInputs: [df28.input.durableClient()],
+  extraInputs: [df30.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
       ctx.log("[box-folder-create] skipped \u2014 BOX_API_ENABLED and/or BOX_FOLDER_AT_INTAKE_ENABLED off");
@@ -55221,30 +55645,30 @@ import_functions21.app.http("box-folder-create-start", {
     const body2 = await req.json().catch(() => ({}));
     const caseId = (body2.caseId ?? "").trim();
     if (!caseId) return { status: 400, jsonBody: { error: "caseId is required" } };
-    const input17 = { caseId };
-    const client2 = df28.getClient(ctx);
-    const instanceId = await client2.startNew("boxFolderCreateOrchestrator", { input: input17 });
+    const input19 = { caseId };
+    const client2 = df30.getClient(ctx);
+    const instanceId = await client2.startNew("boxFolderCreateOrchestrator", { input: input19 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry8 = new df28.RetryOptions(5e3, 3);
-retry8.backoffCoefficient = 2;
-df28.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
-  const input17 = ctx.df.getInput();
-  const result = yield ctx.df.callActivityWithRetry("boxFolderCreate", retry8, input17);
+var retry9 = new df30.RetryOptions(5e3, 3);
+retry9.backoffCoefficient = 2;
+df30.app.orchestration("boxFolderCreateOrchestrator", function* (ctx) {
+  const input19 = ctx.df.getInput();
+  const result = yield ctx.df.callActivityWithRetry("boxFolderCreate", retry9, input19);
   return result;
 });
-df28.app.activity("boxFolderCreate", {
-  handler: async (input17, ctx) => {
+df30.app.activity("boxFolderCreate", {
+  handler: async (input19, ctx) => {
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) return { skipped: true, reason: "gated off" };
-    return ensureCaseArchiveFolder(input17, ctx);
+    return ensureCaseArchiveFolder(input19, ctx);
   }
 });
 
 // orchestration/src/functions/gated/box-file-request-copy.ts
-var import_functions22 = require("@azure/functions");
+var import_functions24 = require("@azure/functions");
 var CASE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-import_functions22.app.http("box-file-request-copy-start", {
+import_functions24.app.http("box-file-request-copy-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "box-file-request-copy",
@@ -55273,122 +55697,122 @@ import_functions22.app.http("box-file-request-copy-start", {
 });
 
 // orchestration/src/functions/gated/box-blob-purge.ts
-var import_functions23 = require("@azure/functions");
-var df29 = __toESM(require("durable-functions"), 1);
-import_functions23.app.timer("box-blob-purge-timer", {
+var import_functions25 = require("@azure/functions");
+var df31 = __toESM(require("durable-functions"), 1);
+import_functions25.app.timer("box-blob-purge-timer", {
   schedule: "0 0 3 * * *",
-  extraInputs: [df29.input.durableClient()],
+  extraInputs: [df31.input.durableClient()],
   handler: async (_t, ctx) => {
     if (!gates.boxApi()) {
       ctx.log("[box-blob-purge] skipped \u2014 BOX_API_ENABLED=false");
       return;
     }
-    const client2 = df29.getClient(ctx);
+    const client2 = df31.getClient(ctx);
     await client2.startNew("boxBlobPurgeOrchestrator", {});
     ctx.log("[box-blob-purge] started orchestration");
   }
 });
-var retry9 = new df29.RetryOptions(5e3, 3);
-retry9.backoffCoefficient = 2;
-df29.app.orchestration("boxBlobPurgeOrchestrator", function* (ctx) {
-  const candidates = yield ctx.df.callActivityWithRetry("boxPurgeList", retry9, {});
-  const tasks = candidates.map((c) => ctx.df.callActivityWithRetry("boxPurgeOne", retry9, c));
+var retry10 = new df31.RetryOptions(5e3, 3);
+retry10.backoffCoefficient = 2;
+df31.app.orchestration("boxBlobPurgeOrchestrator", function* (ctx) {
+  const candidates = yield ctx.df.callActivityWithRetry("boxPurgeList", retry10, {});
+  const tasks = candidates.map((c) => ctx.df.callActivityWithRetry("boxPurgeOne", retry10, c));
   const results = yield ctx.df.Task.all(tasks);
   return { purged: results.length };
 });
-df29.app.activity("boxPurgeList", {
+df31.app.activity("boxPurgeList", {
   handler: async () => {
     if (!gates.boxApi()) return [];
     return dataApi.blobsForPurge();
   }
 });
-df29.app.activity("boxPurgeOne", {
-  handler: async (input17, ctx) => {
+df31.app.activity("boxPurgeOne", {
+  handler: async (input19, ctx) => {
     if (!gates.boxApi()) return { purged: false };
-    const purged = await deleteEvidenceBytes(input17.blobPath);
-    await dataApi.markBlobPurged({ caseId: input17.caseId, blobPath: input17.blobPath });
-    ctx.log(JSON.stringify({ evt: "boxPurgeOne", caseId: input17.caseId, blobPath: input17.blobPath, purged }));
+    const purged = await deleteEvidenceBytes(input19.blobPath);
+    await dataApi.markBlobPurged({ caseId: input19.caseId, blobPath: input19.blobPath });
+    ctx.log(JSON.stringify({ evt: "boxPurgeOne", caseId: input19.caseId, blobPath: input19.blobPath, purged }));
     return { purged };
   }
 });
 
 // orchestration/src/functions/gated/case-disposition.ts
-var import_functions24 = require("@azure/functions");
-var df30 = __toESM(require("durable-functions"), 1);
-import_functions24.app.timer("case-disposition-timer", {
+var import_functions26 = require("@azure/functions");
+var df32 = __toESM(require("durable-functions"), 1);
+import_functions26.app.timer("case-disposition-timer", {
   schedule: "0 0 2 * * *",
-  extraInputs: [df30.input.durableClient()],
+  extraInputs: [df32.input.durableClient()],
   handler: async (_t, ctx) => {
     if (!gates.caseDisposition()) {
       ctx.log("[case-disposition] skipped \u2014 CASE_DISPOSITION_ENABLED=false");
       return;
     }
-    const client2 = df30.getClient(ctx);
+    const client2 = df32.getClient(ctx);
     await client2.startNew("caseDispositionOrchestrator", {});
     ctx.log("[case-disposition] started orchestration");
   }
 });
-var retry10 = new df30.RetryOptions(5e3, 3);
-retry10.backoffCoefficient = 2;
-df30.app.orchestration("caseDispositionOrchestrator", function* (ctx) {
-  const due = yield ctx.df.callActivityWithRetry("dispositionList", retry10, {});
-  const tasks = due.map((c) => ctx.df.callActivityWithRetry("dispositionOne", retry10, c));
+var retry11 = new df32.RetryOptions(5e3, 3);
+retry11.backoffCoefficient = 2;
+df32.app.orchestration("caseDispositionOrchestrator", function* (ctx) {
+  const due = yield ctx.df.callActivityWithRetry("dispositionList", retry11, {});
+  const tasks = due.map((c) => ctx.df.callActivityWithRetry("dispositionOne", retry11, c));
   const results = yield ctx.df.Task.all(tasks);
   return { disposed: results.length };
 });
-df30.app.activity("dispositionList", {
+df32.app.activity("dispositionList", {
   handler: async () => {
     if (!gates.caseDisposition()) return [];
     return dataApi.casesForDisposition();
   }
 });
-df30.app.activity("dispositionOne", {
-  handler: async (input17, ctx) => {
+df32.app.activity("dispositionOne", {
+  handler: async (input19, ctx) => {
     if (!gates.caseDisposition()) return { disposed: false };
-    await dataApi.disposeCase(input17.caseId);
-    await dataApi.recordAudit({ action: "case_disposed", caseId: input17.caseId, summary: "retention disposition", severity: "warning" });
-    ctx.log(JSON.stringify({ evt: "dispositionOne", caseId: input17.caseId }));
+    await dataApi.disposeCase(input19.caseId);
+    await dataApi.recordAudit({ action: "case_disposed", caseId: input19.caseId, summary: "retention disposition", severity: "warning" });
+    ctx.log(JSON.stringify({ evt: "dispositionOne", caseId: input19.caseId }));
     return { disposed: true };
   }
 });
 
 // orchestration/src/functions/gated/jobsheet-import.ts
-var import_functions25 = require("@azure/functions");
-var df31 = __toESM(require("durable-functions"), 1);
-import_functions25.app.http("jobsheet-import-start", {
+var import_functions27 = require("@azure/functions");
+var df33 = __toESM(require("durable-functions"), 1);
+import_functions27.app.http("jobsheet-import-start", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "jobsheet-import",
-  extraInputs: [df31.input.durableClient()],
+  extraInputs: [df33.input.durableClient()],
   handler: async (req, ctx) => {
-    const client2 = df31.getClient(ctx);
+    const client2 = df33.getClient(ctx);
     const instanceId = await client2.startNew("jobsheetImportOrchestrator", {});
     ctx.log(`[jobsheet-import] started ${instanceId}`);
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-var retry11 = new df31.RetryOptions(5e3, 3);
-retry11.backoffCoefficient = 2;
-df31.app.orchestration("jobsheetImportOrchestrator", function* (ctx) {
-  const principals = yield ctx.df.callActivityWithRetry("jobsheetPrincipals", retry11, {});
-  const tasks = principals.map((p) => ctx.df.callActivityWithRetry("jobsheetImportOne", retry11, p));
+var retry12 = new df33.RetryOptions(5e3, 3);
+retry12.backoffCoefficient = 2;
+df33.app.orchestration("jobsheetImportOrchestrator", function* (ctx) {
+  const principals = yield ctx.df.callActivityWithRetry("jobsheetPrincipals", retry12, {});
+  const tasks = principals.map((p) => ctx.df.callActivityWithRetry("jobsheetImportOne", retry12, p));
   const results = yield ctx.df.Task.all(tasks);
   return { principals: principals.length, results };
 });
-df31.app.activity("jobsheetPrincipals", {
+df33.app.activity("jobsheetPrincipals", {
   handler: async () => dataApi.principals()
 });
-df31.app.activity("jobsheetImportOne", {
-  handler: async (input17, ctx) => {
-    await dataApi.recordAudit({ action: "jobsheet_imported", summary: `job-sheet import for ${input17.principalCode}` });
-    ctx.log(JSON.stringify({ evt: "jobsheetImportOne", principalCode: input17.principalCode }));
-    return { principalCode: input17.principalCode, imported: true };
+df33.app.activity("jobsheetImportOne", {
+  handler: async (input19, ctx) => {
+    await dataApi.recordAudit({ action: "jobsheet_imported", summary: `job-sheet import for ${input19.principalCode}` });
+    ctx.log(JSON.stringify({ evt: "jobsheetImportOne", principalCode: input19.principalCode }));
+    return { principalCode: input19.principalCode, imported: true };
   }
 });
 
 // orchestration/src/functions/gated/retro-case.ts
-var import_functions26 = require("@azure/functions");
-var df32 = __toESM(require("durable-functions"), 1);
+var import_functions28 = require("@azure/functions");
+var df34 = __toESM(require("durable-functions"), 1);
 
 // orchestration/src/lib/retro-envelope.ts
 function firstAddress(header) {
@@ -55556,27 +55980,27 @@ function mapRetroParse(parseResult, bodyText, sourceReference) {
 function normToken(v) {
   return v.trim().toUpperCase().replace(/\s+/g, "");
 }
-var retry12 = new df32.RetryOptions(5e3, 3);
-retry12.backoffCoefficient = 2;
-retry12.maxRetryIntervalInMilliseconds = 6e4;
+var retry13 = new df34.RetryOptions(5e3, 3);
+retry13.backoffCoefficient = 2;
+retry13.maxRetryIntervalInMilliseconds = 6e4;
 var ProviderArchivePendingError = class extends Error {
 };
-import_functions26.app.http("retro-case-start", {
+import_functions28.app.http("retro-case-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "retro-case",
-  extraInputs: [df32.input.durableClient()],
+  extraInputs: [df34.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.retroCase()) {
       ctx.log("[retro-case] skipped \u2014 RETRO_CASE_ENABLED off");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off" } };
     }
-    const input17 = await req.json();
-    if (!input17.internetMessageId || !input17.mailbox) {
+    const input19 = await req.json();
+    if (!input19.internetMessageId || !input19.mailbox) {
       return { status: 400, jsonBody: { error: "internetMessageId and mailbox required" } };
     }
-    const client2 = df32.getClient(ctx);
-    const safeId = String(input17.internetMessageId).replace(/[^A-Za-z0-9_-]/g, "");
+    const client2 = df34.getClient(ctx);
+    const safeId = String(input19.internetMessageId).replace(/[^A-Za-z0-9_-]/g, "");
     const instanceId = `retro-${safeId}`;
     let existing;
     try {
@@ -55589,35 +56013,35 @@ import_functions26.app.http("retro-case-start", {
       ctx.log(`[retro-case] instance ${instanceId} already ${runtimeStatus} \u2014 not restarted`);
       return { status: 200, jsonBody: { instanceId, deduped: true, runtimeStatus } };
     }
-    await client2.startNew("retroCaseOrchestrator", { instanceId, input: input17 });
+    await client2.startNew("retroCaseOrchestrator", { instanceId, input: input19 });
     return client2.createCheckStatusResponse(req, instanceId);
   }
 });
-df32.app.orchestration("retroCaseOrchestrator", function* (ctx) {
-  const input17 = ctx.df.getInput();
-  let trigger = input17.trigger;
-  let category = input17.category;
-  let keys = input17.keys;
-  let providerId = input17.providerId;
-  let providerPrincipal = input17.providerPrincipal;
+df34.app.orchestration("retroCaseOrchestrator", function* (ctx) {
+  const input19 = ctx.df.getInput();
+  let trigger = input19.trigger;
+  let category = input19.category;
+  let keys = input19.keys;
+  let providerId = input19.providerId;
+  let providerPrincipal = input19.providerPrincipal;
   if (!trigger) {
-    if (!input17.internetMessageId || !input17.mailbox) {
+    if (!input19.internetMessageId || !input19.mailbox) {
       return { outcome: "bad_input", reason: "trigger envelope or internetMessageId+mailbox required" };
     }
-    const located = yield ctx.df.callActivityWithRetry("retroFindTrigger", retry12, {
-      internetMessageId: input17.internetMessageId,
-      mailbox: input17.mailbox
+    const located = yield ctx.df.callActivityWithRetry("retroFindTrigger", retry13, {
+      internetMessageId: input19.internetMessageId,
+      mailbox: input19.mailbox
     });
     if (located.skipped) return { outcome: "skipped", reason: located.skipped };
     if (!located.found) return { outcome: "trigger_not_found" };
-    trigger = yield ctx.df.callActivityWithRetry("fetchMessage", retry12, {
+    trigger = yield ctx.df.callActivityWithRetry("fetchMessage", retry13, {
       messageId: located.messageId,
       resource: located.resource
     });
-    const provider = yield ctx.df.callActivityWithRetry("providerMatch", retry12, trigger);
+    const provider = yield ctx.df.callActivityWithRetry("providerMatch", retry13, trigger);
     providerId = provider.workProviderId;
     providerPrincipal = provider.principalCode;
-    const classification = yield ctx.df.callActivityWithRetry("classifyInbound", retry12, {
+    const classification = yield ctx.df.callActivityWithRetry("classifyInbound", retry13, {
       inbound: trigger,
       workProviderId: providerId,
       matchState: provider.matchState
@@ -55642,7 +56066,7 @@ df32.app.orchestration("retroCaseOrchestrator", function* (ctx) {
   if (!keys || !keys.casePo && !keys.externalRef && !keys.vrm) {
     return { outcome: "not_eligible", reasons: ["no_usable_key"] };
   }
-  const resolved = yield ctx.df.callActivityWithRetry("retroResolveExisting", retry12, {
+  const resolved = yield ctx.df.callActivityWithRetry("retroResolveExisting", retry13, {
     trigger,
     keys,
     providerId,
@@ -55657,14 +56081,14 @@ df32.app.orchestration("retroCaseOrchestrator", function* (ctx) {
   const rungsTried = ["resolve_existing"];
   let boxAmbiguity;
   try {
-    const located = yield ctx.df.callActivityWithRetry("retroBoxLocate", retry12, {
+    const located = yield ctx.df.callActivityWithRetry("retroBoxLocate", retry13, {
       keys,
       providerPrincipal
     });
     if (!located.skipped) rungsTried.push("box_archive");
     boxAmbiguity = located.candidateCount && located.candidateCount > 1 ? located.candidateCount : void 0;
     if (!located.skipped && located.found && located.folder && located.discoveredPo) {
-      const fetched = yield ctx.df.callActivityWithRetry("retroBoxFetchInstruction", retry12, {
+      const fetched = yield ctx.df.callActivityWithRetry("retroBoxFetchInstruction", retry13, {
         folderId: located.folder.id,
         folderName: located.folder.name,
         discoveredPo: located.discoveredPo,
@@ -55677,7 +56101,7 @@ df32.app.orchestration("retroCaseOrchestrator", function* (ctx) {
         if (reconstructionSource !== "minimal") {
           try {
             const parseAttachments = original.attachments.length > 0 ? original.attachments : original.rawEml ? [original.rawEml] : [];
-            parseResult = yield ctx.df.callActivityWithRetry("parse", retry12, {
+            parseResult = yield ctx.df.callActivityWithRetry("parse", retry13, {
               messageId: original.messageId,
               attachments: parseAttachments,
               providerHint: located.principalCode
@@ -55710,7 +56134,7 @@ df32.app.orchestration("retroCaseOrchestrator", function* (ctx) {
         const contentType2 = decideCaseType({
           parserCaseType: parseResult.case_type,
           parserAudit: parseResult.audit,
-          classifierSubtype: input17.subtype
+          classifierSubtype: input19.subtype
         });
         const caseType = located.marker ? markerToCaseType(located.marker) : contentType2.caseType;
         const caseTypeSignals = located.marker ? [`archive_marker:${located.marker}`, ...contentType2.signals] : [...contentType2.signals];
@@ -55720,7 +56144,7 @@ df32.app.orchestration("retroCaseOrchestrator", function* (ctx) {
           principalResolved: Boolean(located.principalCode),
           casePoKnown: true
         });
-        const persisted = yield ctx.df.callActivityWithRetry("retroCreatePersist", retry12, {
+        const persisted = yield ctx.df.callActivityWithRetry("retroCreatePersist", retry13, {
           original,
           trigger,
           keys,
@@ -55750,7 +56174,7 @@ df32.app.orchestration("retroCaseOrchestrator", function* (ctx) {
           if ((persisted.outcome === "created" || persisted.outcome === "already_exists_linked") && persisted.caseId) {
             if (effectiveSource !== "minimal") {
               try {
-                yield ctx.df.callActivityWithRetry("classifyPersist", retry12, {
+                yield ctx.df.callActivityWithRetry("classifyPersist", retry13, {
                   caseId: persisted.caseId,
                   inbound: original,
                   typings: parseResult.attachmentTypings
@@ -55762,7 +56186,7 @@ df32.app.orchestration("retroCaseOrchestrator", function* (ctx) {
               }
             }
             try {
-              yield ctx.df.callActivityWithRetry("statusEvaluate", retry12, { caseId: persisted.caseId });
+              yield ctx.df.callActivityWithRetry("statusEvaluate", retry13, { caseId: persisted.caseId });
             } catch (e) {
               if (!ctx.df.isReplaying) {
                 ctx.log(`[retro] statusEvaluate failed (additive, non-blocking): ${String(e)}`);
@@ -55785,19 +56209,19 @@ df32.app.orchestration("retroCaseOrchestrator", function* (ctx) {
     }
   }
   try {
-    const outlook = yield ctx.df.callActivityWithRetry("retroOutlookLocate", retry12, {
+    const outlook = yield ctx.df.callActivityWithRetry("retroOutlookLocate", retry13, {
       keys
     });
     if (!outlook.skipped) rungsTried.push("outlook_search");
     if (!outlook.skipped && outlook.found && outlook.messageId && outlook.resource) {
-      const original = yield ctx.df.callActivityWithRetry("fetchMessage", retry12, {
+      const original = yield ctx.df.callActivityWithRetry("fetchMessage", retry13, {
         messageId: outlook.messageId,
         resource: outlook.resource
       });
       let parseResult = {};
       try {
         const parseAttachments = original.attachments.length > 0 ? original.attachments : original.rawEml ? [original.rawEml] : [];
-        parseResult = yield ctx.df.callActivityWithRetry("parse", retry12, {
+        parseResult = yield ctx.df.callActivityWithRetry("parse", retry13, {
           messageId: original.messageId,
           attachments: parseAttachments,
           providerHint: providerPrincipal
@@ -55826,7 +56250,7 @@ ${original.body ?? ""}`);
         const contentType2 = decideCaseType({
           parserCaseType: parseResult.case_type,
           parserAudit: parseResult.audit,
-          classifierSubtype: input17.subtype
+          classifierSubtype: input19.subtype
         });
         const statusDecision = decideRetroStatus({
           triggerCategory: category ?? "other",
@@ -55834,7 +56258,7 @@ ${original.body ?? ""}`);
           principalResolved: false,
           casePoKnown: false
         });
-        const persisted = yield ctx.df.callActivityWithRetry("retroCreatePersist", retry12, {
+        const persisted = yield ctx.df.callActivityWithRetry("retroCreatePersist", retry13, {
           original,
           trigger,
           keys,
@@ -55865,7 +56289,7 @@ ${original.body ?? ""}`);
         } else {
           if (persisted.outcome === "created" && persisted.caseId) {
             try {
-              yield ctx.df.callActivityWithRetry("classifyPersist", retry12, {
+              yield ctx.df.callActivityWithRetry("classifyPersist", retry13, {
                 caseId: persisted.caseId,
                 inbound: original,
                 typings: parseResult.attachmentTypings
@@ -55880,7 +56304,7 @@ ${original.body ?? ""}`);
               try {
                 folderResult = yield ctx.df.callSubOrchestratorWithRetry(
                   "boxFolderCreateOrchestrator",
-                  retry12,
+                  retry13,
                   { caseId: persisted.caseId }
                 );
               } catch (e) {
@@ -55895,7 +56319,7 @@ ${original.body ?? ""}`);
               }
             }
             try {
-              yield ctx.df.callActivityWithRetry("statusEvaluate", retry12, { caseId: persisted.caseId });
+              yield ctx.df.callActivityWithRetry("statusEvaluate", retry13, { caseId: persisted.caseId });
             } catch (e) {
               if (!ctx.df.isReplaying) {
                 ctx.log(`[retro] statusEvaluate failed (additive, non-blocking): ${String(e)}`);
@@ -55922,7 +56346,7 @@ ${original.body ?? ""}`);
       ctx.log(`[retro] Outlook rung failed (best-effort, falling through): ${String(e)}`);
     }
   }
-  yield ctx.df.callActivityWithRetry("retroRecordFailure", retry12, {
+  yield ctx.df.callActivityWithRetry("retroRecordFailure", retry13, {
     trigger,
     keys,
     triggerCategory: category,
@@ -55931,29 +56355,29 @@ ${original.body ?? ""}`);
   });
   return { outcome: "no_source", ...boxAmbiguity ? { ambiguousFolders: boxAmbiguity } : {} };
 });
-df32.app.activity("retroFindTrigger", {
-  handler: async (input17, ctx) => {
+df34.app.activity("retroFindTrigger", {
+  handler: async (input19, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
-    const hit = await findMessageByInternetMessageId(input17.mailbox, input17.internetMessageId);
+    const hit = await findMessageByInternetMessageId(input19.mailbox, input19.internetMessageId);
     if (!hit) {
-      ctx.log(JSON.stringify({ evt: "retroFindTrigger", found: false, mailbox: input17.mailbox }));
+      ctx.log(JSON.stringify({ evt: "retroFindTrigger", found: false, mailbox: input19.mailbox }));
       return { found: false };
     }
     return {
       found: true,
       messageId: hit.id,
-      resource: `users/${input17.mailbox}/messages/${hit.id}`
+      resource: `users/${input19.mailbox}/messages/${hit.id}`
     };
   }
 });
-df32.app.activity("retroResolveExisting", {
-  handler: async (input17, ctx) => {
+df34.app.activity("retroResolveExisting", {
+  handler: async (input19, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     const result = await dataApi.retroResolveExisting({
-      trigger: input17.trigger,
-      keys: input17.keys,
-      providerId: input17.providerId,
-      triggerCategory: input17.triggerCategory
+      trigger: input19.trigger,
+      keys: input19.keys,
+      providerId: input19.providerId,
+      triggerCategory: input19.triggerCategory
     });
     ctx.log(JSON.stringify({ evt: "retroResolveExisting", outcome: result.outcome, caseId: result.caseId }));
     return result;
@@ -55962,26 +56386,26 @@ df32.app.activity("retroResolveExisting", {
 function archiveRootIds() {
   return gates.retroBoxArchiveRootIds().split(",").map((s) => s.trim()).filter(Boolean);
 }
-df32.app.activity("retroBoxLocate", {
-  handler: async (input17, ctx) => {
+df34.app.activity("retroBoxLocate", {
+  handler: async (input19, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     if (!gates.boxApi()) return { skipped: "box_gate_off" };
     const rootIds = archiveRootIds();
     if (rootIds.length === 0) return { skipped: "no_archive_roots" };
     const refHits = [];
     const vrmHits = [];
-    if (input17.keys.casePo) {
-      const r = await box.searchContent({ query: input17.keys.casePo, rootIds, type: "folder" });
+    if (input19.keys.casePo) {
+      const r = await box.searchContent({ query: input19.keys.casePo, rootIds, type: "folder" });
       refHits.push(...r.entries);
     }
-    if (input17.keys.externalRef) {
-      const r = await box.searchContent({ query: input17.keys.externalRef, rootIds });
+    if (input19.keys.externalRef) {
+      const r = await box.searchContent({ query: input19.keys.externalRef, rootIds });
       refHits.push(...r.entries);
     }
-    let needVrm = Boolean(input17.keys.vrm);
+    let needVrm = Boolean(input19.keys.vrm);
     if (needVrm && refHits.length > 0 && pickCaseFolder(refHits, []).folder) needVrm = false;
-    if (needVrm && input17.keys.vrm) {
-      const r = await box.searchContent({ query: input17.keys.vrm, rootIds });
+    if (needVrm && input19.keys.vrm) {
+      const r = await box.searchContent({ query: input19.keys.vrm, rootIds });
       vrmHits.push(...r.entries);
     }
     const pick = pickCaseFolder(refHits, vrmHits);
@@ -55999,9 +56423,9 @@ df32.app.activity("retroBoxLocate", {
       discoveredPo,
       principals.map((p) => p.principalCode)
     );
-    const vrmOnly = !input17.keys.casePo && !input17.keys.externalRef;
+    const vrmOnly = !input19.keys.casePo && !input19.keys.externalRef;
     if (vrmOnly) {
-      const sender = (input17.providerPrincipal ?? "").trim().toUpperCase();
+      const sender = (input19.providerPrincipal ?? "").trim().toUpperCase();
       if (!match || !sender || match.principal !== sender) {
         ctx.log(JSON.stringify({ evt: "retroBoxLocate", found: false, reason: "vrm_only_uncorroborated" }));
         return { found: false, reason: "vrm_only_uncorroborated", candidateCount: pick.candidateCount };
@@ -56027,11 +56451,11 @@ df32.app.activity("retroBoxLocate", {
     };
   }
 });
-df32.app.activity("retroBoxFetchInstruction", {
-  handler: async (input17, ctx) => {
+df34.app.activity("retroBoxFetchInstruction", {
+  handler: async (input19, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     if (!gates.boxApi()) return { skipped: "box_gate_off" };
-    const listing = await box.listFolderItems(input17.folderId);
+    const listing = await box.listFolderItems(input19.folderId);
     const entries = (listing.entries ?? []).map((e) => ({
       id: e.id,
       name: e.name,
@@ -56041,7 +56465,7 @@ df32.app.activity("retroBoxFetchInstruction", {
     }));
     const files = entries.filter((e) => (e.type ?? "file") === "file");
     const subfolderCount = entries.length - files.length;
-    const fallbackReceivedAt = input17.triggerReceivedAt ?? (/* @__PURE__ */ new Date()).toISOString();
+    const fallbackReceivedAt = input19.triggerReceivedAt ?? (/* @__PURE__ */ new Date()).toISOString();
     let envelope;
     let instructionSource = "minimal";
     const consumed = /* @__PURE__ */ new Set();
@@ -56074,15 +56498,15 @@ df32.app.activity("retroBoxFetchInstruction", {
           }
           envelope = buildRetroEnvelopeFromEml(exploded, landed, rawEmlRef, {
             boxFileId: candidate.entry.id,
-            discoveredPo: input17.discoveredPo,
+            discoveredPo: input19.discoveredPo,
             fallbackReceivedAt
           });
         } else {
           envelope = buildRetroEnvelopeFromDoc(rawEmlRef, {
             boxFileId: candidate.entry.id,
-            discoveredPo: input17.discoveredPo,
+            discoveredPo: input19.discoveredPo,
             fallbackReceivedAt,
-            folderName: input17.folderName
+            folderName: input19.folderName
           });
         }
         instructionSource = "box_eml";
@@ -56106,9 +56530,9 @@ df32.app.activity("retroBoxFetchInstruction", {
             { filename: docName, contentType: "application/octet-stream", blobPath: up.blobPath, size: up.size },
             {
               boxFileId: docCandidate.entry.id,
-              discoveredPo: input17.discoveredPo,
+              discoveredPo: input19.discoveredPo,
               fallbackReceivedAt,
-              folderName: input17.folderName
+              folderName: input19.folderName
             }
           );
           instructionSource = "box_doc";
@@ -56120,16 +56544,16 @@ df32.app.activity("retroBoxFetchInstruction", {
     }
     if (!envelope) {
       envelope = buildMinimalAnchorEnvelope(
-        { receivedAt: input17.triggerReceivedAt },
-        input17.discoveredPo,
-        input17.folderId
+        { receivedAt: input19.triggerReceivedAt },
+        input19.discoveredPo,
+        input19.folderId
       );
       instructionSource = "minimal";
     }
     const otherFiles = files.filter((f) => !consumed.has(f.id)).map((f) => ({ boxFileId: f.id, filename: f.name, size: f.size }));
     ctx.log(JSON.stringify({
       evt: "retroBoxFetchInstruction",
-      folderId: input17.folderId,
+      folderId: input19.folderId,
       source: instructionSource,
       attachments: envelope.attachments.length,
       otherFiles: otherFiles.length,
@@ -56138,33 +56562,33 @@ df32.app.activity("retroBoxFetchInstruction", {
     return { envelope, instructionSource, otherFiles, subfolderCount };
   }
 });
-df32.app.activity("retroCreatePersist", {
-  handler: async (input17, ctx) => {
+df34.app.activity("retroCreatePersist", {
+  handler: async (input19, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     const result = await dataApi.retroCreate({
-      original: input17.original,
-      trigger: input17.trigger,
-      keys: input17.keys,
-      casePo: input17.casePo,
-      vrm: input17.vrm,
-      statusName: input17.statusName,
-      onHold: input17.onHold,
-      actionReason: input17.actionReason,
-      reconstructionSource: input17.reconstructionSource,
-      providerId: input17.providerId,
-      parserVrm: input17.parserVrm,
-      parserRef: input17.parserRef,
-      parserMileage: input17.parserMileage,
-      parserMileageUnit: input17.parserMileageUnit,
-      parserEva: input17.parserEva,
-      caseType: input17.caseType,
-      caseTypeSignals: input17.caseTypeSignals,
-      boxFolder: input17.boxFolder,
-      triggerCategory: input17.triggerCategory
+      original: input19.original,
+      trigger: input19.trigger,
+      keys: input19.keys,
+      casePo: input19.casePo,
+      vrm: input19.vrm,
+      statusName: input19.statusName,
+      onHold: input19.onHold,
+      actionReason: input19.actionReason,
+      reconstructionSource: input19.reconstructionSource,
+      providerId: input19.providerId,
+      parserVrm: input19.parserVrm,
+      parserRef: input19.parserRef,
+      parserMileage: input19.parserMileage,
+      parserMileageUnit: input19.parserMileageUnit,
+      parserEva: input19.parserEva,
+      caseType: input19.caseType,
+      caseTypeSignals: input19.caseTypeSignals,
+      boxFolder: input19.boxFolder,
+      triggerCategory: input19.triggerCategory
     });
     const caseId = result.caseId;
     if (caseId && (result.outcome === "created" || result.outcome === "already_exists_linked")) {
-      const rows = (input17.otherFiles ?? []).map((f) => ({
+      const rows = (input19.otherFiles ?? []).map((f) => ({
         filename: f.filename,
         boxFileId: f.boxFileId,
         boxFileUrl: `https://app.box.com/file/${encodeURIComponent(f.boxFileId)}`,
@@ -56186,16 +56610,16 @@ df32.app.activity("retroCreatePersist", {
     return result;
   }
 });
-df32.app.activity("retroOutlookLocate", {
-  handler: async (input17, ctx) => {
+df34.app.activity("retroOutlookLocate", {
+  handler: async (input19, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
     if (!gates.retroOutlookSearch()) return { skipped: "outlook_gate_off" };
     const mailboxes = intakeMailboxes().map((m) => m.mailbox);
     if (mailboxes.length === 0) return { skipped: "no_intake_mailboxes" };
     const ladder = [];
-    if (input17.keys.externalRef) ladder.push({ key: input17.keys.externalRef, matchedKey: "external_ref" });
-    if (input17.keys.casePo) ladder.push({ key: input17.keys.casePo, matchedKey: "case_po" });
-    if (input17.keys.vrm) ladder.push({ key: input17.keys.vrm, matchedKey: "vrm" });
+    if (input19.keys.externalRef) ladder.push({ key: input19.keys.externalRef, matchedKey: "external_ref" });
+    if (input19.keys.casePo) ladder.push({ key: input19.keys.casePo, matchedKey: "case_po" });
+    if (input19.keys.vrm) ladder.push({ key: input19.keys.vrm, matchedKey: "vrm" });
     for (const rung of ladder) {
       const variants = refSearchVariants(rung.key);
       const candidates = [];
@@ -56239,18 +56663,18 @@ df32.app.activity("retroOutlookLocate", {
     return { found: false };
   }
 });
-df32.app.activity("retroRecordFailure", {
-  handler: async (input17, ctx) => {
+df34.app.activity("retroRecordFailure", {
+  handler: async (input19, ctx) => {
     if (!gates.retroCase()) return { skipped: "gate_off" };
-    const env2 = input17.trigger;
+    const env2 = input19.trigger;
     await dataApi.recordAudit({
       action: "retro_reconstruction_failed",
       severity: "warning",
-      summary: `Retro: no case found or reconstructable for ${input17.triggerCategory ?? "update"} email (${input17.keys.casePo ?? input17.keys.externalRef ?? input17.keys.vrm ?? "no key"})`,
+      summary: `Retro: no case found or reconstructable for ${input19.triggerCategory ?? "update"} email (${input19.keys.casePo ?? input19.keys.externalRef ?? input19.keys.vrm ?? "no key"})`,
       after: {
-        keys: input17.keys,
-        rungsTried: input17.rungsTried,
-        ...input17.ambiguousFolders ? { ambiguousFolders: input17.ambiguousFolders } : {},
+        keys: input19.keys,
+        rungsTried: input19.rungsTried,
+        ...input19.ambiguousFolders ? { ambiguousFolders: input19.ambiguousFolders } : {},
         messageId: env2.internetMessageId,
         subject: env2.subject
       }
@@ -56265,14 +56689,14 @@ df32.app.activity("retroRecordFailure", {
         ctx.warn(`[retroRecordFailure] attention stamp failed (best-effort): ${String(e)}`);
       }
     }
-    ctx.log(JSON.stringify({ evt: "retroRecordFailure", keys: input17.keys, rungsTried: input17.rungsTried }));
+    ctx.log(JSON.stringify({ evt: "retroRecordFailure", keys: input19.keys, rungsTried: input19.rungsTried }));
     return { recorded: true };
   }
 });
 
 // orchestration/src/functions/gated/retro-deleted-probe.ts
-var import_functions27 = require("@azure/functions");
-import_functions27.app.http("retro-deleted-probe", {
+var import_functions29 = require("@azure/functions");
+import_functions29.app.http("retro-deleted-probe", {
   methods: ["POST"],
   authLevel: "function",
   route: "retro-deleted-probe",
@@ -56331,22 +56755,22 @@ import_functions27.app.http("retro-deleted-probe", {
 });
 
 // orchestration/src/functions/gated/eva-report-poll.ts
-var import_functions28 = require("@azure/functions");
-var df33 = __toESM(require("durable-functions"), 1);
+var import_functions30 = require("@azure/functions");
+var df35 = __toESM(require("durable-functions"), 1);
 var EVA_REPORT_POLL_INSTANCE_ID = "eva-report-poll-singleton";
 var INTERVAL_MINUTES4 = Number(process.env.EVA_REPORT_POLL_INTERVAL_MINUTES ?? "60");
 var INTERVAL_MS5 = (Number.isFinite(INTERVAL_MINUTES4) && INTERVAL_MINUTES4 > 0 ? INTERVAL_MINUTES4 : 60) * 6e4;
-import_functions28.app.http("eva-report-poll-start", {
+import_functions30.app.http("eva-report-poll-start", {
   methods: ["POST"],
   authLevel: "function",
   route: "eva-report-poll",
-  extraInputs: [df33.input.durableClient()],
+  extraInputs: [df35.input.durableClient()],
   handler: async (req, ctx) => {
     if (!gates.evaApi()) {
       ctx.log("[eva-report-poll] skipped \u2014 EVA_API_ENABLED off (Minotaur single-principal limitation; docs/gated.md)");
       return { status: 200, jsonBody: { skipped: true, reason: "gated off (EVA_API_ENABLED)" } };
     }
-    const client2 = df33.getClient(ctx);
+    const client2 = df35.getClient(ctx);
     let existing;
     try {
       existing = await client2.getStatus(EVA_REPORT_POLL_INSTANCE_ID);
@@ -56362,7 +56786,7 @@ import_functions28.app.http("eva-report-poll-start", {
     return client2.createCheckStatusResponse(req, EVA_REPORT_POLL_INSTANCE_ID);
   }
 });
-df33.app.orchestration("evaReportPollOrchestrator", function* (ctx) {
+df35.app.orchestration("evaReportPollOrchestrator", function* (ctx) {
   const tick = yield ctx.df.callActivity("evaReportPollTick");
   if (tick.skipped) {
     if (!ctx.df.isReplaying) {
@@ -56374,7 +56798,7 @@ df33.app.orchestration("evaReportPollOrchestrator", function* (ctx) {
   yield ctx.df.createTimer(next);
   ctx.df.continueAsNew(void 0);
 });
-df33.app.activity("evaReportPollTick", {
+df35.app.activity("evaReportPollTick", {
   handler: async (_input, ctx) => {
     if (!gates.evaApi()) {
       ctx.log("[eva-report-poll] tick skipped \u2014 EVA_API_ENABLED off");
