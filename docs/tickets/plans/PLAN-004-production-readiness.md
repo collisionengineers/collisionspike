@@ -62,7 +62,7 @@ This plan has **54 members**. It sequences implementation and verification, but 
 1. [TKT-165](../now/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) — remove the live Add evidence false-success P0.
 2. [TKT-166](../verify/TKT-166-manual-intake-evidence-upload/TKT-166-manual-intake-evidence-upload.md) — persist instruction and extra files through the same resumable evidence lifecycle.
 3. [TKT-175](../backlog/TKT-175-archive-deletion-resilience-investigation/TKT-175-archive-deletion-resilience-investigation.md) — establish the evidence-backed failure/threat matrix before designing Archive-side reconciliation.
-4. [TKT-160](../backlog/TKT-160-delete-case-image/TKT-160-delete-case-image.md) — implement intentional image deletion across canonical stores without confusing it with out-of-band loss.
+4. [TKT-160](../now/TKT-160-delete-case-image/TKT-160-delete-case-image.md) — implement intentional image deletion across canonical stores without confusing it with out-of-band loss.
 5. [TKT-162](../backlog/TKT-162-nested-audit-archive/TKT-162-nested-audit-archive.md) — normalize QDOS audit work beneath the standard case Archive identity.
 6. [TKT-174](../backlog/TKT-174-archive-evidence-preview/TKT-174-archive-evidence-preview.md) — make Archive preview loading, failure, retry and larger view truthful.
 

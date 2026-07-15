@@ -240,10 +240,15 @@ BEGIN
       WITH CHECK (current_setting('app.role', true) IN ('staff','admin'));$p$;
 END $$;
 
--- Evidence keeps the generic read/write posture, but its staff DELETE exception
--- is limited to the exact row whose guarded TKT-160 function has moved a durable
--- intent to ready_to_finalize in the current transaction. Generic staff deletes
--- continue to fail; admins retain the existing retention/disposition capability.
+-- Evidence keeps the generic read/write posture. The PRIMARY control on the staff
+-- delete path is that cespk_app holds NO table DELETE grant on evidence and never
+-- issues a direct DELETE — the only delete seam is the guarded SECURITY DEFINER
+-- complete_evidence_deletion() function (claim-token + resolved store outcomes +
+-- identity match). p_evidence_scoped_delete below is DEFENSE-IN-DEPTH: on the live
+-- DB the function's BYPASSRLS owner means this RESTRICTIVE policy is not on the live
+-- delete path, so it must NOT be relied on as the control (see TKT-160 review). It
+-- still bounds any future direct grant to the exact ready_to_finalize row; generic
+-- staff deletes fail; admins retain the existing retention/disposition capability.
 ALTER TABLE evidence ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evidence FORCE ROW LEVEL SECURITY;
 CREATE POLICY p_evidence_rw ON evidence

@@ -3,6 +3,12 @@
 ## Status
 implemented offline; awaiting independent live verification
 
+Rebased onto post-#83 `main` and merged 2026-07-15 (dark). Review remediation: added the default-off
+`DELETE_CASE_IMAGE_ENABLED` gate on the destructive delete route (server + SPA); renumbered the audit
+codes to `100000063/64/65` because #83/TKT-200 took 56–62. Deferred follow-ups are listed in
+`verification.md` (retry sweeper, the RLS-inert-policy comment fix, Box-trash-vs-Blob-hard-delete
+asymmetry, delta/canonical parity).
+
 ## Implementation
 
 - `migration/assets/schema/060_evidence.sql`, `205_evidence_deletion.sql`,
