@@ -43,7 +43,11 @@ caches, logs, and generated evaluations are never tracked.
 ## Inventory and reset reconciliation
 
 [`repository-inventory.json`](./repository-inventory.json) is the deterministic manifest of every
-tracked file and ancestor directory. `npm run check:reconciliation` maps every immutable pre-reset
+stage-0 index file and ancestor directory. Tracked sizes and hashes come from staged Git blobs so the
+manifest is independent of checkout filters and host line endings. Untracked rows, when explicitly
+requested, use physical checkout bytes. The four immutable `workingspace` files are the deliberate
+exception: their separately locked physical sizes and hashes preserve the user-owned byte contract.
+`npm run check:reconciliation` maps every immutable pre-reset
 tracked row to its final keep, move, rewrite, or deletion disposition and proves every final row has an
 origin and ticket owner. `npm run inventory:checkout` separately enumerates every physical checkout
 item, including ignored dependencies, generated output, empty directories, symlinks, and repository

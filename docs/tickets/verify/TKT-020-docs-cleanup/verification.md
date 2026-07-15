@@ -6,13 +6,13 @@ TESTED (offline)
 ## Evidence
 - PLAN-006 contains TKT-020 and TKT-207 through TKT-215; ticket generation reports 207 tickets and six
   plans with exact bidirectional membership.
-- The generated final-tree inventory contains 2,888 tracked files and 903 directories. TKT-207 records
+- The generated final-tree inventory contains 2,889 tracked files and 903 directories. TKT-207 records
   the deterministic inventory, baseline reconciliation and complete physical-checkout inventory process.
 - The evidence catalog records 550 logical usages backed by 533 unique blobs. Seventeen duplicate
   occurrences remove 72,307,413 repeated checkout bytes while preserving every logical use; 94
   non-retained occurrences have explicit dispositions.
 - All four workingspace SHA-256 values exactly match the locked TKT-208 baseline.
-- Owned source is within the 800-nonblank-line cap across 799 files. Package suites passed with 554
+- Owned source is within the 800-nonblank-line cap across 800 files. Package suites passed with 554
   domain, 772 Data API, 470 orchestration and 525 web tests. Retained Python suites passed 860 tests,
   with nine intentional parser skips.
 - Database parity proves 22 code tables and 171 ordered options with fingerprint
@@ -26,8 +26,8 @@ TESTED (offline)
   a fresh `npm ci` and including builds, tests, deployment-bundle smoke loads and every repository gate.
 
 ## Pending / gaps
-- Remote CI and independent verification have not run. This ticket therefore remains in `verify`; offline
-  evidence is not a done or live-deployed verdict.
+- Independent verification has not run. This ticket therefore remains in `verify`; the evidence is not
+  a done or live-deployed verdict. Remote CI status is read from the PR checks rather than frozen here.
 
 ## How to re-verify
 Run node verify-all.mjs from the final clean checkout, regenerate and check the repository inventory,

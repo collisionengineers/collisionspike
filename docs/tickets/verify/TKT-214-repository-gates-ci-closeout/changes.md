@@ -2,7 +2,7 @@
 
 ## Status
 verify — the aggregate offline gate and unconditional CI workflow are implemented; the fresh-install
-local run passes, while remote CI and independent close-out remain pending.
+local run passes, and independent close-out remains pending.
 
 ## Commits
 - Current PLAN-006 implementation following the baseline and mechanical move commits.
@@ -24,3 +24,8 @@ purge, runtime contracts, docs, tickets, database mappings and generated adapter
 snapshot covers routes, DTOs, schemas, authentication identifiers, registered resources, PostgreSQL
 baseline structure and numeric mappings. Missing check scripts or retained Python suites are failures.
 CI remains split into TypeScript, Python and hygiene jobs but invokes the same versioned check scripts.
+The first Linux CI execution exposed two host-portability defects: npm had omitted Rollup's Linux binary
+from the Windows-authored lockfile, and the inventory hashed checkout line endings instead of Git blobs.
+The follow-up pins the Linux package as an optional dependency and inventories stage-0 Git blob bytes,
+with regression coverage for a CRLF checkout whose index contains LF bytes. The four user-owned
+`workingspace` files deliberately retain their separate physical-byte locks.

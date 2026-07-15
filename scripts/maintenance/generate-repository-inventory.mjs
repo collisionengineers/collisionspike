@@ -1,17 +1,28 @@
 import { createHash } from "node:crypto";
+import { execFileSync, spawn } from "node:child_process";
 import { createReadStream } from "node:fs";
 import { lstat, mkdir, readFile, readlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   comparePaths,
-  listRepositoryFiles,
   normalizeRepositoryPath,
   repositoryDirectoriesForFiles,
   repositoryRoot,
-  resolveRepositoryPath,
 } from "../checks/repository-files.mjs";
 
 const DEFAULT_OUTPUT = "docs/governance/repository-inventory.json";
+
+// These are physical-checkout contracts, not Git-blob contracts. Git stores normalized LF bytes for
+// these text files, while .gitattributes deliberately materializes CRLF bytes in every checkout.
+// Keeping the locks here makes the user-owned byte invariant independent from the portable tracked
+// inventory, whose other rows are derived from stage-0 index blobs.
+const IMMUTABLE_WORKINGSPACE_FILES = new Map([
+  ["workingspace/aifirstplan.txt", { size: 10932, sha256: "1e092f72364e78ba05aeaeae022e73ac83d89f76122e131fb17743ab03a3126c" }],
+  ["workingspace/model-evaluation-plan.md", { size: 19691, sha256: "46e5795937fae4741b6fd7f778e1ffe1a7515ad39884a0128abb4e784fa4558d" }],
+  ["workingspace/proposedparserchanges.md", { size: 13668, sha256: "768893ff9be0f8790f642336f77ec4ff4b33077994cbfae2c8c993534b3d2566" }],
+  ["workingspace/smallmodels.md", { size: 4517, sha256: "f02a84860aa71ad4c3980a7634fe05d539895b642319ea15ee5814dcd97c6f1e" }],
+]);
 
 const MEDIA_TYPES = new Map([
   [".avif", "image/avif"],
@@ -169,8 +180,138 @@ async function sha256File(absolutePath) {
   return hash.digest("hex");
 }
 
-async function fileEntry(repositoryPath) {
-  const absolutePath = resolveRepositoryPath(repositoryPath);
+function resolveWithinRoot(root, repositoryPath) {
+  const normalized = normalizeRepositoryPath(repositoryPath);
+  const absolute = path.resolve(root, ...normalized.split("/"));
+  const relative = path.relative(root, absolute);
+  if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error(`Path escapes repository root: ${repositoryPath}`);
+  }
+  return absolute;
+}
+
+function gitOutput(root, args) {
+  return execFileSync("git", ["-C", root, ...args], {
+    encoding: "buffer",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+}
+
+function indexEntries(root) {
+  const output = gitOutput(root, ["ls-files", "--cached", "--stage", "-z"]);
+  const byPath = new Map();
+  for (const record of output.toString("utf8").split("\0").filter(Boolean)) {
+    const tab = record.indexOf("\t");
+    const match = record.slice(0, tab).match(/^(\d+) ([0-9a-f]+) ([0-3])$/);
+    if (tab < 0 || !match) throw new Error(`Could not parse Git index record: ${record}`);
+    const repositoryPath = normalizeRepositoryPath(record.slice(tab + 1));
+    const [, mode, objectId, stage] = match;
+    if (stage !== "0") {
+      throw new Error(`Cannot inventory an unmerged Git index path at stage ${stage}: ${repositoryPath}`);
+    }
+    if (byPath.has(repositoryPath)) throw new Error(`Duplicate Git index path: ${repositoryPath}`);
+    if (mode === "160000") throw new Error(`Gitlink inventory is not supported: ${repositoryPath}`);
+    if (!mode.match(/^(?:100644|100755|120000)$/)) {
+      throw new Error(`Unsupported Git index mode ${mode}: ${repositoryPath}`);
+    }
+    byPath.set(repositoryPath, { path: repositoryPath, mode, objectId });
+  }
+  return [...byPath.values()].sort((left, right) => comparePaths(left.path, right.path));
+}
+
+function untrackedPaths(root) {
+  return gitOutput(root, ["ls-files", "--others", "--exclude-standard", "-z"])
+    .toString("utf8")
+    .split("\0")
+    .filter(Boolean)
+    .map(normalizeRepositoryPath)
+    .sort(comparePaths);
+}
+
+async function readIndexBlobMetadata(root, objectIds) {
+  const uniqueObjectIds = [...new Set(objectIds)];
+  if (uniqueObjectIds.length === 0) return new Map();
+
+  const child = spawn("git", ["-C", root, "cat-file", "--batch"], {
+    stdio: ["pipe", "pipe", "pipe"],
+    windowsHide: true,
+  });
+  let stderr = "";
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (chunk) => { stderr += chunk; });
+  const closed = new Promise((resolve, reject) => {
+    child.once("error", reject);
+    child.once("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`git cat-file --batch exited ${code}: ${stderr.trim()}`));
+    });
+  });
+  child.stdin.end(`${uniqueObjectIds.join("\n")}\n`);
+
+  const iterator = child.stdout[Symbol.asyncIterator]();
+  let buffered = Buffer.alloc(0);
+  let ended = false;
+  async function pull() {
+    const next = await iterator.next();
+    if (next.done) {
+      ended = true;
+      return false;
+    }
+    buffered = buffered.length === 0 ? next.value : Buffer.concat([buffered, next.value]);
+    return true;
+  }
+  async function readLine() {
+    while (true) {
+      const newline = buffered.indexOf(0x0a);
+      if (newline >= 0) {
+        const line = buffered.subarray(0, newline).toString("utf8");
+        buffered = buffered.subarray(newline + 1);
+        return line;
+      }
+      if (!await pull()) throw new Error("Unexpected end of git cat-file header stream");
+    }
+  }
+  async function consumeBytes(length, onChunk) {
+    let remaining = length;
+    while (remaining > 0) {
+      if (buffered.length === 0 && !await pull()) {
+        throw new Error("Unexpected end of git cat-file content stream");
+      }
+      const count = Math.min(remaining, buffered.length);
+      onChunk(buffered.subarray(0, count));
+      buffered = buffered.subarray(count);
+      remaining -= count;
+    }
+  }
+
+  const metadata = new Map();
+  for (const expectedObjectId of uniqueObjectIds) {
+    const header = await readLine();
+    const match = header.match(/^([0-9a-f]+) (\S+) (\d+)$/);
+    if (!match) throw new Error(`Could not parse git cat-file header: ${header}`);
+    const [, actualObjectId, objectType, sizeText] = match;
+    if (actualObjectId !== expectedObjectId || objectType !== "blob") {
+      throw new Error(`Expected blob ${expectedObjectId}, received ${header}`);
+    }
+    const size = Number(sizeText);
+    const hash = createHash("sha256");
+    await consumeBytes(size, (chunk) => hash.update(chunk));
+    let separator = null;
+    await consumeBytes(1, (chunk) => { separator = chunk[0]; });
+    if (separator !== 0x0a) throw new Error(`Missing git cat-file separator after ${expectedObjectId}`);
+    metadata.set(expectedObjectId, { size, sha256: hash.digest("hex") });
+  }
+
+  if (!ended) {
+    const next = await iterator.next();
+    if (!next.done || buffered.length > 0) throw new Error("Unexpected trailing git cat-file output");
+  }
+  await closed;
+  return metadata;
+}
+
+async function physicalFileEntry(root, repositoryPath) {
+  const absolutePath = resolveWithinRoot(root, repositoryPath);
   const before = await lstat(absolutePath);
 
   let size;
@@ -206,6 +347,68 @@ async function fileEntry(repositoryPath) {
   };
 }
 
+function indexedFileEntry(repositoryPath, indexEntry, metadata) {
+  return {
+    path: repositoryPath,
+    mediaType: indexEntry.mode === "120000" ? "inode/symlink" : mediaTypeFor(repositoryPath),
+    size: metadata.size,
+    sha256: metadata.sha256,
+    category: categoryFor(repositoryPath),
+    owner: ownerFor(repositoryPath),
+    lifecycle: lifecycleFor(repositoryPath),
+  };
+}
+
+export async function collectFileEntries({
+  root = repositoryRoot,
+  includeUntracked = false,
+  outputPath = DEFAULT_OUTPUT,
+  immutableWorkingFiles = IMMUTABLE_WORKINGSPACE_FILES,
+} = {}) {
+  const normalizedOutput = normalizeRepositoryPath(outputPath);
+  const indexed = indexEntries(root).filter((entry) => entry.path !== normalizedOutput);
+  const immutablePaths = new Set(immutableWorkingFiles.keys());
+  const indexedByPath = new Map(indexed.map((entry) => [entry.path, entry]));
+
+  for (const repositoryPath of immutablePaths) {
+    if (!indexedByPath.has(repositoryPath)) {
+      throw new Error(`Immutable workingspace path is absent from the Git index: ${repositoryPath}`);
+    }
+  }
+
+  const blobMetadata = await readIndexBlobMetadata(
+    root,
+    indexed.filter((entry) => !immutablePaths.has(entry.path)).map((entry) => entry.objectId),
+  );
+  const files = [];
+  for (const entry of indexed) {
+    if (immutablePaths.has(entry.path)) {
+      const physical = await physicalFileEntry(root, entry.path);
+      const expected = immutableWorkingFiles.get(entry.path);
+      if (physical.size !== expected.size || physical.sha256 !== expected.sha256) {
+        throw new Error(
+          `Immutable workingspace bytes changed: ${entry.path} `
+          + `(expected ${expected.size}/${expected.sha256}, received ${physical.size}/${physical.sha256})`,
+        );
+      }
+      files.push(physical);
+    } else {
+      files.push(indexedFileEntry(entry.path, entry, blobMetadata.get(entry.objectId)));
+    }
+  }
+
+  if (includeUntracked) {
+    const indexedPaths = new Set(indexed.map((entry) => entry.path));
+    for (const repositoryPath of untrackedPaths(root)) {
+      if (repositoryPath !== normalizedOutput && !indexedPaths.has(repositoryPath)) {
+        files.push(await physicalFileEntry(root, repositoryPath));
+      }
+    }
+  }
+
+  return files.sort((left, right) => comparePaths(left.path, right.path));
+}
+
 function directoryEntry(repositoryPath) {
   return {
     path: repositoryPath,
@@ -231,15 +434,18 @@ function serializeInventory({ directories, files, includeUntracked, outputPath }
     selfEntry.size = selfSize;
 
     const document = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       scope: includeUntracked
-        ? "Git-tracked files and unignored working-tree additions"
-        : "Git-tracked files",
+        ? "Stage-0 Git index files and unignored working-tree additions"
+        : "Stage-0 Git index files",
       pathStyle: "repository-relative POSIX",
       ordering: "path ascending with directories before files",
       hashAlgorithm: "sha256",
       hashPolicy: {
         directories: "null because directories have no repository byte stream",
+        tracked: "size and sha256 use staged Git blob bytes from the stage-0 index, independent of checkout filters and line endings",
+        immutableWorkingspace: "workingspace files use separately locked physical checkout bytes because their exact user-owned bytes are contractual",
+        untracked: "when requested, untracked additions use physical working-tree bytes because no Git blob exists",
         self: `${outputPath} has sha256 null because embedding its own digest cannot produce a stable file`,
       },
       classificationPolicy: "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
@@ -261,19 +467,15 @@ function serializeInventory({ directories, files, includeUntracked, outputPath }
   throw new Error("Inventory self-size did not converge");
 }
 
-async function main() {
-  const options = parseOptions(process.argv.slice(2));
+export async function main(argv = process.argv.slice(2), root = repositoryRoot) {
+  const options = parseOptions(argv);
   const outputPath = normalizeRepositoryPath(options.output);
-  const outputAbsolute = resolveRepositoryPath(outputPath);
-  const repositoryFiles = listRepositoryFiles({ includeUntracked: options.includeUntracked })
-    .filter((repositoryPath) => repositoryPath !== outputPath);
-
-  const files = [];
-  const concurrency = 8;
-  for (let start = 0; start < repositoryFiles.length; start += concurrency) {
-    const batch = repositoryFiles.slice(start, start + concurrency);
-    files.push(...await Promise.all(batch.map(fileEntry)));
-  }
+  const outputAbsolute = resolveWithinRoot(root, outputPath);
+  const files = await collectFileEntries({
+    root,
+    includeUntracked: options.includeUntracked,
+    outputPath,
+  });
 
   files.push({
     path: outputPath,
@@ -311,4 +513,5 @@ async function main() {
   process.stdout.write(`Wrote ${outputPath}: ${directories.length} directories, ${files.length} files.\n`);
 }
 
-await main();
+const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
+if (invokedPath === path.resolve(fileURLToPath(import.meta.url))) await main();

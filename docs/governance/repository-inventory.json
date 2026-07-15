@@ -1,20 +1,23 @@
 {
-  "schemaVersion": 1,
-  "scope": "Git-tracked files",
+  "schemaVersion": 2,
+  "scope": "Stage-0 Git index files",
   "pathStyle": "repository-relative POSIX",
   "ordering": "path ascending with directories before files",
   "hashAlgorithm": "sha256",
   "hashPolicy": {
     "directories": "null because directories have no repository byte stream",
+    "tracked": "size and sha256 use staged Git blob bytes from the stage-0 index, independent of checkout filters and line endings",
+    "immutableWorkingspace": "workingspace files use separately locked physical checkout bytes because their exact user-owned bytes are contractual",
+    "untracked": "when requested, untracked additions use physical working-tree bytes because no Git blob exists",
     "self": "docs/governance/repository-inventory.json has sha256 null because embedding its own digest cannot produce a stable file"
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 903,
-    "files": 2888,
-    "entries": 3791
+    "files": 2889,
+    "entries": 3792
   },
-  "totalFileBytes": 495939867,
+  "totalFileBytes": 495938373,
   "entries": [
     {
       "path": ".",
@@ -9028,8 +9031,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/charts.csv",
       "mediaType": "text/csv",
-      "size": 7634,
-      "sha256": "8db70dc4dae71d4a8a1744d7f3bc7de6d908b4ec8a7768007f33b203299fb8f2",
+      "size": 7609,
+      "sha256": "6dbc3d73c23ffa92b0055372fa45d347b0163b149adcce821bd9d0993421f9d0",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9037,8 +9040,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/colors.csv",
       "mediaType": "text/csv",
-      "size": 9713,
-      "sha256": "4cc0df2785f340b8bd0ace50bd4068dc13a7c4c6fa4d9d2723271244ce904614",
+      "size": 9616,
+      "sha256": "19a74a1fe858f92dc9213553bb6b8326b7f32dc6bfc0857668e2b4da32322f8a",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9046,8 +9049,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/icons.csv",
       "mediaType": "text/csv",
-      "size": 13485,
-      "sha256": "a56038c5dd4d87d160f3df9008f968149919c70548b6eaae4bb6f3915ab35f23",
+      "size": 13384,
+      "sha256": "351fe61ba45b8146c66de6ea7d67297654639d79a94f537b4d0bad570058c28f",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9055,8 +9058,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/landing.csv",
       "mediaType": "text/csv",
-      "size": 14393,
-      "sha256": "6e2b41030e70aa83cb0512a000fb535890333d07a8c1813caa0a4f7e300a8046",
+      "size": 14362,
+      "sha256": "51021dbadc40b0305c42f80c270eb515420440afe9f3482dfd048dc2475dbfbd",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9064,8 +9067,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/products.csv",
       "mediaType": "text/csv",
-      "size": 29790,
-      "sha256": "5359e3037dcb84e99c792ea13dd44f5b78ab6a53557afb309cf19140512aaf5b",
+      "size": 29694,
+      "sha256": "6f9c9be6fdb53a415af273dac6221e87a418d1600da2ee39f974b997e880050e",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9073,8 +9076,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/react-performance.csv",
       "mediaType": "text/csv",
-      "size": 14867,
-      "sha256": "47c0a454cb73bf32378c55eb781dea4c44440ec6a1b52039119afc354315c17e",
+      "size": 14822,
+      "sha256": "904c8afcda229629545912dde0e8ac37503757131f0169f80b016f1f58c4fd3f",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9082,8 +9085,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/stacks/astro.csv",
       "mediaType": "text/csv",
-      "size": 11922,
-      "sha256": "ff7fa30b41464fbe907a99499a32b4395210ef57f3674bef628aeadf767f40a8",
+      "size": 11868,
+      "sha256": "ad18dae3ab6d148d37d144592df80dc1825b6c9e86d9d2d68fdda77434206a37",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9091,8 +9094,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/stacks/flutter.csv",
       "mediaType": "text/csv",
-      "size": 10469,
-      "sha256": "e470e6bc2bcd8562667cc764d1e1afb0be0a30ca4dc9ec12fa18b19d46f156bd",
+      "size": 10416,
+      "sha256": "fe36d404c799781e8ba6e9a8179b45799ed5126a545528550cd2eb0f2346e8c5",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9100,8 +9103,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/stacks/html-tailwind.csv",
       "mediaType": "text/csv",
-      "size": 11361,
-      "sha256": "1f004891dd189f6bc2a7717401e3100244326e7e2f3963a79bf7b2349d85e091",
+      "size": 11305,
+      "sha256": "7aef38e75c53559470afcfa91580a9917ca8b7dbf8b92110389e23e93703ac52",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9109,8 +9112,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/stacks/jetpack-compose.csv",
       "mediaType": "text/csv",
-      "size": 8248,
-      "sha256": "8e1995b93414e9d50f8d450bdd15853ff138ca3b8c9d6529cd3171729fa5fa7f",
+      "size": 8195,
+      "sha256": "6c8fd4b0391c342c12b0af15610cd5becbeccaef0bbe8dcfc01d928c3195d93e",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9118,8 +9121,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/stacks/nextjs.csv",
       "mediaType": "text/csv",
-      "size": 12546,
-      "sha256": "06a8e8c13bd44696c6ebb4cb6c4d8dea440e3de8cce77616512529ed29258f0c",
+      "size": 12493,
+      "sha256": "e828ccc04843742f52f545a068e8a9ab0d2b97c0e771f7e93bf0cef74da05554",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9127,8 +9130,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/stacks/nuxt-ui.csv",
       "mediaType": "text/csv",
-      "size": 14061,
-      "sha256": "c1f3c9e438ab89f806a0c2e0be4c37cb34d9370c16207353aa9c972d548f710e",
+      "size": 14010,
+      "sha256": "05d6e74501b2b6a636faed32450622759f49a5bcafad971f5f4e7eba0eb7be71",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9136,8 +9139,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/stacks/nuxtjs.csv",
       "mediaType": "text/csv",
-      "size": 16598,
-      "sha256": "696ec6df0e5971cd8b69080ee6abea2e9748fb2de47acb2bcc748302684f2030",
+      "size": 16539,
+      "sha256": "f7a3f2d9542856d00199f85c6c023b7c284cc698e2e6e12d61afce2edacb24d6",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9145,8 +9148,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/stacks/react-native.csv",
       "mediaType": "text/csv",
-      "size": 10035,
-      "sha256": "a08ca77fcf6b6d9531982dce465366296013bfcf12d2938ac72ad57cf0c4f085",
+      "size": 9983,
+      "sha256": "077aefc81d194895ecf7936b3ed298b978e36961f183e3a275f8acda19b5f621",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9154,8 +9157,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/stacks/react.csv",
       "mediaType": "text/csv",
-      "size": 13016,
-      "sha256": "b6e3eb0e4c9c01bd00ffb951d5ca224a19d488b4544c75436f48cf92ff12bf45",
+      "size": 12962,
+      "sha256": "e5624ab41d33427d88e41d07581ce4eca59b37b36ab72a6ad43a9c8e2d0a1c72",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9163,8 +9166,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/stacks/shadcn.csv",
       "mediaType": "text/csv",
-      "size": 15982,
-      "sha256": "0f9cc6fbfebea8026950c422808bb3aae239185bad770726b331f827f8e1a6de",
+      "size": 15921,
+      "sha256": "395c2e415ef6f48a474acccdc8eb2c7258a6ed751a5037ba171a2d8823e02ded",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9172,8 +9175,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/stacks/svelte.csv",
       "mediaType": "text/csv",
-      "size": 11063,
-      "sha256": "bc8d158994a8bdf412830a9dd5e5a5534edd2f367a6e50e0ebd4d76f592dfa3f",
+      "size": 11009,
+      "sha256": "71af52d64f266c88070b91dbbaa900c2f8074b6baae9f35eaea6ba9cec6fd803",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9181,8 +9184,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/stacks/swiftui.csv",
       "mediaType": "text/csv",
-      "size": 10872,
-      "sha256": "e87cb9eee208bb753bdab96d4a261c7f830c4317ee90ec098316b248fc32be85",
+      "size": 10821,
+      "sha256": "c9c2d2510f8e66281a2514e8dd0125a6b653b9ef53a71281b5e7dfe003d5b569",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9190,8 +9193,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/stacks/vue.csv",
       "mediaType": "text/csv",
-      "size": 11056,
-      "sha256": "9b793c3f4eec85f77a758c09322f2b62f3b3ca549bb713ccf0849ef885934395",
+      "size": 11006,
+      "sha256": "c2724915d3c11cd67263f25896cff721f787a0fdd8326002d31e9f5806dfd8f8",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9199,8 +9202,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/styles.csv",
       "mediaType": "text/csv",
-      "size": 96553,
-      "sha256": "ad3c3236134d833bda01a2faf31ddeaaa1dbd5005fa430dec571fa91b26e5fea",
+      "size": 96485,
+      "sha256": "663ac9775e6f5b874b32d930fa0951591c45e39cde8ac7033278f42a0881c037",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9208,8 +9211,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/typography.csv",
       "mediaType": "text/csv",
-      "size": 31934,
-      "sha256": "09abee814f6d87e81687f281d9212439eec8c9c4a9270230c61228ad4b901f92",
+      "size": 31877,
+      "sha256": "64695e05ac335ba534aff396c4ba9241c642f80ea53b424251d2669b71c4772b",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9217,8 +9220,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/ui-reasoning.csv",
       "mediaType": "text/csv",
-      "size": 31172,
-      "sha256": "92471cc649ed858d833a0c2c9d0ca40445bcdc70a35fd8999132ec2270381c4b",
+      "size": 31071,
+      "sha256": "58fc52fff69f62709f8c7dd460de6f6693699ea820f24287f3301a427c2b554e",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9226,8 +9229,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/ux-guidelines.csv",
       "mediaType": "text/csv",
-      "size": 18766,
-      "sha256": "1870ee048f2a2bdd60709f8f7adf7f3b6dcad560bc005c8b2915a8ac8639820d",
+      "size": 18667,
+      "sha256": "e01943c433b2cad3040f19389b3b0455673758a569b7a927b5bedf65c989cb96",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -9235,8 +9238,8 @@
     {
       "path": ".agents/skills/ui-ux-pro-max/data/web-interface.csv",
       "mediaType": "text/csv",
-      "size": 7503,
-      "sha256": "44c20a67faa58b5c9a0f07facad5f58747f3350c81ca5f8f25c2abe1b1f36ad8",
+      "size": 7472,
+      "sha256": "10bfc24e09a6a15db8309e6ef9b6881e1d4af97dffb7c99418aefb8e30df7d54",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -10180,8 +10183,8 @@
     {
       "path": ".gitattributes",
       "mediaType": "text/plain",
-      "size": 1089,
-      "sha256": "b63cb9addd36308b30887d258703628c02cae54c9ab4d45de35aa800d4b55853",
+      "size": 1081,
+      "sha256": "eaef0c88074ce1486f5ca62544929aee42a9f7e155d7cd5ce748b5bb9bd5b836",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -10198,8 +10201,8 @@
     {
       "path": ".gitignore",
       "mediaType": "text/plain",
-      "size": 2234,
-      "sha256": "d54ca1643c1cc9fd015279285e129a262f7758188aadf2096b6879f496a2858c",
+      "size": 2157,
+      "sha256": "887e5fe7430c9883c30284682cd0c738da42b7a9422095ef094da6e2708bc3b5",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -10279,8 +10282,8 @@
     {
       "path": "apps/web/.env.production",
       "mediaType": "application/octet-stream",
-      "size": 817,
-      "sha256": "c009982d0e3af2727e214a17a5dba25d7d5998966762ac30fd6a8a79a71c59ff",
+      "size": 806,
+      "sha256": "7aad2a4f30b3963e27a5c3bca69675e5ba145c9e825296396b55f1924fd81f75",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -10288,8 +10291,8 @@
     {
       "path": "apps/web/.gitignore",
       "mediaType": "text/plain",
-      "size": 63,
-      "sha256": "4f3945663a4dc39addec213374ff31e001c919723bf029af96e6cccb2afe66b0",
+      "size": 56,
+      "sha256": "b11a724cce19c5aa07c13065f7ff673ae3a4bf49c61faa9b60e05363f70d2654",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -13276,7 +13279,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1180887,
+      "size": 1181618,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -13285,8 +13288,8 @@
     {
       "path": "docs/governance/repository-map.md",
       "mediaType": "text/markdown",
-      "size": 2851,
-      "sha256": "d63ce4c42b73489b227fbb47276a09ba819b65be0d9e277cdf25c80700c930dc",
+      "size": 3214,
+      "sha256": "4e40c3f30e8c2f6de846d9453f870d3f4cb647a0135ee0958e21ebb76be35246",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17857,8 +17860,8 @@
     {
       "path": "docs/tickets/done/TKT-087-box-upload-409-conflicts/evidence/boxreport.csv",
       "mediaType": "text/csv",
-      "size": 43873,
-      "sha256": "b8a48c51cabaf341dc2975d9a49630ab740b73ec326557a96bcf3ac4bf1ff607",
+      "size": 43572,
+      "sha256": "898ed32dcc8f767e3ea1de745d953e4312f4abcc8091f3c6a55cde02548fdd25",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19099,8 +19102,8 @@
     {
       "path": "docs/tickets/done/TKT-124-photo-orderer-images-only/evidence/rekind-backup-2026-07-09.csv",
       "mediaType": "text/csv",
-      "size": 29340,
-      "sha256": "9bda94f455e78301a63eff0db5e7f5f55b834876a70f0121c6e17a3b2a0c5e07",
+      "size": 28936,
+      "sha256": "0d5cc6728f9fa434c2aaa61a5f7d65570820d3a28064522a9172a59333ea3ceb",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19324,8 +19327,8 @@
     {
       "path": "docs/tickets/done/TKT-131-image-role-classify-retry/evidence/backfill-residuals.csv",
       "mediaType": "text/csv",
-      "size": 1146,
-      "sha256": "886b2fbbffe48cb47a9b307b3e063e147df3ec59ce90e781a77926516cf588f9",
+      "size": 1121,
+      "sha256": "a97f5608c2a3b860b03be6f3f78316f8aa937f0fed1b64c13f683bafe008837a",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19333,8 +19336,8 @@
     {
       "path": "docs/tickets/done/TKT-131-image-role-classify-retry/evidence/backup-evidence-classification-before.csv",
       "mediaType": "text/csv",
-      "size": 872484,
-      "sha256": "4553b54f888bd8e607d9a4351311fd4ba4c11f92dc4808ca5433e2d18a3c005a",
+      "size": 865783,
+      "sha256": "4f6f17640f6e40bde8a3a3fa41cc206554013db19f14e00b5a56d7641d269094",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19450,8 +19453,8 @@
     {
       "path": "docs/tickets/done/TKT-136-parse-fallback-ref-guard/evidence/junk-ref-candidates.csv",
       "mediaType": "text/csv",
-      "size": 1669,
-      "sha256": "1d406c9fc2078c8687e1a9012c0f6fe1c98438077b879b9799b63d02d81d5c8c",
+      "size": 1655,
+      "sha256": "26d20f43bb81cfe9a7876e82d7abb4d8b6c9da8784f81cd73fe1844e80a2a635",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19585,8 +19588,8 @@
     {
       "path": "docs/tickets/done/TKT-140-retro-backlog-drain/evidence/drain-ledger.jsonl",
       "mediaType": "application/x-ndjson",
-      "size": 59495,
-      "sha256": "540516ae85536e7dd34c34043c1018f415f133bbf6de1b60f3e24aa55c39189f",
+      "size": 59396,
+      "sha256": "dc52bf854cab17fcd6e970dbaab82dcd51a8525e3cd1161022de7989f6f22cbb",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19630,8 +19633,8 @@
     {
       "path": "docs/tickets/done/TKT-140-retro-backlog-drain/evidence/dryrun-ledger.jsonl",
       "mediaType": "application/x-ndjson",
-      "size": 140810,
-      "sha256": "72c49ff632676a697021ef9cbe9a080e3fbaa7fd931f56fc0ec7d076e1a666f4",
+      "size": 140703,
+      "sha256": "82dc7e30a3c9f11935f901d3ba79f75cdcbebdd104e7fce0305bcbe91a8367c9",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19648,8 +19651,8 @@
     {
       "path": "docs/tickets/done/TKT-140-retro-backlog-drain/evidence/enum-backlog-keys.csv",
       "mediaType": "text/csv",
-      "size": 20925,
-      "sha256": "d52947bcd029e4e3f90681d6df1bcd985112ec3b9e050bff1226152ff1d5f07c",
+      "size": 20815,
+      "sha256": "ad24facb62c79ea854284feb9bf18219312d55eca2bca251c8bf99490c107498",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19657,8 +19660,8 @@
     {
       "path": "docs/tickets/done/TKT-140-retro-backlog-drain/evidence/enum-backlog-rows.csv",
       "mediaType": "text/csv",
-      "size": 32233,
-      "sha256": "5eff5478b2096cc7f97d29b55f8a63b30f3697bcf9b449759d53214539cdec56",
+      "size": 32114,
+      "sha256": "48b2cc609efcabc499d45280670eb0ecaa2aa9b1bd975235cf63e6d73d4c1a8b",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19675,8 +19678,8 @@
     {
       "path": "docs/tickets/done/TKT-140-retro-backlog-drain/evidence/enum-retro-audit-events.csv",
       "mediaType": "text/csv",
-      "size": 369,
-      "sha256": "39be839e9f4080964ba51b88a9dffcff3c3071af1ad4d920c18e73d755735cd6",
+      "size": 364,
+      "sha256": "a91fed190bffd68a0b75b8bf221f30b519368c73720709c38e94c1dbc2e798d0",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19711,8 +19714,8 @@
     {
       "path": "docs/tickets/done/TKT-140-retro-backlog-drain/evidence/probe-raw.jsonl",
       "mediaType": "application/x-ndjson",
-      "size": 77883,
-      "sha256": "7c72758d6a7cab2dec813314477d9a22f6881e5da3b8c1fd7fd742b44ca14370",
+      "size": 77868,
+      "sha256": "2493a306f14f13bc9747d71e6e78fb3a560075d5b7f0719004e3cd7140738bd6",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19810,8 +19813,8 @@
     {
       "path": "docs/tickets/done/TKT-141-merged-twins-exclusion/evidence/reretire-run-100726/backup-prestate-100726.csv",
       "mediaType": "text/csv",
-      "size": 760,
-      "sha256": "79dcaeccef794a75f35abb589ca18663f313de127474b81acce38b31b18e0a2a",
+      "size": 756,
+      "sha256": "cf7d712f4a1e394740123fafaa228a0b5e99d7e2bf95974c7402b93acb96b0b0",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -20026,8 +20029,8 @@
     {
       "path": "docs/tickets/done/TKT-148-overview-photo-chaser/evidence/one-shot-backup-candidates.csv",
       "mediaType": "text/csv",
-      "size": 2711,
-      "sha256": "b29351f3f2c64b41f081495acf1cfc198a7d3c6841d416a63d78e225ab1a3521",
+      "size": 2679,
+      "sha256": "8a38107e9f524a8c170dfa605b44b3b9d8dd7a44e812bf4675215005fb155be8",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -20035,8 +20038,8 @@
     {
       "path": "docs/tickets/done/TKT-148-overview-photo-chaser/evidence/one-shot-minted.csv",
       "mediaType": "text/csv",
-      "size": 3413,
-      "sha256": "10a6a225fcf886461725ef0d4436bacafcf5dd95940f8ff66ade678d17459edb",
+      "size": 3381,
+      "sha256": "22fc5ef55f5b65fa729c0b1737ad2944e22759341b58c4d4e978332cc96a849a",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -20152,8 +20155,8 @@
     {
       "path": "docs/tickets/now/.gitkeep",
       "mediaType": "application/octet-stream",
-      "size": 294,
-      "sha256": "9b7a3b40fc9645024d78267d5728012324f4932f337dbc89984f090512d89e92",
+      "size": 292,
+      "sha256": "f716c0240fe45ad8a365d8d20fce296b3bcf5b738fe538d261d3f5fa8385ce0d",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21268,8 +21271,8 @@
     {
       "path": "docs/tickets/verify/TKT-020-docs-cleanup/verification.md",
       "mediaType": "text/markdown",
-      "size": 2259,
-      "sha256": "8d5ae67a086c5aa322b138c4cbe0ca3913b3b65d59cfb93de1d59b865226c055",
+      "size": 2309,
+      "sha256": "154daa7a047dcfdc684b636cf003193500d745e602753f272dc41ef1abfb85f3",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21979,8 +21982,8 @@
     {
       "path": "docs/tickets/verify/TKT-133-evidence-dedup-box-kind/evidence/backup-boxbox-before.csv",
       "mediaType": "text/csv",
-      "size": 520890,
-      "sha256": "281dcbb282f8bd3b88d6e900a606d1914571df50cbcfb13d4714f0d5fff4ca89",
+      "size": 518088,
+      "sha256": "dbc7b4efac43fef9f5cefc59517aaf7ea8bbcff7f9727bb72a1a83a58a18faff",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21988,8 +21991,8 @@
     {
       "path": "docs/tickets/verify/TKT-133-evidence-dedup-box-kind/evidence/backup-twins-before.csv",
       "mediaType": "text/csv",
-      "size": 29797,
-      "sha256": "9518019a026375edce457666b2ac02d31ac611186df0a39f3c15d47a8ef4244e",
+      "size": 29660,
+      "sha256": "b8018e5766e68a4c698e1720dab53cb52000049bcbe9862062ed607521a50349",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22078,8 +22081,8 @@
     {
       "path": "docs/tickets/verify/TKT-144-blob-sha256-backfill-dedup/evidence/backup-before.csv",
       "mediaType": "text/csv",
-      "size": 301113,
-      "sha256": "b9dc3cd5c0b62e1a8920249c56410491e5fb60866e002eab9116bd481c5a57e8",
+      "size": 300421,
+      "sha256": "e827e57919adea263d3a8745239d4e1e27d01a0e32310b334065dfa9da3d2df6",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22087,8 +22090,8 @@
     {
       "path": "docs/tickets/verify/TKT-144-blob-sha256-backfill-dedup/evidence/backup-case-status-before.csv",
       "mediaType": "text/csv",
-      "size": 47450,
-      "sha256": "9355fbdc07630edc1818e384983cb8cec34b1ab4074287d3504f7527503b6daf",
+      "size": 46985,
+      "sha256": "cdf33ecfbd06d6fd3b6bf7e7b0c3ed9b2cd6c22e0b6ac43fa7ae75ae6a14a611",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22096,8 +22099,8 @@
     {
       "path": "docs/tickets/verify/TKT-144-blob-sha256-backfill-dedup/evidence/hash-run-log.csv",
       "mediaType": "text/csv",
-      "size": 140754,
-      "sha256": "f49e3e520fdcf83e543bd48b5be38ff8a9edd316696844e13c623940686cc8ba",
+      "size": 140276,
+      "sha256": "90244a99585557c21aafaceff04b378a929260cba5aa863a33e63108507ea172",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22114,8 +22117,8 @@
     {
       "path": "docs/tickets/verify/TKT-144-blob-sha256-backfill-dedup/evidence/pair-outcomes.csv",
       "mediaType": "text/csv",
-      "size": 16300,
-      "sha256": "8f66453fb4d45a45b2edf111ba497ae516b6e061c27196904d483e49003f8132",
+      "size": 16193,
+      "sha256": "5a7e7cd148e1ac00b94818e5cb4333ba18db77fdd4a94576a4457e9519e31b18",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22186,8 +22189,8 @@
     {
       "path": "docs/tickets/verify/TKT-144-blob-sha256-backfill-dedup/evidence/status-moves.csv",
       "mediaType": "text/csv",
-      "size": 39,
-      "sha256": "3e8c6d045c55ad4c2b3d24bfb7d8e34b71aaf48075dca13a25642e91e8e1d019",
+      "size": 38,
+      "sha256": "aacbf097c7028501de89594020101aeef1c39ff24581757464610bf27c0e5627",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22204,8 +22207,8 @@
     {
       "path": "docs/tickets/verify/TKT-144-blob-sha256-backfill-dedup/evidence/tkt148-observations.csv",
       "mediaType": "text/csv",
-      "size": 325,
-      "sha256": "58aaaf1137b19991c1673be0d74fbb0da83a74426cdbeddd776195d704518979",
+      "size": 321,
+      "sha256": "4179c495c331d92aa5e198a9e0d48760ea821114c639c667dd75a7c831f8da94",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22735,8 +22738,8 @@
     {
       "path": "docs/tickets/verify/TKT-207-repository-inventory-disposition-ledger/verification.md",
       "mediaType": "text/markdown",
-      "size": 1885,
-      "sha256": "b48dd0cb29b81b980c794e6db945ff42571f0aa6d48a522120875d3e91eb779f",
+      "size": 2137,
+      "sha256": "5ee9909dd65b96c375e3ca8348c0ef5df12600091eb85e8f1f2933b95fe10291",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22844,7 +22847,7 @@
       "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/verification.md",
       "mediaType": "text/markdown",
       "size": 2387,
-      "sha256": "75326f1b99fab8a4397a6e9b5608c5bcc7cbb02dcaf245576290d97b070222b3",
+      "sha256": "5cf419e2bd4637dde55f6bb02f742902b537e3f731eb2783ed0fa314cac1b980",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22969,8 +22972,8 @@
     {
       "path": "docs/tickets/verify/TKT-214-repository-gates-ci-closeout/changes.md",
       "mediaType": "text/markdown",
-      "size": 1225,
-      "sha256": "c399e543f717d1ef7a3644f8cf29c5ca5233464ef2bbd8934ac6be7e51fcaa5c",
+      "size": 1696,
+      "sha256": "26f7a049defb5272d039bf2d2cbdca2f8056568a3204d9db7bff77aefe699979",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22987,8 +22990,8 @@
     {
       "path": "docs/tickets/verify/TKT-214-repository-gates-ci-closeout/verification.md",
       "mediaType": "text/markdown",
-      "size": 2505,
-      "sha256": "2fbd5af14eb379eeadb1d18f5c0d1ec07872763875c90a9c8a64efd816efacca",
+      "size": 2619,
+      "sha256": "a0aa61f5ac3e5c51cb5ae6e055eeb58b5bb41727d2997daf9a5dd2ee6e25487e",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -23059,8 +23062,8 @@
     {
       "path": "infrastructure/config-capture/api.bicep",
       "mediaType": "application/octet-stream",
-      "size": 7793,
-      "sha256": "ac898e3c66f350b09234bcd6f922cbc960ebb0fa9fdf43e5dc8e278853e5dd96",
+      "size": 7622,
+      "sha256": "7a0d87232546ca9b50f49bce84457963b19a13b2cae3908a5bf298bddd8ef702",
       "category": "infrastructure",
       "owner": "repository",
       "lifecycle": "active"
@@ -23068,8 +23071,8 @@
     {
       "path": "infrastructure/config-capture/orch.bicep",
       "mediaType": "application/octet-stream",
-      "size": 10134,
-      "sha256": "eff70b9936f15d8d7d216930cfad60e3a9f8a4affb8b8af6475c26ebe0f95293",
+      "size": 9924,
+      "sha256": "f19f5e09f6044b895ac1b63caa6e1ef813a77485447cc7ad3677b8f1c6ffb18d",
       "category": "infrastructure",
       "owner": "repository",
       "lifecycle": "active"
@@ -23077,8 +23080,8 @@
     {
       "path": "infrastructure/config-capture/spa.bicep",
       "mediaType": "application/octet-stream",
-      "size": 1840,
-      "sha256": "7758b8fd58848da2426e57d100c96c2f7dbf2c8457b1495f17a69a27a176d7bb",
+      "size": 1800,
+      "sha256": "c94d5838f0327a977d96d4a02862192ff15c90db8dbb9a115ce0390a8fefef8d",
       "category": "infrastructure",
       "owner": "repository",
       "lifecycle": "active"
@@ -23086,8 +23089,8 @@
     {
       "path": "package-lock.json",
       "mediaType": "application/json",
-      "size": 144961,
-      "sha256": "fc33a1acd7d0ad21ebaf44fcb2f8760151b37c6a34cf2ec87a0c0e4b74f9ae8a",
+      "size": 145489,
+      "sha256": "a2ab0843a16f53b70d52920be0ef13e248fa5c881b001778d2a0a9a3185f96b4",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -23095,8 +23098,8 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 2868,
-      "sha256": "fc5bb48c06f6e0ad828245549bee93f02ec7c29854764a786abe6860c2203419",
+      "size": 2946,
+      "sha256": "448f81a16d2eab9c3045116e93f4efbd5f13a2da8545967c9a5c9f78c2e9b98d",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -24409,8 +24412,17 @@
     {
       "path": "scripts/maintenance/generate-repository-inventory.mjs",
       "mediaType": "text/javascript",
-      "size": 12089,
-      "sha256": "e72f68c4ae216a18205070b7f7f3ecff5d1f6f63795f8fa2ce852b7753e8f8eb",
+      "size": 20686,
+      "sha256": "61f4241f86c2db8c51d98e047bf7a0d5a9a39edf595d0e6f1e67159a1dc3aa70",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/generate-repository-inventory.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 4352,
+      "sha256": "469f62cf43c0c5063c86a50c9995f3f997c6d9967f99f416732729954386f4cb",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -24472,8 +24484,8 @@
     {
       "path": "services/data-api/.funcignore",
       "mediaType": "application/octet-stream",
-      "size": 109,
-      "sha256": "e58b98488fc2d90ecacd0f0b7b4fb9c69bfd8e9e93014e7e61b19a8ace2f03dd",
+      "size": 99,
+      "sha256": "97acd46dcd88bd8bd1518add80b8620aed99396087555da4bad7c39b7bab475e",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -26218,8 +26230,8 @@
     {
       "path": "services/functions/box-webhook/.funcignore",
       "mediaType": "application/octet-stream",
-      "size": 400,
-      "sha256": "6be437c2c83e7587b14b97f9971f65b64840de8deec4816ac9f7383ab07c8dc0",
+      "size": 385,
+      "sha256": "cfae1902448accb073d16defa4eb230d3662a1d35720c57fb3db8c7ca6a7ee03",
       "category": "source",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -26227,8 +26239,8 @@
     {
       "path": "services/functions/box-webhook/.gitignore",
       "mediaType": "text/plain",
-      "size": 139,
-      "sha256": "d52a72959a45cc5f1e81dcd8e03f9f3fb82e1db817bba5adcecbff6d755d08cf",
+      "size": 133,
+      "sha256": "1cc58f583afed453dfeebd43189c74375589b47c58b7c8629de22b2849a00184",
       "category": "source",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -26308,8 +26320,8 @@
     {
       "path": "services/functions/box-webhook/infra/main.bicep",
       "mediaType": "application/octet-stream",
-      "size": 11946,
-      "sha256": "afdbbc0d153adfcf979ad2a2db06b22688beebef244228c6223d219e25530cfb",
+      "size": 11659,
+      "sha256": "4a77547cd5717cb5865d8505c237fc9996878af7c0644ae22b3ef92fbd788578",
       "category": "infrastructure",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -26317,8 +26329,8 @@
     {
       "path": "services/functions/box-webhook/infra/wire-box-secrets.ps1",
       "mediaType": "text/x-powershell",
-      "size": 3863,
-      "sha256": "30327b81466931d2cf472965253b43bc812b5c76c82dee87831dc3253a7e74dc",
+      "size": 3798,
+      "sha256": "ae6b234f40e0d9511d5be3d8576bcbe3ca7002d49101a4c4e6c05a4863ad6a55",
       "category": "infrastructure",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -26326,8 +26338,8 @@
     {
       "path": "services/functions/box-webhook/local.settings.json.TEMPLATE",
       "mediaType": "application/octet-stream",
-      "size": 1512,
-      "sha256": "d8cc008583fb454faf5b4f7bb8f2550ae3207ff9f24cf92dc05b4138a144de52",
+      "size": 1492,
+      "sha256": "c9c6892e6411ef4e691a1d1d83ac5298761de1a6fc9b0f14eea793cd0a480ee7",
       "category": "source",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -26479,8 +26491,8 @@
     {
       "path": "services/functions/eva-sentry/.funcignore",
       "mediaType": "application/octet-stream",
-      "size": 400,
-      "sha256": "6be437c2c83e7587b14b97f9971f65b64840de8deec4816ac9f7383ab07c8dc0",
+      "size": 385,
+      "sha256": "cfae1902448accb073d16defa4eb230d3662a1d35720c57fb3db8c7ca6a7ee03",
       "category": "source",
       "owner": "eva-integration",
       "lifecycle": "active"
@@ -26488,8 +26500,8 @@
     {
       "path": "services/functions/eva-sentry/.gitignore",
       "mediaType": "text/plain",
-      "size": 114,
-      "sha256": "f6d7eb00913c047283e0e984c01b13b96dd3b9dd7101abb72f6ba2dd68abacec",
+      "size": 105,
+      "sha256": "559f75b8ee5405aa965ef173439fcb4323d15c136eb60aa323b120312d5e0b0c",
       "category": "source",
       "owner": "eva-integration",
       "lifecycle": "active"
@@ -26533,8 +26545,8 @@
     {
       "path": "services/functions/eva-sentry/infra/main.bicep",
       "mediaType": "application/octet-stream",
-      "size": 9838,
-      "sha256": "434f37d8d29ffe086a01e8b0a6eb02447f41db0e65b667829cb4bc0769a51434",
+      "size": 9588,
+      "sha256": "8e06c18117ace54e19ace40e5f64214bdd84d3e95093d247754fbf8d70a59c61",
       "category": "infrastructure",
       "owner": "eva-integration",
       "lifecycle": "active"
@@ -26542,8 +26554,8 @@
     {
       "path": "services/functions/eva-sentry/local.settings.json.TEMPLATE",
       "mediaType": "application/octet-stream",
-      "size": 938,
-      "sha256": "ff19a2ebe1bae3ccb2fa4897e3bdbaad79e7ad993ea60b20cb547c211450c3ac",
+      "size": 925,
+      "sha256": "8b46861c974af4d27116a8772ef5df5a6f6b259b53081ba007117b5807137e9b",
       "category": "source",
       "owner": "eva-integration",
       "lifecycle": "active"
@@ -26623,8 +26635,8 @@
     {
       "path": "services/functions/location-assist/.funcignore",
       "mediaType": "application/octet-stream",
-      "size": 400,
-      "sha256": "015a1f3d95af5ea40af579fa7049c3d8b5449c13fefc3eb19119a7c92b20ebe7",
+      "size": 385,
+      "sha256": "3736c67d47260e39b6fa9299588750dc3263cb644b7d0a37789982492495b10e",
       "category": "source",
       "owner": "location-suggestions",
       "lifecycle": "active"
@@ -26632,8 +26644,8 @@
     {
       "path": "services/functions/location-assist/.gitignore",
       "mediaType": "text/plain",
-      "size": 206,
-      "sha256": "72686402cb4a07913afbabb546d469126ac66b689b585470cb663d0443355902",
+      "size": 197,
+      "sha256": "689458018a16fb704f9aa33f84e351831f74d895036d95224942db09072a2ece",
       "category": "source",
       "owner": "location-suggestions",
       "lifecycle": "active"
@@ -26686,8 +26698,8 @@
     {
       "path": "services/functions/location-assist/infra/main.bicep",
       "mediaType": "application/octet-stream",
-      "size": 10960,
-      "sha256": "80027a89dbd884e9f6d1f53df56959c4f27fbd87b379ee1bfbaa17efe53775ec",
+      "size": 10667,
+      "sha256": "951ef255c36856f8863c2da62d06ea3b8fc6ee5e80236f430f65a16f626fc582",
       "category": "infrastructure",
       "owner": "location-suggestions",
       "lifecycle": "active"
@@ -26695,8 +26707,8 @@
     {
       "path": "services/functions/location-assist/local.settings.json.TEMPLATE",
       "mediaType": "application/octet-stream",
-      "size": 1822,
-      "sha256": "e5038a6597937c381bb136a3f0249a7ce8a4f5580c37629e58fa6962c33fe7de",
+      "size": 1796,
+      "sha256": "447be5753ebfef778cd75ecba07148dcf3be62617621a55aec061549c9fbd043",
       "category": "source",
       "owner": "location-suggestions",
       "lifecycle": "active"
@@ -26821,8 +26833,8 @@
     {
       "path": "services/functions/ocr/.dockerignore",
       "mediaType": "application/octet-stream",
-      "size": 354,
-      "sha256": "cfb1def464364a50bf83e3cd692f8a105247bc1e425543ad5fc3f89f06af7d11",
+      "size": 337,
+      "sha256": "ed38ec79e4f330d1198250cd5be587a43593909bddd9f21db0c91e87af42d5cb",
       "category": "source",
       "owner": "image-analysis",
       "lifecycle": "active"
@@ -26830,8 +26842,8 @@
     {
       "path": "services/functions/ocr/.funcignore",
       "mediaType": "application/octet-stream",
-      "size": 161,
-      "sha256": "d27468de2828f641413a36fb2e943cc0bf4a233ade6ce6e2da33eb43d2e574f4",
+      "size": 147,
+      "sha256": "b6f9629fa98f39c26ec6d866b45c284ba3bf53087446bf1acfb4bdb39fe8194f",
       "category": "source",
       "owner": "image-analysis",
       "lifecycle": "active"
@@ -26839,8 +26851,8 @@
     {
       "path": "services/functions/ocr/.gitignore",
       "mediaType": "text/plain",
-      "size": 326,
-      "sha256": "c8dc53f8ecf606ec72def62698738793603d9627f61fc9de101623b9bde49aaf",
+      "size": 315,
+      "sha256": "a75911016e91423686928a6d8572701a2cdaa0fa7cf603d1a18d774b4898c8bd",
       "category": "source",
       "owner": "image-analysis",
       "lifecycle": "active"
@@ -26848,8 +26860,8 @@
     {
       "path": "services/functions/ocr/Dockerfile",
       "mediaType": "text/plain",
-      "size": 3065,
-      "sha256": "408311607e7cc95345baef761461b349a1207cd068801202ba7457bc4530d6b6",
+      "size": 3009,
+      "sha256": "958fbbb1cdea62809243780e4232cfbb15bf125825697135f63b5b9182db3002",
       "category": "source",
       "owner": "image-analysis",
       "lifecycle": "active"
@@ -26884,8 +26896,8 @@
     {
       "path": "services/functions/ocr/infra/acrpull-role.bicep",
       "mediaType": "application/octet-stream",
-      "size": 2710,
-      "sha256": "a9898a8b024ecd660e730f919009edb57301583200183f81fca217ac0404f8f7",
+      "size": 2659,
+      "sha256": "0b88754a06a07a3411fc347295e8235ed4a407371cd0322aa821cc5a1a8974a8",
       "category": "infrastructure",
       "owner": "image-analysis",
       "lifecycle": "active"
@@ -26893,8 +26905,8 @@
     {
       "path": "services/functions/ocr/infra/docintel.bicep",
       "mediaType": "application/octet-stream",
-      "size": 4713,
-      "sha256": "31b3b0ca8ff0c7567e002589231b77f00d863d06d732cd59d3a76790743b90bf",
+      "size": 4627,
+      "sha256": "e778e2ea2633d755789ce4c15967e0afb137a1b7ee4e370b06023c20930ff2b8",
       "category": "infrastructure",
       "owner": "image-analysis",
       "lifecycle": "active"
@@ -26902,8 +26914,8 @@
     {
       "path": "services/functions/ocr/infra/main.bicep",
       "mediaType": "application/octet-stream",
-      "size": 24996,
-      "sha256": "c5ec21f1147845aaeec4abcee53ad64ef2d6f3a75300312e5832ae380582bb79",
+      "size": 24542,
+      "sha256": "876ab93d60be939c13e9ee37d634feb68d04b8c4a931118b9e1df8a483ec1a93",
       "category": "infrastructure",
       "owner": "image-analysis",
       "lifecycle": "active"
@@ -26911,8 +26923,8 @@
     {
       "path": "services/functions/ocr/local.settings.json.TEMPLATE",
       "mediaType": "application/octet-stream",
-      "size": 926,
-      "sha256": "2b044bcc5529ad49c88b85fcc12abab76cb7a1d2fd72821fc3d61a49082ec142",
+      "size": 907,
+      "sha256": "0387e07c21db486542b12cb03f0eb3c8b34031dd6d32e1d86b6d013002839956",
       "category": "source",
       "owner": "image-analysis",
       "lifecycle": "active"
@@ -27001,8 +27013,8 @@
     {
       "path": "services/functions/parser/.funcignore",
       "mediaType": "application/octet-stream",
-      "size": 410,
-      "sha256": "43a178321a0b81fd84527a4f09b4450377db7960dd01e32ae5c51d6b50ea0168",
+      "size": 394,
+      "sha256": "661c1285325620deda593d55a2541855a714280605784b3fc006cf41cd520e5e",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -27010,8 +27022,8 @@
     {
       "path": "services/functions/parser/.gitignore",
       "mediaType": "text/plain",
-      "size": 206,
-      "sha256": "72686402cb4a07913afbabb546d469126ac66b689b585470cb663d0443355902",
+      "size": 197,
+      "sha256": "689458018a16fb704f9aa33f84e351831f74d895036d95224942db09072a2ece",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -27397,8 +27409,8 @@
     {
       "path": "services/functions/parser/infra/main.bicep",
       "mediaType": "application/octet-stream",
-      "size": 10376,
-      "sha256": "eea11aff72778331d186ab057a00ed1dfb8058fe7d090e20fd4f88ddd7d74f8b",
+      "size": 10103,
+      "sha256": "cd0194f9c526935d43d8d3790249ba9c03a5194d5ca73c9c7b2cf309de6bfdf7",
       "category": "infrastructure",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -27415,8 +27427,8 @@
     {
       "path": "services/functions/parser/local.settings.json.TEMPLATE",
       "mediaType": "application/octet-stream",
-      "size": 1315,
-      "sha256": "609d540401bf2388eb293d45768706b50d601bb0556e2a097033c1a1566c9793",
+      "size": 1299,
+      "sha256": "a06294a9bc3451a51b726d316727fc0021756263a37069c78af40376a962aa56",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -27766,8 +27778,8 @@
     {
       "path": "services/functions/vehicle-enrichment/.funcignore",
       "mediaType": "application/octet-stream",
-      "size": 400,
-      "sha256": "6be437c2c83e7587b14b97f9971f65b64840de8deec4816ac9f7383ab07c8dc0",
+      "size": 385,
+      "sha256": "cfae1902448accb073d16defa4eb230d3662a1d35720c57fb3db8c7ca6a7ee03",
       "category": "source",
       "owner": "vehicle-enrichment",
       "lifecycle": "active"
@@ -27775,8 +27787,8 @@
     {
       "path": "services/functions/vehicle-enrichment/.gitignore",
       "mediaType": "text/plain",
-      "size": 139,
-      "sha256": "d52a72959a45cc5f1e81dcd8e03f9f3fb82e1db817bba5adcecbff6d755d08cf",
+      "size": 133,
+      "sha256": "1cc58f583afed453dfeebd43189c74375589b47c58b7c8629de22b2849a00184",
       "category": "source",
       "owner": "vehicle-enrichment",
       "lifecycle": "active"
@@ -27829,8 +27841,8 @@
     {
       "path": "services/functions/vehicle-enrichment/infra/main.bicep",
       "mediaType": "application/octet-stream",
-      "size": 10976,
-      "sha256": "76d88f7290a77706e0dfd6377489f770cdbac8416e4f3a20d4a7f530e7c3c3cc",
+      "size": 10689,
+      "sha256": "21248172948adced2c14502958edc48d15db39f84a0b2f3973c09c7e68e79e01",
       "category": "infrastructure",
       "owner": "vehicle-enrichment",
       "lifecycle": "active"
@@ -27838,8 +27850,8 @@
     {
       "path": "services/functions/vehicle-enrichment/local.settings.json.TEMPLATE",
       "mediaType": "application/octet-stream",
-      "size": 1317,
-      "sha256": "877e8425df81390931b728e8e64c996cd79d5e0147ccb91aca0799ec23d4f5ce",
+      "size": 1296,
+      "sha256": "53e8b3cf4031d0bd308f30764e98f8627f073e1303b0b96906d1294a29c4f706",
       "category": "source",
       "owner": "vehicle-enrichment",
       "lifecycle": "active"
@@ -27991,8 +28003,8 @@
     {
       "path": "services/orchestration/.funcignore",
       "mediaType": "application/octet-stream",
-      "size": 109,
-      "sha256": "e58b98488fc2d90ecacd0f0b7b4fb9c69bfd8e9e93014e7e61b19a8ace2f03dd",
+      "size": 99,
+      "sha256": "97acd46dcd88bd8bd1518add80b8620aed99396087555da4bad7c39b7bab475e",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -34030,8 +34042,8 @@
     {
       "path": "tools/box/.gitignore",
       "mediaType": "text/plain",
-      "size": 269,
-      "sha256": "d2ce9aceacbe4baffd4538bb0af60149c5004e69e8a06c63838fb7f2d50d37d8",
+      "size": 265,
+      "sha256": "d58f65a1f260bff46f75af234e5d58f78708ac18630975c0ddce3cdffe6d83fb",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"

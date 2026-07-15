@@ -4,7 +4,7 @@
 TESTED (offline)
 
 ## Evidence
-- Source-size verification passes for 799 owned source files; none exceeds 800 nonblank lines.
+- Source-size verification passes for 800 owned source files; none exceeds 800 nonblank lines.
 - Retained runtime roots have concise READMEs covering ownership, contract, callers, tests,
   configuration and deployment entry point.
 - `node scripts/checks/check-production-dependencies.mjs` traces the production-reachable graph from
