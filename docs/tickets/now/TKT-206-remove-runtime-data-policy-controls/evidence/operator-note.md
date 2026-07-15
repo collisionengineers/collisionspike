@@ -1,0 +1,3 @@
+# Operator note — 2026-07-14
+
+The attached “Collisionspike worktree, branch, and remote recovery” plan directs removal of PII scrubbing and privacy-driven AI-input omission, `work_provider.ai_allowed`, automated case disposition, retention/erasure and post-Archive Blob-purge jobs, and the `retention_expires_at`, `legal_hold`, `legal_hold_reason`, `held_by` and `ai_allowed` columns. It requires callers/jobs and API SQL references to stop, old instances and durable work to drain, internal routes to be removed, and only then the destructive migration. It expressly retains `closed_at`, normal handler-initiated deletion, authentication, authorization, RLS, audit integrity, credential redaction and recovery controls.

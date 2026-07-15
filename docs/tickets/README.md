@@ -93,7 +93,7 @@ Plans cluster related tickets without moving them. A plan lives at `docs/tickets
 | [PLAN-001](./plans/PLAN-001-ai-mcp-hardening.md) | Harden and enhance AI features plus MCP | active | 8/17 done |
 | [PLAN-002](./plans/PLAN-002-case-done-lifecycle.md) | Case done lifecycle | active | 1/3 done |
 | [PLAN-003](./plans/PLAN-003-operator-fixup-wave.md) | Operator fix-up wave 2026-07-08 | active | 35/37 done |
-| [PLAN-004](./plans/PLAN-004-production-readiness.md) | Production readiness and lifecycle completion | active | 1/52 done |
+| [PLAN-004](./plans/PLAN-004-production-readiness.md) | Production readiness and lifecycle completion | active | 1/54 done |
 | [PLAN-005](./plans/PLAN-005-full-remediation-plan.md) | Full remediation and repository reconciliation | active | 0/1 done |
 
 ## Validation
@@ -325,6 +325,8 @@ node scripts/check-skills-sync.mjs
 | [TKT-198](./backlog/TKT-198-wrong-vehicle-evidence-detection/TKT-198-wrong-vehicle-evidence-detection.md) | Flag photos that show a different vehicle | P1 | evidence | PLAN-004 |
 | [TKT-199](./now/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) | Make repository data authority explicit without weakening security | P1 | docs | PLAN-004 |
 | [TKT-200](./now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md) | Add secure guided photo capture sessions | P1 | integration | PLAN-004 |
+| [TKT-205](./now/TKT-205-repository-worktree-governance/TKT-205-repository-worktree-governance.md) | Make ticketed worktrees and offline checks the repository workflow | P1 | platform | PLAN-004 |
+| [TKT-206](./now/TKT-206-remove-runtime-data-policy-controls/TKT-206-remove-runtime-data-policy-controls.md) | Remove privacy-driven runtime data restrictions safely | P0 | platform | PLAN-004 |
 
 ### blocked
 

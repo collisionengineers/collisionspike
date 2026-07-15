@@ -13,8 +13,12 @@
     "build:domain": "npm run build --workspace @cs/domain",
     "build:api": "npm run build --workspace @cs/api",
     "build:orch": "npm run build --workspace @cs/orchestration",
-    "test": "npm run test --workspace @cs/domain && npm run test --workspace mockup-app && npm run test:tkt150-remediation",
+    "test": "npm run test --workspace @cs/domain && npm run test --workspace mockup-app && npm run test:tkt150-remediation && npm run test:worktree-governance",
     "test:tkt150-remediation": "node --test scripts/live/remediate-blank-claimants.test.mjs",
+    "test:worktree-governance": "node --test scripts/worktree.test.mjs scripts/pre-push.test.mjs",
+    "verify:offline": "node scripts/verify-offline.mjs",
+    "worktree": "node scripts/worktree.mjs",
+    "hygiene": "node scripts/repository-hygiene.mjs",
     "check:data-authority": "node scripts/check-repository-data-authority.mjs",
     "test:data-authority": "node --test scripts/check-repository-data-authority.test.mjs"
   },

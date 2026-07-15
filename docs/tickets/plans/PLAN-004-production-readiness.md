@@ -2,7 +2,7 @@
 id: PLAN-004
 title: Production readiness and lifecycle completion
 status: active
-tickets: [TKT-041, TKT-102, TKT-149, TKT-151, TKT-152, TKT-153, TKT-154, TKT-155, TKT-156, TKT-157, TKT-158, TKT-159, TKT-160, TKT-161, TKT-162, TKT-163, TKT-164, TKT-165, TKT-166, TKT-167, TKT-168, TKT-169, TKT-170, TKT-171, TKT-172, TKT-173, TKT-174, TKT-175, TKT-176, TKT-177, TKT-178, TKT-179, TKT-180, TKT-181, TKT-182, TKT-183, TKT-184, TKT-185, TKT-186, TKT-187, TKT-188, TKT-189, TKT-190, TKT-191, TKT-192, TKT-193, TKT-194, TKT-195, TKT-197, TKT-198, TKT-199, TKT-200]
+tickets: [TKT-041, TKT-102, TKT-149, TKT-151, TKT-152, TKT-153, TKT-154, TKT-155, TKT-156, TKT-157, TKT-158, TKT-159, TKT-160, TKT-161, TKT-162, TKT-163, TKT-164, TKT-165, TKT-166, TKT-167, TKT-168, TKT-169, TKT-170, TKT-171, TKT-172, TKT-173, TKT-174, TKT-175, TKT-176, TKT-177, TKT-178, TKT-179, TKT-180, TKT-181, TKT-182, TKT-183, TKT-184, TKT-185, TKT-186, TKT-187, TKT-188, TKT-189, TKT-190, TKT-191, TKT-192, TKT-193, TKT-194, TKT-195, TKT-197, TKT-198, TKT-199, TKT-200, TKT-205, TKT-206]
 depends-on: []
 ---
 
@@ -11,7 +11,7 @@ depends-on: []
 ## Context
 The operator supplied a production-readiness programme on 2026-07-12 and a large evidence-backed refinement drop on 2026-07-13. Together they cover review discipline, staff access, intake and correlation correctness, vehicle enrichment, case editing, evidence and Archive lifecycle, email taxonomy, pre-case work, constrained agent ingestion, handler-facing usability, production cutover and final remediation. Existing tickets are reused or reopened where they already own the behavior; new material is distilled into atomic members rather than duplicating those owners.
 
-This plan has **52 members**. It sequences implementation and verification, but it does not weaken any member's own acceptance or live-proof boundary. TKT-150 transferred to PLAN-005 for its dedicated claimant-remediation safety sequence; TKT-196 is deliberately not a member.
+This plan has **54 members**. It sequences implementation and verification, but it does not weaken any member's own acceptance or live-proof boundary. TKT-150 transferred to PLAN-005 for its dedicated claimant-remediation safety sequence; TKT-196 is deliberately not a member.
 
 ## Decisions recorded
 - A case belongs in Review only when it could theoretically be submitted to EVA: every required field is present, its accepted image set satisfies the image rules, and no unresolved blocker remains.
@@ -40,13 +40,15 @@ This plan has **52 members**. It sequences implementation and verification, but 
 
 ## Ticket sequence
 
-### 1. Governance, authority and live control plane (5)
+### 1. Governance, authority and live control plane (7)
 
 1. [TKT-149](../done/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) — retire the mandatory Claude+Codex PR-review workflow per the 2026-07-14 operator ruling; retain normal checks and unrelated safety hooks.
 2. [TKT-199](../now/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) — make repository/raw-image authority and retained security/egress boundaries unambiguous.
-3. [TKT-195](../backlog/TKT-195-entra-staff-access-management/TKT-195-entra-staff-access-management.md) — establish named Entra staff identity and explicit User/Superuser assignment before broad signed-in proof.
-4. [TKT-159](../now/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md) — reconcile code, registry and live gates, including conditional EVA use.
-5. [TKT-164](../done/TKT-164-inbound-counts-500/TKT-164-inbound-counts-500.md) — retain the repaired inbound-count path as the live dashboard baseline.
+3. [TKT-205](../now/TKT-205-repository-worktree-governance/TKT-205-repository-worktree-governance.md) — make ticketed worktrees, lane locking, offline verification and hygiene reporting the durable repository workflow.
+4. [TKT-206](../now/TKT-206-remove-runtime-data-policy-controls/TKT-206-remove-runtime-data-policy-controls.md) — remove privacy-driven runtime omission, opt-out, retention and automatic-disposition controls while preserving security and recovery safeguards.
+5. [TKT-195](../backlog/TKT-195-entra-staff-access-management/TKT-195-entra-staff-access-management.md) — establish named Entra staff identity and explicit User/Superuser assignment before broad signed-in proof.
+6. [TKT-159](../now/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md) — reconcile code, registry and live gates, including conditional EVA use.
+7. [TKT-164](../done/TKT-164-inbound-counts-500/TKT-164-inbound-counts-500.md) — retain the repaired inbound-count path as the live dashboard baseline.
 
 ### 2. Canonical data, save and readiness spine (4)
 
@@ -141,7 +143,7 @@ These tickets retain their own status/plan membership but are dependencies, prio
 TKT-130 carries the binding valid/non-conflicting field and view-only-no-mutation ruling; TKT-068 carries the configured multimodal assistant path; TKT-004, TKT-052, TKT-093, TKT-095, TKT-145 and TKT-146 remain explicit implementation/verification dependencies for numbering, merge, auto-attachment, completion and evidence lifecycle respectively.
 
 ## Verification / close-out
-- All 53 frontmatter members reach `done` only through an independent `ticket-verifier` verdict; an implementer does not certify its own ticket, and code-reading alone is never sufficient for live acceptance.
+- All 55 frontmatter members reach `done` only through an independent `ticket-verifier` verdict; an implementer does not certify its own ticket, and code-reading alone is never sufficient for live acceptance.
 - Every member acceptance line has one concrete offline/isolated artifact and its required signed-in/live artifact or an honest PENDING reason. Artificial states are not seeded into the live app to obtain a green verdict.
 - Every implementation PR passes its normal repository/CI checks. No mandatory AI-review marker workflow is
   part of close-out; required schema/config deploy order, rollback and live health proof remain per ticket.
