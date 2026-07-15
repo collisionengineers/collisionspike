@@ -177,14 +177,16 @@ BOX_API_ENABLED=true
 BOX_FOLDER_AT_INTAKE_ENABLED=true
 ```
 
-Read all three settings back from `cespk-orch-dev`; otherwise durable evidence can remain pending and
-the MCP tool must never claim completion. The image-classifier prompt treats all visible image text,
+These three gates must be `true` first; their current live values are not restated here — read them back
+from `cespk-orch-dev` and cross-check the registry ([live-environment.md](./live-environment.md)), the single
+source of truth for gate values. Otherwise durable evidence can remain pending and the MCP tool must never
+claim completion. The image-classifier prompt treats all visible image text,
 QR codes, captions and metadata as untrusted evidence and never follows instructions embedded in a
 photo. Offline coverage sends a real accepted PNG bearing adversarial visible text through the mocked
 classifier HTTP seam; behavioral proof against the live model remains pending and must not be inferred
 from that deterministic test.
 
-Apply `migration/assets/schema/deltas/2026-07-12-tkt154-mcp-image-ingestion.sql` and verify both
+Apply `migration/assets/schema/deltas/2026-07-13-tkt154-mcp-image-ingestion.sql` and verify both
 `mcp_http_session` and `mcp_image_ingest_rate_limit` are visible to the API's existing staff-scoped
 database role before deploying the API. This ordering protects the already-live delegated read-only
 MCP lane as well as the new autonomous lane. Deploy the Archive façade, API and orchestration changes
@@ -205,3 +207,21 @@ It reads its endpoint, bearer and folder from environment variables and contains
    unset/wrong/out-of-root scope refusals. Confirm no Outlook change and no Box write outside the test root.
 6. Run the lifecycle with a standard MCP client as well as the sample watcher: initialize, initialized
    notification, tools/list, lookup and upload. Preserve the exact HTTP/protocol evidence.
+
+## Operational notes
+
+**Deploy order — API before orchestration (TKT-208).** Deploy the API before orchestration —
+orchestration's `data-api` `sourceLabel` is now a required field, so an orchestration build that runs
+against an older API would fail closed. Follow-up ticket **TKT-208** consolidates the duplicated Box
+test-root sources of truth (`MCP_IMAGE_INGEST_BOX_ROOT_ID` / `BOX_FOLDER_ROOT_ID` on the API and the Box
+Function's independent `BOX_ALLOWED_ROOT_ID` scope lock) into a single reconciled source.
+
+**`case_` registration-lock budget (TKT-207).** The registration serialisation trigger
+(`lock_case_registration_eligibility` / `tr_case_registration_*` in `900_constraints.sql` and the
+`2026-07-13-tkt154-mcp-image-ingestion.sql` delta) fires `BEFORE INSERT OR DELETE` on `case_` per row and
+takes a per-row `pg_advisory_xact_lock` for every `case_` INSERT/DELETE. The lock is **required** for
+phantom-case protection and must not be removed. Its operational cost: a very large single-transaction bulk
+`case_` purge/insert (ADR-0017 disposition tooling or bulk intake) accumulates one advisory-lock slot per
+row and can approach `max_locks_per_transaction` and abort the whole transaction. Bulk writers must **batch**
+— chunk each COMMIT to a bounded row count rather than mutating all `case_` rows in one transaction.
+Follow-up ticket **TKT-207** tracks that batching requirement in the disposition / bulk-writer tooling.

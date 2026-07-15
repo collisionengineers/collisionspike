@@ -993,7 +993,7 @@ and gates; it does not flip a live gate or create an app-registration.
    code-complete but remains DARK**: before it can be proven live, add the API app role
    `CollisionSpike.ImageIngest`, create/assign one dedicated app-only client with **no Graph/Outlook or
    staff/general-Agent role**, apply
-   [`2026-07-12-tkt154-mcp-image-ingestion.sql`](../migration/assets/schema/deltas/2026-07-12-tkt154-mcp-image-ingestion.sql),
+   [`2026-07-13-tkt154-mcp-image-ingestion.sql`](../migration/assets/schema/deltas/2026-07-13-tkt154-mcp-image-ingestion.sql),
    deploy the API, and set `MCP_IMAGE_INGEST_ENABLED=true` plus
    `MCP_IMAGE_INGEST_BOX_ROOT_ID=392761581105`. The existing `BOX_FOLDER_ROOT_ID` must independently
    remain the same test root. Contract and proof steps:

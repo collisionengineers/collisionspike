@@ -160,6 +160,16 @@ BEGIN
 END;
 $$;
 
+-- LOCK BUDGET (TKT-207): this BEFORE INSERT OR DELETE trigger fires per row and
+-- takes a per-row pg_advisory_xact_lock for EVERY case_ INSERT/DELETE. The lock is
+-- REQUIRED for phantom-case protection (it serialises the autonomous registration
+-- decision with case mutation) and must not be removed. Its operational cost: one
+-- very large SINGLE-TRANSACTION bulk case_ purge/insert (ADR-0017 disposition tooling
+-- or bulk intake) accumulates one advisory lock slot per row and can approach
+-- max_locks_per_transaction and abort the whole transaction. Bulk writers MUST batch
+-- (chunk each COMMIT to a bounded row count) rather than mutating all case_ rows in one
+-- transaction. Follow-up TKT-207 tracks the batching requirement in the disposition/
+-- bulk-writer tooling.
 DROP TRIGGER IF EXISTS tr_case_registration_insert_delete ON case_;
 CREATE TRIGGER tr_case_registration_insert_delete
   BEFORE INSERT OR DELETE ON case_

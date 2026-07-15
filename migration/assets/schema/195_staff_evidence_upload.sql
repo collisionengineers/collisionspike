@@ -12,12 +12,13 @@ CREATE TABLE staff_evidence_upload (
   idempotency_key  varchar(128) PRIMARY KEY,
   case_id          uuid NOT NULL REFERENCES case_(id) ON DELETE CASCADE,
   actor            varchar(320) NOT NULL,
-  source           varchar(40) NOT NULL CHECK (
+  source           varchar(40) NOT NULL CONSTRAINT ck_staff_evidence_upload_source CHECK (
     source IN ('add_evidence', 'manual_intake', 'assistant_confirmed', 'legacy_upload', 'mcp_agent')
   ),
   registration     varchar(16),
   manifest_hash    char(64) NOT NULL CHECK (manifest_hash ~ '^[0-9a-f]{64}$'),
-  attempt_count    integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+  attempt_count    integer NOT NULL DEFAULT 0
+                     CONSTRAINT ck_staff_evidence_upload_attempt_count CHECK (attempt_count >= 0),
   last_attempt_at  timestamptz,
   completed_at     timestamptz,
   created_at       timestamptz NOT NULL DEFAULT now(),
