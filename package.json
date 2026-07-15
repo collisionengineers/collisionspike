@@ -13,6 +13,9 @@
     "build:domain": "npm run build --workspace @cs/domain",
     "build:api": "npm run build --workspace @cs/api",
     "build:orch": "npm run build --workspace @cs/orchestration",
+    "contract:capture:lint": "redocly lint api/openapi/capture.v1.yaml",
+    "contract:capture:generate": "openapi-typescript api/openapi/capture.v1.yaml -o api/src/generated/capture-api.ts",
+    "contract:capture:check": "npm run contract:capture:lint && node scripts/check-capture-contract.mjs",
     "test": "npm run test --workspace @cs/domain && npm run test --workspace mockup-app && npm run test:tkt150-remediation && npm run test:worktree-governance && npm run test:mcp-image-folder-watcher",
     "test:tkt150-remediation": "node --test scripts/live/remediate-blank-claimants.test.mjs",
     "test:worktree-governance": "node --test scripts/worktree.test.mjs scripts/pre-push.test.mjs",
@@ -28,7 +31,9 @@
     "pg": "8.22.0"
   },
   "devDependencies": {
-    "esbuild": "0.21.5"
+    "esbuild": "0.21.5",
+    "@redocly/cli": "^2.38.0",
+    "openapi-typescript": "^7.13.0"
   },
   "engines": {
     "node": ">=20"

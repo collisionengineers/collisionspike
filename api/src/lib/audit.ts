@@ -119,6 +119,13 @@ export const AUDIT_ACTION = {
   // outcomes and eventual retry recovery. Per-file evidence_added remains the
   // immutable success record for every newly persisted evidence row.
   evidence_upload_result: 100000055,
+  capture_session_created: 100000056,
+  capture_session_rotated: 100000057,
+  capture_session_revoked: 100000058,
+  capture_asset_validated: 100000059,
+  capture_session_completed: 100000060,
+  capture_session_retargeted: 100000061,
+  capture_session_locked: 100000062,
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

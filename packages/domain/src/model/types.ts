@@ -130,6 +130,8 @@ export interface Evidence {
   exclusionReason?: string;
   /** An automatic exclusion that staff can review and recover from on the case page. */
   reviewRequired?: boolean;
+  /** The current exclusion was an explicit staff decision, rather than the initial capture hold. */
+  excludedByStaff?: boolean;
   /** The vision classifier saw a person's reflection in this photo (TKT-123).
    *  ADVISORY flag only — exclusion stays a staff decision. */
   personReflection?: boolean;

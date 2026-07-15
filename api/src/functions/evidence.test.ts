@@ -133,6 +133,53 @@ describe('PATCH /api/evidence/{id}', () => {
     });
   });
 
+  it('accepts pending guided-capture evidence and schedules archive plus readiness work', async () => {
+    const before = current({
+      source_label: 'public_guided_capture',
+      image_role_source: 'capture',
+      accepted_for_eva_source: 'capture',
+      exclusion_decision_source: 'capture',
+      exclusion_reason: 'Guided capture review pending',
+      storage_path: 'capture-validated/session-1/asset-1/hash',
+      box_file_id: null,
+    });
+    withCaseLock(async (sql: string, params?: unknown[]) => {
+      if (sql.startsWith('SELECT * FROM evidence')) return [before];
+      if (sql.includes('UPDATE evidence')) {
+        return [{
+          ...before,
+          image_role_code: params![1],
+          image_role_source: params![2],
+          accepted_for_eva: params![5],
+          accepted_for_eva_source: params![6],
+          excluded: params![7],
+          exclusion_reason: params![8],
+          exclusion_decision_source: params![9],
+        }];
+      }
+      if (sql.includes('INSERT INTO archive_mirror_outbox')) return [{ requested_generation: 1 }];
+      if (sql.includes('status_recompute_requested_generation')) {
+        return [{ status_recompute_requested_generation: 1 }];
+      }
+      return [];
+    });
+
+    const response = await patchEvidence(
+      req({ imageRole: 'overview', excluded: false, acceptedForEva: true }),
+      ctx,
+      {},
+    );
+
+    expect(response).toMatchObject({
+      status: 200,
+      jsonBody: { imageRole: 'overview', excluded: false, acceptedForEva: true },
+    });
+    expect(db.txQuery.mock.calls.some(([sql]) =>
+      String(sql).includes('INSERT INTO archive_mirror_outbox'))).toBe(true);
+    expect(db.txQuery.mock.calls.some(([sql]) =>
+      String(sql).includes('status_recompute_requested_generation'))).toBe(true);
+  });
+
   it('never clears a reflection/protected exclusion as a side effect of choosing a role', async () => {
     const before = current({
       person_reflection: true,

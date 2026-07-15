@@ -149,7 +149,9 @@ describe('rowToEvidence — automatic exclusion review visibility', () => {
 
   it('marks only classifier-owned exclusions for review', () => {
     expect(rowToEvidence({ ...base, exclusion_decision_source: 'classifier' }).reviewRequired).toBe(true);
-    expect(rowToEvidence({ ...base, exclusion_decision_source: 'staff' }).reviewRequired).toBeUndefined();
+    const staffExcluded = rowToEvidence({ ...base, exclusion_decision_source: 'staff' });
+    expect(staffExcluded.reviewRequired).toBeUndefined();
+    expect(staffExcluded.excludedByStaff).toBe(true);
     expect(rowToEvidence({ ...base, exclusion_decision_source: 'cleanup' }).reviewRequired).toBeUndefined();
   });
 });

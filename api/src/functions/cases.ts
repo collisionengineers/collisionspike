@@ -1822,7 +1822,12 @@ async function mergeEvidenceRows(
   q: TxQuery,
   sourceCaseId: string,
   targetCaseId: string,
-): Promise<{ movedEvidence: number; collidingEvidence: number; archiveBusy?: boolean }> {
+): Promise<{
+  movedEvidence: number;
+  collidingEvidence: number;
+  evidenceReplacements: Map<string, string>;
+  archiveBusy?: boolean;
+}> {
   const locked = await q<MergeEvidenceLockRow>(
     `SELECT id, case_id, sha256, created_at,
             archive_mirror_claim_token, archive_mirror_claim_expires_at
@@ -1838,7 +1843,12 @@ async function mergeEvidenceRows(
     const expires = new Date(row.archive_mirror_claim_expires_at).getTime();
     return Number.isFinite(expires) && expires > now;
   })) {
-    return { movedEvidence: 0, collidingEvidence: 0, archiveBusy: true };
+    return {
+      movedEvidence: 0,
+      collidingEvidence: 0,
+      evidenceReplacements: new Map(),
+      archiveBusy: true,
+    };
   }
   const canonicalSha = (value: string | null): string | null => {
     const trimmed = (value ?? '').trim();
@@ -1855,6 +1865,7 @@ async function mergeEvidenceRows(
   }
 
   const collisionSourceIds: string[] = [];
+  const evidenceReplacements = new Map<string, string>();
   for (const row of locked) {
     if (row.case_id.toLowerCase() !== sourceCaseId) continue;
     const sha = canonicalSha(row.sha256);
@@ -1867,6 +1878,7 @@ async function mergeEvidenceRows(
       continue;
     }
     collisionSourceIds.push(row.id);
+    evidenceReplacements.set(row.id, survivorId);
 
     // Fill only information the target survivor does not already own. Explicit
     // target-side staff/provider/cleanup decisions always win over source metadata.
@@ -2002,7 +2014,11 @@ async function mergeEvidenceRows(
       [moved.map((row) => row.id), targetCaseId],
     );
   }
-  return { movedEvidence: moved.length, collidingEvidence: collisionSourceIds.length };
+  return {
+    movedEvidence: moved.length,
+    collidingEvidence: collisionSourceIds.length,
+    evidenceReplacements,
+  };
 }
 
 /** Manual Intake cannot be re-owned while its case-create effects or current
@@ -2157,6 +2173,96 @@ async function reconcileMergeFileRequestIntent(
   return undefined;
 }
 
+/**
+ * Capture is an additive schema. Older deployments must still be able to merge
+ * cases before its delta lands, so table discovery happens under the already-held
+ * case locks and no capture relation is referenced when it is absent.
+ */
+async function lockCaptureSessionsForMerge(
+  q: TxQuery,
+  sourceCaseId: string,
+): Promise<string[]> {
+  const relations = await q<{ capture_session_regclass: string | null }>(
+    "SELECT to_regclass('public.capture_session')::text AS capture_session_regclass",
+  );
+  if (!relations[0]?.capture_session_regclass) return [];
+
+  const locked = await q<{ id: string }>(
+    `SELECT id FROM capture_session
+      WHERE case_id = $1
+      ORDER BY id
+      FOR UPDATE`,
+    [sourceCaseId],
+  );
+  return locked.map((row) => row.id);
+}
+
+async function lockCaptureAssetsForMerge(
+  q: TxQuery,
+  sessionIds: readonly string[],
+): Promise<string[]> {
+  if (sessionIds.length === 0) return [];
+  const locked = await q<{ id: string }>(
+    `SELECT id FROM capture_asset
+      WHERE session_id = ANY($1::uuid[])
+      ORDER BY id
+      FOR UPDATE`,
+    [sessionIds],
+  );
+  return locked.map((row) => row.id);
+}
+
+async function repointLockedCaptureAssetsForMerge(
+  q: TxQuery,
+  assetIds: readonly string[],
+  evidenceReplacements: ReadonlyMap<string, string>,
+): Promise<void> {
+  if (assetIds.length === 0 || evidenceReplacements.size === 0) return;
+  for (const [redundantEvidenceId, survivorEvidenceId] of [...evidenceReplacements].sort()) {
+    await q(
+      `UPDATE capture_asset
+          SET evidence_id = $2, updated_at = now()
+        WHERE evidence_id = $1 AND id = ANY($3::uuid[])`,
+      [redundantEvidenceId, survivorEvidenceId, assetIds],
+    );
+  }
+}
+
+async function reparentLockedCaptureSessionsForMerge(
+  q: TxQuery,
+  sessionIds: readonly string[],
+  sourceCaseId: string,
+  targetCaseId: string,
+  actor: string | undefined,
+): Promise<void> {
+  if (sessionIds.length === 0) return;
+  const moved = await q<{ id: string }>(
+    `UPDATE capture_session
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1 AND id = ANY($3::uuid[])
+      RETURNING id`,
+    [sourceCaseId, targetCaseId, sessionIds],
+  );
+  if (moved.length !== sessionIds.length) {
+    throw new Error('capture session ownership changed while case merge locks were held');
+  }
+  for (const sessionId of [...sessionIds].sort()) {
+    await writeAuditStrict({
+      action: AUDIT_ACTION.capture_session_retargeted,
+      caseId: targetCaseId,
+      actor: actor ?? 'staff',
+      summary: 'Guided capture session moved to merged case survivor',
+      before: { caseId: sourceCaseId },
+      after: {
+        sessionId,
+        caseId: targetCaseId,
+        lineage: [sourceCaseId, targetCaseId],
+        reason: 'case_merge',
+      },
+    }, q);
+  }
+}
+
 /* ============================================================
    7 — POST /api/cases/{tgt}/merge   ({tgt} = target/survivor)
    ============================================================ */
@@ -2253,6 +2359,12 @@ app.http('mergeCases', {
         return { kind: 'error' as const, status: 409, error: manualIntakeConflict };
       }
 
+      // Lock capture sessions and their assets before inbound/evidence rows so
+      // public completion keeps the same case -> session -> asset -> evidence
+      // order. Mutation is delayed until every later merge guard has passed.
+      const captureSessionIds = await lockCaptureSessionsForMerge(q, sourceCaseId);
+      const captureAssetIds = await lockCaptureAssetsForMerge(q, captureSessionIds);
+
       // Reconcile the file-request intent only after every fail-fast ownership
       // check. This helper may cancel or transfer a durable intent, so no later
       // validation may reject an otherwise uncommitted merge.
@@ -2274,7 +2386,12 @@ app.http('mergeCases', {
         [sourceCaseId],
       );
 
-      const { movedEvidence, collidingEvidence, archiveBusy } = await mergeEvidenceRows(
+      const {
+        movedEvidence,
+        collidingEvidence,
+        evidenceReplacements,
+        archiveBusy,
+      } = await mergeEvidenceRows(
         q,
         sourceCaseId,
         targetCaseId,
@@ -2287,6 +2404,14 @@ app.http('mergeCases', {
         };
       }
       await transferStaffUploadOwnership(q, sourceCaseId, targetCaseId);
+      await repointLockedCaptureAssetsForMerge(q, captureAssetIds, evidenceReplacements);
+      await reparentLockedCaptureSessionsForMerge(
+        q,
+        captureSessionIds,
+        sourceCaseId,
+        targetCaseId,
+        actor,
+      );
       const movedEmails = await q<Row>(
         'UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id',
         [sourceCaseId, targetCaseId],
@@ -2410,6 +2535,7 @@ app.http('mergeCases', {
           providerArchiveGeneration,
           claimantFilled: claimantMerge.filled,
           claimantConflict: claimantMerge.conflict,
+          captureSessionsRetargeted: captureSessionIds.length,
         },
         ...(actor ? { actor } : {}),
       }, q);
@@ -2474,10 +2600,13 @@ app.http('imagesForCase', {
   handler: withRole('CollisionSpike.User', async (req) => {
     const id = req.params.id;
     const rows = await query<Row>(
-      // Automatic exclusions stay visible in the REVIEW list so staff can recover a false
-      // positive. Staff/provider/cleanup/legacy exclusions stay hidden. Every returned excluded
-      // row remains acceptedForEva=false and therefore cannot affect readiness/order/export.
-      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded = false OR exclusion_decision_source = 'classifier' OR person_reflection = true) ORDER BY sequence_index NULLS LAST, created_at",
+      // Automatic exclusions and every public guided-capture row stay visible in REVIEW so staff
+      // can make or revisit the evidential decision. TKT-200 explicitly requires an excluded guided
+      // photo to remain visible after a staff rejection; the DTO distinguishes that state for plain
+      // UI copy. Other staff/provider/cleanup/legacy exclusions stay hidden. Every returned excluded
+      // row remains acceptedForEva=false and cannot affect readiness/order/export until a staff PATCH
+      // explicitly includes and accepts it.
+      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded = false OR exclusion_decision_source = 'classifier' OR person_reflection = true OR source_label = 'public_guided_capture') ORDER BY sequence_index NULLS LAST, created_at",
       [id],
     );
     return { status: 200, jsonBody: rows.map(rowToEvidence) };

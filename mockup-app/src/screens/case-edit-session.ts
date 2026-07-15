@@ -250,8 +250,19 @@ export function validateCaseEdit(
   );
 }
 
-export function shouldBlockCaseNavigation(hasUnsavedChanges: boolean): boolean {
-  return hasUnsavedChanges;
+export function shouldBlockCaseNavigation(
+  hasUnsavedChanges: boolean,
+  currentPathname?: string,
+  nextPathname?: string,
+): boolean {
+  if (!hasUnsavedChanges) return false;
+  // Search-only navigation changes the selected in-page tab. It must not trigger
+  // the leave-page warning or prevent handlers from checking evidence while
+  // editing fields. Callers without locations retain the original boolean seam.
+  if (currentPathname !== undefined && nextPathname !== undefined) {
+    return currentPathname !== nextPathname;
+  }
+  return true;
 }
 
 /** A server refresh may replace the full case snapshot only when this edit

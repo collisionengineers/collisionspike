@@ -64,6 +64,9 @@ const manualOperations: Rec[] = [];
 const staffUploads: Rec[] = [];
 const staffUploadItems: Rec[] = [];
 const archiveOutbox: Rec[] = [];
+const captureSessions: Rec[] = [];
+const captureAssets: Rec[] = [];
+let captureSchemaPresent = false;
 const CASE_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const CASE_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const CASE_C = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
@@ -105,6 +108,9 @@ beforeEach(() => {
   staffUploads.length = 0;
   staffUploadItems.length = 0;
   archiveOutbox.length = 0;
+  captureSessions.length = 0;
+  captureAssets.length = 0;
+  captureSchemaPresent = false;
   cases.set(CASE_A, caseRow(CASE_A));
   cases.set(CASE_B, caseRow(CASE_B));
   evidenceRows.push({
@@ -140,6 +146,38 @@ beforeEach(() => {
   db.txQuery.mockImplementation(async (sql: string, params: unknown[] = []) => {
     txSql.push(sql);
     txParams.push(params);
+    if (/to_regclass\('public\.capture_session'\)/i.test(sql)) {
+      return [{ capture_session_regclass: captureSchemaPresent ? 'capture_session' : null }];
+    }
+    if (/SELECT id FROM capture_session/i.test(sql) && /FOR UPDATE/i.test(sql)) {
+      return captureSessions
+        .filter((row) => row.case_id === params[0])
+        .sort((left, right) => String(left.id).localeCompare(String(right.id)))
+        .map((row) => ({ id: row.id }));
+    }
+    if (/UPDATE capture_session[\s\S]*SET case_id = \$2/i.test(sql)) {
+      const ids = (params[2] as string[]) ?? [];
+      const moved = captureSessions.filter(
+        (row) => row.case_id === params[0] && ids.includes(row.id as string),
+      );
+      for (const row of moved) row.case_id = params[1];
+      return moved.map((row) => ({ id: row.id }));
+    }
+    if (/SELECT id FROM capture_asset/i.test(sql) && /FOR UPDATE/i.test(sql)) {
+      const sessionIds = (params[0] as string[]) ?? [];
+      return captureAssets
+        .filter((row) => sessionIds.includes(row.session_id as string))
+        .sort((left, right) => String(left.id).localeCompare(String(right.id)))
+        .map((row) => ({ id: row.id }));
+    }
+    if (/UPDATE capture_asset[\s\S]*SET evidence_id = \$2/i.test(sql)) {
+      const [redundantEvidenceId, survivorEvidenceId, assetIds] = params as [string, string, string[]];
+      const repointed = captureAssets.filter(
+        (row) => assetIds.includes(row.id as string) && row.evidence_id === redundantEvidenceId,
+      );
+      for (const row of repointed) row.evidence_id = survivorEvidenceId;
+      return repointed.map((row) => ({ id: row.id }));
+    }
     if (/SELECT id FROM case_ WHERE id = ANY/i.test(sql) && /FOR UPDATE/i.test(sql)) {
       return ((params[0] as string[]) ?? []).filter((id) => cases.has(id)).map((id) => ({ id }));
     }
@@ -305,6 +343,45 @@ beforeEach(() => {
 });
 
 describe('mergeCases atomic lock protocol', () => {
+  it('remains merge-safe before the additive capture schema exists', async () => {
+    const response = await merge(request(CASE_B, CASE_A), ctx);
+
+    expect(response.status).toBe(200);
+    expect(txSql.some((sql) => /to_regclass\('public\.capture_session'\)/i.test(sql))).toBe(true);
+    expect(txSql.some((sql) => /UPDATE capture_session/i.test(sql))).toBe(false);
+  });
+
+  it('locks then reparents capture sessions immediately without rotating their tokens', async () => {
+    captureSchemaPresent = true;
+    captureSessions.push(
+      { id: '11111111-1111-4111-8111-111111111111', case_id: CASE_A, token_generation: 7 },
+      { id: '22222222-2222-4222-8222-222222222222', case_id: CASE_A, token_generation: 3 },
+    );
+
+    const response = await merge(request(CASE_B, CASE_A), ctx);
+
+    expect(response.status).toBe(200);
+    expect(captureSessions.map((row) => [row.case_id, row.token_generation])).toEqual([
+      [CASE_B, 7],
+      [CASE_B, 3],
+    ]);
+    const captureLocked = txSql.findIndex((sql) =>
+      /SELECT id FROM capture_session/i.test(sql) && /FOR UPDATE/i.test(sql));
+    const captureAssetsLocked = txSql.findIndex((sql) =>
+      /SELECT id FROM capture_asset/i.test(sql) && /FOR UPDATE/i.test(sql));
+    const inboundLocked = txSql.findIndex((sql) =>
+      /SELECT id FROM inbound_email/i.test(sql) && /FOR UPDATE/i.test(sql));
+    const captureMoved = txSql.findIndex((sql) => /UPDATE capture_session/i.test(sql));
+    const sourceRetired = txSql.findIndex((sql) => /duplicate_keys = \$3/i.test(sql));
+    expect(captureLocked).toBeGreaterThanOrEqual(0);
+    expect(captureAssetsLocked).toBeGreaterThan(captureLocked);
+    expect(captureAssetsLocked).toBeLessThan(inboundLocked);
+    expect(captureLocked).toBeLessThan(inboundLocked);
+    expect(captureMoved).toBeGreaterThan(inboundLocked);
+    expect(captureMoved).toBeLessThan(sourceRetired);
+    expect(txParams.filter((params) => params.includes(100000061))).toHaveLength(2);
+  });
+
   it('offers a providerless twin but excludes a case with a different known provider', async () => {
     cases.set(CASE_A, caseRow(CASE_A, { provider_principal: 'P1' }));
     cases.set(CASE_B, caseRow(CASE_B, { provider_principal: '', work_provider_id: null }));
@@ -630,6 +707,46 @@ describe('mergeCases atomic lock protocol', () => {
     expect(txParams[move]).toEqual([CASE_A, CASE_B, [EV_SOURCE_COPY]]);
     expect(evidenceRows.find((row) => row.id === EV_SOURCE_COPY)?.case_id).toBe(CASE_A);
     expect(evidenceRows.find((row) => row.id === EV_SOURCE_UNIQUE)?.case_id).toBe(CASE_B);
+  });
+
+  it('repoints completed capture assets from redundant same-hash Evidence to the survivor', async () => {
+    const sha = '9'.repeat(64);
+    const sessionId = '55555555-5555-4555-8555-555555555555';
+    const assetId = '66666666-6666-4666-8666-666666666666';
+    captureSchemaPresent = true;
+    captureSessions.push({
+      id: sessionId,
+      case_id: CASE_A,
+      status: 'complete',
+      token_generation: 4,
+    });
+    captureAssets.push({ id: assetId, session_id: sessionId, evidence_id: EV_SOURCE_COPY });
+    evidenceRows.length = 0;
+    evidenceRows.push(
+      { id: EV_TARGET, case_id: CASE_B, sha256: sha, created_at: '2026-07-01' },
+      { id: EV_SOURCE_COPY, case_id: CASE_A, sha256: sha, created_at: '2026-07-02' },
+    );
+
+    const response = await merge(request(CASE_B, CASE_A), ctx);
+
+    expect(response.status).toBe(200);
+    expect(captureSessions[0]).toMatchObject({
+      case_id: CASE_B,
+      status: 'complete',
+      token_generation: 4,
+    });
+    expect(captureAssets[0]?.evidence_id).toBe(EV_TARGET);
+    expect(evidenceRows.find((row) => row.id === EV_SOURCE_COPY)?.case_id).toBe(CASE_A);
+    const assetLock = txSql.findIndex((sql) =>
+      /SELECT id FROM capture_asset/i.test(sql) && /FOR UPDATE/i.test(sql));
+    const evidenceLock = txSql.findIndex((sql) =>
+      /SELECT id, case_id, sha256, created_at/i.test(sql) && /FROM evidence/i.test(sql));
+    const assetRepoint = txSql.findIndex((sql) =>
+      /UPDATE capture_asset[\s\S]*SET evidence_id = \$2/i.test(sql));
+    expect(assetLock).toBeGreaterThanOrEqual(0);
+    expect(assetLock).toBeLessThan(evidenceLock);
+    expect(assetRepoint).toBeGreaterThan(evidenceLock);
+    expect(txParams[assetRepoint]).toEqual([EV_SOURCE_COPY, EV_TARGET, [assetId]]);
   });
 
   it('requests the survivor mirror when a collision supplies its only blob path', async () => {

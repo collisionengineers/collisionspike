@@ -133,6 +133,20 @@ mirror** the `box-webhook` Function writes on accept — it is **not** the dedup
 Evidence-existence check on the `box:file:<id>` tag in **`source_message_id`** (see the Box mirror rule
 below).
 
+### Guided capture sessions (TKT-200 candidate — not live)
+
+`capture_session` belongs to one existing Case and snapshots a finite shot plan, guidance mode/rules
+version, expiry and token generation. Bootstrap secrets are 256-bit values represented at rest only by
+their SHA-256 hashes. `capture_session_resume_token` stores only bounded resume-token hashes plus the
+session generation/expiry; rows are deleted on rotation, cancellation, lock, completion or expiry.
+
+`capture_session_shot` is the immutable requested-shot snapshot. `capture_asset` records exact-object
+upload attempts, client declarations, untrusted bounded `client_quality`, authoritative bounded
+`server_quality`, validation leases, immutable promoted paths/hashes and eventual Evidence linkage.
+Only a selected structurally valid asset can be materialised. Materialised rows create excluded
+`public_guided_capture` image Evidence pending an explicit staff include/accept decision; they do not
+become EVA-ready from client guidance claims.
+
 ### AuditEvent & ImprovementSignal
 - `AuditEvent`: actor, action, severity, before/after, timestamp — every corpus/case change.
 - `ImprovementSignal`: staff corrections captured during review (never auto-change rules) →

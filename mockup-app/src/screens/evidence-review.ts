@@ -2,6 +2,18 @@ import type { Evidence } from '../data';
 import type { EvidenceReviewInput } from '../data/rest-client';
 
 export const EVIDENCE_SAVE_ERROR = 'Couldn’t save this photo. Try again.';
+export const GUIDED_CAPTURE_REVIEW_WARNING = 'Review this submitted photo before using it for EVA.';
+export const GUIDED_CAPTURE_EXCLUDED_WARNING =
+  'This photo was excluded. Review it again before including it for EVA.';
+
+export function guidedCaptureReviewWarning(
+  evidence: Pick<Evidence, 'sourceLabel' | 'excluded' | 'excludedByStaff'>,
+): string | undefined {
+  if (evidence.sourceLabel !== 'public_guided_capture' || !evidence.excluded) return undefined;
+  return evidence.excludedByStaff
+    ? GUIDED_CAPTURE_EXCLUDED_WARNING
+    : GUIDED_CAPTURE_REVIEW_WARNING;
+}
 
 /** One synchronous per-evidence lock shared by every mutation affordance. */
 export function tryAcquireEvidenceMutation(active: Set<string>, evidenceId: string): boolean {

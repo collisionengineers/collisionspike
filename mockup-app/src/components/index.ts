@@ -40,6 +40,11 @@ export {
 export { ChaserPanel, type ChaserPanelProps } from './ChaserPanel';
 export { OutlookMessageAction } from './OutlookMessageAction';
 export {
+  GuidedPhotoRequestPanel,
+  type GuidedPhotoRequestPanelProps,
+  type GuidedPhotoLink,
+} from './GuidedPhotoRequestPanel';
+export {
   LoadingState,
   EmptyState,
   ErrorState,

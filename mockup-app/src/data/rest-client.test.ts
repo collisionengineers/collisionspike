@@ -66,6 +66,78 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe('rest-client — guided photo requests', () => {
+  const session = {
+    sessionId: 'session-1',
+    status: 'open',
+    shotPlanId: 'essential-v1',
+    shotPlanLabel: 'Essential photos',
+    guidanceMode: 'advisory',
+    expiresAt: '2026-07-16T12:00:00.000Z',
+    createdAt: '2026-07-13T12:00:00.000Z',
+    requiredTotal: 2,
+    requiredCompleted: 0,
+  };
+
+  it('lists safe summaries without inventing a public link', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson({ sessions: [session] }));
+    const da = clientWith(fetchMock);
+
+    const result = await da.captureSessions('case/1');
+
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases/case%2F1/capture-sessions');
+    expect(result).toEqual([session]);
+    expect(result[0]).not.toHaveProperty('captureUrl');
+  });
+
+  it('creates a request with the selected photo set and lifetime', async () => {
+    const response = { session, captureUrl: 'https://capture.test/#one-time' };
+    const fetchMock = vi.fn().mockResolvedValue(okJson(response));
+    const da = clientWith(fetchMock);
+
+    await expect(
+      da.createCaptureSession('case-1', {
+        shotPlanId: 'essential-v1',
+        expiresInHours: 72,
+      }),
+    ).resolves.toEqual(response);
+
+    expect(lastUrl(fetchMock)).toBe('https://api.test/api/cases/case-1/capture-sessions');
+    expect(lastInit(fetchMock).method).toBe('POST');
+    expect(lastInit(fetchMock).body).toBe(
+      JSON.stringify({ shotPlanId: 'essential-v1', expiresInHours: 72 }),
+    );
+  });
+
+  it('replaces and cancels links through the dedicated actions', async () => {
+    const replacement = { session, captureUrl: 'https://capture.test/#replacement' };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(okJson(replacement))
+      .mockResolvedValueOnce(okJson({ ...session, status: 'revoked' }));
+    const da = clientWith(fetchMock);
+
+    await expect(da.rotateCaptureSession('session/1')).resolves.toEqual(replacement);
+    expect(lastUrl(fetchMock)).toBe(
+      'https://api.test/api/capture-sessions/session%2F1/rotate',
+    );
+    expect(lastInit(fetchMock).method).toBe('POST');
+
+    await expect(da.revokeCaptureSession('session/1')).resolves.toMatchObject({
+      status: 'revoked',
+    });
+    expect(lastUrl(fetchMock)).toBe(
+      'https://api.test/api/capture-sessions/session%2F1/revoke',
+    );
+  });
+
+  it('surfaces failures instead of showing a false success', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errStatus(409, '{"message":"That link can no longer be changed."}'));
+    const da = clientWith(fetchMock);
+    await expect(da.rotateCaptureSession('session-1')).rejects.toThrow(/409/);
+  });
+});
+
 describe('rest-client — inbox list error surfacing (#4)', () => {
   it('inboundEmails REJECTS on a 5xx (no longer masquerades as an empty inbox)', async () => {
     const fetchMock = vi.fn().mockResolvedValue(errStatus(503));

@@ -37,6 +37,9 @@ import type {
   GenerateAiSuggestionsResult,
   AiAssistGate,
   OutlookMoveGate,
+  CaptureSessionStaffSummary,
+  CreateCaptureSessionRequest,
+  CaptureSessionSecretResponse,
 } from '@cs/domain';
 import type { QueueName } from '@cs/domain';
 import type {
@@ -159,6 +162,17 @@ export function useDashboard(): QueryState<DashboardSummary> {
 export function useImages(caseId: string | undefined): QueryState<Evidence[]> {
   const run = useCallback(
     () => (caseId ? getDataAccess().imagesForCase(caseId) : Promise.resolve([])),
+    [caseId],
+  );
+  return useAsync(run, [caseId]);
+}
+
+/** Safe staff summaries for the guided-photo requests attached to one case. */
+export function useCaptureSessions(
+  caseId: string | undefined,
+): QueryState<CaptureSessionStaffSummary[]> {
+  const run = useCallback(
+    () => (caseId ? getDataAccess().captureSessions(caseId) : Promise.resolve([])),
     [caseId],
   );
   return useAsync(run, [caseId]);
@@ -438,6 +452,37 @@ export function useLogChase(): LogChaseState {
     getDataAccess().logChase(caseId, input),
   );
   return { logChase: m.run, saving: m.pending, error: m.error };
+}
+
+export interface CaptureSessionMutationState {
+  createRequest: (
+    caseId: string,
+    input: CreateCaptureSessionRequest,
+  ) => Promise<CaptureSessionSecretResponse>;
+  replaceLink: (sessionId: string) => Promise<CaptureSessionSecretResponse>;
+  cancelLink: (sessionId: string) => Promise<CaptureSessionStaffSummary>;
+  saving: boolean;
+  error: Error | undefined;
+}
+
+/** Staff actions that change a guided-photo public link. */
+export function useCaptureSessionMutations(): CaptureSessionMutationState {
+  const create = useMutationFn((caseId: string, input: CreateCaptureSessionRequest) =>
+    getDataAccess().createCaptureSession(caseId, input),
+  );
+  const replace = useMutationFn((sessionId: string) =>
+    getDataAccess().rotateCaptureSession(sessionId),
+  );
+  const cancel = useMutationFn((sessionId: string) =>
+    getDataAccess().revokeCaptureSession(sessionId),
+  );
+  return {
+    createRequest: create.run,
+    replaceLink: replace.run,
+    cancelLink: cancel.run,
+    saving: create.pending || replace.pending || cancel.pending,
+    error: create.error ?? replace.error ?? cancel.error,
+  };
 }
 
 /** What `useCaseRemove` hands the screen. `remove` resolves the RemoveCaseResult

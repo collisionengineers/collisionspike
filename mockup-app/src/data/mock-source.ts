@@ -373,6 +373,11 @@ export const mockDataAccess: DataAccessExt = {
   // Write — rejects until the live source is injected (a faked chaser row would
   // let staff believe a chase was recorded when it wasn't; mirrors setOnHold).
   logChase: (_caseId, _input) => Promise.reject(new Error(NOT_CONFIGURED)),
+  // Guided-photo reads stay honestly empty; every link-changing action rejects.
+  captureSessions: (_caseId) => Promise.resolve([]),
+  createCaptureSession: (_caseId, _input) => Promise.reject(new Error(NOT_CONFIGURED)),
+  rotateCaptureSession: (_sessionId) => Promise.reject(new Error(NOT_CONFIGURED)),
+  revokeCaptureSession: (_sessionId) => Promise.reject(new Error(NOT_CONFIGURED)),
   // Case done lifecycle (TKT-094/095/096): the two writes reject (a faked status
   // flip must never look recorded); the completed browse reads honest-empty.
   markEvaSubmitted: (_caseId) => Promise.reject(new Error(NOT_CONFIGURED)),

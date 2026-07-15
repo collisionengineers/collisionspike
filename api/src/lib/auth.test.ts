@@ -162,6 +162,12 @@ describe('withRole — 401 authentication failures', () => {
     const res = await callUser('Basic abc123');
     expect(res.jsonBody).toEqual({ error: 'Missing bearer token' });
   });
+
+  it('returns the finite staff auth problem fixture for an invalid bearer token', async () => {
+    const res = await callUser('Bearer not-a-jwt');
+    expect(res.status).toBe(401);
+    expect(res.jsonBody).toEqual({ error: 'Invalid or expired token' });
+  });
 });
 
 /* ----------  authorization failures → 403  ---------- */
